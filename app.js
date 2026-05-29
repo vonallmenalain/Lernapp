@@ -380,33 +380,124 @@ function makeKakuroLevel(difficulty, index, solution, description) {
   return makeLevel("kakuro", difficulty, index, { size, solution, clues, runs, runFor, description });
 }
 
+const KAKURO_EASY_SOLUTIONS = [
+  [
+    [0, 0, 0, 0],
+    [0, 1, 2, 0],
+    [0, 3, 4, 0],
+    [0, 0, 0, 0],
+  ],
+  [
+    [0, 0, 0, 0],
+    [0, 1, 3, 0],
+    [0, 2, 4, 0],
+    [0, 0, 0, 0],
+  ],
+  [
+    [0, 0, 0, 0],
+    [0, 2, 3, 0],
+    [0, 4, 5, 0],
+    [0, 0, 0, 0],
+  ],
+  [
+    [0, 0, 0, 0],
+    [0, 1, 4, 0],
+    [0, 3, 5, 0],
+    [0, 0, 0, 0],
+  ],
+  [
+    [0, 0, 0, 0],
+    [0, 2, 4, 0],
+    [0, 5, 7, 0],
+    [0, 0, 0, 0],
+  ],
+  [
+    [0, 0, 0, 0],
+    [0, 3, 4, 0],
+    [0, 5, 6, 0],
+    [0, 0, 0, 0],
+  ],
+  [
+    [0, 0, 0, 0],
+    [0, 4, 5, 0],
+    [0, 6, 7, 0],
+    [0, 0, 0, 0],
+  ],
+  [
+    [0, 0, 0, 0],
+    [0, 2, 5, 0],
+    [0, 6, 8, 0],
+    [0, 0, 0, 0],
+  ],
+  [
+    [0, 0, 0, 0],
+    [0, 3, 6, 0],
+    [0, 7, 9, 0],
+    [0, 0, 0, 0],
+  ],
+  [
+    [0, 0, 0, 0],
+    [0, 4, 7, 0],
+    [0, 8, 9, 0],
+    [0, 0, 0, 0],
+  ],
+];
+
+const KAKURO_OLD_EASY_SOLUTION = [
+  [0, 0, 0, 0, 0],
+  [0, 6, 3, 0, 0],
+  [0, 8, 4, 6, 9],
+  [0, 0, 7, 4, 2],
+  [0, 0, 0, 1, 5],
+];
+
+const KAKURO_OLD_MEDIUM_SOLUTION = [
+  [0, 0, 0, 0, 0, 0, 0],
+  [0, 6, 2, 0, 0, 5, 7],
+  [0, 2, 5, 0, 6, 8, 1],
+  [0, 0, 1, 8, 3, 0, 0],
+  [0, 0, 0, 4, 9, 3, 0],
+  [0, 3, 9, 6, 0, 2, 8],
+  [0, 9, 3, 0, 0, 1, 3],
+];
+
+const KAKURO_DIGIT_VARIANTS = [
+  null,
+  { 1: 2, 2: 4, 3: 6, 4: 8, 5: 1, 6: 3, 7: 5, 8: 7, 9: 9 },
+  { 1: 3, 2: 6, 3: 9, 4: 2, 5: 5, 6: 8, 7: 1, 8: 4, 9: 7 },
+  { 1: 4, 2: 8, 3: 3, 4: 7, 5: 2, 6: 6, 7: 1, 8: 5, 9: 9 },
+  { 1: 5, 2: 1, 3: 6, 4: 2, 5: 7, 6: 3, 7: 8, 8: 4, 9: 9 },
+  { 1: 6, 2: 3, 3: 9, 4: 5, 5: 2, 6: 8, 7: 4, 8: 1, 9: 7 },
+  { 1: 7, 2: 5, 3: 3, 4: 1, 5: 8, 6: 6, 7: 4, 8: 2, 9: 9 },
+  { 1: 8, 2: 7, 3: 6, 4: 5, 5: 4, 6: 3, 7: 2, 8: 1, 9: 9 },
+  { 1: 9, 2: 8, 3: 7, 4: 6, 5: 5, 6: 4, 7: 3, 8: 2, 9: 1 },
+  { 1: 1, 2: 4, 3: 7, 4: 3, 5: 6, 6: 9, 7: 2, 8: 5, 9: 8 },
+];
+
+function remapKakuroSolution(solution, digitMap) {
+  if (!digitMap) return solution.map((row) => [...row]);
+  return solution.map((row) => row.map((value) => digitMap[value] || value));
+}
+
 const KAKURO_LEVELS = [
-  makeKakuroLevel("easy", 1, [
-    [0, 0, 0, 0, 0],
-    [0, 6, 3, 0, 0],
-    [0, 8, 4, 6, 9],
-    [0, 0, 7, 4, 2],
-    [0, 0, 0, 1, 5],
-  ], "Ein übersichtliches Kakuro wie in der einfachen Vorlage."),
-  makeKakuroLevel("medium", 1, [
-    [0, 0, 0, 0, 0, 0, 0],
-    [0, 6, 2, 0, 0, 5, 7],
-    [0, 2, 5, 0, 6, 8, 1],
-    [0, 0, 1, 8, 3, 0, 0],
-    [0, 0, 0, 4, 9, 3, 0],
-    [0, 3, 9, 6, 0, 2, 8],
-    [0, 9, 3, 0, 0, 1, 3],
-  ], "Ein mittleres Kakuro mit mehreren verzahnten Summen."),
-  makeKakuroLevel("hard", 1, [
-    [0, 0, 0, 0, 0, 0, 0, 0],
-    [0, 2, 1, 4, 0, 1, 7, 5],
-    [0, 8, 4, 1, 5, 6, 2, 3],
-    [0, 1, 5, 0, 6, 2, 3, 1],
-    [0, 9, 2, 3, 4, 0, 1, 7],
-    [0, 0, 8, 5, 1, 3, 4, 2],
-    [0, 5, 9, 6, 0, 7, 9, 4],
-    [0, 9, 7, 4, 0, 4, 5, 8],
-  ], "Ein schweres Kakuro mit langen Zahlenketten und vielen Kreuzungen."),
+  ...KAKURO_EASY_SOLUTIONS.map((solution, index) => makeKakuroLevel(
+    "easy",
+    index + 1,
+    solution,
+    "Ein sehr leichtes Kakuro mit nur vier Feldern und kurzen Zweier-Summen.",
+  )),
+  ...KAKURO_DIGIT_VARIANTS.map((digitMap, index) => makeKakuroLevel(
+    "medium",
+    index + 1,
+    remapKakuroSolution(KAKURO_OLD_EASY_SOLUTION, digitMap),
+    "Ein mittleres Kakuro im Schwierigkeitsgrad der bisherigen leichten Vorlage.",
+  )),
+  ...KAKURO_DIGIT_VARIANTS.map((digitMap, index) => makeKakuroLevel(
+    "hard",
+    index + 1,
+    remapKakuroSolution(KAKURO_OLD_MEDIUM_SOLUTION, digitMap),
+    "Ein schweres Kakuro im Schwierigkeitsgrad der bisherigen mittleren Vorlage.",
+  )),
 ];
 
 function sea(lines, fleet) { const solution = gridFromStrings(lines, "1"); return { solution, ...counts(solution), fleet, size: solution.length }; }
