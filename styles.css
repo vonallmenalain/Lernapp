@@ -779,6 +779,7 @@ body.puzzle-active .board {
 .level-tile.easy { border-color: #06d6a0; }
 .level-tile.medium { border-color: #ffd166; }
 .level-tile.hard { border-color: #ef476f; }
+.level-tile.extreme { border-color: #8338ec; }
 
 .level-tile:hover:not(:disabled) {
   color: white;
@@ -1014,7 +1015,7 @@ body.puzzle-active .count-board {
 
 .difficulty-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 18px;
 }
 
@@ -1034,6 +1035,7 @@ body.puzzle-active .count-board {
 .difficulty-card.easy { border-color: #06d6a0; background: #effff8; }
 .difficulty-card.medium { border-color: #ffd166; background: #fff8df; }
 .difficulty-card.hard { border-color: #ef476f; background: #fff0f4; }
+.difficulty-card.extreme { border-color: #8338ec; background: #f4edff; }
 
 .difficulty-card:hover:not(:disabled),
 .difficulty-card:focus-visible {
