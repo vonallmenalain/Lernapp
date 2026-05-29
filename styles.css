@@ -931,11 +931,10 @@ a.icon-button {
   max-width: 1120px;
 }
 .preview span { min-width: 0; }
-.nonogram-preview, .sea-preview { grid-template-columns: repeat(5, 1fr); gap: 5px; }
-.nonogram-preview span, .sea-preview span, .shikaku-preview span, .thermo-preview span, .pattern-preview span, .maze-preview span {
+.sea-preview { grid-template-columns: repeat(5, 1fr); gap: 5px; }
+.sea-preview span, .shikaku-preview span, .thermo-preview span, .pattern-preview span, .maze-preview span {
   display: grid; place-items: center; border-radius: 10px; background: #fff; border: 2px solid var(--line); font-weight: 900;
 }
-.nonogram-preview .on { background: #6c5ce7; border-color: #5141c9; }
 .sea-preview span { background: #e9f8ff; color: #118ab2; }
 .shikaku-preview { grid-template-columns: repeat(3, 1fr); gap: 7px; }
 .shikaku-preview span:nth-child(1), .shikaku-preview span:nth-child(3), .shikaku-preview span:nth-child(6), .shikaku-preview span:nth-child(9) { background: #fff4cf; border-color: #ffd166; }
@@ -953,7 +952,7 @@ a.icon-button {
 .difficulty-levels { display: grid; grid-template-columns: repeat(auto-fit, minmax(112px, 1fr)); gap: 12px; }
 .level-tile.solved { position: relative; background: #f0fff9; }
 .level-tile.solved::after { content: "★"; position: absolute; top: 8px; right: 12px; color: #06a77d; font-size: 1.2rem; }
-.count-board, .clue-board {
+.count-board {
   grid-template-columns: repeat(var(--size), minmax(34px, 1fr));
   gap: 5px;
   align-items: stretch;
@@ -971,15 +970,6 @@ a.icon-button {
   font-size: clamp(0.82rem, 2.6vw, 1.15rem);
   text-align: center;
 }
-.col-clue { align-items: end; white-space: pre-line; writing-mode: horizontal-tb; }
-.row-clue { justify-items: end; }
-.nonogram-cell.filled { background: #6c5ce7; border-color: #5141c9; }
-.nonogram-cell.x { color: #8a94a6; background: #f1f4f8; }
-.nonogram-cell.x::before, .nonogram-cell.x::after { content: ""; position: absolute; width: 60%; height: 4px; border-radius: 999px; background: #8a94a6; }
-.nonogram-cell.x::before { transform: rotate(45deg); }
-.nonogram-cell.x::after { transform: rotate(-45deg); }
-.nonogram-cell.x { font-size: 0; }
-
 .bimaru-cell { background: #e9f8ff; border-color: #b9e8fb; color: #118ab2; }
 .bimaru-cell.animal { background: #dffbed; border-color: #06d6a0; font-size: clamp(1.1rem, 4vw, 2rem); }
 .bimaru-cell.water { background: #dff3ff; color: #118ab2; }
@@ -1012,14 +1002,13 @@ a.icon-button {
 .maze-cell.key { color: #8a5a00; }
 
 body.puzzle-active .count-board,
-body.puzzle-active .clue-board,
 body.puzzle-active .patterns-board {
   width: min(calc(100vw - 36px), calc(100vh - 170px), 760px);
 }
 
 @media (max-width: 640px) {
   .difficulty-levels { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .count-board, .clue-board { gap: 3px; }
+  .count-board { gap: 3px; }
   .count-label, .count-corner { min-height: 30px; border-radius: 9px; padding: 2px; }
   .cell { min-width: 0; }
   .pattern-options button { min-width: 64px; min-height: 56px; }

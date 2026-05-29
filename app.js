@@ -288,12 +288,6 @@ const GAME_CONFIGS = {
     success: "Prima gerechnet! Alle Zahlen stehen am richtigen Platz.",
     rules: ["Tippe auf ein leeres Feld.", "Wähle unten die passende Zahl aus.", "Jede Zahl darf in Reihe, Spalte und Box nur einmal vorkommen."],
   },
-  nonogram: {
-    title: "Bildrätsel", eyebrow: "Bild entdecken", code: "N",
-    subtitle: "Fülle Felder aus und entdecke das versteckte Bild.",
-    success: "Das Bild ist da! Super entdeckt.",
-    rules: ["Die Zahlen zeigen gefüllte Felder in Reihe oder Spalte.", "Tippe: leer, gefüllt, X und wieder leer.", "X ist nur eine Hilfe für dich."],
-  },
   bimaru: {
     title: "Meerestiere", eyebrow: "Im Wasser suchen", code: "B",
     subtitle: "Finde alle versteckten Meerestiere im Wasser.",
@@ -333,7 +327,6 @@ function isNeighbor(a, b) { return Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1])
 function zeros(rows, cols = rows, fill = 0) { return Array.from({ length: rows }, () => Array(cols).fill(fill)); }
 function counts(grid) { return { rowCounts: grid.map((r) => r.reduce((a, b) => a + b, 0)), colCounts: grid[0].map((_, c) => grid.reduce((a, r) => a + r[c], 0)) }; }
 function sameCounts(a, b) { return JSON.stringify(a) === JSON.stringify(b); }
-function cluesFor(lines) { return lines.map((line) => { const out=[]; let n=0; line.forEach((v)=>{ if(v) n++; else if(n){out.push(n); n=0;} }); if(n) out.push(n); return out.length ? out : [0]; }); }
 function gridFromStrings(lines, mark = "#") { return lines.map((line) => [...line].map((char) => char === mark ? 1 : 0)); }
 function makeLevel(game, difficulty, index, data) {
   const config = GAME_CONFIGS[game];
@@ -354,17 +347,6 @@ const SUDOKU_EASY = [
 const SUDOKU_MEDIUM = SUDOKU_LEVELS.map((l, i) => makeLevel("sudoku", "medium", i + 1, { ...l, description: "Ein mittleres 6×6 Sudoku mit den Zahlen 1 bis 6." }));
 const SUDOKU_HARD = SUDOKU_LEVELS.slice(0, 5).map((l, i) => makeLevel("sudoku", "hard", i + 1, { ...l, givens: l.givens.filter((_, n) => n % 2 === 0), description: "Ein schweres 6×6 Sudoku mit weniger Startzahlen." }));
 
-const NONOGRAM_LEVELS = [
-  ["easy", ["01010","11111","11111","01110","00100"], "Herz"],
-  ["easy", ["00100","01110","11111","01110","01010"], "Stern"],
-  ["easy", ["00100","01110","11111","01010","01010"], "Haus"],
-  ["medium", ["001100","011110","110011","111111","011110","001100"], "Fisch"],
-  ["medium", ["011110","010010","111111","100001","111111","100001"], "Roboter"],
-  ["medium", ["001100","011110","111111","101101","001100","011110"], "Käfer"],
-  ["hard", ["00011000","00111100","01111110","11111111","11011011","00011000","00100100","01000010"], "Schmetterling"],
-  ["hard", ["00111100","01111110","11011011","11111111","01111110","00111100","00011000","00111100"], "Eule"],
-  ["hard", ["00011000","00111100","01111110","11111111","00111100","00111100","01111110","01000010"], "Rakete"],
-].map(([difficulty, lines, title], i) => makeLevel("nonogram", difficulty, (i % 3) + 1, { size: lines.length, solution: gridFromStrings(lines, "1"), description: `Bildrätsel: ${title}.` }));
 function sea(lines, fleet) { const solution = gridFromStrings(lines, "1"); return { solution, ...counts(solution), fleet, size: solution.length }; }
 const BIMARU_LEVELS = [
   ["easy", sea(["10001","00000","01100","00000","10010"], {1:3,2:2})],
@@ -430,7 +412,6 @@ const MAZE_LEVELS = [
 const LEVELS_BY_GAME = {
   arukone: ARUKONE_LEVELS,
   sudoku: [...SUDOKU_EASY, ...SUDOKU_MEDIUM, ...SUDOKU_HARD],
-  nonogram: NONOGRAM_LEVELS,
   bimaru: BIMARU_LEVELS,
   shikaku: SHIKAKU_LEVELS,
   thermometer: THERMOMETER_LEVELS,
@@ -646,7 +627,6 @@ const GAME_HANDLERS = {
     renderPad() { const level=currentLevel(); numberPad.innerHTML=""; numberPad.hidden=false; numberPad.style.setProperty("--pad-cols", Math.min(level.size, 3)); for(let n=1;n<=level.size;n++){ const b=document.createElement("button"); b.type="button"; b.textContent=n; b.addEventListener("click",()=>this.setNumber(n)); numberPad.append(b); } const clear=document.createElement("button"); clear.type="button"; clear.className="clear-number-button"; clear.textContent="Löschen"; clear.addEventListener("click",()=>this.clear()); numberPad.append(clear); },
     render(level) { board.innerHTML=""; board.style.setProperty("--size", level.size); for(let r=0;r<level.size;r++) for(let c=0;c<level.size;c++){ const v=state.values[r][c], fixed=state.fixed[keyOf(r,c)], selected=state.selected&&sameCell(state.selected,[r,c]); const edgeR=(c+1)%level.boxCols===0&&c<level.size-1, edgeB=(r+1)%level.boxRows===0&&r<level.size-1; const cell=makeButtonCell(r,c,`cell sudoku-cell${fixed?" given":""}${selected?" selected":""}${this.conflict(r,c,v)?" conflict":""}${edgeR?" box-edge-right":""}${edgeB?" box-edge-bottom":""}`, v || ""); cell.addEventListener("click",()=>this.select(r,c)); board.append(cell); } if(state.selected) this.renderPad(); },
   },
-  nonogram: simpleGridGame("nonogram", "solution", ["","filled","x"], { filled:"■", x:"×" }),
   bimaru: simpleGridGame("bimaru", "solution", ["","animal","water"], { animal:"🐟", water:"~" }),
   shikaku: {
     resetState(level){ state={ regions: zeros(level.size, level.size, ""), selectedClue: null, nextColor: 1 }; setStatus("Tippe zuerst auf eine Zahl."); },
@@ -685,7 +665,7 @@ const GAME_HANDLERS = {
 
 function simpleGridGame(game, solutionField, cycle, symbols) {
   return {
-    resetState(level) { state = { grid: zeros(level.size, level.size, "") }; setStatus(game === "nonogram" ? "Fülle Felder und entdecke das Bild." : "Finde alle Meerestiere im Wasser."); },
+    resetState(level) { state = { grid: zeros(level.size, level.size, "") }; setStatus("Finde alle Meerestiere im Wasser."); },
     checkWin() {
       const level=currentLevel();
       if(game === "bimaru") {
@@ -703,11 +683,11 @@ function simpleGridGame(game, solutionField, cycle, symbols) {
         if(state.grid[r][c]!==want && (game !== "bimaru" || want === cycle[1])){ pushHistory(); state.grid[r][c]=want; render("Tipp: Ein sicheres Feld ist markiert."); checkAndWin(); return; }
       }
     },
-    render(level) { if(game === "nonogram") renderNonogram(level, this); else renderCountBoard(level, (r,c)=>{ const v=state.grid[r][c]; const cell=makeButtonCell(r,c,`cell ${game}-cell ${v}`, symbols[v] || ""); cell.addEventListener("click",()=>this.input(r,c)); return cell; }); },
+    render(level) { renderCountBoard(level, (r,c)=>{ const v=state.grid[r][c]; const cell=makeButtonCell(r,c,`cell ${game}-cell ${v}`, symbols[v] || ""); cell.addEventListener("click",()=>this.input(r,c)); return cell; }); },
   };
 }
 function renderCountBoard(level, makeCell) { board.innerHTML=""; board.style.setProperty("--size", level.size + 1); board.classList.add("count-board"); board.append(Object.assign(document.createElement("div"), { className:"count-corner" })); level.colCounts.forEach((n)=>{ const d=document.createElement("div"); d.className="count-label col-count"; d.textContent=n; board.append(d); }); for(let r=0;r<level.size;r++){ const lab=document.createElement("div"); lab.className="count-label row-count"; lab.textContent=level.rowCounts[r]; board.append(lab); for(let c=0;c<level.size;c++) board.append(makeCell(r,c)); } }
-function renderNonogram(level, handler) { const rowClues=cluesFor(level.solution), colClues=cluesFor(level.solution[0].map((_,c)=>level.solution.map((r)=>r[c]))); board.innerHTML=""; board.style.setProperty("--size", level.size + 1); board.classList.add("clue-board"); board.append(Object.assign(document.createElement("div"), { className:"count-corner" })); colClues.forEach((cl)=>{ const d=document.createElement("div"); d.className="count-label col-clue"; d.textContent=cl.join(" "); board.append(d); }); for(let r=0;r<level.size;r++){ const lab=document.createElement("div"); lab.className="count-label row-clue"; lab.textContent=rowClues[r].join(" "); board.append(lab); for(let c=0;c<level.size;c++){ const v=state.grid[r][c]; const cell=makeButtonCell(r,c,`cell nonogram-cell ${v}`, v==="filled"?"":v==="x"?"×":""); cell.addEventListener("click",()=>handler.input(r,c)); board.append(cell); } } }
+
 
 if (currentGame && LEVELS_BY_GAME[currentGame]) renderDifficultySelect();
 if (undoButton) undoButton.addEventListener("click", undo);
