@@ -306,6 +306,12 @@ const GAME_CONFIGS = {
     success: "Wunderbar verbunden! Die komplette Hidoku-Zahlenkette ist geschlossen.",
     rules: ["Tippe auf ein leeres Feld und wähle eine Zahl aus.", "Aufeinanderfolgende Zahlen müssen sich waagerecht, senkrecht oder diagonal berühren.", "Jede Zahl kommt genau einmal vor und die letzte Zahl berührt wieder die 1."],
   },
+  shikaku: {
+    title: "Tiergehege", eyebrow: "Gehege bauen", code: "G",
+    subtitle: "Baue für jedes Tier ein Gehege mit genau der richtigen Grösse.",
+    success: "Alle Tiere haben ein passendes Gehege!",
+    rules: ["Tippe zuerst auf ein Tier mit Zahl.", "Tippe danach auf eine zweite Ecke und baue so ein Rechteck.", "Jedes Gehege braucht genau so viele Felder, wie die Zahl zeigt."],
+  },
 };
 
 function clone(value) { return typeof structuredClone === "function" ? structuredClone(value) : JSON.parse(JSON.stringify(value)); }
@@ -319,7 +325,8 @@ function gridFromStrings(lines, mark = "#") { return lines.map((line) => [...lin
 function makeLevel(game, difficulty, index, data) {
   const config = GAME_CONFIGS[game];
   const diff = DIFFICULTIES[difficulty];
-  return { ...data, id: `${game}-${difficulty}-${index}`, game, difficulty, levelName: `${config.code} ${diff.code}-${index}`, title: `${config.code} ${diff.code}-${index} · ${config.title} · ${diff.label}` };
+  const levelName = `${config.code} ${diff.code}-${index}`;
+  return { ...data, id: data.id || `${game}-${difficulty}-${index}`, game, difficulty, levelName, title: data.title || `${levelName} · ${config.title} · ${diff.label}` };
 }
 
 // Bestehende Arukone- und Sudoku-Level in die neue Struktur übernehmen.
@@ -587,12 +594,97 @@ const HIDOKU_LEVELS = [
   ...Array.from({ length: 10 }, (_, i) => makeHidokuLevel("hard", i + 1, 6, HIDOKU_PATHS.hard, HIDOKU_GIVEN_SLOTS.hard, "Ein schweres 6×6 Hidoku mit den Zahlen 1 bis 36.")),
 ];
 
+
+function makeShikakuLevel(difficulty, index, title, rows, cols, clues, solutionRegions) {
+  const code = DIFFICULTIES[difficulty].code;
+  return makeLevel("shikaku", difficulty, index, {
+    id: `G ${code}-${index}`,
+    title,
+    rows,
+    cols,
+    size: cols,
+    clues,
+    solutionRegions,
+    description: "Baue für jedes Tier ein Gehege mit genau der richtigen Grösse.",
+  });
+}
+
+const SHIKAKU_LEVELS = [
+  makeShikakuLevel("easy", 1, "G 1-1 · Kleine Wiese", 4, 4, [
+    { row: 0, col: 0, value: 4 }, { row: 0, col: 2, value: 2 }, { row: 1, col: 2, value: 2 },
+    { row: 2, col: 0, value: 4 }, { row: 2, col: 2, value: 2 }, { row: 2, col: 3, value: 2 },
+  ], [
+    ["a","a","b","b"], ["a","a","c","c"], ["d","d","e","f"], ["d","d","e","f"],
+  ]),
+  makeShikakuLevel("easy", 2, "G 1-2 · Bunte Koppel", 4, 4, [
+    { row: 0, col: 0, value: 4 }, { row: 0, col: 2, value: 4 }, { row: 2, col: 0, value: 4 },
+    { row: 2, col: 2, value: 2 }, { row: 2, col: 3, value: 2 },
+  ], [
+    ["a","a","b","b"], ["a","a","b","b"], ["c","c","d","e"], ["c","c","d","e"],
+  ]),
+  makeShikakuLevel("easy", 3, "G 1-3 · Kleine Farm", 4, 4, [
+    { row: 0, col: 1, value: 2 }, { row: 0, col: 3, value: 2 }, { row: 1, col: 0, value: 4 },
+    { row: 1, col: 2, value: 4 }, { row: 3, col: 0, value: 2 }, { row: 3, col: 2, value: 2 },
+  ], [
+    ["a","a","b","b"], ["c","c","d","d"], ["c","c","d","d"], ["e","e","f","f"],
+  ]),
+  makeShikakuLevel("medium", 1, "G 2-1 · Tiergarten", 6, 6, [
+    { row: 0, col: 0, value: 6 }, { row: 0, col: 3, value: 4 }, { row: 0, col: 5, value: 2 },
+    { row: 2, col: 0, value: 4 }, { row: 2, col: 2, value: 4 }, { row: 2, col: 4, value: 4 },
+    { row: 4, col: 0, value: 6 }, { row: 4, col: 3, value: 6 },
+  ], [
+    ["a","a","a","b","b","c"], ["a","a","a","b","b","c"], ["d","d","e","e","f","f"],
+    ["d","d","e","e","f","f"], ["g","g","g","h","h","h"], ["g","g","g","h","h","h"],
+  ]),
+  makeShikakuLevel("medium", 2, "G 2-2 · Waldlichtung", 6, 6, [
+    { row: 0, col: 0, value: 6 }, { row: 0, col: 2, value: 6 }, { row: 0, col: 4, value: 6 },
+    { row: 3, col: 0, value: 6 }, { row: 3, col: 3, value: 6 }, { row: 3, col: 5, value: 3 },
+    { row: 5, col: 0, value: 3 },
+  ], [
+    ["a","a","b","b","c","c"], ["a","a","b","b","c","c"], ["a","a","b","b","c","c"],
+    ["d","d","d","e","e","f"], ["d","d","d","e","e","f"], ["g","g","g","e","e","f"],
+  ]),
+  makeShikakuLevel("medium", 3, "G 2-3 · Sonnenweide", 6, 6, [
+    { row: 0, col: 0, value: 6 }, { row: 1, col: 0, value: 4 }, { row: 1, col: 2, value: 6 },
+    { row: 1, col: 5, value: 3 }, { row: 3, col: 0, value: 3 }, { row: 3, col: 3, value: 6 },
+    { row: 4, col: 0, value: 6 }, { row: 4, col: 5, value: 2 },
+  ], [
+    ["a","a","a","a","a","a"], ["b","b","c","c","c","d"], ["b","b","c","c","c","d"],
+    ["e","e","e","f","f","d"], ["g","g","g","f","f","h"], ["g","g","g","f","f","h"],
+  ]),
+  makeShikakuLevel("hard", 1, "G 3-1 · Grosser Park", 8, 8, [
+    { row: 0, col: 0, value: 8 }, { row: 0, col: 4, value: 6 }, { row: 0, col: 7, value: 2 }, { row: 2, col: 0, value: 6 },
+    { row: 2, col: 3, value: 6 }, { row: 2, col: 6, value: 6 }, { row: 4, col: 0, value: 8 }, { row: 4, col: 4, value: 6 },
+    { row: 5, col: 7, value: 6 }, { row: 6, col: 0, value: 8 }, { row: 7, col: 4, value: 2 },
+  ], [
+    ["a","a","a","a","b","b","b","c"], ["a","a","a","a","b","b","b","c"], ["d","d","d","e","e","e","f","f"], ["d","d","d","e","e","e","f","f"],
+    ["g","g","g","g","h","h","f","f"], ["g","g","g","g","h","h","i","i"], ["j","j","j","j","h","h","i","i"], ["j","j","j","j","k","k","i","i"],
+  ]),
+  makeShikakuLevel("hard", 2, "G 3-2 · Safari", 8, 8, [
+    { row: 0, col: 0, value: 4 }, { row: 0, col: 2, value: 8 }, { row: 0, col: 6, value: 6 }, { row: 2, col: 0, value: 6 },
+    { row: 2, col: 3, value: 6 }, { row: 3, col: 6, value: 6 }, { row: 4, col: 0, value: 8 }, { row: 4, col: 4, value: 6 },
+    { row: 6, col: 0, value: 8 }, { row: 6, col: 6, value: 4 }, { row: 7, col: 4, value: 2 },
+  ], [
+    ["a","a","b","b","b","b","c","c"], ["a","a","b","b","b","b","c","c"], ["d","d","d","e","e","e","c","c"], ["d","d","d","e","e","e","f","f"],
+    ["g","g","g","g","h","h","f","f"], ["g","g","g","g","h","h","f","f"], ["i","i","i","i","h","h","j","j"], ["i","i","i","i","k","k","j","j"],
+  ]),
+  makeShikakuLevel("hard", 3, "G 3-3 · Abenteuer-Weide", 8, 8, [
+    { row: 0, col: 0, value: 8 }, { row: 0, col: 4, value: 4 }, { row: 0, col: 6, value: 6 }, { row: 2, col: 0, value: 6 },
+    { row: 2, col: 3, value: 6 }, { row: 3, col: 6, value: 6 }, { row: 4, col: 0, value: 8 }, { row: 4, col: 4, value: 4 },
+    { row: 6, col: 0, value: 8 }, { row: 6, col: 4, value: 4 }, { row: 7, col: 6, value: 4 },
+  ], [
+    ["a","a","a","a","b","b","c","c"], ["a","a","a","a","b","b","c","c"], ["d","d","d","e","e","e","c","c"], ["d","d","d","e","e","e","f","f"],
+    ["g","g","g","g","h","h","f","f"], ["g","g","g","g","h","h","f","f"], ["i","i","i","i","j","j","k","k"], ["i","i","i","i","j","j","k","k"],
+  ]),
+];
+
 const LEVELS_BY_GAME = {
   arukone: ARUKONE_LEVELS,
   sudoku: [...SUDOKU_EASY, ...SUDOKU_MEDIUM, ...SUDOKU_HARD],
   bimaru: BIMARU_LEVELS,
   kakuro: KAKURO_LEVELS,
   hidoku: HIDOKU_LEVELS,
+  shikaku: SHIKAKU_LEVELS,
 };
 
 const board = document.querySelector("#board");
@@ -610,6 +702,7 @@ const puzzleDescription = document.querySelector("#puzzle-description");
 const statusText = document.querySelector("#status");
 const undoButton = document.querySelector("#undo-button");
 const resetButton = document.querySelector("#reset-button");
+const hintButton = document.querySelector("#hint-button");
 const backButton = document.querySelector("#back-button");
 let successOverlay = document.querySelector("#success-overlay");
 let successRestartButton = document.querySelector("#success-restart-button");
@@ -715,14 +808,14 @@ function renderLevelSelect() {
     button.className = `level-tile ${selectedDifficulty}${isSolved(level) ? " solved" : ""}`;
     button.type = "button";
     button.setAttribute("aria-label", `${level.title}${isSolved(level) ? ", gelöst" : ""}`);
-    button.innerHTML = `<span>${level.levelName}</span><small>${isSolved(level) ? "★ gelöst" : (level.size ? `${level.size}×${level.size}` : "Rätsel")}</small>`;
+    button.innerHTML = `<span>${level.levelName}</span><small>${isSolved(level) ? "★ gelöst" : (level.size ? `${level.size}×${level.size}` : (level.rows && level.cols ? `${level.rows}×${level.cols}` : "Rätsel"))}</small>`;
     button.addEventListener("click", () => startLevel(index));
     levelGrid.append(button);
   });
 }
 function showLevelSelect() { finishMove(); hideSuccess(); if (levelPanel) levelPanel.hidden = false; if (homePanel) homePanel.hidden = true; if (gamePanel) gamePanel.hidden = true; if (gameControls) gameControls.hidden = true; document.body.classList.remove("puzzle-active"); renderLevelSelect(); }
 function showGame() { if (levelPanel) levelPanel.hidden = true; if (homePanel) homePanel.hidden = true; if (gamePanel) gamePanel.hidden = false; if (gameControls) gameControls.hidden = false; document.body.classList.add("puzzle-active"); }
-function startLevel(index) { hideSuccess(); currentIndex = index; const level = currentLevel(); selectedDifficulty = level.difficulty; const config = GAME_CONFIGS[currentGame]; history = []; winShown = false; if (undoButton) undoButton.disabled = true; board.className = `board ${currentGame}-board`; board.style.setProperty("--size", level.size || 5); board.setAttribute("aria-label", `${config.title} Spielfeld`); puzzleTitle.textContent = level.title; puzzleDescription.textContent = level.description || config.subtitle; fillList(gameHelpList, config.rules); resetState(); showGame(); render(); }
+function startLevel(index) { hideSuccess(); currentIndex = index; const level = currentLevel(); selectedDifficulty = level.difficulty; const config = GAME_CONFIGS[currentGame]; history = []; winShown = false; if (undoButton) undoButton.disabled = true; board.className = `board ${currentGame}-board`; board.style.setProperty("--size", level.cols || level.size || 5); board.setAttribute("aria-label", `${config.title} Spielfeld`); puzzleTitle.textContent = level.title; puzzleDescription.textContent = level.description || config.subtitle; fillList(gameHelpList, config.rules); resetState(); showGame(); render(); }
 function resetGame() { history = []; if (undoButton) undoButton.disabled = true; hideSuccess(); resetState(); render("Neu gestartet. Viel Spass!"); }
 function undo() { finishMove(); if (!history.length) return; restore(history.pop()); if (undoButton) undoButton.disabled = history.length === 0; setStatus("Ein Schritt zurück."); }
 function nextLevel() { const levels = levelsForDifficulty(selectedDifficulty || currentLevel().difficulty); const currentDifficultyIndex = levels.indexOf(currentLevel()); const next = levels[(currentDifficultyIndex + 1) % levels.length]; startLevel(LEVELS_BY_GAME[currentGame].indexOf(next)); }
@@ -770,6 +863,102 @@ function makeButtonCell(row, col, className, text = "") { const b=document.creat
 function getPairColor(pair) { return DEFAULT_COLORS[pair] || "#6c5ce7"; }
 
 const GAME_HANDLERS = {
+
+  shikaku: {
+    resetState() { state = { regions: {}, selected: null, hintCells: [] }; setStatus("Tippe zuerst auf ein Tier mit Zahl."); },
+    clueKey(clue) { return keyOf(clue.row, clue.col); },
+    clueAt(level, r, c) { return level.clues.find((clue) => clue.row === r && clue.col === c) || null; },
+    ownerAt(r, c) {
+      const key = keyOf(r, c);
+      return Object.entries(state.regions).find(([, region]) => region.cells.some((cell) => keyOf(cell.row, cell.col) === key))?.[0] || null;
+    },
+    solutionIdForClue(level, clue) { return level.solutionRegions[clue.row][clue.col]; },
+    solutionCells(level, clue) {
+      const id = this.solutionIdForClue(level, clue);
+      const cells = [];
+      for (let r = 0; r < level.rows; r += 1) for (let c = 0; c < level.cols; c += 1) if (level.solutionRegions[r][c] === id) cells.push({ row: r, col: c });
+      return cells;
+    },
+    regionMatchesSolution(level, clue) {
+      const region = state.regions[this.clueKey(clue)];
+      if (!region) return false;
+      const want = new Set(this.solutionCells(level, clue).map((cell) => keyOf(cell.row, cell.col)));
+      return region.cells.length === want.size && region.cells.every((cell) => want.has(keyOf(cell.row, cell.col)));
+    },
+    checkWin() { const level = currentLevel(); return level.clues.every((clue) => this.regionMatchesSolution(level, clue)); },
+    selectClue(clue) { state.selected = { row: clue.row, col: clue.col }; state.hintCells = []; render(`Das Tier braucht ${clue.value} Felder.`); },
+    input(r, c) {
+      const level = currentLevel();
+      const clue = this.clueAt(level, r, c);
+      if (!state.selected) {
+        if (!clue) { render("Bitte tippe zuerst auf ein Tier mit Zahl."); return; }
+        this.selectClue(clue);
+        return;
+      }
+      const selectedClue = this.clueAt(level, state.selected.row, state.selected.col);
+      if (!selectedClue) { state.selected = null; render("Bitte tippe zuerst auf ein Tier mit Zahl."); return; }
+      if (clue && this.clueKey(clue) !== this.clueKey(selectedClue)) { this.selectClue(clue); return; }
+      const minRow = Math.min(selectedClue.row, r), maxRow = Math.max(selectedClue.row, r);
+      const minCol = Math.min(selectedClue.col, c), maxCol = Math.max(selectedClue.col, c);
+      const area = (maxRow - minRow + 1) * (maxCol - minCol + 1);
+      if (area < selectedClue.value) { render("Dieses Gehege ist zu klein."); return; }
+      if (area > selectedClue.value) { render("Dieses Gehege ist zu gross."); return; }
+      const selectedKey = this.clueKey(selectedClue);
+      const cells = [];
+      let clueCount = 0;
+      for (let row = minRow; row <= maxRow; row += 1) {
+        for (let col = minCol; col <= maxCol; col += 1) {
+          const foundClue = this.clueAt(level, row, col);
+          if (foundClue) clueCount += 1;
+          const owner = this.ownerAt(row, col);
+          if (owner && owner !== selectedKey) { render("Hier liegt schon ein anderes Gehege."); return; }
+          cells.push({ row, col });
+        }
+      }
+      if (clueCount > 1) { render("In ein Gehege darf nur eine Zahl."); return; }
+      if (clueCount !== 1) { render("Das Gehege muss beim Tier starten."); return; }
+      pushHistory();
+      state.regions[selectedKey] = { cells, color: (level.clues.indexOf(selectedClue) % 12) + 1 };
+      state.selected = null;
+      state.hintCells = [];
+      this.checkWin() ? handleWin() : render("Super! Das Gehege passt.");
+    },
+    hint() {
+      const level = currentLevel();
+      const clue = level.clues.find((item) => !this.regionMatchesSolution(level, item));
+      if (!clue) { setStatus("Alle Tiere haben schon ein Gehege."); return; }
+      state.selected = { row: clue.row, col: clue.col };
+      state.hintCells = this.solutionCells(level, clue);
+      render(`Versuche hier ein Rechteck mit genau ${clue.value} Feldern.`);
+    },
+    render(level) {
+      board.innerHTML = "";
+      board.style.setProperty("--size", level.cols);
+      board.style.setProperty("--rows", level.rows);
+      const hintKeys = new Set((state.hintCells || []).map((cell) => keyOf(cell.row, cell.col)));
+      for (let r = 0; r < level.rows; r += 1) for (let c = 0; c < level.cols; c += 1) {
+        const clue = this.clueAt(level, r, c);
+        const selected = state.selected && state.selected.row === r && state.selected.col === c;
+        const owner = this.ownerAt(r, c);
+        const region = owner ? state.regions[owner] : null;
+        const color = region?.color || 0;
+        const cell = makeButtonCell(r, c, `cell shikaku-cell${clue ? " clue" : ""}${selected ? " selected" : ""}${owner ? ` region shikaku-region-${color}` : ""}${hintKeys.has(keyOf(r, c)) ? " shikaku-preview" : ""}`, "");
+        cell.setAttribute("aria-label", clue ? `Tier mit Zahl ${clue.value}, Reihe ${r + 1}, Spalte ${c + 1}` : `Feld Reihe ${r + 1}, Spalte ${c + 1}`);
+        if (clue) {
+          const animal = document.createElement("span");
+          animal.className = "shikaku-animal";
+          animal.setAttribute("aria-hidden", "true");
+          animal.textContent = ["🐰","🐸","🐻","🦊","🐼","🐨","🐯","🐵","🦁","🐮","🐷","🐶"][level.clues.indexOf(clue) % 12];
+          const number = document.createElement("span");
+          number.className = "shikaku-number";
+          number.textContent = clue.value;
+          cell.append(animal, number);
+        }
+        cell.addEventListener("click", () => this.input(r, c));
+        board.append(cell);
+      }
+    },
+  },
   arukone: {
     resetState(level) { state = { paths: Object.fromEntries(Object.entries(level.pairs).map(([p, ends]) => [p, [ends[0]]])), activePair: null }; setStatus("Ziehe von einem Symbol zum passenden zweiten Symbol."); },
     checkWin() {
@@ -864,6 +1053,7 @@ function renderCountBoard(level, makeCell) { board.innerHTML=""; board.style.set
 if (currentGame && LEVELS_BY_GAME[currentGame]) renderDifficultySelect();
 if (undoButton) undoButton.addEventListener("click", undo);
 if (resetButton) resetButton.addEventListener("click", resetGame);
+if (hintButton) hintButton.addEventListener("click", () => GAME_HANDLERS[currentGame]?.hint?.());
 if (backButton) backButton.addEventListener("click", showLevelSelect);
 setupSuccessOverlay();
 

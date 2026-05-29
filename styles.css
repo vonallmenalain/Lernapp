@@ -1267,3 +1267,126 @@ body.puzzle-active .hidoku-board {
     width: min(calc(100vw - 28px), calc(100vh - 178px));
   }
 }
+
+.shikaku-preview {
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+  padding: 8px;
+}
+
+.shikaku-preview span {
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  border: 2px solid rgba(36, 48, 71, 0.18);
+  color: var(--ink);
+  font-size: 0.98rem;
+  font-weight: 900;
+}
+
+.shikaku-preview b {
+  margin-left: 2px;
+  font-size: 0.8rem;
+}
+
+.shikaku-preview .pen { border-radius: 9px; }
+.shikaku-preview .pen-a { background: #fff0c7; }
+.shikaku-preview .pen-b { background: #dff8ef; }
+.shikaku-preview .pen-c { background: #e6f0ff; }
+.shikaku-preview .pen-d { background: #ffe0e8; }
+.shikaku-preview .pen-e { background: #eee8ff; }
+.shikaku-preview .pen-f { background: #e9f8ff; }
+
+.shikaku-board {
+  gap: 4px;
+  max-width: min(720px, 100%);
+  touch-action: manipulation;
+}
+
+.shikaku-cell {
+  border-radius: 12px;
+  border-width: 2px;
+  background: #fffdf7;
+  font-size: clamp(0.95rem, 3.5vw, 1.55rem);
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.shikaku-cell.clue {
+  border-color: #5141c9;
+  color: var(--ink);
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.86);
+}
+
+.shikaku-cell.selected {
+  outline: 4px solid #ff9f1c;
+  outline-offset: 2px;
+  transform: scale(1.02);
+}
+
+.shikaku-cell.region {
+  border-color: rgba(36, 48, 71, 0.46);
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.72);
+}
+
+.shikaku-animal {
+  line-height: 1;
+  font-size: 0.95em;
+}
+
+.shikaku-number {
+  line-height: 1;
+  padding: 1px 7px 2px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.86);
+  font-weight: 950;
+}
+
+.shikaku-preview.shikaku-cell,
+.shikaku-cell.shikaku-preview {
+  border-style: dashed;
+  border-color: #ff9f1c;
+  background-image: repeating-linear-gradient(135deg, rgba(255, 159, 28, 0.18) 0 8px, rgba(255, 255, 255, 0.16) 8px 16px);
+}
+
+.shikaku-hint {
+  outline: 4px dashed #ff9f1c;
+}
+
+.shikaku-region-1 { background: #fff0c7; }
+.shikaku-region-2 { background: #dff8ef; }
+.shikaku-region-3 { background: #e6f0ff; }
+.shikaku-region-4 { background: #ffe0e8; }
+.shikaku-region-5 { background: #eee8ff; }
+.shikaku-region-6 { background: #e5f9dc; }
+.shikaku-region-7 { background: #ffead7; }
+.shikaku-region-8 { background: #dff7fb; }
+.shikaku-region-9 { background: #f9e4ff; }
+.shikaku-region-10 { background: #edf2d4; }
+.shikaku-region-11 { background: #f4e7d3; }
+.shikaku-region-12 { background: #e3ecff; }
+
+body.puzzle-active .shikaku-board {
+  width: min(calc(100vw - 32px), calc(100vh - 172px));
+}
+
+body.puzzle-active .shikaku-cell {
+  border-radius: clamp(8px, 2vw, 14px);
+}
+
+@media (max-width: 640px) {
+  .shikaku-board { gap: 3px; }
+  body.puzzle-active .shikaku-board {
+    width: min(calc(100vw - 24px), calc(100vh - 160px));
+  }
+  .shikaku-cell {
+    border-radius: 9px;
+    font-size: clamp(0.8rem, 4vw, 1.2rem);
+  }
+  .shikaku-number { padding-inline: 5px; }
+}
