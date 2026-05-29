@@ -782,3 +782,39 @@ body.puzzle-active #home-panel {
     width: min(calc(100vw - 28px), calc(100vh - 198px));
   }
 }
+
+[hidden] {
+  display: none !important;
+}
+
+a.choose-game-button,
+a.icon-button {
+  min-height: 44px;
+  border-radius: 999px;
+  border: 2px solid transparent;
+  padding: 0 18px;
+  background: var(--primary);
+  color: white;
+  font-weight: 800;
+  cursor: pointer;
+  text-decoration: none;
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+
+a.choose-game-button:hover,
+a.icon-button:hover,
+a.choose-game-button:focus-visible,
+a.icon-button:focus-visible {
+  background: var(--primary-dark);
+  transform: translateY(-1px);
+  outline: none;
+}
+
+a.choose-game-button {
+  display: grid;
+  place-items: center;
+}
+
+a.icon-button {
+  padding: 0;
+}
