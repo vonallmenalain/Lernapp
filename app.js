@@ -310,7 +310,7 @@ const GAME_CONFIGS = {
     title: "Tiergehege", eyebrow: "Gehege bauen", code: "G",
     subtitle: "Baue für jedes Tier ein Gehege mit genau der richtigen Grösse.",
     success: "Alle Tiere haben ein passendes Gehege!",
-    rules: ["Tippe zuerst auf ein Tier mit Zahl.", "Tippe danach auf eine zweite Ecke und baue so ein Rechteck.", "Jedes Gehege braucht genau so viele Felder, wie die Zahl zeigt."],
+    rules: ["Tippe zuerst auf ein Tier mit Zahl oder halte die Maustaste auf dem Tier gedrückt.", "Ziehe bis zur gegenüberliegenden Ecke: Alle Felder im Rechteck werden sofort markiert.", "Jedes Gehege braucht genau so viele Felder, wie die Zahl zeigt."],
   },
 };
 
@@ -719,6 +719,8 @@ let winShown = false;
 let isDrawing = false;
 let lastDrawnKey = null;
 let activePointerId = null;
+let shikakuDrag = null;
+let ignoreNextShikakuClick = false;
 let activeMoveSnapshot = null;
 let pushedActiveSnapshot = false;
 
@@ -865,7 +867,7 @@ function getPairColor(pair) { return DEFAULT_COLORS[pair] || "#6c5ce7"; }
 const GAME_HANDLERS = {
 
   shikaku: {
-    resetState() { state = { regions: {}, selected: null, hintCells: [] }; setStatus("Tippe zuerst auf ein Tier mit Zahl."); },
+    resetState() { state = { regions: {}, selected: null, hintCells: [], dragPreview: null }; setStatus("Tippe zuerst auf ein Tier mit Zahl oder ziehe direkt vom Tier los."); },
     clueKey(clue) { return keyOf(clue.row, clue.col); },
     clueAt(level, r, c) { return level.clues.find((clue) => clue.row === r && clue.col === c) || null; },
     ownerAt(r, c) {
@@ -886,7 +888,32 @@ const GAME_HANDLERS = {
       return region.cells.length === want.size && region.cells.every((cell) => want.has(keyOf(cell.row, cell.col)));
     },
     checkWin() { const level = currentLevel(); return level.clues.every((clue) => this.regionMatchesSolution(level, clue)); },
-    selectClue(clue) { state.selected = { row: clue.row, col: clue.col }; state.hintCells = []; render(`Das Tier braucht ${clue.value} Felder.`); },
+    selectClue(clue) { state.selected = { row: clue.row, col: clue.col }; state.hintCells = []; state.dragPreview = null; render(`Das Tier braucht ${clue.value} Felder.`); },
+    rectangleCells(level, clue, r, c) {
+      const minRow = Math.min(clue.row, r), maxRow = Math.max(clue.row, r);
+      const minCol = Math.min(clue.col, c), maxCol = Math.max(clue.col, c);
+      const cells = [];
+      for (let row = minRow; row <= maxRow; row += 1) for (let col = minCol; col <= maxCol; col += 1) cells.push({ row, col });
+      return cells;
+    },
+    previewDrag(clue, r, c) {
+      const level = currentLevel();
+      state.selected = { row: clue.row, col: clue.col };
+      state.hintCells = [];
+      state.dragPreview = {
+        cells: this.rectangleCells(level, clue, r, c),
+        area: (Math.abs(clue.row - r) + 1) * (Math.abs(clue.col - c) + 1),
+        target: { row: r, col: c },
+      };
+      const sizeText = state.dragPreview.area === clue.value ? "passt genau" : `${state.dragPreview.area} von ${clue.value} Feldern`;
+      render(`Ziehe das Rechteck: ${sizeText}.`);
+    },
+    clearDragPreview() { state.dragPreview = null; },
+    finishDrag(r, c, shouldCommit) {
+      this.clearDragPreview();
+      if (shouldCommit) this.input(r, c);
+      else render(state.selected ? "Ziehe bis zur gegenüberliegenden Ecke oder tippe eine Ecke an." : "Tippe zuerst auf ein Tier mit Zahl.");
+    },
     input(r, c) {
       const level = currentLevel();
       const clue = this.clueAt(level, r, c);
@@ -921,6 +948,7 @@ const GAME_HANDLERS = {
       state.regions[selectedKey] = { cells, color: (level.clues.indexOf(selectedClue) % 12) + 1 };
       state.selected = null;
       state.hintCells = [];
+      state.dragPreview = null;
       this.checkWin() ? handleWin() : render("Super! Das Gehege passt.");
     },
     hint() {
@@ -929,6 +957,7 @@ const GAME_HANDLERS = {
       if (!clue) { setStatus("Alle Tiere haben schon ein Gehege."); return; }
       state.selected = { row: clue.row, col: clue.col };
       state.hintCells = this.solutionCells(level, clue);
+      state.dragPreview = null;
       render(`Versuche hier ein Rechteck mit genau ${clue.value} Feldern.`);
     },
     render(level) {
@@ -936,13 +965,16 @@ const GAME_HANDLERS = {
       board.style.setProperty("--size", level.cols);
       board.style.setProperty("--rows", level.rows);
       const hintKeys = new Set((state.hintCells || []).map((cell) => keyOf(cell.row, cell.col)));
+      const dragKeys = new Set((state.dragPreview?.cells || []).map((cell) => keyOf(cell.row, cell.col)));
+      const dragAreaMatches = state.selected && state.dragPreview && state.dragPreview.area === (this.clueAt(level, state.selected.row, state.selected.col)?.value || 0);
       for (let r = 0; r < level.rows; r += 1) for (let c = 0; c < level.cols; c += 1) {
         const clue = this.clueAt(level, r, c);
         const selected = state.selected && state.selected.row === r && state.selected.col === c;
         const owner = this.ownerAt(r, c);
         const region = owner ? state.regions[owner] : null;
         const color = region?.color || 0;
-        const cell = makeButtonCell(r, c, `cell shikaku-cell${clue ? " clue" : ""}${selected ? " selected" : ""}${owner ? ` region shikaku-region-${color}` : ""}${hintKeys.has(keyOf(r, c)) ? " shikaku-preview" : ""}`, "");
+        const isDragPreview = dragKeys.has(keyOf(r, c));
+        const cell = makeButtonCell(r, c, `cell shikaku-cell${clue ? " clue" : ""}${selected ? " selected" : ""}${owner ? ` region shikaku-region-${color}` : ""}${hintKeys.has(keyOf(r, c)) ? " shikaku-preview" : ""}${isDragPreview ? ` shikaku-drag-preview${dragAreaMatches ? " valid" : ""}` : ""}`, "");
         cell.setAttribute("aria-label", clue ? `Tier mit Zahl ${clue.value}, Reihe ${r + 1}, Spalte ${c + 1}` : `Feld Reihe ${r + 1}, Spalte ${c + 1}`);
         if (clue) {
           const animal = document.createElement("span");
@@ -954,7 +986,10 @@ const GAME_HANDLERS = {
           number.textContent = clue.value;
           cell.append(animal, number);
         }
-        cell.addEventListener("click", () => this.input(r, c));
+        cell.addEventListener("click", () => {
+          if (ignoreNextShikakuClick) { ignoreNextShikakuClick = false; return; }
+          this.input(r, c);
+        });
         board.append(cell);
       }
     },
@@ -1069,6 +1104,60 @@ function arukoneCellFromPoint(clientX, clientY) {
   const row = Math.min(level.size - 1, Math.max(0, Math.floor(((clientY - rect.top) / rect.height) * level.size)));
   return board.querySelector(`[data-row="${row}"][data-col="${col}"]`);
 }
+
+function shikakuCellFromPoint(clientX, clientY) {
+  if (!board || currentGame !== "shikaku") return null;
+  const direct = document.elementFromPoint(clientX, clientY)?.closest(".shikaku-cell");
+  if (direct && board.contains(direct)) return direct;
+  const level = currentLevel();
+  const rect = board.getBoundingClientRect();
+  if (clientX < rect.left || clientX > rect.right || clientY < rect.top || clientY > rect.bottom) return null;
+  const col = Math.min(level.cols - 1, Math.max(0, Math.floor(((clientX - rect.left) / rect.width) * level.cols)));
+  const row = Math.min(level.rows - 1, Math.max(0, Math.floor(((clientY - rect.top) / rect.height) * level.rows)));
+  return board.querySelector(`[data-row="${row}"][data-col="${col}"]`);
+}
+function startShikakuPointer(event, cell) {
+  const handler = GAME_HANDLERS.shikaku;
+  const level = currentLevel();
+  const row = Number(cell.dataset.row), col = Number(cell.dataset.col);
+  const touchedClue = handler.clueAt(level, row, col);
+  const selectedClue = state.selected ? handler.clueAt(level, state.selected.row, state.selected.col) : null;
+  const dragClue = touchedClue || selectedClue;
+  if (!dragClue) return false;
+  event.preventDefault();
+  shikakuDrag = { pointerId: event.pointerId, clue: dragClue, startRow: row, startCol: col, lastRow: row, lastCol: col, moved: false, commitOnTap: !touchedClue && Boolean(selectedClue) };
+  activePointerId = event.pointerId;
+  board.setPointerCapture?.(event.pointerId);
+  handler.previewDrag(dragClue, row, col);
+  return true;
+}
+function updateShikakuPointer(clientX, clientY) {
+  if (!shikakuDrag) return;
+  const el = shikakuCellFromPoint(clientX, clientY);
+  if (!el) return;
+  const row = Number(el.dataset.row), col = Number(el.dataset.col);
+  if (row === shikakuDrag.lastRow && col === shikakuDrag.lastCol) return;
+  shikakuDrag.lastRow = row;
+  shikakuDrag.lastCol = col;
+  shikakuDrag.moved = shikakuDrag.moved || row !== shikakuDrag.startRow || col !== shikakuDrag.startCol;
+  GAME_HANDLERS.shikaku.previewDrag(shikakuDrag.clue, row, col);
+}
+function finishShikakuPointer() {
+  if (!shikakuDrag) return;
+  const { lastRow, lastCol, moved, commitOnTap } = shikakuDrag;
+  shikakuDrag = null;
+  activePointerId = null;
+  ignoreNextShikakuClick = true;
+  GAME_HANDLERS.shikaku.finishDrag(lastRow, lastCol, moved || commitOnTap);
+}
+function cancelShikakuPointer() {
+  if (!shikakuDrag) return;
+  shikakuDrag = null;
+  activePointerId = null;
+  ignoreNextShikakuClick = true;
+  GAME_HANDLERS.shikaku.finishDrag(0, 0, false);
+}
+
 function drawArukoneCell(row, col) {
   const nextKey = cellKeyFromPoint(row, col);
   if (nextKey === lastDrawnKey) return;
@@ -1093,12 +1182,37 @@ function finishArukonePointer() {
 }
 
 document.addEventListener("pointermove", (event) => {
-  if (!isDrawing || currentGame !== "arukone" || event.pointerId !== activePointerId) return;
-  event.preventDefault();
-  const el = arukoneCellFromPoint(event.clientX, event.clientY);
-  if (!el) return;
-  drawArukoneCell(Number(el.dataset.row), Number(el.dataset.col));
+  if (currentGame === "arukone" && isDrawing && event.pointerId === activePointerId) {
+    event.preventDefault();
+    const el = arukoneCellFromPoint(event.clientX, event.clientY);
+    if (!el) return;
+    drawArukoneCell(Number(el.dataset.row), Number(el.dataset.col));
+  } else if (currentGame === "shikaku" && shikakuDrag && event.pointerId === activePointerId) {
+    event.preventDefault();
+    updateShikakuPointer(event.clientX, event.clientY);
+  }
 }, { passive: false });
-document.addEventListener("pointerup", (event) => { if (event.pointerId === activePointerId) finishArukonePointer(); });
-document.addEventListener("pointercancel", (event) => { if (event.pointerId === activePointerId) finishArukonePointer(); });
-if (board) board.addEventListener("pointerdown", (event) => { const cell=event.target.closest(".arukone-cell"); if(!cell || currentGame!=="arukone") return; event.preventDefault(); beginMove(); isDrawing=true; activePointerId=event.pointerId; board.setPointerCapture?.(event.pointerId); drawArukoneCell(Number(cell.dataset.row), Number(cell.dataset.col)); }, { passive: false });
+document.addEventListener("pointerup", (event) => {
+  if (currentGame === "arukone" && event.pointerId === activePointerId) finishArukonePointer();
+  else if (currentGame === "shikaku" && shikakuDrag && event.pointerId === activePointerId) finishShikakuPointer();
+});
+document.addEventListener("pointercancel", (event) => {
+  if (currentGame === "arukone" && event.pointerId === activePointerId) finishArukonePointer();
+  else if (currentGame === "shikaku" && shikakuDrag && event.pointerId === activePointerId) cancelShikakuPointer();
+});
+if (board) board.addEventListener("pointerdown", (event) => {
+  if (currentGame === "arukone") {
+    const cell = event.target.closest(".arukone-cell");
+    if (!cell) return;
+    event.preventDefault();
+    beginMove();
+    isDrawing = true;
+    activePointerId = event.pointerId;
+    board.setPointerCapture?.(event.pointerId);
+    drawArukoneCell(Number(cell.dataset.row), Number(cell.dataset.col));
+  } else if (currentGame === "shikaku") {
+    const cell = event.target.closest(".shikaku-cell");
+    if (!cell) return;
+    startShikakuPointer(event, cell);
+  }
+}, { passive: false });
