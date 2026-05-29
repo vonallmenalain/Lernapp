@@ -17,35 +17,46 @@
         </p>
       </section>
 
-      <section class="controls" aria-label="Rätselsteuerung">
-        <label for="puzzle-select">Rätsel</label>
-        <select id="puzzle-select"></select>
-        <button id="undo-button" type="button">Rückgängig</button>
-        <button id="reset-button" type="button">Von vorne beginnen</button>
+      <section id="start-panel" class="start-panel" aria-label="Rätsel auswählen">
+        <label for="puzzle-select">Wähle zuerst ein Rätsel aus</label>
+        <select id="puzzle-select">
+          <option value="" disabled selected>Bitte Rätsel auswählen …</option>
+        </select>
+        <p>Nach der Auswahl öffnet sich das Spielfeld im Vollbild ohne Scrollen.</p>
       </section>
 
-      <section class="game-card">
-        <div class="status-row">
-          <div>
-            <p class="small-label">Aktuelles Rätsel</p>
-            <h2 id="puzzle-title">Einfach</h2>
-          </div>
-          <p id="status" class="status" role="status" aria-live="polite">
-            Wähle einen Startpunkt aus.
-          </p>
+      <section id="game-panel" class="game-panel" hidden>
+        <div id="game-controls" class="controls" aria-label="Rätselsteuerung">
+          <label for="puzzle-select">Rätsel</label>
+          <button id="undo-button" type="button">Rückgängig</button>
+          <button id="reset-button" type="button">Von vorne beginnen</button>
         </div>
 
-        <div id="board" class="board" aria-label="Arukone Spielfeld"></div>
+        <section class="game-card">
+          <div class="status-row">
+            <div>
+              <p class="small-label">Aktuelles Rätsel</p>
+              <h2 id="puzzle-title">Einfach</h2>
+              <p id="puzzle-description" class="puzzle-description"></p>
+            </div>
+            <p id="status" class="status" role="status" aria-live="polite">
+              Wähle einen Startpunkt aus.
+            </p>
+          </div>
 
-        <details class="help" open>
-          <summary>So spielst du</summary>
-          <ul>
-            <li>Klicke auf ein Symbol und danach auf benachbarte Felder.</li>
-            <li>Du darfst nur waagerecht oder senkrecht weitergehen.</li>
-            <li>Ein Weg endet beim passenden zweiten Symbol.</li>
-            <li>Mit „Rückgängig“ nimmst du den letzten Schritt zurück.</li>
-          </ul>
-        </details>
+          <div id="board" class="board" aria-label="Arukone Spielfeld"></div>
+
+          <details class="help" open>
+            <summary>So spielst du</summary>
+            <ul>
+              <li>Wähle zuerst ein Rätsel aus der Liste aus.</li>
+              <li>Ziehe von einem Symbol über benachbarte Felder zum gleichen Symbol.</li>
+              <li>Du darfst nur waagerecht oder senkrecht weitergehen.</li>
+              <li>Die Wege dürfen sich nicht kreuzen und sollen jedes Feld füllen.</li>
+              <li>Mit „Rückgängig“ nimmst du den letzten Schritt zurück.</li>
+            </ul>
+          </details>
+        </section>
       </section>
 
       <section
@@ -60,7 +71,7 @@
           <p class="success-eyebrow">Rätsel gelöst</p>
           <h2 id="success-title">Geschafft!</h2>
           <p class="success-text">
-            Super gemacht! Du hast alle passenden Zahlen verbunden und das ganze Feld ausgefüllt.
+            Super gemacht! Du hast alle passenden Symbole verbunden und das ganze Feld ausgefüllt.
           </p>
           <div class="success-actions">
             <button id="next-puzzle-button" type="button">Nächstes Rätsel</button>
