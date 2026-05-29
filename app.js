@@ -300,6 +300,12 @@ const GAME_CONFIGS = {
     success: "Klasse kombiniert! Alle Kakuro-Summen stimmen.",
     rules: ["Tippe auf ein weißes Feld und wähle unten eine Zahl.", "Die kleinen Zahlen zeigen die Summe nach rechts oder nach unten.", "In jeder zusammenhängenden Summe darf jede Zahl nur einmal vorkommen."],
   },
+  hidoku: {
+    title: "Hidoku", eyebrow: "Zahlenkette", code: "H",
+    subtitle: "Trage die fehlenden Zahlen so ein, dass jede Zahl die nächste berührt.",
+    success: "Wunderbar verbunden! Die komplette Hidoku-Zahlenkette ist geschlossen.",
+    rules: ["Tippe auf ein leeres Feld und wähle eine Zahl aus.", "Aufeinanderfolgende Zahlen müssen sich waagerecht, senkrecht oder diagonal berühren.", "Jede Zahl kommt genau einmal vor und die letzte Zahl berührt wieder die 1."],
+  },
 };
 
 function clone(value) { return typeof structuredClone === "function" ? structuredClone(value) : JSON.parse(JSON.stringify(value)); }
@@ -539,11 +545,54 @@ const BIMARU_LEVELS = [
   BIMARU_LEVEL_COUNTS[difficulty] += 1;
   return makeLevel("bimaru", difficulty, BIMARU_LEVEL_COUNTS[difficulty], { ...data, description: "Finde die Tierfelder im Wasser." });
 });
+function transformPoint([row, col], size, variant) {
+  const transforms = [
+    [row, col],
+    [col, size - 1 - row],
+    [size - 1 - row, size - 1 - col],
+    [size - 1 - col, row],
+    [row, size - 1 - col],
+    [size - 1 - row, col],
+    [col, row],
+    [size - 1 - col, size - 1 - row],
+  ];
+  return transforms[variant % transforms.length];
+}
+function makeHidokuLevel(difficulty, index, size, basePath, givenSlots, description) {
+  const variant = index - 1;
+  const offset = (variant * Math.max(1, Math.floor(basePath.length / 10))) % basePath.length;
+  const path = basePath.map((_, n) => transformPoint(basePath[(n + offset) % basePath.length], size, variant));
+  const solution = zeros(size, size, null);
+  path.forEach(([row, col], n) => { solution[row][col] = n + 1; });
+  const givens = givenSlots.map((slot) => {
+    const [row, col] = path[slot % path.length];
+    return [row, col, solution[row][col]];
+  });
+  return makeLevel("hidoku", difficulty, index, { size, solution, givens, description });
+}
+
+const HIDOKU_PATHS = {
+  easy: [[0,0],[0,1],[0,2],[0,3],[1,3],[2,3],[3,3],[3,2],[2,2],[1,2],[1,1],[2,1],[3,1],[3,0],[2,0],[1,0]],
+  medium: [[0,1],[0,2],[0,3],[0,4],[1,4],[2,4],[3,4],[4,4],[4,3],[4,2],[4,1],[4,0],[3,0],[2,0],[1,0],[0,0],[1,1],[2,1],[3,1],[3,2],[3,3],[2,3],[2,2],[1,3],[1,2]],
+  hard: [[0,1],[0,2],[0,3],[0,4],[0,5],[1,5],[2,5],[3,5],[4,5],[5,5],[5,4],[5,3],[5,2],[5,1],[5,0],[4,0],[3,0],[2,0],[1,0],[0,0],[1,1],[2,1],[3,1],[4,1],[4,2],[3,2],[2,2],[2,3],[3,3],[4,3],[4,4],[3,4],[2,4],[1,4],[1,3],[1,2]],
+};
+const HIDOKU_GIVEN_SLOTS = {
+  easy: [0, 2, 4, 7, 9, 11, 13, 15],
+  medium: [0, 2, 6, 9, 11, 14, 16, 18, 21, 23, 24],
+  hard: [0, 3, 5, 9, 11, 15, 18, 20, 22, 25, 28, 30, 32, 34, 35],
+};
+const HIDOKU_LEVELS = [
+  ...Array.from({ length: 10 }, (_, i) => makeHidokuLevel("easy", i + 1, 4, HIDOKU_PATHS.easy, HIDOKU_GIVEN_SLOTS.easy, "Ein leichtes 4×4 Hidoku mit den Zahlen 1 bis 16.")),
+  ...Array.from({ length: 10 }, (_, i) => makeHidokuLevel("medium", i + 1, 5, HIDOKU_PATHS.medium, HIDOKU_GIVEN_SLOTS.medium, "Ein mittleres 5×5 Hidoku mit den Zahlen 1 bis 25.")),
+  ...Array.from({ length: 10 }, (_, i) => makeHidokuLevel("hard", i + 1, 6, HIDOKU_PATHS.hard, HIDOKU_GIVEN_SLOTS.hard, "Ein schweres 6×6 Hidoku mit den Zahlen 1 bis 36.")),
+];
+
 const LEVELS_BY_GAME = {
   arukone: ARUKONE_LEVELS,
   sudoku: [...SUDOKU_EASY, ...SUDOKU_MEDIUM, ...SUDOKU_HARD],
   bimaru: BIMARU_LEVELS,
   kakuro: KAKURO_LEVELS,
+  hidoku: HIDOKU_LEVELS,
 };
 
 const board = document.querySelector("#board");
@@ -755,6 +804,22 @@ const GAME_HANDLERS = {
     render(level) { board.innerHTML=""; board.style.setProperty("--size", level.size); for(let r=0;r<level.size;r++) for(let c=0;c<level.size;c++){ const v=state.values[r][c], fixed=state.fixed[keyOf(r,c)], selected=state.selected&&sameCell(state.selected,[r,c]); const edgeR=(c+1)%level.boxCols===0&&c<level.size-1, edgeB=(r+1)%level.boxRows===0&&r<level.size-1; const cell=makeButtonCell(r,c,`cell sudoku-cell${fixed?" given":""}${selected?" selected":""}${this.conflict(r,c,v)?" conflict":""}${edgeR?" box-edge-right":""}${edgeB?" box-edge-bottom":""}`, v || ""); cell.addEventListener("click",()=>this.select(r,c)); board.append(cell); } if(state.selected) this.renderPad(); },
   },
   bimaru: simpleGridGame("bimaru", "solution", ["","animal","water"], { animal:"🐟", water:"~" }),
+
+  hidoku: {
+    resetState(level) { state={ values: zeros(level.size, level.size, null), fixed: {}, selected: null }; level.givens.forEach(([r,c,v])=>{ state.values[r][c]=v; state.fixed[keyOf(r,c)]=true; }); setStatus("Tippe auf ein leeres Feld."); },
+    maxNumber(level=currentLevel()) { return level.size * level.size; },
+    numberPosition(value) { for(let r=0;r<state.values.length;r++) for(let c=0;c<state.values[r].length;c++) if(state.values[r][c]===value) return [r,c]; return null; },
+    duplicate(value, row, col) { if(!value) return false; for(let r=0;r<state.values.length;r++) for(let c=0;c<state.values[r].length;c++) if((r!==row||c!==col) && state.values[r][c]===value) return true; return false; },
+    touches(a,b) { return a && b && Math.max(Math.abs(a[0]-b[0]), Math.abs(a[1]-b[1])) === 1; },
+    conflict(r,c) { const value=state.values[r][c], max=this.maxNumber(); if(!value) return false; if(this.duplicate(value,r,c)) return true; const current=[r,c]; const prev=value===1 ? this.numberPosition(max) : this.numberPosition(value-1); const next=value===max ? this.numberPosition(1) : this.numberPosition(value+1); return Boolean(prev && !this.touches(current,prev)) || Boolean(next && !this.touches(current,next)); },
+    checkWin() { const level=currentLevel(), max=this.maxNumber(level); const seen=new Set(); for(let r=0;r<level.size;r++) for(let c=0;c<level.size;c++){ const value=state.values[r][c]; if(!value || value<1 || value>max || seen.has(value) || this.conflict(r,c)) return false; seen.add(value); } return seen.size===max; },
+    select(r,c) { if(state.fixed[keyOf(r,c)]) { state.selected=null; render("Diese Startzahl bleibt stehen."); return; } state.selected=[r,c]; render("Wähle eine Zahl aus der Kette."); this.renderPad(); },
+    setNumber(v) { if(!state.selected) return; const [r,c]=state.selected; pushHistory(); state.values[r][c]=v; state.selected=null; this.checkWin()?handleWin():render(this.conflict(r,c) ? "Prüfe die Nachbarzahlen: Die Kette muss sich berühren." : "Gut! Suche die nächste passende Zahl."); },
+    clear() { if(!state.selected) return; const [r,c]=state.selected; pushHistory(); state.values[r][c]=null; state.selected=null; render("Die Zahl ist weg."); },
+    hint() { const level=currentLevel(); for(let r=0;r<level.size;r++) for(let c=0;c<level.size;c++) if(!state.fixed[keyOf(r,c)] && state.values[r][c]!==level.solution[r][c]) { pushHistory(); state.values[r][c]=level.solution[r][c]; render("Tipp: Eine sichere Zahl ist eingetragen."); checkAndWin(); return; } },
+    renderPad() { const level=currentLevel(), max=this.maxNumber(level); numberPad.innerHTML=""; numberPad.hidden=false; numberPad.classList.add("hidoku-pad"); numberPad.style.setProperty("--pad-cols", level.size); for(let n=1;n<=max;n++){ const b=document.createElement("button"); b.type="button"; b.textContent=n; b.disabled=Boolean(this.numberPosition(n)) && (!state.selected || state.values[state.selected[0]][state.selected[1]]!==n); b.addEventListener("click",()=>this.setNumber(n)); numberPad.append(b); } const clear=document.createElement("button"); clear.type="button"; clear.className="clear-number-button"; clear.textContent="Löschen"; clear.addEventListener("click",()=>this.clear()); numberPad.append(clear); },
+    render(level) { board.innerHTML=""; board.style.setProperty("--size", level.size); numberPad.classList.remove("hidoku-pad"); for(let r=0;r<level.size;r++) for(let c=0;c<level.size;c++){ const selected=state.selected&&sameCell(state.selected,[r,c]); const fixed=state.fixed[keyOf(r,c)]; const value=state.values[r][c] || ""; const cell=makeButtonCell(r,c,`cell hidoku-cell${fixed?" given":""}${selected?" selected":""}${this.conflict(r,c)?" conflict":""}`, value); cell.addEventListener("click",()=>this.select(r,c)); board.append(cell); } if(state.selected) this.renderPad(); },
+  },
   kakuro: {
     resetState(level) { state = { values: zeros(level.size, level.size, null), selected: null }; setStatus("Tippe auf ein weißes Feld und wähle eine Zahl."); },
     checkWin() { const level=currentLevel(); const filled=level.solution.every((row,r)=>row.every((value,c)=>!value || Boolean(state.values[r][c]))); return filled && level.runs.every((run)=>!this.runConflict(run)); },
