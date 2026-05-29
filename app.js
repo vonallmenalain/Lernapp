@@ -298,7 +298,7 @@ const GAME_CONFIGS = {
     title: "Meerestiere", eyebrow: "Im Wasser suchen", code: "B",
     subtitle: "Finde alle versteckten Meerestiere im Wasser.",
     success: "Alle Meerestiere sind gefunden!", 
-    rules: ["Die Zahlen zeigen, wie viele Tierfelder in Reihe und Spalte sind.", "Tippe: leer, Tier, Wasser und wieder leer.", "Tiere berühren sich nicht, auch nicht an den Ecken."],
+    rules: ["Die Zahlen zeigen, wie viele Tierfelder in Reihe und Spalte sind.", "Tippe: leer, Tier, Wasser und wieder leer.", "Wasser ist nur eine Hilfe: Für den Erfolg müssen nur die Tier-Anzahlen stimmen."],
   },
   shikaku: {
     title: "Tiergehege", eyebrow: "Gehege bauen", code: "G",
@@ -332,6 +332,7 @@ function sameCell(a, b) { return a && b && a[0] === b[0] && a[1] === b[1]; }
 function isNeighbor(a, b) { return Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]) === 1; }
 function zeros(rows, cols = rows, fill = 0) { return Array.from({ length: rows }, () => Array(cols).fill(fill)); }
 function counts(grid) { return { rowCounts: grid.map((r) => r.reduce((a, b) => a + b, 0)), colCounts: grid[0].map((_, c) => grid.reduce((a, r) => a + r[c], 0)) }; }
+function sameCounts(a, b) { return JSON.stringify(a) === JSON.stringify(b); }
 function cluesFor(lines) { return lines.map((line) => { const out=[]; let n=0; line.forEach((v)=>{ if(v) n++; else if(n){out.push(n); n=0;} }); if(n) out.push(n); return out.length ? out : [0]; }); }
 function gridFromStrings(lines, mark = "#") { return lines.map((line) => [...line].map((char) => char === mark ? 1 : 0)); }
 function makeLevel(game, difficulty, index, data) {
@@ -685,9 +686,23 @@ const GAME_HANDLERS = {
 function simpleGridGame(game, solutionField, cycle, symbols) {
   return {
     resetState(level) { state = { grid: zeros(level.size, level.size, "") }; setStatus(game === "nonogram" ? "Fülle Felder und entdecke das Bild." : "Finde alle Meerestiere im Wasser."); },
-    checkWin() { const level=currentLevel(); return state.grid.every((row,r)=>row.every((v,c)=>(v === cycle[1]) === Boolean(level[solutionField][r][c]))); },
+    checkWin() {
+      const level=currentLevel();
+      if(game === "bimaru") {
+        const animalCounts = counts(state.grid.map((row)=>row.map((v)=>v === cycle[1] ? 1 : 0)));
+        return sameCounts(animalCounts.rowCounts, level.rowCounts) && sameCounts(animalCounts.colCounts, level.colCounts);
+      }
+      return state.grid.every((row,r)=>row.every((v,c)=>(v === cycle[1]) === Boolean(level[solutionField][r][c])));
+    },
     input(r,c) { pushHistory(); const i=cycle.indexOf(state.grid[r][c]); state.grid[r][c]=cycle[(i+1)%cycle.length]; this.checkWin()?handleWin():render("Gut! Schau weiter auf die Zahlen."); },
-    hint() { const level=currentLevel(); for(let r=0;r<level.size;r++) for(let c=0;c<level.size;c++){ const want=level[solutionField][r][c] ? cycle[1] : cycle[2]; if(state.grid[r][c]!==want){ pushHistory(); state.grid[r][c]=want; render("Tipp: Ein sicheres Feld ist markiert."); checkAndWin(); return; } } },
+    hint() {
+      const level=currentLevel();
+      for(let r=0;r<level.size;r++) for(let c=0;c<level.size;c++){
+        const want=level[solutionField][r][c] ? cycle[1] : cycle[2];
+        if(game === "bimaru" && state.grid[r][c]===cycle[1] && !level[solutionField][r][c]) { pushHistory(); state.grid[r][c]=cycle[0]; render("Tipp: Ein Tier passt hier nicht zu den Zahlen."); checkAndWin(); return; }
+        if(state.grid[r][c]!==want && (game !== "bimaru" || want === cycle[1])){ pushHistory(); state.grid[r][c]=want; render("Tipp: Ein sicheres Feld ist markiert."); checkAndWin(); return; }
+      }
+    },
     render(level) { if(game === "nonogram") renderNonogram(level, this); else renderCountBoard(level, (r,c)=>{ const v=state.grid[r][c]; const cell=makeButtonCell(r,c,`cell ${game}-cell ${v}`, symbols[v] || ""); cell.addEventListener("click",()=>this.input(r,c)); return cell; }); },
   };
 }
