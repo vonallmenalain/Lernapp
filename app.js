@@ -294,30 +294,6 @@ const GAME_CONFIGS = {
     success: "Alle Meerestiere sind gefunden!", 
     rules: ["Die Zahlen zeigen, wie viele Tierfelder in Reihe und Spalte sind.", "Tippe: leer, Tier, Wasser und wieder leer.", "Wasser ist nur eine Hilfe: Für den Erfolg müssen nur die Tier-Anzahlen stimmen."],
   },
-  shikaku: {
-    title: "Tiergehege", eyebrow: "Gehege bauen", code: "G",
-    subtitle: "Baue für jedes Tier ein Gehege mit genau der richtigen Grösse.",
-    success: "Alle Tiere haben ein passendes Gehege!",
-    rules: ["Tippe zuerst auf eine Zahl.", "Tippe danach auf die zweite Ecke des Rechtecks.", "Das Rechteck muss genau so viele Felder haben wie die Zahl."],
-  },
-  thermometer: {
-    title: "Zaubertrank", eyebrow: "Röhren füllen", code: "T",
-    subtitle: "Fülle die Zaubertrank-Röhren genau richtig.",
-    success: "Die Zaubertränke sind richtig gefüllt!",
-    rules: ["Tippe auf eine Röhre, um sie bis dorthin zu füllen.", "Die Zahlen zeigen gefüllte Felder in Reihe und Spalte.", "Eine Röhre wird immer vom Anfang an gefüllt."],
-  },
-  patterns: {
-    title: "Muster", eyebrow: "Zeichen erkennen", code: "M",
-    subtitle: "Erkenne das Muster und wähle das richtige Zeichen.",
-    success: "Du hast das Muster erkannt!",
-    rules: ["Schau dir die Reihe genau an.", "Tippe unten auf das passende Zeichen.", "Bei zwei Lücken wählst du nacheinander die richtigen Zeichen."],
-  },
-  maze: {
-    title: "Labyrinth", eyebrow: "Weg finden", code: "L",
-    subtitle: "Finde den Weg zum Ziel und beachte die Regel.",
-    success: "Du bist sicher am Ziel angekommen!",
-    rules: ["Tippe immer auf ein Nachbarfeld.", "Wände kannst du nicht betreten.", "Sammle wichtige Dinge, bevor du zum Ziel gehst."],
-  },
 };
 
 function clone(value) { return typeof structuredClone === "function" ? structuredClone(value) : JSON.parse(JSON.stringify(value)); }
@@ -359,64 +335,10 @@ const BIMARU_LEVELS = [
   ["hard", sea(["01100000","00000100","10000100","00000100","00000000","11100001","00000000","00111000"], {1:2,2:1,3:3})],
   ["hard", sea(["10001000","00001000","01100001","00000000","00111000","00000010","11000010","00000010"], {1:2,2:2,3:2})],
 ].map(([difficulty, data], i) => makeLevel("bimaru", difficulty, (i % 3) + 1, { ...data, description: "Finde die Tierfelder im Wasser." }));
-function rectRegions(size, rects) { const g=zeros(size,size,""); rects.forEach((r, idx)=>{ for(let y=r[0]; y<=r[2]; y++) for(let x=r[1]; x<=r[3]; x++) g[y][x]=String(idx+1); }); return g; }
-function cluesFromRegions(regions) { const seen={}; regions.forEach((row,r)=>row.forEach((id,c)=>{ if(!seen[id]) seen[id]={id,row:r,col:c,value:0}; seen[id].value++; })); return Object.values(seen).map(({row,col,value})=>({row,col,value})); }
-const SHIKAKU_RECTS = {
-  easy: [ [[0,0,0,1],[0,2,1,3],[1,0,3,0],[2,1,3,3]], [[0,0,1,1],[0,2,0,3],[1,2,3,2],[1,3,3,3],[2,0,3,1]], [[0,0,2,0],[0,1,1,2],[0,3,3,3],[2,1,3,2]] ],
-  medium: [ [[0,0,1,1],[0,2,2,2],[0,3,1,4],[2,0,4,0],[2,1,4,2],[2,3,4,4]], [[0,0,0,4],[1,0,2,1],[1,2,3,2],[1,3,2,4],[3,0,4,1],[4,2,4,4]], [[0,0,2,0],[0,1,1,2],[0,3,0,4],[1,3,4,3],[1,4,4,4],[2,1,4,2]] ],
-  hard: [ [[0,0,1,2],[0,3,2,3],[0,4,0,6],[1,4,3,4],[1,5,3,6],[2,0,4,0],[2,1,4,2],[3,3,6,3],[4,4,6,6],[5,0,6,2]], [[0,0,0,6],[1,0,2,1],[1,2,3,2],[1,3,3,4],[1,5,3,6],[3,0,6,0],[3,1,4,1],[4,2,6,4],[4,5,6,6]], [[0,0,2,0],[0,1,0,3],[0,4,1,6],[1,1,3,2],[1,3,4,3],[2,4,4,6],[3,0,6,0],[4,1,6,2],[5,3,6,6]] ]
-};
-const SHIKAKU_LEVELS = Object.entries(SHIKAKU_RECTS).flatMap(([difficulty, list]) => list.map((rects, i) => { const regions=rectRegions(difficulty === "hard" ? 7 : difficulty === "medium" ? 5 : 4, rects); return makeLevel("shikaku", difficulty, i+1, { size: regions.length, solutionRegions: regions, clues: cluesFromRegions(regions), description: "Baue Rechtecke um die Zahlen." }); }));
-function thermo(size, thermometers, fillLengths) { const solution=zeros(size); thermometers.forEach((path,i)=>path.slice(0,fillLengths[i]).forEach(([r,c])=>solution[r][c]=1)); return { size, thermometers, fillLengths, solutionFilled: solution, ...counts(solution) }; }
-const THERMOMETER_LEVELS = [
-  ["easy", thermo(4, [[[0,0],[1,0]],[[0,1],[0,2],[0,3]],[[1,1],[2,1],[3,1]],[[2,2],[2,3],[3,3]]], [1,2,3,2])],
-  ["easy", thermo(4, [[[0,0],[0,1]],[[1,0],[2,0],[3,0]],[[1,1],[1,2],[1,3]],[[2,2],[3,2],[3,3]]], [2,1,3,1])],
-  ["easy", thermo(4, [[[0,3],[0,2],[0,1]],[[0,0],[1,0],[2,0]],[[1,1],[2,1],[3,1]],[[2,2],[2,3],[3,3]]], [2,2,1,3])],
-  ["medium", thermo(6, [[[0,0],[0,1],[1,1]],[[0,2],[1,2],[2,2]],[[0,3],[0,4],[0,5]],[[1,0],[2,0],[3,0]],[[2,3],[3,3],[4,3]],[[3,1],[4,1],[5,1]],[[4,4],[5,4],[5,5]]], [2,3,1,2,2,3,2])],
-  ["medium", thermo(6, [[[0,5],[1,5],[2,5]],[[0,0],[1,0],[1,1]],[[0,2],[0,3],[1,3]],[[2,0],[3,0],[4,0]],[[2,2],[3,2],[3,3]],[[4,2],[5,2],[5,3]],[[4,4],[4,5],[5,5]]], [1,3,2,1,3,2,2])],
-  ["medium", thermo(6, [[[0,0],[0,1],[0,2]],[[1,0],[2,0],[2,1]],[[0,3],[1,3],[2,3]],[[0,5],[1,5],[2,5]],[[3,0],[4,0],[5,0]],[[3,2],[4,2],[5,2]],[[3,4],[4,4],[5,4],[5,5]]], [3,2,1,3,2,2,3])],
-  ["hard", thermo(8, [[[0,0],[0,1],[1,1],[2,1]],[[0,2],[0,3],[1,3],[2,3]],[[0,4],[1,4],[1,5],[1,6]],[[0,7],[1,7],[2,7],[3,7]],[[3,0],[4,0],[4,1],[5,1]],[[3,2],[4,2],[5,2],[6,2]],[[3,4],[4,4],[4,5],[5,5]],[[5,6],[6,6],[7,6],[7,7]],[[6,0],[7,0],[7,1],[7,2]]], [3,2,4,1,3,4,2,3,2])],
-  ["hard", thermo(8, [[[0,0],[1,0],[2,0],[2,1]],[[0,1],[0,2],[1,2],[2,2]],[[0,4],[0,5],[0,6],[0,7]],[[1,4],[2,4],[3,4],[3,5]],[[3,0],[4,0],[5,0],[6,0]],[[4,2],[4,3],[5,3],[6,3]],[[5,5],[6,5],[6,6],[7,6]],[[7,0],[7,1],[7,2],[7,3]]], [2,3,2,3,1,4,2,3])],
-  ["hard", thermo(8, [[[0,7],[1,7],[1,6],[2,6]],[[0,0],[0,1],[0,2],[1,2]],[[1,0],[2,0],[3,0],[3,1]],[[2,2],[2,3],[3,3],[4,3]],[[0,4],[1,4],[2,4],[3,4]],[[4,0],[5,0],[6,0],[7,0]],[[5,2],[6,2],[7,2],[7,3]],[[4,5],[5,5],[6,5],[7,5]],[[5,7],[6,7],[7,7]]], [4,2,3,2,4,2,3,1,3])],
-].map(([difficulty, data], i) => makeLevel("thermometer", difficulty, (i % 3) + 1, { ...data, description: "Fülle die Röhren passend zu den Zahlen." }));
-const PATTERN_LEVELS = [
-  ["easy", ["🔴","🔵","🔴","🔵",null], ["🔴","🔵","🟢"], ["🔴"], "Rot und Blau wechseln sich ab."],
-  ["easy", ["⭐","⭐","🌙","⭐","⭐",null], ["⭐","🌙","☀️"], ["🌙"], "Zwei Sterne, ein Mond."],
-  ["easy", ["🟧","🟩","🟧","🟩",null], ["🟧","🟩","🟦"], ["🟧"], "Orange, Grün, Orange, Grün."],
-  ["easy", ["🐶","🐱","🐶","🐱",null], ["🐶","🐱","🐰"], ["🐶"], "Hund und Katze wechseln."],
-  ["easy", ["🍎","🍎","🍌","🍎","🍎",null], ["🍎","🍌","🍐"], ["🍌"], "Zwei Äpfel, eine Banane."],
-  ["medium", ["🔴","🔵","🟢","🔴","🔵",null], ["🔴","🔵","🟢"], ["🟢"], "Drei Farben wiederholen sich."],
-  ["medium", ["▲","▲","●","●","▲","▲",null], ["▲","●","■"], ["●"], "Zwei Dreiecke, zwei Kreise."],
-  ["medium", ["🟥","🔵","🟨","🟥","🔵",null], ["🟥","🔵","🟨"], ["🟨"], "Rot, Blau, Gelb."],
-  ["medium", ["🐟","🐟","🐙","🐟","🐟",null], ["🐟","🐙","🦀"], ["🐙"], "Zwei Fische, ein Oktopus."],
-  ["medium", ["🌼","🌷","🌻","🌼",null,"🌻"], ["🌼","🌷","🌻"], ["🌷"], "Blumen kommen in der gleichen Reihenfolge."],
-  ["hard", ["1","2","3","1",null,"3","1",null], ["1","2","3"], ["2","2"], "Die Zahlen laufen 1, 2, 3."],
-  ["hard", ["🔺","🔵","🟨","🔺",null,"🟨","🔺",null], ["🔺","🔵","🟨"], ["🔵","🔵"], "Formen wiederholen sich in Dreierschritten."],
-  ["hard", ["🐸","🐸","🦊","🐼","🐸","🐸",null,"🐼"], ["🐸","🦊","🐼"], ["🦊"], "Zwei Frösche, Fuchs, Panda."],
-  ["hard", ["☀️","🌧️","🌈","☀️",null,"🌈","☀️",null], ["☀️","🌧️","🌈"], ["🌧️","🌧️"], "Wetterzeichen wiederholen sich."],
-  ["hard", ["A","B","B","C","A",null,"B","C"], ["A","B","C"], ["B"], "Nach A kommen zwei B und dann C."],
-].map(([difficulty, sequence, options, answers, hint], i) => makeLevel("patterns", difficulty, (i % 5) + 1, { sequence: sequence.map((v)=> v === null ? null : { text: v }), missingIndices: sequence.map((v,idx)=>v===null?idx:null).filter(v=>v!==null), options: options.map((text)=>({text})), answers: answers.map((text)=>({text})), hint, description: "Wähle das Zeichen, das in die Lücke passt." }));
-function maze(size, start, goal, walls, solutionPath, extra={}) { return { size, start, goal, walls, solutionPath, ...extra }; }
-const MAZE_LEVELS = [
-  ["easy", maze(5,[0,0],[4,4],[[1,1],[1,2],[3,1],[3,3]],[[0,0],[0,1],[0,2],[0,3],[1,3],[2,3],[2,4],[3,4],[4,4]], {ruleText:"Finde den Weg zum Ziel."})],
-  ["easy", maze(5,[4,0],[0,4],[[1,1],[2,1],[2,3],[3,3]],[[4,0],[3,0],[2,0],[1,0],[0,0],[0,1],[0,2],[0,3],[0,4]], {ruleText:"Gehe um die Mauern herum."})],
-  ["easy", maze(5,[2,0],[2,4],[[1,2],[2,2],[3,2]],[[2,0],[1,0],[0,0],[0,1],[0,2],[0,3],[1,3],[2,3],[2,4]], {ruleText:"Der Weg macht einen kleinen Bogen."})],
-  ["medium", maze(6,[0,0],[5,5],[[1,1],[1,2],[2,4],[3,1],[4,3]],[[0,0],[0,1],[0,2],[0,3],[1,3],[2,3],[3,3],[3,4],[4,4],[5,4],[5,5]], {keys:[[3,3]], ruleText:"Sammle zuerst den Schlüssel 🔑."})],
-  ["medium", maze(6,[5,0],[0,5],[[4,1],[3,1],[2,2],[1,3],[4,4]],[[5,0],[5,1],[5,2],[4,2],[3,2],[3,3],[3,4],[2,4],[1,4],[0,4],[0,5]], {keys:[[3,3]], ruleText:"Nimm den Schlüssel mit."})],
-  ["medium", maze(6,[0,5],[5,0],[[1,4],[2,4],[3,2],[4,2],[1,1]],[[0,5],[0,4],[0,3],[1,3],[2,3],[2,2],[2,1],[3,1],[4,1],[5,1],[5,0]], {keys:[[2,2]], ruleText:"Erst Schlüssel, dann Ziel."})],
-  ["hard", maze(8,[0,0],[7,7],[[1,1],[1,2],[2,5],[3,1],[3,3],[4,5],[5,2],[6,4]],[[0,0],[0,1],[0,2],[0,3],[1,3],[2,3],[2,4],[3,4],[4,4],[5,4],[5,5],[6,5],[7,5],[7,6],[7,7]], {keys:[[2,4],[5,5]], ruleText:"Sammle beide Schlüssel."})],
-  ["hard", maze(8,[7,0],[0,7],[[6,1],[5,1],[4,3],[3,3],[2,5],[1,5],[6,5],[2,1]],[[7,0],[7,1],[7,2],[6,2],[5,2],[5,3],[5,4],[4,4],[3,4],[2,4],[1,4],[0,4],[0,5],[0,6],[0,7]], {keys:[[5,4],[2,4]], ruleText:"Sammle die Schlüssel auf deinem Weg."})],
-  ["hard", maze(8,[0,7],[7,0],[[1,6],[2,6],[3,4],[4,4],[5,2],[6,2],[2,2],[5,6]],[[0,7],[0,6],[0,5],[1,5],[2,5],[3,5],[4,5],[4,6],[4,7],[5,7],[6,7],[7,7],[7,6],[7,5],[7,4],[7,3],[7,2],[7,1],[7,0]], {keys:[[3,5],[7,3]], ruleText:"Nicht durch Mauern: sammle die Schlüssel."})],
-].map(([difficulty, data], i) => makeLevel("maze", difficulty, (i % 3) + 1, { ...data, description: data.ruleText }));
-
 const LEVELS_BY_GAME = {
   arukone: ARUKONE_LEVELS,
   sudoku: [...SUDOKU_EASY, ...SUDOKU_MEDIUM, ...SUDOKU_HARD],
   bimaru: BIMARU_LEVELS,
-  shikaku: SHIKAKU_LEVELS,
-  thermometer: THERMOMETER_LEVELS,
-  patterns: PATTERN_LEVELS,
-  maze: MAZE_LEVELS,
 };
 
 const board = document.querySelector("#board");
@@ -628,39 +550,6 @@ const GAME_HANDLERS = {
     render(level) { board.innerHTML=""; board.style.setProperty("--size", level.size); for(let r=0;r<level.size;r++) for(let c=0;c<level.size;c++){ const v=state.values[r][c], fixed=state.fixed[keyOf(r,c)], selected=state.selected&&sameCell(state.selected,[r,c]); const edgeR=(c+1)%level.boxCols===0&&c<level.size-1, edgeB=(r+1)%level.boxRows===0&&r<level.size-1; const cell=makeButtonCell(r,c,`cell sudoku-cell${fixed?" given":""}${selected?" selected":""}${this.conflict(r,c,v)?" conflict":""}${edgeR?" box-edge-right":""}${edgeB?" box-edge-bottom":""}`, v || ""); cell.addEventListener("click",()=>this.select(r,c)); board.append(cell); } if(state.selected) this.renderPad(); },
   },
   bimaru: simpleGridGame("bimaru", "solution", ["","animal","water"], { animal:"🐟", water:"~" }),
-  shikaku: {
-    resetState(level){ state={ regions: zeros(level.size, level.size, ""), selectedClue: null, nextColor: 1 }; setStatus("Tippe zuerst auf eine Zahl."); },
-    checkWin(){ const sol=currentLevel().solutionRegions; return state.regions.every((row,r)=>row.every((v,c)=>String(v)===String(sol[r][c]))); },
-    clueAt(r,c){ return currentLevel().clues.find((cl)=>cl.row===r&&cl.col===c); },
-    input(r,c){ const clue=this.clueAt(r,c); if(clue){ state.selectedClue=clue; render(`Gehege mit ${clue.value} Feldern: Tippe auf die andere Ecke.`); return; } if(!state.selectedClue){ render("Tippe zuerst auf eine Zahl."); return; } const cl=state.selectedClue, r1=Math.min(r,cl.row), r2=Math.max(r,cl.row), c1=Math.min(c,cl.col), c2=Math.max(c,cl.col), area=(r2-r1+1)*(c2-c1+1); if(area!==cl.value){ render("Das Gehege braucht genau die Zahl an Feldern."); return; } pushHistory(); const id=currentLevel().solutionRegions[cl.row][cl.col]; for(let y=r1;y<=r2;y++) for(let x=c1;x<=c2;x++) state.regions[y][x]=id; state.selectedClue=null; this.checkWin()?handleWin():render("Schönes Gehege! Baue weiter."); },
-    hint(){ const level=currentLevel(); const clue=level.clues.find((cl)=>state.regions[cl.row][cl.col]!==level.solutionRegions[cl.row][cl.col]); if(!clue) return; pushHistory(); const id=level.solutionRegions[clue.row][clue.col]; for(let r=0;r<level.size;r++) for(let c=0;c<level.size;c++) if(level.solutionRegions[r][c]===id) state.regions[r][c]=id; render("Tipp: Ein passendes Gehege ist eingezeichnet."); checkAndWin(); },
-    render(level){ board.innerHTML=""; board.style.setProperty("--size", level.size); for(let r=0;r<level.size;r++) for(let c=0;c<level.size;c++){ const clue=this.clueAt(r,c), id=state.regions[r][c]; const cell=makeButtonCell(r,c,`cell shikaku-cell${clue?" clue":""}${id?" region":""}${state.selectedClue&&sameCell([r,c],[state.selectedClue.row,state.selectedClue.col])?" selected":""}`, clue ? clue.value : ""); if(id) cell.style.setProperty("--region-hue", (Number(id)*47)%360); cell.addEventListener("click",()=>this.input(r,c)); board.append(cell); } },
-  },
-  thermometer: {
-    resetState(level){ state={ fillLengths: level.thermometers.map(()=>0) }; setStatus("Tippe eine Zaubertrank-Röhre an."); },
-    filledGrid(){ const level=currentLevel(), g=zeros(level.size); level.thermometers.forEach((path,i)=>path.slice(0,state.fillLengths[i]).forEach(([r,c])=>g[r][c]=1)); return g; },
-    thermoAt(r,c){ let found=null; currentLevel().thermometers.forEach((p,i)=>{ const idx=p.findIndex((pt)=>sameCell(pt,[r,c])); if(idx>=0) found=[i,idx]; }); return found; },
-    input(r,c){ const hit=this.thermoAt(r,c); if(!hit) return; pushHistory(); const [i,idx]=hit; state.fillLengths[i] = state.fillLengths[i] === idx+1 ? idx : idx+1; this.checkWin()?handleWin():render("Blubb! Die Röhre ist gefüllt."); },
-    checkWin(){ const g=this.filledGrid(), level=currentLevel(), cc=counts(g); return JSON.stringify(g)===JSON.stringify(level.solutionFilled) && JSON.stringify(cc.rowCounts)===JSON.stringify(level.rowCounts) && JSON.stringify(cc.colCounts)===JSON.stringify(level.colCounts); },
-    hint(){ const level=currentLevel(); const i=state.fillLengths.findIndex((v,idx)=>v!==level.fillLengths[idx]); if(i<0) return; pushHistory(); state.fillLengths[i]=level.fillLengths[i]; render("Tipp: Eine Röhre ist passend gefüllt."); checkAndWin(); },
-    render(level){ const g=this.filledGrid(); renderCountBoard(level, (r,c)=>{ const hit=this.thermoAt(r,c); const cell=makeButtonCell(r,c,`cell thermo-cell${hit?" tube":""}${g[r][c]?" filled-potion":""}`, hit ? (hit[1]===0 ? "●" : "") : ""); cell.addEventListener("click",()=>this.input(r,c)); return cell; }); },
-  },
-  patterns: {
-    resetState(level){ state={ answers: Array(level.missingIndices.length).fill(null) }; setStatus("Wähle unten das passende Zeichen."); },
-    checkWin(){ const level=currentLevel(); return state.answers.every((a,i)=>a && a.text===level.answers[i].text); },
-    choose(opt){ const idx=state.answers.findIndex((a)=>!a); if(idx<0) return; pushHistory(); state.answers[idx]=opt; this.checkWin()?handleWin():render(state.answers[idx].text===currentLevel().answers[idx].text?"Richtig! Eine Lücke ist gefüllt.":"Schau noch einmal genau auf das Muster."); },
-    hint(){ setStatus(`Tipp: ${currentLevel().hint}`); },
-    render(level){ board.innerHTML=""; board.className="board patterns-board"; board.style.setProperty("--size", level.sequence.length); level.sequence.forEach((item,i)=>{ const missingIndex=level.missingIndices.indexOf(i); let text=item?.text || "?"; if(missingIndex>=0 && state.answers[missingIndex]) text=state.answers[missingIndex].text; const cell=makeButtonCell(0,i,`cell pattern-cell${missingIndex>=0?" missing":""}`, text); board.append(cell); }); const options=document.createElement("div"); options.className="pattern-options"; level.options.forEach((opt)=>{ const b=document.createElement("button"); b.type="button"; b.textContent=opt.text; b.addEventListener("click",()=>this.choose(opt)); options.append(b); }); board.append(options); },
-  },
-  maze: {
-    resetState(level){ state={ path:[level.start], keys:[] }; setStatus(level.ruleText); },
-    hasWall(r,c){ return currentLevel().walls.some((pt)=>sameCell(pt,[r,c])); },
-    keyAt(r,c){ return (currentLevel().keys||[]).find((pt)=>sameCell(pt,[r,c])); },
-    checkWin(){ const level=currentLevel(), last=state.path.at(-1); const keys=(level.keys||[]); return sameCell(last, level.goal) && keys.every((k)=>state.keys.some((got)=>sameCell(got,k))); },
-    input(r,c){ const last=state.path.at(-1); if(this.hasWall(r,c)){ render("Da ist eine Mauer. Suche einen anderen Weg."); return; } if(!isNeighbor(last,[r,c])){ render("Gehe Schritt für Schritt auf ein Nachbarfeld."); return; } if(state.path.some((pt)=>sameCell(pt,[r,c]))){ render("Dort warst du schon. Nutze Zurück, wenn du anders laufen willst."); return; } pushHistory(); state.path.push([r,c]); if(this.keyAt(r,c)) state.keys.push([r,c]); if(sameCell([r,c], currentLevel().goal) && !this.checkWin()){ render("Vor dem Ziel fehlt noch ein Schlüssel."); return; } this.checkWin()?handleWin():render(this.keyAt(r,c)?"Schlüssel gesammelt!":"Guter Schritt!"); },
-    hint(){ const level=currentLevel(); const next=level.solutionPath.find((pt)=>!state.path.some((p)=>sameCell(p,pt))); if(next) setStatus(`Tipp: Versuche als Nächstes ein Feld neben deinem Weg Richtung Zeile ${next[0]+1}, Spalte ${next[1]+1}.`); else setStatus(level.ruleText); },
-    render(level){ board.innerHTML=""; board.style.setProperty("--size", level.size); for(let r=0;r<level.size;r++) for(let c=0;c<level.size;c++){ const inPath=state.path.some((pt)=>sameCell(pt,[r,c])), wall=this.hasWall(r,c), start=sameCell(level.start,[r,c]), goal=sameCell(level.goal,[r,c]), key=this.keyAt(r,c), got=state.keys.some((pt)=>sameCell(pt,[r,c])); const text=start?"🚩":goal?"🏁":key&&!got?"🔑":""; const cell=makeButtonCell(r,c,`cell maze-cell${wall?" wall":""}${inPath?" path":""}${start?" start":""}${goal?" goal":""}${key?" key":""}`, text); if(!wall) cell.addEventListener("click",()=>this.input(r,c)); board.append(cell); } },
-  },
 };
 
 function simpleGridGame(game, solutionField, cycle, symbols) {
