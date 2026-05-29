@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Lernapp: Arukone für Kinder</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="hero" aria-labelledby="app-title">
+        <p class="eyebrow">Rätsel-Lernapp</p>
+        <h1 id="app-title">Arukone für Kinder</h1>
+        <p class="intro">
+          Verbinde gleiche Symbole mit einem Weg. Die Wege dürfen sich nicht kreuzen
+          und am Ende soll jedes Feld genutzt werden.
+        </p>
+      </section>
+
+      <section class="controls" aria-label="Rätselsteuerung">
+        <label for="difficulty">Schwierigkeit</label>
+        <select id="difficulty"></select>
+        <button id="undo-button" type="button">Rückgängig</button>
+        <button id="reset-button" type="button">Von vorne beginnen</button>
+      </section>
+
+      <section class="game-card">
+        <div class="status-row">
+          <div>
+            <p class="small-label">Aktuelles Rätsel</p>
+            <h2 id="puzzle-title">Einfach</h2>
+          </div>
+          <p id="status" class="status" role="status" aria-live="polite">
+            Wähle einen Startpunkt aus.
+          </p>
+        </div>
+
+        <div id="board" class="board" aria-label="Arukone Spielfeld"></div>
+
+        <details class="help" open>
+          <summary>So spielst du</summary>
+          <ul>
+            <li>Klicke auf ein Symbol und danach auf benachbarte Felder.</li>
+            <li>Du darfst nur waagerecht oder senkrecht weitergehen.</li>
+            <li>Ein Weg endet beim passenden zweiten Symbol.</li>
+            <li>Mit „Rückgängig“ nimmst du den letzten Schritt zurück.</li>
+          </ul>
+        </details>
+      </section>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>
