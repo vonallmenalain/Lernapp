@@ -264,8 +264,8 @@ const GAME_COPY = {
       "Auch in jeder dicken 2×2 Box gehört jede Zahl genau einmal hinein.",
     ],
     help: [
-      "Tippe zuerst auf ein leeres Feld.",
-      "Wähle danach unten eine Zahl von 1 bis 4 aus.",
+      "Tippe auf ein leeres Feld, damit die Zahlenauswahl erscheint.",
+      "Wähle im Pop-up eine Zahl von 1 bis 4 aus.",
       "Startzahlen sind fest und können nicht verändert werden.",
       "Mit dem Pfeil nimmst du deine letzte Zahl zurück.",
     ],
@@ -414,7 +414,7 @@ function setPuzzle(key) {
   board.className = `board ${currentGame}-board`;
   board.setAttribute("aria-label", currentGame === "sudoku" ? "Sudoku Spielfeld" : "Arukone Spielfeld");
   numberPad.innerHTML = "";
-  numberPad.hidden = currentGame !== "sudoku";
+  numberPad.hidden = true;
   puzzleTitle.textContent = puzzle.title;
   puzzleDescription.textContent = puzzle.description;
   successText.textContent = GAME_COPY[currentGame].success;
@@ -602,7 +602,7 @@ function resetSudoku() {
     fixedSudokuCells.add(cellKey(row, col));
   });
   selectedSudokuCell = null;
-  render("Tippe auf ein leeres Feld und wähle unten eine Zahl.");
+  render("Tippe auf ein leeres Feld, damit die Zahlenauswahl erscheint.");
 }
 
 function checkSudokuWin() {
@@ -630,11 +630,12 @@ function hasSudokuConflict(row, col, value) {
 
 function selectSudokuCell(row, col) {
   if (fixedSudokuCells.has(cellKey(row, col))) {
+    selectedSudokuCell = null;
     render("Diese Startzahl bleibt stehen. Wähle ein leeres Feld.");
     return;
   }
   selectedSudokuCell = [row, col];
-  render("Wähle jetzt unten eine Zahl von 1 bis 4.");
+  render("Wähle eine Zahl im Pop-up aus.");
 }
 
 function setSudokuNumber(value) {
@@ -645,12 +646,55 @@ function setSudokuNumber(value) {
   const [row, col] = selectedSudokuCell;
   pushHistory();
   sudokuValues[row][col] = value;
+  selectedSudokuCell = null;
   if (checkSudokuWin()) {
     handleWin();
     render();
     return;
   }
   render(hasSudokuConflict(row, col, value) ? "Fast! Diese Zahl kommt hier doppelt vor." : "Gut! Fülle weiter die leeren Felder.");
+}
+
+function positionSudokuNumberPad() {
+  if (!selectedSudokuCell || numberPad.hidden) return;
+  const [row, col] = selectedSudokuCell;
+  const selectedCell = board.querySelector(`[data-row="${row}"][data-col="${col}"]`);
+  if (!selectedCell) return;
+
+  const cellRect = selectedCell.getBoundingClientRect();
+  const padRect = numberPad.getBoundingClientRect();
+  const spacing = 10;
+  const viewportPadding = 8;
+  const viewportWidth = document.documentElement.clientWidth;
+  const viewportHeight = document.documentElement.clientHeight;
+  let left = cellRect.left + (cellRect.width / 2) - (padRect.width / 2);
+  let top = cellRect.bottom + spacing;
+
+  left = Math.max(viewportPadding, Math.min(left, viewportWidth - padRect.width - viewportPadding));
+  if (top + padRect.height + viewportPadding > viewportHeight) {
+    top = cellRect.top - padRect.height - spacing;
+  }
+  top = Math.max(viewportPadding, top);
+
+  numberPad.style.left = `${left}px`;
+  numberPad.style.top = `${top}px`;
+}
+
+function renderSudokuNumberPad() {
+  numberPad.innerHTML = "";
+  numberPad.hidden = !selectedSudokuCell;
+  numberPad.setAttribute("aria-hidden", String(!selectedSudokuCell));
+  if (!selectedSudokuCell) return;
+
+  [1, 2, 3, 4].forEach((number) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = number;
+    button.setAttribute("aria-label", `Zahl ${number} einsetzen`);
+    button.addEventListener("click", () => setSudokuNumber(number));
+    numberPad.append(button);
+  });
+  requestAnimationFrame(positionSudokuNumberPad);
 }
 
 function getCellFromPoint(clientX, clientY) {
@@ -728,7 +772,7 @@ function renderSudoku(message = statusText.textContent) {
   const puzzle = getPuzzle();
   board.innerHTML = "";
   numberPad.innerHTML = "";
-  numberPad.hidden = false;
+  numberPad.hidden = true;
   if (!winShown) statusText.textContent = message;
   for (let row = 0; row < puzzle.size; row += 1) {
     for (let col = 0; col < puzzle.size; col += 1) {
@@ -749,13 +793,7 @@ function renderSudoku(message = statusText.textContent) {
       board.append(cell);
     }
   }
-  [1, 2, 3, 4].forEach((number) => {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.textContent = number;
-    button.addEventListener("click", () => setSudokuNumber(number));
-    numberPad.append(button);
-  });
+  renderSudokuNumberPad();
 }
 
 document.querySelectorAll(".choose-game-button[data-game]").forEach((button) => {

@@ -412,15 +412,17 @@ body.puzzle-active .game-card {
   min-height: 0;
   height: 100%;
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: max-content minmax(0, 1fr);
   padding: clamp(8px, 1.8vh, 18px);
   overflow: hidden;
   border-radius: 22px;
 }
 
 body.puzzle-active .status-row {
+  position: relative;
+  z-index: 2;
   justify-content: center;
-  margin-bottom: 8px;
+  margin-bottom: clamp(10px, 2vh, 18px);
   text-align: center;
 }
 
@@ -432,10 +434,15 @@ body.puzzle-active .help {
 }
 
 body.puzzle-active #puzzle-title {
+  display: inline-block;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
   color: var(--muted);
   font-size: clamp(0.86rem, 2.5vw, 1.05rem);
   font-weight: 900;
   letter-spacing: 0.03em;
+  box-shadow: 0 6px 18px rgba(50, 44, 109, 0.08);
 }
 
 body.puzzle-active .board {
@@ -515,7 +522,7 @@ body.puzzle-active .icon-button {
 }
 
 body.puzzle-active .board {
-  width: min(calc(100vw - 36px), calc(100vh - 136px));
+  width: min(calc(100vw - 36px), calc(100vh - 164px));
 }
 
 @media (max-width: 640px) {
@@ -529,7 +536,7 @@ body.puzzle-active .board {
   }
 
   body.puzzle-active .board {
-    width: min(calc(100vw - 28px), calc(100vh - 126px));
+    width: min(calc(100vw - 28px), calc(100vh - 154px));
   }
 }
 
@@ -737,25 +744,32 @@ body.puzzle-active .board {
 }
 
 .number-pad {
+  position: fixed;
+  z-index: 20;
   display: grid;
-  grid-template-columns: repeat(4, minmax(54px, 86px));
+  grid-template-columns: repeat(4, minmax(48px, 62px));
   justify-content: center;
-  gap: 12px;
-  margin: 18px auto 0;
+  gap: 8px;
+  margin: 0;
+  padding: 10px;
+  border: 2px solid var(--primary);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.97);
+  box-shadow: 0 16px 36px rgba(36, 48, 71, 0.22);
 }
 
 .number-pad button {
-  min-height: 58px;
-  border-radius: 18px;
-  font-size: 1.5rem;
+  min-height: 52px;
+  border-radius: 14px;
+  font-size: 1.45rem;
 }
 
 body.puzzle-active .number-pad {
-  margin-top: 8px;
+  margin: 0;
 }
 
 body.puzzle-active .sudoku-board {
-  width: min(calc(100vw - 36px), calc(100vh - 210px));
+  width: min(calc(100vw - 36px), calc(100vh - 190px));
 }
 
 body.puzzle-active #level-panel,
@@ -779,7 +793,7 @@ body.puzzle-active #home-panel {
   }
 
   body.puzzle-active .sudoku-board {
-    width: min(calc(100vw - 28px), calc(100vh - 198px));
+    width: min(calc(100vw - 28px), calc(100vh - 178px));
   }
 }
 
