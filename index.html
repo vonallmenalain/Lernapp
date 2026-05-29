@@ -12,7 +12,7 @@
         <p class="eyebrow">Rätsel-Lernapp</p>
         <h1 id="app-title">Rätsel für Kinder</h1>
         <p id="app-intro" class="intro">
-          Wähle zuerst dein Rätselspiel aus. Danach suchst du dir dein Level als große Kachel aus.
+          Wähle zuerst dein Rätselspiel aus. Danach öffnet sich die passende Levelauswahl nur für dieses Rätsel.
         </p>
       </section>
 
@@ -28,7 +28,7 @@
             <h2>Arukone</h2>
             <p>Verbinde gleiche Symbole. Die Wege dürfen sich nicht kreuzen.</p>
           </div>
-          <button class="choose-game-button" type="button" data-game="arukone">Arukone wählen</button>
+          <a class="choose-game-button" href="arukone.html">Arukone wählen</a>
         </article>
 
         <article class="game-choice-card">
@@ -43,72 +43,9 @@
             <h2>Sudoku</h2>
             <p>Fülle ein 4×4 Feld. Jede Zahl von 1 bis 4 gehört in jede Reihe, Spalte und Box.</p>
           </div>
-          <button class="choose-game-button" type="button" data-game="sudoku">Sudoku wählen</button>
+          <a class="choose-game-button" href="sudoku.html">Sudoku wählen</a>
         </article>
       </section>
-
-      <section id="level-panel" class="start-panel" aria-label="Level auswählen" hidden>
-        <div class="start-copy">
-          <p class="small-label">Levelauswahl</p>
-          <h2 id="level-heading">Wähle ein Level</h2>
-          <p id="level-description"></p>
-          <ul id="rules-list" class="rules-list"></ul>
-        </div>
-        <div id="level-grid" class="level-grid" aria-label="Levels"></div>
-      </section>
-
-      <section id="game-panel" class="game-panel" hidden>
-        <div id="game-controls" class="controls" aria-label="Rätselsteuerung" hidden>
-          <button id="home-button" class="icon-button" type="button" aria-label="Zurück zur Spielauswahl" title="Zurück zur Spielauswahl">⌂</button>
-          <button id="back-button" class="icon-button" type="button" aria-label="Zurück zur Levelauswahl" title="Zurück zur Levelauswahl">⇤</button>
-          <button id="undo-button" class="icon-button" type="button" aria-label="Letzten Schritt rückgängig machen" title="Letzten Schritt rückgängig machen">↶</button>
-          <button id="reset-button" class="icon-button" type="button" aria-label="Level neu starten" title="Level neu starten">↻</button>
-        </div>
-
-        <section class="game-card">
-          <div class="status-row">
-            <div>
-              <p class="small-label">Aktuelles Level</p>
-              <h2 id="puzzle-title">Level</h2>
-              <p id="puzzle-description" class="puzzle-description"></p>
-            </div>
-            <p id="status" class="status" role="status" aria-live="polite">
-              Wähle ein Level aus.
-            </p>
-          </div>
-
-          <div id="board" class="board" aria-label="Spielfeld"></div>
-          <div id="number-pad" class="number-pad" aria-label="Zahlen auswählen" hidden></div>
-
-          <details class="help" open>
-            <summary>So spielst du</summary>
-            <ul id="game-help-list"></ul>
-          </details>
-        </section>
-      </section>
-
-      <section
-        id="success-overlay"
-        class="success-overlay hidden"
-        aria-labelledby="success-title"
-        aria-modal="true"
-        role="dialog"
-        hidden
-      >
-        <div class="success-modal">
-          <p class="success-eyebrow">Rätsel gelöst</p>
-          <h2 id="success-title">Geschafft!</h2>
-          <p id="success-text" class="success-text">
-            Super gemacht! Du hast das Level gelöst.
-          </p>
-          <div class="success-actions">
-            <button id="next-puzzle-button" type="button">Nächstes Level</button>
-            <button id="success-close" class="secondary-button" type="button">Weiter üben</button>
-          </div>
-        </div>
-      </section>
     </main>
-
-    <script src="app.js"></script>
   </body>
 </html>

@@ -231,8 +231,8 @@ const SUDOKU_LEVELS = [
   game: "sudoku",
   size: 4,
   difficulty: "easy",
-  levelName: `A 1-${index + 1}`,
-  title: `A 1-${index + 1} · Sudoku · Einfach`,
+  levelName: `S 1-${index + 1}`,
+  title: `S 1-${index + 1} · Sudoku · Einfach`,
   description: "Ein 4×4 Sudoku mit nur zwei Startzahlen.",
 }));
 
@@ -256,7 +256,7 @@ const GAME_COPY = {
   },
   sudoku: {
     heading: "Sudoku Levels",
-    description: "Wähle ein einfaches 4×4 Sudoku. Jedes Level hat nur zwei Startzahlen.",
+    description: "Wähle ein einfaches 4×4 Sudoku. S 1 steht für Sudoku-Levels. Jedes Level hat nur zwei Startzahlen.",
     rules: [
       "Fülle die leeren Felder mit den Zahlen 1, 2, 3 und 4.",
       "In jeder Reihe darf jede Zahl nur einmal vorkommen.",
@@ -352,14 +352,10 @@ function showHome() {
   hideSuccess();
   isDrawing = false;
   currentGame = null;
-  homePanel.hidden = false;
-  levelPanel.hidden = true;
-  gamePanel.hidden = true;
-  gameControls.hidden = true;
-  document.body.classList.remove("puzzle-active");
+  window.location.href = "index.html";
 }
 
-function chooseGame(game) {
+function showLevelSelectForGame(game) {
   currentGame = game;
   const copy = GAME_COPY[game];
   levelHeading.textContent = copy.heading;
@@ -367,11 +363,15 @@ function chooseGame(game) {
   fillList(rulesList, copy.rules);
   fillList(gameHelpList, copy.help);
   renderLevelTiles();
-  homePanel.hidden = true;
+  if (homePanel) homePanel.hidden = true;
   levelPanel.hidden = false;
   gamePanel.hidden = true;
   gameControls.hidden = true;
   document.body.classList.remove("puzzle-active");
+}
+
+function chooseGame(game) {
+  showLevelSelectForGame(game);
 }
 
 function renderLevelTiles() {
@@ -389,7 +389,7 @@ function renderLevelTiles() {
 }
 
 function showGame() {
-  homePanel.hidden = true;
+  if (homePanel) homePanel.hidden = true;
   levelPanel.hidden = true;
   gamePanel.hidden = false;
   gameControls.hidden = false;
@@ -401,7 +401,7 @@ function showLevelSelect() {
   hideSuccess();
   isDrawing = false;
   levelPanel.hidden = false;
-  homePanel.hidden = true;
+  if (homePanel) homePanel.hidden = true;
   gamePanel.hidden = true;
   gameControls.hidden = true;
   document.body.classList.remove("puzzle-active");
@@ -413,6 +413,7 @@ function setPuzzle(key) {
   board.style.setProperty("--size", puzzle.size);
   board.className = `board ${currentGame}-board`;
   board.setAttribute("aria-label", currentGame === "sudoku" ? "Sudoku Spielfeld" : "Arukone Spielfeld");
+  numberPad.innerHTML = "";
   numberPad.hidden = currentGame !== "sudoku";
   puzzleTitle.textContent = puzzle.title;
   puzzleDescription.textContent = puzzle.description;
@@ -679,6 +680,8 @@ function render(message = statusText.textContent) {
 function renderArukone(message = statusText.textContent) {
   const puzzle = getPuzzle();
   board.innerHTML = "";
+  numberPad.innerHTML = "";
+  numberPad.hidden = true;
   if (!winShown) statusText.textContent = message;
   for (let row = 0; row < puzzle.size; row += 1) {
     for (let col = 0; col < puzzle.size; col += 1) {
@@ -725,6 +728,7 @@ function renderSudoku(message = statusText.textContent) {
   const puzzle = getPuzzle();
   board.innerHTML = "";
   numberPad.innerHTML = "";
+  numberPad.hidden = false;
   if (!winShown) statusText.textContent = message;
   for (let row = 0; row < puzzle.size; row += 1) {
     for (let col = 0; col < puzzle.size; col += 1) {
@@ -754,9 +758,14 @@ function renderSudoku(message = statusText.textContent) {
   });
 }
 
-document.querySelectorAll(".choose-game-button").forEach((button) => {
+document.querySelectorAll(".choose-game-button[data-game]").forEach((button) => {
   button.addEventListener("click", () => chooseGame(button.dataset.game));
 });
+
+const pageGame = document.body.dataset.gamePage;
+if (pageGame) {
+  showLevelSelectForGame(pageGame);
+}
 
 undoButton.addEventListener("click", () => {
   finishMove();
@@ -768,7 +777,9 @@ undoButton.addEventListener("click", () => {
 });
 resetButton.addEventListener("click", resetPuzzle);
 backButton.addEventListener("click", showLevelSelect);
-homeButton.addEventListener("click", showHome);
+if (homeButton.tagName === "BUTTON") {
+  homeButton.addEventListener("click", showHome);
+}
 successClose.addEventListener("click", hideSuccess);
 nextPuzzleButton.addEventListener("click", goToNextPuzzle);
 successOverlay.addEventListener("click", (event) => {
