@@ -441,6 +441,7 @@ const board = document.querySelector("#board");
 const numberPad = document.querySelector("#number-pad");
 const homePanel = document.querySelector("#home-panel");
 const levelPanel = document.querySelector("#level-panel");
+const appIntro = document.querySelector("#app-intro");
 const levelHeading = document.querySelector("#level-heading");
 const levelDescription = document.querySelector("#level-description");
 const levelGrid = document.querySelector("#level-grid");
@@ -460,6 +461,7 @@ const gameControls = document.querySelector("#game-controls");
 
 let currentGame = document.body.dataset.gamePage || null;
 let currentIndex = -1;
+let selectedDifficulty = null;
 let state = {};
 let history = [];
 let winShown = false;
@@ -481,36 +483,91 @@ function pushHistory() { if (activeMoveSnapshot) { if (!pushedActiveSnapshot) { 
 function beginMove() { activeMoveSnapshot = snapshot(); pushedActiveSnapshot = false; }
 function finishMove() { activeMoveSnapshot = null; pushedActiveSnapshot = false; }
 
-function renderLevelSelect() {
+function levelsForDifficulty(difficulty) { return LEVELS_BY_GAME[currentGame].filter((level) => level.difficulty === difficulty); }
+function countSolved(levels) { return levels.filter((level) => isSolved(level)).length; }
+function renderSelectionActions(mode) {
+  if (!levelPanel) return;
+  levelPanel.querySelector(".selection-actions")?.remove();
+  const actions = document.createElement("div");
+  actions.className = "selection-actions";
+  const homeLink = document.createElement("a");
+  homeLink.className = "selection-back-button home-back-button";
+  homeLink.href = "index.html";
+  homeLink.textContent = "← Zurück zu den Rätseln";
+  homeLink.setAttribute("aria-label", "Zurück zur Auswahl der Rätsel");
+  actions.append(homeLink);
+  if (mode === "levels") {
+    const difficultyButton = document.createElement("button");
+    difficultyButton.className = "selection-back-button";
+    difficultyButton.type = "button";
+    difficultyButton.textContent = "← Schwierigkeit ändern";
+    difficultyButton.addEventListener("click", showDifficultySelect);
+    actions.append(difficultyButton);
+  }
+  levelPanel.querySelector(".start-copy")?.after(actions);
+}
+function renderDifficultySelect() {
   if (!currentGame || !levelPanel) return;
   const config = GAME_CONFIGS[currentGame];
-  levelHeading.textContent = `${config.title} Levels`;
-  levelDescription.textContent = `${config.subtitle} Wähle Leicht, Mittel oder Schwer.`;
+  levelPanel.classList.add("difficulty-step");
+  levelHeading.textContent = `${config.title}: Schwierigkeit wählen`;
+  if (appIntro) appIntro.textContent = `Wähle zuerst den Schwierigkeitsgrad für ${config.title}.`;
+  levelDescription.textContent = "Wähle zuerst, wie knifflig dein Rätsel sein soll. Danach zeigen wir dir nur die passenden Levels.";
   fillList(rulesList, config.rules);
+  renderSelectionActions("difficulty");
+  levelGrid.className = "difficulty-grid";
+  levelGrid.setAttribute("aria-label", "Schwierigkeitsgrad auswählen");
   levelGrid.innerHTML = "";
-  ["easy","medium","hard"].forEach((difficulty) => {
-    const group = document.createElement("div"); group.className = "difficulty-group";
-    const h = document.createElement("h3"); h.textContent = DIFFICULTIES[difficulty].label; group.append(h);
-    const wrap = document.createElement("div"); wrap.className = "difficulty-levels";
-    LEVELS_BY_GAME[currentGame].filter((l)=>l.difficulty===difficulty).forEach((level) => {
-      const index = LEVELS_BY_GAME[currentGame].indexOf(level);
-      const button = document.createElement("button");
-      button.className = `level-tile ${difficulty}${isSolved(level) ? " solved" : ""}`;
-      button.type = "button";
-      button.setAttribute("aria-label", `${level.title}${isSolved(level) ? ", gelöst" : ""}`);
-      button.innerHTML = `<span>${level.levelName}</span><small>${isSolved(level) ? "★ gelöst" : (level.size ? `${level.size}×${level.size}` : "Rätsel")}</small>`;
-      button.addEventListener("click", () => startLevel(index));
-      wrap.append(button);
-    });
-    group.append(wrap); levelGrid.append(group);
+  ["easy", "medium", "hard"].forEach((difficulty) => {
+    const info = DIFFICULTIES[difficulty];
+    const levels = levelsForDifficulty(difficulty);
+    const solved = countSolved(levels);
+    const button = document.createElement("button");
+    button.className = `difficulty-card ${difficulty}`;
+    button.type = "button";
+    button.setAttribute("aria-label", `${info.label} wählen, ${levels.length} Levels, ${solved} gelöst`);
+    button.innerHTML = `
+      <span class="difficulty-icon" aria-hidden="true">${difficulty === "easy" ? "🌱" : difficulty === "medium" ? "⭐" : "🚀"}</span>
+      <span class="difficulty-name">${info.label}</span>
+      <small>${levels.length} Levels · ${solved} gelöst</small>
+    `;
+    button.addEventListener("click", () => selectDifficulty(difficulty));
+    levelGrid.append(button);
+  });
+}
+function selectDifficulty(difficulty) { selectedDifficulty = difficulty; renderLevelSelect(); }
+function showDifficultySelect() { selectedDifficulty = null; currentIndex = -1; renderDifficultySelect(); }
+function renderLevelSelect() {
+  if (!currentGame || !levelPanel) return;
+  if (!selectedDifficulty) { renderDifficultySelect(); return; }
+  const config = GAME_CONFIGS[currentGame];
+  const difficulty = DIFFICULTIES[selectedDifficulty];
+  levelPanel.classList.remove("difficulty-step");
+  levelHeading.textContent = `${config.title}: ${difficulty.label} Levels`;
+  if (appIntro) appIntro.textContent = `Wähle ein ${difficulty.label}-Level für ${config.title}.`;
+  levelDescription.textContent = `Du hast ${difficulty.label} gewählt. Such dir jetzt ein Level aus.`;
+  fillList(rulesList, config.rules);
+  renderSelectionActions("levels");
+  levelGrid.className = "level-grid";
+  levelGrid.setAttribute("aria-label", `${config.title} ${difficulty.label} Levels`);
+  levelGrid.innerHTML = "";
+  levelsForDifficulty(selectedDifficulty).forEach((level) => {
+    const index = LEVELS_BY_GAME[currentGame].indexOf(level);
+    const button = document.createElement("button");
+    button.className = `level-tile ${selectedDifficulty}${isSolved(level) ? " solved" : ""}`;
+    button.type = "button";
+    button.setAttribute("aria-label", `${level.title}${isSolved(level) ? ", gelöst" : ""}`);
+    button.innerHTML = `<span>${level.levelName}</span><small>${isSolved(level) ? "★ gelöst" : (level.size ? `${level.size}×${level.size}` : "Rätsel")}</small>`;
+    button.addEventListener("click", () => startLevel(index));
+    levelGrid.append(button);
   });
 }
 function showLevelSelect() { finishMove(); hideSuccess(); if (levelPanel) levelPanel.hidden = false; if (homePanel) homePanel.hidden = true; if (gamePanel) gamePanel.hidden = true; if (gameControls) gameControls.hidden = true; document.body.classList.remove("puzzle-active"); renderLevelSelect(); }
 function showGame() { if (levelPanel) levelPanel.hidden = true; if (homePanel) homePanel.hidden = true; if (gamePanel) gamePanel.hidden = false; if (gameControls) gameControls.hidden = false; document.body.classList.add("puzzle-active"); }
-function startLevel(index) { hideSuccess(); currentIndex = index; const level = currentLevel(); const config = GAME_CONFIGS[currentGame]; history = []; winShown = false; if (undoButton) undoButton.disabled = true; board.className = `board ${currentGame}-board`; board.style.setProperty("--size", level.size || 5); board.setAttribute("aria-label", `${config.title} Spielfeld`); puzzleTitle.textContent = level.title; puzzleDescription.textContent = level.description || config.subtitle; fillList(gameHelpList, config.rules); resetState(); showGame(); render(); }
+function startLevel(index) { hideSuccess(); currentIndex = index; const level = currentLevel(); selectedDifficulty = level.difficulty; const config = GAME_CONFIGS[currentGame]; history = []; winShown = false; if (undoButton) undoButton.disabled = true; board.className = `board ${currentGame}-board`; board.style.setProperty("--size", level.size || 5); board.setAttribute("aria-label", `${config.title} Spielfeld`); puzzleTitle.textContent = level.title; puzzleDescription.textContent = level.description || config.subtitle; fillList(gameHelpList, config.rules); resetState(); showGame(); render(); }
 function resetGame() { history = []; if (undoButton) undoButton.disabled = true; hideSuccess(); resetState(); render("Neu gestartet. Viel Spass!"); }
 function undo() { finishMove(); if (!history.length) return; restore(history.pop()); if (undoButton) undoButton.disabled = history.length === 0; setStatus("Ein Schritt zurück."); }
-function nextLevel() { const levels = LEVELS_BY_GAME[currentGame]; startLevel((currentIndex + 1) % levels.length); }
+function nextLevel() { const levels = levelsForDifficulty(selectedDifficulty || currentLevel().difficulty); const currentDifficultyIndex = levels.indexOf(currentLevel()); const next = levels[(currentDifficultyIndex + 1) % levels.length]; startLevel(LEVELS_BY_GAME[currentGame].indexOf(next)); }
 function showSuccess() { const level = currentLevel(); winShown = true; markSolved(level); if (successOverlay) { successOverlay.hidden = false; successOverlay.classList.remove("hidden"); } setStatus("Geschafft!"); }
 function hideSuccess() { winShown = false; if (successOverlay) { successOverlay.hidden = true; successOverlay.classList.add("hidden"); } }
 
@@ -626,7 +683,7 @@ function simpleGridGame(game, solutionField, cycle, symbols) {
 function renderCountBoard(level, makeCell) { board.innerHTML=""; board.style.setProperty("--size", level.size + 1); board.classList.add("count-board"); board.append(Object.assign(document.createElement("div"), { className:"count-corner" })); level.colCounts.forEach((n)=>{ const d=document.createElement("div"); d.className="count-label col-count"; d.textContent=n; board.append(d); }); for(let r=0;r<level.size;r++){ const lab=document.createElement("div"); lab.className="count-label row-count"; lab.textContent=level.rowCounts[r]; board.append(lab); for(let c=0;c<level.size;c++) board.append(makeCell(r,c)); } }
 function renderNonogram(level, handler) { const rowClues=cluesFor(level.solution), colClues=cluesFor(level.solution[0].map((_,c)=>level.solution.map((r)=>r[c]))); board.innerHTML=""; board.style.setProperty("--size", level.size + 1); board.classList.add("clue-board"); board.append(Object.assign(document.createElement("div"), { className:"count-corner" })); colClues.forEach((cl)=>{ const d=document.createElement("div"); d.className="count-label col-clue"; d.textContent=cl.join(" "); board.append(d); }); for(let r=0;r<level.size;r++){ const lab=document.createElement("div"); lab.className="count-label row-clue"; lab.textContent=rowClues[r].join(" "); board.append(lab); for(let c=0;c<level.size;c++){ const v=state.grid[r][c]; const cell=makeButtonCell(r,c,`cell nonogram-cell ${v}`, v==="filled"?"":v==="x"?"×":""); cell.addEventListener("click",()=>handler.input(r,c)); board.append(cell); } } }
 
-if (currentGame && LEVELS_BY_GAME[currentGame]) renderLevelSelect();
+if (currentGame && LEVELS_BY_GAME[currentGame]) renderDifficultySelect();
 if (undoButton) undoButton.addEventListener("click", undo);
 if (resetButton) resetButton.addEventListener("click", resetGame);
 if (backButton) backButton.addEventListener("click", showLevelSelect);

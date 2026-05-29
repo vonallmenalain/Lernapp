@@ -1024,3 +1024,111 @@ body.puzzle-active .patterns-board {
   .cell { min-width: 0; }
   .pattern-options button { min-width: 64px; min-height: 56px; }
 }
+
+.selection-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+}
+
+.selection-back-button {
+  display: inline-grid;
+  place-items: center;
+  min-height: 50px;
+  border-radius: 999px;
+  border: 3px solid var(--primary);
+  padding: 0 22px;
+  background: #fff;
+  color: var(--primary-dark);
+  font-weight: 950;
+  text-decoration: none;
+  box-shadow: 0 10px 22px rgba(50, 44, 109, 0.12);
+}
+
+.selection-back-button:hover,
+.selection-back-button:focus-visible {
+  background: #f4f1ff;
+  transform: translateY(-1px);
+  outline: none;
+}
+
+.home-back-button {
+  border-color: #06d6a0;
+  color: #047c5d;
+}
+
+.difficulty-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.difficulty-card {
+  min-height: 190px;
+  display: grid;
+  place-items: center;
+  gap: 8px;
+  padding: 18px;
+  border-radius: 30px;
+  background: #fff;
+  color: var(--ink);
+  border: 5px solid var(--line);
+  box-shadow: 0 18px 32px rgba(50, 44, 109, 0.12);
+}
+
+.difficulty-card.easy { border-color: #06d6a0; background: #effff8; }
+.difficulty-card.medium { border-color: #ffd166; background: #fff8df; }
+.difficulty-card.hard { border-color: #ef476f; background: #fff0f4; }
+
+.difficulty-card:hover:not(:disabled),
+.difficulty-card:focus-visible {
+  color: var(--ink);
+  transform: translateY(-4px) scale(1.02);
+  outline: 4px solid rgba(108, 92, 231, 0.22);
+}
+
+.difficulty-icon {
+  font-size: clamp(3rem, 9vw, 4.5rem);
+  line-height: 1;
+}
+
+.difficulty-name {
+  font-size: clamp(1.55rem, 5vw, 2.2rem);
+  font-weight: 950;
+}
+
+.difficulty-card small {
+  color: var(--muted);
+  font-weight: 900;
+}
+
+@media (max-width: 760px) {
+  .difficulty-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .difficulty-card {
+    min-height: 132px;
+    grid-template-columns: auto 1fr;
+    justify-items: start;
+    text-align: left;
+  }
+
+  .difficulty-card small {
+    grid-column: 2;
+  }
+}
+
+@media (max-width: 520px) {
+  .selection-actions,
+  .selection-back-button {
+    width: 100%;
+  }
+}
+
+button.selection-back-button:hover:not(:disabled),
+button.selection-back-button:focus-visible {
+  background: #f4f1ff;
+  color: var(--primary-dark);
+}
