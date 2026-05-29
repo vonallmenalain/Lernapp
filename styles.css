@@ -839,3 +839,106 @@ a.choose-game-button {
 a.icon-button {
   padding: 0;
 }
+
+/* Erweiterungen für die grosse Rätselsammlung */
+.home-panel {
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  max-width: 1120px;
+}
+.preview span { min-width: 0; }
+.nonogram-preview, .sea-preview { grid-template-columns: repeat(5, 1fr); gap: 5px; }
+.nonogram-preview span, .sea-preview span, .shikaku-preview span, .thermo-preview span, .pattern-preview span, .maze-preview span {
+  display: grid; place-items: center; border-radius: 10px; background: #fff; border: 2px solid var(--line); font-weight: 900;
+}
+.nonogram-preview .on { background: #6c5ce7; border-color: #5141c9; }
+.sea-preview span { background: #e9f8ff; color: #118ab2; }
+.shikaku-preview { grid-template-columns: repeat(3, 1fr); gap: 7px; }
+.shikaku-preview span:nth-child(1), .shikaku-preview span:nth-child(3), .shikaku-preview span:nth-child(6), .shikaku-preview span:nth-child(9) { background: #fff4cf; border-color: #ffd166; }
+.thermo-preview { grid-template-columns: repeat(3, 1fr); gap: 7px; }
+.thermo-preview span { background: #eef7ff; color: #3a86ff; }
+.thermo-preview .fill { background: #c8f7dc; border-color: #06d6a0; }
+.pattern-preview { grid-template-columns: repeat(4, 1fr); gap: 7px; aspect-ratio: 1.8; }
+.pattern-preview span { font-size: 1.8rem; }
+.maze-preview { grid-template-columns: repeat(4, 1fr); gap: 5px; }
+.maze-preview .wall { background: #243047; border-color: #243047; }
+.maze-preview .path { background: #eafff9; border-color: #06d6a0; }
+
+.difficulty-group { display: grid; gap: 10px; text-align: left; }
+.difficulty-group h3 { margin: 8px 0 0; color: var(--primary-dark); font-size: 1.2rem; }
+.difficulty-levels { display: grid; grid-template-columns: repeat(auto-fit, minmax(112px, 1fr)); gap: 12px; }
+.level-tile.solved { position: relative; background: #f0fff9; }
+.level-tile.solved::after { content: "★"; position: absolute; top: 8px; right: 12px; color: #06a77d; font-size: 1.2rem; }
+.hint-button { background: #ff9f1c; }
+.hint-button:hover:not(:disabled) { background: #e18200; }
+
+.count-board, .clue-board {
+  grid-template-columns: repeat(var(--size), minmax(34px, 1fr));
+  gap: 5px;
+  align-items: stretch;
+}
+.count-label, .count-corner {
+  min-height: 38px;
+  display: grid;
+  place-items: center;
+  padding: 4px;
+  border-radius: 12px;
+  background: #fff4cf;
+  border: 2px solid #ffd166;
+  color: #8a5a00;
+  font-weight: 950;
+  font-size: clamp(0.82rem, 2.6vw, 1.15rem);
+  text-align: center;
+}
+.col-clue { align-items: end; white-space: pre-line; writing-mode: horizontal-tb; }
+.row-clue { justify-items: end; }
+.nonogram-cell.filled { background: #6c5ce7; border-color: #5141c9; }
+.nonogram-cell.x { color: #8a94a6; background: #f1f4f8; }
+.nonogram-cell.x::before, .nonogram-cell.x::after { content: ""; position: absolute; width: 60%; height: 4px; border-radius: 999px; background: #8a94a6; }
+.nonogram-cell.x::before { transform: rotate(45deg); }
+.nonogram-cell.x::after { transform: rotate(-45deg); }
+.nonogram-cell.x { font-size: 0; }
+
+.bimaru-cell { background: #e9f8ff; border-color: #b9e8fb; color: #118ab2; }
+.bimaru-cell.animal { background: #dffbed; border-color: #06d6a0; font-size: clamp(1.1rem, 4vw, 2rem); }
+.bimaru-cell.water { background: #dff3ff; color: #118ab2; }
+
+.shikaku-cell { background: #fff; }
+.shikaku-cell.clue { background: #fff4cf; border-color: #ffd166; color: #8a5a00; }
+.shikaku-cell.region { background: hsl(var(--region-hue), 80%, 88%); border-color: hsl(var(--region-hue), 70%, 48%); }
+.shikaku-cell.selected { outline: 5px solid #ff9f1c; outline-offset: -5px; }
+
+.thermo-cell { background: #f2f8ff; border-color: #cae7ff; color: #3a86ff; }
+.thermo-cell.tube::after { content: ""; position: absolute; inset: 28%; border-radius: 999px; background: rgba(58, 134, 255, 0.18); }
+.thermo-cell.filled-potion { background: #d8ffe8; border-color: #06d6a0; color: #06a77d; }
+.thermo-cell.filled-potion::after { background: rgba(6, 214, 160, 0.45); }
+
+.patterns-board {
+  --size: 6;
+  grid-template-columns: repeat(auto-fit, minmax(64px, 1fr));
+  max-width: min(780px, 100%);
+}
+.pattern-cell { font-size: clamp(2rem, 9vw, 4rem); background: #fff; }
+.pattern-cell.missing { background: #fff4cf; border-color: #ff9f1c; }
+.pattern-options { grid-column: 1 / -1; display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; margin-top: 12px; }
+.pattern-options button { min-width: 78px; min-height: 64px; border-radius: 22px; font-size: 2rem; background: #06d6a0; }
+
+.maze-cell { background: #fbfaff; }
+.maze-cell.wall { background: #243047; border-color: #243047; cursor: not-allowed; }
+.maze-cell.path { background: #eafff9; border-color: #06d6a0; }
+.maze-cell.start { background: #fff4cf; border-color: #ffd166; }
+.maze-cell.goal { background: #ffe4ec; border-color: #ef476f; }
+.maze-cell.key { color: #8a5a00; }
+
+body.puzzle-active .count-board,
+body.puzzle-active .clue-board,
+body.puzzle-active .patterns-board {
+  width: min(calc(100vw - 36px), calc(100vh - 170px), 760px);
+}
+
+@media (max-width: 640px) {
+  .difficulty-levels { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .count-board, .clue-board { gap: 3px; }
+  .count-label, .count-corner { min-height: 30px; border-radius: 9px; padding: 2px; }
+  .cell { min-width: 0; }
+  .pattern-options button { min-width: 64px; min-height: 56px; }
+}
