@@ -275,12 +275,9 @@ function getPuzzleKeys() {
 }
 
 function showGame() {
-  const controlsLabel = gameControls.querySelector('label[for="puzzle-select"]');
-  if (puzzleSelect.parentElement !== gameControls) {
-    controlsLabel.after(puzzleSelect);
-  }
   startPanel.hidden = true;
   gamePanel.hidden = false;
+  gameControls.hidden = true;
   document.body.classList.add("puzzle-active");
 }
 

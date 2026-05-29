@@ -18,16 +18,29 @@
       </section>
 
       <section id="start-panel" class="start-panel" aria-label="Rätsel auswählen">
-        <label for="puzzle-select">Wähle zuerst ein Rätsel aus</label>
+        <div class="start-copy">
+          <p class="small-label">Vor dem Start</p>
+          <h2>Beschreibung & Regeln</h2>
+          <p>
+            Suche dir ein Rätsel aus. Danach wird alles ausgeblendet, damit du nur noch
+            das Spielfeld im Vollbild siehst.
+          </p>
+          <ul class="rules-list">
+            <li>Verbinde immer zwei gleiche Symbole miteinander.</li>
+            <li>Gehe nur waagerecht oder senkrecht über Nachbarfelder.</li>
+            <li>Wege dürfen sich nicht kreuzen.</li>
+            <li>Am Schluss soll jedes Feld Teil eines Weges sein.</li>
+          </ul>
+        </div>
+
+        <label for="puzzle-select">Wähle ein Rätsel aus</label>
         <select id="puzzle-select">
           <option value="" disabled selected>Bitte Rätsel auswählen …</option>
         </select>
-        <p>Nach der Auswahl öffnet sich das Spielfeld im Vollbild ohne Scrollen.</p>
       </section>
 
       <section id="game-panel" class="game-panel" hidden>
-        <div id="game-controls" class="controls" aria-label="Rätselsteuerung">
-          <label for="puzzle-select">Rätsel</label>
+        <div id="game-controls" class="controls" aria-label="Rätselsteuerung" hidden>
           <button id="undo-button" type="button">Rückgängig</button>
           <button id="reset-button" type="button">Von vorne beginnen</button>
         </div>
