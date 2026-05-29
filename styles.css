@@ -825,6 +825,10 @@ body.puzzle-active .board {
   color: #b0002a;
 }
 
+.number-pad[hidden] {
+  display: none;
+}
+
 .number-pad {
   position: fixed;
   z-index: 20;
@@ -1199,6 +1203,8 @@ button.selection-back-button:focus-visible {
   background: #243047;
   border-radius: 18px;
   overflow: hidden;
+  touch-action: none;
+  user-select: none;
 }
 
 .hidoku-cell {
@@ -1207,6 +1213,8 @@ button.selection-back-button:focus-visible {
   background: #ffffff;
   color: var(--ink);
   font-size: clamp(1.25rem, 5vw, 2.35rem);
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .hidoku-cell.given {

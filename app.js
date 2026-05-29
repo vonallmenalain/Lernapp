@@ -304,7 +304,7 @@ const GAME_CONFIGS = {
     title: "Hidoku", eyebrow: "Zahlenkette", code: "H",
     subtitle: "Trage die fehlenden Zahlen so ein, dass jede Zahl die nächste berührt.",
     success: "Wunderbar verbunden! Die komplette Hidoku-Zahlenkette ist geschlossen.",
-    rules: ["Tippe auf ein leeres Feld und wähle eine Zahl aus.", "Aufeinanderfolgende Zahlen müssen sich waagerecht, senkrecht oder diagonal berühren.", "Jede Zahl kommt genau einmal vor und die letzte Zahl berührt wieder die 1."],
+    rules: ["Starte mit Maus oder Finger auf der 1 und fahre über die leeren Felder.", "Jedes berührte leere Feld bekommt automatisch die nächste fehlende Zahl.", "Eine rote Zahl stoppt die Eingabe: Tippe sie an oder nutze Rückgängig, um sie zu korrigieren."],
   },
   shikaku: {
     title: "Tiergehege", eyebrow: "Gehege bauen", code: "G",
@@ -720,6 +720,8 @@ let isDrawing = false;
 let lastDrawnKey = null;
 let activePointerId = null;
 let shikakuDrag = null;
+let hidokuDrag = null;
+let ignoreNextHidokuClick = false;
 let ignoreNextShikakuClick = false;
 let activeMoveSnapshot = null;
 let pushedActiveSnapshot = false;
@@ -1030,19 +1032,21 @@ const GAME_HANDLERS = {
   bimaru: simpleGridGame("bimaru", "solution", ["","animal","water"], { animal:"🐟", water:"~" }),
 
   hidoku: {
-    resetState(level) { state={ values: zeros(level.size, level.size, null), fixed: {}, selected: null }; level.givens.forEach(([r,c,v])=>{ state.values[r][c]=v; state.fixed[keyOf(r,c)]=true; }); setStatus("Tippe auf ein leeres Feld."); },
+    resetState(level) { state={ values: zeros(level.size, level.size, null), fixed: {}, selected: null }; level.givens.forEach(([r,c,v])=>{ state.values[r][c]=v; state.fixed[keyOf(r,c)]=true; }); setStatus("Starte auf der 1 und fahre über leere Felder."); },
     maxNumber(level=currentLevel()) { return level.size * level.size; },
     numberPosition(value) { for(let r=0;r<state.values.length;r++) for(let c=0;c<state.values[r].length;c++) if(state.values[r][c]===value) return [r,c]; return null; },
     duplicate(value, row, col) { if(!value) return false; for(let r=0;r<state.values.length;r++) for(let c=0;c<state.values[r].length;c++) if((r!==row||c!==col) && state.values[r][c]===value) return true; return false; },
     touches(a,b) { return a && b && Math.max(Math.abs(a[0]-b[0]), Math.abs(a[1]-b[1])) === 1; },
-    conflict(r,c) { const value=state.values[r][c], max=this.maxNumber(); if(!value) return false; if(this.duplicate(value,r,c)) return true; const current=[r,c]; const prev=value===1 ? this.numberPosition(max) : this.numberPosition(value-1); const next=value===max ? this.numberPosition(1) : this.numberPosition(value+1); return Boolean(prev && !this.touches(current,prev)) || Boolean(next && !this.touches(current,next)); },
+    conflict(r,c) { const level=currentLevel(), value=state.values[r][c], max=this.maxNumber(level); if(!value) return false; if(value!==level.solution[r][c] && !state.fixed[keyOf(r,c)]) return true; if(this.duplicate(value,r,c)) return true; const current=[r,c]; const prev=value===1 ? this.numberPosition(max) : this.numberPosition(value-1); const next=value===max ? this.numberPosition(1) : this.numberPosition(value+1); return Boolean(prev && !this.touches(current,prev)) || Boolean(next && !this.touches(current,next)); },
+    hasConflict() { const level=currentLevel(); for(let r=0;r<level.size;r++) for(let c=0;c<level.size;c++) if(this.conflict(r,c)) return true; return false; },
+    nextNumber() { const max=this.maxNumber(); for(let n=1;n<=max;n++) if(!this.numberPosition(n)) return n; return max + 1; },
     checkWin() { const level=currentLevel(), max=this.maxNumber(level); const seen=new Set(); for(let r=0;r<level.size;r++) for(let c=0;c<level.size;c++){ const value=state.values[r][c]; if(!value || value<1 || value>max || seen.has(value) || this.conflict(r,c)) return false; seen.add(value); } return seen.size===max; },
-    select(r,c) { if(state.fixed[keyOf(r,c)]) { state.selected=null; render("Diese Startzahl bleibt stehen."); return; } state.selected=[r,c]; render("Wähle eine Zahl aus der Kette."); this.renderPad(); },
-    setNumber(v) { if(!state.selected) return; const [r,c]=state.selected; pushHistory(); state.values[r][c]=v; state.selected=null; this.checkWin()?handleWin():render(this.conflict(r,c) ? "Prüfe die Nachbarzahlen: Die Kette muss sich berühren." : "Gut! Suche die nächste passende Zahl."); },
-    clear() { if(!state.selected) return; const [r,c]=state.selected; pushHistory(); state.values[r][c]=null; state.selected=null; render("Die Zahl ist weg."); },
+    select(r,c) { if(this.clearConflictAt(r,c)) return; const value=state.values[r][c]; if(value===1) { setStatus(`Gestartet. Fahre zum Feld für ${this.nextNumber()}.`); return; } if(state.fixed[keyOf(r,c)]) { setStatus("Diese Startzahl bleibt stehen. Beginne bei der 1."); return; } setStatus("Beginne bei der 1 und fahre dann über leere Felder."); },
+    clearConflictAt(r,c) { if(!state.fixed[keyOf(r,c)] && state.values[r][c] && this.conflict(r,c)) { pushHistory(); state.values[r][c]=null; render("Die rote Zahl ist weg. Starte wieder bei der 1."); return true; } return false; },
+    input(r,c) { if(this.hasConflict()) return false; const value=state.values[r][c], next=this.nextNumber(), max=this.maxNumber(); if(value) return value===next-1 || value===next || (next>max && value===max); if(next>max) return false; pushHistory(); state.values[r][c]=next; const hasError=this.conflict(r,c); if(this.checkWin()) { handleWin(); return true; } render(hasError ? "Diese Zahl passt hier nicht. Korrigiere die rote Zahl, bevor es weitergeht." : `Gut! Weiter mit ${this.nextNumber()}.`); return !hasError; },
+    clear() { const level=currentLevel(); for(let n=this.maxNumber(level); n>=1;n--){ const pos=this.numberPosition(n); if(pos && !state.fixed[keyOf(pos[0],pos[1])]) { pushHistory(); state.values[pos[0]][pos[1]]=null; render("Die letzte Zahl ist weg."); return; } } },
     hint() { const level=currentLevel(); for(let r=0;r<level.size;r++) for(let c=0;c<level.size;c++) if(!state.fixed[keyOf(r,c)] && state.values[r][c]!==level.solution[r][c]) { pushHistory(); state.values[r][c]=level.solution[r][c]; render("Tipp: Eine sichere Zahl ist eingetragen."); checkAndWin(); return; } },
-    renderPad() { const level=currentLevel(), max=this.maxNumber(level); numberPad.innerHTML=""; numberPad.hidden=false; numberPad.classList.add("hidoku-pad"); numberPad.style.setProperty("--pad-cols", level.size); for(let n=1;n<=max;n++){ const b=document.createElement("button"); b.type="button"; b.textContent=n; b.disabled=Boolean(this.numberPosition(n)) && (!state.selected || state.values[state.selected[0]][state.selected[1]]!==n); b.addEventListener("click",()=>this.setNumber(n)); numberPad.append(b); } const clear=document.createElement("button"); clear.type="button"; clear.className="clear-number-button"; clear.textContent="Löschen"; clear.addEventListener("click",()=>this.clear()); numberPad.append(clear); },
-    render(level) { board.innerHTML=""; board.style.setProperty("--size", level.size); numberPad.classList.remove("hidoku-pad"); for(let r=0;r<level.size;r++) for(let c=0;c<level.size;c++){ const selected=state.selected&&sameCell(state.selected,[r,c]); const fixed=state.fixed[keyOf(r,c)]; const value=state.values[r][c] || ""; const cell=makeButtonCell(r,c,`cell hidoku-cell${fixed?" given":""}${selected?" selected":""}${this.conflict(r,c)?" conflict":""}`, value); cell.addEventListener("click",()=>this.select(r,c)); board.append(cell); } if(state.selected) this.renderPad(); },
+    render(level) { board.innerHTML=""; board.style.setProperty("--size", level.size); if(numberPad){ numberPad.hidden=true; numberPad.classList.remove("hidoku-pad"); numberPad.innerHTML=""; } for(let r=0;r<level.size;r++) for(let c=0;c<level.size;c++){ const fixed=state.fixed[keyOf(r,c)]; const value=state.values[r][c] || ""; const cell=makeButtonCell(r,c,`cell hidoku-cell${fixed?" given":""}${this.conflict(r,c)?" conflict":""}`, value); cell.addEventListener("click",()=>{ if(ignoreNextHidokuClick){ ignoreNextHidokuClick=false; return; } this.select(r,c); }); board.append(cell); } },
   },
   kakuro: {
     resetState(level) { state = { values: zeros(level.size, level.size, null), selected: null }; setStatus("Tippe auf ein weißes Feld und wähle eine Zahl."); },
@@ -1115,6 +1119,50 @@ function shikakuCellFromPoint(clientX, clientY) {
   const col = Math.min(level.cols - 1, Math.max(0, Math.floor(((clientX - rect.left) / rect.width) * level.cols)));
   const row = Math.min(level.rows - 1, Math.max(0, Math.floor(((clientY - rect.top) / rect.height) * level.rows)));
   return board.querySelector(`[data-row="${row}"][data-col="${col}"]`);
+}
+
+function hidokuCellFromPoint(clientX, clientY) {
+  if (!board || currentGame !== "hidoku") return null;
+  const direct = document.elementFromPoint(clientX, clientY)?.closest(".hidoku-cell");
+  if (direct && board.contains(direct)) return direct;
+  const level = currentLevel();
+  const rect = board.getBoundingClientRect();
+  if (clientX < rect.left || clientX > rect.right || clientY < rect.top || clientY > rect.bottom) return null;
+  const col = Math.min(level.size - 1, Math.max(0, Math.floor(((clientX - rect.left) / rect.width) * level.size)));
+  const row = Math.min(level.size - 1, Math.max(0, Math.floor(((clientY - rect.top) / rect.height) * level.size)));
+  return board.querySelector(`[data-row="${row}"][data-col="${col}"]`);
+}
+function drawHidokuCell(row, col) {
+  if (!hidokuDrag) return;
+  const nextKey = cellKeyFromPoint(row, col);
+  if (nextKey === hidokuDrag.lastKey) return;
+  hidokuDrag.lastKey = nextKey;
+  const keepGoing = GAME_HANDLERS.hidoku.input(row, col);
+  if (!keepGoing && GAME_HANDLERS.hidoku.hasConflict()) finishHidokuPointer(true);
+}
+function startHidokuPointer(event, cell) {
+  const handler = GAME_HANDLERS.hidoku;
+  const row = Number(cell.dataset.row), col = Number(cell.dataset.col);
+  if (handler.clearConflictAt(row, col)) {
+    ignoreNextHidokuClick = true;
+    return true;
+  }
+  if (handler.hasConflict() || state.values[row][col] !== 1) return false;
+  event.preventDefault();
+  hidokuDrag = { pointerId: event.pointerId, lastKey: null };
+  activePointerId = event.pointerId;
+  board.setPointerCapture?.(event.pointerId);
+  setStatus(`Gestartet. Fahre zum Feld für ${handler.nextNumber()}.`);
+  drawHidokuCell(row, col);
+  return true;
+}
+function finishHidokuPointer(blockedByError = false) {
+  if (!hidokuDrag) return;
+  hidokuDrag = null;
+  activePointerId = null;
+  ignoreNextHidokuClick = true;
+  finishMove();
+  if (blockedByError) setStatus("Die rote Zahl muss zuerst korrigiert werden.");
 }
 function startShikakuPointer(event, cell) {
   const handler = GAME_HANDLERS.shikaku;
@@ -1190,15 +1238,22 @@ document.addEventListener("pointermove", (event) => {
   } else if (currentGame === "shikaku" && shikakuDrag && event.pointerId === activePointerId) {
     event.preventDefault();
     updateShikakuPointer(event.clientX, event.clientY);
+  } else if (currentGame === "hidoku" && hidokuDrag && event.pointerId === activePointerId) {
+    event.preventDefault();
+    const el = hidokuCellFromPoint(event.clientX, event.clientY);
+    if (!el) return;
+    drawHidokuCell(Number(el.dataset.row), Number(el.dataset.col));
   }
 }, { passive: false });
 document.addEventListener("pointerup", (event) => {
   if (currentGame === "arukone" && event.pointerId === activePointerId) finishArukonePointer();
   else if (currentGame === "shikaku" && shikakuDrag && event.pointerId === activePointerId) finishShikakuPointer();
+  else if (currentGame === "hidoku" && hidokuDrag && event.pointerId === activePointerId) finishHidokuPointer();
 });
 document.addEventListener("pointercancel", (event) => {
   if (currentGame === "arukone" && event.pointerId === activePointerId) finishArukonePointer();
   else if (currentGame === "shikaku" && shikakuDrag && event.pointerId === activePointerId) cancelShikakuPointer();
+  else if (currentGame === "hidoku" && hidokuDrag && event.pointerId === activePointerId) finishHidokuPointer();
 });
 if (board) board.addEventListener("pointerdown", (event) => {
   if (currentGame === "arukone") {
@@ -1214,5 +1269,11 @@ if (board) board.addEventListener("pointerdown", (event) => {
     const cell = event.target.closest(".shikaku-cell");
     if (!cell) return;
     startShikakuPointer(event, cell);
+  } else if (currentGame === "hidoku") {
+    const cell = event.target.closest(".hidoku-cell");
+    if (!cell) return;
+    beginMove();
+    const started = startHidokuPointer(event, cell);
+    if (!started || !hidokuDrag) finishMove();
   }
 }, { passive: false });
