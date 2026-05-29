@@ -318,6 +318,109 @@ h2 {
   50% { transform: scale(1.03); }
 }
 
+
+.start-panel {
+  display: grid;
+  gap: 14px;
+  max-width: 560px;
+  margin: 0 auto;
+  padding: clamp(22px, 5vw, 34px);
+  border-radius: 28px;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.75);
+  box-shadow: var(--shadow);
+  text-align: center;
+}
+
+.start-panel label {
+  font-size: clamp(1.25rem, 4vw, 1.65rem);
+  font-weight: 900;
+}
+
+.start-panel select {
+  width: 100%;
+  min-height: 54px;
+  text-align: center;
+  font-weight: 800;
+}
+
+.start-panel p,
+.puzzle-description {
+  margin: 0;
+  color: var(--muted);
+}
+
+.puzzle-description {
+  max-width: 520px;
+  margin-top: 6px;
+  font-weight: 700;
+}
+
+body.puzzle-active {
+  height: 100vh;
+  overflow: hidden;
+}
+
+body.puzzle-active .app-shell {
+  width: min(1180px, calc(100% - 24px));
+  height: 100vh;
+  padding: 12px 0;
+  display: flex;
+  flex-direction: column;
+}
+
+body.puzzle-active .hero,
+body.puzzle-active #start-panel {
+  display: none;
+}
+
+.game-panel {
+  min-height: 0;
+  flex: 1;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 10px;
+}
+
+.game-panel[hidden] {
+  display: none;
+}
+
+body.puzzle-active .controls {
+  justify-content: center;
+  margin-bottom: 0;
+  padding: 10px;
+}
+
+body.puzzle-active .game-card {
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  padding: clamp(12px, 2vh, 22px);
+  overflow: hidden;
+}
+
+body.puzzle-active .status-row {
+  margin-bottom: 10px;
+}
+
+body.puzzle-active .board {
+  width: min(100%, calc(100vh - 250px));
+  max-width: 720px;
+  align-self: center;
+  touch-action: none;
+}
+
+body.puzzle-active .help {
+  max-width: 720px;
+  margin-top: 10px;
+  font-size: 0.95rem;
+}
+
+body.puzzle-active .help ul {
+  margin-top: 8px;
+}
+
 @media (max-width: 640px) {
   .app-shell { width: min(100% - 20px, 980px); padding: 20px 0; }
   .controls { align-items: stretch; flex-direction: column; }
@@ -326,4 +429,34 @@ h2 {
   .status { text-align: left; }
   .board { gap: 5px; }
   .cell { border-radius: 12px; }
+
+  body.puzzle-active .app-shell {
+    width: min(100% - 12px, 980px);
+    padding: 6px 0;
+  }
+
+  body.puzzle-active .controls {
+    flex-direction: row;
+  }
+
+  body.puzzle-active .controls > * {
+    width: auto;
+  }
+
+  body.puzzle-active .controls select {
+    flex: 1 1 160px;
+  }
+
+  body.puzzle-active .game-card {
+    padding: 10px;
+  }
+
+  body.puzzle-active .board {
+    width: min(100%, calc(100vh - 310px));
+    gap: 5px;
+  }
+
+  body.puzzle-active .help {
+    font-size: 0.84rem;
+  }
 }

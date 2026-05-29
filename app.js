@@ -5,6 +5,10 @@ const DEFAULT_COLORS = {
   D: "#ffd166",
   E: "#8e44ad",
   F: "#f77f00",
+  G: "#2ec4b6",
+  H: "#ff9f1c",
+  I: "#3a86ff",
+  J: "#8338ec",
   1: "#ffd166",
   2: "#ef476f",
   3: "#7b9eb8",
@@ -13,28 +17,127 @@ const DEFAULT_COLORS = {
 };
 
 const PUZZLES = {
-  puzzle01: {
-    title: "Rätsel 01 – für Anfänger",
-    size: 6,
-    pairs: {
-      1: [[0, 0], [2, 2]],
-      2: [[0, 2], [4, 1]],
-      3: [[1, 2], [5, 3]],
-      4: [[0, 3], [4, 5]],
-      5: [[1, 4], [5, 5]],
-    },
-  },
-  easy: {
-    title: "Einfach (5×5)",
+  easy01: {
+    title: "Rätsel 01 · Leicht · 5×5",
+    description: "Kurzes Einsteiger-Rätsel mit drei gut sichtbaren Wegen.",
     size: 5,
     pairs: {
-      A: [[0, 0], [2, 0]],
-      B: [[0, 4], [4, 4]],
-      C: [[3, 0], [4, 3]],
+      A: [[0, 0], [1, 0]],
+      B: [[2, 0], [3, 3]],
+      C: [[3, 2], [4, 4]],
     },
   },
-  medium: {
-    title: "Mittel (6×6)",
+  easy02: {
+    title: "Rätsel 02 · Leicht · 5×5",
+    description: "Übe eine lange Verbindung und zwei kürzere Wege.",
+    size: 5,
+    pairs: {
+      A: [[0, 0], [1, 3]],
+      B: [[1, 2], [2, 2]],
+      C: [[2, 3], [4, 4]],
+    },
+  },
+  easy03: {
+    title: "Rätsel 03 · Leicht · 5×5",
+    description: "Drei übersichtliche Wege führen gemeinsam durch das ganze Feld.",
+    size: 5,
+    pairs: {
+      A: [[0, 0], [0, 4]],
+      B: [[1, 4], [2, 1]],
+      C: [[2, 2], [4, 4]],
+    },
+  },
+  easy04: {
+    title: "Rätsel 04 · Leicht · 5×5",
+    description: "Starte mit den oberen Symbolen und arbeite dich nach unten.",
+    size: 5,
+    pairs: {
+      A: [[0, 0], [1, 1]],
+      B: [[1, 0], [3, 3]],
+      C: [[3, 2], [4, 4]],
+    },
+  },
+  easy05: {
+    title: "Rätsel 05 · Leicht · 5×5",
+    description: "Ein sanfter Einstieg mit vier Symbolpaaren.",
+    size: 5,
+    pairs: {
+      A: [[0, 0], [0, 3]],
+      B: [[0, 4], [1, 0]],
+      C: [[2, 0], [3, 1]],
+      D: [[3, 0], [4, 4]],
+    },
+  },
+  easy06: {
+    title: "Rätsel 06 · Leicht · 5×5",
+    description: "Kurze und lange Wege wechseln sich ab.",
+    size: 5,
+    pairs: {
+      A: [[0, 0], [0, 2]],
+      B: [[0, 3], [1, 3]],
+      C: [[1, 2], [2, 4]],
+      D: [[3, 4], [4, 4]],
+    },
+  },
+  easy07: {
+    title: "Rätsel 07 · Leicht · 5×5",
+    description: "Achte darauf, die mittleren Felder nicht zu früh zu blockieren.",
+    size: 5,
+    pairs: {
+      A: [[0, 0], [0, 1]],
+      B: [[0, 2], [1, 4]],
+      C: [[1, 3], [3, 4]],
+      D: [[3, 3], [4, 4]],
+    },
+  },
+  easy08: {
+    title: "Rätsel 08 · Leicht · 5×5",
+    description: "Vier klare Verbindungen mit viel Platz zum Ziehen.",
+    size: 5,
+    pairs: {
+      A: [[0, 0], [0, 4]],
+      B: [[1, 4], [1, 0]],
+      C: [[2, 0], [3, 3]],
+      D: [[3, 2], [4, 4]],
+    },
+  },
+  easy09: {
+    title: "Rätsel 09 · Leicht · 5×5",
+    description: "Beginne am besten mit den Paaren am oberen Rand.",
+    size: 5,
+    pairs: {
+      A: [[0, 0], [0, 2]],
+      B: [[0, 3], [1, 0]],
+      C: [[2, 0], [2, 4]],
+      D: [[3, 4], [4, 4]],
+    },
+  },
+  easy10: {
+    title: "Rätsel 10 · Leicht · 5×5",
+    description: "Dieses Rätsel trainiert das Zurückziehen entlang des eigenen Wegs.",
+    size: 5,
+    pairs: {
+      A: [[0, 0], [0, 1]],
+      B: [[0, 2], [1, 2]],
+      C: [[1, 1], [3, 2]],
+      D: [[3, 1], [4, 4]],
+    },
+  },
+  easy11: {
+    title: "Rätsel 11 · Leicht · 5×5",
+    description: "Fünf kurze Wege machen das Spielfeld schnell voll.",
+    size: 5,
+    pairs: {
+      A: [[0, 0], [0, 1]],
+      B: [[0, 2], [1, 4]],
+      C: [[1, 3], [2, 0]],
+      D: [[2, 1], [3, 3]],
+      E: [[3, 2], [4, 4]],
+    },
+  },
+  medium01: {
+    title: "Rätsel 12 · Mittel · 6×6",
+    description: "Ein größeres Feld mit vier gut sichtbaren Paaren.",
     size: 6,
     pairs: {
       A: [[0, 0], [1, 0]],
@@ -43,8 +146,9 @@ const PUZZLES = {
       D: [[4, 3], [5, 5]],
     },
   },
-  hard: {
-    title: "Knifflig (7×7)",
+  hard01: {
+    title: "Rätsel 13 · Knifflig · 7×7",
+    description: "Mehr Platz, mehr Paare und längere Wege für geübte Kinder.",
     size: 7,
     pairs: {
       A: [[0, 0], [0, 6]],
@@ -59,18 +163,25 @@ const PUZZLES = {
 const board = document.querySelector("#board");
 const puzzleSelect = document.querySelector("#puzzle-select");
 const puzzleTitle = document.querySelector("#puzzle-title");
+const puzzleDescription = document.querySelector("#puzzle-description");
 const statusText = document.querySelector("#status");
 const undoButton = document.querySelector("#undo-button");
 const resetButton = document.querySelector("#reset-button");
 const successOverlay = document.querySelector("#success-overlay");
 const successClose = document.querySelector("#success-close");
 const nextPuzzleButton = document.querySelector("#next-puzzle-button");
+const startPanel = document.querySelector("#start-panel");
+const gamePanel = document.querySelector("#game-panel");
+const gameControls = document.querySelector("#game-controls");
 
-let currentKey = "puzzle01";
+let currentKey = null;
 let paths = {};
 let activePair = null;
 let history = [];
 let winShown = false;
+let isDrawing = false;
+let lastDrawnCell = null;
+let suppressNextClick = false;
 
 function cellKey(row, col) {
   return `${row},${col}`;
@@ -156,11 +267,21 @@ function resetPuzzle() {
   activePair = null;
   history = [];
   hideSuccess();
-  render("Wähle einen Startpunkt aus.");
+  render("Ziehe von einem Symbol zum passenden zweiten Symbol.");
 }
 
 function getPuzzleKeys() {
   return Object.keys(PUZZLES);
+}
+
+function showGame() {
+  const controlsLabel = gameControls.querySelector('label[for="puzzle-select"]');
+  if (puzzleSelect.parentElement !== gameControls) {
+    controlsLabel.after(puzzleSelect);
+  }
+  startPanel.hidden = true;
+  gamePanel.hidden = false;
+  document.body.classList.add("puzzle-active");
 }
 
 function setPuzzle(key) {
@@ -168,6 +289,8 @@ function setPuzzle(key) {
   puzzleSelect.value = key;
   board.style.setProperty("--size", PUZZLES[key].size);
   puzzleTitle.textContent = PUZZLES[key].title;
+  puzzleDescription.textContent = PUZZLES[key].description;
+  showGame();
   resetPuzzle();
 }
 
@@ -213,7 +336,7 @@ function handleWin() {
   showSuccess();
 }
 
-function handleCellClick(row, col) {
+function handleCellAction(row, col) {
   if (checkWin()) {
     return;
   }
@@ -225,13 +348,13 @@ function handleCellClick(row, col) {
       pushHistory();
       activePair = endpointPair;
       paths[endpointPair] = [[row, col]];
-      render(`Weg ${endpointPair} gestartet. Suche das gleiche Symbol.`);
+      render(`Weg ${endpointPair} gestartet. Ziehe zum gleichen Symbol.`);
       return;
     }
   }
 
   if (!activePair) {
-    render("Bitte zuerst ein Symbol anklicken.");
+    render("Bitte zuerst ein Symbol auswählen.");
     return;
   }
 
@@ -244,7 +367,7 @@ function handleCellClick(row, col) {
   const last = path.at(-1);
 
   if (!isNeighbor(last, [row, col])) {
-    render("Du kannst nur auf ein Nachbarfeld gehen.");
+    render("Ziehe nur waagerecht oder senkrecht auf ein Nachbarfeld.");
     return;
   }
 
@@ -271,11 +394,33 @@ function handleCellClick(row, col) {
       render();
       return;
     }
-    render("Super! Wähle das nächste Symbol.");
+    render("Super! Ziehe nun das nächste Symbolpaar zusammen.");
     return;
   }
 
-  render(`Weg ${activePair}: weiter zum gleichen Symbol.`);
+  render(`Weg ${activePair}: weiter zum gleichen Symbol ziehen.`);
+}
+
+function getCellFromPoint(clientX, clientY) {
+  const element = document.elementFromPoint(clientX, clientY);
+  return element?.closest(".cell");
+}
+
+function drawToCell(cell) {
+  if (!cell || !board.contains(cell)) {
+    return;
+  }
+
+  const row = Number(cell.dataset.row);
+  const col = Number(cell.dataset.col);
+  const key = cellKey(row, col);
+
+  if (key === lastDrawnCell) {
+    return;
+  }
+
+  lastDrawnCell = key;
+  handleCellAction(row, col);
 }
 
 function render(message = statusText.textContent) {
@@ -295,6 +440,8 @@ function render(message = statusText.textContent) {
 
       cell.type = "button";
       cell.className = "cell";
+      cell.dataset.row = row;
+      cell.dataset.col = col;
       cell.setAttribute("aria-label", `Zeile ${row + 1}, Spalte ${col + 1}`);
       cell.style.setProperty("--pair-color", getPairColor(pair));
 
@@ -319,7 +466,25 @@ function render(message = statusText.textContent) {
         cell.classList.add("board-won");
       }
 
-      cell.addEventListener("click", () => handleCellClick(row, col));
+      cell.addEventListener("pointerdown", (event) => {
+        event.preventDefault();
+        isDrawing = true;
+        suppressNextClick = true;
+        lastDrawnCell = null;
+        board.setPointerCapture?.(event.pointerId);
+        drawToCell(cell);
+      });
+
+      cell.addEventListener("click", (event) => {
+        if (suppressNextClick) {
+          suppressNextClick = false;
+          return;
+        }
+        if (event.detail === 0) {
+          handleCellAction(row, col);
+        }
+      });
+
       board.append(cell);
     }
   }
@@ -332,6 +497,7 @@ Object.entries(PUZZLES).forEach(([key, puzzle]) => {
   puzzleSelect.append(option);
 });
 
+puzzleSelect.selectedIndex = -1;
 puzzleSelect.addEventListener("change", (event) => setPuzzle(event.target.value));
 undoButton.addEventListener("click", () => {
   const previous = history.pop();
@@ -349,4 +515,15 @@ successOverlay.addEventListener("click", (event) => {
   }
 });
 
-setPuzzle(currentKey);
+document.addEventListener("pointermove", (event) => {
+  if (!isDrawing) {
+    return;
+  }
+  event.preventDefault();
+  drawToCell(getCellFromPoint(event.clientX, event.clientY));
+});
+
+document.addEventListener("pointerup", () => {
+  isDrawing = false;
+  lastDrawnCell = null;
+});
