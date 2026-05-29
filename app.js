@@ -294,6 +294,12 @@ const GAME_CONFIGS = {
     success: "Alle Meerestiere sind gefunden!", 
     rules: ["Die Zahlen zeigen, wie viele Tierfelder in Reihe und Spalte sind.", "Tippe: leer, Tier, Wasser und wieder leer.", "Wasser ist nur eine Hilfe: Für den Erfolg müssen nur die Tier-Anzahlen stimmen."],
   },
+  kakuro: {
+    title: "Kakuro", eyebrow: "Summen knobeln", code: "K",
+    subtitle: "Fülle die weißen Felder so, dass jede Zahlenkette ihre Summe erreicht.",
+    success: "Klasse kombiniert! Alle Kakuro-Summen stimmen.",
+    rules: ["Tippe auf ein weißes Feld und wähle unten eine Zahl.", "Die kleinen Zahlen zeigen die Summe nach rechts oder nach unten.", "In jeder zusammenhängenden Summe darf jede Zahl nur einmal vorkommen."],
+  },
 };
 
 function clone(value) { return typeof structuredClone === "function" ? structuredClone(value) : JSON.parse(JSON.stringify(value)); }
@@ -340,6 +346,69 @@ const SUDOKU_EASY = SUDOKU_EASY_SETUPS.map((setup, i) => {
 const SUDOKU_MEDIUM = SUDOKU_LEVELS.map((l, i) => makeLevel("sudoku", "medium", i + 1, { ...l, description: "Ein mittleres 6×6 Sudoku mit den Zahlen 1 bis 6." }));
 const SUDOKU_HARD = SUDOKU_LEVELS.map((l, i) => makeLevel("sudoku", "hard", i + 1, { ...l, givens: l.givens.filter((_, n) => n % 2 === i % 2), description: "Ein schweres 6×6 Sudoku mit weniger Startzahlen." }));
 
+
+function makeKakuroLevel(difficulty, index, solution, description) {
+  const size = solution.length;
+  const clues = {};
+  const runFor = {};
+  const runs = [];
+  const isWhite = (row, col) => solution[row]?.[col] > 0;
+  const addRun = (type, cells) => {
+    const id = `${type}-${runs.length}`;
+    const sum = cells.reduce((total, [row, col]) => total + solution[row][col], 0);
+    runs.push({ id, type, cells, sum });
+    cells.forEach(([row, col]) => {
+      runFor[keyOf(row, col)] = { ...(runFor[keyOf(row, col)] || {}), [type]: id };
+    });
+    return sum;
+  };
+
+  for (let row = 0; row < size; row += 1) {
+    for (let col = 0; col < size; col += 1) {
+      if (isWhite(row, col)) continue;
+      const clue = {};
+      const acrossCells = [];
+      for (let nextCol = col + 1; nextCol < size && isWhite(row, nextCol); nextCol += 1) acrossCells.push([row, nextCol]);
+      const downCells = [];
+      for (let nextRow = row + 1; nextRow < size && isWhite(nextRow, col); nextRow += 1) downCells.push([nextRow, col]);
+      if (acrossCells.length >= 2) clue.across = addRun("across", acrossCells);
+      if (downCells.length >= 2) clue.down = addRun("down", downCells);
+      if (clue.across || clue.down) clues[keyOf(row, col)] = clue;
+    }
+  }
+
+  return makeLevel("kakuro", difficulty, index, { size, solution, clues, runs, runFor, description });
+}
+
+const KAKURO_LEVELS = [
+  makeKakuroLevel("easy", 1, [
+    [0, 0, 0, 0, 0],
+    [0, 6, 3, 0, 0],
+    [0, 8, 4, 6, 9],
+    [0, 0, 7, 4, 2],
+    [0, 0, 0, 1, 5],
+  ], "Ein übersichtliches Kakuro wie in der einfachen Vorlage."),
+  makeKakuroLevel("medium", 1, [
+    [0, 0, 0, 0, 0, 0, 0],
+    [0, 6, 2, 0, 0, 5, 7],
+    [0, 2, 5, 0, 6, 8, 1],
+    [0, 0, 1, 8, 3, 0, 0],
+    [0, 0, 0, 4, 9, 3, 0],
+    [0, 3, 9, 6, 0, 2, 8],
+    [0, 9, 3, 0, 0, 1, 3],
+  ], "Ein mittleres Kakuro mit mehreren verzahnten Summen."),
+  makeKakuroLevel("hard", 1, [
+    [0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 2, 1, 4, 0, 1, 7, 5],
+    [0, 8, 4, 1, 5, 6, 2, 3],
+    [0, 1, 5, 0, 6, 2, 3, 1],
+    [0, 9, 2, 3, 4, 0, 1, 7],
+    [0, 0, 8, 5, 1, 3, 4, 2],
+    [0, 5, 9, 6, 0, 7, 9, 4],
+    [0, 9, 7, 4, 0, 4, 5, 8],
+  ], "Ein schweres Kakuro mit langen Zahlenketten und vielen Kreuzungen."),
+];
+
 function sea(lines, fleet) { const solution = gridFromStrings(lines, "1"); return { solution, ...counts(solution), fleet, size: solution.length }; }
 const BIMARU_LEVEL_COUNTS = { easy: 0, medium: 0, hard: 0 };
 const BIMARU_LEVELS = [
@@ -383,6 +452,7 @@ const LEVELS_BY_GAME = {
   arukone: ARUKONE_LEVELS,
   sudoku: [...SUDOKU_EASY, ...SUDOKU_MEDIUM, ...SUDOKU_HARD],
   bimaru: BIMARU_LEVELS,
+  kakuro: KAKURO_LEVELS,
 };
 
 const board = document.querySelector("#board");
@@ -594,6 +664,19 @@ const GAME_HANDLERS = {
     render(level) { board.innerHTML=""; board.style.setProperty("--size", level.size); for(let r=0;r<level.size;r++) for(let c=0;c<level.size;c++){ const v=state.values[r][c], fixed=state.fixed[keyOf(r,c)], selected=state.selected&&sameCell(state.selected,[r,c]); const edgeR=(c+1)%level.boxCols===0&&c<level.size-1, edgeB=(r+1)%level.boxRows===0&&r<level.size-1; const cell=makeButtonCell(r,c,`cell sudoku-cell${fixed?" given":""}${selected?" selected":""}${this.conflict(r,c,v)?" conflict":""}${edgeR?" box-edge-right":""}${edgeB?" box-edge-bottom":""}`, v || ""); cell.addEventListener("click",()=>this.select(r,c)); board.append(cell); } if(state.selected) this.renderPad(); },
   },
   bimaru: simpleGridGame("bimaru", "solution", ["","animal","water"], { animal:"🐟", water:"~" }),
+  kakuro: {
+    resetState(level) { state = { values: zeros(level.size, level.size, null), selected: null }; setStatus("Tippe auf ein weißes Feld und wähle eine Zahl."); },
+    checkWin() { const level=currentLevel(); const filled=level.solution.every((row,r)=>row.every((value,c)=>!value || Boolean(state.values[r][c]))); return filled && level.runs.every((run)=>!this.runConflict(run)); },
+    isWhite(level,r,c) { return level.solution[r]?.[c] > 0; },
+    select(r,c) { const level=currentLevel(); if(!this.isWhite(level,r,c)) return; state.selected=[r,c]; render("Wähle eine Zahl von 1 bis 9."); this.renderPad(); },
+    setNumber(v) { if(!state.selected) return; const [r,c]=state.selected; pushHistory(); state.values[r][c]=v; state.selected=null; this.checkWin()?handleWin():render(this.conflict(r,c) ? "Schau noch einmal auf Summe und doppelte Zahlen." : "Gut! Prüfe die kreuzenden Summen."); },
+    clear() { if(!state.selected) return; const [r,c]=state.selected; pushHistory(); state.values[r][c]=null; state.selected=null; render("Die Zahl ist weg."); },
+    hint() { const level=currentLevel(); for(let r=0;r<level.size;r++) for(let c=0;c<level.size;c++) if(level.solution[r][c] && state.values[r][c]!==level.solution[r][c]) { pushHistory(); state.values[r][c]=level.solution[r][c]; render("Tipp: Ein sicheres Feld ist eingetragen."); checkAndWin(); return; } },
+    runConflict(run) { const values=run.cells.map(([r,c])=>state.values[r][c]).filter(Boolean); const duplicate=new Set(values).size!==values.length; const sum=values.reduce((total,value)=>total+value,0); return duplicate || sum>run.sum || (values.length===run.cells.length && sum!==run.sum); },
+    conflict(r,c) { const level=currentLevel(); const ids=level.runFor[keyOf(r,c)] || {}; return Object.values(ids).some((id)=>this.runConflict(level.runs.find((run)=>run.id===id))); },
+    renderPad() { numberPad.innerHTML=""; numberPad.hidden=false; numberPad.style.setProperty("--pad-cols", 3); for(let n=1;n<=9;n++){ const b=document.createElement("button"); b.type="button"; b.textContent=n; b.addEventListener("click",()=>this.setNumber(n)); numberPad.append(b); } const clear=document.createElement("button"); clear.type="button"; clear.className="clear-number-button"; clear.textContent="Löschen"; clear.addEventListener("click",()=>this.clear()); numberPad.append(clear); },
+    render(level) { board.innerHTML=""; board.style.setProperty("--size", level.size); for(let r=0;r<level.size;r++) for(let c=0;c<level.size;c++){ if(this.isWhite(level,r,c)){ const selected=state.selected&&sameCell(state.selected,[r,c]); const value=state.values[r][c] || ""; const cell=makeButtonCell(r,c,`cell kakuro-cell kakuro-entry${selected?" selected":""}${this.conflict(r,c)?" conflict":""}`, value); cell.addEventListener("click",()=>this.select(r,c)); board.append(cell); } else { const clue=level.clues[keyOf(r,c)] || {}; const cell=document.createElement("div"); cell.className=`cell kakuro-cell kakuro-clue${clue.across||clue.down?" has-clue":""}`; cell.innerHTML=`${clue.down ? `<span class="kakuro-down">${clue.down}</span>` : ""}${clue.across ? `<span class="kakuro-across">${clue.across}</span>` : ""}`; board.append(cell); } } if(state.selected) this.renderPad(); },
+  },
 };
 
 function simpleGridGame(game, solutionField, cycle, symbols) {

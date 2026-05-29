@@ -1082,3 +1082,89 @@ button.selection-back-button:focus-visible {
   background: #f4f1ff;
   color: var(--primary-dark);
 }
+
+.kakuro-preview {
+  grid-template-columns: repeat(4, 1fr);
+  background: #f8f5ef;
+}
+
+.kakuro-preview span {
+  position: relative;
+  background: #fff;
+  border-color: #d6c7b2;
+  color: #3d405b;
+  font-size: 0.8rem;
+}
+
+.kakuro-preview .clue {
+  background: linear-gradient(135deg, #b7b7b2 49%, #fefefe 50%);
+  color: #1f2933;
+  align-items: flex-start;
+  justify-content: flex-start;
+  padding: 4px;
+}
+
+.kakuro-board {
+  gap: 0;
+  max-width: min(720px, 100%);
+  border: 2px solid #222;
+  background: #222;
+}
+
+.kakuro-cell {
+  border: 1px solid #222;
+  border-radius: 0;
+  font-size: clamp(1.15rem, 4vw, 2rem);
+}
+
+.kakuro-entry {
+  background: #fffdf8;
+  color: var(--ink);
+}
+
+.kakuro-entry.selected {
+  background: #fff1c2;
+  box-shadow: inset 0 0 0 4px #ffd166;
+}
+
+.kakuro-entry.conflict {
+  background: #ffe2e2;
+  color: #b00020;
+}
+
+.kakuro-clue {
+  cursor: default;
+  background: #aeb3b0;
+  overflow: hidden;
+}
+
+.kakuro-clue.has-clue::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(45deg, transparent calc(50% - 1px), #4a4a4a 50%, transparent calc(50% + 1px));
+}
+
+.kakuro-down,
+.kakuro-across {
+  position: absolute;
+  z-index: 1;
+  color: #111;
+  font-size: clamp(0.62rem, 2.2vw, 1.05rem);
+  font-weight: 800;
+  line-height: 1;
+}
+
+.kakuro-down {
+  left: 18%;
+  bottom: 14%;
+}
+
+.kakuro-across {
+  right: 14%;
+  top: 14%;
+}
+
+.kakuro-cell:hover {
+  transform: none;
+}
