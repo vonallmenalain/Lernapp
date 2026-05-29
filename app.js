@@ -64,6 +64,7 @@ const undoButton = document.querySelector("#undo-button");
 const resetButton = document.querySelector("#reset-button");
 const successOverlay = document.querySelector("#success-overlay");
 const successClose = document.querySelector("#success-close");
+const nextPuzzleButton = document.querySelector("#next-puzzle-button");
 
 let currentKey = "puzzle01";
 let paths = {};
@@ -158,11 +159,23 @@ function resetPuzzle() {
   render("Wähle einen Startpunkt aus.");
 }
 
+function getPuzzleKeys() {
+  return Object.keys(PUZZLES);
+}
+
 function setPuzzle(key) {
   currentKey = key;
+  puzzleSelect.value = key;
   board.style.setProperty("--size", PUZZLES[key].size);
   puzzleTitle.textContent = PUZZLES[key].title;
   resetPuzzle();
+}
+
+function goToNextPuzzle() {
+  const puzzleKeys = getPuzzleKeys();
+  const currentIndex = puzzleKeys.indexOf(currentKey);
+  const nextIndex = (currentIndex + 1) % puzzleKeys.length;
+  setPuzzle(puzzleKeys[nextIndex]);
 }
 
 function canUseCell(pair, row, col) {
@@ -329,6 +342,7 @@ undoButton.addEventListener("click", () => {
 });
 resetButton.addEventListener("click", resetPuzzle);
 successClose.addEventListener("click", hideSuccess);
+nextPuzzleButton.addEventListener("click", goToNextPuzzle);
 successOverlay.addEventListener("click", (event) => {
   if (event.target === successOverlay) {
     hideSuccess();
