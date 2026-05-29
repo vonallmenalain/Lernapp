@@ -3,84 +3,86 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Lernapp: Arukone für Kinder</title>
+    <title>Lernapp: Rätsel für Kinder</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
     <main class="app-shell">
       <section class="hero" aria-labelledby="app-title">
         <p class="eyebrow">Rätsel-Lernapp</p>
-        <h1 id="app-title">Arukone für Kinder</h1>
-        <p class="intro">
-          Verbinde gleiche Symbole mit einem Weg. Die Wege dürfen sich nicht kreuzen
-          und am Ende soll jedes Feld genutzt werden.
+        <h1 id="app-title">Rätsel für Kinder</h1>
+        <p id="app-intro" class="intro">
+          Wähle zuerst dein Rätselspiel aus. Danach suchst du dir dein Level als große Kachel aus.
         </p>
       </section>
 
-      <section id="start-panel" class="start-panel" aria-label="Rätsel auswählen">
-        <div class="start-copy">
-          <p class="small-label">Vor dem Start</p>
-          <h2>Beschreibung & Regeln</h2>
-          <p>
-            Suche dir ein Rätsel aus. Danach wird alles ausgeblendet, damit du nur noch
-            das Spielfeld im Vollbild siehst.
-          </p>
-          <ul class="rules-list">
-            <li>Verbinde immer zwei gleiche Symbole miteinander.</li>
-            <li>Gehe nur waagerecht oder senkrecht über Nachbarfelder.</li>
-            <li>Wege dürfen sich nicht kreuzen.</li>
-            <li>Am Schluss soll jedes Feld Teil eines Weges sein.</li>
-          </ul>
-        </div>
+      <section id="home-panel" class="home-panel" aria-label="Spiel auswählen">
+        <article class="game-choice-card">
+          <div class="preview arukone-preview" aria-hidden="true">
+            <span>A</span><span class="line-dot"></span><span>A</span>
+            <span>B</span><span class="line-dot blue"></span><span>B</span>
+            <span>C</span><span class="line-dot green"></span><span>C</span>
+          </div>
+          <div>
+            <p class="small-label">Wege finden</p>
+            <h2>Arukone</h2>
+            <p>Verbinde gleiche Symbole. Die Wege dürfen sich nicht kreuzen.</p>
+          </div>
+          <button class="choose-game-button" type="button" data-game="arukone">Arukone wählen</button>
+        </article>
 
-        <div class="selection-grid">
-          <div>
-            <label for="difficulty-select">Schwierigkeitsgrad</label>
-            <select id="difficulty-select">
-              <option value="easy">Leicht</option>
-              <option value="medium">Mittel</option>
-              <option value="hard">Schwer</option>
-            </select>
+        <article class="game-choice-card">
+          <div class="preview sudoku-preview" aria-hidden="true">
+            <span>1</span><span></span><span></span><span>4</span>
+            <span></span><span></span><span>3</span><span></span>
+            <span></span><span>3</span><span></span><span></span>
+            <span>4</span><span></span><span></span><span>1</span>
           </div>
           <div>
-            <label for="puzzle-select">Wähle ein Rätsel aus</label>
-            <select id="puzzle-select">
-              <option value="" disabled selected>Bitte Rätsel auswählen …</option>
-            </select>
+            <p class="small-label">Zahlen ordnen</p>
+            <h2>Sudoku</h2>
+            <p>Fülle ein 4×4 Feld. Jede Zahl von 1 bis 4 gehört in jede Reihe, Spalte und Box.</p>
           </div>
+          <button class="choose-game-button" type="button" data-game="sudoku">Sudoku wählen</button>
+        </article>
+      </section>
+
+      <section id="level-panel" class="start-panel" aria-label="Level auswählen" hidden>
+        <div class="start-copy">
+          <p class="small-label">Levelauswahl</p>
+          <h2 id="level-heading">Wähle ein Level</h2>
+          <p id="level-description"></p>
+          <ul id="rules-list" class="rules-list"></ul>
         </div>
+        <div id="level-grid" class="level-grid" aria-label="Levels"></div>
       </section>
 
       <section id="game-panel" class="game-panel" hidden>
         <div id="game-controls" class="controls" aria-label="Rätselsteuerung" hidden>
-          <button id="back-button" class="icon-button" type="button" aria-label="Zurück zur Levelauswahl" title="Zurück zur Levelauswahl">⌂</button>
-          <button id="undo-button" class="icon-button" type="button" aria-label="Letzte Linie rückgängig machen" title="Letzte Linie rückgängig machen">↶</button>
+          <button id="home-button" class="icon-button" type="button" aria-label="Zurück zur Spielauswahl" title="Zurück zur Spielauswahl">⌂</button>
+          <button id="back-button" class="icon-button" type="button" aria-label="Zurück zur Levelauswahl" title="Zurück zur Levelauswahl">⇤</button>
+          <button id="undo-button" class="icon-button" type="button" aria-label="Letzten Schritt rückgängig machen" title="Letzten Schritt rückgängig machen">↶</button>
           <button id="reset-button" class="icon-button" type="button" aria-label="Level neu starten" title="Level neu starten">↻</button>
         </div>
 
         <section class="game-card">
           <div class="status-row">
             <div>
-              <p class="small-label">Aktuelles Rätsel</p>
-              <h2 id="puzzle-title">Einfach</h2>
+              <p class="small-label">Aktuelles Level</p>
+              <h2 id="puzzle-title">Level</h2>
               <p id="puzzle-description" class="puzzle-description"></p>
             </div>
             <p id="status" class="status" role="status" aria-live="polite">
-              Wähle einen Startpunkt aus.
+              Wähle ein Level aus.
             </p>
           </div>
 
-          <div id="board" class="board" aria-label="Arukone Spielfeld"></div>
+          <div id="board" class="board" aria-label="Spielfeld"></div>
+          <div id="number-pad" class="number-pad" aria-label="Zahlen auswählen" hidden></div>
 
           <details class="help" open>
             <summary>So spielst du</summary>
-            <ul>
-              <li>Wähle zuerst ein Rätsel aus der Liste aus.</li>
-              <li>Ziehe von einem Symbol über benachbarte Felder zum gleichen Symbol.</li>
-              <li>Du darfst nur waagerecht oder senkrecht weitergehen.</li>
-              <li>Die Wege dürfen sich nicht kreuzen und sollen jedes Feld füllen.</li>
-              <li>Mit dem Pfeil nimmst du die zuletzt gezogene Linie zurück.</li>
-            </ul>
+            <ul id="game-help-list"></ul>
           </details>
         </section>
       </section>
@@ -96,11 +98,11 @@
         <div class="success-modal">
           <p class="success-eyebrow">Rätsel gelöst</p>
           <h2 id="success-title">Geschafft!</h2>
-          <p class="success-text">
-            Super gemacht! Du hast alle passenden Symbole verbunden und das ganze Feld ausgefüllt.
+          <p id="success-text" class="success-text">
+            Super gemacht! Du hast das Level gelöst.
           </p>
           <div class="success-actions">
-            <button id="next-puzzle-button" type="button">Nächstes Rätsel</button>
+            <button id="next-puzzle-button" type="button">Nächstes Level</button>
             <button id="success-close" class="secondary-button" type="button">Weiter üben</button>
           </div>
         </div>
