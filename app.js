@@ -198,10 +198,25 @@ HARD_PUZZLES.forEach((pairs, index) => {
   };
 });
 
+HARD_PUZZLES.forEach((pairs, index) => {
+  const number = String(index + 1).padStart(2, "0");
+  PUZZLES[`extreme${number}`] = {
+    title: `Rätsel ${number} · Extrem · 7×7`,
+    description: "Extremes Rätsel mit besonders verzahnten langen Wegen.",
+    size: 7,
+    difficulty: "extreme",
+    pairs: Object.fromEntries(Object.entries(pairs).map(([symbol, endpoints]) => [
+      symbol,
+      endpoints.map(([row, col]) => [col, 6 - row]),
+    ])),
+  };
+});
+
 const DIFFICULTY_INFO = {
   easy: { label: "Einfach", code: 1 },
   medium: { label: "Mittel", code: 2 },
   hard: { label: "Schwer", code: 3 },
+  extreme: { label: "Extrem", code: 4 },
 };
 
 Object.entries(PUZZLES).forEach(([key, puzzle]) => {
@@ -270,10 +285,13 @@ const SUDOKU_LEVELS = [
 
 
 const DIFFICULTIES = {
-  easy: { label: "Leicht", code: 1 },
-  medium: { label: "Mittel", code: 2 },
-  hard: { label: "Schwer", code: 3 },
+  easy: { label: "Leicht", code: 1, icon: "🌱" },
+  medium: { label: "Mittel", code: 2, icon: "⭐" },
+  hard: { label: "Schwer", code: 3, icon: "🚀" },
+  extreme: { label: "Extrem", code: 4, icon: "🟣" },
 };
+const DIFFICULTY_KEYS = Object.keys(DIFFICULTIES);
+const LEVELS_PER_DIFFICULTY = 10;
 
 const GAME_CONFIGS = {
   arukone: {
@@ -358,6 +376,7 @@ const SUDOKU_EASY = SUDOKU_EASY_SETUPS.map((setup, i) => {
 });
 const SUDOKU_MEDIUM = SUDOKU_LEVELS.map((l, i) => makeLevel("sudoku", "medium", i + 1, { ...l, description: "Ein mittleres 6×6 Sudoku mit den Zahlen 1 bis 6." }));
 const SUDOKU_HARD = SUDOKU_LEVELS.map((l, i) => makeLevel("sudoku", "hard", i + 1, { ...l, givens: l.givens.filter((_, n) => n % 2 === i % 2), description: "Ein schweres 6×6 Sudoku mit weniger Startzahlen." }));
+const SUDOKU_EXTREME = SUDOKU_LEVELS.map((l, i) => makeLevel("sudoku", "extreme", i + 1, { ...l, givens: l.givens.filter((_, n) => n % 3 === i % 3), description: "Ein extremes 6×6 Sudoku mit sehr wenigen Startzahlen." }));
 
 
 function makeKakuroLevel(difficulty, index, solution, description) {
@@ -511,10 +530,16 @@ const KAKURO_LEVELS = [
     remapKakuroSolution(KAKURO_OLD_MEDIUM_SOLUTION, digitMap),
     "Ein schweres Kakuro im Schwierigkeitsgrad der bisherigen mittleren Vorlage.",
   )),
+  ...KAKURO_DIGIT_VARIANTS.map((digitMap, index) => makeKakuroLevel(
+    "extreme",
+    index + 1,
+    remapKakuroSolution(KAKURO_OLD_MEDIUM_SOLUTION, digitMap),
+    "Ein extremes Kakuro mit grossen Feldern und anspruchsvollen Summen.",
+  )),
 ];
 
 function sea(lines, fleet) { const solution = gridFromStrings(lines, "1"); return { solution, ...counts(solution), fleet, size: solution.length }; }
-const BIMARU_LEVEL_COUNTS = { easy: 0, medium: 0, hard: 0 };
+const BIMARU_LEVEL_COUNTS = { easy: 0, medium: 0, hard: 0, extreme: 0 };
 const BIMARU_LEVELS = [
   ["easy", sea(["10001","00000","01100","00000","10010"], {1:3,2:2})],
   ["easy", sea(["01000","00011","00000","10000","00110"], {1:2,2:2})],
@@ -548,6 +573,17 @@ const BIMARU_LEVELS = [
   ["hard", sea(["10000000","10001100","00000000","00111000","00000010","01100010","00000010","00000100"], {1:2,2:2,3:2})],
   ["hard", sea(["00000100","11100100","00000000","01000011","01000000","00010000","00010000","00010001"], {1:2,2:2,3:2})],
   ["hard", sea(["11000001","00000001","00111000","00000000","10010000","00010000","00000011","00010000"], {1:2,2:2,3:2})],
+
+  ["extreme", sea(["100000001","000111000","000000000","110000100","000000100","001110100","000000000","010001110","010000000"], {1:2,2:2,3:3})],
+  ["extreme", sea(["011100000","000000001","100010001","000010001","000000000","001111000","000000000","110000010","000000010"], {1:2,2:1,3:2,4:1})],
+  ["extreme", sea(["100010000","000010000","011000001","000000001","001111000","000000000","110000010","000000010","000001110"], {1:1,2:2,3:2,4:1})],
+  ["extreme", sea(["000001111","100000000","100110000","000000000","001000001","001000001","000000001","110000000","000011100"], {1:2,2:2,3:1,4:1})],
+  ["extreme", sea(["110000000","000010000","000010000","000010000","001100000","000000001","011110000","000000001","000000001"], {1:1,2:1,3:2,4:1})],
+  ["extreme", sea(["000100001","000100001","000100000","011000000","000000000","100001111","000000000","001100000","000000010"], {1:2,2:2,3:1,4:1})],
+  ["extreme", sea(["001111000","000000001","110000001","000000001","000000000","000011000","100000000","100001110","000000000"], {1:2,2:1,3:2,4:1})],
+  ["extreme", sea(["100000000","100011000","000000000","001111000","000000010","011000010","000000010","000001000","000001000"], {1:2,2:2,3:1,4:1})],
+  ["extreme", sea(["000001000","111001000","000000000","010000111","010000000","000100000","000100000","000100001","000000001"], {1:2,2:2,3:2,4:1})],
+  ["extreme", sea(["110000001","000000001","001111000","000000000","100100000","000100000","000000011","000100000","000001110"], {1:1,2:2,3:2,4:1})],
 ].map(([difficulty, data]) => {
   BIMARU_LEVEL_COUNTS[difficulty] += 1;
   return makeLevel("bimaru", difficulty, BIMARU_LEVEL_COUNTS[difficulty], { ...data, description: "Finde die Tierfelder im Wasser." });
@@ -567,7 +603,7 @@ function transformPoint([row, col], size, variant) {
 }
 function makeHidokuLevel(difficulty, index, size, basePath, givenSlots, description) {
   const variant = index - 1;
-  const offset = (variant * Math.max(1, Math.floor(basePath.length / 10))) % basePath.length;
+  const offset = difficulty === "extreme" ? 0 : (variant * Math.max(1, Math.floor(basePath.length / 10))) % basePath.length;
   const path = basePath.map((_, n) => transformPoint(basePath[(n + offset) % basePath.length], size, variant));
   const solution = zeros(size, size, null);
   path.forEach(([row, col], n) => { solution[row][col] = n + 1; });
@@ -582,16 +618,19 @@ const HIDOKU_PATHS = {
   easy: [[0,0],[0,1],[0,2],[0,3],[1,3],[2,3],[3,3],[3,2],[2,2],[1,2],[1,1],[2,1],[3,1],[3,0],[2,0],[1,0]],
   medium: [[0,1],[0,2],[0,3],[0,4],[1,4],[2,4],[3,4],[4,4],[4,3],[4,2],[4,1],[4,0],[3,0],[2,0],[1,0],[0,0],[1,1],[2,1],[3,1],[3,2],[3,3],[2,3],[2,2],[1,3],[1,2]],
   hard: [[0,1],[0,2],[0,3],[0,4],[0,5],[1,5],[2,5],[3,5],[4,5],[5,5],[5,4],[5,3],[5,2],[5,1],[5,0],[4,0],[3,0],[2,0],[1,0],[0,0],[1,1],[2,1],[3,1],[4,1],[4,2],[3,2],[2,2],[2,3],[3,3],[4,3],[4,4],[3,4],[2,4],[1,4],[1,3],[1,2]],
+  extreme: Array.from({ length: 7 }, (_, row) => Array.from({ length: 7 }, (_, col) => [row, row % 2 === 0 ? col : 6 - col])).flat(),
 };
 const HIDOKU_GIVEN_SLOTS = {
   easy: [0, 2, 4, 7, 9, 11, 13, 15],
   medium: [0, 2, 6, 9, 11, 14, 16, 18, 21, 23, 24],
   hard: [0, 3, 5, 9, 11, 15, 18, 20, 22, 25, 28, 30, 32, 34, 35],
+  extreme: [0, 4, 8, 12, 16, 20, 24, 28, 32, 36, 40, 44, 48],
 };
 const HIDOKU_LEVELS = [
   ...Array.from({ length: 10 }, (_, i) => makeHidokuLevel("easy", i + 1, 4, HIDOKU_PATHS.easy, HIDOKU_GIVEN_SLOTS.easy, "Ein leichtes 4×4 Hidoku mit den Zahlen 1 bis 16.")),
   ...Array.from({ length: 10 }, (_, i) => makeHidokuLevel("medium", i + 1, 5, HIDOKU_PATHS.medium, HIDOKU_GIVEN_SLOTS.medium, "Ein mittleres 5×5 Hidoku mit den Zahlen 1 bis 25.")),
   ...Array.from({ length: 10 }, (_, i) => makeHidokuLevel("hard", i + 1, 6, HIDOKU_PATHS.hard, HIDOKU_GIVEN_SLOTS.hard, "Ein schweres 6×6 Hidoku mit den Zahlen 1 bis 36.")),
+  ...Array.from({ length: 10 }, (_, i) => makeHidokuLevel("extreme", i + 1, 7, HIDOKU_PATHS.extreme, HIDOKU_GIVEN_SLOTS.extreme, "Ein extremes 7×7 Hidoku mit den Zahlen 1 bis 49.")),
 ];
 
 
@@ -678,13 +717,53 @@ const SHIKAKU_LEVELS = [
   ]),
 ];
 
+function makeGridShikakuLevel(difficulty, index, rows, cols, regionRows, regionCols) {
+  const labels = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  const solutionRegions = zeros(rows, cols, "");
+  const clues = [];
+  let labelIndex = 0;
+  for (let row = 0; row < rows; row += regionRows) {
+    for (let col = 0; col < cols; col += regionCols) {
+      const label = labels[labelIndex % labels.length] + Math.floor(labelIndex / labels.length || "");
+      clues.push({ row, col, value: regionRows * regionCols });
+      for (let regionRow = row; regionRow < row + regionRows; regionRow += 1) {
+        for (let regionCol = col; regionCol < col + regionCols; regionCol += 1) {
+          solutionRegions[regionRow][regionCol] = label;
+        }
+      }
+      labelIndex += 1;
+    }
+  }
+  return makeShikakuLevel(difficulty, index, `${GAME_CONFIGS.shikaku.code} ${DIFFICULTIES[difficulty].code}-${index} · ${DIFFICULTIES[difficulty].label}-Gehege`, rows, cols, clues, solutionRegions);
+}
+
+function fillShikakuDifficulty(difficulty, rows, cols, variants) {
+  let nextIndex = SHIKAKU_LEVELS.filter((level) => level.difficulty === difficulty).length + 1;
+  while (nextIndex <= LEVELS_PER_DIFFICULTY) {
+    const [regionRows, regionCols] = variants[(nextIndex - 1) % variants.length];
+    SHIKAKU_LEVELS.push(makeGridShikakuLevel(difficulty, nextIndex, rows, cols, regionRows, regionCols));
+    nextIndex += 1;
+  }
+}
+
+fillShikakuDifficulty("easy", 4, 4, [[1, 2], [2, 1], [2, 2]]);
+fillShikakuDifficulty("medium", 6, 6, [[2, 3], [3, 2], [1, 3]]);
+fillShikakuDifficulty("hard", 8, 8, [[2, 4], [4, 2], [2, 2]]);
+fillShikakuDifficulty("extreme", 10, 10, [[2, 5], [5, 2], [2, 2]]);
+
+function normalizeLevelCounts(levels) {
+  return DIFFICULTY_KEYS.flatMap((difficulty) => levels
+    .filter((level) => level.difficulty === difficulty)
+    .slice(0, LEVELS_PER_DIFFICULTY));
+}
+
 const LEVELS_BY_GAME = {
-  arukone: ARUKONE_LEVELS,
-  sudoku: [...SUDOKU_EASY, ...SUDOKU_MEDIUM, ...SUDOKU_HARD],
-  bimaru: BIMARU_LEVELS,
-  kakuro: KAKURO_LEVELS,
-  hidoku: HIDOKU_LEVELS,
-  shikaku: SHIKAKU_LEVELS,
+  arukone: normalizeLevelCounts(ARUKONE_LEVELS),
+  sudoku: normalizeLevelCounts([...SUDOKU_EASY, ...SUDOKU_MEDIUM, ...SUDOKU_HARD, ...SUDOKU_EXTREME]),
+  bimaru: normalizeLevelCounts(BIMARU_LEVELS),
+  kakuro: normalizeLevelCounts(KAKURO_LEVELS),
+  hidoku: normalizeLevelCounts(HIDOKU_LEVELS),
+  shikaku: normalizeLevelCounts(SHIKAKU_LEVELS),
 };
 
 const board = document.querySelector("#board");
@@ -773,7 +852,7 @@ function renderDifficultySelect() {
   levelGrid.className = "difficulty-grid";
   levelGrid.setAttribute("aria-label", "Schwierigkeitsgrad auswählen");
   levelGrid.innerHTML = "";
-  ["easy", "medium", "hard"].forEach((difficulty) => {
+  DIFFICULTY_KEYS.forEach((difficulty) => {
     const info = DIFFICULTIES[difficulty];
     const levels = levelsForDifficulty(difficulty);
     const solved = countSolved(levels);
@@ -782,7 +861,7 @@ function renderDifficultySelect() {
     button.type = "button";
     button.setAttribute("aria-label", `${info.label} wählen, ${levels.length} Levels, ${solved} gelöst`);
     button.innerHTML = `
-      <span class="difficulty-icon" aria-hidden="true">${difficulty === "easy" ? "🌱" : difficulty === "medium" ? "⭐" : "🚀"}</span>
+      <span class="difficulty-icon" aria-hidden="true">${info.icon}</span>
       <span class="difficulty-name">${info.label}</span>
       <small>${levels.length} Levels · ${solved} gelöst</small>
     `;
