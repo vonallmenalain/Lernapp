@@ -315,26 +315,70 @@ const ARUKONE_LEVELS = Object.entries(PUZZLES).map(([, level]) => {
   const number = level.levelName.split("-").at(-1);
   return { ...level, description: level.description, title: level.title.replace("Einfach", "Leicht") };
 });
-const SUDOKU_EASY = [
-  { solution: [[1,2,3,4],[3,4,1,2],[2,1,4,3],[4,3,2,1]], givens: [[0,0,1],[0,3,4],[1,1,4],[2,2,4],[3,0,4],[3,3,1]] },
-  { solution: [[2,1,4,3],[4,3,2,1],[1,2,3,4],[3,4,1,2]], givens: [[0,0,2],[0,2,4],[1,1,3],[2,2,3],[3,1,4],[3,3,2]] },
-  { solution: [[3,4,1,2],[1,2,3,4],[4,3,2,1],[2,1,4,3]], givens: [[0,1,4],[0,3,2],[1,0,1],[2,2,2],[3,0,2],[3,3,3]] },
-].map((l, i) => makeLevel("sudoku", "easy", i + 1, { ...l, size: 4, boxRows: 2, boxCols: 2, description: "Ein leichtes 4×4 Sudoku mit den Zahlen 1 bis 4." }));
+function makeSudokuSolution(size, boxRows, rowOrder, colOrder, symbols) {
+  const pattern = (row, col) => (boxRows * (row % boxRows) + Math.floor(row / boxRows) + col) % size;
+  return rowOrder.map((row) => colOrder.map((col) => symbols[pattern(row, col)]));
+}
+function givensFromCells(solution, cells) { return cells.map(([row, col]) => [row, col, solution[row][col]]); }
+
+const SUDOKU_EASY_SETUPS = [
+  { rows: [0,1,2,3], cols: [0,1,2,3], symbols: [1,2,3,4], cells: [[0,0],[0,3],[1,1],[2,2],[3,0],[3,3]] },
+  { rows: [0,1,2,3], cols: [1,0,3,2], symbols: [2,1,4,3], cells: [[0,0],[0,2],[1,1],[2,2],[3,1],[3,3]] },
+  { rows: [2,3,0,1], cols: [0,1,2,3], symbols: [3,4,1,2], cells: [[0,1],[0,3],[1,0],[2,2],[3,0],[3,3]] },
+  { rows: [1,0,3,2], cols: [0,1,2,3], symbols: [1,2,3,4], cells: [[0,0],[0,2],[1,3],[2,1],[3,0],[3,3]] },
+  { rows: [0,1,2,3], cols: [2,3,0,1], symbols: [4,3,2,1], cells: [[0,1],[0,2],[1,0],[2,3],[3,1],[3,2]] },
+  { rows: [2,3,0,1], cols: [1,0,3,2], symbols: [1,3,2,4], cells: [[0,0],[0,3],[1,2],[2,1],[3,0],[3,3]] },
+  { rows: [0,1,3,2], cols: [0,1,3,2], symbols: [2,4,1,3], cells: [[0,0],[0,3],[1,1],[2,0],[3,2],[3,3]] },
+  { rows: [1,0,2,3], cols: [1,0,2,3], symbols: [3,1,4,2], cells: [[0,0],[0,2],[1,1],[2,3],[3,0],[3,2]] },
+  { rows: [2,3,1,0], cols: [2,3,1,0], symbols: [4,1,3,2], cells: [[0,1],[0,3],[1,0],[2,2],[3,0],[3,3]] },
+  { rows: [3,2,0,1], cols: [3,2,0,1], symbols: [1,4,2,3], cells: [[0,0],[0,2],[1,1],[2,3],[3,1],[3,2]] },
+];
+const SUDOKU_EASY = SUDOKU_EASY_SETUPS.map((setup, i) => {
+  const solution = makeSudokuSolution(4, 2, setup.rows, setup.cols, setup.symbols);
+  return makeLevel("sudoku", "easy", i + 1, { solution, givens: givensFromCells(solution, setup.cells), size: 4, boxRows: 2, boxCols: 2, description: "Ein leichtes 4×4 Sudoku mit den Zahlen 1 bis 4." });
+});
 const SUDOKU_MEDIUM = SUDOKU_LEVELS.map((l, i) => makeLevel("sudoku", "medium", i + 1, { ...l, description: "Ein mittleres 6×6 Sudoku mit den Zahlen 1 bis 6." }));
-const SUDOKU_HARD = SUDOKU_LEVELS.slice(0, 5).map((l, i) => makeLevel("sudoku", "hard", i + 1, { ...l, givens: l.givens.filter((_, n) => n % 2 === 0), description: "Ein schweres 6×6 Sudoku mit weniger Startzahlen." }));
+const SUDOKU_HARD = SUDOKU_LEVELS.map((l, i) => makeLevel("sudoku", "hard", i + 1, { ...l, givens: l.givens.filter((_, n) => n % 2 === i % 2), description: "Ein schweres 6×6 Sudoku mit weniger Startzahlen." }));
 
 function sea(lines, fleet) { const solution = gridFromStrings(lines, "1"); return { solution, ...counts(solution), fleet, size: solution.length }; }
+const BIMARU_LEVEL_COUNTS = { easy: 0, medium: 0, hard: 0 };
 const BIMARU_LEVELS = [
   ["easy", sea(["10001","00000","01100","00000","10010"], {1:3,2:2})],
   ["easy", sea(["01000","00011","00000","10000","00110"], {1:2,2:2})],
   ["easy", sea(["00100","00000","11000","00001","01100"], {1:2,2:2})],
+  ["easy", sea(["10000","00110","00000","01000","00011"], {1:1,2:2})],
+  ["easy", sea(["01100","00000","10001","00000","00100"], {1:3,2:1})],
+  ["easy", sea(["00010","11000","00000","00101","00000"], {1:2,2:1})],
+  ["easy", sea(["10010","00000","00110","00000","01000"], {1:3,2:1})],
+  ["easy", sea(["00001","01100","00000","10000","00011"], {1:2,2:2})],
+  ["easy", sea(["01000","00000","10011","00000","00100"], {1:2,2:1})],
+  ["easy", sea(["00100","00011","00000","01000","10000"], {1:3,2:1})],
+
   ["medium", sea(["100001","000000","011100","000000","110010","000010"], {1:2,2:1,3:1})],
   ["medium", sea(["011000","000001","100000","000110","000000","111000"], {1:2,2:2,3:1})],
   ["medium", sea(["100100","000100","011000","000000","100011","000000"], {1:2,2:2,3:1})],
+  ["medium", sea(["000110","100000","000001","011100","000000","100010"], {1:3,2:1,3:1})],
+  ["medium", sea(["101000","000000","001110","000000","110000","000101"], {1:4,2:1,3:1})],
+  ["medium", sea(["000001","011000","000100","100100","000000","001110"], {1:2,2:1,3:2})],
+  ["medium", sea(["110000","000010","000010","001000","000001","011000"], {1:2,2:2})],
+  ["medium", sea(["001100","000000","100001","000000","011010","000010"], {1:2,2:2})],
+  ["medium", sea(["100010","000010","000000","111000","000001","001100"], {1:2,2:1,3:1})],
+  ["medium", sea(["000100","110100","000000","000011","100000","001000"], {1:3,2:2})],
+
   ["hard", sea(["10000001","00011000","00000000","11100010","00000010","01000010","01000100","00000100"], {1:3,2:2,3:2})],
   ["hard", sea(["01100000","00000100","10000100","00000100","00000000","11100001","00000000","00111000"], {1:2,2:1,3:3})],
   ["hard", sea(["10001000","00001000","01100001","00000000","00111000","00000010","11000010","00000010"], {1:2,2:2,3:2})],
-].map(([difficulty, data], i) => makeLevel("bimaru", difficulty, (i % 3) + 1, { ...data, description: "Finde die Tierfelder im Wasser." }));
+  ["hard", sea(["00000111","10000000","10011000","00000000","00100001","00100001","00000001","11000000"], {1:2,2:2,3:2})],
+  ["hard", sea(["11000000","00001000","00001000","00001000","00110000","00000001","01110000","00000001"], {1:2,2:2,3:2})],
+  ["hard", sea(["00010001","00010001","00010000","01100000","00000000","10000111","00000000","00110000"], {1:2,2:2,3:2})],
+  ["hard", sea(["00111000","00000001","11000001","00000001","00000000","00001100","10000000","10000110"], {1:2,2:2,3:2})],
+  ["hard", sea(["10000000","10001100","00000000","00111000","00000010","01100010","00000010","00000100"], {1:2,2:2,3:2})],
+  ["hard", sea(["00000100","11100100","00000000","01000011","01000000","00010000","00010000","00010001"], {1:2,2:2,3:2})],
+  ["hard", sea(["11000001","00000001","00111000","00000000","10010000","00010000","00000011","00010000"], {1:2,2:2,3:2})],
+].map(([difficulty, data]) => {
+  BIMARU_LEVEL_COUNTS[difficulty] += 1;
+  return makeLevel("bimaru", difficulty, BIMARU_LEVEL_COUNTS[difficulty], { ...data, description: "Finde die Tierfelder im Wasser." });
+});
 const LEVELS_BY_GAME = {
   arukone: ARUKONE_LEVELS,
   sudoku: [...SUDOKU_EASY, ...SUDOKU_MEDIUM, ...SUDOKU_HARD],
