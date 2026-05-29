@@ -33,16 +33,29 @@
           </ul>
         </div>
 
-        <label for="puzzle-select">Wähle ein Rätsel aus</label>
-        <select id="puzzle-select">
-          <option value="" disabled selected>Bitte Rätsel auswählen …</option>
-        </select>
+        <div class="selection-grid">
+          <div>
+            <label for="difficulty-select">Schwierigkeitsgrad</label>
+            <select id="difficulty-select">
+              <option value="easy">Leicht</option>
+              <option value="medium">Mittel</option>
+              <option value="hard">Schwer</option>
+            </select>
+          </div>
+          <div>
+            <label for="puzzle-select">Wähle ein Rätsel aus</label>
+            <select id="puzzle-select">
+              <option value="" disabled selected>Bitte Rätsel auswählen …</option>
+            </select>
+          </div>
+        </div>
       </section>
 
       <section id="game-panel" class="game-panel" hidden>
         <div id="game-controls" class="controls" aria-label="Rätselsteuerung" hidden>
-          <button id="undo-button" type="button">Rückgängig</button>
-          <button id="reset-button" type="button">Von vorne beginnen</button>
+          <button id="back-button" class="icon-button" type="button" aria-label="Zurück zur Levelauswahl" title="Zurück zur Levelauswahl">⌂</button>
+          <button id="undo-button" class="icon-button" type="button" aria-label="Letzte Linie rückgängig machen" title="Letzte Linie rückgängig machen">↶</button>
+          <button id="reset-button" class="icon-button" type="button" aria-label="Level neu starten" title="Level neu starten">↻</button>
         </div>
 
         <section class="game-card">
@@ -66,7 +79,7 @@
               <li>Ziehe von einem Symbol über benachbarte Felder zum gleichen Symbol.</li>
               <li>Du darfst nur waagerecht oder senkrecht weitergehen.</li>
               <li>Die Wege dürfen sich nicht kreuzen und sollen jedes Feld füllen.</li>
-              <li>Mit „Rückgängig“ nimmst du den letzten Schritt zurück.</li>
+              <li>Mit dem Pfeil nimmst du die zuletzt gezogene Linie zurück.</li>
             </ul>
           </details>
         </section>
