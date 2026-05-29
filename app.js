@@ -198,25 +198,111 @@ HARD_PUZZLES.forEach((pairs, index) => {
   };
 });
 
+const DIFFICULTY_INFO = {
+  easy: { label: "Einfach", code: 1 },
+  medium: { label: "Mittel", code: 2 },
+  hard: { label: "Schwer", code: 3 },
+};
+
+Object.entries(PUZZLES).forEach(([key, puzzle]) => {
+  const sameDifficultyKeys = Object.entries(PUZZLES)
+    .filter(([, item]) => item.difficulty === puzzle.difficulty)
+    .map(([itemKey]) => itemKey);
+  const index = sameDifficultyKeys.indexOf(key) + 1;
+  const difficulty = DIFFICULTY_INFO[puzzle.difficulty];
+  puzzle.game = "arukone";
+  puzzle.levelName = `A ${difficulty.code}-${index}`;
+  puzzle.title = `${puzzle.levelName} · Arukone · ${difficulty.label}`;
+});
+
+const SUDOKU_LEVELS = [
+  { givens: [[0, 0, 1], [3, 3, 1]], solution: [[1, 2, 3, 4], [3, 4, 1, 2], [2, 1, 4, 3], [4, 3, 2, 1]] },
+  { givens: [[0, 1, 4], [2, 2, 4]], solution: [[1, 4, 2, 3], [3, 2, 1, 4], [2, 3, 4, 1], [4, 1, 3, 2]] },
+  { givens: [[1, 0, 2], [3, 2, 1]], solution: [[4, 1, 2, 3], [2, 3, 4, 1], [1, 4, 3, 2], [3, 2, 1, 4]] },
+  { givens: [[0, 3, 2], [2, 1, 1]], solution: [[3, 4, 1, 2], [1, 2, 3, 4], [4, 1, 2, 3], [2, 3, 4, 1]] },
+  { givens: [[1, 2, 2], [3, 0, 2]], solution: [[1, 2, 4, 3], [3, 4, 2, 1], [4, 3, 1, 2], [2, 1, 3, 4]] },
+  { givens: [[0, 2, 4], [2, 0, 3]], solution: [[2, 1, 4, 3], [4, 3, 2, 1], [3, 2, 1, 4], [1, 4, 3, 2]] },
+  { givens: [[1, 3, 3], [3, 1, 1]], solution: [[2, 3, 1, 4], [1, 4, 2, 3], [3, 2, 4, 1], [4, 1, 3, 2]] },
+  { givens: [[0, 0, 4], [2, 3, 2]], solution: [[4, 3, 2, 1], [2, 1, 4, 3], [1, 4, 3, 2], [3, 2, 1, 4]] },
+  { givens: [[0, 2, 1], [3, 0, 3]], solution: [[2, 4, 1, 3], [1, 3, 2, 4], [4, 2, 3, 1], [3, 1, 4, 2]] },
+  { givens: [[1, 1, 2], [2, 2, 2]], solution: [[3, 1, 4, 2], [4, 2, 1, 3], [1, 3, 2, 4], [2, 4, 3, 1]] },
+].map((level, index) => ({
+  ...level,
+  game: "sudoku",
+  size: 4,
+  difficulty: "easy",
+  levelName: `A 1-${index + 1}`,
+  title: `A 1-${index + 1} · Sudoku · Einfach`,
+  description: "Ein 4×4 Sudoku mit nur zwei Startzahlen.",
+}));
+
+const GAME_COPY = {
+  arukone: {
+    heading: "Arukone Levels",
+    description: "Wähle eine Kachel. A 1 steht für einfache Levels, A 2 für mittlere Levels und A 3 für schwere Levels.",
+    rules: [
+      "Verbinde immer zwei gleiche Symbole miteinander.",
+      "Gehe nur waagerecht oder senkrecht über Nachbarfelder.",
+      "Wege dürfen sich nicht kreuzen.",
+      "Am Schluss soll jedes Feld Teil eines Weges sein.",
+    ],
+    help: [
+      "Ziehe von einem Symbol über benachbarte Felder zum gleichen Symbol.",
+      "Du darfst nur waagerecht oder senkrecht weitergehen.",
+      "Die Wege dürfen sich nicht kreuzen und sollen jedes Feld füllen.",
+      "Mit dem Pfeil nimmst du die zuletzt gezogene Linie zurück.",
+    ],
+    success: "Super gemacht! Du hast alle passenden Symbole verbunden und das ganze Feld ausgefüllt.",
+  },
+  sudoku: {
+    heading: "Sudoku Levels",
+    description: "Wähle ein einfaches 4×4 Sudoku. Jedes Level hat nur zwei Startzahlen.",
+    rules: [
+      "Fülle die leeren Felder mit den Zahlen 1, 2, 3 und 4.",
+      "In jeder Reihe darf jede Zahl nur einmal vorkommen.",
+      "In jeder Spalte darf jede Zahl nur einmal vorkommen.",
+      "Auch in jeder dicken 2×2 Box gehört jede Zahl genau einmal hinein.",
+    ],
+    help: [
+      "Tippe zuerst auf ein leeres Feld.",
+      "Wähle danach unten eine Zahl von 1 bis 4 aus.",
+      "Startzahlen sind fest und können nicht verändert werden.",
+      "Mit dem Pfeil nimmst du deine letzte Zahl zurück.",
+    ],
+    success: "Super gemacht! Jede Reihe, jede Spalte und jede Box ist richtig gefüllt.",
+  },
+};
+
 const board = document.querySelector("#board");
-const puzzleSelect = document.querySelector("#puzzle-select");
-const difficultySelect = document.querySelector("#difficulty-select");
+const numberPad = document.querySelector("#number-pad");
+const homePanel = document.querySelector("#home-panel");
+const levelPanel = document.querySelector("#level-panel");
+const levelHeading = document.querySelector("#level-heading");
+const levelDescription = document.querySelector("#level-description");
+const levelGrid = document.querySelector("#level-grid");
+const rulesList = document.querySelector("#rules-list");
+const gameHelpList = document.querySelector("#game-help-list");
 const puzzleTitle = document.querySelector("#puzzle-title");
 const puzzleDescription = document.querySelector("#puzzle-description");
 const statusText = document.querySelector("#status");
 const undoButton = document.querySelector("#undo-button");
 const resetButton = document.querySelector("#reset-button");
 const backButton = document.querySelector("#back-button");
+const homeButton = document.querySelector("#home-button");
 const successOverlay = document.querySelector("#success-overlay");
 const successClose = document.querySelector("#success-close");
 const nextPuzzleButton = document.querySelector("#next-puzzle-button");
-const startPanel = document.querySelector("#start-panel");
+const successText = document.querySelector("#success-text");
 const gamePanel = document.querySelector("#game-panel");
 const gameControls = document.querySelector("#game-controls");
 
+let currentGame = null;
 let currentKey = null;
 let paths = {};
 let activePair = null;
+let selectedSudokuCell = null;
+let sudokuValues = [];
+let fixedSudokuCells = new Set();
 let history = [];
 let winShown = false;
 let isDrawing = false;
@@ -238,39 +324,116 @@ function isNeighbor(a, b) {
 }
 
 function getPuzzle() {
-  return PUZZLES[currentKey];
+  return currentGame === "sudoku" ? SUDOKU_LEVELS[Number(currentKey)] : PUZZLES[currentKey];
+}
+
+function getLevelKeys(game = currentGame) {
+  if (game === "sudoku") {
+    return SUDOKU_LEVELS.map((_, index) => String(index));
+  }
+  return Object.keys(PUZZLES);
 }
 
 function getPairColor(pair) {
   return DEFAULT_COLORS[pair] ?? "#6c5ce7";
 }
 
-function getEndpointAt(row, col) {
+function fillList(element, items) {
+  element.innerHTML = "";
+  items.forEach((item) => {
+    const li = document.createElement("li");
+    li.textContent = item;
+    element.append(li);
+  });
+}
+
+function showHome() {
+  finishMove();
+  hideSuccess();
+  isDrawing = false;
+  currentGame = null;
+  homePanel.hidden = false;
+  levelPanel.hidden = true;
+  gamePanel.hidden = true;
+  gameControls.hidden = true;
+  document.body.classList.remove("puzzle-active");
+}
+
+function chooseGame(game) {
+  currentGame = game;
+  const copy = GAME_COPY[game];
+  levelHeading.textContent = copy.heading;
+  levelDescription.textContent = copy.description;
+  fillList(rulesList, copy.rules);
+  fillList(gameHelpList, copy.help);
+  renderLevelTiles();
+  homePanel.hidden = true;
+  levelPanel.hidden = false;
+  gamePanel.hidden = true;
+  gameControls.hidden = true;
+  document.body.classList.remove("puzzle-active");
+}
+
+function renderLevelTiles() {
+  levelGrid.innerHTML = "";
+  getLevelKeys(currentGame).forEach((key) => {
+    const puzzle = currentGame === "sudoku" ? SUDOKU_LEVELS[Number(key)] : PUZZLES[key];
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = `level-tile ${puzzle.difficulty}`;
+    button.dataset.key = key;
+    button.innerHTML = `<span>${puzzle.levelName}</span><small>${puzzle.game === "sudoku" ? "Sudoku 4×4" : `${puzzle.size}×${puzzle.size}`}</small>`;
+    button.addEventListener("click", () => setPuzzle(key));
+    levelGrid.append(button);
+  });
+}
+
+function showGame() {
+  homePanel.hidden = true;
+  levelPanel.hidden = true;
+  gamePanel.hidden = false;
+  gameControls.hidden = false;
+  document.body.classList.add("puzzle-active");
+}
+
+function showLevelSelect() {
+  finishMove();
+  hideSuccess();
+  isDrawing = false;
+  levelPanel.hidden = false;
+  homePanel.hidden = true;
+  gamePanel.hidden = true;
+  gameControls.hidden = true;
+  document.body.classList.remove("puzzle-active");
+}
+
+function setPuzzle(key) {
+  currentKey = key;
   const puzzle = getPuzzle();
-  return Object.entries(puzzle.pairs).find(([, ends]) =>
-    ends.some((point) => sameCell(point, [row, col])),
-  )?.[0] ?? null;
+  board.style.setProperty("--size", puzzle.size);
+  board.className = `board ${currentGame}-board`;
+  board.setAttribute("aria-label", currentGame === "sudoku" ? "Sudoku Spielfeld" : "Arukone Spielfeld");
+  numberPad.hidden = currentGame !== "sudoku";
+  puzzleTitle.textContent = puzzle.title;
+  puzzleDescription.textContent = puzzle.description;
+  successText.textContent = GAME_COPY[currentGame].success;
+  showGame();
+  resetPuzzle();
 }
 
-function getOwnerAt(row, col) {
-  const key = cellKey(row, col);
-  return Object.entries(paths).find(([, path]) =>
-    path.some((point) => cellKey(...point) === key),
-  )?.[0] ?? null;
-}
-
-function isCompleted(pair) {
-  const ends = getPuzzle().pairs[pair];
-  const path = paths[pair];
-  const startsAtFirstEnd = sameCell(path[0], ends[0]) && sameCell(path.at(-1), ends[1]);
-  const startsAtSecondEnd = sameCell(path[0], ends[1]) && sameCell(path.at(-1), ends[0]);
-  return path.length > 1 && (startsAtFirstEnd || startsAtSecondEnd);
+function goToNextPuzzle() {
+  const keys = getLevelKeys(currentGame);
+  const currentIndex = keys.indexOf(String(currentKey));
+  const nextIndex = (currentIndex + 1) % keys.length;
+  setPuzzle(keys[nextIndex]);
 }
 
 function snapshot() {
   return {
     paths: structuredClone(paths),
     activePair,
+    selectedSudokuCell: selectedSudokuCell ? [...selectedSudokuCell] : null,
+    sudokuValues: structuredClone(sudokuValues),
     winShown,
   };
 }
@@ -278,6 +441,8 @@ function snapshot() {
 function restore(state) {
   paths = structuredClone(state.paths);
   activePair = state.activePair;
+  selectedSudokuCell = state.selectedSudokuCell ? [...state.selectedSudokuCell] : null;
+  sudokuValues = structuredClone(state.sudokuValues);
   winShown = state.winShown;
   hideSuccess();
   render();
@@ -320,128 +485,87 @@ function hideSuccess() {
 
 function resetPuzzle() {
   finishMove();
-  const puzzle = getPuzzle();
-  paths = Object.fromEntries(
-    Object.entries(puzzle.pairs).map(([pair, ends]) => [pair, [ends[0]]]),
-  );
-  activePair = null;
   history = [];
   hideSuccess();
+  if (currentGame === "sudoku") {
+    resetSudoku();
+    return;
+  }
+  const puzzle = getPuzzle();
+  paths = Object.fromEntries(Object.entries(puzzle.pairs).map(([pair, ends]) => [pair, [ends[0]]]));
+  activePair = null;
   render("Ziehe von einem Symbol zum passenden zweiten Symbol.");
 }
 
-function getPuzzleKeys(difficulty = difficultySelect.value) {
-  return Object.entries(PUZZLES)
-    .filter(([, puzzle]) => puzzle.difficulty === difficulty)
-    .map(([key]) => key);
+function getEndpointAt(row, col) {
+  const puzzle = getPuzzle();
+  return Object.entries(puzzle.pairs).find(([, ends]) =>
+    ends.some((point) => sameCell(point, [row, col])),
+  )?.[0] ?? null;
 }
 
-function showGame() {
-  startPanel.hidden = true;
-  gamePanel.hidden = false;
-  gameControls.hidden = false;
-  document.body.classList.add("puzzle-active");
+function getOwnerAt(row, col) {
+  const key = cellKey(row, col);
+  return Object.entries(paths).find(([, path]) =>
+    path.some((point) => cellKey(...point) === key),
+  )?.[0] ?? null;
 }
 
-function showLevelSelect() {
-  finishMove();
-  hideSuccess();
-  isDrawing = false;
-  startPanel.hidden = false;
-  gamePanel.hidden = true;
-  gameControls.hidden = true;
-  document.body.classList.remove("puzzle-active");
-}
-
-function setPuzzle(key) {
-  currentKey = key;
-  difficultySelect.value = PUZZLES[key].difficulty;
-  populatePuzzleOptions();
-  puzzleSelect.value = key;
-  board.style.setProperty("--size", PUZZLES[key].size);
-  puzzleTitle.textContent = PUZZLES[key].title;
-  puzzleDescription.textContent = PUZZLES[key].description;
-  showGame();
-  resetPuzzle();
-}
-
-function goToNextPuzzle() {
-  const puzzleKeys = getPuzzleKeys(PUZZLES[currentKey].difficulty);
-  const currentIndex = puzzleKeys.indexOf(currentKey);
-  const nextIndex = (currentIndex + 1) % puzzleKeys.length;
-  setPuzzle(puzzleKeys[nextIndex]);
+function isCompleted(pair) {
+  const ends = getPuzzle().pairs[pair];
+  const path = paths[pair];
+  const startsAtFirstEnd = sameCell(path[0], ends[0]) && sameCell(path.at(-1), ends[1]);
+  const startsAtSecondEnd = sameCell(path[0], ends[1]) && sameCell(path.at(-1), ends[0]);
+  return path.length > 1 && (startsAtFirstEnd || startsAtSecondEnd);
 }
 
 function canUseCell(pair, row, col) {
   const endpointPair = getEndpointAt(row, col);
   const owner = getOwnerAt(row, col);
-
-  if (endpointPair && endpointPair !== pair) {
-    return false;
-  }
-
-  if (owner && owner !== pair) {
-    return false;
-  }
-
+  if (endpointPair && endpointPair !== pair) return false;
+  if (owner && owner !== pair) return false;
   const pairEnds = getPuzzle().pairs[pair];
-  const isOwnStart = sameCell(pairEnds[0], [row, col]);
-  const isOwnEnd = sameCell(pairEnds[1], [row, col]);
-  return !endpointPair || isOwnStart || isOwnEnd;
+  return !endpointPair || sameCell(pairEnds[0], [row, col]) || sameCell(pairEnds[1], [row, col]);
 }
 
-function checkWin() {
+function checkArukoneWin() {
   const puzzle = getPuzzle();
   const filledCells = new Set();
   const allPairsDone = Object.keys(puzzle.pairs).every((pair) => isCompleted(pair));
-
-  Object.values(paths).forEach((path) => {
-    path.forEach((point) => filledCells.add(cellKey(...point)));
-  });
-
+  Object.values(paths).forEach((path) => path.forEach((point) => filledCells.add(cellKey(...point))));
   return allPairsDone && filledCells.size === puzzle.size * puzzle.size;
 }
 
 function handleWin() {
   activePair = null;
+  selectedSudokuCell = null;
   showSuccess();
 }
 
-function handleCellAction(row, col) {
-  if (checkWin()) {
+function handleArukoneCell(row, col) {
+  if (checkArukoneWin()) return;
+  const endpointPair = getEndpointAt(row, col);
+  if (endpointPair && (!activePair || endpointPair !== activePair || isCompleted(activePair))) {
+    pushHistory();
+    activePair = endpointPair;
+    paths[endpointPair] = [[row, col]];
+    render(`Weg ${endpointPair} gestartet. Ziehe zum gleichen Symbol.`);
     return;
   }
-
-  const endpointPair = getEndpointAt(row, col);
-
-  if (endpointPair) {
-    if (!activePair || endpointPair !== activePair || isCompleted(activePair)) {
-      pushHistory();
-      activePair = endpointPair;
-      paths[endpointPair] = [[row, col]];
-      render(`Weg ${endpointPair} gestartet. Ziehe zum gleichen Symbol.`);
-      return;
-    }
-  }
-
   if (!activePair) {
     render("Bitte zuerst ein Symbol auswählen.");
     return;
   }
-
   if (isCompleted(activePair)) {
     render("Dieser Weg ist fertig. Wähle ein anderes Symbol.");
     return;
   }
-
   const path = paths[activePair];
   const last = path.at(-1);
-
   if (!isNeighbor(last, [row, col])) {
     render("Ziehe nur waagerecht oder senkrecht auf ein Nachbarfeld.");
     return;
   }
-
   const existingIndex = path.findIndex((point) => sameCell(point, [row, col]));
   if (existingIndex >= 0) {
     pushHistory();
@@ -449,18 +573,15 @@ function handleCellAction(row, col) {
     render("Ein Stück zurückgegangen.");
     return;
   }
-
   if (!canUseCell(activePair, row, col)) {
     render("Dieses Feld gehört schon zu einem anderen Weg.");
     return;
   }
-
   pushHistory();
   paths[activePair] = [...path, [row, col]];
-
   if (isCompleted(activePair)) {
     activePair = null;
-    if (checkWin()) {
+    if (checkArukoneWin()) {
       handleWin();
       render();
       return;
@@ -468,8 +589,67 @@ function handleCellAction(row, col) {
     render("Super! Ziehe nun das nächste Symbolpaar zusammen.");
     return;
   }
-
   render(`Weg ${activePair}: weiter zum gleichen Symbol ziehen.`);
+}
+
+function resetSudoku() {
+  const puzzle = getPuzzle();
+  sudokuValues = Array.from({ length: puzzle.size }, () => Array(puzzle.size).fill(null));
+  fixedSudokuCells = new Set();
+  puzzle.givens.forEach(([row, col, value]) => {
+    sudokuValues[row][col] = value;
+    fixedSudokuCells.add(cellKey(row, col));
+  });
+  selectedSudokuCell = null;
+  render("Tippe auf ein leeres Feld und wähle unten eine Zahl.");
+}
+
+function checkSudokuWin() {
+  const puzzle = getPuzzle();
+  return sudokuValues.every((row, rowIndex) =>
+    row.every((value, colIndex) => value === puzzle.solution[rowIndex][colIndex]),
+  );
+}
+
+function hasSudokuConflict(row, col, value) {
+  if (!value) return false;
+  const boxRow = Math.floor(row / 2) * 2;
+  const boxCol = Math.floor(col / 2) * 2;
+  for (let index = 0; index < 4; index += 1) {
+    if (index !== col && sudokuValues[row][index] === value) return true;
+    if (index !== row && sudokuValues[index][col] === value) return true;
+  }
+  for (let r = boxRow; r < boxRow + 2; r += 1) {
+    for (let c = boxCol; c < boxCol + 2; c += 1) {
+      if ((r !== row || c !== col) && sudokuValues[r][c] === value) return true;
+    }
+  }
+  return false;
+}
+
+function selectSudokuCell(row, col) {
+  if (fixedSudokuCells.has(cellKey(row, col))) {
+    render("Diese Startzahl bleibt stehen. Wähle ein leeres Feld.");
+    return;
+  }
+  selectedSudokuCell = [row, col];
+  render("Wähle jetzt unten eine Zahl von 1 bis 4.");
+}
+
+function setSudokuNumber(value) {
+  if (!selectedSudokuCell) {
+    render("Tippe zuerst auf ein leeres Feld.");
+    return;
+  }
+  const [row, col] = selectedSudokuCell;
+  pushHistory();
+  sudokuValues[row][col] = value;
+  if (checkSudokuWin()) {
+    handleWin();
+    render();
+    return;
+  }
+  render(hasSudokuConflict(row, col, value) ? "Fast! Diese Zahl kommt hier doppelt vor." : "Gut! Fülle weiter die leeren Felder.");
 }
 
 function getCellFromPoint(clientX, clientY) {
@@ -478,65 +658,48 @@ function getCellFromPoint(clientX, clientY) {
 }
 
 function drawToCell(cell) {
-  if (!cell || !board.contains(cell)) {
-    return;
-  }
-
+  if (!cell || !board.contains(cell) || currentGame !== "arukone") return;
   const row = Number(cell.dataset.row);
   const col = Number(cell.dataset.col);
   const key = cellKey(row, col);
-
-  if (key === lastDrawnCell) {
-    return;
-  }
-
+  if (key === lastDrawnCell) return;
   lastDrawnCell = key;
-  handleCellAction(row, col);
+  handleArukoneCell(row, col);
 }
 
 function render(message = statusText.textContent) {
-  const puzzle = getPuzzle();
-  board.innerHTML = "";
-  if (!winShown) {
-    statusText.textContent = message;
+  if (currentGame === "sudoku") {
+    renderSudoku(message);
+  } else {
+    renderArukone(message);
   }
   undoButton.disabled = history.length === 0;
+}
 
+function renderArukone(message = statusText.textContent) {
+  const puzzle = getPuzzle();
+  board.innerHTML = "";
+  if (!winShown) statusText.textContent = message;
   for (let row = 0; row < puzzle.size; row += 1) {
     for (let col = 0; col < puzzle.size; col += 1) {
       const cell = document.createElement("button");
       const endpointPair = getEndpointAt(row, col);
       const owner = getOwnerAt(row, col);
       const pair = endpointPair ?? owner;
-
       cell.type = "button";
       cell.className = "cell";
       cell.dataset.row = row;
       cell.dataset.col = col;
       cell.setAttribute("aria-label", `Zeile ${row + 1}, Spalte ${col + 1}`);
       cell.style.setProperty("--pair-color", getPairColor(pair));
-
       if (endpointPair) {
         cell.textContent = endpointPair;
         cell.classList.add("endpoint");
       }
-
-      if (owner) {
-        cell.classList.add("filled");
-      }
-
-      if (pair && pair === activePair) {
-        cell.classList.add("active");
-      }
-
-      if (pair && isCompleted(pair)) {
-        cell.classList.add("completed");
-      }
-
-      if (checkWin()) {
-        cell.classList.add("board-won");
-      }
-
+      if (owner) cell.classList.add("filled");
+      if (pair && pair === activePair) cell.classList.add("active");
+      if (pair && isCompleted(pair)) cell.classList.add("completed");
+      if (checkArukoneWin()) cell.classList.add("board-won");
       cell.addEventListener("pointerdown", (event) => {
         event.preventDefault();
         isDrawing = true;
@@ -546,63 +709,74 @@ function render(message = statusText.textContent) {
         board.setPointerCapture?.(event.pointerId);
         drawToCell(cell);
       });
-
       cell.addEventListener("click", (event) => {
         if (suppressNextClick) {
           suppressNextClick = false;
           return;
         }
-        if (event.detail === 0) {
-          handleCellAction(row, col);
-        }
+        if (event.detail === 0) handleArukoneCell(row, col);
       });
-
       board.append(cell);
     }
   }
 }
 
-function populatePuzzleOptions() {
-  const puzzleKeys = getPuzzleKeys();
-  puzzleSelect.innerHTML = "";
-
-  puzzleKeys.forEach((key) => {
-    const option = document.createElement("option");
-    option.value = key;
-    option.textContent = PUZZLES[key].title;
-    puzzleSelect.append(option);
+function renderSudoku(message = statusText.textContent) {
+  const puzzle = getPuzzle();
+  board.innerHTML = "";
+  numberPad.innerHTML = "";
+  if (!winShown) statusText.textContent = message;
+  for (let row = 0; row < puzzle.size; row += 1) {
+    for (let col = 0; col < puzzle.size; col += 1) {
+      const value = sudokuValues[row][col];
+      const key = cellKey(row, col);
+      const cell = document.createElement("button");
+      cell.type = "button";
+      cell.className = "cell sudoku-cell";
+      cell.dataset.row = row;
+      cell.dataset.col = col;
+      cell.textContent = value ?? "";
+      cell.setAttribute("aria-label", `Sudoku Zeile ${row + 1}, Spalte ${col + 1}`);
+      if (fixedSudokuCells.has(key)) cell.classList.add("given");
+      if (selectedSudokuCell && sameCell(selectedSudokuCell, [row, col])) cell.classList.add("selected");
+      if (hasSudokuConflict(row, col, value)) cell.classList.add("conflict");
+      if (checkSudokuWin()) cell.classList.add("board-won");
+      cell.addEventListener("click", () => selectSudokuCell(row, col));
+      board.append(cell);
+    }
+  }
+  [1, 2, 3, 4].forEach((number) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = number;
+    button.addEventListener("click", () => setSudokuNumber(number));
+    numberPad.append(button);
   });
 }
 
-populatePuzzleOptions();
-puzzleSelect.selectedIndex = -1;
-difficultySelect.addEventListener("change", () => {
-  populatePuzzleOptions();
-  puzzleSelect.selectedIndex = -1;
+document.querySelectorAll(".choose-game-button").forEach((button) => {
+  button.addEventListener("click", () => chooseGame(button.dataset.game));
 });
-puzzleSelect.addEventListener("change", (event) => setPuzzle(event.target.value));
+
 undoButton.addEventListener("click", () => {
   finishMove();
   const previous = history.pop();
   if (previous) {
     restore(previous);
-    statusText.textContent = "Die letzte Linie wurde rückgängig gemacht.";
+    statusText.textContent = "Der letzte Schritt wurde rückgängig gemacht.";
   }
 });
 resetButton.addEventListener("click", resetPuzzle);
 backButton.addEventListener("click", showLevelSelect);
+homeButton.addEventListener("click", showHome);
 successClose.addEventListener("click", hideSuccess);
 nextPuzzleButton.addEventListener("click", goToNextPuzzle);
 successOverlay.addEventListener("click", (event) => {
-  if (event.target === successOverlay) {
-    hideSuccess();
-  }
+  if (event.target === successOverlay) hideSuccess();
 });
 
 document.addEventListener("pointermove", (event) => {
-  if (!isDrawing) {
-    return;
-  }
+  if (!isDrawing || currentGame !== "arukone") return;
   event.preventDefault();
   drawToCell(getCellFromPoint(event.clientX, event.clientY));
 });
