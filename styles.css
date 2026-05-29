@@ -321,8 +321,8 @@ h2 {
 
 .start-panel {
   display: grid;
-  gap: 14px;
-  max-width: 560px;
+  gap: 18px;
+  max-width: 680px;
   margin: 0 auto;
   padding: clamp(22px, 5vw, 34px);
   border-radius: 28px;
@@ -330,6 +330,25 @@ h2 {
   border: 1px solid rgba(255, 255, 255, 0.75);
   box-shadow: var(--shadow);
   text-align: center;
+}
+
+.start-copy {
+  display: grid;
+  gap: 12px;
+}
+
+.start-copy h2,
+.start-copy p {
+  margin: 0;
+}
+
+.rules-list {
+  display: grid;
+  gap: 8px;
+  margin: 4px 0 0;
+  padding-left: 1.3rem;
+  color: var(--muted);
+  text-align: left;
 }
 
 .start-panel label {
@@ -362,9 +381,9 @@ body.puzzle-active {
 }
 
 body.puzzle-active .app-shell {
-  width: min(1180px, calc(100% - 24px));
+  width: 100%;
   height: 100vh;
-  padding: 12px 0;
+  padding: 10px;
   display: flex;
   flex-direction: column;
 }
@@ -378,8 +397,7 @@ body.puzzle-active #start-panel {
   min-height: 0;
   flex: 1;
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
-  gap: 10px;
+  grid-template-rows: minmax(0, 1fr);
 }
 
 .game-panel[hidden] {
@@ -387,39 +405,46 @@ body.puzzle-active #start-panel {
 }
 
 body.puzzle-active .controls {
-  justify-content: center;
-  margin-bottom: 0;
-  padding: 10px;
+  display: none;
 }
 
 body.puzzle-active .game-card {
   min-height: 0;
+  height: 100%;
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto;
-  padding: clamp(12px, 2vh, 22px);
+  grid-template-rows: auto minmax(0, 1fr);
+  padding: clamp(8px, 1.8vh, 18px);
   overflow: hidden;
+  border-radius: 22px;
 }
 
 body.puzzle-active .status-row {
-  margin-bottom: 10px;
+  justify-content: center;
+  margin-bottom: 8px;
+  text-align: center;
+}
+
+body.puzzle-active .small-label,
+body.puzzle-active .puzzle-description,
+body.puzzle-active .status,
+body.puzzle-active .help {
+  display: none;
+}
+
+body.puzzle-active #puzzle-title {
+  color: var(--muted);
+  font-size: clamp(0.86rem, 2.5vw, 1.05rem);
+  font-weight: 900;
+  letter-spacing: 0.03em;
 }
 
 body.puzzle-active .board {
-  width: min(100%, calc(100vh - 250px));
-  max-width: 720px;
+  width: min(calc(100vw - 36px), calc(100vh - 78px));
+  max-width: 860px;
   align-self: center;
   touch-action: none;
 }
 
-body.puzzle-active .help {
-  max-width: 720px;
-  margin-top: 10px;
-  font-size: 0.95rem;
-}
-
-body.puzzle-active .help ul {
-  margin-top: 8px;
-}
 
 @media (max-width: 640px) {
   .app-shell { width: min(100% - 20px, 980px); padding: 20px 0; }
@@ -431,32 +456,15 @@ body.puzzle-active .help ul {
   .cell { border-radius: 12px; }
 
   body.puzzle-active .app-shell {
-    width: min(100% - 12px, 980px);
-    padding: 6px 0;
-  }
-
-  body.puzzle-active .controls {
-    flex-direction: row;
-  }
-
-  body.puzzle-active .controls > * {
-    width: auto;
-  }
-
-  body.puzzle-active .controls select {
-    flex: 1 1 160px;
+    padding: 6px;
   }
 
   body.puzzle-active .game-card {
-    padding: 10px;
+    padding: 8px;
   }
 
   body.puzzle-active .board {
-    width: min(100%, calc(100vh - 310px));
+    width: min(calc(100vw - 28px), calc(100vh - 64px));
     gap: 5px;
-  }
-
-  body.puzzle-active .help {
-    font-size: 0.84rem;
   }
 }
