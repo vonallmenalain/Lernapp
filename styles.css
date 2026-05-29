@@ -267,13 +267,29 @@ h2 {
   font-size: 1.05rem;
 }
 
-#success-close {
+.success-actions {
+  display: grid;
+  gap: 12px;
+}
+
+#next-puzzle-button {
   width: 100%;
   background: #06d6a0;
 }
 
-#success-close:hover:not(:disabled) {
+#next-puzzle-button:hover:not(:disabled) {
   background: #05b888;
+}
+
+.secondary-button {
+  width: 100%;
+  background: #fff;
+  border-color: var(--line);
+  color: var(--primary-dark);
+}
+
+.secondary-button:hover:not(:disabled) {
+  background: #f4f1ff;
 }
 
 .cell.board-won.completed,
