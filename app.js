@@ -614,7 +614,18 @@ function getPairColor(pair) { return DEFAULT_COLORS[pair] || "#6c5ce7"; }
 const GAME_HANDLERS = {
   arukone: {
     resetState(level) { state = { paths: Object.fromEntries(Object.entries(level.pairs).map(([p, ends]) => [p, [ends[0]]])), activePair: null }; setStatus("Ziehe von einem Symbol zum passenden zweiten Symbol."); },
-    checkWin() { const level=currentLevel(); const filled=new Set(); const done=Object.keys(level.pairs).every((p)=>this.isCompleted(p)); Object.values(state.paths).forEach((path)=>path.forEach((pt)=>filled.add(keyOf(...pt)))); return done && filled.size === level.size * level.size; },
+    checkWin() {
+      const level = currentLevel();
+      const filled = new Set();
+      const done = Object.keys(level.pairs).every((pair) => this.isConnected(pair));
+      Object.entries(state.paths).forEach(([pair, path]) => {
+        path.forEach((pt) => filled.add(keyOf(...pt)));
+        if (this.isConnected(pair)) level.pairs[pair].forEach((pt) => filled.add(keyOf(...pt)));
+      });
+      return done && filled.size === level.size * level.size;
+    },
+    reachesEndpoint(path, endpoint) { const last=path.at(-1); return sameCell(last, endpoint) || isNeighbor(last, endpoint); },
+    isConnected(pair) { const ends=currentLevel().pairs[pair], path=state.paths[pair]; return path.length>1 && ((sameCell(path[0],ends[0])&&this.reachesEndpoint(path,ends[1]))||(sameCell(path[0],ends[1])&&this.reachesEndpoint(path,ends[0]))); },
     isCompleted(pair) { const ends=currentLevel().pairs[pair], path=state.paths[pair]; return path.length>1 && ((sameCell(path[0],ends[0])&&sameCell(path.at(-1),ends[1]))||(sameCell(path[0],ends[1])&&sameCell(path.at(-1),ends[0]))); },
     endpointAt(r,c) { return Object.entries(currentLevel().pairs).find(([,ends])=>ends.some((pt)=>sameCell(pt,[r,c])))?.[0] || null; },
     ownerAt(r,c) { const k=keyOf(r,c); return Object.entries(state.paths).find(([,path])=>path.some((pt)=>keyOf(...pt)===k))?.[0] || null; },
