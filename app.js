@@ -304,7 +304,7 @@ const GAME_CONFIGS = {
     title: "Hidoku", eyebrow: "Zahlenkette", code: "H",
     subtitle: "Trage die fehlenden Zahlen so ein, dass jede Zahl die nächste berührt.",
     success: "Wunderbar verbunden! Die komplette Hidoku-Zahlenkette ist geschlossen.",
-    rules: ["Starte mit Maus oder Finger auf der 1 und fahre über die leeren Felder.", "Jedes berührte leere Feld bekommt automatisch die nächste fehlende Zahl.", "Eine rote Zahl stoppt die Eingabe: Tippe sie an oder nutze Rückgängig, um sie zu korrigieren."],
+    rules: ["Starte mit Maus oder Finger auf einer bestehenden Zahl und fahre von dort weiter.", "Jedes berührte leere Feld bekommt automatisch die nächste fehlende Zahl nach deiner Startzahl.", "Rot wird nur markiert, was wegen doppelten Zahlen oder fehlender Nachbarschaft theoretisch nicht verbunden sein kann; du kannst trotzdem weiterzeichnen."],
   },
   shikaku: {
     title: "Tiergehege", eyebrow: "Gehege bauen", code: "G",
@@ -1020,21 +1020,22 @@ const GAME_HANDLERS = {
   bimaru: simpleGridGame("bimaru", "solution", ["","animal","water"], { animal:"🐟", water:"~" }),
 
   hidoku: {
-    resetState(level) { state={ values: zeros(level.size, level.size, null), fixed: {}, selected: null }; level.givens.forEach(([r,c,v])=>{ state.values[r][c]=v; state.fixed[keyOf(r,c)]=true; }); setStatus("Starte auf der 1 und fahre über leere Felder."); },
+    resetState(level) { state={ values: zeros(level.size, level.size, null), fixed: {}, selected: null, activeNumber: null }; level.givens.forEach(([r,c,v])=>{ state.values[r][c]=v; state.fixed[keyOf(r,c)]=true; }); setStatus("Starte auf einer bestehenden Zahl und fahre von dort weiter."); },
     maxNumber(level=currentLevel()) { return level.size * level.size; },
     numberPosition(value) { for(let r=0;r<state.values.length;r++) for(let c=0;c<state.values[r].length;c++) if(state.values[r][c]===value) return [r,c]; return null; },
     duplicate(value, row, col) { if(!value) return false; for(let r=0;r<state.values.length;r++) for(let c=0;c<state.values[r].length;c++) if((r!==row||c!==col) && state.values[r][c]===value) return true; return false; },
     touches(a,b) { return a && b && Math.max(Math.abs(a[0]-b[0]), Math.abs(a[1]-b[1])) === 1; },
-    conflict(r,c) { const level=currentLevel(), value=state.values[r][c], max=this.maxNumber(level); if(!value) return false; if(value!==level.solution[r][c] && !state.fixed[keyOf(r,c)]) return true; if(this.duplicate(value,r,c)) return true; const current=[r,c]; const prev=value===1 ? this.numberPosition(max) : this.numberPosition(value-1); const next=value===max ? this.numberPosition(1) : this.numberPosition(value+1); return Boolean(prev && !this.touches(current,prev)) || Boolean(next && !this.touches(current,next)); },
+    conflict(r,c) { const level=currentLevel(), value=state.values[r][c], max=this.maxNumber(level); if(!value) return false; if(value<1 || value>max || this.duplicate(value,r,c)) return true; const current=[r,c]; const prev=value>1 ? this.numberPosition(value-1) : null; const next=value<max ? this.numberPosition(value+1) : null; return Boolean(prev && !this.touches(current,prev)) || Boolean(next && !this.touches(current,next)); },
     hasConflict() { const level=currentLevel(); for(let r=0;r<level.size;r++) for(let c=0;c<level.size;c++) if(this.conflict(r,c)) return true; return false; },
-    nextNumber() { const max=this.maxNumber(); for(let n=1;n<=max;n++) if(!this.numberPosition(n)) return n; return max + 1; },
+    nextNumber(afterValue = null) { const max=this.maxNumber(), start=afterValue ? afterValue + 1 : 1; for(let n=start;n<=max;n++) if(!this.numberPosition(n)) return n; return max + 1; },
+    nextStatusNumber(afterValue = state.activeNumber) { const next=this.nextNumber(afterValue); return next <= this.maxNumber() ? next : null; },
+    activateNumber(value, row, col) { state.activeNumber=value; state.selected=[row,col]; const next=this.nextStatusNumber(value); render(next ? `Weiter ab ${value}: Fahre zum Feld für ${next}.` : `Die ${value} ist aktuell das Ende der Kette.`); },
     checkWin() { const level=currentLevel(), max=this.maxNumber(level); const seen=new Set(); for(let r=0;r<level.size;r++) for(let c=0;c<level.size;c++){ const value=state.values[r][c]; if(!value || value<1 || value>max || seen.has(value) || this.conflict(r,c)) return false; seen.add(value); } return seen.size===max; },
-    select(r,c) { if(this.clearConflictAt(r,c)) return; const value=state.values[r][c]; if(value===1) { setStatus(`Gestartet. Fahre zum Feld für ${this.nextNumber()}.`); return; } if(state.fixed[keyOf(r,c)]) { setStatus("Diese Startzahl bleibt stehen. Beginne bei der 1."); return; } setStatus("Beginne bei der 1 und fahre dann über leere Felder."); },
-    clearConflictAt(r,c) { if(!state.fixed[keyOf(r,c)] && state.values[r][c] && this.conflict(r,c)) { pushHistory(); state.values[r][c]=null; render("Die rote Zahl ist weg. Starte wieder bei der 1."); return true; } return false; },
-    input(r,c) { if(this.hasConflict()) return false; const value=state.values[r][c], next=this.nextNumber(), max=this.maxNumber(); if(value) return value===next-1 || value===next || (next>max && value===max); if(next>max) return false; pushHistory(); state.values[r][c]=next; const hasError=this.conflict(r,c); if(this.checkWin()) { handleWin(); return true; } render(hasError ? "Diese Zahl passt hier nicht. Korrigiere die rote Zahl, bevor es weitergeht." : `Gut! Weiter mit ${this.nextNumber()}.`); return !hasError; },
-    clear() { const level=currentLevel(); for(let n=this.maxNumber(level); n>=1;n--){ const pos=this.numberPosition(n); if(pos && !state.fixed[keyOf(pos[0],pos[1])]) { pushHistory(); state.values[pos[0]][pos[1]]=null; render("Die letzte Zahl ist weg."); return; } } },
-    hint() { const level=currentLevel(); for(let r=0;r<level.size;r++) for(let c=0;c<level.size;c++) if(!state.fixed[keyOf(r,c)] && state.values[r][c]!==level.solution[r][c]) { pushHistory(); state.values[r][c]=level.solution[r][c]; render("Tipp: Eine sichere Zahl ist eingetragen."); checkAndWin(); return; } },
-    render(level) { board.innerHTML=""; board.style.setProperty("--size", level.size); if(numberPad){ numberPad.hidden=true; numberPad.classList.remove("hidoku-pad"); numberPad.innerHTML=""; } for(let r=0;r<level.size;r++) for(let c=0;c<level.size;c++){ const fixed=state.fixed[keyOf(r,c)]; const value=state.values[r][c] || ""; const cell=makeButtonCell(r,c,`cell hidoku-cell${fixed?" given":""}${this.conflict(r,c)?" conflict":""}`, value); cell.addEventListener("click",()=>{ if(ignoreNextHidokuClick){ ignoreNextHidokuClick=false; return; } this.select(r,c); }); board.append(cell); } },
+    select(r,c) { const value=state.values[r][c]; if(value) { this.activateNumber(value,r,c); return; } setStatus("Wähle zuerst eine bestehende Zahl und fahre dann über leere Felder."); },
+    input(r,c) { const value=state.values[r][c], max=this.maxNumber(); if(value) { state.activeNumber=value; state.selected=[r,c]; const next=this.nextStatusNumber(value); if(!hidokuDrag) render(next ? `Weiter ab ${value}: Fahre zum Feld für ${next}.` : `Die ${value} ist aktuell das Ende der Kette.`); return true; } const next=this.nextNumber(state.activeNumber); if(!state.activeNumber || next>max) return false; pushHistory(); state.values[r][c]=next; state.activeNumber=next; state.selected=[r,c]; const hasError=this.conflict(r,c); if(this.checkWin()) { handleWin(); return true; } render(hasError ? `Die ${next} ist theoretisch nicht verbunden. Du kannst trotzdem ab ${next} weiterfahren.` : `Gut! Weiter mit ${this.nextStatusNumber(next) || "dem Prüfen der Kette"}.`); return true; },
+    clear() { const level=currentLevel(); for(let n=this.maxNumber(level); n>=1;n--){ const pos=this.numberPosition(n); if(pos && !state.fixed[keyOf(pos[0],pos[1])]) { pushHistory(); state.values[pos[0]][pos[1]]=null; if(state.activeNumber===n) state.activeNumber=null; state.selected=null; render("Die letzte Zahl ist weg. Wähle eine bestehende Zahl zum Weiterfahren."); return; } } },
+    hint() { const level=currentLevel(); for(let r=0;r<level.size;r++) for(let c=0;c<level.size;c++) if(!state.fixed[keyOf(r,c)] && state.values[r][c]!==level.solution[r][c]) { pushHistory(); state.values[r][c]=level.solution[r][c]; state.activeNumber=level.solution[r][c]; state.selected=[r,c]; render("Tipp: Eine sichere Zahl ist eingetragen. Du kannst dort weiterfahren."); checkAndWin(); return; } },
+    render(level) { board.innerHTML=""; board.style.setProperty("--size", level.size); if(numberPad){ numberPad.hidden=true; numberPad.classList.remove("hidoku-pad"); numberPad.innerHTML=""; } for(let r=0;r<level.size;r++) for(let c=0;c<level.size;c++){ const fixed=state.fixed[keyOf(r,c)]; const value=state.values[r][c] || ""; const selected=state.selected&&sameCell(state.selected,[r,c]); const cell=makeButtonCell(r,c,`cell hidoku-cell${fixed?" given":""}${selected?" selected":""}${this.conflict(r,c)?" conflict":""}`, value); cell.addEventListener("click",()=>{ if(ignoreNextHidokuClick){ ignoreNextHidokuClick=false; return; } this.select(r,c); }); board.append(cell); } },
   },
   kakuro: {
     resetState(level) { state = { values: zeros(level.size, level.size, null), selected: null }; setStatus("Tippe auf ein weißes Feld und wähle eine Zahl."); },
@@ -1125,32 +1126,30 @@ function drawHidokuCell(row, col) {
   const nextKey = cellKeyFromPoint(row, col);
   if (nextKey === hidokuDrag.lastKey) return;
   hidokuDrag.lastKey = nextKey;
-  const keepGoing = GAME_HANDLERS.hidoku.input(row, col);
-  if (!keepGoing && GAME_HANDLERS.hidoku.hasConflict()) finishHidokuPointer(true);
+  GAME_HANDLERS.hidoku.input(row, col);
 }
 function startHidokuPointer(event, cell) {
   const handler = GAME_HANDLERS.hidoku;
   const row = Number(cell.dataset.row), col = Number(cell.dataset.col);
-  if (handler.clearConflictAt(row, col)) {
-    ignoreNextHidokuClick = true;
-    return true;
-  }
-  if (handler.hasConflict() || state.values[row][col] !== 1) return false;
+  const value = state.values[row][col];
+  if (!value) return false;
   event.preventDefault();
+  state.activeNumber = value;
+  state.selected = [row, col];
   hidokuDrag = { pointerId: event.pointerId, lastKey: null };
   activePointerId = event.pointerId;
   board.setPointerCapture?.(event.pointerId);
-  setStatus(`Gestartet. Fahre zum Feld für ${handler.nextNumber()}.`);
+  const next = handler.nextStatusNumber(value);
+  setStatus(next ? `Gestartet ab ${value}. Fahre zum Feld für ${next}.` : `Gestartet ab ${value}. Die Kette ist hier schon am Ende.`);
   drawHidokuCell(row, col);
   return true;
 }
-function finishHidokuPointer(blockedByError = false) {
+function finishHidokuPointer() {
   if (!hidokuDrag) return;
   hidokuDrag = null;
   activePointerId = null;
   ignoreNextHidokuClick = true;
   finishMove();
-  if (blockedByError) setStatus("Die rote Zahl muss zuerst korrigiert werden.");
 }
 function startShikakuPointer(event, cell) {
   const handler = GAME_HANDLERS.shikaku;
