@@ -1168,3 +1168,102 @@ button.selection-back-button:focus-visible {
 .kakuro-cell:hover {
   transform: none;
 }
+
+.hidoku-preview {
+  grid-template-columns: repeat(4, 1fr);
+  gap: 5px;
+  background: #f8fbff;
+}
+
+.hidoku-preview span {
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: #fff;
+  border: 2px solid #c9d7f2;
+  color: #243047;
+  font-size: 1rem;
+  font-weight: 950;
+}
+
+.hidoku-preview span:not(:empty) {
+  background: #eef4ff;
+  border-color: #3a86ff;
+  color: #1f4ea3;
+}
+
+.hidoku-board {
+  gap: 0;
+  max-width: min(720px, 100%);
+  border: 3px solid #243047;
+  background: #243047;
+  border-radius: 18px;
+  overflow: hidden;
+}
+
+.hidoku-cell {
+  border: 1px solid #243047;
+  border-radius: 0;
+  background: #ffffff;
+  color: var(--ink);
+  font-size: clamp(1.25rem, 5vw, 2.35rem);
+}
+
+.hidoku-cell.given {
+  background: #eaf2ff;
+  border-color: #3a86ff;
+  color: #1f4ea3;
+  cursor: default;
+}
+
+.hidoku-cell.selected {
+  background: #fff1c2;
+  box-shadow: inset 0 0 0 5px #ffd166;
+}
+
+.hidoku-cell.conflict {
+  background: #ffe5ea;
+  color: #b0002a;
+}
+
+.hidoku-cell:hover {
+  transform: none;
+}
+
+.number-pad {
+  grid-template-columns: repeat(var(--pad-cols, 3), minmax(48px, 62px));
+}
+
+.number-pad.hidoku-pad {
+  grid-template-columns: repeat(var(--pad-cols, 4), minmax(42px, 56px));
+  max-width: min(94vw, 420px);
+  max-height: min(52vh, 360px);
+  overflow: auto;
+}
+
+.number-pad.hidoku-pad button {
+  min-height: 44px;
+  font-size: 1.05rem;
+}
+
+body.puzzle-active .hidoku-board {
+  width: min(calc(100vw - 36px), calc(100vh - 190px), 760px);
+}
+
+@media (max-width: 640px) {
+  .number-pad.hidoku-pad {
+    grid-template-columns: repeat(var(--pad-cols, 4), minmax(36px, 1fr));
+    gap: 5px;
+    padding: 7px;
+  }
+
+  .number-pad.hidoku-pad button {
+    min-height: 38px;
+    padding: 0 8px;
+    font-size: 0.95rem;
+  }
+
+  body.puzzle-active .hidoku-board {
+    width: min(calc(100vw - 28px), calc(100vh - 178px));
+  }
+}
