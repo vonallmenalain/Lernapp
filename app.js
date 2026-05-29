@@ -1,15 +1,31 @@
-const COLORS = {
+const DEFAULT_COLORS = {
   A: "#ef476f",
   B: "#118ab2",
   C: "#06d6a0",
   D: "#ffd166",
   E: "#8e44ad",
   F: "#f77f00",
+  1: "#ffd166",
+  2: "#ef476f",
+  3: "#7b9eb8",
+  4: "#8fd694",
+  5: "#f4a261",
 };
 
 const PUZZLES = {
+  puzzle01: {
+    title: "Rätsel 01 – für Anfänger",
+    size: 6,
+    pairs: {
+      1: [[0, 0], [2, 2]],
+      2: [[0, 2], [4, 1]],
+      3: [[1, 2], [5, 3]],
+      4: [[0, 3], [4, 5]],
+      5: [[1, 4], [5, 5]],
+    },
+  },
   easy: {
-    title: "Einfach",
+    title: "Einfach (5×5)",
     size: 5,
     pairs: {
       A: [[0, 0], [2, 0]],
@@ -18,7 +34,7 @@ const PUZZLES = {
     },
   },
   medium: {
-    title: "Mittel",
+    title: "Mittel (6×6)",
     size: 6,
     pairs: {
       A: [[0, 0], [1, 0]],
@@ -28,7 +44,7 @@ const PUZZLES = {
     },
   },
   hard: {
-    title: "Knifflig",
+    title: "Knifflig (7×7)",
     size: 7,
     pairs: {
       A: [[0, 0], [0, 6]],
@@ -41,16 +57,19 @@ const PUZZLES = {
 };
 
 const board = document.querySelector("#board");
-const difficulty = document.querySelector("#difficulty");
+const puzzleSelect = document.querySelector("#puzzle-select");
 const puzzleTitle = document.querySelector("#puzzle-title");
 const statusText = document.querySelector("#status");
 const undoButton = document.querySelector("#undo-button");
 const resetButton = document.querySelector("#reset-button");
+const successOverlay = document.querySelector("#success-overlay");
+const successClose = document.querySelector("#success-close");
 
-let currentKey = "easy";
+let currentKey = "puzzle01";
 let paths = {};
 let activePair = null;
 let history = [];
+let winShown = false;
 
 function cellKey(row, col) {
   return `${row},${col}`;
@@ -66,6 +85,10 @@ function isNeighbor(a, b) {
 
 function getPuzzle() {
   return PUZZLES[currentKey];
+}
+
+function getPairColor(pair) {
+  return DEFAULT_COLORS[pair] ?? "#6c5ce7";
 }
 
 function getEndpointAt(row, col) {
@@ -94,18 +117,34 @@ function snapshot() {
   return {
     paths: structuredClone(paths),
     activePair,
+    winShown,
   };
 }
 
 function restore(state) {
   paths = structuredClone(state.paths);
   activePair = state.activePair;
+  winShown = state.winShown;
+  hideSuccess();
   render();
 }
 
 function pushHistory() {
   history.push(snapshot());
   undoButton.disabled = false;
+}
+
+function showSuccess() {
+  winShown = true;
+  successOverlay.hidden = false;
+  successOverlay.classList.remove("hidden");
+  statusText.textContent = "Geschafft!";
+}
+
+function hideSuccess() {
+  winShown = false;
+  successOverlay.hidden = true;
+  successOverlay.classList.add("hidden");
 }
 
 function resetPuzzle() {
@@ -115,10 +154,11 @@ function resetPuzzle() {
   );
   activePair = null;
   history = [];
+  hideSuccess();
   render("Wähle einen Startpunkt aus.");
 }
 
-function setDifficulty(key) {
+function setPuzzle(key) {
   currentKey = key;
   board.style.setProperty("--size", PUZZLES[key].size);
   puzzleTitle.textContent = PUZZLES[key].title;
@@ -143,7 +183,28 @@ function canUseCell(pair, row, col) {
   return !endpointPair || isOwnStart || isOwnEnd;
 }
 
+function checkWin() {
+  const puzzle = getPuzzle();
+  const filledCells = new Set();
+  const allPairsDone = Object.keys(puzzle.pairs).every((pair) => isCompleted(pair));
+
+  Object.values(paths).forEach((path) => {
+    path.forEach((point) => filledCells.add(cellKey(...point)));
+  });
+
+  return allPairsDone && filledCells.size === puzzle.size * puzzle.size;
+}
+
+function handleWin() {
+  activePair = null;
+  showSuccess();
+}
+
 function handleCellClick(row, col) {
+  if (checkWin()) {
+    return;
+  }
+
   const endpointPair = getEndpointAt(row, col);
 
   if (endpointPair) {
@@ -192,33 +253,24 @@ function handleCellClick(row, col) {
 
   if (isCompleted(activePair)) {
     activePair = null;
-    render(
-      checkWin()
-        ? "Geschafft! Alle Wege sind verbunden und das Feld ist voll."
-        : "Super! Wähle das nächste Symbol.",
-    );
+    if (checkWin()) {
+      handleWin();
+      render();
+      return;
+    }
+    render("Super! Wähle das nächste Symbol.");
     return;
   }
 
   render(`Weg ${activePair}: weiter zum gleichen Symbol.`);
 }
 
-function checkWin() {
-  const puzzle = getPuzzle();
-  const filledCells = new Set();
-  const allPairsDone = Object.keys(puzzle.pairs).every((pair) => isCompleted(pair));
-
-  Object.values(paths).forEach((path) => {
-    path.forEach((point) => filledCells.add(cellKey(...point)));
-  });
-
-  return allPairsDone && filledCells.size === puzzle.size * puzzle.size;
-}
-
 function render(message = statusText.textContent) {
   const puzzle = getPuzzle();
   board.innerHTML = "";
-  statusText.textContent = message;
+  if (!winShown) {
+    statusText.textContent = message;
+  }
   undoButton.disabled = history.length === 0;
 
   for (let row = 0; row < puzzle.size; row += 1) {
@@ -231,7 +283,7 @@ function render(message = statusText.textContent) {
       cell.type = "button";
       cell.className = "cell";
       cell.setAttribute("aria-label", `Zeile ${row + 1}, Spalte ${col + 1}`);
-      cell.style.setProperty("--pair-color", COLORS[pair] ?? "#6c5ce7");
+      cell.style.setProperty("--pair-color", getPairColor(pair));
 
       if (endpointPair) {
         cell.textContent = endpointPair;
@@ -250,6 +302,10 @@ function render(message = statusText.textContent) {
         cell.classList.add("completed");
       }
 
+      if (checkWin()) {
+        cell.classList.add("board-won");
+      }
+
       cell.addEventListener("click", () => handleCellClick(row, col));
       board.append(cell);
     }
@@ -260,10 +316,10 @@ Object.entries(PUZZLES).forEach(([key, puzzle]) => {
   const option = document.createElement("option");
   option.value = key;
   option.textContent = puzzle.title;
-  difficulty.append(option);
+  puzzleSelect.append(option);
 });
 
-difficulty.addEventListener("change", (event) => setDifficulty(event.target.value));
+puzzleSelect.addEventListener("change", (event) => setPuzzle(event.target.value));
 undoButton.addEventListener("click", () => {
   const previous = history.pop();
   if (previous) {
@@ -272,5 +328,11 @@ undoButton.addEventListener("click", () => {
   }
 });
 resetButton.addEventListener("click", resetPuzzle);
+successClose.addEventListener("click", hideSuccess);
+successOverlay.addEventListener("click", (event) => {
+  if (event.target === successOverlay) {
+    hideSuccess();
+  }
+});
 
-setDifficulty(currentKey);
+setPuzzle(currentKey);
