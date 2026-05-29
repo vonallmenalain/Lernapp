@@ -216,24 +216,56 @@ Object.entries(PUZZLES).forEach(([key, puzzle]) => {
 });
 
 const SUDOKU_LEVELS = [
-  { givens: [[0, 0, 1], [3, 3, 1]], solution: [[1, 2, 3, 4], [3, 4, 1, 2], [2, 1, 4, 3], [4, 3, 2, 1]] },
-  { givens: [[0, 1, 4], [2, 2, 4]], solution: [[1, 4, 2, 3], [3, 2, 1, 4], [2, 3, 4, 1], [4, 1, 3, 2]] },
-  { givens: [[1, 0, 2], [3, 2, 1]], solution: [[4, 1, 2, 3], [2, 3, 4, 1], [1, 4, 3, 2], [3, 2, 1, 4]] },
-  { givens: [[0, 3, 2], [2, 1, 1]], solution: [[3, 4, 1, 2], [1, 2, 3, 4], [4, 1, 2, 3], [2, 3, 4, 1]] },
-  { givens: [[1, 2, 2], [3, 0, 2]], solution: [[1, 2, 4, 3], [3, 4, 2, 1], [4, 3, 1, 2], [2, 1, 3, 4]] },
-  { givens: [[0, 2, 4], [2, 0, 3]], solution: [[2, 1, 4, 3], [4, 3, 2, 1], [3, 2, 1, 4], [1, 4, 3, 2]] },
-  { givens: [[1, 3, 3], [3, 1, 1]], solution: [[2, 3, 1, 4], [1, 4, 2, 3], [3, 2, 4, 1], [4, 1, 3, 2]] },
-  { givens: [[0, 0, 4], [2, 3, 2]], solution: [[4, 3, 2, 1], [2, 1, 4, 3], [1, 4, 3, 2], [3, 2, 1, 4]] },
-  { givens: [[0, 2, 1], [3, 0, 3]], solution: [[2, 4, 1, 3], [1, 3, 2, 4], [4, 2, 3, 1], [3, 1, 4, 2]] },
-  { givens: [[1, 1, 2], [2, 2, 2]], solution: [[3, 1, 4, 2], [4, 2, 1, 3], [1, 3, 2, 4], [2, 4, 3, 1]] },
+  {
+    givens: [[0, 3, 4], [1, 0, 4], [1, 4, 5], [2, 0, 2], [2, 2, 1], [2, 4, 3], [3, 1, 3], [3, 3, 5], [3, 5, 2], [4, 1, 4], [4, 5, 3], [5, 2, 3]],
+    solution: [[3, 1, 5, 4, 2, 6], [4, 2, 6, 3, 5, 1], [2, 5, 1, 6, 3, 4], [6, 3, 4, 5, 1, 2], [5, 4, 2, 1, 6, 3], [1, 6, 3, 2, 4, 5]],
+  },
+  {
+    givens: [[0, 0, 3], [0, 3, 1], [0, 5, 4], [1, 2, 4], [2, 1, 2], [3, 0, 5], [3, 1, 4], [3, 5, 3], [4, 2, 1], [4, 4, 2], [5, 3, 3]],
+    solution: [[3, 5, 2, 1, 6, 4], [6, 1, 4, 5, 3, 2], [1, 2, 3, 4, 5, 6], [5, 4, 6, 2, 1, 3], [4, 3, 1, 6, 2, 5], [2, 6, 5, 3, 4, 1]],
+  },
+  {
+    givens: [[0, 4, 3], [1, 0, 1], [1, 2, 4], [2, 0, 4], [2, 3, 6], [3, 1, 1], [4, 0, 3], [4, 2, 5], [4, 4, 4], [4, 5, 6]],
+    solution: [[5, 6, 2, 4, 3, 1], [1, 3, 4, 2, 6, 5], [4, 5, 3, 6, 1, 2], [2, 1, 6, 3, 5, 4], [3, 2, 5, 1, 4, 6], [6, 4, 1, 5, 2, 3]],
+  },
+  {
+    givens: [[0, 5, 4], [1, 3, 5], [1, 4, 2], [2, 0, 2], [3, 1, 5], [3, 3, 4], [3, 4, 3], [4, 2, 2], [4, 5, 3], [5, 1, 1], [5, 2, 6]],
+    solution: [[1, 2, 5, 3, 6, 4], [4, 6, 3, 5, 2, 1], [2, 3, 4, 1, 5, 6], [6, 5, 1, 4, 3, 2], [5, 4, 2, 6, 1, 3], [3, 1, 6, 2, 4, 5]],
+  },
+  {
+    givens: [[0, 3, 6], [0, 4, 1], [1, 3, 2], [1, 5, 3], [2, 4, 6], [3, 1, 4], [3, 3, 3], [4, 3, 4], [5, 0, 5], [5, 5, 6]],
+    solution: [[4, 3, 2, 6, 1, 5], [1, 5, 6, 2, 4, 3], [2, 1, 3, 5, 6, 4], [6, 4, 5, 3, 2, 1], [3, 6, 1, 4, 5, 2], [5, 2, 4, 1, 3, 6]],
+  },
+  {
+    givens: [[0, 0, 1], [0, 3, 2], [0, 5, 5], [2, 0, 5], [2, 2, 3], [3, 3, 6], [4, 0, 3], [4, 2, 1], [5, 1, 4], [5, 2, 6]],
+    solution: [[1, 3, 4, 2, 6, 5], [6, 2, 5, 3, 1, 4], [5, 6, 3, 1, 4, 2], [4, 1, 2, 6, 5, 3], [3, 5, 1, 4, 2, 6], [2, 4, 6, 5, 3, 1]],
+  },
+  {
+    givens: [[0, 2, 3], [0, 3, 1], [0, 5, 6], [2, 0, 5], [3, 1, 4], [3, 3, 5], [3, 4, 2], [5, 0, 2], [5, 2, 4], [5, 5, 3]],
+    solution: [[4, 2, 3, 1, 5, 6], [1, 6, 5, 4, 3, 2], [5, 1, 2, 3, 6, 4], [3, 4, 6, 5, 2, 1], [6, 3, 1, 2, 4, 5], [2, 5, 4, 6, 1, 3]],
+  },
+  {
+    givens: [[0, 0, 4], [1, 3, 1], [1, 4, 3], [2, 2, 6], [3, 1, 5], [3, 5, 3], [4, 2, 2], [4, 5, 5], [5, 3, 2], [5, 4, 6]],
+    solution: [[4, 3, 1, 5, 2, 6], [6, 2, 5, 1, 3, 4], [3, 1, 6, 4, 5, 2], [2, 5, 4, 6, 1, 3], [1, 6, 2, 3, 4, 5], [5, 4, 3, 2, 6, 1]],
+  },
+  {
+    givens: [[0, 3, 4], [0, 5, 6], [1, 1, 2], [1, 4, 1], [2, 3, 6], [3, 0, 1], [3, 4, 3], [4, 2, 2], [4, 4, 6], [5, 0, 3], [5, 2, 1]],
+    solution: [[5, 1, 3, 4, 2, 6], [6, 2, 4, 3, 1, 5], [2, 3, 5, 6, 4, 1], [1, 4, 6, 5, 3, 2], [4, 5, 2, 1, 6, 3], [3, 6, 1, 2, 5, 4]],
+  },
+  {
+    givens: [[0, 3, 6], [0, 4, 1], [1, 5, 4], [2, 0, 2], [2, 1, 6], [3, 0, 4], [3, 5, 3], [4, 2, 5], [5, 0, 1], [5, 1, 4], [5, 2, 6]],
+    solution: [[5, 3, 4, 6, 1, 2], [6, 1, 2, 5, 3, 4], [2, 6, 3, 4, 5, 1], [4, 5, 1, 2, 6, 3], [3, 2, 5, 1, 4, 6], [1, 4, 6, 3, 2, 5]],
+  },
 ].map((level, index) => ({
   ...level,
   game: "sudoku",
-  size: 4,
-  difficulty: "easy",
-  levelName: `S 1-${index + 1}`,
-  title: `S 1-${index + 1} · Sudoku · Einfach`,
-  description: "Ein 4×4 Sudoku mit nur zwei Startzahlen.",
+  size: 6,
+  boxRows: 2,
+  boxCols: 3,
+  difficulty: "medium",
+  levelName: `S 2-${index + 1}`,
+  title: `S 2-${index + 1} · Sudoku · Mittel`,
+  description: "Ein mittleres 6×6 Sudoku mit den Zahlen 1 bis 6.",
 }));
 
 const GAME_COPY = {
@@ -256,16 +288,17 @@ const GAME_COPY = {
   },
   sudoku: {
     heading: "Sudoku Levels",
-    description: "Wähle ein einfaches 4×4 Sudoku. S 1 steht für Sudoku-Levels. Jedes Level hat nur zwei Startzahlen.",
+    description: "Wähle ein mittleres 6×6 Sudoku. S 2 steht für mittlere Sudoku-Levels.",
     rules: [
-      "Fülle die leeren Felder mit den Zahlen 1, 2, 3 und 4.",
+      "Fülle die leeren Felder mit den Zahlen 1 bis 6.",
       "In jeder Reihe darf jede Zahl nur einmal vorkommen.",
       "In jeder Spalte darf jede Zahl nur einmal vorkommen.",
-      "Auch in jeder dicken 2×2 Box gehört jede Zahl genau einmal hinein.",
+      "Auch in jeder dicken 2×3 Box gehört jede Zahl genau einmal hinein.",
     ],
     help: [
       "Tippe auf ein leeres Feld, damit die Zahlenauswahl erscheint.",
-      "Wähle im Pop-up eine Zahl von 1 bis 4 aus.",
+      "Wähle im Pop-up eine Zahl von 1 bis 6 aus.",
+      "Tippe eine eingetragene Zahl an und wähle Löschen, um sie zu entfernen.",
       "Startzahlen sind fest und können nicht verändert werden.",
       "Mit dem Pfeil nimmst du deine letzte Zahl zurück.",
     ],
@@ -382,7 +415,7 @@ function renderLevelTiles() {
     button.type = "button";
     button.className = `level-tile ${puzzle.difficulty}`;
     button.dataset.key = key;
-    button.innerHTML = `<span>${puzzle.levelName}</span><small>${puzzle.game === "sudoku" ? "Sudoku 4×4" : `${puzzle.size}×${puzzle.size}`}</small>`;
+    button.innerHTML = `<span>${puzzle.levelName}</span><small>${puzzle.game === "sudoku" ? `Sudoku ${puzzle.size}×${puzzle.size}` : `${puzzle.size}×${puzzle.size}`}</small>`;
     button.addEventListener("click", () => setPuzzle(key));
     levelGrid.append(button);
   });
@@ -612,16 +645,25 @@ function checkSudokuWin() {
   );
 }
 
+function getSudokuBoxSize(puzzle = getPuzzle()) {
+  return {
+    rows: puzzle.boxRows ?? Math.sqrt(puzzle.size),
+    cols: puzzle.boxCols ?? Math.sqrt(puzzle.size),
+  };
+}
+
 function hasSudokuConflict(row, col, value) {
   if (!value) return false;
-  const boxRow = Math.floor(row / 2) * 2;
-  const boxCol = Math.floor(col / 2) * 2;
-  for (let index = 0; index < 4; index += 1) {
+  const puzzle = getPuzzle();
+  const box = getSudokuBoxSize(puzzle);
+  const boxRow = Math.floor(row / box.rows) * box.rows;
+  const boxCol = Math.floor(col / box.cols) * box.cols;
+  for (let index = 0; index < puzzle.size; index += 1) {
     if (index !== col && sudokuValues[row][index] === value) return true;
     if (index !== row && sudokuValues[index][col] === value) return true;
   }
-  for (let r = boxRow; r < boxRow + 2; r += 1) {
-    for (let c = boxCol; c < boxCol + 2; c += 1) {
+  for (let r = boxRow; r < boxRow + box.rows; r += 1) {
+    for (let c = boxCol; c < boxCol + box.cols; c += 1) {
       if ((r !== row || c !== col) && sudokuValues[r][c] === value) return true;
     }
   }
@@ -635,7 +677,7 @@ function selectSudokuCell(row, col) {
     return;
   }
   selectedSudokuCell = [row, col];
-  render("Wähle eine Zahl im Pop-up aus.");
+  render(sudokuValues[row][col] ? "Wähle eine neue Zahl oder lösche die bestehende Zahl." : "Wähle eine Zahl im Pop-up aus.");
 }
 
 function setSudokuNumber(value) {
@@ -644,6 +686,11 @@ function setSudokuNumber(value) {
     return;
   }
   const [row, col] = selectedSudokuCell;
+  if (sudokuValues[row][col] === value) {
+    selectedSudokuCell = null;
+    render("Diese Zahl steht dort schon.");
+    return;
+  }
   pushHistory();
   sudokuValues[row][col] = value;
   selectedSudokuCell = null;
@@ -653,6 +700,23 @@ function setSudokuNumber(value) {
     return;
   }
   render(hasSudokuConflict(row, col, value) ? "Fast! Diese Zahl kommt hier doppelt vor." : "Gut! Fülle weiter die leeren Felder.");
+}
+
+function clearSudokuNumber() {
+  if (!selectedSudokuCell) {
+    render("Tippe zuerst auf eine eingetragene Zahl.");
+    return;
+  }
+  const [row, col] = selectedSudokuCell;
+  if (!sudokuValues[row][col]) {
+    selectedSudokuCell = null;
+    render("Dieses Feld ist schon leer.");
+    return;
+  }
+  pushHistory();
+  sudokuValues[row][col] = null;
+  selectedSudokuCell = null;
+  render("Die Zahl wurde gelöscht.");
 }
 
 function positionSudokuNumberPad() {
@@ -686,7 +750,8 @@ function renderSudokuNumberPad() {
   numberPad.setAttribute("aria-hidden", String(!selectedSudokuCell));
   if (!selectedSudokuCell) return;
 
-  [1, 2, 3, 4].forEach((number) => {
+  const puzzle = getPuzzle();
+  Array.from({ length: puzzle.size }, (_, index) => index + 1).forEach((number) => {
     const button = document.createElement("button");
     button.type = "button";
     button.textContent = number;
@@ -694,6 +759,17 @@ function renderSudokuNumberPad() {
     button.addEventListener("click", () => setSudokuNumber(number));
     numberPad.append(button);
   });
+
+  const [row, col] = selectedSudokuCell;
+  if (sudokuValues[row][col]) {
+    const clearButton = document.createElement("button");
+    clearButton.type = "button";
+    clearButton.className = "clear-number-button";
+    clearButton.textContent = "Löschen";
+    clearButton.setAttribute("aria-label", "Zahl löschen");
+    clearButton.addEventListener("click", clearSudokuNumber);
+    numberPad.append(clearButton);
+  }
   requestAnimationFrame(positionSudokuNumberPad);
 }
 
@@ -786,6 +862,8 @@ function renderSudoku(message = statusText.textContent) {
       cell.textContent = value ?? "";
       cell.setAttribute("aria-label", `Sudoku Zeile ${row + 1}, Spalte ${col + 1}`);
       if (fixedSudokuCells.has(key)) cell.classList.add("given");
+      if ((col + 1) % (puzzle.boxCols ?? puzzle.size) === 0 && col + 1 < puzzle.size) cell.classList.add("box-edge-right");
+      if ((row + 1) % (puzzle.boxRows ?? puzzle.size) === 0 && row + 1 < puzzle.size) cell.classList.add("box-edge-bottom");
       if (selectedSudokuCell && sameCell(selectedSudokuCell, [row, col])) cell.classList.add("selected");
       if (hasSudokuConflict(row, col, value)) cell.classList.add("conflict");
       if (checkSudokuWin()) cell.classList.add("board-won");

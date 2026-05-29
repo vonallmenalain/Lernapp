@@ -644,14 +644,14 @@ body.puzzle-active .board {
 .line-dot.green::before { background: #06d6a0; }
 
 .sudoku-preview {
-  grid-template-columns: repeat(4, 1fr);
-  gap: 4px;
-  padding: 8px;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 3px;
+  padding: 7px;
 }
 
 .sudoku-preview span {
-  border-radius: 8px;
-  font-size: 1.15rem;
+  border-radius: 7px;
+  font-size: 0.95rem;
 }
 
 .sudoku-preview span:nth-child(2n + 1) {
@@ -714,14 +714,11 @@ body.puzzle-active .board {
   font-size: clamp(1.6rem, 7vw, 3rem);
 }
 
-.sudoku-cell:nth-child(2),
-.sudoku-cell:nth-child(6),
-.sudoku-cell:nth-child(10),
-.sudoku-cell:nth-child(14) {
+.sudoku-cell.box-edge-right {
   margin-right: 4px;
 }
 
-.sudoku-cell:nth-child(n + 5):nth-child(-n + 8) {
+.sudoku-cell.box-edge-bottom {
   margin-bottom: 4px;
 }
 
@@ -747,7 +744,7 @@ body.puzzle-active .board {
   position: fixed;
   z-index: 20;
   display: grid;
-  grid-template-columns: repeat(4, minmax(48px, 62px));
+  grid-template-columns: repeat(3, minmax(48px, 62px));
   justify-content: center;
   gap: 8px;
   margin: 0;
@@ -762,6 +759,16 @@ body.puzzle-active .board {
   min-height: 52px;
   border-radius: 14px;
   font-size: 1.45rem;
+}
+
+.number-pad .clear-number-button {
+  grid-column: 1 / -1;
+  background: #ef476f;
+  font-size: 1rem;
+}
+
+.number-pad .clear-number-button:hover:not(:disabled) {
+  background: #b0002a;
 }
 
 body.puzzle-active .number-pad {
