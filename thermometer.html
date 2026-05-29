@@ -3,25 +3,25 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Sudoku Levels · Lernapp</title>
+    <title>Zaubertrank Levels · Lernapp</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
-  <body data-game-page="sudoku">
+  <body data-game-page="thermometer">
     <main class="app-shell">
       <section class="hero" aria-labelledby="app-title">
-        <p class="eyebrow">Zahlen ordnen</p>
-        <h1 id="app-title">Sudoku</h1>
-        <p id="app-intro" class="intro">Wähle ein Sudoku-Level aus.</p>
+        <p class="eyebrow">Röhren füllen</p>
+        <h1 id="app-title">Zaubertrank</h1>
+        <p id="app-intro" class="intro">Fülle die Zaubertrank-Röhren genau richtig.</p>
       </section>
 
-      <section id="level-panel" class="start-panel" aria-label="Sudoku Level auswählen">
+      <section id="level-panel" class="start-panel" aria-label="Zaubertrank Level auswählen">
         <div class="start-copy">
           <p class="small-label">Levelauswahl</p>
-          <h2 id="level-heading">Sudoku Levels</h2>
+          <h2 id="level-heading">Zaubertrank Levels</h2>
           <p id="level-description"></p>
           <ul id="rules-list" class="rules-list"></ul>
         </div>
-        <div id="level-grid" class="level-grid" aria-label="Sudoku Levels"></div>
+        <div id="level-grid" class="level-grid" aria-label="Zaubertrank Levels"></div>
       </section>
 
       <section id="game-panel" class="game-panel" hidden>
@@ -43,11 +43,11 @@
             <p id="status" class="status" role="status" aria-live="polite">Wähle ein Level aus.</p>
           </div>
 
-          <div id="board" class="board" aria-label="Sudoku Spielfeld"></div>
+          <div id="board" class="board" aria-label="Zaubertrank Spielfeld"></div>
           <div id="number-pad" class="number-pad" aria-label="Zahlen auswählen" hidden></div>
 
           <details class="help" open>
-            <summary>So spielst du Sudoku</summary>
+            <summary>So spielst du Zaubertrank</summary>
             <ul id="game-help-list"></ul>
           </details>
         </section>
