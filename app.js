@@ -869,7 +869,7 @@ function getPairColor(pair) { return DEFAULT_COLORS[pair] || "#6c5ce7"; }
 const GAME_HANDLERS = {
 
   shikaku: {
-    resetState() { state = { regions: {}, selected: null, hintCells: [], dragPreview: null }; setStatus("Tippe zuerst auf ein Tier mit Zahl oder ziehe direkt vom Tier los."); },
+    resetState() { state = { regions: {}, selected: null, dragPreview: null }; setStatus("Tippe zuerst auf ein Tier mit Zahl oder ziehe direkt vom Tier los."); },
     clueKey(clue) { return keyOf(clue.row, clue.col); },
     clueAt(level, r, c) { return level.clues.find((clue) => clue.row === r && clue.col === c) || null; },
     ownerAt(r, c) {
@@ -890,7 +890,7 @@ const GAME_HANDLERS = {
       return region.cells.length === want.size && region.cells.every((cell) => want.has(keyOf(cell.row, cell.col)));
     },
     checkWin() { const level = currentLevel(); return level.clues.every((clue) => this.regionMatchesSolution(level, clue)); },
-    selectClue(clue) { state.selected = { row: clue.row, col: clue.col }; state.hintCells = []; state.dragPreview = null; render(`Das Tier braucht ${clue.value} Felder.`); },
+    selectClue(clue) { state.selected = { row: clue.row, col: clue.col }; state.dragPreview = null; render(`Das Tier braucht ${clue.value} Felder.`); },
     rectangleCells(level, clue, r, c) {
       const minRow = Math.min(clue.row, r), maxRow = Math.max(clue.row, r);
       const minCol = Math.min(clue.col, c), maxCol = Math.max(clue.col, c);
@@ -901,7 +901,6 @@ const GAME_HANDLERS = {
     previewDrag(clue, r, c) {
       const level = currentLevel();
       state.selected = { row: clue.row, col: clue.col };
-      state.hintCells = [];
       state.dragPreview = {
         cells: this.rectangleCells(level, clue, r, c),
         area: (Math.abs(clue.row - r) + 1) * (Math.abs(clue.col - c) + 1),
@@ -949,24 +948,13 @@ const GAME_HANDLERS = {
       pushHistory();
       state.regions[selectedKey] = { cells, color: (level.clues.indexOf(selectedClue) % 12) + 1 };
       state.selected = null;
-      state.hintCells = [];
       state.dragPreview = null;
       this.checkWin() ? handleWin() : render("Super! Das Gehege passt.");
-    },
-    hint() {
-      const level = currentLevel();
-      const clue = level.clues.find((item) => !this.regionMatchesSolution(level, item));
-      if (!clue) { setStatus("Alle Tiere haben schon ein Gehege."); return; }
-      state.selected = { row: clue.row, col: clue.col };
-      state.hintCells = this.solutionCells(level, clue);
-      state.dragPreview = null;
-      render(`Versuche hier ein Rechteck mit genau ${clue.value} Feldern.`);
     },
     render(level) {
       board.innerHTML = "";
       board.style.setProperty("--size", level.cols);
       board.style.setProperty("--rows", level.rows);
-      const hintKeys = new Set((state.hintCells || []).map((cell) => keyOf(cell.row, cell.col)));
       const dragKeys = new Set((state.dragPreview?.cells || []).map((cell) => keyOf(cell.row, cell.col)));
       const dragAreaMatches = state.selected && state.dragPreview && state.dragPreview.area === (this.clueAt(level, state.selected.row, state.selected.col)?.value || 0);
       for (let r = 0; r < level.rows; r += 1) for (let c = 0; c < level.cols; c += 1) {
@@ -976,7 +964,7 @@ const GAME_HANDLERS = {
         const region = owner ? state.regions[owner] : null;
         const color = region?.color || 0;
         const isDragPreview = dragKeys.has(keyOf(r, c));
-        const cell = makeButtonCell(r, c, `cell shikaku-cell${clue ? " clue" : ""}${selected ? " selected" : ""}${owner ? ` region shikaku-region-${color}` : ""}${hintKeys.has(keyOf(r, c)) ? " shikaku-preview" : ""}${isDragPreview ? ` shikaku-drag-preview${dragAreaMatches ? " valid" : ""}` : ""}`, "");
+        const cell = makeButtonCell(r, c, `cell shikaku-cell${clue ? " clue" : ""}${selected ? " selected" : ""}${owner ? ` region shikaku-region-${color}` : ""}${isDragPreview ? ` shikaku-drag-preview${dragAreaMatches ? " valid" : ""}` : ""}`, "");
         cell.setAttribute("aria-label", clue ? `Tier mit Zahl ${clue.value}, Reihe ${r + 1}, Spalte ${c + 1}` : `Feld Reihe ${r + 1}, Spalte ${c + 1}`);
         if (clue) {
           const animal = document.createElement("span");

@@ -1356,13 +1356,6 @@ body.puzzle-active .hidoku-board {
   font-weight: 950;
 }
 
-.shikaku-preview.shikaku-cell,
-.shikaku-cell.shikaku-preview {
-  border-style: dashed;
-  border-color: #ff9f1c;
-  background-image: repeating-linear-gradient(135deg, rgba(255, 159, 28, 0.18) 0 8px, rgba(255, 255, 255, 0.16) 8px 16px);
-}
-
 .shikaku-cell.shikaku-drag-preview {
   border-color: #ff9f1c;
   background:
@@ -1377,10 +1370,6 @@ body.puzzle-active .hidoku-board {
   background:
     linear-gradient(rgba(6, 214, 160, 0.22), rgba(6, 214, 160, 0.22)),
     #f0fff9;
-}
-
-.shikaku-hint {
-  outline: 4px dashed #ff9f1c;
 }
 
 .shikaku-region-1 { background: #fff0c7; }
