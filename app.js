@@ -285,7 +285,7 @@ const GAME_CONFIGS = {
   sudoku: {
     title: "Sudoku", eyebrow: "Zahlen ordnen", code: "S",
     subtitle: "Fülle jede Reihe, Spalte und Box mit den passenden Zahlen.",
-    success: "Prima gerechnet! Alle Zahlen stehen am richtigen Platz.",
+    success: "Prima gerechnet! Alle Felder sind ausgefüllt und es gibt keine Fehler.",
     rules: ["Tippe auf ein leeres Feld.", "Wähle unten die passende Zahl aus.", "Jede Zahl darf in Reihe, Spalte und Box nur einmal vorkommen."],
   },
   bimaru: {
@@ -654,7 +654,7 @@ const GAME_HANDLERS = {
   },
   sudoku: {
     resetState(level) { state={ values: zeros(level.size, level.size, null), fixed: {}, selected: null }; level.givens.forEach(([r,c,v])=>{state.values[r][c]=v; state.fixed[keyOf(r,c)]=true;}); setStatus("Tippe auf ein leeres Feld."); },
-    checkWin() { const level=currentLevel(); return state.values.every((row,r)=>row.every((v,c)=>v===level.solution[r][c])); },
+    checkWin() { return state.values.every((row,r)=>row.every((v,c)=>Boolean(v) && !this.conflict(r,c,v))); },
     conflict(r,c,v) { if(!v) return false; const level=currentLevel(); const br=Math.floor(r/level.boxRows)*level.boxRows, bc=Math.floor(c/level.boxCols)*level.boxCols; for(let i=0;i<level.size;i++){ if(i!==c&&state.values[r][i]===v) return true; if(i!==r&&state.values[i][c]===v) return true; } for(let y=br;y<br+level.boxRows;y++) for(let x=bc;x<bc+level.boxCols;x++) if((y!==r||x!==c)&&state.values[y][x]===v) return true; return false; },
     select(r,c) { if(state.fixed[keyOf(r,c)]) { state.selected=null; render("Diese Startzahl bleibt stehen."); return; } state.selected=[r,c]; render("Wähle eine Zahl aus."); this.renderPad(); },
     setNumber(v) { if(!state.selected) return; const [r,c]=state.selected; pushHistory(); state.values[r][c]=v; state.selected=null; this.checkWin()?handleWin():render(this.conflict(r,c,v)?"Fast! Diese Zahl kommt hier doppelt vor.":"Gut gemacht, weiter so!"); },
