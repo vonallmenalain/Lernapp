@@ -180,6 +180,16 @@ h2 {
   transform: scale(1.02);
 }
 
+.arukone-board {
+  touch-action: none;
+  user-select: none;
+}
+
+.arukone-cell {
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
 .cell.endpoint {
   background: color-mix(in srgb, var(--pair-color) 18%, white);
   border-color: var(--pair-color);
@@ -868,9 +878,6 @@ a.icon-button {
 .difficulty-levels { display: grid; grid-template-columns: repeat(auto-fit, minmax(112px, 1fr)); gap: 12px; }
 .level-tile.solved { position: relative; background: #f0fff9; }
 .level-tile.solved::after { content: "★"; position: absolute; top: 8px; right: 12px; color: #06a77d; font-size: 1.2rem; }
-.hint-button { background: #ff9f1c; }
-.hint-button:hover:not(:disabled) { background: #e18200; }
-
 .count-board, .clue-board {
   grid-template-columns: repeat(var(--size), minmax(34px, 1fr));
   gap: 5px;

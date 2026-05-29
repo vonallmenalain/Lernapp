@@ -451,7 +451,6 @@ const puzzleDescription = document.querySelector("#puzzle-description");
 const statusText = document.querySelector("#status");
 const undoButton = document.querySelector("#undo-button");
 const resetButton = document.querySelector("#reset-button");
-const hintButton = document.querySelector("#hint-button");
 const backButton = document.querySelector("#back-button");
 const successOverlay = document.querySelector("#success-overlay");
 const successClose = document.querySelector("#success-close");
@@ -466,7 +465,8 @@ let state = {};
 let history = [];
 let winShown = false;
 let isDrawing = false;
-let lastDrawnCell = null;
+let lastDrawnKey = null;
+let activePointerId = null;
 let activeMoveSnapshot = null;
 let pushedActiveSnapshot = false;
 
@@ -532,7 +532,7 @@ const GAME_HANDLERS = {
     canUse(pair,r,c) { const endpoint=this.endpointAt(r,c), owner=this.ownerAt(r,c), ends=currentLevel().pairs[pair]; if(endpoint && endpoint!==pair) return false; if(owner && owner!==pair) return false; return !endpoint || sameCell(ends[0],[r,c]) || sameCell(ends[1],[r,c]); },
     input(r,c) { if (this.checkWin()) return; const endpoint=this.endpointAt(r,c); if(endpoint && (!state.activePair || endpoint!==state.activePair || this.isCompleted(state.activePair))) { pushHistory(); state.activePair=endpoint; state.paths[endpoint]=[[r,c]]; render(`Weg ${endpoint} gestartet.`); return; } if(!state.activePair) { render("Bitte zuerst ein Symbol auswählen."); return; } if(this.isCompleted(state.activePair)) { render("Dieser Weg ist fertig. Wähle ein anderes Symbol."); return; } const path=state.paths[state.activePair], last=path.at(-1); if(!isNeighbor(last,[r,c])) { render("Ziehe nur auf ein Nachbarfeld."); return; } const existing=path.findIndex((pt)=>sameCell(pt,[r,c])); if(existing>=0) { pushHistory(); state.paths[state.activePair]=path.slice(0,existing+1); render("Ein Stück zurückgegangen."); return; } if(!this.canUse(state.activePair,r,c)) { render("Dieses Feld gehört schon zu einem anderen Weg."); return; } pushHistory(); state.paths[state.activePair]=[...path,[r,c]]; if(this.isCompleted(state.activePair)) state.activePair=null; this.checkWin()?handleWin():render("Gut! Weiter zum passenden Symbol."); },
     hint() { const open=Object.keys(currentLevel().pairs).find((p)=>!this.isCompleted(p)); setStatus(open ? `Tipp: Schau dir das Paar ${open} an. Es braucht noch einen Weg.` : "Alle Paare sind verbunden."); },
-    render(level) { board.innerHTML=""; board.style.setProperty("--size", level.size); for(let r=0;r<level.size;r++) for(let c=0;c<level.size;c++){ const endpoint=this.endpointAt(r,c), owner=this.ownerAt(r,c); const cell=makeButtonCell(r,c,`cell arukone-cell${endpoint?" endpoint":""}${owner?" filled":""}${state.activePair&&owner===state.activePair?" active":""}`, endpoint || ""); const pair=endpoint||owner; if(pair) cell.style.setProperty("--pair-color", getPairColor(pair)); cell.addEventListener("click",()=>this.input(r,c)); board.append(cell); } },
+    render(level) { board.innerHTML=""; board.style.setProperty("--size", level.size); for(let r=0;r<level.size;r++) for(let c=0;c<level.size;c++){ const endpoint=this.endpointAt(r,c), owner=this.ownerAt(r,c); const cell=makeButtonCell(r,c,`cell arukone-cell${endpoint?" endpoint":""}${owner?" filled":""}${state.activePair&&owner===state.activePair?" active":""}`, endpoint || ""); const pair=endpoint||owner; if(pair) cell.style.setProperty("--pair-color", getPairColor(pair)); cell.addEventListener("keydown",(event)=>{ if(event.key==="Enter"||event.key===" ") { event.preventDefault(); this.input(r,c); } }); board.append(cell); } },
   },
   sudoku: {
     resetState(level) { state={ values: zeros(level.size, level.size, null), fixed: {}, selected: null }; level.givens.forEach(([r,c,v])=>{state.values[r][c]=v; state.fixed[keyOf(r,c)]=true;}); setStatus("Tippe auf ein leeres Feld."); },
@@ -597,17 +597,52 @@ function renderNonogram(level, handler) { const rowClues=cluesFor(level.solution
 if (currentGame && LEVELS_BY_GAME[currentGame]) renderLevelSelect();
 if (undoButton) undoButton.addEventListener("click", undo);
 if (resetButton) resetButton.addEventListener("click", resetGame);
-if (hintButton) hintButton.addEventListener("click", () => GAME_HANDLERS[currentGame].hint());
 if (backButton) backButton.addEventListener("click", showLevelSelect);
 if (successClose) successClose.addEventListener("click", hideSuccess);
 if (nextPuzzleButton) nextPuzzleButton.addEventListener("click", nextLevel);
 
+function cellKeyFromPoint(row, col) { return `${row},${col}`; }
+function arukoneCellFromPoint(clientX, clientY) {
+  if (!board || currentGame !== "arukone") return null;
+  const direct = document.elementFromPoint(clientX, clientY)?.closest(".arukone-cell");
+  if (direct && board.contains(direct)) return direct;
+  const level = currentLevel();
+  const rect = board.getBoundingClientRect();
+  if (clientX < rect.left || clientX > rect.right || clientY < rect.top || clientY > rect.bottom) return null;
+  const col = Math.min(level.size - 1, Math.max(0, Math.floor(((clientX - rect.left) / rect.width) * level.size)));
+  const row = Math.min(level.size - 1, Math.max(0, Math.floor(((clientY - rect.top) / rect.height) * level.size)));
+  return board.querySelector(`[data-row="${row}"][data-col="${col}"]`);
+}
+function drawArukoneCell(row, col) {
+  const nextKey = cellKeyFromPoint(row, col);
+  if (nextKey === lastDrawnKey) return;
+  if (lastDrawnKey) {
+    const [lastRow, lastCol] = lastDrawnKey.split(",").map(Number);
+    if (lastRow === row && Math.abs(lastCol - col) > 1) {
+      const step = Math.sign(col - lastCol);
+      for (let c = lastCol + step; c !== col; c += step) GAME_HANDLERS.arukone.input(row, c);
+    } else if (lastCol === col && Math.abs(lastRow - row) > 1) {
+      const step = Math.sign(row - lastRow);
+      for (let r = lastRow + step; r !== row; r += step) GAME_HANDLERS.arukone.input(r, col);
+    }
+  }
+  lastDrawnKey = nextKey;
+  GAME_HANDLERS.arukone.input(row, col);
+}
+function finishArukonePointer() {
+  isDrawing = false;
+  lastDrawnKey = null;
+  activePointerId = null;
+  finishMove();
+}
+
 document.addEventListener("pointermove", (event) => {
-  if (!isDrawing || currentGame !== "arukone") return;
-  const el = document.elementFromPoint(event.clientX, event.clientY)?.closest(".cell");
-  if (!el || el === lastDrawnCell) return;
-  lastDrawnCell = el;
-  GAME_HANDLERS.arukone.input(Number(el.dataset.row), Number(el.dataset.col));
-});
-document.addEventListener("pointerup", () => { isDrawing = false; lastDrawnCell = null; finishMove(); });
-if (board) board.addEventListener("pointerdown", (event) => { const cell=event.target.closest(".arukone-cell"); if(!cell || currentGame!=="arukone") return; beginMove(); isDrawing=true; lastDrawnCell=cell; });
+  if (!isDrawing || currentGame !== "arukone" || event.pointerId !== activePointerId) return;
+  event.preventDefault();
+  const el = arukoneCellFromPoint(event.clientX, event.clientY);
+  if (!el) return;
+  drawArukoneCell(Number(el.dataset.row), Number(el.dataset.col));
+}, { passive: false });
+document.addEventListener("pointerup", (event) => { if (event.pointerId === activePointerId) finishArukonePointer(); });
+document.addEventListener("pointercancel", (event) => { if (event.pointerId === activePointerId) finishArukonePointer(); });
+if (board) board.addEventListener("pointerdown", (event) => { const cell=event.target.closest(".arukone-cell"); if(!cell || currentGame!=="arukone") return; event.preventDefault(); beginMove(); isDrawing=true; activePointerId=event.pointerId; board.setPointerCapture?.(event.pointerId); drawArukoneCell(Number(cell.dataset.row), Number(cell.dataset.col)); }, { passive: false });
