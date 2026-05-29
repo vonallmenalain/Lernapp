@@ -452,10 +452,9 @@ const statusText = document.querySelector("#status");
 const undoButton = document.querySelector("#undo-button");
 const resetButton = document.querySelector("#reset-button");
 const backButton = document.querySelector("#back-button");
-const successOverlay = document.querySelector("#success-overlay");
-const successClose = document.querySelector("#success-close");
-const nextPuzzleButton = document.querySelector("#next-puzzle-button");
-const successText = document.querySelector("#success-text");
+let successOverlay = document.querySelector("#success-overlay");
+let successRestartButton = document.querySelector("#success-restart-button");
+let nextPuzzleButton = document.querySelector("#next-puzzle-button");
 const gamePanel = document.querySelector("#game-panel");
 const gameControls = document.querySelector("#game-controls");
 
@@ -508,12 +507,45 @@ function renderLevelSelect() {
 }
 function showLevelSelect() { finishMove(); hideSuccess(); if (levelPanel) levelPanel.hidden = false; if (homePanel) homePanel.hidden = true; if (gamePanel) gamePanel.hidden = true; if (gameControls) gameControls.hidden = true; document.body.classList.remove("puzzle-active"); renderLevelSelect(); }
 function showGame() { if (levelPanel) levelPanel.hidden = true; if (homePanel) homePanel.hidden = true; if (gamePanel) gamePanel.hidden = false; if (gameControls) gameControls.hidden = false; document.body.classList.add("puzzle-active"); }
-function startLevel(index) { currentIndex = index; const level = currentLevel(); const config = GAME_CONFIGS[currentGame]; history = []; winShown = false; if (undoButton) undoButton.disabled = true; board.className = `board ${currentGame}-board`; board.style.setProperty("--size", level.size || 5); board.setAttribute("aria-label", `${config.title} Spielfeld`); puzzleTitle.textContent = level.title; puzzleDescription.textContent = level.description || config.subtitle; successText.textContent = config.success; fillList(gameHelpList, config.rules); resetState(); showGame(); render(); }
+function startLevel(index) { hideSuccess(); currentIndex = index; const level = currentLevel(); const config = GAME_CONFIGS[currentGame]; history = []; winShown = false; if (undoButton) undoButton.disabled = true; board.className = `board ${currentGame}-board`; board.style.setProperty("--size", level.size || 5); board.setAttribute("aria-label", `${config.title} Spielfeld`); puzzleTitle.textContent = level.title; puzzleDescription.textContent = level.description || config.subtitle; fillList(gameHelpList, config.rules); resetState(); showGame(); render(); }
 function resetGame() { history = []; if (undoButton) undoButton.disabled = true; hideSuccess(); resetState(); render("Neu gestartet. Viel Spass!"); }
 function undo() { finishMove(); if (!history.length) return; restore(history.pop()); if (undoButton) undoButton.disabled = history.length === 0; setStatus("Ein Schritt zurück."); }
 function nextLevel() { const levels = LEVELS_BY_GAME[currentGame]; startLevel((currentIndex + 1) % levels.length); }
 function showSuccess() { const level = currentLevel(); winShown = true; markSolved(level); if (successOverlay) { successOverlay.hidden = false; successOverlay.classList.remove("hidden"); } setStatus("Geschafft!"); }
 function hideSuccess() { winShown = false; if (successOverlay) { successOverlay.hidden = true; successOverlay.classList.add("hidden"); } }
+
+function setupSuccessOverlay() {
+  if (!currentGame) return;
+  const existingOverlay = document.querySelector("#success-overlay");
+  if (existingOverlay) existingOverlay.remove();
+
+  const shell = document.querySelector(".app-shell") || document.body;
+  const overlay = document.createElement("section");
+  overlay.id = "success-overlay";
+  overlay.className = "success-overlay hidden";
+  overlay.setAttribute("aria-labelledby", "success-title");
+  overlay.setAttribute("aria-modal", "true");
+  overlay.setAttribute("role", "dialog");
+  overlay.hidden = true;
+  overlay.innerHTML = `
+    <div class="success-modal">
+      <div class="fireworks" aria-hidden="true">
+        <span></span><span></span><span></span><span></span><span></span><span></span>
+      </div>
+      <h2 id="success-title">Geschafft!</h2>
+      <div class="success-actions" aria-label="Level-Aktionen">
+        <button id="success-restart-button" class="success-icon-button" type="button" aria-label="Level neu starten" title="Level neu starten">↻</button>
+        <button id="next-puzzle-button" class="success-icon-button primary" type="button" aria-label="Nächstes Level" title="Nächstes Level">→</button>
+      </div>
+    </div>`;
+  shell.append(overlay);
+
+  successOverlay = overlay;
+  successRestartButton = overlay.querySelector("#success-restart-button");
+  nextPuzzleButton = overlay.querySelector("#next-puzzle-button");
+  successRestartButton.addEventListener("click", resetGame);
+  nextPuzzleButton.addEventListener("click", nextLevel);
+}
 function handleWin() { if (!winShown) showSuccess(); render(); }
 function checkAndWin() { if (GAME_HANDLERS[currentGame].checkWin()) handleWin(); }
 function resetState() { GAME_HANDLERS[currentGame].resetState(currentLevel()); }
@@ -598,8 +630,7 @@ if (currentGame && LEVELS_BY_GAME[currentGame]) renderLevelSelect();
 if (undoButton) undoButton.addEventListener("click", undo);
 if (resetButton) resetButton.addEventListener("click", resetGame);
 if (backButton) backButton.addEventListener("click", showLevelSelect);
-if (successClose) successClose.addEventListener("click", hideSuccess);
-if (nextPuzzleButton) nextPuzzleButton.addEventListener("click", nextLevel);
+setupSuccessOverlay();
 
 function cellKeyFromPoint(row, col) { return `${row},${col}`; }
 function arukoneCellFromPoint(clientX, clientY) {
