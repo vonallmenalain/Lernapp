@@ -437,17 +437,7 @@ h2 {
   background: rgba(255, 255, 255, 0.9);
   border: 1px solid rgba(255, 255, 255, 0.75);
   box-shadow: var(--shadow);
-  color: inherit;
   text-align: center;
-  text-decoration: none;
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
-}
-
-.game-choice-card:hover,
-.game-choice-card:focus-visible {
-  box-shadow: 0 18px 44px rgba(82, 68, 145, 0.22);
-  outline: none;
-  transform: translateY(-2px);
 }
 
 .start-copy {
@@ -674,12 +664,32 @@ body.puzzle-active .board {
   background: rgba(255, 255, 255, 0.9);
   border: 1px solid rgba(255, 255, 255, 0.75);
   box-shadow: var(--shadow);
+  color: var(--ink);
   text-align: center;
+  text-decoration: none;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+a.game-choice-card,
+a.game-choice-card:visited {
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.game-choice-card:hover,
+.game-choice-card:focus-visible {
+  box-shadow: 0 18px 44px rgba(82, 68, 145, 0.22);
+  outline: none;
+  transform: translateY(-2px);
 }
 
 .game-choice-card h2,
 .game-choice-card p {
   margin: 0;
+}
+
+.game-choice-card h2 {
+  color: var(--ink);
 }
 
 .game-choice-card p:not(.small-label) {
