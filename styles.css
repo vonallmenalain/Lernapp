@@ -1448,3 +1448,346 @@ body.puzzle-active .shikaku-cell {
   }
   .shikaku-number { padding-inline: 5px; }
 }
+
+.account-button {
+  position: fixed;
+  top: calc(var(--safe-top) + 14px);
+  right: calc(var(--safe-right) + 14px);
+  z-index: 90;
+  width: 52px;
+  min-width: 52px;
+  min-height: 52px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: #fff;
+  border: 3px solid var(--primary);
+  color: var(--primary-dark);
+  box-shadow: 0 12px 28px rgba(36, 48, 71, 0.18);
+}
+
+.account-button:hover:not(:disabled),
+.account-button:focus-visible {
+  background: #f4f1ff;
+  color: var(--primary-dark);
+  outline: none;
+}
+
+.account-button svg,
+.account-close svg {
+  width: 24px;
+  height: 24px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.account-button.signed-in {
+  background: #06d6a0;
+  border-color: #06d6a0;
+  color: #fff;
+}
+
+.account-button.signed-in svg {
+  opacity: 0;
+}
+
+.account-initial {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 1.1rem;
+  font-weight: 950;
+}
+
+.account-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: grid;
+  place-items: center;
+  padding: calc(var(--safe-top) + 18px) calc(var(--safe-right) + 18px) calc(var(--safe-bottom) + 18px) calc(var(--safe-left) + 18px);
+  background: rgba(36, 48, 71, 0.56);
+  backdrop-filter: blur(7px);
+}
+
+.account-modal.hidden {
+  display: none;
+}
+
+.account-panel {
+  position: relative;
+  width: min(720px, 100%);
+  max-height: min(820px, calc(100vh - var(--safe-top) - var(--safe-bottom) - 36px));
+  overflow: auto;
+  padding: clamp(22px, 4vw, 34px);
+  border-radius: 28px;
+  background: rgba(255, 255, 255, 0.98);
+  border: 1px solid rgba(255, 255, 255, 0.78);
+  box-shadow: 0 26px 70px rgba(36, 48, 71, 0.28);
+}
+
+.account-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 42px;
+  min-width: 42px;
+  min-height: 42px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: #fff;
+  color: var(--muted);
+  border: 2px solid var(--line);
+}
+
+.account-close:hover:not(:disabled),
+.account-close:focus-visible {
+  background: #f4f1ff;
+  color: var(--primary-dark);
+}
+
+.account-content {
+  display: grid;
+  gap: 18px;
+}
+
+.account-content h2,
+.account-content h3,
+.account-content p {
+  margin: 0;
+}
+
+.account-muted {
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.auth-form {
+  display: grid;
+  gap: 14px;
+}
+
+.auth-form label {
+  display: grid;
+  gap: 7px;
+  color: var(--muted);
+  font-weight: 850;
+}
+
+.auth-form input {
+  width: 100%;
+  min-height: 50px;
+  border-radius: 16px;
+  border: 2px solid var(--line);
+  padding: 0 14px;
+  color: var(--ink);
+  font: inherit;
+  font-weight: 800;
+  background: #fff;
+}
+
+.auth-form input:focus-visible {
+  border-color: var(--primary);
+  outline: 4px solid rgba(108, 92, 231, 0.16);
+}
+
+.auth-actions,
+.profile-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.secondary-action,
+.google-action {
+  background: #fff;
+  color: var(--primary-dark);
+  border-color: var(--line);
+}
+
+.secondary-action:hover:not(:disabled),
+.secondary-action:focus-visible,
+.google-action:hover:not(:disabled),
+.google-action:focus-visible {
+  background: #f4f1ff;
+  color: var(--primary-dark);
+}
+
+.google-action {
+  width: 100%;
+}
+
+.auth-status {
+  min-height: 1.4em;
+  color: #b0002a;
+  font-weight: 800;
+}
+
+.profile-summary {
+  padding: 16px;
+  border-radius: 20px;
+  background: #fbfaff;
+  border: 2px solid var(--line);
+}
+
+.profile-summary > div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.profile-summary strong {
+  overflow-wrap: anywhere;
+  font-size: 1.05rem;
+}
+
+.profile-summary small {
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.stat-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.stat-strip > div,
+.progress-card,
+.session-item {
+  border-radius: 18px;
+  background: #fff;
+  border: 2px solid var(--line);
+  box-shadow: 0 10px 22px rgba(50, 44, 109, 0.08);
+}
+
+.stat-strip > div {
+  display: grid;
+  gap: 4px;
+  min-height: 84px;
+  place-items: center;
+  padding: 12px;
+  text-align: center;
+}
+
+.stat-strip strong {
+  font-size: 1.35rem;
+  line-height: 1;
+  color: var(--primary-dark);
+}
+
+.stat-strip span,
+.progress-card span,
+.progress-card small,
+.session-item span,
+.session-item small {
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.progress-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.progress-card {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+}
+
+.progress-card > div:first-child,
+.session-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.progress-card strong,
+.session-item strong {
+  color: var(--ink);
+}
+
+.progress-bar {
+  height: 12px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #ece8fb;
+}
+
+.progress-bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #06d6a0, #118ab2);
+}
+
+.session-list {
+  display: grid;
+  gap: 10px;
+}
+
+.session-list h3 {
+  font-size: 1.05rem;
+}
+
+.session-item {
+  align-items: center;
+  padding: 12px 14px;
+}
+
+.session-item > div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.session-item small {
+  text-align: right;
+}
+
+@media (max-width: 640px) {
+  .account-button {
+    top: calc(var(--safe-top) + 10px);
+    right: calc(var(--safe-right) + 10px);
+    width: 46px;
+    min-width: 46px;
+    min-height: 46px;
+  }
+
+  .account-panel {
+    border-radius: 22px;
+  }
+
+  .auth-actions,
+  .profile-summary,
+  .progress-card > div:first-child,
+  .session-item {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .auth-actions > *,
+  .profile-summary > button {
+    width: 100%;
+  }
+
+  .stat-strip,
+  .progress-list {
+    grid-template-columns: 1fr;
+  }
+
+  .session-item small {
+    text-align: left;
+  }
+}

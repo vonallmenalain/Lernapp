@@ -669,6 +669,24 @@ const LEVELS_BY_GAME = {
   shikaku: normalizeLevelCounts(SHIKAKU_LEVELS),
 };
 
+function publicLevelInfo(level) {
+  return {
+    id: level.id || level.levelName,
+    game: level.game,
+    difficulty: level.difficulty,
+    levelName: level.levelName,
+    title: level.title,
+    size: level.size || null,
+    rows: level.rows || null,
+    cols: level.cols || null,
+  };
+}
+
+window.LernappLevelCatalog = Object.fromEntries(
+  Object.entries(LEVELS_BY_GAME).map(([game, levels]) => [game, levels.map(publicLevelInfo)])
+);
+window.LernappFirebase?.registerLevels?.(window.LernappLevelCatalog);
+
 const board = document.querySelector("#board");
 const numberPad = document.querySelector("#number-pad");
 const homePanel = document.querySelector("#home-panel");
@@ -709,14 +727,29 @@ let activeMoveSnapshot = null;
 let pushedActiveSnapshot = false;
 
 function progressKey(game, levelId) { return `lernapp.solved.${game}.${levelId}`; }
-function isSolved(level) { return localStorage.getItem(progressKey(level.game, level.id || level.levelName)) === "1"; }
-function markSolved(level) { localStorage.setItem(progressKey(level.game, level.id || level.levelName), "1"); }
+function cloudProgress() { return window.LernappFirebase || null; }
+function isSolved(level) {
+  return localStorage.getItem(progressKey(level.game, level.id || level.levelName)) === "1" || Boolean(cloudProgress()?.isLevelSolved?.(level));
+}
+function markSolved(level) {
+  localStorage.setItem(progressKey(level.game, level.id || level.levelName), "1");
+  cloudProgress()?.recordSolve?.(level);
+}
+function recordMoveMetric() { cloudProgress()?.recordMove?.(); }
+function recordResetMetric() { cloudProgress()?.recordReset?.(currentLevel()); }
+function recordHintMetric() { cloudProgress()?.recordHint?.(currentLevel()); }
+function refreshProgressView() {
+  if (!currentGame || !levelPanel || document.body.classList.contains("puzzle-active")) return;
+  if (selectedDifficulty) renderLevelSelect();
+  else renderDifficultySelect();
+}
+window.LernappRefreshProgress = refreshProgressView;
 function currentLevel() { return LEVELS_BY_GAME[currentGame][currentIndex]; }
 function setStatus(message) { if (statusText) statusText.textContent = message || ""; }
 function fillList(element, items) { if (!element) return; element.innerHTML = ""; items.forEach((text) => { const li = document.createElement("li"); li.textContent = text; element.append(li); }); }
 function snapshot() { return { state: clone(state), winShown }; }
 function restore(snap) { state = clone(snap.state); winShown = snap.winShown; hideSuccess(); render(); }
-function pushHistory() { if (activeMoveSnapshot) { if (!pushedActiveSnapshot) { history.push(activeMoveSnapshot); pushedActiveSnapshot = true; } } else history.push(snapshot()); if (undoButton) undoButton.disabled = false; }
+function pushHistory() { if (activeMoveSnapshot) { if (!pushedActiveSnapshot) { history.push(activeMoveSnapshot); pushedActiveSnapshot = true; recordMoveMetric(); } } else { history.push(snapshot()); recordMoveMetric(); } if (undoButton) undoButton.disabled = false; }
 function beginMove() { activeMoveSnapshot = snapshot(); pushedActiveSnapshot = false; }
 function finishMove() { activeMoveSnapshot = null; pushedActiveSnapshot = false; }
 
@@ -799,10 +832,10 @@ function renderLevelSelect() {
     levelGrid.append(button);
   });
 }
-function showLevelSelect() { finishMove(); hideSuccess(); if (levelPanel) levelPanel.hidden = false; if (homePanel) homePanel.hidden = true; if (gamePanel) gamePanel.hidden = true; if (gameControls) gameControls.hidden = true; document.body.classList.remove("puzzle-active"); renderLevelSelect(); }
+function showLevelSelect() { finishMove(); cloudProgress()?.flushCurrentSession?.({ close: true, includeElapsed: true }); hideSuccess(); if (levelPanel) levelPanel.hidden = false; if (homePanel) homePanel.hidden = true; if (gamePanel) gamePanel.hidden = true; if (gameControls) gameControls.hidden = true; document.body.classList.remove("puzzle-active"); renderLevelSelect(); }
 function showGame() { if (levelPanel) levelPanel.hidden = true; if (homePanel) homePanel.hidden = true; if (gamePanel) gamePanel.hidden = false; if (gameControls) gameControls.hidden = false; document.body.classList.add("puzzle-active"); }
-function startLevel(index) { hideSuccess(); currentIndex = index; const level = currentLevel(); selectedDifficulty = level.difficulty; const config = GAME_CONFIGS[currentGame]; history = []; winShown = false; if (undoButton) undoButton.disabled = true; const boardSize = level.cols || level.size || 5; board.className = `board ${currentGame}-board board-size-${boardSize}`; board.style.setProperty("--size", boardSize); board.setAttribute("aria-label", `${config.title} Spielfeld`); puzzleTitle.textContent = level.title; puzzleDescription.textContent = level.description || config.subtitle; fillList(gameHelpList, config.rules); resetState(); showGame(); render(); }
-function resetGame() { history = []; if (undoButton) undoButton.disabled = true; hideSuccess(); resetState(); render("Neu gestartet. Viel Spass!"); }
+function startLevel(index) { hideSuccess(); currentIndex = index; const level = currentLevel(); selectedDifficulty = level.difficulty; const config = GAME_CONFIGS[currentGame]; history = []; winShown = false; if (undoButton) undoButton.disabled = true; const boardSize = level.cols || level.size || 5; board.className = `board ${currentGame}-board board-size-${boardSize}`; board.style.setProperty("--size", boardSize); board.setAttribute("aria-label", `${config.title} Spielfeld`); puzzleTitle.textContent = level.title; puzzleDescription.textContent = level.description || config.subtitle; fillList(gameHelpList, config.rules); cloudProgress()?.recordLevelStart?.(level); resetState(); showGame(); render(); }
+function resetGame() { history = []; if (undoButton) undoButton.disabled = true; hideSuccess(); cloudProgress()?.recordLevelStart?.(currentLevel()); resetState(); recordResetMetric(); render("Neu gestartet. Viel Spass!"); }
 function undo() {
   finishMove();
   if (currentGame === "hidoku") {
@@ -850,6 +883,7 @@ function setupSuccessOverlay() {
   successRestartButton.addEventListener("click", resetGame);
   nextPuzzleButton.addEventListener("click", nextLevel);
 }
+function handleHint() { const handler = GAME_HANDLERS[currentGame]; if (!handler?.hint) return; recordHintMetric(); handler.hint(); }
 function handleWin() { if (!winShown) showSuccess(); render(); }
 function checkAndWin() { if (GAME_HANDLERS[currentGame].checkWin()) handleWin(); }
 function resetState() { GAME_HANDLERS[currentGame].resetState(currentLevel()); }
@@ -1099,7 +1133,7 @@ function renderCountBoard(level, makeCell) { board.innerHTML=""; board.style.set
 if (currentGame && LEVELS_BY_GAME[currentGame]) renderDifficultySelect();
 if (undoButton) undoButton.addEventListener("click", undo);
 if (resetButton) resetButton.addEventListener("click", resetGame);
-if (hintButton) hintButton.addEventListener("click", () => GAME_HANDLERS[currentGame]?.hint?.());
+if (hintButton) hintButton.addEventListener("click", handleHint);
 if (backButton) backButton.addEventListener("click", showLevelSelect);
 setupSuccessOverlay();
 
