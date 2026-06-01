@@ -330,6 +330,18 @@ const GAME_CONFIGS = {
     success: "Alle Tiere haben ein passendes Gehege!",
     rules: ["Ziehe von einer Ecke des geplanten Geheges zur gegenüberliegenden Ecke.", "Das Tier darf auch mitten im Rechteck liegen; das Rechteck muss genau ein Tier enthalten.", "Jedes Gehege braucht genau so viele Felder, wie die Zahl zeigt."],
   },
+  mathPuzzle: {
+    title: "Zahlenzauber", eyebrow: "Rechenrätsel", code: "Z",
+    subtitle: "Löse Plus- und Minusaufgaben mit freundlichen Antwortkarten.",
+    success: "Gut gerechnet! Du hast die Aufgaben geschafft.",
+    rules: ["Lies die Rechenaufgabe genau.", "Tippe auf die passende Zahl.", "Nach einem zweiten Versuch hilft dir ein Tipp beim Weiterrechnen."],
+  },
+  readingPuzzle: {
+    title: "Wortdetektiv", eyebrow: "Leserätsel", code: "W",
+    subtitle: "Erkenne Buchstaben, Wörter und kurze Sätze passend zum Bild.",
+    success: "Richtig gelesen! Du hast die Leserätsel geschafft.",
+    rules: ["Schau dir zuerst das Bild an.", "Lies das Wort oder den Satz in Ruhe.", "Tippe auf die Antwort, die genau passt."],
+  },
 };
 
 function clone(value) { return typeof structuredClone === "function" ? structuredClone(value) : JSON.parse(JSON.stringify(value)); }
@@ -654,6 +666,390 @@ const SHIKAKU_LEVELS = DIFFICULTY_KEYS.flatMap((difficulty) =>
   })
 );
 
+const MATH_DIFFICULTY_RULES = {
+  easy: { max: 10, operators: ["+"], optionCount: 3, missing: { result: 1 } },
+  medium: { max: 10, operators: ["+", "-"], optionCount: 3, missing: { result: 1 } },
+  hard: { max: 20, operators: ["+", "-"], optionCount: 4, missing: { result: 0.75, left: 0.125, right: 0.125 } },
+  extreme: { max: 20, operators: ["-"], optionCount: 4, missing: { result: 0.5, left: 0.25, right: 0.25 } },
+};
+
+function randomInt(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
+function pickRandom(items) { return items[randomInt(0, items.length - 1)]; }
+function shuffleOptions(values) {
+  const shuffled = [...values];
+  for (let i = shuffled.length - 1; i > 0; i -= 1) {
+    const j = randomInt(0, i);
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+}
+function pickWeighted(weights) {
+  const entries = Object.entries(weights);
+  const roll = Math.random() * entries.reduce((sum, [, weight]) => sum + weight, 0);
+  let cursor = 0;
+  for (const [value, weight] of entries) {
+    cursor += weight;
+    if (roll <= cursor) return value;
+  }
+  return entries.at(-1)[0];
+}
+function ensureUniqueOptions(correctAnswer, candidates, optionCount, min = 0, max = 20) {
+  const options = [correctAnswer];
+  const add = (value) => {
+    if (options.length >= optionCount) return;
+    if (!Number.isInteger(value) || value < min || value > max || options.includes(value)) return;
+    options.push(value);
+  };
+  candidates.forEach(add);
+  for (let distance = 1; options.length < optionCount && distance <= max + 4; distance += 1) {
+    add(correctAnswer - distance);
+    add(correctAnswer + distance);
+  }
+  while (options.length < optionCount) add(randomInt(min, max));
+  return shuffleOptions(options);
+}
+function mathCorrectAnswer(left, right, result, missingPosition) {
+  if (missingPosition === "left") return left;
+  if (missingPosition === "right") return right;
+  return result;
+}
+function mathQuestionText(task) {
+  const left = task.missingPosition === "left" ? "?" : task.left;
+  const right = task.missingPosition === "right" ? "?" : task.right;
+  const result = task.missingPosition === "result" ? "?" : task.result;
+  return `${left} ${task.operator} ${right} = ${result}`;
+}
+function mathDistractorCandidates(task) {
+  const correct = task.correctAnswer;
+  const candidates = [correct - 2, correct - 1, correct + 1, correct + 2, correct + 3, correct - 3];
+  if (task.operator === "+") {
+    candidates.push(Math.abs(task.left - task.right), task.result + 10, Math.max(task.left, task.right));
+  } else {
+    candidates.push(task.left + task.right, Math.abs(task.right - task.left), task.result + task.right - 1);
+  }
+  return candidates;
+}
+function generateMathOperands(difficulty, operator) {
+  const max = MATH_DIFFICULTY_RULES[difficulty].max;
+  if (operator === "+") {
+    let left = randomInt(0, max);
+    let right = randomInt(0, max);
+    while (left + right > max) {
+      left = randomInt(0, max);
+      right = randomInt(0, max);
+    }
+    return { left, right, result: left + right };
+  }
+  const left = randomInt(0, max);
+  const right = randomInt(0, left);
+  return { left, right, result: left - right };
+}
+function generateMathTask(difficulty) {
+  const safeDifficulty = MATH_DIFFICULTY_RULES[difficulty] ? difficulty : "easy";
+  const rules = MATH_DIFFICULTY_RULES[safeDifficulty];
+  const operator = pickRandom(rules.operators);
+  const operands = generateMathOperands(safeDifficulty, operator);
+  const missingPosition = pickWeighted(rules.missing);
+  const correctAnswer = mathCorrectAnswer(operands.left, operands.right, operands.result, missingPosition);
+  const task = {
+    id: `math-${safeDifficulty}-${Date.now()}-${randomInt(1000, 9999)}`,
+    puzzleType: "mathPuzzle",
+    difficulty: safeDifficulty,
+    operator,
+    left: operands.left,
+    right: operands.right,
+    result: operands.result,
+    missingPosition,
+    correctAnswer,
+  };
+  task.questionText = mathQuestionText(task);
+  task.options = ensureUniqueOptions(correctAnswer, mathDistractorCandidates(task), rules.optionCount, 0, rules.max);
+  return validateMathTask(task) ? task : generateMathTask(safeDifficulty);
+}
+function validateMathTask(task) {
+  const rules = MATH_DIFFICULTY_RULES[task.difficulty];
+  if (!rules || !rules.operators.includes(task.operator)) return false;
+  if (task.left < 0 || task.right < 0 || task.result < 0) return false;
+  if (task.left > rules.max || task.right > rules.max || task.result > rules.max) return false;
+  if (task.operator === "+" && task.left + task.right !== task.result) return false;
+  if (task.operator === "-" && task.left - task.right !== task.result) return false;
+  if (task.correctAnswer !== mathCorrectAnswer(task.left, task.right, task.result, task.missingPosition)) return false;
+  if (task.options.length !== rules.optionCount || new Set(task.options).size !== task.options.length) return false;
+  return task.options.filter((option) => option === task.correctAnswer).length === 1;
+}
+
+function wordItem(id, word, article, imageKey, difficulty, category, syllables, allowedTaskTypes) {
+  return { id, word, displayWord: word, article, imageKey, difficulty, category, syllables, allowedTaskTypes };
+}
+const READING_WORD_ITEMS = [
+  wordItem("apfel", "APFEL", "der", "apple", "easy", "food", ["AP", "FEL"], ["missingLetter", "chooseWord", "sentenceMissingWord"]),
+  wordItem("ball", "BALL", "der", "ball", "easy", "toy", ["BALL"], ["missingLetter", "chooseWord", "sentenceMatch"]),
+  wordItem("hund", "HUND", "der", "dog", "easy", "animal", ["HUND"], ["missingLetter", "chooseWord", "sentenceMatch"]),
+  wordItem("auto", "AUTO", "das", "car", "easy", "thing", ["AU", "TO"], ["missingLetter", "chooseWord", "sentenceMatch"]),
+  wordItem("haus", "HAUS", "das", "house", "easy", "place", ["HAUS"], ["missingLetter", "chooseWord"]),
+  wordItem("buch", "BUCH", "das", "book", "easy", "thing", ["BUCH"], ["missingLetter", "chooseWord", "sentenceMatch"]),
+  wordItem("baum", "BAUM", "der", "tree", "easy", "nature", ["BAUM"], ["missingLetter", "chooseWord"]),
+  wordItem("fisch", "FISCH", "der", "fish", "easy", "animal", ["FISCH"], ["missingLetter", "chooseWord", "sentenceMatch"]),
+  wordItem("mond", "MOND", "der", "moon", "easy", "nature", ["MOND"], ["missingLetter", "chooseWord", "sentenceMatch"]),
+  wordItem("sonne", "SONNE", "die", "sun", "easy", "nature", ["SON", "NE"], ["missingLetter", "chooseWord", "sentenceMatch"]),
+  wordItem("katze", "KATZE", "die", "cat", "medium", "animal", ["KAT", "ZE"], ["missingLetter", "chooseWord", "sentenceMatch"]),
+  wordItem("blume", "BLUME", "die", "flower", "medium", "nature", ["BLU", "ME"], ["missingLetter", "chooseWord"]),
+  wordItem("tasse", "TASSE", "die", "cup", "medium", "thing", ["TAS", "SE"], ["missingLetter", "chooseWord"]),
+  wordItem("vogel", "VOGEL", "der", "bird", "medium", "animal", ["VO", "GEL"], ["missingLetter", "chooseWord", "sentenceMatch"]),
+  wordItem("wolke", "WOLKE", "die", "cloud", "medium", "nature", ["WOL", "KE"], ["missingLetter", "chooseWord"]),
+  wordItem("kerze", "KERZE", "die", "candle", "medium", "thing", ["KER", "ZE"], ["missingLetter", "chooseWord"]),
+  wordItem("gabel", "GABEL", "die", "fork", "medium", "thing", ["GA", "BEL"], ["missingLetter", "chooseWord"]),
+  wordItem("schuh", "SCHUH", "der", "shoe", "medium", "thing", ["SCHUH"], ["missingLetter", "chooseWord"]),
+  wordItem("puppe", "PUPPE", "die", "doll", "medium", "toy", ["PUP", "PE"], ["missingLetter", "chooseWord"]),
+  wordItem("nase", "NASE", "die", "nose", "medium", "body", ["NA", "SE"], ["missingLetter", "chooseWord"]),
+  wordItem("banane", "BANANE", "die", "banana", "hard", "food", ["BA", "NA", "NE"], ["missingLetter", "missingSyllable", "chooseWord"]),
+  wordItem("tomate", "TOMATE", "die", "tomato", "hard", "food", ["TO", "MA", "TE"], ["missingLetter", "missingSyllable", "chooseWord"]),
+  wordItem("schule", "SCHULE", "die", "school", "hard", "place", ["SCHU", "LE"], ["missingLetter", "missingSyllable", "chooseWord"]),
+  wordItem("flasche", "FLASCHE", "die", "bottle", "hard", "thing", ["FLA", "SCHE"], ["missingLetter", "missingSyllable", "chooseWord"]),
+  wordItem("brille", "BRILLE", "die", "glasses", "hard", "thing", ["BRIL", "LE"], ["missingLetter", "missingSyllable", "chooseWord"]),
+  wordItem("teller", "TELLER", "der", "plate", "hard", "thing", ["TEL", "LER"], ["missingLetter", "missingSyllable", "chooseWord"]),
+  wordItem("rakete", "RAKETE", "die", "rocket", "hard", "thing", ["RA", "KE", "TE"], ["missingLetter", "missingSyllable", "chooseWord"]),
+  wordItem("krokodil", "KROKODIL", "das", "crocodile", "hard", "animal", ["KRO", "KO", "DIL"], ["missingSyllable", "chooseWord"]),
+  wordItem("schmetterling", "SCHMETTERLING", "der", "butterfly", "hard", "animal", ["SCHMET", "TER", "LING"], ["missingSyllable", "chooseWord"]),
+  wordItem("elefant", "ELEFANT", "der", "elephant", "hard", "animal", ["E", "LE", "FANT"], ["missingLetter", "missingSyllable", "chooseWord"]),
+];
+const READING_IMAGE_MAP = {
+  apple: "🍎", ball: "⚽", dog: "🐶", car: "🚗", house: "🏠", book: "📕", tree: "🌳", fish: "🐟", moon: "🌙", sun: "☀️",
+  cat: "🐱", flower: "🌼", cup: "☕", bird: "🐦", cloud: "☁️", candle: "🕯️", fork: "🍴", shoe: "👟", doll: "🧸", nose: "👃",
+  banana: "🍌", tomato: "🍅", school: "🏫", bottle: "🍼", glasses: "👓", plate: "🍽️", rocket: "🚀", crocodile: "🐊", butterfly: "🦋", elephant: "🐘",
+  dog_running: "🐕", cat_sleeping: "🐈", bird_flying: "🐦", child_eating: "🧒🍎", red_book: "📕",
+};
+const READING_EXTRA_DISTRACTORS = ["HAND", "HASE", "SOCKE", "SUPPE", "FROSCH", "FLUG", "BOOT", "BIRNE", "LAMPE", "MAMA", "PAPA", "KIND", "BETT", "TISCH"];
+const READING_DIFFICULTY_RANK = { easy: 1, medium: 2, hard: 3, extreme: 4 };
+const READING_TASK_TYPES = {
+  easy: ["missingLetter"],
+  medium: ["chooseWord"],
+  hard: ["missingLetter", "missingSyllable", "chooseWord"],
+  extreme: ["sentenceMatch", "sentenceMissingWord"],
+};
+const READING_SENTENCE_ITEMS = [
+  { id: "hund-rennt", sentence: "Der Hund rennt.", imageKey: "dog_running", correctWordIds: ["hund"], difficulty: "extreme", taskTypes: ["sentenceMatch"] },
+  { id: "katze-schlaeft", sentence: "Die Katze schläft.", imageKey: "cat_sleeping", correctWordIds: ["katze"], difficulty: "extreme", taskTypes: ["sentenceMatch"] },
+  { id: "auto-faehrt", sentence: "Das Auto fährt.", imageKey: "car", correctWordIds: ["auto"], difficulty: "extreme", taskTypes: ["sentenceMatch"] },
+  { id: "fisch-schwimmt", sentence: "Der Fisch schwimmt.", imageKey: "fish", correctWordIds: ["fisch"], difficulty: "extreme", taskTypes: ["sentenceMatch"] },
+  { id: "vogel-fliegt", sentence: "Der Vogel fliegt.", imageKey: "bird_flying", correctWordIds: ["vogel"], difficulty: "extreme", taskTypes: ["sentenceMatch"] },
+  { id: "sonne-scheint", sentence: "Die Sonne scheint.", imageKey: "sun", correctWordIds: ["sonne"], difficulty: "extreme", taskTypes: ["sentenceMatch"] },
+  { id: "ball-rollt", sentence: "Der Ball rollt.", imageKey: "ball", correctWordIds: ["ball"], difficulty: "extreme", taskTypes: ["sentenceMatch"] },
+  { id: "kind-isst", sentence: "Das Kind isst.", imageKey: "child_eating", correctWordIds: [], difficulty: "extreme", taskTypes: ["sentenceMatch"] },
+  { id: "buch-rot", sentence: "Das Buch ist rot.", imageKey: "red_book", correctWordIds: ["buch"], difficulty: "extreme", taskTypes: ["sentenceMatch"] },
+  { id: "mond-hell", sentence: "Der Mond ist hell.", imageKey: "moon", correctWordIds: ["mond"], difficulty: "extreme", taskTypes: ["sentenceMatch"] },
+  { id: "kind-isst-apfel", sentence: "Das Kind isst einen Apfel.", prompt: "Das Kind isst einen ___.", imageKey: "child_eating", correctWordId: "apfel", difficulty: "extreme", taskTypes: ["sentenceMissingWord"] },
+  { id: "hund-frisst", sentence: "Der Hund frisst.", prompt: "Der ___ frisst.", imageKey: "dog", correctWordId: "hund", difficulty: "extreme", taskTypes: ["sentenceMissingWord"] },
+  { id: "ball-ist-rot", sentence: "Der Ball ist rot.", prompt: "Der ___ ist rot.", imageKey: "ball", correctWordId: "ball", difficulty: "extreme", taskTypes: ["sentenceMissingWord"] },
+  { id: "buch-ist-rot", sentence: "Das Buch ist rot.", prompt: "Das ___ ist rot.", imageKey: "red_book", correctWordId: "buch", difficulty: "extreme", taskTypes: ["sentenceMissingWord"] },
+];
+
+function titleCaseWord(word) { return word.charAt(0) + word.slice(1).toLowerCase(); }
+function wordsForReadingDifficulty(difficulty) {
+  const rank = READING_DIFFICULTY_RANK[difficulty] || 1;
+  return READING_WORD_ITEMS.filter((item) => READING_DIFFICULTY_RANK[item.difficulty] <= rank);
+}
+function ensureUniqueTextOptions(correctAnswer, candidates, optionCount) {
+  const options = [correctAnswer];
+  candidates.forEach((candidate) => {
+    if (candidate && candidate !== correctAnswer && !options.includes(candidate)) options.push(candidate);
+  });
+  while (options.length < optionCount) {
+    const candidate = pickRandom([...READING_WORD_ITEMS.map((item) => item.word), ...READING_EXTRA_DISTRACTORS]);
+    if (candidate !== correctAnswer && !options.includes(candidate)) options.push(candidate);
+  }
+  return shuffleOptions(options.slice(0, optionCount));
+}
+function readingOptionCount(difficulty) { return difficulty === "easy" || difficulty === "medium" ? 3 : 4; }
+function missingLetterIndexes(item, difficulty) {
+  const letters = [...item.word];
+  if (difficulty === "easy") return letters.map((_, index) => index).filter((index) => index > 0 && index < letters.length - 1);
+  return letters.map((_, index) => index).filter((index) => index > 0);
+}
+function generateMissingLetterTask(difficulty) {
+  const pool = wordsForReadingDifficulty(difficulty)
+    .filter((item) => item.allowedTaskTypes.includes("missingLetter"))
+    .filter((item) => difficulty !== "easy" || item.word.length <= 5);
+  const item = pickRandom(pool);
+  const letters = [...item.word];
+  const missingIndex = pickRandom(missingLetterIndexes(item, difficulty));
+  const correctAnswer = letters[missingIndex];
+  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZÄÖÜ".split("");
+  const candidates = [
+    letters[missingIndex - 1],
+    letters[missingIndex + 1],
+    ...READING_EXTRA_DISTRACTORS.join("").split(""),
+    ...alphabet,
+  ].filter((letter) => letter && letter !== correctAnswer);
+  return {
+    id: `reading-${difficulty}-letter-${Date.now()}-${randomInt(1000, 9999)}`,
+    puzzleType: "readingPuzzle",
+    difficulty,
+    taskType: "missingLetter",
+    imageKey: item.imageKey,
+    prompt: "Welcher Buchstabe fehlt?",
+    displayText: letters.map((letter, index) => index === missingIndex ? "_" : letter).join(" "),
+    options: ensureUniqueTextOptions(correctAnswer, candidates, readingOptionCount(difficulty)),
+    correctAnswer,
+    wordId: item.id,
+    fullText: item.word,
+    missingIndex,
+  };
+}
+function chooseWordDistractors(item, difficulty, optionCount) {
+  const pool = wordsForReadingDifficulty(difficulty)
+    .filter((candidate) => candidate.id !== item.id && candidate.imageKey !== item.imageKey)
+    .sort((a, b) => {
+      const aScore = (a.word[0] === item.word[0] ? 2 : 0) + (a.category === item.category ? 1 : 0);
+      const bScore = (b.word[0] === item.word[0] ? 2 : 0) + (b.category === item.category ? 1 : 0);
+      return bScore - aScore || Math.random() - 0.5;
+    })
+    .map((candidate) => candidate.word);
+  const extras = READING_EXTRA_DISTRACTORS.filter((word) => word !== item.word).sort((a, b) => {
+    const aScore = a[0] === item.word[0] ? 1 : 0;
+    const bScore = b[0] === item.word[0] ? 1 : 0;
+    return bScore - aScore || Math.random() - 0.5;
+  });
+  return [...pool, ...extras].slice(0, optionCount + 4);
+}
+function generateChooseWordTask(difficulty) {
+  const pool = wordsForReadingDifficulty(difficulty).filter((item) => item.allowedTaskTypes.includes("chooseWord"));
+  const item = pickRandom(pool);
+  const optionCount = readingOptionCount(difficulty);
+  return {
+    id: `reading-${difficulty}-word-${Date.now()}-${randomInt(1000, 9999)}`,
+    puzzleType: "readingPuzzle",
+    difficulty,
+    taskType: "chooseWord",
+    imageKey: item.imageKey,
+    prompt: "Welches Wort passt zum Bild?",
+    displayText: "",
+    options: ensureUniqueTextOptions(item.word, chooseWordDistractors(item, difficulty, optionCount), optionCount),
+    correctAnswer: item.word,
+    wordId: item.id,
+    fullText: item.word,
+  };
+}
+function generateMissingSyllableTask(difficulty) {
+  const pool = wordsForReadingDifficulty("hard")
+    .filter((item) => item.allowedTaskTypes.includes("missingSyllable") && item.syllables.length > 1);
+  const item = pickRandom(pool);
+  const missingIndex = item.syllables.length > 2 ? 1 : item.syllables.length - 1;
+  const correctAnswer = item.syllables[missingIndex];
+  const candidates = READING_WORD_ITEMS.flatMap((word) => word.syllables).filter((syllable) => syllable !== correctAnswer);
+  return {
+    id: `reading-${difficulty}-syllable-${Date.now()}-${randomInt(1000, 9999)}`,
+    puzzleType: "readingPuzzle",
+    difficulty,
+    taskType: "missingSyllable",
+    imageKey: item.imageKey,
+    prompt: "Welcher Wortteil fehlt?",
+    displayText: item.syllables.map((syllable, index) => index === missingIndex ? "_" : syllable).join(" "),
+    options: ensureUniqueTextOptions(correctAnswer, candidates, 4),
+    correctAnswer,
+    wordId: item.id,
+    fullText: item.word,
+    missingIndex,
+  };
+}
+function generateSentenceMatchTask(difficulty) {
+  const item = pickRandom(READING_SENTENCE_ITEMS.filter((sentence) => sentence.taskTypes.includes("sentenceMatch")));
+  const candidates = READING_SENTENCE_ITEMS
+    .filter((sentence) => sentence.id !== item.id && sentence.taskTypes.includes("sentenceMatch"))
+    .map((sentence) => sentence.sentence);
+  return {
+    id: `reading-${difficulty}-sentence-${Date.now()}-${randomInt(1000, 9999)}`,
+    puzzleType: "readingPuzzle",
+    difficulty,
+    taskType: "sentenceMatch",
+    imageKey: item.imageKey,
+    prompt: "Welcher Satz passt zum Bild?",
+    displayText: "",
+    options: ensureUniqueTextOptions(item.sentence, candidates, 4),
+    correctAnswer: item.sentence,
+    sentenceId: item.id,
+    fullText: item.sentence,
+  };
+}
+function generateSentenceMissingWordTask(difficulty) {
+  const item = pickRandom(READING_SENTENCE_ITEMS.filter((sentence) => sentence.taskTypes.includes("sentenceMissingWord")));
+  const word = READING_WORD_ITEMS.find((candidate) => candidate.id === item.correctWordId);
+  const correctAnswer = titleCaseWord(word.word);
+  const candidates = READING_WORD_ITEMS
+    .filter((candidate) => candidate.id !== word.id)
+    .map((candidate) => titleCaseWord(candidate.word));
+  return {
+    id: `reading-${difficulty}-missing-word-${Date.now()}-${randomInt(1000, 9999)}`,
+    puzzleType: "readingPuzzle",
+    difficulty,
+    taskType: "sentenceMissingWord",
+    imageKey: item.imageKey,
+    prompt: "Welches Wort fehlt?",
+    displayText: item.prompt,
+    options: ensureUniqueTextOptions(correctAnswer, candidates, 4),
+    correctAnswer,
+    wordId: word.id,
+    sentenceId: item.id,
+    fullText: item.sentence,
+  };
+}
+function generateReadingTask(difficulty, taskType = null) {
+  const safeDifficulty = READING_TASK_TYPES[difficulty] ? difficulty : "easy";
+  const allowedTypes = READING_TASK_TYPES[safeDifficulty];
+  const type = allowedTypes.includes(taskType) ? taskType : pickRandom(allowedTypes);
+  const task = type === "missingLetter" ? generateMissingLetterTask(safeDifficulty)
+    : type === "chooseWord" ? generateChooseWordTask(safeDifficulty)
+    : type === "missingSyllable" ? generateMissingSyllableTask(safeDifficulty)
+    : type === "sentenceMissingWord" ? generateSentenceMissingWordTask(safeDifficulty)
+    : generateSentenceMatchTask(safeDifficulty);
+  return validateReadingTask(task) ? task : generateReadingTask(safeDifficulty, taskType);
+}
+function validateReadingTask(task) {
+  if (!task.imageKey || !task.prompt || !task.correctAnswer) return false;
+  if (!Array.isArray(task.options) || task.options.length < 3 || new Set(task.options).size !== task.options.length) return false;
+  if (task.options.filter((option) => option === task.correctAnswer).length !== 1) return false;
+  if (task.taskType === "missingLetter" && task.displayText.split(" ").filter((part) => part === "_").length !== 1) return false;
+  if (task.taskType === "missingSyllable" && task.displayText.split(" ").filter((part) => part === "_").length !== 1) return false;
+  return true;
+}
+
+const MATH_LEVEL_DESCRIPTIONS = {
+  easy: "Plusaufgaben von 0 bis 10 mit drei Antwortmöglichkeiten.",
+  medium: "Plus und Minus bis 10, immer ohne negative Ergebnisse.",
+  hard: "Plus und Minus bis 20, manchmal fehlt ein Teil der Aufgabe.",
+  extreme: "Minusaufgaben bis 20 mit mehr fehlenden Zahlen und vier Antworten.",
+};
+const READING_LEVEL_DESCRIPTIONS = {
+  easy: "Bild und Wort mit einem fehlenden Buchstaben.",
+  medium: "Bild ansehen und das passende Wort auswählen.",
+  hard: "Längere Wörter mit fehlendem Buchstaben oder fehlender Silbe.",
+  extreme: "Kurze Sätze lesen oder ein fehlendes Wort ergänzen.",
+};
+function makePracticeLevels(game, descriptions) {
+  return DIFFICULTY_KEYS.flatMap((difficulty) =>
+    Array.from({ length: LEVELS_PER_DIFFICULTY }, (_, index) => makeLevel(game, difficulty, index + 1, {
+      targetCount: 10,
+      badge: "10 Aufgaben",
+      description: descriptions[difficulty],
+    }))
+  );
+}
+const MATH_LEVELS = makePracticeLevels("mathPuzzle", MATH_LEVEL_DESCRIPTIONS);
+const READING_LEVELS = makePracticeLevels("readingPuzzle", READING_LEVEL_DESCRIPTIONS);
+
+if (typeof window !== "undefined") {
+  window.LernappPuzzleGenerators = {
+    generateMathTask,
+    generateReadingTask,
+    validateMathTask,
+    validateReadingTask,
+    ensureUniqueOptions,
+    shuffleOptions,
+    readingWords: READING_WORD_ITEMS,
+    readingSentences: READING_SENTENCE_ITEMS,
+  };
+}
+
 function normalizeLevelCounts(levels) {
   return DIFFICULTY_KEYS.flatMap((difficulty) => levels
     .filter((level) => level.difficulty === difficulty)
@@ -667,6 +1063,8 @@ const LEVELS_BY_GAME = {
   kakuro: normalizeLevelCounts(KAKURO_LEVELS),
   hidoku: normalizeLevelCounts(HIDOKU_LEVELS),
   shikaku: normalizeLevelCounts(SHIKAKU_LEVELS),
+  mathPuzzle: normalizeLevelCounts(MATH_LEVELS),
+  readingPuzzle: normalizeLevelCounts(READING_LEVELS),
 };
 
 function publicLevelInfo(level) {
@@ -679,6 +1077,7 @@ function publicLevelInfo(level) {
     size: level.size || null,
     rows: level.rows || null,
     cols: level.cols || null,
+    badge: level.badge || null,
   };
 }
 
@@ -823,11 +1222,13 @@ function renderLevelSelect() {
   levelGrid.innerHTML = "";
   levelsForDifficulty(selectedDifficulty).forEach((level) => {
     const index = LEVELS_BY_GAME[currentGame].indexOf(level);
+    const solved = isSolved(level);
+    const detail = level.badge || (level.size ? `${level.size}×${level.size}` : (level.rows && level.cols ? `${level.rows}×${level.cols}` : "Rätsel"));
     const button = document.createElement("button");
-    button.className = `level-tile ${selectedDifficulty}${isSolved(level) ? " solved" : ""}`;
+    button.className = `level-tile ${selectedDifficulty}${solved ? " solved" : ""}`;
     button.type = "button";
-    button.setAttribute("aria-label", `${level.title}${isSolved(level) ? ", gelöst" : ""}`);
-    button.innerHTML = `<span>${level.levelName}</span><small>${isSolved(level) ? "★ gelöst" : (level.size ? `${level.size}×${level.size}` : (level.rows && level.cols ? `${level.rows}×${level.cols}` : "Rätsel"))}</small>`;
+    button.setAttribute("aria-label", `${level.title}${solved ? ", gelöst" : ""}`);
+    button.innerHTML = `<span>${level.levelName}</span><small>${solved ? "★ gelöst" : detail}</small>`;
     button.addEventListener("click", () => startLevel(index));
     levelGrid.append(button);
   });
@@ -892,7 +1293,293 @@ function render(message) { numberPad.hidden = true; GAME_HANDLERS[currentGame].r
 function makeButtonCell(row, col, className, text = "") { const b=document.createElement("button"); b.type="button"; b.className=className; b.dataset.row=row; b.dataset.col=col; b.textContent=text; return b; }
 function getPairColor(pair) { return DEFAULT_COLORS[pair] || "#6c5ce7"; }
 
+function answerKey(value) { return String(value); }
+function sameAnswer(a, b) { return answerKey(a) === answerKey(b); }
+function practiceProgressKey(level) { return `lernapp.practice.${level.game}.${level.id || level.levelName}`; }
+function loadPracticeProgress(level) {
+  const fallback = { solved: 0, correct: 0, answers: 0, bestStreak: 0, currentDifficulty: level.difficulty };
+  try {
+    return { ...fallback, ...JSON.parse(localStorage.getItem(practiceProgressKey(level)) || "{}") };
+  } catch {
+    return fallback;
+  }
+}
+function savePracticeProgress(level, progress) {
+  try { localStorage.setItem(practiceProgressKey(level), JSON.stringify(progress)); } catch {}
+}
+function recordPracticeAnswer(level, isCorrect) {
+  const progress = loadPracticeProgress(level);
+  progress.answers += 1;
+  progress.currentDifficulty = level.difficulty;
+  if (isCorrect) {
+    progress.solved += 1;
+    progress.correct += 1;
+    progress.bestStreak = Math.max(progress.bestStreak || 0, state.bestStreak || 0, state.streak || 0);
+  }
+  savePracticeProgress(level, progress);
+}
+function resetPracticeState(level, taskFactory, status) {
+  const progress = loadPracticeProgress(level);
+  state = {
+    task: taskFactory(level.difficulty),
+    solvedCount: 0,
+    correctCount: 0,
+    streak: 0,
+    bestStreak: progress.bestStreak || 0,
+    attempts: 0,
+    selectedAnswer: null,
+    feedback: "",
+    tipVisible: false,
+    awaitingNext: false,
+    completed: false,
+  };
+  setStatus(status);
+}
+function nextPracticeTask(taskFactory, status) {
+  const level = currentLevel();
+  state.task = taskFactory(level.difficulty);
+  state.attempts = 0;
+  state.selectedAnswer = null;
+  state.feedback = "";
+  state.tipVisible = false;
+  state.awaitingNext = false;
+  render(status);
+}
+function answerPracticeTask(answer, taskFactory, messages) {
+  if (!state.task || state.awaitingNext || state.completed) return;
+  const level = currentLevel();
+  const correct = sameAnswer(answer, state.task.correctAnswer);
+  state.selectedAnswer = answer;
+  if (correct) {
+    state.solvedCount += 1;
+    state.correctCount += 1;
+    state.streak += 1;
+    state.bestStreak = Math.max(state.bestStreak, state.streak);
+    state.feedback = state.streak > 0 && state.streak % 5 === 0 ? messages.streak : pickRandom(messages.correct);
+    recordPracticeAnswer(level, true);
+    if (state.solvedCount >= (level.targetCount || 10)) {
+      state.completed = true;
+      handleWin();
+      return;
+    }
+    state.awaitingNext = true;
+    render();
+    return;
+  }
+  state.attempts += 1;
+  state.streak = 0;
+  state.tipVisible = state.attempts >= 2;
+  state.feedback = state.tipVisible ? messages.hint : pickRandom(messages.retry);
+  recordPracticeAnswer(level, false);
+  render();
+}
+function renderPracticeProgress(level) {
+  const target = level.targetCount || 10;
+  const progress = document.createElement("div");
+  progress.className = "practice-progress";
+  [
+    `Aufgabe ${Math.min(state.solvedCount + 1, target)} von ${target}`,
+    `Richtig ${state.correctCount}`,
+    `Serie ${state.streak}`,
+    `Bestserie ${state.bestStreak}`,
+  ].forEach((text) => {
+    const item = document.createElement("span");
+    item.textContent = text;
+    progress.append(item);
+  });
+  return progress;
+}
+function optionStateClass(option) {
+  const selected = sameAnswer(option, state.selectedAnswer);
+  const correct = sameAnswer(option, state.task.correctAnswer);
+  const revealCorrect = state.awaitingNext || state.completed || (state.tipVisible && state.attempts >= 2);
+  if (correct && revealCorrect) return " correct";
+  if (selected && !correct) return " wrong";
+  return "";
+}
+function renderPracticeOptions(onAnswer) {
+  const options = document.createElement("div");
+  options.className = "practice-options";
+  options.style.setProperty("--option-count", Math.min(state.task.options.length, 4));
+  state.task.options.forEach((option) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = `practice-option${optionStateClass(option)}`;
+    button.textContent = option;
+    button.disabled = state.awaitingNext || state.completed;
+    button.addEventListener("click", () => onAnswer(option));
+    options.append(button);
+  });
+  return options;
+}
+function renderPracticeFeedback(taskFactory, nextStatus) {
+  const feedback = document.createElement("div");
+  feedback.className = `practice-feedback${state.feedback ? " visible" : ""}`;
+  if (state.feedback) {
+    const text = document.createElement("p");
+    text.textContent = state.feedback;
+    feedback.append(text);
+  }
+  if (state.awaitingNext) {
+    if (state.task.fullText) {
+      const full = document.createElement("strong");
+      full.textContent = state.task.fullText;
+      feedback.append(full);
+    }
+    const next = document.createElement("button");
+    next.type = "button";
+    next.className = "practice-next-button";
+    next.textContent = "Weiter";
+    next.addEventListener("click", () => nextPracticeTask(taskFactory, nextStatus));
+    feedback.append(next);
+  }
+  return feedback;
+}
+function renderPracticeShell(level, className, taskView, onAnswer, taskFactory, nextStatus) {
+  board.innerHTML = "";
+  board.className = `board task-board ${className}`;
+  board.style.setProperty("--size", 1);
+  board.append(
+    renderPracticeProgress(level),
+    taskView,
+    renderPracticeOptions(onAnswer),
+    renderPracticeFeedback(taskFactory, nextStatus),
+  );
+}
+function makeCountDot(taken = false) {
+  const dot = document.createElement("span");
+  dot.className = `count-dot${taken ? " taken" : ""}`;
+  dot.textContent = "•";
+  return dot;
+}
+function makeCountGroup(count, takenFrom = Infinity) {
+  const group = document.createElement("div");
+  group.className = "count-group";
+  for (let i = 0; i < count; i += 1) group.append(makeCountDot(i >= takenFrom));
+  return group;
+}
+function makeMathNumberLine(task) {
+  const line = document.createElement("div");
+  line.className = "number-line";
+  const max = MATH_DIFFICULTY_RULES[task.difficulty].max;
+  for (let value = 0; value <= max; value += 1) {
+    const tick = document.createElement("span");
+    tick.className = value === task.correctAnswer ? "target" : "";
+    tick.textContent = value;
+    line.append(tick);
+  }
+  return line;
+}
+function makeMathVisual(task) {
+  const showObjects = (task.difficulty === "easy" || task.difficulty === "medium") && task.missingPosition === "result";
+  if (!showObjects && !state.tipVisible) return null;
+  const visual = document.createElement("div");
+  visual.className = "math-visual";
+  if (showObjects) {
+    if (task.operator === "+") {
+      visual.append(makeCountGroup(task.left));
+      const operator = document.createElement("span");
+      operator.className = "math-visual-symbol";
+      operator.textContent = "+";
+      visual.append(operator, makeCountGroup(task.right));
+    } else {
+      visual.append(makeCountGroup(task.left, task.result));
+      const label = document.createElement("span");
+      label.className = "math-visual-symbol";
+      label.textContent = "weg";
+      visual.append(label);
+    }
+  }
+  if (state.tipVisible || !showObjects) visual.append(makeMathNumberLine(task));
+  return visual;
+}
+function makeMathTaskView() {
+  const task = state.task;
+  const view = document.createElement("div");
+  view.className = "practice-task math-task";
+  const visual = makeMathVisual(task);
+  if (visual) view.append(visual);
+  const equation = document.createElement("div");
+  equation.className = "math-equation";
+  equation.textContent = task.questionText;
+  view.append(equation);
+  return view;
+}
+function readingHintText(task) {
+  if (task.taskType === "missingLetter") return `Achte auf den ersten Buchstaben: ${task.fullText[0]}.`;
+  if (task.taskType === "chooseWord") return `Das passende Wort beginnt mit ${task.fullText[0]}.`;
+  if (task.taskType === "missingSyllable") return `Sprich das Wort langsam: ${task.fullText}.`;
+  if (task.taskType === "sentenceMissingWord") return "Lies den Satz noch einmal und schau auf das Bild.";
+  return "Vergleiche jeden Satz mit dem Bild.";
+}
+function makeReadingDisplay(task) {
+  const display = document.createElement("div");
+  display.className = task.taskType === "sentenceMissingWord" ? "reading-display sentence-gap" : "letter-row";
+  task.displayText.split(" ").forEach((part, index) => {
+    const span = document.createElement("span");
+    span.textContent = part;
+    if (state.tipVisible && index === 0 && part !== "_") span.className = "letter-tip";
+    display.append(span);
+  });
+  return display;
+}
+function makeReadingTaskView() {
+  const task = state.task;
+  const view = document.createElement("div");
+  view.className = "practice-task reading-task";
+  const image = document.createElement("div");
+  image.className = "reading-image";
+  image.setAttribute("aria-label", task.imageKey);
+  image.textContent = READING_IMAGE_MAP[task.imageKey] || "◼";
+  const prompt = document.createElement("p");
+  prompt.className = "reading-prompt";
+  prompt.textContent = task.prompt;
+  view.append(image, prompt);
+  if (task.displayText) view.append(makeReadingDisplay(task));
+  if (state.tipVisible) {
+    const hint = document.createElement("p");
+    hint.className = "practice-tip";
+    hint.textContent = readingHintText(task);
+    view.append(hint);
+  }
+  return view;
+}
+
 const GAME_HANDLERS = {
+
+  mathPuzzle: {
+    resetState(level) { resetPracticeState(level, generateMathTask, "Rechne in Ruhe und tippe auf die passende Zahl."); },
+    checkWin() { return Boolean(state.completed); },
+    hint() { if (!state.task || state.completed || state.awaitingNext) return; state.tipVisible = true; render("Tipp: Schau auf die Punkte oder die Zahlengerade."); },
+    answer(answer) {
+      answerPracticeTask(answer, generateMathTask, {
+        correct: ["Richtig!", "Super!", "Gut gerechnet!"],
+        retry: ["Fast! Versuch es noch einmal.", "Du bist nah dran. Zähl noch einmal in Ruhe."],
+        hint: "Fast! Die Hilfe zeigt dir einen guten Weg.",
+        streak: "Fünf in Folge. Stark gerechnet!",
+      });
+    },
+    render(level) {
+      renderPracticeShell(level, "mathPuzzle-board", makeMathTaskView(), (answer) => this.answer(answer), generateMathTask, "Neue Aufgabe. Du schaffst das.");
+    },
+  },
+
+  readingPuzzle: {
+    resetState(level) { resetPracticeState(level, generateReadingTask, "Schau auf das Bild und lies genau."); },
+    checkWin() { return Boolean(state.completed); },
+    hint() { if (!state.task || state.completed || state.awaitingNext) return; state.tipVisible = true; render("Tipp: Schau noch einmal genau auf Bild und Anfang."); },
+    answer(answer) {
+      answerPracticeTask(answer, generateReadingTask, {
+        correct: ["Richtig gelesen!", "Super!", "Das war das richtige Wort!"],
+        retry: ["Fast! Schau noch einmal genau hin.", "Vergleiche das Wort mit dem Bild."],
+        hint: "Achte auf den Anfang und lies langsam weiter.",
+        streak: "Fünf in Folge. Richtig gut gelesen!",
+      });
+    },
+    render(level) {
+      renderPracticeShell(level, "readingPuzzle-board", makeReadingTaskView(), (answer) => this.answer(answer), generateReadingTask, "Nächstes Leserätsel.");
+    },
+  },
 
   shikaku: {
     resetState() { state = { regions: {}, selected: null, dragPreview: null }; setStatus("Ziehe von einer Ecke des Geheges zur gegenüberliegenden Ecke."); },

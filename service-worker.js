@@ -1,4 +1,4 @@
-const CACHE_NAME = "lernapp-pwa-v3";
+const CACHE_NAME = "lernapp-pwa-v4";
 const CORE_ASSETS = [
   "./",
   "./index.html",
@@ -8,6 +8,8 @@ const CORE_ASSETS = [
   "./kakuro.html",
   "./shikaku.html",
   "./sudoku.html",
+  "./zahlenzauber.html",
+  "./wortdetektiv.html",
   "./styles.css",
   "./app.js",
   "./firebase.js",

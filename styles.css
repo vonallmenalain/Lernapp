@@ -1449,6 +1449,318 @@ body.puzzle-active .shikaku-cell {
   .shikaku-number { padding-inline: 5px; }
 }
 
+.math-preview,
+.reading-preview {
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.math-preview {
+  background: #f3fff8;
+  border-color: #9ce9cb;
+}
+
+.reading-preview {
+  background: #fff8ed;
+  border-color: #ffd38a;
+}
+
+.math-preview span,
+.reading-preview span {
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  border-radius: 12px;
+  background: #fff;
+  border: 2px solid var(--line);
+  color: var(--ink);
+  font-size: 1.35rem;
+  font-weight: 950;
+}
+
+.math-preview span:nth-child(2),
+.math-preview span:nth-child(4),
+.reading-preview span:nth-child(5) {
+  background: #fff4cf;
+  border-color: #ffd166;
+  color: #8a5a00;
+}
+
+.math-preview span:nth-child(6),
+.reading-preview span:nth-child(1),
+.reading-preview span:nth-child(9) {
+  background: #e9f8ff;
+  border-color: #7acdf0;
+  color: #11688c;
+}
+
+.task-board {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 18px;
+  max-width: min(780px, 100%);
+  width: 100%;
+}
+
+body.puzzle-active .task-board {
+  width: min(calc(100vw - 36px), 780px);
+}
+
+.practice-progress {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.practice-progress span {
+  min-height: 42px;
+  display: grid;
+  place-items: center;
+  padding: 8px 10px;
+  border-radius: 14px;
+  background: #f4f1ff;
+  border: 2px solid #d9d6ee;
+  color: var(--primary-dark);
+  font-weight: 900;
+  text-align: center;
+}
+
+.practice-task {
+  display: grid;
+  justify-items: center;
+  gap: 14px;
+  text-align: center;
+}
+
+.math-equation {
+  padding: 8px 18px;
+  color: var(--ink);
+  font-size: clamp(2.6rem, 10vw, 5.4rem);
+  font-weight: 950;
+  line-height: 1;
+}
+
+.practice-options {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(var(--option-count, 3), minmax(0, 1fr));
+  gap: 12px;
+}
+
+.readingPuzzle-board .practice-options {
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+}
+
+.practice-option {
+  min-height: 74px;
+  border-radius: 22px;
+  border: 4px solid var(--line);
+  padding: 10px 14px;
+  background: #fff;
+  color: var(--ink);
+  box-shadow: 0 12px 24px rgba(36, 48, 71, 0.10);
+  font-size: clamp(1.25rem, 4vw, 2rem);
+  line-height: 1.12;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.practice-option:hover:not(:disabled),
+.practice-option:focus-visible {
+  background: #f4f1ff;
+  color: var(--ink);
+  outline: 4px solid rgba(108, 92, 231, 0.22);
+}
+
+.practice-option.correct,
+.practice-option.correct:disabled {
+  background: #dff8ef;
+  border-color: #06d6a0;
+  color: #047c5d;
+}
+
+.practice-option.wrong,
+.practice-option.wrong:disabled {
+  background: #ffe5ea;
+  border-color: #ef476f;
+  color: #9b1234;
+}
+
+.practice-option:disabled {
+  opacity: 1;
+}
+
+.practice-feedback {
+  min-height: 58px;
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  color: var(--primary-dark);
+  font-weight: 900;
+  text-align: center;
+}
+
+.practice-feedback p {
+  margin: 0;
+  font-size: clamp(1.1rem, 3.5vw, 1.45rem);
+}
+
+.practice-feedback strong {
+  color: var(--ink);
+  font-size: clamp(1.3rem, 4vw, 1.8rem);
+}
+
+.practice-next-button {
+  min-width: min(220px, 100%);
+  min-height: 58px;
+  border-radius: 18px;
+}
+
+.math-visual {
+  width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+.math-visual-symbol {
+  color: #8a5a00;
+  font-weight: 950;
+  font-size: clamp(1.1rem, 4vw, 1.7rem);
+}
+
+.count-group {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  max-width: 260px;
+}
+
+.count-dot {
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: #dff8ef;
+  border: 2px solid #06d6a0;
+  color: #047c5d;
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.count-dot.taken {
+  background: #f1f3f5;
+  border-color: #c9ced6;
+  color: #8a94a6;
+  text-decoration: line-through;
+}
+
+.number-line {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(32px, 1fr));
+  gap: 5px;
+  padding: 8px;
+  border-radius: 16px;
+  background: #eef7ff;
+  border: 2px solid #b9def8;
+}
+
+.number-line span {
+  min-height: 32px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: #fff;
+  color: #11688c;
+  font-weight: 900;
+}
+
+.number-line .target {
+  background: #fff4cf;
+  color: #8a5a00;
+  outline: 3px solid #ffd166;
+}
+
+.reading-image {
+  width: min(180px, 42vw);
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  border-radius: 28px;
+  background: #fff8ed;
+  border: 4px solid #ffd166;
+  box-shadow: 0 14px 26px rgba(36, 48, 71, 0.10);
+  font-size: clamp(3.6rem, 16vw, 6.2rem);
+  line-height: 1;
+}
+
+.reading-prompt,
+.practice-tip {
+  margin: 0;
+  color: var(--primary-dark);
+  font-size: clamp(1.15rem, 4vw, 1.55rem);
+  font-weight: 900;
+}
+
+.letter-row,
+.reading-display {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  max-width: 100%;
+}
+
+.letter-row span,
+.reading-display span {
+  min-width: 44px;
+  min-height: 54px;
+  display: grid;
+  place-items: center;
+  padding: 6px 10px;
+  border-radius: 14px;
+  background: #fff;
+  border: 3px solid #d9d6ee;
+  color: var(--ink);
+  font-size: clamp(1.45rem, 6vw, 2.45rem);
+  font-weight: 950;
+}
+
+.reading-display.sentence-gap span {
+  min-width: 0;
+  font-size: clamp(1.2rem, 4.6vw, 1.9rem);
+}
+
+.letter-row .letter-tip,
+.reading-display .letter-tip {
+  border-color: #06d6a0;
+  background: #dff8ef;
+  color: #047c5d;
+}
+
+@media (max-width: 640px) {
+  body.puzzle-active .task-board {
+    width: min(calc(100vw - 24px), 100%);
+  }
+
+  .practice-progress {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .mathPuzzle-board .practice-options {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .readingPuzzle-board .practice-options {
+    grid-template-columns: 1fr;
+  }
+}
+
 .account-button {
   position: fixed;
   top: calc(var(--safe-top) + 14px);

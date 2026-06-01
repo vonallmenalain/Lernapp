@@ -2,7 +2,7 @@
   "id": "./",
   "name": "Lernapp",
   "short_name": "Lernapp",
-  "description": "Raetsel fuer Kinder mit Arukone, Meerestieren, Kakuro, Tiergehegen, Hidoku und Sudoku.",
+  "description": "Rätsel für Kinder mit Rechnen, Lesen, Arukone, Meerestieren, Kakuro, Tiergehegen, Hidoku und Sudoku.",
   "lang": "de",
   "dir": "ltr",
   "start_url": "./index.html",
