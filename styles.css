@@ -978,11 +978,14 @@ a.icon-button {
   max-width: 1120px;
 }
 .preview span { min-width: 0; }
+.battleships-preview,
 .sea-preview { grid-template-columns: repeat(5, 1fr); gap: 5px; }
+.battleships-preview span,
 .sea-preview span {
   display: grid; place-items: center; border-radius: 10px; background: #fff; border: 2px solid var(--line); font-weight: 900;
 }
-.sea-preview span { background: #e9f8ff; color: #118ab2; }
+.battleships-preview span,
+.sea-preview span { background: #f9fbff; color: #1f2937; }
 
 .difficulty-group { display: grid; gap: 10px; text-align: left; }
 .difficulty-group h3 { margin: 8px 0 0; color: var(--primary-dark); font-size: 1.2rem; }
@@ -993,6 +996,15 @@ a.icon-button {
   grid-template-columns: repeat(var(--size), minmax(34px, 1fr));
   gap: 5px;
   align-items: stretch;
+}
+.bimaru-count-board {
+  --bimaru-size: 5;
+  grid-template-columns: minmax(28px, 0.55fr) repeat(var(--bimaru-size), minmax(30px, 1fr)) minmax(52px, 0.9fr);
+  grid-template-rows: minmax(28px, auto) repeat(var(--bimaru-size), minmax(30px, 1fr)) minmax(52px, auto);
+  gap: 4px;
+  align-items: stretch;
+  justify-items: stretch;
+  max-width: min(780px, 100%);
 }
 .count-label, .count-corner {
   min-height: 38px;
@@ -1007,19 +1019,160 @@ a.icon-button {
   font-size: clamp(0.82rem, 2.6vw, 1.15rem);
   text-align: center;
 }
-.bimaru-cell { background: #e9f8ff; border-color: #b9e8fb; color: #118ab2; }
-.bimaru-cell.animal { background: #dffbed; border-color: #06d6a0; font-size: clamp(1.1rem, 4vw, 2rem); }
-.bimaru-cell.water { background: #dff3ff; color: #118ab2; }
+.count-label.complete {
+  background: #e8f8ef;
+  border-color: #34d399;
+  color: #047857;
+}
+.count-label.over {
+  background: #fff1f1;
+  border-color: #ff7675;
+  color: #b42318;
+}
+.bimaru-count-board .bimaru-cell {
+  border-radius: 4px;
+  border: 1px solid #d7dce8;
+  background: #ffffff;
+  color: #1f2937;
+  padding: 0;
+}
+.bimaru-count-board .bimaru-cell:hover,
+.bimaru-count-board .bimaru-cell:focus-visible {
+  border-color: #111827;
+  transform: none;
+}
+.bimaru-cell.ship {
+  background: #f6f7f9;
+  border-color: #9ca3af;
+}
+.bimaru-cell.given {
+  background: #eef2f7;
+  box-shadow: inset 0 0 0 2px #ffffff, 0 0 0 1px rgba(31, 41, 55, 0.18);
+}
+.bimaru-cell.conflict {
+  background: #fff1f1;
+  border-color: #ff7675;
+}
+.bimaru-cell.water::before,
+.bimaru-cell.water::after {
+  content: "";
+  position: absolute;
+  width: 70%;
+  height: 2px;
+  border-radius: 999px;
+  background: #475569;
+}
+.bimaru-cell.water::before { transform: rotate(45deg); }
+.bimaru-cell.water::after { transform: rotate(-45deg); }
+.bimaru-ship-mark {
+  display: block;
+  width: 74%;
+  height: 74%;
+  place-self: center;
+  background: #202124;
+}
+.bimaru-ship-mark.ship-single {
+  border-radius: 999px;
+}
+.bimaru-ship-mark.ship-left,
+.bimaru-ship-mark.ship-right,
+.bimaru-ship-mark.ship-middle-horizontal {
+  width: 92%;
+  height: 52%;
+}
+.bimaru-ship-mark.ship-left {
+  justify-self: end;
+  border-radius: 999px 0 0 999px;
+}
+.bimaru-ship-mark.ship-right {
+  justify-self: start;
+  border-radius: 0 999px 999px 0;
+}
+.bimaru-ship-mark.ship-middle-horizontal {
+  width: 100%;
+  border-radius: 0;
+}
+.bimaru-ship-mark.ship-top,
+.bimaru-ship-mark.ship-bottom,
+.bimaru-ship-mark.ship-middle-vertical {
+  width: 52%;
+  height: 92%;
+}
+.bimaru-ship-mark.ship-top {
+  align-self: end;
+  border-radius: 999px 999px 0 0;
+}
+.bimaru-ship-mark.ship-bottom {
+  align-self: start;
+  border-radius: 0 0 999px 999px;
+}
+.bimaru-ship-mark.ship-middle-vertical {
+  height: 100%;
+  border-radius: 0;
+}
+.bimaru-ship-mark.ship-invalid {
+  width: 72%;
+  height: 72%;
+  border-radius: 8px;
+}
+.bimaru-fleet-panel {
+  display: flex;
+  gap: 7px;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  min-height: 0;
+}
+.bimaru-fleet-panel.vertical {
+  flex-direction: column;
+}
+.bimaru-fleet-panel.horizontal {
+  flex-wrap: wrap;
+  align-content: center;
+}
+.bimaru-fleet-ship {
+  display: flex;
+  gap: 2px;
+  opacity: 0.58;
+  transition: opacity 0.15s ease, filter 0.15s ease;
+}
+.bimaru-fleet-ship.vertical {
+  flex-direction: column;
+}
+.bimaru-fleet-ship.placed {
+  opacity: 1;
+  filter: drop-shadow(0 0 0.35rem rgba(52, 211, 153, 0.36));
+}
+.bimaru-fleet-segment {
+  display: block;
+  width: clamp(11px, 2.6vw, 17px);
+  height: clamp(11px, 2.6vw, 17px);
+  background: #8a8d93;
+}
+.bimaru-fleet-segment.ship-single { border-radius: 999px; }
+.bimaru-fleet-segment.ship-left { border-radius: 999px 0 0 999px; }
+.bimaru-fleet-segment.ship-right { border-radius: 0 999px 999px 0; }
+.bimaru-fleet-segment.ship-top { border-radius: 999px 999px 0 0; }
+.bimaru-fleet-segment.ship-bottom { border-radius: 0 0 999px 999px; }
+.bimaru-fleet-segment.ship-middle-horizontal,
+.bimaru-fleet-segment.ship-middle-vertical { border-radius: 0; }
 
-body.puzzle-active .count-board {
+body.puzzle-active .count-board,
+body.puzzle-active .bimaru-count-board {
   width: min(calc(100vw - 36px), calc(100vh - 170px), 760px);
 }
 
 @media (max-width: 640px) {
   .difficulty-levels { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .count-board { gap: 3px; }
+  .count-board,
+  .bimaru-count-board { gap: 3px; }
   .count-label, .count-corner { min-height: 30px; border-radius: 9px; padding: 2px; }
   .cell { min-width: 0; }
+  .bimaru-count-board {
+    grid-template-columns: minmax(24px, 0.5fr) repeat(var(--bimaru-size), minmax(26px, 1fr)) minmax(42px, 0.8fr);
+    grid-template-rows: minmax(24px, auto) repeat(var(--bimaru-size), minmax(26px, 1fr)) minmax(44px, auto);
+  }
+  .bimaru-fleet-panel { gap: 4px; }
 }
 
 .selection-actions {

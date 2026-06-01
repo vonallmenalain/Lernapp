@@ -307,10 +307,10 @@ const GAME_CONFIGS = {
     rules: ["Tippe auf ein leeres Feld.", "Wähle unten die passende Zahl aus.", "Jede Zahl darf in Reihe, Spalte und Box nur einmal vorkommen."],
   },
   bimaru: {
-    title: "Meerestiere", eyebrow: "Im Wasser suchen", code: "B",
-    subtitle: "Finde alle versteckten Meerestiere im Wasser.",
-    success: "Alle Meerestiere sind gefunden!", 
-    rules: ["Die Zahlen zeigen, wie viele Tierfelder in Reihe und Spalte sind.", "Tippe: leer, Tier, Wasser und wieder leer.", "Wasser ist nur eine Hilfe: Für den Erfolg müssen nur die Tier-Anzahlen stimmen."],
+    title: "Battleships", eyebrow: "Schiffe finden", code: "B",
+    subtitle: "Bestimme die Positionen der versteckten Flotte im Raster.",
+    success: "Alle Schiffe sind korrekt platziert!",
+    rules: ["Die Zahlen am oberen und linken Rand zeigen, wie viele Schiffsteile in der jeweiligen Spalte oder Zeile liegen.", "Am rechten und unteren Rand siehst du die Flotte, die im Raster versteckt ist.", "Kurz tippen markiert Wasser. Langer Druck setzt ein Schiffsteil. Kurzer Tipp auf ein Schiffsteil löscht es."],
   },
   kakuro: {
     title: "Kakuro", eyebrow: "Summen knobeln", code: "K",
@@ -565,55 +565,64 @@ const KAKURO_LEVELS = [
   )),
 ];
 
-function sea(lines, fleet) { const solution = gridFromStrings(lines, "1"); return { solution, ...counts(solution), fleet, size: solution.length }; }
+function bimaruGivens(solution) {
+  const shipCells = [];
+  for (let r = 0; r < solution.length; r += 1) for (let c = 0; c < solution.length; c += 1) if (solution[r][c]) shipCells.push([r, c, "ship"]);
+  const count = solution.length <= 6 ? 2 : 3;
+  return Array.from({ length: count }, (_, index) => shipCells[Math.floor(((index + 1) * shipCells.length) / (count + 1))]).filter(Boolean);
+}
+function sea(lines, fleet) {
+  const solution = gridFromStrings(lines, "1");
+  return { solution, ...counts(solution), fleet, givens: bimaruGivens(solution), size: solution.length };
+}
 const BIMARU_LEVEL_COUNTS = { easy: 0, medium: 0, hard: 0, extreme: 0 };
 const BIMARU_LEVELS = [
-  ["easy", sea(["10001","00000","01100","00000","10010"], {1:3,2:2})],
-  ["easy", sea(["01000","00011","00000","10000","00110"], {1:2,2:2})],
-  ["easy", sea(["00100","00000","11000","00001","01100"], {1:2,2:2})],
-  ["easy", sea(["10000","00110","00000","01000","00011"], {1:1,2:2})],
-  ["easy", sea(["01100","00000","10001","00000","00100"], {1:3,2:1})],
-  ["easy", sea(["00010","11000","00000","00101","00000"], {1:2,2:1})],
-  ["easy", sea(["10010","00000","00110","00000","01000"], {1:3,2:1})],
-  ["easy", sea(["00001","01100","00000","10000","00011"], {1:2,2:2})],
-  ["easy", sea(["01000","00000","10011","00000","00100"], {1:2,2:1})],
-  ["easy", sea(["00100","00011","00000","01000","10000"], {1:3,2:1})],
+  ["easy", sea(["01100","00001","00100","00000","01101"], {"1":3,"2":2})],
+  ["easy", sea(["01101","00000","00001","00100","10100"], {"1":3,"2":2})],
+  ["easy", sea(["00000","01101","00000","00100","10101"], {"1":3,"2":2})],
+  ["easy", sea(["10101","00000","00000","11001","00001"], {"1":3,"2":2})],
+  ["easy", sea(["00001","01101","00000","10100","00001"], {"1":3,"2":2})],
+  ["easy", sea(["00001","01000","01000","00001","10101"], {"1":3,"2":2})],
+  ["easy", sea(["00001","01000","00001","01000","01011"], {"1":3,"2":2})],
+  ["easy", sea(["10110","10000","00000","10001","00100"], {"1":3,"2":2})],
+  ["easy", sea(["00001","10100","00001","11001","00000"], {"1":3,"2":2})],
+  ["easy", sea(["10101","00000","00001","01101","00000"], {"1":3,"2":2})],
 
-  ["medium", sea(["100001","000000","011100","000000","110010","000010"], {1:2,2:1,3:1})],
-  ["medium", sea(["011000","000001","100000","000110","000000","111000"], {1:2,2:2,3:1})],
-  ["medium", sea(["100100","000100","011000","000000","100011","000000"], {1:2,2:2,3:1})],
-  ["medium", sea(["000110","100000","000001","011100","000000","100010"], {1:3,2:1,3:1})],
-  ["medium", sea(["101000","000000","001110","000000","110000","000101"], {1:4,2:1,3:1})],
-  ["medium", sea(["000001","011000","000100","100100","000000","001110"], {1:2,2:1,3:2})],
-  ["medium", sea(["110000","000010","000010","001000","000001","011000"], {1:2,2:2})],
-  ["medium", sea(["001100","000000","100001","000000","011010","000010"], {1:2,2:2})],
-  ["medium", sea(["100010","000010","000000","111000","000001","001100"], {1:2,2:1,3:1})],
-  ["medium", sea(["000100","110100","000000","000011","100000","001000"], {1:3,2:2})],
+  ["medium", sea(["101000","000010","011010","000000","111010","000000"], {"1":3,"2":2,"3":1})],
+  ["medium", sea(["010000","000101","110100","000101","000001","001000"], {"1":3,"2":2,"3":1})],
+  ["medium", sea(["010010","000010","101010","000000","010010","010010"], {"1":3,"2":2,"3":1})],
+  ["medium", sea(["011010","000000","111001","000000","011000","000010"], {"1":3,"2":2,"3":1})],
+  ["medium", sea(["101001","001000","100010","000010","011010","000000"], {"1":3,"2":2,"3":1})],
+  ["medium", sea(["010110","000000","110000","000010","001010","100010"], {"1":3,"2":2,"3":1})],
+  ["medium", sea(["000000","000111","100000","101011","000000","001010"], {"1":3,"2":2,"3":1})],
+  ["medium", sea(["100101","000100","000100","010001","010101","000000"], {"1":3,"2":2,"3":1})],
+  ["medium", sea(["110101","000000","010010","010010","010000","000100"], {"1":3,"2":2,"3":1})],
+  ["medium", sea(["010010","000010","101000","000000","110111","000000"], {"1":3,"2":2,"3":1})],
 
-  ["hard", sea(["10000001","00011000","00000000","11100010","00000010","01000010","01000100","00000100"], {1:3,2:2,3:2})],
-  ["hard", sea(["01100000","00000100","10000100","00000100","00000000","11100001","00000000","00111000"], {1:2,2:1,3:3})],
-  ["hard", sea(["10001000","00001000","01100001","00000000","00111000","00000010","11000010","00000010"], {1:2,2:2,3:2})],
-  ["hard", sea(["00000111","10000000","10011000","00000000","00100001","00100001","00000001","11000000"], {1:2,2:2,3:2})],
-  ["hard", sea(["11000000","00001000","00001000","00001000","00110000","00000001","01110000","00000001"], {1:2,2:2,3:2})],
-  ["hard", sea(["00010001","00010001","00010000","01100000","00000000","10000111","00000000","00110000"], {1:2,2:2,3:2})],
-  ["hard", sea(["00111000","00000001","11000001","00000001","00000000","00001100","10000000","10000110"], {1:2,2:2,3:2})],
-  ["hard", sea(["10000000","10001100","00000000","00111000","00000010","01100010","00000010","00000100"], {1:2,2:2,3:2})],
-  ["hard", sea(["00000100","11100100","00000000","01000011","01000000","00010000","00010000","00010001"], {1:2,2:2,3:2})],
-  ["hard", sea(["11000001","00000001","00111000","00000000","10010000","00010000","00000011","00010000"], {1:2,2:2,3:2})],
+  ["hard", sea(["10001010","00001000","00100000","00000111","11000000","00010000","00000110","01110000"], {"1":4,"2":3,"3":2})],
+  ["hard", sea(["00000000","00000111","11000000","00001001","10001000","00101000","10000011","10010000"], {"1":4,"2":3,"3":2})],
+  ["hard", sea(["00001011","00100000","10000000","10001110","00100000","00000000","10101110","10000000"], {"1":4,"2":3,"3":2})],
+  ["hard", sea(["00000001","10011100","10000000","00101110","10100000","00000101","00000100","01000000"], {"1":4,"2":3,"3":2})],
+  ["hard", sea(["00000001","11100000","00000000","01100110","00000000","10101110","00000000","11000001"], {"1":4,"2":3,"3":2})],
+  ["hard", sea(["10100000","10100100","10000100","00000100","00010001","11000000","00000000","11010001"], {"1":4,"2":3,"3":2})],
+  ["hard", sea(["00011001","11000001","00000001","01110000","00000000","00000001","10010100","10000001"], {"1":4,"2":3,"3":2})],
+  ["hard", sea(["01101010","00000000","00000000","11101110","00000000","00001101","01100000","00000010"], {"1":4,"2":3,"3":2})],
+  ["hard", sea(["00101000","00000001","00000100","11010000","00010110","10000000","10011100","10000000"], {"1":4,"2":3,"3":2})],
+  ["hard", sea(["00001101","10100000","00001101","00000001","01110100","00000100","00000100","10000000"], {"1":4,"2":3,"3":2})],
 
-  ["extreme", sea(["100000001","000111000","000000000","110000100","000000100","001110100","000000000","010001110","010000000"], {1:2,2:2,3:3})],
-  ["extreme", sea(["011100000","000000001","100010001","000010001","000000000","001111000","000000000","110000010","000000010"], {1:2,2:1,3:2,4:1})],
-  ["extreme", sea(["100010000","000010000","011000001","000000001","001111000","000000000","110000010","000000010","000001110"], {1:1,2:2,3:2,4:1})],
-  ["extreme", sea(["000001111","100000000","100110000","000000000","001000001","001000001","000000001","110000000","000011100"], {1:2,2:2,3:1,4:1})],
-  ["extreme", sea(["110000000","000010000","000010000","000010000","001100000","000000001","011110000","000000001","000000001"], {1:1,2:1,3:2,4:1})],
-  ["extreme", sea(["000100001","000100001","000100000","011000000","000000000","100001111","000000000","001100000","000000010"], {1:2,2:2,3:1,4:1})],
-  ["extreme", sea(["001111000","000000001","110000001","000000001","000000000","000011000","100000000","100001110","000000000"], {1:2,2:1,3:2,4:1})],
-  ["extreme", sea(["100000000","100011000","000000000","001111000","000000010","011000010","000000010","000001000","000001000"], {1:2,2:2,3:1,4:1})],
-  ["extreme", sea(["000001000","111001000","000000000","010000111","010000000","000100000","000100000","000100001","000000001"], {1:2,2:2,3:2,4:1})],
-  ["extreme", sea(["110000001","000000001","001111000","000000000","100100000","000100000","000000011","000100000","000001110"], {1:1,2:2,3:2,4:1})],
+  ["extreme", sea(["001000000","101011100","000000000","101001001","101001000","101000010","001000010","100000000","000100000"], {"1":4,"2":3,"3":2,"4":1})],
+  ["extreme", sea(["010000000","000010001","111000101","000000100","100000000","001111000","000000001","110000000","000011100"], {"1":4,"2":3,"3":2,"4":1})],
+  ["extreme", sea(["100100000","000000010","111100010","000000010","111001000","000000000","000000001","000010101","011000100"], {"1":4,"2":3,"3":2,"4":1})],
+  ["extreme", sea(["111000110","000000000","010000001","010010000","010000000","000000000","111100101","000000000","011000110"], {"1":4,"2":3,"3":2,"4":1})],
+  ["extreme", sea(["000010010","010010000","010000100","010010101","000010100","000000101","100000000","100000010","100001010"], {"1":4,"2":3,"3":2,"4":1})],
+  ["extreme", sea(["100100111","000100000","000000101","000010000","010010011","010000000","010000000","010111010","000000000"], {"1":4,"2":3,"3":2,"4":1})],
+  ["extreme", sea(["010000000","000111011","110000000","000010000","000000000","000000111","111100000","000000000","010001101"], {"1":4,"2":3,"3":2,"4":1})],
+  ["extreme", sea(["000010000","101010000","100010001","101010001","000000000","110001010","000000010","001110000","000000001"], {"1":4,"2":3,"3":2,"4":1})],
+  ["extreme", sea(["011100100","000000000","001000011","100010000","000010001","101010000","101000000","000011110","000000000"], {"1":4,"2":3,"3":2,"4":1})],
+  ["extreme", sea(["000010000","010010100","000000000","111001000","000000010","001110000","100000001","101111001","000000000"], {"1":4,"2":3,"3":2,"4":1})],
 ].map(([difficulty, data]) => {
   BIMARU_LEVEL_COUNTS[difficulty] += 1;
-  return makeLevel("bimaru", difficulty, BIMARU_LEVEL_COUNTS[difficulty], { ...data, description: "Finde die Tierfelder im Wasser." });
+  return makeLevel("bimaru", difficulty, BIMARU_LEVEL_COUNTS[difficulty], { ...data, description: "Bestimme die Positionen der Schiffe im Raster." });
 });
 const HIDOKU_DESCRIPTIONS = {
   easy: "Ein leichtes 4×4 Hidoku mit den Zahlen 1 bis 16.",
@@ -1124,6 +1133,7 @@ let ignoreNextHidokuClick = false;
 let ignoreNextShikakuClick = false;
 let activeMoveSnapshot = null;
 let pushedActiveSnapshot = false;
+const BIMARU_LONG_PRESS_MS = 480;
 
 function progressKey(game, levelId) { return `lernapp.solved.${game}.${levelId}`; }
 function cloudProgress() { return window.LernappFirebase || null; }
@@ -1753,7 +1763,117 @@ const GAME_HANDLERS = {
     renderPad() { const level=currentLevel(); numberPad.innerHTML=""; numberPad.hidden=false; numberPad.style.setProperty("--pad-cols", Math.min(level.size, 3)); for(let n=1;n<=level.size;n++){ const b=document.createElement("button"); b.type="button"; b.textContent=n; b.addEventListener("click",()=>this.setNumber(n)); numberPad.append(b); } const clear=document.createElement("button"); clear.type="button"; clear.className="clear-number-button"; clear.textContent="Löschen"; clear.addEventListener("click",()=>this.clear()); numberPad.append(clear); },
     render(level) { board.innerHTML=""; board.style.setProperty("--size", level.size); for(let r=0;r<level.size;r++) for(let c=0;c<level.size;c++){ const v=state.values[r][c], fixed=state.fixed[keyOf(r,c)], selected=state.selected&&sameCell(state.selected,[r,c]); const edgeR=(c+1)%level.boxCols===0&&c<level.size-1, edgeB=(r+1)%level.boxRows===0&&r<level.size-1; const cell=makeButtonCell(r,c,`cell sudoku-cell${fixed?" given":""}${selected?" selected":""}${this.conflict(r,c,v)?" conflict":""}${edgeR?" box-edge-right":""}${edgeB?" box-edge-bottom":""}`, v || ""); cell.addEventListener("click",()=>this.select(r,c)); board.append(cell); } if(state.selected) this.renderPad(); },
   },
-  bimaru: simpleGridGame("bimaru", "solution", ["","animal","water"], { animal:"🐟", water:"~" }),
+  bimaru: {
+    resetState(level) {
+      state = { grid: zeros(level.size, level.size, ""), fixed: {} };
+      (level.givens || []).forEach(([r, c, value = "ship"]) => {
+        state.grid[r][c] = value;
+        state.fixed[keyOf(r, c)] = value;
+      });
+      setStatus("Kurz tippen markiert Wasser. Langer Druck setzt ein Schiffsteil.");
+    },
+    checkWin() {
+      const level = currentLevel();
+      return level.solution.every((row, r) => row.every((value, c) => (state.grid[r][c] === "ship") === Boolean(value)));
+    },
+    setCell(r, c, value, message) {
+      if (state.grid[r][c] === value) return;
+      pushHistory();
+      state.grid[r][c] = value;
+      this.checkWin() ? handleWin() : render(message);
+    },
+    shortInput(r, c) {
+      if (state.fixed?.[keyOf(r, c)]) {
+        render("Dieses vorgegebene Feld bleibt stehen.");
+        return;
+      }
+      const value = state.grid[r][c];
+      if (value === "ship") {
+        this.setCell(r, c, "", "Schiffsteil gelöscht.");
+        return;
+      }
+      if (value === "water") {
+        this.setCell(r, c, "", "Wasserfeld gelöscht.");
+        return;
+      }
+      this.setCell(r, c, "water", "Wasser markiert.");
+    },
+    placeShip(r, c) {
+      if (state.fixed?.[keyOf(r, c)]) {
+        render("Dieses vorgegebene Feld bleibt stehen.");
+        return;
+      }
+      this.setCell(r, c, "ship", "Schiffsteil gesetzt. Prüfe Zahlen und Flotte.");
+    },
+    hint() {
+      const level = currentLevel();
+      for (let r = 0; r < level.size; r += 1) for (let c = 0; c < level.size; c += 1) {
+        if (state.grid[r][c] === "ship" && !level.solution[r][c]) {
+          this.setCell(r, c, "", "Tipp: Dieses Schiffsteil passt hier nicht.");
+          return;
+        }
+      }
+      for (let r = 0; r < level.size; r += 1) for (let c = 0; c < level.size; c += 1) {
+        if (level.solution[r][c] && state.grid[r][c] !== "ship") {
+          this.setCell(r, c, "ship", "Tipp: Ein sicheres Schiffsteil ist gesetzt.");
+          return;
+        }
+      }
+    },
+    attachInput(cell, r, c) {
+      let pressTimer = null;
+      let longPressFired = false;
+      const clearPressTimer = () => {
+        if (pressTimer) window.clearTimeout(pressTimer);
+        pressTimer = null;
+      };
+      cell.addEventListener("pointerdown", (event) => {
+        if (event.pointerType === "mouse" && event.button !== 0) return;
+        longPressFired = false;
+        clearPressTimer();
+        pressTimer = window.setTimeout(() => {
+          longPressFired = true;
+          pressTimer = null;
+          this.placeShip(r, c);
+        }, BIMARU_LONG_PRESS_MS);
+      });
+      ["pointerup", "pointerleave", "pointercancel"].forEach((type) => cell.addEventListener(type, clearPressTimer));
+      cell.addEventListener("click", (event) => {
+        if (longPressFired) {
+          event.preventDefault();
+          longPressFired = false;
+          return;
+        }
+        this.shortInput(r, c);
+      });
+      cell.addEventListener("contextmenu", (event) => {
+        event.preventDefault();
+        this.placeShip(r, c);
+      });
+      cell.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          this.shortInput(r, c);
+        } else if (event.key.toLowerCase() === "s") {
+          event.preventDefault();
+          this.placeShip(r, c);
+        }
+      });
+    },
+    render(level) {
+      const invalidShips = bimaruInvalidShipKeys(level, state.grid);
+      renderBimaruBoard(level, (r, c) => {
+        const value = state.grid[r][c];
+        const isShip = value === "ship";
+        const fixed = state.fixed?.[keyOf(r, c)];
+        const cell = makeButtonCell(r, c, `cell bimaru-cell ${value}${fixed ? " given" : ""}${invalidShips.has(keyOf(r, c)) ? " conflict" : ""}`, "");
+        cell.setAttribute("aria-label", `Reihe ${r + 1}, Spalte ${c + 1}: ${fixed ? "vorgegebenes " : ""}${isShip ? "Schiffsteil" : value === "water" ? "Wasser" : "leer"}`);
+        if (isShip) cell.append(makeBimaruShipMark(state.grid, r, c));
+        this.attachInput(cell, r, c);
+        return cell;
+      });
+    },
+  },
 
   hidoku: {
     resetState(level) { state={ values: zeros(level.size, level.size, null), fixed: {}, selected: null, activeNumber: null }; level.givens.forEach(([r,c,v])=>{ state.values[r][c]=v; state.fixed[keyOf(r,c)]=true; }); setStatus("Du kannst eine bestehende Zahl oder direkt ein leeres Feld waehlen."); },
@@ -1791,30 +1911,184 @@ const GAME_HANDLERS = {
   },
 };
 
-function simpleGridGame(game, solutionField, cycle, symbols) {
-  return {
-    resetState(level) { state = { grid: zeros(level.size, level.size, "") }; setStatus("Finde alle Meerestiere im Wasser."); },
-    checkWin() {
-      const level=currentLevel();
-      if(game === "bimaru") {
-        const animalCounts = counts(state.grid.map((row)=>row.map((v)=>v === cycle[1] ? 1 : 0)));
-        return sameCounts(animalCounts.rowCounts, level.rowCounts) && sameCounts(animalCounts.colCounts, level.colCounts);
-      }
-      return state.grid.every((row,r)=>row.every((v,c)=>(v === cycle[1]) === Boolean(level[solutionField][r][c])));
-    },
-    input(r,c) { pushHistory(); const i=cycle.indexOf(state.grid[r][c]); state.grid[r][c]=cycle[(i+1)%cycle.length]; this.checkWin()?handleWin():render("Gut! Schau weiter auf die Zahlen."); },
-    hint() {
-      const level=currentLevel();
-      for(let r=0;r<level.size;r++) for(let c=0;c<level.size;c++){
-        const want=level[solutionField][r][c] ? cycle[1] : cycle[2];
-        if(game === "bimaru" && state.grid[r][c]===cycle[1] && !level[solutionField][r][c]) { pushHistory(); state.grid[r][c]=cycle[0]; render("Tipp: Ein Tier passt hier nicht zu den Zahlen."); checkAndWin(); return; }
-        if(state.grid[r][c]!==want && (game !== "bimaru" || want === cycle[1])){ pushHistory(); state.grid[r][c]=want; render("Tipp: Ein sicheres Feld ist markiert."); checkAndWin(); return; }
-      }
-    },
-    render(level) { renderCountBoard(level, (r,c)=>{ const v=state.grid[r][c]; const cell=makeButtonCell(r,c,`cell ${game}-cell ${v}`, symbols[v] || ""); cell.addEventListener("click",()=>this.input(r,c)); return cell; }); },
-  };
+function isBimaruShipValue(value) { return value === 1 || value === "ship"; }
+function isBimaruShipAt(grid, row, col) { return Boolean(grid[row]?.[col] !== undefined && isBimaruShipValue(grid[row][col])); }
+function bimaruGridCounts(grid) { return counts(grid.map((row) => row.map((value) => isBimaruShipValue(value) ? 1 : 0))); }
+function bimaruShipSegmentClass(grid, row, col) {
+  const up = isBimaruShipAt(grid, row - 1, col);
+  const down = isBimaruShipAt(grid, row + 1, col);
+  const left = isBimaruShipAt(grid, row, col - 1);
+  const right = isBimaruShipAt(grid, row, col + 1);
+  const horizontal = left || right;
+  const vertical = up || down;
+  if (!horizontal && !vertical) return "ship-single";
+  if (horizontal && !vertical) {
+    if (!left) return "ship-left";
+    if (!right) return "ship-right";
+    return "ship-middle-horizontal";
+  }
+  if (vertical && !horizontal) {
+    if (!up) return "ship-top";
+    if (!down) return "ship-bottom";
+    return "ship-middle-vertical";
+  }
+  return "ship-invalid";
 }
-function renderCountBoard(level, makeCell) { board.innerHTML=""; board.style.setProperty("--size", level.size + 1); board.classList.add("count-board"); board.append(Object.assign(document.createElement("div"), { className:"count-corner" })); level.colCounts.forEach((n)=>{ const d=document.createElement("div"); d.className="count-label col-count"; d.textContent=n; board.append(d); }); for(let r=0;r<level.size;r++){ const lab=document.createElement("div"); lab.className="count-label row-count"; lab.textContent=level.rowCounts[r]; board.append(lab); for(let c=0;c<level.size;c++) board.append(makeCell(r,c)); } }
+function makeBimaruShipMark(grid, row, col) {
+  const mark = document.createElement("span");
+  mark.className = `bimaru-ship-mark ${bimaruShipSegmentClass(grid, row, col)}`;
+  mark.setAttribute("aria-hidden", "true");
+  return mark;
+}
+function collectBimaruShips(grid) {
+  const ships = [];
+  const visited = new Set();
+  const rows = grid.length;
+  const cols = grid[0]?.length || 0;
+  for (let row = 0; row < rows; row += 1) for (let col = 0; col < cols; col += 1) {
+    const startKey = keyOf(row, col);
+    if (!isBimaruShipAt(grid, row, col) || visited.has(startKey)) continue;
+    const stack = [[row, col]];
+    const cells = [];
+    visited.add(startKey);
+    while (stack.length) {
+      const [r, c] = stack.pop();
+      cells.push({ row: r, col: c });
+      [[r - 1, c], [r + 1, c], [r, c - 1], [r, c + 1]].forEach(([nextRow, nextCol]) => {
+        const nextKey = keyOf(nextRow, nextCol);
+        if (!isBimaruShipAt(grid, nextRow, nextCol) || visited.has(nextKey)) return;
+        visited.add(nextKey);
+        stack.push([nextRow, nextCol]);
+      });
+    }
+    const rowSet = new Set(cells.map((cell) => cell.row));
+    const colSet = new Set(cells.map((cell) => cell.col));
+    ships.push({ cells, length: cells.length, validStraight: cells.length === 1 || rowSet.size === 1 || colSet.size === 1 });
+  }
+  return ships;
+}
+function bimaruInvalidShipKeys(level, grid) {
+  const invalid = new Set();
+  const currentCounts = bimaruGridCounts(grid);
+  const maxFleetLength = Math.max(...Object.keys(level.fleet || {}).map(Number));
+  collectBimaruShips(grid).forEach((ship) => {
+    if (!ship.validStraight || ship.length > maxFleetLength || !level.fleet[ship.length]) {
+      ship.cells.forEach((cell) => invalid.add(keyOf(cell.row, cell.col)));
+    }
+  });
+  const byLength = {};
+  collectBimaruShips(grid)
+    .filter((ship) => ship.validStraight && level.fleet[ship.length])
+    .forEach((ship) => {
+      byLength[ship.length] = byLength[ship.length] || [];
+      byLength[ship.length].push(ship);
+    });
+  Object.entries(byLength).forEach(([length, ships]) => {
+    ships.slice(level.fleet[length] || 0).forEach((ship) => ship.cells.forEach((cell) => invalid.add(keyOf(cell.row, cell.col))));
+  });
+  currentCounts.rowCounts.forEach((count, row) => {
+    if (count <= level.rowCounts[row]) return;
+    grid[row].forEach((value, col) => { if (isBimaruShipValue(value)) invalid.add(keyOf(row, col)); });
+  });
+  currentCounts.colCounts.forEach((count, col) => {
+    if (count <= level.colCounts[col]) return;
+    grid.forEach((row, r) => { if (isBimaruShipValue(row[col])) invalid.add(keyOf(r, col)); });
+  });
+  for (let row = 0; row < level.size; row += 1) for (let col = 0; col < level.size; col += 1) {
+    if (!isBimaruShipAt(grid, row, col)) continue;
+    [[row + 1, col + 1], [row + 1, col - 1]].forEach(([nextRow, nextCol]) => {
+      if (!isBimaruShipAt(grid, nextRow, nextCol)) return;
+      invalid.add(keyOf(row, col));
+      invalid.add(keyOf(nextRow, nextCol));
+    });
+  }
+  return invalid;
+}
+function bimaruFleetLengths(level) {
+  return Object.entries(level.fleet || {})
+    .flatMap(([length, count]) => Array.from({ length: count }, () => Number(length)))
+    .sort((a, b) => a - b);
+}
+function splitBimaruFleet(level) {
+  const right = [];
+  const bottom = [];
+  bimaruFleetLengths(level).forEach((length) => (length === 1 ? right : bottom).push(length));
+  while (bottom.length > 3) right.push(bottom.shift());
+  if (!right.length && bottom.length > 2) right.push(bottom.shift());
+  return { right, bottom };
+}
+function bimaruFleetUsedCounts(level, grid) {
+  const used = {};
+  collectBimaruShips(grid).forEach((ship) => {
+    if (!ship.validStraight || !level.fleet[ship.length]) return;
+    used[ship.length] = Math.min((used[ship.length] || 0) + 1, level.fleet[ship.length]);
+  });
+  return used;
+}
+function bimaruFleetSegmentClass(length, index, orientation) {
+  if (length === 1) return "ship-single";
+  if (orientation === "vertical") {
+    if (index === 0) return "ship-top";
+    if (index === length - 1) return "ship-bottom";
+    return "ship-middle-vertical";
+  }
+  if (index === 0) return "ship-left";
+  if (index === length - 1) return "ship-right";
+  return "ship-middle-horizontal";
+}
+function makeBimaruFleetShip(length, orientation, placed) {
+  const ship = document.createElement("div");
+  ship.className = `bimaru-fleet-ship ${orientation}${placed ? " placed" : ""}`;
+  ship.setAttribute("aria-label", `${length}er-Schiff${placed ? " platziert" : ""}`);
+  for (let index = 0; index < length; index += 1) {
+    const part = document.createElement("span");
+    part.className = `bimaru-fleet-segment ${bimaruFleetSegmentClass(length, index, orientation)}`;
+    ship.append(part);
+  }
+  return ship;
+}
+function renderBimaruFleetPanel(lengths, orientation, used, usedCursor) {
+  const panel = document.createElement("div");
+  panel.className = `bimaru-fleet-panel ${orientation}`;
+  panel.setAttribute("aria-label", orientation === "vertical" ? "Flotte am rechten Rand" : "Flotte am unteren Rand");
+  lengths.forEach((length) => {
+    usedCursor[length] = usedCursor[length] || 0;
+    const placed = usedCursor[length] < (used[length] || 0);
+    usedCursor[length] += 1;
+    panel.append(makeBimaruFleetShip(length, orientation, placed));
+  });
+  return panel;
+}
+function makeBimaruCountLabel(target, current, kind, index) {
+  const label = document.createElement("div");
+  label.className = `count-label ${kind}-count${current === target ? " complete" : ""}${current > target ? " over" : ""}`;
+  label.textContent = target;
+  label.setAttribute("aria-label", `${kind === "row" ? "Zeile" : "Spalte"} ${index + 1}: ${target} Schiffsteile, aktuell ${current}`);
+  return label;
+}
+function placeGridItem(element, row, col, rowSpan = 1, colSpan = 1) {
+  element.style.gridRow = rowSpan === 1 ? String(row) : `${row} / span ${rowSpan}`;
+  element.style.gridColumn = colSpan === 1 ? String(col) : `${col} / span ${colSpan}`;
+  board.append(element);
+}
+function renderBimaruBoard(level, makeCell) {
+  board.innerHTML = "";
+  board.classList.add("bimaru-count-board");
+  board.style.setProperty("--size", level.size);
+  board.style.setProperty("--bimaru-size", level.size);
+  const currentCounts = bimaruGridCounts(state.grid);
+  const fleet = splitBimaruFleet(level);
+  const used = bimaruFleetUsedCounts(level, state.grid);
+  const usedCursor = {};
+  placeGridItem(Object.assign(document.createElement("div"), { className: "count-corner" }), 1, 1);
+  level.colCounts.forEach((target, col) => placeGridItem(makeBimaruCountLabel(target, currentCounts.colCounts[col], "col", col), 1, col + 2));
+  placeGridItem(renderBimaruFleetPanel(fleet.right, "vertical", used, usedCursor), 2, level.size + 2, level.size);
+  for (let r = 0; r < level.size; r += 1) {
+    placeGridItem(makeBimaruCountLabel(level.rowCounts[r], currentCounts.rowCounts[r], "row", r), r + 2, 1);
+    for (let c = 0; c < level.size; c += 1) placeGridItem(makeCell(r, c), r + 2, c + 2);
+  }
+  placeGridItem(renderBimaruFleetPanel(fleet.bottom, "horizontal", used, usedCursor), level.size + 2, 2, 1, level.size);
+}
 
 
 if (currentGame && LEVELS_BY_GAME[currentGame]) renderDifficultySelect();

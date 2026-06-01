@@ -4,13 +4,13 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="application-name" content="Lernapp" />
-    <meta name="description" content="Raetsel fuer Kinder mit Arukone, Meerestieren, Kakuro, Tiergehegen, Hidoku und Sudoku." />
+    <meta name="description" content="Raetsel fuer Kinder mit Arukone, Battleships, Kakuro, Tiergehegen, Hidoku und Sudoku." />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Lernapp" />
     <meta name="theme-color" content="#6c5ce7" />
-    <title>Meerestiere Levels · Lernapp</title>
+    <title>Battleships Levels · Lernapp</title>
     <link rel="stylesheet" href="styles.css" />
     <link rel="manifest" href="app.webmanifest" />
     <link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32.png" />
@@ -19,19 +19,19 @@
   <body data-game-page="bimaru">
     <main class="app-shell">
       <section class="hero" aria-labelledby="app-title">
-        <p class="eyebrow">Im Wasser suchen</p>
-        <h1 id="app-title">Meerestiere</h1>
-        <p id="app-intro" class="intro">Finde alle versteckten Meerestiere im Wasser.</p>
+        <p class="eyebrow">Schiffe finden</p>
+        <h1 id="app-title">Battleships</h1>
+        <p id="app-intro" class="intro">Bestimme die Positionen der versteckten Flotte im Raster.</p>
       </section>
 
-      <section id="level-panel" class="start-panel" aria-label="Meerestiere Level auswählen">
+      <section id="level-panel" class="start-panel" aria-label="Battleships Level auswählen">
         <div class="start-copy">
           <p class="small-label">Levelauswahl</p>
-          <h2 id="level-heading">Meerestiere Levels</h2>
+          <h2 id="level-heading">Battleships Levels</h2>
           <p id="level-description"></p>
           <ul id="rules-list" class="rules-list"></ul>
         </div>
-        <div id="level-grid" class="level-grid" aria-label="Meerestiere Levels"></div>
+        <div id="level-grid" class="level-grid" aria-label="Battleships Levels"></div>
       </section>
 
       <section id="game-panel" class="game-panel" hidden>
@@ -52,11 +52,11 @@
             <p id="status" class="status" role="status" aria-live="polite">Wähle ein Level aus.</p>
           </div>
 
-          <div id="board" class="board" aria-label="Meerestiere Spielfeld"></div>
+          <div id="board" class="board" aria-label="Battleships Spielfeld"></div>
           <div id="number-pad" class="number-pad" aria-label="Zahlen auswählen" hidden></div>
 
           <details class="help" open>
-            <summary>So spielst du Meerestiere</summary>
+            <summary>So spielst du Battleships</summary>
             <ul id="game-help-list"></ul>
           </details>
         </section>
