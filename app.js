@@ -328,7 +328,7 @@ const GAME_CONFIGS = {
     title: "Tiergehege", eyebrow: "Gehege bauen", code: "G",
     subtitle: "Baue für jedes Tier ein Gehege mit genau der richtigen Grösse.",
     success: "Alle Tiere haben ein passendes Gehege!",
-    rules: ["Tippe zuerst auf ein Tier mit Zahl oder halte die Maustaste auf dem Tier gedrückt.", "Ziehe bis zur gegenüberliegenden Ecke: Alle Felder im Rechteck werden sofort markiert.", "Jedes Gehege braucht genau so viele Felder, wie die Zahl zeigt."],
+    rules: ["Tippe zuerst auf ein Tier mit Zahl oder halte die Maustaste auf dem Tier gedrückt.", "Ziehe bis zur gegenüberliegenden Ecke: Nur dein gezeichnetes Rechteck wird markiert.", "Jedes Gehege braucht genau so viele Felder, wie die Zahl zeigt."],
   },
 };
 
@@ -880,50 +880,9 @@ const GAME_HANDLERS = {
       for (let row = minRow; row <= maxRow; row += 1) for (let col = minCol; col <= maxCol; col += 1) cells.push({ row, col });
       return cells;
     },
-    matchingRectangles(level, clue, targetRow, targetCol) {
-      const rectangles = [];
-      for (let height = 1; height <= clue.value; height += 1) {
-        if (clue.value % height !== 0) continue;
-        const width = clue.value / height;
-        if (height > level.rows || width > level.cols) continue;
-        const minTop = Math.max(0, clue.row - height + 1, targetRow - height + 1);
-        const maxTop = Math.min(clue.row, targetRow, level.rows - height);
-        const minLeft = Math.max(0, clue.col - width + 1, targetCol - width + 1);
-        const maxLeft = Math.min(clue.col, targetCol, level.cols - width);
-        for (let top = minTop; top <= maxTop; top += 1) {
-          for (let left = minLeft; left <= maxLeft; left += 1) {
-            const cells = [];
-            let clueCount = 0;
-            for (let row = top; row < top + height; row += 1) {
-              for (let col = left; col < left + width; col += 1) {
-                if (this.clueAt(level, row, col)) clueCount += 1;
-                cells.push({ row, col });
-              }
-            }
-            if (clueCount === 1) rectangles.push(cells);
-          }
-        }
-      }
-      return rectangles;
-    },
-    cellsMatchSolution(level, clue, cells) {
-      const want = new Set(this.solutionCells(level, clue).map((cell) => keyOf(cell.row, cell.col)));
-      return cells.length === want.size && cells.every((cell) => want.has(keyOf(cell.row, cell.col)));
-    },
-    inputCellsForTarget(level, clue, r, c) {
-      const directCells = this.rectangleCells(level, clue, r, c);
-      if (directCells.length === clue.value) return { cells: directCells, ambiguous: false };
-      const candidates = this.matchingRectangles(level, clue, r, c);
-      if (candidates.length === 1) return { cells: candidates[0], ambiguous: false };
-      const solutionMatches = candidates.filter((cells) => this.cellsMatchSolution(level, clue, cells));
-      if (solutionMatches.length === 1) return { cells: solutionMatches[0], ambiguous: false };
-      return { cells: null, ambiguous: candidates.length > 1 };
-    },
     previewDrag(clue, r, c) {
       const level = currentLevel();
-      const directCells = this.rectangleCells(level, clue, r, c);
-      const inputRect = this.inputCellsForTarget(level, clue, r, c);
-      const cells = inputRect.cells || directCells;
+      const cells = this.rectangleCells(level, clue, r, c);
       state.selected = { row: clue.row, col: clue.col };
       state.dragPreview = {
         cells,
@@ -950,17 +909,11 @@ const GAME_HANDLERS = {
       const selectedClue = this.clueAt(level, state.selected.row, state.selected.col);
       if (!selectedClue) { state.selected = null; render("Bitte tippe zuerst auf ein Tier mit Zahl."); return; }
       if (clue && this.clueKey(clue) !== this.clueKey(selectedClue)) { this.selectClue(clue); return; }
-      const minRow = Math.min(selectedClue.row, r), maxRow = Math.max(selectedClue.row, r);
-      const minCol = Math.min(selectedClue.col, c), maxCol = Math.max(selectedClue.col, c);
-      const area = (maxRow - minRow + 1) * (maxCol - minCol + 1);
-      const inputRect = this.inputCellsForTarget(level, selectedClue, r, c);
-      if (!inputRect.cells) {
-        if (inputRect.ambiguous) { render("Wähle eine eindeutigere Ecke für dieses Gehege."); return; }
-        if (area < selectedClue.value) { render("Dieses Gehege ist zu klein."); return; }
-        if (area > selectedClue.value) { render("Dieses Gehege ist zu gross."); return; }
-      }
+      const cells = this.rectangleCells(level, selectedClue, r, c);
+      const area = cells.length;
+      if (area < selectedClue.value) { render("Dieses Gehege ist zu klein."); return; }
+      if (area > selectedClue.value) { render("Dieses Gehege ist zu gross."); return; }
       const selectedKey = this.clueKey(selectedClue);
-      const cells = inputRect.cells;
       let clueCount = 0;
       for (const cell of cells) {
         const foundClue = this.clueAt(level, cell.row, cell.col);
@@ -974,7 +927,7 @@ const GAME_HANDLERS = {
       state.regions[selectedKey] = { cells, color: (level.clues.indexOf(selectedClue) % 12) + 1 };
       state.selected = null;
       state.dragPreview = null;
-      this.checkWin() ? handleWin() : render("Super! Das Gehege passt.");
+      this.checkWin() ? handleWin() : render("Gehege gesetzt. Wenn am Ende alles aufgeht, ist es richtig.");
     },
     render(level) {
       board.innerHTML = "";
