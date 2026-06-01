@@ -2,9 +2,19 @@
 <html lang="de">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="application-name" content="Lernapp" />
+    <meta name="description" content="Raetsel fuer Kinder mit Arukone, Meerestieren, Kakuro, Tiergehegen, Hidoku und Sudoku." />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Lernapp" />
+    <meta name="theme-color" content="#6c5ce7" />
     <title>Lernapp: Rätsel für Kinder</title>
     <link rel="stylesheet" href="styles.css" />
+    <link rel="manifest" href="app.webmanifest" />
+    <link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon-180.png" />
   </head>
   <body>
     <main class="app-shell">
@@ -25,5 +35,6 @@
         <article class="game-choice-card"><div class="preview sudoku-preview" aria-hidden="true"><span>1</span><span></span><span>3</span><span></span><span></span><span>6</span><span></span><span>5</span><span></span><span>1</span><span></span><span></span><span>2</span><span></span><span></span><span></span><span>4</span><span></span><span></span><span>3</span><span></span><span>5</span><span></span><span>2</span><span></span><span></span><span>1</span><span></span><span>6</span><span></span><span>6</span><span></span><span></span><span>3</span><span></span><span>5</span></div><div><p class="small-label">Zahlen ordnen</p><h2>Sudoku</h2><p>Fülle Reihen, Spalten und Boxen mit den passenden Zahlen.</p></div><a class="choose-game-button" href="sudoku.html">Spielen</a></article>
       </section>
     </main>
+    <script src="pwa.js"></script>
   </body>
 </html>
