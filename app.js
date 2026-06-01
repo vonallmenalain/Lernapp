@@ -1212,9 +1212,10 @@ function renderDifficultySelect() {
   if (!currentGame || !levelPanel) return;
   const config = GAME_CONFIGS[currentGame];
   levelPanel.classList.add("difficulty-step");
-  levelHeading.textContent = `${config.title}: Schwierigkeit wählen`;
-  if (appIntro) appIntro.textContent = `Wähle zuerst den Schwierigkeitsgrad für ${config.title}.`;
-  levelDescription.textContent = "Wähle zuerst, wie knifflig dein Rätsel sein soll. Danach zeigen wir dir nur die passenden Levels.";
+  levelHeading.textContent = "Schwierigkeit wählen";
+  if (appIntro) appIntro.textContent = "";
+  levelDescription.textContent = "";
+  levelDescription.hidden = true;
   fillList(rulesList, config.rules);
   renderSelectionActions("difficulty");
   levelGrid.className = "difficulty-grid";
@@ -1245,8 +1246,9 @@ function renderLevelSelect() {
   const config = GAME_CONFIGS[currentGame];
   const difficulty = DIFFICULTIES[selectedDifficulty];
   levelPanel.classList.remove("difficulty-step");
-  levelHeading.textContent = `${config.title}: ${difficulty.label} Levels`;
-  if (appIntro) appIntro.textContent = `Wähle ein ${difficulty.label}-Level für ${config.title}.`;
+  levelHeading.textContent = `${difficulty.label} Levels`;
+  if (appIntro) appIntro.textContent = "";
+  levelDescription.hidden = false;
   levelDescription.textContent = `Du hast ${difficulty.label} gewählt. Such dir jetzt ein Level aus.`;
   fillList(rulesList, config.rules);
   renderSelectionActions("levels");
