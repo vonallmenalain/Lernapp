@@ -808,6 +808,25 @@ body.puzzle-active .board {
   margin-bottom: 4px;
 }
 
+.sudoku-board.board-size-9 {
+  gap: 2px;
+  border-width: 3px;
+  border-radius: 14px;
+}
+
+.sudoku-board.board-size-9 .sudoku-cell {
+  border-radius: 5px;
+  font-size: clamp(0.95rem, 4vw, 2rem);
+}
+
+.sudoku-board.board-size-9 .sudoku-cell.box-edge-right {
+  margin-right: 2px;
+}
+
+.sudoku-board.board-size-9 .sudoku-cell.box-edge-bottom {
+  margin-bottom: 2px;
+}
+
 .sudoku-cell.given {
   background: #fff4cf;
   border-color: #ffd166;
