@@ -328,7 +328,7 @@ const GAME_CONFIGS = {
     title: "Tiergehege", eyebrow: "Gehege bauen", code: "G",
     subtitle: "Baue für jedes Tier ein Gehege mit genau der richtigen Grösse.",
     success: "Alle Tiere haben ein passendes Gehege!",
-    rules: ["Tippe zuerst auf ein Tier mit Zahl oder halte die Maustaste auf dem Tier gedrückt.", "Ziehe bis zur gegenüberliegenden Ecke: Nur dein gezeichnetes Rechteck wird markiert.", "Jedes Gehege braucht genau so viele Felder, wie die Zahl zeigt."],
+    rules: ["Ziehe von einer Ecke des geplanten Geheges zur gegenüberliegenden Ecke.", "Das Tier darf auch mitten im Rechteck liegen; das Rechteck muss genau ein Tier enthalten.", "Jedes Gehege braucht genau so viele Felder, wie die Zahl zeigt."],
   },
 };
 
@@ -851,7 +851,7 @@ function getPairColor(pair) { return DEFAULT_COLORS[pair] || "#6c5ce7"; }
 const GAME_HANDLERS = {
 
   shikaku: {
-    resetState() { state = { regions: {}, selected: null, dragPreview: null }; setStatus("Tippe zuerst auf ein Tier mit Zahl oder ziehe direkt vom Tier los."); },
+    resetState() { state = { regions: {}, selected: null, dragPreview: null }; setStatus("Ziehe von einer Ecke des Geheges zur gegenüberliegenden Ecke."); },
     clueKey(clue) { return keyOf(clue.row, clue.col); },
     clueAt(level, r, c) { return level.clues.find((clue) => clue.row === r && clue.col === c) || null; },
     ownerAt(r, c) {
@@ -873,30 +873,73 @@ const GAME_HANDLERS = {
     },
     checkWin() { const level = currentLevel(); return level.clues.every((clue) => this.regionMatchesSolution(level, clue)); },
     selectClue(clue) { state.selected = { row: clue.row, col: clue.col }; state.dragPreview = null; render(`Das Tier braucht ${clue.value} Felder.`); },
-    rectangleCells(level, clue, r, c) {
-      const minRow = Math.min(clue.row, r), maxRow = Math.max(clue.row, r);
-      const minCol = Math.min(clue.col, c), maxCol = Math.max(clue.col, c);
+    rectangleCellsFromCorners(startRow, startCol, endRow, endCol) {
+      const minRow = Math.min(startRow, endRow), maxRow = Math.max(startRow, endRow);
+      const minCol = Math.min(startCol, endCol), maxCol = Math.max(startCol, endCol);
       const cells = [];
       for (let row = minRow; row <= maxRow; row += 1) for (let col = minCol; col <= maxCol; col += 1) cells.push({ row, col });
       return cells;
     },
-    previewDrag(clue, r, c) {
+    rectangleCells(level, clue, r, c) { return this.rectangleCellsFromCorners(clue.row, clue.col, r, c); },
+    cluesInCells(level, cells) {
+      return cells.map((cell) => this.clueAt(level, cell.row, cell.col)).filter(Boolean);
+    },
+    clueFromKey(level, clueKey) {
+      return level.clues.find((clue) => this.clueKey(clue) === clueKey) || null;
+    },
+    previewCells(cells, target) {
       const level = currentLevel();
-      const cells = this.rectangleCells(level, clue, r, c);
-      state.selected = { row: clue.row, col: clue.col };
+      const clues = this.cluesInCells(level, cells);
+      const clue = clues.length === 1 ? clues[0] : null;
+      state.selected = clue ? { row: clue.row, col: clue.col } : null;
       state.dragPreview = {
         cells,
         area: cells.length,
-        target: { row: r, col: c },
+        target,
+        clueKey: clue ? this.clueKey(clue) : null,
+        clueCount: clues.length,
       };
-      const sizeText = state.dragPreview.area === clue.value ? "passt genau" : `${state.dragPreview.area} von ${clue.value} Feldern`;
+      if (!clue) {
+        render(clues.length > 1 ? "Dieses Rechteck enthält mehrere Tiere." : "Ziehe das Rechteck über genau ein Tier.");
+        return;
+      }
+      const sizeText = cells.length === clue.value ? "passt genau" : `${cells.length} von ${clue.value} Feldern`;
       render(`Ziehe das Rechteck: ${sizeText}.`);
     },
+    previewDrag(clue, r, c) {
+      const level = currentLevel();
+      this.previewCells(this.rectangleCells(level, clue, r, c), { row: r, col: c });
+    },
+    previewRectangle(startRow, startCol, endRow, endCol) {
+      this.previewCells(this.rectangleCellsFromCorners(startRow, startCol, endRow, endCol), { row: endRow, col: endCol });
+    },
     clearDragPreview() { state.dragPreview = null; },
-    finishDrag(r, c, shouldCommit) {
+    finishRectangle(startRow, startCol, endRow, endCol, shouldCommit) {
+      const cells = this.rectangleCellsFromCorners(startRow, startCol, endRow, endCol);
       this.clearDragPreview();
-      if (shouldCommit) this.input(r, c);
-      else render(state.selected ? "Ziehe bis zur gegenüberliegenden Ecke oder tippe eine Ecke an." : "Tippe zuerst auf ein Tier mit Zahl.");
+      if (shouldCommit) this.commitCells(cells);
+      else render("Ziehe ein Rechteck über genau ein Tier.");
+    },
+    commitCells(cells) {
+      const level = currentLevel();
+      const clues = this.cluesInCells(level, cells);
+      if (clues.length > 1) { render("In ein Gehege darf nur eine Zahl."); return false; }
+      if (clues.length !== 1) { render("Das Gehege muss genau ein Tier enthalten."); return false; }
+      const selectedClue = clues[0];
+      const area = cells.length;
+      if (area < selectedClue.value) { render("Dieses Gehege ist zu klein."); return false; }
+      if (area > selectedClue.value) { render("Dieses Gehege ist zu gross."); return false; }
+      const selectedKey = this.clueKey(selectedClue);
+      for (const cell of cells) {
+        const owner = this.ownerAt(cell.row, cell.col);
+        if (owner && owner !== selectedKey) { render("Hier liegt schon ein anderes Gehege."); return false; }
+      }
+      pushHistory();
+      state.regions[selectedKey] = { cells, color: (level.clues.indexOf(selectedClue) % 12) + 1 };
+      state.selected = null;
+      state.dragPreview = null;
+      this.checkWin() ? handleWin() : render("Gehege gesetzt. Wenn am Ende alles aufgeht, ist es richtig.");
+      return true;
     },
     input(r, c) {
       const level = currentLevel();
@@ -910,31 +953,15 @@ const GAME_HANDLERS = {
       if (!selectedClue) { state.selected = null; render("Bitte tippe zuerst auf ein Tier mit Zahl."); return; }
       if (clue && this.clueKey(clue) !== this.clueKey(selectedClue)) { this.selectClue(clue); return; }
       const cells = this.rectangleCells(level, selectedClue, r, c);
-      const area = cells.length;
-      if (area < selectedClue.value) { render("Dieses Gehege ist zu klein."); return; }
-      if (area > selectedClue.value) { render("Dieses Gehege ist zu gross."); return; }
-      const selectedKey = this.clueKey(selectedClue);
-      let clueCount = 0;
-      for (const cell of cells) {
-        const foundClue = this.clueAt(level, cell.row, cell.col);
-        if (foundClue) clueCount += 1;
-        const owner = this.ownerAt(cell.row, cell.col);
-        if (owner && owner !== selectedKey) { render("Hier liegt schon ein anderes Gehege."); return; }
-      }
-      if (clueCount > 1) { render("In ein Gehege darf nur eine Zahl."); return; }
-      if (clueCount !== 1) { render("Das Gehege muss beim Tier starten."); return; }
-      pushHistory();
-      state.regions[selectedKey] = { cells, color: (level.clues.indexOf(selectedClue) % 12) + 1 };
-      state.selected = null;
-      state.dragPreview = null;
-      this.checkWin() ? handleWin() : render("Gehege gesetzt. Wenn am Ende alles aufgeht, ist es richtig.");
+      this.commitCells(cells);
     },
     render(level) {
       board.innerHTML = "";
       board.style.setProperty("--size", level.cols);
       board.style.setProperty("--rows", level.rows);
       const dragKeys = new Set((state.dragPreview?.cells || []).map((cell) => keyOf(cell.row, cell.col)));
-      const dragAreaMatches = state.selected && state.dragPreview && state.dragPreview.area === (this.clueAt(level, state.selected.row, state.selected.col)?.value || 0);
+      const previewClue = state.dragPreview?.clueKey ? this.clueFromKey(level, state.dragPreview.clueKey) : null;
+      const dragAreaMatches = state.dragPreview?.clueCount === 1 && state.dragPreview.area === (previewClue?.value || 0);
       for (let r = 0; r < level.rows; r += 1) for (let c = 0; c < level.cols; c += 1) {
         const clue = this.clueAt(level, r, c);
         const selected = state.selected && state.selected.row === r && state.selected.col === c;
@@ -1135,13 +1162,22 @@ function startShikakuPointer(event, cell) {
   const row = Number(cell.dataset.row), col = Number(cell.dataset.col);
   const touchedClue = handler.clueAt(level, row, col);
   const selectedClue = state.selected ? handler.clueAt(level, state.selected.row, state.selected.col) : null;
-  const dragClue = touchedClue || selectedClue;
-  if (!dragClue) return false;
   event.preventDefault();
-  shikakuDrag = { pointerId: event.pointerId, clue: dragClue, startRow: row, startCol: col, lastRow: row, lastCol: col, moved: false, commitOnTap: !touchedClue && Boolean(selectedClue) };
+  shikakuDrag = {
+    pointerId: event.pointerId,
+    startRow: row,
+    startCol: col,
+    lastRow: row,
+    lastCol: col,
+    moved: false,
+    touchedClueKey: touchedClue ? handler.clueKey(touchedClue) : null,
+    selectedClueKey: selectedClue ? handler.clueKey(selectedClue) : null,
+  };
   activePointerId = event.pointerId;
   board.setPointerCapture?.(event.pointerId);
-  handler.previewDrag(dragClue, row, col);
+  if (touchedClue) handler.previewDrag(touchedClue, row, col);
+  else if (selectedClue) handler.previewDrag(selectedClue, row, col);
+  else handler.previewRectangle(row, col, row, col);
   return true;
 }
 function updateShikakuPointer(clientX, clientY) {
@@ -1153,22 +1189,34 @@ function updateShikakuPointer(clientX, clientY) {
   shikakuDrag.lastRow = row;
   shikakuDrag.lastCol = col;
   shikakuDrag.moved = shikakuDrag.moved || row !== shikakuDrag.startRow || col !== shikakuDrag.startCol;
-  GAME_HANDLERS.shikaku.previewDrag(shikakuDrag.clue, row, col);
+  GAME_HANDLERS.shikaku.previewRectangle(shikakuDrag.startRow, shikakuDrag.startCol, row, col);
 }
 function finishShikakuPointer() {
   if (!shikakuDrag) return;
-  const { lastRow, lastCol, moved, commitOnTap } = shikakuDrag;
+  const { startRow, startCol, lastRow, lastCol, moved, touchedClueKey, selectedClueKey } = shikakuDrag;
   shikakuDrag = null;
   activePointerId = null;
   ignoreNextShikakuClick = true;
-  GAME_HANDLERS.shikaku.finishDrag(lastRow, lastCol, moved || commitOnTap);
+  const handler = GAME_HANDLERS.shikaku;
+  const level = currentLevel();
+  const touchedClue = touchedClueKey ? handler.clueFromKey(level, touchedClueKey) : null;
+  const selectedClue = selectedClueKey ? handler.clueFromKey(level, selectedClueKey) : null;
+  if (!moved && touchedClue) {
+    handler.clearDragPreview();
+    handler.selectClue(touchedClue);
+  } else if (!moved && selectedClue) {
+    handler.clearDragPreview();
+    handler.commitCells(handler.rectangleCells(level, selectedClue, lastRow, lastCol));
+  } else {
+    handler.finishRectangle(startRow, startCol, lastRow, lastCol, moved);
+  }
 }
 function cancelShikakuPointer() {
   if (!shikakuDrag) return;
   shikakuDrag = null;
   activePointerId = null;
   ignoreNextShikakuClick = true;
-  GAME_HANDLERS.shikaku.finishDrag(0, 0, false);
+  GAME_HANDLERS.shikaku.finishRectangle(0, 0, 0, 0, false);
 }
 
 function drawArukoneCell(row, col) {
