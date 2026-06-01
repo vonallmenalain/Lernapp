@@ -803,7 +803,17 @@ function showLevelSelect() { finishMove(); hideSuccess(); if (levelPanel) levelP
 function showGame() { if (levelPanel) levelPanel.hidden = true; if (homePanel) homePanel.hidden = true; if (gamePanel) gamePanel.hidden = false; if (gameControls) gameControls.hidden = false; document.body.classList.add("puzzle-active"); }
 function startLevel(index) { hideSuccess(); currentIndex = index; const level = currentLevel(); selectedDifficulty = level.difficulty; const config = GAME_CONFIGS[currentGame]; history = []; winShown = false; if (undoButton) undoButton.disabled = true; const boardSize = level.cols || level.size || 5; board.className = `board ${currentGame}-board board-size-${boardSize}`; board.style.setProperty("--size", boardSize); board.setAttribute("aria-label", `${config.title} Spielfeld`); puzzleTitle.textContent = level.title; puzzleDescription.textContent = level.description || config.subtitle; fillList(gameHelpList, config.rules); resetState(); showGame(); render(); }
 function resetGame() { history = []; if (undoButton) undoButton.disabled = true; hideSuccess(); resetState(); render("Neu gestartet. Viel Spass!"); }
-function undo() { finishMove(); if (!history.length) return; restore(history.pop()); if (undoButton) undoButton.disabled = history.length === 0; setStatus("Ein Schritt zurück."); }
+function undo() {
+  finishMove();
+  if (currentGame === "hidoku") {
+    GAME_HANDLERS.hidoku.clear(false);
+    return;
+  }
+  if (!history.length) return;
+  restore(history.pop());
+  if (undoButton) undoButton.disabled = history.length === 0;
+  setStatus("Ein Schritt zurück.");
+}
 function nextLevel() { const levels = levelsForDifficulty(selectedDifficulty || currentLevel().difficulty); const currentDifficultyIndex = levels.indexOf(currentLevel()); const next = levels[(currentDifficultyIndex + 1) % levels.length]; startLevel(LEVELS_BY_GAME[currentGame].indexOf(next)); }
 function showSuccess() { const level = currentLevel(); winShown = true; markSolved(level); if (successOverlay) { successOverlay.hidden = false; successOverlay.classList.remove("hidden"); } setStatus("Geschafft!"); }
 function hideSuccess() { winShown = false; if (successOverlay) { successOverlay.hidden = true; successOverlay.classList.add("hidden"); } }
@@ -1025,9 +1035,10 @@ const GAME_HANDLERS = {
   bimaru: simpleGridGame("bimaru", "solution", ["","animal","water"], { animal:"🐟", water:"~" }),
 
   hidoku: {
-    resetState(level) { state={ values: zeros(level.size, level.size, null), fixed: {}, selected: null, activeNumber: null }; level.givens.forEach(([r,c,v])=>{ state.values[r][c]=v; state.fixed[keyOf(r,c)]=true; }); setStatus("Starte auf einer bestehenden Zahl und fahre von dort weiter."); },
+    resetState(level) { state={ values: zeros(level.size, level.size, null), fixed: {}, selected: null, activeNumber: null }; level.givens.forEach(([r,c,v])=>{ state.values[r][c]=v; state.fixed[keyOf(r,c)]=true; }); setStatus("Du kannst eine bestehende Zahl oder direkt ein leeres Feld waehlen."); },
     maxNumber(level=currentLevel()) { return level.size * level.size; },
     numberPosition(value) { for(let r=0;r<state.values.length;r++) for(let c=0;c<state.values[r].length;c++) if(state.values[r][c]===value) return [r,c]; return null; },
+    hasUserEntries() { for(let r=0;r<state.values.length;r++) for(let c=0;c<state.values[r].length;c++) if(state.values[r][c] && !state.fixed[keyOf(r,c)]) return true; return false; },
     duplicate(value, row, col) { if(!value) return false; for(let r=0;r<state.values.length;r++) for(let c=0;c<state.values[r].length;c++) if((r!==row||c!==col) && state.values[r][c]===value) return true; return false; },
     touches(a,b) { return a && b && Math.max(Math.abs(a[0]-b[0]), Math.abs(a[1]-b[1])) === 1; },
     conflict(r,c) { const level=currentLevel(), value=state.values[r][c], max=this.maxNumber(level); if(!value) return false; if(value<1 || value>max || this.duplicate(value,r,c)) return true; const current=[r,c]; const prev=value>1 ? this.numberPosition(value-1) : null; const next=value<max ? this.numberPosition(value+1) : null; return Boolean(prev && !this.touches(current,prev)) || Boolean(next && !this.touches(current,next)); },
@@ -1038,11 +1049,11 @@ const GAME_HANDLERS = {
     dragStartStatus(value) { const next=this.nextStatusNumber(); if(!next) return `Gestartet bei ${value}. Die Kette ist schon vollstaendig.`; if(next===value+1) return `Gestartet bei ${value}. Fahre zum Feld fuer ${next}.`; return `Gestartet bei ${value}. Die naechste fehlende Zahl ist ${next}.`; },
     activateNumber(value, row, col) { state.activeNumber=value; state.selected=[row,col]; render(this.activeNumberStatus(value)); },
     checkWin() { const level=currentLevel(), max=this.maxNumber(level); const seen=new Set(); for(let r=0;r<level.size;r++) for(let c=0;c<level.size;c++){ const value=state.values[r][c]; if(!value || value<1 || value>max || seen.has(value) || this.conflict(r,c)) return false; seen.add(value); } return seen.size===max; },
-    select(r,c) { const value=state.values[r][c]; if(value) { this.activateNumber(value,r,c); return; } setStatus("Wähle zuerst eine bestehende Zahl und fahre dann über leere Felder."); },
-    input(r,c) { const value=state.values[r][c], max=this.maxNumber(); if(value) { state.activeNumber=value; state.selected=[r,c]; if(!hidokuDrag) render(this.activeNumberStatus(value)); return true; } const next=this.nextNumber(); if(!state.activeNumber || next>max) return false; pushHistory(); state.values[r][c]=next; state.activeNumber=next; state.selected=[r,c]; const hasError=this.conflict(r,c); if(this.checkWin()) { handleWin(); return true; } render(hasError ? `Die ${next} ist theoretisch nicht verbunden. Du kannst trotzdem ab ${next} weiterfahren.` : `Gut! Weiter mit ${this.nextStatusNumber() || "dem Pruefen der Kette"}.`); return true; },
-    clear() { const level=currentLevel(); for(let n=this.maxNumber(level); n>=1;n--){ const pos=this.numberPosition(n); if(pos && !state.fixed[keyOf(pos[0],pos[1])]) { pushHistory(); state.values[pos[0]][pos[1]]=null; if(state.activeNumber===n) state.activeNumber=null; state.selected=null; render("Die letzte Zahl ist weg. Wähle eine bestehende Zahl zum Weiterfahren."); return; } } },
+    select(r,c) { const value=state.values[r][c]; if(value) { this.activateNumber(value,r,c); return; } if(!this.input(r,c)) setStatus("Die Zahlenkette ist bereits vollstaendig."); },
+    input(r,c) { const value=state.values[r][c], max=this.maxNumber(); if(value) { state.activeNumber=value; state.selected=[r,c]; if(!hidokuDrag) render(this.activeNumberStatus(value)); return true; } const next=this.nextNumber(); if(next>max) return false; pushHistory(); state.values[r][c]=next; state.activeNumber=next; state.selected=[r,c]; const hasError=this.conflict(r,c); if(this.checkWin()) { handleWin(); return true; } render(hasError ? `Die ${next} ist theoretisch nicht verbunden. Du kannst trotzdem ab ${next} weiterfahren.` : `Gut! Weiter mit ${this.nextStatusNumber() || "dem Pruefen der Kette"}.`); return true; },
+    clear(trackHistory = true) { const level=currentLevel(); for(let n=this.maxNumber(level); n>=1;n--){ const pos=this.numberPosition(n); if(pos && !state.fixed[keyOf(pos[0],pos[1])]) { if(trackHistory) pushHistory(); state.values[pos[0]][pos[1]]=null; state.activeNumber=null; state.selected=null; render("Die groesste eingegebene Zahl ist entfernt."); return true; } } return false; },
     hint() { const level=currentLevel(); for(let r=0;r<level.size;r++) for(let c=0;c<level.size;c++) if(!state.fixed[keyOf(r,c)] && state.values[r][c]!==level.solution[r][c]) { pushHistory(); state.values[r][c]=level.solution[r][c]; state.activeNumber=level.solution[r][c]; state.selected=[r,c]; render("Tipp: Eine sichere Zahl ist eingetragen. Du kannst dort weiterfahren."); checkAndWin(); return; } },
-    render(level) { board.innerHTML=""; board.style.setProperty("--size", level.size); if(numberPad){ numberPad.hidden=true; numberPad.classList.remove("hidoku-pad"); numberPad.innerHTML=""; } for(let r=0;r<level.size;r++) for(let c=0;c<level.size;c++){ const fixed=state.fixed[keyOf(r,c)]; const value=state.values[r][c] || ""; const selected=state.selected&&sameCell(state.selected,[r,c]); const cell=makeButtonCell(r,c,`cell hidoku-cell${fixed?" given":""}${selected?" selected":""}${this.conflict(r,c)?" conflict":""}`, value); cell.addEventListener("click",()=>{ if(ignoreNextHidokuClick){ ignoreNextHidokuClick=false; return; } this.select(r,c); }); board.append(cell); } },
+    render(level) { board.innerHTML=""; board.style.setProperty("--size", level.size); if(numberPad){ numberPad.hidden=true; numberPad.classList.remove("hidoku-pad"); numberPad.innerHTML=""; } for(let r=0;r<level.size;r++) for(let c=0;c<level.size;c++){ const fixed=state.fixed[keyOf(r,c)]; const value=state.values[r][c] || ""; const selected=state.selected&&sameCell(state.selected,[r,c]); const cell=makeButtonCell(r,c,`cell hidoku-cell${fixed?" given":""}${selected?" selected":""}${this.conflict(r,c)?" conflict":""}`, value); cell.addEventListener("click",()=>{ if(ignoreNextHidokuClick){ ignoreNextHidokuClick=false; return; } this.select(r,c); }); board.append(cell); } if (undoButton) undoButton.disabled = !this.hasUserEntries(); },
   },
   kakuro: {
     resetState(level) { state = { values: zeros(level.size, level.size, null), selected: null }; setStatus("Tippe auf ein weißes Feld und wähle eine Zahl."); },
@@ -1139,14 +1150,18 @@ function startHidokuPointer(event, cell) {
   const handler = GAME_HANDLERS.hidoku;
   const row = Number(cell.dataset.row), col = Number(cell.dataset.col);
   const value = state.values[row][col];
-  if (!value) return false;
+  if (!value && !handler.nextStatusNumber()) return false;
   event.preventDefault();
-  state.activeNumber = value;
-  state.selected = [row, col];
+  if (value) {
+    state.activeNumber = value;
+    state.selected = [row, col];
+  } else {
+    state.selected = null;
+  }
   hidokuDrag = { pointerId: event.pointerId, lastKey: null };
   activePointerId = event.pointerId;
   board.setPointerCapture?.(event.pointerId);
-  setStatus(handler.dragStartStatus(value));
+  if (value) setStatus(handler.dragStartStatus(value));
   drawHidokuCell(row, col);
   return true;
 }
