@@ -786,6 +786,9 @@ function validateMathTask(task) {
   if (task.options.length !== rules.optionCount || new Set(task.options).size !== task.options.length) return false;
   return task.options.filter((option) => option === task.correctAnswer).length === 1;
 }
+function mathTaskKey(task) {
+  return [task.puzzleType, task.difficulty, task.operator, task.left, task.right, task.result, task.missingPosition].join(":");
+}
 
 function wordItem(id, word, article, imageKey, difficulty, category, syllables, allowedTaskTypes) {
   return { id, word, displayWord: word, article, imageKey, difficulty, category, syllables, allowedTaskTypes };
@@ -1020,6 +1023,26 @@ function validateReadingTask(task) {
   if (task.taskType === "missingLetter" && task.displayText.split(" ").filter((part) => part === "_").length !== 1) return false;
   if (task.taskType === "missingSyllable" && task.displayText.split(" ").filter((part) => part === "_").length !== 1) return false;
   return true;
+}
+function readingTaskKey(task) {
+  if (task.taskType === "missingLetter" || task.taskType === "missingSyllable") return [task.puzzleType, task.difficulty, task.taskType, task.wordId, task.missingIndex].join(":");
+  if (task.taskType === "chooseWord") return [task.puzzleType, task.difficulty, task.taskType, task.wordId].join(":");
+  return [task.puzzleType, task.difficulty, task.taskType, task.sentenceId].join(":");
+}
+function practiceTaskKey(task) {
+  return task.puzzleType === "mathPuzzle" ? mathTaskKey(task) : readingTaskKey(task);
+}
+function generateUniquePracticeTask(taskFactory, difficulty, usedKeys = []) {
+  const used = new Set(usedKeys);
+  let fallback = null;
+  for (let attempt = 0; attempt < 120; attempt += 1) {
+    const task = taskFactory(difficulty);
+    const key = practiceTaskKey(task);
+    task.practiceKey = key;
+    if (!used.has(key)) return task;
+    fallback = fallback || task;
+  }
+  return fallback || taskFactory(difficulty);
 }
 
 const MATH_LEVEL_DESCRIPTIONS = {
@@ -1307,7 +1330,7 @@ function answerKey(value) { return String(value); }
 function sameAnswer(a, b) { return answerKey(a) === answerKey(b); }
 function practiceProgressKey(level) { return `lernapp.practice.${level.game}.${level.id || level.levelName}`; }
 function loadPracticeProgress(level) {
-  const fallback = { solved: 0, correct: 0, answers: 0, bestStreak: 0, currentDifficulty: level.difficulty };
+  const fallback = { solved: 0, correct: 0, answers: 0, currentDifficulty: level.difficulty };
   try {
     return { ...fallback, ...JSON.parse(localStorage.getItem(practiceProgressKey(level)) || "{}") };
   } catch {
@@ -1324,18 +1347,16 @@ function recordPracticeAnswer(level, isCorrect) {
   if (isCorrect) {
     progress.solved += 1;
     progress.correct += 1;
-    progress.bestStreak = Math.max(progress.bestStreak || 0, state.bestStreak || 0, state.streak || 0);
   }
   savePracticeProgress(level, progress);
 }
 function resetPracticeState(level, taskFactory, status) {
-  const progress = loadPracticeProgress(level);
+  const task = generateUniquePracticeTask(taskFactory, level.difficulty);
   state = {
-    task: taskFactory(level.difficulty),
+    task,
+    usedTaskKeys: [practiceTaskKey(task)],
     solvedCount: 0,
     correctCount: 0,
-    streak: 0,
-    bestStreak: progress.bestStreak || 0,
     attempts: 0,
     selectedAnswer: null,
     feedback: "",
@@ -1347,7 +1368,9 @@ function resetPracticeState(level, taskFactory, status) {
 }
 function nextPracticeTask(taskFactory, status) {
   const level = currentLevel();
-  state.task = taskFactory(level.difficulty);
+  const task = generateUniquePracticeTask(taskFactory, level.difficulty, state.usedTaskKeys || []);
+  state.task = task;
+  state.usedTaskKeys = [...(state.usedTaskKeys || []), practiceTaskKey(task)];
   state.attempts = 0;
   state.selectedAnswer = null;
   state.feedback = "";
@@ -1363,9 +1386,7 @@ function answerPracticeTask(answer, taskFactory, messages) {
   if (correct) {
     state.solvedCount += 1;
     state.correctCount += 1;
-    state.streak += 1;
-    state.bestStreak = Math.max(state.bestStreak, state.streak);
-    state.feedback = state.streak > 0 && state.streak % 5 === 0 ? messages.streak : pickRandom(messages.correct);
+    state.feedback = pickRandom(messages.correct);
     recordPracticeAnswer(level, true);
     if (state.solvedCount >= (level.targetCount || 10)) {
       state.completed = true;
@@ -1377,7 +1398,6 @@ function answerPracticeTask(answer, taskFactory, messages) {
     return;
   }
   state.attempts += 1;
-  state.streak = 0;
   state.tipVisible = state.attempts >= 2;
   state.feedback = state.tipVisible ? messages.hint : pickRandom(messages.retry);
   recordPracticeAnswer(level, false);
@@ -1389,9 +1409,7 @@ function renderPracticeProgress(level) {
   progress.className = "practice-progress";
   [
     `Aufgabe ${Math.min(state.solvedCount + 1, target)} von ${target}`,
-    `Richtig ${state.correctCount}`,
-    `Serie ${state.streak}`,
-    `Bestserie ${state.bestStreak}`,
+    `Richtig ${state.correctCount} von ${target}`,
   ].forEach((text) => {
     const item = document.createElement("span");
     item.textContent = text;
@@ -1456,59 +1474,10 @@ function renderPracticeShell(level, className, taskView, onAnswer, taskFactory, 
     renderPracticeFeedback(taskFactory, nextStatus),
   );
 }
-function makeCountDot(taken = false) {
-  const dot = document.createElement("span");
-  dot.className = `count-dot${taken ? " taken" : ""}`;
-  dot.textContent = "•";
-  return dot;
-}
-function makeCountGroup(count, takenFrom = Infinity) {
-  const group = document.createElement("div");
-  group.className = "count-group";
-  for (let i = 0; i < count; i += 1) group.append(makeCountDot(i >= takenFrom));
-  return group;
-}
-function makeMathNumberLine(task) {
-  const line = document.createElement("div");
-  line.className = "number-line";
-  const max = MATH_DIFFICULTY_RULES[task.difficulty].max;
-  for (let value = 0; value <= max; value += 1) {
-    const tick = document.createElement("span");
-    tick.className = value === task.correctAnswer ? "target" : "";
-    tick.textContent = value;
-    line.append(tick);
-  }
-  return line;
-}
-function makeMathVisual(task) {
-  const showObjects = (task.difficulty === "easy" || task.difficulty === "medium") && task.missingPosition === "result";
-  if (!showObjects && !state.tipVisible) return null;
-  const visual = document.createElement("div");
-  visual.className = "math-visual";
-  if (showObjects) {
-    if (task.operator === "+") {
-      visual.append(makeCountGroup(task.left));
-      const operator = document.createElement("span");
-      operator.className = "math-visual-symbol";
-      operator.textContent = "+";
-      visual.append(operator, makeCountGroup(task.right));
-    } else {
-      visual.append(makeCountGroup(task.left, task.result));
-      const label = document.createElement("span");
-      label.className = "math-visual-symbol";
-      label.textContent = "weg";
-      visual.append(label);
-    }
-  }
-  if (state.tipVisible || !showObjects) visual.append(makeMathNumberLine(task));
-  return visual;
-}
 function makeMathTaskView() {
   const task = state.task;
   const view = document.createElement("div");
   view.className = "practice-task math-task";
-  const visual = makeMathVisual(task);
-  if (visual) view.append(visual);
   const equation = document.createElement("div");
   equation.className = "math-equation";
   equation.textContent = task.questionText;
@@ -1560,13 +1529,12 @@ const GAME_HANDLERS = {
   mathPuzzle: {
     resetState(level) { resetPracticeState(level, generateMathTask, "Rechne in Ruhe und tippe auf die passende Zahl."); },
     checkWin() { return Boolean(state.completed); },
-    hint() { if (!state.task || state.completed || state.awaitingNext) return; state.tipVisible = true; render("Tipp: Schau auf die Punkte oder die Zahlengerade."); },
+    hint() { if (!state.task || state.completed || state.awaitingNext) return; state.tipVisible = true; render("Tipp: Lies die Aufgabe langsam und prüfe die fehlende Zahl."); },
     answer(answer) {
       answerPracticeTask(answer, generateMathTask, {
         correct: ["Richtig!", "Super!", "Gut gerechnet!"],
         retry: ["Fast! Versuch es noch einmal.", "Du bist nah dran. Zähl noch einmal in Ruhe."],
         hint: "Fast! Die Hilfe zeigt dir einen guten Weg.",
-        streak: "Fünf in Folge. Stark gerechnet!",
       });
     },
     render(level) {
@@ -1583,7 +1551,6 @@ const GAME_HANDLERS = {
         correct: ["Richtig gelesen!", "Super!", "Das war das richtige Wort!"],
         retry: ["Fast! Schau noch einmal genau hin.", "Vergleiche das Wort mit dem Bild."],
         hint: "Achte auf den Anfang und lies langsam weiter.",
-        streak: "Fünf in Folge. Richtig gut gelesen!",
       });
     },
     render(level) {
