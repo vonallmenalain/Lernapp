@@ -34,6 +34,9 @@
   };
 
   const LOCAL_SOLVED_PREFIX = "lernapp.solved.";
+  const CHILD_LOGIN_DOMAIN = "lernapp.local";
+  const PASSWORD_SUFFIX = "::lernapp";
+  const MIN_CHILD_PASSWORD_LENGTH = 4;
   const HEARTBEAT_MS = 30000;
   const state = {
     app: null,
@@ -47,6 +50,7 @@
     heartbeatId: null,
     dashboardOpen: false,
     firebaseReady: false,
+    pendingDisplayName: null,
   };
 
   const accountButton = document.createElement("button");
@@ -130,7 +134,9 @@
       state.auth = window.firebase.auth();
       state.db = window.firebase.firestore();
       state.firebaseReady = true;
-      state.auth.onAuthStateChanged(handleAuthState);
+      state.auth.setPersistence(window.firebase.auth.Auth.Persistence.LOCAL)
+        .catch(() => {})
+        .finally(() => state.auth.onAuthStateChanged(handleAuthState));
       startHeartbeat();
     } catch (error) {
       state.firebaseReady = false;
@@ -247,14 +253,80 @@
     });
   }
 
+  function cleanDisplayName(value) {
+    return String(value || "").trim().replace(/\s+/g, " ");
+  }
+
+  function loginSlug(value) {
+    return cleanDisplayName(value)
+      .normalize("NFKD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+  }
+
+  function technicalEmailFromName(value) {
+    const slug = loginSlug(value);
+    if (!slug) throw authInputError("lernapp/missing-name");
+    return `${slug}@${CHILD_LOGIN_DOMAIN}`;
+  }
+
+  function emailForSignIn(value) {
+    const loginName = cleanDisplayName(value);
+    if (!loginName) throw authInputError("lernapp/missing-name");
+    return loginName.includes("@") ? loginName.toLowerCase() : technicalEmailFromName(loginName);
+  }
+
+  function childPassword(value) {
+    const password = String(value || "");
+    if (password.length < MIN_CHILD_PASSWORD_LENGTH) throw authInputError("lernapp/short-password");
+    return `${password}${PASSWORD_SUFFIX}`;
+  }
+
+  function passwordForSignIn(loginName, password) {
+    return cleanDisplayName(loginName).includes("@") ? String(password || "") : childPassword(password);
+  }
+
+  function isTechnicalEmail(email) {
+    return String(email || "").toLowerCase().endsWith(`@${CHILD_LOGIN_DOMAIN}`);
+  }
+
+  function fallbackNameFromEmail(email) {
+    if (!email) return "Kind";
+    const localPart = String(email).split("@")[0] || "kind";
+    return localPart.replace(/[-_.]+/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
+  }
+
+  function profileNameForUser(user, userData = {}) {
+    return cleanDisplayName(
+      state.pendingDisplayName ||
+      userData.username ||
+      user.displayName ||
+      (isTechnicalEmail(user.email) ? fallbackNameFromEmail(user.email) : user.email) ||
+      "Kind"
+    );
+  }
+
+  function authInputError(code) {
+    return Object.assign(new Error(code), { code });
+  }
+
   async function upsertUserProfile(user) {
     const ref = userRef();
     const existing = await ref.get();
+    const existingData = existing.data() || {};
     const providers = user.providerData.map((provider) => provider.providerId);
+    const username = profileNameForUser(user, existingData);
+    const isNameLogin = isTechnicalEmail(user.email);
     const payload = {
-      email: user.email || null,
-      displayName: user.displayName || null,
+      authEmail: user.email || null,
+      email: isNameLogin ? null : (user.email || null),
+      username,
+      displayName: username,
+      loginMethod: isNameLogin ? "name-password" : (providers.includes("google.com") ? "google" : "email-password"),
       providers,
+      localPersistence: true,
       updatedAt: serverTimestamp(),
       lastSeenAt: serverTimestamp(),
     };
@@ -272,6 +344,7 @@
     }
 
     await ref.set(payload, { merge: true });
+    state.pendingDisplayName = null;
   }
 
   function userRef() {
@@ -286,12 +359,21 @@
     return window.firebase.firestore.FieldValue.increment(value);
   }
 
-  async function signIn(email, password) {
-    await state.auth.signInWithEmailAndPassword(email, password);
+  async function signIn(loginName, password) {
+    await state.auth.signInWithEmailAndPassword(emailForSignIn(loginName), passwordForSignIn(loginName, password));
   }
 
-  async function signUp(email, password) {
-    await state.auth.createUserWithEmailAndPassword(email, password);
+  async function signUp(loginName, password) {
+    const displayName = cleanDisplayName(loginName);
+    const email = technicalEmailFromName(displayName);
+    state.pendingDisplayName = displayName;
+    try {
+      const credential = await state.auth.createUserWithEmailAndPassword(email, childPassword(password));
+      if (credential.user?.updateProfile) await credential.user.updateProfile({ displayName });
+    } catch (error) {
+      state.pendingDisplayName = null;
+      throw error;
+    }
   }
 
   async function signInWithGoogle() {
@@ -521,7 +603,7 @@
     accountButton.title = isLoggedIn ? "Profil und Dashboard" : "Login";
     const initial = accountButton.querySelector(".account-initial");
     if (!initial) return;
-    const source = state.user?.displayName || state.user?.email || "";
+    const source = state.user ? profileNameForUser(state.user) : "";
     initial.textContent = isLoggedIn ? source.trim().charAt(0).toUpperCase() : "";
   }
 
@@ -545,28 +627,26 @@
     modalContent.innerHTML = `
       <p class="small-label">Profil</p>
       <h2 id="account-modal-title">Einloggen</h2>
-      <p class="account-muted">Melde dich an, damit gelöste Levels, Spielzeit, Resets und Fortschritte in Firebase gespeichert werden.</p>
+      <p class="account-muted">Ein Name und ein kurzes Passwort reichen. Auf diesem Gerät bleibst du auch nach einem Neustart angemeldet.</p>
       <form class="auth-form" data-auth-mode="login">
         <label>
-          <span>E-Mail</span>
-          <input name="email" type="email" autocomplete="email" required />
+          <span>Name</span>
+          <input name="loginName" type="text" autocomplete="username" required />
         </label>
         <label>
           <span>Passwort</span>
-          <input name="password" type="password" autocomplete="current-password" minlength="6" required />
+          <input name="password" type="password" autocomplete="current-password" minlength="4" required />
         </label>
         <div class="auth-actions">
           <button type="submit" data-mode="login">Einloggen</button>
-          <button type="button" class="secondary-action" data-auth-register>Registrieren</button>
+          <button type="button" class="secondary-action" data-auth-register>Neues Konto</button>
         </div>
       </form>
-      <button type="button" class="google-action" data-google-login>Mit Google anmelden</button>
       <p class="auth-status" role="status" aria-live="polite">${state.firebaseReady ? "" : "Firebase SDK ist noch nicht geladen."}</p>
     `;
 
     const form = modalContent.querySelector(".auth-form");
     const registerButton = modalContent.querySelector("[data-auth-register]");
-    const googleButton = modalContent.querySelector("[data-google-login]");
     const status = modalContent.querySelector(".auth-status");
 
     form.addEventListener("submit", async (event) => {
@@ -578,7 +658,7 @@
       const formData = new FormData(form);
       status.textContent = "Anmeldung läuft...";
       try {
-        await signIn(String(formData.get("email")), String(formData.get("password")));
+        await signIn(String(formData.get("loginName")), String(formData.get("password")));
       } catch (error) {
         status.textContent = authErrorMessage(error);
       }
@@ -592,20 +672,7 @@
       const formData = new FormData(form);
       status.textContent = "Konto wird erstellt...";
       try {
-        await signUp(String(formData.get("email")), String(formData.get("password")));
-      } catch (error) {
-        status.textContent = authErrorMessage(error);
-      }
-    });
-
-    googleButton.addEventListener("click", async () => {
-      if (!state.firebaseReady) {
-        status.textContent = "Firebase ist nicht verfügbar.";
-        return;
-      }
-      status.textContent = "Google-Anmeldung wird geöffnet...";
-      try {
-        await signInWithGoogle();
+        await signUp(String(formData.get("loginName")), String(formData.get("password")));
       } catch (error) {
         status.textContent = authErrorMessage(error);
       }
@@ -636,7 +703,8 @@
 
   function renderDashboard(userData, progressDocs, sessions) {
     const stats = summarizeProgress(userData, progressDocs);
-    const providerText = providerLabel(state.user.providerData.map((provider) => provider.providerId));
+    const loginName = userData.username || profileNameForUser(state.user, userData);
+    const providerText = providerLabel(state.user.providerData.map((provider) => provider.providerId), userData);
 
     modalContent.innerHTML = `
       <p class="small-label">Profil</p>
@@ -644,7 +712,7 @@
       <div class="profile-summary">
         <div>
           <span class="account-muted">Angemeldet als</span>
-          <strong>${escapeHtml(state.user.email || state.user.displayName || "Unbekannt")}</strong>
+          <strong>${escapeHtml(loginName)}</strong>
           <small>${providerText}</small>
         </div>
         <button type="button" class="secondary-action" data-logout>Logout</button>
@@ -756,7 +824,8 @@
     `;
   }
 
-  function providerLabel(providers) {
+  function providerLabel(providers, userData = {}) {
+    if (userData.loginMethod === "name-password" || isTechnicalEmail(state.user?.email)) return "Name und Passwort · auf diesem Gerät gespeichert";
     if (providers.includes("google.com")) return "Google-Konto";
     if (providers.includes("password")) return "E-Mail und Passwort";
     return providers.join(", ") || "Firebase Auth";
@@ -773,12 +842,13 @@
 
   function authErrorMessage(error) {
     const code = error?.code || "";
-    if (code.includes("invalid-email")) return "Bitte gib eine gültige E-Mail-Adresse ein.";
-    if (code.includes("weak-password")) return "Das Passwort muss mindestens 6 Zeichen haben.";
-    if (code.includes("email-already-in-use")) return "Für diese E-Mail existiert bereits ein Konto.";
-    if (code.includes("user-not-found") || code.includes("wrong-password") || code.includes("invalid-credential")) return "E-Mail oder Passwort stimmt nicht.";
+    if (code.includes("missing-name")) return "Bitte gib einen Namen ein.";
+    if (code.includes("short-password") || code.includes("weak-password")) return "Das Passwort muss mindestens 4 Zeichen haben.";
+    if (code.includes("invalid-email")) return "Dieser Name kann nicht verwendet werden.";
+    if (code.includes("email-already-in-use")) return "Dieser Name ist bereits vergeben.";
+    if (code.includes("user-not-found") || code.includes("wrong-password") || code.includes("invalid-credential")) return "Name oder Passwort stimmt nicht.";
     if (code.includes("popup")) return "Die Google-Anmeldung wurde nicht abgeschlossen.";
-    return "Die Anmeldung hat nicht geklappt. Prüfe Firebase Auth und die erlaubten Domains.";
+    return "Die Anmeldung hat nicht geklappt. Prüfe Firebase Auth und die Firestore-Regeln.";
   }
 
   function renderError(message, error) {
