@@ -344,10 +344,10 @@ const GAME_CONFIGS = {
   },
   backpack: {
     title: "Rucksack packen", eyebrow: "Merkspiel", code: "R",
-    subtitle: "Merke dir, was in den Rucksack kommt.",
+    subtitle: "Wähle Gegenstände aus und merke dir deine Pack-Reihenfolge.",
     success: "",
     endless: true,
-    rules: ["Schau dir den neuen Gegenstand gut an.", "Packe danach die ganze Reihenfolge von Anfang an nach.", "Bei einem Fehler endet die Runde und dein Ergebnis wird angezeigt."],
+    rules: ["Wähle selbst einen neuen Gegenstand für den Rucksack.", "Packe danach deine ganze Reihenfolge von Anfang an nach.", "Bei einem Fehler endet die Runde und dein Ergebnis wird angezeigt."],
   },
 };
 
@@ -367,10 +367,10 @@ function makeLevel(game, difficulty, index, data) {
 }
 
 const BACKPACK_DIFFICULTY_CONFIG = {
-  easy: { choiceCount: 2, stableChoiceSet: true, stablePositions: true, showLabels: true, demoDurationMs: 1300, packingAnimationMs: 600, decoyMode: "mixed" },
-  medium: { choiceCount: 3, stableChoiceSet: true, stablePositions: false, showLabels: true, demoDurationMs: 1100, packingAnimationMs: 550, decoyMode: "mixed" },
-  hard: { choiceCount: 4, stableChoiceSet: true, stablePositions: false, showLabels: false, demoDurationMs: 900, packingAnimationMs: 500, decoyMode: "similarPreferred" },
-  extreme: { choiceCount: 5, stableChoiceSet: false, stablePositions: false, showLabels: false, demoDurationMs: 700, packingAnimationMs: 450, decoyMode: "similarPreferred" },
+  easy: { choiceCount: 2, stableChoiceSet: true, stablePositions: true, showLabels: true, packingAnimationMs: 600, decoyMode: "mixed" },
+  medium: { choiceCount: 3, stableChoiceSet: true, stablePositions: false, showLabels: true, packingAnimationMs: 550, decoyMode: "mixed" },
+  hard: { choiceCount: 4, stableChoiceSet: true, stablePositions: false, showLabels: false, packingAnimationMs: 500, decoyMode: "similarPreferred" },
+  extreme: { choiceCount: 5, stableChoiceSet: false, stablePositions: false, showLabels: false, packingAnimationMs: 450, decoyMode: "similarPreferred" },
 };
 
 const BACKPACK_ITEMS = [
@@ -445,9 +445,6 @@ function backpackTargetPool(sequence) {
   const lastId = sequence.at(-1)?.targetId;
   return BACKPACK_ITEMS.filter((item) => item.id !== lastId);
 }
-function pickBackpackTargetId(sequence) {
-  return pickRandom(backpackTargetPool(sequence).length ? backpackTargetPool(sequence) : BACKPACK_ITEMS).id;
-}
 function backpackDecoyCandidates(targetId, difficulty) {
   const target = backpackItem(targetId);
   const others = BACKPACK_ITEMS.filter((item) => item.id !== targetId);
@@ -474,6 +471,16 @@ function createChoiceSet(targetId, difficulty, previousStableChoiceIds = null) {
 }
 function backpackChoicesForEntry(entry, difficulty) {
   return createBackpackChoiceSet(entry.targetId, difficulty, entry.stableChoiceIds);
+}
+function createBackpackNewItemChoices(difficulty, sequence = []) {
+  const config = backpackConfig(difficulty);
+  const pool = shuffleOptions(backpackTargetPool(sequence).map((item) => item.id));
+  const choices = pool.slice(0, config.choiceCount);
+  if (choices.length === config.choiceCount) return choices;
+  BACKPACK_ITEMS.forEach((item) => {
+    if (choices.length < config.choiceCount && !choices.includes(item.id)) choices.push(item.id);
+  });
+  return shuffleOptions(choices);
 }
 
 // Bestehende Arukone- und Sudoku-Level in die neue Struktur übernehmen.
@@ -1413,7 +1420,7 @@ const BACKPACK_LEVELS = DIFFICULTY_KEYS.map((difficulty) => makeLevel("backpack"
   badge: "Endlos",
   size: 1,
   title: `${GAME_CONFIGS.backpack.title} · ${DIFFICULTIES[difficulty].label}`,
-  description: "Merke dir, was in den Rucksack kommt.",
+  description: "Wähle selbst aus, was in den Rucksack kommt, und merke dir deine Reihenfolge.",
 }));
 
 if (typeof window !== "undefined") {
@@ -1946,6 +1953,22 @@ function backpackRecallStatus() {
   const total = state.sequence?.length || 0;
   return total ? `Gegenstand ${state.recallIndex + 1} von ${total}` : "";
 }
+function backpackPhaseTitle() {
+  if (state.phase === "chooseNew") return "Neuen Gegenstand auswählen";
+  if (state.phase === "packingNew") return "Du packst ein";
+  if (state.phase === "recall" || state.phase === "correctPacking") return "Reihenfolge erinnern";
+  if (state.phase === "wrong" || state.phase === "gameOver") return "Runde vorbei";
+  return "Rucksack packen";
+}
+function backpackPhaseInstruction() {
+  if (state.phase === "chooseNew") return "Wähle jetzt selbst einen neuen Gegenstand für deinen Rucksack.";
+  if (state.phase === "packingNew") return "Dein neuer Gegenstand wandert in den Rucksack.";
+  if (state.phase === "recall") return `Packe die Reihenfolge von Anfang an nach: ${backpackRecallStatus()}.`;
+  if (state.phase === "correctPacking") return "Richtig. Der Gegenstand ist eingepackt.";
+  if (state.phase === "wrong") return "Fast. Diese Runde endet gleich.";
+  if (state.phase === "gameOver") return `Du hast ${state.score || 0} Gegenstände richtig eingepackt.`;
+  return "";
+}
 function makeBackpackStat(label, value) {
   const stat = document.createElement("span");
   stat.innerHTML = `<small>${label}</small><strong>${value}</strong>`;
@@ -1970,13 +1993,12 @@ const GAME_HANDLERS = {
         activeTargetId: null,
         selectedItemId: null,
         packingItemId: null,
-        demoHighlight: false,
         backpackBounce: false,
         isAnimating: false,
         runToken: `${Date.now()}-${randomInt(1000, 9999)}`,
       };
-      setStatus("Schau genau hin, was zuerst eingepackt wird.");
-      this.addAndDemoNewItem();
+      setStatus("Wähle aus, was zuerst in den Rucksack kommt.");
+      this.startNewItemChoice();
     },
     schedule(callback, delay) {
       const token = state.runToken;
@@ -1986,46 +2008,47 @@ const GAME_HANDLERS = {
     },
     checkWin() { return false; },
     hint() {
+      if (state.phase === "chooseNew") setStatus("Du darfst frei entscheiden, welcher Gegenstand als nächstes dazukommt.");
       if (state.phase === "recall") setStatus("Beginne wieder beim ersten Gegenstand der Reihe.");
     },
-    addAndDemoNewItem() {
+    startNewItemChoice() {
       const difficulty = state.difficulty || "easy";
-      const config = backpackConfig(difficulty);
-      const targetId = pickBackpackTargetId(state.sequence || []);
-      const entry = { targetId };
-      if (config.stableChoiceSet) entry.stableChoiceIds = createBackpackChoiceSet(targetId, difficulty);
-      state.sequence = [...(state.sequence || []), entry];
       state.recallIndex = 0;
-      state.currentChoices = backpackChoicesForEntry(entry, difficulty);
-      state.activeTargetId = targetId;
+      state.currentChoices = createBackpackNewItemChoices(difficulty, state.sequence || []);
+      state.activeTargetId = null;
       state.selectedItemId = null;
       state.packingItemId = null;
-      state.demoHighlight = false;
       state.backpackBounce = false;
-      state.phase = "demo";
+      state.phase = "chooseNew";
+      state.isAnimating = false;
+      setStatus("Wähle den nächsten Gegenstand aus.");
+      render();
+    },
+    chooseNewItem(itemId) {
+      if (state.phase !== "chooseNew" || state.isAnimating) return;
+      const difficulty = state.difficulty || "easy";
+      const config = backpackConfig(difficulty);
+      const entry = { targetId: itemId };
+      if (config.stableChoiceSet) entry.stableChoiceIds = createBackpackChoiceSet(itemId, difficulty);
+      state.sequence = [...(state.sequence || []), entry];
+      state.selectedItemId = itemId;
+      state.packingItemId = itemId;
+      state.activeTargetId = itemId;
+      state.backpackBounce = true;
+      state.phase = "packingNew";
       state.isAnimating = true;
-      setStatus(`Merke dir: ${backpackItem(targetId).label}.`);
+      setStatus(`${backpackItem(itemId).label} kommt in den Rucksack.`);
       render();
       this.schedule(() => {
-        state.demoHighlight = true;
-        render();
-      }, 120);
-      this.schedule(() => {
-        state.demoHighlight = false;
-        state.packingItemId = targetId;
-        state.backpackBounce = true;
-        setStatus("Der neue Gegenstand wandert in den Rucksack.");
-        render();
-      }, config.demoDurationMs);
-      this.schedule(() => {
+        state.selectedItemId = null;
         state.packingItemId = null;
         state.backpackBounce = false;
         this.startRecallRound();
-      }, config.demoDurationMs + config.packingAnimationMs);
+      }, config.packingAnimationMs);
     },
     startRecallRound() {
       if (!state.sequence?.length) {
-        this.addAndDemoNewItem();
+        this.startNewItemChoice();
         return;
       }
       state.phase = "recall";
@@ -2036,10 +2059,14 @@ const GAME_HANDLERS = {
       state.backpackBounce = false;
       state.activeTargetId = null;
       state.currentChoices = backpackChoicesForEntry(state.sequence[0], state.difficulty);
-      setStatus(backpackRecallStatus());
+      setStatus("Erinnere dich an die Reihenfolge von Anfang an.");
       render();
     },
     onItemClick(itemId) {
+      if (state.phase === "chooseNew") {
+        this.chooseNewItem(itemId);
+        return;
+      }
       if (state.phase !== "recall" || state.isAnimating) return;
       const expectedTargetId = state.sequence[state.recallIndex]?.targetId;
       state.selectedItemId = itemId;
@@ -2083,7 +2110,7 @@ const GAME_HANDLERS = {
         }
         state.score = state.sequence.length;
         updateBackpackHighScore();
-        this.addAndDemoNewItem();
+        this.startNewItemChoice();
       }, config.packingAnimationMs);
     },
     progressFillCount() {
@@ -2123,10 +2150,13 @@ const GAME_HANDLERS = {
       backpack.className = `backpack-emoji${state.backpackBounce ? " bouncing" : ""}`;
       backpack.setAttribute("aria-hidden", "true");
       backpack.textContent = "🎒";
+      const mode = document.createElement("div");
+      mode.className = `backpack-mode ${state.phase}`;
+      mode.textContent = backpackPhaseTitle();
       const phase = document.createElement("p");
       phase.className = "backpack-phase";
-      phase.textContent = state.phase === "demo" ? "Neuer Gegenstand" : state.phase === "gameOver" ? "Runde vorbei" : backpackRecallStatus();
-      scene.append(backpack, this.renderProgress(), phase);
+      phase.textContent = backpackPhaseInstruction();
+      scene.append(mode, backpack, this.renderProgress(), phase);
       return scene;
     },
     renderChoices() {
@@ -2137,15 +2167,15 @@ const GAME_HANDLERS = {
       state.currentChoices.forEach((itemId) => {
         const item = backpackItem(itemId);
         const button = document.createElement("button");
-        const isDemoTarget = state.phase === "demo" && state.demoHighlight && itemId === state.activeTargetId;
         const isPacking = itemId === state.packingItemId;
         const isSelected = itemId === state.selectedItemId;
         const isWrong = state.phase === "wrong" && isSelected;
         const isCorrect = state.phase === "correctPacking" && isSelected;
+        const isNewChoice = state.phase === "chooseNew";
         button.type = "button";
-        button.className = `backpack-item-card${config.showLabels ? "" : " no-label"}${isDemoTarget ? " demo-highlight" : ""}${isPacking ? " packing" : ""}${isCorrect ? " correct" : ""}${isWrong ? " wrong" : ""}`;
-        button.disabled = state.phase !== "recall" || state.isAnimating;
-        button.setAttribute("aria-label", item.label);
+        button.className = `backpack-item-card${config.showLabels ? "" : " no-label"}${isNewChoice ? " new-choice" : ""}${isPacking ? " packing" : ""}${isCorrect ? " correct" : ""}${isWrong ? " wrong" : ""}`;
+        button.disabled = !["chooseNew", "recall"].includes(state.phase) || state.isAnimating;
+        button.setAttribute("aria-label", isNewChoice ? `${item.label} neu einpacken` : item.label);
         const emoji = document.createElement("span");
         emoji.className = "backpack-item-emoji";
         emoji.setAttribute("aria-hidden", "true");
