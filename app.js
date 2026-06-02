@@ -1597,6 +1597,19 @@ const GAME_HANDLERS = {
     clueFromKey(level, clueKey) {
       return level.clues.find((clue) => this.clueKey(clue) === clueKey) || null;
     },
+    hasRegion(clue) {
+      return Boolean(state.regions[this.clueKey(clue)]);
+    },
+    clearRegion(clue) {
+      const clueKey = this.clueKey(clue);
+      if (!this.hasRegion(clue)) return false;
+      pushHistory();
+      delete state.regions[clueKey];
+      state.selected = null;
+      state.dragPreview = null;
+      render("Gehege gelöscht. Du kannst es neu ziehen.");
+      return true;
+    },
     previewCells(cells, target) {
       const level = currentLevel();
       const clues = this.cluesInCells(level, cells);
@@ -1654,6 +1667,7 @@ const GAME_HANDLERS = {
     input(r, c) {
       const level = currentLevel();
       const clue = this.clueAt(level, r, c);
+      if (clue && this.clearRegion(clue)) return;
       if (!state.selected) {
         if (!clue) { render("Bitte tippe zuerst auf ein Tier mit Zahl."); return; }
         this.selectClue(clue);
@@ -1680,7 +1694,7 @@ const GAME_HANDLERS = {
         const color = region?.color || 0;
         const isDragPreview = dragKeys.has(keyOf(r, c));
         const cell = makeButtonCell(r, c, `cell shikaku-cell${clue ? " clue" : ""}${selected ? " selected" : ""}${owner ? ` region shikaku-region-${color}` : ""}${isDragPreview ? ` shikaku-drag-preview${dragAreaMatches ? " valid" : ""}` : ""}`, "");
-        cell.setAttribute("aria-label", clue ? `Tier mit Zahl ${clue.value}, Reihe ${r + 1}, Spalte ${c + 1}` : `Feld Reihe ${r + 1}, Spalte ${c + 1}`);
+        cell.setAttribute("aria-label", clue ? `Tier mit Zahl ${clue.value}, Reihe ${r + 1}, Spalte ${c + 1}${owner ? ", Gehege löschen" : ""}` : `Feld Reihe ${r + 1}, Spalte ${c + 1}`);
         if (clue) {
           const animal = document.createElement("span");
           animal.className = "shikaku-animal";
@@ -2141,6 +2155,7 @@ function startShikakuPointer(event, cell) {
   const level = currentLevel();
   const row = Number(cell.dataset.row), col = Number(cell.dataset.col);
   const touchedClue = handler.clueAt(level, row, col);
+  const touchedClueHasRegion = touchedClue ? handler.hasRegion(touchedClue) : false;
   const selectedClue = state.selected ? handler.clueAt(level, state.selected.row, state.selected.col) : null;
   event.preventDefault();
   shikakuDrag = {
@@ -2155,7 +2170,8 @@ function startShikakuPointer(event, cell) {
   };
   activePointerId = event.pointerId;
   board.setPointerCapture?.(event.pointerId);
-  if (touchedClue) handler.previewDrag(touchedClue, row, col);
+  if (touchedClue && !touchedClueHasRegion) handler.previewDrag(touchedClue, row, col);
+  else if (touchedClueHasRegion) handler.clearDragPreview();
   else if (selectedClue) handler.previewDrag(selectedClue, row, col);
   else handler.previewRectangle(row, col, row, col);
   return true;
@@ -2183,7 +2199,7 @@ function finishShikakuPointer() {
   const selectedClue = selectedClueKey ? handler.clueFromKey(level, selectedClueKey) : null;
   if (!moved && touchedClue) {
     handler.clearDragPreview();
-    handler.selectClue(touchedClue);
+    if (!handler.clearRegion(touchedClue)) handler.selectClue(touchedClue);
   } else if (!moved && selectedClue) {
     handler.clearDragPreview();
     handler.commitCells(handler.rectangleCells(level, selectedClue, lastRow, lastCol));
