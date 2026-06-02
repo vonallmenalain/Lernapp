@@ -1740,6 +1740,7 @@ body.puzzle-active .task-board {
 }
 
 .practice-option {
+  --practice-option-min-font-size: 16px;
   min-height: 74px;
   border-radius: 22px;
   border: 4px solid var(--line);
@@ -1747,10 +1748,17 @@ body.puzzle-active .task-board {
   background: #fff;
   color: var(--ink);
   box-shadow: 0 12px 24px rgba(36, 48, 71, 0.10);
-  font-size: clamp(1.25rem, 4vw, 2rem);
+  font-size: clamp(1.25rem, 4vw, var(--practice-option-max-font-size, 2rem));
   line-height: 1.12;
   white-space: normal;
-  overflow-wrap: anywhere;
+  overflow-wrap: normal;
+  word-break: normal;
+  hyphens: none;
+}
+
+.readingPuzzle-board .practice-option {
+  --practice-option-min-font-size: 13px;
+  --practice-option-max-font-size: 1.7rem;
 }
 
 .practice-option:hover:not(:disabled),

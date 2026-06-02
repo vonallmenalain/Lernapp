@@ -1650,6 +1650,38 @@ function optionStateClass(option) {
   if (selected && !correct) return " wrong";
   return "";
 }
+function fitReadingOptionText(button) {
+  if (!button || !button.classList.contains("reading-option")) return;
+  button.style.removeProperty("font-size");
+  if (!button.clientWidth) return;
+
+  const styles = window.getComputedStyle(button);
+  const minSize = Number.parseFloat(styles.getPropertyValue("--practice-option-min-font-size")) || 13;
+  const maxSize = Number.parseFloat(styles.fontSize) || 27;
+
+  if (button.scrollWidth <= button.clientWidth + 1) return;
+
+  let low = minSize;
+  let high = maxSize;
+  let best = minSize;
+  for (let step = 0; step < 7; step += 1) {
+    const size = (low + high) / 2;
+    button.style.fontSize = `${size}px`;
+    if (button.scrollWidth <= button.clientWidth + 1) {
+      best = size;
+      low = size;
+    } else {
+      high = size;
+    }
+  }
+  button.style.fontSize = `${Math.max(minSize, Math.floor(best * 10) / 10)}px`;
+}
+function fitReadingOptionTexts(root) {
+  if (!root || !root.querySelectorAll) return;
+  const fit = () => root.querySelectorAll(".practice-option.reading-option").forEach(fitReadingOptionText);
+  if (typeof requestAnimationFrame === "function") requestAnimationFrame(fit);
+  else fit();
+}
 function renderPracticeOptions(onAnswer) {
   const options = document.createElement("div");
   options.className = "practice-options";
@@ -1657,7 +1689,8 @@ function renderPracticeOptions(onAnswer) {
   state.task.options.forEach((option) => {
     const button = document.createElement("button");
     button.type = "button";
-    button.className = `practice-option${optionStateClass(option)}`;
+    const readingClass = state.task.puzzleType === "readingPuzzle" ? " reading-option" : "";
+    button.className = `practice-option${readingClass}${optionStateClass(option)}`;
     button.textContent = option;
     button.disabled = state.awaitingNext || state.completed;
     button.addEventListener("click", () => onAnswer(option));
@@ -1692,12 +1725,17 @@ function renderPracticeShell(level, className, taskView, onAnswer, taskFactory, 
   board.innerHTML = "";
   board.className = `board task-board ${className}`;
   board.style.setProperty("--size", 1);
+  const options = renderPracticeOptions(onAnswer);
   board.append(
     renderPracticeProgress(level),
     taskView,
-    renderPracticeOptions(onAnswer),
+    options,
     renderPracticeFeedback(taskFactory, nextStatus),
   );
+  fitReadingOptionTexts(options);
+}
+if (typeof window !== "undefined") {
+  window.addEventListener("resize", () => fitReadingOptionTexts(board), { passive: true });
 }
 function makeMathTaskView() {
   const task = state.task;
