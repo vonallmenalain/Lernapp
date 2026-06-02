@@ -342,6 +342,13 @@ const GAME_CONFIGS = {
     success: "Richtig gelesen! Du hast die Leserätsel geschafft.",
     rules: ["Schau dir zuerst das Bild an.", "Lies das Wort oder den Satz in Ruhe.", "Tippe auf die Antwort, die genau passt."],
   },
+  backpack: {
+    title: "Rucksack packen", eyebrow: "Merkspiel", code: "R",
+    subtitle: "Merke dir, was in den Rucksack kommt.",
+    success: "",
+    endless: true,
+    rules: ["Schau dir den neuen Gegenstand gut an.", "Packe danach die ganze Reihenfolge von Anfang an nach.", "Bei einem Fehler endet die Runde und dein Ergebnis wird angezeigt."],
+  },
 };
 
 function clone(value) { return typeof structuredClone === "function" ? structuredClone(value) : JSON.parse(JSON.stringify(value)); }
@@ -357,6 +364,116 @@ function makeLevel(game, difficulty, index, data) {
   const diff = DIFFICULTIES[difficulty];
   const levelName = `${config.code} ${diff.code}-${index}`;
   return { ...data, id: data.id || `${game}-${difficulty}-${index}`, game, difficulty, levelName, title: data.title || `${levelName} · ${config.title} · ${diff.label}` };
+}
+
+const BACKPACK_DIFFICULTY_CONFIG = {
+  easy: { choiceCount: 2, stableChoiceSet: true, stablePositions: true, showLabels: true, demoDurationMs: 1300, packingAnimationMs: 600, decoyMode: "mixed" },
+  medium: { choiceCount: 3, stableChoiceSet: true, stablePositions: false, showLabels: true, demoDurationMs: 1100, packingAnimationMs: 550, decoyMode: "mixed" },
+  hard: { choiceCount: 4, stableChoiceSet: true, stablePositions: false, showLabels: false, demoDurationMs: 900, packingAnimationMs: 500, decoyMode: "similarPreferred" },
+  extreme: { choiceCount: 5, stableChoiceSet: false, stablePositions: false, showLabels: false, demoDurationMs: 700, packingAnimationMs: 450, decoyMode: "similarPreferred" },
+};
+
+const BACKPACK_ITEMS = [
+  { id: "apple", label: "Apfel", emoji: "🍎", category: "food" },
+  { id: "banana", label: "Banane", emoji: "🍌", category: "food" },
+  { id: "bread", label: "Brot", emoji: "🍞", category: "food" },
+  { id: "cheese", label: "Käse", emoji: "🧀", category: "food" },
+  { id: "carrot", label: "Karotte", emoji: "🥕", category: "food" },
+  { id: "strawberry", label: "Erdbeere", emoji: "🍓", category: "food" },
+  { id: "cookie", label: "Keks", emoji: "🍪", category: "food" },
+  { id: "juice", label: "Saft", emoji: "🧃", category: "food" },
+  { id: "ball", label: "Ball", emoji: "⚽", category: "toy" },
+  { id: "teddy", label: "Teddy", emoji: "🧸", category: "toy" },
+  { id: "car", label: "Auto", emoji: "🚗", category: "toy" },
+  { id: "kite", label: "Drachen", emoji: "🪁", category: "toy" },
+  { id: "puzzle", label: "Puzzle", emoji: "🧩", category: "toy" },
+  { id: "yo_yo", label: "Jo-Jo", emoji: "🪀", category: "toy" },
+  { id: "book", label: "Buch", emoji: "📘", category: "school" },
+  { id: "pencil", label: "Stift", emoji: "✏️", category: "school" },
+  { id: "scissors", label: "Schere", emoji: "✂️", category: "school" },
+  { id: "notebook", label: "Heft", emoji: "📓", category: "school" },
+  { id: "paint", label: "Farbe", emoji: "🎨", category: "school" },
+  { id: "ruler", label: "Lineal", emoji: "📏", category: "school" },
+  { id: "shirt", label: "T-Shirt", emoji: "👕", category: "clothing" },
+  { id: "sock", label: "Socke", emoji: "🧦", category: "clothing" },
+  { id: "cap", label: "Mütze", emoji: "🧢", category: "clothing" },
+  { id: "shoe", label: "Schuh", emoji: "👟", category: "clothing" },
+  { id: "scarf", label: "Schal", emoji: "🧣", category: "clothing" },
+  { id: "glove", label: "Handschuh", emoji: "🧤", category: "clothing" },
+  { id: "flower", label: "Blume", emoji: "🌸", category: "nature" },
+  { id: "leaf", label: "Blatt", emoji: "🍃", category: "nature" },
+  { id: "shell", label: "Muschel", emoji: "🐚", category: "nature" },
+  { id: "stone", label: "Stein", emoji: "🪨", category: "nature" },
+  { id: "acorn", label: "Eichel", emoji: "🌰", category: "nature" },
+  { id: "snowflake", label: "Schneeflocke", emoji: "❄️", category: "nature" },
+  { id: "key", label: "Schlüssel", emoji: "🔑", category: "other" },
+  { id: "star", label: "Stern", emoji: "⭐", category: "other" },
+  { id: "lamp", label: "Lampe", emoji: "💡", category: "other" },
+  { id: "cup", label: "Becher", emoji: "🥤", category: "other" },
+  { id: "umbrella", label: "Regenschirm", emoji: "☂️", category: "other" },
+  { id: "clock", label: "Uhr", emoji: "⏰", category: "other" },
+  { id: "spoon", label: "Löffel", emoji: "🥄", category: "tool" },
+  { id: "brush", label: "Bürste", emoji: "🪥", category: "tool" },
+  { id: "hammer", label: "Hammer", emoji: "🔨", category: "tool" },
+  { id: "magnet", label: "Magnet", emoji: "🧲", category: "tool" },
+  { id: "flashlight", label: "Taschenlampe", emoji: "🔦", category: "tool" },
+  { id: "map", label: "Karte", emoji: "🗺️", category: "tool" },
+  { id: "dog", label: "Hund", emoji: "🐶", category: "animal" },
+  { id: "cat", label: "Katze", emoji: "🐱", category: "animal" },
+  { id: "fish", label: "Fisch", emoji: "🐟", category: "animal" },
+  { id: "frog", label: "Frosch", emoji: "🐸", category: "animal" },
+  { id: "bird", label: "Vogel", emoji: "🐦", category: "animal" },
+  { id: "bee", label: "Biene", emoji: "🐝", category: "animal" },
+];
+const BACKPACK_ITEM_BY_ID = Object.fromEntries(BACKPACK_ITEMS.map((item) => [item.id, item]));
+
+function backpackConfig(difficulty) { return BACKPACK_DIFFICULTY_CONFIG[difficulty] || BACKPACK_DIFFICULTY_CONFIG.easy; }
+function backpackHighScoreKey(difficulty) { return `lernapp.backpack.highScore.${difficulty}`; }
+function loadBackpackHighScore(difficulty) {
+  const value = Number.parseInt(localStorage.getItem(backpackHighScoreKey(difficulty)) || "0", 10);
+  return Number.isFinite(value) && value > 0 ? value : 0;
+}
+function saveBackpackHighScore(difficulty, score) {
+  try { localStorage.setItem(backpackHighScoreKey(difficulty), String(Math.max(0, score || 0))); } catch {}
+}
+function backpackHighScoreLabel(difficulty) { return `Rekord ${loadBackpackHighScore(difficulty)}`; }
+function backpackItem(id) { return BACKPACK_ITEM_BY_ID[id] || BACKPACK_ITEMS[0]; }
+function backpackTargetPool(sequence) {
+  const used = new Set(sequence.map((entry) => entry.targetId));
+  const unused = BACKPACK_ITEMS.filter((item) => !used.has(item.id));
+  if (unused.length) return unused;
+  const lastId = sequence.at(-1)?.targetId;
+  return BACKPACK_ITEMS.filter((item) => item.id !== lastId);
+}
+function pickBackpackTargetId(sequence) {
+  return pickRandom(backpackTargetPool(sequence).length ? backpackTargetPool(sequence) : BACKPACK_ITEMS).id;
+}
+function backpackDecoyCandidates(targetId, difficulty) {
+  const target = backpackItem(targetId);
+  const others = BACKPACK_ITEMS.filter((item) => item.id !== targetId);
+  if (backpackConfig(difficulty).decoyMode !== "similarPreferred") return shuffleOptions(others.map((item) => item.id));
+  const similar = others.filter((item) => item.category === target.category).map((item) => item.id);
+  const mixed = others.filter((item) => item.category !== target.category).map((item) => item.id);
+  return [...shuffleOptions(similar), ...shuffleOptions(mixed)];
+}
+function createBackpackChoiceSet(targetId, difficulty, previousStableChoiceIds = null) {
+  const config = backpackConfig(difficulty);
+  const previous = Array.isArray(previousStableChoiceIds) ? [...new Set(previousStableChoiceIds)] : [];
+  if (config.stableChoiceSet && previous.length === config.choiceCount && previous.includes(targetId)) {
+    return config.stablePositions ? previous : shuffleOptions(previous);
+  }
+  const choiceIds = [targetId];
+  backpackDecoyCandidates(targetId, difficulty).forEach((id) => {
+    if (choiceIds.length < config.choiceCount && !choiceIds.includes(id)) choiceIds.push(id);
+  });
+  const generated = shuffleOptions(choiceIds);
+  return config.stablePositions ? generated : shuffleOptions(generated);
+}
+function createChoiceSet(targetId, difficulty, previousStableChoiceIds = null) {
+  return createBackpackChoiceSet(targetId, difficulty, previousStableChoiceIds);
+}
+function backpackChoicesForEntry(entry, difficulty) {
+  return createBackpackChoiceSet(entry.targetId, difficulty, entry.stableChoiceIds);
 }
 
 // Bestehende Arukone- und Sudoku-Level in die neue Struktur übernehmen.
@@ -1291,6 +1408,13 @@ function makePracticeLevels(game, descriptions) {
 }
 const MATH_LEVELS = makePracticeLevels("mathPuzzle", MATH_LEVEL_DESCRIPTIONS);
 const READING_LEVELS = makePracticeLevels("readingPuzzle", READING_LEVEL_DESCRIPTIONS);
+const BACKPACK_LEVELS = DIFFICULTY_KEYS.map((difficulty) => makeLevel("backpack", difficulty, 1, {
+  id: `backpack-${difficulty}-1`,
+  badge: "Endlos",
+  size: 1,
+  title: `${GAME_CONFIGS.backpack.title} · ${DIFFICULTIES[difficulty].label}`,
+  description: "Merke dir, was in den Rucksack kommt.",
+}));
 
 if (typeof window !== "undefined") {
   window.LernappPuzzleGenerators = {
@@ -1300,6 +1424,8 @@ if (typeof window !== "undefined") {
     validateReadingTask,
     ensureUniqueOptions,
     shuffleOptions,
+    createChoiceSet,
+    backpackItems: BACKPACK_ITEMS,
     readingWords: READING_WORD_ITEMS,
     readingSentences: READING_SENTENCE_ITEMS,
   };
@@ -1320,6 +1446,7 @@ const LEVELS_BY_GAME = {
   shikaku: normalizeLevelCounts(SHIKAKU_LEVELS),
   mathPuzzle: normalizeLevelCounts(MATH_LEVELS),
   readingPuzzle: normalizeLevelCounts(READING_LEVELS),
+  backpack: BACKPACK_LEVELS,
 };
 
 function publicLevelInfo(level) {
@@ -1393,6 +1520,11 @@ function markSolved(level) {
 function recordMoveMetric() { cloudProgress()?.recordMove?.(); }
 function recordResetMetric() { cloudProgress()?.recordReset?.(currentLevel()); }
 function recordHintMetric() { cloudProgress()?.recordHint?.(currentLevel()); }
+function isEndlessGame(game = currentGame) { return Boolean(GAME_CONFIGS[game]?.endless); }
+function levelProgressText(game, difficulty, levels, solved) {
+  if (game === "backpack") return `Endlos · ${backpackHighScoreLabel(difficulty)}`;
+  return `${levels.length} Levels · ${solved} gelöst`;
+}
 function refreshProgressView() {
   if (!currentGame || !levelPanel || document.body.classList.contains("puzzle-active")) return;
   if (selectedDifficulty) renderLevelSelect();
@@ -1448,14 +1580,15 @@ function renderDifficultySelect() {
     const info = DIFFICULTIES[difficulty];
     const levels = levelsForDifficulty(difficulty);
     const solved = countSolved(levels);
+    const progress = levelProgressText(currentGame, difficulty, levels, solved);
     const button = document.createElement("button");
     button.className = `difficulty-card ${difficulty}`;
     button.type = "button";
-    button.setAttribute("aria-label", `${info.label} wählen, ${levels.length} Levels, ${solved} gelöst`);
+    button.setAttribute("aria-label", `${info.label} wählen, ${progress}`);
     button.innerHTML = `
       <span class="difficulty-icon" aria-hidden="true">${info.icon}</span>
       <span class="difficulty-name">${info.label}</span>
-      <small>${levels.length} Levels · ${solved} gelöst</small>
+      <small>${progress}</small>
     `;
     button.addEventListener("click", () => selectDifficulty(difficulty));
     levelGrid.append(button);
@@ -1468,33 +1601,36 @@ function renderLevelSelect() {
   if (!selectedDifficulty) { renderDifficultySelect(); return; }
   const config = GAME_CONFIGS[currentGame];
   const difficulty = DIFFICULTIES[selectedDifficulty];
+  const endless = isEndlessGame();
   levelPanel.classList.remove("difficulty-step");
-  levelHeading.textContent = `${difficulty.label} Levels`;
+  levelHeading.textContent = endless ? `${difficulty.label} starten` : `${difficulty.label} Levels`;
   if (appIntro) appIntro.textContent = "";
   levelDescription.hidden = false;
-  levelDescription.textContent = `Du hast ${difficulty.label} gewählt. Such dir jetzt ein Level aus.`;
+  levelDescription.textContent = endless ? `Du hast ${difficulty.label} gewählt. Starte eine Endlosrunde.` : `Du hast ${difficulty.label} gewählt. Such dir jetzt ein Level aus.`;
   fillList(rulesList, config.rules);
   renderSelectionActions("levels");
   levelGrid.className = "level-grid";
-  levelGrid.setAttribute("aria-label", `${config.title} ${difficulty.label} Levels`);
+  levelGrid.setAttribute("aria-label", endless ? `${config.title} ${difficulty.label} starten` : `${config.title} ${difficulty.label} Levels`);
   levelGrid.innerHTML = "";
   levelsForDifficulty(selectedDifficulty).forEach((level) => {
     const index = LEVELS_BY_GAME[currentGame].indexOf(level);
     const solved = isSolved(level);
-    const detail = level.badge || (level.size ? `${level.size}×${level.size}` : (level.rows && level.cols ? `${level.rows}×${level.cols}` : "Rätsel"));
+    const detail = endless ? backpackHighScoreLabel(selectedDifficulty) : (level.badge || (level.size ? `${level.size}×${level.size}` : (level.rows && level.cols ? `${level.rows}×${level.cols}` : "Rätsel")));
     const button = document.createElement("button");
-    button.className = `level-tile ${selectedDifficulty}${solved ? " solved" : ""}`;
+    button.className = `level-tile ${selectedDifficulty}${solved && !endless ? " solved" : ""}`;
     button.type = "button";
-    button.setAttribute("aria-label", `${level.title}${solved ? ", gelöst" : ""}`);
-    button.innerHTML = `<span>${level.levelName}</span><small>${solved ? "★ gelöst" : detail}</small>`;
+    button.setAttribute("aria-label", `${endless ? `${level.title} starten` : level.title}${solved && !endless ? ", gelöst" : ""}`);
+    button.innerHTML = `<span>${endless ? "Start" : level.levelName}</span><small>${solved && !endless ? "★ gelöst" : detail}</small>`;
     button.addEventListener("click", () => startLevel(index));
     levelGrid.append(button);
   });
 }
-function showLevelSelect() { finishMove(); cloudProgress()?.flushCurrentSession?.({ close: true, includeElapsed: true }); hideSuccess(); if (levelPanel) levelPanel.hidden = false; if (homePanel) homePanel.hidden = true; if (gamePanel) gamePanel.hidden = true; if (gameControls) gameControls.hidden = true; document.body.classList.remove("puzzle-active"); renderLevelSelect(); }
+function cleanupGameHandler() { GAME_HANDLERS[currentGame]?.cleanup?.(); }
+function showLevelSelect() { finishMove(); cleanupGameHandler(); cloudProgress()?.flushCurrentSession?.({ close: true, includeElapsed: true }); hideSuccess(); if (levelPanel) levelPanel.hidden = false; if (homePanel) homePanel.hidden = true; if (gamePanel) gamePanel.hidden = true; if (gameControls) gameControls.hidden = true; document.body.classList.remove("puzzle-active"); renderLevelSelect(); }
+function showDifficultySelectScreen() { finishMove(); cleanupGameHandler(); cloudProgress()?.flushCurrentSession?.({ close: true, includeElapsed: true }); hideSuccess(); if (levelPanel) levelPanel.hidden = false; if (homePanel) homePanel.hidden = true; if (gamePanel) gamePanel.hidden = true; if (gameControls) gameControls.hidden = true; document.body.classList.remove("puzzle-active"); showDifficultySelect(); }
 function showGame() { if (levelPanel) levelPanel.hidden = true; if (homePanel) homePanel.hidden = true; if (gamePanel) gamePanel.hidden = false; if (gameControls) gameControls.hidden = false; document.body.classList.add("puzzle-active"); }
-function startLevel(index) { hideSuccess(); currentIndex = index; const level = currentLevel(); selectedDifficulty = level.difficulty; const config = GAME_CONFIGS[currentGame]; history = []; winShown = false; if (undoButton) undoButton.disabled = true; const boardSize = level.cols || level.size || 5; board.className = `board ${currentGame}-board board-size-${boardSize}`; board.style.setProperty("--size", boardSize); board.setAttribute("aria-label", `${config.title} Spielfeld`); puzzleTitle.textContent = level.title; puzzleDescription.textContent = level.description || config.subtitle; fillList(gameHelpList, config.rules); cloudProgress()?.recordLevelStart?.(level); resetState(); showGame(); render(); }
-function resetGame() { history = []; if (undoButton) undoButton.disabled = true; hideSuccess(); cloudProgress()?.recordLevelStart?.(currentLevel()); resetState(); recordResetMetric(); render("Neu gestartet. Viel Spass!"); }
+function startLevel(index) { cleanupGameHandler(); hideSuccess(); currentIndex = index; const level = currentLevel(); selectedDifficulty = level.difficulty; const config = GAME_CONFIGS[currentGame]; history = []; winShown = false; if (undoButton) undoButton.disabled = true; const boardSize = level.cols || level.size || 5; board.className = `board ${currentGame}-board board-size-${boardSize}`; board.style.setProperty("--size", boardSize); board.setAttribute("aria-label", `${config.title} Spielfeld`); puzzleTitle.textContent = level.title; puzzleDescription.textContent = level.description || config.subtitle; fillList(gameHelpList, config.rules); cloudProgress()?.recordLevelStart?.(level); resetState(); showGame(); render(); }
+function resetGame() { cleanupGameHandler(); history = []; if (undoButton) undoButton.disabled = true; hideSuccess(); cloudProgress()?.recordLevelStart?.(currentLevel()); resetState(); recordResetMetric(); render(currentGame === "backpack" ? null : "Neu gestartet. Viel Spass!"); }
 function undo() {
   finishMove();
   if (currentGame === "hidoku") {
@@ -1546,7 +1682,7 @@ function handleHint() { const handler = GAME_HANDLERS[currentGame]; if (!handler
 function handleWin() { if (!winShown) showSuccess(); render(); }
 function checkAndWin() { if (GAME_HANDLERS[currentGame].checkWin()) handleWin(); }
 function resetState() { GAME_HANDLERS[currentGame].resetState(currentLevel()); }
-function render(message) { numberPad.hidden = true; GAME_HANDLERS[currentGame].render(currentLevel()); if (message) setStatus(message); }
+function render(message) { if (numberPad) numberPad.hidden = true; GAME_HANDLERS[currentGame].render(currentLevel()); if (message) setStatus(message); }
 
 function makeButtonCell(row, col, className, text = "") { const b=document.createElement("button"); b.type="button"; b.className=className; b.dataset.row=row; b.dataset.col=col; b.textContent=text; return b; }
 function getPairColor(pair) { return DEFAULT_COLORS[pair] || "#6c5ce7"; }
@@ -1787,7 +1923,290 @@ function makeReadingTaskView() {
   return view;
 }
 
+let backpackTimers = [];
+function clearBackpackTimers() {
+  backpackTimers.forEach((timer) => window.clearTimeout(timer));
+  backpackTimers = [];
+}
+function setBackpackTimer(callback, delay) {
+  const timer = window.setTimeout(() => {
+    backpackTimers = backpackTimers.filter((item) => item !== timer);
+    callback();
+  }, delay);
+  backpackTimers.push(timer);
+  return timer;
+}
+function updateBackpackHighScore() {
+  if (!state?.difficulty) return;
+  const highScore = Math.max(loadBackpackHighScore(state.difficulty), state.score || 0);
+  state.highScore = highScore;
+  saveBackpackHighScore(state.difficulty, highScore);
+}
+function backpackRecallStatus() {
+  const total = state.sequence?.length || 0;
+  return total ? `Gegenstand ${state.recallIndex + 1} von ${total}` : "";
+}
+function makeBackpackStat(label, value) {
+  const stat = document.createElement("span");
+  stat.innerHTML = `<small>${label}</small><strong>${value}</strong>`;
+  return stat;
+}
+
 const GAME_HANDLERS = {
+
+  backpack: {
+    cleanup() { clearBackpackTimers(); },
+    resetState(level) {
+      clearBackpackTimers();
+      const difficulty = level.difficulty || selectedDifficulty || "easy";
+      state = {
+        difficulty,
+        phase: "idle",
+        sequence: [],
+        score: 0,
+        highScore: loadBackpackHighScore(difficulty),
+        recallIndex: 0,
+        currentChoices: [],
+        activeTargetId: null,
+        selectedItemId: null,
+        packingItemId: null,
+        demoHighlight: false,
+        backpackBounce: false,
+        isAnimating: false,
+        runToken: `${Date.now()}-${randomInt(1000, 9999)}`,
+      };
+      setStatus("Schau genau hin, was zuerst eingepackt wird.");
+      this.addAndDemoNewItem();
+    },
+    schedule(callback, delay) {
+      const token = state.runToken;
+      setBackpackTimer(() => {
+        if (currentGame === "backpack" && state.runToken === token) callback();
+      }, delay);
+    },
+    checkWin() { return false; },
+    hint() {
+      if (state.phase === "recall") setStatus("Beginne wieder beim ersten Gegenstand der Reihe.");
+    },
+    addAndDemoNewItem() {
+      const difficulty = state.difficulty || "easy";
+      const config = backpackConfig(difficulty);
+      const targetId = pickBackpackTargetId(state.sequence || []);
+      const entry = { targetId };
+      if (config.stableChoiceSet) entry.stableChoiceIds = createBackpackChoiceSet(targetId, difficulty);
+      state.sequence = [...(state.sequence || []), entry];
+      state.recallIndex = 0;
+      state.currentChoices = backpackChoicesForEntry(entry, difficulty);
+      state.activeTargetId = targetId;
+      state.selectedItemId = null;
+      state.packingItemId = null;
+      state.demoHighlight = false;
+      state.backpackBounce = false;
+      state.phase = "demo";
+      state.isAnimating = true;
+      setStatus(`Merke dir: ${backpackItem(targetId).label}.`);
+      render();
+      this.schedule(() => {
+        state.demoHighlight = true;
+        render();
+      }, 120);
+      this.schedule(() => {
+        state.demoHighlight = false;
+        state.packingItemId = targetId;
+        state.backpackBounce = true;
+        setStatus("Der neue Gegenstand wandert in den Rucksack.");
+        render();
+      }, config.demoDurationMs);
+      this.schedule(() => {
+        state.packingItemId = null;
+        state.backpackBounce = false;
+        this.startRecallRound();
+      }, config.demoDurationMs + config.packingAnimationMs);
+    },
+    startRecallRound() {
+      if (!state.sequence?.length) {
+        this.addAndDemoNewItem();
+        return;
+      }
+      state.phase = "recall";
+      state.isAnimating = false;
+      state.recallIndex = 0;
+      state.selectedItemId = null;
+      state.packingItemId = null;
+      state.backpackBounce = false;
+      state.activeTargetId = null;
+      state.currentChoices = backpackChoicesForEntry(state.sequence[0], state.difficulty);
+      setStatus(backpackRecallStatus());
+      render();
+    },
+    onItemClick(itemId) {
+      if (state.phase !== "recall" || state.isAnimating) return;
+      const expectedTargetId = state.sequence[state.recallIndex]?.targetId;
+      state.selectedItemId = itemId;
+      if (itemId !== expectedTargetId) {
+        state.phase = "wrong";
+        state.isAnimating = true;
+        setStatus("Fast! Diese Runde ist vorbei.");
+        render();
+        this.schedule(() => {
+          state.phase = "gameOver";
+          state.isAnimating = false;
+          state.selectedItemId = null;
+          state.packingItemId = null;
+          state.activeTargetId = null;
+          updateBackpackHighScore();
+          setStatus("Runde vorbei.");
+          render();
+        }, 650);
+        return;
+      }
+
+      const config = backpackConfig(state.difficulty);
+      state.phase = "correctPacking";
+      state.isAnimating = true;
+      state.packingItemId = itemId;
+      state.backpackBounce = true;
+      setStatus("Richtig eingepackt!");
+      render();
+      this.schedule(() => {
+        state.packingItemId = null;
+        state.backpackBounce = false;
+        state.selectedItemId = null;
+        if (state.recallIndex + 1 < state.sequence.length) {
+          state.recallIndex += 1;
+          state.phase = "recall";
+          state.isAnimating = false;
+          state.currentChoices = backpackChoicesForEntry(state.sequence[state.recallIndex], state.difficulty);
+          setStatus(backpackRecallStatus());
+          render();
+          return;
+        }
+        state.score = state.sequence.length;
+        updateBackpackHighScore();
+        this.addAndDemoNewItem();
+      }, config.packingAnimationMs);
+    },
+    progressFillCount() {
+      if (state.phase === "correctPacking") return state.recallIndex + 1;
+      if (state.phase === "recall" || state.phase === "wrong") return state.recallIndex;
+      return Math.min(state.score || 0, state.sequence?.length || 0);
+    },
+    renderProgress() {
+      const progress = document.createElement("div");
+      progress.className = "backpack-progress";
+      progress.setAttribute("aria-label", "Fortschritt dieser Runde");
+      const total = state.sequence?.length || 0;
+      const filled = this.progressFillCount();
+      for (let index = 0; index < total; index += 1) {
+        const dot = document.createElement("span");
+        dot.className = `backpack-dot${index < filled ? " filled" : ""}`;
+        dot.setAttribute("aria-hidden", "true");
+        progress.append(dot);
+      }
+      return progress;
+    },
+    renderStats(level) {
+      const stats = document.createElement("div");
+      stats.className = "backpack-stats";
+      stats.append(
+        makeBackpackStat("Eingepackt", state.score || 0),
+        makeBackpackStat("Rekord", state.highScore || 0),
+        makeBackpackStat("Stufe", DIFFICULTIES[level.difficulty].label),
+      );
+      return stats;
+    },
+    renderScene() {
+      const scene = document.createElement("section");
+      scene.className = "backpack-scene";
+      scene.setAttribute("aria-label", "Rucksack");
+      const backpack = document.createElement("div");
+      backpack.className = `backpack-emoji${state.backpackBounce ? " bouncing" : ""}`;
+      backpack.setAttribute("aria-hidden", "true");
+      backpack.textContent = "🎒";
+      const phase = document.createElement("p");
+      phase.className = "backpack-phase";
+      phase.textContent = state.phase === "demo" ? "Neuer Gegenstand" : state.phase === "gameOver" ? "Runde vorbei" : backpackRecallStatus();
+      scene.append(backpack, this.renderProgress(), phase);
+      return scene;
+    },
+    renderChoices() {
+      const config = backpackConfig(state.difficulty);
+      const choices = document.createElement("div");
+      choices.className = "backpack-choice-grid";
+      choices.style.setProperty("--choice-count", state.currentChoices.length || config.choiceCount);
+      state.currentChoices.forEach((itemId) => {
+        const item = backpackItem(itemId);
+        const button = document.createElement("button");
+        const isDemoTarget = state.phase === "demo" && state.demoHighlight && itemId === state.activeTargetId;
+        const isPacking = itemId === state.packingItemId;
+        const isSelected = itemId === state.selectedItemId;
+        const isWrong = state.phase === "wrong" && isSelected;
+        const isCorrect = state.phase === "correctPacking" && isSelected;
+        button.type = "button";
+        button.className = `backpack-item-card${config.showLabels ? "" : " no-label"}${isDemoTarget ? " demo-highlight" : ""}${isPacking ? " packing" : ""}${isCorrect ? " correct" : ""}${isWrong ? " wrong" : ""}`;
+        button.disabled = state.phase !== "recall" || state.isAnimating;
+        button.setAttribute("aria-label", item.label);
+        const emoji = document.createElement("span");
+        emoji.className = "backpack-item-emoji";
+        emoji.setAttribute("aria-hidden", "true");
+        emoji.textContent = item.emoji;
+        button.append(emoji);
+        if (config.showLabels) {
+          const label = document.createElement("span");
+          label.className = "backpack-item-label";
+          label.textContent = item.label;
+          button.append(label);
+        }
+        button.addEventListener("click", () => this.onItemClick(itemId));
+        choices.append(button);
+      });
+      return choices;
+    },
+    renderGameOver() {
+      if (state.phase !== "gameOver") return null;
+      const overlay = document.createElement("section");
+      overlay.className = "backpack-game-over";
+      overlay.setAttribute("aria-modal", "true");
+      overlay.setAttribute("role", "dialog");
+      overlay.setAttribute("aria-labelledby", "backpack-game-over-title");
+      const dialog = document.createElement("div");
+      dialog.className = "backpack-game-over-dialog";
+      const title = document.createElement("h3");
+      title.id = "backpack-game-over-title";
+      title.textContent = "Runde vorbei!";
+      const text = document.createElement("p");
+      text.textContent = `Du hast ${state.score || 0} Gegenstände richtig eingepackt.`;
+      const record = document.createElement("p");
+      record.className = "backpack-record";
+      record.textContent = `Rekord: ${state.highScore || 0}`;
+      const actions = document.createElement("div");
+      actions.className = "backpack-game-over-actions";
+      const restart = document.createElement("button");
+      restart.type = "button";
+      restart.textContent = "Nochmal spielen";
+      restart.addEventListener("click", () => startLevel(currentIndex));
+      const difficulty = document.createElement("button");
+      difficulty.type = "button";
+      difficulty.textContent = "Schwierigkeit ändern";
+      difficulty.addEventListener("click", showDifficultySelectScreen);
+      const back = document.createElement("button");
+      back.type = "button";
+      back.textContent = "Zurück";
+      back.addEventListener("click", showLevelSelect);
+      actions.append(restart, difficulty, back);
+      dialog.append(title, text, record, actions);
+      overlay.append(dialog);
+      return overlay;
+    },
+    render(level) {
+      board.innerHTML = "";
+      board.className = "board backpack-board";
+      board.style.setProperty("--size", 1);
+      board.append(this.renderStats(level), this.renderScene(), this.renderChoices());
+      const gameOver = this.renderGameOver();
+      if (gameOver) board.append(gameOver);
+    },
+  },
 
   mathPuzzle: {
     resetState(level) { resetPracticeState(level, generateMathTask, "Rechne in Ruhe und tippe auf die passende Zahl."); },

@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="application-name" content="Lernapp" />
+    <meta name="description" content="Rucksack packen ist ein Endlos-Merkspiel für Kinder." />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Lernapp" />
+    <meta name="theme-color" content="#6c5ce7" />
+    <title>Rucksack packen · Lernapp</title>
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="manifest" href="app.webmanifest" />
+    <link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon-180.png" />
+  </head>
+  <body data-game-page="backpack">
+    <main class="app-shell">
+      <section class="hero" aria-labelledby="app-title">
+        <h1 id="app-title">Rucksack packen</h1>
+      </section>
+
+      <section id="level-panel" class="start-panel" aria-label="Rucksack packen Schwierigkeit auswählen">
+        <div class="start-copy">
+          <p class="small-label">Endlosspiel</p>
+          <h2 id="level-heading">Schwierigkeit wählen</h2>
+          <p id="level-description"></p>
+          <ul id="rules-list" class="rules-list"></ul>
+        </div>
+        <div id="level-grid" class="level-grid" aria-label="Rucksack packen starten"></div>
+      </section>
+
+      <section id="game-panel" class="game-panel" hidden>
+        <div id="game-controls" class="controls" aria-label="Spielsteuerung" hidden>
+          <a id="home-button" class="icon-button" href="index.html" aria-label="Zurück zur Spielauswahl" title="Zurück zur Spielauswahl">⌂</a>
+          <button id="back-button" class="icon-button" type="button" aria-label="Zurück zur Auswahl" title="Zurück zur Auswahl">⇤</button>
+          <button id="reset-button" class="icon-button" type="button" aria-label="Runde neu starten" title="Runde neu starten">↻</button>
+        </div>
+
+        <section class="game-card">
+          <div class="status-row">
+            <div>
+              <p class="small-label">Aktuelle Runde</p>
+              <h2 id="puzzle-title">Rucksack packen</h2>
+              <p id="puzzle-description" class="puzzle-description"></p>
+            </div>
+            <p id="status" class="status" role="status" aria-live="polite">Wähle eine Schwierigkeit aus.</p>
+          </div>
+
+          <div id="board" class="board" aria-label="Rucksack packen Spielfeld"></div>
+          <div id="number-pad" class="number-pad" aria-label="Auswahl" hidden></div>
+
+          <details class="help" open>
+            <summary>So spielst du Rucksack packen</summary>
+            <ul id="game-help-list"></ul>
+          </details>
+        </section>
+      </section>
+
+    </main>
+    <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore-compat.js"></script>
+    <script src="firebase.js"></script>
+    <script src="app.js"></script>
+    <script src="pwa.js"></script>
+  </body>
+</html>
