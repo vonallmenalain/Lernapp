@@ -51,6 +51,7 @@
     dashboardOpen: false,
     firebaseReady: false,
     pendingDisplayName: null,
+    unlockedMode: false,
   };
 
   const accountButton = document.createElement("button");
@@ -92,6 +93,7 @@
     registerLevels,
     isSignedIn: () => Boolean(state.user),
     isLevelSolved,
+    isUnlockedModeEnabled: () => Boolean(state.user && state.unlockedMode),
     recordLevelStart,
     recordMove,
     recordReset,
@@ -150,6 +152,7 @@
 
     if (!user) {
       state.progress.clear();
+      state.unlockedMode = false;
       stopActiveSession();
       renderLoggedOut();
       window.LernappRefreshProgress?.();
@@ -247,9 +250,6 @@
     snapshot.forEach((doc) => {
       const data = doc.data();
       state.progress.set(doc.id, data);
-      if (data.solved && data.game && data.levelId) {
-        localStorage.setItem(progressKey(data), "1");
-      }
     });
   }
 
@@ -316,6 +316,7 @@
     const ref = userRef();
     const existing = await ref.get();
     const existingData = existing.data() || {};
+    state.unlockedMode = Boolean(existingData.levelAccess?.unlockAllLevels);
     const providers = user.providerData.map((provider) => provider.providerId);
     const username = profileNameForUser(user, existingData);
     const isNameLogin = isTechnicalEmail(user.email);
@@ -384,6 +385,27 @@
   async function signOut() {
     await flushCurrentSession({ close: true });
     await state.auth.signOut();
+  }
+
+  async function setUnlockAllLevels(enabled) {
+    if (!state.user || !state.db) return;
+    const previousMode = state.unlockedMode;
+    state.unlockedMode = Boolean(enabled);
+    try {
+      await userRef().set({
+        levelAccess: {
+          unlockAllLevels: state.unlockedMode,
+          updatedAt: serverTimestamp(),
+        },
+        lastSeenAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      }, { merge: true });
+    } catch (error) {
+      state.unlockedMode = previousMode;
+      throw error;
+    }
+    window.LernappRefreshProgress?.();
+    await refreshDashboard();
   }
 
   function recordLevelStart(rawLevel) {
@@ -461,7 +483,12 @@
   function recordSolve(rawLevel) {
     const level = normalizeLevel(rawLevel);
     if (!level) return;
-    localStorage.setItem(progressKey(level), "1");
+    if (!state.user) localStorage.setItem(progressKey(level), "1");
+    state.progress.set(levelKey(level), {
+      ...(state.progress.get(levelKey(level)) || {}),
+      ...level,
+      solved: true,
+    });
     if (state.activeSession && levelKey(state.activeSession.level) === levelKey(level)) {
       state.activeSession.solved = true;
     }
@@ -689,12 +716,12 @@
     ]);
 
     const userData = userDoc.data() || {};
+    state.unlockedMode = Boolean(userData.levelAccess?.unlockAllLevels);
     const progressDocs = progressSnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
     const sessions = sessionSnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
 
     progressDocs.forEach((entry) => {
       state.progress.set(entry.id, entry);
-      if (entry.solved && entry.game && entry.levelId) localStorage.setItem(progressKey(entry), "1");
     });
 
     if (!state.dashboardOpen && modal.hidden) return;
@@ -717,6 +744,15 @@
         </div>
         <button type="button" class="secondary-action" data-logout>Logout</button>
       </div>
+      <div class="unlock-mode-card${state.unlockedMode ? " active" : ""}">
+        <div>
+          <strong>Levelmodus</strong>
+          <span>${state.unlockedMode ? "Alle Levels frei" : "Gesperrter Modus"}</span>
+        </div>
+        <button type="button" class="${state.unlockedMode ? "secondary-action" : ""}" data-unlock-mode-toggle>
+          ${state.unlockedMode ? "Gesperrten Modus einschalten" : "Alle Levels freischalten"}
+        </button>
+      </div>
       <div class="stat-strip" aria-label="Gesamtstatistik">
         <div><strong>${stats.totalSolved}</strong><span>gelöst</span></div>
         <div><strong>${formatDuration(stats.totalSeconds)}</strong><span>Spielzeit</span></div>
@@ -738,6 +774,16 @@
       status.textContent = "Logout läuft...";
       try {
         await signOut();
+      } catch (error) {
+        status.textContent = authErrorMessage(error);
+      }
+    });
+
+    modalContent.querySelector("[data-unlock-mode-toggle]").addEventListener("click", async () => {
+      const status = modalContent.querySelector(".auth-status");
+      status.textContent = state.unlockedMode ? "Gesperrter Modus wird eingeschaltet..." : "Alle Levels werden freigeschaltet...";
+      try {
+        await setUnlockAllLevels(!state.unlockedMode);
       } catch (error) {
         status.textContent = authErrorMessage(error);
       }

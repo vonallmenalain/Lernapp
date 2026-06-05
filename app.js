@@ -1160,11 +1160,13 @@ const BIMARU_LONG_PRESS_MS = 480;
 
 function progressKey(game, levelId) { return `lernapp.solved.${game}.${levelId}`; }
 function cloudProgress() { return window.LernappFirebase || null; }
+function isSignedIn() { return Boolean(cloudProgress()?.isSignedIn?.()); }
 function isSolved(level) {
-  return localStorage.getItem(progressKey(level.game, level.id || level.levelName)) === "1" || Boolean(cloudProgress()?.isLevelSolved?.(level));
+  if (isSignedIn()) return Boolean(cloudProgress()?.isLevelSolved?.(level));
+  return localStorage.getItem(progressKey(level.game, level.id || level.levelName)) === "1";
 }
 function markSolved(level) {
-  localStorage.setItem(progressKey(level.game, level.id || level.levelName), "1");
+  if (!isSignedIn()) localStorage.setItem(progressKey(level.game, level.id || level.levelName), "1");
   cloudProgress()?.recordSolve?.(level);
 }
 function recordMoveMetric() { cloudProgress()?.recordMove?.(); }
@@ -1187,6 +1189,30 @@ function finishMove() { activeMoveSnapshot = null; pushedActiveSnapshot = false;
 
 function levelsForDifficulty(difficulty) { return LEVELS_BY_GAME[currentGame].filter((level) => level.difficulty === difficulty); }
 function countSolved(levels) { return levels.filter((level) => isSolved(level)).length; }
+function levelId(level) { return level?.id || level?.levelId || level?.levelName || ""; }
+function levelIndex(level) {
+  const levels = LEVELS_BY_GAME[level?.game] || [];
+  const id = levelId(level);
+  return levels.findIndex((candidate) => levelId(candidate) === id);
+}
+function isUnlockedModeEnabled() {
+  return Boolean(isSignedIn() && cloudProgress()?.isUnlockedModeEnabled?.());
+}
+function isLevelUnlocked(level) {
+  if (!level) return false;
+  if (isUnlockedModeEnabled()) return true;
+  const levels = LEVELS_BY_GAME[level.game] || [];
+  const index = levelIndex(level);
+  if (index === 0 && level.difficulty === "easy") return true;
+  if (index < 0) return false;
+  return isSolved(level) || isSolved(levels[index - 1]);
+}
+function countUnlocked(levels) { return levels.filter((level) => isLevelUnlocked(level)).length; }
+function nextPlayableLevel(level) {
+  const levels = LEVELS_BY_GAME[level?.game] || [];
+  const next = levels[levelIndex(level) + 1];
+  return next && isLevelUnlocked(next) ? next : null;
+}
 function renderSelectionActions(mode) {
   if (!levelPanel) return;
   levelPanel.querySelector(".selection-actions")?.remove();
@@ -1225,14 +1251,16 @@ function renderDifficultySelect() {
     const info = DIFFICULTIES[difficulty];
     const levels = levelsForDifficulty(difficulty);
     const solved = countSolved(levels);
+    const unlocked = countUnlocked(levels);
     const button = document.createElement("button");
-    button.className = `difficulty-card ${difficulty}`;
+    button.className = `difficulty-card ${difficulty}${unlocked ? "" : " locked"}`;
     button.type = "button";
-    button.setAttribute("aria-label", `${info.label} wählen, ${levels.length} Levels, ${solved} gelöst`);
+    button.disabled = unlocked === 0;
+    button.setAttribute("aria-label", `${info.label} waehlen, ${levels.length} Levels, ${solved} geloest, ${unlocked} frei`);
     button.innerHTML = `
       <span class="difficulty-icon" aria-hidden="true">${info.icon}</span>
       <span class="difficulty-name">${info.label}</span>
-      <small>${levels.length} Levels · ${solved} gelöst</small>
+      <small>${solved} geloest · ${unlocked}/${levels.length} frei</small>
     `;
     button.addEventListener("click", () => selectDifficulty(difficulty));
     levelGrid.append(button);
@@ -1249,7 +1277,7 @@ function renderLevelSelect() {
   levelHeading.textContent = `${difficulty.label} Levels`;
   if (appIntro) appIntro.textContent = "";
   levelDescription.hidden = false;
-  levelDescription.textContent = `Du hast ${difficulty.label} gewählt. Such dir jetzt ein Level aus.`;
+  levelDescription.textContent = `Du hast ${difficulty.label} gewaehlt. Such dir jetzt ein freies Level aus.${isUnlockedModeEnabled() ? " Der freie Modus ist aktiv." : ""}`;
   fillList(rulesList, config.rules);
   renderSelectionActions("levels");
   levelGrid.className = "level-grid";
@@ -1258,19 +1286,21 @@ function renderLevelSelect() {
   levelsForDifficulty(selectedDifficulty).forEach((level) => {
     const index = LEVELS_BY_GAME[currentGame].indexOf(level);
     const solved = isSolved(level);
+    const unlocked = isLevelUnlocked(level);
     const detail = level.badge || (level.size ? `${level.size}×${level.size}` : (level.rows && level.cols ? `${level.rows}×${level.cols}` : "Rätsel"));
     const button = document.createElement("button");
-    button.className = `level-tile ${selectedDifficulty}${solved ? " solved" : ""}`;
+    button.className = `level-tile ${selectedDifficulty}${solved ? " solved" : ""}${unlocked ? "" : " locked"}`;
     button.type = "button";
-    button.setAttribute("aria-label", `${level.title}${solved ? ", gelöst" : ""}`);
-    button.innerHTML = `<span>${level.levelName}</span><small>${solved ? "★ gelöst" : detail}</small>`;
+    button.disabled = !unlocked;
+    button.setAttribute("aria-label", `${level.title}${solved ? ", geloest" : ""}${unlocked ? "" : ", gesperrt"}`);
+    button.innerHTML = `<span>${level.levelName}</span><small>${solved ? "geloest" : (unlocked ? detail : "gesperrt")}</small>`;
     button.addEventListener("click", () => startLevel(index));
     levelGrid.append(button);
   });
 }
 function showLevelSelect() { finishMove(); cloudProgress()?.flushCurrentSession?.({ close: true, includeElapsed: true }); hideSuccess(); if (levelPanel) levelPanel.hidden = false; if (homePanel) homePanel.hidden = true; if (gamePanel) gamePanel.hidden = true; if (gameControls) gameControls.hidden = true; document.body.classList.remove("puzzle-active"); renderLevelSelect(); }
 function showGame() { if (levelPanel) levelPanel.hidden = true; if (homePanel) homePanel.hidden = true; if (gamePanel) gamePanel.hidden = false; if (gameControls) gameControls.hidden = false; document.body.classList.add("puzzle-active"); }
-function startLevel(index) { hideSuccess(); currentIndex = index; const level = currentLevel(); selectedDifficulty = level.difficulty; const config = GAME_CONFIGS[currentGame]; history = []; winShown = false; if (undoButton) undoButton.disabled = true; const boardSize = level.cols || level.size || 5; board.className = `board ${currentGame}-board board-size-${boardSize}`; board.style.setProperty("--size", boardSize); board.setAttribute("aria-label", `${config.title} Spielfeld`); puzzleTitle.textContent = level.title; puzzleDescription.textContent = level.description || config.subtitle; fillList(gameHelpList, config.rules); cloudProgress()?.recordLevelStart?.(level); resetState(); showGame(); render(); }
+function startLevel(index) { const levelToStart = LEVELS_BY_GAME[currentGame]?.[index]; if (!isLevelUnlocked(levelToStart)) { if (levelToStart) selectedDifficulty = levelToStart.difficulty; renderLevelSelect(); return; } hideSuccess(); currentIndex = index; const level = currentLevel(); selectedDifficulty = level.difficulty; const config = GAME_CONFIGS[currentGame]; history = []; winShown = false; if (undoButton) undoButton.disabled = true; const boardSize = level.cols || level.size || 5; board.className = `board ${currentGame}-board board-size-${boardSize}`; board.style.setProperty("--size", boardSize); board.setAttribute("aria-label", `${config.title} Spielfeld`); puzzleTitle.textContent = level.title; puzzleDescription.textContent = level.description || config.subtitle; fillList(gameHelpList, config.rules); cloudProgress()?.recordLevelStart?.(level); resetState(); showGame(); render(); }
 function resetGame() { history = []; if (undoButton) undoButton.disabled = true; hideSuccess(); cloudProgress()?.recordLevelStart?.(currentLevel()); resetState(); recordResetMetric(); render("Neu gestartet. Viel Spass!"); }
 function undo() {
   finishMove();
@@ -1283,8 +1313,15 @@ function undo() {
   if (undoButton) undoButton.disabled = history.length === 0;
   setStatus("Ein Schritt zurück.");
 }
-function nextLevel() { const levels = levelsForDifficulty(selectedDifficulty || currentLevel().difficulty); const currentDifficultyIndex = levels.indexOf(currentLevel()); const next = levels[(currentDifficultyIndex + 1) % levels.length]; startLevel(LEVELS_BY_GAME[currentGame].indexOf(next)); }
-function showSuccess() { const level = currentLevel(); winShown = true; markSolved(level); if (successOverlay) { successOverlay.hidden = false; successOverlay.classList.remove("hidden"); } setStatus("Geschafft!"); }
+function nextLevel() { const next = nextPlayableLevel(currentLevel()); if (next) startLevel(LEVELS_BY_GAME[currentGame].indexOf(next)); else showLevelSelect(); }
+function updateNextPuzzleButton() {
+  if (!nextPuzzleButton || !currentGame) return;
+  const next = nextPlayableLevel(currentLevel());
+  nextPuzzleButton.textContent = next ? "\u2192" : "OK";
+  nextPuzzleButton.title = next ? "Naechstes Level" : "Zur Levelauswahl";
+  nextPuzzleButton.setAttribute("aria-label", next ? "Naechstes Level" : "Zur Levelauswahl");
+}
+function showSuccess() { const level = currentLevel(); winShown = true; markSolved(level); updateNextPuzzleButton(); if (successOverlay) { successOverlay.hidden = false; successOverlay.classList.remove("hidden"); } setStatus("Geschafft!"); }
 function hideSuccess() { winShown = false; if (successOverlay) { successOverlay.hidden = true; successOverlay.classList.add("hidden"); } }
 
 function setupSuccessOverlay() {

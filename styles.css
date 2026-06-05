@@ -843,6 +843,17 @@ a.game-choice-card:visited {
   font-weight: 850;
 }
 
+.level-tile.locked {
+  border-style: dashed;
+  background: #f7f7fb;
+  box-shadow: none;
+}
+
+.level-tile.locked span,
+.level-tile.locked small {
+  color: #7b8190;
+}
+
 .level-tile.easy { border-color: #06d6a0; }
 .level-tile.medium { border-color: #ffd166; }
 .level-tile.hard { border-color: #ef476f; }
@@ -1294,6 +1305,11 @@ body.puzzle-active .bimaru-count-board {
 .difficulty-card.medium { border-color: #ffd166; background: #fff8df; }
 .difficulty-card.hard { border-color: #ef476f; background: #fff0f4; }
 .difficulty-card.extreme { border-color: #8338ec; background: #f4edff; }
+
+.difficulty-card.locked {
+  border-style: dashed;
+  background: #f7f7fb;
+}
 
 .difficulty-card:hover:not(:disabled),
 .difficulty-card:focus-visible {
@@ -2445,6 +2461,39 @@ body.puzzle-active .task-board {
   font-weight: 800;
 }
 
+.unlock-mode-card {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: #fff;
+  border: 2px solid var(--line);
+  box-shadow: 0 10px 22px rgba(50, 44, 109, 0.08);
+}
+
+.unlock-mode-card.active {
+  border-color: #06d6a0;
+  background: #f0fff9;
+}
+
+.unlock-mode-card > div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.unlock-mode-card strong {
+  color: var(--ink);
+}
+
+.unlock-mode-card span {
+  color: var(--muted);
+  font-weight: 800;
+}
+
 .stat-strip {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -2561,6 +2610,7 @@ body.puzzle-active .task-board {
 
   .auth-actions,
   .profile-summary,
+  .unlock-mode-card,
   .progress-card > div:first-child,
   .session-item {
     align-items: stretch;
@@ -2568,7 +2618,8 @@ body.puzzle-active .task-board {
   }
 
   .auth-actions > *,
-  .profile-summary > button {
+  .profile-summary > button,
+  .unlock-mode-card > button {
     width: 100%;
   }
 
