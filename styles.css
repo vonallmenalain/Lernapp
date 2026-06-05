@@ -1971,6 +1971,13 @@ body.puzzle-active .task-board {
   background: rgba(108, 92, 231, 0.1);
 }
 
+.sequence-shape {
+  padding: 0.5rem;
+  border-radius: 12px;
+  background: rgba(108, 92, 231, 0.05);
+  line-height: 1;
+}
+
 .practice-options {
   width: 100%;
   display: grid;

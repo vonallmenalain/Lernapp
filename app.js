@@ -342,6 +342,12 @@ const GAME_CONFIGS = {
     success: "Klasse! Du hast die schwierigen Muster erkannt.",
     rules: ["Schau dir die Zahlenreihe genau an.", "Finde heraus, in welchen Schritten gerechnet wird (+, -, oder sogar verdoppeln).", "Tippe auf die Zahl, die an die Stelle des Fragezeichens gehört."],
   },
+  shapeSequencePuzzle: {
+    title: "Figurenfolge", eyebrow: "Muster erkennen", code: "P",
+    subtitle: "Welche Figur kommt als Nächstes in der Reihe?",
+    success: "Klasse! Du hast alle Muster richtig erkannt.",
+    rules: ["Schau dir die Figurenreihe genau an.", "Finde heraus, nach welcher Regel sich Formen oder Farben abwechseln.", "Tippe auf die Figur, die an die Stelle des Fragezeichens gehört."],
+  },
   readingPuzzle: {
     title: "Wortdetektiv", eyebrow: "Leserätsel", code: "W",
     subtitle: "Erkenne Buchstaben, Wörter und kurze Sätze passend zum Bild.",
@@ -916,6 +922,84 @@ function sequenceTaskKey(task) {
   return [task.puzzleType, task.difficulty, task.sourceId || task.id].join(":");
 }
 
+const SHAPE_POOL = ["🔴", "🔵", "🟡", "🟢", "🟥", "🟦", "🟨", "🟩", "🔺", "🔻", "⭐", "🌙", "☀️", "☁️", "💖", "🔶", "🔷"];
+
+const SHAPE_SEQUENCE_ITEMS = [
+  { id: "e1", seq: ["🔴", "🔵", "🔴", "🔵", null], answer: "🔴", diff: "easy" },
+  { id: "e2", seq: ["🟩", "🟩", "🟡", "🟡", null], answer: "🟩", diff: "easy" },
+  { id: "e3", seq: ["🔺", "⭐", "🔺", "⭐", null], answer: "🔺", diff: "easy" },
+  { id: "e4", seq: ["🟦", "🔴", "🟡", "🟦", null], answer: "🔴", diff: "easy" },
+  { id: "e5", seq: ["⭐", "🌙", "⭐", "🌙", null], answer: "⭐", diff: "easy" },
+  { id: "e6", seq: ["💖", "🟩", "💖", "🟩", null], answer: "💖", diff: "easy" },
+  { id: "e7", seq: ["🔵", "🔵", "🔴", "🔵", null], answer: "🔵", diff: "easy" },
+  { id: "e8", seq: ["🔺", "🔻", "🔺", "🔻", null], answer: "🔺", diff: "easy" },
+  { id: "e9", seq: ["🟡", "🟩", "🔵", "🟡", null], answer: "🟩", diff: "easy" },
+  { id: "e10", seq: ["🟥", "🟦", "🟥", "🟦", null], answer: "🟥", diff: "easy" },
+  { id: "e11", seq: ["🔴", "🔴", "🔵", "🔴", null], answer: "🔴", diff: "easy" },
+  { id: "e12", seq: ["🔶", "🔷", "🔶", "🔷", null], answer: "🔶", diff: "easy" },
+
+  { id: "m1", seq: ["🔴", "🟦", "🟡", "🔴", "🟦", null], answer: "🟡", diff: "medium" },
+  { id: "m2", seq: ["⭐", "🌙", "☁️", "⭐", "🌙", null], answer: "☁️", diff: "medium" },
+  { id: "m3", seq: ["🔺", "🔴", "🔺", "🟦", "🔺", null], answer: "🔴", diff: "medium" },
+  { id: "m4", seq: ["🟩", "🟡", "🟡", "🟩", "🟡", null], answer: "🟡", diff: "medium" },
+  { id: "m5", seq: ["🔴", "🔴", "🟦", "🟦", "🟡", null], answer: "🟡", diff: "medium" },
+  { id: "m6", seq: ["💖", "⭐", "💖", "🌙", "💖", null], answer: "⭐", diff: "medium" },
+  { id: "m7", seq: ["🔵", "🔺", "🟩", "🔵", "🔺", null], answer: "🟩", diff: "medium" },
+  { id: "m8", seq: ["🟨", "🟨", "🟥", "🟨", "🟨", null], answer: "🟥", diff: "medium" },
+  { id: "m9", seq: ["🔻", "🔺", "⭐", "🔻", "🔺", null], answer: "⭐", diff: "medium" },
+  { id: "m10", seq: ["🔴", "🟩", "🔵", "🟡", "🔴", null], answer: "🟩", diff: "medium" },
+  { id: "m11", seq: ["🔶", "🔷", "🔶", "🔷", "🔶", null], answer: "🔷", diff: "medium" },
+  { id: "m12", seq: ["🌙", "☀️", "☁️", "🌙", "☀️", null], answer: "☁️", diff: "medium" },
+
+  { id: "h1", seq: ["🔴", "🟦", "🟦", "🔴", "🟦", null], answer: "🟦", diff: "hard" },
+  { id: "h2", seq: ["⭐", "🔺", "🟩", "⭐", "🔺", null], answer: "🟩", diff: "hard" },
+  { id: "h3", seq: ["🔴", "🟡", "🟢", "🔵", "🔴", null], answer: "🟡", diff: "hard" },
+  { id: "h4", seq: ["🟩", "🟥", "🟩", "🟥", "🟥", null], answer: "🟩", diff: "hard" },
+  { id: "h5", seq: ["🔵", "🔵", "🔴", "🔵", "🔵", null], answer: "🔴", diff: "hard" },
+  { id: "h6", seq: ["🔺", "🔻", "🔻", "🔺", "🔻", null], answer: "🔻", diff: "hard" },
+  { id: "h7", seq: ["⭐", "🌙", "☀️", "☁️", "⭐", null], answer: "🌙", diff: "hard" },
+  { id: "h8", seq: ["💖", "💖", "🔵", "💖", "💖", null], answer: "🔵", diff: "hard" },
+  { id: "h9", seq: ["🔴", "🔴", "🔴", "🟦", "🔴", null], answer: "🔴", diff: "hard" },
+  { id: "h10", seq: ["🟨", "🟩", "🟦", "🟨", "🟩", null], answer: "🟦", diff: "hard" },
+  { id: "h11", seq: ["🔶", "🔶", "🔷", "🔶", "🔶", null], answer: "🔷", diff: "hard" },
+  { id: "h12", seq: ["☀️", "☁️", "☁️", "☀️", "☁️", null], answer: "☁️", diff: "hard" },
+
+  { id: "x1", seq: ["🔴", "🟥", "🔵", "🟦", "🟡", null], answer: "🟨", diff: "extreme" },
+  { id: "x2", seq: ["🟢", "🟩", "🔴", "🟥", "🔵", null], answer: "🟦", diff: "extreme" },
+  { id: "x3", seq: ["🔴", "🔵", "🔴", "🔴", "🔵", null], answer: "🔴", diff: "extreme" },
+  { id: "x4", seq: ["🔺", "⭐", "🔺", "🔺", "⭐", null], answer: "🔺", diff: "extreme" },
+  { id: "x5", seq: ["🟥", "🟨", "🟩", "🟦", "🟥", null], answer: "🟨", diff: "extreme" },
+  { id: "x6", seq: ["🌙", "⭐", "☀️", "🌙", "⭐", null], answer: "☀️", diff: "extreme" },
+  { id: "x7", seq: ["🟡", "🟨", "🔴", "🟥", "🟢", null], answer: "🟩", diff: "extreme" },
+  { id: "x8", seq: ["🔵", "🔵", "🔵", "🔴", "🔵", null], answer: "🔵", diff: "extreme" },
+  { id: "x9", seq: ["🔻", "🔺", "🔻", "🔻", "🔺", null], answer: "🔻", diff: "extreme" },
+  { id: "x10", seq: ["💖", "🔶", "🔷", "💖", "🔶", null], answer: "🔷", diff: "extreme" },
+  { id: "x11", seq: ["🟩", "🟢", "🟦", "🔵", "🟥", null], answer: "🔴", diff: "extreme" },
+  { id: "x12", seq: ["🟨", "🟡", "🟩", "🟢", "🟦", null], answer: "🔵", diff: "extreme" },
+];
+
+function generateShapeSequenceTask(difficulty) {
+  const safeDifficulty = DIFFICULTIES[difficulty] ? difficulty : "easy";
+  const pool = SHAPE_SEQUENCE_ITEMS.filter((item) => item.diff === safeDifficulty);
+  const item = pickRandom(pool);
+  const optionCount = safeDifficulty === "easy" || safeDifficulty === "medium" ? 3 : 4;
+  const availableDistractors = shuffleOptions(SHAPE_POOL.filter((shape) => shape !== item.answer));
+  const options = shuffleOptions([item.answer, ...availableDistractors].slice(0, optionCount));
+
+  return {
+    id: `shapes-${safeDifficulty}-${item.id}-${Date.now()}-${randomInt(1000, 9999)}`,
+    sourceId: item.id,
+    puzzleType: "shapeSequencePuzzle",
+    difficulty: safeDifficulty,
+    sequence: item.seq,
+    correctAnswer: item.answer,
+    options,
+  };
+}
+function shapeSequenceTaskKey(task) {
+  return [task.puzzleType, task.difficulty, task.sourceId || task.id].join(":");
+}
+
 function wordItem(id, word, article, imageKey, difficulty, category, syllables, allowedTaskTypes) {
   return { id, word, displayWord: word, article, imageKey, difficulty, category, syllables, allowedTaskTypes };
 }
@@ -1156,6 +1240,7 @@ function readingTaskKey(task) {
   return [task.puzzleType, task.difficulty, task.taskType, task.sentenceId].join(":");
 }
 function practiceTaskKey(task) {
+  if (task.puzzleType === "shapeSequencePuzzle") return shapeSequenceTaskKey(task);
   if (task.puzzleType === "sequencePuzzle") return sequenceTaskKey(task);
   return task.puzzleType === "mathPuzzle" ? mathTaskKey(task) : readingTaskKey(task);
 }
@@ -1190,6 +1275,12 @@ const SEQUENCE_LEVEL_DESCRIPTIONS = {
   hard: "Übergang über 100, Verdoppeln und 10er-Sprünge ab ungeraden Zahlen.",
   extreme: "Große Sprünge, das große Einmaleins und verrückte Muster.",
 };
+const SHAPE_SEQUENCE_LEVEL_DESCRIPTIONS = {
+  easy: "Einfache Muster wie ABAB oder AABB.",
+  medium: "Längere Muster mit 3 oder 4 verschiedenen Figuren.",
+  hard: "Muster, bei denen sich die Anzahl der Figuren verändert.",
+  extreme: "Wechsel von Farben und Formen. Schau ganz genau hin!",
+};
 function makePracticeLevels(game, descriptions) {
   return DIFFICULTY_KEYS.flatMap((difficulty) =>
     Array.from({ length: LEVELS_PER_DIFFICULTY }, (_, index) => makeLevel(game, difficulty, index + 1, {
@@ -1202,12 +1293,14 @@ function makePracticeLevels(game, descriptions) {
 const MATH_LEVELS = makePracticeLevels("mathPuzzle", MATH_LEVEL_DESCRIPTIONS);
 const READING_LEVELS = makePracticeLevels("readingPuzzle", READING_LEVEL_DESCRIPTIONS);
 const SEQUENCE_LEVELS = makePracticeLevels("sequencePuzzle", SEQUENCE_LEVEL_DESCRIPTIONS);
+const SHAPE_SEQUENCE_LEVELS = makePracticeLevels("shapeSequencePuzzle", SHAPE_SEQUENCE_LEVEL_DESCRIPTIONS);
 
 if (typeof window !== "undefined") {
   window.LernappPuzzleGenerators = {
     generateMathTask,
     generateReadingTask,
     generateSequenceTask,
+    generateShapeSequenceTask,
     validateMathTask,
     validateReadingTask,
     ensureUniqueOptions,
@@ -1215,6 +1308,8 @@ if (typeof window !== "undefined") {
     readingWords: READING_WORD_ITEMS,
     readingSentences: READING_SENTENCE_ITEMS,
     sequenceItems: SEQUENCE_ITEMS,
+    shapeSequenceItems: SHAPE_SEQUENCE_ITEMS,
+    shapePool: SHAPE_POOL,
   };
 }
 
@@ -1234,6 +1329,7 @@ const LEVELS_BY_GAME = {
   mathPuzzle: normalizeLevelCounts(MATH_LEVELS),
   readingPuzzle: normalizeLevelCounts(READING_LEVELS),
   sequencePuzzle: normalizeLevelCounts(SEQUENCE_LEVELS),
+  shapeSequencePuzzle: normalizeLevelCounts(SHAPE_SEQUENCE_LEVELS),
   backpack: normalizeLevelCounts(BACKPACK_LEVELS),
 };
 
@@ -1305,6 +1401,7 @@ const LOCAL_SOLVED_PREFIX = "lernapp.solved.";
 const LOCAL_STARS_PREFIX = "lernapp.stars.";
 const MAX_STARS = 3;
 const TIMED_STAR_GAMES = new Set(["arukone", "bimaru", "kakuro", "shikaku", "hidoku", "sudoku"]);
+const PRACTICE_GAMES = new Set(["mathPuzzle", "readingPuzzle", "sequencePuzzle", "shapeSequencePuzzle"]);
 const TIMED_STAR_LIMITS = { three: 30, two: 60 };
 
 function progressKey(game, levelId) { return `${LOCAL_SOLVED_PREFIX}${game}.${levelId}`; }
@@ -1484,14 +1581,14 @@ function currentLevelStars() {
   const level = currentLevel();
   if (!level) return 1;
   if (isTimedStarGame()) return currentTimedStars() || 1;
-  if (currentGame === "mathPuzzle" || currentGame === "readingPuzzle" || currentGame === "sequencePuzzle") return practiceStars(level);
+  if (PRACTICE_GAMES.has(currentGame)) return practiceStars(level);
   if (currentGame === "backpack") return backpackStars(state.best);
   return 1;
 }
 function currentSolveResult(stars = currentLevelStars()) {
   const result = { stars };
   if (isTimedStarGame()) result.elapsedSeconds = Math.round(starTimerElapsedSeconds());
-  if (currentGame === "mathPuzzle" || currentGame === "readingPuzzle" || currentGame === "sequencePuzzle") {
+  if (PRACTICE_GAMES.has(currentGame)) {
     result.flawless = Number(state.flawlessCount || 0);
     result.correct = Number(state.correctCount || 0);
     result.target = currentLevel().targetCount || 10;
@@ -1992,6 +2089,22 @@ function makeSequenceTaskView() {
   view.append(display);
   return view;
 }
+function makeShapeSequenceTaskView() {
+  const task = state.task;
+  const view = document.createElement("div");
+  view.className = "practice-task sequence-task";
+  const display = document.createElement("div");
+  display.className = "sequence-display";
+  display.setAttribute("aria-label", "Figurenreihe mit Lücke");
+  task.sequence.forEach((shape) => {
+    const span = document.createElement("span");
+    span.className = shape === null ? "sequence-gap" : "sequence-shape";
+    span.textContent = shape === null ? "?" : shape;
+    display.append(span);
+  });
+  view.append(display);
+  return view;
+}
 function readingHintText(task) {
   if (task.taskType === "missingLetter") return `Achte auf den ersten Buchstaben: ${task.fullText[0]}.`;
   if (task.taskType === "chooseWord") return `Das passende Wort beginnt mit ${task.fullText[0]}.`;
@@ -2154,6 +2267,22 @@ const GAME_HANDLERS = {
     },
     render(level) {
       renderPracticeShell(level, "sequencePuzzle-board", makeSequenceTaskView(), (answer) => this.answer(answer), generateSequenceTask, "Neue Zahlenreihe. Du schaffst das.");
+    },
+  },
+
+  shapeSequencePuzzle: {
+    resetState(level) { resetPracticeState(level, generateShapeSequenceTask, "Schau dir die Reihe genau an. Welche Figur fehlt?"); },
+    checkWin() { return Boolean(state.completed); },
+    hint() { if (!state.task || state.completed || state.awaitingNext) return; state.tipVisible = true; render("Tipp: Sprich das Muster laut vor dich hin."); },
+    answer(answer) {
+      answerPracticeTask(answer, generateShapeSequenceTask, {
+        correct: ["Richtig!", "Genial erkannt!", "Ganz genau!", "Super gemacht!"],
+        retry: ["Fast! Prüfe das Muster noch einmal.", "Knapp daneben. Schau dir die Reihenfolge genau an."],
+        hint: "Tipp: Achte auf die Farben und die Formen der vorherigen Bilder.",
+      });
+    },
+    render(level) {
+      renderPracticeShell(level, "shapeSequencePuzzle-board", makeShapeSequenceTaskView(), (answer) => this.answer(answer), generateShapeSequenceTask, "Neue Figurenfolge. Du schaffst das.");
     },
   },
 

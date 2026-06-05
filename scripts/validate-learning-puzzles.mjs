@@ -139,8 +139,33 @@ function validateReading() {
   }
 }
 
+function validateShapeSequence() {
+  assert(api.shapeSequenceItems.length === 48, "shape sequence should expose 48 curated items");
+  assert(api.shapePool.length >= 17, "shape sequence pool is too small");
+
+  for (const difficulty of difficulties) {
+    const items = api.shapeSequenceItems.filter((item) => item.diff === difficulty);
+    assert(items.length === 12, `shape sequence ${difficulty} should have 12 items`);
+
+    for (let i = 0; i < 120; i += 1) {
+      const task = api.generateShapeSequenceTask(difficulty);
+      const expectedOptionCount = difficulty === "easy" || difficulty === "medium" ? 3 : 4;
+      assert(task.puzzleType === "shapeSequencePuzzle", `shape sequence ${difficulty} has wrong puzzle type`);
+      assert(task.difficulty === difficulty, `shape sequence ${difficulty} changed difficulty`);
+      assert(items.some((item) => item.id === task.sourceId), `shape sequence ${difficulty} has unknown sourceId`);
+      assert(Array.isArray(task.sequence), `shape sequence ${difficulty} has no sequence`);
+      assert(task.sequence.filter((shape) => shape === null).length === 1, `shape sequence ${difficulty} should have exactly one gap`);
+      assert(api.shapePool.includes(task.correctAnswer), `shape sequence ${difficulty} answer is outside pool`);
+      assert(task.options.length === expectedOptionCount, `shape sequence ${difficulty} has wrong option count`);
+      assert(optionIsUnique(task), `shape sequence ${difficulty} options are duplicated`);
+      assert(task.options.every((option) => api.shapePool.includes(option)), `shape sequence ${difficulty} option is outside pool`);
+      assert(task.options.filter((option) => option === task.correctAnswer).length === 1, `shape sequence ${difficulty} lacks one correct answer`);
+    }
+  }
+}
+
 function validateCatalog() {
-  for (const game of ["mathPuzzle", "readingPuzzle"]) {
+  for (const game of ["mathPuzzle", "readingPuzzle", "shapeSequencePuzzle"]) {
     assert(catalog[game], `${game} missing from level catalog`);
     assert(catalog[game].length === 40, `${game} should have 40 levels`);
     for (const difficulty of difficulties) {
@@ -153,6 +178,7 @@ function validateCatalog() {
 
 validateMath();
 validateReading();
+validateShapeSequence();
 validateCatalog();
 
 console.log("Learning puzzle validation passed.");

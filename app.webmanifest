@@ -2,7 +2,7 @@
   "id": "./",
   "name": "Lernapp",
   "short_name": "Lernapp",
-  "description": "Rätsel für Kinder mit Rechnen, Lesen, Arukone, Battleships, Kakuro, Tiergehegen, Hidoku und Sudoku.",
+  "description": "Rätsel für Kinder mit Rechnen, Lesen, Figurenfolgen, Arukone, Battleships, Kakuro, Tiergehegen, Hidoku und Sudoku.",
   "lang": "de",
   "dir": "ltr",
   "start_url": "./index.html",

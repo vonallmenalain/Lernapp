@@ -1,4 +1,4 @@
-const APP_VERSION = "2026-06-05-2";
+const APP_VERSION = "2026-06-05-3";
 const CACHE_PREFIX = "lernapp-pwa-";
 const CACHE_NAME = `${CACHE_PREFIX}${APP_VERSION}`;
 const ASSET_VERSION_QUERY = `?v=${APP_VERSION}`;
@@ -9,6 +9,7 @@ const CORE_ASSETS = [
   "./arukone.html",
   "./backpack.html",
   "./bimaru.html",
+  "./figurenfolge.html",
   "./hidoku.html",
   "./kakuro.html",
   "./shikaku.html",
