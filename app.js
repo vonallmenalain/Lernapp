@@ -328,7 +328,7 @@ const GAME_CONFIGS = {
     title: "Tiergehege", eyebrow: "Gehege bauen", code: "G",
     subtitle: "Baue für jedes Tier ein Gehege mit genau der richtigen Grösse.",
     success: "Alle Tiere haben ein passendes Gehege!",
-    rules: ["Ziehe von einer Ecke des geplanten Geheges zur gegenüberliegenden Ecke.", "Das Tier darf auch mitten im Rechteck liegen; das Rechteck muss genau ein Tier enthalten.", "Jedes Gehege braucht genau so viele Felder, wie die Zahl zeigt."],
+    rules: ["Ziehe von einer Ecke des geplanten Geheges zur gegenüberliegenden Ecke.", "Das Tier darf auch mitten im Rechteck liegen; das Rechteck muss genau ein Tier enthalten.", "Jedes Gehege braucht genau so viele Felder, wie die Zahl zeigt.", "Tippe auf ein Tier in einem fertigen Gehege, um dieses Gehege wieder zu löschen."],
   },
   mathPuzzle: {
     title: "Zahlenzauber", eyebrow: "Rechenrätsel", code: "Z",
@@ -1583,6 +1583,16 @@ const GAME_HANDLERS = {
     },
     checkWin() { const level = currentLevel(); return level.clues.every((clue) => this.regionMatchesSolution(level, clue)); },
     selectClue(clue) { state.selected = { row: clue.row, col: clue.col }; state.dragPreview = null; render(`Das Tier braucht ${clue.value} Felder.`); },
+    clearClueRegion(clue) {
+      const selectedKey = this.clueKey(clue);
+      if (!state.regions[selectedKey]) return false;
+      pushHistory();
+      delete state.regions[selectedKey];
+      state.selected = null;
+      state.dragPreview = null;
+      render("Gehege gelöscht.");
+      return true;
+    },
     rectangleCellsFromCorners(startRow, startCol, endRow, endCol) {
       const minRow = Math.min(startRow, endRow), maxRow = Math.max(startRow, endRow);
       const minCol = Math.min(startCol, endCol), maxCol = Math.max(startCol, endCol);
@@ -1656,6 +1666,7 @@ const GAME_HANDLERS = {
       const clue = this.clueAt(level, r, c);
       if (!state.selected) {
         if (!clue) { render("Bitte tippe zuerst auf ein Tier mit Zahl."); return; }
+        if (this.clearClueRegion(clue)) return;
         this.selectClue(clue);
         return;
       }
@@ -1680,7 +1691,7 @@ const GAME_HANDLERS = {
         const color = region?.color || 0;
         const isDragPreview = dragKeys.has(keyOf(r, c));
         const cell = makeButtonCell(r, c, `cell shikaku-cell${clue ? " clue" : ""}${selected ? " selected" : ""}${owner ? ` region shikaku-region-${color}` : ""}${isDragPreview ? ` shikaku-drag-preview${dragAreaMatches ? " valid" : ""}` : ""}`, "");
-        cell.setAttribute("aria-label", clue ? `Tier mit Zahl ${clue.value}, Reihe ${r + 1}, Spalte ${c + 1}` : `Feld Reihe ${r + 1}, Spalte ${c + 1}`);
+        cell.setAttribute("aria-label", clue ? `Tier mit Zahl ${clue.value}, Reihe ${r + 1}, Spalte ${c + 1}${owner ? ", Gehege antippen zum Löschen" : ""}` : `Feld Reihe ${r + 1}, Spalte ${c + 1}`);
         if (clue) {
           const animal = document.createElement("span");
           animal.className = "shikaku-animal";
@@ -2143,6 +2154,7 @@ function startShikakuPointer(event, cell) {
   const touchedClue = handler.clueAt(level, row, col);
   const selectedClue = state.selected ? handler.clueAt(level, state.selected.row, state.selected.col) : null;
   event.preventDefault();
+  beginMove();
   shikakuDrag = {
     pointerId: event.pointerId,
     startRow: row,
@@ -2183,6 +2195,7 @@ function finishShikakuPointer() {
   const selectedClue = selectedClueKey ? handler.clueFromKey(level, selectedClueKey) : null;
   if (!moved && touchedClue) {
     handler.clearDragPreview();
+    if (handler.clearClueRegion(touchedClue)) { finishMove(); return; }
     handler.selectClue(touchedClue);
   } else if (!moved && selectedClue) {
     handler.clearDragPreview();
@@ -2190,6 +2203,7 @@ function finishShikakuPointer() {
   } else {
     handler.finishRectangle(startRow, startCol, lastRow, lastCol, moved);
   }
+  finishMove();
 }
 function cancelShikakuPointer() {
   if (!shikakuDrag) return;
@@ -2197,6 +2211,7 @@ function cancelShikakuPointer() {
   activePointerId = null;
   ignoreNextShikakuClick = true;
   GAME_HANDLERS.shikaku.finishRectangle(0, 0, 0, 0, false);
+  finishMove();
 }
 
 function drawArukoneCell(row, col) {
