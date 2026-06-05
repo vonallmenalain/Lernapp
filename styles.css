@@ -843,6 +843,11 @@ a.game-choice-card:visited {
   font-weight: 850;
 }
 
+.level-tile small.lock-icon {
+  font-size: 1.15rem;
+  line-height: 1;
+}
+
 .level-tile.locked {
   border-style: dashed;
   background: #f7f7fb;

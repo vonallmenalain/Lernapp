@@ -342,6 +342,12 @@ const GAME_CONFIGS = {
     success: "Richtig gelesen! Du hast die Leserätsel geschafft.",
     rules: ["Schau dir zuerst das Bild an.", "Lies das Wort oder den Satz in Ruhe.", "Tippe auf die Antwort, die genau passt."],
   },
+  backpack: {
+    title: "Rucksack packen", eyebrow: "Endlosspiel", code: "R",
+    subtitle: "Merke dir, was schon im Rucksack liegt, und packe alles in der richtigen Reihenfolge ein.",
+    success: "Super gemerkt! Der Rucksack ist richtig gepackt.",
+    rules: ["Wähle zuerst einen neuen Gegenstand für den Rucksack.", "Packe danach alle Gegenstände in der gemerkten Reihenfolge ein.", "Nach einer gespielten Runde wird die nächste Schwierigkeit frei."],
+  },
 };
 
 function clone(value) { return typeof structuredClone === "function" ? structuredClone(value) : JSON.parse(JSON.stringify(value)); }
@@ -358,6 +364,45 @@ function makeLevel(game, difficulty, index, data) {
   const levelName = `${config.code} ${diff.code}-${index}`;
   return { ...data, id: data.id || `${game}-${difficulty}-${index}`, game, difficulty, levelName, title: data.title || `${levelName} · ${config.title} · ${diff.label}` };
 }
+
+const BACKPACK_DIFFICULTY_RULES = {
+  easy: { choiceCount: 3, poolSize: 10, showLabels: true },
+  medium: { choiceCount: 4, poolSize: 14, showLabels: true },
+  hard: { choiceCount: 5, poolSize: 18, showLabels: false },
+  extreme: { choiceCount: 6, poolSize: 24, showLabels: false },
+};
+const BACKPACK_ITEMS = [
+  { id: "apple", emoji: "🍎", label: "Apfel" },
+  { id: "ball", emoji: "⚽", label: "Ball" },
+  { id: "book", emoji: "📘", label: "Buch" },
+  { id: "star", emoji: "⭐", label: "Stern" },
+  { id: "banana", emoji: "🍌", label: "Banane" },
+  { id: "bear", emoji: "🧸", label: "Teddy" },
+  { id: "pencil", emoji: "✏️", label: "Stift" },
+  { id: "cookie", emoji: "🍪", label: "Keks" },
+  { id: "car", emoji: "🚗", label: "Auto" },
+  { id: "key", emoji: "🔑", label: "Schlüssel" },
+  { id: "flower", emoji: "🌸", label: "Blume" },
+  { id: "rocket", emoji: "🚀", label: "Rakete" },
+  { id: "clock", emoji: "⏰", label: "Wecker" },
+  { id: "shell", emoji: "🐚", label: "Muschel" },
+  { id: "puzzle", emoji: "🧩", label: "Puzzle" },
+  { id: "train", emoji: "🚂", label: "Zug" },
+  { id: "umbrella", emoji: "☂️", label: "Schirm" },
+  { id: "light", emoji: "💡", label: "Lampe" },
+  { id: "hat", emoji: "🧢", label: "Kappe" },
+  { id: "magnifier", emoji: "🔎", label: "Lupe" },
+  { id: "dice", emoji: "🎲", label: "Würfel" },
+  { id: "paint", emoji: "🎨", label: "Farbe" },
+  { id: "map", emoji: "🗺️", label: "Karte" },
+  { id: "medal", emoji: "🏅", label: "Medaille" },
+];
+const BACKPACK_ITEM_BY_ID = Object.fromEntries(BACKPACK_ITEMS.map((item) => [item.id, item]));
+const BACKPACK_LEVELS = DIFFICULTY_KEYS.map((difficulty) => makeLevel("backpack", difficulty, 1, {
+  id: `backpack-${difficulty}`,
+  badge: "Endlos",
+  description: `${DIFFICULTIES[difficulty].label}: ${BACKPACK_DIFFICULTY_RULES[difficulty].choiceCount} Auswahlkarten pro Schritt.`,
+}));
 
 // Bestehende Arukone- und Sudoku-Level in die neue Struktur übernehmen.
 const ARUKONE_LEVELS = Object.entries(PUZZLES).map(([, level]) => {
@@ -1097,6 +1142,7 @@ const LEVELS_BY_GAME = {
   shikaku: normalizeLevelCounts(SHIKAKU_LEVELS),
   mathPuzzle: normalizeLevelCounts(MATH_LEVELS),
   readingPuzzle: normalizeLevelCounts(READING_LEVELS),
+  backpack: normalizeLevelCounts(BACKPACK_LEVELS),
 };
 
 function publicLevelInfo(level) {
@@ -1152,6 +1198,7 @@ let lastDrawnKey = null;
 let activePointerId = null;
 let shikakuDrag = null;
 let hidokuDrag = null;
+let backpackTimer = null;
 let ignoreNextHidokuClick = false;
 let ignoreNextShikakuClick = false;
 let activeMoveSnapshot = null;
@@ -1293,12 +1340,12 @@ function renderLevelSelect() {
     button.type = "button";
     button.disabled = !unlocked;
     button.setAttribute("aria-label", `${level.title}${solved ? ", geloest" : ""}${unlocked ? "" : ", gesperrt"}`);
-    button.innerHTML = `<span>${level.levelName}</span><small>${solved ? "geloest" : (unlocked ? detail : "gesperrt")}</small>`;
+    button.innerHTML = `<span>${level.levelName}</span><small${unlocked ? "" : " class=\"lock-icon\" aria-hidden=\"true\""}>${solved ? "geloest" : (unlocked ? detail : "🔒")}</small>`;
     button.addEventListener("click", () => startLevel(index));
     levelGrid.append(button);
   });
 }
-function showLevelSelect() { finishMove(); cloudProgress()?.flushCurrentSession?.({ close: true, includeElapsed: true }); hideSuccess(); if (levelPanel) levelPanel.hidden = false; if (homePanel) homePanel.hidden = true; if (gamePanel) gamePanel.hidden = true; if (gameControls) gameControls.hidden = true; document.body.classList.remove("puzzle-active"); renderLevelSelect(); }
+function showLevelSelect() { finishMove(); if (currentGame === "backpack") clearBackpackTimer(); cloudProgress()?.flushCurrentSession?.({ close: true, includeElapsed: true }); hideSuccess(); if (levelPanel) levelPanel.hidden = false; if (homePanel) homePanel.hidden = true; if (gamePanel) gamePanel.hidden = true; if (gameControls) gameControls.hidden = true; document.body.classList.remove("puzzle-active"); renderLevelSelect(); }
 function showGame() { if (levelPanel) levelPanel.hidden = true; if (homePanel) homePanel.hidden = true; if (gamePanel) gamePanel.hidden = false; if (gameControls) gameControls.hidden = false; document.body.classList.add("puzzle-active"); }
 function startLevel(index) { const levelToStart = LEVELS_BY_GAME[currentGame]?.[index]; if (!isLevelUnlocked(levelToStart)) { if (levelToStart) selectedDifficulty = levelToStart.difficulty; renderLevelSelect(); return; } hideSuccess(); currentIndex = index; const level = currentLevel(); selectedDifficulty = level.difficulty; const config = GAME_CONFIGS[currentGame]; history = []; winShown = false; if (undoButton) undoButton.disabled = true; const boardSize = level.cols || level.size || 5; board.className = `board ${currentGame}-board board-size-${boardSize}`; board.style.setProperty("--size", boardSize); board.setAttribute("aria-label", `${config.title} Spielfeld`); puzzleTitle.textContent = level.title; puzzleDescription.textContent = level.description || config.subtitle; fillList(gameHelpList, config.rules); cloudProgress()?.recordLevelStart?.(level); resetState(); showGame(); render(); }
 function resetGame() { history = []; if (undoButton) undoButton.disabled = true; hideSuccess(); cloudProgress()?.recordLevelStart?.(currentLevel()); resetState(); recordResetMetric(); render("Neu gestartet. Viel Spass!"); }
@@ -1513,6 +1560,151 @@ function renderPracticeShell(level, className, taskView, onAnswer, taskFactory, 
     renderPracticeFeedback(taskFactory, nextStatus),
   );
 }
+function backpackRule(level) { return BACKPACK_DIFFICULTY_RULES[level.difficulty] || BACKPACK_DIFFICULTY_RULES.easy; }
+function backpackPool(level) { return BACKPACK_ITEMS.slice(0, backpackRule(level).poolSize); }
+function backpackBestKey(level) { return `lernapp.backpack.best.${level.id || level.levelName}`; }
+function loadBackpackBest(level) { return Number(localStorage.getItem(backpackBestKey(level)) || 0); }
+function saveBackpackBest(level, value) { localStorage.setItem(backpackBestKey(level), String(value)); }
+function clearBackpackTimer() {
+  if (backpackTimer) window.clearTimeout(backpackTimer);
+  backpackTimer = null;
+}
+function scheduleBackpack(callback, delay = 560) {
+  clearBackpackTimer();
+  const token = state.token;
+  backpackTimer = window.setTimeout(() => {
+    backpackTimer = null;
+    if (currentGame === "backpack" && state.token === token) callback();
+  }, delay);
+}
+function backpackNewOptions(level) {
+  const rule = backpackRule(level);
+  const pool = backpackPool(level);
+  const unused = pool.filter((item) => !state.sequence.includes(item.id));
+  const source = unused.length ? unused : pool;
+  return shuffleOptions(source).slice(0, Math.min(rule.choiceCount, source.length));
+}
+function backpackRepeatOptions(level) {
+  const rule = backpackRule(level);
+  const pool = backpackPool(level);
+  const correctId = state.sequence[state.repeatIndex];
+  const correct = BACKPACK_ITEM_BY_ID[correctId];
+  const distractors = shuffleOptions(pool.filter((item) => item.id !== correctId)).slice(0, Math.max(0, rule.choiceCount - 1));
+  return shuffleOptions([correct, ...distractors].filter(Boolean));
+}
+function backpackPhaseLabel() {
+  if (state.phase === "chooseNew") return "Neuen Gegenstand wählen";
+  if (state.phase === "packingNew") return "Gegenstand wird eingepackt";
+  if (state.phase === "correctPacking") return "Richtig eingepackt";
+  if (state.phase === "wrong") return "Noch nicht richtig";
+  if (state.phase === "gameOver") return "Runde vorbei";
+  return "Reihenfolge packen";
+}
+function backpackStatusText() {
+  if (state.phase === "chooseNew") return state.sequence.length ? "Wähle etwas Neues dazu." : "Wähle den ersten Gegenstand.";
+  if (state.phase === "packingNew") return "Merke dir den neuen Gegenstand.";
+  if (state.phase === "correctPacking") return "Stimmt. Weiter in der Reihenfolge.";
+  if (state.phase === "wrong") return "Das war nicht die gemerkte Reihenfolge.";
+  if (state.phase === "gameOver") return "Starte eine neue Runde oder wähle eine andere Schwierigkeit.";
+  return `Packe Gegenstand ${state.repeatIndex + 1} von ${state.sequence.length}.`;
+}
+function makeBackpackStat(label, value) {
+  const stat = document.createElement("span");
+  const small = document.createElement("small");
+  small.textContent = label;
+  const strong = document.createElement("strong");
+  strong.textContent = value;
+  stat.append(small, strong);
+  return stat;
+}
+function renderBackpackStats() {
+  const stats = document.createElement("div");
+  stats.className = "backpack-stats";
+  stats.append(
+    makeBackpackStat("Runde", state.round),
+    makeBackpackStat("Bestwert", state.best),
+    makeBackpackStat("Länge", state.sequence.length),
+  );
+  return stats;
+}
+function renderBackpackScene() {
+  const scene = document.createElement("div");
+  scene.className = "backpack-scene";
+  const mode = document.createElement("div");
+  mode.className = `backpack-mode ${state.phase}`;
+  mode.textContent = backpackPhaseLabel();
+  const emoji = document.createElement("div");
+  emoji.className = `backpack-emoji${state.phase === "packingNew" || state.phase === "correctPacking" ? " bouncing" : ""}`;
+  emoji.setAttribute("aria-hidden", "true");
+  emoji.textContent = "🎒";
+  const dots = document.createElement("div");
+  dots.className = "backpack-progress";
+  const filledCount = state.phase === "repeat" || state.phase === "correctPacking" || state.phase === "wrong" ? state.repeatIndex : 0;
+  state.sequence.forEach((_, index) => {
+    const dot = document.createElement("span");
+    dot.className = `backpack-dot${index < filledCount ? " filled" : ""}`;
+    dots.append(dot);
+  });
+  const phase = document.createElement("p");
+  phase.className = "backpack-phase";
+  phase.textContent = backpackStatusText();
+  scene.append(mode, emoji, dots, phase);
+  return scene;
+}
+function backpackItemClass(item) {
+  if (state.phase === "chooseNew") return " new-choice";
+  if (state.phase === "packingNew" && item.id === state.selectedId) return " packing";
+  if (state.phase === "correctPacking" && item.id === state.selectedId) return " correct";
+  if (state.phase === "wrong" && item.id === state.selectedId) return " wrong";
+  if (state.phase === "wrong" && item.id === state.correctId) return " correct";
+  return "";
+}
+function renderBackpackChoices(level) {
+  const rule = backpackRule(level);
+  const choices = document.createElement("div");
+  choices.className = "backpack-choice-grid";
+  choices.style.setProperty("--choice-count", Math.max(1, Math.min(rule.choiceCount, state.options.length)));
+  state.options.forEach((item) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = `backpack-item-card${rule.showLabels ? "" : " no-label"}${backpackItemClass(item)}`;
+    button.disabled = state.phase !== "chooseNew" && state.phase !== "repeat";
+    button.setAttribute("aria-label", item.label);
+    const emoji = document.createElement("span");
+    emoji.className = "backpack-item-emoji";
+    emoji.textContent = item.emoji;
+    button.append(emoji);
+    if (rule.showLabels) {
+      const label = document.createElement("span");
+      label.className = "backpack-item-label";
+      label.textContent = item.label;
+      button.append(label);
+    }
+    button.addEventListener("click", () => GAME_HANDLERS.backpack.choose(item.id));
+    choices.append(button);
+  });
+  return choices;
+}
+function renderBackpackGameOver(level) {
+  if (state.phase !== "gameOver") return null;
+  const overlay = document.createElement("div");
+  overlay.className = "backpack-game-over";
+  overlay.setAttribute("role", "dialog");
+  overlay.setAttribute("aria-labelledby", "backpack-game-over-title");
+  overlay.innerHTML = `
+    <div class="backpack-game-over-dialog">
+      <h3 id="backpack-game-over-title">Runde vorbei</h3>
+      <p>Geschafft: ${state.round} ${state.round === 1 ? "Runde" : "Runden"}</p>
+      <p class="backpack-record">Bestwert: ${state.best}</p>
+      <div class="backpack-game-over-actions">
+        <button type="button" data-backpack-restart>Noch einmal</button>
+        <button type="button" class="secondary-action" data-backpack-levels>Schwierigkeit wählen</button>
+      </div>
+    </div>`;
+  overlay.querySelector("[data-backpack-restart]").addEventListener("click", resetGame);
+  overlay.querySelector("[data-backpack-levels]").addEventListener("click", showLevelSelect);
+  return overlay;
+}
 function makeMathTaskView() {
   const task = state.task;
   const view = document.createElement("div");
@@ -1564,6 +1756,97 @@ function makeReadingTaskView() {
 }
 
 const GAME_HANDLERS = {
+
+  backpack: {
+    resetState(level) {
+      clearBackpackTimer();
+      state = {
+        sequence: [],
+        repeatIndex: 0,
+        round: 0,
+        best: loadBackpackBest(level),
+        phase: "chooseNew",
+        options: [],
+        selectedId: null,
+        correctId: null,
+        token: `${Date.now()}-${Math.random()}`,
+        unlockRecorded: isSolved(level),
+      };
+      state.options = backpackNewOptions(level);
+      setStatus("Wähle den ersten Gegenstand für deinen Rucksack.");
+    },
+    checkWin() { return false; },
+    choose(itemId) {
+      if (!["chooseNew", "repeat"].includes(state.phase)) return;
+      if (!state.options.some((item) => item.id === itemId)) return;
+      const level = currentLevel();
+      recordMoveMetric();
+      if (state.phase === "chooseNew") {
+        state.sequence.push(itemId);
+        state.selectedId = itemId;
+        state.correctId = null;
+        state.phase = "packingNew";
+        state.options = [BACKPACK_ITEM_BY_ID[itemId]];
+        render("Gepackt. Merke dir die Reihenfolge.");
+        scheduleBackpack(() => {
+          state.phase = "repeat";
+          state.repeatIndex = 0;
+          state.selectedId = null;
+          state.options = backpackRepeatOptions(level);
+          render("Packe jetzt alles in der richtigen Reihenfolge ein.");
+        });
+        return;
+      }
+
+      const correctId = state.sequence[state.repeatIndex];
+      state.selectedId = itemId;
+      state.correctId = correctId;
+      if (itemId === correctId) {
+        state.phase = "correctPacking";
+        render("Richtig eingepackt.");
+        scheduleBackpack(() => {
+          state.repeatIndex += 1;
+          state.selectedId = null;
+          state.correctId = null;
+          if (state.repeatIndex >= state.sequence.length) {
+            state.round += 1;
+            state.best = Math.max(state.best, state.round);
+            saveBackpackBest(level, state.best);
+            if (!state.unlockRecorded) {
+              state.unlockRecorded = true;
+              markSolved(level);
+            }
+            state.phase = "chooseNew";
+            state.repeatIndex = 0;
+            state.options = backpackNewOptions(level);
+            render(`Runde ${state.round} geschafft. Wähle etwas Neues dazu.`);
+            return;
+          }
+          state.phase = "repeat";
+          state.options = backpackRepeatOptions(level);
+          render("Weiter in der Reihenfolge.");
+        }, 430);
+        return;
+      }
+
+      state.phase = "wrong";
+      render("Fast. Gleich siehst du deinen Bestwert.");
+      scheduleBackpack(() => {
+        state.phase = "gameOver";
+        state.options = [];
+        render("Runde vorbei.");
+      }, 720);
+    },
+    render(level) {
+      board.innerHTML = "";
+      board.className = "board backpack-board";
+      board.style.setProperty("--size", 1);
+      board.append(renderBackpackStats(), renderBackpackScene());
+      if (state.options.length) board.append(renderBackpackChoices(level));
+      const gameOver = renderBackpackGameOver(level);
+      if (gameOver) board.append(gameOver);
+    },
+  },
 
   mathPuzzle: {
     resetState(level) { resetPracticeState(level, generateMathTask, "Rechne in Ruhe und tippe auf die passende Zahl."); },
