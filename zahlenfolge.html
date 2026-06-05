@@ -4,40 +4,40 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="application-name" content="Lernapp" />
-    <meta name="description" content="Rechenrätsel für Kinder mit Plus und Minus." />
+    <meta name="description" content="Zahlenfolgen-Rätsel für Kinder mit Mustern, Schritten und fehlenden Zahlen." />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Lernapp" />
     <meta name="theme-color" content="#6c5ce7" />
-    <title>Zahlenzauber Levels · Lernapp</title>
+    <title>Zahlenfolge · Lernapp</title>
     <link rel="stylesheet" href="styles.css?v=2026-06-05-2" />
     <link rel="manifest" href="app.webmanifest?v=2026-06-05-2" />
     <link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon-180.png" />
   </head>
-  <body data-game-page="mathPuzzle">
+  <body data-game-page="sequencePuzzle">
     <main class="app-shell">
       <section class="hero" aria-labelledby="app-title">
-        <h1 id="app-title">Zahlenzauber</h1>
+        <h1 id="app-title">Zahlenfolge</h1>
       </section>
 
-      <section id="level-panel" class="start-panel" aria-label="Zahlenzauber Level auswählen">
+      <section id="level-panel" class="start-panel" aria-label="Zahlenfolge Level auswählen">
         <div class="start-copy">
           <p class="small-label">Levelauswahl</p>
           <h2 id="level-heading">Schwierigkeit wählen</h2>
           <p id="level-description"></p>
           <ul id="rules-list" class="rules-list"></ul>
         </div>
-        <div id="level-grid" class="level-grid" aria-label="Zahlenzauber Levels"></div>
+        <div id="level-grid" class="level-grid" aria-label="Zahlenfolge Levels"></div>
       </section>
 
       <section id="game-panel" class="game-panel" hidden>
-        <div id="game-controls" class="controls" aria-label="Rätselsteuerung" hidden>
-          <a id="home-button" class="icon-button" href="index.html" aria-label="Zurück zur Spielauswahl" title="Zurück zur Spielauswahl">⌂</a>
-          <button id="back-button" class="icon-button" type="button" aria-label="Zurück zur Levelauswahl" title="Zurück zur Levelauswahl">⇤</button>
-          <button id="reset-button" class="icon-button" type="button" aria-label="Level neu starten" title="Level neu starten">↻</button>
-          <button id="hint-button" class="icon-button" type="button" aria-label="Tipp anzeigen" title="Tipp anzeigen">?</button>
+        <div id="game-controls" class="controls" aria-label="Zahlenfolge Steuerung" hidden>
+          <a id="home-button" class="icon-button" href="index.html" aria-label="Zurück von Zahlenfolge zur Spielauswahl" title="Zurück zur Spielauswahl">⌂</a>
+          <button id="back-button" class="icon-button" type="button" aria-label="Zurück zur Zahlenfolge-Levelauswahl" title="Zurück zur Levelauswahl">⇤</button>
+          <button id="reset-button" class="icon-button" type="button" aria-label="Zahlenfolge neu starten" title="Level neu starten">↻</button>
+          <button id="hint-button" class="icon-button" type="button" aria-label="Zahlenfolge-Tipp anzeigen" title="Tipp anzeigen">?</button>
         </div>
 
         <section class="game-card">
@@ -50,11 +50,11 @@
             <p id="status" class="status" role="status" aria-live="polite">Wähle ein Level aus.</p>
           </div>
 
-          <div id="board" class="board" aria-label="Zahlenzauber Aufgabenfeld"></div>
+          <div id="board" class="board" aria-label="Zahlenfolge Aufgabenfeld"></div>
           <div id="number-pad" class="number-pad" aria-label="Zahlen auswählen" hidden></div>
 
           <details class="help" open>
-            <summary>So spielst du Zahlenzauber</summary>
+            <summary>So spielst du Zahlenfolge</summary>
             <ul id="game-help-list"></ul>
           </details>
         </section>

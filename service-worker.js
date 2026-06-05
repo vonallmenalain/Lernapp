@@ -1,4 +1,4 @@
-const APP_VERSION = "2026-06-05-1";
+const APP_VERSION = "2026-06-05-2";
 const CACHE_PREFIX = "lernapp-pwa-";
 const CACHE_NAME = `${CACHE_PREFIX}${APP_VERSION}`;
 const ASSET_VERSION_QUERY = `?v=${APP_VERSION}`;
@@ -13,6 +13,7 @@ const CORE_ASSETS = [
   "./kakuro.html",
   "./shikaku.html",
   "./sudoku.html",
+  "./zahlenfolge.html",
   "./zahlenzauber.html",
   "./wortdetektiv.html",
   `./styles.css${ASSET_VERSION_QUERY}`,

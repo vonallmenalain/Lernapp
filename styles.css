@@ -1848,6 +1848,18 @@ body.puzzle-active .shikaku-cell {
   border-color: #ffd38a;
 }
 
+.sequence-preview {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: center;
+  align-items: center;
+  background: linear-gradient(135deg, #6c5ce7, #118ab2);
+  border-color: #b7ddf0;
+  color: #fff;
+  font-size: 1.5rem;
+  font-weight: bold;
+}
+
 .math-preview span,
 .reading-preview span {
   display: grid;
@@ -1859,6 +1871,16 @@ body.puzzle-active .shikaku-cell {
   color: var(--ink);
   font-size: 1.35rem;
   font-weight: 950;
+}
+
+.sequence-preview span {
+  min-width: 2.4rem;
+  min-height: 2.4rem;
+  display: grid;
+  place-items: center;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.18);
+  border: 2px solid rgba(255, 255, 255, 0.58);
 }
 
 .math-preview span:nth-child(2),
@@ -1922,6 +1944,31 @@ body.puzzle-active .task-board {
   font-size: clamp(2.6rem, 10vw, 5.4rem);
   font-weight: 950;
   line-height: 1;
+}
+
+.sequence-display {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.75rem;
+  margin-bottom: 2rem;
+  color: var(--text-color, #333);
+  font-size: clamp(2rem, 8vw, 2.5rem);
+  font-weight: bold;
+}
+
+.sequence-gap {
+  min-width: 2rem;
+  padding: 0 0.5rem;
+  border-bottom: 4px solid currentColor;
+  color: var(--theme-color, #6c5ce7);
+  text-align: center;
+}
+
+.sequence-num {
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  background: rgba(108, 92, 231, 0.1);
 }
 
 .practice-options {

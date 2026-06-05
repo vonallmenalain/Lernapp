@@ -336,6 +336,12 @@ const GAME_CONFIGS = {
     success: "Gut gerechnet! Du hast die Aufgaben geschafft.",
     rules: ["Lies die Rechenaufgabe genau.", "Tippe auf die passende Zahl.", "Nach einem zweiten Versuch hilft dir ein Tipp beim Weiterrechnen."],
   },
+  sequencePuzzle: {
+    title: "Zahlenfolge", eyebrow: "Muster erkennen", code: "F",
+    subtitle: "Finde heraus, nach welcher Regel die Zahlenreihe weitergeht.",
+    success: "Klasse! Du hast die schwierigen Muster erkannt.",
+    rules: ["Schau dir die Zahlenreihe genau an.", "Finde heraus, in welchen Schritten gerechnet wird (+, -, oder sogar verdoppeln).", "Tippe auf die Zahl, die an die Stelle des Fragezeichens gehört."],
+  },
   readingPuzzle: {
     title: "Wortdetektiv", eyebrow: "Leserätsel", code: "W",
     subtitle: "Erkenne Buchstaben, Wörter und kurze Sätze passend zum Bild.",
@@ -835,6 +841,81 @@ function mathTaskKey(task) {
   return [task.puzzleType, task.difficulty, task.operator, task.left, task.right, task.result, task.missingPosition].join(":");
 }
 
+const SEQUENCE_ITEMS = [
+  { id: "e1", seq: [2, 4, 6, 8, null], answer: 10, diff: "easy" },
+  { id: "e2", seq: [10, 20, 30, 40, null], answer: 50, diff: "easy" },
+  { id: "e3", seq: [5, 10, 15, 20, null], answer: 25, diff: "easy" },
+  { id: "e4", seq: [12, 14, 16, 18, null], answer: 20, diff: "easy" },
+  { id: "e5", seq: [30, 40, 50, 60, null], answer: 70, diff: "easy" },
+  { id: "e6", seq: [25, 30, 35, 40, null], answer: 45, diff: "easy" },
+  { id: "e7", seq: [8, 10, 12, 14, null], answer: 16, diff: "easy" },
+  { id: "e8", seq: [50, 60, 70, 80, null], answer: 90, diff: "easy" },
+  { id: "e9", seq: [45, 50, 55, 60, null], answer: 65, diff: "easy" },
+  { id: "e10", seq: [18, 20, 22, 24, null], answer: 26, diff: "easy" },
+  { id: "e11", seq: [40, 50, 60, 70, null], answer: 80, diff: "easy" },
+  { id: "e12", seq: [15, 20, 25, 30, null], answer: 35, diff: "easy" },
+  { id: "m1", seq: [3, 6, 9, 12, null], answer: 15, diff: "medium" },
+  { id: "m2", seq: [4, 8, 12, 16, null], answer: 20, diff: "medium" },
+  { id: "m3", seq: [20, 18, 16, 14, null], answer: 12, diff: "medium" },
+  { id: "m4", seq: [1, 5, 9, 13, null], answer: 17, diff: "medium" },
+  { id: "m5", seq: [5, 8, 11, 14, null], answer: 17, diff: "medium" },
+  { id: "m6", seq: [15, 12, 9, 6, null], answer: 3, diff: "medium" },
+  { id: "m7", seq: [7, 10, null, 16, 19], answer: 13, diff: "medium" },
+  { id: "m8", seq: [null, 22, 33, 44, 55], answer: 11, diff: "medium" },
+  { id: "m9", seq: [30, null, 20, 15, 10], answer: 25, diff: "medium" },
+  { id: "m10", seq: [12, 16, 20, 24, null], answer: 28, diff: "medium" },
+  { id: "m11", seq: [24, 21, 18, 15, null], answer: 12, diff: "medium" },
+  { id: "m12", seq: [2, 5, 8, 11, null], answer: 14, diff: "medium" },
+  { id: "h1", seq: [13, 23, 33, 43, null], answer: 53, diff: "hard" },
+  { id: "h2", seq: [88, 78, 68, 58, null], answer: 48, diff: "hard" },
+  { id: "h3", seq: [2, 4, 8, 16, null], answer: 32, diff: "hard" },
+  { id: "h4", seq: [95, 100, 105, 110, null], answer: 115, diff: "hard" },
+  { id: "h5", seq: [null, 17, 27, 37, 47], answer: 7, diff: "hard" },
+  { id: "h6", seq: [100, 75, 50, 25, null], answer: 0, diff: "hard" },
+  { id: "h7", seq: [5, 10, 20, 40, null], answer: 80, diff: "hard" },
+  { id: "h8", seq: [98, 96, 94, 92, null], answer: 90, diff: "hard" },
+  { id: "h9", seq: [24, 34, 44, 54, null], answer: 64, diff: "hard" },
+  { id: "h10", seq: [111, 222, 333, 444, null], answer: 555, diff: "hard" },
+  { id: "h11", seq: [42, 40, 38, 36, null], answer: 34, diff: "hard" },
+  { id: "h12", seq: [200, 150, 100, 50, null], answer: 0, diff: "hard" },
+  { id: "x1", seq: [7, 14, 21, 28, null], answer: 35, diff: "extreme" },
+  { id: "x2", seq: [8, 16, 24, 32, null], answer: 40, diff: "extreme" },
+  { id: "x3", seq: [9, 18, 27, 36, null], answer: 45, diff: "extreme" },
+  { id: "x4", seq: [6, 12, 18, 24, null], answer: 30, diff: "extreme" },
+  { id: "x5", seq: [1, 3, 6, 10, null], answer: 15, diff: "extreme" },
+  { id: "x6", seq: [1, 4, 9, 16, null], answer: 25, diff: "extreme" },
+  { id: "x7", seq: [50, 45, null, 35, 30], answer: 40, diff: "extreme" },
+  { id: "x8", seq: [30, 27, 24, 21, null], answer: 18, diff: "extreme" },
+  { id: "x9", seq: [99, 88, 77, 66, null], answer: 55, diff: "extreme" },
+  { id: "x10", seq: [null, 7, 14, 21, 28], answer: 0, diff: "extreme" },
+  { id: "x11", seq: [3, 9, 27, 81, null], answer: 243, diff: "extreme" },
+  { id: "x12", seq: [144, 122, 100, 78, null], answer: 56, diff: "extreme" },
+];
+function generateSequenceTask(difficulty) {
+  const safeDifficulty = DIFFICULTIES[difficulty] ? difficulty : "easy";
+  const pool = SEQUENCE_ITEMS.filter((item) => item.diff === safeDifficulty);
+  const item = pickRandom(pool);
+  const optionCount = safeDifficulty === "easy" || safeDifficulty === "medium" ? 3 : 4;
+  const candidates = [
+    item.answer - 1, item.answer + 1,
+    item.answer - 2, item.answer + 2,
+    item.answer - 10, item.answer + 10,
+    item.answer - 5, item.answer + 5,
+  ];
+  return {
+    id: `seq-${safeDifficulty}-${item.id}-${Date.now()}-${randomInt(1000, 9999)}`,
+    sourceId: item.id,
+    puzzleType: "sequencePuzzle",
+    difficulty: safeDifficulty,
+    sequence: item.seq,
+    correctAnswer: item.answer,
+    options: ensureUniqueOptions(item.answer, candidates, optionCount, 0, 999),
+  };
+}
+function sequenceTaskKey(task) {
+  return [task.puzzleType, task.difficulty, task.sourceId || task.id].join(":");
+}
+
 function wordItem(id, word, article, imageKey, difficulty, category, syllables, allowedTaskTypes) {
   return { id, word, displayWord: word, article, imageKey, difficulty, category, syllables, allowedTaskTypes };
 }
@@ -1075,6 +1156,7 @@ function readingTaskKey(task) {
   return [task.puzzleType, task.difficulty, task.taskType, task.sentenceId].join(":");
 }
 function practiceTaskKey(task) {
+  if (task.puzzleType === "sequencePuzzle") return sequenceTaskKey(task);
   return task.puzzleType === "mathPuzzle" ? mathTaskKey(task) : readingTaskKey(task);
 }
 function generateUniquePracticeTask(taskFactory, difficulty, usedKeys = []) {
@@ -1102,6 +1184,12 @@ const READING_LEVEL_DESCRIPTIONS = {
   hard: "Längere Wörter mit fehlendem Buchstaben oder fehlender Silbe.",
   extreme: "Kurze Sätze lesen oder ein fehlendes Wort ergänzen.",
 };
+const SEQUENCE_LEVEL_DESCRIPTIONS = {
+  easy: "Zahlenreihen in 2er-, 5er- und 10er-Schritten vorwärts.",
+  medium: "3er- und 4er-Schritte, Lücken in der Mitte und rückwärts zählen.",
+  hard: "Übergang über 100, Verdoppeln und 10er-Sprünge ab ungeraden Zahlen.",
+  extreme: "Große Sprünge, das große Einmaleins und verrückte Muster.",
+};
 function makePracticeLevels(game, descriptions) {
   return DIFFICULTY_KEYS.flatMap((difficulty) =>
     Array.from({ length: LEVELS_PER_DIFFICULTY }, (_, index) => makeLevel(game, difficulty, index + 1, {
@@ -1113,17 +1201,20 @@ function makePracticeLevels(game, descriptions) {
 }
 const MATH_LEVELS = makePracticeLevels("mathPuzzle", MATH_LEVEL_DESCRIPTIONS);
 const READING_LEVELS = makePracticeLevels("readingPuzzle", READING_LEVEL_DESCRIPTIONS);
+const SEQUENCE_LEVELS = makePracticeLevels("sequencePuzzle", SEQUENCE_LEVEL_DESCRIPTIONS);
 
 if (typeof window !== "undefined") {
   window.LernappPuzzleGenerators = {
     generateMathTask,
     generateReadingTask,
+    generateSequenceTask,
     validateMathTask,
     validateReadingTask,
     ensureUniqueOptions,
     shuffleOptions,
     readingWords: READING_WORD_ITEMS,
     readingSentences: READING_SENTENCE_ITEMS,
+    sequenceItems: SEQUENCE_ITEMS,
   };
 }
 
@@ -1142,6 +1233,7 @@ const LEVELS_BY_GAME = {
   shikaku: normalizeLevelCounts(SHIKAKU_LEVELS),
   mathPuzzle: normalizeLevelCounts(MATH_LEVELS),
   readingPuzzle: normalizeLevelCounts(READING_LEVELS),
+  sequencePuzzle: normalizeLevelCounts(SEQUENCE_LEVELS),
   backpack: normalizeLevelCounts(BACKPACK_LEVELS),
 };
 
@@ -1392,14 +1484,14 @@ function currentLevelStars() {
   const level = currentLevel();
   if (!level) return 1;
   if (isTimedStarGame()) return currentTimedStars() || 1;
-  if (currentGame === "mathPuzzle" || currentGame === "readingPuzzle") return practiceStars(level);
+  if (currentGame === "mathPuzzle" || currentGame === "readingPuzzle" || currentGame === "sequencePuzzle") return practiceStars(level);
   if (currentGame === "backpack") return backpackStars(state.best);
   return 1;
 }
 function currentSolveResult(stars = currentLevelStars()) {
   const result = { stars };
   if (isTimedStarGame()) result.elapsedSeconds = Math.round(starTimerElapsedSeconds());
-  if (currentGame === "mathPuzzle" || currentGame === "readingPuzzle") {
+  if (currentGame === "mathPuzzle" || currentGame === "readingPuzzle" || currentGame === "sequencePuzzle") {
     result.flawless = Number(state.flawlessCount || 0);
     result.correct = Number(state.correctCount || 0);
     result.target = currentLevel().targetCount || 10;
@@ -1884,6 +1976,22 @@ function makeMathTaskView() {
   view.append(equation);
   return view;
 }
+function makeSequenceTaskView() {
+  const task = state.task;
+  const view = document.createElement("div");
+  view.className = "practice-task sequence-task";
+  const display = document.createElement("div");
+  display.className = "sequence-display";
+  display.setAttribute("aria-label", "Zahlenreihe mit Lücke");
+  task.sequence.forEach((num) => {
+    const span = document.createElement("span");
+    span.className = num === null ? "sequence-gap" : "sequence-num";
+    span.textContent = num === null ? "?" : num;
+    display.append(span);
+  });
+  view.append(display);
+  return view;
+}
 function readingHintText(task) {
   if (task.taskType === "missingLetter") return `Achte auf den ersten Buchstaben: ${task.fullText[0]}.`;
   if (task.taskType === "chooseWord") return `Das passende Wort beginnt mit ${task.fullText[0]}.`;
@@ -2030,6 +2138,22 @@ const GAME_HANDLERS = {
     },
     render(level) {
       renderPracticeShell(level, "mathPuzzle-board", makeMathTaskView(), (answer) => this.answer(answer), generateMathTask, "Neue Aufgabe. Du schaffst das.");
+    },
+  },
+
+  sequencePuzzle: {
+    resetState(level) { resetPracticeState(level, generateSequenceTask, "Schau dir die Reihe genau an. Welche Zahl fehlt?"); },
+    checkWin() { return Boolean(state.completed); },
+    hint() { if (!state.task || state.completed || state.awaitingNext) return; state.tipVisible = true; render("Tipp: Wie groß ist der Abstand zwischen den Zahlen?"); },
+    answer(answer) {
+      answerPracticeTask(answer, generateSequenceTask, {
+        correct: ["Richtig!", "Genial erkannt!", "Ganz genau!", "Du bist ein Mathe-Profi!"],
+        retry: ["Fast! Prüfe den Abstand der Zahlen nochmal.", "Knapp daneben. Rechne noch einmal nach."],
+        hint: "Tipp: Schau dir an, ob die Zahlen größer oder kleiner werden und um wie viel.",
+      });
+    },
+    render(level) {
+      renderPracticeShell(level, "sequencePuzzle-board", makeSequenceTaskView(), (answer) => this.answer(answer), generateSequenceTask, "Neue Zahlenreihe. Du schaffst das.");
     },
   },
 

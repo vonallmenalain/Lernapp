@@ -16,6 +16,7 @@
     hidoku: "Hidoku",
     sudoku: "Sudoku",
     mathPuzzle: "Zahlenzauber",
+    sequencePuzzle: "Zahlenfolge",
     readingPuzzle: "Wortdetektiv",
     backpack: "Rucksack packen",
   };
@@ -35,6 +36,7 @@
     hidoku: 40,
     sudoku: 40,
     mathPuzzle: 40,
+    sequencePuzzle: 40,
     readingPuzzle: 40,
     backpack: 4,
   };
