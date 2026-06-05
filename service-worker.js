@@ -1,8 +1,13 @@
-const CACHE_NAME = "lernapp-pwa-v10";
+const APP_VERSION = "2026-06-05-1";
+const CACHE_PREFIX = "lernapp-pwa-";
+const CACHE_NAME = `${CACHE_PREFIX}${APP_VERSION}`;
+const ASSET_VERSION_QUERY = `?v=${APP_VERSION}`;
+const FALLBACK_DOCUMENT = "./index.html";
 const CORE_ASSETS = [
   "./",
   "./index.html",
   "./arukone.html",
+  "./backpack.html",
   "./bimaru.html",
   "./hidoku.html",
   "./kakuro.html",
@@ -10,11 +15,11 @@ const CORE_ASSETS = [
   "./sudoku.html",
   "./zahlenzauber.html",
   "./wortdetektiv.html",
-  "./styles.css",
-  "./app.js",
-  "./firebase.js",
-  "./pwa.js",
-  "./app.webmanifest",
+  `./styles.css${ASSET_VERSION_QUERY}`,
+  `./app.js${ASSET_VERSION_QUERY}`,
+  `./firebase.js${ASSET_VERSION_QUERY}`,
+  `./pwa.js${ASSET_VERSION_QUERY}`,
+  `./app.webmanifest${ASSET_VERSION_QUERY}`,
   "./icons/icon-32.png",
   "./icons/apple-touch-icon-180.png",
   "./icons/icon-192.png",
@@ -31,7 +36,20 @@ self.addEventListener("install", (event) => {
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(
-    caches.keys().then((keys) => Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key)))).then(() => self.clients.claim())
+    caches.keys()
+      .then((keys) => {
+        const staleKeys = keys.filter((key) => key.startsWith(CACHE_PREFIX) && key !== CACHE_NAME);
+        return Promise.all(staleKeys.map((key) => caches.delete(key))).then(() => staleKeys.length > 0);
+      })
+      .then((wasUpdated) => self.clients.claim().then(() => wasUpdated))
+      .then((wasUpdated) => {
+        if (!wasUpdated) return undefined;
+        return self.clients.matchAll({ includeUncontrolled: true, type: "window" }).then((clients) => {
+          clients.forEach((client) => {
+            client.postMessage({ type: "APP_UPDATED", version: APP_VERSION });
+          });
+        });
+      })
   );
 });
 
@@ -39,12 +57,19 @@ async function networkFirst(request) {
   const cache = await caches.open(CACHE_NAME);
 
   try {
-    const response = await fetch(request);
+    const response = await fetch(request, { cache: "no-store" });
     if (response && response.ok) cache.put(request, response.clone());
     return response;
   } catch (error) {
     const cached = await cache.match(request);
-    return cached || cache.match("./index.html");
+    if (cached) return cached;
+
+    if (request.mode === "navigate" || request.destination === "document") {
+      const fallback = await cache.match(FALLBACK_DOCUMENT);
+      if (fallback) return fallback;
+    }
+
+    throw error;
   }
 }
 
@@ -58,6 +83,12 @@ async function cacheFirst(request) {
   return response;
 }
 
+self.addEventListener("message", (event) => {
+  if (event.data && event.data.type === "SKIP_WAITING") {
+    self.skipWaiting();
+  }
+});
+
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
 
@@ -69,8 +100,14 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  const cacheableDestinations = new Set(["document", "script", "style", "image", "font", "manifest"]);
-  if (cacheableDestinations.has(event.request.destination)) {
+  const networkFirstDestinations = new Set(["document", "script", "style", "manifest"]);
+  if (networkFirstDestinations.has(event.request.destination)) {
+    event.respondWith(networkFirst(event.request));
+    return;
+  }
+
+  const cacheFirstDestinations = new Set(["image", "font"]);
+  if (cacheFirstDestinations.has(event.request.destination)) {
     event.respondWith(cacheFirst(event.request));
   }
 });
