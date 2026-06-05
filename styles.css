@@ -171,6 +171,96 @@ h2 {
   text-align: right;
 }
 
+.star-timer {
+  max-width: 680px;
+  margin: -8px auto 18px;
+  padding: 10px 12px;
+  border-radius: 18px;
+  background: #fff8df;
+  border: 2px solid #ffd166;
+  box-shadow: 0 10px 20px rgba(36, 48, 71, 0.08);
+}
+
+.star-timer.hidden {
+  display: none;
+}
+
+.star-timer-top {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 10px;
+  align-items: center;
+  color: var(--ink);
+  font-weight: 950;
+}
+
+.star-timer-stars,
+.success-stars-row,
+.level-stars,
+.backpack-stars {
+  display: inline-flex;
+  justify-content: center;
+  gap: 2px;
+  color: #d0d5dd;
+  line-height: 1;
+}
+
+.star-timer-stars .filled,
+.success-stars-row .filled,
+.level-stars .filled,
+.backpack-stars .filled {
+  color: #ffb703;
+}
+
+.star-timer-label {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.star-timer-time {
+  min-width: 58px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: #fff;
+  border: 2px solid rgba(36, 48, 71, 0.12);
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.star-timer-track {
+  height: 9px;
+  margin-top: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(36, 48, 71, 0.10);
+}
+
+.star-timer-track span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #06d6a0, #ffd166);
+  transition: width 0.25s linear;
+}
+
+.star-timer.tier-2 {
+  background: #eef8ff;
+  border-color: #7acdf0;
+}
+
+.star-timer.tier-2 .star-timer-track span {
+  background: linear-gradient(90deg, #118ab2, #7acdf0);
+}
+
+.star-timer.tier-1 {
+  background: #f7f7fb;
+  border-color: #d9d6ee;
+}
+
+.star-timer.tier-1 .star-timer-track span {
+  background: #8a94a6;
+}
+
 .board {
   --size: 5;
   display: grid;
@@ -289,9 +379,27 @@ h2 {
 #success-title {
   position: relative;
   z-index: 1;
-  margin: 52px 0 28px;
+  margin: 52px 0 12px;
   font-size: clamp(2.2rem, 9vw, 3.4rem);
   color: var(--ink);
+}
+
+.success-stars {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 8px;
+  margin-bottom: 28px;
+  color: var(--primary-dark);
+  font-weight: 900;
+}
+
+.success-stars-row {
+  font-size: clamp(2rem, 8vw, 3rem);
+}
+
+.success-stars p {
+  margin: 0;
 }
 
 .fireworks {
@@ -522,7 +630,7 @@ body.puzzle-active .game-card {
   min-height: 0;
   height: 100%;
   display: grid;
-  grid-template-rows: max-content minmax(0, 1fr);
+  grid-template-rows: max-content max-content minmax(0, 1fr);
   padding: clamp(8px, 1.8vh, 18px);
   overflow: hidden;
   border-radius: 22px;
@@ -556,10 +664,21 @@ body.puzzle-active #puzzle-title {
 }
 
 body.puzzle-active .board {
+  grid-row: 3;
   width: min(calc(100vw - 36px), calc(100vh - 78px));
   max-width: 860px;
   align-self: center;
   touch-action: none;
+}
+
+body.puzzle-active .star-timer {
+  width: min(calc(100vw - 36px), 680px);
+  margin: 0 auto clamp(8px, 1.6vh, 14px);
+  padding: 8px 10px;
+}
+
+body.puzzle-active .star-timer:not(.hidden) ~ .board {
+  width: min(calc(100vw - 36px), calc(100vh - 142px));
 }
 
 
@@ -583,6 +702,14 @@ body.puzzle-active .board {
   body.puzzle-active .board {
     width: min(calc(100vw - 28px), calc(100vh - 64px));
     gap: 5px;
+  }
+
+  body.puzzle-active .star-timer {
+    width: min(calc(100vw - 28px), 100%);
+  }
+
+  body.puzzle-active .star-timer:not(.hidden) ~ .board {
+    width: min(calc(100vw - 28px), calc(100vh - 136px));
   }
 }
 
@@ -1069,7 +1196,19 @@ a.icon-button {
 .difficulty-group h3 { margin: 8px 0 0; color: var(--primary-dark); font-size: 1.2rem; }
 .difficulty-levels { display: grid; grid-template-columns: repeat(auto-fit, minmax(112px, 1fr)); gap: 12px; }
 .level-tile.solved { position: relative; background: #f0fff9; }
-.level-tile.solved::after { content: "★"; position: absolute; top: 8px; right: 12px; color: #06a77d; font-size: 1.2rem; }
+.level-tile .level-stars {
+  min-height: 18px;
+  font-size: 1rem;
+}
+
+.level-tile .level-stars span {
+  font-size: inherit;
+  font-weight: 950;
+}
+
+.level-tile.locked .level-stars {
+  opacity: 0.45;
+}
 .count-board {
   grid-template-columns: repeat(var(--size), minmax(34px, 1fr));
   gap: 5px;
@@ -1753,7 +1892,7 @@ body.puzzle-active .task-board {
 
 .practice-progress {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
 }
 
@@ -1879,7 +2018,7 @@ body.puzzle-active .task-board {
 
 .backpack-stats {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px;
 }
 
@@ -2117,6 +2256,10 @@ body.puzzle-active .task-board {
   font-weight: 950;
 }
 
+.backpack-stars {
+  font-size: clamp(1.9rem, 8vw, 2.7rem);
+}
+
 .backpack-game-over-actions {
   display: grid;
   gap: 10px;
@@ -2153,6 +2296,7 @@ body.puzzle-active .task-board {
   }
 
   .backpack-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 7px;
   }
 

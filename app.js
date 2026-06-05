@@ -1184,6 +1184,7 @@ const backButton = document.querySelector("#back-button");
 let successOverlay = document.querySelector("#success-overlay");
 let successRestartButton = document.querySelector("#success-restart-button");
 let nextPuzzleButton = document.querySelector("#next-puzzle-button");
+let successStars = document.querySelector("#success-stars");
 const gamePanel = document.querySelector("#game-panel");
 const gameControls = document.querySelector("#game-controls");
 
@@ -1199,22 +1200,54 @@ let activePointerId = null;
 let shikakuDrag = null;
 let hidokuDrag = null;
 let backpackTimer = null;
+let starTimer = null;
+let starTimerStartedAt = 0;
+let starTimerBestTier = 3;
+let starTimerElement = null;
 let ignoreNextHidokuClick = false;
 let ignoreNextShikakuClick = false;
 let activeMoveSnapshot = null;
 let pushedActiveSnapshot = false;
 const BIMARU_LONG_PRESS_MS = 480;
+const LOCAL_SOLVED_PREFIX = "lernapp.solved.";
+const LOCAL_STARS_PREFIX = "lernapp.stars.";
+const MAX_STARS = 3;
+const TIMED_STAR_GAMES = new Set(["arukone", "bimaru", "kakuro", "shikaku", "hidoku", "sudoku"]);
+const TIMED_STAR_LIMITS = { three: 30, two: 60 };
 
-function progressKey(game, levelId) { return `lernapp.solved.${game}.${levelId}`; }
+function progressKey(game, levelId) { return `${LOCAL_SOLVED_PREFIX}${game}.${levelId}`; }
+function starsKey(game, levelId) { return `${LOCAL_STARS_PREFIX}${game}.${levelId}`; }
 function cloudProgress() { return window.LernappFirebase || null; }
 function isSignedIn() { return Boolean(cloudProgress()?.isSignedIn?.()); }
+function normalizeStars(value, fallback = 0) {
+  const stars = Number(value);
+  if (!Number.isFinite(stars)) return fallback;
+  return Math.max(0, Math.min(MAX_STARS, Math.floor(stars)));
+}
 function isSolved(level) {
   if (isSignedIn()) return Boolean(cloudProgress()?.isLevelSolved?.(level));
   return localStorage.getItem(progressKey(level.game, level.id || level.levelName)) === "1";
 }
-function markSolved(level) {
-  if (!isSignedIn()) localStorage.setItem(progressKey(level.game, level.id || level.levelName), "1");
-  cloudProgress()?.recordSolve?.(level);
+function localLevelStars(level) {
+  const id = level.id || level.levelName;
+  const saved = normalizeStars(localStorage.getItem(starsKey(level.game, id)));
+  if (saved) return saved;
+  return isSolved(level) ? 1 : 0;
+}
+function levelStars(level) {
+  if (!level) return 0;
+  if (isSignedIn()) return normalizeStars(cloudProgress()?.levelStars?.(level), isSolved(level) ? 1 : 0);
+  return localLevelStars(level);
+}
+function markSolved(level, result = {}) {
+  const id = level.id || level.levelName;
+  const resultData = typeof result === "number" ? { stars: result } : (result || {});
+  const stars = normalizeStars(resultData.stars, 1) || 1;
+  if (!isSignedIn()) {
+    localStorage.setItem(progressKey(level.game, id), "1");
+    localStorage.setItem(starsKey(level.game, id), String(Math.max(localLevelStars(level), stars)));
+  }
+  cloudProgress()?.recordSolve?.(level, { ...resultData, stars });
 }
 function recordMoveMetric() { cloudProgress()?.recordMove?.(); }
 function recordResetMetric() { cloudProgress()?.recordReset?.(currentLevel()); }
@@ -1259,6 +1292,120 @@ function nextPlayableLevel(level) {
   const levels = LEVELS_BY_GAME[level?.game] || [];
   const next = levels[levelIndex(level) + 1];
   return next && isLevelUnlocked(next) ? next : null;
+}
+function starLabel(stars) { return `${stars} ${stars === 1 ? "Stern" : "Sterne"}`; }
+function starsMarkup(stars) {
+  const earned = normalizeStars(stars);
+  return Array.from({ length: MAX_STARS }, (_, index) => `<span class="${index < earned ? "filled" : "empty"}">★</span>`).join("");
+}
+function levelStarsMarkup(stars) {
+  return `<span class="level-stars stars-${normalizeStars(stars)}" aria-hidden="true">${starsMarkup(stars)}</span>`;
+}
+function isTimedStarGame(game = currentGame) { return TIMED_STAR_GAMES.has(game); }
+function formatTimerSeconds(seconds) {
+  const value = Math.max(0, Math.ceil(seconds));
+  return `${String(Math.floor(value / 60)).padStart(2, "0")}:${String(value % 60).padStart(2, "0")}`;
+}
+function timedStarsForElapsed(seconds) {
+  if (seconds <= TIMED_STAR_LIMITS.three) return 3;
+  if (seconds <= TIMED_STAR_LIMITS.two) return 2;
+  return 1;
+}
+function starTimerElapsedSeconds() {
+  return starTimerStartedAt ? Math.max(0, (Date.now() - starTimerStartedAt) / 1000) : 0;
+}
+function ensureStarTimerElement() {
+  if (starTimerElement) return starTimerElement;
+  const gameCard = document.querySelector(".game-card");
+  const statusRow = document.querySelector(".status-row");
+  if (!gameCard || !statusRow) return null;
+  starTimerElement = document.createElement("div");
+  starTimerElement.id = "star-timer";
+  starTimerElement.className = "star-timer hidden";
+  starTimerElement.setAttribute("role", "status");
+  starTimerElement.setAttribute("aria-live", "polite");
+  starTimerElement.innerHTML = `
+    <div class="star-timer-top">
+      <span class="star-timer-stars" aria-hidden="true"></span>
+      <strong class="star-timer-label"></strong>
+      <span class="star-timer-time"></span>
+    </div>
+    <div class="star-timer-track" aria-hidden="true"><span></span></div>
+  `;
+  statusRow.after(starTimerElement);
+  return starTimerElement;
+}
+function updateStarTimer() {
+  const element = ensureStarTimerElement();
+  if (!element || !isTimedStarGame()) return;
+  const elapsed = starTimerElapsedSeconds();
+  const stars = timedStarsForElapsed(elapsed);
+  const tierStart = stars === 3 ? 0 : (stars === 2 ? TIMED_STAR_LIMITS.three : TIMED_STAR_LIMITS.two);
+  const tierEnd = stars === 3 ? TIMED_STAR_LIMITS.three : (stars === 2 ? TIMED_STAR_LIMITS.two : null);
+  const remaining = tierEnd ? Math.max(0, tierEnd - elapsed) : elapsed;
+  const progress = tierEnd ? Math.max(0, Math.min(1, (tierEnd - elapsed) / (tierEnd - tierStart))) : 0;
+  element.className = `star-timer tier-${stars}`;
+  element.querySelector(".star-timer-stars").innerHTML = starsMarkup(stars);
+  element.querySelector(".star-timer-label").textContent = `${starLabel(stars)} erreichbar`;
+  element.querySelector(".star-timer-time").textContent = tierEnd ? formatTimerSeconds(remaining) : formatTimerSeconds(elapsed);
+  element.querySelector(".star-timer-track span").style.width = `${Math.round(progress * 100)}%`;
+  element.setAttribute("aria-label", `${starLabel(stars)} erreichbar`);
+  if (stars < starTimerBestTier) {
+    starTimerBestTier = stars;
+    element.classList.add("tier-dropped");
+  }
+}
+function startStarTimer(level) {
+  stopStarTimer();
+  if (!level || !isTimedStarGame(level.game)) {
+    ensureStarTimerElement()?.classList.add("hidden");
+    return;
+  }
+  starTimerStartedAt = Date.now();
+  starTimerBestTier = 3;
+  ensureStarTimerElement()?.classList.remove("hidden");
+  updateStarTimer();
+  starTimer = window.setInterval(updateStarTimer, 250);
+}
+function stopStarTimer({ hide = false } = {}) {
+  if (starTimer) window.clearInterval(starTimer);
+  starTimer = null;
+  if (hide) ensureStarTimerElement()?.classList.add("hidden");
+}
+function currentTimedStars() {
+  if (!isTimedStarGame()) return 0;
+  return timedStarsForElapsed(starTimerElapsedSeconds());
+}
+function practiceStars(level, practiceState = state) {
+  const target = level.targetCount || 10;
+  const flawless = Number(practiceState.flawlessCount || 0);
+  if (flawless >= target) return 3;
+  if (flawless >= Math.ceil(target * 0.8)) return 2;
+  return 1;
+}
+function backpackStars(best) {
+  if (Number(best || 0) >= 8) return 3;
+  if (Number(best || 0) >= 4) return 2;
+  return 1;
+}
+function currentLevelStars() {
+  const level = currentLevel();
+  if (!level) return 1;
+  if (isTimedStarGame()) return currentTimedStars() || 1;
+  if (currentGame === "mathPuzzle" || currentGame === "readingPuzzle") return practiceStars(level);
+  if (currentGame === "backpack") return backpackStars(state.best);
+  return 1;
+}
+function currentSolveResult(stars = currentLevelStars()) {
+  const result = { stars };
+  if (isTimedStarGame()) result.elapsedSeconds = Math.round(starTimerElapsedSeconds());
+  if (currentGame === "mathPuzzle" || currentGame === "readingPuzzle") {
+    result.flawless = Number(state.flawlessCount || 0);
+    result.correct = Number(state.correctCount || 0);
+    result.target = currentLevel().targetCount || 10;
+  }
+  if (currentGame === "backpack") result.best = Number(state.best || 0);
+  return result;
 }
 function renderSelectionActions(mode) {
   if (!levelPanel) return;
@@ -1333,22 +1480,27 @@ function renderLevelSelect() {
   levelsForDifficulty(selectedDifficulty).forEach((level) => {
     const index = LEVELS_BY_GAME[currentGame].indexOf(level);
     const solved = isSolved(level);
+    const stars = levelStars(level);
     const unlocked = isLevelUnlocked(level);
     const detail = level.badge || (level.size ? `${level.size}×${level.size}` : (level.rows && level.cols ? `${level.rows}×${level.cols}` : "Rätsel"));
     const button = document.createElement("button");
-    button.className = `level-tile ${selectedDifficulty}${solved ? " solved" : ""}${unlocked ? "" : " locked"}`;
+    button.className = `level-tile ${selectedDifficulty}${solved ? " solved" : ""}${stars ? " starred" : ""}${unlocked ? "" : " locked"}`;
     button.type = "button";
     button.disabled = !unlocked;
-    button.setAttribute("aria-label", `${level.title}${solved ? ", geloest" : ""}${unlocked ? "" : ", gesperrt"}`);
-    button.innerHTML = `<span>${level.levelName}</span><small${unlocked ? "" : " class=\"lock-icon\" aria-hidden=\"true\""}>${solved ? "geloest" : (unlocked ? detail : "🔒")}</small>`;
+    button.setAttribute("aria-label", `${level.title}${stars ? `, ${starLabel(stars)}` : (solved ? ", geloest" : "")}${unlocked ? "" : ", gesperrt"}`);
+    button.innerHTML = `
+      <span class="level-name">${level.levelName}</span>
+      <small${unlocked ? "" : " class=\"lock-icon\" aria-hidden=\"true\""}>${stars ? `${stars}/3 Sterne` : (solved ? "geloest" : (unlocked ? detail : "🔒"))}</small>
+      ${stars ? levelStarsMarkup(stars) : ""}
+    `;
     button.addEventListener("click", () => startLevel(index));
     levelGrid.append(button);
   });
 }
-function showLevelSelect() { finishMove(); if (currentGame === "backpack") clearBackpackTimer(); cloudProgress()?.flushCurrentSession?.({ close: true, includeElapsed: true }); hideSuccess(); if (levelPanel) levelPanel.hidden = false; if (homePanel) homePanel.hidden = true; if (gamePanel) gamePanel.hidden = true; if (gameControls) gameControls.hidden = true; document.body.classList.remove("puzzle-active"); renderLevelSelect(); }
+function showLevelSelect() { finishMove(); stopStarTimer({ hide: true }); if (currentGame === "backpack") clearBackpackTimer(); cloudProgress()?.flushCurrentSession?.({ close: true, includeElapsed: true }); hideSuccess(); if (levelPanel) levelPanel.hidden = false; if (homePanel) homePanel.hidden = true; if (gamePanel) gamePanel.hidden = true; if (gameControls) gameControls.hidden = true; document.body.classList.remove("puzzle-active"); renderLevelSelect(); }
 function showGame() { if (levelPanel) levelPanel.hidden = true; if (homePanel) homePanel.hidden = true; if (gamePanel) gamePanel.hidden = false; if (gameControls) gameControls.hidden = false; document.body.classList.add("puzzle-active"); }
-function startLevel(index) { const levelToStart = LEVELS_BY_GAME[currentGame]?.[index]; if (!isLevelUnlocked(levelToStart)) { if (levelToStart) selectedDifficulty = levelToStart.difficulty; renderLevelSelect(); return; } hideSuccess(); currentIndex = index; const level = currentLevel(); selectedDifficulty = level.difficulty; const config = GAME_CONFIGS[currentGame]; history = []; winShown = false; if (undoButton) undoButton.disabled = true; const boardSize = level.cols || level.size || 5; board.className = `board ${currentGame}-board board-size-${boardSize}`; board.style.setProperty("--size", boardSize); board.setAttribute("aria-label", `${config.title} Spielfeld`); puzzleTitle.textContent = level.title; puzzleDescription.textContent = level.description || config.subtitle; fillList(gameHelpList, config.rules); cloudProgress()?.recordLevelStart?.(level); resetState(); showGame(); render(); }
-function resetGame() { history = []; if (undoButton) undoButton.disabled = true; hideSuccess(); cloudProgress()?.recordLevelStart?.(currentLevel()); resetState(); recordResetMetric(); render("Neu gestartet. Viel Spass!"); }
+function startLevel(index) { const levelToStart = LEVELS_BY_GAME[currentGame]?.[index]; if (!isLevelUnlocked(levelToStart)) { if (levelToStart) selectedDifficulty = levelToStart.difficulty; renderLevelSelect(); return; } stopStarTimer({ hide: true }); hideSuccess(); currentIndex = index; const level = currentLevel(); selectedDifficulty = level.difficulty; const config = GAME_CONFIGS[currentGame]; history = []; winShown = false; if (undoButton) undoButton.disabled = true; const boardSize = level.cols || level.size || 5; board.className = `board ${currentGame}-board board-size-${boardSize}`; board.style.setProperty("--size", boardSize); board.setAttribute("aria-label", `${config.title} Spielfeld`); puzzleTitle.textContent = level.title; puzzleDescription.textContent = level.description || config.subtitle; fillList(gameHelpList, config.rules); cloudProgress()?.recordLevelStart?.(level); resetState(); showGame(); startStarTimer(level); render(); }
+function resetGame() { history = []; if (undoButton) undoButton.disabled = true; hideSuccess(); cloudProgress()?.recordLevelStart?.(currentLevel()); resetState(); startStarTimer(currentLevel()); recordResetMetric(); render("Neu gestartet. Viel Spass!"); }
 function undo() {
   finishMove();
   if (currentGame === "hidoku") {
@@ -1368,8 +1520,18 @@ function updateNextPuzzleButton() {
   nextPuzzleButton.title = next ? "Naechstes Level" : "Zur Levelauswahl";
   nextPuzzleButton.setAttribute("aria-label", next ? "Naechstes Level" : "Zur Levelauswahl");
 }
-function showSuccess() { const level = currentLevel(); winShown = true; markSolved(level); updateNextPuzzleButton(); if (successOverlay) { successOverlay.hidden = false; successOverlay.classList.remove("hidden"); } setStatus("Geschafft!"); }
+function showSuccess() { const level = currentLevel(); const stars = currentLevelStars(); const result = currentSolveResult(stars); winShown = true; stopStarTimer(); markSolved(level, result); updateNextPuzzleButton(); updateSuccessStars(stars, result); if (successOverlay) { successOverlay.hidden = false; successOverlay.classList.remove("hidden"); } setStatus(`Geschafft! ${starLabel(stars)} erspielt.`); }
 function hideSuccess() { winShown = false; if (successOverlay) { successOverlay.hidden = true; successOverlay.classList.add("hidden"); } }
+function updateSuccessStars(stars, result = {}) {
+  if (!successStars) return;
+  const detail = [];
+  if (Number.isFinite(result.elapsedSeconds)) detail.push(`Zeit ${formatTimerSeconds(result.elapsedSeconds)}`);
+  if (Number.isFinite(result.flawless) && Number.isFinite(result.target)) detail.push(`${result.flawless}/${result.target} fehlerfrei`);
+  successStars.innerHTML = `
+    <div class="success-stars-row" aria-label="${starLabel(stars)}">${starsMarkup(stars)}</div>
+    <p>${starLabel(stars)}${detail.length ? ` - ${detail.join(" - ")}` : ""}</p>
+  `;
+}
 
 function setupSuccessOverlay() {
   if (!currentGame) return;
@@ -1390,6 +1552,7 @@ function setupSuccessOverlay() {
         <span></span><span></span><span></span><span></span><span></span><span></span>
       </div>
       <h2 id="success-title">Geschafft!</h2>
+      <div id="success-stars" class="success-stars"></div>
       <div class="success-actions" aria-label="Level-Aktionen">
         <button id="success-restart-button" class="success-icon-button" type="button" aria-label="Level neu starten" title="Level neu starten">↻</button>
         <button id="next-puzzle-button" class="success-icon-button primary" type="button" aria-label="Nächstes Level" title="Nächstes Level">→</button>
@@ -1400,6 +1563,7 @@ function setupSuccessOverlay() {
   successOverlay = overlay;
   successRestartButton = overlay.querySelector("#success-restart-button");
   nextPuzzleButton = overlay.querySelector("#next-puzzle-button");
+  successStars = overlay.querySelector("#success-stars");
   successRestartButton.addEventListener("click", resetGame);
   nextPuzzleButton.addEventListener("click", nextLevel);
 }
@@ -1443,6 +1607,7 @@ function resetPracticeState(level, taskFactory, status) {
     usedTaskKeys: [practiceTaskKey(task)],
     solvedCount: 0,
     correctCount: 0,
+    flawlessCount: 0,
     attempts: 0,
     selectedAnswer: null,
     feedback: "",
@@ -1472,6 +1637,7 @@ function answerPracticeTask(answer, taskFactory, messages) {
   if (correct) {
     state.solvedCount += 1;
     state.correctCount += 1;
+    if (state.attempts === 0) state.flawlessCount += 1;
     state.feedback = pickRandom(messages.correct);
     recordPracticeAnswer(level, true);
     if (state.solvedCount >= (level.targetCount || 10)) {
@@ -1496,6 +1662,7 @@ function renderPracticeProgress(level) {
   [
     `Aufgabe ${Math.min(state.solvedCount + 1, target)} von ${target}`,
     `Richtig ${state.correctCount} von ${target}`,
+    `Fehlerfrei ${state.flawlessCount || 0} von ${target}`,
   ].forEach((text) => {
     const item = document.createElement("span");
     item.textContent = text;
@@ -1623,6 +1790,7 @@ function renderBackpackStats() {
   stats.append(
     makeBackpackStat("Runde", state.round),
     makeBackpackStat("Bestwert", state.best),
+    makeBackpackStat("Sterne", `${backpackStars(state.best)}/3`),
     makeBackpackStat("Länge", state.sequence.length),
   );
   return stats;
@@ -1695,6 +1863,7 @@ function renderBackpackGameOver(level) {
     <div class="backpack-game-over-dialog">
       <h3 id="backpack-game-over-title">Runde vorbei</h3>
       <p>Geschafft: ${state.round} ${state.round === 1 ? "Runde" : "Runden"}</p>
+      <div class="backpack-stars" aria-label="${starLabel(backpackStars(state.best))}">${starsMarkup(backpackStars(state.best))}</div>
       <p class="backpack-record">Bestwert: ${state.best}</p>
       <div class="backpack-game-over-actions">
         <button type="button" data-backpack-restart>Noch einmal</button>
@@ -1812,9 +1981,9 @@ const GAME_HANDLERS = {
             state.round += 1;
             state.best = Math.max(state.best, state.round);
             saveBackpackBest(level, state.best);
-            if (!state.unlockRecorded) {
+            if (!state.unlockRecorded || backpackStars(state.best) > levelStars(level)) {
               state.unlockRecorded = true;
-              markSolved(level);
+              markSolved(level, currentSolveResult(backpackStars(state.best)));
             }
             state.phase = "chooseNew";
             state.repeatIndex = 0;
