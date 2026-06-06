@@ -164,8 +164,28 @@ function validateShapeSequence() {
   }
 }
 
+function validateOddOneOut() {
+  assert(api.oddOneOutItems.length === 48, "odd one out should expose 48 curated items");
+
+  for (const difficulty of difficulties) {
+    const items = api.oddOneOutItems.filter((item) => item.diff === difficulty);
+    assert(items.length === 12, `odd one out ${difficulty} should have 12 items`);
+
+    for (let i = 0; i < 120; i += 1) {
+      const task = api.generateOddOneOutTask(difficulty);
+      assert(task.puzzleType === "oddOneOut", `odd one out ${difficulty} has wrong puzzle type`);
+      assert(task.difficulty === difficulty, `odd one out ${difficulty} changed difficulty`);
+      assert(items.some((item) => item.id === task.sourceId), `odd one out ${difficulty} has unknown sourceId`);
+      assert(task.options.length === 4, `odd one out ${difficulty} should have four options`);
+      assert(optionIsUnique(task), `odd one out ${difficulty} options are duplicated`);
+      assert(task.options.filter((option) => option === task.correctAnswer).length === 1, `odd one out ${difficulty} lacks one correct answer`);
+      assert(typeof task.hintText === "string" && task.hintText.length > 0, `odd one out ${difficulty} has no hint`);
+    }
+  }
+}
+
 function validateCatalog() {
-  for (const game of ["mathPuzzle", "readingPuzzle", "shapeSequencePuzzle"]) {
+  for (const game of ["mathPuzzle", "readingPuzzle", "shapeSequencePuzzle", "oddOneOut"]) {
     assert(catalog[game], `${game} missing from level catalog`);
     assert(catalog[game].length === 40, `${game} should have 40 levels`);
     for (const difficulty of difficulties) {
@@ -179,6 +199,7 @@ function validateCatalog() {
 validateMath();
 validateReading();
 validateShapeSequence();
+validateOddOneOut();
 validateCatalog();
 
 console.log("Learning puzzle validation passed.");

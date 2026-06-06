@@ -1883,6 +1883,32 @@ body.puzzle-active .shikaku-cell {
   border: 2px solid rgba(255, 255, 255, 0.58);
 }
 
+.oddOneOut-preview {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.25rem;
+  justify-items: center;
+  align-items: center;
+  background: #f0fbff;
+  border-color: #98d9ee;
+  font-size: 1.5rem;
+}
+
+.oddOneOut-preview span {
+  display: grid;
+  place-items: center;
+  min-width: 2.3rem;
+  min-height: 2.3rem;
+  border-radius: 12px;
+  background: #fff;
+  border: 2px solid rgba(17, 104, 140, 0.16);
+}
+
+.oddOneOut-preview .odd {
+  opacity: 0.5;
+  transform: scale(0.8);
+}
+
 .math-preview span:nth-child(2),
 .math-preview span:nth-child(4),
 .reading-preview span:nth-child(5) {
@@ -1978,6 +2004,14 @@ body.puzzle-active .task-board {
   line-height: 1;
 }
 
+.oddOneOut-instruction {
+  margin: 0 0 1rem;
+  color: var(--text-color, var(--ink));
+  font-size: 1.25rem;
+  font-weight: 800;
+  text-align: center;
+}
+
 .practice-options {
   width: 100%;
   display: grid;
@@ -1987,6 +2021,15 @@ body.puzzle-active .task-board {
 
 .readingPuzzle-board .practice-options {
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+}
+
+.oddOneOut-options {
+  display: grid !important;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  width: 100%;
+  max-width: 400px;
+  margin: 0 auto;
 }
 
 .practice-option {
@@ -2009,6 +2052,17 @@ body.puzzle-active .task-board {
 .readingPuzzle-board .practice-option {
   --practice-option-min-font-size: 13px;
   --practice-option-max-font-size: 1.7rem;
+}
+
+.oddOneOut-options .practice-option {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 1 / 1;
+  border-radius: 16px;
+  padding: 2rem 1rem;
+  font-size: 4rem;
+  line-height: 1;
 }
 
 .practice-option:hover:not(:disabled),

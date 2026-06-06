@@ -18,6 +18,7 @@
     mathPuzzle: "Zahlenzauber",
     sequencePuzzle: "Zahlenfolge",
     shapeSequencePuzzle: "Figurenfolge",
+    oddOneOut: "Was passt nicht?",
     readingPuzzle: "Wortdetektiv",
     backpack: "Rucksack packen",
   };
@@ -39,6 +40,7 @@
     mathPuzzle: 40,
     sequencePuzzle: 40,
     shapeSequencePuzzle: 40,
+    oddOneOut: 40,
     readingPuzzle: 40,
     backpack: 4,
   };

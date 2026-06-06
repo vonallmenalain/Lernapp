@@ -348,6 +348,12 @@ const GAME_CONFIGS = {
     success: "Klasse! Du hast alle Muster richtig erkannt.",
     rules: ["Schau dir die Figurenreihe genau an.", "Finde heraus, nach welcher Regel sich Formen oder Farben abwechseln.", "Tippe auf die Figur, die an die Stelle des Fragezeichens gehört."],
   },
+  oddOneOut: {
+    title: "Was passt nicht?", eyebrow: "Kategorien finden", code: "O",
+    subtitle: "Finde den Gegenstand, der nicht zu den anderen passt.",
+    success: "Adlerauge! Du hast alle Kuckuckseier gefunden.",
+    rules: ["Schau dir die vier Bilder genau an.", "Überlege, was drei der Bilder gemeinsam haben.", "Tippe auf das Bild, das als Einziges anders ist."],
+  },
   readingPuzzle: {
     title: "Wortdetektiv", eyebrow: "Leserätsel", code: "W",
     subtitle: "Erkenne Buchstaben, Wörter und kurze Sätze passend zum Bild.",
@@ -1000,6 +1006,81 @@ function shapeSequenceTaskKey(task) {
   return [task.puzzleType, task.difficulty, task.sourceId || task.id].join(":");
 }
 
+const ODD_ONE_OUT_ITEMS = [
+  { id: "e1", items: ["🐶", "🐱", "🐭", "🚗"], answer: "🚗", diff: "easy", hint: "Drei sind Tiere, eins ist ein Fahrzeug." },
+  { id: "e2", items: ["🍎", "🍌", "🍇", "⚽"], answer: "⚽", diff: "easy", hint: "Drei kannst du essen, eins ist zum Spielen." },
+  { id: "e3", items: ["🚗", "🚌", "🚂", "🍎"], answer: "🍎", diff: "easy", hint: "Drei sind Fahrzeuge, eins ist Obst." },
+  { id: "e4", items: ["👕", "👖", "👗", "🐶"], answer: "🐶", diff: "easy", hint: "Drei sind Kleidungsstücke, eins ist ein Tier." },
+  { id: "e5", items: ["☀️", "🌧️", "☁️", "🎸"], answer: "🎸", diff: "easy", hint: "Drei gehören zum Wetter, eins macht Musik." },
+  { id: "e6", items: ["🎸", "🎺", "🥁", "🍕"], answer: "🍕", diff: "easy", hint: "Drei sind Instrumente, eins ist Essen." },
+  { id: "e7", items: ["⚽", "🏀", "🎾", "📱"], answer: "📱", diff: "easy", hint: "Drei sind Bälle, eins ist ein Telefon." },
+  { id: "e8", items: ["🍕", "🍔", "🍟", "🌲"], answer: "🌲", diff: "easy", hint: "Drei sind leckeres Essen, eins gehört in den Wald." },
+  { id: "e9", items: ["🌲", "🌳", "🌴", "🚗"], answer: "🚗", diff: "easy", hint: "Drei sind Bäume, eins fährt auf der Straße." },
+  { id: "e10", items: ["📱", "💻", "📺", "🍌"], answer: "🍌", diff: "easy", hint: "Drei sind Geräte mit Bildschirm, eins ist eine Frucht." },
+  { id: "e11", items: ["🦅", "🦉", "🦆", "🐱"], answer: "🐱", diff: "easy", hint: "Drei sind Vögel, eins ist eine Katze." },
+  { id: "e12", items: ["🐟", "🐬", "🦈", "🦁"], answer: "🦁", diff: "easy", hint: "Drei schwimmen im Meer, eins lebt an Land." },
+
+  { id: "m1", items: ["🍎", "🍌", "🍇", "🥕"], answer: "🥕", diff: "medium", hint: "Drei sind süßes Obst, eins ist Gemüse." },
+  { id: "m2", items: ["🦅", "🦉", "🕊️", "✈️"], answer: "✈️", diff: "medium", hint: "Drei sind echte Vögel, eins ist eine Maschine." },
+  { id: "m3", items: ["🚗", "🚌", "🚓", "⛵"], answer: "⛵", diff: "medium", hint: "Drei fahren auf der Straße, eins schwimmt auf dem Wasser." },
+  { id: "m4", items: ["🛋️", "🛏️", "🪑", "🏠"], answer: "🏠", diff: "medium", hint: "Drei sind Möbelstücke, das andere ist das ganze Gebäude." },
+  { id: "m5", items: ["🐶", "🐱", "🐹", "🐺"], answer: "🐺", diff: "medium", hint: "Drei sind Haustiere, eins ist ein wildes Tier." },
+  { id: "m6", items: ["🐝", "🦋", "🐞", "🦅"], answer: "🦅", diff: "medium", hint: "Drei sind kleine Insekten, eins ist ein großer Vogel." },
+  { id: "m7", items: ["🎸", "🎻", "🪕", "🥁"], answer: "🥁", diff: "medium", hint: "Drei haben Saiten, eins ist eine Trommel." },
+  { id: "m8", items: ["⚽", "🏀", "🏐", "🏈"], answer: "🏈", diff: "medium", hint: "Drei Bälle sind rund, einer ist oval." },
+  { id: "m9", items: ["🛳️", "⛵", "🛶", "🚁"], answer: "🚁", diff: "medium", hint: "Drei sind Boote, eins fliegt in der Luft." },
+  { id: "m10", items: ["☀️", "⭐", "🌙", "🌲"], answer: "🌲", diff: "medium", hint: "Drei sind am Himmel, eins wächst am Boden." },
+  { id: "m11", items: ["✏️", "🖊️", "🖍️", "✂️"], answer: "✂️", diff: "medium", hint: "Mit drei Dingen kannst du malen, eins schneidet." },
+  { id: "m12", items: ["🍓", "🍒", "🍎", "🍋"], answer: "🍋", diff: "medium", hint: "Drei Früchte sind rot, eine ist gelb." },
+
+  { id: "h1", items: ["🦁", "🐯", "🐻", "🐮"], answer: "🐮", diff: "hard", hint: "Drei sind wilde Tiere, eins lebt auf dem Bauernhof." },
+  { id: "h2", items: ["🐷", "🐮", "🐔", "🦓"], answer: "🦓", diff: "hard", hint: "Drei leben auf dem Bauernhof, eins in der Wildnis." },
+  { id: "h3", items: ["✈️", "🚁", "🚀", "🚗"], answer: "🚗", diff: "hard", hint: "Drei fliegen, eins bleibt auf der Erde." },
+  { id: "h4", items: ["🍎", "🍅", "🍓", "🥦"], answer: "🥦", diff: "hard", hint: "Drei Dinge sind rot, eins ist grün." },
+  { id: "h5", items: ["🍋", "🍌", "🧀", "🫐"], answer: "🫐", diff: "hard", hint: "Drei Dinge sind gelb, eins ist blau." },
+  { id: "h6", items: ["🌲", "🌳", "🌵", "🌹"], answer: "🌹", diff: "hard", hint: "Drei sind Bäume oder stachelig, eins ist eine blühende Blume." },
+  { id: "h7", items: ["🥛", "☕", "🍵", "🍔"], answer: "🍔", diff: "hard", hint: "Drei Dinge kannst du trinken, eins musst du essen." },
+  { id: "h8", items: ["🚲", "🛴", "🛹", "🚗"], answer: "🚗", diff: "hard", hint: "Drei bewegst du mit deiner eigenen Kraft, eins hat einen starken Motor." },
+  { id: "h9", items: ["🎸", "🎹", "🥁", "🎧"], answer: "🎧", diff: "hard", hint: "Drei machen Musik, eins ist nur zum Hören da." },
+  { id: "h10", items: ["🔨", "🔧", "🪛", "🔪"], answer: "🔪", diff: "hard", hint: "Drei sind Werkzeuge für den Handwerker, eins gehört in die Küche." },
+  { id: "h11", items: ["🌞", "🌻", "🍋", "🍎"], answer: "🍎", diff: "hard", hint: "Drei Dinge sind gelb, eins ist rot." },
+  { id: "h12", items: ["🦅", "🦇", "🦋", "🐧"], answer: "🐧", diff: "hard", hint: "Drei können fliegen, eins bleibt am Boden oder im Wasser." },
+
+  { id: "x1", items: ["⚽", "🏀", "🌎", "🎲"], answer: "🎲", diff: "extreme", hint: "Drei Dinge sind kugelig und rund, eins ist eckig wie ein Würfel." },
+  { id: "x2", items: ["🚗", "🚲", "🏍️", "🚁"], answer: "🚁", diff: "extreme", hint: "Drei haben Räder, eins hat Rotoren zum Fliegen." },
+  { id: "x3", items: ["🐟", "🦈", "🐠", "🐬"], answer: "🐬", diff: "extreme", hint: "Drei sind Fische, eins ist ein Säugetier, das Luft atmen muss." },
+  { id: "x4", items: ["🍅", "🍆", "🥒", "🍎"], answer: "🍎", diff: "extreme", hint: "Drei isst du oft als Gemüse oder Salat, eins ist süßes Obst." },
+  { id: "x5", items: ["🕰️", "⌚", "⏰", "📱"], answer: "📱", diff: "extreme", hint: "Drei sind reine Uhren, eins kann noch viel mehr." },
+  { id: "x6", items: ["📓", "📕", "📗", "📜"], answer: "📜", diff: "extreme", hint: "Drei sind gebundene Bücher, eins ist eine gerollte Schrift." },
+  { id: "x7", items: ["👢", "👟", "🥾", "🧤"], answer: "🧤", diff: "extreme", hint: "Drei ziehst du an die Füße, eins an die Hände." },
+  { id: "x8", items: ["🌕", "🌖", "🌗", "☀️"], answer: "☀️", diff: "extreme", hint: "Drei zeigen Phasen des Mondes, eins ist die Sonne." },
+  { id: "x9", items: ["💻", "📱", "📺", "📻"], answer: "📻", diff: "extreme", hint: "Drei haben einen Bildschirm zum Schauen, eins ist nur zum Hören." },
+  { id: "x10", items: ["🚆", "🚋", "🚈", "🚌"], answer: "🚌", diff: "extreme", hint: "Drei fahren auf Schienen, eins fährt auf Reifen auf der Straße." },
+  { id: "x11", items: ["🍕", "🥧", "🍩", "🌭"], answer: "🌭", diff: "extreme", hint: "Drei sind rund, eins ist lang." },
+  { id: "x12", items: ["🧊", "⛄", "❄️", "🔥"], answer: "🔥", diff: "extreme", hint: "Drei sind eiskalt, eins ist extrem heiß." },
+];
+
+function generateOddOneOutTask(difficulty) {
+  const safeDifficulty = DIFFICULTIES[difficulty] ? difficulty : "easy";
+  const pool = ODD_ONE_OUT_ITEMS.filter((item) => item.diff === safeDifficulty);
+  const item = pickRandom(pool);
+  const options = shuffleOptions([...item.items]);
+
+  return {
+    id: `odd-${safeDifficulty}-${item.id}-${Date.now()}-${randomInt(1000, 9999)}`,
+    sourceId: item.id,
+    puzzleType: "oddOneOut",
+    difficulty: safeDifficulty,
+    correctAnswer: item.answer,
+    options,
+    hintText: item.hint,
+  };
+}
+
+function oddOneOutTaskKey(task) {
+  return [task.puzzleType, task.difficulty, task.sourceId || task.id].join(":");
+}
+
 function wordItem(id, word, article, imageKey, difficulty, category, syllables, allowedTaskTypes) {
   return { id, word, displayWord: word, article, imageKey, difficulty, category, syllables, allowedTaskTypes };
 }
@@ -1240,6 +1321,7 @@ function readingTaskKey(task) {
   return [task.puzzleType, task.difficulty, task.taskType, task.sentenceId].join(":");
 }
 function practiceTaskKey(task) {
+  if (task.puzzleType === "oddOneOut") return oddOneOutTaskKey(task);
   if (task.puzzleType === "shapeSequencePuzzle") return shapeSequenceTaskKey(task);
   if (task.puzzleType === "sequencePuzzle") return sequenceTaskKey(task);
   return task.puzzleType === "mathPuzzle" ? mathTaskKey(task) : readingTaskKey(task);
@@ -1281,6 +1363,12 @@ const SHAPE_SEQUENCE_LEVEL_DESCRIPTIONS = {
   hard: "Muster, bei denen sich die Anzahl der Figuren verändert.",
   extreme: "Wechsel von Farben und Formen. Schau ganz genau hin!",
 };
+const ODD_ONE_OUT_LEVEL_DESCRIPTIONS = {
+  easy: "Sehr unterschiedliche Bilder, z.B. Tiere und Autos.",
+  medium: "Ähnliche Bilder, z.B. verschiedene Obst- und Gemüsesorten.",
+  hard: "Gleiche Gruppen, aber kleine Unterschiede (Bauernhof oder Wildnis?).",
+  extreme: "Hier musst du genau nachdenken (rund oder eckig, Rollen oder Kufen?).",
+};
 function makePracticeLevels(game, descriptions) {
   return DIFFICULTY_KEYS.flatMap((difficulty) =>
     Array.from({ length: LEVELS_PER_DIFFICULTY }, (_, index) => makeLevel(game, difficulty, index + 1, {
@@ -1294,6 +1382,7 @@ const MATH_LEVELS = makePracticeLevels("mathPuzzle", MATH_LEVEL_DESCRIPTIONS);
 const READING_LEVELS = makePracticeLevels("readingPuzzle", READING_LEVEL_DESCRIPTIONS);
 const SEQUENCE_LEVELS = makePracticeLevels("sequencePuzzle", SEQUENCE_LEVEL_DESCRIPTIONS);
 const SHAPE_SEQUENCE_LEVELS = makePracticeLevels("shapeSequencePuzzle", SHAPE_SEQUENCE_LEVEL_DESCRIPTIONS);
+const ODD_ONE_OUT_LEVELS = makePracticeLevels("oddOneOut", ODD_ONE_OUT_LEVEL_DESCRIPTIONS);
 
 if (typeof window !== "undefined") {
   window.LernappPuzzleGenerators = {
@@ -1301,6 +1390,7 @@ if (typeof window !== "undefined") {
     generateReadingTask,
     generateSequenceTask,
     generateShapeSequenceTask,
+    generateOddOneOutTask,
     validateMathTask,
     validateReadingTask,
     ensureUniqueOptions,
@@ -1309,6 +1399,7 @@ if (typeof window !== "undefined") {
     readingSentences: READING_SENTENCE_ITEMS,
     sequenceItems: SEQUENCE_ITEMS,
     shapeSequenceItems: SHAPE_SEQUENCE_ITEMS,
+    oddOneOutItems: ODD_ONE_OUT_ITEMS,
     shapePool: SHAPE_POOL,
   };
 }
@@ -1330,6 +1421,7 @@ const LEVELS_BY_GAME = {
   readingPuzzle: normalizeLevelCounts(READING_LEVELS),
   sequencePuzzle: normalizeLevelCounts(SEQUENCE_LEVELS),
   shapeSequencePuzzle: normalizeLevelCounts(SHAPE_SEQUENCE_LEVELS),
+  oddOneOut: normalizeLevelCounts(ODD_ONE_OUT_LEVELS),
   backpack: normalizeLevelCounts(BACKPACK_LEVELS),
 };
 
@@ -1402,7 +1494,7 @@ const LOCAL_SOLVED_PREFIX = "lernapp.solved.";
 const LOCAL_STARS_PREFIX = "lernapp.stars.";
 const MAX_STARS = 3;
 const TIMED_STAR_GAMES = new Set(["arukone", "bimaru", "kakuro", "shikaku", "hidoku", "sudoku"]);
-const PRACTICE_GAMES = new Set(["mathPuzzle", "readingPuzzle", "sequencePuzzle", "shapeSequencePuzzle"]);
+const PRACTICE_GAMES = new Set(["mathPuzzle", "readingPuzzle", "sequencePuzzle", "shapeSequencePuzzle", "oddOneOut"]);
 const TIMED_STAR_LIMITS = { three: 30, two: 60 };
 
 function progressKey(game, levelId) { return `${LOCAL_SOLVED_PREFIX}${game}.${levelId}`; }
@@ -1881,7 +1973,7 @@ function optionStateClass(option) {
 }
 function renderPracticeOptions(onAnswer) {
   const options = document.createElement("div");
-  options.className = "practice-options";
+  options.className = `practice-options ${state.task.puzzleType}-options`;
   options.style.setProperty("--option-count", Math.min(state.task.options.length, 4));
   state.task.options.forEach((option) => {
     const button = document.createElement("button");
@@ -2109,6 +2201,15 @@ function makeShapeSequenceTaskView() {
   view.append(display);
   return view;
 }
+function makeOddOneOutTaskView() {
+  const view = document.createElement("div");
+  view.className = "practice-task oddOneOut-task";
+  const instruction = document.createElement("p");
+  instruction.className = "oddOneOut-instruction";
+  instruction.textContent = "Tippe auf das Bild, das nicht passt.";
+  view.append(instruction);
+  return view;
+}
 function readingHintText(task) {
   if (task.taskType === "missingLetter") return `Achte auf den ersten Buchstaben: ${task.fullText[0]}.`;
   if (task.taskType === "chooseWord") return `Das passende Wort beginnt mit ${task.fullText[0]}.`;
@@ -2287,6 +2388,26 @@ const GAME_HANDLERS = {
     },
     render(level) {
       renderPracticeShell(level, "shapeSequencePuzzle-board", makeShapeSequenceTaskView(), (answer) => this.answer(answer), generateShapeSequenceTask, "Neue Figurenfolge. Du schaffst das.");
+    },
+  },
+
+  oddOneOut: {
+    resetState(level) { resetPracticeState(level, generateOddOneOutTask, "Was passt nicht zu den anderen drei Bildern?"); },
+    checkWin() { return Boolean(state.completed); },
+    hint() {
+      if (!state.task || state.completed || state.awaitingNext) return;
+      state.tipVisible = true;
+      render(`Tipp: ${state.task.hintText}`);
+    },
+    answer(answer) {
+      answerPracticeTask(answer, generateOddOneOutTask, {
+        correct: ["Richtig! Das passt nicht.", "Adlerauge! Genau richtig.", "Super erkannt!"],
+        retry: ["Fast! Schau noch einmal, was drei der Bilder gemeinsam haben.", "Das war es nicht ganz. Überlege nochmal."],
+        hint: `Tipp: ${state.task ? state.task.hintText : "Schau genau hin."}`,
+      });
+    },
+    render(level) {
+      renderPracticeShell(level, "oddOneOut-board", makeOddOneOutTaskView(), (answer) => this.answer(answer), generateOddOneOutTask, "Neues Rätsel. Finde das Kuckucksei.");
     },
   },
 
