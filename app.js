@@ -354,6 +354,12 @@ const GAME_CONFIGS = {
     success: "Adlerauge! Du hast alle Kuckuckseier gefunden.",
     rules: ["Schau dir die vier Bilder genau an.", "Überlege, was drei der Bilder gemeinsam haben.", "Tippe auf das Bild, das als Einziges anders ist."],
   },
+  whatFits: {
+    title: "Was passt?", eyebrow: "Zusammenhänge finden", code: "V",
+    subtitle: "Finde den Gegenstand, der am besten zum Hauptbild passt.",
+    success: "Sehr gut kombiniert! Du hast gefunden, was zusammenpasst.",
+    rules: ["Schau dir zuerst den grossen Hauptgegenstand an.", "Überlege, was man damit benutzt oder was logisch dazugehört.", "Tippe auf die Antwortkarte, die am besten passt."],
+  },
   readingPuzzle: {
     title: "Wortdetektiv", eyebrow: "Leserätsel", code: "W",
     subtitle: "Erkenne Buchstaben, Wörter und kurze Sätze passend zum Bild.",
@@ -1081,6 +1087,512 @@ function oddOneOutTaskKey(task) {
   return [task.puzzleType, task.difficulty, task.sourceId || task.id].join(":");
 }
 
+const WHAT_FITS_LEVEL_DATA = {
+  easy: [
+    {
+      main: { emoji: "🪥", label: "Zahnbürste" },
+      correctId: "toothpaste",
+      options: [
+        { id: "toothpaste", emoji: "🦷", label: "Zahnpasta" },
+        { id: "fork", emoji: "🍴", label: "Gabel" },
+        { id: "sock", emoji: "🧦", label: "Socke" },
+        { id: "ball", emoji: "⚽", label: "Ball" }
+      ],
+      hint: "Was braucht man meistens zusammen beim Zähneputzen?",
+      explanation: "Zur Zahnbürste passt Zahnpasta, weil man damit die Zähne putzt."
+    },
+    {
+      main: { emoji: "🔒", label: "Schloss" },
+      correctId: "key",
+      options: [
+        { id: "key", emoji: "🔑", label: "Schlüssel" },
+        { id: "banana", emoji: "🍌", label: "Banane" },
+        { id: "pencil", emoji: "✏️", label: "Stift" },
+        { id: "fish", emoji: "🐟", label: "Fisch" }
+      ],
+      hint: "Womit kann man ein Schloss öffnen?",
+      explanation: "Zum Schloss passt der Schlüssel, weil man damit auf- und zuschliessen kann."
+    },
+    {
+      main: { emoji: "🚲", label: "Fahrrad" },
+      correctId: "helmet",
+      options: [
+        { id: "helmet", emoji: "⛑️", label: "Helm" },
+        { id: "pillow", emoji: "🛏️", label: "Kissen" },
+        { id: "spoon", emoji: "🥄", label: "Löffel" },
+        { id: "book", emoji: "📘", label: "Buch" }
+      ],
+      hint: "Was schützt dich beim Fahrradfahren?",
+      explanation: "Zum Fahrrad passt der Helm, weil er den Kopf schützt."
+    },
+    {
+      main: { emoji: "🍲", label: "Suppe" },
+      correctId: "spoon",
+      options: [
+        { id: "spoon", emoji: "🥄", label: "Löffel" },
+        { id: "hammer", emoji: "🔨", label: "Hammer" },
+        { id: "shoe", emoji: "👟", label: "Schuh" },
+        { id: "drum", emoji: "🥁", label: "Trommel" }
+      ],
+      hint: "Womit isst man Suppe am einfachsten?",
+      explanation: "Zur Suppe passt der Löffel, weil man Suppe damit essen kann."
+    },
+    {
+      main: { emoji: "🌷", label: "Blume" },
+      correctId: "wateringCan",
+      options: [
+        { id: "wateringCan", emoji: "🚿", label: "Giesskanne" },
+        { id: "phone", emoji: "📱", label: "Telefon" },
+        { id: "car", emoji: "🚗", label: "Auto" },
+        { id: "scissors", emoji: "✂️", label: "Schere" }
+      ],
+      hint: "Was hilft einer Blume beim Wachsen?",
+      explanation: "Zur Blume passt die Giesskanne, weil Blumen Wasser brauchen."
+    },
+    {
+      main: { emoji: "✂️", label: "Schere" },
+      correctId: "paper",
+      options: [
+        { id: "paper", emoji: "📄", label: "Papier" },
+        { id: "apple", emoji: "🍎", label: "Apfel" },
+        { id: "moon", emoji: "🌙", label: "Mond" },
+        { id: "train", emoji: "🚂", label: "Zug" }
+      ],
+      hint: "Was schneidet man oft mit einer Schere?",
+      explanation: "Zur Schere passt Papier, weil man Papier gut schneiden kann."
+    },
+    {
+      main: { emoji: "🐶", label: "Hund" },
+      correctId: "leash",
+      options: [
+        { id: "leash", emoji: "🪢", label: "Hundeleine" },
+        { id: "fishbowl", emoji: "🐠", label: "Fisch" },
+        { id: "saddle", emoji: "🏇", label: "Sattel" },
+        { id: "bucket", emoji: "🪣", label: "Eimer" }
+      ],
+      hint: "Was braucht man oft beim Spazieren mit einem Hund?",
+      explanation: "Zum Hund passt die Hundeleine, weil man damit sicher spazieren gehen kann."
+    },
+    {
+      main: { emoji: "🎒", label: "Schulranzen" },
+      correctId: "book",
+      options: [
+        { id: "book", emoji: "📘", label: "Schulbuch" },
+        { id: "fish", emoji: "🐟", label: "Fisch" },
+        { id: "cloud", emoji: "☁️", label: "Wolke" },
+        { id: "cake", emoji: "🍰", label: "Kuchen" }
+      ],
+      hint: "Was legt man oft in den Schulranzen?",
+      explanation: "Zum Schulranzen passt das Schulbuch, weil man es in die Schule mitnimmt."
+    },
+    {
+      main: { emoji: "🎂", label: "Geburtstagskuchen" },
+      correctId: "candle",
+      options: [
+        { id: "candle", emoji: "🕯️", label: "Kerze" },
+        { id: "train", emoji: "🚆", label: "Zug" },
+        { id: "glove", emoji: "🧤", label: "Handschuh" },
+        { id: "leaf", emoji: "🍃", label: "Blatt" }
+      ],
+      hint: "Was steckt oft auf einem Geburtstagskuchen?",
+      explanation: "Zum Geburtstagskuchen passt die Kerze, weil man sie oft auspustet."
+    },
+    {
+      main: { emoji: "🏖️", label: "Sandburg" },
+      correctId: "bucket",
+      options: [
+        { id: "bucket", emoji: "🪣", label: "Eimer" },
+        { id: "tv", emoji: "📺", label: "Fernseher" },
+        { id: "violin", emoji: "🎻", label: "Geige" },
+        { id: "carrot", emoji: "🥕", label: "Rüebli" }
+      ],
+      hint: "Womit baut man am Strand oft eine Sandburg?",
+      explanation: "Zur Sandburg passt der Eimer, weil man damit Sand formen kann."
+    }
+  ],
+  medium: [
+    {
+      main: { emoji: "✉️", label: "Brief" },
+      correctId: "stamp",
+      options: [
+        { id: "stamp", emoji: "🏷️", label: "Briefmarke" },
+        { id: "sock", emoji: "🧦", label: "Socke" },
+        { id: "banana", emoji: "🍌", label: "Banane" },
+        { id: "rocket", emoji: "🚀", label: "Rakete" }
+      ],
+      hint: "Was klebt man oft auf einen Brief, bevor man ihn abschickt?",
+      explanation: "Zum Brief passt die Briefmarke, weil sie zum Verschicken gehört."
+    },
+    {
+      main: { emoji: "🐝", label: "Biene" },
+      correctId: "flower",
+      options: [
+        { id: "flower", emoji: "🌼", label: "Blume" },
+        { id: "bus", emoji: "🚌", label: "Bus" },
+        { id: "piano", emoji: "🎹", label: "Klavier" },
+        { id: "snowman", emoji: "⛄", label: "Schneemann" }
+      ],
+      hint: "Wo findet eine Biene Nektar?",
+      explanation: "Zur Biene passt die Blume, weil Bienen dort Nektar sammeln."
+    },
+    {
+      main: { emoji: "🧑‍🚒", label: "Feuerwehr" },
+      correctId: "hose",
+      options: [
+        { id: "hose", emoji: "🚿", label: "Wasserschlauch" },
+        { id: "icecream", emoji: "🍦", label: "Glace" },
+        { id: "book", emoji: "📚", label: "Bücher" },
+        { id: "moon", emoji: "🌙", label: "Mond" }
+      ],
+      hint: "Womit kann die Feuerwehr Feuer löschen?",
+      explanation: "Zur Feuerwehr passt der Wasserschlauch, weil sie damit Feuer löschen kann."
+    },
+    {
+      main: { emoji: "⛄", label: "Schneemann" },
+      correctId: "carrot",
+      options: [
+        { id: "carrot", emoji: "🥕", label: "Rüebli-Nase" },
+        { id: "sunglasses", emoji: "🕶️", label: "Sonnenbrille" },
+        { id: "pizza", emoji: "🍕", label: "Pizza" },
+        { id: "hammer", emoji: "🔨", label: "Hammer" }
+      ],
+      hint: "Was benutzt man oft als Nase für einen Schneemann?",
+      explanation: "Zum Schneemann passt das Rüebli, weil es oft seine Nase ist."
+    },
+    {
+      main: { emoji: "🥅", label: "Fussballtor" },
+      correctId: "football",
+      options: [
+        { id: "football", emoji: "⚽", label: "Fussball" },
+        { id: "tooth", emoji: "🦷", label: "Zahn" },
+        { id: "cake", emoji: "🍰", label: "Kuchen" },
+        { id: "lamp", emoji: "💡", label: "Lampe" }
+      ],
+      hint: "Was soll in dieses Tor geschossen werden?",
+      explanation: "Zum Fussballtor passt der Fussball, weil man Tore damit schiesst."
+    },
+    {
+      main: { emoji: "📷", label: "Kamera" },
+      correctId: "photo",
+      options: [
+        { id: "photo", emoji: "🖼️", label: "Foto" },
+        { id: "plate", emoji: "🍽️", label: "Teller" },
+        { id: "anchor", emoji: "⚓", label: "Anker" },
+        { id: "shoe", emoji: "👞", label: "Schuh" }
+      ],
+      hint: "Was entsteht, wenn man mit einer Kamera etwas aufnimmt?",
+      explanation: "Zur Kamera passt das Foto, weil man Fotos mit einer Kamera macht."
+    },
+    {
+      main: { emoji: "🧑‍🍳", label: "Bäcker" },
+      correctId: "bread",
+      options: [
+        { id: "bread", emoji: "🍞", label: "Brot" },
+        { id: "telescope", emoji: "🔭", label: "Fernrohr" },
+        { id: "fish", emoji: "🐟", label: "Fisch" },
+        { id: "magnet", emoji: "🧲", label: "Magnet" }
+      ],
+      hint: "Was macht ein Bäcker besonders oft?",
+      explanation: "Zum Bäcker passt Brot, weil Bäcker Brot und Gebäck herstellen."
+    },
+    {
+      main: { emoji: "🧑‍🎣", label: "Fischer" },
+      correctId: "rod",
+      options: [
+        { id: "rod", emoji: "🎣", label: "Angel" },
+        { id: "paint", emoji: "🎨", label: "Farbe" },
+        { id: "snowflake", emoji: "❄️", label: "Schnee" },
+        { id: "balloon", emoji: "🎈", label: "Ballon" }
+      ],
+      hint: "Womit fängt ein Fischer oft Fische?",
+      explanation: "Zum Fischer passt die Angel, weil man damit Fische fangen kann."
+    },
+    {
+      main: { emoji: "🎸", label: "Gitarre" },
+      correctId: "music",
+      options: [
+        { id: "music", emoji: "🎵", label: "Musik" },
+        { id: "wrench", emoji: "🔧", label: "Schraubenschlüssel" },
+        { id: "tomato", emoji: "🍅", label: "Tomate" },
+        { id: "umbrella", emoji: "☂️", label: "Schirm" }
+      ],
+      hint: "Was entsteht, wenn jemand Gitarre spielt?",
+      explanation: "Zur Gitarre passt Musik, weil man mit ihr Musik machen kann."
+    },
+    {
+      main: { emoji: "🧑‍🎨", label: "Maler" },
+      correctId: "palette",
+      options: [
+        { id: "palette", emoji: "🎨", label: "Farbpalette" },
+        { id: "train", emoji: "🚆", label: "Zug" },
+        { id: "cookie", emoji: "🍪", label: "Guetzli" },
+        { id: "key", emoji: "🔑", label: "Schlüssel" }
+      ],
+      hint: "Was braucht ein Maler zum Malen?",
+      explanation: "Zum Maler passt die Farbpalette, weil er damit Farben auswählt."
+    }
+  ],
+  hard: [
+    {
+      main: { emoji: "🧭", label: "Kompass" },
+      correctId: "map",
+      options: [
+        { id: "map", emoji: "🗺️", label: "Karte" },
+        { id: "cake", emoji: "🎂", label: "Kuchen" },
+        { id: "soap", emoji: "🧼", label: "Seife" },
+        { id: "drum", emoji: "🥁", label: "Trommel" }
+      ],
+      hint: "Womit findet man gemeinsam den richtigen Weg?",
+      explanation: "Zum Kompass passt die Karte, weil beide beim Orientieren helfen."
+    },
+    {
+      main: { emoji: "🌡️", label: "Thermometer" },
+      correctId: "fever",
+      options: [
+        { id: "fever", emoji: "🤒", label: "Fieber" },
+        { id: "ball", emoji: "🏀", label: "Basketball" },
+        { id: "flower", emoji: "🌸", label: "Blume" },
+        { id: "bike", emoji: "🚲", label: "Fahrrad" }
+      ],
+      hint: "Wobei misst man oft die Körpertemperatur?",
+      explanation: "Zum Thermometer passt Fieber, weil man damit Temperatur misst."
+    },
+    {
+      main: { emoji: "🐛", label: "Raupe" },
+      correctId: "butterfly",
+      options: [
+        { id: "butterfly", emoji: "🦋", label: "Schmetterling" },
+        { id: "car", emoji: "🚗", label: "Auto" },
+        { id: "bread", emoji: "🍞", label: "Brot" },
+        { id: "pencil", emoji: "✏️", label: "Stift" }
+      ],
+      hint: "In welches Tier verwandelt sich eine Raupe später?",
+      explanation: "Zur Raupe passt der Schmetterling, weil aus einer Raupe ein Schmetterling werden kann."
+    },
+    {
+      main: { emoji: "🔦", label: "Taschenlampe" },
+      correctId: "battery",
+      options: [
+        { id: "battery", emoji: "🔋", label: "Batterie" },
+        { id: "ice", emoji: "🧊", label: "Eiswürfel" },
+        { id: "fish", emoji: "🐠", label: "Fisch" },
+        { id: "shoe", emoji: "👟", label: "Schuh" }
+      ],
+      hint: "Was gibt einer Taschenlampe Energie?",
+      explanation: "Zur Taschenlampe passt die Batterie, weil sie Strom liefert."
+    },
+    {
+      main: { emoji: "🚆", label: "Zug" },
+      correctId: "rails",
+      options: [
+        { id: "rails", emoji: "🛤️", label: "Schienen" },
+        { id: "cloud", emoji: "☁️", label: "Wolke" },
+        { id: "banana", emoji: "🍌", label: "Banane" },
+        { id: "scarf", emoji: "🧣", label: "Schal" }
+      ],
+      hint: "Worauf fährt ein Zug?",
+      explanation: "Zum Zug passen Schienen, weil Züge darauf fahren."
+    },
+    {
+      main: { emoji: "🧑‍⚕️", label: "Ärztin" },
+      correctId: "stethoscope",
+      options: [
+        { id: "stethoscope", emoji: "🩺", label: "Stethoskop" },
+        { id: "guitar", emoji: "🎸", label: "Gitarre" },
+        { id: "sailboat", emoji: "⛵", label: "Segelboot" },
+        { id: "cookie", emoji: "🍪", label: "Guetzli" }
+      ],
+      hint: "Womit hört eine Ärztin Herz und Lunge ab?",
+      explanation: "Zur Ärztin passt das Stethoskop, weil sie damit abhören kann."
+    },
+    {
+      main: { emoji: "🗑️", label: "Abfall" },
+      correctId: "recycle",
+      options: [
+        { id: "recycle", emoji: "♻️", label: "Recycling" },
+        { id: "moon", emoji: "🌙", label: "Mond" },
+        { id: "cake", emoji: "🍰", label: "Kuchen" },
+        { id: "train", emoji: "🚂", label: "Zug" }
+      ],
+      hint: "Was macht man mit Abfall, wenn man ihn richtig trennt?",
+      explanation: "Zu Abfall passt Recycling, weil manche Dinge wiederverwertet werden können."
+    },
+    {
+      main: { emoji: "🧶", label: "Wolle" },
+      correctId: "sweater",
+      options: [
+        { id: "sweater", emoji: "🧥", label: "Pullover" },
+        { id: "rocket", emoji: "🚀", label: "Rakete" },
+        { id: "tomato", emoji: "🍅", label: "Tomate" },
+        { id: "fish", emoji: "🐟", label: "Fisch" }
+      ],
+      hint: "Was kann man aus Wolle stricken?",
+      explanation: "Zur Wolle passt der Pullover, weil man Kleidung daraus machen kann."
+    },
+    {
+      main: { emoji: "🌰", label: "Samen" },
+      correctId: "tree",
+      options: [
+        { id: "tree", emoji: "🌳", label: "Baum" },
+        { id: "car", emoji: "🚗", label: "Auto" },
+        { id: "phone", emoji: "📱", label: "Telefon" },
+        { id: "spoon", emoji: "🥄", label: "Löffel" }
+      ],
+      hint: "Was kann aus einem Samen wachsen?",
+      explanation: "Zum Samen passt der Baum, weil aus einem Samen eine Pflanze wachsen kann."
+    },
+    {
+      main: { emoji: "🌙", label: "Mond" },
+      correctId: "telescope",
+      options: [
+        { id: "telescope", emoji: "🔭", label: "Fernrohr" },
+        { id: "soup", emoji: "🍲", label: "Suppe" },
+        { id: "sock", emoji: "🧦", label: "Socke" },
+        { id: "hammer", emoji: "🔨", label: "Hammer" }
+      ],
+      hint: "Womit kann man den Mond genauer anschauen?",
+      explanation: "Zum Mond passt das Fernrohr, weil man ihn damit besser beobachten kann."
+    }
+  ],
+  extreme: [
+    {
+      main: { emoji: "⬛", label: "Schatten" },
+      correctId: "sun",
+      options: [
+        { id: "sun", emoji: "☀️", label: "Sonne" },
+        { id: "pizza", emoji: "🍕", label: "Pizza" },
+        { id: "train", emoji: "🚆", label: "Zug" },
+        { id: "glove", emoji: "🧤", label: "Handschuh" }
+      ],
+      hint: "Was braucht es, damit ein Schatten entstehen kann?",
+      explanation: "Zum Schatten passt die Sonne, weil Licht einen Schatten entstehen lässt."
+    },
+    {
+      main: { emoji: "💨", label: "Rauch" },
+      correctId: "fire",
+      options: [
+        { id: "fire", emoji: "🔥", label: "Feuer" },
+        { id: "book", emoji: "📘", label: "Buch" },
+        { id: "icecream", emoji: "🍦", label: "Glace" },
+        { id: "flower", emoji: "🌷", label: "Blume" }
+      ],
+      hint: "Wobei entsteht Rauch oft?",
+      explanation: "Zu Rauch passt Feuer, weil bei Feuer oft Rauch entsteht."
+    },
+    {
+      main: { emoji: "⛵", label: "Segelboot" },
+      correctId: "wind",
+      options: [
+        { id: "wind", emoji: "🌬️", label: "Wind" },
+        { id: "battery", emoji: "🔋", label: "Batterie" },
+        { id: "pencil", emoji: "✏️", label: "Stift" },
+        { id: "cake", emoji: "🎂", label: "Kuchen" }
+      ],
+      hint: "Was bewegt ein Segelboot ohne Motor?",
+      explanation: "Zum Segelboot passt Wind, weil Wind die Segel antreibt."
+    },
+    {
+      main: { emoji: "🔲", label: "Solarzelle" },
+      correctId: "sun",
+      options: [
+        { id: "sun", emoji: "☀️", label: "Sonnenlicht" },
+        { id: "fish", emoji: "🐟", label: "Fisch" },
+        { id: "shoe", emoji: "👟", label: "Schuh" },
+        { id: "drum", emoji: "🥁", label: "Trommel" }
+      ],
+      hint: "Welche Energie nutzt eine Solarzelle?",
+      explanation: "Zur Solarzelle passt Sonnenlicht, weil sie daraus Strom erzeugen kann."
+    },
+    {
+      main: { emoji: "🧲", label: "Magnet" },
+      correctId: "paperclip",
+      options: [
+        { id: "paperclip", emoji: "📎", label: "Büroklammer" },
+        { id: "banana", emoji: "🍌", label: "Banane" },
+        { id: "cloud", emoji: "☁️", label: "Wolke" },
+        { id: "bread", emoji: "🍞", label: "Brot" }
+      ],
+      hint: "Was kann von einem Magneten angezogen werden?",
+      explanation: "Zum Magnet passt die Büroklammer, weil sie aus Metall ist."
+    },
+    {
+      main: { emoji: "🥚", label: "Ei" },
+      correctId: "chick",
+      options: [
+        { id: "chick", emoji: "🐣", label: "Küken" },
+        { id: "car", emoji: "🚗", label: "Auto" },
+        { id: "guitar", emoji: "🎸", label: "Gitarre" },
+        { id: "moon", emoji: "🌙", label: "Mond" }
+      ],
+      hint: "Was kann aus einem Ei schlüpfen?",
+      explanation: "Zum Ei passt das Küken, weil ein Küken aus einem Ei schlüpfen kann."
+    },
+    {
+      main: { emoji: "🌾", label: "Mehl" },
+      correctId: "bread",
+      options: [
+        { id: "bread", emoji: "🍞", label: "Brot" },
+        { id: "helmet", emoji: "⛑️", label: "Helm" },
+        { id: "key", emoji: "🔑", label: "Schlüssel" },
+        { id: "frog", emoji: "🐸", label: "Frosch" }
+      ],
+      hint: "Was kann man aus Mehl backen?",
+      explanation: "Zu Mehl passt Brot, weil Brot oft aus Mehl gebacken wird."
+    },
+    {
+      main: { emoji: "🧊", label: "Eiswürfel" },
+      correctId: "freezer",
+      options: [
+        { id: "freezer", emoji: "❄️", label: "Gefrierfach" },
+        { id: "sunflower", emoji: "🌻", label: "Sonnenblume" },
+        { id: "bus", emoji: "🚌", label: "Bus" },
+        { id: "violin", emoji: "🎻", label: "Geige" }
+      ],
+      hint: "Wo bleibt ein Eiswürfel kalt?",
+      explanation: "Zum Eiswürfel passt das Gefrierfach, weil er dort gefroren bleibt."
+    },
+    {
+      main: { emoji: "💧", label: "Pfütze" },
+      correctId: "rain",
+      options: [
+        { id: "rain", emoji: "🌧️", label: "Regen" },
+        { id: "clock", emoji: "⏰", label: "Wecker" },
+        { id: "cookie", emoji: "🍪", label: "Guetzli" },
+        { id: "rocket", emoji: "🚀", label: "Rakete" }
+      ],
+      hint: "Wodurch entstehen draussen oft Pfützen?",
+      explanation: "Zur Pfütze passt Regen, weil Regenwasser Pfützen bilden kann."
+    },
+    {
+      main: { emoji: "🔬", label: "Mikroskop" },
+      correctId: "germ",
+      options: [
+        { id: "germ", emoji: "🦠", label: "Keim" },
+        { id: "elephant", emoji: "🐘", label: "Elefant" },
+        { id: "car", emoji: "🚗", label: "Auto" },
+        { id: "tree", emoji: "🌳", label: "Baum" }
+      ],
+      hint: "Was ist so klein, dass man es mit einem Mikroskop anschauen kann?",
+      explanation: "Zum Mikroskop passt der Keim, weil sehr kleine Dinge damit sichtbar werden."
+    }
+  ]
+};
+
+function generateWhatFitsTask(level) {
+  return {
+    id: `what-fits-${level.difficulty}-${level.id || level.levelName}-${Date.now()}-${randomInt(1000, 9999)}`,
+    sourceId: level.id || level.levelName,
+    puzzleType: "whatFits",
+    difficulty: level.difficulty,
+    main: clone(level.main),
+    correctId: level.correctId,
+    correctAnswer: level.correctId,
+    options: shuffleOptions(level.options.map((option) => clone(option))),
+    hintText: level.hint,
+    explanation: level.explanation,
+  };
+}
+
 function wordItem(id, word, article, imageKey, difficulty, category, syllables, allowedTaskTypes) {
   return { id, word, displayWord: word, article, imageKey, difficulty, category, syllables, allowedTaskTypes };
 }
@@ -1369,6 +1881,12 @@ const ODD_ONE_OUT_LEVEL_DESCRIPTIONS = {
   hard: "Gleiche Gruppen, aber kleine Unterschiede (Bauernhof oder Wildnis?).",
   extreme: "Hier musst du genau nachdenken (rund oder eckig, Rollen oder Kufen?).",
 };
+const WHAT_FITS_LEVEL_DESCRIPTIONS = {
+  easy: "Direkte Paare aus dem Alltag: Was benutzt man zusammen?",
+  medium: "Alltag, Berufe und Natur: Was gehört sinnvoll zusammen?",
+  hard: "Hier brauchst du mehr Wissen: Werkzeug, Verwandlung, Orientierung.",
+  extreme: "Ursache, Wirkung und Veränderung: Denke einen Schritt weiter.",
+};
 function makePracticeLevels(game, descriptions) {
   return DIFFICULTY_KEYS.flatMap((difficulty) =>
     Array.from({ length: LEVELS_PER_DIFFICULTY }, (_, index) => makeLevel(game, difficulty, index + 1, {
@@ -1383,6 +1901,16 @@ const READING_LEVELS = makePracticeLevels("readingPuzzle", READING_LEVEL_DESCRIP
 const SEQUENCE_LEVELS = makePracticeLevels("sequencePuzzle", SEQUENCE_LEVEL_DESCRIPTIONS);
 const SHAPE_SEQUENCE_LEVELS = makePracticeLevels("shapeSequencePuzzle", SHAPE_SEQUENCE_LEVEL_DESCRIPTIONS);
 const ODD_ONE_OUT_LEVELS = makePracticeLevels("oddOneOut", ODD_ONE_OUT_LEVEL_DESCRIPTIONS);
+const WHAT_FITS_LEVELS = DIFFICULTY_KEYS.flatMap((difficulty) =>
+  WHAT_FITS_LEVEL_DATA[difficulty].map((data, index) =>
+    makeLevel("whatFits", difficulty, index + 1, {
+      ...data,
+      targetCount: 1,
+      badge: "1 Rätsel",
+      description: WHAT_FITS_LEVEL_DESCRIPTIONS[difficulty],
+    })
+  )
+);
 
 if (typeof window !== "undefined") {
   window.LernappPuzzleGenerators = {
@@ -1391,6 +1919,7 @@ if (typeof window !== "undefined") {
     generateSequenceTask,
     generateShapeSequenceTask,
     generateOddOneOutTask,
+    generateWhatFitsTask,
     validateMathTask,
     validateReadingTask,
     ensureUniqueOptions,
@@ -1400,6 +1929,8 @@ if (typeof window !== "undefined") {
     sequenceItems: SEQUENCE_ITEMS,
     shapeSequenceItems: SHAPE_SEQUENCE_ITEMS,
     oddOneOutItems: ODD_ONE_OUT_ITEMS,
+    whatFitsLevels: WHAT_FITS_LEVELS,
+    whatFitsLevelData: WHAT_FITS_LEVEL_DATA,
     shapePool: SHAPE_POOL,
   };
 }
@@ -1422,6 +1953,7 @@ const LEVELS_BY_GAME = {
   sequencePuzzle: normalizeLevelCounts(SEQUENCE_LEVELS),
   shapeSequencePuzzle: normalizeLevelCounts(SHAPE_SEQUENCE_LEVELS),
   oddOneOut: normalizeLevelCounts(ODD_ONE_OUT_LEVELS),
+  whatFits: normalizeLevelCounts(WHAT_FITS_LEVELS),
   backpack: normalizeLevelCounts(BACKPACK_LEVELS),
 };
 
@@ -1665,6 +2197,12 @@ function practiceStars(level, practiceState = state) {
   if (flawless >= Math.ceil(target * 0.8)) return 2;
   return 1;
 }
+function whatFitsStars(whatFitsState = state) {
+  const attempts = Number(whatFitsState.attempts || 0);
+  if (attempts <= 0) return 3;
+  if (attempts === 1) return 2;
+  return 1;
+}
 function backpackStars(best) {
   if (Number(best || 0) >= 8) return 3;
   if (Number(best || 0) >= 4) return 2;
@@ -1674,6 +2212,7 @@ function currentLevelStars() {
   const level = currentLevel();
   if (!level) return 1;
   if (isTimedStarGame()) return currentTimedStars() || 1;
+  if (currentGame === "whatFits") return whatFitsStars();
   if (PRACTICE_GAMES.has(currentGame)) return practiceStars(level);
   if (currentGame === "backpack") return backpackStars(state.best);
   return 1;
@@ -1685,6 +2224,10 @@ function currentSolveResult(stars = currentLevelStars()) {
     result.flawless = Number(state.flawlessCount || 0);
     result.correct = Number(state.correctCount || 0);
     result.target = currentLevel().targetCount || 10;
+  }
+  if (currentGame === "whatFits") {
+    result.attempts = Number(state.attempts || 0);
+    if (state.task?.explanation) result.explanation = state.task.explanation;
   }
   if (currentGame === "backpack") result.best = Number(state.best || 0);
   return result;
@@ -1809,10 +2352,24 @@ function updateSuccessStars(stars, result = {}) {
   const detail = [];
   if (Number.isFinite(result.elapsedSeconds)) detail.push(`Zeit ${formatTimerSeconds(result.elapsedSeconds)}`);
   if (Number.isFinite(result.flawless) && Number.isFinite(result.target)) detail.push(`${result.flawless}/${result.target} fehlerfrei`);
-  successStars.innerHTML = `
-    <div class="success-stars-row" aria-label="${starLabel(stars)}">${starsMarkup(stars)}</div>
-    <p>${starLabel(stars)}${detail.length ? ` - ${detail.join(" - ")}` : ""}</p>
-  `;
+  if (currentGame === "whatFits" && Number.isFinite(result.attempts)) {
+    const tries = result.attempts + 1;
+    detail.push(`${tries} ${tries === 1 ? "Versuch" : "Versuche"}`);
+  }
+  successStars.innerHTML = "";
+  const row = document.createElement("div");
+  row.className = "success-stars-row";
+  row.setAttribute("aria-label", starLabel(stars));
+  row.innerHTML = starsMarkup(stars);
+  const summary = document.createElement("p");
+  summary.textContent = `${starLabel(stars)}${detail.length ? ` - ${detail.join(" - ")}` : ""}`;
+  successStars.append(row, summary);
+  if (currentGame === "whatFits" && result.explanation) {
+    const explanation = document.createElement("p");
+    explanation.className = "success-explanation";
+    explanation.textContent = result.explanation;
+    successStars.append(explanation);
+  }
 }
 
 function setupSuccessOverlay() {
@@ -2210,6 +2767,64 @@ function makeOddOneOutTaskView() {
   view.append(instruction);
   return view;
 }
+function makeWhatFitsTaskView() {
+  const task = state.task;
+  const view = document.createElement("div");
+  view.className = "practice-task whatFits-task";
+  const prompt = document.createElement("p");
+  prompt.className = "whatFits-question";
+  prompt.textContent = "Was passt dazu?";
+  const mainCard = document.createElement("div");
+  mainCard.className = "whatFits-main-card";
+  mainCard.setAttribute("aria-label", `Hauptgegenstand: ${task.main.label}`);
+  const emoji = document.createElement("span");
+  emoji.className = "whatFits-main-emoji";
+  emoji.setAttribute("aria-hidden", "true");
+  emoji.textContent = task.main.emoji;
+  const label = document.createElement("span");
+  label.className = "whatFits-main-label";
+  label.textContent = task.main.label;
+  mainCard.append(emoji, label);
+  view.append(prompt, mainCard);
+  return view;
+}
+function whatFitsOptionStateClass(option) {
+  if (state.completed && option.id === state.task.correctId) return " correct";
+  if (!state.completed && state.selectedId === option.id && option.id !== state.task.correctId) return " wrong";
+  return "";
+}
+function renderWhatFitsOptions() {
+  const options = document.createElement("div");
+  options.className = "whatFits-options";
+  state.task.options.forEach((option) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = `practice-option whatFits-option${whatFitsOptionStateClass(option)}`;
+    button.disabled = state.completed;
+    button.setAttribute("aria-label", `Antwort: ${option.label}`);
+    const emoji = document.createElement("span");
+    emoji.className = "whatFits-option-emoji";
+    emoji.setAttribute("aria-hidden", "true");
+    emoji.textContent = option.emoji;
+    const label = document.createElement("span");
+    label.className = "whatFits-option-label";
+    label.textContent = option.label;
+    button.append(emoji, label);
+    button.addEventListener("click", () => GAME_HANDLERS.whatFits.answer(option.id));
+    options.append(button);
+  });
+  return options;
+}
+function renderWhatFitsFeedback() {
+  const feedback = document.createElement("div");
+  feedback.className = `practice-feedback whatFits-feedback${state.feedback ? " visible" : ""}`;
+  if (state.feedback) {
+    const text = document.createElement("p");
+    text.textContent = state.feedback;
+    feedback.append(text);
+  }
+  return feedback;
+}
 function readingHintText(task) {
   if (task.taskType === "missingLetter") return `Achte auf den ersten Buchstaben: ${task.fullText[0]}.`;
   if (task.taskType === "chooseWord") return `Das passende Wort beginnt mit ${task.fullText[0]}.`;
@@ -2408,6 +3023,58 @@ const GAME_HANDLERS = {
     },
     render(level) {
       renderPracticeShell(level, "oddOneOut-board", makeOddOneOutTaskView(), (answer) => this.answer(answer), generateOddOneOutTask, "Neues Rätsel. Finde das Kuckucksei.");
+    },
+  },
+
+  whatFits: {
+    resetState(level) {
+      clearPracticeAdvanceTimer();
+      state = {
+        task: generateWhatFitsTask(level),
+        attempts: 0,
+        selectedId: null,
+        feedback: "",
+        tipVisible: false,
+        completed: false,
+      };
+      setStatus("Wähle die Antwortkarte, die am besten passt.");
+    },
+    checkWin() { return Boolean(state.completed); },
+    hint() {
+      if (!state.task || state.completed) return;
+      state.tipVisible = true;
+      state.feedback = `Tipp: ${state.task.hintText}`;
+      render("Tipp angezeigt.");
+    },
+    answer(optionId) {
+      if (!state.task || state.completed) return;
+      const option = state.task.options.find((candidate) => candidate.id === optionId);
+      if (!option) return;
+      recordMoveMetric();
+      state.selectedId = optionId;
+      if (optionId === state.task.correctId) {
+        state.feedback = state.task.explanation;
+        state.completed = true;
+        handleWin();
+        return;
+      }
+      state.attempts += 1;
+      state.tipVisible = state.attempts >= 2;
+      state.feedback = state.tipVisible
+        ? `Tipp: ${state.task.hintText}`
+        : "Fast! Überlege, was man zusammen benutzt oder was logisch dazugehört.";
+      render("Fast. Versuch es noch einmal.");
+    },
+    render(level) {
+      board.innerHTML = "";
+      board.className = "board task-board whatFits-board";
+      board.style.setProperty("--size", 1);
+      board.append(
+        renderPracticeProgress(level),
+        makeWhatFitsTaskView(),
+        renderWhatFitsOptions(),
+        renderWhatFitsFeedback(),
+      );
     },
   },
 

@@ -19,6 +19,7 @@
     sequencePuzzle: "Zahlenfolge",
     shapeSequencePuzzle: "Figurenfolge",
     oddOneOut: "Was passt nicht?",
+    whatFits: "Was passt?",
     readingPuzzle: "Wortdetektiv",
     backpack: "Rucksack packen",
   };
@@ -41,6 +42,7 @@
     sequencePuzzle: 40,
     shapeSequencePuzzle: 40,
     oddOneOut: 40,
+    whatFits: 40,
     readingPuzzle: 40,
     backpack: 4,
   };

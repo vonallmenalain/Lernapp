@@ -184,6 +184,37 @@ function validateOddOneOut() {
   }
 }
 
+function validateWhatFits() {
+  assert(api.whatFitsLevels.length === 40, "what fits should expose 40 curated levels");
+
+  for (const difficulty of difficulties) {
+    const levels = api.whatFitsLevels.filter((level) => level.difficulty === difficulty);
+    assert(levels.length === 10, `what fits ${difficulty} should have 10 levels`);
+
+    levels.forEach((level, index) => {
+      const label = `what fits ${difficulty} ${index + 1}`;
+      assert(level.puzzleType !== "whatFits", `${label} should remain a level, not a generated task`);
+      assert(level.main?.emoji && level.main?.label, `${label} has no main item`);
+      assert(Array.isArray(level.options) && level.options.length === 4, `${label} should have four options`);
+      assert(new Set(level.options.map((option) => option.id)).size === 4, `${label} option ids are duplicated`);
+      assert(level.options.some((option) => option.id === level.correctId), `${label} correctId is missing from options`);
+      assert(typeof level.hint === "string" && level.hint.length > 0, `${label} has no hint`);
+      assert(typeof level.explanation === "string" && level.explanation.length > 0, `${label} has no explanation`);
+
+      for (let i = 0; i < 24; i += 1) {
+        const task = api.generateWhatFitsTask(level);
+        assert(task.puzzleType === "whatFits", `${label} task has wrong puzzle type`);
+        assert(task.difficulty === difficulty, `${label} task changed difficulty`);
+        assert(task.correctId === level.correctId, `${label} task changed correctId`);
+        assert(task.correctAnswer === level.correctId, `${label} task has wrong correctAnswer`);
+        assert(task.options.length === 4, `${label} task should have four options`);
+        assert(new Set(task.options.map((option) => option.id)).size === 4, `${label} task option ids are duplicated`);
+        assert(task.options.some((option) => option.id === task.correctId), `${label} shuffled task lost the correct option`);
+      }
+    });
+  }
+}
+
 function validateCatalog() {
   for (const game of ["mathPuzzle", "readingPuzzle", "shapeSequencePuzzle", "oddOneOut"]) {
     assert(catalog[game], `${game} missing from level catalog`);
@@ -194,12 +225,21 @@ function validateCatalog() {
       assert(levels.every((level) => level.badge === "10 Aufgaben"), `${game} ${difficulty} should expose task badge`);
     }
   }
+
+  assert(catalog.whatFits, "whatFits missing from level catalog");
+  assert(catalog.whatFits.length === 40, "whatFits should have 40 levels");
+  for (const difficulty of difficulties) {
+    const levels = catalog.whatFits.filter((level) => level.difficulty === difficulty);
+    assert(levels.length === 10, `whatFits ${difficulty} should have 10 levels`);
+    assert(levels.every((level) => level.badge === "1 Rätsel"), `whatFits ${difficulty} should expose one-riddle badge`);
+  }
 }
 
 validateMath();
 validateReading();
 validateShapeSequence();
 validateOddOneOut();
+validateWhatFits();
 validateCatalog();
 
 console.log("Learning puzzle validation passed.");
