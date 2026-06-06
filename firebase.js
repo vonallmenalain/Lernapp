@@ -51,6 +51,9 @@
 
   const LOCAL_SOLVED_PREFIX = "lernapp.solved.";
   const LOCAL_STARS_PREFIX = "lernapp.stars.";
+  const LOCAL_GUEST_ID_KEY = "lernapp.guest.id";
+  const LOCAL_GUEST_CREATED_KEY = "lernapp.guest.createdAt";
+  const GUEST_ID_PREFIX = "guest_";
   const MAX_STARS = 3;
   const CHILD_LOGIN_DOMAIN = "lernapp.local";
   const PASSWORD_SUFFIX = "::lernapp";
@@ -71,9 +74,15 @@
     firebaseReady: false,
     pendingDisplayName: null,
     unlockedMode: false,
+    guestId: null,
+    guestCreatedAtMs: 0,
+    adminView: "users",
     adminUsers: [],
+    adminGuests: [],
     adminDetails: new Map(),
+    adminGuestDetails: new Map(),
     selectedAdminUserId: null,
+    selectedAdminGuestId: null,
     selectedAdminGame: "all",
   };
 
@@ -160,6 +169,7 @@
       state.app = window.firebase.apps?.length ? window.firebase.app() : window.firebase.initializeApp(firebaseConfig);
       state.auth = window.firebase.auth();
       state.db = window.firebase.firestore();
+      state.guestId = getGuestId();
       state.firebaseReady = true;
       state.auth.setPersistence(window.firebase.auth.Auth.Persistence.LOCAL)
         .catch(() => {})
@@ -172,6 +182,11 @@
   }
 
   async function handleAuthState(user) {
+    if (user && state.activeSession?.ownerKind === "guest") {
+      await flushCurrentSession({ close: true, includeElapsed: true });
+      stopActiveSession();
+    }
+
     state.user = user || null;
     setAccountStatus(Boolean(user));
 
@@ -356,10 +371,52 @@
   }
 
   function resetAdminState() {
+    state.adminView = "users";
     state.adminUsers = [];
+    state.adminGuests = [];
     state.adminDetails.clear();
+    state.adminGuestDetails.clear();
     state.selectedAdminUserId = null;
+    state.selectedAdminGuestId = null;
     state.selectedAdminGame = "all";
+  }
+
+  function randomToken(length = 16) {
+    const alphabet = "abcdefghijklmnopqrstuvwxyz0123456789";
+    const bytes = new Uint8Array(length);
+    if (window.crypto?.getRandomValues) {
+      window.crypto.getRandomValues(bytes);
+      return Array.from(bytes, (byte) => alphabet[byte % alphabet.length]).join("");
+    }
+    return Array.from({ length }, () => alphabet[Math.floor(Math.random() * alphabet.length)]).join("");
+  }
+
+  function getGuestId() {
+    if (state.guestId) return state.guestId;
+    const fallback = `${GUEST_ID_PREFIX}${Date.now().toString(36)}${randomToken(8)}`;
+
+    try {
+      const saved = localStorage.getItem(LOCAL_GUEST_ID_KEY);
+      if (saved && saved.startsWith(GUEST_ID_PREFIX)) {
+        state.guestId = saved;
+      } else {
+        state.guestId = fallback;
+        localStorage.setItem(LOCAL_GUEST_ID_KEY, state.guestId);
+      }
+
+      const savedCreatedAt = Number(localStorage.getItem(LOCAL_GUEST_CREATED_KEY));
+      state.guestCreatedAtMs = Number.isFinite(savedCreatedAt) && savedCreatedAt > 0 ? savedCreatedAt : Date.now();
+      localStorage.setItem(LOCAL_GUEST_CREATED_KEY, String(state.guestCreatedAtMs));
+    } catch (error) {
+      state.guestId = fallback;
+      state.guestCreatedAtMs = state.guestCreatedAtMs || Date.now();
+    }
+
+    return state.guestId;
+  }
+
+  function guestDisplayName(guestId = getGuestId()) {
+    return `Gast ${String(guestId || "").slice(-6).toUpperCase()}`;
   }
 
   function fallbackNameFromEmail(email) {
@@ -421,8 +478,48 @@
     state.pendingDisplayName = null;
   }
 
-  function userRef() {
-    return state.db.collection("users").doc(state.user.uid);
+  function userRef(userId = state.user?.uid) {
+    return userId ? state.db.collection("users").doc(userId) : null;
+  }
+
+  function guestRef(guestId = getGuestId()) {
+    return guestId ? state.db.collection("guests").doc(guestId) : null;
+  }
+
+  function currentOwner() {
+    if (!state.db) return null;
+    if (state.user?.uid) return { kind: "user", id: state.user.uid };
+    return { kind: "guest", id: getGuestId() };
+  }
+
+  function sessionOwner(session) {
+    if (!state.db || !session) return null;
+    if (session.ownerKind && session.ownerId) return { kind: session.ownerKind, id: session.ownerId };
+    return currentOwner();
+  }
+
+  function ownerRef(owner) {
+    if (!owner?.id) return null;
+    return owner.kind === "guest" ? guestRef(owner.id) : userRef(owner.id);
+  }
+
+  function ownerActivityPayload(owner, stats = {}) {
+    const payload = {
+      lastSeenAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    };
+
+    if (Object.keys(stats).length) payload.stats = stats;
+
+    if (owner?.kind === "guest") {
+      payload.type = "guest";
+      payload.guestId = owner.id;
+      payload.displayName = guestDisplayName(owner.id);
+      payload.createdAtMs = state.guestCreatedAtMs || Date.now();
+      payload.localPersistence = true;
+    }
+
+    return payload;
   }
 
   function serverTimestamp() {
@@ -486,10 +583,13 @@
     if (!level) return;
 
     flushCurrentSession({ close: true });
+    const owner = currentOwner();
 
     state.activeSession = {
       id: `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
       level,
+      ownerKind: owner?.kind || null,
+      ownerId: owner?.id || null,
       startedAtMs: Date.now(),
       lastFlushMs: Date.now(),
       moves: 0,
@@ -502,14 +602,17 @@
       closed: false,
     };
 
-    if (!state.user || !state.db) return;
+    const ownerDoc = ownerRef(owner);
+    if (!state.db || !ownerDoc) return;
 
     const batch = state.db.batch();
     const session = sessionRef(state.activeSession);
-    const levelDoc = levelRef(level);
+    const levelDoc = levelRef(level, owner);
 
     batch.set(session, {
       ...level,
+      ownerKind: owner.kind,
+      ownerId: owner.id,
       startedAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
       durationSeconds: 0,
@@ -526,11 +629,7 @@
       updatedAt: serverTimestamp(),
     }, { merge: true });
 
-    batch.set(userRef(), {
-      stats: { sessions: increment(1) },
-      lastSeenAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-    }, { merge: true });
+    batch.set(ownerDoc, ownerActivityPayload(owner, { sessions: increment(1) }), { merge: true });
 
     batch.commit().catch(() => {});
   }
@@ -591,14 +690,19 @@
       state.activeSession.solved = true;
       state.activeSession.stars = stars;
     }
-    mergeSolvedLevel(level, { ...options, stars }).catch(() => {});
+    const owner = state.activeSession && levelKey(state.activeSession.level) === levelKey(level)
+      ? sessionOwner(state.activeSession)
+      : currentOwner();
+    mergeSolvedLevel(level, { ...options, stars }, owner).catch(() => {});
     flushCurrentSession({ solved: true, close: true, stars });
   }
 
-  async function mergeSolvedLevel(level, options = {}) {
-    if (!state.user || !state.db) return;
+  async function mergeSolvedLevel(level, options = {}, owner = currentOwner()) {
+    const ownerDoc = ownerRef(owner);
+    if (!ownerDoc || !state.db) return;
     const key = levelKey(level);
-    const cached = state.progress.get(key);
+    const levelDoc = levelRef(level, owner);
+    const cached = owner?.kind === "user" ? state.progress.get(key) : (await levelDoc.get()).data();
     const wasSolved = Boolean(cached?.solved);
     const stars = Math.max(normalizeStars(cached?.stars), wasSolved ? 1 : 0, normalizeStars(options.stars, 1) || 1);
     const payload = {
@@ -614,31 +718,32 @@
     if (options.migrated) payload.migratedFromLocal = true;
 
     const batch = state.db.batch();
-    batch.set(levelRef(level), payload, { merge: true });
+    batch.set(levelDoc, payload, { merge: true });
 
     if (!wasSolved) {
-      batch.set(userRef(), {
-        stats: { solvedLevels: increment(1) },
-        lastSeenAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      }, { merge: true });
+      batch.set(ownerDoc, ownerActivityPayload(owner, { solvedLevels: increment(1) }), { merge: true });
     }
 
     await batch.commit();
-    state.progress.set(key, { ...(cached || {}), ...level, solved: true, stars, ...solveMetadata(options) });
+    if (owner?.kind === "user") {
+      state.progress.set(key, { ...(cached || {}), ...level, solved: true, stars, ...solveMetadata(options) });
+    }
   }
 
-  function levelRef(level) {
-    return userRef().collection("levelProgress").doc(levelKey(level));
+  function levelRef(level, owner = currentOwner()) {
+    return ownerRef(owner).collection("levelProgress").doc(levelKey(level));
   }
 
   function sessionRef(session) {
-    return userRef().collection("sessions").doc(session.id);
+    return ownerRef(sessionOwner(session)).collection("sessions").doc(session.id);
   }
 
   async function flushCurrentSession(options = {}) {
     const session = state.activeSession;
-    if (!session || !state.user || !state.db || session.closed) return;
+    if (!session || !state.db || session.closed) return;
+    const owner = sessionOwner(session);
+    const ownerDoc = ownerRef(owner);
+    if (!ownerDoc) return;
 
     const now = Date.now();
     const includeElapsed = options.includeElapsed || document.visibilityState === "visible";
@@ -687,22 +792,18 @@
     if (solved && stars) sessionPayload.stars = stars;
     if (shouldClose) sessionPayload.endedAt = serverTimestamp();
 
-    batch.set(levelRef(session.level), levelPayload, { merge: true });
+    batch.set(levelRef(session.level, owner), levelPayload, { merge: true });
     batch.set(sessionRef(session), sessionPayload, { merge: true });
-    batch.set(userRef(), {
-      stats: {
+    batch.set(ownerDoc, ownerActivityPayload(owner, {
         totalSeconds: increment(deltaSeconds),
         moves: increment(moveDelta),
         resets: increment(resetDelta),
         hints: increment(hintDelta),
-      },
-      lastSeenAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-    }, { merge: true });
+      }), { merge: true });
 
     try {
       await batch.commit();
-      if (solved) {
+      if (solved && owner.kind === "user") {
         state.progress.set(levelKey(session.level), {
           ...(state.progress.get(levelKey(session.level)) || {}),
           ...session.level,
@@ -923,7 +1024,11 @@
           <div>
             <p class="small-label">Administration</p>
             <h3>Admin-Bereich</h3>
-            <p class="account-muted">Alle Accounts, Level-Fortschritte und Spielsitzungen.</p>
+            <p class="account-muted">Accounts, G&auml;ste, Level-Fortschritte und Spielsitzungen.</p>
+            <div class="admin-tabs" role="tablist" aria-label="Admin-Bereich wechseln">
+              <button type="button" data-admin-view="users">User</button>
+              <button type="button" data-admin-view="guests">G&auml;ste</button>
+            </div>
           </div>
           <button type="button" class="secondary-action" data-admin-refresh>Aktualisieren</button>
         </div>
@@ -940,12 +1045,27 @@
 
     if (!root.dataset.adminBound) {
       root.querySelector("[data-admin-refresh]")?.addEventListener("click", () => hydrateAdminSection({ force: true }));
+      root.querySelectorAll("[data-admin-view]").forEach((button) => {
+        button.addEventListener("click", () => {
+          state.adminView = button.dataset.adminView || "users";
+          state.selectedAdminGame = "all";
+          hydrateAdminSection();
+        });
+      });
       root.dataset.adminBound = "true";
     }
 
     if (force) {
       state.adminUsers = [];
+      state.adminGuests = [];
       state.adminDetails.clear();
+      state.adminGuestDetails.clear();
+    }
+
+    updateAdminViewButtons(root);
+    if (state.adminView === "guests") {
+      await hydrateAdminGuests(root);
+      return;
     }
 
     if (!state.adminUsers.length) {
@@ -965,6 +1085,32 @@
     }
   }
 
+  async function hydrateAdminGuests(root) {
+    if (!state.adminGuests.length) {
+      renderAdminBody(root, "<p class=\"account-muted\">Gast-Daten werden geladen...</p>");
+      try {
+        state.adminGuests = await loadAdminGuests();
+        if (!state.selectedAdminGuestId && state.adminGuests.length) state.selectedAdminGuestId = state.adminGuests[0].id;
+      } catch (error) {
+        renderAdminBody(root, `<p class="auth-status">${escapeHtml(authErrorMessage(error))}</p>`);
+        return;
+      }
+    }
+
+    renderAdminGuests(root);
+    if (state.selectedAdminGuestId && !state.adminGuestDetails.has(state.selectedAdminGuestId)) {
+      await selectAdminGuest(state.selectedAdminGuestId, { root });
+    }
+  }
+
+  function updateAdminViewButtons(root) {
+    root.querySelectorAll("[data-admin-view]").forEach((button) => {
+      const active = button.dataset.adminView === state.adminView;
+      button.classList.toggle("active", active);
+      button.setAttribute("aria-selected", active ? "true" : "false");
+    });
+  }
+
   function renderAdminBody(root, html) {
     const body = root?.querySelector("[data-admin-body]");
     if (body) body.innerHTML = html;
@@ -972,13 +1118,38 @@
 
   async function loadAdminUsers() {
     const snapshot = await state.db.collection("users").get();
-    return snapshot.docs
+    const users = snapshot.docs
       .map((doc) => ({ id: doc.id, ...doc.data() }))
       .sort((a, b) => {
         const aDate = timestampDate(a.lastSeenAt || a.updatedAt || a.createdAt)?.getTime() || 0;
         const bDate = timestampDate(b.lastSeenAt || b.updatedAt || b.createdAt)?.getTime() || 0;
         return bDate - aDate;
       });
+    return attachAdminSummaries("users", users);
+  }
+
+  async function loadAdminGuests() {
+    const snapshot = await state.db.collection("guests").get();
+    const guests = snapshot.docs
+      .map((doc) => ({ id: doc.id, ...doc.data(), type: "guest" }))
+      .sort((a, b) => {
+        const aDate = timestampDate(a.lastSeenAt || a.updatedAt || a.createdAt || a.createdAtMs)?.getTime() || 0;
+        const bDate = timestampDate(b.lastSeenAt || b.updatedAt || b.createdAt || b.createdAtMs)?.getTime() || 0;
+        return bDate - aDate;
+      });
+    return attachAdminSummaries("guests", guests);
+  }
+
+  async function attachAdminSummaries(collectionName, entries) {
+    return Promise.all(entries.map(async (entry) => {
+      try {
+        const snapshot = await state.db.collection(collectionName).doc(entry.id).collection("levelProgress").get();
+        const progressDocs = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+        return { ...entry, adminSummary: summarizeAdminEntity(entry, progressDocs) };
+      } catch (error) {
+        return entry;
+      }
+    }));
   }
 
   async function loadAdminUserDetails(userId) {
@@ -992,6 +1163,23 @@
     return {
       id: userId,
       userData: userDoc.data() || {},
+      progressDocs: progressSnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })),
+      sessions: sessionSnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })),
+    };
+  }
+
+  async function loadAdminGuestDetails(guestId) {
+    const ref = state.db.collection("guests").doc(guestId);
+    const [guestDoc, progressSnapshot, sessionSnapshot] = await Promise.all([
+      ref.get(),
+      ref.collection("levelProgress").get(),
+      ref.collection("sessions").orderBy("startedAt", "desc").get(),
+    ]);
+
+    return {
+      id: guestId,
+      kind: "guest",
+      userData: { type: "guest", ...(guestDoc.data() || {}) },
       progressDocs: progressSnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })),
       sessions: sessionSnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })),
     };
@@ -1011,6 +1199,22 @@
     }
 
     if (modalContent.contains(root)) renderAdminUsers(root);
+  }
+
+  async function selectAdminGuest(guestId, { root = modalContent.querySelector("[data-admin-section]"), force = false } = {}) {
+    if (!root) return;
+    state.selectedAdminGuestId = guestId;
+    renderAdminGuests(root, { loadingGuestId: guestId });
+
+    try {
+      if (force || !state.adminGuestDetails.has(guestId)) {
+        state.adminGuestDetails.set(guestId, await loadAdminGuestDetails(guestId));
+      }
+    } catch (error) {
+      state.adminGuestDetails.set(guestId, { id: guestId, kind: "guest", error });
+    }
+
+    if (modalContent.contains(root)) renderAdminGuests(root);
   }
 
   function renderAdminUsers(root, { loadingUserId = null } = {}) {
@@ -1047,15 +1251,63 @@
     });
   }
 
+  function renderAdminGuests(root, { loadingGuestId = null } = {}) {
+    const guests = state.adminGuests;
+    if (!guests.length) {
+      renderAdminBody(root, "<p class=\"account-muted\">Noch keine G&auml;ste gefunden.</p>");
+      return;
+    }
+
+    const selectedId = state.selectedAdminGuestId || guests[0].id;
+    state.selectedAdminGuestId = selectedId;
+    const detail = state.adminGuestDetails.get(selectedId);
+
+    renderAdminBody(root, `
+      <div class="admin-layout">
+        <div class="admin-user-list" aria-label="G&auml;ste">
+          ${guests.map((guest) => renderAdminGuestButton(guest, selectedId)).join("")}
+        </div>
+        <div class="admin-detail" data-admin-detail>
+          ${loadingGuestId === selectedId && !detail ? "<p class=\"account-muted\">Details werden geladen...</p>" : renderAdminUserDetail(detail, guests.find((guest) => guest.id === selectedId))}
+        </div>
+      </div>
+    `);
+
+    root.querySelectorAll("[data-admin-guest]").forEach((button) => {
+      button.addEventListener("click", () => selectAdminGuest(button.dataset.adminGuest, { root }));
+    });
+
+    root.querySelectorAll("[data-admin-game]").forEach((button) => {
+      button.addEventListener("click", () => {
+        state.selectedAdminGame = button.dataset.adminGame || "all";
+        renderAdminGuests(root);
+      });
+    });
+  }
+
   function renderAdminUserButton(user, selectedId) {
-    const stats = user.stats || {};
-    const name = adminDisplayName(user);
-    const email = user.authEmail || user.email || "";
+    return renderAdminEntityButton(user, selectedId, "user");
+  }
+
+  function renderAdminGuestButton(guest, selectedId) {
+    return renderAdminEntityButton(guest, selectedId, "guest");
+  }
+
+  function renderAdminEntityButton(entity, selectedId, kind) {
+    const summary = entity.adminSummary || summarizeAdminEntity(entity, []);
+    const name = adminDisplayName(entity);
+    const subline = kind === "guest" ? entity.id : (entity.authEmail || entity.email || entity.id);
+    const dataAttribute = kind === "guest" ? "data-admin-guest" : "data-admin-user";
     return `
-      <button type="button" class="admin-user-button${user.id === selectedId ? " active" : ""}" data-admin-user="${escapeHtml(user.id)}">
+      <button type="button" class="admin-user-button${entity.id === selectedId ? " active" : ""}" ${dataAttribute}="${escapeHtml(entity.id)}">
         <strong>${escapeHtml(name)}</strong>
-        <span>${escapeHtml(email || user.id)}</span>
-        <small>${Number(stats.solvedLevels || 0)} gelöst · ${formatDuration(Number(stats.totalSeconds || 0))}</small>
+        <span>${escapeHtml(subline)}</span>
+        <div class="admin-user-summary" aria-label="Kurzfassung">
+          <span><b>Spielzeit</b>${escapeHtml(formatDuration(summary.totalSeconds))}</span>
+          <span><b>Gel&ouml;st</b>${escapeHtml(summary.totalSolved)}</span>
+          <span><b>Sessions</b>${escapeHtml(summary.sessions)}</span>
+        </div>
+        <em>${escapeHtml(adminTopLevelsText(summary))}</em>
       </button>
     `;
   }
@@ -1067,28 +1319,31 @@
     const userData = { ...fallbackUser, ...detail.userData };
     const progressDocs = detail.progressDocs || [];
     const sessions = detail.sessions || [];
-    const stats = summarizeProgress(userData, progressDocs);
+    const summary = summarizeAdminEntity(userData, progressDocs, sessions);
     const selectedGame = adminSelectedGame(progressDocs, sessions);
     const filteredProgress = selectedGame === "all" ? progressDocs : progressDocs.filter((entry) => entry.game === selectedGame);
     const filteredSessions = selectedGame === "all" ? sessions : sessions.filter((session) => session.game === selectedGame);
+    const isGuest = userData.type === "guest" || detail.kind === "guest";
+    const identityLine = isGuest ? `Gast-ID: ${detail.id}` : (userData.authEmail || userData.email || detail.id);
 
     return `
       <div class="admin-detail-head">
         <div>
           <h3>${escapeHtml(adminDisplayName(userData))}</h3>
-          <p class="account-muted">${escapeHtml(userData.authEmail || userData.email || detail.id)}</p>
+          <p class="account-muted">${escapeHtml(identityLine)}</p>
         </div>
         <div class="admin-meta">
-          <span>Erstellt: ${formatDateTime(userData.createdAt)}</span>
+          <span>Erstellt: ${formatDateTime(userData.createdAt || userData.createdAtMs)}</span>
           <span>Zuletzt gesehen: ${formatDateTime(userData.lastSeenAt)}</span>
         </div>
       </div>
       <div class="stat-strip admin-stat-strip">
-        <div><strong>${stats.totalSolved}</strong><span>gelöst</span></div>
-        <div><strong>${formatDuration(stats.totalSeconds)}</strong><span>Spielzeit</span></div>
-        <div><strong>${stats.moves}</strong><span>Züge</span></div>
+        <div><strong>${summary.totalSolved}</strong><span>gelöst</span></div>
+        <div><strong>${formatDuration(summary.totalSeconds)}</strong><span>Spielzeit</span></div>
+        <div><strong>${summary.moves}</strong><span>Züge</span></div>
         <div><strong>${sessions.filter((session) => !session.solved && session.endedAt).length}</strong><span>Abbrüche</span></div>
       </div>
+      ${renderAdminTopLevels(summary)}
       ${renderAdminGameFilters(progressDocs, sessions, selectedGame)}
       <div class="admin-columns">
         <section>
@@ -1108,6 +1363,7 @@
   }
 
   function adminDisplayName(userData = {}) {
+    if (userData.type === "guest") return cleanDisplayName(userData.displayName || guestDisplayName(userData.guestId || userData.id));
     return cleanDisplayName(userData.displayName || userData.username || userData.email || userData.authEmail || "Unbekannter User");
   }
 
@@ -1191,6 +1447,60 @@
 
   function renderAdminDetailPair([label, value]) {
     return `<span><b>${escapeHtml(label)}</b>${escapeHtml(value ?? "-")}</span>`;
+  }
+
+  function summarizeAdminEntity(entityData = {}, progressDocs = [], sessions = []) {
+    const stats = summarizeProgress(entityData, progressDocs);
+    const topLevels = progressDocs
+      .map((entry) => {
+        const attempts = Number(entry.attempts || 0) || (entry.solved || entry.timeSeconds || entry.moves ? 1 : 0);
+        return {
+          entry,
+          attempts,
+          seconds: Number(entry.timeSeconds || entry.elapsedSeconds || 0),
+        };
+      })
+      .filter((item) => item.attempts > 0)
+      .sort((a, b) => (b.attempts - a.attempts) || (b.seconds - a.seconds) || adminLevelSort(a.entry, b.entry))
+      .slice(0, 3);
+
+    return {
+      ...stats,
+      sessions: Number(entityData.stats?.sessions || 0) || sessions.length || 0,
+      attemptedLevels: progressDocs.filter((entry) => entry.solved || Number(entry.attempts || 0) || Number(entry.timeSeconds || 0)).length,
+      topLevels,
+    };
+  }
+
+  function adminLevelShortLabel(entry = {}) {
+    const game = GAME_LABELS[entry.game] || entry.game || "Rätsel";
+    const level = entry.levelName || entry.title || entry.levelId || entry.id || "Level";
+    return `${game} · ${level}`;
+  }
+
+  function adminTopLevelsText(summary = {}) {
+    if (!summary.topLevels?.length) return "Top: noch keine Level";
+    return `Top: ${summary.topLevels.map((item) => `${adminLevelShortLabel(item.entry)} (${item.attempts}x)`).join(", ")}`;
+  }
+
+  function renderAdminTopLevels(summary = {}) {
+    if (!summary.topLevels?.length) {
+      return `<section class="admin-top-levels"><h4>Meist gespielte Level</h4><p class="account-muted">Noch keine gespielten Level.</p></section>`;
+    }
+
+    return `
+      <section class="admin-top-levels">
+        <h4>Meist gespielte Level</h4>
+        <div>
+          ${summary.topLevels.map((item) => `
+            <span>
+              <b>${escapeHtml(adminLevelShortLabel(item.entry))}</b>
+              ${escapeHtml(`${item.attempts}x gespielt · ${formatDuration(item.seconds)}`)}
+            </span>
+          `).join("")}
+        </div>
+      </section>
+    `;
   }
 
   function summarizeProgress(userData, progressDocs) {

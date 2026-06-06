@@ -16,6 +16,10 @@ service cloud.firestore {
         && request.auth.token.email in ["Alain.sc2@gmail.com", "alain.sc2@gmail.com"];
     }
 
+    function isGuestId(guestId) {
+      return guestId.matches('guest_[A-Za-z0-9_-]{8,48}');
+    }
+
     match /users/{userId} {
       allow get, list: if isOwner(userId) || isAdmin();
       allow create, update, delete: if isOwner(userId);
@@ -23,6 +27,31 @@ service cloud.firestore {
       match /{document=**} {
         allow read: if isOwner(userId) || isAdmin();
         allow write: if isOwner(userId);
+      }
+    }
+
+    match /guests/{guestId} {
+      allow get, list: if isAdmin();
+      allow create, update: if !isSignedIn()
+        && isGuestId(guestId)
+        && request.resource.data.type == "guest";
+      allow delete: if false;
+
+      match /levelProgress/{levelId} {
+        allow read: if isAdmin();
+        allow create, update: if !isSignedIn() && isGuestId(guestId);
+        allow delete: if false;
+      }
+
+      match /sessions/{sessionId} {
+        allow read: if isAdmin();
+        allow create, update: if !isSignedIn() && isGuestId(guestId);
+        allow delete: if false;
+      }
+
+      match /{document=**} {
+        allow read: if isAdmin();
+        allow write: if false;
       }
     }
 
