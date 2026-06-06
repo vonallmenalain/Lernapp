@@ -3595,6 +3595,10 @@ body.puzzle-active .memory-game {
   box-shadow: 0 26px 70px rgba(36, 48, 71, 0.28);
 }
 
+.account-panel.has-admin {
+  width: min(1120px, 100%);
+}
+
 .account-close {
   position: absolute;
   top: 14px;
@@ -3853,6 +3857,212 @@ body.puzzle-active .memory-game {
   text-align: right;
 }
 
+.admin-section {
+  display: grid;
+  gap: 14px;
+  padding-top: 4px;
+}
+
+.admin-section-head,
+.admin-detail-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.admin-section-head h3,
+.admin-detail-head h3,
+.admin-columns h4 {
+  margin: 0;
+}
+
+.admin-body {
+  min-width: 0;
+}
+
+.admin-layout {
+  display: grid;
+  grid-template-columns: minmax(180px, 0.7fr) minmax(0, 1.5fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.admin-user-list,
+.admin-data-list {
+  display: grid;
+  gap: 10px;
+}
+
+.admin-user-list {
+  max-height: 520px;
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.admin-user-button {
+  width: 100%;
+  min-height: 0;
+  display: grid;
+  justify-items: start;
+  gap: 4px;
+  padding: 12px;
+  border-radius: 16px;
+  background: #fff;
+  color: var(--ink);
+  border-color: var(--line);
+  text-align: left;
+  box-shadow: 0 10px 22px rgba(50, 44, 109, 0.08);
+}
+
+.admin-user-button.active,
+.admin-user-button:hover:not(:disabled),
+.admin-user-button:focus-visible {
+  background: #f0fff9;
+  color: var(--ink);
+  border-color: #06d6a0;
+  outline: none;
+}
+
+.admin-user-button span,
+.admin-user-button small,
+.admin-meta,
+.admin-data-card > span {
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.admin-detail {
+  min-width: 0;
+  display: grid;
+  gap: 14px;
+}
+
+.admin-meta {
+  display: grid;
+  gap: 4px;
+  text-align: right;
+  font-size: 0.85rem;
+}
+
+.admin-stat-strip > div {
+  min-height: 72px;
+}
+
+.admin-game-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.admin-game-filter button {
+  min-height: 38px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: #fff;
+  color: var(--primary-dark);
+  border-color: var(--line);
+  font-size: 0.9rem;
+}
+
+.admin-game-filter button.active,
+.admin-game-filter button:hover:not(:disabled),
+.admin-game-filter button:focus-visible {
+  background: var(--primary);
+  color: #fff;
+  border-color: var(--primary);
+  outline: none;
+}
+
+.admin-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.admin-columns section {
+  min-width: 0;
+  display: grid;
+  align-content: start;
+  gap: 10px;
+}
+
+.admin-data-list {
+  max-height: 560px;
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.admin-data-card {
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+  border-radius: 16px;
+  background: #fff;
+  border: 2px solid var(--line);
+  box-shadow: 0 10px 22px rgba(50, 44, 109, 0.08);
+}
+
+.admin-data-card.solved {
+  border-color: #06d6a0;
+  background: #f0fff9;
+}
+
+.admin-data-card.abandoned {
+  border-color: #ffd166;
+  background: #fff8df;
+}
+
+.admin-data-card.open {
+  border-style: dashed;
+}
+
+.admin-data-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.admin-data-grid span {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+  padding: 7px 8px;
+  border-radius: 10px;
+  background: #fbfaff;
+  color: var(--ink);
+  font-weight: 850;
+  overflow-wrap: anywhere;
+}
+
+.admin-data-grid b {
+  color: var(--muted);
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+@media (max-width: 900px) {
+  .account-panel.has-admin .admin-detail-head {
+    flex-direction: column;
+  }
+
+  .account-panel.has-admin .admin-layout,
+  .account-panel.has-admin .admin-columns {
+    grid-template-columns: 1fr;
+  }
+
+  .account-panel.has-admin .admin-user-list,
+  .account-panel.has-admin .admin-data-list {
+    max-height: none;
+    padding-right: 0;
+  }
+
+  .account-panel.has-admin .admin-meta {
+    text-align: left;
+  }
+}
+
 @media (max-width: 640px) {
   .account-button {
     top: calc(var(--safe-top) + 10px);
@@ -3884,6 +4094,31 @@ body.puzzle-active .memory-game {
   .stat-strip,
   .progress-list {
     grid-template-columns: 1fr;
+  }
+
+  .admin-section-head,
+  .admin-detail-head {
+    flex-direction: column;
+  }
+
+  .admin-layout,
+  .admin-columns,
+  .admin-data-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-user-list,
+  .admin-data-list {
+    max-height: none;
+    padding-right: 0;
+  }
+
+  .admin-section-head > button {
+    width: 100%;
+  }
+
+  .admin-meta {
+    text-align: left;
   }
 
   .session-item small {

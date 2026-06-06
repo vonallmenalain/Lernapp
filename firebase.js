@@ -56,6 +56,7 @@
   const PASSWORD_SUFFIX = "::lernapp";
   const MIN_CHILD_PASSWORD_LENGTH = 4;
   const HEARTBEAT_MS = 30000;
+  const ADMIN_EMAILS = new Set(["alain.sc2@gmail.com"]);
   const state = {
     app: null,
     auth: null,
@@ -70,6 +71,10 @@
     firebaseReady: false,
     pendingDisplayName: null,
     unlockedMode: false,
+    adminUsers: [],
+    adminDetails: new Map(),
+    selectedAdminUserId: null,
+    selectedAdminGame: "all",
   };
 
   const accountButton = document.createElement("button");
@@ -105,6 +110,7 @@
   document.body.append(accountButton, modal);
 
   const modalContent = modal.querySelector(".account-content");
+  const accountPanel = modal.querySelector(".account-panel");
   const closeButton = modal.querySelector(".account-close");
 
   const cloudApi = {
@@ -172,6 +178,7 @@
     if (!user) {
       state.progress.clear();
       state.unlockedMode = false;
+      resetAdminState();
       stopActiveSession();
       renderLoggedOut();
       window.LernappRefreshProgress?.();
@@ -180,6 +187,7 @@
 
     try {
       await upsertUserProfile(user);
+      if (!isAdminUser(user)) resetAdminState();
       await loadProgress();
       await syncLocalSolvedProgress();
       await refreshDashboard();
@@ -337,6 +345,23 @@
     return String(email || "").toLowerCase().endsWith(`@${CHILD_LOGIN_DOMAIN}`);
   }
 
+  function normalizedEmail(email) {
+    return String(email || "").trim().toLowerCase();
+  }
+
+  function isAdminUser(user = state.user) {
+    if (!user || !ADMIN_EMAILS.has(normalizedEmail(user.email))) return false;
+    const hasGoogleProvider = user.providerData?.some((provider) => provider.providerId === "google.com");
+    return Boolean(user.emailVerified || hasGoogleProvider);
+  }
+
+  function resetAdminState() {
+    state.adminUsers = [];
+    state.adminDetails.clear();
+    state.selectedAdminUserId = null;
+    state.selectedAdminGame = "all";
+  }
+
   function fallbackNameFromEmail(email) {
     if (!email) return "Kind";
     const localPart = String(email).split("@")[0] || "kind";
@@ -365,11 +390,14 @@
     const providers = user.providerData.map((provider) => provider.providerId);
     const username = profileNameForUser(user, existingData);
     const isNameLogin = isTechnicalEmail(user.email);
+    const admin = isAdminUser(user);
     const payload = {
       authEmail: user.email || null,
       email: isNameLogin ? null : (user.email || null),
       username,
       displayName: username,
+      role: admin ? "admin" : "user",
+      isAdmin: admin,
       loginMethod: isNameLogin ? "name-password" : (providers.includes("google.com") ? "google" : "email-password"),
       providers,
       localPersistence: true,
@@ -729,6 +757,7 @@
   }
 
   function renderLoggedOut() {
+    accountPanel.classList.remove("has-admin");
     modalContent.innerHTML = `
       <p class="small-label">Profil</p>
       <h2 id="account-modal-title">Einloggen</h2>
@@ -746,12 +775,14 @@
           <button type="submit" data-mode="login">Einloggen</button>
           <button type="button" class="secondary-action" data-auth-register>Neues Konto</button>
         </div>
+        <button type="button" class="google-action" data-auth-google>Mit Google anmelden</button>
       </form>
       <p class="auth-status" role="status" aria-live="polite">${state.firebaseReady ? "" : "Firebase SDK ist noch nicht geladen."}</p>
     `;
 
     const form = modalContent.querySelector(".auth-form");
     const registerButton = modalContent.querySelector("[data-auth-register]");
+    const googleButton = modalContent.querySelector("[data-auth-google]");
     const status = modalContent.querySelector(".auth-status");
 
     form.addEventListener("submit", async (event) => {
@@ -782,6 +813,19 @@
         status.textContent = authErrorMessage(error);
       }
     });
+
+    googleButton.addEventListener("click", async () => {
+      if (!state.firebaseReady) {
+        status.textContent = "Firebase ist nicht verfügbar.";
+        return;
+      }
+      status.textContent = "Google-Anmeldung wird geöffnet...";
+      try {
+        await signInWithGoogle();
+      } catch (error) {
+        status.textContent = authErrorMessage(error);
+      }
+    });
   }
 
   async function refreshDashboard() {
@@ -804,12 +848,15 @@
 
     if (!state.dashboardOpen && modal.hidden) return;
     renderDashboard(userData, progressDocs, sessions);
+    if (isAdminUser()) hydrateAdminSection();
   }
 
   function renderDashboard(userData, progressDocs, sessions) {
     const stats = summarizeProgress(userData, progressDocs);
     const loginName = userData.username || profileNameForUser(state.user, userData);
     const providerText = providerLabel(state.user.providerData.map((provider) => provider.providerId), userData);
+    const admin = isAdminUser();
+    accountPanel.classList.toggle("has-admin", admin);
 
     modalContent.innerHTML = `
       <p class="small-label">Profil</p>
@@ -844,6 +891,7 @@
         <h3>Letzte Spielstände</h3>
         ${sessions.length ? sessions.map(renderSession).join("") : "<p class=\"account-muted\">Noch keine Cloud-Spielstände vorhanden.</p>"}
       </div>
+      ${admin ? renderAdminSectionShell() : ""}
       <p class="auth-status" role="status" aria-live="polite"></p>
     `;
 
@@ -866,6 +914,283 @@
         status.textContent = authErrorMessage(error);
       }
     });
+  }
+
+  function renderAdminSectionShell() {
+    return `
+      <section class="admin-section" data-admin-section>
+        <div class="admin-section-head">
+          <div>
+            <p class="small-label">Administration</p>
+            <h3>Admin-Bereich</h3>
+            <p class="account-muted">Alle Accounts, Level-Fortschritte und Spielsitzungen.</p>
+          </div>
+          <button type="button" class="secondary-action" data-admin-refresh>Aktualisieren</button>
+        </div>
+        <div class="admin-body" data-admin-body>
+          <p class="account-muted">Admin-Daten werden geladen...</p>
+        </div>
+      </section>
+    `;
+  }
+
+  async function hydrateAdminSection({ force = false } = {}) {
+    const root = modalContent.querySelector("[data-admin-section]");
+    if (!root || !isAdminUser()) return;
+
+    if (!root.dataset.adminBound) {
+      root.querySelector("[data-admin-refresh]")?.addEventListener("click", () => hydrateAdminSection({ force: true }));
+      root.dataset.adminBound = "true";
+    }
+
+    if (force) {
+      state.adminUsers = [];
+      state.adminDetails.clear();
+    }
+
+    if (!state.adminUsers.length) {
+      renderAdminBody(root, "<p class=\"account-muted\">Admin-Daten werden geladen...</p>");
+      try {
+        state.adminUsers = await loadAdminUsers();
+        if (!state.selectedAdminUserId && state.adminUsers.length) state.selectedAdminUserId = state.adminUsers[0].id;
+      } catch (error) {
+        renderAdminBody(root, `<p class="auth-status">${escapeHtml(authErrorMessage(error))}</p>`);
+        return;
+      }
+    }
+
+    renderAdminUsers(root);
+    if (state.selectedAdminUserId && !state.adminDetails.has(state.selectedAdminUserId)) {
+      await selectAdminUser(state.selectedAdminUserId, { root });
+    }
+  }
+
+  function renderAdminBody(root, html) {
+    const body = root?.querySelector("[data-admin-body]");
+    if (body) body.innerHTML = html;
+  }
+
+  async function loadAdminUsers() {
+    const snapshot = await state.db.collection("users").get();
+    return snapshot.docs
+      .map((doc) => ({ id: doc.id, ...doc.data() }))
+      .sort((a, b) => {
+        const aDate = timestampDate(a.lastSeenAt || a.updatedAt || a.createdAt)?.getTime() || 0;
+        const bDate = timestampDate(b.lastSeenAt || b.updatedAt || b.createdAt)?.getTime() || 0;
+        return bDate - aDate;
+      });
+  }
+
+  async function loadAdminUserDetails(userId) {
+    const ref = state.db.collection("users").doc(userId);
+    const [userDoc, progressSnapshot, sessionSnapshot] = await Promise.all([
+      ref.get(),
+      ref.collection("levelProgress").get(),
+      ref.collection("sessions").orderBy("startedAt", "desc").get(),
+    ]);
+
+    return {
+      id: userId,
+      userData: userDoc.data() || {},
+      progressDocs: progressSnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })),
+      sessions: sessionSnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })),
+    };
+  }
+
+  async function selectAdminUser(userId, { root = modalContent.querySelector("[data-admin-section]"), force = false } = {}) {
+    if (!root) return;
+    state.selectedAdminUserId = userId;
+    renderAdminUsers(root, { loadingUserId: userId });
+
+    try {
+      if (force || !state.adminDetails.has(userId)) {
+        state.adminDetails.set(userId, await loadAdminUserDetails(userId));
+      }
+    } catch (error) {
+      state.adminDetails.set(userId, { id: userId, error });
+    }
+
+    if (modalContent.contains(root)) renderAdminUsers(root);
+  }
+
+  function renderAdminUsers(root, { loadingUserId = null } = {}) {
+    const users = state.adminUsers;
+    if (!users.length) {
+      renderAdminBody(root, "<p class=\"account-muted\">Noch keine User gefunden.</p>");
+      return;
+    }
+
+    const selectedId = state.selectedAdminUserId || users[0].id;
+    state.selectedAdminUserId = selectedId;
+    const detail = state.adminDetails.get(selectedId);
+
+    renderAdminBody(root, `
+      <div class="admin-layout">
+        <div class="admin-user-list" aria-label="User">
+          ${users.map((user) => renderAdminUserButton(user, selectedId)).join("")}
+        </div>
+        <div class="admin-detail" data-admin-detail>
+          ${loadingUserId === selectedId && !detail ? "<p class=\"account-muted\">Details werden geladen...</p>" : renderAdminUserDetail(detail, users.find((user) => user.id === selectedId))}
+        </div>
+      </div>
+    `);
+
+    root.querySelectorAll("[data-admin-user]").forEach((button) => {
+      button.addEventListener("click", () => selectAdminUser(button.dataset.adminUser, { root }));
+    });
+
+    root.querySelectorAll("[data-admin-game]").forEach((button) => {
+      button.addEventListener("click", () => {
+        state.selectedAdminGame = button.dataset.adminGame || "all";
+        renderAdminUsers(root);
+      });
+    });
+  }
+
+  function renderAdminUserButton(user, selectedId) {
+    const stats = user.stats || {};
+    const name = adminDisplayName(user);
+    const email = user.authEmail || user.email || "";
+    return `
+      <button type="button" class="admin-user-button${user.id === selectedId ? " active" : ""}" data-admin-user="${escapeHtml(user.id)}">
+        <strong>${escapeHtml(name)}</strong>
+        <span>${escapeHtml(email || user.id)}</span>
+        <small>${Number(stats.solvedLevels || 0)} gelöst · ${formatDuration(Number(stats.totalSeconds || 0))}</small>
+      </button>
+    `;
+  }
+
+  function renderAdminUserDetail(detail, fallbackUser = {}) {
+    if (!detail) return "<p class=\"account-muted\">Wähle einen User aus.</p>";
+    if (detail.error) return `<p class="auth-status">${escapeHtml(authErrorMessage(detail.error))}</p>`;
+
+    const userData = { ...fallbackUser, ...detail.userData };
+    const progressDocs = detail.progressDocs || [];
+    const sessions = detail.sessions || [];
+    const stats = summarizeProgress(userData, progressDocs);
+    const selectedGame = adminSelectedGame(progressDocs, sessions);
+    const filteredProgress = selectedGame === "all" ? progressDocs : progressDocs.filter((entry) => entry.game === selectedGame);
+    const filteredSessions = selectedGame === "all" ? sessions : sessions.filter((session) => session.game === selectedGame);
+
+    return `
+      <div class="admin-detail-head">
+        <div>
+          <h3>${escapeHtml(adminDisplayName(userData))}</h3>
+          <p class="account-muted">${escapeHtml(userData.authEmail || userData.email || detail.id)}</p>
+        </div>
+        <div class="admin-meta">
+          <span>Erstellt: ${formatDateTime(userData.createdAt)}</span>
+          <span>Zuletzt gesehen: ${formatDateTime(userData.lastSeenAt)}</span>
+        </div>
+      </div>
+      <div class="stat-strip admin-stat-strip">
+        <div><strong>${stats.totalSolved}</strong><span>gelöst</span></div>
+        <div><strong>${formatDuration(stats.totalSeconds)}</strong><span>Spielzeit</span></div>
+        <div><strong>${stats.moves}</strong><span>Züge</span></div>
+        <div><strong>${sessions.filter((session) => !session.solved && session.endedAt).length}</strong><span>Abbrüche</span></div>
+      </div>
+      ${renderAdminGameFilters(progressDocs, sessions, selectedGame)}
+      <div class="admin-columns">
+        <section>
+          <h4>Level-Fortschritt</h4>
+          <div class="admin-data-list">
+            ${filteredProgress.length ? [...filteredProgress].sort(adminLevelSort).map(renderAdminLevelDetail).join("") : "<p class=\"account-muted\">Keine Leveldaten für diese Auswahl.</p>"}
+          </div>
+        </section>
+        <section>
+          <h4>Sitzungen</h4>
+          <div class="admin-data-list">
+            ${filteredSessions.length ? filteredSessions.map(renderAdminSessionDetail).join("") : "<p class=\"account-muted\">Keine Sitzungen für diese Auswahl.</p>"}
+          </div>
+        </section>
+      </div>
+    `;
+  }
+
+  function adminDisplayName(userData = {}) {
+    return cleanDisplayName(userData.displayName || userData.username || userData.email || userData.authEmail || "Unbekannter User");
+  }
+
+  function adminSelectedGame(progressDocs, sessions) {
+    const available = new Set(["all"]);
+    progressDocs.forEach((entry) => { if (entry.game) available.add(entry.game); });
+    sessions.forEach((session) => { if (session.game) available.add(session.game); });
+    if (!available.has(state.selectedAdminGame)) state.selectedAdminGame = "all";
+    return state.selectedAdminGame;
+  }
+
+  function renderAdminGameFilters(progressDocs, sessions, selectedGame) {
+    const games = new Set();
+    progressDocs.forEach((entry) => { if (entry.game) games.add(entry.game); });
+    sessions.forEach((session) => { if (session.game) games.add(session.game); });
+    const labeledGames = Object.keys(GAME_LABELS).filter((game) => games.has(game));
+    const customGames = [...games].filter((game) => !GAME_LABELS[game]).sort((a, b) => a.localeCompare(b, "de"));
+    const options = ["all", ...labeledGames, ...customGames];
+    return `
+      <div class="admin-game-filter" aria-label="Rätselart filtern">
+        ${options.map((game) => `
+          <button type="button" class="${game === selectedGame ? "active" : ""}" data-admin-game="${escapeHtml(game)}">
+            ${game === "all" ? "Alle" : escapeHtml(GAME_LABELS[game] || game)}
+          </button>
+        `).join("")}
+      </div>
+    `;
+  }
+
+  function adminLevelSort(a, b) {
+    return `${GAME_LABELS[a.game] || a.game || ""} ${a.levelName || a.levelId || ""}`.localeCompare(`${GAME_LABELS[b.game] || b.game || ""} ${b.levelName || b.levelId || ""}`, "de");
+  }
+
+  function renderAdminLevelDetail(entry) {
+    const status = entry.solved ? "Gelöst" : (Number(entry.attempts || 0) ? "Begonnen" : "Offen");
+    const details = [
+      ["Status", status],
+      ["Versuche", Number(entry.attempts || 0)],
+      ["Sterne", entry.stars ? `${normalizeStars(entry.stars)}/3` : "-"],
+      ["Zeit", formatDuration(Number(entry.timeSeconds || entry.elapsedSeconds || 0))],
+      ["Züge", Number(entry.moves || 0)],
+      ["Resets", Number(entry.resets || 0)],
+      ["Tipps", Number(entry.hints || 0)],
+      ["Gelöst am", formatDateTime(entry.solvedAt)],
+      ["Zuletzt", formatDateTime(entry.lastPlayedAt || entry.updatedAt)],
+    ];
+
+    if (entry.target) details.splice(4, 0, ["Fortschritt", `${Number(entry.correct || 0)}/${Number(entry.target || 0)}`]);
+    if (entry.best) details.splice(4, 0, ["Bestwert", Number(entry.best)]);
+
+    return `
+      <article class="admin-data-card">
+        <strong>${escapeHtml(GAME_LABELS[entry.game] || entry.game || "Rätsel")} · ${escapeHtml(entry.levelName || entry.title || entry.levelId || entry.id || "Level")}</strong>
+        <span>${escapeHtml(DIFFICULTY_LABELS[entry.difficulty] || entry.difficulty || "")}</span>
+        <div class="admin-data-grid">${details.map(renderAdminDetailPair).join("")}</div>
+      </article>
+    `;
+  }
+
+  function renderAdminSessionDetail(session) {
+    const status = session.solved ? "Gelöst" : (session.endedAt ? "Abgebrochen" : "Offen");
+    const details = [
+      ["Status", status],
+      ["Start", formatDateTime(session.startedAt)],
+      ["Ende", formatDateTime(session.endedAt)],
+      ["Dauer", formatDuration(Number(session.durationSeconds || 0))],
+      ["Züge", Number(session.moves || 0)],
+      ["Resets", Number(session.resets || 0)],
+      ["Tipps", Number(session.hints || 0)],
+      ["Sterne", session.stars ? `${normalizeStars(session.stars)}/3` : "-"],
+    ];
+
+    return `
+      <article class="admin-data-card ${session.solved ? "solved" : (session.endedAt ? "abandoned" : "open")}">
+        <strong>${escapeHtml(GAME_LABELS[session.game] || session.game || "Rätsel")} · ${escapeHtml(session.levelName || session.title || session.levelId || "Level")}</strong>
+        <span>${escapeHtml(DIFFICULTY_LABELS[session.difficulty] || session.difficulty || "")}</span>
+        <div class="admin-data-grid">${details.map(renderAdminDetailPair).join("")}</div>
+      </article>
+    `;
+  }
+
+  function renderAdminDetailPair([label, value]) {
+    return `<span><b>${escapeHtml(label)}</b>${escapeHtml(value ?? "-")}</span>`;
   }
 
   function summarizeProgress(userData, progressDocs) {
@@ -964,6 +1289,21 @@
     return `${value % 60} s`;
   }
 
+  function timestampDate(value) {
+    if (!value) return null;
+    if (typeof value.toDate === "function") return value.toDate();
+    if (value instanceof Date) return value;
+    if (Number.isFinite(value.seconds)) return new Date(value.seconds * 1000);
+    if (Number.isFinite(value)) return new Date(value);
+    return null;
+  }
+
+  function formatDateTime(value) {
+    const date = timestampDate(value);
+    if (!date || Number.isNaN(date.getTime())) return "-";
+    return new Intl.DateTimeFormat("de-CH", { dateStyle: "short", timeStyle: "short" }).format(date);
+  }
+
   function authErrorMessage(error) {
     const code = error?.code || "";
     if (code.includes("missing-name")) return "Bitte gib einen Namen ein.";
@@ -971,11 +1311,13 @@
     if (code.includes("invalid-email")) return "Dieser Name kann nicht verwendet werden.";
     if (code.includes("email-already-in-use")) return "Dieser Name ist bereits vergeben.";
     if (code.includes("user-not-found") || code.includes("wrong-password") || code.includes("invalid-credential")) return "Name oder Passwort stimmt nicht.";
+    if (code.includes("permission-denied")) return "Keine Berechtigung. Der Admin-Bereich ist nur für das verifizierte Admin-Google-Konto freigegeben.";
     if (code.includes("popup")) return "Die Google-Anmeldung wurde nicht abgeschlossen.";
     return "Die Anmeldung hat nicht geklappt. Prüfe Firebase Auth und die Firestore-Regeln.";
   }
 
   function renderError(message, error) {
+    accountPanel.classList.remove("has-admin");
     modalContent.innerHTML = `
       <p class="small-label">Profil</p>
       <h2 id="account-modal-title">Firebase</h2>
