@@ -1578,18 +1578,28 @@ const WHAT_FITS_LEVEL_DATA = {
   ]
 };
 
-function generateWhatFitsTask(level) {
+function whatFitsItemSourceId(item, difficulty, pool = WHAT_FITS_LEVEL_DATA[difficulty] || []) {
+  const poolIndex = pool.findIndex((candidate) => candidate === item || (candidate.correctId === item.correctId && candidate.main?.label === item.main?.label));
+  return item.id || (poolIndex >= 0 ? `${difficulty}-${poolIndex + 1}` : item.correctId);
+}
+
+function generateWhatFitsTask(source, usedKeys = []) {
+  const safeDifficulty = DIFFICULTIES[source?.difficulty || source] ? (source?.difficulty || source) : "easy";
+  const pool = WHAT_FITS_LEVEL_DATA[safeDifficulty] || WHAT_FITS_LEVEL_DATA.easy;
+  const unusedPool = source?.main ? [] : pool.filter((item) => !usedKeys.includes(["whatFits", safeDifficulty, whatFitsItemSourceId(item, safeDifficulty, pool)].join(":")));
+  const item = source?.main ? source : pickRandom(unusedPool.length ? unusedPool : pool);
+  const sourceId = whatFitsItemSourceId(item, safeDifficulty, pool);
   return {
-    id: `what-fits-${level.difficulty}-${level.id || level.levelName}-${Date.now()}-${randomInt(1000, 9999)}`,
-    sourceId: level.id || level.levelName,
+    id: `what-fits-${safeDifficulty}-${sourceId}-${Date.now()}-${randomInt(1000, 9999)}`,
+    sourceId,
     puzzleType: "whatFits",
-    difficulty: level.difficulty,
-    main: clone(level.main),
-    correctId: level.correctId,
-    correctAnswer: level.correctId,
-    options: shuffleOptions(level.options.map((option) => clone(option))),
-    hintText: level.hint,
-    explanation: level.explanation,
+    difficulty: safeDifficulty,
+    main: clone(item.main),
+    correctId: item.correctId,
+    correctAnswer: item.correctId,
+    options: shuffleOptions(item.options.map((option) => clone(option))),
+    hintText: item.hint,
+    explanation: item.explanation,
   };
 }
 
@@ -1834,6 +1844,7 @@ function readingTaskKey(task) {
 }
 function practiceTaskKey(task) {
   if (task.puzzleType === "oddOneOut") return oddOneOutTaskKey(task);
+  if (task.puzzleType === "whatFits") return [task.puzzleType, task.difficulty, task.sourceId || task.correctId || task.id].join(":");
   if (task.puzzleType === "shapeSequencePuzzle") return shapeSequenceTaskKey(task);
   if (task.puzzleType === "sequencePuzzle") return sequenceTaskKey(task);
   return task.puzzleType === "mathPuzzle" ? mathTaskKey(task) : readingTaskKey(task);
@@ -1842,7 +1853,7 @@ function generateUniquePracticeTask(taskFactory, difficulty, usedKeys = []) {
   const used = new Set(usedKeys);
   let fallback = null;
   for (let attempt = 0; attempt < 120; attempt += 1) {
-    const task = taskFactory(difficulty);
+    const task = taskFactory === generateWhatFitsTask ? taskFactory(difficulty, usedKeys) : taskFactory(difficulty);
     const key = practiceTaskKey(task);
     task.practiceKey = key;
     if (!used.has(key)) return task;
@@ -1901,16 +1912,7 @@ const READING_LEVELS = makePracticeLevels("readingPuzzle", READING_LEVEL_DESCRIP
 const SEQUENCE_LEVELS = makePracticeLevels("sequencePuzzle", SEQUENCE_LEVEL_DESCRIPTIONS);
 const SHAPE_SEQUENCE_LEVELS = makePracticeLevels("shapeSequencePuzzle", SHAPE_SEQUENCE_LEVEL_DESCRIPTIONS);
 const ODD_ONE_OUT_LEVELS = makePracticeLevels("oddOneOut", ODD_ONE_OUT_LEVEL_DESCRIPTIONS);
-const WHAT_FITS_LEVELS = DIFFICULTY_KEYS.flatMap((difficulty) =>
-  WHAT_FITS_LEVEL_DATA[difficulty].map((data, index) =>
-    makeLevel("whatFits", difficulty, index + 1, {
-      ...data,
-      targetCount: 1,
-      badge: "1 Rätsel",
-      description: WHAT_FITS_LEVEL_DESCRIPTIONS[difficulty],
-    })
-  )
-);
+const WHAT_FITS_LEVELS = makePracticeLevels("whatFits", WHAT_FITS_LEVEL_DESCRIPTIONS);
 
 if (typeof window !== "undefined") {
   window.LernappPuzzleGenerators = {
@@ -2026,7 +2028,7 @@ const LOCAL_SOLVED_PREFIX = "lernapp.solved.";
 const LOCAL_STARS_PREFIX = "lernapp.stars.";
 const MAX_STARS = 3;
 const TIMED_STAR_GAMES = new Set(["arukone", "bimaru", "kakuro", "shikaku", "hidoku", "sudoku"]);
-const PRACTICE_GAMES = new Set(["mathPuzzle", "readingPuzzle", "sequencePuzzle", "shapeSequencePuzzle", "oddOneOut"]);
+const PRACTICE_GAMES = new Set(["mathPuzzle", "readingPuzzle", "sequencePuzzle", "shapeSequencePuzzle", "oddOneOut", "whatFits"]);
 const TIMED_STAR_LIMITS = { three: 30, two: 60 };
 
 function progressKey(game, levelId) { return `${LOCAL_SOLVED_PREFIX}${game}.${levelId}`; }
@@ -2197,12 +2199,6 @@ function practiceStars(level, practiceState = state) {
   if (flawless >= Math.ceil(target * 0.8)) return 2;
   return 1;
 }
-function whatFitsStars(whatFitsState = state) {
-  const attempts = Number(whatFitsState.attempts || 0);
-  if (attempts <= 0) return 3;
-  if (attempts === 1) return 2;
-  return 1;
-}
 function backpackStars(best) {
   if (Number(best || 0) >= 8) return 3;
   if (Number(best || 0) >= 4) return 2;
@@ -2212,7 +2208,6 @@ function currentLevelStars() {
   const level = currentLevel();
   if (!level) return 1;
   if (isTimedStarGame()) return currentTimedStars() || 1;
-  if (currentGame === "whatFits") return whatFitsStars();
   if (PRACTICE_GAMES.has(currentGame)) return practiceStars(level);
   if (currentGame === "backpack") return backpackStars(state.best);
   return 1;
@@ -2224,10 +2219,6 @@ function currentSolveResult(stars = currentLevelStars()) {
     result.flawless = Number(state.flawlessCount || 0);
     result.correct = Number(state.correctCount || 0);
     result.target = currentLevel().targetCount || 10;
-  }
-  if (currentGame === "whatFits") {
-    result.attempts = Number(state.attempts || 0);
-    if (state.task?.explanation) result.explanation = state.task.explanation;
   }
   if (currentGame === "backpack") result.best = Number(state.best || 0);
   return result;
@@ -2352,10 +2343,6 @@ function updateSuccessStars(stars, result = {}) {
   const detail = [];
   if (Number.isFinite(result.elapsedSeconds)) detail.push(`Zeit ${formatTimerSeconds(result.elapsedSeconds)}`);
   if (Number.isFinite(result.flawless) && Number.isFinite(result.target)) detail.push(`${result.flawless}/${result.target} fehlerfrei`);
-  if (currentGame === "whatFits" && Number.isFinite(result.attempts)) {
-    const tries = result.attempts + 1;
-    detail.push(`${tries} ${tries === 1 ? "Versuch" : "Versuche"}`);
-  }
   successStars.innerHTML = "";
   const row = document.createElement("div");
   row.className = "success-stars-row";
@@ -2364,12 +2351,6 @@ function updateSuccessStars(stars, result = {}) {
   const summary = document.createElement("p");
   summary.textContent = `${starLabel(stars)}${detail.length ? ` - ${detail.join(" - ")}` : ""}`;
   successStars.append(row, summary);
-  if (currentGame === "whatFits" && result.explanation) {
-    const explanation = document.createElement("p");
-    explanation.className = "success-explanation";
-    explanation.textContent = result.explanation;
-    successStars.append(explanation);
-  }
 }
 
 function setupSuccessOverlay() {
@@ -2491,7 +2472,7 @@ function answerPracticeTask(answer, taskFactory, messages, nextStatus = "Neue Au
     state.solvedCount += 1;
     state.correctCount += 1;
     if (state.attempts === 0) state.flawlessCount += 1;
-    state.feedback = pickRandom(messages.correct);
+    state.feedback = typeof messages.correct === "function" ? messages.correct(state.task) : pickRandom(messages.correct);
     recordPracticeAnswer(level, true);
     if (state.solvedCount >= (level.targetCount || 10)) {
       state.completed = true;
@@ -2789,8 +2770,8 @@ function makeWhatFitsTaskView() {
   return view;
 }
 function whatFitsOptionStateClass(option) {
-  if (state.completed && option.id === state.task.correctId) return " correct";
-  if (!state.completed && state.selectedId === option.id && option.id !== state.task.correctId) return " wrong";
+  if ((state.awaitingNext || state.completed) && option.id === state.task.correctId) return " correct";
+  if (!state.awaitingNext && !state.completed && state.selectedAnswer === option.id && option.id !== state.task.correctId) return " wrong";
   return "";
 }
 function renderWhatFitsOptions() {
@@ -2800,7 +2781,7 @@ function renderWhatFitsOptions() {
     const button = document.createElement("button");
     button.type = "button";
     button.className = `practice-option whatFits-option${whatFitsOptionStateClass(option)}`;
-    button.disabled = state.completed;
+    button.disabled = state.awaitingNext || state.completed;
     button.setAttribute("aria-label", `Antwort: ${option.label}`);
     const emoji = document.createElement("span");
     emoji.className = "whatFits-option-emoji";
@@ -3027,43 +3008,20 @@ const GAME_HANDLERS = {
   },
 
   whatFits: {
-    resetState(level) {
-      clearPracticeAdvanceTimer();
-      state = {
-        task: generateWhatFitsTask(level),
-        attempts: 0,
-        selectedId: null,
-        feedback: "",
-        tipVisible: false,
-        completed: false,
-      };
-      setStatus("Wähle die Antwortkarte, die am besten passt.");
-    },
+    resetState(level) { resetPracticeState(level, generateWhatFitsTask, "Wähle die Antwortkarte, die am besten passt."); },
     checkWin() { return Boolean(state.completed); },
     hint() {
-      if (!state.task || state.completed) return;
+      if (!state.task || state.completed || state.awaitingNext) return;
       state.tipVisible = true;
       state.feedback = `Tipp: ${state.task.hintText}`;
       render("Tipp angezeigt.");
     },
     answer(optionId) {
-      if (!state.task || state.completed) return;
-      const option = state.task.options.find((candidate) => candidate.id === optionId);
-      if (!option) return;
-      recordMoveMetric();
-      state.selectedId = optionId;
-      if (optionId === state.task.correctId) {
-        state.feedback = state.task.explanation;
-        state.completed = true;
-        handleWin();
-        return;
-      }
-      state.attempts += 1;
-      state.tipVisible = state.attempts >= 2;
-      state.feedback = state.tipVisible
-        ? `Tipp: ${state.task.hintText}`
-        : "Fast! Überlege, was man zusammen benutzt oder was logisch dazugehört.";
-      render("Fast. Versuch es noch einmal.");
+      answerPracticeTask(optionId, generateWhatFitsTask, {
+        correct: (task) => task.explanation || "Richtig! Das passt zusammen.",
+        retry: ["Fast! Überlege, was man zusammen benutzt oder was logisch dazugehört."],
+        hint: `Tipp: ${state.task ? state.task.hintText : "Schau genau hin."}`,
+      }, "Neue Aufgabe. Was passt dazu?");
     },
     render(level) {
       board.innerHTML = "";
