@@ -22,6 +22,7 @@
     whatFits: "Was passt?",
     readingPuzzle: "Wortdetektiv",
     backpack: "Rucksack packen",
+    memory: "Memory",
   };
 
   const DIFFICULTY_LABELS = {
@@ -45,6 +46,7 @@
     whatFits: 40,
     readingPuzzle: 40,
     backpack: 4,
+    memory: 40,
   };
 
   const LOCAL_SOLVED_PREFIX = "lernapp.solved.";

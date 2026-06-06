@@ -1,4 +1,4 @@
-const APP_VERSION = "2026-06-06-3";
+const APP_VERSION = "2026-06-06-4";
 const CACHE_PREFIX = "lernapp-pwa-";
 const CACHE_NAME = `${CACHE_PREFIX}${APP_VERSION}`;
 const ASSET_VERSION_QUERY = `?v=${APP_VERSION}`;
@@ -12,6 +12,7 @@ const CORE_ASSETS = [
   "./figurenfolge.html",
   "./hidoku.html",
   "./kakuro.html",
+  "./memory.html",
   "./passtnicht.html",
   "./raumdetektiv.html",
   "./waspasst.html",
