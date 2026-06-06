@@ -390,10 +390,10 @@ function makeLevel(game, difficulty, index, data) {
 }
 
 const BACKPACK_DIFFICULTY_RULES = {
-  easy: { choiceCount: 3, poolSize: 10, showLabels: true },
-  medium: { choiceCount: 4, poolSize: 14, showLabels: true },
-  hard: { choiceCount: 5, poolSize: 18, showLabels: false },
-  extreme: { choiceCount: 6, poolSize: 24, showLabels: false },
+  easy: { choiceCount: 3, poolSize: 45, showLabels: true },
+  medium: { choiceCount: 4, poolSize: 60, showLabels: true },
+  hard: { choiceCount: 5, poolSize: 75, showLabels: false },
+  extreme: { choiceCount: 6, poolSize: 90, showLabels: false },
 };
 const BACKPACK_ITEMS = [
   { id: "apple", emoji: "🍎", label: "Apfel" },
@@ -420,6 +420,87 @@ const BACKPACK_ITEMS = [
   { id: "paint", emoji: "🎨", label: "Farbe" },
   { id: "map", emoji: "🗺️", label: "Karte" },
   { id: "medal", emoji: "🏅", label: "Medaille" },
+  { id: "gift", emoji: "🎁", label: "Geschenk" },
+  { id: "balloon", emoji: "🎈", label: "Ballon" },
+  { id: "cup", emoji: "🥤", label: "Becher" },
+  { id: "sandwich", emoji: "🥪", label: "Sandwich" },
+  { id: "cheese", emoji: "🧀", label: "Käse" },
+  { id: "grapes", emoji: "🍇", label: "Trauben" },
+  { id: "carrot", emoji: "🥕", label: "Rüebli" },
+  { id: "corn", emoji: "🌽", label: "Mais" },
+  { id: "strawberry", emoji: "🍓", label: "Erdbeere" },
+  { id: "chocolate", emoji: "🍫", label: "Schoggi" },
+  { id: "lollipop", emoji: "🍭", label: "Lolli" },
+  { id: "shoe", emoji: "👟", label: "Schuh" },
+  { id: "sock", emoji: "🧦", label: "Socke" },
+  { id: "glove", emoji: "🧤", label: "Handschuh" },
+  { id: "scarf", emoji: "🧣", label: "Schal" },
+  { id: "sunglasses", emoji: "🕶️", label: "Sonnenbrille" },
+  { id: "camera", emoji: "📷", label: "Kamera" },
+  { id: "phone", emoji: "📱", label: "Telefon" },
+  { id: "headphones", emoji: "🎧", label: "Kopfhörer" },
+  { id: "microphone", emoji: "🎤", label: "Mikrofon" },
+  { id: "drum", emoji: "🥁", label: "Trommel" },
+  { id: "guitar", emoji: "🎸", label: "Gitarre" },
+  { id: "trumpet", emoji: "🎺", label: "Trompete" },
+  { id: "violin", emoji: "🎻", label: "Geige" },
+  { id: "crown", emoji: "👑", label: "Krone" },
+  { id: "ring", emoji: "💍", label: "Ring" },
+  { id: "gem", emoji: "💎", label: "Edelstein" },
+  { id: "envelope", emoji: "✉️", label: "Brief" },
+  { id: "mailbox", emoji: "📮", label: "Briefkasten" },
+  { id: "paperclip", emoji: "📎", label: "Büroklammer" },
+  { id: "scissors", emoji: "✂️", label: "Schere" },
+  { id: "ruler", emoji: "📏", label: "Lineal" },
+  { id: "calculator", emoji: "🧮", label: "Rechner" },
+  { id: "laptop", emoji: "💻", label: "Laptop" },
+  { id: "battery", emoji: "🔋", label: "Batterie" },
+  { id: "flashlight", emoji: "🔦", label: "Taschenlampe" },
+  { id: "magnet", emoji: "🧲", label: "Magnet" },
+  { id: "compass", emoji: "🧭", label: "Kompass" },
+  { id: "telescope", emoji: "🔭", label: "Fernrohr" },
+  { id: "hammer", emoji: "🔨", label: "Hammer" },
+  { id: "wrench", emoji: "🔧", label: "Schraubenschlüssel" },
+  { id: "gear", emoji: "⚙️", label: "Zahnrad" },
+  { id: "bucket", emoji: "🪣", label: "Eimer" },
+  { id: "soap", emoji: "🧼", label: "Seife" },
+  { id: "toothbrush", emoji: "🪥", label: "Zahnbürste" },
+  { id: "bandage", emoji: "🩹", label: "Pflaster" },
+  { id: "thermometer", emoji: "🌡️", label: "Thermometer" },
+  { id: "pill", emoji: "💊", label: "Tablette" },
+  { id: "tent", emoji: "⛺", label: "Zelt" },
+  { id: "house", emoji: "🏠", label: "Haus" },
+  { id: "bicycle", emoji: "🚲", label: "Velo" },
+  { id: "bus", emoji: "🚌", label: "Bus" },
+  { id: "airplane", emoji: "✈️", label: "Flugzeug" },
+  { id: "boat", emoji: "⛵", label: "Segelboot" },
+  { id: "anchor", emoji: "⚓", label: "Anker" },
+  { id: "sun", emoji: "☀️", label: "Sonne" },
+  { id: "moon", emoji: "🌙", label: "Mond" },
+  { id: "cloud", emoji: "☁️", label: "Wolke" },
+  { id: "rainbow", emoji: "🌈", label: "Regenbogen" },
+  { id: "snowflake", emoji: "❄️", label: "Schneeflocke" },
+  { id: "fire", emoji: "🔥", label: "Feuer" },
+  { id: "drop", emoji: "💧", label: "Wassertropfen" },
+  { id: "leaf", emoji: "🍃", label: "Blatt" },
+  { id: "tree", emoji: "🌳", label: "Baum" },
+  { id: "mushroom", emoji: "🍄", label: "Pilz" },
+  { id: "butterfly", emoji: "🦋", label: "Schmetterling" },
+  { id: "bee", emoji: "🐝", label: "Biene" },
+  { id: "ladybug", emoji: "🐞", label: "Marienkäfer" },
+  { id: "fish", emoji: "🐟", label: "Fisch" },
+  { id: "frog", emoji: "🐸", label: "Frosch" },
+  { id: "turtle", emoji: "🐢", label: "Schildkröte" },
+  { id: "bird", emoji: "🐦", label: "Vogel" },
+  { id: "cat", emoji: "🐱", label: "Katze" },
+  { id: "dog", emoji: "🐶", label: "Hund" },
+  { id: "mouse", emoji: "🐭", label: "Maus" },
+  { id: "rabbit", emoji: "🐰", label: "Hase" },
+  { id: "horse", emoji: "🐴", label: "Pferd" },
+  { id: "cow", emoji: "🐮", label: "Kuh" },
+  { id: "lion", emoji: "🦁", label: "Löwe" },
+  { id: "elephant", emoji: "🐘", label: "Elefant" },
+  { id: "whale", emoji: "🐳", label: "Wal" },
 ];
 const BACKPACK_ITEM_BY_ID = Object.fromEntries(BACKPACK_ITEMS.map((item) => [item.id, item]));
 const BACKPACK_LEVELS = DIFFICULTY_KEYS.map((difficulty) => makeLevel("backpack", difficulty, 1, {
@@ -2570,9 +2651,10 @@ function scheduleBackpack(callback, delay = 560) {
 function backpackNewOptions(level) {
   const rule = backpackRule(level);
   const pool = backpackPool(level);
-  const unused = pool.filter((item) => !state.sequence.includes(item.id));
-  const source = unused.length ? unused : pool;
-  return shuffleOptions(source).slice(0, Math.min(rule.choiceCount, source.length));
+  const usedIds = new Set(state.sequence);
+  const unused = pool.filter((item) => !usedIds.has(item.id));
+  if (unused.length < rule.choiceCount) return [];
+  return shuffleOptions(unused).slice(0, rule.choiceCount);
 }
 function backpackRepeatOptions(level) {
   const rule = backpackRule(level);
@@ -2864,6 +2946,11 @@ const GAME_HANDLERS = {
         unlockRecorded: isSolved(level),
       };
       state.options = backpackNewOptions(level);
+      if (!state.options.length) {
+        state.phase = "gameOver";
+        setStatus("Für diese Schwierigkeit sind nicht genug Gegenstände vorbereitet.");
+        return;
+      }
       setStatus("Wähle den ersten Gegenstand für deinen Rucksack.");
     },
     checkWin() { return false; },
@@ -2907,9 +2994,16 @@ const GAME_HANDLERS = {
               state.unlockRecorded = true;
               markSolved(level, currentSolveResult(backpackStars(state.best)));
             }
+            const nextOptions = backpackNewOptions(level);
+            if (!nextOptions.length) {
+              state.phase = "gameOver";
+              state.options = [];
+              render("Unglaublich! Du hast alle Gegenstände eingepackt.");
+              return;
+            }
             state.phase = "chooseNew";
             state.repeatIndex = 0;
-            state.options = backpackNewOptions(level);
+            state.options = nextOptions;
             render(`Runde ${state.round} geschafft. Wähle etwas Neues dazu.`);
             return;
           }
