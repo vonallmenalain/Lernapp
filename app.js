@@ -1388,6 +1388,7 @@ let activePointerId = null;
 let shikakuDrag = null;
 let hidokuDrag = null;
 let backpackTimer = null;
+let practiceAdvanceTimer = null;
 let starTimer = null;
 let starTimerStartedAt = 0;
 let starTimerBestTier = 3;
@@ -1686,9 +1687,9 @@ function renderLevelSelect() {
     levelGrid.append(button);
   });
 }
-function showLevelSelect() { finishMove(); stopStarTimer({ hide: true }); if (currentGame === "backpack") clearBackpackTimer(); cloudProgress()?.flushCurrentSession?.({ close: true, includeElapsed: true }); hideSuccess(); if (levelPanel) levelPanel.hidden = false; if (homePanel) homePanel.hidden = true; if (gamePanel) gamePanel.hidden = true; if (gameControls) gameControls.hidden = true; document.body.classList.remove("puzzle-active"); renderLevelSelect(); }
+function showLevelSelect() { finishMove(); stopStarTimer({ hide: true }); clearPracticeAdvanceTimer(); if (currentGame === "backpack") clearBackpackTimer(); cloudProgress()?.flushCurrentSession?.({ close: true, includeElapsed: true }); hideSuccess(); if (levelPanel) levelPanel.hidden = false; if (homePanel) homePanel.hidden = true; if (gamePanel) gamePanel.hidden = true; if (gameControls) gameControls.hidden = true; document.body.classList.remove("puzzle-active"); renderLevelSelect(); }
 function showGame() { if (levelPanel) levelPanel.hidden = true; if (homePanel) homePanel.hidden = true; if (gamePanel) gamePanel.hidden = false; if (gameControls) gameControls.hidden = false; document.body.classList.add("puzzle-active"); }
-function startLevel(index) { const levelToStart = LEVELS_BY_GAME[currentGame]?.[index]; if (!isLevelUnlocked(levelToStart)) { if (levelToStart) selectedDifficulty = levelToStart.difficulty; renderLevelSelect(); return; } stopStarTimer({ hide: true }); hideSuccess(); currentIndex = index; const level = currentLevel(); selectedDifficulty = level.difficulty; const config = GAME_CONFIGS[currentGame]; history = []; winShown = false; if (undoButton) undoButton.disabled = true; const boardSize = level.cols || level.size || 5; board.className = `board ${currentGame}-board board-size-${boardSize}`; board.style.setProperty("--size", boardSize); board.setAttribute("aria-label", `${config.title} Spielfeld`); puzzleTitle.textContent = level.title; puzzleDescription.textContent = level.description || config.subtitle; fillList(gameHelpList, config.rules); cloudProgress()?.recordLevelStart?.(level); resetState(); showGame(); startStarTimer(level); render(); }
+function startLevel(index) { const levelToStart = LEVELS_BY_GAME[currentGame]?.[index]; if (!isLevelUnlocked(levelToStart)) { if (levelToStart) selectedDifficulty = levelToStart.difficulty; renderLevelSelect(); return; } stopStarTimer({ hide: true }); clearPracticeAdvanceTimer(); hideSuccess(); currentIndex = index; const level = currentLevel(); selectedDifficulty = level.difficulty; const config = GAME_CONFIGS[currentGame]; history = []; winShown = false; if (undoButton) undoButton.disabled = true; const boardSize = level.cols || level.size || 5; board.className = `board ${currentGame}-board board-size-${boardSize}`; board.style.setProperty("--size", boardSize); board.setAttribute("aria-label", `${config.title} Spielfeld`); puzzleTitle.textContent = level.title; puzzleDescription.textContent = level.description || config.subtitle; fillList(gameHelpList, config.rules); cloudProgress()?.recordLevelStart?.(level); resetState(); showGame(); startStarTimer(level); render(); }
 function resetGame() { history = []; if (undoButton) undoButton.disabled = true; hideSuccess(); cloudProgress()?.recordLevelStart?.(currentLevel()); resetState(); startStarTimer(currentLevel()); recordResetMetric(); render("Neu gestartet. Viel Spass!"); }
 function undo() {
   finishMove();
@@ -1790,6 +1791,7 @@ function recordPracticeAnswer(level, isCorrect) {
   savePracticeProgress(level, progress);
 }
 function resetPracticeState(level, taskFactory, status) {
+  clearPracticeAdvanceTimer();
   const task = generateUniquePracticeTask(taskFactory, level.difficulty);
   state = {
     task,
@@ -1806,7 +1808,12 @@ function resetPracticeState(level, taskFactory, status) {
   };
   setStatus(status);
 }
+function clearPracticeAdvanceTimer() {
+  if (practiceAdvanceTimer) window.clearTimeout(practiceAdvanceTimer);
+  practiceAdvanceTimer = null;
+}
 function nextPracticeTask(taskFactory, status) {
+  clearPracticeAdvanceTimer();
   const level = currentLevel();
   const task = generateUniquePracticeTask(taskFactory, level.difficulty, state.usedTaskKeys || []);
   state.task = task;
@@ -1818,7 +1825,15 @@ function nextPracticeTask(taskFactory, status) {
   state.awaitingNext = false;
   render(status);
 }
-function answerPracticeTask(answer, taskFactory, messages) {
+function schedulePracticeAdvance(taskFactory, nextStatus) {
+  clearPracticeAdvanceTimer();
+  practiceAdvanceTimer = window.setTimeout(() => {
+    practiceAdvanceTimer = null;
+    if (!PRACTICE_GAMES.has(currentGame) || !state.awaitingNext || state.completed) return;
+    nextPracticeTask(taskFactory, nextStatus);
+  }, 1000);
+}
+function answerPracticeTask(answer, taskFactory, messages, nextStatus = "Neue Aufgabe.") {
   if (!state.task || state.awaitingNext || state.completed) return;
   const level = currentLevel();
   const correct = sameAnswer(answer, state.task.correctAnswer);
@@ -1836,6 +1851,7 @@ function answerPracticeTask(answer, taskFactory, messages) {
     }
     state.awaitingNext = true;
     render();
+    schedulePracticeAdvance(taskFactory, nextStatus);
     return;
   }
   state.attempts += 1;
@@ -1850,8 +1866,6 @@ function renderPracticeProgress(level) {
   progress.className = "practice-progress";
   [
     `Aufgabe ${Math.min(state.solvedCount + 1, target)} von ${target}`,
-    `Richtig ${state.correctCount} von ${target}`,
-    `Fehlerfrei ${state.flawlessCount || 0} von ${target}`,
   ].forEach((text) => {
     const item = document.createElement("span");
     item.textContent = text;
@@ -1860,11 +1874,9 @@ function renderPracticeProgress(level) {
   return progress;
 }
 function optionStateClass(option) {
-  const selected = sameAnswer(option, state.selectedAnswer);
   const correct = sameAnswer(option, state.task.correctAnswer);
-  const revealCorrect = state.awaitingNext || state.completed || (state.tipVisible && state.attempts >= 2);
+  const revealCorrect = state.awaitingNext || state.completed;
   if (correct && revealCorrect) return " correct";
-  if (selected && !correct) return " wrong";
   return "";
 }
 function renderPracticeOptions(onAnswer) {
@@ -1890,18 +1902,10 @@ function renderPracticeFeedback(taskFactory, nextStatus) {
     text.textContent = state.feedback;
     feedback.append(text);
   }
-  if (state.awaitingNext) {
-    if (state.task.fullText) {
-      const full = document.createElement("strong");
-      full.textContent = state.task.fullText;
-      feedback.append(full);
-    }
-    const next = document.createElement("button");
-    next.type = "button";
-    next.className = "practice-next-button";
-    next.textContent = "Weiter";
-    next.addEventListener("click", () => nextPracticeTask(taskFactory, nextStatus));
-    feedback.append(next);
+  if (state.awaitingNext && state.task.fullText) {
+    const full = document.createElement("strong");
+    full.textContent = state.task.fullText;
+    feedback.append(full);
   }
   return feedback;
 }
@@ -2247,7 +2251,7 @@ const GAME_HANDLERS = {
         correct: ["Richtig!", "Super!", "Gut gerechnet!"],
         retry: ["Fast! Versuch es noch einmal.", "Du bist nah dran. Zähl noch einmal in Ruhe."],
         hint: "Fast! Die Hilfe zeigt dir einen guten Weg.",
-      });
+      }, "Neue Aufgabe. Du schaffst das.");
     },
     render(level) {
       renderPracticeShell(level, "mathPuzzle-board", makeMathTaskView(), (answer) => this.answer(answer), generateMathTask, "Neue Aufgabe. Du schaffst das.");
@@ -2263,7 +2267,7 @@ const GAME_HANDLERS = {
         correct: ["Richtig!", "Genial erkannt!", "Ganz genau!", "Du bist ein Mathe-Profi!"],
         retry: ["Fast! Prüfe den Abstand der Zahlen nochmal.", "Knapp daneben. Rechne noch einmal nach."],
         hint: "Tipp: Schau dir an, ob die Zahlen größer oder kleiner werden und um wie viel.",
-      });
+      }, "Neue Zahlenreihe. Du schaffst das.");
     },
     render(level) {
       renderPracticeShell(level, "sequencePuzzle-board", makeSequenceTaskView(), (answer) => this.answer(answer), generateSequenceTask, "Neue Zahlenreihe. Du schaffst das.");
@@ -2279,7 +2283,7 @@ const GAME_HANDLERS = {
         correct: ["Richtig!", "Genial erkannt!", "Ganz genau!", "Super gemacht!"],
         retry: ["Fast! Prüfe das Muster noch einmal.", "Knapp daneben. Schau dir die Reihenfolge genau an."],
         hint: "Tipp: Achte auf die Farben und die Formen der vorherigen Bilder.",
-      });
+      }, "Neue Figurenfolge. Du schaffst das.");
     },
     render(level) {
       renderPracticeShell(level, "shapeSequencePuzzle-board", makeShapeSequenceTaskView(), (answer) => this.answer(answer), generateShapeSequenceTask, "Neue Figurenfolge. Du schaffst das.");
@@ -2295,10 +2299,10 @@ const GAME_HANDLERS = {
         correct: ["Richtig gelesen!", "Super!", "Das war das richtige Wort!"],
         retry: ["Fast! Schau noch einmal genau hin.", "Vergleiche das Wort mit dem Bild."],
         hint: "Achte auf den Anfang und lies langsam weiter.",
-      });
+      }, "Neue Leseaufgabe.");
     },
     render(level) {
-      renderPracticeShell(level, "readingPuzzle-board", makeReadingTaskView(), (answer) => this.answer(answer), generateReadingTask, "Nächstes Leserätsel.");
+      renderPracticeShell(level, "readingPuzzle-board", makeReadingTaskView(), (answer) => this.answer(answer), generateReadingTask, "Neue Leseaufgabe.");
     },
   },
 
