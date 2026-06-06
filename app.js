@@ -2226,12 +2226,22 @@ const SPATIAL_LEVEL_DESCRIPTIONS = {
   easy: "Zwei Antwortkarten und einfache Würfelbauten mit 3 bis 4 Würfeln.",
   medium: "Drei Antwortkarten, mehr Ansichten und erste verdeckte Würfel.",
   hard: "Vier ähnliche Antwortkarten mit Drehungen, Kippbewegungen und Würfelnetzen.",
-  extreme: "Sehr ähnliche Körper, mehrere Bewegungen und Würfelnetze mit Zeichenrichtung.",
+  extreme: "Sehr ähnliche Körper, mehrere Bewegungen und Würfelnetze mit ähnlichen Farben.",
 };
 const SPATIAL_OPTION_COUNTS = { easy: 2, medium: 3, hard: 4, extreme: 4 };
 const SPATIAL_VIEW_NAMES = { front: "vorne", left: "links", right: "rechts", top: "oben" };
 const SPATIAL_NET_VISIBLE_FACES = ["front", "right", "top"];
 const SPATIAL_NET_FACE_ORDER = ["top", "left", "front", "right", "back", "bottom"];
+const SPATIAL_NET_BASE_COLS = 4;
+const SPATIAL_NET_BASE_ROWS = 3;
+const SPATIAL_NET_BASE_POSITIONS = {
+  top: [1, 0],
+  left: [0, 1],
+  front: [1, 1],
+  right: [2, 1],
+  back: [3, 1],
+  bottom: [1, 2],
+};
 
 function makeSpatialLevels(levels = window.SPATIAL_PUZZLES || []) {
   const counters = Object.fromEntries(DIFFICULTY_KEYS.map((difficulty) => [difficulty, 0]));
@@ -2247,7 +2257,9 @@ function makeSpatialLevels(levels = window.SPATIAL_PUZZLES || []) {
 
 function spatialFaceSignature(faceDef) {
   const face = typeof faceDef === "string" ? { color: faceDef } : (faceDef || {});
-  return [face.color || "", face.mark || "", Number(face.rotation || 0) % 360].join(":");
+  const mark = face.mark || "";
+  const rotation = mark ? Number(face.rotation || 0) % 360 : 0;
+  return [face.color || "", mark, rotation].join(":");
 }
 
 function normalizeSpatialCubes(cubes = []) {
@@ -2289,8 +2301,14 @@ function applySpatialOperations(cubes = [], operations = null) {
   return steps.reduce((current, operation) => normalizeSpatialCubes(current.map((cube) => spatialTransformPoint(cube, operation))), normalizeSpatialCubes(cubes));
 }
 
+function colorizeSpatialCubes(cubes = []) {
+  return normalizeSpatialCubes(cubes).map((cube, index) => (
+    cube.color ? cube : { ...cube, color: SPATIAL_BLOCK_COLORS[index % SPATIAL_BLOCK_COLORS.length] }
+  ));
+}
+
 function spatialResolveOptionCubes(level, option = {}) {
-  const source = option.cubes || level.mainGraphic?.cubes || [];
+  const source = colorizeSpatialCubes(option.cubes || level.mainGraphic?.cubes || []);
   return applySpatialOperations(source, option.operation || null);
 }
 
@@ -2371,6 +2389,20 @@ function spatialNetVisibleSignature(faces) {
   return SPATIAL_NET_VISIBLE_FACES.map((name) => spatialFaceSignature(faces?.[name])).join("|");
 }
 
+function spatialNetLayout(turns = 0) {
+  const turnCount = ((Number(turns) || 0) % 4 + 4) % 4;
+  let cols = SPATIAL_NET_BASE_COLS;
+  let rows = SPATIAL_NET_BASE_ROWS;
+  let positions = Object.fromEntries(Object.entries(SPATIAL_NET_BASE_POSITIONS).map(([name, position]) => [name, [...position]]));
+
+  for (let index = 0; index < turnCount; index += 1) {
+    positions = Object.fromEntries(Object.entries(positions).map(([name, [col, row]]) => [name, [rows - 1 - row, col]]));
+    [cols, rows] = [rows, cols];
+  }
+
+  return { positions, cols, rows };
+}
+
 function validateSpatialLevel(level) {
   const errors = [];
   const label = level.id || level.levelName || "spatial level";
@@ -2387,6 +2419,17 @@ function validateSpatialLevel(level) {
     signatures.add(signature);
   });
 
+  if (["sameShape", "rotateBuild"].includes(level.type)) {
+    const bodySignatures = new Set();
+    (level.options || [])
+      .filter((option) => option.kind === "cubes")
+      .forEach((option) => {
+        const signature = spatialCanonicalRotationSignature(spatialResolveOptionCubes(level, option));
+        if (bodySignatures.has(signature)) errors.push(`${label} has duplicate answer bodies`);
+        bodySignatures.add(signature);
+      });
+  }
+
   if (level.type === "viewMatch") {
     const expected = spatialProjectionSignature(level.mainGraphic?.cubes, level.view);
     const matches = (level.options || []).filter((option) =>
@@ -2396,9 +2439,9 @@ function validateSpatialLevel(level) {
   }
 
   if (level.type === "rotateBuild") {
-    const expected = spatialCubeSignature(applySpatialOperations(level.mainGraphic?.cubes, level.operation));
-    const matches = (level.options || []).filter((option) => option.kind === "cubes" && spatialCubeSignature(spatialResolveOptionCubes(level, option)) === expected);
-    if (matches.length !== 1 || matches[0]?.id !== level.correctAnswer) errors.push(`${label} has ambiguous or wrong rotation answer`);
+    const expected = spatialCanonicalRotationSignature(level.mainGraphic?.cubes);
+    const matches = (level.options || []).filter((option) => option.kind === "cubes" && spatialCanonicalRotationSignature(spatialResolveOptionCubes(level, option)) === expected);
+    if (matches.length !== 1 || matches[0]?.id !== level.correctAnswer) errors.push(`${label} has ambiguous or wrong matching body answer`);
   }
 
   if (level.type === "sameShape") {
@@ -3737,19 +3780,12 @@ function renderSpatialSingleCube(faces) {
   return svg;
 }
 
-function renderSpatialNet(faces) {
+function renderSpatialNet(faces, { turns = 0 } = {}) {
   const cell = 42;
   const gap = 5;
-  const positions = {
-    top: [1, 0],
-    left: [0, 1],
-    front: [1, 1],
-    right: [2, 1],
-    back: [3, 1],
-    bottom: [1, 2],
-  };
-  const width = 4 * cell + 3 * gap + 8;
-  const height = 3 * cell + 2 * gap + 8;
+  const { positions, cols, rows } = spatialNetLayout(turns);
+  const width = cols * cell + (cols - 1) * gap + 8;
+  const height = rows * cell + (rows - 1) * gap + 8;
   const svg = svgEl("svg", { class: "spatial-net-svg", viewBox: `0 0 ${width} ${height}`, role: "img", "aria-label": "Würfelnetz" });
   SPATIAL_NET_FACE_ORDER.forEach((name) => {
     const [col, row] = positions[name];
@@ -3765,9 +3801,9 @@ function renderSpatialNet(faces) {
 function renderSpatialGraphic(level, graphic = level.mainGraphic, option = null) {
   if (graphic?.kind === "cube") return renderSpatialSingleCube(graphic.faces);
   if (option?.kind === "projection") return renderSpatialProjection(spatialResolveOptionCubes(level, option), option.view);
-  if (option?.kind === "net") return renderSpatialNet(option.faces);
+  if (option?.kind === "net") return renderSpatialNet(option.faces, { turns: option.turns });
   if (option?.kind === "cubes") return renderSpatialIso(spatialResolveOptionCubes(level, option), { compact: true });
-  return renderSpatialIso(graphic?.cubes || []);
+  return renderSpatialIso(colorizeSpatialCubes(graphic?.cubes || []));
 }
 
 function makeSpatialTaskView(level) {

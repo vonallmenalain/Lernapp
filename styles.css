@@ -952,40 +952,38 @@ a.game-choice-card:visited {
 
 .memory-preview {
   grid-template-columns: repeat(3, 1fr);
-  gap: 7px;
+  grid-template-rows: repeat(3, 1fr);
+  gap: 8px;
+  padding: 12px;
+  background: #fbfaff;
+  border-color: #d9d6ee;
 }
 
 .memory-preview span {
   display: grid;
   place-items: center;
-  min-height: 46px;
-  border-radius: 14px;
+  min-width: 0;
+  min-height: 0;
+  aspect-ratio: 1;
+  border-radius: 15px;
   background: #fff;
   border: 2px solid #d9d6ee;
   color: var(--ink);
   font-weight: 950;
-  box-shadow: 0 8px 16px rgba(36, 48, 71, 0.08);
+  box-shadow: 0 8px 16px rgba(36, 48, 71, 0.09);
 }
 
 .memory-preview .hidden-card {
   background: #6c5ce7;
   border-color: #5141c9;
   color: #fff;
-  font-size: 1.6rem;
+  font-size: 1.55rem;
 }
 
-.memory-preview .match {
+.memory-preview .open-card {
   background: #fff8df;
   border-color: #ffd166;
-  font-size: 1.75rem;
-}
-
-.memory-preview .moves {
-  grid-column: span 2;
-  background: #effff8;
-  border-color: #06d6a0;
-  color: #047c5d;
-  font-size: 1rem;
+  font-size: 1.7rem;
 }
 
 .level-grid {
