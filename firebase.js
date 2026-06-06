@@ -131,7 +131,6 @@
     recordLevelStart,
     recordMove,
     recordReset,
-    recordHint,
     recordSolve,
     flushCurrentSession,
     refreshDashboard,
@@ -468,7 +467,6 @@
         totalSeconds: 0,
         moves: 0,
         resets: 0,
-        hints: 0,
         solvedLevels: 0,
         sessions: 0,
       };
@@ -594,10 +592,8 @@
       lastFlushMs: Date.now(),
       moves: 0,
       resets: 0,
-      hints: 0,
       flushedMoves: 0,
       flushedResets: 0,
-      flushedHints: 0,
       solved: false,
       closed: false,
     };
@@ -618,7 +614,6 @@
       durationSeconds: 0,
       moves: 0,
       resets: 0,
-      hints: 0,
       solved: false,
     }, { merge: true });
 
@@ -641,13 +636,6 @@
   function recordReset() {
     if (state.activeSession) {
       state.activeSession.resets += 1;
-      flushCurrentSession();
-    }
-  }
-
-  function recordHint() {
-    if (state.activeSession) {
-      state.activeSession.hints += 1;
       flushCurrentSession();
     }
   }
@@ -750,15 +738,13 @@
     const deltaSeconds = includeElapsed ? Math.max(0, Math.floor((now - session.lastFlushMs) / 1000)) : 0;
     const moveDelta = session.moves - session.flushedMoves;
     const resetDelta = session.resets - session.flushedResets;
-    const hintDelta = session.hints - session.flushedHints;
     const shouldClose = Boolean(options.close || options.solved);
 
-    if (!deltaSeconds && !moveDelta && !resetDelta && !hintDelta && !shouldClose) return;
+    if (!deltaSeconds && !moveDelta && !resetDelta && !shouldClose) return;
 
     session.lastFlushMs = now;
     session.flushedMoves = session.moves;
     session.flushedResets = session.resets;
-    session.flushedHints = session.hints;
     if (shouldClose) session.closed = true;
 
     const solved = Boolean(options.solved || session.solved);
@@ -769,7 +755,6 @@
       timeSeconds: increment(deltaSeconds),
       moves: increment(moveDelta),
       resets: increment(resetDelta),
-      hints: increment(hintDelta),
       lastPlayedAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     };
@@ -784,7 +769,6 @@
       durationSeconds: increment(deltaSeconds),
       moves: session.moves,
       resets: session.resets,
-      hints: session.hints,
       solved,
       updatedAt: serverTimestamp(),
     };
@@ -798,7 +782,6 @@
         totalSeconds: increment(deltaSeconds),
         moves: increment(moveDelta),
         resets: increment(resetDelta),
-        hints: increment(hintDelta),
       }), { merge: true });
 
     try {
@@ -816,7 +799,6 @@
       session.lastFlushMs = now - (deltaSeconds * 1000);
       session.flushedMoves -= moveDelta;
       session.flushedResets -= resetDelta;
-      session.flushedHints -= hintDelta;
       session.closed = false;
     }
   }
@@ -1406,7 +1388,6 @@
       ["Zeit", formatDuration(Number(entry.timeSeconds || entry.elapsedSeconds || 0))],
       ["Züge", Number(entry.moves || 0)],
       ["Resets", Number(entry.resets || 0)],
-      ["Tipps", Number(entry.hints || 0)],
       ["Gelöst am", formatDateTime(entry.solvedAt)],
       ["Zuletzt", formatDateTime(entry.lastPlayedAt || entry.updatedAt)],
     ];
@@ -1432,7 +1413,6 @@
       ["Dauer", formatDuration(Number(session.durationSeconds || 0))],
       ["Züge", Number(session.moves || 0)],
       ["Resets", Number(session.resets || 0)],
-      ["Tipps", Number(session.hints || 0)],
       ["Sterne", session.stars ? `${normalizeStars(session.stars)}/3` : "-"],
     ];
 

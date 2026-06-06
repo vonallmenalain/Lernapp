@@ -181,7 +181,7 @@ function validateOddOneOut() {
       assert(task.options.length === 4, `odd one out ${difficulty} should have four options`);
       assert(optionIsUnique(task), `odd one out ${difficulty} options are duplicated`);
       assert(task.options.filter((option) => option === task.correctAnswer).length === 1, `odd one out ${difficulty} lacks one correct answer`);
-      assert(typeof task.hintText === "string" && task.hintText.length > 0, `odd one out ${difficulty} has no hint`);
+      assert(!("hint" in task) && !("hintText" in task), `odd one out ${difficulty} still exposes a hint`);
     }
   }
 }
@@ -202,7 +202,7 @@ function validateWhatFits() {
       assert(Array.isArray(item.options) && item.options.length === 4, `${label} should have four options`);
       assert(new Set(item.options.map((option) => option.id)).size === 4, `${label} option ids are duplicated`);
       assert(item.options.some((option) => option.id === item.correctId), `${label} correctId is missing from options`);
-      assert(typeof item.hint === "string" && item.hint.length > 0, `${label} has no hint`);
+      assert(!("hint" in item), `${label} still exposes a hint`);
       assert(typeof item.explanation === "string" && item.explanation.length > 0, `${label} has no explanation`);
 
       for (let i = 0; i < 24; i += 1) {
@@ -214,6 +214,7 @@ function validateWhatFits() {
         assert(task.options.length === 4, `${label} task should have four options`);
         assert(new Set(task.options.map((option) => option.id)).size === 4, `${label} task option ids are duplicated`);
         assert(task.options.some((option) => option.id === task.correctId), `${label} shuffled task lost the correct option`);
+        assert(!("hint" in task) && !("hintText" in task), `${label} task still exposes a hint`);
       }
     });
 
@@ -234,6 +235,7 @@ function validateSpatial() {
     const levels = api.spatialLevels.filter((level) => level.difficulty === difficulty);
     assert(levels.length === 10, `spatial puzzle ${difficulty} should have 10 levels`);
     assert(levels.every((level) => level.badge === `${level.options.length} Antworten`), `spatial puzzle ${difficulty} levels should expose answer badge`);
+    assert(levels.every((level) => !("hint" in level)), `spatial puzzle ${difficulty} still exposes hints`);
   }
 }
 

@@ -310,7 +310,7 @@ const GAME_CONFIGS = {
     title: "Battleships", eyebrow: "Schiffe finden", code: "B",
     subtitle: "Bestimme die Positionen der versteckten Flotte im Raster.",
     success: "Alle Schiffe sind korrekt platziert!",
-    rules: ["Die Zahlen am oberen und linken Rand zeigen, wie viele Schiffsteile in der jeweiligen Spalte oder Zeile liegen.", "Am rechten und unteren Rand siehst du die Flotte, die im Raster versteckt ist.", "Kurz tippen markiert Wasser. Langer Druck setzt ein Schiffsteil. Kurzer Tipp auf ein Schiffsteil löscht es."],
+    rules: ["Die Zahlen am oberen und linken Rand zeigen, wie viele Schiffsteile in der jeweiligen Spalte oder Zeile liegen.", "Am rechten und unteren Rand siehst du die Flotte, die im Raster versteckt ist.", "Kurz tippen markiert Wasser. Langer Druck setzt ein Schiffsteil. Kurzes Antippen auf ein Schiffsteil löscht es."],
   },
   kakuro: {
     title: "Kakuro", eyebrow: "Summen knobeln", code: "K",
@@ -334,7 +334,7 @@ const GAME_CONFIGS = {
     title: "Zahlenzauber", eyebrow: "Rechenrätsel", code: "Z",
     subtitle: "Löse Plus- und Minusaufgaben mit freundlichen Antwortkarten.",
     success: "Gut gerechnet! Du hast die Aufgaben geschafft.",
-    rules: ["Lies die Rechenaufgabe genau.", "Tippe auf die passende Zahl.", "Nach einem zweiten Versuch hilft dir ein Tipp beim Weiterrechnen."],
+    rules: ["Lies die Rechenaufgabe genau.", "Tippe auf die passende Zahl.", "Wenn es nicht passt, probiere es in Ruhe noch einmal."],
   },
   sequencePuzzle: {
     title: "Zahlenfolge", eyebrow: "Muster erkennen", code: "F",
@@ -1321,57 +1321,57 @@ function shapeSequenceTaskKey(task) {
 }
 
 const ODD_ONE_OUT_ITEMS = [
-  { id: "e1", items: ["🐶", "🐱", "🐭", "🚗"], answer: "🚗", diff: "easy", hint: "Drei sind Tiere, eins ist ein Fahrzeug." },
-  { id: "e2", items: ["🍎", "🍌", "🍇", "⚽"], answer: "⚽", diff: "easy", hint: "Drei kannst du essen, eins ist zum Spielen." },
-  { id: "e3", items: ["🚗", "🚌", "🚂", "🍎"], answer: "🍎", diff: "easy", hint: "Drei sind Fahrzeuge, eins ist Obst." },
-  { id: "e4", items: ["👕", "👖", "👗", "🐶"], answer: "🐶", diff: "easy", hint: "Drei sind Kleidungsstücke, eins ist ein Tier." },
-  { id: "e5", items: ["☀️", "🌧️", "☁️", "🎸"], answer: "🎸", diff: "easy", hint: "Drei gehören zum Wetter, eins macht Musik." },
-  { id: "e6", items: ["🎸", "🎺", "🥁", "🍕"], answer: "🍕", diff: "easy", hint: "Drei sind Instrumente, eins ist Essen." },
-  { id: "e7", items: ["⚽", "🏀", "🎾", "📱"], answer: "📱", diff: "easy", hint: "Drei sind Bälle, eins ist ein Telefon." },
-  { id: "e8", items: ["🍕", "🍔", "🍟", "🌲"], answer: "🌲", diff: "easy", hint: "Drei sind leckeres Essen, eins gehört in den Wald." },
-  { id: "e9", items: ["🌲", "🌳", "🌴", "🚗"], answer: "🚗", diff: "easy", hint: "Drei sind Bäume, eins fährt auf der Straße." },
-  { id: "e10", items: ["📱", "💻", "📺", "🍌"], answer: "🍌", diff: "easy", hint: "Drei sind Geräte mit Bildschirm, eins ist eine Frucht." },
-  { id: "e11", items: ["🦅", "🦉", "🦆", "🐱"], answer: "🐱", diff: "easy", hint: "Drei sind Vögel, eins ist eine Katze." },
-  { id: "e12", items: ["🐟", "🐬", "🦈", "🦁"], answer: "🦁", diff: "easy", hint: "Drei schwimmen im Meer, eins lebt an Land." },
+  { id: "e1", items: ["🐶", "🐱", "🐭", "🚗"], answer: "🚗", diff: "easy" },
+  { id: "e2", items: ["🍎", "🍌", "🍇", "⚽"], answer: "⚽", diff: "easy" },
+  { id: "e3", items: ["🚗", "🚌", "🚂", "🍎"], answer: "🍎", diff: "easy" },
+  { id: "e4", items: ["👕", "👖", "👗", "🐶"], answer: "🐶", diff: "easy" },
+  { id: "e5", items: ["☀️", "🌧️", "☁️", "🎸"], answer: "🎸", diff: "easy" },
+  { id: "e6", items: ["🎸", "🎺", "🥁", "🍕"], answer: "🍕", diff: "easy" },
+  { id: "e7", items: ["⚽", "🏀", "🎾", "📱"], answer: "📱", diff: "easy" },
+  { id: "e8", items: ["🍕", "🍔", "🍟", "🌲"], answer: "🌲", diff: "easy" },
+  { id: "e9", items: ["🌲", "🌳", "🌴", "🚗"], answer: "🚗", diff: "easy" },
+  { id: "e10", items: ["📱", "💻", "📺", "🍌"], answer: "🍌", diff: "easy" },
+  { id: "e11", items: ["🦅", "🦉", "🦆", "🐱"], answer: "🐱", diff: "easy" },
+  { id: "e12", items: ["🐟", "🐬", "🦈", "🦁"], answer: "🦁", diff: "easy" },
 
-  { id: "m1", items: ["🍎", "🍌", "🍇", "🥕"], answer: "🥕", diff: "medium", hint: "Drei sind süßes Obst, eins ist Gemüse." },
-  { id: "m2", items: ["🦅", "🦉", "🕊️", "✈️"], answer: "✈️", diff: "medium", hint: "Drei sind echte Vögel, eins ist eine Maschine." },
-  { id: "m3", items: ["🚗", "🚌", "🚓", "⛵"], answer: "⛵", diff: "medium", hint: "Drei fahren auf der Straße, eins schwimmt auf dem Wasser." },
-  { id: "m4", items: ["🛋️", "🛏️", "🪑", "🏠"], answer: "🏠", diff: "medium", hint: "Drei sind Möbelstücke, das andere ist das ganze Gebäude." },
-  { id: "m5", items: ["🐶", "🐱", "🐹", "🐺"], answer: "🐺", diff: "medium", hint: "Drei sind Haustiere, eins ist ein wildes Tier." },
-  { id: "m6", items: ["🐝", "🦋", "🐞", "🦅"], answer: "🦅", diff: "medium", hint: "Drei sind kleine Insekten, eins ist ein großer Vogel." },
-  { id: "m7", items: ["🎸", "🎻", "🪕", "🥁"], answer: "🥁", diff: "medium", hint: "Drei haben Saiten, eins ist eine Trommel." },
-  { id: "m8", items: ["⚽", "🏀", "🏐", "🏈"], answer: "🏈", diff: "medium", hint: "Drei Bälle sind rund, einer ist oval." },
-  { id: "m9", items: ["🛳️", "⛵", "🛶", "🚁"], answer: "🚁", diff: "medium", hint: "Drei sind Boote, eins fliegt in der Luft." },
-  { id: "m10", items: ["☀️", "⭐", "🌙", "🌲"], answer: "🌲", diff: "medium", hint: "Drei sind am Himmel, eins wächst am Boden." },
-  { id: "m11", items: ["✏️", "🖊️", "🖍️", "✂️"], answer: "✂️", diff: "medium", hint: "Mit drei Dingen kannst du malen, eins schneidet." },
-  { id: "m12", items: ["🍓", "🍒", "🍎", "🍋"], answer: "🍋", diff: "medium", hint: "Drei Früchte sind rot, eine ist gelb." },
+  { id: "m1", items: ["🍎", "🍌", "🍇", "🥕"], answer: "🥕", diff: "medium" },
+  { id: "m2", items: ["🦅", "🦉", "🕊️", "✈️"], answer: "✈️", diff: "medium" },
+  { id: "m3", items: ["🚗", "🚌", "🚓", "⛵"], answer: "⛵", diff: "medium" },
+  { id: "m4", items: ["🛋️", "🛏️", "🪑", "🏠"], answer: "🏠", diff: "medium" },
+  { id: "m5", items: ["🐶", "🐱", "🐹", "🐺"], answer: "🐺", diff: "medium" },
+  { id: "m6", items: ["🐝", "🦋", "🐞", "🦅"], answer: "🦅", diff: "medium" },
+  { id: "m7", items: ["🎸", "🎻", "🪕", "🥁"], answer: "🥁", diff: "medium" },
+  { id: "m8", items: ["⚽", "🏀", "🏐", "🏈"], answer: "🏈", diff: "medium" },
+  { id: "m9", items: ["🛳️", "⛵", "🛶", "🚁"], answer: "🚁", diff: "medium" },
+  { id: "m10", items: ["☀️", "⭐", "🌙", "🌲"], answer: "🌲", diff: "medium" },
+  { id: "m11", items: ["✏️", "🖊️", "🖍️", "✂️"], answer: "✂️", diff: "medium" },
+  { id: "m12", items: ["🍓", "🍒", "🍎", "🍋"], answer: "🍋", diff: "medium" },
 
-  { id: "h1", items: ["🦁", "🐯", "🐻", "🐮"], answer: "🐮", diff: "hard", hint: "Drei sind wilde Tiere, eins lebt auf dem Bauernhof." },
-  { id: "h2", items: ["🐷", "🐮", "🐔", "🦓"], answer: "🦓", diff: "hard", hint: "Drei leben auf dem Bauernhof, eins in der Wildnis." },
-  { id: "h3", items: ["✈️", "🚁", "🚀", "🚗"], answer: "🚗", diff: "hard", hint: "Drei fliegen, eins bleibt auf der Erde." },
-  { id: "h4", items: ["🍎", "🍅", "🍓", "🥦"], answer: "🥦", diff: "hard", hint: "Drei Dinge sind rot, eins ist grün." },
-  { id: "h5", items: ["🍋", "🍌", "🧀", "🫐"], answer: "🫐", diff: "hard", hint: "Drei Dinge sind gelb, eins ist blau." },
-  { id: "h6", items: ["🌲", "🌳", "🌵", "🌹"], answer: "🌹", diff: "hard", hint: "Drei sind Bäume oder stachelig, eins ist eine blühende Blume." },
-  { id: "h7", items: ["🥛", "☕", "🍵", "🍔"], answer: "🍔", diff: "hard", hint: "Drei Dinge kannst du trinken, eins musst du essen." },
-  { id: "h8", items: ["🚲", "🛴", "🛹", "🚗"], answer: "🚗", diff: "hard", hint: "Drei bewegst du mit deiner eigenen Kraft, eins hat einen starken Motor." },
-  { id: "h9", items: ["🎸", "🎹", "🥁", "🎧"], answer: "🎧", diff: "hard", hint: "Drei machen Musik, eins ist nur zum Hören da." },
-  { id: "h10", items: ["🔨", "🔧", "🪛", "🔪"], answer: "🔪", diff: "hard", hint: "Drei sind Werkzeuge für den Handwerker, eins gehört in die Küche." },
-  { id: "h11", items: ["🌞", "🌻", "🍋", "🍎"], answer: "🍎", diff: "hard", hint: "Drei Dinge sind gelb, eins ist rot." },
-  { id: "h12", items: ["🦅", "🦇", "🦋", "🐧"], answer: "🐧", diff: "hard", hint: "Drei können fliegen, eins bleibt am Boden oder im Wasser." },
+  { id: "h1", items: ["🦁", "🐯", "🐻", "🐮"], answer: "🐮", diff: "hard" },
+  { id: "h2", items: ["🐷", "🐮", "🐔", "🦓"], answer: "🦓", diff: "hard" },
+  { id: "h3", items: ["✈️", "🚁", "🚀", "🚗"], answer: "🚗", diff: "hard" },
+  { id: "h4", items: ["🍎", "🍅", "🍓", "🥦"], answer: "🥦", diff: "hard" },
+  { id: "h5", items: ["🍋", "🍌", "🧀", "🫐"], answer: "🫐", diff: "hard" },
+  { id: "h6", items: ["🌲", "🌳", "🌵", "🌹"], answer: "🌹", diff: "hard" },
+  { id: "h7", items: ["🥛", "☕", "🍵", "🍔"], answer: "🍔", diff: "hard" },
+  { id: "h8", items: ["🚲", "🛴", "🛹", "🚗"], answer: "🚗", diff: "hard" },
+  { id: "h9", items: ["🎸", "🎹", "🥁", "🎧"], answer: "🎧", diff: "hard" },
+  { id: "h10", items: ["🔨", "🔧", "🪛", "🔪"], answer: "🔪", diff: "hard" },
+  { id: "h11", items: ["🌞", "🌻", "🍋", "🍎"], answer: "🍎", diff: "hard" },
+  { id: "h12", items: ["🦅", "🦇", "🦋", "🐧"], answer: "🐧", diff: "hard" },
 
-  { id: "x1", items: ["⚽", "🏀", "🌎", "🎲"], answer: "🎲", diff: "extreme", hint: "Drei Dinge sind kugelig und rund, eins ist eckig wie ein Würfel." },
-  { id: "x2", items: ["🚗", "🚲", "🏍️", "🚁"], answer: "🚁", diff: "extreme", hint: "Drei haben Räder, eins hat Rotoren zum Fliegen." },
-  { id: "x3", items: ["🐟", "🦈", "🐠", "🐬"], answer: "🐬", diff: "extreme", hint: "Drei sind Fische, eins ist ein Säugetier, das Luft atmen muss." },
-  { id: "x4", items: ["🍅", "🍆", "🥒", "🍎"], answer: "🍎", diff: "extreme", hint: "Drei isst du oft als Gemüse oder Salat, eins ist süßes Obst." },
-  { id: "x5", items: ["🕰️", "⌚", "⏰", "📱"], answer: "📱", diff: "extreme", hint: "Drei sind reine Uhren, eins kann noch viel mehr." },
-  { id: "x6", items: ["📓", "📕", "📗", "📜"], answer: "📜", diff: "extreme", hint: "Drei sind gebundene Bücher, eins ist eine gerollte Schrift." },
-  { id: "x7", items: ["👢", "👟", "🥾", "🧤"], answer: "🧤", diff: "extreme", hint: "Drei ziehst du an die Füße, eins an die Hände." },
-  { id: "x8", items: ["🌕", "🌖", "🌗", "☀️"], answer: "☀️", diff: "extreme", hint: "Drei zeigen Phasen des Mondes, eins ist die Sonne." },
-  { id: "x9", items: ["💻", "📱", "📺", "📻"], answer: "📻", diff: "extreme", hint: "Drei haben einen Bildschirm zum Schauen, eins ist nur zum Hören." },
-  { id: "x10", items: ["🚆", "🚋", "🚈", "🚌"], answer: "🚌", diff: "extreme", hint: "Drei fahren auf Schienen, eins fährt auf Reifen auf der Straße." },
-  { id: "x11", items: ["🍕", "🥧", "🍩", "🌭"], answer: "🌭", diff: "extreme", hint: "Drei sind rund, eins ist lang." },
-  { id: "x12", items: ["🧊", "⛄", "❄️", "🔥"], answer: "🔥", diff: "extreme", hint: "Drei sind eiskalt, eins ist extrem heiß." },
+  { id: "x1", items: ["⚽", "🏀", "🌎", "🎲"], answer: "🎲", diff: "extreme" },
+  { id: "x2", items: ["🚗", "🚲", "🏍️", "🚁"], answer: "🚁", diff: "extreme" },
+  { id: "x3", items: ["🐟", "🦈", "🐠", "🐬"], answer: "🐬", diff: "extreme" },
+  { id: "x4", items: ["🍅", "🍆", "🥒", "🍎"], answer: "🍎", diff: "extreme" },
+  { id: "x5", items: ["🕰️", "⌚", "⏰", "📱"], answer: "📱", diff: "extreme" },
+  { id: "x6", items: ["📓", "📕", "📗", "📜"], answer: "📜", diff: "extreme" },
+  { id: "x7", items: ["👢", "👟", "🥾", "🧤"], answer: "🧤", diff: "extreme" },
+  { id: "x8", items: ["🌕", "🌖", "🌗", "☀️"], answer: "☀️", diff: "extreme" },
+  { id: "x9", items: ["💻", "📱", "📺", "📻"], answer: "📻", diff: "extreme" },
+  { id: "x10", items: ["🚆", "🚋", "🚈", "🚌"], answer: "🚌", diff: "extreme" },
+  { id: "x11", items: ["🍕", "🥧", "🍩", "🌭"], answer: "🌭", diff: "extreme" },
+  { id: "x12", items: ["🧊", "⛄", "❄️", "🔥"], answer: "🔥", diff: "extreme" },
 ];
 
 function generateOddOneOutTask(difficulty) {
@@ -1387,7 +1387,6 @@ function generateOddOneOutTask(difficulty) {
     difficulty: safeDifficulty,
     correctAnswer: item.answer,
     options,
-    hintText: item.hint,
   };
 }
 
@@ -1406,7 +1405,6 @@ const WHAT_FITS_LEVEL_DATA = {
         { id: "sock", emoji: "🧦", label: "Socke" },
         { id: "ball", emoji: "⚽", label: "Ball" }
       ],
-      hint: "Was braucht man meistens zusammen beim Zähneputzen?",
       explanation: "Zur Zahnbürste passt Zahnpasta, weil man damit die Zähne putzt."
     },
     {
@@ -1418,7 +1416,6 @@ const WHAT_FITS_LEVEL_DATA = {
         { id: "pencil", emoji: "✏️", label: "Stift" },
         { id: "fish", emoji: "🐟", label: "Fisch" }
       ],
-      hint: "Womit kann man ein Schloss öffnen?",
       explanation: "Zum Schloss passt der Schlüssel, weil man damit auf- und zuschliessen kann."
     },
     {
@@ -1430,7 +1427,6 @@ const WHAT_FITS_LEVEL_DATA = {
         { id: "spoon", emoji: "🥄", label: "Löffel" },
         { id: "book", emoji: "📘", label: "Buch" }
       ],
-      hint: "Was schützt dich beim Fahrradfahren?",
       explanation: "Zum Fahrrad passt der Helm, weil er den Kopf schützt."
     },
     {
@@ -1442,7 +1438,6 @@ const WHAT_FITS_LEVEL_DATA = {
         { id: "shoe", emoji: "👟", label: "Schuh" },
         { id: "drum", emoji: "🥁", label: "Trommel" }
       ],
-      hint: "Womit isst man Suppe am einfachsten?",
       explanation: "Zur Suppe passt der Löffel, weil man Suppe damit essen kann."
     },
     {
@@ -1454,7 +1449,6 @@ const WHAT_FITS_LEVEL_DATA = {
         { id: "car", emoji: "🚗", label: "Auto" },
         { id: "scissors", emoji: "✂️", label: "Schere" }
       ],
-      hint: "Was hilft einer Blume beim Wachsen?",
       explanation: "Zur Blume passt die Giesskanne, weil Blumen Wasser brauchen."
     },
     {
@@ -1466,7 +1460,6 @@ const WHAT_FITS_LEVEL_DATA = {
         { id: "moon", emoji: "🌙", label: "Mond" },
         { id: "train", emoji: "🚂", label: "Zug" }
       ],
-      hint: "Was schneidet man oft mit einer Schere?",
       explanation: "Zur Schere passt Papier, weil man Papier gut schneiden kann."
     },
     {
@@ -1478,7 +1471,6 @@ const WHAT_FITS_LEVEL_DATA = {
         { id: "saddle", emoji: "🏇", label: "Sattel" },
         { id: "bucket", emoji: "🪣", label: "Eimer" }
       ],
-      hint: "Was braucht man oft beim Spazieren mit einem Hund?",
       explanation: "Zum Hund passt die Hundeleine, weil man damit sicher spazieren gehen kann."
     },
     {
@@ -1490,7 +1482,6 @@ const WHAT_FITS_LEVEL_DATA = {
         { id: "cloud", emoji: "☁️", label: "Wolke" },
         { id: "cake", emoji: "🍰", label: "Kuchen" }
       ],
-      hint: "Was legt man oft in den Schulranzen?",
       explanation: "Zum Schulranzen passt das Schulbuch, weil man es in die Schule mitnimmt."
     },
     {
@@ -1502,7 +1493,6 @@ const WHAT_FITS_LEVEL_DATA = {
         { id: "glove", emoji: "🧤", label: "Handschuh" },
         { id: "leaf", emoji: "🍃", label: "Blatt" }
       ],
-      hint: "Was steckt oft auf einem Geburtstagskuchen?",
       explanation: "Zum Geburtstagskuchen passt die Kerze, weil man sie oft auspustet."
     },
     {
@@ -1514,7 +1504,6 @@ const WHAT_FITS_LEVEL_DATA = {
         { id: "violin", emoji: "🎻", label: "Geige" },
         { id: "carrot", emoji: "🥕", label: "Rüebli" }
       ],
-      hint: "Womit baut man am Strand oft eine Sandburg?",
       explanation: "Zur Sandburg passt der Eimer, weil man damit Sand formen kann."
     }
   ],
@@ -1528,7 +1517,6 @@ const WHAT_FITS_LEVEL_DATA = {
         { id: "banana", emoji: "🍌", label: "Banane" },
         { id: "rocket", emoji: "🚀", label: "Rakete" }
       ],
-      hint: "Was klebt man oft auf einen Brief, bevor man ihn abschickt?",
       explanation: "Zum Brief passt die Briefmarke, weil sie zum Verschicken gehört."
     },
     {
@@ -1540,7 +1528,6 @@ const WHAT_FITS_LEVEL_DATA = {
         { id: "piano", emoji: "🎹", label: "Klavier" },
         { id: "snowman", emoji: "⛄", label: "Schneemann" }
       ],
-      hint: "Wo findet eine Biene Nektar?",
       explanation: "Zur Biene passt die Blume, weil Bienen dort Nektar sammeln."
     },
     {
@@ -1552,7 +1539,6 @@ const WHAT_FITS_LEVEL_DATA = {
         { id: "book", emoji: "📚", label: "Bücher" },
         { id: "moon", emoji: "🌙", label: "Mond" }
       ],
-      hint: "Womit kann die Feuerwehr Feuer löschen?",
       explanation: "Zur Feuerwehr passt der Wasserschlauch, weil sie damit Feuer löschen kann."
     },
     {
@@ -1564,7 +1550,6 @@ const WHAT_FITS_LEVEL_DATA = {
         { id: "pizza", emoji: "🍕", label: "Pizza" },
         { id: "hammer", emoji: "🔨", label: "Hammer" }
       ],
-      hint: "Was benutzt man oft als Nase für einen Schneemann?",
       explanation: "Zum Schneemann passt das Rüebli, weil es oft seine Nase ist."
     },
     {
@@ -1576,7 +1561,6 @@ const WHAT_FITS_LEVEL_DATA = {
         { id: "cake", emoji: "🍰", label: "Kuchen" },
         { id: "lamp", emoji: "💡", label: "Lampe" }
       ],
-      hint: "Was soll in dieses Tor geschossen werden?",
       explanation: "Zum Fussballtor passt der Fussball, weil man Tore damit schiesst."
     },
     {
@@ -1588,7 +1572,6 @@ const WHAT_FITS_LEVEL_DATA = {
         { id: "anchor", emoji: "⚓", label: "Anker" },
         { id: "shoe", emoji: "👞", label: "Schuh" }
       ],
-      hint: "Was entsteht, wenn man mit einer Kamera etwas aufnimmt?",
       explanation: "Zur Kamera passt das Foto, weil man Fotos mit einer Kamera macht."
     },
     {
@@ -1600,7 +1583,6 @@ const WHAT_FITS_LEVEL_DATA = {
         { id: "fish", emoji: "🐟", label: "Fisch" },
         { id: "magnet", emoji: "🧲", label: "Magnet" }
       ],
-      hint: "Was macht ein Bäcker besonders oft?",
       explanation: "Zum Bäcker passt Brot, weil Bäcker Brot und Gebäck herstellen."
     },
     {
@@ -1612,7 +1594,6 @@ const WHAT_FITS_LEVEL_DATA = {
         { id: "snowflake", emoji: "❄️", label: "Schnee" },
         { id: "balloon", emoji: "🎈", label: "Ballon" }
       ],
-      hint: "Womit fängt ein Fischer oft Fische?",
       explanation: "Zum Fischer passt die Angel, weil man damit Fische fangen kann."
     },
     {
@@ -1624,7 +1605,6 @@ const WHAT_FITS_LEVEL_DATA = {
         { id: "tomato", emoji: "🍅", label: "Tomate" },
         { id: "umbrella", emoji: "☂️", label: "Schirm" }
       ],
-      hint: "Was entsteht, wenn jemand Gitarre spielt?",
       explanation: "Zur Gitarre passt Musik, weil man mit ihr Musik machen kann."
     },
     {
@@ -1636,7 +1616,6 @@ const WHAT_FITS_LEVEL_DATA = {
         { id: "cookie", emoji: "🍪", label: "Guetzli" },
         { id: "key", emoji: "🔑", label: "Schlüssel" }
       ],
-      hint: "Was braucht ein Maler zum Malen?",
       explanation: "Zum Maler passt die Farbpalette, weil er damit Farben auswählt."
     }
   ],
@@ -1650,7 +1629,6 @@ const WHAT_FITS_LEVEL_DATA = {
         { id: "soap", emoji: "🧼", label: "Seife" },
         { id: "drum", emoji: "🥁", label: "Trommel" }
       ],
-      hint: "Womit findet man gemeinsam den richtigen Weg?",
       explanation: "Zum Kompass passt die Karte, weil beide beim Orientieren helfen."
     },
     {
@@ -1662,7 +1640,6 @@ const WHAT_FITS_LEVEL_DATA = {
         { id: "flower", emoji: "🌸", label: "Blume" },
         { id: "bike", emoji: "🚲", label: "Fahrrad" }
       ],
-      hint: "Wobei misst man oft die Körpertemperatur?",
       explanation: "Zum Thermometer passt Fieber, weil man damit Temperatur misst."
     },
     {
@@ -1674,7 +1651,6 @@ const WHAT_FITS_LEVEL_DATA = {
         { id: "bread", emoji: "🍞", label: "Brot" },
         { id: "pencil", emoji: "✏️", label: "Stift" }
       ],
-      hint: "In welches Tier verwandelt sich eine Raupe später?",
       explanation: "Zur Raupe passt der Schmetterling, weil aus einer Raupe ein Schmetterling werden kann."
     },
     {
@@ -1686,7 +1662,6 @@ const WHAT_FITS_LEVEL_DATA = {
         { id: "fish", emoji: "🐠", label: "Fisch" },
         { id: "shoe", emoji: "👟", label: "Schuh" }
       ],
-      hint: "Was gibt einer Taschenlampe Energie?",
       explanation: "Zur Taschenlampe passt die Batterie, weil sie Strom liefert."
     },
     {
@@ -1698,7 +1673,6 @@ const WHAT_FITS_LEVEL_DATA = {
         { id: "banana", emoji: "🍌", label: "Banane" },
         { id: "scarf", emoji: "🧣", label: "Schal" }
       ],
-      hint: "Worauf fährt ein Zug?",
       explanation: "Zum Zug passen Schienen, weil Züge darauf fahren."
     },
     {
@@ -1710,7 +1684,6 @@ const WHAT_FITS_LEVEL_DATA = {
         { id: "sailboat", emoji: "⛵", label: "Segelboot" },
         { id: "cookie", emoji: "🍪", label: "Guetzli" }
       ],
-      hint: "Womit hört eine Ärztin Herz und Lunge ab?",
       explanation: "Zur Ärztin passt das Stethoskop, weil sie damit abhören kann."
     },
     {
@@ -1722,7 +1695,6 @@ const WHAT_FITS_LEVEL_DATA = {
         { id: "cake", emoji: "🍰", label: "Kuchen" },
         { id: "train", emoji: "🚂", label: "Zug" }
       ],
-      hint: "Was macht man mit Abfall, wenn man ihn richtig trennt?",
       explanation: "Zu Abfall passt Recycling, weil manche Dinge wiederverwertet werden können."
     },
     {
@@ -1734,7 +1706,6 @@ const WHAT_FITS_LEVEL_DATA = {
         { id: "tomato", emoji: "🍅", label: "Tomate" },
         { id: "fish", emoji: "🐟", label: "Fisch" }
       ],
-      hint: "Was kann man aus Wolle stricken?",
       explanation: "Zur Wolle passt der Pullover, weil man Kleidung daraus machen kann."
     },
     {
@@ -1746,7 +1717,6 @@ const WHAT_FITS_LEVEL_DATA = {
         { id: "phone", emoji: "📱", label: "Telefon" },
         { id: "spoon", emoji: "🥄", label: "Löffel" }
       ],
-      hint: "Was kann aus einem Samen wachsen?",
       explanation: "Zum Samen passt der Baum, weil aus einem Samen eine Pflanze wachsen kann."
     },
     {
@@ -1758,7 +1728,6 @@ const WHAT_FITS_LEVEL_DATA = {
         { id: "sock", emoji: "🧦", label: "Socke" },
         { id: "hammer", emoji: "🔨", label: "Hammer" }
       ],
-      hint: "Womit kann man den Mond genauer anschauen?",
       explanation: "Zum Mond passt das Fernrohr, weil man ihn damit besser beobachten kann."
     }
   ],
@@ -1772,7 +1741,6 @@ const WHAT_FITS_LEVEL_DATA = {
         { id: "train", emoji: "🚆", label: "Zug" },
         { id: "glove", emoji: "🧤", label: "Handschuh" }
       ],
-      hint: "Was braucht es, damit ein Schatten entstehen kann?",
       explanation: "Zum Schatten passt die Sonne, weil Licht einen Schatten entstehen lässt."
     },
     {
@@ -1784,7 +1752,6 @@ const WHAT_FITS_LEVEL_DATA = {
         { id: "icecream", emoji: "🍦", label: "Glace" },
         { id: "flower", emoji: "🌷", label: "Blume" }
       ],
-      hint: "Wobei entsteht Rauch oft?",
       explanation: "Zu Rauch passt Feuer, weil bei Feuer oft Rauch entsteht."
     },
     {
@@ -1796,7 +1763,6 @@ const WHAT_FITS_LEVEL_DATA = {
         { id: "pencil", emoji: "✏️", label: "Stift" },
         { id: "cake", emoji: "🎂", label: "Kuchen" }
       ],
-      hint: "Was bewegt ein Segelboot ohne Motor?",
       explanation: "Zum Segelboot passt Wind, weil Wind die Segel antreibt."
     },
     {
@@ -1808,7 +1774,6 @@ const WHAT_FITS_LEVEL_DATA = {
         { id: "shoe", emoji: "👟", label: "Schuh" },
         { id: "drum", emoji: "🥁", label: "Trommel" }
       ],
-      hint: "Welche Energie nutzt eine Solarzelle?",
       explanation: "Zur Solarzelle passt Sonnenlicht, weil sie daraus Strom erzeugen kann."
     },
     {
@@ -1820,7 +1785,6 @@ const WHAT_FITS_LEVEL_DATA = {
         { id: "cloud", emoji: "☁️", label: "Wolke" },
         { id: "bread", emoji: "🍞", label: "Brot" }
       ],
-      hint: "Was kann von einem Magneten angezogen werden?",
       explanation: "Zum Magnet passt die Büroklammer, weil sie aus Metall ist."
     },
     {
@@ -1832,7 +1796,6 @@ const WHAT_FITS_LEVEL_DATA = {
         { id: "guitar", emoji: "🎸", label: "Gitarre" },
         { id: "moon", emoji: "🌙", label: "Mond" }
       ],
-      hint: "Was kann aus einem Ei schlüpfen?",
       explanation: "Zum Ei passt das Küken, weil ein Küken aus einem Ei schlüpfen kann."
     },
     {
@@ -1844,7 +1807,6 @@ const WHAT_FITS_LEVEL_DATA = {
         { id: "key", emoji: "🔑", label: "Schlüssel" },
         { id: "frog", emoji: "🐸", label: "Frosch" }
       ],
-      hint: "Was kann man aus Mehl backen?",
       explanation: "Zu Mehl passt Brot, weil Brot oft aus Mehl gebacken wird."
     },
     {
@@ -1856,7 +1818,6 @@ const WHAT_FITS_LEVEL_DATA = {
         { id: "bus", emoji: "🚌", label: "Bus" },
         { id: "violin", emoji: "🎻", label: "Geige" }
       ],
-      hint: "Wo bleibt ein Eiswürfel kalt?",
       explanation: "Zum Eiswürfel passt das Gefrierfach, weil er dort gefroren bleibt."
     },
     {
@@ -1868,7 +1829,6 @@ const WHAT_FITS_LEVEL_DATA = {
         { id: "cookie", emoji: "🍪", label: "Guetzli" },
         { id: "rocket", emoji: "🚀", label: "Rakete" }
       ],
-      hint: "Wodurch entstehen draussen oft Pfützen?",
       explanation: "Zur Pfütze passt Regen, weil Regenwasser Pfützen bilden kann."
     },
     {
@@ -1880,7 +1840,6 @@ const WHAT_FITS_LEVEL_DATA = {
         { id: "car", emoji: "🚗", label: "Auto" },
         { id: "tree", emoji: "🌳", label: "Baum" }
       ],
-      hint: "Was ist so klein, dass man es mit einem Mikroskop anschauen kann?",
       explanation: "Zum Mikroskop passt der Keim, weil sehr kleine Dinge damit sichtbar werden."
     }
   ]
@@ -1906,7 +1865,6 @@ function generateWhatFitsTask(source, usedKeys = []) {
     correctId: item.correctId,
     correctAnswer: item.correctId,
     options: shuffleOptions(item.options.map((option) => clone(option))),
-    hintText: item.hint,
     explanation: item.explanation,
   };
 }
@@ -2555,14 +2513,11 @@ const appIntro = document.querySelector("#app-intro");
 const levelHeading = document.querySelector("#level-heading");
 const levelDescription = document.querySelector("#level-description");
 const levelGrid = document.querySelector("#level-grid");
-const rulesList = document.querySelector("#rules-list");
-const gameHelpList = document.querySelector("#game-help-list");
 const puzzleTitle = document.querySelector("#puzzle-title");
 const puzzleDescription = document.querySelector("#puzzle-description");
 const statusText = document.querySelector("#status");
 const undoButton = document.querySelector("#undo-button");
 const resetButton = document.querySelector("#reset-button");
-const hintButton = document.querySelector("#hint-button");
 const backButton = document.querySelector("#back-button");
 let successOverlay = document.querySelector("#success-overlay");
 let successRestartButton = document.querySelector("#success-restart-button");
@@ -2594,6 +2549,7 @@ let ignoreNextShikakuClick = false;
 let activeMoveSnapshot = null;
 let pushedActiveSnapshot = false;
 let appAudioContext = null;
+let audioToggleButton = null;
 let successStarTimers = [];
 const BIMARU_LONG_PRESS_MS = 480;
 const LOCAL_SOLVED_PREFIX = "lernapp.solved.";
@@ -2641,7 +2597,6 @@ function markSolved(level, result = {}) {
 }
 function recordMoveMetric() { cloudProgress()?.recordMove?.(); }
 function recordResetMetric() { cloudProgress()?.recordReset?.(currentLevel()); }
-function recordHintMetric() { cloudProgress()?.recordHint?.(currentLevel()); }
 function refreshProgressView() {
   if (!currentGame || !levelPanel || document.body.classList.contains("puzzle-active")) return;
   if (selectedDifficulty) renderLevelSelect();
@@ -2650,7 +2605,6 @@ function refreshProgressView() {
 window.LernappRefreshProgress = refreshProgressView;
 function currentLevel() { return LEVELS_BY_GAME[currentGame][currentIndex]; }
 function setStatus(message) { if (statusText) statusText.textContent = message || ""; }
-function fillList(element, items) { if (!element) return; element.innerHTML = ""; items.forEach((text) => { const li = document.createElement("li"); li.textContent = text; element.append(li); }); }
 function snapshot() { return { state: clone(state), winShown }; }
 function restore(snap) { state = clone(snap.state); winShown = snap.winShown; hideSuccess(); render(); }
 function pushHistory() { if (activeMoveSnapshot) { if (!pushedActiveSnapshot) { history.push(activeMoveSnapshot); pushedActiveSnapshot = true; recordMoveMetric(); } } else { history.push(snapshot()); recordMoveMetric(); } if (undoButton) undoButton.disabled = false; }
@@ -2715,6 +2669,41 @@ function audioFeedbackEnabled() {
     return true;
   }
 }
+function setAudioFeedbackEnabled(enabled) {
+  try {
+    localStorage.setItem(AUDIO_FEEDBACK_STORAGE_KEY, enabled ? "1" : "0");
+  } catch (error) {}
+  if (!enabled && appAudioContext?.state === "running") {
+    appAudioContext.suspend().catch(() => {});
+  }
+  updateAudioToggleButton();
+}
+function updateAudioToggleButton() {
+  if (!audioToggleButton) return;
+  const muted = !audioFeedbackEnabled();
+  audioToggleButton.classList.toggle("muted", muted);
+  audioToggleButton.setAttribute("aria-pressed", muted ? "true" : "false");
+  audioToggleButton.setAttribute("aria-label", muted ? "Ton einschalten" : "Ton stummschalten");
+  audioToggleButton.title = muted ? "Ton einschalten" : "Ton stummschalten";
+}
+function setupAudioToggle() {
+  if (audioToggleButton || !document.body || typeof document.createElement !== "function") return;
+  audioToggleButton = document.createElement("button");
+  audioToggleButton.type = "button";
+  audioToggleButton.className = "sound-toggle";
+  audioToggleButton.dataset.audioToggle = "true";
+  audioToggleButton.innerHTML = `
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path class="sound-core" d="M11 5 6 9H3v6h3l5 4V5z"/>
+      <path class="sound-wave" d="M15.5 8.5a5 5 0 0 1 0 7"/>
+      <path class="sound-wave sound-wave-wide" d="M18.3 5.7a9 9 0 0 1 0 12.6"/>
+      <path class="sound-off-line" d="M4 4l16 16"/>
+    </svg>
+  `;
+  audioToggleButton.addEventListener("click", () => setAudioFeedbackEnabled(!audioFeedbackEnabled()));
+  document.body.append(audioToggleButton);
+  updateAudioToggleButton();
+}
 function ensureAppAudioContext() {
   if (!audioFeedbackEnabled()) return null;
   const AudioContextConstructor = window.AudioContext || window.webkitAudioContext;
@@ -2766,11 +2755,13 @@ function playSuccessStarTone(index) {
 function feedbackTargetFromEvent(event) {
   const target = event.target?.closest?.("button, a.icon-button, a.selection-back-button");
   if (!target) return null;
+  if (target.closest?.("[data-audio-toggle]")) return null;
   if (target instanceof HTMLButtonElement && target.disabled) return null;
   if (target.getAttribute("aria-disabled") === "true") return null;
   return target;
 }
 function setupAudioFeedback() {
+  setupAudioToggle();
   document.addEventListener("pointerdown", (event) => {
     if (!feedbackTargetFromEvent(event)) return;
     playTapFeedback();
@@ -3036,7 +3027,6 @@ function renderDifficultySelect() {
   if (appIntro) appIntro.textContent = "";
   levelDescription.textContent = "";
   levelDescription.hidden = true;
-  fillList(rulesList, config.rules);
   renderSelectionActions("difficulty");
   levelGrid.className = "difficulty-grid";
   levelGrid.setAttribute("aria-label", "Schwierigkeitsgrad auswählen");
@@ -3072,7 +3062,6 @@ function renderLevelSelect() {
   if (appIntro) appIntro.textContent = "";
   levelDescription.hidden = false;
   levelDescription.textContent = `Du hast ${difficulty.label} gewaehlt. Such dir jetzt ein freies Level aus.${isUnlockedModeEnabled() ? " Der freie Modus ist aktiv." : ""}`;
-  fillList(rulesList, config.rules);
   renderSelectionActions("levels");
   levelGrid.className = "level-grid";
   levelGrid.setAttribute("aria-label", `${config.title} ${difficulty.label} Levels`);
@@ -3099,7 +3088,7 @@ function renderLevelSelect() {
 }
 function showLevelSelect() { finishMove(); stopStarTimer({ hide: true }); clearPracticeAdvanceTimer(); if (currentGame === "backpack") clearBackpackTimer(); if (currentGame === "memory") clearMemoryTimer(); cloudProgress()?.flushCurrentSession?.({ close: true, includeElapsed: true }); hideSuccess(); if (levelPanel) levelPanel.hidden = false; if (homePanel) homePanel.hidden = true; if (gamePanel) gamePanel.hidden = true; if (gameControls) gameControls.hidden = true; document.body.classList.remove("puzzle-active", "number-pad-open"); board?.style.removeProperty("--active-board-size"); board?.style.removeProperty("--active-board-offset"); renderLevelSelect(); }
 function showGame() { if (levelPanel) levelPanel.hidden = true; if (homePanel) homePanel.hidden = true; if (gamePanel) gamePanel.hidden = false; if (gameControls) gameControls.hidden = false; document.body.classList.add("puzzle-active"); }
-function startLevel(index) { const levelToStart = LEVELS_BY_GAME[currentGame]?.[index]; if (!isLevelUnlocked(levelToStart)) { if (levelToStart) selectedDifficulty = levelToStart.difficulty; renderLevelSelect(); return; } stopStarTimer({ hide: true }); clearPracticeAdvanceTimer(); hideSuccess(); currentIndex = index; const level = currentLevel(); selectedDifficulty = level.difficulty; const config = GAME_CONFIGS[currentGame]; history = []; winShown = false; if (undoButton) undoButton.disabled = true; const boardSize = level.cols || level.size || 5; board.className = `board ${currentGame}-board board-size-${boardSize}`; board.style.setProperty("--size", boardSize); board.setAttribute("aria-label", `${config.title} Spielfeld`); puzzleTitle.textContent = level.title; puzzleDescription.textContent = level.description || config.subtitle; fillList(gameHelpList, config.rules); cloudProgress()?.recordLevelStart?.(level); resetState(); showGame(); startStarTimer(level); render(); }
+function startLevel(index) { const levelToStart = LEVELS_BY_GAME[currentGame]?.[index]; if (!isLevelUnlocked(levelToStart)) { if (levelToStart) selectedDifficulty = levelToStart.difficulty; renderLevelSelect(); return; } stopStarTimer({ hide: true }); clearPracticeAdvanceTimer(); hideSuccess(); currentIndex = index; const level = currentLevel(); selectedDifficulty = level.difficulty; const config = GAME_CONFIGS[currentGame]; history = []; winShown = false; if (undoButton) undoButton.disabled = true; const boardSize = level.cols || level.size || 5; board.className = `board ${currentGame}-board board-size-${boardSize}`; board.style.setProperty("--size", boardSize); board.setAttribute("aria-label", `${config.title} Spielfeld`); puzzleTitle.textContent = level.title; puzzleDescription.textContent = level.description || config.subtitle; cloudProgress()?.recordLevelStart?.(level); resetState(); showGame(); startStarTimer(level); render(); }
 function resetGame() { history = []; if (undoButton) undoButton.disabled = true; hideSuccess(); cloudProgress()?.recordLevelStart?.(currentLevel()); resetState(); startStarTimer(currentLevel()); recordResetMetric(); render("Neu gestartet. Viel Spass!"); }
 function undo() {
   finishMove();
@@ -3265,7 +3254,6 @@ function setupSuccessOverlay() {
   successRestartButton.addEventListener("click", resetGame);
   nextPuzzleButton.addEventListener("click", nextLevel);
 }
-function handleHint() { const handler = GAME_HANDLERS[currentGame]; if (!handler?.hint) return; recordHintMetric(); handler.hint(); }
 function handleWin() { if (!winShown) showSuccess(); render(); }
 function checkAndWin() { if (GAME_HANDLERS[currentGame].checkWin()) handleWin(); }
 function resetState() { GAME_HANDLERS[currentGame].resetState(currentLevel()); }
@@ -3310,7 +3298,6 @@ function resetPracticeState(level, taskFactory, status) {
     attempts: 0,
     selectedAnswer: null,
     feedback: "",
-    tipVisible: false,
     awaitingNext: false,
     completed: false,
   };
@@ -3329,7 +3316,6 @@ function nextPracticeTask(taskFactory, status) {
   state.attempts = 0;
   state.selectedAnswer = null;
   state.feedback = "";
-  state.tipVisible = false;
   state.awaitingNext = false;
   render(status);
 }
@@ -3363,8 +3349,7 @@ function answerPracticeTask(answer, taskFactory, messages, nextStatus = "Neue Au
     return;
   }
   state.attempts += 1;
-  state.tipVisible = state.attempts >= 2;
-  state.feedback = state.tipVisible ? messages.hint : pickRandom(messages.retry);
+  state.feedback = pickRandom(messages.retry);
   recordPracticeAnswer(level, false);
   render();
 }
@@ -3821,20 +3806,12 @@ function renderWhatFitsFeedback() {
   }
   return feedback;
 }
-function readingHintText(task) {
-  if (task.taskType === "missingLetter") return `Achte auf den ersten Buchstaben: ${task.fullText[0]}.`;
-  if (task.taskType === "chooseWord") return `Das passende Wort beginnt mit ${task.fullText[0]}.`;
-  if (task.taskType === "missingSyllable") return `Sprich das Wort langsam: ${task.fullText}.`;
-  if (task.taskType === "sentenceMissingWord") return "Lies den Satz noch einmal und schau auf das Bild.";
-  return "Vergleiche jeden Satz mit dem Bild.";
-}
 function makeReadingDisplay(task) {
   const display = document.createElement("div");
   display.className = task.taskType === "sentenceMissingWord" ? "reading-display sentence-gap" : "letter-row";
   task.displayText.split(" ").forEach((part, index) => {
     const span = document.createElement("span");
     span.textContent = part;
-    if (state.tipVisible && index === 0 && part !== "_") span.className = "letter-tip";
     display.append(span);
   });
   return display;
@@ -3852,12 +3829,6 @@ function makeReadingTaskView() {
   prompt.textContent = task.prompt;
   view.append(image, prompt);
   if (task.displayText) view.append(makeReadingDisplay(task));
-  if (state.tipVisible) {
-    const hint = document.createElement("p");
-    hint.className = "practice-tip";
-    hint.textContent = readingHintText(task);
-    view.append(hint);
-  }
   return view;
 }
 
@@ -4348,12 +4319,10 @@ const GAME_HANDLERS = {
   mathPuzzle: {
     resetState(level) { resetPracticeState(level, generateMathTask, "Rechne in Ruhe und tippe auf die passende Zahl."); },
     checkWin() { return Boolean(state.completed); },
-    hint() { if (!state.task || state.completed || state.awaitingNext) return; state.tipVisible = true; render("Tipp: Lies die Aufgabe langsam und prüfe die fehlende Zahl."); },
     answer(answer) {
       answerPracticeTask(answer, generateMathTask, {
         correct: ["Richtig!", "Super!", "Gut gerechnet!"],
         retry: ["Fast! Versuch es noch einmal.", "Du bist nah dran. Zähl noch einmal in Ruhe."],
-        hint: "Fast! Die Hilfe zeigt dir einen guten Weg.",
       }, "Neue Aufgabe. Du schaffst das.");
     },
     render(level) {
@@ -4364,12 +4333,10 @@ const GAME_HANDLERS = {
   sequencePuzzle: {
     resetState(level) { resetPracticeState(level, generateSequenceTask, "Schau dir die Reihe genau an. Welche Zahl fehlt?"); },
     checkWin() { return Boolean(state.completed); },
-    hint() { if (!state.task || state.completed || state.awaitingNext) return; state.tipVisible = true; render("Tipp: Wie groß ist der Abstand zwischen den Zahlen?"); },
     answer(answer) {
       answerPracticeTask(answer, generateSequenceTask, {
         correct: ["Richtig!", "Genial erkannt!", "Ganz genau!", "Du bist ein Mathe-Profi!"],
         retry: ["Fast! Prüfe den Abstand der Zahlen nochmal.", "Knapp daneben. Rechne noch einmal nach."],
-        hint: "Tipp: Schau dir an, ob die Zahlen größer oder kleiner werden und um wie viel.",
       }, "Neue Zahlenreihe. Du schaffst das.");
     },
     render(level) {
@@ -4380,12 +4347,10 @@ const GAME_HANDLERS = {
   shapeSequencePuzzle: {
     resetState(level) { resetPracticeState(level, generateShapeSequenceTask, "Schau dir die Reihe genau an. Welche Figur fehlt?"); },
     checkWin() { return Boolean(state.completed); },
-    hint() { if (!state.task || state.completed || state.awaitingNext) return; state.tipVisible = true; render("Tipp: Sprich das Muster laut vor dich hin."); },
     answer(answer) {
       answerPracticeTask(answer, generateShapeSequenceTask, {
         correct: ["Richtig!", "Genial erkannt!", "Ganz genau!", "Super gemacht!"],
         retry: ["Fast! Prüfe das Muster noch einmal.", "Knapp daneben. Schau dir die Reihenfolge genau an."],
-        hint: "Tipp: Achte auf die Farben und die Formen der vorherigen Bilder.",
       }, "Neue Figurenfolge. Du schaffst das.");
     },
     render(level) {
@@ -4396,16 +4361,10 @@ const GAME_HANDLERS = {
   oddOneOut: {
     resetState(level) { resetPracticeState(level, generateOddOneOutTask, "Was passt nicht zu den anderen drei Bildern?"); },
     checkWin() { return Boolean(state.completed); },
-    hint() {
-      if (!state.task || state.completed || state.awaitingNext) return;
-      state.tipVisible = true;
-      render(`Tipp: ${state.task.hintText}`);
-    },
     answer(answer) {
       answerPracticeTask(answer, generateOddOneOutTask, {
         correct: ["Richtig! Das passt nicht.", "Adlerauge! Genau richtig.", "Super erkannt!"],
         retry: ["Fast! Schau noch einmal, was drei der Bilder gemeinsam haben.", "Das war es nicht ganz. Überlege nochmal."],
-        hint: `Tipp: ${state.task ? state.task.hintText : "Schau genau hin."}`,
       });
     },
     render(level) {
@@ -4416,17 +4375,10 @@ const GAME_HANDLERS = {
   whatFits: {
     resetState(level) { resetPracticeState(level, generateWhatFitsTask, "Wähle die Antwortkarte, die am besten passt."); },
     checkWin() { return Boolean(state.completed); },
-    hint() {
-      if (!state.task || state.completed || state.awaitingNext) return;
-      state.tipVisible = true;
-      state.feedback = `Tipp: ${state.task.hintText}`;
-      render("Tipp angezeigt.");
-    },
     answer(optionId) {
       answerPracticeTask(optionId, generateWhatFitsTask, {
         correct: (task) => task.explanation || "Richtig! Das passt zusammen.",
         retry: ["Fast! Überlege, was man zusammen benutzt oder was logisch dazugehört."],
-        hint: `Tipp: ${state.task ? state.task.hintText : "Schau genau hin."}`,
       }, "Neue Aufgabe. Was passt dazu?");
     },
     render(level) {
@@ -4445,12 +4397,10 @@ const GAME_HANDLERS = {
   readingPuzzle: {
     resetState(level) { resetPracticeState(level, generateReadingTask, "Schau auf das Bild und lies genau."); },
     checkWin() { return Boolean(state.completed); },
-    hint() { if (!state.task || state.completed || state.awaitingNext) return; state.tipVisible = true; render("Tipp: Schau noch einmal genau auf Bild und Anfang."); },
     answer(answer) {
       answerPracticeTask(answer, generateReadingTask, {
         correct: ["Richtig gelesen!", "Super!", "Das war das richtige Wort!"],
         retry: ["Fast! Schau noch einmal genau hin.", "Vergleiche das Wort mit dem Bild."],
-        hint: "Achte auf den Anfang und lies langsam weiter.",
       }, "Neue Leseaufgabe.");
     },
     render(level) {
@@ -4469,12 +4419,6 @@ const GAME_HANDLERS = {
       setStatus("Wähle die passende Antwortkarte.");
     },
     checkWin() { return Boolean(state.completed); },
-    hint() {
-      if (state.completed) return;
-      const level = currentLevel();
-      state.feedback = `Tipp: ${level.hint || "Vergleiche Lage, Höhe und Richtung ganz genau."}`;
-      render("Tipp angezeigt.");
-    },
     answer(optionId) {
       if (state.completed) return;
       const level = currentLevel();
@@ -4671,7 +4615,6 @@ const GAME_HANDLERS = {
     ownerAt(r,c) { const k=keyOf(r,c); return Object.entries(state.paths).find(([,path])=>path.some((pt)=>keyOf(...pt)===k))?.[0] || null; },
     canUse(pair,r,c) { const endpoint=this.endpointAt(r,c), owner=this.ownerAt(r,c), ends=currentLevel().pairs[pair]; if(endpoint && endpoint!==pair) return false; if(owner && owner!==pair) return false; return !endpoint || sameCell(ends[0],[r,c]) || sameCell(ends[1],[r,c]); },
     input(r,c,options={}) { if (this.checkWin()) return; const endpoint=this.endpointAt(r,c); const endpointPath=endpoint ? state.paths[endpoint] : null; if(endpoint && options.restartOnEndpoint && endpointPath?.length>1 && !this.isCompleted(endpoint)) { pushHistory(); state.activePair=endpoint; state.paths[endpoint]=[[r,c]]; render(`Weg ${endpoint} gestartet.`); return; } if(endpoint && (!state.activePair || endpoint!==state.activePair || this.isCompleted(state.activePair))) { pushHistory(); state.activePair=endpoint; state.paths[endpoint]=[[r,c]]; render(`Weg ${endpoint} gestartet.`); return; } if(!state.activePair) { render("Bitte zuerst ein Symbol auswählen."); return; } if(this.isCompleted(state.activePair)) { render("Dieser Weg ist fertig. Wähle ein anderes Symbol."); return; } const path=state.paths[state.activePair], last=path.at(-1); if(!isNeighbor(last,[r,c])) { render("Ziehe nur auf ein Nachbarfeld."); return; } const existing=path.findIndex((pt)=>sameCell(pt,[r,c])); if(existing>=0) { pushHistory(); state.paths[state.activePair]=path.slice(0,existing+1); render("Ein Stück zurückgegangen."); return; } if(!this.canUse(state.activePair,r,c)) { render("Dieses Feld gehört schon zu einem anderen Weg."); return; } pushHistory(); state.paths[state.activePair]=[...path,[r,c]]; if(this.isCompleted(state.activePair)) state.activePair=null; this.checkWin()?handleWin():render("Gut! Weiter zum passenden Symbol."); },
-    hint() { const open=Object.keys(currentLevel().pairs).find((p)=>!this.isCompleted(p)); setStatus(open ? `Tipp: Schau dir das Paar ${open} an. Es braucht noch einen Weg.` : "Alle Paare sind verbunden."); },
     render(level) { board.innerHTML=""; board.style.setProperty("--size", level.size); for(let r=0;r<level.size;r++) for(let c=0;c<level.size;c++){ const endpoint=this.endpointAt(r,c), owner=this.ownerAt(r,c); const cell=makeButtonCell(r,c,`cell arukone-cell${endpoint?" endpoint":""}${owner?" filled":""}${state.activePair&&owner===state.activePair?" active":""}`, endpoint || ""); const pair=endpoint||owner; if(pair) cell.style.setProperty("--pair-color", getPairColor(pair)); cell.addEventListener("keydown",(event)=>{ if(event.key==="Enter"||event.key===" ") { event.preventDefault(); this.input(r,c,{ restartOnEndpoint: true }); } }); board.append(cell); } },
   },
   sudoku: {
@@ -4681,7 +4624,6 @@ const GAME_HANDLERS = {
     select(r,c) { if(state.fixed[keyOf(r,c)]) { state.selected=null; render("Diese Startzahl bleibt stehen."); return; } state.selected=[r,c]; render("Wähle eine Zahl aus."); this.renderPad(); },
     setNumber(v) { if(!state.selected) return; const [r,c]=state.selected; pushHistory(); state.values[r][c]=v; state.selected=null; this.checkWin()?handleWin():render(this.conflict(r,c,v)?"Fast! Diese Zahl kommt hier doppelt vor.":"Gut gemacht, weiter so!"); },
     clear() { if(!state.selected) return; const [r,c]=state.selected; pushHistory(); state.values[r][c]=null; state.selected=null; render("Die Zahl ist weg."); },
-    hint() { const level=currentLevel(); for(let r=0;r<level.size;r++) for(let c=0;c<level.size;c++) if(!state.fixed[keyOf(r,c)] && state.values[r][c]!==level.solution[r][c]) { pushHistory(); state.values[r][c]=level.solution[r][c]; render("Tipp: Ich habe ein sicheres Feld eingesetzt."); checkAndWin(); return; } },
     renderPad() { const level=currentLevel(); numberPad.innerHTML=""; numberPad.hidden=false; numberPad.style.setProperty("--pad-cols", Math.min(level.size, 3)); for(let n=1;n<=level.size;n++){ const b=document.createElement("button"); b.type="button"; b.textContent=n; b.addEventListener("click",()=>this.setNumber(n)); numberPad.append(b); } const clear=document.createElement("button"); clear.type="button"; clear.className="clear-number-button"; clear.textContent="Löschen"; clear.addEventListener("click",()=>this.clear()); numberPad.append(clear); },
     render(level) { board.innerHTML=""; board.style.setProperty("--size", level.size); for(let r=0;r<level.size;r++) for(let c=0;c<level.size;c++){ const v=state.values[r][c], fixed=state.fixed[keyOf(r,c)], selected=state.selected&&sameCell(state.selected,[r,c]); const edgeR=(c+1)%level.boxCols===0&&c<level.size-1, edgeB=(r+1)%level.boxRows===0&&r<level.size-1; const cell=makeButtonCell(r,c,`cell sudoku-cell${fixed?" given":""}${selected?" selected":""}${this.conflict(r,c,v)?" conflict":""}${edgeR?" box-edge-right":""}${edgeB?" box-edge-bottom":""}`, v || ""); cell.addEventListener("click",()=>this.select(r,c)); board.append(cell); } if(state.selected) this.renderPad(); },
   },
@@ -4726,21 +4668,6 @@ const GAME_HANDLERS = {
         return;
       }
       this.setCell(r, c, "ship", "Schiffsteil gesetzt. Prüfe Zahlen und Flotte.");
-    },
-    hint() {
-      const level = currentLevel();
-      for (let r = 0; r < level.size; r += 1) for (let c = 0; c < level.size; c += 1) {
-        if (state.grid[r][c] === "ship" && !level.solution[r][c]) {
-          this.setCell(r, c, "", "Tipp: Dieses Schiffsteil passt hier nicht.");
-          return;
-        }
-      }
-      for (let r = 0; r < level.size; r += 1) for (let c = 0; c < level.size; c += 1) {
-        if (level.solution[r][c] && state.grid[r][c] !== "ship") {
-          this.setCell(r, c, "ship", "Tipp: Ein sicheres Schiffsteil ist gesetzt.");
-          return;
-        }
-      }
     },
     attachInput(cell, r, c) {
       let pressTimer = null;
@@ -4815,7 +4742,6 @@ const GAME_HANDLERS = {
     select(r,c) { const value=state.values[r][c]; if(value) { this.activateNumber(value,r,c); return; } if(!this.input(r,c)) setStatus("Die Zahlenkette ist bereits vollstaendig."); },
     input(r,c) { const value=state.values[r][c], max=this.maxNumber(); if(value) { state.activeNumber=value; state.selected=[r,c]; if(!hidokuDrag) render(this.activeNumberStatus(value)); return true; } const next=this.nextNumber(); if(next>max) return false; pushHistory(); state.values[r][c]=next; state.activeNumber=next; state.selected=[r,c]; const hasError=this.conflict(r,c); if(this.checkWin()) { handleWin(); return true; } render(hasError ? `Die ${next} ist theoretisch nicht verbunden. Du kannst trotzdem ab ${next} weiterfahren.` : `Gut! Weiter mit ${this.nextStatusNumber() || "dem Pruefen der Kette"}.`); return true; },
     clear(trackHistory = true) { const level=currentLevel(); for(let n=this.maxNumber(level); n>=1;n--){ const pos=this.numberPosition(n); if(pos && !state.fixed[keyOf(pos[0],pos[1])]) { if(trackHistory) pushHistory(); state.values[pos[0]][pos[1]]=null; state.activeNumber=null; state.selected=null; render("Die groesste eingegebene Zahl ist entfernt."); return true; } } return false; },
-    hint() { const level=currentLevel(); for(let r=0;r<level.size;r++) for(let c=0;c<level.size;c++) if(!state.fixed[keyOf(r,c)] && state.values[r][c]!==level.solution[r][c]) { pushHistory(); state.values[r][c]=level.solution[r][c]; state.activeNumber=level.solution[r][c]; state.selected=[r,c]; render("Tipp: Eine sichere Zahl ist eingetragen. Du kannst dort weiterfahren."); checkAndWin(); return; } },
     render(level) { board.innerHTML=""; board.style.setProperty("--size", level.size); if(numberPad){ numberPad.hidden=true; numberPad.classList.remove("hidoku-pad"); numberPad.innerHTML=""; } for(let r=0;r<level.size;r++) for(let c=0;c<level.size;c++){ const fixed=state.fixed[keyOf(r,c)]; const value=state.values[r][c] || ""; const selected=state.selected&&sameCell(state.selected,[r,c]); const cell=makeButtonCell(r,c,`cell hidoku-cell${fixed?" given":""}${selected?" selected":""}${this.conflict(r,c)?" conflict":""}`, value); cell.addEventListener("click",()=>{ if(ignoreNextHidokuClick){ ignoreNextHidokuClick=false; return; } this.select(r,c); }); board.append(cell); } if (undoButton) undoButton.disabled = !this.hasUserEntries(); },
   },
   kakuro: {
@@ -4825,7 +4751,6 @@ const GAME_HANDLERS = {
     select(r,c) { const level=currentLevel(); if(!this.isWhite(level,r,c)) return; state.selected=[r,c]; render("Wähle eine Zahl von 1 bis 9."); this.renderPad(); },
     setNumber(v) { if(!state.selected) return; const [r,c]=state.selected; pushHistory(); state.values[r][c]=v; state.selected=null; this.checkWin()?handleWin():render(this.conflict(r,c) ? "Schau noch einmal auf Summe und doppelte Zahlen." : "Gut! Prüfe die kreuzenden Summen."); },
     clear() { if(!state.selected) return; const [r,c]=state.selected; pushHistory(); state.values[r][c]=null; state.selected=null; render("Die Zahl ist weg."); },
-    hint() { const level=currentLevel(); for(let r=0;r<level.size;r++) for(let c=0;c<level.size;c++) if(level.solution[r][c] && state.values[r][c]!==level.solution[r][c]) { pushHistory(); state.values[r][c]=level.solution[r][c]; render("Tipp: Ein sicheres Feld ist eingetragen."); checkAndWin(); return; } },
     runConflict(run) { const values=run.cells.map(([r,c])=>state.values[r][c]).filter(Boolean); const duplicate=new Set(values).size!==values.length; const sum=values.reduce((total,value)=>total+value,0); return duplicate || sum>run.sum || (values.length===run.cells.length && sum!==run.sum); },
     conflict(r,c) { const level=currentLevel(); const ids=level.runFor[keyOf(r,c)] || {}; return Object.values(ids).some((id)=>this.runConflict(level.runs.find((run)=>run.id===id))); },
     renderPad() { numberPad.innerHTML=""; numberPad.hidden=false; numberPad.style.setProperty("--pad-cols", 3); for(let n=1;n<=9;n++){ const b=document.createElement("button"); b.type="button"; b.textContent=n; b.addEventListener("click",()=>this.setNumber(n)); numberPad.append(b); } const clear=document.createElement("button"); clear.type="button"; clear.className="clear-number-button"; clear.textContent="Löschen"; clear.addEventListener("click",()=>this.clear()); numberPad.append(clear); },
@@ -5016,7 +4941,6 @@ function renderBimaruBoard(level, makeCell) {
 if (currentGame && LEVELS_BY_GAME[currentGame]) renderDifficultySelect();
 if (undoButton) undoButton.addEventListener("click", undo);
 if (resetButton) resetButton.addEventListener("click", resetGame);
-if (hintButton) hintButton.addEventListener("click", handleHint);
 if (backButton) backButton.addEventListener("click", showLevelSelect);
 setupSuccessOverlay();
 setupAudioFeedback();

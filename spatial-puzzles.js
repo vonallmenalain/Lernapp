@@ -28,7 +28,6 @@
       view: "front",
       options: [projection("A", "front"), projection("B", "front", null, blocks([0, 0, 0], [1, 0, 0], [2, 0, 0]))],
       correctAnswer: "A",
-      hint: "Zähle die Würfel, die unten von links nach rechts zu sehen sind.",
       explanation: "Von vorne sieht man unten zwei Würfel und links darüber einen Würfel.",
     }),
     level({
@@ -41,7 +40,6 @@
       operation: "yawRight",
       options: [build("A", "yawRight"), build("B", null, blocks([0, 0, 0], [1, 0, 0], [2, 0, 0], [1, 1, 0]))],
       correctAnswer: "A",
-      hint: "Achte auf den kurzen Arm neben der langen Reihe.",
       explanation: "A zeigt denselben Körper. Bei B sitzt der kurze Arm an einer anderen Stelle.",
     }),
     level({
@@ -53,7 +51,6 @@
       mainGraphic: { kind: "cubes", cubes: blocks([0, 0, 0], [1, 0, 0], [1, 1, 0], [1, 1, 1]) },
       options: [build("A", "yawLeft"), build("B", "mirrorX")],
       correctAnswer: "A",
-      hint: "Achte darauf, auf welcher Ecke der obere Würfel sitzt.",
       explanation: "Der obere Würfel sitzt bei A auf derselben Ecke des kleinen Knicks. B ist gespiegelt.",
     }),
     level({
@@ -65,7 +62,6 @@
       mainGraphic: { kind: "cube", faces: netEasyA },
       options: [net("A", netEasyA, 1), net("B", swapFaces(netEasyA, "right", "top"), 3)],
       correctAnswer: "A",
-      hint: "Oben, vorne und rechts müssen wie am Würfel zusammenliegen.",
       explanation: "Im richtigen Netz liegen Gelb oben, Rosa vorne und Blau rechts direkt aneinander.",
     }),
     level({
@@ -78,7 +74,6 @@
       view: "top",
       options: [projection("A", "front", null, blocks([0, 0, 0], [1, 0, 0], [2, 0, 0], [0, 0, 1])), projection("B", "top")],
       correctAnswer: "B",
-      hint: "Von oben sieht man, welche Plätze am Boden besetzt sind.",
       explanation: "Von oben sieht man eine kleine Ecke aus drei Feldern. Der obere Würfel ändert die Grundfläche nicht.",
     }),
     level({
@@ -91,7 +86,6 @@
       operation: "yawLeft",
       options: [build("A", null, blocks([0, 0, 0], [0, 1, 0], [1, 1, 0], [1, 1, 1])), build("B", "yawLeft")],
       correctAnswer: "B",
-      hint: "Der hohe Würfel bleibt auf demselben Ende des Knicks.",
       explanation: "B zeigt denselben Körper. Bei A sitzt die hohe Ecke an einer anderen Stelle.",
     }),
     level({
@@ -104,7 +98,6 @@
       view: "front",
       options: [projection("A", "top", null, blocks([0, 0, 0], [1, 0, 0], [0, 1, 0])), projection("B", "front")],
       correctAnswer: "B",
-      hint: "Der Turm steht ganz rechts.",
       explanation: "Von vorne sieht man unten drei Würfel und oben rechts einen zweiten Würfel.",
     }),
     level({
@@ -116,7 +109,6 @@
       mainGraphic: { kind: "cubes", cubes: blocks([0, 0, 0], [0, 1, 0], [1, 1, 0], [1, 0, 1]) },
       options: [build("A", null, blocks([0, 0, 0], [0, 1, 0], [1, 1, 0], [0, 0, 1])), build("B", "yawRight")],
       correctAnswer: "B",
-      hint: "Der obere Würfel sitzt nicht auf dem Ende, sondern seitlich am Knick.",
       explanation: "B ist nur gedreht. Bei A liegt die hohe Ecke auf der falschen Seite.",
     }),
     level({
@@ -128,7 +120,6 @@
       mainGraphic: { kind: "cube", faces: netEasyB },
       options: [net("A", swapFaces(netEasyB, "front", "top"), 2), net("B", netEasyB, 1)],
       correctAnswer: "B",
-      hint: "Vergleiche die drei sichtbaren Farben.",
       explanation: "Im passenden Netz ist Grün vorne, Himmelblau oben und Violett rechts.",
     }),
     level({
@@ -141,7 +132,6 @@
       operation: "tiltForward",
       options: [build("A", "tiltForward"), build("B", null, blocks([0, 0, 0], [1, 0, 0], [1, 1, 0], [1, 1, 1]))],
       correctAnswer: "A",
-      hint: "Achte auf die Ecke mit dem oberen Würfel.",
       explanation: "A zeigt denselben Körper. Bei B liegt der obere Würfel im Vergleich zur Ecke falsch.",
     }),
 
@@ -155,7 +145,6 @@
       view: "left",
       options: [projection("A", "top", null, blocks([0, 0, 0], [1, 0, 0], [2, 0, 0], [2, 1, 0])), projection("B", "left"), projection("C", "top", null, blocks([0, 0, 0], [1, 0, 0], [1, 1, 0], [2, 1, 0]))],
       correctAnswer: "B",
-      hint: "Von links sieht man Tiefe und Höhe, aber nicht die Breite.",
       explanation: "Von links sieht man hinten einen Turm aus zwei Würfeln und vorne einen einzelnen Würfel.",
     }),
     level({
@@ -168,7 +157,6 @@
       operation: "yawRight",
       options: [build("A", null, blocks([0, 0, 0], [1, 0, 0], [1, 1, 0], [2, 1, 0], [0, 1, 1])), build("B", "yawRight"), build("C", "mirrorX")],
       correctAnswer: "B",
-      hint: "Der Turm bleibt auf dem mittleren Eckwürfel.",
       explanation: "B zeigt denselben Körper. Bei den anderen sitzt der Turm im Vergleich zur Ecke falsch.",
     }),
     level({
@@ -180,7 +168,6 @@
       mainGraphic: { kind: "cubes", cubes: blocks([0, 0, 0], [1, 0, 0], [1, 1, 0], [2, 1, 0], [2, 1, 1]) },
       options: [build("A", "mirrorY"), build("B", "yawRight"), build("C", null, blocks([0, 0, 0], [1, 0, 0], [1, 1, 0], [2, 0, 1], [2, 1, 0]))],
       correctAnswer: "B",
-      hint: "Suche den Körper, bei dem der hohe Würfel am Ende der Treppe bleibt.",
       explanation: "B ist der gleiche Körper in einer anderen Richtung. A ist gespiegelt, C hat den oberen Würfel an der falschen Stelle.",
     }),
     level({
@@ -192,7 +179,6 @@
       mainGraphic: { kind: "cube", faces: netMediumA },
       options: [net("A", swapFaces(netMediumA, "front", "right"), 3), net("B", netMediumA, 1), net("C", swapFaces(netMediumA, "top", "right"), 2)],
       correctAnswer: "B",
-      hint: "Vergleiche die drei sichtbaren Farben am Würfel.",
       explanation: "Nur B legt die sichtbaren Farben in der richtigen Nachbarschaft aneinander.",
     }),
     level({
@@ -205,7 +191,6 @@
       view: "top",
       options: [projection("A", "front", null, blocks([0, 0, 0], [1, 0, 0], [2, 0, 0], [2, 0, 1])), projection("B", "top", null, blocks([0, 0, 0], [1, 0, 0], [2, 0, 0], [0, 1, 0])), projection("C", "top")],
       correctAnswer: "C",
-      hint: "Von oben sieht ein Turm wie ein einzelnes Feld aus.",
       explanation: "Von oben sieht man vier besetzte Bodenplätze. Der zweite Würfel im Turm liegt direkt über einem schon sichtbaren Feld.",
     }),
     level({
@@ -218,7 +203,6 @@
       operation: "yawLeft",
       options: [build("A", "yawLeft"), build("B", null, blocks([0, 0, 0], [0, 1, 0], [1, 1, 0], [2, 1, 0], [0, 1, 1])), build("C", null, blocks([0, 0, 0], [0, 1, 0], [1, 1, 0], [2, 1, 0], [1, 1, 1]))],
       correctAnswer: "A",
-      hint: "Die Höhe bleibt auf dem Ende der Treppe.",
       explanation: "A zeigt denselben Körper. Bei den anderen sitzt die Höhe nicht auf dem passenden Ende.",
     }),
     level({
@@ -231,7 +215,6 @@
       view: "right",
       options: [projection("A", "top", null, blocks([0, 0, 0], [1, 0, 0], [2, 0, 0])), projection("B", "right"), projection("C", "top", null, blocks([0, 0, 0], [1, 0, 0], [0, 1, 0], [1, 1, 0]))],
       correctAnswer: "B",
-      hint: "Von rechts steht der Turm am hinteren Feld.",
       explanation: "Von rechts sieht man unten zwei Plätze in der Tiefe und hinten einen zweiten Würfel darüber.",
     }),
     level({
@@ -243,7 +226,6 @@
       mainGraphic: { kind: "cubes", cubes: blocks([0, 0, 0], [1, 0, 0], [1, 1, 0], [1, 2, 0], [0, 2, 1]) },
       options: [build("A", "yawRight"), build("B", null, blocks([0, 0, 0], [1, 0, 0], [1, 1, 0], [1, 2, 0], [1, 2, 1])), build("C", "mirrorX")],
       correctAnswer: "A",
-      hint: "Der obere Würfel sitzt am linken Ende der langen Seite.",
       explanation: "A ist nur gedreht. Bei B und C sitzt die obere Ecke an einer anderen Seite.",
     }),
     level({
@@ -255,7 +237,6 @@
       mainGraphic: { kind: "cube", faces: netMediumB },
       options: [net("A", netMediumB, 2), net("B", swapFaces(netMediumB, "front", "top"), 1), net("C", swapFaces(netMediumB, "right", "top"), 3)],
       correctAnswer: "A",
-      hint: "Vergleiche die drei sichtbaren Farben am Würfel.",
       explanation: "Nur A legt die sichtbaren Farben passend nebeneinander.",
     }),
     level({
@@ -268,7 +249,6 @@
       operation: "tiltForward",
       options: [build("A", null, blocks([0, 0, 0], [1, 0, 0], [1, 1, 0], [2, 1, 0], [0, 0, 1])), build("B", "tiltForward"), build("C", null, blocks([0, 0, 0], [1, 0, 0], [2, 0, 0], [1, 1, 0], [1, 0, 1]))],
       correctAnswer: "B",
-      hint: "Der obere Würfel sitzt am Knick, nicht an einem Ende.",
       explanation: "B zeigt denselben Körper. Die anderen setzen den oberen Würfel auf eine andere Stelle.",
     }),
 
@@ -282,7 +262,6 @@
       view: "front",
       options: [projection("A", "top", null, blocks([0, 0, 0], [1, 0, 0], [2, 0, 0], [0, 1, 0])), projection("B", "front"), projection("C", "top", null, blocks([0, 0, 0], [1, 0, 0], [0, 1, 0], [1, 1, 0])), projection("D", "top", null, blocks([0, 0, 0], [0, 1, 0], [0, 2, 0], [1, 0, 0]))],
       correctAnswer: "B",
-      hint: "Von vorne verschwindet die Tiefe, aber die Höhe bleibt sichtbar.",
       explanation: "Vorne sieht man unten drei Würfel breit und über der Mitte einen weiteren Würfel.",
     }),
     level({
@@ -295,7 +274,6 @@
       operation: "yawRight",
       options: [build("A", "yawRight"), build("B", null, blocks([0, 0, 0], [1, 0, 0], [2, 0, 0], [2, 1, 0], [0, 1, 0], [0, 1, 1])), build("C", null, blocks([0, 0, 0], [1, 0, 0], [2, 0, 0], [2, 1, 0], [0, 1, 0], [1, 0, 1])), build("D", null, blocks([0, 0, 0], [1, 0, 0], [2, 0, 0], [2, 1, 0], [0, 1, 0], [1, 1, 1]))],
       correctAnswer: "A",
-      hint: "Der Turm sitzt am Ende des kurzen Arms.",
       explanation: "A zeigt denselben Körper. Bei den anderen sitzt der Turm nicht an der passenden Ecke.",
     }),
     level({
@@ -307,7 +285,6 @@
       mainGraphic: { kind: "cubes", cubes: blocks([0, 0, 0], [1, 0, 0], [1, 1, 0], [2, 1, 0], [2, 1, 1], [0, 0, 1]) },
       options: [build("A", "mirrorX"), build("B", "yawLeft"), build("C", null, blocks([0, 0, 0], [1, 0, 0], [1, 1, 0], [2, 1, 0], [0, 1, 1], [0, 0, 1])), build("D", null, blocks([0, 0, 0], [1, 0, 0], [2, 0, 0], [0, 1, 0], [2, 1, 0], [1, 1, 1]))],
       correctAnswer: "B",
-      hint: "Die beiden oberen Würfel sitzen an gegenüberliegenden Enden der Stufe.",
       explanation: "B ist derselbe Körper gedreht. Die anderen verändern die Handigkeit oder setzen einen oberen Würfel um.",
     }),
     level({
@@ -319,7 +296,6 @@
       mainGraphic: { kind: "cube", faces: netHardA },
       options: [net("A", swapFaces(netHardA, "right", "top"), 3), net("B", swapFaces(netHardA, "front", "right"), 1), net("C", netHardA, 2), net("D", swapFaces(netHardA, "front", "top"))],
       correctAnswer: "C",
-      hint: "Vergleiche die drei sichtbaren Farben am Würfel.",
       explanation: "C passt: Die sichtbaren Farben berühren sich im Netz so wie am Würfel.",
     }),
     level({
@@ -332,7 +308,6 @@
       view: "top",
       options: [projection("A", "top", null, blocks([0, 0, 0], [1, 0, 0], [2, 0, 0], [1, 1, 0])), projection("B", "top"), projection("C", "left", null, blocks([0, 0, 0], [0, 1, 0], [0, 1, 1])), projection("D", "top", null, blocks([0, 0, 0], [1, 0, 0], [0, 1, 0], [1, 1, 0], [0, 2, 0], [1, 2, 0]))],
       correctAnswer: "B",
-      hint: "Von oben zählt jeder belegte Platz nur einmal.",
       explanation: "Oben sieht man eine lange Ecke aus sechs Feldern. Der zweite Würfel im Turm macht kein neues Feld.",
     }),
     level({
@@ -345,7 +320,6 @@
       operation: "tiltForward",
       options: [build("A", null, blocks([0, 0, 0], [1, 0, 0], [2, 0, 0], [2, 1, 0], [2, 1, 1], [0, 1, 1])), build("B", null, blocks([0, 0, 0], [1, 0, 0], [2, 0, 0], [2, 1, 0], [2, 1, 1], [1, 0, 1])), build("C", "tiltForward"), build("D", null, blocks([0, 0, 0], [1, 0, 0], [2, 0, 0], [2, 1, 0], [1, 1, 1], [0, 1, 1]))],
       correctAnswer: "C",
-      hint: "Die beiden oberen Würfel bleiben nebeneinander.",
       explanation: "C zeigt denselben Körper. Die anderen verschieben eine obere Ecke.",
     }),
     level({
@@ -357,7 +331,6 @@
       mainGraphic: { kind: "cubes", cubes: blocks([0, 0, 0], [0, 1, 0], [1, 1, 0], [2, 1, 0], [2, 0, 0], [2, 0, 1]) },
       options: [build("A", "mirrorX"), build("B", null, blocks([0, 0, 0], [0, 1, 0], [1, 1, 0], [2, 1, 0], [2, 0, 0], [0, 1, 1])), build("C", "yawRight"), build("D", null, blocks([0, 0, 0], [0, 1, 0], [1, 1, 0], [2, 1, 0], [2, 0, 0], [1, 1, 1]))],
       correctAnswer: "C",
-      hint: "Der Turm steht am Ende, das an den kurzen Rückweg anschließt.",
       explanation: "C ist eine echte Drehung. Bei den anderen wandert der Turm auf eine nicht passende Ecke.",
     }),
     level({
@@ -370,7 +343,6 @@
       view: "right",
       options: [projection("A", "top", null, blocks([0, 0, 0], [1, 0, 0], [0, 1, 0], [1, 1, 0])), projection("B", "front", null, blocks([0, 0, 0], [1, 0, 0], [2, 0, 0], [1, 1, 1])), projection("C", "right"), projection("D", "top", null, blocks([0, 0, 0], [1, 0, 0], [0, 1, 0], [1, 1, 0], [0, 2, 0], [1, 2, 0]))],
       correctAnswer: "C",
-      hint: "Von rechts sieht man die Tiefe von vorne nach hinten.",
       explanation: "Rechts sieht man drei Felder in der Tiefe und hinten einen zweiten Würfel oben.",
     }),
     level({
@@ -382,7 +354,6 @@
       mainGraphic: { kind: "cube", faces: netHardB },
       options: [net("A", swapFaces(netHardB, "front", "right"), 1), net("B", netHardB, 3), net("C", swapFaces(netHardB, "front", "top"), 2), net("D", swapFaces(netHardB, "right", "top"))],
       correctAnswer: "B",
-      hint: "Vergleiche die drei sichtbaren Farben am Würfel.",
       explanation: "B ordnet die sichtbaren Farben genau so an, wie sie am Würfel zu sehen sind.",
     }),
     level({
@@ -395,7 +366,6 @@
       operation: ["yawRight", "tiltForward"],
       options: [build("A", ["yawRight", "tiltForward"]), build("B", null, blocks([0, 0, 0], [1, 0, 0], [1, 1, 0], [2, 1, 0], [2, 1, 1], [0, 1, 0])), build("C", null, blocks([0, 0, 0], [1, 0, 0], [1, 1, 0], [2, 1, 0], [0, 1, 1], [2, 2, 0])), build("D", null, blocks([0, 0, 0], [1, 0, 0], [1, 1, 0], [2, 1, 0], [1, 1, 1], [2, 2, 0]))],
       correctAnswer: "A",
-      hint: "Der obere Würfel bleibt am Ende der Stufe.",
       explanation: "A zeigt denselben Körper. Die anderen verändern eine Ecke oder den oberen Würfel.",
     }),
 
@@ -409,7 +379,6 @@
       view: "left",
       options: [projection("A", "left"), projection("B", "top", null, blocks([0, 0, 0], [1, 0, 0], [2, 0, 0], [0, 1, 0], [2, 1, 0])), projection("C", "front", null, blocks([0, 0, 0], [1, 0, 0], [2, 0, 0], [0, 1, 0], [2, 1, 1])), projection("D", "top", null, blocks([0, 0, 0], [1, 0, 0], [0, 1, 0], [1, 1, 0], [0, 2, 0], [1, 2, 0]))],
       correctAnswer: "A",
-      hint: "Links sieht man die Tiefe mit zwei hohen Stellen.",
       explanation: "Von links sieht man unten drei Tiefenfelder; in der Mitte und hinten steht jeweils ein zweiter Würfel.",
     }),
     level({
@@ -422,7 +391,6 @@
       operation: ["yawRight", "tiltForward"],
       options: [build("A", ["yawRight", "tiltForward"]), build("B", null, blocks([0, 0, 0], [1, 0, 0], [2, 0, 0], [2, 1, 0], [1, 1, 0], [0, 1, 1], [0, 2, 0])), build("C", null, blocks([0, 0, 0], [1, 0, 0], [2, 0, 0], [2, 1, 0], [1, 1, 0], [2, 1, 1], [0, 2, 0])), build("D", null, blocks([0, 0, 0], [1, 0, 0], [2, 0, 0], [2, 1, 0], [1, 1, 0], [1, 0, 1], [0, 2, 0]))],
       correctAnswer: "A",
-      hint: "Der obere Würfel sitzt auf der inneren Ecke.",
       explanation: "A zeigt denselben Körper. Bei den anderen wandert der obere Würfel auf eine andere Stelle.",
     }),
     level({
@@ -434,7 +402,6 @@
       mainGraphic: { kind: "cubes", cubes: blocks([0, 0, 0], [1, 0, 0], [1, 1, 0], [2, 1, 0], [2, 2, 0], [2, 1, 1], [0, 0, 1]) },
       options: [build("A", "mirrorX"), build("B", null, blocks([0, 0, 0], [1, 0, 0], [1, 1, 0], [2, 1, 0], [2, 2, 0], [2, 1, 1], [1, 0, 1])), build("C", "yawRight"), build("D", null, blocks([0, 0, 0], [1, 0, 0], [1, 1, 0], [2, 1, 0], [2, 2, 0], [0, 0, 1], [0, 1, 1]))],
       correctAnswer: "C",
-      hint: "Die beiden oberen Würfel sitzen an den Enden der Zickzack-Linie.",
       explanation: "C ist nur gedreht. A und B sind Spiegelbilder, D verändert einen oberen Würfel.",
     }),
     level({
@@ -446,7 +413,6 @@
       mainGraphic: { kind: "cube", faces: netExtremeA },
       options: [net("A", swapFaces(netExtremeA, "right", "top"), 1), net("B", swapFaces(netExtremeA, "front", "top"), 3), net("C", netExtremeA, 2), net("D", swapFaces(netExtremeA, "front", "right"))],
       correctAnswer: "C",
-      hint: "Vergleiche die drei sichtbaren Farben am Würfel.",
       explanation: "C passt: Die drei sichtbaren Farben stehen im Netz in der richtigen Nachbarschaft.",
     }),
     level({
@@ -459,7 +425,6 @@
       view: "top",
       options: [projection("A", "top", null, blocks([0, 0, 0], [1, 0, 0], [2, 0, 0], [0, 1, 0], [2, 1, 0])), projection("B", "top", null, blocks([0, 0, 0], [1, 0, 0], [2, 0, 0], [0, 1, 0], [1, 1, 0])), projection("C", "top"), projection("D", "top", null, blocks([0, 0, 0], [1, 0, 0], [0, 1, 0], [1, 1, 0], [0, 2, 0], [1, 2, 0]))],
       correctAnswer: "C",
-      hint: "Von oben zählen Türme weiterhin als ein Feld.",
       explanation: "Von oben ergibt die Grundfläche ein U mit sieben Feldern. Der obere Würfel zählt nicht als neues Feld.",
     }),
     level({
@@ -472,7 +437,6 @@
       operation: ["yawLeft", "tiltBack"],
       options: [build("A", null, blocks([0, 0, 0], [0, 1, 0], [1, 1, 0], [2, 1, 0], [2, 0, 0], [0, 0, 1], [1, 2, 0])), build("B", null, blocks([0, 0, 0], [0, 1, 0], [1, 1, 0], [2, 1, 0], [2, 0, 0], [2, 1, 1], [1, 2, 0])), build("C", ["yawLeft", "tiltBack"]), build("D", null, blocks([0, 0, 0], [0, 1, 0], [1, 1, 0], [2, 1, 0], [2, 0, 0], [1, 1, 1], [1, 2, 0]))],
       correctAnswer: "C",
-      hint: "Der obere Würfel sitzt am Ende des kurzen Rückwegs.",
       explanation: "C zeigt denselben Körper. Die anderen setzen die hohe Stelle um.",
     }),
     level({
@@ -484,7 +448,6 @@
       mainGraphic: { kind: "cubes", cubes: blocks([0, 0, 0], [1, 0, 0], [2, 0, 0], [2, 1, 0], [1, 1, 0], [1, 2, 0], [1, 2, 1], [0, 0, 1]) },
       options: [build("A", "yawLeft"), build("B", "mirrorX"), build("C", null, blocks([0, 0, 0], [1, 0, 0], [2, 0, 0], [2, 1, 0], [1, 1, 0], [1, 2, 0], [0, 2, 1], [0, 0, 1])), build("D", null, blocks([0, 0, 0], [1, 0, 0], [2, 0, 0], [2, 1, 0], [1, 1, 0], [1, 2, 0], [1, 1, 1], [0, 0, 1]))],
       correctAnswer: "A",
-      hint: "Die beiden oberen Würfel stehen nicht nebeneinander.",
       explanation: "A ist der gleiche Körper in anderer Lage. Die Spiegelungen setzen die beiden hohen Stellen falsch herum.",
     }),
     level({
@@ -496,7 +459,6 @@
       mainGraphic: { kind: "cube", faces: netExtremeB },
       options: [net("A", swapFaces(netExtremeB, "right", "top"), 3), net("B", swapFaces(netExtremeB, "front", "top"), 1), net("C", netExtremeB, 2), net("D", swapFaces(netExtremeB, "front", "right"))],
       correctAnswer: "C",
-      hint: "Vergleiche die drei sichtbaren Farben am Würfel.",
       explanation: "C behält alle sichtbaren Farben in der richtigen Nachbarschaft bei. Die anderen tauschen sichtbare Flächen.",
     }),
     level({
@@ -509,7 +471,6 @@
       view: "front",
       options: [projection("A", "front"), projection("B", "top", null, blocks([0, 0, 0], [1, 0, 0], [2, 0, 0], [3, 0, 0], [0, 1, 0])), projection("C", "top", null, blocks([0, 0, 0], [1, 0, 0], [2, 0, 0], [3, 0, 0], [1, 1, 0])), projection("D", "top", null, blocks([0, 0, 0], [1, 0, 0], [2, 0, 0], [3, 0, 0], [0, 1, 0], [3, 1, 0]))],
       correctAnswer: "A",
-      hint: "Von vorne zählen die hinteren Würfel nur, wenn sie höher herausragen.",
       explanation: "Vorne sieht man unten vier Würfel. Über den zwei rechten Plätzen ragen je ein zweiter Würfel heraus.",
     }),
     level({
@@ -522,7 +483,6 @@
       operation: ["yawRight", "yawRight", "tiltForward"],
       options: [build("A", null, blocks([0, 0, 0], [1, 0, 0], [2, 0, 0], [2, 1, 0], [2, 2, 0], [1, 2, 0], [0, 2, 1], [0, 1, 0])), build("B", ["yawRight", "yawRight", "tiltForward"]), build("C", null, blocks([0, 0, 0], [1, 0, 0], [2, 0, 0], [2, 1, 0], [2, 2, 0], [1, 2, 0], [2, 2, 1], [0, 1, 0])), build("D", null, blocks([0, 0, 0], [1, 0, 0], [2, 0, 0], [2, 1, 0], [2, 2, 0], [1, 2, 0], [1, 1, 1], [0, 1, 0]))],
       correctAnswer: "B",
-      hint: "Der obere Würfel bleibt auf der inneren Ecke des langen Wegs.",
       explanation: "B zeigt denselben Körper. Die anderen verändern die hohe Ecke.",
     }),
   ];

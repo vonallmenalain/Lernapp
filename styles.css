@@ -330,20 +330,6 @@ h2 {
 
 .cell.endpoint::after { display: none; }
 
-.help {
-  max-width: 680px;
-  margin: 24px auto 0;
-  color: var(--muted);
-}
-
-.help summary {
-  color: var(--ink);
-  cursor: pointer;
-  font-weight: 900;
-}
-
-.help ul { margin-bottom: 0; }
-
 .success-overlay {
   position: fixed;
   inset: 0;
@@ -628,15 +614,6 @@ h2 {
   margin: 0;
 }
 
-.rules-list {
-  display: grid;
-  gap: 8px;
-  margin: 4px 0 0;
-  padding-left: 1.3rem;
-  color: var(--muted);
-  text-align: left;
-}
-
 .start-panel label {
   font-size: clamp(1.25rem, 4vw, 1.65rem);
   font-weight: 900;
@@ -678,10 +655,6 @@ body.puzzle-active .app-shell {
 
 body.puzzle-active .hero,
 body.puzzle-active #start-panel {
-  display: none;
-}
-
-body.puzzle-active .account-button {
   display: none;
 }
 
@@ -727,8 +700,7 @@ body.puzzle-active .status-row {
 
 body.puzzle-active .small-label,
 body.puzzle-active .puzzle-description,
-body.puzzle-active .status,
-body.puzzle-active .help {
+body.puzzle-active .status {
   display: none;
 }
 
@@ -3145,8 +3117,7 @@ body.puzzle-active .memory-game {
   line-height: 1;
 }
 
-.reading-prompt,
-.practice-tip {
+.reading-prompt {
   margin: 0;
   color: var(--primary-dark);
   font-size: clamp(1.15rem, 4vw, 1.55rem);
@@ -3180,13 +3151,6 @@ body.puzzle-active .memory-game {
 .reading-display.sentence-gap span {
   min-width: 0;
   font-size: clamp(1.2rem, 4.6vw, 1.9rem);
-}
-
-.letter-row .letter-tip,
-.reading-display .letter-tip {
-  border-color: #06d6a0;
-  background: #dff8ef;
-  color: #047c5d;
 }
 
 @media (max-width: 640px) {
@@ -3572,10 +3536,10 @@ body.puzzle-active .memory-game {
   }
 }
 
+.sound-toggle,
 .account-button {
   position: fixed;
   top: calc(var(--safe-top) + 14px);
-  right: calc(var(--safe-right) + 14px);
   z-index: 90;
   width: 52px;
   min-width: 52px;
@@ -3590,11 +3554,61 @@ body.puzzle-active .memory-game {
   box-shadow: 0 12px 28px rgba(36, 48, 71, 0.18);
 }
 
+.account-button {
+  right: calc(var(--safe-right) + 14px);
+}
+
+.sound-toggle {
+  right: calc(var(--safe-right) + 76px);
+  z-index: 91;
+}
+
+.sound-toggle svg {
+  width: 24px;
+  height: 24px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.sound-toggle .sound-off-line {
+  opacity: 0;
+  transition: opacity 0.18s ease;
+}
+
+.sound-toggle .sound-wave {
+  transition: opacity 0.18s ease;
+}
+
+.sound-toggle.muted {
+  background: #fff7f7;
+  border-color: #ef476f;
+  color: #b4234a;
+}
+
+.sound-toggle.muted .sound-off-line {
+  opacity: 1;
+}
+
+.sound-toggle.muted .sound-wave {
+  opacity: 0.22;
+}
+
+.sound-toggle:hover:not(:disabled),
+.sound-toggle:focus-visible,
 .account-button:hover:not(:disabled),
 .account-button:focus-visible {
   background: #f4f1ff;
   color: var(--primary-dark);
   outline: none;
+}
+
+.sound-toggle.muted:hover:not(:disabled),
+.sound-toggle.muted:focus-visible {
+  background: #ffe7ec;
+  color: #9f1738;
 }
 
 .account-button svg,
@@ -4220,12 +4234,20 @@ body.puzzle-active .memory-game {
 }
 
 @media (max-width: 640px) {
+  .sound-toggle,
   .account-button {
     top: calc(var(--safe-top) + 10px);
-    right: calc(var(--safe-right) + 10px);
     width: 46px;
     min-width: 46px;
     min-height: 46px;
+  }
+
+  .account-button {
+    right: calc(var(--safe-right) + 10px);
+  }
+
+  .sound-toggle {
+    right: calc(var(--safe-right) + 64px);
   }
 
   .account-panel {
