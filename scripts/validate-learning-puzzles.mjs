@@ -4,6 +4,7 @@ import vm from "node:vm";
 
 const root = path.resolve(import.meta.dirname, "..");
 const source = fs.readFileSync(path.join(root, "app.js"), "utf8");
+const spatialSource = fs.readFileSync(path.join(root, "spatial-puzzles.js"), "utf8");
 const storage = new Map();
 
 const documentStub = {
@@ -29,6 +30,7 @@ const context = {
 context.globalThis = context;
 
 vm.createContext(context);
+vm.runInContext(spatialSource, context, { filename: "spatial-puzzles.js" });
 vm.runInContext(source, context, { filename: "app.js" });
 
 const api = context.window.LernappPuzzleGenerators;
@@ -223,6 +225,18 @@ function validateWhatFits() {
   }
 }
 
+function validateSpatial() {
+  assert(api.spatialLevels.length === 40, "spatial puzzle should expose 40 levels");
+  const result = api.validateSpatialLevels(api.spatialLevels);
+  assert(result.valid, `spatial puzzle validation failed:\n${result.errors.join("\n")}`);
+
+  for (const difficulty of difficulties) {
+    const levels = api.spatialLevels.filter((level) => level.difficulty === difficulty);
+    assert(levels.length === 10, `spatial puzzle ${difficulty} should have 10 levels`);
+    assert(levels.every((level) => level.badge === `${level.options.length} Antworten`), `spatial puzzle ${difficulty} levels should expose answer badge`);
+  }
+}
+
 function validateCatalog() {
   for (const game of ["mathPuzzle", "readingPuzzle", "shapeSequencePuzzle", "oddOneOut", "whatFits"]) {
     assert(catalog[game], `${game} missing from level catalog`);
@@ -234,6 +248,13 @@ function validateCatalog() {
     }
   }
 
+  assert(catalog.spatialPuzzle, "spatialPuzzle missing from level catalog");
+  assert(catalog.spatialPuzzle.length === 40, "spatialPuzzle should have 40 levels");
+  for (const difficulty of difficulties) {
+    const levels = catalog.spatialPuzzle.filter((level) => level.difficulty === difficulty);
+    assert(levels.length === 10, `spatialPuzzle ${difficulty} should have 10 levels`);
+    assert(levels.every((level) => level.badge?.endsWith("Antworten")), `spatialPuzzle ${difficulty} should expose answer badge`);
+  }
 }
 
 validateMath();
@@ -241,6 +262,7 @@ validateReading();
 validateShapeSequence();
 validateOddOneOut();
 validateWhatFits();
+validateSpatial();
 validateCatalog();
 
 console.log("Learning puzzle validation passed.");

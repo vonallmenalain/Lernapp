@@ -366,6 +366,12 @@ const GAME_CONFIGS = {
     success: "Richtig gelesen! Du hast die Leserätsel geschafft.",
     rules: ["Schau dir zuerst das Bild an.", "Lies das Wort oder den Satz in Ruhe.", "Tippe auf die Antwort, die genau passt."],
   },
+  spatialPuzzle: {
+    title: "Raumdetektiv", eyebrow: "Würfelblick", code: "D",
+    subtitle: "Erkenne Würfelgebäude, Ansichten, Drehungen und Würfelnetze.",
+    success: "Stark kombiniert! Du hast den Würfelbau durchschaut.",
+    rules: ["Schau dir den Würfelbau oder Würfel genau an.", "Drehe ihn im Kopf oder vergleiche die Ansicht.", "Tippe auf die Antwortkarte, die wirklich passt."],
+  },
   backpack: {
     title: "Rucksack packen", eyebrow: "Endlosspiel", code: "R",
     subtitle: "Merke dir, was schon im Rucksack liegt, und packe alles in der richtigen Reihenfolge ein.",
@@ -1995,6 +2001,217 @@ const SHAPE_SEQUENCE_LEVELS = makePracticeLevels("shapeSequencePuzzle", SHAPE_SE
 const ODD_ONE_OUT_LEVELS = makePracticeLevels("oddOneOut", ODD_ONE_OUT_LEVEL_DESCRIPTIONS);
 const WHAT_FITS_LEVELS = makePracticeLevels("whatFits", WHAT_FITS_LEVEL_DESCRIPTIONS);
 
+const SPATIAL_LEVEL_DESCRIPTIONS = {
+  easy: "Zwei Antwortkarten und einfache Würfelbauten mit 3 bis 4 Würfeln.",
+  medium: "Drei Antwortkarten, mehr Ansichten und erste verdeckte Würfel.",
+  hard: "Vier ähnliche Antwortkarten mit Drehungen, Kippbewegungen und Würfelnetzen.",
+  extreme: "Sehr ähnliche Körper, mehrere Bewegungen und Würfelnetze mit Zeichenrichtung.",
+};
+const SPATIAL_OPTION_COUNTS = { easy: 2, medium: 3, hard: 4, extreme: 4 };
+const SPATIAL_VIEW_NAMES = { front: "vorne", left: "links", right: "rechts", top: "oben" };
+const SPATIAL_NET_VISIBLE_FACES = ["front", "right", "top"];
+const SPATIAL_NET_FACE_ORDER = ["top", "left", "front", "right", "back", "bottom"];
+
+function makeSpatialLevels(levels = window.SPATIAL_PUZZLES || []) {
+  const counters = Object.fromEntries(DIFFICULTY_KEYS.map((difficulty) => [difficulty, 0]));
+  return levels.map((levelData) => {
+    counters[levelData.difficulty] += 1;
+    return makeLevel("spatialPuzzle", levelData.difficulty, counters[levelData.difficulty], {
+      ...levelData,
+      badge: `${levelData.options?.length || 0} Antworten`,
+      description: levelData.description || SPATIAL_LEVEL_DESCRIPTIONS[levelData.difficulty],
+    });
+  });
+}
+
+function spatialFaceSignature(faceDef) {
+  const face = typeof faceDef === "string" ? { color: faceDef } : (faceDef || {});
+  return [face.color || "", face.mark || "", Number(face.rotation || 0) % 360].join(":");
+}
+
+function normalizeSpatialCubes(cubes = []) {
+  if (!Array.isArray(cubes) || cubes.length === 0) return [];
+  const mapped = cubes.map((cube) => ({
+    x: Number(cube.x),
+    y: Number(cube.y),
+    z: Number(cube.z),
+    ...(cube.color ? { color: cube.color } : {}),
+  }));
+  const minX = Math.min(...mapped.map((cube) => cube.x));
+  const minY = Math.min(...mapped.map((cube) => cube.y));
+  const minZ = Math.min(...mapped.map((cube) => cube.z));
+  return mapped
+    .map((cube) => ({ ...cube, x: cube.x - minX, y: cube.y - minY, z: cube.z - minZ }))
+    .sort((a, b) => a.z - b.z || a.y - b.y || a.x - b.x);
+}
+
+function spatialCubeSignature(cubes = []) {
+  return normalizeSpatialCubes(cubes).map((cube) => `${cube.x},${cube.y},${cube.z}`).join("|");
+}
+
+function spatialTransformPoint(cube, operation) {
+  const { x, y, z } = cube;
+  if (operation === "yawRight") return { ...cube, x: y, y: -x, z };
+  if (operation === "yawLeft") return { ...cube, x: -y, y: x, z };
+  if (operation === "yawAround") return { ...cube, x: -x, y: -y, z };
+  if (operation === "tiltForward") return { ...cube, x, y: z, z: -y };
+  if (operation === "tiltBack") return { ...cube, x, y: -z, z: y };
+  if (operation === "tiltRight") return { ...cube, x: z, y, z: -x };
+  if (operation === "tiltLeft") return { ...cube, x: -z, y, z: x };
+  if (operation === "mirrorX") return { ...cube, x: -x, y, z };
+  if (operation === "mirrorY") return { ...cube, x, y: -y, z };
+  return { ...cube };
+}
+
+function applySpatialOperations(cubes = [], operations = null) {
+  const steps = Array.isArray(operations) ? operations : (operations ? [operations] : []);
+  return steps.reduce((current, operation) => normalizeSpatialCubes(current.map((cube) => spatialTransformPoint(cube, operation))), normalizeSpatialCubes(cubes));
+}
+
+function spatialResolveOptionCubes(level, option = {}) {
+  const source = option.cubes || level.mainGraphic?.cubes || [];
+  return applySpatialOperations(source, option.operation || null);
+}
+
+function spatialProjectionCells(cubes = [], view = "front") {
+  const normalized = normalizeSpatialCubes(cubes);
+  if (!normalized.length) return [];
+  const maxY = Math.max(...normalized.map((cube) => cube.y));
+  const cells = new Map();
+  normalized.forEach((cube) => {
+    let col = cube.x;
+    let row = cube.z;
+    if (view === "left") {
+      col = maxY - cube.y;
+      row = cube.z;
+    } else if (view === "right") {
+      col = cube.y;
+      row = cube.z;
+    } else if (view === "top") {
+      col = cube.x;
+      row = cube.y;
+    }
+    cells.set(`${col},${row}`, { col, row });
+  });
+  const values = [...cells.values()];
+  const minCol = Math.min(...values.map((cell) => cell.col));
+  const minRow = Math.min(...values.map((cell) => cell.row));
+  return values
+    .map((cell) => ({ col: cell.col - minCol, row: cell.row - minRow }))
+    .sort((a, b) => a.row - b.row || a.col - b.col);
+}
+
+function spatialProjectionSignature(cubes = [], view = "front") {
+  return spatialProjectionCells(cubes, view).map((cell) => `${cell.col},${cell.row}`).join("|");
+}
+
+function permutationParity(perm) {
+  let inversions = 0;
+  for (let i = 0; i < perm.length; i += 1) for (let j = i + 1; j < perm.length; j += 1) if (perm[i] > perm[j]) inversions += 1;
+  return inversions % 2 === 0 ? 1 : -1;
+}
+
+function spatialRotationSignatures(cubes = []) {
+  const perms = [[0, 1, 2], [0, 2, 1], [1, 0, 2], [1, 2, 0], [2, 0, 1], [2, 1, 0]];
+  const signs = [-1, 1];
+  const points = normalizeSpatialCubes(cubes).map((cube) => [cube.x, cube.y, cube.z]);
+  const signatures = [];
+  perms.forEach((perm) => {
+    signs.forEach((sx) => signs.forEach((sy) => signs.forEach((sz) => {
+      const signTriple = [sx, sy, sz];
+      const determinant = permutationParity(perm) * sx * sy * sz;
+      if (determinant !== 1) return;
+      const rotated = points.map((point) => ({
+        x: signTriple[0] * point[perm[0]],
+        y: signTriple[1] * point[perm[1]],
+        z: signTriple[2] * point[perm[2]],
+      }));
+      signatures.push(spatialCubeSignature(rotated));
+    })));
+  });
+  return [...new Set(signatures)].sort();
+}
+
+function spatialCanonicalRotationSignature(cubes = []) {
+  return spatialRotationSignatures(cubes)[0] || "";
+}
+
+function spatialOptionSignature(level, option) {
+  if (option.kind === "projection") {
+    return `projection:${spatialProjectionSignature(spatialResolveOptionCubes(level, option), option.view)}`;
+  }
+  if (option.kind === "net") {
+    return `net:${SPATIAL_NET_FACE_ORDER.map((name) => spatialFaceSignature(option.faces?.[name])).join("|")}`;
+  }
+  return `cubes:${spatialCubeSignature(spatialResolveOptionCubes(level, option))}`;
+}
+
+function spatialNetVisibleSignature(faces) {
+  return SPATIAL_NET_VISIBLE_FACES.map((name) => spatialFaceSignature(faces?.[name])).join("|");
+}
+
+function validateSpatialLevel(level) {
+  const errors = [];
+  const label = level.id || level.levelName || "spatial level";
+  const expectedOptionCount = SPATIAL_OPTION_COUNTS[level.difficulty];
+  if (!["viewMatch", "sameShape", "rotateBuild", "cubeNet"].includes(level.type)) errors.push(`${label} has unknown type`);
+  if (!level.prompt || !level.explanation) errors.push(`${label} needs prompt and explanation`);
+  if (!Array.isArray(level.options) || level.options.length !== expectedOptionCount) errors.push(`${label} should have ${expectedOptionCount} options`);
+  if (level.options?.filter((option) => option.id === level.correctAnswer).length !== 1) errors.push(`${label} needs exactly one marked correct option`);
+
+  const signatures = new Set();
+  (level.options || []).forEach((option) => {
+    const signature = spatialOptionSignature(level, option);
+    if (signatures.has(signature)) errors.push(`${label} has duplicate answer graphics`);
+    signatures.add(signature);
+  });
+
+  if (level.type === "viewMatch") {
+    const expected = spatialProjectionSignature(level.mainGraphic?.cubes, level.view);
+    const matches = (level.options || []).filter((option) =>
+      option.kind === "projection" && spatialProjectionSignature(spatialResolveOptionCubes(level, option), option.view) === expected
+    );
+    if (matches.length !== 1 || matches[0]?.id !== level.correctAnswer) errors.push(`${label} has ambiguous or wrong view answer`);
+  }
+
+  if (level.type === "rotateBuild") {
+    const expected = spatialCubeSignature(applySpatialOperations(level.mainGraphic?.cubes, level.operation));
+    const matches = (level.options || []).filter((option) => option.kind === "cubes" && spatialCubeSignature(spatialResolveOptionCubes(level, option)) === expected);
+    if (matches.length !== 1 || matches[0]?.id !== level.correctAnswer) errors.push(`${label} has ambiguous or wrong rotation answer`);
+  }
+
+  if (level.type === "sameShape") {
+    const expected = spatialCanonicalRotationSignature(level.mainGraphic?.cubes);
+    const matches = (level.options || []).filter((option) => option.kind === "cubes" && spatialCanonicalRotationSignature(spatialResolveOptionCubes(level, option)) === expected);
+    if (matches.length !== 1 || matches[0]?.id !== level.correctAnswer) errors.push(`${label} has ambiguous or wrong same-shape answer`);
+  }
+
+  if (level.type === "cubeNet") {
+    const expected = spatialNetVisibleSignature(level.mainGraphic?.faces);
+    const matches = (level.options || []).filter((option) => option.kind === "net" && spatialNetVisibleSignature(option.faces) === expected);
+    if (matches.length !== 1 || matches[0]?.id !== level.correctAnswer) errors.push(`${label} has ambiguous or wrong cube-net answer`);
+  }
+
+  return errors;
+}
+
+function validateSpatialLevels(levels = []) {
+  const errors = [];
+  if (levels.length !== 40) errors.push(`spatialPuzzle should have 40 levels, found ${levels.length}`);
+  DIFFICULTY_KEYS.forEach((difficulty) => {
+    const byDifficulty = levels.filter((level) => level.difficulty === difficulty);
+    if (byDifficulty.length !== 10) errors.push(`spatialPuzzle ${difficulty} should have 10 levels`);
+    const typeSet = new Set(byDifficulty.map((level) => level.type));
+    ["viewMatch", "sameShape", "rotateBuild", "cubeNet"].forEach((type) => {
+      if (!typeSet.has(type)) errors.push(`spatialPuzzle ${difficulty} misses ${type}`);
+    });
+  });
+  levels.forEach((level) => errors.push(...validateSpatialLevel(level)));
+  return { valid: errors.length === 0, errors };
+}
+
+const SPATIAL_LEVELS = makeSpatialLevels();
+
 if (typeof window !== "undefined") {
   window.LernappPuzzleGenerators = {
     generateMathTask,
@@ -2005,6 +2222,7 @@ if (typeof window !== "undefined") {
     generateWhatFitsTask,
     validateMathTask,
     validateReadingTask,
+    validateSpatialLevels,
     ensureUniqueOptions,
     shuffleOptions,
     readingWords: READING_WORD_ITEMS,
@@ -2014,6 +2232,10 @@ if (typeof window !== "undefined") {
     oddOneOutItems: ODD_ONE_OUT_ITEMS,
     whatFitsLevels: WHAT_FITS_LEVELS,
     whatFitsLevelData: WHAT_FITS_LEVEL_DATA,
+    spatialLevels: SPATIAL_LEVELS,
+    spatialProjectionSignature,
+    spatialCubeSignature,
+    spatialCanonicalRotationSignature,
     shapePool: SHAPE_POOL,
   };
 }
@@ -2037,6 +2259,7 @@ const LEVELS_BY_GAME = {
   shapeSequencePuzzle: normalizeLevelCounts(SHAPE_SEQUENCE_LEVELS),
   oddOneOut: normalizeLevelCounts(ODD_ONE_OUT_LEVELS),
   whatFits: normalizeLevelCounts(WHAT_FITS_LEVELS),
+  spatialPuzzle: normalizeLevelCounts(SPATIAL_LEVELS),
   backpack: normalizeLevelCounts(BACKPACK_LEVELS),
 };
 
@@ -2280,6 +2503,12 @@ function practiceStars(level, practiceState = state) {
   if (flawless >= Math.ceil(target * 0.8)) return 2;
   return 1;
 }
+function spatialStars(spatialState = state) {
+  const mistakes = Number(spatialState.mistakes || 0);
+  if (mistakes <= 0) return 3;
+  if (mistakes === 1) return 2;
+  return 1;
+}
 function backpackStars(best) {
   if (Number(best || 0) >= 8) return 3;
   if (Number(best || 0) >= 4) return 2;
@@ -2290,6 +2519,7 @@ function currentLevelStars() {
   if (!level) return 1;
   if (isTimedStarGame()) return currentTimedStars() || 1;
   if (PRACTICE_GAMES.has(currentGame)) return practiceStars(level);
+  if (currentGame === "spatialPuzzle") return spatialStars();
   if (currentGame === "backpack") return backpackStars(state.best);
   return 1;
 }
@@ -2300,6 +2530,10 @@ function currentSolveResult(stars = currentLevelStars()) {
     result.flawless = Number(state.flawlessCount || 0);
     result.correct = Number(state.correctCount || 0);
     result.target = currentLevel().targetCount || 10;
+  }
+  if (currentGame === "spatialPuzzle") {
+    result.mistakes = Number(state.mistakes || 0);
+    result.explanation = state.feedback || currentLevel().explanation || "";
   }
   if (currentGame === "backpack") result.best = Number(state.best || 0);
   return result;
@@ -2432,6 +2666,12 @@ function updateSuccessStars(stars, result = {}) {
   const summary = document.createElement("p");
   summary.textContent = `${starLabel(stars)}${detail.length ? ` - ${detail.join(" - ")}` : ""}`;
   successStars.append(row, summary);
+  if (result.explanation) {
+    const explanation = document.createElement("p");
+    explanation.className = "success-explanation";
+    explanation.textContent = result.explanation;
+    successStars.append(explanation);
+  }
 }
 
 function setupSuccessOverlay() {
@@ -2928,6 +3168,284 @@ function makeReadingTaskView() {
   return view;
 }
 
+const SVG_NS = "http://www.w3.org/2000/svg";
+const SPATIAL_FACE_COLORS = {
+  rose: "#ef476f",
+  sky: "#118ab2",
+  sun: "#ffd166",
+  mint: "#06d6a0",
+  violet: "#8338ec",
+  orange: "#f77f00",
+  teal: "#2ec4b6",
+  blue: "#3a86ff",
+};
+const SPATIAL_BLOCK_COLORS = ["#7acdf0", "#ffd166", "#8fd694", "#f6a6b8", "#b6a6ff", "#f4a261", "#9be7d8", "#9fc5ff"];
+
+function svgEl(name, attrs = {}) {
+  const element = document.createElementNS(SVG_NS, name);
+  Object.entries(attrs).forEach(([key, value]) => element.setAttribute(key, value));
+  return element;
+}
+
+function hexToRgb(hex) {
+  const clean = String(hex || "#8fd694").replace("#", "");
+  const value = clean.length === 3 ? clean.split("").map((char) => char + char).join("") : clean;
+  return {
+    r: parseInt(value.slice(0, 2), 16),
+    g: parseInt(value.slice(2, 4), 16),
+    b: parseInt(value.slice(4, 6), 16),
+  };
+}
+
+function shadeColor(hex, amount) {
+  const { r, g, b } = hexToRgb(hex);
+  const mix = amount > 0 ? 255 : 0;
+  const weight = Math.abs(amount);
+  const blend = (channel) => Math.round(channel * (1 - weight) + mix * weight);
+  return `rgb(${blend(r)}, ${blend(g)}, ${blend(b)})`;
+}
+
+function spatialColorValue(color) {
+  return SPATIAL_FACE_COLORS[color] || color || "#8fd694";
+}
+
+function spatialCubeColor(cube) {
+  if (cube.color) return spatialColorValue(cube.color);
+  return SPATIAL_BLOCK_COLORS[Math.abs(cube.x * 31 + cube.y * 17 + cube.z * 13) % SPATIAL_BLOCK_COLORS.length];
+}
+
+function pointsAttr(points) {
+  return points.map((point) => `${point.x.toFixed(1)},${point.y.toFixed(1)}`).join(" ");
+}
+
+function appendSpatialTextMark(parent, cx, cy, face, size) {
+  const mark = face?.mark;
+  if (!mark) return;
+  const text = svgEl("text", {
+    x: cx,
+    y: cy,
+    "text-anchor": "middle",
+    "dominant-baseline": "central",
+    transform: `rotate(${Number(face.rotation || 0)} ${cx} ${cy})`,
+  });
+  text.classList.add("spatial-face-mark");
+  text.style.fontSize = `${size}px`;
+  text.textContent = mark;
+  parent.append(text);
+}
+
+function renderSpatialIso(cubes = [], { compact = false } = {}) {
+  const normalized = normalizeSpatialCubes(cubes);
+  const size = compact ? 30 : 42;
+  const dx = size * 0.62;
+  const dy = size * 0.36;
+  const dz = size * 0.72;
+  const keySet = new Set(normalized.map((cube) => `${cube.x},${cube.y},${cube.z}`));
+  const faces = [];
+  const project = (x, y, z) => ({ x: (x - y) * dx, y: (x + y) * dy - z * dz });
+  const hasCube = (x, y, z) => keySet.has(`${x},${y},${z}`);
+
+  normalized
+    .slice()
+    .sort((a, b) => (a.x + a.y + a.z) - (b.x + b.y + b.z) || a.y - b.y || a.x - b.x)
+    .forEach((cube) => {
+      const { x, y, z } = cube;
+      const base = spatialCubeColor(cube);
+      if (!hasCube(x, y + 1, z)) {
+        faces.push({
+          depth: x + y + z + 0.1,
+          color: shadeColor(base, -0.12),
+          points: [project(x, y + 1, z), project(x + 1, y + 1, z), project(x + 1, y + 1, z + 1), project(x, y + 1, z + 1)],
+        });
+      }
+      if (!hasCube(x + 1, y, z)) {
+        faces.push({
+          depth: x + y + z + 0.2,
+          color: shadeColor(base, -0.24),
+          points: [project(x + 1, y, z), project(x + 1, y + 1, z), project(x + 1, y + 1, z + 1), project(x + 1, y, z + 1)],
+        });
+      }
+      if (!hasCube(x, y, z + 1)) {
+        faces.push({
+          depth: x + y + z + 0.3,
+          color: shadeColor(base, 0.16),
+          points: [project(x, y, z + 1), project(x + 1, y, z + 1), project(x + 1, y + 1, z + 1), project(x, y + 1, z + 1)],
+        });
+      }
+    });
+
+  const allPoints = faces.flatMap((face) => face.points);
+  const minX = Math.min(...allPoints.map((point) => point.x));
+  const maxX = Math.max(...allPoints.map((point) => point.x));
+  const minY = Math.min(...allPoints.map((point) => point.y));
+  const maxY = Math.max(...allPoints.map((point) => point.y));
+  const pad = compact ? 12 : 22;
+  const svg = svgEl("svg", {
+    class: `spatial-iso-svg${compact ? " compact" : ""}`,
+    viewBox: `${minX - pad} ${minY - pad} ${maxX - minX + pad * 2} ${maxY - minY + pad * 2}`,
+    role: "img",
+    "aria-label": "Würfelbau",
+  });
+  faces.sort((a, b) => a.depth - b.depth).forEach((face) => {
+    svg.append(svgEl("polygon", {
+      points: pointsAttr(face.points),
+      fill: face.color,
+      stroke: "#243047",
+      "stroke-width": compact ? 1.4 : 1.8,
+      "stroke-linejoin": "round",
+    }));
+  });
+  return svg;
+}
+
+function renderSpatialProjection(cubes = [], view = "front") {
+  const cells = spatialProjectionCells(cubes, view);
+  const cell = 34;
+  const gap = 4;
+  const maxCol = Math.max(...cells.map((item) => item.col), 0);
+  const maxRow = Math.max(...cells.map((item) => item.row), 0);
+  const width = (maxCol + 1) * cell + maxCol * gap + 8;
+  const height = (maxRow + 1) * cell + maxRow * gap + 8;
+  const svg = svgEl("svg", {
+    class: "spatial-projection-svg",
+    viewBox: `0 0 ${width} ${height}`,
+    role: "img",
+    "aria-label": `Ansicht von ${SPATIAL_VIEW_NAMES[view] || view}`,
+  });
+  cells.forEach(({ col, row }) => {
+    const x = 4 + col * (cell + gap);
+    const y = 4 + (maxRow - row) * (cell + gap);
+    svg.append(svgEl("rect", { x, y, width: cell, height: cell, rx: 7, fill: "#e9f8ff", stroke: "#118ab2", "stroke-width": 3 }));
+  });
+  return svg;
+}
+
+function renderSpatialSingleCube(faces) {
+  const size = 84;
+  const cx = 120;
+  const top = [
+    { x: cx, y: 12 },
+    { x: cx + size * 0.74, y: 48 },
+    { x: cx, y: 84 },
+    { x: cx - size * 0.74, y: 48 },
+  ];
+  const front = [
+    { x: cx - size * 0.74, y: 48 },
+    { x: cx, y: 84 },
+    { x: cx, y: 158 },
+    { x: cx - size * 0.74, y: 122 },
+  ];
+  const right = [
+    { x: cx, y: 84 },
+    { x: cx + size * 0.74, y: 48 },
+    { x: cx + size * 0.74, y: 122 },
+    { x: cx, y: 158 },
+  ];
+  const svg = svgEl("svg", { class: "spatial-colored-cube", viewBox: "0 0 240 174", role: "img", "aria-label": "farbiger Würfel" });
+  [
+    ["top", top, 120, 50],
+    ["front", front, 82, 104],
+    ["right", right, 158, 104],
+  ].forEach(([name, points, markX, markY]) => {
+    const face = faces?.[name] || {};
+    svg.append(svgEl("polygon", {
+      points: pointsAttr(points),
+      fill: spatialColorValue(face.color),
+      stroke: "#243047",
+      "stroke-width": 2.4,
+      "stroke-linejoin": "round",
+    }));
+    appendSpatialTextMark(svg, markX, markY, face, 22);
+  });
+  return svg;
+}
+
+function renderSpatialNet(faces) {
+  const cell = 42;
+  const gap = 5;
+  const positions = {
+    top: [1, 0],
+    left: [0, 1],
+    front: [1, 1],
+    right: [2, 1],
+    back: [3, 1],
+    bottom: [1, 2],
+  };
+  const width = 4 * cell + 3 * gap + 8;
+  const height = 3 * cell + 2 * gap + 8;
+  const svg = svgEl("svg", { class: "spatial-net-svg", viewBox: `0 0 ${width} ${height}`, role: "img", "aria-label": "Würfelnetz" });
+  SPATIAL_NET_FACE_ORDER.forEach((name) => {
+    const [col, row] = positions[name];
+    const x = 4 + col * (cell + gap);
+    const y = 4 + row * (cell + gap);
+    const face = faces?.[name] || {};
+    svg.append(svgEl("rect", { x, y, width: cell, height: cell, rx: 6, fill: spatialColorValue(face.color), stroke: "#243047", "stroke-width": 2.2 }));
+    appendSpatialTextMark(svg, x + cell / 2, y + cell / 2, face, 18);
+  });
+  return svg;
+}
+
+function renderSpatialGraphic(level, graphic = level.mainGraphic, option = null) {
+  if (graphic?.kind === "cube") return renderSpatialSingleCube(graphic.faces);
+  if (option?.kind === "projection") return renderSpatialProjection(spatialResolveOptionCubes(level, option), option.view);
+  if (option?.kind === "net") return renderSpatialNet(option.faces);
+  if (option?.kind === "cubes") return renderSpatialIso(spatialResolveOptionCubes(level, option), { compact: true });
+  return renderSpatialIso(graphic?.cubes || []);
+}
+
+function makeSpatialTaskView(level) {
+  const view = document.createElement("div");
+  view.className = `practice-task spatial-task spatial-type-${level.type}`;
+  const prompt = document.createElement("p");
+  prompt.className = "spatial-prompt";
+  prompt.textContent = level.prompt;
+  const main = document.createElement("div");
+  main.className = "spatial-main-graphic";
+  main.append(renderSpatialGraphic(level));
+  view.append(prompt, main);
+  return view;
+}
+
+function spatialOptionStateClass(option) {
+  if (state.completed && option.id === currentLevel().correctAnswer) return " correct";
+  if (!state.completed && state.selectedAnswer === option.id && option.id !== currentLevel().correctAnswer) return " wrong";
+  return "";
+}
+
+function renderSpatialOptions(level) {
+  const options = document.createElement("div");
+  options.className = "spatial-options";
+  options.style.setProperty("--option-count", Math.min(level.options.length, 4));
+  level.options.forEach((option) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = `practice-option spatial-option${spatialOptionStateClass(option)}`;
+    button.disabled = state.completed;
+    button.setAttribute("aria-label", `Antwort ${option.id}`);
+    const letter = document.createElement("span");
+    letter.className = "spatial-option-letter";
+    letter.textContent = option.id;
+    const graphic = document.createElement("span");
+    graphic.className = "spatial-option-graphic";
+    graphic.append(renderSpatialGraphic(level, null, option));
+    button.append(graphic, letter);
+    button.addEventListener("click", () => GAME_HANDLERS.spatialPuzzle.answer(option.id));
+    options.append(button);
+  });
+  return options;
+}
+
+function renderSpatialFeedback() {
+  const feedback = document.createElement("div");
+  feedback.className = `practice-feedback spatial-feedback${state.feedback ? " visible" : ""}`;
+  if (state.feedback) {
+    const text = document.createElement("p");
+    text.textContent = state.feedback;
+    feedback.append(text);
+  }
+  return feedback;
+}
+
 const GAME_HANDLERS = {
 
   backpack: {
@@ -3143,6 +3661,50 @@ const GAME_HANDLERS = {
     },
     render(level) {
       renderPracticeShell(level, "readingPuzzle-board", makeReadingTaskView(), (answer) => this.answer(answer), generateReadingTask, "Neue Leseaufgabe.");
+    },
+  },
+
+  spatialPuzzle: {
+    resetState() {
+      state = {
+        selectedAnswer: null,
+        feedback: "",
+        mistakes: 0,
+        completed: false,
+      };
+      setStatus("Wähle die passende Antwortkarte.");
+    },
+    checkWin() { return Boolean(state.completed); },
+    hint() {
+      if (state.completed) return;
+      const level = currentLevel();
+      state.feedback = `Tipp: ${level.hint || "Vergleiche Lage, Höhe und Richtung ganz genau."}`;
+      render("Tipp angezeigt.");
+    },
+    answer(optionId) {
+      if (state.completed) return;
+      const level = currentLevel();
+      state.selectedAnswer = optionId;
+      if (optionId === level.correctAnswer) {
+        state.completed = true;
+        state.feedback = level.explanation;
+        render("Richtig erkannt.");
+        handleWin();
+        return;
+      }
+      state.mistakes += 1;
+      state.feedback = "Das passt noch nicht. Schau dir Richtung, Höhe und Nachbarschaft noch einmal an.";
+      render("Noch nicht ganz.");
+    },
+    render(level) {
+      board.innerHTML = "";
+      board.className = "board task-board spatialPuzzle-board";
+      board.style.setProperty("--size", 1);
+      board.append(
+        makeSpatialTaskView(level),
+        renderSpatialOptions(level),
+        renderSpatialFeedback(),
+      );
     },
   },
 
