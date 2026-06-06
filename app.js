@@ -2740,11 +2740,13 @@ function updateStarTimer() {
     starTimerBestTier = stars;
     element.classList.add("tier-dropped");
   }
+  scheduleActiveBoardLayout();
 }
 function startStarTimer(level) {
   stopStarTimer();
   if (!level || !isTimedStarGame(level.game)) {
     ensureStarTimerElement()?.classList.add("hidden");
+    scheduleActiveBoardLayout();
     return;
   }
   starTimerStartedAt = Date.now();
@@ -2757,7 +2759,109 @@ function stopStarTimer({ hide = false } = {}) {
   if (starTimer) window.clearInterval(starTimer);
   starTimer = null;
   if (hide) ensureStarTimerElement()?.classList.add("hidden");
+  if (hide) scheduleActiveBoardLayout();
 }
+
+const MEASURED_BOARD_SELECTOR = [
+  ".arukone-board",
+  ".sudoku-board",
+  ".kakuro-board",
+  ".hidoku-board",
+  ".shikaku-board",
+  ".count-board",
+  ".bimaru-count-board",
+].join(", ");
+let activeBoardLayoutFrame = null;
+
+function parseCssPixel(value) {
+  const parsed = Number.parseFloat(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function isVisibleElement(element) {
+  if (!element || element.hidden) return false;
+  const style = window.getComputedStyle(element);
+  return style.display !== "none" && style.visibility !== "hidden";
+}
+
+function outerBlockSize(element) {
+  if (!isVisibleElement(element)) return 0;
+  const style = window.getComputedStyle(element);
+  return element.getBoundingClientRect().height + parseCssPixel(style.marginTop) + parseCssPixel(style.marginBottom);
+}
+
+function outerInlineSize(element) {
+  if (!isVisibleElement(element)) return 0;
+  const style = window.getComputedStyle(element);
+  return element.getBoundingClientRect().width + parseCssPixel(style.marginLeft) + parseCssPixel(style.marginRight);
+}
+
+function updateActiveBoardLayout() {
+  activeBoardLayoutFrame = null;
+  if (!board) return;
+  if (!document.body.classList.contains("puzzle-active") || !board.matches(MEASURED_BOARD_SELECTOR)) {
+    board.style.removeProperty("--active-board-size");
+    board.style.removeProperty("--active-board-offset");
+    return;
+  }
+
+  const gameCard = document.querySelector(".game-card");
+  if (!isVisibleElement(gameCard)) return;
+
+  const cardRect = gameCard.getBoundingClientRect();
+  const cardStyle = window.getComputedStyle(gameCard);
+  const paddingLeft = parseCssPixel(cardStyle.paddingLeft);
+  const paddingRight = parseCssPixel(cardStyle.paddingRight);
+  const paddingTop = parseCssPixel(cardStyle.paddingTop);
+  const paddingBottom = parseCssPixel(cardStyle.paddingBottom);
+  const rowGap = parseCssPixel(cardStyle.rowGap || cardStyle.gap);
+  const contentWidth = Math.max(0, cardRect.width - paddingLeft - paddingRight);
+  const contentTop = cardRect.top + paddingTop;
+  const contentBottom = cardRect.bottom - paddingBottom;
+  let boardTop = contentTop;
+
+  [document.querySelector(".status-row"), starTimerElement || document.querySelector("#star-timer")].forEach((element) => {
+    if (!isVisibleElement(element)) return;
+    boardTop = Math.max(boardTop, element.getBoundingClientRect().bottom + rowGap);
+  });
+
+  let reservedBottom = 0;
+  let availableWidth = contentWidth;
+  const numberPadVisible = isVisibleElement(numberPad);
+  const numberPadBesideBoard = numberPadVisible && isCompactLandscapeViewport();
+  if (numberPadBesideBoard) availableWidth = Math.max(0, contentWidth - outerInlineSize(numberPad) - rowGap);
+  else if (numberPadVisible) reservedBottom += outerBlockSize(numberPad) + rowGap;
+
+  const availableHeight = Math.max(0, contentBottom - boardTop - reservedBottom - 4);
+  const currentRect = board.getBoundingClientRect();
+  const blockRatio = currentGame === "bimaru" ? 1 : (currentRect.width > 0 ? Math.max(1, currentRect.height / currentRect.width) : 1);
+  const maxBoardWidth = currentGame === "bimaru" ? 760 : 860;
+  const measuredSize = Math.floor(Math.min(availableWidth, availableHeight / blockRatio, maxBoardWidth));
+  const measuredOffset = Math.max(0, Math.ceil(boardTop - currentRect.top));
+
+  if (Number.isFinite(measuredSize) && measuredSize > 0) {
+    board.style.setProperty("--active-board-size", `${measuredSize}px`);
+  }
+  if (Number.isFinite(measuredOffset) && measuredOffset > 0) {
+    board.style.setProperty("--active-board-offset", `${measuredOffset}px`);
+  } else {
+    board.style.removeProperty("--active-board-offset");
+  }
+}
+
+function scheduleActiveBoardLayout() {
+  if (activeBoardLayoutFrame) window.cancelAnimationFrame(activeBoardLayoutFrame);
+  activeBoardLayoutFrame = window.requestAnimationFrame(updateActiveBoardLayout);
+}
+
+function handleViewportLayoutChange() {
+  if (document.body.classList.contains("puzzle-active") && currentGame === "memory") {
+    render();
+    return;
+  }
+  scheduleActiveBoardLayout();
+}
+
 function currentTimedStars() {
   if (!isTimedStarGame()) return 0;
   return timedStarsForElapsed(starTimerElapsedSeconds());
@@ -2899,7 +3003,7 @@ function renderLevelSelect() {
     levelGrid.append(button);
   });
 }
-function showLevelSelect() { finishMove(); stopStarTimer({ hide: true }); clearPracticeAdvanceTimer(); if (currentGame === "backpack") clearBackpackTimer(); if (currentGame === "memory") clearMemoryTimer(); cloudProgress()?.flushCurrentSession?.({ close: true, includeElapsed: true }); hideSuccess(); if (levelPanel) levelPanel.hidden = false; if (homePanel) homePanel.hidden = true; if (gamePanel) gamePanel.hidden = true; if (gameControls) gameControls.hidden = true; document.body.classList.remove("puzzle-active"); renderLevelSelect(); }
+function showLevelSelect() { finishMove(); stopStarTimer({ hide: true }); clearPracticeAdvanceTimer(); if (currentGame === "backpack") clearBackpackTimer(); if (currentGame === "memory") clearMemoryTimer(); cloudProgress()?.flushCurrentSession?.({ close: true, includeElapsed: true }); hideSuccess(); if (levelPanel) levelPanel.hidden = false; if (homePanel) homePanel.hidden = true; if (gamePanel) gamePanel.hidden = true; if (gameControls) gameControls.hidden = true; document.body.classList.remove("puzzle-active", "number-pad-open"); board?.style.removeProperty("--active-board-size"); board?.style.removeProperty("--active-board-offset"); renderLevelSelect(); }
 function showGame() { if (levelPanel) levelPanel.hidden = true; if (homePanel) homePanel.hidden = true; if (gamePanel) gamePanel.hidden = false; if (gameControls) gameControls.hidden = false; document.body.classList.add("puzzle-active"); }
 function startLevel(index) { const levelToStart = LEVELS_BY_GAME[currentGame]?.[index]; if (!isLevelUnlocked(levelToStart)) { if (levelToStart) selectedDifficulty = levelToStart.difficulty; renderLevelSelect(); return; } stopStarTimer({ hide: true }); clearPracticeAdvanceTimer(); hideSuccess(); currentIndex = index; const level = currentLevel(); selectedDifficulty = level.difficulty; const config = GAME_CONFIGS[currentGame]; history = []; winShown = false; if (undoButton) undoButton.disabled = true; const boardSize = level.cols || level.size || 5; board.className = `board ${currentGame}-board board-size-${boardSize}`; board.style.setProperty("--size", boardSize); board.setAttribute("aria-label", `${config.title} Spielfeld`); puzzleTitle.textContent = level.title; puzzleDescription.textContent = level.description || config.subtitle; fillList(gameHelpList, config.rules); cloudProgress()?.recordLevelStart?.(level); resetState(); showGame(); startStarTimer(level); render(); }
 function resetGame() { history = []; if (undoButton) undoButton.disabled = true; hideSuccess(); cloudProgress()?.recordLevelStart?.(currentLevel()); resetState(); startStarTimer(currentLevel()); recordResetMetric(); render("Neu gestartet. Viel Spass!"); }
@@ -3005,7 +3109,7 @@ function handleHint() { const handler = GAME_HANDLERS[currentGame]; if (!handler
 function handleWin() { if (!winShown) showSuccess(); render(); }
 function checkAndWin() { if (GAME_HANDLERS[currentGame].checkWin()) handleWin(); }
 function resetState() { GAME_HANDLERS[currentGame].resetState(currentLevel()); }
-function render(message) { numberPad.hidden = true; GAME_HANDLERS[currentGame].render(currentLevel()); if (message) setStatus(message); }
+function render(message) { numberPad.hidden = true; GAME_HANDLERS[currentGame].render(currentLevel()); if (message) setStatus(message); document.body.classList.toggle("number-pad-open", isVisibleElement(numberPad)); scheduleActiveBoardLayout(); }
 
 function makeButtonCell(row, col, className, text = "") { const b=document.createElement("button"); b.type="button"; b.className=className; b.dataset.row=row; b.dataset.col=col; b.textContent=text; return b; }
 function getPairColor(pair) { return DEFAULT_COLORS[pair] || "#6c5ce7"; }
@@ -3348,7 +3452,16 @@ function clearMemoryTimer() {
 function memoryBoardColumns(level) {
   return Math.max(2, Math.ceil(Math.sqrt(Math.max(1, level.pairCount * 2))));
 }
+function isCompactLandscapeViewport() {
+  return window.matchMedia?.("(orientation: landscape) and (max-height: 540px)")?.matches;
+}
 function memoryCardMaxSize(level) {
+  if (isCompactLandscapeViewport()) {
+    if (level.pairCount <= 8) return 60;
+    if (level.pairCount <= 13) return 52;
+    if (level.pairCount <= 18) return 46;
+    return 40;
+  }
   if (level.pairCount <= 8) return 108;
   if (level.pairCount <= 13) return 92;
   if (level.pairCount <= 18) return 80;
@@ -4746,6 +4859,10 @@ if (resetButton) resetButton.addEventListener("click", resetGame);
 if (hintButton) hintButton.addEventListener("click", handleHint);
 if (backButton) backButton.addEventListener("click", showLevelSelect);
 setupSuccessOverlay();
+if (typeof window.addEventListener === "function") {
+  window.addEventListener("resize", handleViewportLayoutChange);
+  window.addEventListener("orientationchange", handleViewportLayoutChange);
+}
 
 function cellKeyFromPoint(row, col) { return `${row},${col}`; }
 function arukoneCellFromPoint(clientX, clientY) {
