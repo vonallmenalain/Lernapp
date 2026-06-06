@@ -2593,10 +2593,14 @@ let ignoreNextHidokuClick = false;
 let ignoreNextShikakuClick = false;
 let activeMoveSnapshot = null;
 let pushedActiveSnapshot = false;
+let appAudioContext = null;
+let successStarTimers = [];
 const BIMARU_LONG_PRESS_MS = 480;
 const LOCAL_SOLVED_PREFIX = "lernapp.solved.";
 const LOCAL_STARS_PREFIX = "lernapp.stars.";
+const AUDIO_FEEDBACK_STORAGE_KEY = "lernapp.audioFeedback";
 const MAX_STARS = 3;
+const SUCCESS_STAR_FREQUENCIES = [523.25, 659.25, 783.99];
 const TIMED_STAR_GAMES = new Set(["arukone", "bimaru", "kakuro", "shikaku", "hidoku", "sudoku"]);
 const PRACTICE_GAMES = new Set(["mathPuzzle", "readingPuzzle", "sequencePuzzle", "shapeSequencePuzzle", "oddOneOut", "whatFits"]);
 const TIMED_STAR_LIMITS = { three: 30, two: 60 };
@@ -2686,6 +2690,96 @@ function starsMarkup(stars) {
 }
 function levelStarsMarkup(stars) {
   return `<span class="level-stars stars-${normalizeStars(stars)}" aria-hidden="true">${starsMarkup(stars)}</span>`;
+}
+function createSuccessStarRow(stars) {
+  const earned = normalizeStars(stars);
+  const row = document.createElement("div");
+  row.className = "success-stars-row is-revealing";
+  row.setAttribute("aria-label", starLabel(earned));
+  for (let index = 0; index < MAX_STARS; index += 1) {
+    const star = document.createElement("span");
+    star.className = index < earned ? "filled" : "empty";
+    star.textContent = "\u2605";
+    row.append(star);
+  }
+  return row;
+}
+function prefersReducedMotion() {
+  return Boolean(window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches);
+}
+function audioFeedbackEnabled() {
+  try {
+    const setting = localStorage.getItem(AUDIO_FEEDBACK_STORAGE_KEY);
+    return setting !== "0" && setting !== "false" && setting !== "off";
+  } catch (error) {
+    return true;
+  }
+}
+function ensureAppAudioContext() {
+  if (!audioFeedbackEnabled()) return null;
+  const AudioContextConstructor = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContextConstructor) return null;
+  try {
+    if (!appAudioContext) appAudioContext = new AudioContextConstructor();
+    if (appAudioContext.state === "suspended") appAudioContext.resume().catch(() => {});
+    return appAudioContext;
+  } catch (error) {
+    return null;
+  }
+}
+function playTone(frequency, options = {}) {
+  const context = ensureAppAudioContext();
+  if (!context) return;
+  const duration = options.duration ?? 0.07;
+  const volume = options.volume ?? 0.035;
+  const attack = options.attack ?? 0.012;
+  const startAt = context.currentTime + (options.delay ?? 0);
+  try {
+    const oscillator = context.createOscillator();
+    const gain = context.createGain();
+    oscillator.type = options.type || "sine";
+    oscillator.frequency.setValueAtTime(Math.max(1, frequency), startAt);
+    if (options.endFrequency) {
+      oscillator.frequency.exponentialRampToValueAtTime(Math.max(1, options.endFrequency), startAt + duration);
+    }
+    gain.gain.setValueAtTime(0.0001, startAt);
+    gain.gain.exponentialRampToValueAtTime(Math.max(0.0001, volume), startAt + attack);
+    gain.gain.exponentialRampToValueAtTime(0.0001, startAt + duration);
+    oscillator.connect(gain);
+    gain.connect(context.destination);
+    oscillator.start(startAt);
+    oscillator.stop(startAt + duration + 0.03);
+  } catch (error) {
+    // Audio feedback is decorative; ignore browser-specific playback failures.
+  }
+}
+function playTapFeedback() {
+  playTone(760, { duration: 0.045, endFrequency: 540, volume: 0.018, type: "triangle" });
+}
+function playSuccessStarTone(index) {
+  playTone(SUCCESS_STAR_FREQUENCIES[index] || SUCCESS_STAR_FREQUENCIES[0], {
+    duration: 0.16,
+    volume: 0.045,
+    type: "sine",
+  });
+}
+function feedbackTargetFromEvent(event) {
+  const target = event.target?.closest?.("button, a.icon-button, a.selection-back-button");
+  if (!target) return null;
+  if (target instanceof HTMLButtonElement && target.disabled) return null;
+  if (target.getAttribute("aria-disabled") === "true") return null;
+  return target;
+}
+function setupAudioFeedback() {
+  document.addEventListener("pointerdown", (event) => {
+    if (!feedbackTargetFromEvent(event)) return;
+    playTapFeedback();
+  }, { passive: true });
+  document.addEventListener("keydown", (event) => {
+    if (event.repeat || (event.key !== "Enter" && event.key !== " ")) return;
+    if (!feedbackTargetFromEvent(event)) return;
+    playTapFeedback();
+  });
 }
 function isTimedStarGame(game = currentGame) { return TIMED_STAR_GAMES.has(game); }
 function formatTimerSeconds(seconds) {
@@ -3026,19 +3120,87 @@ function updateNextPuzzleButton() {
   nextPuzzleButton.title = next ? "Naechstes Level" : "Zur Levelauswahl";
   nextPuzzleButton.setAttribute("aria-label", next ? "Naechstes Level" : "Zur Levelauswahl");
 }
-function showSuccess() { const level = currentLevel(); const stars = currentLevelStars(); const result = currentSolveResult(stars); winShown = true; stopStarTimer(); markSolved(level, result); updateNextPuzzleButton(); updateSuccessStars(stars, result); if (successOverlay) { successOverlay.hidden = false; successOverlay.classList.remove("hidden"); } setStatus(currentGame === "memory" && Number.isFinite(result.moves) ? `Geschafft mit ${memoryMoveLabel(result.moves)}.` : `Geschafft! ${starLabel(stars)} erspielt.`); }
-function hideSuccess() { winShown = false; if (successOverlay) { successOverlay.hidden = true; successOverlay.classList.add("hidden"); } }
+function clearSuccessStarTimers() {
+  successStarTimers.forEach((timer) => clearTimeout(timer));
+  successStarTimers = [];
+}
+function scheduleSuccessStarStep(callback, delay) {
+  if (delay <= 0) {
+    callback();
+    return;
+  }
+  const timer = setTimeout(() => {
+    successStarTimers = successStarTimers.filter((entry) => entry !== timer);
+    callback();
+  }, delay);
+  successStarTimers.push(timer);
+}
+function revealSuccessStars(stars) {
+  clearSuccessStarTimers();
+  const row = successStars?.querySelector(".success-stars-row");
+  if (!row) return;
+  const earned = normalizeStars(stars);
+  const starElements = Array.from(row.querySelectorAll("span"));
+  const delayedDetails = Array.from(successStars?.querySelectorAll(".success-summary, .success-explanation") || []);
+  starElements.forEach((star) => star.classList.remove("revealed"));
+  delayedDetails.forEach((detail) => detail.classList.remove("revealed"));
+  if (prefersReducedMotion()) {
+    starElements.forEach((star) => star.classList.add("revealed"));
+    delayedDetails.forEach((detail) => detail.classList.add("revealed"));
+    for (let index = 0; index < earned; index += 1) {
+      scheduleSuccessStarStep(() => playSuccessStarTone(index), index * 90);
+    }
+    return;
+  }
+  const firstDelay = 260;
+  const stepDelay = 340;
+  for (let index = 0; index < earned; index += 1) {
+    scheduleSuccessStarStep(() => {
+      starElements[index]?.classList.add("revealed");
+      playSuccessStarTone(index);
+    }, firstDelay + (index * stepDelay));
+  }
+  for (let index = earned; index < starElements.length; index += 1) {
+    scheduleSuccessStarStep(() => {
+      starElements[index]?.classList.add("revealed");
+    }, firstDelay + (earned * stepDelay) + ((index - earned) * 100));
+  }
+  const summaryDelay = firstDelay + (Math.max(earned, 1) * stepDelay) + ((MAX_STARS - earned) * 100) + 80;
+  scheduleSuccessStarStep(() => delayedDetails.forEach((detail) => detail.classList.add("revealed")), summaryDelay);
+}
+function showSuccess() {
+  const level = currentLevel();
+  const stars = currentLevelStars();
+  const result = currentSolveResult(stars);
+  winShown = true;
+  stopStarTimer();
+  markSolved(level, result);
+  updateNextPuzzleButton();
+  updateSuccessStars(stars, result);
+  if (successOverlay) {
+    successOverlay.hidden = false;
+    successOverlay.classList.remove("hidden");
+  }
+  revealSuccessStars(stars);
+  setStatus(currentGame === "memory" && Number.isFinite(result.moves) ? `Geschafft mit ${memoryMoveLabel(result.moves)}.` : `Geschafft! ${starLabel(stars)} erspielt.`);
+}
+function hideSuccess() {
+  winShown = false;
+  clearSuccessStarTimers();
+  if (successOverlay) {
+    successOverlay.hidden = true;
+    successOverlay.classList.add("hidden");
+  }
+}
 function updateSuccessStars(stars, result = {}) {
   if (!successStars) return;
   const successTitle = successOverlay?.querySelector("#success-title");
   if (successTitle) successTitle.textContent = currentGame === "memory" && stars === 2 ? "Gut gemerkt!" : "Geschafft!";
   if (currentGame === "memory") {
     successStars.innerHTML = "";
-    const row = document.createElement("div");
-    row.className = "success-stars-row";
-    row.setAttribute("aria-label", starLabel(stars));
-    row.innerHTML = starsMarkup(stars);
+    const row = createSuccessStarRow(stars);
     const summary = document.createElement("p");
+    summary.className = "success-summary";
     const moves = Number(result.moves || 0);
     summary.textContent = stars === 1
       ? `Du hast alle Paare mit ${memoryMoveLabel(moves)} gefunden. Beim nächsten Mal schaffst du es vielleicht mit weniger Zügen.`
@@ -3056,11 +3218,9 @@ function updateSuccessStars(stars, result = {}) {
   if (Number.isFinite(result.elapsedSeconds)) detail.push(`Zeit ${formatTimerSeconds(result.elapsedSeconds)}`);
   if (Number.isFinite(result.flawless) && Number.isFinite(result.target)) detail.push(`${result.flawless}/${result.target} fehlerfrei`);
   successStars.innerHTML = "";
-  const row = document.createElement("div");
-  row.className = "success-stars-row";
-  row.setAttribute("aria-label", starLabel(stars));
-  row.innerHTML = starsMarkup(stars);
+  const row = createSuccessStarRow(stars);
   const summary = document.createElement("p");
+  summary.className = "success-summary";
   summary.textContent = `${starLabel(stars)}${detail.length ? ` - ${detail.join(" - ")}` : ""}`;
   successStars.append(row, summary);
   if (result.explanation) {
@@ -4859,6 +5019,7 @@ if (resetButton) resetButton.addEventListener("click", resetGame);
 if (hintButton) hintButton.addEventListener("click", handleHint);
 if (backButton) backButton.addEventListener("click", showLevelSelect);
 setupSuccessOverlay();
+setupAudioFeedback();
 if (typeof window.addEventListener === "function") {
   window.addEventListener("resize", handleViewportLayoutChange);
   window.addEventListener("orientationchange", handleViewportLayoutChange);
