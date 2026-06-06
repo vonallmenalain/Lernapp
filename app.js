@@ -1195,17 +1195,38 @@ const SEQUENCE_ITEMS = [
   { id: "x11", seq: [3, 9, 27, 81, null], answer: 243, diff: "extreme" },
   { id: "x12", seq: [144, 122, 100, 78, null], answer: 56, diff: "extreme" },
 ];
+const SEQUENCE_OPTION_MIN = 0;
+const SEQUENCE_OPTION_MAX = 999;
+const SEQUENCE_DISTRACTOR_OFFSETS = {
+  easy: [-1, 1, -2, 2, -3, 3, -4, 4, -5, 5],
+  medium: [-1, 1, -2, 2, -3, 3, -4, 4, -5, 5, -10, 10],
+  hard: [-1, 1, -2, 2, -3, 3, -5, 5, -10, 10, -20, 20, -50, 50],
+  extreme: [-1, 1, -2, 2, -3, 3, -5, 5, -10, 10, -20, 20, -50, 50, -100, 100],
+};
+function sequenceDistractorCandidates(item, difficulty, optionCount) {
+  const visibleValues = new Set(item.seq.filter(Number.isInteger));
+  const offsets = shuffleOptions(SEQUENCE_DISTRACTOR_OFFSETS[difficulty] || SEQUENCE_DISTRACTOR_OFFSETS.easy)
+    .filter((offset) => {
+      const value = item.answer + offset;
+      return value >= SEQUENCE_OPTION_MIN && value <= SEQUENCE_OPTION_MAX && !visibleValues.has(value);
+    });
+  const selectedOffsets = offsets.slice(0, optionCount - 1);
+  if (selectedOffsets.length === 2 && selectedOffsets.every((offset) => Math.abs(offset) === 1)) {
+    const replacement = offsets.find((offset) => Math.abs(offset) !== 1);
+    if (Number.isInteger(replacement)) {
+      const neighbor = pickRandom(selectedOffsets);
+      const orderedOffsets = [neighbor, replacement, ...offsets.filter((offset) => offset !== neighbor && offset !== replacement)];
+      return orderedOffsets.map((offset) => item.answer + offset);
+    }
+  }
+  return offsets.map((offset) => item.answer + offset);
+}
 function generateSequenceTask(difficulty) {
   const safeDifficulty = DIFFICULTIES[difficulty] ? difficulty : "easy";
   const pool = SEQUENCE_ITEMS.filter((item) => item.diff === safeDifficulty);
   const item = pickRandom(pool);
   const optionCount = safeDifficulty === "easy" || safeDifficulty === "medium" ? 3 : 4;
-  const candidates = [
-    item.answer - 1, item.answer + 1,
-    item.answer - 2, item.answer + 2,
-    item.answer - 10, item.answer + 10,
-    item.answer - 5, item.answer + 5,
-  ];
+  const candidates = sequenceDistractorCandidates(item, safeDifficulty, optionCount);
   return {
     id: `seq-${safeDifficulty}-${item.id}-${Date.now()}-${randomInt(1000, 9999)}`,
     sourceId: item.id,
@@ -1213,7 +1234,7 @@ function generateSequenceTask(difficulty) {
     difficulty: safeDifficulty,
     sequence: item.seq,
     correctAnswer: item.answer,
-    options: ensureUniqueOptions(item.answer, candidates, optionCount, 0, 999),
+    options: ensureUniqueOptions(item.answer, candidates, optionCount, SEQUENCE_OPTION_MIN, SEQUENCE_OPTION_MAX),
   };
 }
 function sequenceTaskKey(task) {
