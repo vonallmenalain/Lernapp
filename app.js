@@ -534,6 +534,7 @@ const MEMORY_DIFFICULTY_RULES = {
   hard: { showLabels: false, flipBackDelayMs: 900 },
   extreme: { showLabels: false, flipBackDelayMs: 800 },
 };
+const MEMORY_MATCH_HIDE_DELAY_MS = 1000;
 
 const MEMORY_LEVEL_DATA = {
   easy: [
@@ -3301,8 +3302,22 @@ function clearMemoryTimer() {
   if (memoryFlipTimer) window.clearTimeout(memoryFlipTimer);
   memoryFlipTimer = null;
 }
-function memoryStarsTargetText(level) {
-  return `3 Sterne bis ${level.threeStarMoves} Züge · 2 Sterne bis ${level.twoStarMoves} Züge · 1 Stern ab ${level.oneStarFrom} Zügen`;
+function memoryBoardColumns(level) {
+  return Math.max(2, Math.ceil(Math.sqrt(Math.max(1, level.pairCount * 2))));
+}
+function memoryCardMaxSize(level) {
+  if (level.pairCount <= 8) return 108;
+  if (level.pairCount <= 13) return 92;
+  if (level.pairCount <= 18) return 80;
+  return 70;
+}
+function applyMemoryBoardLayout(grid, level) {
+  const columns = memoryBoardColumns(level);
+  const gap = 10;
+  grid.style.setProperty("--memory-columns", columns);
+  grid.style.setProperty("--memory-card-percent", `${100 / columns}%`);
+  grid.style.setProperty("--memory-gap-share", `${((columns - 1) * gap) / columns}px`);
+  grid.style.setProperty("--memory-board-max", `${columns * memoryCardMaxSize(level) + (columns - 1) * gap}px`);
 }
 function makeMemoryStat(label, value) {
   const item = document.createElement("span");
@@ -3325,12 +3340,6 @@ function renderMemoryStats(level) {
   );
   if (memory.bestMoves) stats.append(makeMemoryStat("Bestwert", memoryMoveCountLabel(memory.bestMoves)));
   return stats;
-}
-function renderMemoryStarsTarget(level) {
-  const target = document.createElement("p");
-  target.className = "memory-stars-target";
-  target.textContent = memoryStarsTargetText(level);
-  return target;
 }
 function memoryCardClass(card, rule) {
   return `memory-card${card.isFaceUp ? " is-face-up" : ""}${card.isMatched ? " is-matched" : ""}${rule.showLabels ? "" : " no-label"}`;
@@ -3378,11 +3387,12 @@ function renderMemoryBoard(level) {
   board.innerHTML = "";
   board.className = "board memory-game";
   board.style.setProperty("--size", 1);
-  board.append(renderMemoryStats(level), renderMemoryStarsTarget(level));
+  board.append(renderMemoryStats(level));
 
   const grid = document.createElement("div");
   grid.className = `memory-board${memory.isLocked ? " is-locked" : ""}`;
   grid.setAttribute("aria-label", `${level.pairCount} Memory-Paare`);
+  applyMemoryBoardLayout(grid, level);
   memory.cards.forEach((card) => grid.append(renderMemoryCard(card, level)));
   board.append(grid);
 }
@@ -3973,15 +3983,32 @@ const GAME_HANDLERS = {
       recordMoveMetric();
 
       if (first.pairId === second.pairId) {
-        first.isMatched = true;
-        second.isMatched = true;
         memory.matchedPairs += 1;
-        memory.flippedCardIds = [];
-        if (memory.matchedPairs >= level.pairCount) {
-          this.complete(level);
-          return;
-        }
+        memory.isLocked = true;
+        memory.lockToken = `${Date.now()}-${Math.random()}`;
+        const lockToken = memory.lockToken;
         render(`Paar gefunden! ${memory.matchedPairs} von ${level.pairCount} Paaren.`);
+        clearMemoryTimer();
+        memoryFlipTimer = window.setTimeout(() => {
+          const currentMemory = memoryState();
+          if (currentGame !== "memory" || currentMemory.lockToken !== lockToken || currentMemory.completed) return;
+          [firstId, secondId].forEach((matchedId) => {
+            const matchedCard = currentMemory.cards.find((item) => item.cardId === matchedId);
+            if (matchedCard) {
+              matchedCard.isMatched = true;
+              matchedCard.isFaceUp = false;
+            }
+          });
+          currentMemory.flippedCardIds = [];
+          currentMemory.isLocked = false;
+          currentMemory.lockToken = null;
+          memoryFlipTimer = null;
+          if (currentMemory.matchedPairs >= level.pairCount) {
+            this.complete(level);
+            return;
+          }
+          render("Weiter so. Decke zwei Karten auf.");
+        }, MEMORY_MATCH_HIDE_DELAY_MS);
         return;
       }
 

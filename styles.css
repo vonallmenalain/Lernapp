@@ -2779,32 +2779,23 @@ body.puzzle-active .task-board {
   overflow-wrap: anywhere;
 }
 
-.memory-stars-target {
-  margin: 0;
-  padding: 10px 12px;
-  border-radius: 16px;
-  background: #fff8df;
-  border: 2px solid #ffd166;
-  color: #7a5600;
-  font-size: clamp(0.92rem, 2.5vw, 1.04rem);
-  font-weight: 900;
-  line-height: 1.35;
-  text-align: center;
-}
-
 .memory-board {
+  --memory-gap: 10px;
   min-width: 0;
-  width: 100%;
-  max-width: min(820px, 100%);
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(64px, 1fr));
-  gap: 0.65rem;
+  width: min(var(--memory-board-max, 820px), 100%);
+  max-width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-content: center;
+  gap: var(--memory-gap);
   margin: 0 auto;
 }
 
 .memory-card {
+  flex: 0 0 calc(var(--memory-card-percent, 25%) - var(--memory-gap-share, 8px));
   min-width: 0;
-  min-height: 64px;
+  min-height: 0;
   aspect-ratio: 1;
   padding: 0;
   border: 0;
@@ -2910,12 +2901,10 @@ body.puzzle-active .task-board {
   }
 
   .memory-board {
-    grid-template-columns: repeat(auto-fit, minmax(68px, 1fr));
-    gap: 8px;
+    --memory-gap: 8px;
   }
 
   .memory-card {
-    min-height: 68px;
     border-radius: 16px;
   }
 
