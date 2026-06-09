@@ -286,7 +286,7 @@ const SUDOKU_LEVELS = [
 
 const DIFFICULTIES = {
   easy: { label: "Leicht", code: 1, icon: "🌱" },
-  medium: { label: "Mittel", code: 2, icon: "⭐" },
+  medium: { label: "Mittel", code: 2, icon: "🪐" },
   hard: { label: "Schwer", code: 3, icon: "🚀" },
   extreme: { label: "Extrem", code: 4, icon: "🟣" },
 };
@@ -388,7 +388,7 @@ const GAME_CONFIGS = {
       "Decke zwei Karten auf.",
       "Sind beide Karten gleich, verschwinden sie.",
       "Sind sie verschieden, merke sie dir gut.",
-      "Je weniger Züge du brauchst, desto mehr Sterne bekommst du.",
+      "Wenn alle Paare gefunden sind, ist das Level geschafft.",
     ],
   },
 };
@@ -418,7 +418,7 @@ const BACKPACK_ITEMS = [
   { id: "apple", emoji: "🍎", label: "Apfel" },
   { id: "ball", emoji: "⚽", label: "Ball" },
   { id: "book", emoji: "📘", label: "Buch" },
-  { id: "star", emoji: "⭐", label: "Stern" },
+  { id: "kite", emoji: "🪁", label: "Flugdrachen" },
   { id: "banana", emoji: "🍌", label: "Banane" },
   { id: "bear", emoji: "🧸", label: "Teddy" },
   { id: "pencil", emoji: "✏️", label: "Stift" },
@@ -630,7 +630,7 @@ const MEMORY_ITEMS = [
   { id: "lock", emoji: "🔒", label: "Schloss" },
   { id: "gift", emoji: "🎁", label: "Geschenk" },
   { id: "balloon", emoji: "🎈", label: "Ballon" },
-  { id: "star", emoji: "⭐", label: "Stern" },
+  { id: "crown", emoji: "👑", label: "Krone" },
   { id: "flower", emoji: "🌸", label: "Blume" },
   { id: "leaf", emoji: "🍃", label: "Blatt" },
   { id: "tree", emoji: "🌳", label: "Baum" },
@@ -707,12 +707,6 @@ function buildMemoryCards(level) {
   ]);
 
   return shuffleOptions(cards);
-}
-
-function memoryStarsForMoves(level, moves) {
-  if (moves <= level.threeStarMoves) return 3;
-  if (moves <= level.twoStarMoves) return 2;
-  return 1;
 }
 
 // Bestehende Arukone- und Sudoku-Level in die neue Struktur übernehmen.
@@ -1242,14 +1236,14 @@ function sequenceTaskKey(task) {
   return [task.puzzleType, task.difficulty, task.sourceId || task.id].join(":");
 }
 
-const SHAPE_POOL = ["🔴", "🔵", "🟡", "🟢", "🟥", "🟦", "🟨", "🟩", "🔺", "🔻", "⭐", "🌙", "☀️", "☁️", "💖", "🔶", "🔷"];
+const SHAPE_POOL = ["🔴", "🔵", "🟡", "🟢", "🟥", "🟦", "🟨", "🟩", "🔺", "🔻", "🪐", "🌙", "☀️", "☁️", "💖", "🔶", "🔷"];
 
 const SHAPE_SEQUENCE_ITEMS = [
   { id: "e1", seq: ["🔴", "🔵", "🔴", "🔵", null], answer: "🔴", diff: "easy" },
   { id: "e2", seq: ["🟩", "🟩", "🟡", "🟡", null], answer: "🟩", diff: "easy" },
-  { id: "e3", seq: ["🔺", "⭐", "🔺", "⭐", null], answer: "🔺", diff: "easy" },
+  { id: "e3", seq: ["🔺", "🪐", "🔺", "🪐", null], answer: "🔺", diff: "easy" },
   { id: "e4", seq: ["🟦", "🔴", "🟡", "🟦", null], answer: "🔴", diff: "easy" },
-  { id: "e5", seq: ["⭐", "🌙", "⭐", "🌙", null], answer: "⭐", diff: "easy" },
+  { id: "e5", seq: ["🪐", "🌙", "🪐", "🌙", null], answer: "🪐", diff: "easy" },
   { id: "e6", seq: ["💖", "🟩", "💖", "🟩", null], answer: "💖", diff: "easy" },
   { id: "e7", seq: ["🔵", "🔵", "🔴", "🔵", null], answer: "🔵", diff: "easy" },
   { id: "e8", seq: ["🔺", "🔻", "🔺", "🔻", null], answer: "🔺", diff: "easy" },
@@ -1259,25 +1253,25 @@ const SHAPE_SEQUENCE_ITEMS = [
   { id: "e12", seq: ["🔶", "🔷", "🔶", "🔷", null], answer: "🔶", diff: "easy" },
 
   { id: "m1", seq: ["🔴", "🟦", "🟡", "🔴", "🟦", null], answer: "🟡", diff: "medium" },
-  { id: "m2", seq: ["⭐", "🌙", "☁️", "⭐", "🌙", null], answer: "☁️", diff: "medium" },
+  { id: "m2", seq: ["🪐", "🌙", "☁️", "🪐", "🌙", null], answer: "☁️", diff: "medium" },
   { id: "m3", seq: ["🔺", "🔴", "🔺", "🟦", "🔺", null], answer: "🔴", diff: "medium" },
   { id: "m4", seq: ["🟩", "🟡", "🟡", "🟩", "🟡", null], answer: "🟡", diff: "medium" },
   { id: "m5", seq: ["🔴", "🔴", "🟦", "🟦", "🟡", null], answer: "🟡", diff: "medium" },
-  { id: "m6", seq: ["💖", "⭐", "💖", "🌙", "💖", null], answer: "⭐", diff: "medium" },
+  { id: "m6", seq: ["💖", "🪐", "💖", "🌙", "💖", null], answer: "🪐", diff: "medium" },
   { id: "m7", seq: ["🔵", "🔺", "🟩", "🔵", "🔺", null], answer: "🟩", diff: "medium" },
   { id: "m8", seq: ["🟨", "🟨", "🟥", "🟨", "🟨", null], answer: "🟥", diff: "medium" },
-  { id: "m9", seq: ["🔻", "🔺", "⭐", "🔻", "🔺", null], answer: "⭐", diff: "medium" },
+  { id: "m9", seq: ["🔻", "🔺", "🪐", "🔻", "🔺", null], answer: "🪐", diff: "medium" },
   { id: "m10", seq: ["🔴", "🟩", "🔵", "🟡", "🔴", null], answer: "🟩", diff: "medium" },
   { id: "m11", seq: ["🔶", "🔷", "🔶", "🔷", "🔶", null], answer: "🔷", diff: "medium" },
   { id: "m12", seq: ["🌙", "☀️", "☁️", "🌙", "☀️", null], answer: "☁️", diff: "medium" },
 
   { id: "h1", seq: ["🔴", "🟦", "🟦", "🔴", "🟦", null], answer: "🟦", diff: "hard" },
-  { id: "h2", seq: ["⭐", "🔺", "🟩", "⭐", "🔺", null], answer: "🟩", diff: "hard" },
+  { id: "h2", seq: ["🪐", "🔺", "🟩", "🪐", "🔺", null], answer: "🟩", diff: "hard" },
   { id: "h3", seq: ["🔴", "🟡", "🟢", "🔵", "🔴", null], answer: "🟡", diff: "hard" },
   { id: "h4", seq: ["🟩", "🟥", "🟩", "🟥", "🟥", null], answer: "🟩", diff: "hard" },
   { id: "h5", seq: ["🔵", "🔵", "🔴", "🔵", "🔵", null], answer: "🔴", diff: "hard" },
   { id: "h6", seq: ["🔺", "🔻", "🔻", "🔺", "🔻", null], answer: "🔻", diff: "hard" },
-  { id: "h7", seq: ["⭐", "🌙", "☀️", "☁️", "⭐", null], answer: "🌙", diff: "hard" },
+  { id: "h7", seq: ["🪐", "🌙", "☀️", "☁️", "🪐", null], answer: "🌙", diff: "hard" },
   { id: "h8", seq: ["💖", "💖", "🔵", "💖", "💖", null], answer: "🔵", diff: "hard" },
   { id: "h9", seq: ["🔴", "🔴", "🔴", "🟦", "🔴", null], answer: "🔴", diff: "hard" },
   { id: "h10", seq: ["🟨", "🟩", "🟦", "🟨", "🟩", null], answer: "🟦", diff: "hard" },
@@ -1287,9 +1281,9 @@ const SHAPE_SEQUENCE_ITEMS = [
   { id: "x1", seq: ["🔴", "🟥", "🔵", "🟦", "🟡", null], answer: "🟨", diff: "extreme" },
   { id: "x2", seq: ["🟢", "🟩", "🔴", "🟥", "🔵", null], answer: "🟦", diff: "extreme" },
   { id: "x3", seq: ["🔴", "🔵", "🔴", "🔴", "🔵", null], answer: "🔴", diff: "extreme" },
-  { id: "x4", seq: ["🔺", "⭐", "🔺", "🔺", "⭐", null], answer: "🔺", diff: "extreme" },
+  { id: "x4", seq: ["🔺", "🪐", "🔺", "🔺", "🪐", null], answer: "🔺", diff: "extreme" },
   { id: "x5", seq: ["🟥", "🟨", "🟩", "🟦", "🟥", null], answer: "🟨", diff: "extreme" },
-  { id: "x6", seq: ["🌙", "⭐", "☀️", "🌙", "⭐", null], answer: "☀️", diff: "extreme" },
+  { id: "x6", seq: ["🌙", "🪐", "☀️", "🌙", "🪐", null], answer: "☀️", diff: "extreme" },
   { id: "x7", seq: ["🟡", "🟨", "🔴", "🟥", "🟢", null], answer: "🟩", diff: "extreme" },
   { id: "x8", seq: ["🔵", "🔵", "🔵", "🔴", "🔵", null], answer: "🔵", diff: "extreme" },
   { id: "x9", seq: ["🔻", "🔺", "🔻", "🔻", "🔺", null], answer: "🔻", diff: "extreme" },
@@ -1343,7 +1337,7 @@ const ODD_ONE_OUT_ITEMS = [
   { id: "m7", items: ["🎸", "🎻", "🪕", "🥁"], answer: "🥁", diff: "medium" },
   { id: "m8", items: ["⚽", "🏀", "🏐", "🏈"], answer: "🏈", diff: "medium" },
   { id: "m9", items: ["🛳️", "⛵", "🛶", "🚁"], answer: "🚁", diff: "medium" },
-  { id: "m10", items: ["☀️", "⭐", "🌙", "🌲"], answer: "🌲", diff: "medium" },
+  { id: "m10", items: ["☀️", "🪐", "🌙", "🌲"], answer: "🌲", diff: "medium" },
   { id: "m11", items: ["✏️", "🖊️", "🖍️", "✂️"], answer: "✂️", diff: "medium" },
   { id: "m12", items: ["🍓", "🍒", "🍎", "🍋"], answer: "🍋", diff: "medium" },
 
@@ -2522,7 +2516,7 @@ const backButton = document.querySelector("#back-button");
 let successOverlay = document.querySelector("#success-overlay");
 let successRestartButton = document.querySelector("#success-restart-button");
 let nextPuzzleButton = document.querySelector("#next-puzzle-button");
-let successStars = document.querySelector("#success-stars");
+let successContent = document.querySelector("#success-content");
 const gamePanel = document.querySelector("#game-panel");
 const gameControls = document.querySelector("#game-controls");
 
@@ -2540,60 +2534,38 @@ let hidokuDrag = null;
 let backpackTimer = null;
 let memoryFlipTimer = null;
 let practiceAdvanceTimer = null;
-let starTimer = null;
-let starTimerStartedAt = 0;
-let starTimerBestTier = 3;
-let starTimerElement = null;
 let ignoreNextHidokuClick = false;
 let ignoreNextShikakuClick = false;
 let activeMoveSnapshot = null;
 let pushedActiveSnapshot = false;
 let appAudioContext = null;
 let audioToggleButton = null;
-let successStarTimers = [];
+let successTimers = [];
 const BIMARU_LONG_PRESS_MS = 480;
 const LOCAL_SOLVED_PREFIX = "lernapp.solved.";
-const LOCAL_STARS_PREFIX = "lernapp.stars.";
 const AUDIO_FEEDBACK_STORAGE_KEY = "lernapp.audioFeedback";
-const MAX_STARS = 3;
-const SUCCESS_STAR_FREQUENCIES = [523.25, 659.25, 783.99];
-const TIMED_STAR_GAMES = new Set(["arukone", "bimaru", "kakuro", "shikaku", "hidoku", "sudoku"]);
+const SUCCESS_TONE_SEQUENCE = [
+  { frequency: 523.25, delay: 0, duration: 0.12, type: "triangle", volume: 0.03 },
+  { frequency: 659.25, delay: 0.09, duration: 0.14, type: "triangle", volume: 0.034 },
+  { frequency: 783.99, delay: 0.19, duration: 0.16, type: "sine", volume: 0.038 },
+  { frequency: 1046.5, delay: 0.34, duration: 0.24, type: "sine", volume: 0.03 },
+];
 const PRACTICE_GAMES = new Set(["mathPuzzle", "readingPuzzle", "sequencePuzzle", "shapeSequencePuzzle", "oddOneOut", "whatFits"]);
-const TIMED_STAR_LIMITS = { three: 30, two: 60 };
 
 function progressKey(game, levelId) { return `${LOCAL_SOLVED_PREFIX}${game}.${levelId}`; }
-function starsKey(game, levelId) { return `${LOCAL_STARS_PREFIX}${game}.${levelId}`; }
 function cloudProgress() { return window.LernappFirebase || null; }
 function isSignedIn() { return Boolean(cloudProgress()?.isSignedIn?.()); }
-function normalizeStars(value, fallback = 0) {
-  const stars = Number(value);
-  if (!Number.isFinite(stars)) return fallback;
-  return Math.max(0, Math.min(MAX_STARS, Math.floor(stars)));
-}
 function isSolved(level) {
   if (isSignedIn()) return Boolean(cloudProgress()?.isLevelSolved?.(level));
   return localStorage.getItem(progressKey(level.game, level.id || level.levelName)) === "1";
 }
-function localLevelStars(level) {
-  const id = level.id || level.levelName;
-  const saved = normalizeStars(localStorage.getItem(starsKey(level.game, id)));
-  if (saved) return saved;
-  return isSolved(level) ? 1 : 0;
-}
-function levelStars(level) {
-  if (!level) return 0;
-  if (isSignedIn()) return normalizeStars(cloudProgress()?.levelStars?.(level), isSolved(level) ? 1 : 0);
-  return localLevelStars(level);
-}
 function markSolved(level, result = {}) {
   const id = level.id || level.levelName;
-  const resultData = typeof result === "number" ? { stars: result } : (result || {});
-  const stars = normalizeStars(resultData.stars, 1) || 1;
+  const resultData = typeof result === "object" && result ? result : {};
   if (!isSignedIn()) {
     localStorage.setItem(progressKey(level.game, id), "1");
-    localStorage.setItem(starsKey(level.game, id), String(Math.max(localLevelStars(level), stars)));
   }
-  cloudProgress()?.recordSolve?.(level, { ...resultData, stars });
+  cloudProgress()?.recordSolve?.(level, resultData);
 }
 function recordMoveMetric() { cloudProgress()?.recordMove?.(); }
 function recordResetMetric() { cloudProgress()?.recordReset?.(currentLevel()); }
@@ -2636,27 +2608,6 @@ function nextPlayableLevel(level) {
   const levels = LEVELS_BY_GAME[level?.game] || [];
   const next = levels[levelIndex(level) + 1];
   return next && isLevelUnlocked(next) ? next : null;
-}
-function starLabel(stars) { return `${stars} ${stars === 1 ? "Stern" : "Sterne"}`; }
-function starsMarkup(stars) {
-  const earned = normalizeStars(stars);
-  return Array.from({ length: MAX_STARS }, (_, index) => `<span class="${index < earned ? "filled" : "empty"}">★</span>`).join("");
-}
-function levelStarsMarkup(stars) {
-  return `<span class="level-stars stars-${normalizeStars(stars)}" aria-hidden="true">${starsMarkup(stars)}</span>`;
-}
-function createSuccessStarRow(stars) {
-  const earned = normalizeStars(stars);
-  const row = document.createElement("div");
-  row.className = "success-stars-row is-revealing";
-  row.setAttribute("aria-label", starLabel(earned));
-  for (let index = 0; index < MAX_STARS; index += 1) {
-    const star = document.createElement("span");
-    star.className = index < earned ? "filled" : "empty";
-    star.textContent = "\u2605";
-    row.append(star);
-  }
-  return row;
 }
 function prefersReducedMotion() {
   return Boolean(window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches);
@@ -2745,11 +2696,14 @@ function playTone(frequency, options = {}) {
 function playTapFeedback() {
   playTone(760, { duration: 0.045, endFrequency: 540, volume: 0.018, type: "triangle" });
 }
-function playSuccessStarTone(index) {
-  playTone(SUCCESS_STAR_FREQUENCIES[index] || SUCCESS_STAR_FREQUENCIES[0], {
-    duration: 0.16,
-    volume: 0.045,
-    type: "sine",
+function playSuccessTone() {
+  SUCCESS_TONE_SEQUENCE.forEach((note) => {
+    playTone(note.frequency, {
+      delay: note.delay,
+      duration: note.duration,
+      volume: note.volume,
+      type: note.type,
+    });
   });
 }
 function feedbackTargetFromEvent(event) {
@@ -2771,80 +2725,6 @@ function setupAudioFeedback() {
     if (!feedbackTargetFromEvent(event)) return;
     playTapFeedback();
   });
-}
-function isTimedStarGame(game = currentGame) { return TIMED_STAR_GAMES.has(game); }
-function formatTimerSeconds(seconds) {
-  const value = Math.max(0, Math.ceil(seconds));
-  return `${String(Math.floor(value / 60)).padStart(2, "0")}:${String(value % 60).padStart(2, "0")}`;
-}
-function timedStarsForElapsed(seconds) {
-  if (seconds <= TIMED_STAR_LIMITS.three) return 3;
-  if (seconds <= TIMED_STAR_LIMITS.two) return 2;
-  return 1;
-}
-function starTimerElapsedSeconds() {
-  return starTimerStartedAt ? Math.max(0, (Date.now() - starTimerStartedAt) / 1000) : 0;
-}
-function ensureStarTimerElement() {
-  if (starTimerElement) return starTimerElement;
-  const gameCard = document.querySelector(".game-card");
-  const statusRow = document.querySelector(".status-row");
-  if (!gameCard || !statusRow) return null;
-  starTimerElement = document.createElement("div");
-  starTimerElement.id = "star-timer";
-  starTimerElement.className = "star-timer hidden";
-  starTimerElement.setAttribute("role", "status");
-  starTimerElement.setAttribute("aria-live", "polite");
-  starTimerElement.innerHTML = `
-    <div class="star-timer-top">
-      <span class="star-timer-stars" aria-hidden="true"></span>
-      <strong class="star-timer-label"></strong>
-      <span class="star-timer-time"></span>
-    </div>
-    <div class="star-timer-track" aria-hidden="true"><span></span></div>
-  `;
-  statusRow.after(starTimerElement);
-  return starTimerElement;
-}
-function updateStarTimer() {
-  const element = ensureStarTimerElement();
-  if (!element || !isTimedStarGame()) return;
-  const elapsed = starTimerElapsedSeconds();
-  const stars = timedStarsForElapsed(elapsed);
-  const tierStart = stars === 3 ? 0 : (stars === 2 ? TIMED_STAR_LIMITS.three : TIMED_STAR_LIMITS.two);
-  const tierEnd = stars === 3 ? TIMED_STAR_LIMITS.three : (stars === 2 ? TIMED_STAR_LIMITS.two : null);
-  const remaining = tierEnd ? Math.max(0, tierEnd - elapsed) : elapsed;
-  const progress = tierEnd ? Math.max(0, Math.min(1, (tierEnd - elapsed) / (tierEnd - tierStart))) : 0;
-  element.className = `star-timer tier-${stars}`;
-  element.querySelector(".star-timer-stars").innerHTML = starsMarkup(stars);
-  element.querySelector(".star-timer-label").textContent = `${starLabel(stars)} erreichbar`;
-  element.querySelector(".star-timer-time").textContent = tierEnd ? formatTimerSeconds(remaining) : formatTimerSeconds(elapsed);
-  element.querySelector(".star-timer-track span").style.width = `${Math.round(progress * 100)}%`;
-  element.setAttribute("aria-label", `${starLabel(stars)} erreichbar`);
-  if (stars < starTimerBestTier) {
-    starTimerBestTier = stars;
-    element.classList.add("tier-dropped");
-  }
-  scheduleActiveBoardLayout();
-}
-function startStarTimer(level) {
-  stopStarTimer();
-  if (!level || !isTimedStarGame(level.game)) {
-    ensureStarTimerElement()?.classList.add("hidden");
-    scheduleActiveBoardLayout();
-    return;
-  }
-  starTimerStartedAt = Date.now();
-  starTimerBestTier = 3;
-  ensureStarTimerElement()?.classList.remove("hidden");
-  updateStarTimer();
-  starTimer = window.setInterval(updateStarTimer, 250);
-}
-function stopStarTimer({ hide = false } = {}) {
-  if (starTimer) window.clearInterval(starTimer);
-  starTimer = null;
-  if (hide) ensureStarTimerElement()?.classList.add("hidden");
-  if (hide) scheduleActiveBoardLayout();
 }
 
 const MEASURED_BOARD_SELECTOR = [
@@ -2905,7 +2785,7 @@ function updateActiveBoardLayout() {
   const contentBottom = cardRect.bottom - paddingBottom;
   let boardTop = contentTop;
 
-  [document.querySelector(".status-row"), starTimerElement || document.querySelector("#star-timer")].forEach((element) => {
+  [document.querySelector(".status-row")].forEach((element) => {
     if (!isVisibleElement(element)) return;
     boardTop = Math.max(boardTop, element.getBoundingClientRect().bottom + rowGap);
   });
@@ -2947,41 +2827,8 @@ function handleViewportLayoutChange() {
   scheduleActiveBoardLayout();
 }
 
-function currentTimedStars() {
-  if (!isTimedStarGame()) return 0;
-  return timedStarsForElapsed(starTimerElapsedSeconds());
-}
-function practiceStars(level, practiceState = state) {
-  const target = level.targetCount || 10;
-  const flawless = Number(practiceState.flawlessCount || 0);
-  if (flawless >= target) return 3;
-  if (flawless >= Math.ceil(target * 0.8)) return 2;
-  return 1;
-}
-function spatialStars(spatialState = state) {
-  const mistakes = Number(spatialState.mistakes || 0);
-  if (mistakes <= 0) return 3;
-  if (mistakes === 1) return 2;
-  return 1;
-}
-function backpackStars(best) {
-  if (Number(best || 0) >= 8) return 3;
-  if (Number(best || 0) >= 4) return 2;
-  return 1;
-}
-function currentLevelStars() {
-  const level = currentLevel();
-  if (!level) return 1;
-  if (isTimedStarGame()) return currentTimedStars() || 1;
-  if (PRACTICE_GAMES.has(currentGame)) return practiceStars(level);
-  if (currentGame === "spatialPuzzle") return spatialStars();
-  if (currentGame === "backpack") return backpackStars(state.best);
-  if (currentGame === "memory") return memoryStarsForMoves(level, state.memory?.moves || 0);
-  return 1;
-}
-function currentSolveResult(stars = currentLevelStars()) {
-  const result = { stars };
-  if (isTimedStarGame()) result.elapsedSeconds = Math.round(starTimerElapsedSeconds());
+function currentSolveResult() {
+  const result = {};
   if (PRACTICE_GAMES.has(currentGame)) {
     result.flawless = Number(state.flawlessCount || 0);
     result.correct = Number(state.correctCount || 0);
@@ -3069,27 +2916,25 @@ function renderLevelSelect() {
   levelsForDifficulty(selectedDifficulty).forEach((level) => {
     const index = LEVELS_BY_GAME[currentGame].indexOf(level);
     const solved = isSolved(level);
-    const stars = levelStars(level);
     const unlocked = isLevelUnlocked(level);
     const detail = level.badge || (level.size ? `${level.size}×${level.size}` : (level.rows && level.cols ? `${level.rows}×${level.cols}` : "Rätsel"));
     const button = document.createElement("button");
-    button.className = `level-tile ${selectedDifficulty}${solved ? " solved" : ""}${stars ? " starred" : ""}${unlocked ? "" : " locked"}`;
+    button.className = `level-tile ${selectedDifficulty}${solved ? " solved" : ""}${unlocked ? "" : " locked"}`;
     button.type = "button";
     button.disabled = !unlocked;
-    button.setAttribute("aria-label", `${level.title}${stars ? `, ${starLabel(stars)}` : (solved ? ", geloest" : "")}${unlocked ? "" : ", gesperrt"}`);
+    button.setAttribute("aria-label", `${level.title}${solved ? ", geschafft" : ""}${unlocked ? "" : ", gesperrt"}`);
     button.innerHTML = `
       <span class="level-name">${level.levelName}</span>
-      <small${unlocked ? "" : " class=\"lock-icon\" aria-hidden=\"true\""}>${stars ? `${stars}/3 Sterne` : (solved ? "geloest" : (unlocked ? detail : "🔒"))}</small>
-      ${stars ? levelStarsMarkup(stars) : ""}
+      <small${unlocked ? "" : " class=\"lock-icon\" aria-hidden=\"true\""}>${solved ? "geschafft" : (unlocked ? detail : "🔒")}</small>
     `;
     button.addEventListener("click", () => startLevel(index));
     levelGrid.append(button);
   });
 }
-function showLevelSelect() { finishMove(); stopStarTimer({ hide: true }); clearPracticeAdvanceTimer(); if (currentGame === "backpack") clearBackpackTimer(); if (currentGame === "memory") clearMemoryTimer(); cloudProgress()?.flushCurrentSession?.({ close: true, includeElapsed: true }); hideSuccess(); if (levelPanel) levelPanel.hidden = false; if (homePanel) homePanel.hidden = true; if (gamePanel) gamePanel.hidden = true; if (gameControls) gameControls.hidden = true; document.body.classList.remove("puzzle-active", "number-pad-open"); board?.style.removeProperty("--active-board-size"); board?.style.removeProperty("--active-board-offset"); renderLevelSelect(); }
+function showLevelSelect() { finishMove(); clearPracticeAdvanceTimer(); if (currentGame === "backpack") clearBackpackTimer(); if (currentGame === "memory") clearMemoryTimer(); cloudProgress()?.flushCurrentSession?.({ close: true, includeElapsed: true }); hideSuccess(); if (levelPanel) levelPanel.hidden = false; if (homePanel) homePanel.hidden = true; if (gamePanel) gamePanel.hidden = true; if (gameControls) gameControls.hidden = true; document.body.classList.remove("puzzle-active", "number-pad-open"); board?.style.removeProperty("--active-board-size"); board?.style.removeProperty("--active-board-offset"); renderLevelSelect(); }
 function showGame() { if (levelPanel) levelPanel.hidden = true; if (homePanel) homePanel.hidden = true; if (gamePanel) gamePanel.hidden = false; if (gameControls) gameControls.hidden = false; document.body.classList.add("puzzle-active"); }
-function startLevel(index) { const levelToStart = LEVELS_BY_GAME[currentGame]?.[index]; if (!isLevelUnlocked(levelToStart)) { if (levelToStart) selectedDifficulty = levelToStart.difficulty; renderLevelSelect(); return; } stopStarTimer({ hide: true }); clearPracticeAdvanceTimer(); hideSuccess(); currentIndex = index; const level = currentLevel(); selectedDifficulty = level.difficulty; const config = GAME_CONFIGS[currentGame]; history = []; winShown = false; if (undoButton) undoButton.disabled = true; const boardSize = level.cols || level.size || 5; board.className = `board ${currentGame}-board board-size-${boardSize}`; board.style.setProperty("--size", boardSize); board.setAttribute("aria-label", `${config.title} Spielfeld`); puzzleTitle.textContent = level.title; puzzleDescription.textContent = level.description || config.subtitle; cloudProgress()?.recordLevelStart?.(level); resetState(); showGame(); startStarTimer(level); render(); }
-function resetGame() { history = []; if (undoButton) undoButton.disabled = true; hideSuccess(); cloudProgress()?.recordLevelStart?.(currentLevel()); resetState(); startStarTimer(currentLevel()); recordResetMetric(); render("Neu gestartet. Viel Spass!"); }
+function startLevel(index) { const levelToStart = LEVELS_BY_GAME[currentGame]?.[index]; if (!isLevelUnlocked(levelToStart)) { if (levelToStart) selectedDifficulty = levelToStart.difficulty; renderLevelSelect(); return; } clearPracticeAdvanceTimer(); hideSuccess(); currentIndex = index; const level = currentLevel(); selectedDifficulty = level.difficulty; const config = GAME_CONFIGS[currentGame]; history = []; winShown = false; if (undoButton) undoButton.disabled = true; const boardSize = level.cols || level.size || 5; board.className = `board ${currentGame}-board board-size-${boardSize}`; board.style.setProperty("--size", boardSize); board.setAttribute("aria-label", `${config.title} Spielfeld`); puzzleTitle.textContent = level.title; puzzleDescription.textContent = level.description || config.subtitle; cloudProgress()?.recordLevelStart?.(level); resetState(); showGame(); render(); }
+function resetGame() { history = []; if (undoButton) undoButton.disabled = true; hideSuccess(); cloudProgress()?.recordLevelStart?.(currentLevel()); resetState(); recordResetMetric(); render("Neu gestartet. Viel Spass!"); }
 function undo() {
   finishMove();
   if (currentGame === "hidoku") {
@@ -3109,115 +2954,59 @@ function updateNextPuzzleButton() {
   nextPuzzleButton.title = next ? "Naechstes Level" : "Zur Levelauswahl";
   nextPuzzleButton.setAttribute("aria-label", next ? "Naechstes Level" : "Zur Levelauswahl");
 }
-function clearSuccessStarTimers() {
-  successStarTimers.forEach((timer) => clearTimeout(timer));
-  successStarTimers = [];
+function clearSuccessTimers() {
+  successTimers.forEach((timer) => clearTimeout(timer));
+  successTimers = [];
 }
-function scheduleSuccessStarStep(callback, delay) {
+function scheduleSuccessStep(callback, delay) {
   if (delay <= 0) {
     callback();
     return;
   }
   const timer = setTimeout(() => {
-    successStarTimers = successStarTimers.filter((entry) => entry !== timer);
+    successTimers = successTimers.filter((entry) => entry !== timer);
     callback();
   }, delay);
-  successStarTimers.push(timer);
+  successTimers.push(timer);
 }
-function revealSuccessStars(stars) {
-  clearSuccessStarTimers();
-  const row = successStars?.querySelector(".success-stars-row");
-  if (!row) return;
-  const earned = normalizeStars(stars);
-  const starElements = Array.from(row.querySelectorAll("span"));
-  const delayedDetails = Array.from(successStars?.querySelectorAll(".success-summary, .success-explanation") || []);
-  starElements.forEach((star) => star.classList.remove("revealed"));
-  delayedDetails.forEach((detail) => detail.classList.remove("revealed"));
-  if (prefersReducedMotion()) {
-    starElements.forEach((star) => star.classList.add("revealed"));
-    delayedDetails.forEach((detail) => detail.classList.add("revealed"));
-    for (let index = 0; index < earned; index += 1) {
-      scheduleSuccessStarStep(() => playSuccessStarTone(index), index * 90);
-    }
-    return;
-  }
-  const firstDelay = 260;
-  const stepDelay = 340;
-  for (let index = 0; index < earned; index += 1) {
-    scheduleSuccessStarStep(() => {
-      starElements[index]?.classList.add("revealed");
-      playSuccessStarTone(index);
-    }, firstDelay + (index * stepDelay));
-  }
-  for (let index = earned; index < starElements.length; index += 1) {
-    scheduleSuccessStarStep(() => {
-      starElements[index]?.classList.add("revealed");
-    }, firstDelay + (earned * stepDelay) + ((index - earned) * 100));
-  }
-  const summaryDelay = firstDelay + (Math.max(earned, 1) * stepDelay) + ((MAX_STARS - earned) * 100) + 80;
-  scheduleSuccessStarStep(() => delayedDetails.forEach((detail) => detail.classList.add("revealed")), summaryDelay);
+function revealSuccessContent() {
+  clearSuccessTimers();
+  const details = Array.from(successContent?.querySelectorAll(".success-summary") || []);
+  details.forEach((detail) => detail.classList.remove("revealed"));
+  playSuccessTone();
+  scheduleSuccessStep(() => details.forEach((detail) => detail.classList.add("revealed")), prefersReducedMotion() ? 0 : 180);
 }
 function showSuccess() {
   const level = currentLevel();
-  const stars = currentLevelStars();
-  const result = currentSolveResult(stars);
+  const result = currentSolveResult();
   winShown = true;
-  stopStarTimer();
   markSolved(level, result);
   updateNextPuzzleButton();
-  updateSuccessStars(stars, result);
+  updateSuccessContent();
   if (successOverlay) {
     successOverlay.hidden = false;
     successOverlay.classList.remove("hidden");
   }
-  revealSuccessStars(stars);
-  setStatus(currentGame === "memory" && Number.isFinite(result.moves) ? `Geschafft mit ${memoryMoveLabel(result.moves)}.` : `Geschafft! ${starLabel(stars)} erspielt.`);
+  revealSuccessContent();
+  setStatus("Geschafft!");
 }
 function hideSuccess() {
   winShown = false;
-  clearSuccessStarTimers();
+  clearSuccessTimers();
   if (successOverlay) {
     successOverlay.hidden = true;
     successOverlay.classList.add("hidden");
   }
 }
-function updateSuccessStars(stars, result = {}) {
-  if (!successStars) return;
+function updateSuccessContent() {
+  if (!successContent) return;
   const successTitle = successOverlay?.querySelector("#success-title");
-  if (successTitle) successTitle.textContent = currentGame === "memory" && stars === 2 ? "Gut gemerkt!" : "Geschafft!";
-  if (currentGame === "memory") {
-    successStars.innerHTML = "";
-    const row = createSuccessStarRow(stars);
-    const summary = document.createElement("p");
-    summary.className = "success-summary";
-    const moves = Number(result.moves || 0);
-    summary.textContent = stars === 1
-      ? `Du hast alle Paare mit ${memoryMoveLabel(moves)} gefunden. Beim nächsten Mal schaffst du es vielleicht mit weniger Zügen.`
-      : `Du hast alle Paare mit ${memoryMoveLabel(moves)} gefunden.`;
-    successStars.append(row, summary);
-    if (Number.isFinite(result.bestMoves) && result.bestMoves > 0) {
-      const best = document.createElement("p");
-      best.className = "success-explanation";
-      best.textContent = `Bester Wert: ${memoryMoveCountLabel(result.bestMoves)}`;
-      successStars.append(best);
-    }
-    return;
-  }
-  const detail = [];
-  if (Number.isFinite(result.elapsedSeconds)) detail.push(`Zeit ${formatTimerSeconds(result.elapsedSeconds)}`);
-  if (Number.isFinite(result.flawless) && Number.isFinite(result.target)) detail.push(`${result.flawless}/${result.target} fehlerfrei`);
-  successStars.innerHTML = "";
-  const row = createSuccessStarRow(stars);
+  if (successTitle) successTitle.textContent = "Geschafft!";
+  successContent.innerHTML = "";
   const summary = document.createElement("p");
   summary.className = "success-summary";
-  summary.textContent = `${starLabel(stars)}${detail.length ? ` - ${detail.join(" - ")}` : ""}`;
-  successStars.append(row, summary);
-  if (result.explanation) {
-    const explanation = document.createElement("p");
-    explanation.className = "success-explanation";
-    explanation.textContent = result.explanation;
-    successStars.append(explanation);
-  }
+  summary.textContent = "Level geschafft.";
+  successContent.append(summary);
 }
 
 function setupSuccessOverlay() {
@@ -3239,7 +3028,7 @@ function setupSuccessOverlay() {
         <span></span><span></span><span></span><span></span><span></span><span></span>
       </div>
       <h2 id="success-title">Geschafft!</h2>
-      <div id="success-stars" class="success-stars"></div>
+      <div id="success-content" class="success-content"></div>
       <div class="success-actions" aria-label="Level-Aktionen">
         <button id="success-restart-button" class="success-icon-button" type="button" aria-label="Level neu starten" title="Level neu starten">↻</button>
         <button id="next-puzzle-button" class="success-icon-button primary" type="button" aria-label="Nächstes Level" title="Nächstes Level">→</button>
@@ -3250,7 +3039,7 @@ function setupSuccessOverlay() {
   successOverlay = overlay;
   successRestartButton = overlay.querySelector("#success-restart-button");
   nextPuzzleButton = overlay.querySelector("#next-puzzle-button");
-  successStars = overlay.querySelector("#success-stars");
+  successContent = overlay.querySelector("#success-content");
   successRestartButton.addEventListener("click", resetGame);
   nextPuzzleButton.addEventListener("click", nextLevel);
 }
@@ -3477,7 +3266,6 @@ function renderBackpackStats() {
   stats.append(
     makeBackpackStat("Runde", state.round),
     makeBackpackStat("Bestwert", state.best),
-    makeBackpackStat("Sterne", `${backpackStars(state.best)}/3`),
     makeBackpackStat("Länge", state.sequence.length),
   );
   return stats;
@@ -3550,7 +3338,6 @@ function renderBackpackGameOver(level) {
     <div class="backpack-game-over-dialog">
       <h3 id="backpack-game-over-title">Runde vorbei</h3>
       <p>Geschafft: ${state.round} ${state.round === 1 ? "Runde" : "Runden"}</p>
-      <div class="backpack-stars" aria-label="${starLabel(backpackStars(state.best))}">${starsMarkup(backpackStars(state.best))}</div>
       <p class="backpack-record">Bestwert: ${state.best}</p>
       <div class="backpack-game-over-actions">
         <button type="button" data-backpack-restart>Noch einmal</button>
@@ -4165,9 +3952,9 @@ const GAME_HANDLERS = {
             state.round += 1;
             state.best = Math.max(state.best, state.round);
             saveBackpackBest(level, state.best);
-            if (!state.unlockRecorded || backpackStars(state.best) > levelStars(level)) {
+            if (!state.unlockRecorded) {
               state.unlockRecorded = true;
-              markSolved(level, currentSolveResult(backpackStars(state.best)));
+              markSolved(level, currentSolveResult());
             }
             const nextOptions = backpackNewOptions(level);
             if (!nextOptions.length) {

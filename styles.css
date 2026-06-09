@@ -171,96 +171,6 @@ h2 {
   text-align: right;
 }
 
-.star-timer {
-  max-width: 680px;
-  margin: -8px auto 18px;
-  padding: 10px 12px;
-  border-radius: 18px;
-  background: #fff8df;
-  border: 2px solid #ffd166;
-  box-shadow: 0 10px 20px rgba(36, 48, 71, 0.08);
-}
-
-.star-timer.hidden {
-  display: none;
-}
-
-.star-timer-top {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  gap: 10px;
-  align-items: center;
-  color: var(--ink);
-  font-weight: 950;
-}
-
-.star-timer-stars,
-.success-stars-row,
-.level-stars,
-.backpack-stars {
-  display: inline-flex;
-  justify-content: center;
-  gap: 2px;
-  color: #d0d5dd;
-  line-height: 1;
-}
-
-.star-timer-stars .filled,
-.success-stars-row .filled,
-.level-stars .filled,
-.backpack-stars .filled {
-  color: #ffb703;
-}
-
-.star-timer-label {
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-
-.star-timer-time {
-  min-width: 58px;
-  padding: 4px 8px;
-  border-radius: 999px;
-  background: #fff;
-  border: 2px solid rgba(36, 48, 71, 0.12);
-  text-align: center;
-  font-variant-numeric: tabular-nums;
-}
-
-.star-timer-track {
-  height: 9px;
-  margin-top: 8px;
-  overflow: hidden;
-  border-radius: 999px;
-  background: rgba(36, 48, 71, 0.10);
-}
-
-.star-timer-track span {
-  display: block;
-  height: 100%;
-  border-radius: inherit;
-  background: linear-gradient(90deg, #06d6a0, #ffd166);
-  transition: width 0.25s linear;
-}
-
-.star-timer.tier-2 {
-  background: #eef8ff;
-  border-color: #7acdf0;
-}
-
-.star-timer.tier-2 .star-timer-track span {
-  background: linear-gradient(90deg, #118ab2, #7acdf0);
-}
-
-.star-timer.tier-1 {
-  background: #f7f7fb;
-  border-color: #d9d6ee;
-}
-
-.star-timer.tier-1 .star-timer-track span {
-  background: #8a94a6;
-}
-
 .board {
   --size: 5;
   display: grid;
@@ -370,7 +280,7 @@ h2 {
   color: var(--ink);
 }
 
-.success-stars {
+.success-content {
   position: relative;
   z-index: 1;
   display: grid;
@@ -380,56 +290,24 @@ h2 {
   font-weight: 900;
 }
 
-.success-stars-row {
-  font-size: clamp(2rem, 8vw, 3rem);
-}
-
-.success-stars-row.is-revealing span {
-  opacity: 0;
-  transform: translateY(10px) scale(0.35) rotate(-8deg);
-  transition:
-    opacity 0.18s ease,
-    transform 0.32s cubic-bezier(0.34, 1.56, 0.64, 1);
-  will-change: opacity, transform;
-}
-
-.success-stars-row.is-revealing span.revealed {
-  opacity: 1;
-  transform: translateY(0) scale(1) rotate(0deg);
-}
-
-.success-stars-row.is-revealing .filled.revealed {
-  animation: success-star-pop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
-  filter: drop-shadow(0 6px 10px rgba(255, 183, 3, 0.28));
-}
-
-.success-stars-row.is-revealing .empty.revealed {
-  opacity: 0.62;
-}
-
-.success-stars p {
+.success-content p {
   margin: 0;
 }
 
-.success-stars .success-summary,
-.success-stars .success-explanation {
+.success-content .success-summary {
   opacity: 0;
   transform: translateY(6px);
   transition: opacity 0.2s ease, transform 0.2s ease;
 }
 
-.success-stars .success-summary.revealed,
-.success-stars .success-explanation.revealed {
+.success-content .success-summary.revealed {
   opacity: 1;
   transform: translateY(0);
 }
 
-.success-stars .success-explanation {
-  max-width: 30rem;
-  margin: 4px auto 0;
-  color: var(--ink);
-  font-size: 1rem;
-  font-weight: 800;
+.success-content .success-summary {
+  color: var(--primary-dark);
+  font-size: 1.1rem;
   line-height: 1.35;
 }
 
@@ -557,34 +435,17 @@ h2 {
   }
 }
 
-@keyframes success-star-pop {
-  0% {
-    transform: translateY(10px) scale(0.35) rotate(-8deg);
-  }
-  58% {
-    transform: translateY(-6px) scale(1.22) rotate(5deg);
-  }
-  100% {
-    transform: translateY(0) scale(1) rotate(0deg);
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
   .success-overlay,
   .success-modal,
   .fireworks span,
   .fireworks span::before,
-  .fireworks span::after,
-  .success-stars-row.is-revealing .filled.revealed {
+  .fireworks span::after {
     animation: none;
   }
 
-  .success-stars-row.is-revealing span,
-  .success-stars-row.is-revealing span.revealed,
-  .success-stars .success-summary,
-  .success-stars .success-summary.revealed,
-  .success-stars .success-explanation,
-  .success-stars .success-explanation.revealed {
+  .success-content .success-summary,
+  .success-content .success-summary.revealed {
     transform: none;
     transition: none;
   }
@@ -738,17 +599,6 @@ body.puzzle-active .cell {
   padding: 0;
 }
 
-body.puzzle-active .star-timer {
-  grid-row: 2;
-  width: min(calc(100vw - 36px), 680px);
-  margin: 0 auto;
-  padding: 8px 10px;
-}
-
-body.puzzle-active .star-timer:not(.hidden) ~ .board {
-  width: var(--active-board-size, min(calc(100vw - 36px), calc(100vh - 142px)));
-}
-
 body.puzzle-active .number-pad {
   grid-row: 4;
   position: static;
@@ -799,13 +649,6 @@ body.puzzle-active .memory-game {
     gap: 5px;
   }
 
-  body.puzzle-active .star-timer {
-    width: min(calc(100vw - 28px), 100%);
-  }
-
-  body.puzzle-active .star-timer:not(.hidden) ~ .board {
-    width: var(--active-board-size, min(calc(100vw - 28px), calc(100vh - 136px)));
-  }
 }
 
 .selection-grid {
@@ -905,27 +748,6 @@ body.puzzle-active .board {
     font-size: 0.82rem;
   }
 
-  body.puzzle-active .star-timer {
-    width: min(calc(100vw - 24px), 620px);
-    padding: 5px 8px;
-    border-width: 2px;
-    border-radius: 14px;
-  }
-
-  body.puzzle-active .star-timer-top {
-    gap: 6px;
-    font-size: 0.82rem;
-  }
-
-  body.puzzle-active .star-timer-time {
-    min-width: 50px;
-    padding: 3px 6px;
-  }
-
-  body.puzzle-active .star-timer-track {
-    height: 6px;
-    margin-top: 5px;
-  }
 }
 
 .home-panel {
@@ -1383,19 +1205,6 @@ a.icon-button {
 .difficulty-group h3 { margin: 8px 0 0; color: var(--primary-dark); font-size: 1.2rem; }
 .difficulty-levels { display: grid; grid-template-columns: repeat(auto-fit, minmax(112px, 1fr)); gap: 12px; }
 .level-tile.solved { position: relative; background: #f0fff9; }
-.level-tile .level-stars {
-  min-height: 18px;
-  font-size: 1rem;
-}
-
-.level-tile .level-stars span {
-  font-size: inherit;
-  font-weight: 950;
-}
-
-.level-tile.locked .level-stars {
-  opacity: 0.45;
-}
 .count-board {
   grid-template-columns: repeat(var(--size), minmax(34px, 1fr));
   gap: 5px;
@@ -2819,10 +2628,6 @@ body.puzzle-active .task-board {
   font-weight: 950;
 }
 
-.backpack-stars {
-  font-size: clamp(1.9rem, 8vw, 2.7rem);
-}
-
 .backpack-game-over-actions {
   display: grid;
   gap: 10px;
@@ -3228,8 +3033,7 @@ body.puzzle-active .memory-game {
     column-gap: 8px;
   }
 
-  body.puzzle-active.number-pad-open .status-row,
-  body.puzzle-active.number-pad-open .star-timer {
+  body.puzzle-active.number-pad-open .status-row {
     grid-column: 1 / -1;
   }
 

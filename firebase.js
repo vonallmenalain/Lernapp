@@ -50,11 +50,9 @@
   };
 
   const LOCAL_SOLVED_PREFIX = "lernapp.solved.";
-  const LOCAL_STARS_PREFIX = "lernapp.stars.";
   const LOCAL_GUEST_ID_KEY = "lernapp.guest.id";
   const LOCAL_GUEST_CREATED_KEY = "lernapp.guest.createdAt";
   const GUEST_ID_PREFIX = "guest_";
-  const MAX_STARS = 3;
   const CHILD_LOGIN_DOMAIN = "lernapp.local";
   const PASSWORD_SUFFIX = "::lernapp";
   const MIN_CHILD_PASSWORD_LENGTH = 4;
@@ -126,7 +124,6 @@
     registerLevels,
     isSignedIn: () => Boolean(state.user),
     isLevelSolved,
-    levelStars,
     isUnlockedModeEnabled: () => Boolean(state.user && state.unlockedMode),
     recordLevelStart,
     recordMove,
@@ -249,35 +246,9 @@
     return `${LOCAL_SOLVED_PREFIX}${level.game}.${id}`;
   }
 
-  function starsKey(level) {
-    const id = level.levelId || level.id || level.levelName;
-    return `${LOCAL_STARS_PREFIX}${level.game}.${id}`;
-  }
-
-  function normalizeStars(value, fallback = 0) {
-    const stars = Number(value);
-    if (!Number.isFinite(stars)) return fallback;
-    return Math.max(0, Math.min(MAX_STARS, Math.floor(stars)));
-  }
-
   function isLevelSolved(level) {
     const normalized = normalizeLevel(level);
     return Boolean(normalized && state.progress.get(levelKey(normalized))?.solved);
-  }
-
-  function levelStars(level) {
-    const normalized = normalizeLevel(level);
-    if (!normalized) return 0;
-    const progress = state.progress.get(levelKey(normalized));
-    const stars = normalizeStars(progress?.stars);
-    if (stars) return stars;
-    return progress?.solved ? 1 : 0;
-  }
-
-  function localLevelStars(level) {
-    const saved = normalizeStars(localStorage.getItem(starsKey(level)));
-    if (saved) return saved;
-    return localStorage.getItem(progressKey(level)) === "1" ? 1 : 0;
   }
 
   function localSolvedLevels() {
@@ -285,7 +256,7 @@
     const known = new Set(state.levelCatalog.map((level) => `${level.game}.${level.levelId}`));
 
     state.levelCatalog.forEach((level) => {
-      if (localStorage.getItem(progressKey(level)) === "1") result.push({ ...level, stars: localLevelStars(level) });
+      if (localStorage.getItem(progressKey(level)) === "1") result.push({ ...level });
     });
 
     Object.keys(localStorage)
@@ -297,7 +268,7 @@
         const game = rest.slice(0, separator);
         const levelId = rest.slice(separator + 1);
         if (known.has(`${game}.${levelId}`)) return;
-        result.push({ game, levelId, levelName: levelId, title: levelId, difficulty: "easy", stars: localLevelStars({ game, levelId }) });
+        result.push({ game, levelId, levelName: levelId, title: levelId, difficulty: "easy" });
       });
 
     return result;
@@ -306,7 +277,7 @@
   async function syncLocalSolvedProgress() {
     if (!state.user || !state.db) return;
     const solved = localSolvedLevels();
-    await Promise.all(solved.map((level) => mergeSolvedLevel(level, { migrated: true, stars: level.stars })));
+    await Promise.all(solved.map((level) => mergeSolvedLevel(level, { migrated: true })));
   }
 
   async function loadProgress() {
@@ -641,10 +612,8 @@
   }
 
   function solveResultOptions(result = {}) {
-    if (typeof result === "number") return { stars: normalizeStars(result, 1) || 1 };
-    const options = { ...(result || {}) };
-    options.stars = normalizeStars(options.stars, 1) || 1;
-    return options;
+    if (typeof result === "number") return {};
+    return { ...(result || {}) };
   }
 
   function solveMetadata(options = {}) {
@@ -662,27 +631,23 @@
     const options = solveResultOptions(result);
     const key = levelKey(level);
     const cached = state.progress.get(key) || {};
-    const stars = Math.max(normalizeStars(cached.stars), cached.solved ? 1 : 0, options.stars);
     if (!state.user) {
       localStorage.setItem(progressKey(level), "1");
-      localStorage.setItem(starsKey(level), String(Math.max(localLevelStars(level), stars)));
     }
     state.progress.set(levelKey(level), {
       ...cached,
       ...level,
       solved: true,
-      stars,
       ...solveMetadata(options),
     });
     if (state.activeSession && levelKey(state.activeSession.level) === levelKey(level)) {
       state.activeSession.solved = true;
-      state.activeSession.stars = stars;
     }
     const owner = state.activeSession && levelKey(state.activeSession.level) === levelKey(level)
       ? sessionOwner(state.activeSession)
       : currentOwner();
-    mergeSolvedLevel(level, { ...options, stars }, owner).catch(() => {});
-    flushCurrentSession({ solved: true, close: true, stars });
+    mergeSolvedLevel(level, options, owner).catch(() => {});
+    flushCurrentSession({ solved: true, close: true });
   }
 
   async function mergeSolvedLevel(level, options = {}, owner = currentOwner()) {
@@ -692,11 +657,9 @@
     const levelDoc = levelRef(level, owner);
     const cached = owner?.kind === "user" ? state.progress.get(key) : (await levelDoc.get()).data();
     const wasSolved = Boolean(cached?.solved);
-    const stars = Math.max(normalizeStars(cached?.stars), wasSolved ? 1 : 0, normalizeStars(options.stars, 1) || 1);
     const payload = {
       ...level,
       solved: true,
-      stars,
       ...solveMetadata(options),
       updatedAt: serverTimestamp(),
       lastPlayedAt: serverTimestamp(),
@@ -714,7 +677,7 @@
 
     await batch.commit();
     if (owner?.kind === "user") {
-      state.progress.set(key, { ...(cached || {}), ...level, solved: true, stars, ...solveMetadata(options) });
+      state.progress.set(key, { ...(cached || {}), ...level, solved: true, ...solveMetadata(options) });
     }
   }
 
@@ -748,7 +711,6 @@
     if (shouldClose) session.closed = true;
 
     const solved = Boolean(options.solved || session.solved);
-    const stars = Math.max(normalizeStars(options.stars), normalizeStars(session.stars));
     const batch = state.db.batch();
     const levelPayload = {
       ...session.level,
@@ -762,7 +724,6 @@
     if (solved) {
       levelPayload.solved = true;
       levelPayload.solvedAt = serverTimestamp();
-      if (stars) levelPayload.stars = stars;
     }
 
     const sessionPayload = {
@@ -773,7 +734,6 @@
       updatedAt: serverTimestamp(),
     };
 
-    if (solved && stars) sessionPayload.stars = stars;
     if (shouldClose) sessionPayload.endedAt = serverTimestamp();
 
     batch.set(levelRef(session.level, owner), levelPayload, { merge: true });
@@ -791,7 +751,6 @@
           ...(state.progress.get(levelKey(session.level)) || {}),
           ...session.level,
           solved: true,
-          ...(stars ? { stars } : {}),
         });
       }
       if (state.dashboardOpen) refreshDashboard();
@@ -1384,7 +1343,6 @@
     const details = [
       ["Status", status],
       ["Versuche", Number(entry.attempts || 0)],
-      ["Sterne", entry.stars ? `${normalizeStars(entry.stars)}/3` : "-"],
       ["Zeit", formatDuration(Number(entry.timeSeconds || entry.elapsedSeconds || 0))],
       ["Züge", Number(entry.moves || 0)],
       ["Resets", Number(entry.resets || 0)],
@@ -1413,7 +1371,6 @@
       ["Dauer", formatDuration(Number(session.durationSeconds || 0))],
       ["Züge", Number(session.moves || 0)],
       ["Resets", Number(session.resets || 0)],
-      ["Sterne", session.stars ? `${normalizeStars(session.stars)}/3` : "-"],
     ];
 
     return `
