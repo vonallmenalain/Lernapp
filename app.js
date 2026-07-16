@@ -4424,8 +4424,7 @@ const GAME_HANDLERS = {
       setStatus("Kurz tippen markiert Wasser. Langer Druck setzt ein Schiffsteil.");
     },
     checkWin() {
-      const level = currentLevel();
-      return level.solution.every((row, r) => row.every((value, c) => (state.grid[r][c] === "ship") === Boolean(value)));
+      return bimaruSolved(currentLevel(), state.grid);
     },
     setCell(r, c, value, message) {
       if (state.grid[r][c] === value) return;
@@ -4600,6 +4599,31 @@ function collectBimaruShips(grid) {
     ships.push({ cells, length: cells.length, validStraight: cells.length === 1 || rowSet.size === 1 || colSet.size === 1 });
   }
   return ships;
+}
+function bimaruSolved(level, grid) {
+  // A Bimaru is solved when the placement obeys the puzzle rules, regardless of
+  // whether it matches the single stored solution. Puzzles can have several
+  // valid solutions, and every one of them must finish the level.
+  const currentCounts = bimaruGridCounts(grid);
+  // 1. Every row and column tally must match its clue exactly.
+  if (!level.rowCounts.every((target, row) => currentCounts.rowCounts[row] === target)) return false;
+  if (!level.colCounts.every((target, col) => currentCounts.colCounts[col] === target)) return false;
+  // 2. Every ship must be a straight line and the fleet must be used exactly.
+  const ships = collectBimaruShips(grid);
+  if (ships.some((ship) => !ship.validStraight)) return false;
+  const usedByLength = {};
+  ships.forEach((ship) => { usedByLength[ship.length] = (usedByLength[ship.length] || 0) + 1; });
+  const fleet = level.fleet || {};
+  const lengths = new Set([...Object.keys(fleet), ...Object.keys(usedByLength)].map(Number));
+  for (const length of lengths) {
+    if ((usedByLength[length] || 0) !== (fleet[length] || 0)) return false;
+  }
+  // 3. No two ships may touch, not even diagonally.
+  for (let row = 0; row < level.size; row += 1) for (let col = 0; col < level.size; col += 1) {
+    if (!isBimaruShipAt(grid, row, col)) continue;
+    if (isBimaruShipAt(grid, row + 1, col + 1) || isBimaruShipAt(grid, row + 1, col - 1)) return false;
+  }
+  return true;
 }
 function bimaruInvalidShipKeys(level, grid) {
   const invalid = new Set();
