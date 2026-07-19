@@ -44,7 +44,7 @@
         cell.addEventListener("click", () => {
           animateSticker(cell);
           kids.playStarSound(0);
-          kids.speak(`${sticker.name}. ${sticker.sound}`);
+          kids.speak(`${sticker.name}. ${sticker.sound}`, { force: true });
         });
       } else {
         cell.setAttribute("aria-label", "Noch nicht gesammelt");

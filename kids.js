@@ -219,8 +219,9 @@
     const setting = readRaw(KEYS.tts);
     if (setting === "0" || setting === "false" || setting === "off") return false;
     if (setting === "1" || setting === "true" || setting === "on") return true;
-    // Standard: an für kleine Kinder, sonst auch an (Ton lässt sich abschalten).
-    return true;
+    // Standard: aus. Es wird nicht automatisch vorgelesen – Vorlesen passiert
+    // nur, wenn man den 🔊-Knopf drückt (speak(..., { force: true })).
+    return false;
   }
   function setTtsEnabled(enabled) {
     writeRaw(KEYS.tts, enabled ? "1" : "0");
@@ -243,7 +244,10 @@
     if (ttsSupported()) { try { window.speechSynthesis.cancel(); } catch { /* ignore */ } }
   }
   function speak(text, options = {}) {
-    if (!text || !ttsSupported() || !ttsEnabled()) return;
+    if (!text || !ttsSupported()) return;
+    // Automatisches Vorlesen nur, wenn eingeschaltet. Ein 🔊-Knopf erzwingt das
+    // Vorlesen mit { force: true }, unabhängig von der Einstellung.
+    if (!options.force && !ttsEnabled()) return;
     if (!options.queue) stopSpeaking();
     try {
       const utterance = new window.SpeechSynthesisUtterance(String(text));

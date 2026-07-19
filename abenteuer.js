@@ -204,7 +204,7 @@
       speaker.className = "task-speaker";
       speaker.setAttribute("aria-label", "Aufgabe vorlesen");
       speaker.textContent = "🔊";
-      speaker.addEventListener("click", () => kids.speak(spokenFor(task)));
+      speaker.addEventListener("click", () => kids.speak(spokenFor(task), { force: true }));
       head.append(speaker);
     }
     card.append(head);

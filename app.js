@@ -3342,7 +3342,7 @@ function maybeShowTutorial(level, config) {
   const spokenText = `${config.title}. ${rules.join(" ")}`;
   const close = () => { kids().stopSpeaking?.(); overlay.remove(); if (tutorialOverlay === overlay) tutorialOverlay = null; };
   overlay.querySelector("[data-start]").addEventListener("click", close);
-  overlay.querySelector("[data-listen]").addEventListener("click", () => kids().speak?.(spokenText));
+  overlay.querySelector("[data-listen]").addEventListener("click", () => kids().speak?.(spokenText, { force: true }));
   overlay.addEventListener("click", (event) => { if (event.target === overlay) close(); });
   speakKids(spokenText);
 }
@@ -3630,7 +3630,7 @@ function renderPracticeProgress(level) {
     speaker.setAttribute("aria-label", "Aufgabe vorlesen");
     speaker.title = "Vorlesen";
     speaker.textContent = "🔊";
-    speaker.addEventListener("click", () => speakKids(spokenTaskText(state.task)));
+    speaker.addEventListener("click", () => speakKids(spokenTaskText(state.task), { force: true }));
     wrap.append(speaker);
   }
   if (kids()?.isYoung?.() && state.task && !state.awaitingNext && !state.completed) {
