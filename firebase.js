@@ -21,6 +21,8 @@
     oddOneOut: "Was passt nicht?",
     whatFits: "Was passt?",
     readingPuzzle: "Wortdetektiv",
+    countPuzzle: "Zählzauber",
+    letterPuzzle: "Buchstaben-Jagd",
     backpack: "Rucksack packen",
     memory: "Memory",
   };
@@ -45,6 +47,8 @@
     oddOneOut: 40,
     whatFits: 40,
     readingPuzzle: 40,
+    countPuzzle: 40,
+    letterPuzzle: 40,
     backpack: 4,
     memory: 40,
   };

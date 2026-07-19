@@ -285,10 +285,10 @@ const SUDOKU_LEVELS = [
 
 
 const DIFFICULTIES = {
-  easy: { label: "Leicht", code: 1, icon: "🌱" },
-  medium: { label: "Mittel", code: 2, icon: "🪐" },
-  hard: { label: "Schwer", code: 3, icon: "🚀" },
-  extreme: { label: "Extrem", code: 4, icon: "🟣" },
+  easy: { label: "Wiese", code: 1, icon: "🌱" },
+  medium: { label: "Wald", code: 2, icon: "🌲" },
+  hard: { label: "Meer", code: 3, icon: "🌊" },
+  extreme: { label: "Weltall", code: 4, icon: "🚀" },
 };
 const DIFFICULTY_KEYS = Object.keys(DIFFICULTIES);
 const LEVELS_PER_DIFFICULTY = 10;
@@ -365,6 +365,18 @@ const GAME_CONFIGS = {
     subtitle: "Erkenne Buchstaben, Wörter und kurze Sätze passend zum Bild.",
     success: "Richtig gelesen! Du hast die Leserätsel geschafft.",
     rules: ["Schau dir zuerst das Bild an.", "Lies das Wort oder den Satz in Ruhe.", "Tippe auf die Antwort, die genau passt."],
+  },
+  countPuzzle: {
+    title: "Zählzauber", eyebrow: "Zählen üben", code: "C",
+    subtitle: "Zähle die Bilder und finde die richtige Zahl.",
+    success: "Toll gezählt! Du hast alle Mengen richtig erkannt.",
+    rules: ["Schau dir die Bilder an.", "Zähle jedes Bild einzeln, ganz in Ruhe.", "Tippe auf die richtige Zahl."],
+  },
+  letterPuzzle: {
+    title: "Buchstaben-Jagd", eyebrow: "Laute hören", code: "L",
+    subtitle: "Finde den Buchstaben, mit dem das Wort beginnt.",
+    success: "Super gehört! Du hast die richtigen Buchstaben gefunden.",
+    rules: ["Schau dir das Bild an.", "Sprich das Wort langsam aus.", "Tippe auf den Buchstaben am Anfang. Tipp: Tippe auf 🔊 zum Anhören."],
   },
   spatialPuzzle: {
     title: "Raumdetektiv", eyebrow: "Würfelblick", code: "D",
@@ -2107,6 +2119,8 @@ function practiceTaskKey(task) {
   if (task.puzzleType === "whatFits") return [task.puzzleType, task.difficulty, task.sourceId || task.correctId || task.id].join(":");
   if (task.puzzleType === "shapeSequencePuzzle") return shapeSequenceTaskKey(task);
   if (task.puzzleType === "sequencePuzzle") return sequenceTaskKey(task);
+  if (task.puzzleType === "countPuzzle") return countTaskKey(task);
+  if (task.puzzleType === "letterPuzzle") return letterTaskKey(task);
   return task.puzzleType === "mathPuzzle" ? mathTaskKey(task) : readingTaskKey(task);
 }
 function generateUniquePracticeTask(taskFactory, difficulty, usedKeys = []) {
@@ -2120,6 +2134,100 @@ function generateUniquePracticeTask(taskFactory, difficulty, usedKeys = []) {
     fallback = fallback || task;
   }
   return fallback || taskFactory(difficulty);
+}
+
+// --- Zählzauber (countPuzzle) ---
+const COUNT_EMOJIS = ["🐞", "🍎", "⭐", "🐟", "🌸", "🦋", "🚗", "🎈", "🐝", "🍓", "🐤", "🐢", "🍄", "🎁", "🌼", "🐙"];
+const COUNT_RULES = {
+  easy: { min: 1, max: 5, optionCount: 3 },
+  medium: { min: 3, max: 8, optionCount: 3 },
+  hard: { min: 5, max: 12, optionCount: 4 },
+  extreme: { min: 8, max: 15, optionCount: 4 },
+};
+function countDistractors(count) {
+  const set = [];
+  for (let d = 1; d <= 4; d += 1) { set.push(count + d, count - d); }
+  return set.filter((n) => n >= 0);
+}
+function generateCountTask(difficulty) {
+  const rule = COUNT_RULES[difficulty] || COUNT_RULES.easy;
+  const emoji = pickRandom(COUNT_EMOJIS);
+  const count = randomInt(rule.min, rule.max);
+  const items = Array.from({ length: count }, () => emoji);
+  const options = ensureUniqueOptions(count, countDistractors(count), rule.optionCount, 0, rule.max + 3);
+  return {
+    puzzleType: "countPuzzle", difficulty, emoji, count, items, options,
+    correctAnswer: count,
+    questionText: "Wie viele?",
+    speakText: "Wie viele siehst du? Zähle ganz genau.",
+  };
+}
+function countTaskKey(task) { return ["countPuzzle", task.emoji, task.count].join(":"); }
+function makeCountTaskView() {
+  const task = state.task;
+  const view = document.createElement("div");
+  view.className = "practice-task count-task";
+  const question = document.createElement("p");
+  question.className = "count-question";
+  question.textContent = "Wie viele?";
+  const grid = document.createElement("div");
+  grid.className = "count-objects";
+  grid.style.setProperty("--count", task.count);
+  grid.setAttribute("aria-label", `${task.count} mal ${task.emoji}`);
+  task.items.forEach((em) => {
+    const span = document.createElement("span");
+    span.className = "count-object";
+    span.setAttribute("aria-hidden", "true");
+    span.textContent = em;
+    grid.append(span);
+  });
+  view.append(question, grid);
+  return view;
+}
+
+// --- Buchstaben-Jagd (letterPuzzle) ---
+const LETTER_ITEMS = [
+  { emoji: "🍌", word: "Banane" }, { emoji: "🍎", word: "Apfel" }, { emoji: "🐶", word: "Hund" },
+  { emoji: "🐱", word: "Katze" }, { emoji: "🚗", word: "Auto" }, { emoji: "🌳", word: "Baum" },
+  { emoji: "🏠", word: "Haus" }, { emoji: "🐟", word: "Fisch" }, { emoji: "🌙", word: "Mond" },
+  { emoji: "☀️", word: "Sonne" }, { emoji: "🌼", word: "Blume" }, { emoji: "🐭", word: "Maus" },
+  { emoji: "🍅", word: "Tomate" }, { emoji: "🚀", word: "Rakete" }, { emoji: "🐰", word: "Hase" },
+  { emoji: "🎈", word: "Ballon" }, { emoji: "🐷", word: "Ferkel" }, { emoji: "🍄", word: "Pilz" },
+  { emoji: "🦆", word: "Ente" }, { emoji: "🐝", word: "Biene" }, { emoji: "🍪", word: "Keks" },
+  { emoji: "🌈", word: "Regenbogen" }, { emoji: "🦁", word: "Löwe" }, { emoji: "🐮", word: "Kuh" },
+];
+const LETTER_ALPHABET = "ABCDEFGHIJKLMNOPRSTUWZ".split("");
+function generateLetterTask(difficulty) {
+  const item = pickRandom(LETTER_ITEMS);
+  const word = item.word.toUpperCase();
+  const mode = (difficulty === "extreme" && Math.random() < 0.5) ? "end" : "start";
+  const correct = mode === "end" ? word[word.length - 1] : word[0];
+  const optionCount = (difficulty === "easy" || difficulty === "medium") ? 3 : 4;
+  const distractors = shuffleOptions(LETTER_ALPHABET.filter((letter) => letter !== correct)).slice(0, optionCount + 2);
+  const options = ensureUniqueTextOptions(correct, distractors, optionCount);
+  const question = mode === "end" ? `Womit endet ${item.word}?` : `Womit beginnt ${item.word}?`;
+  return {
+    puzzleType: "letterPuzzle", difficulty, item, word, mode, options,
+    correctAnswer: correct, questionText: question, speakText: question,
+  };
+}
+function letterTaskKey(task) { return ["letterPuzzle", task.word, task.mode].join(":"); }
+function makeLetterTaskView() {
+  const task = state.task;
+  const view = document.createElement("div");
+  view.className = "practice-task letter-task";
+  const emoji = document.createElement("div");
+  emoji.className = "letter-image";
+  emoji.setAttribute("aria-hidden", "true");
+  emoji.textContent = task.item.emoji;
+  const word = document.createElement("p");
+  word.className = "letter-word";
+  word.textContent = task.item.word;
+  const question = document.createElement("p");
+  question.className = "letter-question";
+  question.textContent = task.questionText;
+  view.append(emoji, word, question);
+  return view;
 }
 
 const MATH_LEVEL_DESCRIPTIONS = {
@@ -2158,21 +2266,40 @@ const WHAT_FITS_LEVEL_DESCRIPTIONS = {
   hard: "Hier brauchst du mehr Wissen: Werkzeug, Verwandlung, Orientierung.",
   extreme: "Ursache, Wirkung und Veränderung: Denke einen Schritt weiter.",
 };
+const PRACTICE_TARGET_BY_DIFFICULTY = { easy: 5, medium: 7, hard: 10, extreme: 10 };
+function practiceTargetCount(difficulty) { return PRACTICE_TARGET_BY_DIFFICULTY[difficulty] || 10; }
 function makePracticeLevels(game, descriptions) {
   return DIFFICULTY_KEYS.flatMap((difficulty) =>
-    Array.from({ length: LEVELS_PER_DIFFICULTY }, (_, index) => makeLevel(game, difficulty, index + 1, {
-      targetCount: 10,
-      badge: "10 Aufgaben",
-      description: descriptions[difficulty],
-    }))
+    Array.from({ length: LEVELS_PER_DIFFICULTY }, (_, index) => {
+      const targetCount = practiceTargetCount(difficulty);
+      return makeLevel(game, difficulty, index + 1, {
+        targetCount,
+        badge: `${targetCount} Aufgaben`,
+        description: descriptions[difficulty],
+      });
+    })
   );
 }
+const COUNT_LEVEL_DESCRIPTIONS = {
+  easy: "Zähle kleine Mengen bis 5.",
+  medium: "Zähle Mengen bis 8.",
+  hard: "Zähle grössere Mengen bis 12.",
+  extreme: "Zähle schnell bis 15.",
+};
+const LETTER_LEVEL_DESCRIPTIONS = {
+  easy: "Welcher Buchstabe kommt zuerst?",
+  medium: "Anfangsbuchstaben üben.",
+  hard: "Mehr Buchstaben zur Auswahl.",
+  extreme: "Anfang und Ende der Wörter.",
+};
 const MATH_LEVELS = makePracticeLevels("mathPuzzle", MATH_LEVEL_DESCRIPTIONS);
 const READING_LEVELS = makePracticeLevels("readingPuzzle", READING_LEVEL_DESCRIPTIONS);
 const SEQUENCE_LEVELS = makePracticeLevels("sequencePuzzle", SEQUENCE_LEVEL_DESCRIPTIONS);
 const SHAPE_SEQUENCE_LEVELS = makePracticeLevels("shapeSequencePuzzle", SHAPE_SEQUENCE_LEVEL_DESCRIPTIONS);
 const ODD_ONE_OUT_LEVELS = makePracticeLevels("oddOneOut", ODD_ONE_OUT_LEVEL_DESCRIPTIONS);
 const WHAT_FITS_LEVELS = makePracticeLevels("whatFits", WHAT_FITS_LEVEL_DESCRIPTIONS);
+const COUNT_LEVELS = makePracticeLevels("countPuzzle", COUNT_LEVEL_DESCRIPTIONS);
+const LETTER_LEVELS = makePracticeLevels("letterPuzzle", LETTER_LEVEL_DESCRIPTIONS);
 
 const SPATIAL_LEVEL_DESCRIPTIONS = {
   easy: "Zwei Antwortkarten und einfache Würfelbauten mit 3 bis 4 Würfeln.",
@@ -2475,6 +2602,8 @@ const LEVELS_BY_GAME = {
   shapeSequencePuzzle: normalizeLevelCounts(SHAPE_SEQUENCE_LEVELS),
   oddOneOut: normalizeLevelCounts(ODD_ONE_OUT_LEVELS),
   whatFits: normalizeLevelCounts(WHAT_FITS_LEVELS),
+  countPuzzle: normalizeLevelCounts(COUNT_LEVELS),
+  letterPuzzle: normalizeLevelCounts(LETTER_LEVELS),
   spatialPuzzle: normalizeLevelCounts(SPATIAL_LEVELS),
   backpack: normalizeLevelCounts(BACKPACK_LEVELS),
   memory: normalizeLevelCounts(MEMORY_LEVELS),
@@ -2498,6 +2627,18 @@ window.LernappLevelCatalog = Object.fromEntries(
   Object.entries(LEVELS_BY_GAME).map(([game, levels]) => [game, levels.map(publicLevelInfo)])
 );
 window.LernappFirebase?.registerLevels?.(window.LernappLevelCatalog);
+
+// Aufgaben-Generatoren für den Abenteuer-Modus (abenteuer.js) verfügbar machen.
+window.LernappTasks = {
+  math: generateMathTask,
+  sequence: generateSequenceTask,
+  shape: generateShapeSequenceTask,
+  oddOneOut: generateOddOneOutTask,
+  whatFits: generateWhatFitsTask,
+  reading: generateReadingTask,
+  count: generateCountTask,
+  letter: generateLetterTask,
+};
 
 const board = document.querySelector("#board");
 const numberPad = document.querySelector("#number-pad");
@@ -2541,16 +2682,20 @@ let pushedActiveSnapshot = false;
 let appAudioContext = null;
 let audioToggleButton = null;
 let successTimers = [];
+let helpCount = 0;
+let lastCelebration = null;
 const BIMARU_LONG_PRESS_MS = 480;
 const LOCAL_SOLVED_PREFIX = "lernapp.solved.";
 const AUDIO_FEEDBACK_STORAGE_KEY = "lernapp.audioFeedback";
 const SUCCESS_TONE_SEQUENCE = [
-  { frequency: 523.25, delay: 0, duration: 0.12, type: "triangle", volume: 0.03 },
-  { frequency: 659.25, delay: 0.09, duration: 0.14, type: "triangle", volume: 0.034 },
-  { frequency: 783.99, delay: 0.19, duration: 0.16, type: "sine", volume: 0.038 },
-  { frequency: 1046.5, delay: 0.34, duration: 0.24, type: "sine", volume: 0.03 },
+  { frequency: 523.25, delay: 0, duration: 0.13, type: "triangle", volume: 0.04 },
+  { frequency: 659.25, delay: 0.11, duration: 0.14, type: "triangle", volume: 0.044 },
+  { frequency: 783.99, delay: 0.22, duration: 0.16, type: "triangle", volume: 0.048 },
+  { frequency: 1046.5, delay: 0.35, duration: 0.16, type: "sine", volume: 0.05 },
+  { frequency: 1318.5, delay: 0.5, duration: 0.28, type: "sine", volume: 0.045 },
 ];
-const PRACTICE_GAMES = new Set(["mathPuzzle", "readingPuzzle", "sequencePuzzle", "shapeSequencePuzzle", "oddOneOut", "whatFits"]);
+const STAR_TONE_SEQUENCE = [880, 1108.7, 1318.5];
+const PRACTICE_GAMES = new Set(["mathPuzzle", "readingPuzzle", "sequencePuzzle", "shapeSequencePuzzle", "oddOneOut", "whatFits", "countPuzzle", "letterPuzzle"]);
 
 function progressKey(game, levelId) { return `${LOCAL_SOLVED_PREFIX}${game}.${levelId}`; }
 function cloudProgress() { return window.LernappFirebase || null; }
@@ -2569,6 +2714,56 @@ function markSolved(level, result = {}) {
 }
 function recordMoveMetric() { cloudProgress()?.recordMove?.(); }
 function recordResetMetric() { cloudProgress()?.recordReset?.(currentLevel()); }
+function kids() { return window.LernappKids || null; }
+function speakKids(text, options) { kids()?.speak?.(text, options); }
+// Berechnet 1–3 Sterne je nach sauberer Lösung.
+function computeStars(game, level, result) {
+  if (PRACTICE_GAMES.has(game)) {
+    const target = Number(result.target || level.targetCount || 10);
+    const flawless = Number(result.flawless || 0);
+    if (flawless >= target) return 3;
+    if (flawless >= Math.ceil(target * 0.6)) return 2;
+    return 1;
+  }
+  if (game === "memory") {
+    const moves = Number(result.moves || 0);
+    if (level.threeStarMoves && moves <= level.threeStarMoves) return 3;
+    if (level.twoStarMoves && moves <= level.twoStarMoves) return 2;
+    return 1;
+  }
+  if (game === "spatialPuzzle") {
+    const mistakes = Number(result.mistakes || 0);
+    if (mistakes === 0) return 3;
+    if (mistakes <= 2) return 2;
+    return 1;
+  }
+  if (game === "backpack") return 3;
+  // Logikspiele: weniger Hilfen (Rückgängig/Neustart) = mehr Sterne.
+  if (helpCount === 0) return 3;
+  if (helpCount <= 2) return 2;
+  return 1;
+}
+function saveLevelStars(level, stars) {
+  const id = level.id || level.levelName;
+  return kids()?.setStars?.(level.game, id, stars) || { stars, improved: false, previous: 0 };
+}
+function levelStars(level) {
+  const id = level.id || level.levelName;
+  return kids()?.getStars?.(level.game, id) || 0;
+}
+function renderStarRow(count, options = {}) {
+  const row = document.createElement("div");
+  row.className = "star-row" + (options.small ? " star-row-small" : "");
+  row.setAttribute("aria-label", `${count} von 3 Sternen`);
+  for (let i = 0; i < 3; i += 1) {
+    const star = document.createElement("span");
+    star.className = "star" + (i < count ? " filled" : " empty");
+    if (options.animate && i < count) { star.classList.add("to-reveal"); star.style.setProperty("--star-index", i); }
+    star.textContent = i < count ? "★" : "☆";
+    row.append(star);
+  }
+  return row;
+}
 function refreshProgressView() {
   if (!currentGame || !levelPanel || document.body.classList.contains("puzzle-active")) return;
   if (selectedDifficulty) renderLevelSelect();
@@ -2870,7 +3065,7 @@ function renderDifficultySelect() {
   if (!currentGame || !levelPanel) return;
   const config = GAME_CONFIGS[currentGame];
   levelPanel.classList.add("difficulty-step");
-  levelHeading.textContent = "Schwierigkeit wählen";
+  levelHeading.textContent = "Wähle deine Welt";
   if (appIntro) appIntro.textContent = "";
   levelDescription.textContent = "";
   levelDescription.hidden = true;
@@ -2913,29 +3108,39 @@ function renderLevelSelect() {
   levelGrid.className = "level-grid";
   levelGrid.setAttribute("aria-label", `${config.title} ${difficulty.label} Levels`);
   levelGrid.innerHTML = "";
-  levelsForDifficulty(selectedDifficulty).forEach((level) => {
+  levelsForDifficulty(selectedDifficulty).forEach((level, position) => {
     const index = LEVELS_BY_GAME[currentGame].indexOf(level);
     const solved = isSolved(level);
     const unlocked = isLevelUnlocked(level);
+    const stars = solved ? levelStars(level) : 0;
     const detail = level.badge || (level.size ? `${level.size}×${level.size}` : (level.rows && level.cols ? `${level.rows}×${level.cols}` : "Rätsel"));
     const button = document.createElement("button");
     button.className = `level-tile ${selectedDifficulty}${solved ? " solved" : ""}${unlocked ? "" : " locked"}`;
     button.type = "button";
     button.disabled = !unlocked;
-    button.setAttribute("aria-label", `${level.title}${solved ? ", geschafft" : ""}${unlocked ? "" : ", gesperrt"}`);
-    button.innerHTML = `
-      <span class="level-name">${level.levelName}</span>
-      <small${unlocked ? "" : " class=\"lock-icon\" aria-hidden=\"true\""}>${solved ? "geschafft" : (unlocked ? detail : "🔒")}</small>
-    `;
+    button.setAttribute("aria-label", `Level ${position + 1}${solved ? `, geschafft, ${stars} von 3 Sternen` : ""}${unlocked ? "" : ", gesperrt"}`);
+    const numberSpan = document.createElement("span");
+    numberSpan.className = "level-name";
+    numberSpan.textContent = unlocked ? String(position + 1) : "🔒";
+    button.append(numberSpan);
+    if (solved) {
+      button.append(renderStarRow(stars, { small: true }));
+    } else {
+      const small = document.createElement("small");
+      small.textContent = unlocked ? detail : "gesperrt";
+      if (!unlocked) { small.className = "lock-icon"; small.setAttribute("aria-hidden", "true"); }
+      button.append(small);
+    }
     button.addEventListener("click", () => startLevel(index));
     levelGrid.append(button);
   });
 }
 function showLevelSelect() { finishMove(); clearPracticeAdvanceTimer(); if (currentGame === "backpack") clearBackpackTimer(); if (currentGame === "memory") clearMemoryTimer(); cloudProgress()?.flushCurrentSession?.({ close: true, includeElapsed: true }); hideSuccess(); if (levelPanel) levelPanel.hidden = false; if (homePanel) homePanel.hidden = true; if (gamePanel) gamePanel.hidden = true; if (gameControls) gameControls.hidden = true; document.body.classList.remove("puzzle-active", "number-pad-open"); board?.style.removeProperty("--active-board-size"); board?.style.removeProperty("--active-board-offset"); renderLevelSelect(); }
 function showGame() { if (levelPanel) levelPanel.hidden = true; if (homePanel) homePanel.hidden = true; if (gamePanel) gamePanel.hidden = false; if (gameControls) gameControls.hidden = false; document.body.classList.add("puzzle-active"); }
-function startLevel(index) { const levelToStart = LEVELS_BY_GAME[currentGame]?.[index]; if (!isLevelUnlocked(levelToStart)) { if (levelToStart) selectedDifficulty = levelToStart.difficulty; renderLevelSelect(); return; } clearPracticeAdvanceTimer(); hideSuccess(); currentIndex = index; const level = currentLevel(); selectedDifficulty = level.difficulty; const config = GAME_CONFIGS[currentGame]; history = []; winShown = false; if (undoButton) undoButton.disabled = true; const boardSize = level.cols || level.size || 5; board.className = `board ${currentGame}-board board-size-${boardSize}`; board.style.setProperty("--size", boardSize); board.setAttribute("aria-label", `${config.title} Spielfeld`); puzzleTitle.textContent = level.title; puzzleDescription.textContent = level.description || config.subtitle; cloudProgress()?.recordLevelStart?.(level); resetState(); showGame(); render(); }
-function resetGame() { history = []; if (undoButton) undoButton.disabled = true; hideSuccess(); cloudProgress()?.recordLevelStart?.(currentLevel()); resetState(); recordResetMetric(); render("Neu gestartet. Viel Spass!"); }
+function startLevel(index) { const levelToStart = LEVELS_BY_GAME[currentGame]?.[index]; if (!isLevelUnlocked(levelToStart)) { if (levelToStart) selectedDifficulty = levelToStart.difficulty; renderLevelSelect(); return; } clearPracticeAdvanceTimer(); hideSuccess(); currentIndex = index; const level = currentLevel(); selectedDifficulty = level.difficulty; const config = GAME_CONFIGS[currentGame]; history = []; winShown = false; helpCount = 0; if (undoButton) undoButton.disabled = true; const boardSize = level.cols || level.size || 5; board.className = `board ${currentGame}-board board-size-${boardSize}`; board.style.setProperty("--size", boardSize); board.setAttribute("aria-label", `${config.title} Spielfeld`); puzzleTitle.textContent = level.title; puzzleDescription.textContent = level.description || config.subtitle; cloudProgress()?.recordLevelStart?.(level); kids()?.setLastPlayed?.(currentGame, level.id || level.levelName); resetState(); showGame(); render(); maybeShowTutorial(level, config); }
+function resetGame() { history = []; helpCount = 0; if (undoButton) undoButton.disabled = true; hideSuccess(); cloudProgress()?.recordLevelStart?.(currentLevel()); resetState(); recordResetMetric(); render("Neu gestartet. Viel Spass!"); }
 function undo() {
+  helpCount += 1;
   finishMove();
   if (currentGame === "hidoku") {
     GAME_HANDLERS.hidoku.clear(false);
@@ -2950,9 +3155,9 @@ function nextLevel() { const next = nextPlayableLevel(currentLevel()); if (next)
 function updateNextPuzzleButton() {
   if (!nextPuzzleButton || !currentGame) return;
   const next = nextPlayableLevel(currentLevel());
-  nextPuzzleButton.textContent = next ? "\u2192" : "OK";
-  nextPuzzleButton.title = next ? "Naechstes Level" : "Zur Levelauswahl";
-  nextPuzzleButton.setAttribute("aria-label", next ? "Naechstes Level" : "Zur Levelauswahl");
+  nextPuzzleButton.textContent = next ? "Weiter \u2192" : "Fertig \u2713";
+  nextPuzzleButton.title = next ? "N\u00e4chstes Level" : "Zur Levelauswahl";
+  nextPuzzleButton.setAttribute("aria-label", next ? "N\u00e4chstes Level" : "Zur Levelauswahl");
 }
 function clearSuccessTimers() {
   successTimers.forEach((timer) => clearTimeout(timer));
@@ -2969,18 +3174,51 @@ function scheduleSuccessStep(callback, delay) {
   }, delay);
   successTimers.push(timer);
 }
+const SUCCESS_PRAISE = ["Super gemacht!", "Toll gelöst!", "Klasse!", "Wow, stark!", "Du bist spitze!", "Prima!", "Bravo!", "Genial!", "Fantastisch!"];
+function renderDailyDots(daily) {
+  const dots = document.createElement("span");
+  dots.className = "daily-dots";
+  for (let i = 0; i < daily.goal; i += 1) {
+    const dot = document.createElement("span");
+    dot.className = "daily-dot" + (i < daily.count ? " filled" : "");
+    dot.textContent = i < daily.count ? "⭐" : "·";
+    dots.append(dot);
+  }
+  return dots;
+}
 function revealSuccessContent() {
   clearSuccessTimers();
   const details = Array.from(successContent?.querySelectorAll(".success-summary") || []);
   details.forEach((detail) => detail.classList.remove("revealed"));
+  if (successOverlay && !prefersReducedMotion()) {
+    const modal = successOverlay.querySelector(".success-modal");
+    kids()?.burstConfetti?.(modal || successOverlay);
+  }
+  kids()?.vibrate?.([40, 40, 90]);
   playSuccessTone();
-  scheduleSuccessStep(() => details.forEach((detail) => detail.classList.add("revealed")), prefersReducedMotion() ? 0 : 180);
+  scheduleSuccessStep(() => details.forEach((detail) => detail.classList.add("revealed")), prefersReducedMotion() ? 0 : 160);
+  const stars = Array.from(successContent?.querySelectorAll(".star.to-reveal") || []);
+  stars.forEach((star, index) => {
+    scheduleSuccessStep(() => {
+      star.classList.add("pop");
+      const freq = STAR_TONE_SEQUENCE[Math.min(index, STAR_TONE_SEQUENCE.length - 1)];
+      playTone(freq, { duration: 0.22, type: "triangle", volume: 0.05 });
+    }, prefersReducedMotion() ? 0 : 520 + index * 260);
+  });
+  if (lastCelebration?.praise) {
+    scheduleSuccessStep(() => speakKids(lastCelebration.praise), 140);
+  }
 }
 function showSuccess() {
   const level = currentLevel();
   const result = currentSolveResult();
   winShown = true;
+  const stars = computeStars(currentGame, level, result);
+  const saved = saveLevelStars(level, stars);
   markSolved(level, result);
+  const daily = kids()?.recordDailySolve?.() || null;
+  const newStickers = kids()?.addStarsToZoo?.(stars, { threeStar: stars >= 3 }) || [];
+  lastCelebration = { level, result, stars, improved: saved.improved, daily, newStickers, praise: pickRandom(SUCCESS_PRAISE) };
   updateNextPuzzleButton();
   updateSuccessContent();
   if (successOverlay) {
@@ -3000,13 +3238,48 @@ function hideSuccess() {
 }
 function updateSuccessContent() {
   if (!successContent) return;
+  const celebration = lastCelebration || { stars: 1 };
   const successTitle = successOverlay?.querySelector("#success-title");
-  if (successTitle) successTitle.textContent = "Geschafft!";
+  if (successTitle) successTitle.textContent = celebration.praise || "Geschafft!";
   successContent.innerHTML = "";
-  const summary = document.createElement("p");
-  summary.className = "success-summary";
-  summary.textContent = "Level geschafft.";
-  successContent.append(summary);
+
+  if (kids()?.mascotSVG) {
+    const mascot = document.createElement("div");
+    mascot.className = "success-summary success-mascot";
+    mascot.setAttribute("aria-hidden", "true");
+    mascot.innerHTML = kids().mascotSVG("cheer");
+    successContent.append(mascot);
+  }
+
+  const starWrap = document.createElement("div");
+  starWrap.className = "success-summary success-stars";
+  starWrap.append(renderStarRow(celebration.stars || 1, { animate: true }));
+  successContent.append(starWrap);
+
+  const note = document.createElement("p");
+  note.className = "success-summary success-note";
+  note.textContent = (celebration.stars || 1) >= 3 ? "Perfekt! Alle drei Sterne! 🌟" : "Spiel nochmal für mehr Sterne!";
+  successContent.append(note);
+
+  if (celebration.daily) {
+    const daily = document.createElement("div");
+    daily.className = "success-summary success-daily";
+    daily.append(renderDailyDots(celebration.daily));
+    const label = document.createElement("span");
+    label.textContent = celebration.daily.done ? "Tagesziel geschafft! 🎉" : `Heute: ${celebration.daily.count} von ${celebration.daily.goal} Rätseln`;
+    daily.append(label);
+    successContent.append(daily);
+  }
+
+  if (celebration.newStickers && celebration.newStickers.length) {
+    const reward = document.createElement("a");
+    reward.className = "success-summary success-sticker";
+    reward.href = "album.html";
+    const emojis = celebration.newStickers.map((s) => s.emoji).join(" ");
+    const names = celebration.newStickers.map((s) => s.name).join(" & ");
+    reward.innerHTML = `<span class="success-sticker-emoji" aria-hidden="true">${emojis}</span><span>Neu im Zoo: ${names}! Tippe hier.</span>`;
+    successContent.append(reward);
+  }
 }
 
 function setupSuccessOverlay() {
@@ -3024,14 +3297,11 @@ function setupSuccessOverlay() {
   overlay.hidden = true;
   overlay.innerHTML = `
     <div class="success-modal">
-      <div class="fireworks" aria-hidden="true">
-        <span></span><span></span><span></span><span></span><span></span><span></span>
-      </div>
       <h2 id="success-title">Geschafft!</h2>
       <div id="success-content" class="success-content"></div>
       <div class="success-actions" aria-label="Level-Aktionen">
-        <button id="success-restart-button" class="success-icon-button" type="button" aria-label="Level neu starten" title="Level neu starten">↻</button>
-        <button id="next-puzzle-button" class="success-icon-button primary" type="button" aria-label="Nächstes Level" title="Nächstes Level">→</button>
+        <button id="success-restart-button" class="success-text-button" type="button" aria-label="Level neu starten">🔁 Nochmal</button>
+        <button id="next-puzzle-button" class="success-text-button primary" type="button" aria-label="Nächstes Level">Weiter →</button>
       </div>
     </div>`;
   shell.append(overlay);
@@ -3042,6 +3312,175 @@ function setupSuccessOverlay() {
   successContent = overlay.querySelector("#success-content");
   successRestartButton.addEventListener("click", resetGame);
   nextPuzzleButton.addEventListener("click", nextLevel);
+}
+
+let tutorialOverlay = null;
+function maybeShowTutorial(level, config) {
+  if (!config || !kids() || kids().tutorialSeen?.(currentGame)) return;
+  const rules = Array.isArray(config.rules) ? config.rules : [];
+  kids().markTutorialSeen?.(currentGame);
+  if (!rules.length) return;
+  if (tutorialOverlay) tutorialOverlay.remove();
+  const overlay = document.createElement("section");
+  overlay.className = "kids-modal-overlay tutorial-overlay";
+  overlay.setAttribute("role", "dialog");
+  overlay.setAttribute("aria-modal", "true");
+  overlay.setAttribute("aria-label", `So geht ${config.title}`);
+  const rulesHtml = rules.map((rule, i) => `<li><span class="tut-step-num">${i + 1}</span><span>${rule}</span></li>`).join("");
+  overlay.innerHTML = `
+    <div class="kids-modal tutorial-modal">
+      <div class="kids-modal-mascot" aria-hidden="true">${kids().mascotSVG("think")}</div>
+      <h2>So geht ${config.title}</h2>
+      <ol class="tutorial-rules">${rulesHtml}</ol>
+      <div class="kids-modal-actions">
+        <button type="button" class="kids-modal-secondary" data-listen aria-label="Vorlesen">🔊 Vorlesen</button>
+        <button type="button" class="kids-modal-primary" data-start>Los geht's! 👆</button>
+      </div>
+    </div>`;
+  (document.querySelector(".app-shell") || document.body).append(overlay);
+  tutorialOverlay = overlay;
+  const spokenText = `${config.title}. ${rules.join(" ")}`;
+  const close = () => { kids().stopSpeaking?.(); overlay.remove(); if (tutorialOverlay === overlay) tutorialOverlay = null; };
+  overlay.querySelector("[data-start]").addEventListener("click", close);
+  overlay.querySelector("[data-listen]").addEventListener("click", () => kids().speak?.(spokenText));
+  overlay.addEventListener("click", (event) => { if (event.target === overlay) close(); });
+  speakKids(spokenText);
+}
+
+function showExitConfirm(href) {
+  const overlay = document.createElement("section");
+  overlay.className = "kids-modal-overlay confirm-overlay";
+  overlay.setAttribute("role", "dialog");
+  overlay.setAttribute("aria-modal", "true");
+  overlay.setAttribute("aria-label", "Wirklich aufhören?");
+  overlay.innerHTML = `
+    <div class="kids-modal confirm-modal">
+      <div class="kids-modal-mascot" aria-hidden="true">${kids()?.mascotSVG?.("think") || ""}</div>
+      <h2>Wirklich aufhören?</h2>
+      <p>Dein Rätsel ist noch nicht fertig.</p>
+      <div class="kids-modal-actions">
+        <button type="button" class="kids-modal-secondary" data-stay>Weiterspielen</button>
+        <button type="button" class="kids-modal-primary" data-leave>Aufhören</button>
+      </div>
+    </div>`;
+  (document.querySelector(".app-shell") || document.body).append(overlay);
+  const close = () => overlay.remove();
+  overlay.querySelector("[data-stay]").addEventListener("click", close);
+  overlay.querySelector("[data-leave]").addEventListener("click", () => { window.location.href = href; });
+  overlay.addEventListener("click", (event) => { if (event.target === overlay) close(); });
+}
+function setupExitGuard() {
+  const homeButton = document.querySelector("#home-button");
+  if (!homeButton) return;
+  homeButton.addEventListener("click", (event) => {
+    if (!document.body.classList.contains("puzzle-active") || winShown) return;
+    event.preventDefault();
+    showExitConfirm(homeButton.getAttribute("href") || "index.html");
+  });
+}
+
+const GAME_PAGE = {
+  mathPuzzle: "zahlenzauber.html", sequencePuzzle: "zahlenfolge.html", shapeSequencePuzzle: "figurenfolge.html",
+  oddOneOut: "passtnicht.html", whatFits: "waspasst.html", readingPuzzle: "wortdetektiv.html",
+  spatialPuzzle: "raumdetektiv.html", backpack: "backpack.html", memory: "memory.html",
+  arukone: "arukone.html", bimaru: "bimaru.html", kakuro: "kakuro.html", shikaku: "shikaku.html",
+  hidoku: "hidoku.html", sudoku: "sudoku.html", countPuzzle: "zaehlen.html", letterPuzzle: "buchstaben.html",
+};
+function gamePageForGame(game) { return GAME_PAGE[game] || "index.html"; }
+function enhanceHomePage() {
+  const panel = document.querySelector("#home-panel");
+  if (!panel || !kids() || panel.parentNode.querySelector(".home-featured")) return;
+
+  const topbar = document.createElement("section");
+  topbar.className = "home-topbar";
+  const profile = kids().getProfile?.();
+  const daily = kids().dailyProgress?.() || { count: 0, goal: 3, done: false };
+  const avatar = profile?.avatar || "🙂";
+  topbar.innerHTML = `
+    <button type="button" class="home-profile" aria-label="Profil ändern">
+      <span class="home-profile-avatar" aria-hidden="true">${avatar}</span>
+      <span class="home-profile-hi">Hallo!</span>
+    </button>
+    <div class="home-daily" aria-label="Tagesziel: ${daily.count} von ${daily.goal} Rätseln geschafft">
+      <span class="home-daily-label">Heute</span>
+    </div>`;
+  topbar.querySelector(".home-daily").append(renderDailyDots(daily));
+  topbar.querySelector(".home-profile").addEventListener("click", () => showProfileSetup());
+
+  const featured = document.createElement("section");
+  featured.className = "home-featured";
+  const last = kids().getLastPlayed?.();
+  const lastGame = last && last.game && GAME_CONFIGS[last.game] ? last.game : null;
+  const stickerCount = kids().collectedStickers?.().length || 0;
+  const continueCard = lastGame
+    ? `<a class="home-feature continue" href="${gamePageForGame(lastGame)}">
+        <span class="home-feature-emoji" aria-hidden="true">▶️</span>
+        <span class="home-feature-text"><strong>Weiterspielen</strong><small>${GAME_CONFIGS[lastGame].title}</small></span>
+      </a>`
+    : "";
+  featured.innerHTML = `
+    ${continueCard}
+    <a class="home-feature adventure" href="abenteuer.html">
+      <span class="home-feature-emoji" aria-hidden="true">🗺️</span>
+      <span class="home-feature-text"><strong>Abenteuer</strong><small>Bunte Rätselreise</small></span>
+    </a>
+    <a class="home-feature zoo" href="album.html">
+      <span class="home-feature-emoji" aria-hidden="true">🦁</span>
+      <span class="home-feature-text"><strong>Mein Zoo</strong><small>${stickerCount} Tiere gesammelt</small></span>
+    </a>`;
+
+  panel.parentNode.insertBefore(topbar, panel);
+  panel.parentNode.insertBefore(featured, panel);
+}
+function enhanceHomeRefresh() {
+  document.querySelectorAll(".home-topbar, .home-featured").forEach((el) => el.remove());
+  enhanceHomePage();
+}
+function maybeShowProfileSetup() {
+  if (!document.querySelector("#home-panel") || !kids()) return;
+  if (kids().getProfile?.()) return;
+  showProfileSetup();
+}
+function showProfileSetup() {
+  if (!kids()) return;
+  const current = kids().getProfile?.() || {};
+  const overlay = document.createElement("section");
+  overlay.className = "kids-modal-overlay profile-overlay";
+  overlay.setAttribute("role", "dialog");
+  overlay.setAttribute("aria-modal", "true");
+  overlay.setAttribute("aria-label", "Wer spielt?");
+  const avatars = (kids().AVATARS || []).map((a) => `<button type="button" class="profile-avatar${current.avatar === a ? " selected" : ""}" data-avatar="${a}" aria-label="Tier ${a}">${a}</button>`).join("");
+  overlay.innerHTML = `
+    <div class="kids-modal profile-modal">
+      <h2>Wer spielt?</h2>
+      <p class="profile-q">Wähle dein Tier</p>
+      <div class="profile-avatars">${avatars}</div>
+      <p class="profile-q">Wie alt bist du?</p>
+      <div class="profile-ages">
+        <button type="button" class="profile-age${current.age === "young" ? " selected" : ""}" data-age="young">4–5 Jahre</button>
+        <button type="button" class="profile-age${current.age !== "young" ? " selected" : ""}" data-age="older">6–8 Jahre</button>
+      </div>
+      <div class="kids-modal-actions">
+        <button type="button" class="kids-modal-primary" data-save>Los geht's! 🎉</button>
+      </div>
+    </div>`;
+  (document.querySelector(".app-shell") || document.body).append(overlay);
+  let chosenAvatar = current.avatar || (kids().AVATARS || ["🦊"])[0];
+  let chosenAge = current.age || "older";
+  if (!current.avatar) { const first = overlay.querySelector("[data-avatar]"); if (first) first.classList.add("selected"); }
+  overlay.querySelectorAll("[data-avatar]").forEach((btn) => btn.addEventListener("click", () => {
+    chosenAvatar = btn.dataset.avatar;
+    overlay.querySelectorAll("[data-avatar]").forEach((b) => b.classList.toggle("selected", b === btn));
+  }));
+  overlay.querySelectorAll("[data-age]").forEach((btn) => btn.addEventListener("click", () => {
+    chosenAge = btn.dataset.age;
+    overlay.querySelectorAll("[data-age]").forEach((b) => b.classList.toggle("selected", b === btn));
+  }));
+  overlay.querySelector("[data-save]").addEventListener("click", () => {
+    kids().saveProfile?.({ avatar: chosenAvatar, age: chosenAge });
+    overlay.remove();
+    enhanceHomeRefresh();
+  });
 }
 function handleWin() { if (!winShown) showSuccess(); render(); }
 function checkAndWin() { if (GAME_HANDLERS[currentGame].checkWin()) handleWin(); }
@@ -3134,6 +3573,7 @@ function answerPracticeTask(answer, taskFactory, messages, nextStatus = "Neue Au
     }
     state.awaitingNext = true;
     render();
+    speakKids(state.feedback);
     schedulePracticeAdvance(taskFactory, nextStatus);
     return;
   }
@@ -3141,19 +3581,66 @@ function answerPracticeTask(answer, taskFactory, messages, nextStatus = "Neue Au
   state.feedback = pickRandom(messages.retry);
   recordPracticeAnswer(level, false);
   render();
+  speakKids(state.feedback);
+}
+function spokenTaskText(task) {
+  if (!task) return "";
+  switch (task.puzzleType) {
+    case "mathPuzzle":
+      return (task.questionText || "")
+        .replace(/\+/g, " plus ").replace(/[-−]/g, " minus ").replace(/=/g, " gleich ")
+        .replace(/\?/g, " wie viel").replace(/\s+/g, " ").trim() + "?";
+    case "sequencePuzzle": {
+      const nums = (task.sequence || []).map((n) => (n === null ? "wie viel" : n)).join(", ");
+      return `Wie geht die Zahlenreihe weiter? ${nums}`;
+    }
+    case "shapeSequencePuzzle":
+      return "Welche Figur kommt als Nächstes in der Reihe?";
+    case "oddOneOut":
+      return "Welches Bild passt nicht zu den anderen?";
+    case "whatFits":
+      return `Was passt zu ${task.main?.label || "dem Bild"}?`;
+    case "countPuzzle":
+      return task.speakText || task.questionText || "Wie viele siehst du?";
+    case "letterPuzzle":
+      return task.speakText || "Mit welchem Buchstaben beginnt das Wort?";
+    case "readingPuzzle":
+      return task.fullText || task.prompt || task.displayText || "Lies genau.";
+    default:
+      return task.speakText || task.questionText || "";
+  }
 }
 function renderPracticeProgress(level) {
   const target = level.targetCount || 10;
-  const progress = document.createElement("div");
-  progress.className = "practice-progress";
-  [
-    `Aufgabe ${Math.min(state.solvedCount + 1, target)} von ${target}`,
-  ].forEach((text) => {
-    const item = document.createElement("span");
-    item.textContent = text;
-    progress.append(item);
-  });
-  return progress;
+  const wrap = document.createElement("div");
+  wrap.className = "practice-progress-row";
+  const dots = document.createElement("div");
+  dots.className = "practice-dots";
+  dots.setAttribute("aria-label", `Aufgabe ${Math.min(state.solvedCount + 1, target)} von ${target}`);
+  for (let i = 0; i < target; i += 1) {
+    const dot = document.createElement("span");
+    dot.className = "practice-dot" + (i < state.solvedCount ? " done" : (i === state.solvedCount ? " current" : ""));
+    dots.append(dot);
+  }
+  wrap.append(dots);
+  if (kids()?.ttsSupported?.()) {
+    const speaker = document.createElement("button");
+    speaker.type = "button";
+    speaker.className = "task-speaker";
+    speaker.setAttribute("aria-label", "Aufgabe vorlesen");
+    speaker.title = "Vorlesen";
+    speaker.textContent = "🔊";
+    speaker.addEventListener("click", () => speakKids(spokenTaskText(state.task)));
+    wrap.append(speaker);
+  }
+  if (kids()?.isYoung?.() && state.task && !state.awaitingNext && !state.completed) {
+    const key = practiceTaskKey(state.task);
+    if (key !== state.lastSpokenKey) {
+      state.lastSpokenKey = key;
+      speakKids(spokenTaskText(state.task));
+    }
+  }
+  return wrap;
 }
 function optionStateClass(option) {
   const correct = sameAnswer(option, state.task.correctAnswer);
@@ -3161,16 +3648,34 @@ function optionStateClass(option) {
   if (correct && revealCorrect) return " correct";
   return "";
 }
+// Anzahl der Antwortkarten, die nach mehreren Fehlversuchen ausgegraut werden.
+function hintDimCount() {
+  const attempts = state.attempts || 0;
+  if (attempts >= 3) return 2;
+  if (attempts >= 2) return 1;
+  return 0;
+}
 function renderPracticeOptions(onAnswer) {
   const options = document.createElement("div");
   options.className = `practice-options ${state.task.puzzleType}-options`;
   options.style.setProperty("--option-count", Math.min(state.task.options.length, 4));
+  const revealCorrect = state.awaitingNext || state.completed;
+  const attempts = state.attempts || 0;
+  const dimTarget = hintDimCount();
+  let dimmed = 0;
   state.task.options.forEach((option) => {
+    const isCorrect = sameAnswer(option, state.task.correctAnswer);
     const button = document.createElement("button");
     button.type = "button";
-    button.className = `practice-option${optionStateClass(option)}`;
+    let className = `practice-option${optionStateClass(option)}`;
+    let disabled = state.awaitingNext || state.completed;
+    if (!revealCorrect) {
+      if (!isCorrect && dimmed < dimTarget) { className += " dimmed"; disabled = true; dimmed += 1; }
+      else if (isCorrect && attempts >= 3) className += " hint";
+    }
+    button.className = className;
     button.textContent = option;
-    button.disabled = state.awaitingNext || state.completed;
+    button.disabled = disabled;
     button.addEventListener("click", () => onAnswer(option));
     options.append(button);
   });
@@ -3564,11 +4069,22 @@ function whatFitsOptionStateClass(option) {
 function renderWhatFitsOptions() {
   const options = document.createElement("div");
   options.className = "whatFits-options";
+  const revealCorrect = state.awaitingNext || state.completed;
+  const attempts = state.attempts || 0;
+  const dimTarget = hintDimCount();
+  let dimmed = 0;
   state.task.options.forEach((option) => {
+    const isCorrect = option.id === state.task.correctId;
     const button = document.createElement("button");
     button.type = "button";
-    button.className = `practice-option whatFits-option${whatFitsOptionStateClass(option)}`;
-    button.disabled = state.awaitingNext || state.completed;
+    let className = `practice-option whatFits-option${whatFitsOptionStateClass(option)}`;
+    let disabled = state.awaitingNext || state.completed;
+    if (!revealCorrect) {
+      if (!isCorrect && dimmed < dimTarget) { className += " dimmed"; disabled = true; dimmed += 1; }
+      else if (isCorrect && attempts >= 3) className += " hint";
+    }
+    button.className = className;
+    button.disabled = disabled;
     button.setAttribute("aria-label", `Antwort: ${option.label}`);
     const emoji = document.createElement("span");
     emoji.className = "whatFits-option-emoji";
@@ -4195,6 +4711,34 @@ const GAME_HANDLERS = {
     },
   },
 
+  countPuzzle: {
+    resetState(level) { resetPracticeState(level, generateCountTask, "Zähle die Bilder und tippe die Zahl."); },
+    checkWin() { return Boolean(state.completed); },
+    answer(answer) {
+      answerPracticeTask(answer, generateCountTask, {
+        correct: ["Richtig gezählt!", "Super!", "Genau so viele!", "Klasse gezählt!"],
+        retry: ["Fast! Zähle noch einmal ganz langsam.", "Zähle jedes Bild einzeln mit dem Finger."],
+      }, "Neue Zählaufgabe.");
+    },
+    render(level) {
+      renderPracticeShell(level, "countPuzzle-board", makeCountTaskView(), (answer) => this.answer(answer), generateCountTask, "Neue Zählaufgabe.");
+    },
+  },
+
+  letterPuzzle: {
+    resetState(level) { resetPracticeState(level, generateLetterTask, "Welcher Buchstabe passt zum Wort?"); },
+    checkWin() { return Boolean(state.completed); },
+    answer(answer) {
+      answerPracticeTask(answer, generateLetterTask, {
+        correct: ["Richtig!", "Genau der Buchstabe!", "Super gehört!", "Ganz genau!"],
+        retry: ["Fast! Sprich das Wort langsam aus.", "Höre auf den ersten Laut des Wortes."],
+      }, "Neues Wort.");
+    },
+    render(level) {
+      renderPracticeShell(level, "letterPuzzle-board", makeLetterTaskView(), (answer) => this.answer(answer), generateLetterTask, "Neues Wort.");
+    },
+  },
+
   spatialPuzzle: {
     resetState() {
       state = {
@@ -4730,7 +5274,10 @@ if (undoButton) undoButton.addEventListener("click", undo);
 if (resetButton) resetButton.addEventListener("click", resetGame);
 if (backButton) backButton.addEventListener("click", showLevelSelect);
 setupSuccessOverlay();
+setupExitGuard();
 setupAudioFeedback();
+enhanceHomePage();
+maybeShowProfileSetup();
 if (typeof window.addEventListener === "function") {
   window.addEventListener("resize", handleViewportLayoutChange);
   window.addEventListener("orientationchange", handleViewportLayoutChange);

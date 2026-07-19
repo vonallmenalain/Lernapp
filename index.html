@@ -11,8 +11,8 @@
     <meta name="apple-mobile-web-app-title" content="Lernapp" />
     <meta name="theme-color" content="#6c5ce7" />
     <title>Lernapp: Rätsel für Kinder</title>
-    <link rel="stylesheet" href="styles.css?v=2026-06-09-1" />
-    <link rel="manifest" href="app.webmanifest?v=2026-06-09-1" />
+    <link rel="stylesheet" href="styles.css?v=2026-07-19-1" />
+    <link rel="manifest" href="app.webmanifest?v=2026-07-19-1" />
     <link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon-180.png" />
   </head>
@@ -24,11 +24,13 @@
       </section>
 
       <section id="home-panel" class="home-panel" aria-label="Spiel auswählen">
+        <a class="game-choice-card" href="zaehlen.html" aria-label="Zählzauber spielen"><div class="preview count-preview" aria-hidden="true"><span>🍎</span><span>🍎</span><span>🍎</span><span class="count-num">3</span></div><div><h2>Zählzauber</h2></div></a>
         <a class="game-choice-card" href="zahlenzauber.html" aria-label="Zahlenzauber spielen"><div class="preview math-preview" aria-hidden="true"><span>2</span><span>+</span><span>3</span><span>=</span><span>?</span><span>5</span><span>4</span><span>6</span><span>7</span></div><div><h2>Zahlenzauber</h2></div></a>
         <a class="game-choice-card" href="zahlenfolge.html" aria-label="Zahlenfolge spielen"><div class="preview sequence-preview" aria-hidden="true"><span>2</span><span>4</span><span>8</span><span>?</span></div><div><h2>Zahlenfolge</h2></div></a>
         <a class="game-choice-card" href="figurenfolge.html" aria-label="Figurenfolge spielen"><div class="preview sequence-preview" aria-hidden="true"><span>🔴</span><span>🟦</span><span>🔴</span><span>?</span></div><div><h2>Figurenfolge</h2></div></a>
         <a class="game-choice-card" href="passtnicht.html" aria-label="Was passt nicht spielen"><div class="preview oddOneOut-preview" aria-hidden="true"><span>🐶</span><span>🐱</span><span class="odd">🚗</span><span>🐭</span></div><div><h2>Was passt nicht?</h2></div></a>
         <a class="game-choice-card" href="waspasst.html" aria-label="Was passt spielen"><div class="preview whatFits-preview" aria-hidden="true"><span class="main">🔒</span><span class="match">🔑</span><span>🍌</span><span>🐟</span></div><div><h2>Was passt?</h2></div></a>
+        <a class="game-choice-card" href="buchstaben.html" aria-label="Buchstaben-Jagd spielen"><div class="preview letter-preview" aria-hidden="true"><span>🍌</span><span class="letter-big">B</span><span>M</span><span>S</span></div><div><h2>Buchstaben-Jagd</h2></div></a>
         <a class="game-choice-card" href="wortdetektiv.html" aria-label="Wortdetektiv spielen"><div class="preview reading-preview" aria-hidden="true"><span>🍎</span><span>A</span><span>_</span><span>F</span><span>E</span><span>L</span><span>🐶</span><span>B</span><span>☀️</span></div><div><h2>Wortdetektiv</h2></div></a>
         <a class="game-choice-card" href="raumdetektiv.html" aria-label="Raumdetektiv spielen"><div class="preview spatial-preview" aria-hidden="true"><span class="cube c1"></span><span class="cube c2"></span><span class="cube c3"></span><span class="cube c4"></span><span class="view-tile"></span><span class="view-tile tall"></span></div><div><h2>Raumdetektiv</h2></div></a>
         <a class="game-choice-card" href="backpack.html" aria-label="Rucksack packen spielen"><div class="preview backpack-preview" aria-hidden="true"><span class="backpack-preview-bag">🎒</span><span>🍎</span><span>⚽</span><span>📘</span><span>🪁</span></div><div><h2>Rucksack packen</h2></div></a>
@@ -46,9 +48,10 @@
     <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore-compat.js"></script>
-    <script src="firebase.js?v=2026-06-09-1"></script>
-    <script src="spatial-puzzles.js?v=2026-06-09-1"></script>
-    <script src="app.js?v=2026-06-09-1"></script>
-    <script src="pwa.js?v=2026-06-09-1"></script>
+    <script src="firebase.js?v=2026-07-19-1"></script>
+    <script src="spatial-puzzles.js?v=2026-07-19-1"></script>
+    <script src="kids.js?v=2026-07-19-1"></script>
+    <script src="app.js?v=2026-07-19-1"></script>
+    <script src="pwa.js?v=2026-07-19-1"></script>
   </body>
 </html>

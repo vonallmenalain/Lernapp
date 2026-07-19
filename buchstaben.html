@@ -4,31 +4,31 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="application-name" content="Lernapp" />
-    <meta name="description" content="Kategorienrätsel für Kinder: Finde das Bild, das nicht zu den anderen passt." />
+    <meta name="description" content="Buchstaben-Jagd: Anfangslaute hören für Kinder von 4 bis 8 Jahren." />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Lernapp" />
     <meta name="theme-color" content="#6c5ce7" />
-    <title>Was passt nicht? · Lernapp</title>
+    <title>Buchstaben-Jagd Levels · Lernapp</title>
     <link rel="stylesheet" href="styles.css?v=2026-07-19-1" />
     <link rel="manifest" href="app.webmanifest?v=2026-07-19-1" />
     <link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon-180.png" />
   </head>
-  <body data-game-page="oddOneOut">
+  <body data-game-page="letterPuzzle">
     <main class="app-shell">
       <section class="hero" aria-labelledby="app-title">
-        <h1 id="app-title">Was passt nicht?</h1>
+        <h1 id="app-title">Buchstaben-Jagd</h1>
       </section>
 
-      <section id="level-panel" class="start-panel" aria-label="Was passt nicht? Level auswählen">
+      <section id="level-panel" class="start-panel" aria-label="Buchstaben-Jagd Level auswählen">
         <div class="start-copy">
           <p class="small-label">Levelauswahl</p>
           <h2 id="level-heading">Schwierigkeit wählen</h2>
           <p id="level-description"></p>
         </div>
-        <div id="level-grid" class="level-grid" aria-label="Was passt nicht? Levels"></div>
+        <div id="level-grid" class="level-grid" aria-label="Buchstaben-Jagd Levels"></div>
       </section>
 
       <section id="game-panel" class="game-panel" hidden>
@@ -48,8 +48,8 @@
             <p id="status" class="status" role="status" aria-live="polite">Wähle ein Level aus.</p>
           </div>
 
-          <div id="board" class="board" aria-label="Was passt nicht? Aufgabenfeld"></div>
-          <div id="number-pad" class="number-pad" aria-label="Zahlen auswählen" hidden></div>
+          <div id="board" class="board" aria-label="Buchstaben-Jagd Aufgabenfeld"></div>
+          <div id="number-pad" class="number-pad" aria-label="Auswahl" hidden></div>
         </section>
       </section>
 

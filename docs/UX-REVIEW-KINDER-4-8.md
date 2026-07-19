@@ -2,6 +2,17 @@
 
 Stand: Juli 2026 · Analysierte Version: `main` (app.js, styles.css, firebase.js, spatial-puzzles.js, alle Spielseiten)
 
+> **Umsetzungsstand (Juli 2026):** Die Phasen 1–3 wurden umgesetzt. Neu in der App:
+> Sterne-System (1–3 Sterne pro Level, auf Kacheln & im Erfolgsdialog), grosser Feier-Moment
+> (Konfetti, Melodie, Vibration, Maskottchen „Fino“, beschriftete Buttons), Vorlesen per
+> Sprachausgabe (🔊, Auto-Vorlesen für 4–5-Jährige), „Weiterspielen“-Knopf, kürzere Runden
+> (5/7/10 Aufgaben), visueller Aufgaben-Fortschritt, Hinweis-System (Ausgrauen/Blinken),
+> Sticker-Sammelalbum „Mein Zoo“ (`album.html`) mit Überraschungstruhe, Tagesziel,
+> Kinderprofil (Avatar + Alter), Welten statt Schwierigkeitsnamen (Wiese/Wald/Meer/Weltall),
+> interaktive Tutorials, Exit-Schutz, Abenteuer-Modus (`abenteuer.html`) und zwei neue Spiele:
+> **Zählzauber** (`zaehlen.html`) und **Buchstaben-Jagd** (`buchstaben.html`).
+> Gemeinsame Logik liegt in `kids.js`. Der folgende Bericht bleibt als Begründung/Analyse erhalten.
+
 ## 1. Zusammenfassung
 
 Die App ist technisch solide gebaut (PWA, offline-fähig, Fortschritt lokal + Cloud, 15 Spiele, saubere Level-Struktur). Das Kernproblem ist aber nicht die Technik, sondern die **fehlende emotionale Belohnungsschleife**: Kinder lösen ein Rätsel und bekommen als Belohnung den Text «Level geschafft.» und zwei graue Icon-Buttons. Es gibt nichts zu sammeln, niemanden, der sich mit ihnen freut, kein Ziel ausserhalb des einzelnen Levels und keine Überraschungen. Genau deshalb wechseln die Kinder nach wenigen Minuten in Apps, die diese Schleife perfektioniert haben.
