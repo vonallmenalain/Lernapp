@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="application-name" content="Lernapp" />
+    <meta name="description" content="Abenteuer-Modus: eine bunte Rätselreise für Kinder." />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Lernapp" />
+    <meta name="theme-color" content="#6c5ce7" />
+    <title>Abenteuer · Lernapp</title>
+    <link rel="stylesheet" href="styles.css?v=2026-07-19-1" />
+    <link rel="manifest" href="app.webmanifest?v=2026-07-19-1" />
+    <link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon-180.png" />
+  </head>
+  <body data-page="adventure">
+    <main class="app-shell">
+      <section class="hero" aria-labelledby="app-title">
+        <p class="eyebrow">Rätselreise</p>
+        <h1 id="app-title">Abenteuer 🗺️</h1>
+      </section>
+
+      <div class="selection-actions">
+        <a class="selection-back-button home-back-button" href="index.html" aria-label="Zurück zur Spielauswahl">← Zurück zu den Rätseln</a>
+      </div>
+
+      <section id="adventure-root" class="adventure-root" aria-live="polite"></section>
+    </main>
+    <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore-compat.js"></script>
+    <script src="firebase.js?v=2026-07-19-1"></script>
+    <script src="spatial-puzzles.js?v=2026-07-19-1"></script>
+    <script src="kids.js?v=2026-07-19-1"></script>
+    <script src="app.js?v=2026-07-19-1"></script>
+    <script src="abenteuer.js?v=2026-07-19-1"></script>
+    <script src="pwa.js?v=2026-07-19-1"></script>
+  </body>
+</html>
