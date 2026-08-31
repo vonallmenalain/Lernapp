@@ -4282,6 +4282,7 @@ body.puzzle-active .memory-game {
 .home-feature-text small { font-weight: 700; opacity: 0.92; }
 .home-feature.continue { background: linear-gradient(120deg, #06d6a0, #05b98c); }
 .home-feature.adventure { background: linear-gradient(120deg, #ff9f1c, #ef476f); }
+.home-feature.runner { background: linear-gradient(120deg, #2ec4d6, #2f80ed); }
 .home-feature.zoo { background: linear-gradient(120deg, #6c5ce7, #8338ec); }
 
 /* --- Vorlesen / Aufgaben-Fortschritt --- */
@@ -4405,4 +4406,170 @@ body.puzzle-active .memory-game {
   .practice-option.hint, .adventure-option.hint, .zoo-card.wiggle .zoo-emoji,
   .confetti-piece, .kids-modal { animation: none; }
   .star.to-reveal { opacity: 1; transform: none; }
+}
+
+/* ===========================================================================
+   Tier-Sprung – Jump-and-Run
+   =========================================================================== */
+
+/* --- Startkarte, Levelkarte und Hilfe (normale Seite) --- */
+.runner-start-card { max-width: 640px; margin: 0 auto 22px; text-align: center; }
+.runner-tagline { margin: 0 0 18px; color: var(--muted); font-size: 1.05rem; line-height: 1.55; }
+.runner-start {
+  display: inline-flex; align-items: center; gap: 14px; padding: 15px 26px;
+  border: none; border-radius: 24px; cursor: pointer; color: #fff;
+  background: linear-gradient(120deg, #ff9f1c, #ef476f);
+  font-weight: 900; font-size: 1.1rem; line-height: 1.15;
+  box-shadow: 0 16px 34px rgba(239, 71, 111, 0.32);
+  transition: transform 0.12s ease;
+}
+.runner-start:active { transform: scale(0.97); }
+.runner-start-emoji { font-size: 2.1rem; }
+.runner-start-text { display: flex; flex-direction: column; align-items: flex-start; }
+.runner-start-text small { font-weight: 700; opacity: 0.92; }
+.runner-summary { margin: 14px 0 0; color: var(--muted); font-weight: 700; }
+.runner-summary strong { color: var(--primary-dark); }
+
+.runner-map {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+  gap: 12px; max-width: 720px; margin: 0 auto 24px;
+}
+.runner-level {
+  position: relative; display: flex; flex-direction: column; align-items: center; gap: 3px;
+  padding: 16px 10px 12px; border-radius: 22px; text-align: center;
+  background: #fff; border: 2px solid var(--line); color: var(--ink); font: inherit;
+  box-shadow: 0 12px 26px rgba(50, 44, 109, 0.1);
+  transition: transform 0.12s ease;
+}
+button.runner-level { cursor: pointer; }
+button.runner-level:active { transform: scale(0.97); }
+.runner-level.locked { background: #f4f2fb; border-color: #e6e2f4; box-shadow: none; color: var(--muted); }
+.runner-level.fresh {
+  border-color: #ffd166;
+  box-shadow: 0 0 0 4px rgba(255, 209, 102, 0.28), 0 12px 26px rgba(50, 44, 109, 0.12);
+}
+.runner-level-badge {
+  position: absolute; top: 8px; left: 10px; width: 26px; height: 26px; border-radius: 50%;
+  background: var(--primary); color: #fff; font-size: 0.82rem; font-weight: 900;
+  display: grid; place-items: center;
+}
+.runner-level.locked .runner-level-badge { background: #c6c2dd; }
+.runner-level-art-slot { display: block; height: 84px; }
+.runner-level-art { display: block; }
+.runner-level-name { font-weight: 900; font-size: 1.05rem; }
+.runner-level-place { font-size: 0.78rem; font-weight: 700; color: var(--muted); }
+.runner-level-stars { letter-spacing: 2px; font-size: 1.05rem; color: #e2def4; }
+.runner-level-star.filled { color: #ffd166; }
+.runner-level-treat { font-size: 0.8rem; font-weight: 800; color: var(--primary-dark); min-height: 1.1em; }
+
+.runner-help {
+  max-width: 640px; margin: 0 auto; padding: 18px 24px; border-radius: 24px;
+  background: rgba(255, 255, 255, 0.84); border: 1px solid rgba(255, 255, 255, 0.75);
+  box-shadow: var(--shadow);
+}
+.runner-help h2 { margin: 0 0 10px; font-size: 1.15rem; }
+.runner-help ul { margin: 0; padding-left: 20px; color: var(--muted); line-height: 1.65; }
+.runner-help strong { color: var(--ink); }
+
+/* --- Spielfläche (deckt beim Spielen den ganzen Bildschirm) --- */
+body.runner-playing { overflow: hidden; }
+.runner-stage {
+  position: fixed; inset: 0; z-index: 200; background: #8fd6ff; outline: none;
+  touch-action: none; overscroll-behavior: none;
+  user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent;
+}
+.runner-stage[hidden] { display: none; }
+.runner-canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+
+.runner-hud {
+  position: absolute; top: 0; left: 0; right: 0; z-index: 2;
+  display: flex; flex-direction: column; gap: 6px;
+  padding: calc(10px + env(safe-area-inset-top, 0px)) calc(14px + env(safe-area-inset-right, 0px))
+           10px calc(14px + env(safe-area-inset-left, 0px));
+  pointer-events: none;
+}
+.runner-hud-row { display: flex; align-items: center; gap: 10px; }
+.runner-hud-button {
+  pointer-events: auto; width: 42px; height: 42px; flex: none;
+  border: none; border-radius: 14px; background: rgba(255, 255, 255, 0.86);
+  color: #2f3b52; font-size: 1rem; font-weight: 900; line-height: 1; cursor: pointer;
+  box-shadow: 0 6px 18px rgba(30, 40, 60, 0.2);
+}
+.runner-hud-button:active { transform: scale(0.94); }
+.runner-hud-button + .runner-hud-button { margin-left: 0; }
+#runner-fullscreen { margin-left: auto; }
+.runner-hearts { display: inline-flex; gap: 2px; font-size: 1.2rem; line-height: 1; }
+.runner-heart.lost { opacity: 0.55; }
+.runner-treats {
+  margin: 0; display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 13px; border-radius: 999px; background: rgba(255, 255, 255, 0.86);
+  font-weight: 900; color: #2f3b52; box-shadow: 0 6px 18px rgba(30, 40, 60, 0.16);
+}
+
+.runner-progress { position: relative; padding: 4px 14px 18px; }
+.runner-progress-track {
+  position: relative; display: block; height: 10px; border-radius: 999px;
+  background: rgba(255, 255, 255, 0.65);
+  box-shadow: inset 0 1px 3px rgba(30, 40, 60, 0.16);
+}
+.runner-progress-fill {
+  display: block; height: 100%; width: 0; border-radius: 999px;
+  background: linear-gradient(90deg, #06d6a0, #ffd166);
+}
+.runner-progress-marker {
+  position: absolute; top: -9px; left: 0; transform: translateX(-50%);
+  font-size: 1.2rem; line-height: 1; pointer-events: none;
+}
+.runner-stage-label {
+  position: absolute; left: 16px; top: 19px; font-size: 0.76rem; font-weight: 800;
+  color: rgba(35, 45, 65, 0.75); text-shadow: 0 1px 0 rgba(255, 255, 255, 0.55);
+}
+
+/* --- Dialoge im Spiel --- */
+.runner-overlay {
+  position: absolute; inset: 0; z-index: 3; display: grid; place-items: center;
+  padding: 20px; background: rgba(24, 30, 48, 0.52); backdrop-filter: blur(3px);
+}
+.runner-overlay[hidden] { display: none; }
+.runner-dialog {
+  position: relative; width: min(430px, 100%); padding: 24px 22px;
+  border-radius: 28px; background: #fff; text-align: center;
+  box-shadow: 0 26px 64px rgba(20, 20, 50, 0.38);
+  animation: runner-dialog-in 0.28s cubic-bezier(0.2, 1.2, 0.4, 1);
+}
+@keyframes runner-dialog-in { from { transform: translateY(18px) scale(0.94); opacity: 0; } to { transform: none; opacity: 1; } }
+.runner-dialog h2 { margin: 4px 0 0; font-size: clamp(1.4rem, 6vw, 1.9rem); line-height: 1.15; }
+.runner-dialog-eyebrow {
+  margin: 0; color: var(--primary-dark); font-weight: 800;
+  letter-spacing: 0.08em; text-transform: uppercase; font-size: 0.78rem;
+}
+.runner-dialog-sub { margin: 10px 0 0; color: var(--muted); font-weight: 700; }
+.runner-mascot { width: clamp(72px, 22vw, 100px); margin: 0 auto 2px; }
+.runner-grow { margin: 12px 0 0; font-weight: 800; }
+.runner-grow strong { color: var(--primary-dark); }
+.runner-zoo-hint {
+  display: inline-flex; align-items: center; gap: 8px; margin-top: 12px;
+  padding: 9px 16px; border-radius: 16px; text-decoration: none; font-weight: 900; color: var(--ink);
+  background: linear-gradient(120deg, #fff4d6, #ffe1ef); border: 2px solid #ffd166;
+}
+.runner-stars { display: flex; justify-content: center; gap: 10px; margin: 14px 0 2px; }
+.runner-star { font-size: 2.5rem; line-height: 1; color: #e6e2f4; }
+.runner-star.filled {
+  color: #ffd166; text-shadow: 0 4px 12px rgba(255, 176, 32, 0.4);
+  animation: runner-star-pop 0.5s cubic-bezier(0.2, 1.5, 0.4, 1) backwards;
+  animation-delay: calc(var(--i) * 0.17s);
+}
+@keyframes runner-star-pop { from { transform: scale(0.2) rotate(-28deg); opacity: 0; } to { transform: none; opacity: 1; } }
+.runner-dialog-actions { display: flex; flex-direction: column; gap: 10px; margin-top: 20px; }
+.runner-primary, .runner-secondary {
+  padding: 14px 18px; border-radius: 18px; font-weight: 900; font-size: 1.02rem;
+  cursor: pointer; line-height: 1.2; transition: transform 0.12s ease;
+}
+.runner-primary { border: none; color: #fff; background: linear-gradient(120deg, #6c5ce7, #8338ec); box-shadow: 0 12px 26px rgba(108, 92, 231, 0.34); }
+.runner-secondary { border: 2px solid var(--line); background: #fff; color: var(--ink); }
+.runner-primary:active, .runner-secondary:active { transform: scale(0.97); }
+
+@media (prefers-reduced-motion: reduce) {
+  .runner-dialog, .runner-star.filled { animation: none; }
+  .runner-start, .runner-level, .runner-primary, .runner-secondary { transition: none; }
 }

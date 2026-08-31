@@ -3387,6 +3387,15 @@ const GAME_PAGE = {
   hidoku: "hidoku.html", sudoku: "sudoku.html", countPuzzle: "zaehlen.html", letterPuzzle: "buchstaben.html",
 };
 function gamePageForGame(game) { return GAME_PAGE[game] || "index.html"; }
+// Tier-Sprung (tiersprung.js) speichert seinen Fortschritt selbst; hier wird er
+// nur gelesen, damit die Startkarte das aktuelle Tier zeigen kann.
+const RUNNER_ANIMALS = ["\u{1F42D}", "\u{1F438}", "\u{1F425}", "\u{1F430}", "\u{1F98A}", "\u{1F427}", "\u{1F43C}", "\u{1F43B}", "\u{1F981}", "\u{1F418}"];
+function runnerProgressLevel() {
+  const stored = kids()?.readJSON?.("lernapp.tiersprung.progress", null);
+  const level = Number(stored?.unlocked);
+  if (!Number.isFinite(level)) return 1;
+  return Math.max(1, Math.min(RUNNER_ANIMALS.length, Math.round(level)));
+}
 function enhanceHomePage() {
   const panel = document.querySelector("#home-panel");
   if (!panel || !kids() || panel.parentNode.querySelector(".home-featured")) return;
@@ -3412,6 +3421,7 @@ function enhanceHomePage() {
   const last = kids().getLastPlayed?.();
   const lastGame = last && last.game && GAME_CONFIGS[last.game] ? last.game : null;
   const stickerCount = kids().collectedStickers?.().length || 0;
+  const runnerLevel = runnerProgressLevel();
   const continueCard = lastGame
     ? `<a class="home-feature continue" href="${gamePageForGame(lastGame)}">
         <span class="home-feature-emoji" aria-hidden="true">▶️</span>
@@ -3423,6 +3433,10 @@ function enhanceHomePage() {
     <a class="home-feature adventure" href="abenteuer.html">
       <span class="home-feature-emoji" aria-hidden="true">🗺️</span>
       <span class="home-feature-text"><strong>Abenteuer</strong><small>Bunte Rätselreise</small></span>
+    </a>
+    <a class="home-feature runner" href="tiersprung.html">
+      <span class="home-feature-emoji" aria-hidden="true">${RUNNER_ANIMALS[runnerLevel - 1]}</span>
+      <span class="home-feature-text"><strong>Tier-Sprung</strong><small>Level ${runnerLevel} von ${RUNNER_ANIMALS.length}</small></span>
     </a>
     <a class="home-feature zoo" href="album.html">
       <span class="home-feature-emoji" aria-hidden="true">🦁</span>
