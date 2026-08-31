@@ -242,8 +242,10 @@
   function stopSpeaking() {
     if (ttsSupported()) { try { window.speechSynthesis.cancel(); } catch { /* ignore */ } }
   }
+  // Wichtig: speak() wird ausschliesslich aus einem Klick auf einen
+  // Lautsprecher-Knopf heraus aufgerufen. Die App liest nie von selbst vor.
   function speak(text, options = {}) {
-    if (!text || !ttsSupported() || !ttsEnabled()) return;
+    if (!text || !ttsSupported() || !ttsEnabled()) { options.onEnd?.(); return; }
     if (!options.queue) stopSpeaking();
     try {
       const utterance = new window.SpeechSynthesisUtterance(String(text));
@@ -252,8 +254,12 @@
       utterance.pitch = options.pitch ?? 1.15;
       const voice = pickGermanVoice();
       if (voice) utterance.voice = voice;
+      if (options.onEnd) {
+        utterance.addEventListener("end", () => options.onEnd());
+        utterance.addEventListener("error", () => options.onEnd());
+      }
       window.speechSynthesis.speak(utterance);
-    } catch { /* ignore */ }
+    } catch { options.onEnd?.(); }
   }
 
   // ---------------------------------------------------------------------------
@@ -324,10 +330,24 @@
   }
 
   // ---------------------------------------------------------------------------
-  // Töne + Vibration (eigenständig, für Seiten ohne app.js)
+  // Töne, Jingles + Vibration
   // ---------------------------------------------------------------------------
+  // Alle Seiten teilen sich diesen Klang-Baukasten, damit sich richtige Antworten
+  // überall gleich anhören. Der globale Ton-Schalter (Lautsprecher oben rechts)
+  // liegt unter demselben Schlüssel wie in app.js.
+  const AUDIO_KEY = "lernapp.audioFeedback";
   let audioContext = null;
+  function audioEnabled() {
+    const setting = readRaw(AUDIO_KEY);
+    return setting !== "0" && setting !== "false" && setting !== "off";
+  }
+  function setAudioEnabled(enabled) {
+    writeRaw(AUDIO_KEY, enabled ? "1" : "0");
+    if (!enabled && audioContext?.state === "running") audioContext.suspend().catch(() => {});
+    if (!enabled) stopSpeaking();
+  }
   function ensureAudio() {
+    if (!audioEnabled()) return null;
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return null;
     try {
@@ -353,16 +373,58 @@
       osc.stop(start + duration + 0.03);
     } catch { /* ignore */ }
   }
-  function playChime() {
-    const ctx = ensureAudio();
-    if (!ctx) return;
-    const now = ctx.currentTime;
-    [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => tone(f, now + i * 0.11, 0.22, "triangle", 0.06));
+  // Ein "Glockenton": Grundton plus leiser Oberton, damit es nach Xylophon
+  // klingt und nicht nach Piepser.
+  function bell(freq, start, duration, volume = 0.055) {
+    tone(freq, start, duration, "triangle", volume);
+    tone(freq * 2, start, duration * 0.55, "sine", volume * 0.32);
   }
+  // Notenwerte für die Jingles (C-Dur, kindgerecht hell).
+  const NOTE = { C5: 523.25, D5: 587.33, E5: 659.25, F5: 698.46, G5: 783.99, A5: 880, B5: 987.77, C6: 1046.5, D6: 1174.66, E6: 1318.51, G6: 1567.98, A6: 1760, C7: 2093 };
+  const JINGLES = {
+    // Kurzes "Ding-Ding" nach einer richtigen Antwort.
+    correct: [
+      { note: "G5", at: 0, dur: 0.16, vol: 0.05 },
+      { note: "C6", at: 0.09, dur: 0.3, vol: 0.06 },
+    ],
+    // Fanfare, wenn ein Level oder eine Reise fertig ist.
+    win: [
+      { note: "C5", at: 0, dur: 0.16, vol: 0.05 },
+      { note: "E5", at: 0.1, dur: 0.16, vol: 0.05 },
+      { note: "G5", at: 0.2, dur: 0.18, vol: 0.055 },
+      { note: "C6", at: 0.32, dur: 0.5, vol: 0.065 },
+      { note: "E6", at: 0.44, dur: 0.55, vol: 0.04 },
+      { note: "G6", at: 0.52, dur: 0.6, vol: 0.03 },
+      { note: "C7", at: 0.66, dur: 0.4, vol: 0.02 },
+    ],
+    // Aufsteigendes Funkeln, wenn ein neues Tier freigeschaltet wird.
+    unlock: [
+      { note: "C6", at: 0, dur: 0.14, vol: 0.045 },
+      { note: "E6", at: 0.08, dur: 0.14, vol: 0.045 },
+      { note: "G6", at: 0.16, dur: 0.16, vol: 0.045 },
+      { note: "C7", at: 0.26, dur: 0.42, vol: 0.04 },
+    ],
+    // Freundliches "Probier nochmal" – tief und leise, nie tadelnd.
+    retry: [
+      { note: "F5", at: 0, dur: 0.12, vol: 0.028 },
+      { note: "D5", at: 0.1, dur: 0.2, vol: 0.026 },
+    ],
+    // Ein einzelner Stern beim Aufdecken.
+    star: [{ note: "A5", at: 0, dur: 0.2, vol: 0.05 }],
+  };
+  // Spielt einen Jingle aus JINGLES. Unbekannte Namen werden ignoriert.
+  function playJingle(name) {
+    const parts = JINGLES[name];
+    const ctx = parts ? ensureAudio() : null;
+    if (!ctx) return;
+    const now = ctx.currentTime + 0.01;
+    parts.forEach((part) => bell(NOTE[part.note], now + part.at, part.dur, part.vol));
+  }
+  function playChime() { playJingle("win"); }
   function playStarSound(index = 0) {
     const ctx = ensureAudio();
     if (!ctx) return;
-    tone(660 + index * 220, ctx.currentTime, 0.18, "triangle", 0.06);
+    bell([NOTE.A5, NOTE.C6, NOTE.E6][Math.min(Math.max(index, 0), 2)], ctx.currentTime + 0.01, 0.22, 0.055);
   }
   function vibrate(pattern) {
     try { if (navigator.vibrate && !prefersReducedMotion()) navigator.vibrate(pattern); } catch { /* ignore */ }
@@ -384,6 +446,132 @@
   function markTutorialSeen(game) { writeRaw(KEYS.tutorial(game), "1"); }
 
   // ---------------------------------------------------------------------------
+  // Hilfe-Lautsprecher ("Was mache ich hier?")
+  // ---------------------------------------------------------------------------
+  // Die App spricht nie von selbst. Jeder Bildschirm meldet hier an, was gerade
+  // zu tun ist; erklingt tut das erst, wenn das Kind den Lautsprecher antippt.
+  // Zusätzlich erscheint der Text als Sprechblase – so hilft der Knopf auch auf
+  // Geräten ohne Sprachausgabe.
+  const helpStack = [];
+  let helpButton = null;
+  let helpBubble = null;
+  let helpHideTimer = 0;
+  let helpToken = 0;
+
+  function currentHelp() {
+    return helpStack.length ? helpStack[helpStack.length - 1].text : "";
+  }
+  function refreshHelpButton() {
+    if (!helpButton) return;
+    const text = currentHelp();
+    helpButton.hidden = !text;
+    helpButton.disabled = !text;
+  }
+  // Setzt den Hilfetext der Grundebene (die aktuelle Seite/Ansicht).
+  function setHelp(text) {
+    const clean = String(text || "").replace(/\s+/g, " ").trim();
+    if (helpStack.length && helpStack[0].base) helpStack[0].text = clean;
+    else helpStack.unshift({ text: clean, base: true, id: "base" });
+    if (currentHelp() === clean) hideHelpBubble();
+    refreshHelpButton();
+  }
+  // Legt einen Hilfetext obendrauf (Dialoge, Overlays). Gibt eine Funktion zum
+  // Entfernen zurück.
+  function pushHelp(text) {
+    helpToken += 1;
+    const entry = { text: String(text || "").replace(/\s+/g, " ").trim(), id: `h${helpToken}` };
+    helpStack.push(entry);
+    hideHelpBubble();
+    refreshHelpButton();
+    return () => {
+      const index = helpStack.indexOf(entry);
+      if (index >= 0) helpStack.splice(index, 1);
+      hideHelpBubble();
+      refreshHelpButton();
+    };
+  }
+  function hideHelpBubble() {
+    window.clearTimeout(helpHideTimer);
+    if (helpBubble) helpBubble.hidden = true;
+    helpButton?.classList.remove("speaking");
+  }
+  function showHelpBubble(text) {
+    if (!helpBubble) return;
+    helpBubble.textContent = text;
+    helpBubble.hidden = false;
+    window.clearTimeout(helpHideTimer);
+    // Lange Texte dürfen länger stehen bleiben (ca. Lesegeschwindigkeit).
+    helpHideTimer = window.setTimeout(hideHelpBubble, Math.min(20000, 3500 + text.length * 55));
+  }
+  // Liest den aktuellen Hilfetext vor. Zweiter Klick beendet das Vorlesen.
+  function speakHelp() {
+    const text = currentHelp();
+    if (!text) return;
+    if (helpButton?.classList.contains("speaking")) { stopSpeaking(); hideHelpBubble(); return; }
+    showHelpBubble(text);
+    helpButton?.classList.add("speaking");
+    speak(text, { onEnd: () => { helpButton?.classList.remove("speaking"); } });
+    if (!ttsSupported() || !ttsEnabled()) helpButton?.classList.remove("speaking");
+  }
+  // ---------------------------------------------------------------------------
+  // Ton-Schalter (oben rechts)
+  // ---------------------------------------------------------------------------
+  // Liegt hier statt in app.js, damit auch Seiten ohne app.js (Zoo,
+  // Tier-Sprung) einen Schalter haben – sie machen ja ebenfalls Geräusche.
+  let audioToggle = null;
+  function updateAudioToggle() {
+    if (!audioToggle) return;
+    const muted = !audioEnabled();
+    audioToggle.classList.toggle("muted", muted);
+    audioToggle.setAttribute("aria-pressed", muted ? "true" : "false");
+    audioToggle.setAttribute("aria-label", muted ? "Ton einschalten" : "Ton ausschalten");
+    audioToggle.title = muted ? "Ton einschalten" : "Ton ausschalten";
+  }
+  function mountAudioToggle() {
+    if (audioToggle || document.querySelector(".sound-toggle")) return null;
+    audioToggle = document.createElement("button");
+    audioToggle.type = "button";
+    audioToggle.className = "sound-toggle";
+    audioToggle.dataset.audioToggle = "true";
+    audioToggle.innerHTML = `
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path class="sound-core" d="M11 5 6 9H3v6h3l5 4V5z"/>
+        <path class="sound-wave" d="M15.5 8.5a5 5 0 0 1 0 7"/>
+        <path class="sound-wave sound-wave-wide" d="M18.3 5.7a9 9 0 0 1 0 12.6"/>
+        <path class="sound-off-line" d="M4 4l16 16"/>
+      </svg>`;
+    audioToggle.addEventListener("click", () => { setAudioEnabled(!audioEnabled()); updateAudioToggle(); });
+    document.body.append(audioToggle);
+    updateAudioToggle();
+    return audioToggle;
+  }
+
+  // Baut den Hilfe-Knopf. Die Startseite meldet keinen Text an – dort erklären
+  // sich die Kacheln selbst und der Knopf bleibt verborgen.
+  function mountHelpButton() {
+    if (helpButton || !document.body) return null;
+    const wrap = document.createElement("div");
+    wrap.className = "help-voice";
+    wrap.innerHTML = `
+      <button type="button" class="help-voice-button" aria-label="Vorlesen: Was mache ich hier?" title="Was mache ich hier?">
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path class="help-voice-core" d="M11 5 6 9H3v6h3l5 4V5z"/>
+          <path class="help-voice-wave" d="M15.5 8.5a5 5 0 0 1 0 7"/>
+          <path class="help-voice-wave help-voice-wave-wide" d="M18.3 5.7a9 9 0 0 1 0 12.6"/>
+        </svg>
+        <span class="help-voice-mark" aria-hidden="true">?</span>
+      </button>
+      <p class="help-voice-bubble" role="status" aria-live="polite" hidden></p>`;
+    document.body.append(wrap);
+    helpButton = wrap.querySelector(".help-voice-button");
+    helpBubble = wrap.querySelector(".help-voice-bubble");
+    helpButton.addEventListener("click", speakHelp);
+    helpBubble.addEventListener("click", hideHelpBubble);
+    refreshHelpButton();
+    return helpButton;
+  }
+
+  // ---------------------------------------------------------------------------
   // Öffentliche API
   // ---------------------------------------------------------------------------
   window.LernappKids = {
@@ -397,13 +585,25 @@
     DAILY_GOAL, recordDailySolve, dailyProgress, weeklyProgress,
     // Profil
     AVATARS, getProfile, saveProfile, isYoung,
-    // TTS
+    // TTS (nur auf Lautsprecher-Klick)
     ttsSupported, ttsEnabled, setTtsEnabled, speak, stopSpeaking,
+    // Hilfe-Lautsprecher
+    setHelp, pushHelp, speakHelp, mountHelpButton, currentHelp,
     // Maskottchen + Effekte
-    mascotSVG, burstConfetti, playChime, playStarSound, vibrate, prefersReducedMotion,
+    mascotSVG, burstConfetti, playJingle, playChime, playStarSound, vibrate, prefersReducedMotion,
+    // Ton-Schalter
+    audioEnabled, setAudioEnabled, updateAudioToggle,
     // Verlauf
     setLastPlayed, getLastPlayed, tutorialSeen, markTutorialSeen,
     // Adventure-Fortschritt
     readJSON, writeJSON,
   };
+
+  // Der Knopf wird überall angelegt, zeigt sich aber nur, wenn der Bildschirm
+  // einen Hilfetext angemeldet hat. Die Startseite meldet keinen an – dort
+  // erklären die Kacheln sich selbst. Dialoge über der Startseite (z. B. "Wer
+  // spielt?") schieben einen Text nach und lassen den Knopf so erscheinen.
+  function mountFixedButtons() { mountHelpButton(); mountAudioToggle(); }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", mountFixedButtons);
+  else mountFixedButtons();
 })();

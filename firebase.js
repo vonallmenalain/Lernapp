@@ -786,12 +786,18 @@
     initial.textContent = isLoggedIn ? source.trim().charAt(0).toUpperCase() : "";
   }
 
+  // Das Profilfenster ist für Erwachsene; der Hilfe-Lautsprecher erklärt es
+  // trotzdem kurz, damit auf keinem Bildschirm der falsche Text vorgelesen wird.
+  let releaseAccountHelp = null;
+
   function openModal() {
     modal.hidden = false;
     modal.classList.remove("hidden");
     state.dashboardOpen = true;
     if (state.user) refreshDashboard();
     else renderLoggedOut();
+    releaseAccountHelp?.();
+    releaseAccountHelp = window.LernappKids?.pushHelp?.("Das ist das Profilfenster für Erwachsene. Hier siehst du den Lernfortschritt und kannst dich an- oder abmelden. Mit dem Kreuz oben rechts schliesst du das Fenster.") || null;
     modalContent.querySelector("input, button")?.focus();
   }
 
@@ -799,6 +805,8 @@
     modal.hidden = true;
     modal.classList.add("hidden");
     state.dashboardOpen = false;
+    releaseAccountHelp?.();
+    releaseAccountHelp = null;
     accountButton.focus();
   }
 

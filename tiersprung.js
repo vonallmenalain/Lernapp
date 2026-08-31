@@ -1605,6 +1605,7 @@
     game.paused = true;
     game.holding = false;
     releaseWakeLock();
+    setStageHelp("Pause. Tippe auf Weiter spielen, um dranzubleiben, auf Nochmal für einen neuen Versuch oder auf Zur Karte, um das Level zu verlassen.");
     showOverlay(`
       <h2>Pause</h2>
       <p class="runner-dialog-sub">${game.level.label}</p>
@@ -1622,6 +1623,7 @@
     game.accumulator = 0;
     closeOverlay();
     requestWakeLock();
+    setPlayHelp(game.level);
   }
 
   function wireDialog(overlay) {
@@ -1657,6 +1659,7 @@
     if (!success) {
       soundFail();
       kids.vibrate([90, 60, 90]);
+      setStageHelp(`Diesmal hat es nicht gereicht. Du hast ${game.treats} ${game.level.treatName} gesammelt. Tippe auf Nochmal für einen neuen Versuch oder auf Zur Karte, um ein anderes Level zu wählen.`);
       showOverlay(`
         <div class="runner-mascot sad">${kids.mascotSVG("sad")}</div>
         <h2>Fast geschafft!</h2>
@@ -1715,9 +1718,7 @@
     const dialog = hud.overlay?.querySelector(".runner-dialog");
     if (dialog) kids.burstConfetti(dialog, stars >= 3 ? 60 : 38);
     if (newStickers.length) window.setTimeout(soundUnlock, 700);
-    kids.speak(stars >= 3
-      ? `Super! Drei Sterne mit dem ${game.animal.name}!`
-      : `Geschafft! Du hast ${game.treats} ${level.treatName} gesammelt.`);
+    setStageHelp(`Level ${level.id} geschafft! Du hast ${stars} von 3 Sternen und ${game.treats} ${level.treatName} gesammelt. ${nextLevel ? `Tippe auf Weiter, um mit dem ${nextAnimal.name} weiterzuspielen.` : "Du hast alle Tiere geschafft."} Mit Nochmal spielst du dieses Level erneut, mit Zur Karte kommst du zurück zur Übersicht.`);
   }
 
   // ---------------------------------------------------------------------------
@@ -1809,6 +1810,20 @@
   }
 
   // ---------------------------------------------------------------------------
+  // Hilfe-Lautsprecher
+  // ---------------------------------------------------------------------------
+  // Jede Ansicht meldet an, was gerade zu tun ist. Vorgelesen wird erst auf
+  // Tipp des Kindes.
+  function setStageHelp(text) { kids.setHelp?.(text); }
+  function setMapHelp() {
+    const animal = ANIMALS[LEVELS[progress.unlocked - 1]?.animal];
+    setStageHelp(`Tier-Sprung. Tippe auf Los geht's oder wähle auf der Karte ein Level aus.${animal ? ` Gerade spielst du als ${animal.name}.` : ""} Im Spiel tippst du auf den Bildschirm, damit dein Tier springt. Halte länger gedrückt, dann springt es höher. Du hast drei Leben pro Level.`);
+  }
+  function setPlayHelp(level) {
+    setStageHelp(`Level ${level.id}, ${level.label}. Tippe auf den Bildschirm, damit dein Tier springt. Länger gedrückt halten springt höher. Sammle möglichst viele ${level.treatName} und weiche den Hindernissen aus. Du hast drei Leben.`);
+  }
+
+  // ---------------------------------------------------------------------------
   // Spielfläche betreten / verlassen
   // ---------------------------------------------------------------------------
   function enterStage() {
@@ -1834,6 +1849,7 @@
       try { (document.exitFullscreen || document.webkitExitFullscreen)?.call(document); } catch { /* ignore */ }
     }
     renderMap();
+    setMapHelp();
     document.getElementById("runner-start")?.focus?.({ preventScroll: true });
   }
 
@@ -1855,6 +1871,7 @@
     startLoop();
     requestWakeLock();
     ensureAudio();
+    setPlayHelp(level);
   }
 
   // ---------------------------------------------------------------------------
@@ -1920,4 +1937,5 @@
   // ---------------------------------------------------------------------------
   document.getElementById("runner-start")?.addEventListener("click", () => startLevel(progress.unlocked));
   renderMap();
+  setMapHelp();
 })();

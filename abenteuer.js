@@ -157,9 +157,8 @@
     if (String(option) === String(task.correctAnswer)) {
       state.answered = true;
       button.classList.add("correct");
-      kids.playStarSound(0);
-      kids.vibrate(30);
-      kids.speak(kids.prefersReducedMotion() ? "Richtig!" : "Super!");
+      kids.playJingle("correct");
+      kids.vibrate(25);
       window.setTimeout(() => {
         state.station += 1;
         state.attempts = 0;
@@ -172,7 +171,7 @@
       if (state.attempts === 1) state.stars = 2;
       if (state.attempts >= 3) state.stars = 1;
       button.classList.add("wrong");
-      kids.speak("Fast! Versuch es nochmal.");
+      kids.playJingle("retry");
       renderStation(true);
     }
   }
@@ -198,15 +197,6 @@
     step.className = "adventure-step";
     step.textContent = `Station ${state.station + 1} von ${STATION_COUNT}`;
     head.append(step);
-    if (kids.ttsSupported && kids.ttsSupported()) {
-      const speaker = document.createElement("button");
-      speaker.type = "button";
-      speaker.className = "task-speaker";
-      speaker.setAttribute("aria-label", "Aufgabe vorlesen");
-      speaker.textContent = "🔊";
-      speaker.addEventListener("click", () => kids.speak(spokenFor(task)));
-      head.append(speaker);
-    }
     card.append(head);
 
     const mascot = document.createElement("div");
@@ -225,7 +215,7 @@
 
     root.append(card);
 
-    if (kids.isYoung && kids.isYoung() && !keepTask) kids.speak(spokenFor(task));
+    kids.setHelp(`Station ${state.station + 1} von ${STATION_COUNT}. ${spokenFor(task)} Tippe auf die Antwort, die passt.`);
   }
 
   function finishJourney() {
@@ -286,10 +276,10 @@
     card.append(actions);
 
     root.append(card);
-    kids.playChime();
+    kids.playJingle("win");
     kids.burstConfetti(card);
     kids.vibrate([40, 40, 90]);
-    kids.speak("Super! Du hast die ganze Rätselreise geschafft!");
+    kids.setHelp(`Die Rätselreise ist geschafft. Du hast ${state.stars} von 3 Sternen. Tippe auf Neue Reise für ein neues Abenteuer oder auf Nach Hause für die Rätselauswahl.`);
   }
 
   function startJourney() {
