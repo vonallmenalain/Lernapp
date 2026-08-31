@@ -405,6 +405,12 @@ const GAME_CONFIGS = {
   },
 };
 
+// Die Gehirntrainer-Spiele liegen in brain-games.js und melden sich hier an.
+// Sie benutzen dieselbe Hülle wie alle anderen Spiele: Weltenwahl, Levelwahl,
+// Sterne, Erfolgsdialog, Zoo-Belohnung und Hilfe-Lautsprecher.
+const BRAIN_GAMES = window.LernappBrainGames || null;
+if (BRAIN_GAMES?.configs) Object.assign(GAME_CONFIGS, BRAIN_GAMES.configs);
+
 function clone(value) { return typeof structuredClone === "function" ? structuredClone(value) : JSON.parse(JSON.stringify(value)); }
 function keyOf(row, col) { return `${row}-${col}`; }
 function sameCell(a, b) { return a && b && a[0] === b[0] && a[1] === b[1]; }
@@ -2608,6 +2614,9 @@ const LEVELS_BY_GAME = {
   backpack: normalizeLevelCounts(BACKPACK_LEVELS),
   memory: normalizeLevelCounts(MEMORY_LEVELS),
 };
+Object.entries(BRAIN_GAMES?.buildLevels?.(makeLevel) || {}).forEach(([game, levels]) => {
+  LEVELS_BY_GAME[game] = normalizeLevelCounts(levels);
+});
 
 function publicLevelInfo(level) {
   return {
@@ -2719,6 +2728,8 @@ function boardHelpText() {
   const config = GAME_CONFIGS[currentGame];
   if (!config) return "";
   const rules = Array.isArray(config.rules) && config.rules.length ? config.rules.join(" ") : (config.subtitle || "");
+  const own = GAME_HANDLERS[currentGame]?.helpText;
+  if (own) return `${sentence(config.title)} ${rules} ${own(currentLevel())}`.replace(/\s+/g, " ").trim();
   const task = PRACTICE_GAMES.has(currentGame) ? spokenTaskText(state?.task) : "";
   return `${sentence(config.title)} ${rules}${task ? ` Deine Aufgabe: ${task}` : ""}`;
 }
@@ -2727,6 +2738,8 @@ function updateBoardHelp() {
 }
 // Berechnet 1–3 Sterne je nach sauberer Lösung.
 function computeStars(game, level, result) {
+  const own = GAME_HANDLERS[game]?.stars;
+  if (own) return Math.max(1, Math.min(3, Math.round(own(level, result))));
   if (PRACTICE_GAMES.has(game)) {
     const target = Number(result.target || level.targetCount || 10);
     const flawless = Number(result.flawless || 0);
@@ -2989,6 +3002,8 @@ function handleViewportLayoutChange() {
 }
 
 function currentSolveResult() {
+  const own = GAME_HANDLERS[currentGame]?.solveResult;
+  if (own) return own(currentLevel());
   const result = {};
   if (PRACTICE_GAMES.has(currentGame)) {
     result.flawless = Number(state.flawlessCount || 0);
@@ -3105,9 +3120,9 @@ function renderLevelSelect() {
   });
   setHelpText(`${config.title}, Welt ${difficulty.label}. Such dir ein Level aus und tippe darauf. Kacheln mit Sternen hast du schon geschafft. Eine Kachel mit Schloss wird frei, sobald du das Level davor gelöst hast.`);
 }
-function showLevelSelect() { finishMove(); clearPracticeAdvanceTimer(); if (currentGame === "backpack") clearBackpackTimer(); if (currentGame === "memory") clearMemoryTimer(); cloudProgress()?.flushCurrentSession?.({ close: true, includeElapsed: true }); hideSuccess(); if (levelPanel) levelPanel.hidden = false; if (homePanel) homePanel.hidden = true; if (gamePanel) gamePanel.hidden = true; if (gameControls) gameControls.hidden = true; document.body.classList.remove("puzzle-active", "number-pad-open"); board?.style.removeProperty("--active-board-size"); board?.style.removeProperty("--active-board-offset"); renderLevelSelect(); }
+function showLevelSelect() { finishMove(); clearPracticeAdvanceTimer(); GAME_HANDLERS[currentGame]?.stop?.(); if (currentGame === "backpack") clearBackpackTimer(); if (currentGame === "memory") clearMemoryTimer(); cloudProgress()?.flushCurrentSession?.({ close: true, includeElapsed: true }); hideSuccess(); if (levelPanel) levelPanel.hidden = false; if (homePanel) homePanel.hidden = true; if (gamePanel) gamePanel.hidden = true; if (gameControls) gameControls.hidden = true; document.body.classList.remove("puzzle-active", "number-pad-open"); board?.style.removeProperty("--active-board-size"); board?.style.removeProperty("--active-board-offset"); renderLevelSelect(); }
 function showGame() { if (levelPanel) levelPanel.hidden = true; if (homePanel) homePanel.hidden = true; if (gamePanel) gamePanel.hidden = false; if (gameControls) gameControls.hidden = false; document.body.classList.add("puzzle-active"); setHelpText(boardHelpText()); }
-function startLevel(index) { const levelToStart = LEVELS_BY_GAME[currentGame]?.[index]; if (!isLevelUnlocked(levelToStart)) { if (levelToStart) selectedDifficulty = levelToStart.difficulty; renderLevelSelect(); return; } clearPracticeAdvanceTimer(); hideSuccess(); currentIndex = index; const level = currentLevel(); selectedDifficulty = level.difficulty; const config = GAME_CONFIGS[currentGame]; history = []; winShown = false; helpCount = 0; if (undoButton) undoButton.disabled = true; const boardSize = level.cols || level.size || 5; board.className = `board ${currentGame}-board board-size-${boardSize}`; board.style.setProperty("--size", boardSize); board.setAttribute("aria-label", `${config.title} Spielfeld`); puzzleTitle.textContent = level.title; puzzleDescription.textContent = level.description || config.subtitle; cloudProgress()?.recordLevelStart?.(level); kids()?.setLastPlayed?.(currentGame, level.id || level.levelName); resetState(); showGame(); render(); maybeShowTutorial(level, config); }
+function startLevel(index) { const levelToStart = LEVELS_BY_GAME[currentGame]?.[index]; if (!isLevelUnlocked(levelToStart)) { if (levelToStart) selectedDifficulty = levelToStart.difficulty; renderLevelSelect(); return; } clearPracticeAdvanceTimer(); GAME_HANDLERS[currentGame]?.stop?.(); hideSuccess(); currentIndex = index; const level = currentLevel(); selectedDifficulty = level.difficulty; const config = GAME_CONFIGS[currentGame]; history = []; winShown = false; helpCount = 0; if (undoButton) undoButton.disabled = true; const boardSize = level.cols || level.size || 5; board.className = `board ${currentGame}-board board-size-${boardSize}`; board.style.setProperty("--size", boardSize); board.setAttribute("aria-label", `${config.title} Spielfeld`); puzzleTitle.textContent = level.title; puzzleDescription.textContent = level.description || config.subtitle; cloudProgress()?.recordLevelStart?.(level); kids()?.setLastPlayed?.(currentGame, level.id || level.levelName); resetState(); showGame(); render(); maybeShowTutorial(level, config); }
 function resetGame() { history = []; helpCount = 0; if (undoButton) undoButton.disabled = true; hideSuccess(); cloudProgress()?.recordLevelStart?.(currentLevel()); resetState(); recordResetMetric(); render("Neu gestartet. Viel Spass!"); }
 function undo() {
   helpCount += 1;
@@ -3176,6 +3191,7 @@ function revealSuccessContent() {
   });
 }
 function showSuccess() {
+  GAME_HANDLERS[currentGame]?.stop?.();
   const level = currentLevel();
   const result = currentSolveResult();
   winShown = true;
@@ -3360,6 +3376,7 @@ const GAME_PAGE = {
   spatialPuzzle: "raumdetektiv.html", backpack: "backpack.html", memory: "memory.html",
   arukone: "arukone.html", bimaru: "bimaru.html", kakuro: "kakuro.html", shikaku: "shikaku.html",
   hidoku: "hidoku.html", sudoku: "sudoku.html", countPuzzle: "zaehlen.html", letterPuzzle: "buchstaben.html",
+  ...(BRAIN_GAMES?.pages || {}),
 };
 function gamePageForGame(game) { return GAME_PAGE[game] || "index.html"; }
 // Tier-Sprung (tiersprung.js) speichert seinen Fortschritt selbst; hier wird er
@@ -5284,6 +5301,10 @@ function renderBimaruBoard(level, makeCell) {
   placeGridItem(renderBimaruFleetPanel(fleet.bottom, "horizontal", used, usedCursor), level.size + 2, 2, 1, level.size);
 }
 
+
+if (BRAIN_GAMES?.createHandlers) {
+  Object.assign(GAME_HANDLERS, BRAIN_GAMES.createHandlers({ board, handleWin, render, setStatus, kids, playJingle }));
+}
 
 if (currentGame && LEVELS_BY_GAME[currentGame]) renderDifficultySelect();
 if (undoButton) undoButton.addEventListener("click", undo);

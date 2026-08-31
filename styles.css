@@ -1136,12 +1136,6 @@ body.puzzle-active #home-panel {
   display: none;
 }
 
-@media (max-width: 720px) {
-  .home-panel {
-    grid-template-columns: 1fr;
-  }
-}
-
 @media (max-width: 640px) {
   .level-tile {
     flex: 0 1 132px;
@@ -1183,8 +1177,23 @@ a.icon-button {
 
 /* Erweiterungen für die grosse Rätselsammlung */
 .home-panel {
-  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(158px, 1fr));
+  gap: clamp(12px, 2.6vw, 22px);
   max-width: 1120px;
+}
+
+@media (max-width: 560px) {
+  .game-choice-card {
+    padding: 14px 12px 16px;
+    gap: 12px;
+    border-radius: 24px;
+  }
+
+  .game-choice-card h2 {
+    font-size: 1.05rem;
+    line-height: 1.15;
+    text-wrap: balance;
+  }
 }
 .preview span { min-width: 0; }
 .sea-preview { grid-template-columns: repeat(5, 1fr); gap: 5px; }
@@ -4833,4 +4842,414 @@ body.runner-playing .help-voice { display: none; }
   .help-voice-bubble,
   .correct-badge { animation: none; }
   .help-voice-button.speaking .help-voice-wave { animation: none; opacity: 1; }
+}
+
+/* =====================================================================
+   Gehirntrainer: Karten-Merker, Schwarm-Fokus, Strand-Schätze,
+   Weichen-Wirrwarr. Gemeinsame Bausteine zuerst.
+   ===================================================================== */
+.brain-board {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  justify-items: center;
+  align-content: center;
+  gap: clamp(10px, 2.4vh, 20px);
+  width: 100%;
+  max-width: min(620px, 100%);
+}
+
+.brain-head {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.brain-dots { display: inline-flex; gap: 5px; flex-wrap: wrap; justify-content: center; }
+.brain-dot {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: #e2def4;
+}
+.brain-dot.done { background: #06d6a0; }
+.brain-dot.current { background: #6c5ce7; box-shadow: 0 0 0 4px rgba(108, 92, 231, 0.18); }
+
+.brain-note {
+  font-size: 0.82rem;
+  font-weight: 900;
+  color: var(--muted);
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: #f2f0fb;
+}
+
+.brain-prompt {
+  margin: 0;
+  font-size: clamp(1.15rem, 4.6vw, 1.55rem);
+  font-weight: 950;
+  color: var(--primary-dark);
+  text-align: center;
+  text-wrap: balance;
+}
+
+.brain-hint {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 800;
+  color: var(--muted);
+  text-align: center;
+}
+
+.brain-primary-button {
+  min-height: 62px;
+  padding: 0 28px;
+  border: none;
+  border-radius: 20px;
+  background: linear-gradient(120deg, #6c5ce7, #8338ec);
+  color: #fff;
+  font-size: 1.15rem;
+  font-weight: 900;
+  cursor: pointer;
+  transition: transform 0.1s ease, filter 0.15s ease;
+}
+.brain-primary-button:hover:not(:disabled) { filter: brightness(1.07); }
+.brain-primary-button:active { transform: scale(0.96); }
+
+.brain-feedback {
+  min-height: 62px;
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 8px;
+  text-align: center;
+  font-weight: 800;
+  color: var(--muted);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+.brain-feedback.visible { opacity: 1; }
+.brain-feedback p { margin: 0; }
+
+/* Zeitbalken: läuft leer, ohne Countdown-Stress zu erzeugen. */
+.brain-timebar {
+  width: min(280px, 80%);
+  height: 10px;
+  border-radius: 999px;
+  background: #ece9f8;
+  overflow: hidden;
+}
+.brain-timebar-fill {
+  display: block;
+  height: 100%;
+  width: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #06d6a0, #ffd166);
+  transform-origin: left center;
+  animation-name: brain-timebar-run;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+@keyframes brain-timebar-run { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+
+/* --- Karten-Merker --- */
+.cardmatch-stage { display: grid; place-items: center; }
+.cardmatch-card {
+  --card-color: #8338ec;
+  display: grid;
+  place-items: center;
+  width: clamp(120px, 38vw, 170px);
+  aspect-ratio: 3 / 4;
+  border-radius: 24px;
+  border: 5px solid var(--card-color);
+  background: color-mix(in srgb, var(--card-color) 12%, #fff);
+  box-shadow: 0 16px 34px rgba(50, 44, 109, 0.18);
+}
+.cardmatch-card.big { animation: cardmatch-in 0.24s cubic-bezier(0.2, 1.3, 0.5, 1); }
+.cardmatch-card.mini { width: 64px; border-width: 3px; border-radius: 14px; box-shadow: none; }
+.cardmatch-card.mini .cardmatch-symbol { font-size: 1.7rem; }
+.cardmatch-card.empty { border-style: dashed; background: #faf8ff; }
+.cardmatch-card.correct { border-color: #06d6a0; }
+.cardmatch-card.wrong { border-color: #ff9f1c; }
+.cardmatch-symbol { font-size: clamp(3rem, 15vw, 4.4rem); line-height: 1; }
+@keyframes cardmatch-in {
+  from { opacity: 0; transform: scale(0.82) rotate(-4deg); }
+  to { opacity: 1; transform: none; }
+}
+
+.cardmatch-choices {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  width: min(420px, 100%);
+}
+.cardmatch-choice {
+  min-height: 86px;
+  padding: 10px;
+  display: grid;
+  place-items: center;
+  gap: 4px;
+  border-radius: 22px;
+  border: 4px solid var(--line);
+  background: #fff;
+  color: var(--ink);
+  font-weight: 900;
+  cursor: pointer;
+  transition: transform 0.1s ease, background 0.15s ease, border-color 0.15s ease;
+}
+.cardmatch-choice.same { border-color: #06d6a0; }
+.cardmatch-choice.different { border-color: #4285f4; }
+.cardmatch-choice:hover:not(:disabled) { background: #f7f5ff; }
+.cardmatch-choice:active:not(:disabled) { transform: scale(0.96); }
+.cardmatch-choice:disabled { opacity: 0.45; cursor: default; }
+.cardmatch-choice-hint { font-size: 1.5rem; line-height: 1; letter-spacing: 0.1em; }
+.cardmatch-choice-label { font-size: 1.05rem; }
+
+/* --- Schwarm-Fokus --- */
+.flanker-row {
+  --fish-count: 5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(2px, 1vw, 8px);
+  width: 100%;
+  min-height: clamp(88px, 24vw, 120px);
+  padding: 10px;
+  border-radius: 24px;
+  background: linear-gradient(180deg, #eaf7ff, #d9efff);
+  border: 3px solid #b7ddf0;
+}
+.flanker-row.demo { min-height: 96px; }
+.flanker-row.hidden-swarm {
+  background: #f6f4ff;
+  border-style: dashed;
+  border-color: var(--line);
+}
+.flanker-memory { font-weight: 900; color: var(--primary-dark); }
+/* Quadratisch, damit auch ein um 90 Grad gedrehter Fisch ganz hineinpasst. */
+.flanker-slot {
+  display: grid;
+  place-items: center;
+  width: calc((100% - 8px * var(--fish-count)) / var(--fish-count));
+  max-width: 74px;
+  aspect-ratio: 1;
+}
+.flanker-slot.target-slot {
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.95) 55%, rgba(255, 255, 255, 0) 72%);
+}
+.flanker-fish { width: 100%; height: auto; display: block; }
+.flanker-fish .flanker-body { fill: #7fb2d9; }
+.flanker-fish .flanker-tail, .flanker-fish .flanker-fin { fill: #6699c4; }
+.flanker-fish .flanker-eye-white { fill: #fff; }
+.flanker-fish .flanker-eye { fill: #243047; }
+.flanker-fish.target .flanker-body { fill: #ff9f1c; }
+.flanker-fish.target .flanker-tail, .flanker-fish.target .flanker-fin { fill: #ef7d0a; }
+
+.flanker-pad { display: grid; gap: 12px; justify-content: center; }
+.flanker-pad.row { grid-template-columns: repeat(2, minmax(0, 1fr)); width: min(360px, 100%); }
+.flanker-pad.cross {
+  grid-template-columns: repeat(3, 74px);
+  grid-template-rows: repeat(2, 74px);
+}
+.flanker-pad.cross .key-up { grid-area: 1 / 2; }
+.flanker-pad.cross .key-left { grid-area: 2 / 1; }
+.flanker-pad.cross .key-down { grid-area: 2 / 2; }
+.flanker-pad.cross .key-right { grid-area: 2 / 3; }
+.flanker-key {
+  min-height: 74px;
+  display: grid;
+  place-items: center;
+  border-radius: 20px;
+  border: 4px solid var(--line);
+  background: #fff;
+  color: var(--primary-dark);
+  cursor: pointer;
+  transition: transform 0.1s ease, background 0.15s ease;
+}
+.flanker-key:hover:not(:disabled) { background: #f2eeff; }
+.flanker-key:active:not(:disabled) { transform: scale(0.94); }
+.flanker-key:disabled { opacity: 0.4; cursor: default; }
+.flanker-key-arrow { font-size: 2.1rem; line-height: 1; font-weight: 900; }
+
+/* --- Strand-Schätze --- */
+.treasure-grid {
+  --treasure-count: 4;
+  display: grid;
+  /* Feste Spaltenbreite plus zentriertes Raster: bei zwei Schätzen stehen sie
+     beieinander statt weit auseinander. */
+  grid-template-columns: repeat(auto-fit, clamp(56px, 16vw, 82px));
+  justify-content: center;
+  gap: clamp(6px, 1.8vw, 12px);
+  width: 100%;
+  padding: clamp(10px, 2.4vw, 16px);
+  border-radius: 26px;
+  background: linear-gradient(180deg, #fff6e3, #ffeccd);
+  border: 3px solid #ffd8a1;
+}
+.treasure-tile {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  aspect-ratio: 1;
+  min-height: 56px;
+  padding: 6px;
+  border-radius: 18px;
+  border: 3px solid rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.72);
+  cursor: pointer;
+  transition: transform 0.12s ease, border-color 0.15s ease, background 0.15s ease;
+}
+.treasure-tile:hover:not(:disabled) { background: #fff; border-color: #ffc46b; }
+.treasure-tile:active:not(:disabled) { transform: scale(0.94); }
+.treasure-tile.known {
+  border-color: #ff9f1c;
+  background: #fff;
+  animation: treasure-nudge 0.4s ease;
+}
+.treasure-svg { width: 100%; height: 100%; display: block; }
+.treasure-known-mark {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 4px;
+  font-size: 0.62rem;
+  font-weight: 900;
+  color: #a35a00;
+}
+@keyframes treasure-nudge {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-5px); }
+  75% { transform: translateX(5px); }
+}
+
+.treasure-chest {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 18px;
+  border-radius: 999px;
+  background: #fff;
+  border: 2px solid var(--line);
+  font-weight: 900;
+  color: var(--primary-dark);
+}
+.treasure-chest-icon { font-size: 1.5rem; line-height: 1; }
+
+/* --- Weichen-Wirrwarr --- */
+.track-board { gap: clamp(8px, 2vh, 14px); }
+.track-canvas {
+  width: 100%;
+  max-width: 620px;
+  border-radius: 26px;
+  background: linear-gradient(180deg, #f4f8ff, #e8eeff);
+  border: 3px solid #cfdcf7;
+  touch-action: manipulation;
+  cursor: pointer;
+}
+.track-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+}
+.track-legend-chip {
+  --chip-color: #6c5ce7;
+  --chip-ink: #3b1273;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--chip-color) 18%, #fff);
+  border: 2px solid var(--chip-color);
+  color: var(--chip-ink);
+  font-weight: 900;
+  font-size: 0.85rem;
+}
+.track-legend-symbol { font-size: 1rem; line-height: 1; }
+
+/* --- Vorschaubilder auf der Startseite --- */
+.cardmatch-preview {
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  background: #f6f2ff; border-color: #cbbdf6;
+}
+.cardmatch-preview span {
+  display: grid; place-items: center;
+  width: 34%; aspect-ratio: 3 / 4; border-radius: 14px;
+  border: 3px solid #8338ec; background: #fff; font-size: 1.7rem; line-height: 1;
+}
+.cardmatch-preview .ghost { opacity: 0.45; border-style: dashed; }
+.cardmatch-preview .verdict {
+  width: 26%; aspect-ratio: 1; border-radius: 50%;
+  border-color: #06d6a0; color: #06d6a0; font-weight: 950;
+}
+
+.flanker-preview {
+  display: flex; align-items: center; justify-content: center; gap: 4px;
+  background: linear-gradient(180deg, #eaf7ff, #d9efff); border-color: #b7ddf0;
+  font-size: 1.6rem; font-weight: 950; color: #6699c4;
+}
+.flanker-preview .focus {
+  color: #ff9f1c;
+  font-size: 2.4rem;
+  background: #fff;
+  border-radius: 50%;
+  width: 2.6rem; height: 2.6rem;
+  display: grid; place-items: center;
+}
+
+.treasure-preview {
+  display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px;
+  place-items: center;
+  background: linear-gradient(180deg, #fff6e3, #ffeccd); border-color: #ffd8a1;
+}
+/* Vier Muscheln in klaren Farben – die neue ist grün umrandet. */
+.treasure-preview span {
+  position: relative;
+  width: 72%;
+  aspect-ratio: 1;
+  border-radius: 50% 50% 50% 50% / 62% 62% 38% 38%;
+  border: 3px solid rgba(36, 48, 71, 0.28);
+}
+.treasure-preview .t1 { background: #ef476f; }
+.treasure-preview .t2 { background: #ffd166; }
+.treasure-preview .t3 { background: #2ec4d6; }
+.treasure-preview .fresh {
+  background: #8338ec;
+  border-color: #06d6a0;
+  box-shadow: 0 0 0 5px rgba(6, 214, 160, 0.28);
+}
+
+.track-preview {
+  position: relative;
+  background: linear-gradient(180deg, #f4f8ff, #e8eeff);
+  border-color: #cfdcf7;
+  overflow: hidden;
+}
+.track-preview .rail { position: absolute; background: #9aa3ba; border-radius: 999px; height: 8px; }
+.track-preview .rail-in { left: 8%; top: 50%; width: 34%; transform: translateY(-50%); }
+.track-preview .rail-up { left: 40%; top: 32%; width: 44%; transform: rotate(-22deg); transform-origin: left center; }
+.track-preview .rail-down { left: 40%; top: 62%; width: 44%; transform: rotate(22deg); transform-origin: left center; }
+.track-preview .switch {
+  position: absolute; left: 38%; top: 50%; width: 22px; height: 22px;
+  transform: translate(-50%, -50%); border-radius: 50%;
+  background: #fff; border: 4px solid #6c5ce7;
+}
+.track-preview .cart {
+  position: absolute; left: 9%; top: 50%; width: 26px; height: 20px;
+  transform: translateY(-50%); border-radius: 7px;
+  background: #ef476f; border: 2px solid #7a1029;
+}
+.track-preview .house {
+  position: absolute; right: 8%; width: 30px; height: 24px; border-radius: 6px;
+}
+.track-preview .house-top { top: 14%; background: #ef476f; border: 2px solid #7a1029; }
+.track-preview .house-bottom { bottom: 14%; background: #06d6a0; border: 2px solid #03614a; }
+
+@media (prefers-reduced-motion: reduce) {
+  .cardmatch-card.big,
+  .treasure-tile.known { animation: none; }
 }
