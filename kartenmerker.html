@@ -4,37 +4,37 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="application-name" content="Lernapp" />
-    <meta name="description" content="Memory ist ein Merkspiel für Kinder mit Paaren und Zügen." />
+    <meta name="description" content="Karten-Merker: Merkspiel für Kinder – ist die Karte gleich wie die davor?" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Lernapp" />
     <meta name="theme-color" content="#6c5ce7" />
-    <title>Memory · Lernapp</title>
+    <title>Karten-Merker Levels · Lernapp</title>
     <link rel="stylesheet" href="styles.css?v=2026-08-31-2" />
     <link rel="manifest" href="app.webmanifest?v=2026-08-31-2" />
     <link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon-180.png" />
   </head>
-  <body data-game-page="memory">
+  <body data-game-page="cardMatch">
     <main class="app-shell">
       <section class="hero" aria-labelledby="app-title">
-        <h1 id="app-title">Memory</h1>
+        <h1 id="app-title">Karten-Merker</h1>
       </section>
 
-      <section id="level-panel" class="start-panel" aria-label="Memory Schwierigkeit auswählen">
+      <section id="level-panel" class="start-panel" aria-label="Karten-Merker Level auswählen">
         <div class="start-copy">
-          <p class="small-label">Merken & Paare finden</p>
+          <p class="small-label">Levelauswahl</p>
           <h2 id="level-heading">Schwierigkeit wählen</h2>
           <p id="level-description"></p>
         </div>
-        <div id="level-grid" class="level-grid" aria-label="Memory starten"></div>
+        <div id="level-grid" class="level-grid" aria-label="Karten-Merker Levels"></div>
       </section>
 
       <section id="game-panel" class="game-panel" hidden>
-        <div id="game-controls" class="controls" aria-label="Spielsteuerung" hidden>
+        <div id="game-controls" class="controls" aria-label="Rätselsteuerung" hidden>
           <a id="home-button" class="icon-button" href="index.html" aria-label="Zurück zur Spielauswahl" title="Zurück zur Spielauswahl">⌂</a>
-          <button id="back-button" class="icon-button" type="button" aria-label="Zurück zur Auswahl" title="Zurück zur Auswahl">⇤</button>
+          <button id="back-button" class="icon-button" type="button" aria-label="Zurück zur Levelauswahl" title="Zurück zur Levelauswahl">⇤</button>
           <button id="reset-button" class="icon-button" type="button" aria-label="Level neu starten" title="Level neu starten">↻</button>
         </div>
 
@@ -42,16 +42,17 @@
           <div class="status-row">
             <div>
               <p class="small-label">Aktuelles Level</p>
-              <h2 id="puzzle-title">Memory</h2>
+              <h2 id="puzzle-title">Level</h2>
               <p id="puzzle-description" class="puzzle-description"></p>
             </div>
-            <p id="status" class="status" role="status" aria-live="polite">Wähle eine Schwierigkeit aus.</p>
+            <p id="status" class="status" role="status" aria-live="polite">Wähle ein Level aus.</p>
           </div>
 
-          <div id="board" class="board" aria-label="Memory Spielfeld"></div>
-          <div id="number-pad" class="number-pad" aria-label="Auswahl" hidden></div>
+          <div id="board" class="board" aria-label="Karten-Merker Spielfeld"></div>
+          <div id="number-pad" class="number-pad" aria-label="Zahlen auswählen" hidden></div>
         </section>
       </section>
+
     </main>
     <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-auth-compat.js"></script>
@@ -59,6 +60,7 @@
     <script src="firebase.js?v=2026-08-31-2"></script>
     <script src="spatial-puzzles.js?v=2026-08-31-2"></script>
     <script src="kids.js?v=2026-08-31-2"></script>
+    <script src="brain-games.js?v=2026-08-31-2"></script>
     <script src="app.js?v=2026-08-31-2"></script>
     <script src="pwa.js?v=2026-08-31-2"></script>
   </body>

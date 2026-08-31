@@ -39,12 +39,12 @@
       cell.className = `zoo-card ${sticker.rarity}${has ? " owned" : " locked"}`;
       if (has) {
         cell.type = "button";
-        cell.setAttribute("aria-label", `${sticker.name}. Antippen zum Anhören.`);
-        cell.innerHTML = `<span class="zoo-emoji" aria-hidden="true">${sticker.emoji}</span><span class="zoo-name">${sticker.name}</span>`;
+        cell.setAttribute("aria-label", `${sticker.name}. Antippen für Bewegung und Klang.`);
+        cell.innerHTML = `<span class="zoo-emoji" aria-hidden="true">${sticker.emoji}</span><span class="zoo-name">${sticker.name}</span><span class="zoo-sound" aria-hidden="true">${sticker.sound}</span>`;
         cell.addEventListener("click", () => {
           animateSticker(cell);
           kids.playStarSound(0);
-          kids.speak(`${sticker.name}. ${sticker.sound}`);
+          kids.vibrate(20);
         });
       } else {
         cell.setAttribute("aria-label", "Noch nicht gesammelt");
@@ -85,7 +85,7 @@
       opened = true;
       box.classList.add("opening");
       hint.hidden = true;
-      kids.playChime();
+      kids.playJingle("win");
       kids.vibrate([40, 40, 90]);
       const modal = overlay.querySelector(".chest-modal");
       kids.burstConfetti(modal);
@@ -100,19 +100,29 @@
           reveal.append(item);
           window.setTimeout(() => kids.playStarSound(index), 200 + index * 220);
         });
-        kids.speak(stickers.length === 1
-          ? `Du hast ein neues Tier: ${stickers[0].name}!`
-          : `Du hast neue Tiere: ${stickers.map((s) => s.name).join(", ")}!`);
+        kids.playJingle("unlock");
         actions.hidden = false;
       }, 600);
     };
+    const releaseHelp = kids.pushHelp(`Du hast ${stickers.length === 1 ? "ein neues Tier" : `${stickers.length} neue Tiere`} gewonnen: ${stickers.map((s) => s.name).join(" und ")}. Tippe auf das Geschenk, um es auszupacken.`);
+    const closeChest = () => { releaseHelp(); overlay.remove(); renderProgress(); renderGrid(); updateHelp(); };
     box.addEventListener("click", open);
-    done.addEventListener("click", () => { overlay.remove(); renderProgress(); renderGrid(); });
-    overlay.addEventListener("click", (event) => { if (event.target === overlay && opened) { overlay.remove(); renderProgress(); renderGrid(); } });
+    done.addEventListener("click", closeChest);
+    overlay.addEventListener("click", (event) => { if (event.target === overlay && opened) closeChest(); });
+  }
+
+  function updateHelp() {
+    const owned = kids.collectedStickers().length;
+    const total = kids.STICKERS.length;
+    const remaining = kids.pointsToNextSticker();
+    kids.setHelp(owned >= total
+      ? `Das ist dein Zoo. Du hast alle ${total} Tiere gesammelt. Tippe ein Tier an, damit es wackelt.`
+      : `Das ist dein Zoo. Du hast ${owned} von ${total} Tieren. Tippe ein Tier an, damit es wackelt. Für jeden Stern in einem Rätsel bekommst du Punkte. Noch ${remaining} ${remaining === 1 ? "Stern" : "Sterne"}, dann gibt es ein neues Tier.`);
   }
 
   renderProgress();
   renderGrid();
+  updateHelp();
   const pending = kids.takeNewStickers();
   if (pending.length) showChest(pending);
 })();

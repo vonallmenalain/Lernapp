@@ -194,7 +194,10 @@ function validateWhatFits() {
     const items = api.whatFitsLevelData[difficulty];
     assert(levels.length === 10, `what fits ${difficulty} should have 10 practice levels`);
     assert(items.length === 10, `what fits ${difficulty} should have 10 curated task items`);
-    assert(levels.every((level) => level.targetCount === 10), `what fits ${difficulty} levels should target 10 tasks`);
+    // Leichte Level sind bewusst kürzer (5 bzw. 7 Aufgaben), damit jüngere
+    // Kinder eine Runde in einer Sitzung schaffen.
+    const expectedTarget = { easy: 5, medium: 7, hard: 10, extreme: 10 }[difficulty];
+    assert(levels.every((level) => level.targetCount === expectedTarget), `what fits ${difficulty} levels should target ${expectedTarget} tasks`);
 
     items.forEach((item, index) => {
       const label = `what fits ${difficulty} ${index + 1}`;
@@ -246,7 +249,8 @@ function validateCatalog() {
     for (const difficulty of difficulties) {
       const levels = catalog[game].filter((level) => level.difficulty === difficulty);
       assert(levels.length === 10, `${game} ${difficulty} should have 10 levels`);
-      assert(levels.every((level) => level.badge === "10 Aufgaben"), `${game} ${difficulty} should expose task badge`);
+      const expectedBadge = `${{ easy: 5, medium: 7, hard: 10, extreme: 10 }[difficulty]} Aufgaben`;
+      assert(levels.every((level) => level.badge === expectedBadge), `${game} ${difficulty} should expose task badge "${expectedBadge}"`);
     }
   }
 
