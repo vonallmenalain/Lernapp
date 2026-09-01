@@ -28,6 +28,7 @@ const CORE_ASSETS = [
   `./app.js${ASSET_VERSION_QUERY}`,
   `./train-progress.js${ASSET_VERSION_QUERY}`,
   `./train-art.js${ASSET_VERSION_QUERY}`,
+  `./train-scenes.js${ASSET_VERSION_QUERY}`,
   `./train-home.js${ASSET_VERSION_QUERY}`,
   `./tiersprung.js${ASSET_VERSION_QUERY}`,
   `./firebase.js${ASSET_VERSION_QUERY}`,

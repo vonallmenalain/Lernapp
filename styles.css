@@ -5203,3 +5203,148 @@ body[data-page="train"] .help-voice { display: none; }
   .loco-camera, .loco-choice, .loco-hotspot-dot, .loco-hotspot-halo { transition: none; }
   .loco-hotspot-halo { animation: none; }
 }
+
+/* ===========================================================================
+   Wagen-Grossansicht
+   ---------------------------------------------------------------------------
+   Der Wagen gross, darunter für jedes Spiel eine Kiste mit einem Band je Welt.
+   Die Bänder füllen sich von links – ein leeres Band heisst "hier war ich noch
+   nie", ein volles "hier ist alles gelöst".
+   =========================================================================== */
+
+.train-stage[data-view="wagon"] .train-band { opacity: 0; pointer-events: none; }
+.train-stage[data-view="wagon"] .stage-layer { z-index: 4; }
+
+.wagon-detail {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(10px, 3vh, 28px);
+  padding: calc(var(--safe-top) + 76px) 16px calc(var(--safe-bottom) + 16px);
+  pointer-events: auto;
+}
+
+.wagon-hero { flex: 1 1 auto; min-height: 0; width: 100%; display: grid; place-items: center; }
+.wagon-hero-svg { width: auto; height: 100%; max-width: 100%; display: block; }
+
+.wagon-shelf {
+  flex: 0 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: clamp(10px, 2vw, 22px);
+  padding-inline: 84px;
+  max-width: 100%;
+}
+
+.wagon-crate {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 12px 12px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.72);
+  box-shadow: 0 4px 12px rgba(36, 48, 71, 0.16);
+}
+
+.crate-icon { width: clamp(44px, 7vh, 68px); height: clamp(44px, 7vh, 68px); display: block; }
+
+.crate-bands { display: flex; flex-direction: column; gap: 3px; width: clamp(64px, 10vh, 96px); }
+
+.crate-band {
+  height: clamp(7px, 1.3vh, 11px);
+  border-radius: 999px;
+  background: rgba(36, 48, 71, 0.14);
+  overflow: hidden;
+}
+.crate-band.is-full { box-shadow: 0 0 0 1.5px rgba(240, 180, 41, 0.9); }
+
+.crate-fill { display: block; height: 100%; border-radius: 999px; transition: width 0.5s ease; }
+
+/* ===========================================================================
+   Szenenwahl
+   ---------------------------------------------------------------------------
+   Öffnet sich mit einem Tipp auf die Landschaft. Gesperrte Szenen sind blass
+   und tragen ein Schloss – ein Zeichen, kein Text.
+   =========================================================================== */
+
+.scene-picker {
+  position: absolute;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  background: rgba(23, 34, 42, 0.55);
+  backdrop-filter: blur(3px);
+  animation: scene-picker-in 0.22s ease both;
+}
+
+@keyframes scene-picker-in { from { opacity: 0; } to { opacity: 1; } }
+
+.scene-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: clamp(10px, 2vw, 20px);
+  max-width: min(100%, 900px);
+  padding: 20px;
+}
+
+.scene-choice {
+  position: relative;
+  width: clamp(96px, 15vw, 150px);
+  padding: 0;
+  border: 4px solid rgba(255, 255, 255, 0.9);
+  border-radius: 16px;
+  background: #fff;
+  overflow: hidden;
+  cursor: pointer;
+  line-height: 0;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.28);
+  transition: transform 0.15s ease, border-color 0.15s ease;
+}
+.scene-choice:hover:not(:disabled) { transform: translateY(-3px); }
+.scene-choice:active:not(:disabled) { transform: scale(0.96); }
+.scene-choice.is-current { border-color: #ffd166; }
+.scene-choice:focus-visible { outline: 3px solid #ffd166; outline-offset: 3px; }
+.scene-choice.is-locked { cursor: not-allowed; filter: grayscale(0.75); opacity: 0.55; }
+
+.scene-thumb-art { width: 100%; height: auto; display: block; }
+
+.scene-lock {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 34%;
+  height: auto;
+  color: #ffffff;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
+}
+
+.scene-close {
+  position: absolute;
+  top: calc(var(--safe-top) + 14px);
+  left: calc(var(--safe-left) + 16px);
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  border: 3px solid #fff;
+  background: rgba(36, 48, 71, 0.85);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  padding: 0;
+}
+.scene-close svg { width: 26px; height: 26px; }
+.scene-close:focus-visible { outline: 3px solid #ffd166; outline-offset: 3px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .crate-fill, .scene-choice { transition: none; }
+  .scene-picker { animation: none; }
+}

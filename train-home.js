@@ -26,145 +26,84 @@
 
   const LOCO_KEY = "lernapp.train.loco";
   const LAST_AREA_KEY = "lernapp.train.lastArea";
+  const SCENE_KEY = "lernapp.train.scene";
 
   const reduced = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   // ---------------------------------------------------------------------------
   // Szene
   // ---------------------------------------------------------------------------
-  // Landschaft aus Ebenen, die unterschiedlich schnell vorbeiziehen. Bewegt wird
-  // der Hintergrund, nicht der Zug – so bleibt die Lok an ihrem Platz und muss
-  // nicht bei jedem Bild neu gezeichnet werden. Die Kacheln sind so gebaut, dass
-  // linke und rechte Kante gleich aussehen; nur dann läuft die Schleife ohne
-  // sichtbaren Sprung.
-  const TILE_W = 600;
-  const TILE_H = 200;
+  // Die Landschaften stehen in train-scenes.js; hier wird nur gebaut. Bewegt
+  // wird der Hintergrund, nicht der Zug – so bleibt die Lok an ihrem Platz und
+  // muss nicht bei jedem Bild neu gezeichnet werden.
+  const scenes = () => window.LernappScenes || null;
+  const LAYER_SPEED = { clouds: 150, far: 96, mid: 54, near: 26 };
 
-  function tile(children) {
-    return el("svg", { viewBox: `0 0 ${TILE_W} ${TILE_H}`, preserveAspectRatio: "none", "aria-hidden": "true" }, children);
+  function currentScene() {
+    const list = scenes();
+    if (!list) return null;
+    const saved = recall(SCENE_KEY);
+    const scene = list.BY_ID[saved];
+    // Eine gewählte Szene kann gesperrt sein, wenn der Fortschritt auf einem
+    // anderen Gerät steht. Dann lieber die erste als gar keine.
+    if (scene && list.isUnlocked(scene.id, progress.trainProgress().builtWagons)) return scene;
+    return list.SCENES[0];
   }
 
-  // Wellenzug mit gerader Anzahl Segmente – nur so passt die Steigung an der
-  // Nahtstelle wieder zusammen.
-  function hillPath(top, amplitude) {
-    const step = TILE_W / 6;
-    let d = `M0 ${TILE_H} L0 ${top} Q${step / 2} ${top - amplitude} ${step} ${top}`;
-    for (let i = 2; i <= 6; i += 1) d += ` T${step * i} ${top}`;
-    return `${d} L${TILE_W} ${TILE_H} Z`;
-  }
-
-  function tree(x, y, scale, trunk, crown) {
-    return group({ transform: `translate(${x},${y}) scale(${scale})` }, [
-      el("rect", { x: -5, y: -18, width: 10, height: 26, rx: 3, fill: trunk }),
-      el("circle", { cx: 0, cy: -34, r: 24, fill: crown }),
-      el("circle", { cx: -16, cy: -22, r: 16, fill: crown }),
-      el("circle", { cx: 16, cy: -22, r: 16, fill: shade(crown, -0.1) }),
-    ]);
-  }
-
-  function bush(x, y, scale, color) {
-    return group({ transform: `translate(${x},${y}) scale(${scale})` }, [
-      el("circle", { cx: -12, cy: 0, r: 12, fill: color }),
-      el("circle", { cx: 4, cy: -5, r: 15, fill: shade(color, 0.08) }),
-      el("circle", { cx: 18, cy: 1, r: 11, fill: shade(color, -0.08) }),
-    ]);
-  }
-
-  function blade(x, y, height, color) {
-    return el("path", { d: `M${x} ${y} q3 -${height / 2} 1 -${height}`, fill: "none", stroke: color, "stroke-width": 3, "stroke-linecap": "round" });
-  }
-
-  const SCENE = {
-    sky: ["#a8ddf0", "#dff1f7"],
-    ground: "#8fc45e",
-    groundDark: "#6da645",
-    sun: "#ffd166",
-    layers: [
-      {
-        name: "clouds", speed: 150,
-        build: () => tile([
-          el("ellipse", { cx: 90, cy: 60, rx: 46, ry: 24, fill: "#ffffff", opacity: "0.9" }),
-          el("ellipse", { cx: 128, cy: 68, rx: 34, ry: 18, fill: "#ffffff", opacity: "0.9" }),
-          el("ellipse", { cx: 330, cy: 40, rx: 38, ry: 20, fill: "#ffffff", opacity: "0.75" }),
-          el("ellipse", { cx: 366, cy: 46, rx: 28, ry: 15, fill: "#ffffff", opacity: "0.75" }),
-          el("ellipse", { cx: 480, cy: 88, rx: 30, ry: 15, fill: "#ffffff", opacity: "0.6" }),
-        ]),
-      },
-      {
-        name: "far", speed: 96,
-        build: () => tile([
-          el("path", { d: hillPath(96, 54), fill: "#9fc9a6" }),
-          el("path", { d: hillPath(132, 34), fill: "#86b98f" }),
-        ]),
-      },
-      {
-        name: "mid", speed: 54,
-        build: () => tile([
-          el("path", { d: hillPath(150, 22), fill: "#6faa6b" }),
-          tree(70, 176, 1, "#7b5c3a", "#4f9350"),
-          tree(210, 182, 0.8, "#7b5c3a", "#57a058"),
-          tree(360, 174, 1.1, "#6d5133", "#478a48"),
-          tree(500, 180, 0.85, "#7b5c3a", "#4f9350"),
-        ]),
-      },
-      {
-        name: "near", speed: 26, front: true,
-        build: () => {
-          const parts = [el("rect", { x: 0, y: 150, width: TILE_W, height: 50, fill: "#7ab455" })];
-          for (let x = 6; x < TILE_W; x += 17) {
-            parts.push(blade(x, 168, 16 + (x % 3) * 5, x % 34 === 6 ? "#8fc766" : "#68a047"));
-          }
-          [60, 190, 320, 455, 545].forEach((x, i) => {
-            parts.push(el("circle", { cx: x, cy: 158 - (i % 2) * 4, r: 5, fill: ["#ffd166", "#ff8fa3", "#ffffff", "#ffd166", "#c9a7f5"][i] }));
-          });
-          parts.push(bush(140, 162, 0.9, "#5d9a4e"));
-          parts.push(bush(410, 160, 1.05, "#6aa457"));
-          return tile(parts);
-        },
-      },
-    ],
-  };
-
-  function buildScene() {
+  function buildScene(scene) {
     const wrap = document.createElement("div");
     wrap.className = "scene";
-    wrap.style.setProperty("--sky-top", SCENE.sky[0]);
-    wrap.style.setProperty("--sky-bottom", SCENE.sky[1]);
-    wrap.style.setProperty("--ground", SCENE.ground);
-    wrap.style.setProperty("--ground-dark", SCENE.groundDark);
+    wrap.dataset.scene = scene.id;
+    wrap.style.setProperty("--sky-top", scene.sky[0]);
+    wrap.style.setProperty("--sky-bottom", scene.sky[1]);
+    wrap.style.setProperty("--ground", scene.ground);
+    wrap.style.setProperty("--ground-dark", scene.groundDark);
 
     const sun = document.createElement("div");
     sun.className = "scene-sun";
     sun.setAttribute("aria-hidden", "true");
     sun.append(el("svg", { viewBox: "0 0 100 100" }, [
-      el("circle", { cx: 50, cy: 50, r: 42, fill: SCENE.sun, opacity: "0.35" }),
-      el("circle", { cx: 50, cy: 50, r: 30, fill: SCENE.sun }),
+      el("circle", { cx: 50, cy: 50, r: 42, fill: scene.light.color, opacity: String(scene.light.glow) }),
+      el("circle", { cx: 50, cy: 50, r: 30, fill: scene.light.color }),
     ]));
     wrap.append(sun);
 
-    SCENE.layers.forEach((layer) => {
+    ["clouds", "far", "mid", "near"].forEach((name) => {
       const bandEl = document.createElement("div");
-      bandEl.className = `scene-layer scene-layer-${layer.name}${layer.front ? " is-front" : ""}`;
-      bandEl.style.setProperty("--speed", `${layer.speed}s`);
+      bandEl.className = `scene-layer scene-layer-${name}${name === "near" ? " is-front" : ""}`;
+      bandEl.style.setProperty("--speed", `${LAYER_SPEED[name]}s`);
       const strip = document.createElement("div");
       strip.className = "scene-strip";
-      strip.append(layer.build(), layer.build());
+      strip.append(scene.layers[name](), scene.layers[name]());
       bandEl.append(strip);
       wrap.append(bandEl);
     });
 
-    const birds = document.createElement("div");
-    birds.className = "scene-birds";
-    birds.setAttribute("aria-hidden", "true");
-    [1, 2, 3].forEach((i) => {
-      const bird = document.createElement("div");
-      bird.className = `scene-bird scene-bird-${i}`;
-      bird.append(el("svg", { viewBox: "0 0 40 20" }, [
-        el("path", { d: "M2 12 q8 -9 16 0 q8 -9 20 -2", fill: "none", stroke: "#5a6b7a", "stroke-width": 2.4, "stroke-linecap": "round" }),
-      ]));
-      birds.append(bird);
+    // Vögel gibt es nur, wo sie hingehören.
+    if (scene.id !== "nacht") {
+      const birds = document.createElement("div");
+      birds.className = "scene-birds";
+      birds.setAttribute("aria-hidden", "true");
+      [1, 2, 3].forEach((i) => {
+        const bird = document.createElement("div");
+        bird.className = `scene-bird scene-bird-${i}`;
+        bird.append(el("svg", { viewBox: "0 0 40 20" }, [
+          el("path", { d: "M2 12 q8 -9 16 0 q8 -9 20 -2", fill: "none", stroke: scene.id === "berge" ? "#4a5b6b" : "#5a6b7a", "stroke-width": 2.4, "stroke-linecap": "round" }),
+        ]));
+        birds.append(bird);
+      });
+      wrap.append(birds);
+    }
+
+    // Ein Tipp auf die Landschaft öffnet die Szenenwahl. Bewusst kein eigener
+    // Knopf: auf dem Startbild sollen nur der Zug und die beiden Knöpfe oben
+    // rechts stehen.
+    wrap.addEventListener("click", (event) => {
+      if (view.name !== "home" || busy) return;
+      if (event.target.closest(".train-band, .train-topbar, .stage-back")) return;
+      showScenePicker();
     });
-    wrap.append(birds);
+
     return wrap;
   }
 
@@ -180,6 +119,10 @@
 
   function remember(key, value) {
     try { localStorage.setItem(key, value); } catch { /* privater Modus */ }
+  }
+
+  function recall(key) {
+    try { return localStorage.getItem(key); } catch { return null; }
   }
 
   let locoConfig = null;
@@ -459,6 +402,142 @@
     return wrap;
   }
 
+  // ---------------------------------------------------------------------------
+  // Wagen-Grossansicht
+  // ---------------------------------------------------------------------------
+  // Der Wagen gross, darunter für jedes Spiel des Bereichs eine Kiste mit einem
+  // Band je Welt. Die Bänder füllen sich von unten – ein leeres Band heisst
+  // "hier war ich noch nie", ein volles "hier ist alles gelöst". Ganz ohne
+  // Wort, und trotzdem genauer als jede Prozentzahl.
+  function buildWagonDetail(area) {
+    const wrap = document.createElement("div");
+    wrap.className = "wagon-detail";
+
+    const top = document.createElement("div");
+    top.className = "wagon-hero";
+    const wagon = art.buildWagon(area.wagon, area.color, area.stage);
+    const heroSvg = el("svg", {
+      viewBox: `-6 ${art.GROUND - 130} ${art.WAGON_W + 12} 148`,
+      class: "wagon-hero-svg", role: "img", "aria-label": describeArea(area),
+    }, [wagon]);
+    top.append(heroSvg);
+    wrap.append(top);
+
+    const shelf = document.createElement("div");
+    shelf.className = "wagon-shelf";
+
+    area.games.forEach((game) => {
+      const crate = document.createElement("div");
+      crate.className = "wagon-crate";
+      crate.setAttribute("role", "img");
+      crate.setAttribute("aria-label", describeGame(game));
+
+      // Das Gebäude des Spiels als Deckel der Kiste: so ist die Verbindung zur
+      // Gebäudewahl sofort da, ohne dass irgendwo ein Name stehen muss.
+      const icon = art.buildBuilding(game.id, { label: game.title });
+      icon.removeAttribute("role");
+      icon.removeAttribute("tabindex");
+      icon.classList.remove("train-building");
+      const iconSvg = el("svg", {
+        viewBox: `0 ${art.GROUND - 176} ${art.BUILD_W} 180`,
+        class: "crate-icon", "aria-hidden": "true",
+      }, [icon]);
+      crate.append(iconSvg);
+
+      const bands = document.createElement("div");
+      bands.className = "crate-bands";
+      // Von oben nach unten: die schwerste Welt oben, die leichteste unten –
+      // dann wächst der Stapel von unten nach oben mit.
+      [...game.worlds].reverse().forEach((world) => {
+        const band = document.createElement("div");
+        band.className = "crate-band";
+        const fill = document.createElement("span");
+        fill.className = "crate-fill";
+        fill.style.width = `${Math.round(world.ratio * 100)}%`;
+        fill.style.background = area.color;
+        if (world.ratio >= 1) band.classList.add("is-full");
+        band.append(fill);
+        bands.append(band);
+      });
+      crate.append(bands);
+      shelf.append(crate);
+    });
+
+    wrap.append(shelf);
+    return wrap;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Szenenwahl
+  // ---------------------------------------------------------------------------
+  // Kleine Vorschaubilder derselben Landschaften. Gesperrte Szenen sind blass
+  // und tragen ein Schloss – ein Zeichen, kein Text.
+  function sceneThumb(scene) {
+    const list = scenes();
+    return el("svg", { viewBox: `0 0 ${list.TW} ${list.TH}`, class: "scene-thumb-art", "aria-hidden": "true" }, [
+      el("defs", {}, [
+        el("linearGradient", { id: `sky-${scene.id}`, x1: "0", y1: "0", x2: "0", y2: "1" }, [
+          el("stop", { offset: "0", "stop-color": scene.sky[0] }),
+          el("stop", { offset: "1", "stop-color": scene.sky[1] }),
+        ]),
+      ]),
+      el("rect", { x: 0, y: 0, width: list.TW, height: list.TH, fill: `url(#sky-${scene.id})` }),
+      el("circle", { cx: 98, cy: 16, r: 8, fill: scene.light.color }),
+      ...scene.thumb(),
+    ]);
+  }
+
+  function showScenePicker() {
+    const list = scenes();
+    if (!list) return;
+    const built = progress.trainProgress().builtWagons;
+    const active = currentScene()?.id;
+
+    const overlay = document.createElement("div");
+    overlay.className = "scene-picker";
+    overlay.setAttribute("role", "dialog");
+    overlay.setAttribute("aria-modal", "true");
+    overlay.setAttribute("aria-label", "Landschaft auswählen");
+
+    const row = document.createElement("div");
+    row.className = "scene-row";
+    list.SCENES.forEach((scene) => {
+      const unlocked = list.isUnlocked(scene.id, built);
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = `scene-choice${unlocked ? "" : " is-locked"}${scene.id === active ? " is-current" : ""}`;
+      button.disabled = !unlocked;
+      button.setAttribute("aria-label", unlocked
+        ? `Landschaft ${scene.label}${scene.id === active ? ", ausgewählt" : ""}`
+        : `Landschaft ${scene.label}, noch gesperrt. Baue einen Wagen fertig, um sie freizuschalten.`);
+      button.append(sceneThumb(scene));
+      if (!unlocked) {
+        button.append(el("svg", { viewBox: "0 0 24 24", class: "scene-lock", "aria-hidden": "true" }, [
+          el("path", { d: "M7 11V8a5 5 0 0 1 10 0v3", fill: "none", stroke: "currentColor", "stroke-width": 2.4, "stroke-linecap": "round" }),
+          el("rect", { x: 5, y: 11, width: 14, height: 10, rx: 3, fill: "currentColor" }),
+        ]));
+      }
+      button.addEventListener("click", () => {
+        remember(SCENE_KEY, scene.id);
+        overlay.remove();
+        render();
+      });
+      row.append(button);
+    });
+
+    const close = document.createElement("button");
+    close.type = "button";
+    close.className = "scene-close";
+    close.setAttribute("aria-label", "Schliessen");
+    close.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></svg>`;
+    close.addEventListener("click", () => overlay.remove());
+
+    overlay.append(row, close);
+    overlay.addEventListener("click", (event) => { if (event.target === overlay) overlay.remove(); });
+    stage.append(overlay);
+    row.querySelector(".scene-choice:not(:disabled)")?.focus();
+  }
+
   function buildTopbar() {
     const bar = document.createElement("div");
     bar.className = "train-topbar";
@@ -500,6 +579,15 @@
 
   // Werkstatt: die Lok allein. part === "whole" zeigt sie ganz, sonst ist auf
   // ein Bauteil gezoomt.
+  // Wagen gross ansehen. Wie die Werkstatt eine eigene Bühne, nur ohne Zoom –
+  // hier gibt es nichts einzustellen, nur etwas anzuschauen.
+  function showWagon(areaId) {
+    const area = progress.areaProgress(areaId);
+    if (!area) { showHome(); return; }
+    setView("wagon", areaId);
+    renderLayer(buildWagonDetail(area));
+  }
+
   function showWorkshop(part = "whole") {
     view.part = part;
     setView("loco");
@@ -603,6 +691,7 @@
       return;
     }
     if (view.name === "areas") { showHome(); return; }
+    if (view.name === "wagon") { showHome(); return; }
     if (view.name === "loco") {
       // Erst aus dem Bauteil heraus zur ganzen Lok, dann zum Zug. Zwei Stufen
       // zurück auf einmal wäre für ein Kind ein Sprung ins Nichts.
@@ -626,7 +715,8 @@
     const previousArea = view.areaId;
 
     stage.innerHTML = "";
-    stage.append(buildScene());
+    const scene = currentScene();
+    if (scene) stage.append(buildScene(scene));
 
     const band = document.createElement("div");
     band.className = "train-band";
@@ -634,10 +724,13 @@
     svg.setAttribute("aria-label", describeTrain(areas));
 
     svg.querySelectorAll("[data-area]").forEach((node) => {
-      const area = areas.find((entry) => entry.id === node.getAttribute("data-area"));
+      const id = node.getAttribute("data-area");
+      const area = areas.find((entry) => entry.id === id);
       if (!area) return;
-      node.setAttribute("role", "img");
-      node.setAttribute("aria-label", describeArea(area));
+      node.setAttribute("role", "button");
+      node.setAttribute("tabindex", "0");
+      node.setAttribute("aria-label", `${describeArea(area)} Antippen für Einzelheiten.`);
+      activate(node, () => { if (view.name === "home" && !busy) showWagon(id); });
     });
     svg.querySelector("[data-loco]")?.setAttribute("aria-label", "Deine Lokomotive");
 
@@ -666,6 +759,7 @@
     if (previous === "games" && previousArea) showGames(previousArea);
     else if (previous === "areas") showAreas();
     else if (previous === "loco") showWorkshop(view.part);
+    else if (previous === "wagon" && previousArea) showWagon(previousArea);
     else showHome();
   }
 
