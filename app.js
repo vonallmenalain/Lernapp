@@ -309,12 +309,6 @@ const GAME_CONFIGS = {
   },
 };
 
-// Die Gehirntrainer-Spiele liegen in brain-games.js und melden sich hier an.
-// Sie benutzen dieselbe Hülle wie alle anderen Spiele: Weltenwahl, Levelwahl,
-// Sterne, Erfolgsdialog und Hilfe-Lautsprecher.
-const BRAIN_GAMES = window.LernappBrainGames || null;
-if (BRAIN_GAMES?.configs) Object.assign(GAME_CONFIGS, BRAIN_GAMES.configs);
-
 function clone(value) { return typeof structuredClone === "function" ? structuredClone(value) : JSON.parse(JSON.stringify(value)); }
 function keyOf(row, col) { return `${row}-${col}`; }
 function sameCell(a, b) { return a && b && a[0] === b[0] && a[1] === b[1]; }
@@ -1550,10 +1544,6 @@ const LEVELS_BY_GAME = {
   backpack: normalizeLevelCounts(BACKPACK_LEVELS),
   memory: normalizeLevelCounts(MEMORY_LEVELS),
 };
-Object.entries(BRAIN_GAMES?.buildLevels?.(makeLevel) || {}).forEach(([game, levels]) => {
-  LEVELS_BY_GAME[game] = normalizeLevelCounts(levels);
-});
-
 function publicLevelInfo(level) {
   return {
     id: level.id || level.levelName,
@@ -3831,10 +3821,6 @@ function renderBimaruBoard(level, makeCell) {
   placeGridItem(renderBimaruFleetPanel(fleet.bottom, "horizontal", used, usedCursor), level.size + 2, 2, 1, level.size);
 }
 
-
-if (BRAIN_GAMES?.createHandlers) {
-  Object.assign(GAME_HANDLERS, BRAIN_GAMES.createHandlers({ board, handleWin, render, setStatus, kids, playJingle }));
-}
 
 if (currentGame && LEVELS_BY_GAME[currentGame]) renderDifficultySelect();
 if (undoButton) undoButton.addEventListener("click", undo);

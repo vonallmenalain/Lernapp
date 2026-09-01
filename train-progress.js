@@ -41,7 +41,7 @@
       wagon: "tank",
       games: [
         { id: "flanker", title: "Schwarm-Fokus", page: "schwarmfokus.html", ownProgress: "flanker" },
-        { id: "trackRouter", title: "Weichen-Wirrwarr", page: "weichen.html" },
+        { id: "trackRouter", title: "Weichen-Wirrwarr", page: "weichen.html", ownProgress: "trackRouter" },
       ],
     },
     {
@@ -121,6 +121,9 @@
   const CARDMATCH_KEY = "lernapp.cardmatch";
   const BEACH_KEY = "lernapp.beachtreasure";
   const FLANKER_KEY = "lernapp.flanker";
+  const TRACK_KEY = "lernapp.trackrouter";
+  // Weichen-Wirrwarr hat zehn Level, aber fünf davon reichen für den Wagen.
+  const TRACK_LEVELS_FOR_DONE = 5;
   // Beide Bestenlisten-Spiele gelten nach fünf gespielten Runden als geschafft.
   const RUNS_FOR_DONE = 5;
 
@@ -279,7 +282,41 @@
     cardMatch: runsProgress(CARDMATCH_KEY, 40),
     beachTreasure: runsProgress(BEACH_KEY, 12),
     flanker: runsProgress(FLANKER_KEY, 30),
+    trackRouter: trackProgress,
   };
+
+  // Weichen-Wirrwarr zählt abgeschlossene Level, nicht Runden: zehn stehen zur
+  // Wahl, fünf beliebige bauen den Wagen fertig. Wer die leichten fünf fährt,
+  // kommt genauso an wie wer die schweren fährt – die Sterne unterscheiden das.
+  function trackProgress(game) {
+    const stored = readJSON(TRACK_KEY, null) || {};
+    const best = stored.best && typeof stored.best === "object" ? stored.best : {};
+    // Die besten fünf zählen, damit ein sechstes Level den Stand nicht drückt.
+    const sterne = Object.values(best)
+      .map((entry) => Math.max(0, Math.min(3, Number(entry?.stars) || 0)))
+      .filter((value) => value > 0)
+      .sort((a, b) => b - a)
+      .slice(0, TRACK_LEVELS_FOR_DONE);
+
+    const worlds = [];
+    for (let i = 0; i < TRACK_LEVELS_FOR_DONE; i += 1) {
+      const stars = sterne[i] || 0;
+      worlds.push({ key: `level-${i + 1}`, solved: stars ? 1 : 0, total: 1, stars, maxStars: 3, ratio: stars ? 1 : 0 });
+    }
+
+    return {
+      id: game.id,
+      title: game.title,
+      page: game.page,
+      solved: sterne.length,
+      total: TRACK_LEVELS_FOR_DONE,
+      ratio: sterne.length / TRACK_LEVELS_FOR_DONE,
+      stars: sterne.reduce((sum, value) => sum + value, 0),
+      maxStars: TRACK_LEVELS_FOR_DONE * 3,
+      unit: LEVEL_UNIT,
+      worlds,
+    };
+  }
 
   // Die Spiele mit eigenem Konto legen ihren Stand nicht im Levelkatalog ab,
   // sondern jedes in seinem eigenen Kasten. Damit der Zug sie auch auf
@@ -290,6 +327,7 @@
   if (cloudGames) {
     const redraw = () => document.dispatchEvent(new CustomEvent("lernapp:progress-changed"));
     cloudGames.register({ key: RUNNER_KEY, empty: { unlocked: 1, best: {} }, merge: cloudGames.mergeLevels }).onChange(redraw);
+    cloudGames.register({ key: TRACK_KEY, empty: { best: {} }, merge: cloudGames.mergeLevels }).onChange(redraw);
     [CARDMATCH_KEY, BEACH_KEY, FLANKER_KEY].forEach((key) => {
       cloudGames.register({ key, empty: { runs: 0, scores: [] }, merge: cloudGames.mergeScores(RUNS_FOR_DONE) }).onChange(redraw);
     });

@@ -54,7 +54,7 @@ const context = vm.createContext({
   structuredClone: (value) => JSON.parse(JSON.stringify(value)),
 });
 
-for (const file of ["spatial-puzzles.js", "brain-games.js", "app.js", "train-progress.js"]) {
+for (const file of ["spatial-puzzles.js", "app.js", "train-progress.js"]) {
   vm.runInContext(fs.readFileSync(path.join(root, file), "utf8"), context, { filename: file });
 }
 
@@ -201,6 +201,33 @@ assert(runner.worlds.length === 10, "Tier-Sprung braucht ein Band je Level");
 // Der Bereich zählt über die Spiele: Tier-Sprung halb, Karten-Merker gar nicht.
 assert(Math.abs(halb.ratio - 0.25) < 1e-9, `halber Tier-Sprung und leerer Karten-Merker sind 25 %, gefunden ${halb.ratio}`);
 
+// --- Weichen-Wirrwarr -------------------------------------------------------
+// Zehn Level zur Wahl, fünf beliebige bauen den Wagen fertig. Gezählt werden
+// die besten fünf, damit ein sechstes Level den Stand nicht drückt.
+store.clear();
+const gleisLeer = train.gameProgress("trackRouter");
+assert(gleisLeer.total === 5, `Weichen-Wirrwarr muss 5 Level melden, meldet ${gleisLeer.total}`);
+assert(gleisLeer.solved === 0, "ohne gefahrenes Level darf nichts gelöst sein");
+
+store.set("lernapp.trackrouter", JSON.stringify({ best: { 1: { stars: 3 }, 2: { stars: 2 } } }));
+const gleisZwei = train.gameProgress("trackRouter");
+assert(gleisZwei.solved === 2, `zwei Level müssen 2 ergeben, ergeben ${gleisZwei.solved}`);
+assert(Math.abs(gleisZwei.ratio - 0.4) < 1e-9, `zwei von fünf Leveln sind 40 %, gefunden ${gleisZwei.ratio}`);
+assert(gleisZwei.stars === 5, `3 + 2 Sterne sind 5, gefunden ${gleisZwei.stars}`);
+assert(gleisZwei.worlds.length === 5, "Weichen-Wirrwarr braucht ein Band je Level");
+
+// Welche fünf Level, ist gleich – und ein sechstes darf nicht schaden.
+store.set("lernapp.trackrouter", JSON.stringify({
+  best: { 6: { stars: 1 }, 7: { stars: 1 }, 8: { stars: 1 }, 9: { stars: 1 }, 10: { stars: 1 } },
+}));
+assert(train.gameProgress("trackRouter").ratio === 1, "fünf schwere Level müssen genauso abschliessen wie fünf leichte");
+store.set("lernapp.trackrouter", JSON.stringify({
+  best: { 1: { stars: 3 }, 2: { stars: 3 }, 3: { stars: 3 }, 4: { stars: 3 }, 5: { stars: 3 }, 6: { stars: 1 } },
+}));
+const gleisVoll = train.gameProgress("trackRouter");
+assert(gleisVoll.ratio === 1, "sechs Level dürfen nicht über 100 % gehen");
+assert(gleisVoll.stars === 15, `die besten fünf geben 15 Sterne, gefunden ${gleisVoll.stars}`);
+
 // --- Die Spiele mit Bestenliste ---------------------------------------------
 // Fünf gespielte Runden, dann ist das Spiel fertig – die Punktzahl entscheidet
 // nur über die Sterne, nicht über den Fortschritt. Beide zählen anders: der
@@ -250,7 +277,7 @@ assert(train.gameProgress("beachTreasure").stars === 3, "12 Schätze sind am Str
 const eigeneKonten = new Set(
   train.AREAS.flatMap((area) => area.games.filter((game) => game.ownProgress).map((game) => game.id)),
 );
-assert(eigeneKonten.size === 4, `erwartet 4 Spiele mit eigenem Konto, gefunden ${eigeneKonten.size}`);
+assert(eigeneKonten.size === 5, `erwartet 5 Spiele mit eigenem Konto, gefunden ${eigeneKonten.size}`);
 store.clear();
 for (const area of train.allAreas()) {
   for (const game of area.games) {
@@ -267,6 +294,6 @@ for (const area of train.allAreas()) {
 const alle = train.trainProgress();
 assert(alle.areas.length === 5, "trainProgress muss fünf Bereiche melden");
 const gesamt = alle.areas.reduce((sum, area) => sum + area.total, 0);
-assert(gesamt === 401, `erwartet 401 Aufgaben über alle Bereiche, gefunden ${gesamt}`);
+assert(gesamt === 394, `erwartet 394 Aufgaben über alle Bereiche, gefunden ${gesamt}`);
 
 console.log(`Zug-Fortschritt geprüft: 5 Bereiche, ${seen.size} Spiele, ${gesamt} Levels.`);

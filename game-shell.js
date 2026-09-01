@@ -51,6 +51,10 @@
       }),
       art().el("polygon", { points: "19,3 19.6,8.2 14.4,7.4", fill: "currentColor" }),
     ],
+    star: () => [art().el("path", {
+      d: "M12 3.2 14.7 9l6.3.8-4.6 4.3 1.2 6.2L12 17.4 6.4 20.3l1.2-6.2L3 9.8 9.3 9z",
+      fill: "currentColor", stroke: "currentColor", "stroke-width": 1.4, "stroke-linejoin": "round",
+    })],
     tick: () => [art().el("path", {
       d: "M5 13l4.5 4.5L19 7", fill: "none", stroke: "currentColor",
       "stroke-width": 3, "stroke-linecap": "round", "stroke-linejoin": "round",
@@ -76,7 +80,7 @@
    *   help      Text, den der Lautsprecher vorliest
    *   onRestart was der Neu-Knopf tut
    */
-  function mount({ host, title, area, accent, accentDark, help, onRestart, clock = true }) {
+  function mount({ host, title, area, accent, accentDark, help, onRestart, onBack, clock = true }) {
     host.style.setProperty("--cm-accent", accent);
     host.style.setProperty("--cm-accent-dark", accentDark);
     host.innerHTML = "";
@@ -98,10 +102,13 @@
       stopClock();
       window.location.href = "index.html";
     }));
-    // Zurück führt nicht auf das Startbild, sondern dorthin, wo das Kind
-    // hergekommen ist: in die Spielauswahl seines Bereichs.
+    // Zurück führt nicht auf das Startbild, sondern eine Stufe zurück: bei
+    // einem Spiel mit Levelwahl erst dorthin, sonst gleich in die Spielauswahl
+    // des Bereichs. onBack meldet mit true, dass es die Stufe selbst genommen
+    // hat.
     left.append(iconButton("back", "Zurück zur Auswahl", ICONS.back(), () => {
       stopClock();
+      if (onBack?.()) return;
       window.location.href = `index.html?bereich=${encodeURIComponent(area)}`;
     }));
     left.append(iconButton("again", "Neu starten", ICONS.again(), () => { stopClock(); onRestart(); }));
@@ -204,7 +211,12 @@
      * Die Bestenliste am Schluss. store = { scores: [...] }, punkte = der
      * frische Lauf, note = eine Zeile darunter (oder nichts).
      */
-    function showResult({ points, detail, scores, note, speech, label = "Deine Punkte", top = 5 }) {
+    /*
+     * stars   0–3: statt einer Punktzahl stehen Sterne da (Weichen-Wirrwarr)
+     * scores  fehlt oder null: keine Bestenliste (bei Sternen wäre sie doppelt)
+     * onBack  wohin der Zurück-Knopf führt; ohne das in die Spielauswahl
+     */
+    function showResult({ points, stars, detail, scores, note, speech, onBack, label = "Deine Punkte", top = 5 }) {
       host.dataset.phase = "over";
       timeFill.style.transform = "scaleX(0)";
       // Der Lautsprecher oben links sagt jetzt das Ergebnis statt der Regeln.
@@ -212,10 +224,21 @@
       // und wie weit es noch bis zum fertigen Wagen hat.
       releaseHelp?.();
       releaseHelp = speech ? kids()?.pushHelp?.(speech) || null : null;
-      const parts = [
-        el("p", "cm-result-label", label),
-        el("p", "cm-result-score", String(points)),
-      ];
+      const parts = [el("p", "cm-result-label", label)];
+      if (typeof stars === "number") {
+        // Drei Sterne, die leeren blass. Eine Zahl "2 von 3" müsste ein Kind
+        // erst lesen; drei Bilder sieht es.
+        const row = el("div", "cm-result-stars");
+        row.setAttribute("aria-label", `${stars} von 3 Sternen`);
+        for (let i = 0; i < 3; i += 1) {
+          const star = el("span", `cm-result-star${i < stars ? " is-on" : ""}`);
+          star.append(svg(ICONS.star()));
+          row.append(star);
+        }
+        parts.push(row);
+      } else {
+        parts.push(el("p", "cm-result-score", String(points)));
+      }
       if (detail) parts.push(el("p", "cm-result-detail", detail));
 
       // Der frische Lauf ist hervorgehoben – ohne die Markierung müsste ein
@@ -223,24 +246,27 @@
       // leuchteten bei gleichem Ergebnis mehrere.
       const list = el("ol", "cm-scores");
       let marked = false;
-      scores.forEach((value, index) => {
+      (scores || []).forEach((value, index) => {
         const item = el("li", "cm-score-item");
         if (!marked && value === points) { item.classList.add("is-new"); marked = true; }
         item.append(el("span", "cm-score-rank", `${index + 1}.`), el("span", "cm-score-value", String(value)));
         list.append(item);
       });
-      for (let i = scores.length; i < top; i += 1) {
-        const item = el("li", "cm-score-item is-empty");
-        item.append(el("span", "cm-score-rank", `${i + 1}.`), el("span", "cm-score-value", "–"));
-        list.append(item);
+      if (scores) {
+        for (let i = scores.length; i < top; i += 1) {
+          const item = el("li", "cm-score-item is-empty");
+          item.append(el("span", "cm-score-rank", `${i + 1}.`), el("span", "cm-score-value", "–"));
+          list.append(item);
+        }
+        parts.push(list);
       }
-      parts.push(list);
       if (note) parts.push(el("p", `cm-runs${note.done ? " is-done" : ""}`, note.text));
 
       const actions = el("div", "cm-actions");
       actions.append(iconButton("again", "Noch einmal", ICONS.again(), () => { closeOverlay(); onRestart(); }, "big"));
       actions.append(iconButton("back", "Zurück zur Auswahl", ICONS.back(), () => {
         stopClock();
+        if (onBack) { closeOverlay(); onBack(); return; }
         window.location.href = `index.html?bereich=${encodeURIComponent(area)}`;
       }, "big"));
       parts.push(actions);

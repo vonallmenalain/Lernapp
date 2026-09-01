@@ -5240,6 +5240,98 @@ body[data-page="train"] .help-voice { display: none; }
 .cm-icon.big svg { width: 32px; height: 32px; }
 
 /* ===========================================================================
+   Weichen-Wirrwarr
+   ---------------------------------------------------------------------------
+   Anders als die drei Spiele daneben steht das Streckennetz auf einer weissen
+   Tafel: Gleise, Weichen und Häuser sind feine Linien, und über einer Wiese mit
+   Bäumen wäre nicht mehr zu erkennen, was Gleis ist und was Landschaft.
+
+   Die Farbe ist die des Bereichs Konzentration.
+   =========================================================================== */
+
+.tr-stage { --cm-accent: #00A5B5; --cm-accent-dark: #00707c; }
+
+.tr-board {
+  flex: 1 1 auto;
+  width: min(96vw, 1100px);
+  min-height: 0;
+  border-radius: 26px;
+  background: #fdfdfd;
+  box-shadow: 0 14px 34px rgba(31, 42, 51, 0.24);
+  overflow: hidden;
+  overflow: clip;
+}
+
+.tr-canvas { display: block; width: 100%; height: 100%; touch-action: manipulation; }
+
+/* --- Die Levelwahl --- */
+
+.tr-levels {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: clamp(8px, 1.6vw, 16px);
+  width: min(94vw, 900px);
+}
+
+.tr-level {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  padding: clamp(8px, 1.6vh, 14px) 6px;
+  border: 3px solid #ffffff;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.9);
+  cursor: pointer;
+  box-shadow: 0 8px 18px rgba(31, 42, 51, 0.18);
+  transition: transform 0.12s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.tr-level:hover { background: #fff; }
+.tr-level:active { transform: scale(0.95); }
+.tr-level:focus-visible { outline: 3px solid #243047; outline-offset: 3px; }
+
+.tr-level-nr {
+  font-size: clamp(1.2rem, 3vw, 1.7rem);
+  font-weight: 950;
+  color: var(--cm-accent-dark);
+  line-height: 1;
+}
+
+/* Die Farben des Levels als Punktreihe: wie voll es wird, ohne eine Zahl. */
+.tr-level-colors { display: flex; flex-wrap: wrap; justify-content: center; gap: 3px; max-width: 68px; }
+.tr-level-dot { width: 9px; height: 9px; border-radius: 50%; }
+
+.tr-level-stars { display: flex; gap: 1px; font-size: 0.85rem; line-height: 1; color: #d5dae2; }
+.tr-level-star.is-on { color: #f6b93b; }
+
+@media (max-width: 620px) {
+  .tr-levels { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
+  .tr-level { padding: 6px 2px; border-width: 2px; border-radius: 14px; }
+  .tr-level-colors { max-width: 44px; gap: 2px; }
+  .tr-level-dot { width: 7px; height: 7px; }
+}
+
+/* --- Sterne im Schlussbild --- */
+
+.cm-result-stars { display: flex; justify-content: center; gap: 8px; margin: 2px 0 4px; }
+.cm-result-star { display: grid; place-items: center; color: #d5dae2; }
+.cm-result-star svg { width: clamp(38px, 9vw, 54px); height: auto; }
+.cm-result-star.is-on { color: #f6b93b; animation: cm-star-pop 0.4s ease both; }
+.cm-result-star.is-on:nth-child(2) { animation-delay: 0.12s; }
+.cm-result-star.is-on:nth-child(3) { animation-delay: 0.24s; }
+@keyframes cm-star-pop {
+  0% { transform: scale(0.2) rotate(-30deg); opacity: 0; }
+  70% { transform: scale(1.18) rotate(6deg); opacity: 1; }
+  100% { transform: scale(1) rotate(0); opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tr-level { transition: none; }
+  .cm-result-star.is-on { animation: none; }
+}
+
+/* ===========================================================================
    Schwarm-Fokus
    ---------------------------------------------------------------------------
    Dieselbe Bühne wie der Karten-Merker: die Landschaft der Startseite, oben
