@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="application-name" content="Lernapp" />
+    <meta name="description" content="Blätter im Strom: 45 Sekunden lang wischen – orange Blätter wohin sie schwimmen, grüne wohin sie zeigen." />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Lernapp" />
+    <meta name="theme-color" content="#a8ddf0" />
+    <title>Blätter im Strom · Lernapp</title>
+    <link rel="stylesheet" href="styles.css?v=2026-09-06-3" />
+    <link rel="manifest" href="app.webmanifest?v=2026-09-06-3" />
+    <link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon-180.png" />
+  </head>
+  <body data-page="leaves">
+    <!-- Die Bühne baut blaetter.js: dieselbe Landschaft wie das Startbild,
+         darauf das Wasser mit den Blättern. Bewusst leer im HTML – hier steht
+         kein Wort, das ein Kind lesen müsste, ausser dem Namen des Spiels. -->
+    <div id="bs-stage" class="cm-stage bs-stage" aria-label="Blätter im Strom"></div>
+
+    <script defer src="https://www.gstatic.com/firebasejs/12.7.0/firebase-app-compat.js"></script>
+    <script defer src="https://www.gstatic.com/firebasejs/12.7.0/firebase-auth-compat.js"></script>
+    <script defer src="https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore-compat.js"></script>
+    <script defer src="firebase.js?v=2026-09-06-3"></script>
+    <script defer src="kids.js?v=2026-09-06-3"></script>
+    <script defer src="train-art.js?v=2026-09-06-3"></script>
+    <script defer src="train-scenes.js?v=2026-09-06-3"></script>
+    <script defer src="game-cloud.js?v=2026-09-06-3"></script>
+    <script defer src="game-shell.js?v=2026-09-06-3"></script>
+    <script defer src="blaetter.js?v=2026-09-06-3"></script>
+    <script defer src="pwa.js?v=2026-09-06-3"></script>
+  </body>
+</html>

@@ -55,6 +55,7 @@
       games: [
         { id: "tiersprung", title: "Tier-Sprung", page: "tiersprung.html", ownProgress: "runner" },
         { id: "cardMatch", title: "Karten-Merker", page: "kartenmerker.html", ownProgress: "cardMatch" },
+        { id: "leafFlow", title: "Blätter im Strom", page: "blaetter.html", ownProgress: "leafFlow" },
       ],
     },
     {
@@ -132,6 +133,7 @@
   const RAUM_KEY = "lernapp.raumdetektiv";
   const TILE_KEY = "lernapp.kacheln";
   const POND_KEY = "lernapp.fischteich";
+  const LEAF_KEY = "lernapp.blaetter";
   // Weichen-Wirrwarr hat zehn Level, aber fünf davon reichen für den Wagen.
   const TRACK_LEVELS_FOR_DONE = 5;
   // Beide Bestenlisten-Spiele gelten nach fünf gespielten Runden als geschafft.
@@ -348,6 +350,10 @@
     // die Sternschwelle liegt deshalb in derselben Grössenordnung.
     tileMemory: runsProgress(TILE_KEY, 14),
     fishPond: runsProgress(POND_KEY, 14),
+    // Blätter im Strom zählt einen Punkt je richtig gewischter Welle. In
+    // fünfundvierzig Sekunden geht Welle um Welle – sechzehn davon richtig ist
+    // eine gute Runde, mehr schafft nur, wer die Regel im Schlaf umschaltet.
+    leafFlow: runsProgress(LEAF_KEY, 16),
   };
 
   // Ein Spiel, das eine feste Liste von Aufgaben führt und jede nur als
@@ -419,7 +425,7 @@
     cloudGames.register({ key: RUNNER_KEY, empty: { unlocked: 1, best: {} }, merge: cloudGames.mergeLevels }).onChange(redraw);
     cloudGames.register({ key: TRACK_KEY, empty: { best: {} }, merge: cloudGames.mergeLevels }).onChange(redraw);
     cloudGames.register({ key: MEMORY_KEY, empty: { best: {} }, merge: cloudGames.mergeLevels }).onChange(redraw);
-    [CARDMATCH_KEY, BEACH_KEY, FLANKER_KEY, BACKPACK_KEY, RAUM_KEY, TILE_KEY, POND_KEY].forEach((key) => {
+    [CARDMATCH_KEY, BEACH_KEY, FLANKER_KEY, BACKPACK_KEY, RAUM_KEY, TILE_KEY, POND_KEY, LEAF_KEY].forEach((key) => {
       cloudGames.register({ key, empty: { runs: 0, scores: [] }, merge: cloudGames.mergeScores(RUNS_FOR_DONE) }).onChange(redraw);
     });
   }

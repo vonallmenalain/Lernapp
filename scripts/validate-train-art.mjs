@@ -159,7 +159,7 @@ const progressContext = vm.createContext({
 });
 vm.runInContext(fs.readFileSync(path.join(root, "train-progress.js"), "utf8"), progressContext, { filename: "train-progress.js" });
 const spiele = progressContext.window.LernappTrain.AREAS.flatMap((area) => area.games.map((game) => game.id));
-assert(spiele.length === 17, `erwartet 17 Spiele im Zug, gefunden ${spiele.length}`);
+assert(spiele.length === 18, `erwartet 18 Spiele im Zug, gefunden ${spiele.length}`);
 
 const gesehen = new Map();
 for (const id of spiele) {
