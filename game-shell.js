@@ -169,14 +169,24 @@
 
     // --- Der Überzug für das Ergebnis ---------------------------------------
     let overlay = null;
+    let releaseHelp = null;
 
-    function closeOverlay() {
+    // Nur die Tafel wegnehmen: panel() baut gleich die nächste auf und meldet
+    // ihren Vorlese-Text selbst an.
+    function dropOverlay() {
       overlay?.remove();
       overlay = null;
     }
 
+    // Zurück ins Spiel: Tafel weg, und der Lautsprecher sagt wieder die Regeln.
+    function closeOverlay() {
+      dropOverlay();
+      releaseHelp?.();
+      releaseHelp = null;
+    }
+
     function panel(children) {
-      closeOverlay();
+      dropOverlay();
       overlay = el("div", "cm-overlay");
       const box = el("div", "cm-panel");
       children.forEach((child) => box.append(child));
@@ -189,9 +199,14 @@
      * Die Bestenliste am Schluss. store = { scores: [...] }, punkte = der
      * frische Lauf, note = eine Zeile darunter (oder nichts).
      */
-    function showResult({ points, detail, scores, note, top = 5 }) {
+    function showResult({ points, detail, scores, note, speech, top = 5 }) {
       host.dataset.phase = "over";
       timeFill.style.transform = "scaleX(0)";
+      // Der Lautsprecher oben links sagt jetzt das Ergebnis statt der Regeln.
+      // Ein Kind, das die Zahlen nicht liest, erfährt so, wie es gelaufen ist
+      // und wie weit es noch bis zum fertigen Wagen hat.
+      releaseHelp?.();
+      releaseHelp = speech ? kids()?.pushHelp?.(speech) || null : null;
       const parts = [
         el("p", "cm-result-label", "Deine Punkte"),
         el("p", "cm-result-score", String(points)),
