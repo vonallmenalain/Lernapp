@@ -4836,6 +4836,9 @@ body[data-page="train"].list-open { overflow: auto; }
 
 /* --- Der Zug --- */
 
+/* Der Zug ist nur einmal da. Zwischen den Ansichten schrumpft er in die untere
+   linke Ecke – nicht ausgetauscht, sondern bewegt, damit die Verkleinerung
+   sichtbar wird. transform-origin unten links hält ihn dabei auf dem Gleis. */
 .train-band {
   position: absolute;
   left: 0; right: 0;
@@ -4844,7 +4847,35 @@ body[data-page="train"].list-open { overflow: auto; }
   display: flex;
   justify-content: center;
   pointer-events: none;
+  transform-origin: left bottom;
+  transition: transform 0.72s cubic-bezier(0.32, 0.72, 0.24, 1);
 }
+
+.train-stage[data-view="areas"] .train-band,
+.train-stage[data-view="games"] .train-band {
+  transform: translate(2%, var(--train-lift, -1%)) scale(0.42);
+}
+
+/* Aus dem Bild fahren und wieder hereinkommen. Beides sind reine
+   Verschiebungen auf der bestehenden Verkleinerung. */
+.train-stage[data-moving="out"] .train-band {
+  transform: translate(120%, -1%) scale(0.42);
+  transition-duration: 0.6s;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.9, 0.6);
+}
+.train-stage[data-moving="in"] .train-band {
+  transform: translate(-110%, -1%) scale(0.42);
+  transition: none;
+}
+
+/* Auf dem Startbild wird die Verkleinerung nicht gebraucht, aber die Fahrt
+   aus dem Bild schon – etwa beim Wechsel in ein Spiel. */
+.train-stage[data-view="home"][data-moving="out"] .train-band {
+  transform: translate(120%, 0) scale(1);
+}
+
+/* Das Startsignal gehört nur aufs Startbild. */
+.train-stage:not([data-view="home"]) .train-start-signal { display: none; }
 
 .train-band .train-svg {
   width: 100%;
@@ -4889,6 +4920,74 @@ body[data-page="train"].list-open { overflow: auto; }
 .train-start-signal:focus-visible { outline: 3px solid #ffffff; outline-offset: 4px; border-radius: 50%; }
 .train-start-signal:active { transform-origin: center; }
 
+/* --- Bühnen-Ebene: Tore und Gebäude --- */
+
+/* Die Gebäude stehen hinter dem Gleis, der Zug fährt davor vorbei. Läge die
+   Ebene vor dem Zug, würde sie ihn in Stücke schneiden. */
+.stage-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+
+.stage-layer .stage-svg {
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  animation: stage-layer-in 0.5s ease both;
+}
+
+.stage-layer .train-gate,
+.stage-layer .train-building { pointer-events: auto; cursor: pointer; }
+
+/* Nur die feste Trefferfläche nimmt Tipps entgegen; die Zeichnung darunter
+   nicht. So bleibt das Ziel gross und ändert sich nicht beim Hovern. */
+.train-gate > *:not(.train-gate-hit),
+.train-building > *:not(.train-building-hit) { pointer-events: none; }
+
+@keyframes stage-layer-in {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: none; }
+}
+
+.train-gate, .train-building {
+  transform-box: fill-box;
+  transform-origin: center bottom;
+  transition: transform 0.16s ease;
+}
+.train-gate:hover, .train-building:hover,
+.train-gate:focus-visible, .train-building:focus-visible { transform: scale(1.05); }
+.train-gate:active, .train-building:active { transform: scale(0.97); }
+.train-gate:focus-visible, .train-building:focus-visible { outline: 3px solid #ffffff; outline-offset: 2px; }
+
+/* --- Zurück-Knopf der Bühne --- */
+
+.stage-back {
+  position: absolute;
+  bottom: calc(var(--safe-bottom) + 18px);
+  left: calc(var(--safe-left) + 18px);
+  z-index: 6;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  border: 3px solid #fff;
+  background: #6c5ce7;
+  color: #fff;
+  box-shadow: 0 6px 16px rgba(36, 48, 71, 0.24);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  padding: 0;
+  transition: transform 0.15s ease;
+}
+.stage-back[hidden] { display: none; }
+.stage-back svg { width: 30px; height: 30px; }
+.stage-back:active { transform: scale(0.93); }
+.stage-back:focus-visible { outline: 3px solid #243047; outline-offset: 3px; }
+
 /* --- Profil oben rechts --- */
 /* Der Ton-Knopf kommt aus kids.js und sitzt links daneben. */
 
@@ -4918,32 +5017,6 @@ body[data-page="train"].list-open { overflow: auto; }
 }
 .train-profile:active { transform: scale(0.93); }
 .train-profile:focus-visible { outline: 3px solid #6c5ce7; outline-offset: 3px; }
-
-/* --- Vorläufige Spielliste hinter dem Startsignal --- */
-/* Verschwindet in Etappe 4, wenn der Zug selbst in die Bereiche fährt. */
-
-#game-list[hidden] { display: none; }
-
-.train-back {
-  position: fixed;
-  bottom: calc(var(--safe-bottom) + 18px);
-  left: calc(var(--safe-left) + 16px);
-  z-index: 40;
-  width: 60px;
-  height: 60px;
-  border-radius: 50%;
-  border: 3px solid #fff;
-  background: #6c5ce7;
-  color: #fff;
-  box-shadow: 0 6px 16px rgba(36, 48, 71, 0.24);
-  display: grid;
-  place-items: center;
-  cursor: pointer;
-  padding: 0;
-}
-.train-back svg { width: 30px; height: 30px; }
-.train-back:active { transform: scale(0.93); }
-.train-back:focus-visible { outline: 3px solid #243047; outline-offset: 3px; }
 
 /* ---------------------------------------------------------------------------
    Dreh-Hinweis
@@ -5006,6 +5079,9 @@ body[data-page="train"] .help-voice { display: none; }
   .scene-strip, .scene-bird, .train-start-ring { animation: none; }
   .train-steam-puff { animation: none; opacity: 0.5; }
   .rotate-hint-device, .rotate-hint-dot { animation: none; transform: rotate(-90deg); }
+  .train-band { transition: none; }
+  .stage-layer .stage-svg { animation: none; }
+  .train-gate, .train-building { transition: none; }
 }
 
 /* Nur die feste Trefferfläche nimmt Tipps entgegen; die Zeichnung darunter

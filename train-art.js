@@ -701,6 +701,258 @@
     { id: "flag", label: "Wimpel", kind: "shapeColor", shapes: FLAG_PATTERNS, options: PALETTE },
   ];
 
+  // ---------------------------------------------------------------------------
+  // Bereichs-Symbole
+  // ---------------------------------------------------------------------------
+  // Ein Zeichen je Bereich, gezeichnet in einem 100×100-Feld. Die Symbole sind
+  // das, was ein Kind wiedererkennt, bevor es die Farbe zuordnen kann – deshalb
+  // müssen sie sich auch in Graustufen klar unterscheiden.
+  function areaIcon(name, color = "#ffffff") {
+    const parts = [];
+    if (name === "brain") {
+      parts.push(el("circle", { cx: 50, cy: 54, r: 30, fill: color }));
+      parts.push(el("circle", { cx: 30, cy: 38, r: 15, fill: color }));
+      parts.push(el("circle", { cx: 50, cy: 28, r: 16, fill: color }));
+      parts.push(el("circle", { cx: 70, cy: 38, r: 15, fill: color }));
+      // Die Falten dürfen nicht unten aus der Form herauslaufen – sonst liest
+      // sich das Ganze als Blumenkohl mit Stiel statt als Gehirn.
+      parts.push(el("path", {
+        d: "M50 26 V78 M38 40 q-9 9 -1 18 M62 46 q9 9 1 18",
+        fill: "none", stroke: "#00000055", "stroke-width": 5, "stroke-linecap": "round",
+      }));
+    } else if (name === "target") {
+      parts.push(el("circle", { cx: 50, cy: 50, r: 34, fill: "none", stroke: color, "stroke-width": 9 }));
+      parts.push(el("circle", { cx: 50, cy: 50, r: 19, fill: "none", stroke: color, "stroke-width": 9, opacity: "0.7" }));
+      parts.push(el("circle", { cx: 50, cy: 50, r: 6, fill: color }));
+    } else if (name === "bolt") {
+      parts.push(el("polygon", { points: "58,10 26,54 46,54 40,90 74,44 52,44", fill: color }));
+    } else if (name === "puzzle") {
+      parts.push(el("path", {
+        d: "M24 24 H74 V42 a10 10 0 0 1 0 20 V80 H58 a10 10 0 0 0 -20 0 H24 Z",
+        fill: color,
+      }));
+    } else {
+      // Zahl und Buchstabe: die Zeichen selbst sind hier der Inhalt, nicht
+      // Beschriftung – deshalb ist Schrift an dieser einen Stelle richtig.
+      parts.push(el("text", {
+        x: 38, y: 76, "font-family": "Inter, system-ui, sans-serif", "font-size": 76,
+        "font-weight": 900, fill: color, "text-anchor": "middle",
+      }, []));
+      parts.push(el("text", {
+        x: 76, y: 82, "font-family": "Inter, system-ui, sans-serif", "font-size": 54,
+        "font-weight": 900, fill: color, opacity: "0.75", "text-anchor": "middle",
+      }, []));
+      parts[0].textContent = "A";
+      parts[1].textContent = "1";
+    }
+    return group({ class: "area-icon", "aria-hidden": "true" }, parts);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Bereichs-Tor
+  // ---------------------------------------------------------------------------
+  // Ein Torbogen über dem Gleis, in der Bereichsfarbe und mit dem Symbol des
+  // Bereichs. Der Zug fährt hindurch – das ist die Einfahrt in den Bereich.
+  const GATE_W = 232;
+  const GATE_H = 132;
+
+  function buildGate(area, options = {}) {
+    const { label = area.label } = options;
+    const color = area.color;
+    const dark = shade(color, -0.3);
+    const light = shade(color, 0.4);
+
+    const icon = areaIcon(area.icon, inkOn(color));
+    icon.setAttribute("transform", `translate(${GATE_W / 2 - 34},14) scale(0.68)`);
+
+    return group({
+      class: "train-gate",
+      "data-gate": area.id,
+      role: "button",
+      tabindex: "0",
+      "aria-label": label,
+    }, [
+      // Unsichtbare Trefferfläche über dem ganzen Tor – so ist das Ziel gross
+      // und ändert sich nicht, wenn das Tor beim Hovern wächst.
+      el("rect", { x: -8, y: -8, width: GATE_W + 16, height: GATE_H + 16, rx: 16, fill: "transparent", class: "train-gate-hit" }),
+      el("path", {
+        d: `M6 ${GATE_H} L6 60 A${GATE_W / 2 - 6} 54 0 0 1 ${GATE_W - 6} 60 L${GATE_W - 6} ${GATE_H} L${GATE_W - 34} ${GATE_H} L${GATE_W - 34} 74 A${GATE_W / 2 - 34} 40 0 0 0 34 74 L34 ${GATE_H} Z`,
+        fill: color,
+      }),
+      el("rect", { x: 0, y: GATE_H - 12, width: GATE_W, height: 14, rx: 5, fill: dark }),
+      el("rect", { x: 22, y: 46, width: GATE_W - 44, height: 8, rx: 4, fill: light, opacity: "0.6" }),
+      icon,
+    ]);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Gebäude
+  // ---------------------------------------------------------------------------
+  // Ein Motiv je Spiel. Statt fünfzehn Einzelzeichnungen gibt es sieben
+  // Grundformen und je ein Zeichen an der Fassade: das hält die Häuser als
+  // Gruppe zusammen und macht sie trotzdem einzeln erkennbar.
+  const BUILD_W = 160;
+  const BUILD_BASE = GROUND;
+
+  const BUILDINGS = {
+    backpack: { kind: "backpack", emblem: null, hue: "#e0913c" },
+    memory: { kind: "house", emblem: "cards", hue: "#8a6fe0" },
+    cardMatch: { kind: "hut", emblem: "cardCheck", hue: "#5f4bc4" },
+    beachTreasure: { kind: "hut", emblem: "shell", hue: "#e8b45a" },
+    flanker: { kind: "hall", emblem: "fish", hue: "#3ba7b5" },
+    trackRouter: { kind: "tower", emblem: "switch", hue: "#2f8f9c" },
+    tiersprung: { kind: "hall", emblem: "bolt", hue: "#e8a13c" },
+    spatialPuzzle: { kind: "tower", emblem: "cube", hue: "#3f8f6a" },
+    arukone: { kind: "house", emblem: "wires", hue: "#63a83f" },
+    bimaru: { kind: "lighthouse", emblem: null, hue: "#4a8fb0" },
+    shikaku: { kind: "barn", emblem: "fence", hue: "#a8863c" },
+    letterPuzzle: { kind: "tower", emblem: "letter", hue: "#e0563f" },
+    readingPuzzle: { kind: "house", emblem: "book", hue: "#b8496a" },
+    kakuro: { kind: "tower", emblem: "plus", hue: "#c97a3c" },
+    hidoku: { kind: "house", emblem: "numbers", hue: "#d94f4f" },
+  };
+
+  function emblem(name, cx, cy, color) {
+    const parts = [];
+    const ink = "#2b3440";
+    if (name === "cards") {
+      parts.push(el("rect", { x: cx - 20, y: cy - 16, width: 22, height: 30, rx: 3, fill: "#fdfbf6", transform: `rotate(-12 ${cx - 9} ${cy})` }));
+      parts.push(el("rect", { x: cx - 2, y: cy - 16, width: 22, height: 30, rx: 3, fill: "#fdfbf6", transform: `rotate(10 ${cx + 9} ${cy})` }));
+      parts.push(el("circle", { cx: cx + 9, cy, r: 5, fill: color }));
+    } else if (name === "cardCheck") {
+      parts.push(el("rect", { x: cx - 15, y: cy - 18, width: 30, height: 36, rx: 4, fill: "#fdfbf6" }));
+      parts.push(el("polyline", { points: `${cx - 8},${cy} ${cx - 2},${cy + 7} ${cx + 9},${cy - 8}`, fill: "none", stroke: color, "stroke-width": 5, "stroke-linecap": "round", "stroke-linejoin": "round" }));
+    } else if (name === "shell") {
+      parts.push(el("path", { d: `M${cx} ${cy + 16} a20 20 0 0 1 -20 -20 h40 a20 20 0 0 1 -20 20 z`, fill: "#fdfbf6" }));
+      parts.push(el("path", { d: `M${cx} ${cy + 15} v-19 M${cx - 9} ${cy + 11} l4 -15 M${cx + 9} ${cy + 11} l-4 -15`, stroke: color, "stroke-width": 3, fill: "none", "stroke-linecap": "round" }));
+    } else if (name === "fish") {
+      parts.push(el("ellipse", { cx, cy, rx: 20, ry: 12, fill: "#fdfbf6" }));
+      parts.push(el("polygon", { points: `${cx + 18},${cy} ${cx + 30},${cy - 10} ${cx + 30},${cy + 10}`, fill: "#fdfbf6" }));
+      parts.push(el("circle", { cx: cx - 9, cy: cy - 3, r: 3.4, fill: ink }));
+    } else if (name === "switch") {
+      parts.push(el("rect", { x: cx - 22, y: cy + 8, width: 44, height: 6, rx: 3, fill: "#fdfbf6" }));
+      parts.push(el("line", { x1: cx - 10, y1: cy + 8, x2: cx + 12, y2: cy - 14, stroke: "#fdfbf6", "stroke-width": 6, "stroke-linecap": "round" }));
+      parts.push(el("circle", { cx: cx + 12, cy: cy - 14, r: 6, fill: color }));
+    } else if (name === "bolt") {
+      parts.push(el("polygon", { points: `${cx + 6},${cy - 20} ${cx - 12},${cy + 3} ${cx - 1},${cy + 3} ${cx - 5},${cy + 20} ${cx + 14},${cy - 4} ${cx + 2},${cy - 4}`, fill: "#fdfbf6" }));
+    } else if (name === "cube") {
+      parts.push(el("polygon", { points: `${cx},${cy - 18} ${cx + 17},${cy - 8} ${cx + 17},${cy + 10} ${cx},${cy + 20} ${cx - 17},${cy + 10} ${cx - 17},${cy - 8}`, fill: "#fdfbf6" }));
+      parts.push(el("path", { d: `M${cx - 17} ${cy - 8} L${cx} ${cy + 2} L${cx + 17} ${cy - 8} M${cx} ${cy + 2} v18`, fill: "none", stroke: color, "stroke-width": 3 }));
+    } else if (name === "wires") {
+      parts.push(el("circle", { cx: cx - 16, cy: cy - 10, r: 6, fill: "#fdfbf6" }));
+      parts.push(el("circle", { cx: cx + 16, cy: cy + 10, r: 6, fill: "#fdfbf6" }));
+      parts.push(el("path", { d: `M${cx - 16} ${cy - 10} H${cx + 4} V${cy + 10} H${cx + 16}`, fill: "none", stroke: "#fdfbf6", "stroke-width": 5, "stroke-linejoin": "round" }));
+    } else if (name === "fence") {
+      parts.push(el("path", { d: `M${cx - 22} ${cy + 16} v-22 M${cx - 7} ${cy + 16} v-26 M${cx + 8} ${cy + 16} v-26 M${cx + 23} ${cy + 16} v-22`, stroke: "#fdfbf6", "stroke-width": 5, "stroke-linecap": "round" }));
+      parts.push(el("path", { d: `M${cx - 26} ${cy - 4} H${cx + 27} M${cx - 26} ${cy + 7} H${cx + 27}`, stroke: "#fdfbf6", "stroke-width": 4 }));
+    } else if (name === "book") {
+      parts.push(el("path", { d: `M${cx - 22} ${cy - 14} h18 a4 4 0 0 1 4 4 v24 a4 4 0 0 0 -4 -4 h-18 z`, fill: "#fdfbf6" }));
+      parts.push(el("path", { d: `M${cx + 22} ${cy - 14} h-18 a4 4 0 0 0 -4 4 v24 a4 4 0 0 1 4 -4 h18 z`, fill: "#fdfbf6", opacity: "0.82" }));
+    } else if (name === "plus") {
+      parts.push(el("path", { d: `M${cx} ${cy - 18} v36 M${cx - 18} ${cy} h36`, stroke: "#fdfbf6", "stroke-width": 8, "stroke-linecap": "round" }));
+    } else if (name === "letter" || name === "numbers") {
+      const glyph = el("text", {
+        x: cx, y: cy + 15, "font-family": "Inter, system-ui, sans-serif",
+        "font-size": name === "letter" ? 42 : 30, "font-weight": 900,
+        fill: "#fdfbf6", "text-anchor": "middle",
+      }, []);
+      glyph.textContent = name === "letter" ? "A" : "123";
+      parts.push(glyph);
+    }
+    return group({ "aria-hidden": "true" }, parts);
+  }
+
+  function buildingShell(kind, hue) {
+    const dark = shade(hue, -0.3);
+    const light = shade(hue, 0.25);
+    const roof = shade(hue, -0.45);
+    const w = BUILD_W;
+    const parts = [];
+
+    if (kind === "house") {
+      parts.push(el("rect", { x: 22, y: BUILD_BASE - 92, width: w - 44, height: 92, rx: 4, fill: hue }));
+      parts.push(el("polygon", { points: `10,${BUILD_BASE - 88} ${w / 2},${BUILD_BASE - 138} ${w - 10},${BUILD_BASE - 88}`, fill: roof }));
+      parts.push(el("rect", { x: w / 2 - 16, y: BUILD_BASE - 40, width: 32, height: 40, rx: 3, fill: dark }));
+      return { parts, emblemAt: [w / 2, BUILD_BASE - 74] };
+    }
+    if (kind === "tower") {
+      parts.push(el("rect", { x: 38, y: BUILD_BASE - 148, width: w - 76, height: 148, rx: 5, fill: hue }));
+      parts.push(el("rect", { x: 28, y: BUILD_BASE - 160, width: w - 56, height: 16, rx: 5, fill: roof }));
+      parts.push(el("rect", { x: 46, y: BUILD_BASE - 176, width: w - 92, height: 18, rx: 4, fill: roof, opacity: "0.75" }));
+      parts.push(el("rect", { x: w / 2 - 14, y: BUILD_BASE - 36, width: 28, height: 36, rx: 3, fill: dark }));
+      return { parts, emblemAt: [w / 2, BUILD_BASE - 106] };
+    }
+    if (kind === "hut") {
+      parts.push(el("rect", { x: 26, y: BUILD_BASE - 74, width: w - 52, height: 74, rx: 4, fill: hue }));
+      parts.push(el("path", { d: `M14 ${BUILD_BASE - 70} a${w / 2 - 14} 46 0 0 1 ${w - 28} 0 z`, fill: roof }));
+      parts.push(el("rect", { x: w / 2 - 15, y: BUILD_BASE - 34, width: 30, height: 34, rx: 3, fill: dark }));
+      return { parts, emblemAt: [w / 2, BUILD_BASE - 56] };
+    }
+    if (kind === "hall") {
+      parts.push(el("rect", { x: 10, y: BUILD_BASE - 84, width: w - 20, height: 84, rx: 5, fill: hue }));
+      parts.push(el("path", { d: `M4 ${BUILD_BASE - 80} a${w / 2 - 4} 40 0 0 1 ${w - 8} 0 z`, fill: roof }));
+      parts.push(el("rect", { x: w / 2 - 24, y: BUILD_BASE - 44, width: 48, height: 44, rx: 4, fill: dark }));
+      return { parts, emblemAt: [w / 2, BUILD_BASE - 62] };
+    }
+    if (kind === "barn") {
+      parts.push(el("rect", { x: 18, y: BUILD_BASE - 88, width: w - 36, height: 88, rx: 4, fill: hue }));
+      parts.push(el("path", { d: `M8 ${BUILD_BASE - 84} L${w / 2} ${BUILD_BASE - 132} L${w - 8} ${BUILD_BASE - 84} L${w - 8} ${BUILD_BASE - 74} L${w / 2} ${BUILD_BASE - 116} L8 ${BUILD_BASE - 74} Z`, fill: roof }));
+      parts.push(el("rect", { x: w / 2 - 22, y: BUILD_BASE - 50, width: 44, height: 50, rx: 3, fill: dark }));
+      parts.push(el("path", { d: `M${w / 2 - 22} ${BUILD_BASE - 50} L${w / 2 + 22} ${BUILD_BASE} M${w / 2 + 22} ${BUILD_BASE - 50} L${w / 2 - 22} ${BUILD_BASE}`, stroke: light, "stroke-width": 4, opacity: "0.6" }));
+      return { parts, emblemAt: [w / 2, BUILD_BASE - 72] };
+    }
+    if (kind === "lighthouse") {
+      parts.push(el("path", { d: `M${w / 2 - 26} ${BUILD_BASE} L${w / 2 - 17} ${BUILD_BASE - 126} h34 L${w / 2 + 26} ${BUILD_BASE} Z`, fill: "#f4f1ea" }));
+      parts.push(el("path", { d: `M${w / 2 - 23} ${BUILD_BASE - 34} h46 M${w / 2 - 20} ${BUILD_BASE - 70} h40 M${w / 2 - 18} ${BUILD_BASE - 104} h36`, stroke: hue, "stroke-width": 13 }));
+      parts.push(el("rect", { x: w / 2 - 22, y: BUILD_BASE - 142, width: 44, height: 18, rx: 4, fill: shade(hue, -0.4) }));
+      parts.push(el("rect", { x: w / 2 - 14, y: BUILD_BASE - 160, width: 28, height: 20, rx: 4, fill: "#ffe066" }));
+      parts.push(el("path", { d: `M${w / 2 + 16} ${BUILD_BASE - 150} l26 -10 v22 z`, fill: "#ffe066", opacity: "0.45" }));
+      parts.push(el("path", { d: `M${w / 2 - 16} ${BUILD_BASE - 150} l-26 -10 v22 z`, fill: "#ffe066", opacity: "0.45" }));
+      return { parts, emblemAt: null };
+    }
+    // Rucksack: das einzige Gebäude, das gar kein Haus ist – Rucksack packen
+    // erkennt ein Kind an nichts schneller als an einem Rucksack.
+    parts.push(el("rect", { x: 30, y: BUILD_BASE - 118, width: w - 60, height: 118, rx: 26, fill: hue }));
+    parts.push(el("path", { d: `M${w / 2 - 26} ${BUILD_BASE - 112} a26 30 0 0 1 52 0`, fill: "none", stroke: shade(hue, -0.35), "stroke-width": 10 }));
+    parts.push(el("rect", { x: 44, y: BUILD_BASE - 62, width: w - 88, height: 40, rx: 8, fill: shade(hue, -0.28) }));
+    parts.push(el("rect", { x: w / 2 - 10, y: BUILD_BASE - 74, width: 20, height: 16, rx: 4, fill: shade(hue, -0.45) }));
+    parts.push(el("rect", { x: w / 2 - 20, y: BUILD_BASE - 22, width: 40, height: 22, rx: 5, fill: shade(hue, -0.15) }));
+    return { parts, emblemAt: [w / 2, BUILD_BASE - 92] };
+  }
+
+  /**
+   * Baut ein Gebäude für ein Spiel.
+   * @param {string} gameId
+   * @param {Object} options  done: fertig gespielt (Licht an, Fahne)
+   */
+  function buildBuilding(gameId, options = {}) {
+    const { done = false, label = gameId } = options;
+    const spec = BUILDINGS[gameId] || BUILDINGS.memory;
+    const { parts, emblemAt } = buildingShell(spec.kind, spec.hue);
+
+    if (spec.emblem && emblemAt) parts.push(emblem(spec.emblem, emblemAt[0], emblemAt[1], spec.hue));
+
+    // Fertig gespielt: Licht in den Fenstern und eine Fahne auf dem Dach. So
+    // ist im Bereich auf einen Blick zu sehen, wo schon alles gelöst ist.
+    if (done) {
+      parts.push(el("circle", { cx: 34, cy: BUILD_BASE - 26, r: 7, fill: "#ffe066" }));
+      parts.push(el("circle", { cx: BUILD_W - 34, cy: BUILD_BASE - 26, r: 7, fill: "#ffe066" }));
+      parts.push(el("line", { x1: BUILD_W - 26, y1: BUILD_BASE - 96, x2: BUILD_W - 26, y2: BUILD_BASE - 140, stroke: "#8a5f1c", "stroke-width": 3 }));
+      parts.push(el("polygon", { points: `${BUILD_W - 26},${BUILD_BASE - 138} ${BUILD_W - 2},${BUILD_BASE - 130} ${BUILD_W - 26},${BUILD_BASE - 122}`, fill: "#f0b429" }));
+    }
+
+    return group({
+      class: `train-building${done ? " is-done" : ""}`,
+      "data-building": gameId,
+      role: "button",
+      tabindex: "0",
+      "aria-label": label,
+    }, [
+      el("rect", { x: 0, y: BUILD_BASE - 180, width: BUILD_W, height: 180, fill: "transparent", class: "train-building-hit" }),
+      ...parts,
+    ]);
+  }
+
   window.LernappTrainArt = {
     GROUND, ART_H, WAGON_W, LOCO_W, WAGON_GAP,
     DRIVERS, DRIVER_BY_ID, PALETTE, LOCO_PARTS, DEFAULT_LOCO,
@@ -708,6 +960,7 @@
     el, group, shade, inkOn,
     driverHead, wheel,
     buildLoco, buildWagon, buildTrain, buildTrack, buildStartSignal,
+    areaIcon, buildGate, buildBuilding, BUILDINGS, GATE_W, GATE_H, BUILD_W,
     locoConfig,
   };
 })();

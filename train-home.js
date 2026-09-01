@@ -1,10 +1,11 @@
 /*
- * train-home.js – Das Startbild.
+ * train-home.js – Die Bühne: Startbild, Bereichswahl, Gebäudewahl.
  *
- * Setzt die Bühne zusammen: eine Landschaft aus mehreren Ebenen, die
- * unterschiedlich schnell vorbeiziehen, davor der Zug mit dem echten
- * Fortschritt, rechts das Startsignal. Oben rechts nur Profil und Ton.
- * Sonst nichts – kein Text, keine Kacheln, keine Liste.
+ * Drei Ansichten auf einer Seite. Der Zug ist dabei nur einmal da und wandert
+ * per CSS-Transform zwischen den Ansichten: gross in der Mitte auf dem
+ * Startbild, klein unten links, sobald es in die Bereiche geht. Ein zweiter
+ * gezeichneter Zug wäre einfacher, würde aber genau die Bewegung zerstören,
+ * um die es geht – das Bild soll sich verkleinern, nicht ausgetauscht werden.
  *
  * Holt die Zahlen bei train-progress.js und die Zeichnung bei train-art.js.
  * Läuft nur auf Seiten mit <body data-page="train">.
@@ -24,27 +25,23 @@
   const { el, group, shade } = art;
 
   const LOCO_KEY = "lernapp.train.loco";
+  const LAST_AREA_KEY = "lernapp.train.lastArea";
+
+  const reduced = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   // ---------------------------------------------------------------------------
-  // Szenen
+  // Szene
   // ---------------------------------------------------------------------------
-  // Eine Szene besteht aus Himmelsfarben und Ebenen, die unterschiedlich schnell
-  // vorbeiziehen. Weil der Hintergrund wandert und nicht der Zug, bleibt die Lok
-  // immer an derselben Stelle – sonst müsste sie bei jedem Bild neu gezeichnet
-  // werden. Die Kacheln sind so gebaut, dass linke und rechte Kante gleich
-  // aussehen; nur dann läuft die Schleife ohne sichtbaren Sprung.
-  //
-  // Etappe 6 macht die Szene wählbar. Bis dahin gibt es die eine.
+  // Landschaft aus Ebenen, die unterschiedlich schnell vorbeiziehen. Bewegt wird
+  // der Hintergrund, nicht der Zug – so bleibt die Lok an ihrem Platz und muss
+  // nicht bei jedem Bild neu gezeichnet werden. Die Kacheln sind so gebaut, dass
+  // linke und rechte Kante gleich aussehen; nur dann läuft die Schleife ohne
+  // sichtbaren Sprung.
   const TILE_W = 600;
   const TILE_H = 200;
 
-  function tile(children, attrs = {}) {
-    return el("svg", {
-      viewBox: `0 0 ${TILE_W} ${TILE_H}`,
-      preserveAspectRatio: "none",
-      "aria-hidden": "true",
-      ...attrs,
-    }, children);
+  function tile(children) {
+    return el("svg", { viewBox: `0 0 ${TILE_W} ${TILE_H}`, preserveAspectRatio: "none", "aria-hidden": "true" }, children);
   }
 
   // Wellenzug mit gerader Anzahl Segmente – nur so passt die Steigung an der
@@ -74,71 +71,105 @@
   }
 
   function blade(x, y, height, color) {
-    return el("path", {
-      d: `M${x} ${y} q3 -${height / 2} 1 -${height}`,
-      fill: "none", stroke: color, "stroke-width": 3, "stroke-linecap": "round",
-    });
+    return el("path", { d: `M${x} ${y} q3 -${height / 2} 1 -${height}`, fill: "none", stroke: color, "stroke-width": 3, "stroke-linecap": "round" });
   }
 
-  const SCENES = {
-    wiese: {
-      label: "Wiese und Hügel",
-      sky: ["#a8ddf0", "#dff1f7"],
-      ground: "#8fc45e",
-      groundDark: "#6da645",
-      layers: [
-        {
-          name: "clouds", speed: 150,
-          build: () => tile([
-            el("ellipse", { cx: 90, cy: 60, rx: 46, ry: 24, fill: "#ffffff", opacity: "0.9" }),
-            el("ellipse", { cx: 128, cy: 68, rx: 34, ry: 18, fill: "#ffffff", opacity: "0.9" }),
-            el("ellipse", { cx: 330, cy: 40, rx: 38, ry: 20, fill: "#ffffff", opacity: "0.75" }),
-            el("ellipse", { cx: 366, cy: 46, rx: 28, ry: 15, fill: "#ffffff", opacity: "0.75" }),
-            el("ellipse", { cx: 480, cy: 88, rx: 30, ry: 15, fill: "#ffffff", opacity: "0.6" }),
-          ]),
+  const SCENE = {
+    sky: ["#a8ddf0", "#dff1f7"],
+    ground: "#8fc45e",
+    groundDark: "#6da645",
+    sun: "#ffd166",
+    layers: [
+      {
+        name: "clouds", speed: 150,
+        build: () => tile([
+          el("ellipse", { cx: 90, cy: 60, rx: 46, ry: 24, fill: "#ffffff", opacity: "0.9" }),
+          el("ellipse", { cx: 128, cy: 68, rx: 34, ry: 18, fill: "#ffffff", opacity: "0.9" }),
+          el("ellipse", { cx: 330, cy: 40, rx: 38, ry: 20, fill: "#ffffff", opacity: "0.75" }),
+          el("ellipse", { cx: 366, cy: 46, rx: 28, ry: 15, fill: "#ffffff", opacity: "0.75" }),
+          el("ellipse", { cx: 480, cy: 88, rx: 30, ry: 15, fill: "#ffffff", opacity: "0.6" }),
+        ]),
+      },
+      {
+        name: "far", speed: 96,
+        build: () => tile([
+          el("path", { d: hillPath(96, 54), fill: "#9fc9a6" }),
+          el("path", { d: hillPath(132, 34), fill: "#86b98f" }),
+        ]),
+      },
+      {
+        name: "mid", speed: 54,
+        build: () => tile([
+          el("path", { d: hillPath(150, 22), fill: "#6faa6b" }),
+          tree(70, 176, 1, "#7b5c3a", "#4f9350"),
+          tree(210, 182, 0.8, "#7b5c3a", "#57a058"),
+          tree(360, 174, 1.1, "#6d5133", "#478a48"),
+          tree(500, 180, 0.85, "#7b5c3a", "#4f9350"),
+        ]),
+      },
+      {
+        name: "near", speed: 26, front: true,
+        build: () => {
+          const parts = [el("rect", { x: 0, y: 150, width: TILE_W, height: 50, fill: "#7ab455" })];
+          for (let x = 6; x < TILE_W; x += 17) {
+            parts.push(blade(x, 168, 16 + (x % 3) * 5, x % 34 === 6 ? "#8fc766" : "#68a047"));
+          }
+          [60, 190, 320, 455, 545].forEach((x, i) => {
+            parts.push(el("circle", { cx: x, cy: 158 - (i % 2) * 4, r: 5, fill: ["#ffd166", "#ff8fa3", "#ffffff", "#ffd166", "#c9a7f5"][i] }));
+          });
+          parts.push(bush(140, 162, 0.9, "#5d9a4e"));
+          parts.push(bush(410, 160, 1.05, "#6aa457"));
+          return tile(parts);
         },
-        {
-          name: "far", speed: 96,
-          build: () => tile([
-            el("path", { d: hillPath(96, 54), fill: "#9fc9a6" }),
-            el("path", { d: hillPath(132, 34), fill: "#86b98f" }),
-          ]),
-        },
-        {
-          name: "mid", speed: 54,
-          build: () => tile([
-            el("path", { d: hillPath(150, 22), fill: "#6faa6b" }),
-            tree(70, 176, 1, "#7b5c3a", "#4f9350"),
-            tree(210, 182, 0.8, "#7b5c3a", "#57a058"),
-            tree(360, 174, 1.1, "#6d5133", "#478a48"),
-            tree(500, 180, 0.85, "#7b5c3a", "#4f9350"),
-          ]),
-        },
-        {
-          name: "near", speed: 26, front: true,
-          build: () => {
-            const parts = [el("rect", { x: 0, y: 150, width: TILE_W, height: 50, fill: "#7ab455" })];
-            for (let x = 6; x < TILE_W; x += 17) {
-              parts.push(blade(x, 168, 16 + (x % 3) * 5, x % 34 === 6 ? "#8fc766" : "#68a047"));
-            }
-            [60, 190, 320, 455, 545].forEach((x, i) => {
-              parts.push(el("circle", { cx: x, cy: 158 - (i % 2) * 4, r: 5, fill: ["#ffd166", "#ff8fa3", "#ffffff", "#ffd166", "#c9a7f5"][i] }));
-            });
-            parts.push(bush(140, 162, 0.9, "#5d9a4e"));
-            parts.push(bush(410, 160, 1.05, "#6aa457"));
-            return tile(parts);
-          },
-        },
-      ],
-      // Ein paar Vögel als eigene Ebene: sie ziehen schneller als alles andere
-      // und machen den Himmel lebendig, ohne dass er voller wird.
-      birds: true,
-      sun: { cx: 512, cy: 70, r: 34, color: "#ffd166" },
-    },
+      },
+    ],
   };
 
+  function buildScene() {
+    const wrap = document.createElement("div");
+    wrap.className = "scene";
+    wrap.style.setProperty("--sky-top", SCENE.sky[0]);
+    wrap.style.setProperty("--sky-bottom", SCENE.sky[1]);
+    wrap.style.setProperty("--ground", SCENE.ground);
+    wrap.style.setProperty("--ground-dark", SCENE.groundDark);
+
+    const sun = document.createElement("div");
+    sun.className = "scene-sun";
+    sun.setAttribute("aria-hidden", "true");
+    sun.append(el("svg", { viewBox: "0 0 100 100" }, [
+      el("circle", { cx: 50, cy: 50, r: 42, fill: SCENE.sun, opacity: "0.35" }),
+      el("circle", { cx: 50, cy: 50, r: 30, fill: SCENE.sun }),
+    ]));
+    wrap.append(sun);
+
+    SCENE.layers.forEach((layer) => {
+      const bandEl = document.createElement("div");
+      bandEl.className = `scene-layer scene-layer-${layer.name}${layer.front ? " is-front" : ""}`;
+      bandEl.style.setProperty("--speed", `${layer.speed}s`);
+      const strip = document.createElement("div");
+      strip.className = "scene-strip";
+      strip.append(layer.build(), layer.build());
+      bandEl.append(strip);
+      wrap.append(bandEl);
+    });
+
+    const birds = document.createElement("div");
+    birds.className = "scene-birds";
+    birds.setAttribute("aria-hidden", "true");
+    [1, 2, 3].forEach((i) => {
+      const bird = document.createElement("div");
+      bird.className = `scene-bird scene-bird-${i}`;
+      bird.append(el("svg", { viewBox: "0 0 40 20" }, [
+        el("path", { d: "M2 12 q8 -9 16 0 q8 -9 20 -2", fill: "none", stroke: "#5a6b7a", "stroke-width": 2.4, "stroke-linecap": "round" }),
+      ]));
+      birds.append(bird);
+    });
+    wrap.append(birds);
+    return wrap;
+  }
+
   // ---------------------------------------------------------------------------
-  // Lok-Konfiguration
+  // Speicher
   // ---------------------------------------------------------------------------
   function readLoco() {
     try {
@@ -147,176 +178,331 @@
     } catch { return { ...art.DEFAULT_LOCO }; }
   }
 
-  // ---------------------------------------------------------------------------
-  // Bühne bauen
-  // ---------------------------------------------------------------------------
-  function buildScene(scene) {
-    const wrap = document.createElement("div");
-    wrap.className = "scene";
-    wrap.style.setProperty("--sky-top", scene.sky[0]);
-    wrap.style.setProperty("--sky-bottom", scene.sky[1]);
-    wrap.style.setProperty("--ground", scene.ground);
-    wrap.style.setProperty("--ground-dark", scene.groundDark);
-
-    if (scene.sun) {
-      const sun = document.createElement("div");
-      sun.className = "scene-sun";
-      sun.setAttribute("aria-hidden", "true");
-      const svg = el("svg", { viewBox: "0 0 100 100" }, [
-        el("circle", { cx: 50, cy: 50, r: 42, fill: scene.sun.color, opacity: "0.35" }),
-        el("circle", { cx: 50, cy: 50, r: 30, fill: scene.sun.color }),
-      ]);
-      sun.append(svg);
-      wrap.append(sun);
-    }
-
-    scene.layers.forEach((layer) => {
-      const band = document.createElement("div");
-      band.className = `scene-layer scene-layer-${layer.name}${layer.front ? " is-front" : ""}`;
-      band.style.setProperty("--speed", `${layer.speed}s`);
-
-      // Zwei gleiche Kacheln nebeneinander: die Schleife schiebt den Streifen um
-      // genau eine Kachelbreite weiter und beginnt dann optisch von vorn.
-      const strip = document.createElement("div");
-      strip.className = "scene-strip";
-      strip.append(layer.build(), layer.build());
-      band.append(strip);
-      wrap.append(band);
-    });
-
-    if (scene.birds) {
-      const birds = document.createElement("div");
-      birds.className = "scene-birds";
-      birds.setAttribute("aria-hidden", "true");
-      [0, 1, 2].forEach((i) => {
-        const bird = document.createElement("div");
-        bird.className = `scene-bird scene-bird-${i + 1}`;
-        bird.append(el("svg", { viewBox: "0 0 40 20" }, [
-          el("path", { d: "M2 12 q8 -9 16 0 q8 -9 20 -2", fill: "none", stroke: "#5a6b7a", "stroke-width": 2.4, "stroke-linecap": "round" }),
-        ]));
-        birds.append(bird);
-      });
-      wrap.append(birds);
-    }
-
-    return wrap;
+  function remember(key, value) {
+    try { localStorage.setItem(key, value); } catch { /* privater Modus */ }
   }
 
-  function buildTopbar() {
-    const bar = document.createElement("div");
-    bar.className = "train-topbar";
-
-    const profile = document.createElement("button");
-    profile.type = "button";
-    profile.className = "train-profile";
-    profile.setAttribute("aria-label", "Profil ändern");
-    profile.title = "Profil";
-    const avatar = kids()?.getProfile?.()?.avatar || "🙂";
-    profile.innerHTML = `<span aria-hidden="true">${avatar}</span>`;
-    profile.addEventListener("click", () => home()?.showProfileSetup?.());
-
-    bar.append(profile);
-    return bar;
-  }
-
-  // Beschreibt den Zug in Worten – nicht sichtbar, sondern als aria-label am
-  // Zug. Das Startbild bleibt textfrei und zeigt bewusst auch keinen
-  // Vorlese-Knopf; für ein Kind, das nicht sieht, liest der Screenreader den
-  // Zug trotzdem vollständig vor.
-  function describe(areas) {
-    const done = areas.filter((area) => area.complete);
-    const started = areas.filter((area) => area.stage > 0 && !area.complete);
-    const empty = areas.filter((area) => area.stage === 0);
-    const parts = ["Das ist dein Zug."];
-    if (done.length) parts.push(`Fertig gebaut und beladen: ${done.map((a) => a.label).join(", ")}.`);
+  // ---------------------------------------------------------------------------
+  // Beschriftungen
+  // ---------------------------------------------------------------------------
+  // Auf dem Bild steht kein Wort. Beschriftet ist trotzdem alles: nur so bleibt
+  // die Bühne für ein Kind bedienbar, das nicht sieht.
+  function describeTrain(areas) {
+    const done = areas.filter((a) => a.complete);
+    const started = areas.filter((a) => a.stage > 0 && !a.complete);
+    const empty = areas.filter((a) => a.stage === 0);
+    const parts = ["Dein Zug."];
+    if (done.length) parts.push(`Fertig: ${done.map((a) => a.label).join(", ")}.`);
     if (started.length) parts.push(`Angefangen: ${started.map((a) => a.label).join(", ")}.`);
     if (empty.length) parts.push(`Noch nichts gemacht: ${empty.map((a) => a.label).join(", ")}.`);
-    parts.push("Tippe auf das grüne Signal rechts, um loszufahren.");
     return parts.join(" ");
   }
 
-  function ariaForArea(area) {
+  function describeArea(area) {
     if (area.complete) return `${area.label}: Wagen fertig gebaut und voll beladen.`;
     if (area.stage === 0) return `${area.label}: hier hast du noch nichts gelöst.`;
     if (area.stage < progress.BUILT_STAGE) return `${area.label}: Wagen wird gebaut, Stufe ${area.stage} von 10.`;
     return `${area.label}: Wagen fertig gebaut, wird beladen, Stufe ${area.stage} von 10.`;
   }
 
-  // ---------------------------------------------------------------------------
-  // Zusammensetzen
-  // ---------------------------------------------------------------------------
-  const gameList = document.querySelector("#game-list");
-
-  function showGameList() {
-    if (!gameList) return;
-    stage.hidden = true;
-    gameList.hidden = false;
-    document.body.classList.add("list-open");
-    kids()?.setHelp?.("Such dir ein Spiel aus. Mit dem Zurück-Knopf kommst du wieder zu deinem Zug.");
-    gameList.querySelector(".train-back")?.focus();
+  function describeGame(game) {
+    if (!game.total) return game.title;
+    if (game.solved === 0) return `${game.title}: noch kein Level gelöst.`;
+    if (game.solved === game.total) return `${game.title}: alle ${game.total} Level gelöst.`;
+    return `${game.title}: ${game.solved} von ${game.total} Leveln gelöst.`;
   }
 
-  function showTrain() {
-    if (gameList) gameList.hidden = true;
-    stage.hidden = false;
-    document.body.classList.remove("list-open");
-    kids()?.setHelp?.("");
+  // ---------------------------------------------------------------------------
+  // Bühnenteile
+  // ---------------------------------------------------------------------------
+  const LAYER_W = 1200;
+  const LAYER_H = 620;
+
+  function layerSvg(children, label) {
+    return el("svg", {
+      class: "stage-svg",
+      viewBox: `0 0 ${LAYER_W} ${LAYER_H}`,
+      preserveAspectRatio: "xMidYMid meet",
+      role: "group",
+      "aria-label": label,
+    }, children);
   }
 
+  // Fünf Tore nebeneinander, davor ein Gleisfächer aus der Ecke, in der der Zug
+  // steht. Der Fächer ist das, was "in fünf Richtungen fahren" zeigt – fünf
+  // Tore allein sähen aus wie eine Liste.
+  function buildAreasLayer(areas) {
+    const gateScale = 0.86;
+    const gateW = art.GATE_W * gateScale;
+    const gap = (LAYER_W - 2 * 40 - 5 * gateW) / 4;
+    const gateY = 62;
+    const footY = gateY + art.GATE_H * gateScale;
+    // Der Zug steht unten links und die Lok an seinem rechten Ende; von dort
+    // gehen die Gleise weg. Der Wert ist auf die verkleinerte Lok abgestimmt.
+    const originX = 452;
+    const originY = LAYER_H + 6;
+
+    const rails = [];
+    const gates = [];
+
+    areas.forEach((area, index) => {
+      const x = 40 + index * (gateW + gap);
+      const centre = x + gateW / 2;
+
+      // Ein Gleis je Tor, aus derselben Ecke. Zwei Schienenstränge plus
+      // Schwellen wären bei dieser Grösse Matsch – eine kräftige Linie mit
+      // heller Innenlinie liest sich besser.
+      const d = `M${originX} ${originY} C${originX + 10} ${originY - 200}, ${centre} ${footY + 250}, ${centre} ${footY}`;
+      rails.push(el("path", { d, fill: "none", stroke: "#8c93a1", "stroke-width": 15, "stroke-linecap": "round", opacity: "0.9" }));
+      rails.push(el("path", { d, fill: "none", stroke: "#dfe4ec", "stroke-width": 5, "stroke-linecap": "round" }));
+
+      const gate = art.buildGate(area, { label: describeArea(area) });
+      gates.push(group({ transform: `translate(${x},${gateY}) scale(${gateScale})` }, [gate]));
+    });
+
+    return layerSvg([group({ "aria-hidden": "true" }, rails), ...gates], "Wohin soll der Zug fahren?");
+  }
+
+  // Die Gebäude eines Bereichs, aufgereiht an einem Gleis. Ein Motiv je Spiel.
+  function buildGamesLayer(area) {
+    const games = area.games;
+    const scale = games.length > 4 ? 0.8 : 1;
+    const w = art.BUILD_W * scale;
+    const gap = games.length > 2 ? 52 : 120;
+    const span = games.length * w + (games.length - 1) * gap;
+    const startX = (LAYER_W - span) / 2;
+    const baseY = LAYER_H - 118;
+    const groundOffset = baseY - art.GROUND * scale;
+
+    const rail = [
+      el("rect", { class: "stage-rail", x: 0, y: baseY + 4, width: LAYER_W, height: 9, rx: 4, fill: "#8c93a1" }),
+      el("rect", { x: 0, y: baseY + 13, width: LAYER_W, height: 5, fill: "#6a7180", opacity: "0.7" }),
+    ];
+    for (let x = 12; x < LAYER_W; x += 46) {
+      rail.push(el("rect", { x, y: baseY + 18, width: 8, height: 15, rx: 3, fill: "#7b5c3a", opacity: "0.5" }));
+    }
+
+    const houses = games.map((game, index) => {
+      const x = startX + index * (w + gap);
+      const node = art.buildBuilding(game.id, {
+        done: game.total > 0 && game.solved === game.total,
+        label: describeGame(game),
+      });
+      node.dataset.page = game.page;
+      return group({ transform: `translate(${x},${groundOffset}) scale(${scale})` }, [node]);
+    });
+
+    return layerSvg([group({ "aria-hidden": "true" }, rail), ...houses], `Spiele im Bereich ${area.label}`);
+  }
+
+  // Der Zug und die Gebäude sollen auf einem Gleis stehen. Beide liegen in
+  // eigenen Koordinatensystemen, die je nach Bildschirmverhältnis anders
+  // skaliert werden – der Versatz lässt sich deshalb nicht ausrechnen, sondern
+  // nur messen. Das Ergebnis geht als Pixelwert ins CSS.
+  function alignTrainToRail() {
+    const rail = layerHost?.querySelector(".stage-rail");
+    const track = stage.querySelector(".train-track rect");
+    if (!rail || !track) {
+      stage.style.removeProperty("--train-lift");
+      return;
+    }
+    const lift = rail.getBoundingClientRect().top - track.getBoundingClientRect().top;
+    stage.style.setProperty("--train-lift", `${Math.round(lift)}px`);
+  }
+
+  function buildTopbar() {
+    const bar = document.createElement("div");
+    bar.className = "train-topbar";
+    const profile = document.createElement("button");
+    profile.type = "button";
+    profile.className = "train-profile";
+    profile.setAttribute("aria-label", "Profil ändern");
+    profile.innerHTML = `<span aria-hidden="true">${kids()?.getProfile?.()?.avatar || "🙂"}</span>`;
+    profile.addEventListener("click", () => home()?.showProfileSetup?.());
+    bar.append(profile);
+    return bar;
+  }
+
+  function buildBackButton() {
+    const back = document.createElement("button");
+    back.type = "button";
+    back.className = "stage-back";
+    back.setAttribute("aria-label", "Zurück");
+    back.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5 8 12l7 7" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+    back.addEventListener("click", goBack);
+    return back;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Ansichten
+  // ---------------------------------------------------------------------------
+  const view = { name: "home", areaId: null };
+  let layerHost = null;
+  let backButton = null;
+  let busy = false;
+
+  function setView(name, areaId = null) {
+    view.name = name;
+    view.areaId = areaId;
+    stage.dataset.view = name;
+    if (backButton) backButton.hidden = name === "home";
+    if (areaId) remember(LAST_AREA_KEY, areaId);
+  }
+
+  // Wartet, bis die Fahranimation durch ist. Ohne Bewegung wird nicht gewartet:
+  // dann soll der Wechsel sofort passieren, nicht künstlich verzögert.
+  function after(ms) {
+    return new Promise((resolve) => { window.setTimeout(resolve, reduced() ? 0 : ms); });
+  }
+
+  function renderLayer(node) {
+    layerHost.innerHTML = "";
+    if (node) layerHost.append(node);
+  }
+
+  // Klick und Tastatur an einem SVG-Element: <g> ist kein Knopf, also muss
+  // beides von Hand angebunden werden.
+  function activate(node, action) {
+    node.addEventListener("click", action);
+    node.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") { event.preventDefault(); action(); }
+    });
+  }
+
+  function showHome() {
+    setView("home");
+    stage.style.removeProperty("--train-lift");
+    renderLayer(null);
+  }
+
+  function showAreas() {
+    setView("areas");
+    stage.style.removeProperty("--train-lift");
+    const layer = buildAreasLayer(progress.allAreas());
+    layer.querySelectorAll("[data-gate]").forEach((gate) => {
+      const id = gate.getAttribute("data-gate");
+      activate(gate, () => enterArea(id));
+    });
+    renderLayer(layer);
+  }
+
+  function showGames(areaId) {
+    const area = progress.areaProgress(areaId);
+    if (!area) { showAreas(); return; }
+    setView("games", areaId);
+    const layer = buildGamesLayer(area);
+    layer.querySelectorAll("[data-building]").forEach((house) => {
+      activate(house, () => enterGame(house.dataset.page));
+    });
+    renderLayer(layer);
+    // Erst nach dem Einhängen steht die Grösse fest.
+    window.requestAnimationFrame(alignTrainToRail);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Fahrten
+  // ---------------------------------------------------------------------------
+  async function start() {
+    if (busy || view.name !== "home") return;
+    busy = true;
+    showAreas();          // der Zug schrumpft und rückt nach links (CSS)
+    await after(760);
+    busy = false;
+  }
+
+  async function enterArea(areaId) {
+    if (busy) return;
+    busy = true;
+    // Der Zug fährt nach rechts aus dem Bild, dann kommt er im Bereich von
+    // links wieder herein. Dazwischen wechselt die Kulisse.
+    stage.dataset.moving = "out";
+    await after(620);
+    showGames(areaId);
+    stage.dataset.moving = "in";
+    await after(40);
+    delete stage.dataset.moving;
+    await after(620);
+    busy = false;
+  }
+
+  async function enterGame(page) {
+    if (busy || !page) return;
+    busy = true;
+    stage.dataset.moving = "out";
+    await after(560);
+    window.location.href = page;
+  }
+
+  async function goBack() {
+    if (busy) return;
+    if (view.name === "games") {
+      busy = true;
+      stage.dataset.moving = "in";
+      await after(40);
+      showAreas();
+      delete stage.dataset.moving;
+      await after(560);
+      busy = false;
+      return;
+    }
+    if (view.name === "areas") showHome();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Aufbau
+  // ---------------------------------------------------------------------------
   function render() {
     const areas = progress.allAreas();
     const loco = readLoco();
+    const previous = view.name;
+    const previousArea = view.areaId;
 
     stage.innerHTML = "";
-    stage.append(buildScene(SCENES.wiese));
+    stage.append(buildScene());
 
     const band = document.createElement("div");
     band.className = "train-band";
-
     const svg = art.buildTrain(areas, loco, { pad: 4, gap: 4, trailing: 116, startLabel: "Losfahren" });
-    svg.setAttribute("aria-label", describe(areas));
+    svg.setAttribute("aria-label", describeTrain(areas));
 
-    // Jeder Wagen und die Lok werden anklickbar. Was beim Klick passiert, kommt
-    // in Etappe 5 und 6; hier bekommen sie schon ihre Beschriftung, damit die
-    // Bühne von Anfang an bedienbar beschrieben ist.
     svg.querySelectorAll("[data-area]").forEach((node) => {
       const area = areas.find((entry) => entry.id === node.getAttribute("data-area"));
       if (!area) return;
       node.setAttribute("role", "img");
-      node.setAttribute("aria-label", ariaForArea(area));
+      node.setAttribute("aria-label", describeArea(area));
     });
     svg.querySelector("[data-loco]")?.setAttribute("aria-label", "Deine Lokomotive");
 
-    const start = svg.querySelector(".train-start-signal");
-    if (start) {
-      const go = () => showGameList();
-      start.addEventListener("click", go);
-      start.addEventListener("keydown", (event) => {
-        if (event.key === "Enter" || event.key === " ") { event.preventDefault(); go(); }
-      });
-    }
+    const signal = svg.querySelector(".train-start-signal");
+    if (signal) activate(signal, start);
 
     band.append(svg);
-    stage.append(band, buildTopbar());
-  }
 
-  // Zurück-Knopf in der (vorläufigen) Spielliste.
-  if (gameList && !gameList.querySelector(".train-back")) {
-    const back = document.createElement("button");
-    back.type = "button";
-    back.className = "train-back";
-    back.setAttribute("aria-label", "Zurück zu deinem Zug");
-    back.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5 8 12l7 7" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
-    back.addEventListener("click", showTrain);
-    gameList.prepend(back);
+    layerHost = document.createElement("div");
+    layerHost.className = "stage-layer";
+
+    backButton = buildBackButton();
+    backButton.hidden = true;
+
+    stage.append(band, layerHost, buildTopbar(), backButton);
+
+    if (previous === "games" && previousArea) showGames(previousArea);
+    else if (previous === "areas") showAreas();
+    else showHome();
   }
 
   render();
-  showTrain();
 
-  // Kommt das Kind aus einem Spiel zurück, kann sich der Fortschritt geändert
-  // haben. Beim Zurückspringen im Verlauf liefert der Browser die Seite aus dem
-  // Cache – ohne dieses Neuzeichnen stünde dann der alte Zug da.
+  // Beim allerersten Start fragt die App, wer spielt. Das hing bisher an der
+  // Spielliste in index.html; die gibt es nicht mehr, also fragt der Zug.
+  if (!home()?.hasProfile?.()) home()?.showProfileSetup?.();
+
+  window.addEventListener("resize", () => {
+    if (view.name === "games") window.requestAnimationFrame(alignTrainToRail);
+  });
+
+  // Nach einem Spiel kommt das Kind hierher zurück – der Fortschritt hat sich
+  // dann geändert. Beim Zurückspringen im Verlauf liefert der Browser die Seite
+  // aus dem Cache; ohne dieses Neuzeichnen stünde der alte Zug da.
   window.addEventListener("pageshow", (event) => { if (event.persisted) render(); });
-  document.addEventListener("visibilitychange", () => { if (!document.hidden) render(); });
 })();
