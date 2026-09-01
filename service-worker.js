@@ -1,4 +1,4 @@
-const APP_VERSION = "2026-09-02-3";
+const APP_VERSION = "2026-09-02-4";
 const CACHE_PREFIX = "lernapp-pwa-";
 const CACHE_NAME = `${CACHE_PREFIX}${APP_VERSION}`;
 const ASSET_VERSION_QUERY = `?v=${APP_VERSION}`;
@@ -31,6 +31,8 @@ const CORE_ASSETS = [
   `./train-scenes.js${ASSET_VERSION_QUERY}`,
   `./train-home.js${ASSET_VERSION_QUERY}`,
   `./tiersprung.js${ASSET_VERSION_QUERY}`,
+  `./game-cloud.js${ASSET_VERSION_QUERY}`,
+  `./game-shell.js${ASSET_VERSION_QUERY}`,
   `./kartenmerker.js${ASSET_VERSION_QUERY}`,
   `./firebase.js${ASSET_VERSION_QUERY}`,
   `./pwa.js${ASSET_VERSION_QUERY}`,

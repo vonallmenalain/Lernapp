@@ -75,6 +75,7 @@
     dashboardOpen: false,
     firebaseReady: false,
     trainSettings: null,
+    gameState: null,
     pendingDisplayName: null,
     unlockedMode: false,
     guestId: null,
@@ -138,6 +139,8 @@
     refreshDashboard,
     getTrainSettings,
     saveTrainSettings,
+    getGameState,
+    saveGameState,
   };
 
   window.LernappFirebase = cloudApi;
@@ -197,12 +200,14 @@
       state.progress.clear();
       state.unlockedMode = false;
       state.trainSettings = null;
+      state.gameState = null;
       resetAdminState();
       stopActiveSession();
       renderLoggedOut();
       announceProgress();
       // Ohne Konto zählt wieder, was auf diesem Gerät steht.
       announceTrainSettings();
+      announceGameState();
       return;
     }
 
@@ -210,6 +215,7 @@
       await upsertUserProfile(user);
       if (!isAdminUser(user)) resetAdminState();
       announceTrainSettings();
+      announceGameState();
       await loadProgress();
       await syncLocalSolvedProgress();
       await refreshDashboard();
@@ -426,6 +432,7 @@
     const existingData = existing.data() || {};
     state.unlockedMode = Boolean(existingData.levelAccess?.unlockAllLevels);
     state.trainSettings = readTrainSettings(existingData.trainSettings);
+    state.gameState = readGameState(existingData.gameState);
     const providers = user.providerData.map((provider) => provider.providerId);
     const username = profileNameForUser(user, existingData);
     const isNameLogin = isTechnicalEmail(user.email);
@@ -488,6 +495,58 @@
 
   function announceTrainSettings() {
     document.dispatchEvent(new CustomEvent("lernapp:train-settings", { detail: getTrainSettings() }));
+  }
+
+  // --- Spielstände ----------------------------------------------------------
+  // Bestenlisten, Rundenzahlen und alles andere, was ein Spiel selbst führt.
+  // Die Katalog-Spiele legen ihren Fortschritt Level für Level unter
+  // users/<uid>/levelProgress ab; Spiele mit eigenem Konto – Tier-Sprung, der
+  // Karten-Merker – haben dort nichts zu suchen. Sie bekommen ein Feld am
+  // Benutzerdokument, in dem jedes Spiel seinen eigenen Kasten hat.
+  //
+  // Zusammengeführt wird nicht hier: was "neuer" heisst, weiss nur das Spiel.
+  // Eine Bestenliste will vereinigt werden, ein Levelstand hochgezählt. Diese
+  // Seite reicht die Kästen nur durch.
+  function readGameState(raw) {
+    if (!raw || typeof raw !== "object") return {};
+    const out = {};
+    Object.keys(raw).forEach((key) => {
+      const entry = raw[key];
+      if (!entry || typeof entry !== "object" || !entry.data) return;
+      const at = Number(entry.updatedAt);
+      out[key] = { data: entry.data, updatedAt: Number.isFinite(at) ? at : 0 };
+    });
+    return out;
+  }
+
+  function getGameState(key) {
+    if (!state.gameState) return null;
+    if (!key) return JSON.parse(JSON.stringify(state.gameState));
+    const entry = state.gameState[key];
+    return entry ? JSON.parse(JSON.stringify(entry)) : null;
+  }
+
+  function announceGameState() {
+    document.dispatchEvent(new CustomEvent("lernapp:game-state", { detail: getGameState() }));
+  }
+
+  async function saveGameState(key, data) {
+    if (!key || !data || typeof data !== "object") return false;
+    if (!state.user || !state.db) return false;
+    const entry = { data, updatedAt: Date.now() };
+
+    const previous = state.gameState;
+    state.gameState = { ...(state.gameState || {}), [key]: entry };
+    try {
+      // Nur das eine Feld: ein Schreibvorgang mit dem ganzen Kasten würde die
+      // Stände anderer Spiele überschreiben, die inzwischen dazugekommen sind.
+      await userRef().set({ gameState: { [key]: entry }, updatedAt: serverTimestamp() }, { merge: true });
+      return true;
+    } catch (error) {
+      state.gameState = previous;
+      console.warn(`Spielstand ${key} konnte nicht gespeichert werden`, error);
+      return false;
+    }
   }
 
   function announceProgress() {

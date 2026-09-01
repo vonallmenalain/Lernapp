@@ -218,9 +218,29 @@
     return progress;
   }
 
-  function saveProgress(progress) { kids.writeJSON(PROGRESS_KEY, progress); }
+  // Der Fortschritt folgt dem Kind auf jedes Gerät. Zusammengeführt wird
+  // vereinigend: je Level das bessere Ergebnis, freigeschaltet bleibt, was auf
+  // irgendeinem Gerät freigeschaltet war. Ohne Konto bleibt alles auf dem
+  // Gerät, wie bisher.
+  const cloudStore = window.LernappGameCloud?.register({
+    key: PROGRESS_KEY,
+    empty: { unlocked: 1, best: {} },
+    merge: window.LernappGameCloud.mergeLevels,
+  }) || null;
+
+  function saveProgress(progress) {
+    if (cloudStore) cloudStore.write(progress);
+    else kids.writeJSON(PROGRESS_KEY, progress);
+  }
 
   let progress = loadProgress();
+
+  // Kommt der Stand später aus der Cloud, wird die Karte neu gezeichnet – sonst
+  // stünden dort die Level dieses Geräts, während die Cloud längst weiter ist.
+  cloudStore?.onChange(() => {
+    progress = loadProgress();
+    if (typeof renderMap === "function") renderMap();
+  });
 
   function bestFor(levelId) { return progress.best[levelId] || null; }
   function isUnlocked(levelId) { return levelId <= progress.unlocked; }

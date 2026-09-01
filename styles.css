@@ -4925,13 +4925,14 @@ body[data-page="train"] .help-voice { display: none; }
 
 /* --- Leiste oben --- */
 
-/* Rechts bleibt Platz für die beiden festen Knöpfe aus kids.js und firebase.js
-   (Ton und Konto, bei 14 und 76 Pixeln vom Rand). Der Zähler beginnt deshalb
-   erst bei 138 – darunter läge er unter ihnen und wäre unsichtbar. */
+/* Links steht der Lautsprecher aus kids.js (bei 14 Pixeln vom Rand, gut 70
+   breit), rechts die beiden festen Knöpfe für Ton und Konto (bei 14 und 76).
+   Die Leiste hält zu beiden Seiten Abstand – darunter läge sie unter ihnen und
+   wäre unsichtbar. */
 .cm-bar {
   position: absolute;
   top: calc(var(--safe-top) + 12px);
-  left: calc(var(--safe-left) + 14px);
+  left: calc(var(--safe-left) + 98px);
   right: calc(var(--safe-right) + 138px);
   /* Über dem Start- und dem Ergebnisbild: wer aus Versehen im falschen Spiel
      gelandet ist, muss auch von dort wieder heraus. Der Platz für die Tafel
@@ -5141,25 +5142,7 @@ body[data-page="train"] .help-voice { display: none; }
   gap: clamp(8px, 1.6vh, 16px);
 }
 
-.cm-lead {
-  margin: 0;
-  font-size: clamp(0.98rem, 2.2vw, 1.2rem);
-  font-weight: 700;
-  color: #243047;
-}
 
-.cm-demo { display: flex; gap: clamp(14px, 4vw, 34px); }
-.cm-demo-pair { display: flex; align-items: center; gap: 6px; }
-.cm-demo-label {
-  margin-left: 4px;
-  padding: 4px 12px;
-  border-radius: 999px;
-  font-size: 0.9rem;
-  font-weight: 900;
-  color: #fff;
-}
-.cm-demo-label.is-same { background: #3fbf74; }
-.cm-demo-label.is-other { background: #e2694f; }
 
 /* Der Startknopf pulst wie das Startsignal am Zug – dasselbe Zeichen für
    dasselbe: hier geht es los.
@@ -5235,8 +5218,17 @@ body[data-page="train"] .help-voice { display: none; }
 .cm-score-rank { font-size: 0.95rem; opacity: 0.75; }
 .cm-score-value { font-size: 1.15rem; font-variant-numeric: tabular-nums; }
 
-.cm-runs { margin: 0; font-size: 0.95rem; font-weight: 700; color: #5c6a67; }
+.cm-runs {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #4a5b52;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.7);
+}
 .cm-runs.is-done { color: #2f6f4f; }
+/* Im Ergebnisfenster steht der Satz auf Weiss – dort braucht er keinen Schimmer
+   hinter sich. */
+.cm-panel .cm-runs { text-shadow: none; color: #5c6a67; }
 
 .cm-actions { display: flex; gap: 16px; }
 .cm-icon.big { width: 64px; height: 64px; }
