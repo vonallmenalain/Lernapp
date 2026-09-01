@@ -4849,11 +4849,16 @@ body.has-scene { background: #a8ddf0; }
 body.has-scene .app-shell { position: relative; z-index: 1; }
 
 /* Überschrift, Levelwahl-Vorspann und Levelbeschreibung fallen weg: sie standen
-   zwischen dem Kind und dem Rätsel. */
+   zwischen dem Kind und dem Rätsel.
+
+   Der Weg zurück stand früher mit in dieser Zeile und verschwand dadurch von
+   der Levelwahl – dort blieb kein Knopf mehr, der zurückführt, und in der
+   installierten App gibt es keine Zurück-Taste des Browsers. Ein Weg zurück
+   wird nie ausgeblendet; er trägt jetzt die Klasse .controls und steht als
+   runder Knopf an derselben Stelle wie im Rätsel. */
 body.has-scene .hero,
 body.has-scene .start-copy,
-body.has-scene #puzzle-description,
-body.has-scene .selection-actions { display: none; }
+body.has-scene #puzzle-description { display: none; }
 
 body.has-scene .start-panel,
 body.has-scene .game-panel,

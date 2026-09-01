@@ -1622,26 +1622,38 @@ function currentSolveResult() {
   }
   return result;
 }
+// Ein Weg zurück gehört auf jeden Bildschirm, nicht nur ins Rätsel. Hier stand
+// er früher als Textzeile im Vorspann – und der Vorspann fällt auf der
+// Landschaft weg, die Textzeile mit ihm. Damit sass ein Kind in der Levelwahl
+// fest: kein Knopf auf dem Bild, und in der installierten App gibt es auch
+// keine Zurück-Taste des Browsers. Darum ist es jetzt dieselbe Leiste wie im
+// Rätsel: runde Knöpfe an derselben Stelle, ohne Text, den ein Kind erst
+// lesen müsste.
 function renderSelectionActions(mode) {
   if (!levelPanel) return;
   levelPanel.querySelector(".selection-actions")?.remove();
   const actions = document.createElement("div");
-  actions.className = "selection-actions";
+  actions.className = "selection-actions controls";
   const homeLink = document.createElement("a");
-  homeLink.className = "selection-back-button home-back-button";
+  homeLink.className = "icon-button home-back-button";
   homeLink.href = "index.html";
-  homeLink.textContent = "← Zurück zu den Rätseln";
+  homeLink.textContent = "⌂";
   homeLink.setAttribute("aria-label", "Zurück zur Auswahl der Rätsel");
+  homeLink.title = "Zurück zur Auswahl der Rätsel";
   actions.append(homeLink);
   if (mode === "levels") {
     const difficultyButton = document.createElement("button");
-    difficultyButton.className = "selection-back-button";
+    difficultyButton.className = "icon-button";
     difficultyButton.type = "button";
-    difficultyButton.textContent = "← Schwierigkeit ändern";
+    difficultyButton.textContent = "⇤";
+    difficultyButton.setAttribute("aria-label", "Zurück zur Schwierigkeit");
+    difficultyButton.title = "Zurück zur Schwierigkeit";
     difficultyButton.addEventListener("click", showDifficultySelect);
     actions.append(difficultyButton);
   }
-  levelPanel.querySelector(".start-copy")?.after(actions);
+  // Voranstellen statt hinter den Vorspann hängen: fehlte der Vorspann, fiel
+  // der Weg zurück vorher stillschweigend ganz weg.
+  levelPanel.prepend(actions);
 }
 // Raumdetektiv hat nur vier Level, eines je Welt. Ein eigener Schritt für die
 // Welt wäre da ein Tipp zu viel: die vier stehen gleich nebeneinander.
