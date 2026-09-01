@@ -260,6 +260,18 @@
 
   const OWN_PROGRESS = { runner: runnerProgress, cardMatch: cardMatchProgress };
 
+  // Die beiden Spiele mit eigenem Konto legen ihren Stand nicht im Levelkatalog
+  // ab, sondern jedes in seinem eigenen Kasten. Damit der Zug sie auch auf
+  // einem frischen Gerät kennt, werden die Kästen hier angemeldet: game-cloud.js
+  // spiegelt sie in den lokalen Speicher, aus dem diese Datei liest, und meldet
+  // sich, wenn aus der Cloud etwas Neues kommt.
+  const cloudGames = window.LernappGameCloud;
+  if (cloudGames) {
+    const redraw = () => document.dispatchEvent(new CustomEvent("lernapp:progress-changed"));
+    cloudGames.register({ key: RUNNER_KEY, empty: { unlocked: 1, best: {} }, merge: cloudGames.mergeLevels }).onChange(redraw);
+    cloudGames.register({ key: CARDMATCH_KEY, empty: { runs: 0, scores: [] }, merge: cloudGames.mergeScores(CARDMATCH_RUNS) }).onChange(redraw);
+  }
+
   function gameProgress(gameId) {
     const area = AREA_BY_GAME[gameId];
     const game = area?.games.find((entry) => entry.id === gameId);

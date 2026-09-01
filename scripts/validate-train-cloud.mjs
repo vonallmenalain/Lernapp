@@ -270,4 +270,65 @@ assert(writes.length === 0, "nach dem Abmelden wurde geschrieben");
 assert(events.some((event) => event.type === "lernapp:progress-changed"),
   "lernapp:progress-changed wird nie gemeldet – die Wagen blieben auf dem Stand des Geräts stehen");
 
-console.log(`Cloud-Einstellungen geprüft: users/<uid>.trainSettings, ${settingsEvents().length} Meldungen, zusammenführendes Schreiben, ohne Konto stumm.`);
+// --- Spielstände ------------------------------------------------------------
+// Bestenlisten und Rundenzahlen der Spiele mit eigenem Konto. Sie liegen als
+// Feld gameState am selben Dokument; jedes Spiel hat darin seinen eigenen
+// Kasten, und ein Schreibvorgang darf die anderen nicht mitnehmen.
+assert(typeof cloud.getGameState === "function", "getGameState fehlt");
+assert(typeof cloud.saveGameState === "function", "saveGameState fehlt");
+
+store.clear();
+writes.length = 0;
+events.length = 0;
+store.set("users/kind2", {
+  username: "Kind",
+  stats: { solvedLevels: 3 },
+  gameState: {
+    "lernapp.cardmatch": { data: { runs: 4, scores: [52, 30] }, updatedAt: 111 },
+    "lernapp.tiersprung.progress": { data: { unlocked: 6, best: { 1: { stars: 3 } } }, updatedAt: 222 },
+  },
+});
+await authCallback({ uid: "kind2", email: "kind@lernapp.local", displayName: "Kind", providerData: [{ providerId: "password" }] });
+
+const stateEvents = events.filter((event) => event.type === "lernapp:game-state");
+assert(stateEvents.length >= 1, "beim Anmelden wird lernapp:game-state nicht gemeldet");
+const arrivedGames = stateEvents.at(-1).detail;
+assert(arrivedGames["lernapp.cardmatch"].data.runs === 4, "die Rundenzahl kommt nicht an");
+assert(arrivedGames["lernapp.tiersprung.progress"].data.unlocked === 6, "der Levelstand kommt nicht an");
+assert(cloud.getGameState("lernapp.cardmatch").updatedAt === 111, "der Zeitstempel des Spielstands fehlt");
+assert(cloud.getGameState("gibtesnicht") === null, "ein unbekanntes Spiel liefert etwas");
+
+// Eine fremde Kopie darf den Zustand nicht verändern.
+const gameCopy = cloud.getGameState("lernapp.cardmatch");
+gameCopy.data.runs = 99;
+assert(cloud.getGameState("lernapp.cardmatch").data.runs === 4, "getGameState gibt den inneren Zustand heraus");
+
+// Schreiben: nur der eigene Kasten, zusammenführend, am selben Dokument.
+writes.length = 0;
+assert(await cloud.saveGameState("lernapp.cardmatch", { runs: 5, scores: [52, 30, 18] }) === true,
+  "angemeldet wird der Spielstand nicht gespeichert");
+assert(writes.length === 1, `erwartet ein Schreibvorgang, gefunden ${writes.length}`);
+assert(writes[0].path === "users/kind2", `geschrieben wurde nach ${writes[0].path}`);
+assert(writes[0].merge === true, "ohne merge würde der Fortschritt am selben Dokument gelöscht");
+assert(Object.keys(writes[0].payload.gameState).length === 1,
+  "geschrieben wird der ganze Kasten – ein zweites Gerät verlöre damit seine anderen Spiele");
+
+const doc = store.get("users/kind2");
+assert(doc.stats.solvedLevels === 3, "der Fortschritt am selben Dokument ist verloren gegangen");
+assert(doc.gameState["lernapp.cardmatch"].data.runs === 5, "der neue Stand steht nicht in der Cloud");
+assert(doc.gameState["lernapp.tiersprung.progress"].data.unlocked === 6,
+  "der Stand des anderen Spiels wurde mitgeschrieben und ist weg");
+
+// Unfug wird abgewiesen.
+writes.length = 0;
+assert(await cloud.saveGameState("", { a: 1 }) === false, "ein Spielstand ohne Schlüssel wird gespeichert");
+assert(await cloud.saveGameState("lernapp.cardmatch", null) === false, "null wird gespeichert");
+assert(writes.length === 0, "für Unfug wurde geschrieben");
+
+// Abmelden: nichts gilt mehr, und geschrieben wird auch nicht mehr.
+await authCallback(null);
+assert(cloud.getGameState() === null, "nach dem Abmelden hängen die Spielstände noch im Zustand");
+assert(await cloud.saveGameState("lernapp.cardmatch", { runs: 1 }) === false,
+  "nach dem Abmelden wird noch geschrieben");
+
+console.log(`Cloud-Einstellungen geprüft: users/<uid>.trainSettings und .gameState, zusammenführendes Schreiben je Spiel, ohne Konto stumm.`);
