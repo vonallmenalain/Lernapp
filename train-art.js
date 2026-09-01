@@ -288,8 +288,21 @@
       el("rect", { x: 76, y: 98, width: 80, height: 10, rx: 5, fill: bodyLight, opacity: "0.55" }),
       el("circle", { cx: 158, cy: 120, r: 25, fill: bodyDark }),
       el("circle", { cx: 158, cy: 120, r: 16, fill: body }),
-      el("rect", { x: 98, y: 88, width: 12, height: 40, rx: 4, fill: bodyDark }),
     ]);
+
+    // Die Pfeife hört man, statt sie zu sehen – trotzdem braucht sie eine
+    // eigene Form auf dem Kessel, sonst gäbe es in der Werkstatt nichts
+    // anzutippen. Die vier Klänge unterscheiden sich nur im Ton, deshalb zeigt
+    // die Form die Anzahl der Rohre.
+    const pipes = { hoch: 1, tief: 1, doppelt: 2, dampf: 3 }[c.whistle] || 1;
+    const whistleParts = [el("rect", { x: 92, y: 118, width: 24, height: 12, rx: 4, fill: shade(body, -0.5) })];
+    for (let i = 0; i < pipes; i += 1) {
+      const x = 104 - (pipes - 1) * 6 + i * 12;
+      const height = c.whistle === "tief" ? 40 : 30;
+      whistleParts.push(el("rect", { x: x - 4, y: 122 - height, width: 9, height, rx: 3, fill: shade(body, -0.4) }));
+      whistleParts.push(el("circle", { cx: x, cy: 122 - height, r: 5.5, fill: shade(body, -0.55) }));
+    }
+    const whistle = group({ "data-part": "whistle" }, whistleParts);
 
     // --- Kamin ---
     const smoke = c.chimney.smoke;
@@ -375,7 +388,7 @@
     ]);
 
     return group({ class: "train-loco", "data-loco": "true" },
-      [defs, steam, flag, frame, cab, driver, windowFrame, boiler, chimney, lamp, wheels, plough]);
+      [defs, steam, flag, frame, cab, driver, windowFrame, boiler, whistle, chimney, lamp, wheels, plough]);
   }
 
   // ---------------------------------------------------------------------------
@@ -690,6 +703,52 @@
     "#2f6f8f", "#5b6ee1", "#7c5ce6", "#c2559b", "#8a5f1c", "#4a5568",
   ];
 
+  // Worauf die Werkstatt zoomt, wenn ein Bauteil angetippt wird. Die Rechtecke
+  // liegen im Koordinatensystem der Lok und haben etwas Luft, damit das Teil
+  // nicht am Rand klebt.
+  const PART_FOCUS = {
+    whole: { x: -4, y: 8, width: 208, height: 180 },
+    driver: { x: 10, y: 58, width: 64, height: 64 },
+    cab: { x: -2, y: 38, width: 92, height: 122 },
+    body: { x: 60, y: 78, width: 110, height: 82 },
+    whistle: { x: 82, y: 74, width: 46, height: 62 },
+    chimney: { x: 110, y: 24, width: 78, height: 78 },
+    lamp: { x: 152, y: 82, width: 52, height: 50 },
+    wheels: { x: 14, y: 122, width: 176, height: 68 },
+    flag: { x: 24, y: 6, width: 66, height: 46 },
+    plough: { x: 162, y: 116, width: 46, height: 60 },
+  };
+
+  // Wo man ein Bauteil antippt. Die Zeichnungen überlappen sich – der Chauffeur
+  // sitzt im Führerhaus, die Pfeife auf dem Kessel –, also lassen sich die
+  // gezeichneten Formen nicht als Ziel benutzen: ein Tipp auf die Mitte des
+  // Führerhauses träfe immer das Tier. Diese Felder sind bewusst
+  // überschneidungsfrei, damit jedes Ziel eindeutig ist.
+  const PART_HIT = {
+    flag: { x: 30, y: 6, width: 56, height: 34 },
+    cab: { x: 0, y: 44, width: 80, height: 30 },
+    driver: { x: 20, y: 76, width: 44, height: 34 },
+    whistle: { x: 86, y: 76, width: 36, height: 32 },
+    body: { x: 66, y: 112, width: 46, height: 34 },
+    chimney: { x: 124, y: 24, width: 62, height: 60 },
+    lamp: { x: 150, y: 90, width: 52, height: 40 },
+    wheels: { x: 16, y: 148, width: 170, height: 36 },
+  };
+
+  // Für die kleinen Vorschau-Plättchen braucht es engere, eher quadratische
+  // Ausschnitte als für die Kamera: ein 176 breiter Räder-Streifen in einem
+  // quadratischen Plättchen wäre fast nur Leerraum.
+  const PART_PREVIEW = {
+    flag: { x: 28, y: 6, width: 58, height: 50 },
+    cab: { x: 0, y: 44, width: 82, height: 76 },
+    driver: { x: 12, y: 62, width: 58, height: 56 },
+    whistle: { x: 80, y: 72, width: 52, height: 58 },
+    body: { x: 70, y: 86, width: 68, height: 66 },
+    chimney: { x: 112, y: 24, width: 76, height: 74 },
+    lamp: { x: 150, y: 82, width: 52, height: 50 },
+    wheels: { x: 80, y: 128, width: 54, height: 58 },
+  };
+
   const LOCO_PARTS = [
     { id: "driver", label: "Chauffeur", kind: "driver", options: DRIVERS.map((d) => d.id) },
     { id: "body", label: "Kesselfarbe", kind: "color", options: PALETTE },
@@ -960,7 +1019,7 @@
     el, group, shade, inkOn,
     driverHead, wheel,
     buildLoco, buildWagon, buildTrain, buildTrack, buildStartSignal,
-    areaIcon, buildGate, buildBuilding, BUILDINGS, GATE_W, GATE_H, BUILD_W,
+    areaIcon, buildGate, buildBuilding, BUILDINGS, GATE_W, GATE_H, BUILD_W, PART_FOCUS, PART_HIT, PART_PREVIEW,
     locoConfig,
   };
 })();

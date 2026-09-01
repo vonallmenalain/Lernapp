@@ -5087,3 +5087,119 @@ body[data-page="train"] .help-voice { display: none; }
 /* Nur die feste Trefferfläche nimmt Tipps entgegen; die Zeichnung darunter
    nicht. Sonst wandert das Ziel mit dem pulsenden Ring. */
 .train-start-signal > *:not(.train-start-hit) { pointer-events: none; }
+
+/* ===========================================================================
+   Lok-Werkstatt
+   ---------------------------------------------------------------------------
+   Die Lok allein, gross. Ein Tipp auf ein Bauteil fährt die Kamera darauf zu
+   und blendet darunter die Varianten ein. Gezoomt wird eine Gruppe im SVG und
+   nicht dessen Ausschnitt: nur eine Transformation lässt sich weich animieren.
+   =========================================================================== */
+
+.train-stage[data-view="loco"] .train-band { opacity: 0; pointer-events: none; }
+.train-stage[data-view="loco"] .stage-layer { z-index: 4; }
+
+.loco-workshop {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(8px, 2vh, 20px);
+  padding: calc(var(--safe-top) + 76px) 16px calc(var(--safe-bottom) + 16px);
+  pointer-events: auto;
+}
+
+.loco-view {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  overflow: hidden;
+}
+
+/* Die Lok füllt die Bühne. Ist ein Bauteil gewählt, macht sie unten Platz für
+   die Varianten – das steuert allein die Höhe des Geschwisters.
+   Kein overflow: visible: beim Zoom liefe die Lok sonst über die ganze Seite
+   hinaus und schöbe die Varianten aus dem Fenster. */
+.loco-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.loco-camera {
+  transform-box: view-box;
+  transform-origin: 0 0;
+  transition: transform 0.55s cubic-bezier(0.32, 0.72, 0.24, 1);
+}
+
+/* Antippbare Stellen an der Lok. Ein kleiner Punkt zeigt sie dauerhaft an,
+   damit ein Kind erkennt, wo etwas zu holen ist; die Trefferfläche darunter ist
+   viel grösser als der Punkt und unsichtbar. */
+.loco-hotspot { cursor: pointer; }
+.loco-hotspot > *:not(.loco-hotspot-hit) { pointer-events: none; }
+.loco-hotspot-dot,
+.loco-hotspot-halo {
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: transform 0.16s ease, opacity 0.16s ease;
+}
+.loco-hotspot-halo { animation: loco-dot-pulse 2.6s ease-in-out infinite; }
+.loco-hotspot:hover .loco-hotspot-dot,
+.loco-hotspot:focus-visible .loco-hotspot-dot { transform: scale(1.45); }
+.loco-hotspot:hover .loco-hotspot-halo,
+.loco-hotspot:focus-visible .loco-hotspot-halo { opacity: 0.6; transform: scale(1.5); }
+.loco-hotspot:active .loco-hotspot-dot { transform: scale(1.1); }
+.loco-hotspot:focus-visible { outline: none; }
+
+@keyframes loco-dot-pulse {
+  0%, 100% { transform: scale(1); opacity: 0.35; }
+  50% { transform: scale(1.35); opacity: 0.12; }
+}
+
+.loco-choices {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+  width: 100%;
+}
+
+/* Links unten sitzt der Zurück-Knopf; die Auswahl darf nicht darunter laufen. */
+.loco-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  max-width: 100%;
+  padding-inline: 84px;
+}
+
+.loco-choice {
+  width: clamp(56px, 9vh, 84px);
+  height: clamp(56px, 9vh, 84px);
+  padding: 0;
+  border: 3px solid rgba(255, 255, 255, 0.85);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.62);
+  box-shadow: 0 4px 12px rgba(36, 48, 71, 0.18);
+  cursor: pointer;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  transition: transform 0.14s ease, border-color 0.14s ease;
+}
+.loco-choice:hover { transform: translateY(-2px); }
+.loco-choice:active { transform: scale(0.94); }
+.loco-choice:focus-visible { outline: 3px solid #6c5ce7; outline-offset: 3px; }
+.loco-choice.is-current { border-color: #6c5ce7; background: rgba(255, 255, 255, 0.95); }
+
+.part-preview { width: 100%; height: 100%; display: block; }
+
+@media (prefers-reduced-motion: reduce) {
+  .loco-camera, .loco-choice, .loco-hotspot-dot, .loco-hotspot-halo { transition: none; }
+  .loco-hotspot-halo { animation: none; }
+}

@@ -464,6 +464,32 @@
   }
 
   // ---------------------------------------------------------------------------
+  // Lok-Pfeife
+  // ---------------------------------------------------------------------------
+  // Vier Klänge zur Auswahl. Eine Dampfpfeife ist kein reiner Ton, sondern zwei
+  // eng benachbarte Töne, die miteinander schweben – deshalb klingt jede
+  // Variante aus mindestens zwei Stimmen.
+  const WHISTLES = {
+    hoch: [[880, 0, 0.55], [1320, 0.02, 0.5]],
+    tief: [[392, 0, 0.75], [588, 0.03, 0.65]],
+    doppelt: [[660, 0, 0.3], [990, 0.02, 0.28], [880, 0.34, 0.42], [1320, 0.36, 0.4]],
+    dampf: [[523, 0, 0.7], [659, 0.04, 0.62], [784, 0.08, 0.55]],
+  };
+  const WHISTLE_NAMES = Object.keys(WHISTLES);
+
+  function playWhistle(name) {
+    const parts = WHISTLES[name] || WHISTLES.hoch;
+    const ctx = ensureAudio();
+    if (!ctx) return;
+    const now = ctx.currentTime + 0.01;
+    parts.forEach(([freq, at, duration]) => {
+      tone(freq, now + at, duration, "triangle", 0.035);
+      // Eine Spur daneben: das leichte Schweben macht aus zwei Tönen eine Pfeife.
+      tone(freq * 1.006, now + at, duration, "triangle", 0.022);
+    });
+  }
+
+  // ---------------------------------------------------------------------------
   // Öffentliche API
   // ---------------------------------------------------------------------------
   window.LernappKids = {
@@ -482,6 +508,8 @@
     mascotSVG, burstConfetti, playJingle, playChime, playStarSound, vibrate, prefersReducedMotion,
     // Ton-Schalter
     audioEnabled, setAudioEnabled, updateAudioToggle,
+    // Lok-Pfeife
+    WHISTLE_NAMES, playWhistle,
     // Ausrichtung
     lockLandscape,
     // Verlauf

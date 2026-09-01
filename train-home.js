@@ -182,6 +182,12 @@
     try { localStorage.setItem(key, value); } catch { /* privater Modus */ }
   }
 
+  let locoConfig = null;
+  function saveLoco(config) {
+    locoConfig = config;
+    remember(LOCO_KEY, JSON.stringify(config));
+  }
+
   // ---------------------------------------------------------------------------
   // Beschriftungen
   // ---------------------------------------------------------------------------
@@ -310,6 +316,149 @@
     stage.style.setProperty("--train-lift", `${Math.round(lift)}px`);
   }
 
+  // ---------------------------------------------------------------------------
+  // Lok-Werkstatt
+  // ---------------------------------------------------------------------------
+  // Die Lok allein, gross. Ein Tipp auf ein Bauteil fährt die Kamera darauf zu
+  // und blendet darunter die Varianten ein. Gezoomt wird nicht der Ausschnitt
+  // des SVG – das liesse sich nicht weich überblenden –, sondern eine Gruppe
+  // darin: eine Transformation, die der Browser flüssig animieren kann.
+  // Der Ausschnitt des SVG wird auf das Seitenverhältnis der Bühne gezogen –
+  // sonst bliebe rechts und links Platz ungenutzt und ein breites Bauteil wie
+  // die Räder würde kaum grösser. Gezoomt wird danach die Gruppe darin.
+  function applyCamera(svg, camera, part) {
+    const rect = svg.getBoundingClientRect();
+    const aspect = rect.width > 0 && rect.height > 0 ? rect.width / rect.height : 1.6;
+    const vh = art.ART_H;
+    const vw = Math.max(art.LOCO_W, vh * aspect);
+    svg.setAttribute("viewBox", `0 0 ${vw.toFixed(1)} ${vh}`);
+
+    const box = art.PART_FOCUS[part] || art.PART_FOCUS.whole;
+    const scale = Math.min(vw / box.width, vh / box.height);
+    const x = vw / 2 - scale * (box.x + box.width / 2);
+    const y = vh / 2 - scale * (box.y + box.height / 2);
+    camera.style.transform = `translate(${x.toFixed(2)}px, ${y.toFixed(2)}px) scale(${scale.toFixed(3)})`;
+  }
+
+  // Kleine Vorschau eines Bauteils: dieselbe Lok, nur auf das Teil beschnitten.
+  // So sieht das Kind jede Variante genau so, wie sie an der Lok aussehen wird.
+  function partPreview(part, config) {
+    const box = art.PART_PREVIEW[part] || art.PART_FOCUS[part] || art.PART_FOCUS.whole;
+    return el("svg", {
+      viewBox: `${box.x} ${box.y} ${box.width} ${box.height}`,
+      class: "part-preview", "aria-hidden": "true",
+    }, [art.buildLoco(config)]);
+  }
+
+  // Eine Variante ändert immer nur ihr eigenes Bauteil.
+  function withVariant(config, part, kind, value) {
+    const next = { ...config };
+    if (part === "driver") next.driver = value;
+    else if (part === "body") next.body = value;
+    else if (part === "whistle") next.whistle = value;
+    else next[part] = { ...config[part], [kind]: value };
+    return next;
+  }
+
+  // Welche Varianten ein Bauteil hat. Formen und Farben stehen getrennt, damit
+  // das Kind nicht in einer Liste aus dreissig Kombinationen sucht.
+  function variantsFor(part) {
+    const spec = art.LOCO_PARTS.find((entry) => entry.id === part);
+    if (!spec) return [];
+    if (spec.kind === "driver") return [{ kind: "driver", values: spec.options }];
+    if (spec.kind === "color") return [{ kind: "body", values: spec.options }];
+    if (spec.kind === "sound") return [{ kind: "whistle", values: spec.options }];
+    const colorKey = spec.colorKey || "color";
+    return [
+      { kind: "shape", values: spec.shapes },
+      { kind: colorKey, values: spec.options },
+    ];
+  }
+
+  function buildWorkshop(config, part) {
+    const wrap = document.createElement("div");
+    wrap.className = "loco-workshop";
+
+    const stageBox = document.createElement("div");
+    stageBox.className = "loco-view";
+    const svg = el("svg", {
+      viewBox: `0 0 ${art.LOCO_W} ${art.ART_H}`,
+      class: "loco-svg",
+      role: "group",
+      "aria-label": part === "whole" ? "Deine Lokomotive. Tippe auf ein Teil, um es zu ändern." : `${art.LOCO_PARTS.find((e) => e.id === part)?.label || part} ändern`,
+    });
+    const camera = el("g", { class: "loco-camera" }, [art.buildLoco(config)]);
+    svg.append(camera);
+    stageBox.append(svg);
+    // Erst wenn das SVG hängt, steht seine Grösse fest.
+    window.requestAnimationFrame(() => applyCamera(svg, camera, part));
+
+    // Nur in der Gesamtansicht sind die Bauteile anzutippen; im Zoom wählt man
+    // unten aus, statt versehentlich in ein anderes Teil zu springen.
+    //
+    // Angetippt werden eigene Felder, nicht die Zeichnungen: die überlappen
+    // sich, und ein Tipp auf die Mitte des Führerhauses träfe immer das Tier
+    // darin. Ein schwacher Rahmen zeigt die Felder dauerhaft – sonst wüsste
+    // ein Kind nicht, dass an der Lok überhaupt etwas zu holen ist.
+    if (part === "whole") {
+      const hotspots = el("g", { class: "loco-hotspots" });
+      art.LOCO_PARTS.forEach((spec) => {
+        const box = art.PART_HIT[spec.id];
+        if (!box) return;
+        // Ein kleiner Punkt statt eines Rahmens: acht gestrichelte Kästen über
+        // der Lok sehen aus wie ein Bauplan und verdecken die Zeichnung. Der
+        // Punkt sagt dasselbe und lässt die Lok Lok bleiben.
+        const cx = box.x + box.width / 2;
+        const cy = box.y + box.height / 2;
+        const hot = el("g", {
+          class: "loco-hotspot", "data-hot": spec.id,
+          role: "button", tabindex: "0", "aria-label": `${spec.label} ändern`,
+        }, [
+          el("rect", { ...box, rx: 7, fill: "transparent", class: "loco-hotspot-hit" }),
+          el("circle", { cx, cy, r: 8, class: "loco-hotspot-halo", fill: "#ffffff", opacity: "0.35" }),
+          el("circle", { cx, cy, r: 5, class: "loco-hotspot-dot", fill: "#ffffff", stroke: "#6c5ce7", "stroke-width": 2 }),
+        ]);
+        activate(hot, () => showWorkshop(spec.id));
+        hotspots.append(hot);
+      });
+      camera.append(hotspots);
+    }
+
+    wrap.append(stageBox);
+
+    const rows = document.createElement("div");
+    rows.className = "loco-choices";
+    if (part !== "whole") {
+      variantsFor(part).forEach((row) => {
+        const strip = document.createElement("div");
+        strip.className = "loco-row";
+        row.values.forEach((value) => {
+          const choice = withVariant(config, part, row.kind, value);
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "loco-choice";
+          const current = row.kind === "driver" ? config.driver
+            : row.kind === "body" ? config.body
+            : row.kind === "whistle" ? config.whistle
+            : config[part]?.[row.kind];
+          if (current === value) button.classList.add("is-current");
+          button.setAttribute("aria-label", `${art.LOCO_PARTS.find((e) => e.id === part)?.label}: Auswahl ${value}`);
+          button.setAttribute("aria-pressed", current === value ? "true" : "false");
+          button.append(partPreview(part, choice));
+          button.addEventListener("click", () => {
+            saveLoco(choice);
+            if (part === "whistle") kids()?.playWhistle?.(value);
+            showWorkshop(part);
+          });
+          strip.append(button);
+        });
+        rows.append(strip);
+      });
+    }
+    wrap.append(rows);
+    return wrap;
+  }
+
   function buildTopbar() {
     const bar = document.createElement("div");
     bar.className = "train-topbar";
@@ -336,7 +485,7 @@
   // ---------------------------------------------------------------------------
   // Ansichten
   // ---------------------------------------------------------------------------
-  const view = { name: "home", areaId: null };
+  const view = { name: "home", areaId: null, part: "whole" };
   let layerHost = null;
   let backButton = null;
   let busy = false;
@@ -347,6 +496,14 @@
     stage.dataset.view = name;
     if (backButton) backButton.hidden = name === "home";
     if (areaId) remember(LAST_AREA_KEY, areaId);
+  }
+
+  // Werkstatt: die Lok allein. part === "whole" zeigt sie ganz, sonst ist auf
+  // ein Bauteil gezoomt.
+  function showWorkshop(part = "whole") {
+    view.part = part;
+    setView("loco");
+    renderLayer(buildWorkshop(locoConfig, part));
   }
 
   // Wartet, bis die Fahranimation durch ist. Ohne Bewegung wird nicht gewartet:
@@ -445,7 +602,17 @@
       busy = false;
       return;
     }
-    if (view.name === "areas") showHome();
+    if (view.name === "areas") { showHome(); return; }
+    if (view.name === "loco") {
+      // Erst aus dem Bauteil heraus zur ganzen Lok, dann zum Zug. Zwei Stufen
+      // zurück auf einmal wäre für ein Kind ein Sprung ins Nichts.
+      if (view.part !== "whole") { showWorkshop("whole"); return; }
+      // Zurück zum Zug heisst neu zeichnen: die Lok am Zug muss zeigen, was in
+      // der Werkstatt gebaut wurde.
+      view.part = "whole";
+      view.name = "home";
+      render();
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -453,7 +620,8 @@
   // ---------------------------------------------------------------------------
   function render() {
     const areas = progress.allAreas();
-    const loco = readLoco();
+    if (!locoConfig) locoConfig = readLoco();
+    const loco = locoConfig;
     const previous = view.name;
     const previousArea = view.areaId;
 
@@ -476,6 +644,15 @@
     const signal = svg.querySelector(".train-start-signal");
     if (signal) activate(signal, start);
 
+    // Ein Tipp auf die Lok führt in die Werkstatt – aber nur vom Startbild aus.
+    const locoNode = svg.querySelector("[data-loco]");
+    if (locoNode) {
+      locoNode.setAttribute("role", "button");
+      locoNode.setAttribute("tabindex", "0");
+      locoNode.setAttribute("aria-label", "Deine Lokomotive umbauen");
+      activate(locoNode, () => { if (view.name === "home" && !busy) showWorkshop("whole"); });
+    }
+
     band.append(svg);
 
     layerHost = document.createElement("div");
@@ -488,6 +665,7 @@
 
     if (previous === "games" && previousArea) showGames(previousArea);
     else if (previous === "areas") showAreas();
+    else if (previous === "loco") showWorkshop(view.part);
     else showHome();
   }
 
@@ -499,6 +677,11 @@
 
   window.addEventListener("resize", () => {
     if (view.name === "games") window.requestAnimationFrame(alignTrainToRail);
+    if (view.name === "loco") {
+      const svg = stage.querySelector(".loco-svg");
+      const camera = stage.querySelector(".loco-camera");
+      if (svg && camera) window.requestAnimationFrame(() => applyCamera(svg, camera, view.part));
+    }
   });
 
   // Nach einem Spiel kommt das Kind hierher zurück – der Fortschritt hat sich
