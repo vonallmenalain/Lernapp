@@ -124,7 +124,16 @@ function buildAndCheck(count) {
     assert(node.x >= 0 && node.x <= 1 && node.y >= 0 && node.y <= 1, `${node.id} liegt bei ${node.x}/${node.y}`);
   });
   stations.forEach((node) => assert(node.x > 0.85, `${node.id} steht nicht rechts (x = ${node.x})`));
-  switches.forEach((node) => assert(node.x > 0.1 && node.x < 0.85, `${node.id} liegt bei x = ${node.x}`));
+  switches.forEach((node) => assert(node.x >= api.FIRST_SWITCH_X - 1e-9 && node.x < 0.85, `${node.id} liegt bei x = ${node.x}`));
+
+  // Die Strecke aus dem Tunnel bis zur ersten Weiche ist die Bedenkzeit. Sie
+  // muss deutlich länger sein als ein Gleisstück dahinter – sonst steht das
+  // Kind vor der ersten Weiche, bevor es die Farbe gelesen hat.
+  const anlauf = api.FIRST_SWITCH_X - spawns[0].x;
+  assert(anlauf > 0.25, `nur ${anlauf.toFixed(2)} Bildbreiten Anlauf bis zur ersten Weiche`);
+  const tiefsteWeiche = Math.max(...switches.map((node) => node.x));
+  assert(anlauf > (tiefsteWeiche - api.FIRST_SWITCH_X) / Math.max(1, switches.length - 1) || switches.length === 1,
+    "der Anlauf ist kürzer als der Abstand zwischen zwei Weichen");
 
   // Die Häuser dürfen sich nicht überlappen: bei neun übereinander ist der
   // Abstand am knappsten.

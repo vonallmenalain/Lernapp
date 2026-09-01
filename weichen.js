@@ -35,19 +35,23 @@
   // Die zehn Level
   // ---------------------------------------------------------------------------
   // farben = Häuser und Zugfarben, zuege = wie viele fahren insgesamt,
-  // tempo = Anteil eines Gleisstücks pro Sekunde, takt = Abstand der Abfahrten.
-  // Ab Level 4 zieht das Tempo an.
+  // takt = Abstand der Abfahrten.
+  //
+  // tempo ist die Strecke, die ein Zug in einer Sekunde zurücklegt, gemessen in
+  // Bildbreiten – nicht Gleisstücke pro Sekunde. Ein Zug fährt damit überall
+  // gleich schnell; nach Gleisstücken gerechnet raste er auf den langen Ästen
+  // und kroch auf den kurzen. Ab Level 4 zieht das Tempo an.
   const LEVELS = [
-    { nr: 1, farben: 3, zuege: 15, tempo: 0.42, takt: 2400, gleichzeitig: 2 },
-    { nr: 2, farben: 4, zuege: 15, tempo: 0.42, takt: 2300, gleichzeitig: 2 },
-    { nr: 3, farben: 5, zuege: 20, tempo: 0.44, takt: 2200, gleichzeitig: 2 },
-    { nr: 4, farben: 5, zuege: 25, tempo: 0.52, takt: 2000, gleichzeitig: 3 },
-    { nr: 5, farben: 6, zuege: 25, tempo: 0.54, takt: 1950, gleichzeitig: 3 },
-    { nr: 6, farben: 6, zuege: 30, tempo: 0.56, takt: 1900, gleichzeitig: 3 },
-    { nr: 7, farben: 7, zuege: 30, tempo: 0.58, takt: 1850, gleichzeitig: 3 },
-    { nr: 8, farben: 8, zuege: 30, tempo: 0.60, takt: 1800, gleichzeitig: 4 },
-    { nr: 9, farben: 8, zuege: 35, tempo: 0.62, takt: 1750, gleichzeitig: 4 },
-    { nr: 10, farben: 9, zuege: 35, tempo: 0.64, takt: 1700, gleichzeitig: 4 },
+    { nr: 1, farben: 3, zuege: 15, tempo: 0.19, takt: 2400, gleichzeitig: 2 },
+    { nr: 2, farben: 4, zuege: 15, tempo: 0.19, takt: 2300, gleichzeitig: 2 },
+    { nr: 3, farben: 5, zuege: 20, tempo: 0.20, takt: 2200, gleichzeitig: 2 },
+    { nr: 4, farben: 5, zuege: 25, tempo: 0.24, takt: 2000, gleichzeitig: 3 },
+    { nr: 5, farben: 6, zuege: 25, tempo: 0.25, takt: 1950, gleichzeitig: 3 },
+    { nr: 6, farben: 6, zuege: 30, tempo: 0.26, takt: 1900, gleichzeitig: 3 },
+    { nr: 7, farben: 7, zuege: 30, tempo: 0.27, takt: 1850, gleichzeitig: 3 },
+    { nr: 8, farben: 8, zuege: 30, tempo: 0.28, takt: 1800, gleichzeitig: 4 },
+    { nr: 9, farben: 8, zuege: 35, tempo: 0.29, takt: 1750, gleichzeitig: 4 },
+    { nr: 10, farben: 9, zuege: 35, tempo: 0.30, takt: 1700, gleichzeitig: 4 },
   ];
 
   // Fünf abgeschlossene Level, und der Wagen im Bereich Konzentration ist für
@@ -114,6 +118,10 @@
   // ---------------------------------------------------------------------------
   // Ein ausgeglichener Baum: eine Einfahrt links, n Häuser rechts, dazwischen
   // n-1 Weichen. Die Koordinaten sind auf 0–1 normiert.
+  // Wo die erste Weiche steht. Vom Tunnel bei 0.02 aus sind das gut 0.28 der
+  // Breite – doppelt so viel Anlauf wie vorher.
+  const FIRST_SWITCH_X = 0.30;
+
   function buildNet(count) {
     const nodes = [];
     const edges = [];
@@ -132,7 +140,9 @@
       nodes.push({
         id,
         type: "switch",
-        x: 0.16 + level * (0.60 / depth),
+        // Die erste Weiche liegt weit rechts: die Strecke aus dem Tunnel ist
+        // die Bedenkzeit, und die braucht ein Kind, bevor der erste Zug da ist.
+        x: FIRST_SWITCH_X + level * ((0.72 - FIRST_SWITCH_X) / depth),
         y: (yFor(lo) + yFor(hi - 1)) / 2,
       });
       edges.push([id, build(lo, mid, level + 1)], [id, build(mid, hi, level + 1)]);
@@ -304,6 +314,9 @@
     if (run.trains.length >= state.level.gleichzeitig) return false;
     run.gestartet += 1;
     run.trains.push({
+      // Eine Nummer je Zug: die Liste schrumpft, wenn einer ankommt, und über
+      // den Platz darin liesse sich kein Zug wiedererkennen.
+      id: run.gestartet,
       line: Math.floor(Math.random() * state.level.farben),
       from: "start",
       to: outgoing("start")[0],
@@ -312,8 +325,17 @@
     return true;
   }
 
+  // Wie lang ein Gleisstueck auf dem Bild ist, gemessen in Bildbreiten. Ohne
+  // das fuhren die Zuege ueberall gleich lange – und damit auf einem langen
+  // Stueck fuenfmal so schnell wie auf einem kurzen.
+  function edgeLength(fromId, toId) {
+    const a = px(nodeById(fromId));
+    const b = px(nodeById(toId));
+    return Math.max(1, Math.hypot(b.x - a.x, b.y - a.y)) / Math.max(1, size.width);
+  }
+
   function advance(train, delta) {
-    train.t += state.level.tempo * delta;
+    train.t += state.level.tempo * delta / edgeLength(train.from, train.to);
     while (train.t >= 1) {
       train.t -= 1;
       const node = nodeById(train.to);
@@ -631,7 +653,13 @@
   // Die Tabelle, das Netz und die Sternregel nach aussen: die Prüfskripte
   // rechnen damit ohne Browser nach, ob jedes Haus erreichbar ist und die zehn
   // Level anwachsen.
-  window.LernappWeichen = { LEVELS, FARBEN, buildNet, starsFor, LEVELS_FOR_DONE };
+  window.LernappWeichen = {
+    LEVELS, FARBEN, buildNet, starsFor, LEVELS_FOR_DONE, FIRST_SWITCH_X,
+    // Die Züge, die gerade unterwegs sind – als Kopie, nur zum Nachmessen.
+    // Der Browsertest prüft damit, dass ein Zug auf jedem Gleisstück gleich
+    // schnell fährt, statt auf den langen zu rasen.
+    trains: () => (run ? run.trains.map((train) => ({ ...train })) : []),
+  };
 
   window.addEventListener("resize", () => { resizeCanvas(); draw(); });
   window.addEventListener("orientationchange", () => { resizeCanvas(); draw(); });
