@@ -4326,12 +4326,19 @@ body[data-page="train"].list-open { overflow: auto; }
   pointer-events: auto;
 }
 
-/* Angetippt wird der Zug nur auf dem Startbild – dort führt die Lok in die
-   Werkstatt und jeder Wagen in seine Grossansicht. Auf den übrigen Bühnen
-   nimmt er keine Tipps mehr an: er steht klein unten links, sein Kasten reicht
-   aber über die halbe Bühne, und die unterste Halle liegt teilweise darunter.
-   Ohne das ginge jeder Tipp auf diese Halle daneben. */
+/* Der Zug führt überall, wo er zu sehen ist, an dieselben zwei Orte: die Lok in
+   die Werkstatt, jeder Wagen in seine Grossansicht.
+
+   Neben dem Startbild steht er aber klein unten links, und sein Kasten reicht
+   über die halbe Bühne – die unterste Halle liegt teilweise darunter. Deshalb
+   nimmt dort nicht mehr das ganze SVG Tipps entgegen, sondern nur noch die
+   gezeichneten Wagen und die Lok selbst. Zwischen ihnen und um sie herum geht
+   der Tipp hindurch zur Halle. */
 .train-stage:not([data-view="home"]) .train-band .train-svg { pointer-events: none; }
+.train-stage[data-view="areas"] .train-band .train-wagon,
+.train-stage[data-view="areas"] .train-band .train-loco,
+.train-stage[data-view="games"] .train-band .train-wagon,
+.train-stage[data-view="games"] .train-band .train-loco { pointer-events: auto; }
 
 .train-wagon, .train-loco { cursor: pointer; }
 
@@ -4787,15 +4794,31 @@ body[data-page="train"] .help-voice { display: none; }
   max-width: 100%;
 }
 
+/* Die Kiste ist ein Knopf: ein Tipp startet ihr Spiel. Sie sieht aus wie
+   vorher – der Kasten war immer schon so gross wie eine Tippfläche. */
 .wagon-crate {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 6px;
   padding: 10px 12px 12px;
+  border: none;
+  font: inherit;
+  color: inherit;
   border-radius: 16px;
   background: rgba(255, 255, 255, 0.72);
   box-shadow: 0 4px 12px rgba(36, 48, 71, 0.16);
+  cursor: pointer;
+  transition: transform 0.12s ease, background 0.16s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.wagon-crate:hover { background: rgba(255, 255, 255, 0.92); }
+.wagon-crate:active { transform: scale(0.96); }
+.wagon-crate:focus-visible { outline: 3px solid #243047; outline-offset: 3px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .wagon-crate { transition: none; }
 }
 
 .crate-icon { width: clamp(44px, 7vh, 68px); height: clamp(44px, 7vh, 68px); display: block; }
@@ -4914,7 +4937,12 @@ body[data-page="train"] .help-voice { display: none; }
   --cm-accent-dark: #b9741a;
   position: fixed;
   inset: 0;
+  /* clip statt hidden: die Landschaft ist breiter als der Bildschirm, und ein
+     hidden-Kasten lässt sich zwar nicht wischen, aber immer noch verschieben –
+     ein Tastendruck auf einen Knopf am Rand schöbe sonst die ganze Bühne zur
+     Seite und brächte sie nie mehr zurück. hidden bleibt als Rückfall stehen. */
   overflow: hidden;
+  overflow: clip;
   touch-action: manipulation;
 }
 
@@ -5233,6 +5261,258 @@ body[data-page="train"] .help-voice { display: none; }
 .cm-actions { display: flex; gap: 16px; }
 .cm-icon.big { width: 64px; height: 64px; }
 .cm-icon.big svg { width: 32px; height: 32px; }
+
+/* ===========================================================================
+   Weichen-Wirrwarr
+   ---------------------------------------------------------------------------
+   Anders als die drei Spiele daneben steht das Streckennetz auf einer weissen
+   Tafel: Gleise, Weichen und Häuser sind feine Linien, und über einer Wiese mit
+   Bäumen wäre nicht mehr zu erkennen, was Gleis ist und was Landschaft.
+
+   Die Farbe ist die des Bereichs Konzentration.
+   =========================================================================== */
+
+.tr-stage { --cm-accent: #00A5B5; --cm-accent-dark: #00707c; }
+
+.tr-board {
+  flex: 1 1 auto;
+  width: min(96vw, 1100px);
+  min-height: 0;
+  border-radius: 26px;
+  background: #fdfdfd;
+  box-shadow: 0 14px 34px rgba(31, 42, 51, 0.24);
+  overflow: hidden;
+  overflow: clip;
+}
+
+.tr-canvas { display: block; width: 100%; height: 100%; touch-action: manipulation; }
+
+/* --- Die Levelwahl --- */
+
+.tr-levels {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: clamp(8px, 1.6vw, 16px);
+  width: min(94vw, 900px);
+}
+
+.tr-level {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  padding: clamp(8px, 1.6vh, 14px) 6px;
+  border: 3px solid #ffffff;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.9);
+  cursor: pointer;
+  box-shadow: 0 8px 18px rgba(31, 42, 51, 0.18);
+  transition: transform 0.12s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.tr-level:hover { background: #fff; }
+.tr-level:active { transform: scale(0.95); }
+.tr-level:focus-visible { outline: 3px solid #243047; outline-offset: 3px; }
+
+.tr-level-nr {
+  font-size: clamp(1.2rem, 3vw, 1.7rem);
+  font-weight: 950;
+  color: var(--cm-accent-dark);
+  line-height: 1;
+}
+
+/* Die Farben des Levels als Punktreihe: wie voll es wird, ohne eine Zahl. */
+.tr-level-colors { display: flex; flex-wrap: wrap; justify-content: center; gap: 3px; max-width: 68px; }
+.tr-level-dot { width: 9px; height: 9px; border-radius: 50%; }
+
+.tr-level-stars { display: flex; gap: 1px; font-size: 0.85rem; line-height: 1; color: #d5dae2; }
+.tr-level-star.is-on { color: #f6b93b; }
+
+@media (max-width: 620px) {
+  .tr-levels { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
+  .tr-level { padding: 6px 2px; border-width: 2px; border-radius: 14px; }
+  .tr-level-colors { max-width: 44px; gap: 2px; }
+  .tr-level-dot { width: 7px; height: 7px; }
+}
+
+/* --- Sterne im Schlussbild --- */
+
+.cm-result-stars { display: flex; justify-content: center; gap: 8px; margin: 2px 0 4px; }
+.cm-result-star { display: grid; place-items: center; color: #d5dae2; }
+.cm-result-star svg { width: clamp(38px, 9vw, 54px); height: auto; }
+.cm-result-star.is-on { color: #f6b93b; animation: cm-star-pop 0.4s ease both; }
+.cm-result-star.is-on:nth-child(2) { animation-delay: 0.12s; }
+.cm-result-star.is-on:nth-child(3) { animation-delay: 0.24s; }
+@keyframes cm-star-pop {
+  0% { transform: scale(0.2) rotate(-30deg); opacity: 0; }
+  70% { transform: scale(1.18) rotate(6deg); opacity: 1; }
+  100% { transform: scale(1) rotate(0); opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tr-level { transition: none; }
+  .cm-result-star.is-on { animation: none; }
+}
+
+/* ===========================================================================
+   Schwarm-Fokus
+   ---------------------------------------------------------------------------
+   Dieselbe Bühne wie der Karten-Merker: die Landschaft der Startseite, oben
+   die Leiste, unten die beiden Knöpfe. Die Farbe ist die des Bereichs
+   Konzentration.
+
+   Der Schwarm steht frei auf der Landschaft, ohne Kasten darum. Ein Rahmen
+   wäre eine zweite Form neben den fünf Fischen, auf die es ankommt.
+   =========================================================================== */
+
+.sf-stage { --cm-accent: #00A5B5; --cm-accent-dark: #00707c; }
+
+.sf-swarm {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(4px, 1.4vw, 14px);
+  width: min(94vw, 900px);
+}
+
+.sf-slot { flex: 1 1 0; max-width: 150px; }
+
+/* Der mittlere Fisch ist grösser: nur dann trägt die Aufgabe: "schau in die
+   Mitte" auch für ein Kind, das die Reihe nur überfliegt. */
+.sf-slot.is-target { transform: scale(1.28); z-index: 1; }
+
+.sf-fish { width: 100%; height: auto; display: block; }
+.sf-fish.is-target { filter: drop-shadow(0 4px 10px rgba(120, 70, 0, 0.3)); }
+
+/* Kurze Rückmeldung am ganzen Schwarm statt an einem Knopf: der Blick liegt
+   auf den Fischen, dort muss die Antwort ankommen. */
+.sf-swarm.is-right { animation: sf-yes 0.3s ease both; }
+.sf-swarm.is-wrong { animation: sf-no 0.4s ease both; }
+@keyframes sf-yes {
+  0% { transform: scale(1); }
+  45% { transform: scale(1.06); }
+  100% { transform: scale(1); }
+}
+@keyframes sf-no {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-12px); }
+  60% { transform: translateX(12px); }
+}
+
+.sf-keys {
+  display: flex;
+  gap: clamp(12px, 3vw, 26px);
+  width: min(420px, 90vw);
+}
+
+.sf-key {
+  flex: 1 1 0;
+  height: clamp(64px, 12vh, 92px);
+  display: grid;
+  place-items: center;
+  border: none;
+  border-radius: 24px;
+  background: var(--cm-accent);
+  color: #fff;
+  cursor: pointer;
+  box-shadow: 0 8px 18px rgba(31, 42, 51, 0.24);
+  transition: transform 0.12s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.sf-key svg { width: 40%; max-width: 44px; height: auto; }
+.sf-key:active { transform: scale(0.95); }
+.sf-key:focus-visible { outline: 3px solid #243047; outline-offset: 3px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .sf-swarm.is-right, .sf-swarm.is-wrong { animation: none; }
+  .sf-key { transition: none; }
+}
+
+/* ===========================================================================
+   Strand-Schätze
+   ---------------------------------------------------------------------------
+   Dieselbe Bühne wie der Karten-Merker, nur ohne Uhr: hier zählt nicht die
+   Zeit, sondern wie viele Schätze man auseinanderhalten kann. Die Farbe ist
+   die des Bereichs Gedächtnis.
+
+   Der Strand nimmt allen Platz, den die Fläche hergibt – bei zwanzig Schätzen
+   zählt jeder Pixel. Die Plätze rechnet strandschatz.js aus, hier steht nur,
+   wie ein Schatz aussieht und was beim Antippen passiert.
+   =========================================================================== */
+
+.st-stage { --cm-accent: #7C5CE6; --cm-accent-dark: #5a41b8; }
+
+.st-prompt { flex: 0 0 auto; }
+
+.st-beach {
+  position: relative;
+  flex: 1 1 auto;
+  width: min(96vw, 1100px);
+  min-height: 0;
+  border-radius: 30px;
+  overflow: hidden;
+  overflow: clip;
+  box-shadow: 0 12px 30px rgba(31, 42, 51, 0.22), inset 0 0 0 3px rgba(255, 255, 255, 0.5);
+}
+
+.st-beach-art {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* Ein Schatz liegt im Sand: kein Kasten, kein Rand, nur die Figur. Die Grösse
+   und der Platz kommen aus dem Stil-Attribut, das strandschatz.js setzt. */
+.st-item {
+  position: absolute;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  border-radius: 50%;
+  transition: transform 0.12s ease;
+  animation: st-drop 0.22s ease both;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.st-item svg { width: 100%; height: 100%; display: block; }
+.st-item:active { transform: scale(0.92); }
+.st-item:focus-visible { outline: 3px solid #243047; outline-offset: 3px; }
+.st-item:disabled { cursor: default; }
+
+@keyframes st-drop {
+  from { opacity: 0; transform: scale(0.6); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+/* Richtig: der Schatz hüpft einmal und wandert in die Kiste. */
+.st-item.is-right { animation: st-take 0.44s ease both; }
+@keyframes st-take {
+  0% { transform: scale(1); }
+  35% { transform: scale(1.25); }
+  100% { transform: scale(0.2); opacity: 0; }
+}
+
+/* Schon gehabt: ein kurzes Kopfschütteln, dazu ein roter Ring – so ist zu
+   sehen, welcher Schatz die Runde beendet hat. */
+.st-item.is-wrong {
+  animation: st-shake 0.42s ease both;
+  box-shadow: 0 0 0 4px #e2694f, 0 0 0 9px rgba(226, 105, 79, 0.3);
+}
+@keyframes st-shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-7px) rotate(-6deg); }
+  50% { transform: translateX(7px) rotate(6deg); }
+  80% { transform: translateX(-4px) rotate(-3deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .st-item, .st-item.is-right, .st-item.is-wrong { animation: none; }
+  .st-item.is-right { opacity: 0; }
+  .st-item { transition: none; }
+}
 
 @media (prefers-reduced-motion: reduce) {
   .cm-card, .cm-card.is-right, .cm-card.is-wrong, .cm-start::after, .cm-overlay { animation: none; }

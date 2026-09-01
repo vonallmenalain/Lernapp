@@ -1079,13 +1079,56 @@
     return { parts, emblemAt: [w / 2, BUILD_BASE - 92] };
   }
 
+  // Die Fortschrittsmarke oben rechts an jedem Gebäude. Sie beantwortet die
+  // eine Frage, die ein Kind vor der Wahl hat: bin ich hier schon fertig, oder
+  // muss ich noch?
+  //
+  // Geschafft ist ein grüner Haken – ein Zeichen, kein Text und keine Zahl.
+  // Sonst ein Ring, der sich füllt: so ist auch zu sehen, wie weit es noch ist.
+  // Der Platz ist für jedes Gebäude derselbe, egal wie hoch das Dach ist, damit
+  // die Marke immer an derselben Stelle zu suchen ist.
+  const BADGE_AT = [BUILD_W - 26, BUILD_BASE - 158];
+  const BADGE_R = 14;
+
+  function progressBadge(ratio, hue) {
+    const done = ratio >= 1;
+    const [cx, cy] = BADGE_AT;
+    const parts = [
+      el("circle", { cx, cy, r: 21, fill: done ? "#2f9e44" : "#ffffff", stroke: done ? "#247634" : "#b9c4d0", "stroke-width": 2 }),
+    ];
+
+    if (done) {
+      parts.push(el("path", {
+        d: `M${cx - 9} ${cy} l6 6.5 L${cx + 10} ${cy - 9}`,
+        fill: "none", stroke: "#ffffff", "stroke-width": 4.5,
+        "stroke-linecap": "round", "stroke-linejoin": "round",
+      }));
+      return group({ class: "train-building-badge is-done" }, parts);
+    }
+
+    parts.push(el("circle", { cx, cy, r: BADGE_R, fill: "none", stroke: "#d3dbe4", "stroke-width": 6 }));
+    if (ratio > 0) {
+      // Der Bogen beginnt oben: der Kreis wird um seinen Mittelpunkt gedreht.
+      const circumference = 2 * Math.PI * BADGE_R;
+      parts.push(el("circle", {
+        cx, cy, r: BADGE_R, fill: "none", stroke: shade(hue, -0.25), "stroke-width": 6,
+        "stroke-linecap": "round",
+        "stroke-dasharray": `${(ratio * circumference).toFixed(2)} ${circumference.toFixed(2)}`,
+        transform: `rotate(-90 ${cx} ${cy})`,
+      }));
+    }
+    return group({ class: "train-building-badge" }, parts);
+  }
+
   /**
    * Baut ein Gebäude für ein Spiel.
    * @param {string} gameId
    * @param {Object} options  done: fertig gespielt (Licht an, Fahne)
+   *                          ratio: 0–1 für die Fortschrittsmarke; fehlt sie,
+   *                                 bleibt das Gebäude ohne Marke
    */
   function buildBuilding(gameId, options = {}) {
-    const { done = false, label = gameId } = options;
+    const { done = false, label = gameId, ratio = null } = options;
     const spec = BUILDINGS[gameId] || BUILDINGS.memory;
     const { parts, emblemAt } = buildingShell(spec.kind, spec.hue);
 
@@ -1099,6 +1142,8 @@
       parts.push(el("line", { x1: BUILD_W - 26, y1: BUILD_BASE - 96, x2: BUILD_W - 26, y2: BUILD_BASE - 140, stroke: "#8a5f1c", "stroke-width": 3 }));
       parts.push(el("polygon", { points: `${BUILD_W - 26},${BUILD_BASE - 138} ${BUILD_W - 2},${BUILD_BASE - 130} ${BUILD_W - 26},${BUILD_BASE - 122}`, fill: "#f0b429" }));
     }
+
+    if (typeof ratio === "number") parts.push(progressBadge(Math.max(0, Math.min(1, ratio)), spec.hue));
 
     return group({
       class: `train-building${done ? " is-done" : ""}`,
