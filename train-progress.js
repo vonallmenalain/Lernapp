@@ -28,8 +28,8 @@
       icon: "brain",
       wagon: "boxcar",
       games: [
-        { id: "backpack", title: "Rucksack packen", page: "backpack.html" },
-        { id: "memory", title: "Memory", page: "memory.html" },
+        { id: "backpack", title: "Rucksack packen", page: "backpack.html", ownProgress: "backpack" },
+        { id: "memory", title: "Memory", page: "memory.html", ownProgress: "memory" },
         { id: "beachTreasure", title: "Strand-Schätze", page: "strandschatz.html", ownProgress: "beachTreasure" },
       ],
     },
@@ -122,6 +122,8 @@
   const BEACH_KEY = "lernapp.beachtreasure";
   const FLANKER_KEY = "lernapp.flanker";
   const TRACK_KEY = "lernapp.trackrouter";
+  const BACKPACK_KEY = "lernapp.backpack";
+  const MEMORY_KEY = "lernapp.memory";
   // Weichen-Wirrwarr hat zehn Level, aber fünf davon reichen für den Wagen.
   const TRACK_LEVELS_FOR_DONE = 5;
   // Beide Bestenlisten-Spiele gelten nach fünf gespielten Runden als geschafft.
@@ -282,8 +284,38 @@
     cardMatch: runsProgress(CARDMATCH_KEY, 40),
     beachTreasure: runsProgress(BEACH_KEY, 12),
     flanker: runsProgress(FLANKER_KEY, 30),
+    backpack: runsProgress(BACKPACK_KEY, 12),
     trackRouter: trackProgress,
+    // Memory zählt geschaffte Kartenzahlen statt Level: fünf Grössen stehen zur
+    // Wahl, und wer alle fünf einmal geschafft hat, hat den Wagen gebaut.
+    // Bewertet wird nichts – geschafft ist geschafft, also drei Sterne.
+    memory: levelSetProgress(MEMORY_KEY, [8, 12, 16, 20, 24]),
   };
+
+  // Ein Spiel, das eine feste Liste von Aufgaben führt und jede nur als
+  // geschafft oder nicht kennt.
+  function levelSetProgress(key, ids) {
+    return (game) => {
+      const best = readJSON(key, null)?.best || {};
+      const worlds = ids.map((id) => {
+        const stars = Math.max(0, Math.min(3, Number(best[id]?.stars) || 0));
+        return { key: `teil-${id}`, solved: stars ? 1 : 0, total: 1, stars, maxStars: 3, ratio: stars ? 1 : 0 };
+      });
+      const solved = worlds.filter((world) => world.solved).length;
+      return {
+        id: game.id,
+        title: game.title,
+        page: game.page,
+        solved,
+        total: ids.length,
+        ratio: solved / ids.length,
+        stars: worlds.reduce((sum, world) => sum + world.stars, 0),
+        maxStars: ids.length * 3,
+        unit: LEVEL_UNIT,
+        worlds,
+      };
+    };
+  }
 
   // Weichen-Wirrwarr zählt abgeschlossene Level, nicht Runden: zehn stehen zur
   // Wahl, fünf beliebige bauen den Wagen fertig. Wer die leichten fünf fährt,
@@ -328,7 +360,8 @@
     const redraw = () => document.dispatchEvent(new CustomEvent("lernapp:progress-changed"));
     cloudGames.register({ key: RUNNER_KEY, empty: { unlocked: 1, best: {} }, merge: cloudGames.mergeLevels }).onChange(redraw);
     cloudGames.register({ key: TRACK_KEY, empty: { best: {} }, merge: cloudGames.mergeLevels }).onChange(redraw);
-    [CARDMATCH_KEY, BEACH_KEY, FLANKER_KEY].forEach((key) => {
+    cloudGames.register({ key: MEMORY_KEY, empty: { best: {} }, merge: cloudGames.mergeLevels }).onChange(redraw);
+    [CARDMATCH_KEY, BEACH_KEY, FLANKER_KEY, BACKPACK_KEY].forEach((key) => {
       cloudGames.register({ key, empty: { runs: 0, scores: [] }, merge: cloudGames.mergeScores(RUNS_FOR_DONE) }).onChange(redraw);
     });
   }

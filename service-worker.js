@@ -37,6 +37,8 @@ const CORE_ASSETS = [
   `./strandschatz.js${ASSET_VERSION_QUERY}`,
   `./schwarmfokus.js${ASSET_VERSION_QUERY}`,
   `./weichen.js${ASSET_VERSION_QUERY}`,
+  `./rucksack.js${ASSET_VERSION_QUERY}`,
+  `./memory.js${ASSET_VERSION_QUERY}`,
   `./firebase.js${ASSET_VERSION_QUERY}`,
   `./pwa.js${ASSET_VERSION_QUERY}`,
   `./app.webmanifest${ASSET_VERSION_QUERY}`,

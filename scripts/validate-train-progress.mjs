@@ -114,8 +114,10 @@ for (let percent = 0; percent <= 100; percent += 1) {
 }
 
 // --- Fortschritt rechnen ----------------------------------------------------
+// Spiele mit eigenem Konto stehen nicht im Katalog – dort tut solve nichts,
+// und der Aufrufer setzt statt dessen ihren Speicher.
 function solve(gameId, count) {
-  catalog[gameId].slice(0, count).forEach((level) => {
+  (catalog[gameId] || []).slice(0, count).forEach((level) => {
     store.set(`lernapp.solved.${gameId}.${level.id || level.levelName}`, "1");
   });
 }
@@ -126,16 +128,18 @@ for (const area of train.allAreas()) {
   assert(area.ratio === 0, `${area.id} startet nicht bei 0 Prozent`);
 }
 
-// Ein einziges gelöstes Level muss den Wagen sichtbar verändern – das ist der
+// Eine einzige gelöste Aufgabe muss den Wagen sichtbar verändern – das ist der
 // Punkt der Sonderregel für Stufe 1.
-solve("memory", 1);
-assert(train.areaProgress("gedaechtnis").stage === 1, "ein gelöstes Level muss Stufe 1 geben");
+store.set("lernapp.memory", JSON.stringify({ best: { 8: { stars: 3 } } }));
+assert(train.areaProgress("gedaechtnis").stage === 1, "eine gelöste Aufgabe muss Stufe 1 geben");
 assert(train.areaProgress("konzentration").stage === 0, "andere Bereiche dürfen davon nichts merken");
 
 // Ein einzelnes Spiel komplett zu lösen darf den Wagen nicht fertig bauen:
 // Gedächtnis hat drei Spiele, ein volles Spiel ist also ein Drittel.
 store.clear();
-solve("memory", catalog.memory.length);
+store.set("lernapp.memory", JSON.stringify({
+  best: { 8: { stars: 3 }, 12: { stars: 3 }, 16: { stars: 3 }, 20: { stars: 3 }, 24: { stars: 3 } },
+}));
 const oneGame = train.areaProgress("gedaechtnis");
 const games = train.AREA_BY_ID.gedaechtnis.games.length;
 assert(Math.abs(oneGame.ratio - 1 / games) < 1e-9, `ein volles Spiel von ${games} muss ${(100 / games).toFixed(0)} % geben, ist ${oneGame.ratio}`);
@@ -143,7 +147,7 @@ assert(!oneGame.built, "ein einzelnes Spiel darf den Wagen nicht fertig bauen");
 
 // Alle Spiele eines Bereichs komplett: Wagen fertig beladen.
 store.clear();
-for (const game of train.AREA_BY_ID.zahlbuchstabe.games) solve(game.id, catalog[game.id].length);
+for (const game of train.AREA_BY_ID.zahlbuchstabe.games) solve(game.id, (catalog[game.id] || []).length);
 const full = train.areaProgress("zahlbuchstabe");
 assert(full.ratio === 1, `voller Bereich muss 100 % geben, ist ${full.ratio}`);
 assert(full.stage === train.STAGE_COUNT, "voller Bereich muss die letzte Stufe geben");
@@ -237,7 +241,29 @@ const RUNDEN_SPIELE = [
   { id: "cardMatch", key: "lernapp.cardmatch", name: "Karten-Merker", drei: 40, einer: 8 },
   { id: "beachTreasure", key: "lernapp.beachtreasure", name: "Strand-Schätze", drei: 12, einer: 2 },
   { id: "flanker", key: "lernapp.flanker", name: "Schwarm-Fokus", drei: 30, einer: 6 },
+  { id: "backpack", key: "lernapp.backpack", name: "Rucksack packen", drei: 12, einer: 2 },
 ];
+
+// --- Memory -----------------------------------------------------------------
+// Fünf Kartenzahlen zur Wahl, jede nur geschafft oder nicht. Wer alle fünf
+// einmal geschafft hat, hat den Wagen gebaut.
+store.clear();
+const memLeer = train.gameProgress("memory");
+assert(memLeer.total === 5, `Memory muss 5 Grössen melden, meldet ${memLeer.total}`);
+assert(memLeer.solved === 0, "ohne gespielte Grösse darf nichts gelöst sein");
+
+store.set("lernapp.memory", JSON.stringify({ best: { 8: { stars: 3 }, 16: { stars: 3 } } }));
+const memZwei = train.gameProgress("memory");
+assert(memZwei.solved === 2, `zwei Grössen müssen 2 ergeben, ergeben ${memZwei.solved}`);
+assert(Math.abs(memZwei.ratio - 0.4) < 1e-9, `zwei von fünf sind 40 %, gefunden ${memZwei.ratio}`);
+assert(memZwei.stars === 6, `geschafft gibt je drei Sterne, erwartet 6, gefunden ${memZwei.stars}`);
+assert(memZwei.worlds.length === 5, "Memory braucht ein Band je Grösse");
+
+// Eine Grösse zweimal spielen bringt nichts dazu – es geht um fünf verschiedene.
+store.set("lernapp.memory", JSON.stringify({
+  best: { 8: { stars: 3 }, 12: { stars: 3 }, 16: { stars: 3 }, 20: { stars: 3 }, 24: { stars: 3 } },
+}));
+assert(train.gameProgress("memory").ratio === 1, "alle fünf Grössen müssen das Spiel abschliessen");
 
 for (const spiel of RUNDEN_SPIELE) {
   store.clear();
@@ -277,7 +303,7 @@ assert(train.gameProgress("beachTreasure").stars === 3, "12 Schätze sind am Str
 const eigeneKonten = new Set(
   train.AREAS.flatMap((area) => area.games.filter((game) => game.ownProgress).map((game) => game.id)),
 );
-assert(eigeneKonten.size === 5, `erwartet 5 Spiele mit eigenem Konto, gefunden ${eigeneKonten.size}`);
+assert(eigeneKonten.size === 7, `erwartet 7 Spiele mit eigenem Konto, gefunden ${eigeneKonten.size}`);
 store.clear();
 for (const area of train.allAreas()) {
   for (const game of area.games) {
@@ -294,6 +320,6 @@ for (const area of train.allAreas()) {
 const alle = train.trainProgress();
 assert(alle.areas.length === 5, "trainProgress muss fünf Bereiche melden");
 const gesamt = alle.areas.reduce((sum, area) => sum + area.total, 0);
-assert(gesamt === 394, `erwartet 394 Aufgaben über alle Bereiche, gefunden ${gesamt}`);
+assert(gesamt === 360, `erwartet 360 Aufgaben über alle Bereiche, gefunden ${gesamt}`);
 
 console.log(`Zug-Fortschritt geprüft: 5 Bereiche, ${seen.size} Spiele, ${gesamt} Levels.`);

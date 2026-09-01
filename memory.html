@@ -4,62 +4,34 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="application-name" content="Lernapp" />
-    <meta name="description" content="Memory ist ein Merkspiel für Kinder mit Paaren und Zügen." />
+    <meta name="description" content="Memory: decke zwei Karten auf und finde alle Paare." />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Lernapp" />
-    <meta name="theme-color" content="#6c5ce7" />
+    <meta name="theme-color" content="#a8ddf0" />
     <title>Memory · Lernapp</title>
     <link rel="stylesheet" href="styles.css?v=2026-09-03-1" />
     <link rel="manifest" href="app.webmanifest?v=2026-09-03-1" />
     <link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon-180.png" />
   </head>
-  <body data-game-page="memory">
-    <main class="app-shell">
-      <section class="hero" aria-labelledby="app-title">
-        <h1 id="app-title">Memory</h1>
-      </section>
+  <body data-page="memory">
+    <!-- Die Bühne baut memory.js: dieselbe Landschaft wie das Startbild, darauf
+         die Karten. Bewusst leer im HTML – hier steht kein Wort, das ein Kind
+         lesen müsste, ausser dem Namen des Spiels. -->
+    <div id="me-stage" class="cm-stage me-stage" aria-label="Memory"></div>
 
-      <section id="level-panel" class="start-panel" aria-label="Memory Schwierigkeit auswählen">
-        <div class="start-copy">
-          <p class="small-label">Merken & Paare finden</p>
-          <h2 id="level-heading">Schwierigkeit wählen</h2>
-          <p id="level-description"></p>
-        </div>
-        <div id="level-grid" class="level-grid" aria-label="Memory starten"></div>
-      </section>
-
-      <section id="game-panel" class="game-panel" hidden>
-        <div id="game-controls" class="controls" aria-label="Spielsteuerung" hidden>
-          <a id="home-button" class="icon-button" href="index.html" aria-label="Zurück zur Spielauswahl" title="Zurück zur Spielauswahl">⌂</a>
-          <button id="back-button" class="icon-button" type="button" aria-label="Zurück zur Auswahl" title="Zurück zur Auswahl">⇤</button>
-          <button id="reset-button" class="icon-button" type="button" aria-label="Level neu starten" title="Level neu starten">↻</button>
-        </div>
-
-        <section class="game-card">
-          <div class="status-row">
-            <div>
-              <p class="small-label">Aktuelles Level</p>
-              <h2 id="puzzle-title">Memory</h2>
-              <p id="puzzle-description" class="puzzle-description"></p>
-            </div>
-            <p id="status" class="status" role="status" aria-live="polite">Wähle eine Schwierigkeit aus.</p>
-          </div>
-
-          <div id="board" class="board" aria-label="Memory Spielfeld"></div>
-          <div id="number-pad" class="number-pad" aria-label="Auswahl" hidden></div>
-        </section>
-      </section>
-    </main>
     <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore-compat.js"></script>
     <script src="firebase.js?v=2026-09-03-1"></script>
-    <script src="spatial-puzzles.js?v=2026-09-03-1"></script>
     <script src="kids.js?v=2026-09-03-1"></script>
-    <script src="app.js?v=2026-09-03-1"></script>
+    <script src="train-art.js?v=2026-09-03-1"></script>
+    <script src="train-scenes.js?v=2026-09-03-1"></script>
+    <script src="game-cloud.js?v=2026-09-03-1"></script>
+    <script src="game-shell.js?v=2026-09-03-1"></script>
+    <script src="memory.js?v=2026-09-03-1"></script>
     <script src="pwa.js?v=2026-09-03-1"></script>
   </body>
 </html>
