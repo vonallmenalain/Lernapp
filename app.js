@@ -1581,21 +1581,34 @@ function updateActiveBoardLayout() {
   if (numberPadBesideBoard) availableWidth = Math.max(0, contentWidth - outerInlineSize(numberPad) - rowGap);
   else if (numberPadVisible) reservedBottom += outerBlockSize(numberPad) + rowGap;
 
-  const availableHeight = Math.max(0, contentBottom - boardTop - reservedBottom - 4);
-  const currentRect = board.getBoundingClientRect();
-  const blockRatio = currentGame === "bimaru" ? 1 : (currentRect.width > 0 ? Math.max(1, currentRect.height / currentRect.width) : 1);
+  const availableHeight = Math.max(0, contentBottom - boardTop - reservedBottom - 6);
   const maxBoardWidth = currentGame === "bimaru" ? 760 : 860;
-  const measuredSize = Math.floor(Math.min(availableWidth, availableHeight / blockRatio, maxBoardWidth));
-  const measuredOffset = Math.max(0, Math.ceil(boardTop - currentRect.top));
+  const sizeFor = () => {
+    const rect = board.getBoundingClientRect();
+    const blockRatio = currentGame === "bimaru" ? 1 : (rect.width > 0 ? Math.max(1, rect.height / rect.width) : 1);
+    return Math.floor(Math.min(availableWidth, availableHeight / blockRatio, maxBoardWidth));
+  };
 
-  if (Number.isFinite(measuredSize) && measuredSize > 0) {
-    board.style.setProperty("--active-board-size", `${measuredSize}px`);
+  // Zwei Durchgänge. Die Schrift in den Feldern hängt an der Brettgrösse, und
+  // bevor die feststeht, ist sie gross: die Reihen sind dann höher als breit,
+  // und das Brett wird nach diesem Verhältnis zu klein gerechnet. Ist die
+  // Grösse einmal gesetzt, schrumpft die Schrift mit, die Reihen werden
+  // quadratisch – und der zweite Durchgang misst das richtige Verhältnis.
+  const firstSize = sizeFor();
+  if (Number.isFinite(firstSize) && firstSize > 0) {
+    board.style.setProperty("--active-board-size", `${firstSize}px`);
+    const secondSize = sizeFor();
+    if (Number.isFinite(secondSize) && secondSize > 0 && secondSize !== firstSize) {
+      board.style.setProperty("--active-board-size", `${secondSize}px`);
+    }
   }
-  if (Number.isFinite(measuredOffset) && measuredOffset > 0) {
-    board.style.setProperty("--active-board-offset", `${measuredOffset}px`);
-  } else {
-    board.style.removeProperty("--active-board-offset");
-  }
+  // Kein zusätzlicher Abstand nach oben: das Brett steht in seiner eigenen
+  // Rasterzeile unter der Titelzeile und kann gar nicht darüber rutschen. Hier
+  // wurde früher gemessen, wie weit das Brett über die Zeile hinausragte – ein
+  // zu grosses Brett, das die Zeile mittig sprengt, ragt aber oben wie unten
+  // hinaus, und der Abstand, der daraus wurde, schob das dann passend
+  // geschrumpfte Brett unten über den Rand der Karte.
+  board.style.removeProperty("--active-board-offset");
 }
 
 function scheduleActiveBoardLayout() {
@@ -1622,6 +1635,23 @@ function currentSolveResult() {
   }
   return result;
 }
+// Zu welchem Bereich des Zugs ein Rätsel gehört. Der Pfeil zurück führt dorthin,
+// wo das Kind hergekommen ist: in die Spielauswahl seines Bereichs – so wie in
+// den anderen Spielen auch. Das Haus daneben führt aufs Startbild.
+const AREA_BY_GAME = {
+  arukone: "problemloesen",
+  bimaru: "problemloesen",
+  shikaku: "problemloesen",
+  spatialPuzzle: "problemloesen",
+  kakuro: "zahlbuchstabe",
+  hidoku: "zahlbuchstabe",
+  readingPuzzle: "zahlbuchstabe",
+  letterPuzzle: "zahlbuchstabe",
+};
+function areaHref() {
+  const area = AREA_BY_GAME[currentGame];
+  return area ? `index.html?bereich=${encodeURIComponent(area)}` : "index.html";
+}
 // Ein Weg zurück gehört auf jeden Bildschirm, nicht nur ins Rätsel. Hier stand
 // er früher als Textzeile im Vorspann – und der Vorspann fällt auf der
 // Landschaft weg, die Textzeile mit ihm. Damit sass ein Kind in der Levelwahl
@@ -1638,8 +1668,8 @@ function renderSelectionActions(mode) {
   homeLink.className = "icon-button home-back-button";
   homeLink.href = "index.html";
   homeLink.textContent = "⌂";
-  homeLink.setAttribute("aria-label", "Zurück zur Auswahl der Rätsel");
-  homeLink.title = "Zurück zur Auswahl der Rätsel";
+  homeLink.setAttribute("aria-label", "Zur Startseite");
+  homeLink.title = "Zur Startseite";
   actions.append(homeLink);
   if (mode === "levels") {
     const difficultyButton = document.createElement("button");
@@ -1650,6 +1680,16 @@ function renderSelectionActions(mode) {
     difficultyButton.title = "Zurück zur Schwierigkeit";
     difficultyButton.addEventListener("click", showDifficultySelect);
     actions.append(difficultyButton);
+  } else {
+    // Auf der ersten Stufe führt der Pfeil eine Stufe zurück: in die
+    // Spielauswahl des Bereichs, nicht gleich aufs Startbild.
+    const areaLink = document.createElement("a");
+    areaLink.className = "icon-button";
+    areaLink.href = areaHref();
+    areaLink.textContent = "⇤";
+    areaLink.setAttribute("aria-label", "Zurück zur Spielauswahl");
+    areaLink.title = "Zurück zur Spielauswahl";
+    actions.append(areaLink);
   }
   // Voranstellen statt hinter den Vorspann hängen: fehlte der Vorspann, fiel
   // der Weg zurück vorher stillschweigend ganz weg.

@@ -931,7 +931,9 @@
     }, [
       // Unsichtbare Trefferfläche über dem ganzen Tor – so ist das Ziel gross
       // und ändert sich nicht, wenn das Tor beim Hovern wächst.
-      el("rect", { x: -8, y: -8, width: GATE_W + 16, height: GATE_H + 16, rx: 16, fill: "transparent", class: "train-gate-hit" }),
+      // Die Trefferfläche ragt nur wenig über das Tor hinaus: die Tore stehen
+      // dicht gestaffelt, und zwei Trefferflächen dürfen sich nicht berühren.
+      el("rect", { x: -4, y: -8, width: GATE_W + 8, height: GATE_H + 16, rx: 16, fill: "transparent", class: "train-gate-hit" }),
       // Das Innere der Halle. Ohne diese Fläche wäre der Bogen ein Loch, und
       // durch das Loch sähe man alle Gleise, die hinter dem Tor vorbeiführen –
       // fünf Tore, durch die je vier fremde Gleise laufen. Mit dem dunklen

@@ -545,7 +545,13 @@ body.puzzle-active .game-card {
   height: 100%;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: max-content max-content minmax(0, 1fr) max-content;
+  /* Zwei feste Zeilen: die Titelzeile und das Spielfeld. Das Zahlenfeld
+     kommt, wenn es da ist, als dritte Zeile von selbst dazu. Vorher standen
+     hier vier Zeilen, zwei davon leer – und der Abstand zwischen den Zeilen
+     zählt auch bei leeren. Das Spielfeld war dadurch ein paar Bildpunkte zu
+     hoch für die Karte, und die Karte bekam einen Rollbalken. */
+  grid-template-rows: max-content minmax(0, 1fr);
+  grid-auto-rows: max-content;
   gap: clamp(6px, 1.2vh, 10px);
   justify-items: center;
   align-items: start;
@@ -584,7 +590,7 @@ body.puzzle-active #puzzle-title {
 }
 
 body.puzzle-active .board {
-  grid-row: 3;
+  grid-row: 2;
   width: var(--active-board-size, min(calc(100vw - 36px), calc(100vh - 78px)));
   max-width: 860px;
   margin-top: var(--active-board-offset, 0px);
@@ -609,7 +615,7 @@ body.puzzle-active .cell {
 }
 
 body.puzzle-active .number-pad {
-  grid-row: 4;
+  grid-row: 3;
   position: static;
   z-index: auto;
   align-self: start;
@@ -1914,7 +1920,7 @@ body.puzzle-active .spatialPuzzle-board .spatial-option-graphic > svg {
 @media (orientation: landscape) and (max-height: 540px) {
   body.puzzle-active.number-pad-open .game-card {
     grid-template-columns: minmax(0, 1fr) auto;
-    grid-template-rows: max-content max-content minmax(0, 1fr);
+    grid-template-rows: max-content minmax(0, 1fr);
     column-gap: 8px;
   }
 
@@ -1924,13 +1930,13 @@ body.puzzle-active .spatialPuzzle-board .spatial-option-graphic > svg {
 
   body.puzzle-active.number-pad-open .board {
     grid-column: 1;
-    grid-row: 3;
+    grid-row: 2;
     justify-self: end;
   }
 
   body.puzzle-active.number-pad-open .number-pad {
     grid-column: 2;
-    grid-row: 3;
+    grid-row: 2;
     align-self: start;
     justify-self: start;
     grid-template-columns: repeat(var(--pad-cols, 3), minmax(34px, 42px));
@@ -3789,10 +3795,12 @@ body[data-page="train"].list-open { overflow: auto; }
    gezeichneten Wagen und die Lok selbst. Zwischen ihnen und um sie herum geht
    der Tipp hindurch zur Halle. */
 .train-stage:not([data-view="home"]) .train-band .train-svg { pointer-events: none; }
-.train-stage[data-view="areas"] .train-band .train-wagon,
-.train-stage[data-view="areas"] .train-band .train-loco,
 .train-stage[data-view="games"] .train-band .train-wagon,
 .train-stage[data-view="games"] .train-band .train-loco { pointer-events: auto; }
+/* Vor den Toren nimmt der Zug keine Tipps entgegen: er wartet genau unter dem
+   ersten Tor, und ein Tipp dorthin soll das Tor treffen, nicht die Lok. */
+.train-stage[data-view="areas"] .train-band .train-wagon,
+.train-stage[data-view="areas"] .train-band .train-loco { pointer-events: none; cursor: default; }
 
 .train-wagon, .train-loco { cursor: pointer; }
 
@@ -3822,8 +3830,10 @@ body[data-page="train"].list-open { overflow: auto; }
 .train-start {
   position: absolute;
   z-index: 4;
-  width: 74px;
-  height: 74px;
+  /* Auf einem schmalen Bildschirm etwas kleiner: der Platz vor der Lok ist
+     dort knapp, und der Knopf soll vor ihr schweben, nicht auf ihr. */
+  width: clamp(58px, 11vw, 74px);
+  height: clamp(58px, 11vw, 74px);
   padding: 0;
   border: none;
   border-radius: 50%;
@@ -3923,6 +3933,18 @@ body[data-page="train"].list-open { overflow: auto; }
      breiten Fenster bliebe links und rechts sonst ein Stück Gleis fehlend. */
   overflow: visible;
   animation: stage-layer-in 0.5s ease both;
+}
+
+/* Auf einem flachen Bildschirm wird die Ebene in der Breite eingepasst und
+   reicht damit fast bis an den oberen Rand – das oberste Tor lag dort unter
+   den Knöpfen für Ton und Konto. Deshalb bekommt sie unter der Leiste ihren
+   Platz: sie wird etwas kleiner und sitzt weiter unten, das Gleis bleibt am
+   unteren Rand. */
+@media (max-height: 600px) {
+  .stage-layer .stage-svg {
+    height: calc(100% - var(--safe-top) - 68px);
+    align-self: end;
+  }
 }
 
 .stage-layer .train-gate,
@@ -4734,19 +4756,32 @@ body[data-page="train"] .help-voice { display: none; }
   z-index: 12;
   display: grid;
   place-items: center;
-  padding: 16px;
+  padding: calc(var(--safe-top) + 12px) calc(var(--safe-right) + 12px) calc(var(--safe-bottom) + 12px) calc(var(--safe-left) + 12px);
   background: rgba(23, 34, 42, 0.5);
   backdrop-filter: blur(3px);
-  cursor: pointer;
   animation: wagon-reward-in 0.24s ease both;
 }
+/* Zum Antippen wird die Feier erst, wenn sie durch ist. */
+.wagon-reward.is-done { cursor: pointer; }
 
+/* Die Tafel liegt quer, wie der Bildschirm: links der Wagen, rechts Name,
+   Balken und Knopf. Der Wagen ist fast quadratisch – untereinander gestapelt
+   ragte er auf einem Handy weit unter den Rand, und der Knopf mit ihm. */
 .wagon-reward-card {
-  width: min(560px, 92vw);
+  width: min(680px, 100%);
+  max-height: 100%;
   display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-areas:
+    "bild titel"
+    "bild balken"
+    "bild note"
+    "bild weiter";
+  align-items: center;
   justify-items: center;
-  gap: clamp(6px, 1.6vh, 14px);
-  padding: clamp(14px, 3vh, 26px) clamp(16px, 3vw, 30px);
+  column-gap: clamp(12px, 3vw, 30px);
+  row-gap: clamp(6px, 1.8vh, 14px);
+  padding: clamp(12px, 3vh, 26px) clamp(14px, 3vw, 30px);
   border-radius: 28px;
   background: #fff;
   box-shadow: 0 22px 60px rgba(31, 42, 51, 0.4);
@@ -4754,23 +4789,27 @@ body[data-page="train"] .help-voice { display: none; }
 }
 
 .wagon-reward-title {
+  grid-area: titel;
   margin: 0;
-  font-size: clamp(1rem, 2.6vw, 1.4rem);
+  font-size: clamp(1.05rem, 2.8vw, 1.5rem);
   font-weight: 950;
   color: var(--reward-color, #6c5ce7);
   letter-spacing: 0.02em;
+  text-align: center;
 }
 
-.wagon-reward-stage { width: 100%; display: grid; place-items: center; }
-.wagon-reward-svg { width: min(420px, 100%); height: auto; }
+.wagon-reward-stage { grid-area: bild; display: grid; place-items: center; }
+/* Die Höhe entscheidet: sie ist auf dem Handy das knappe Mass. */
+.wagon-reward-svg { height: clamp(120px, 54vh, 320px); width: auto; max-width: 40vw; display: block; }
 
 /* Wenn die Bauart eine Stufe springt, hüpft der Wagen einmal – so ist zu
    sehen, dass gerade etwas dazugekommen ist. */
 .wagon-reward-stage.is-pop { animation: wagon-reward-step 0.42s ease both; }
 
 .wagon-reward-bar {
+  grid-area: balken;
   width: 100%;
-  height: 14px;
+  height: clamp(10px, 2.4vh, 14px);
   border-radius: 999px;
   background: #e8ecf2;
   overflow: hidden;
@@ -4781,15 +4820,54 @@ body[data-page="train"] .help-voice { display: none; }
   height: 100%;
   border-radius: 999px;
   background: var(--reward-color, #6c5ce7);
-  transition: width 2.6s cubic-bezier(0.25, 0.9, 0.3, 1);
+  transition: width var(--reward-fill, 2.4s) cubic-bezier(0.25, 0.9, 0.3, 1);
 }
 
 .wagon-reward-note {
+  grid-area: note;
   margin: 0;
   font-size: clamp(0.95rem, 2.2vw, 1.2rem);
   font-weight: 800;
   color: #4a5b52;
+  text-align: center;
 }
+
+/* Der Weiter-Knopf: rund und grün wie das Startsignal, mit einem Haken darin.
+   Er kommt erst, wenn die Feier durch ist, und pulst dann wie der Startknopf –
+   dasselbe Zeichen für dasselbe: hier geht es weiter. */
+.wagon-reward-next {
+  grid-area: weiter;
+  position: relative;
+  width: clamp(52px, 13vh, 68px);
+  height: clamp(52px, 13vh, 68px);
+  padding: 0;
+  border: 3px solid #fff;
+  border-radius: 50%;
+  background: #3fbf74;
+  color: #fff;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  box-shadow: 0 8px 20px rgba(36, 48, 71, 0.26);
+  opacity: 0;
+  transform: scale(0.6);
+  pointer-events: none;
+  transition: opacity 0.3s ease, transform 0.3s cubic-bezier(0.2, 1.3, 0.4, 1);
+}
+.wagon-reward-next svg { width: 58%; height: 58%; display: block; }
+.wagon-reward-next::after {
+  content: "";
+  position: absolute;
+  inset: -7px;
+  border-radius: 50%;
+  border: 3px solid #3fbf74;
+  opacity: 0;
+  pointer-events: none;
+}
+.wagon-reward.is-done .wagon-reward-next { opacity: 1; transform: none; pointer-events: auto; }
+.wagon-reward.is-done .wagon-reward-next::after { animation: cm-pulse 2.1s ease-in-out infinite; }
+.wagon-reward-next:active { transform: scale(0.93); }
+.wagon-reward-next:focus-visible { outline: 3px solid #243047; outline-offset: 4px; }
 
 @keyframes wagon-reward-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes wagon-reward-pop {
@@ -4802,9 +4880,10 @@ body[data-page="train"] .help-voice { display: none; }
   100% { transform: scale(1); }
 }
 
-/* Die neue Landschaft: dasselbe Fenster, statt des Wagens ihr Vorschaubild. */
+/* Die neue Landschaft: dieselbe Tafel, statt des Wagens ihr Vorschaubild. */
 .scene-reward-thumb {
-  width: min(340px, 82%);
+  grid-area: bild;
+  width: clamp(150px, 32vw, 340px);
   border-radius: 20px;
   overflow: hidden;
   box-shadow: 0 10px 24px rgba(31, 42, 51, 0.28);
@@ -4821,6 +4900,8 @@ body[data-page="train"] .help-voice { display: none; }
 @media (prefers-reduced-motion: reduce) {
   .wagon-reward, .wagon-reward-card, .wagon-reward-stage.is-pop { animation: none; }
   .wagon-reward-fill { transition: none; }
+  .wagon-reward-next { transition: none; }
+  .wagon-reward.is-done .wagon-reward-next::after { animation: none; opacity: 0.5; }
   .scene-reward-thumb { animation: none; }
 }
 
@@ -5833,4 +5914,352 @@ body.has-scene.puzzle-active .app-shell { padding-top: calc(var(--safe-top) + 74
      und das Wippen fällt ganz weg. */
   .bs-demo-chip.is-treibt .bs-demo-blatt { animation-duration: 5s; }
   .bs-demo-chip.is-zeigt .bs-demo-blatt { animation: none; }
+}
+
+/* ===========================================================================
+   Handy quer: alles passt aufs Bild
+   ---------------------------------------------------------------------------
+   Die App läuft auf dem Handy im Querformat, und dort ist die Höhe das knappe
+   Mass: 320 bis 412 Bildpunkte, mehr nicht. Nichts darf scrollen – kein
+   Bildschirm, kein Kasten darin –, und kein Knopf darf unter dem Rand liegen.
+   Was hier steht, hängt deshalb an der Bildschirmhöhe, nicht an der Breite:
+   auf einem Tablet gilt weiter das Bild von oben.
+
+   Geprüft wird das mit scripts/check-handy.mjs, das jede Seite in mehreren
+   Handy-Grössen anfährt und misst.
+   =========================================================================== */
+
+/* --- Rätselseiten: Weltwahl und Levelwahl ohne Scrollen --- */
+
+/* Die Auswahl steht auf dem ganzen Bildschirm, mittig, und wächst nicht
+   darüber hinaus. Vorher war sie ein normaler Seitenfluss – vier Welten
+   untereinander, drei Reihen Level – und scrollte auf jedem Handy. */
+body.has-scene:not(.puzzle-active) {
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+}
+
+body.has-scene:not(.puzzle-active) .app-shell {
+  width: 100%;
+  max-width: none;
+  height: 100vh;
+  height: 100dvh;
+  margin: 0;
+  padding: calc(var(--safe-top) + 72px) calc(var(--safe-right) + 12px) calc(var(--safe-bottom) + 10px) calc(var(--safe-left) + 12px);
+  display: grid;
+  align-items: center;
+  justify-items: center;
+}
+
+body.has-scene .start-panel {
+  width: min(100%, 960px);
+  max-width: none;
+  padding: 0;
+  gap: 0;
+}
+
+/* Die Knöpfe oben links stehen nebeneinander – nie untereinander, wo der
+   zweite über die erste Kachel liefe. */
+body.has-scene .selection-actions.controls {
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: center;
+}
+body.has-scene .selection-actions.controls > * { width: 48px; }
+
+/* Vier Welten nebeneinander, so hoch wie der Platz erlaubt. Auf schmalen
+   Fenstern stapelte eine Regel weiter oben sie untereinander – auf einem
+   Handy quer ist das Fenster schmal und flach zugleich, und untereinander
+   ist dann der falsche Weg. */
+body.has-scene .difficulty-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: clamp(8px, 1.6vw, 18px);
+  width: 100%;
+}
+
+body.has-scene .difficulty-card {
+  min-height: 0;
+  height: clamp(110px, calc(100vh - var(--safe-top) - var(--safe-bottom) - 100px), 230px);
+  display: grid;
+  grid-template-columns: none;
+  grid-template-rows: none;
+  place-items: center;
+  align-content: center;
+  justify-items: center;
+  gap: clamp(2px, 1vh, 8px);
+  padding: clamp(6px, 1.4vh, 14px) clamp(6px, 1vw, 14px);
+  text-align: center;
+  border-width: 4px;
+}
+
+body.has-scene .difficulty-icon {
+  grid-row: auto;
+  grid-column: auto;
+  align-self: auto;
+  width: clamp(40px, 12vh, 76px);
+  height: clamp(40px, 12vh, 76px);
+  font-size: clamp(1.4rem, 6.5vh, 3rem);
+}
+
+body.has-scene .difficulty-name {
+  grid-row: auto;
+  grid-column: auto;
+  align-self: auto;
+  font-size: clamp(0.95rem, 3.8vh, 1.5rem);
+}
+
+body.has-scene .difficulty-card small {
+  grid-row: auto;
+  grid-column: auto;
+  align-self: auto;
+  font-size: clamp(0.62rem, 2.5vh, 0.9rem);
+}
+
+/* Zehn Level in zwei Reihen zu fünf. Die Kacheln teilen sich die Höhe, die
+   unter der Leiste übrig bleibt. */
+body.has-scene .level-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: clamp(6px, 1.4vw, 14px);
+  width: min(100%, 760px);
+  margin: 0 auto;
+}
+
+body.has-scene .level-tile {
+  flex: none;
+  min-width: 0;
+  min-height: 0;
+  height: clamp(58px, calc((100vh - var(--safe-top) - var(--safe-bottom) - 110px) / 2), 124px);
+  padding: 4px;
+  gap: 2px;
+  border-radius: clamp(12px, 3vh, 22px);
+  border-width: 3px;
+}
+
+body.has-scene .level-tile span { font-size: clamp(1.1rem, 5.5vh, 1.75rem); }
+body.has-scene .level-tile small { font-size: clamp(0.65rem, 2.5vh, 0.9rem); }
+body.has-scene .level-tile small.lock-icon { font-size: clamp(0.9rem, 3.8vh, 1.15rem); }
+body.has-scene .level-tile .star-row-small .star { font-size: clamp(0.7rem, 3vh, 1rem); }
+
+/* --- Die Bühne der Spiele: Titel, Ergebnis, Tier-Sprung-Karte --- */
+
+/* Der Titel steht in der Leiste zwischen den Knöpfen und dem Zähler, nicht
+   mehr frei über der Bildmitte: dort lief er auf dem Handy über den dritten
+   Knopf. Wird es eng, wird er abgeschnitten – lieber drei Punkte als ein
+   Knopf, der nicht mehr zu treffen ist. */
+@media (max-width: 1100px) {
+  .cm-title {
+    position: static;
+    transform: none;
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-align: center;
+    font-size: clamp(0.95rem, 2.2vw, 1.4rem);
+  }
+}
+
+/* Der Zurück-Knopf sitzt oben links; unten braucht niemand mehr Platz für
+   ihn. Der breite Rand liess die Reihen auf dem Handy umbrechen. */
+.loco-row,
+.wagon-shelf { padding-inline: clamp(12px, 3vw, 40px); }
+
+/* Die Tiere der Levelwahl wachsen mit der Bildschirmhöhe, nicht mit einer
+   festen Zahl: zwei Reihen zu fünf plus Startknopf müssen unter die Leiste
+   passen. */
+.runner-level-art { width: 96px; height: 84px; }
+.ts-stage .runner-level-art-slot { height: auto; }
+.ts-stage .runner-level-art { width: clamp(44px, 12vh, 84px); height: auto; aspect-ratio: 8 / 7; }
+.ts-stage .runner-level-badge { width: 22px; height: 22px; font-size: 0.72rem; top: 4px; left: 5px; }
+.ts-stage .cm-start { min-height: clamp(46px, 13vh, 66px); }
+
+/* Auf einem flachen Bildschirm liegt die Ergebnistafel quer: links Punkte,
+   Satz und Knöpfe, rechts die Bestenliste. Untereinander brauchte sie mehr
+   Höhe, als da ist, und bekam einen Rollbalken – die Knöpfe lagen dann unten
+   ausserhalb, und ein Kind musste erst wischen, um weiterzukommen. */
+@media (max-height: 600px) {
+  .cm-overlay {
+    padding: calc(var(--safe-top) + 72px) calc(var(--safe-right) + 12px) calc(var(--safe-bottom) + 10px) calc(var(--safe-left) + 12px);
+  }
+
+  .cm-panel {
+    width: min(660px, 100%);
+    padding: 10px 18px 12px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "label liste"
+      "wert liste"
+      "detail liste"
+      "note liste"
+      "knoepfe liste";
+    column-gap: 20px;
+    row-gap: clamp(2px, 1.2vh, 6px);
+    align-items: center;
+    align-content: center;
+    justify-items: center;
+    overflow: hidden;
+  }
+
+  .cm-result-label { grid-area: label; font-size: 0.85rem; }
+  .cm-result-score { grid-area: wert; font-size: clamp(2.2rem, 13vh, 3.6rem); }
+  .cm-result-stars { grid-area: wert; margin: 0; }
+  .cm-result-star svg { width: clamp(34px, 9vh, 50px); }
+  .cm-result-detail { grid-area: detail; font-size: 0.95rem; }
+  .cm-panel .cm-runs { grid-area: note; font-size: 0.9rem; }
+  .cm-actions { grid-area: knoepfe; margin-top: 2px; }
+  .cm-scores { grid-area: liste; width: clamp(150px, 26vw, 220px); gap: 3px; }
+  .cm-score-item { padding: 3px 10px; font-size: 0.9rem; }
+  .cm-score-value { font-size: 1rem; }
+  .cm-icon.big { width: 56px; height: 56px; }
+  .cm-icon.big svg { width: 28px; height: 28px; }
+}
+
+/* --- Rätselseiten: der Erfolgsdialog --- */
+
+/* Quer statt hoch: links Fino, rechts Titel, Sterne und Satz, darunter die
+   beiden Knöpfe in einer Reihe. Hochkant war der Dialog auf dem Handy oben
+   und unten abgeschnitten – samt der Knöpfe, mit denen es weitergeht. */
+@media (max-height: 600px) {
+  .success-overlay { padding: 10px; }
+
+  .success-modal {
+    width: min(600px, 100%);
+    max-height: 100%;
+    padding: 12px 18px 14px;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-areas:
+      "bild titel"
+      "bild sterne"
+      "bild note"
+      "knoepfe knoepfe";
+    column-gap: 18px;
+    row-gap: 4px;
+    align-items: center;
+    text-align: left;
+  }
+
+  #success-title { grid-area: titel; margin: 0; font-size: clamp(1.5rem, 8vh, 2.2rem); }
+  .success-content { display: contents; }
+  .success-content .success-mascot { grid-area: bild; width: clamp(64px, 24vh, 100px); margin: 0; }
+  .success-content .success-stars { grid-area: sterne; margin: 0; }
+  .success-content .success-stars .star-row { justify-content: flex-start; }
+  .success-content .success-note { grid-area: note; margin: 0; font-size: 1rem; }
+  .success-actions { grid-area: knoepfe; margin-top: 8px; gap: 12px; }
+  .success-text-button { min-height: 50px; font-size: 1rem; }
+}
+
+/* --- Rätselseiten: Buchstabenjagd und Wortdetektiv --- */
+
+/* Bild und Frage links, die Antwortkarten rechts. Untereinander lagen die
+   Karten auf dem Handy unter dem Rand des Spielfelds – und das sind die
+   Karten, auf die getippt werden muss. */
+@media (max-height: 600px) {
+  body.puzzle-active .letterPuzzle-board,
+  body.puzzle-active .readingPuzzle-board {
+    height: 100%;
+    align-self: stretch;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      "punkte punkte"
+      "frage antworten"
+      "hinweis antworten";
+    gap: 4px 16px;
+    overflow: hidden;
+  }
+
+  body.puzzle-active .letterPuzzle-board .practice-progress-row,
+  body.puzzle-active .readingPuzzle-board .practice-progress-row { grid-area: punkte; }
+
+  body.puzzle-active .letterPuzzle-board .practice-task,
+  body.puzzle-active .readingPuzzle-board .practice-task {
+    grid-area: frage;
+    min-height: 0;
+    align-content: center;
+    gap: clamp(2px, 1vh, 8px);
+  }
+
+  body.puzzle-active .letterPuzzle-board .practice-options,
+  body.puzzle-active .readingPuzzle-board .practice-options {
+    grid-area: antworten;
+    align-self: center;
+    gap: clamp(6px, 1.4vh, 10px);
+  }
+  body.puzzle-active .readingPuzzle-board .practice-options { grid-template-columns: 1fr; }
+  body.puzzle-active .letterPuzzle-board .practice-options { grid-template-columns: repeat(var(--option-count, 3), minmax(0, 1fr)); }
+
+  body.puzzle-active .letterPuzzle-board .practice-feedback,
+  body.puzzle-active .readingPuzzle-board .practice-feedback {
+    grid-area: hinweis;
+    min-height: 0;
+    gap: 4px;
+  }
+  body.puzzle-active .readingPuzzle-board .practice-feedback strong { font-size: 1.1rem; }
+  body.puzzle-active .readingPuzzle-board .practice-feedback p { font-size: 0.95rem; }
+
+  body.puzzle-active .practice-option {
+    min-height: clamp(40px, 12vh, 62px);
+    padding: 4px 10px;
+    border-width: 3px;
+    font-size: clamp(1.05rem, 5vh, 1.6rem);
+  }
+  body.puzzle-active .readingPuzzle-board .practice-option { font-size: clamp(0.95rem, 4.4vh, 1.35rem); }
+
+  body.puzzle-active .letter-image { font-size: clamp(2.2rem, 16vh, 5rem); }
+  body.puzzle-active .letter-word { font-size: clamp(1.1rem, 5.5vh, 1.6rem); }
+  body.puzzle-active .letter-question { font-size: clamp(0.9rem, 4vh, 1.15rem); }
+
+  body.puzzle-active .reading-image {
+    width: clamp(56px, 22vh, 140px);
+    border-radius: 18px;
+    border-width: 3px;
+    font-size: clamp(2rem, 13vh, 5rem);
+  }
+  body.puzzle-active .reading-prompt { font-size: clamp(0.95rem, 4.2vh, 1.3rem); }
+  body.puzzle-active .letter-row span,
+  body.puzzle-active .reading-display span {
+    min-width: 30px;
+    min-height: 36px;
+    padding: 2px 6px;
+    border-width: 2px;
+    font-size: clamp(1rem, 5vh, 1.8rem);
+  }
+  body.puzzle-active .reading-display.sentence-gap span { font-size: clamp(0.9rem, 4.2vh, 1.4rem); }
+  body.puzzle-active .correct-badge { width: 40px; height: 40px; font-size: 1.4rem; }
+  body.puzzle-active .practice-dot { width: 11px; height: 11px; }
+}
+
+/* --- Rätselseiten: Schrift in den Feldern --- */
+
+/* Die Schrift in einem Feld richtet sich nach dem Feld, nicht nach dem
+   Fenster. Ein Buchstabe in Fenstergrösse in einem Feld von dreissig Bildpunkten
+   macht die Reihe höher als breit – und das Brett damit höher als die Karte,
+   die einen Rollbalken bekommt. --active-board-size setzt app.js, wenn es das
+   Brett eingepasst hat; --size ist die Zahl der Spalten. */
+body.puzzle-active .arukone-cell,
+body.puzzle-active .hidoku-cell,
+body.puzzle-active .kakuro-entry {
+  line-height: 1;
+  font-size: min(2.3rem, calc(var(--active-board-size, 400px) / var(--size, 5) * 0.58));
+}
+
+/* --- Tier-Sprung: die Dialoge im Spiel --- */
+
+/* Kleiner und die Knöpfe in einer Reihe: hochkant ragte der Dialog auf dem
+   Handy unter den Rand, und "Zur Karte" war nicht mehr zu erreichen. */
+@media (max-height: 600px) {
+  .runner-overlay { padding: 10px; }
+  .runner-dialog { width: min(540px, 100%); max-height: 100%; padding: 12px 16px 14px; }
+  .runner-dialog h2 { font-size: clamp(1.15rem, 6vh, 1.5rem); }
+  .runner-mascot { width: clamp(44px, 16vh, 72px); margin-bottom: 0; }
+  .runner-dialog-sub { margin-top: 4px; font-size: 0.92rem; }
+  .runner-grow { margin-top: 4px; font-size: 0.95rem; }
+  .runner-stars { margin: 4px 0 0; gap: 6px; }
+  .runner-star { font-size: clamp(1.4rem, 7vh, 2rem); }
+  .runner-dialog-actions { flex-direction: row; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  .runner-primary, .runner-secondary { flex: 1 1 auto; padding: 10px 12px; font-size: 0.95rem; }
 }
