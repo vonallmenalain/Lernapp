@@ -1,8 +1,25 @@
-const APP_VERSION = "2026-09-05-1";
+const APP_VERSION = "2026-09-06-1";
 const CACHE_PREFIX = "lernapp-pwa-";
 const CACHE_NAME = `${CACHE_PREFIX}${APP_VERSION}`;
 const ASSET_VERSION_QUERY = `?v=${APP_VERSION}`;
 const FALLBACK_DOCUMENT = "./index.html";
+
+// Nach so vielen Millisekunden gilt das Netz als zu zäh und der Cache
+// antwortet. Ohne diese Schranke wartet ein Abruf am schlechten Mobilnetz
+// beliebig lange – die installierte App bliebe dabei auf einem leeren Bild
+// stehen, und von aussen sieht das aus, als starte sie gar nicht.
+const NETWORK_TIMEOUT_MS = 3500;
+
+// Das Firebase-SDK liegt auf einem fremden Server. Ohne eigene Kopie hängen
+// die drei Zeilen im <head>-losen Seitenfuss am Netz: sie stehen vor allen
+// eigenen Skripten, und solange sie nicht antworten, baut keine Seite ihre
+// Bühne auf. Deshalb kommen sie mit in den Cache.
+const FIREBASE_SDK = [
+  "https://www.gstatic.com/firebasejs/12.7.0/firebase-app-compat.js",
+  "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth-compat.js",
+  "https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore-compat.js"
+];
+
 const CORE_ASSETS = [
   "./",
   "./index.html",
@@ -54,10 +71,27 @@ const CORE_ASSETS = [
   "./icons/icon-maskable-512.png"
 ];
 
+// Fremde Antworten sind undurchsichtig und tragen den Status 0. cache.add()
+// lehnt sie ab, cache.put() nimmt sie an – deshalb dieser Umweg.
+async function addOpaque(cache, url) {
+  const response = await fetch(url, { mode: "no-cors" });
+  await cache.put(url, response);
+}
+
+// Jede Datei wird einzeln abgelegt. Vorher lag hier ein cache.addAll() über
+// alle knapp fünfzig Adressen: ein einziger Aussetzer am Mobilnetz liess die
+// ganze Installation scheitern, es entstand gar kein Cache, und die auf den
+// Startbildschirm gelegte App startete ohne Netz überhaupt nicht mehr.
+async function precache() {
+  const cache = await caches.open(CACHE_NAME);
+  await Promise.allSettled([
+    ...CORE_ASSETS.map((asset) => cache.add(asset)),
+    ...FIREBASE_SDK.map((url) => addOpaque(cache, url))
+  ]);
+}
+
 self.addEventListener("install", (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(CORE_ASSETS)).then(() => self.skipWaiting())
-  );
+  event.waitUntil(precache().then(() => self.skipWaiting()));
 });
 
 self.addEventListener("activate", (event) => {
@@ -79,34 +113,61 @@ self.addEventListener("activate", (event) => {
   );
 });
 
-async function networkFirst(request) {
-  const cache = await caches.open(CACHE_NAME);
-
-  try {
-    const response = await fetch(request, { cache: "no-store" });
-    if (response && response.ok) cache.put(request, response.clone());
-    return response;
-  } catch (error) {
-    const cached = await cache.match(request);
-    if (cached) return cached;
-
-    if (request.mode === "navigate" || request.destination === "document") {
-      const fallback = await cache.match(FALLBACK_DOCUMENT);
-      if (fallback) return fallback;
-    }
-
-    throw error;
-  }
+function fetchWithTimeout(request) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error("Netz zu langsam")), NETWORK_TIMEOUT_MS);
+    fetch(request).then(resolve, reject).finally(() => clearTimeout(timer));
+  });
 }
 
-async function cacheFirst(request) {
-  const cache = await caches.open(CACHE_NAME);
-  const cached = await cache.match(request);
-  if (cached) return cached;
-
-  const response = await fetch(request);
-  if (response && response.ok) cache.put(request, response.clone());
+async function fetchAndStore(cache, request) {
+  const response = await fetchWithTimeout(request);
+  // Undurchsichtige Antworten (Status 0) sind brauchbar und gehören mit in
+  // den Cache; Weiterleitungen und Fehlerseiten nicht. cache.put() lehnt
+  // manche Antwort ab – das darf den Abruf nicht umwerfen.
+  if (response && (response.ok || response.type === "opaque")) {
+    cache.put(request, response.clone()).catch(() => {});
+  }
   return response;
+}
+
+async function cacheFirst(event) {
+  const cache = await caches.open(CACHE_NAME);
+  const cached = await cache.match(event.request);
+  if (cached) return cached;
+  return fetchAndStore(cache, event.request);
+}
+
+async function staleWhileRevalidate(event) {
+  const cache = await caches.open(CACHE_NAME);
+  const cached = await cache.match(event.request);
+  if (!cached) return fetchAndStore(cache, event.request);
+
+  event.waitUntil(fetchAndStore(cache, event.request).catch(() => {}));
+  return cached;
+}
+
+// Der Start der installierten App. Erst der Cache, dann im Hintergrund
+// auffrischen: das Bild ist sofort da, auch ohne Netz. Eine neue Fassung
+// kommt über den Versionswechsel des Service Workers, der die Seite von
+// sich aus neu lädt – vorher fragte hier jeder Start zuerst das Netz und
+// blieb an einer lahmen Verbindung hängen.
+async function documentFirstFromCache(event) {
+  const cache = await caches.open(CACHE_NAME);
+  const cached = await cache.match(event.request, { ignoreSearch: true });
+
+  if (cached) {
+    event.waitUntil(fetchAndStore(cache, event.request).catch(() => {}));
+    return cached;
+  }
+
+  try {
+    return await fetchAndStore(cache, event.request);
+  } catch (error) {
+    const fallback = await cache.match(FALLBACK_DOCUMENT);
+    if (fallback) return fallback;
+    throw error;
+  }
 }
 
 self.addEventListener("message", (event) => {
@@ -119,21 +180,33 @@ self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
 
   const requestUrl = new URL(event.request.url);
-  if (requestUrl.origin !== self.location.origin) return;
 
-  if (event.request.mode === "navigate") {
-    event.respondWith(networkFirst(event.request));
+  if (requestUrl.origin !== self.location.origin) {
+    if (FIREBASE_SDK.includes(requestUrl.href)) event.respondWith(cacheFirst(event));
     return;
   }
 
-  const networkFirstDestinations = new Set(["document", "script", "style", "manifest"]);
-  if (networkFirstDestinations.has(event.request.destination)) {
-    event.respondWith(networkFirst(event.request));
+  if (event.request.mode === "navigate" || event.request.destination === "document") {
+    event.respondWith(documentFirstFromCache(event));
+    return;
+  }
+
+  // styles.css?v=… und app.js?v=… tragen die Fassung im Namen: ändert sich
+  // die Version, ändert sich der Schlüssel. Der Cache darf also direkt
+  // antworten, ohne vorher das Netz zu fragen.
+  if (requestUrl.searchParams.has("v")) {
+    event.respondWith(cacheFirst(event));
     return;
   }
 
   const cacheFirstDestinations = new Set(["image", "font"]);
   if (cacheFirstDestinations.has(event.request.destination)) {
-    event.respondWith(cacheFirst(event.request));
+    event.respondWith(cacheFirst(event));
+    return;
+  }
+
+  const revalidateDestinations = new Set(["script", "style", "manifest"]);
+  if (revalidateDestinations.has(event.request.destination)) {
+    event.respondWith(staleWhileRevalidate(event));
   }
 });

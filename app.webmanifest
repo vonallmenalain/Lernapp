@@ -7,15 +7,14 @@
   "dir": "ltr",
   "start_url": "./index.html",
   "scope": "./",
-  "display": "fullscreen",
+  "display": "standalone",
   "display_override": [
-    "fullscreen",
     "standalone",
     "minimal-ui"
   ],
-  "orientation": "landscape",
+  "orientation": "any",
   "background_color": "#f7f3ff",
-  "theme_color": "#6c5ce7",
+  "theme_color": "#a8ddf0",
   "categories": [
     "education",
     "games",
