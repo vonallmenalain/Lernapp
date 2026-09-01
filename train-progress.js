@@ -118,6 +118,9 @@
   const LOCAL_SOLVED_PREFIX = "lernapp.solved.";
   const RUNNER_KEY = "lernapp.tiersprung.progress";
   const RUNNER_LEVEL_COUNT = 10;
+  // Fünf geschaffte Level bauen den Wagen – welche fünf, ist gleich. Zehn zu
+  // verlangen hiesse: das schwerste Tier entscheidet über den ganzen Wagen.
+  const RUNNER_FOR_DONE = 5;
   const CARDMATCH_KEY = "lernapp.cardmatch";
   const BEACH_KEY = "lernapp.beachtreasure";
   const FLANKER_KEY = "lernapp.flanker";
@@ -181,17 +184,25 @@
       });
     }
 
+    // Für den Wagen zählen die besten fünf: ein sechstes Level darf den Stand
+    // nicht drücken, und wer fünf schafft, ist fertig.
+    const besteFuenf = worlds
+      .map((world) => world.stars)
+      .filter((value) => value > 0)
+      .sort((a, b) => b - a)
+      .slice(0, RUNNER_FOR_DONE);
+
     return {
       id: game.id,
       title: game.title,
       page: game.page,
-      solved,
-      total: RUNNER_LEVEL_COUNT,
-      ratio: solved / RUNNER_LEVEL_COUNT,
-      stars,
-      maxStars: RUNNER_LEVEL_COUNT * 3,
+      solved: Math.min(RUNNER_FOR_DONE, solved),
+      total: RUNNER_FOR_DONE,
+      ratio: Math.min(1, solved / RUNNER_FOR_DONE),
+      stars: besteFuenf.reduce((sum, value) => sum + value, 0),
+      maxStars: RUNNER_FOR_DONE * 3,
       unit: LEVEL_UNIT,
-      worlds,
+      worlds: worlds.slice(0, RUNNER_FOR_DONE),
     };
   }
 

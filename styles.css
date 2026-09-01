@@ -4658,6 +4658,46 @@ body[data-page="train"] .help-voice { display: none; }
 .cm-icon.big svg { width: 32px; height: 32px; }
 
 /* ===========================================================================
+   Tier-Sprung auf der Spielhülle
+   ---------------------------------------------------------------------------
+   Die Levelwahl steht auf derselben Landschaft wie die anderen Spiele: zehn
+   Tiere in zwei Reihen und ein Startknopf, sonst nichts. Der Name des Tiers,
+   sein Ort und die Zahl der Leckerbissen sind weg – ein Kind sieht das Tier
+   und die Sterne, und mehr ist vor der Wahl nicht zu entscheiden.
+
+   Die Farbe ist die des Bereichs Geschwindigkeit.
+   =========================================================================== */
+
+.ts-stage { --cm-accent: #F5A623; --cm-accent-dark: #b9741a; }
+
+/* Fünf nebeneinander, zwei Reihen: die Höhe ist knapp, weil darunter noch der
+   Startknopf steht. */
+.ts-stage .runner-map {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: clamp(6px, 1.4vw, 14px);
+  width: min(94vw, 760px);
+  max-width: none;
+  margin: 0;
+}
+
+.ts-stage .runner-level {
+  gap: 0;
+  padding: clamp(4px, 1vh, 10px) 4px;
+  border-radius: 18px;
+  border-width: 2px;
+  box-shadow: 0 6px 14px rgba(50, 44, 109, 0.16);
+}
+
+.ts-stage .runner-level-art { width: clamp(48px, 8vw, 84px); height: auto; }
+.ts-stage .runner-level-stars { font-size: 0.8rem; line-height: 1; }
+.ts-stage .runner-level-badge { top: 4px; left: 6px; }
+
+@media (max-height: 560px) {
+  .ts-stage .runner-map { width: min(94vw, 640px); }
+  .ts-stage .runner-level-art { width: clamp(38px, 6vw, 60px); }
+}
+
+/* ===========================================================================
    Memory
    ---------------------------------------------------------------------------
    Verdeckt ist eine Karte ein schlichtes Rechteck in der Bereichsfarbe;

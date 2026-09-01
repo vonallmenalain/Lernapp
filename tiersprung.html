@@ -17,34 +17,10 @@
     <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon-180.png" />
   </head>
   <body data-page="runner">
-    <main class="app-shell">
-      <section class="hero" aria-labelledby="app-title">
-        <p class="eyebrow">Sprungspiel</p>
-        <h1 id="app-title">Tier-Sprung 🐭</h1>
-      </section>
-
-      <div class="selection-actions">
-        <a class="selection-back-button home-back-button" href="index.html" aria-label="Zurück zur Spielauswahl">← Zurück zu den Rätseln</a>
-      </div>
-
-      <section class="runner-start-card">
-        <p class="runner-tagline">Renn los, spring über Hindernisse und sammle Leckerbissen. Mit jedem geschafften Level wirst du ein grösseres Tier – von der kleinen Maus bis zum Elefanten.</p>
-        <button id="runner-start" class="runner-start" type="button">Los geht's!</button>
-        <p id="runner-summary" class="runner-summary"></p>
-      </section>
-
-      <section id="runner-map" class="runner-map" aria-label="Level auswählen"></section>
-
-      <section class="runner-help">
-        <h2>So wird gespielt</h2>
-        <ul>
-          <li><strong>Tippen</strong> (oder Leertaste) lässt dein Tier springen.</li>
-          <li><strong>Gedrückt halten</strong> springt höher, kurz antippen macht einen kleinen Hüpfer.</li>
-          <li>Du hast <strong>drei Leben</strong> pro Level – ein Rempler ist noch lange nicht das Ende.</li>
-          <li>Je mehr Leckerbissen du einsammelst, desto mehr <strong>Sterne</strong> gibt es.</li>
-        </ul>
-      </section>
-    </main>
+    <!-- Die Levelwahl baut tiersprung.js auf der Spielhuelle: dieselbe
+         Landschaft wie das Startbild, oben dieselben Knoepfe. Die Spielflaeche
+         darunter legt sich beim Start darueber. -->
+    <div id="ts-stage" class="cm-stage ts-stage" aria-label="Tier-Sprung"></div>
 
     <div id="runner-stage" class="runner-stage" tabindex="-1" hidden>
       <canvas id="runner-canvas" class="runner-canvas"></canvas>
@@ -72,7 +48,10 @@
     <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore-compat.js"></script>
     <script src="firebase.js?v=2026-09-03-1"></script>
     <script src="kids.js?v=2026-09-03-1"></script>
+    <script src="train-art.js?v=2026-09-03-1"></script>
+    <script src="train-scenes.js?v=2026-09-03-1"></script>
     <script src="game-cloud.js?v=2026-09-03-1"></script>
+    <script src="game-shell.js?v=2026-09-03-1"></script>
     <script src="tiersprung.js?v=2026-09-03-1"></script>
     <script src="pwa.js?v=2026-09-03-1"></script>
   </body>

@@ -189,7 +189,7 @@ for (const area of train.allAreas()) {
 // bringen wie ein Katalog-Spiel.
 store.clear();
 const leer = train.areaProgress("geschwindigkeit");
-assert(leer.total === 15, `Geschwindigkeit muss 10 Level plus 5 Runden melden, meldet ${leer.total}`);
+assert(leer.total === 10, `Geschwindigkeit muss 5 Level plus 5 Runden melden, meldet ${leer.total}`);
 assert(leer.stage === 0, "Geschwindigkeit ohne Fortschritt muss Stufe 0 geben");
 
 store.set("lernapp.tiersprung.progress", JSON.stringify({
@@ -198,12 +198,27 @@ store.set("lernapp.tiersprung.progress", JSON.stringify({
 }));
 const halb = train.areaProgress("geschwindigkeit");
 const runner = halb.games.find((game) => game.id === "tiersprung");
+// Fünf geschaffte Level bauen den Wagen – welche fünf, ist gleich.
 assert(runner.solved === 5, `Tier-Sprung muss 5 gelöste Levels melden, meldet ${runner.solved}`);
-assert(runner.ratio === 0.5, `Tier-Sprung muss bei 50 % stehen, steht bei ${runner.ratio}`);
+assert(runner.ratio === 1, `fünf Level müssen Tier-Sprung abschliessen, steht bei ${runner.ratio}`);
 assert(runner.stars === 11, `Tier-Sprung muss 11 Sterne melden, meldet ${runner.stars}`);
-assert(runner.worlds.length === 10, "Tier-Sprung braucht ein Band je Level");
-// Der Bereich zählt über die Spiele: Tier-Sprung halb, Karten-Merker gar nicht.
-assert(Math.abs(halb.ratio - 0.25) < 1e-9, `halber Tier-Sprung und leerer Karten-Merker sind 25 %, gefunden ${halb.ratio}`);
+assert(runner.worlds.length === 5, "Tier-Sprung braucht ein Band je nötigem Level");
+
+// Und mehr als fünf dürfen nicht darüber hinausschiessen.
+store.set("lernapp.tiersprung.progress", JSON.stringify({
+  unlocked: 10,
+  best: Object.fromEntries([1, 2, 3, 4, 5, 6, 7, 8].map((i) => [i, { stars: i <= 5 ? 3 : 1 }])),
+}));
+const vollerLaeufer = train.gameProgress("tiersprung");
+assert(vollerLaeufer.ratio === 1, "acht Level dürfen nicht über 100 % gehen");
+assert(vollerLaeufer.stars === 15, `die besten fünf geben 15 Sterne, gefunden ${vollerLaeufer.stars}`);
+store.set("lernapp.tiersprung.progress", JSON.stringify({
+  unlocked: 6,
+  best: { 1: { stars: 3 }, 2: { stars: 2 }, 3: { stars: 3 }, 4: { stars: 1 }, 5: { stars: 2 } },
+}));
+// Der Bereich zählt über die Spiele: Tier-Sprung fertig, Karten-Merker gar
+// nicht – das ist die Hälfte, obwohl fünf von zehn Leveln gespielt sind.
+assert(Math.abs(halb.ratio - 0.5) < 1e-9, `fertiger Tier-Sprung und leerer Karten-Merker sind 50 %, gefunden ${halb.ratio}`);
 
 // --- Weichen-Wirrwarr -------------------------------------------------------
 // Zehn Level zur Wahl, fünf beliebige bauen den Wagen fertig. Gezählt werden
@@ -320,6 +335,6 @@ for (const area of train.allAreas()) {
 const alle = train.trainProgress();
 assert(alle.areas.length === 5, "trainProgress muss fünf Bereiche melden");
 const gesamt = alle.areas.reduce((sum, area) => sum + area.total, 0);
-assert(gesamt === 360, `erwartet 360 Aufgaben über alle Bereiche, gefunden ${gesamt}`);
+assert(gesamt === 355, `erwartet 355 Aufgaben über alle Bereiche, gefunden ${gesamt}`);
 
 console.log(`Zug-Fortschritt geprüft: 5 Bereiche, ${seen.size} Spiele, ${gesamt} Levels.`);
