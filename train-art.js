@@ -956,7 +956,7 @@
   const BUILDINGS = {
     backpack: { kind: "backpack", emblem: null, hue: "#e0913c" },
     memory: { kind: "house", emblem: "cards", hue: "#8a6fe0" },
-    cardMatch: { kind: "hut", emblem: "cardCheck", hue: "#5f4bc4" },
+    cardMatch: { kind: "hut", emblem: "cardCheck", hue: "#e0913c" },
     beachTreasure: { kind: "hut", emblem: "shell", hue: "#e8b45a" },
     flanker: { kind: "hall", emblem: "fish", hue: "#3ba7b5" },
     trackRouter: { kind: "tower", emblem: "switch", hue: "#2f8f9c" },

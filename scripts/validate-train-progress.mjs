@@ -133,11 +133,12 @@ assert(train.areaProgress("gedaechtnis").stage === 1, "ein gelöstes Level muss 
 assert(train.areaProgress("konzentration").stage === 0, "andere Bereiche dürfen davon nichts merken");
 
 // Ein einzelnes Spiel komplett zu lösen darf den Wagen nicht fertig bauen:
-// Gedächtnis hat vier Spiele, ein volles Spiel sind also 25 Prozent.
+// Gedächtnis hat drei Spiele, ein volles Spiel ist also ein Drittel.
 store.clear();
 solve("memory", catalog.memory.length);
 const oneGame = train.areaProgress("gedaechtnis");
-assert(Math.abs(oneGame.ratio - 0.25) < 1e-9, `ein volles Spiel von vier muss 25 % geben, ist ${oneGame.ratio}`);
+const games = train.AREA_BY_ID.gedaechtnis.games.length;
+assert(Math.abs(oneGame.ratio - 1 / games) < 1e-9, `ein volles Spiel von ${games} muss ${(100 / games).toFixed(0)} % geben, ist ${oneGame.ratio}`);
 assert(!oneGame.built, "ein einzelnes Spiel darf den Wagen nicht fertig bauen");
 
 // Alle Spiele eines Bereichs komplett: Wagen fertig beladen.
@@ -165,29 +166,60 @@ assert(
 assert(konzentration.total === 24, `Konzentration hat ${konzentration.total} statt 24 Levels`);
 assert(problemloesen.total === 160, `Problemlösen hat ${problemloesen.total} statt 160 Levels`);
 
-// --- Tier-Sprung ------------------------------------------------------------
-// Der Bereich Geschwindigkeit hängt nicht am Level-Katalog, sondern am eigenen
-// Speicher von Tier-Sprung. Der Adapter muss ihn auf dieselbe Form bringen.
+// --- Geschwindigkeit --------------------------------------------------------
+// Der Bereich hängt nicht am Level-Katalog, sondern an den eigenen Speichern
+// von Tier-Sprung und Karten-Merker. Die Adapter müssen sie auf dieselbe Form
+// bringen wie ein Katalog-Spiel.
 store.clear();
 const leer = train.areaProgress("geschwindigkeit");
-assert(leer.total === 10, `Tier-Sprung muss 10 Levels melden, meldet ${leer.total}`);
-assert(leer.stage === 0, "Tier-Sprung ohne Fortschritt muss Stufe 0 geben");
+assert(leer.total === 15, `Geschwindigkeit muss 10 Level plus 5 Runden melden, meldet ${leer.total}`);
+assert(leer.stage === 0, "Geschwindigkeit ohne Fortschritt muss Stufe 0 geben");
 
 store.set("lernapp.tiersprung.progress", JSON.stringify({
   unlocked: 6,
   best: { 1: { stars: 3 }, 2: { stars: 2 }, 3: { stars: 3 }, 4: { stars: 1 }, 5: { stars: 2 } },
 }));
 const halb = train.areaProgress("geschwindigkeit");
-assert(halb.solved === 5, `Tier-Sprung muss 5 gelöste Levels melden, meldet ${halb.solved}`);
-assert(halb.ratio === 0.5, `Tier-Sprung muss bei 50 % stehen, steht bei ${halb.ratio}`);
-assert(halb.stars === 11, `Tier-Sprung muss 11 Sterne melden, meldet ${halb.stars}`);
-assert(halb.games[0].worlds.length === 10, "Tier-Sprung braucht ein Band je Level");
+const runner = halb.games.find((game) => game.id === "tiersprung");
+assert(runner.solved === 5, `Tier-Sprung muss 5 gelöste Levels melden, meldet ${runner.solved}`);
+assert(runner.ratio === 0.5, `Tier-Sprung muss bei 50 % stehen, steht bei ${runner.ratio}`);
+assert(runner.stars === 11, `Tier-Sprung muss 11 Sterne melden, meldet ${runner.stars}`);
+assert(runner.worlds.length === 10, "Tier-Sprung braucht ein Band je Level");
+// Der Bereich zählt über die Spiele: Tier-Sprung halb, Karten-Merker gar nicht.
+assert(Math.abs(halb.ratio - 0.25) < 1e-9, `halber Tier-Sprung und leerer Karten-Merker sind 25 %, gefunden ${halb.ratio}`);
+
+// --- Karten-Merker ----------------------------------------------------------
+// Fünf gespielte Runden, dann ist das Spiel fertig – die Punktzahl entscheidet
+// nur über die Sterne, nicht über den Fortschritt.
+store.clear();
+const cardsEmpty = train.gameProgress("cardMatch");
+assert(cardsEmpty.total === 5, `Karten-Merker muss 5 Runden melden, meldet ${cardsEmpty.total}`);
+assert(cardsEmpty.solved === 0, "ohne Runde darf nichts gelöst sein");
+
+store.set("lernapp.cardmatch", JSON.stringify({ runs: 2, scores: [46, 8] }));
+const cardsTwo = train.gameProgress("cardMatch");
+assert(cardsTwo.solved === 2, `zwei Runden müssen 2 ergeben, ergeben ${cardsTwo.solved}`);
+assert(Math.abs(cardsTwo.ratio - 0.4) < 1e-9, `zwei von fünf Runden sind 40 %, gefunden ${cardsTwo.ratio}`);
+assert(cardsTwo.stars === 4, `46 Punkte geben 3 Sterne, 8 Punkte einen – erwartet 4, gefunden ${cardsTwo.stars}`);
+assert(cardsTwo.worlds.length === 5, "Karten-Merker braucht ein Band je Runde");
+
+// Eine schwache Runde zählt genauso für den Wagen wie eine starke.
+store.set("lernapp.cardmatch", JSON.stringify({ runs: 5, scores: [0, 0, 0, 0, 0] }));
+const cardsDone = train.gameProgress("cardMatch");
+assert(cardsDone.ratio === 1, "fünf Runden müssen das Spiel abschliessen, egal mit wie vielen Punkten");
+assert(cardsDone.stars === 5, `fünf schwache Runden geben je einen Stern, gefunden ${cardsDone.stars}`);
+
+// Mehr als fünf Runden dürfen nicht über 100 Prozent hinausschiessen.
+store.set("lernapp.cardmatch", JSON.stringify({ runs: 12, scores: [60, 55, 50, 44, 40] }));
+assert(train.gameProgress("cardMatch").ratio === 1, "mehr als fünf Runden dürfen nicht über 100 % gehen");
 
 // --- Welten je Spiel --------------------------------------------------------
 store.clear();
 for (const area of train.allAreas()) {
   for (const game of area.games) {
-    if (game.id === "tiersprung") continue;
+    // Zwei Spiele führen ihr eigenes Konto und haben keine vier Welten:
+    // Tier-Sprung zehn Level, Karten-Merker fünf Runden auf Zeit.
+    if (game.id === "tiersprung" || game.id === "cardMatch") continue;
     assert(game.worlds.length === 4, `${game.id} hat ${game.worlds.length} Welten statt 4`);
     const total = game.worlds.reduce((sum, world) => sum + world.total, 0);
     assert(total === game.total, `${game.id}: Welten summieren sich nicht auf ${game.total}`);
@@ -198,6 +230,6 @@ for (const area of train.allAreas()) {
 const alle = train.trainProgress();
 assert(alle.areas.length === 5, "trainProgress muss fünf Bereiche melden");
 const gesamt = alle.areas.reduce((sum, area) => sum + area.total, 0);
-assert(gesamt === 418, `erwartet 418 Levels über alle Bereiche, gefunden ${gesamt}`);
+assert(gesamt === 411, `erwartet 411 Levels über alle Bereiche, gefunden ${gesamt}`);
 
 console.log(`Zug-Fortschritt geprüft: 5 Bereiche, ${seen.size} Spiele, ${gesamt} Levels.`);

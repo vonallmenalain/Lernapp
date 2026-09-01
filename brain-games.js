@@ -1,9 +1,13 @@
 /*
- * brain-games.js – Vier Gehirntrainer für die Lernapp.
+ * brain-games.js – Drei Gehirntrainer für die Lernapp.
  *
- * Karten-Merker (Arbeitsgedächtnis, 1-Back), Schwarm-Fokus (selektive
- * Aufmerksamkeit, Flanker-Aufgabe), Strand-Schätze (visuelles Gedächtnis) und
- * Weichen-Wirrwarr (geteilte Aufmerksamkeit, vorausschauendes Planen).
+ * Schwarm-Fokus (selektive Aufmerksamkeit, Flanker-Aufgabe), Strand-Schätze
+ * (visuelles Gedächtnis) und Weichen-Wirrwarr (geteilte Aufmerksamkeit,
+ * vorausschauendes Planen).
+ *
+ * Der Karten-Merker stand einmal hier und ist ausgezogen: er läuft jetzt auf
+ * Zeit statt über Level und braucht weder Weltenwahl noch Sterne. Er steht in
+ * kartenmerker.js und bringt seine eigene Oberfläche mit.
  *
  * Die Spiele bringen keine eigene Hülle mit: sie melden sich bei app.js an und
  * benutzen dieselbe Weltenwahl, Levelauswahl, Sternewertung, Erfolgsfeier und
@@ -24,16 +28,7 @@
   // Spielbeschreibungen (fliessen in GAME_CONFIGS von app.js)
   // ===========================================================================
   const configs = {
-    cardMatch: {
-      title: "Karten-Merker", eyebrow: "Merken & vergleichen", code: "N",
-      subtitle: "Ist die Karte gleich wie die Karte davor?",
-      success: "Stark gemerkt! Du hast die Karten gut im Kopf behalten.",
-      rules: [
-        "Du siehst immer nur eine Karte.",
-        "Vergleiche sie mit der Karte, die du davor gesehen hast.",
-        "Tippe auf Gleich, wenn beide gleich sind, sonst auf Anders.",
-      ],
-    },
+
     flanker: {
       title: "Schwarm-Fokus", eyebrow: "Nur die Mitte zählt", code: "E",
       subtitle: "In welche Richtung schwimmt der mittlere Fisch?",
@@ -67,7 +62,7 @@
   };
 
   const pages = {
-    cardMatch: "kartenmerker.html",
+
     flanker: "schwarmfokus.html",
     beachTreasure: "strandschatz.html",
     trackRouter: "weichen.html",
@@ -81,30 +76,6 @@
 
   const DIFFICULTY_ORDER = ["easy", "medium", "hard", "extreme"];
 
-  // --- Karten-Merker ---------------------------------------------------------
-  // showMs = 0 bedeutet: so lange Zeit wie das Kind braucht.
-  const CARD_MATCH_LEVELS = {
-    easy: [
-      { cards: 10, poolSize: 3, answerMs: 0, matchRate: 0.45, mode: "symbol" },
-      { cards: 12, poolSize: 4, answerMs: 0, matchRate: 0.45, mode: "symbol" },
-      { cards: 12, poolSize: 4, answerMs: 7000, matchRate: 0.4, mode: "symbol" },
-    ],
-    medium: [
-      { cards: 14, poolSize: 5, answerMs: 6000, matchRate: 0.4, mode: "symbol" },
-      { cards: 14, poolSize: 6, answerMs: 5000, matchRate: 0.4, mode: "symbol" },
-      { cards: 16, poolSize: 6, answerMs: 4500, matchRate: 0.4, mode: "symbol" },
-    ],
-    hard: [
-      { cards: 16, poolSize: 7, answerMs: 4000, matchRate: 0.4, mode: "symbol" },
-      { cards: 16, poolSize: 8, answerMs: 3500, matchRate: 0.4, mode: "symbol" },
-      { cards: 18, poolSize: 5, answerMs: 4500, matchRate: 0.4, mode: "symbolColor" },
-    ],
-    extreme: [
-      { cards: 18, poolSize: 6, answerMs: 4000, matchRate: 0.4, mode: "symbolColor" },
-      { cards: 20, poolSize: 7, answerMs: 3500, matchRate: 0.4, mode: "symbolColor" },
-      { cards: 20, poolSize: 8, answerMs: 3000, matchRate: 0.4, mode: "symbolColor" },
-    ],
-  };
 
   // --- Schwarm-Fokus ---------------------------------------------------------
   const FLANKER_LEVELS = {
@@ -180,12 +151,7 @@
   };
 
   const LEVEL_DESCRIPTIONS = {
-    cardMatch: {
-      easy: "Wenige Bilder, alle Zeit der Welt.",
-      medium: "Mehr Bilder – und die Karte bleibt kürzer liegen.",
-      hard: "Viele Bilder, und zum Schluss zählt auch die Farbe.",
-      extreme: "Form und Farbe gleichzeitig merken, im Tempo.",
-    },
+
     flanker: {
       easy: "Ein Fisch links und rechts, du hast so viel Zeit du magst.",
       medium: "Mehr Fische und ein kurzer Blick auf den Schwarm.",
@@ -207,14 +173,14 @@
   };
 
   const BADGE = {
-    cardMatch: (rule) => `${rule.cards} Karten`,
+
     flanker: (rule) => `${rule.trials} Runden`,
     beachTreasure: (rule) => `${rule.rounds} Schätze`,
     trackRouter: (rule) => `${rule.deliveries} Wagen`,
   };
 
   const LEVEL_RULES = {
-    cardMatch: CARD_MATCH_LEVELS,
+
     flanker: FLANKER_LEVELS,
     beachTreasure: TREASURE_LEVELS,
     trackRouter: TRACK_LEVELS,
@@ -349,208 +315,9 @@
     { id: "pink", name: "pink", color: "#ff5da2", ink: "#7d1348", symbol: "⬟" },
   ];
 
-  // ===========================================================================
-  // Spiel 1: Karten-Merker (1-Back)
-  // ===========================================================================
-  // Die Karten kommen einzeln. Das Kind entscheidet jedes Mal, ob die aktuelle
-  // Karte mit der Karte davor übereinstimmt. Im Modus "symbolColor" zählen Form
-  // und Farbe gemeinsam.
-  const CARD_SYMBOLS = ["🍎", "🐸", "⭐", "🚗", "🌻", "🐟", "🎈", "🍌", "🐝", "⚽"];
-
-  function createCardMatch(api) {
-    const timers = createTimers();
-    let s = null;
-
-    function sameCard(a, b) {
-      if (!a || !b) return false;
-      return a.mode === "symbol" ? a.symbol === b.symbol : a.symbol === b.symbol && a.color === b.color;
-    }
-
-    // Zieht die nächste Karte. matchRate steuert, wie oft sie der vorherigen
-    // gleicht; die Nicht-Treffer unterscheiden sich absichtlich mal in der Form
-    // und mal nur in der Farbe.
-    function nextCard(rule, previous) {
-      const symbols = CARD_SYMBOLS.slice(0, rule.poolSize);
-      const colors = rule.mode === "symbolColor" ? PALETTE.slice(0, Math.max(3, Math.min(5, rule.poolSize))) : [PALETTE[6]];
-      const make = (symbol, color) => ({ symbol, color: color.id, colorValue: color.color, mode: rule.mode });
-      if (!previous) return make(pick(symbols), pick(colors));
-      if (Math.random() < rule.matchRate) return make(previous.symbol, colors.find((c) => c.id === previous.color) || colors[0]);
-      if (rule.mode === "symbolColor" && Math.random() < 0.45) {
-        const others = colors.filter((c) => c.id !== previous.color);
-        if (others.length) return make(previous.symbol, pick(others));
-      }
-      const others = symbols.filter((symbol) => symbol !== previous.symbol);
-      return make(pick(others.length ? others : symbols), pick(colors));
-    }
-
-    function answerWindow() {
-      const base = s.rule.answerMs;
-      return base ? Math.round(base * s.pacer.factor) : 0;
-    }
-
-    function armTimeout() {
-      timers.clear();
-      const window_ = answerWindow();
-      if (!window_ || s.done) return;
-      timers.after(window_, () => {
-        if (s.done || s.phase !== "answer") return;
-        s.missed += 1;
-        s.answered += 1;
-        s.pacer.wrong();
-        s.feedback = "missed";
-        api.playJingle("retry");
-        advance();
-      });
-    }
-
-    function advance() {
-      timers.clear();
-      if (s.answered >= s.rule.cards) {
-        s.done = true;
-        api.render();
-        api.handleWin();
-        return;
-      }
-      s.previous = s.current;
-      s.current = nextCard(s.rule, s.previous);
-      s.phase = "answer";
-      api.render();
-      armTimeout();
-    }
-
-    function answer(saysMatch) {
-      if (!s || s.done || s.phase !== "answer") return;
-      timers.clear();
-      const correct = sameCard(s.current, s.previous) === saysMatch;
-      s.answered += 1;
-      if (correct) {
-        s.correct += 1;
-        s.streak += 1;
-        s.pacer.correct();
-        s.feedback = "correct";
-        api.playJingle("correct");
-        api.kids()?.vibrate?.(18);
-      } else {
-        s.streak = 0;
-        s.pacer.wrong();
-        s.feedback = "wrong";
-        api.playJingle("retry");
-      }
-      s.phase = "feedback";
-      api.render();
-      timers.after(s.feedback === "correct" ? 380 : 900, () => {
-        if (!s || s.done) return;
-        advance();
-      });
-    }
-
-    function start() {
-      s.phase = "answer";
-      s.previous = s.first;
-      s.current = nextCard(s.rule, s.previous);
-      api.render();
-      armTimeout();
-    }
-
-    function cardFace(card, extraClass = "") {
-      const face = el("div", `cardmatch-card ${extraClass}`.trim());
-      if (card) {
-        face.style.setProperty("--card-color", card.colorValue);
-        face.append(el("span", "cardmatch-symbol", card.symbol));
-      } else {
-        face.classList.add("empty");
-        face.append(el("span", "cardmatch-symbol", "?"));
-      }
-      return face;
-    }
-
-    return {
-      stop() { timers.clear(); },
-      resetState(level) {
-        timers.clear();
-        const rule = level.rule;
-        s = {
-          rule,
-          first: nextCard(rule, null),
-          previous: null,
-          current: null,
-          phase: "intro",
-          answered: 0,
-          correct: 0,
-          missed: 0,
-          streak: 0,
-          feedback: null,
-          done: false,
-          pacer: createPacer(),
-        };
-        api.setStatus("Merk dir die erste Karte.");
-      },
-      checkWin() { return Boolean(s?.done); },
-      solveResult() { return { correct: s?.correct || 0, answered: s?.answered || 0, missed: s?.missed || 0 }; },
-      stars() { return starsFromAccuracy(s?.correct || 0, s?.answered || 0); },
-      helpText(level) {
-        if (!s || s.phase === "intro") return "Zuerst siehst du eine Karte zum Merken. Tippe dann auf Weiter.";
-        return `Vergleiche die Karte mit der Karte davor. Tippe auf Gleich oder auf Anders. Noch ${Math.max(0, level.rule.cards - s.answered)} Karten.`;
-      },
-      render(level) {
-        const board = api.board;
-        board.innerHTML = "";
-        board.className = "board task-board brain-board cardmatch-board";
-        board.style.setProperty("--size", 1);
-        board.append(renderHead(s.answered, s.rule.cards, s.rule.mode === "symbolColor" ? "Form + Farbe" : "Form"));
-
-        if (s.phase === "intro") {
-          board.append(el("p", "brain-prompt", "Merk dir diese Karte!"));
-          board.append(cardFace(s.first, "big"));
-          const go = el("button", "brain-primary-button", "Weiter ▶");
-          go.type = "button";
-          go.addEventListener("click", start);
-          board.append(go);
-          return;
-        }
-
-        board.append(el("p", "brain-prompt", "Gleich wie die Karte davor?"));
-        const stage = el("div", "cardmatch-stage");
-        stage.append(cardFace(s.current, `big${s.feedback && s.phase === "feedback" ? ` ${s.feedback}` : ""}`));
-        board.append(stage);
-
-        const window_ = answerWindow();
-        if (window_ && s.phase === "answer") board.append(renderTimeBar(window_));
-
-        const choices = el("div", "cardmatch-choices");
-        [
-          { label: "Gleich", match: true, hint: "🟪🟪", cls: "same" },
-          { label: "Anders", match: false, hint: "🟪🟨", cls: "different" },
-        ].forEach((choice) => {
-          const button = el("button", `cardmatch-choice ${choice.cls}`);
-          button.type = "button";
-          button.disabled = s.phase !== "answer";
-          button.append(el("span", "cardmatch-choice-hint", choice.hint));
-          button.append(el("span", "cardmatch-choice-label", choice.label));
-          button.addEventListener("click", () => answer(choice.match));
-          choices.append(button);
-        });
-        board.append(choices);
-
-        const feedback = el("div", `brain-feedback${s.phase === "feedback" || s.feedback === "missed" ? " visible" : ""}`);
-        if (s.phase === "feedback" && s.feedback === "correct") {
-          const badge = el("span", "correct-badge", "✓");
-          badge.setAttribute("role", "img");
-          badge.setAttribute("aria-label", "Richtig");
-          feedback.append(badge);
-        } else if (s.phase === "feedback" && s.feedback === "wrong") {
-          feedback.append(el("p", null, sameCard(s.current, s.previous) ? "Die beiden waren gleich." : "Die beiden waren verschieden."));
-          feedback.append(cardFace(s.previous, "mini"));
-        } else if (s.feedback === "missed") {
-          feedback.append(el("p", null, "Kein Problem – die nächste kommt."));
-        }
-        board.append(feedback);
-      },
-    };
-  }
 
   // ===========================================================================
-  // Spiel 2: Schwarm-Fokus (Flanker-Aufgabe)
+  // Spiel 1: Schwarm-Fokus (Flanker-Aufgabe)
   // ===========================================================================
   // Nur der mittlere Fisch zählt. Die Nachbarn zeigen mal in dieselbe Richtung
   // (leicht) und mal in eine andere (schwer, weil sie ablenken).
@@ -759,7 +526,7 @@
   }
 
   // ===========================================================================
-  // Spiel 3: Strand-Schätze
+  // Spiel 2: Strand-Schätze
   // ===========================================================================
   // Jede Runde liegen alle bereits gesammelten Schätze wieder am Strand – plus
   // genau ein neuer. Gesucht ist der neue. Die Schätze bestehen aus Form,
@@ -923,7 +690,7 @@
   }
 
   // ===========================================================================
-  // Spiel 4: Weichen-Wirrwarr
+  // Spiel 3: Weichen-Wirrwarr
   // ===========================================================================
   // Das einzige Echtzeitspiel der vier. Das Streckennetz ist ein Graph aus
   // Knoten (Start, Weiche, Haus) und Kanten (Gleisstücke). Wagen fahren mit
@@ -1398,7 +1165,7 @@
   // ===========================================================================
   function createHandlers(api) {
     return {
-      cardMatch: createCardMatch(api),
+
       flanker: createFlanker(api),
       beachTreasure: createBeachTreasure(api),
       trackRouter: createTrackRouter(api),
