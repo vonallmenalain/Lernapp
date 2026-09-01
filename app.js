@@ -1694,7 +1694,7 @@ function renderLevelSelect() {
 }
 function showLevelSelect() { finishMove(); clearPracticeAdvanceTimer(); GAME_HANDLERS[currentGame]?.stop?.(); cloudProgress()?.flushCurrentSession?.({ close: true, includeElapsed: true }); hideSuccess(); if (levelPanel) levelPanel.hidden = false; if (gamePanel) gamePanel.hidden = true; if (gameControls) gameControls.hidden = true; document.body.classList.remove("puzzle-active", "number-pad-open"); board?.style.removeProperty("--active-board-size"); board?.style.removeProperty("--active-board-offset"); renderLevelSelect(); }
 function showGame() { if (levelPanel) levelPanel.hidden = true; if (gamePanel) gamePanel.hidden = false; if (gameControls) gameControls.hidden = false; document.body.classList.add("puzzle-active"); setHelpText(boardHelpText()); }
-function startLevel(index) { const levelToStart = LEVELS_BY_GAME[currentGame]?.[index]; if (!isLevelUnlocked(levelToStart)) { if (levelToStart) selectedDifficulty = levelToStart.difficulty; renderLevelSelect(); return; } clearPracticeAdvanceTimer(); GAME_HANDLERS[currentGame]?.stop?.(); hideSuccess(); currentIndex = index; const level = currentLevel(); selectedDifficulty = level.difficulty; const config = GAME_CONFIGS[currentGame]; history = []; winShown = false; helpCount = 0; if (undoButton) undoButton.disabled = true; const boardSize = level.cols || level.size || 5; board.className = `board ${currentGame}-board board-size-${boardSize}`; board.style.setProperty("--size", boardSize); board.setAttribute("aria-label", `${config.title} Spielfeld`); puzzleTitle.textContent = level.title; puzzleDescription.textContent = level.description || config.subtitle; cloudProgress()?.recordLevelStart?.(level); kids()?.setLastPlayed?.(currentGame, level.id || level.levelName); resetState(); showGame(); render(); maybeShowTutorial(level, config); }
+function startLevel(index) { const levelToStart = LEVELS_BY_GAME[currentGame]?.[index]; if (!isLevelUnlocked(levelToStart)) { if (levelToStart) selectedDifficulty = levelToStart.difficulty; renderLevelSelect(); return; } clearPracticeAdvanceTimer(); GAME_HANDLERS[currentGame]?.stop?.(); hideSuccess(); currentIndex = index; const level = currentLevel(); selectedDifficulty = level.difficulty; const config = GAME_CONFIGS[currentGame]; history = []; winShown = false; helpCount = 0; if (undoButton) undoButton.disabled = true; const boardSize = level.cols || level.size || 5; board.className = `board ${currentGame}-board board-size-${boardSize}`; board.style.setProperty("--size", boardSize); board.setAttribute("aria-label", `${config.title} Spielfeld`); puzzleTitle.textContent = level.title; puzzleDescription.textContent = level.description || config.subtitle; cloudProgress()?.recordLevelStart?.(level); kids()?.setLastPlayed?.(currentGame, level.id || level.levelName); resetState(); showGame(); render(); }
 function resetGame() { history = []; helpCount = 0; if (undoButton) undoButton.disabled = true; hideSuccess(); cloudProgress()?.recordLevelStart?.(currentLevel()); resetState(); recordResetMetric(); render("Neu gestartet. Viel Spass!"); }
 function undo() {
   helpCount += 1;
@@ -1732,17 +1732,6 @@ function scheduleSuccessStep(callback, delay) {
   }, delay);
   successTimers.push(timer);
 }
-function renderDailyDots(daily) {
-  const dots = document.createElement("span");
-  dots.className = "daily-dots";
-  for (let i = 0; i < daily.goal; i += 1) {
-    const dot = document.createElement("span");
-    dot.className = "daily-dot" + (i < daily.count ? " filled" : "");
-    dot.textContent = i < daily.count ? "⭐" : "·";
-    dots.append(dot);
-  }
-  return dots;
-}
 function revealSuccessContent() {
   clearSuccessTimers();
   const details = Array.from(successContent?.querySelectorAll(".success-summary") || []);
@@ -1770,8 +1759,7 @@ function showSuccess() {
   const stars = computeStars(currentGame, level, result);
   const saved = saveLevelStars(level, stars);
   markSolved(level, result);
-  const daily = kids()?.recordDailySolve?.() || null;
-  lastCelebration = { level, result, stars, improved: saved.improved, daily };
+  lastCelebration = { level, result, stars, improved: saved.improved };
   updateNextPuzzleButton();
   updateSuccessContent();
   if (successOverlay) {
@@ -1817,16 +1805,6 @@ function updateSuccessContent() {
   note.textContent = (celebration.stars || 1) >= 3 ? "Perfekt! Alle drei Sterne! 🌟" : "Spiel nochmal für mehr Sterne!";
   successContent.append(note);
 
-  if (celebration.daily) {
-    const daily = document.createElement("div");
-    daily.className = "success-summary success-daily";
-    daily.append(renderDailyDots(celebration.daily));
-    const label = document.createElement("span");
-    label.textContent = celebration.daily.done ? "Tagesziel geschafft! 🎉" : `Heute: ${celebration.daily.count} von ${celebration.daily.goal} Rätseln`;
-    daily.append(label);
-    successContent.append(daily);
-  }
-
 }
 
 function setupSuccessOverlay() {
@@ -1861,43 +1839,10 @@ function setupSuccessOverlay() {
   nextPuzzleButton.addEventListener("click", nextLevel);
 }
 
-let tutorialOverlay = null;
-function maybeShowTutorial(level, config) {
-  if (!config || !kids() || kids().tutorialSeen?.(currentGame)) return;
-  const rules = Array.isArray(config.rules) ? config.rules : [];
-  kids().markTutorialSeen?.(currentGame);
-  if (!rules.length) return;
-  if (tutorialOverlay) tutorialOverlay.remove();
-  const overlay = document.createElement("section");
-  overlay.className = "kids-modal-overlay tutorial-overlay";
-  overlay.setAttribute("role", "dialog");
-  overlay.setAttribute("aria-modal", "true");
-  overlay.setAttribute("aria-label", `So geht ${config.title}`);
-  const rulesHtml = rules.map((rule, i) => `<li><span class="tut-step-num">${i + 1}</span><span>${rule}</span></li>`).join("");
-  overlay.innerHTML = `
-    <div class="kids-modal tutorial-modal">
-      <div class="kids-modal-mascot" aria-hidden="true">${kids().mascotSVG("think")}</div>
-      <h2>So geht ${config.title}</h2>
-      <ol class="tutorial-rules">${rulesHtml}</ol>
-      <div class="kids-modal-actions">
-        ${kids().ttsSupported?.() ? '<button type="button" class="kids-modal-secondary" data-listen aria-label="Regeln vorlesen">🔊 Vorlesen</button>' : ""}
-        <button type="button" class="kids-modal-primary" data-start>Los geht's! 👆</button>
-      </div>
-    </div>`;
-  (document.querySelector(".app-shell") || document.body).append(overlay);
-  tutorialOverlay = overlay;
-  const spokenText = `${config.title}. ${rules.join(" ")}`;
-  const releaseHelp = kids().pushHelp?.(spokenText);
-  const close = () => {
-    kids().stopSpeaking?.();
-    releaseHelp?.();
-    overlay.remove();
-    if (tutorialOverlay === overlay) tutorialOverlay = null;
-  };
-  overlay.querySelector("[data-start]").addEventListener("click", close);
-  overlay.querySelector("[data-listen]")?.addEventListener("click", () => kids().speak?.(spokenText));
-  overlay.addEventListener("click", (event) => { if (event.target === overlay) close(); });
-}
+// Vor dem ersten Level stand einmal ein Erklaerbild mit den Regeln. Es ist
+// weg: es schob sich zwischen den Tipp auf das Level und das Level selbst, und
+// was zu tun ist, sagt der Lautsprecher oben links – dann, wenn ein Kind es
+// wissen will, und nicht jedes Mal davor.
 
 function handleWin() { if (!winShown) showSuccess(); render(); }
 function checkAndWin() { if (GAME_HANDLERS[currentGame].checkWin()) handleWin(); }
@@ -2993,6 +2938,22 @@ if (resetButton) resetButton.addEventListener("click", resetGame);
 if (backButton) backButton.addEventListener("click", showLevelSelect);
 setupSuccessOverlay();
 setupAudioFeedback();
+mountScene();
+
+// Dieselbe Landschaft wie auf dem Startbild, hinter allem. Die Rätsel standen
+// bisher auf einem eigenen Farbverlauf; damit sahen sie aus wie eine zweite
+// App. Nur das Spielfeld selbst behält seine helle Fläche – Gitter, Zahlen und
+// Schiffe müssen auf einen Blick lesbar bleiben.
+function mountScene() {
+  const scenes = window.LernappScenes;
+  if (!scenes || document.querySelector(".puzzle-scene")) return;
+  const wrap = document.createElement("div");
+  wrap.className = "puzzle-scene";
+  wrap.setAttribute("aria-hidden", "true");
+  wrap.append(scenes.buildScene(scenes.savedScene(window.LernappTrain?.trainProgress?.().builtWagons ?? 99)));
+  document.body.prepend(wrap);
+  document.body.classList.add("has-scene");
+}
 
 if (typeof window.addEventListener === "function") {
   window.addEventListener("resize", handleViewportLayoutChange);

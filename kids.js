@@ -1,7 +1,7 @@
 /*
  * kids.js – Gemeinsame Kinder-Funktionen für die Lernapp.
  * Wird auf jeder Seite vor app.js geladen und stellt window.LernappKids bereit:
- * Sterne, Tagesziel, Vorlesen (TTS), Maskottchen, Konfetti, Töne.
+ * Sterne, Vorlesen (TTS), Maskottchen, Konfetti, Töne.
  * Bewusst ohne Framework und defensiv (localStorage kann fehlschlagen).
  */
 (() => {
@@ -12,10 +12,8 @@
   // ---------------------------------------------------------------------------
   const KEYS = {
     stars: (game, levelId) => `lernapp.stars.${game}.${levelId}`,
-    daily: "lernapp.daily",
     tts: "lernapp.tts",
     lastPlayed: "lernapp.lastPlayed",
-    tutorial: (game) => `lernapp.tut.${game}`,
   };
 
   function readRaw(key) {
@@ -50,41 +48,6 @@
     if (clamped > previous) writeRaw(KEYS.stars(game, levelId), String(clamped));
     return { stars: clamped, improved: clamped > previous, previous };
   }
-
-  // ---------------------------------------------------------------------------
-  // Tagesziel
-  // ---------------------------------------------------------------------------
-  const DAILY_GOAL = 3;
-  function dailyRecord() {
-    const record = readJSON(KEYS.daily, {});
-    return record && typeof record === "object" ? record : {};
-  }
-  function recordDailySolve() {
-    const record = dailyRecord();
-    const key = todayKey();
-    record[key] = (Number(record[key]) || 0) + 1;
-    // Alte Tage aufräumen (nur die letzten 14 behalten).
-    const keys = Object.keys(record).sort();
-    while (keys.length > 14) delete record[keys.shift()];
-    writeJSON(KEYS.daily, record);
-    return dailyProgress();
-  }
-  function dailyProgress() {
-    const count = Number(dailyRecord()[todayKey()]) || 0;
-    return { count, goal: DAILY_GOAL, done: count >= DAILY_GOAL };
-  }
-  function weeklyProgress() {
-    const record = dailyRecord();
-    const days = [];
-    for (let i = 6; i >= 0; i -= 1) {
-      const d = new Date();
-      d.setDate(d.getDate() - i);
-      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-      days.push({ key, weekday: ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"][d.getDay()], count: Number(record[key]) || 0 });
-    }
-    return days;
-  }
-
 
   // ---------------------------------------------------------------------------
   // Vorlesen (Web Speech API)
@@ -321,8 +284,6 @@
   // ---------------------------------------------------------------------------
   // Tutorial gesehen?
   // ---------------------------------------------------------------------------
-  function tutorialSeen(game) { return readRaw(KEYS.tutorial(game)) === "1"; }
-  function markTutorialSeen(game) { writeRaw(KEYS.tutorial(game), "1"); }
 
   // ---------------------------------------------------------------------------
   // Hilfe-Lautsprecher ("Was mache ich hier?")
@@ -742,8 +703,6 @@
     KEYS,
     // Sterne
     getStars, setStars,
-    // Tagesziel
-    DAILY_GOAL, recordDailySolve, dailyProgress, weeklyProgress,
 
     // TTS (nur auf Lautsprecher-Klick)
     ttsSupported, ttsEnabled, setTtsEnabled, speak, stopSpeaking,
@@ -762,7 +721,7 @@
     // Ausrichtung
     lockLandscape,
     // Verlauf
-    setLastPlayed, getLastPlayed, tutorialSeen, markTutorialSeen,
+    setLastPlayed, getLastPlayed,
     // Speicher-Helfer
     readJSON, writeJSON,
   };

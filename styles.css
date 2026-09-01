@@ -2825,10 +2825,6 @@ body.puzzle-active .task-board {
 /* --- Erfolgsdialog Zusatz --- */
 .success-note { margin: 4px 0 0; font-weight: 800; color: var(--primary-dark); }
 .success-stars { margin-top: 2px; }
-.success-daily { display: flex; flex-direction: column; align-items: center; gap: 4px; font-weight: 800; color: var(--ink); }
-.daily-dots { display: inline-flex; gap: 6px; font-size: 1.4rem; line-height: 1; }
-.daily-dot { color: #d9d6ee; }
-.daily-dot.filled { color: #ffc93c; }
 .success-text-button {
   flex: 1; min-height: 60px; padding: 0 14px; border-radius: 20px; border: none; cursor: pointer;
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
@@ -2870,17 +2866,10 @@ body.puzzle-active .task-board {
 .kids-modal-primary:active, .kids-modal-secondary:active { transform: scale(0.96); }
 
 /* Tutorial */
-.tutorial-rules { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 12px; text-align: left; }
-.tutorial-rules li { display: flex; gap: 12px; align-items: flex-start; font-weight: 700; color: var(--ink); }
-.tut-step-num {
-  flex: 0 0 auto; width: 30px; height: 30px; border-radius: 50%;
-  background: #6c5ce7; color: #fff; font-weight: 900;
-  display: inline-flex; align-items: center; justify-content: center;
-}
 
 /* Truhe / Zoo-Reveal */
 
-/* --- Home: Topbar, Tagesziel, Featured --- */
+/* --- Home: Topbar und Kacheln --- */
 /* Rundes Feld hinter dem Emoji: alle vier Karten bekommen damit denselben
    optischen Anker, egal wie breit das Zeichen ist. */
 
@@ -4656,6 +4645,96 @@ body[data-page="train"] .help-voice { display: none; }
 .cm-actions { display: flex; gap: 16px; }
 .cm-icon.big { width: 64px; height: 64px; }
 .cm-icon.big svg { width: 32px; height: 32px; }
+
+/* ===========================================================================
+   Die Rätselseiten auf der Landschaft
+   ---------------------------------------------------------------------------
+   Arukone, Battleships, Tiergehege, Buchstabenjagd, Wortdetektiv, Kakuro und
+   Hidoku standen bisher auf einem eigenen Farbverlauf und sahen damit aus wie
+   eine zweite App. Jetzt liegt dieselbe Landschaft dahinter wie überall sonst.
+
+   Durchsichtig wird alles ausser dem Spielfeld: Gitter, Zahlen und Schiffe
+   müssen auf einen Blick lesbar bleiben, und über einer Wiese mit Bäumen wären
+   sie es nicht.
+   =========================================================================== */
+
+.puzzle-scene {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.puzzle-scene .scene { position: absolute; inset: 0; }
+
+body.has-scene { background: #a8ddf0; }
+body.has-scene .app-shell { position: relative; z-index: 1; }
+
+/* Überschrift, Levelwahl-Vorspann und Levelbeschreibung fallen weg: sie standen
+   zwischen dem Kind und dem Rätsel. */
+body.has-scene .hero,
+body.has-scene .start-copy,
+body.has-scene #puzzle-description,
+body.has-scene .selection-actions { display: none; }
+
+body.has-scene .start-panel,
+body.has-scene .game-panel,
+body.has-scene .status-row {
+  background: none;
+  border: none;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+/* Das Spielfeld behält seine helle Tafel. */
+body.has-scene .game-card {
+  background: rgba(255, 255, 255, 0.94);
+  border: none;
+  box-shadow: 0 14px 34px rgba(31, 42, 51, 0.24);
+}
+
+body.has-scene .small-label,
+body.has-scene #puzzle-title,
+body.has-scene .status {
+  color: #243047;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+
+/* Die Knöpfe oben links – dieselben wie im Karten-Merker: rund, weiss, fest an
+   derselben Stelle. Sie hängen nicht mehr im Fluss über dem Spielfeld, sondern
+   stehen in der Leiste neben dem Lautsprecher. */
+body.has-scene .controls {
+  position: fixed;
+  top: calc(var(--safe-top) + 12px);
+  left: calc(var(--safe-left) + 98px);
+  z-index: 8;
+  width: auto;
+  margin: 0;
+  padding: 0;
+  gap: 10px;
+  background: none;
+  border: none;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+body.has-scene .controls .icon-button {
+  width: 48px;
+  min-width: 48px;
+  height: 48px;
+  min-height: 48px;
+  border-radius: 50%;
+  border: 3px solid #fff;
+  background: rgba(255, 255, 255, 0.94);
+  color: var(--primary-dark);
+  font-size: 1.4rem;
+  box-shadow: 0 6px 16px rgba(31, 42, 51, 0.22);
+}
+
+body.has-scene .controls .icon-button:active { transform: scale(0.94); }
+
+/* Der Platz, den die Leiste oben braucht – sonst läge das Spielfeld darunter. */
+body.has-scene.puzzle-active .app-shell { padding-top: calc(var(--safe-top) + 74px); }
 
 /* ===========================================================================
    Tier-Sprung auf der Spielhülle
