@@ -969,6 +969,7 @@
     trackRouter: { kind: "tower", emblem: "switch", hue: "#2f8f9c" },
     fishPond: { kind: "hut", emblem: "net", hue: "#2f9ec0" },
     tiersprung: { kind: "hall", emblem: "bolt", hue: "#e8a13c" },
+    leafFlow: { kind: "barn", emblem: "leaf", hue: "#d98a33" },
     spatialPuzzle: { kind: "tower", emblem: "cube", hue: "#3f8f6a" },
     arukone: { kind: "house", emblem: "wires", hue: "#63a83f" },
     bimaru: { kind: "lighthouse", emblem: null, hue: "#4a8fb0" },
@@ -1015,6 +1016,18 @@
       parts.push(el("path", {
         d: `M${cx - 21} ${cy - 7} h34 M${cx - 4} ${cy - 20} v27`,
         fill: "none", stroke: color, "stroke-width": 3,
+      }));
+    } else if (name === "leaf") {
+      // Dasselbe Blatt wie im Spiel: vorne spitz, hinten rund, mit Mittelader.
+      // An der Spitze hängt dort die halbe Regel – sie muss auch hier die Form
+      // sein, an der man das Haus wiedererkennt.
+      parts.push(el("path", {
+        d: `M${cx} ${cy - 20} C ${cx + 14} ${cy - 7} ${cx + 17} ${cy + 3} ${cx + 17} ${cy + 5} A 17 17 0 0 1 ${cx - 17} ${cy + 5} C ${cx - 17} ${cy + 3} ${cx - 14} ${cy - 7} ${cx} ${cy - 20} Z`,
+        fill: "#fdfbf6",
+      }));
+      parts.push(el("path", {
+        d: `M${cx} ${cy - 14} V${cy + 20} M${cx} ${cy - 4} l-9 7 M${cx} ${cy - 4} l9 7`,
+        fill: "none", stroke: color, "stroke-width": 3, "stroke-linecap": "round",
       }));
     } else if (name === "switch") {
       parts.push(el("rect", { x: cx - 22, y: cy + 8, width: 44, height: 6, rx: 3, fill: "#fdfbf6" }));

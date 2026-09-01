@@ -5671,3 +5671,166 @@ body.has-scene.puzzle-active .app-shell { padding-top: calc(var(--safe-top) + 74
   .cm-card, .cm-card.is-right, .cm-card.is-wrong, .cm-start::after, .cm-overlay { animation: none; }
   .cm-choice, .cm-icon { transition: none; }
 }
+
+/* ===========================================================================
+   Blätter im Strom
+   ---------------------------------------------------------------------------
+   Dieselbe Bühne wie der Karten-Merker – die Farbe ist die des Bereichs
+   Geschwindigkeit. Darauf eine Wasserfläche, über die Welle um Welle treibt,
+   und darunter vier Pfeile für Kinder, denen ein Wisch nicht gelingt.
+
+   Wo ein Blatt liegt und wie es gedreht ist, rechnet blaetter.js Bild für Bild
+   aus und schreibt es ins Stil-Attribut. Deshalb steht hier kein Übergang auf
+   transform: er würde gegen die Bewegung arbeiten.
+   =========================================================================== */
+
+.bs-stage { --cm-accent: #F5A623; --cm-accent-dark: #b9741a; }
+
+/* Die Frage wechselt mit der Farbe der Welle und trägt deren Farbe mit: so ist
+   die Regel auch dann noch abzulesen, wenn die Blätter gerade am Rand sind. */
+.bs-frage { flex: 0 0 auto; min-height: 1.4em; transition: color 0.15s ease; }
+.bs-frage.is-treibt { color: #b9741a; }
+.bs-frage.is-zeigt { color: #2f7a43; }
+
+.bs-wasser {
+  position: relative;
+  flex: 1 1 auto;
+  width: min(96vw, 1100px);
+  min-height: 0;
+  border-radius: 30px;
+  overflow: hidden;
+  overflow: clip;
+  box-shadow: 0 12px 30px rgba(31, 42, 51, 0.22), inset 0 0 0 3px rgba(255, 255, 255, 0.5);
+}
+
+.bs-wasser-art {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* Ein Blatt: kein Kasten, kein Rand, nur die Figur. Es treibt auch über den
+   Rand des Wassers hinaus – dort schneidet die Fläche es ab, und genau das
+   sieht aus wie ein Blatt, das ins Bild und wieder hinaus schwimmt. */
+.bs-blatt {
+  position: absolute;
+  top: 0;
+  left: 0;
+  will-change: transform;
+  pointer-events: none;
+}
+
+.bs-blatt-art { width: 100%; height: 100%; display: block; }
+
+/* Richtig: die Welle hüpft einmal kurz. Falsch oder verpasst: kein rotes X,
+   kein Abzug – die Blätter werden nur blass und treiben weiter. */
+.bs-welle.is-richtig .bs-blatt { animation: bs-ja 0.32s ease both; }
+.bs-welle.is-vorbei { opacity: 0.45; transition: opacity 0.3s ease; }
+
+@keyframes bs-ja {
+  0% { filter: none; }
+  45% { filter: drop-shadow(0 0 12px rgba(255, 255, 255, 0.95)); }
+  100% { filter: none; }
+}
+
+/* --- Die vier Pfeile --- */
+
+/* Ein Kreuz statt einer Reihe: oben ist oben, links ist links. In einer Reihe
+   müsste ein Kind erst lesen, welcher Pfeil wohin gehört. */
+.bs-pad {
+  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(2, 1fr);
+  gap: 8px;
+  width: clamp(148px, 34vw, 186px);
+}
+
+.bs-key {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  padding: 0;
+  border: none;
+  border-radius: 18px;
+  background: var(--cm-accent);
+  color: #fff;
+  cursor: pointer;
+  box-shadow: 0 6px 14px rgba(31, 42, 51, 0.22);
+  transition: transform 0.12s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.bs-key svg { width: 60%; max-width: 32px; height: auto; }
+.bs-key:active { transform: scale(0.93); }
+.bs-key:focus-visible { outline: 3px solid #243047; outline-offset: 3px; }
+
+/* Gezeichnet ist der Pfeil nach oben; die anderen drei sind derselbe, gedreht. */
+.bs-key.is-hoch { grid-area: 1 / 2; }
+.bs-key.is-links { grid-area: 2 / 1; }
+.bs-key.is-links svg { transform: rotate(-90deg); }
+.bs-key.is-runter { grid-area: 2 / 2; }
+.bs-key.is-runter svg { transform: rotate(180deg); }
+.bs-key.is-rechts { grid-area: 2 / 3; }
+.bs-key.is-rechts svg { transform: rotate(90deg); }
+
+/* Auf einem flachen Bildschirm bleibt dem Wasser sonst kaum Höhe. Kleiner als
+   148 Pixel darf das Kreuz trotzdem nicht werden – darunter wären die Pfeile
+   für einen Kinderfinger zu klein. */
+@media (max-height: 540px) {
+  .bs-pad { width: 148px; }
+}
+
+/* --- Das Startbild --- */
+
+/* Zwei Wasserstücke nebeneinander, ohne ein Wort dazu: links treibt ein oranges
+   Blatt quer durch, obwohl seine Spitze nach oben zeigt, rechts liegt ein
+   grünes still. Damit steht die ganze Regel als Bild da. */
+.bs-demo { display: flex; gap: clamp(10px, 3vw, 20px); }
+
+.bs-demo-chip {
+  position: relative;
+  width: clamp(130px, 20vw, 190px);
+  height: clamp(92px, 13vw, 130px);
+  border-radius: 20px;
+  overflow: hidden;
+  overflow: clip;
+  background: linear-gradient(180deg, #7cd0ea, #41a6d0);
+  box-shadow: 0 8px 18px rgba(31, 42, 51, 0.2), inset 0 0 0 3px rgba(255, 255, 255, 0.5);
+}
+
+.bs-demo-blatt {
+  position: absolute;
+  top: 19%;
+  left: 30%;
+  width: 40%;
+  height: 62%;
+  transform: rotate(var(--bs-dreh, 0deg));
+}
+
+.bs-demo-blatt svg { width: 100%; height: 100%; display: block; }
+
+/* Das orange Blatt treibt, das grüne wippt nur: dieselbe Unterscheidung wie im
+   Spiel, damit das Startbild nicht etwas anderes zeigt als die Runde danach. */
+.bs-demo-chip.is-treibt .bs-demo-blatt { animation: bs-demo-treiben 2.6s linear infinite; }
+.bs-demo-chip.is-zeigt .bs-demo-blatt { animation: bs-demo-wippen 2.6s ease-in-out infinite; }
+
+@keyframes bs-demo-treiben {
+  from { transform: translateX(-170%) rotate(var(--bs-dreh, 0deg)); }
+  to { transform: translateX(170%) rotate(var(--bs-dreh, 0deg)); }
+}
+
+@keyframes bs-demo-wippen {
+  0%, 100% { transform: translateY(-6%) rotate(var(--bs-dreh, 0deg)); }
+  50% { transform: translateY(6%) rotate(var(--bs-dreh, 0deg)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bs-welle.is-richtig .bs-blatt { animation: none; }
+  .bs-key { transition: none; }
+  /* Das Treiben bleibt: es ist die Regel selbst, nicht Zierde. Nur langsamer,
+     und das Wippen fällt ganz weg. */
+  .bs-demo-chip.is-treibt .bs-demo-blatt { animation-duration: 5s; }
+  .bs-demo-chip.is-zeigt .bs-demo-blatt { animation: none; }
+}
