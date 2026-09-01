@@ -115,9 +115,10 @@ const variants = [
   ...art.CAB_SHAPES.map((s) => ({ ...base, cab: { ...base.cab, shape: s } })),
   ...art.LAMP_SHAPES.map((s) => ({ ...base, lamp: { ...base.lamp, shape: s } })),
   ...art.FLAG_PATTERNS.map((p) => ({ ...base, flag: { ...base.flag, pattern: p } })),
+  ...art.WHISTLES.map((w) => ({ ...base, whistle: w })),
 ];
 
-const PARTS = ["frame", "cab", "driver", "body", "chimney", "lamp", "plough", "flag", "wheels", "steam"];
+const PARTS = ["frame", "cab", "driver", "body", "whistle", "chimney", "lamp", "plough", "flag", "wheels", "steam"];
 for (const config of variants) {
   const loco = art.buildLoco(config);
   const present = collectAttr(loco, "data-part");
@@ -129,6 +130,15 @@ for (const config of variants) {
 // Eine leere Konfiguration muss dieselbe Lok geben wie die Vorgabe – sonst
 // startet ein neues Kind mit einer halben Lok.
 assert(countNodes(art.buildLoco()) === countNodes(art.buildLoco(art.DEFAULT_LOCO)), "leere Konfiguration weicht von der Vorgabe ab");
+
+// Jedes Bauteil der Werkstatt braucht einen Ausschnitt, auf den gezoomt wird –
+// sonst liesse es sich zwar antippen, aber nicht ansehen.
+for (const part of art.LOCO_PARTS) {
+  const focus = art.PART_FOCUS[part.id];
+  assert(focus, `${part.id}: kein Zoom-Ausschnitt`);
+  assert(focus.width > 0 && focus.height > 0, `${part.id}: Ausschnitt ohne Fläche`);
+}
+assert(art.PART_FOCUS.whole, "der Ausschnitt für die ganze Lok fehlt");
 
 // Die Werkstatt braucht für jedes Bauteil eine Liste von Varianten.
 assert(art.LOCO_PARTS.length >= 5, `die Lok braucht mindestens fünf Bauteile, hat ${art.LOCO_PARTS.length}`);

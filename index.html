@@ -4,15 +4,15 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="application-name" content="Lernapp" />
-    <meta name="description" content="Rätsel und Gehirntraining für Kinder: Merkspiele, Konzentration, Tempo, Knobeln sowie Zahlen und Buchstaben." />
+    <meta name="description" content="Rätsel und Gehirntraining für Kinder: ein Zug, der mit dem Fortschritt wächst. Merkspiele, Konzentration, Tempo, Knobeln sowie Zahlen und Buchstaben." />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Lernapp" />
     <meta name="theme-color" content="#a8ddf0" />
     <title>Lernapp: Dein Zug</title>
-    <link rel="stylesheet" href="styles.css?v=2026-09-01-1" />
-    <link rel="manifest" href="app.webmanifest?v=2026-09-01-1" />
+    <link rel="stylesheet" href="styles.css?v=2026-09-01-4" />
+    <link rel="manifest" href="app.webmanifest?v=2026-09-01-4" />
     <link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon-180.png" />
   </head>
@@ -21,41 +21,18 @@
          leer im HTML, damit hier kein Text steht, den ein Kind lesen müsste. -->
     <div id="train-stage" class="train-stage" aria-label="Dein Zug"></div>
 
-    <!-- Vorläufige Spielauswahl hinter dem Startsignal. In Etappe 4 fährt der
-         Zug stattdessen selbst in die fünf Bereiche; bis dahin bleibt die App
-         durchgehend benutzbar. -->
-    <main class="app-shell" id="game-list" hidden>
-      <section id="home-panel" class="home-panel" aria-label="Spiel auswählen">
-        <a class="game-choice-card" href="buchstaben.html" aria-label="Buchstaben-Jagd spielen"><div class="preview letter-preview" aria-hidden="true"><span>🍌</span><span class="letter-big">B</span><span>M</span><span>S</span></div><div><h2>Buchstaben-Jagd</h2></div></a>
-        <a class="game-choice-card" href="wortdetektiv.html" aria-label="Wortdetektiv spielen"><div class="preview reading-preview" aria-hidden="true"><span>🍎</span><span>A</span><span>_</span><span>F</span><span>E</span><span>L</span><span>🐶</span><span>B</span><span>☀️</span></div><div><h2>Wortdetektiv</h2></div></a>
-        <a class="game-choice-card" href="raumdetektiv.html" aria-label="Raumdetektiv spielen"><div class="preview spatial-preview" aria-hidden="true"><span class="cube c1"></span><span class="cube c2"></span><span class="cube c3"></span><span class="cube c4"></span><span class="view-tile"></span><span class="view-tile tall"></span></div><div><h2>Raumdetektiv</h2></div></a>
-        <a class="game-choice-card" href="backpack.html" aria-label="Rucksack packen spielen"><div class="preview backpack-preview" aria-hidden="true"><span class="backpack-preview-bag">🎒</span><span>🍎</span><span>⚽</span><span>📘</span><span>🪁</span></div><div><h2>Rucksack packen</h2></div></a>
-        <a class="game-choice-card" href="memory.html" aria-label="Memory spielen"><div class="preview memory-preview" aria-hidden="true"><span class="hidden-card">?</span><span class="open-card">🍎</span><span class="hidden-card">?</span><span class="open-card">🍎</span><span class="hidden-card">?</span><span class="hidden-card">?</span><span class="hidden-card">?</span><span class="hidden-card">?</span><span class="hidden-card">?</span></div><div><h2>Memory</h2></div></a>
-        <a class="game-choice-card" href="kartenmerker.html" aria-label="Karten-Merker spielen"><div class="preview cardmatch-preview" aria-hidden="true"><span class="ghost">🐸</span><span class="now">🐸</span><span class="verdict">✓</span></div><div><h2>Karten-Merker</h2></div></a>
-        <a class="game-choice-card" href="schwarmfokus.html" aria-label="Schwarm-Fokus spielen"><div class="preview flanker-preview" aria-hidden="true"><span>←</span><span>←</span><span class="focus">→</span><span>←</span><span>←</span></div><div><h2>Schwarm-Fokus</h2></div></a>
-        <a class="game-choice-card" href="strandschatz.html" aria-label="Strand-Schätze spielen"><div class="preview treasure-preview" aria-hidden="true"><span class="t1"></span><span class="t2"></span><span class="t3"></span><span class="t4 fresh"></span></div><div><h2>Strand-Schätze</h2></div></a>
-        <a class="game-choice-card" href="weichen.html" aria-label="Weichen-Wirrwarr spielen"><div class="preview track-preview" aria-hidden="true"><span class="rail rail-in"></span><span class="rail rail-up"></span><span class="rail rail-down"></span><span class="switch"></span><span class="cart"></span><span class="house house-top"></span><span class="house house-bottom"></span></div><div><h2>Weichen-Wirrwarr</h2></div></a>
-
-        <a class="game-choice-card" href="arukone.html" aria-label="Arukone spielen"><div class="preview arukone-preview" aria-hidden="true"><span>A</span><span class="line-dot"></span><span>A</span><span>B</span><span class="line-dot blue"></span><span>B</span><span>C</span><span class="line-dot green"></span><span>C</span></div><div><h2>Arukone</h2></div></a>
-        <a class="game-choice-card" href="bimaru.html" aria-label="Battleships spielen"><div class="preview battleships-preview" aria-hidden="true"><span></span><span class="ship ship-horizontal-start"></span><span class="ship"></span><span class="ship ship-horizontal-end"></span><span></span><span></span><span></span><span></span><span></span><span class="ship ship-vertical-start"></span><span></span><span></span><span></span><span></span><span class="ship ship-vertical-end"></span><span></span><span></span><span class="ship ship-horizontal-start"></span><span class="ship ship-horizontal-end"></span><span></span><span></span><span></span><span></span><span></span><span></span></div><div><h2>Battleships</h2></div></a>
-
-        <a class="game-choice-card" href="kakuro.html" aria-label="Kakuro spielen"><div class="preview kakuro-preview" aria-hidden="true"><span class="clue">9</span><span class="clue">6</span><span></span><span></span><span class="clue">4</span><span>1</span><span>3</span><span class="clue"></span><span class="clue">7</span><span>2</span><span>5</span><span class="clue">10</span><span class="clue"></span><span class="clue">11</span><span>6</span><span>5</span></div><div><h2>Kakuro</h2></div></a>
-
-        <a class="game-choice-card" href="shikaku.html" aria-label="Tiergehege spielen"><div class="preview shikaku-preview" aria-hidden="true"><span class="pen pen-a">🐰<b>4</b></span><span class="pen pen-a"></span><span class="pen pen-b">🐸<b>2</b></span><span class="pen pen-b"></span><span class="pen pen-a"></span><span class="pen pen-a"></span><span class="pen pen-c">🐻<b>4</b></span><span class="pen pen-c"></span><span class="pen pen-d">🦊<b>2</b></span><span class="pen pen-d"></span><span class="pen pen-c"></span><span class="pen pen-c"></span><span class="pen pen-e">🐼<b>2</b></span><span class="pen pen-e"></span><span class="pen pen-f">🐨<b>2</b></span><span class="pen pen-f"></span></div><div><h2>Tiergehege</h2></div></a>
-        <a class="game-choice-card" href="hidoku.html" aria-label="Hidoku spielen"><div class="preview hidoku-preview" aria-hidden="true"><span>16</span><span>1</span><span></span><span>5</span><span></span><span></span><span>3</span><span></span><span></span><span>11</span><span></span><span>9</span><span>13</span><span></span><span>10</span><span></span></div><div><h2>Hidoku</h2></div></a>
-      </section>
-    </main>
     <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore-compat.js"></script>
-    <script src="firebase.js?v=2026-09-01-1"></script>
-    <script src="spatial-puzzles.js?v=2026-09-01-1"></script>
-    <script src="kids.js?v=2026-09-01-1"></script>
-    <script src="brain-games.js?v=2026-09-01-1"></script>
-    <script src="app.js?v=2026-09-01-1"></script>
-    <script src="train-progress.js?v=2026-09-01-1"></script>
-    <script src="train-art.js?v=2026-09-01-1"></script>
-    <script src="train-home.js?v=2026-09-01-1"></script>
-    <script src="pwa.js?v=2026-09-01-1"></script>
+    <script src="firebase.js?v=2026-09-01-4"></script>
+    <script src="spatial-puzzles.js?v=2026-09-01-4"></script>
+    <script src="kids.js?v=2026-09-01-4"></script>
+    <script src="brain-games.js?v=2026-09-01-4"></script>
+    <script src="app.js?v=2026-09-01-4"></script>
+    <script src="train-progress.js?v=2026-09-01-4"></script>
+    <script src="train-art.js?v=2026-09-01-4"></script>
+    <script src="train-scenes.js?v=2026-09-01-4"></script>
+    <script src="train-home.js?v=2026-09-01-4"></script>
+    <script src="pwa.js?v=2026-09-01-4"></script>
   </body>
 </html>

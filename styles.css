@@ -760,102 +760,6 @@ body.puzzle-active .board {
 
 }
 
-.home-panel {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 22px;
-  max-width: 900px;
-  margin: 0 auto;
-}
-
-.game-choice-card {
-  display: grid;
-  gap: 18px;
-  padding: clamp(22px, 4vw, 30px);
-  border-radius: 30px;
-  background: rgba(255, 255, 255, 0.9);
-  border: 1px solid rgba(255, 255, 255, 0.75);
-  box-shadow: var(--shadow);
-  color: var(--ink);
-  text-align: center;
-  text-decoration: none;
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
-}
-
-a.game-choice-card,
-a.game-choice-card:visited {
-  color: var(--ink);
-  text-decoration: none;
-}
-
-.game-choice-card:hover,
-.game-choice-card:focus-visible {
-  box-shadow: 0 18px 44px rgba(82, 68, 145, 0.22);
-  outline: none;
-  transform: translateY(-2px);
-}
-
-.game-choice-card h2,
-.game-choice-card p {
-  margin: 0;
-}
-
-.game-choice-card h2 {
-  color: var(--ink);
-}
-
-.game-choice-card p:not(.small-label) {
-  color: var(--muted);
-  font-weight: 700;
-}
-
-.preview {
-  width: min(220px, 100%);
-  aspect-ratio: 1;
-  margin: 0 auto;
-  display: grid;
-  padding: 12px;
-  border-radius: 24px;
-  background: #fbfaff;
-  border: 3px solid var(--line);
-}
-
-.arukone-preview {
-  grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
-}
-
-.arukone-preview span{
-  display: grid;
-  place-items: center;
-  border-radius: 14px;
-  background: white;
-  border: 2px solid var(--line);
-  font-weight: 900;
-  font-size: 1.35rem;
-}
-
-.arukone-preview span:nth-child(1),
-.arukone-preview span:nth-child(3) {
-  color: #ef476f;
-  border-color: #ef476f;
-  background: #fff0f4;
-}
-
-.arukone-preview span:nth-child(4),
-.arukone-preview span:nth-child(6) {
-  color: #118ab2;
-  border-color: #118ab2;
-  background: #edf9fd;
-}
-
-.arukone-preview span:nth-child(7),
-.arukone-preview span:nth-child(9) {
-  color: #06d6a0;
-  border-color: #06d6a0;
-  background: #eafff9;
-}
-
 .line-dot {
   position: relative;
   background: #ffe4ec !important;
@@ -881,68 +785,6 @@ a.game-choice-card:visited {
   border-color: #06d6a0 !important;
 }
 .line-dot.green::before { background: #06d6a0; }
-
-.backpack-preview {
-  position: relative;
-  grid-template-columns: repeat(4, 1fr);
-  grid-template-rows: 1.35fr 0.75fr;
-  gap: 8px;
-  background: #fff8ed;
-  border-color: #ffd166;
-}
-
-.backpack-preview span {
-  display: grid;
-  place-items: center;
-  border-radius: 14px;
-  background: #fff;
-  border: 2px solid #f0dfb5;
-  font-size: 1.8rem;
-}
-
-.backpack-preview .backpack-preview-bag {
-  grid-column: 1 / -1;
-  grid-row: 1;
-  border-color: #06d6a0;
-  background: #effff8;
-  font-size: 4.3rem;
-}
-
-.memory-preview {
-  grid-template-columns: repeat(3, 1fr);
-  grid-template-rows: repeat(3, 1fr);
-  gap: 8px;
-  padding: 12px;
-  background: #fbfaff;
-  border-color: #d9d6ee;
-}
-
-.memory-preview span {
-  display: grid;
-  place-items: center;
-  min-width: 0;
-  min-height: 0;
-  aspect-ratio: 1;
-  border-radius: 15px;
-  background: #fff;
-  border: 2px solid #d9d6ee;
-  color: var(--ink);
-  font-weight: 950;
-  box-shadow: 0 8px 16px rgba(36, 48, 71, 0.09);
-}
-
-.memory-preview .hidden-card {
-  background: #6c5ce7;
-  border-color: #5141c9;
-  color: #fff;
-  font-size: 1.55rem;
-}
-
-.memory-preview .open-card {
-  background: #fff8df;
-  border-color: #ffd166;
-  font-size: 1.7rem;
-}
 
 .level-grid {
   display: flex;
@@ -1050,8 +892,7 @@ body.puzzle-active .number-pad {
   margin: 0;
 }
 
-body.puzzle-active #level-panel,
-body.puzzle-active #home-panel {
+body.puzzle-active #level-panel{
   display: none;
 }
 
@@ -1091,60 +932,6 @@ a.icon-button {
 }
 
 /* Erweiterungen für die grosse Rätselsammlung */
-.home-panel {
-  grid-template-columns: repeat(auto-fit, minmax(158px, 1fr));
-  gap: clamp(12px, 2.6vw, 22px);
-  max-width: 1120px;
-}
-
-@media (max-width: 560px) {
-  .game-choice-card {
-    padding: 14px 12px 16px;
-    gap: 12px;
-    border-radius: 24px;
-  }
-
-  .game-choice-card h2 {
-    font-size: 1.05rem;
-    line-height: 1.15;
-    text-wrap: balance;
-  }
-}
-.preview span { min-width: 0; }
-.sea-preview { grid-template-columns: repeat(5, 1fr); gap: 5px; }
-.sea-preview span {
-  display: grid; place-items: center; border-radius: 10px; background: #fff; border: 2px solid var(--line); font-weight: 900;
-}
-.sea-preview span { background: #f9fbff; color: #1f2937; }
-
-.battleships-preview {
-  grid-template-columns: repeat(5, 1fr);
-  grid-template-rows: repeat(5, 1fr);
-  gap: 5px;
-  padding: 10px;
-  background: #eef8ff;
-  border-color: #b9dff7;
-}
-
-.battleships-preview span {
-  display: grid;
-  place-items: center;
-  min-width: 0;
-  border-radius: 10px;
-  background: #ffffff;
-  border: 2px solid #cfe5f7;
-}
-
-.battleships-preview .ship {
-  background: linear-gradient(145deg, #243047, #111827);
-  border-color: #111827;
-  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.24);
-}
-
-.battleships-preview .ship-horizontal-start { border-radius: 12px 6px 6px 12px; }
-.battleships-preview .ship-horizontal-end { border-radius: 6px 12px 12px 6px; }
-.battleships-preview .ship-vertical-start { border-radius: 12px 12px 6px 6px; }
-.battleships-preview .ship-vertical-end { border-radius: 6px 6px 12px 12px; }
 
 .difficulty-group { display: grid; gap: 10px; text-align: left; }
 .difficulty-group h3 { margin: 8px 0 0; color: var(--primary-dark); font-size: 1.2rem; }
@@ -1506,27 +1293,6 @@ button.selection-back-button:focus-visible {
   color: var(--primary-dark);
 }
 
-.kakuro-preview {
-  grid-template-columns: repeat(4, 1fr);
-  background: #f8f5ef;
-}
-
-.kakuro-preview span {
-  position: relative;
-  background: #fff;
-  border-color: #d6c7b2;
-  color: #3d405b;
-  font-size: 0.8rem;
-}
-
-.kakuro-preview .clue {
-  background: linear-gradient(135deg, #b7b7b2 49%, #fefefe 50%);
-  color: #1f2933;
-  align-items: flex-start;
-  justify-content: flex-start;
-  padding: 4px;
-}
-
 .kakuro-board {
   gap: 0;
   max-width: min(720px, 100%);
@@ -1590,29 +1356,6 @@ button.selection-back-button:focus-visible {
 
 .kakuro-cell:hover {
   transform: none;
-}
-
-.hidoku-preview {
-  grid-template-columns: repeat(4, 1fr);
-  gap: 5px;
-  background: #f8fbff;
-}
-
-.hidoku-preview span {
-  display: grid;
-  place-items: center;
-  border-radius: 10px;
-  background: #fff;
-  border: 2px solid #c9d7f2;
-  color: #243047;
-  font-size: 1rem;
-  font-weight: 950;
-}
-
-.hidoku-preview span:not(:empty) {
-  background: #eef4ff;
-  border-color: #3a86ff;
-  color: #1f4ea3;
 }
 
 .hidoku-board {
@@ -1695,35 +1438,6 @@ body.puzzle-active .hidoku-board {
   }
 }
 
-.shikaku-preview {
-  grid-template-columns: repeat(4, 1fr);
-  gap: 4px;
-  padding: 8px;
-}
-
-.shikaku-preview span {
-  display: grid;
-  place-items: center;
-  min-width: 0;
-  border: 2px solid rgba(36, 48, 71, 0.18);
-  color: var(--ink);
-  font-size: 0.98rem;
-  font-weight: 900;
-}
-
-.shikaku-preview b {
-  margin-left: 2px;
-  font-size: 0.8rem;
-}
-
-.shikaku-preview .pen { border-radius: 9px; }
-.shikaku-preview .pen-a { background: #fff0c7; }
-.shikaku-preview .pen-b { background: #dff8ef; }
-.shikaku-preview .pen-c { background: #e6f0ff; }
-.shikaku-preview .pen-d { background: #ffe0e8; }
-.shikaku-preview .pen-e { background: #eee8ff; }
-.shikaku-preview .pen-f { background: #e9f8ff; }
-
 .shikaku-board {
   gap: 4px;
   max-width: min(720px, 100%);
@@ -1775,22 +1489,6 @@ body.puzzle-active .hidoku-board {
   font-weight: 950;
 }
 
-.shikaku-cell.shikaku-drag-preview {
-  border-color: #ff9f1c;
-  background:
-    linear-gradient(rgba(255, 159, 28, 0.24), rgba(255, 159, 28, 0.24)),
-    #fff8e8;
-  box-shadow: inset 0 0 0 3px rgba(255, 255, 255, 0.82), 0 0 0 2px rgba(255, 159, 28, 0.38);
-  transform: scale(1.01);
-}
-
-.shikaku-cell.shikaku-drag-preview.valid {
-  border-color: #06d6a0;
-  background:
-    linear-gradient(rgba(6, 214, 160, 0.22), rgba(6, 214, 160, 0.22)),
-    #f0fff9;
-}
-
 .shikaku-region-1 { background: #fff0c7; }
 .shikaku-region-2 { background: #dff8ef; }
 .shikaku-region-3 { background: #e6f0ff; }
@@ -1822,81 +1520,6 @@ body.puzzle-active .shikaku-cell {
     font-size: clamp(0.8rem, 4vw, 1.2rem);
   }
   .shikaku-number { padding-inline: 5px; }
-}
-.reading-preview {
-  grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
-}
-
-.reading-preview {
-  background: #fff8ed;
-  border-color: #ffd38a;
-}
-.reading-preview span {
-  display: grid;
-  place-items: center;
-  min-width: 0;
-  border-radius: 12px;
-  background: #fff;
-  border: 2px solid var(--line);
-  color: var(--ink);
-  font-size: 1.35rem;
-  font-weight: 950;
-}
-
-.spatial-preview {
-  position: relative;
-  overflow: hidden;
-  background: #f9fbff;
-  border-color: #cfe3f4;
-}
-
-.spatial-preview .cube {
-  position: absolute;
-  width: 58px;
-  height: 50px;
-  border: 2px solid #243047;
-  border-radius: 10px;
-  background:
-    linear-gradient(135deg, rgba(255,255,255,0.46), transparent 46%),
-    #7acdf0;
-  transform: rotate(-28deg) skewX(18deg);
-  box-shadow: 0 10px 0 #118ab2;
-}
-
-.spatial-preview .c1 { left: 52px; top: 82px; background-color: #7acdf0; }
-.spatial-preview .c2 { left: 95px; top: 58px; background-color: #ffd166; box-shadow: 0 10px 0 #d49b18; }
-.spatial-preview .c3 { left: 96px; top: 108px; background-color: #8fd694; box-shadow: 0 10px 0 #3c9f75; }
-.spatial-preview .c4 { left: 95px; top: 20px; background-color: #f6a6b8; box-shadow: 0 10px 0 #cf5571; }
-
-.spatial-preview .view-tile {
-  position: absolute;
-  right: 28px;
-  bottom: 34px;
-  width: 28px;
-  height: 28px;
-  border-radius: 7px;
-  border: 3px solid #8338ec;
-  background: #eee8ff;
-}
-
-.spatial-preview .view-tile.tall {
-  right: 28px;
-  bottom: 66px;
-  border-color: #ef476f;
-  background: #ffe5ea;
-}
-.reading-preview span:nth-child(5) {
-  background: #fff4cf;
-  border-color: #ffd166;
-  color: #8a5a00;
-}
-.reading-preview span:nth-child(1),
-.reading-preview span:nth-child(7),
-.reading-preview span:nth-child(9) {
-  background: #e9f8ff;
-  border-color: #7acdf0;
-  color: #11688c;
 }
 
 .task-board {
@@ -3900,55 +3523,8 @@ body.puzzle-active .memory-game {
 /* Truhe / Zoo-Reveal */
 
 /* --- Home: Topbar, Tagesziel, Featured --- */
-.home-topbar {
-  display: flex; align-items: center; justify-content: space-between; gap: 12px;
-  max-width: 620px; margin: 0 auto 16px; flex-wrap: wrap;
-}
-.home-profile {
-  display: inline-flex; align-items: center; gap: 8px; padding: 6px 14px 6px 6px;
-  border-radius: 999px; border: 2px solid var(--line); background: #fff; cursor: pointer;
-  font-weight: 900; color: var(--ink);
-}
-.home-profile-avatar {
-  width: 40px; height: 40px; border-radius: 50%; background: #efeaff;
-  display: grid; place-items: center; font-size: 1.5rem; line-height: 1;
-}
-.home-daily {
-  display: inline-flex; align-items: center; gap: 8px; padding: 8px 16px;
-  border-radius: 999px; background: #fff; border: 2px solid var(--line); font-weight: 900;
-}
-.home-daily-label { color: var(--primary-dark); }
-.home-featured {
-  display: grid; grid-template-columns: repeat(auto-fit, minmax(168px, 1fr)); gap: 12px;
-  align-items: stretch;
-  max-width: 720px; margin: 0 auto 24px;
-}
-.home-feature {
-  display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-radius: 22px;
-  text-decoration: none; color: #fff; font-weight: 900; min-height: 78px;
-  box-shadow: 0 14px 30px rgba(50, 44, 109, 0.18); transition: transform 0.12s ease;
-}
-.home-feature:active { transform: scale(0.97); }
 /* Rundes Feld hinter dem Emoji: alle vier Karten bekommen damit denselben
    optischen Anker, egal wie breit das Zeichen ist. */
-.home-feature-emoji {
-  flex: 0 0 auto;
-  width: 46px; height: 46px;
-  display: grid; place-items: center;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.22);
-  font-size: 1.6rem; line-height: 1;
-}
-.home-feature-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; line-height: 1.2; }
-.home-feature-text strong { overflow-wrap: anywhere; }
-.home-feature-text small {
-  font-weight: 700; opacity: 0.92; font-size: 0.82rem;
-  /* Lieber zwei Zeilen als ein abgeschnittenes Wort. */
-  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
-  overflow: hidden; overflow-wrap: anywhere;
-}
-.home-feature.continue { background: linear-gradient(120deg, #06d6a0, #05b98c); }
-.home-feature.runner { background: linear-gradient(120deg, #2ec4d6, #2f80ed); }
 
 /* --- Vorlesen / Aufgaben-Fortschritt --- */
 .practice-progress-row { display: flex; align-items: center; justify-content: center; gap: 12px; flex-wrap: wrap; }
@@ -3980,8 +3556,6 @@ body.puzzle-active .memory-game {
 .letterPuzzle-options .practice-option { font-size: 2rem; font-weight: 950; }
 
 /* --- Home-Vorschaubilder für neue Spiele --- */
-.letter-preview { display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 1.5rem; }
-.letter-preview .letter-big { font-weight: 950; color: #06d6a0; font-size: 1.9rem; }
 
 /* --- Mein Zoo --- */
 
@@ -4644,82 +4218,7 @@ body.runner-playing .help-voice { display: none; }
 .track-legend-symbol { font-size: 1rem; line-height: 1; }
 
 /* --- Vorschaubilder auf der Startseite --- */
-.cardmatch-preview {
-  display: flex; align-items: center; justify-content: center; gap: 10px;
-  background: #f6f2ff; border-color: #cbbdf6;
-}
-.cardmatch-preview span {
-  display: grid; place-items: center;
-  width: 34%; aspect-ratio: 3 / 4; border-radius: 14px;
-  border: 3px solid #8338ec; background: #fff; font-size: 1.7rem; line-height: 1;
-}
-.cardmatch-preview .ghost { opacity: 0.45; border-style: dashed; }
-.cardmatch-preview .verdict {
-  width: 26%; aspect-ratio: 1; border-radius: 50%;
-  border-color: #06d6a0; color: #06d6a0; font-weight: 950;
-}
-
-.flanker-preview {
-  display: flex; align-items: center; justify-content: center; gap: 4px;
-  background: linear-gradient(180deg, #eaf7ff, #d9efff); border-color: #b7ddf0;
-  font-size: 1.6rem; font-weight: 950; color: #6699c4;
-}
-.flanker-preview .focus {
-  color: #ff9f1c;
-  font-size: 2.4rem;
-  background: #fff;
-  border-radius: 50%;
-  width: 2.6rem; height: 2.6rem;
-  display: grid; place-items: center;
-}
-
-.treasure-preview {
-  display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px;
-  place-items: center;
-  background: linear-gradient(180deg, #fff6e3, #ffeccd); border-color: #ffd8a1;
-}
 /* Vier Muscheln in klaren Farben – die neue ist grün umrandet. */
-.treasure-preview span {
-  position: relative;
-  width: 72%;
-  aspect-ratio: 1;
-  border-radius: 50% 50% 50% 50% / 62% 62% 38% 38%;
-  border: 3px solid rgba(36, 48, 71, 0.28);
-}
-.treasure-preview .t1 { background: #ef476f; }
-.treasure-preview .t2 { background: #ffd166; }
-.treasure-preview .t3 { background: #2ec4d6; }
-.treasure-preview .fresh {
-  background: #8338ec;
-  border-color: #06d6a0;
-  box-shadow: 0 0 0 5px rgba(6, 214, 160, 0.28);
-}
-
-.track-preview {
-  position: relative;
-  background: linear-gradient(180deg, #f4f8ff, #e8eeff);
-  border-color: #cfdcf7;
-  overflow: hidden;
-}
-.track-preview .rail { position: absolute; background: #9aa3ba; border-radius: 999px; height: 8px; }
-.track-preview .rail-in { left: 8%; top: 50%; width: 34%; transform: translateY(-50%); }
-.track-preview .rail-up { left: 40%; top: 32%; width: 44%; transform: rotate(-22deg); transform-origin: left center; }
-.track-preview .rail-down { left: 40%; top: 62%; width: 44%; transform: rotate(22deg); transform-origin: left center; }
-.track-preview .switch {
-  position: absolute; left: 38%; top: 50%; width: 22px; height: 22px;
-  transform: translate(-50%, -50%); border-radius: 50%;
-  background: #fff; border: 4px solid #6c5ce7;
-}
-.track-preview .cart {
-  position: absolute; left: 9%; top: 50%; width: 26px; height: 20px;
-  transform: translateY(-50%); border-radius: 7px;
-  background: #ef476f; border: 2px solid #7a1029;
-}
-.track-preview .house {
-  position: absolute; right: 8%; width: 30px; height: 24px; border-radius: 6px;
-}
-.track-preview .house-top { top: 14%; background: #ef476f; border: 2px solid #7a1029; }
-.track-preview .house-bottom { bottom: 14%; background: #06d6a0; border: 2px solid #03614a; }
 
 @media (prefers-reduced-motion: reduce) {
   .cardmatch-card.big,
@@ -4836,6 +4335,9 @@ body[data-page="train"].list-open { overflow: auto; }
 
 /* --- Der Zug --- */
 
+/* Der Zug ist nur einmal da. Zwischen den Ansichten schrumpft er in die untere
+   linke Ecke – nicht ausgetauscht, sondern bewegt, damit die Verkleinerung
+   sichtbar wird. transform-origin unten links hält ihn dabei auf dem Gleis. */
 .train-band {
   position: absolute;
   left: 0; right: 0;
@@ -4844,7 +4346,35 @@ body[data-page="train"].list-open { overflow: auto; }
   display: flex;
   justify-content: center;
   pointer-events: none;
+  transform-origin: left bottom;
+  transition: transform 0.72s cubic-bezier(0.32, 0.72, 0.24, 1);
 }
+
+.train-stage[data-view="areas"] .train-band,
+.train-stage[data-view="games"] .train-band {
+  transform: translate(2%, var(--train-lift, -1%)) scale(0.42);
+}
+
+/* Aus dem Bild fahren und wieder hereinkommen. Beides sind reine
+   Verschiebungen auf der bestehenden Verkleinerung. */
+.train-stage[data-moving="out"] .train-band {
+  transform: translate(120%, -1%) scale(0.42);
+  transition-duration: 0.6s;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.9, 0.6);
+}
+.train-stage[data-moving="in"] .train-band {
+  transform: translate(-110%, -1%) scale(0.42);
+  transition: none;
+}
+
+/* Auf dem Startbild wird die Verkleinerung nicht gebraucht, aber die Fahrt
+   aus dem Bild schon – etwa beim Wechsel in ein Spiel. */
+.train-stage[data-view="home"][data-moving="out"] .train-band {
+  transform: translate(120%, 0) scale(1);
+}
+
+/* Das Startsignal gehört nur aufs Startbild. */
+.train-stage:not([data-view="home"]) .train-start-signal { display: none; }
 
 .train-band .train-svg {
   width: 100%;
@@ -4889,6 +4419,74 @@ body[data-page="train"].list-open { overflow: auto; }
 .train-start-signal:focus-visible { outline: 3px solid #ffffff; outline-offset: 4px; border-radius: 50%; }
 .train-start-signal:active { transform-origin: center; }
 
+/* --- Bühnen-Ebene: Tore und Gebäude --- */
+
+/* Die Gebäude stehen hinter dem Gleis, der Zug fährt davor vorbei. Läge die
+   Ebene vor dem Zug, würde sie ihn in Stücke schneiden. */
+.stage-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+
+.stage-layer .stage-svg {
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  animation: stage-layer-in 0.5s ease both;
+}
+
+.stage-layer .train-gate,
+.stage-layer .train-building { pointer-events: auto; cursor: pointer; }
+
+/* Nur die feste Trefferfläche nimmt Tipps entgegen; die Zeichnung darunter
+   nicht. So bleibt das Ziel gross und ändert sich nicht beim Hovern. */
+.train-gate > *:not(.train-gate-hit),
+.train-building > *:not(.train-building-hit) { pointer-events: none; }
+
+@keyframes stage-layer-in {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: none; }
+}
+
+.train-gate, .train-building {
+  transform-box: fill-box;
+  transform-origin: center bottom;
+  transition: transform 0.16s ease;
+}
+.train-gate:hover, .train-building:hover,
+.train-gate:focus-visible, .train-building:focus-visible { transform: scale(1.05); }
+.train-gate:active, .train-building:active { transform: scale(0.97); }
+.train-gate:focus-visible, .train-building:focus-visible { outline: 3px solid #ffffff; outline-offset: 2px; }
+
+/* --- Zurück-Knopf der Bühne --- */
+
+.stage-back {
+  position: absolute;
+  bottom: calc(var(--safe-bottom) + 18px);
+  left: calc(var(--safe-left) + 18px);
+  z-index: 6;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  border: 3px solid #fff;
+  background: #6c5ce7;
+  color: #fff;
+  box-shadow: 0 6px 16px rgba(36, 48, 71, 0.24);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  padding: 0;
+  transition: transform 0.15s ease;
+}
+.stage-back[hidden] { display: none; }
+.stage-back svg { width: 30px; height: 30px; }
+.stage-back:active { transform: scale(0.93); }
+.stage-back:focus-visible { outline: 3px solid #243047; outline-offset: 3px; }
+
 /* --- Profil oben rechts --- */
 /* Der Ton-Knopf kommt aus kids.js und sitzt links daneben. */
 
@@ -4919,55 +4517,380 @@ body[data-page="train"].list-open { overflow: auto; }
 .train-profile:active { transform: scale(0.93); }
 .train-profile:focus-visible { outline: 3px solid #6c5ce7; outline-offset: 3px; }
 
-/* --- Vorläufige Spielliste hinter dem Startsignal --- */
-/* Verschwindet in Etappe 4, wenn der Zug selbst in die Bereiche fährt. */
+/* --- Landschafts-Knopf oben links --- */
+/* Ein Guckloch auf die Landschaft, die gerade läuft, mit zwei Pfeilen daneben.
+   Steht dort, wo auf den Spielseiten der Vorlese-Knopf sitzt. */
 
-#game-list[hidden] { display: none; }
-
-.train-back {
-  position: fixed;
-  bottom: calc(var(--safe-bottom) + 18px);
-  left: calc(var(--safe-left) + 16px);
-  z-index: 40;
-  width: 60px;
-  height: 60px;
+.scene-button {
+  position: absolute;
+  top: calc(var(--safe-top) + 14px);
+  left: calc(var(--safe-left) + 14px);
+  z-index: 6;
+  width: 58px;
+  height: 58px;
+  padding: 0;
+  border: 3px solid rgba(255, 255, 255, 0.95);
   border-radius: 50%;
-  border: 3px solid #fff;
+  background: #cfe9f5;
+  box-shadow: 0 6px 16px rgba(36, 48, 71, 0.24);
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+.scene-button[hidden] { display: none; }
+.scene-button:active { transform: scale(0.93); }
+.scene-button:focus-visible { outline: 3px solid #6c5ce7; outline-offset: 3px; }
+
+.scene-button-view {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  overflow: hidden;
+  display: block;
+}
+.scene-button-view .scene-thumb-art { width: 100%; height: 100%; }
+
+.scene-button-badge {
+  position: absolute;
+  right: -6px;
+  bottom: -6px;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 2px solid #fff;
   background: #6c5ce7;
   color: #fff;
-  box-shadow: 0 6px 16px rgba(36, 48, 71, 0.24);
   display: grid;
   place-items: center;
-  cursor: pointer;
-  padding: 0;
 }
-.train-back svg { width: 30px; height: 30px; }
-.train-back:active { transform: scale(0.93); }
-.train-back:focus-visible { outline: 3px solid #243047; outline-offset: 3px; }
+.scene-button-badge svg { width: 17px; height: 17px; display: block; }
 
-/* Hochformat: ein Zug aus Lok und fünf Wagen ist von Natur aus breit. Auf einem
-   schmalen Bildschirm wird er darum flach – dagegen hilft keine Skalierung,
-   solange der ganze Zug sichtbar bleiben soll. Was hilft: die Landschaft
-   zusammenschieben, damit der Zug nicht in leerem Himmel verloren geht, und ihn
-   in die Mitte rücken statt an den unteren Rand. Im Querformat ist das Bild
-   deutlich besser – siehe Hinweis im Konzept. */
-@media (max-aspect-ratio: 4 / 5) {
-  .scene::after { height: 46%; }
-  .scene-layer-clouds { top: 3%; height: 26%; }
-  .scene-layer-far { bottom: 42%; height: 28%; }
-  .scene-layer-mid { bottom: 30%; height: 24%; }
-  .scene-layer-near { bottom: 0; height: 20%; }
-  /* Weiter nach links, sonst steht die Sonne hinter dem Profil-Knopf. */
-  .scene-sun { top: 6%; right: 26%; width: clamp(44px, 15vw, 84px); }
-  .train-band { bottom: 17%; }
-  .scene-bird { width: clamp(18px, 6vw, 30px); }
+/* ---------------------------------------------------------------------------
+   Dreh-Hinweis
+   ---------------------------------------------------------------------------
+   Nur auf Geräten mit Finger-Bedienung und nur hochkant. Auf einem Desktop mit
+   schmalem Fenster wäre er nur im Weg, deshalb die Abfrage auf pointer: coarse.
+   --------------------------------------------------------------------------- */
+
+/* Auf dem Startbild gibt es keinen Vorlese-Knopf. Auch nicht, wenn ein Dialog
+   darüber – etwa "Wer spielt?" – einen Hilfetext anmeldet: dort soll wirklich
+   nur der Zug stehen. In den Spielen bleibt der Knopf unverändert. */
+body[data-page="train"] .help-voice { display: none; }
+
+.rotate-hint { display: none; }
+
+@media (orientation: portrait) and (pointer: coarse) {
+  .rotate-hint {
+    position: fixed;
+    inset: 0;
+    z-index: 300;
+    display: grid;
+    place-items: center;
+    background: #243047;
+    padding: 10vw;
+  }
+
+  .rotate-hint svg {
+    width: min(58vw, 320px);
+    height: auto;
+    overflow: visible;
+  }
+
+  .rotate-hint-device {
+    fill: none;
+    stroke: #ffffff;
+    stroke-width: 5;
+    transform-origin: 60px 39px;
+    animation: rotate-hint-turn 3s ease-in-out infinite;
+  }
+  .rotate-hint-dot {
+    fill: #ffffff;
+    transform-origin: 60px 39px;
+    animation: rotate-hint-turn 3s ease-in-out infinite;
+  }
+  .rotate-hint-arrow { fill: none; stroke: #6c5ce7; stroke-width: 6; stroke-linecap: round; }
+  .rotate-hint-tip { fill: #6c5ce7; }
+
+  /* Hinter dem Hinweis muss nichts laufen: die Bühne pausiert, damit das
+     Gerät nicht sinnlos animiert, was niemand sieht. */
+  .train-stage, .scene-strip, .scene-bird { animation-play-state: paused; }
+}
+
+@keyframes rotate-hint-turn {
+  0%, 20% { transform: rotate(0deg); }
+  55%, 80% { transform: rotate(-90deg); }
+  100% { transform: rotate(0deg); }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .scene-strip, .scene-bird, .train-start-ring { animation: none; }
   .train-steam-puff { animation: none; opacity: 0.5; }
+  .rotate-hint-device, .rotate-hint-dot { animation: none; transform: rotate(-90deg); }
+  .train-band { transition: none; }
+  .stage-layer .stage-svg { animation: none; }
+  .train-gate, .train-building { transition: none; }
 }
 
 /* Nur die feste Trefferfläche nimmt Tipps entgegen; die Zeichnung darunter
    nicht. Sonst wandert das Ziel mit dem pulsenden Ring. */
 .train-start-signal > *:not(.train-start-hit) { pointer-events: none; }
+
+/* ===========================================================================
+   Lok-Werkstatt
+   ---------------------------------------------------------------------------
+   Die Lok allein, gross. Ein Tipp auf ein Bauteil fährt die Kamera darauf zu
+   und blendet darunter die Varianten ein. Gezoomt wird eine Gruppe im SVG und
+   nicht dessen Ausschnitt: nur eine Transformation lässt sich weich animieren.
+   =========================================================================== */
+
+.train-stage[data-view="loco"] .train-band { opacity: 0; pointer-events: none; }
+.train-stage[data-view="loco"] .stage-layer { z-index: 4; }
+
+.loco-workshop {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(8px, 2vh, 20px);
+  padding: calc(var(--safe-top) + 76px) 16px calc(var(--safe-bottom) + 16px);
+  pointer-events: auto;
+}
+
+.loco-view {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  overflow: hidden;
+}
+
+/* Die Lok füllt die Bühne. Ist ein Bauteil gewählt, macht sie unten Platz für
+   die Varianten – das steuert allein die Höhe des Geschwisters.
+   Kein overflow: visible: beim Zoom liefe die Lok sonst über die ganze Seite
+   hinaus und schöbe die Varianten aus dem Fenster. */
+.loco-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.loco-camera {
+  transform-box: view-box;
+  transform-origin: 0 0;
+  transition: transform 0.55s cubic-bezier(0.32, 0.72, 0.24, 1);
+}
+
+/* Antippbare Stellen an der Lok. Ein kleiner Punkt zeigt sie dauerhaft an,
+   damit ein Kind erkennt, wo etwas zu holen ist; die Trefferfläche darunter ist
+   viel grösser als der Punkt und unsichtbar. */
+.loco-hotspot { cursor: pointer; }
+.loco-hotspot > *:not(.loco-hotspot-hit) { pointer-events: none; }
+.loco-hotspot-dot,
+.loco-hotspot-halo {
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: transform 0.16s ease, opacity 0.16s ease;
+}
+.loco-hotspot-halo { animation: loco-dot-pulse 2.6s ease-in-out infinite; }
+.loco-hotspot:hover .loco-hotspot-dot,
+.loco-hotspot:focus-visible .loco-hotspot-dot { transform: scale(1.45); }
+.loco-hotspot:hover .loco-hotspot-halo,
+.loco-hotspot:focus-visible .loco-hotspot-halo { opacity: 0.6; transform: scale(1.5); }
+.loco-hotspot:active .loco-hotspot-dot { transform: scale(1.1); }
+.loco-hotspot:focus-visible { outline: none; }
+
+@keyframes loco-dot-pulse {
+  0%, 100% { transform: scale(1); opacity: 0.35; }
+  50% { transform: scale(1.35); opacity: 0.12; }
+}
+
+.loco-choices {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+  width: 100%;
+}
+
+/* Links unten sitzt der Zurück-Knopf; die Auswahl darf nicht darunter laufen. */
+.loco-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  max-width: 100%;
+  padding-inline: 84px;
+}
+
+.loco-choice {
+  width: clamp(56px, 9vh, 84px);
+  height: clamp(56px, 9vh, 84px);
+  padding: 0;
+  border: 3px solid rgba(255, 255, 255, 0.85);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.62);
+  box-shadow: 0 4px 12px rgba(36, 48, 71, 0.18);
+  cursor: pointer;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  transition: transform 0.14s ease, border-color 0.14s ease;
+}
+.loco-choice:hover { transform: translateY(-2px); }
+.loco-choice:active { transform: scale(0.94); }
+.loco-choice:focus-visible { outline: 3px solid #6c5ce7; outline-offset: 3px; }
+.loco-choice.is-current { border-color: #6c5ce7; background: rgba(255, 255, 255, 0.95); }
+
+.part-preview { width: 100%; height: 100%; display: block; }
+
+@media (prefers-reduced-motion: reduce) {
+  .loco-camera, .loco-choice, .loco-hotspot-dot, .loco-hotspot-halo { transition: none; }
+  .loco-hotspot-halo { animation: none; }
+}
+
+/* ===========================================================================
+   Wagen-Grossansicht
+   ---------------------------------------------------------------------------
+   Der Wagen gross, darunter für jedes Spiel eine Kiste mit einem Band je Welt.
+   Die Bänder füllen sich von links – ein leeres Band heisst "hier war ich noch
+   nie", ein volles "hier ist alles gelöst".
+   =========================================================================== */
+
+.train-stage[data-view="wagon"] .train-band { opacity: 0; pointer-events: none; }
+.train-stage[data-view="wagon"] .stage-layer { z-index: 4; }
+
+.wagon-detail {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(10px, 3vh, 28px);
+  padding: calc(var(--safe-top) + 76px) 16px calc(var(--safe-bottom) + 16px);
+  pointer-events: auto;
+}
+
+.wagon-hero { flex: 1 1 auto; min-height: 0; width: 100%; display: grid; place-items: center; }
+.wagon-hero-svg { width: auto; height: 100%; max-width: 100%; display: block; }
+
+.wagon-shelf {
+  flex: 0 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: clamp(10px, 2vw, 22px);
+  padding-inline: 84px;
+  max-width: 100%;
+}
+
+.wagon-crate {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 12px 12px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.72);
+  box-shadow: 0 4px 12px rgba(36, 48, 71, 0.16);
+}
+
+.crate-icon { width: clamp(44px, 7vh, 68px); height: clamp(44px, 7vh, 68px); display: block; }
+
+.crate-bands { display: flex; flex-direction: column; gap: 3px; width: clamp(64px, 10vh, 96px); }
+
+.crate-band {
+  height: clamp(7px, 1.3vh, 11px);
+  border-radius: 999px;
+  background: rgba(36, 48, 71, 0.14);
+  overflow: hidden;
+}
+.crate-band.is-full { box-shadow: 0 0 0 1.5px rgba(240, 180, 41, 0.9); }
+
+.crate-fill { display: block; height: 100%; border-radius: 999px; transition: width 0.5s ease; }
+
+/* ===========================================================================
+   Szenenwahl
+   ---------------------------------------------------------------------------
+   Öffnet sich mit einem Tipp auf die Landschaft. Gesperrte Szenen sind blass
+   und tragen ein Schloss – ein Zeichen, kein Text.
+   =========================================================================== */
+
+.scene-picker {
+  position: absolute;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  background: rgba(23, 34, 42, 0.55);
+  backdrop-filter: blur(3px);
+  animation: scene-picker-in 0.22s ease both;
+}
+
+@keyframes scene-picker-in { from { opacity: 0; } to { opacity: 1; } }
+
+.scene-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: clamp(10px, 2vw, 20px);
+  max-width: min(100%, 900px);
+  padding: 20px;
+}
+
+.scene-choice {
+  position: relative;
+  width: clamp(96px, 15vw, 150px);
+  padding: 0;
+  border: 4px solid rgba(255, 255, 255, 0.9);
+  border-radius: 16px;
+  background: #fff;
+  overflow: hidden;
+  cursor: pointer;
+  line-height: 0;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.28);
+  transition: transform 0.15s ease, border-color 0.15s ease;
+}
+.scene-choice:hover:not(:disabled) { transform: translateY(-3px); }
+.scene-choice:active:not(:disabled) { transform: scale(0.96); }
+.scene-choice.is-current { border-color: #ffd166; }
+.scene-choice:focus-visible { outline: 3px solid #ffd166; outline-offset: 3px; }
+.scene-choice.is-locked { cursor: not-allowed; filter: grayscale(0.75); opacity: 0.55; }
+
+.scene-thumb-art { width: 100%; height: auto; display: block; }
+
+.scene-lock {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 34%;
+  height: auto;
+  color: #ffffff;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
+}
+
+.scene-close {
+  position: absolute;
+  top: calc(var(--safe-top) + 14px);
+  left: calc(var(--safe-left) + 16px);
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  border: 3px solid #fff;
+  background: rgba(36, 48, 71, 0.85);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  padding: 0;
+}
+.scene-close svg { width: 26px; height: 26px; }
+.scene-close:focus-visible { outline: 3px solid #ffd166; outline-offset: 3px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .crate-fill, .scene-choice { transition: none; }
+  .scene-picker { animation: none; }
+}

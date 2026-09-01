@@ -1575,7 +1575,6 @@ window.LernappFirebase?.registerLevels?.(window.LernappLevelCatalog);
 
 const board = document.querySelector("#board");
 const numberPad = document.querySelector("#number-pad");
-const homePanel = document.querySelector("#home-panel");
 const levelPanel = document.querySelector("#level-panel");
 const appIntro = document.querySelector("#app-intro");
 const levelHeading = document.querySelector("#level-heading");
@@ -2043,8 +2042,8 @@ function renderLevelSelect() {
   });
   setHelpText(`${config.title}, Welt ${difficulty.label}. Such dir ein Level aus und tippe darauf. Kacheln mit Sternen hast du schon geschafft. Eine Kachel mit Schloss wird frei, sobald du das Level davor gelöst hast.`);
 }
-function showLevelSelect() { finishMove(); clearPracticeAdvanceTimer(); GAME_HANDLERS[currentGame]?.stop?.(); if (currentGame === "backpack") clearBackpackTimer(); if (currentGame === "memory") clearMemoryTimer(); cloudProgress()?.flushCurrentSession?.({ close: true, includeElapsed: true }); hideSuccess(); if (levelPanel) levelPanel.hidden = false; if (homePanel) homePanel.hidden = true; if (gamePanel) gamePanel.hidden = true; if (gameControls) gameControls.hidden = true; document.body.classList.remove("puzzle-active", "number-pad-open"); board?.style.removeProperty("--active-board-size"); board?.style.removeProperty("--active-board-offset"); renderLevelSelect(); }
-function showGame() { if (levelPanel) levelPanel.hidden = true; if (homePanel) homePanel.hidden = true; if (gamePanel) gamePanel.hidden = false; if (gameControls) gameControls.hidden = false; document.body.classList.add("puzzle-active"); setHelpText(boardHelpText()); }
+function showLevelSelect() { finishMove(); clearPracticeAdvanceTimer(); GAME_HANDLERS[currentGame]?.stop?.(); if (currentGame === "backpack") clearBackpackTimer(); if (currentGame === "memory") clearMemoryTimer(); cloudProgress()?.flushCurrentSession?.({ close: true, includeElapsed: true }); hideSuccess(); if (levelPanel) levelPanel.hidden = false; if (gamePanel) gamePanel.hidden = true; if (gameControls) gameControls.hidden = true; document.body.classList.remove("puzzle-active", "number-pad-open"); board?.style.removeProperty("--active-board-size"); board?.style.removeProperty("--active-board-offset"); renderLevelSelect(); }
+function showGame() { if (levelPanel) levelPanel.hidden = true; if (gamePanel) gamePanel.hidden = false; if (gameControls) gameControls.hidden = false; document.body.classList.add("puzzle-active"); setHelpText(boardHelpText()); }
 function startLevel(index) { const levelToStart = LEVELS_BY_GAME[currentGame]?.[index]; if (!isLevelUnlocked(levelToStart)) { if (levelToStart) selectedDifficulty = levelToStart.difficulty; renderLevelSelect(); return; } clearPracticeAdvanceTimer(); GAME_HANDLERS[currentGame]?.stop?.(); hideSuccess(); currentIndex = index; const level = currentLevel(); selectedDifficulty = level.difficulty; const config = GAME_CONFIGS[currentGame]; history = []; winShown = false; helpCount = 0; if (undoButton) undoButton.disabled = true; const boardSize = level.cols || level.size || 5; board.className = `board ${currentGame}-board board-size-${boardSize}`; board.style.setProperty("--size", boardSize); board.setAttribute("aria-label", `${config.title} Spielfeld`); puzzleTitle.textContent = level.title; puzzleDescription.textContent = level.description || config.subtitle; cloudProgress()?.recordLevelStart?.(level); kids()?.setLastPlayed?.(currentGame, level.id || level.levelName); resetState(); showGame(); render(); maybeShowTutorial(level, config); }
 function resetGame() { history = []; helpCount = 0; if (undoButton) undoButton.disabled = true; hideSuccess(); cloudProgress()?.recordLevelStart?.(currentLevel()); resetState(); recordResetMetric(); render("Neu gestartet. Viel Spass!"); }
 function undo() {
@@ -2283,77 +2282,6 @@ function setupExitGuard() {
   });
 }
 
-const GAME_PAGE = {
-  readingPuzzle: "wortdetektiv.html", letterPuzzle: "buchstaben.html",
-  spatialPuzzle: "raumdetektiv.html", backpack: "backpack.html", memory: "memory.html",
-  arukone: "arukone.html", bimaru: "bimaru.html", kakuro: "kakuro.html", shikaku: "shikaku.html",
-  hidoku: "hidoku.html",
-  ...(BRAIN_GAMES?.pages || {}),
-};
-function gamePageForGame(game) { return GAME_PAGE[game] || "index.html"; }
-// Tier-Sprung (tiersprung.js) speichert seinen Fortschritt selbst; hier wird er
-// nur gelesen, damit die Startkarte das aktuelle Tier zeigen kann.
-const RUNNER_ANIMALS = ["\u{1F42D}", "\u{1F438}", "\u{1F425}", "\u{1F430}", "\u{1F98A}", "\u{1F427}", "\u{1F43C}", "\u{1F43B}", "\u{1F981}", "\u{1F418}"];
-function runnerProgressLevel() {
-  const stored = kids()?.readJSON?.("lernapp.tiersprung.progress", null);
-  const level = Number(stored?.unlocked);
-  if (!Number.isFinite(level)) return 1;
-  return Math.max(1, Math.min(RUNNER_ANIMALS.length, Math.round(level)));
-}
-function enhanceHomePage() {
-  const panel = document.querySelector("#home-panel");
-  if (!panel || !kids() || panel.parentNode.querySelector(".home-featured")) return;
-  // Auf der Zugseite gibt es keine Kopfzeile mit Kacheln: train-home.js setzt
-  // Profil- und Ton-Knopf selbst und hält die Startseite textfrei.
-  if (document.body.dataset.page === "train") return;
-
-  const topbar = document.createElement("section");
-  topbar.className = "home-topbar";
-  const profile = kids().getProfile?.();
-  const daily = kids().dailyProgress?.() || { count: 0, goal: 3, done: false };
-  const avatar = profile?.avatar || "🙂";
-  topbar.innerHTML = `
-    <button type="button" class="home-profile" aria-label="Profil ändern">
-      <span class="home-profile-avatar" aria-hidden="true">${avatar}</span>
-      <span class="home-profile-hi">Hallo!</span>
-    </button>
-    <div class="home-daily" aria-label="Tagesziel: ${daily.count} von ${daily.goal} Rätseln geschafft">
-      <span class="home-daily-label">Heute</span>
-    </div>`;
-  topbar.querySelector(".home-daily").append(renderDailyDots(daily));
-  topbar.querySelector(".home-profile").addEventListener("click", () => showProfileSetup());
-
-  const featured = document.createElement("section");
-  featured.className = "home-featured";
-  const last = kids().getLastPlayed?.();
-  const lastGame = last && last.game && GAME_CONFIGS[last.game] ? last.game : null;
-  const runnerLevel = runnerProgressLevel();
-  const continueCard = lastGame
-    ? `<a class="home-feature continue" href="${gamePageForGame(lastGame)}">
-        <span class="home-feature-emoji" aria-hidden="true">▶️</span>
-        <span class="home-feature-text"><strong>Weiterspielen</strong><small>${GAME_CONFIGS[lastGame].title}</small></span>
-      </a>`
-    : "";
-  featured.innerHTML = `
-    ${continueCard}
-    <a class="home-feature runner" href="tiersprung.html">
-      <span class="home-feature-emoji" aria-hidden="true">${RUNNER_ANIMALS[runnerLevel - 1]}</span>
-      <span class="home-feature-text"><strong>Tier-Sprung</strong><small>Level ${runnerLevel} von ${RUNNER_ANIMALS.length}</small></span>
-    </a>
-`;
-
-  panel.parentNode.insertBefore(topbar, panel);
-  panel.parentNode.insertBefore(featured, panel);
-}
-function enhanceHomeRefresh() {
-  document.querySelectorAll(".home-topbar, .home-featured").forEach((el) => el.remove());
-  enhanceHomePage();
-}
-function maybeShowProfileSetup() {
-  if (!document.querySelector("#home-panel") || !kids()) return;
-  if (kids().getProfile?.()) return;
-  showProfileSetup();
-}
 function showProfileSetup() {
   if (!kids()) return;
   const current = kids().getProfile?.() || {};
@@ -2394,7 +2322,9 @@ function showProfileSetup() {
     kids().saveProfile?.({ avatar: chosenAvatar, age: chosenAge });
     releaseHelp?.();
     overlay.remove();
-    enhanceHomeRefresh();
+    // Wer das Profil anzeigt, weiss app.js nicht mehr – auf der Zugseite ist
+    // das der Knopf oben rechts. Ein Ereignis statt eines direkten Aufrufs.
+    document.dispatchEvent(new CustomEvent("lernapp:profile-changed"));
   });
 }
 function handleWin() { if (!winShown) showSuccess(); render(); }
@@ -3991,8 +3921,6 @@ if (backButton) backButton.addEventListener("click", showLevelSelect);
 setupSuccessOverlay();
 setupExitGuard();
 setupAudioFeedback();
-enhanceHomePage();
-maybeShowProfileSetup();
 
 // Der Zug braucht den Profil-Dialog und die Spielauswahl, baut aber seine
 // eigene Oberfläche. Nur diese beiden Einstiegspunkte gibt app.js nach aussen.

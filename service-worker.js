@@ -1,4 +1,4 @@
-const APP_VERSION = "2026-09-01-1";
+const APP_VERSION = "2026-09-01-4";
 const CACHE_PREFIX = "lernapp-pwa-";
 const CACHE_NAME = `${CACHE_PREFIX}${APP_VERSION}`;
 const ASSET_VERSION_QUERY = `?v=${APP_VERSION}`;
@@ -28,6 +28,7 @@ const CORE_ASSETS = [
   `./app.js${ASSET_VERSION_QUERY}`,
   `./train-progress.js${ASSET_VERSION_QUERY}`,
   `./train-art.js${ASSET_VERSION_QUERY}`,
+  `./train-scenes.js${ASSET_VERSION_QUERY}`,
   `./train-home.js${ASSET_VERSION_QUERY}`,
   `./tiersprung.js${ASSET_VERSION_QUERY}`,
   `./firebase.js${ASSET_VERSION_QUERY}`,
