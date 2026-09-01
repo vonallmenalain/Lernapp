@@ -171,7 +171,7 @@ assert(
   `gleich viele fertige Spiele müssen gleich weit sein: ${konzentration.ratio} vs ${problemloesen.ratio}`,
 );
 assert(Math.abs(konzentration.ratio - 0.5) < 1e-9, `ein fertiges von zwei Spielen sind 50 %, gefunden ${konzentration.ratio}`);
-assert(problemloesen.total > konzentration.total * 8,
+assert(problemloesen.total > konzentration.total * 4,
   `die Probe sagt nichts aus, wenn beide Bereiche gleich gross sind: ${konzentration.total} und ${problemloesen.total}`);
 
 // Und allgemein: der Bereichsanteil ist der Mittelwert über seine Spiele –
@@ -259,6 +259,30 @@ const RUNDEN_SPIELE = [
   { id: "backpack", key: "lernapp.backpack", name: "Rucksack packen", drei: 12, einer: 2 },
 ];
 
+// --- Die Logikspiele mit fünf nötigen Leveln --------------------------------
+// Arukone, Battleships und Tiergehege haben je vierzig Level; fünf beliebige
+// bauen den Wagen. Alles zu verlangen hiesse: ein Wagen, den kein Kind je
+// fertig sieht.
+for (const spielId of ["arukone", "bimaru", "shikaku"]) {
+  store.clear();
+  const leer = train.gameProgress(spielId);
+  assert(leer.total === 5, `${spielId} muss 5 Level melden, meldet ${leer.total}`);
+  assert(leer.solved === 0, `${spielId}: ohne Level darf nichts gelöst sein`);
+  assert(catalog[spielId].length > 20, `${spielId} hat nur ${catalog[spielId].length} Level – die Probe sagt nichts aus`);
+
+  solve(spielId, 2);
+  const zwei = train.gameProgress(spielId);
+  assert(zwei.solved === 2, `${spielId}: zwei Level müssen 2 ergeben, ergeben ${zwei.solved}`);
+  assert(Math.abs(zwei.ratio - 0.4) < 1e-9, `${spielId}: zwei von fünf sind 40 %, gefunden ${zwei.ratio}`);
+  assert(zwei.worlds.length === 5, `${spielId} braucht ein Band je nötigem Level`);
+
+  solve(spielId, catalog[spielId].length);
+  const voll = train.gameProgress(spielId);
+  assert(voll.ratio === 1, `${spielId}: alle Level dürfen nicht über 100 % gehen`);
+  assert(voll.solved === 5, `${spielId}: mehr als fünf dürfen nicht zählen, gezählt ${voll.solved}`);
+}
+store.clear();
+
 // --- Memory -----------------------------------------------------------------
 // Fünf Kartenzahlen zur Wahl, jede nur geschafft oder nicht. Wer alle fünf
 // einmal geschafft hat, hat den Wagen gebaut.
@@ -318,7 +342,7 @@ assert(train.gameProgress("beachTreasure").stars === 3, "12 Schätze sind am Str
 const eigeneKonten = new Set(
   train.AREAS.flatMap((area) => area.games.filter((game) => game.ownProgress).map((game) => game.id)),
 );
-assert(eigeneKonten.size === 7, `erwartet 7 Spiele mit eigenem Konto, gefunden ${eigeneKonten.size}`);
+assert(eigeneKonten.size === 10, `erwartet 10 Spiele mit eigenem Konto, gefunden ${eigeneKonten.size}`);
 store.clear();
 for (const area of train.allAreas()) {
   for (const game of area.games) {
@@ -335,6 +359,6 @@ for (const area of train.allAreas()) {
 const alle = train.trainProgress();
 assert(alle.areas.length === 5, "trainProgress muss fünf Bereiche melden");
 const gesamt = alle.areas.reduce((sum, area) => sum + area.total, 0);
-assert(gesamt === 355, `erwartet 355 Aufgaben über alle Bereiche, gefunden ${gesamt}`);
+assert(gesamt === 250, `erwartet 250 Aufgaben über alle Bereiche, gefunden ${gesamt}`);
 
 console.log(`Zug-Fortschritt geprüft: 5 Bereiche, ${seen.size} Spiele, ${gesamt} Levels.`);

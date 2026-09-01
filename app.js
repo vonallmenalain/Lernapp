@@ -1342,11 +1342,18 @@ function computeStars(game, level, result) {
     if (mistakes <= 2) return 2;
     return 1;
   }
-  // Logikspiele: weniger Hilfen (Rückgängig/Neustart) = mehr Sterne.
+  // Battleships und Tiergehege: geschafft ist geschafft, drei Sterne. Beide
+  // lassen sich nur richtig oder gar nicht lösen – dafür noch die Zahl der
+  // Rückgängig-Tipps zu zählen, bestrafte das Ausprobieren, das hier gerade
+  // der Weg zur Lösung ist.
+  if (ALWAYS_THREE_STARS.has(game)) return 3;
+  // Übrige Logikspiele: weniger Hilfen (Rückgängig/Neustart) = mehr Sterne.
   if (helpCount === 0) return 3;
   if (helpCount <= 2) return 2;
   return 1;
 }
+
+const ALWAYS_THREE_STARS = new Set(["bimaru", "shikaku"]);
 function saveLevelStars(level, stars) {
   const id = level.id || level.levelName;
   return kids()?.setStars?.(level.game, id, stars) || { stars, improved: false, previous: 0 };

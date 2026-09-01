@@ -63,9 +63,9 @@
       wagon: "crane",
       games: [
         { id: "spatialPuzzle", title: "Raumdetektiv", page: "raumdetektiv.html" },
-        { id: "arukone", title: "Arukone", page: "arukone.html" },
-        { id: "bimaru", title: "Battleships", page: "bimaru.html" },
-        { id: "shikaku", title: "Tiergehege", page: "shikaku.html" },
+        { id: "arukone", title: "Arukone", page: "arukone.html", ownProgress: "fuenfLevel" },
+        { id: "bimaru", title: "Battleships", page: "bimaru.html", ownProgress: "fuenfLevel" },
+        { id: "shikaku", title: "Tiergehege", page: "shikaku.html", ownProgress: "fuenfLevel" },
       ],
     },
     {
@@ -290,7 +290,41 @@
     return 1;
   }
 
+  // Fünf abgeschlossene Level bauen den Wagen – welche fünf, ist gleich. Bei
+  // vierzig Leveln je Spiel hiesse alles zu verlangen: ein Wagen, den kein Kind
+  // je fertig sieht.
+  const LEVELS_FOR_DONE = 5;
+
+  function fuenfLevelProgress(game) {
+    const levels = catalog()[game.id] || [];
+    const geschafft = levels.filter(isSolved);
+    const beste = geschafft
+      .map(levelStars)
+      .sort((a, b) => b - a)
+      .slice(0, LEVELS_FOR_DONE);
+    const solved = Math.min(LEVELS_FOR_DONE, geschafft.length);
+    const worlds = [];
+    for (let i = 0; i < LEVELS_FOR_DONE; i += 1) {
+      const stars = beste[i] || 0;
+      const done = i < solved;
+      worlds.push({ key: `level-${i + 1}`, solved: done ? 1 : 0, total: 1, stars, maxStars: 3, ratio: done ? 1 : 0 });
+    }
+    return {
+      id: game.id,
+      title: game.title,
+      page: game.page,
+      solved,
+      total: LEVELS_FOR_DONE,
+      ratio: solved / LEVELS_FOR_DONE,
+      stars: beste.reduce((sum, value) => sum + value, 0),
+      maxStars: LEVELS_FOR_DONE * 3,
+      unit: LEVEL_UNIT,
+      worlds,
+    };
+  }
+
   const OWN_PROGRESS = {
+    fuenfLevel: fuenfLevelProgress,
     runner: runnerProgress,
     cardMatch: runsProgress(CARDMATCH_KEY, 40),
     beachTreasure: runsProgress(BEACH_KEY, 12),
