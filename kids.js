@@ -786,10 +786,13 @@
   // Querformat
   // ---------------------------------------------------------------------------
   // Die App ist auf Querformat ausgelegt: der Zug aus Lok und fünf Wagen ist
-  // breit, und hochkant bliebe er ein flacher Streifen. Das Manifest verlangt
-  // Querformat, aber im normalen Browser-Tab greift das nicht – dort zeigt
-  // dieser Hinweis, dass das Gerät gedreht werden soll. Nur ein Bild, kein
-  // Text: die Kinder können noch nicht lesen.
+  // breit, und hochkant bliebe er ein flacher Streifen. Das Manifest schreibt
+  // die Lage bewusst nicht mehr fest – eine im Manifest erzwungene Ausrichtung
+  // wird bei der Installation in die Android-App eingebrannt und hindert sie
+  // auf manchen Geräten am Starten. Gedreht wird darum erst zur Laufzeit:
+  // lockLandscape() hält die Lage fest, sobald das erste Mal getippt wird, und
+  // bis dahin zeigt dieser Hinweis, dass das Gerät zu drehen ist. Nur ein Bild,
+  // kein Text: die Kinder können noch nicht lesen.
   function mountRotateHint() {
     if (document.querySelector(".rotate-hint")) return;
     const hint = document.createElement("div");
