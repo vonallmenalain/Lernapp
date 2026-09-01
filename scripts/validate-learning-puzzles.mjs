@@ -83,15 +83,24 @@ function validateReading() {
 }
 
 function validateSpatial() {
-  assert(api.spatialLevels.length === 40, "spatial puzzle should expose 40 levels");
-  const result = api.validateSpatialLevels(api.spatialLevels);
+  // Vierzig Aufgaben, aber nur vier Level: jedes Level ist eine Runde über die
+  // zehn Aufgaben seiner Welt.
+  assert(api.spatialTasks.length === 40, "spatial puzzle should expose 40 tasks");
+  const result = api.validateSpatialTasks(api.spatialTasks);
   assert(result.valid, `spatial puzzle validation failed:\n${result.errors.join("\n")}`);
 
+  assert(api.spatialLevels.length === 4, "spatial puzzle should expose 4 levels");
   for (const difficulty of difficulties) {
     const levels = api.spatialLevels.filter((level) => level.difficulty === difficulty);
-    assert(levels.length === 10, `spatial puzzle ${difficulty} should have 10 levels`);
-    assert(levels.every((level) => level.badge === `${level.options.length} Antworten`), `spatial puzzle ${difficulty} levels should expose answer badge`);
-    assert(levels.every((level) => !("hint" in level)), `spatial puzzle ${difficulty} still exposes hints`);
+    assert(levels.length === 1, `spatial puzzle ${difficulty} should be a single level`);
+    const [level] = levels;
+    assert(level.tasks.length === 10, `spatial puzzle ${difficulty} should hold 10 tasks`);
+    assert(level.targetCount === 10, `spatial puzzle ${difficulty} should ask for 10 tasks`);
+    assert(level.badge === "10 Aufgaben", `spatial puzzle ${difficulty} should expose the task badge`);
+    assert(level.tasks.every((task) => task.difficulty === difficulty), `spatial puzzle ${difficulty} mixes worlds`);
+    assert(level.tasks.every((task) => !("hint" in task)), `spatial puzzle ${difficulty} still exposes hints`);
+    const ids = new Set(level.tasks.map((task) => task.id));
+    assert(ids.size === level.tasks.length, `spatial puzzle ${difficulty} repeats a task`);
   }
 }
 
@@ -108,11 +117,11 @@ function validateCatalog() {
   }
 
   assert(catalog.spatialPuzzle, "spatialPuzzle missing from level catalog");
-  assert(catalog.spatialPuzzle.length === 40, "spatialPuzzle should have 40 levels");
+  assert(catalog.spatialPuzzle.length === 4, "spatialPuzzle should have 4 levels");
   for (const difficulty of difficulties) {
     const levels = catalog.spatialPuzzle.filter((level) => level.difficulty === difficulty);
-    assert(levels.length === 10, `spatialPuzzle ${difficulty} should have 10 levels`);
-    assert(levels.every((level) => level.badge?.endsWith("Antworten")), `spatialPuzzle ${difficulty} should expose answer badge`);
+    assert(levels.length === 1, `spatialPuzzle ${difficulty} should be a single level`);
+    assert(levels.every((level) => level.badge === "10 Aufgaben"), `spatialPuzzle ${difficulty} should expose the task badge`);
   }
 }
 

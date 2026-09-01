@@ -288,25 +288,6 @@ const GAME_CONFIGS = {
     success: "Stark kombiniert! Du hast den Würfelbau durchschaut.",
     rules: ["Schau dir den Würfelbau oder Würfel genau an.", "Drehe ihn im Kopf oder vergleiche die Ansicht.", "Tippe auf die Antwortkarte, die wirklich passt."],
   },
-  backpack: {
-    title: "Rucksack packen", eyebrow: "Endlosspiel", code: "R",
-    subtitle: "Merke dir, was schon im Rucksack liegt, und packe alles in der richtigen Reihenfolge ein.",
-    success: "Super gemerkt! Der Rucksack ist richtig gepackt.",
-    rules: ["Wähle zuerst einen neuen Gegenstand für den Rucksack.", "Packe danach alle Gegenstände in der gemerkten Reihenfolge ein.", "Nach einer gespielten Runde wird die nächste Schwierigkeit frei."],
-  },
-  memory: {
-    title: "Memory",
-    eyebrow: "Merken & Paare finden",
-    code: "M",
-    subtitle: "Decke immer zwei Karten auf und finde alle Paare mit möglichst wenigen Zügen.",
-    success: "Stark gemerkt! Du hast alle Paare gefunden.",
-    rules: [
-      "Decke zwei Karten auf.",
-      "Sind beide Karten gleich, verschwinden sie.",
-      "Sind sie verschieden, merke sie dir gut.",
-      "Wenn alle Paare gefunden sind, ist das Level geschafft.",
-    ],
-  },
 };
 
 function clone(value) { return typeof structuredClone === "function" ? structuredClone(value) : JSON.parse(JSON.stringify(value)); }
@@ -322,307 +303,6 @@ function makeLevel(game, difficulty, index, data) {
   const diff = DIFFICULTIES[difficulty];
   const levelName = `${config.code} ${diff.code}-${index}`;
   return { ...data, id: data.id || `${game}-${difficulty}-${index}`, game, difficulty, levelName, title: data.title || `${levelName} · ${config.title} · ${diff.label}` };
-}
-
-const BACKPACK_DIFFICULTY_RULES = {
-  easy: { choiceCount: 3, poolSize: 45, showLabels: true },
-  medium: { choiceCount: 4, poolSize: 60, showLabels: true },
-  hard: { choiceCount: 5, poolSize: 75, showLabels: false },
-  extreme: { choiceCount: 6, poolSize: 90, showLabels: false },
-};
-const BACKPACK_ITEMS = [
-  { id: "apple", emoji: "🍎", label: "Apfel" },
-  { id: "ball", emoji: "⚽", label: "Ball" },
-  { id: "book", emoji: "📘", label: "Buch" },
-  { id: "kite", emoji: "🪁", label: "Flugdrachen" },
-  { id: "banana", emoji: "🍌", label: "Banane" },
-  { id: "bear", emoji: "🧸", label: "Teddy" },
-  { id: "pencil", emoji: "✏️", label: "Stift" },
-  { id: "cookie", emoji: "🍪", label: "Keks" },
-  { id: "car", emoji: "🚗", label: "Auto" },
-  { id: "key", emoji: "🔑", label: "Schlüssel" },
-  { id: "flower", emoji: "🌸", label: "Blume" },
-  { id: "rocket", emoji: "🚀", label: "Rakete" },
-  { id: "clock", emoji: "⏰", label: "Wecker" },
-  { id: "shell", emoji: "🐚", label: "Muschel" },
-  { id: "puzzle", emoji: "🧩", label: "Puzzle" },
-  { id: "train", emoji: "🚂", label: "Zug" },
-  { id: "umbrella", emoji: "☂️", label: "Schirm" },
-  { id: "light", emoji: "💡", label: "Lampe" },
-  { id: "hat", emoji: "🧢", label: "Kappe" },
-  { id: "magnifier", emoji: "🔎", label: "Lupe" },
-  { id: "dice", emoji: "🎲", label: "Würfel" },
-  { id: "paint", emoji: "🎨", label: "Farbe" },
-  { id: "map", emoji: "🗺️", label: "Karte" },
-  { id: "medal", emoji: "🏅", label: "Medaille" },
-  { id: "gift", emoji: "🎁", label: "Geschenk" },
-  { id: "balloon", emoji: "🎈", label: "Ballon" },
-  { id: "cup", emoji: "🥤", label: "Becher" },
-  { id: "sandwich", emoji: "🥪", label: "Sandwich" },
-  { id: "cheese", emoji: "🧀", label: "Käse" },
-  { id: "grapes", emoji: "🍇", label: "Trauben" },
-  { id: "carrot", emoji: "🥕", label: "Rüebli" },
-  { id: "corn", emoji: "🌽", label: "Mais" },
-  { id: "strawberry", emoji: "🍓", label: "Erdbeere" },
-  { id: "chocolate", emoji: "🍫", label: "Schoggi" },
-  { id: "lollipop", emoji: "🍭", label: "Lolli" },
-  { id: "shoe", emoji: "👟", label: "Schuh" },
-  { id: "sock", emoji: "🧦", label: "Socke" },
-  { id: "glove", emoji: "🧤", label: "Handschuh" },
-  { id: "scarf", emoji: "🧣", label: "Schal" },
-  { id: "sunglasses", emoji: "🕶️", label: "Sonnenbrille" },
-  { id: "camera", emoji: "📷", label: "Kamera" },
-  { id: "phone", emoji: "📱", label: "Telefon" },
-  { id: "headphones", emoji: "🎧", label: "Kopfhörer" },
-  { id: "microphone", emoji: "🎤", label: "Mikrofon" },
-  { id: "drum", emoji: "🥁", label: "Trommel" },
-  { id: "guitar", emoji: "🎸", label: "Gitarre" },
-  { id: "trumpet", emoji: "🎺", label: "Trompete" },
-  { id: "violin", emoji: "🎻", label: "Geige" },
-  { id: "crown", emoji: "👑", label: "Krone" },
-  { id: "ring", emoji: "💍", label: "Ring" },
-  { id: "gem", emoji: "💎", label: "Edelstein" },
-  { id: "envelope", emoji: "✉️", label: "Brief" },
-  { id: "mailbox", emoji: "📮", label: "Briefkasten" },
-  { id: "paperclip", emoji: "📎", label: "Büroklammer" },
-  { id: "scissors", emoji: "✂️", label: "Schere" },
-  { id: "ruler", emoji: "📏", label: "Lineal" },
-  { id: "calculator", emoji: "🧮", label: "Rechner" },
-  { id: "laptop", emoji: "💻", label: "Laptop" },
-  { id: "battery", emoji: "🔋", label: "Batterie" },
-  { id: "flashlight", emoji: "🔦", label: "Taschenlampe" },
-  { id: "magnet", emoji: "🧲", label: "Magnet" },
-  { id: "compass", emoji: "🧭", label: "Kompass" },
-  { id: "telescope", emoji: "🔭", label: "Fernrohr" },
-  { id: "hammer", emoji: "🔨", label: "Hammer" },
-  { id: "wrench", emoji: "🔧", label: "Schraubenschlüssel" },
-  { id: "gear", emoji: "⚙️", label: "Zahnrad" },
-  { id: "bucket", emoji: "🪣", label: "Eimer" },
-  { id: "soap", emoji: "🧼", label: "Seife" },
-  { id: "toothbrush", emoji: "🪥", label: "Zahnbürste" },
-  { id: "bandage", emoji: "🩹", label: "Pflaster" },
-  { id: "thermometer", emoji: "🌡️", label: "Thermometer" },
-  { id: "pill", emoji: "💊", label: "Tablette" },
-  { id: "tent", emoji: "⛺", label: "Zelt" },
-  { id: "house", emoji: "🏠", label: "Haus" },
-  { id: "bicycle", emoji: "🚲", label: "Velo" },
-  { id: "bus", emoji: "🚌", label: "Bus" },
-  { id: "airplane", emoji: "✈️", label: "Flugzeug" },
-  { id: "boat", emoji: "⛵", label: "Segelboot" },
-  { id: "anchor", emoji: "⚓", label: "Anker" },
-  { id: "sun", emoji: "☀️", label: "Sonne" },
-  { id: "moon", emoji: "🌙", label: "Mond" },
-  { id: "cloud", emoji: "☁️", label: "Wolke" },
-  { id: "rainbow", emoji: "🌈", label: "Regenbogen" },
-  { id: "snowflake", emoji: "❄️", label: "Schneeflocke" },
-  { id: "fire", emoji: "🔥", label: "Feuer" },
-  { id: "drop", emoji: "💧", label: "Wassertropfen" },
-  { id: "leaf", emoji: "🍃", label: "Blatt" },
-  { id: "tree", emoji: "🌳", label: "Baum" },
-  { id: "mushroom", emoji: "🍄", label: "Pilz" },
-  { id: "butterfly", emoji: "🦋", label: "Schmetterling" },
-  { id: "bee", emoji: "🐝", label: "Biene" },
-  { id: "ladybug", emoji: "🐞", label: "Marienkäfer" },
-  { id: "fish", emoji: "🐟", label: "Fisch" },
-  { id: "frog", emoji: "🐸", label: "Frosch" },
-  { id: "turtle", emoji: "🐢", label: "Schildkröte" },
-  { id: "bird", emoji: "🐦", label: "Vogel" },
-  { id: "cat", emoji: "🐱", label: "Katze" },
-  { id: "dog", emoji: "🐶", label: "Hund" },
-  { id: "mouse", emoji: "🐭", label: "Maus" },
-  { id: "rabbit", emoji: "🐰", label: "Hase" },
-  { id: "horse", emoji: "🐴", label: "Pferd" },
-  { id: "cow", emoji: "🐮", label: "Kuh" },
-  { id: "lion", emoji: "🦁", label: "Löwe" },
-  { id: "elephant", emoji: "🐘", label: "Elefant" },
-  { id: "whale", emoji: "🐳", label: "Wal" },
-];
-const BACKPACK_ITEM_BY_ID = Object.fromEntries(BACKPACK_ITEMS.map((item) => [item.id, item]));
-const BACKPACK_LEVELS = DIFFICULTY_KEYS.map((difficulty) => makeLevel("backpack", difficulty, 1, {
-  id: `backpack-${difficulty}`,
-  badge: "Endlos",
-  description: `${DIFFICULTIES[difficulty].label}: ${BACKPACK_DIFFICULTY_RULES[difficulty].choiceCount} Auswahlkarten pro Schritt.`,
-}));
-
-const MEMORY_DIFFICULTY_RULES = {
-  easy: { showLabels: true, flipBackDelayMs: 1100 },
-  medium: { showLabels: true, flipBackDelayMs: 1000 },
-  hard: { showLabels: false, flipBackDelayMs: 900 },
-  extreme: { showLabels: false, flipBackDelayMs: 800 },
-};
-const MEMORY_MATCH_HIDE_DELAY_MS = 1000;
-
-const MEMORY_LEVEL_DATA = {
-  easy: [
-    { pairCount: 4, threeStarMoves: 7, twoStarMoves: 10, oneStarFrom: 11 },
-    { pairCount: 4, threeStarMoves: 7, twoStarMoves: 10, oneStarFrom: 11 },
-    { pairCount: 5, threeStarMoves: 8, twoStarMoves: 12, oneStarFrom: 13 },
-    { pairCount: 5, threeStarMoves: 8, twoStarMoves: 12, oneStarFrom: 13 },
-    { pairCount: 6, threeStarMoves: 10, twoStarMoves: 15, oneStarFrom: 16 },
-    { pairCount: 6, threeStarMoves: 10, twoStarMoves: 15, oneStarFrom: 16 },
-    { pairCount: 7, threeStarMoves: 12, twoStarMoves: 17, oneStarFrom: 18 },
-    { pairCount: 7, threeStarMoves: 12, twoStarMoves: 17, oneStarFrom: 18 },
-    { pairCount: 8, threeStarMoves: 13, twoStarMoves: 20, oneStarFrom: 21 },
-    { pairCount: 8, threeStarMoves: 13, twoStarMoves: 20, oneStarFrom: 21 },
-  ],
-  medium: [
-    { pairCount: 8, threeStarMoves: 14, twoStarMoves: 21, oneStarFrom: 22 },
-    { pairCount: 9, threeStarMoves: 16, twoStarMoves: 24, oneStarFrom: 25 },
-    { pairCount: 9, threeStarMoves: 16, twoStarMoves: 24, oneStarFrom: 25 },
-    { pairCount: 10, threeStarMoves: 18, twoStarMoves: 26, oneStarFrom: 27 },
-    { pairCount: 10, threeStarMoves: 18, twoStarMoves: 26, oneStarFrom: 27 },
-    { pairCount: 11, threeStarMoves: 20, twoStarMoves: 29, oneStarFrom: 30 },
-    { pairCount: 11, threeStarMoves: 20, twoStarMoves: 29, oneStarFrom: 30 },
-    { pairCount: 12, threeStarMoves: 21, twoStarMoves: 32, oneStarFrom: 33 },
-    { pairCount: 12, threeStarMoves: 21, twoStarMoves: 32, oneStarFrom: 33 },
-    { pairCount: 13, threeStarMoves: 23, twoStarMoves: 34, oneStarFrom: 35 },
-  ],
-  hard: [
-    { pairCount: 12, threeStarMoves: 23, twoStarMoves: 35, oneStarFrom: 36 },
-    { pairCount: 13, threeStarMoves: 25, twoStarMoves: 38, oneStarFrom: 39 },
-    { pairCount: 14, threeStarMoves: 27, twoStarMoves: 40, oneStarFrom: 41 },
-    { pairCount: 14, threeStarMoves: 27, twoStarMoves: 40, oneStarFrom: 41 },
-    { pairCount: 15, threeStarMoves: 29, twoStarMoves: 43, oneStarFrom: 44 },
-    { pairCount: 15, threeStarMoves: 29, twoStarMoves: 43, oneStarFrom: 44 },
-    { pairCount: 16, threeStarMoves: 31, twoStarMoves: 46, oneStarFrom: 47 },
-    { pairCount: 16, threeStarMoves: 31, twoStarMoves: 46, oneStarFrom: 47 },
-    { pairCount: 18, threeStarMoves: 35, twoStarMoves: 52, oneStarFrom: 53 },
-    { pairCount: 18, threeStarMoves: 35, twoStarMoves: 52, oneStarFrom: 53 },
-  ],
-  extreme: [
-    { pairCount: 16, threeStarMoves: 33, twoStarMoves: 52, oneStarFrom: 53 },
-    { pairCount: 18, threeStarMoves: 37, twoStarMoves: 58, oneStarFrom: 59 },
-    { pairCount: 18, threeStarMoves: 37, twoStarMoves: 58, oneStarFrom: 59 },
-    { pairCount: 20, threeStarMoves: 41, twoStarMoves: 64, oneStarFrom: 65 },
-    { pairCount: 20, threeStarMoves: 41, twoStarMoves: 64, oneStarFrom: 65 },
-    { pairCount: 21, threeStarMoves: 44, twoStarMoves: 68, oneStarFrom: 69 },
-    { pairCount: 21, threeStarMoves: 44, twoStarMoves: 68, oneStarFrom: 69 },
-    { pairCount: 22, threeStarMoves: 46, twoStarMoves: 71, oneStarFrom: 72 },
-    { pairCount: 24, threeStarMoves: 50, twoStarMoves: 77, oneStarFrom: 78 },
-    { pairCount: 24, threeStarMoves: 50, twoStarMoves: 77, oneStarFrom: 78 },
-  ],
-};
-
-const MEMORY_LEVEL_DESCRIPTIONS = {
-  easy: "Kleine Memory-Felder mit gut erkennbaren Bildern.",
-  medium: "Mehr Paare und etwas mehr Merkarbeit.",
-  hard: "Viele Karten und keine Textlabels mehr.",
-  extreme: "Sehr viele Paare für echte Memory-Profis.",
-};
-
-const MEMORY_LEVELS = DIFFICULTY_KEYS.flatMap((difficulty) =>
-  MEMORY_LEVEL_DATA[difficulty].map((data, index) =>
-    makeLevel("memory", difficulty, index + 1, {
-      ...data,
-      targetCount: data.pairCount,
-      badge: `${data.pairCount} Paare`,
-      description: MEMORY_LEVEL_DESCRIPTIONS[difficulty],
-    })
-  )
-);
-
-const MEMORY_ITEMS = [
-  { id: "apple", emoji: "🍎", label: "Apfel" },
-  { id: "banana", emoji: "🍌", label: "Banane" },
-  { id: "grapes", emoji: "🍇", label: "Trauben" },
-  { id: "strawberry", emoji: "🍓", label: "Erdbeere" },
-  { id: "carrot", emoji: "🥕", label: "Rüebli" },
-  { id: "corn", emoji: "🌽", label: "Mais" },
-  { id: "cheese", emoji: "🧀", label: "Käse" },
-  { id: "bread", emoji: "🍞", label: "Brot" },
-  { id: "sandwich", emoji: "🥪", label: "Sandwich" },
-  { id: "cookie", emoji: "🍪", label: "Keks" },
-  { id: "chocolate", emoji: "🍫", label: "Schoggi" },
-  { id: "lollipop", emoji: "🍭", label: "Lolli" },
-  { id: "ball", emoji: "⚽", label: "Ball" },
-  { id: "dice", emoji: "🎲", label: "Würfel" },
-  { id: "puzzle", emoji: "🧩", label: "Puzzle" },
-  { id: "teddy", emoji: "🧸", label: "Teddy" },
-  { id: "book", emoji: "📘", label: "Buch" },
-  { id: "pencil", emoji: "✏️", label: "Stift" },
-  { id: "scissors", emoji: "✂️", label: "Schere" },
-  { id: "ruler", emoji: "📏", label: "Lineal" },
-  { id: "key", emoji: "🔑", label: "Schlüssel" },
-  { id: "lock", emoji: "🔒", label: "Schloss" },
-  { id: "gift", emoji: "🎁", label: "Geschenk" },
-  { id: "balloon", emoji: "🎈", label: "Ballon" },
-  { id: "crown", emoji: "👑", label: "Krone" },
-  { id: "flower", emoji: "🌸", label: "Blume" },
-  { id: "leaf", emoji: "🍃", label: "Blatt" },
-  { id: "tree", emoji: "🌳", label: "Baum" },
-  { id: "mushroom", emoji: "🍄", label: "Pilz" },
-  { id: "sun", emoji: "☀️", label: "Sonne" },
-  { id: "moon", emoji: "🌙", label: "Mond" },
-  { id: "cloud", emoji: "☁️", label: "Wolke" },
-  { id: "rainbow", emoji: "🌈", label: "Regenbogen" },
-  { id: "snowflake", emoji: "❄️", label: "Schneeflocke" },
-  { id: "fire", emoji: "🔥", label: "Feuer" },
-  { id: "drop", emoji: "💧", label: "Wassertropfen" },
-  { id: "umbrella", emoji: "☂️", label: "Schirm" },
-  { id: "hat", emoji: "🧢", label: "Kappe" },
-  { id: "shoe", emoji: "👟", label: "Schuh" },
-  { id: "sock", emoji: "🧦", label: "Socke" },
-  { id: "glove", emoji: "🧤", label: "Handschuh" },
-  { id: "scarf", emoji: "🧣", label: "Schal" },
-  { id: "sunglasses", emoji: "🕶️", label: "Sonnenbrille" },
-  { id: "camera", emoji: "📷", label: "Kamera" },
-  { id: "phone", emoji: "📱", label: "Telefon" },
-  { id: "headphones", emoji: "🎧", label: "Kopfhörer" },
-  { id: "drum", emoji: "🥁", label: "Trommel" },
-  { id: "guitar", emoji: "🎸", label: "Gitarre" },
-  { id: "trumpet", emoji: "🎺", label: "Trompete" },
-  { id: "train", emoji: "🚂", label: "Zug" },
-  { id: "car", emoji: "🚗", label: "Auto" },
-  { id: "bicycle", emoji: "🚲", label: "Velo" },
-  { id: "airplane", emoji: "✈️", label: "Flugzeug" },
-  { id: "boat", emoji: "⛵", label: "Segelboot" },
-  { id: "rocket", emoji: "🚀", label: "Rakete" },
-  { id: "compass", emoji: "🧭", label: "Kompass" },
-  { id: "magnifier", emoji: "🔎", label: "Lupe" },
-  { id: "telescope", emoji: "🔭", label: "Fernrohr" },
-  { id: "magnet", emoji: "🧲", label: "Magnet" },
-  { id: "battery", emoji: "🔋", label: "Batterie" },
-  { id: "flashlight", emoji: "🔦", label: "Taschenlampe" },
-  { id: "hammer", emoji: "🔨", label: "Hammer" },
-  { id: "wrench", emoji: "🔧", label: "Schraubenschlüssel" },
-  { id: "bucket", emoji: "🪣", label: "Eimer" },
-  { id: "soap", emoji: "🧼", label: "Seife" },
-  { id: "toothbrush", emoji: "🪥", label: "Zahnbürste" },
-  { id: "bandage", emoji: "🩹", label: "Pflaster" },
-  { id: "thermometer", emoji: "🌡️", label: "Thermometer" },
-  { id: "cat", emoji: "🐱", label: "Katze" },
-  { id: "dog", emoji: "🐶", label: "Hund" },
-  { id: "rabbit", emoji: "🐰", label: "Hase" },
-  { id: "fish", emoji: "🐟", label: "Fisch" },
-  { id: "butterfly", emoji: "🦋", label: "Schmetterling" },
-  { id: "bee", emoji: "🐝", label: "Biene" },
-  { id: "turtle", emoji: "🐢", label: "Schildkröte" },
-  { id: "elephant", emoji: "🐘", label: "Elefant" },
-];
-
-function buildMemoryCards(level) {
-  const selectedItems = shuffleOptions(MEMORY_ITEMS).slice(0, level.pairCount);
-
-  const cards = selectedItems.flatMap((item) => [
-    {
-      cardId: `${item.id}-a`,
-      pairId: item.id,
-      emoji: item.emoji,
-      label: item.label,
-      isFaceUp: false,
-      isMatched: false,
-    },
-    {
-      cardId: `${item.id}-b`,
-      pairId: item.id,
-      emoji: item.emoji,
-      label: item.label,
-      isFaceUp: false,
-      isMatched: false,
-    },
-  ]);
-
-  return shuffleOptions(cards);
 }
 
 // Bestehende Arukone- und Sudoku-Level in die neue Struktur übernehmen.
@@ -1277,14 +957,20 @@ const SPATIAL_NET_BASE_POSITIONS = {
   bottom: [1, 2],
 };
 
-function makeSpatialLevels(levels = window.SPATIAL_PUZZLES || []) {
-  const counters = Object.fromEntries(DIFFICULTY_KEYS.map((difficulty) => [difficulty, 0]));
-  return levels.map((levelData) => {
-    counters[levelData.difficulty] += 1;
-    return makeLevel("spatialPuzzle", levelData.difficulty, counters[levelData.difficulty], {
-      ...levelData,
-      badge: `${levelData.options?.length || 0} Antworten`,
-      description: levelData.description || SPATIAL_LEVEL_DESCRIPTIONS[levelData.difficulty],
+// Zehn Aufgaben sind eine Runde.
+const SPATIAL_TASKS_PER_LEVEL = 10;
+
+// Vier Level, eines je Welt – jedes eine Runde über zehn Aufgaben. Vorher war
+// jede einzelne Aufgabe ein eigenes Level; vor dem Spielen stand damit eine
+// Wand aus vierzig Kacheln, und nach jedem Würfelbild ging es dorthin zurück.
+function makeSpatialLevels(tasks = window.SPATIAL_PUZZLES || []) {
+  return DIFFICULTY_KEYS.map((difficulty) => {
+    const aufgaben = tasks.filter((task) => task.difficulty === difficulty).slice(0, SPATIAL_TASKS_PER_LEVEL);
+    return makeLevel("spatialPuzzle", difficulty, 1, {
+      tasks: aufgaben,
+      targetCount: aufgaben.length,
+      badge: `${aufgaben.length} Aufgaben`,
+      description: SPATIAL_LEVEL_DESCRIPTIONS[difficulty],
     });
   });
 }
@@ -1437,7 +1123,7 @@ function spatialNetLayout(turns = 0) {
   return { positions, cols, rows };
 }
 
-function validateSpatialLevel(level) {
+function validateSpatialTask(level) {
   const errors = [];
   const label = level.id || level.levelName || "spatial level";
   const expectedOptionCount = SPATIAL_OPTION_COUNTS[level.difficulty];
@@ -1493,33 +1179,47 @@ function validateSpatialLevel(level) {
   return errors;
 }
 
-function validateSpatialLevels(levels = []) {
+function validateSpatialTasks(tasks = []) {
   const errors = [];
-  if (levels.length !== 40) errors.push(`spatialPuzzle should have 40 levels, found ${levels.length}`);
+  if (tasks.length !== 40) errors.push(`spatialPuzzle should have 40 tasks, found ${tasks.length}`);
   DIFFICULTY_KEYS.forEach((difficulty) => {
-    const byDifficulty = levels.filter((level) => level.difficulty === difficulty);
-    if (byDifficulty.length !== 10) errors.push(`spatialPuzzle ${difficulty} should have 10 levels`);
-    const typeSet = new Set(byDifficulty.map((level) => level.type));
+    const byDifficulty = tasks.filter((task) => task.difficulty === difficulty);
+    if (byDifficulty.length !== SPATIAL_TASKS_PER_LEVEL) errors.push(`spatialPuzzle ${difficulty} should have ${SPATIAL_TASKS_PER_LEVEL} tasks`);
+    const typeSet = new Set(byDifficulty.map((task) => task.type));
     ["viewMatch", "sameShape", "rotateBuild", "cubeNet"].forEach((type) => {
       if (!typeSet.has(type)) errors.push(`spatialPuzzle ${difficulty} misses ${type}`);
     });
   });
-  levels.forEach((level) => errors.push(...validateSpatialLevel(level)));
+  tasks.forEach((task) => errors.push(...validateSpatialTask(task)));
   return { valid: errors.length === 0, errors };
 }
 
 const SPATIAL_LEVELS = makeSpatialLevels();
 
+// Fünf gespielte Runden bauen den Wagen fertig. Es gibt nur vier Level – der
+// Zug zählt hier also Runden, nicht Level, und die zählt der Levelkatalog
+// nicht mit: er kennt jedes Level nur als geschafft oder nicht.
+const SPATIAL_RUNS_FOR_DONE = 5;
+const SPATIAL_RUNS_KEY = "lernapp.raumdetektiv";
+const spatialRuns = window.LernappGameCloud
+  ? window.LernappGameCloud.register({
+    key: SPATIAL_RUNS_KEY,
+    empty: { runs: 0, scores: [] },
+    merge: window.LernappGameCloud.mergeScores(SPATIAL_RUNS_FOR_DONE),
+  })
+  : { read: () => ({ runs: 0, scores: [] }), write(data) { return data; }, update(fn) { return fn(this.read()); } };
+
 if (typeof window !== "undefined") {
   window.LernappPuzzleGenerators = {
     generateReadingTask,
     validateReadingTask,
-    validateSpatialLevels,
+    validateSpatialTasks,
     ensureUniqueOptions,
     shuffleOptions,
     readingWords: READING_WORD_ITEMS,
     readingSentences: READING_SENTENCE_ITEMS,
     spatialLevels: SPATIAL_LEVELS,
+    spatialTasks: window.SPATIAL_PUZZLES || [],
     spatialProjectionSignature,
     spatialCubeSignature,
     spatialCanonicalRotationSignature,
@@ -1541,8 +1241,6 @@ const LEVELS_BY_GAME = {
   readingPuzzle: normalizeLevelCounts(READING_LEVELS),
   letterPuzzle: normalizeLevelCounts(LETTER_LEVELS),
   spatialPuzzle: normalizeLevelCounts(SPATIAL_LEVELS),
-  backpack: normalizeLevelCounts(BACKPACK_LEVELS),
-  memory: normalizeLevelCounts(MEMORY_LEVELS),
 };
 function publicLevelInfo(level) {
   return {
@@ -1594,8 +1292,6 @@ let lastDrawnKey = null;
 let activePointerId = null;
 let shikakuDrag = null;
 let hidokuDrag = null;
-let backpackTimer = null;
-let memoryFlipTimer = null;
 let practiceAdvanceTimer = null;
 let ignoreNextHidokuClick = false;
 let ignoreNextShikakuClick = false;
@@ -1660,24 +1356,26 @@ function computeStars(game, level, result) {
     if (flawless >= Math.ceil(target * 0.6)) return 2;
     return 1;
   }
-  if (game === "memory") {
-    const moves = Number(result.moves || 0);
-    if (level.threeStarMoves && moves <= level.threeStarMoves) return 3;
-    if (level.twoStarMoves && moves <= level.twoStarMoves) return 2;
-    return 1;
-  }
+  // Raumdetektiv: eine Runde sind zehn Aufgaben. Wer keine einzige daneben
+  // tippt, hat drei Sterne; bis zu vier Fehltipps sind noch zwei.
   if (game === "spatialPuzzle") {
     const mistakes = Number(result.mistakes || 0);
     if (mistakes === 0) return 3;
-    if (mistakes <= 2) return 2;
+    if (mistakes <= 4) return 2;
     return 1;
   }
-  if (game === "backpack") return 3;
-  // Logikspiele: weniger Hilfen (Rückgängig/Neustart) = mehr Sterne.
+  // Battleships und Tiergehege: geschafft ist geschafft, drei Sterne. Beide
+  // lassen sich nur richtig oder gar nicht lösen – dafür noch die Zahl der
+  // Rückgängig-Tipps zu zählen, bestrafte das Ausprobieren, das hier gerade
+  // der Weg zur Lösung ist.
+  if (ALWAYS_THREE_STARS.has(game)) return 3;
+  // Übrige Logikspiele: weniger Hilfen (Rückgängig/Neustart) = mehr Sterne.
   if (helpCount === 0) return 3;
   if (helpCount <= 2) return 2;
   return 1;
 }
+
+const ALWAYS_THREE_STARS = new Set(["bimaru", "shikaku"]);
 function saveLevelStars(level, stars) {
   const id = level.id || level.levelName;
   return kids()?.setStars?.(level.game, id, stars) || { stars, improved: false, previous: 0 };
@@ -1906,10 +1604,6 @@ function scheduleActiveBoardLayout() {
 }
 
 function handleViewportLayoutChange() {
-  if (document.body.classList.contains("puzzle-active") && currentGame === "memory") {
-    render();
-    return;
-  }
   scheduleActiveBoardLayout();
 }
 
@@ -1925,11 +1619,6 @@ function currentSolveResult() {
   if (currentGame === "spatialPuzzle") {
     result.mistakes = Number(state.mistakes || 0);
     result.explanation = state.feedback || currentLevel().explanation || "";
-  }
-  if (currentGame === "backpack") result.best = Number(state.best || 0);
-  if (currentGame === "memory") {
-    result.moves = Number(state.memory?.moves || 0);
-    result.bestMoves = Number(state.memory?.bestMoves || loadMemoryBest(currentLevel()) || 0);
   }
   return result;
 }
@@ -1954,8 +1643,52 @@ function renderSelectionActions(mode) {
   }
   levelPanel.querySelector(".start-copy")?.after(actions);
 }
+// Raumdetektiv hat nur vier Level, eines je Welt. Ein eigener Schritt für die
+// Welt wäre da ein Tipp zu viel: die vier stehen gleich nebeneinander.
+const FLAT_LEVEL_GAMES = new Set(["spatialPuzzle"]);
+function renderFlatLevelSelect() {
+  const config = GAME_CONFIGS[currentGame];
+  levelPanel.classList.remove("difficulty-step");
+  levelHeading.textContent = "";
+  if (appIntro) appIntro.textContent = "";
+  levelDescription.textContent = "";
+  levelDescription.hidden = true;
+  renderSelectionActions("flat");
+  levelGrid.className = "difficulty-grid";
+  levelGrid.setAttribute("aria-label", `${config.title} Levels`);
+  levelGrid.innerHTML = "";
+  LEVELS_BY_GAME[currentGame].forEach((level, index) => {
+    const info = DIFFICULTIES[level.difficulty];
+    const solved = isSolved(level);
+    const unlocked = isLevelUnlocked(level);
+    const stars = solved ? levelStars(level) : 0;
+    const button = document.createElement("button");
+    button.className = `difficulty-card ${level.difficulty}${solved ? " solved" : ""}${unlocked ? "" : " locked"}`;
+    button.type = "button";
+    button.disabled = !unlocked;
+    button.setAttribute("aria-label", `${info.label}, ${level.targetCount} Aufgaben${solved ? `, geschafft, ${stars} von 3 Sternen` : ""}${unlocked ? "" : ", gesperrt"}`);
+    const icon = document.createElement("span");
+    icon.className = "difficulty-icon";
+    icon.setAttribute("aria-hidden", "true");
+    icon.textContent = unlocked ? info.icon : "🔒";
+    const name = document.createElement("span");
+    name.className = "difficulty-name";
+    name.textContent = info.label;
+    button.append(icon, name);
+    if (solved) button.append(renderStarRow(stars, { small: true }));
+    else {
+      const small = document.createElement("small");
+      small.textContent = `${level.targetCount} Aufgaben`;
+      button.append(small);
+    }
+    button.addEventListener("click", () => startLevel(index));
+    levelGrid.append(button);
+  });
+  setHelpText(`${sentence(config.title)} ${config.subtitle} Such dir eine Welt aus: Leicht, Mittel, Schwer oder Extrem. Jede ist eine Runde über zehn Aufgaben. Je weiter rechts, desto kniffliger.`);
+}
 function renderDifficultySelect() {
   if (!currentGame || !levelPanel) return;
+  if (FLAT_LEVEL_GAMES.has(currentGame)) { renderFlatLevelSelect(); return; }
   const config = GAME_CONFIGS[currentGame];
   levelPanel.classList.add("difficulty-step");
   levelHeading.textContent = "Wähle deine Welt";
@@ -1990,6 +1723,7 @@ function selectDifficulty(difficulty) { selectedDifficulty = difficulty; renderL
 function showDifficultySelect() { selectedDifficulty = null; currentIndex = -1; renderDifficultySelect(); }
 function renderLevelSelect() {
   if (!currentGame || !levelPanel) return;
+  if (FLAT_LEVEL_GAMES.has(currentGame)) { renderFlatLevelSelect(); return; }
   if (!selectedDifficulty) { renderDifficultySelect(); return; }
   const config = GAME_CONFIGS[currentGame];
   const difficulty = DIFFICULTIES[selectedDifficulty];
@@ -2032,9 +1766,9 @@ function renderLevelSelect() {
   });
   setHelpText(`${config.title}, Welt ${difficulty.label}. Such dir ein Level aus und tippe darauf. Kacheln mit Sternen hast du schon geschafft. Eine Kachel mit Schloss wird frei, sobald du das Level davor gelöst hast.`);
 }
-function showLevelSelect() { finishMove(); clearPracticeAdvanceTimer(); GAME_HANDLERS[currentGame]?.stop?.(); if (currentGame === "backpack") clearBackpackTimer(); if (currentGame === "memory") clearMemoryTimer(); cloudProgress()?.flushCurrentSession?.({ close: true, includeElapsed: true }); hideSuccess(); if (levelPanel) levelPanel.hidden = false; if (gamePanel) gamePanel.hidden = true; if (gameControls) gameControls.hidden = true; document.body.classList.remove("puzzle-active", "number-pad-open"); board?.style.removeProperty("--active-board-size"); board?.style.removeProperty("--active-board-offset"); renderLevelSelect(); }
+function showLevelSelect() { finishMove(); clearPracticeAdvanceTimer(); GAME_HANDLERS[currentGame]?.stop?.(); cloudProgress()?.flushCurrentSession?.({ close: true, includeElapsed: true }); hideSuccess(); if (levelPanel) levelPanel.hidden = false; if (gamePanel) gamePanel.hidden = true; if (gameControls) gameControls.hidden = true; document.body.classList.remove("puzzle-active", "number-pad-open"); board?.style.removeProperty("--active-board-size"); board?.style.removeProperty("--active-board-offset"); renderLevelSelect(); }
 function showGame() { if (levelPanel) levelPanel.hidden = true; if (gamePanel) gamePanel.hidden = false; if (gameControls) gameControls.hidden = false; document.body.classList.add("puzzle-active"); setHelpText(boardHelpText()); }
-function startLevel(index) { const levelToStart = LEVELS_BY_GAME[currentGame]?.[index]; if (!isLevelUnlocked(levelToStart)) { if (levelToStart) selectedDifficulty = levelToStart.difficulty; renderLevelSelect(); return; } clearPracticeAdvanceTimer(); GAME_HANDLERS[currentGame]?.stop?.(); hideSuccess(); currentIndex = index; const level = currentLevel(); selectedDifficulty = level.difficulty; const config = GAME_CONFIGS[currentGame]; history = []; winShown = false; helpCount = 0; if (undoButton) undoButton.disabled = true; const boardSize = level.cols || level.size || 5; board.className = `board ${currentGame}-board board-size-${boardSize}`; board.style.setProperty("--size", boardSize); board.setAttribute("aria-label", `${config.title} Spielfeld`); puzzleTitle.textContent = level.title; puzzleDescription.textContent = level.description || config.subtitle; cloudProgress()?.recordLevelStart?.(level); kids()?.setLastPlayed?.(currentGame, level.id || level.levelName); resetState(); showGame(); render(); maybeShowTutorial(level, config); }
+function startLevel(index) { const levelToStart = LEVELS_BY_GAME[currentGame]?.[index]; if (!isLevelUnlocked(levelToStart)) { if (levelToStart) selectedDifficulty = levelToStart.difficulty; renderLevelSelect(); return; } clearPracticeAdvanceTimer(); GAME_HANDLERS[currentGame]?.stop?.(); hideSuccess(); currentIndex = index; const level = currentLevel(); selectedDifficulty = level.difficulty; const config = GAME_CONFIGS[currentGame]; history = []; winShown = false; helpCount = 0; if (undoButton) undoButton.disabled = true; const boardSize = level.cols || level.size || 5; board.className = `board ${currentGame}-board board-size-${boardSize}`; board.style.setProperty("--size", boardSize); board.setAttribute("aria-label", `${config.title} Spielfeld`); puzzleTitle.textContent = level.title; puzzleDescription.textContent = level.description || config.subtitle; cloudProgress()?.recordLevelStart?.(level); kids()?.setLastPlayed?.(currentGame, level.id || level.levelName); resetState(); showGame(); render(); }
 function resetGame() { history = []; helpCount = 0; if (undoButton) undoButton.disabled = true; hideSuccess(); cloudProgress()?.recordLevelStart?.(currentLevel()); resetState(); recordResetMetric(); render("Neu gestartet. Viel Spass!"); }
 function undo() {
   helpCount += 1;
@@ -2072,17 +1806,6 @@ function scheduleSuccessStep(callback, delay) {
   }, delay);
   successTimers.push(timer);
 }
-function renderDailyDots(daily) {
-  const dots = document.createElement("span");
-  dots.className = "daily-dots";
-  for (let i = 0; i < daily.goal; i += 1) {
-    const dot = document.createElement("span");
-    dot.className = "daily-dot" + (i < daily.count ? " filled" : "");
-    dot.textContent = i < daily.count ? "⭐" : "·";
-    dots.append(dot);
-  }
-  return dots;
-}
 function revealSuccessContent() {
   clearSuccessTimers();
   const details = Array.from(successContent?.querySelectorAll(".success-summary") || []);
@@ -2110,8 +1833,8 @@ function showSuccess() {
   const stars = computeStars(currentGame, level, result);
   const saved = saveLevelStars(level, stars);
   markSolved(level, result);
-  const daily = kids()?.recordDailySolve?.() || null;
-  lastCelebration = { level, result, stars, improved: saved.improved, daily };
+  GAME_HANDLERS[currentGame]?.afterWin?.(level, result, stars);
+  lastCelebration = { level, result, stars, improved: saved.improved };
   updateNextPuzzleButton();
   updateSuccessContent();
   if (successOverlay) {
@@ -2157,16 +1880,6 @@ function updateSuccessContent() {
   note.textContent = (celebration.stars || 1) >= 3 ? "Perfekt! Alle drei Sterne! 🌟" : "Spiel nochmal für mehr Sterne!";
   successContent.append(note);
 
-  if (celebration.daily) {
-    const daily = document.createElement("div");
-    daily.className = "success-summary success-daily";
-    daily.append(renderDailyDots(celebration.daily));
-    const label = document.createElement("span");
-    label.textContent = celebration.daily.done ? "Tagesziel geschafft! 🎉" : `Heute: ${celebration.daily.count} von ${celebration.daily.goal} Rätseln`;
-    daily.append(label);
-    successContent.append(daily);
-  }
-
 }
 
 function setupSuccessOverlay() {
@@ -2201,43 +1914,10 @@ function setupSuccessOverlay() {
   nextPuzzleButton.addEventListener("click", nextLevel);
 }
 
-let tutorialOverlay = null;
-function maybeShowTutorial(level, config) {
-  if (!config || !kids() || kids().tutorialSeen?.(currentGame)) return;
-  const rules = Array.isArray(config.rules) ? config.rules : [];
-  kids().markTutorialSeen?.(currentGame);
-  if (!rules.length) return;
-  if (tutorialOverlay) tutorialOverlay.remove();
-  const overlay = document.createElement("section");
-  overlay.className = "kids-modal-overlay tutorial-overlay";
-  overlay.setAttribute("role", "dialog");
-  overlay.setAttribute("aria-modal", "true");
-  overlay.setAttribute("aria-label", `So geht ${config.title}`);
-  const rulesHtml = rules.map((rule, i) => `<li><span class="tut-step-num">${i + 1}</span><span>${rule}</span></li>`).join("");
-  overlay.innerHTML = `
-    <div class="kids-modal tutorial-modal">
-      <div class="kids-modal-mascot" aria-hidden="true">${kids().mascotSVG("think")}</div>
-      <h2>So geht ${config.title}</h2>
-      <ol class="tutorial-rules">${rulesHtml}</ol>
-      <div class="kids-modal-actions">
-        ${kids().ttsSupported?.() ? '<button type="button" class="kids-modal-secondary" data-listen aria-label="Regeln vorlesen">🔊 Vorlesen</button>' : ""}
-        <button type="button" class="kids-modal-primary" data-start>Los geht's! 👆</button>
-      </div>
-    </div>`;
-  (document.querySelector(".app-shell") || document.body).append(overlay);
-  tutorialOverlay = overlay;
-  const spokenText = `${config.title}. ${rules.join(" ")}`;
-  const releaseHelp = kids().pushHelp?.(spokenText);
-  const close = () => {
-    kids().stopSpeaking?.();
-    releaseHelp?.();
-    overlay.remove();
-    if (tutorialOverlay === overlay) tutorialOverlay = null;
-  };
-  overlay.querySelector("[data-start]").addEventListener("click", close);
-  overlay.querySelector("[data-listen]")?.addEventListener("click", () => kids().speak?.(spokenText));
-  overlay.addEventListener("click", (event) => { if (event.target === overlay) close(); });
-}
+// Vor dem ersten Level stand einmal ein Erklaerbild mit den Regeln. Es ist
+// weg: es schob sich zwischen den Tipp auf das Level und das Level selbst, und
+// was zu tun ist, sagt der Lautsprecher oben links – dann, wenn ein Kind es
+// wissen will, und nicht jedes Mal davor.
 
 function handleWin() { if (!winShown) showSuccess(); render(); }
 function checkAndWin() { if (GAME_HANDLERS[currentGame].checkWin()) handleWin(); }
@@ -2364,20 +2044,23 @@ function spokenTaskText(task) {
       return task.speakText || task.questionText || "";
   }
 }
-function renderPracticeProgress(level) {
-  const target = level.targetCount || 10;
+// Wie weit ist die Runde? Eine Reihe Punkte, ein Punkt je Aufgabe.
+function renderTaskProgress(target, done) {
   const wrap = document.createElement("div");
   wrap.className = "practice-progress-row";
   const dots = document.createElement("div");
   dots.className = "practice-dots";
-  dots.setAttribute("aria-label", `Aufgabe ${Math.min(state.solvedCount + 1, target)} von ${target}`);
+  dots.setAttribute("aria-label", `Aufgabe ${Math.min(done + 1, target)} von ${target}`);
   for (let i = 0; i < target; i += 1) {
     const dot = document.createElement("span");
-    dot.className = "practice-dot" + (i < state.solvedCount ? " done" : (i === state.solvedCount ? " current" : ""));
+    dot.className = "practice-dot" + (i < done ? " done" : (i === done ? " current" : ""));
     dots.append(dot);
   }
   wrap.append(dots);
   return wrap;
+}
+function renderPracticeProgress(level) {
+  return renderTaskProgress(level.targetCount || 10, state.solvedCount);
 }
 function optionStateClass(option) {
   const correct = sameAnswer(option, state.task.correctAnswer);
@@ -2454,287 +2137,8 @@ function renderPracticeShell(level, className, taskView, onAnswer, taskFactory, 
     renderPracticeFeedback(taskFactory, nextStatus),
   );
 }
-function backpackRule(level) { return BACKPACK_DIFFICULTY_RULES[level.difficulty] || BACKPACK_DIFFICULTY_RULES.easy; }
-function backpackPool(level) { return BACKPACK_ITEMS.slice(0, backpackRule(level).poolSize); }
-function backpackBestKey(level) { return `lernapp.backpack.best.${level.id || level.levelName}`; }
-function loadBackpackBest(level) { return Number(localStorage.getItem(backpackBestKey(level)) || 0); }
-function saveBackpackBest(level, value) { localStorage.setItem(backpackBestKey(level), String(value)); }
-function clearBackpackTimer() {
-  if (backpackTimer) window.clearTimeout(backpackTimer);
-  backpackTimer = null;
-}
-function scheduleBackpack(callback, delay = 560) {
-  clearBackpackTimer();
-  const token = state.token;
-  backpackTimer = window.setTimeout(() => {
-    backpackTimer = null;
-    if (currentGame === "backpack" && state.token === token) callback();
-  }, delay);
-}
-function backpackNewOptions(level) {
-  const rule = backpackRule(level);
-  const pool = backpackPool(level);
-  const usedIds = new Set(state.sequence);
-  const unused = pool.filter((item) => !usedIds.has(item.id));
-  if (unused.length < rule.choiceCount) return [];
-  return shuffleOptions(unused).slice(0, rule.choiceCount);
-}
-function backpackRepeatOptions(level) {
-  const rule = backpackRule(level);
-  const pool = backpackPool(level);
-  const correctId = state.sequence[state.repeatIndex];
-  const correct = BACKPACK_ITEM_BY_ID[correctId];
-  const distractors = shuffleOptions(pool.filter((item) => item.id !== correctId)).slice(0, Math.max(0, rule.choiceCount - 1));
-  return shuffleOptions([correct, ...distractors].filter(Boolean));
-}
-function backpackPhaseLabel() {
-  if (state.phase === "chooseNew") return "Neuen Gegenstand wählen";
-  if (state.phase === "packingNew") return "Gegenstand wird eingepackt";
-  if (state.phase === "correctPacking") return "Richtig eingepackt";
-  if (state.phase === "wrong") return "Noch nicht richtig";
-  if (state.phase === "gameOver") return "Runde vorbei";
-  return "Reihenfolge packen";
-}
-function backpackStatusText() {
-  if (state.phase === "chooseNew") return state.sequence.length ? "Wähle etwas Neues dazu." : "Wähle den ersten Gegenstand.";
-  if (state.phase === "packingNew") return "Merke dir den neuen Gegenstand.";
-  if (state.phase === "correctPacking") return "Stimmt. Weiter in der Reihenfolge.";
-  if (state.phase === "wrong") return "Das war nicht die gemerkte Reihenfolge.";
-  if (state.phase === "gameOver") return "Starte eine neue Runde oder wähle eine andere Schwierigkeit.";
-  return `Packe Gegenstand ${state.repeatIndex + 1} von ${state.sequence.length}.`;
-}
-function makeBackpackStat(label, value) {
-  const stat = document.createElement("span");
-  const small = document.createElement("small");
-  small.textContent = label;
-  const strong = document.createElement("strong");
-  strong.textContent = value;
-  stat.append(small, strong);
-  return stat;
-}
-function renderBackpackStats() {
-  const stats = document.createElement("div");
-  stats.className = "backpack-stats";
-  stats.append(
-    makeBackpackStat("Runde", state.round),
-    makeBackpackStat("Bestwert", state.best),
-    makeBackpackStat("Länge", state.sequence.length),
-  );
-  return stats;
-}
-function renderBackpackScene() {
-  const scene = document.createElement("div");
-  scene.className = "backpack-scene";
-  const mode = document.createElement("div");
-  mode.className = `backpack-mode ${state.phase}`;
-  mode.textContent = backpackPhaseLabel();
-  const emoji = document.createElement("div");
-  emoji.className = `backpack-emoji${state.phase === "packingNew" || state.phase === "correctPacking" ? " bouncing" : ""}`;
-  emoji.setAttribute("aria-hidden", "true");
-  emoji.textContent = "🎒";
-  const dots = document.createElement("div");
-  dots.className = "backpack-progress";
-  const filledCount = state.phase === "repeat" || state.phase === "correctPacking" || state.phase === "wrong" ? state.repeatIndex : 0;
-  state.sequence.forEach((_, index) => {
-    const dot = document.createElement("span");
-    dot.className = `backpack-dot${index < filledCount ? " filled" : ""}`;
-    dots.append(dot);
-  });
-  const phase = document.createElement("p");
-  phase.className = "backpack-phase";
-  phase.textContent = backpackStatusText();
-  scene.append(mode, emoji, dots, phase);
-  return scene;
-}
-function backpackItemClass(item) {
-  if (state.phase === "chooseNew") return " new-choice";
-  if (state.phase === "packingNew" && item.id === state.selectedId) return " packing";
-  if (state.phase === "correctPacking" && item.id === state.selectedId) return " correct";
-  if (state.phase === "wrong" && item.id === state.selectedId) return " wrong";
-  if (state.phase === "wrong" && item.id === state.correctId) return " correct";
-  return "";
-}
-function renderBackpackChoices(level) {
-  const rule = backpackRule(level);
-  const choices = document.createElement("div");
-  choices.className = "backpack-choice-grid";
-  choices.style.setProperty("--choice-count", Math.max(1, Math.min(rule.choiceCount, state.options.length)));
-  state.options.forEach((item) => {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = `backpack-item-card${rule.showLabels ? "" : " no-label"}${backpackItemClass(item)}`;
-    button.disabled = state.phase !== "chooseNew" && state.phase !== "repeat";
-    button.setAttribute("aria-label", item.label);
-    const emoji = document.createElement("span");
-    emoji.className = "backpack-item-emoji";
-    emoji.textContent = item.emoji;
-    button.append(emoji);
-    if (rule.showLabels) {
-      const label = document.createElement("span");
-      label.className = "backpack-item-label";
-      label.textContent = item.label;
-      button.append(label);
-    }
-    button.addEventListener("click", () => GAME_HANDLERS.backpack.choose(item.id));
-    choices.append(button);
-  });
-  return choices;
-}
-function renderBackpackGameOver(level) {
-  if (state.phase !== "gameOver") return null;
-  const overlay = document.createElement("div");
-  overlay.className = "backpack-game-over";
-  overlay.setAttribute("role", "dialog");
-  overlay.setAttribute("aria-labelledby", "backpack-game-over-title");
-  overlay.innerHTML = `
-    <div class="backpack-game-over-dialog">
-      <h3 id="backpack-game-over-title">Runde vorbei</h3>
-      <p>Geschafft: ${state.round} ${state.round === 1 ? "Runde" : "Runden"}</p>
-      <p class="backpack-record">Bestwert: ${state.best}</p>
-      <div class="backpack-game-over-actions">
-        <button type="button" data-backpack-restart>Noch einmal</button>
-        <button type="button" class="secondary-action" data-backpack-levels>Schwierigkeit wählen</button>
-      </div>
-    </div>`;
-  overlay.querySelector("[data-backpack-restart]").addEventListener("click", resetGame);
-  overlay.querySelector("[data-backpack-levels]").addEventListener("click", showLevelSelect);
-  return overlay;
-}
-function memoryRule(level) {
-  return MEMORY_DIFFICULTY_RULES[level.difficulty] || MEMORY_DIFFICULTY_RULES.easy;
-}
-function memoryState() {
-  return state.memory || {
-    cards: [],
-    flippedCardIds: [],
-    moves: 0,
-    matchedPairs: 0,
-    isLocked: false,
-    completed: false,
-  };
-}
-function memoryMoveLabel(moves) {
-  return `${moves} ${moves === 1 ? "Zug" : "Zügen"}`;
-}
-function memoryMoveCountLabel(moves) {
-  return `${moves} ${moves === 1 ? "Zug" : "Züge"}`;
-}
-function memoryBestKey(level) {
-  return `lernapp.memory.best.${level.id || level.levelName}`;
-}
-function loadMemoryBest(level) {
-  const value = Number(localStorage.getItem(memoryBestKey(level)) || 0);
-  return Number.isFinite(value) && value > 0 ? value : 0;
-}
-function saveMemoryBest(level, moves) {
-  localStorage.setItem(memoryBestKey(level), String(moves));
-}
-function clearMemoryTimer() {
-  if (memoryFlipTimer) window.clearTimeout(memoryFlipTimer);
-  memoryFlipTimer = null;
-}
-function memoryBoardColumns(level) {
-  return Math.max(2, Math.ceil(Math.sqrt(Math.max(1, level.pairCount * 2))));
-}
 function isCompactLandscapeViewport() {
   return window.matchMedia?.("(orientation: landscape) and (max-height: 540px)")?.matches;
-}
-function memoryCardMaxSize(level) {
-  if (isCompactLandscapeViewport()) {
-    if (level.pairCount <= 8) return 60;
-    if (level.pairCount <= 13) return 52;
-    if (level.pairCount <= 18) return 46;
-    return 40;
-  }
-  if (level.pairCount <= 8) return 108;
-  if (level.pairCount <= 13) return 92;
-  if (level.pairCount <= 18) return 80;
-  return 70;
-}
-function applyMemoryBoardLayout(grid, level) {
-  const columns = memoryBoardColumns(level);
-  const gap = 10;
-  grid.style.setProperty("--memory-columns", columns);
-  grid.style.setProperty("--memory-card-percent", `${100 / columns}%`);
-  grid.style.setProperty("--memory-gap-share", `${((columns - 1) * gap) / columns}px`);
-  grid.style.setProperty("--memory-board-max", `${columns * memoryCardMaxSize(level) + (columns - 1) * gap}px`);
-}
-function makeMemoryStat(label, value) {
-  const item = document.createElement("span");
-  const small = document.createElement("small");
-  small.textContent = label;
-  const strong = document.createElement("strong");
-  strong.textContent = value;
-  item.append(small, strong);
-  return item;
-}
-function renderMemoryStats(level) {
-  const memory = memoryState();
-  const stats = document.createElement("div");
-  stats.className = "memory-stats";
-  stats.append(
-    makeMemoryStat("Schwierigkeit", DIFFICULTIES[level.difficulty].label),
-    makeMemoryStat("Paare", level.pairCount),
-    makeMemoryStat("Züge", memory.moves),
-    makeMemoryStat("Gefunden", `${memory.matchedPairs} / ${level.pairCount}`),
-  );
-  if (memory.bestMoves) stats.append(makeMemoryStat("Bestwert", memoryMoveCountLabel(memory.bestMoves)));
-  return stats;
-}
-function memoryCardClass(card, rule) {
-  return `memory-card${card.isFaceUp ? " is-face-up" : ""}${card.isMatched ? " is-matched" : ""}${rule.showLabels ? "" : " no-label"}`;
-}
-function memoryCardAriaLabel(card) {
-  if (card.isMatched) return `Paar ${card.label} gefunden`;
-  if (card.isFaceUp) return card.label;
-  return "Verdeckte Karte aufdecken";
-}
-function renderMemoryCard(card, level) {
-  const memory = memoryState();
-  const rule = memoryRule(level);
-  const button = document.createElement("button");
-  button.type = "button";
-  button.className = memoryCardClass(card, rule);
-  button.setAttribute("aria-label", memoryCardAriaLabel(card));
-  button.disabled = memory.completed || memory.isLocked || card.isFaceUp || card.isMatched;
-
-  const inner = document.createElement("span");
-  inner.className = "memory-card-inner";
-  const front = document.createElement("span");
-  front.className = "memory-card-front";
-  front.setAttribute("aria-hidden", "true");
-  front.textContent = "?";
-  const back = document.createElement("span");
-  back.className = "memory-card-back";
-  back.setAttribute("aria-hidden", "true");
-  const emoji = document.createElement("span");
-  emoji.className = "memory-card-emoji";
-  emoji.textContent = card.emoji;
-  back.append(emoji);
-  if (rule.showLabels) {
-    const label = document.createElement("span");
-    label.className = "memory-card-label";
-    label.textContent = card.label;
-    back.append(label);
-  }
-  inner.append(front, back);
-  button.append(inner);
-  button.addEventListener("click", () => GAME_HANDLERS.memory.flip(card.cardId));
-  return button;
-}
-function renderMemoryBoard(level) {
-  const memory = memoryState();
-  board.innerHTML = "";
-  board.className = "board memory-game";
-  board.style.setProperty("--size", 1);
-  board.append(renderMemoryStats(level));
-
-  const grid = document.createElement("div");
-  grid.className = `memory-board${memory.isLocked ? " is-locked" : ""}`;
-  grid.setAttribute("aria-label", `${level.pairCount} Memory-Paare`);
-  applyMemoryBoardLayout(grid, level);
-  memory.cards.forEach((card) => grid.append(renderMemoryCard(card, level)));
-  board.append(grid);
 }
 function makeReadingDisplay(task) {
   const display = document.createElement("div");
@@ -2972,49 +2376,50 @@ function renderSpatialNet(faces, { turns = 0 } = {}) {
   return svg;
 }
 
-function renderSpatialGraphic(level, graphic = level.mainGraphic, option = null) {
+function renderSpatialGraphic(task, graphic = task.mainGraphic, option = null) {
   if (graphic?.kind === "cube") return renderSpatialSingleCube(graphic.faces);
-  if (option?.kind === "projection") return renderSpatialProjection(spatialResolveOptionCubes(level, option), option.view);
+  if (option?.kind === "projection") return renderSpatialProjection(spatialResolveOptionCubes(task, option), option.view);
   if (option?.kind === "net") return renderSpatialNet(option.faces, { turns: option.turns });
-  if (option?.kind === "cubes") return renderSpatialIso(spatialResolveOptionCubes(level, option), { compact: true });
+  if (option?.kind === "cubes") return renderSpatialIso(spatialResolveOptionCubes(task, option), { compact: true });
   return renderSpatialIso(colorizeSpatialCubes(graphic?.cubes || []));
 }
 
-function makeSpatialTaskView(level) {
+function makeSpatialTaskView(task) {
   const view = document.createElement("div");
-  view.className = `practice-task spatial-task spatial-type-${level.type}`;
+  view.className = `practice-task spatial-task spatial-type-${task.type}`;
   const prompt = document.createElement("p");
   prompt.className = "spatial-prompt";
-  prompt.textContent = level.prompt;
+  prompt.textContent = task.prompt;
   const main = document.createElement("div");
   main.className = "spatial-main-graphic";
-  main.append(renderSpatialGraphic(level));
+  main.append(renderSpatialGraphic(task));
   view.append(prompt, main);
   return view;
 }
 
-function spatialOptionStateClass(option) {
-  if (state.completed && option.id === currentLevel().correctAnswer) return " correct";
-  if (!state.completed && state.selectedAnswer === option.id && option.id !== currentLevel().correctAnswer) return " wrong";
+function spatialOptionStateClass(task, option) {
+  const geloest = state.awaitingNext || state.completed;
+  if (geloest && option.id === task.correctAnswer) return " correct";
+  if (!geloest && state.selectedAnswer === option.id && option.id !== task.correctAnswer) return " wrong";
   return "";
 }
 
-function renderSpatialOptions(level) {
+function renderSpatialOptions(task) {
   const options = document.createElement("div");
   options.className = "spatial-options";
-  options.style.setProperty("--option-count", Math.min(level.options.length, 4));
-  level.options.forEach((option) => {
+  options.style.setProperty("--option-count", Math.min(task.options.length, 4));
+  task.options.forEach((option) => {
     const button = document.createElement("button");
     button.type = "button";
-    button.className = `practice-option spatial-option${spatialOptionStateClass(option)}`;
-    button.disabled = state.completed;
+    button.className = `practice-option spatial-option${spatialOptionStateClass(task, option)}`;
+    button.disabled = state.awaitingNext || state.completed;
     button.setAttribute("aria-label", `Antwort ${option.id}`);
     const letter = document.createElement("span");
     letter.className = "spatial-option-letter";
     letter.textContent = option.id;
     const graphic = document.createElement("span");
     graphic.className = "spatial-option-graphic";
-    graphic.append(renderSpatialGraphic(level, null, option));
+    graphic.append(renderSpatialGraphic(task, null, option));
     button.append(graphic, letter);
     button.addEventListener("click", () => GAME_HANDLERS.spatialPuzzle.answer(option.id));
     options.append(button);
@@ -3034,222 +2439,6 @@ function renderSpatialFeedback() {
 }
 
 const GAME_HANDLERS = {
-
-  backpack: {
-    resetState(level) {
-      clearBackpackTimer();
-      state = {
-        sequence: [],
-        repeatIndex: 0,
-        round: 0,
-        best: loadBackpackBest(level),
-        phase: "chooseNew",
-        options: [],
-        selectedId: null,
-        correctId: null,
-        token: `${Date.now()}-${Math.random()}`,
-        unlockRecorded: isSolved(level),
-      };
-      state.options = backpackNewOptions(level);
-      if (!state.options.length) {
-        state.phase = "gameOver";
-        setStatus("Für diese Schwierigkeit sind nicht genug Gegenstände vorbereitet.");
-        return;
-      }
-      setStatus("Wähle den ersten Gegenstand für deinen Rucksack.");
-    },
-    checkWin() { return false; },
-    choose(itemId) {
-      if (!["chooseNew", "repeat"].includes(state.phase)) return;
-      if (!state.options.some((item) => item.id === itemId)) return;
-      const level = currentLevel();
-      recordMoveMetric();
-      if (state.phase === "chooseNew") {
-        state.sequence.push(itemId);
-        state.selectedId = itemId;
-        state.correctId = null;
-        state.phase = "packingNew";
-        state.options = [BACKPACK_ITEM_BY_ID[itemId]];
-        render("Gepackt. Merke dir die Reihenfolge.");
-        scheduleBackpack(() => {
-          state.phase = "repeat";
-          state.repeatIndex = 0;
-          state.selectedId = null;
-          state.options = backpackRepeatOptions(level);
-          render("Packe jetzt alles in der richtigen Reihenfolge ein.");
-        });
-        return;
-      }
-
-      const correctId = state.sequence[state.repeatIndex];
-      state.selectedId = itemId;
-      state.correctId = correctId;
-      if (itemId === correctId) {
-        state.phase = "correctPacking";
-        render("Richtig eingepackt.");
-        scheduleBackpack(() => {
-          state.repeatIndex += 1;
-          state.selectedId = null;
-          state.correctId = null;
-          if (state.repeatIndex >= state.sequence.length) {
-            state.round += 1;
-            state.best = Math.max(state.best, state.round);
-            saveBackpackBest(level, state.best);
-            if (!state.unlockRecorded) {
-              state.unlockRecorded = true;
-              markSolved(level, currentSolveResult());
-            }
-            const nextOptions = backpackNewOptions(level);
-            if (!nextOptions.length) {
-              state.phase = "gameOver";
-              state.options = [];
-              render("Unglaublich! Du hast alle Gegenstände eingepackt.");
-              return;
-            }
-            state.phase = "chooseNew";
-            state.repeatIndex = 0;
-            state.options = nextOptions;
-            render(`Runde ${state.round} geschafft. Wähle etwas Neues dazu.`);
-            return;
-          }
-          state.phase = "repeat";
-          state.options = backpackRepeatOptions(level);
-          render("Weiter in der Reihenfolge.");
-        }, 430);
-        return;
-      }
-
-      state.phase = "wrong";
-      render("Fast. Gleich siehst du deinen Bestwert.");
-      scheduleBackpack(() => {
-        state.phase = "gameOver";
-        state.options = [];
-        render("Runde vorbei.");
-      }, 720);
-    },
-    render(level) {
-      board.innerHTML = "";
-      board.className = "board backpack-board";
-      board.style.setProperty("--size", 1);
-      board.append(renderBackpackStats(), renderBackpackScene());
-      if (state.options.length) board.append(renderBackpackChoices(level));
-      const gameOver = renderBackpackGameOver(level);
-      if (gameOver) board.append(gameOver);
-    },
-  },
-
-  memory: {
-    resetState(level) {
-      clearMemoryTimer();
-      state = {
-        memory: {
-          cards: buildMemoryCards(level),
-          flippedCardIds: [],
-          moves: 0,
-          matchedPairs: 0,
-          isLocked: false,
-          completed: false,
-          bestMoves: loadMemoryBest(level),
-          lockToken: null,
-        },
-      };
-      setStatus("Decke zwei Karten auf.");
-    },
-    checkWin() { return Boolean(state.memory?.completed); },
-    complete(level) {
-      const memory = memoryState();
-      memory.completed = true;
-      const savedBest = loadMemoryBest(level);
-      if (!savedBest || memory.moves < savedBest) {
-        saveMemoryBest(level, memory.moves);
-        memory.bestMoves = memory.moves;
-      } else {
-        memory.bestMoves = savedBest;
-      }
-      handleWin();
-    },
-    flip(cardId) {
-      const level = currentLevel();
-      const memory = memoryState();
-      if (memory.completed || memory.isLocked || memory.flippedCardIds.length >= 2) return;
-
-      const card = memory.cards.find((item) => item.cardId === cardId);
-      if (!card || card.isFaceUp || card.isMatched) return;
-
-      card.isFaceUp = true;
-      memory.flippedCardIds = [...memory.flippedCardIds, card.cardId];
-
-      if (memory.flippedCardIds.length === 1) {
-        render("Merke dir diese Karte.");
-        return;
-      }
-
-      const [firstId, secondId] = memory.flippedCardIds;
-      const first = memory.cards.find((item) => item.cardId === firstId);
-      const second = memory.cards.find((item) => item.cardId === secondId);
-      if (!first || !second) return;
-
-      memory.moves += 1;
-      recordMoveMetric();
-
-      if (first.pairId === second.pairId) {
-        memory.matchedPairs += 1;
-        memory.isLocked = true;
-        memory.lockToken = `${Date.now()}-${Math.random()}`;
-        const lockToken = memory.lockToken;
-        render(`Paar gefunden! ${memory.matchedPairs} von ${level.pairCount} Paaren.`);
-        clearMemoryTimer();
-        memoryFlipTimer = window.setTimeout(() => {
-          const currentMemory = memoryState();
-          if (currentGame !== "memory" || currentMemory.lockToken !== lockToken || currentMemory.completed) return;
-          [firstId, secondId].forEach((matchedId) => {
-            const matchedCard = currentMemory.cards.find((item) => item.cardId === matchedId);
-            if (matchedCard) {
-              matchedCard.isMatched = true;
-              matchedCard.isFaceUp = false;
-            }
-          });
-          currentMemory.flippedCardIds = [];
-          currentMemory.isLocked = false;
-          currentMemory.lockToken = null;
-          memoryFlipTimer = null;
-          if (currentMemory.matchedPairs >= level.pairCount) {
-            this.complete(level);
-            return;
-          }
-          render("Weiter so. Decke zwei Karten auf.");
-        }, MEMORY_MATCH_HIDE_DELAY_MS);
-        return;
-      }
-
-      memory.isLocked = true;
-      memory.lockToken = `${Date.now()}-${Math.random()}`;
-      const lockToken = memory.lockToken;
-      render("Nicht gleich. Merke dir beide Karten.");
-      clearMemoryTimer();
-      memoryFlipTimer = window.setTimeout(() => {
-        const currentMemory = memoryState();
-        if (currentGame !== "memory" || currentMemory.lockToken !== lockToken || currentMemory.completed) return;
-        currentMemory.flippedCardIds.forEach((openId) => {
-          const openCard = currentMemory.cards.find((item) => item.cardId === openId);
-          if (openCard && !openCard.isMatched) openCard.isFaceUp = false;
-        });
-        currentMemory.flippedCardIds = [];
-        currentMemory.isLocked = false;
-        currentMemory.lockToken = null;
-        memoryFlipTimer = null;
-        render("Versuche es weiter.");
-      }, memoryRule(level).flipBackDelayMs);
-    },
-    render(level) {
-      renderMemoryBoard(level);
-    },
-  },
-
-
-
-
-
 
   readingPuzzle: {
     resetState(level) { resetPracticeState(level, generateReadingTask, "Schau auf das Bild und lies genau."); },
@@ -3279,40 +2468,83 @@ const GAME_HANDLERS = {
   },
 
   spatialPuzzle: {
-    resetState() {
+    resetState(level) {
+      clearPracticeAdvanceTimer();
       state = {
+        taskIndex: 0,
+        task: level.tasks[0] || null,
         selectedAnswer: null,
         feedback: "",
         mistakes: 0,
+        awaitingNext: false,
         completed: false,
       };
       setStatus("Wähle die passende Antwortkarte.");
     },
     checkWin() { return Boolean(state.completed); },
+    stop() { clearPracticeAdvanceTimer(); },
+    helpText(level) {
+      return `${level.tasks.length} Aufgaben nacheinander, Zeit hast du so viel du willst. Du bist bei Aufgabe ${Math.min(state.taskIndex + 1, level.tasks.length)} von ${level.tasks.length}. Wer keine einzige daneben tippt, bekommt drei Sterne.`;
+    },
     answer(optionId) {
-      if (state.completed) return;
+      if (!state.task || state.awaitingNext || state.completed) return;
       const level = currentLevel();
+      const task = state.task;
       state.selectedAnswer = optionId;
-      if (optionId === level.correctAnswer) {
+      if (optionId !== task.correctAnswer) {
+        state.mistakes += 1;
+        state.feedback = "Das passt noch nicht. Schau dir Richtung, Höhe und Nachbarschaft noch einmal an.";
+        render("Noch nicht ganz.");
+        playJingle("retry");
+        return;
+      }
+      state.feedback = task.explanation;
+      if (state.taskIndex + 1 >= level.tasks.length) {
         state.completed = true;
-        state.feedback = level.explanation;
         render("Richtig erkannt.");
         handleWin();
         return;
       }
-      state.mistakes += 1;
-      state.feedback = "Das passt noch nicht. Schau dir Richtung, Höhe und Nachbarschaft noch einmal an.";
-      render("Noch nicht ganz.");
+      // Kurz stehen bleiben: die richtige Karte leuchtet auf, dann kommt die
+      // nächste Aufgabe von selbst. Ein Weiter-Knopf wäre hier nur ein Tipp,
+      // der nichts entscheidet.
+      state.awaitingNext = true;
+      render("Richtig erkannt.");
+      playJingle("correct");
+      kids()?.vibrate?.(25);
+      practiceAdvanceTimer = window.setTimeout(() => {
+        practiceAdvanceTimer = null;
+        if (currentGame !== "spatialPuzzle" || !state.awaitingNext || state.completed) return;
+        const naechste = currentLevel().tasks[state.taskIndex + 1];
+        if (!naechste) return;
+        state.taskIndex += 1;
+        state.task = naechste;
+        state.selectedAnswer = null;
+        state.feedback = "";
+        state.awaitingNext = false;
+        render("Neue Würfelaufgabe.");
+      }, 1000);
     },
     render(level) {
       board.innerHTML = "";
       board.className = "board task-board spatialPuzzle-board";
       board.style.setProperty("--size", 1);
+      if (!state.task) return;
       board.append(
-        makeSpatialTaskView(level),
-        renderSpatialOptions(level),
+        renderTaskProgress(level.tasks.length, state.taskIndex),
+        makeSpatialTaskView(state.task),
+        renderSpatialOptions(state.task),
         renderSpatialFeedback(),
       );
+    },
+    // Der Zug zählt bei Raumdetektiv gespielte Runden, nicht gelöste Level:
+    // vier Level stehen zur Wahl, fünf Runden bauen den Wagen. Der Zähler
+    // gehört deshalb ins eigene Konto und nicht in den Levelkatalog.
+    afterWin(level, result, stars) {
+      spatialRuns.update((alt) => ({
+        runs: (Number(alt.runs) || 0) + 1,
+        scores: [...(alt.scores || []), stars].sort((a, b) => b - a).slice(0, SPATIAL_RUNS_FOR_DONE),
+      }));
     },
   },
 
@@ -3828,6 +3060,22 @@ if (resetButton) resetButton.addEventListener("click", resetGame);
 if (backButton) backButton.addEventListener("click", showLevelSelect);
 setupSuccessOverlay();
 setupAudioFeedback();
+mountScene();
+
+// Dieselbe Landschaft wie auf dem Startbild, hinter allem. Die Rätsel standen
+// bisher auf einem eigenen Farbverlauf; damit sahen sie aus wie eine zweite
+// App. Nur das Spielfeld selbst behält seine helle Fläche – Gitter, Zahlen und
+// Schiffe müssen auf einen Blick lesbar bleiben.
+function mountScene() {
+  const scenes = window.LernappScenes;
+  if (!scenes || document.querySelector(".puzzle-scene")) return;
+  const wrap = document.createElement("div");
+  wrap.className = "puzzle-scene";
+  wrap.setAttribute("aria-hidden", "true");
+  wrap.append(scenes.buildScene(scenes.savedScene(window.LernappTrain?.trainProgress?.().builtWagons ?? 99)));
+  document.body.prepend(wrap);
+  document.body.classList.add("has-scene");
+}
 
 if (typeof window.addEventListener === "function") {
   window.addEventListener("resize", handleViewportLayoutChange);

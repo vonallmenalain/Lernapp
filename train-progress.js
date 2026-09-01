@@ -28,8 +28,8 @@
       icon: "brain",
       wagon: "boxcar",
       games: [
-        { id: "backpack", title: "Rucksack packen", page: "backpack.html" },
-        { id: "memory", title: "Memory", page: "memory.html" },
+        { id: "backpack", title: "Rucksack packen", page: "backpack.html", ownProgress: "backpack" },
+        { id: "memory", title: "Memory", page: "memory.html", ownProgress: "memory" },
         { id: "beachTreasure", title: "Strand-Schätze", page: "strandschatz.html", ownProgress: "beachTreasure" },
       ],
     },
@@ -62,10 +62,10 @@
       icon: "puzzle",
       wagon: "crane",
       games: [
-        { id: "spatialPuzzle", title: "Raumdetektiv", page: "raumdetektiv.html" },
-        { id: "arukone", title: "Arukone", page: "arukone.html" },
-        { id: "bimaru", title: "Battleships", page: "bimaru.html" },
-        { id: "shikaku", title: "Tiergehege", page: "shikaku.html" },
+        { id: "spatialPuzzle", title: "Raumdetektiv", page: "raumdetektiv.html", ownProgress: "spatial" },
+        { id: "arukone", title: "Arukone", page: "arukone.html", ownProgress: "fuenfLevel" },
+        { id: "bimaru", title: "Battleships", page: "bimaru.html", ownProgress: "fuenfLevel" },
+        { id: "shikaku", title: "Tiergehege", page: "shikaku.html", ownProgress: "fuenfLevel" },
       ],
     },
     {
@@ -118,10 +118,16 @@
   const LOCAL_SOLVED_PREFIX = "lernapp.solved.";
   const RUNNER_KEY = "lernapp.tiersprung.progress";
   const RUNNER_LEVEL_COUNT = 10;
+  // Fünf geschaffte Level bauen den Wagen – welche fünf, ist gleich. Zehn zu
+  // verlangen hiesse: das schwerste Tier entscheidet über den ganzen Wagen.
+  const RUNNER_FOR_DONE = 5;
   const CARDMATCH_KEY = "lernapp.cardmatch";
   const BEACH_KEY = "lernapp.beachtreasure";
   const FLANKER_KEY = "lernapp.flanker";
   const TRACK_KEY = "lernapp.trackrouter";
+  const BACKPACK_KEY = "lernapp.backpack";
+  const MEMORY_KEY = "lernapp.memory";
+  const RAUM_KEY = "lernapp.raumdetektiv";
   // Weichen-Wirrwarr hat zehn Level, aber fünf davon reichen für den Wagen.
   const TRACK_LEVELS_FOR_DONE = 5;
   // Beide Bestenlisten-Spiele gelten nach fünf gespielten Runden als geschafft.
@@ -179,17 +185,25 @@
       });
     }
 
+    // Für den Wagen zählen die besten fünf: ein sechstes Level darf den Stand
+    // nicht drücken, und wer fünf schafft, ist fertig.
+    const besteFuenf = worlds
+      .map((world) => world.stars)
+      .filter((value) => value > 0)
+      .sort((a, b) => b - a)
+      .slice(0, RUNNER_FOR_DONE);
+
     return {
       id: game.id,
       title: game.title,
       page: game.page,
-      solved,
-      total: RUNNER_LEVEL_COUNT,
-      ratio: solved / RUNNER_LEVEL_COUNT,
-      stars,
-      maxStars: RUNNER_LEVEL_COUNT * 3,
+      solved: Math.min(RUNNER_FOR_DONE, solved),
+      total: RUNNER_FOR_DONE,
+      ratio: Math.min(1, solved / RUNNER_FOR_DONE),
+      stars: besteFuenf.reduce((sum, value) => sum + value, 0),
+      maxStars: RUNNER_FOR_DONE * 3,
       unit: LEVEL_UNIT,
-      worlds,
+      worlds: worlds.slice(0, RUNNER_FOR_DONE),
     };
   }
 
@@ -277,13 +291,81 @@
     return 1;
   }
 
+  // Fünf abgeschlossene Level bauen den Wagen – welche fünf, ist gleich. Bei
+  // vierzig Leveln je Spiel hiesse alles zu verlangen: ein Wagen, den kein Kind
+  // je fertig sieht.
+  const LEVELS_FOR_DONE = 5;
+
+  function fuenfLevelProgress(game) {
+    const levels = catalog()[game.id] || [];
+    const geschafft = levels.filter(isSolved);
+    const beste = geschafft
+      .map(levelStars)
+      .sort((a, b) => b - a)
+      .slice(0, LEVELS_FOR_DONE);
+    const solved = Math.min(LEVELS_FOR_DONE, geschafft.length);
+    const worlds = [];
+    for (let i = 0; i < LEVELS_FOR_DONE; i += 1) {
+      const stars = beste[i] || 0;
+      const done = i < solved;
+      worlds.push({ key: `level-${i + 1}`, solved: done ? 1 : 0, total: 1, stars, maxStars: 3, ratio: done ? 1 : 0 });
+    }
+    return {
+      id: game.id,
+      title: game.title,
+      page: game.page,
+      solved,
+      total: LEVELS_FOR_DONE,
+      ratio: solved / LEVELS_FOR_DONE,
+      stars: beste.reduce((sum, value) => sum + value, 0),
+      maxStars: LEVELS_FOR_DONE * 3,
+      unit: LEVEL_UNIT,
+      worlds,
+    };
+  }
+
   const OWN_PROGRESS = {
+    fuenfLevel: fuenfLevelProgress,
     runner: runnerProgress,
     cardMatch: runsProgress(CARDMATCH_KEY, 40),
     beachTreasure: runsProgress(BEACH_KEY, 12),
     flanker: runsProgress(FLANKER_KEY, 30),
+    backpack: runsProgress(BACKPACK_KEY, 12),
     trackRouter: trackProgress,
+    // Memory zählt geschaffte Kartenzahlen statt Level: fünf Grössen stehen zur
+    // Wahl, und wer alle fünf einmal geschafft hat, hat den Wagen gebaut.
+    // Bewertet wird nichts – geschafft ist geschafft, also drei Sterne.
+    memory: levelSetProgress(MEMORY_KEY, [8, 12, 16, 20, 24]),
+    // Raumdetektiv legt keine Punktzahl ab, sondern die Sterne der Runde: die
+    // Bewertung steht schon fest, wenn die zehn Aufgaben durch sind. Drei
+    // Sterne sind damit die "gute" Runde.
+    spatial: runsProgress(RAUM_KEY, 3),
   };
+
+  // Ein Spiel, das eine feste Liste von Aufgaben führt und jede nur als
+  // geschafft oder nicht kennt.
+  function levelSetProgress(key, ids) {
+    return (game) => {
+      const best = readJSON(key, null)?.best || {};
+      const worlds = ids.map((id) => {
+        const stars = Math.max(0, Math.min(3, Number(best[id]?.stars) || 0));
+        return { key: `teil-${id}`, solved: stars ? 1 : 0, total: 1, stars, maxStars: 3, ratio: stars ? 1 : 0 };
+      });
+      const solved = worlds.filter((world) => world.solved).length;
+      return {
+        id: game.id,
+        title: game.title,
+        page: game.page,
+        solved,
+        total: ids.length,
+        ratio: solved / ids.length,
+        stars: worlds.reduce((sum, world) => sum + world.stars, 0),
+        maxStars: ids.length * 3,
+        unit: LEVEL_UNIT,
+        worlds,
+      };
+    };
+  }
 
   // Weichen-Wirrwarr zählt abgeschlossene Level, nicht Runden: zehn stehen zur
   // Wahl, fünf beliebige bauen den Wagen fertig. Wer die leichten fünf fährt,
@@ -328,7 +410,8 @@
     const redraw = () => document.dispatchEvent(new CustomEvent("lernapp:progress-changed"));
     cloudGames.register({ key: RUNNER_KEY, empty: { unlocked: 1, best: {} }, merge: cloudGames.mergeLevels }).onChange(redraw);
     cloudGames.register({ key: TRACK_KEY, empty: { best: {} }, merge: cloudGames.mergeLevels }).onChange(redraw);
-    [CARDMATCH_KEY, BEACH_KEY, FLANKER_KEY].forEach((key) => {
+    cloudGames.register({ key: MEMORY_KEY, empty: { best: {} }, merge: cloudGames.mergeLevels }).onChange(redraw);
+    [CARDMATCH_KEY, BEACH_KEY, FLANKER_KEY, BACKPACK_KEY, RAUM_KEY].forEach((key) => {
       cloudGames.register({ key, empty: { runs: 0, scores: [] }, merge: cloudGames.mergeScores(RUNS_FOR_DONE) }).onChange(redraw);
     });
   }

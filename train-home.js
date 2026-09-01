@@ -981,6 +981,219 @@
   }
 
   // ---------------------------------------------------------------------------
+  // Der Wagen wächst
+  // ---------------------------------------------------------------------------
+  // Nach einem geschafften Level soll das Kind sehen, was es davon hat. Die
+  // Spielseiten wissen davon nichts: sie speichern nur ihren Fortschritt und
+  // gehen zurück. Hier wird verglichen, wie weit ein Bereich beim letzten Mal
+  // war und wie weit er jetzt ist – und was gewachsen ist, wird gezeigt.
+  //
+  // Über den Vergleich statt über eine Nachricht vom Spiel: so stimmt es auch,
+  // wenn der Fortschritt aus der Cloud kommt, wenn zwei Level hintereinander
+  // gespielt wurden oder wenn die Seite dazwischen neu geladen wurde.
+  const SEEN_KEY = "lernapp.train.gesehen";
+  const SEEN_SCENES_KEY = "lernapp.train.gesehen.szenen";
+  const REWARD_MS = 4200;
+
+  function readSeen() {
+    try {
+      const raw = JSON.parse(localStorage.getItem(SEEN_KEY) || "null");
+      return raw && typeof raw === "object" ? raw : null;
+    } catch { return null; }
+  }
+
+  function writeSeen(areas) {
+    try {
+      localStorage.setItem(SEEN_KEY, JSON.stringify(
+        Object.fromEntries(areas.map((area) => [area.id, Math.round(area.ratio * 1000) / 1000])),
+      ));
+    } catch { /* privater Modus */ }
+  }
+
+  // Welcher Bereich ist gewachsen? Beim allerersten Start gibt es nichts zu
+  // vergleichen – dann wird nur gemerkt, nicht gefeiert.
+  function grownArea(areas) {
+    const seen = readSeen();
+    writeSeen(areas);
+    if (!seen) return null;
+    let best = null;
+    areas.forEach((area) => {
+      const before = Number(seen[area.id]);
+      if (!Number.isFinite(before) || area.ratio <= before + 0.0005) return;
+      const gain = area.ratio - before;
+      if (!best || gain > best.gain) best = { area, before, gain };
+    });
+    return best;
+  }
+
+  function stageFor(ratio) {
+    return progress.stageFor(ratio, ratio > 0);
+  }
+
+  // Die Feier: der Wagen gross, sein Balken füllt sich von damals bis jetzt,
+  // und die Bauart wächst mit. Ein Tipp bricht ab – wer weiter will, soll nicht
+  // warten müssen.
+  function showWagonReward(grown, done) {
+    const { area, before } = grown;
+    const overlay = document.createElement("div");
+    overlay.className = "wagon-reward";
+    overlay.setAttribute("role", "dialog");
+    overlay.setAttribute("aria-label", `${area.label}: dein Wagen wächst`);
+
+    const card = document.createElement("div");
+    card.className = "wagon-reward-card";
+    card.style.setProperty("--reward-color", area.color);
+
+    const title = document.createElement("p");
+    title.className = "wagon-reward-title";
+    title.textContent = area.label;
+    card.append(title);
+
+    const stageFrom = stageFor(before);
+    const bühne = document.createElement("div");
+    bühne.className = "wagon-reward-stage";
+    card.append(bühne);
+
+    const zeichne = (stage) => {
+      bühne.innerHTML = "";
+      bühne.append(el("svg", {
+        viewBox: `-6 ${art.GROUND - 132} ${art.WAGON_W + 12} 150`,
+        class: "wagon-reward-svg", role: "img",
+        "aria-label": `${area.label}, Stufe ${stage} von ${progress.STAGE_COUNT}`,
+      }, [art.buildWagon(area.wagon, area.color, stage)]));
+    };
+    zeichne(stageFrom);
+
+    const bar = document.createElement("div");
+    bar.className = "wagon-reward-bar";
+    const fill = document.createElement("span");
+    fill.className = "wagon-reward-fill";
+    fill.style.width = `${Math.round(before * 100)}%`;
+    bar.append(fill);
+    card.append(bar);
+
+    const note = document.createElement("p");
+    note.className = "wagon-reward-note";
+    note.textContent = area.built ? "Dein Wagen ist gebaut!" : "Dein Wagen wächst.";
+    card.append(note);
+
+    overlay.append(card);
+    stage.append(overlay);
+
+    kids()?.playJingle?.("wagon");
+    kids()?.vibrate?.([12, 60, 18]);
+
+    // Der Balken läuft los, sobald er im Bild steht; die Bauart springt
+    // nacheinander auf jede Stufe dazwischen.
+    const stufen = [];
+    for (let s = stageFrom + 1; s <= area.stage; s += 1) stufen.push(s);
+    const timers = [];
+    window.requestAnimationFrame(() => {
+      fill.style.width = `${Math.round(area.ratio * 100)}%`;
+    });
+    stufen.forEach((s, index) => {
+      timers.push(window.setTimeout(() => {
+        zeichne(s);
+        bühne.classList.remove("is-pop");
+        void bühne.offsetWidth;
+        bühne.classList.add("is-pop");
+        kids()?.playJingle?.("star");
+      }, 700 + index * 620));
+    });
+
+    let closed = false;
+    const close = () => {
+      if (closed) return;
+      closed = true;
+      timers.forEach((id) => window.clearTimeout(id));
+      window.clearTimeout(endTimer);
+      overlay.removeEventListener("pointerdown", close);
+      overlay.remove();
+      done?.();
+    };
+    const endTimer = window.setTimeout(close, reduced() ? 900 : REWARD_MS);
+    overlay.addEventListener("pointerdown", close);
+    return close;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Eine neue Landschaft ist frei
+  // ---------------------------------------------------------------------------
+  // Freigeschaltet wird über fertig gebaute Wagen. Ohne Hinweis merkt das
+  // niemand: der Knopf oben links sieht gleich aus, und im Auswahlbild fällt
+  // bloss ein Schloss weniger auf.
+  function newlyUnlockedScene(built) {
+    const list = scenes();
+    if (!list) return null;
+    const frei = list.unlockedCount(built);
+    // Nichts im Speicher heisst: erster Start. Number(null) wäre 0, und dann
+    // meldete sich beim allerersten Öffnen gleich eine "neue" Landschaft.
+    let roh = null;
+    try { roh = localStorage.getItem(SEEN_SCENES_KEY); } catch { roh = null; }
+    try { localStorage.setItem(SEEN_SCENES_KEY, String(frei)); } catch { /* privater Modus */ }
+    if (roh === null) return null;
+    const gesehen = Number(roh);
+    if (!Number.isFinite(gesehen) || frei <= gesehen) return null;
+    // Die zuletzt dazugekommene: mehrere auf einmal gibt es nicht, aber falls
+    // doch, ist die neueste die interessanteste.
+    return list.SCENES[frei - 1] || null;
+  }
+
+  function showSceneReward(scene, done) {
+    const overlay = document.createElement("div");
+    overlay.className = "wagon-reward scene-reward";
+    overlay.setAttribute("role", "dialog");
+    overlay.setAttribute("aria-label", `Neue Landschaft frei: ${scene.label}`);
+
+    const card = document.createElement("div");
+    card.className = "wagon-reward-card";
+    card.style.setProperty("--reward-color", "#2f9e44");
+
+    const title = document.createElement("p");
+    title.className = "wagon-reward-title";
+    title.textContent = "Neue Landschaft!";
+    card.append(title);
+
+    const bild = document.createElement("div");
+    bild.className = "scene-reward-thumb";
+    bild.append(sceneThumb(scene));
+    card.append(bild);
+
+    const note = document.createElement("p");
+    note.className = "wagon-reward-note";
+    note.textContent = `${scene.label} – du kannst sie oben links auswählen.`;
+    card.append(note);
+
+    overlay.append(card);
+    stage.append(overlay);
+    kids()?.playJingle?.("wagon");
+
+    let closed = false;
+    const close = () => {
+      if (closed) return;
+      closed = true;
+      window.clearTimeout(timer);
+      overlay.removeEventListener("pointerdown", close);
+      overlay.remove();
+      done?.();
+    };
+    const timer = window.setTimeout(close, reduced() ? 900 : REWARD_MS);
+    overlay.addEventListener("pointerdown", close);
+  }
+
+  // Prüft nach jedem Aufbau, ob es etwas zu feiern gibt. Kommen beide zusammen,
+  // kommt erst der Wagen und dann die Landschaft – die Landschaft ist die
+  // Folge, nicht die Ursache.
+  function maybeCelebrate(areas) {
+    const grown = grownArea(areas);
+    const built = areas.filter((area) => area.built).length;
+    const scene = newlyUnlockedScene(built);
+    if (grown && scene) { showWagonReward(grown, () => showSceneReward(scene)); return; }
+    if (grown) { showWagonReward(grown); return; }
+    if (scene) showSceneReward(scene);
+  }
+
+  // ---------------------------------------------------------------------------
   // Aufbau
   // ---------------------------------------------------------------------------
   function render() {
@@ -1054,6 +1267,11 @@
     else if (previous === "loco") showWorkshop(view.part);
     else if (previous === "wagon" && previousArea) showWagon(previousArea);
     else showHome();
+
+    // Ganz zum Schluss: hat sich seit dem letzten Mal ein Wagen weiterentwickelt,
+    // wird das gefeiert. Nach dem Aufbau, damit die Feier über der fertigen
+    // Bühne liegt und nicht über einem halben Bild.
+    maybeCelebrate(areas);
   }
 
   render();

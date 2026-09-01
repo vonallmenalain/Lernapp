@@ -122,16 +122,34 @@ assert(timers.size === 1, `erwartet einen Zeitgeber, gefunden ${timers.size}`);
 assert(played.length > 0, "beim Start wird nichts geplant");
 
 // Die Uhr weiterdrehen und den Zeitgeber laufen lassen, bis zwei Strophen
-// durch sind. 96 Schläge zu 0,625 s sind zwei Runden zu je acht Takten.
+// durch sind. Zwei Runden zu je acht Takten aus acht Achteln.
 for (let i = 0; i < 400 && now < 62; i += 1) {
   now += 0.2;
   timers.forEach((tick) => tick());
 }
 
-// Ein voller Durchlauf sind 48 Schritte: je ein Begleitton und, wo die Melodie
-// eine Note hat, zwei weitere für den Glockenklang. Das ergibt rund 128 Töne
-// je Runde – nach zwei Runden müssen also deutlich über 200 geplant sein.
+// Ein voller Durchlauf sind 64 Achtel: Bass, Akkordschläge, Ticks und, wo die
+// Melodie eine Note hat, zwei weitere für den Glockenklang.
 assert(played.length > 200, `zwei Strophen ergeben mehr als 200 Töne, gefunden ${played.length}`);
+
+// --- Es muss flott sein und synkopieren -------------------------------------
+// Die alte Fassung war ein gemütlicher Walzer, der nach der zweiten Runde
+// einschläferte. Zwei Dinge machen den Unterschied: das Tempo und Töne, die
+// nicht auf der Zählzeit sitzen.
+const schritte = [...new Set(played.map((n) => Math.round(n.at * 1000) / 1000))].sort((a, b) => a - b);
+const abstaende = schritte.slice(1).map((t, i) => t - schritte[i]).filter((d) => d > 0.01);
+const kleinster = Math.min(...abstaende);
+assert(kleinster < 0.3, `der kleinste Abstand ist ${kleinster.toFixed(3)} s – das ist kein flottes Stück`);
+
+// Die Melodie erkennt man am Glockenton: er wird doppelt besetzt, Grundton und
+// Oktave. Sitzt sie nur auf geraden Achteln, ist nichts synkopiert.
+const raster = kleinster;
+const oktaven = played.filter((n) => played.some((m) => Math.abs(m.at - n.at) < 0.001 && Math.abs(m.freq * 2 - n.freq) < 1));
+// Gezaehlt wird gegen den ersten geplanten Ton, nicht gegen die Nulllinie der
+// Audiouhr: die startet irgendwo, und daran gemessen waere jede Parität Zufall.
+const versetzt = oktaven.filter((n) => Math.round((n.at - schritte[0]) / raster) % 2 === 1);
+assert(versetzt.length >= 8,
+  `nur ${versetzt.length} Melodietöne liegen zwischen den Zählzeiten – das Stück sitzt brav auf jedem Schlag`);
 
 // --- Jeder Ton muss eine echte Frequenz haben -------------------------------
 // Genau hier schlägt ein vertippter Notenname zu: NOTES["G7"] ist undefined,

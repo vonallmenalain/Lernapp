@@ -1,7 +1,7 @@
 /*
  * kids.js – Gemeinsame Kinder-Funktionen für die Lernapp.
  * Wird auf jeder Seite vor app.js geladen und stellt window.LernappKids bereit:
- * Sterne, Tagesziel, Vorlesen (TTS), Maskottchen, Konfetti, Töne.
+ * Sterne, Vorlesen (TTS), Maskottchen, Konfetti, Töne.
  * Bewusst ohne Framework und defensiv (localStorage kann fehlschlagen).
  */
 (() => {
@@ -12,10 +12,8 @@
   // ---------------------------------------------------------------------------
   const KEYS = {
     stars: (game, levelId) => `lernapp.stars.${game}.${levelId}`,
-    daily: "lernapp.daily",
     tts: "lernapp.tts",
     lastPlayed: "lernapp.lastPlayed",
-    tutorial: (game) => `lernapp.tut.${game}`,
   };
 
   function readRaw(key) {
@@ -50,41 +48,6 @@
     if (clamped > previous) writeRaw(KEYS.stars(game, levelId), String(clamped));
     return { stars: clamped, improved: clamped > previous, previous };
   }
-
-  // ---------------------------------------------------------------------------
-  // Tagesziel
-  // ---------------------------------------------------------------------------
-  const DAILY_GOAL = 3;
-  function dailyRecord() {
-    const record = readJSON(KEYS.daily, {});
-    return record && typeof record === "object" ? record : {};
-  }
-  function recordDailySolve() {
-    const record = dailyRecord();
-    const key = todayKey();
-    record[key] = (Number(record[key]) || 0) + 1;
-    // Alte Tage aufräumen (nur die letzten 14 behalten).
-    const keys = Object.keys(record).sort();
-    while (keys.length > 14) delete record[keys.shift()];
-    writeJSON(KEYS.daily, record);
-    return dailyProgress();
-  }
-  function dailyProgress() {
-    const count = Number(dailyRecord()[todayKey()]) || 0;
-    return { count, goal: DAILY_GOAL, done: count >= DAILY_GOAL };
-  }
-  function weeklyProgress() {
-    const record = dailyRecord();
-    const days = [];
-    for (let i = 6; i >= 0; i -= 1) {
-      const d = new Date();
-      d.setDate(d.getDate() - i);
-      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-      days.push({ key, weekday: ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"][d.getDay()], count: Number(record[key]) || 0 });
-    }
-    return days;
-  }
-
 
   // ---------------------------------------------------------------------------
   // Vorlesen (Web Speech API)
@@ -266,6 +229,20 @@
       { note: "G5", at: 0, dur: 0.16, vol: 0.05 },
       { note: "C6", at: 0.09, dur: 0.3, vol: 0.06 },
     ],
+    // Der Zug wächst: eine steigende Fanfare mit einem Nachschlag, der wie ein
+    // eingerastetes Bauteil klingt. Deutlich länger und höher als "win", damit
+    // sie nicht mit dem Levelabschluss verwechselt wird – sie gehört zum Wagen,
+    // nicht zur Aufgabe.
+    wagon: [
+      { note: "C5", at: 0, dur: 0.14, vol: 0.05 },
+      { note: "G5", at: 0.1, dur: 0.14, vol: 0.05 },
+      { note: "C6", at: 0.2, dur: 0.16, vol: 0.055 },
+      { note: "E6", at: 0.3, dur: 0.18, vol: 0.055 },
+      { note: "G6", at: 0.42, dur: 0.6, vol: 0.06 },
+      { note: "C6", at: 0.42, dur: 0.7, vol: 0.035 },
+      { note: "E5", at: 0.9, dur: 0.5, vol: 0.03 },
+      { note: "C6", at: 1.05, dur: 0.7, vol: 0.045 },
+    ],
     // Fanfare, wenn ein Level oder eine Reise fertig ist.
     win: [
       { note: "C5", at: 0, dur: 0.16, vol: 0.05 },
@@ -305,7 +282,16 @@
     if (!ctx) return;
     bell([NOTE.A5, NOTE.C6, NOTE.E6][Math.min(Math.max(index, 0), 2)], ctx.currentTime + 0.01, 0.22, 0.055);
   }
+  // Vibrieren geht erst, wenn das Kind die Seite einmal berührt hat – vorher
+  // lehnt der Browser den Aufruf ab und schreibt einen Fehler in die Konsole.
+  // Das trifft alles, was gleich beim Laden feiert.
+  let beruehrt = false;
+  ["pointerdown", "keydown", "touchstart"].forEach((art) => {
+    document.addEventListener(art, () => { beruehrt = true; }, { once: true, passive: true, capture: true });
+  });
+
   function vibrate(pattern) {
+    if (!beruehrt) return;
     try { if (navigator.vibrate && !prefersReducedMotion()) navigator.vibrate(pattern); } catch { /* ignore */ }
   }
 
@@ -321,8 +307,6 @@
   // ---------------------------------------------------------------------------
   // Tutorial gesehen?
   // ---------------------------------------------------------------------------
-  function tutorialSeen(game) { return readRaw(KEYS.tutorial(game)) === "1"; }
-  function markTutorialSeen(game) { writeRaw(KEYS.tutorial(game), "1"); }
 
   // ---------------------------------------------------------------------------
   // Hilfe-Lautsprecher ("Was mache ich hier?")
@@ -453,7 +437,7 @@
   // ---------------------------------------------------------------------------
   // Menü-Musik
   // ---------------------------------------------------------------------------
-  // Eine Spieluhr-Melodie im Dreivierteltakt, die im Menü in Schleife läuft.
+  // Eine Spieluhr-Melodie im Viervierteltakt, die im Menü in Schleife läuft.
   // Aus Oszillatoren statt aus einer Tondatei: keine Lizenzfrage, kein
   // Megabyte Download, offline dieselbe App – und eine Spieluhr passt zu einem
   // Holzzug ohnehin besser als eine produzierte Tonspur.
@@ -469,30 +453,51 @@
     C6: 1046.50, D6: 1174.66, E6: 1318.51,
   };
 
-  const BEAT = 60 / 96;            // gemütlicher Walzer
+  // Vier Viertel statt Walzer, und deutlich flotter: die alte Fassung war ein
+  // gemütliches Um-ta-ta, das nach der zweiten Runde einschläferte. Der Takt
+  // liegt jetzt auf Achteln – acht Schritte je Takt –, damit die Melodie
+  // synkopieren kann, statt brav auf jeder Zählzeit zu sitzen.
+  const BEAT = 60 / 132 / 2;       // Achtel bei 132 Schlägen je Minute
+  const STEPS_PER_BAR = 8;
   const BARS = 8;
-  const STEPS = BARS * 3;
+  const STEPS = BARS * STEPS_PER_BAR;
 
-  // Ein Akkord je Takt: Bass auf der Eins, zwei leise Töne auf Zwei und Drei –
-  // das klassische Um-ta-ta, das den Walzer trägt.
+  // Eine Akkordfolge, die vorwärts zieht und sich rundet: I – V – vi – IV.
   const CHORDS = [
     { bass: "C3", tones: ["E4", "G4"] },
+    { bass: "G3", tones: ["D4", "G4"] },
     { bass: "A3", tones: ["C4", "E4"] },
     { bass: "F3", tones: ["A3", "C4"] },
-    { bass: "G3", tones: ["B3", "D4"] },
     { bass: "C3", tones: ["E4", "G4"] },
-    { bass: "E3", tones: ["G3", "B3"] },
+    { bass: "G3", tones: ["D4", "G4"] },
     { bass: "F3", tones: ["A3", "C4"] },
     { bass: "G3", tones: ["B3", "D4"] },
   ];
 
-  // Zwei Melodien, die sich abwechseln. Eine allein würde nach der dritten
-  // Runde auffallen; zwei klingen wie ein Lied mit zwei Strophen.
+  // Zwei Strophen. Jede Zeile ist ein Takt aus acht Achteln; null ist eine
+  // Pause. Die Melodie beginnt oft auf dem zweiten Achtel und lässt die Eins
+  // frei – genau das macht den Unterschied zwischen "brav" und "geht ins Ohr".
   const MELODIES = [
-    ["G5", "E5", "G5", "A5", "G5", "E5", "F5", "D5", "F5", "G5", null, null,
-     "E5", "G5", "C6", "B5", "A5", "G5", "F5", "E5", "D5", "C5", null, null],
-    ["C6", "B5", "G5", "A5", "F5", "A5", "C6", "A5", "F5", "G5", null, null,
-     "E5", "F5", "G5", "A5", "G5", "E5", "D5", "F5", "E5", "C5", null, null],
+    [
+      "G5", null, "G5", "A5", "G5", null, "E5", null,
+      "D5", null, "D5", "E5", "D5", null, "B4", null,
+      "A5", null, "G5", "E5", "A5", null, null, "G5",
+      "F5", null, "E5", "D5", "C5", null, null, null,
+      "E5", "G5", "C6", null, "B5", "A5", "G5", null,
+      "D5", "G5", "B5", null, "A5", "G5", "F5", null,
+      "A5", null, "C6", "A5", "F5", null, "G5", null,
+      "G5", null, "B5", "D6", "C6", null, null, null,
+    ],
+    [
+      "C6", null, "B5", "G5", "A5", null, "G5", null,
+      "B5", null, "A5", "F5", "G5", null, "D5", null,
+      "C6", "B5", "A5", null, "G5", "A5", "E5", null,
+      "F5", "E5", "D5", null, "C5", null, "E5", null,
+      "G5", null, "E5", "G5", "C6", null, "B5", null,
+      "A5", null, "F5", "A5", "D6", null, "B5", null,
+      "C6", "A5", "F5", null, "A5", "C6", "E6", null,
+      "D6", null, "B5", "G5", "C6", null, null, null,
+    ],
   ];
 
   let musicGain = null;
@@ -521,14 +526,22 @@
   }
 
   function musicStepAt(step, at) {
-    const bar = Math.floor(step / 3);
-    const beat = step % 3;
+    const bar = Math.floor(step / STEPS_PER_BAR);
+    const beat = step % STEPS_PER_BAR;
     const chord = CHORDS[bar];
     const note = MELODIES[musicVerse][step];
 
-    if (beat === 0) tone(NOTES[chord.bass], at, BEAT * 1.4, "sine", 0.022, musicGain);
-    else tone(NOTES[chord.tones[beat - 1]], at, BEAT * 0.7, "triangle", 0.012, musicGain);
-    if (note) musicBell(NOTES[note], at, BEAT * 1.1, 0.03);
+    // Bass auf die Eins und die Drei – kurz und trocken, damit er hüpft statt
+    // zu tragen.
+    if (beat === 0 || beat === 4) tone(NOTES[chord.bass], at, BEAT * 1.2, "sine", 0.024, musicGain);
+    // Die Akkordtöne sitzen auf den Zwischenschlägen: das ist der Zug nach
+    // vorn, den der Walzer nicht hatte.
+    if (beat === 2) tone(NOTES[chord.tones[0]], at, BEAT * 0.8, "triangle", 0.013, musicGain);
+    if (beat === 6) tone(NOTES[chord.tones[1]], at, BEAT * 0.8, "triangle", 0.013, musicGain);
+    // Ein ganz leiser Tick auf den Achteln dazwischen – die Spieluhr bekommt
+    // damit einen Puls, ohne dass ein Schlagzeug daraus wird.
+    if (beat % 2 === 1) tone(NOTES.E6, at, BEAT * 0.18, "sine", 0.004, musicGain);
+    if (note) musicBell(NOTES[note], at, BEAT * 1.4, 0.03);
   }
 
   function musicTick() {
@@ -742,8 +755,6 @@
     KEYS,
     // Sterne
     getStars, setStars,
-    // Tagesziel
-    DAILY_GOAL, recordDailySolve, dailyProgress, weeklyProgress,
 
     // TTS (nur auf Lautsprecher-Klick)
     ttsSupported, ttsEnabled, setTtsEnabled, speak, stopSpeaking,
@@ -762,7 +773,7 @@
     // Ausrichtung
     lockLandscape,
     // Verlauf
-    setLastPlayed, getLastPlayed, tutorialSeen, markTutorialSeen,
+    setLastPlayed, getLastPlayed,
     // Speicher-Helfer
     readJSON, writeJSON,
   };

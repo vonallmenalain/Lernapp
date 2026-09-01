@@ -617,10 +617,7 @@ body.puzzle-active .number-pad {
   max-height: 100%;
   overflow: auto;
 }
-
-body.puzzle-active .task-board,
-body.puzzle-active .backpack-board,
-body.puzzle-active .memory-game {
+body.puzzle-active .task-board {
   width: min(calc(100vw - 36px), 780px);
   max-width: 100%;
   min-height: 0;
@@ -631,10 +628,6 @@ body.puzzle-active .memory-game {
   /* Mittig statt oben angeheftet – sonst klafft auf hohen Handys eine
      riesige leere Fläche unter der Aufgabe. */
   align-self: center;
-}
-
-body.puzzle-active .memory-game {
-  width: min(calc(100vw - 36px), 900px);
 }
 
 @media (max-width: 640px) {
@@ -1640,12 +1633,64 @@ body.puzzle-active .task-board {
   font-size: clamp(1.3rem, 4vw, 1.8rem);
 }
 
+/* Die Antwortkarten sind der Zweck der Aufgabe – sie dürfen nie unter dem
+   Bildschirmrand liegen. Punktreihe, Karten und Rückmeldung stehen deshalb
+   fest, und der Würfelbau oben nimmt, was übrig bleibt. */
 .spatialPuzzle-board {
   gap: 16px;
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
+  grid-template-areas:
+    "punkte"
+    "frage"
+    "antworten"
+    "hinweis";
 }
 
 .spatial-task {
   gap: 14px;
+}
+
+.spatialPuzzle-board .practice-progress-row { grid-area: punkte; }
+.spatialPuzzle-board .spatial-task { grid-area: frage; }
+.spatialPuzzle-board .spatial-options { grid-area: antworten; }
+.spatialPuzzle-board .spatial-feedback { grid-area: hinweis; }
+
+/* Die folgenden Regeln stehen mit body.puzzle-active davor, weil der
+   Querformat-Block weiter unten dieselben Klassen anspricht: ohne das gewönne
+   dort seine feste Mindesthöhe und der Würfelbau fiele aus dem Bild. */
+body.puzzle-active .spatialPuzzle-board .spatial-task {
+  min-height: 0;
+  grid-template-rows: auto minmax(0, 1fr);
+  width: 100%;
+}
+
+/* Der Rahmen legt sich um das Bild statt daneben: er ist so hoch wie die Zeile
+   und nimmt sich die Breite dazu, statt als breites Band mit einem Würfelchen
+   in der Mitte dazustehen. */
+body.puzzle-active .spatialPuzzle-board .spatial-main-graphic {
+  min-height: 0;
+  height: 100%;
+  width: auto;
+  max-width: min(100%, 520px);
+  aspect-ratio: 4 / 3;
+  justify-self: center;
+}
+
+/* Die Antwortbilder bekommen eine feste, an der Bildschirmhöhe hängende Höhe:
+   so bleibt die Frage oben immer das grösste Bild – sie ist das, was verglichen
+   werden muss – und auf einem flachen Gerät bleibt trotzdem Platz für beides. */
+body.puzzle-active .spatialPuzzle-board .spatial-option-graphic {
+  min-height: 0;
+  height: clamp(64px, 15vh, 140px);
+}
+
+/* Die Zeichnungen passen sich ihrer Kachel an, ohne sich zu verzerren: das
+   viewBox sorgt mit dem voreingestellten "meet" dafür, dass sie hineinpassen. */
+body.puzzle-active .spatialPuzzle-board .spatial-main-graphic > svg,
+body.puzzle-active .spatialPuzzle-board .spatial-option-graphic > svg {
+  width: 100%;
+  height: 100%;
+  max-height: none;
 }
 
 .spatial-prompt {
@@ -1746,274 +1791,10 @@ body.puzzle-active .task-board {
   border-radius: 18px;
 }
 
-.backpack-board {
-  width: min(calc(100vw - 36px), 780px);
-  max-width: 100%;
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 16px;
-}
-
-.backpack-stats {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.backpack-stats span {
-  min-height: 52px;
-  display: grid;
-  place-items: center;
-  gap: 2px;
-  padding: 8px 10px;
-  border-radius: 16px;
-  background: #f5fbff;
-  border: 2px solid #c8e7f6;
-  color: var(--ink);
-  text-align: center;
-}
-
-.backpack-stats small {
-  color: var(--muted);
-  font-size: 0.75rem;
-  font-weight: 900;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-.backpack-stats strong {
-  font-size: clamp(1.1rem, 4vw, 1.55rem);
-  line-height: 1;
-}
-
-.backpack-scene {
-  display: grid;
-  justify-items: center;
-  gap: 10px;
-  padding: clamp(14px, 3vw, 22px);
-  border-radius: 24px;
-  background: #fff8ed;
-  border: 3px solid #ffd166;
-  text-align: center;
-}
-
-.backpack-mode {
-  display: inline-grid;
-  place-items: center;
-  min-height: 34px;
-  padding: 6px 14px;
-  border-radius: 999px;
-  background: #eef8ff;
-  border: 2px solid #118ab2;
-  color: #0f6280;
-  font-size: clamp(0.92rem, 3vw, 1.08rem);
-  font-weight: 950;
-  text-align: center;
-}
-
-.backpack-mode.chooseNew {
-  background: #effff8;
-  border-color: #06d6a0;
-  color: #047c5d;
-}
-
-.backpack-mode.packingNew,
-.backpack-mode.correctPacking {
-  background: #fff8df;
-  border-color: #ffd166;
-  color: #855f00;
-}
-
-.backpack-mode.wrong,
-.backpack-mode.gameOver {
-  background: #ffe5ea;
-  border-color: #ef476f;
-  color: #9b1234;
-}
-
-.backpack-emoji {
-  display: grid;
-  place-items: center;
-  width: min(190px, 46vw);
-  aspect-ratio: 1;
-  border-radius: 30px;
-  background: #effff8;
-  border: 4px solid #06d6a0;
-  box-shadow: 0 14px 28px rgba(36, 48, 71, 0.12);
-  font-size: clamp(5rem, 22vw, 8rem);
-  line-height: 1;
-}
-
-.backpack-emoji.bouncing {
-  animation: backpack-bounce 0.45s ease;
-}
-
-.backpack-progress {
-  min-height: 18px;
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 7px;
-  max-width: min(560px, 100%);
-}
-
-.backpack-dot {
-  width: 12px;
-  height: 12px;
-  border-radius: 999px;
-  background: #fff;
-  border: 2px solid #8ab8ce;
-}
-
-.backpack-dot.filled {
-  background: #118ab2;
-  border-color: #118ab2;
-}
-
-.backpack-phase {
-  min-height: 24px;
-  margin: 0;
-  color: var(--primary-dark);
-  font-weight: 950;
-  font-size: clamp(1rem, 3.5vw, 1.3rem);
-}
-
-.backpack-choice-grid {
-  display: grid;
-  grid-template-columns: repeat(var(--choice-count, 3), minmax(0, 1fr));
-  gap: 12px;
-}
-
-.backpack-item-card {
-  min-height: 118px;
-  display: grid;
-  place-items: center;
-  align-content: center;
-  gap: 8px;
-  padding: 10px;
-  border-radius: 22px;
-  background: #fff;
-  border: 4px solid var(--line);
-  color: var(--ink);
-  box-shadow: 0 12px 24px rgba(36, 48, 71, 0.10);
-  line-height: 1.05;
-}
-
-.backpack-item-card:hover:not(:disabled),
-.backpack-item-card:focus-visible {
-  background: #f4f1ff;
-  color: var(--ink);
-  outline: 4px solid rgba(108, 92, 231, 0.22);
-}
-
-.backpack-item-card:disabled {
-  opacity: 1;
-}
-
-.backpack-item-card.new-choice {
-  border-color: #06d6a0;
-  background: #effff8;
-}
-
-.backpack-item-card.packing {
-  border-color: #06d6a0;
-  background: #effff8;
-  animation: item-pack 0.58s ease-in forwards;
-  pointer-events: none;
-}
-
-.backpack-item-card.correct {
-  border-color: #06d6a0;
-  background: #dff8ef;
-}
-
-.backpack-item-card.wrong {
-  border-color: #ef476f;
-  background: #ffe5ea;
-  animation: item-shake 0.44s ease;
-}
-
-.backpack-item-emoji {
-  font-size: clamp(2.8rem, 10vw, 4.4rem);
-  line-height: 1;
-}
-
-.backpack-item-label {
-  max-width: 100%;
-  color: var(--ink);
-  font-size: clamp(0.92rem, 3vw, 1.1rem);
-  font-weight: 950;
-  overflow-wrap: anywhere;
-  text-align: center;
-}
-
-.backpack-item-card.no-label {
-  min-height: 106px;
-}
-
-.backpack-game-over {
-  position: fixed;
-  inset: 0;
-  z-index: 90;
-  display: grid;
-  place-items: center;
-  padding: 24px;
-  background: rgba(36, 48, 71, 0.58);
-  backdrop-filter: blur(6px);
-}
-
-.backpack-game-over-dialog {
-  width: min(460px, 100%);
-  display: grid;
-  gap: 16px;
-  padding: clamp(26px, 6vw, 38px);
-  border-radius: 28px;
-  background: #fff;
-  border: 3px solid #06d6a0;
-  box-shadow: 0 24px 60px rgba(6, 214, 160, 0.25);
-  text-align: center;
-  animation: pop-in 0.28s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-.backpack-game-over-dialog h3 {
-  margin: 0;
-  color: var(--ink);
-  font-size: clamp(2rem, 8vw, 3rem);
-  line-height: 1;
-}
-
-.backpack-game-over-dialog p {
-  margin: 0;
-  color: var(--muted);
-  font-size: clamp(1.05rem, 4vw, 1.3rem);
-  font-weight: 850;
-}
-
-.backpack-game-over-dialog .backpack-record {
-  color: var(--primary-dark);
-  font-weight: 950;
-}
-
-.backpack-game-over-actions {
-  display: grid;
-  gap: 10px;
-}
-
-.backpack-game-over-actions button {
-  min-height: 56px;
-  border-radius: 18px;
-}
-
 @keyframes item-pack {
   0% { opacity: 1; transform: translateY(0) scale(1); }
   65% { opacity: 0.9; transform: translateY(-76px) scale(0.72); }
   100% { opacity: 0; transform: translateY(-140px) scale(0.32); }
-}
-
-@keyframes backpack-bounce {
-  0%, 100% { transform: translateY(0) scale(1); }
-  35% { transform: translateY(-10px) scale(1.05); }
-  65% { transform: translateY(3px) scale(0.98); }
 }
 
 @keyframes item-shake {
@@ -2025,254 +1806,18 @@ body.puzzle-active .task-board {
 }
 
 @media (max-width: 640px) {
-  .backpack-board {
-    gap: 12px;
-  }
-
-  .backpack-stats {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 7px;
-  }
-
-  .backpack-stats span {
-    min-height: 48px;
-    padding: 7px 6px;
-  }
-
-  .backpack-choice-grid {
-    grid-template-columns: repeat(auto-fit, minmax(128px, 1fr));
-    gap: 10px;
-  }
-
-  .backpack-item-card {
-    min-height: 104px;
-    border-radius: 18px;
-  }
-
-  .backpack-game-over-actions button {
-    width: 100%;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .backpack-emoji.bouncing,
-  .backpack-item-card.packing,
-  .backpack-item-card.wrong,
-  .backpack-game-over-dialog {
-    animation: none;
-  }
-}
-
-.memory-game {
-  width: min(calc(100vw - 36px), 900px);
-  max-width: 100%;
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 14px;
-}
-
-.memory-stats {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
-  gap: 10px;
-}
-
-.memory-stats span {
-  min-height: 56px;
-  display: grid;
-  place-items: center;
-  gap: 2px;
-  padding: 8px 10px;
-  border-radius: 16px;
-  background: #f5fbff;
-  border: 2px solid #c8e7f6;
-  color: var(--ink);
-  text-align: center;
-}
-
-.memory-stats small {
-  color: var(--muted);
-  font-size: 0.72rem;
-  font-weight: 900;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-.memory-stats strong {
-  font-size: clamp(1rem, 3vw, 1.35rem);
-  line-height: 1.1;
-  overflow-wrap: anywhere;
-}
-
-.memory-board {
-  --memory-gap: 10px;
-  min-width: 0;
-  width: min(var(--memory-board-max, 820px), 100%);
-  max-width: 100%;
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  align-content: center;
-  gap: var(--memory-gap);
-  margin: 0 auto;
-}
-
-.memory-card {
-  flex: 0 0 calc(var(--memory-card-percent, 25%) - var(--memory-gap-share, 8px));
-  min-width: 0;
-  min-height: 0;
-  aspect-ratio: 1;
-  padding: 0;
-  border: 0;
-  border-radius: 18px;
-  background: transparent;
-  color: var(--ink);
-  perspective: 800px;
-  box-shadow: none;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.memory-card:hover:not(:disabled),
-.memory-card:focus-visible {
-  background: transparent;
-  outline: none;
-  transform: translateY(-2px);
-}
-
-.memory-card:focus-visible .memory-card-front,
-.memory-card:focus-visible .memory-card-back {
-  box-shadow: 0 0 0 4px rgba(108, 92, 231, 0.22), 0 12px 24px rgba(36, 48, 71, 0.12);
-}
-
-.memory-card:disabled {
-  opacity: 1;
-  cursor: default;
-}
-
-.memory-card-inner {
-  position: relative;
-  display: block;
-  width: 100%;
-  height: 100%;
-  transform-style: preserve-3d;
-  transition: transform 0.28s ease;
-}
-
-.memory-card.is-face-up .memory-card-inner {
-  transform: rotateY(180deg);
-}
-
-.memory-card-front,
-.memory-card-back {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  align-content: center;
-  gap: 4px;
-  padding: 8px;
-  border-radius: 18px;
-  border: 3px solid transparent;
-  backface-visibility: hidden;
-  box-shadow: 0 12px 24px rgba(36, 48, 71, 0.10);
-}
-
-.memory-card-front {
-  background: #6c5ce7;
-  border-color: #5141c9;
-  color: #fff;
-  font-size: clamp(1.7rem, 6vw, 2.6rem);
-  font-weight: 950;
-}
-
-.memory-card-back {
-  background: #ffffff;
-  border-color: #ffd166;
-  transform: rotateY(180deg);
-}
-
-.memory-card-emoji {
-  font-size: clamp(2rem, 6vw, 3.1rem);
-  line-height: 1;
-}
-
-.memory-card-label {
-  max-width: 100%;
-  color: var(--ink);
-  font-size: clamp(0.72rem, 2.2vw, 0.95rem);
-  font-weight: 950;
-  line-height: 1.05;
-  overflow-wrap: anywhere;
-  text-align: center;
-}
-
-.memory-card.no-label .memory-card-emoji {
-  font-size: clamp(2.25rem, 7vw, 3.55rem);
-}
-
-.memory-card.is-matched {
-  visibility: hidden;
-  pointer-events: none;
 }
 
 @media (max-width: 640px) {
-  .memory-game {
-    gap: 12px;
-  }
-
-  .memory-stats {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 7px;
-  }
-
-  .memory-board {
-    --memory-gap: 8px;
-  }
-
-  .memory-card {
-    border-radius: 16px;
-  }
-
-  .memory-card-front,
-  .memory-card-back {
-    border-radius: 16px;
-    padding: 6px;
-  }
-}
-
-body.puzzle-active .backpack-board {
-  width: min(calc(100vw - 36px), 780px);
-  max-width: 100%;
-  min-height: 0;
-  max-height: 100%;
-  overflow: auto;
-  overscroll-behavior: contain;
-  margin-top: 0;
-  align-self: start;
-}
-
-body.puzzle-active .memory-game {
-  width: min(calc(100vw - 36px), 900px);
-  max-width: 100%;
-  min-height: 0;
-  max-height: 100%;
-  overflow: auto;
-  overscroll-behavior: contain;
-  margin-top: 0;
-  align-self: start;
 }
 
 @media (max-width: 640px) {
-  body.puzzle-active .backpack-board,
-  body.puzzle-active .memory-game {
-    width: min(calc(100vw - 24px), 100%);
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .memory-card-inner {
-    transition: none;
-  }
 }
 
 .reading-image {
@@ -2467,8 +2012,22 @@ body.puzzle-active .memory-game {
     border-radius: 16px;
   }
 
+  /* Auf einem flachen Bildschirm ist die Höhe knapp, die Breite nicht: der
+     Würfelbau steht links, die Antwortkarten daneben. Untereinander bliebe für
+     das Bild, um das es geht, kaum etwas übrig. */
+  body.puzzle-active .spatialPuzzle-board {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      "punkte  punkte"
+      "frage   antworten"
+      "hinweis hinweis";
+    align-items: stretch;
+  }
+
   body.puzzle-active .spatial-options {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(88px, 1fr));
+    align-content: center;
   }
 
   body.puzzle-active .spatial-option {
@@ -2517,98 +2076,6 @@ body.puzzle-active .memory-game {
     border-width: 2px;
     border-radius: 10px;
     font-size: clamp(1.05rem, 5vh, 1.45rem);
-  }
-
-  body.puzzle-active .backpack-board {
-    width: min(calc(100vw - 24px), 760px);
-    gap: 8px;
-  }
-
-  body.puzzle-active .backpack-stats,
-  body.puzzle-active .memory-stats {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 6px;
-  }
-
-  body.puzzle-active .backpack-stats span,
-  body.puzzle-active .memory-stats span {
-    min-height: 34px;
-    padding: 4px 6px;
-    border-radius: 12px;
-  }
-
-  body.puzzle-active .backpack-stats small,
-  body.puzzle-active .memory-stats small {
-    font-size: 0.62rem;
-  }
-
-  body.puzzle-active .backpack-scene {
-    gap: 6px;
-    padding: 8px;
-    border-width: 3px;
-    border-radius: 16px;
-  }
-
-  body.puzzle-active .backpack-mode {
-    min-height: 26px;
-    padding: 3px 10px;
-    font-size: 0.8rem;
-  }
-
-  body.puzzle-active .backpack-emoji {
-    width: min(92px, 18vw);
-    border-width: 3px;
-    border-radius: 18px;
-    font-size: 3.6rem;
-  }
-
-  body.puzzle-active .backpack-progress {
-    min-height: 10px;
-    gap: 4px;
-  }
-
-  body.puzzle-active .backpack-dot {
-    width: 8px;
-    height: 8px;
-  }
-
-  body.puzzle-active .backpack-phase {
-    min-height: 18px;
-    font-size: 0.88rem;
-  }
-
-  body.puzzle-active .backpack-choice-grid {
-    gap: 8px;
-  }
-
-  body.puzzle-active .backpack-item-card {
-    min-height: 74px;
-    border-width: 3px;
-    border-radius: 16px;
-    padding: 6px;
-  }
-
-  body.puzzle-active .backpack-item-emoji {
-    font-size: 2.4rem;
-  }
-
-  body.puzzle-active .backpack-item-label {
-    font-size: 0.82rem;
-  }
-
-  body.puzzle-active .memory-game {
-    width: min(calc(100vw - 24px), 760px);
-    gap: 8px;
-  }
-
-  body.puzzle-active .memory-board {
-    --memory-gap: 6px;
-  }
-
-  body.puzzle-active .memory-card-front,
-  body.puzzle-active .memory-card-back {
-    border-width: 2px;
-    padding: 4px;
   }
 }
 
@@ -3424,10 +2891,6 @@ body.puzzle-active .memory-game {
 /* --- Erfolgsdialog Zusatz --- */
 .success-note { margin: 4px 0 0; font-weight: 800; color: var(--primary-dark); }
 .success-stars { margin-top: 2px; }
-.success-daily { display: flex; flex-direction: column; align-items: center; gap: 4px; font-weight: 800; color: var(--ink); }
-.daily-dots { display: inline-flex; gap: 6px; font-size: 1.4rem; line-height: 1; }
-.daily-dot { color: #d9d6ee; }
-.daily-dot.filled { color: #ffc93c; }
 .success-text-button {
   flex: 1; min-height: 60px; padding: 0 14px; border-radius: 20px; border: none; cursor: pointer;
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
@@ -3469,18 +2932,10 @@ body.puzzle-active .memory-game {
 .kids-modal-primary:active, .kids-modal-secondary:active { transform: scale(0.96); }
 
 /* Tutorial */
-.tutorial-rules { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 12px; text-align: left; }
-.tutorial-rules li { display: flex; gap: 12px; align-items: flex-start; font-weight: 700; color: var(--ink); }
-.tut-step-num {
-  flex: 0 0 auto; width: 30px; height: 30px; border-radius: 50%;
-  background: #6c5ce7; color: #fff; font-weight: 900;
-  display: inline-flex; align-items: center; justify-content: center;
-}
-
 
 /* Truhe / Zoo-Reveal */
 
-/* --- Home: Topbar, Tagesziel, Featured --- */
+/* --- Home: Topbar und Kacheln --- */
 /* Rundes Feld hinter dem Emoji: alle vier Karten bekommen damit denselben
    optischen Anker, egal wie breit das Zeichen ist. */
 
@@ -3957,7 +3412,6 @@ body.runner-playing .help-voice { display: none; }
   animation-fill-mode: forwards;
 }
 @keyframes brain-timebar-run { from { transform: scaleX(1); } to { transform: scaleX(0); } }
-
 
 /* --- Schwarm-Fokus --- */
 .flanker-row {
@@ -4522,7 +3976,6 @@ body[data-page="train"].list-open { overflow: auto; }
 .stage-back:active { transform: scale(0.93); }
 .stage-back:focus-visible { outline: 3px solid #243047; outline-offset: 3px; }
 
-
 /* --- Landschafts-Knopf oben links --- */
 /* Ein Guckloch auf die Landschaft, die gerade läuft, mit zwei Pfeilen daneben.
    Steht dort, wo auf den Spielseiten der Vorlese-Knopf sitzt. */
@@ -4639,7 +4092,6 @@ body[data-page="train"] .help-voice { display: none; }
   .stage-layer .stage-svg { animation: none; }
   .train-gate, .train-building { transition: none; }
 }
-
 
 /* ===========================================================================
    Lok-Werkstatt
@@ -5170,8 +4622,6 @@ body[data-page="train"] .help-voice { display: none; }
   gap: clamp(8px, 1.6vh, 16px);
 }
 
-
-
 /* Der Startknopf pulst wie das Startsignal am Zug – dasselbe Zeichen für
    dasselbe: hier geht es los.
 
@@ -5261,6 +4711,501 @@ body[data-page="train"] .help-voice { display: none; }
 .cm-actions { display: flex; gap: 16px; }
 .cm-icon.big { width: 64px; height: 64px; }
 .cm-icon.big svg { width: 32px; height: 32px; }
+
+/* ===========================================================================
+   Der Wagen wächst
+   ---------------------------------------------------------------------------
+   Nach einem geschafften Level, beim Zurückkommen auf die Bühne: der Wagen
+   gross, sein Balken füllt sich, und die Bauart wächst Stufe um Stufe mit.
+   Ein Tipp bricht ab – wer weiter will, soll nicht warten müssen.
+   =========================================================================== */
+
+.wagon-reward {
+  position: absolute;
+  inset: 0;
+  z-index: 12;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(23, 34, 42, 0.5);
+  backdrop-filter: blur(3px);
+  cursor: pointer;
+  animation: wagon-reward-in 0.24s ease both;
+}
+
+.wagon-reward-card {
+  width: min(560px, 92vw);
+  display: grid;
+  justify-items: center;
+  gap: clamp(6px, 1.6vh, 14px);
+  padding: clamp(14px, 3vh, 26px) clamp(16px, 3vw, 30px);
+  border-radius: 28px;
+  background: #fff;
+  box-shadow: 0 22px 60px rgba(31, 42, 51, 0.4);
+  animation: wagon-reward-pop 0.34s cubic-bezier(0.2, 1.3, 0.4, 1) both;
+}
+
+.wagon-reward-title {
+  margin: 0;
+  font-size: clamp(1rem, 2.6vw, 1.4rem);
+  font-weight: 950;
+  color: var(--reward-color, #6c5ce7);
+  letter-spacing: 0.02em;
+}
+
+.wagon-reward-stage { width: 100%; display: grid; place-items: center; }
+.wagon-reward-svg { width: min(420px, 100%); height: auto; }
+
+/* Wenn die Bauart eine Stufe springt, hüpft der Wagen einmal – so ist zu
+   sehen, dass gerade etwas dazugekommen ist. */
+.wagon-reward-stage.is-pop { animation: wagon-reward-step 0.42s ease both; }
+
+.wagon-reward-bar {
+  width: 100%;
+  height: 14px;
+  border-radius: 999px;
+  background: #e8ecf2;
+  overflow: hidden;
+}
+
+.wagon-reward-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--reward-color, #6c5ce7);
+  transition: width 2.6s cubic-bezier(0.25, 0.9, 0.3, 1);
+}
+
+.wagon-reward-note {
+  margin: 0;
+  font-size: clamp(0.95rem, 2.2vw, 1.2rem);
+  font-weight: 800;
+  color: #4a5b52;
+}
+
+@keyframes wagon-reward-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes wagon-reward-pop {
+  from { opacity: 0; transform: scale(0.86) translateY(14px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes wagon-reward-step {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.09) rotate(-1.2deg); }
+  100% { transform: scale(1); }
+}
+
+/* Die neue Landschaft: dasselbe Fenster, statt des Wagens ihr Vorschaubild. */
+.scene-reward-thumb {
+  width: min(340px, 82%);
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 10px 24px rgba(31, 42, 51, 0.28);
+  animation: scene-reward-in 0.5s ease both;
+}
+
+.scene-reward-thumb svg { display: block; width: 100%; height: auto; }
+
+@keyframes scene-reward-in {
+  from { opacity: 0; transform: scale(0.8) rotate(-2deg); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wagon-reward, .wagon-reward-card, .wagon-reward-stage.is-pop { animation: none; }
+  .wagon-reward-fill { transition: none; }
+  .scene-reward-thumb { animation: none; }
+}
+
+/* ===========================================================================
+   Die Rätselseiten auf der Landschaft
+   ---------------------------------------------------------------------------
+   Arukone, Battleships, Tiergehege, Buchstabenjagd, Wortdetektiv, Kakuro und
+   Hidoku standen bisher auf einem eigenen Farbverlauf und sahen damit aus wie
+   eine zweite App. Jetzt liegt dieselbe Landschaft dahinter wie überall sonst.
+
+   Durchsichtig wird alles ausser dem Spielfeld: Gitter, Zahlen und Schiffe
+   müssen auf einen Blick lesbar bleiben, und über einer Wiese mit Bäumen wären
+   sie es nicht.
+   =========================================================================== */
+
+.puzzle-scene {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.puzzle-scene .scene { position: absolute; inset: 0; }
+
+body.has-scene { background: #a8ddf0; }
+body.has-scene .app-shell { position: relative; z-index: 1; }
+
+/* Überschrift, Levelwahl-Vorspann und Levelbeschreibung fallen weg: sie standen
+   zwischen dem Kind und dem Rätsel. */
+body.has-scene .hero,
+body.has-scene .start-copy,
+body.has-scene #puzzle-description,
+body.has-scene .selection-actions { display: none; }
+
+body.has-scene .start-panel,
+body.has-scene .game-panel,
+body.has-scene .status-row {
+  background: none;
+  border: none;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+/* Das Spielfeld behält seine helle Tafel. */
+body.has-scene .game-card {
+  background: rgba(255, 255, 255, 0.94);
+  border: none;
+  box-shadow: 0 14px 34px rgba(31, 42, 51, 0.24);
+}
+
+body.has-scene .small-label,
+body.has-scene #puzzle-title,
+body.has-scene .status {
+  color: #243047;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+
+/* Die Knöpfe oben links – dieselben wie im Karten-Merker: rund, weiss, fest an
+   derselben Stelle. Sie hängen nicht mehr im Fluss über dem Spielfeld, sondern
+   stehen in der Leiste neben dem Lautsprecher. */
+body.has-scene .controls {
+  position: fixed;
+  top: calc(var(--safe-top) + 12px);
+  left: calc(var(--safe-left) + 98px);
+  z-index: 8;
+  width: auto;
+  margin: 0;
+  padding: 0;
+  gap: 10px;
+  background: none;
+  border: none;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+body.has-scene .controls .icon-button {
+  width: 48px;
+  min-width: 48px;
+  height: 48px;
+  min-height: 48px;
+  border-radius: 50%;
+  border: 3px solid #fff;
+  background: rgba(255, 255, 255, 0.94);
+  color: var(--primary-dark);
+  font-size: 1.4rem;
+  box-shadow: 0 6px 16px rgba(31, 42, 51, 0.22);
+}
+
+body.has-scene .controls .icon-button:active { transform: scale(0.94); }
+
+/* Der Platz, den die Leiste oben braucht – sonst läge das Spielfeld darunter. */
+body.has-scene.puzzle-active .app-shell { padding-top: calc(var(--safe-top) + 74px); }
+
+/* ===========================================================================
+   Tier-Sprung auf der Spielhülle
+   ---------------------------------------------------------------------------
+   Die Levelwahl steht auf derselben Landschaft wie die anderen Spiele: zehn
+   Tiere in zwei Reihen und ein Startknopf, sonst nichts. Der Name des Tiers,
+   sein Ort und die Zahl der Leckerbissen sind weg – ein Kind sieht das Tier
+   und die Sterne, und mehr ist vor der Wahl nicht zu entscheiden.
+
+   Die Farbe ist die des Bereichs Geschwindigkeit.
+   =========================================================================== */
+
+.ts-stage { --cm-accent: #F5A623; --cm-accent-dark: #b9741a; }
+
+/* Fünf nebeneinander, zwei Reihen: die Höhe ist knapp, weil darunter noch der
+   Startknopf steht. */
+.ts-stage .runner-map {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: clamp(6px, 1.4vw, 14px);
+  width: min(94vw, 760px);
+  max-width: none;
+  margin: 0;
+}
+
+.ts-stage .runner-level {
+  gap: 0;
+  padding: clamp(4px, 1vh, 10px) 4px;
+  border-radius: 18px;
+  border-width: 2px;
+  box-shadow: 0 6px 14px rgba(50, 44, 109, 0.16);
+}
+
+.ts-stage .runner-level-art { width: clamp(48px, 8vw, 84px); height: auto; }
+.ts-stage .runner-level-stars { font-size: 0.8rem; line-height: 1; }
+.ts-stage .runner-level-badge { top: 4px; left: 6px; }
+
+@media (max-height: 560px) {
+  .ts-stage .runner-map { width: min(94vw, 640px); }
+  .ts-stage .runner-level-art { width: clamp(38px, 6vw, 60px); }
+}
+
+/* ===========================================================================
+   Memory
+   ---------------------------------------------------------------------------
+   Verdeckt ist eine Karte ein schlichtes Rechteck in der Bereichsfarbe;
+   aufgedeckt bleibt nur das Bild übrig, ohne Rahmen darum. Ein Kartenrand um
+   ein offenes Bild wäre eine zweite Form neben der, die zu merken ist.
+   =========================================================================== */
+
+.me-stage { --cm-accent: #7C5CE6; --cm-accent-dark: #5a41b8; }
+
+/* --- Die Wahl der Grösse --- */
+
+.me-groessen { display: flex; flex-wrap: wrap; justify-content: center; gap: clamp(8px, 2vw, 18px); }
+
+.me-groesse {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-width: clamp(58px, 12vw, 92px);
+  padding: clamp(10px, 2vh, 16px) clamp(6px, 1.4vw, 14px);
+  border: 3px solid #fff;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.9);
+  cursor: pointer;
+  box-shadow: 0 8px 18px rgba(31, 42, 51, 0.18);
+  transition: transform 0.12s ease, background 0.16s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.me-groesse:hover { background: #fff; }
+.me-groesse:active { transform: scale(0.95); }
+.me-groesse:focus-visible { outline: 3px solid #243047; outline-offset: 3px; }
+.me-groesse.is-done { border-color: #2f9e44; }
+
+.me-groesse-zahl {
+  font-size: clamp(1.4rem, 4vw, 2.2rem);
+  font-weight: 950;
+  line-height: 1;
+  color: var(--cm-accent-dark);
+}
+
+.me-groesse-haken {
+  position: absolute;
+  top: -10px;
+  right: -8px;
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #2f9e44;
+  color: #fff;
+  font-size: 0.95rem;
+  font-weight: 900;
+}
+
+/* --- Das Spielfeld --- */
+
+/* Die Breite ist von beiden Seiten begrenzt: vom Bildschirm und von der Höhe,
+   die zwischen Leiste und unterem Rand übrig bleibt. Nur nach der Breite zu
+   gehen hiesse: bei vierundzwanzig Karten fällt die unterste Reihe aus dem
+   Bild. --me-platz ist die Höhe, die die Bühne dem Feld lässt: der Bildschirm
+   ohne Leiste, Zeile und Rand. */
+.me-feld {
+  --me-platz: calc(100vh - var(--safe-top, 0px) - var(--safe-bottom, 0px) - 190px);
+  display: grid;
+  gap: clamp(5px, 1.2vw, 14px);
+  grid-template-columns: repeat(var(--me-spalten, 4), minmax(0, 1fr));
+  grid-auto-rows: 1fr;
+  flex: 0 0 auto;
+  width: min(94vw, 940px, var(--me-platz) * var(--me-spalten, 4) / var(--me-zeilen, 2));
+  aspect-ratio: var(--me-spalten, 4) / var(--me-zeilen, 2);
+}
+
+.me-feld[data-karten="8"] { --me-spalten: 4; --me-zeilen: 2; }
+.me-feld[data-karten="12"] { --me-spalten: 4; --me-zeilen: 3; }
+.me-feld[data-karten="16"] { --me-spalten: 4; --me-zeilen: 4; }
+.me-feld[data-karten="20"] { --me-spalten: 5; --me-zeilen: 4; }
+.me-feld[data-karten="24"] { --me-spalten: 6; --me-zeilen: 4; }
+
+/* Auf dem Handy stehen nie mehr als vier nebeneinander: schmaler wäre eine
+   Karte kaum noch zu treffen. */
+@media (max-width: 560px) {
+  .me-feld[data-karten="20"] { --me-spalten: 4; --me-zeilen: 5; }
+  .me-feld[data-karten="24"] { --me-spalten: 4; --me-zeilen: 6; }
+}
+
+.me-karte {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: none;
+  border-radius: clamp(10px, 2vw, 18px);
+  background: linear-gradient(140deg, var(--cm-accent), var(--cm-accent-dark));
+  box-shadow: 0 5px 12px rgba(31, 42, 51, 0.24);
+  cursor: pointer;
+  transition: transform 0.14s ease, background 0.14s ease, box-shadow 0.14s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.me-karte::after {
+  content: "";
+  width: 34%;
+  height: 34%;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.28);
+}
+
+.me-karte:active:not(:disabled) { transform: scale(0.94); }
+.me-karte:focus-visible { outline: 3px solid #243047; outline-offset: 3px; }
+
+/* Offen: kein Kasten mehr, nur noch das Bild. */
+.me-karte.is-offen {
+  background: none;
+  box-shadow: none;
+  cursor: default;
+  animation: me-auf 0.16s ease both;
+}
+
+.me-karte.is-offen::after { content: none; }
+
+.me-karte-bild {
+  font-size: clamp(1.5rem, 5.5vw, 3rem);
+  line-height: 1;
+  filter: drop-shadow(0 3px 6px rgba(31, 42, 51, 0.28));
+}
+
+/* Gefunden: das Paar hüpft einmal und ist weg – der Platz bleibt frei, damit
+   die Karten daneben nicht wandern. */
+.me-karte.is-weg {
+  background: none;
+  box-shadow: none;
+  cursor: default;
+  visibility: hidden;
+  animation: me-weg 0.4s ease both;
+}
+
+.me-karte.is-weg::after { content: none; }
+
+@keyframes me-auf {
+  from { transform: scaleX(0.55); }
+  to { transform: scaleX(1); }
+}
+
+@keyframes me-weg {
+  0% { visibility: visible; transform: scale(1); opacity: 1; }
+  40% { visibility: visible; transform: scale(1.15); opacity: 1; }
+  100% { visibility: hidden; transform: scale(0.5); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .me-groesse, .me-karte { transition: none; }
+  .me-karte.is-offen, .me-karte.is-weg { animation: none; }
+}
+
+/* ===========================================================================
+   Rucksack packen
+   ---------------------------------------------------------------------------
+   Kein Rahmen, kein Kasten, keine Karte: nur die Gegenstände auf der
+   Landschaft. Was zu merken ist, ist die Sache selbst – ein Rahmen darum wäre
+   eine zweite Form, die mitgemerkt werden müsste.
+
+   Die Farbe ist die des Bereichs Gedächtnis.
+   =========================================================================== */
+
+.rs-stage { --cm-accent: #7C5CE6; --cm-accent-dark: #5a41b8; }
+
+/* --- Die Wahl der Schwierigkeit --- */
+
+.rs-stufen { display: flex; gap: clamp(10px, 2.4vw, 22px); }
+
+.rs-stufe {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  min-width: clamp(64px, 14vw, 104px);
+  padding: clamp(10px, 2vh, 16px) clamp(8px, 1.6vw, 16px);
+  border: 3px solid #fff;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.9);
+  cursor: pointer;
+  box-shadow: 0 8px 18px rgba(31, 42, 51, 0.18);
+  transition: transform 0.12s ease, background 0.16s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.rs-stufe:hover { background: #fff; }
+.rs-stufe:active { transform: scale(0.95); }
+.rs-stufe:focus-visible { outline: 3px solid #243047; outline-offset: 3px; }
+
+.rs-stufe-zahl {
+  font-size: clamp(1.6rem, 4.5vw, 2.4rem);
+  font-weight: 950;
+  line-height: 1;
+  color: var(--cm-accent-dark);
+}
+
+.rs-stufe-wert { font-size: 0.85rem; font-weight: 800; color: #6b7785; }
+
+/* --- Die Gegenstände --- */
+
+.rs-feld {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(8px, 2.6vw, 30px);
+  width: min(94vw, 860px);
+}
+
+.rs-item {
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  border-radius: 50%;
+  transition: transform 0.12s ease;
+  animation: rs-in 0.18s ease both;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.rs-item-bild {
+  font-size: clamp(2.6rem, 11vw, 5.4rem);
+  line-height: 1;
+  filter: drop-shadow(0 4px 8px rgba(31, 42, 51, 0.24));
+}
+
+.rs-feld[data-anzahl="1"] .rs-item-bild { font-size: clamp(4rem, 18vw, 8rem); }
+.rs-item:active { transform: scale(0.9); }
+.rs-item:focus-visible { outline: 3px solid #243047; outline-offset: 6px; }
+
+@keyframes rs-in {
+  from { opacity: 0; transform: scale(0.7); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+/* Richtig: der Gegenstand hüpft und verschwindet in den Rucksack.
+   Falsch: ein kurzes Kopfschütteln, dann ist die Runde vorbei. */
+.rs-item.is-right { animation: rs-pack 0.32s ease both; }
+@keyframes rs-pack {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.2); }
+  100% { transform: scale(0.85); opacity: 0.35; }
+}
+
+.rs-item.is-wrong { animation: rs-nope 0.4s ease both; }
+@keyframes rs-nope {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-10px) rotate(-7deg); }
+  60% { transform: translateX(10px) rotate(7deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rs-stufe, .rs-item { transition: none; }
+  .rs-item, .rs-item.is-right, .rs-item.is-wrong { animation: none; }
+}
 
 /* ===========================================================================
    Weichen-Wirrwarr

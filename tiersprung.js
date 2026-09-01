@@ -15,10 +15,11 @@
   const kids = window.LernappKids;
   if (!kids || document.body.dataset.page !== "runner") return;
 
-  const mapRoot = document.getElementById("runner-map");
+  const host = document.querySelector("#ts-stage");
+  let shell = null;
   const stage = document.getElementById("runner-stage");
   const canvas = document.getElementById("runner-canvas");
-  if (!mapRoot || !stage || !canvas) return;
+  if (!host || !stage || !canvas) return;
 
   const ctx = canvas.getContext("2d", { alpha: false });
   if (!ctx) return;
@@ -1450,26 +1451,6 @@
       g.restore();
     }
 
-    // Starthinweis, verschwindet sobald das erste Hindernis naht.
-    if (game.dist < RUN_IN * 0.72) {
-      const fade = clamp(1 - game.dist / (RUN_IN * 0.72), 0, 1);
-      g.save();
-      g.globalAlpha = fade;
-      const hintSize = clamp(view.w * 0.045, 15, 24);
-      g.font = `800 ${hintSize}px Inter, system-ui, sans-serif`;
-      g.lineWidth = hintSize * 0.3;
-      g.lineJoin = "round";
-      const hintY = groundY - Math.min(150, groundY * 0.45);
-      ["Tippen zum Springen", "Gedrückt halten = höher"].forEach((line, i) => {
-        const y = hintY + i * hintSize * 1.35;
-        g.strokeStyle = "rgba(40, 28, 18, 0.55)";
-        g.strokeText(line, view.w / 2, y);
-        g.fillStyle = "#ffffff";
-        g.fillText(line, view.w / 2, y);
-      });
-      g.restore();
-    }
-
     g.restore();
   }
 
@@ -1763,23 +1744,18 @@
     g.restore();
   }
 
+  // Die Levelwahl: zehn Tiere, ein Startknopf – und sonst nichts. Jede Zeile
+  // Text daneben müsste ein Kind erst lesen; das Tier und die Sterne sagen
+  // alles, was es zu entscheiden gibt.
   function renderMap() {
-    const summary = document.getElementById("runner-summary");
-    if (summary) {
-      const done = LEVELS.filter((level) => bestFor(level.id)).length;
-      summary.innerHTML = `<strong>${done} von ${LEVEL_COUNT}</strong> Tieren geschafft · <strong>${totalStars()}</strong> von ${LEVEL_COUNT * 3} Sternen`;
-    }
+    if (!shell) return;
+    shell.setCount(LEVELS.filter((level) => bestFor(level.id)).length);
+    shell.clear();
 
-    const startButton = document.getElementById("runner-start");
-    if (startButton) {
-      const level = LEVELS[progress.unlocked - 1];
-      const animal = ANIMALS[level.animal];
-      startButton.innerHTML = `<span class="runner-start-emoji" aria-hidden="true">${animal.emoji}</span>
-        <span class="runner-start-text"><strong>Los geht's!</strong><small>Level ${level.id} · ${animal.name}</small></span>`;
-      startButton.setAttribute("aria-label", `Level ${level.id} als ${animal.name} starten`);
-    }
+    const mapRoot = shell.el("div", "runner-map");
+    mapRoot.setAttribute("aria-label", "Level auswählen");
+    shell.play.append(mapRoot);
 
-    mapRoot.innerHTML = "";
     LEVELS.forEach((level) => {
       const animal = ANIMALS[level.animal];
       const unlocked = isUnlocked(level.id);
@@ -1794,10 +1770,7 @@
       card.innerHTML = `
         <span class="runner-level-badge">${level.id}</span>
         <span class="runner-level-art-slot"></span>
-        <span class="runner-level-name">${unlocked ? animal.name : "???"}</span>
-        <span class="runner-level-place">${unlocked ? level.label : "Noch verschlossen"}</span>
-        <span class="runner-level-stars" aria-hidden="true">${unlocked ? starHtml : "🔒"}</span>
-        <span class="runner-level-treat">${unlocked ? `${level.treat} ${best ? `${best.treats}/${best.total}` : level.treatName}` : ""}</span>`;
+        <span class="runner-level-stars" aria-hidden="true">${unlocked ? starHtml : "🔒"}</span>`;
 
       const art = document.createElement("canvas");
       art.className = "runner-level-art";
@@ -1815,6 +1788,27 @@
       }
       mapRoot.append(card);
     });
+
+    // Der eine Startknopf: er führt in das Level, das gerade dran ist.
+    const naechstes = LEVELS[progress.unlocked - 1];
+    if (naechstes) {
+      const start = shell.el("button", "cm-start", "Starten");
+      start.type = "button";
+      start.setAttribute("aria-label", `Level ${naechstes.id} als ${ANIMALS[naechstes.animal].name} starten`);
+      start.addEventListener("click", () => startLevel(naechstes.id));
+      shell.play.append(start);
+    }
+    shell.play.append(shell.el("p", "cm-runs", levelsText(LEVELS.filter((level) => bestFor(level.id)).length)));
+  }
+
+  // Fünf geschaffte Level bauen den Wagen – welche fünf, ist gleich.
+  const LEVELS_FUER_WAGEN = 5;
+  function levelsText(fertig) {
+    const left = LEVELS_FUER_WAGEN - fertig;
+    if (left <= 0) return "Dieses Spiel ist geschafft – der Wagen ist gebaut.";
+    return left === 1
+      ? "Noch ein Level bis zum fertigen Wagen."
+      : `Noch ${left} Level bis zum fertigen Wagen.`;
   }
 
   // ---------------------------------------------------------------------------
@@ -1825,7 +1819,7 @@
   function setStageHelp(text) { kids.setHelp?.(text); }
   function setMapHelp() {
     const animal = ANIMALS[LEVELS[progress.unlocked - 1]?.animal];
-    setStageHelp(`Tier-Sprung. Tippe auf Los geht's oder wähle auf der Karte ein Level aus.${animal ? ` Gerade spielst du als ${animal.name}.` : ""} Im Spiel tippst du auf den Bildschirm, damit dein Tier springt. Halte länger gedrückt, dann springt es höher. Du hast drei Leben pro Level.`);
+    setStageHelp(`Tier-Sprung. Tippe auf Starten oder wähle ein Tier aus.${animal ? ` Gerade spielst du als ${animal.name}.` : ""} Im Spiel tippst du auf den Bildschirm, damit dein Tier springt. Halte länger gedrückt, dann springt es höher. Du hast drei Leben pro Level. Ein Schloss heisst: dieses Tier kommt, wenn du das Level davor geschafft hast.`);
   }
   function setPlayHelp(level) {
     setStageHelp(`Level ${level.id}, ${level.label}. Tippe auf den Bildschirm, damit dein Tier springt. Länger gedrückt halten springt höher. Sammle möglichst viele ${level.treatName} und weiche den Hindernissen aus. Du hast drei Leben.`);
@@ -1858,7 +1852,7 @@
     }
     renderMap();
     setMapHelp();
-    document.getElementById("runner-start")?.focus?.({ preventScroll: true });
+    host.querySelector(".cm-start")?.focus?.({ preventScroll: true });
   }
 
   function startLevel(levelId) {
@@ -1943,7 +1937,20 @@
   // ---------------------------------------------------------------------------
   // Start
   // ---------------------------------------------------------------------------
-  document.getElementById("runner-start")?.addEventListener("click", () => startLevel(progress.unlocked));
+  // Die Bühne ist dieselbe wie in den anderen Spielen: Landschaft, Lautsprecher
+  // und dieselben drei Knöpfe oben links. Die Uhr braucht dieses Spiel nicht –
+  // die Zeit läuft im Level, nicht in der Auswahl.
+  shell = window.LernappGameShell.mount({
+    host,
+    title: "Tier-Sprung",
+    area: "geschwindigkeit",
+    accent: "#F5A623",
+    accentDark: "#b9741a",
+    help: "",
+    clock: false,
+    onRestart: () => { renderMap(); setMapHelp(); },
+  });
+
   renderMap();
   setMapHelp();
 })();
