@@ -5459,6 +5459,201 @@ body.has-scene.puzzle-active .app-shell { padding-top: calc(var(--safe-top) + 74
   .st-item { transition: none; }
 }
 
+/* ===========================================================================
+   Kacheln-Knobeln
+   ---------------------------------------------------------------------------
+   Dieselbe Bühne wie die Strand-Schätze, nur mit einem Raster darauf. Das
+   Raster nimmt den Platz, den es kriegen kann, bleibt aber quadratisch in den
+   Kacheln: verzerrte Kacheln wären schwerer wiederzufinden, weil sich die Lage
+   dann nicht mehr am Bild, sondern nur noch am Zählen merken liesse.
+   =========================================================================== */
+
+.kk-stage { --cm-accent: #7C5CE6; --cm-accent-dark: #5a41b8; }
+
+.kk-prompt { flex: 0 0 auto; }
+
+.kk-raster {
+  display: grid;
+  grid-template-columns: repeat(var(--kk-spalten, 4), 1fr);
+  grid-template-rows: repeat(var(--kk-reihen, 3), 1fr);
+  gap: clamp(5px, 1.1vh, 12px);
+  /* Erst die Höhe füllen, dann die Breite darauf abstimmen: sonst rutscht das
+     Raster auf einem flachen Bildschirm unten heraus. */
+  height: min(100%, 74vh);
+  aspect-ratio: var(--kk-spalten, 4) / var(--kk-reihen, 3);
+  max-width: min(94vw, 900px);
+  padding: clamp(8px, 1.6vh, 16px);
+  border-radius: 26px;
+  background: rgba(253, 251, 246, 0.9);
+  box-shadow: 0 12px 30px rgba(31, 42, 51, 0.2), inset 0 0 0 3px rgba(255, 255, 255, 0.6);
+}
+
+.kk-kachel {
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  border: none;
+  border-radius: clamp(8px, 1.6vh, 16px);
+  background: #d3dded;
+  box-shadow: inset 0 -3px 0 rgba(31, 42, 51, 0.12);
+  cursor: pointer;
+  transition: transform 0.1s ease, background 0.16s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.kk-kachel:active:not(:disabled) { transform: scale(0.94); }
+.kk-kachel:focus-visible { outline: 3px solid #243047; outline-offset: 3px; }
+/* Gesperrt heisst hier nicht "ausgegraut": während man sich das Muster merkt,
+   sind alle Kacheln gesperrt – blass werden dürfen sie dabei nicht. */
+.kk-kachel:disabled { cursor: default; opacity: 1; }
+
+/* Leuchtend: so sieht die Kachel aus, während man sie sich merkt – und noch
+   einmal am Schluss, wenn die Runde zeigt, welche es gewesen wären. */
+.kk-kachel.is-muster {
+  background: var(--cm-accent);
+  box-shadow: inset 0 -3px 0 var(--cm-accent-dark), 0 0 0 3px rgba(255, 255, 255, 0.7);
+}
+
+/* Richtig nachgetippt: dieselbe Farbe, dazu ein kurzer Hüpfer. */
+.kk-kachel.is-treffer {
+  background: var(--cm-accent);
+  box-shadow: inset 0 -3px 0 var(--cm-accent-dark);
+  animation: kk-treffer 0.3s ease both;
+}
+
+@keyframes kk-treffer {
+  0% { transform: scale(1); }
+  45% { transform: scale(1.14); }
+  100% { transform: scale(1); }
+}
+
+/* Daneben: die Kachel wackelt einmal und bleibt rot – so ist zu sehen, welche
+   die Runde beendet hat. */
+.kk-kachel.is-daneben {
+  background: #e2694f;
+  box-shadow: inset 0 -3px 0 #b34a33;
+  animation: kk-daneben 0.4s ease both;
+}
+
+@keyframes kk-daneben {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-6px); }
+  60% { transform: translateX(6px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kk-kachel, .kk-kachel.is-treffer, .kk-kachel.is-daneben { animation: none; transition: none; }
+}
+
+/* ===========================================================================
+   Fischteich
+   ---------------------------------------------------------------------------
+   Dieselbe Bühne, nur mit einem Teich darauf. Die Fische stehen in Pixeln auf
+   dem Teich – wo genau, rechnet fischteich.js Bild für Bild aus; hier steht
+   nur, wie ein Fisch aussieht und was beim Antippen passiert.
+   =========================================================================== */
+
+.ft-stage { --cm-accent: #00A5B5; --cm-accent-dark: #00707c; }
+
+.ft-prompt { flex: 0 0 auto; }
+
+.ft-pond {
+  position: relative;
+  flex: 1 1 auto;
+  width: min(96vw, 1100px);
+  min-height: 0;
+  border-radius: 30px;
+  overflow: hidden;
+  overflow: clip;
+  box-shadow: 0 12px 30px rgba(31, 42, 51, 0.22), inset 0 0 0 3px rgba(255, 255, 255, 0.5);
+}
+
+.ft-pond-art {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* Ein Fisch: kein Kasten, kein Rand, nur die Figur. Platz und Blickrichtung
+   kommen aus dem Stil-Attribut, das fischteich.js jedes Bild neu setzt –
+   deshalb hier auch keine Übergänge, die würden gegen die Bewegung arbeiten. */
+.ft-fisch {
+  position: absolute;
+  top: 0;
+  left: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  will-change: transform;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Gespiegelt wird nur das Bild, nicht der Knopf: sonst stünde das Häkchen bei
+   nach links schwimmenden Fischen seitenverkehrt da. */
+.ft-fisch-art {
+  width: 100%;
+  height: 100%;
+  display: block;
+  transform: scaleX(var(--ft-blick, 1));
+}
+.ft-fisch:focus-visible { outline: 3px solid #243047; outline-offset: 2px; }
+/* Nach dem letzten Tipp sind alle Fische gesperrt. Blass werden dürfen sie
+   dabei nicht – man soll ja noch sehen, welcher die Runde beendet hat. */
+.ft-fisch:disabled { cursor: default; opacity: 1; }
+
+/* Das Häkchen steht kurz über dem Fisch und geht dann wieder weg. */
+.ft-haken {
+  position: absolute;
+  top: -6%;
+  right: 4%;
+  width: 34%;
+  height: auto;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.ft-fisch.is-gefangen .ft-haken { animation: ft-haken 0.7s ease both; }
+
+@keyframes ft-haken {
+  0% { opacity: 0; transform: scale(0.4); }
+  25% { opacity: 1; transform: scale(1.1); }
+  70% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1); }
+}
+
+/* Schon gefangen: derselbe rote Ring wie bei einem Schatz, den man zweimal
+   nimmt – damit zu sehen ist, welcher Fisch die Runde beendet hat. Wackeln darf
+   er nicht: seine Lage steht im selben transform, das hier überschrieben würde. */
+.ft-fisch.is-doppelt {
+  border-radius: 50%;
+  box-shadow: 0 0 0 4px #e2694f, 0 0 0 9px rgba(226, 105, 79, 0.3);
+}
+
+/* Ein Tipp ins Wasser: ein Ring, der aufgeht und verschwindet. Punkte gibt es
+   dafür keine, aber stumm bleiben darf die App auch nicht. */
+.ft-platsch {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  margin: -6px 0 0 -6px;
+  border-radius: 50%;
+  border: 3px solid rgba(255, 255, 255, 0.85);
+  pointer-events: none;
+  animation: ft-platsch 0.45s ease-out both;
+}
+
+@keyframes ft-platsch {
+  from { transform: scale(0.4); opacity: 0.9; }
+  to { transform: scale(4.5); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ft-platsch { animation-duration: 0.2s; }
+  .ft-fisch.is-gefangen .ft-haken { animation: none; opacity: 1; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .cm-card, .cm-card.is-right, .cm-card.is-wrong, .cm-start::after, .cm-overlay { animation: none; }
   .cm-choice, .cm-icon { transition: none; }

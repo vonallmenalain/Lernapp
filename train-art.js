@@ -677,7 +677,13 @@
       class: `train-wagon train-wagon-${safeType}${done ? " is-complete" : ""}`,
       "data-wagon": safeType,
       "data-stage": clamped,
-    }, parts);
+    }, [
+      // Unsichtbare Fläche unter dem Wagen, wie sie auch die Gebäude haben: ein
+      // halb gebauter Wagen ist voller Lücken, und ein Tipp mitten hinein soll
+      // ihn treffen und nicht durch ihn hindurchgehen.
+      el("rect", { class: "train-wagon-hit", x: 0, y: 30, width: WAGON_W, height: GROUND - 20, fill: "transparent" }),
+      ...parts,
+    ]);
   }
 
   // ---------------------------------------------------------------------------
@@ -958,8 +964,10 @@
     memory: { kind: "house", emblem: "cards", hue: "#8a6fe0" },
     cardMatch: { kind: "hut", emblem: "cardCheck", hue: "#e0913c" },
     beachTreasure: { kind: "hut", emblem: "shell", hue: "#e8b45a" },
+    tileMemory: { kind: "barn", emblem: "grid", hue: "#9a6fd0" },
     flanker: { kind: "hall", emblem: "fish", hue: "#3ba7b5" },
     trackRouter: { kind: "tower", emblem: "switch", hue: "#2f8f9c" },
+    fishPond: { kind: "hut", emblem: "net", hue: "#2f9ec0" },
     tiersprung: { kind: "hall", emblem: "bolt", hue: "#e8a13c" },
     spatialPuzzle: { kind: "tower", emblem: "cube", hue: "#3f8f6a" },
     arukone: { kind: "house", emblem: "wires", hue: "#63a83f" },
@@ -988,6 +996,26 @@
       parts.push(el("ellipse", { cx, cy, rx: 20, ry: 12, fill: "#fdfbf6" }));
       parts.push(el("polygon", { points: `${cx + 18},${cy} ${cx + 30},${cy - 10} ${cx + 30},${cy + 10}`, fill: "#fdfbf6" }));
       parts.push(el("circle", { cx: cx - 9, cy: cy - 3, r: 3.4, fill: ink }));
+    } else if (name === "grid") {
+      // Neun Kacheln, drei davon hell: das Muster, das man sich merken soll.
+      [[-1, -1], [0, -1], [1, -1], [-1, 0], [0, 0], [1, 0], [-1, 1], [0, 1], [1, 1]].forEach(([sx, sy], i) => {
+        const hell = i === 1 || i === 3 || i === 8;
+        parts.push(el("rect", {
+          x: cx + sx * 13 - 5.5, y: cy + sy * 13 - 5.5, width: 11, height: 11, rx: 2,
+          fill: hell ? "#fdfbf6" : "none", stroke: "#fdfbf6", "stroke-width": 2,
+        }));
+      });
+    } else if (name === "net") {
+      // Ein Kescher: Bügel, Netz und Stiel – klar unterscheidbar vom Fisch, den
+      // der Schwarm-Fokus nebenan trägt.
+      // Gefüllt statt gestrichelt: eine dünne Linienzeichnung verschwindet auf
+      // dem kleinen Gebäude, eine geschlossene Fläche nicht.
+      parts.push(el("line", { x1: cx + 4, y1: cy + 2, x2: cx + 17, y2: cy + 20, stroke: "#fdfbf6", "stroke-width": 6, "stroke-linecap": "round" }));
+      parts.push(el("ellipse", { cx: cx - 4, cy: cy - 7, rx: 18, ry: 14, fill: "#fdfbf6" }));
+      parts.push(el("path", {
+        d: `M${cx - 21} ${cy - 7} h34 M${cx - 4} ${cy - 20} v27`,
+        fill: "none", stroke: color, "stroke-width": 3,
+      }));
     } else if (name === "switch") {
       parts.push(el("rect", { x: cx - 22, y: cy + 8, width: 44, height: 6, rx: 3, fill: "#fdfbf6" }));
       parts.push(el("line", { x1: cx - 10, y1: cy + 8, x2: cx + 12, y2: cy - 14, stroke: "#fdfbf6", "stroke-width": 6, "stroke-linecap": "round" }));

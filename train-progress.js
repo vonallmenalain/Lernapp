@@ -31,6 +31,7 @@
         { id: "backpack", title: "Rucksack packen", page: "backpack.html", ownProgress: "backpack" },
         { id: "memory", title: "Memory", page: "memory.html", ownProgress: "memory" },
         { id: "beachTreasure", title: "Strand-Schätze", page: "strandschatz.html", ownProgress: "beachTreasure" },
+        { id: "tileMemory", title: "Kacheln-Knobeln", page: "kacheln.html", ownProgress: "tileMemory" },
       ],
     },
     {
@@ -42,6 +43,7 @@
       games: [
         { id: "flanker", title: "Schwarm-Fokus", page: "schwarmfokus.html", ownProgress: "flanker" },
         { id: "trackRouter", title: "Weichen-Wirrwarr", page: "weichen.html", ownProgress: "trackRouter" },
+        { id: "fishPond", title: "Fischteich", page: "fischteich.html", ownProgress: "fishPond" },
       ],
     },
     {
@@ -128,6 +130,8 @@
   const BACKPACK_KEY = "lernapp.backpack";
   const MEMORY_KEY = "lernapp.memory";
   const RAUM_KEY = "lernapp.raumdetektiv";
+  const TILE_KEY = "lernapp.kacheln";
+  const POND_KEY = "lernapp.fischteich";
   // Weichen-Wirrwarr hat zehn Level, aber fünf davon reichen für den Wagen.
   const TRACK_LEVELS_FOR_DONE = 5;
   // Beide Bestenlisten-Spiele gelten nach fünf gespielten Runden als geschafft.
@@ -340,6 +344,10 @@
     // Bewertung steht schon fest, wenn die zehn Aufgaben durch sind. Drei
     // Sterne sind damit die "gute" Runde.
     spatial: runsProgress(RAUM_KEY, 3),
+    // Beide zählen wie die Strand-Schätze einen Punkt je Kachel bzw. Fisch –
+    // die Sternschwelle liegt deshalb in derselben Grössenordnung.
+    tileMemory: runsProgress(TILE_KEY, 14),
+    fishPond: runsProgress(POND_KEY, 14),
   };
 
   // Ein Spiel, das eine feste Liste von Aufgaben führt und jede nur als
@@ -411,7 +419,7 @@
     cloudGames.register({ key: RUNNER_KEY, empty: { unlocked: 1, best: {} }, merge: cloudGames.mergeLevels }).onChange(redraw);
     cloudGames.register({ key: TRACK_KEY, empty: { best: {} }, merge: cloudGames.mergeLevels }).onChange(redraw);
     cloudGames.register({ key: MEMORY_KEY, empty: { best: {} }, merge: cloudGames.mergeLevels }).onChange(redraw);
-    [CARDMATCH_KEY, BEACH_KEY, FLANKER_KEY, BACKPACK_KEY, RAUM_KEY].forEach((key) => {
+    [CARDMATCH_KEY, BEACH_KEY, FLANKER_KEY, BACKPACK_KEY, RAUM_KEY, TILE_KEY, POND_KEY].forEach((key) => {
       cloudGames.register({ key, empty: { runs: 0, scores: [] }, merge: cloudGames.mergeScores(RUNS_FOR_DONE) }).onChange(redraw);
     });
   }
