@@ -73,22 +73,70 @@
     ]);
   }
 
-  function grassTile(base, blade, accent, flowers) {
-    const parts = [el("rect", { x: 0, y: 150, width: W, height: 50, fill: base })];
-    for (let x = 6; x < W; x += 17) {
-      const height = 16 + (x % 3) * 5;
-      parts.push(el("path", {
-        d: `M${x} 168 q3 -${height / 2} 1 -${height}`,
-        fill: "none", stroke: x % 34 === 6 ? shade(blade, 0.2) : blade,
-        "stroke-width": 3, "stroke-linecap": "round",
-      }));
-    }
-    flowers.forEach((color, i) => {
-      parts.push(el("circle", { cx: 60 + i * 122, cy: 158 - (i % 2) * 4, r: 5, fill: color }));
+  // ---------------------------------------------------------------------------
+  // Die Nahebene
+  // ---------------------------------------------------------------------------
+  // Sie bekommt einen eigenen, flachen Ausschnitt. Die anderen Ebenen sind
+  // hohe Bänder und vertragen den 600×200-Ausschnitt; die Nahebene ist ein
+  // schmaler Streifen ganz unten am Bild. Mit dem hohen Ausschnitt wurde alles
+  // darin waagrecht gestaucht und senkrecht gezogen – daher die zerquetschte
+  // Wiese. Ein Ausschnitt im Seitenverhältnis des Streifens behebt das.
+  const NW = 600;
+  const NH = 64;
+
+  function nearTile(children) {
+    return el("svg", { viewBox: `0 0 ${NW} ${NH}`, preserveAspectRatio: "none", "aria-hidden": "true" }, children);
+  }
+
+  // Der Boden mit welliger Oberkante. Die Anzahl Segmente ist gerade, damit die
+  // Kachel links und rechts gleich hoch anfängt und die Schleife nicht springt.
+  function nearGround(top, fill, amplitude = 5) {
+    const step = NW / 6;
+    let d = `M0 ${NH} L0 ${top} Q${step / 2} ${top - amplitude} ${step} ${top}`;
+    for (let i = 2; i <= 6; i += 1) d += ` T${step * i} ${top}`;
+    return el("path", { d: `${d} L${NW} ${NH} Z`, fill });
+  }
+
+  // Ein Büschel Gras: drei Halme, die aus einem Punkt wachsen. Einzelne Striche
+  // in gleichem Abstand sähen aus wie ein Kamm.
+  function grassClump(x, base, height, color) {
+    return group({ transform: `translate(${x},${base})` }, [
+      el("path", { d: `M0 0 q-2 -${height * 0.6} -7 -${height}`, fill: "none", stroke: color, "stroke-width": 3, "stroke-linecap": "round" }),
+      el("path", { d: `M0 0 q1 -${height * 0.7} 0 -${height * 1.25}`, fill: "none", stroke: shade(color, 0.12), "stroke-width": 3.2, "stroke-linecap": "round" }),
+      el("path", { d: `M0 0 q3 -${height * 0.6} 8 -${height * 0.9}`, fill: "none", stroke: color, "stroke-width": 3, "stroke-linecap": "round" }),
+    ]);
+  }
+
+  // Eine Blume mit Stiel, fünf Blüten und Mitte – nicht bloss ein Punkt.
+  function flower(x, base, height, color) {
+    const petals = [0, 1, 2, 3, 4].map((i) => {
+      const angle = (Math.PI * 2 / 5) * i - Math.PI / 2;
+      return el("circle", { cx: (Math.cos(angle) * 4).toFixed(1), cy: (Math.sin(angle) * 4).toFixed(1), r: 3.4, fill: color });
     });
-    parts.push(bush(140, 162, 0.9, accent));
-    parts.push(bush(410, 160, 1.05, shade(accent, 0.08)));
-    return tile(parts);
+    return group({ transform: `translate(${x},${base})` }, [
+      el("path", { d: `M0 0 q1 -${height * 0.6} 0 -${height}`, fill: "none", stroke: "#4f8a3c", "stroke-width": 2.2, "stroke-linecap": "round" }),
+      group({ transform: `translate(0,${-height})` }, [...petals, el("circle", { cx: 0, cy: 0, r: 2.4, fill: "#ffd166" })]),
+    ]);
+  }
+
+  function grassTile(base, blade, accent, flowers) {
+    const parts = [
+      nearGround(20, shade(base, -0.08)),
+      nearGround(26, base),
+    ];
+    // Halme in unregelmässigem Abstand: gleichmässig verteilt sähe es nach
+    // Zaun aus, nicht nach Wiese.
+    [8, 26, 41, 63, 84, 99, 121, 140, 158, 176, 197, 214, 232, 251, 273, 290,
+     308, 327, 349, 366, 384, 403, 425, 442, 460, 479, 501, 518, 536, 555, 573, 590]
+      .forEach((x, i) => {
+        parts.push(grassClump(x, 30 + (i % 3) * 3, 11 + (i % 4) * 4, i % 5 === 0 ? shade(blade, 0.18) : blade));
+      });
+    parts.push(bush(96, 30, 0.5, accent));
+    parts.push(bush(352, 28, 0.58, shade(accent, 0.08)));
+    flowers.forEach((color, i) => {
+      parts.push(flower(52 + i * 118, 32 + (i % 2) * 3, 13 + (i % 3) * 3, color));
+    });
+    return nearTile(parts);
   }
 
   function cloudTile(color, opacity = 0.9) {
@@ -227,17 +275,20 @@
           palm(390, 184, 1.1, "#7b5c3a", "#2a7344"),
           palm(520, 190, 0.9, "#6d5133", "#368a54"),
         ]),
+        // Breite Blätter statt Halme – der Dschungelboden ist bedeckt, nicht
+        // bewachsen.
         near: () => {
-          const parts = [el("rect", { x: 0, y: 150, width: W, height: 50, fill: "#3f8f57" })];
-          for (let x = 0; x < W; x += 54) {
+          const parts = [nearGround(22, "#357c4a"), nearGround(28, "#3f8f57")];
+          for (let x = 4; x < NW; x += 37) {
+            const lift = (x % 3) * 3;
             parts.push(el("path", {
-              d: `M${x} 176 q22 -34 46 -6 q-24 16 -46 6 z`,
-              fill: x % 108 === 0 ? "#357c4a" : "#48a061",
+              d: `M${x} ${34 + lift} q14 -20 30 -4 q-16 12 -30 4 z`,
+              fill: x % 74 < 37 ? "#48a061" : "#3d9256",
             }));
           }
-          parts.push(el("circle", { cx: 150, cy: 158, r: 6, fill: "#ff8fa3" }));
-          parts.push(el("circle", { cx: 430, cy: 154, r: 6, fill: "#ffd166" }));
-          return tile(parts);
+          parts.push(flower(128, 30, 15, "#ff8fa3"));
+          parts.push(flower(396, 33, 12, "#ffd166"));
+          return nearTile(parts);
         },
       },
     },
@@ -272,14 +323,21 @@
           el("path", { d: "M310 200 L310 154 a24 24 0 0 1 48 0 L358 200 Z", fill: "#2b3440" }),
           el("rect", { x: 292, y: 140, width: 84, height: 12, rx: 4, fill: "#7d8d9c" }),
         ]),
+        // Geröll: flache Steine in Grössen durcheinander, dazwischen ein paar
+        // zähe Grasbüschel. Gleich grosse Kiesel sähen aus wie Pflaster.
         near: () => {
-          const parts = [el("rect", { x: 0, y: 150, width: W, height: 50, fill: "#8e9aa8" })];
-          for (let x = 8; x < W; x += 26) {
-            parts.push(el("ellipse", { cx: x, cy: 166 + (x % 3) * 3, rx: 9, ry: 5, fill: x % 52 === 8 ? "#9fabb8" : "#7f8b99" }));
+          const parts = [nearGround(22, "#7f8b99", 3), nearGround(28, "#8e9aa8", 3)];
+          for (let x = 6; x < NW; x += 21) {
+            const size = 5 + (x % 4) * 2.2;
+            parts.push(el("ellipse", {
+              cx: x, cy: 36 + (x % 5) * 4, rx: size, ry: size * 0.6,
+              fill: x % 3 === 0 ? "#9fabb8" : "#77828f",
+            }));
           }
-          parts.push(bush(180, 160, 0.8, "#5f7a5c"));
-          parts.push(bush(440, 162, 0.9, "#54704f"));
-          return tile(parts);
+          [64, 214, 366, 512].forEach((x, i) => parts.push(grassClump(x, 31 + (i % 2) * 3, 9 + (i % 2) * 3, "#5f7a5c")));
+          parts.push(bush(152, 30, 0.46, "#5f7a5c"));
+          parts.push(bush(430, 29, 0.5, "#54704f"));
+          return nearTile(parts);
         },
       },
     },
@@ -321,14 +379,20 @@
           el("path", { d: "M60 168 q6 -22 2 -34 M66 168 q10 -20 18 -30 M54 168 q-6 -18 -12 -26", fill: "none", stroke: "#8aa85f", "stroke-width": 3.5, "stroke-linecap": "round" }),
           el("path", { d: "M470 170 q6 -24 2 -36 M478 170 q12 -20 20 -28", fill: "none", stroke: "#8aa85f", "stroke-width": 3.5, "stroke-linecap": "round" }),
         ]),
+        // Sand mit Muscheln, Kieseln und ein paar Halmen Strandhafer.
         near: () => {
-          const parts = [el("rect", { x: 0, y: 150, width: W, height: 50, fill: "#e8d9a8" })];
-          for (let x = 12; x < W; x += 44) {
-            parts.push(el("path", { d: `M${x} 174 a10 10 0 0 1 -10 -10 h20 a10 10 0 0 1 -10 10 z`, fill: x % 88 === 12 ? "#f6ede0" : "#f2dfc4" }));
+          const parts = [nearGround(22, "#dccb96", 4), nearGround(28, "#e8d9a8", 4)];
+          for (let x = 16; x < NW; x += 63) {
+            parts.push(group({ transform: `translate(${x},${40 + (x % 3) * 3})` }, [
+              el("path", { d: "M0 0 a9 9 0 0 1 -9 -9 h18 a9 9 0 0 1 -9 9 z", fill: x % 126 < 63 ? "#f6ede0" : "#f2dfc4" }),
+              el("path", { d: "M0 0 v-8 M-4 -1 l-2 -7 M4 -1 l2 -7", fill: "none", stroke: "#d8c8a4", "stroke-width": 1.2 }),
+            ]));
           }
-          parts.push(el("ellipse", { cx: 230, cy: 172, rx: 16, ry: 7, fill: "#d6c294" }));
-          parts.push(el("ellipse", { cx: 520, cy: 168, rx: 12, ry: 6, fill: "#d6c294" }));
-          return tile(parts);
+          [40, 168, 300, 448, 566].forEach((x, i) => {
+            parts.push(el("ellipse", { cx: x, cy: 44 + (i % 2) * 4, rx: 6, ry: 3.4, fill: "#cbb98c" }));
+          });
+          [92, 246, 392, 528].forEach((x, i) => parts.push(grassClump(x, 30 + (i % 2) * 3, 13 + (i % 3) * 4, "#a7bd72")));
+          return nearTile(parts);
         },
       },
     },
@@ -370,19 +434,17 @@
           fir(380, 182, 1.1, "#131c33", "#1b2c47"),
           fir(510, 190, 0.9, "#16203a", "#20334f"),
         ]),
+        // Dunkles Gras, und statt Blumen leuchten Glühwürmchen darüber.
         near: () => {
-          const parts = [el("rect", { x: 0, y: 150, width: W, height: 50, fill: "#2c3f5c" })];
-          for (let x = 6; x < W; x += 17) {
-            parts.push(el("path", {
-              d: `M${x} 168 q3 -8 1 -16`, fill: "none",
-              stroke: x % 34 === 6 ? "#3d5578" : "#334764", "stroke-width": 3, "stroke-linecap": "round",
-            }));
-          }
-          // Glühwürmchen statt Blumen.
+          const parts = [nearGround(22, "#25334c"), nearGround(28, "#2c3f5c")];
+          [10, 32, 58, 79, 104, 128, 151, 177, 203, 228, 254, 279, 305, 330, 356,
+           381, 407, 432, 458, 483, 509, 534, 560, 585]
+            .forEach((x, i) => parts.push(grassClump(x, 31 + (i % 3) * 3, 10 + (i % 4) * 3, i % 4 === 0 ? "#3d5578" : "#334764")));
           [80, 210, 340, 470, 560].forEach((x, i) => {
-            parts.push(el("circle", { cx: x, cy: 150 - (i % 3) * 8, r: 4, fill: "#ffe98a", opacity: "0.85" }));
+            parts.push(el("circle", { cx: x, cy: 16 - (i % 3) * 5, r: 6, fill: "#ffe98a", opacity: "0.18" }));
+            parts.push(el("circle", { cx: x, cy: 16 - (i % 3) * 5, r: 2.6, fill: "#ffe98a", opacity: "0.9" }));
           });
-          return tile(parts);
+          return nearTile(parts);
         },
       },
     },
@@ -403,5 +465,9 @@
     return index >= 0 && index < unlockedCount(builtWagons);
   }
 
-  window.LernappScenes = { SCENES, BY_ID, unlockedCount, isUnlocked, tile, hills, tree, fir, palm, bush, grassTile, cloudTile, W, H, TW, TH };
+  window.LernappScenes = {
+    SCENES, BY_ID, unlockedCount, isUnlocked,
+    tile, nearTile, hills, nearGround, grassClump, flower, tree, fir, palm, bush, grassTile, cloudTile,
+    W, H, NW, NH, TW, TH,
+  };
 })();

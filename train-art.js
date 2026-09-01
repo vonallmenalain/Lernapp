@@ -23,6 +23,12 @@
   const LOCO_W = 200;
   const WHEEL_Y = GROUND - 12;
 
+  // Wie lange ein Rad für eine Umdrehung braucht, bezogen auf das grosse
+  // Treibrad der Lok. Kleinere Räder bekommen anteilig weniger Zeit – sie
+  // laufen auf demselben Gleis.
+  const WHEEL_TURN = 1.5;
+  const WHEEL_REF = 23;
+
   // ---------------------------------------------------------------------------
   // Kleine Helfer
   // ---------------------------------------------------------------------------
@@ -70,17 +76,19 @@
 
   function wheel(cx, radius, color, shape = "spoke") {
     const rim = shade(color, -0.25);
-    const parts = [el("circle", { cx, cy: WHEEL_Y, r: radius, fill: "none", stroke: color, "stroke-width": radius * 0.36 })];
+    const parts = [el("circle", { cx: 0, cy: 0, r: radius, fill: "none", stroke: color, "stroke-width": radius * 0.36 })];
 
     if (shape === "disc") {
-      parts.push(el("circle", { cx, cy: WHEEL_Y, r: radius * 0.62, fill: shade(color, 0.28) }));
-      parts.push(el("circle", { cx, cy: WHEEL_Y, r: radius * 0.22, fill: rim }));
+      parts.push(el("circle", { cx: 0, cy: 0, r: radius * 0.62, fill: shade(color, 0.28) }));
+      parts.push(el("circle", { cx: 0, cy: 0, r: radius * 0.22, fill: rim }));
+      // Ohne eine Marke sähe die Scheibe im Stillstand aus wie in der Fahrt.
+      parts.push(el("rect", { x: -radius * 0.09, y: -radius * 0.58, width: radius * 0.18, height: radius * 0.3, rx: radius * 0.09, fill: rim }));
     } else if (shape === "star") {
       const points = [];
       for (let i = 0; i < 10; i += 1) {
         const angle = (Math.PI / 5) * i - Math.PI / 2;
         const r = i % 2 === 0 ? radius * 0.72 : radius * 0.3;
-        points.push(`${(cx + Math.cos(angle) * r).toFixed(1)},${(WHEEL_Y + Math.sin(angle) * r).toFixed(1)}`);
+        points.push(`${(Math.cos(angle) * r).toFixed(1)},${(Math.sin(angle) * r).toFixed(1)}`);
       }
       parts.push(el("polygon", { points: points.join(" "), fill: shade(color, 0.3) }));
     } else {
@@ -90,15 +98,26 @@
         const dx = Math.cos(angle) * radius * 0.74;
         const dy = Math.sin(angle) * radius * 0.74;
         spokes.push(el("line", {
-          x1: cx - dx, y1: WHEEL_Y - dy, x2: cx + dx, y2: WHEEL_Y + dy,
+          x1: -dx, y1: -dy, x2: dx, y2: dy,
           stroke: color, "stroke-width": Math.max(2, radius * 0.16), "stroke-linecap": "round",
         }));
       }
       parts.push(...spokes);
-      parts.push(el("circle", { cx, cy: WHEEL_Y, r: radius * 0.2, fill: rim }));
+      parts.push(el("circle", { cx: 0, cy: 0, r: radius * 0.2, fill: rim }));
     }
 
-    return group({ class: "train-wheel" }, parts);
+    // Kleine Räder drehen sich schneller als grosse – sie laufen auf demselben
+    // Gleis und legen bei einer Umdrehung weniger Weg zurück. Die Zeit je
+    // Umdrehung steht als CSS-Variable am Rad; die Animation selbst im CSS.
+    const turn = (WHEEL_TURN * radius / WHEEL_REF).toFixed(2);
+    return group({ transform: `translate(${cx},${WHEEL_Y})` }, [
+      // Ein unsichtbarer Kreis, so gross wie das Rad samt Reifen. Ohne ihn
+      // atmete die Umrandung der ganzen Lok im Takt der Drehung: ein Stern
+      // ist nicht in jeder Stellung gleich breit. Für einen Finger wäre das
+      // egal, aber das Ziel soll stillstehen, nicht zittern.
+      el("circle", { cx: 0, cy: 0, r: radius * 1.2, fill: "none" }),
+      group({ class: "train-wheel", style: `--turn:${turn}s` }, parts),
+    ]);
   }
 
   // ---------------------------------------------------------------------------
@@ -121,6 +140,32 @@
   const DRIVER_BY_ID = Object.fromEntries(DRIVERS.map((d) => [d.id, d]));
 
   // Zeichnet einen Tierkopf um (0,0) herum mit Radius r.
+  // Wie weit ein Tier über und neben seinem Kopfkreis hinausragt, in Vielfachen
+  // des Kopfradius. Die Werte stammen aus den Ohrformen unten – der Hase mit
+  // seinen langen Löffeln braucht mehr als doppelt so viel Höhe wie Kopf.
+  // Gebraucht wird das, damit jedes Tier ganz ins Führerhausfenster passt,
+  // statt mit den Ohren durch den Rahmen zu stossen.
+  const EAR_REACH = {
+    point: { up: 1.5, side: 0.85 },
+    round: { up: 1.24, side: 1.22 },
+    big: { up: 1.34, side: 1.42 },
+    long: { up: 2.13, side: 1 },
+    tuft: { up: 1.3, side: 1 },
+    mane: { up: 1.5, side: 1.5 },
+    eyes: { up: 1.12, side: 1 },
+  };
+
+  // Der grösste Kopf, der in ein Fenster passt, samt der Höhe, auf der er
+  // sitzen muss, damit die Ohrenspitzen knapp unter dem Rahmen bleiben.
+  function driverFit(driverId, box, margin = 2, maxR = 16) {
+    const driver = DRIVER_BY_ID[driverId] || DRIVERS[0];
+    const reach = EAR_REACH[driver.ear] || { up: 1, side: 1 };
+    const innerW = box.width - margin * 2;
+    const innerH = box.height - margin * 2;
+    const r = Math.min(maxR, innerH / (reach.up + 1), innerW / (2 * Math.max(1, reach.side)));
+    return { r, cx: box.x + box.width / 2, cy: box.y + margin + reach.up * r };
+  }
+
   function driverHead(driverId, r = 16) {
     const driver = DRIVER_BY_ID[driverId] || DRIVERS[0];
     const { coat, inner, ear } = driver;
@@ -252,8 +297,13 @@
     // Das Fenster ist eine echte Öffnung, keine weisse Fläche: eine Maske
     // schneidet es aus dem Führerhaus, sodass die Landschaft hinter dem Tier
     // durchscheint. Ohne die Maske sässe der Chauffeur auf einem weissen Feld.
-    const windowBox = { x: 22, y: 78, width: 38, height: 32, rx: 4 };
-    const maskId = `loco-window-${locoUid += 1}`;
+    // Das Fenster ist hoch genug für Ohren: der Hase braucht über dem Kopf mehr
+    // als das Doppelte des Kopfradius, und ein quadratisches Fenster liesse
+    // seine Löffel entweder abgeschnitten oder den Kopf winzig aussehen.
+    const windowBox = { x: 18, y: 74, width: 46, height: 44, rx: 5 };
+    const uid = locoUid += 1;
+    const maskId = `loco-window-${uid}`;
+    const clipId = `loco-glass-${uid}`;
 
     const cabParts = [el("rect", { x: 10, y: 66, width: 62, height: GROUND - 88, rx: 5, fill: cabColor })];
     if (c.cab.shape === "round") {
@@ -269,12 +319,32 @@
         el("rect", { x: 0, y: 0, width: LOCO_W, height: ART_H, fill: "#ffffff" }),
         el("rect", { ...windowBox, fill: "#000000" }),
       ]),
+      // Der Chauffeur sitzt hinter dem Fenster, also endet er am Fenster. Die
+      // Grösse unten ist schon so gewählt, dass nichts abgeschnitten wird –
+      // dieser Beschnitt ist die Zusicherung, dass auch bei einem später
+      // dazukommenden Tier kein Ohr über den Rahmen hinausragt.
+      el("clipPath", { id: clipId, clipPathUnits: "userSpaceOnUse" }, [
+        el("rect", { ...windowBox }),
+      ]),
     ]);
 
     const cab = group({ "data-part": "cab", mask: `url(#${maskId})` }, cabParts);
 
     // --- Chauffeur in der Fensteröffnung ---
-    const driver = group({ "data-part": "driver", transform: "translate(41,96)" }, [driverHead(c.driver, 15)]);
+    // Zwei Gruppen: die äussere trägt den Beschnitt, die innere stellt das
+    // Tier an seinen Platz. An einem Element ginge das nicht – ein Beschnitt in
+    // Nutzerkoordinaten wird im System *nach* dem eigenen transform gelesen und
+    // läge dann irgendwo unter der Lok statt auf dem Fenster.
+    const fit = driverFit(c.driver, windowBox);
+    const driver = group({
+      "data-part": "driver",
+      "data-driver": c.driver,
+      "clip-path": `url(#${clipId})`,
+    }, [
+      group({ transform: `translate(${fit.cx.toFixed(1)},${fit.cy.toFixed(1)})` }, [
+        driverHead(c.driver, Number(fit.r.toFixed(2))),
+      ]),
+    ]);
 
     // Der Fensterrahmen kommt über den Chauffeur: so sitzt das Tier sichtbar
     // hinter dem Fenster und nicht davor aufgeklebt.
@@ -632,6 +702,13 @@
 
     if (withTrack) svg.append(buildTrack(width));
 
+    // Unsichtbarer Strich auf Höhe der Schienenoberkante. Auf der Bühne liegt
+    // das Gleis nicht mehr im Zug, sondern fest im Bild – und der Zug muss so
+    // hoch gesetzt werden, dass seine Räder darauf stehen. Die beiden
+    // Koordinatensysteme werden verschieden skaliert, der Versatz lässt sich
+    // deshalb nur messen. Dieser Strich ist die Marke zum Messen.
+    svg.append(el("rect", { class: "train-railline", x: 0, y: GROUND, width, height: 1, fill: "none", "aria-hidden": "true" }));
+
     areas.forEach((area, index) => {
       const wagon = buildWagon(area.wagon, area.color, area.stage);
       wagon.setAttribute("transform", `translate(${pad + index * (WAGON_W + gap)},0)`);
@@ -708,7 +785,7 @@
   // nicht am Rand klebt.
   const PART_FOCUS = {
     whole: { x: -4, y: 8, width: 208, height: 180 },
-    driver: { x: 10, y: 58, width: 64, height: 64 },
+    driver: { x: 6, y: 60, width: 70, height: 72 },
     cab: { x: -2, y: 38, width: 92, height: 122 },
     body: { x: 60, y: 78, width: 110, height: 82 },
     whistle: { x: 82, y: 74, width: 46, height: 62 },
@@ -727,7 +804,7 @@
   const PART_HIT = {
     flag: { x: 30, y: 6, width: 56, height: 34 },
     cab: { x: 0, y: 44, width: 80, height: 30 },
-    driver: { x: 20, y: 76, width: 44, height: 34 },
+    driver: { x: 18, y: 74, width: 46, height: 44 },
     whistle: { x: 86, y: 76, width: 36, height: 32 },
     body: { x: 66, y: 112, width: 46, height: 34 },
     chimney: { x: 124, y: 24, width: 62, height: 60 },
@@ -741,12 +818,27 @@
   const PART_PREVIEW = {
     flag: { x: 28, y: 6, width: 58, height: 50 },
     cab: { x: 0, y: 44, width: 82, height: 76 },
-    driver: { x: 12, y: 62, width: 58, height: 56 },
+    driver: { x: 10, y: 64, width: 62, height: 62 },
     whistle: { x: 80, y: 72, width: 52, height: 58 },
     body: { x: 70, y: 86, width: 68, height: 66 },
     chimney: { x: 112, y: 24, width: 76, height: 74 },
     lamp: { x: 150, y: 82, width: 52, height: 50 },
     wheels: { x: 80, y: 128, width: 54, height: 58 },
+  };
+
+  // Wo der Hinweispunkt sitzt. Die Mitte des Trefferfelds wäre der bequeme
+  // Ort, liegt aber genau auf dem, was man sehen will – beim Chauffeur mitten
+  // im Gesicht. Diese Punkte liegen daneben: auf dem Führerhaus unter dem
+  // Fenster, auf dem Rahmen zwischen den Rädern, neben der Fahne.
+  const PART_DOT = {
+    flag: { x: 76, y: 16 },
+    cab: { x: 22, y: 63 },
+    driver: { x: 41, y: 128 },
+    whistle: { x: 104, y: 84 },
+    body: { x: 90, y: 148 },
+    chimney: { x: 155, y: 58 },
+    lamp: { x: 179, y: 106 },
+    wheels: { x: 133, y: 160 },
   };
 
   const LOCO_PARTS = [
@@ -834,6 +926,14 @@
       // Unsichtbare Trefferfläche über dem ganzen Tor – so ist das Ziel gross
       // und ändert sich nicht, wenn das Tor beim Hovern wächst.
       el("rect", { x: -8, y: -8, width: GATE_W + 16, height: GATE_H + 16, rx: 16, fill: "transparent", class: "train-gate-hit" }),
+      // Das Innere der Halle. Ohne diese Fläche wäre der Bogen ein Loch, und
+      // durch das Loch sähe man alle Gleise, die hinter dem Tor vorbeiführen –
+      // fünf Tore, durch die je vier fremde Gleise laufen. Mit dem dunklen
+      // Feld wird aus dem Bogen ein Schuppen, in den genau ein Gleis führt.
+      el("path", {
+        d: `M34 ${GATE_H} L34 74 A${GATE_W / 2 - 34} 40 0 0 1 ${GATE_W - 34} 74 L${GATE_W - 34} ${GATE_H} Z`,
+        fill: shade(color, -0.62),
+      }),
       el("path", {
         d: `M6 ${GATE_H} L6 60 A${GATE_W / 2 - 6} 54 0 0 1 ${GATE_W - 6} 60 L${GATE_W - 6} ${GATE_H} L${GATE_W - 34} ${GATE_H} L${GATE_W - 34} 74 A${GATE_W / 2 - 34} 40 0 0 0 34 74 L34 ${GATE_H} Z`,
         fill: color,
@@ -1019,7 +1119,7 @@
     el, group, shade, inkOn,
     driverHead, wheel,
     buildLoco, buildWagon, buildTrain, buildTrack, buildStartSignal,
-    areaIcon, buildGate, buildBuilding, BUILDINGS, GATE_W, GATE_H, BUILD_W, PART_FOCUS, PART_HIT, PART_PREVIEW,
+    areaIcon, buildGate, buildBuilding, BUILDINGS, GATE_W, GATE_H, BUILD_W, PART_FOCUS, PART_HIT, PART_PREVIEW, PART_DOT,
     locoConfig,
   };
 })();

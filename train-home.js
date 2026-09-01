@@ -211,73 +211,175 @@
   // ---------------------------------------------------------------------------
   const LAYER_W = 1200;
   const LAYER_H = 620;
+  // Auf welcher Höhe die Schienenoberkante liegt. Für alle Ansichten dieselbe:
+  // so steht der Zug überall gleich hoch und muss beim Wechsel nicht springen.
+  const RAIL_Y = 512;
+  // Wie weit das Gleis über den Bildrand hinausgezeichnet wird. Der Ausschnitt
+  // des SVG wird eingepasst, nicht beschnitten – bei einem sehr breiten Fenster
+  // bliebe sonst links und rechts ein Stück Gleis fehlend.
+  const RAIL_BLEED = 400;
+
+  // Ein Stück Gleis. Es liegt fest im Bild und nicht mehr am Zug: nur so fährt
+  // der Zug wirklich, statt sein Gleis mitzunehmen.
+  function stageRail(y = RAIL_Y, from = -RAIL_BLEED, to = LAYER_W + RAIL_BLEED) {
+    const parts = [];
+    for (let x = from; x < to; x += 46) {
+      parts.push(el("rect", { x, y: y + 14, width: 8, height: 15, rx: 3, fill: "#7b5c3a", opacity: "0.5" }));
+    }
+    parts.push(el("rect", { class: "stage-rail", x: from, y, width: to - from, height: 9, rx: 4, fill: "#8c93a1" }));
+    parts.push(el("rect", { x: from, y: y + 9, width: to - from, height: 5, fill: "#6a7180", opacity: "0.7" }));
+    return group({ class: "stage-track", "aria-hidden": "true" }, parts);
+  }
+
+  // Ein abzweigendes Gleis. Zwei Stücke: eine kurze Weiche, die waagrecht aus
+  // der Hauptstrecke herausführt, und danach eine schnurgerade Rampe zum Tor.
+  //
+  // Die Gerade ist kein Schönheitsentscheid. Der Zug fährt später auf diesem
+  // Gleis, und er kann sich nur geradlinig verschieben. Auf einer durchgehenden
+  // Kurve schnitte er die Ecke und schwebte in der Mitte über den Schienen.
+  // Mit Weiche und Gerade fährt er erst waagrecht bis zur Weiche und dann die
+  // Rampe hinauf – auf dem Gleis, so wie es eine echte Lok täte.
+  const SWITCH_RUN = 88;
+
+  function branchGeometry(switchX, endX, endY) {
+    // Wo die Weiche endet und die Gerade anfängt: auf der Verbindung vom Ende
+    // der Weiche zum Tor, ein Stück weit hinein. So geht die Kurve ohne Knick
+    // in die Gerade über.
+    const fromX = switchX + SWITCH_RUN;
+    const t = 0.22;
+    return {
+      fromX,
+      beginX: fromX + (endX - fromX) * t,
+      beginY: RAIL_Y + (endY - RAIL_Y) * t,
+    };
+  }
+
+  function branchRail(switchX, endX, endY) {
+    const g = branchGeometry(switchX, endX, endY);
+    const d = "M" + switchX + " " + RAIL_Y
+      + " Q" + g.fromX + " " + RAIL_Y + " " + g.beginX + " " + g.beginY
+      + " L" + endX + " " + endY;
+    return [
+      el("path", { d, fill: "none", stroke: "#7b5c3a", "stroke-width": 17, "stroke-linecap": "round", opacity: "0.4" }),
+      el("path", { d, fill: "none", stroke: "#8c93a1", "stroke-width": 9, "stroke-linecap": "round" }),
+      el("path", { d, fill: "none", stroke: "#dfe4ec", "stroke-width": 3, "stroke-linecap": "round", opacity: "0.85" }),
+    ];
+  }
 
   function layerSvg(children, label) {
     return el("svg", {
       class: "stage-svg",
       viewBox: `0 0 ${LAYER_W} ${LAYER_H}`,
-      preserveAspectRatio: "xMidYMid meet",
+      // Unten ausgerichtet: das Gleis gehört an den unteren Bildrand. Mittig
+      // eingepasst schwebte es auf einem hohen Bildschirm in der Luft, und
+      // darunter bliebe ein leeres Feld.
+      preserveAspectRatio: "xMidYMax meet",
       role: "group",
       "aria-label": label,
     }, children);
   }
 
-  // Fünf Tore nebeneinander, davor ein Gleisfächer aus der Ecke, in der der Zug
-  // steht. Der Fächer ist das, was "in fünf Richtungen fahren" zeigt – fünf
-  // Tore allein sähen aus wie eine Liste.
-  function buildAreasLayer(areas) {
-    const gateScale = 0.86;
-    const gateW = art.GATE_W * gateScale;
-    const gap = (LAYER_W - 2 * 40 - 5 * gateW) / 4;
-    const gateY = 62;
-    const footY = gateY + art.GATE_H * gateScale;
-    // Der Zug steht unten links und die Lok an seinem rechten Ende; von dort
-    // gehen die Gleise weg. Der Wert ist auf die verkleinerte Lok abgestimmt.
-    const originX = 452;
-    const originY = LAYER_H + 6;
+  // Wo die fünf Tore stehen und wo ihr Gleis endet. Der Zug wartet links auf
+  // der Hauptstrecke; von ihr zweigen fünf Gleise ab und steigen gestaffelt
+  // nach rechts oben – fünf Stationen einen Hang hinauf. Nebeneinander
+  // aufgereiht sähen die Tore aus wie eine Liste, und genau das nicht.
+  const GATE_SCALE = 0.78;
+  const AREA_STOPS = [
+    { x: 412, y: 502 },
+    { x: 598, y: 410 },
+    { x: 778, y: 318 },
+    { x: 946, y: 226 },
+    { x: 1098, y: 134 },
+  ];
 
+  function areaStop(index) {
+    return AREA_STOPS[Math.min(index, AREA_STOPS.length - 1)];
+  }
+
+  function buildAreasLayer(areas) {
+    const gateW = art.GATE_W * GATE_SCALE;
+    const gateH = art.GATE_H * GATE_SCALE;
     const rails = [];
     const gates = [];
 
     areas.forEach((area, index) => {
-      const x = 40 + index * (gateW + gap);
-      const centre = x + gateW / 2;
-
-      // Ein Gleis je Tor, aus derselben Ecke. Zwei Schienenstränge plus
-      // Schwellen wären bei dieser Grösse Matsch – eine kräftige Linie mit
-      // heller Innenlinie liest sich besser.
-      const d = `M${originX} ${originY} C${originX + 10} ${originY - 200}, ${centre} ${footY + 250}, ${centre} ${footY}`;
-      rails.push(el("path", { d, fill: "none", stroke: "#8c93a1", "stroke-width": 15, "stroke-linecap": "round", opacity: "0.9" }));
-      rails.push(el("path", { d, fill: "none", stroke: "#dfe4ec", "stroke-width": 5, "stroke-linecap": "round" }));
-
+      const stop = areaStop(index);
+      // Jedes Gleis verlässt die Hauptstrecke an einer eigenen Weiche. Alle aus
+      // demselben Punkt hiesse: ein Knoten, aus dem fünf Striche stechen.
+      //
+      // Das Gleis zum höchsten Tor zweigt zuerst ab, das zum untersten zuletzt.
+      // Andersherum müsste jedes höhere Gleis die tieferen kreuzen – wie in
+      // einem Bahnhofsvorfeld, in dem die Weichen falsch herum liegen.
+      const switchX = 126 + (areas.length - 1 - index) * 56;
+      rails.push(...branchRail(switchX, stop.x, stop.y));
+      // Unsichtbare Marke am Anfang der Rampe. Der Zug muss wissen, wo er von
+      // der Hauptstrecke abbiegt, und ausrechnen lässt sich das nicht: das
+      // Bühnen-SVG wird ins Fenster eingepasst, sein Massstab hängt am
+      // Seitenverhältnis. Also wird die Stelle gemessen.
+      const g = branchGeometry(switchX, stop.x, stop.y);
+      rails.push(el("rect", {
+        "data-switch": area.id, x: g.beginX - 1, y: g.beginY - 1, width: 2, height: 2, fill: "none",
+      }));
       const gate = art.buildGate(area, { label: describeArea(area) });
-      gates.push(group({ transform: `translate(${x},${gateY}) scale(${gateScale})` }, [gate]));
+      gates.push(group({
+        "data-stop": area.id,
+        transform: "translate(" + (stop.x - gateW / 2) + "," + (stop.y - gateH) + ") scale(" + GATE_SCALE + ")",
+      }, [gate]));
     });
 
-    return layerSvg([group({ "aria-hidden": "true" }, rails), ...gates], "Wohin soll der Zug fahren?");
+    return layerSvg([
+      group({ "aria-hidden": "true" }, rails),
+      stageRail(),
+      ...gates,
+    ], "Wohin soll der Zug fahren?");
+  }
+
+  // Wohin sich der Zug schieben muss, um in einem Tor zu stehen – in Pixeln.
+  // Gemessen statt gerechnet: das Bühnen-SVG wird ins Fenster eingepasst, sein
+  // Massstab hängt also vom Seitenverhältnis ab. In der CSS-Regel steht
+  // translate() vor scale(), die Verschiebung wird also nicht mitverkleinert –
+  // gemessene Bildschirmpixel passen damit unverändert hinein.
+  function driveTo(areaId) {
+    const gate = layerHost?.querySelector('[data-stop="' + areaId + '"]');
+    const mark = layerHost?.querySelector('[data-switch="' + areaId + '"]');
+    const loco = stage.querySelector("[data-loco]");
+    if (!gate || !mark || !loco) return null;
+    const target = gate.getBoundingClientRect();
+    const turn = mark.getBoundingClientRect();
+    const front = loco.getBoundingClientRect();
+    if (!front.width || !target.width) return null;
+    const cx = front.left + front.width * 0.5;
+    return {
+      // Erst waagrecht bis zum Anfang der Rampe …
+      turnX: turn.left - cx,
+      turnY: turn.top - front.bottom,
+      // … dann die Rampe hinauf bis in die Halle.
+      x: (target.left + target.width * 0.5) - cx,
+      y: (target.bottom - 10) - front.bottom,
+    };
   }
 
   // Die Gebäude eines Bereichs, aufgereiht an einem Gleis. Ein Motiv je Spiel.
+  // Links steht der Zug, rechts davon die Häuser. Der Platz dazwischen ist
+  // fest: der Zug ist auf dieser Bühne 42 Prozent breit, und Häuser hinter ihm
+  // wären halb verdeckt. Passen die Häuser nicht in den Rest, werden sie
+  // kleiner – lieber vier kleine Häuser nebeneinander als eins hinter dem Zug.
+  const TRAIN_ROOM = 545;
+
   function buildGamesLayer(area) {
     const games = area.games;
-    const scale = games.length > 4 ? 0.8 : 1;
+    const gap = games.length > 2 ? 46 : 110;
+    const room = LAYER_W - TRAIN_ROOM - 36;
+    const full = games.length * art.BUILD_W + (games.length - 1) * gap;
+    const scale = Math.min(1, room / full);
     const w = art.BUILD_W * scale;
-    const gap = games.length > 2 ? 52 : 120;
-    const span = games.length * w + (games.length - 1) * gap;
-    const startX = (LAYER_W - span) / 2;
-    const baseY = LAYER_H - 118;
+    const span = games.length * w + (games.length - 1) * gap * scale;
+    const startX = TRAIN_ROOM + (room - span) / 2;
+    const baseY = RAIL_Y - 4;
     const groundOffset = baseY - art.GROUND * scale;
 
-    const rail = [
-      el("rect", { class: "stage-rail", x: 0, y: baseY + 4, width: LAYER_W, height: 9, rx: 4, fill: "#8c93a1" }),
-      el("rect", { x: 0, y: baseY + 13, width: LAYER_W, height: 5, fill: "#6a7180", opacity: "0.7" }),
-    ];
-    for (let x = 12; x < LAYER_W; x += 46) {
-      rail.push(el("rect", { x, y: baseY + 18, width: 8, height: 15, rx: 3, fill: "#7b5c3a", opacity: "0.5" }));
-    }
-
     const houses = games.map((game, index) => {
-      const x = startX + index * (w + gap);
+      const x = startX + index * (w + gap * scale);
       const node = art.buildBuilding(game.id, {
         done: game.total > 0 && game.solved === game.total,
         label: describeGame(game),
@@ -286,7 +388,7 @@
       return group({ transform: `translate(${x},${groundOffset}) scale(${scale})` }, [node]);
     });
 
-    return layerSvg([group({ "aria-hidden": "true" }, rail), ...houses], `Spiele im Bereich ${area.label}`);
+    return layerSvg([stageRail(), ...houses], `Spiele im Bereich ${area.label}`);
   }
 
   // Der Zug und die Gebäude sollen auf einem Gleis stehen. Beide liegen in
@@ -295,13 +397,14 @@
   // nur messen. Das Ergebnis geht als Pixelwert ins CSS.
   function alignTrainToRail() {
     const rail = layerHost?.querySelector(".stage-rail");
-    const track = stage.querySelector(".train-track rect");
-    if (!rail || !track) {
+    const mark = stage.querySelector(".train-railline");
+    if (!rail || !mark) {
       stage.style.removeProperty("--train-lift");
       return;
     }
-    const lift = rail.getBoundingClientRect().top - track.getBoundingClientRect().top;
+    const lift = rail.getBoundingClientRect().top - mark.getBoundingClientRect().top;
     stage.style.setProperty("--train-lift", `${Math.round(lift)}px`);
+    positionStart();
   }
 
   // ---------------------------------------------------------------------------
@@ -396,15 +499,18 @@
         // Ein kleiner Punkt statt eines Rahmens: acht gestrichelte Kästen über
         // der Lok sehen aus wie ein Bauplan und verdecken die Zeichnung. Der
         // Punkt sagt dasselbe und lässt die Lok Lok bleiben.
-        const cx = box.x + box.width / 2;
-        const cy = box.y + box.height / 2;
+        //
+        // Angetippt wird das ganze Feld, der Punkt sitzt aber daneben – in der
+        // Mitte läge er beim Chauffeur mitten im Gesicht. Wo kein Ort
+        // eingetragen ist, bleibt es bei der Mitte.
+        const dot = art.PART_DOT[spec.id] || { x: box.x + box.width / 2, y: box.y + box.height / 2 };
         const hot = el("g", {
           class: "loco-hotspot", "data-hot": spec.id,
           role: "button", tabindex: "0", "aria-label": `${spec.label} ändern`,
         }, [
           el("rect", { ...box, rx: 7, fill: "transparent", class: "loco-hotspot-hit" }),
-          el("circle", { cx, cy, r: 8, class: "loco-hotspot-halo", fill: "#ffffff", opacity: "0.35" }),
-          el("circle", { cx, cy, r: 5, class: "loco-hotspot-dot", fill: "#ffffff", stroke: "#6c5ce7", "stroke-width": 2 }),
+          el("circle", { cx: dot.x, cy: dot.y, r: 5.5, class: "loco-hotspot-halo", fill: "#ffffff", opacity: "0.28" }),
+          el("circle", { cx: dot.x, cy: dot.y, r: 3.2, class: "loco-hotspot-dot", fill: "#ffffff", stroke: "#6c5ce7", "stroke-width": 1.4 }),
         ]);
         activate(hot, () => showWorkshop(spec.id));
         hotspots.append(hot);
@@ -638,6 +744,42 @@
     return bar;
   }
 
+  // Das Startsignal schwebt vor der Lok, statt auf dem Gleis zu stehen. Das
+  // Gleis liegt jetzt fest im Bild; ein Signal darauf wäre ein Hindernis, das
+  // der Zug beim Losfahren umfahren müsste. Als eigener Knopf lässt es sich
+  // ausserdem genau vor die Lok setzen, egal wie breit das Fenster ist.
+  function buildStartButton() {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "train-start";
+    button.setAttribute("aria-label", "Losfahren");
+    button.append(el("svg", { viewBox: "0 0 48 48", "aria-hidden": "true" }, [
+      el("circle", { cx: 24, cy: 24, r: 21, class: "train-start-ring", fill: "none", stroke: "#3fbf74", "stroke-width": 4, opacity: "0.5" }),
+      el("circle", { cx: 24, cy: 24, r: 18, fill: shade("#3fbf74", -0.35) }),
+      el("circle", { cx: 24, cy: 24, r: 15, class: "train-start-lamp", fill: "#3fbf74" }),
+      el("polygon", { points: "19,16 33,24 19,32", fill: "#ffffff" }),
+    ]));
+    button.addEventListener("click", start);
+    return button;
+  }
+
+  // Setzt den Knopf vor die Lok und knapp über das Gleis. Beides wird gemessen:
+  // wie breit der Zug im Bild steht, hängt am Seitenverhältnis des Fensters.
+  function positionStart() {
+    if (!startButton) return;
+    const loco = stage.querySelector("[data-loco]");
+    const rail = layerHost?.querySelector(".stage-rail");
+    const host = stage.getBoundingClientRect();
+    const box = loco?.getBoundingClientRect();
+    if (!box?.width || !host.width) return;
+    const size = startButton.offsetWidth || 74;
+    const gap = Math.min(70, host.width * 0.05);
+    const left = Math.min(box.right - host.left + gap, host.width - size - 18);
+    const railTop = rail ? rail.getBoundingClientRect().top - host.top : host.height * 0.82;
+    startButton.style.left = `${Math.round(left)}px`;
+    startButton.style.top = `${Math.round(railTop - size - 16)}px`;
+  }
+
   function buildBackButton() {
     const back = document.createElement("button");
     back.type = "button";
@@ -655,6 +797,7 @@
   let layerHost = null;
   let backButton = null;
   let sceneButton = null;
+  let startButton = null;
   let busy = false;
 
   function setView(name, areaId = null) {
@@ -665,6 +808,7 @@
     // Die Landschaft wechselt man auf dem Startbild. Unterwegs wäre der Knopf
     // nur eine zweite Möglichkeit, sich zu verfahren.
     if (sceneButton) sceneButton.hidden = name !== "home";
+    if (startButton) startButton.hidden = name !== "home";
     if (areaId) remember(LAST_AREA_KEY, areaId);
   }
 
@@ -707,19 +851,19 @@
 
   function showHome() {
     setView("home");
-    stage.style.removeProperty("--train-lift");
-    renderLayer(null);
+    renderLayer(layerSvg([stageRail()], "Das Gleis"));
+    window.requestAnimationFrame(alignTrainToRail);
   }
 
   function showAreas() {
     setView("areas");
-    stage.style.removeProperty("--train-lift");
     const layer = buildAreasLayer(progress.allAreas());
     layer.querySelectorAll("[data-gate]").forEach((gate) => {
       const id = gate.getAttribute("data-gate");
       activate(gate, () => enterArea(id));
     });
     renderLayer(layer);
+    window.requestAnimationFrame(alignTrainToRail);
   }
 
   function showGames(areaId) {
@@ -738,21 +882,51 @@
   // ---------------------------------------------------------------------------
   // Fahrten
   // ---------------------------------------------------------------------------
+  // Das Horn der Dampflok. Es tönt bei jeder Abfahrt: beim Erscheinen, beim
+  // Startsignal, vor der Fahrt in einen Bereich und vor dem Spiel. Immer
+  // dasselbe Zeichen für dasselbe – "jetzt geht es los".
+  function toot(chuffs = 4) {
+    kids()?.playHorn?.({ chuffs });
+  }
+
   async function start() {
     if (busy || view.name !== "home") return;
     busy = true;
+    toot(5);
     showAreas();          // der Zug schrumpft und rückt nach links (CSS)
     await after(760);
     busy = false;
   }
 
+  // Der Zug fährt auf seinem Gleis zum gewählten Tor und hinein. Danach kommt
+  // er im Bereich von links wieder herein. Das Gleis bleibt dabei stehen: es
+  // liegt in der Bühnenebene und nicht mehr am Zug.
   async function enterArea(areaId) {
     if (busy) return;
     busy = true;
-    // Der Zug fährt nach rechts aus dem Bild, dann kommt er im Bereich von
-    // links wieder herein. Dazwischen wechselt die Kulisse.
-    stage.dataset.moving = "out";
-    await after(620);
+    toot(6);
+
+    // Zwei Abschnitte, wie eine echte Lok fährt: anrollen bis zur Weiche, dann
+    // die Rampe hinauf in die Halle. In einem Zug schnitte der Zug die Ecke und
+    // schwebte in der Mitte über den Schienen.
+    const to = driveTo(areaId);
+    if (to) {
+      stage.style.setProperty("--drive-x", `${Math.round(to.turnX)}px`);
+      stage.style.setProperty("--drive-y", `${Math.round(to.turnY)}px`);
+      stage.dataset.driving = "1";
+      await after(520);
+      stage.style.setProperty("--drive-x", `${Math.round(to.x)}px`);
+      stage.style.setProperty("--drive-y", `${Math.round(to.y)}px`);
+      stage.dataset.driving = "2";
+      await after(980);
+      delete stage.dataset.driving;
+      stage.style.removeProperty("--drive-x");
+      stage.style.removeProperty("--drive-y");
+    } else {
+      stage.dataset.moving = "out";
+      await after(620);
+    }
+
     showGames(areaId);
     stage.dataset.moving = "in";
     await after(40);
@@ -764,8 +938,12 @@
   async function enterGame(page) {
     if (busy || !page) return;
     busy = true;
+    // Falls die Seite doch nicht wechselt – ein blockierter Link, ein
+    // abgebrochener Ladevorgang –, darf die Bühne nicht gesperrt bleiben.
+    window.setTimeout(() => { if (busy && view.name === "games") resetStage(); }, 4000);
     // Die Musik gehört ins Menü. Ausblenden statt abschneiden: ein abrupt
     // endender Ton klingt nach Fehler.
+    toot(3);
     kids()?.stopMusic?.({ fade: 0.45 });
     stage.dataset.moving = "out";
     await after(560);
@@ -820,7 +998,10 @@
 
     const band = document.createElement("div");
     band.className = "train-band";
-    const svg = art.buildTrain(areas, loco, { pad: 4, gap: 4, trailing: 116, startLabel: "Losfahren" });
+    // Ohne Gleis: das liegt jetzt fest in der Bühnenebene, damit es beim
+    // Losfahren stehen bleibt. Der Nachlauf rechts ist der Platz, auf dem das
+    // Startsignal vor der Lok schwebt.
+    const svg = art.buildTrain(areas, loco, { pad: 4, gap: 4, trailing: 120, withTrack: false });
     svg.setAttribute("aria-label", describeTrain(areas));
 
     svg.querySelectorAll("[data-area]").forEach((node) => {
@@ -834,8 +1015,6 @@
     });
     svg.querySelector("[data-loco]")?.setAttribute("aria-label", "Deine Lokomotive");
 
-    const signal = svg.querySelector(".train-start-signal");
-    if (signal) activate(signal, start);
 
     // Ein Tipp auf die Lok führt in die Werkstatt – aber nur vom Startbild aus.
     const locoNode = svg.querySelector("[data-loco]");
@@ -854,8 +1033,9 @@
     backButton = buildBackButton();
     backButton.hidden = true;
     sceneButton = scene ? buildSceneButton(scene) : null;
+    startButton = buildStartButton();
 
-    stage.append(band, layerHost, buildTopbar(), backButton);
+    stage.append(band, layerHost, buildTopbar(), backButton, startButton);
     if (sceneButton) stage.append(sceneButton);
 
     if (previous === "games" && previousArea) showGames(previousArea);
@@ -867,12 +1047,36 @@
 
   render();
 
+  // Die Einfahrt. Zuerst stehen nur Landschaft und Gleis da, dann kommt der Zug
+  // von links herein und meldet sich mit dem Horn. Ohne Bewegung entfällt das:
+  // wer Animationen abgeschaltet hat, soll den Zug einfach vorfinden.
+  //
+  // Ob das Horn beim allerersten Laden wirklich tönt, entscheidet der Browser:
+  // ohne eine Berührung bleibt jeder Ton stumm. Beim Zurückkommen aus einem
+  // Spiel ist der Ton längst freigegeben, und dann hört man es.
+  function rollIn() {
+    if (reduced()) return;
+    stage.dataset.entering = "1";
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        stage.dataset.entering = "0";
+        window.setTimeout(() => toot(4), 780);
+        window.setTimeout(() => {
+          delete stage.dataset.entering;
+          alignTrainToRail();
+        }, 1660);
+      });
+    });
+  }
+
+  rollIn();
+
   // Beim allerersten Start fragt die App, wer spielt. Das hing bisher an der
   // Spielliste in index.html; die gibt es nicht mehr, also fragt der Zug.
   if (!home()?.hasProfile?.()) home()?.showProfileSetup?.();
 
   window.addEventListener("resize", () => {
-    if (view.name === "games") window.requestAnimationFrame(alignTrainToRail);
+    if (view.name !== "loco" && view.name !== "wagon") window.requestAnimationFrame(alignTrainToRail);
     if (view.name === "loco") {
       const svg = stage.querySelector(".loco-svg");
       const camera = stage.querySelector(".loco-camera");
@@ -909,5 +1113,26 @@
   // Nach einem Spiel kommt das Kind hierher zurück – der Fortschritt hat sich
   // dann geändert. Beim Zurückspringen im Verlauf liefert der Browser die Seite
   // aus dem Cache; ohne dieses Neuzeichnen stünde der alte Zug da.
-  window.addEventListener("pageshow", (event) => { if (event.persisted) render(); });
+  // Zurück aus einem Spiel: der Browser holt die Seite aus dem Vor-Zurück-
+  // Speicher, ohne ein Skript neu zu starten. Dann steht busy noch auf true und
+  // die Bühne noch auf "ausgefahren" – der Zug wäre aus dem Bild geschoben und
+  // kein Tipp käme mehr an. Beim pageshow wird deshalb alles zurückgesetzt und
+  // wieder das Startbild gezeigt: nach einem Spiel soll das Kind ohnehin
+  // seinen ganzen Zug sehen.
+  window.addEventListener("pageshow", (event) => {
+    if (!event.persisted) return;
+    resetStage();
+    kids()?.startMusic?.();
+    rollIn();
+  });
+
+  function resetStage() {
+    busy = false;
+    delete stage.dataset.moving;
+    stage.querySelector(".scene-picker")?.remove();
+    view.name = "home";
+    view.areaId = null;
+    view.part = "whole";
+    render();
+  }
 })();

@@ -68,7 +68,11 @@ for (const scene of scenes.SCENES) {
     const tile = scene.layers[layer]();
     assert(tile.nodeName === "svg", `${scene.id}/${layer}: liefert kein svg`);
     assert(countNodes(tile) > 2, `${scene.id}/${layer}: zeichnet nichts`);
-    assert(tile.attrs.viewBox === `0 0 ${scenes.W} ${scenes.H}`, `${scene.id}/${layer}: falscher Ausschnitt`);
+    // Die Nahebene ist ein flacher Streifen ganz unten und hat deshalb einen
+    // eigenen, flachen Ausschnitt. Mit dem hohen der übrigen Ebenen wurde alles
+    // darin waagrecht gestaucht und senkrecht gezogen.
+    const box = layer === "near" ? `0 0 ${scenes.NW} ${scenes.NH}` : `0 0 ${scenes.W} ${scenes.H}`;
+    assert(tile.attrs.viewBox === box, `${scene.id}/${layer}: falscher Ausschnitt (${tile.attrs.viewBox}, erwartet ${box})`);
     // Ohne preserveAspectRatio="none" liesse sich die Kachel nicht auf die
     // Bandhöhe ziehen und die Schleife bekäme Lücken.
     assert(tile.attrs.preserveAspectRatio === "none", `${scene.id}/${layer}: Kachel wird nicht gestreckt`);
