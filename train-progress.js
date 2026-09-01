@@ -62,7 +62,7 @@
       icon: "puzzle",
       wagon: "crane",
       games: [
-        { id: "spatialPuzzle", title: "Raumdetektiv", page: "raumdetektiv.html" },
+        { id: "spatialPuzzle", title: "Raumdetektiv", page: "raumdetektiv.html", ownProgress: "spatial" },
         { id: "arukone", title: "Arukone", page: "arukone.html", ownProgress: "fuenfLevel" },
         { id: "bimaru", title: "Battleships", page: "bimaru.html", ownProgress: "fuenfLevel" },
         { id: "shikaku", title: "Tiergehege", page: "shikaku.html", ownProgress: "fuenfLevel" },
@@ -127,6 +127,7 @@
   const TRACK_KEY = "lernapp.trackrouter";
   const BACKPACK_KEY = "lernapp.backpack";
   const MEMORY_KEY = "lernapp.memory";
+  const RAUM_KEY = "lernapp.raumdetektiv";
   // Weichen-Wirrwarr hat zehn Level, aber fünf davon reichen für den Wagen.
   const TRACK_LEVELS_FOR_DONE = 5;
   // Beide Bestenlisten-Spiele gelten nach fünf gespielten Runden als geschafft.
@@ -335,6 +336,10 @@
     // Wahl, und wer alle fünf einmal geschafft hat, hat den Wagen gebaut.
     // Bewertet wird nichts – geschafft ist geschafft, also drei Sterne.
     memory: levelSetProgress(MEMORY_KEY, [8, 12, 16, 20, 24]),
+    // Raumdetektiv legt keine Punktzahl ab, sondern die Sterne der Runde: die
+    // Bewertung steht schon fest, wenn die zehn Aufgaben durch sind. Drei
+    // Sterne sind damit die "gute" Runde.
+    spatial: runsProgress(RAUM_KEY, 3),
   };
 
   // Ein Spiel, das eine feste Liste von Aufgaben führt und jede nur als
@@ -406,7 +411,7 @@
     cloudGames.register({ key: RUNNER_KEY, empty: { unlocked: 1, best: {} }, merge: cloudGames.mergeLevels }).onChange(redraw);
     cloudGames.register({ key: TRACK_KEY, empty: { best: {} }, merge: cloudGames.mergeLevels }).onChange(redraw);
     cloudGames.register({ key: MEMORY_KEY, empty: { best: {} }, merge: cloudGames.mergeLevels }).onChange(redraw);
-    [CARDMATCH_KEY, BEACH_KEY, FLANKER_KEY, BACKPACK_KEY].forEach((key) => {
+    [CARDMATCH_KEY, BEACH_KEY, FLANKER_KEY, BACKPACK_KEY, RAUM_KEY].forEach((key) => {
       cloudGames.register({ key, empty: { runs: 0, scores: [] }, merge: cloudGames.mergeScores(RUNS_FOR_DONE) }).onChange(redraw);
     });
   }

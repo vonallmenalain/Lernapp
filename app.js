@@ -957,14 +957,20 @@ const SPATIAL_NET_BASE_POSITIONS = {
   bottom: [1, 2],
 };
 
-function makeSpatialLevels(levels = window.SPATIAL_PUZZLES || []) {
-  const counters = Object.fromEntries(DIFFICULTY_KEYS.map((difficulty) => [difficulty, 0]));
-  return levels.map((levelData) => {
-    counters[levelData.difficulty] += 1;
-    return makeLevel("spatialPuzzle", levelData.difficulty, counters[levelData.difficulty], {
-      ...levelData,
-      badge: `${levelData.options?.length || 0} Antworten`,
-      description: levelData.description || SPATIAL_LEVEL_DESCRIPTIONS[levelData.difficulty],
+// Zehn Aufgaben sind eine Runde.
+const SPATIAL_TASKS_PER_LEVEL = 10;
+
+// Vier Level, eines je Welt – jedes eine Runde über zehn Aufgaben. Vorher war
+// jede einzelne Aufgabe ein eigenes Level; vor dem Spielen stand damit eine
+// Wand aus vierzig Kacheln, und nach jedem Würfelbild ging es dorthin zurück.
+function makeSpatialLevels(tasks = window.SPATIAL_PUZZLES || []) {
+  return DIFFICULTY_KEYS.map((difficulty) => {
+    const aufgaben = tasks.filter((task) => task.difficulty === difficulty).slice(0, SPATIAL_TASKS_PER_LEVEL);
+    return makeLevel("spatialPuzzle", difficulty, 1, {
+      tasks: aufgaben,
+      targetCount: aufgaben.length,
+      badge: `${aufgaben.length} Aufgaben`,
+      description: SPATIAL_LEVEL_DESCRIPTIONS[difficulty],
     });
   });
 }
@@ -1117,7 +1123,7 @@ function spatialNetLayout(turns = 0) {
   return { positions, cols, rows };
 }
 
-function validateSpatialLevel(level) {
+function validateSpatialTask(level) {
   const errors = [];
   const label = level.id || level.levelName || "spatial level";
   const expectedOptionCount = SPATIAL_OPTION_COUNTS[level.difficulty];
@@ -1173,33 +1179,47 @@ function validateSpatialLevel(level) {
   return errors;
 }
 
-function validateSpatialLevels(levels = []) {
+function validateSpatialTasks(tasks = []) {
   const errors = [];
-  if (levels.length !== 40) errors.push(`spatialPuzzle should have 40 levels, found ${levels.length}`);
+  if (tasks.length !== 40) errors.push(`spatialPuzzle should have 40 tasks, found ${tasks.length}`);
   DIFFICULTY_KEYS.forEach((difficulty) => {
-    const byDifficulty = levels.filter((level) => level.difficulty === difficulty);
-    if (byDifficulty.length !== 10) errors.push(`spatialPuzzle ${difficulty} should have 10 levels`);
-    const typeSet = new Set(byDifficulty.map((level) => level.type));
+    const byDifficulty = tasks.filter((task) => task.difficulty === difficulty);
+    if (byDifficulty.length !== SPATIAL_TASKS_PER_LEVEL) errors.push(`spatialPuzzle ${difficulty} should have ${SPATIAL_TASKS_PER_LEVEL} tasks`);
+    const typeSet = new Set(byDifficulty.map((task) => task.type));
     ["viewMatch", "sameShape", "rotateBuild", "cubeNet"].forEach((type) => {
       if (!typeSet.has(type)) errors.push(`spatialPuzzle ${difficulty} misses ${type}`);
     });
   });
-  levels.forEach((level) => errors.push(...validateSpatialLevel(level)));
+  tasks.forEach((task) => errors.push(...validateSpatialTask(task)));
   return { valid: errors.length === 0, errors };
 }
 
 const SPATIAL_LEVELS = makeSpatialLevels();
 
+// Fünf gespielte Runden bauen den Wagen fertig. Es gibt nur vier Level – der
+// Zug zählt hier also Runden, nicht Level, und die zählt der Levelkatalog
+// nicht mit: er kennt jedes Level nur als geschafft oder nicht.
+const SPATIAL_RUNS_FOR_DONE = 5;
+const SPATIAL_RUNS_KEY = "lernapp.raumdetektiv";
+const spatialRuns = window.LernappGameCloud
+  ? window.LernappGameCloud.register({
+    key: SPATIAL_RUNS_KEY,
+    empty: { runs: 0, scores: [] },
+    merge: window.LernappGameCloud.mergeScores(SPATIAL_RUNS_FOR_DONE),
+  })
+  : { read: () => ({ runs: 0, scores: [] }), write(data) { return data; }, update(fn) { return fn(this.read()); } };
+
 if (typeof window !== "undefined") {
   window.LernappPuzzleGenerators = {
     generateReadingTask,
     validateReadingTask,
-    validateSpatialLevels,
+    validateSpatialTasks,
     ensureUniqueOptions,
     shuffleOptions,
     readingWords: READING_WORD_ITEMS,
     readingSentences: READING_SENTENCE_ITEMS,
     spatialLevels: SPATIAL_LEVELS,
+    spatialTasks: window.SPATIAL_PUZZLES || [],
     spatialProjectionSignature,
     spatialCubeSignature,
     spatialCanonicalRotationSignature,
@@ -1336,10 +1356,12 @@ function computeStars(game, level, result) {
     if (flawless >= Math.ceil(target * 0.6)) return 2;
     return 1;
   }
+  // Raumdetektiv: eine Runde sind zehn Aufgaben. Wer keine einzige daneben
+  // tippt, hat drei Sterne; bis zu vier Fehltipps sind noch zwei.
   if (game === "spatialPuzzle") {
     const mistakes = Number(result.mistakes || 0);
     if (mistakes === 0) return 3;
-    if (mistakes <= 2) return 2;
+    if (mistakes <= 4) return 2;
     return 1;
   }
   // Battleships und Tiergehege: geschafft ist geschafft, drei Sterne. Beide
@@ -1621,8 +1643,52 @@ function renderSelectionActions(mode) {
   }
   levelPanel.querySelector(".start-copy")?.after(actions);
 }
+// Raumdetektiv hat nur vier Level, eines je Welt. Ein eigener Schritt für die
+// Welt wäre da ein Tipp zu viel: die vier stehen gleich nebeneinander.
+const FLAT_LEVEL_GAMES = new Set(["spatialPuzzle"]);
+function renderFlatLevelSelect() {
+  const config = GAME_CONFIGS[currentGame];
+  levelPanel.classList.remove("difficulty-step");
+  levelHeading.textContent = "";
+  if (appIntro) appIntro.textContent = "";
+  levelDescription.textContent = "";
+  levelDescription.hidden = true;
+  renderSelectionActions("flat");
+  levelGrid.className = "difficulty-grid";
+  levelGrid.setAttribute("aria-label", `${config.title} Levels`);
+  levelGrid.innerHTML = "";
+  LEVELS_BY_GAME[currentGame].forEach((level, index) => {
+    const info = DIFFICULTIES[level.difficulty];
+    const solved = isSolved(level);
+    const unlocked = isLevelUnlocked(level);
+    const stars = solved ? levelStars(level) : 0;
+    const button = document.createElement("button");
+    button.className = `difficulty-card ${level.difficulty}${solved ? " solved" : ""}${unlocked ? "" : " locked"}`;
+    button.type = "button";
+    button.disabled = !unlocked;
+    button.setAttribute("aria-label", `${info.label}, ${level.targetCount} Aufgaben${solved ? `, geschafft, ${stars} von 3 Sternen` : ""}${unlocked ? "" : ", gesperrt"}`);
+    const icon = document.createElement("span");
+    icon.className = "difficulty-icon";
+    icon.setAttribute("aria-hidden", "true");
+    icon.textContent = unlocked ? info.icon : "🔒";
+    const name = document.createElement("span");
+    name.className = "difficulty-name";
+    name.textContent = info.label;
+    button.append(icon, name);
+    if (solved) button.append(renderStarRow(stars, { small: true }));
+    else {
+      const small = document.createElement("small");
+      small.textContent = `${level.targetCount} Aufgaben`;
+      button.append(small);
+    }
+    button.addEventListener("click", () => startLevel(index));
+    levelGrid.append(button);
+  });
+  setHelpText(`${sentence(config.title)} ${config.subtitle} Such dir eine Welt aus: Leicht, Mittel, Schwer oder Extrem. Jede ist eine Runde über zehn Aufgaben. Je weiter rechts, desto kniffliger.`);
+}
 function renderDifficultySelect() {
   if (!currentGame || !levelPanel) return;
+  if (FLAT_LEVEL_GAMES.has(currentGame)) { renderFlatLevelSelect(); return; }
   const config = GAME_CONFIGS[currentGame];
   levelPanel.classList.add("difficulty-step");
   levelHeading.textContent = "Wähle deine Welt";
@@ -1657,6 +1723,7 @@ function selectDifficulty(difficulty) { selectedDifficulty = difficulty; renderL
 function showDifficultySelect() { selectedDifficulty = null; currentIndex = -1; renderDifficultySelect(); }
 function renderLevelSelect() {
   if (!currentGame || !levelPanel) return;
+  if (FLAT_LEVEL_GAMES.has(currentGame)) { renderFlatLevelSelect(); return; }
   if (!selectedDifficulty) { renderDifficultySelect(); return; }
   const config = GAME_CONFIGS[currentGame];
   const difficulty = DIFFICULTIES[selectedDifficulty];
@@ -1766,6 +1833,7 @@ function showSuccess() {
   const stars = computeStars(currentGame, level, result);
   const saved = saveLevelStars(level, stars);
   markSolved(level, result);
+  GAME_HANDLERS[currentGame]?.afterWin?.(level, result, stars);
   lastCelebration = { level, result, stars, improved: saved.improved };
   updateNextPuzzleButton();
   updateSuccessContent();
@@ -1976,20 +2044,23 @@ function spokenTaskText(task) {
       return task.speakText || task.questionText || "";
   }
 }
-function renderPracticeProgress(level) {
-  const target = level.targetCount || 10;
+// Wie weit ist die Runde? Eine Reihe Punkte, ein Punkt je Aufgabe.
+function renderTaskProgress(target, done) {
   const wrap = document.createElement("div");
   wrap.className = "practice-progress-row";
   const dots = document.createElement("div");
   dots.className = "practice-dots";
-  dots.setAttribute("aria-label", `Aufgabe ${Math.min(state.solvedCount + 1, target)} von ${target}`);
+  dots.setAttribute("aria-label", `Aufgabe ${Math.min(done + 1, target)} von ${target}`);
   for (let i = 0; i < target; i += 1) {
     const dot = document.createElement("span");
-    dot.className = "practice-dot" + (i < state.solvedCount ? " done" : (i === state.solvedCount ? " current" : ""));
+    dot.className = "practice-dot" + (i < done ? " done" : (i === done ? " current" : ""));
     dots.append(dot);
   }
   wrap.append(dots);
   return wrap;
+}
+function renderPracticeProgress(level) {
+  return renderTaskProgress(level.targetCount || 10, state.solvedCount);
 }
 function optionStateClass(option) {
   const correct = sameAnswer(option, state.task.correctAnswer);
@@ -2305,49 +2376,50 @@ function renderSpatialNet(faces, { turns = 0 } = {}) {
   return svg;
 }
 
-function renderSpatialGraphic(level, graphic = level.mainGraphic, option = null) {
+function renderSpatialGraphic(task, graphic = task.mainGraphic, option = null) {
   if (graphic?.kind === "cube") return renderSpatialSingleCube(graphic.faces);
-  if (option?.kind === "projection") return renderSpatialProjection(spatialResolveOptionCubes(level, option), option.view);
+  if (option?.kind === "projection") return renderSpatialProjection(spatialResolveOptionCubes(task, option), option.view);
   if (option?.kind === "net") return renderSpatialNet(option.faces, { turns: option.turns });
-  if (option?.kind === "cubes") return renderSpatialIso(spatialResolveOptionCubes(level, option), { compact: true });
+  if (option?.kind === "cubes") return renderSpatialIso(spatialResolveOptionCubes(task, option), { compact: true });
   return renderSpatialIso(colorizeSpatialCubes(graphic?.cubes || []));
 }
 
-function makeSpatialTaskView(level) {
+function makeSpatialTaskView(task) {
   const view = document.createElement("div");
-  view.className = `practice-task spatial-task spatial-type-${level.type}`;
+  view.className = `practice-task spatial-task spatial-type-${task.type}`;
   const prompt = document.createElement("p");
   prompt.className = "spatial-prompt";
-  prompt.textContent = level.prompt;
+  prompt.textContent = task.prompt;
   const main = document.createElement("div");
   main.className = "spatial-main-graphic";
-  main.append(renderSpatialGraphic(level));
+  main.append(renderSpatialGraphic(task));
   view.append(prompt, main);
   return view;
 }
 
-function spatialOptionStateClass(option) {
-  if (state.completed && option.id === currentLevel().correctAnswer) return " correct";
-  if (!state.completed && state.selectedAnswer === option.id && option.id !== currentLevel().correctAnswer) return " wrong";
+function spatialOptionStateClass(task, option) {
+  const geloest = state.awaitingNext || state.completed;
+  if (geloest && option.id === task.correctAnswer) return " correct";
+  if (!geloest && state.selectedAnswer === option.id && option.id !== task.correctAnswer) return " wrong";
   return "";
 }
 
-function renderSpatialOptions(level) {
+function renderSpatialOptions(task) {
   const options = document.createElement("div");
   options.className = "spatial-options";
-  options.style.setProperty("--option-count", Math.min(level.options.length, 4));
-  level.options.forEach((option) => {
+  options.style.setProperty("--option-count", Math.min(task.options.length, 4));
+  task.options.forEach((option) => {
     const button = document.createElement("button");
     button.type = "button";
-    button.className = `practice-option spatial-option${spatialOptionStateClass(option)}`;
-    button.disabled = state.completed;
+    button.className = `practice-option spatial-option${spatialOptionStateClass(task, option)}`;
+    button.disabled = state.awaitingNext || state.completed;
     button.setAttribute("aria-label", `Antwort ${option.id}`);
     const letter = document.createElement("span");
     letter.className = "spatial-option-letter";
     letter.textContent = option.id;
     const graphic = document.createElement("span");
     graphic.className = "spatial-option-graphic";
-    graphic.append(renderSpatialGraphic(level, null, option));
+    graphic.append(renderSpatialGraphic(task, null, option));
     button.append(graphic, letter);
     button.addEventListener("click", () => GAME_HANDLERS.spatialPuzzle.answer(option.id));
     options.append(button);
@@ -2396,40 +2468,83 @@ const GAME_HANDLERS = {
   },
 
   spatialPuzzle: {
-    resetState() {
+    resetState(level) {
+      clearPracticeAdvanceTimer();
       state = {
+        taskIndex: 0,
+        task: level.tasks[0] || null,
         selectedAnswer: null,
         feedback: "",
         mistakes: 0,
+        awaitingNext: false,
         completed: false,
       };
       setStatus("Wähle die passende Antwortkarte.");
     },
     checkWin() { return Boolean(state.completed); },
+    stop() { clearPracticeAdvanceTimer(); },
+    helpText(level) {
+      return `${level.tasks.length} Aufgaben nacheinander, Zeit hast du so viel du willst. Du bist bei Aufgabe ${Math.min(state.taskIndex + 1, level.tasks.length)} von ${level.tasks.length}. Wer keine einzige daneben tippt, bekommt drei Sterne.`;
+    },
     answer(optionId) {
-      if (state.completed) return;
+      if (!state.task || state.awaitingNext || state.completed) return;
       const level = currentLevel();
+      const task = state.task;
       state.selectedAnswer = optionId;
-      if (optionId === level.correctAnswer) {
+      if (optionId !== task.correctAnswer) {
+        state.mistakes += 1;
+        state.feedback = "Das passt noch nicht. Schau dir Richtung, Höhe und Nachbarschaft noch einmal an.";
+        render("Noch nicht ganz.");
+        playJingle("retry");
+        return;
+      }
+      state.feedback = task.explanation;
+      if (state.taskIndex + 1 >= level.tasks.length) {
         state.completed = true;
-        state.feedback = level.explanation;
         render("Richtig erkannt.");
         handleWin();
         return;
       }
-      state.mistakes += 1;
-      state.feedback = "Das passt noch nicht. Schau dir Richtung, Höhe und Nachbarschaft noch einmal an.";
-      render("Noch nicht ganz.");
+      // Kurz stehen bleiben: die richtige Karte leuchtet auf, dann kommt die
+      // nächste Aufgabe von selbst. Ein Weiter-Knopf wäre hier nur ein Tipp,
+      // der nichts entscheidet.
+      state.awaitingNext = true;
+      render("Richtig erkannt.");
+      playJingle("correct");
+      kids()?.vibrate?.(25);
+      practiceAdvanceTimer = window.setTimeout(() => {
+        practiceAdvanceTimer = null;
+        if (currentGame !== "spatialPuzzle" || !state.awaitingNext || state.completed) return;
+        const naechste = currentLevel().tasks[state.taskIndex + 1];
+        if (!naechste) return;
+        state.taskIndex += 1;
+        state.task = naechste;
+        state.selectedAnswer = null;
+        state.feedback = "";
+        state.awaitingNext = false;
+        render("Neue Würfelaufgabe.");
+      }, 1000);
     },
     render(level) {
       board.innerHTML = "";
       board.className = "board task-board spatialPuzzle-board";
       board.style.setProperty("--size", 1);
+      if (!state.task) return;
       board.append(
-        makeSpatialTaskView(level),
-        renderSpatialOptions(level),
+        renderTaskProgress(level.tasks.length, state.taskIndex),
+        makeSpatialTaskView(state.task),
+        renderSpatialOptions(state.task),
         renderSpatialFeedback(),
       );
+    },
+    // Der Zug zählt bei Raumdetektiv gespielte Runden, nicht gelöste Level:
+    // vier Level stehen zur Wahl, fünf Runden bauen den Wagen. Der Zähler
+    // gehört deshalb ins eigene Konto und nicht in den Levelkatalog.
+    afterWin(level, result, stars) {
+      spatialRuns.update((alt) => ({
+        runs: (Number(alt.runs) || 0) + 1,
+        scores: [...(alt.scores || []), stars].sort((a, b) => b - a).slice(0, SPATIAL_RUNS_FOR_DONE),
+      }));
     },
   },
 

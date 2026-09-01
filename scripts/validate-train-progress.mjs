@@ -156,23 +156,24 @@ assert(full.solved === 160, `Zahl und Buchstabe hat ${full.solved} statt 160 Lev
 
 // Der Mittelwert über die Spiele soll die sehr unterschiedlichen Bereichsgrössen
 // ausgleichen: gleich viel Anteil je Spiel führt zu gleichem Wagenfortschritt,
-// obwohl Problemlösen zehnmal so viele Aufgaben hat wie Konzentration.
+// obwohl Zahl und Buchstabe sechzehnmal so viele Aufgaben hat wie Konzentration.
 //
 // Aufgebaut wird deshalb "die Hälfte der Spiele fertig": in Konzentration eines
-// von zwei, in Problemlösen zwei von vier. Beide Wagen müssen gleich weit sein.
+// von zwei, in Zahl und Buchstabe zwei von vier. Beide Wagen müssen gleich weit
+// sein.
 store.clear();
 store.set("lernapp.flanker", JSON.stringify({ runs: 5, scores: [30, 20, 10, 8, 4] }));
-solve("spatialPuzzle", catalog.spatialPuzzle.length);
-solve("arukone", catalog.arukone.length);
+solve("letterPuzzle", catalog.letterPuzzle.length);
+solve("readingPuzzle", catalog.readingPuzzle.length);
 const konzentration = train.areaProgress("konzentration");
-const problemloesen = train.areaProgress("problemloesen");
+const zahlbuchstabe = train.areaProgress("zahlbuchstabe");
 assert(
-  Math.abs(konzentration.ratio - problemloesen.ratio) < 1e-9,
-  `gleich viele fertige Spiele müssen gleich weit sein: ${konzentration.ratio} vs ${problemloesen.ratio}`,
+  Math.abs(konzentration.ratio - zahlbuchstabe.ratio) < 1e-9,
+  `gleich viele fertige Spiele müssen gleich weit sein: ${konzentration.ratio} vs ${zahlbuchstabe.ratio}`,
 );
 assert(Math.abs(konzentration.ratio - 0.5) < 1e-9, `ein fertiges von zwei Spielen sind 50 %, gefunden ${konzentration.ratio}`);
-assert(problemloesen.total > konzentration.total * 4,
-  `die Probe sagt nichts aus, wenn beide Bereiche gleich gross sind: ${konzentration.total} und ${problemloesen.total}`);
+assert(zahlbuchstabe.total > konzentration.total * 4,
+  `die Probe sagt nichts aus, wenn beide Bereiche gleich gross sind: ${konzentration.total} und ${zahlbuchstabe.total}`);
 
 // Und allgemein: der Bereichsanteil ist der Mittelwert über seine Spiele –
 // nicht über die Aufgaben.
@@ -304,6 +305,36 @@ store.set("lernapp.memory", JSON.stringify({
 }));
 assert(train.gameProgress("memory").ratio === 1, "alle fünf Grössen müssen das Spiel abschliessen");
 
+// --- Raumdetektiv -----------------------------------------------------------
+// Vier Level stehen zur Wahl, gezählt werden aber gespielte Runden: fünf bauen
+// den Wagen. Abgelegt wird je Runde die Sternzahl, keine Punktzahl – die
+// Bewertung steht schon fest, wenn die zehn Aufgaben durch sind.
+store.clear();
+assert(catalog.spatialPuzzle.length === 4, `Raumdetektiv hat ${catalog.spatialPuzzle.length} Level statt 4`);
+const raumLeer = train.gameProgress("spatialPuzzle");
+assert(raumLeer.total === 5, `Raumdetektiv muss 5 Runden melden, meldet ${raumLeer.total}`);
+assert(raumLeer.solved === 0, "ohne gespielte Runde darf nichts gelöst sein");
+assert(raumLeer.unit.plural === "Runden", "Raumdetektiv zählt Runden, nicht Level");
+
+store.set("lernapp.raumdetektiv", JSON.stringify({ runs: 2, scores: [3, 1] }));
+const raumZwei = train.gameProgress("spatialPuzzle");
+assert(raumZwei.solved === 2, `Raumdetektiv: zwei Runden müssen 2 ergeben, ergeben ${raumZwei.solved}`);
+assert(Math.abs(raumZwei.ratio - 0.4) < 1e-9, `zwei von fünf Runden sind 40 %, gefunden ${raumZwei.ratio}`);
+assert(raumZwei.stars === 4, `eine fehlerfreie und eine schwache Runde geben 3 + 1 Sterne, gefunden ${raumZwei.stars}`);
+assert(raumZwei.worlds.length === 5, "Raumdetektiv braucht ein Band je Runde");
+
+// Die Sterne der Runde müssen unverändert durchkommen: 1, 2 und 3 dürfen nicht
+// auf denselben Wert fallen, sonst wäre die Bewertung im Spiel folgenlos.
+store.set("lernapp.raumdetektiv", JSON.stringify({ runs: 3, scores: [3, 2, 1] }));
+assert(train.gameProgress("spatialPuzzle").stars === 6, "3 + 2 + 1 Sterne müssen 6 ergeben");
+
+// Fünf Runden schliessen ab, auch lauter schwache – und mehr schiessen nicht
+// darüber hinaus.
+store.set("lernapp.raumdetektiv", JSON.stringify({ runs: 5, scores: [1, 1, 1, 1, 1] }));
+assert(train.gameProgress("spatialPuzzle").ratio === 1, "fünf Runden müssen abschliessen, egal mit wie vielen Sternen");
+store.set("lernapp.raumdetektiv", JSON.stringify({ runs: 9, scores: [3, 3, 3, 2, 2] }));
+assert(train.gameProgress("spatialPuzzle").ratio === 1, "mehr als fünf Runden dürfen nicht über 100 % gehen");
+
 for (const spiel of RUNDEN_SPIELE) {
   store.clear();
   const leer = train.gameProgress(spiel.id);
@@ -342,7 +373,7 @@ assert(train.gameProgress("beachTreasure").stars === 3, "12 Schätze sind am Str
 const eigeneKonten = new Set(
   train.AREAS.flatMap((area) => area.games.filter((game) => game.ownProgress).map((game) => game.id)),
 );
-assert(eigeneKonten.size === 10, `erwartet 10 Spiele mit eigenem Konto, gefunden ${eigeneKonten.size}`);
+assert(eigeneKonten.size === 11, `erwartet 11 Spiele mit eigenem Konto, gefunden ${eigeneKonten.size}`);
 store.clear();
 for (const area of train.allAreas()) {
   for (const game of area.games) {
@@ -359,6 +390,6 @@ for (const area of train.allAreas()) {
 const alle = train.trainProgress();
 assert(alle.areas.length === 5, "trainProgress muss fünf Bereiche melden");
 const gesamt = alle.areas.reduce((sum, area) => sum + area.total, 0);
-assert(gesamt === 250, `erwartet 250 Aufgaben über alle Bereiche, gefunden ${gesamt}`);
+assert(gesamt === 215, `erwartet 215 Aufgaben über alle Bereiche, gefunden ${gesamt}`);
 
 console.log(`Zug-Fortschritt geprüft: 5 Bereiche, ${seen.size} Spiele, ${gesamt} Levels.`);
