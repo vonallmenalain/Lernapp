@@ -4517,6 +4517,53 @@ body[data-page="train"].list-open { overflow: auto; }
 .train-profile:active { transform: scale(0.93); }
 .train-profile:focus-visible { outline: 3px solid #6c5ce7; outline-offset: 3px; }
 
+/* --- Landschafts-Knopf oben links --- */
+/* Ein Guckloch auf die Landschaft, die gerade läuft, mit zwei Pfeilen daneben.
+   Steht dort, wo auf den Spielseiten der Vorlese-Knopf sitzt. */
+
+.scene-button {
+  position: absolute;
+  top: calc(var(--safe-top) + 14px);
+  left: calc(var(--safe-left) + 14px);
+  z-index: 6;
+  width: 58px;
+  height: 58px;
+  padding: 0;
+  border: 3px solid rgba(255, 255, 255, 0.95);
+  border-radius: 50%;
+  background: #cfe9f5;
+  box-shadow: 0 6px 16px rgba(36, 48, 71, 0.24);
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+.scene-button[hidden] { display: none; }
+.scene-button:active { transform: scale(0.93); }
+.scene-button:focus-visible { outline: 3px solid #6c5ce7; outline-offset: 3px; }
+
+.scene-button-view {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  overflow: hidden;
+  display: block;
+}
+.scene-button-view .scene-thumb-art { width: 100%; height: 100%; }
+
+.scene-button-badge {
+  position: absolute;
+  right: -6px;
+  bottom: -6px;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  background: #6c5ce7;
+  color: #fff;
+  display: grid;
+  place-items: center;
+}
+.scene-button-badge svg { width: 17px; height: 17px; display: block; }
+
 /* ---------------------------------------------------------------------------
    Dreh-Hinweis
    ---------------------------------------------------------------------------

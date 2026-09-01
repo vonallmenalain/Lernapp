@@ -27,6 +27,7 @@
   const LOCO_KEY = "lernapp.train.loco";
   const LAST_AREA_KEY = "lernapp.train.lastArea";
   const SCENE_KEY = "lernapp.train.scene";
+  const SAVED_AT_KEY = "lernapp.train.savedAt";
 
   const reduced = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
@@ -95,15 +96,6 @@
       wrap.append(birds);
     }
 
-    // Ein Tipp auf die Landschaft öffnet die Szenenwahl. Bewusst kein eigener
-    // Knopf: auf dem Startbild sollen nur der Zug und die beiden Knöpfe oben
-    // rechts stehen.
-    wrap.addEventListener("click", (event) => {
-      if (view.name !== "home" || busy) return;
-      if (event.target.closest(".train-band, .train-topbar, .stage-back")) return;
-      showScenePicker();
-    });
-
     return wrap;
   }
 
@@ -125,10 +117,63 @@
     try { return localStorage.getItem(key); } catch { return null; }
   }
 
+  // ---------------------------------------------------------------------------
+  // Lok und Landschaft in der Cloud
+  // ---------------------------------------------------------------------------
+  // Gespeichert wird immer zuerst auf dem Gerät: die Lok muss auch dann stehen,
+  // wenn niemand angemeldet ist oder das Netz weg ist. Angemeldet geht dieselbe
+  // Fassung zusätzlich nach Firestore, an dasselbe Dokument wie der
+  // Fortschritt. Wer neuer ist, entscheidet der Zeitstempel.
+  const cloud = () => window.LernappFirebase || null;
+
   let locoConfig = null;
-  function saveLoco(config) {
-    locoConfig = config;
-    remember(LOCO_KEY, JSON.stringify(config));
+
+  function localSavedAt() {
+    return Number(recall(SAVED_AT_KEY)) || 0;
+  }
+
+  function localSettings(at = localSavedAt()) {
+    return { loco: locoConfig || readLoco(), scene: recall(SCENE_KEY) || null, updatedAt: at };
+  }
+
+  // Speichert eine Änderung des Kindes: lokal, mit frischem Zeitstempel, und
+  // von dort weiter in die Cloud.
+  function saveSettings(changes) {
+    const at = Date.now();
+    if (changes.loco) {
+      locoConfig = changes.loco;
+      remember(LOCO_KEY, JSON.stringify(changes.loco));
+    }
+    if (changes.scene) remember(SCENE_KEY, changes.scene);
+    remember(SAVED_AT_KEY, String(at));
+    cloud()?.saveTrainSettings?.(localSettings(at));
+  }
+
+  function saveLoco(config) { saveSettings({ loco: config }); }
+  function saveScene(sceneId) { saveSettings({ scene: sceneId }); }
+
+  // Was aus der Cloud kommt, gilt nur, wenn es neuer ist als das, was hier
+  // steht. Ist das Gerät neuer – etwa weil das Kind vor dem Anmelden gebaut
+  // hat –, wandert die hiesige Fassung nach oben.
+  let pendingCloud = null;
+
+  function applyCloudSettings(settings) {
+    if (!settings) return;
+    const localAt = localSavedAt();
+    if (!(settings.updatedAt > localAt)) {
+      if (localAt > (settings.updatedAt || 0)) cloud()?.saveTrainSettings?.(localSettings());
+      return;
+    }
+    // Mitten im Umbauen darf die Lok nicht unter den Händen wechseln.
+    if (view.name === "loco") { pendingCloud = settings; return; }
+
+    if (settings.loco) {
+      locoConfig = { ...art.DEFAULT_LOCO, ...settings.loco };
+      remember(LOCO_KEY, JSON.stringify(settings.loco));
+    }
+    if (settings.scene) remember(SCENE_KEY, settings.scene);
+    remember(SAVED_AT_KEY, String(settings.updatedAt));
+    render();
   }
 
   // ---------------------------------------------------------------------------
@@ -472,16 +517,18 @@
   // ---------------------------------------------------------------------------
   // Kleine Vorschaubilder derselben Landschaften. Gesperrte Szenen sind blass
   // und tragen ein Schloss – ein Zeichen, kein Text.
+  let thumbUid = 0;
   function sceneThumb(scene) {
     const list = scenes();
+    const skyId = `sky-${scene.id}-${thumbUid += 1}`;
     return el("svg", { viewBox: `0 0 ${list.TW} ${list.TH}`, class: "scene-thumb-art", "aria-hidden": "true" }, [
       el("defs", {}, [
-        el("linearGradient", { id: `sky-${scene.id}`, x1: "0", y1: "0", x2: "0", y2: "1" }, [
+        el("linearGradient", { id: skyId, x1: "0", y1: "0", x2: "0", y2: "1" }, [
           el("stop", { offset: "0", "stop-color": scene.sky[0] }),
           el("stop", { offset: "1", "stop-color": scene.sky[1] }),
         ]),
       ]),
-      el("rect", { x: 0, y: 0, width: list.TW, height: list.TH, fill: `url(#sky-${scene.id})` }),
+      el("rect", { x: 0, y: 0, width: list.TW, height: list.TH, fill: `url(#${skyId})` }),
       el("circle", { cx: 98, cy: 16, r: 8, fill: scene.light.color }),
       ...scene.thumb(),
     ]);
@@ -518,7 +565,7 @@
         ]));
       }
       button.addEventListener("click", () => {
-        remember(SCENE_KEY, scene.id);
+        saveScene(scene.id);
         overlay.remove();
         render();
       });
@@ -536,6 +583,46 @@
     overlay.addEventListener("click", (event) => { if (event.target === overlay) overlay.remove(); });
     stage.append(overlay);
     row.querySelector(".scene-choice:not(:disabled)")?.focus();
+  }
+
+  // Oben links, wo früher der Vorlese-Knopf stand. Im Knopf steckt die
+  // Landschaft selbst als kleines Bild – wer ihn sieht, weiss ohne ein Wort,
+  // worum es geht. Die zwei Pfeile daneben sagen: das lässt sich wechseln.
+  function buildSceneButton(scene) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "scene-button";
+    button.setAttribute("aria-label", `Landschaft wechseln. Jetzt: ${scene.label}.`);
+
+    // Der Ausschnitt sitzt auf dem Horizont: im Vorschaubild ist die obere
+    // Hälfte Himmel, und in einem 58-Pixel-Kreis bliebe davon nur ein blasser
+    // Fleck. So füllen Hügel, Sonne und Bäume den Knopf.
+    const picture = sceneThumb(scene);
+    picture.setAttribute("viewBox", "36 8 68 68");
+    picture.setAttribute("preserveAspectRatio", "xMidYMid slice");
+
+    const porthole = document.createElement("span");
+    porthole.className = "scene-button-view";
+    porthole.setAttribute("aria-hidden", "true");
+    porthole.append(picture);
+
+    const badge = document.createElement("span");
+    badge.className = "scene-button-badge";
+    badge.setAttribute("aria-hidden", "true");
+    badge.append(el("svg", { viewBox: "0 0 24 24" }, [
+      el("path", {
+        d: "M4 9h13l-3.2-3.2M20 15H7l3.2 3.2",
+        fill: "none",
+        stroke: "currentColor",
+        "stroke-width": 2.6,
+        "stroke-linecap": "round",
+        "stroke-linejoin": "round",
+      }),
+    ]));
+
+    button.append(porthole, badge);
+    button.addEventListener("click", () => { if (!busy) showScenePicker(); });
+    return button;
   }
 
   function buildTopbar() {
@@ -567,6 +654,7 @@
   const view = { name: "home", areaId: null, part: "whole" };
   let layerHost = null;
   let backButton = null;
+  let sceneButton = null;
   let busy = false;
 
   function setView(name, areaId = null) {
@@ -574,6 +662,9 @@
     view.areaId = areaId;
     stage.dataset.view = name;
     if (backButton) backButton.hidden = name === "home";
+    // Die Landschaft wechselt man auf dem Startbild. Unterwegs wäre der Knopf
+    // nur eine zweite Möglichkeit, sich zu verfahren.
+    if (sceneButton) sceneButton.hidden = name !== "home";
     if (areaId) remember(LAST_AREA_KEY, areaId);
   }
 
@@ -711,6 +802,12 @@
   // Aufbau
   // ---------------------------------------------------------------------------
   function render() {
+    if (pendingCloud && view.name !== "loco") {
+      const waiting = pendingCloud;
+      pendingCloud = null;
+      applyCloudSettings(waiting);
+      return;
+    }
     const areas = progress.allAreas();
     if (!locoConfig) locoConfig = readLoco();
     const loco = locoConfig;
@@ -756,8 +853,10 @@
 
     backButton = buildBackButton();
     backButton.hidden = true;
+    sceneButton = scene ? buildSceneButton(scene) : null;
 
     stage.append(band, layerHost, buildTopbar(), backButton);
+    if (sceneButton) stage.append(sceneButton);
 
     if (previous === "games" && previousArea) showGames(previousArea);
     else if (previous === "areas") showAreas();
@@ -796,6 +895,16 @@
   // Nach dem Speichern des Profils muss der Knopf oben rechts das neue Tier
   // zeigen.
   document.addEventListener("lernapp:profile-changed", () => render());
+
+  // Die Anmeldung braucht einen Moment. Kommen Lok und Landschaft aus der
+  // Cloud, wird der Zug neu gezeichnet – kommt der Fortschritt, ebenso: die
+  // Wagen zeigen sonst weiter den Stand dieses Geräts.
+  document.addEventListener("lernapp:train-settings", (event) => applyCloudSettings(event.detail));
+  document.addEventListener("lernapp:progress-changed", () => render());
+
+  // Falls die Anmeldung ausnahmsweise schon durch ist, bevor diese Seite
+  // zuhört: einmal von Hand nachfragen.
+  applyCloudSettings(cloud()?.getTrainSettings?.() || null);
 
   // Nach einem Spiel kommt das Kind hierher zurück – der Fortschritt hat sich
   // dann geändert. Beim Zurückspringen im Verlauf liefert der Browser die Seite

@@ -74,6 +74,7 @@
     heartbeatId: null,
     dashboardOpen: false,
     firebaseReady: false,
+    trainSettings: null,
     pendingDisplayName: null,
     unlockedMode: false,
     guestId: null,
@@ -135,6 +136,8 @@
     recordSolve,
     flushCurrentSession,
     refreshDashboard,
+    getTrainSettings,
+    saveTrainSettings,
   };
 
   window.LernappFirebase = cloudApi;
@@ -193,20 +196,24 @@
     if (!user) {
       state.progress.clear();
       state.unlockedMode = false;
+      state.trainSettings = null;
       resetAdminState();
       stopActiveSession();
       renderLoggedOut();
-      window.LernappRefreshProgress?.();
+      announceProgress();
+      // Ohne Konto zählt wieder, was auf diesem Gerät steht.
+      announceTrainSettings();
       return;
     }
 
     try {
       await upsertUserProfile(user);
       if (!isAdminUser(user)) resetAdminState();
+      announceTrainSettings();
       await loadProgress();
       await syncLocalSolvedProgress();
       await refreshDashboard();
-      window.LernappRefreshProgress?.();
+      announceProgress();
     } catch (error) {
       renderError("Firebase ist verbunden, aber Firestore hat den Zugriff abgelehnt oder ist noch nicht eingerichtet.", error);
     }
@@ -418,6 +425,7 @@
     const existing = await ref.get();
     const existingData = existing.data() || {};
     state.unlockedMode = Boolean(existingData.levelAccess?.unlockAllLevels);
+    state.trainSettings = readTrainSettings(existingData.trainSettings);
     const providers = user.providerData.map((provider) => provider.providerId);
     const username = profileNameForUser(user, existingData);
     const isNameLogin = isTechnicalEmail(user.email);
@@ -453,6 +461,60 @@
 
   function userRef(userId = state.user?.uid) {
     return userId ? state.db.collection("users").doc(userId) : null;
+  }
+
+  // --- Die Einstellungen des Zugs -------------------------------------------
+  // Aussehen der Lok und gewählte Landschaft liegen als Feld am selben
+  // Dokument wie der Fortschritt: users/<uid>. Wer sich am Tablet anmeldet,
+  // findet dieselbe Lok vor wie am Laptop.
+  //
+  // Wessen Fassung gilt, entscheidet updatedAt – eine Zahl in Millisekunden,
+  // vom Gerät gesetzt. Ein Server-Zeitstempel wäre genauer, käme aber erst
+  // beim nächsten Lesen zurück; bis dahin wüsste kein Gerät, wie alt seine
+  // eigene Fassung ist.
+  function readTrainSettings(raw) {
+    if (!raw || typeof raw !== "object") return null;
+    const updatedAt = Number(raw.updatedAt);
+    return {
+      loco: raw.loco && typeof raw.loco === "object" ? raw.loco : null,
+      scene: typeof raw.scene === "string" ? raw.scene : null,
+      updatedAt: Number.isFinite(updatedAt) ? updatedAt : 0,
+    };
+  }
+
+  function getTrainSettings() {
+    return state.trainSettings ? { ...state.trainSettings } : null;
+  }
+
+  function announceTrainSettings() {
+    document.dispatchEvent(new CustomEvent("lernapp:train-settings", { detail: getTrainSettings() }));
+  }
+
+  function announceProgress() {
+    window.LernappRefreshProgress?.();
+    document.dispatchEvent(new CustomEvent("lernapp:progress-changed"));
+  }
+
+  async function saveTrainSettings(settings) {
+    const stored = readTrainSettings(settings);
+    if (!stored) return false;
+    // Ohne Konto bleibt die Lok auf dem Gerät. Das Gastdokument wäre der
+    // falsche Ort: seine Kennung steht im localStorage und wandert nicht mit.
+    if (!state.user || !state.db) return false;
+    if (!stored.updatedAt) stored.updatedAt = Date.now();
+
+    const previous = state.trainSettings;
+    state.trainSettings = stored;
+    try {
+      await userRef().set({ trainSettings: stored, updatedAt: serverTimestamp() }, { merge: true });
+      return true;
+    } catch (error) {
+      // Die Lok steht schon lokal; ein abgelehnter Schreibvorgang darf das
+      // Startbild nicht aufhalten.
+      state.trainSettings = previous;
+      console.warn("Lok-Einstellung konnte nicht gespeichert werden", error);
+      return false;
+    }
   }
 
   function guestRef(guestId = getGuestId()) {
@@ -547,7 +609,7 @@
       state.unlockedMode = previousMode;
       throw error;
     }
-    window.LernappRefreshProgress?.();
+    announceProgress();
     await refreshDashboard();
   }
 
