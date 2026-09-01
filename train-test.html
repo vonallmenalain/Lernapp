@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex" />
+    <title>Zug-Werkstatt · Lernapp</title>
+    <style>
+      /* Eigenständige Seite: absichtlich ohne styles.css, damit hier nur die
+         Zeichnung beurteilt wird und keine App-Regeln hineinspielen. */
+      :root { color-scheme: light; --ink: #243047; --muted: #667085; --line: #dcd9e8; }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0; padding: 24px 20px 64px;
+        font: 15px/1.5 Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+        color: var(--ink); background: #f7f5fb;
+      }
+      h1 { font-size: 1.6rem; margin: 0 0 4px; }
+      h2 { font-size: 1.05rem; margin: 36px 0 10px; padding-bottom: 6px; border-bottom: 1px solid var(--line); }
+      p.note { color: var(--muted); margin: 0 0 8px; max-width: 62ch; }
+      .card { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 14px; margin-bottom: 14px; }
+      .scroll { overflow-x: auto; }
+      .row { display: flex; flex-wrap: wrap; gap: 12px; }
+      .cell { text-align: center; }
+      .cell svg { display: block; }
+      .cap { font-size: 0.74rem; color: var(--muted); margin-top: 2px; font-variant-numeric: tabular-nums; }
+      .cap b { color: var(--ink); }
+      .stage-grid { display: grid; grid-template-columns: 96px repeat(11, 1fr); gap: 6px; align-items: end; min-width: 1080px; }
+      .stage-label { font-size: 0.8rem; font-weight: 700; align-self: center; }
+      .stage-head { font-size: 0.72rem; color: var(--muted); text-align: center; font-variant-numeric: tabular-nums; }
+      .swatch { width: 12px; height: 12px; border-radius: 3px; display: inline-block; vertical-align: -1px; margin-right: 6px; }
+      .controls { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
+      .controls label { font-size: 0.78rem; display: flex; flex-direction: column; gap: 3px; color: var(--muted); }
+      select { font: inherit; padding: 4px 6px; border: 1px solid var(--line); border-radius: 6px; background: #fff; color: var(--ink); }
+
+      /* Dampf: dieselbe Animation, die das Startbild später benutzt. */
+      @keyframes train-puff {
+        0%   { transform: translate(0, 0) scale(0.7); opacity: 0; }
+        18%  { opacity: 0.85; }
+        100% { transform: translate(26px, -46px) scale(1.5); opacity: 0; }
+      }
+      .train-steam-puff { animation: train-puff 3.4s ease-out infinite; transform-origin: center; }
+      .train-steam-2 { animation-delay: 1.1s; }
+      .train-steam-3 { animation-delay: 2.2s; }
+      @media (prefers-reduced-motion: reduce) {
+        .train-steam-puff { animation: none; opacity: 0.5; }
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Zug-Werkstatt</h1>
+    <p class="note">Prüfseite für <code>train-art.js</code>. Zeigt jede Wagenbauart über alle elf Ausbaustufen, alle Lok-Bauteile und alle Tiere am Steuer. Gehört nicht zur App und steht nicht im Service-Worker-Cache.</p>
+
+    <h2>Der ganze Zug</h2>
+    <p class="note">Fünf Wagen auf zufälligen Stufen, davor die Lok. Schieberegler unten ändern die Lok.</p>
+    <div class="card scroll" id="full-train"></div>
+
+    <h2>Wagen: elf Ausbaustufen</h2>
+    <p class="note">Stufe 0 ist das nackte Fahrgestell mit Rädern in der Bereichsfarbe. 1–5 bauen den Wagen auf, 6–10 beladen ihn. Bei Stufe 10 kommen Wimpel und goldene Räder dazu.</p>
+    <div class="card scroll"><div class="stage-grid" id="stages"></div></div>
+
+    <h2>Lok-Bauteile</h2>
+    <p class="note">Jede Zeile zeigt dieselbe Lok mit einer anderen Variante des Bauteils.</p>
+    <div id="parts"></div>
+
+    <h2>Tiere am Steuer</h2>
+    <div class="card"><div class="row" id="drivers"></div></div>
+
+    <script src="train-art.js"></script>
+    <script>
+      const art = window.LernappTrainArt;
+      const { el, buildLoco, buildWagon, buildTrain, driverHead, ART_H, WAGON_W, LOCO_W } = art;
+
+      const AREAS = [
+        { id: "gedaechtnis", label: "Gedächtnis", color: "#7C5CE6", wagon: "boxcar" },
+        { id: "konzentration", label: "Konzentration", color: "#00A5B5", wagon: "tank" },
+        { id: "geschwindigkeit", label: "Geschwindigkeit", color: "#F5A623", wagon: "flat" },
+        { id: "problemloesen", label: "Problemlösen", color: "#3FA34D", wagon: "crane" },
+        { id: "zahlbuchstabe", label: "Zahl & Buchstabe", color: "#E8543F", wagon: "mail" },
+      ];
+
+      // Ein einzelnes Teil in ein eigenes <svg> packen.
+      function frame(node, width, height = ART_H, scale = 1) {
+        const svg = el("svg", { viewBox: `0 0 ${width} ${height}`, width: width * scale, height: height * scale });
+        svg.append(node);
+        return svg;
+      }
+
+      let loco = { ...art.DEFAULT_LOCO };
+
+      function renderTrain() {
+        const host = document.getElementById("full-train");
+        host.innerHTML = "";
+        const areas = AREAS.map((a, i) => ({ ...a, stage: [10, 7, 3, 5, 0][i] }));
+        const svg = buildTrain(areas, loco);
+        svg.style.width = "1100px";
+        svg.style.height = "auto";
+        host.append(svg);
+
+        const controls = document.createElement("div");
+        controls.className = "controls";
+        const add = (label, values, current, onChange) => {
+          const wrap = document.createElement("label");
+          wrap.textContent = label;
+          const select = document.createElement("select");
+          values.forEach((v) => {
+            const option = document.createElement("option");
+            option.value = v; option.textContent = v; option.selected = v === current;
+            select.append(option);
+          });
+          select.addEventListener("change", () => { onChange(select.value); renderTrain(); });
+          wrap.append(select);
+          controls.append(wrap);
+        };
+        add("Chauffeur", art.DRIVERS.map((d) => d.id), loco.driver, (v) => { loco.driver = v; });
+        add("Kesselfarbe", art.PALETTE, loco.body, (v) => { loco.body = v; });
+        add("Räder", art.WHEEL_SHAPES, loco.wheels.shape, (v) => { loco.wheels = { ...loco.wheels, shape: v }; });
+        add("Radfarbe", art.PALETTE, loco.wheels.color, (v) => { loco.wheels = { ...loco.wheels, color: v }; });
+        add("Kamin", art.CHIMNEY_SHAPES, loco.chimney.shape, (v) => { loco.chimney = { ...loco.chimney, shape: v }; });
+        add("Führerhaus", art.CAB_SHAPES, loco.cab.shape, (v) => { loco.cab = { ...loco.cab, shape: v }; });
+        add("Hausfarbe", art.PALETTE, loco.cab.color, (v) => { loco.cab = { ...loco.cab, color: v }; });
+        add("Lampe", art.LAMP_SHAPES, loco.lamp.shape, (v) => { loco.lamp = { ...loco.lamp, shape: v }; });
+        add("Wimpel", art.FLAG_PATTERNS, loco.flag.pattern, (v) => { loco.flag = { ...loco.flag, pattern: v }; });
+        host.append(controls);
+      }
+
+      function renderStages() {
+        const grid = document.getElementById("stages");
+        grid.innerHTML = "";
+        grid.append(document.createElement("div"));
+        for (let stage = 0; stage <= 10; stage += 1) {
+          const head = document.createElement("div");
+          head.className = "stage-head";
+          head.textContent = stage;
+          grid.append(head);
+        }
+        AREAS.forEach((area) => {
+          const label = document.createElement("div");
+          label.className = "stage-label";
+          label.innerHTML = `<span class="swatch" style="background:${area.color}"></span>${area.label}`;
+          grid.append(label);
+          for (let stage = 0; stage <= 10; stage += 1) {
+            const cell = document.createElement("div");
+            cell.className = "cell";
+            cell.append(frame(buildWagon(area.wagon, area.color, stage), WAGON_W, ART_H, 0.62));
+            grid.append(cell);
+          }
+        });
+      }
+
+      function renderParts() {
+        const host = document.getElementById("parts");
+        host.innerHTML = "";
+        const rows = [
+          ["Räder", art.WHEEL_SHAPES, (v) => ({ wheels: { ...loco.wheels, shape: v } })],
+          ["Kamin", art.CHIMNEY_SHAPES, (v) => ({ chimney: { ...loco.chimney, shape: v } })],
+          ["Führerhaus", art.CAB_SHAPES, (v) => ({ cab: { ...loco.cab, shape: v } })],
+          ["Frontlampe", art.LAMP_SHAPES, (v) => ({ lamp: { ...loco.lamp, shape: v } })],
+          ["Wimpel", art.FLAG_PATTERNS, (v) => ({ flag: { ...loco.flag, pattern: v } })],
+          ["Kesselfarbe", art.PALETTE.slice(0, 6), (v) => ({ body: v })],
+        ];
+        rows.forEach(([name, values, patch]) => {
+          const card = document.createElement("div");
+          card.className = "card";
+          const title = document.createElement("div");
+          title.style.cssText = "font-weight:700;font-size:0.85rem;margin-bottom:8px";
+          title.textContent = name;
+          const row = document.createElement("div");
+          row.className = "row";
+          values.forEach((value) => {
+            const cell = document.createElement("div");
+            cell.className = "cell";
+            cell.append(frame(buildLoco({ ...loco, ...patch(value) }), LOCO_W, ART_H, 0.62));
+            const cap = document.createElement("div");
+            cap.className = "cap";
+            cap.textContent = value;
+            cell.append(cap);
+            row.append(cell);
+          });
+          card.append(title, row);
+          host.append(card);
+        });
+      }
+
+      function renderDrivers() {
+        const host = document.getElementById("drivers");
+        host.innerHTML = "";
+        art.DRIVERS.forEach((driver) => {
+          const cell = document.createElement("div");
+          cell.className = "cell";
+          const head = driverHead(driver.id, 22);
+          head.setAttribute("transform", "translate(34,40)");
+          cell.append(frame(head, 68, 72, 1));
+          const cap = document.createElement("div");
+          cap.className = "cap";
+          cap.innerHTML = `<b>${driver.name}</b>`;
+          cell.append(cap);
+          host.append(cell);
+        });
+      }
+
+      renderTrain();
+      renderStages();
+      renderParts();
+      renderDrivers();
+    </script>
+  </body>
+</html>
