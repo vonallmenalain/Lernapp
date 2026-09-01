@@ -1,19 +1,21 @@
 /*
- * game-shell.js – Die gemeinsame Bühne der Tempospiele.
+ * game-shell.js – Die gemeinsame Bühne der Bestenlisten-Spiele.
  *
  * Landschaft der Startseite als Hintergrund, drei Knöpfe und ein Lautsprecher
- * oben links, ein Zähler oben rechts, ein Zeitbalken darunter, und am Schluss
- * eine Bestenliste. Alles, was ein Spiel auf Zeit gleich braucht – und nichts
- * vom Spiel selbst.
+ * oben links, ein Zähler oben rechts, wahlweise ein Zeitbalken darunter, und am
+ * Schluss eine Bestenliste. Alles, was ein Spiel um einen Punktestand gleich
+ * braucht – und nichts vom Spiel selbst.
  *
  * Das Spiel bekommt eine Fläche in der Mitte und ein paar Handgriffe:
  *   setCount(n)      Zähler oben rechts
  *   startClock(ms)   Uhr starten; sie meldet sich, wenn die Zeit um ist
  *   showResult(...)  Bestenliste mit "nochmal" und "zurück"
  *
- * Die Uhr läuft nach der Wanduhr, nicht nach Zeitgeber-Schritten. Ein Tab im
- * Hintergrund bekommt seine Zeitgeber gedrosselt oder gar nicht mehr; wer beim
- * Zurückkommen weiterrechnete, sässe in einer Runde ohne Ende.
+ * Die Uhr ist wahlweise: Karten-Merker läuft gegen sie, Strand-Schätze läuft
+ * ohne. Wo sie läuft, läuft sie nach der Wanduhr, nicht nach Zeitgeber-
+ * Schritten. Ein Tab im Hintergrund bekommt seine Zeitgeber gedrosselt oder gar
+ * nicht mehr; wer beim Zurückkommen weiterrechnete, sässe in einer Runde ohne
+ * Ende.
  */
 (() => {
   "use strict";
@@ -74,7 +76,7 @@
    *   help      Text, den der Lautsprecher vorliest
    *   onRestart was der Neu-Knopf tut
    */
-  function mount({ host, title, area, accent, accentDark, help, onRestart }) {
+  function mount({ host, title, area, accent, accentDark, help, onRestart, clock = true }) {
     host.style.setProperty("--cm-accent", accent);
     host.style.setProperty("--cm-accent-dark", accentDark);
     host.innerHTML = "";
@@ -105,9 +107,9 @@
     left.append(iconButton("again", "Neu starten", ICONS.again(), () => { stopClock(); onRestart(); }));
     bar.append(left, el("h1", "cm-title", title));
 
-    // Dezent oben rechts: wie viel bisher richtig war. Die Punkte kommen am
-    // Schluss – eine Zahl, die während des Spiels fallen kann, würde mitten im
-    // Tempo entmutigen.
+    // Dezent oben rechts: wie viel bisher geschafft ist. Beim Karten-Merker ist
+    // das nicht der Punktestand – eine Zahl, die während des Spiels auch fallen
+    // kann, würde mitten im Tempo entmutigen.
     const count = el("div", "cm-count");
     count.setAttribute("role", "status");
     count.setAttribute("aria-live", "polite");
@@ -118,11 +120,14 @@
     host.append(bar);
 
     // --- Zeitbalken ----------------------------------------------------------
+    // Nicht jedes Spiel läuft gegen die Uhr. Ein Balken, der nie kleiner wird,
+    // wäre schlimmer als keiner: er verspräche einen Zeitdruck, den es nicht
+    // gibt.
     const time = el("div", "cm-time");
     time.setAttribute("aria-hidden", "true");
     const timeFill = el("span", "cm-time-fill");
     time.append(timeFill);
-    host.append(time);
+    if (clock) host.append(time);
 
     // --- Die Fläche für das Spiel -------------------------------------------
     const play = el("div", "cm-play");
@@ -199,7 +204,7 @@
      * Die Bestenliste am Schluss. store = { scores: [...] }, punkte = der
      * frische Lauf, note = eine Zeile darunter (oder nichts).
      */
-    function showResult({ points, detail, scores, note, speech, top = 5 }) {
+    function showResult({ points, detail, scores, note, speech, label = "Deine Punkte", top = 5 }) {
       host.dataset.phase = "over";
       timeFill.style.transform = "scaleX(0)";
       // Der Lautsprecher oben links sagt jetzt das Ergebnis statt der Regeln.
@@ -208,7 +213,7 @@
       releaseHelp?.();
       releaseHelp = speech ? kids()?.pushHelp?.(speech) || null : null;
       const parts = [
-        el("p", "cm-result-label", "Deine Punkte"),
+        el("p", "cm-result-label", label),
         el("p", "cm-result-score", String(points)),
       ];
       if (detail) parts.push(el("p", "cm-result-detail", detail));

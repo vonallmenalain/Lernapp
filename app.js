@@ -2249,40 +2249,6 @@ function maybeShowTutorial(level, config) {
   overlay.addEventListener("click", (event) => { if (event.target === overlay) close(); });
 }
 
-function showExitConfirm(href) {
-  const overlay = document.createElement("section");
-  overlay.className = "kids-modal-overlay confirm-overlay";
-  overlay.setAttribute("role", "dialog");
-  overlay.setAttribute("aria-modal", "true");
-  overlay.setAttribute("aria-label", "Wirklich aufhören?");
-  overlay.innerHTML = `
-    <div class="kids-modal confirm-modal">
-      <div class="kids-modal-mascot" aria-hidden="true">${kids()?.mascotSVG?.("think") || ""}</div>
-      <h2>Wirklich aufhören?</h2>
-      <p>Dein Rätsel ist noch nicht fertig.</p>
-      <div class="kids-modal-actions">
-        <button type="button" class="kids-modal-secondary" data-stay>Weiterspielen</button>
-        <button type="button" class="kids-modal-primary" data-leave>Aufhören</button>
-      </div>
-    </div>`;
-  (document.querySelector(".app-shell") || document.body).append(overlay);
-  const releaseHelp = kids()?.pushHelp?.("Dein Rätsel ist noch nicht fertig. Tippe auf Weiterspielen, um dranzubleiben, oder auf Aufhören, um zurück zur Rätselauswahl zu gehen.");
-  const close = () => { releaseHelp?.(); overlay.remove(); };
-  overlay.querySelector("[data-stay]").addEventListener("click", close);
-  overlay.querySelector("[data-leave]").addEventListener("click", () => { window.location.href = href; });
-  overlay.addEventListener("click", (event) => { if (event.target === overlay) close(); });
-}
-function setupExitGuard() {
-  const homeButton = document.querySelector("#home-button");
-  if (!homeButton) return;
-  homeButton.addEventListener("click", (event) => {
-    if (!document.body.classList.contains("puzzle-active") || winShown) return;
-    event.preventDefault();
-    showExitConfirm(homeButton.getAttribute("href") || "index.html");
-  });
-}
-
-
 function handleWin() { if (!winShown) showSuccess(); render(); }
 function checkAndWin() { if (GAME_HANDLERS[currentGame].checkWin()) handleWin(); }
 function resetState() { GAME_HANDLERS[currentGame].resetState(currentLevel()); }
@@ -3875,7 +3841,6 @@ if (undoButton) undoButton.addEventListener("click", undo);
 if (resetButton) resetButton.addEventListener("click", resetGame);
 if (backButton) backButton.addEventListener("click", showLevelSelect);
 setupSuccessOverlay();
-setupExitGuard();
 setupAudioFeedback();
 
 if (typeof window.addEventListener === "function") {

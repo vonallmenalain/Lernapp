@@ -4914,7 +4914,12 @@ body[data-page="train"] .help-voice { display: none; }
   --cm-accent-dark: #b9741a;
   position: fixed;
   inset: 0;
+  /* clip statt hidden: die Landschaft ist breiter als der Bildschirm, und ein
+     hidden-Kasten lässt sich zwar nicht wischen, aber immer noch verschieben –
+     ein Tastendruck auf einen Knopf am Rand schöbe sonst die ganze Bühne zur
+     Seite und brächte sie nie mehr zurück. hidden bleibt als Rückfall stehen. */
   overflow: hidden;
+  overflow: clip;
   touch-action: manipulation;
 }
 
@@ -5233,6 +5238,91 @@ body[data-page="train"] .help-voice { display: none; }
 .cm-actions { display: flex; gap: 16px; }
 .cm-icon.big { width: 64px; height: 64px; }
 .cm-icon.big svg { width: 32px; height: 32px; }
+
+/* ===========================================================================
+   Strand-Schätze
+   ---------------------------------------------------------------------------
+   Dieselbe Bühne wie der Karten-Merker, nur ohne Uhr: hier zählt nicht die
+   Zeit, sondern wie viele Schätze man auseinanderhalten kann. Die Farbe ist
+   die des Bereichs Gedächtnis.
+
+   Der Strand nimmt allen Platz, den die Fläche hergibt – bei zwanzig Schätzen
+   zählt jeder Pixel. Die Plätze rechnet strandschatz.js aus, hier steht nur,
+   wie ein Schatz aussieht und was beim Antippen passiert.
+   =========================================================================== */
+
+.st-stage { --cm-accent: #7C5CE6; --cm-accent-dark: #5a41b8; }
+
+.st-prompt { flex: 0 0 auto; }
+
+.st-beach {
+  position: relative;
+  flex: 1 1 auto;
+  width: min(96vw, 1100px);
+  min-height: 0;
+  border-radius: 30px;
+  overflow: hidden;
+  overflow: clip;
+  box-shadow: 0 12px 30px rgba(31, 42, 51, 0.22), inset 0 0 0 3px rgba(255, 255, 255, 0.5);
+}
+
+.st-beach-art {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* Ein Schatz liegt im Sand: kein Kasten, kein Rand, nur die Figur. Die Grösse
+   und der Platz kommen aus dem Stil-Attribut, das strandschatz.js setzt. */
+.st-item {
+  position: absolute;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  border-radius: 50%;
+  transition: transform 0.12s ease;
+  animation: st-drop 0.22s ease both;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.st-item svg { width: 100%; height: 100%; display: block; }
+.st-item:active { transform: scale(0.92); }
+.st-item:focus-visible { outline: 3px solid #243047; outline-offset: 3px; }
+.st-item:disabled { cursor: default; }
+
+@keyframes st-drop {
+  from { opacity: 0; transform: scale(0.6); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+/* Richtig: der Schatz hüpft einmal und wandert in die Kiste. */
+.st-item.is-right { animation: st-take 0.44s ease both; }
+@keyframes st-take {
+  0% { transform: scale(1); }
+  35% { transform: scale(1.25); }
+  100% { transform: scale(0.2); opacity: 0; }
+}
+
+/* Schon gehabt: ein kurzes Kopfschütteln, dazu ein roter Ring – so ist zu
+   sehen, welcher Schatz die Runde beendet hat. */
+.st-item.is-wrong {
+  animation: st-shake 0.42s ease both;
+  box-shadow: 0 0 0 4px #e2694f, 0 0 0 9px rgba(226, 105, 79, 0.3);
+}
+@keyframes st-shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-7px) rotate(-6deg); }
+  50% { transform: translateX(7px) rotate(6deg); }
+  80% { transform: translateX(-4px) rotate(-3deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .st-item, .st-item.is-right, .st-item.is-wrong { animation: none; }
+  .st-item.is-right { opacity: 0; }
+  .st-item { transition: none; }
+}
 
 @media (prefers-reduced-motion: reduce) {
   .cm-card, .cm-card.is-right, .cm-card.is-wrong, .cm-start::after, .cm-overlay { animation: none; }

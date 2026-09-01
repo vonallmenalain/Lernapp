@@ -1,13 +1,14 @@
 /*
- * brain-games.js – Drei Gehirntrainer für die Lernapp.
+ * brain-games.js – Zwei Gehirntrainer für die Lernapp.
  *
- * Schwarm-Fokus (selektive Aufmerksamkeit, Flanker-Aufgabe), Strand-Schätze
- * (visuelles Gedächtnis) und Weichen-Wirrwarr (geteilte Aufmerksamkeit,
- * vorausschauendes Planen).
+ * Schwarm-Fokus (selektive Aufmerksamkeit, Flanker-Aufgabe) und
+ * Weichen-Wirrwarr (geteilte Aufmerksamkeit, vorausschauendes Planen).
  *
- * Der Karten-Merker stand einmal hier und ist ausgezogen: er läuft jetzt auf
- * Zeit statt über Level und braucht weder Weltenwahl noch Sterne. Er steht in
- * kartenmerker.js und bringt seine eigene Oberfläche mit.
+ * Der Karten-Merker und die Strand-Schätze standen einmal hier und sind
+ * ausgezogen: beide spielen jetzt eine einzige Runde auf eine Bestenliste statt
+ * eine Reihe von Leveln und brauchen weder Weltenwahl noch Sterne. Sie stehen
+ * in kartenmerker.js und strandschatz.js auf der gemeinsamen Bühne aus
+ * game-shell.js.
  *
  * Die Spiele bringen keine eigene Hülle mit: sie melden sich bei app.js an und
  * benutzen dieselbe Weltenwahl, Levelauswahl, Sternewertung, Erfolgsfeier und
@@ -39,16 +40,6 @@
         "Tippe auf den Pfeil, in dessen Richtung der mittlere Fisch schwimmt.",
       ],
     },
-    beachTreasure: {
-      title: "Strand-Schätze", eyebrow: "Neues entdecken", code: "T",
-      subtitle: "Finde in jeder Runde den Schatz, den du noch nie gesammelt hast.",
-      success: "Toll gesammelt! Deine Schatzkiste ist voll.",
-      rules: [
-        "Alle Schätze aus deiner Kiste liegen wieder am Strand.",
-        "In jeder Runde ist genau ein Schatz neu.",
-        "Tippe auf den neuen Schatz – achte auf Form, Farbe und Muster.",
-      ],
-    },
     trackRouter: {
       title: "Weichen-Wirrwarr", eyebrow: "Vorausschauend planen", code: "Y",
       subtitle: "Stelle die Weichen, damit jeder Wagen zum passenden Haus fährt.",
@@ -64,7 +55,6 @@
   const pages = {
 
     flanker: "schwarmfokus.html",
-    beachTreasure: "strandschatz.html",
     trackRouter: "weichen.html",
   };
 
@@ -98,28 +88,6 @@
       { trials: 20, flankers: 3, incongruent: 0.65, directions: 4, showMs: 900, answerMs: 2200 },
       { trials: 20, flankers: 4, incongruent: 0.7, directions: 4, showMs: 750, answerMs: 2000 },
       { trials: 22, flankers: 4, incongruent: 0.75, directions: 4, showMs: 650, answerMs: 1800 },
-    ],
-  };
-
-  // --- Strand-Schätze --------------------------------------------------------
-  // vary bestimmt, worin sich die Schätze unterscheiden dürfen. Je weniger
-  // Merkmale, desto ähnlicher sehen sie aus.
-  const TREASURE_LEVELS = {
-    easy: [
-      { rounds: 6, shapes: ["shell"], colorCount: 8, patterns: ["plain"], similar: false },
-      { rounds: 7, shapes: ["shell", "star"], colorCount: 8, patterns: ["plain"], similar: false },
-    ],
-    medium: [
-      { rounds: 8, shapes: ["shell", "star", "snail"], colorCount: 8, patterns: ["plain"], similar: false },
-      { rounds: 9, shapes: ["shell", "star", "snail", "stone"], colorCount: 8, patterns: ["plain", "dots"], similar: false },
-    ],
-    hard: [
-      { rounds: 10, shapes: ["shell", "star", "snail", "stone"], colorCount: 8, patterns: ["plain", "dots", "stripes"], similar: true },
-      { rounds: 11, shapes: ["shell", "star", "snail", "stone"], colorCount: 8, patterns: ["plain", "dots", "stripes", "rings"], similar: true },
-    ],
-    extreme: [
-      { rounds: 12, shapes: ["shell", "snail"], colorCount: 8, patterns: ["plain", "dots", "stripes", "rings"], similar: true },
-      { rounds: 14, shapes: ["shell"], colorCount: 8, patterns: ["plain", "dots", "stripes", "rings"], similar: true },
     ],
   };
 
@@ -158,12 +126,6 @@
       hard: "Vier Richtungen und viele Ablenker.",
       extreme: "Ein Wimpernschlag, dann musst du dich entscheiden.",
     },
-    beachTreasure: {
-      easy: "Muscheln in klaren Farben – der neue Schatz sticht heraus.",
-      medium: "Verschiedene Formen kommen dazu.",
-      hard: "Jetzt zählen auch die Muster auf den Schätzen.",
-      extreme: "Fast gleiche Schätze: nur ein Merkmal ist anders.",
-    },
     trackRouter: {
       easy: "Eine Weiche, zwei Häuser – in Ruhe planen.",
       medium: "Mehrere Weichen hintereinander und mehr Wagen unterwegs.",
@@ -175,14 +137,12 @@
   const BADGE = {
 
     flanker: (rule) => `${rule.trials} Runden`,
-    beachTreasure: (rule) => `${rule.rounds} Schätze`,
     trackRouter: (rule) => `${rule.deliveries} Wagen`,
   };
 
   const LEVEL_RULES = {
 
     flanker: FLANKER_LEVELS,
-    beachTreasure: TREASURE_LEVELS,
     trackRouter: TRACK_LEVELS,
   };
 
@@ -520,170 +480,6 @@
         } else if (s.feedback === "missed") {
           feedback.append(el("p", null, "Kein Problem – die nächste Runde kommt."));
         }
-        board.append(feedback);
-      },
-    };
-  }
-
-  // ===========================================================================
-  // Spiel 2: Strand-Schätze
-  // ===========================================================================
-  // Jede Runde liegen alle bereits gesammelten Schätze wieder am Strand – plus
-  // genau ein neuer. Gesucht ist der neue. Die Schätze bestehen aus Form,
-  // Farbe und Muster; in den schweren Leveln unterscheiden sich neue Schätze
-  // absichtlich nur in einem einzigen Merkmal.
-  const TREASURE_SHAPES = {
-    shell: { name: "Muschel", path: "M32 56 C12 44 8 24 20 12 C26 6 38 6 44 12 C56 24 52 44 32 56 Z", lines: ["M32 56 L22 14", "M32 56 L32 12", "M32 56 L42 14"] },
-    star: { name: "Seestern", path: "M32 6 L40 24 L60 26 L45 39 L50 58 L32 48 L14 58 L19 39 L4 26 L24 24 Z", lines: [] },
-    snail: { name: "Schnecke", path: "M32 58 C14 58 4 44 8 30 C12 16 28 10 40 16 C50 21 52 34 44 40 C37 45 28 42 27 35 C26 29 31 25 36 27", lines: [] },
-    stone: { name: "Stein", path: "M32 56 C14 56 6 44 10 30 C14 16 26 8 38 10 C52 12 60 26 56 40 C53 51 44 56 32 56 Z", lines: [] },
-  };
-  const TREASURE_PATTERNS = ["plain", "dots", "stripes", "rings"];
-  const PATTERN_NAMES = { plain: "einfarbig", dots: "gepunktet", stripes: "gestreift", rings: "geringelt" };
-
-  function treasureSVG(item) {
-    const shape = TREASURE_SHAPES[item.shape];
-    const color = PALETTE.find((entry) => entry.id === item.color) || PALETTE[0];
-    const patternId = `pat-${item.shape}-${item.color}-${item.pattern}`;
-    let defs = "";
-    let fill = color.color;
-    if (item.pattern === "dots") {
-      defs = `<pattern id="${patternId}" width="10" height="10" patternUnits="userSpaceOnUse">
-                <rect width="10" height="10" fill="${color.color}"/>
-                <circle cx="5" cy="5" r="2.4" fill="${color.ink}" opacity="0.55"/>
-              </pattern>`;
-      fill = `url(#${patternId})`;
-    } else if (item.pattern === "stripes") {
-      defs = `<pattern id="${patternId}" width="10" height="10" patternUnits="userSpaceOnUse" patternTransform="rotate(35)">
-                <rect width="10" height="10" fill="${color.color}"/>
-                <rect width="4" height="10" fill="${color.ink}" opacity="0.5"/>
-              </pattern>`;
-      fill = `url(#${patternId})`;
-    } else if (item.pattern === "rings") {
-      defs = `<pattern id="${patternId}" width="14" height="14" patternUnits="userSpaceOnUse">
-                <rect width="14" height="14" fill="${color.color}"/>
-                <circle cx="7" cy="7" r="5" fill="none" stroke="${color.ink}" stroke-width="2.6" opacity="0.5"/>
-              </pattern>`;
-      fill = `url(#${patternId})`;
-    }
-    const lines = shape.lines.map((d) => `<path d="${d}" fill="none" stroke="${color.ink}" stroke-width="2" opacity="0.45" stroke-linecap="round"/>`).join("");
-    return `<svg class="treasure-svg" viewBox="0 0 64 64" role="img" aria-label="${TREASURE_SHAPES[item.shape].name}, ${color.name}, ${PATTERN_NAMES[item.pattern]}">
-      <defs>${defs}</defs>
-      <path d="${shape.path}" fill="${fill}" stroke="${color.ink}" stroke-width="2.6" stroke-linejoin="round"/>
-      ${lines}
-    </svg>`;
-  }
-
-  function createBeachTreasure(api) {
-    const timers = createTimers();
-    let s = null;
-
-    const keyOf = (item) => `${item.shape}|${item.color}|${item.pattern}`;
-
-    function allVariants(rule) {
-      const colors = PALETTE.slice(0, rule.colorCount).map((entry) => entry.id);
-      const variants = [];
-      rule.shapes.forEach((shape) => colors.forEach((color) => rule.patterns.forEach((pattern) => {
-        variants.push({ shape, color, pattern });
-      })));
-      return variants;
-    }
-
-    // Wählt den nächsten neuen Schatz. In den schweren Leveln bevorzugt einen,
-    // der sich von einem gesammelten nur in einem Merkmal unterscheidet.
-    function pickNext(rule, taken) {
-      const free = allVariants(rule).filter((item) => !taken.has(keyOf(item)));
-      if (!free.length) return null;
-      if (!rule.similar || !taken.size) return pick(free);
-      const collected = s.collected;
-      const nearly = free.filter((item) => collected.some((old) => {
-        let differences = 0;
-        if (old.shape !== item.shape) differences += 1;
-        if (old.color !== item.color) differences += 1;
-        if (old.pattern !== item.pattern) differences += 1;
-        return differences === 1;
-      }));
-      return pick(nearly.length ? nearly : free);
-    }
-
-    function startRound(silent) {
-      const taken = new Set(s.collected.map(keyOf));
-      const fresh = pickNext(s.rule, taken);
-      if (!fresh) { finish(); return; }
-      s.fresh = fresh;
-      s.order = shuffle([...s.collected, fresh]);
-      s.wrongKey = null;
-      if (!silent) api.render();
-    }
-
-    function finish() {
-      s.done = true;
-      api.render();
-      api.handleWin();
-    }
-
-    function tap(item) {
-      if (!s || s.done) return;
-      if (keyOf(item) === keyOf(s.fresh)) {
-        s.collected = [...s.collected, s.fresh];
-        s.wrongKey = null;
-        api.playJingle(s.collected.length >= s.rule.rounds ? "win" : "correct");
-        api.kids()?.vibrate?.(18);
-        if (s.collected.length >= s.rule.rounds) { finish(); return; }
-        api.render();
-        timers.after(420, startRound);
-        return;
-      }
-      s.mistakes += 1;
-      s.wrongKey = keyOf(item);
-      api.playJingle("retry");
-      api.render();
-    }
-
-    return {
-      stop() { timers.clear(); },
-      resetState(level) {
-        timers.clear();
-        s = { rule: level.rule, collected: [], fresh: null, order: [], mistakes: 0, wrongKey: null, done: false };
-        startRound(true);
-        api.setStatus("Welcher Schatz ist neu?");
-      },
-      checkWin() { return Boolean(s?.done); },
-      solveResult() { return { mistakes: s?.mistakes || 0, collected: s?.collected.length || 0 }; },
-      stars() { return starsFromMistakes(s?.mistakes || 0, 2); },
-      helpText(level) {
-        const left = Math.max(0, level.rule.rounds - (s?.collected.length || 0));
-        return `Alle Schätze aus deiner Kiste liegen wieder da. Genau einer ist neu – tippe ihn an. Achte auf Form, Farbe und Muster. Noch ${left} ${left === 1 ? "Schatz" : "Schätze"} bis zum Ziel.`;
-      },
-      render(level) {
-        const board = api.board;
-        board.innerHTML = "";
-        board.className = "board task-board brain-board treasure-board";
-        board.style.setProperty("--size", 1);
-        board.append(renderHead(s.collected.length, s.rule.rounds, s.mistakes ? `${s.mistakes} daneben` : "fehlerfrei"));
-        board.append(el("p", "brain-prompt", "Welcher Schatz ist neu?"));
-
-        const grid = el("div", "treasure-grid");
-        grid.style.setProperty("--treasure-count", s.order.length);
-        s.order.forEach((item) => {
-          const key = keyOf(item);
-          const button = el("button", `treasure-tile${s.wrongKey === key ? " known" : ""}`);
-          button.type = "button";
-          button.disabled = s.done;
-          button.innerHTML = treasureSVG(item);
-          if (s.wrongKey === key) button.append(el("span", "treasure-known-mark", "schon dabei"));
-          button.addEventListener("click", () => tap(item));
-          grid.append(button);
-        });
-        board.append(grid);
-
-        const chest = el("div", "treasure-chest");
-        chest.append(el("span", "treasure-chest-icon", s.collected.length >= s.rule.rounds ? "🧰" : "🧳"));
-        chest.append(el("span", "treasure-chest-count", `${s.collected.length} von ${s.rule.rounds}`));
-        board.append(chest);
-
-        const feedback = el("div", `brain-feedback${s.wrongKey ? " visible" : ""}`);
-        if (s.wrongKey) feedback.append(el("p", null, "Den hattest du schon. Schau nochmal genau hin."));
         board.append(feedback);
       },
     };
@@ -1167,7 +963,6 @@
     return {
 
       flanker: createFlanker(api),
-      beachTreasure: createBeachTreasure(api),
       trackRouter: createTrackRouter(api),
     };
   }

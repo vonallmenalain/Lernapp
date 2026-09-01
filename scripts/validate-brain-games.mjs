@@ -1,7 +1,6 @@
 /*
- * Prüft die vier Gehirntrainer aus brain-games.js:
- * Sind alle Level vollständig konfiguriert, wachsen sie sinnvoll an, und
- * reicht der Varianten-Vorrat bei den Strand-Schätzen für jede Runde?
+ * Prüft die beiden Gehirntrainer aus brain-games.js:
+ * Sind alle Level vollständig konfiguriert und wachsen sie sinnvoll an?
  *
  * Läuft ohne Browser: die Datei wird in einer kleinen Sandbox ausgeführt.
  */
@@ -35,7 +34,7 @@ vm.runInContext(source, context);
 const api = windowStub.LernappBrainGames;
 assert(api, "brain-games.js hat window.LernappBrainGames nicht gesetzt");
 
-const GAMES = ["flanker", "beachTreasure", "trackRouter"];
+const GAMES = ["flanker", "trackRouter"];
 for (const game of GAMES) {
   assert(api.configs[game], `${game} fehlt in configs`);
   assert(api.pages[game]?.endsWith(".html"), `${game} hat keine Seite`);
@@ -82,14 +81,6 @@ levels.flanker.forEach((level) => {
 });
 assert(levels.flanker.filter((l) => l.difficulty === "easy").every((l) => l.rule.showMs === 0),
   "Die leichten Schwarm-Fokus-Level sollen ohne Zeitdruck laufen");
-
-// --- Strand-Schätze --------------------------------------------------------
-levels.beachTreasure.forEach((level) => {
-  const { rounds, shapes, colorCount, patterns } = level.rule;
-  const variants = shapes.length * colorCount * patterns.length;
-  assert(rounds >= 5 && rounds <= 16, `${level.id}: ${rounds} Runden sind ausserhalb der sinnvollen Spanne`);
-  assert(variants >= rounds + 2, `${level.id}: nur ${variants} Varianten für ${rounds} Runden – der Vorrat geht aus`);
-});
 
 // --- Weichen-Wirrwarr ------------------------------------------------------
 // Für jedes Layout muss gelten: von jedem Startpunkt aus ist jedes Haus
@@ -146,8 +137,6 @@ function averageBy(game, difficulty, pick) {
 
 assert(averageBy("flanker", "easy", (r) => r.incongruent) < averageBy("flanker", "extreme", (r) => r.incongruent),
   "Schwarm-Fokus: der Anteil ablenkender Runden wächst nicht");
-assert(averageBy("beachTreasure", "easy", (r) => r.rounds) < averageBy("beachTreasure", "extreme", (r) => r.rounds),
-  "Strand-Schätze: die Sammlung wird nicht grösser");
 assert(averageBy("trackRouter", "easy", (r) => r.speed) < averageBy("trackRouter", "extreme", (r) => r.speed),
   "Weichen-Wirrwarr: das Tempo steigt nicht");
 

@@ -30,7 +30,7 @@
       games: [
         { id: "backpack", title: "Rucksack packen", page: "backpack.html" },
         { id: "memory", title: "Memory", page: "memory.html" },
-        { id: "beachTreasure", title: "Strand-Schätze", page: "strandschatz.html" },
+        { id: "beachTreasure", title: "Strand-Schätze", page: "strandschatz.html", ownProgress: "beachTreasure" },
       ],
     },
     {
@@ -119,7 +119,13 @@
   const RUNNER_KEY = "lernapp.tiersprung.progress";
   const RUNNER_LEVEL_COUNT = 10;
   const CARDMATCH_KEY = "lernapp.cardmatch";
-  const CARDMATCH_RUNS = 5;
+  const BEACH_KEY = "lernapp.beachtreasure";
+  // Beide Bestenlisten-Spiele gelten nach fünf gespielten Runden als geschafft.
+  const RUNS_FOR_DONE = 5;
+
+  // Wie ein Spiel zählt – für den Satz, den der Lautsprecher vorliest.
+  const LEVEL_UNIT = { plural: "Level", dative: "Leveln" };
+  const ROUND_UNIT = { plural: "Runden", dative: "Runden" };
 
   function cloud() { return window.LernappFirebase || null; }
   function kids() { return window.LernappKids || null; }
@@ -178,6 +184,7 @@
       ratio: solved / RUNNER_LEVEL_COUNT,
       stars,
       maxStars: RUNNER_LEVEL_COUNT * 3,
+      unit: LEVEL_UNIT,
       worlds,
     };
   }
@@ -215,53 +222,65 @@
       ratio: total ? solved / total : 0,
       stars,
       maxStars: total * 3,
+      unit: LEVEL_UNIT,
       worlds,
     };
   }
 
-  // Karten-Merker läuft auf Zeit statt über Level: 45 Sekunden, dann eine
-  // Punktzahl. "Fertig" ist es nach fünf gespielten Runden, unabhängig davon,
-  // wie viele Punkte dabei herauskamen – wer übt, kommt voran, und wer einen
-  // schlechten Tag hat, auch. Die Sterne kommen aus den besten Ergebnissen,
-  // damit die Bestenliste im Wagen sichtbar wird.
-  function cardMatchProgress(game) {
-    const stored = readJSON(CARDMATCH_KEY, null) || {};
-    const runs = Math.max(0, Math.min(CARDMATCH_RUNS, Number(stored.runs) || 0));
-    const scores = Array.isArray(stored.scores) ? stored.scores.filter((n) => Number.isFinite(n)) : [];
-    const worlds = [];
-    let stars = 0;
+  // Karten-Merker und Strand-Schätze laufen nicht über Level, sondern über
+  // Runden mit einer Bestenliste. "Fertig" sind sie nach fünf gespielten
+  // Runden, unabhängig davon, wie viele Punkte dabei herauskamen – wer übt,
+  // kommt voran, und wer einen schlechten Tag hat, auch. Die Sterne kommen aus
+  // den besten Ergebnissen, damit die Bestenliste im Wagen sichtbar wird.
+  //
+  // gut = ab wie vielen Punkten eine Runde drei Sterne wert ist. Der
+  // Karten-Merker zählt zwei Punkte je Karte, Strand-Schätze einen je Schatz –
+  // dieselbe Schwelle wäre für das eine geschenkt und für das andere unerreichbar.
+  function runsProgress(key, gut) {
+    return (game) => {
+      const stored = readJSON(key, null) || {};
+      const runs = Math.max(0, Math.min(RUNS_FOR_DONE, Number(stored.runs) || 0));
+      const scores = Array.isArray(stored.scores) ? stored.scores.filter((n) => Number.isFinite(n)) : [];
+      const worlds = [];
+      let stars = 0;
 
-    for (let i = 0; i < CARDMATCH_RUNS; i += 1) {
-      const done = i < runs;
-      const runStars = done ? starsForScore(scores[i]) : 0;
-      stars += runStars;
-      worlds.push({ key: `runde-${i + 1}`, solved: done ? 1 : 0, total: 1, stars: runStars, maxStars: 3, ratio: done ? 1 : 0 });
-    }
+      for (let i = 0; i < RUNS_FOR_DONE; i += 1) {
+        const done = i < runs;
+        const runStars = done ? starsForScore(scores[i], gut) : 0;
+        stars += runStars;
+        worlds.push({ key: `runde-${i + 1}`, solved: done ? 1 : 0, total: 1, stars: runStars, maxStars: 3, ratio: done ? 1 : 0 });
+      }
 
-    return {
-      id: game.id,
-      title: game.title,
-      page: game.page,
-      solved: runs,
-      total: CARDMATCH_RUNS,
-      ratio: runs / CARDMATCH_RUNS,
-      stars,
-      maxStars: CARDMATCH_RUNS * 3,
-      worlds,
+      return {
+        id: game.id,
+        title: game.title,
+        page: game.page,
+        solved: runs,
+        total: RUNS_FOR_DONE,
+        ratio: runs / RUNS_FOR_DONE,
+        stars,
+        maxStars: RUNS_FOR_DONE * 3,
+        unit: ROUND_UNIT,
+        worlds,
+      };
     };
   }
 
-  function starsForScore(score) {
+  function starsForScore(score, gut) {
     const points = Number(score) || 0;
-    if (points >= 40) return 3;
-    if (points >= 20) return 2;
+    if (points >= gut) return 3;
+    if (points >= gut / 2) return 2;
     return 1;
   }
 
-  const OWN_PROGRESS = { runner: runnerProgress, cardMatch: cardMatchProgress };
+  const OWN_PROGRESS = {
+    runner: runnerProgress,
+    cardMatch: runsProgress(CARDMATCH_KEY, 40),
+    beachTreasure: runsProgress(BEACH_KEY, 12),
+  };
 
-  // Die beiden Spiele mit eigenem Konto legen ihren Stand nicht im Levelkatalog
-  // ab, sondern jedes in seinem eigenen Kasten. Damit der Zug sie auch auf
+  // Die Spiele mit eigenem Konto legen ihren Stand nicht im Levelkatalog ab,
+  // sondern jedes in seinem eigenen Kasten. Damit der Zug sie auch auf
   // einem frischen Gerät kennt, werden die Kästen hier angemeldet: game-cloud.js
   // spiegelt sie in den lokalen Speicher, aus dem diese Datei liest, und meldet
   // sich, wenn aus der Cloud etwas Neues kommt.
@@ -269,7 +288,9 @@
   if (cloudGames) {
     const redraw = () => document.dispatchEvent(new CustomEvent("lernapp:progress-changed"));
     cloudGames.register({ key: RUNNER_KEY, empty: { unlocked: 1, best: {} }, merge: cloudGames.mergeLevels }).onChange(redraw);
-    cloudGames.register({ key: CARDMATCH_KEY, empty: { runs: 0, scores: [] }, merge: cloudGames.mergeScores(CARDMATCH_RUNS) }).onChange(redraw);
+    [CARDMATCH_KEY, BEACH_KEY].forEach((key) => {
+      cloudGames.register({ key, empty: { runs: 0, scores: [] }, merge: cloudGames.mergeScores(RUNS_FOR_DONE) }).onChange(redraw);
+    });
   }
 
   function gameProgress(gameId) {

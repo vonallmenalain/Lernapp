@@ -153,11 +153,17 @@
     return `${area.label}: Wagen fertig gebaut, wird beladen, Stufe ${area.stage} von 10.`;
   }
 
+  // Was der Vorlese-Knopf und die Bildschirmleser über ein Gebäude sagen. Die
+  // Einheit kommt vom Spiel: die meisten zählen Level, die beiden Spiele mit
+  // Bestenliste zählen Runden.
   function describeGame(game) {
     if (!game.total) return game.title;
-    if (game.solved === 0) return `${game.title}: noch kein Level gelöst.`;
-    if (game.solved === game.total) return `${game.title}: alle ${game.total} Level gelöst.`;
-    return `${game.title}: ${game.solved} von ${game.total} Leveln gelöst.`;
+    // "alle 5 Runden" gegen "von 5 Runden": das eine steht im Nominativ, das
+    // andere im Dativ. Beim Level fallen die beiden auseinander.
+    const { plural, dative } = game.unit || { plural: "Level", dative: "Leveln" };
+    if (game.solved === 0) return `${game.title}: noch nicht gespielt.`;
+    if (game.solved >= game.total) return `${game.title}: geschafft, alle ${game.total} ${plural} gespielt.`;
+    return `${game.title}: ${game.solved} von ${game.total} ${dative} gespielt.`;
   }
 
   // ---------------------------------------------------------------------------
@@ -335,7 +341,8 @@
     const houses = games.map((game, index) => {
       const x = startX + index * (w + gap * scale);
       const node = art.buildBuilding(game.id, {
-        done: game.total > 0 && game.solved === game.total,
+        done: game.total > 0 && game.solved >= game.total,
+        ratio: game.ratio,
         label: describeGame(game),
       });
       node.dataset.page = game.page;

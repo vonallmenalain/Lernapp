@@ -188,38 +188,61 @@ assert(runner.worlds.length === 10, "Tier-Sprung braucht ein Band je Level");
 // Der Bereich zählt über die Spiele: Tier-Sprung halb, Karten-Merker gar nicht.
 assert(Math.abs(halb.ratio - 0.25) < 1e-9, `halber Tier-Sprung und leerer Karten-Merker sind 25 %, gefunden ${halb.ratio}`);
 
-// --- Karten-Merker ----------------------------------------------------------
+// --- Die Spiele mit Bestenliste ---------------------------------------------
 // Fünf gespielte Runden, dann ist das Spiel fertig – die Punktzahl entscheidet
-// nur über die Sterne, nicht über den Fortschritt.
+// nur über die Sterne, nicht über den Fortschritt. Beide zählen anders: der
+// Karten-Merker gibt zwei Punkte je Karte, Strand-Schätze einen je Schatz.
+// Deshalb muss die Sternschwelle je Spiel eine andere sein.
+const RUNDEN_SPIELE = [
+  { id: "cardMatch", key: "lernapp.cardmatch", name: "Karten-Merker", drei: 40, einer: 8 },
+  { id: "beachTreasure", key: "lernapp.beachtreasure", name: "Strand-Schätze", drei: 12, einer: 2 },
+];
+
+for (const spiel of RUNDEN_SPIELE) {
+  store.clear();
+  const leer = train.gameProgress(spiel.id);
+  assert(leer.total === 5, `${spiel.name} muss 5 Runden melden, meldet ${leer.total}`);
+  assert(leer.solved === 0, `${spiel.name}: ohne Runde darf nichts gelöst sein`);
+
+  store.set(spiel.key, JSON.stringify({ runs: 2, scores: [spiel.drei + 6, spiel.einer] }));
+  const zwei = train.gameProgress(spiel.id);
+  assert(zwei.solved === 2, `${spiel.name}: zwei Runden müssen 2 ergeben, ergeben ${zwei.solved}`);
+  assert(Math.abs(zwei.ratio - 0.4) < 1e-9, `${spiel.name}: zwei von fünf Runden sind 40 %, gefunden ${zwei.ratio}`);
+  assert(zwei.stars === 4, `${spiel.name}: eine starke und eine schwache Runde geben 3 + 1 Sterne, gefunden ${zwei.stars}`);
+  assert(zwei.worlds.length === 5, `${spiel.name} braucht ein Band je Runde`);
+
+  // Eine schwache Runde zählt genauso für den Wagen wie eine starke.
+  store.set(spiel.key, JSON.stringify({ runs: 5, scores: [0, 0, 0, 0, 0] }));
+  const fertig = train.gameProgress(spiel.id);
+  assert(fertig.ratio === 1, `${spiel.name}: fünf Runden müssen abschliessen, egal mit wie vielen Punkten`);
+  assert(fertig.stars === 5, `${spiel.name}: fünf schwache Runden geben je einen Stern, gefunden ${fertig.stars}`);
+
+  // Mehr als fünf Runden dürfen nicht über 100 Prozent hinausschiessen.
+  store.set(spiel.key, JSON.stringify({ runs: 12, scores: [spiel.drei, spiel.drei, 1, 1, 1] }));
+  assert(train.gameProgress(spiel.id).ratio === 1, `${spiel.name}: mehr als fünf Runden dürfen nicht über 100 % gehen`);
+}
+
+// Die Schwelle muss wirklich je Spiel gelten: dieselbe Punktzahl darf nicht in
+// beiden Spielen dieselben Sterne geben, sonst wäre die Trennung nur Zierde.
 store.clear();
-const cardsEmpty = train.gameProgress("cardMatch");
-assert(cardsEmpty.total === 5, `Karten-Merker muss 5 Runden melden, meldet ${cardsEmpty.total}`);
-assert(cardsEmpty.solved === 0, "ohne Runde darf nichts gelöst sein");
-
-store.set("lernapp.cardmatch", JSON.stringify({ runs: 2, scores: [46, 8] }));
-const cardsTwo = train.gameProgress("cardMatch");
-assert(cardsTwo.solved === 2, `zwei Runden müssen 2 ergeben, ergeben ${cardsTwo.solved}`);
-assert(Math.abs(cardsTwo.ratio - 0.4) < 1e-9, `zwei von fünf Runden sind 40 %, gefunden ${cardsTwo.ratio}`);
-assert(cardsTwo.stars === 4, `46 Punkte geben 3 Sterne, 8 Punkte einen – erwartet 4, gefunden ${cardsTwo.stars}`);
-assert(cardsTwo.worlds.length === 5, "Karten-Merker braucht ein Band je Runde");
-
-// Eine schwache Runde zählt genauso für den Wagen wie eine starke.
-store.set("lernapp.cardmatch", JSON.stringify({ runs: 5, scores: [0, 0, 0, 0, 0] }));
-const cardsDone = train.gameProgress("cardMatch");
-assert(cardsDone.ratio === 1, "fünf Runden müssen das Spiel abschliessen, egal mit wie vielen Punkten");
-assert(cardsDone.stars === 5, `fünf schwache Runden geben je einen Stern, gefunden ${cardsDone.stars}`);
-
-// Mehr als fünf Runden dürfen nicht über 100 Prozent hinausschiessen.
-store.set("lernapp.cardmatch", JSON.stringify({ runs: 12, scores: [60, 55, 50, 44, 40] }));
-assert(train.gameProgress("cardMatch").ratio === 1, "mehr als fünf Runden dürfen nicht über 100 % gehen");
+store.set("lernapp.cardmatch", JSON.stringify({ runs: 1, scores: [12] }));
+store.set("lernapp.beachtreasure", JSON.stringify({ runs: 1, scores: [12] }));
+assert(train.gameProgress("cardMatch").stars === 1, "12 Punkte sind im Karten-Merker eine schwache Runde");
+assert(train.gameProgress("beachTreasure").stars === 3, "12 Schätze sind am Strand eine starke Runde");
 
 // --- Welten je Spiel --------------------------------------------------------
+// Aus dem Katalog gelesen statt hier aufgezählt: sonst fiele beim nächsten
+// Umbau ein Spiel still aus der Prüfung.
+const eigeneKonten = new Set(
+  train.AREAS.flatMap((area) => area.games.filter((game) => game.ownProgress).map((game) => game.id)),
+);
+assert(eigeneKonten.size === 3, `erwartet 3 Spiele mit eigenem Konto, gefunden ${eigeneKonten.size}`);
 store.clear();
 for (const area of train.allAreas()) {
   for (const game of area.games) {
-    // Zwei Spiele führen ihr eigenes Konto und haben keine vier Welten:
-    // Tier-Sprung zehn Level, Karten-Merker fünf Runden auf Zeit.
-    if (game.id === "tiersprung" || game.id === "cardMatch") continue;
+    // Die Spiele mit eigenem Konto haben keine vier Welten: Tier-Sprung zehn
+    // Level, die beiden Bestenlisten-Spiele je fünf Runden.
+    if (eigeneKonten.has(game.id)) continue;
     assert(game.worlds.length === 4, `${game.id} hat ${game.worlds.length} Welten statt 4`);
     const total = game.worlds.reduce((sum, world) => sum + world.total, 0);
     assert(total === game.total, `${game.id}: Welten summieren sich nicht auf ${game.total}`);
@@ -230,6 +253,6 @@ for (const area of train.allAreas()) {
 const alle = train.trainProgress();
 assert(alle.areas.length === 5, "trainProgress muss fünf Bereiche melden");
 const gesamt = alle.areas.reduce((sum, area) => sum + area.total, 0);
-assert(gesamt === 411, `erwartet 411 Levels über alle Bereiche, gefunden ${gesamt}`);
+assert(gesamt === 408, `erwartet 408 Levels über alle Bereiche, gefunden ${gesamt}`);
 
 console.log(`Zug-Fortschritt geprüft: 5 Bereiche, ${seen.size} Spiele, ${gesamt} Levels.`);
