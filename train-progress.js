@@ -30,7 +30,6 @@
       games: [
         { id: "backpack", title: "Rucksack packen", page: "backpack.html" },
         { id: "memory", title: "Memory", page: "memory.html" },
-        { id: "cardMatch", title: "Karten-Merker", page: "kartenmerker.html" },
         { id: "beachTreasure", title: "Strand-Schätze", page: "strandschatz.html" },
       ],
     },
@@ -52,7 +51,8 @@
       icon: "bolt",
       wagon: "flat",
       games: [
-        { id: "tiersprung", title: "Tier-Sprung", page: "tiersprung.html", ownProgress: true },
+        { id: "tiersprung", title: "Tier-Sprung", page: "tiersprung.html", ownProgress: "runner" },
+        { id: "cardMatch", title: "Karten-Merker", page: "kartenmerker.html", ownProgress: "cardMatch" },
       ],
     },
     {
@@ -118,6 +118,8 @@
   const LOCAL_SOLVED_PREFIX = "lernapp.solved.";
   const RUNNER_KEY = "lernapp.tiersprung.progress";
   const RUNNER_LEVEL_COUNT = 10;
+  const CARDMATCH_KEY = "lernapp.cardmatch";
+  const CARDMATCH_RUNS = 5;
 
   function cloud() { return window.LernappFirebase || null; }
   function kids() { return window.LernappKids || null; }
@@ -217,11 +219,53 @@
     };
   }
 
+  // Karten-Merker läuft auf Zeit statt über Level: 45 Sekunden, dann eine
+  // Punktzahl. "Fertig" ist es nach fünf gespielten Runden, unabhängig davon,
+  // wie viele Punkte dabei herauskamen – wer übt, kommt voran, und wer einen
+  // schlechten Tag hat, auch. Die Sterne kommen aus den besten Ergebnissen,
+  // damit die Bestenliste im Wagen sichtbar wird.
+  function cardMatchProgress(game) {
+    const stored = readJSON(CARDMATCH_KEY, null) || {};
+    const runs = Math.max(0, Math.min(CARDMATCH_RUNS, Number(stored.runs) || 0));
+    const scores = Array.isArray(stored.scores) ? stored.scores.filter((n) => Number.isFinite(n)) : [];
+    const worlds = [];
+    let stars = 0;
+
+    for (let i = 0; i < CARDMATCH_RUNS; i += 1) {
+      const done = i < runs;
+      const runStars = done ? starsForScore(scores[i]) : 0;
+      stars += runStars;
+      worlds.push({ key: `runde-${i + 1}`, solved: done ? 1 : 0, total: 1, stars: runStars, maxStars: 3, ratio: done ? 1 : 0 });
+    }
+
+    return {
+      id: game.id,
+      title: game.title,
+      page: game.page,
+      solved: runs,
+      total: CARDMATCH_RUNS,
+      ratio: runs / CARDMATCH_RUNS,
+      stars,
+      maxStars: CARDMATCH_RUNS * 3,
+      worlds,
+    };
+  }
+
+  function starsForScore(score) {
+    const points = Number(score) || 0;
+    if (points >= 40) return 3;
+    if (points >= 20) return 2;
+    return 1;
+  }
+
+  const OWN_PROGRESS = { runner: runnerProgress, cardMatch: cardMatchProgress };
+
   function gameProgress(gameId) {
     const area = AREA_BY_GAME[gameId];
     const game = area?.games.find((entry) => entry.id === gameId);
     if (!game) return null;
-    return game.ownProgress ? runnerProgress(game) : catalogProgress(game);
+    const own = OWN_PROGRESS[game.ownProgress];
+    return own ? own(game) : catalogProgress(game);
   }
 
   // Bereichsfortschritt: Mittelwert über die Spiele, nicht über die Levels.

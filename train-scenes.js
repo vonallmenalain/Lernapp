@@ -452,6 +452,76 @@
 
   const BY_ID = Object.fromEntries(SCENES.map((scene) => [scene.id, scene]));
 
+  // ---------------------------------------------------------------------------
+  // Die Landschaft aufbauen
+  // ---------------------------------------------------------------------------
+  // Steht hier und nicht im Startbild, weil die Spielseiten dieselbe Landschaft
+  // zeigen: das Kind soll beim Wechsel ins Spiel nicht die Welt wechseln. Zwei
+  // Kopien derselben Ebenen gingen beim nächsten Umbau auseinander.
+  //
+  // Wie schnell eine Ebene zieht, hängt an ihrer Tiefe: Wolken brauchen zwei
+  // ein halb Minuten für einen Durchlauf, das Gras keine halbe.
+  const LAYER_SPEED = { clouds: 150, far: 96, mid: 54, near: 26 };
+  const LAYER_NAMES = ["clouds", "far", "mid", "near"];
+
+  function buildScene(scene) {
+    const wrap = document.createElement("div");
+    wrap.className = "scene";
+    wrap.dataset.scene = scene.id;
+    wrap.style.setProperty("--sky-top", scene.sky[0]);
+    wrap.style.setProperty("--sky-bottom", scene.sky[1]);
+    wrap.style.setProperty("--ground", scene.ground);
+    wrap.style.setProperty("--ground-dark", scene.groundDark);
+
+    const sun = document.createElement("div");
+    sun.className = "scene-sun";
+    sun.setAttribute("aria-hidden", "true");
+    sun.append(el("svg", { viewBox: "0 0 100 100" }, [
+      el("circle", { cx: 50, cy: 50, r: 42, fill: scene.light.color, opacity: String(scene.light.glow) }),
+      el("circle", { cx: 50, cy: 50, r: 30, fill: scene.light.color }),
+    ]));
+    wrap.append(sun);
+
+    LAYER_NAMES.forEach((name) => {
+      const bandEl = document.createElement("div");
+      bandEl.className = `scene-layer scene-layer-${name}${name === "near" ? " is-front" : ""}`;
+      bandEl.style.setProperty("--speed", `${LAYER_SPEED[name]}s`);
+      const strip = document.createElement("div");
+      strip.className = "scene-strip";
+      strip.append(scene.layers[name](), scene.layers[name]());
+      bandEl.append(strip);
+      wrap.append(bandEl);
+    });
+
+    // Vögel gibt es nur, wo sie hingehören.
+    if (scene.id !== "nacht") {
+      const birds = document.createElement("div");
+      birds.className = "scene-birds";
+      birds.setAttribute("aria-hidden", "true");
+      [1, 2, 3].forEach((i) => {
+        const bird = document.createElement("div");
+        bird.className = `scene-bird scene-bird-${i}`;
+        bird.append(el("svg", { viewBox: "0 0 40 20" }, [
+          el("path", { d: "M2 12 q8 -9 16 0 q8 -9 20 -2", fill: "none", stroke: scene.id === "berge" ? "#4a5b6b" : "#5a6b7a", "stroke-width": 2.4, "stroke-linecap": "round" }),
+        ]));
+        birds.append(bird);
+      });
+      wrap.append(birds);
+    }
+
+    return wrap;
+  }
+
+  // Die Landschaft, die das Kind zuletzt gewählt hat. Gesperrte Landschaften
+  // kann es nicht wählen; steht trotzdem eine im Speicher – etwa weil der
+  // Fortschritt auf einem anderen Gerät liegt –, gilt die erste.
+  function savedScene(builtWagons = 99) {
+    let saved = null;
+    try { saved = localStorage.getItem("lernapp.train.scene"); } catch { saved = null; }
+    const scene = BY_ID[saved];
+    return scene && isUnlocked(scene.id, builtWagons) ? scene : SCENES[0];
+  }
+
   // Freigeschaltet wird über fertig gebaute Wagen: zwei Szenen sind von Anfang
   // an da, jede weitere kostet einen Wagen, der mindestens fertig gebaut ist.
   // So lohnt es sich, alle fünf Bereiche anzufassen statt nur den liebsten.
@@ -467,6 +537,7 @@
 
   window.LernappScenes = {
     SCENES, BY_ID, unlockedCount, isUnlocked,
+    buildScene, savedScene, LAYER_SPEED,
     tile, nearTile, hills, nearGround, grassClump, flower, tree, fir, palm, bush, grassTile, cloudTile,
     W, H, NW, NH, TW, TH,
   };

@@ -35,7 +35,7 @@ vm.runInContext(source, context);
 const api = windowStub.LernappBrainGames;
 assert(api, "brain-games.js hat window.LernappBrainGames nicht gesetzt");
 
-const GAMES = ["cardMatch", "flanker", "beachTreasure", "trackRouter"];
+const GAMES = ["flanker", "beachTreasure", "trackRouter"];
 for (const game of GAMES) {
   assert(api.configs[game], `${game} fehlt in configs`);
   assert(api.pages[game]?.endsWith(".html"), `${game} hat keine Seite`);
@@ -69,17 +69,6 @@ for (const game of GAMES) {
   }
 }
 
-// --- Karten-Merker ---------------------------------------------------------
-levels.cardMatch.forEach((level) => {
-  const { cards, poolSize, matchRate, mode, answerMs } = level.rule;
-  assert(cards >= 8 && cards <= 24, `${level.id}: ${cards} Karten sind ausserhalb der sinnvollen Spanne`);
-  assert(poolSize >= 3 && poolSize <= 10, `${level.id}: Symbolvorrat ${poolSize} passt nicht`);
-  assert(matchRate > 0.2 && matchRate < 0.7, `${level.id}: Trefferquote ${matchRate} macht das Spiel vorhersehbar`);
-  assert(["symbol", "symbolColor"].includes(mode), `${level.id}: unbekannter Modus ${mode}`);
-  assert(answerMs === 0 || answerMs >= 2500, `${level.id}: ${answerMs} ms Antwortzeit sind für Kinder zu knapp`);
-});
-assert(levels.cardMatch.filter((l) => l.difficulty === "easy").some((l) => l.rule.answerMs === 0),
-  "Im ersten Karten-Merker-Level darf es keinen Zeitdruck geben");
 
 // --- Schwarm-Fokus ---------------------------------------------------------
 levels.flanker.forEach((level) => {
@@ -154,8 +143,7 @@ function averageBy(game, difficulty, pick) {
   const list = levels[game].filter((level) => level.difficulty === difficulty);
   return list.reduce((sum, level) => sum + pick(level.rule), 0) / list.length;
 }
-assert(averageBy("cardMatch", "easy", (r) => r.poolSize) < averageBy("cardMatch", "extreme", (r) => r.poolSize),
-  "Karten-Merker: der Symbolvorrat wächst nicht");
+
 assert(averageBy("flanker", "easy", (r) => r.incongruent) < averageBy("flanker", "extreme", (r) => r.incongruent),
   "Schwarm-Fokus: der Anteil ablenkender Runden wächst nicht");
 assert(averageBy("beachTreasure", "easy", (r) => r.rounds) < averageBy("beachTreasure", "extreme", (r) => r.rounds),

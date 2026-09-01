@@ -37,8 +37,6 @@
   // wird der Hintergrund, nicht der Zug – so bleibt die Lok an ihrem Platz und
   // muss nicht bei jedem Bild neu gezeichnet werden.
   const scenes = () => window.LernappScenes || null;
-  const LAYER_SPEED = { clouds: 150, far: 96, mid: 54, near: 26 };
-
   function currentScene() {
     const list = scenes();
     if (!list) return null;
@@ -50,53 +48,10 @@
     return list.SCENES[0];
   }
 
-  function buildScene(scene) {
-    const wrap = document.createElement("div");
-    wrap.className = "scene";
-    wrap.dataset.scene = scene.id;
-    wrap.style.setProperty("--sky-top", scene.sky[0]);
-    wrap.style.setProperty("--sky-bottom", scene.sky[1]);
-    wrap.style.setProperty("--ground", scene.ground);
-    wrap.style.setProperty("--ground-dark", scene.groundDark);
-
-    const sun = document.createElement("div");
-    sun.className = "scene-sun";
-    sun.setAttribute("aria-hidden", "true");
-    sun.append(el("svg", { viewBox: "0 0 100 100" }, [
-      el("circle", { cx: 50, cy: 50, r: 42, fill: scene.light.color, opacity: String(scene.light.glow) }),
-      el("circle", { cx: 50, cy: 50, r: 30, fill: scene.light.color }),
-    ]));
-    wrap.append(sun);
-
-    ["clouds", "far", "mid", "near"].forEach((name) => {
-      const bandEl = document.createElement("div");
-      bandEl.className = `scene-layer scene-layer-${name}${name === "near" ? " is-front" : ""}`;
-      bandEl.style.setProperty("--speed", `${LAYER_SPEED[name]}s`);
-      const strip = document.createElement("div");
-      strip.className = "scene-strip";
-      strip.append(scene.layers[name](), scene.layers[name]());
-      bandEl.append(strip);
-      wrap.append(bandEl);
-    });
-
-    // Vögel gibt es nur, wo sie hingehören.
-    if (scene.id !== "nacht") {
-      const birds = document.createElement("div");
-      birds.className = "scene-birds";
-      birds.setAttribute("aria-hidden", "true");
-      [1, 2, 3].forEach((i) => {
-        const bird = document.createElement("div");
-        bird.className = `scene-bird scene-bird-${i}`;
-        bird.append(el("svg", { viewBox: "0 0 40 20" }, [
-          el("path", { d: "M2 12 q8 -9 16 0 q8 -9 20 -2", fill: "none", stroke: scene.id === "berge" ? "#4a5b6b" : "#5a6b7a", "stroke-width": 2.4, "stroke-linecap": "round" }),
-        ]));
-        birds.append(bird);
-      });
-      wrap.append(birds);
-    }
-
-    return wrap;
-  }
+  // Gebaut wird die Landschaft in train-scenes.js – die Spielseiten brauchen
+  // dieselbe, und zwei Kopien derselben Ebenen gingen beim nächsten Umbau
+  // auseinander.
+  const buildScene = (scene) => scenes().buildScene(scene);
 
   // ---------------------------------------------------------------------------
   // Speicher
@@ -1098,7 +1053,30 @@
     const timer = window.setTimeout(go, 6000);
   }
 
-  rollInOnFirstTouch();
+  // Aus einem Spiel führt der Zurück-Knopf nicht auf das Startbild, sondern
+  // dorthin, wo das Kind hergekommen ist: in die Spielauswahl seines Bereichs.
+  // Das Spiel hängt den Bereich an die Adresse; hier wird er eingelöst und die
+  // Adresse gleich wieder sauber gemacht, damit ein Neuladen aufs Startbild
+  // führt.
+  function openRequestedArea() {
+    let wanted = null;
+    try { wanted = new URLSearchParams(window.location.search).get("bereich"); } catch { wanted = null; }
+    if (!wanted || !progress.areaProgress(wanted)) return false;
+    try { window.history.replaceState(null, "", window.location.pathname); } catch { /* ohne Verlauf */ }
+    showGames(wanted);
+    // Der Zug kommt von links hereingefahren, wie sonst auch beim Wechsel in
+    // einen Bereich.
+    stage.dataset.moving = "in";
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        delete stage.dataset.moving;
+        alignTrainToRail();
+      });
+    });
+    return true;
+  }
+
+  if (!openRequestedArea()) rollInOnFirstTouch();
 
 
   window.addEventListener("resize", () => {
