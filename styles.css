@@ -4647,6 +4647,93 @@ body[data-page="train"] .help-voice { display: none; }
 .cm-icon.big svg { width: 32px; height: 32px; }
 
 /* ===========================================================================
+   Der Wagen wächst
+   ---------------------------------------------------------------------------
+   Nach einem geschafften Level, beim Zurückkommen auf die Bühne: der Wagen
+   gross, sein Balken füllt sich, und die Bauart wächst Stufe um Stufe mit.
+   Ein Tipp bricht ab – wer weiter will, soll nicht warten müssen.
+   =========================================================================== */
+
+.wagon-reward {
+  position: absolute;
+  inset: 0;
+  z-index: 12;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(23, 34, 42, 0.5);
+  backdrop-filter: blur(3px);
+  cursor: pointer;
+  animation: wagon-reward-in 0.24s ease both;
+}
+
+.wagon-reward-card {
+  width: min(560px, 92vw);
+  display: grid;
+  justify-items: center;
+  gap: clamp(6px, 1.6vh, 14px);
+  padding: clamp(14px, 3vh, 26px) clamp(16px, 3vw, 30px);
+  border-radius: 28px;
+  background: #fff;
+  box-shadow: 0 22px 60px rgba(31, 42, 51, 0.4);
+  animation: wagon-reward-pop 0.34s cubic-bezier(0.2, 1.3, 0.4, 1) both;
+}
+
+.wagon-reward-title {
+  margin: 0;
+  font-size: clamp(1rem, 2.6vw, 1.4rem);
+  font-weight: 950;
+  color: var(--reward-color, #6c5ce7);
+  letter-spacing: 0.02em;
+}
+
+.wagon-reward-stage { width: 100%; display: grid; place-items: center; }
+.wagon-reward-svg { width: min(420px, 100%); height: auto; }
+
+/* Wenn die Bauart eine Stufe springt, hüpft der Wagen einmal – so ist zu
+   sehen, dass gerade etwas dazugekommen ist. */
+.wagon-reward-stage.is-pop { animation: wagon-reward-step 0.42s ease both; }
+
+.wagon-reward-bar {
+  width: 100%;
+  height: 14px;
+  border-radius: 999px;
+  background: #e8ecf2;
+  overflow: hidden;
+}
+
+.wagon-reward-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--reward-color, #6c5ce7);
+  transition: width 2.6s cubic-bezier(0.25, 0.9, 0.3, 1);
+}
+
+.wagon-reward-note {
+  margin: 0;
+  font-size: clamp(0.95rem, 2.2vw, 1.2rem);
+  font-weight: 800;
+  color: #4a5b52;
+}
+
+@keyframes wagon-reward-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes wagon-reward-pop {
+  from { opacity: 0; transform: scale(0.86) translateY(14px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes wagon-reward-step {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.09) rotate(-1.2deg); }
+  100% { transform: scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wagon-reward, .wagon-reward-card, .wagon-reward-stage.is-pop { animation: none; }
+  .wagon-reward-fill { transition: none; }
+}
+
+/* ===========================================================================
    Die Rätselseiten auf der Landschaft
    ---------------------------------------------------------------------------
    Arukone, Battleships, Tiergehege, Buchstabenjagd, Wortdetektiv, Kakuro und

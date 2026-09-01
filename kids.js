@@ -229,6 +229,20 @@
       { note: "G5", at: 0, dur: 0.16, vol: 0.05 },
       { note: "C6", at: 0.09, dur: 0.3, vol: 0.06 },
     ],
+    // Der Zug wächst: eine steigende Fanfare mit einem Nachschlag, der wie ein
+    // eingerastetes Bauteil klingt. Deutlich länger und höher als "win", damit
+    // sie nicht mit dem Levelabschluss verwechselt wird – sie gehört zum Wagen,
+    // nicht zur Aufgabe.
+    wagon: [
+      { note: "C5", at: 0, dur: 0.14, vol: 0.05 },
+      { note: "G5", at: 0.1, dur: 0.14, vol: 0.05 },
+      { note: "C6", at: 0.2, dur: 0.16, vol: 0.055 },
+      { note: "E6", at: 0.3, dur: 0.18, vol: 0.055 },
+      { note: "G6", at: 0.42, dur: 0.6, vol: 0.06 },
+      { note: "C6", at: 0.42, dur: 0.7, vol: 0.035 },
+      { note: "E5", at: 0.9, dur: 0.5, vol: 0.03 },
+      { note: "C6", at: 1.05, dur: 0.7, vol: 0.045 },
+    ],
     // Fanfare, wenn ein Level oder eine Reise fertig ist.
     win: [
       { note: "C5", at: 0, dur: 0.16, vol: 0.05 },
@@ -268,7 +282,16 @@
     if (!ctx) return;
     bell([NOTE.A5, NOTE.C6, NOTE.E6][Math.min(Math.max(index, 0), 2)], ctx.currentTime + 0.01, 0.22, 0.055);
   }
+  // Vibrieren geht erst, wenn das Kind die Seite einmal berührt hat – vorher
+  // lehnt der Browser den Aufruf ab und schreibt einen Fehler in die Konsole.
+  // Das trifft alles, was gleich beim Laden feiert.
+  let beruehrt = false;
+  ["pointerdown", "keydown", "touchstart"].forEach((art) => {
+    document.addEventListener(art, () => { beruehrt = true; }, { once: true, passive: true, capture: true });
+  });
+
   function vibrate(pattern) {
+    if (!beruehrt) return;
     try { if (navigator.vibrate && !prefersReducedMotion()) navigator.vibrate(pattern); } catch { /* ignore */ }
   }
 
