@@ -147,6 +147,31 @@ for (const part of art.LOCO_PARTS) {
   assert(Array.isArray(part.options) && part.options.length >= 2, `${part.id} hat keine Auswahl`);
 }
 
+// --- Gebäude ----------------------------------------------------------------
+// Jedes Spiel des Zugs braucht sein eigenes Haus. Fehlt eines, fällt
+// buildBuilding stumm auf das Memory-Haus zurück – zwei gleiche Häuser im
+// selben Bereich, und niemand merkt es beim Lesen des Codes.
+const progressContext = vm.createContext({
+  window: { LernappTrainArt: art },
+  document: { createElementNS: (_ns, name) => makeNode(name), addEventListener() {} },
+  localStorage: { getItem: () => null, setItem() {}, removeItem() {} },
+  console,
+});
+vm.runInContext(fs.readFileSync(path.join(root, "train-progress.js"), "utf8"), progressContext, { filename: "train-progress.js" });
+const spiele = progressContext.window.LernappTrain.AREAS.flatMap((area) => area.games.map((game) => game.id));
+assert(spiele.length === 17, `erwartet 17 Spiele im Zug, gefunden ${spiele.length}`);
+
+const gesehen = new Map();
+for (const id of spiele) {
+  assert(art.BUILDINGS[id], `${id} hat kein eigenes Gebäude in BUILDINGS`);
+  const bild = serialize(art.buildBuilding(id, { label: id }));
+  const zwilling = gesehen.get(bild);
+  assert(!zwilling, `${id} und ${zwilling} sehen genau gleich aus`);
+  gesehen.set(bild, id);
+  assert(collectAttr(art.buildBuilding(id, { label: id, done: true }), "data-building").includes(id),
+    `${id} verliert seine Kennung, sobald es fertig gespielt ist`);
+}
+
 // --- Ganzer Zug -------------------------------------------------------------
 const areas = art.WAGON_TYPES.map((wagon, index) => ({ id: `a${index}`, wagon, color: AREA_COLOR, stage: index * 2 }));
 const train = art.buildTrain(areas, base);
@@ -157,4 +182,4 @@ const viewBox = train.attrs.viewBox.split(" ").map(Number);
 assert(viewBox[2] > art.LOCO_W + 5 * art.WAGON_W, "der Zug ist schmaler als seine Teile");
 assert(viewBox[3] === art.ART_H, "die Höhe des Zugs passt nicht zum Koordinatensystem");
 
-console.log(`Zug-Zeichnung geprüft: ${art.WAGON_TYPES.length} Bauarten × 11 Stufen, ${variants.length} Lok-Varianten, ${art.DRIVERS.length} Tiere.`);
+console.log(`Zug-Zeichnung geprüft: ${art.WAGON_TYPES.length} Bauarten × 11 Stufen, ${variants.length} Lok-Varianten, ${art.DRIVERS.length} Tiere, ${spiele.length} Gebäude.`);

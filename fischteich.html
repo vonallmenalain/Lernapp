@@ -4,23 +4,23 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="application-name" content="Lernapp" />
-    <meta name="description" content="Schwarm-Fokus: 45 Sekunden lang nur auf den Fisch in der Mitte schauen." />
+    <meta name="description" content="Fischteich: Tippe jeden Fisch genau einmal an und merk dir, welche du schon hattest." />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Lernapp" />
     <meta name="theme-color" content="#a8ddf0" />
-    <title>Schwarm-Fokus · Lernapp</title>
+    <title>Fischteich · Lernapp</title>
     <link rel="stylesheet" href="styles.css?v=2026-09-05-1" />
     <link rel="manifest" href="app.webmanifest?v=2026-09-05-1" />
     <link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon-180.png" />
   </head>
-  <body data-page="flanker">
-    <!-- Die Bühne baut schwarmfokus.js: dieselbe Landschaft wie das Startbild,
-         darauf der Schwarm. Bewusst leer im HTML – hier steht kein Wort, das
-         ein Kind lesen müsste, ausser dem Namen des Spiels. -->
-    <div id="sf-stage" class="cm-stage sf-stage" aria-label="Schwarm-Fokus"></div>
+  <body data-page="pond">
+    <!-- Die Bühne baut fischteich.js: dieselbe Landschaft wie das Startbild,
+         darauf der Teich mit den Fischen. Bewusst leer im HTML – hier steht kein Wort, das ein
+         Kind lesen müsste, ausser dem Namen des Spiels. -->
+    <div id="ft-stage" class="cm-stage ft-stage" aria-label="Fischteich"></div>
 
     <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-auth-compat.js"></script>
@@ -31,7 +31,7 @@
     <script src="train-scenes.js?v=2026-09-05-1"></script>
     <script src="game-cloud.js?v=2026-09-05-1"></script>
     <script src="game-shell.js?v=2026-09-05-1"></script>
-    <script src="schwarmfokus.js?v=2026-09-05-1"></script>
+    <script src="fischteich.js?v=2026-09-05-1"></script>
     <script src="pwa.js?v=2026-09-05-1"></script>
   </body>
 </html>

@@ -156,24 +156,26 @@ assert(full.solved === 160, `Zahl und Buchstabe hat ${full.solved} statt 160 Lev
 
 // Der Mittelwert über die Spiele soll die sehr unterschiedlichen Bereichsgrössen
 // ausgleichen: gleich viel Anteil je Spiel führt zu gleichem Wagenfortschritt,
-// obwohl Zahl und Buchstabe sechzehnmal so viele Aufgaben hat wie Konzentration.
+// obwohl Zahl und Buchstabe achtmal so viele Aufgaben hat wie Gedächtnis.
 //
-// Aufgebaut wird deshalb "die Hälfte der Spiele fertig": in Konzentration eines
-// von zwei, in Zahl und Buchstabe zwei von vier. Beide Wagen müssen gleich weit
-// sein.
+// Aufgebaut wird deshalb "die Hälfte der Spiele fertig": in beiden Bereichen
+// zwei von vier. Beide Wagen müssen gleich weit sein.
 store.clear();
-store.set("lernapp.flanker", JSON.stringify({ runs: 5, scores: [30, 20, 10, 8, 4] }));
+store.set("lernapp.backpack", JSON.stringify({ runs: 5, scores: [14, 12, 9, 6, 3] }));
+store.set("lernapp.memory", JSON.stringify({
+  best: { 8: { stars: 3 }, 12: { stars: 3 }, 16: { stars: 3 }, 20: { stars: 3 }, 24: { stars: 3 } },
+}));
 solve("letterPuzzle", catalog.letterPuzzle.length);
 solve("readingPuzzle", catalog.readingPuzzle.length);
-const konzentration = train.areaProgress("konzentration");
+const gedaechtnis = train.areaProgress("gedaechtnis");
 const zahlbuchstabe = train.areaProgress("zahlbuchstabe");
 assert(
-  Math.abs(konzentration.ratio - zahlbuchstabe.ratio) < 1e-9,
-  `gleich viele fertige Spiele müssen gleich weit sein: ${konzentration.ratio} vs ${zahlbuchstabe.ratio}`,
+  Math.abs(gedaechtnis.ratio - zahlbuchstabe.ratio) < 1e-9,
+  `gleich viele fertige Spiele müssen gleich weit sein: ${gedaechtnis.ratio} vs ${zahlbuchstabe.ratio}`,
 );
-assert(Math.abs(konzentration.ratio - 0.5) < 1e-9, `ein fertiges von zwei Spielen sind 50 %, gefunden ${konzentration.ratio}`);
-assert(zahlbuchstabe.total > konzentration.total * 4,
-  `die Probe sagt nichts aus, wenn beide Bereiche gleich gross sind: ${konzentration.total} und ${zahlbuchstabe.total}`);
+assert(Math.abs(gedaechtnis.ratio - 0.5) < 1e-9, `zwei fertige von vier Spielen sind 50 %, gefunden ${gedaechtnis.ratio}`);
+assert(zahlbuchstabe.total > gedaechtnis.total * 4,
+  `die Probe sagt nichts aus, wenn beide Bereiche gleich gross sind: ${gedaechtnis.total} und ${zahlbuchstabe.total}`);
 
 // Und allgemein: der Bereichsanteil ist der Mittelwert über seine Spiele –
 // nicht über die Aufgaben.
@@ -258,6 +260,8 @@ const RUNDEN_SPIELE = [
   { id: "beachTreasure", key: "lernapp.beachtreasure", name: "Strand-Schätze", drei: 12, einer: 2 },
   { id: "flanker", key: "lernapp.flanker", name: "Schwarm-Fokus", drei: 30, einer: 6 },
   { id: "backpack", key: "lernapp.backpack", name: "Rucksack packen", drei: 12, einer: 2 },
+  { id: "tileMemory", key: "lernapp.kacheln", name: "Kacheln-Knobeln", drei: 14, einer: 3 },
+  { id: "fishPond", key: "lernapp.fischteich", name: "Fischteich", drei: 14, einer: 3 },
 ];
 
 // --- Die Logikspiele mit fünf nötigen Leveln --------------------------------
@@ -373,7 +377,7 @@ assert(train.gameProgress("beachTreasure").stars === 3, "12 Schätze sind am Str
 const eigeneKonten = new Set(
   train.AREAS.flatMap((area) => area.games.filter((game) => game.ownProgress).map((game) => game.id)),
 );
-assert(eigeneKonten.size === 11, `erwartet 11 Spiele mit eigenem Konto, gefunden ${eigeneKonten.size}`);
+assert(eigeneKonten.size === 13, `erwartet 13 Spiele mit eigenem Konto, gefunden ${eigeneKonten.size}`);
 store.clear();
 for (const area of train.allAreas()) {
   for (const game of area.games) {
@@ -390,6 +394,6 @@ for (const area of train.allAreas()) {
 const alle = train.trainProgress();
 assert(alle.areas.length === 5, "trainProgress muss fünf Bereiche melden");
 const gesamt = alle.areas.reduce((sum, area) => sum + area.total, 0);
-assert(gesamt === 215, `erwartet 215 Aufgaben über alle Bereiche, gefunden ${gesamt}`);
+assert(gesamt === 225, `erwartet 225 Aufgaben über alle Bereiche, gefunden ${gesamt}`);
 
 console.log(`Zug-Fortschritt geprüft: 5 Bereiche, ${seen.size} Spiele, ${gesamt} Levels.`);
