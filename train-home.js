@@ -549,11 +549,17 @@
     const shelf = document.createElement("div");
     shelf.className = "wagon-shelf";
 
+    // Jede Kiste ist ein Knopf: von hier aus geht es direkt ins Spiel. Wer
+    // sieht, wo noch etwas fehlt, will meist gleich dorthin – und nicht erst
+    // zurück, in den Bereich und dann auf das Haus.
     area.games.forEach((game) => {
-      const crate = document.createElement("div");
+      const crate = document.createElement("button");
+      crate.type = "button";
       crate.className = "wagon-crate";
-      crate.setAttribute("role", "img");
-      crate.setAttribute("aria-label", describeGame(game));
+      crate.dataset.page = game.page;
+      crate.dataset.game = game.id;
+      crate.setAttribute("aria-label", `${describeGame(game)} Antippen zum Spielen.`);
+      crate.addEventListener("click", () => enterGame(game.page));
 
       // Das Gebäude des Spiels als Deckel der Kiste: so ist die Verbindung zur
       // Gebäudewahl sofort da, ohne dass irgendwo ein Name stehen muss.
@@ -753,12 +759,19 @@
   // ---------------------------------------------------------------------------
   // Ansichten
   // ---------------------------------------------------------------------------
-  const view = { name: "home", areaId: null, part: "whole" };
+  // from = die Bühne, von der aus Werkstatt oder Wagen-Ansicht geöffnet wurden.
+  const view = { name: "home", areaId: null, part: "whole", from: null };
   let layerHost = null;
   let backButton = null;
   let sceneButton = null;
   let startButton = null;
   let busy = false;
+
+  // Auf welchen Bühnen der Zug selbst antippbar ist. Auch klein unten links
+  // bleibt er der kürzeste Weg zu seinem Wagen und zur Werkstatt – ein Kind
+  // muss dafür nicht erst wieder ganz nach vorn. In der Werkstatt und in der
+  // Wagen-Grossansicht ist er ausgeblendet, dort gäbe es nichts anzutippen.
+  const TRAIN_TAPPABLE = new Set(["home", "areas", "games"]);
 
   function setView(name, areaId = null) {
     view.name = name;
@@ -779,14 +792,35 @@
   function showWagon(areaId) {
     const area = progress.areaProgress(areaId);
     if (!area) { showHome(); return; }
+    view.from = fromView();
     setView("wagon", areaId);
     renderLayer(buildWagonDetail(area));
   }
 
   function showWorkshop(part = "whole") {
+    if (view.name !== "loco") view.from = fromView();
     view.part = part;
     setView("loco");
     renderLayer(buildWorkshop(locoConfig, part));
+  }
+
+  // Die Bühne, auf die der Rückweg führt: die, von der aus angetippt wurde.
+  // Wer den Zug aus der Gebäudewahl heraus antippt, will danach wieder vor
+  // seinen Gebäuden stehen und nicht am Anfang.
+  function fromView() {
+    return view.name === "areas" || view.name === "games" ? { name: view.name, areaId: view.areaId } : null;
+  }
+
+  // Zurück aus Werkstatt und Wagen-Ansicht. Ohne gemerkte Herkunft geht es auf
+  // das Startbild – so war es immer, und dorthin führt auch der Weg von dort.
+  function backFromDetail() {
+    const from = view.from;
+    view.from = null;
+    view.part = "whole";
+    if (from?.name === "games" && from.areaId) { showGames(from.areaId); return; }
+    if (from?.name === "areas") { showAreas(); return; }
+    view.name = "home";
+    render();
   }
 
   // Wartet, bis die Fahranimation durch ist. Ohne Bewegung wird nicht gewartet:
@@ -895,18 +929,30 @@
     busy = false;
   }
 
+  // Zählt die Seitenwechsel. Die Notbremse unten darf nur den Wechsel abräumen,
+  // den sie selbst scharf gemacht hat: kommt die Seite aus dem Vor-Zurück-
+  // Speicher, läuft ihr alter Zeitgeber weiter und riss sonst mitten in einer
+  // ganz anderen Fahrt die Bühne zurück auf das Startbild.
+  let leaveToken = 0;
+
   async function enterGame(page) {
     if (busy || !page) return;
+    const from = view.name;
+    const token = leaveToken += 1;
     busy = true;
     // Falls die Seite doch nicht wechselt – ein blockierter Link, ein
     // abgebrochener Ladevorgang –, darf die Bühne nicht gesperrt bleiben.
-    window.setTimeout(() => { if (busy && view.name === "games") resetStage(); }, 4000);
+    window.setTimeout(() => { if (busy && leaveToken === token) resetStage(); }, 4000);
     // Die Musik gehört ins Menü. Ausblenden statt abschneiden: ein abrupt
     // endender Ton klingt nach Fehler.
     toot(3);
     kids()?.stopMusic?.({ fade: 0.45 });
-    stage.dataset.moving = "out";
-    await after(560);
+    // Nur wo der Zug zu sehen ist, fährt er auch los. Aus der Wagen-Ansicht
+    // heraus wäre die halbe Sekunde nur eine Pause vor nichts.
+    if (from === "games") {
+      stage.dataset.moving = "out";
+      await after(560);
+    }
     window.location.href = page;
   }
 
@@ -923,16 +969,14 @@
       return;
     }
     if (view.name === "areas") { showHome(); return; }
-    if (view.name === "wagon") { showHome(); return; }
+    if (view.name === "wagon") { backFromDetail(); return; }
     if (view.name === "loco") {
       // Erst aus dem Bauteil heraus zur ganzen Lok, dann zum Zug. Zwei Stufen
       // zurück auf einmal wäre für ein Kind ein Sprung ins Nichts.
       if (view.part !== "whole") { showWorkshop("whole"); return; }
       // Zurück zum Zug heisst neu zeichnen: die Lok am Zug muss zeigen, was in
       // der Werkstatt gebaut wurde.
-      view.part = "whole";
-      view.name = "home";
-      render();
+      backFromDetail();
     }
   }
 
@@ -978,18 +1022,18 @@
       node.setAttribute("role", "button");
       node.setAttribute("tabindex", "0");
       node.setAttribute("aria-label", `${describeArea(area)} Antippen für Einzelheiten.`);
-      activate(node, () => { if (view.name === "home" && !busy) showWagon(id); });
+      activate(node, () => { if (TRAIN_TAPPABLE.has(view.name) && !busy) showWagon(id); });
     });
     svg.querySelector("[data-loco]")?.setAttribute("aria-label", "Deine Lokomotive");
 
 
-    // Ein Tipp auf die Lok führt in die Werkstatt – aber nur vom Startbild aus.
+    // Ein Tipp auf die Lok führt in die Werkstatt.
     const locoNode = svg.querySelector("[data-loco]");
     if (locoNode) {
       locoNode.setAttribute("role", "button");
       locoNode.setAttribute("tabindex", "0");
       locoNode.setAttribute("aria-label", "Deine Lokomotive umbauen");
-      activate(locoNode, () => { if (view.name === "home" && !busy) showWorkshop("whole"); });
+      activate(locoNode, () => { if (TRAIN_TAPPABLE.has(view.name) && !busy) showWorkshop("whole"); });
     }
 
     band.append(svg);
@@ -1137,12 +1181,15 @@
   });
 
   function resetStage() {
+    // Alles, was noch auf einen Seitenwechsel wartet, ist damit hinfällig.
+    leaveToken += 1;
     busy = false;
     delete stage.dataset.moving;
     stage.querySelector(".scene-picker")?.remove();
     view.name = "home";
     view.areaId = null;
     view.part = "whole";
+    view.from = null;
     render();
   }
 })();

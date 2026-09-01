@@ -4326,12 +4326,19 @@ body[data-page="train"].list-open { overflow: auto; }
   pointer-events: auto;
 }
 
-/* Angetippt wird der Zug nur auf dem Startbild – dort führt die Lok in die
-   Werkstatt und jeder Wagen in seine Grossansicht. Auf den übrigen Bühnen
-   nimmt er keine Tipps mehr an: er steht klein unten links, sein Kasten reicht
-   aber über die halbe Bühne, und die unterste Halle liegt teilweise darunter.
-   Ohne das ginge jeder Tipp auf diese Halle daneben. */
+/* Der Zug führt überall, wo er zu sehen ist, an dieselben zwei Orte: die Lok in
+   die Werkstatt, jeder Wagen in seine Grossansicht.
+
+   Neben dem Startbild steht er aber klein unten links, und sein Kasten reicht
+   über die halbe Bühne – die unterste Halle liegt teilweise darunter. Deshalb
+   nimmt dort nicht mehr das ganze SVG Tipps entgegen, sondern nur noch die
+   gezeichneten Wagen und die Lok selbst. Zwischen ihnen und um sie herum geht
+   der Tipp hindurch zur Halle. */
 .train-stage:not([data-view="home"]) .train-band .train-svg { pointer-events: none; }
+.train-stage[data-view="areas"] .train-band .train-wagon,
+.train-stage[data-view="areas"] .train-band .train-loco,
+.train-stage[data-view="games"] .train-band .train-wagon,
+.train-stage[data-view="games"] .train-band .train-loco { pointer-events: auto; }
 
 .train-wagon, .train-loco { cursor: pointer; }
 
@@ -4787,15 +4794,31 @@ body[data-page="train"] .help-voice { display: none; }
   max-width: 100%;
 }
 
+/* Die Kiste ist ein Knopf: ein Tipp startet ihr Spiel. Sie sieht aus wie
+   vorher – der Kasten war immer schon so gross wie eine Tippfläche. */
 .wagon-crate {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 6px;
   padding: 10px 12px 12px;
+  border: none;
+  font: inherit;
+  color: inherit;
   border-radius: 16px;
   background: rgba(255, 255, 255, 0.72);
   box-shadow: 0 4px 12px rgba(36, 48, 71, 0.16);
+  cursor: pointer;
+  transition: transform 0.12s ease, background 0.16s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.wagon-crate:hover { background: rgba(255, 255, 255, 0.92); }
+.wagon-crate:active { transform: scale(0.96); }
+.wagon-crate:focus-visible { outline: 3px solid #243047; outline-offset: 3px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .wagon-crate { transition: none; }
 }
 
 .crate-icon { width: clamp(44px, 7vh, 68px); height: clamp(44px, 7vh, 68px); display: block; }
