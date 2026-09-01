@@ -414,7 +414,7 @@
   // ---------------------------------------------------------------------------
   // Menü-Musik
   // ---------------------------------------------------------------------------
-  // Eine Spieluhr-Melodie im Dreivierteltakt, die im Menü in Schleife läuft.
+  // Eine Spieluhr-Melodie im Viervierteltakt, die im Menü in Schleife läuft.
   // Aus Oszillatoren statt aus einer Tondatei: keine Lizenzfrage, kein
   // Megabyte Download, offline dieselbe App – und eine Spieluhr passt zu einem
   // Holzzug ohnehin besser als eine produzierte Tonspur.
@@ -430,30 +430,51 @@
     C6: 1046.50, D6: 1174.66, E6: 1318.51,
   };
 
-  const BEAT = 60 / 96;            // gemütlicher Walzer
+  // Vier Viertel statt Walzer, und deutlich flotter: die alte Fassung war ein
+  // gemütliches Um-ta-ta, das nach der zweiten Runde einschläferte. Der Takt
+  // liegt jetzt auf Achteln – acht Schritte je Takt –, damit die Melodie
+  // synkopieren kann, statt brav auf jeder Zählzeit zu sitzen.
+  const BEAT = 60 / 132 / 2;       // Achtel bei 132 Schlägen je Minute
+  const STEPS_PER_BAR = 8;
   const BARS = 8;
-  const STEPS = BARS * 3;
+  const STEPS = BARS * STEPS_PER_BAR;
 
-  // Ein Akkord je Takt: Bass auf der Eins, zwei leise Töne auf Zwei und Drei –
-  // das klassische Um-ta-ta, das den Walzer trägt.
+  // Eine Akkordfolge, die vorwärts zieht und sich rundet: I – V – vi – IV.
   const CHORDS = [
     { bass: "C3", tones: ["E4", "G4"] },
+    { bass: "G3", tones: ["D4", "G4"] },
     { bass: "A3", tones: ["C4", "E4"] },
     { bass: "F3", tones: ["A3", "C4"] },
-    { bass: "G3", tones: ["B3", "D4"] },
     { bass: "C3", tones: ["E4", "G4"] },
-    { bass: "E3", tones: ["G3", "B3"] },
+    { bass: "G3", tones: ["D4", "G4"] },
     { bass: "F3", tones: ["A3", "C4"] },
     { bass: "G3", tones: ["B3", "D4"] },
   ];
 
-  // Zwei Melodien, die sich abwechseln. Eine allein würde nach der dritten
-  // Runde auffallen; zwei klingen wie ein Lied mit zwei Strophen.
+  // Zwei Strophen. Jede Zeile ist ein Takt aus acht Achteln; null ist eine
+  // Pause. Die Melodie beginnt oft auf dem zweiten Achtel und lässt die Eins
+  // frei – genau das macht den Unterschied zwischen "brav" und "geht ins Ohr".
   const MELODIES = [
-    ["G5", "E5", "G5", "A5", "G5", "E5", "F5", "D5", "F5", "G5", null, null,
-     "E5", "G5", "C6", "B5", "A5", "G5", "F5", "E5", "D5", "C5", null, null],
-    ["C6", "B5", "G5", "A5", "F5", "A5", "C6", "A5", "F5", "G5", null, null,
-     "E5", "F5", "G5", "A5", "G5", "E5", "D5", "F5", "E5", "C5", null, null],
+    [
+      "G5", null, "G5", "A5", "G5", null, "E5", null,
+      "D5", null, "D5", "E5", "D5", null, "B4", null,
+      "A5", null, "G5", "E5", "A5", null, null, "G5",
+      "F5", null, "E5", "D5", "C5", null, null, null,
+      "E5", "G5", "C6", null, "B5", "A5", "G5", null,
+      "D5", "G5", "B5", null, "A5", "G5", "F5", null,
+      "A5", null, "C6", "A5", "F5", null, "G5", null,
+      "G5", null, "B5", "D6", "C6", null, null, null,
+    ],
+    [
+      "C6", null, "B5", "G5", "A5", null, "G5", null,
+      "B5", null, "A5", "F5", "G5", null, "D5", null,
+      "C6", "B5", "A5", null, "G5", "A5", "E5", null,
+      "F5", "E5", "D5", null, "C5", null, "E5", null,
+      "G5", null, "E5", "G5", "C6", null, "B5", null,
+      "A5", null, "F5", "A5", "D6", null, "B5", null,
+      "C6", "A5", "F5", null, "A5", "C6", "E6", null,
+      "D6", null, "B5", "G5", "C6", null, null, null,
+    ],
   ];
 
   let musicGain = null;
@@ -482,14 +503,22 @@
   }
 
   function musicStepAt(step, at) {
-    const bar = Math.floor(step / 3);
-    const beat = step % 3;
+    const bar = Math.floor(step / STEPS_PER_BAR);
+    const beat = step % STEPS_PER_BAR;
     const chord = CHORDS[bar];
     const note = MELODIES[musicVerse][step];
 
-    if (beat === 0) tone(NOTES[chord.bass], at, BEAT * 1.4, "sine", 0.022, musicGain);
-    else tone(NOTES[chord.tones[beat - 1]], at, BEAT * 0.7, "triangle", 0.012, musicGain);
-    if (note) musicBell(NOTES[note], at, BEAT * 1.1, 0.03);
+    // Bass auf die Eins und die Drei – kurz und trocken, damit er hüpft statt
+    // zu tragen.
+    if (beat === 0 || beat === 4) tone(NOTES[chord.bass], at, BEAT * 1.2, "sine", 0.024, musicGain);
+    // Die Akkordtöne sitzen auf den Zwischenschlägen: das ist der Zug nach
+    // vorn, den der Walzer nicht hatte.
+    if (beat === 2) tone(NOTES[chord.tones[0]], at, BEAT * 0.8, "triangle", 0.013, musicGain);
+    if (beat === 6) tone(NOTES[chord.tones[1]], at, BEAT * 0.8, "triangle", 0.013, musicGain);
+    // Ein ganz leiser Tick auf den Achteln dazwischen – die Spieluhr bekommt
+    // damit einen Puls, ohne dass ein Schlagzeug daraus wird.
+    if (beat % 2 === 1) tone(NOTES.E6, at, BEAT * 0.18, "sine", 0.004, musicGain);
+    if (note) musicBell(NOTES[note], at, BEAT * 1.4, 0.03);
   }
 
   function musicTick() {
