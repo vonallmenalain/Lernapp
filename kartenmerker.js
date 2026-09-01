@@ -154,6 +154,18 @@
       : `Noch ${left} Runden bis zum fertigen Wagen.`;
   }
 
+  // Was der Lautsprecher am Schluss sagt. Ausgeschrieben statt abgekürzt: ein
+  // Kind, das die Zahlen auf der Tafel nicht liest, soll hier alles hören –
+  // die Punkte, die Karten, und wie weit es noch bis zum Wagen hat.
+  function resultSpeech(points, runs) {
+    const many = (count, one, more) =>
+      count === 0 ? `keine ${one}` : count === 1 ? `eine ${one}` : `${count} ${more}`;
+    const punkte = points === 1 ? "einen Punkt" : `${points} Punkte`;
+    const richtig = many(state.right, "Karte richtig", "Karten richtig");
+    const falsch = many(state.wrong, "falsche", "falsche");
+    return `Du hast ${punkte}. ${richtig}, ${falsch}. ${runsText(runs)}`;
+  }
+
   function beginRound() {
     clearStep();
     state.phase = "play";
@@ -232,6 +244,7 @@
       scores: next.scores,
       top: TOP_COUNT,
       note: { text: runsText(next.runs), done: next.runs >= RUNS_FOR_DONE },
+      speech: resultSpeech(points, next.runs),
     });
   }
 
