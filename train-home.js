@@ -673,6 +673,9 @@
   async function enterGame(page) {
     if (busy || !page) return;
     busy = true;
+    // Die Musik gehört ins Menü. Ausblenden statt abschneiden: ein abrupt
+    // endender Ton klingt nach Fehler.
+    kids()?.stopMusic?.({ fade: 0.45 });
     stage.dataset.moving = "out";
     await after(560);
     window.location.href = page;
@@ -777,6 +780,18 @@
       if (svg && camera) window.requestAnimationFrame(() => applyCamera(svg, camera, view.part));
     }
   });
+
+  // ---------------------------------------------------------------------------
+  // Musik
+  // ---------------------------------------------------------------------------
+  // Ein Versuch beim Laden – falls der Browser schon Ton erlaubt – und sonst
+  // bei der ersten Berührung. Ohne Geste bleibt jeder Browser stumm.
+  const wakeMusic = () => kids()?.startMusic?.();
+  wakeMusic();
+  ["pointerdown", "keydown"].forEach((type) => {
+    document.addEventListener(type, wakeMusic, { once: true, passive: true });
+  });
+  window.addEventListener("pagehide", () => kids()?.stopMusic?.({ fade: 0.2 }));
 
   // Nach einem Spiel kommt das Kind hierher zurück – der Fortschritt hat sich
   // dann geändert. Beim Zurückspringen im Verlauf liefert der Browser die Seite

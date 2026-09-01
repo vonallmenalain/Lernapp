@@ -235,8 +235,10 @@
   }
   function setAudioEnabled(enabled) {
     writeRaw(AUDIO_KEY, enabled ? "1" : "0");
+    // Die Musik hängt am selben Schalter wie alle anderen Töne.
+    if (!enabled) { stopMusic({ keepWanted: true, fade: 0.3 }); stopSpeaking(); }
     if (!enabled && audioContext?.state === "running") audioContext.suspend().catch(() => {});
-    if (!enabled) stopSpeaking();
+    if (enabled && musicWanted) startMusic();
   }
   function ensureAudio() {
     if (!audioEnabled()) return null;
@@ -248,7 +250,7 @@
       return audioContext;
     } catch { return null; }
   }
-  function tone(freq, start, duration, type = "sine", volume = 0.05) {
+  function tone(freq, start, duration, type = "sine", volume = 0.05, destination = null) {
     const ctx = ensureAudio();
     if (!ctx) return;
     try {
@@ -260,7 +262,7 @@
       gain.gain.exponentialRampToValueAtTime(volume, start + 0.02);
       gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
       osc.connect(gain);
-      gain.connect(ctx.destination);
+      gain.connect(destination || ctx.destination);
       osc.start(start);
       osc.stop(start + duration + 0.03);
     } catch { /* ignore */ }
@@ -464,6 +466,148 @@
   }
 
   // ---------------------------------------------------------------------------
+  // Menü-Musik
+  // ---------------------------------------------------------------------------
+  // Eine Spieluhr-Melodie im Dreivierteltakt, die im Menü in Schleife läuft.
+  // Aus Oszillatoren statt aus einer Tondatei: keine Lizenzfrage, kein
+  // Megabyte Download, offline dieselbe App – und eine Spieluhr passt zu einem
+  // Holzzug ohnehin besser als eine produzierte Tonspur.
+  //
+  // Web Audio spielt nicht "jetzt", sondern zu einem Zeitpunkt. Deshalb wird
+  // im Voraus geplant: ein Zeitgeber schaut ein halbe Sekunde nach vorn und
+  // hängt die nächsten Töne an. Töne direkt im Takt zu starten würde bei jedem
+  // ausgelasteten Hauptthread hörbar holpern.
+  const NOTES = {
+    C3: 130.81, E3: 164.81, F3: 174.61, G3: 196.00, A3: 220.00, B3: 246.94,
+    C4: 261.63, D4: 293.66, E4: 329.63, F4: 349.23, G4: 392.00, A4: 440.00, B4: 493.88,
+    C5: 523.25, D5: 587.33, E5: 659.25, F5: 698.46, G5: 783.99, A5: 880.00, B5: 987.77,
+    C6: 1046.50, D6: 1174.66, E6: 1318.51,
+  };
+
+  const BEAT = 60 / 96;            // gemütlicher Walzer
+  const BARS = 8;
+  const STEPS = BARS * 3;
+
+  // Ein Akkord je Takt: Bass auf der Eins, zwei leise Töne auf Zwei und Drei –
+  // das klassische Um-ta-ta, das den Walzer trägt.
+  const CHORDS = [
+    { bass: "C3", tones: ["E4", "G4"] },
+    { bass: "A3", tones: ["C4", "E4"] },
+    { bass: "F3", tones: ["A3", "C4"] },
+    { bass: "G3", tones: ["B3", "D4"] },
+    { bass: "C3", tones: ["E4", "G4"] },
+    { bass: "E3", tones: ["G3", "B3"] },
+    { bass: "F3", tones: ["A3", "C4"] },
+    { bass: "G3", tones: ["B3", "D4"] },
+  ];
+
+  // Zwei Melodien, die sich abwechseln. Eine allein würde nach der dritten
+  // Runde auffallen; zwei klingen wie ein Lied mit zwei Strophen.
+  const MELODIES = [
+    ["G5", "E5", "G5", "A5", "G5", "E5", "F5", "D5", "F5", "G5", null, null,
+     "E5", "G5", "C6", "B5", "A5", "G5", "F5", "E5", "D5", "C5", null, null],
+    ["C6", "B5", "G5", "A5", "F5", "A5", "C6", "A5", "F5", "G5", null, null,
+     "E5", "F5", "G5", "A5", "G5", "E5", "D5", "F5", "E5", "C5", null, null],
+  ];
+
+  let musicGain = null;
+  let musicTimer = null;
+  let musicNext = 0;
+  let musicStep = 0;
+  let musicVerse = 0;
+  let musicWanted = false;
+
+  function musicBus() {
+    const ctx = ensureAudio();
+    if (!ctx) return null;
+    if (!musicGain || musicGain.context !== ctx) {
+      musicGain = ctx.createGain();
+      musicGain.gain.value = 0;
+      musicGain.connect(ctx.destination);
+    }
+    return ctx;
+  }
+
+  // Ein Glockenton mit Oberton – das ist der Unterschied zwischen Spieluhr und
+  // Piepser.
+  function musicBell(freq, at, duration, volume) {
+    tone(freq, at, duration, "triangle", volume, musicGain);
+    tone(freq * 2, at, duration * 0.5, "sine", volume * 0.3, musicGain);
+  }
+
+  function musicStepAt(step, at) {
+    const bar = Math.floor(step / 3);
+    const beat = step % 3;
+    const chord = CHORDS[bar];
+    const note = MELODIES[musicVerse][step];
+
+    if (beat === 0) tone(NOTES[chord.bass], at, BEAT * 1.4, "sine", 0.022, musicGain);
+    else tone(NOTES[chord.tones[beat - 1]], at, BEAT * 0.7, "triangle", 0.012, musicGain);
+    if (note) musicBell(NOTES[note], at, BEAT * 1.1, 0.03);
+  }
+
+  function musicTick() {
+    if (!musicTimer) return;
+    const ctx = musicBus();
+    if (!ctx) return;
+    while (musicNext < ctx.currentTime + 0.5) {
+      if (musicNext < ctx.currentTime) musicNext = ctx.currentTime + 0.05;
+      musicStepAt(musicStep, musicNext);
+      musicNext += BEAT;
+      musicStep += 1;
+      if (musicStep >= STEPS) {
+        musicStep = 0;
+        musicVerse = (musicVerse + 1) % MELODIES.length;
+      }
+    }
+  }
+
+  function startMusic() {
+    musicWanted = true;
+    if (!audioEnabled() || document.hidden) return;
+    const ctx = musicBus();
+    if (!ctx || musicTimer) return;
+    // Browser lassen Ton erst nach einer Berührung zu, und resume() läuft
+    // asynchron: nach dem Wiedereinschalten des Tons schläft der Kontext beim
+    // Prüfen noch. Deshalb wird hier nicht aufgegeben, sondern gewartet, bis er
+    // wach ist – sonst bliebe die Musik nach jedem Aus und Ein stumm.
+    if (ctx.state !== "running") {
+      ctx.addEventListener("statechange", () => { if (musicWanted) startMusic(); }, { once: true });
+      return;
+    }
+    musicNext = ctx.currentTime + 0.1;
+    musicGain.gain.cancelScheduledValues(ctx.currentTime);
+    musicGain.gain.setValueAtTime(0.0001, ctx.currentTime);
+    musicGain.gain.linearRampToValueAtTime(1, ctx.currentTime + 1.2);
+    musicTimer = window.setInterval(musicTick, 200);
+    musicTick();
+  }
+
+  // Beim Verlassen des Menüs ausblenden statt abschneiden: ein abrupt
+  // abbrechender Ton klingt nach Fehler.
+  function stopMusic(options = {}) {
+    const { keepWanted = false, fade = 0.5 } = options;
+    if (!keepWanted) musicWanted = false;
+    if (musicTimer) { window.clearInterval(musicTimer); musicTimer = null; }
+    if (!musicGain) return;
+    try {
+      const ctx = musicGain.context;
+      musicGain.gain.cancelScheduledValues(ctx.currentTime);
+      musicGain.gain.setValueAtTime(musicGain.gain.value, ctx.currentTime);
+      musicGain.gain.linearRampToValueAtTime(0.0001, ctx.currentTime + fade);
+    } catch { /* ignore */ }
+  }
+
+  function musicPlaying() { return Boolean(musicTimer); }
+
+  // Im Hintergrund schweigt die Musik – sonst spielt ein Tablet in der Tasche
+  // weiter und frisst Akku.
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) stopMusic({ keepWanted: true, fade: 0.25 });
+    else if (musicWanted) startMusic();
+  });
+
+  // ---------------------------------------------------------------------------
   // Lok-Pfeife
   // ---------------------------------------------------------------------------
   // Vier Klänge zur Auswahl. Eine Dampfpfeife ist kein reiner Ton, sondern zwei
@@ -510,6 +654,8 @@
     audioEnabled, setAudioEnabled, updateAudioToggle,
     // Lok-Pfeife
     WHISTLE_NAMES, playWhistle,
+    // Menü-Musik
+    startMusic, stopMusic, musicPlaying,
     // Ausrichtung
     lockLandscape,
     // Verlauf
