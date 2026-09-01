@@ -992,6 +992,7 @@
   // wenn der Fortschritt aus der Cloud kommt, wenn zwei Level hintereinander
   // gespielt wurden oder wenn die Seite dazwischen neu geladen wurde.
   const SEEN_KEY = "lernapp.train.gesehen";
+  const SEEN_SCENES_KEY = "lernapp.train.gesehen.szenen";
   const REWARD_MS = 4200;
 
   function readSeen() {
@@ -1115,11 +1116,81 @@
     return close;
   }
 
-  // Prüft nach jedem Aufbau, ob es etwas zu feiern gibt.
+  // ---------------------------------------------------------------------------
+  // Eine neue Landschaft ist frei
+  // ---------------------------------------------------------------------------
+  // Freigeschaltet wird über fertig gebaute Wagen. Ohne Hinweis merkt das
+  // niemand: der Knopf oben links sieht gleich aus, und im Auswahlbild fällt
+  // bloss ein Schloss weniger auf.
+  function newlyUnlockedScene(built) {
+    const list = scenes();
+    if (!list) return null;
+    const frei = list.unlockedCount(built);
+    // Nichts im Speicher heisst: erster Start. Number(null) wäre 0, und dann
+    // meldete sich beim allerersten Öffnen gleich eine "neue" Landschaft.
+    let roh = null;
+    try { roh = localStorage.getItem(SEEN_SCENES_KEY); } catch { roh = null; }
+    try { localStorage.setItem(SEEN_SCENES_KEY, String(frei)); } catch { /* privater Modus */ }
+    if (roh === null) return null;
+    const gesehen = Number(roh);
+    if (!Number.isFinite(gesehen) || frei <= gesehen) return null;
+    // Die zuletzt dazugekommene: mehrere auf einmal gibt es nicht, aber falls
+    // doch, ist die neueste die interessanteste.
+    return list.SCENES[frei - 1] || null;
+  }
+
+  function showSceneReward(scene, done) {
+    const overlay = document.createElement("div");
+    overlay.className = "wagon-reward scene-reward";
+    overlay.setAttribute("role", "dialog");
+    overlay.setAttribute("aria-label", `Neue Landschaft frei: ${scene.label}`);
+
+    const card = document.createElement("div");
+    card.className = "wagon-reward-card";
+    card.style.setProperty("--reward-color", "#2f9e44");
+
+    const title = document.createElement("p");
+    title.className = "wagon-reward-title";
+    title.textContent = "Neue Landschaft!";
+    card.append(title);
+
+    const bild = document.createElement("div");
+    bild.className = "scene-reward-thumb";
+    bild.append(sceneThumb(scene));
+    card.append(bild);
+
+    const note = document.createElement("p");
+    note.className = "wagon-reward-note";
+    note.textContent = `${scene.label} – du kannst sie oben links auswählen.`;
+    card.append(note);
+
+    overlay.append(card);
+    stage.append(overlay);
+    kids()?.playJingle?.("wagon");
+
+    let closed = false;
+    const close = () => {
+      if (closed) return;
+      closed = true;
+      window.clearTimeout(timer);
+      overlay.removeEventListener("pointerdown", close);
+      overlay.remove();
+      done?.();
+    };
+    const timer = window.setTimeout(close, reduced() ? 900 : REWARD_MS);
+    overlay.addEventListener("pointerdown", close);
+  }
+
+  // Prüft nach jedem Aufbau, ob es etwas zu feiern gibt. Kommen beide zusammen,
+  // kommt erst der Wagen und dann die Landschaft – die Landschaft ist die
+  // Folge, nicht die Ursache.
   function maybeCelebrate(areas) {
     const grown = grownArea(areas);
-    if (!grown) return;
-    showWagonReward(grown);
+    const built = areas.filter((area) => area.built).length;
+    const scene = newlyUnlockedScene(built);
+    if (grown && scene) { showWagonReward(grown, () => showSceneReward(scene)); return; }
+    if (grown) { showWagonReward(grown); return; }
+    if (scene) showSceneReward(scene);
   }
 
   // ---------------------------------------------------------------------------
