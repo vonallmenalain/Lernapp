@@ -806,6 +806,11 @@
         <path class="rotate-hint-arrow" d="M26 84 a34 34 0 0 1 68 0" />
         <polygon class="rotate-hint-tip" points="94,76 102,86 86,88" />
       </svg>`;
+    // Jeder Tipp auf den Hinweis versucht es noch einmal mit dem Festhalten
+    // der Querlage. Der erste Versuch beim allerersten Antippen der Seite kann
+    // scheitern – etwa im Browser statt in der installierten App –, und ein
+    // Kind, das den Hinweis antippt, meint genau das: dreh dich.
+    hint.addEventListener("pointerdown", lockLandscape);
     document.body.append(hint);
   }
 

@@ -243,13 +243,17 @@
   // der Hauptstrecke; von ihr zweigen fünf Gleise ab und steigen gestaffelt
   // nach rechts oben – fünf Stationen einen Hang hinauf. Nebeneinander
   // aufgereiht sähen die Tore aus wie eine Liste, und genau das nicht.
-  const GATE_SCALE = 0.78;
+  //
+  // Die Tore stehen in gleichem Abstand und sind schmaler als dieser Abstand:
+  // so überlappt keines das nächste, und ein Tipp auf eine Ecke trifft immer
+  // das Tor, das gemeint war.
+  const GATE_SCALE = 0.72;
   const AREA_STOPS = [
-    { x: 412, y: 502 },
-    { x: 598, y: 410 },
-    { x: 778, y: 318 },
-    { x: 946, y: 226 },
-    { x: 1098, y: 134 },
+    { x: 400, y: 502 },
+    { x: 578, y: 410 },
+    { x: 756, y: 318 },
+    { x: 934, y: 226 },
+    { x: 1112, y: 134 },
   ];
 
   function areaStop(index) {
@@ -739,7 +743,7 @@
     const box = loco?.getBoundingClientRect();
     if (!box?.width || !host.width) return;
     const size = startButton.offsetWidth || 74;
-    const gap = Math.min(70, host.width * 0.05);
+    const gap = Math.min(70, host.width * 0.03);
     const left = Math.min(box.right - host.left + gap, host.width - size - 18);
     const railTop = rail ? rail.getBoundingClientRect().top - host.top : host.height * 0.82;
     startButton.style.left = `${Math.round(left)}px`;
@@ -767,11 +771,13 @@
   let startButton = null;
   let busy = false;
 
-  // Auf welchen Bühnen der Zug selbst antippbar ist. Auch klein unten links
-  // bleibt er der kürzeste Weg zu seinem Wagen und zur Werkstatt – ein Kind
-  // muss dafür nicht erst wieder ganz nach vorn. In der Werkstatt und in der
-  // Wagen-Grossansicht ist er ausgeblendet, dort gäbe es nichts anzutippen.
-  const TRAIN_TAPPABLE = new Set(["home", "areas", "games"]);
+  // Auf welchen Bühnen der Zug selbst antippbar ist. Klein unten links vor den
+  // Gebäuden bleibt er der kürzeste Weg zu seinem Wagen und zur Werkstatt –
+  // ein Kind muss dafür nicht erst wieder ganz nach vorn. Vor den Toren aber
+  // nicht: dort wartet er genau unter dem ersten Tor, und ein Tipp auf das Tor
+  // traf die Lok und landete in der Werkstatt statt im Bereich. In der
+  // Werkstatt und in der Wagen-Grossansicht ist er ausgeblendet.
+  const TRAIN_TAPPABLE = new Set(["home", "games"]);
 
   function setView(name, areaId = null) {
     view.name = name;
@@ -993,7 +999,15 @@
   // gespielt wurden oder wenn die Seite dazwischen neu geladen wurde.
   const SEEN_KEY = "lernapp.train.gesehen";
   const SEEN_SCENES_KEY = "lernapp.train.gesehen.szenen";
-  const REWARD_MS = 4200;
+  // Die Feier dauert gut drei Sekunden: der Balken füllt sich, die Bauart
+  // springt Stufe um Stufe nach. Danach bleibt das Bild stehen, bis das Kind
+  // tippt – eine Feier, die von selbst wieder verschwindet, sieht niemand
+  // richtig. Während sie läuft, tut ein Tipp nichts: sie soll zu Ende gehen.
+  const REWARD_FILL_MS = 2400;    // so lange füllt sich der Balken
+  const REWARD_STEPS_FROM = 500;  // die erste Stufe springt hier …
+  const REWARD_STEPS_TO = 2600;   // … und die letzte hier
+  const REWARD_DONE_MS = 3100;    // ab hier ist die Feier zum Antippen
+  const SCENE_REWARD_DONE_MS = 900;
 
   function readSeen() {
     try {
@@ -1030,9 +1044,26 @@
     return progress.stageFor(ratio, ratio > 0);
   }
 
+  // Der Knopf, mit dem eine Feier zu Ende geht. Er erscheint erst, wenn die
+  // Feier durch ist – vorher gibt es nichts zu tippen, und ein Knopf, der
+  // nichts tut, verwirrt mehr als keiner.
+  function rewardButton(label = "Weiter") {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "wagon-reward-next";
+    button.setAttribute("aria-label", label);
+    button.append(el("svg", { viewBox: "0 0 24 24", "aria-hidden": "true" }, [
+      el("path", {
+        d: "M5 13l4.5 4.5L19 7", fill: "none", stroke: "currentColor",
+        "stroke-width": 3, "stroke-linecap": "round", "stroke-linejoin": "round",
+      }),
+    ]));
+    return button;
+  }
+
   // Die Feier: der Wagen gross, sein Balken füllt sich von damals bis jetzt,
-  // und die Bauart wächst mit. Ein Tipp bricht ab – wer weiter will, soll nicht
-  // warten müssen.
+  // und die Bauart wächst mit. Danach bleibt der Wagen stehen, bis das Kind
+  // tippt; done läuft, wenn die Feier zugemacht wurde.
   function showWagonReward(grown, done) {
     const { area, before } = grown;
     const overlay = document.createElement("div");
@@ -1043,16 +1074,15 @@
     const card = document.createElement("div");
     card.className = "wagon-reward-card";
     card.style.setProperty("--reward-color", area.color);
+    card.style.setProperty("--reward-fill", `${REWARD_FILL_MS}ms`);
 
     const title = document.createElement("p");
     title.className = "wagon-reward-title";
     title.textContent = area.label;
-    card.append(title);
 
     const stageFrom = stageFor(before);
     const bühne = document.createElement("div");
     bühne.className = "wagon-reward-stage";
-    card.append(bühne);
 
     const zeichne = (stage) => {
       bühne.innerHTML = "";
@@ -1070,13 +1100,13 @@
     fill.className = "wagon-reward-fill";
     fill.style.width = `${Math.round(before * 100)}%`;
     bar.append(fill);
-    card.append(bar);
 
     const note = document.createElement("p");
     note.className = "wagon-reward-note";
     note.textContent = area.built ? "Dein Wagen ist gebaut!" : "Dein Wagen wächst.";
-    card.append(note);
 
+    const weiter = rewardButton();
+    card.append(title, bühne, bar, note, weiter);
     overlay.append(card);
     stage.append(overlay);
 
@@ -1084,35 +1114,52 @@
     kids()?.vibrate?.([12, 60, 18]);
 
     // Der Balken läuft los, sobald er im Bild steht; die Bauart springt
-    // nacheinander auf jede Stufe dazwischen.
+    // nacheinander auf jede Stufe dazwischen, gleichmässig über die Feier
+    // verteilt – ob eine Stufe dazukam oder vier.
     const stufen = [];
     for (let s = stageFrom + 1; s <= area.stage; s += 1) stufen.push(s);
     const timers = [];
-    window.requestAnimationFrame(() => {
-      fill.style.width = `${Math.round(area.ratio * 100)}%`;
-    });
-    stufen.forEach((s, index) => {
-      timers.push(window.setTimeout(() => {
-        zeichne(s);
-        bühne.classList.remove("is-pop");
-        void bühne.offsetWidth;
-        bühne.classList.add("is-pop");
-        kids()?.playJingle?.("star");
-      }, 700 + index * 620));
-    });
+    const zeigeStufe = (s) => {
+      zeichne(s);
+      bühne.classList.remove("is-pop");
+      void bühne.offsetWidth;
+      bühne.classList.add("is-pop");
+      kids()?.playJingle?.("star");
+    };
 
+    let fertig = false;
+    const abschliessen = () => {
+      if (fertig) return;
+      fertig = true;
+      timers.forEach((id) => window.clearTimeout(id));
+      zeichne(area.stage);
+      fill.style.width = `${Math.round(area.ratio * 100)}%`;
+      overlay.classList.add("is-done");
+    };
+
+    if (reduced()) {
+      // Ohne Bewegung steht gleich das Ergebnis da, samt Knopf.
+      abschliessen();
+    } else {
+      window.requestAnimationFrame(() => {
+        fill.style.width = `${Math.round(area.ratio * 100)}%`;
+      });
+      stufen.forEach((s, index) => {
+        const at = REWARD_STEPS_FROM + ((index + 1) / stufen.length) * (REWARD_STEPS_TO - REWARD_STEPS_FROM);
+        timers.push(window.setTimeout(() => zeigeStufe(s), Math.round(at)));
+      });
+      timers.push(window.setTimeout(abschliessen, REWARD_DONE_MS));
+    }
+
+    // Zugemacht wird erst nach der Feier – ein Tipp mittendrin tut nichts.
     let closed = false;
     const close = () => {
-      if (closed) return;
+      if (!fertig || closed) return;
       closed = true;
-      timers.forEach((id) => window.clearTimeout(id));
-      window.clearTimeout(endTimer);
-      overlay.removeEventListener("pointerdown", close);
       overlay.remove();
       done?.();
     };
-    const endTimer = window.setTimeout(close, reduced() ? 900 : REWARD_MS);
-    overlay.addEventListener("pointerdown", close);
+    overlay.addEventListener("click", close);
     return close;
   }
 
@@ -1164,21 +1211,52 @@
     note.textContent = `${scene.label} – du kannst sie oben links auswählen.`;
     card.append(note);
 
+    const weiter = rewardButton();
+    card.append(weiter);
+
     overlay.append(card);
     stage.append(overlay);
     kids()?.playJingle?.("wagon");
 
+    // Auch dieses Bild bleibt stehen, bis das Kind tippt. Der Knopf kommt,
+    // sobald die Landschaft ins Bild geflogen ist.
+    let fertig = false;
+    const abschliessen = () => { fertig = true; overlay.classList.add("is-done"); };
+    if (reduced()) abschliessen();
+    else window.setTimeout(abschliessen, SCENE_REWARD_DONE_MS);
+
     let closed = false;
     const close = () => {
-      if (closed) return;
+      if (!fertig || closed) return;
       closed = true;
-      window.clearTimeout(timer);
-      overlay.removeEventListener("pointerdown", close);
       overlay.remove();
       done?.();
     };
-    const timer = window.setTimeout(close, reduced() ? 900 : REWARD_MS);
-    overlay.addEventListener("pointerdown", close);
+    overlay.addEventListener("click", close);
+  }
+
+  // Die Feiern stehen an, eine nach der anderen. Die Bühne wird nach dem Laden
+  // mehrmals neu gezeichnet – etwa wenn Firebase sich meldet oder ein Stand
+  // aus der Cloud kommt –, und jedes Neuzeichnen kann etwas zu feiern finden.
+  // Zwei Feiern übereinander wären ein Durcheinander; hier wartet die zweite,
+  // bis die erste zugemacht ist.
+  const feiern = [];
+  let feierLaeuft = false;
+
+  function feiere(zeigen) {
+    feiern.push(zeigen);
+    naechsteFeier();
+  }
+
+  function naechsteFeier() {
+    if (feierLaeuft) return;
+    const zeigen = feiern.shift();
+    if (!zeigen) return;
+    feierLaeuft = true;
+    zeigen(() => {
+      feierLaeuft = false;
+      naechsteFeier();
+    });
   }
 
   // Prüft nach jedem Aufbau, ob es etwas zu feiern gibt. Kommen beide zusammen,
@@ -1188,9 +1266,8 @@
     const grown = grownArea(areas);
     const built = areas.filter((area) => area.built).length;
     const scene = newlyUnlockedScene(built);
-    if (grown && scene) { showWagonReward(grown, () => showSceneReward(scene)); return; }
-    if (grown) { showWagonReward(grown); return; }
-    if (scene) showSceneReward(scene);
+    if (grown) feiere((done) => showWagonReward(grown, done));
+    if (scene) feiere((done) => showSceneReward(scene, done));
   }
 
   // ---------------------------------------------------------------------------
@@ -1209,6 +1286,12 @@
     const previous = view.name;
     const previousArea = view.areaId;
 
+    // Eine laufende Feier überlebt das Neuzeichnen. Die Bühne wird auch dann
+    // neu gebaut, wenn Firebase sich nach dem Laden meldet – und das tut es
+    // jedes Mal, mit oder ohne Konto. Ohne diesen Handgriff war die Feier
+    // nach einem Wimpernschlag wieder weg, samt Wagen und Balken.
+    const laufendeFeiern = [...stage.querySelectorAll(".wagon-reward")];
+
     stage.innerHTML = "";
     const scene = currentScene();
     if (scene) stage.append(buildScene(scene));
@@ -1225,7 +1308,7 @@
     // Ohne Gleis: das liegt jetzt fest in der Bühnenebene, damit es beim
     // Losfahren stehen bleibt. Der Nachlauf rechts ist der Platz, auf dem das
     // Startsignal vor der Lok schwebt.
-    const svg = art.buildTrain(areas, loco, { pad: 4, gap: 4, trailing: 120, withTrack: false });
+    const svg = art.buildTrain(areas, loco, { pad: 4, gap: 4, trailing: 160, withTrack: false });
     svg.setAttribute("aria-label", describeTrain(areas));
 
     svg.querySelectorAll("[data-area]").forEach((node) => {
@@ -1261,6 +1344,7 @@
 
     stage.append(band, layerHost, backButton, startButton);
     if (sceneButton) stage.append(sceneButton);
+    laufendeFeiern.forEach((overlay) => stage.append(overlay));
 
     if (previous === "games" && previousArea) showGames(previousArea);
     else if (previous === "areas") showAreas();

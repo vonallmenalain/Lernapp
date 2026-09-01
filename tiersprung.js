@@ -1728,10 +1728,11 @@
 
   function drawAnimalPreview(target, animal, locked) {
     const dpr = clamp(window.devicePixelRatio || 1, 1, 2.5);
+    // Die Zeichenfläche hat immer dieselbe Auflösung; wie gross sie im Bild
+    // steht, entscheidet das Stylesheet – auf dem Handy kleiner, damit zwei
+    // Reihen Tiere samt Startknopf unter die Leiste passen.
     target.width = Math.round(PREVIEW_W * dpr);
     target.height = Math.round(PREVIEW_H * dpr);
-    target.style.width = `${PREVIEW_W}px`;
-    target.style.height = `${PREVIEW_H}px`;
     const g = target.getContext("2d");
     if (!g) return;
     g.setTransform(dpr, 0, 0, dpr, 0, 0);
