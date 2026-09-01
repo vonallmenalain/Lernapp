@@ -1,7 +1,7 @@
 /*
  * kids.js – Gemeinsame Kinder-Funktionen für die Lernapp.
  * Wird auf jeder Seite vor app.js geladen und stellt window.LernappKids bereit:
- * Sterne, Sticker-Zoo, Tagesziel, Profil, Vorlesen (TTS), Maskottchen, Konfetti, Töne.
+ * Sterne, Tagesziel, Profil, Vorlesen (TTS), Maskottchen, Konfetti, Töne.
  * Bewusst ohne Framework und defensiv (localStorage kann fehlschlagen).
  */
 (() => {
@@ -12,15 +12,11 @@
   // ---------------------------------------------------------------------------
   const KEYS = {
     stars: (game, levelId) => `lernapp.stars.${game}.${levelId}`,
-    zooPoints: "lernapp.zoo.points",
-    zooStickers: "lernapp.zoo.stickers",
-    zooNew: "lernapp.zoo.new",
     daily: "lernapp.daily",
     profile: "lernapp.profile",
     tts: "lernapp.tts",
     lastPlayed: "lernapp.lastPlayed",
     tutorial: (game) => `lernapp.tut.${game}`,
-    adventure: "lernapp.adventure.progress",
   };
 
   function readRaw(key) {
@@ -54,110 +50,6 @@
     const previous = getStars(game, levelId);
     if (clamped > previous) writeRaw(KEYS.stars(game, levelId), String(clamped));
     return { stars: clamped, improved: clamped > previous, previous };
-  }
-
-  // ---------------------------------------------------------------------------
-  // Sticker-Zoo
-  // ---------------------------------------------------------------------------
-  // Jeder gewonnene Stern zählt Punkte; alle STICKER_COST Punkte gibt es einen
-  // neuen Sticker (Tier). Seltene Tiere brauchen einen 3-Sterne-Erfolg.
-  const STICKER_COST = 5;
-  const STICKERS = [
-    { id: "cat", emoji: "🐱", name: "Katze", sound: "Miau!", rarity: "common" },
-    { id: "dog", emoji: "🐶", name: "Hund", sound: "Wuff!", rarity: "common" },
-    { id: "rabbit", emoji: "🐰", name: "Hase", sound: "Hoppel hoppel!", rarity: "common" },
-    { id: "mouse", emoji: "🐭", name: "Maus", sound: "Piep!", rarity: "common" },
-    { id: "frog", emoji: "🐸", name: "Frosch", sound: "Quak!", rarity: "common" },
-    { id: "chick", emoji: "🐥", name: "Küken", sound: "Piep piep!", rarity: "common" },
-    { id: "pig", emoji: "🐷", name: "Schwein", sound: "Oink!", rarity: "common" },
-    { id: "cow", emoji: "🐮", name: "Kuh", sound: "Muuuh!", rarity: "common" },
-    { id: "duck", emoji: "🦆", name: "Ente", sound: "Quak quak!", rarity: "common" },
-    { id: "bee", emoji: "🐝", name: "Biene", sound: "Summ summ!", rarity: "common" },
-    { id: "fish", emoji: "🐟", name: "Fisch", sound: "Blubb!", rarity: "common" },
-    { id: "turtle", emoji: "🐢", name: "Schildkröte", sound: "Ganz langsam …", rarity: "common" },
-    { id: "bear", emoji: "🐻", name: "Bär", sound: "Brumm!", rarity: "uncommon" },
-    { id: "fox", emoji: "🦊", name: "Fuchs", sound: "Fip fip!", rarity: "uncommon" },
-    { id: "panda", emoji: "🐼", name: "Panda", sound: "Mampf, mampf!", rarity: "uncommon" },
-    { id: "koala", emoji: "🐨", name: "Koala", sound: "Kuschel!", rarity: "uncommon" },
-    { id: "monkey", emoji: "🐵", name: "Affe", sound: "Uhu-ah-ah!", rarity: "uncommon" },
-    { id: "owl", emoji: "🦉", name: "Eule", sound: "Uhu!", rarity: "uncommon" },
-    { id: "penguin", emoji: "🐧", name: "Pinguin", sound: "Wack wack!", rarity: "uncommon" },
-    { id: "elephant", emoji: "🐘", name: "Elefant", sound: "Törööö!", rarity: "uncommon" },
-    { id: "hedgehog", emoji: "🦔", name: "Igel", sound: "Schnüff!", rarity: "uncommon" },
-    { id: "butterfly", emoji: "🦋", name: "Schmetterling", sound: "Flatter flatter!", rarity: "uncommon" },
-    { id: "lion", emoji: "🦁", name: "Löwe", sound: "Roaaar!", rarity: "rare" },
-    { id: "tiger", emoji: "🐯", name: "Tiger", sound: "Grrr!", rarity: "rare" },
-    { id: "unicorn", emoji: "🦄", name: "Einhorn", sound: "✨ Wieher! ✨", rarity: "rare" },
-    { id: "dragon", emoji: "🐲", name: "Drache", sound: "Fauch!", rarity: "rare" },
-    { id: "whale", emoji: "🐳", name: "Wal", sound: "Wuuuuuh!", rarity: "rare" },
-    { id: "dino", emoji: "🦕", name: "Dino", sound: "Rooaar!", rarity: "rare" },
-    { id: "parrot", emoji: "🦜", name: "Papagei", sound: "Hallo! Hallo!", rarity: "rare" },
-    { id: "flamingo", emoji: "🦩", name: "Flamingo", sound: "Tanz mit!", rarity: "rare" },
-  ];
-  const STICKER_BY_ID = Object.fromEntries(STICKERS.map((s) => [s.id, s]));
-
-  function collectedStickers() {
-    const list = readJSON(KEYS.zooStickers, []);
-    return Array.isArray(list) ? list.filter((id) => STICKER_BY_ID[id]) : [];
-  }
-  function zooPoints() {
-    const value = Number(readRaw(KEYS.zooPoints));
-    return Number.isFinite(value) && value > 0 ? value : 0;
-  }
-  function pointsToNextSticker() {
-    const remainder = zooPoints() % STICKER_COST;
-    return STICKER_COST - remainder;
-  }
-  function takeNewStickers() {
-    const list = readJSON(KEYS.zooNew, []);
-    writeJSON(KEYS.zooNew, []);
-    return Array.isArray(list) ? list : [];
-  }
-  function peekNewStickers() {
-    const list = readJSON(KEYS.zooNew, []);
-    return Array.isArray(list) ? list : [];
-  }
-
-  function pickNewSticker(allowRare) {
-    const owned = new Set(collectedStickers());
-    let pool = STICKERS.filter((s) => !owned.has(s.id));
-    if (!pool.length) return null; // Alle gesammelt
-    // Ohne 3-Sterne-Erfolg keine seltenen Tiere.
-    const withoutRare = pool.filter((s) => s.rarity !== "rare");
-    if (!allowRare && withoutRare.length) pool = withoutRare;
-    const weight = (s) => (s.rarity === "common" ? 5 : s.rarity === "uncommon" ? 3 : 1);
-    const total = pool.reduce((sum, s) => sum + weight(s), 0);
-    let roll = Math.random() * total;
-    for (const sticker of pool) {
-      roll -= weight(sticker);
-      if (roll <= 0) return sticker;
-    }
-    return pool[pool.length - 1];
-  }
-
-  // Fügt Sterne als Zoo-Punkte hinzu und schaltet ggf. neue Sticker frei.
-  // Gibt die Liste der neu freigeschalteten Sticker zurück.
-  function addStarsToZoo(starCount, options = {}) {
-    const count = Math.max(0, Math.round(Number(starCount) || 0));
-    if (!count) return [];
-    const before = zooPoints();
-    const after = before + count;
-    writeRaw(KEYS.zooPoints, String(after));
-    const unlockedCount = Math.floor(after / STICKER_COST) - Math.floor(before / STICKER_COST);
-    const unlocked = [];
-    for (let i = 0; i < unlockedCount; i += 1) {
-      const sticker = pickNewSticker(Boolean(options.threeStar));
-      if (!sticker) break;
-      unlocked.push(sticker);
-      const owned = collectedStickers();
-      owned.push(sticker.id);
-      writeJSON(KEYS.zooStickers, owned);
-    }
-    if (unlocked.length) {
-      const queued = peekNewStickers().concat(unlocked.map((s) => s.id));
-      writeJSON(KEYS.zooNew, queued);
-    }
-    return unlocked;
   }
 
   // ---------------------------------------------------------------------------
@@ -516,8 +408,8 @@
   // ---------------------------------------------------------------------------
   // Ton-Schalter (oben rechts)
   // ---------------------------------------------------------------------------
-  // Liegt hier statt in app.js, damit auch Seiten ohne app.js (Zoo,
-  // Tier-Sprung) einen Schalter haben – sie machen ja ebenfalls Geräusche.
+  // Liegt hier statt in app.js, damit auch Seiten ohne app.js (Tier-Sprung)
+  // einen Schalter haben – sie machen ja ebenfalls Geräusche.
   let audioToggle = null;
   function updateAudioToggle() {
     if (!audioToggle) return;
@@ -578,9 +470,6 @@
     KEYS,
     // Sterne
     getStars, setStars,
-    // Zoo
-    STICKERS, STICKER_BY_ID, STICKER_COST,
-    collectedStickers, zooPoints, pointsToNextSticker, addStarsToZoo, takeNewStickers, peekNewStickers,
     // Tagesziel
     DAILY_GOAL, recordDailySolve, dailyProgress, weeklyProgress,
     // Profil
@@ -595,7 +484,7 @@
     audioEnabled, setAudioEnabled, updateAudioToggle,
     // Verlauf
     setLastPlayed, getLastPlayed, tutorialSeen, markTutorialSeen,
-    // Adventure-Fortschritt
+    // Speicher-Helfer
     readJSON, writeJSON,
   };
 

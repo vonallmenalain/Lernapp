@@ -2,7 +2,7 @@
   "id": "./",
   "name": "Lernapp",
   "short_name": "Lernapp",
-  "description": "Rätsel für Kinder mit Rechnen, Lesen, Figurenfolgen, Raumdetektiv, Zuordnen, Kategorien, Arukone, Battleships, Kakuro, Tiergehegen, Hidoku und Sudoku.",
+  "description": "Rätsel für Kinder: Merkspiele, Konzentration, Tempo, Knobeln sowie Zahlen und Buchstaben.",
   "lang": "de",
   "dir": "ltr",
   "start_url": "./index.html",

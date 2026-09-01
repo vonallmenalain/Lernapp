@@ -1094,7 +1094,6 @@
   const soundHit = () => { tone(200, 0, 0.22, "sawtooth", 0.045, 90); tone(120, 0.03, 0.22, "square", 0.03, 60); };
   const soundFinish = () => [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => tone(f, i * 0.11, 0.24, "triangle", 0.055));
   const soundFail = () => [420, 340, 260].forEach((f, i) => tone(f, i * 0.14, 0.24, "sine", 0.045));
-  const soundUnlock = () => [659.25, 783.99, 987.77, 1318.5].forEach((f, i) => tone(f, i * 0.13, 0.3, "sine", 0.05));
 
   // ---------------------------------------------------------------------------
   // Spielzustand
@@ -1674,7 +1673,6 @@
     const level = game.level;
     const stars = starsForRun();
     const previous = bestFor(level.id);
-    const firstTime = !previous;
 
     progress.best[level.id] = {
       stars: Math.max(stars, previous?.stars || 0),
@@ -1685,10 +1683,6 @@
     if (unlockedNext) progress.unlocked = level.id + 1;
     saveProgress(progress);
 
-    // Zoo-Punkte gibt es nur beim ersten Durchgang – so bleibt der Zoo eine
-    // Belohnung für echten Fortschritt und lässt sich nicht farmen.
-    const newStickers = firstTime ? (kids.addStarsToZoo?.(stars, { threeStar: stars >= 3 }) || []) : [];
-
     soundFinish();
     kids.vibrate([40, 40, 90]);
     renderMap();
@@ -1698,17 +1692,12 @@
     const growLine = nextAnimal && unlockedNext
       ? `<p class="runner-grow">Du wirst grösser: <strong>${nextAnimal.name} ${nextAnimal.emoji}</strong></p>`
       : (!nextLevel ? `<p class="runner-grow">Du hast alle ${LEVEL_COUNT} Tiere geschafft! 🏆</p>` : "");
-    const zooLine = newStickers.length
-      ? `<a class="runner-zoo-hint" href="album.html">Neues Tier im Zoo: ${newStickers.map((s) => s.emoji).join(" ")}</a>`
-      : "";
-
     showOverlay(`
       <p class="runner-dialog-eyebrow">Level ${level.id} geschafft</p>
       <h2>${game.animal.name} im Ziel! ${game.animal.emoji}</h2>
       ${starRow(stars)}
       <p class="runner-dialog-sub">${game.treats} von ${game.treatTotal} ${level.treatName} ${level.treat}</p>
       ${growLine}
-      ${zooLine}
       <div class="runner-dialog-actions">
         ${nextLevel ? `<button type="button" class="runner-primary" data-action="next">Weiter zu ${nextAnimal.name} ${nextAnimal.emoji}</button>` : ""}
         <button type="button" class="runner-secondary" data-action="restart">Nochmal ↻</button>
@@ -1717,7 +1706,6 @@
 
     const dialog = hud.overlay?.querySelector(".runner-dialog");
     if (dialog) kids.burstConfetti(dialog, stars >= 3 ? 60 : 38);
-    if (newStickers.length) window.setTimeout(soundUnlock, 700);
     setStageHelp(`Level ${level.id} geschafft! Du hast ${stars} von 3 Sternen und ${game.treats} ${level.treatName} gesammelt. ${nextLevel ? `Tippe auf Weiter, um mit dem ${nextAnimal.name} weiterzuspielen.` : "Du hast alle Tiere geschafft."} Mit Nochmal spielst du dieses Level erneut, mit Zur Karte kommst du zurück zur Übersicht.`);
   }
 
