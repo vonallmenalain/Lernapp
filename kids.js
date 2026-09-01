@@ -613,6 +613,123 @@
   // Vier Klänge zur Auswahl. Eine Dampfpfeife ist kein reiner Ton, sondern zwei
   // eng benachbarte Töne, die miteinander schweben – deshalb klingt jede
   // Variante aus mindestens zwei Stimmen.
+  // ---------------------------------------------------------------------------
+  // Dampfpfeife
+  // ---------------------------------------------------------------------------
+  // Die kleine Lok-Pfeife oben ist ein Signalton für die Werkstatt: hell, kurz,
+  // zum Unterscheiden. Das hier ist etwas anderes – das Horn einer alten
+  // Dampflok, das beim Losfahren tönt.
+  //
+  // Drei Dinge machen den Unterschied zu einem Piepser:
+  //   1. Ein Akkord statt eines Tons. Amerikanische Dampfpfeifen sind
+  //      mehrchörig; die Rohre stehen im Moll-Dreiklang, daher der wehmütige
+  //      Klang, den man aus jedem alten Film kennt.
+  //   2. Luft. Zu jedem Ton gehört gefiltertes Rauschen – der Dampf, der durch
+  //      das Rohr fährt. Ohne ihn klingt es nach Orgel.
+  //   3. Ein Anlauf und ein Nachlassen der Tonhöhe. Der Druck baut sich auf
+  //      und fällt wieder ab; ein Ton mit fester Höhe klingt tot.
+  const HORN_CHORD = [1, 1.189, 1.498];   // Moll-Dreiklang: Grundton, kleine Terz, Quinte
+  const HORN_BASE = 372;
+
+  let noiseCache = null;
+  function noiseBuffer(ctx) {
+    if (noiseCache && noiseCache.sampleRate === ctx.sampleRate) return noiseCache;
+    const length = Math.floor(ctx.sampleRate * 2);
+    const buffer = ctx.createBuffer(1, length, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < length; i += 1) data[i] = Math.random() * 2 - 1;
+    noiseCache = buffer;
+    return buffer;
+  }
+
+  // Gefiltertes Rauschen mit Hüllkurve: einmal der Dampf in der Pfeife, einmal
+  // der Auspuffschlag des Kessels.
+  function hiss(start, duration, volume, freq, q, type = "bandpass") {
+    const ctx = ensureAudio();
+    if (!ctx) return;
+    try {
+      const source = ctx.createBufferSource();
+      source.buffer = noiseBuffer(ctx);
+      source.loop = true;
+      const filter = ctx.createBiquadFilter();
+      filter.type = type;
+      filter.frequency.setValueAtTime(freq, start);
+      filter.Q.value = q;
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(0.0001, start);
+      gain.gain.exponentialRampToValueAtTime(volume, start + Math.min(0.05, duration * 0.25));
+      gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+      source.connect(filter);
+      filter.connect(gain);
+      gain.connect(ctx.destination);
+      source.start(start);
+      source.stop(start + duration + 0.05);
+    } catch { /* ignore */ }
+  }
+
+  // Ein Stoss aufs Horn.
+  function hornBlast(start, duration, volume = 0.05) {
+    const ctx = ensureAudio();
+    if (!ctx) return;
+    const attack = Math.min(0.09, duration * 0.3);
+    const release = Math.min(0.16, duration * 0.4);
+    HORN_CHORD.forEach((ratio, index) => {
+      // Jedes Rohr doppelt und leicht verstimmt – das Schweben ist das, was
+      // eine Pfeife von einem Oszillator unterscheidet.
+      [1, 1.004].forEach((detune, voice) => {
+        try {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          const freq = HORN_BASE * ratio * detune;
+          osc.type = index === 0 ? "sawtooth" : "triangle";
+          // Anlauf: der Druck baut sich auf. Nachlassen am Ende.
+          osc.frequency.setValueAtTime(freq * 0.93, start);
+          osc.frequency.exponentialRampToValueAtTime(freq, start + attack);
+          osc.frequency.setValueAtTime(freq, start + duration - release);
+          osc.frequency.exponentialRampToValueAtTime(freq * 0.94, start + duration);
+
+          const peak = volume * (index === 0 ? 1 : 0.62) * (voice ? 0.55 : 1);
+          gain.gain.setValueAtTime(0.0001, start);
+          gain.gain.exponentialRampToValueAtTime(peak, start + attack);
+          gain.gain.setValueAtTime(peak, start + duration - release);
+          gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(start);
+          osc.stop(start + duration + 0.05);
+        } catch { /* ignore */ }
+      });
+    });
+    // Der Dampf drumherum.
+    hiss(start, duration, volume * 0.5, HORN_BASE * 3.2, 1.1);
+  }
+
+  // Ein Auspuffschlag: der kurze Stoss, mit dem der Dampf aus dem Kamin fährt.
+  function chuff(start, strength = 1) {
+    hiss(start, 0.2 * strength, 0.035 * strength, 260, 0.8);
+    hiss(start + 0.01, 0.13 * strength, 0.022 * strength, 1500, 0.6, "highpass");
+  }
+
+  // Tüüt tüüt: kurz, dann lang – das Signal vor dem Losfahren.
+  function playHorn(options = {}) {
+    const { chuffs = 0, volume = 0.05 } = options;
+    const ctx = ensureAudio();
+    if (!ctx) return;
+    const now = ctx.currentTime + 0.02;
+    hornBlast(now, 0.34, volume);
+    hornBlast(now + 0.46, 0.62, volume);
+    // Danach setzt sich die Maschine in Bewegung: die Schläge kommen zuerst
+    // langsam und rücken dann zusammen.
+    let at = now + 1.16;
+    let spacing = 0.42;
+    for (let i = 0; i < chuffs; i += 1) {
+      chuff(at, 1 - i * 0.06);
+      at += spacing;
+      spacing = Math.max(0.17, spacing * 0.86);
+    }
+  }
+
   const WHISTLES = {
     hoch: [[880, 0, 0.55], [1320, 0.02, 0.5]],
     tief: [[392, 0, 0.75], [588, 0.03, 0.65]],
@@ -654,6 +771,8 @@
     audioEnabled, setAudioEnabled, updateAudioToggle,
     // Lok-Pfeife
     WHISTLE_NAMES, playWhistle,
+    // Dampfhorn und Auspuffschläge
+    playHorn, chuff,
     // Menü-Musik
     startMusic, stopMusic, musicPlaying,
     // Ausrichtung

@@ -29,9 +29,12 @@ function makeParam() {
   };
 }
 
+const noises = [];
+
 class FakeContext {
   constructor() {
     this.state = "running";
+    this.sampleRate = 48000;
     this.destination = { kind: "destination" };
   }
   get currentTime() { return now; }
@@ -40,6 +43,20 @@ class FakeContext {
     const osc = { type: "sine", frequency: makeParam(), connect() {}, start() {}, stop() {} };
     osc.frequency.setValueAtTime = (freq, at) => { played.push({ freq, at }); return osc.frequency; };
     return osc;
+  }
+  // Für die Dampfpfeife: Rauschen durch ein Filter ist der Dampf. Ohne ihn
+  // klänge das Horn nach Orgel statt nach Lok.
+  createBuffer(channels, length, sampleRate) {
+    return { length, sampleRate, numberOfChannels: channels, getChannelData: () => new Float32Array(length) };
+  }
+  createBufferSource() {
+    const src = { buffer: null, loop: false, connect() {}, start(at) { src.startedAt = at; }, stop() {} };
+    return src;
+  }
+  createBiquadFilter() {
+    const filter = { type: "lowpass", frequency: makeParam(), Q: { value: 1 }, connect() {} };
+    filter.frequency.setValueAtTime = (freq, at) => { noises.push({ freq, at, type: filter.type }); return filter.frequency; };
+    return filter;
   }
   resume() { return Promise.resolve(); }
   suspend() { return Promise.resolve(); }
@@ -75,7 +92,16 @@ const context = vm.createContext({
     readyState: "complete",
     hidden: false,
   },
-  localStorage: { getItem: () => null, setItem() {}, removeItem() {} },
+  // Ein echter Speicher, kein Leerlauf: der Ton-Schalter merkt sich seinen
+  // Zustand dort, und ohne Gedächtnis liesse sich "aus" gar nicht prüfen.
+  localStorage: {
+    store: new Map(),
+    getItem(key) { return this.store.has(key) ? this.store.get(key) : null; },
+    setItem(key, value) { this.store.set(key, String(value)); },
+    removeItem(key) { this.store.delete(key); },
+    key(index) { return [...this.store.keys()][index] ?? null; },
+    get length() { return this.store.size; },
+  },
   navigator: {},
   console,
   setInterval: windowStub.setInterval,
@@ -135,4 +161,58 @@ assert(timers.size === 0, "stopMusic räumt den Zeitgeber nicht ab");
 for (let i = 0; i < 20; i += 1) { now += 0.2; timers.forEach((tick) => tick()); }
 assert(played.length === beforeStop, "nach stopMusic werden weiter Töne geplant");
 
-console.log(`Menü-Musik geprüft: ${played.length} Töne über zwei Strophen, ${distinct} verschiedene Tonhöhen, ${lowest.toFixed(0)}–${highest.toFixed(0)} Hz.`);
+// --- Das Horn der Dampflok ---------------------------------------------------
+// Zwei Stösse, jeder ein Moll-Dreiklang aus doppelt besetzten Rohren, dazu
+// Dampf und danach die Auspuffschläge. Ein Piepser hätte einen Ton; wenn hier
+// einer fehlt, klingt es nicht mehr nach Lok.
+assert(typeof kids.playHorn === "function", "playHorn fehlt");
+const musicNotes = played.length;
+played.length = 0;
+noises.length = 0;
+now = 100;
+kids.playHorn({ chuffs: 5 });
+
+// Je Stimme werden zwei Tonhöhen gesetzt: der Ton selbst und das Nachlassen am
+// Ende. Zwei Stösse zu drei Rohren zu zwei Stimmen ergeben also 24 Einträge zu
+// vier Zeitpunkten.
+const voices = played.filter((n) => n.at >= 100);
+assert(voices.length === 24, `zwei Stösse zu drei Rohren mit je zwei Stimmen sind 24 Einträge, gefunden ${voices.length}`);
+
+const times = [...new Set(voices.map((n) => Math.round(n.at * 1000) / 1000))].sort((a, b) => a - b);
+assert(times.length === 4, `erwartet vier Zeitpunkte (Anfang und Nachlassen je Stoss), gefunden ${times.length}`);
+const starts = [times[0], times[2]];
+assert(starts[1] - starts[0] > 0.2 && starts[1] - starts[0] < 0.9,
+  `zwischen den Stössen liegen ${(starts[1] - starts[0]).toFixed(2)} s – das ist kein "tüüt tüüt"`);
+// Der zweite Stoss ist der lange: kurz, dann lang, wie beim Abfahrtssignal.
+assert((times[3] - times[2]) > (times[1] - times[0]),
+  "der zweite Stoss ist nicht länger als der erste");
+
+// Ein Dreiklang, kein Einzelton: mindestens drei deutlich verschiedene Höhen.
+const hornPitches = new Set(voices.map((n) => Math.round(n.freq / 5)));
+assert(hornPitches.size >= 3, `das Horn hat nur ${hornPitches.size} Tonhöhen – ein Rohr statt eines Akkords`);
+const hornLow = Math.min(...voices.map((n) => n.freq));
+const hornHigh = Math.max(...voices.map((n) => n.freq));
+assert(hornLow > 180 && hornLow < 400, `tiefstes Rohr ${hornLow.toFixed(0)} Hz passt nicht zu einer Dampflok`);
+assert(hornHigh < 900, `höchstes Rohr ${hornHigh.toFixed(0)} Hz klingt nach Trillerpfeife`);
+
+// Dampf: gefiltertes Rauschen zu jedem Stoss und zu jedem Auspuffschlag.
+assert(noises.length >= 2 + 5 * 2, `zu wenig Rauschen (${noises.length}) – ohne Dampf klingt das Horn nach Orgel`);
+const chuffTimes = noises.filter((n) => n.at > starts[1] + 0.6).map((n) => n.at).sort((a, b) => a - b);
+assert(chuffTimes.length >= 5, `erwartet mindestens 5 Auspuffschläge, gefunden ${chuffTimes.length}`);
+
+// Die Schläge müssen zusammenrücken – die Maschine kommt in Fahrt.
+const gaps = [];
+for (let i = 2; i < chuffTimes.length; i += 2) gaps.push(chuffTimes[i] - chuffTimes[i - 2]);
+assert(gaps.length >= 2, "zu wenige Abstände zwischen den Schlägen");
+assert(gaps[gaps.length - 1] < gaps[0], `die Auspuffschläge werden nicht schneller (${gaps[0].toFixed(2)} -> ${gaps[gaps.length - 1].toFixed(2)})`);
+
+// Ohne Ton bleibt auch das Horn still.
+kids.setAudioEnabled(false);
+played.length = 0;
+noises.length = 0;
+kids.playHorn({ chuffs: 3 });
+assert(played.length === 0 && noises.length === 0, "das Horn tönt trotz ausgeschaltetem Ton");
+kids.setAudioEnabled(true);
+
+console.log(`Menü-Musik geprüft: ${musicNotes} Töne über zwei Strophen, ${distinct} verschiedene Tonhöhen, ${lowest.toFixed(0)}–${highest.toFixed(0)} Hz.`);
+console.log(`Dampfhorn geprüft: 2 Stösse × 3 Rohre × 2 Stimmen, ${hornLow.toFixed(0)}–${hornHigh.toFixed(0)} Hz, ${chuffTimes.length / 2} Auspuffschläge, die zusammenrücken.`);
