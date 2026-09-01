@@ -2303,6 +2303,9 @@ function runnerProgressLevel() {
 function enhanceHomePage() {
   const panel = document.querySelector("#home-panel");
   if (!panel || !kids() || panel.parentNode.querySelector(".home-featured")) return;
+  // Auf der Zugseite gibt es keine Kopfzeile mit Kacheln: train-home.js setzt
+  // Profil- und Ton-Knopf selbst und hält die Startseite textfrei.
+  if (document.body.dataset.page === "train") return;
 
   const topbar = document.createElement("section");
   topbar.className = "home-topbar";
@@ -3990,6 +3993,13 @@ setupExitGuard();
 setupAudioFeedback();
 enhanceHomePage();
 maybeShowProfileSetup();
+
+// Der Zug braucht den Profil-Dialog und die Spielauswahl, baut aber seine
+// eigene Oberfläche. Nur diese beiden Einstiegspunkte gibt app.js nach aussen.
+window.LernappHome = {
+  showProfileSetup,
+  hasProfile: () => Boolean(kids()?.getProfile?.()),
+};
 if (typeof window.addEventListener === "function") {
   window.addEventListener("resize", handleViewportLayoutChange);
   window.addEventListener("orientationchange", handleViewportLayoutChange);

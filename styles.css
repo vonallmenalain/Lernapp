@@ -4725,3 +4725,249 @@ body.runner-playing .help-voice { display: none; }
   .cardmatch-card.big,
   .treasure-tile.known { animation: none; }
 }
+
+/* ===========================================================================
+   Startbild: der Zug
+   ---------------------------------------------------------------------------
+   Die Bühne füllt den ganzen Bildschirm. Der Hintergrund wandert, der Zug steht
+   still – so muss die Lok nicht bei jedem Bild neu gezeichnet werden, und das
+   Kind sieht trotzdem eine Fahrt. Alle Bewegungen laufen über transform, damit
+   sie der Compositor übernimmt und auch ein älteres Tablet sie schafft.
+   =========================================================================== */
+
+body[data-page="train"] {
+  overflow: hidden;
+  background: #a8ddf0;
+}
+
+body[data-page="train"].list-open { overflow: auto; }
+
+.train-stage {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  touch-action: manipulation;
+}
+
+.train-stage[hidden] { display: none; }
+
+/* --- Landschaft --- */
+
+.scene {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom, var(--sky-top) 0%, var(--sky-bottom) 62%, var(--sky-bottom) 100%);
+}
+
+/* Der Boden liegt unter allen Ebenen und schliesst die Lücke unter dem Gleis. */
+.scene::after {
+  content: "";
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  z-index: 0;
+  height: 42%;
+  background: linear-gradient(to bottom, var(--ground) 0%, var(--ground-dark) 100%);
+}
+
+.scene-sun {
+  position: absolute;
+  top: 9%; right: 16%;
+  width: clamp(56px, 10vw, 116px);
+  aspect-ratio: 1;
+}
+.scene-sun svg { width: 100%; height: 100%; display: block; }
+
+.scene-layer {
+  position: absolute;
+  left: 0;
+  z-index: 1;
+  width: 100%;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/* Die Nahebene gehört vor den Zug: Gras, das an den Rädern vorbeizieht. */
+.scene-layer.is-front { z-index: 3; }
+
+/* Tiefenstaffelung im Querformat. Die Werte gehören ins CSS und nicht in die
+   Szenendaten, weil sich nur hier fürs Hochformat etwas anderes einstellen
+   lässt – und dort ist die Landschaft viel höher und viel schmaler. */
+.scene-layer-clouds { top: 4%; height: 34%; }
+.scene-layer-far { bottom: 36%; height: 40%; }
+.scene-layer-mid { bottom: 24%; height: 34%; }
+.scene-layer-near { bottom: 0; height: 17%; }
+
+.scene-strip {
+  display: flex;
+  width: 200%;
+  height: 100%;
+  animation: scene-drift var(--speed, 60s) linear infinite;
+  will-change: transform;
+}
+
+.scene-strip > svg {
+  width: 50%;
+  height: 100%;
+  display: block;
+  flex: 0 0 50%;
+}
+
+@keyframes scene-drift {
+  from { transform: translate3d(0, 0, 0); }
+  to { transform: translate3d(-50%, 0, 0); }
+}
+
+.scene-birds { position: absolute; inset: 0; pointer-events: none; }
+.scene-bird {
+  position: absolute;
+  width: clamp(22px, 3.4vw, 40px);
+  opacity: 0.65;
+  animation: bird-fly 26s linear infinite;
+}
+.scene-bird svg { width: 100%; height: auto; display: block; }
+.scene-bird-1 { top: 14%; animation-duration: 30s; }
+.scene-bird-2 { top: 21%; animation-duration: 24s; animation-delay: -9s; }
+.scene-bird-3 { top: 10%; animation-duration: 36s; animation-delay: -18s; }
+
+@keyframes bird-fly {
+  from { transform: translate3d(105vw, 0, 0); }
+  to { transform: translate3d(-15vw, 0, 0); }
+}
+
+/* --- Der Zug --- */
+
+.train-band {
+  position: absolute;
+  left: 0; right: 0;
+  bottom: 9%;
+  z-index: 2;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.train-band .train-svg {
+  width: 100%;
+  height: auto;
+  display: block;
+  pointer-events: auto;
+}
+
+.train-wagon, .train-loco { cursor: pointer; }
+
+/* Dampf steigt aus dem Kamin und verweht nach vorn. Alle drei Wolken starten an
+   derselben Stelle; nur der Versatz macht daraus eine Fahne. */
+@keyframes train-puff {
+  0%   { transform: translate(0, 0) scale(0.6); opacity: 0; }
+  15%  { opacity: 0.9; }
+  100% { transform: translate(30px, -54px) scale(1.7); opacity: 0; }
+}
+
+.train-steam-puff {
+  animation: train-puff 3.6s ease-out infinite;
+  transform-origin: center;
+  transform-box: fill-box;
+  opacity: 0;
+}
+.train-steam-2 { animation-delay: 1.2s; }
+.train-steam-3 { animation-delay: 2.4s; }
+
+/* Das Startsignal pulst, damit klar ist: hier geht es weiter. */
+@keyframes start-pulse {
+  0%, 100% { transform: scale(1); opacity: 0.55; }
+  50% { transform: scale(1.22); opacity: 0.15; }
+}
+
+.train-start-signal { cursor: pointer; }
+.train-start-ring {
+  animation: start-pulse 2.2s ease-in-out infinite;
+  transform-origin: center;
+  transform-box: fill-box;
+}
+.train-start-signal:hover .train-start-lamp,
+.train-start-signal:focus-visible .train-start-lamp { fill: #55d98c; }
+.train-start-signal:focus-visible { outline: 3px solid #ffffff; outline-offset: 4px; border-radius: 50%; }
+.train-start-signal:active { transform-origin: center; }
+
+/* --- Profil oben rechts --- */
+/* Der Ton-Knopf kommt aus kids.js und sitzt links daneben. */
+
+.train-topbar {
+  position: absolute;
+  top: calc(var(--safe-top) + 12px);
+  right: calc(var(--safe-right) + 16px);
+  z-index: 5;
+  display: flex;
+  gap: 10px;
+}
+
+.train-profile {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  border: 3px solid rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: 0 6px 16px rgba(36, 48, 71, 0.22);
+  font-size: 1.6rem;
+  line-height: 1;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  padding: 0;
+  transition: transform 0.15s ease;
+}
+.train-profile:active { transform: scale(0.93); }
+.train-profile:focus-visible { outline: 3px solid #6c5ce7; outline-offset: 3px; }
+
+/* --- Vorläufige Spielliste hinter dem Startsignal --- */
+/* Verschwindet in Etappe 4, wenn der Zug selbst in die Bereiche fährt. */
+
+#game-list[hidden] { display: none; }
+
+.train-back {
+  position: fixed;
+  bottom: calc(var(--safe-bottom) + 18px);
+  left: calc(var(--safe-left) + 16px);
+  z-index: 40;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  border: 3px solid #fff;
+  background: #6c5ce7;
+  color: #fff;
+  box-shadow: 0 6px 16px rgba(36, 48, 71, 0.24);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  padding: 0;
+}
+.train-back svg { width: 30px; height: 30px; }
+.train-back:active { transform: scale(0.93); }
+.train-back:focus-visible { outline: 3px solid #243047; outline-offset: 3px; }
+
+/* Hochformat: ein Zug aus Lok und fünf Wagen ist von Natur aus breit. Auf einem
+   schmalen Bildschirm wird er darum flach – dagegen hilft keine Skalierung,
+   solange der ganze Zug sichtbar bleiben soll. Was hilft: die Landschaft
+   zusammenschieben, damit der Zug nicht in leerem Himmel verloren geht, und ihn
+   in die Mitte rücken statt an den unteren Rand. Im Querformat ist das Bild
+   deutlich besser – siehe Hinweis im Konzept. */
+@media (max-aspect-ratio: 4 / 5) {
+  .scene::after { height: 46%; }
+  .scene-layer-clouds { top: 3%; height: 26%; }
+  .scene-layer-far { bottom: 42%; height: 28%; }
+  .scene-layer-mid { bottom: 30%; height: 24%; }
+  .scene-layer-near { bottom: 0; height: 20%; }
+  /* Weiter nach links, sonst steht die Sonne hinter dem Profil-Knopf. */
+  .scene-sun { top: 6%; right: 26%; width: clamp(44px, 15vw, 84px); }
+  .train-band { bottom: 17%; }
+  .scene-bird { width: clamp(18px, 6vw, 30px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scene-strip, .scene-bird, .train-start-ring { animation: none; }
+  .train-steam-puff { animation: none; opacity: 0.5; }
+}
+
+/* Nur die feste Trefferfläche nimmt Tipps entgegen; die Zeichnung darunter
+   nicht. Sonst wandert das Ziel mit dem pulsenden Ring. */
+.train-start-signal > *:not(.train-start-hit) { pointer-events: none; }

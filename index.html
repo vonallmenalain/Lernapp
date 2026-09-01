@@ -9,20 +9,22 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Lernapp" />
-    <meta name="theme-color" content="#6c5ce7" />
-    <title>Lernapp: Rätsel für Kinder</title>
+    <meta name="theme-color" content="#a8ddf0" />
+    <title>Lernapp: Dein Zug</title>
     <link rel="stylesheet" href="styles.css?v=2026-09-01-1" />
     <link rel="manifest" href="app.webmanifest?v=2026-09-01-1" />
     <link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon-180.png" />
   </head>
-  <body>
-    <main class="app-shell">
-      <section class="hero" aria-labelledby="app-title">
-        <p class="eyebrow">Rätsel-Lernapp</p>
-        <h1 id="app-title">Rätsel für Kinder</h1>
-      </section>
+  <body data-page="train">
+    <!-- Die Bühne baut train-home.js: Landschaft, Zug, Startsignal. Bewusst
+         leer im HTML, damit hier kein Text steht, den ein Kind lesen müsste. -->
+    <div id="train-stage" class="train-stage" aria-label="Dein Zug"></div>
 
+    <!-- Vorläufige Spielauswahl hinter dem Startsignal. In Etappe 4 fährt der
+         Zug stattdessen selbst in die fünf Bereiche; bis dahin bleibt die App
+         durchgehend benutzbar. -->
+    <main class="app-shell" id="game-list" hidden>
       <section id="home-panel" class="home-panel" aria-label="Spiel auswählen">
         <a class="game-choice-card" href="buchstaben.html" aria-label="Buchstaben-Jagd spielen"><div class="preview letter-preview" aria-hidden="true"><span>🍌</span><span class="letter-big">B</span><span>M</span><span>S</span></div><div><h2>Buchstaben-Jagd</h2></div></a>
         <a class="game-choice-card" href="wortdetektiv.html" aria-label="Wortdetektiv spielen"><div class="preview reading-preview" aria-hidden="true"><span>🍎</span><span>A</span><span>_</span><span>F</span><span>E</span><span>L</span><span>🐶</span><span>B</span><span>☀️</span></div><div><h2>Wortdetektiv</h2></div></a>
@@ -49,7 +51,11 @@
     <script src="firebase.js?v=2026-09-01-1"></script>
     <script src="spatial-puzzles.js?v=2026-09-01-1"></script>
     <script src="kids.js?v=2026-09-01-1"></script>
+    <script src="brain-games.js?v=2026-09-01-1"></script>
     <script src="app.js?v=2026-09-01-1"></script>
+    <script src="train-progress.js?v=2026-09-01-1"></script>
+    <script src="train-art.js?v=2026-09-01-1"></script>
+    <script src="train-home.js?v=2026-09-01-1"></script>
     <script src="pwa.js?v=2026-09-01-1"></script>
   </body>
 </html>

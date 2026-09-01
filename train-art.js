@@ -589,8 +589,8 @@
    * @param {Object} config Lok-Konfiguration
    */
   function buildTrain(areas, config = {}, options = {}) {
-    const { withTrack = true, gap = WAGON_GAP, pad = 8 } = options;
-    const width = pad * 2 + areas.length * (WAGON_W + gap) + LOCO_W;
+    const { withTrack = true, gap = WAGON_GAP, pad = 8, trailing = 0, startLabel = null } = options;
+    const width = pad * 2 + areas.length * (WAGON_W + gap) + LOCO_W + trailing;
     const svg = el("svg", {
       viewBox: `0 0 ${width} ${ART_H}`,
       class: "train-svg",
@@ -611,7 +611,42 @@
     loco.setAttribute("transform", `translate(${pad + areas.length * (WAGON_W + gap)},0)`);
     svg.append(loco);
 
+    if (startLabel) svg.append(buildStartSignal(width - trailing / 2, { label: startLabel }));
+
     return svg;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Startsignal
+  // ---------------------------------------------------------------------------
+  // Steht vor der Lok am rechten Bildrand, auf dem Gleis. Ein Bahnsignal statt
+  // eines Knopfes: es gehört in die Welt des Zugs, und ein grüner Pfeil sagt
+  // ohne ein Wort, dass es losgeht. Als <g> mit role="button", damit es auch
+  // per Tastatur und Screenreader erreichbar bleibt.
+  function buildStartSignal(x, options = {}) {
+    const { label = "Losfahren" } = options;
+    const post = shade("#4a5568", 0);
+    const discY = GROUND - 74;
+
+    return group({
+      class: "train-start-signal",
+      "data-part": "start",
+      role: "button",
+      tabindex: "0",
+      "aria-label": label,
+      transform: `translate(${x},0)`,
+    }, [
+      el("rect", { x: -5, y: discY, width: 10, height: GROUND - discY, rx: 3, fill: post }),
+      el("rect", { x: -14, y: GROUND - 6, width: 28, height: 8, rx: 3, fill: shade(post, -0.25) }),
+      // Unsichtbare Trefferfläche: gross genug für einen Kinderfinger und vor
+      // allem konstant. Der pulsende Ring darunter würde die Fläche sonst
+      // ständig verändern, und ein Ziel, das atmet, trifft man schlechter.
+      el("circle", { cx: 0, cy: discY, r: 44, fill: "transparent", class: "train-start-hit" }),
+      el("circle", { cx: 0, cy: discY, r: 30, class: "train-start-ring", fill: "none", stroke: "#3fbf74", "stroke-width": 4, opacity: "0.55" }),
+      el("circle", { cx: 0, cy: discY, r: 24, fill: shade("#3fbf74", -0.35) }),
+      el("circle", { cx: 0, cy: discY, r: 20, class: "train-start-lamp", fill: "#3fbf74" }),
+      el("polygon", { points: `-7,${discY - 10} 9,${discY} -7,${discY + 10}`, fill: "#ffffff" }),
+    ]);
   }
 
   function buildTrack(width) {
@@ -653,7 +688,7 @@
     WAGON_TYPES, WHEEL_SHAPES, CHIMNEY_SHAPES, CAB_SHAPES, LAMP_SHAPES, FLAG_PATTERNS, WHISTLES,
     el, group, shade, inkOn,
     driverHead, wheel,
-    buildLoco, buildWagon, buildTrain, buildTrack,
+    buildLoco, buildWagon, buildTrain, buildTrack, buildStartSignal,
     locoConfig,
   };
 })();
