@@ -1,7 +1,7 @@
 /*
  * kids.js – Gemeinsame Kinder-Funktionen für die Lernapp.
  * Wird auf jeder Seite vor app.js geladen und stellt window.LernappKids bereit:
- * Sterne, Tagesziel, Profil, Vorlesen (TTS), Maskottchen, Konfetti, Töne.
+ * Sterne, Tagesziel, Vorlesen (TTS), Maskottchen, Konfetti, Töne.
  * Bewusst ohne Framework und defensiv (localStorage kann fehlschlagen).
  */
 (() => {
@@ -13,7 +13,6 @@
   const KEYS = {
     stars: (game, levelId) => `lernapp.stars.${game}.${levelId}`,
     daily: "lernapp.daily",
-    profile: "lernapp.profile",
     tts: "lernapp.tts",
     lastPlayed: "lernapp.lastPlayed",
     tutorial: (game) => `lernapp.tut.${game}`,
@@ -86,20 +85,6 @@
     return days;
   }
 
-  // ---------------------------------------------------------------------------
-  // Profil (Avatar + Altersgruppe)
-  // ---------------------------------------------------------------------------
-  const AVATARS = ["🦊", "🐰", "🐻", "🐼", "🐯", "🦁", "🐶", "🐱", "🐵", "🐨", "🦄", "🐸"];
-  function getProfile() {
-    const profile = readJSON(KEYS.profile, null);
-    if (profile && typeof profile === "object" && profile.avatar) return profile;
-    return null;
-  }
-  function saveProfile(profile) {
-    if (!profile || !profile.avatar) return;
-    writeJSON(KEYS.profile, { avatar: profile.avatar, age: profile.age === "young" ? "young" : "older", name: profile.name || "" });
-  }
-  function isYoung() { return getProfile()?.age === "young"; }
 
   // ---------------------------------------------------------------------------
   // Vorlesen (Web Speech API)
@@ -142,7 +127,7 @@
     try {
       const utterance = new window.SpeechSynthesisUtterance(String(text));
       utterance.lang = "de-DE";
-      utterance.rate = options.rate ?? (isYoung() ? 0.85 : 0.95);
+      utterance.rate = options.rate ?? 0.95;
       utterance.pitch = options.pitch ?? 1.15;
       const voice = pickGermanVoice();
       if (voice) utterance.voice = voice;
@@ -759,8 +744,7 @@
     getStars, setStars,
     // Tagesziel
     DAILY_GOAL, recordDailySolve, dailyProgress, weeklyProgress,
-    // Profil
-    AVATARS, getProfile, saveProfile, isYoung,
+
     // TTS (nur auf Lautsprecher-Klick)
     ttsSupported, ttsEnabled, setTtsEnabled, speak, stopSpeaking,
     // Hilfe-Lautsprecher
