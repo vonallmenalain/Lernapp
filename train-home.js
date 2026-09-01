@@ -793,6 +793,10 @@
   });
   window.addEventListener("pagehide", () => kids()?.stopMusic?.({ fade: 0.2 }));
 
+  // Nach dem Speichern des Profils muss der Knopf oben rechts das neue Tier
+  // zeigen.
+  document.addEventListener("lernapp:profile-changed", () => render());
+
   // Nach einem Spiel kommt das Kind hierher zurück – der Fortschritt hat sich
   // dann geändert. Beim Zurückspringen im Verlauf liefert der Browser die Seite
   // aus dem Cache; ohne dieses Neuzeichnen stünde der alte Zug da.
