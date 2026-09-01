@@ -4945,27 +4945,67 @@ body[data-page="train"].list-open { overflow: auto; }
 .train-back:active { transform: scale(0.93); }
 .train-back:focus-visible { outline: 3px solid #243047; outline-offset: 3px; }
 
-/* Hochformat: ein Zug aus Lok und fünf Wagen ist von Natur aus breit. Auf einem
-   schmalen Bildschirm wird er darum flach – dagegen hilft keine Skalierung,
-   solange der ganze Zug sichtbar bleiben soll. Was hilft: die Landschaft
-   zusammenschieben, damit der Zug nicht in leerem Himmel verloren geht, und ihn
-   in die Mitte rücken statt an den unteren Rand. Im Querformat ist das Bild
-   deutlich besser – siehe Hinweis im Konzept. */
-@media (max-aspect-ratio: 4 / 5) {
-  .scene::after { height: 46%; }
-  .scene-layer-clouds { top: 3%; height: 26%; }
-  .scene-layer-far { bottom: 42%; height: 28%; }
-  .scene-layer-mid { bottom: 30%; height: 24%; }
-  .scene-layer-near { bottom: 0; height: 20%; }
-  /* Weiter nach links, sonst steht die Sonne hinter dem Profil-Knopf. */
-  .scene-sun { top: 6%; right: 26%; width: clamp(44px, 15vw, 84px); }
-  .train-band { bottom: 17%; }
-  .scene-bird { width: clamp(18px, 6vw, 30px); }
+/* ---------------------------------------------------------------------------
+   Dreh-Hinweis
+   ---------------------------------------------------------------------------
+   Nur auf Geräten mit Finger-Bedienung und nur hochkant. Auf einem Desktop mit
+   schmalem Fenster wäre er nur im Weg, deshalb die Abfrage auf pointer: coarse.
+   --------------------------------------------------------------------------- */
+
+/* Auf dem Startbild gibt es keinen Vorlese-Knopf. Auch nicht, wenn ein Dialog
+   darüber – etwa "Wer spielt?" – einen Hilfetext anmeldet: dort soll wirklich
+   nur der Zug stehen. In den Spielen bleibt der Knopf unverändert. */
+body[data-page="train"] .help-voice { display: none; }
+
+.rotate-hint { display: none; }
+
+@media (orientation: portrait) and (pointer: coarse) {
+  .rotate-hint {
+    position: fixed;
+    inset: 0;
+    z-index: 300;
+    display: grid;
+    place-items: center;
+    background: #243047;
+    padding: 10vw;
+  }
+
+  .rotate-hint svg {
+    width: min(58vw, 320px);
+    height: auto;
+    overflow: visible;
+  }
+
+  .rotate-hint-device {
+    fill: none;
+    stroke: #ffffff;
+    stroke-width: 5;
+    transform-origin: 60px 39px;
+    animation: rotate-hint-turn 3s ease-in-out infinite;
+  }
+  .rotate-hint-dot {
+    fill: #ffffff;
+    transform-origin: 60px 39px;
+    animation: rotate-hint-turn 3s ease-in-out infinite;
+  }
+  .rotate-hint-arrow { fill: none; stroke: #6c5ce7; stroke-width: 6; stroke-linecap: round; }
+  .rotate-hint-tip { fill: #6c5ce7; }
+
+  /* Hinter dem Hinweis muss nichts laufen: die Bühne pausiert, damit das
+     Gerät nicht sinnlos animiert, was niemand sieht. */
+  .train-stage, .scene-strip, .scene-bird { animation-play-state: paused; }
+}
+
+@keyframes rotate-hint-turn {
+  0%, 20% { transform: rotate(0deg); }
+  55%, 80% { transform: rotate(-90deg); }
+  100% { transform: rotate(0deg); }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .scene-strip, .scene-bird, .train-start-ring { animation: none; }
   .train-steam-puff { animation: none; opacity: 0.5; }
+  .rotate-hint-device, .rotate-hint-dot { animation: none; transform: rotate(-90deg); }
 }
 
 /* Nur die feste Trefferfläche nimmt Tipps entgegen; die Zeichnung darunter

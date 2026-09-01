@@ -219,9 +219,10 @@
     return bar;
   }
 
-  // Beschreibt den Zug in Worten – nicht auf dem Bild, sondern für den
-  // Vorlese-Knopf und für Screenreader. Das Startbild bleibt textfrei, wird
-  // dadurch aber nicht unbedienbar für ein Kind, das nicht sieht.
+  // Beschreibt den Zug in Worten – nicht sichtbar, sondern als aria-label am
+  // Zug. Das Startbild bleibt textfrei und zeigt bewusst auch keinen
+  // Vorlese-Knopf; für ein Kind, das nicht sieht, liest der Screenreader den
+  // Zug trotzdem vollständig vor.
   function describe(areas) {
     const done = areas.filter((area) => area.complete);
     const started = areas.filter((area) => area.stage > 0 && !area.complete);
@@ -251,7 +252,7 @@
     stage.hidden = true;
     gameList.hidden = false;
     document.body.classList.add("list-open");
-    kids()?.setHelp?.("Such dir ein Spiel aus. Mit dem Zurück-Knopf oben kommst du wieder zu deinem Zug.");
+    kids()?.setHelp?.("Such dir ein Spiel aus. Mit dem Zurück-Knopf kommst du wieder zu deinem Zug.");
     gameList.querySelector(".train-back")?.focus();
   }
 
@@ -259,7 +260,7 @@
     if (gameList) gameList.hidden = true;
     stage.hidden = false;
     document.body.classList.remove("list-open");
-    kids()?.setHelp?.(describe(progress.allAreas()));
+    kids()?.setHelp?.("");
   }
 
   function render() {
@@ -297,7 +298,6 @@
 
     band.append(svg);
     stage.append(band, buildTopbar());
-    kids()?.setHelp?.(describe(areas));
   }
 
   // Zurück-Knopf in der (vorläufigen) Spielliste.

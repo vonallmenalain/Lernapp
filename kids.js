@@ -482,6 +482,8 @@
     mascotSVG, burstConfetti, playJingle, playChime, playStarSound, vibrate, prefersReducedMotion,
     // Ton-Schalter
     audioEnabled, setAudioEnabled, updateAudioToggle,
+    // Ausrichtung
+    lockLandscape,
     // Verlauf
     setLastPlayed, getLastPlayed, tutorialSeen, markTutorialSeen,
     // Speicher-Helfer
@@ -492,7 +494,47 @@
   // einen Hilfetext angemeldet hat. Die Startseite meldet keinen an – dort
   // erklären die Kacheln sich selbst. Dialoge über der Startseite (z. B. "Wer
   // spielt?") schieben einen Text nach und lassen den Knopf so erscheinen.
-  function mountFixedButtons() { mountHelpButton(); mountAudioToggle(); }
+  // ---------------------------------------------------------------------------
+  // Querformat
+  // ---------------------------------------------------------------------------
+  // Die App ist auf Querformat ausgelegt: der Zug aus Lok und fünf Wagen ist
+  // breit, und hochkant bliebe er ein flacher Streifen. Das Manifest verlangt
+  // Querformat, aber im normalen Browser-Tab greift das nicht – dort zeigt
+  // dieser Hinweis, dass das Gerät gedreht werden soll. Nur ein Bild, kein
+  // Text: die Kinder können noch nicht lesen.
+  function mountRotateHint() {
+    if (document.querySelector(".rotate-hint")) return;
+    const hint = document.createElement("div");
+    hint.className = "rotate-hint";
+    hint.setAttribute("role", "alert");
+    hint.setAttribute("aria-label", "Bitte drehe das Gerät quer.");
+    hint.innerHTML = `
+      <svg viewBox="0 0 120 100" aria-hidden="true" focusable="false">
+        <rect class="rotate-hint-device" x="42" y="8" width="36" height="62" rx="7"/>
+        <circle class="rotate-hint-dot" cx="60" cy="63" r="2.6"/>
+        <path class="rotate-hint-arrow" d="M26 84 a34 34 0 0 1 68 0" />
+        <polygon class="rotate-hint-tip" points="94,76 102,86 86,88" />
+      </svg>`;
+    document.body.append(hint);
+  }
+
+  // Im installierten Vollbild lässt sich die Ausrichtung wirklich festhalten.
+  // Der Aufruf braucht eine Nutzergeste und scheitert sonst still – deshalb
+  // hängt er am ersten Antippen und schluckt jeden Fehler.
+  function lockLandscape() {
+    try {
+      const lock = screen.orientation?.lock;
+      if (typeof lock !== "function") return;
+      lock.call(screen.orientation, "landscape").catch(() => {});
+    } catch { /* nicht erlaubt – dann bleibt der Dreh-Hinweis */ }
+  }
+
+  function mountFixedButtons() {
+    mountHelpButton();
+    mountAudioToggle();
+    mountRotateHint();
+    document.addEventListener("pointerdown", lockLandscape, { once: true });
+  }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", mountFixedButtons);
   else mountFixedButtons();
 })();

@@ -209,6 +209,8 @@
   const FLAG_PATTERNS = ["plain", "stripes", "dots", "zigzag"];
   const WHISTLES = ["hoch", "tief", "doppelt", "dampf"];
 
+  let locoUid = 0;
+
   const DEFAULT_LOCO = {
     driver: "fox",
     body: "#c9483a",
@@ -247,10 +249,13 @@
     ]);
 
     // --- Führerhaus ---
-    const cabParts = [
-      el("rect", { x: 10, y: 66, width: 62, height: GROUND - 88, rx: 5, fill: cabColor }),
-      el("rect", { x: 22, y: 78, width: 38, height: 32, rx: 4, fill: "#f7fbff", opacity: "0.9" }),
-    ];
+    // Das Fenster ist eine echte Öffnung, keine weisse Fläche: eine Maske
+    // schneidet es aus dem Führerhaus, sodass die Landschaft hinter dem Tier
+    // durchscheint. Ohne die Maske sässe der Chauffeur auf einem weissen Feld.
+    const windowBox = { x: 22, y: 78, width: 38, height: 32, rx: 4 };
+    const maskId = `loco-window-${locoUid += 1}`;
+
+    const cabParts = [el("rect", { x: 10, y: 66, width: 62, height: GROUND - 88, rx: 5, fill: cabColor })];
     if (c.cab.shape === "round") {
       cabParts.unshift(el("path", { d: "M4 68 q34 -20 74 0 v8 h-74 z", fill: shade(cabColor, -0.2) }));
     } else if (c.cab.shape === "peak") {
@@ -258,10 +263,24 @@
     } else {
       cabParts.unshift(el("rect", { x: 2, y: 58, width: 78, height: 13, rx: 4, fill: shade(cabColor, -0.2) }));
     }
-    const cab = group({ "data-part": "cab" }, cabParts);
 
-    // --- Chauffeur im Fenster ---
+    const defs = el("defs", {}, [
+      el("mask", { id: maskId, maskUnits: "userSpaceOnUse", x: 0, y: 0, width: LOCO_W, height: ART_H }, [
+        el("rect", { x: 0, y: 0, width: LOCO_W, height: ART_H, fill: "#ffffff" }),
+        el("rect", { ...windowBox, fill: "#000000" }),
+      ]),
+    ]);
+
+    const cab = group({ "data-part": "cab", mask: `url(#${maskId})` }, cabParts);
+
+    // --- Chauffeur in der Fensteröffnung ---
     const driver = group({ "data-part": "driver", transform: "translate(41,96)" }, [driverHead(c.driver, 15)]);
+
+    // Der Fensterrahmen kommt über den Chauffeur: so sitzt das Tier sichtbar
+    // hinter dem Fenster und nicht davor aufgeklebt.
+    const windowFrame = group({ "data-part": "window", "aria-hidden": "true" }, [
+      el("rect", { ...windowBox, fill: "none", stroke: shade(cabColor, -0.3), "stroke-width": 4 }),
+    ]);
 
     // --- Kessel ---
     const boiler = group({ "data-part": "body" }, [
@@ -356,7 +375,7 @@
     ]);
 
     return group({ class: "train-loco", "data-loco": "true" },
-      [steam, flag, frame, cab, driver, boiler, chimney, lamp, wheels, plough]);
+      [defs, steam, flag, frame, cab, driver, windowFrame, boiler, chimney, lamp, wheels, plough]);
   }
 
   // ---------------------------------------------------------------------------
