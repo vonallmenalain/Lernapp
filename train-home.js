@@ -21,7 +21,6 @@
   if (!art || !progress || !stage) return;
 
   const kids = () => window.LernappKids || null;
-  const home = () => window.LernappHome || null;
   const { el, group, shade } = art;
 
   const LOCO_KEY = "lernapp.train.loco";
@@ -397,12 +396,23 @@
   // nur messen. Das Ergebnis geht als Pixelwert ins CSS.
   function alignTrainToRail() {
     const rail = layerHost?.querySelector(".stage-rail");
-    const mark = stage.querySelector(".train-railline");
-    if (!rail || !mark) {
+    const band = stage.querySelector(".train-band");
+    if (!rail || !band || !band.offsetHeight) {
       stage.style.removeProperty("--train-lift");
+      positionStart();
       return;
     }
-    const lift = rail.getBoundingClientRect().top - mark.getBoundingClientRect().top;
+    // Gemessen wird das Band in seiner ungestreckten Lage – offsetTop und
+    // offsetHeight kennen keine Transformation. Am Zug selbst zu messen wäre
+    // mitten in einer Überblendung die Messung von gestern, und der Wert, den
+    // sie ergäbe, verschöbe den Zug beim nächsten Mal noch einmal.
+    //
+    // Der Drehpunkt des Bandes liegt auf der Schienenoberkante des Zugs, also
+    // gilt: Schiene auf dem Bildschirm = ungestreckte Lage plus Ausgleich,
+    // unabhängig davon, wie stark gerade verkleinert wird.
+    const stageTop = stage.getBoundingClientRect().top;
+    const railLine = stageTop + band.offsetTop + band.offsetHeight * (art.GROUND / art.ART_H);
+    const lift = rail.getBoundingClientRect().top - railLine;
     stage.style.setProperty("--train-lift", `${Math.round(lift)}px`);
     positionStart();
   }
@@ -731,18 +741,6 @@
     return button;
   }
 
-  function buildTopbar() {
-    const bar = document.createElement("div");
-    bar.className = "train-topbar";
-    const profile = document.createElement("button");
-    profile.type = "button";
-    profile.className = "train-profile";
-    profile.setAttribute("aria-label", "Profil ändern");
-    profile.innerHTML = `<span aria-hidden="true">${kids()?.getProfile?.()?.avatar || "🙂"}</span>`;
-    profile.addEventListener("click", () => home()?.showProfileSetup?.());
-    bar.append(profile);
-    return bar;
-  }
 
   // Das Startsignal schwebt vor der Lok, statt auf dem Gleis zu stehen. Das
   // Gleis liegt jetzt fest im Bild; ein Signal darauf wäre ein Hindernis, das
@@ -998,6 +996,13 @@
 
     const band = document.createElement("div");
     band.className = "train-band";
+    // Nach jeder Überblendung neu ausrichten. Gemessen wird die Lok, und
+    // mitten in der Bewegung steht sie noch halb in der alten Ansicht: der
+    // Startknopf landete dann in der Bildmitte hinter den Wagen, wo ihn
+    // niemand mehr fand.
+    band.addEventListener("transitionend", (event) => {
+      if (event.propertyName === "transform" && event.target === band) alignTrainToRail();
+    });
     // Ohne Gleis: das liegt jetzt fest in der Bühnenebene, damit es beim
     // Losfahren stehen bleibt. Der Nachlauf rechts ist der Platz, auf dem das
     // Startsignal vor der Lok schwebt.
@@ -1035,7 +1040,7 @@
     sceneButton = scene ? buildSceneButton(scene) : null;
     startButton = buildStartButton();
 
-    stage.append(band, layerHost, buildTopbar(), backButton, startButton);
+    stage.append(band, layerHost, backButton, startButton);
     if (sceneButton) stage.append(sceneButton);
 
     if (previous === "games" && previousArea) showGames(previousArea);
@@ -1050,13 +1055,16 @@
   // Die Einfahrt. Zuerst stehen nur Landschaft und Gleis da, dann kommt der Zug
   // von links herein und meldet sich mit dem Horn. Ohne Bewegung entfällt das:
   // wer Animationen abgeschaltet hat, soll den Zug einfach vorfinden.
-  //
-  // Ob das Horn beim allerersten Laden wirklich tönt, entscheidet der Browser:
-  // ohne eine Berührung bleibt jeder Ton stumm. Beim Zurückkommen aus einem
-  // Spiel ist der Ton längst freigegeben, und dann hört man es.
-  function rollIn() {
-    if (reduced()) return;
+  function parkOutside() {
+    if (reduced()) return false;
     stage.dataset.entering = "1";
+    return true;
+  }
+
+  function rollIn() {
+    if (!parkOutside()) return;
+    // Zwei Bilder warten: der Browser muss die Ausgangslage einmal gezeichnet
+    // haben, sonst überspringt er die Überblendung und der Zug steht einfach da.
     window.requestAnimationFrame(() => {
       window.requestAnimationFrame(() => {
         stage.dataset.entering = "0";
@@ -1069,11 +1077,29 @@
     });
   }
 
-  rollIn();
+  // Beim allerersten Laden wartet der Zug am linken Rand auf die erste
+  // Berührung. Das ist keine Spielerei: ohne eine Geste lässt kein Browser Ton
+  // zu, und ein Zug, der stumm einfährt, hat seinen Auftritt verschenkt.
+  //
+  // Berührt niemand den Bildschirm, fährt er nach ein paar Sekunden trotzdem
+  // ein – auf eine leere Wiese zu starren soll niemand müssen.
+  function rollInOnFirstTouch() {
+    if (!parkOutside()) return;
+    let done = false;
+    const events = ["pointerdown", "keydown", "touchstart"];
+    const go = () => {
+      if (done) return;
+      done = true;
+      window.clearTimeout(timer);
+      events.forEach((type) => document.removeEventListener(type, go));
+      rollIn();
+    };
+    events.forEach((type) => document.addEventListener(type, go, { passive: true }));
+    const timer = window.setTimeout(go, 6000);
+  }
 
-  // Beim allerersten Start fragt die App, wer spielt. Das hing bisher an der
-  // Spielliste in index.html; die gibt es nicht mehr, also fragt der Zug.
-  if (!home()?.hasProfile?.()) home()?.showProfileSetup?.();
+  rollInOnFirstTouch();
+
 
   window.addEventListener("resize", () => {
     if (view.name !== "loco" && view.name !== "wagon") window.requestAnimationFrame(alignTrainToRail);
@@ -1096,9 +1122,6 @@
   });
   window.addEventListener("pagehide", () => kids()?.stopMusic?.({ fade: 0.2 }));
 
-  // Nach dem Speichern des Profils muss der Knopf oben rechts das neue Tier
-  // zeigen.
-  document.addEventListener("lernapp:profile-changed", () => render());
 
   // Die Anmeldung braucht einen Moment. Kommen Lok und Landschaft aus der
   // Cloud, wird der Zug neu gezeichnet – kommt der Fortschritt, ebenso: die
@@ -1123,6 +1146,8 @@
     if (!event.persisted) return;
     resetStage();
     kids()?.startMusic?.();
+    // Beim Zurückkommen aus einem Spiel ist der Ton längst freigegeben – hier
+    // muss der Zug auf nichts mehr warten.
     rollIn();
   });
 

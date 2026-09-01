@@ -42,7 +42,7 @@ select { font: inherit; }
   max-width: 980px;
   margin: 0 auto;
   /* Oben bleibt ein Streifen für die festen Knöpfe frei: Hilfe-Lautsprecher
-     links, Ton und Profil rechts. */
+     links, Ton und Konto rechts. */
   padding: calc(var(--safe-top) + 78px) 0 40px;
 }
 
@@ -3439,7 +3439,7 @@ body.puzzle-active .memory-game {
 .success-text-button:hover:not(:disabled) { filter: brightness(1.05); }
 .success-text-button:active { transform: scale(0.96); }
 
-/* --- Generische Kinder-Modals (Tutorial, Bestätigung, Profil, Truhe) --- */
+/* --- Generische Kinder-Modals (Tutorial, Bestätigung, Truhe) --- */
 .kids-modal-overlay {
   position: fixed; inset: 0; z-index: 60;
   display: flex; align-items: center; justify-content: center; padding: 20px;
@@ -3477,48 +3477,6 @@ body.puzzle-active .memory-game {
   display: inline-flex; align-items: center; justify-content: center;
 }
 
-/* Profil */
-.profile-q { font-weight: 900; color: var(--primary-dark); margin: 16px 0 10px; }
-/* Festes Raster statt Umbruch: 12 Tiere ergeben zwei volle Reihen zu sechst
-   (auf schmalen Geräten drei Reihen zu viert) – keine angebrochene Restreihe. */
-.profile-avatars {
-  display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 8px;
-  justify-items: center;
-}
-.profile-avatar {
-  width: 100%;
-  max-width: 62px;
-  aspect-ratio: 1;
-  padding: 0;
-  border-radius: 16px;
-  border: 3px solid var(--line);
-  background: #faf8ff;
-  /* Grid-Zentrierung statt Text-Baseline: Emojis sitzen sonst zu hoch. */
-  display: grid;
-  place-items: center;
-  font-size: clamp(1.5rem, 7vw, 1.9rem);
-  line-height: 1;
-  cursor: pointer;
-  transition: transform 0.12s ease, border-color 0.15s ease, background 0.15s ease;
-}
-.profile-avatar:hover:not(:disabled),
-.profile-avatar:focus-visible { background: #f1ecff; border-color: #b5a7f5; outline: none; }
-.profile-avatar.selected { border-color: #6c5ce7; background: #efeaff; transform: scale(1.06); }
-.profile-ages { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-.profile-age {
-  min-height: 60px; border-radius: 16px; border: 3px solid var(--line);
-  background: #faf8ff; font-size: 1.05rem; font-weight: 900; color: var(--ink); cursor: pointer;
-  display: inline-flex; align-items: center; justify-content: center; text-align: center;
-  padding: 0 10px;
-}
-.profile-age:hover:not(:disabled),
-.profile-age:focus-visible { background: #f1ecff; border-color: #b5a7f5; outline: none; }
-.profile-age.selected { border-color: #06d6a0; background: #e9fff7; }
-@media (max-width: 420px) {
-  .profile-avatars { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-}
 
 /* Truhe / Zoo-Reveal */
 
@@ -4352,7 +4310,12 @@ body[data-page="train"].list-open { overflow: auto; }
   display: flex;
   justify-content: center;
   pointer-events: none;
-  transform-origin: left bottom;
+  /* Der Drehpunkt liegt auf der Schienenoberkante des Zugs: sie sitzt bei
+     170 von 200 Einheiten, also auf 85 Prozent der Bandhöhe. Damit bleibt der
+     Zug beim Verkleinern auf dem Gleis stehen, statt darüber zu schweben – und
+     der gemessene Höhenausgleich gilt für alle Ansichten gleich, statt für
+     jede neu ermittelt werden zu müssen. */
+  transform-origin: 0 85%;
   transition: transform 0.72s cubic-bezier(0.32, 0.72, 0.24, 1);
 }
 
@@ -4608,42 +4571,6 @@ body[data-page="train"].list-open { overflow: auto; }
 .stage-back:active { transform: scale(0.93); }
 .stage-back:focus-visible { outline: 3px solid #243047; outline-offset: 3px; }
 
-/* --- Profil oben rechts --- */
-/* Drei Knöpfe in einer Reihe, von rechts: Konto, Ton, Profil. Die ersten
-   beiden kommen aus firebase.js und kids.js und stehen fest bei 14 und 76
-   Pixeln vom Rand – der Profil-Knopf muss deshalb bei 138 anfangen. Vorher
-   lagen Konto und Profil übereinander, und vom unteren blieb ringsum ein
-   weisser Streifen sichtbar: der Rahmen, der aussah wie ein Fehler. */
-
-.train-topbar {
-  position: absolute;
-  top: calc(var(--safe-top) + 14px);
-  right: calc(var(--safe-right) + 138px);
-  z-index: 92;
-  display: flex;
-  gap: 10px;
-}
-
-/* Sieht aus wie seine beiden Nachbarn: gleicher Ring, gleiche Grösse. Drei
-   Knöpfe nebeneinander, die sich unterschiedlich einrahmen, sähen aus, als
-   gehörte einer nicht dazu. */
-.train-profile {
-  width: 52px;
-  height: 52px;
-  border-radius: 50%;
-  border: 3px solid var(--primary);
-  background: #fff;
-  box-shadow: 0 12px 28px rgba(36, 48, 71, 0.18);
-  font-size: 1.6rem;
-  line-height: 1;
-  display: grid;
-  place-items: center;
-  cursor: pointer;
-  padding: 0;
-  transition: transform 0.15s ease;
-}
-.train-profile:active { transform: scale(0.93); }
-.train-profile:focus-visible { outline: 3px solid #6c5ce7; outline-offset: 3px; }
 
 /* --- Landschafts-Knopf oben links --- */
 /* Ein Guckloch auf die Landschaft, die gerade läuft, mit zwei Pfeilen daneben.

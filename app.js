@@ -2282,51 +2282,7 @@ function setupExitGuard() {
   });
 }
 
-function showProfileSetup() {
-  if (!kids()) return;
-  const current = kids().getProfile?.() || {};
-  const overlay = document.createElement("section");
-  overlay.className = "kids-modal-overlay profile-overlay";
-  overlay.setAttribute("role", "dialog");
-  overlay.setAttribute("aria-modal", "true");
-  overlay.setAttribute("aria-label", "Wer spielt?");
-  const avatars = (kids().AVATARS || []).map((a) => `<button type="button" class="profile-avatar${current.avatar === a ? " selected" : ""}" data-avatar="${a}" aria-label="Tier ${a}">${a}</button>`).join("");
-  overlay.innerHTML = `
-    <div class="kids-modal profile-modal">
-      <h2>Wer spielt?</h2>
-      <p class="profile-q">Wähle dein Tier</p>
-      <div class="profile-avatars">${avatars}</div>
-      <p class="profile-q">Wie alt bist du?</p>
-      <div class="profile-ages">
-        <button type="button" class="profile-age${current.age === "young" ? " selected" : ""}" data-age="young">4–5 Jahre</button>
-        <button type="button" class="profile-age${current.age !== "young" ? " selected" : ""}" data-age="older">6–8 Jahre</button>
-      </div>
-      <div class="kids-modal-actions">
-        <button type="button" class="kids-modal-primary" data-save>Los geht's! 🎉</button>
-      </div>
-    </div>`;
-  (document.querySelector(".app-shell") || document.body).append(overlay);
-  const releaseHelp = kids().pushHelp?.("Wer spielt? Tippe zuerst auf dein Lieblingstier. Sag dann, wie alt du bist. Zum Schluss tippst du auf Los geht's.");
-  let chosenAvatar = current.avatar || (kids().AVATARS || ["🦊"])[0];
-  let chosenAge = current.age || "older";
-  if (!current.avatar) { const first = overlay.querySelector("[data-avatar]"); if (first) first.classList.add("selected"); }
-  overlay.querySelectorAll("[data-avatar]").forEach((btn) => btn.addEventListener("click", () => {
-    chosenAvatar = btn.dataset.avatar;
-    overlay.querySelectorAll("[data-avatar]").forEach((b) => b.classList.toggle("selected", b === btn));
-  }));
-  overlay.querySelectorAll("[data-age]").forEach((btn) => btn.addEventListener("click", () => {
-    chosenAge = btn.dataset.age;
-    overlay.querySelectorAll("[data-age]").forEach((b) => b.classList.toggle("selected", b === btn));
-  }));
-  overlay.querySelector("[data-save]").addEventListener("click", () => {
-    kids().saveProfile?.({ avatar: chosenAvatar, age: chosenAge });
-    releaseHelp?.();
-    overlay.remove();
-    // Wer das Profil anzeigt, weiss app.js nicht mehr – auf der Zugseite ist
-    // das der Knopf oben rechts. Ein Ereignis statt eines direkten Aufrufs.
-    document.dispatchEvent(new CustomEvent("lernapp:profile-changed"));
-  });
-}
+
 function handleWin() { if (!winShown) showSuccess(); render(); }
 function checkAndWin() { if (GAME_HANDLERS[currentGame].checkWin()) handleWin(); }
 function resetState() { GAME_HANDLERS[currentGame].resetState(currentLevel()); }
@@ -3922,12 +3878,6 @@ setupSuccessOverlay();
 setupExitGuard();
 setupAudioFeedback();
 
-// Der Zug braucht den Profil-Dialog und die Spielauswahl, baut aber seine
-// eigene Oberfläche. Nur diese beiden Einstiegspunkte gibt app.js nach aussen.
-window.LernappHome = {
-  showProfileSetup,
-  hasProfile: () => Boolean(kids()?.getProfile?.()),
-};
 if (typeof window.addEventListener === "function") {
   window.addEventListener("resize", handleViewportLayoutChange);
   window.addEventListener("orientationchange", handleViewportLayoutChange);
