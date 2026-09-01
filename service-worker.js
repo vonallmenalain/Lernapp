@@ -36,6 +36,7 @@ const CORE_ASSETS = [
   `./kartenmerker.js${ASSET_VERSION_QUERY}`,
   `./strand-art.js${ASSET_VERSION_QUERY}`,
   `./strandschatz.js${ASSET_VERSION_QUERY}`,
+  `./schwarmfokus.js${ASSET_VERSION_QUERY}`,
   `./firebase.js${ASSET_VERSION_QUERY}`,
   `./pwa.js${ASSET_VERSION_QUERY}`,
   `./app.webmanifest${ASSET_VERSION_QUERY}`,

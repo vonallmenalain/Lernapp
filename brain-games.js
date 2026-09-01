@@ -1,14 +1,14 @@
 /*
- * brain-games.js – Zwei Gehirntrainer für die Lernapp.
+ * brain-games.js – Weichen-Wirrwarr für die Lernapp.
  *
- * Schwarm-Fokus (selektive Aufmerksamkeit, Flanker-Aufgabe) und
- * Weichen-Wirrwarr (geteilte Aufmerksamkeit, vorausschauendes Planen).
+ * Geteilte Aufmerksamkeit und vorausschauendes Planen: Weichen stellen, damit
+ * jeder Wagen zum passenden Haus fährt.
  *
- * Der Karten-Merker und die Strand-Schätze standen einmal hier und sind
- * ausgezogen: beide spielen jetzt eine einzige Runde auf eine Bestenliste statt
- * eine Reihe von Leveln und brauchen weder Weltenwahl noch Sterne. Sie stehen
- * in kartenmerker.js und strandschatz.js auf der gemeinsamen Bühne aus
- * game-shell.js.
+ * Karten-Merker, Strand-Schätze und Schwarm-Fokus standen einmal hier und sind
+ * ausgezogen: alle drei spielen jetzt eine einzige Runde auf eine Bestenliste
+ * statt eine Reihe von Leveln und brauchen weder Weltenwahl noch Sterne. Sie
+ * stehen in kartenmerker.js, strandschatz.js und schwarmfokus.js auf der
+ * gemeinsamen Bühne aus game-shell.js.
  *
  * Die Spiele bringen keine eigene Hülle mit: sie melden sich bei app.js an und
  * benutzen dieselbe Weltenwahl, Levelauswahl, Sternewertung, Erfolgsfeier und
@@ -30,16 +30,6 @@
   // ===========================================================================
   const configs = {
 
-    flanker: {
-      title: "Schwarm-Fokus", eyebrow: "Nur die Mitte zählt", code: "E",
-      subtitle: "In welche Richtung schwimmt der mittlere Fisch?",
-      success: "Super konzentriert! Du hast dich nicht ablenken lassen.",
-      rules: [
-        "Schau nur auf den Fisch in der Mitte.",
-        "Die anderen Fische wollen dich austricksen.",
-        "Tippe auf den Pfeil, in dessen Richtung der mittlere Fisch schwimmt.",
-      ],
-    },
     trackRouter: {
       title: "Weichen-Wirrwarr", eyebrow: "Vorausschauend planen", code: "Y",
       subtitle: "Stelle die Weichen, damit jeder Wagen zum passenden Haus fährt.",
@@ -54,7 +44,6 @@
 
   const pages = {
 
-    flanker: "schwarmfokus.html",
     trackRouter: "weichen.html",
   };
 
@@ -66,30 +55,6 @@
 
   const DIFFICULTY_ORDER = ["easy", "medium", "hard", "extreme"];
 
-
-  // --- Schwarm-Fokus ---------------------------------------------------------
-  const FLANKER_LEVELS = {
-    easy: [
-      { trials: 10, flankers: 1, incongruent: 0.2, directions: 2, showMs: 0, answerMs: 0 },
-      { trials: 12, flankers: 1, incongruent: 0.35, directions: 2, showMs: 0, answerMs: 0 },
-      { trials: 12, flankers: 2, incongruent: 0.4, directions: 2, showMs: 0, answerMs: 0 },
-    ],
-    medium: [
-      { trials: 14, flankers: 2, incongruent: 0.45, directions: 2, showMs: 2600, answerMs: 3600 },
-      { trials: 14, flankers: 2, incongruent: 0.5, directions: 4, showMs: 2400, answerMs: 3400 },
-      { trials: 16, flankers: 2, incongruent: 0.55, directions: 4, showMs: 2000, answerMs: 3200 },
-    ],
-    hard: [
-      { trials: 16, flankers: 3, incongruent: 0.55, directions: 4, showMs: 1600, answerMs: 2800 },
-      { trials: 18, flankers: 3, incongruent: 0.6, directions: 4, showMs: 1300, answerMs: 2600 },
-      { trials: 18, flankers: 3, incongruent: 0.65, directions: 4, showMs: 1100, answerMs: 2400 },
-    ],
-    extreme: [
-      { trials: 20, flankers: 3, incongruent: 0.65, directions: 4, showMs: 900, answerMs: 2200 },
-      { trials: 20, flankers: 4, incongruent: 0.7, directions: 4, showMs: 750, answerMs: 2000 },
-      { trials: 22, flankers: 4, incongruent: 0.75, directions: 4, showMs: 650, answerMs: 1800 },
-    ],
-  };
 
   // --- Weichen-Wirrwarr ------------------------------------------------------
   // speed = Anteil eines Gleisstücks pro Sekunde. 0.4 heisst also: zweieinhalb
@@ -120,12 +85,6 @@
 
   const LEVEL_DESCRIPTIONS = {
 
-    flanker: {
-      easy: "Ein Fisch links und rechts, du hast so viel Zeit du magst.",
-      medium: "Mehr Fische und ein kurzer Blick auf den Schwarm.",
-      hard: "Vier Richtungen und viele Ablenker.",
-      extreme: "Ein Wimpernschlag, dann musst du dich entscheiden.",
-    },
     trackRouter: {
       easy: "Eine Weiche, zwei Häuser – in Ruhe planen.",
       medium: "Mehrere Weichen hintereinander und mehr Wagen unterwegs.",
@@ -136,13 +95,11 @@
 
   const BADGE = {
 
-    flanker: (rule) => `${rule.trials} Runden`,
     trackRouter: (rule) => `${rule.deliveries} Wagen`,
   };
 
   const LEVEL_RULES = {
 
-    flanker: FLANKER_LEVELS,
     trackRouter: TRACK_LEVELS,
   };
 
@@ -275,215 +232,6 @@
     { id: "pink", name: "pink", color: "#ff5da2", ink: "#7d1348", symbol: "⬟" },
   ];
 
-
-  // ===========================================================================
-  // Spiel 1: Schwarm-Fokus (Flanker-Aufgabe)
-  // ===========================================================================
-  // Nur der mittlere Fisch zählt. Die Nachbarn zeigen mal in dieselbe Richtung
-  // (leicht) und mal in eine andere (schwer, weil sie ablenken).
-  // Nach links wird gespiegelt statt gedreht – ein um 180 Grad gedrehter Fisch
-  // läge auf dem Rücken.
-  const DIRECTIONS = {
-    right: { transform: "none", label: "rechts", arrow: "→" },
-    down: { transform: "rotate(90deg)", label: "unten", arrow: "↓" },
-    left: { transform: "scaleX(-1)", label: "links", arrow: "←" },
-    up: { transform: "rotate(-90deg)", label: "oben", arrow: "↑" },
-  };
-  const DIRECTION_SETS = { 2: ["left", "right"], 4: ["left", "right", "up", "down"] };
-
-  // Ein Fisch als Inline-SVG. Zeigt von Haus aus nach rechts und wird gedreht –
-  // Emojis wären hier unbrauchbar, weil ihre Blickrichtung je nach Gerät
-  // wechselt.
-  function fishSVG(direction, highlighted) {
-    return `
-      <svg class="flanker-fish${highlighted ? " target" : ""}" viewBox="0 0 64 48" role="img"
-           aria-label="Fisch schaut nach ${DIRECTIONS[direction].label}"
-           style="transform: ${DIRECTIONS[direction].transform}">
-        <path class="flanker-tail" d="M6 24 L20 12 L20 36 Z"/>
-        <ellipse class="flanker-body" cx="36" cy="24" rx="22" ry="14"/>
-        <path class="flanker-fin" d="M34 10 Q38 2 44 10 Z"/>
-        <circle class="flanker-eye-white" cx="49" cy="20" r="4.6"/>
-        <circle class="flanker-eye" cx="50.5" cy="20" r="2.4"/>
-      </svg>`;
-  }
-
-  function createFlanker(api) {
-    const timers = createTimers();
-    let s = null;
-
-    function makeTrial(rule) {
-      const dirs = DIRECTION_SETS[rule.directions] || DIRECTION_SETS[2];
-      const target = pick(dirs);
-      const incongruent = Math.random() < rule.incongruent;
-      const others = dirs.filter((d) => d !== target);
-      const flankerDir = incongruent && others.length ? pick(others) : target;
-      return { target, flankerDir, incongruent, dirs };
-    }
-
-    function showMs() {
-      const base = s.rule.showMs;
-      return base ? Math.round(base * s.pacer.factor) : 0;
-    }
-    function answerMs() {
-      const base = s.rule.answerMs;
-      return base ? Math.round(base * s.pacer.factor) : 0;
-    }
-
-    function armTrialTimers() {
-      timers.clear();
-      const hideAfter = showMs();
-      if (!hideAfter) return; // Einsteiger-Level: der Schwarm bleibt stehen.
-      timers.after(hideAfter, () => {
-        if (!s || s.done || s.phase !== "answer") return;
-        s.hidden = true;
-        api.render();
-        const window_ = answerMs();
-        if (!window_) return;
-        timers.after(window_, () => {
-          if (!s || s.done || s.phase !== "answer") return;
-          s.missed += 1;
-          s.answered += 1;
-          s.pacer.wrong();
-          s.feedback = "missed";
-          api.playJingle("retry");
-          s.phase = "feedback";
-          api.render();
-          timers.after(800, nextTrial);
-        });
-      });
-    }
-
-    function nextTrial() {
-      timers.clear();
-      if (!s || s.done) return;
-      if (s.answered >= s.rule.trials) {
-        s.done = true;
-        api.render();
-        api.handleWin();
-        return;
-      }
-      s.trial = makeTrial(s.rule);
-      s.hidden = false;
-      s.feedback = null;
-      s.phase = "answer";
-      api.render();
-      armTrialTimers();
-    }
-
-    function answer(direction) {
-      if (!s || s.done || s.phase !== "answer") return;
-      timers.clear();
-      const correct = direction === s.trial.target;
-      s.answered += 1;
-      if (correct) {
-        s.correct += 1;
-        s.pacer.correct();
-        s.feedback = "correct";
-        api.playJingle("correct");
-        api.kids()?.vibrate?.(18);
-      } else {
-        s.pacer.wrong();
-        s.feedback = "wrong";
-        api.playJingle("retry");
-      }
-      s.phase = "feedback";
-      api.render();
-      timers.after(correct ? 340 : 850, nextTrial);
-    }
-
-    return {
-      stop() { timers.clear(); },
-      resetState(level) {
-        timers.clear();
-        s = {
-          rule: level.rule,
-          trial: null,
-          hidden: false,
-          phase: "intro",
-          answered: 0,
-          correct: 0,
-          missed: 0,
-          feedback: null,
-          done: false,
-          pacer: createPacer({ min: 0.8, max: 1.4 }),
-        };
-        api.setStatus("Schau nur auf den Fisch in der Mitte.");
-      },
-      checkWin() { return Boolean(s?.done); },
-      solveResult() { return { correct: s?.correct || 0, answered: s?.answered || 0, missed: s?.missed || 0 }; },
-      stars() { return starsFromAccuracy(s?.correct || 0, s?.answered || 0, [0.85, 0.62]); },
-      helpText(level) {
-        if (!s || s.phase === "intro") return "Tippe auf Los geht's, dann erscheint der Schwarm.";
-        const dirs = (DIRECTION_SETS[level.rule.directions] || DIRECTION_SETS[2]).map((d) => DIRECTIONS[d].label).join(", ");
-        return `Schau nur auf den Fisch in der Mitte, der grösser und heller ist. Tippe dann auf den Pfeil für seine Richtung: ${dirs}. Noch ${Math.max(0, level.rule.trials - s.answered)} Runden.`;
-      },
-      render(level) {
-        const board = api.board;
-        board.innerHTML = "";
-        board.className = "board task-board brain-board flanker-board";
-        board.style.setProperty("--size", 1);
-        board.append(renderHead(s.answered, s.rule.trials, s.rule.showMs ? "kurzer Blick" : "in Ruhe"));
-
-        if (s.phase === "intro") {
-          board.append(el("p", "brain-prompt", "Wohin schwimmt der Fisch in der Mitte?"));
-          const demo = el("div", "flanker-row demo");
-          demo.innerHTML = [fishSVG("left", false), fishSVG("right", true), fishSVG("left", false)]
-            .map((svg) => `<span class="flanker-slot">${svg}</span>`).join("");
-          board.append(demo);
-          board.append(el("p", "brain-hint", "Die Fische aussen wollen dich austricksen."));
-          const go = el("button", "brain-primary-button", "Los geht's! 🐟");
-          go.type = "button";
-          go.addEventListener("click", nextTrial);
-          board.append(go);
-          return;
-        }
-
-        const row = el("div", "flanker-row");
-        if (s.hidden) {
-          row.classList.add("hidden-swarm");
-          row.append(el("span", "flanker-memory", "Welche Richtung war es?"));
-        } else {
-          const count = s.rule.flankers;
-          const slots = [];
-          for (let i = 0; i < count; i += 1) slots.push(fishSVG(s.trial.flankerDir, false));
-          slots.push(fishSVG(s.trial.target, true));
-          for (let i = 0; i < count; i += 1) slots.push(fishSVG(s.trial.flankerDir, false));
-          row.style.setProperty("--fish-count", slots.length);
-          row.innerHTML = slots.map((svg, index) => `<span class="flanker-slot${index === count ? " target-slot" : ""}">${svg}</span>`).join("");
-        }
-        board.append(row);
-
-        if (!s.hidden && s.rule.showMs && s.phase === "answer") board.append(renderTimeBar(showMs()));
-        if (s.hidden && s.rule.answerMs && s.phase === "answer") board.append(renderTimeBar(answerMs()));
-
-        const dirs = DIRECTION_SETS[s.rule.directions] || DIRECTION_SETS[2];
-        const pad = el("div", `flanker-pad${dirs.length === 4 ? " cross" : " row"}`);
-        dirs.forEach((direction) => {
-          const button = el("button", `flanker-key key-${direction}`);
-          button.type = "button";
-          button.disabled = s.phase !== "answer";
-          button.setAttribute("aria-label", `Nach ${DIRECTIONS[direction].label}`);
-          button.append(el("span", "flanker-key-arrow", DIRECTIONS[direction].arrow));
-          button.addEventListener("click", () => answer(direction));
-          pad.append(button);
-        });
-        board.append(pad);
-
-        const feedback = el("div", `brain-feedback${s.phase === "feedback" ? " visible" : ""}`);
-        if (s.feedback === "correct") {
-          const badge = el("span", "correct-badge", "✓");
-          badge.setAttribute("role", "img");
-          badge.setAttribute("aria-label", "Richtig");
-          feedback.append(badge);
-        } else if (s.feedback === "wrong") {
-          feedback.append(el("p", null, `Der mittlere Fisch schwamm nach ${DIRECTIONS[s.trial.target].label}.`));
-        } else if (s.feedback === "missed") {
-          feedback.append(el("p", null, "Kein Problem – die nächste Runde kommt."));
-        }
-        board.append(feedback);
-      },
-    };
-  }
 
   // ===========================================================================
   // Spiel 3: Weichen-Wirrwarr
@@ -962,7 +710,6 @@
   function createHandlers(api) {
     return {
 
-      flanker: createFlanker(api),
       trackRouter: createTrackRouter(api),
     };
   }

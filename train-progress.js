@@ -40,7 +40,7 @@
       icon: "target",
       wagon: "tank",
       games: [
-        { id: "flanker", title: "Schwarm-Fokus", page: "schwarmfokus.html" },
+        { id: "flanker", title: "Schwarm-Fokus", page: "schwarmfokus.html", ownProgress: "flanker" },
         { id: "trackRouter", title: "Weichen-Wirrwarr", page: "weichen.html" },
       ],
     },
@@ -120,6 +120,7 @@
   const RUNNER_LEVEL_COUNT = 10;
   const CARDMATCH_KEY = "lernapp.cardmatch";
   const BEACH_KEY = "lernapp.beachtreasure";
+  const FLANKER_KEY = "lernapp.flanker";
   // Beide Bestenlisten-Spiele gelten nach fünf gespielten Runden als geschafft.
   const RUNS_FOR_DONE = 5;
 
@@ -277,6 +278,7 @@
     runner: runnerProgress,
     cardMatch: runsProgress(CARDMATCH_KEY, 40),
     beachTreasure: runsProgress(BEACH_KEY, 12),
+    flanker: runsProgress(FLANKER_KEY, 30),
   };
 
   // Die Spiele mit eigenem Konto legen ihren Stand nicht im Levelkatalog ab,
@@ -288,7 +290,7 @@
   if (cloudGames) {
     const redraw = () => document.dispatchEvent(new CustomEvent("lernapp:progress-changed"));
     cloudGames.register({ key: RUNNER_KEY, empty: { unlocked: 1, best: {} }, merge: cloudGames.mergeLevels }).onChange(redraw);
-    [CARDMATCH_KEY, BEACH_KEY].forEach((key) => {
+    [CARDMATCH_KEY, BEACH_KEY, FLANKER_KEY].forEach((key) => {
       cloudGames.register({ key, empty: { runs: 0, scores: [] }, merge: cloudGames.mergeScores(RUNS_FOR_DONE) }).onChange(redraw);
     });
   }

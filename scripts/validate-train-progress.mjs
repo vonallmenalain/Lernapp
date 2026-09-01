@@ -152,19 +152,32 @@ assert(full.solved === 160, `Zahl und Buchstabe hat ${full.solved} statt 160 Lev
 
 // Der Mittelwert über die Spiele soll die sehr unterschiedlichen Bereichsgrössen
 // ausgleichen: gleich viel Anteil je Spiel führt zu gleichem Wagenfortschritt,
-// obwohl Problemlösen fast siebenmal so viele Levels hat wie Konzentration.
+// obwohl Problemlösen zehnmal so viele Aufgaben hat wie Konzentration.
+//
+// Aufgebaut wird deshalb "die Hälfte der Spiele fertig": in Konzentration eines
+// von zwei, in Problemlösen zwei von vier. Beide Wagen müssen gleich weit sein.
 store.clear();
-for (const areaId of ["konzentration", "problemloesen"]) {
-  for (const game of train.AREA_BY_ID[areaId].games) solve(game.id, Math.round(catalog[game.id].length / 2));
-}
+store.set("lernapp.flanker", JSON.stringify({ runs: 5, scores: [30, 20, 10, 8, 4] }));
+solve("spatialPuzzle", catalog.spatialPuzzle.length);
+solve("arukone", catalog.arukone.length);
 const konzentration = train.areaProgress("konzentration");
 const problemloesen = train.areaProgress("problemloesen");
 assert(
-  Math.abs(konzentration.ratio - problemloesen.ratio) < 0.02,
-  `halb gelöste Bereiche müssen gleich weit sein: ${konzentration.ratio} vs ${problemloesen.ratio}`,
+  Math.abs(konzentration.ratio - problemloesen.ratio) < 1e-9,
+  `gleich viele fertige Spiele müssen gleich weit sein: ${konzentration.ratio} vs ${problemloesen.ratio}`,
 );
-assert(konzentration.total === 24, `Konzentration hat ${konzentration.total} statt 24 Levels`);
-assert(problemloesen.total === 160, `Problemlösen hat ${problemloesen.total} statt 160 Levels`);
+assert(Math.abs(konzentration.ratio - 0.5) < 1e-9, `ein fertiges von zwei Spielen sind 50 %, gefunden ${konzentration.ratio}`);
+assert(problemloesen.total > konzentration.total * 8,
+  `die Probe sagt nichts aus, wenn beide Bereiche gleich gross sind: ${konzentration.total} und ${problemloesen.total}`);
+
+// Und allgemein: der Bereichsanteil ist der Mittelwert über seine Spiele –
+// nicht über die Aufgaben.
+for (const area of train.allAreas()) {
+  const spielbar = area.games.filter((game) => game.total > 0);
+  const mittel = spielbar.reduce((sum, game) => sum + game.ratio, 0) / spielbar.length;
+  assert(Math.abs(area.ratio - mittel) < 1e-9,
+    `${area.id}: Anteil ${area.ratio} ist nicht der Mittelwert ${mittel} über die Spiele`);
+}
 
 // --- Geschwindigkeit --------------------------------------------------------
 // Der Bereich hängt nicht am Level-Katalog, sondern an den eigenen Speichern
@@ -196,6 +209,7 @@ assert(Math.abs(halb.ratio - 0.25) < 1e-9, `halber Tier-Sprung und leerer Karten
 const RUNDEN_SPIELE = [
   { id: "cardMatch", key: "lernapp.cardmatch", name: "Karten-Merker", drei: 40, einer: 8 },
   { id: "beachTreasure", key: "lernapp.beachtreasure", name: "Strand-Schätze", drei: 12, einer: 2 },
+  { id: "flanker", key: "lernapp.flanker", name: "Schwarm-Fokus", drei: 30, einer: 6 },
 ];
 
 for (const spiel of RUNDEN_SPIELE) {
@@ -236,7 +250,7 @@ assert(train.gameProgress("beachTreasure").stars === 3, "12 Schätze sind am Str
 const eigeneKonten = new Set(
   train.AREAS.flatMap((area) => area.games.filter((game) => game.ownProgress).map((game) => game.id)),
 );
-assert(eigeneKonten.size === 3, `erwartet 3 Spiele mit eigenem Konto, gefunden ${eigeneKonten.size}`);
+assert(eigeneKonten.size === 4, `erwartet 4 Spiele mit eigenem Konto, gefunden ${eigeneKonten.size}`);
 store.clear();
 for (const area of train.allAreas()) {
   for (const game of area.games) {
@@ -253,6 +267,6 @@ for (const area of train.allAreas()) {
 const alle = train.trainProgress();
 assert(alle.areas.length === 5, "trainProgress muss fünf Bereiche melden");
 const gesamt = alle.areas.reduce((sum, area) => sum + area.total, 0);
-assert(gesamt === 408, `erwartet 408 Levels über alle Bereiche, gefunden ${gesamt}`);
+assert(gesamt === 401, `erwartet 401 Aufgaben über alle Bereiche, gefunden ${gesamt}`);
 
 console.log(`Zug-Fortschritt geprüft: 5 Bereiche, ${seen.size} Spiele, ${gesamt} Levels.`);

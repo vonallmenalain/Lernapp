@@ -1,6 +1,7 @@
 /*
- * Prüft die beiden Gehirntrainer aus brain-games.js:
- * Sind alle Level vollständig konfiguriert und wachsen sie sinnvoll an?
+ * Prüft Weichen-Wirrwarr aus brain-games.js: Sind alle Level vollständig
+ * konfiguriert, ist jedes Haus von jedem Start aus erreichbar, und wachsen die
+ * Level sinnvoll an?
  *
  * Läuft ohne Browser: die Datei wird in einer kleinen Sandbox ausgeführt.
  */
@@ -34,7 +35,7 @@ vm.runInContext(source, context);
 const api = windowStub.LernappBrainGames;
 assert(api, "brain-games.js hat window.LernappBrainGames nicht gesetzt");
 
-const GAMES = ["flanker", "trackRouter"];
+const GAMES = ["trackRouter"];
 for (const game of GAMES) {
   assert(api.configs[game], `${game} fehlt in configs`);
   assert(api.pages[game]?.endsWith(".html"), `${game} hat keine Seite`);
@@ -68,19 +69,6 @@ for (const game of GAMES) {
   }
 }
 
-
-// --- Schwarm-Fokus ---------------------------------------------------------
-levels.flanker.forEach((level) => {
-  const { trials, flankers, incongruent, directions, showMs, answerMs } = level.rule;
-  assert(trials >= 8 && trials <= 26, `${level.id}: ${trials} Runden sind ausserhalb der sinnvollen Spanne`);
-  assert(flankers >= 1 && flankers <= 4, `${level.id}: ${flankers} Ablenker pro Seite passen nicht auf ein Handy`);
-  assert(incongruent >= 0.15 && incongruent <= 0.8, `${level.id}: Anteil inkongruenter Runden ${incongruent} passt nicht`);
-  assert([2, 4].includes(directions), `${level.id}: ${directions} Richtungen gibt es nicht`);
-  assert(showMs === 0 || showMs >= 600, `${level.id}: ${showMs} ms Anzeigedauer sind zu kurz`);
-  assert(answerMs === 0 || answerMs > showMs, `${level.id}: Antwortfenster muss länger sein als die Anzeige`);
-});
-assert(levels.flanker.filter((l) => l.difficulty === "easy").every((l) => l.rule.showMs === 0),
-  "Die leichten Schwarm-Fokus-Level sollen ohne Zeitdruck laufen");
 
 // --- Weichen-Wirrwarr ------------------------------------------------------
 // Für jedes Layout muss gelten: von jedem Startpunkt aus ist jedes Haus
@@ -135,8 +123,6 @@ function averageBy(game, difficulty, pick) {
   return list.reduce((sum, level) => sum + pick(level.rule), 0) / list.length;
 }
 
-assert(averageBy("flanker", "easy", (r) => r.incongruent) < averageBy("flanker", "extreme", (r) => r.incongruent),
-  "Schwarm-Fokus: der Anteil ablenkender Runden wächst nicht");
 assert(averageBy("trackRouter", "easy", (r) => r.speed) < averageBy("trackRouter", "extreme", (r) => r.speed),
   "Weichen-Wirrwarr: das Tempo steigt nicht");
 
