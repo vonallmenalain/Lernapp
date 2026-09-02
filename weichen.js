@@ -225,7 +225,6 @@
       grid.append(button);
     });
     shell.play.append(grid);
-    shell.play.append(shell.el("p", "cm-runs", levelsText(doneCount())));
   }
 
   function levelsText(done) {

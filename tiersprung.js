@@ -1799,17 +1799,6 @@
       start.addEventListener("click", () => startLevel(naechstes.id));
       shell.play.append(start);
     }
-    shell.play.append(shell.el("p", "cm-runs", levelsText(LEVELS.filter((level) => bestFor(level.id)).length)));
-  }
-
-  // Fünf geschaffte Level bauen den Wagen – welche fünf, ist gleich.
-  const LEVELS_FUER_WAGEN = 5;
-  function levelsText(fertig) {
-    const left = LEVELS_FUER_WAGEN - fertig;
-    if (left <= 0) return "Dieses Spiel ist geschafft – der Wagen ist gebaut.";
-    return left === 1
-      ? "Noch ein Level bis zum fertigen Wagen."
-      : `Noch ${left} Level bis zum fertigen Wagen.`;
   }
 
   // ---------------------------------------------------------------------------
