@@ -159,9 +159,6 @@
     start.type = "button";
     start.addEventListener("click", beginRound);
     shell.play.append(start);
-
-    const runs = Number(store.read().runs) || 0;
-    if (runs) shell.play.append(shell.el("p", "cm-runs", runsText(runs)));
   }
 
   function beginRound() {
