@@ -62,6 +62,23 @@
   const MIN_CHILD_PASSWORD_LENGTH = 4;
   const HEARTBEAT_MS = 30000;
   const ADMIN_EMAILS = new Set(["alain.sc2@gmail.com"]);
+  // Was beim Zurücksetzen auf dem Gerät stehen bleibt. Eine Liste dessen, was
+  // bleibt, statt einer Liste dessen, was geht: ein neues Spiel bringt seinen
+  // eigenen Schlüssel mit, und der soll beim Zurücksetzen von selbst mitgehen,
+  // ohne dass hier jemand nachträgt. Einstellungen, Gastkennung und das
+  // Aussehen des Zugs sind kein Fortschritt und bleiben.
+  const LOCAL_KEY_PREFIX = "lernapp.";
+  const LOCAL_RESET_PREFIX = "lernapp.reset.";
+  const LOCAL_KEEP_KEYS = new Set([
+    "lernapp.tts",             // Vorlesen an/aus
+    "lernapp.audioFeedback",   // Töne an/aus
+    "lernapp.train.loco",      // Aussehen der Lok
+    "lernapp.train.scene",     // gewählte Landschaft
+    "lernapp.train.savedAt",
+    LOCAL_GUEST_ID_KEY,
+    LOCAL_GUEST_CREATED_KEY,
+  ]);
+  const EMPTY_STATS = { totalSeconds: 0, moves: 0, resets: 0, solvedLevels: 0, sessions: 0 };
   const state = {
     app: null,
     auth: null,
@@ -88,6 +105,11 @@
     selectedAdminUserId: null,
     selectedAdminGuestId: null,
     selectedAdminGame: "all",
+    adminResetId: null,
+    adminResetBusyId: null,
+    adminResetErrorId: null,
+    adminResetError: "",
+    progressResetAtMs: 0,
   };
 
   const accountButton = document.createElement("button");
@@ -131,6 +153,9 @@
     isSignedIn: () => Boolean(state.user),
     isLevelSolved,
     isUnlockedModeEnabled: () => Boolean(state.user && state.unlockedMode),
+    // Ohne Angabe das eigene Konto. Mit Angabe ein fremdes – wer das darf,
+    // entscheidet nicht diese Zeile, sondern firestore.rules.
+    resetProgress: (userId) => resetProgressFor(userId || state.user?.uid),
     recordLevelStart,
     recordMove,
     recordReset,
@@ -201,6 +226,7 @@
       state.unlockedMode = false;
       state.trainSettings = null;
       state.gameState = null;
+      state.progressResetAtMs = 0;
       resetAdminState();
       stopActiveSession();
       renderLoggedOut();
@@ -214,6 +240,10 @@
     try {
       await upsertUserProfile(user);
       if (!isAdminUser(user)) resetAdminState();
+      // Vor allem anderen: wurde dieses Konto anderswo zurückgesetzt, muss
+      // dieses Gerät seinen alten Stand loswerden, bevor syncLocalSolvedProgress
+      // ihn wieder hochschiebt.
+      applyRemoteProgressReset(user.uid);
       announceTrainSettings();
       announceGameState();
       await loadProgress();
@@ -366,6 +396,10 @@
     state.selectedAdminUserId = null;
     state.selectedAdminGuestId = null;
     state.selectedAdminGame = "all";
+    state.adminResetId = null;
+    state.adminResetBusyId = null;
+    state.adminResetErrorId = null;
+    state.adminResetError = "";
   }
 
   function randomToken(length = 16) {
@@ -433,6 +467,7 @@
     state.unlockedMode = Boolean(existingData.levelAccess?.unlockAllLevels);
     state.trainSettings = readTrainSettings(existingData.trainSettings);
     state.gameState = readGameState(existingData.gameState);
+    state.progressResetAtMs = Number(existingData.progressReset?.atMs) || 0;
     const providers = user.providerData.map((provider) => provider.providerId);
     const username = profileNameForUser(user, existingData);
     const isNameLogin = isTechnicalEmail(user.email);
@@ -624,6 +659,10 @@
     return window.firebase.firestore.FieldValue.increment(value);
   }
 
+  function deleteField() {
+    return window.firebase.firestore.FieldValue.delete();
+  }
+
   async function signIn(loginName, password) {
     await state.auth.signInWithEmailAndPassword(emailForSignIn(loginName), passwordForSignIn(loginName, password));
   }
@@ -670,6 +709,118 @@
     }
     announceProgress();
     await refreshDashboard();
+  }
+
+  // --- Fortschritt zurücksetzen ---------------------------------------------
+  // Weg müssen vier Dinge: die gelösten Level und die Sitzungen als eigene
+  // Dokumente, die Gesamtzahlen am Konto und die Spielstände der Spiele mit
+  // eigenem Konto. Was bleibt, ist das Profil selbst – Name, Lok, Landschaft,
+  // Levelmodus. Ein Kind, das von vorn anfängt, soll seine Lok behalten.
+  //
+  // Dazu eine Marke am Konto. Zurückgesetzt werden kann von einem anderen Gerät
+  // aus: der Admin an seinem Laptop, das Kind am Tablet. Das Tablet erfährt
+  // davon erst bei der nächsten Anmeldung, und bis dahin steht sein alter Stand
+  // im localStorage. Ohne Marke schöbe es ihn beim Anmelden gleich wieder hoch
+  // (syncLocalSolvedProgress tut genau das) – zurückgesetzt wäre nichts. Die
+  // Marke ist eine Zahl in Millisekunden vom zurücksetzenden Gerät; verglichen
+  // wird sie nur mit sich selbst, Uhren zweier Geräte müssen also nicht
+  // übereinstimmen.
+  async function resetProgressFor(userId) {
+    if (!state.db || !userId) return false;
+    const ref = userRef(userId);
+    if (!ref) return false;
+    const own = userId === state.user?.uid;
+
+    // Eine laufende Sitzung würde ihre Zahlen nach dem Aufräumen nachtragen.
+    if (own) stopActiveSession();
+
+    await deleteAllDocs(ref.collection("levelProgress"));
+    await deleteAllDocs(ref.collection("sessions"));
+
+    const resetAtMs = Date.now();
+    await ref.set({
+      stats: { ...EMPTY_STATS },
+      gameState: deleteField(),
+      progressReset: {
+        atMs: resetAtMs,
+        at: serverTimestamp(),
+        by: own ? "self" : "admin",
+        byUid: state.user?.uid || null,
+      },
+      updatedAt: serverTimestamp(),
+    }, { merge: true });
+
+    // Das eigene Konto auf diesem Gerät: alles hier auch wegräumen. Ein fremdes
+    // Konto nicht – der Fortschritt am Admin-Gerät gehört dem Admin.
+    if (own) {
+      state.progress.clear();
+      state.gameState = {};
+      state.progressResetAtMs = resetAtMs;
+      clearLocalProgress();
+      markLocalReset(userId, resetAtMs);
+      window.LernappGameCloud?.resetAll?.();
+      announceGameState();
+      announceProgress();
+    }
+
+    return true;
+  }
+
+  // Ein Konto, das anderswo zurückgesetzt wurde: dieses Gerät zieht nach. Nur
+  // einmal je Marke – sonst verlöre das Kind bei jeder Anmeldung, was es seit
+  // dem Zurücksetzen gespielt hat.
+  function applyRemoteProgressReset(userId) {
+    const resetAtMs = state.progressResetAtMs;
+    if (!resetAtMs || !userId) return false;
+    if (readLocalReset(userId) >= resetAtMs) return false;
+
+    clearLocalProgress();
+    markLocalReset(userId, resetAtMs);
+    window.LernappGameCloud?.resetAll?.();
+    return true;
+  }
+
+  // Firestore löscht keine Sammlung, nur Dokumente. Und ein Stapel fasst 500:
+  // vierzig Level mal fünf Spiele plus Sitzungen kommen da durchaus hin.
+  async function deleteAllDocs(collectionRef) {
+    const snapshot = await collectionRef.get();
+    const docs = snapshot.docs;
+    for (let index = 0; index < docs.length; index += 400) {
+      const batch = state.db.batch();
+      docs.slice(index, index + 400).forEach((doc) => batch.delete(doc.ref));
+      await batch.commit();
+    }
+    return docs.length;
+  }
+
+  function localResetKey(userId) {
+    return `${LOCAL_RESET_PREFIX}${userId}`;
+  }
+
+  // Je Konto gemerkt: auf einem geteilten Gerät darf das Zurücksetzen des einen
+  // Kindes nicht als erledigt gelten, wenn sich das andere anmeldet.
+  function readLocalReset(userId) {
+    try {
+      const value = Number(localStorage.getItem(localResetKey(userId)));
+      return Number.isFinite(value) ? value : 0;
+    } catch { return 0; }
+  }
+
+  function markLocalReset(userId, atMs) {
+    try { localStorage.setItem(localResetKey(userId), String(atMs)); } catch { /* privater Modus */ }
+  }
+
+  // Alles unter "lernapp." ist Fortschritt, ausser dem, was in LOCAL_KEEP_KEYS
+  // steht: gelöste Level, Sterne, Bestenlisten, Übungsstände und die gesehenen
+  // Wagenstufen. Letztere müssen mit: sie merken sich den höchsten je gesehenen
+  // Stand, und ohne sie bliebe die Feier beim Wiederaufbau des ersten Wagens aus.
+  function clearLocalProgress() {
+    try {
+      Object.keys(localStorage)
+        .filter((key) => key.startsWith(LOCAL_KEY_PREFIX))
+        .filter((key) => !key.startsWith(LOCAL_RESET_PREFIX) && !LOCAL_KEEP_KEYS.has(key))
+        .forEach((key) => localStorage.removeItem(key));
+    } catch { /* privater Modus */ }
   }
 
   function recordLevelStart(rawLevel) {
@@ -1053,6 +1204,7 @@
           ${state.unlockedMode ? "Gesperrten Modus einschalten" : "Alle Levels freischalten"}
         </button>
       </div>
+      ${renderResetProgressCard()}
       <div class="stat-strip" aria-label="Gesamtstatistik">
         <div><strong>${stats.totalSolved}</strong><span>gelöst</span></div>
         <div><strong>${formatDuration(stats.totalSeconds)}</strong><span>Spielzeit</span></div>
@@ -1087,6 +1239,80 @@
         await setUnlockAllLevels(!state.unlockedMode);
       } catch (error) {
         status.textContent = authErrorMessage(error);
+      }
+    });
+
+    bindResetProgressCard();
+  }
+
+  // Zurücksetzen ist nicht rückgängig zu machen, also fragt die Karte nach:
+  // erst der Klick, dann die Frage, dann die Tat. Eine eigene Rückfrage statt
+  // confirm(): das Fenster steht in einer PWA nicht überall zur Verfügung, und
+  // der Satz darf erklären, was genau verschwindet.
+  function renderResetProgressCard(confirming = false) {
+    if (confirming) {
+      return `
+        <div class="unlock-mode-card reset-card is-confirming" data-reset-card>
+          <div>
+            <strong>Wirklich allen Fortschritt zurücksetzen?</strong>
+            <span>Gelöste Level, Sitzungen, Sterne und Bestenlisten werden gelöscht. Der Zug fängt wieder von vorn an: alle Wagen starten bei 0. Lok und Landschaft bleiben. Das lässt sich nicht rückgängig machen.</span>
+          </div>
+          <div class="card-actions">
+            <button type="button" class="secondary-action" data-reset-cancel>Abbrechen</button>
+            <button type="button" class="danger-action" data-reset-confirm>Ja, alles zurücksetzen</button>
+          </div>
+        </div>
+      `;
+    }
+
+    return `
+      <div class="unlock-mode-card reset-card" data-reset-card>
+        <div>
+          <strong>Fortschritt</strong>
+          <span>Zug und Wagen wieder auf 0 stellen</span>
+        </div>
+        <button type="button" class="danger-action" data-reset-progress>Fortschritt zurücksetzen</button>
+      </div>
+    `;
+  }
+
+  function bindResetProgressCard() {
+    const card = modalContent.querySelector("[data-reset-card]");
+    if (!card) return;
+
+    const swap = (confirming) => {
+      card.outerHTML = renderResetProgressCard(confirming);
+      bindResetProgressCard();
+    };
+
+    const setStatus = (text) => {
+      const status = modalContent.querySelector(".auth-status");
+      if (status) status.textContent = text;
+    };
+
+    card.querySelector("[data-reset-progress]")?.addEventListener("click", () => {
+      setStatus("");
+      swap(true);
+    });
+
+    card.querySelector("[data-reset-cancel]")?.addEventListener("click", () => {
+      setStatus("");
+      swap(false);
+    });
+
+    card.querySelector("[data-reset-confirm]")?.addEventListener("click", async (event) => {
+      const button = event.currentTarget;
+      button.disabled = true;
+      setStatus("Fortschritt wird zurückgesetzt...");
+      try {
+        await resetProgressFor(state.user?.uid);
+        // resetProgressFor hat das Dashboard nicht neu gebaut; das passiert
+        // hier, damit die Zahlen und die Karte wieder zusammenpassen.
+        await refreshDashboard();
+        setStatus("Fortschritt zurückgesetzt. Der Zug beginnt wieder bei 0.");
+      } catch (error) {
+        button.disabled = false;
+        setStatus(authErrorMessage(error));
       }
     });
   }
@@ -1323,6 +1549,8 @@
         renderAdminUsers(root);
       });
     });
+
+    bindAdminResetButtons(root);
   }
 
   function renderAdminGuests(root, { loadingGuestId = null } = {}) {
@@ -1417,6 +1645,7 @@
         <div><strong>${summary.moves}</strong><span>Züge</span></div>
         <div><strong>${sessions.filter((session) => !session.solved && session.endedAt).length}</strong><span>Abbrüche</span></div>
       </div>
+      ${isGuest ? "" : renderAdminResetBlock(detail.id, adminDisplayName(userData))}
       ${renderAdminTopLevels(summary)}
       ${renderAdminGameFilters(progressDocs, sessions, selectedGame)}
       <div class="admin-columns">
@@ -1434,6 +1663,99 @@
         </section>
       </div>
     `;
+  }
+
+  // Dasselbe Zurücksetzen wie im eigenen Profil, nur für ein fremdes Konto.
+  // Die Rückfrage wiegt hier schwerer: in einer Liste fremder Konten ist ein
+  // Klick zu viel schneller passiert, deshalb steht der Name in der Frage.
+  //
+  // Gäste bekommen den Knopf nicht. Ihr Stand steht auf ihrem Gerät, das
+  // Gastdokument ist eine Kopie davon; ein Aufräumen in Firestore träfe die
+  // Kopie, und der Zug des Kindes stünde unverändert da. Ein Knopf, der nichts
+  // Sichtbares tut, ist schlimmer als keiner.
+  function renderAdminResetBlock(userId, name = "") {
+    if (!userId) return "";
+
+    if (state.adminResetBusyId === userId) {
+      return `<div class="admin-reset"><p class="account-muted">Fortschritt wird zurückgesetzt...</p></div>`;
+    }
+
+    if (state.adminResetId === userId) {
+      return `
+        <div class="admin-reset is-confirming">
+          <div>
+            <strong>Wirklich allen Fortschritt von ${escapeHtml(name || "diesem Konto")} zurücksetzen?</strong>
+            <span>Gelöste Level, Sitzungen und Spielstände werden gelöscht. Der Zug fängt wieder von vorn an: alle Wagen starten bei 0, auch auf den Geräten des Kindes. Das lässt sich nicht rückgängig machen.</span>
+          </div>
+          <div class="card-actions">
+            <button type="button" class="secondary-action" data-admin-reset-cancel>Abbrechen</button>
+            <button type="button" class="danger-action" data-admin-reset-confirm="${escapeHtml(userId)}">Ja, alles zurücksetzen</button>
+          </div>
+        </div>
+      `;
+    }
+
+    const failed = state.adminResetErrorId === userId ? state.adminResetError : "";
+    return `
+      <div class="admin-reset">
+        <div>
+          <strong>Fortschritt</strong>
+          <span>${userId === state.user?.uid ? "Das ist dein eigenes Konto." : "Zug und Wagen dieses Kontos wieder auf 0 stellen"}</span>
+        </div>
+        <button type="button" class="danger-action" data-admin-reset-start="${escapeHtml(userId)}">Fortschritt zurücksetzen</button>
+      </div>
+      ${failed ? `<p class="auth-status">${escapeHtml(failed)}</p>` : ""}
+    `;
+  }
+
+  function bindAdminResetButtons(root) {
+    root.querySelector("[data-admin-reset-start]")?.addEventListener("click", (event) => {
+      state.adminResetId = event.currentTarget.dataset.adminResetStart;
+      state.adminResetErrorId = null;
+      state.adminResetError = "";
+      renderAdminUsers(root);
+    });
+
+    root.querySelector("[data-admin-reset-cancel]")?.addEventListener("click", () => {
+      state.adminResetId = null;
+      renderAdminUsers(root);
+    });
+
+    root.querySelector("[data-admin-reset-confirm]")?.addEventListener("click", (event) => {
+      runAdminReset(event.currentTarget.dataset.adminResetConfirm, root);
+    });
+  }
+
+  async function runAdminReset(userId, root) {
+    if (!userId) return;
+    state.adminResetId = null;
+    state.adminResetBusyId = userId;
+    state.adminResetErrorId = null;
+    state.adminResetError = "";
+    renderAdminUsers(root);
+
+    try {
+      await resetProgressFor(userId);
+    } catch (error) {
+      state.adminResetErrorId = userId;
+      state.adminResetError = authErrorMessage(error);
+    }
+
+    state.adminResetBusyId = null;
+    // Die Liste trägt die Gesamtzahlen mit sich, die Detailansicht die Level:
+    // beides stimmt jetzt nicht mehr. Neu laden statt nachrechnen – nachrechnen
+    // hiesse, dieselbe Zusammenfassung ein zweites Mal zu bauen.
+    state.adminUsers = [];
+    state.adminDetails.delete(userId);
+
+    if (userId === state.user?.uid) {
+      // Das eigene Konto: das ganze Profilfenster ist betroffen. refreshDashboard
+      // baut es neu und ruft den Admin-Bereich von selbst wieder auf.
+      await refreshDashboard();
+      return;
+    }
+
+    await hydrateAdminSection();
   }
 
   function adminDisplayName(userData = {}) {
