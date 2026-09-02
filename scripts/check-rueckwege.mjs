@@ -38,7 +38,7 @@ const RAETSEL_SEITEN = [
 // Die Spiele bauen ihre Bühne mit game-shell.js und tragen die Leiste mit Haus
 // und Pfeil von Anfang an.
 const SPIEL_SEITEN = [
-  "backpack", "blaetter", "fischteich", "kacheln", "kartenmerker",
+  "backpack", "blaetter", "fischteich", "freiefahrt", "kacheln", "kartenmerker",
   "memory", "schwarmfokus", "strandschatz", "tiersprung", "weichen",
 ];
 
