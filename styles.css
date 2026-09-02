@@ -556,7 +556,9 @@ body.puzzle-active .game-card {
   justify-items: center;
   align-items: start;
   padding: clamp(8px, 1.8vh, 18px);
-  overflow: auto;
+  /* Kein Rollbalken, nirgends: das Brett wird in die Karte eingepasst, und
+     was trotzdem nicht passt, wird abgeschnitten statt gerollt. */
+  overflow: hidden;
   overscroll-behavior: contain;
   border-radius: 22px;
 }
@@ -621,14 +623,14 @@ body.puzzle-active .number-pad {
   align-self: start;
   max-width: 100%;
   max-height: 100%;
-  overflow: auto;
+  overflow: hidden;
 }
 body.puzzle-active .task-board {
   width: min(calc(100vw - 36px), 780px);
   max-width: 100%;
   min-height: 0;
   max-height: 100%;
-  overflow: auto;
+  overflow: hidden;
   overscroll-behavior: contain;
   margin-top: 0;
   /* Mittig statt oben angeheftet – sonst klafft auf hohen Handys eine
@@ -843,10 +845,10 @@ body.puzzle-active .board {
 
 .level-tile:hover:not(:disabled),
 .level-tile:focus-visible {
-  background: #f4f1ff;
+  background: #f7f7fb;
   color: var(--ink);
   transform: translateY(-2px);
-  outline: 4px solid rgba(108, 92, 231, 0.2);
+  outline: 4px solid color-mix(in srgb, var(--primary) 25%, transparent);
   outline-offset: 2px;
 }
 
@@ -1500,6 +1502,21 @@ body.puzzle-active .hidoku-board {
 .shikaku-region-10 { background: #edf2d4; }
 .shikaku-region-11 { background: #f4e7d3; }
 .shikaku-region-12 { background: #e3ecff; }
+
+/* Während des Ziehens: das Rechteck, das gerade entsteht, ist orange, und
+   sobald es genau so gross ist wie die Zahl verlangt, grün. So sieht ein Kind
+   beim Ziehen, ob es loslassen kann. */
+.shikaku-cell.shikaku-drag-preview {
+  background: #ffe9bf;
+  border-color: #ff9f1c;
+  box-shadow: inset 0 0 0 3px rgba(255, 159, 28, 0.55);
+}
+
+.shikaku-cell.shikaku-drag-preview.valid {
+  background: #c9f4e0;
+  border-color: #06d6a0;
+  box-shadow: inset 0 0 0 3px rgba(6, 214, 160, 0.65);
+}
 
 body.puzzle-active .shikaku-board {
   width: var(--active-board-size, min(calc(100vw - 32px), calc(100vh - 172px)));
@@ -4982,6 +4999,9 @@ body.has-scene .controls {
   backdrop-filter: none;
 }
 
+/* Gefüllt in der Farbe des Bereichs, weisses Zeichen darauf – genau wie die
+   Knöpfe der anderen Spiele. Weiss mit lila Zeichen war das Lila der alten
+   App; im grünen Bereich sind die Knöpfe grün, im roten rot. */
 body.has-scene .controls .icon-button {
   width: 48px;
   min-width: 48px;
@@ -4989,16 +5009,34 @@ body.has-scene .controls .icon-button {
   min-height: 48px;
   border-radius: 50%;
   border: 3px solid #fff;
-  background: rgba(255, 255, 255, 0.94);
-  color: var(--primary-dark);
+  background: var(--area-accent, var(--primary));
+  color: #fff;
   font-size: 1.4rem;
-  box-shadow: 0 6px 16px rgba(31, 42, 51, 0.22);
+  box-shadow: 0 6px 16px rgba(36, 48, 71, 0.22);
+}
+
+body.has-scene .controls .icon-button:hover:not(:disabled),
+body.has-scene .controls .icon-button:focus-visible {
+  background: var(--area-accent-dark, var(--primary-dark));
+  color: #fff;
+  transform: none;
 }
 
 body.has-scene .controls .icon-button:active { transform: scale(0.94); }
 
 /* Der Platz, den die Leiste oben braucht – sonst läge das Spielfeld darunter. */
 body.has-scene.puzzle-active .app-shell { padding-top: calc(var(--safe-top) + 74px); }
+
+/* Die Karte bekommt die ganze Höhe der Spielfläche. Die Knöpfe stehen fest in
+   der Leiste und brauchen keine Rasterzeile mehr – vorher blieb die "auto"-
+   Zeile für sie stehen, die Karte rutschte hinein, und ihre Höhe hing damit
+   an ihrem Inhalt. Der Inhalt aber, das Brett, wird aus der Höhe der Karte
+   gerechnet: die Karte schrumpfte aufs Brett, das Brett auf die Karte, und
+   mit jeder Eingabe wurden beide ein paar Bildpunkte kleiner. */
+body.has-scene.puzzle-active .game-panel {
+  grid-template-rows: minmax(0, 1fr);
+  gap: 0;
+}
 
 /* ===========================================================================
    Tier-Sprung auf der Spielhülle
@@ -5043,9 +5081,10 @@ body.has-scene.puzzle-active .app-shell { padding-top: calc(var(--safe-top) + 74
 /* ===========================================================================
    Memory
    ---------------------------------------------------------------------------
-   Verdeckt ist eine Karte ein schlichtes Rechteck in der Bereichsfarbe;
-   aufgedeckt bleibt nur das Bild übrig, ohne Rahmen darum. Ein Kartenrand um
-   ein offenes Bild wäre eine zweite Form neben der, die zu merken ist.
+   Die Karten liegen auf einer weissen Tafel, wie die Rätsel. Verdeckt ist eine
+   Karte ein schlichtes Rechteck in der Bereichsfarbe; aufgedeckt bleibt nur
+   das Bild übrig, ohne Rahmen darum. Ein Kartenrand um ein offenes Bild wäre
+   eine zweite Form neben der, die zu merken ist.
    =========================================================================== */
 
 .me-stage { --cm-accent: #7C5CE6; --cm-accent-dark: #5a41b8; }
@@ -5096,21 +5135,33 @@ body.has-scene.puzzle-active .app-shell { padding-top: calc(var(--safe-top) + 74
   font-weight: 900;
 }
 
+/* --- Die Tafel --- */
+
+/* Weiss und rund, wie die Karte der Rätsel. Auf der Landschaft mit ihren
+   Bäumen und Hügeln wären zwanzig kleine Karten nur noch Gewimmel. */
+.me-tafel {
+  --me-rand: clamp(8px, 1.6vh, 16px);
+  flex: 0 0 auto;
+  padding: var(--me-rand);
+  border-radius: clamp(16px, 3vh, 26px);
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 14px 34px rgba(31, 42, 51, 0.24);
+}
+
 /* --- Das Spielfeld --- */
 
 /* Die Breite ist von beiden Seiten begrenzt: vom Bildschirm und von der Höhe,
    die zwischen Leiste und unterem Rand übrig bleibt. Nur nach der Breite zu
    gehen hiesse: bei vierundzwanzig Karten fällt die unterste Reihe aus dem
    Bild. --me-platz ist die Höhe, die die Bühne dem Feld lässt: der Bildschirm
-   ohne Leiste, Zeile und Rand. */
+   ohne Leiste, Zeile, Rand und den Rand der Tafel. */
 .me-feld {
-  --me-platz: calc(100vh - var(--safe-top, 0px) - var(--safe-bottom, 0px) - 190px);
+  --me-platz: calc(100vh - var(--safe-top, 0px) - var(--safe-bottom, 0px) - 190px - 2 * var(--me-rand, 12px));
   display: grid;
   gap: clamp(5px, 1.2vw, 14px);
   grid-template-columns: repeat(var(--me-spalten, 4), minmax(0, 1fr));
   grid-auto-rows: 1fr;
-  flex: 0 0 auto;
-  width: min(94vw, 940px, var(--me-platz) * var(--me-spalten, 4) / var(--me-zeilen, 2));
+  width: min(94vw - 2 * var(--me-rand, 12px), 940px, var(--me-platz) * var(--me-spalten, 4) / var(--me-zeilen, 2));
   aspect-ratio: var(--me-spalten, 4) / var(--me-zeilen, 2);
 }
 
@@ -5170,12 +5221,14 @@ body.has-scene.puzzle-active .app-shell { padding-top: calc(var(--safe-top) + 74
 }
 
 /* Gefunden: das Paar hüpft einmal und ist weg – der Platz bleibt frei, damit
-   die Karten daneben nicht wandern. */
+   die Karten daneben nicht wandern. Die Karte wird danach nie mehr angefasst;
+   das Hüpfen läuft deshalb genau einmal. */
 .me-karte.is-weg {
   background: none;
   box-shadow: none;
   cursor: default;
   visibility: hidden;
+  pointer-events: none;
   animation: me-weg 0.4s ease both;
 }
 
@@ -5200,14 +5253,24 @@ body.has-scene.puzzle-active .app-shell { padding-top: calc(var(--safe-top) + 74
 /* ===========================================================================
    Rucksack packen
    ---------------------------------------------------------------------------
-   Kein Rahmen, kein Kasten, keine Karte: nur die Gegenstände auf der
-   Landschaft. Was zu merken ist, ist die Sache selbst – ein Rahmen darum wäre
-   eine zweite Form, die mitgemerkt werden müsste.
+   Zwei Schritte, die verschieden aussehen: beim Aussuchen stehen die
+   Gegenstände auf goldenen Ringen, mit einem "Neu"-Schild über ihnen; beim
+   Packen auf lila Ringen, mit einer Reihe nummerierter Plätze darüber. Der
+   Ring gehört zum Schritt, nicht zur Sache – alle Gegenstände eines Schritts
+   tragen denselben, und so wird er nicht mitgemerkt.
 
-   Die Farbe ist die des Bereichs Gedächtnis.
+   Unten rechts steht der Rucksack; jeder Gegenstand fliegt sichtbar hinein.
+   Die Farbe ist die des Bereichs Gedächtnis, der Rucksack selbst ist orange
+   wie sein Haus auf dem Startbild.
    =========================================================================== */
 
-.rs-stage { --cm-accent: #7C5CE6; --cm-accent-dark: #5a41b8; }
+.rs-stage {
+  --cm-accent: #7C5CE6;
+  --cm-accent-dark: #5a41b8;
+  --rs-gold: #f2b134;
+  --rs-gold-dark: #b97a12;
+  --rs-rucksack: clamp(76px, 15vh, 118px);
+}
 
 /* --- Die Wahl der Schwierigkeit --- */
 
@@ -5215,10 +5278,9 @@ body.has-scene.puzzle-active .app-shell { padding-top: calc(var(--safe-top) + 74
 
 .rs-stufe {
   display: grid;
-  justify-items: center;
-  gap: 2px;
+  place-items: center;
   min-width: clamp(64px, 14vw, 104px);
-  padding: clamp(10px, 2vh, 16px) clamp(8px, 1.6vw, 16px);
+  padding: clamp(12px, 2.4vh, 20px) clamp(8px, 1.6vw, 16px);
   border: 3px solid #fff;
   border-radius: 22px;
   background: rgba(255, 255, 255, 0.9);
@@ -5239,25 +5301,90 @@ body.has-scene.puzzle-active .app-shell { padding-top: calc(var(--safe-top) + 74
   color: var(--cm-accent-dark);
 }
 
-.rs-stufe-wert { font-size: 0.85rem; font-weight: 800; color: #6b7785; }
+/* --- Die Zeile über den Gegenständen --- */
+
+/* Ein Schild vor dem Satz: gold mit "Neu" beim Aussuchen, lila mit der Nummer
+   beim Packen. Wer nicht liest, sieht an der Farbe, welcher Schritt läuft. */
+.rs-prompt {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  flex: 0 0 auto;
+}
+
+.rs-chip {
+  display: inline-grid;
+  place-items: center;
+  min-width: 40px;
+  height: 40px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 3px solid #fff;
+  font-size: 1.05rem;
+  font-weight: 950;
+  line-height: 1;
+  color: #fff;
+  text-shadow: none;
+  box-shadow: 0 4px 12px rgba(31, 42, 51, 0.2);
+  white-space: nowrap;
+}
+
+.rs-chip.is-neu { background: var(--rs-gold); color: #4a2f00; }
+.rs-chip.is-packen { background: var(--cm-accent); }
+
+/* --- Die Plätze beim Packen --- */
+
+/* Eine Reihe Kreise mit Nummern: die gepackten grün mit Haken, der Platz, der
+   dran ist, lila und pulsend, der Rest blass. Bilder stehen keine darin –
+   die sind ja gerade das, was zu merken ist. */
+.rs-plaetze {
+  display: flex;
+  gap: clamp(6px, 1.2vw, 10px);
+  flex: 0 0 auto;
+}
+
+.rs-platz {
+  width: clamp(30px, 5.2vh, 42px);
+  height: clamp(30px, 5.2vh, 42px);
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 3px solid #fff;
+  background: rgba(255, 255, 255, 0.86);
+  color: #7b8190;
+  font-size: clamp(0.85rem, 2.4vh, 1.1rem);
+  font-weight: 950;
+  line-height: 1;
+  box-shadow: 0 3px 10px rgba(31, 42, 51, 0.16);
+}
+
+.rs-platz.is-drin { background: #3fbf74; color: #fff; }
+.rs-platz.is-dran { background: var(--cm-accent); color: #fff; animation: rs-dran 1s ease-in-out infinite; }
+
+@keyframes rs-dran {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.16); }
+}
 
 /* --- Die Gegenstände --- */
 
+/* Links und rechts bleibt Platz für den Rucksack: die Reihe darf nicht unter
+   ihm liegen. */
 .rs-feld {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: center;
-  gap: clamp(8px, 2.6vw, 30px);
-  width: min(94vw, 860px);
+  gap: clamp(10px, 2.6vw, 30px);
+  width: min(100vw - 2 * (var(--rs-rucksack) + 36px), 860px);
 }
 
 .rs-item {
   display: grid;
   place-items: center;
-  padding: 0;
+  padding: clamp(6px, 1.4vh, 12px);
   border: none;
-  background: none;
+  background: transparent;
   cursor: pointer;
   border-radius: 50%;
   transition: transform 0.12s ease;
@@ -5275,19 +5402,35 @@ body.has-scene.puzzle-active .app-shell { padding-top: calc(var(--safe-top) + 74
 .rs-item:active { transform: scale(0.9); }
 .rs-item:focus-visible { outline: 3px solid #243047; outline-offset: 6px; }
 
+/* Der Ring hinter dem Bild: gold beim Aussuchen, lila beim Packen. */
+.rs-stage[data-rs-phase="waehlen"] .rs-item,
+.rs-stage[data-rs-phase="merken"] .rs-item {
+  background: rgba(255, 244, 214, 0.92);
+  box-shadow: 0 0 0 4px var(--rs-gold), 0 8px 18px rgba(31, 42, 51, 0.18);
+}
+
+.rs-stage[data-rs-phase="packen"] .rs-item {
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 0 0 4px var(--cm-accent), 0 8px 18px rgba(31, 42, 51, 0.18);
+}
+
 @keyframes rs-in {
   from { opacity: 0; transform: scale(0.7); }
   to { opacity: 1; transform: scale(1); }
 }
 
-/* Richtig: der Gegenstand hüpft und verschwindet in den Rucksack.
-   Falsch: ein kurzes Kopfschütteln, dann ist die Runde vorbei. */
-.rs-item.is-right { animation: rs-pack 0.32s ease both; }
+/* Richtig: der Gegenstand hüpft und ist weg – sein Bild fliegt derweil in den
+   Rucksack. Falsch: ein kurzes Kopfschütteln, dann ist die Runde vorbei.
+   Ausgesucht: dasselbe Hüpfen, das Bild kommt gleich allein gross wieder. */
+.rs-item.is-right,
+.rs-item.is-gewaehlt { animation: rs-pack 0.32s ease both; }
 @keyframes rs-pack {
-  0% { transform: scale(1); }
-  40% { transform: scale(1.2); }
-  100% { transform: scale(0.85); opacity: 0.35; }
+  0% { transform: scale(1); opacity: 1; }
+  40% { transform: scale(1.2); opacity: 1; }
+  100% { transform: scale(0.6); opacity: 0; }
 }
+
+.rs-item.is-weg { visibility: hidden; }
 
 .rs-item.is-wrong { animation: rs-nope 0.4s ease both; }
 @keyframes rs-nope {
@@ -5296,9 +5439,90 @@ body.has-scene.puzzle-active .app-shell { padding-top: calc(var(--safe-top) + 74
   60% { transform: translateX(10px) rotate(7deg); }
 }
 
+/* --- Der Flug in den Rucksack --- */
+
+/* Eine Kopie des Bildes, die von ihrem Platz aus in einem Bogen zum Rucksack
+   fliegt und dort kleiner wird. --dx und --dy setzt rucksack.js aus den
+   gemessenen Stellen. */
+.rs-flug {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 9;
+  line-height: 1;
+  pointer-events: none;
+  filter: drop-shadow(0 4px 8px rgba(31, 42, 51, 0.24));
+  animation: rs-flug var(--flug, 520ms) cubic-bezier(0.35, 0, 0.25, 1) both;
+}
+
+@keyframes rs-flug {
+  0% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+  30% { transform: translate(calc(-50% + var(--dx) * 0.25), calc(-50% + var(--dy) * 0.15 - 40px)) scale(1.08); opacity: 1; }
+  100% { transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(0.22); opacity: 0.1; }
+}
+
+/* --- Der Rucksack --- */
+
+.rs-rucksack {
+  position: absolute;
+  right: calc(var(--safe-right) + 18px);
+  bottom: 6px;
+  z-index: 4;
+  width: var(--rs-rucksack);
+  filter: drop-shadow(0 8px 14px rgba(31, 42, 51, 0.3));
+  transform-origin: 50% 90%;
+}
+
+.rs-rucksack-art { display: block; width: 100%; height: auto; }
+.rs-rucksack-bild { display: block; font-size: clamp(3rem, 12vh, 5rem); line-height: 1; text-align: center; }
+
+/* Die Zahl auf dem Rucksack: wie viele Sachen gerade drin sind. */
+.rs-rucksack-zahl {
+  position: absolute;
+  top: -6px;
+  right: -10px;
+  min-width: 36px;
+  height: 36px;
+  padding: 0 8px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  border: 3px solid var(--cm-accent);
+  background: #fff;
+  color: var(--cm-accent-dark);
+  font-size: 1.1rem;
+  font-weight: 950;
+  line-height: 1;
+  box-shadow: 0 4px 10px rgba(31, 42, 51, 0.2);
+}
+
+/* Etwas fällt hinein: der Rucksack hüpft. Ausgeleert: er kippt einmal. */
+.rs-rucksack.is-bump { animation: rs-bump 0.42s ease both; }
+@keyframes rs-bump {
+  0% { transform: scale(1); }
+  35% { transform: scale(1.14) translateY(-8px); }
+  70% { transform: scale(0.96); }
+  100% { transform: scale(1); }
+}
+
+.rs-rucksack.is-leer { animation: rs-leer 0.55s ease both; }
+@keyframes rs-leer {
+  0% { transform: rotate(0); }
+  30% { transform: rotate(-16deg) translateY(-8px); }
+  60% { transform: rotate(10deg); }
+  100% { transform: rotate(0); }
+}
+
+@media (max-height: 540px) {
+  .rs-stage { --rs-rucksack: 72px; }
+  .rs-chip { min-width: 34px; height: 34px; font-size: 0.95rem; }
+  .rs-rucksack-zahl { min-width: 30px; height: 30px; font-size: 0.95rem; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .rs-stufe, .rs-item { transition: none; }
-  .rs-item, .rs-item.is-right, .rs-item.is-wrong { animation: none; }
+  .rs-item, .rs-item.is-right, .rs-item.is-gewaehlt, .rs-item.is-wrong, .rs-flug,
+  .rs-rucksack.is-bump, .rs-rucksack.is-leer, .rs-platz.is-dran { animation: none; }
 }
 
 /* ===========================================================================
@@ -5697,7 +5921,11 @@ body.has-scene.puzzle-active .app-shell { padding-top: calc(var(--safe-top) + 74
    dabei nicht – man soll ja noch sehen, welcher die Runde beendet hat. */
 .ft-fisch:disabled { cursor: default; opacity: 1; }
 
-/* Das Häkchen steht kurz über dem Fisch und geht dann wieder weg. */
+/* Nach dem Tippen füllt sich erst ein kleines Rad über dem Fisch – anderthalb
+   Sekunden lang, in denen kein anderer Fisch zählt –, dann wird daraus das
+   Häkchen, das kurz stehen bleibt und wieder weggeht. Beides sitzt im Fisch
+   und schwimmt mit ihm mit. */
+.ft-ring,
 .ft-haken {
   position: absolute;
   top: -6%;
@@ -5706,6 +5934,14 @@ body.has-scene.puzzle-active .app-shell { padding-top: calc(var(--safe-top) + 74
   height: auto;
   opacity: 0;
   pointer-events: none;
+}
+
+.ft-fisch.is-laden .ft-ring { opacity: 1; }
+.ft-fisch.is-laden .ft-ring-fill { animation: ft-ring var(--ft-sperre, 1500ms) linear forwards; }
+
+@keyframes ft-ring {
+  from { stroke-dashoffset: 50.27; }
+  to { stroke-dashoffset: 0; }
 }
 
 .ft-fisch.is-gefangen .ft-haken { animation: ft-haken 0.7s ease both; }
@@ -5757,8 +5993,8 @@ body.has-scene.puzzle-active .app-shell { padding-top: calc(var(--safe-top) + 74
    Blätter im Strom
    ---------------------------------------------------------------------------
    Dieselbe Bühne wie der Karten-Merker – die Farbe ist die des Bereichs
-   Geschwindigkeit. Darauf eine Wasserfläche, über die Welle um Welle treibt,
-   und darunter vier Pfeile für Kinder, denen ein Wisch nicht gelingt.
+   Geschwindigkeit. Darauf eine Wasserfläche, über die Welle um Welle treibt.
+   Gespielt wird nur mit dem Finger: ein Wisch auf dem Wasser ist die Antwort.
 
    Wo ein Blatt liegt und wie es gedreht ist, rechnet blaetter.js Bild für Bild
    aus und schreibt es ins Stil-Attribut. Deshalb steht hier kein Übergang auf
@@ -5815,52 +6051,48 @@ body.has-scene.puzzle-active .app-shell { padding-top: calc(var(--safe-top) + 74
   100% { filter: none; }
 }
 
-/* --- Die vier Pfeile --- */
+/* --- Wischen --- */
 
-/* Ein Kreuz statt einer Reihe: oben ist oben, links ist links. In einer Reihe
-   müsste ein Kind erst lesen, welcher Pfeil wohin gehört. */
-.bs-pad {
-  flex: 0 0 auto;
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  grid-template-rows: repeat(2, 1fr);
-  gap: 8px;
-  width: clamp(148px, 34vw, 186px);
+/* Während der Runde gehört jede Berührung dem Spiel: ohne diese Regel nähme
+   der Browser einen Wisch als Rollen oder Zoomen an sich, brächte das
+   Zeigerereignis ab, und der Wisch käme nie an. */
+.bs-stage[data-phase="play"],
+.bs-stage[data-phase="play"] .cm-play,
+.bs-stage[data-phase="play"] .bs-wasser {
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
-.bs-key {
+/* Die Antwort auf einen Wisch: ein grüner Haken oder ein graues Kreuz, das
+   kurz in der Mitte des Wassers aufblitzt, während schon die nächste Welle
+   kommt. Es hält nichts auf – der Ton sagt dasselbe. */
+.bs-flash {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 3;
+  width: clamp(54px, 12vh, 84px);
+  height: clamp(54px, 12vh, 84px);
+  margin: calc(clamp(54px, 12vh, 84px) / -2) 0 0 calc(clamp(54px, 12vh, 84px) / -2);
   display: grid;
   place-items: center;
-  aspect-ratio: 1;
-  padding: 0;
-  border: none;
-  border-radius: 18px;
-  background: var(--cm-accent);
+  border-radius: 50%;
   color: #fff;
-  cursor: pointer;
-  box-shadow: 0 6px 14px rgba(31, 42, 51, 0.22);
-  transition: transform 0.12s ease;
-  -webkit-tap-highlight-color: transparent;
+  font-size: clamp(1.8rem, 7vh, 2.8rem);
+  font-weight: 950;
+  line-height: 1;
+  pointer-events: none;
+  animation: bs-flash 0.42s ease-out both;
 }
 
-.bs-key svg { width: 60%; max-width: 32px; height: auto; }
-.bs-key:active { transform: scale(0.93); }
-.bs-key:focus-visible { outline: 3px solid #243047; outline-offset: 3px; }
+.bs-flash.is-richtig { background: rgba(63, 191, 116, 0.92); }
+.bs-flash.is-falsch { background: rgba(120, 132, 148, 0.85); }
 
-/* Gezeichnet ist der Pfeil nach oben; die anderen drei sind derselbe, gedreht. */
-.bs-key.is-hoch { grid-area: 1 / 2; }
-.bs-key.is-links { grid-area: 2 / 1; }
-.bs-key.is-links svg { transform: rotate(-90deg); }
-.bs-key.is-runter { grid-area: 2 / 2; }
-.bs-key.is-runter svg { transform: rotate(180deg); }
-.bs-key.is-rechts { grid-area: 2 / 3; }
-.bs-key.is-rechts svg { transform: rotate(90deg); }
-
-/* Auf einem flachen Bildschirm bleibt dem Wasser sonst kaum Höhe. Kleiner als
-   148 Pixel darf das Kreuz trotzdem nicht werden – darunter wären die Pfeile
-   für einen Kinderfinger zu klein. */
-@media (max-height: 540px) {
-  .bs-pad { width: 148px; }
+@keyframes bs-flash {
+  0% { transform: scale(0.4); opacity: 0; }
+  30% { transform: scale(1.1); opacity: 1; }
+  100% { transform: scale(1.3); opacity: 0; }
 }
 
 /* --- Das Startbild --- */
@@ -5909,7 +6141,7 @@ body.has-scene.puzzle-active .app-shell { padding-top: calc(var(--safe-top) + 74
 
 @media (prefers-reduced-motion: reduce) {
   .bs-welle.is-richtig .bs-blatt { animation: none; }
-  .bs-key { transition: none; }
+  .bs-flash { animation: none; opacity: 0; }
   /* Das Treiben bleibt: es ist die Regel selbst, nicht Zierde. Nur langsamer,
      und das Wippen fällt ganz weg. */
   .bs-demo-chip.is-treibt .bs-demo-blatt { animation-duration: 5s; }
@@ -6262,4 +6494,71 @@ body.puzzle-active .kakuro-entry {
   .runner-star { font-size: clamp(1.4rem, 7vh, 2rem); }
   .runner-dialog-actions { flex-direction: row; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
   .runner-primary, .runner-secondary { flex: 1 1 auto; padding: 10px 12px; font-size: 0.95rem; }
+}
+
+/* --- Kakuro: das Zahlenfeld hat seinen festen Platz --- */
+
+/* Brett links in der Mitte seiner Spalte, Zahlenfeld rechts daneben – vom
+   ersten Bild an, nicht erst, wenn ein Feld gewählt ist. Vorher kam das
+   Zahlenfeld unter das Brett, sobald es gebraucht wurde, und das Brett
+   schrumpfte und rutschte ihm aus dem Weg; ohne gewähltes Feld sprang alles
+   wieder zurück. Jetzt bleibt beides stehen, und ohne gewähltes Feld sind die
+   Tasten nur blass. */
+body.puzzle-active.pad-docked .game-card {
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: max-content minmax(0, 1fr);
+  column-gap: clamp(10px, 2vw, 22px);
+}
+
+body.puzzle-active.pad-docked .status-row { grid-column: 1 / -1; }
+
+body.puzzle-active.pad-docked .board {
+  grid-column: 1;
+  grid-row: 2;
+  justify-self: center;
+  align-self: center;
+}
+
+body.puzzle-active.pad-docked .number-pad {
+  grid-column: 2;
+  grid-row: 2;
+  align-self: center;
+  justify-self: end;
+  grid-template-columns: repeat(var(--pad-cols, 3), minmax(44px, 60px));
+  gap: 8px;
+  padding: 10px;
+  border-radius: 18px;
+  transition: opacity 0.15s ease, border-color 0.15s ease;
+}
+
+body.puzzle-active.pad-docked .number-pad.is-idle {
+  border-color: var(--line);
+  box-shadow: none;
+}
+
+body.puzzle-active.pad-docked .number-pad.is-idle button {
+  opacity: 0.3;
+}
+
+body.puzzle-active.pad-docked .number-pad button {
+  min-height: 52px;
+  font-size: 1.45rem;
+}
+
+@media (max-height: 540px) {
+  body.puzzle-active.pad-docked .number-pad {
+    grid-template-columns: repeat(var(--pad-cols, 3), minmax(36px, 46px));
+    gap: 5px;
+    padding: 6px;
+    border-radius: 14px;
+  }
+
+  body.puzzle-active.pad-docked .number-pad button {
+    min-height: 38px;
+    padding: 0 6px;
+    border-radius: 10px;
+    font-size: 1.05rem;
+  }
+
+  body.puzzle-active.pad-docked .number-pad .clear-number-button { font-size: 0.8rem; }
 }

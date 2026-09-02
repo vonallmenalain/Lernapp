@@ -1169,13 +1169,18 @@
    * @param {Object} options  done: fertig gespielt (Licht an, Fahne)
    *                          ratio: 0–1 für die Fortschrittsmarke; fehlt sie,
    *                                 bleibt das Gebäude ohne Marke
+   *                          hue: Farbe der Wände; fehlt sie, gilt die eigene
+   *                               Farbe des Gebäudes. Die Bühne gibt die Farbe
+   *                               des Bereichs mit – so stehen alle Häuser
+   *                               eines Bereichs in einer Farbe da.
    */
   function buildBuilding(gameId, options = {}) {
     const { done = false, label = gameId, ratio = null } = options;
     const spec = BUILDINGS[gameId] || BUILDINGS.memory;
-    const { parts, emblemAt } = buildingShell(spec.kind, spec.hue);
+    const hue = options.hue || spec.hue;
+    const { parts, emblemAt } = buildingShell(spec.kind, hue);
 
-    if (spec.emblem && emblemAt) parts.push(emblem(spec.emblem, emblemAt[0], emblemAt[1], spec.hue));
+    if (spec.emblem && emblemAt) parts.push(emblem(spec.emblem, emblemAt[0], emblemAt[1], hue));
 
     // Fertig gespielt: Licht in den Fenstern und eine Fahne auf dem Dach. So
     // ist im Bereich auf einen Blick zu sehen, wo schon alles gelöst ist.
@@ -1186,7 +1191,7 @@
       parts.push(el("polygon", { points: `${BUILD_W - 26},${BUILD_BASE - 138} ${BUILD_W - 2},${BUILD_BASE - 130} ${BUILD_W - 26},${BUILD_BASE - 122}`, fill: "#f0b429" }));
     }
 
-    if (typeof ratio === "number") parts.push(progressBadge(Math.max(0, Math.min(1, ratio)), spec.hue));
+    if (typeof ratio === "number") parts.push(progressBadge(Math.max(0, Math.min(1, ratio)), hue));
 
     return group({
       class: `train-building${done ? " is-done" : ""}`,
