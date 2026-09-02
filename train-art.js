@@ -970,6 +970,7 @@
     flanker: { kind: "hall", emblem: "fish", hue: "#3ba7b5" },
     trackRouter: { kind: "tower", emblem: "switch", hue: "#2f8f9c" },
     fishPond: { kind: "hut", emblem: "net", hue: "#2f9ec0" },
+    gridlock: { kind: "barn", emblem: "gleis", hue: "#2f8f9c" },
     tiersprung: { kind: "hall", emblem: "bolt", hue: "#e8a13c" },
     leafFlow: { kind: "barn", emblem: "leaf", hue: "#d98a33" },
     towerStack: { kind: "tower", emblem: "blocks", hue: "#d99a2f" },
@@ -1043,6 +1044,16 @@
       parts.push(el("rect", { x: cx - 22, y: cy + 8, width: 44, height: 6, rx: 3, fill: "#fdfbf6" }));
       parts.push(el("line", { x1: cx - 10, y1: cy + 8, x2: cx + 12, y2: cy - 14, stroke: "#fdfbf6", "stroke-width": 6, "stroke-linecap": "round" }));
       parts.push(el("circle", { cx: cx + 12, cy: cy - 14, r: 6, fill: color }));
+    } else if (name === "gleis") {
+      // Freie Fahrt: ein Wagen von oben, davor der offene Weg nach rechts. Die
+      // Weiche nebenan zeigt eine Verzweigung, hier geht es geradeaus hinaus –
+      // daran sind die beiden Häuser auseinanderzuhalten.
+      parts.push(el("rect", { x: cx - 26, y: cy - 9, width: 30, height: 18, rx: 5, fill: "#fdfbf6" }));
+      parts.push(el("rect", { x: cx - 21, y: cy - 5, width: 9, height: 10, rx: 2, fill: color }));
+      parts.push(el("path", {
+        d: `M${cx + 10} ${cy - 12} l11 12 l-11 12`,
+        fill: "none", stroke: "#fdfbf6", "stroke-width": 6, "stroke-linecap": "round", "stroke-linejoin": "round",
+      }));
     } else if (name === "bolt") {
       parts.push(el("polygon", { points: `${cx + 6},${cy - 20} ${cx - 12},${cy + 3} ${cx - 1},${cy + 3} ${cx - 5},${cy + 20} ${cx + 14},${cy - 4} ${cx + 2},${cy - 4}`, fill: "#fdfbf6" }));
     } else if (name === "cube") {

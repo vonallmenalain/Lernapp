@@ -6222,6 +6222,325 @@ body.has-scene.puzzle-active .game-panel {
 }
 
 /* ===========================================================================
+   Freie Fahrt
+   ---------------------------------------------------------------------------
+   Dieselbe Bühne wie die anderen Spiele, in der Farbe des Bereichs
+   Konzentration. Darauf ein Abstellbahnhof: ein Quadrat aus sechs mal sechs
+   Feldern, rechts ein Tor.
+
+   Alles auf dem Feld hängt an einer einzigen Zahl: --ff-zelle, der Kantenlänge
+   eines Feldes in Pixeln. freiefahrt.js misst sie einmal und beim Drehen des
+   Geräts neu; Breite, Höhe und Platz jedes Wagens rechnet der Browser daraus.
+   Ein Wagen bewegt sich deshalb nur über transform – keine Positionsangabe
+   ändert sich, und das Schieben läuft auf der Grafikkarte statt im Umbruch.
+   =========================================================================== */
+
+.ff-stage { --cm-accent: #00A5B5; --cm-accent-dark: #00707c; }
+
+/* --- Die Levelwahl ------------------------------------------------------- */
+
+/* Vier Spalten, eine je Stufe: so steht neben jedem Level, wie schwer es ist,
+   ohne dass ein Kind eine Liste durchlesen müsste. */
+.ff-stufen {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: clamp(6px, 1.4vw, 16px);
+  width: min(94vw, 860px);
+}
+
+.ff-stufe { display: grid; gap: clamp(4px, 1vh, 8px); align-content: start; }
+
+.ff-stufe-name {
+  margin: 0;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--ff-stufe-farbe, #00A5B5);
+  color: #fff;
+  font-size: clamp(0.72rem, 1.7vw, 0.95rem);
+  font-weight: 900;
+  text-align: center;
+  letter-spacing: 0.02em;
+}
+
+.ff-stufe-level { display: grid; gap: clamp(4px, 1vh, 8px); }
+
+.ff-level {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 2px 6px;
+  padding: clamp(4px, 1vh, 9px) clamp(5px, 1vw, 10px);
+  border: 3px solid #ffffff;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.9);
+  cursor: pointer;
+  box-shadow: 0 8px 18px rgba(31, 42, 51, 0.18);
+  transition: transform 0.12s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.ff-level:hover { background: #fff; }
+.ff-level:active { transform: scale(0.95); }
+.ff-level:focus-visible { outline: 3px solid #243047; outline-offset: 3px; }
+
+.ff-level-nr {
+  grid-row: span 2;
+  font-size: clamp(1.1rem, 2.8vw, 1.6rem);
+  font-weight: 950;
+  line-height: 1;
+  color: var(--ff-stufe-farbe, #00707c);
+}
+
+/* Die Mindestzugzahl steht auf dem Knopf: sie ist das Mass des Levels, und die
+   Ziffer allein sagt einem Kind, das noch nicht liest, schon "wenig" oder
+   "viel". */
+.ff-level-ziel { display: flex; align-items: baseline; gap: 3px; line-height: 1; }
+.ff-level-ziel-zahl { font-size: clamp(0.85rem, 2vw, 1.05rem); font-weight: 900; color: #243047; font-variant-numeric: tabular-nums; }
+.ff-level-ziel-wort { font-size: clamp(0.55rem, 1.3vw, 0.72rem); font-weight: 800; color: #6b7684; }
+
+.ff-level-sterne { display: flex; gap: 1px; font-size: clamp(0.62rem, 1.5vw, 0.85rem); line-height: 1; color: #d5dae2; }
+.ff-level-stern.is-on { color: #f6b93b; }
+
+/* --- Der Bahnhof --------------------------------------------------------- */
+
+/* Die Anzeige steht links neben dem Feld, nicht darüber: quer auf dem Handy ist
+   die Höhe das knappe Mass, die Breite ist reichlich da. Und rechts bleibt frei
+   für das Tor und für die Lok, die am Schluss hinausfährt. */
+.ff-tisch {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: min(96vw, 1100px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(8px, 2vw, 22px);
+}
+
+.ff-hud {
+  flex: 0 0 auto;
+  width: clamp(74px, 14vw, 128px);
+  display: grid;
+  gap: clamp(4px, 1.2vh, 10px);
+}
+
+.ff-hud-level {
+  margin: 0;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--ff-stufe-farbe, #00A5B5);
+  color: #fff;
+  font-size: clamp(0.7rem, 1.7vw, 0.92rem);
+  font-weight: 900;
+  text-align: center;
+}
+
+.ff-hud-wert {
+  display: grid;
+  justify-items: center;
+  gap: 1px;
+  padding: clamp(3px, 0.8vh, 7px) 4px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 6px 14px rgba(31, 42, 51, 0.14);
+}
+
+.ff-hud-name {
+  font-size: clamp(0.55rem, 1.3vw, 0.7rem);
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #6b7684;
+}
+
+.ff-hud-zahl {
+  font-size: clamp(0.95rem, 2.6vh, 1.4rem);
+  font-weight: 950;
+  color: #243047;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+
+/* Über der Bestmarke: kein Rot, kein Ausrufezeichen – nur eine andere Farbe.
+   Wer mehr Züge braucht, hat nichts falsch gemacht, es reicht nur nicht mehr
+   für den dritten Stern. */
+.ff-hud-zahl.is-drueber { color: #c9761b; }
+
+.ff-platz {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  display: grid;
+  place-items: center;
+}
+
+.ff-brett {
+  position: relative;
+  width: calc(var(--ff-zelle, 40px) * 6);
+  height: calc(var(--ff-zelle, 40px) * 6);
+  border-radius: 12px;
+  background-color: #f1eee6;
+  /* Das Raster als Hintergrund statt als sechsunddreissig Kästchen: ein Bild
+     weniger im Umbruch, und beim Drehen des Geräts zeichnet es sich von selbst
+     neu, weil es an derselben Variablen hängt wie die Wagen. */
+  background-image:
+    repeating-linear-gradient(90deg, rgba(60, 74, 92, 0.14) 0px, rgba(60, 74, 92, 0.14) 1px, transparent 1px, transparent var(--ff-zelle, 40px)),
+    repeating-linear-gradient(180deg, rgba(60, 74, 92, 0.14) 0px, rgba(60, 74, 92, 0.14) 1px, transparent 1px, transparent var(--ff-zelle, 40px));
+  /* Der Ring liegt aussen und nimmt deshalb keinen Platz vom Feld weg: die
+     Wagen stehen exakt auf den Zellen, die die Variable vorgibt. */
+  box-shadow: 0 0 0 3px #b7c1cf, 0 14px 32px rgba(31, 42, 51, 0.24);
+  touch-action: none;
+}
+
+/* Das Tor: ein karierter Durchlass in der Mauer, rechts in der dritten Reihe,
+   mit einem Pfeil nach draussen. Es steht immer da – es ist das Ziel und nicht
+   ein Hinweis, der wieder verschwindet. */
+.ff-tor {
+  position: absolute;
+  left: calc(var(--ff-zelle, 40px) * 6 - 3px);
+  top: calc(var(--ff-zelle, 40px) * 2);
+  width: calc(var(--ff-zelle, 40px) * 0.52);
+  height: var(--ff-zelle, 40px);
+  display: grid;
+  place-items: center;
+  border-radius: 0 8px 8px 0;
+  color: #d9534f;
+  background-color: #fdfdfd;
+  background-image:
+    linear-gradient(45deg, #3a4657 25%, transparent 25%, transparent 75%, #3a4657 75%),
+    linear-gradient(45deg, #3a4657 25%, transparent 25%, transparent 75%, #3a4657 75%);
+  background-size: calc(var(--ff-zelle, 40px) / 3.5) calc(var(--ff-zelle, 40px) / 3.5);
+  background-position: 0 0, calc(var(--ff-zelle, 40px) / 7) calc(var(--ff-zelle, 40px) / 7);
+  box-shadow: 0 0 0 3px #b7c1cf;
+}
+
+.ff-tor-pfeil {
+  width: 74%;
+  height: 74%;
+  filter: drop-shadow(0 0 3px rgba(255, 255, 255, 0.95)) drop-shadow(0 0 2px rgba(255, 255, 255, 0.95));
+  animation: ff-winken 1.9s ease-in-out infinite;
+}
+
+@keyframes ff-winken {
+  0%, 100% { transform: translateX(-8%); opacity: 0.8; }
+  50% { transform: translateX(14%); opacity: 1; }
+}
+
+/* Das aufleuchtende Gleis: so weit kann der angefasste Wagen. Es liegt unter
+   den Wagen, damit ein Tipp auf einen Wagen ihn trifft und nicht das Gleis –
+   und ein Tipp auf die freie Strecke fährt ihn dorthin. */
+.ff-spur {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 1;
+  width: calc(var(--ff-zelle, 40px) * var(--ff-spur-breite, 1));
+  height: calc(var(--ff-zelle, 40px) * var(--ff-spur-hoehe, 1));
+  transform: translate3d(
+    calc(var(--ff-spur-spalte, 0) * var(--ff-zelle, 40px)),
+    calc(var(--ff-spur-reihe, 0) * var(--ff-zelle, 40px)), 0);
+  border-radius: calc(var(--ff-zelle, 40px) * 0.28);
+  background: rgba(0, 165, 181, 0.2);
+  box-shadow: inset 0 0 0 2px rgba(0, 165, 181, 0.55);
+  opacity: 0;
+  /* Nie anzutippen: die Tipps nimmt das Feld darunter entgegen. Sonst müsste
+     jeder Tipp erst durch dieses Rechteck hindurch, und ein Tipp knapp neben
+     dem Gleis käme anders an als einer knapp darauf. */
+  pointer-events: none;
+  transition: opacity 0.14s ease;
+}
+
+.ff-spur.is-da { opacity: 1; }
+
+/* --- Die Wagen ----------------------------------------------------------- */
+
+.ff-wagen {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 2;
+  width: calc(var(--ff-zelle, 40px) * var(--ff-breite, 1));
+  height: calc(var(--ff-zelle, 40px) * var(--ff-hoehe, 1));
+  /* Zelle mal Spalte ist der Platz, --ff-schub der Finger. Beides in einem
+     transform: während des Ziehens wird nur diese eine Zahl geschrieben. */
+  transform: translate3d(
+    calc(var(--ff-spalte, 0) * var(--ff-zelle, 40px) + var(--ff-schub, 0px)),
+    calc(var(--ff-reihe, 0) * var(--ff-zelle, 40px) + var(--ff-hub, 0px)), 0);
+  transition: transform 0.19s cubic-bezier(0.22, 0.7, 0.3, 1);
+  will-change: transform;
+  touch-action: none;
+  cursor: grab;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.ff-wagen svg { display: block; width: 100%; height: 100%; }
+
+/* Am Finger gibt es keinen Übergang: der Wagen muss dem Zeigen folgen, nicht
+   ihm nachlaufen. Der Übergang kommt erst beim Loslassen zurück und lässt den
+   Wagen ins Feld einrasten. */
+.ff-wagen.is-zieht { transition: none; cursor: grabbing; z-index: 4; }
+
+.ff-wagen.is-lok { z-index: 3; }
+
+.ff-wagen.is-gewaehlt svg {
+  filter: drop-shadow(0 0 4px rgba(0, 165, 181, 0.95)) drop-shadow(0 0 8px rgba(0, 165, 181, 0.6));
+}
+
+.ff-wagen:focus-visible { outline: 3px solid #243047; outline-offset: 2px; border-radius: 10px; }
+
+/* Der kurze Ruck, wenn es nicht weitergeht – auf dem Bild im Wagen, nicht am
+   Wagen selbst: dessen transform hält gerade den Platz auf dem Feld. */
+.ff-wagen.is-anschlag.is-waagerecht svg { animation: ff-anschlag-quer 0.32s ease; }
+.ff-wagen.is-anschlag.is-senkrecht svg { animation: ff-anschlag-hoch 0.32s ease; }
+
+@keyframes ff-anschlag-quer {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(5%); }
+  60% { transform: translateX(-3.5%); }
+  85% { transform: translateX(1.5%); }
+}
+
+@keyframes ff-anschlag-hoch {
+  0%, 100% { transform: translateY(0); }
+  25% { transform: translateY(5%); }
+  60% { transform: translateY(-3.5%); }
+  85% { transform: translateY(1.5%); }
+}
+
+/* Die Ausfahrt: die Lok fährt durch das Tor aus dem Bild. Sie verblasst erst
+   unterwegs, damit der Durchfahrt-Moment noch zu sehen ist. */
+.ff-wagen.is-abfahrt {
+  z-index: 5;
+  opacity: 0;
+  transition: transform 0.8s cubic-bezier(0.45, 0, 0.7, 0.45), opacity 0.42s ease 0.42s;
+}
+
+/* --- Ohne Bewegung -------------------------------------------------------- */
+
+/* Geschoben wird weiter, und Zug- und Zeitanzeige bleiben, wie sie sind – nur
+   das Beiwerk hört auf: kein wackelnder Pfeil, kein Ruck am Anschlag, kein
+   Nachfedern beim Einrasten. */
+@media (prefers-reduced-motion: reduce) {
+  .ff-level { transition: none; }
+  .ff-tor-pfeil { animation: none; }
+  .ff-wagen { transition: none; }
+  .ff-wagen.is-anschlag svg { animation: none; }
+  .ff-wagen.is-abfahrt { transition: opacity 0.2s linear; }
+}
+
+/* --- Kleine Schirme ------------------------------------------------------- */
+
+/* Quer auf einem alten Handy bleiben unter der Leiste keine 260 Bildpunkte.
+   Dann rückt die Anzeige enger zusammen; das Feld selbst rechnet sich seine
+   Zellengrösse ohnehin aus dem übrigen Platz aus. */
+@media (max-height: 400px) {
+  .ff-hud { width: clamp(64px, 12vw, 96px); gap: 4px; }
+  .ff-hud-wert { padding: 2px 3px; border-radius: 11px; }
+  .ff-level { border-width: 2px; border-radius: 12px; padding: 3px 5px; }
+  .ff-stufe-name { padding: 2px 5px; }
+}
+
+/* ===========================================================================
    Turmbau
    ---------------------------------------------------------------------------
    Dieselbe Bühne wie die anderen Tempospiele – die Farbe ist die des Bereichs

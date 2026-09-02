@@ -448,6 +448,36 @@ const SZENARIEN = [
     ],
   },
   {
+    seite: "freiefahrt",
+    schritte: [
+      { name: "Levelwahl", tun: async () => {} },
+      // Ein mittleres Level: das volle Feld mit der Anzeige daneben ist der
+      // Bildschirm, auf dem es eng wird.
+      { name: "Spiel", tun: async (blatt) => { await blatt.locator(".ff-level").nth(4).click(); await pause(blatt, 400); } },
+      { name: "Ergebnis", tun: async (blatt) => {
+        // Wirklich gelöst, nicht nachgestellt: der Löser aus freiefahrt.js
+        // liefert den Weg, und der wird über die Pfeiltasten gefahren. So steht
+        // im Schlussbild dieselbe Zugzahl, die ein Kind auch sähe.
+        await blatt.evaluate(async () => {
+          const api = window.LernappFreieFahrt;
+          const warte = (ms) => new Promise((r) => setTimeout(r, ms));
+          for (const zug of api.suche(api.stellung()).weg) {
+            const node = document.querySelector(`.ff-wagen[data-id="${zug.wagen}"]`);
+            const wagen = api.stellung().find((eintrag) => eintrag.id === zug.wagen);
+            const quer = wagen.richtung === "waagerecht";
+            const jetzt = quer ? wagen.spalte : wagen.reihe;
+            const taste = zug.ziel > jetzt ? (quer ? "ArrowRight" : "ArrowDown") : (quer ? "ArrowLeft" : "ArrowUp");
+            for (let i = 0; i < Math.abs(zug.ziel - jetzt); i += 1) {
+              node.dispatchEvent(new KeyboardEvent("keydown", { key: taste, bubbles: true, cancelable: true }));
+              await warte(5);
+            }
+          }
+        });
+        await pause(blatt, 1600);
+      } },
+    ],
+  },
+  {
     seite: "turmbau",
     schritte: [
       { name: "Bereit", tun: async (blatt) => { await pause(blatt, 400); } },

@@ -251,6 +251,32 @@ const gleisVoll = train.gameProgress("trackRouter");
 assert(gleisVoll.ratio === 1, "sechs Level dürfen nicht über 100 % gehen");
 assert(gleisVoll.stars === 15, `die besten fünf geben 15 Sterne, gefunden ${gleisVoll.stars}`);
 
+// --- Freie Fahrt ------------------------------------------------------------
+// Zählt wie Weichen-Wirrwarr, nur aus einem anderen Kasten: zwölf Level in vier
+// Stufen, fünf beliebige bauen den Wagen. Beide teilen sich dieselbe Rechnung,
+// und genau deshalb wird sie hier ein zweites Mal geprüft – ein Kasten, der auf
+// den falschen Schlüssel zeigt, fiele sonst nicht auf.
+store.clear();
+const fahrtLeer = train.gameProgress("gridlock");
+assert(fahrtLeer.total === 5, `Freie Fahrt muss 5 Level melden, meldet ${fahrtLeer.total}`);
+assert(fahrtLeer.solved === 0, "ohne gespieltes Level darf nichts gelöst sein");
+
+store.set("lernapp.freiefahrt", JSON.stringify({ best: { 1: { stars: 3 }, 2: { stars: 2 } } }));
+const fahrtZwei = train.gameProgress("gridlock");
+assert(fahrtZwei.solved === 2, `zwei Level müssen 2 ergeben, ergeben ${fahrtZwei.solved}`);
+assert(fahrtZwei.stars === 5, `3 + 2 Sterne sind 5, gefunden ${fahrtZwei.stars}`);
+assert(fahrtZwei.worlds.length === 5, "Freie Fahrt braucht ein Band je Level");
+// Der Kasten von Weichen-Wirrwarr darf davon nichts abbekommen.
+assert(train.gameProgress("trackRouter").solved === 0, "Freie Fahrt schreibt in den Kasten von Weichen-Wirrwarr");
+
+// Die knifflig gespielten Level zählen genauso wie die leichten.
+store.set("lernapp.freiefahrt", JSON.stringify({
+  best: { 10: { stars: 1 }, 11: { stars: 1 }, 12: { stars: 1 }, 8: { stars: 1 }, 9: { stars: 1 }, 7: { stars: 3 } },
+}));
+const fahrtVoll = train.gameProgress("gridlock");
+assert(fahrtVoll.ratio === 1, "sechs Level dürfen nicht über 100 % gehen");
+assert(fahrtVoll.stars === 7, `die besten fünf geben 3 + 4 = 7 Sterne, gefunden ${fahrtVoll.stars}`);
+
 // --- Die Spiele mit Bestenliste ---------------------------------------------
 // Fünf gespielte Runden, dann ist das Spiel fertig – die Punktzahl entscheidet
 // nur über die Sterne, nicht über den Fortschritt. Beide zählen anders: der
@@ -380,7 +406,7 @@ assert(train.gameProgress("beachTreasure").stars === 3, "12 Schätze sind am Str
 const eigeneKonten = new Set(
   train.AREAS.flatMap((area) => area.games.filter((game) => game.ownProgress).map((game) => game.id)),
 );
-assert(eigeneKonten.size === 15, `erwartet 15 Spiele mit eigenem Konto, gefunden ${eigeneKonten.size}`);
+assert(eigeneKonten.size === 16, `erwartet 16 Spiele mit eigenem Konto, gefunden ${eigeneKonten.size}`);
 store.clear();
 for (const area of train.allAreas()) {
   for (const game of area.games) {
@@ -397,6 +423,6 @@ for (const area of train.allAreas()) {
 const alle = train.trainProgress();
 assert(alle.areas.length === 5, "trainProgress muss fünf Bereiche melden");
 const gesamt = alle.areas.reduce((sum, area) => sum + area.total, 0);
-assert(gesamt === 235, `erwartet 235 Aufgaben über alle Bereiche, gefunden ${gesamt}`);
+assert(gesamt === 240, `erwartet 240 Aufgaben über alle Bereiche, gefunden ${gesamt}`);
 
 console.log(`Zug-Fortschritt geprüft: 5 Bereiche, ${seen.size} Spiele, ${gesamt} Levels.`);

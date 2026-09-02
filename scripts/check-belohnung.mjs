@@ -162,7 +162,7 @@ pruefe(await ansicht(blatt) === "areas", "zurück führt zu den Toren");
 await blatt.click('[data-gate="konzentration"]');
 await pause(blatt, 2600);
 pruefe(await ansicht(blatt) === "games", "ein Tor führt in seinen Bereich");
-pruefe(await blatt.evaluate(() => document.querySelectorAll("[data-building]").length) === 3, "mit seinen drei Häusern");
+pruefe(await blatt.evaluate(() => document.querySelectorAll("[data-building]").length) === 4, "mit seinen vier Häusern");
 await blatt.click(".stage-back"); await pause(blatt, 800);
 await blatt.click(".stage-back"); await pause(blatt, 400);
 await blatt.click(".scene-button"); await pause(blatt, 400);
