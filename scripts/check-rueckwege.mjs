@@ -39,7 +39,7 @@ const RAETSEL_SEITEN = [
 // und Pfeil von Anfang an.
 const SPIEL_SEITEN = [
   "backpack", "blaetter", "fischteich", "freiefahrt", "kacheln", "kartenmerker",
-  "memory", "schwarmfokus", "strandschatz", "tiersprung", "weichen",
+  "memory", "schwarmfokus", "strandschatz", "tiersprung", "turmbau", "weichen",
 ];
 
 // Alles, was zurückführt: das Haus auf die Startseite, der Pfeil eine Stufe

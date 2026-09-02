@@ -188,11 +188,11 @@ for (const area of train.allAreas()) {
 
 // --- Geschwindigkeit --------------------------------------------------------
 // Der Bereich hängt nicht am Level-Katalog, sondern an den eigenen Speichern
-// von Tier-Sprung, Karten-Merker und Blätter im Strom. Die Adapter müssen sie
-// auf dieselbe Form bringen wie ein Katalog-Spiel.
+// von Tier-Sprung, Karten-Merker, Blätter im Strom und Turmbau. Die Adapter
+// müssen sie auf dieselbe Form bringen wie ein Katalog-Spiel.
 store.clear();
 const leer = train.areaProgress("geschwindigkeit");
-assert(leer.total === 15, `Geschwindigkeit muss 5 Level plus zweimal 5 Runden melden, meldet ${leer.total}`);
+assert(leer.total === 20, `Geschwindigkeit muss 5 Level plus dreimal 5 Runden melden, meldet ${leer.total}`);
 assert(leer.stage === 0, "Geschwindigkeit ohne Fortschritt muss Stufe 0 geben");
 
 store.set("lernapp.tiersprung.progress", JSON.stringify({
@@ -219,10 +219,10 @@ store.set("lernapp.tiersprung.progress", JSON.stringify({
   unlocked: 6,
   best: { 1: { stars: 3 }, 2: { stars: 2 }, 3: { stars: 3 }, 4: { stars: 1 }, 5: { stars: 2 } },
 }));
-// Der Bereich zählt über die Spiele: Tier-Sprung fertig, die beiden anderen gar
-// nicht – das ist ein Drittel, obwohl fünf von fünfzehn Aufgaben gespielt sind.
-assert(Math.abs(halb.ratio - 1 / 3) < 1e-9,
-  `fertiger Tier-Sprung neben zwei leeren Spielen sind ein Drittel, gefunden ${halb.ratio}`);
+// Der Bereich zählt über die Spiele: Tier-Sprung fertig, die drei anderen gar
+// nicht – das ist ein Viertel, obwohl fünf von zwanzig Aufgaben gespielt sind.
+assert(Math.abs(halb.ratio - 0.25) < 1e-9,
+  `fertiger Tier-Sprung neben drei leeren Spielen sind ein Viertel, gefunden ${halb.ratio}`);
 
 // --- Weichen-Wirrwarr -------------------------------------------------------
 // Zehn Level zur Wahl, fünf beliebige bauen den Wagen fertig. Gezählt werden
@@ -290,6 +290,7 @@ const RUNDEN_SPIELE = [
   { id: "tileMemory", key: "lernapp.kacheln", name: "Kacheln-Knobeln", drei: 14, einer: 3 },
   { id: "fishPond", key: "lernapp.fischteich", name: "Fischteich", drei: 14, einer: 3 },
   { id: "leafFlow", key: "lernapp.blaetter", name: "Blätter im Strom", drei: 16, einer: 3 },
+  { id: "towerStack", key: "lernapp.turmbau", name: "Turmbau", drei: 14, einer: 3 },
 ];
 
 // --- Die Logikspiele mit fünf nötigen Leveln --------------------------------
@@ -405,7 +406,7 @@ assert(train.gameProgress("beachTreasure").stars === 3, "12 Schätze sind am Str
 const eigeneKonten = new Set(
   train.AREAS.flatMap((area) => area.games.filter((game) => game.ownProgress).map((game) => game.id)),
 );
-assert(eigeneKonten.size === 15, `erwartet 15 Spiele mit eigenem Konto, gefunden ${eigeneKonten.size}`);
+assert(eigeneKonten.size === 16, `erwartet 16 Spiele mit eigenem Konto, gefunden ${eigeneKonten.size}`);
 store.clear();
 for (const area of train.allAreas()) {
   for (const game of area.games) {
@@ -422,6 +423,6 @@ for (const area of train.allAreas()) {
 const alle = train.trainProgress();
 assert(alle.areas.length === 5, "trainProgress muss fünf Bereiche melden");
 const gesamt = alle.areas.reduce((sum, area) => sum + area.total, 0);
-assert(gesamt === 235, `erwartet 235 Aufgaben über alle Bereiche, gefunden ${gesamt}`);
+assert(gesamt === 240, `erwartet 240 Aufgaben über alle Bereiche, gefunden ${gesamt}`);
 
 console.log(`Zug-Fortschritt geprüft: 5 Bereiche, ${seen.size} Spiele, ${gesamt} Levels.`);

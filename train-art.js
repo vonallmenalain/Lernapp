@@ -973,6 +973,7 @@
     gridlock: { kind: "barn", emblem: "gleis", hue: "#2f8f9c" },
     tiersprung: { kind: "hall", emblem: "bolt", hue: "#e8a13c" },
     leafFlow: { kind: "barn", emblem: "leaf", hue: "#d98a33" },
+    towerStack: { kind: "tower", emblem: "blocks", hue: "#d99a2f" },
     spatialPuzzle: { kind: "tower", emblem: "cube", hue: "#3f8f6a" },
     arukone: { kind: "house", emblem: "wires", hue: "#63a83f" },
     bimaru: { kind: "lighthouse", emblem: null, hue: "#4a8fb0" },
@@ -1032,6 +1033,13 @@
         d: `M${cx} ${cy - 14} V${cy + 20} M${cx} ${cy - 4} l-9 7 M${cx} ${cy - 4} l9 7`,
         fill: "none", stroke: color, "stroke-width": 3, "stroke-linecap": "round",
       }));
+    } else if (name === "blocks") {
+      // Drei Blöcke, jeder ein Stück versetzt und schmaler als der darunter:
+      // genau das, was im Spiel passiert. Ein senkrechter Stapel sähe aus wie
+      // eine Mauer und sagte nichts über das Treffen.
+      [[-18, 8, 36], [-13, -4, 30], [-6, -16, 22]].forEach(([dx, dy, w]) => {
+        parts.push(el("rect", { x: cx + dx, y: cy + dy, width: w, height: 10, rx: 2, fill: "#fdfbf6" }));
+      });
     } else if (name === "switch") {
       parts.push(el("rect", { x: cx - 22, y: cy + 8, width: 44, height: 6, rx: 3, fill: "#fdfbf6" }));
       parts.push(el("line", { x1: cx - 10, y1: cy + 8, x2: cx + 12, y2: cy - 14, stroke: "#fdfbf6", "stroke-width": 6, "stroke-linecap": "round" }));

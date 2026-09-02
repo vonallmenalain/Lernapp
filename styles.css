@@ -6541,6 +6541,159 @@ body.has-scene.puzzle-active .game-panel {
 }
 
 /* ===========================================================================
+   Turmbau
+   ---------------------------------------------------------------------------
+   Dieselbe Bühne wie die anderen Tempospiele – die Farbe ist die des Bereichs
+   Geschwindigkeit. Darauf steht die Baustelle hochkant in der Mitte: ein Turm
+   auf einer breiten, flachen Fläche wäre nach drei Blöcken schon oben, und die
+   Höhe ist hier das Mass, nicht die Breite.
+
+   Alles Bewegte darin – Himmel, Blöcke, Bruchstücke, Funken – zeichnet
+   turmbau.js auf eine Leinwand. Hier steht nur, wie gross die Fläche ist und
+   was um sie herum liegt: die Marke für die Reihe genauer Treffer und der
+   Hinweis für den allerersten Tipp.
+   =========================================================================== */
+
+.tb-stage {
+  --cm-accent: #F5A623;
+  --cm-accent-dark: #b9741a;
+  /* Getippt wird auf der ganzen Bühne. Ohne diese Zeile deutet der Browser den
+     Tipp als Anlauf zum Rollen und schluckt ihn. */
+  touch-action: none;
+}
+
+/* Der Satz steht nur vor dem ersten Block. Seinen Platz behält er trotzdem:
+   verschwände er ganz, wüchse die Baustelle im selben Moment nach oben, und
+   die Leinwand müsste mitten im Spiel neu vermessen werden. */
+.tb-prompt {
+  flex: 0 0 auto;
+  min-height: 1.4em;
+  transition: opacity 0.25s ease;
+}
+.tb-stage:not([data-phase="intro"]) .tb-prompt { opacity: 0; }
+
+.tb-platz {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+}
+
+/* Oben und unten am Platz festgemacht: damit steht die Höhe fest, und die
+   Breite ergibt sich aus dem Seitenverhältnis. Auf einem hohen Bildschirm
+   begrenzt sie die Höchstbreite – lieber eine schmalere Baustelle als eine,
+   die über den Rand hinausgeht. */
+.tb-feld {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  aspect-ratio: 4 / 5;
+  max-width: min(92vw, 470px);
+  border-radius: 30px;
+  overflow: hidden;
+  overflow: clip;
+  box-shadow: 0 12px 30px rgba(31, 42, 51, 0.22), inset 0 0 0 3px rgba(255, 255, 255, 0.5);
+}
+
+.tb-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* Die Reihe genauer Treffer. Sie steht nur, solange die Reihe hält, und poppt
+   bei jedem weiteren Treffer einmal auf – das ist das Lob, das der Zähler oben
+   rechts nicht geben kann. */
+.tb-combo {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  padding: 3px 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--cm-accent-dark);
+  font-size: clamp(0.95rem, 2.6vw, 1.25rem);
+  font-weight: 950;
+  font-variant-numeric: tabular-nums;
+  box-shadow: 0 4px 12px rgba(31, 42, 51, 0.25);
+  opacity: 0;
+  transform: translateX(-50%) scale(0.7);
+  transition: opacity 0.16s ease, transform 0.16s ease;
+  pointer-events: none;
+}
+.tb-combo.is-an { opacity: 1; transform: translateX(-50%) scale(1); }
+.tb-combo.is-pop { animation: tb-pop 0.26s cubic-bezier(0.2, 1.5, 0.4, 1) both; }
+
+@keyframes tb-pop {
+  0% { transform: translateX(-50%) scale(1); }
+  45% { transform: translateX(-50%) scale(1.15); }
+  100% { transform: translateX(-50%) scale(1); }
+}
+
+/* Der Hinweis für den allerersten Tipp: zwei Ringe, die aufgehen, und ein
+   Punkt darin. Ohne ein Wort – wer noch nicht liest, sieht trotzdem, dass hier
+   getippt wird. Mit dem ersten Block ist er weg. */
+.tb-tipp {
+  position: absolute;
+  top: 44%;
+  left: 50%;
+  width: clamp(44px, 15%, 70px);
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  pointer-events: none;
+  filter: drop-shadow(0 2px 6px rgba(31, 42, 51, 0.45));
+}
+.tb-stage[data-phase="intro"] .tb-tipp { opacity: 0.95; }
+.tb-tipp svg { width: 100%; height: auto; display: block; }
+
+.tb-tipp-ring { transform-origin: 32px 32px; animation: tb-tipp 1.8s ease-out infinite; }
+.tb-tipp-ring.is-spaet { animation-delay: 0.9s; }
+
+@keyframes tb-tipp {
+  0% { transform: scale(0.55); opacity: 0.9; }
+  70% { transform: scale(2.1); opacity: 0; }
+  100% { transform: scale(2.1); opacity: 0; }
+}
+
+/* Neuer Rekord: derselbe Satz wie sonst, nur als Abzeichen. Eine eigene Zeile
+   mehr hätte auf dem flachen Handy keinen Platz mehr. */
+.tb-rekord {
+  padding: 4px 16px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #ffd166, #f0a429);
+  color: #6b4407;
+  font-weight: 950;
+  letter-spacing: 0.02em;
+  box-shadow: 0 4px 12px rgba(240, 164, 41, 0.45);
+  animation: tb-rekord 0.42s cubic-bezier(0.2, 1.4, 0.4, 1) both;
+}
+
+@keyframes tb-rekord {
+  0% { transform: scale(0.6) rotate(-4deg); opacity: 0; }
+  60% { transform: scale(1.08) rotate(1.5deg); opacity: 1; }
+  100% { transform: scale(1) rotate(0); opacity: 1; }
+}
+
+/* Auf einem flachen Bildschirm ist die Höhe das knappe Mass. Dort steht die
+   Baustelle quadratisch statt hochkant – sonst schrumpfen die Blöcke unter das,
+   was ein Kind noch mit dem Finger treffen kann. Kürzer wird der Turm dadurch
+   nicht: die Kamera zieht nur ein paar Blöcke früher nach. */
+@media (max-height: 560px) {
+  .tb-feld { aspect-ratio: 1 / 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Der Hinweis bleibt stehen, statt zu pulsen: gezeigt werden muss er
+     trotzdem, sonst weiss niemand, wo es losgeht. */
+  .tb-tipp-ring { animation: none; opacity: 0.35; }
+  .tb-combo.is-pop { animation: none; }
+  .tb-rekord { animation: none; }
+}
+
+/* ===========================================================================
    Handy quer: alles passt aufs Bild
    ---------------------------------------------------------------------------
    Die App läuft auf dem Handy im Querformat, und dort ist die Höhe das knappe
