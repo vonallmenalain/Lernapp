@@ -56,6 +56,7 @@
         { id: "tiersprung", title: "Tier-Sprung", page: "tiersprung.html", ownProgress: "runner" },
         { id: "cardMatch", title: "Karten-Merker", page: "kartenmerker.html", ownProgress: "cardMatch" },
         { id: "leafFlow", title: "Blätter im Strom", page: "blaetter.html", ownProgress: "leafFlow" },
+        { id: "towerStack", title: "Turmbau", page: "turmbau.html", ownProgress: "towerStack" },
       ],
     },
     {
@@ -134,6 +135,7 @@
   const TILE_KEY = "lernapp.kacheln";
   const POND_KEY = "lernapp.fischteich";
   const LEAF_KEY = "lernapp.blaetter";
+  const TOWER_KEY = "lernapp.turmbau";
   // Weichen-Wirrwarr hat zehn Level, aber fünf davon reichen für den Wagen.
   const TRACK_LEVELS_FOR_DONE = 5;
   // Beide Bestenlisten-Spiele gelten nach fünf gespielten Runden als geschafft.
@@ -354,6 +356,10 @@
     // fünfundvierzig Sekunden geht Welle um Welle – sechzehn davon richtig ist
     // eine gute Runde, mehr schafft nur, wer die Regel im Schlaf umschaltet.
     leafFlow: runsProgress(LEAF_KEY, 16),
+    // Turmbau zählt einen Punkt je gestapeltem Block. Vierzehn Blöcke sind eine
+    // gute Runde: bis dahin schwingt der Block schon halb so lang wie am Anfang,
+    // und mehr schafft nur, wer den Takt wirklich trifft.
+    towerStack: runsProgress(TOWER_KEY, 14),
   };
 
   // Ein Spiel, das eine feste Liste von Aufgaben führt und jede nur als
@@ -425,7 +431,7 @@
     cloudGames.register({ key: RUNNER_KEY, empty: { unlocked: 1, best: {} }, merge: cloudGames.mergeLevels }).onChange(redraw);
     cloudGames.register({ key: TRACK_KEY, empty: { best: {} }, merge: cloudGames.mergeLevels }).onChange(redraw);
     cloudGames.register({ key: MEMORY_KEY, empty: { best: {} }, merge: cloudGames.mergeLevels }).onChange(redraw);
-    [CARDMATCH_KEY, BEACH_KEY, FLANKER_KEY, BACKPACK_KEY, RAUM_KEY, TILE_KEY, POND_KEY, LEAF_KEY].forEach((key) => {
+    [CARDMATCH_KEY, BEACH_KEY, FLANKER_KEY, BACKPACK_KEY, RAUM_KEY, TILE_KEY, POND_KEY, LEAF_KEY, TOWER_KEY].forEach((key) => {
       cloudGames.register({ key, empty: { runs: 0, scores: [] }, merge: cloudGames.mergeScores(RUNS_FOR_DONE) }).onChange(redraw);
     });
   }
