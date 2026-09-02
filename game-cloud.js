@@ -21,6 +21,16 @@
 
   const cloud = () => window.LernappFirebase || null;
 
+  // Alle angemeldeten Spielstände, damit ein Zurücksetzen sie alle erreicht.
+  // Ohne diese Liste bliebe der Stand im Speicher jedes Kontos stehen: der
+  // localStorage wäre leer, das nächste write() schriebe den alten Stand
+  // wieder hin.
+  const accounts = [];
+
+  function clone(value) {
+    try { return JSON.parse(JSON.stringify(value)); } catch { return value; }
+  }
+
   function readLocal(key, fallback) {
     try {
       const raw = JSON.parse(localStorage.getItem(key) || "null");
@@ -74,16 +84,32 @@
     // Falls die Anmeldung schon durch war, bevor diese Datei zuhörte.
     absorb(cloud()?.getGameState?.(key));
 
-    return {
+    const account = {
       read() { return current; },
       write(data) { apply(data); return current; },
       // Bequemer Weg für "nimm den alten Stand und gib den neuen zurück".
       update(fn) { return this.write(fn(current)); },
+      // Zurück auf leer. Geschrieben wird nur auf das Gerät: den Stand in der
+      // Cloud räumt firebase.js in einem Zug weg, und ein Schreibvorgang je
+      // Spiel legte ihn gleich wieder an.
+      reset() { apply(clone(empty), { save: false }); return current; },
       onChange(fn) { listeners.push(fn); return () => {
         const i = listeners.indexOf(fn);
         if (i >= 0) listeners.splice(i, 1);
       }; },
     };
+
+    accounts.push(account);
+    return account;
+  }
+
+  // Alles auf leer – für "Fortschritt zurücksetzen" im Profil und für ein
+  // Konto, das anderswo zurückgesetzt wurde. Jedes Spiel meldet sich danach
+  // bei seinen Zuhörern, der Zug zeichnet sich also von selbst neu.
+  function resetAll() {
+    accounts.forEach((account) => {
+      try { account.reset(); } catch { /* ein Spiel darf die anderen nicht aufhalten */ }
+    });
   }
 
   // --- Fertige Zusammenführungen ---------------------------------------------
@@ -116,5 +142,5 @@
     return { ...a, ...b, best, unlocked: Math.max(Number(a.unlocked) || 0, Number(b.unlocked) || 0) };
   }
 
-  window.LernappGameCloud = { register, mergeScores, mergeLevels };
+  window.LernappGameCloud = { register, resetAll, mergeScores, mergeLevels };
 })();

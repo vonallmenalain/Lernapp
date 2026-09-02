@@ -2395,6 +2395,76 @@ body.puzzle-active .spatialPuzzle-board .spatial-option-graphic > svg {
   font-weight: 800;
 }
 
+/* Zurücksetzen lässt sich nicht rückgängig machen. Rot statt Violett, damit
+   die Karte nicht wie der Levelmodus direkt darüber aussieht – und in der
+   Rückfrage steht der Satz über den Knöpfen, nicht neben ihnen: gelesen werden
+   soll er, nicht überklickt. */
+.danger-action {
+  background: #ef476f;
+  color: #fff;
+  border-color: transparent;
+}
+
+.danger-action:hover:not(:disabled),
+.danger-action:focus-visible {
+  background: #d42a55;
+}
+
+.admin-reset {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: #fff;
+  border: 2px solid var(--line);
+  box-shadow: 0 10px 22px rgba(50, 44, 109, 0.08);
+}
+
+.admin-reset > div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.admin-reset strong {
+  color: var(--ink);
+}
+
+.admin-reset span {
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.reset-card.is-confirming,
+.admin-reset.is-confirming {
+  align-items: stretch;
+  flex-direction: column;
+  border-color: #ef476f;
+  background: #fff5f7;
+}
+
+.reset-card.is-confirming span,
+.admin-reset.is-confirming span {
+  color: var(--ink);
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+/* Die Knopfzeile steht als div in der Karte und liefe sonst in
+   ".unlock-mode-card > div" – dort gilt Grid, und die beiden Knöpfe stünden
+   untereinander. */
+.unlock-mode-card > .card-actions,
+.admin-reset > .card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  justify-content: flex-end;
+}
+
 .stat-strip {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -2823,6 +2893,7 @@ body.puzzle-active .spatialPuzzle-board .spatial-option-graphic > svg {
   .auth-actions,
   .profile-summary,
   .unlock-mode-card,
+  .admin-reset,
   .progress-card > div:first-child,
   .session-item {
     align-items: stretch;
@@ -2831,7 +2902,9 @@ body.puzzle-active .spatialPuzzle-board .spatial-option-graphic > svg {
 
   .auth-actions > *,
   .profile-summary > button,
-  .unlock-mode-card > button {
+  .unlock-mode-card > button,
+  .admin-reset > button,
+  .card-actions > button {
     width: 100%;
   }
 

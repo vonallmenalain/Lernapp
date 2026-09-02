@@ -37,7 +37,7 @@ users/{uid}/levelProgress/{levelKey}
 users/{uid}/sessions/{sessionId}
 ```
 
-Zusätzlich darf das verifizierte Admin-Google-Konto `Alain.sc2@gmail.com` alle `users`-Dokumente und deren Unterkollektionen lesen. Schreibrechte auf fremde User bleiben gesperrt; der Admin-Zugriff ist also eine reine Leseansicht. Alle anderen Dokumente sind gesperrt.
+Zusätzlich darf das verifizierte Admin-Google-Konto `Alain.sc2@gmail.com` alle `users`-Dokumente und deren Unterkollektionen **lesen** sowie einen fremden Account **zurücksetzen**. Für das Zurücksetzen ist genau zweierlei erlaubt: Dokumente unter `users/{uid}` löschen und am Profil die Felder `stats`, `gameState`, `progressReset` und `updatedAt` ändern. Name, Rolle, Lok und Levelmodus bleiben dem Admin verwehrt, und Fortschritt schreiben kann er nirgends – wegräumen ja, erfinden nein. Alle anderen Dokumente sind gesperrt.
 
 ## 4. Admin-Bereich
 
@@ -51,13 +51,42 @@ Wenn du dich in der App mit Google und `Alain.sc2@gmail.com` anmeldest, erschein
 
 Das Feld `role: "admin"` bzw. `isAdmin: true` im eigenen Profil dient nur als Anzeige/Metadatum. Die echte Berechtigung liegt in `firestore.rules` und prüft das verifizierte Auth-Token mit der Admin-E-Mail.
 
-## 5. Datenstruktur
+Bei jedem User steht dort auch **Fortschritt zurücksetzen**. Gäste haben den Knopf bewusst nicht: ihr Stand liegt auf ihrem Gerät, das Gastdokument ist nur eine Kopie davon, und ein Aufräumen in Firestore liesse den Zug des Kindes unverändert stehen.
+
+## 5. Fortschritt zurücksetzen
+
+Im Profil steht neben **Alle Levels freischalten** die Karte **Fortschritt zurücksetzen**; im Admin-Bereich gibt es dieselbe Möglichkeit für jedes fremde Konto. Beides fragt vorher nach.
+
+Weggeräumt wird:
+
+- alle Dokumente unter `users/{uid}/levelProgress` und `users/{uid}/sessions`
+- die Gesamtzahlen in `users/{uid}.stats` (auf 0)
+- die Spielstände in `users/{uid}.gameState` (Tier-Sprung, Karten-Merker und die anderen Spiele mit eigenem Konto)
+- auf dem Gerät alles unter `lernapp.` ausser den Einstellungen: gelöste Level, Sterne, Übungsstände und die gesehenen Wagenstufen
+
+Stehen bleiben Name, Lok, Landschaft, Levelmodus, Ton-Einstellungen und die Gastkennung. Ein Kind, das von vorn anfängt, behält also seinen Zug – nur die Wagen starten wieder bei 0.
+
+### Die Marke `progressReset`
+
+Der Fortschritt liegt nicht nur in der Cloud, sondern auch im `localStorage` des Geräts, und beim Anmelden schiebt die App den lokalen Stand nach Firestore. Wird ein Konto von einem anderen Gerät aus geleert – der Admin am Laptop, das Kind am Tablet –, wäre der gelöschte Fortschritt beim nächsten Anmelden des Tablets sofort wieder da.
+
+Deshalb schreibt jedes Zurücksetzen eine Marke an das Konto:
+
+```json
+{ "progressReset": { "atMs": 1788337808939, "at": "<serverTimestamp>", "by": "admin", "byUid": "<uid>" } }
+```
+
+Beim Anmelden vergleicht das Gerät `atMs` mit dem, was es unter `lernapp.reset.<uid>` gespeichert hat. Ist die Marke neuer, räumt es zuerst lokal auf und merkt sich die Marke – erst danach geht etwas hoch. Weil die Marke nur einmal greift, überlebt Fortschritt, den das Kind nach dem Zurücksetzen erspielt, jede weitere Anmeldung. Verglichen wird die Marke immer nur mit sich selbst; die Uhren zweier Geräte müssen also nicht übereinstimmen.
+
+Geprüft wird das alles von `node scripts/validate-fortschritt-reset.mjs` – ohne Browser und ohne Netz.
+
+## 6. Datenstruktur
 
 Die App schreibt folgende Dokumente:
 
 | Pfad | Inhalt |
 | --- | --- |
-| `users/{uid}` | Profil, Name, technische Auth-Adresse, Provider, Rolle/Admin-Metadaten, Gesamtstatistik |
+| `users/{uid}` | Profil, Name, technische Auth-Adresse, Provider, Rolle/Admin-Metadaten, Gesamtstatistik, Lok/Landschaft, Spielstände, Reset-Marke |
 | `users/{uid}/levelProgress/{levelKey}` | Fortschritt pro Level: gelöst, Versuche, Spielzeit, Züge, Resets, Hinweise |
 | `users/{uid}/sessions/{sessionId}` | Einzelne Spielstände/Sitzungen mit Start, Ende, Dauer, Zügen, Resets und gelöst-Status |
 
@@ -78,15 +107,15 @@ Beispiel für `levelProgress`:
 }
 ```
 
-## 6. Lokalen Fortschritt übernehmen
+## 7. Lokalen Fortschritt übernehmen
 
 Die App hatte bereits lokale gelöste Levels in `localStorage`. Nach dem Login werden diese automatisch in `users/{uid}/levelProgress` migriert und bleiben zusätzlich lokal als Offline-Fallback erhalten.
 
-## 7. Login auf dem Gerät speichern
+## 8. Login auf dem Gerät speichern
 
 Die App setzt Firebase Auth auf lokale Persistenz (`LOCAL`). Das bedeutet: Ein Kind bleibt auf demselben Browser/Gerät auch nach Schließen der App oder einem Neustart angemeldet, bis es sich aktiv ausloggt oder Browserdaten gelöscht werden.
 
-## 8. Testen
+## 9. Testen
 
 Starte die App über einen lokalen Server, nicht direkt per `file://`. Beispiel:
 
