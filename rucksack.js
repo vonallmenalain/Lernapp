@@ -5,6 +5,18 @@
  * einmal gepackt werden. Danach kommt einer dazu, und wieder die ganze Reihe.
  * Was zählt, ist die längste Reihe, die vollständig zurückkam.
  *
+ * Zwei Schritte wechseln sich ab, und sie sehen bewusst verschieden aus:
+ *
+ *   Aussuchen  – goldener Rand, ein "Neu"-Schild: hier kommt etwas Neues in
+ *                den Rucksack, es gibt kein Richtig und kein Falsch.
+ *   Packen     – lila Rand, eine Reihe Plätze mit Nummern: jetzt wird die
+ *                Reihe von vorn gepackt, und der Platz, der dran ist, blinkt.
+ *
+ * Der Rucksack selbst steht unten rechts im Bild. Jeder Gegenstand fliegt
+ * sichtbar hinein, und die Zahl darauf sagt, wie viele schon drin sind. Vor
+ * dem Packen wird er ausgeleert – die Zahl geht auf null und füllt sich mit
+ * jedem richtigen Gegenstand wieder.
+ *
  * Vier Schwierigkeiten: wie viele Gegenstände bei jedem Schritt zur Wahl
  * stehen. Bei dreien ist ein geratener Tipp jeder dritte, bei sechsen jeder
  * sechste – deshalb ist ein gemerkter Gegenstand dort doppelt so viel wert.
@@ -19,9 +31,11 @@
   const host = document.querySelector("#rs-stage");
   const shellApi = window.LernappGameShell;
   const cloudApi = window.LernappGameCloud;
+  const art = window.LernappTrainArt || null;
   if (!host || !shellApi) return;
 
   const kids = () => window.LernappKids || null;
+  const reduced = () => Boolean(window.matchMedia?.("(prefers-reduced-motion: reduce)").matches);
 
   // ---------------------------------------------------------------------------
   // Regeln
@@ -29,7 +43,8 @@
   // Die vier Stufen sind die Zahl der Karten, die bei jedem Schritt zur Wahl
   // stehen. Der Faktor gleicht aus, dass Raten bei drei Karten dreimal so oft
   // trifft wie bei sechsen. Gerundet wird aufwärts – eine halbe Punktzahl
-  // müsste ein Kind erst deuten.
+  // müsste ein Kind erst deuten. Auf den Knöpfen steht nur die Zahl der
+  // Karten; der Faktor rechnet im Hintergrund.
   const STUFEN = [
     { anzahl: 3, faktor: 1 },
     { anzahl: 4, faktor: 1.2 },
@@ -39,12 +54,18 @@
 
   const RUNS_FOR_DONE = 5;
   const TOP_COUNT = 5;
-  // Wie lange der neue Gegenstand allein dasteht, bevor gepackt wird.
+  // Wie lange der neue Gegenstand allein dasteht, bevor er in den Rucksack
+  // fliegt.
   const MERK_MS = 1000;
+  // So lange dauert der Flug in den Rucksack. Danach geht es weiter.
+  const FLUG_MS = 520;
+  // Und so lange steht ein falscher Tipp da, bevor die Runde vorbei ist.
+  const FEHLER_MS = 700;
 
   const HELP = [
-    "Rucksack packen. Such dir einen Gegenstand aus, er kommt in den Rucksack.",
-    "Dann packst du alles noch einmal – in derselben Reihenfolge wie vorher.",
+    "Rucksack packen. Unten rechts steht dein Rucksack.",
+    "Zuerst suchst du dir einen neuen Gegenstand aus – das ist der goldene Schritt. Er fliegt in den Rucksack.",
+    "Dann wird der Rucksack ausgeleert, und du packst alles noch einmal ein – in derselben Reihenfolge wie vorher. Das ist der lila Schritt: die Plätze mit den Nummern zeigen, welcher Gegenstand gerade dran ist.",
     "Stimmt die Reihe, kommt ein neuer Gegenstand dazu, und du packst wieder von vorn.",
     "Tippst du einmal daneben, ist die Runde vorbei.",
     "Gezählt wird die längste Reihe, die du ganz geschafft hast.",
@@ -137,10 +158,15 @@
   // ---------------------------------------------------------------------------
   // Zustand
   // ---------------------------------------------------------------------------
-  const state = { phase: "menu", stufe: null, reihe: [], schritt: 0, erinnert: 0, locked: false };
+  const state = { phase: "menu", stufe: null, reihe: [], schritt: 0, erinnert: 0, locked: false, drin: 0 };
   let shell = null;
   let feld = null;
   let prompt = null;
+  let promptChip = null;
+  let promptText = null;
+  let plaetze = null;
+  let rucksack = null;
+  let rucksackZahl = null;
   let stepTimer = null;
 
   function shuffle(list) {
@@ -158,6 +184,13 @@
 
   const punkte = (erinnert, stufe) => Math.ceil(erinnert * stufe.faktor);
 
+  // Welcher Schritt gerade läuft, steht an der Bühne: daran hängt, wie die
+  // Gegenstände gerahmt sind und welches Schild über ihnen steht.
+  function setPhase(phase) {
+    state.phase = phase;
+    host.dataset.rsPhase = phase;
+  }
+
   // ---------------------------------------------------------------------------
   // Die Wahl der Schwierigkeit
   // ---------------------------------------------------------------------------
@@ -165,29 +198,25 @@
     clearStep();
     shell.closeOverlay();
     shell.setPhase("menu");
-    state.phase = "menu";
+    setPhase("menu");
     shell.setCount(0);
+    rucksack = null;
+    rucksackZahl = null;
 
     shell.clear();
-    prompt = shell.el("p", "cm-prompt", "Mit wie vielen Gegenständen willst du spielen?");
-    shell.play.append(prompt);
+    shell.play.append(shell.el("p", "cm-prompt", "Auswahl Gegenstände"));
 
     const reihe = shell.el("div", "rs-stufen");
     STUFEN.forEach((stufe) => {
       const button = shell.el("button", "rs-stufe");
       button.type = "button";
       button.dataset.anzahl = String(stufe.anzahl);
-      button.setAttribute("aria-label",
-        `${stufe.anzahl} Gegenstände zur Wahl. Jeder gemerkte gibt ${stufe.faktor} Punkte.`);
+      button.setAttribute("aria-label", `${stufe.anzahl} Gegenstände zur Wahl.`);
       button.append(shell.el("span", "rs-stufe-zahl", String(stufe.anzahl)));
-      // Punkte je Gegenstand als kleine Zeile: so ist zu sehen, dass sich die
-      // schwerere Wahl lohnt, ohne dass irgendwo "schwer" stehen muss.
-      button.append(shell.el("span", "rs-stufe-wert", `× ${String(stufe.faktor).replace(".", ",")}`));
       button.addEventListener("click", () => startRun(stufe));
       reihe.append(button);
     });
     shell.play.append(reihe);
-    shell.play.append(shell.el("p", "cm-runs", runsText(Number(store.read().runs) || 0)));
   }
 
   function runsText(runs) {
@@ -199,13 +228,114 @@
   }
 
   // ---------------------------------------------------------------------------
+  // Der Rucksack
+  // ---------------------------------------------------------------------------
+  // Unten rechts, immer im Bild. Die Zahl darauf sagt, wie viele Sachen gerade
+  // drin sind – nicht welche: die soll sich das Kind ja merken.
+  function buildRucksack() {
+    const wrap = shell.el("div", "rs-rucksack");
+    wrap.setAttribute("role", "img");
+    wrap.setAttribute("aria-label", "Dein Rucksack. Noch nichts drin.");
+    if (art) {
+      wrap.append(art.el("svg", { viewBox: "0 0 100 112", class: "rs-rucksack-art", "aria-hidden": "true" }, [
+        // Träger hinter dem Rucksack.
+        art.el("rect", { x: 20, y: 8, width: 14, height: 44, rx: 7, fill: "#8a5a2b" }),
+        art.el("rect", { x: 66, y: 8, width: 14, height: 44, rx: 7, fill: "#8a5a2b" }),
+        // Der Griff oben.
+        art.el("path", { d: "M36 24 q14 -18 28 0", fill: "none", stroke: "#8a5a2b", "stroke-width": 7, "stroke-linecap": "round" }),
+        // Der Körper.
+        art.el("rect", { x: 12, y: 24, width: 76, height: 84, rx: 20, fill: "#e0913c" }),
+        // Die Klappe – beim Ausleeren geht sie auf.
+        art.el("path", { class: "rs-klappe", d: "M12 46 a38 26 0 0 1 76 0 v12 h-76 z", fill: "#c97a2c" }),
+        art.el("rect", { x: 43, y: 50, width: 14, height: 12, rx: 3, fill: "#5c3a17" }),
+        // Die Aussentasche.
+        art.el("rect", { x: 28, y: 70, width: 44, height: 28, rx: 9, fill: "#c97a2c" }),
+        art.el("rect", { x: 28, y: 70, width: 44, height: 8, rx: 4, fill: "#b4681f" }),
+      ]));
+    } else {
+      wrap.append(shell.el("span", "rs-rucksack-bild", "🎒"));
+    }
+    rucksackZahl = shell.el("span", "rs-rucksack-zahl", "0");
+    rucksackZahl.setAttribute("aria-hidden", "true");
+    wrap.append(rucksackZahl);
+    return wrap;
+  }
+
+  function setDrin(anzahl) {
+    state.drin = anzahl;
+    if (!rucksack) return;
+    rucksackZahl.textContent = String(anzahl);
+    rucksack.setAttribute("aria-label", anzahl === 0
+      ? "Dein Rucksack. Noch nichts drin."
+      : `Dein Rucksack. ${anzahl === 1 ? "Ein Gegenstand" : `${anzahl} Gegenstände`} drin.`);
+  }
+
+  // Einmal hüpfen, wenn etwas hineinfällt.
+  function bump(className) {
+    if (!rucksack) return;
+    rucksack.classList.remove("is-bump", "is-leer");
+    void rucksack.offsetWidth;
+    rucksack.classList.add(className);
+  }
+
+  // Ein Gegenstand fliegt von seinem Platz in den Rucksack. Geflogen wird eine
+  // Kopie des Bildes; das Feld darunter darf sich derweil schon umbauen.
+  function fliegeInRucksack(node, emoji, done) {
+    if (!node || !rucksack || reduced()) { done(); return; }
+    const von = node.getBoundingClientRect();
+    const zu = rucksack.getBoundingClientRect();
+    if (!von.width || !zu.width) { done(); return; }
+    const flug = shell.el("span", "rs-flug", emoji);
+    flug.setAttribute("aria-hidden", "true");
+    const bild = node.querySelector(".rs-item-bild") || node;
+    flug.style.fontSize = window.getComputedStyle(bild).fontSize;
+    flug.style.left = `${von.left + von.width / 2}px`;
+    flug.style.top = `${von.top + von.height / 2}px`;
+    flug.style.setProperty("--dx", `${zu.left + zu.width / 2 - (von.left + von.width / 2)}px`);
+    flug.style.setProperty("--dy", `${zu.top + zu.height * 0.42 - (von.top + von.height / 2)}px`);
+    flug.style.setProperty("--flug", `${FLUG_MS}ms`);
+    host.append(flug);
+    let fertig = false;
+    const schluss = () => {
+      if (fertig) return;
+      fertig = true;
+      flug.remove();
+      done();
+    };
+    flug.addEventListener("animationend", schluss, { once: true });
+    // Falls die Animation nicht meldet (etwa weil das Fenster verborgen ist),
+    // geht es trotzdem weiter.
+    window.setTimeout(schluss, FLUG_MS + 120);
+  }
+
+  // Das Bild an der Bühne: die Plätze, die beim Packen der Reihe nach zu füllen
+  // sind. Nummern statt Bilder – die Bilder sind ja gerade das, was gemerkt
+  // werden soll.
+  function zeichnePlaetze(schritt) {
+    plaetze.innerHTML = "";
+    state.reihe.forEach((item, index) => {
+      const platz = shell.el("span", "rs-platz");
+      if (index < schritt) { platz.classList.add("is-drin"); platz.textContent = "✓"; }
+      else if (index === schritt) { platz.classList.add("is-dran"); platz.textContent = String(index + 1); }
+      else platz.textContent = String(index + 1);
+      plaetze.append(platz);
+    });
+  }
+
+  function setPrompt(chip, text, chipClass = "") {
+    promptChip.className = `rs-chip${chipClass ? ` ${chipClass}` : ""}`;
+    promptChip.textContent = chip;
+    promptChip.hidden = !chip;
+    promptText.textContent = text;
+  }
+
+  // ---------------------------------------------------------------------------
   // Eine Runde
   // ---------------------------------------------------------------------------
   function startRun(stufe) {
     clearStep();
     shell.closeOverlay();
     shell.setPhase("play");
-    state.phase = "waehlen";
     state.stufe = stufe;
     state.reihe = [];
     state.schritt = 0;
@@ -214,15 +344,23 @@
     shell.setCount(0);
 
     shell.clear();
-    prompt = shell.el("p", "cm-prompt", "Such dir einen Gegenstand aus.");
-    shell.play.append(prompt);
+    host.querySelectorAll(".rs-flug").forEach((node) => node.remove());
+    prompt = shell.el("p", "cm-prompt rs-prompt");
+    promptChip = shell.el("span", "rs-chip");
+    promptText = shell.el("span", "rs-prompt-text");
+    prompt.append(promptChip, promptText);
+    plaetze = shell.el("div", "rs-plaetze");
+    plaetze.setAttribute("aria-hidden", "true");
     feld = shell.el("div", "rs-feld");
-    shell.play.append(feld);
+    rucksack = buildRucksack();
+    shell.play.append(prompt, plaetze, feld, rucksack);
+    setDrin(0);
     zeigeWahl();
   }
 
-  // Die Karten für einen Schritt: kein Rahmen, kein Kasten – nur die Sache
-  // selbst. Ein Rahmen wäre eine zweite Form neben der, die zu merken ist.
+  // Die Karten für einen Schritt: kein Rahmen um das Bild, nur ein farbiger
+  // Ring dahinter – gold beim Aussuchen, lila beim Packen. Der Ring gehört
+  // zum Schritt, nicht zur Sache, und wird deshalb nicht mitgemerkt.
   function karten(liste, onTap) {
     feld.innerHTML = "";
     feld.dataset.anzahl = String(liste.length);
@@ -236,46 +374,63 @@
     });
   }
 
-  // --- Einen neuen Gegenstand wählen ---
+  // --- Einen neuen Gegenstand aussuchen ---
   function zeigeWahl() {
-    state.phase = "waehlen";
+    setPhase("waehlen");
     state.locked = false;
-    prompt.textContent = state.reihe.length ? "Such dir noch einen aus." : "Such dir einen Gegenstand aus.";
+    setPrompt("＋ Neu", state.reihe.length ? "Such dir noch einen neuen Gegenstand aus." : "Such dir einen Gegenstand aus.", "is-neu");
+    plaetze.hidden = true;
     const drin = new Set(state.reihe.map((item) => item.id));
     const frei = ITEMS.filter((item) => !drin.has(item.id));
-    karten(shuffle(frei).slice(0, state.stufe.anzahl), (item) => {
+    karten(shuffle(frei).slice(0, state.stufe.anzahl), (item, button) => {
       if (state.locked) return;
       state.locked = true;
       state.reihe.push(item);
       kids()?.playJingle?.("star");
       kids()?.vibrate?.(12);
+      button.classList.add("is-gewaehlt");
       zeigeMerken(item);
     });
   }
 
-  // --- Ihn kurz allein zeigen ---
+  // --- Ihn kurz allein zeigen, dann fliegt er in den Rucksack ---
   function zeigeMerken(item) {
-    state.phase = "merken";
-    prompt.textContent = "Merk ihn dir.";
+    setPhase("merken");
+    setPrompt("＋ Neu", "Merk ihn dir!", "is-neu");
     feld.innerHTML = "";
     feld.dataset.anzahl = "1";
     const bild = shell.el("div", "rs-item is-solo");
     bild.append(shell.el("span", "rs-item-bild", item.emoji));
     feld.append(bild);
     stepTimer = window.setTimeout(() => {
-      if (state.phase === "merken") zeigePacken(0);
+      if (state.phase !== "merken") return;
+      bild.classList.add("is-weg");
+      fliegeInRucksack(bild, item.emoji, () => {
+        if (state.phase !== "merken") return;
+        setDrin(state.reihe.length);
+        bump("is-bump");
+        // Kurz stehen lassen, dann wird ausgeleert und von vorn gepackt.
+        stepTimer = window.setTimeout(() => {
+          if (state.phase !== "merken") return;
+          setDrin(0);
+          bump("is-leer");
+          zeigePacken(0);
+        }, 520);
+      });
     }, MERK_MS);
   }
 
   // --- Die ganze Reihe noch einmal packen ---
   function zeigePacken(schritt) {
-    state.phase = "packen";
+    setPhase("packen");
     state.schritt = schritt;
     state.locked = false;
     const richtig = state.reihe[schritt];
-    prompt.textContent = state.reihe.length === 1
+    setPrompt(String(schritt + 1), state.reihe.length === 1
       ? "Pack ihn ein."
-      : `Was war Nummer ${schritt + 1}?`;
+      : `Was war Nummer ${schritt + 1}?`, "is-packen");
+    plaetze.hidden = false;
+    zeichnePlaetze(schritt);
     const ablenker = shuffle(ITEMS.filter((item) => item.id !== richtig.id)).slice(0, state.stufe.anzahl - 1);
     karten(shuffle([richtig, ...ablenker]), (item, button) => {
       if (state.locked) return;
@@ -284,18 +439,22 @@
         button.classList.add("is-right");
         kids()?.playJingle?.("correct");
         kids()?.vibrate?.(14);
-        stepTimer = window.setTimeout(() => {
+        fliegeInRucksack(button, item.emoji, () => {
+          if (state.phase !== "packen") return;
+          setDrin(schritt + 1);
+          bump("is-bump");
+          zeichnePlaetze(schritt + 1);
           if (schritt + 1 < state.reihe.length) { zeigePacken(schritt + 1); return; }
           // Die ganze Reihe sass: das ist der neue Stand.
           state.erinnert = state.reihe.length;
           shell.setCount(state.erinnert);
-          zeigeWahl();
-        }, 320);
+          stepTimer = window.setTimeout(() => { if (state.phase === "packen") zeigeWahl(); }, 380);
+        });
         return;
       }
       button.classList.add("is-wrong");
       kids()?.playJingle?.("retry");
-      stepTimer = window.setTimeout(finish, 700);
+      stepTimer = window.setTimeout(finish, FEHLER_MS);
     });
   }
 
@@ -310,7 +469,7 @@
 
   function finish() {
     clearStep();
-    state.phase = "over";
+    setPhase("over");
     const points = punkte(state.erinnert, state.stufe);
     const next = recordRun(points);
     kids()?.playJingle?.("win");

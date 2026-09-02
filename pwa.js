@@ -26,6 +26,33 @@
   window.addEventListener("pageshow", updateStandaloneMode);
   displayModeQueries.forEach(watchDisplayMode);
 
+  // Vollbild ohne Statusleiste und ohne die Knöpfe des Geräts. Das Manifest
+  // verlangt "fullscreen" – eine schon installierte App behält aber ihr altes
+  // Manifest, bis der Browser es Tage später nachlädt. Bis dahin holt sich die
+  // Seite das Vollbild bei der ersten Berührung selbst. Nur in der
+  // installierten App: im Browser wäre ein Sprung ins Vollbild eine
+  // Überraschung, um die niemand gebeten hat.
+  function wantsFullscreen() {
+    if (window.matchMedia("(display-mode: fullscreen)").matches) return false;
+    if (document.fullscreenElement || !document.fullscreenEnabled) return false;
+    return window.matchMedia("(display-mode: standalone)").matches
+      || window.matchMedia("(display-mode: minimal-ui)").matches;
+  }
+
+  function enterFullscreen() {
+    if (!wantsFullscreen()) return;
+    try {
+      const request = document.documentElement.requestFullscreen({ navigationUI: "hide" });
+      if (request && typeof request.catch === "function") request.catch(() => {});
+    } catch { /* nicht erlaubt – dann bleibt es beim Stand des Manifests */ }
+  }
+
+  // Erst eine Berührung erlaubt das Vollbild; ein Tippen auf dem Bildschirm
+  // zählt als touchend und click, eine Taste als keydown.
+  ["click", "touchend", "keydown"].forEach((type) => {
+    document.addEventListener(type, enterFullscreen, { capture: true, passive: true });
+  });
+
   function reloadForUpdate() {
     if (refreshing) return;
     refreshing = true;

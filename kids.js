@@ -64,7 +64,7 @@
   }
   function setTtsEnabled(enabled) {
     writeRaw(KEYS.tts, enabled ? "1" : "0");
-    if (!enabled) stopSpeaking();
+    if (!enabled) stopHelp();
   }
   let germanVoice = null;
   function pickGermanVoice() {
@@ -94,6 +94,7 @@
       utterance.pitch = options.pitch ?? 1.15;
       const voice = pickGermanVoice();
       if (voice) utterance.voice = voice;
+      if (options.onStart) utterance.addEventListener("start", () => options.onStart());
       if (options.onEnd) {
         utterance.addEventListener("end", () => options.onEnd());
         utterance.addEventListener("error", () => options.onEnd());
@@ -184,7 +185,7 @@
   function setAudioEnabled(enabled) {
     writeRaw(AUDIO_KEY, enabled ? "1" : "0");
     // Die Musik hängt am selben Schalter wie alle anderen Töne.
-    if (!enabled) { stopMusic({ keepWanted: true, fade: 0.3 }); stopSpeaking(); }
+    if (!enabled) { stopMusic({ keepWanted: true, fade: 0.3 }); stopHelp(); }
     if (!enabled && audioContext?.state === "running") audioContext.suspend().catch(() => {});
     if (enabled && musicWanted) startMusic();
   }
@@ -320,6 +321,13 @@
   let helpBubble = null;
   let helpHideTimer = 0;
   let helpToken = 0;
+  // Liest der Lautsprecher gerade vor? Das ist etwas anderes als "die Blase
+  // steht da": die Blase kann längst weggetippt sein, während die Stimme
+  // weiterliest – und dann muss der nächste Tipp auf den Lautsprecher die
+  // Stimme stoppen, nicht die Blase noch einmal zeigen.
+  let helpSpeaking = false;
+  let helpSpeechToken = 0;
+  let helpWatch = 0;
 
   function currentHelp() {
     return helpStack.length ? helpStack[helpStack.length - 1].text : "";
@@ -330,52 +338,118 @@
     helpButton.hidden = !text;
     helpButton.disabled = !text;
   }
+  // Wechselt der Text, der oben liegt, ist ein anderer Bildschirm da: was
+  // dazu noch vorgelesen wurde, gehört zum alten und hört auf.
+  function helpChanged(before) {
+    if (currentHelp() !== before) stopHelp();
+    refreshHelpButton();
+  }
   // Setzt den Hilfetext der Grundebene (die aktuelle Seite/Ansicht).
   function setHelp(text) {
+    const before = currentHelp();
     const clean = String(text || "").replace(/\s+/g, " ").trim();
     if (helpStack.length && helpStack[0].base) helpStack[0].text = clean;
     else helpStack.unshift({ text: clean, base: true, id: "base" });
-    if (currentHelp() === clean) hideHelpBubble();
-    refreshHelpButton();
+    helpChanged(before);
   }
   // Legt einen Hilfetext obendrauf (Dialoge, Overlays). Gibt eine Funktion zum
   // Entfernen zurück.
   function pushHelp(text) {
+    const before = currentHelp();
     helpToken += 1;
     const entry = { text: String(text || "").replace(/\s+/g, " ").trim(), id: `h${helpToken}` };
     helpStack.push(entry);
-    hideHelpBubble();
-    refreshHelpButton();
+    helpChanged(before);
     return () => {
       const index = helpStack.indexOf(entry);
-      if (index >= 0) helpStack.splice(index, 1);
-      hideHelpBubble();
-      refreshHelpButton();
+      if (index < 0) return;
+      const previous = currentHelp();
+      helpStack.splice(index, 1);
+      helpChanged(previous);
     };
   }
+  function setSpeaking(on) {
+    helpSpeaking = on;
+    helpButton?.classList.toggle("speaking", on);
+    if (helpWatch) window.clearInterval(helpWatch);
+    helpWatch = 0;
+  }
+  // Manche Browser melden das Ende einer Ansage nicht zuverlässig. Sobald die
+  // Stimme angefangen hat, wird deshalb nebenbei nachgeschaut, ob sie noch
+  // läuft – sonst bliebe der Knopf grün, und der nächste Tipp würde stoppen
+  // statt vorlesen.
+  function watchSpeech() {
+    if (helpWatch) window.clearInterval(helpWatch);
+    helpWatch = window.setInterval(() => {
+      try {
+        const synth = window.speechSynthesis;
+        if (!synth.speaking && !synth.pending) setSpeaking(false);
+      } catch { setSpeaking(false); }
+    }, 500);
+  }
+  // Nur die Sprechblase weg – das Vorlesen läuft weiter. Das passiert bei
+  // einem Tipp neben die Blase: wer den Text nicht mitlesen will, soll ihn
+  // trotzdem zu Ende hören dürfen.
   function hideHelpBubble() {
-    window.clearTimeout(helpHideTimer);
+    if (helpHideTimer) window.clearTimeout(helpHideTimer);
+    helpHideTimer = 0;
     if (helpBubble) helpBubble.hidden = true;
-    helpButton?.classList.remove("speaking");
+  }
+  // Stimme sofort still, Knopf zurück, Blase weg.
+  function stopHelp() {
+    helpSpeechToken += 1;
+    stopSpeaking();
+    setSpeaking(false);
+    hideHelpBubble();
   }
   function showHelpBubble(text) {
     if (!helpBubble) return;
     helpBubble.textContent = text;
     helpBubble.hidden = false;
-    window.clearTimeout(helpHideTimer);
-    // Lange Texte dürfen länger stehen bleiben (ca. Lesegeschwindigkeit).
-    helpHideTimer = window.setTimeout(hideHelpBubble, Math.min(20000, 3500 + text.length * 55));
+    if (helpHideTimer) window.clearTimeout(helpHideTimer);
+    // Die Blase bleibt so lange stehen, wie das Lesen ungefähr dauert – auch
+    // dann, wenn die Stimme früher fertig ist oder das Gerät gar keine hat.
+    helpHideTimer = window.setTimeout(hideHelpBubble, Math.min(30000, 3500 + text.length * 55));
   }
-  // Liest den aktuellen Hilfetext vor. Zweiter Klick beendet das Vorlesen.
+  // Der Lautsprecher: ein Tipp liest vor und zeigt den Text, der nächste
+  // Tipp macht die Stimme sofort still – auch dann, wenn die Blase längst
+  // weggetippt ist. Erst der Tipp danach liest wieder von vorn.
   function speakHelp() {
     const text = currentHelp();
     if (!text) return;
-    if (helpButton?.classList.contains("speaking")) { stopSpeaking(); hideHelpBubble(); return; }
+    if (helpSpeaking) { stopHelp(); return; }
     showHelpBubble(text);
-    helpButton?.classList.add("speaking");
-    speak(text, { onEnd: () => { helpButton?.classList.remove("speaking"); } });
-    if (!ttsSupported() || !ttsEnabled()) helpButton?.classList.remove("speaking");
+    if (!ttsSupported() || !ttsEnabled()) return;
+    helpSpeechToken += 1;
+    const token = helpSpeechToken;
+    // Nur, wenn seither keine neue Ansage angefangen hat: das Ende einer
+    // abgebrochenen kommt verspätet und gehört nicht mehr zu dieser.
+    const gilt = () => token === helpSpeechToken;
+    let ended = false;
+    speak(text, {
+      onStart: () => { if (gilt()) watchSpeech(); },
+      onEnd: () => { if (!gilt()) return; ended = true; setSpeaking(false); },
+    });
+    if (!ended) {
+      setSpeaking(true);
+      // Fängt die Stimme gar nicht an – etwa ohne deutsche Stimme auf dem
+      // Gerät –, geht der Knopf nach kurzer Zeit von selbst zurück.
+      window.setTimeout(() => {
+        if (!gilt() || !helpSpeaking) return;
+        try {
+          const synth = window.speechSynthesis;
+          if (!synth.speaking && !synth.pending) setSpeaking(false);
+        } catch { setSpeaking(false); }
+      }, 2500);
+    }
   }
+  // Ein Tipp irgendwo neben die Blase blendet sie aus. Auf den Lautsprecher
+  // selbst nicht: der hat seine eigene Bedeutung.
+  document.addEventListener("pointerdown", (event) => {
+    if (!helpBubble || helpBubble.hidden) return;
+    if (event.target?.closest?.(".help-voice")) return;
+    hideHelpBubble();
+  }, { capture: true, passive: true });
   // ---------------------------------------------------------------------------
   // Ton-Schalter (oben rechts)
   // ---------------------------------------------------------------------------

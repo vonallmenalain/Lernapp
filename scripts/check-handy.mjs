@@ -325,6 +325,10 @@ function uhrSzenario(seite) {
   };
 }
 
+// Der Gegenstand, den Rucksack packen zuletzt gezeigt hat – für den falschen
+// Tipp im Schritt danach.
+let gemerkt = null;
+
 const SZENARIEN = [
   {
     seite: "index",
@@ -371,14 +375,21 @@ const SZENARIEN = [
     schritte: [
       { name: "Wahl", tun: async () => {} },
       { name: "Aussuchen", tun: async (blatt) => { await blatt.click('.rs-stufe[data-anzahl="6"]'); await pause(blatt, 400); } },
-      { name: "Packen", tun: async (blatt) => { await blatt.click(".rs-item"); await pause(blatt, 1400); } },
+      // Nach dem Aussuchen steht der Gegenstand eine Sekunde allein da, fliegt
+      // dann in den Rucksack, und der wird ausgeleert – erst danach wird
+      // gepackt. Der Gegenstand wird gemerkt, solange er allein dasteht.
+      { name: "Packen", tun: async (blatt) => {
+        await blatt.click(".rs-item");
+        await pause(blatt, 300);
+        gemerkt = await blatt.evaluate(() => document.querySelector(".rs-item.is-solo .rs-item-bild")?.textContent?.trim());
+        await pause(blatt, 2600);
+      } },
       { name: "Ergebnis", tun: async (blatt) => {
-        const solo = await blatt.evaluate(() => document.querySelector(".rs-item-bild")?.textContent);
         const falsch = await blatt.evaluate((emoji) => {
           const el = [...document.querySelectorAll(".rs-item")].find((k) => k.textContent.trim() !== emoji);
           el?.click();
           return Boolean(el);
-        }, solo);
+        }, gemerkt);
         if (!falsch) throw new Error("kein falscher Gegenstand gefunden");
         await pause(blatt, 1200);
       } },

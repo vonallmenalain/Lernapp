@@ -51,6 +51,11 @@
   const RAND = 0.08;       // so weit vom Teichrand dreht er wieder ein
   const EINDREHEN = 4;     // wie schnell er dabei umlenkt (Bogenmass je Sekunde)
   const FANG_MS = 700;     // so lange steht das Häkchen über dem Fisch
+  // Nach einem Fang ist Pause: über dem Fisch füllt sich ein kleines Rad, und
+  // erst wenn es voll ist und zum Häkchen wird, zählt der nächste Tipp. Ohne
+  // die Pause liesse sich ein Teich in zwei Sekunden leertippen, ohne
+  // hinzuschauen – und das Hinschauen ist die Aufgabe.
+  const SPERRE_MS = 1500;
 
   const RUNS_FOR_DONE = 5;
   const TOP_COUNT = 5;
@@ -76,6 +81,7 @@
   const HELP = [
     "Fischteich. Im Teich schwimmen Fische umher.",
     "Tippe jeden Fisch genau einmal an.",
+    "Nach jedem Tipp füllt sich über dem Fisch ein kleines Rad. Erst wenn daraus ein Häkchen wird, kannst du den nächsten Fisch antippen.",
     "Ein gefangener Fisch schwimmt weiter und sieht aus wie vorher – merk dir an der Farbe, welchen du schon hattest.",
     "Hast du alle, kommt der nächste Teich mit einem Fisch mehr.",
     "Tippst du denselben Fisch ein zweites Mal an, ist die Runde vorbei.",
@@ -159,7 +165,7 @@
   // ---------------------------------------------------------------------------
   // Zustand
   // ---------------------------------------------------------------------------
-  const state = { phase: "play", teich: 0, punkte: 0, fische: [] };
+  const state = { phase: "play", teich: 0, punkte: 0, fische: [], sperreBis: 0 };
   let shell = null;
   let prompt = null;
   let pond = null;
@@ -234,6 +240,7 @@
     state.phase = "play";
     state.teich = 0;
     state.punkte = 0;
+    state.sperreBis = 0;
     shell.setCount(0);
 
     shell.clear();
@@ -256,6 +263,18 @@
       node.setAttribute("aria-label", fisch.name);
       node.title = fisch.name;
       node.append(fischSvg(fisch));
+      // Das Rad, das sich nach dem Fang füllt: ein heller Kreis, darauf eine
+      // blasse Spur und der grüne Bogen, der sie entlangwächst.
+      const ring = art.el("svg", { viewBox: "0 0 24 24", class: "ft-ring", "aria-hidden": "true" }, [
+        art.el("circle", { cx: 12, cy: 12, r: 11, fill: "#fdfbf6" }),
+        art.el("circle", { cx: 12, cy: 12, r: 8, fill: "none", stroke: "#d5dde3", "stroke-width": 4 }),
+        art.el("circle", {
+          class: "ft-ring-fill", cx: 12, cy: 12, r: 8, fill: "none", stroke: "#3fa34d",
+          "stroke-width": 4, "stroke-linecap": "round",
+          "stroke-dasharray": "50.27", "stroke-dashoffset": "50.27", transform: "rotate(-90 12 12)",
+        }),
+      ]);
+      node.append(ring);
       const haken = art.el("svg", { viewBox: "0 0 24 24", class: "ft-haken", "aria-hidden": "true" }, [
         art.el("circle", { cx: 12, cy: 12, r: 11, fill: "#3fa34d" }),
         art.el("path", {
@@ -349,6 +368,9 @@
 
   function tap(fisch) {
     if (state.phase !== "play") return;
+    // Solange das Rad läuft, zählt kein Tipp – auch nicht auf einen anderen
+    // Fisch. Das Rad zeigt, dass gewartet wird.
+    if (performance.now() < state.sperreBis) return;
 
     if (fisch.gefangen) {
       state.phase = "over";
@@ -362,17 +384,31 @@
     fisch.gefangen = true;
     state.punkte += 1;
     shell.setCount(state.punkte);
-    kids()?.playJingle?.("correct");
+    kids()?.playJingle?.("star");
     kids()?.vibrate?.(16);
-    // Das Häkchen steht kurz über dem Fisch und geht dann wieder weg: bliebe
-    // es, müsste sich niemand mehr merken, wen er schon hatte.
-    fisch.node.classList.add("is-gefangen");
-    window.setTimeout(() => fisch.node.classList.remove("is-gefangen"), FANG_MS);
+    state.sperreBis = performance.now() + SPERRE_MS;
+
+    // Erst füllt sich das Rad über dem Fisch, dann wird daraus das Häkchen.
+    // Das Häkchen steht kurz und geht wieder weg: bliebe es, müsste sich
+    // niemand mehr merken, wen er schon hatte.
+    const node = fisch.node;
+    node.classList.remove("is-gefangen", "is-laden");
+    void node.offsetWidth;
+    node.style.setProperty("--ft-sperre", `${SPERRE_MS}ms`);
+    node.classList.add("is-laden");
+    window.setTimeout(() => {
+      node.classList.remove("is-laden");
+      if (!node.isConnected) return;
+      node.classList.add("is-gefangen");
+      kids()?.playJingle?.("correct");
+      window.setTimeout(() => node.classList.remove("is-gefangen"), FANG_MS);
+    }, SPERRE_MS);
 
     if (state.fische.some((other) => !other.gefangen)) return;
     state.teich += 1;
     prompt.textContent = "Alle gefangen!";
-    stepTimer = window.setTimeout(nextPond, 620);
+    // Der nächste Teich kommt erst, wenn das letzte Häkchen dagestanden hat.
+    stepTimer = window.setTimeout(nextPond, SPERRE_MS + FANG_MS);
   }
 
   function runsText(runs) {

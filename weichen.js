@@ -40,18 +40,25 @@
   // tempo ist die Strecke, die ein Zug in einer Sekunde zurücklegt, gemessen in
   // Bildbreiten – nicht Gleisstücke pro Sekunde. Ein Zug fährt damit überall
   // gleich schnell; nach Gleisstücken gerechnet raste er auf den langen Ästen
-  // und kroch auf den kurzen. Ab Level 4 zieht das Tempo an.
+  // und kroch auf den kurzen.
+  //
+  // Die Züge fahren gemächlich: in Level 1 braucht einer gut neun Sekunden
+  // über das Bild, und bis zur ersten Weiche bleiben ihm gut zwei Sekunden
+  // Bedenkzeit. Schwerer wird es nicht über das Tempo, sondern über die
+  // Dichte – die Züge kommen enger hintereinander aus dem Tunnel, und es sind
+  // mehr zugleich unterwegs. Ab Level 4 zieht das Tempo leicht an, aber auch
+  // in Level 10 fährt ein Zug langsamer als früher in Level 1.
   const LEVELS = [
-    { nr: 1, farben: 3, zuege: 15, tempo: 0.19, takt: 2400, gleichzeitig: 2 },
-    { nr: 2, farben: 4, zuege: 15, tempo: 0.19, takt: 2300, gleichzeitig: 2 },
-    { nr: 3, farben: 5, zuege: 20, tempo: 0.20, takt: 2200, gleichzeitig: 2 },
-    { nr: 4, farben: 5, zuege: 25, tempo: 0.24, takt: 2000, gleichzeitig: 3 },
-    { nr: 5, farben: 6, zuege: 25, tempo: 0.25, takt: 1950, gleichzeitig: 3 },
-    { nr: 6, farben: 6, zuege: 30, tempo: 0.26, takt: 1900, gleichzeitig: 3 },
-    { nr: 7, farben: 7, zuege: 30, tempo: 0.27, takt: 1850, gleichzeitig: 3 },
-    { nr: 8, farben: 8, zuege: 30, tempo: 0.28, takt: 1800, gleichzeitig: 4 },
-    { nr: 9, farben: 8, zuege: 35, tempo: 0.29, takt: 1750, gleichzeitig: 4 },
-    { nr: 10, farben: 9, zuege: 35, tempo: 0.30, takt: 1700, gleichzeitig: 4 },
+    { nr: 1, farben: 3, zuege: 15, tempo: 0.11, takt: 2600, gleichzeitig: 2 },
+    { nr: 2, farben: 4, zuege: 15, tempo: 0.11, takt: 2400, gleichzeitig: 2 },
+    { nr: 3, farben: 5, zuege: 20, tempo: 0.12, takt: 2200, gleichzeitig: 3 },
+    { nr: 4, farben: 5, zuege: 25, tempo: 0.13, takt: 2000, gleichzeitig: 3 },
+    { nr: 5, farben: 6, zuege: 25, tempo: 0.14, takt: 1900, gleichzeitig: 3 },
+    { nr: 6, farben: 6, zuege: 30, tempo: 0.15, takt: 1800, gleichzeitig: 4 },
+    { nr: 7, farben: 7, zuege: 30, tempo: 0.16, takt: 1700, gleichzeitig: 4 },
+    { nr: 8, farben: 8, zuege: 30, tempo: 0.17, takt: 1600, gleichzeitig: 4 },
+    { nr: 9, farben: 8, zuege: 35, tempo: 0.18, takt: 1500, gleichzeitig: 5 },
+    { nr: 10, farben: 9, zuege: 35, tempo: 0.19, takt: 1400, gleichzeitig: 5 },
   ];
 
   // Fünf abgeschlossene Level, und der Wagen im Bereich Konzentration ist für

@@ -4,18 +4,22 @@
  * Auf dem Wasser kommt Welle um Welle: drei Blätter derselben Farbe, und zu
  * jeder Farbe gehört eine andere Frage.
  *
- *   Orange treibt los  – gewischt wird dorthin, wohin die Blätter schwimmen.
- *   Grün bleibt stehen – gewischt wird dorthin, wohin die Spitze zeigt.
+ *   Orange – gewischt wird dorthin, wohin die Blätter schwimmen.
+ *   Grün   – gewischt wird dorthin, wohin die Spitze zeigt.
  *
- * Die Spitze eines orangen Blattes zeigt absichtlich woandershin als es
- * schwimmt. Ohne diesen Widerspruch wäre das Spiel keines: man könnte immer nur
+ * Alle Blätter treiben, und die Spitze zeigt immer woandershin, als sie
+ * treiben. Ohne diesen Widerspruch wäre das Spiel keines: man könnte immer nur
  * auf die Spitze schauen und hätte beide Farben mit derselben Regel erledigt.
  * So aber muss bei jeder Welle neu entschieden werden, worauf es ankommt – und
  * genau dieses Umschalten ist die Übung.
  *
  * Ein Level, fünfundvierzig Sekunden, so viele richtige Wische wie möglich.
- * Keine Stufen, keine Diagonalen, keine Minuspunkte: ein falscher Wisch kostet
- * nur die längere Pause bis zur nächsten Welle.
+ * Keine Stufen, keine Diagonalen, keine Minuspunkte. Nach jedem Wisch kommt
+ * sofort die nächste Welle – Haken oder Kreuz blitzen nur kurz auf, der Ton
+ * sagt dasselbe, und nichts hält den nächsten Wisch auf.
+ *
+ * Gespielt wird nur mit dem Finger: ein Wisch auf dem Wasser, gemessen ab dem
+ * ersten Stück Weg, nicht erst beim Loslassen.
  *
  * Bühne, Uhr und Bestenliste kommen aus game-shell.js; hier steht nur die Regel
  * und das Treiben.
@@ -45,14 +49,10 @@
   // immer noch zwei. Mehr wären auf einem Handy nur noch Gewimmel.
   const BLAETTER = 3;
 
-  // Ein Fehler kostet eine längere Pause als ein Treffer. Es gibt keine
-  // Minuspunkte – aber bei vier Richtungen träfe blindes Wischen jedes vierte
-  // Mal, und die Pause ist es, die das teuer macht.
-  const PAUSE_RICHTIG = 320;
-  const PAUSE_FALSCH = 900;
-  // Eine verpasste Welle hat schon fast vier Sekunden gekostet; danach noch
-  // einmal warten zu lassen wäre doppelt bestraft.
-  const PAUSE_VERPASST = 500;
+  // Nach einem Wisch kommt die nächste Welle sofort – richtig oder falsch.
+  // Eine verpasste Welle hat schon fast vier Sekunden gekostet; danach lange
+  // warten zu lassen wäre doppelt bestraft.
+  const PAUSE_VERPASST = 200;
 
   const RUNS_FOR_DONE = 5;
   const TOP_COUNT = 5;
@@ -67,25 +67,22 @@
   ];
   const RICHTUNG = Object.fromEntries(RICHTUNGEN.map((r) => [r.id, r]));
 
-  // Wie schnell ein oranges Blatt treibt, in Pixeln je Sekunde. In Pixeln und
-  // nicht in Anteilen des Wassers: die App steht im Querformat, das Wasser ist
-  // darum breit und flach, und ein Anteil seiner Höhe wäre eine ganz andere
-  // Strecke als derselbe Anteil seiner Breite. Eine Welle nach unten sähe
-  // gegenüber einer nach rechts aus wie stehengeblieben.
+  // Wie schnell ein Blatt treibt, in Pixeln je Sekunde. In Pixeln und nicht in
+  // Anteilen des Wassers: die App steht im Querformat, das Wasser ist darum
+  // breit und flach, und ein Anteil seiner Höhe wäre eine ganz andere Strecke
+  // als derselbe Anteil seiner Breite. Eine Welle nach unten sähe gegenüber
+  // einer nach rechts aus wie stehengeblieben.
   const TEMPO = 185;
   // Wo die drei Blätter quer zur Fahrt liegen, in Anteilen der Breite quer zur
   // Fahrt. Nicht am Rand: dort schnitte das Wasser sie an.
   const QUER = [0.28, 0.5, 0.72];
-  // Und wo die grünen liegen, die gar nicht fahren – ein loses Dreieck, damit
-  // sie nicht wie aufgereiht wirken.
-  const RUHE = [[0.24, 0.34], [0.5, 0.64], [0.76, 0.42]];
 
   const HELP = [
     "Blätter im Strom. Auf dem Wasser treiben Blätter.",
-    "Orange Blätter schwimmen los. Wisch dorthin, wohin sie schwimmen.",
-    "Grüne Blätter bleiben stehen. Wisch dorthin, wohin ihre Spitze zeigt.",
-    "Wischen kannst du nach oben, nach unten, nach links und nach rechts.",
-    "Wenn dir das Wischen schwerfällt, tippe stattdessen auf einen der vier Pfeile.",
+    "Bei orangen Blättern wischst du dorthin, wohin sie schwimmen.",
+    "Bei grünen Blättern wischst du dorthin, wohin ihre Spitze zeigt.",
+    "Wischen kannst du auf dem Wasser nach oben, nach unten, nach links und nach rechts.",
+    "Nach jedem Wisch kommt sofort die nächste Welle.",
     "Du hast fünfundvierzig Sekunden. Schaff so viele wie du kannst.",
     "Tippe auf Starten, wenn du bereit bist.",
   ].join(" ");
@@ -116,8 +113,8 @@
   // Spitze muss auf einen Blick zu finden sein – an ihr hängt die halbe Regel.
   //
   // Orange und Grün allein würden ein farbenblindes Kind im Stich lassen.
-  // Deshalb trägt die Farbe die Regel nicht allein: orange Blätter treiben,
-  // grüne stehen still. Die Bewegung sagt dasselbe wie die Farbe.
+  // Deshalb sagt die Frage über dem Wasser in Worten und in derselben Farbe,
+  // worauf es ankommt.
   function blattSvg(sorte) {
     const koerper = sorte === "treibt" ? "#f2a03d" : "#6fbf73";
     const ader = sorte === "treibt" ? "#bd6b12" : "#3d8a4c";
@@ -140,7 +137,7 @@
   // ---------------------------------------------------------------------------
   // Zustand
   // ---------------------------------------------------------------------------
-  const state = { phase: "intro", welle: null, richtig: 0, falsch: 0 };
+  const state = { phase: "intro", welle: null, letzte: null, richtig: 0, falsch: 0 };
   let shell = null;
   let prompt = null;
   let wasser = null;
@@ -191,14 +188,23 @@
     wasser.querySelectorAll(".bs-welle").forEach((node) => node.remove());
 
     // Die Farbe wird für jede Welle neu gewürfelt. Eine feste Abfolge liesse
-    // sich mitzählen; gerade das Nichtwissen ist die Aufgabe.
-    const sorte = Math.random() < 0.5 ? "treibt" : "zeigt";
-    const fahrt = pick(RICHTUNGEN);
-    // Orange: die Spitze zeigt woandershin als die Fahrt geht – das ist die
-    // Falle. Grün: es gibt nur die Spitze, sie ist zugleich die Antwort.
-    const spitze = sorte === "treibt"
-      ? pick(RICHTUNGEN.filter((r) => r.id !== fahrt.id))
-      : fahrt;
+    // sich mitzählen; gerade das Nichtwissen ist die Aufgabe. Nur dieselbe
+    // Welle zweimal hintereinander gibt es nicht: nach jedem Wisch wechselt
+    // die Farbe oder die Antwort – so ist zu sehen, dass etwas Neues kommt.
+    let sorte;
+    let fahrt;
+    let spitze;
+    let antwort;
+    do {
+      sorte = Math.random() < 0.5 ? "treibt" : "zeigt";
+      fahrt = pick(RICHTUNGEN);
+      // Die Spitze zeigt woandershin, als die Blätter treiben – bei beiden
+      // Farben; das ist die Falle. Orange fragt nach der Fahrt, Grün nach
+      // der Spitze.
+      spitze = pick(RICHTUNGEN.filter((r) => r.id !== fahrt.id));
+      antwort = sorte === "treibt" ? fahrt.id : spitze.id;
+    } while (state.letzte && state.letzte.sorte === sorte && state.letzte.antwort === antwort);
+    state.letzte = { sorte, antwort };
 
     const gruppe = shell.el("div", "bs-welle");
     const blaetter = [];
@@ -209,11 +215,9 @@
       blaetter.push({
         node,
         quer: QUER[i],
-        ruhe: RUHE[i],
         // Gleichmässig über die Runde verteilt: so ist immer eines im Bild,
         // während das nächste gerade hinausschwimmt.
         versatz: i / BLAETTER,
-        wippen: Math.random() * Math.PI * 2,
       });
     }
     wasser.append(gruppe);
@@ -221,7 +225,7 @@
     state.welle = {
       sorte,
       fahrt,
-      antwort: sorte === "treibt" ? fahrt.id : spitze.id,
+      antwort,
       dreh: spitze.dreh,
       gruppe,
       blaetter,
@@ -259,31 +263,20 @@
     const zeit = (now - welle.start) / 1000;
 
     welle.blaetter.forEach((blatt) => {
-      let x;
-      let y;
-      if (welle.sorte === "treibt") {
-        // Die Blätter laufen im Kreis: hinten aus dem Bild, vorne wieder
-        // hinein. Ein einziger Durchlauf wäre auf dem flachen Wasser einer
-        // Welle nach oben oder unten nur ein kurzes Zucken – so treibt der
-        // Strom, solange die Welle steht, und die Richtung bleibt ablesbar.
-        const senkrecht = welle.fahrt.dy !== 0;
-        const laenge = senkrecht ? box.height : box.width;
-        const quer = senkrecht ? box.width : box.height;
-        const runde = laenge + halb * 2;
-        let auf = (blatt.versatz * runde + TEMPO * zeit) % runde - halb;
-        // Nach links und nach oben läuft dieselbe Runde rückwärts.
-        if ((senkrecht ? welle.fahrt.dy : welle.fahrt.dx) < 0) auf = laenge - auf;
-        const ab = drin(quer * blatt.quer, quer, halb);
-        x = senkrecht ? ab : auf;
-        y = senkrecht ? auf : ab;
-      } else {
-        // Grün liegt still auf dem Wasser und wippt nur ein wenig. Ohne das
-        // Wippen sähe die Fläche eingefroren aus; mit mehr Ausschlag wäre es
-        // eine Bewegung, und die ist hier die andere Regel.
-        x = drin(box.width * blatt.ruhe[0], box.width, halb);
-        y = drin(box.height * blatt.ruhe[1], box.height, halb)
-          + Math.sin(now / 700 + blatt.wippen) * halb * 0.16;
-      }
+      // Die Blätter laufen im Kreis: hinten aus dem Bild, vorne wieder
+      // hinein. Ein einziger Durchlauf wäre auf dem flachen Wasser einer
+      // Welle nach oben oder unten nur ein kurzes Zucken – so treibt der
+      // Strom, solange die Welle steht, und die Richtung bleibt ablesbar.
+      const senkrecht = welle.fahrt.dy !== 0;
+      const laenge = senkrecht ? box.height : box.width;
+      const quer = senkrecht ? box.width : box.height;
+      const runde = laenge + halb * 2;
+      let auf = (blatt.versatz * runde + TEMPO * zeit) % runde - halb;
+      // Nach links und nach oben läuft dieselbe Runde rückwärts.
+      if ((senkrecht ? welle.fahrt.dy : welle.fahrt.dx) < 0) auf = laenge - auf;
+      const ab = drin(quer * blatt.quer, quer, halb);
+      const x = senkrecht ? ab : auf;
+      const y = senkrecht ? auf : ab;
       blatt.node.style.width = `${breit}px`;
       blatt.node.style.height = `${hoch}px`;
       blatt.node.style.transform =
@@ -302,6 +295,16 @@
   // ---------------------------------------------------------------------------
   // Antworten
   // ---------------------------------------------------------------------------
+  // Ein Haken oder ein Kreuz, das kurz auf dem Wasser aufblitzt. Es hält
+  // nichts auf: die nächste Welle ist schon da, während es verblasst.
+  function flash(richtig) {
+    if (!wasser) return;
+    const mark = shell.el("span", `bs-flash ${richtig ? "is-richtig" : "is-falsch"}`, richtig ? "✓" : "✗");
+    mark.setAttribute("aria-hidden", "true");
+    wasser.append(mark);
+    window.setTimeout(() => mark.remove(), 440);
+  }
+
   function answer(id) {
     const welle = state.welle;
     if (state.phase !== "play" || !welle || welle.fertig) return;
@@ -310,18 +313,18 @@
 
     if (richtig) {
       state.richtig += 1;
-      welle.gruppe.classList.add("is-richtig");
       kids()?.playJingle?.("correct");
       kids()?.vibrate?.(16);
     } else {
       state.falsch += 1;
-      // Kein rotes X und kein Abzug: die Blätter treiben einfach weiter und
-      // werden blass. Der Ton sagt "nicht ganz", nicht "falsch gemacht".
-      welle.gruppe.classList.add("is-vorbei");
+      // Kein Abzug: der Ton sagt "nicht ganz", nicht "falsch gemacht".
       kids()?.playJingle?.("retry");
     }
     shell.setCount(state.richtig);
-    stepTimer = window.setTimeout(nextWelle, richtig ? PAUSE_RICHTIG : PAUSE_FALSCH);
+    flash(richtig);
+    // Sofort weiter: die nächste Welle ist da, bevor der Finger wieder oben
+    // ist. Wer schnell ist, soll nicht auf das Spiel warten müssen.
+    nextWelle();
   }
 
   function verpasst() {
@@ -331,6 +334,7 @@
     state.falsch += 1;
     welle.gruppe.classList.add("is-vorbei");
     kids()?.playJingle?.("retry");
+    flash(false);
     stepTimer = window.setTimeout(nextWelle, PAUSE_VERPASST);
   }
 
@@ -345,6 +349,7 @@
     shell.setPhase("intro");
     state.phase = "intro";
     state.welle = null;
+    state.letzte = null;
     state.richtig = 0;
     state.falsch = 0;
     shell.setCount(0);
@@ -374,46 +379,24 @@
     start.type = "button";
     start.addEventListener("click", beginRound);
     shell.play.append(start);
-
-    const runs = Number(store.read().runs) || 0;
-    if (runs) shell.play.append(shell.el("p", "cm-runs", runsText(runs)));
   }
 
   function beginRound() {
     clearStep();
     stopLoop();
     state.phase = "play";
+    state.letzte = null;
     shell.setPhase("play");
     shell.setCount(0);
 
     shell.clear();
     prompt = shell.el("p", "cm-prompt bs-frage");
     wasser = buildWasser();
-    shell.play.append(prompt, wasser, buildPad());
+    shell.play.append(prompt, wasser);
 
     nextWelle();
     frame = window.requestAnimationFrame(step);
     shell.startClock(ROUND_MS, finish);
-  }
-
-  // Vier Pfeile unter dem Wasser. Gewischt wird auf der ganzen Fläche und ist
-  // schneller – die Pfeile sind für Kinder, denen ein Wisch nicht gelingt.
-  function buildPad() {
-    const pad = shell.el("div", "bs-pad");
-    RICHTUNGEN.forEach((richtung) => {
-      const key = shell.el("button", `bs-key is-${richtung.id}`);
-      key.type = "button";
-      key.setAttribute("aria-label", `Wischen ${richtung.name}`);
-      key.append(art.el("svg", { viewBox: "0 0 24 24", "aria-hidden": "true" }, [
-        art.el("path", {
-          d: "M12 19V6 M6 12l6-6 6 6", fill: "none", stroke: "currentColor",
-          "stroke-width": 3.2, "stroke-linecap": "round", "stroke-linejoin": "round",
-        }),
-      ]));
-      key.addEventListener("click", () => answer(richtung.id));
-      pad.append(key);
-    });
-    return pad;
   }
 
   function runsText(runs) {
@@ -467,27 +450,37 @@
 
   // --- Wischen ---------------------------------------------------------------
   // Auf der ganzen Bühne, nicht nur auf dem Wasser: unter Zeitdruck trifft ein
-  // Kind keine kleine Fläche. Ein Wisch zählt erst ab 36 Pixeln; darunter war
-  // es ein Tippen. Welche Richtung, entscheidet die längere der beiden Strecken
-  // – so wird aus einem schrägen Wisch die Richtung, die gemeint war.
-  const SWIPE_MIN = 36;
+  // Kind keine kleine Fläche. Ein Wisch zählt, sobald der Finger 32 Bildpunkte
+  // weit ist – nicht erst beim Loslassen. Welche Richtung, entscheidet die
+  // längere der beiden Strecken; so wird aus einem schrägen Wisch die
+  // Richtung, die gemeint war. Der Rest des Wischs zählt dann nicht mehr.
+  //
+  // Der Zeiger wird an die Bühne gebunden: der Finger darf über den Rand des
+  // Wassers hinaus, und der Browser gibt die Berührung nicht mehr her – das
+  // Stylesheet hält ihn während der Runde mit touch-action: none davon ab,
+  // den Wisch als Rollen zu deuten und abzubrechen.
+  const SWIPE_MIN = 32;
   let swipe = null;
 
-  host.addEventListener("pointerdown", (event) => {
+  function swipeStart(event) {
     if (state.phase !== "play" || event.target.closest("button")) { swipe = null; return; }
-    swipe = { x: event.clientX, y: event.clientY };
-  });
+    swipe = { id: event.pointerId, x: event.clientX, y: event.clientY, done: false };
+    try { host.setPointerCapture(event.pointerId); } catch { /* dann ohne Bindung */ }
+  }
 
-  host.addEventListener("pointerup", (event) => {
-    if (!swipe || state.phase !== "play") { swipe = null; return; }
+  function swipeCheck(event) {
+    if (!swipe || swipe.id !== event.pointerId || swipe.done || state.phase !== "play") return;
     const dx = event.clientX - swipe.x;
     const dy = event.clientY - swipe.y;
-    swipe = null;
     if (Math.max(Math.abs(dx), Math.abs(dy)) < SWIPE_MIN) return;
+    swipe.done = true;
     if (Math.abs(dx) > Math.abs(dy)) answer(dx > 0 ? "rechts" : "links");
     else answer(dy > 0 ? "runter" : "hoch");
-  });
+  }
 
+  host.addEventListener("pointerdown", swipeStart);
+  host.addEventListener("pointermove", swipeCheck);
+  host.addEventListener("pointerup", (event) => { swipeCheck(event); swipe = null; });
   host.addEventListener("pointercancel", () => { swipe = null; });
 
   // --- Tastatur --------------------------------------------------------------

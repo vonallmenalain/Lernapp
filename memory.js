@@ -6,6 +6,12 @@
  * geschafft. Fünf abgeschlossene Runden bauen den Wagen – ob mit acht Karten
  * oder mit vierundzwanzig, ist gleich.
  *
+ * Die Karten werden einmal je Runde gebaut und danach nur noch umgedreht.
+ * Vorher wurde das ganze Feld bei jedem Tipp neu gezeichnet – und jedes
+ * gefundene Paar spielte dabei sein Verschwinden noch einmal ab: für einen
+ * Wimpernschlag standen die Bilder wieder da, bei jeder Karte, die sich
+ * drehte. Was einmal weg ist, bleibt jetzt weg.
+ *
  * Bühne und Knöpfe kommen aus game-shell.js.
  */
 (() => {
@@ -141,7 +147,7 @@
     shell.setCount(fertigeZahl());
 
     shell.clear();
-    prompt = shell.el("p", "cm-prompt", "Mit wie vielen Karten willst du spielen?");
+    prompt = shell.el("p", "cm-prompt", "Anzahl Karten");
     shell.play.append(prompt);
 
     const reihe = shell.el("div", "me-groessen");
@@ -159,7 +165,6 @@
       reihe.append(button);
     });
     shell.play.append(reihe);
-    shell.play.append(shell.el("p", "cm-runs", rundenText(fertigeZahl())));
   }
 
   function rundenText(fertig) {
@@ -186,29 +191,49 @@
 
     const paare = shuffle(ITEMS).slice(0, groesse / 2);
     state.karten = shuffle([...paare, ...paare].map((item, index) => ({
-      id: index, item, offen: false, weg: false,
+      id: index, item, offen: false, weg: false, node: null, bild: null,
     })));
 
     shell.clear();
     prompt = shell.el("p", "cm-prompt", "Finde die Paare.");
     shell.play.append(prompt);
+    // Die Karten liegen auf einer weissen Tafel, wie die Rätsel: auf der
+    // Landschaft mit ihren Bäumen wären zwanzig Karten nur noch Gewimmel.
+    const tafel = shell.el("div", "me-tafel");
     feld = shell.el("div", "me-feld");
     feld.dataset.karten = String(groesse);
-    shell.play.append(feld);
-    zeichne();
+    tafel.append(feld);
+    shell.play.append(tafel);
+    baue();
   }
 
-  function zeichne() {
+  // Einmal bauen, dann nur noch umdrehen.
+  function baue() {
     feld.innerHTML = "";
     state.karten.forEach((karte) => {
-      const button = shell.el("button", `me-karte${karte.offen ? " is-offen" : ""}${karte.weg ? " is-weg" : ""}`);
+      const button = shell.el("button", "me-karte");
       button.type = "button";
-      button.disabled = karte.offen || karte.weg;
-      button.setAttribute("aria-label", karte.offen || karte.weg ? karte.item.label : "Verdeckte Karte");
-      button.append(shell.el("span", "me-karte-bild", karte.offen || karte.weg ? karte.item.emoji : ""));
+      const bild = shell.el("span", "me-karte-bild", "");
+      button.append(bild);
       button.addEventListener("click", () => decke(karte));
+      karte.node = button;
+      karte.bild = bild;
       feld.append(button);
+      zeichne(karte);
     });
+  }
+
+  // Bringt eine Karte auf den Stand, der in ihr steht. Klassen werden nur
+  // geändert, wenn sie sich ändern – so spielt keine Animation zweimal.
+  function zeichne(karte) {
+    const { node, bild } = karte;
+    if (!node) return;
+    const sichtbar = karte.offen || karte.weg;
+    node.classList.toggle("is-offen", karte.offen);
+    if (karte.weg && !node.classList.contains("is-weg")) node.classList.add("is-weg");
+    node.disabled = sichtbar;
+    node.setAttribute("aria-label", sichtbar ? karte.item.label : "Verdeckte Karte");
+    bild.textContent = sichtbar ? karte.item.emoji : "";
   }
 
   function decke(karte) {
@@ -216,7 +241,7 @@
     karte.offen = true;
     state.offen.push(karte);
     kids()?.playJingle?.("star");
-    zeichne();
+    zeichne(karte);
 
     if (state.offen.length < 2) return;
     const [a, b] = state.offen;
@@ -232,7 +257,8 @@
         b.weg = true;
         state.offen = [];
         state.locked = false;
-        zeichne();
+        zeichne(a);
+        zeichne(b);
         if (state.gefunden >= state.groesse / 2) finish();
       }, WEG_MS);
       return;
@@ -244,7 +270,8 @@
       b.offen = false;
       state.offen = [];
       state.locked = false;
-      zeichne();
+      zeichne(a);
+      zeichne(b);
     }, ZURUECK_MS);
   }
 

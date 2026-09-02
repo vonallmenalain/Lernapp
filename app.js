@@ -250,13 +250,13 @@ const GAME_CONFIGS = {
     title: "Battleships", eyebrow: "Schiffe finden", code: "B",
     subtitle: "Bestimme die Positionen der versteckten Flotte im Raster.",
     success: "Alle Schiffe sind korrekt platziert!",
-    rules: ["Die Zahlen am oberen und linken Rand zeigen, wie viele Schiffsteile in der jeweiligen Spalte oder Zeile liegen.", "Am rechten und unteren Rand siehst du die Flotte, die im Raster versteckt ist.", "Kurz tippen markiert Wasser. Langer Druck setzt ein Schiffsteil. Kurzes Antippen auf ein Schiffsteil löscht es."],
+    rules: ["Die Zahlen am oberen und linken Rand zeigen, wie viele Schiffsteile in der jeweiligen Spalte oder Zeile liegen.", "Am rechten und unteren Rand siehst du die Flotte, die im Raster versteckt ist.", "Einmal tippen macht Wasser, noch einmal tippen ein Schiffsteil, noch einmal tippen wieder leer. Langes Drücken setzt sofort ein Schiffsteil."],
   },
   kakuro: {
     title: "Kakuro", eyebrow: "Summen knobeln", code: "K",
     subtitle: "Fülle die weißen Felder so, dass jede Zahlenkette ihre Summe erreicht.",
     success: "Klasse kombiniert! Alle Kakuro-Summen stimmen.",
-    rules: ["Tippe auf ein weißes Feld und wähle unten eine Zahl.", "Die kleinen Zahlen zeigen die Summe nach rechts oder nach unten.", "In jeder zusammenhängenden Summe darf jede Zahl nur einmal vorkommen."],
+    rules: ["Tippe auf ein weißes Feld und wähle daneben eine Zahl.", "Die kleinen Zahlen zeigen die Summe nach rechts oder nach unten.", "In jeder zusammenhängenden Summe darf jede Zahl nur einmal vorkommen."],
   },
   hidoku: {
     title: "Hidoku", eyebrow: "Zahlenkette", code: "H",
@@ -1566,7 +1566,14 @@ function updateActiveBoardLayout() {
   const rowGap = parseCssPixel(cardStyle.rowGap || cardStyle.gap);
   const contentWidth = Math.max(0, cardRect.width - paddingLeft - paddingRight);
   const contentTop = cardRect.top + paddingTop;
-  const contentBottom = cardRect.bottom - paddingBottom;
+  // Gemessen wird an der Spielfläche, nicht an der Karte. Die Karte füllt die
+  // Fläche – solange sie das tut, ist das dasselbe. Hing die Karte aber einmal
+  // an ihrem Inhalt, dann hing der Inhalt an der Karte: das Brett wurde aus
+  // der Kartenhöhe gerechnet, die Karte schrumpfte auf das Brett, und mit
+  // jeder Eingabe wurde beides ein paar Bildpunkte kleiner. Die Fläche
+  // dagegen hat ihre Höhe vom Bildschirm und bleibt stehen.
+  const panelRect = isVisibleElement(gamePanel) ? gamePanel.getBoundingClientRect() : cardRect;
+  const contentBottom = Math.max(cardRect.bottom, panelRect.bottom) - paddingBottom;
   let boardTop = contentTop;
 
   [document.querySelector(".status-row")].forEach((element) => {
@@ -1577,7 +1584,10 @@ function updateActiveBoardLayout() {
   let reservedBottom = 0;
   let availableWidth = contentWidth;
   const numberPadVisible = isVisibleElement(numberPad);
-  const numberPadBesideBoard = numberPadVisible && isCompactLandscapeViewport();
+  // Ein angedocktes Zahlenfeld (Kakuro) steht immer rechts neben dem Brett –
+  // auch wenn gerade kein Feld gewählt ist. So bleibt das Brett, wo es ist,
+  // statt bei jedem Erscheinen des Zahlenfelds zu schrumpfen und zu wandern.
+  const numberPadBesideBoard = numberPadVisible && (isCompactLandscapeViewport() || document.body.classList.contains("pad-docked"));
   if (numberPadBesideBoard) availableWidth = Math.max(0, contentWidth - outerInlineSize(numberPad) - rowGap);
   else if (numberPadVisible) reservedBottom += outerBlockSize(numberPad) + rowGap;
 
@@ -1651,6 +1661,25 @@ const AREA_BY_GAME = {
 function areaHref() {
   const area = AREA_BY_GAME[currentGame];
   return area ? `index.html?bereich=${encodeURIComponent(area)}` : "index.html";
+}
+// Die Farbe des Bereichs, zu dem das Rätsel gehört – dieselbe wie am Wagen
+// und an den Knöpfen der anderen Spiele. Sie wird zur Grundfarbe der Seite:
+// die Knöpfe oben links, das Zahlenfeld, die Kacheln. Vorher stand hier das
+// Lila der alten App, und die Rätsel sahen aus, als gehörten sie nicht dazu.
+const AREA_STYLE = {
+  problemloesen: { accent: "#3FA34D", dark: "#2b7a37" },
+  zahlbuchstabe: { accent: "#E8543F", dark: "#b53a28" },
+};
+function applyAreaStyle() {
+  const area = AREA_BY_GAME[currentGame];
+  const style = AREA_STYLE[area];
+  if (!area || !style) return;
+  document.body.dataset.area = area;
+  const root = document.documentElement.style;
+  root.setProperty("--area-accent", style.accent);
+  root.setProperty("--area-accent-dark", style.dark);
+  root.setProperty("--primary", style.accent);
+  root.setProperty("--primary-dark", style.dark);
 }
 // Ein Weg zurück gehört auf jeden Bildschirm, nicht nur ins Rätsel. Hier stand
 // er früher als Textzeile im Vorspann – und der Vorspann fällt auf der
@@ -1818,9 +1847,12 @@ function renderLevelSelect() {
   });
   setHelpText(`${config.title}, Welt ${difficulty.label}. Such dir ein Level aus und tippe darauf. Kacheln mit Sternen hast du schon geschafft. Eine Kachel mit Schloss wird frei, sobald du das Level davor gelöst hast.`);
 }
-function showLevelSelect() { finishMove(); clearPracticeAdvanceTimer(); GAME_HANDLERS[currentGame]?.stop?.(); cloudProgress()?.flushCurrentSession?.({ close: true, includeElapsed: true }); hideSuccess(); if (levelPanel) levelPanel.hidden = false; if (gamePanel) gamePanel.hidden = true; if (gameControls) gameControls.hidden = true; document.body.classList.remove("puzzle-active", "number-pad-open"); board?.style.removeProperty("--active-board-size"); board?.style.removeProperty("--active-board-offset"); renderLevelSelect(); }
-function showGame() { if (levelPanel) levelPanel.hidden = true; if (gamePanel) gamePanel.hidden = false; if (gameControls) gameControls.hidden = false; document.body.classList.add("puzzle-active"); setHelpText(boardHelpText()); }
-function startLevel(index) { const levelToStart = LEVELS_BY_GAME[currentGame]?.[index]; if (!isLevelUnlocked(levelToStart)) { if (levelToStart) selectedDifficulty = levelToStart.difficulty; renderLevelSelect(); return; } clearPracticeAdvanceTimer(); GAME_HANDLERS[currentGame]?.stop?.(); hideSuccess(); currentIndex = index; const level = currentLevel(); selectedDifficulty = level.difficulty; const config = GAME_CONFIGS[currentGame]; history = []; winShown = false; helpCount = 0; if (undoButton) undoButton.disabled = true; const boardSize = level.cols || level.size || 5; board.className = `board ${currentGame}-board board-size-${boardSize}`; board.style.setProperty("--size", boardSize); board.setAttribute("aria-label", `${config.title} Spielfeld`); puzzleTitle.textContent = level.title; puzzleDescription.textContent = level.description || config.subtitle; cloudProgress()?.recordLevelStart?.(level); kids()?.setLastPlayed?.(currentGame, level.id || level.levelName); resetState(); showGame(); render(); }
+function showLevelSelect() { finishMove(); clearPracticeAdvanceTimer(); GAME_HANDLERS[currentGame]?.stop?.(); cloudProgress()?.flushCurrentSession?.({ close: true, includeElapsed: true }); hideSuccess(); if (levelPanel) levelPanel.hidden = false; if (gamePanel) gamePanel.hidden = true; if (gameControls) gameControls.hidden = true; document.body.classList.remove("puzzle-active", "number-pad-open", "pad-docked"); board?.style.removeProperty("--active-board-size"); board?.style.removeProperty("--active-board-offset"); renderLevelSelect(); }
+// Kakuro bekommt sein Zahlenfeld fest an die Seite gestellt: es hat seinen
+// Platz vom ersten Bild an, und das Brett rückt nicht, wenn es gebraucht wird.
+const DOCKED_PAD_GAMES = new Set(["kakuro"]);
+function showGame() { if (levelPanel) levelPanel.hidden = true; if (gamePanel) gamePanel.hidden = false; if (gameControls) gameControls.hidden = false; document.body.classList.add("puzzle-active"); document.body.classList.toggle("pad-docked", DOCKED_PAD_GAMES.has(currentGame)); setHelpText(boardHelpText()); }
+function startLevel(index) { const levelToStart = LEVELS_BY_GAME[currentGame]?.[index]; if (!isLevelUnlocked(levelToStart)) { if (levelToStart) selectedDifficulty = levelToStart.difficulty; renderLevelSelect(); return; } clearPracticeAdvanceTimer(); GAME_HANDLERS[currentGame]?.stop?.(); hideSuccess(); currentIndex = index; const level = currentLevel(); selectedDifficulty = level.difficulty; const config = GAME_CONFIGS[currentGame]; history = []; winShown = false; helpCount = 0; if (undoButton) undoButton.disabled = true; const boardSize = level.cols || level.size || 5; board.className = `board ${currentGame}-board board-size-${boardSize}`; board.style.setProperty("--size", boardSize); board.setAttribute("aria-label", `${config.title} Spielfeld`); puzzleTitle.textContent = level.title; puzzleDescription.textContent = level.description || config.subtitle; cloudProgress()?.recordLevelStart?.(level); kids()?.setLastPlayed?.(currentGame, level.id || level.levelName); /* Jedes Level wird frisch eingepasst – die Grösse des vorigen darf nicht nachwirken. */ board.style.removeProperty("--active-board-size"); board.style.removeProperty("--active-board-offset"); resetState(); showGame(); render(); }
 function resetGame() { history = []; helpCount = 0; if (undoButton) undoButton.disabled = true; hideSuccess(); cloudProgress()?.recordLevelStart?.(currentLevel()); resetState(); recordResetMetric(); render("Neu gestartet. Viel Spass!"); }
 function undo() {
   helpCount += 1;
@@ -2171,11 +2203,9 @@ function renderPracticeFeedback(taskFactory, nextStatus) {
     text.textContent = state.feedback;
     feedback.append(text);
   }
-  if (state.awaitingNext && state.task.fullText) {
-    const full = document.createElement("strong");
-    full.textContent = state.task.fullText;
-    feedback.append(full);
-  }
+  // Das ganze Wort nach einer richtigen Antwort noch einmal hinzuschreiben,
+  // ist weggefallen: der Haken und der Ton sagen schon alles, und die Zeile
+  // machte das Feld höher als die Karte – mit einem Rollbalken als Folge.
   return feedback;
 }
 function renderPracticeShell(level, className, taskView, onAnswer, taskFactory, nextStatus) {
@@ -2778,7 +2808,7 @@ const GAME_HANDLERS = {
         state.grid[r][c] = value;
         state.fixed[keyOf(r, c)] = value;
       });
-      setStatus("Kurz tippen markiert Wasser. Langer Druck setzt ein Schiffsteil.");
+      setStatus("Tippen: Wasser. Noch einmal tippen: Schiffsteil. Noch einmal: wieder leer.");
     },
     checkWin() {
       return bimaruSolved(currentLevel(), state.grid);
@@ -2794,13 +2824,16 @@ const GAME_HANDLERS = {
         render("Dieses vorgegebene Feld bleibt stehen.");
         return;
       }
+      // Ein Kreislauf beim Tippen: leer, Wasser, Schiff, wieder leer. Ein
+      // Kind muss so nichts gedrückt halten – der lange Druck bleibt als
+      // Abkürzung für ein Schiffsteil trotzdem stehen.
       const value = state.grid[r][c];
       if (value === "ship") {
-        this.setCell(r, c, "", "Schiffsteil gelöscht.");
+        this.setCell(r, c, "", "Feld wieder leer.");
         return;
       }
       if (value === "water") {
-        this.setCell(r, c, "", "Wasserfeld gelöscht.");
+        this.setCell(r, c, "ship", "Schiffsteil gesetzt. Prüfe Zahlen und Flotte.");
         return;
       }
       this.setCell(r, c, "water", "Wasser markiert.");
@@ -2891,13 +2924,16 @@ const GAME_HANDLERS = {
     resetState(level) { state = { values: zeros(level.size, level.size, null), selected: null }; setStatus("Tippe auf ein weißes Feld und wähle eine Zahl."); },
     checkWin() { const level=currentLevel(); const filled=level.solution.every((row,r)=>row.every((value,c)=>!value || Boolean(state.values[r][c]))); return filled && level.runs.every((run)=>!this.runConflict(run)); },
     isWhite(level,r,c) { return level.solution[r]?.[c] > 0; },
-    select(r,c) { const level=currentLevel(); if(!this.isWhite(level,r,c)) return; state.selected=[r,c]; render("Wähle eine Zahl von 1 bis 9."); this.renderPad(); },
+    select(r,c) { const level=currentLevel(); if(!this.isWhite(level,r,c)) return; state.selected=[r,c]; render("Wähle eine Zahl von 1 bis 9."); },
     setNumber(v) { if(!state.selected) return; const [r,c]=state.selected; pushHistory(); state.values[r][c]=v; state.selected=null; this.checkWin()?handleWin():render(this.conflict(r,c) ? "Schau noch einmal auf Summe und doppelte Zahlen." : "Gut! Prüfe die kreuzenden Summen."); },
     clear() { if(!state.selected) return; const [r,c]=state.selected; pushHistory(); state.values[r][c]=null; state.selected=null; render("Die Zahl ist weg."); },
     runConflict(run) { const values=run.cells.map(([r,c])=>state.values[r][c]).filter(Boolean); const duplicate=new Set(values).size!==values.length; const sum=values.reduce((total,value)=>total+value,0); return duplicate || sum>run.sum || (values.length===run.cells.length && sum!==run.sum); },
     conflict(r,c) { const level=currentLevel(); const ids=level.runFor[keyOf(r,c)] || {}; return Object.values(ids).some((id)=>this.runConflict(level.runs.find((run)=>run.id===id))); },
-    renderPad() { numberPad.innerHTML=""; numberPad.hidden=false; numberPad.style.setProperty("--pad-cols", 3); for(let n=1;n<=9;n++){ const b=document.createElement("button"); b.type="button"; b.textContent=n; b.addEventListener("click",()=>this.setNumber(n)); numberPad.append(b); } const clear=document.createElement("button"); clear.type="button"; clear.className="clear-number-button"; clear.textContent="Löschen"; clear.addEventListener("click",()=>this.clear()); numberPad.append(clear); },
-    render(level) { board.innerHTML=""; board.style.setProperty("--size", level.size); for(let r=0;r<level.size;r++) for(let c=0;c<level.size;c++){ if(this.isWhite(level,r,c)){ const selected=state.selected&&sameCell(state.selected,[r,c]); const value=state.values[r][c] || ""; const cell=makeButtonCell(r,c,`cell kakuro-cell kakuro-entry${selected?" selected":""}${this.conflict(r,c)?" conflict":""}`, value); cell.addEventListener("click",()=>this.select(r,c)); board.append(cell); } else { const clue=level.clues[keyOf(r,c)] || {}; const cell=document.createElement("div"); cell.className=`cell kakuro-cell kakuro-clue${clue.across||clue.down?" has-clue":""}`; cell.innerHTML=`${clue.down ? `<span class="kakuro-down">${clue.down}</span>` : ""}${clue.across ? `<span class="kakuro-across">${clue.across}</span>` : ""}`; board.append(cell); } } if(state.selected) this.renderPad(); },
+    // Das Zahlenfeld steht vom ersten Bild an da, fest neben dem Brett. Ohne
+    // gewähltes Feld sind seine Tasten nur blass und ohne Wirkung – so
+    // erscheint und verschwindet nichts, und das Brett bleibt, wo es ist.
+    renderPad() { const idle=!state.selected; numberPad.innerHTML=""; numberPad.hidden=false; numberPad.classList.toggle("is-idle", idle); numberPad.setAttribute("aria-hidden", idle ? "true" : "false"); numberPad.style.setProperty("--pad-cols", 3); for(let n=1;n<=9;n++){ const b=document.createElement("button"); b.type="button"; b.textContent=n; b.disabled=idle; b.addEventListener("click",()=>this.setNumber(n)); numberPad.append(b); } const clear=document.createElement("button"); clear.type="button"; clear.className="clear-number-button"; clear.textContent="Löschen"; clear.disabled=idle; clear.addEventListener("click",()=>this.clear()); numberPad.append(clear); },
+    render(level) { board.innerHTML=""; board.style.setProperty("--size", level.size); for(let r=0;r<level.size;r++) for(let c=0;c<level.size;c++){ if(this.isWhite(level,r,c)){ const selected=state.selected&&sameCell(state.selected,[r,c]); const value=state.values[r][c] || ""; const cell=makeButtonCell(r,c,`cell kakuro-cell kakuro-entry${selected?" selected":""}${this.conflict(r,c)?" conflict":""}`, value); cell.addEventListener("click",()=>this.select(r,c)); board.append(cell); } else { const clue=level.clues[keyOf(r,c)] || {}; const cell=document.createElement("div"); cell.className=`cell kakuro-cell kakuro-clue${clue.across||clue.down?" has-clue":""}`; cell.innerHTML=`${clue.down ? `<span class="kakuro-down">${clue.down}</span>` : ""}${clue.across ? `<span class="kakuro-across">${clue.across}</span>` : ""}`; board.append(cell); } } this.renderPad(); },
   },
 };
 
@@ -3113,6 +3149,7 @@ if (backButton) backButton.addEventListener("click", showLevelSelect);
 setupSuccessOverlay();
 setupAudioFeedback();
 mountScene();
+applyAreaStyle();
 
 // Dieselbe Landschaft wie auf dem Startbild, hinter allem. Die Rätsel standen
 // bisher auf einem eigenen Farbverlauf; damit sahen sie aus wie eine zweite

@@ -344,10 +344,13 @@
 
     const houses = games.map((game, index) => {
       const x = startX + index * (w + gap * scale);
+      // In der Farbe des Bereichs, wie der Wagen und das Tor: die Häuser
+      // gehören sichtbar zusammen, und die Farbe sagt, wo man ist.
       const node = art.buildBuilding(game.id, {
         done: game.total > 0 && game.solved >= game.total,
         ratio: game.ratio,
         label: describeGame(game),
+        hue: area.color,
       });
       node.dataset.page = game.page;
       return group({ transform: `translate(${x},${groundOffset}) scale(${scale})` }, [node]);
@@ -1016,11 +1019,24 @@
     } catch { return null; }
   }
 
+  // Gemerkt wird je Bereich der höchste Stand, der je gesehen wurde – nie ein
+  // niedrigerer. Die Bühne wird beim Laden mehrmals gezeichnet, und dazwischen
+  // kann der Stand kurz einbrechen: die Anmeldung ist durch, aber der Stand
+  // aus der Cloud noch nicht da, und für einen Augenblick zählt nichts als
+  // gelöst. Wer diesen Einbruch als "gesehen" merkte, feierte gleich darauf
+  // den alten Stand als Wachstum – ein zweiter Wagen, eine Landschaft, die
+  // längst frei war. Sinken kann der Stand ehrlich nur beim Zurücksetzen, und
+  // dann ist ein ausgebliebenes Fest das kleinere Übel.
   function writeSeen(areas) {
+    const seen = readSeen() || {};
+    const next = { ...seen };
+    areas.forEach((area) => {
+      const before = Number(seen[area.id]);
+      const now = Math.round(area.ratio * 1000) / 1000;
+      next[area.id] = Number.isFinite(before) ? Math.max(before, now) : now;
+    });
     try {
-      localStorage.setItem(SEEN_KEY, JSON.stringify(
-        Object.fromEntries(areas.map((area) => [area.id, Math.round(area.ratio * 1000) / 1000])),
-      ));
+      localStorage.setItem(SEEN_KEY, JSON.stringify(next));
     } catch { /* privater Modus */ }
   }
 
@@ -1177,9 +1193,13 @@
     // meldete sich beim allerersten Öffnen gleich eine "neue" Landschaft.
     let roh = null;
     try { roh = localStorage.getItem(SEEN_SCENES_KEY); } catch { roh = null; }
-    try { localStorage.setItem(SEEN_SCENES_KEY, String(frei)); } catch { /* privater Modus */ }
+    const gesehen = roh === null ? null : Number(roh);
+    // Auch hier nur aufwärts: bricht der Stand beim Laden kurz ein, bleibt
+    // die höhere Zahl stehen – sonst würde die Landschaft, die längst frei
+    // war, beim nächsten Bild noch einmal als neu gefeiert.
+    const merken = Math.max(Number.isFinite(gesehen) ? gesehen : 0, frei);
+    try { localStorage.setItem(SEEN_SCENES_KEY, String(merken)); } catch { /* privater Modus */ }
     if (roh === null) return null;
-    const gesehen = Number(roh);
     if (!Number.isFinite(gesehen) || frei <= gesehen) return null;
     // Die zuletzt dazugekommene: mehrere auf einmal gibt es nicht, aber falls
     // doch, ist die neueste die interessanteste.
