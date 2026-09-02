@@ -448,6 +448,29 @@ const SZENARIEN = [
     ],
   },
   {
+    seite: "turmbau",
+    schritte: [
+      { name: "Bereit", tun: async (blatt) => { await pause(blatt, 400); } },
+      // Zwei Blöcke stapeln, dann so lange daneben tippen, bis der Turm
+      // fertig ist. Wohin der schwingende Block gerade zeigt, weiss die
+      // Prüfung nicht – deshalb wird der Zustand direkt gesetzt.
+      { name: "Turm", tun: async (blatt) => {
+        await tippe(blatt, ".tb-feld");
+        await pause(blatt, 600);
+        await tippe(blatt, ".tb-feld");
+        await pause(blatt, 600);
+      } },
+      { name: "Ergebnis", tun: async (blatt) => {
+        await blatt.evaluate(() => {
+          const spiel = window.LernappTurmbau;
+          if (spiel?.state?.schweber) spiel.state.schweber.x += 400;
+        });
+        await tippe(blatt, ".tb-feld");
+        await pause(blatt, 1600);
+      } },
+    ],
+  },
+  {
     seite: "weichen",
     uhr: true,
     schritte: [
