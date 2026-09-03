@@ -63,12 +63,31 @@ api.LEVELS.forEach((level, index) => {
   assert(level.gleichzeitig >= 1 && level.gleichzeitig <= 6, `Level ${level.nr}: ${level.gleichzeitig} Züge gleichzeitig sind unsinnig`);
 });
 
-// Ab Level 4 zieht das Tempo an, und es fällt danach nie wieder ab.
+// Ab Level 4 zieht das Tempo an, und es fällt danach nie wieder ab. Auch die
+// Dichte wächst nur: ein späteres Level lässt nie weniger Züge zugleich fahren.
 assert(api.LEVELS[3].tempo > api.LEVELS[2].tempo, "ab Level 4 sollte es schneller werden");
 api.LEVELS.forEach((level, index) => {
   if (index === 0) return;
   assert(level.tempo >= api.LEVELS[index - 1].tempo, `Level ${level.nr} ist langsamer als das davor`);
   assert(level.takt <= api.LEVELS[index - 1].takt, `Level ${level.nr} lässt mehr Zeit zwischen den Zügen als das davor`);
+  assert(level.gleichzeitig >= api.LEVELS[index - 1].gleichzeitig, `Level ${level.nr} lässt weniger Züge zugleich fahren als das davor`);
+});
+
+// Das gemächliche Tempo ist der Sinn des Spiels: ein Zug legt in einer Sekunde
+// höchstens ein Zehntel der Bildbreite zurück, braucht also über zehn Sekunden
+// über das Bild. Und mindestens drei Züge sind zugleich unterwegs – sonst
+// stünde ein Kind zwischen zwei Zügen lange vor einer leeren Strecke.
+api.LEVELS.forEach((level) => {
+  assert(level.tempo <= 0.1, `Level ${level.nr} fährt mit ${level.tempo} zu schnell`);
+  assert(level.gleichzeitig >= 3, `Level ${level.nr} lässt nur ${level.gleichzeitig} Züge zugleich fahren`);
+});
+
+// Und trotzdem darf kein Level zur Geduldsprobe werden: gerechnet auf eine
+// Bildbreite Weg je Zug dauert keines länger als anderthalb Minuten. Weniger
+// Tempo verlangt also mehr Züge zugleich, sonst wartet das Kind nur noch.
+api.LEVELS.forEach((level) => {
+  const dauer = level.zuege / level.gleichzeitig / level.tempo;
+  assert(dauer <= 90, `Level ${level.nr} dauert rund ${Math.round(dauer)} Sekunden`);
 });
 
 // Genug Farben für das schwerste Level, und jede mit eigenem Zeichen.
