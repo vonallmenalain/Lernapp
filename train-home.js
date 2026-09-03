@@ -630,22 +630,29 @@
   // um den eigenen Weg, und fünf Züge übereinander wären dort nur Gedränge.
   let friends = [];
   let friendsHost = null;
+  // Alle der Gruppe, das eigene Konto eingeschlossen. Auf dem Gleis stehen nur
+  // die anderen; die Bestenliste braucht dagegen alle – wer seinen eigenen
+  // Namen dort nicht findet, glaubt, er sei nicht dabei.
+  let members = [];
   // Zählt die Abfragen. Eine langsame Antwort von vorhin darf eine neuere
   // nicht überschreiben – etwa wenn der Admin die Gruppe gerade geändert hat.
   let friendsToken = 0;
 
   async function loadFriends() {
     const token = friendsToken += 1;
-    let accounts = [];
+    let all = [];
     try {
-      accounts = (await cloud()?.loadGroupTrains?.()) || [];
+      all = (await cloud()?.loadGroupMembers?.()) || [];
     } catch (error) {
       // Ohne Gruppe, ohne Netz, ohne Recht: dann steht eben nur der eigene Zug
       // da. Das Startbild darf daran nicht hängenbleiben.
       console.warn("Die Züge der Gruppe konnten nicht geladen werden", error);
-      accounts = [];
+      all = [];
     }
     if (token !== friendsToken) return;
+
+    members = all;
+    const accounts = all.filter((account) => !account.eigen);
 
     friends = accounts.map((account) => ({
       id: account.id,
@@ -657,7 +664,8 @@
     // Steht gerade der Zug eines Kindes offen, das nicht mehr dazugehört, führt
     // der Weg zurück auf das Startbild – sonst bliebe eine Ansicht stehen, zu
     // der es keinen Zug mehr gibt.
-    if (view.name === "friend" && !friends.some((entry) => entry.id === view.friendId)) {
+    const kenntFreund = friends.some((entry) => entry.id === view.friendId);
+    if (view.name === "friend" && !kenntFreund) {
       view.friendId = null;
       view.name = "home";
       render();
@@ -665,6 +673,16 @@
     }
 
     renderFriends();
+
+    // In der Bestenliste geht es um die ganze Gruppe und nicht um einen
+    // einzelnen Zug: sie bleibt stehen, auch wenn der Zug verschwindet, von
+    // dem aus sie geöffnet wurde – nur der Rückweg führt dann auf das
+    // Startbild. Neu gezeichnet wird sie in jedem Fall, denn die anderen haben
+    // inzwischen vielleicht gespielt.
+    if (view.name === "highscore" && view.highscoreGame) {
+      if (!kenntFreund) view.friendId = null;
+      showHighscore(view.highscoreGame, view.highscoreLevel);
+    }
   }
 
   function renderFriends() {
@@ -803,14 +821,17 @@
 
     const shelf = document.createElement("div");
     shelf.className = "wagon-shelf";
-    // Kisten ohne Knopf: der Weg ins Spiel führt über den eigenen Zug, nicht
-    // über den eines anderen. Dafür steht hier die Zahl – wer vergleicht, will
-    // wissen, wie viele es sind, und nicht nur, wie voll ein Band aussieht.
+    // Die Kisten führen hier nicht ins Spiel, sondern in die Bestenliste. Am
+    // eigenen Zug will ein Kind spielen, am fremden vergleichen – und
+    // vergleichen heisst: wer von uns allen hat hier das beste Ergebnis? Die
+    // Zahl bleibt daneben stehen, sie beantwortet die einfachere Frage.
     active.games.forEach((game) => {
-      const crate = document.createElement("div");
-      crate.className = "wagon-crate is-static";
-      crate.setAttribute("role", "group");
-      crate.setAttribute("aria-label", describeGame(game));
+      const crate = document.createElement("button");
+      crate.type = "button";
+      crate.className = "wagon-crate";
+      crate.dataset.game = game.id;
+      crate.setAttribute("aria-label", `${describeGame(game)} Antippen für die Bestenliste der Gruppe.`);
+      crate.addEventListener("click", () => { if (!busy) showHighscore(game.id); });
       crate.append(...crateParts(game, active.color));
       const count = document.createElement("span");
       count.className = "crate-count";
@@ -821,6 +842,141 @@
 
     wrap.append(name, trainBox, shelf);
     return wrap;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Die Bestenliste der Gruppe
+  // ---------------------------------------------------------------------------
+  // Erreichbar über den Zug eines anderen: Wagen antippen, Kiste antippen. Der
+  // Umweg ist Absicht. Nach einem geschafften Level gehört die Bühne dem
+  // Ergebnis des Kindes und nicht dem Vergleich mit anderen; wer dagegen von
+  // sich aus auf einen fremden Zug tippt, will genau diesen Vergleich.
+  //
+  // Gerechnet wird in highscore.js – dieselbe Rechnung, die auch der
+  // Adminbereich benutzt. Hier steht nur, wie sie aussieht.
+  //
+  // In der Liste stehen alle der Gruppe, auch das eigene Kind und auch, wer
+  // noch nichts gespielt hat. Ein Kind, das seinen Namen nicht findet, glaubt,
+  // es sei nicht dabei.
+  function highscores() { return window.LernappHighscore || null; }
+
+  function buildHighscore(gameId, levelWahl) {
+    const hs = highscores();
+    const area = progress.areaForGame(gameId);
+    const color = area?.color || "#7C5CE6";
+
+    const wrap = document.createElement("div");
+    wrap.className = "highscore";
+
+    const head = document.createElement("div");
+    head.className = "highscore-head";
+
+    // Dasselbe Bild wie auf der Bühne und an der Kiste: das Kind erkennt das
+    // Spiel daran, nicht am Namen.
+    const icon = art.buildBuilding(gameId, { label: hs?.titel(gameId) || "", hue: color });
+    icon.removeAttribute("role");
+    icon.removeAttribute("tabindex");
+    icon.classList.remove("train-building");
+    head.append(el("svg", {
+      viewBox: `0 ${art.GROUND - art.BUILD_H} ${art.BUILD_W} ${art.BUILD_H + 2}`,
+      class: "highscore-icon", "aria-hidden": "true",
+    }, [icon]));
+
+    const heading = document.createElement("div");
+    const kicker = document.createElement("p");
+    kicker.className = "highscore-kicker";
+    kicker.textContent = "Bestenliste";
+    const title = document.createElement("h2");
+    title.className = "highscore-title";
+    title.textContent = hs?.titel(gameId) || "Bestenliste";
+    heading.append(kicker, title);
+    head.append(heading);
+    wrap.append(head);
+
+    if (!hs) {
+      wrap.append(hinweis("Die Bestenliste ist gerade nicht zu haben."));
+      return wrap;
+    }
+
+    // Die Level als Auswahl. "Gesamt" steht immer vorn: es ist die Antwort auf
+    // die Frage, die ein Kind zuerst stellt.
+    // Schon ein einziges gespieltes Level bekommt seine Auswahl: "Gesamt" zeigt,
+    // wie viele es sind, das Level selbst, wer es am schnellsten geschafft hat.
+    // Das sind zwei verschiedene Antworten, auch wenn es nur ein Level ist.
+    const level = hs.level(gameId, members);
+    if (level.length) {
+      const chips = document.createElement("div");
+      chips.className = "highscore-levels";
+      const alle = [{ id: null, label: "Gesamt" }, ...level];
+      alle.forEach((eintrag) => {
+        const chip = document.createElement("button");
+        chip.type = "button";
+        chip.className = "highscore-chip";
+        chip.textContent = eintrag.label;
+        const gewaehlt = String(eintrag.id) === String(levelWahl);
+        chip.classList.toggle("active", gewaehlt);
+        chip.setAttribute("aria-pressed", gewaehlt ? "true" : "false");
+        chip.addEventListener("click", () => { if (!busy) showHighscore(gameId, eintrag.id); });
+        chips.append(chip);
+      });
+      wrap.append(chips);
+    }
+
+    const rows = hs.liste(gameId, members, levelWahl);
+    if (!rows.length) {
+      wrap.append(hinweis("Hier ist noch niemand aus deiner Gruppe."));
+      return wrap;
+    }
+
+    const list = document.createElement("ol");
+    list.className = "highscore-list";
+    list.setAttribute("aria-label", `Bestenliste ${hs.titel(gameId)}`);
+
+    rows.forEach((eintrag) => {
+      const row = document.createElement("li");
+      row.className = "highscore-row";
+      row.classList.toggle("is-me", eintrag.eigen);
+      row.classList.toggle("is-empty", eintrag.leer);
+      // Die ersten drei bekommen ihre Farbe. Mehr Ränge zu färben hiesse, den
+      // Unterschied zwischen dem vierten und dem fünften Platz zu betonen –
+      // und der ist keiner.
+      if (eintrag.platz && eintrag.platz <= 3) row.dataset.platz = String(eintrag.platz);
+
+      const rank = document.createElement("span");
+      rank.className = "highscore-rank";
+      rank.textContent = eintrag.platz ? String(eintrag.platz) : "–";
+      rank.setAttribute("aria-hidden", "true");
+
+      const name = document.createElement("span");
+      name.className = "highscore-name";
+      name.textContent = eintrag.eigen ? `${eintrag.name} (du)` : eintrag.name;
+
+      const value = document.createElement("span");
+      value.className = "highscore-value";
+      const wert = document.createElement("strong");
+      wert.textContent = eintrag.text;
+      value.append(wert);
+      if (eintrag.zusatz) {
+        const zusatz = document.createElement("small");
+        zusatz.textContent = eintrag.zusatz;
+        value.append(zusatz);
+      }
+
+      const platzWort = eintrag.platz ? `Platz ${eintrag.platz}. ` : "";
+      row.setAttribute("aria-label", `${platzWort}${name.textContent}: ${eintrag.text}${eintrag.zusatz ? `, ${eintrag.zusatz}` : ""}.`);
+      row.append(rank, name, value);
+      list.append(row);
+    });
+
+    wrap.append(list);
+    return wrap;
+  }
+
+  function hinweis(text) {
+    const p = document.createElement("p");
+    p.className = "highscore-hint";
+    p.textContent = text;
+    return p;
   }
 
   // ---------------------------------------------------------------------------
@@ -946,6 +1102,10 @@
     button.type = "button";
     button.className = "train-start";
     button.setAttribute("aria-label", "Losfahren");
+    // Erst gemessen, dann sichtbar: bis positionStart() ihn vor die Lok gesetzt
+    // hat, hat der Knopf keinen Platz auf der Bühne. Ohne diese Marke stünde er
+    // solange an seiner Ausweichstelle links oben – "plötzlich irgendwo".
+    button.dataset.placed = "0";
     button.append(el("svg", { viewBox: "0 0 48 48", "aria-hidden": "true" }, [
       el("circle", { cx: 24, cy: 24, r: 21, class: "train-start-ring", fill: "none", stroke: "#3fbf74", "stroke-width": 4, opacity: "0.5" }),
       el("circle", { cx: 24, cy: 24, r: 18, fill: shade("#3fbf74", -0.35) }),
@@ -956,21 +1116,53 @@
     return button;
   }
 
+  // Der Knopf soll gross genug für einen Kinderfinger sein, aber niemals so
+  // gross, dass er den Platz vor der Lok sprengt.
+  const START_MIN = 44;
+  const START_MAX = 74;
+  // Luft zum Bildrand und zur Lok. Zur Lok ist sie das Mindestmass, mehr wird
+  // daraus, wenn der Platz es hergibt.
+  const START_EDGE = 6;
+
   // Setzt den Knopf vor die Lok und knapp über das Gleis. Beides wird gemessen:
   // wie breit der Zug im Bild steht, hängt am Seitenverhältnis des Fensters.
+  //
+  // Der Platz dafür ist im Zug angelegt: hinter der Lok läuft das Gleis noch
+  // ein Stück weiter (trailing in art.buildTrain), und genau dort schwebt das
+  // Startsignal. Wie breit dieses Stück auf dem Bildschirm ist, hängt an der
+  // Fensterbreite – der Knopf richtet sich deshalb nach dem Platz und nicht
+  // umgekehrt.
+  //
+  // Vorher wurde er nur an den rechten Rand geklemmt. Auf einem schmalen Bild
+  // – ein kleines Fenster, ein Gerät mit vergrösserter Anzeige – schob ihn
+  // diese Klemme rückwärts auf die Lok. Dort ist er nicht nur schlecht zu
+  // sehen: ein Tipp auf die Lok öffnet die Werkstatt, und wer losfahren wollte,
+  // landete beim Umbauen. Deshalb ist die Lok jetzt die harte Grenze, und
+  // nachgeben muss der Knopf, indem er kleiner wird.
   function positionStart() {
     if (!startButton) return;
     const loco = stage.querySelector("[data-loco]");
     const rail = layerHost?.querySelector(".stage-rail");
     const host = stage.getBoundingClientRect();
     const box = loco?.getBoundingClientRect();
-    if (!box?.width || !host.width) return;
-    const size = startButton.offsetWidth || 74;
-    const gap = Math.min(70, host.width * 0.03);
-    const left = Math.min(box.right - host.left + gap, host.width - size - 18);
+    // Ohne Mass kein Platz: dann bleibt der Knopf unsichtbar, statt an seiner
+    // Ausweichstelle in der oberen linken Ecke aufzutauchen.
+    if (!box?.width || !host.width) { startButton.dataset.placed = "0"; return; }
+
+    const locoRight = box.right - host.left;
+    const room = Math.max(0, host.width - locoRight);
+    const size = Math.round(Math.max(START_MIN, Math.min(START_MAX, room - 2 * START_EDGE)));
+    // Mittig in den freien Platz, aber nie über die Lok. Bleibt selbst für die
+    // kleinste Fassung zu wenig übrig, steht der Knopf lieber knapp am rechten
+    // Rand als einen Finger breit auf der Lok.
+    const left = locoRight + Math.max(START_EDGE, (room - size) / 2);
     const railTop = rail ? rail.getBoundingClientRect().top - host.top : host.height * 0.82;
+
+    startButton.style.width = `${size}px`;
+    startButton.style.height = `${size}px`;
     startButton.style.left = `${Math.round(left)}px`;
     startButton.style.top = `${Math.round(railTop - size - 16)}px`;
+    startButton.dataset.placed = "1";
   }
 
   function buildBackButton() {
@@ -987,7 +1179,13 @@
   // Ansichten
   // ---------------------------------------------------------------------------
   // from = die Bühne, von der aus Werkstatt oder Wagen-Ansicht geöffnet wurden.
-  const view = { name: "home", areaId: null, part: "whole", from: null, friendId: null, friendArea: null };
+  const view = {
+    name: "home", areaId: null, part: "whole", from: null,
+    friendId: null, friendArea: null,
+    // Welches Spiel die Bestenliste zeigt und welches Level darin. Null heisst
+    // "das ganze Spiel".
+    highscoreGame: null, highscoreLevel: null,
+  };
   let layerHost = null;
   let backButton = null;
   let sceneButton = null;
@@ -1042,6 +1240,16 @@
     view.from = null;
     setView("friend");
     renderLayer(buildFriendDetail(friend, areaId));
+  }
+
+  // Die Bestenliste eines Spiels. Der Weg dorthin führt über den Zug eines
+  // anderen, deshalb führt der Rückweg auch dorthin zurück.
+  function showHighscore(gameId, levelWahl = null) {
+    if (!gameId) { showHome(); return; }
+    view.highscoreGame = gameId;
+    view.highscoreLevel = levelWahl ?? null;
+    setView("highscore");
+    renderLayer(buildHighscore(gameId, view.highscoreLevel));
   }
 
   // Die Bühne, auf die der Rückweg führt: die, von der aus angetippt wurde.
@@ -1218,6 +1426,16 @@
     if (view.name === "areas") { showHome(); return; }
     if (view.name === "wagon") { backFromDetail(); return; }
     if (view.name === "friend") { view.friendId = null; backFromDetail(); return; }
+    // Aus der Bestenliste zurück an den Zug, von dem aus sie geöffnet wurde.
+    // Steht der nicht mehr da – die Gruppe hat sich geändert –, führt der Weg
+    // auf das Startbild.
+    if (view.name === "highscore") {
+      view.highscoreGame = null;
+      view.highscoreLevel = null;
+      if (view.friendId) showFriend(view.friendId, view.friendArea);
+      else { view.name = "home"; render(); }
+      return;
+    }
     if (view.name === "loco") {
       // Erst aus dem Bauteil heraus zur ganzen Lok, dann zum Zug. Zwei Stufen
       // zurück auf einmal wäre für ein Kind ein Sprung ins Nichts.
@@ -1627,6 +1845,7 @@
     else if (previous === "loco") showWorkshop(view.part);
     else if (previous === "wagon" && previousArea) showWagon(previousArea);
     else if (previous === "friend" && view.friendId) showFriend(view.friendId, view.friendArea);
+    else if (previous === "highscore" && view.highscoreGame) showHighscore(view.highscoreGame, view.highscoreLevel);
     else showHome();
 
     // Ganz zum Schluss: hat sich seit dem letzten Mal ein Wagen weiterentwickelt,
@@ -1778,6 +1997,8 @@
     view.from = null;
     view.friendId = null;
     view.friendArea = null;
+    view.highscoreGame = null;
+    view.highscoreLevel = null;
     render();
   }
 })();

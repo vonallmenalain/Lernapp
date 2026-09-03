@@ -508,7 +508,7 @@ assert(!/match \/sessions\/\{[^}]*\} \{[^}]*sharesGroupWith/.test(rules),
 // und niemand merkte es.
 const home = fs.readFileSync(path.join(root, "train-home.js"), "utf8");
 for (const [teil, warum] of [
-  ["loadGroupTrains", "die Bühne holt die Züge der Gruppe nicht"],
+  ["loadGroupMembers", "die Bühne holt die Konten der Gruppe nicht"],
   ["areasForAccount", "die Bühne rechnet den fremden Stand nicht"],
   ["lernapp:group-changed", "eine Änderung des Admins käme nie an"],
   ["train-friends", "die Ebene für die fremden Züge fehlt"],

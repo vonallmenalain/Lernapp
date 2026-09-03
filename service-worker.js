@@ -1,4 +1,4 @@
-const APP_VERSION = "2026-09-09-6";
+const APP_VERSION = "2026-09-09-7";
 const CACHE_PREFIX = "lernapp-pwa-";
 const CACHE_NAME = `${CACHE_PREFIX}${APP_VERSION}`;
 const ASSET_VERSION_QUERY = `?v=${APP_VERSION}`;
@@ -46,6 +46,7 @@ const CORE_ASSETS = [
   `./styles.css${ASSET_VERSION_QUERY}`,
   `./spatial-puzzles.js${ASSET_VERSION_QUERY}`,
   `./kids.js${ASSET_VERSION_QUERY}`,
+  `./highscore.js${ASSET_VERSION_QUERY}`,
   `./app.js${ASSET_VERSION_QUERY}`,
   `./train-progress.js${ASSET_VERSION_QUERY}`,
   `./train-art.js${ASSET_VERSION_QUERY}`,

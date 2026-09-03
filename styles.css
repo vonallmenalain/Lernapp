@@ -15,8 +15,21 @@
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
+/* --- Kein Zoom ---------------------------------------------------------------
+   Die App füllt das Bild und rechnet damit, dass sie es ganz hat: der Zug wird
+   auf die Fensterbreite gemessen, die Spielfelder auf die Fensterhöhe. Ein
+   Kind, das mit zwei Fingern hineinzieht, sieht danach einen Ausschnitt, in dem
+   die Hälfte der Knöpfe ausserhalb liegt – und findet ohne Hilfe nicht mehr
+   heraus. Deshalb: kein Zwei-Finger-Zoom und kein Doppeltipp-Zoom.
+
+   Zwei Zeilen, weil kein Browser beides allein abdeckt. pan-x pan-y erlaubt das
+   Wischen und Scrollen und nimmt nur das Auseinanderziehen weg; das <meta
+   viewport> in jeder Seite sagt dasselbe noch einmal für die Browser, die auf
+   touch-action am Wurzelelement nicht hören. Safari auf dem iPhone hört auf
+   keines von beiden – dort fängt kids.js die gesture-Ereignisse ab. */
 html {
   min-height: 100%;
+  touch-action: pan-x pan-y;
 }
 
 * { box-sizing: border-box; }
@@ -25,6 +38,7 @@ body {
   min-height: 100vh;
   min-height: 100dvh;
   margin: 0;
+  touch-action: pan-x pan-y;
   padding: var(--safe-top) var(--safe-right) var(--safe-bottom) var(--safe-left);
   color: var(--ink);
   overflow-x: hidden;
@@ -2636,8 +2650,7 @@ body.puzzle-active .spatialPuzzle-board .spatial-option-graphic > svg {
   padding-top: 4px;
 }
 
-.admin-section-head,
-.admin-detail-head {
+.admin-section-head {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -2645,9 +2658,9 @@ body.puzzle-active .spatialPuzzle-board .spatial-option-graphic > svg {
 }
 
 .admin-section-head h3,
-.admin-detail-head h3,
 .admin-columns h4,
-.admin-top-levels h4 {
+.admin-top-levels h4,
+.admin-train-detail h4 {
   margin: 0;
 }
 
@@ -2685,74 +2698,215 @@ body.puzzle-active .spatialPuzzle-board .spatial-option-graphic > svg {
   min-width: 0;
 }
 
-.admin-layout {
-  display: grid;
-  grid-template-columns: minmax(180px, 0.7fr) minmax(0, 1.5fr);
-  gap: 14px;
-  align-items: start;
-}
+/* --- Die Konten zum Aufklappen ---
+   Zugeklappt steht je Konto eine Zeile: Name, Gruppe, der Zug als fünf Balken
+   und die drei Zahlen, nach denen man zuerst schaut. Alles Weitere erscheint
+   erst beim Aufklappen. Vorher lagen alle Konten nebeneinander und alle
+   Einzelheiten daneben – bei einem Dutzend Kindern war das keine Übersicht. */
 
-.admin-user-list,
+.admin-accordion,
 .admin-data-list {
   display: grid;
   gap: 10px;
 }
 
-.admin-user-list {
-  max-height: 520px;
-  overflow: auto;
-  padding-right: 2px;
+.admin-entry {
+  border-radius: 16px;
+  background: #fff;
+  border: 2px solid var(--line);
+  box-shadow: 0 10px 22px rgba(50, 44, 109, 0.08);
+  overflow: hidden;
 }
 
-.admin-user-button {
+.admin-entry.is-open {
+  border-color: #06d6a0;
+}
+
+/* Oben die Zeile: Pfeil, Name, Gruppe, die drei Zahlen. Darunter über die
+   ganze Breite der Zug. Die Plätze stehen fest statt sich zu ergeben – ohne
+   Gruppe rutschten die Zahlen sonst eine Spalte nach links und stünden bei
+   jedem Konto woanders. */
+.admin-entry-head {
   width: 100%;
   min-height: 0;
   display: grid;
-  justify-items: start;
-  gap: 4px;
+  grid-template-columns: 22px minmax(120px, 1fr) auto auto;
+  align-items: center;
+  gap: 10px 14px;
   padding: 12px;
-  border-radius: 16px;
-  background: #fff;
+  border: none;
+  border-radius: 0;
+  background: transparent;
   color: var(--ink);
-  border-color: var(--line);
   text-align: left;
-  box-shadow: 0 10px 22px rgba(50, 44, 109, 0.08);
 }
 
-.admin-user-button.active,
-.admin-user-button:hover:not(:disabled),
-.admin-user-button:focus-visible {
+.admin-entry-caret { grid-column: 1; grid-row: 1; }
+.admin-entry-name { grid-column: 2; grid-row: 1; }
+.admin-entry-group { grid-column: 3; grid-row: 1; }
+.admin-entry-head .admin-user-summary { grid-column: 4; grid-row: 1; }
+.admin-entry-head .admin-train { grid-column: 1 / -1; grid-row: 2; }
+
+.admin-entry-head:hover:not(:disabled),
+.admin-entry-head:focus-visible {
   background: #f0fff9;
   color: var(--ink);
-  border-color: #06d6a0;
   outline: none;
 }
 
-.admin-user-button span,
-.admin-user-button small,
-.admin-user-button em,
-.admin-meta,
+.admin-entry-caret {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  justify-self: center;
+  color: var(--muted);
+  transition: transform 0.18s ease;
+}
+.admin-entry-caret svg { width: 18px; height: 18px; display: block; }
+.admin-entry.is-open .admin-entry-caret { transform: rotate(90deg); }
+
+.admin-entry-name {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.admin-entry-name strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-entry-name span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.admin-entry-group {
+  justify-self: start;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: #eef0ff;
+  color: var(--primary-dark);
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.admin-entry-body {
+  min-width: 0;
+  display: grid;
+  gap: 14px;
+  padding: 4px 12px 14px;
+  border-top: 2px solid var(--line);
+}
+
+/* Der Zug als fünf Balken: dieselbe Reihenfolge und dieselben Farben wie auf
+   dem Startbild. Die Zahl über dem Balken ist die Ausbaustufe des Wagens, der
+   Balken selbst der Anteil im Bereich – die Stufe allein sagt nicht, ob bis
+   zur nächsten zwei Level fehlen oder zwanzig. */
+.admin-train {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.admin-train-car {
+  min-width: 0;
+  display: grid;
+  justify-items: center;
+  gap: 3px;
+}
+
+.admin-train-car b {
+  color: var(--wagen);
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-train-car i {
+  width: 100%;
+  height: 7px;
+  border-radius: 999px;
+  background: rgba(36, 48, 71, 0.12);
+  overflow: hidden;
+}
+
+.admin-train-car s {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--wagen);
+}
+
+.admin-train-car em {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--muted);
+  font-style: normal;
+  font-size: 0.62rem;
+  font-weight: 800;
+}
+
+.admin-train-detail {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 16px;
+  background: #fff;
+  border: 2px solid var(--line);
+  box-shadow: 0 10px 22px rgba(50, 44, 109, 0.08);
+}
+
+.admin-train-detail > div {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px;
+}
+
+.admin-train-detail span {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+  padding: 9px 10px;
+  border-radius: 12px;
+  background: #fbfaff;
+}
+
+.admin-train-detail b { color: var(--ink); font-size: 0.86rem; }
+.admin-train-detail i {
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(36, 48, 71, 0.12);
+  overflow: hidden;
+}
+.admin-train-detail s { display: block; height: 100%; border-radius: 999px; background: var(--wagen); }
+.admin-train-detail em {
+  color: var(--muted);
+  font-style: normal;
+  font-size: 0.74rem;
+  font-weight: 800;
+}
+
+.admin-user-summary,
 .admin-data-card > span {
   color: var(--muted);
   font-weight: 800;
 }
 
-.admin-user-button em {
-  max-width: 100%;
-  font-style: normal;
-  font-size: 0.82rem;
-  line-height: 1.3;
-  overflow-wrap: anywhere;
-}
-
 .admin-user-summary {
-  width: 100%;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(74px, 1fr));
+  grid-template-columns: repeat(3, minmax(68px, auto));
   gap: 6px;
 }
 
-.admin-user-summary span {
+.admin-user-summary > span {
   display: grid;
   gap: 2px;
   padding: 7px;
@@ -2760,6 +2914,7 @@ body.puzzle-active .spatialPuzzle-board .spatial-option-graphic > svg {
   background: #fbfaff;
   color: var(--ink);
   font-size: 0.82rem;
+  text-align: center;
 }
 
 .admin-user-summary b {
@@ -2769,18 +2924,92 @@ body.puzzle-active .spatialPuzzle-board .spatial-option-graphic > svg {
   letter-spacing: 0.04em;
 }
 
-.admin-detail {
-  min-width: 0;
-  display: grid;
-  gap: 14px;
+.admin-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  color: var(--muted);
+  font-weight: 800;
+  font-size: 0.82rem;
+  overflow-wrap: anywhere;
 }
 
-.admin-meta {
+/* --- Auswertung je Spiel ---
+   Nicht "was hat dieses Kind gemacht", sondern "was ist mit diesem Spiel los".
+   Sortiert nach gespielten Runden: die erste Frage an so eine Liste ist,
+   welches Spiel überhaupt angekommen ist. */
+
+.admin-game-grid {
   display: grid;
-  gap: 4px;
-  text-align: right;
-  font-size: 0.85rem;
+  grid-template-columns: repeat(auto-fit, minmax(252px, 1fr));
+  gap: 10px;
 }
+
+/* "Abgeschlossen" passt knapp nicht in eine halbe Karte. Getrennt wird es mit
+   Bindestrich statt mitten im Wort umbrochen – die Seite ist auf Deutsch
+   ausgezeichnet, der Browser weiss also, wo. */
+.admin-game-card .admin-data-grid span {
+  overflow-wrap: normal;
+  hyphens: auto;
+}
+
+.admin-game-card {
+  min-width: 0;
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 16px;
+  background: #fff;
+  border: 2px solid var(--line);
+  box-shadow: 0 10px 22px rgba(50, 44, 109, 0.08);
+}
+
+/* Ein Spiel, das noch niemand angefasst hat, tritt zurück – es steht in der
+   Liste, damit sichtbar bleibt, dass es niemand anfasst. */
+.admin-game-card.is-quiet { opacity: 0.66; }
+
+.admin-game-card header {
+  display: grid;
+  gap: 2px;
+}
+
+.admin-game-card header strong { color: var(--ink); }
+.admin-game-card header span {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.admin-game-best {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: #f0fff9;
+  color: var(--ink);
+  font-size: 0.86rem;
+  font-weight: 800;
+}
+
+.admin-game-best b {
+  display: block;
+  color: var(--muted);
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.admin-game-best em {
+  color: var(--muted);
+  font-style: normal;
+  font-weight: 800;
+}
+
+.admin-game-card small { color: var(--muted); font-weight: 800; font-size: 0.76rem; }
+
+.admin-note { font-size: 0.78rem; line-height: 1.5; }
 
 .admin-stat-strip > div {
   min-height: 72px;
@@ -2912,24 +3141,33 @@ body.puzzle-active .spatialPuzzle-board .spatial-option-graphic > svg {
 }
 
 @media (max-width: 900px) {
-  .account-panel.has-admin .admin-detail-head {
-    flex-direction: column;
-  }
-
-  .account-panel.has-admin .admin-layout,
   .account-panel.has-admin .admin-columns,
-  .account-panel.has-admin .admin-top-levels > div {
+  .account-panel.has-admin .admin-top-levels > div,
+  .account-panel.has-admin .admin-game-grid {
     grid-template-columns: 1fr;
   }
 
-  .account-panel.has-admin .admin-user-list,
   .account-panel.has-admin .admin-data-list {
     max-height: none;
     padding-right: 0;
   }
 
-  .account-panel.has-admin .admin-meta {
-    text-align: left;
+  /* Eng wird die Zeile untereinander gelesen: Name, Gruppe, Zahlen, Zug.
+     Der Zug bleibt dabei fünfspaltig – fünf Wagen untereinander wären keine
+     Zeile mehr, sondern eine zweite Liste. */
+  .account-panel.has-admin .admin-entry-head {
+    grid-template-columns: 22px minmax(0, 1fr);
+  }
+
+  .account-panel.has-admin .admin-entry-group,
+  .account-panel.has-admin .admin-entry-head .admin-user-summary,
+  .account-panel.has-admin .admin-entry-head .admin-train {
+    grid-column: 1 / -1;
+    grid-row: auto;
+  }
+
+  .account-panel.has-admin .admin-user-summary {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
@@ -2977,20 +3215,17 @@ body.puzzle-active .spatialPuzzle-board .spatial-option-graphic > svg {
     grid-template-columns: 1fr;
   }
 
-  .admin-section-head,
-  .admin-detail-head {
+  .admin-section-head {
     flex-direction: column;
   }
 
-  .admin-layout,
   .admin-columns,
   .admin-data-grid,
-  .admin-user-summary,
-  .admin-top-levels > div {
+  .admin-top-levels > div,
+  .admin-game-grid {
     grid-template-columns: 1fr;
   }
 
-  .admin-user-list,
   .admin-data-list {
     max-height: none;
     padding-right: 0;
@@ -3000,9 +3235,7 @@ body.puzzle-active .spatialPuzzle-board .spatial-option-graphic > svg {
     width: 100%;
   }
 
-  .admin-meta {
-    text-align: left;
-  }
+  .admin-train-car em { display: none; }
 
   .session-item small {
     text-align: left;
@@ -3984,10 +4217,12 @@ body[data-page="train"].list-open { overflow: auto; }
 .train-start {
   position: absolute;
   z-index: 4;
-  /* Auf einem schmalen Bildschirm etwas kleiner: der Platz vor der Lok ist
-     dort knapp, und der Knopf soll vor ihr schweben, nicht auf ihr. */
-  width: clamp(58px, 11vw, 74px);
-  height: clamp(58px, 11vw, 74px);
+  /* Nur der Ausgangswert. Die endgültige Grösse misst positionStart() aus dem
+     Platz vor der Lok: der Knopf soll vor ihr schweben, nicht auf ihr, und
+     dafür wird er auf einem schmalen Bild lieber kleiner als dass er
+     zurückweicht. */
+  width: clamp(44px, 11vw, 74px);
+  height: clamp(44px, 11vw, 74px);
   padding: 0;
   border: none;
   border-radius: 50%;
@@ -3997,6 +4232,10 @@ body[data-page="train"].list-open { overflow: auto; }
   transition: opacity 0.45s ease 0.1s, transform 0.15s ease;
 }
 .train-start[hidden] { display: none; }
+/* Vor der ersten Messung hat der Knopf keinen Platz: ohne left/top stünde er
+   in der oberen linken Ecke der Bühne, und genau dort gehört er nicht hin.
+   Gesetzt wird die Marke in positionStart(). */
+.train-start[data-placed="0"] { opacity: 0; pointer-events: none; }
 /* Geschwebt wird die Zeichnung, nicht der Knopf: ein Ziel, das wandert, trifft
    ein Kind schlechter. Der Knopf selbst steht still. */
 .train-start svg {
@@ -4896,17 +5135,214 @@ body[data-page="train"] .help-voice { display: none; }
   .friend-detail-train [data-area] { transition: none; }
 }
 
-/* Anschauen, nicht antippen: beim Zug eines anderen führt keine Kiste in ein
-   Spiel. Dafür steht die Zahl darunter – wer vergleicht, will sie wissen. */
-.wagon-crate.is-static { cursor: default; }
-.wagon-crate.is-static:hover { background: rgba(255, 255, 255, 0.72); }
-.wagon-crate.is-static:active { transform: none; }
-
+/* Am fremden Zug führt die Kiste nicht ins Spiel, sondern in die Bestenliste.
+   Die Zahl darunter bleibt: sie beantwortet die einfachere Frage – wie viele
+   sind es –, während die Liste die schwierigere beantwortet: wer ist vorn. */
 .crate-count {
   font-size: clamp(0.68rem, 1.6vh, 0.86rem);
   font-weight: 800;
   color: #4a5568;
   font-variant-numeric: tabular-nums;
+}
+
+/* ===========================================================================
+   Die Bestenliste der Gruppe
+   ---------------------------------------------------------------------------
+   Erreichbar über den Zug eines anderen: Wagen antippen, Kiste antippen. Eine
+   Liste, kein Podest – die ersten drei bekommen ihre Farbe, alle anderen
+   stehen gleich da. Wer noch nichts gespielt hat, bleibt in der Liste und
+   steht blass am Ende: ein Kind, das seinen Namen nicht findet, glaubt, es sei
+   nicht dabei.
+   =========================================================================== */
+
+.train-stage[data-view="highscore"] .train-band { opacity: 0; pointer-events: none; }
+.train-stage[data-view="highscore"] .stage-layer { z-index: 4; }
+
+.highscore {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(6px, 1.6vh, 16px);
+  padding: calc(var(--safe-top) + 76px) 16px calc(var(--safe-bottom) + 16px);
+  pointer-events: auto;
+  overflow: hidden;
+}
+
+.highscore-head {
+  flex: 0 0 auto;
+  max-width: 100%;
+  display: flex;
+  align-items: center;
+  gap: clamp(8px, 2vw, 16px);
+  padding: 6px 18px 6px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 4px 14px rgba(36, 48, 71, 0.2);
+}
+
+.highscore-icon {
+  flex: 0 0 auto;
+  width: clamp(38px, 6vh, 58px);
+  height: clamp(38px, 6vh, 58px);
+  display: block;
+}
+
+.highscore-kicker {
+  margin: 0;
+  color: #6b7a90;
+  font-size: clamp(0.62rem, 1.5vh, 0.78rem);
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.highscore-title {
+  margin: 0;
+  color: #243047;
+  font-size: clamp(0.98rem, 2.5vh, 1.4rem);
+  font-weight: 900;
+  line-height: 1.15;
+}
+
+/* Die Level als Auswahl. Sie liegen in einer Reihe und dürfen quer rollen:
+   Tier-Sprung hat zehn davon, und zehn Zeilen übereinander nähmen der Liste
+   den Platz weg, um die es hier geht. */
+.highscore-levels {
+  flex: 0 0 auto;
+  max-width: 100%;
+  display: flex;
+  gap: 6px;
+  padding: 2px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.highscore-levels::-webkit-scrollbar { display: none; }
+
+.highscore-chip {
+  flex: 0 0 auto;
+  min-height: clamp(30px, 4.4vh, 40px);
+  padding: 0 clamp(10px, 2vw, 16px);
+  border: none;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.78);
+  color: #4a5568;
+  font: inherit;
+  font-size: clamp(0.72rem, 1.7vh, 0.92rem);
+  font-weight: 800;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.16s ease, color 0.16s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.highscore-chip.active {
+  background: #243047;
+  color: #fff;
+}
+.highscore-chip:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
+
+.highscore-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: min(100%, 560px);
+  margin: 0;
+  padding: 0 2px;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(4px, 0.9vh, 9px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.highscore-row {
+  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: clamp(28px, 4.6vh, 40px) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: clamp(8px, 2vw, 14px);
+  padding: clamp(5px, 1.1vh, 10px) clamp(10px, 2vw, 16px);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 3px 10px rgba(36, 48, 71, 0.14);
+}
+
+/* Der eigene Name steht hervorgehoben da: in einer Liste mit sechs Kindern
+   sucht man zuerst sich selbst. */
+.highscore-row.is-me {
+  background: #fffaf0;
+  box-shadow: 0 3px 10px rgba(36, 48, 71, 0.14), inset 0 0 0 2px #f0b429;
+}
+
+.highscore-row.is-empty { opacity: 0.62; }
+
+.highscore-rank {
+  display: grid;
+  place-items: center;
+  width: clamp(28px, 4.6vh, 40px);
+  height: clamp(28px, 4.6vh, 40px);
+  border-radius: 50%;
+  background: rgba(36, 48, 71, 0.1);
+  color: #4a5568;
+  font-size: clamp(0.78rem, 1.9vh, 1rem);
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Gold, Silber, Bronze – dieselben drei Farben, die ein Kind von jedem
+   Treppchen kennt. Danach hört die Färbung auf: der Unterschied zwischen dem
+   vierten und dem fünften Platz ist keiner, den man betonen müsste. */
+.highscore-row[data-platz="1"] .highscore-rank { background: #f0b429; color: #3a2a05; }
+.highscore-row[data-platz="2"] .highscore-rank { background: #c7cdd6; color: #2a3140; }
+.highscore-row[data-platz="3"] .highscore-rank { background: #d9a273; color: #3a2409; }
+
+.highscore-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #243047;
+  font-size: clamp(0.82rem, 2vh, 1.05rem);
+  font-weight: 800;
+}
+
+.highscore-value {
+  display: grid;
+  justify-items: end;
+  gap: 1px;
+  text-align: right;
+}
+
+.highscore-value strong {
+  color: #243047;
+  font-size: clamp(0.82rem, 2vh, 1.05rem);
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.highscore-value small {
+  color: #6b7a90;
+  font-size: clamp(0.64rem, 1.5vh, 0.8rem);
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.highscore-hint {
+  margin: 0;
+  padding: 10px 18px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.86);
+  color: #4a5568;
+  font-size: clamp(0.78rem, 1.9vh, 0.98rem);
+  font-weight: 800;
+  text-align: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .highscore-chip { transition: none; }
 }
 
 /* ===========================================================================

@@ -899,10 +899,43 @@
     } catch { /* nicht erlaubt – dann bleibt der Dreh-Hinweis */ }
   }
 
+  // ---------------------------------------------------------------------------
+  // Kein Zoom
+  // ---------------------------------------------------------------------------
+  // Die App füllt das Bild und rechnet damit, dass sie es ganz hat: der Zug
+  // wird auf die Fensterbreite gemessen, die Spielfelder auf die Fensterhöhe.
+  // Wer mit zwei Fingern hineinzieht, sieht danach einen Ausschnitt, in dem die
+  // Hälfte der Knöpfe ausserhalb liegt – und ein Kind findet ohne Hilfe nicht
+  // mehr heraus.
+  //
+  // Abgestellt wird das an drei Stellen, weil keine allein reicht: <meta
+  // viewport> in jeder Seite, touch-action im Stylesheet, und hier die
+  // gesture-Ereignisse. Safari auf dem iPhone hört seit Jahren weder auf
+  // user-scalable=no noch auf touch-action am Wurzelelement; es meldet
+  // stattdessen eigene Ereignisse, und nur deren Absage hält den Zoom auf.
+  function blockZoom() {
+    ["gesturestart", "gesturechange", "gestureend"].forEach((typ) => {
+      document.addEventListener(typ, (event) => event.preventDefault(), { passive: false });
+    });
+
+    // Zwei Finger, die sich bewegen: das ist ein Zoom und kein Spielzug. Ein
+    // einzelner Finger bleibt unberührt – über ihn läuft jedes Wischen, jedes
+    // Ziehen und jedes Tippen in den Spielen.
+    document.addEventListener("touchmove", (event) => {
+      if (event.touches.length > 1 && event.cancelable) event.preventDefault();
+    }, { passive: false, capture: true });
+
+    // Der Doppeltipp-Zoom bleibt bewusst dem touch-action im Stylesheet
+    // überlassen. Ihn hier zusätzlich abzufangen hiesse, den zweiten Tipp
+    // wegzunehmen – und schnelles Tippen an derselben Stelle ist in Turmbau und
+    // Tier-Sprung der Spielzug selbst.
+  }
+
   function mountFixedButtons() {
     mountHelpButton();
     mountAudioToggle();
     mountRotateHint();
+    blockZoom();
     document.addEventListener("pointerdown", lockLandscape, { once: true });
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", mountFixedButtons);
