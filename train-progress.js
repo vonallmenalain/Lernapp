@@ -159,23 +159,74 @@
     } catch { return fallback; }
   }
 
-  function isSolved(level) {
-    if (cloud()?.isSignedIn?.()) return Boolean(cloud()?.isLevelSolved?.(level));
-    try {
-      const id = level.id || level.levelName;
-      return localStorage.getItem(`${LOCAL_SOLVED_PREFIX}${level.game}.${id}`) === "1";
-    } catch { return false; }
+  // ---------------------------------------------------------------------------
+  // Woher der Stand kommt
+  // ---------------------------------------------------------------------------
+  // Normalerweise vom eigenen Gerät und aus dem eigenen Konto. Auf dem
+  // Startbild stehen aber auch die Züge der Gruppe, und deren Stand liegt
+  // weder im localStorage noch im Fortschritt dieses Kontos.
+  //
+  // Statt jede Rechnung ein zweites Mal für fremde Konten zu schreiben, hängen
+  // alle drei Zugriffe an einer austauschbaren Quelle: gelöst?, wie viele
+  // Sterne?, und der Kasten eines Spiels mit eigenem Konto. Die Rechnung
+  // darüber bleibt dieselbe – und damit auch das, was ein Wagen bedeutet.
+  const LOCAL_SOURCE = {
+    isSolved(level) {
+      if (cloud()?.isSignedIn?.()) return Boolean(cloud()?.isLevelSolved?.(level));
+      try {
+        const id = level.id || level.levelName;
+        return localStorage.getItem(`${LOCAL_SOLVED_PREFIX}${level.game}.${id}`) === "1";
+      } catch { return false; }
+    },
+    stars(level) {
+      return kids()?.getStars?.(level.game, level.id || level.levelName) || 0;
+    },
+    gameState(key) {
+      return readJSON(key, null);
+    },
+  };
+
+  let source = LOCAL_SOURCE;
+
+  // Ein fremdes Konto, so wie firebase.js es liefert: eine Liste gelöster
+  // Level als "spiel.levelId" und die Spielstände der Spiele mit eigenem Konto.
+  //
+  // Sterne fehlen mit Absicht. Sie stehen bei den Katalog-Spielen nur auf dem
+  // Gerät, das sie vergeben hat, und wandern nicht in die Cloud – ein fremder
+  // Zug hätte davon also nur eine erfundene Zahl. Für die Ausbaustufe eines
+  // Wagens zählen ohnehin gelöste Level, nicht Sterne.
+  function accountSource(account = {}) {
+    const solved = new Set(Array.isArray(account.solved) ? account.solved : []);
+    const states = account.gameState && typeof account.gameState === "object" ? account.gameState : {};
+    return {
+      isSolved: (level) => solved.has(`${level.game}.${level.id || level.levelName}`),
+      stars: () => 0,
+      gameState: (key) => {
+        const entry = states[key];
+        return entry && typeof entry === "object" && entry.data ? entry.data : null;
+      },
+    };
   }
 
-  function levelStars(level) {
-    return kids()?.getStars?.(level.game, level.id || level.levelName) || 0;
+  // Rechnet einen Block mit einer anderen Quelle. Danach gilt wieder die alte:
+  // die Bühne fragt zwischen zwei fremden Zügen immer wieder den eigenen ab.
+  function withSource(next, fn) {
+    const previous = source;
+    source = next || LOCAL_SOURCE;
+    try { return fn(); } finally { source = previous; }
   }
+
+  function isSolved(level) { return source.isSolved(level); }
+
+  function levelStars(level) { return source.stars(level); }
+
+  function gameState(key) { return source.gameState(key); }
 
   // Tier-Sprung führt sein eigenes Konto: zehn Level, keine Welten, eigener
   // Speicherschlüssel. Dieser Adapter bringt es auf dieselbe Form wie die
   // Katalog-Spiele, damit der Wagen nichts von der Sonderrolle wissen muss.
   function runnerProgress(game) {
-    const stored = readJSON(RUNNER_KEY, null) || {};
+    const stored = gameState(RUNNER_KEY) || {};
     const best = stored.best && typeof stored.best === "object" ? stored.best : {};
     const worlds = [];
     let solved = 0;
@@ -267,7 +318,7 @@
   // dieselbe Schwelle wäre für das eine geschenkt und für das andere unerreichbar.
   function runsProgress(key, gut) {
     return (game) => {
-      const stored = readJSON(key, null) || {};
+      const stored = gameState(key) || {};
       const runs = Math.max(0, Math.min(RUNS_FOR_DONE, Number(stored.runs) || 0));
       const scores = Array.isArray(stored.scores) ? stored.scores.filter((n) => Number.isFinite(n)) : [];
       const worlds = [];
@@ -372,7 +423,7 @@
   // geschafft oder nicht kennt.
   function levelSetProgress(key, ids) {
     return (game) => {
-      const best = readJSON(key, null)?.best || {};
+      const best = gameState(key)?.best || {};
       const worlds = ids.map((id) => {
         const stars = Math.max(0, Math.min(3, Number(best[id]?.stars) || 0));
         return { key: `teil-${id}`, solved: stars ? 1 : 0, total: 1, stars, maxStars: 3, ratio: stars ? 1 : 0 };
@@ -399,7 +450,7 @@
   // die Sterne unterscheiden das.
   function bestenLevelProgress(key, noetig) {
     return (game) => {
-      const stored = readJSON(key, null) || {};
+      const stored = gameState(key) || {};
       const best = stored.best && typeof stored.best === "object" ? stored.best : {};
       // Die besten fünf zählen, damit ein sechstes Level den Stand nicht drückt.
       const sterne = Object.values(best)
@@ -509,6 +560,18 @@
     };
   }
 
+  // Derselbe Zug, nur für ein fremdes Konto der Gruppe: gerechnet wird mit
+  // dessen Daten, gerechnet wird aber genau gleich. Ein Wagen bedeutet auf dem
+  // fremden Gleis dasselbe wie auf dem eigenen – sonst wäre der Vergleich
+  // daneben keiner.
+  function areasForAccount(account) {
+    return withSource(accountSource(account), allAreas);
+  }
+
+  function trainProgressForAccount(account) {
+    return withSource(accountSource(account), trainProgress);
+  }
+
   window.LernappTrain = {
     AREAS,
     AREA_BY_ID,
@@ -523,5 +586,7 @@
     areaProgress,
     allAreas,
     trainProgress,
+    areasForAccount,
+    trainProgressForAccount,
   };
 })();

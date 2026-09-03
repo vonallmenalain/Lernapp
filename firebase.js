@@ -93,6 +93,7 @@
     firebaseReady: false,
     trainSettings: null,
     gameState: null,
+    group: null,
     pendingDisplayName: null,
     unlockedMode: false,
     guestId: null,
@@ -109,6 +110,9 @@
     adminResetBusyId: null,
     adminResetErrorId: null,
     adminResetError: "",
+    adminGroupBusyId: null,
+    adminGroupErrorId: null,
+    adminGroupError: "",
     progressResetAtMs: 0,
   };
 
@@ -166,6 +170,12 @@
     saveTrainSettings,
     getGameState,
     saveGameState,
+    // Gruppen: mit wem der eigene Zug auf dem Startbild das Gleis teilt.
+    getGroup,
+    loadGroupTrains,
+    // Zuordnen darf nur der Admin. Wer das ist, entscheidet nicht diese Zeile,
+    // sondern firestore.rules.
+    setUserGroup,
   };
 
   window.LernappFirebase = cloudApi;
@@ -226,6 +236,7 @@
       state.unlockedMode = false;
       state.trainSettings = null;
       state.gameState = null;
+      state.group = null;
       state.progressResetAtMs = 0;
       resetAdminState();
       stopActiveSession();
@@ -234,6 +245,9 @@
       // Ohne Konto zählt wieder, was auf diesem Gerät steht.
       announceTrainSettings();
       announceGameState();
+      // Und ohne Konto gibt es keine Gruppe: das Startbild räumt die fremden
+      // Züge weg, statt den Stand des abgemeldeten Kindes stehen zu lassen.
+      announceGroup();
       return;
     }
 
@@ -246,6 +260,7 @@
       applyRemoteProgressReset(user.uid);
       announceTrainSettings();
       announceGameState();
+      announceGroup();
       await loadProgress();
       await syncLocalSolvedProgress();
       await refreshDashboard();
@@ -400,6 +415,9 @@
     state.adminResetBusyId = null;
     state.adminResetErrorId = null;
     state.adminResetError = "";
+    state.adminGroupBusyId = null;
+    state.adminGroupErrorId = null;
+    state.adminGroupError = "";
   }
 
   function randomToken(length = 16) {
@@ -467,6 +485,7 @@
     state.unlockedMode = Boolean(existingData.levelAccess?.unlockAllLevels);
     state.trainSettings = readTrainSettings(existingData.trainSettings);
     state.gameState = readGameState(existingData.gameState);
+    state.group = readGroup(existingData.group);
     state.progressResetAtMs = Number(existingData.progressReset?.atMs) || 0;
     const providers = user.providerData.map((provider) => provider.providerId);
     const username = profileNameForUser(user, existingData);
@@ -609,6 +628,125 @@
       console.warn("Lok-Einstellung konnte nicht gespeichert werden", error);
       return false;
     }
+  }
+
+  // --- Gruppen --------------------------------------------------------------
+  // Mehrere Konten, die ihre Züge nebeneinander sehen: eine Familie, eine
+  // Klasse. Die Gruppe steht als Feld am Konto – users/<uid>.group – und nicht
+  // in einer eigenen Kollektion. Das ist der Grund, warum die Regel in
+  // firestore.rules so kurz ausfällt: sie entscheidet über dasselbe Dokument,
+  // das sie freigibt.
+  //
+  //   id           gemeinsamer Schlüssel aller Mitglieder
+  //   name         wie die Gruppe heisst (nur zum Anzeigen im Admin-Bereich)
+  //   displayName  unter welchem Namen der Zug dieses Kontos in der Gruppe steht
+  //
+  // Geschrieben wird das Feld nur vom Admin.
+  function readGroup(raw) {
+    if (!raw || typeof raw !== "object") return null;
+    const id = String(raw.id || "").trim();
+    if (!id) return null;
+    return {
+      id,
+      name: cleanDisplayName(raw.name) || id,
+      displayName: cleanDisplayName(raw.displayName),
+    };
+  }
+
+  function getGroup() {
+    return state.group ? { ...state.group } : null;
+  }
+
+  function announceGroup() {
+    document.dispatchEvent(new CustomEvent("lernapp:group-changed", { detail: getGroup() }));
+  }
+
+  // Übernimmt eine gelesene Gruppe und meldet sie weiter, wenn sich etwas
+  // geändert hat. Ohne den Vergleich meldete jedes Öffnen des Profilfensters
+  // eine Änderung, und das Startbild lüde die fremden Züge jedes Mal neu.
+  function applyGroup(group) {
+    const before = JSON.stringify(state.group || null);
+    state.group = group;
+    if (JSON.stringify(state.group || null) === before) return false;
+    announceGroup();
+    return true;
+  }
+
+  // Der Name, unter dem ein Konto in der Gruppe steht. Der vom Admin vergebene
+  // geht vor: er ist der einzige, den ein Erwachsener bewusst gewählt hat.
+  function groupTrainName(userData = {}) {
+    return cleanDisplayName(
+      userData.group?.displayName ||
+      userData.displayName ||
+      userData.username ||
+      "Kind"
+    ) || "Kind";
+  }
+
+  // Die anderen Züge der Gruppe, mit allem, was das Startbild braucht: der
+  // Name, die Lok, und woraus train-progress.js den Stand rechnet – gelöste
+  // Level und die Spielstände der Spiele mit eigenem Konto.
+  //
+  // Ein Mitglied, dessen Level sich nicht lesen lassen, fällt nicht aus der
+  // Gruppe – sein Zug steht dann eben leer da. Ein Fehler an einem Konto darf
+  // nicht das ganze Gleis abräumen.
+  async function loadGroupTrains() {
+    if (!state.user || !state.db || !state.group?.id) return [];
+
+    const snapshot = await state.db.collection("users").where("group.id", "==", state.group.id).get();
+    const others = snapshot.docs.filter((doc) => doc.id !== state.user.uid);
+
+    const trains = await Promise.all(others.map(async (doc) => {
+      const data = doc.data() || {};
+      const settings = readTrainSettings(data.trainSettings);
+      const train = {
+        id: doc.id,
+        name: groupTrainName(data),
+        loco: settings?.loco || null,
+        gameState: readGameState(data.gameState),
+        solved: [],
+      };
+
+      try {
+        const levels = await state.db.collection("users").doc(doc.id).collection("levelProgress").get();
+        levels.forEach((entry) => {
+          const level = entry.data() || {};
+          if (level.solved && level.game && level.levelId) train.solved.push(`${level.game}.${level.levelId}`);
+        });
+      } catch (error) {
+        console.warn(`Level von ${doc.id} konnten nicht gelesen werden`, error);
+      }
+
+      return train;
+    }));
+
+    // Immer dieselbe Reihenfolge: ein Gleis, dessen Züge bei jedem Start die
+    // Plätze tauschen, verwirrt mehr als es zeigt.
+    trains.sort((a, b) => a.name.localeCompare(b.name, "de"));
+    return trains;
+  }
+
+  // Ordnet ein Konto einer Gruppe zu oder nimmt es heraus. Nur der Admin darf
+  // das; die Regel lässt genau dieses eine Feld durch.
+  async function setUserGroup(userId, { name = "", displayName = "" } = {}) {
+    if (!userId || !state.db) return false;
+    const groupName = cleanDisplayName(name);
+    const id = loginSlug(groupName);
+    const payload = id
+      ? { id, name: groupName, displayName: cleanDisplayName(displayName), updatedAt: Date.now() }
+      : deleteField();
+
+    await state.db.collection("users").doc(userId).set(
+      { group: payload, updatedAt: serverTimestamp() },
+      { merge: true },
+    );
+
+    // Das eigene Konto: die Gruppe im Zustand stimmt sonst bis zum nächsten
+    // Anmelden nicht. Ein fremdes: die Gruppe kann dieselbe sein, dann steht
+    // auf dem Startbild jetzt ein Zug mehr oder weniger.
+    if (userId === state.user?.uid) applyGroup(id ? readGroup(payload) : null);
+    else announceGroup();
+    return true;
   }
 
   function guestRef(guestId = getGuestId()) {
@@ -1165,6 +1303,7 @@
 
     const userData = userDoc.data() || {};
     state.unlockedMode = Boolean(userData.levelAccess?.unlockAllLevels);
+    applyGroup(readGroup(userData.group));
     const progressDocs = progressSnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
     const sessions = sessionSnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
 
@@ -1551,6 +1690,7 @@
     });
 
     bindAdminResetButtons(root);
+    bindAdminGroupCard(root);
   }
 
   function renderAdminGuests(root, { loadingGuestId = null } = {}) {
@@ -1645,6 +1785,7 @@
         <div><strong>${summary.moves}</strong><span>Züge</span></div>
         <div><strong>${sessions.filter((session) => !session.solved && session.endedAt).length}</strong><span>Abbrüche</span></div>
       </div>
+      ${isGuest ? "" : renderAdminGroupBlock(detail.id, userData)}
       ${isGuest ? "" : renderAdminResetBlock(detail.id, adminDisplayName(userData))}
       ${renderAdminTopLevels(summary)}
       ${renderAdminGameFilters(progressDocs, sessions, selectedGame)}
@@ -1663,6 +1804,107 @@
         </section>
       </div>
     `;
+  }
+
+  // --- Gruppe eines Kontos ---------------------------------------------------
+  // Zwei Felder reichen: wie die Gruppe heisst und wie der Zug dieses Kontos
+  // darin heissen soll. Der Schlüssel der Gruppe wird aus dem Namen gebildet –
+  // wer zweimal "Familie" tippt, landet in derselben Gruppe, auch mit anderer
+  // Gross- und Kleinschreibung.
+  //
+  // Ein leeres Namensfeld nimmt das Konto aus der Gruppe. Ein eigener Knopf
+  // dafür steht daneben, damit das nicht nur derjenige findet, der auf die
+  // Idee kommt, ein Feld zu leeren.
+  function renderAdminGroupBlock(userId, userData = {}) {
+    if (!userId) return "";
+
+    if (state.adminGroupBusyId === userId) {
+      return `<div class="admin-group"><p class="account-muted">Gruppe wird gespeichert...</p></div>`;
+    }
+
+    const group = readGroup(userData.group);
+    const failed = state.adminGroupErrorId === userId ? state.adminGroupError : "";
+    const listId = "admin-group-names";
+    const options = knownGroupNames()
+      .map((name) => `<option value="${escapeHtml(name)}"></option>`)
+      .join("");
+
+    return `
+      <div class="admin-group" data-admin-group="${escapeHtml(userId)}">
+        <div>
+          <strong>Gruppe${group ? `: ${escapeHtml(group.name)}` : ""}</strong>
+          <span>Konten derselben Gruppe sehen die Z&uuml;ge der anderen oben auf dem Startbild.</span>
+        </div>
+        <div class="admin-group-fields">
+          <label>
+            <span>Gruppe</span>
+            <input type="text" data-admin-group-name list="${listId}" placeholder="z. B. Familie"
+              value="${escapeHtml(group?.name || "")}" />
+          </label>
+          <label>
+            <span>Name des Zugs</span>
+            <input type="text" data-admin-group-display placeholder="${escapeHtml(adminDisplayName(userData))}"
+              value="${escapeHtml(group?.displayName || "")}" />
+          </label>
+        </div>
+        <datalist id="${listId}">${options}</datalist>
+        <div class="card-actions">
+          ${group ? `<button type="button" class="secondary-action" data-admin-group-clear>Aus der Gruppe nehmen</button>` : ""}
+          <button type="button" data-admin-group-save>Gruppe speichern</button>
+        </div>
+        ${failed ? `<p class="auth-status">${escapeHtml(failed)}</p>` : ""}
+      </div>
+    `;
+  }
+
+  // Die Gruppen, die es schon gibt – als Vorschlagsliste, damit ein Tippfehler
+  // nicht heimlich eine zweite Gruppe aufmacht.
+  function knownGroupNames() {
+    const names = new Map();
+    state.adminUsers.forEach((user) => {
+      const group = readGroup(user.group);
+      if (group) names.set(group.id, group.name);
+    });
+    return [...names.values()].sort((a, b) => a.localeCompare(b, "de"));
+  }
+
+  function bindAdminGroupCard(root) {
+    const card = root.querySelector("[data-admin-group]");
+    if (!card) return;
+    const userId = card.dataset.adminGroup;
+
+    card.querySelector("[data-admin-group-save]")?.addEventListener("click", () => {
+      saveAdminGroup(userId, {
+        name: card.querySelector("[data-admin-group-name]")?.value || "",
+        displayName: card.querySelector("[data-admin-group-display]")?.value || "",
+      }, root);
+    });
+
+    card.querySelector("[data-admin-group-clear]")?.addEventListener("click", () => {
+      saveAdminGroup(userId, { name: "", displayName: "" }, root);
+    });
+  }
+
+  async function saveAdminGroup(userId, values, root) {
+    if (!userId) return;
+    state.adminGroupBusyId = userId;
+    state.adminGroupErrorId = null;
+    state.adminGroupError = "";
+    renderAdminUsers(root);
+
+    try {
+      await setUserGroup(userId, values);
+    } catch (error) {
+      state.adminGroupErrorId = userId;
+      state.adminGroupError = authErrorMessage(error);
+    }
+
+    state.adminGroupBusyId = null;
+    // Die Liste trägt die Gruppe jedes Kontos mit sich, die Detailansicht
+    // ebenso: beides neu laden statt an zwei Stellen nachbessern.
+    state.adminUsers = [];
+    state.adminDetails.delete(userId);
+    await hydrateAdminSection();
   }
 
   // Dasselbe Zurücksetzen wie im eigenen Profil, nur für ein fremdes Konto.

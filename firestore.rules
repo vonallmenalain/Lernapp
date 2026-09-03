@@ -20,6 +20,34 @@ service cloud.firestore {
       return guestId.matches('guest_[A-Za-z0-9_-]{8,48}');
     }
 
+    // --- Gruppen -------------------------------------------------------------
+    // Eine Gruppe ist kein eigenes Dokument, sondern ein Feld am Konto:
+    // group.id sagt, wer zusammengehört. Das ist Absicht – so entscheidet eine
+    // Regel über dasselbe Dokument, das sie freigibt, und niemand kann sich
+    // über ein Gruppendokument Zugriff auf ein Konto verschaffen, das gar nicht
+    // dazugehört.
+    //
+    // Geschrieben wird das Feld nur vom Admin. Ein Kind, das sich selbst in
+    // eine fremde Gruppe schriebe, läse sonst fremden Fortschritt mit.
+    function groupIdIn(data) {
+      return data.get("group", {}).get("id", "");
+    }
+
+    function myGroupId() {
+      return groupIdIn(get(/databases/$(database)/documents/users/$(request.auth.uid)).data);
+    }
+
+    function groupIdOfUser(userId) {
+      return groupIdIn(get(/databases/$(database)/documents/users/$(userId)).data);
+    }
+
+    // Gleiche Gruppe, und die Gruppe ist nicht die leere: ohne diese zweite
+    // Bedingung läge jedes Konto ohne Gruppe mit jedem anderen ohne Gruppe in
+    // derselben – nämlich in keiner.
+    function sharesGroupWith(userId) {
+      return isSignedIn() && groupIdOfUser(userId) != "" && groupIdOfUser(userId) == myGroupId();
+    }
+
     // Der Admin darf einen Account zurücksetzen. Erlaubt ist dafür genau das,
     // was ein Zurücksetzen anfasst: die Gesamtzahlen, die Spielstände und die
     // Marke, an der ein Gerät des Kindes erkennt, dass es aufräumen muss. Name,
@@ -30,10 +58,36 @@ service cloud.firestore {
         .hasOnly(["stats", "gameState", "progressReset", "updatedAt"]);
     }
 
+    // Und er darf ein Konto einer Gruppe zuordnen und den Namen ändern, unter
+    // dem dessen Zug in der Gruppe steht. Auch hier nur dieses eine Feld.
+    function isGroupChange() {
+      return request.resource.data.diff(resource.data).affectedKeys()
+        .hasOnly(["group", "updatedAt"]);
+    }
+
     match /users/{userId} {
-      allow get, list: if isOwner(userId) || isAdmin();
-      allow create, update, delete: if isOwner(userId);
-      allow update: if isAdmin() && isProgressReset();
+      // Wer in derselben Gruppe ist, darf das Konto lesen: Name, Lok,
+      // Landschaft und die Spielstände, aus denen sein Zug gezeichnet wird.
+      // Feldweise geht das in Firestore nicht – wer liest, liest das ganze
+      // Dokument, also auch die Anmeldeadresse. Bei den Kinderkonten ist das
+      // eine technische Adresse aus dem Namen; wer sich mit einer echten
+      // Adresse anmeldet, gibt sie der Gruppe damit preis. Deshalb legt
+      // Gruppen nur der Admin an, und er weiss, wen er zusammenlegt.
+      allow get, list: if isOwner(userId) || isAdmin()
+        || (isSignedIn() && groupIdIn(resource.data) != "" && groupIdIn(resource.data) == myGroupId());
+      // Das eigene Konto gehört dem Kind – bis auf die Gruppe. Wer sich selbst
+      // eintragen dürfte, läse damit den Fortschritt fremder Kinder mit.
+      allow create: if isOwner(userId) && !("group" in request.resource.data);
+      allow update: if isOwner(userId)
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(["group"]);
+      allow delete: if isOwner(userId);
+      allow update: if isAdmin() && (isProgressReset() || isGroupChange());
+
+      // Gelöste Level sind das, was die Gruppe voneinander sehen soll. Nur
+      // lesen, und nur diese eine Unterkollektion – Sitzungen bleiben privat.
+      match /levelProgress/{levelId} {
+        allow read: if sharesGroupWith(userId);
+      }
 
       match /{document=**} {
         allow read: if isOwner(userId) || isAdmin();

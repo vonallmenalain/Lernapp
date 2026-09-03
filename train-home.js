@@ -135,11 +135,11 @@
   // ---------------------------------------------------------------------------
   // Auf dem Bild steht kein Wort. Beschriftet ist trotzdem alles: nur so bleibt
   // die Bühne für ein Kind bedienbar, das nicht sieht.
-  function describeTrain(areas) {
+  function describeTrain(areas, title = "Dein Zug.") {
     const done = areas.filter((a) => a.complete);
     const started = areas.filter((a) => a.stage > 0 && !a.complete);
     const empty = areas.filter((a) => a.stage === 0);
-    const parts = ["Dein Zug."];
+    const parts = [title];
     if (done.length) parts.push(`Fertig: ${done.map((a) => a.label).join(", ")}.`);
     if (started.length) parts.push(`Angefangen: ${started.map((a) => a.label).join(", ")}.`);
     if (empty.length) parts.push(`Noch nichts gemacht: ${empty.map((a) => a.label).join(", ")}.`);
@@ -369,6 +369,7 @@
     if (!rail || !band || !band.offsetHeight) {
       stage.style.removeProperty("--train-lift");
       positionStart();
+      layoutFriends();
       return;
     }
     // Gemessen wird das Band in seiner ungestreckten Lage – offsetTop und
@@ -384,6 +385,7 @@
     const lift = rail.getBoundingClientRect().top - railLine;
     stage.style.setProperty("--train-lift", `${Math.round(lift)}px`);
     positionStart();
+    layoutFriends();
   }
 
   // ---------------------------------------------------------------------------
@@ -567,39 +569,251 @@
       crate.dataset.game = game.id;
       crate.setAttribute("aria-label", `${describeGame(game)} Antippen zum Spielen.`);
       crate.addEventListener("click", () => enterGame(game.page));
-
-      // Das Gebäude des Spiels als Deckel der Kiste: so ist die Verbindung zur
-      // Gebäudewahl sofort da, ohne dass irgendwo ein Name stehen muss.
-      const icon = art.buildBuilding(game.id, { label: game.title });
-      icon.removeAttribute("role");
-      icon.removeAttribute("tabindex");
-      icon.classList.remove("train-building");
-      const iconSvg = el("svg", {
-        viewBox: `0 ${art.GROUND - 176} ${art.BUILD_W} 180`,
-        class: "crate-icon", "aria-hidden": "true",
-      }, [icon]);
-      crate.append(iconSvg);
-
-      const bands = document.createElement("div");
-      bands.className = "crate-bands";
-      // Von oben nach unten: die schwerste Welt oben, die leichteste unten –
-      // dann wächst der Stapel von unten nach oben mit.
-      [...game.worlds].reverse().forEach((world) => {
-        const band = document.createElement("div");
-        band.className = "crate-band";
-        const fill = document.createElement("span");
-        fill.className = "crate-fill";
-        fill.style.width = `${Math.round(world.ratio * 100)}%`;
-        fill.style.background = area.color;
-        if (world.ratio >= 1) band.classList.add("is-full");
-        band.append(fill);
-        bands.append(band);
-      });
-      crate.append(bands);
+      crate.append(...crateParts(game, area.color));
       shelf.append(crate);
     });
 
     wrap.append(shelf);
+    return wrap;
+  }
+
+  // Der Inhalt einer Kiste: das Gebäude des Spiels als Deckel und darunter ein
+  // Band je Welt. Zweimal gebraucht – am eigenen Wagen zum Antippen, am Zug
+  // eines anderen zum Anschauen. Einmal gebaut, damit beide dasselbe zeigen.
+  function crateParts(game, color) {
+    // Das Gebäude des Spiels als Deckel der Kiste: so ist die Verbindung zur
+    // Gebäudewahl sofort da, ohne dass irgendwo ein Name stehen muss.
+    const icon = art.buildBuilding(game.id, { label: game.title });
+    icon.removeAttribute("role");
+    icon.removeAttribute("tabindex");
+    icon.classList.remove("train-building");
+    const iconSvg = el("svg", {
+      viewBox: `0 ${art.GROUND - 176} ${art.BUILD_W} 180`,
+      class: "crate-icon", "aria-hidden": "true",
+    }, [icon]);
+
+    const bands = document.createElement("div");
+    bands.className = "crate-bands";
+    // Von oben nach unten: die schwerste Welt oben, die leichteste unten –
+    // dann wächst der Stapel von unten nach oben mit.
+    [...game.worlds].reverse().forEach((world) => {
+      const band = document.createElement("div");
+      band.className = "crate-band";
+      const fill = document.createElement("span");
+      fill.className = "crate-fill";
+      fill.style.width = `${Math.round(world.ratio * 100)}%`;
+      fill.style.background = color;
+      if (world.ratio >= 1) band.classList.add("is-full");
+      band.append(fill);
+      bands.append(band);
+    });
+
+    return [iconSvg, bands];
+  }
+
+  // ---------------------------------------------------------------------------
+  // Die Züge der Gruppe
+  // ---------------------------------------------------------------------------
+  // Wer vom Admin in eine Gruppe gelegt wurde, sieht auf dem Startbild über
+  // seinem eigenen Zug die Züge der anderen – jeder auf seinem eigenen Gleis,
+  // mit seinem Namen davor. Gerechnet wird ihr Stand mit derselben Rechnung
+  // wie der eigene (train-progress.js), gezeichnet mit derselben Zeichnung
+  // (train-art.js): nur so heisst ein Wagen auf jedem Gleis dasselbe.
+  //
+  // Nur auf dem Startbild. Unterwegs zu den Toren und vor den Gebäuden geht es
+  // um den eigenen Weg, und fünf Züge übereinander wären dort nur Gedränge.
+  let friends = [];
+  let friendsHost = null;
+  // Zählt die Abfragen. Eine langsame Antwort von vorhin darf eine neuere
+  // nicht überschreiben – etwa wenn der Admin die Gruppe gerade geändert hat.
+  let friendsToken = 0;
+
+  async function loadFriends() {
+    const token = friendsToken += 1;
+    let accounts = [];
+    try {
+      accounts = (await cloud()?.loadGroupTrains?.()) || [];
+    } catch (error) {
+      // Ohne Gruppe, ohne Netz, ohne Recht: dann steht eben nur der eigene Zug
+      // da. Das Startbild darf daran nicht hängenbleiben.
+      console.warn("Die Züge der Gruppe konnten nicht geladen werden", error);
+      accounts = [];
+    }
+    if (token !== friendsToken) return;
+
+    friends = accounts.map((account) => ({
+      id: account.id,
+      name: account.name,
+      loco: { ...art.DEFAULT_LOCO, ...(account.loco || {}) },
+      areas: progress.areasForAccount(account),
+    }));
+
+    // Steht gerade der Zug eines Kindes offen, das nicht mehr dazugehört, führt
+    // der Weg zurück auf das Startbild – sonst bliebe eine Ansicht stehen, zu
+    // der es keinen Zug mehr gibt.
+    if (view.name === "friend" && !friends.some((entry) => entry.id === view.friendId)) {
+      view.friendId = null;
+      view.name = "home";
+      render();
+      return;
+    }
+
+    renderFriends();
+  }
+
+  function renderFriends() {
+    if (!friendsHost) return;
+    friendsHost.innerHTML = "";
+    friendsHost.dataset.ready = "0";
+    friendsHost.hidden = friends.length === 0;
+    if (!friends.length) return;
+    friends.forEach((friend) => friendsHost.append(buildFriendTrain(friend)));
+    window.requestAnimationFrame(layoutFriends);
+  }
+
+  function buildFriendTrain(friend) {
+    const row = document.createElement("button");
+    row.type = "button";
+    row.className = "friend-train";
+    row.dataset.friend = friend.id;
+    row.setAttribute("aria-label", `${describeTrain(friend.areas, `Zug von ${friend.name}.`)} Antippen für Einzelheiten.`);
+
+    const name = document.createElement("span");
+    name.className = "friend-name";
+    name.textContent = friend.name;
+
+    // Mit eigenem Gleis: gezeichnet im selben Koordinatensystem wie der Zug,
+    // also immer genau unter den Rädern. Ein Strich im CSS müsste dafür auf
+    // Prozentwerte vertrauen, die bei jedem Seitenverhältnis anders liegen.
+    const svg = art.buildTrain(friend.areas, friend.loco, { pad: 4, gap: 4, withTrack: true });
+    svg.setAttribute("class", "train-svg friend-svg");
+    svg.setAttribute("aria-hidden", "true");
+    svg.removeAttribute("role");
+
+    row.append(name, svg);
+    row.addEventListener("click", () => { if (!busy) showFriend(friend.id); });
+    return row;
+  }
+
+  // Der Platz zwischen dem oberen Bildrand und dem eigenen Zug, aufgeteilt auf
+  // die Züge der Gruppe. Gemessen statt gerechnet: wie hoch der eigene Zug
+  // steht, hängt am Seitenverhältnis des Fensters, und wie viele Züge oben
+  // stehen, weiss erst die Gruppe.
+  function layoutFriends() {
+    if (!friendsHost || !friends.length) return;
+    const band = stage.querySelector(".train-band");
+    const host = stage.getBoundingClientRect();
+    if (!band || !host.height) return;
+
+    // Unter den Knöpfen anfangen: Landschaftswechsel links, Konto rechts. Ein
+    // Zug darunter wäre halb verdeckt und nicht anzutippen.
+    const guard = sceneButton && !sceneButton.hidden
+      ? sceneButton.getBoundingClientRect().bottom - host.top
+      : 84;
+    const top = Math.max(guard + 10, host.height * 0.04);
+    // Die Oberkante des eigenen Zugs – die, auf die er zufährt, nicht die, an
+    // der er gerade vorbeigleitet. Das Band wird mit einer Überblendung an
+    // seinen Platz geschoben; ein getBoundingClientRect() mitten darin misst
+    // den Weg und nicht das Ziel, und die fremden Züge stünden danach ein
+    // Stück zu tief. offsetTop kennt keine Transformation, der Höhenausgleich
+    // steht in der Variablen: zusammen ergibt das den Platz von nachher.
+    const lift = parseFloat(window.getComputedStyle(stage).getPropertyValue("--train-lift")) || 0;
+    const room = band.offsetTop + lift - top;
+
+    const rows = friends.length;
+    const gap = Math.max(4, Math.round(host.height * 0.012));
+    // Bleibt kein Platz – ein sehr flaches Fenster, eine Bühne, die noch nicht
+    // steht –, bleiben die fremden Züge weg. Nicht entfernt: beim nächsten
+    // Drehen des Geräts ist wieder Platz, und dann sollen sie ohne Neuladen
+    // dastehen.
+    if (room <= 0) {
+      friendsHost.dataset.ready = "0";
+      return;
+    }
+    // Unter dieser Höhe ist ein Zug kein Bild mehr, sondern ein Strich. Bei
+    // einer grossen Gruppe wächst der Stapel dann lieber nach oben aus seinem
+    // Platz heraus, als dass jeder Zug unkenntlich wird.
+    const perRow = Math.max(16, (room - gap * (rows + 1)) / rows);
+
+    // Das Seitenverhältnis steht im Ausschnitt des SVG – abgelesen statt
+    // ausgerechnet, damit ein Umbau am Zug hier nichts nachzuziehen lässt.
+    const first = friendsHost.querySelector(".friend-svg");
+    const box = (first?.getAttribute("viewBox") || "0 0 928 200").split(/\s+/).map(Number);
+    const aspect = box[2] && box[3] ? box[2] / box[3] : 4.64;
+
+    // Nie so breit wie der eigene Zug: der steht ganz unten und ist der, um den
+    // es geht. Der Rest der Breite bleibt für den Namen daneben.
+    const maxWidth = host.width * 0.66;
+    const width = Math.min(perRow * aspect, maxWidth);
+
+    friendsHost.style.top = `${Math.round(top)}px`;
+    friendsHost.style.height = `${Math.round(room)}px`;
+    friendsHost.style.gap = `${gap}px`;
+    friendsHost.querySelectorAll(".friend-svg").forEach((node) => {
+      node.style.width = `${Math.round(width)}px`;
+    });
+    friendsHost.dataset.ready = "1";
+  }
+
+  // Der Zug eines anderen, gross: oben der Zug selbst als Auswahl, darunter die
+  // Spiele des angetippten Wagens mit ihren Bändern. Dasselbe Bild wie bei den
+  // eigenen Wagen – nur ohne Knöpfe, denn hier ist nichts zu spielen.
+  function buildFriendDetail(friend, areaId) {
+    const areas = friend.areas;
+    // Ohne gewählten Wagen der weiteste: wer den Zug eines anderen antippt,
+    // will sehen, was der geschafft hat. Der erste Wagen ist bei vielen leer,
+    // und ein leeres Regal beim ersten Blick sähe aus wie ein Fehler.
+    const active = areas.find((entry) => entry.id === areaId)
+      || [...areas].sort((a, b) => b.stage - a.stage || b.ratio - a.ratio)[0];
+    view.friendArea = active.id;
+
+    const wrap = document.createElement("div");
+    wrap.className = "friend-detail";
+
+    const name = document.createElement("p");
+    name.className = "friend-detail-name";
+    name.textContent = friend.name;
+
+    const trainBox = document.createElement("div");
+    trainBox.className = "friend-detail-train";
+    const svg = art.buildTrain(areas, friend.loco, { pad: 4, gap: 4, withTrack: true });
+    // Als Gruppe, nicht als Bild: in einem Bild gelten alle Kinder als
+    // Dekoration, und die Wagen sind hier die Auswahl. Ein Bildschirmleser
+    // käme sonst an keinen von ihnen heran.
+    svg.setAttribute("role", "group");
+    svg.setAttribute("aria-label", describeTrain(areas, `Zug von ${friend.name}.`));
+    svg.querySelectorAll("[data-area]").forEach((node) => {
+      const id = node.getAttribute("data-area");
+      const area = areas.find((entry) => entry.id === id);
+      if (!area) return;
+      node.setAttribute("role", "button");
+      node.setAttribute("tabindex", "0");
+      node.setAttribute("aria-pressed", id === active.id ? "true" : "false");
+      node.setAttribute("aria-label", `${describeArea(area)} Antippen für die Spiele.`);
+      node.classList.toggle("is-current", id === active.id);
+      activate(node, () => showFriend(friend.id, id));
+    });
+    trainBox.append(svg);
+
+    const shelf = document.createElement("div");
+    shelf.className = "wagon-shelf";
+    // Kisten ohne Knopf: der Weg ins Spiel führt über den eigenen Zug, nicht
+    // über den eines anderen. Dafür steht hier die Zahl – wer vergleicht, will
+    // wissen, wie viele es sind, und nicht nur, wie voll ein Band aussieht.
+    active.games.forEach((game) => {
+      const crate = document.createElement("div");
+      crate.className = "wagon-crate is-static";
+      crate.setAttribute("role", "group");
+      crate.setAttribute("aria-label", describeGame(game));
+      crate.append(...crateParts(game, active.color));
+      const count = document.createElement("span");
+      count.className = "crate-count";
+      count.textContent = `${game.solved}/${game.total}`;
+      crate.append(count);
+      shelf.append(crate);
+    });
+
+    wrap.append(name, trainBox, shelf);
     return wrap;
   }
 
@@ -767,7 +981,7 @@
   // Ansichten
   // ---------------------------------------------------------------------------
   // from = die Bühne, von der aus Werkstatt oder Wagen-Ansicht geöffnet wurden.
-  const view = { name: "home", areaId: null, part: "whole", from: null };
+  const view = { name: "home", areaId: null, part: "whole", from: null, friendId: null, friendArea: null };
   let layerHost = null;
   let backButton = null;
   let sceneButton = null;
@@ -811,6 +1025,17 @@
     view.part = part;
     setView("loco");
     renderLayer(buildWorkshop(locoConfig, part));
+  }
+
+  // Der Zug eines anderen aus der Gruppe. Angetippt wird er nur auf dem
+  // Startbild, also führt der Rückweg von hier immer dorthin.
+  function showFriend(friendId, areaId = null) {
+    const friend = friends.find((entry) => entry.id === friendId);
+    if (!friend) { showHome(); return; }
+    view.friendId = friendId;
+    view.from = null;
+    setView("friend");
+    renderLayer(buildFriendDetail(friend, areaId));
   }
 
   // Die Bühne, auf die der Rückweg führt: die, von der aus angetippt wurde.
@@ -979,6 +1204,7 @@
     }
     if (view.name === "areas") { showHome(); return; }
     if (view.name === "wagon") { backFromDetail(); return; }
+    if (view.name === "friend") { view.friendId = null; backFromDetail(); return; }
     if (view.name === "loco") {
       // Erst aus dem Bauteil heraus zur ganzen Lok, dann zum Zug. Zwei Stufen
       // zurück auf einmal wäre für ein Kind ein Sprung ins Nichts.
@@ -1362,14 +1588,21 @@
     sceneButton = scene ? buildSceneButton(scene) : null;
     startButton = buildStartButton();
 
-    stage.append(band, layerHost, backButton, startButton);
+    friendsHost = document.createElement("div");
+    friendsHost.className = "train-friends";
+    friendsHost.hidden = true;
+
+    stage.append(friendsHost, band, layerHost, backButton, startButton);
     if (sceneButton) stage.append(sceneButton);
     laufendeFeiern.forEach((overlay) => stage.append(overlay));
+
+    renderFriends();
 
     if (previous === "games" && previousArea) showGames(previousArea);
     else if (previous === "areas") showAreas();
     else if (previous === "loco") showWorkshop(view.part);
     else if (previous === "wagon" && previousArea) showWagon(previousArea);
+    else if (previous === "friend" && view.friendId) showFriend(view.friendId, view.friendArea);
     else showHome();
 
     // Ganz zum Schluss: hat sich seit dem letzten Mal ein Wagen weiterentwickelt,
@@ -1480,9 +1713,14 @@
   document.addEventListener("lernapp:train-settings", (event) => applyCloudSettings(event.detail));
   document.addEventListener("lernapp:progress-changed", () => render());
 
+  // Die Gruppe kommt erst mit der Anmeldung – und sie kann sich ändern, wenn
+  // der Admin jemanden dazunimmt oder herausnimmt. Beides führt hierher.
+  document.addEventListener("lernapp:group-changed", () => loadFriends());
+
   // Falls die Anmeldung ausnahmsweise schon durch ist, bevor diese Seite
   // zuhört: einmal von Hand nachfragen.
   applyCloudSettings(cloud()?.getTrainSettings?.() || null);
+  if (cloud()?.getGroup?.()) loadFriends();
 
   // Nach einem Spiel kommt das Kind hierher zurück – der Fortschritt hat sich
   // dann geändert. Beim Zurückspringen im Verlauf liefert der Browser die Seite
@@ -1496,6 +1734,8 @@
   window.addEventListener("pageshow", (event) => {
     if (!event.persisted) return;
     resetStage();
+    // Die anderen haben inzwischen vielleicht gespielt.
+    loadFriends();
     kids()?.startMusic?.();
     // Beim Zurückkommen aus einem Spiel ist der Ton längst freigegeben – hier
     // muss der Zug auf nichts mehr warten.
@@ -1512,6 +1752,8 @@
     view.areaId = null;
     view.part = "whole";
     view.from = null;
+    view.friendId = null;
+    view.friendArea = null;
     render();
   }
 })();

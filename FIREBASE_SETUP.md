@@ -39,6 +39,8 @@ users/{uid}/sessions/{sessionId}
 
 Zusätzlich darf das verifizierte Admin-Google-Konto `Alain.sc2@gmail.com` alle `users`-Dokumente und deren Unterkollektionen **lesen** sowie einen fremden Account **zurücksetzen**. Für das Zurücksetzen ist genau zweierlei erlaubt: Dokumente unter `users/{uid}` löschen und am Profil die Felder `stats`, `gameState`, `progressReset` und `updatedAt` ändern. Name, Rolle, Lok und Levelmodus bleiben dem Admin verwehrt, und Fortschritt schreiben kann er nirgends – wegräumen ja, erfinden nein. Alle anderen Dokumente sind gesperrt.
 
+Wer in derselben **Gruppe** ist (Feld `group.id` am Konto), darf ausserdem die Konten der anderen Mitglieder und deren `levelProgress` **lesen** – mehr nicht: Sitzungen bleiben privat, und geschrieben wird beim anderen nirgends. Das Feld `group` selbst ist dem Admin vorbehalten; ein Kind kann es weder anlegen noch ändern, sonst schriebe es sich in eine fremde Gruppe und läse deren Fortschritt mit.
+
 ## 4. Admin-Bereich
 
 Wenn du dich in der App mit Google und `Alain.sc2@gmail.com` anmeldest, erscheint im Profil oben rechts zusätzlich der **Admin-Bereich**. Dort werden alle Accounts geladen und pro User folgende Daten angezeigt:
@@ -52,6 +54,15 @@ Wenn du dich in der App mit Google und `Alain.sc2@gmail.com` anmeldest, erschein
 Das Feld `role: "admin"` bzw. `isAdmin: true` im eigenen Profil dient nur als Anzeige/Metadatum. Die echte Berechtigung liegt in `firestore.rules` und prüft das verifizierte Auth-Token mit der Admin-E-Mail.
 
 Bei jedem User steht dort auch **Fortschritt zurücksetzen**. Gäste haben den Knopf bewusst nicht: ihr Stand liegt auf ihrem Gerät, das Gastdokument ist nur eine Kopie davon, und ein Aufräumen in Firestore liesse den Zug des Kindes unverändert stehen.
+
+### Gruppen
+
+Unter jedem User steht die Karte **Gruppe** mit zwei Feldern:
+
+- **Gruppe** – der Name der Gruppe, zum Beispiel `Familie`. Aus ihm wird der Schlüssel gebildet, unter dem sich die Mitglieder finden; `Familie` und `FAMILIE` landen deshalb in derselben Gruppe. Ein leeres Feld (oder **Aus der Gruppe nehmen**) löst die Zuordnung wieder.
+- **Name des Zugs** – unter welchem Namen der Zug dieses Kontos in der Gruppe steht. Bleibt das Feld leer, gilt der Name des Kontos.
+
+Sobald ein Konto in einer Gruppe ist, sieht es auf dem **Startbild** über dem eigenen Zug die Züge der anderen Mitglieder, jeden auf einem eigenen Gleis und mit seinem Namen davor. Ein Tipp darauf zeigt, welche Level diese Person geschafft hat. Gäste können nicht in eine Gruppe: ihr Stand liegt auf ihrem Gerät.
 
 ## 5. Fortschritt zurücksetzen
 
@@ -86,7 +97,7 @@ Die App schreibt folgende Dokumente:
 
 | Pfad | Inhalt |
 | --- | --- |
-| `users/{uid}` | Profil, Name, technische Auth-Adresse, Provider, Rolle/Admin-Metadaten, Gesamtstatistik, Lok/Landschaft, Spielstände, Reset-Marke |
+| `users/{uid}` | Profil, Name, technische Auth-Adresse, Provider, Rolle/Admin-Metadaten, Gesamtstatistik, Lok/Landschaft, Spielstände, Reset-Marke, Gruppe |
 | `users/{uid}/levelProgress/{levelKey}` | Fortschritt pro Level: gelöst, Versuche, Spielzeit, Züge, Resets, Hinweise |
 | `users/{uid}/sessions/{sessionId}` | Einzelne Spielstände/Sitzungen mit Start, Ende, Dauer, Zügen, Resets und gelöst-Status |
 
