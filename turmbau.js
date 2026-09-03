@@ -4,9 +4,10 @@
  * Über dem Turm schwingt ein Block hin und her. Ein Tipp lässt ihn fallen: was
  * auf dem Block darunter aufliegt, bleibt liegen, was übersteht, bricht ab und
  * fällt aus dem Bild. Der nächste Block ist dann nur noch so breit wie das,
- * was liegen blieb – der Turm wird nach oben von selbst schmaler. Trifft man
- * ganz daneben oder ist zu wenig übrig, ist der Turm fertig. Was zählt, ist,
- * wie viele Blöcke bis dahin gestapelt sind.
+ * was liegen blieb – der Turm wird nach oben von selbst schmaler. Erst wer
+ * ganz daneben trifft, ist fertig: solange der Block den Turm berührt, geht es
+ * weiter, und sei der Rest noch so schmal. Was zählt, ist, wie viele Blöcke
+ * bis dahin gestapelt sind.
  *
  * Dieselbe Form wie der Fischteich: ein Lauf, keine Uhr, keine Level. Schwerer
  * wird es allein durch die Höhe – der Block schwingt mit jedem Stapel eine
@@ -47,10 +48,14 @@
   const WELT_W = 300;              // so breit ist das Bild immer, in Einheiten
   const BLOCK_H = 26;
   const START_W = 132;             // knapp die Hälfte des Bildes
-  // Darunter hält der Turm nichts mehr. Zwölf Prozent der Anfangsbreite sind
-  // selbst auf dem flachsten Handy noch rund zehn Bildpunkte – schmaler wäre
-  // nicht mehr zu treffen, sondern nur noch Glück.
-  const MIN_BREITE = START_W * 0.12;
+  // Schmaler als das wird kein Block. Eine Grenze, an der der Turm "zu schmal"
+  // und damit fertig wäre, gibt es nicht: ein Kind, das den Turm trifft, hat
+  // ihn getroffen, und ein Spiel, das dann trotzdem endet, fühlt sich falsch
+  // an. Nur unsichtbar darf der Rest nicht werden – unter drei Einheiten wäre
+  // er auf einem Handy kein Bildpunkt mehr, also bleibt so viel stehen, und
+  // genau so viel zählt auch. Von dort führen drei genaue Treffer hintereinander
+  // wieder zu einem breiteren Block.
+  const KLEINSTE_W = 3;
   const SOCKEL_W = START_W * 1.34; // das Fundament ist breiter als der erste Block
   const SOCKEL_H = BLOCK_H * 1.15;
   const GRUND = 46;                // so viel Boden liegt unter dem Sockel im Bild
@@ -119,7 +124,6 @@
   const STAUCH_MS = 110;           // Zusammendrücken beim Aufsetzen
   const GLANZ_MS = 190;            // Leuchten nach einem genauen Treffer
   const STOSS_MS = 90;             // Stoss aufs Bild, nur bei genauem Treffer
-  const KIPP_MS = 260;             // so lange steht ein zu schmaler Block noch
   const ENDE_MS = 820;             // von "vorbei" bis zur Ergebnistafel
 
   // ---------------------------------------------------------------------------
@@ -155,7 +159,7 @@
     "Der nächste Block ist dann nur noch so breit wie das, was liegen geblieben ist.",
     "Triffst du genau, bleibt der Block ganz breit – und nach drei genauen Treffern bekommst du sogar ein Stück Breite zurück.",
     "Je höher der Turm, desto schneller schwingt der Block.",
-    "Triffst du ganz daneben oder bleibt fast nichts mehr übrig, ist der Turm fertig.",
+    "Erst wenn du ganz daneben triffst, ist der Turm fertig.",
     "Zeit hast du so viel du willst.",
   ].join(" ");
 
@@ -255,7 +259,6 @@
     himmel: 0,
     stoss: 0,
     zeit: 0,
-    grund: null,          // warum der Turm fertig war: "daneben" oder "schmal"
   };
 
   let shell = null;
@@ -734,15 +737,13 @@
       // einfach weg. Ein Kind soll sehen, was es gekostet hat.
       if (b1 < links) abbrechen(b1, links, s, -1);
       if (b2 > rechts) abbrechen(rechts, b2, s, 1);
-      s.w = rechts - links;
       s.x = (links + rechts) / 2;
+      s.w = Math.max(KLEINSTE_W, rechts - links);
     }
 
     s.stauch = 1;
     unten.stauch = Math.max(unten.stauch || 0, 0.4);
     state.bloecke.push(s);
-
-    if (s.w < MIN_BREITE) { zuSchmal(s); return; }
 
     state.punkte += 1;
     shell.setCount(state.punkte);
@@ -810,7 +811,6 @@
     const s = state.schweber;
     state.schweber = null;
     state.phase = "ende";
-    state.grund = "daneben";
     const nachRechts = s.x > state.bloecke[state.bloecke.length - 1].x;
     state.teile.push({
       x: s.x, y: s.y, w: s.w, h: s.h, farbe: s.farbe,
@@ -823,27 +823,6 @@
     zeigeCombo();
     kids()?.playJingle?.("retry");
     stepTimer = window.setTimeout(finish, ENDE_MS);
-  }
-
-  function zuSchmal(block) {
-    state.phase = "ende";
-    state.grund = "schmal";
-    state.combo = 0;
-    zeigeCombo();
-    kids()?.playJingle?.("retry");
-    // Der Block bleibt kurz liegen – man soll sehen, wie wenig übrig war –,
-    // dann rutscht er ab und nimmt den Turm die letzte Stufe hinunter.
-    stepTimer = window.setTimeout(() => {
-      const i = state.bloecke.indexOf(block);
-      if (i >= 0) state.bloecke.splice(i, 1);
-      state.teile.push({
-        x: block.x, y: block.y, w: block.w, h: block.h, farbe: block.farbe,
-        vx: 34, vy: 40, dreh: 0, vdreh: -3.4,
-      });
-      const oben = state.bloecke[state.bloecke.length - 1];
-      if (oben && !oben.sockel) oben.wackel = 1;
-      stepTimer = window.setTimeout(finish, ENDE_MS - KIPP_MS);
-    }, KIPP_MS);
   }
 
   // ---------------------------------------------------------------------------
@@ -951,7 +930,6 @@
     state.himmel = 0;
     state.stoss = 0;
     state.zeit = 0;
-    state.grund = null;
     shell.setCount(0);
 
     shell.clear();
@@ -988,9 +966,7 @@
     // Warum der Turm fertig war, gehört dazu: wer nicht liest, sieht den
     // letzten Block fallen und hört hier, was ihn zu Fall gebracht hat. Beim
     // leeren Turm steht es schon im Satz davor.
-    const warum = punkte === 0 ? ""
-      : state.grund === "schmal" ? "Der Turm war oben zu schmal geworden."
-        : "Der letzte Block ist daneben gefallen.";
+    const warum = punkte === 0 ? "" : "Der letzte Block ist daneben gefallen.";
     const marke = rekord
       ? "Das ist dein neuer Rekord!"
       : best ? `Dein bester Turm hat ${best} Blöcke.` : "";
@@ -1084,7 +1060,7 @@
   // scripts/check-handy.mjs muss die Ergebnistafel anfahren, und wo der Block
   // gerade schwingt, lässt sich von aussen nicht abwarten.
   window.LernappTurmbau = {
-    WELT_W, BLOCK_H, START_W, MIN_BREITE, RUNS_FOR_DONE,
+    WELT_W, BLOCK_H, START_W, KLEINSTE_W, RUNS_FOR_DONE,
     schwungFuer, weiteFuer, himmelFarben, state,
   };
 })();
