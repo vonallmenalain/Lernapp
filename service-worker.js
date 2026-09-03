@@ -46,6 +46,7 @@ const CORE_ASSETS = [
   `./styles.css${ASSET_VERSION_QUERY}`,
   `./spatial-puzzles.js${ASSET_VERSION_QUERY}`,
   `./kids.js${ASSET_VERSION_QUERY}`,
+  `./highscore.js${ASSET_VERSION_QUERY}`,
   `./app.js${ASSET_VERSION_QUERY}`,
   `./train-progress.js${ASSET_VERSION_QUERY}`,
   `./train-art.js${ASSET_VERSION_QUERY}`,

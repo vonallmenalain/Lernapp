@@ -4916,17 +4916,214 @@ body[data-page="train"] .help-voice { display: none; }
   .friend-detail-train [data-area] { transition: none; }
 }
 
-/* Anschauen, nicht antippen: beim Zug eines anderen führt keine Kiste in ein
-   Spiel. Dafür steht die Zahl darunter – wer vergleicht, will sie wissen. */
-.wagon-crate.is-static { cursor: default; }
-.wagon-crate.is-static:hover { background: rgba(255, 255, 255, 0.72); }
-.wagon-crate.is-static:active { transform: none; }
-
+/* Am fremden Zug führt die Kiste nicht ins Spiel, sondern in die Bestenliste.
+   Die Zahl darunter bleibt: sie beantwortet die einfachere Frage – wie viele
+   sind es –, während die Liste die schwierigere beantwortet: wer ist vorn. */
 .crate-count {
   font-size: clamp(0.68rem, 1.6vh, 0.86rem);
   font-weight: 800;
   color: #4a5568;
   font-variant-numeric: tabular-nums;
+}
+
+/* ===========================================================================
+   Die Bestenliste der Gruppe
+   ---------------------------------------------------------------------------
+   Erreichbar über den Zug eines anderen: Wagen antippen, Kiste antippen. Eine
+   Liste, kein Podest – die ersten drei bekommen ihre Farbe, alle anderen
+   stehen gleich da. Wer noch nichts gespielt hat, bleibt in der Liste und
+   steht blass am Ende: ein Kind, das seinen Namen nicht findet, glaubt, es sei
+   nicht dabei.
+   =========================================================================== */
+
+.train-stage[data-view="highscore"] .train-band { opacity: 0; pointer-events: none; }
+.train-stage[data-view="highscore"] .stage-layer { z-index: 4; }
+
+.highscore {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(6px, 1.6vh, 16px);
+  padding: calc(var(--safe-top) + 76px) 16px calc(var(--safe-bottom) + 16px);
+  pointer-events: auto;
+  overflow: hidden;
+}
+
+.highscore-head {
+  flex: 0 0 auto;
+  max-width: 100%;
+  display: flex;
+  align-items: center;
+  gap: clamp(8px, 2vw, 16px);
+  padding: 6px 18px 6px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 4px 14px rgba(36, 48, 71, 0.2);
+}
+
+.highscore-icon {
+  flex: 0 0 auto;
+  width: clamp(38px, 6vh, 58px);
+  height: clamp(38px, 6vh, 58px);
+  display: block;
+}
+
+.highscore-kicker {
+  margin: 0;
+  color: #6b7a90;
+  font-size: clamp(0.62rem, 1.5vh, 0.78rem);
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.highscore-title {
+  margin: 0;
+  color: #243047;
+  font-size: clamp(0.98rem, 2.5vh, 1.4rem);
+  font-weight: 900;
+  line-height: 1.15;
+}
+
+/* Die Level als Auswahl. Sie liegen in einer Reihe und dürfen quer rollen:
+   Tier-Sprung hat zehn davon, und zehn Zeilen übereinander nähmen der Liste
+   den Platz weg, um die es hier geht. */
+.highscore-levels {
+  flex: 0 0 auto;
+  max-width: 100%;
+  display: flex;
+  gap: 6px;
+  padding: 2px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.highscore-levels::-webkit-scrollbar { display: none; }
+
+.highscore-chip {
+  flex: 0 0 auto;
+  min-height: clamp(30px, 4.4vh, 40px);
+  padding: 0 clamp(10px, 2vw, 16px);
+  border: none;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.78);
+  color: #4a5568;
+  font: inherit;
+  font-size: clamp(0.72rem, 1.7vh, 0.92rem);
+  font-weight: 800;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.16s ease, color 0.16s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.highscore-chip.active {
+  background: #243047;
+  color: #fff;
+}
+.highscore-chip:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
+
+.highscore-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: min(100%, 560px);
+  margin: 0;
+  padding: 0 2px;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(4px, 0.9vh, 9px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.highscore-row {
+  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: clamp(28px, 4.6vh, 40px) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: clamp(8px, 2vw, 14px);
+  padding: clamp(5px, 1.1vh, 10px) clamp(10px, 2vw, 16px);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 3px 10px rgba(36, 48, 71, 0.14);
+}
+
+/* Der eigene Name steht hervorgehoben da: in einer Liste mit sechs Kindern
+   sucht man zuerst sich selbst. */
+.highscore-row.is-me {
+  background: #fffaf0;
+  box-shadow: 0 3px 10px rgba(36, 48, 71, 0.14), inset 0 0 0 2px #f0b429;
+}
+
+.highscore-row.is-empty { opacity: 0.62; }
+
+.highscore-rank {
+  display: grid;
+  place-items: center;
+  width: clamp(28px, 4.6vh, 40px);
+  height: clamp(28px, 4.6vh, 40px);
+  border-radius: 50%;
+  background: rgba(36, 48, 71, 0.1);
+  color: #4a5568;
+  font-size: clamp(0.78rem, 1.9vh, 1rem);
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Gold, Silber, Bronze – dieselben drei Farben, die ein Kind von jedem
+   Treppchen kennt. Danach hört die Färbung auf: der Unterschied zwischen dem
+   vierten und dem fünften Platz ist keiner, den man betonen müsste. */
+.highscore-row[data-platz="1"] .highscore-rank { background: #f0b429; color: #3a2a05; }
+.highscore-row[data-platz="2"] .highscore-rank { background: #c7cdd6; color: #2a3140; }
+.highscore-row[data-platz="3"] .highscore-rank { background: #d9a273; color: #3a2409; }
+
+.highscore-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #243047;
+  font-size: clamp(0.82rem, 2vh, 1.05rem);
+  font-weight: 800;
+}
+
+.highscore-value {
+  display: grid;
+  justify-items: end;
+  gap: 1px;
+  text-align: right;
+}
+
+.highscore-value strong {
+  color: #243047;
+  font-size: clamp(0.82rem, 2vh, 1.05rem);
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.highscore-value small {
+  color: #6b7a90;
+  font-size: clamp(0.64rem, 1.5vh, 0.8rem);
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.highscore-hint {
+  margin: 0;
+  padding: 10px 18px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.86);
+  color: #4a5568;
+  font-size: clamp(0.78rem, 1.9vh, 0.98rem);
+  font-weight: 800;
+  text-align: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .highscore-chip { transition: none; }
 }
 
 /* ===========================================================================

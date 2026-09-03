@@ -173,6 +173,9 @@
     // Gruppen: mit wem der eigene Zug auf dem Startbild das Gleis teilt.
     getGroup,
     loadGroupTrains,
+    // Alle der Gruppe, das eigene Konto eingeschlossen: die Bestenliste will
+    // auch den eigenen Namen zeigen.
+    loadGroupMembers,
     // Zuordnen darf nur der Admin. Wer das ist, entscheidet nicht diese Zeile,
     // sondern firestore.rules.
     setUserGroup,
@@ -690,40 +693,52 @@
   // Ein Mitglied, dessen Level sich nicht lesen lassen, fällt nicht aus der
   // Gruppe – sein Zug steht dann eben leer da. Ein Fehler an einem Konto darf
   // nicht das ganze Gleis abräumen.
-  async function loadGroupTrains() {
+  async function loadGroupMembers() {
     if (!state.user || !state.db || !state.group?.id) return [];
 
     const snapshot = await state.db.collection("users").where("group.id", "==", state.group.id).get();
-    const others = snapshot.docs.filter((doc) => doc.id !== state.user.uid);
 
-    const trains = await Promise.all(others.map(async (doc) => {
+    const members = await Promise.all(snapshot.docs.map(async (doc) => {
       const data = doc.data() || {};
       const settings = readTrainSettings(data.trainSettings);
-      const train = {
+      const member = {
         id: doc.id,
         name: groupTrainName(data),
+        // Das eigene Konto ist dabei, aber gekennzeichnet: auf dem Gleis steht
+        // es nicht ein zweites Mal, in der Bestenliste dagegen schon – wer
+        // seinen Namen dort nicht findet, glaubt, er sei nicht dabei.
+        eigen: doc.id === state.user.uid,
         loco: settings?.loco || null,
         gameState: readGameState(data.gameState),
+        // Zweimal dasselbe, für zwei Rechnungen: der Zug braucht nur zu wissen,
+        // was gelöst ist, die Bestenliste auch Zeit, Züge und Neustarts.
         solved: [],
+        levels: [],
       };
 
       try {
         const levels = await state.db.collection("users").doc(doc.id).collection("levelProgress").get();
         levels.forEach((entry) => {
-          const level = entry.data() || {};
-          if (level.solved && level.game && level.levelId) train.solved.push(`${level.game}.${level.levelId}`);
+          const level = { id: entry.id, ...(entry.data() || {}) };
+          member.levels.push(level);
+          if (level.solved && level.game && level.levelId) member.solved.push(`${level.game}.${level.levelId}`);
         });
       } catch (error) {
         console.warn(`Level von ${doc.id} konnten nicht gelesen werden`, error);
       }
 
-      return train;
+      return member;
     }));
 
     // Immer dieselbe Reihenfolge: ein Gleis, dessen Züge bei jedem Start die
     // Plätze tauschen, verwirrt mehr als es zeigt.
-    trains.sort((a, b) => a.name.localeCompare(b.name, "de"));
-    return trains;
+    members.sort((a, b) => a.name.localeCompare(b.name, "de"));
+    return members;
+  }
+
+  // Nur die anderen – für das Gleis über dem eigenen Zug.
+  async function loadGroupTrains() {
+    return (await loadGroupMembers()).filter((member) => !member.eigen);
   }
 
   // Ordnet ein Konto einer Gruppe zu oder nimmt es heraus. Nur der Admin darf
