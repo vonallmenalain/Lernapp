@@ -150,10 +150,11 @@
   }
 
   function describeArea(area) {
-    if (area.complete) return `${area.label}: Wagen fertig gebaut und voll beladen.`;
+    const total = progress.STAGE_COUNT;
+    if (area.complete) return `${area.label}: Wagen fertig, alle ${total} Schritte gebaut.`;
     if (area.stage === 0) return `${area.label}: hier hast du noch nichts gelöst.`;
-    if (area.stage < progress.BUILT_STAGE) return `${area.label}: Wagen wird gebaut, Stufe ${area.stage} von 10.`;
-    return `${area.label}: Wagen fertig gebaut, wird beladen, Stufe ${area.stage} von 10.`;
+    if (area.stage < progress.BUILT_STAGE) return `${area.label}: Wagen wird gebaut, Schritt ${area.stage} von ${total}.`;
+    return `${area.label}: Wagen steht, Schritt ${area.stage} von ${total}.`;
   }
 
   // Was der Vorlese-Knopf und die Bildschirmleser über ein Gebäude sagen. Die
@@ -551,12 +552,17 @@
     const top = document.createElement("div");
     top.className = "wagon-hero";
     const wagon = art.buildWagon(area.wagon, area.color, area.stage);
+    const v = art.WAGON_VIEW;
     const heroSvg = el("svg", {
-      viewBox: `-6 ${art.GROUND - 130} ${art.WAGON_W + 12} 148`,
+      viewBox: `${v.x} ${v.y} ${v.width} ${v.height}`,
       class: "wagon-hero-svg", role: "img", "aria-label": describeArea(area),
     }, [wagon]);
     top.append(heroSvg);
     wrap.append(top);
+
+    // Die zwölf Schritte als Punkte, drei je Spiel – dieselbe Reihe wie in der
+    // Feier, damit das Kind wiedererkennt, was dort gewachsen ist.
+    wrap.append(stepDots(area, area.stage, { className: "wagon-steps" }));
 
     const shelf = document.createElement("div");
     shelf.className = "wagon-shelf";
@@ -1459,62 +1465,88 @@
   // gespielt wurden oder wenn die Seite dazwischen neu geladen wurde.
   const SEEN_KEY = "lernapp.train.gesehen";
   const SEEN_SCENES_KEY = "lernapp.train.gesehen.szenen";
-  // Die Feier dauert gut drei Sekunden: der Balken füllt sich, die Bauart
-  // springt Stufe um Stufe nach. Danach bleibt das Bild stehen, bis das Kind
-  // tippt – eine Feier, die von selbst wieder verschwindet, sieht niemand
-  // richtig. Während sie läuft, tut ein Tipp nichts: sie soll zu Ende gehen.
-  const REWARD_FILL_MS = 2400;    // so lange füllt sich der Balken
-  const REWARD_STEPS_FROM = 500;  // die erste Stufe springt hier …
-  const REWARD_STEPS_TO = 2600;   // … und die letzte hier
-  const REWARD_DONE_MS = 3100;    // ab hier ist die Feier zum Antippen
+  // Die Feier zeigt jeden neuen Schritt einzeln: erst steht der Wagen, wie er
+  // war, dann springt Teil um Teil dazu – jedes mit seinem Punkt in der Reihe
+  // und seinem Ton. Wie lang ein Schritt bleibt, hängt davon ab, wie viele es
+  // sind: einer darf sich Zeit lassen, zwölf auf einmal dürfen nicht eine
+  // halbe Minute dauern. Danach bleibt das Bild stehen, bis das Kind tippt –
+  // eine Feier, die von selbst wieder verschwindet, sieht niemand richtig.
+  // Während sie läuft, tut ein Tipp nichts: sie soll zu Ende gehen.
+  const REWARD_LEAD_MS = 700;      // so lange steht der alte Wagen
+  const REWARD_STEP_MIN_MS = 420;  // kürzester Abstand zwischen zwei Schritten
+  const REWARD_STEP_MAX_MS = 900;  // längster
+  const REWARD_STEP_BUDGET_MS = 2400;
+  const REWARD_TAIL_MS = 600;      // nach dem letzten Schritt bis zum Knopf
   const SCENE_REWARD_DONE_MS = 900;
 
+  function rewardStepMs(count) {
+    return Math.round(Math.max(REWARD_STEP_MIN_MS, Math.min(REWARD_STEP_MAX_MS, REWARD_STEP_BUDGET_MS / Math.max(1, count))));
+  }
+
+  // Gemerkt wird je Bereich der höchste Schritt, der je gesehen wurde – und
+  // zu welchem Wagen-Set er gehört. Wechselt das Set, zählen die alten
+  // Schritte nicht mehr: dann wird nur gemerkt, nicht gefeiert.
   function readSeen() {
     try {
       const raw = JSON.parse(localStorage.getItem(SEEN_KEY) || "null");
-      return raw && typeof raw === "object" ? raw : null;
+      if (!raw || typeof raw !== "object" || !raw.steps || typeof raw.steps !== "object") return null;
+      return { set: String(raw.set || ""), steps: raw.steps };
     } catch { return null; }
   }
 
-  // Gemerkt wird je Bereich der höchste Stand, der je gesehen wurde – nie ein
-  // niedrigerer. Die Bühne wird beim Laden mehrmals gezeichnet, und dazwischen
-  // kann der Stand kurz einbrechen: die Anmeldung ist durch, aber der Stand
-  // aus der Cloud noch nicht da, und für einen Augenblick zählt nichts als
-  // gelöst. Wer diesen Einbruch als "gesehen" merkte, feierte gleich darauf
-  // den alten Stand als Wachstum – ein zweiter Wagen, eine Landschaft, die
-  // längst frei war. Sinken kann der Stand ehrlich nur beim Zurücksetzen, und
-  // dann ist ein ausgebliebenes Fest das kleinere Übel.
+  // Nie ein niedrigerer Stand. Die Bühne wird beim Laden mehrmals gezeichnet,
+  // und dazwischen kann der Stand kurz einbrechen: die Anmeldung ist durch,
+  // aber der Stand aus der Cloud noch nicht da, und für einen Augenblick
+  // zählt nichts als gelöst. Wer diesen Einbruch als "gesehen" merkte, feierte
+  // gleich darauf den alten Stand als Wachstum. Sinken kann der Stand ehrlich
+  // nur beim Zurücksetzen – und das räumt diesen Speicher gleich mit weg.
   function writeSeen(areas) {
-    const seen = readSeen() || {};
-    const next = { ...seen };
+    const set = progress.activeSet().id;
+    const seen = readSeen();
+    const same = seen && seen.set === set;
+    const next = { set, steps: same ? { ...seen.steps } : {} };
     areas.forEach((area) => {
-      const before = Number(seen[area.id]);
-      const now = Math.round(area.ratio * 1000) / 1000;
-      next[area.id] = Number.isFinite(before) ? Math.max(before, now) : now;
+      const before = same ? Number(seen.steps[area.id]) : NaN;
+      next.steps[area.id] = Number.isFinite(before) ? Math.max(before, area.stage) : area.stage;
     });
     try {
       localStorage.setItem(SEEN_KEY, JSON.stringify(next));
     } catch { /* privater Modus */ }
   }
 
-  // Welcher Bereich ist gewachsen? Beim allerersten Start gibt es nichts zu
-  // vergleichen – dann wird nur gemerkt, nicht gefeiert.
-  function grownArea(areas) {
+  // Welche Bereiche sind gewachsen, und von wo? Beim allerersten Start und
+  // nach einem Set-Wechsel gibt es nichts zu vergleichen – dann wird nur
+  // gemerkt, nicht gefeiert.
+  function grownAreas(areas) {
     const seen = readSeen();
+    const set = progress.activeSet().id;
     writeSeen(areas);
-    if (!seen) return null;
-    let best = null;
+    if (!seen || seen.set !== set) return [];
+    const grown = [];
     areas.forEach((area) => {
-      const before = Number(seen[area.id]);
-      if (!Number.isFinite(before) || area.ratio <= before + 0.0005) return;
-      const gain = area.ratio - before;
-      if (!best || gain > best.gain) best = { area, before, gain };
+      const before = Number(seen.steps[area.id]);
+      if (!Number.isFinite(before) || area.stage <= before) return;
+      grown.push({ area, before });
     });
-    return best;
+    // Der grösste Sprung zuerst – meist ist es ohnehin nur einer.
+    return grown.sort((a, b) => (b.area.stage - b.before) - (a.area.stage - a.before));
   }
 
-  function stageFor(ratio) {
-    return progress.stageFor(ratio, ratio > 0);
+  // Die zwölf Schritte eines Wagens als Reihe von Punkten, drei je Spiel. Bis
+  // "done" sind sie voll; die Feier füllt die nächsten einen nach dem anderen.
+  function stepDots(area, done, { className = "wagon-reward-steps" } = {}) {
+    const row = document.createElement("div");
+    row.className = className;
+    row.style.setProperty("--reward-color", area.color);
+    row.setAttribute("role", "img");
+    row.setAttribute("aria-label", `Schritt ${done} von ${progress.STAGE_COUNT}`);
+    for (let s = 1; s <= progress.STAGE_COUNT; s += 1) {
+      const dot = document.createElement("span");
+      dot.className = `reward-dot${s <= done ? " is-done" : ""}`;
+      dot.dataset.step = String(s);
+      row.append(dot);
+    }
+    return row;
   }
 
   // Der Knopf, mit dem eine Feier zu Ende geht. Er erscheint erst, wenn die
@@ -1534,11 +1566,20 @@
     return button;
   }
 
-  // Die Feier: der Wagen gross, sein Balken füllt sich von damals bis jetzt,
-  // und die Bauart wächst mit. Danach bleibt der Wagen stehen, bis das Kind
-  // tippt; done läuft, wenn die Feier zugemacht wurde.
+  function rewardNote(area, stage) {
+    const total = progress.STAGE_COUNT;
+    if (stage >= total) return `Schritt ${stage} von ${total} – dein Wagen ist fertig!`;
+    if (stage >= progress.BUILT_STAGE) return `Schritt ${stage} von ${total} – dein Wagen steht!`;
+    return `Schritt ${stage} von ${total} – dein Wagen wächst.`;
+  }
+
+  // Die Feier: der Wagen gross, und Schritt für Schritt kommt dazu, was das
+  // Kind gerade gebaut hat. Jedes neue Teil springt hervor, sein Punkt in der
+  // Reihe leuchtet auf, und ein Ton geht mit. Danach bleibt der Wagen stehen,
+  // bis das Kind tippt; done läuft, wenn die Feier zugemacht wurde.
   function showWagonReward(grown, done) {
     const { area, before } = grown;
+    const total = progress.STAGE_COUNT;
     const overlay = document.createElement("div");
     overlay.className = "wagon-reward";
     overlay.setAttribute("role", "dialog");
@@ -1547,57 +1588,64 @@
     const card = document.createElement("div");
     card.className = "wagon-reward-card";
     card.style.setProperty("--reward-color", area.color);
-    card.style.setProperty("--reward-fill", `${REWARD_FILL_MS}ms`);
 
     const title = document.createElement("p");
     title.className = "wagon-reward-title";
     title.textContent = area.label;
 
-    const stageFrom = stageFor(before);
     const bühne = document.createElement("div");
     bühne.className = "wagon-reward-stage";
 
-    const zeichne = (stage) => {
+    // Gezeichnet wird der Wagen jedes Mal ganz neu, mit den Teilen, die bis zu
+    // diesem Schritt gehören. Das neue Teil bekommt seine Marke und springt
+    // damit hervor (siehe styles.css); alles andere steht still. Bei den
+    // Gestalten des zweiten Sets ersetzt ein Schritt manchmal ein früheres
+    // Teil – der Sack wird zum Hals –, auch das zeigt das Neuzeichnen richtig.
+    const zeichne = (stage, fresh = null) => {
       bühne.innerHTML = "";
+      const wagon = art.buildWagon(area.wagon, area.color, stage);
+      if (fresh) wagon.querySelectorAll(`[data-step="${fresh}"]`).forEach((node) => node.classList.add("is-new"));
+      const v = art.WAGON_VIEW;
       bühne.append(el("svg", {
-        viewBox: `-6 ${art.GROUND - 132} ${art.WAGON_W + 12} 150`,
+        viewBox: `${v.x} ${v.y} ${v.width} ${v.height}`,
         class: "wagon-reward-svg", role: "img",
-        "aria-label": `${area.label}, Stufe ${stage} von ${progress.STAGE_COUNT}`,
-      }, [art.buildWagon(area.wagon, area.color, stage)]));
+        "aria-label": `${area.label}, Schritt ${stage} von ${total}`,
+      }, [wagon]));
     };
-    zeichne(stageFrom);
+    zeichne(before);
 
-    const bar = document.createElement("div");
-    bar.className = "wagon-reward-bar";
-    const fill = document.createElement("span");
-    fill.className = "wagon-reward-fill";
-    fill.style.width = `${Math.round(before * 100)}%`;
-    bar.append(fill);
+    const dots = stepDots(area, before);
+    const lightUp = (stage) => {
+      const dot = dots.querySelector(`[data-step="${stage}"]`);
+      if (!dot) return;
+      dot.classList.add("is-done", "is-new");
+      dots.setAttribute("aria-label", `Schritt ${stage} von ${total}`);
+    };
 
     const note = document.createElement("p");
     note.className = "wagon-reward-note";
-    note.textContent = area.built ? "Dein Wagen ist gebaut!" : "Dein Wagen wächst.";
+    note.textContent = rewardNote(area, before);
 
     const weiter = rewardButton();
-    card.append(title, bühne, bar, note, weiter);
+    card.append(title, bühne, dots, note, weiter);
     overlay.append(card);
     stage.append(overlay);
 
     kids()?.playJingle?.("wagon");
     kids()?.vibrate?.([12, 60, 18]);
 
-    // Der Balken läuft los, sobald er im Bild steht; die Bauart springt
-    // nacheinander auf jede Stufe dazwischen, gleichmässig über die Feier
-    // verteilt – ob eine Stufe dazukam oder vier.
     const stufen = [];
-    for (let s = stageFrom + 1; s <= area.stage; s += 1) stufen.push(s);
+    for (let s = before + 1; s <= area.stage; s += 1) stufen.push(s);
     const timers = [];
-    const zeigeStufe = (s) => {
-      zeichne(s);
-      bühne.classList.remove("is-pop");
-      void bühne.offsetWidth;
-      bühne.classList.add("is-pop");
-      kids()?.playJingle?.("star");
+    const zeigeStufe = (s, index) => {
+      zeichne(s, s);
+      lightUp(s);
+      note.textContent = rewardNote(area, s);
+      kids()?.playStarSound?.(index % 3);
+      if (s === total) {
+        kids()?.playJingle?.("unlock");
+        kids()?.burstConfetti?.(card, 36);
+      }
     };
 
     let fertig = false;
@@ -1606,7 +1654,8 @@
       fertig = true;
       timers.forEach((id) => window.clearTimeout(id));
       zeichne(area.stage);
-      fill.style.width = `${Math.round(area.ratio * 100)}%`;
+      stufen.forEach((s) => lightUp(s));
+      note.textContent = rewardNote(area, area.stage);
       overlay.classList.add("is-done");
     };
 
@@ -1614,14 +1663,11 @@
       // Ohne Bewegung steht gleich das Ergebnis da, samt Knopf.
       abschliessen();
     } else {
-      window.requestAnimationFrame(() => {
-        fill.style.width = `${Math.round(area.ratio * 100)}%`;
-      });
+      const schritt = rewardStepMs(stufen.length);
       stufen.forEach((s, index) => {
-        const at = REWARD_STEPS_FROM + ((index + 1) / stufen.length) * (REWARD_STEPS_TO - REWARD_STEPS_FROM);
-        timers.push(window.setTimeout(() => zeigeStufe(s), Math.round(at)));
+        timers.push(window.setTimeout(() => zeigeStufe(s, index), REWARD_LEAD_MS + index * schritt));
       });
-      timers.push(window.setTimeout(abschliessen, REWARD_DONE_MS));
+      timers.push(window.setTimeout(abschliessen, REWARD_LEAD_MS + (stufen.length - 1) * schritt + REWARD_TAIL_MS + 300));
     }
 
     // Zugemacht wird erst nach der Feier – ein Tipp mittendrin tut nichts.
@@ -1740,10 +1786,10 @@
   // kommt erst der Wagen und dann die Landschaft – die Landschaft ist die
   // Folge, nicht die Ursache.
   function maybeCelebrate(areas) {
-    const grown = grownArea(areas);
+    const grown = grownAreas(areas);
     const built = areas.filter((area) => area.built).length;
     const scene = newlyUnlockedScene(built);
-    if (grown) feiere((done) => showWagonReward(grown, done));
+    grown.forEach((entry) => feiere((done) => showWagonReward(entry, done)));
     if (scene) feiere((done) => showSceneReward(scene, done));
   }
 
@@ -1955,6 +2001,9 @@
   // Wagen zeigen sonst weiter den Stand dieses Geräts.
   document.addEventListener("lernapp:train-settings", (event) => applyCloudSettings(event.detail));
   document.addEventListener("lernapp:progress-changed", () => render());
+  // Der Admin hat auf ein anderes Wagen-Set umgestellt: andere Wagen, alles
+  // wieder bei 0. Die Bühne zeichnet sich neu, ohne etwas zu feiern.
+  document.addEventListener("lernapp:wagon-set", () => render());
 
   // Die Gruppe kommt erst mit der Anmeldung – und sie kann sich ändern, wenn
   // der Admin jemanden dazunimmt oder herausnimmt. Beides führt hierher.

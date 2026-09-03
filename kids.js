@@ -823,12 +823,42 @@
   }
 
   // ---------------------------------------------------------------------------
+  // Wie oft ein Spiel für seinen Wagen gespielt sein muss
+  // ---------------------------------------------------------------------------
+  // Das hängt am Wagen-Set: im ersten reichen fünf Runden je Spiel, im zweiten
+  // braucht es neun. Massgebend ist train-progress.js (SETS) – auf den
+  // Spielseiten ist die Datei aber nicht geladen, deshalb steht die Zahl je
+  // Set hier noch einmal, klein und ohne Rest; validate-train-progress.mjs
+  // hält beide gleich. Welches Set gilt, spiegelt firebase.js aus der Cloud
+  // nach lernapp.train.set; ohne Eintrag gilt das erste.
+  const WAGON_ROUNDS = { "1": 5, "2": 9 };
+
+  function wagonSetId() {
+    try {
+      const raw = JSON.parse(localStorage.getItem("lernapp.train.set") || "null");
+      const id = raw && typeof raw === "object" ? String(raw.id || "") : "";
+      return WAGON_ROUNDS[id] ? id : "1";
+    } catch { return "1"; }
+  }
+
+  function wagonRounds() {
+    const train = window.LernappTrain;
+    if (train?.activeSet) {
+      const stepAt = train.activeSet().stepAt;
+      return stepAt[stepAt.length - 1];
+    }
+    return WAGON_ROUNDS[wagonSetId()];
+  }
+
+  // ---------------------------------------------------------------------------
   // Öffentliche API
   // ---------------------------------------------------------------------------
   window.LernappKids = {
     KEYS,
     // Sterne
     getStars, setStars,
+    // Wagen-Set: wie viele Runden ein Spiel für seinen Wagen braucht
+    wagonSetId, wagonRounds,
 
     // TTS (nur auf Lautsprecher-Klick)
     ttsSupported, ttsEnabled, setTtsEnabled, speak, stopSpeaking,

@@ -25,7 +25,7 @@
       .cell svg { display: block; }
       .cap { font-size: 0.74rem; color: var(--muted); margin-top: 2px; font-variant-numeric: tabular-nums; }
       .cap b { color: var(--ink); }
-      .stage-grid { display: grid; grid-template-columns: 96px repeat(11, 1fr); gap: 6px; align-items: end; min-width: 1080px; }
+      .stage-grid { display: grid; grid-template-columns: 96px repeat(13, 1fr); gap: 6px; align-items: end; min-width: 1260px; }
       .stage-label { font-size: 0.8rem; font-weight: 700; align-self: center; }
       .stage-head { font-size: 0.72rem; color: var(--muted); text-align: center; font-variant-numeric: tabular-nums; }
       .swatch { width: 12px; height: 12px; border-radius: 3px; display: inline-block; vertical-align: -1px; margin-right: 6px; }
@@ -49,15 +49,20 @@
   </head>
   <body>
     <h1>Zug-Werkstatt</h1>
-    <p class="note">Prüfseite für <code>train-art.js</code>. Zeigt jede Wagenbauart über alle elf Ausbaustufen, alle Lok-Bauteile und alle Tiere am Steuer. Gehört nicht zur App und steht nicht im Service-Worker-Cache.</p>
+    <p class="note">Prüfseite für <code>train-art.js</code>. Zeigt beide Wagen-Sets über alle zwölf Ausbauschritte, alle Lok-Bauteile und alle Tiere am Steuer. Gehört nicht zur App und steht nicht im Service-Worker-Cache.</p>
 
     <h2>Der ganze Zug</h2>
-    <p class="note">Fünf Wagen auf zufälligen Stufen, davor die Lok. Schieberegler unten ändern die Lok.</p>
+    <p class="note">Fünf Wagen auf verschiedenen Stufen, davor die Lok – einmal je Set. Schieberegler unten ändern die Lok.</p>
     <div class="card scroll" id="full-train"></div>
+    <div class="card scroll" id="full-train-2"></div>
 
-    <h2>Wagen: elf Ausbaustufen</h2>
-    <p class="note">Stufe 0 ist das nackte Fahrgestell mit Rädern in der Bereichsfarbe. 1–5 bauen den Wagen auf, 6–10 beladen ihn. Bei Stufe 10 kommen Wimpel und goldene Räder dazu.</p>
+    <h2>Set 1 – Güterzug: zwölf Ausbauschritte</h2>
+    <p class="note">Stufe 0 ist das nackte Fahrgestell mit Rädern in der Bereichsfarbe. 1–6 bauen den Wagen auf, 7–12 beladen ihn. Bei Schritt 12 kommen Wimpel und goldene Räder dazu.</p>
     <div class="card scroll"><div class="stage-grid" id="stages"></div></div>
+
+    <h2>Set 2 – Abenteuerzug: aus Fracht wird eine Gestalt</h2>
+    <p class="note">Stufe 0 ist ein leerer Flachwagen. Die ersten Schritte laden ein, ab der Mitte verwandelt sich die Fracht, bei Schritt 12 lebt die Gestalt. Die Bewegungen laufen nur in der App (styles.css).</p>
+    <div class="card scroll"><div class="stage-grid" id="stages-2"></div></div>
 
     <h2>Lok-Bauteile</h2>
     <p class="note">Jede Zeile zeigt dieselbe Lok mit einer anderen Variante des Bauteils.</p>
@@ -76,12 +81,13 @@
       const { el, buildLoco, buildWagon, buildTrain, driverHead, ART_H, WAGON_W, LOCO_W } = art;
 
       const AREAS = [
-        { id: "gedaechtnis", label: "Gedächtnis", color: "#7C5CE6", wagon: "boxcar" },
-        { id: "konzentration", label: "Konzentration", color: "#00A5B5", wagon: "tank" },
-        { id: "geschwindigkeit", label: "Geschwindigkeit", color: "#F5A623", wagon: "flat" },
-        { id: "problemloesen", label: "Problemlösen", color: "#3FA34D", wagon: "crane" },
-        { id: "zahlbuchstabe", label: "Zahl & Buchstabe", color: "#E8543F", wagon: "mail" },
+        { id: "gedaechtnis", label: "Gedächtnis", color: "#7C5CE6", wagon: "boxcar", wagon2: "unicorn" },
+        { id: "konzentration", label: "Konzentration", color: "#00A5B5", wagon: "tank", wagon2: "whale" },
+        { id: "geschwindigkeit", label: "Geschwindigkeit", color: "#F5A623", wagon: "flat", wagon2: "robot" },
+        { id: "problemloesen", label: "Problemlösen", color: "#3FA34D", wagon: "crane", wagon2: "dragon" },
+        { id: "zahlbuchstabe", label: "Zahl & Buchstabe", color: "#E8543F", wagon: "mail", wagon2: "ship" },
       ];
+      const STAGES = art.WAGON_STAGES;
 
       // Ein einzelnes Teil in ein eigenes <svg> packen.
       function frame(node, width, height = ART_H, scale = 1) {
@@ -95,11 +101,19 @@
       function renderTrain() {
         const host = document.getElementById("full-train");
         host.innerHTML = "";
-        const areas = AREAS.map((a, i) => ({ ...a, stage: [10, 7, 3, 5, 0][i] }));
+        const areas = AREAS.map((a, i) => ({ ...a, stage: [12, 8, 4, 6, 0][i] }));
         const svg = buildTrain(areas, loco);
         svg.style.width = "1100px";
         svg.style.height = "auto";
         host.append(svg);
+
+        const host2 = document.getElementById("full-train-2");
+        host2.innerHTML = "";
+        const areas2 = AREAS.map((a, i) => ({ ...a, wagon: a.wagon2, stage: [12, 9, 12, 6, 12][i] }));
+        const svg2 = buildTrain(areas2, loco);
+        svg2.style.width = "1100px";
+        svg2.style.height = "auto";
+        host2.append(svg2);
 
         const controls = document.createElement("div");
         controls.className = "controls";
@@ -128,11 +142,11 @@
         host.append(controls);
       }
 
-      function renderStages() {
-        const grid = document.getElementById("stages");
+      function renderStages(gridId = "stages", key = "wagon") {
+        const grid = document.getElementById(gridId);
         grid.innerHTML = "";
         grid.append(document.createElement("div"));
-        for (let stage = 0; stage <= 10; stage += 1) {
+        for (let stage = 0; stage <= STAGES; stage += 1) {
           const head = document.createElement("div");
           head.className = "stage-head";
           head.textContent = stage;
@@ -141,12 +155,15 @@
         AREAS.forEach((area) => {
           const label = document.createElement("div");
           label.className = "stage-label";
-          label.innerHTML = `<span class="swatch" style="background:${area.color}"></span>${area.label}`;
+          label.innerHTML = `<span class="swatch" style="background:${area.color}"></span>${area.label}<br><small>${area[key]}</small>`;
           grid.append(label);
-          for (let stage = 0; stage <= 10; stage += 1) {
+          for (let stage = 0; stage <= STAGES; stage += 1) {
             const cell = document.createElement("div");
             cell.className = "cell";
-            cell.append(frame(buildWagon(area.wagon, area.color, stage), WAGON_W, ART_H, 0.62));
+            const v = art.WAGON_VIEW;
+            const svg = el("svg", { viewBox: `${v.x} ${v.y} ${v.width} ${v.height}`, width: v.width * 0.62, height: v.height * 0.62 });
+            svg.append(buildWagon(area[key], area.color, stage));
+            cell.append(svg);
             grid.append(cell);
           }
         });
@@ -255,6 +272,7 @@
 
       renderTrain();
       renderStages();
+      renderStages("stages-2", "wagon2");
       renderParts();
       renderDrivers();
       renderBuildings();

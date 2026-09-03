@@ -34,7 +34,8 @@
   // Wie oft die äusseren Fische in die andere Richtung zeigen. Bei jedem
   // zweiten Mal: seltener wäre keine Übung, häufiger nur noch Ärger.
   const INCONGRUENT = 0.5;
-  const RUNS_FOR_DONE = 5;
+  // Wie viele, sagt das Wagen-Set: fünf im ersten, neun im zweiten (kids.js).
+  const RUNS_FOR_DONE = window.LernappKids?.wagonRounds?.() || 5;
   const TOP_COUNT = 5;
   // Ein Fehler kostet eine längere Pause als ein Treffer. Es gibt keine
   // Minuspunkte – aber bei zwei Knöpfen träfe blindes Draufhauen die Hälfte,

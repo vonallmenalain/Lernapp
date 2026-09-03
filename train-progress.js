@@ -2,7 +2,7 @@
  * train-progress.js – Der Fortschritt des Zugs.
  *
  * Rechnet aus, wie weit jeder der fünf Bereiche ist, und übersetzt das in die
- * Ausbaustufe des zugehörigen Wagens. Enthält keinerlei Grafik: train-art.js
+ * Ausbauschritte des zugehörigen Wagens. Enthält keinerlei Grafik: train-art.js
  * zeichnet, train-home.js baut die Bühne, diese Datei rechnet nur.
  *
  * Wird nach app.js geladen und liest window.LernappLevelCatalog. Absichtlich
@@ -14,9 +14,11 @@
   // ---------------------------------------------------------------------------
   // Die fünf Bereiche
   // ---------------------------------------------------------------------------
-  // Jeder Bereich hat eine Farbe, ein Symbol und eine eigene Wagenbauart. Die
-  // Bauart ist wichtig: Farbe allein trennt fünf Wagen zu schwach – besonders
-  // für farbenblinde Kinder –, die Silhouette trennt sie immer.
+  // Jeder Bereich hat eine Farbe, ein Symbol und vier Spiele. Welche Bauart
+  // sein Wagen hat, sagt nicht der Bereich, sondern das Wagen-Set (unten):
+  // derselbe Bereich hat im ersten Set einen Kastenwagen und im zweiten ein
+  // Einhorn. Farbe und Symbol bleiben über die Sets gleich – das ist es, woran
+  // ein Kind seinen Bereich wiedererkennt, wenn die Wagen wechseln.
   //
   // Reihenfolge = Reihenfolge im Zug von links nach rechts. Die Lok steht rechts
   // davor, Zahl & Buchstabe hängt also direkt an ihr.
@@ -26,7 +28,6 @@
       label: "Gedächtnis",
       color: "#7C5CE6",
       icon: "brain",
-      wagon: "boxcar",
       games: [
         { id: "backpack", title: "Rucksack packen", page: "backpack.html", ownProgress: "backpack" },
         { id: "memory", title: "Memory", page: "memory.html", ownProgress: "memory" },
@@ -39,7 +40,6 @@
       label: "Konzentration",
       color: "#00A5B5",
       icon: "target",
-      wagon: "tank",
       games: [
         { id: "flanker", title: "Schwarm-Fokus", page: "schwarmfokus.html", ownProgress: "flanker" },
         { id: "trackRouter", title: "Weichen-Wirrwarr", page: "weichen.html", ownProgress: "trackRouter" },
@@ -52,7 +52,6 @@
       label: "Geschwindigkeit",
       color: "#F5A623",
       icon: "bolt",
-      wagon: "flat",
       games: [
         { id: "tiersprung", title: "Tier-Sprung", page: "tiersprung.html", ownProgress: "runner" },
         { id: "cardMatch", title: "Karten-Merker", page: "kartenmerker.html", ownProgress: "cardMatch" },
@@ -65,12 +64,11 @@
       label: "Problemlösen",
       color: "#3FA34D",
       icon: "puzzle",
-      wagon: "crane",
       games: [
         { id: "spatialPuzzle", title: "Raumdetektiv", page: "raumdetektiv.html", ownProgress: "spatial" },
-        { id: "arukone", title: "Arukone", page: "arukone.html", ownProgress: "fuenfLevel" },
-        { id: "bimaru", title: "Battleships", page: "bimaru.html", ownProgress: "fuenfLevel" },
-        { id: "shikaku", title: "Tiergehege", page: "shikaku.html", ownProgress: "fuenfLevel" },
+        { id: "arukone", title: "Arukone", page: "arukone.html" },
+        { id: "bimaru", title: "Battleships", page: "bimaru.html" },
+        { id: "shikaku", title: "Tiergehege", page: "shikaku.html" },
       ],
     },
     {
@@ -78,7 +76,6 @@
       label: "Zahl und Buchstabe",
       color: "#E8543F",
       icon: "abc",
-      wagon: "mail",
       games: [
         { id: "letterPuzzle", title: "Buchstabenjagd", page: "buchstaben.html" },
         { id: "readingPuzzle", title: "Wortdetektiv", page: "wortdetektiv.html" },
@@ -93,26 +90,88 @@
   AREAS.forEach((area) => area.games.forEach((game) => { AREA_BY_GAME[game.id] = area; }));
 
   // ---------------------------------------------------------------------------
-  // Ausbaustufen
+  // Die Wagen-Sets
   // ---------------------------------------------------------------------------
-  // Elf Stufen: 0 ist der blosse Rohbau, 1–5 bauen den Wagen auf, 6–10 beladen
-  // ihn. Vorne liegen die Schwellen dicht beieinander, damit sich schon nach
-  // wenigen gelösten Levels sichtbar etwas tut – für ein Kind ist ein Zug, der
-  // sich nicht bewegt, kein Ziel.
+  // Ein Set sagt zweierlei: wie die fünf Wagen aussehen, und wie schnell sie
+  // wachsen. Beides gehört zusammen, weil beides zugleich wechselt – der Admin
+  // stellt auf das nächste Set um, alle Wagen beginnen bei 0, und von da an
+  // dauert es länger, bis einer fertig ist.
   //
-  // Stufe 1 hängt nicht an einer Schwelle, sondern am ersten gelösten Level
-  // überhaupt: der erste Erfolg muss den Zug verändern.
-  const STAGE_COUNT = 10;
-  const BUILT_STAGE = 5;           // ab hier steht der Wagen, danach wird geladen
-  const STAGE_THRESHOLDS = [0, 0.08, 0.16, 0.26, 0.38, 0.52, 0.66, 0.78, 0.90, 1];
+  // stepAt: nach wie vielen gespielten Runden oder Leveln ein Spiel seinen
+  // ersten, zweiten und dritten Schritt freigibt. Die letzte Zahl ist damit
+  // auch, wie oft ein Spiel gespielt sein muss, bis es "geschafft" ist.
+  //
+  //   Set 1: 1, 3, 5 – der erste Erfolg verändert den Zug sofort, danach alle
+  //          zwei Runden ein Schritt. Zwanzig Runden je Wagen.
+  //   Set 2: 3, 6, 9 – jede dritte Runde ein Schritt, sechsunddreissig je
+  //          Wagen. Fast doppelt so lang wie das erste, wie gewünscht.
+  const SETS = [
+    {
+      id: "1",
+      label: "Güterzug",
+      stepAt: [1, 3, 5],
+      wagons: {
+        gedaechtnis: "boxcar",
+        konzentration: "tank",
+        geschwindigkeit: "flat",
+        problemloesen: "crane",
+        zahlbuchstabe: "mail",
+      },
+    },
+    {
+      id: "2",
+      label: "Abenteuerzug",
+      stepAt: [3, 6, 9],
+      wagons: {
+        gedaechtnis: "unicorn",
+        konzentration: "whale",
+        geschwindigkeit: "robot",
+        problemloesen: "dragon",
+        zahlbuchstabe: "ship",
+      },
+    },
+  ];
+  const SET_BY_ID = Object.fromEntries(SETS.map((set) => [set.id, set]));
+  const DEFAULT_SET = SETS[0];
 
-  function stageFor(ratio, anySolved) {
-    if (!anySolved) return 0;
-    let stage = 1;
-    STAGE_THRESHOLDS.forEach((threshold, index) => {
-      if (index > 0 && ratio >= threshold) stage = index + 1;
-    });
-    return Math.min(STAGE_COUNT, stage);
+  // Welches Set gilt, steht auf dem Gerät. Hingeschrieben wird es von
+  // firebase.js, das den Wechsel aus der Cloud erfährt – ohne Konto und ohne
+  // Netz gilt, was zuletzt ankam, und ganz am Anfang das erste Set.
+  const SET_KEY = "lernapp.train.set";
+
+  function readActiveSetId() {
+    try {
+      const raw = JSON.parse(localStorage.getItem(SET_KEY) || "null");
+      const id = raw && typeof raw === "object" ? String(raw.id || "") : String(raw || "");
+      return SET_BY_ID[id] ? id : DEFAULT_SET.id;
+    } catch { return DEFAULT_SET.id; }
+  }
+
+  function activeSet() { return SET_BY_ID[readActiveSetId()] || DEFAULT_SET; }
+
+  function wagonFor(areaId, set = activeSet()) {
+    return set.wagons[areaId] || DEFAULT_SET.wagons[areaId] || "boxcar";
+  }
+
+  // ---------------------------------------------------------------------------
+  // Ausbauschritte
+  // ---------------------------------------------------------------------------
+  // Zwölf Schritte je Wagen, drei je Spiel: jeder Wagen hat vier Spiele, und
+  // jedes davon baut genau drei Teile an. So ist jeder Schritt einem Spiel
+  // zuzuordnen, und ein Kind sieht nach dem Spielen genau, was dazugekommen
+  // ist – nicht einen Balken, der ein bisschen voller wurde.
+  //
+  // Ab der Hälfte steht der Wagen: das ist die Marke, an der eine neue
+  // Landschaft frei wird. Fertig ist er mit allen zwölf.
+  const STEPS_PER_GAME = 3;
+  const STAGE_COUNT = 12;
+  const BUILT_STAGE = 6;
+
+  // Wie viele Schritte ein Spiel mit so vielen gespielten Runden freigibt.
+  function stepsFor(plays, stepAt = activeSet().stepAt) {
+    let steps = 0;
+    stepAt.forEach((at) => { if (plays >= at) steps += 1; });
+    return Math.min(STEPS_PER_GAME, steps);
   }
 
   // ---------------------------------------------------------------------------
@@ -123,9 +182,6 @@
   const LOCAL_SOLVED_PREFIX = "lernapp.solved.";
   const RUNNER_KEY = "lernapp.tiersprung.progress";
   const RUNNER_LEVEL_COUNT = 10;
-  // Fünf geschaffte Level bauen den Wagen – welche fünf, ist gleich. Zehn zu
-  // verlangen hiesse: das schwerste Tier entscheidet über den ganzen Wagen.
-  const RUNNER_FOR_DONE = 5;
   const CARDMATCH_KEY = "lernapp.cardmatch";
   const BEACH_KEY = "lernapp.beachtreasure";
   const FLANKER_KEY = "lernapp.flanker";
@@ -138,11 +194,11 @@
   const LEAF_KEY = "lernapp.blaetter";
   const TOWER_KEY = "lernapp.turmbau";
   const GRIDLOCK_KEY = "lernapp.freiefahrt";
-  // Weichen-Wirrwarr hat zehn Level, Freie Fahrt zwölf – fünf davon reichen
-  // für den Wagen.
-  const BEST_LEVELS_FOR_DONE = 5;
-  // Beide Bestenlisten-Spiele gelten nach fünf gespielten Runden als geschafft.
-  const RUNS_FOR_DONE = 5;
+  // Die Kartenzahlen, die Memory zur Wahl stellt.
+  const MEMORY_SIZES = [8, 12, 16, 20, 24];
+  // So viele Bestwerte behält eine Bestenliste – unabhängig davon, wie viele
+  // Runden ein Set für den Wagen verlangt.
+  const SCORES_KEPT = 5;
 
   // Wie ein Spiel zählt – für den Satz, den der Lautsprecher vorliest.
   const LEVEL_UNIT = { plural: "Level", dative: "Leveln" };
@@ -193,8 +249,8 @@
   //
   // Sterne fehlen mit Absicht. Sie stehen bei den Katalog-Spielen nur auf dem
   // Gerät, das sie vergeben hat, und wandern nicht in die Cloud – ein fremder
-  // Zug hätte davon also nur eine erfundene Zahl. Für die Ausbaustufe eines
-  // Wagens zählen ohnehin gelöste Level, nicht Sterne.
+  // Zug hätte davon also nur eine erfundene Zahl. Für die Schritte eines
+  // Wagens zählen ohnehin gespielte Level, nicht Sterne.
   function accountSource(account = {}) {
     const solved = new Set(Array.isArray(account.solved) ? account.solved : []);
     const states = account.gameState && typeof account.gameState === "object" ? account.gameState : {};
@@ -222,76 +278,36 @@
 
   function gameState(key) { return source.gameState(key); }
 
-  // Tier-Sprung führt sein eigenes Konto: zehn Level, keine Welten, eigener
-  // Speicherschlüssel. Dieser Adapter bringt es auf dieselbe Form wie die
-  // Katalog-Spiele, damit der Wagen nichts von der Sonderrolle wissen muss.
-  function runnerProgress(game) {
-    const stored = gameState(RUNNER_KEY) || {};
-    const best = stored.best && typeof stored.best === "object" ? stored.best : {};
-    const worlds = [];
-    let solved = 0;
-    let stars = 0;
+  // ---------------------------------------------------------------------------
+  // Aus gespielten Runden werden Schritte
+  // ---------------------------------------------------------------------------
+  // Alle zwanzig Spiele zählen am Ende dasselbe: wie oft wurde gespielt – ein
+  // Level gelöst, eine Runde zu Ende gebracht, eine Kartenzahl geschafft. Wie
+  // ein Spiel zu dieser Zahl kommt, steht bei ihm; was die Zahl bedeutet, steht
+  // hier, einmal für alle. Sonst hiesse ein Schritt in jedem Spiel etwas
+  // anderes.
+  //
+  // Die drei Bänder an der Kiste des Wagens sind die drei Schritte: jedes füllt
+  // sich, bis sein Schritt steht, und dann füllt sich das nächste. So ist auch
+  // ohne Zahl zu sehen, wie weit es bis zum nächsten Teil noch ist.
+  function fromPlays(game, plays, { stars = [], unit = LEVEL_UNIT } = {}) {
+    const stepAt = activeSet().stepAt;
+    const total = stepAt[stepAt.length - 1];
+    const solved = Math.max(0, Math.min(total, Math.floor(Number(plays) || 0)));
+    const steps = stepsFor(solved, stepAt);
 
-    for (let id = 1; id <= RUNNER_LEVEL_COUNT; id += 1) {
-      const entry = best[id] || best[String(id)] || null;
-      const levelStarCount = Math.max(0, Math.min(3, Number(entry?.stars) || 0));
-      if (entry) solved += 1;
-      stars += levelStarCount;
-      worlds.push({
-        key: `level-${id}`,
-        solved: entry ? 1 : 0,
-        total: 1,
-        stars: levelStarCount,
-        maxStars: 3,
-        ratio: entry ? 1 : 0,
-      });
-    }
-
-    // Für den Wagen zählen die besten fünf: ein sechstes Level darf den Stand
-    // nicht drücken, und wer fünf schafft, ist fertig.
-    const besteFuenf = worlds
-      .map((world) => world.stars)
-      .filter((value) => value > 0)
-      .sort((a, b) => b - a)
-      .slice(0, RUNNER_FOR_DONE);
-
-    return {
-      id: game.id,
-      title: game.title,
-      page: game.page,
-      solved: Math.min(RUNNER_FOR_DONE, solved),
-      total: RUNNER_FOR_DONE,
-      ratio: Math.min(1, solved / RUNNER_FOR_DONE),
-      stars: besteFuenf.reduce((sum, value) => sum + value, 0),
-      maxStars: RUNNER_FOR_DONE * 3,
-      unit: LEVEL_UNIT,
-      worlds: worlds.slice(0, RUNNER_FOR_DONE),
-    };
-  }
-
-  // Fortschritt eines Katalog-Spiels, aufgeschlüsselt nach Welten. Die Welten
-  // ergeben sich aus dem Katalog selbst, damit hier keine zweite Liste der
-  // Schwierigkeitsgrade gepflegt werden muss.
-  function catalogProgress(game) {
-    const levels = catalog()[game.id] || [];
-    const groups = new Map();
-
-    levels.forEach((level) => {
-      const key = level.difficulty || "easy";
-      if (!groups.has(key)) groups.set(key, { key, solved: 0, total: 0, stars: 0, maxStars: 0, ratio: 0 });
-      const group = groups.get(key);
-      group.total += 1;
-      group.maxStars += 3;
-      if (isSolved(level)) group.solved += 1;
-      group.stars += levelStars(level);
+    const worlds = stepAt.map((at, index) => {
+      const from = index ? stepAt[index - 1] : 0;
+      const ratio = Math.max(0, Math.min(1, (solved - from) / (at - from)));
+      return { key: `schritt-${index + 1}`, solved: solved >= at ? 1 : 0, total: 1, ratio };
     });
 
-    const worlds = [...groups.values()];
-    worlds.forEach((group) => { group.ratio = group.total ? group.solved / group.total : 0; });
-
-    const solved = worlds.reduce((sum, group) => sum + group.solved, 0);
-    const total = worlds.reduce((sum, group) => sum + group.total, 0);
-    const stars = worlds.reduce((sum, group) => sum + group.stars, 0);
+    // Sterne: die besten Ergebnisse der gezählten Runden. Für den Wagen zählen
+    // sie nicht, aber die Bestenliste und der Adminbereich wollen sie kennen.
+    const counted = [...stars]
+      .map((value) => Math.max(0, Math.min(3, Number(value) || 0)))
+      .sort((a, b) => b - a)
+      .slice(0, solved);
 
     return {
       id: game.id,
@@ -300,16 +316,42 @@
       solved,
       total,
       ratio: total ? solved / total : 0,
-      stars,
+      steps,
+      stepAt: [...stepAt],
+      stars: counted.reduce((sum, value) => sum + value, 0),
       maxStars: total * 3,
-      unit: LEVEL_UNIT,
+      unit,
       worlds,
     };
   }
 
-  // Karten-Merker und Strand-Schätze laufen nicht über Level, sondern über
-  // Runden mit einer Bestenliste. "Fertig" sind sie nach fünf gespielten
-  // Runden, unabhängig davon, wie viele Punkte dabei herauskamen – wer übt,
+  // Tier-Sprung führt sein eigenes Konto: zehn Level, keine Welten, eigener
+  // Speicherschlüssel. Gezählt wird, wie viele davon geschafft sind – welche,
+  // ist gleich: alle zehn zu verlangen hiesse, das schwerste Tier entscheidet
+  // über den ganzen Wagen.
+  function runnerProgress(game) {
+    const stored = gameState(RUNNER_KEY) || {};
+    const best = stored.best && typeof stored.best === "object" ? stored.best : {};
+    const stars = [];
+    for (let id = 1; id <= RUNNER_LEVEL_COUNT; id += 1) {
+      const entry = best[id] || best[String(id)] || null;
+      if (entry) stars.push(Number(entry.stars) || 1);
+    }
+    return fromPlays(game, stars.length, { stars });
+  }
+
+  // Ein Katalog-Spiel: gezählt werden gelöste Level, egal aus welcher Welt. Bei
+  // vierzig Leveln je Spiel hiesse alles zu verlangen: ein Wagen, den kein Kind
+  // je fertig sieht.
+  function catalogProgress(game) {
+    const levels = catalog()[game.id] || [];
+    const geschafft = levels.filter(isSolved);
+    return fromPlays(game, geschafft.length, { stars: geschafft.map(levelStars) });
+  }
+
+  // Karten-Merker, Strand-Schätze und die anderen Spiele mit Bestenliste laufen
+  // nicht über Level, sondern über Runden. Gezählt wird jede zu Ende gespielte
+  // Runde, unabhängig davon, wie viele Punkte dabei herauskamen – wer übt,
   // kommt voran, und wer einen schlechten Tag hat, auch. Die Sterne kommen aus
   // den besten Ergebnissen, damit die Bestenliste im Wagen sichtbar wird.
   //
@@ -319,30 +361,11 @@
   function runsProgress(key, gut) {
     return (game) => {
       const stored = gameState(key) || {};
-      const runs = Math.max(0, Math.min(RUNS_FOR_DONE, Number(stored.runs) || 0));
+      const runs = Math.max(0, Number(stored.runs) || 0);
       const scores = Array.isArray(stored.scores) ? stored.scores.filter((n) => Number.isFinite(n)) : [];
-      const worlds = [];
-      let stars = 0;
-
-      for (let i = 0; i < RUNS_FOR_DONE; i += 1) {
-        const done = i < runs;
-        const runStars = done ? starsForScore(scores[i], gut) : 0;
-        stars += runStars;
-        worlds.push({ key: `runde-${i + 1}`, solved: done ? 1 : 0, total: 1, stars: runStars, maxStars: 3, ratio: done ? 1 : 0 });
-      }
-
-      return {
-        id: game.id,
-        title: game.title,
-        page: game.page,
-        solved: runs,
-        total: RUNS_FOR_DONE,
-        ratio: runs / RUNS_FOR_DONE,
-        stars,
-        maxStars: RUNS_FOR_DONE * 3,
-        unit: ROUND_UNIT,
-        worlds,
-      };
+      const stars = [];
+      for (let i = 0; i < runs; i += 1) stars.push(starsForScore(scores[i], gut));
+      return fromPlays(game, runs, { stars, unit: ROUND_UNIT });
     };
   }
 
@@ -353,54 +376,44 @@
     return 1;
   }
 
-  // Fünf abgeschlossene Level bauen den Wagen – welche fünf, ist gleich. Bei
-  // vierzig Leveln je Spiel hiesse alles zu verlangen: ein Wagen, den kein Kind
-  // je fertig sieht.
-  const LEVELS_FOR_DONE = 5;
+  // Memory zählt gespielte Runden – und, für Stände von früher, die geschafften
+  // Kartenzahlen: bevor das Spiel Runden zählte, stand nur je Grösse "geschafft"
+  // da, und dieser Stand soll nicht verloren gehen. Runden sind nie weniger als
+  // geschaffte Grössen, also zählt das Grössere von beidem. Bewertet wird
+  // nichts – geschafft ist geschafft, also drei Sterne.
+  function memoryProgress(game) {
+    const stored = gameState(MEMORY_KEY) || {};
+    const best = stored.best && typeof stored.best === "object" ? stored.best : {};
+    const sizes = MEMORY_SIZES.filter((size) => (Number(best[size]?.stars) || 0) > 0).length;
+    const runs = Math.max(0, Number(stored.runs) || 0);
+    const plays = Math.max(runs, sizes);
+    return fromPlays(game, plays, { stars: Array.from({ length: plays }, () => 3) });
+  }
 
-  function fuenfLevelProgress(game) {
-    const levels = catalog()[game.id] || [];
-    const geschafft = levels.filter(isSolved);
-    const beste = geschafft
-      .map(levelStars)
-      .sort((a, b) => b - a)
-      .slice(0, LEVELS_FOR_DONE);
-    const solved = Math.min(LEVELS_FOR_DONE, geschafft.length);
-    const worlds = [];
-    for (let i = 0; i < LEVELS_FOR_DONE; i += 1) {
-      const stars = beste[i] || 0;
-      const done = i < solved;
-      worlds.push({ key: `level-${i + 1}`, solved: done ? 1 : 0, total: 1, stars, maxStars: 3, ratio: done ? 1 : 0 });
-    }
-    return {
-      id: game.id,
-      title: game.title,
-      page: game.page,
-      solved,
-      total: LEVELS_FOR_DONE,
-      ratio: solved / LEVELS_FOR_DONE,
-      stars: beste.reduce((sum, value) => sum + value, 0),
-      maxStars: LEVELS_FOR_DONE * 3,
-      unit: LEVEL_UNIT,
-      worlds,
+  // Weichen-Wirrwarr und Freie Fahrt zählen abgeschlossene Level, nicht Runden:
+  // zehn bzw. zwölf stehen zur Wahl, und beliebige davon bauen den Wagen. Wer
+  // die leichten spielt, kommt genauso an wie wer die schweren spielt – die
+  // Sterne unterscheiden das.
+  function bestenLevelProgress(key) {
+    return (game) => {
+      const stored = gameState(key) || {};
+      const best = stored.best && typeof stored.best === "object" ? stored.best : {};
+      const stars = Object.values(best)
+        .map((entry) => Math.max(0, Math.min(3, Number(entry?.stars) || 0)))
+        .filter((value) => value > 0);
+      return fromPlays(game, stars.length, { stars });
     };
   }
 
   const OWN_PROGRESS = {
-    fuenfLevel: fuenfLevelProgress,
     runner: runnerProgress,
     cardMatch: runsProgress(CARDMATCH_KEY, 40),
     beachTreasure: runsProgress(BEACH_KEY, 12),
     flanker: runsProgress(FLANKER_KEY, 30),
     backpack: runsProgress(BACKPACK_KEY, 12),
-    trackRouter: bestenLevelProgress(TRACK_KEY, BEST_LEVELS_FOR_DONE),
-    // Freie Fahrt zählt genauso: zwölf Level in vier Stufen, fünf davon bauen
-    // den Wagen.
-    gridlock: bestenLevelProgress(GRIDLOCK_KEY, BEST_LEVELS_FOR_DONE),
-    // Memory zählt geschaffte Kartenzahlen statt Level: fünf Grössen stehen zur
-    // Wahl, und wer alle fünf einmal geschafft hat, hat den Wagen gebaut.
-    // Bewertet wird nichts – geschafft ist geschafft, also drei Sterne.
-    memory: levelSetProgress(MEMORY_KEY, [8, 12, 16, 20, 24]),
+    trackRouter: bestenLevelProgress(TRACK_KEY),
+    gridlock: bestenLevelProgress(GRIDLOCK_KEY),
+    memory: memoryProgress,
     // Raumdetektiv legt keine Punktzahl ab, sondern die Sterne der Runde: die
     // Bewertung steht schon fest, wenn die zehn Aufgaben durch sind. Drei
     // Sterne sind damit die "gute" Runde.
@@ -419,67 +432,6 @@
     towerStack: runsProgress(TOWER_KEY, 14),
   };
 
-  // Ein Spiel, das eine feste Liste von Aufgaben führt und jede nur als
-  // geschafft oder nicht kennt.
-  function levelSetProgress(key, ids) {
-    return (game) => {
-      const best = gameState(key)?.best || {};
-      const worlds = ids.map((id) => {
-        const stars = Math.max(0, Math.min(3, Number(best[id]?.stars) || 0));
-        return { key: `teil-${id}`, solved: stars ? 1 : 0, total: 1, stars, maxStars: 3, ratio: stars ? 1 : 0 };
-      });
-      const solved = worlds.filter((world) => world.solved).length;
-      return {
-        id: game.id,
-        title: game.title,
-        page: game.page,
-        solved,
-        total: ids.length,
-        ratio: solved / ids.length,
-        stars: worlds.reduce((sum, world) => sum + world.stars, 0),
-        maxStars: ids.length * 3,
-        unit: LEVEL_UNIT,
-        worlds,
-      };
-    };
-  }
-
-  // Weichen-Wirrwarr und Freie Fahrt zählen abgeschlossene Level, nicht Runden:
-  // zehn bzw. zwölf stehen zur Wahl, fünf beliebige bauen den Wagen fertig. Wer
-  // die leichten fünf spielt, kommt genauso an wie wer die schweren spielt –
-  // die Sterne unterscheiden das.
-  function bestenLevelProgress(key, noetig) {
-    return (game) => {
-      const stored = gameState(key) || {};
-      const best = stored.best && typeof stored.best === "object" ? stored.best : {};
-      // Die besten fünf zählen, damit ein sechstes Level den Stand nicht drückt.
-      const sterne = Object.values(best)
-        .map((entry) => Math.max(0, Math.min(3, Number(entry?.stars) || 0)))
-        .filter((value) => value > 0)
-        .sort((a, b) => b - a)
-        .slice(0, noetig);
-
-      const worlds = [];
-      for (let i = 0; i < noetig; i += 1) {
-        const stars = sterne[i] || 0;
-        worlds.push({ key: `level-${i + 1}`, solved: stars ? 1 : 0, total: 1, stars, maxStars: 3, ratio: stars ? 1 : 0 });
-      }
-
-      return {
-        id: game.id,
-        title: game.title,
-        page: game.page,
-        solved: sterne.length,
-        total: noetig,
-        ratio: sterne.length / noetig,
-        stars: sterne.reduce((sum, value) => sum + value, 0),
-        maxStars: noetig * 3,
-        unit: LEVEL_UNIT,
-        worlds,
-      };
-    };
-  }
-
   // Die Spiele mit eigenem Konto legen ihren Stand nicht im Levelkatalog ab,
   // sondern jedes in seinem eigenen Kasten. Damit der Zug sie auch auf
   // einem frischen Gerät kennt, werden die Kästen hier angemeldet: game-cloud.js
@@ -493,7 +445,7 @@
     cloudGames.register({ key: GRIDLOCK_KEY, empty: { best: {} }, merge: cloudGames.mergeLevels }).onChange(redraw);
     cloudGames.register({ key: MEMORY_KEY, empty: { best: {} }, merge: cloudGames.mergeLevels }).onChange(redraw);
     [CARDMATCH_KEY, BEACH_KEY, FLANKER_KEY, BACKPACK_KEY, RAUM_KEY, TILE_KEY, POND_KEY, LEAF_KEY, TOWER_KEY].forEach((key) => {
-      cloudGames.register({ key, empty: { runs: 0, scores: [] }, merge: cloudGames.mergeScores(RUNS_FOR_DONE) }).onChange(redraw);
+      cloudGames.register({ key, empty: { runs: 0, scores: [] }, merge: cloudGames.mergeScores(SCORES_KEPT) }).onChange(redraw);
     });
   }
 
@@ -505,16 +457,20 @@
     return own ? own(game) : catalogProgress(game);
   }
 
-  // Bereichsfortschritt: Mittelwert über die Spiele, nicht über die Levels.
+  // Bereichsfortschritt: die Schritte der vier Spiele zusammengezählt.
   //
-  // Der Unterschied ist gewollt. Problemlösen hat 160 Levels, Konzentration 24 –
-  // ein reiner Levelanteil liesse den einen Wagen fast siebenmal schneller
-  // wachsen als den anderen. Über den Mittelwert zählt jedes Spiel gleich viel,
-  // und ein Wagen wächst nur, wenn das Kind alle Spiele seines Bereichs anfasst.
-  // Der Wagen steht für den Bereich, nicht für ein einzelnes Spiel.
+  // Jedes Spiel zählt gleich viel, egal wie viele Level es hat: Kakuro hat
+  // vierzig, der Karten-Merker gar keine. Über die Schritte wächst ein Wagen
+  // nur, wenn das Kind alle Spiele seines Bereichs anfasst – der Wagen steht
+  // für den Bereich, nicht für ein einzelnes Spiel.
+  //
+  // ratio ist feiner als die Schritte: der Mittelwert der Spielanteile. Daran
+  // sieht der Adminbereich, ob bis zum nächsten Schritt eine Runde fehlt oder
+  // drei, und danach sortiert das Startbild die Wagen eines fremden Zugs.
   function areaProgress(areaId) {
     const area = AREA_BY_ID[areaId];
     if (!area) return null;
+    const set = activeSet();
 
     const games = area.games.map((game) => gameProgress(game.id)).filter(Boolean);
     const playable = games.filter((game) => game.total > 0);
@@ -526,14 +482,15 @@
     const total = games.reduce((sum, game) => sum + game.total, 0);
     const stars = games.reduce((sum, game) => sum + game.stars, 0);
     const maxStars = games.reduce((sum, game) => sum + game.maxStars, 0);
-    const stage = stageFor(ratio, solved > 0);
+    const stage = Math.min(STAGE_COUNT, games.reduce((sum, game) => sum + game.steps, 0));
 
     return {
       id: area.id,
       label: area.label,
       color: area.color,
       icon: area.icon,
-      wagon: area.wagon,
+      wagon: wagonFor(area.id, set),
+      set: set.id,
       games,
       solved,
       total,
@@ -541,6 +498,7 @@
       stars,
       maxStars,
       stage,
+      steps: stage,
       built: stage >= BUILT_STAGE,
       complete: stage >= STAGE_COUNT,
     };
@@ -553,8 +511,10 @@
   function trainProgress() {
     const areas = allAreas();
     return {
+      set: activeSet().id,
       areas,
       ratio: areas.reduce((sum, area) => sum + area.ratio, 0) / areas.length,
+      steps: areas.reduce((sum, area) => sum + area.stage, 0),
       builtWagons: areas.filter((area) => area.built).length,
       completeWagons: areas.filter((area) => area.complete).length,
     };
@@ -575,11 +535,16 @@
   window.LernappTrain = {
     AREAS,
     AREA_BY_ID,
+    SETS,
+    SET_BY_ID,
+    SET_KEY,
     STAGE_COUNT,
     BUILT_STAGE,
-    STAGE_THRESHOLDS,
+    STEPS_PER_GAME,
+    activeSet,
+    wagonFor,
+    stepsFor,
     areaForGame: (gameId) => AREA_BY_GAME[gameId] || null,
-    stageFor,
     isSolved,
     levelStars,
     gameProgress,

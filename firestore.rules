@@ -98,6 +98,16 @@ service cloud.firestore {
       }
     }
 
+    // --- Das Wagen-Set -----------------------------------------------------
+    // Ein einziges Dokument für alle: config/train sagt, welches Wagen-Set
+    // gilt und wann zuletzt gewechselt wurde. Lesen darf jeder, auch ohne
+    // Konto – ein Gast muss den Wechsel genauso erfahren wie ein Kind mit
+    // Konto. Schreiben darf nur der Admin.
+    match /config/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
     match /guests/{guestId} {
       allow get, list: if isAdmin();
       allow create, update: if !isSignedIn()

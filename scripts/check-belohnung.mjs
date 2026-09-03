@@ -64,26 +64,37 @@ if (!await warteAufServer()) {
 }
 
 // Ein Stand, bei dem beim Öffnen gefeiert wird: der Wagen Gedächtnis wächst
-// von Stufe 2 auf Stufe 5 (Rucksack fünfmal gespielt, Memory in allen fünf
-// Grössen geschafft), und damit wird die dritte Landschaft frei.
+// von Schritt 2 auf Schritt 6 (Rucksack fünfmal gespielt, Memory in allen fünf
+// Grössen geschafft – je drei Schritte), und damit wird die dritte Landschaft
+// frei. Vier neue Schritte: die Feier zeigt sie einzeln, 600 ms je Schritt.
 function speicherVorbereiten() {
   localStorage.clear();
   localStorage.setItem("lernapp.train.gesehen", JSON.stringify({
-    gedaechtnis: 0.15, konzentration: 0, geschwindigkeit: 0, problemloesen: 0, zahlbuchstabe: 0,
+    set: "1",
+    steps: { gedaechtnis: 2, konzentration: 0, geschwindigkeit: 0, problemloesen: 0, zahlbuchstabe: 0 },
   }));
   localStorage.setItem("lernapp.train.gesehen.szenen", "2");
   localStorage.setItem("lernapp.backpack", JSON.stringify({ runs: 5, scores: [12, 10, 8, 6, 4] }));
   localStorage.setItem("lernapp.memory", JSON.stringify({
     best: { 8: { stars: 3 }, 12: { stars: 3 }, 16: { stars: 3 }, 20: { stars: 3 }, 24: { stars: 3 } },
   }));
-  // Zeitpunkte der Feier aufzeichnen: wann sie erscheint, wann sie fertig ist.
-  window.__feier = {};
+  // Zeitpunkte der Feier aufzeichnen: wann sie erscheint, wann sie fertig ist –
+  // und jeden gezeichneten Wagen dazwischen: welche Stufe, welches Teil neu.
+  window.__feier = { schritte: [] };
   new MutationObserver((aenderungen) => {
     aenderungen.forEach((aenderung) => {
       aenderung.addedNodes.forEach((knoten) => {
         if (knoten.classList?.contains("wagon-reward") && !window.__feier.start) window.__feier.start = performance.now();
+        if (knoten.classList?.contains("wagon-reward-svg")) {
+          window.__feier.schritte.push({
+            at: Math.round(performance.now() - (window.__feier.start || 0)),
+            stufe: knoten.querySelector(".train-wagon")?.dataset.stage,
+            neu: [...knoten.querySelectorAll(".wagon-step.is-new")].map((node) => node.dataset.step).join(","),
+          });
+        }
       });
-      if (aenderung.type === "attributes" && aenderung.target.classList?.contains("is-done") && !window.__feier.fertig) {
+      const ziel = aenderung.target;
+      if (aenderung.type === "attributes" && ziel.classList?.contains("wagon-reward") && ziel.classList.contains("is-done") && !window.__feier.fertig) {
         window.__feier.fertig = performance.now();
       }
     });
@@ -139,10 +150,23 @@ pruefe(await blatt.$(".wagon-reward") !== null, "ein Tipp mittendrin bricht sie 
 
 await blatt.waitForSelector(".wagon-reward.is-done", { timeout: 6000 }).catch(() => {});
 const dauer = await blatt.evaluate(() => Math.round((window.__feier.fertig || 0) - (window.__feier.start || 0)));
-pruefe(dauer >= 2900 && dauer <= 3400, `sie dauert gut drei Sekunden (${dauer} ms)`);
+pruefe(dauer >= 3300 && dauer <= 3900, `vier Schritte dauern gut dreieinhalb Sekunden (${dauer} ms)`);
+
+// Die Schritte kamen einzeln: erst der alte Wagen, dann Teil 3, 4, 5 und 6 –
+// jedes als neu markiert, keines übersprungen, in gleichmässigem Abstand.
+const schritte = await blatt.evaluate(() => window.__feier.schritte);
+const folge = schritte.map((s) => `${s.stufe}${s.neu ? `+${s.neu}` : ""}`).join(" ");
+// Der alte Wagen steht schon, bevor die Feier ins Bild kommt, und wird hier
+// deshalb nicht gezählt – danach kommen die vier Schritte, jeder mit seiner
+// Marke, und zum Schluss der fertige Wagen ohne Marke.
+pruefe(/^(2 )*3\+3 4\+4 5\+5 6\+6 6$/.test(folge), `jeder Schritt einzeln, jeder als neu markiert (${folge})`);
+const abstaende = schritte.filter((s) => s.neu).map((s, i, all) => (i ? s.at - all[i - 1].at : null)).filter((n) => n !== null);
+pruefe(abstaende.every((n) => n >= 480 && n <= 760), `gleichmässig alle 600 ms (${abstaende.join(", ")} ms)`);
 await pause(blatt, 450);
 pruefe(await blatt.evaluate(() => getComputedStyle(document.querySelector(".wagon-reward-next")).opacity) === "1", "danach steht der Weiter-Knopf da");
-pruefe(await blatt.evaluate(() => document.querySelector(".wagon-reward-svg")?.getAttribute("aria-label")) === "Gedächtnis, Stufe 5 von 10", "der Wagen zeigt die neue Stufe");
+pruefe(await blatt.evaluate(() => document.querySelector(".wagon-reward-svg")?.getAttribute("aria-label")) === "Gedächtnis, Schritt 6 von 12", "der Wagen zeigt den neuen Schritt");
+pruefe(await blatt.evaluate(() => document.querySelectorAll(".wagon-reward .reward-dot.is-done").length) === 6, "sechs von zwölf Punkten sind voll");
+pruefe(await blatt.evaluate(() => document.querySelectorAll(".wagon-reward .train-wagon .wagon-step").length) === 6, "der Wagen trägt seine sechs Schritte");
 await pause(blatt, 3000);
 pruefe(await blatt.$(".wagon-reward") !== null, "ohne Tipp bleibt sie stehen");
 
@@ -180,7 +204,8 @@ const blatt2 = await stille.newPage();
 await blatt2.addInitScript(() => {
   localStorage.clear();
   localStorage.setItem("lernapp.train.gesehen", JSON.stringify({
-    gedaechtnis: 0, konzentration: 0, geschwindigkeit: 0, problemloesen: 0, zahlbuchstabe: 0,
+    set: "1",
+    steps: { gedaechtnis: 0, konzentration: 0, geschwindigkeit: 0, problemloesen: 0, zahlbuchstabe: 0 },
   }));
   localStorage.setItem("lernapp.train.gesehen.szenen", "2");
   localStorage.setItem("lernapp.fischteich", JSON.stringify({ runs: 2, scores: [5, 3] }));
@@ -198,6 +223,52 @@ await blatt3.goto(`${BASIS}/index.html`, { waitUntil: "load" });
 await pause(blatt3, 500);
 pruefe(await blatt3.$(".wagon-reward") === null, "ohne neuen Fortschritt gibt es keine Feier");
 await stille.close();
+
+// --- Ein anderes Set, ein alter Speicher -------------------------------------
+// Nach einem Set-Wechsel gilt der alte Stand nicht mehr: gemerkt wird neu,
+// gefeiert wird nichts. Und ein Speicher von früher – nur Anteile, ohne
+// Schritte – zählt wie gar keiner.
+console.log("Nach einem Set-Wechsel und mit altem Speicher:");
+const wechsel = await neueSitzung();
+const blatt4 = await wechsel.newPage();
+await blatt4.addInitScript(() => {
+  localStorage.clear();
+  localStorage.setItem("lernapp.train.set", JSON.stringify({ id: "2", switchedAtMs: 5 }));
+  localStorage.setItem("lernapp.train.gesehen", JSON.stringify({
+    set: "1",
+    steps: { gedaechtnis: 0, konzentration: 0, geschwindigkeit: 0, problemloesen: 0, zahlbuchstabe: 0 },
+  }));
+  localStorage.setItem("lernapp.fischteich", JSON.stringify({ runs: 3, scores: [5, 3, 2] }));
+});
+await blatt4.goto(`${BASIS}/index.html`, { waitUntil: "load" });
+await pause(blatt4, 600);
+pruefe(await blatt4.$(".wagon-reward") === null, "nach dem Set-Wechsel wird der alte Stand nicht gefeiert");
+pruefe(await blatt4.evaluate(() => document.querySelector('[data-area="konzentration"]')?.dataset.wagon) === "whale", "der Wagen ist jetzt der Wal");
+pruefe(await blatt4.evaluate(() => JSON.parse(localStorage.getItem("lernapp.train.gesehen")).set) === "2", "gemerkt wird für das neue Set");
+pruefe(await blatt4.evaluate(() => JSON.parse(localStorage.getItem("lernapp.train.gesehen")).steps.konzentration) === 1, "drei Runden Fischteich sind im zweiten Set ein Schritt");
+
+const blatt5 = await wechsel.newPage();
+await blatt5.addInitScript(() => {
+  localStorage.setItem("lernapp.fischteich", JSON.stringify({ runs: 6, scores: [5, 3, 2, 2, 1] }));
+});
+await blatt5.goto(`${BASIS}/index.html`, { waitUntil: "load" });
+await pause(blatt5, 600);
+pruefe(await blatt5.$(".wagon-reward") !== null, "drei weitere Runden werden im neuen Set gefeiert");
+pruefe(await blatt5.evaluate(() => document.querySelector(".wagon-reward .train-wagon")?.dataset.wagon) === "whale", "gefeiert wird der Wal");
+await wechsel.close();
+
+const alt = await neueSitzung();
+const blatt6 = await alt.newPage();
+await blatt6.addInitScript(() => {
+  localStorage.clear();
+  localStorage.setItem("lernapp.train.gesehen", JSON.stringify({ gedaechtnis: 0.15, konzentration: 0 }));
+  localStorage.setItem("lernapp.fischteich", JSON.stringify({ runs: 3, scores: [5, 3, 2] }));
+});
+await blatt6.goto(`${BASIS}/index.html`, { waitUntil: "load" });
+await pause(blatt6, 600);
+pruefe(await blatt6.$(".wagon-reward") === null, "ein Speicher von früher löst keine Feier aus");
+pruefe(await blatt6.evaluate(() => JSON.parse(localStorage.getItem("lernapp.train.gesehen")).steps?.konzentration) === 2, "er wird in Schritte übersetzt");
+await alt.close();
 
 await browser.close();
 halt();

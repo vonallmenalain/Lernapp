@@ -464,186 +464,753 @@
   // ---------------------------------------------------------------------------
   // Wagen
   // ---------------------------------------------------------------------------
-  // Elf Stufen. 0 ist das nackte Fahrgestell, 1–5 bauen auf, 6–10 beladen.
+  // Zwölf Ausbauschritte je Wagen, drei je Spiel des Bereichs. Stufe 0 ist das
+  // nackte Fahrgestell; jeder Schritt danach hängt ein Bauteil an. Jeder
+  // Schritt ist eine eigene Gruppe mit data-step, damit die Feier nach einem
+  // Spiel genau das Teil hervorheben kann, das gerade dazugekommen ist – und
+  // die Prüfung zählen kann, ob wirklich jeder Schritt etwas anhängt.
+  //
   // Die Räder tragen ab Stufe 0 die Bereichsfarbe, damit von Anfang an klar ist,
   // welcher Wagen zu welchem Bereich gehört.
-  const WAGON_TYPES = ["boxcar", "tank", "flat", "crane", "mail"];
+  //
+  // Zwei Sets. Das erste sind Güterwagen: Kasten, Kessel, Flachwagen, Kran,
+  // Post – erst wird gebaut, dann beladen. Das zweite sind Gestalten, die sich
+  // aus Fracht verwandeln: was als Fässer und Kisten beginnt, steht am Ende als
+  // Einhorn da. Bei denen darf ein Schritt ein früheres Teil auch ersetzen –
+  // der Sack wird zum Hals –, deshalb bekommt jede Bauart die Zielstufe mit
+  // und entscheidet selbst, was in welchem Schritt zu sehen ist.
+  const WAGON_TYPES = ["boxcar", "tank", "flat", "crane", "mail", "unicorn", "whale", "robot", "dragon", "ship"];
+  const WAGON_STAGES = 12;
+  // Bis hierhin steht der Wagen; danach wird beladen bzw. verwandelt.
+  const WAGON_BUILT = 6;
 
   const DECK_Y = GROUND - 34;      // Oberkante Ladefläche
   const BODY_TOP = 78;             // Oberkante Wand
   const ROOF_Y = 68;
+  const GOLD = "#f0b429";
+  const WOOD = { light: "#e0a53c", base: "#c98a3f", dark: "#8a5f1c", ink: "#5a3b10" };
 
-  // Wie viele Frachtstücke bei Stufe 6..10 sichtbar sind.
-  function cargoCount(stage, max) {
-    if (stage < 6) return 0;
-    return Math.round(((stage - 5) / 5) * max);
-  }
+  // Der Ausschnitt, in dem ein einzelner Wagen gross gezeigt wird – in der
+  // Wagen-Ansicht und in der Feier. Nach oben grosszügig: das Einhorn trägt
+  // sein Horn höher als jeder Güterwagen sein Dach.
+  const WAGON_VIEW = { x: -6, y: GROUND - 158, width: WAGON_W + 12, height: 176 };
+
+  // Kurzformen für die Zeichnungen unten.
+  const rect = (x, y, w, h, fill, extra = {}) => el("rect", { x, y, width: w, height: h, fill, ...extra });
+  const circle = (cx, cy, r, fill, extra = {}) => el("circle", { cx, cy, r, fill, ...extra });
+  const path = (d, fill, extra = {}) => el("path", { d, fill, ...extra });
+  const poly = (points, fill, extra = {}) => el("polygon", { points, fill, ...extra });
+  const stroke = (d, color, width, extra = {}) => el("path", { d, fill: "none", stroke: color, "stroke-width": width, "stroke-linecap": "round", "stroke-linejoin": "round", ...extra });
 
   function chassis(color) {
     return [
-      el("rect", { x: 6, y: DECK_Y, width: WAGON_W - 12, height: 10, rx: 2, fill: shade(color, -0.5) }),
+      rect(6, DECK_Y, WAGON_W - 12, 10, shade(color, -0.5), { rx: 2 }),
       el("line", { x1: 0, y1: DECK_Y + 5, x2: 6, y2: DECK_Y + 5, stroke: shade(color, -0.5), "stroke-width": 5 }),
       el("line", { x1: WAGON_W - 6, y1: DECK_Y + 5, x2: WAGON_W, y2: DECK_Y + 5, stroke: shade(color, -0.5), "stroke-width": 5 }),
     ];
   }
 
+  // Eine Holzkiste, wie sie auf mehreren Wagen steht.
+  function crate(x, y, w = 15, h = 13) {
+    return [
+      rect(x, y, w, h, WOOD.light, { rx: 2 }),
+      el("line", { x1: x, y1: y + h / 2, x2: x + w, y2: y + h / 2, stroke: WOOD.dark, "stroke-width": 1.6 }),
+    ];
+  }
+
+  // Ein Fass mit zwei Reifen.
+  function barrel(x, y, w = 22, h = 26) {
+    return [
+      rect(x, y, w, h, WOOD.base, { rx: 5 }),
+      rect(x + 2, y + 2, 4, h - 4, WOOD.light, { rx: 2, opacity: "0.6" }),
+      rect(x, y + h * 0.26, w, 3, WOOD.dark),
+      rect(x, y + h * 0.68, w, 3, WOOD.dark),
+    ];
+  }
+
   // --- Kastenwagen (Gedächtnis): Kisten hinter einer Schiebetür ---------------
+  // 1 Boden, 2 rechte Wand, 3 linke Wand, 4 Querbalken, 5 Dach, 6 Mittelwand
+  // mit Türrahmen – dann steht er. 7–12: sechs Kisten, die sich stapeln.
   function boxcarBody(stage, color) {
-    const parts = [];
     const dark = shade(color, -0.3);
     const wallH = DECK_Y - BODY_TOP;
-
-    if (stage >= 1) parts.push(el("rect", { x: 8, y: DECK_Y - 12, width: WAGON_W - 16, height: 12, rx: 2, fill: shade(color, -0.15) }));
-    if (stage >= 2) parts.push(el("rect", { x: WAGON_W - 26, y: BODY_TOP, width: 18, height: wallH - 10, fill: color }));
-    if (stage >= 3) {
-      parts.push(el("rect", { x: 8, y: BODY_TOP, width: 18, height: wallH - 10, fill: color }));
-      parts.push(el("rect", { x: 26, y: BODY_TOP + 4, width: WAGON_W - 52, height: 7, fill: shade(color, -0.1) }));
-    }
-    if (stage >= 4) parts.push(el("rect", { x: 2, y: ROOF_Y, width: WAGON_W - 4, height: 13, rx: 4, fill: dark }));
-    if (stage >= 5) {
-      parts.push(el("rect", { x: 26, y: BODY_TOP + 11, width: WAGON_W - 52, height: wallH - 21, fill: color }));
-      parts.push(el("rect", { x: 46, y: BODY_TOP + 14, width: 34, height: wallH - 26, rx: 2, fill: "none", stroke: shade(color, 0.45), "stroke-width": 3 }));
-      parts.push(el("line", { x1: 63, y1: BODY_TOP + 14, x2: 63, y2: DECK_Y - 12, stroke: shade(color, 0.45), "stroke-width": 2.5 }));
-    }
-
-    // Beladung: die Tür steht offen, die Kisten stapeln sich von unten.
-    const crates = cargoCount(stage, 6);
-    if (crates > 0) {
-      parts.push(el("rect", { x: 46, y: BODY_TOP + 14, width: 34, height: wallH - 26, fill: shade(color, -0.55) }));
-      const spots = [[48, 0], [66, 0], [48, 1], [66, 1], [48, 2], [66, 2]];
-      spots.slice(0, crates).forEach(([x, row]) => {
-        parts.push(el("rect", { x, y: DECK_Y - 14 - row * 15, width: 15, height: 13, rx: 2, fill: "#e0a53c" }));
-        parts.push(el("line", { x1: x, y1: DECK_Y - 8 - row * 15, x2: x + 15, y2: DECK_Y - 8 - row * 15, stroke: "#8a5f1c", "stroke-width": 1.6 }));
-      });
-    }
-    return parts;
+    const spots = [[48, 0], [66, 0], [48, 1], [66, 1], [48, 2], [66, 2]];
+    const crateAt = (index) => {
+      const [x, row] = spots[index];
+      return crate(x, DECK_Y - 14 - row * 15);
+    };
+    return {
+      steps: [
+        [rect(8, DECK_Y - 12, WAGON_W - 16, 12, shade(color, -0.15), { rx: 2 })],
+        [rect(WAGON_W - 26, BODY_TOP, 18, wallH - 10, color)],
+        [rect(8, BODY_TOP, 18, wallH - 10, color)],
+        [rect(26, BODY_TOP + 4, WAGON_W - 52, 7, shade(color, -0.1))],
+        [rect(2, ROOF_Y, WAGON_W - 4, 13, dark, { rx: 4 })],
+        [
+          rect(26, BODY_TOP + 11, WAGON_W - 52, wallH - 21, color),
+          rect(46, BODY_TOP + 14, 34, wallH - 26, "none", { rx: 2, stroke: shade(color, 0.45), "stroke-width": 3 }),
+          el("line", { x1: 63, y1: BODY_TOP + 14, x2: 63, y2: DECK_Y - 12, stroke: shade(color, 0.45), "stroke-width": 2.5 }),
+        ],
+        // Die Tür steht offen, sobald die erste Kiste kommt.
+        [rect(46, BODY_TOP + 14, 34, wallH - 26, shade(color, -0.55)), ...crateAt(0)],
+        crateAt(1),
+        crateAt(2),
+        crateAt(3),
+        crateAt(4),
+        crateAt(5),
+      ],
+    };
   }
 
   // --- Kesselwagen (Konzentration): Füllstand steigt sichtbar -----------------
+  // 1 Bodenplatte, 2 Sattel, 3 Kessel, 4 Dom, 5 Spannbänder, 6 Schauglas – dann
+  // steht er. 7–12: das Glas füllt sich in sechs Stufen, zuletzt sprudelt es.
   function tankBody(stage, color) {
-    const parts = [];
     const tankTop = 92;
     const tankH = DECK_Y - tankTop - 2;
-
-    if (stage >= 1) parts.push(el("rect", { x: 10, y: DECK_Y - 10, width: WAGON_W - 20, height: 10, rx: 3, fill: shade(color, -0.15) }));
-    if (stage >= 2) parts.push(el("path", { d: `M12 ${DECK_Y - 8} a${tankH / 2} ${tankH / 2} 0 0 1 ${tankH / 2} -${tankH / 2} v${tankH / 2} z`, fill: color }));
-    if (stage >= 3) parts.push(el("rect", { x: 12, y: tankTop, width: WAGON_W - 24, height: tankH, rx: tankH / 2, fill: color }));
-    if (stage >= 4) parts.push(el("rect", { x: 58, y: tankTop - 14, width: 24, height: 16, rx: 5, fill: shade(color, -0.3) }));
-    if (stage >= 5) {
-      parts.push(el("line", { x1: 34, y1: tankTop + 8, x2: 34, y2: DECK_Y - 10, stroke: shade(color, 0.4), "stroke-width": 3 }));
-      parts.push(el("line", { x1: 106, y1: tankTop + 8, x2: 106, y2: DECK_Y - 10, stroke: shade(color, 0.4), "stroke-width": 3 }));
-    }
-
-    // Beladung als Schauglas: ein Fenster im Kessel, in dem die Flüssigkeit
-    // steigt. Von allen Wagen die klarste Fortschrittsanzeige ohne ein Wort.
-    if (stage >= 5) {
-      const glassX = 50;
-      const glassY = tankTop + 8;
-      const glassH = tankH - 16;
-      parts.push(el("rect", { x: glassX, y: glassY, width: 40, height: glassH, rx: 4, fill: shade(color, -0.6) }));
-      const level = cargoCount(stage, 5) / 5;
-      if (level > 0) {
-        const fillH = Math.max(3, glassH * level);
-        parts.push(el("rect", { x: glassX + 3, y: glassY + glassH - fillH, width: 34, height: fillH - 2, rx: 3, fill: shade(color, 0.35) }));
-        parts.push(el("rect", { x: glassX + 3, y: glassY + glassH - fillH, width: 34, height: 3, rx: 1.5, fill: shade(color, 0.6) }));
-      }
-      parts.push(el("rect", { x: glassX, y: glassY, width: 40, height: glassH, rx: 4, fill: "none", stroke: shade(color, 0.25), "stroke-width": 2.5 }));
-    }
-    return parts;
+    const glassX = 50;
+    const glassY = tankTop + 8;
+    const glassH = tankH - 16;
+    const fill = (level) => {
+      const fillH = Math.max(3, glassH * level / 6);
+      return [
+        rect(glassX + 3, glassY + glassH - fillH, 34, fillH - 2, shade(color, 0.35), { rx: 3 }),
+        rect(glassX + 3, glassY + glassH - fillH, 34, 3, shade(color, 0.6), { rx: 1.5 }),
+        rect(glassX, glassY, 40, glassH, "none", { rx: 4, stroke: shade(color, 0.25), "stroke-width": 2.5 }),
+      ];
+    };
+    return {
+      steps: [
+        [rect(10, DECK_Y - 10, WAGON_W - 20, 10, shade(color, -0.15), { rx: 3 })],
+        [
+          rect(22, DECK_Y - 20, 22, 10, shade(color, -0.4), { rx: 3 }),
+          rect(96, DECK_Y - 20, 22, 10, shade(color, -0.4), { rx: 3 }),
+        ],
+        [rect(12, tankTop, WAGON_W - 24, tankH, color, { rx: tankH / 2 })],
+        [rect(58, tankTop - 14, 24, 16, shade(color, -0.3), { rx: 5 })],
+        [
+          el("line", { x1: 34, y1: tankTop + 8, x2: 34, y2: DECK_Y - 10, stroke: shade(color, 0.4), "stroke-width": 3 }),
+          el("line", { x1: 106, y1: tankTop + 8, x2: 106, y2: DECK_Y - 10, stroke: shade(color, 0.4), "stroke-width": 3 }),
+        ],
+        [
+          rect(glassX, glassY, 40, glassH, shade(color, -0.6), { rx: 4 }),
+          rect(glassX, glassY, 40, glassH, "none", { rx: 4, stroke: shade(color, 0.25), "stroke-width": 2.5 }),
+        ],
+        fill(1),
+        fill(2),
+        fill(3),
+        fill(4),
+        fill(5),
+        [
+          ...fill(6),
+          group({ class: "gi gi-bubble" }, [circle(64, tankTop - 20, 3.5, shade(color, 0.6))]),
+          group({ class: "gi gi-bubble", style: "animation-delay:-1.4s" }, [circle(74, tankTop - 24, 2.5, shade(color, 0.6))]),
+        ],
+      ],
+    };
   }
 
   // --- Flachwagen (Geschwindigkeit): flach, mit Windschild -------------------
+  // 1 Ladefläche, 2 Windschild, 3 Kante, 4 Stirnwand, 5 Werkzeugkasten,
+  // 6 Tempostreifen – dann steht er. 7–12: sechs Ballen, zur Pyramide gestapelt.
   function flatBody(stage, color) {
-    const parts = [];
-    if (stage >= 1) parts.push(el("rect", { x: 8, y: DECK_Y - 14, width: WAGON_W - 16, height: 14, rx: 3, fill: color }));
-    if (stage >= 2) parts.push(el("path", { d: `M8 ${DECK_Y - 14} L8 ${DECK_Y - 42} q0 -6 6 -6 h20 l14 34 z`, fill: shade(color, -0.15) }));
-    if (stage >= 3) parts.push(el("rect", { x: 8, y: DECK_Y - 18, width: WAGON_W - 16, height: 5, rx: 2, fill: shade(color, 0.3) }));
-    if (stage >= 4) {
-      parts.push(el("rect", { x: WAGON_W - 26, y: DECK_Y - 30, width: 18, height: 16, rx: 3, fill: shade(color, -0.2) }));
-    }
-    if (stage >= 5) {
-      // Tempostreifen am Windschild – das Motiv des Bereichs.
-      parts.push(el("polygon", { points: `40,${DECK_Y - 38} 30,${DECK_Y - 26} 37,${DECK_Y - 26} 28,${DECK_Y - 16} 44,${DECK_Y - 30} 37,${DECK_Y - 30}`, fill: shade(color, 0.55) }));
-    }
-
-    // Beladung: Ballen, die sich stapeln. Der Flachwagen ist von Haus aus
-    // niedrig, deshalb muss die Ladung nach oben wachsen – sonst unterscheiden
-    // sich die Stufen 6 bis 10 kaum voneinander.
-    const load = cargoCount(stage, 5);
-    const spots = [
-      [50, DECK_Y - 36], [74, DECK_Y - 36], [98, DECK_Y - 36],
-      [62, DECK_Y - 58], [86, DECK_Y - 58],
+    const bale = (x, y) => [
+      rect(x, y, 22, 22, shade(color, -0.38), { rx: 3 }),
+      el("line", { x1: x + 11, y1: y, x2: x + 11, y2: y + 22, stroke: shade(color, 0.45), "stroke-width": 2.2 }),
+      el("line", { x1: x, y1: y + 11, x2: x + 22, y2: y + 11, stroke: shade(color, 0.45), "stroke-width": 2.2 }),
     ];
-    spots.slice(0, load).forEach(([x, y]) => {
-      parts.push(el("rect", { x, y, width: 22, height: 22, rx: 3, fill: shade(color, -0.38) }));
-      parts.push(el("line", { x1: x + 11, y1: y, x2: x + 11, y2: y + 22, stroke: shade(color, 0.45), "stroke-width": 2.2 }));
-      parts.push(el("line", { x1: x, y1: y + 11, x2: x + 22, y2: y + 11, stroke: shade(color, 0.45), "stroke-width": 2.2 }));
-    });
-    return parts;
+    return {
+      steps: [
+        [rect(8, DECK_Y - 14, WAGON_W - 16, 14, color, { rx: 3 })],
+        [path(`M8 ${DECK_Y - 14} L8 ${DECK_Y - 42} q0 -6 6 -6 h20 l14 34 z`, shade(color, -0.15))],
+        [rect(8, DECK_Y - 18, WAGON_W - 16, 5, shade(color, 0.3), { rx: 2 })],
+        [rect(128, DECK_Y - 36, 6, 22, shade(color, -0.3), { rx: 2 })],
+        [rect(112, DECK_Y - 30, 16, 16, shade(color, -0.2), { rx: 3 }), rect(115, DECK_Y - 26, 10, 3, shade(color, 0.3), { rx: 1 })],
+        [poly(`40,${DECK_Y - 38} 30,${DECK_Y - 26} 37,${DECK_Y - 26} 28,${DECK_Y - 16} 44,${DECK_Y - 30} 37,${DECK_Y - 30}`, shade(color, 0.55))],
+        bale(42, DECK_Y - 36),
+        bale(66, DECK_Y - 36),
+        bale(90, DECK_Y - 36),
+        bale(54, DECK_Y - 58),
+        bale(78, DECK_Y - 58),
+        bale(66, DECK_Y - 80),
+      ],
+    };
   }
 
   // --- Kranwagen (Problemlösen): der Ausleger wächst -------------------------
+  // 1 Ladefläche, 2 Kabine, 3 Fenster, 4 Ausleger, 5 Seil mit Haken,
+  // 6 Drehkranz mit Warnlampe – dann steht er. 7–11: fünf Kisten auf der
+  // Fläche, 12: der Kran hebt die sechste in die Luft.
   function craneBody(stage, color) {
-    const parts = [];
-    if (stage >= 1) parts.push(el("rect", { x: 8, y: DECK_Y - 16, width: WAGON_W - 16, height: 16, rx: 3, fill: color }));
-    if (stage >= 2) parts.push(el("rect", { x: 12, y: DECK_Y - 46, width: 38, height: 30, rx: 4, fill: shade(color, -0.15) }));
-    if (stage >= 3) parts.push(el("rect", { x: 20, y: DECK_Y - 40, width: 22, height: 15, rx: 2, fill: "#f7fbff", opacity: "0.85" }));
-    if (stage >= 4) {
-      parts.push(el("line", { x1: 48, y1: DECK_Y - 42, x2: 112, y2: 74, stroke: shade(color, -0.25), "stroke-width": 7, "stroke-linecap": "round" }));
-      parts.push(el("line", { x1: 56, y1: DECK_Y - 40, x2: 106, y2: 82, stroke: shade(color, 0.35), "stroke-width": 2.5 }));
-    }
-    if (stage >= 5) {
-      parts.push(el("line", { x1: 110, y1: 78, x2: 110, y2: DECK_Y - 34, stroke: shade(color, -0.4), "stroke-width": 2.5 }));
-      parts.push(el("path", { d: `M104 ${DECK_Y - 34} q6 12 12 0`, fill: "none", stroke: shade(color, -0.4), "stroke-width": 3.5, "stroke-linecap": "round" }));
-    }
-
-    // Beladung: der Kran hat etwas zu heben.
-    const load = cargoCount(stage, 4);
-    const spots = [[60, DECK_Y - 32], [80, DECK_Y - 32], [100, DECK_Y - 32], [70, DECK_Y - 50]];
-    spots.slice(0, load).forEach(([x, y]) => {
-      parts.push(el("rect", { x, y, width: 18, height: 16, rx: 3, fill: "#e0a53c" }));
-      parts.push(el("line", { x1: x, y1: y + 8, x2: x + 18, y2: y + 8, stroke: "#8a5f1c", "stroke-width": 1.8 }));
-    });
-    return parts;
+    const crateAt = (x, y) => [
+      rect(x, y, 18, 16, WOOD.light, { rx: 3 }),
+      el("line", { x1: x, y1: y + 8, x2: x + 18, y2: y + 8, stroke: WOOD.dark, "stroke-width": 1.8 }),
+    ];
+    const hanging = stage >= 12;
+    return {
+      steps: [
+        [rect(8, DECK_Y - 16, WAGON_W - 16, 16, color, { rx: 3 })],
+        [rect(12, DECK_Y - 46, 38, 30, shade(color, -0.15), { rx: 4 })],
+        [rect(20, DECK_Y - 40, 22, 15, "#f7fbff", { rx: 2, opacity: "0.85" })],
+        [
+          el("line", { x1: 48, y1: DECK_Y - 42, x2: 112, y2: 74, stroke: shade(color, -0.25), "stroke-width": 7, "stroke-linecap": "round" }),
+          el("line", { x1: 56, y1: DECK_Y - 40, x2: 106, y2: 82, stroke: shade(color, 0.35), "stroke-width": 2.5 }),
+        ],
+        // Das Seil hängt frei, bis der Kran etwas zu heben hat.
+        hanging
+          ? [el("line", { x1: 112, y1: 76, x2: 112, y2: 84, stroke: shade(color, -0.4), "stroke-width": 2.5 })]
+          : [
+            el("line", { x1: 110, y1: 78, x2: 110, y2: DECK_Y - 34, stroke: shade(color, -0.4), "stroke-width": 2.5 }),
+            stroke(`M104 ${DECK_Y - 34} q6 12 12 0`, shade(color, -0.4), 3.5),
+          ],
+        [
+          rect(46, DECK_Y - 50, 16, 8, shade(color, -0.35), { rx: 3 }),
+          circle(18, DECK_Y - 50, 4, "#ff9f1c", { stroke: shade(color, -0.4), "stroke-width": 1.5 }),
+        ],
+        crateAt(60, DECK_Y - 32),
+        crateAt(80, DECK_Y - 32),
+        crateAt(100, DECK_Y - 32),
+        crateAt(64, DECK_Y - 48),
+        crateAt(84, DECK_Y - 48),
+        [group({ class: "gi gi-hover" }, crateAt(103, 84))],
+      ],
+    };
   }
 
   // --- Postwagen (Zahl & Buchstabe): Fächer füllen sich ----------------------
+  // 1 Boden, 2 Tür, 3 Wand, 4 Dach, 5 Fächerwand, 6 sechs leere Fächer – dann
+  // steht er. 7–12: sechs Briefe, einer je Fach.
   function mailBody(stage, color) {
-    const parts = [];
     const dark = shade(color, -0.3);
     const wallH = DECK_Y - BODY_TOP;
-
-    if (stage >= 1) parts.push(el("rect", { x: 8, y: DECK_Y - 12, width: WAGON_W - 16, height: 12, rx: 2, fill: shade(color, -0.15) }));
-    if (stage >= 2) parts.push(el("rect", { x: WAGON_W - 54, y: BODY_TOP + 16, width: 46, height: wallH - 26, fill: color }));
-    if (stage >= 3) parts.push(el("rect", { x: 8, y: BODY_TOP, width: WAGON_W - 16, height: wallH - 10, fill: color }));
-    if (stage >= 4) parts.push(el("rect", { x: 2, y: ROOF_Y, width: WAGON_W - 4, height: 13, rx: 4, fill: dark }));
-    if (stage >= 5) parts.push(el("rect", { x: 14, y: BODY_TOP + 6, width: WAGON_W - 28, height: wallH - 24, rx: 3, fill: shade(color, -0.5) }));
-
-    // Beladung: sechs Fächer, die sich mit Briefen füllen.
-    const letters = cargoCount(stage, 6);
-    if (stage >= 5) {
-      const slotW = 30;
-      const slotH = 17;
-      for (let i = 0; i < 6; i += 1) {
-        const x = 20 + (i % 3) * (slotW + 6);
-        const y = BODY_TOP + 11 + Math.floor(i / 3) * (slotH + 5);
-        parts.push(el("rect", { x, y, width: slotW, height: slotH, rx: 2, fill: shade(color, -0.62) }));
-        if (i < letters) {
-          parts.push(el("rect", { x: x + 2, y: y + 2, width: slotW - 4, height: slotH - 4, rx: 1.5, fill: "#f6f1e4" }));
-          parts.push(el("polyline", { points: `${x + 2},${y + 2} ${x + slotW / 2},${y + slotH / 2} ${x + slotW - 2},${y + 2}`, fill: "none", stroke: shade(color, -0.2), "stroke-width": 1.8 }));
-        }
-      }
-    }
-    return parts;
+    const slotW = 30;
+    const slotH = 17;
+    const slotAt = (i) => [20 + (i % 3) * (slotW + 6), BODY_TOP + 11 + Math.floor(i / 3) * (slotH + 5)];
+    const letter = (i) => {
+      const [x, y] = slotAt(i);
+      return [
+        rect(x + 2, y + 2, slotW - 4, slotH - 4, "#f6f1e4", { rx: 1.5 }),
+        el("polyline", { points: `${x + 2},${y + 2} ${x + slotW / 2},${y + slotH / 2} ${x + slotW - 2},${y + 2}`, fill: "none", stroke: shade(color, -0.2), "stroke-width": 1.8 }),
+      ];
+    };
+    return {
+      steps: [
+        [rect(8, DECK_Y - 12, WAGON_W - 16, 12, shade(color, -0.15), { rx: 2 })],
+        [rect(WAGON_W - 54, BODY_TOP + 16, 46, wallH - 26, color)],
+        [rect(8, BODY_TOP, WAGON_W - 16, wallH - 10, color)],
+        [rect(2, ROOF_Y, WAGON_W - 4, 13, dark, { rx: 4 })],
+        [rect(14, BODY_TOP + 6, WAGON_W - 28, wallH - 24, shade(color, -0.5), { rx: 3 })],
+        [0, 1, 2, 3, 4, 5].map((i) => {
+          const [x, y] = slotAt(i);
+          return rect(x, y, slotW, slotH, shade(color, -0.62), { rx: 2 });
+        }),
+        letter(0),
+        letter(1),
+        letter(2),
+        letter(3),
+        letter(4),
+        letter(5),
+      ],
+    };
   }
 
-  const WAGON_BODIES = { boxcar: boxcarBody, tank: tankBody, flat: flatBody, crane: craneBody, mail: mailBody };
+  // ===========================================================================
+  // Das zweite Set: aus Fracht wird eine Gestalt
+  // ===========================================================================
+  // Alle fünf beginnen als Flachwagen mit niedriger Bordwand – Stufe 0 ist
+  // eine leere Ladefläche. Die ersten Schritte laden ein: Fässer, Kisten,
+  // Tanks. Ab der Mitte verwandelt sich die Fracht, und beim zwölften Schritt
+  // lebt die Gestalt: das Einhorn wiehert, der Wal spritzt, der Roboter winkt.
+  //
+  // Die Bewegungen stehen als Klassen an den Teilen (wa-…, siehe styles.css)
+  // und laufen nur über transform und opacity. Wer weniger Bewegung
+  // eingestellt hat, sieht die fertige Gestalt still.
+  //
+  // D ist die Oberkante der Ladefläche: alles wird von dort aus nach oben
+  // gemessen, damit die Zahlen in den Storyboards unten lesbar bleiben.
+  const D = DECK_Y - 10;
+  const RAINBOW = ["#ff5d5d", "#ffb347", "#ffe66d", "#6ee7a8", "#6ec6ff"];
 
-  // Wo der Wimpel bei Stufe 10 steht. Ohne diese Tabelle schwebt er bei den
-  // niedrigen Bauarten – Flachwagen, Kranwagen – frei über dem Wagen.
+  function flatbed(color) {
+    return [
+      rect(8, D, WAGON_W - 16, 10, shade(color, -0.15), { rx: 2 }),
+      rect(8, D - 8, WAGON_W - 16, 9, color, { rx: 2 }),
+      rect(8, D - 8, WAGON_W - 16, 3, shade(color, 0.3), { rx: 1.5 }),
+    ];
+  }
+
+  // Hebt eine Gruppe von Teilen an: die Gestalt steht auf, und alles, was auf
+  // ihrem Rücken sitzt, geht mit.
+  function lifted(nodes, by) {
+    return by ? [group({ transform: `translate(0,${-by})` }, nodes)] : nodes;
+  }
+
+  // Ein Auge mit Glanzpunkt.
+  function eye(cx, cy, r, ink) {
+    return [
+      circle(cx, cy, r, "#ffffff"),
+      circle(cx + r * 0.25, cy, r * 0.58, ink),
+      circle(cx + r * 0.45, cy - r * 0.3, r * 0.22, "#ffffff"),
+    ];
+  }
+
+  // --- Einhorn (Gedächtnis, lila) --------------------------------------------
+  // 1 zwei Fässer · 2 Kiste dazwischen · 3 vier Pfosten · 4 Plane über der
+  // Kiste · 5 ein hoher Sack, schräg · 6 zwei Klappen am Sack · 7 die Plane
+  // bekommt Wellen · 8 der Sack wird zum Hals · 9 die Klappen werden Ohren ·
+  // 10 Augen und Schnauze · 11 Pfosten werden Beine, Fässer Hufe, es steht auf
+  // · 12 goldenes Horn, Mähne und Schweif als Regenbogen, es wiehert.
+  function unicornBody(stage, color) {
+    const t = tones(color);
+    const L = stage >= 11 ? 12 : 0;
+    const sack = "#e6d3ad";
+    const sackDark = "#c9b48a";
+
+    // Der Kopf ist eine Gruppe, damit Ohren, Gesicht und Horn beim Wiehern
+    // mitgehen. Angehängt wird sie mit dem Hals (Schritt 8).
+    const head = group({ class: stage >= 12 ? "wa wa-whinny" : null }, [
+      el("ellipse", { cx: 106, cy: D - 60 - L, rx: 13, ry: 11, fill: t.light }),
+      circle(116, D - 55 - L, 7, t.pale),
+    ]);
+
+    const legs = [[48, t.base], [56, t.light], [84, t.base], [92, t.light]];
+    const wave = (y, fill, width = 3) => stroke(`M46 ${y} q6 -5 12 0 t12 0 t12 0 t12 0`, fill, width);
+
+    return {
+      base: flatbed(color),
+      steps: [
+        stage >= 11 ? [] : [...barrel(12, D - 26), ...barrel(106, D - 26)],
+        lifted([
+          rect(44, D - 20, 52, 20, t.light, { rx: L ? 9 : 2 }),
+          stroke(`M44 ${D - 10} H96 M62 ${D - 20} V${D} M78 ${D - 20} V${D}`, t.base, 1.6, { opacity: L ? "0" : "0.7" }),
+        ], L),
+        stage >= 11 ? [] : [
+          rect(38, D - 18, 6, 18, t.deep, { rx: 1.5 }),
+          rect(96, D - 18, 6, 18, t.deep, { rx: 1.5 }),
+          rect(52, D - 28, 5, 9, t.deep, { rx: 1.5, opacity: "0.8" }),
+          rect(84, D - 28, 5, 9, t.deep, { rx: 1.5, opacity: "0.8" }),
+        ],
+        lifted([
+          path(`M40 ${D - 18} L46 ${D - 32} Q70 ${D - 38} 94 ${D - 32} L100 ${D - 18} Z`, t.pale),
+          stroke(`M52 ${D - 30} Q70 ${D - 34} 88 ${D - 30}`, t.light, 1.6, { opacity: "0.7" }),
+        ], L),
+        stage >= 8 ? [] : [
+          rect(65, D - 78, 22, 46, sack, { rx: 10, transform: `rotate(-8 76 ${D - 34})` }),
+          rect(66, D - 68, 20, 3, sackDark, { rx: 1.5, transform: `rotate(-8 76 ${D - 34})` }),
+        ],
+        stage >= 9 ? [] : (stage >= 8
+          ? { into: head, parts: [rect(97, D - 73, 8, 4, sackDark, { rx: 1.5 }), rect(108, D - 74, 8, 4, sackDark, { rx: 1.5 })] }
+          : [rect(65, D - 84, 8, 9, sackDark, { rx: 2, transform: `rotate(-8 76 ${D - 34})` }), rect(78, D - 84, 8, 9, sackDark, { rx: 2, transform: `rotate(-8 76 ${D - 34})` })]),
+        lifted(stage >= 12
+          ? RAINBOW.map((fill, i) => wave(D - 34 + i * 2.2, fill, 2.2))
+          : [wave(D - 30, t.light), wave(D - 25, t.light)], L),
+        [
+          ...lifted([stroke(`M84 ${D - 28} Q94 ${D - 46} 104 ${D - 58}`, t.light, 16)], L),
+          head,
+        ],
+        {
+          into: head,
+          parts: [
+            poly(`98,${D - 68 - L} 101,${D - 82 - L} 106,${D - 68 - L}`, t.light),
+            poly(`108,${D - 69 - L} 113,${D - 83 - L} 117,${D - 68 - L}`, t.light),
+            poly(`100,${D - 69 - L} 101.5,${D - 77 - L} 104,${D - 69 - L}`, t.pale),
+            poly(`110,${D - 70 - L} 113,${D - 78 - L} 115,${D - 69 - L}`, t.pale),
+          ],
+        },
+        {
+          into: head,
+          parts: [
+            ...eye(108, D - 62 - L, 3.6, t.ink),
+            circle(119, D - 54 - L, 1.4, t.dark),
+            stroke(`M113 ${D - 50 - L} q4 3 8 0`, t.dark, 1.5),
+            circle(101, D - 56 - L, 3, "#ff9fb0", { opacity: "0.55" }),
+          ],
+        },
+        [
+          ...legs.map(([x, fill]) => rect(x, D - 16, 8, 16, fill, { rx: 3 })),
+          ...legs.map(([x]) => rect(x - 1, D - 6, 10, 6, WOOD.base, { rx: 2 })),
+        ],
+        [
+          ...lifted([
+            ...RAINBOW.map((fill, i) => stroke(`M${82 - i * 2.5} ${D - 24} Q${88 - i * 3} ${D - 46} ${98 - i * 3} ${D - 62}`, fill, 2.6)),
+            group({ class: "wa wa-tail" }, RAINBOW.map((fill, i) => stroke(`M44 ${D - 22 + i * 1.5} q-14 -4 -${17 - i * 1.5} -${24 - i * 3}`, fill, 2.4))),
+          ], L),
+          // Das Horn gehört auf den Kopf, damit es beim Wiehern mitgeht – aber
+          // es ist Teil des zwölften Schritts, nicht des achten.
+          {
+            into: head,
+            parts: [
+              poly(`101,${D - 70 - L} 108,${D - 92 - L} 109,${D - 70 - L}`, GOLD),
+              poly(`103,${D - 71 - L} 108,${D - 88 - L} 106,${D - 71 - L}`, "#fff0b8", { opacity: "0.7" }),
+            ],
+          },
+          sparkle(124, D - 80 - L, 5, GOLD, "gi gi-twinkle"),
+          sparkle(90, D - 84 - L, 4, "#ffffff", "gi gi-twinkle", "animation-delay:-1.1s"),
+        ],
+      ],
+    };
+  }
+
+  // --- Wal (Konzentration, türkis) -------------------------------------------
+  // 1 Wassertank · 2 zweiter Tank · 3 Rohre dazwischen · 4 grosse Plane ·
+  // 5 ein Rohr biegt sich nach oben · 6 zwei Seitenklappen · 7 die Plane wölbt
+  // sich rund · 8 vorne breit, hinten schmal · 9 Schwanzflosse klappt hoch ·
+  // 10 Klappen werden Brustflossen · 11 Auge, Lächeln, heller Bauch ·
+  // 12 Fontäne aus dem Rohr, er hebt sich und wippt.
+  function whaleBody(stage, color) {
+    const t = tones(color);
+    const float = (nodes) => (stage >= 12 ? [group({ class: "wa wa-float" }, nodes)] : nodes);
+    const tank = (x) => [
+      rect(x, D - 30, 54, 30, t.base, { rx: 12 }),
+      rect(x + 6, D - 27, 42, 5, t.light, { rx: 2.5, opacity: "0.5" }),
+      rect(x + 24, D - 30, 5, 30, t.dark, { opacity: "0.45" }),
+    ];
+    const pipeTop = stage >= 8 ? D - 78 : D - 66;
+
+    return {
+      base: flatbed(color),
+      steps: [
+        stage >= 8 ? [] : tank(10),
+        stage >= 8 ? [] : tank(72),
+        stage >= 8 ? [] : [
+          rect(62, D - 24, 12, 5, t.deep),
+          rect(62, D - 12, 12, 5, t.deep),
+          circle(68, D - 18, 4.5, t.cream, { stroke: t.deep, "stroke-width": 1.5 }),
+        ],
+        stage >= 7 ? [] : [path(`M8 ${D} L8 ${D - 30} Q10 ${D - 44} 30 ${D - 46} H110 Q130 ${D - 44} 132 ${D - 30} L132 ${D} Z`, t.light)],
+        float([
+          ...(stage >= 8 ? [] : [rect(86, D - 52, 16, 6, t.deep, { rx: 2 })]),
+          rect(96, pipeTop, 6, stage >= 8 ? 16 : 18, t.deep, { rx: 2 }),
+          circle(99, pipeTop, 4, t.dark),
+        ]),
+        stage >= 10 ? [] : [rect(38, D - 8, 18, 6, t.dark, { rx: 3 }), rect(84, D - 8, 18, 6, t.dark, { rx: 3 })],
+        stage >= 8 ? [] : [path(`M8 ${D} L8 ${D - 28} Q8 ${D - 58} 40 ${D - 60} H100 Q132 ${D - 58} 132 ${D - 28} L132 ${D} Z`, t.light)],
+        float([
+          path(`M12 ${D - 14} C 20 ${D - 30}, 36 ${D - 64}, 74 ${D - 66} C 108 ${D - 68}, 132 ${D - 52}, 133 ${D - 26} C 134 ${D - 10}, 120 ${D}, 100 ${D} H 24 C 14 ${D}, 10 ${D - 4}, 12 ${D - 14} Z`, t.base),
+          stroke(`M40 ${D - 56} Q74 ${D - 62} 110 ${D - 56}`, t.light, 2.5, { opacity: "0.5" }),
+        ]),
+        float([path(`M14 ${D - 14} C 4 ${D - 24}, 0 ${D - 40}, 6 ${D - 50} C 12 ${D - 42}, 18 ${D - 34}, 20 ${D - 28} C 26 ${D - 34}, 34 ${D - 38}, 40 ${D - 40} C 30 ${D - 30}, 22 ${D - 18}, 16 ${D - 12} Z`, t.dark)]),
+        float([group({ class: stage >= 12 ? "wa wa-fin" : null }, [
+          path(`M72 ${D - 30} C 88 ${D - 28}, 100 ${D - 16}, 94 ${D - 6} C 84 ${D - 8}, 74 ${D - 18}, 72 ${D - 30} Z`, t.dark),
+          stroke(`M76 ${D - 26} C 86 ${D - 24}, 92 ${D - 16}, 90 ${D - 10}`, t.base, 1.5, { opacity: "0.6" }),
+        ])]),
+        float([
+          path(`M30 ${D} C 60 ${D - 10}, 100 ${D - 16}, 126 ${D - 30} C 132 ${D - 14}, 120 ${D}, 100 ${D} Z`, t.pale, { opacity: "0.9" }),
+          stroke(`M48 ${D - 4} Q80 ${D - 12} 112 ${D - 18} M60 ${D - 2} Q88 ${D - 8} 118 ${D - 12}`, t.light, 1.5, { opacity: "0.7" }),
+          ...eye(114, D - 42, 4.2, t.ink),
+          stroke(`M98 ${D - 22} q16 8 30 -2`, t.deep, 2),
+          circle(108, D - 31, 3, "#ffb3c1", { opacity: "0.5" }),
+        ]),
+        [
+          ...float([
+            group({ class: "wa wa-spout" }, [
+              stroke(`M99 ${D - 82} q-8 -10 -12 -20`, t.light, 4.5, { opacity: "0.7" }),
+              stroke(`M99 ${D - 82} q8 -10 12 -20`, t.light, 4.5, { opacity: "0.7" }),
+              stroke(`M99 ${D - 82} q-8 -10 -12 -20`, "#e8fbff", 2.5),
+              stroke(`M99 ${D - 82} q8 -10 12 -20`, "#e8fbff", 2.5),
+              circle(99, D - 92, 3, "#e8fbff", { stroke: t.light, "stroke-width": 1.2 }),
+            ]),
+            group({ class: "wa wa-spout", style: "animation-delay:-1.1s" }, [
+              circle(92, D - 98, 2.6, "#e8fbff", { stroke: t.light, "stroke-width": 1.2 }),
+              circle(106, D - 99, 2.6, "#e8fbff", { stroke: t.light, "stroke-width": 1.2 }),
+              circle(99, D - 104, 2.2, "#e8fbff", { stroke: t.light, "stroke-width": 1.2 }),
+            ]),
+          ]),
+          group({ class: "wa wa-roll" }, [
+            stroke(`M4 ${D + 5} q8 -5 16 0 t16 0 t16 0 t16 0 t16 0 t16 0 t16 0 t16 0 t16 0`, "#e8fbff", 3, { opacity: "0.9" }),
+          ]),
+        ],
+      ],
+    };
+  }
+
+  // --- Roboter (Geschwindigkeit, gold) ---------------------------------------
+  // 1 grauer Container · 2 Seitenpanele mit Nieten · 3 zwei Zylinder obendrauf
+  // · 4 Kabelbündel · 5 kleiner Kranarm hinten · 6 Antenne · 7 Warnlampe ·
+  // 8 der Container klappt auf · 9 die Zylinder werden Beine, er richtet sich
+  // auf · 10 der Kranarm wird zum Arm, ein zweiter wächst · 11 Kopf fährt aus,
+  // Antenne obendrauf, die Lampe wird zum Brustlicht · 12 Augen leuchten, er
+  // winkt und stampft.
+  function robotBody(stage, color) {
+    const t = tones(color);
+    const grey = "#8e97a8";
+    const greyDark = "#5f6878";
+    const ink = "#3d4451";
+    const L = stage >= 9 ? 22 : 0;
+    const stomp = (nodes) => (stage >= 12 ? [group({ class: "wa wa-stomp" }, nodes)] : nodes);
+    const head = group({}, [
+      rect(52, D - 86, 36, 24, grey, { rx: 6 }),
+      rect(56, D - 80, 28, 10, ink, { rx: 3 }),
+      rect(48, D - 78, 4, 8, greyDark, { rx: 1 }),
+      rect(88, D - 78, 4, 8, greyDark, { rx: 1 }),
+    ]);
+    const rivets = (x, y) => [[x + 3, y + 3], [x + 17, y + 3], [x + 3, y + 25], [x + 17, y + 25]].map(([cx, cy]) => circle(cx, cy, 1.6, t.deep));
+    const arm = (d1, d2, hand, joint) => [
+      stroke(d1, greyDark, 7),
+      stroke(d2, greyDark, 6),
+      rect(hand[0], hand[1], 10, 8, t.base, { rx: 2 }),
+      circle(joint[0], joint[1], 3.5, t.base),
+    ];
+
+    return {
+      base: flatbed(color),
+      steps: [
+        stomp(lifted([
+          rect(30, D - 40, 80, 40, grey, { rx: 6 }),
+          rect(30, D - 40, 80, 6, greyDark, { rx: 3 }),
+          rect(32, D - 22, 76, 2, greyDark, { opacity: "0.5" }),
+        ], L)),
+        stomp(lifted([
+          rect(35, D - 33, 20, 28, t.base, { rx: 3 }),
+          rect(85, D - 33, 20, 28, t.base, { rx: 3 }),
+          ...rivets(35, D - 33),
+          ...rivets(85, D - 33),
+        ], L)),
+        stage >= 9
+          ? stomp([
+            rect(44, D - 22, 14, 22, greyDark, { rx: 4 }),
+            rect(82, D - 22, 14, 22, greyDark, { rx: 4 }),
+            circle(51, D - 12, 2.5, t.base),
+            circle(89, D - 12, 2.5, t.base),
+          ])
+          : [
+            rect(36, D - 54, 34, 12, greyDark, { rx: 6 }),
+            rect(72, D - 54, 34, 12, greyDark, { rx: 6 }),
+            circle(40, D - 48, 4, t.base),
+            circle(102, D - 48, 4, t.base),
+          ],
+        stomp(lifted([
+          stroke(`M108 ${D - 30} q10 4 6 14`, ink, 2),
+          stroke(`M108 ${D - 26} q14 2 10 16`, ink, 2),
+          stroke(`M110 ${D - 34} q8 8 2 14`, ink, 2),
+        ], L)),
+        stage >= 10 ? [] : lifted([
+          rect(24, D - 64, 6, 26, greyDark, { rx: 2 }),
+          rect(24, D - 66, 30, 5, greyDark, { rx: 2 }),
+          stroke(`M52 ${D - 61} v6 q-3 3 -6 0`, t.deep, 2),
+        ], L),
+        stage >= 11
+          ? { into: head, parts: [rect(69, D - 96, 3, 10, greyDark), circle(70.5, D - 98, 4, t.light)] }
+          : lifted([rect(99, D - 58, 3, 18, greyDark), circle(100.5, D - 60, 4, t.light)], L),
+        stage >= 11
+          ? stomp([circle(70, D - 44, 6, "#ff9f1c", { stroke: t.deep, "stroke-width": 1.5, class: stage >= 12 ? "gi gi-pulse" : null }), circle(70, D - 44, 2.5, "#fff3c4")])
+          : lifted([circle(70, D - 24, 6, "#ff9f1c"), rect(66, D - 19, 8, 3, greyDark)], L),
+        stage >= 9
+          ? stomp([rect(26, D - 66, 88, 8, greyDark, { rx: 4 })])
+          : [
+            rect(30, D - 40, 80, 10, ink, { rx: 3 }),
+            rect(30, D - 40, 76, 6, greyDark, { rx: 2, transform: `rotate(-28 30 ${D - 40})` }),
+          ],
+        stomp([
+          rect(40, D - 6, 22, 6, t.base, { rx: 2 }),
+          rect(78, D - 6, 22, 6, t.base, { rx: 2 }),
+          circle(51, D - 22, 3, t.base),
+          circle(89, D - 22, 3, t.base),
+        ]),
+        stomp([
+          ...arm(`M28 ${D - 56} L16 ${D - 44}`, `M16 ${D - 44} L20 ${D - 30}`, [15, D - 32], [16, D - 44]),
+          group({ class: stage >= 12 ? "wa wa-wave-arm" : null },
+            arm(`M112 ${D - 56} L124 ${D - 44}`, `M124 ${D - 44} L120 ${D - 30}`, [115, D - 32], [124, D - 44])),
+        ]),
+        stomp([rect(64, D - 64, 12, 4, greyDark), head]),
+        {
+          into: head,
+          parts: [
+            group({ class: "wa wa-glow" }, [circle(62, D - 75, 4.5, "#5ef2ff"), circle(78, D - 75, 4.5, "#5ef2ff")]),
+            rect(63, D - 68, 4, 3, t.light, { rx: 1 }),
+            rect(68, D - 68, 4, 3, t.light, { rx: 1 }),
+            rect(73, D - 68, 4, 3, t.light, { rx: 1 }),
+          ],
+        },
+      ],
+    };
+  }
+
+  // --- Drache (Problemlösen, grün) -------------------------------------------
+  // 1 Steinquader · 2 zweiter Quader · 3 zwei Stützen vorne · 4 zusammengerollte
+  // Plane · 5 ein Ballen quer · 6 sechs Dreiecke an der Bordwand · 7 der Ballen
+  // wird länger und geht in die Quader über · 8 die Dreiecke werden Stacheln ·
+  // 9 die Plane rollt sich auf: zwei Flügel · 10 der Hals hebt sich, die Stützen
+  // werden Vorderbeine · 11 Kopf mit Hörnern, Augen, Schuppen · 12 Feuerstoss,
+  // die Flügel schlagen.
+  function dragonBody(stage, color) {
+    const t = tones(color);
+    const stone = (x) => [
+      rect(x, D - 26, 40, 26, "#aab2bd", { rx: 3 }),
+      rect(x + 4, D - 22, 32, 8, "#c4cad3", { rx: 2, opacity: "0.6" }),
+      stroke(`M${x + 16} ${D - 12} l4 -5 l3 6`, "#7d8794", 1.5),
+    ];
+    const wing = (dx, dy, fill) => path(
+      `M${74 + dx} ${D - 60 + dy} C ${62 + dx} ${D - 76 + dy}, ${46 + dx} ${D - 90 + dy}, ${34 + dx} ${D - 96 + dy}`
+      + ` C ${40 + dx} ${D - 88 + dy}, ${44 + dx} ${D - 84 + dy}, ${48 + dx} ${D - 82 + dy}`
+      + ` C ${52 + dx} ${D - 88 + dy}, ${58 + dx} ${D - 88 + dy}, ${62 + dx} ${D - 86 + dy}`
+      + ` C ${64 + dx} ${D - 90 + dy}, ${70 + dx} ${D - 90 + dy}, ${76 + dx} ${D - 84 + dy}`
+      + ` C ${78 + dx} ${D - 76 + dy}, ${78 + dx} ${D - 68 + dy}, ${74 + dx} ${D - 60 + dy} Z`,
+      fill,
+    );
+    const spikes = [[30, D - 44, 9], [44, D - 58, 10], [60, D - 65, 11], [78, D - 66, 11], [94, D - 59, 10], [104, D - 44, 9]];
+    const claw = (x) => [poly(`${x + 1},${D} ${x + 3},${D - 5} ${x + 5},${D}`, t.cream), poly(`${x + 6},${D} ${x + 8},${D - 5} ${x + 10},${D}`, t.cream)];
+
+    return {
+      base: flatbed(color),
+      steps: [
+        stage >= 7 ? [] : stone(14),
+        stage >= 7 ? [] : stone(58),
+        stage >= 10 ? [] : [rect(104, D - 18, 6, 18, WOOD.dark, { rx: 1 }), rect(118, D - 18, 6, 18, WOOD.dark, { rx: 1 })],
+        stage >= 9 ? [] : [
+          rect(18, D - 40, 76, 14, t.dark, { rx: 7 }),
+          stroke(`M40 ${D - 33} H88`, t.deep, 1.5, { opacity: "0.6" }),
+          circle(25, D - 33, 6, t.light),
+          circle(25, D - 33, 3, t.dark),
+        ],
+        stage >= 7 ? [] : [
+          rect(26, D - 64, 86, 24, t.base, { rx: 12 }),
+          stroke(`M50 ${D - 64} V${D - 40} M88 ${D - 64} V${D - 40}`, t.deep, 2.5, { opacity: "0.6" }),
+        ],
+        stage >= 8 ? [] : [22, 40, 58, 76, 94, 112].map((x) => poly(`${x},${D - 8} ${x + 5},${D - 16} ${x + 10},${D - 8}`, t.pale)),
+        [
+          group({ class: stage >= 12 ? "wa wa-tail" : null }, [
+            stroke(`M18 ${D - 12} C 4 ${D - 16}, 0 ${D - 34}, 10 ${D - 42}`, t.base, 9),
+            poly(`4,${D - 40} 14,${D - 50} 17,${D - 38}`, t.dark),
+          ]),
+          path(`M16 ${D - 8} C 8 ${D - 30}, 22 ${D - 62}, 60 ${D - 66} C 92 ${D - 70}, 108 ${D - 52}, 106 ${D - 22} C 105 ${D - 8}, 94 ${D}, 80 ${D} H 30 C 18 ${D}, 14 ${D - 2}, 16 ${D - 8} Z`, t.base),
+        ],
+        spikes.map(([x, y, h]) => poly(`${x - 5},${y} ${x},${y - h} ${x + 5},${y}`, t.pale)),
+        [
+          group({ class: stage >= 12 ? "wa wa-flap" : null, style: stage >= 12 ? "animation-delay:-0.15s" : null }, [wing(-6, 4, t.dark)]),
+          group({ class: stage >= 12 ? "wa wa-flap" : null }, [
+            wing(4, 0, t.light),
+            stroke(`M78 ${D - 60} L52 ${D - 84} M78 ${D - 60} L66 ${D - 86} M78 ${D - 60} L40 ${D - 94}`, t.base, 1.5, { opacity: "0.55" }),
+          ]),
+        ],
+        [
+          stroke(`M98 ${D - 48} Q104 ${D - 66} 110 ${D - 78}`, t.base, 15),
+          rect(96, D - 22, 10, 22, t.base, { rx: 3 }),
+          rect(112, D - 22, 10, 22, t.base, { rx: 3 }),
+          ...claw(96),
+          ...claw(112),
+        ],
+        [
+          el("ellipse", { cx: 114, cy: D - 80, rx: 14, ry: 11, fill: t.base }),
+          rect(116, D - 78, 18, 12, t.base, { rx: 6 }),
+          stroke(`M118 ${D - 70} H130`, t.dark, 1.5, { opacity: "0.6" }),
+          poly(`104,${D - 88} 100,${D - 100} 110,${D - 90}`, t.cream),
+          poly(`114,${D - 90} 116,${D - 102} 120,${D - 88}`, t.cream),
+          ...eye(116, D - 84, 3.5, t.ink),
+          circle(131, D - 75, 1.4, t.deep),
+          stroke(`M40 ${D - 20} q4 -4 8 0 M54 ${D - 28} q4 -4 8 0 M68 ${D - 24} q4 -4 8 0 M46 ${D - 40} q4 -4 8 0`, t.dark, 1.6, { opacity: "0.6" }),
+          rect(30, D - 8, 70, 5, t.light, { rx: 2.5, opacity: "0.5" }),
+        ],
+        [
+          group({ class: "wa wa-fire" }, [
+            path(`M130 ${D - 72} C 136 ${D - 80}, 134 ${D - 90}, 140 ${D - 98} C 136 ${D - 92}, 132 ${D - 92}, 132 ${D - 84} C 130 ${D - 92}, 126 ${D - 96}, 128 ${D - 104} C 124 ${D - 96}, 122 ${D - 86}, 126 ${D - 78} Z`, "#ff7a1a"),
+            path(`M130 ${D - 74} C 133 ${D - 80}, 132 ${D - 86}, 134 ${D - 90} C 132 ${D - 86}, 130 ${D - 86}, 130 ${D - 82} C 129 ${D - 86}, 127 ${D - 88}, 128 ${D - 92} C 126 ${D - 86}, 126 ${D - 80}, 128 ${D - 76} Z`, "#ffd166"),
+          ]),
+          sparkle(138, D - 106, 3, "#ffb347", "gi gi-twinkle"),
+          sparkle(124, D - 110, 2.5, "#ffd166", "gi gi-twinkle", "animation-delay:-0.9s"),
+        ],
+      ],
+    };
+  }
+
+  // --- Piratenschiff (Zahl & Buchstabe, rot) ---------------------------------
+  // 1 Fässer · 2 Truhe · 3 Taurollen · 4 Mast in der Mitte · 5 zweiter,
+  // kürzerer Mast · 6 Querbalken an beiden Masten · 7 Strickleiter dazwischen ·
+  // 8 die Bordwand wölbt sich zur Bugform · 9 das grosse Segel entrollt sich ·
+  // 10 zweites Segel und Ausguck · 11 Galionsfigur, Steuerrad, Bullaugen ·
+  // 12 die Flagge steigt, die Schienen werden zu Wellen, eine Möwe fliegt vorbei.
+  function shipBody(stage, color) {
+    const t = tones(color);
+    const rope = "#d8b072";
+    const sail = "#fff5dc";
+    const coil = (cx, cy, rx) => [
+      el("ellipse", { cx, cy, rx, ry: rx / 2, fill: rope }),
+      el("ellipse", { cx, cy, rx: rx * 0.4, ry: rx * 0.2, fill: WOOD.dark }),
+    ];
+    const ring = (cx, cy) => circle(cx, cy, 6, "none", { stroke: rope, "stroke-width": 3.5 });
+    const rung = (k) => stroke(`M${74 + 32 * k} ${D - 78 + 26 * k} L${74 + 32 * k} ${D - 62 + 22 * k}`, "#e8d6b0", 1.6);
+
+    return {
+      base: flatbed(color),
+      steps: [
+        [...barrel(14, D - 24, 20, 24), ...barrel(38, D - 24, 20, 24)],
+        [
+          rect(100, D - 22, 30, 22, WOOD.dark, { rx: 3 }),
+          rect(100, D - 22, 30, 8, WOOD.base, { rx: 4 }),
+          rect(106, D - 22, 3, 22, WOOD.ink, { opacity: "0.5" }),
+          rect(121, D - 22, 3, 22, WOOD.ink, { opacity: "0.5" }),
+          rect(112, D - 15, 6, 6, GOLD, { rx: 1 }),
+        ],
+        stage >= 8 ? [ring(63, D - 46), ring(79, D - 40)] : [...coil(72, D - 4, 10), ...coil(90, D - 4, 9)],
+        [rect(68, D - 92, 6, 92, WOOD.dark, { rx: 2 }), circle(71, D - 92, 3.5, GOLD)],
+        [rect(106, D - 62, 5, 62, WOOD.dark, { rx: 2 }), circle(108.5, D - 62, 3, GOLD)],
+        [rect(44, D - 82, 54, 4, WOOD.base, { rx: 2 }), rect(92, D - 54, 34, 4, WOOD.base, { rx: 2 })],
+        [
+          stroke(`M74 ${D - 78} L106 ${D - 52}`, "#e8d6b0", 1.6),
+          stroke(`M74 ${D - 62} L106 ${D - 40}`, "#e8d6b0", 1.6),
+          rung(0.2), rung(0.4), rung(0.6), rung(0.8),
+        ],
+        [
+          path(`M8 ${D - 22} L8 ${D - 4} Q8 ${D} 12 ${D} H106 Q128 ${D} 136 ${D - 42} Q132 ${D - 32} 122 ${D - 24} Q100 ${D - 16} 60 ${D - 16} Q30 ${D - 16} 8 ${D - 22} Z`, t.dark),
+          stroke(`M12 ${D - 8} H112 M10 ${D - 13} Q60 ${D - 9} 116 ${D - 13}`, t.deep, 1.2, { opacity: "0.7" }),
+          stroke(`M8 ${D - 22} Q30 ${D - 16} 60 ${D - 16} Q100 ${D - 16} 122 ${D - 24} Q132 ${D - 32} 136 ${D - 42}`, t.light, 3),
+        ],
+        [
+          path(`M46 ${D - 80} H96 Q108 ${D - 58} 96 ${D - 36} H46 Q58 ${D - 58} 46 ${D - 36} Z`, sail),
+          stroke(`M52 ${D - 60} Q70 ${D - 57} 92 ${D - 60}`, t.base, 6, { opacity: "0.85" }),
+        ],
+        [
+          path(`M94 ${D - 52} H124 Q132 ${D - 40} 124 ${D - 28} H94 Q102 ${D - 40} 94 ${D - 28} Z`, sail),
+          rect(62, D - 92, 18, 8, WOOD.base, { rx: 2 }),
+          rect(60, D - 93, 22, 3, WOOD.dark, { rx: 1.5 }),
+        ],
+        [
+          stroke(`M135 ${D - 42} q3 -9 -2 -13 q-4 -2 -6 2`, GOLD, 3),
+          rect(23, D - 25, 2, 8, WOOD.dark),
+          circle(24, D - 32, 7, "none", { stroke: WOOD.dark, "stroke-width": 2.5 }),
+          stroke(`M17 ${D - 32} H31 M24 ${D - 39} V${D - 25} M19 ${D - 37} L29 ${D - 27} M29 ${D - 37} L19 ${D - 27}`, WOOD.dark, 1.5),
+          circle(24, D - 32, 2, GOLD),
+          circle(40, D - 9, 3, "#cfeefb", { stroke: WOOD.dark, "stroke-width": 1.5 }),
+          circle(60, D - 9, 3, "#cfeefb", { stroke: WOOD.dark, "stroke-width": 1.5 }),
+          circle(84, D - 9, 3, "#cfeefb", { stroke: WOOD.dark, "stroke-width": 1.5 }),
+        ],
+        [
+          rect(70, D - 104, 2, 12, WOOD.dark),
+          group({ class: "wa wa-flag" }, [
+            rect(72, D - 104, 24, 14, "#222a35", { rx: 1 }),
+            circle(84, D - 99, 3.2, "#ffffff"),
+            circle(83, D - 100, 0.8, "#222a35"),
+            circle(85.2, D - 100, 0.8, "#222a35"),
+            stroke(`M79 ${D - 93} L89 ${D - 89} M89 ${D - 93} L79 ${D - 89}`, "#ffffff", 1.4),
+          ]),
+          group({ class: "wa wa-roll" }, [
+            stroke(`M2 ${D + 6} q7 -5 14 0 t14 0 t14 0 t14 0 t14 0 t14 0 t14 0 t14 0 t14 0 t14 0`, "#9fe3ff", 3),
+          ]),
+          group({ class: "wa wa-roll", style: "animation-delay:-1.2s" }, [
+            stroke(`M-4 ${D + 9} q7 -4 14 0 t14 0 t14 0 t14 0 t14 0 t14 0 t14 0 t14 0 t14 0 t14 0 t14 0`, "#e8fbff", 2, { opacity: "0.8" }),
+          ]),
+          // Der Versatz steht an der äusseren Gruppe: eine CSS-Bewegung
+          // überschreibt das transform-Attribut desselben Elements, und die
+          // Möwe flöge sonst vom Nullpunkt aus.
+          group({ transform: `translate(14,${D - 100})` }, [
+            group({ class: "wa wa-gull" }, [stroke("M0 0 q5 -6 10 0 q5 -6 10 0", "#4a5b6b", 1.8)]),
+          ]),
+        ],
+      ],
+    };
+  }
+
+  const WAGON_BODIES = {
+    boxcar: boxcarBody, tank: tankBody, flat: flatBody, crane: craneBody, mail: mailBody,
+    unicorn: unicornBody, whale: whaleBody, robot: robotBody, dragon: dragonBody, ship: shipBody,
+  };
+
+  // Wo der Wimpel bei Stufe 12 steht. Ohne diese Tabelle schwebt er bei den
+  // niedrigen Bauarten – Flachwagen, Kranwagen – frei über dem Wagen. Die
+  // Gestalten des zweiten Sets haben keinen: ihr Finale ist ihr eigenes.
   const FLAG_ANCHOR = {
     boxcar: { x: 70, y: ROOF_Y },
-    tank: { x: 70, y: 78 },
+    tank: { x: 30, y: 82 },
     flat: { x: 34, y: DECK_Y - 48 },
     crane: { x: 31, y: DECK_Y - 46 },
     mail: { x: 70, y: ROOF_Y },
@@ -651,25 +1218,44 @@
 
   /**
    * Baut einen Wagen.
-   * @param {string} type  Bauart: boxcar, tank, flat, crane oder mail
+   * @param {string} type  Bauart, siehe WAGON_TYPES
    * @param {string} color Bereichsfarbe
-   * @param {number} stage Ausbaustufe 0..10
+   * @param {number} stage Ausbaustufe 0..12
    */
   function buildWagon(type, color, stage = 0) {
     const safeType = WAGON_BODIES[type] ? type : "boxcar";
-    const clamped = Math.max(0, Math.min(10, Math.round(stage)));
-    const parts = [...chassis(color), ...WAGON_BODIES[safeType](clamped, color)];
+    const clamped = Math.max(0, Math.min(WAGON_STAGES, Math.round(stage)));
+    const body = WAGON_BODIES[safeType](clamped, color);
+    const parts = [...chassis(color), ...(body.base || [])];
+
+    // Jeder Schritt in seiner Gruppe. Ein Schritt darf in eine frühere Gruppe
+    // hinein gehören – die Ohren ans Einhorn, damit der Kopf als Ganzes
+    // wiehern kann –, gezählt und hervorgehoben wird er trotzdem einzeln.
+    body.steps.slice(0, clamped).forEach((entry, index) => {
+      const items = Array.isArray(entry) ? entry : [entry];
+      const own = [];
+      items.filter(Boolean).forEach((item) => {
+        if (item.into && typeof item.into.append === "function") {
+          item.into.append(group({ class: "wagon-step", "data-step": index + 1 }, item.parts || []));
+        } else if (Array.isArray(item.parts)) {
+          own.push(...item.parts);
+        } else {
+          own.push(item);
+        }
+      });
+      parts.push(group({ class: "wagon-step", "data-step": index + 1 }, own));
+    });
 
     // Fertig: Wimpel und goldene Räder als sichtbare Auszeichnung.
-    const done = clamped >= 10;
-    if (done) {
-      const anchor = FLAG_ANCHOR[safeType];
+    const done = clamped >= WAGON_STAGES;
+    const anchor = done ? FLAG_ANCHOR[safeType] : null;
+    if (anchor) {
       const top = anchor.y - 28;
-      parts.push(el("line", { x1: anchor.x, y1: anchor.y, x2: anchor.x, y2: top, stroke: "#8a5f1c", "stroke-width": 3 }));
-      parts.push(el("polygon", { points: `${anchor.x},${top + 2} ${anchor.x + 26},${top + 10} ${anchor.x},${top + 18}`, fill: "#f0b429" }));
+      parts.push(el("line", { x1: anchor.x, y1: anchor.y, x2: anchor.x, y2: top, stroke: WOOD.dark, "stroke-width": 3 }));
+      parts.push(poly(`${anchor.x},${top + 2} ${anchor.x + 26},${top + 10} ${anchor.x},${top + 18}`, GOLD));
     }
 
-    const wheelColor = done ? "#f0b429" : color;
+    const wheelColor = done ? GOLD : color;
     parts.push(wheel(32, 13, wheelColor, "spoke"));
     parts.push(wheel(WAGON_W - 32, 13, wheelColor, "spoke"));
 
@@ -677,11 +1263,12 @@
       class: `train-wagon train-wagon-${safeType}${done ? " is-complete" : ""}`,
       "data-wagon": safeType,
       "data-stage": clamped,
+      "data-steps": WAGON_STAGES,
     }, [
       // Unsichtbare Fläche unter dem Wagen, wie sie auch die Gebäude haben: ein
       // halb gebauter Wagen ist voller Lücken, und ein Tipp mitten hinein soll
       // ihn treffen und nicht durch ihn hindurchgehen.
-      el("rect", { class: "train-wagon-hit", x: 0, y: 30, width: WAGON_W, height: GROUND - 20, fill: "transparent" }),
+      el("rect", { class: "train-wagon-hit", x: 0, y: 12, width: WAGON_W, height: GROUND - 4, fill: "transparent" }),
       ...parts,
     ]);
   }
@@ -1720,7 +2307,7 @@
   }
 
   window.LernappTrainArt = {
-    GROUND, ART_H, WAGON_W, LOCO_W, WAGON_GAP,
+    GROUND, ART_H, WAGON_W, LOCO_W, WAGON_GAP, WAGON_STAGES, WAGON_BUILT, WAGON_VIEW,
     DRIVERS, DRIVER_BY_ID, PALETTE, LOCO_PARTS, DEFAULT_LOCO,
     WAGON_TYPES, WHEEL_SHAPES, CHIMNEY_SHAPES, CAB_SHAPES, LAMP_SHAPES, FLAG_PATTERNS, WHISTLES,
     el, group, shade, inkOn,

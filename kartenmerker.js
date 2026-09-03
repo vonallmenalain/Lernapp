@@ -46,7 +46,8 @@
   // Fünf gespielte Runden, und der Wagen im Bereich Geschwindigkeit ist für
   // dieses Spiel fertig – unabhängig von der Punktzahl. Wer übt, kommt voran;
   // wer einen schlechten Tag hat, auch.
-  const RUNS_FOR_DONE = 5;
+  // Wie viele, sagt das Wagen-Set: fünf im ersten, neun im zweiten (kids.js).
+  const RUNS_FOR_DONE = window.LernappKids?.wagonRounds?.() || 5;
   const TOP_COUNT = 5;
 
   const HELP = [

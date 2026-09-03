@@ -93,8 +93,9 @@
   // ---------------------------------------------------------------------------
   // Fortschritt – lokal und in der Cloud
   // ---------------------------------------------------------------------------
-  // Gespeichert wird je Grösse, ob sie geschafft ist. mergeLevels führt das
-  // über Geräte zusammen: was auf einem geschafft war, bleibt geschafft.
+  // Gespeichert wird je Grösse, ob sie geschafft ist, und wie viele Runden es
+  // insgesamt waren. mergeLevels führt das über Geräte zusammen: was auf einem
+  // geschafft war, bleibt geschafft, und von den Runden gilt die höhere Zahl.
   const store = cloudApi
     ? cloudApi.register({ key: "lernapp.memory", empty: { best: {} }, merge: cloudApi.mergeLevels })
     : {
@@ -107,9 +108,12 @@
   const geschafft = (groesse) => (Number(store.read().best?.[groesse]?.stars) || 0) > 0;
   const fertigeZahl = () => GROESSEN.filter(geschafft).length;
 
+  // Dazu zählt jede geschaffte Runde: der Zug rechnet mit gespielten Runden,
+  // und wer dieselbe Grösse dreimal schafft, hat dreimal gespielt.
   function merkeRunde(groesse) {
     return store.update((old) => ({
       ...old,
+      runs: (Number(old.runs) || 0) + 1,
       best: { ...(old.best || {}), [groesse]: { stars: 3 } },
     }));
   }

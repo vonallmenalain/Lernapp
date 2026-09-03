@@ -128,7 +128,9 @@
   }
 
   // Level mit Sternen: je Level das bessere Ergebnis, freigeschaltet ist, was
-  // auf irgendeinem Gerät freigeschaltet war.
+  // auf irgendeinem Gerät freigeschaltet war. Zählt das Spiel daneben seine
+  // Runden (Memory), gilt die höhere Zahl – summieren wäre falsch, derselbe
+  // Stand kann mehrfach ankommen.
   function mergeLevels(a, b) {
     const best = {};
     [a.best || {}, b.best || {}].forEach((source) => {
@@ -139,7 +141,9 @@
         if (!known || (Number(entry.stars) || 0) > (Number(known.stars) || 0)) best[id] = entry;
       });
     });
-    return { ...a, ...b, best, unlocked: Math.max(Number(a.unlocked) || 0, Number(b.unlocked) || 0) };
+    const merged = { ...a, ...b, best, unlocked: Math.max(Number(a.unlocked) || 0, Number(b.unlocked) || 0) };
+    if ("runs" in a || "runs" in b) merged.runs = Math.max(Number(a.runs) || 0, Number(b.runs) || 0);
+    return merged;
   }
 
   window.LernappGameCloud = { register, resetAll, mergeScores, mergeLevels };

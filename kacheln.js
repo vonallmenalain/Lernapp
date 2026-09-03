@@ -51,7 +51,8 @@
   // So lange leuchtet das Muster. Gleich lang in jeder Runde: eine Zeit, die
   // mitschrumpft, machte aus dem Merkspiel ein Tempospiel.
   const ZEIGEN_MS = 2500;
-  const RUNS_FOR_DONE = 5;
+  // Wie viele, sagt das Wagen-Set: fünf im ersten, neun im zweiten (kids.js).
+  const RUNS_FOR_DONE = window.LernappKids?.wagonRounds?.() || 5;
   const TOP_COUNT = 5;
 
   const HELP = [
