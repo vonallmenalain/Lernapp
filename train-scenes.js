@@ -512,14 +512,17 @@
     return wrap;
   }
 
-  // Die Landschaft, die das Kind zuletzt gewählt hat. Gesperrte Landschaften
-  // kann es nicht wählen; steht trotzdem eine im Speicher – etwa weil der
-  // Fortschritt auf einem anderen Gerät liegt –, gilt die erste.
-  function savedScene(builtWagons = 99) {
+  // Die Landschaft, die das Kind zuletzt gewählt hat. Ob sie nach dem Stand
+  // dieses Geräts gerade frei wäre, wird hier absichtlich nicht geprüft: die
+  // Sperre gehört in die Auswahl auf dem Startbild, nicht vor das Bild. Gleich
+  // nach dem Laden ist der Fortschritt aus der Cloud oft noch unterwegs, und
+  // eine Landschaft, die deshalb als gesperrt galt, liess erst die Wiese
+  // erscheinen und sprang dann um – auf dem Startbild wie im Spiel. Und nach
+  // einem Zurücksetzen des Fortschritts sollen Lok und Landschaft bleiben.
+  function savedScene() {
     let saved = null;
     try { saved = localStorage.getItem("lernapp.train.scene"); } catch { saved = null; }
-    const scene = BY_ID[saved];
-    return scene && isUnlocked(scene.id, builtWagons) ? scene : SCENES[0];
+    return BY_ID[saved] || SCENES[0];
   }
 
   // Freigeschaltet wird über fertig gebaute Wagen: zwei Szenen sind von Anfang

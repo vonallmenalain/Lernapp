@@ -3161,7 +3161,7 @@ function mountScene() {
   const wrap = document.createElement("div");
   wrap.className = "puzzle-scene";
   wrap.setAttribute("aria-hidden", "true");
-  wrap.append(scenes.buildScene(scenes.savedScene(window.LernappTrain?.trainProgress?.().builtWagons ?? 99)));
+  wrap.append(scenes.buildScene(scenes.savedScene()));
   document.body.prepend(wrap);
   document.body.classList.add("has-scene");
 }
