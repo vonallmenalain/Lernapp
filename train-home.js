@@ -946,6 +946,10 @@
     button.type = "button";
     button.className = "train-start";
     button.setAttribute("aria-label", "Losfahren");
+    // Erst gemessen, dann sichtbar: bis positionStart() ihn vor die Lok gesetzt
+    // hat, hat der Knopf keinen Platz auf der Bühne. Ohne diese Marke stünde er
+    // solange an seiner Ausweichstelle links oben – "plötzlich irgendwo".
+    button.dataset.placed = "0";
     button.append(el("svg", { viewBox: "0 0 48 48", "aria-hidden": "true" }, [
       el("circle", { cx: 24, cy: 24, r: 21, class: "train-start-ring", fill: "none", stroke: "#3fbf74", "stroke-width": 4, opacity: "0.5" }),
       el("circle", { cx: 24, cy: 24, r: 18, fill: shade("#3fbf74", -0.35) }),
@@ -956,21 +960,53 @@
     return button;
   }
 
+  // Der Knopf soll gross genug für einen Kinderfinger sein, aber niemals so
+  // gross, dass er den Platz vor der Lok sprengt.
+  const START_MIN = 44;
+  const START_MAX = 74;
+  // Luft zum Bildrand und zur Lok. Zur Lok ist sie das Mindestmass, mehr wird
+  // daraus, wenn der Platz es hergibt.
+  const START_EDGE = 6;
+
   // Setzt den Knopf vor die Lok und knapp über das Gleis. Beides wird gemessen:
   // wie breit der Zug im Bild steht, hängt am Seitenverhältnis des Fensters.
+  //
+  // Der Platz dafür ist im Zug angelegt: hinter der Lok läuft das Gleis noch
+  // ein Stück weiter (trailing in art.buildTrain), und genau dort schwebt das
+  // Startsignal. Wie breit dieses Stück auf dem Bildschirm ist, hängt an der
+  // Fensterbreite – der Knopf richtet sich deshalb nach dem Platz und nicht
+  // umgekehrt.
+  //
+  // Vorher wurde er nur an den rechten Rand geklemmt. Auf einem schmalen Bild
+  // – ein kleines Fenster, ein Gerät mit vergrösserter Anzeige – schob ihn
+  // diese Klemme rückwärts auf die Lok. Dort ist er nicht nur schlecht zu
+  // sehen: ein Tipp auf die Lok öffnet die Werkstatt, und wer losfahren wollte,
+  // landete beim Umbauen. Deshalb ist die Lok jetzt die harte Grenze, und
+  // nachgeben muss der Knopf, indem er kleiner wird.
   function positionStart() {
     if (!startButton) return;
     const loco = stage.querySelector("[data-loco]");
     const rail = layerHost?.querySelector(".stage-rail");
     const host = stage.getBoundingClientRect();
     const box = loco?.getBoundingClientRect();
-    if (!box?.width || !host.width) return;
-    const size = startButton.offsetWidth || 74;
-    const gap = Math.min(70, host.width * 0.03);
-    const left = Math.min(box.right - host.left + gap, host.width - size - 18);
+    // Ohne Mass kein Platz: dann bleibt der Knopf unsichtbar, statt an seiner
+    // Ausweichstelle in der oberen linken Ecke aufzutauchen.
+    if (!box?.width || !host.width) { startButton.dataset.placed = "0"; return; }
+
+    const locoRight = box.right - host.left;
+    const room = Math.max(0, host.width - locoRight);
+    const size = Math.round(Math.max(START_MIN, Math.min(START_MAX, room - 2 * START_EDGE)));
+    // Mittig in den freien Platz, aber nie über die Lok. Bleibt selbst für die
+    // kleinste Fassung zu wenig übrig, steht der Knopf lieber knapp am rechten
+    // Rand als einen Finger breit auf der Lok.
+    const left = locoRight + Math.max(START_EDGE, (room - size) / 2);
     const railTop = rail ? rail.getBoundingClientRect().top - host.top : host.height * 0.82;
+
+    startButton.style.width = `${size}px`;
+    startButton.style.height = `${size}px`;
     startButton.style.left = `${Math.round(left)}px`;
     startButton.style.top = `${Math.round(railTop - size - 16)}px`;
+    startButton.dataset.placed = "1";
   }
 
   function buildBackButton() {
