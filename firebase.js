@@ -69,12 +69,17 @@
   // Aussehen des Zugs sind kein Fortschritt und bleiben.
   const LOCAL_KEY_PREFIX = "lernapp.";
   const LOCAL_RESET_PREFIX = "lernapp.reset.";
+  // Welches Wagen-Set gilt, samt Zeitpunkt des letzten Wechsels. Gilt für alle
+  // – deshalb steht es in der Cloud unter config/train und wird hier nur
+  // gespiegelt. Kein Fortschritt: es überlebt jedes Zurücksetzen.
+  const LOCAL_WAGON_SET_KEY = "lernapp.train.set";
   const LOCAL_KEEP_KEYS = new Set([
     "lernapp.tts",             // Vorlesen an/aus
     "lernapp.audioFeedback",   // Töne an/aus
     "lernapp.train.loco",      // Aussehen der Lok
     "lernapp.train.scene",     // gewählte Landschaft
     "lernapp.train.savedAt",
+    LOCAL_WAGON_SET_KEY,       // welches Wagen-Set gilt
     LOCAL_GUEST_ID_KEY,
     LOCAL_GUEST_CREATED_KEY,
   ]);
@@ -119,6 +124,12 @@
     adminGroupErrorId: null,
     adminGroupError: "",
     progressResetAtMs: 0,
+    // Das Wagen-Set aus der Cloud, und der Stand der Umstellung im Adminbereich.
+    wagonSet: null,
+    adminSetConfirmId: null,
+    adminSetBusy: "",
+    adminSetError: "",
+    adminSetDone: "",
   };
 
   const accountButton = document.createElement("button");
@@ -184,6 +195,10 @@
     // Zuordnen darf nur der Admin. Wer das ist, entscheidet nicht diese Zeile,
     // sondern firestore.rules.
     setUserGroup,
+    // Das Wagen-Set: welche Wagen der Zug hat und wie schnell sie wachsen.
+    // Lesen darf jeder, umstellen nur der Admin – auch das steht in den Regeln.
+    getWagonSet,
+    switchWagonSet,
   };
 
   window.LernappFirebase = cloudApi;
@@ -224,6 +239,7 @@
         .catch(() => {})
         .finally(() => state.auth.onAuthStateChanged(handleAuthState));
       startHeartbeat();
+      watchWagonSet();
     } catch (error) {
       state.firebaseReady = false;
       renderError("Firebase konnte nicht gestartet werden.", error);
@@ -429,6 +445,10 @@
     state.adminGroupBusyId = null;
     state.adminGroupErrorId = null;
     state.adminGroupError = "";
+    state.adminSetConfirmId = null;
+    state.adminSetBusy = "";
+    state.adminSetError = "";
+    state.adminSetDone = "";
   }
 
   function randomToken(length = 16) {
@@ -870,6 +890,128 @@
     }
     announceProgress();
     await refreshDashboard();
+  }
+
+  // --- Das Wagen-Set ---------------------------------------------------------
+  // Der Zug hat zwei Sets Wagen: die Güterwagen und die Gestalten, die sich
+  // aus Fracht verwandeln. Welches gilt, entscheidet der Admin für alle auf
+  // einmal – in config/train, dem einzigen Dokument, das jedes Gerät liest,
+  // ob mit Konto oder ohne. Ein Wechsel heisst: andere Wagen, anderes Tempo,
+  // und alle Wagen beginnen bei 0.
+  //
+  // Dazu trägt das Dokument den Zeitpunkt des Wechsels. Jedes Gerät merkt
+  // sich, welchen Wechsel es schon kennt, und räumt bei einem neueren seinen
+  // Fortschritt weg, bevor irgendetwas davon hochgeschoben würde – dieselbe
+  // Marke wie beim Zurücksetzen eines Kontos, nur für alle. Die Konten selbst
+  // setzt der Admin beim Wechsel eines nach dem anderen zurück; Gäste haben
+  // ihren Stand nur auf dem Gerät, und das räumt beim nächsten Öffnen auf.
+  //
+  // Die Zahl bleibt eine Zahl in Millisekunden vom Gerät des Admins und wird
+  // nur mit sich selbst verglichen: Uhren müssen nicht übereinstimmen.
+  function wagonSetRef() {
+    return state.db ? state.db.collection("config").doc("train") : null;
+  }
+
+  function readWagonSet(raw) {
+    if (!raw || typeof raw !== "object") return null;
+    const id = String(raw.wagonSet ?? raw.id ?? "").trim();
+    if (!id || id.length > 8) return null;
+    const switchedAtMs = Number(raw.switchedAtMs);
+    return { id, switchedAtMs: Number.isFinite(switchedAtMs) ? switchedAtMs : 0 };
+  }
+
+  function readLocalWagonSet() {
+    try {
+      return readWagonSet(JSON.parse(localStorage.getItem(LOCAL_WAGON_SET_KEY) || "null"));
+    } catch { return null; }
+  }
+
+  function writeLocalWagonSet(set) {
+    try {
+      localStorage.setItem(LOCAL_WAGON_SET_KEY, JSON.stringify({ id: set.id, switchedAtMs: set.switchedAtMs }));
+    } catch { /* privater Modus */ }
+  }
+
+  function getWagonSet() {
+    return state.wagonSet || readLocalWagonSet() || { id: "1", switchedAtMs: 0 };
+  }
+
+  // Hört auf das Dokument, solange die Seite offen ist: stellt der Admin um,
+  // während ein Kind spielt, wechseln dessen Wagen beim nächsten Blick auf den
+  // Zug – nicht erst beim nächsten Öffnen der App. Ohne Netz oder vor dem
+  // Anlegen der Regeln bleibt es beim gemerkten Set.
+  function watchWagonSet() {
+    const ref = wagonSetRef();
+    if (!ref) return;
+    const uebernehmen = (doc) => applyWagonSet(readWagonSet(typeof doc?.data === "function" ? doc.data() : null));
+    const melden = (error) => console.warn("Das Wagen-Set konnte nicht gelesen werden", error);
+    try {
+      if (typeof ref.onSnapshot === "function") ref.onSnapshot(uebernehmen, melden);
+      else ref.get().then(uebernehmen).catch(melden);
+    } catch (error) {
+      melden(error);
+    }
+  }
+
+  // Übernimmt ein Set aus der Cloud. Ist der Wechsel neuer als der, den dieses
+  // Gerät kennt, geht alles weg, was vor ihm gespielt wurde – lokal und im
+  // Speicher der angemeldeten Konten –, und der Zug zeichnet sich neu.
+  function applyWagonSet(remote) {
+    if (!remote?.id) return false;
+    const local = readLocalWagonSet();
+    const newer = remote.switchedAtMs > (local?.switchedAtMs || 0);
+    const changed = !local || local.id !== remote.id || newer;
+    state.wagonSet = remote;
+    if (!changed) return false;
+
+    writeLocalWagonSet(remote);
+    if (newer) {
+      clearLocalProgress();
+      window.LernappGameCloud?.resetAll?.();
+      state.progress.clear();
+      state.gameState = {};
+      announceGameState();
+      // Angemeldet: der Stand in der Cloud ist vom Admin geleert worden, aber
+      // was hier im Speicher liegt, stammt von vor dem Wechsel. Neu holen.
+      if (state.user && state.db) loadProgress().then(announceProgress).catch(() => {});
+    }
+    document.dispatchEvent(new CustomEvent("lernapp:wagon-set", { detail: { ...remote } }));
+    announceProgress();
+    return true;
+  }
+
+  // Der Wechsel selbst, nur für den Admin: erst jedes Konto zurücksetzen, dann
+  // das Set umstellen. In dieser Reihenfolge, damit ein Gerät, das den Wechsel
+  // sieht, in der Cloud schon leere Konten vorfindet. onProgress meldet, wie
+  // weit es ist – bei einem Dutzend Konten dauert das einen Moment.
+  async function switchWagonSet(id, { onProgress } = {}) {
+    const setId = String(id || "").trim();
+    if (!setId || !state.db || !isAdminUser()) throw Object.assign(new Error("lernapp/not-admin"), { code: "permission-denied" });
+
+    const snapshot = await state.db.collection("users").get();
+    const ids = snapshot.docs.map((doc) => doc.id);
+    // Das eigene Konto zuletzt: es räumt auch dieses Gerät auf, und bis dahin
+    // sollen die anderen schon durch sein.
+    ids.sort((a, b) => (a === state.user?.uid) - (b === state.user?.uid));
+    let done = 0;
+    for (const userId of ids) {
+      await resetProgressFor(userId);
+      done += 1;
+      onProgress?.(done, ids.length);
+    }
+
+    const switchedAtMs = Date.now();
+    await wagonSetRef().set({
+      wagonSet: setId,
+      switchedAtMs,
+      switchedAt: serverTimestamp(),
+      switchedBy: state.user?.uid || null,
+      updatedAt: serverTimestamp(),
+    }, { merge: true });
+
+    // Dieses Gerät gleich, nicht erst über den Umweg der Cloud.
+    applyWagonSet({ id: setId, switchedAtMs });
+    return { accounts: ids.length, switchedAtMs };
   }
 
   // --- Fortschritt zurücksetzen ---------------------------------------------
@@ -1486,11 +1628,12 @@
           <div>
             <p class="small-label">Administration</p>
             <h3>Admin-Bereich</h3>
-            <p class="account-muted">Konten und G&auml;ste zum Aufklappen, dazu eine Auswertung je Spiel.</p>
+            <p class="account-muted">Konten und G&auml;ste zum Aufklappen, eine Auswertung je Spiel und das Wagen-Set des Zugs.</p>
             <div class="admin-tabs" role="tablist" aria-label="Admin-Bereich wechseln">
               <button type="button" data-admin-view="users">User</button>
               <button type="button" data-admin-view="guests">G&auml;ste</button>
               <button type="button" data-admin-view="games">Spiele</button>
+              <button type="button" data-admin-view="wagons">Wagen</button>
             </div>
           </div>
           <button type="button" class="secondary-action" data-admin-refresh>Aktualisieren</button>
@@ -1534,6 +1677,10 @@
     }
     if (state.adminView === "games") {
       await hydrateAdminGames(root);
+      return;
+    }
+    if (state.adminView === "wagons") {
+      renderAdminWagonSets(root);
       return;
     }
 
@@ -1974,7 +2121,7 @@
     return `
       <span class="admin-train" aria-label="Fortschritt des Zugs">
         ${areas.map((area) => `
-          <span class="admin-train-car" style="--wagen: ${escapeHtml(area.color)}" title="${escapeHtml(area.label)}: Stufe ${area.stage} von ${window.LernappTrain.STAGE_COUNT}">
+          <span class="admin-train-car" style="--wagen: ${escapeHtml(area.color)}" title="${escapeHtml(area.label)}: Schritt ${area.stage} von ${window.LernappTrain.STAGE_COUNT}">
             <b>${area.stage}</b>
             <i><s style="width: ${Math.round(Math.min(1, area.ratio) * 100)}%"></s></i>
             <em>${escapeHtml(area.label)}</em>
@@ -2055,13 +2202,154 @@
             <span style="--wagen: ${escapeHtml(area.color)}">
               <b>${escapeHtml(area.label)}</b>
               <i><s style="width: ${Math.round(Math.min(1, area.ratio) * 100)}%"></s></i>
-              <em>Stufe ${area.stage} von ${stufen} · ${Math.round(area.ratio * 100)}%</em>
-              <em>${area.solved} von ${area.total} geschafft</em>
+              <em>Schritt ${area.stage} von ${stufen} · ${Math.round(area.ratio * 100)}%</em>
+              <em>${area.solved} von ${area.total} Runden gespielt</em>
             </span>
           `).join("")}
         </div>
       </section>
     `;
+  }
+
+  // --- Das Wagen-Set umstellen -----------------------------------------------
+  // Der vierte Reiter: welche Wagen der Zug hat und wie schnell sie wachsen.
+  // Beide Sets stehen als Zug da, das gültige ist markiert; das andere lässt
+  // sich wählen – nach einer Rückfrage, die sagt, was das für alle heisst.
+  // Gerechnet und gezeichnet wird mit denselben Dateien wie auf dem Startbild;
+  // auf einer Spielseite sind sie nicht geladen, und dann steht hier nur ein
+  // Hinweis statt eines Zugs, der nicht stimmen kann.
+  function renderAdminWagonSets(root) {
+    const train = window.LernappTrain;
+    if (!train?.SETS) {
+      renderAdminBody(root, "<p class=\"account-muted\">Das Wagen-Set lässt sich im Profilfenster auf dem Startbild umstellen – dort ist der Zug geladen.</p>");
+      return;
+    }
+
+    const current = getWagonSet();
+    const activeId = train.SET_BY_ID[current.id] ? current.id : train.SETS[0].id;
+    renderAdminBody(root, `
+      <div class="admin-sets">
+        <p class="account-muted">Welche Wagen der Zug hat und wie schnell sie wachsen – f&uuml;r alle Konten und G&auml;ste zugleich. Ein Wechsel setzt alle Wagen auf 0, auch auf den Ger&auml;ten der Kinder. Lok, Landschaft, Namen und Gruppen bleiben.</p>
+        ${train.SETS.map((set) => renderAdminSetCard(set, set.id === activeId, current)).join("")}
+        ${state.adminSetBusy ? `<p class="auth-status" role="status" aria-live="polite">${escapeHtml(state.adminSetBusy)}</p>` : ""}
+        ${state.adminSetError ? `<p class="auth-status">${escapeHtml(state.adminSetError)}</p>` : ""}
+        ${state.adminSetDone ? `<p class="auth-status admin-set-done" role="status">${escapeHtml(state.adminSetDone)}</p>` : ""}
+      </div>
+    `);
+
+    // Die Vorschau: der ganze Zug mit den fünf fertigen Wagen des Sets, vor
+    // der Lok dieses Kontos.
+    const art = window.LernappTrainArt;
+    if (art?.buildTrain) {
+      root.querySelectorAll("[data-set-preview]").forEach((host) => {
+        const set = train.SET_BY_ID[host.dataset.setPreview];
+        if (!set) return;
+        const areas = train.AREAS.map((area) => ({ id: area.id, color: area.color, wagon: set.wagons[area.id], stage: art.WAGON_STAGES }));
+        const svg = art.buildTrain(areas, state.trainSettings?.loco || {}, { withTrack: true });
+        svg.setAttribute("aria-hidden", "true");
+        svg.removeAttribute("role");
+        host.append(svg);
+      });
+    }
+
+    bindAdminSetButtons(root);
+  }
+
+  function renderAdminSetCard(set, active, current) {
+    const total = set.stepAt[set.stepAt.length - 1];
+    const tempo = `Ein Schritt nach ${set.stepAt.join(", ")} Runden je Spiel – ${total} je Spiel, ${total * 4} je Wagen.`;
+    const since = active && current.switchedAtMs ? ` seit ${formatDateTime(current.switchedAtMs)}` : "";
+    const confirming = state.adminSetConfirmId === set.id;
+    const busy = Boolean(state.adminSetBusy);
+
+    let actions = "";
+    if (active) {
+      actions = `<span class="admin-set-active">Aktiv${escapeHtml(since)}</span>`;
+    } else if (confirming) {
+      actions = `
+        <div class="admin-set-confirm">
+          <strong>Wirklich auf «${escapeHtml(set.label)}» wechseln?</strong>
+          <span>Alle Wagen aller Konten starten bei 0: gel&ouml;ste Level, Runden und Spielst&auml;nde werden gel&ouml;scht – auch auf den Ger&auml;ten der Kinder, sobald sie die App &ouml;ffnen. Lok, Landschaft, Namen und Gruppen bleiben. Das l&auml;sst sich nicht r&uuml;ckg&auml;ngig machen.</span>
+          <div class="card-actions">
+            <button type="button" class="secondary-action" data-admin-set-cancel>Abbrechen</button>
+            <button type="button" class="danger-action" data-admin-set-confirm="${escapeHtml(set.id)}">Ja, wechseln und alle Wagen zur&uuml;cksetzen</button>
+          </div>
+        </div>
+      `;
+    } else {
+      actions = `<button type="button" data-admin-set-start="${escapeHtml(set.id)}" ${busy ? "disabled" : ""}>Auf dieses Set wechseln</button>`;
+    }
+
+    return `
+      <article class="admin-set${active ? " is-active" : ""}${confirming ? " is-confirming" : ""}" data-admin-set="${escapeHtml(set.id)}">
+        <header>
+          <div>
+            <strong>Set ${escapeHtml(set.id)}: ${escapeHtml(set.label)}</strong>
+            <span>${escapeHtml(tempo)}</span>
+          </div>
+        </header>
+        <div class="admin-set-preview" data-set-preview="${escapeHtml(set.id)}"></div>
+        <div class="admin-set-actions">${actions}</div>
+      </article>
+    `;
+  }
+
+  function bindAdminSetButtons(root) {
+    root.querySelectorAll("[data-admin-set-start]").forEach((button) => {
+      button.addEventListener("click", () => {
+        state.adminSetConfirmId = button.dataset.adminSetStart;
+        state.adminSetError = "";
+        state.adminSetDone = "";
+        renderAdminWagonSets(root);
+      });
+    });
+    root.querySelector("[data-admin-set-cancel]")?.addEventListener("click", () => {
+      state.adminSetConfirmId = null;
+      renderAdminWagonSets(root);
+    });
+    root.querySelector("[data-admin-set-confirm]")?.addEventListener("click", (event) => {
+      runAdminSetSwitch(event.currentTarget.dataset.adminSetConfirm, root);
+    });
+  }
+
+  async function runAdminSetSwitch(setId, root) {
+    if (!setId || state.adminSetBusy) return;
+    const train = window.LernappTrain;
+    const label = train?.SET_BY_ID?.[setId]?.label || `Set ${setId}`;
+    state.adminSetConfirmId = null;
+    state.adminSetError = "";
+    state.adminSetDone = "";
+    state.adminSetBusy = "Die Konten werden zurückgesetzt...";
+    renderAdminWagonSets(root);
+
+    // Die Bühne wird unterwegs neu gebaut, sobald das eigene Konto dran ist;
+    // deshalb bei jeder Meldung neu nachsehen, wo der Adminbereich steht.
+    const zeichne = () => {
+      const stelle = modalContent.querySelector("[data-admin-section]");
+      if (stelle) renderAdminWagonSets(stelle);
+    };
+
+    try {
+      const result = await switchWagonSet(setId, {
+        onProgress: (done, total) => {
+          state.adminSetBusy = `Konto ${done} von ${total} zurückgesetzt...`;
+          zeichne();
+        },
+      });
+      state.adminSetDone = `Umgestellt auf «${label}». ${result.accounts} Konten zurückgesetzt; Gäste ohne Konto stellen beim nächsten Öffnen der App um.`;
+    } catch (error) {
+      state.adminSetError = authErrorMessage(error);
+    }
+
+    state.adminSetBusy = "";
+    // Die Liste trägt die Gesamtzahlen mit sich, die Detailansichten die Level:
+    // nichts davon stimmt mehr. Neu laden, wenn es das nächste Mal gebraucht wird.
+    state.adminUsers = [];
+    state.adminUsersLoaded = false;
+    state.adminDetails.clear();
+    // Das eigene Konto ist mit zurückgesetzt: das ganze Profilfenster neu, der
+    // Adminbereich kommt dabei mit dem Wagen-Reiter wieder.
+    try { await refreshDashboard(); } catch { zeichne(); }
   }
 
   // --- Gruppe eines Kontos ---------------------------------------------------

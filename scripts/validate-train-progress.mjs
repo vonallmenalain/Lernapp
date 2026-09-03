@@ -1,7 +1,8 @@
 /*
  * Prüft die Fortschrittslogik des Zugs (train-progress.js):
- * Passen die fünf Bereiche zum Level-Katalog, wächst der Wagen sinnvoll, und
- * rechnet der Bereichsfortschritt so, dass kein Wagen den anderen davonläuft?
+ * Passen die fünf Bereiche zum Level-Katalog, gibt jedes Spiel seine drei
+ * Schritte zur richtigen Zeit frei, zählt der Wagen sie zu zwölf zusammen –
+ * und rechnet das zweite Wagen-Set langsamer, ohne sonst etwas zu ändern?
  *
  * Läuft ohne Browser: app.js und train-progress.js laufen in einer Sandbox mit
  * einem localStorage-Stub, in den der Test gelöste Levels schreiben kann.
@@ -14,6 +15,7 @@ const root = path.resolve(import.meta.dirname, "..");
 
 function fail(message) { throw new Error(message); }
 function assert(condition, message) { if (!condition) fail(message); }
+function near(a, b) { return Math.abs(a - b) < 1e-9; }
 
 // --- Sandbox ----------------------------------------------------------------
 const store = new Map();
@@ -63,14 +65,25 @@ const catalog = windowStub.LernappLevelCatalog;
 assert(train, "train-progress.js hat window.LernappTrain nicht gesetzt");
 assert(catalog, "app.js hat window.LernappLevelCatalog nicht gesetzt");
 
+function solve(gameId, count) {
+  (catalog[gameId] || []).slice(0, count).forEach((level) => {
+    store.set(`lernapp.solved.${gameId}.${level.id}`, "1");
+  });
+}
+
+function useSet(id) {
+  if (id === null) store.delete("lernapp.train.set");
+  else store.set("lernapp.train.set", JSON.stringify({ id, switchedAtMs: 1 }));
+}
+
 // --- Bereiche und Spiele ----------------------------------------------------
 assert(train.AREAS.length === 5, `erwartet 5 Bereiche, gefunden ${train.AREAS.length}`);
 
 const seen = new Set();
 for (const area of train.AREAS) {
-  assert(area.id && area.label && area.color && area.icon && area.wagon, `${area.id}: unvollständige Bereichsdaten`);
+  assert(area.id && area.label && area.color && area.icon, `${area.id}: unvollständige Bereichsdaten`);
   assert(/^#[0-9A-Fa-f]{6}$/.test(area.color), `${area.id}: ${area.color} ist keine Farbe`);
-  assert(area.games.length > 0, `${area.id} hat keine Spiele`);
+  assert(area.games.length === 4, `${area.id} hat ${area.games.length} Spiele statt 4 – drei Schritte je Spiel geben nur mit vier Spielen zwölf`);
 
   for (const game of area.games) {
     assert(!seen.has(game.id), `${game.id} ist mehr als einem Bereich zugeordnet`);
@@ -88,200 +101,174 @@ for (const gameId of Object.keys(catalog)) {
   assert(seen.has(gameId), `${gameId} liegt im Katalog, gehört aber zu keinem Bereich`);
 }
 
-const wagons = new Set(train.AREAS.map((area) => area.wagon));
-assert(wagons.size === 5, "jeder Bereich braucht eine eigene Wagenbauart");
 const colors = new Set(train.AREAS.map((area) => area.color));
 assert(colors.size === 5, "jeder Bereich braucht eine eigene Farbe");
 
-// --- Ausbaustufen -----------------------------------------------------------
-assert(train.STAGE_THRESHOLDS.length === train.STAGE_COUNT, "Schwellen und Stufenzahl passen nicht zusammen");
-for (let i = 1; i < train.STAGE_THRESHOLDS.length; i += 1) {
-  assert(train.STAGE_THRESHOLDS[i] > train.STAGE_THRESHOLDS[i - 1], "Schwellen müssen streng steigen");
+// --- Die Sets ---------------------------------------------------------------
+assert(train.SETS.length === 2, `erwartet 2 Wagen-Sets, gefunden ${train.SETS.length}`);
+assert(train.STAGE_COUNT === 12 && train.STEPS_PER_GAME === 3, "zwölf Schritte je Wagen, drei je Spiel");
+assert(train.BUILT_STAGE > 0 && train.BUILT_STAGE < train.STAGE_COUNT, "die Marke für den stehenden Wagen muss zwischen 0 und 12 liegen");
+
+const wagons = new Set();
+for (const set of train.SETS) {
+  assert(set.id && set.label, "ein Set ohne Kennung oder Namen");
+  assert(set.stepAt.length === 3, `Set ${set.id}: drei Schwellen je Spiel, gefunden ${set.stepAt.length}`);
+  for (let i = 0; i < set.stepAt.length; i += 1) {
+    assert(Number.isInteger(set.stepAt[i]) && set.stepAt[i] > 0, `Set ${set.id}: Schwelle ${set.stepAt[i]} ist keine Rundenzahl`);
+    if (i) assert(set.stepAt[i] > set.stepAt[i - 1], `Set ${set.id}: Schwellen müssen streng steigen`);
+  }
+  for (const area of train.AREAS) {
+    const wagon = set.wagons[area.id];
+    assert(typeof wagon === "string" && wagon, `Set ${set.id}: ${area.id} hat keine Wagenbauart`);
+    assert(!wagons.has(wagon), `Set ${set.id}: ${wagon} kommt schon in einem anderen Set vor`);
+    wagons.add(wagon);
+  }
 }
-assert(train.STAGE_THRESHOLDS.at(-1) === 1, "die letzte Schwelle muss 100 % sein");
+assert(train.SET_BY_ID["1"].stepAt.join(",") === "1,3,5", "das erste Set gibt Schritte nach 1, 3 und 5 Runden");
+assert(train.SET_BY_ID["2"].stepAt.join(",") === "3,6,9", "das zweite Set gibt Schritte nach 3, 6 und 9 Runden");
+// Das zweite Set braucht fast doppelt so viele Runden wie das erste.
+const runden = (set) => set.stepAt[set.stepAt.length - 1] * 4;
+assert(runden(train.SET_BY_ID["2"]) >= runden(train.SET_BY_ID["1"]) * 1.8, "das zweite Set ist nicht deutlich langsamer als das erste");
 
-assert(train.stageFor(0, false) === 0, "ohne gelöste Levels muss Stufe 0 stehen");
-assert(train.stageFor(0.001, true) === 1, "das erste gelöste Level muss Stufe 1 auslösen");
-assert(train.stageFor(1, true) === train.STAGE_COUNT, "voller Fortschritt muss die letzte Stufe geben");
-assert(train.stageFor(train.STAGE_THRESHOLDS[4], true) === 5, "die fünfte Schwelle muss den Wagen fertig bauen");
+// Ohne Eintrag gilt das erste Set; ein unbekannter Eintrag ebenfalls.
+useSet(null);
+assert(train.activeSet().id === "1", "ohne Eintrag muss das erste Set gelten");
+useSet("99");
+assert(train.activeSet().id === "1", "ein unbekanntes Set muss auf das erste zurückfallen");
+useSet("2");
+assert(train.activeSet().id === "2", "das gespeicherte Set gilt nicht");
+assert(train.wagonFor("gedaechtnis") === "unicorn", "im zweiten Set fährt Gedächtnis kein Einhorn");
+useSet(null);
+assert(train.wagonFor("gedaechtnis") === "boxcar", "im ersten Set fährt Gedächtnis kein Kastenwagen");
 
-// Die Stufe darf nie fallen, wenn der Fortschritt steigt.
-let previous = 0;
-for (let percent = 0; percent <= 100; percent += 1) {
-  const stage = train.stageFor(percent / 100, percent > 0);
-  assert(stage >= previous, `Stufe fällt bei ${percent} % von ${previous} auf ${stage}`);
-  previous = stage;
+// --- Aus Runden werden Schritte ---------------------------------------------
+const erwartet1 = { 0: 0, 1: 1, 2: 1, 3: 2, 4: 2, 5: 3, 9: 3, 40: 3 };
+for (const [plays, steps] of Object.entries(erwartet1)) {
+  assert(train.stepsFor(Number(plays), [1, 3, 5]) === steps, `Set 1: ${plays} Runden müssen ${steps} Schritte geben, geben ${train.stepsFor(Number(plays), [1, 3, 5])}`);
+}
+const erwartet2 = { 0: 0, 1: 0, 2: 0, 3: 1, 5: 1, 6: 2, 8: 2, 9: 3, 12: 3 };
+for (const [plays, steps] of Object.entries(erwartet2)) {
+  assert(train.stepsFor(Number(plays), [3, 6, 9]) === steps, `Set 2: ${plays} Runden müssen ${steps} Schritte geben, geben ${train.stepsFor(Number(plays), [3, 6, 9])}`);
 }
 
-// --- Fortschritt rechnen ----------------------------------------------------
-// Spiele mit eigenem Konto stehen nicht im Katalog – dort tut solve nichts,
-// und der Aufrufer setzt statt dessen ihren Speicher.
-function solve(gameId, count) {
-  (catalog[gameId] || []).slice(0, count).forEach((level) => {
-    store.set(`lernapp.solved.${gameId}.${level.id || level.levelName}`, "1");
-  });
-}
-
+// --- Der Wagen zählt die Schritte seiner vier Spiele zusammen ----------------
 store.clear();
 for (const area of train.allAreas()) {
-  assert(area.stage === 0, `${area.id} startet nicht bei Stufe 0`);
-  assert(area.ratio === 0, `${area.id} startet nicht bei 0 Prozent`);
+  assert(area.stage === 0 && area.steps === 0 && !area.built && !area.complete, `${area.id} ohne Fortschritt hat schon Schritte`);
+  assert(area.games.length === 4, `${area.id}: ${area.games.length} Spiele im Fortschritt`);
+  assert(area.set === "1", `${area.id}: der Bereich nennt nicht das Set`);
+  for (const game of area.games) {
+    assert(game.steps === 0 && game.solved === 0, `${game.id} ohne Fortschritt hat schon Schritte`);
+    assert(game.total === 5, `${game.id}: im ersten Set sind fünf Runden das Ziel, nicht ${game.total}`);
+    assert(game.worlds.length === 3, `${game.id} braucht ein Band je Schritt`);
+    assert(game.stepAt.join(",") === "1,3,5", `${game.id} trägt die falschen Schwellen`);
+  }
 }
 
-// Eine einzige gelöste Aufgabe muss den Wagen sichtbar verändern – das ist der
-// Punkt der Sonderregel für Stufe 1.
+// Eine einzige gelöste Aufgabe muss den Wagen sichtbar verändern: der erste
+// Erfolg ist im ersten Set der erste Schritt.
 store.set("lernapp.memory", JSON.stringify({ best: { 8: { stars: 3 } } }));
-assert(train.areaProgress("gedaechtnis").stage === 1, "eine gelöste Aufgabe muss Stufe 1 geben");
+assert(train.areaProgress("gedaechtnis").stage === 1, "eine gelöste Aufgabe muss den ersten Schritt geben");
 assert(train.areaProgress("konzentration").stage === 0, "andere Bereiche dürfen davon nichts merken");
 
-// Ein einzelnes Spiel komplett zu lösen darf den Wagen nicht fertig bauen:
-// Gedächtnis hat drei Spiele, ein volles Spiel ist also ein Drittel.
+// Ein Spiel ganz gespielt: drei Schritte, kein vierter. Der Wagen steht nicht.
 store.clear();
 store.set("lernapp.memory", JSON.stringify({
   best: { 8: { stars: 3 }, 12: { stars: 3 }, 16: { stars: 3 }, 20: { stars: 3 }, 24: { stars: 3 } },
 }));
 const oneGame = train.areaProgress("gedaechtnis");
-const games = train.AREA_BY_ID.gedaechtnis.games.length;
-assert(Math.abs(oneGame.ratio - 1 / games) < 1e-9, `ein volles Spiel von ${games} muss ${(100 / games).toFixed(0)} % geben, ist ${oneGame.ratio}`);
-assert(!oneGame.built, "ein einzelnes Spiel darf den Wagen nicht fertig bauen");
+assert(oneGame.stage === 3, `ein volles Spiel muss drei Schritte geben, gibt ${oneGame.stage}`);
+assert(near(oneGame.ratio, 0.25), `ein volles Spiel von vier ist ein Viertel, ist ${oneGame.ratio}`);
+assert(!oneGame.built, "ein einzelnes Spiel darf den Wagen nicht hinstellen");
 
-// Alle Spiele eines Bereichs komplett: Wagen fertig beladen.
-store.clear();
-for (const game of train.AREA_BY_ID.zahlbuchstabe.games) solve(game.id, (catalog[game.id] || []).length);
-const full = train.areaProgress("zahlbuchstabe");
-assert(full.ratio === 1, `voller Bereich muss 100 % geben, ist ${full.ratio}`);
-assert(full.stage === train.STAGE_COUNT, "voller Bereich muss die letzte Stufe geben");
-assert(full.complete, "voller Bereich muss als fertig gelten");
-assert(full.solved === 160, `Zahl und Buchstabe hat ${full.solved} statt 160 Levels`);
-
-// Der Mittelwert über die Spiele soll die sehr unterschiedlichen Bereichsgrössen
-// ausgleichen: gleich viel Anteil je Spiel führt zu gleichem Wagenfortschritt,
-// obwohl Zahl und Buchstabe achtmal so viele Aufgaben hat wie Gedächtnis.
-//
-// Aufgebaut wird deshalb "die Hälfte der Spiele fertig": in beiden Bereichen
-// zwei von vier. Beide Wagen müssen gleich weit sein.
-store.clear();
+// Zwei volle Spiele: sechs Schritte – der Wagen steht.
 store.set("lernapp.backpack", JSON.stringify({ runs: 5, scores: [14, 12, 9, 6, 3] }));
-store.set("lernapp.memory", JSON.stringify({
-  best: { 8: { stars: 3 }, 12: { stars: 3 }, 16: { stars: 3 }, 20: { stars: 3 }, 24: { stars: 3 } },
-}));
-solve("letterPuzzle", catalog.letterPuzzle.length);
-solve("readingPuzzle", catalog.readingPuzzle.length);
-const gedaechtnis = train.areaProgress("gedaechtnis");
-const zahlbuchstabe = train.areaProgress("zahlbuchstabe");
-assert(
-  Math.abs(gedaechtnis.ratio - zahlbuchstabe.ratio) < 1e-9,
-  `gleich viele fertige Spiele müssen gleich weit sein: ${gedaechtnis.ratio} vs ${zahlbuchstabe.ratio}`,
-);
-assert(Math.abs(gedaechtnis.ratio - 0.5) < 1e-9, `zwei fertige von vier Spielen sind 50 %, gefunden ${gedaechtnis.ratio}`);
-assert(zahlbuchstabe.total > gedaechtnis.total * 4,
-  `die Probe sagt nichts aus, wenn beide Bereiche gleich gross sind: ${gedaechtnis.total} und ${zahlbuchstabe.total}`);
+const twoGames = train.areaProgress("gedaechtnis");
+assert(twoGames.stage === 6 && twoGames.built && !twoGames.complete, `zwei volle Spiele müssen sechs Schritte geben und den Wagen hinstellen (${twoGames.stage})`);
 
-// Und allgemein: der Bereichsanteil ist der Mittelwert über seine Spiele –
-// nicht über die Aufgaben.
+// Alle vier: zwölf Schritte, fertig.
+store.set("lernapp.beachtreasure", JSON.stringify({ runs: 5, scores: [12, 10, 8, 6, 4] }));
+store.set("lernapp.kacheln", JSON.stringify({ runs: 7, scores: [14, 10, 8, 6, 4] }));
+const full = train.areaProgress("gedaechtnis");
+assert(full.stage === 12 && full.complete, `vier volle Spiele müssen zwölf Schritte geben (${full.stage})`);
+assert(near(full.ratio, 1), `voller Bereich muss 100 % geben, ist ${full.ratio}`);
+assert(full.solved === 20 && full.total === 20, `voller Bereich zählt ${full.solved} von ${full.total} Runden statt 20 von 20`);
+
+// Halb voll auf vier Spiele verteilt: je zwei Runden sind je ein Schritt – der
+// Wagen wächst nur, wenn alle Spiele angefasst werden, nicht schneller, wenn
+// eines ganz durchgespielt wird.
+store.clear();
+["lernapp.backpack", "lernapp.beachtreasure", "lernapp.kacheln"].forEach((key) => store.set(key, JSON.stringify({ runs: 2, scores: [5, 3] })));
+store.set("lernapp.memory", JSON.stringify({ best: { 8: { stars: 3 }, 12: { stars: 3 } } }));
+const verteilt = train.areaProgress("gedaechtnis");
+assert(verteilt.stage === 4, `viermal zwei Runden sind vier Schritte, gefunden ${verteilt.stage}`);
+assert(near(verteilt.ratio, 0.4), `viermal zwei von fünf Runden sind 40 %, gefunden ${verteilt.ratio}`);
+
+// Der Anteil ist der Mittelwert über die Spiele – nicht über die Aufgaben:
+// Kakuro hat vierzig Level, der Karten-Merker gar keine.
 for (const area of train.allAreas()) {
   const spielbar = area.games.filter((game) => game.total > 0);
   const mittel = spielbar.reduce((sum, game) => sum + game.ratio, 0) / spielbar.length;
-  assert(Math.abs(area.ratio - mittel) < 1e-9,
-    `${area.id}: Anteil ${area.ratio} ist nicht der Mittelwert ${mittel} über die Spiele`);
+  assert(near(area.ratio, mittel), `${area.id}: Anteil ${area.ratio} ist nicht der Mittelwert ${mittel} über die Spiele`);
+  assert(area.stage === area.games.reduce((sum, game) => sum + game.steps, 0), `${area.id}: die Schritte sind nicht die Summe der Spiele`);
 }
 
-// --- Geschwindigkeit --------------------------------------------------------
-// Der Bereich hängt nicht am Level-Katalog, sondern an den eigenen Speichern
-// von Tier-Sprung, Karten-Merker, Blätter im Strom und Turmbau. Die Adapter
-// müssen sie auf dieselbe Form bringen wie ein Katalog-Spiel.
+// Die drei Bänder eines Spiels: eines je Schritt, gefüllt bis zum nächsten.
+store.clear();
+store.set("lernapp.turmbau", JSON.stringify({ runs: 2, scores: [20, 10] }));
+const baender = train.gameProgress("towerStack").worlds;
+assert(baender.length === 3, "drei Bänder je Spiel");
+assert(baender[0].solved === 1 && near(baender[0].ratio, 1), "nach der ersten Runde ist das erste Band voll");
+assert(baender[1].solved === 0 && near(baender[1].ratio, 0.5), `nach zwei Runden ist das zweite Band halb voll, ist ${baender[1].ratio}`);
+assert(baender[2].solved === 0 && near(baender[2].ratio, 0), "das dritte Band ist noch leer");
+
+// --- Tier-Sprung ------------------------------------------------------------
+// Zehn Level, keine Welten, eigener Speicher. Fünf beliebige bauen im ersten
+// Set das Spiel fertig; ein sechstes drückt den Stand nicht.
 store.clear();
 const leer = train.areaProgress("geschwindigkeit");
-assert(leer.total === 20, `Geschwindigkeit muss 5 Level plus dreimal 5 Runden melden, meldet ${leer.total}`);
-assert(leer.stage === 0, "Geschwindigkeit ohne Fortschritt muss Stufe 0 geben");
+assert(leer.total === 20, `Geschwindigkeit muss viermal 5 Runden melden, meldet ${leer.total}`);
+assert(leer.stage === 0, "Geschwindigkeit ohne Fortschritt muss Schritt 0 geben");
 
 store.set("lernapp.tiersprung.progress", JSON.stringify({
   unlocked: 6,
   best: { 1: { stars: 3 }, 2: { stars: 2 }, 3: { stars: 3 }, 4: { stars: 1 }, 5: { stars: 2 } },
 }));
-const halb = train.areaProgress("geschwindigkeit");
-const runner = halb.games.find((game) => game.id === "tiersprung");
-// Fünf geschaffte Level bauen den Wagen – welche fünf, ist gleich.
-assert(runner.solved === 5, `Tier-Sprung muss 5 gelöste Levels melden, meldet ${runner.solved}`);
-assert(runner.ratio === 1, `fünf Level müssen Tier-Sprung abschliessen, steht bei ${runner.ratio}`);
+const runner = train.gameProgress("tiersprung");
+assert(runner.solved === 5 && runner.steps === 3 && runner.ratio === 1, `fünf Level müssen Tier-Sprung abschliessen (${runner.solved}, ${runner.steps})`);
 assert(runner.stars === 11, `Tier-Sprung muss 11 Sterne melden, meldet ${runner.stars}`);
-assert(runner.worlds.length === 5, "Tier-Sprung braucht ein Band je nötigem Level");
-
-// Und mehr als fünf dürfen nicht darüber hinausschiessen.
+assert(runner.unit.plural === "Level", "Tier-Sprung zählt Level");
 store.set("lernapp.tiersprung.progress", JSON.stringify({
   unlocked: 10,
   best: Object.fromEntries([1, 2, 3, 4, 5, 6, 7, 8].map((i) => [i, { stars: i <= 5 ? 3 : 1 }])),
 }));
 const vollerLaeufer = train.gameProgress("tiersprung");
-assert(vollerLaeufer.ratio === 1, "acht Level dürfen nicht über 100 % gehen");
+assert(vollerLaeufer.solved === 5 && vollerLaeufer.ratio === 1, "acht Level dürfen nicht über 100 % gehen");
 assert(vollerLaeufer.stars === 15, `die besten fünf geben 15 Sterne, gefunden ${vollerLaeufer.stars}`);
-store.set("lernapp.tiersprung.progress", JSON.stringify({
-  unlocked: 6,
-  best: { 1: { stars: 3 }, 2: { stars: 2 }, 3: { stars: 3 }, 4: { stars: 1 }, 5: { stars: 2 } },
-}));
-// Der Bereich zählt über die Spiele: Tier-Sprung fertig, die drei anderen gar
-// nicht – das ist ein Viertel, obwohl fünf von zwanzig Aufgaben gespielt sind.
-assert(Math.abs(halb.ratio - 0.25) < 1e-9,
-  `fertiger Tier-Sprung neben drei leeren Spielen sind ein Viertel, gefunden ${halb.ratio}`);
+assert(near(train.areaProgress("geschwindigkeit").ratio, 0.25), "fertiger Tier-Sprung neben drei leeren Spielen ist ein Viertel");
 
-// --- Weichen-Wirrwarr -------------------------------------------------------
-// Zehn Level zur Wahl, fünf beliebige bauen den Wagen fertig. Gezählt werden
-// die besten fünf, damit ein sechstes Level den Stand nicht drückt.
+// --- Weichen-Wirrwarr und Freie Fahrt ----------------------------------------
+for (const [spielId, key, name] of [["trackRouter", "lernapp.trackrouter", "Weichen-Wirrwarr"], ["gridlock", "lernapp.freiefahrt", "Freie Fahrt"]]) {
+  store.clear();
+  assert(train.gameProgress(spielId).solved === 0, `${name}: ohne Level darf nichts gelöst sein`);
+  store.set(key, JSON.stringify({ best: { 1: { stars: 3 }, 2: { stars: 2 } } }));
+  const zwei = train.gameProgress(spielId);
+  assert(zwei.solved === 2 && zwei.steps === 1, `${name}: zwei Level sind ein Schritt (${zwei.solved}, ${zwei.steps})`);
+  assert(zwei.stars === 5, `${name}: 3 + 2 Sterne sind 5, gefunden ${zwei.stars}`);
+  store.set(key, JSON.stringify({ best: { 6: { stars: 1 }, 7: { stars: 1 }, 8: { stars: 1 }, 9: { stars: 1 }, 10: { stars: 1 }, 3: { stars: 3 } } }));
+  const voll = train.gameProgress(spielId);
+  assert(voll.solved === 5 && voll.steps === 3, `${name}: fünf schwere Level müssen genauso abschliessen wie fünf leichte`);
+  assert(voll.stars === 7, `${name}: die besten fünf geben 3 + 4 = 7 Sterne, gefunden ${voll.stars}`);
+}
+// Der eine Kasten darf nichts vom anderen abbekommen.
 store.clear();
-const gleisLeer = train.gameProgress("trackRouter");
-assert(gleisLeer.total === 5, `Weichen-Wirrwarr muss 5 Level melden, meldet ${gleisLeer.total}`);
-assert(gleisLeer.solved === 0, "ohne gefahrenes Level darf nichts gelöst sein");
-
-store.set("lernapp.trackrouter", JSON.stringify({ best: { 1: { stars: 3 }, 2: { stars: 2 } } }));
-const gleisZwei = train.gameProgress("trackRouter");
-assert(gleisZwei.solved === 2, `zwei Level müssen 2 ergeben, ergeben ${gleisZwei.solved}`);
-assert(Math.abs(gleisZwei.ratio - 0.4) < 1e-9, `zwei von fünf Leveln sind 40 %, gefunden ${gleisZwei.ratio}`);
-assert(gleisZwei.stars === 5, `3 + 2 Sterne sind 5, gefunden ${gleisZwei.stars}`);
-assert(gleisZwei.worlds.length === 5, "Weichen-Wirrwarr braucht ein Band je Level");
-
-// Welche fünf Level, ist gleich – und ein sechstes darf nicht schaden.
-store.set("lernapp.trackrouter", JSON.stringify({
-  best: { 6: { stars: 1 }, 7: { stars: 1 }, 8: { stars: 1 }, 9: { stars: 1 }, 10: { stars: 1 } },
-}));
-assert(train.gameProgress("trackRouter").ratio === 1, "fünf schwere Level müssen genauso abschliessen wie fünf leichte");
-store.set("lernapp.trackrouter", JSON.stringify({
-  best: { 1: { stars: 3 }, 2: { stars: 3 }, 3: { stars: 3 }, 4: { stars: 3 }, 5: { stars: 3 }, 6: { stars: 1 } },
-}));
-const gleisVoll = train.gameProgress("trackRouter");
-assert(gleisVoll.ratio === 1, "sechs Level dürfen nicht über 100 % gehen");
-assert(gleisVoll.stars === 15, `die besten fünf geben 15 Sterne, gefunden ${gleisVoll.stars}`);
-
-// --- Freie Fahrt ------------------------------------------------------------
-// Zählt wie Weichen-Wirrwarr, nur aus einem anderen Kasten: zwölf Level in vier
-// Stufen, fünf beliebige bauen den Wagen. Beide teilen sich dieselbe Rechnung,
-// und genau deshalb wird sie hier ein zweites Mal geprüft – ein Kasten, der auf
-// den falschen Schlüssel zeigt, fiele sonst nicht auf.
-store.clear();
-const fahrtLeer = train.gameProgress("gridlock");
-assert(fahrtLeer.total === 5, `Freie Fahrt muss 5 Level melden, meldet ${fahrtLeer.total}`);
-assert(fahrtLeer.solved === 0, "ohne gespieltes Level darf nichts gelöst sein");
-
-store.set("lernapp.freiefahrt", JSON.stringify({ best: { 1: { stars: 3 }, 2: { stars: 2 } } }));
-const fahrtZwei = train.gameProgress("gridlock");
-assert(fahrtZwei.solved === 2, `zwei Level müssen 2 ergeben, ergeben ${fahrtZwei.solved}`);
-assert(fahrtZwei.stars === 5, `3 + 2 Sterne sind 5, gefunden ${fahrtZwei.stars}`);
-assert(fahrtZwei.worlds.length === 5, "Freie Fahrt braucht ein Band je Level");
-// Der Kasten von Weichen-Wirrwarr darf davon nichts abbekommen.
+store.set("lernapp.freiefahrt", JSON.stringify({ best: { 1: { stars: 3 } } }));
 assert(train.gameProgress("trackRouter").solved === 0, "Freie Fahrt schreibt in den Kasten von Weichen-Wirrwarr");
 
-// Die knifflig gespielten Level zählen genauso wie die leichten.
-store.set("lernapp.freiefahrt", JSON.stringify({
-  best: { 10: { stars: 1 }, 11: { stars: 1 }, 12: { stars: 1 }, 8: { stars: 1 }, 9: { stars: 1 }, 7: { stars: 3 } },
-}));
-const fahrtVoll = train.gameProgress("gridlock");
-assert(fahrtVoll.ratio === 1, "sechs Level dürfen nicht über 100 % gehen");
-assert(fahrtVoll.stars === 7, `die besten fünf geben 3 + 4 = 7 Sterne, gefunden ${fahrtVoll.stars}`);
-
 // --- Die Spiele mit Bestenliste ---------------------------------------------
-// Fünf gespielte Runden, dann ist das Spiel fertig – die Punktzahl entscheidet
-// nur über die Sterne, nicht über den Fortschritt. Beide zählen anders: der
-// Karten-Merker gibt zwei Punkte je Karte, Strand-Schätze einen je Schatz.
-// Deshalb muss die Sternschwelle je Spiel eine andere sein.
+// Gespielte Runden zählen, die Punktzahl entscheidet nur über die Sterne. Die
+// Schwelle für drei Sterne ist je Spiel eine andere: der Karten-Merker gibt
+// zwei Punkte je Karte, Strand-Schätze einen je Schatz.
 const RUNDEN_SPIELE = [
   { id: "cardMatch", key: "lernapp.cardmatch", name: "Karten-Merker", drei: 40, einer: 8 },
   { id: "beachTreasure", key: "lernapp.beachtreasure", name: "Strand-Schätze", drei: 12, einer: 2 },
@@ -291,138 +278,125 @@ const RUNDEN_SPIELE = [
   { id: "fishPond", key: "lernapp.fischteich", name: "Fischteich", drei: 14, einer: 3 },
   { id: "leafFlow", key: "lernapp.blaetter", name: "Blätter im Strom", drei: 16, einer: 3 },
   { id: "towerStack", key: "lernapp.turmbau", name: "Turmbau", drei: 14, einer: 3 },
+  { id: "spatialPuzzle", key: "lernapp.raumdetektiv", name: "Raumdetektiv", drei: 3, einer: 1 },
 ];
-
-// --- Die Logikspiele mit fünf nötigen Leveln --------------------------------
-// Arukone, Battleships und Tiergehege haben je vierzig Level; fünf beliebige
-// bauen den Wagen. Alles zu verlangen hiesse: ein Wagen, den kein Kind je
-// fertig sieht.
-for (const spielId of ["arukone", "bimaru", "shikaku"]) {
-  store.clear();
-  const leer = train.gameProgress(spielId);
-  assert(leer.total === 5, `${spielId} muss 5 Level melden, meldet ${leer.total}`);
-  assert(leer.solved === 0, `${spielId}: ohne Level darf nichts gelöst sein`);
-  assert(catalog[spielId].length > 20, `${spielId} hat nur ${catalog[spielId].length} Level – die Probe sagt nichts aus`);
-
-  solve(spielId, 2);
-  const zwei = train.gameProgress(spielId);
-  assert(zwei.solved === 2, `${spielId}: zwei Level müssen 2 ergeben, ergeben ${zwei.solved}`);
-  assert(Math.abs(zwei.ratio - 0.4) < 1e-9, `${spielId}: zwei von fünf sind 40 %, gefunden ${zwei.ratio}`);
-  assert(zwei.worlds.length === 5, `${spielId} braucht ein Band je nötigem Level`);
-
-  solve(spielId, catalog[spielId].length);
-  const voll = train.gameProgress(spielId);
-  assert(voll.ratio === 1, `${spielId}: alle Level dürfen nicht über 100 % gehen`);
-  assert(voll.solved === 5, `${spielId}: mehr als fünf dürfen nicht zählen, gezählt ${voll.solved}`);
-}
-store.clear();
-
-// --- Memory -----------------------------------------------------------------
-// Fünf Kartenzahlen zur Wahl, jede nur geschafft oder nicht. Wer alle fünf
-// einmal geschafft hat, hat den Wagen gebaut.
-store.clear();
-const memLeer = train.gameProgress("memory");
-assert(memLeer.total === 5, `Memory muss 5 Grössen melden, meldet ${memLeer.total}`);
-assert(memLeer.solved === 0, "ohne gespielte Grösse darf nichts gelöst sein");
-
-store.set("lernapp.memory", JSON.stringify({ best: { 8: { stars: 3 }, 16: { stars: 3 } } }));
-const memZwei = train.gameProgress("memory");
-assert(memZwei.solved === 2, `zwei Grössen müssen 2 ergeben, ergeben ${memZwei.solved}`);
-assert(Math.abs(memZwei.ratio - 0.4) < 1e-9, `zwei von fünf sind 40 %, gefunden ${memZwei.ratio}`);
-assert(memZwei.stars === 6, `geschafft gibt je drei Sterne, erwartet 6, gefunden ${memZwei.stars}`);
-assert(memZwei.worlds.length === 5, "Memory braucht ein Band je Grösse");
-
-// Eine Grösse zweimal spielen bringt nichts dazu – es geht um fünf verschiedene.
-store.set("lernapp.memory", JSON.stringify({
-  best: { 8: { stars: 3 }, 12: { stars: 3 }, 16: { stars: 3 }, 20: { stars: 3 }, 24: { stars: 3 } },
-}));
-assert(train.gameProgress("memory").ratio === 1, "alle fünf Grössen müssen das Spiel abschliessen");
-
-// --- Raumdetektiv -----------------------------------------------------------
-// Vier Level stehen zur Wahl, gezählt werden aber gespielte Runden: fünf bauen
-// den Wagen. Abgelegt wird je Runde die Sternzahl, keine Punktzahl – die
-// Bewertung steht schon fest, wenn die zehn Aufgaben durch sind.
-store.clear();
-assert(catalog.spatialPuzzle.length === 4, `Raumdetektiv hat ${catalog.spatialPuzzle.length} Level statt 4`);
-const raumLeer = train.gameProgress("spatialPuzzle");
-assert(raumLeer.total === 5, `Raumdetektiv muss 5 Runden melden, meldet ${raumLeer.total}`);
-assert(raumLeer.solved === 0, "ohne gespielte Runde darf nichts gelöst sein");
-assert(raumLeer.unit.plural === "Runden", "Raumdetektiv zählt Runden, nicht Level");
-
-store.set("lernapp.raumdetektiv", JSON.stringify({ runs: 2, scores: [3, 1] }));
-const raumZwei = train.gameProgress("spatialPuzzle");
-assert(raumZwei.solved === 2, `Raumdetektiv: zwei Runden müssen 2 ergeben, ergeben ${raumZwei.solved}`);
-assert(Math.abs(raumZwei.ratio - 0.4) < 1e-9, `zwei von fünf Runden sind 40 %, gefunden ${raumZwei.ratio}`);
-assert(raumZwei.stars === 4, `eine fehlerfreie und eine schwache Runde geben 3 + 1 Sterne, gefunden ${raumZwei.stars}`);
-assert(raumZwei.worlds.length === 5, "Raumdetektiv braucht ein Band je Runde");
-
-// Die Sterne der Runde müssen unverändert durchkommen: 1, 2 und 3 dürfen nicht
-// auf denselben Wert fallen, sonst wäre die Bewertung im Spiel folgenlos.
-store.set("lernapp.raumdetektiv", JSON.stringify({ runs: 3, scores: [3, 2, 1] }));
-assert(train.gameProgress("spatialPuzzle").stars === 6, "3 + 2 + 1 Sterne müssen 6 ergeben");
-
-// Fünf Runden schliessen ab, auch lauter schwache – und mehr schiessen nicht
-// darüber hinaus.
-store.set("lernapp.raumdetektiv", JSON.stringify({ runs: 5, scores: [1, 1, 1, 1, 1] }));
-assert(train.gameProgress("spatialPuzzle").ratio === 1, "fünf Runden müssen abschliessen, egal mit wie vielen Sternen");
-store.set("lernapp.raumdetektiv", JSON.stringify({ runs: 9, scores: [3, 3, 3, 2, 2] }));
-assert(train.gameProgress("spatialPuzzle").ratio === 1, "mehr als fünf Runden dürfen nicht über 100 % gehen");
-
 for (const spiel of RUNDEN_SPIELE) {
   store.clear();
-  const leer = train.gameProgress(spiel.id);
-  assert(leer.total === 5, `${spiel.name} muss 5 Runden melden, meldet ${leer.total}`);
-  assert(leer.solved === 0, `${spiel.name}: ohne Runde darf nichts gelöst sein`);
+  const nichts = train.gameProgress(spiel.id);
+  assert(nichts.total === 5 && nichts.solved === 0, `${spiel.name}: fünf Runden sind das Ziel, keine gespielt`);
+  assert(nichts.unit.plural === "Runden", `${spiel.name} zählt Runden, nicht Level`);
 
   store.set(spiel.key, JSON.stringify({ runs: 2, scores: [spiel.drei + 6, spiel.einer] }));
   const zwei = train.gameProgress(spiel.id);
-  assert(zwei.solved === 2, `${spiel.name}: zwei Runden müssen 2 ergeben, ergeben ${zwei.solved}`);
-  assert(Math.abs(zwei.ratio - 0.4) < 1e-9, `${spiel.name}: zwei von fünf Runden sind 40 %, gefunden ${zwei.ratio}`);
+  assert(zwei.solved === 2 && zwei.steps === 1, `${spiel.name}: zwei Runden sind ein Schritt (${zwei.solved}, ${zwei.steps})`);
   assert(zwei.stars === 4, `${spiel.name}: eine starke und eine schwache Runde geben 3 + 1 Sterne, gefunden ${zwei.stars}`);
-  assert(zwei.worlds.length === 5, `${spiel.name} braucht ein Band je Runde`);
 
-  // Eine schwache Runde zählt genauso für den Wagen wie eine starke.
   store.set(spiel.key, JSON.stringify({ runs: 5, scores: [0, 0, 0, 0, 0] }));
   const fertig = train.gameProgress(spiel.id);
-  assert(fertig.ratio === 1, `${spiel.name}: fünf Runden müssen abschliessen, egal mit wie vielen Punkten`);
+  assert(fertig.steps === 3 && fertig.ratio === 1, `${spiel.name}: fünf Runden müssen abschliessen, egal mit wie vielen Punkten`);
   assert(fertig.stars === 5, `${spiel.name}: fünf schwache Runden geben je einen Stern, gefunden ${fertig.stars}`);
 
-  // Mehr als fünf Runden dürfen nicht über 100 Prozent hinausschiessen.
   store.set(spiel.key, JSON.stringify({ runs: 12, scores: [spiel.drei, spiel.drei, 1, 1, 1] }));
-  assert(train.gameProgress(spiel.id).ratio === 1, `${spiel.name}: mehr als fünf Runden dürfen nicht über 100 % gehen`);
+  assert(train.gameProgress(spiel.id).solved === 5, `${spiel.name}: mehr als fünf Runden dürfen nicht über das Ziel hinaus zählen`);
 }
-
-// Die Schwelle muss wirklich je Spiel gelten: dieselbe Punktzahl darf nicht in
-// beiden Spielen dieselben Sterne geben, sonst wäre die Trennung nur Zierde.
 store.clear();
 store.set("lernapp.cardmatch", JSON.stringify({ runs: 1, scores: [12] }));
 store.set("lernapp.beachtreasure", JSON.stringify({ runs: 1, scores: [12] }));
 assert(train.gameProgress("cardMatch").stars === 1, "12 Punkte sind im Karten-Merker eine schwache Runde");
 assert(train.gameProgress("beachTreasure").stars === 3, "12 Schätze sind am Strand eine starke Runde");
 
-// --- Welten je Spiel --------------------------------------------------------
-// Aus dem Katalog gelesen statt hier aufgezählt: sonst fiele beim nächsten
-// Umbau ein Spiel still aus der Prüfung.
-const eigeneKonten = new Set(
-  train.AREAS.flatMap((area) => area.games.filter((game) => game.ownProgress).map((game) => game.id)),
-);
-assert(eigeneKonten.size === 16, `erwartet 16 Spiele mit eigenem Konto, gefunden ${eigeneKonten.size}`);
-store.clear();
-for (const area of train.allAreas()) {
-  for (const game of area.games) {
-    // Die Spiele mit eigenem Konto haben keine vier Welten: Tier-Sprung zehn
-    // Level, die beiden Bestenlisten-Spiele je fünf Runden.
-    if (eigeneKonten.has(game.id)) continue;
-    assert(game.worlds.length === 4, `${game.id} hat ${game.worlds.length} Welten statt 4`);
-    const total = game.worlds.reduce((sum, world) => sum + world.total, 0);
-    assert(total === game.total, `${game.id}: Welten summieren sich nicht auf ${game.total}`);
-    assert(game.maxStars === game.total * 3, `${game.id}: Sternmaximum passt nicht zur Levelzahl`);
-  }
+// --- Die Katalog-Spiele -----------------------------------------------------
+// Arukone, Battleships, Tiergehege, Buchstabenjagd, Wortdetektiv, Kakuro und
+// Hidoku haben je vierzig Level; fünf beliebige geben alle drei Schritte.
+// Alles zu verlangen hiesse: ein Wagen, den kein Kind je fertig sieht.
+for (const spielId of ["arukone", "bimaru", "shikaku", "letterPuzzle", "readingPuzzle", "kakuro", "hidoku"]) {
+  store.clear();
+  assert(catalog[spielId].length >= 20, `${spielId} hat nur ${catalog[spielId].length} Level – die Probe sagt nichts aus`);
+  assert(train.gameProgress(spielId).solved === 0, `${spielId}: ohne Level darf nichts gelöst sein`);
+  solve(spielId, 2);
+  const zwei = train.gameProgress(spielId);
+  assert(zwei.solved === 2 && zwei.steps === 1, `${spielId}: zwei Level sind ein Schritt (${zwei.solved}, ${zwei.steps})`);
+  solve(spielId, catalog[spielId].length);
+  const voll = train.gameProgress(spielId);
+  assert(voll.solved === 5 && voll.steps === 3 && voll.ratio === 1, `${spielId}: alle Level dürfen nicht über das Ziel hinaus zählen (${voll.solved})`);
 }
 
-const alle = train.trainProgress();
-assert(alle.areas.length === 5, "trainProgress muss fünf Bereiche melden");
-const gesamt = alle.areas.reduce((sum, area) => sum + area.total, 0);
-assert(gesamt === 240, `erwartet 240 Aufgaben über alle Bereiche, gefunden ${gesamt}`);
+// Zahl und Buchstabe zählt wie alle anderen: vier Spiele, drei Schritte je Spiel.
+store.clear();
+for (const game of train.AREA_BY_ID.zahlbuchstabe.games) solve(game.id, 5);
+const zb = train.areaProgress("zahlbuchstabe");
+assert(zb.stage === 12 && zb.complete && zb.solved === 20, `Zahl und Buchstabe: viermal fünf Level sind der fertige Wagen (${zb.stage}, ${zb.solved})`);
 
-console.log(`Zug-Fortschritt geprüft: 5 Bereiche, ${seen.size} Spiele, ${gesamt} Levels.`);
+// --- Memory -----------------------------------------------------------------
+// Gespielte Runden zählen – und für Stände von früher die geschafften
+// Kartenzahlen, als das Spiel noch keine Runden zählte.
+store.clear();
+store.set("lernapp.memory", JSON.stringify({ best: { 8: { stars: 3 }, 16: { stars: 3 } } }));
+const memAlt = train.gameProgress("memory");
+assert(memAlt.solved === 2 && memAlt.steps === 1, `Memory: zwei geschaffte Grössen von früher sind zwei Runden (${memAlt.solved})`);
+assert(memAlt.stars === 6, `geschafft gibt je drei Sterne, erwartet 6, gefunden ${memAlt.stars}`);
+store.set("lernapp.memory", JSON.stringify({ runs: 5, best: { 8: { stars: 3 } } }));
+const memRunden = train.gameProgress("memory");
+assert(memRunden.solved === 5 && memRunden.steps === 3, `Memory: fünf Runden derselben Grösse schliessen ab (${memRunden.solved})`);
+store.set("lernapp.memory", JSON.stringify({ runs: 1, best: { 8: { stars: 3 }, 12: { stars: 3 }, 16: { stars: 3 } } }));
+assert(train.gameProgress("memory").solved === 3, "Memory: von Runden und Grössen zählt die höhere Zahl");
+
+// --- Das zweite Set ---------------------------------------------------------
+// Dieselben Spiele, dasselbe Zählen – nur die Schwellen liegen höher: ein
+// Schritt nach drei Runden, das Spiel nach neun.
+store.clear();
+useSet("2");
+for (const area of train.allAreas()) {
+  assert(area.set === "2", `${area.id}: der Bereich nennt nicht das zweite Set`);
+  assert(area.wagon === train.SET_BY_ID["2"].wagons[area.id], `${area.id}: falscher Wagen im zweiten Set`);
+  for (const game of area.games) {
+    assert(game.total === 9, `${game.id}: im zweiten Set sind neun Runden das Ziel, nicht ${game.total}`);
+    assert(game.stepAt.join(",") === "3,6,9", `${game.id} trägt im zweiten Set die falschen Schwellen`);
+  }
+}
+store.set("lernapp.fischteich", JSON.stringify({ runs: 2, scores: [5, 3] }));
+assert(train.gameProgress("fishPond").steps === 0, "im zweiten Set sind zwei Runden noch kein Schritt");
+assert(train.areaProgress("konzentration").stage === 0, "im zweiten Set darf der Wagen nach zwei Runden nicht wachsen");
+store.set("lernapp.fischteich", JSON.stringify({ runs: 3, scores: [5, 3, 2] }));
+assert(train.gameProgress("fishPond").steps === 1, "im zweiten Set sind drei Runden der erste Schritt");
+store.set("lernapp.fischteich", JSON.stringify({ runs: 9, scores: [5, 3, 2, 2, 1] }));
+const teichVoll = train.gameProgress("fishPond");
+assert(teichVoll.steps === 3 && teichVoll.solved === 9 && teichVoll.ratio === 1, `im zweiten Set schliessen neun Runden ab (${teichVoll.solved}, ${teichVoll.steps})`);
+store.set("lernapp.fischteich", JSON.stringify({ runs: 14, scores: [5, 3, 2, 2, 1] }));
+assert(train.gameProgress("fishPond").solved === 9, "im zweiten Set dürfen mehr als neun Runden nicht über das Ziel hinaus zählen");
+
+solve("arukone", 5);
+assert(train.gameProgress("arukone").steps === 1, "im zweiten Set sind fünf Level erst ein Schritt");
+solve("arukone", 9);
+assert(train.gameProgress("arukone").steps === 3, "im zweiten Set sind neun Level alle drei Schritte");
+store.set("lernapp.tiersprung.progress", JSON.stringify({
+  unlocked: 10, best: Object.fromEntries([1, 2, 3, 4, 5, 6, 7, 8, 9].map((i) => [i, { stars: 2 }])),
+}));
+assert(train.gameProgress("tiersprung").steps === 3, "im zweiten Set bauen neun Tier-Sprung-Level das Spiel fertig");
+store.set("lernapp.memory", JSON.stringify({ runs: 6, best: { 8: { stars: 3 } } }));
+assert(train.gameProgress("memory").steps === 2, "im zweiten Set sind sechs Memory-Runden zwei Schritte");
+
+// Ein ganzer Wagen im zweiten Set: 36 Runden.
+store.clear();
+useSet("2");
+["lernapp.backpack", "lernapp.beachtreasure", "lernapp.kacheln"].forEach((key) => store.set(key, JSON.stringify({ runs: 9, scores: [5, 3] })));
+store.set("lernapp.memory", JSON.stringify({ runs: 9, best: { 8: { stars: 3 } } }));
+const zwei = train.areaProgress("gedaechtnis");
+assert(zwei.stage === 12 && zwei.complete && zwei.total === 36 && zwei.solved === 36, `im zweiten Set sind 36 Runden der fertige Wagen (${zwei.stage}, ${zwei.solved}/${zwei.total})`);
+assert(train.trainProgress().set === "2" && train.trainProgress().completeWagons === 1, "der Gesamtfortschritt nennt Set und fertige Wagen nicht");
+
+// Der fremde Zug rechnet mit demselben Set.
+const fremd = train.areasForAccount({
+  solved: catalog.arukone.slice(0, 6).map((level) => `arukone.${level.id}`),
+  gameState: { "lernapp.cardmatch": { data: { runs: 3, scores: [52] }, updatedAt: 1 } },
+});
+assert(fremd.find((area) => area.id === "problemloesen").stage === 2, "der fremde Zug rechnet nicht mit den Schwellen des zweiten Sets");
+assert(fremd.find((area) => area.id === "geschwindigkeit").stage === 1, "der fremde Zug zählt Runden im zweiten Set falsch");
+assert(fremd.find((area) => area.id === "gedaechtnis").stage === 0, "der fremde Zug bekommt den Stand dieses Geräts angerechnet");
+// Danach gilt wieder das eigene Gerät.
+assert(train.areaProgress("gedaechtnis").stage === 12, "nach dem fremden Zug rechnet der eigene mit fremden Daten weiter");
+
+useSet(null);
+store.clear();
+
+console.log(`Zug-Fortschritt geprüft: 5 Bereiche, ${seen.size} Spiele, ${train.SETS.length} Sets, 12 Schritte je Wagen.`);

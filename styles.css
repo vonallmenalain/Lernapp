@@ -2467,6 +2467,76 @@ body.puzzle-active .spatialPuzzle-board .spatial-option-graphic > svg {
   line-height: 1.45;
 }
 
+/* --- Das Wagen-Set ---
+   Zwei Karten, je ein Zug: das gültige Set ist markiert, das andere lässt
+   sich wählen. Die Rückfrage steht wie beim Zurücksetzen über den Knöpfen und
+   in Rot – ein Wechsel setzt alle Wagen aller Konten zurück. */
+.admin-sets {
+  display: grid;
+  gap: 12px;
+}
+
+.admin-set {
+  display: grid;
+  gap: 10px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: #fff;
+  border: 2px solid var(--line);
+  box-shadow: 0 10px 22px rgba(50, 44, 109, 0.08);
+}
+
+.admin-set.is-active { border-color: #06d6a0; }
+.admin-set.is-confirming { border-color: #ef476f; background: #fff5f7; }
+
+.admin-set header > div {
+  display: grid;
+  gap: 4px;
+}
+
+.admin-set header strong { color: var(--ink); }
+.admin-set header span { color: var(--muted); font-weight: 800; font-size: 0.86rem; }
+
+.admin-set-preview {
+  padding: 8px 10px 2px;
+  border-radius: 14px;
+  background: #eef6fb;
+}
+.admin-set-preview svg { display: block; width: 100%; height: auto; }
+
+.admin-set-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.admin-set-active {
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: #e3fff5;
+  color: #0c8f6a;
+  font-weight: 900;
+  font-size: 0.86rem;
+}
+
+.admin-set-confirm {
+  width: 100%;
+  display: grid;
+  gap: 8px;
+}
+.admin-set-confirm strong { color: var(--ink); }
+.admin-set-confirm span { color: var(--ink); font-weight: 700; line-height: 1.45; }
+.admin-set-confirm > .card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.admin-set-done { color: #0c8f6a; }
+
 /* Die Knopfzeile steht als div in der Karte und liefe sonst in
    ".unlock-mode-card > div" – dort gilt Grid, und die beiden Knöpfe stünden
    untereinander. */
@@ -4629,6 +4699,105 @@ body[data-page="train"].list-open { overflow: auto; }
   .gi { animation: none !important; }
 }
 
+/* --- Die Gestalten des zweiten Wagen-Sets ---
+   Aus Fracht wird ein Einhorn, ein Wal, ein Roboter, ein Drache, ein Schiff –
+   und fertig gebaut leben sie: der Wal wippt und spritzt, der Roboter winkt,
+   die Flügel schlagen. Dieselbe Regel wie bei den Spielbildern: nur transform
+   und opacity, und wer weniger Bewegung eingestellt hat, sieht alles still.
+   Der Drehpunkt steht je Bewegung dabei, wo das Teil am Körper hängt. */
+.wa { transform-box: fill-box; transform-origin: center; }
+
+/* Das Einhorn wirft alle paar Sekunden den Kopf – es wiehert. */
+.wa-whinny { transform-origin: 10% 100%; animation: wa-whinny 5.2s ease-in-out infinite; }
+@keyframes wa-whinny {
+  0%, 74%, 100% { transform: rotate(0deg); }
+  80% { transform: rotate(-14deg); }
+  86% { transform: rotate(-9deg); }
+  91% { transform: rotate(-15deg); }
+}
+.wa-tail { transform-origin: 100% 0%; animation: wa-tail 2.8s ease-in-out infinite; }
+@keyframes wa-tail {
+  0%, 100% { transform: rotate(0deg); }
+  50% { transform: rotate(9deg); }
+}
+
+/* Der Wal hebt sich und wippt, die Flosse rudert, die Fontäne steigt. */
+.wa-float { animation: wa-float 3.6s ease-in-out infinite; }
+@keyframes wa-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+.wa-fin { transform-origin: 0% 0%; animation: wa-fin 2.2s ease-in-out infinite; }
+@keyframes wa-fin {
+  0%, 100% { transform: rotate(0deg); }
+  50% { transform: rotate(10deg); }
+}
+.wa-spout { transform-origin: 50% 100%; animation: wa-spout 2.6s ease-out infinite; }
+@keyframes wa-spout {
+  0% { transform: translateY(6px) scale(0.6); opacity: 0; }
+  20% { opacity: 1; }
+  70% { opacity: 0.9; }
+  100% { transform: translateY(-14px) scale(1.15); opacity: 0; }
+}
+.wa-roll { animation: wa-roll 2.4s ease-in-out infinite; }
+@keyframes wa-roll {
+  0%, 100% { transform: translateX(0); }
+  50% { transform: translateX(-7px); }
+}
+
+/* Der Roboter: die Augen leuchten, er winkt, und ab und zu stampft er. */
+.wa-glow { animation: wa-glow 1.8s ease-in-out infinite; }
+@keyframes wa-glow {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+.wa-wave-arm { transform-origin: 0% 0%; animation: wa-wave-arm 4.4s ease-in-out infinite; }
+@keyframes wa-wave-arm {
+  0%, 55%, 100% { transform: rotate(0deg); }
+  65% { transform: rotate(-150deg); }
+  75% { transform: rotate(-120deg); }
+  85% { transform: rotate(-150deg); }
+}
+.wa-stomp { animation: wa-stomp 4.4s ease-in-out infinite; }
+@keyframes wa-stomp {
+  0%, 30%, 44%, 100% { transform: translateY(0); }
+  36% { transform: translateY(3px); }
+  40% { transform: translateY(-2px); }
+}
+
+/* Der Drache schlägt mit den Flügeln, das Feuer flackert. */
+.wa-flap { transform-origin: 100% 100%; animation: wa-flap 4s ease-in-out infinite; }
+@keyframes wa-flap {
+  0%, 60%, 100% { transform: rotate(0deg); }
+  70% { transform: rotate(-22deg); }
+  80% { transform: rotate(6deg); }
+  90% { transform: rotate(-14deg); }
+}
+.wa-fire { transform-origin: 50% 100%; animation: wa-fire 0.9s ease-in-out infinite alternate; }
+@keyframes wa-fire {
+  from { transform: scale(0.92, 0.9); opacity: 0.85; }
+  to { transform: scale(1.06, 1.12); opacity: 1; }
+}
+
+/* Das Schiff: die Flagge weht, die Wellen laufen, die Möwe zieht vorbei. */
+.wa-flag { transform-origin: 0% 50%; animation: wa-flag 1.6s ease-in-out infinite; }
+@keyframes wa-flag {
+  0%, 100% { transform: skewY(0deg) scaleX(1); }
+  50% { transform: skewY(-6deg) scaleX(0.92); }
+}
+.wa-gull { animation: wa-gull 9s linear infinite; }
+@keyframes wa-gull {
+  0% { transform: translate(0, 0); opacity: 0; }
+  8% { opacity: 1; }
+  50% { transform: translate(50px, -8px); }
+  92% { opacity: 1; }
+  100% { transform: translate(100px, 2px); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wa { animation: none !important; }
+}
+
 /* --- Zurück-Knopf der Bühne --- */
 
 /* Oben links, an der Stelle, an der auf dem Startbild der Landschafts-Knopf
@@ -5830,26 +5999,61 @@ body[data-page="train"] .help-voice { display: none; }
 /* Die Höhe entscheidet: sie ist auf dem Handy das knappe Mass. */
 .wagon-reward-svg { height: clamp(120px, 54vh, 320px); width: auto; max-width: 40vw; display: block; }
 
-/* Wenn die Bauart eine Stufe springt, hüpft der Wagen einmal – so ist zu
-   sehen, dass gerade etwas dazugekommen ist. */
-.wagon-reward-stage.is-pop { animation: wagon-reward-step 0.42s ease both; }
-
-.wagon-reward-bar {
-  grid-area: balken;
-  width: 100%;
-  height: clamp(10px, 2.4vh, 14px);
-  border-radius: 999px;
-  background: #e8ecf2;
-  overflow: hidden;
+/* Das Teil, das gerade dazukommt, springt hervor: aus dem Nichts über die
+   volle Grösse hinaus und zurück, kurz heller als alles andere. So ist ohne
+   ein Wort zu sehen, was neu ist – auch wenn drei Teile nacheinander kommen.
+   transform-box: fill-box, damit jedes Teil um seine eigene Mitte wächst und
+   nicht um die Ecke des Wagens. */
+.wagon-step.is-new {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: wagon-step-in 0.7s cubic-bezier(0.2, 1.4, 0.4, 1) both;
+}
+@keyframes wagon-step-in {
+  0% { transform: scale(0.2); opacity: 0; filter: brightness(2) drop-shadow(0 0 4px rgba(255, 255, 255, 0.9)); }
+  45% { opacity: 1; filter: brightness(1.7) drop-shadow(0 0 6px rgba(255, 255, 255, 0.9)); }
+  100% { transform: scale(1); opacity: 1; filter: brightness(1) drop-shadow(0 0 0 rgba(255, 255, 255, 0)); }
 }
 
-.wagon-reward-fill {
-  display: block;
-  height: 100%;
-  border-radius: 999px;
-  background: var(--reward-color, #6c5ce7);
-  transition: width var(--reward-fill, 2.4s) cubic-bezier(0.25, 0.9, 0.3, 1);
+/* Die zwölf Schritte als Punkte, in Dreiergruppen – ein Spiel je Gruppe. Die
+   vollen sind in der Farbe des Bereichs, der neue leuchtet kurz auf. */
+.wagon-reward-steps,
+.wagon-steps {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: clamp(4px, 0.9vw, 7px);
 }
+.wagon-reward-steps { grid-area: balken; }
+.wagon-steps { flex: 0 0 auto; pointer-events: none; }
+
+.reward-dot {
+  width: clamp(11px, 2.4vh, 17px);
+  height: clamp(11px, 2.4vh, 17px);
+  border-radius: 50%;
+  background: #e3e8ef;
+  box-shadow: inset 0 0 0 2px rgba(36, 48, 71, 0.08);
+  transition: background 0.25s ease;
+}
+.reward-dot:nth-child(3n):not(:last-child) { margin-right: clamp(6px, 1.4vw, 12px); }
+.reward-dot.is-done { background: var(--reward-color, #6c5ce7); box-shadow: none; }
+.reward-dot.is-new {
+  animation: reward-dot-pop 0.55s cubic-bezier(0.2, 1.4, 0.4, 1) both;
+  box-shadow: 0 0 0 3px #fff, 0 0 12px var(--reward-color, #6c5ce7);
+}
+@keyframes reward-dot-pop {
+  0% { transform: scale(0.4); }
+  60% { transform: scale(1.5); }
+  100% { transform: scale(1); }
+}
+.wagon-steps .reward-dot {
+  width: clamp(9px, 1.8vh, 14px);
+  height: clamp(9px, 1.8vh, 14px);
+  background: rgba(255, 255, 255, 0.6);
+  box-shadow: inset 0 0 0 2px rgba(36, 48, 71, 0.14);
+}
+.wagon-steps .reward-dot.is-done { background: var(--reward-color, #6c5ce7); box-shadow: 0 1px 3px rgba(36, 48, 71, 0.25); }
 
 .wagon-reward-note {
   grid-area: note;
@@ -5902,11 +6106,6 @@ body[data-page="train"] .help-voice { display: none; }
   from { opacity: 0; transform: scale(0.86) translateY(14px); }
   to { opacity: 1; transform: none; }
 }
-@keyframes wagon-reward-step {
-  0% { transform: scale(1); }
-  40% { transform: scale(1.09) rotate(-1.2deg); }
-  100% { transform: scale(1); }
-}
 
 /* Die neue Landschaft: dieselbe Tafel, statt des Wagens ihr Vorschaubild. */
 .scene-reward-thumb {
@@ -5926,8 +6125,8 @@ body[data-page="train"] .help-voice { display: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .wagon-reward, .wagon-reward-card, .wagon-reward-stage.is-pop { animation: none; }
-  .wagon-reward-fill { transition: none; }
+  .wagon-reward, .wagon-reward-card, .wagon-step.is-new, .reward-dot.is-new { animation: none; }
+  .reward-dot { transition: none; }
   .wagon-reward-next { transition: none; }
   .wagon-reward.is-done .wagon-reward-next::after { animation: none; opacity: 0.5; }
   .scene-reward-thumb { animation: none; }

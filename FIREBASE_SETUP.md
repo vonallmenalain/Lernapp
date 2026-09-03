@@ -64,6 +64,22 @@ Unter jedem User steht die Karte **Gruppe** mit zwei Feldern:
 
 Sobald ein Konto in einer Gruppe ist, sieht es auf dem **Startbild** über dem eigenen Zug die Züge der anderen Mitglieder, jeden auf einem eigenen Gleis und mit seinem Namen davor. Ein Tipp darauf zeigt, welche Level diese Person geschafft hat. Gäste können nicht in eine Gruppe: ihr Stand liegt auf ihrem Gerät.
 
+### Wagen-Set
+
+Der vierte Reiter **Wagen** zeigt die beiden Wagen-Sets des Zugs als Vorschau: **Set 1 – Güterzug** (Kasten-, Kessel-, Flach-, Kran- und Postwagen) und **Set 2 – Abenteuerzug** (Einhorn, Wal, Roboter, Drache, Piratenschiff). Jeder Wagen hat zwölf Ausbauschritte, drei je Spiel seines Bereichs. Die Sets wachsen verschieden schnell: im ersten gibt ein Spiel seine Schritte nach 1, 3 und 5 Runden frei, im zweiten nach 3, 6 und 9 – ein Wagen des zweiten Sets braucht also 36 statt 20 Runden.
+
+**Auf dieses Set wechseln** fragt nach und tut dann zweierlei: Es setzt jedes Konto zurück (genau wie **Fortschritt zurücksetzen**, Konto für Konto) und schreibt danach das Dokument `config/train`:
+
+```json
+{ "wagonSet": "2", "switchedAtMs": 1788337808939, "switchedAt": "<serverTimestamp>", "switchedBy": "<uid>" }
+```
+
+Dieses Dokument liest jedes Gerät beim Start – auch ohne Konto – und hört darauf, solange die App offen ist. Ist `switchedAtMs` neuer als der Wechsel, den das Gerät unter `lernapp.train.set` kennt, räumt es seinen lokalen Fortschritt weg (wie bei der Marke `progressReset`, nur für alle) und zeigt die neuen Wagen bei 0. Gäste ohne Konto haben ihren Stand nur auf dem Gerät; bei ihnen greift allein dieser Weg, beim nächsten Öffnen der App.
+
+Die Regel dafür steht in `firestore.rules`: `config/{docId}` darf jeder lesen, schreiben nur der Admin. Ohne diese Regel bleibt jedes Gerät beim ersten Set – der Wechsel im Adminbereich schlüge dann mit „Keine Berechtigung“ fehl.
+
+Geprüft wird das von `node scripts/validate-wagen-set.mjs` – ohne Browser und ohne Netz.
+
 ## 5. Fortschritt zurücksetzen
 
 Im Profil steht neben **Alle Levels freischalten** die Karte **Fortschritt zurücksetzen**; im Admin-Bereich gibt es dieselbe Möglichkeit für jedes fremde Konto. Beides fragt vorher nach.
@@ -73,9 +89,9 @@ Weggeräumt wird:
 - alle Dokumente unter `users/{uid}/levelProgress` und `users/{uid}/sessions`
 - die Gesamtzahlen in `users/{uid}.stats` (auf 0)
 - die Spielstände in `users/{uid}.gameState` (Tier-Sprung, Karten-Merker und die anderen Spiele mit eigenem Konto)
-- auf dem Gerät alles unter `lernapp.` ausser den Einstellungen: gelöste Level, Sterne, Übungsstände und die gesehenen Wagenstufen
+- auf dem Gerät alles unter `lernapp.` ausser den Einstellungen: gelöste Level, Sterne, Übungsstände und die gesehenen Wagenschritte
 
-Stehen bleiben Name, Lok, Landschaft, Levelmodus, Ton-Einstellungen und die Gastkennung. Ein Kind, das von vorn anfängt, behält also seinen Zug – nur die Wagen starten wieder bei 0.
+Stehen bleiben Name, Lok, Landschaft, Levelmodus, Ton-Einstellungen, das Wagen-Set und die Gastkennung. Ein Kind, das von vorn anfängt, behält also seinen Zug – nur die Wagen starten wieder bei 0.
 
 ### Die Marke `progressReset`
 
@@ -100,6 +116,7 @@ Die App schreibt folgende Dokumente:
 | `users/{uid}` | Profil, Name, technische Auth-Adresse, Provider, Rolle/Admin-Metadaten, Gesamtstatistik, Lok/Landschaft, Spielstände, Reset-Marke, Gruppe |
 | `users/{uid}/levelProgress/{levelKey}` | Fortschritt pro Level: gelöst, Versuche, Spielzeit, Züge, Resets, Hinweise |
 | `users/{uid}/sessions/{sessionId}` | Einzelne Spielstände/Sitzungen mit Start, Ende, Dauer, Zügen, Resets und gelöst-Status |
+| `config/train` | Das gültige Wagen-Set und der Zeitpunkt des letzten Wechsels; nur der Admin schreibt es, jedes Gerät liest es |
 
 Beispiel für `levelProgress`:
 

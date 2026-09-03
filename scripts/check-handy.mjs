@@ -229,10 +229,10 @@ async function zugHereinholen(blatt) {
 }
 
 // Ein Stand, bei dem beim Öffnen des Startbilds gefeiert wird: der Wagen
-// Gedächtnis wächst von Stufe 2 auf Stufe 5, und damit wird die dritte
+// Gedächtnis wächst von Schritt 2 auf Schritt 6, und damit wird die dritte
 // Landschaft frei.
 const FEIER_SPEICHER = {
-  "lernapp.train.gesehen": JSON.stringify({ gedaechtnis: 0.15, konzentration: 0, geschwindigkeit: 0, problemloesen: 0, zahlbuchstabe: 0 }),
+  "lernapp.train.gesehen": JSON.stringify({ set: "1", steps: { gedaechtnis: 2, konzentration: 0, geschwindigkeit: 0, problemloesen: 0, zahlbuchstabe: 0 } }),
   "lernapp.train.gesehen.szenen": "2",
   "lernapp.backpack": JSON.stringify({ runs: 5, scores: [12, 10, 8, 6, 4] }),
   "lernapp.memory": JSON.stringify({ best: { 8: { stars: 3 }, 12: { stars: 3 }, 16: { stars: 3 }, 20: { stars: 3 }, 24: { stars: 3 } } }),

@@ -220,7 +220,10 @@ if (!(await warteAufServer())) {
   process.exit(2);
 }
 
-const browser = await playwright.chromium.launch();
+const browser = await playwright.chromium.launch({
+  executablePath: process.env.CHROMIUM_PFAD || undefined,
+  args: ["--no-sandbox"],
+});
 const page = await browser.newPage({ viewport: { width: 1100, height: 800 } });
 // Das echte SDK liegt auf einem fremden Server und wird hier nicht gebraucht.
 await page.route("https://www.gstatic.com/**", (route) => route.fulfill({ status: 200, contentType: "application/javascript", body: "" }));
@@ -236,8 +239,9 @@ await page.waitForTimeout(900);
 pruefe(await page.locator("[data-admin-section]").count() === 1, "Der Adminbereich geht nicht auf");
 
 const reiter = await page.locator(".admin-tabs button").allTextContents();
-pruefe(reiter.length === 3, `Es gibt ${reiter.length} Reiter, erwartet 3 (User, Gäste, Spiele)`);
+pruefe(reiter.length === 4, `Es gibt ${reiter.length} Reiter, erwartet 4 (User, Gäste, Spiele, Wagen)`);
 pruefe(reiter.includes("Spiele"), `Der Reiter "Spiele" fehlt: ${reiter.join(", ")}`);
+pruefe(reiter.includes("Wagen"), `Der Reiter "Wagen" fehlt: ${reiter.join(", ")}`);
 
 // --- Zugeklappt --------------------------------------------------------------
 const zeilen = await page.locator(".admin-entry").count();
@@ -311,6 +315,27 @@ await page.waitForTimeout(400);
 const gefiltert = await page.locator(".admin-game-card").count();
 pruefe(gefiltert === 4, `Der Bereich "Zahl und Buchstabe" zeigt ${gefiltert} Spiele, erwartet 4`);
 
+// --- Der Reiter "Wagen" ------------------------------------------------------
+// Zwei Sets als Zug, das erste aktiv, das zweite zum Wechseln – aber erst nach
+// einer Rückfrage, und die lässt sich abbrechen.
+await page.locator('[data-admin-view="wagons"]').click();
+await page.waitForTimeout(700);
+pruefe(await page.locator(".admin-set").count() === 2, "Der Wagen-Reiter zeigt nicht zwei Sets");
+pruefe(await page.locator(".admin-set.is-active").count() === 1, "Genau ein Set muss als aktiv markiert sein");
+pruefe(await page.locator('.admin-set[data-admin-set="1"].is-active').count() === 1, "Ohne Umstellung gilt das erste Set");
+pruefe(await page.locator(".admin-set-preview svg").count() === 2, "Die Vorschau-Züge fehlen");
+pruefe(await page.locator('.admin-set[data-admin-set="2"] [data-wagon="unicorn"]').count() === 1, "Im zweiten Set fehlt das Einhorn in der Vorschau");
+pruefe(await page.locator("[data-admin-set-confirm]").count() === 0, "Die Rückfrage steht schon da, bevor jemand wechseln will");
+if (process.env.SCREENSHOT_DIR) await page.screenshot({ path: path.join(process.env.SCREENSHOT_DIR, "admin-wagen.png"), fullPage: true });
+await page.locator("[data-admin-set-start]").click();
+await page.waitForTimeout(400);
+pruefe(await page.locator("[data-admin-set-confirm]").count() === 1, "Der Wechsel fragt nicht nach");
+if (process.env.SCREENSHOT_DIR) await page.screenshot({ path: path.join(process.env.SCREENSHOT_DIR, "admin-wagen-rueckfrage.png"), fullPage: true });
+await page.locator("[data-admin-set-cancel]").click();
+await page.waitForTimeout(400);
+pruefe(await page.locator("[data-admin-set-confirm]").count() === 0, "Abbrechen nimmt die Rückfrage nicht weg");
+pruefe(await page.evaluate(() => document.querySelector('[data-area="gedaechtnis"]')?.dataset.wagon) === "boxcar", "Der Zug auf der Bühne hat schon gewechselt, obwohl abgebrochen wurde");
+
 // --- Gäste -------------------------------------------------------------------
 await page.locator('[data-admin-view="guests"]').click();
 await page.waitForTimeout(900);
@@ -330,4 +355,4 @@ if (befunde.length) {
   process.exit(1);
 }
 
-console.log("Adminbereich geprüft: drei Reiter, Konten zugeklappt, Zug je Konto, Auswertung je Spiel.");
+console.log("Adminbereich geprüft: vier Reiter, Konten zugeklappt, Zug je Konto, Auswertung je Spiel, Wagen-Set mit Rückfrage.");
