@@ -35,30 +35,38 @@
   // Die zehn Level
   // ---------------------------------------------------------------------------
   // farben = Häuser und Zugfarben, zuege = wie viele fahren insgesamt,
-  // takt = Abstand der Abfahrten.
+  // takt = Abstand der Abfahrten, gleichzeitig = wie viele höchstens zugleich
+  // auf der Strecke sind.
   //
   // tempo ist die Strecke, die ein Zug in einer Sekunde zurücklegt, gemessen in
   // Bildbreiten – nicht Gleisstücke pro Sekunde. Ein Zug fährt damit überall
   // gleich schnell; nach Gleisstücken gerechnet raste er auf den langen Ästen
   // und kroch auf den kurzen.
   //
-  // Die Züge fahren gemächlich: in Level 1 braucht einer gut neun Sekunden
-  // über das Bild, und bis zur ersten Weiche bleiben ihm gut zwei Sekunden
-  // Bedenkzeit. Schwerer wird es nicht über das Tempo, sondern über die
-  // Dichte – die Züge kommen enger hintereinander aus dem Tunnel, und es sind
-  // mehr zugleich unterwegs. Ab Level 4 zieht das Tempo leicht an, aber auch
-  // in Level 10 fährt ein Zug langsamer als früher in Level 1.
+  // Die Züge fahren halb so schnell wie in der ersten Fassung: in Level 1
+  // braucht einer gut sechzehn Sekunden über das Bild, und bis zur ersten
+  // Weiche bleiben ihm fast fünf Sekunden Bedenkzeit. Damit ein Level deswegen
+  // nicht doppelt so lange dauert, sind dafür mehr Züge zugleich unterwegs:
+  // vier am Anfang und sechs ab Level 4 statt bisher zwei bis fünf. Der Takt
+  // ist derselbe geblieben, also kommen sie auch enger hintereinander aus dem
+  // Tunnel. Ein Level dauert damit gut eine Minute wie bisher – auf einem
+  // schmalen Handybild etwas länger, weil dort weniger Züge nebeneinander
+  // Platz haben.
+  //
+  // Schwerer wird es weiterhin über die Dichte, nicht über das Tempo. Ab
+  // Level 4 zieht das Tempo leicht an, aber auch in Level 10 fährt ein Zug
+  // langsamer als früher in Level 1.
   const LEVELS = [
-    { nr: 1, farben: 3, zuege: 15, tempo: 0.11, takt: 2600, gleichzeitig: 2 },
-    { nr: 2, farben: 4, zuege: 15, tempo: 0.11, takt: 2400, gleichzeitig: 2 },
-    { nr: 3, farben: 5, zuege: 20, tempo: 0.12, takt: 2200, gleichzeitig: 3 },
-    { nr: 4, farben: 5, zuege: 25, tempo: 0.13, takt: 2000, gleichzeitig: 3 },
-    { nr: 5, farben: 6, zuege: 25, tempo: 0.14, takt: 1900, gleichzeitig: 3 },
-    { nr: 6, farben: 6, zuege: 30, tempo: 0.15, takt: 1800, gleichzeitig: 4 },
-    { nr: 7, farben: 7, zuege: 30, tempo: 0.16, takt: 1700, gleichzeitig: 4 },
-    { nr: 8, farben: 8, zuege: 30, tempo: 0.17, takt: 1600, gleichzeitig: 4 },
-    { nr: 9, farben: 8, zuege: 35, tempo: 0.18, takt: 1500, gleichzeitig: 5 },
-    { nr: 10, farben: 9, zuege: 35, tempo: 0.19, takt: 1400, gleichzeitig: 5 },
+    { nr: 1, farben: 3, zuege: 15, tempo: 0.055, takt: 2600, gleichzeitig: 4 },
+    { nr: 2, farben: 4, zuege: 15, tempo: 0.055, takt: 2400, gleichzeitig: 4 },
+    { nr: 3, farben: 5, zuege: 20, tempo: 0.06, takt: 2200, gleichzeitig: 5 },
+    { nr: 4, farben: 5, zuege: 25, tempo: 0.065, takt: 2000, gleichzeitig: 6 },
+    { nr: 5, farben: 6, zuege: 25, tempo: 0.07, takt: 1900, gleichzeitig: 6 },
+    { nr: 6, farben: 6, zuege: 30, tempo: 0.075, takt: 1800, gleichzeitig: 6 },
+    { nr: 7, farben: 7, zuege: 30, tempo: 0.08, takt: 1700, gleichzeitig: 6 },
+    { nr: 8, farben: 8, zuege: 30, tempo: 0.085, takt: 1600, gleichzeitig: 6 },
+    { nr: 9, farben: 8, zuege: 35, tempo: 0.09, takt: 1500, gleichzeitig: 6 },
+    { nr: 10, farben: 9, zuege: 35, tempo: 0.095, takt: 1400, gleichzeitig: 6 },
   ];
 
   // Fünf abgeschlossene Level, und der Wagen im Bereich Konzentration ist für
@@ -315,9 +323,25 @@
   // ---------------------------------------------------------------------------
   // Fahren
   // ---------------------------------------------------------------------------
+  // Wie lang ein Zug auf dem Bild ist, in Bildbreiten. Gezeichnet misst er vom
+  // hinteren Wagen bis zum Schornstein gut 44 Einheiten.
+  function zugLaenge() {
+    return 44 * 1.35 * scale() / Math.max(1, size.width);
+  }
+
   function spawnTrain() {
     if (run.gestartet >= state.level.zuege) return false;
     if (run.trains.length >= state.level.gleichzeitig) return false;
+    // Seit die Züge halb so schnell fahren, kommen sie im selben Takt halb so
+    // weit auseinander aus dem Tunnel. Auf einem schmalen Handybild ist ein Zug
+    // fast ein Sechstel der Breite lang – ohne diese Sperre schöbe sich der
+    // nächste in den vorherigen hinein. Er wartet deshalb, bis der davor eine
+    // Zuglänge und einen Viertel weit draussen ist: genug für eine sichtbare
+    // Lücke, wenig genug, dass auch auf dem Handy so viele Züge zugleich fahren
+    // wie vorgesehen. Auf breiten Bildern greift die Sperre nie.
+    const letzter = run.trains[run.trains.length - 1];
+    if (letzter && letzter.from === "start"
+      && letzter.t * edgeLength("start", letzter.to) < zugLaenge() * 1.25) return false;
     run.gestartet += 1;
     run.trains.push({
       // Eine Nummer je Zug: die Liste schrumpft, wenn einer ankommt, und über
