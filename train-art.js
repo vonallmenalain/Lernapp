@@ -953,202 +953,707 @@
   }
 
   // ---------------------------------------------------------------------------
-  // Gebäude
+  // Spiel-Symbole
   // ---------------------------------------------------------------------------
-  // Ein Motiv je Spiel. Statt fünfzehn Einzelzeichnungen gibt es sieben
-  // Grundformen und je ein Zeichen an der Fassade: das hält die Häuser als
-  // Gruppe zusammen und macht sie trotzdem einzeln erkennbar.
+  // Ein eigenes Bild je Spiel, kein Haus mehr. Zwanzig Häuser mit je einem
+  // kleinen Zeichen an der Fassade sahen einander zu ähnlich: ein Kind musste
+  // das Zeichen suchen, um das Spiel zu finden. Jetzt ist das Bild selbst das
+  // Spiel – der Rucksack, die drei Fische, der Turm aus Blöcken –, und an
+  // seiner Form ist es aus dem Augenwinkel zu erkennen.
+  //
+  // Alle Bilder eines Bereichs stehen in den Tönen seiner Farbe: die Bühne
+  // gibt sie mit, und tones() leitet daraus Licht, Schatten und eine blasse
+  // Fläche ab. Weiss, Creme und ein dunkles Tintenblau kommen als Akzente dazu,
+  // sonst nichts – so sagt die Farbe, wo man ist, und die Form, was man spielt.
+  //
+  // Bewegt wird wenig, aber jedes Bild ein bisschen: der Fisch wippt, die
+  // Karte dreht sich um, der Turm wächst. Die Bewegung steht als Klasse am
+  // Teil (gi-…, siehe styles.css) und läuft nur über transform und opacity –
+  // das zeichnet der Browser günstig, und wer weniger Bewegung eingestellt
+  // hat, sieht das fertige Bild still.
+  //
+  // Jedes Bild steht in einem Feld von BUILD_W × BUILD_H Einheiten; der Boden
+  // liegt bei BUILD_BASE, oben rechts bleibt Platz für die Fortschrittsmarke.
   const BUILD_W = 160;
+  const BUILD_H = 180;
   const BUILD_BASE = GROUND;
 
-  const BUILDINGS = {
-    backpack: { kind: "backpack", emblem: null, hue: "#e0913c" },
-    memory: { kind: "house", emblem: "cards", hue: "#8a6fe0" },
-    cardMatch: { kind: "hut", emblem: "cardCheck", hue: "#e0913c" },
-    beachTreasure: { kind: "hut", emblem: "shell", hue: "#e8b45a" },
-    tileMemory: { kind: "barn", emblem: "grid", hue: "#9a6fd0" },
-    flanker: { kind: "hall", emblem: "fish", hue: "#3ba7b5" },
-    trackRouter: { kind: "tower", emblem: "switch", hue: "#2f8f9c" },
-    fishPond: { kind: "hut", emblem: "net", hue: "#2f9ec0" },
-    gridlock: { kind: "barn", emblem: "gleis", hue: "#2f8f9c" },
-    tiersprung: { kind: "hall", emblem: "bolt", hue: "#e8a13c" },
-    leafFlow: { kind: "barn", emblem: "leaf", hue: "#d98a33" },
-    towerStack: { kind: "tower", emblem: "blocks", hue: "#d99a2f" },
-    spatialPuzzle: { kind: "tower", emblem: "cube", hue: "#3f8f6a" },
-    arukone: { kind: "house", emblem: "wires", hue: "#63a83f" },
-    bimaru: { kind: "lighthouse", emblem: null, hue: "#4a8fb0" },
-    shikaku: { kind: "barn", emblem: "fence", hue: "#a8863c" },
-    letterPuzzle: { kind: "tower", emblem: "letter", hue: "#e0563f" },
-    readingPuzzle: { kind: "house", emblem: "book", hue: "#b8496a" },
-    kakuro: { kind: "tower", emblem: "plus", hue: "#c97a3c" },
-    hidoku: { kind: "house", emblem: "numbers", hue: "#d94f4f" },
+  // Die Farben der fünf Bereiche, als Rückfall ohne Angabe von der Bühne.
+  // Dieselben Werte wie in train-progress.js: die Prüfseite und die Kisten am
+  // Wagen sollen die Bilder genau so zeigen wie die Bühne.
+  const AREA_HUES = {
+    gedaechtnis: "#7C5CE6",
+    konzentration: "#00A5B5",
+    geschwindigkeit: "#F5A623",
+    problemloesen: "#3FA34D",
+    zahlbuchstabe: "#E8543F",
   };
 
-  function emblem(name, cx, cy, color) {
-    const parts = [];
-    const ink = "#2b3440";
-    if (name === "cards") {
-      parts.push(el("rect", { x: cx - 20, y: cy - 16, width: 22, height: 30, rx: 3, fill: "#fdfbf6", transform: `rotate(-12 ${cx - 9} ${cy})` }));
-      parts.push(el("rect", { x: cx - 2, y: cy - 16, width: 22, height: 30, rx: 3, fill: "#fdfbf6", transform: `rotate(10 ${cx + 9} ${cy})` }));
-      parts.push(el("circle", { cx: cx + 9, cy, r: 5, fill: color }));
-    } else if (name === "cardCheck") {
-      parts.push(el("rect", { x: cx - 15, y: cy - 18, width: 30, height: 36, rx: 4, fill: "#fdfbf6" }));
-      parts.push(el("polyline", { points: `${cx - 8},${cy} ${cx - 2},${cy + 7} ${cx + 9},${cy - 8}`, fill: "none", stroke: color, "stroke-width": 5, "stroke-linecap": "round", "stroke-linejoin": "round" }));
-    } else if (name === "shell") {
-      parts.push(el("path", { d: `M${cx} ${cy + 16} a20 20 0 0 1 -20 -20 h40 a20 20 0 0 1 -20 20 z`, fill: "#fdfbf6" }));
-      parts.push(el("path", { d: `M${cx} ${cy + 15} v-19 M${cx - 9} ${cy + 11} l4 -15 M${cx + 9} ${cy + 11} l-4 -15`, stroke: color, "stroke-width": 3, fill: "none", "stroke-linecap": "round" }));
-    } else if (name === "fish") {
-      parts.push(el("ellipse", { cx, cy, rx: 20, ry: 12, fill: "#fdfbf6" }));
-      parts.push(el("polygon", { points: `${cx + 18},${cy} ${cx + 30},${cy - 10} ${cx + 30},${cy + 10}`, fill: "#fdfbf6" }));
-      parts.push(el("circle", { cx: cx - 9, cy: cy - 3, r: 3.4, fill: ink }));
-    } else if (name === "grid") {
-      // Neun Kacheln, drei davon hell: das Muster, das man sich merken soll.
-      [[-1, -1], [0, -1], [1, -1], [-1, 0], [0, 0], [1, 0], [-1, 1], [0, 1], [1, 1]].forEach(([sx, sy], i) => {
-        const hell = i === 1 || i === 3 || i === 8;
-        parts.push(el("rect", {
-          x: cx + sx * 13 - 5.5, y: cy + sy * 13 - 5.5, width: 11, height: 11, rx: 2,
-          fill: hell ? "#fdfbf6" : "none", stroke: "#fdfbf6", "stroke-width": 2,
-        }));
-      });
-    } else if (name === "net") {
-      // Ein Kescher: Bügel, Netz und Stiel – klar unterscheidbar vom Fisch, den
-      // der Schwarm-Fokus nebenan trägt.
-      // Gefüllt statt gestrichelt: eine dünne Linienzeichnung verschwindet auf
-      // dem kleinen Gebäude, eine geschlossene Fläche nicht.
-      parts.push(el("line", { x1: cx + 4, y1: cy + 2, x2: cx + 17, y2: cy + 20, stroke: "#fdfbf6", "stroke-width": 6, "stroke-linecap": "round" }));
-      parts.push(el("ellipse", { cx: cx - 4, cy: cy - 7, rx: 18, ry: 14, fill: "#fdfbf6" }));
-      parts.push(el("path", {
-        d: `M${cx - 21} ${cy - 7} h34 M${cx - 4} ${cy - 20} v27`,
-        fill: "none", stroke: color, "stroke-width": 3,
-      }));
-    } else if (name === "leaf") {
-      // Dasselbe Blatt wie im Spiel: vorne spitz, hinten rund, mit Mittelader.
-      // An der Spitze hängt dort die halbe Regel – sie muss auch hier die Form
-      // sein, an der man das Haus wiedererkennt.
-      parts.push(el("path", {
-        d: `M${cx} ${cy - 20} C ${cx + 14} ${cy - 7} ${cx + 17} ${cy + 3} ${cx + 17} ${cy + 5} A 17 17 0 0 1 ${cx - 17} ${cy + 5} C ${cx - 17} ${cy + 3} ${cx - 14} ${cy - 7} ${cx} ${cy - 20} Z`,
-        fill: "#fdfbf6",
-      }));
-      parts.push(el("path", {
-        d: `M${cx} ${cy - 14} V${cy + 20} M${cx} ${cy - 4} l-9 7 M${cx} ${cy - 4} l9 7`,
-        fill: "none", stroke: color, "stroke-width": 3, "stroke-linecap": "round",
-      }));
-    } else if (name === "blocks") {
-      // Drei Blöcke, jeder ein Stück versetzt und schmaler als der darunter:
-      // genau das, was im Spiel passiert. Ein senkrechter Stapel sähe aus wie
-      // eine Mauer und sagte nichts über das Treffen.
-      [[-18, 8, 36], [-13, -4, 30], [-6, -16, 22]].forEach(([dx, dy, w]) => {
-        parts.push(el("rect", { x: cx + dx, y: cy + dy, width: w, height: 10, rx: 2, fill: "#fdfbf6" }));
-      });
-    } else if (name === "switch") {
-      parts.push(el("rect", { x: cx - 22, y: cy + 8, width: 44, height: 6, rx: 3, fill: "#fdfbf6" }));
-      parts.push(el("line", { x1: cx - 10, y1: cy + 8, x2: cx + 12, y2: cy - 14, stroke: "#fdfbf6", "stroke-width": 6, "stroke-linecap": "round" }));
-      parts.push(el("circle", { cx: cx + 12, cy: cy - 14, r: 6, fill: color }));
-    } else if (name === "gleis") {
-      // Freie Fahrt: ein Wagen von oben, davor der offene Weg nach rechts. Die
-      // Weiche nebenan zeigt eine Verzweigung, hier geht es geradeaus hinaus –
-      // daran sind die beiden Häuser auseinanderzuhalten.
-      parts.push(el("rect", { x: cx - 26, y: cy - 9, width: 30, height: 18, rx: 5, fill: "#fdfbf6" }));
-      parts.push(el("rect", { x: cx - 21, y: cy - 5, width: 9, height: 10, rx: 2, fill: color }));
-      parts.push(el("path", {
-        d: `M${cx + 10} ${cy - 12} l11 12 l-11 12`,
-        fill: "none", stroke: "#fdfbf6", "stroke-width": 6, "stroke-linecap": "round", "stroke-linejoin": "round",
-      }));
-    } else if (name === "bolt") {
-      parts.push(el("polygon", { points: `${cx + 6},${cy - 20} ${cx - 12},${cy + 3} ${cx - 1},${cy + 3} ${cx - 5},${cy + 20} ${cx + 14},${cy - 4} ${cx + 2},${cy - 4}`, fill: "#fdfbf6" }));
-    } else if (name === "cube") {
-      parts.push(el("polygon", { points: `${cx},${cy - 18} ${cx + 17},${cy - 8} ${cx + 17},${cy + 10} ${cx},${cy + 20} ${cx - 17},${cy + 10} ${cx - 17},${cy - 8}`, fill: "#fdfbf6" }));
-      parts.push(el("path", { d: `M${cx - 17} ${cy - 8} L${cx} ${cy + 2} L${cx + 17} ${cy - 8} M${cx} ${cy + 2} v18`, fill: "none", stroke: color, "stroke-width": 3 }));
-    } else if (name === "wires") {
-      parts.push(el("circle", { cx: cx - 16, cy: cy - 10, r: 6, fill: "#fdfbf6" }));
-      parts.push(el("circle", { cx: cx + 16, cy: cy + 10, r: 6, fill: "#fdfbf6" }));
-      parts.push(el("path", { d: `M${cx - 16} ${cy - 10} H${cx + 4} V${cy + 10} H${cx + 16}`, fill: "none", stroke: "#fdfbf6", "stroke-width": 5, "stroke-linejoin": "round" }));
-    } else if (name === "fence") {
-      parts.push(el("path", { d: `M${cx - 22} ${cy + 16} v-22 M${cx - 7} ${cy + 16} v-26 M${cx + 8} ${cy + 16} v-26 M${cx + 23} ${cy + 16} v-22`, stroke: "#fdfbf6", "stroke-width": 5, "stroke-linecap": "round" }));
-      parts.push(el("path", { d: `M${cx - 26} ${cy - 4} H${cx + 27} M${cx - 26} ${cy + 7} H${cx + 27}`, stroke: "#fdfbf6", "stroke-width": 4 }));
-    } else if (name === "book") {
-      parts.push(el("path", { d: `M${cx - 22} ${cy - 14} h18 a4 4 0 0 1 4 4 v24 a4 4 0 0 0 -4 -4 h-18 z`, fill: "#fdfbf6" }));
-      parts.push(el("path", { d: `M${cx + 22} ${cy - 14} h-18 a4 4 0 0 0 -4 4 v24 a4 4 0 0 1 4 -4 h18 z`, fill: "#fdfbf6", opacity: "0.82" }));
-    } else if (name === "plus") {
-      parts.push(el("path", { d: `M${cx} ${cy - 18} v36 M${cx - 18} ${cy} h36`, stroke: "#fdfbf6", "stroke-width": 8, "stroke-linecap": "round" }));
-    } else if (name === "letter" || name === "numbers") {
-      const glyph = el("text", {
-        x: cx, y: cy + 15, "font-family": "Inter, system-ui, sans-serif",
-        "font-size": name === "letter" ? 42 : 30, "font-weight": 900,
-        fill: "#fdfbf6", "text-anchor": "middle",
-      }, []);
-      glyph.textContent = name === "letter" ? "A" : "123";
-      parts.push(glyph);
-    }
-    return group({ "aria-hidden": "true" }, parts);
+  const BUILDINGS = {
+    backpack: { motif: "backpack", hue: AREA_HUES.gedaechtnis },
+    memory: { motif: "memory", hue: AREA_HUES.gedaechtnis },
+    beachTreasure: { motif: "beach", hue: AREA_HUES.gedaechtnis },
+    tileMemory: { motif: "tiles", hue: AREA_HUES.gedaechtnis },
+    flanker: { motif: "flanker", hue: AREA_HUES.konzentration },
+    trackRouter: { motif: "switch", hue: AREA_HUES.konzentration },
+    fishPond: { motif: "pond", hue: AREA_HUES.konzentration },
+    gridlock: { motif: "gridlock", hue: AREA_HUES.konzentration },
+    tiersprung: { motif: "hop", hue: AREA_HUES.geschwindigkeit },
+    cardMatch: { motif: "cardMatch", hue: AREA_HUES.geschwindigkeit },
+    leafFlow: { motif: "leaves", hue: AREA_HUES.geschwindigkeit },
+    towerStack: { motif: "tower", hue: AREA_HUES.geschwindigkeit },
+    spatialPuzzle: { motif: "spatial", hue: AREA_HUES.problemloesen },
+    arukone: { motif: "arukone", hue: AREA_HUES.problemloesen },
+    bimaru: { motif: "ships", hue: AREA_HUES.problemloesen },
+    shikaku: { motif: "pens", hue: AREA_HUES.problemloesen },
+    letterPuzzle: { motif: "letters", hue: AREA_HUES.zahlbuchstabe },
+    readingPuzzle: { motif: "book", hue: AREA_HUES.zahlbuchstabe },
+    kakuro: { motif: "kakuro", hue: AREA_HUES.zahlbuchstabe },
+    hidoku: { motif: "hidoku", hue: AREA_HUES.zahlbuchstabe },
+  };
+
+  // Die Töne eines Bereichs. Alles, was ein Bild braucht, kommt aus der einen
+  // Farbe – deshalb passt jedes Bild in jeden Bereich, ohne dass irgendwo eine
+  // zweite Farbe eingetragen werden müsste.
+  function tones(hue) {
+    return {
+      base: hue,
+      dark: shade(hue, -0.28),
+      deep: shade(hue, -0.52),
+      light: shade(hue, 0.32),
+      pale: shade(hue, 0.66),
+      mist: shade(hue, 0.86),
+      cream: "#fff8ea",
+      ink: "#2b3440",
+    };
   }
 
-  function buildingShell(kind, hue) {
-    const dark = shade(hue, -0.3);
-    const light = shade(hue, 0.25);
-    const roof = shade(hue, -0.45);
-    const w = BUILD_W;
-    const parts = [];
-
-    if (kind === "house") {
-      parts.push(el("rect", { x: 22, y: BUILD_BASE - 92, width: w - 44, height: 92, rx: 4, fill: hue }));
-      parts.push(el("polygon", { points: `10,${BUILD_BASE - 88} ${w / 2},${BUILD_BASE - 138} ${w - 10},${BUILD_BASE - 88}`, fill: roof }));
-      parts.push(el("rect", { x: w / 2 - 16, y: BUILD_BASE - 40, width: 32, height: 40, rx: 3, fill: dark }));
-      return { parts, emblemAt: [w / 2, BUILD_BASE - 74] };
+  // --- Kleine Formen, die mehrere Bilder brauchen ----------------------------
+  function starPoints(cx, cy, outer, inner, n = 5) {
+    const points = [];
+    for (let i = 0; i < n * 2; i += 1) {
+      const r = i % 2 === 0 ? outer : inner;
+      const angle = -Math.PI / 2 + (i * Math.PI) / n;
+      points.push(`${(cx + Math.cos(angle) * r).toFixed(1)},${(cy + Math.sin(angle) * r).toFixed(1)}`);
     }
-    if (kind === "tower") {
-      parts.push(el("rect", { x: 38, y: BUILD_BASE - 148, width: w - 76, height: 148, rx: 5, fill: hue }));
-      parts.push(el("rect", { x: 28, y: BUILD_BASE - 160, width: w - 56, height: 16, rx: 5, fill: roof }));
-      parts.push(el("rect", { x: 46, y: BUILD_BASE - 176, width: w - 92, height: 18, rx: 4, fill: roof, opacity: "0.75" }));
-      parts.push(el("rect", { x: w / 2 - 14, y: BUILD_BASE - 36, width: 28, height: 36, rx: 3, fill: dark }));
-      return { parts, emblemAt: [w / 2, BUILD_BASE - 106] };
-    }
-    if (kind === "hut") {
-      parts.push(el("rect", { x: 26, y: BUILD_BASE - 74, width: w - 52, height: 74, rx: 4, fill: hue }));
-      parts.push(el("path", { d: `M14 ${BUILD_BASE - 70} a${w / 2 - 14} 46 0 0 1 ${w - 28} 0 z`, fill: roof }));
-      parts.push(el("rect", { x: w / 2 - 15, y: BUILD_BASE - 34, width: 30, height: 34, rx: 3, fill: dark }));
-      return { parts, emblemAt: [w / 2, BUILD_BASE - 56] };
-    }
-    if (kind === "hall") {
-      parts.push(el("rect", { x: 10, y: BUILD_BASE - 84, width: w - 20, height: 84, rx: 5, fill: hue }));
-      parts.push(el("path", { d: `M4 ${BUILD_BASE - 80} a${w / 2 - 4} 40 0 0 1 ${w - 8} 0 z`, fill: roof }));
-      parts.push(el("rect", { x: w / 2 - 24, y: BUILD_BASE - 44, width: 48, height: 44, rx: 4, fill: dark }));
-      return { parts, emblemAt: [w / 2, BUILD_BASE - 62] };
-    }
-    if (kind === "barn") {
-      parts.push(el("rect", { x: 18, y: BUILD_BASE - 88, width: w - 36, height: 88, rx: 4, fill: hue }));
-      parts.push(el("path", { d: `M8 ${BUILD_BASE - 84} L${w / 2} ${BUILD_BASE - 132} L${w - 8} ${BUILD_BASE - 84} L${w - 8} ${BUILD_BASE - 74} L${w / 2} ${BUILD_BASE - 116} L8 ${BUILD_BASE - 74} Z`, fill: roof }));
-      parts.push(el("rect", { x: w / 2 - 22, y: BUILD_BASE - 50, width: 44, height: 50, rx: 3, fill: dark }));
-      parts.push(el("path", { d: `M${w / 2 - 22} ${BUILD_BASE - 50} L${w / 2 + 22} ${BUILD_BASE} M${w / 2 + 22} ${BUILD_BASE - 50} L${w / 2 - 22} ${BUILD_BASE}`, stroke: light, "stroke-width": 4, opacity: "0.6" }));
-      return { parts, emblemAt: [w / 2, BUILD_BASE - 72] };
-    }
-    if (kind === "lighthouse") {
-      parts.push(el("path", { d: `M${w / 2 - 26} ${BUILD_BASE} L${w / 2 - 17} ${BUILD_BASE - 126} h34 L${w / 2 + 26} ${BUILD_BASE} Z`, fill: "#f4f1ea" }));
-      parts.push(el("path", { d: `M${w / 2 - 23} ${BUILD_BASE - 34} h46 M${w / 2 - 20} ${BUILD_BASE - 70} h40 M${w / 2 - 18} ${BUILD_BASE - 104} h36`, stroke: hue, "stroke-width": 13 }));
-      parts.push(el("rect", { x: w / 2 - 22, y: BUILD_BASE - 142, width: 44, height: 18, rx: 4, fill: shade(hue, -0.4) }));
-      parts.push(el("rect", { x: w / 2 - 14, y: BUILD_BASE - 160, width: 28, height: 20, rx: 4, fill: "#ffe066" }));
-      parts.push(el("path", { d: `M${w / 2 + 16} ${BUILD_BASE - 150} l26 -10 v22 z`, fill: "#ffe066", opacity: "0.45" }));
-      parts.push(el("path", { d: `M${w / 2 - 16} ${BUILD_BASE - 150} l-26 -10 v22 z`, fill: "#ffe066", opacity: "0.45" }));
-      return { parts, emblemAt: null };
-    }
-    // Rucksack: das einzige Gebäude, das gar kein Haus ist – Rucksack packen
-    // erkennt ein Kind an nichts schneller als an einem Rucksack.
-    parts.push(el("rect", { x: 30, y: BUILD_BASE - 118, width: w - 60, height: 118, rx: 26, fill: hue }));
-    parts.push(el("path", { d: `M${w / 2 - 26} ${BUILD_BASE - 112} a26 30 0 0 1 52 0`, fill: "none", stroke: shade(hue, -0.35), "stroke-width": 10 }));
-    parts.push(el("rect", { x: 44, y: BUILD_BASE - 62, width: w - 88, height: 40, rx: 8, fill: shade(hue, -0.28) }));
-    parts.push(el("rect", { x: w / 2 - 10, y: BUILD_BASE - 74, width: 20, height: 16, rx: 4, fill: shade(hue, -0.45) }));
-    parts.push(el("rect", { x: w / 2 - 20, y: BUILD_BASE - 22, width: 40, height: 22, rx: 5, fill: shade(hue, -0.15) }));
-    return { parts, emblemAt: [w / 2, BUILD_BASE - 92] };
+    return points.join(" ");
   }
 
-  // Die Fortschrittsmarke oben rechts an jedem Gebäude. Sie beantwortet die
-  // eine Frage, die ein Kind vor der Wahl hat: bin ich hier schon fertig, oder
-  // muss ich noch?
+  function heartPath(cx, cy, s) {
+    return `M${cx} ${cy + s * 0.9} C ${cx - s * 1.25} ${cy - s * 0.15}, ${cx - s * 0.8} ${cy - s * 1.15}, ${cx} ${cy - s * 0.45}`
+      + ` C ${cx + s * 0.8} ${cy - s * 1.15}, ${cx + s * 1.25} ${cy - s * 0.15}, ${cx} ${cy + s * 0.9} Z`;
+  }
+
+  // Ein Glitzern: ein Stern mit vier Zacken.
+  function sparkle(cx, cy, s, fill, className, style = null) {
+    return el("path", {
+      class: className,
+      d: `M${cx} ${cy - s} Q${cx} ${cy} ${cx + s} ${cy} Q${cx} ${cy} ${cx} ${cy + s} Q${cx} ${cy} ${cx - s} ${cy} Q${cx} ${cy} ${cx} ${cy - s} Z`,
+      fill,
+      style,
+    });
+  }
+
+  function textNode(x, y, size, fill, text, extra = {}) {
+    const node = el("text", {
+      x, y, "font-family": "Inter, system-ui, sans-serif", "font-size": size,
+      "font-weight": 900, fill, "text-anchor": "middle", ...extra,
+    }, []);
+    node.textContent = text;
+    return node;
+  }
+
+  // Ein Fisch, der nach rechts schaut; dir < 0 spiegelt ihn nach links. Die
+  // Schwanzflosse hat ihre eigene Gruppe: sie wedelt.
+  function fishNode(cx, cy, size, dir, color, t) {
+    return group({ transform: `translate(${cx},${cy}) scale(${dir < 0 ? -size : size},${size})` }, [
+      group({ class: "gi gi-tail" }, [
+        el("polygon", { points: "-16,0 -33,-13 -33,13", fill: color }),
+      ]),
+      el("ellipse", { cx: 0, cy: 0, rx: 21, ry: 13, fill: color }),
+      el("path", { d: "M-8 -11 q7 -10 16 -2 z", fill: color }),
+      el("path", { d: "M-2 4 q5 7 9 12", fill: "none", stroke: shade(color, -0.22), "stroke-width": 3, "stroke-linecap": "round" }),
+      el("circle", { cx: 10, cy: -3, r: 4.4, fill: "#ffffff" }),
+      el("circle", { cx: 11.4, cy: -3, r: 2.2, fill: t.ink }),
+      el("path", { d: "M14 5 q3 2 6 0", fill: "none", stroke: t.ink, "stroke-width": 1.4, "stroke-linecap": "round" }),
+    ]);
+  }
+
+  // Ein Blatt mit der Spitze oben; rot dreht die Spitze dorthin, wo es hin will.
+  function leafNode(cx, cy, s, rot, fill, vein) {
+    return group({ transform: `translate(${cx},${cy}) rotate(${rot}) scale(${s})` }, [
+      el("path", { d: "M0 -14 C 9 -5, 12 2, 12 4 A 12 12 0 0 1 -12 4 C -12 2, -9 -5, 0 -14 Z", fill }),
+      el("path", { d: "M0 -8 V12 M0 -1 l-6 5 M0 -1 l6 5", fill: "none", stroke: vein, "stroke-width": 2, "stroke-linecap": "round" }),
+    ]);
+  }
+
+  // Ein Würfel von schräg oben: die vordere untere Ecke liegt bei (x, y).
+  function cubeNodes(x, y, s, t) {
+    const dx = s * 0.87;
+    const dy = s * 0.5;
+    return [
+      el("polygon", { points: `${x},${y} ${x},${y - s} ${x - dx},${y - s - dy} ${x - dx},${y - dy}`, fill: t.base }),
+      el("polygon", { points: `${x},${y} ${x},${y - s} ${x + dx},${y - s - dy} ${x + dx},${y - dy}`, fill: t.dark }),
+      el("polygon", { points: `${x},${y - s} ${x + dx},${y - s - dy} ${x},${y - 2 * s} ${x - dx},${y - s - dy}`, fill: t.light }),
+    ];
+  }
+
+  // Ein Spielbrett mit feinem Raster, wie es vier Rätsel brauchen.
+  function boardNodes(x0, y0, size, cells, fill, t, line) {
+    const parts = [el("rect", { x: x0, y: y0, width: size, height: size, rx: 12, fill, stroke: t.dark, "stroke-width": 4 })];
+    const cell = size / cells;
+    for (let i = 1; i < cells; i += 1) {
+      parts.push(el("path", {
+        d: `M${x0 + i * cell} ${y0 + 5} V${y0 + size - 5} M${x0 + 5} ${y0 + i * cell} H${x0 + size - 5}`,
+        fill: "none", stroke: line, "stroke-width": 2, opacity: "0.75",
+      }));
+    }
+    return parts;
+  }
+
+  // Der Boden, auf dem jedes Bild steht: ein weicher Schatten. Ist das Spiel
+  // geschafft, wird daraus ein goldener Teller – dasselbe Gold wie die Räder
+  // des fertigen Wagens, damit "fertig" überall gleich aussieht.
+  function podium(t, done) {
+    const B = BUILD_BASE;
+    if (done) {
+      return [
+        el("ellipse", { cx: 80, cy: B - 3, rx: 62, ry: 7.5, fill: "#d99a1e" }),
+        el("ellipse", { cx: 80, cy: B - 5, rx: 56, ry: 5, fill: "#f0b429" }),
+      ];
+    }
+    return [el("ellipse", { cx: 80, cy: B - 3, rx: 56, ry: 6, fill: t.deep, opacity: "0.28" })];
+  }
+
+  // --- Gedächtnis -------------------------------------------------------------
+  // Rucksack packen: ein offener Rucksack, aus dem die Sachen herausschauen.
+  function motifBackpack(t) {
+    const B = BUILD_BASE;
+    return [
+      el("rect", { x: 24, y: B - 112, width: 14, height: 72, rx: 7, fill: t.deep }),
+      el("rect", { x: 122, y: B - 112, width: 14, height: 72, rx: 7, fill: t.deep }),
+      // Der Deckel, hochgeklappt, mit dem Griff obendrauf
+      el("rect", { x: 42, y: B - 162, width: 76, height: 40, rx: 18, fill: t.dark }),
+      el("path", { d: `M66 ${B - 162} a14 14 0 0 1 28 0`, fill: "none", stroke: t.deep, "stroke-width": 7, "stroke-linecap": "round" }),
+      // Was gepackt wird – Flasche, Ball, Buch – wippt beim Einräumen
+      group({ class: "gi gi-bob" }, [
+        el("rect", { x: 52, y: B - 150, width: 16, height: 40, rx: 6, fill: t.cream }),
+        el("rect", { x: 55, y: B - 156, width: 10, height: 9, rx: 3, fill: t.deep }),
+        el("circle", { cx: 86, cy: B - 134, r: 14, fill: t.light }),
+        el("path", { d: `M74 ${B - 138} q12 -8 24 0`, fill: "none", stroke: t.base, "stroke-width": 4, "stroke-linecap": "round" }),
+        el("rect", { x: 102, y: B - 146, width: 18, height: 26, rx: 3, fill: t.cream }),
+        el("rect", { x: 102, y: B - 146, width: 5, height: 26, rx: 2, fill: t.dark }),
+      ]),
+      // Der Rucksack selbst
+      el("rect", { x: 36, y: B - 124, width: 88, height: 118, rx: 22, fill: t.base }),
+      el("rect", { x: 36, y: B - 124, width: 88, height: 12, rx: 6, fill: t.light, opacity: "0.55" }),
+      el("path", { d: `M48 ${B - 104} v64 M112 ${B - 104} v64`, fill: "none", stroke: t.light, "stroke-width": 2.5, "stroke-dasharray": "5 5", opacity: "0.6" }),
+      // Vordertasche mit Klappe und Schnalle
+      el("rect", { x: 52, y: B - 66, width: 56, height: 44, rx: 10, fill: t.dark }),
+      el("rect", { x: 52, y: B - 66, width: 56, height: 16, rx: 8, fill: t.deep }),
+      el("rect", { x: 73, y: B - 60, width: 14, height: 16, rx: 4, fill: t.cream }),
+    ];
+  }
+
+  // Memory: Karten auf dem Tisch, zwei Sterne liegen offen – ein Paar –, und
+  // eine Karte dreht sich gerade um.
+  function motifMemory(t) {
+    const B = BUILD_BASE;
+    const cardW = 32;
+    const cardH = 40;
+    const cols = [24, 64, 104];
+    const rows = [B - 96, B - 50];
+    const back = (x, y) => [
+      el("rect", { x, y, width: cardW, height: cardH, rx: 5, fill: t.base }),
+      el("rect", { x: x + 4, y: y + 4, width: cardW - 8, height: cardH - 8, rx: 3, fill: "none", stroke: t.light, "stroke-width": 2 }),
+      el("circle", { cx: x + cardW / 2, cy: y + cardH / 2, r: 5, fill: t.light }),
+    ];
+    const front = (x, y, symbol) => [
+      el("rect", { x, y, width: cardW, height: cardH, rx: 5, fill: t.cream }),
+      symbol === "star"
+        ? el("polygon", { points: starPoints(x + cardW / 2, y + cardH / 2 + 1, 12, 5.5), fill: t.base })
+        : el("path", { d: heartPath(x + cardW / 2, y + cardH / 2, 11), fill: t.base }),
+    ];
+    return [
+      el("rect", { x: 14, y: B - 106, width: 132, height: 100, rx: 16, fill: t.pale }),
+      el("rect", { x: 14, y: B - 16, width: 132, height: 10, rx: 5, fill: t.dark }),
+      ...front(cols[0], rows[0], "star"), ...front(cols[1], rows[0], "star"), ...back(cols[2], rows[0]),
+      ...back(cols[0], rows[1]), ...back(cols[1], rows[1]),
+      group({ class: "gi gi-flip-back" }, back(cols[2], rows[1])),
+      group({ class: "gi gi-flip-front", style: "transform:scaleX(0)" }, front(cols[2], rows[1], "heart")),
+    ];
+  }
+
+  // Strand-Schätze: eine Palme auf einer Sanddüne, und im Sand liegen die
+  // Schätze – eine Muschel, ein Seestern, ein Stein – und glitzern.
+  function motifBeach(t) {
+    const B = BUILD_BASE;
+    return [
+      el("path", { d: `M4 ${B} C 30 ${B - 50}, 130 ${B - 50}, 156 ${B} Z`, fill: t.pale }),
+      el("path", { d: `M40 ${B - 20} C 60 ${B - 36}, 100 ${B - 36}, 120 ${B - 20}`, fill: "none", stroke: t.mist, "stroke-width": 4, "stroke-linecap": "round" }),
+      el("path", { d: `M48 ${B - 26} Q 54 ${B - 80} 72 ${B - 120}`, fill: "none", stroke: t.deep, "stroke-width": 12, "stroke-linecap": "round" }),
+      el("path", { d: `M52 ${B - 30} Q 57 ${B - 78} 72 ${B - 116}`, fill: "none", stroke: t.dark, "stroke-width": 4, "stroke-linecap": "round", opacity: "0.7" }),
+      // Die Blätter wiegen sich um die Stammspitze
+      group({ class: "gi gi-sway", style: "transform-origin:50% 67%" }, [
+        el("path", { d: `M72 ${B - 120} C 96 ${B - 134}, 124 ${B - 122}, 132 ${B - 96} C 112 ${B - 108}, 92 ${B - 110}, 72 ${B - 120} Z`, fill: t.base }),
+        el("path", { d: `M72 ${B - 120} C 48 ${B - 134}, 20 ${B - 122}, 12 ${B - 96} C 32 ${B - 108}, 52 ${B - 110}, 72 ${B - 120} Z`, fill: t.dark }),
+        el("path", { d: `M72 ${B - 120} C 90 ${B - 146}, 116 ${B - 150}, 134 ${B - 134} C 112 ${B - 136}, 90 ${B - 128}, 72 ${B - 120} Z`, fill: t.light }),
+        el("path", { d: `M72 ${B - 120} C 54 ${B - 146}, 28 ${B - 150}, 10 ${B - 134} C 32 ${B - 136}, 54 ${B - 128}, 72 ${B - 120} Z`, fill: t.base }),
+        el("path", { d: `M72 ${B - 120} C 66 ${B - 146}, 74 ${B - 162}, 88 ${B - 168} C 88 ${B - 148}, 82 ${B - 134}, 72 ${B - 120} Z`, fill: t.light }),
+        el("circle", { cx: 66, cy: B - 114, r: 6.5, fill: t.deep }),
+        el("circle", { cx: 78, cy: B - 112, r: 6.5, fill: t.deep }),
+      ]),
+      el("path", { d: `M92 ${B - 12} a15 15 0 0 1 30 0 z`, fill: t.cream }),
+      el("path", { d: `M107 ${B - 12} v-14 M99 ${B - 12} l3 -12 M115 ${B - 12} l-3 -12`, fill: "none", stroke: t.light, "stroke-width": 2.5, "stroke-linecap": "round" }),
+      el("polygon", { points: starPoints(36, B - 18, 13, 6), fill: t.light }),
+      el("circle", { cx: 36, cy: B - 18, r: 3, fill: t.cream }),
+      el("circle", { cx: 132, cy: B - 12, r: 6, fill: t.dark }),
+      sparkle(124, B - 42, 8, t.cream, "gi gi-twinkle"),
+      sparkle(56, B - 46, 6, t.cream, "gi gi-twinkle", "animation-delay:-1.2s"),
+    ];
+  }
+
+  // Kacheln-Knobeln: eine Tafel auf einem Pfosten, neun Kacheln, vier davon
+  // leuchten – das Muster, das man sich merken soll.
+  function motifTiles(t) {
+    const B = BUILD_BASE;
+    const parts = [
+      el("rect", { x: 74, y: B - 40, width: 12, height: 40, rx: 3, fill: t.deep }),
+      el("rect", { x: 22, y: B - 138, width: 116, height: 104, rx: 12, fill: t.dark }),
+    ];
+    const lit = new Set(["0,1", "1,0", "1,1", "2,2"]);
+    const size = 30;
+    const gap = 4;
+    const ox = 22 + (116 - (3 * size + 2 * gap)) / 2;
+    const oy = B - 138 + (104 - (3 * size + 2 * gap)) / 2;
+    for (let r = 0; r < 3; r += 1) {
+      for (let c = 0; c < 3; c += 1) {
+        const x = ox + c * (size + gap);
+        const y = oy + r * (size + gap);
+        const on = lit.has(`${r},${c}`);
+        parts.push(el("rect", { x, y, width: size, height: size, rx: 5, fill: t.base }));
+        if (on) {
+          parts.push(el("rect", {
+            class: "gi gi-twinkle", x, y, width: size, height: size, rx: 5, fill: t.cream,
+            style: `animation-delay:${(-(r * 3 + c) * 0.35).toFixed(2)}s`,
+          }));
+        }
+      }
+    }
+    return parts;
+  }
+
+  // --- Konzentration ----------------------------------------------------------
+  // Schwarm-Fokus: drei Fische in einer Reihe, der mittlere schaut andersherum.
+  function motifFlanker(t) {
+    const B = BUILD_BASE;
+    const y = B - 76;
+    const wave = (d, o) => el("path", { d, fill: "none", stroke: t.light, "stroke-width": 4, "stroke-linecap": "round", opacity: String(o) });
+    return [
+      wave(`M12 ${B - 26} q10 -6 20 0 t20 0 t20 0 t20 0 t20 0 t20 0 t20 0`, 0.8),
+      wave(`M22 ${B - 12} q10 -6 20 0 t20 0 t20 0 t20 0 t20 0 t20 0`, 0.5),
+      group({ class: "gi gi-bob" }, [fishNode(28, y, 0.75, 1, t.base, t)]),
+      group({ class: "gi gi-bob", style: "animation-delay:-1.4s" }, [fishNode(80, y, 0.9, -1, t.light, t)]),
+      group({ class: "gi gi-bob", style: "animation-delay:-0.7s" }, [fishNode(132, y, 0.75, 1, t.base, t)]),
+      el("circle", { class: "gi gi-bubble", cx: 58, cy: B - 96, r: 3, fill: t.cream, opacity: "0.85" }),
+      el("circle", { class: "gi gi-bubble", cx: 66, cy: B - 102, r: 2, fill: t.cream, opacity: "0.85", style: "animation-delay:-1.6s" }),
+    ];
+  }
+
+  // Weichen-Wirrwarr: ein Gleis, das sich teilt, die Weiche schlägt um, und auf
+  // beiden Ästen fährt ein Wagen davon.
+  function motifSwitch(t) {
+    const B = BUILD_BASE;
+    const forkY = B - 62;
+    const track = (d) => [
+      el("path", { d, fill: "none", stroke: t.deep, "stroke-width": 14, "stroke-linecap": "round" }),
+      el("path", { d, fill: "none", stroke: t.light, "stroke-width": 4, "stroke-linecap": "round", "stroke-dasharray": "6 8" }),
+    ];
+    const wagon = (x, y, color) => [
+      el("rect", { x: x - 15, y: y - 10, width: 30, height: 20, rx: 6, fill: color }),
+      el("rect", { x: x - 9, y: y - 5, width: 7, height: 7, rx: 2, fill: t.cream }),
+      el("rect", { x: x + 2, y: y - 5, width: 7, height: 7, rx: 2, fill: t.cream }),
+      el("circle", { cx: x - 8, cy: y + 11, r: 4, fill: t.deep }),
+      el("circle", { cx: x + 8, cy: y + 11, r: 4, fill: t.deep }),
+    ];
+    return [
+      ...track(`M80 ${B - 4} V${forkY}`),
+      ...track(`M80 ${forkY} L30 ${B - 112}`),
+      ...track(`M80 ${forkY} L130 ${B - 112}`),
+      el("rect", { class: "gi gi-switch", x: 76, y: forkY - 34, width: 8, height: 34, rx: 4, fill: t.cream }),
+      el("circle", { cx: 80, cy: forkY, r: 7, fill: t.dark }),
+      group({ class: "gi gi-nudge-l" }, wagon(30, B - 124, t.base)),
+      group({ class: "gi gi-nudge-r" }, wagon(130, B - 124, t.light)),
+      ...wagon(80, B - 26, t.base),
+    ];
+  }
+
+  // Fischteich: ein runder Teich, und darin schwimmen Fische kreuz und quer.
+  function motifPond(t) {
+    const B = BUILD_BASE;
+    return [
+      el("ellipse", { cx: 80, cy: B - 58, rx: 74, ry: 48, fill: t.deep }),
+      el("ellipse", { cx: 80, cy: B - 58, rx: 66, ry: 41, fill: t.light }),
+      el("ellipse", { cx: 80, cy: B - 66, rx: 52, ry: 26, fill: t.pale, opacity: "0.5" }),
+      el("circle", { cx: 124, cy: B - 36, r: 10, fill: t.dark }),
+      el("path", { d: `M124 ${B - 36} l11 -4 l-3 8 z`, fill: t.light }),
+      group({ class: "gi gi-swim-1" }, [fishNode(52, B - 82, 0.55, 1, t.base, t)]),
+      group({ class: "gi gi-swim-2" }, [fishNode(106, B - 72, 0.62, -1, t.dark, t)]),
+      group({ class: "gi gi-swim-3" }, [fishNode(72, B - 46, 0.58, -1, t.cream, t)]),
+      group({ class: "gi gi-swim-1", style: "animation-delay:-2.3s" }, [fishNode(104, B - 42, 0.5, 1, t.base, t)]),
+      group({ class: "gi gi-swim-3", style: "animation-delay:-1.9s" }, [fishNode(40, B - 58, 0.46, 1, t.dark, t)]),
+    ];
+  }
+
+  // Freie Fahrt: der helle Zug fährt zwischen zwei quer stehenden hindurch zum
+  // Tor am rechten Rand.
+  function motifGridlock(t) {
+    const B = BUILD_BASE;
+    const x0 = 18;
+    const y0 = B - 140;
+    const size = 124;
+    const cell = 31;
+    const parts = [el("rect", { x: x0, y: y0, width: size, height: size, rx: 10, fill: t.pale })];
+    for (let i = 1; i < 4; i += 1) {
+      parts.push(el("path", {
+        d: `M${x0 + i * cell} ${y0 + 4} V${y0 + size - 4} M${x0 + 4} ${y0 + i * cell} H${x0 + size - 4}`,
+        fill: "none", stroke: t.light, "stroke-width": 2, opacity: "0.7",
+      }));
+    }
+    // Der Rahmen, rechts in der zweiten Reihe offen: das Tor.
+    parts.push(el("path", {
+      d: `M${x0 + size} ${y0 + 2 * cell} V${y0 + size - 10} a10 10 0 0 1 -10 10 H${x0 + 10} a10 10 0 0 1 -10 -10`
+        + ` V${y0 + 10} a10 10 0 0 1 10 -10 H${x0 + size - 10} a10 10 0 0 1 10 10 V${y0 + cell}`,
+      fill: "none", stroke: t.dark, "stroke-width": 5, "stroke-linecap": "round",
+    }));
+    parts.push(el("path", {
+      d: `M${x0 + size + 3} ${y0 + 1.5 * cell} h8 m-4 -4 l4 4 l-4 4`,
+      fill: "none", stroke: t.dark, "stroke-width": 3, "stroke-linecap": "round", "stroke-linejoin": "round",
+    }));
+    const block = (x, y, w, h) => [
+      el("rect", { x, y, width: w, height: h, rx: 6, fill: t.dark }),
+      el("rect", { x: x + 5, y: y + 5, width: w - 10, height: h - 10, rx: 3, fill: "none", stroke: t.base, "stroke-width": 2.5, opacity: "0.8" }),
+    ];
+    parts.push(...block(x0 + 2 * cell + 3, y0 + 3, cell - 6, cell - 6));
+    parts.push(...block(x0 + 2 * cell + 3, y0 + 2 * cell + 3, cell - 6, 2 * cell - 6));
+    parts.push(...block(x0 + 3, y0 + 2 * cell + 3, cell - 6, 2 * cell - 6));
+    parts.push(group({ class: "gi gi-slide" }, [
+      el("rect", { x: x0 + 6, y: y0 + cell + 4, width: 56, height: cell - 8, rx: 7, fill: t.cream }),
+      el("rect", { x: x0 + 44, y: y0 + cell + 4, width: 18, height: cell - 8, rx: 7, fill: t.deep }),
+      el("rect", { x: x0 + 12, y: y0 + cell + 10, width: 24, height: 5, rx: 2.5, fill: t.light }),
+    ]));
+    return parts;
+  }
+
+  // --- Geschwindigkeit --------------------------------------------------------
+  // Tier-Sprung: die Maus vom ersten Level hüpft über einen Baumstamm.
+  function motifHop(t) {
+    const B = BUILD_BASE;
+    const mouse = group({ transform: `translate(64,${B - 30})` }, [
+      el("path", { d: "M-22 2 C -40 6, -46 -16, -34 -24", fill: "none", stroke: t.deep, "stroke-width": 4, "stroke-linecap": "round" }),
+      el("ellipse", { cx: -10, cy: 14, rx: 8, ry: 4.5, fill: t.dark }),
+      el("ellipse", { cx: 14, cy: 14, rx: 7, ry: 4.5, fill: t.dark }),
+      el("ellipse", { cx: 0, cy: 0, rx: 26, ry: 17, fill: t.base }),
+      el("ellipse", { cx: 4, cy: 5, rx: 15, ry: 9, fill: t.light, opacity: "0.8" }),
+      el("circle", { cx: 24, cy: -8, r: 14, fill: t.base }),
+      el("circle", { cx: 16, cy: -24, r: 8, fill: t.base }),
+      el("circle", { cx: 16, cy: -24, r: 4.5, fill: t.light }),
+      el("circle", { cx: 30, cy: -22, r: 8, fill: t.base }),
+      el("circle", { cx: 30, cy: -22, r: 4.5, fill: t.light }),
+      el("circle", { cx: 28, cy: -9, r: 2.6, fill: t.ink }),
+      el("circle", { cx: 38, cy: -4, r: 3.4, fill: t.deep }),
+      el("path", { d: "M34 -2 l10 -3 M34 0 l10 3", fill: "none", stroke: t.deep, "stroke-width": 1.4, "stroke-linecap": "round" }),
+    ]);
+    return [
+      el("path", { d: `M10 ${B - 60} h18 M4 ${B - 48} h14 M12 ${B - 36} h16`, fill: "none", stroke: t.light, "stroke-width": 4, "stroke-linecap": "round" }),
+      el("rect", { x: 104, y: B - 26, width: 42, height: 22, rx: 11, fill: t.deep }),
+      el("circle", { cx: 136, cy: B - 15, r: 7, fill: t.light }),
+      el("circle", { cx: 136, cy: B - 15, r: 3, fill: t.dark }),
+      el("ellipse", { class: "gi gi-hop-shadow", cx: 66, cy: B - 6, rx: 30, ry: 5, fill: t.deep, opacity: "0.3" }),
+      group({ class: "gi gi-hop" }, [mouse]),
+    ];
+  }
+
+  // Karten-Merker: zwei Karten und eine Stoppuhr – dieselbe wie die davor?
+  function motifCardMatch(t) {
+    const B = BUILD_BASE;
+    const card = (x, y, rot, symbolFill) => group({ transform: `rotate(${rot} ${x + 22} ${y + 62})` }, [
+      el("rect", { x, y, width: 44, height: 62, rx: 6, fill: t.cream }),
+      el("rect", { x: x + 4, y: y + 4, width: 36, height: 54, rx: 4, fill: "none", stroke: t.pale, "stroke-width": 2 }),
+      el("polygon", { points: starPoints(x + 22, y + 31, 15, 7), fill: symbolFill }),
+    ]);
+    return [
+      card(48, B - 70, -9, t.light),
+      card(80, B - 70, 7, t.base),
+      el("rect", { x: 30, y: B - 156, width: 12, height: 10, rx: 3, fill: t.deep }),
+      el("path", { d: `M52 ${B - 144} l8 -7`, fill: "none", stroke: t.deep, "stroke-width": 5, "stroke-linecap": "round" }),
+      el("circle", { cx: 36, cy: B - 124, r: 24, fill: t.dark }),
+      el("circle", { cx: 36, cy: B - 124, r: 18, fill: t.cream }),
+      el("path", { d: `M36 ${B - 139} v3 M36 ${B - 112} v3 M21 ${B - 124} h3 M48 ${B - 124} h3`, fill: "none", stroke: t.dark, "stroke-width": 2.5, "stroke-linecap": "round" }),
+      el("rect", { class: "gi gi-spin", x: 34, y: B - 138, width: 4, height: 14, rx: 2, fill: t.base }),
+      el("circle", { cx: 36, cy: B - 124, r: 3, fill: t.dark }),
+    ];
+  }
+
+  // Blätter im Strom: zwei Bäche kreuzen sich, auf dem einen treiben die
+  // Blätter nach rechts, auf dem anderen nach unten.
+  function motifLeaves(t) {
+    const B = BUILD_BASE;
+    const ripple = (d) => el("path", { d, fill: "none", stroke: t.mist, "stroke-width": 3, "stroke-linecap": "round", opacity: "0.9" });
+    return [
+      el("rect", { x: 62, y: B - 162, width: 36, height: 158, rx: 18, fill: t.light }),
+      el("rect", { x: 6, y: B - 92, width: 148, height: 36, rx: 18, fill: t.light }),
+      ripple(`M16 ${B - 80} q6 -4 12 0 M120 ${B - 66} q6 -4 12 0 M34 ${B - 66} q6 -4 12 0 M136 ${B - 82} q6 -4 12 0`),
+      ripple(`M74 ${B - 146} q6 -4 12 0 M70 ${B - 30} q6 -4 12 0 M80 ${B - 118} q6 -4 12 0 M68 ${B - 50} q6 -4 12 0`),
+      group({ class: "gi gi-flow-x-a" }, [leafNode(50, B - 74, 1, 90, t.base, t.pale)]),
+      group({ class: "gi gi-flow-x-b" }, [leafNode(80, B - 74, 0.9, 90, t.dark, t.pale)]),
+      group({ class: "gi gi-flow-x-c" }, [leafNode(110, B - 74, 1, 90, t.cream, t.light)]),
+      group({ class: "gi gi-flow-y-a" }, [leafNode(80, B - 122, 0.95, 180, t.dark, t.pale)]),
+      group({ class: "gi gi-flow-y-b" }, [leafNode(80, B - 40, 0.9, 180, t.cream, t.light)]),
+    ];
+  }
+
+  // Turmbau: der Turm wächst Block um Block, und darüber schwingt der nächste.
+  function motifTower(t) {
+    const B = BUILD_BASE;
+    const h = 19;
+    const blocks = [[80, 70, t.base], [83, 62, t.light], [79, 54, t.dark], [84, 48, t.base], [81, 42, t.light]];
+    const parts = [
+      el("rect", { x: 34, y: B - 16, width: 92, height: 16, rx: 5, fill: t.deep }),
+      el("rect", { x: 38, y: B - 16, width: 84, height: 4, rx: 2, fill: t.dark }),
+    ];
+    blocks.forEach(([cx, w, color], i) => {
+      const y = B - 16 - h * (i + 1);
+      parts.push(group({ class: `gi gi-build-${i + 1}` }, [
+        el("rect", { x: cx - w / 2, y, width: w, height: h, rx: 4, fill: color }),
+        el("rect", { x: cx - w / 2 + 3, y: y + 2, width: w - 6, height: 3, rx: 1.5, fill: "#ffffff", opacity: "0.35" }),
+      ]));
+    });
+    const top = B - 16 - h * 5 - 26;
+    parts.push(group({ class: "gi gi-swing" }, [
+      el("rect", { x: 61, y: top, width: 38, height: h, rx: 4, fill: t.dark }),
+      el("rect", { x: 64, y: top + 2, width: 32, height: 3, rx: 1.5, fill: "#ffffff", opacity: "0.35" }),
+    ]));
+    return parts;
+  }
+
+  // --- Problemlösen -----------------------------------------------------------
+  // Raumdetektiv: ein Bau aus Würfeln, und die Lupe schaut ihn sich an.
+  function motifSpatial(t) {
+    const B = BUILD_BASE;
+    const s = 24;
+    const at = (i, j, k) => [66 + (i - j) * s * 0.87, B - 46 + (i + j) * s * 0.5 - k * s];
+    const parts = [];
+    [[0, 0, 0], [0, 0, 1], [1, 0, 0], [0, 1, 0], [1, 1, 0]].forEach(([i, j, k]) => {
+      const [x, y] = at(i, j, k);
+      parts.push(...cubeNodes(x, y, s, t));
+    });
+    parts.push(group({ class: "gi gi-hover" }, [
+      el("path", { d: `M121 ${B - 83} L142 ${B - 60}`, fill: "none", stroke: t.deep, "stroke-width": 9, "stroke-linecap": "round" }),
+      el("circle", { cx: 108, cy: B - 96, r: 18, fill: t.mist, opacity: "0.55" }),
+      el("circle", { cx: 108, cy: B - 96, r: 18, fill: "none", stroke: t.deep, "stroke-width": 6 }),
+      el("path", { d: `M98 ${B - 102} a12 12 0 0 1 8 -8`, fill: "none", stroke: "#ffffff", "stroke-width": 3, "stroke-linecap": "round", opacity: "0.8" }),
+    ]));
+    return parts;
+  }
+
+  // Arukone: zwei Paare, deren Verbindung sich vor den Augen zeichnet.
+  function motifArukone(t) {
+    const B = BUILD_BASE;
+    const x0 = 22;
+    const y0 = B - 134;
+    const cell = 29;
+    const c = (i) => x0 + cell / 2 + i * cell;
+    const r = (j) => y0 + cell / 2 + j * cell;
+    const parts = boardNodes(x0, y0, 116, 4, t.pale, t, t.light);
+    const wire = (d, color, delay) => el("path", {
+      class: "gi gi-draw", d, pathLength: 1, fill: "none", stroke: color, "stroke-width": 9,
+      "stroke-linecap": "round", "stroke-linejoin": "round", style: delay ? `animation-delay:${delay}` : null,
+    });
+    parts.push(wire(`M${c(0)} ${r(0)} H${c(2)} V${r(2)} H${c(3)}`, t.base, null));
+    parts.push(wire(`M${c(0)} ${r(1)} V${r(3)} H${c(1)}`, t.cream, "-1.6s"));
+    const dot = (i, j, color, inner) => [
+      el("circle", { cx: c(i), cy: r(j), r: 9, fill: color }),
+      el("circle", { cx: c(i), cy: r(j), r: 4, fill: inner }),
+    ];
+    parts.push(...dot(0, 0, t.dark, t.mist), ...dot(3, 2, t.dark, t.mist), ...dot(0, 1, t.cream, t.dark), ...dot(1, 3, t.cream, t.dark));
+    return parts;
+  }
+
+  // Battleships: ein Schiff schaukelt auf dem Wasserfeld.
+  function motifShips(t) {
+    const B = BUILD_BASE;
+    const x0 = 22;
+    const y0 = B - 134;
+    const cell = 29;
+    const parts = boardNodes(x0, y0, 116, 4, t.light, t, t.pale);
+    [[0, 0], [3, 0], [1, 3]].forEach(([i, j]) => {
+      parts.push(el("circle", { cx: x0 + cell / 2 + i * cell, cy: y0 + cell / 2 + j * cell, r: 4.5, fill: t.dark, opacity: "0.55" }));
+    });
+    parts.push(group({ class: "gi gi-rock" }, [
+      el("rect", { x: 96, y: y0 + 24, width: 11, height: 26, rx: 3, fill: t.dark }),
+      el("rect", { x: 62, y: y0 + 34, width: 42, height: 22, rx: 5, fill: t.cream }),
+      el("circle", { cx: 74, cy: y0 + 45, r: 4, fill: t.dark }),
+      el("circle", { cx: 90, cy: y0 + 45, r: 4, fill: t.dark }),
+      el("path", { d: `M38 ${y0 + 56} H122 L108 ${y0 + 80} H50 Z`, fill: t.deep }),
+      el("path", { d: `M42 ${y0 + 62} H118`, fill: "none", stroke: t.base, "stroke-width": 4 }),
+      el("circle", { class: "gi gi-bubble", cx: 101, cy: y0 + 18, r: 5, fill: t.mist, opacity: "0.9" }),
+      el("circle", { class: "gi gi-bubble", cx: 106, cy: y0 + 12, r: 3.5, fill: t.mist, opacity: "0.9", style: "animation-delay:-1.5s" }),
+    ]));
+    parts.push(group({ class: "gi gi-wave" }, [
+      el("path", { d: `M30 ${y0 + 78} q8 -6 16 0 t16 0 t16 0 t16 0 t16 0 t16 0`, fill: "none", stroke: t.pale, "stroke-width": 4, "stroke-linecap": "round" }),
+      el("path", { d: `M38 ${y0 + 98} q8 -6 16 0 t16 0 t16 0 t16 0 t16 0`, fill: "none", stroke: t.pale, "stroke-width": 4, "stroke-linecap": "round", opacity: "0.7" }),
+    ]));
+    return parts;
+  }
+
+  // Tiergehege: eine Weide, mit Zäunen in Gehege geteilt, in jedem ein Tier.
+  function motifPens(t) {
+    const B = BUILD_BASE;
+    const x0 = 16;
+    const y0 = B - 112;
+    const w = 128;
+    const h = 104;
+    const post = (x, y) => el("rect", { x: x - 3, y: y - 8, width: 6, height: 16, rx: 2, fill: t.deep });
+    const rail = (d) => el("path", { d, fill: "none", stroke: t.cream, "stroke-width": 5, "stroke-linecap": "round" });
+    return [
+      el("rect", { x: x0, y: y0, width: w, height: h, rx: 10, fill: t.light, stroke: t.dark, "stroke-width": 4 }),
+      el("path", { d: `M30 ${y0 + 92} l3 -8 l3 8 M112 ${y0 + 20} l3 -8 l3 8 M60 ${y0 + 22} l3 -8 l3 8`, fill: "none", stroke: t.dark, "stroke-width": 2.5, "stroke-linecap": "round", opacity: "0.7" }),
+      rail(`M78 ${y0 + 6} V${y0 + h - 6}`),
+      rail(`M78 ${y0 + 56} H${x0 + w - 6}`),
+      post(78, y0 + 18), post(78, y0 + 42), post(78, y0 + 70), post(78, y0 + 94),
+      post(104, y0 + 56), post(130, y0 + 56),
+      group({ class: "gi gi-bob" }, [
+        el("path", { d: `M36 ${y0 + 76} v10 M52 ${y0 + 76} v10`, stroke: t.deep, "stroke-width": 4, "stroke-linecap": "round" }),
+        el("circle", { cx: 44, cy: y0 + 60, r: 18, fill: t.cream }),
+        el("circle", { cx: 32, cy: y0 + 52, r: 9, fill: t.cream }),
+        el("circle", { cx: 56, cy: y0 + 50, r: 9, fill: t.cream }),
+        el("circle", { cx: 44, cy: y0 + 45, r: 9, fill: t.cream }),
+        el("ellipse", { cx: 58, cy: y0 + 62, rx: 9, ry: 7.5, fill: t.deep }),
+        el("ellipse", { cx: 64, cy: y0 + 55, rx: 4, ry: 2.5, fill: t.deep, transform: `rotate(-30 64 ${y0 + 55})` }),
+        el("circle", { cx: 61, cy: y0 + 60, r: 1.8, fill: t.cream }),
+      ]),
+      group({ class: "gi gi-bob", style: "animation-delay:-1.3s" }, [
+        el("ellipse", { cx: 106, cy: y0 + 64, rx: 4, ry: 11, fill: t.cream }),
+        el("ellipse", { cx: 116, cy: y0 + 64, rx: 4, ry: 11, fill: t.cream }),
+        el("ellipse", { cx: 106, cy: y0 + 65, rx: 2, ry: 7, fill: t.pale }),
+        el("ellipse", { cx: 116, cy: y0 + 65, rx: 2, ry: 7, fill: t.pale }),
+        el("circle", { cx: 111, cy: y0 + 82, r: 11, fill: t.cream }),
+        el("circle", { cx: 107, cy: y0 + 80, r: 1.8, fill: t.ink }),
+        el("circle", { cx: 115, cy: y0 + 80, r: 1.8, fill: t.ink }),
+        el("ellipse", { cx: 111, cy: y0 + 85, rx: 2.2, ry: 1.6, fill: t.dark }),
+      ]),
+    ];
+  }
+
+  // --- Zahl und Buchstabe -----------------------------------------------------
+  // Buchstabenjagd: Buchstaben schweben herum, und der Kescher fängt das A.
+  function motifLetters(t) {
+    const B = BUILD_BASE;
+    return [
+      group({ class: "gi gi-bob", style: "animation-delay:-0.9s" }, [textNode(30, B - 88, 36, t.dark, "M")]),
+      group({ class: "gi gi-bob", style: "animation-delay:-1.8s" }, [textNode(118, B - 70, 40, t.light, "B")]),
+      el("ellipse", { cx: 62, cy: B - 62, rx: 32, ry: 22, fill: t.pale, opacity: "0.5" }),
+      group({ class: "gi gi-bob" }, [textNode(60, B - 24, 64, t.cream, "A", { stroke: t.dark, "stroke-width": 3, "paint-order": "stroke" })]),
+      // Der Kescher liegt über dem A: das Netz davor, der Rand darüber.
+      group({ class: "gi gi-net" }, [
+        el("path", { d: `M92 ${B - 70} L146 ${B - 124}`, fill: "none", stroke: t.deep, "stroke-width": 8, "stroke-linecap": "round" }),
+        el("path", { d: `M40 ${B - 74} q22 8 44 0 M40 ${B - 52} q22 -8 44 0 M62 ${B - 84} v44 M50 ${B - 80} v36 M74 ${B - 80} v36`, fill: "none", stroke: t.dark, "stroke-width": 1.8, opacity: "0.55" }),
+        el("ellipse", { cx: 62, cy: B - 62, rx: 32, ry: 22, fill: "none", stroke: t.deep, "stroke-width": 6 }),
+      ]),
+    ];
+  }
+
+  // Wortdetektiv: ein offenes Buch, ein Wort ist markiert, die Lupe darüber.
+  function motifBook(t) {
+    const B = BUILD_BASE;
+    const top = B - 104;
+    const bottom = B - 20;
+    const line = (x, y, w, color = t.base) => el("rect", { x, y, width: w, height: 5, rx: 2.5, fill: color });
+    return [
+      el("path", { d: `M14 ${top + 2} Q 48 ${top - 8} 80 ${top + 2} Q 112 ${top - 8} 146 ${top + 2} V${bottom + 6} Q 112 ${bottom - 4} 80 ${bottom + 6} Q 48 ${bottom - 4} 14 ${bottom + 6} Z`, fill: t.dark }),
+      el("path", { d: `M20 ${top + 6} Q 50 ${top - 2} 78 ${top + 6} V${bottom} Q 50 ${bottom - 8} 20 ${bottom} Z`, fill: t.cream }),
+      el("path", { d: `M82 ${top + 6} Q 110 ${top - 2} 140 ${top + 6} V${bottom} Q 110 ${bottom - 8} 82 ${bottom} Z`, fill: t.cream }),
+      el("rect", { x: 78, y: top + 2, width: 4, height: bottom - top - 2, fill: t.deep }),
+      line(28, top + 22, 40), line(28, top + 36, 30), line(28, top + 50, 42), line(28, top + 64, 24),
+      line(92, top + 22, 38),
+      el("rect", { x: 90, y: top + 32, width: 30, height: 14, rx: 5, fill: t.light }),
+      line(94, top + 36, 22, t.dark),
+      line(92, top + 50, 40), line(92, top + 64, 28),
+      el("path", { d: `M40 ${top - 2} v-24 h12 v24 l-6 -6 z`, fill: t.base }),
+      group({ class: "gi gi-hover" }, [
+        el("path", { d: `M124 ${B - 60} L142 ${B - 38}`, fill: "none", stroke: t.deep, "stroke-width": 8, "stroke-linecap": "round" }),
+        el("circle", { cx: 112, cy: B - 74, r: 18, fill: t.mist, opacity: "0.6" }),
+        el("circle", { cx: 112, cy: B - 74, r: 18, fill: "none", stroke: t.deep, "stroke-width": 6 }),
+        el("path", { d: `M102 ${B - 80} a12 12 0 0 1 8 -8`, fill: "none", stroke: "#ffffff", "stroke-width": 3, "stroke-linecap": "round", opacity: "0.8" }),
+      ]),
+    ];
+  }
+
+  // Kakuro: zwei Zahlen, ein Plus, und die Summe erscheint.
+  function motifKakuro(t) {
+    const B = BUILD_BASE;
+    const x0 = 27;
+    const y0 = B - 134;
+    const cell = 44;
+    const gap = 6;
+    const cx = (i) => x0 + gap + i * (cell + gap) + cell / 2;
+    const cy = (j) => y0 + gap + j * (cell + gap) + cell / 2;
+    const box = (i, j, fill) => el("rect", { x: x0 + gap + i * (cell + gap), y: y0 + gap + j * (cell + gap), width: cell, height: cell, rx: 8, fill });
+    return [
+      el("rect", { x: x0, y: y0, width: 106, height: 106, rx: 12, fill: t.dark }),
+      box(0, 0, t.deep), box(1, 0, t.cream), box(0, 1, t.cream), box(1, 1, t.pale),
+      group({ class: "gi gi-pulse" }, [textNode(cx(0), cy(0) + 14, 44, t.cream, "+")]),
+      textNode(cx(1), cy(0) + 13, 36, t.dark, "3"),
+      textNode(cx(0), cy(1) + 13, 36, t.dark, "4"),
+      group({ class: "gi gi-fade" }, [textNode(cx(1), cy(1) + 13, 36, t.base, "7")]),
+    ];
+  }
+
+  // Hidoku: ein Weg durch die Zahlen, der sich Feld für Feld zeichnet.
+  function motifHidoku(t) {
+    const B = BUILD_BASE;
+    const x0 = 27;
+    const y0 = B - 134;
+    const cell = 30;
+    const gap = 4;
+    const m = (106 - (3 * cell + 2 * gap)) / 2;
+    const px = (i) => x0 + m + i * (cell + gap);
+    const py = (j) => y0 + m + j * (cell + gap);
+    const cx = (i) => px(i) + cell / 2;
+    const cy = (j) => py(j) + cell / 2;
+    const parts = [el("rect", { x: x0, y: y0, width: 106, height: 106, rx: 12, fill: t.dark })];
+    for (let j = 0; j < 3; j += 1) {
+      for (let i = 0; i < 3; i += 1) {
+        parts.push(el("rect", { x: px(i), y: py(j), width: cell, height: cell, rx: 6, fill: t.cream }));
+      }
+    }
+    const steps = [[0, 0], [1, 0], [1, 1], [2, 1], [2, 2]];
+    parts.push(el("path", {
+      class: "gi gi-draw", pathLength: 1,
+      d: steps.map(([i, j], n) => `${n === 0 ? "M" : "L"}${cx(i)} ${cy(j)}`).join(" "),
+      fill: "none", stroke: t.light, "stroke-width": 12, "stroke-linecap": "round", "stroke-linejoin": "round",
+    }));
+    steps.forEach(([i, j], n) => parts.push(textNode(cx(i), cy(j) + 8, 22, t.deep, String(n + 1))));
+    return parts;
+  }
+
+  const MOTIFS = {
+    backpack: motifBackpack, memory: motifMemory, beach: motifBeach, tiles: motifTiles,
+    flanker: motifFlanker, switch: motifSwitch, pond: motifPond, gridlock: motifGridlock,
+    hop: motifHop, cardMatch: motifCardMatch, leaves: motifLeaves, tower: motifTower,
+    spatial: motifSpatial, arukone: motifArukone, ships: motifShips, pens: motifPens,
+    letters: motifLetters, book: motifBook, kakuro: motifKakuro, hidoku: motifHidoku,
+  };
+
+  // Die Fortschrittsmarke oben rechts an jedem Bild. Sie beantwortet die eine
+  // Frage, die ein Kind vor der Wahl hat: bin ich hier schon fertig, oder muss
+  // ich noch?
   //
   // Geschafft ist ein grüner Haken – ein Zeichen, kein Text und keine Zahl.
   // Sonst ein Ring, der sich füllt: so ist auch zu sehen, wie weit es noch ist.
-  // Der Platz ist für jedes Gebäude derselbe, egal wie hoch das Dach ist, damit
-  // die Marke immer an derselben Stelle zu suchen ist.
+  // Der Platz ist für jedes Bild derselbe, egal wie hoch es ist, damit die
+  // Marke immer an derselben Stelle zu suchen ist.
   const BADGE_AT = [BUILD_W - 26, BUILD_BASE - 158];
   const BADGE_R = 14;
 
@@ -1183,32 +1688,22 @@
   }
 
   /**
-   * Baut ein Gebäude für ein Spiel.
+   * Baut das Bild eines Spiels – auf der Bühne, an der Kiste des Wagens und
+   * auf der Prüfseite dasselbe.
    * @param {string} gameId
-   * @param {Object} options  done: fertig gespielt (Licht an, Fahne)
+   * @param {Object} options  done: fertig gespielt (goldener Boden)
    *                          ratio: 0–1 für die Fortschrittsmarke; fehlt sie,
-   *                                 bleibt das Gebäude ohne Marke
-   *                          hue: Farbe der Wände; fehlt sie, gilt die eigene
-   *                               Farbe des Gebäudes. Die Bühne gibt die Farbe
-   *                               des Bereichs mit – so stehen alle Häuser
-   *                               eines Bereichs in einer Farbe da.
+   *                                 bleibt das Bild ohne Marke
+   *                          hue: Farbe des Bereichs; fehlt sie, gilt die
+   *                               Farbe des Bereichs, zu dem das Spiel gehört
    */
   function buildBuilding(gameId, options = {}) {
     const { done = false, label = gameId, ratio = null } = options;
     const spec = BUILDINGS[gameId] || BUILDINGS.memory;
     const hue = options.hue || spec.hue;
-    const { parts, emblemAt } = buildingShell(spec.kind, hue);
-
-    if (spec.emblem && emblemAt) parts.push(emblem(spec.emblem, emblemAt[0], emblemAt[1], hue));
-
-    // Fertig gespielt: Licht in den Fenstern und eine Fahne auf dem Dach. So
-    // ist im Bereich auf einen Blick zu sehen, wo schon alles gelöst ist.
-    if (done) {
-      parts.push(el("circle", { cx: 34, cy: BUILD_BASE - 26, r: 7, fill: "#ffe066" }));
-      parts.push(el("circle", { cx: BUILD_W - 34, cy: BUILD_BASE - 26, r: 7, fill: "#ffe066" }));
-      parts.push(el("line", { x1: BUILD_W - 26, y1: BUILD_BASE - 96, x2: BUILD_W - 26, y2: BUILD_BASE - 140, stroke: "#8a5f1c", "stroke-width": 3 }));
-      parts.push(el("polygon", { points: `${BUILD_W - 26},${BUILD_BASE - 138} ${BUILD_W - 2},${BUILD_BASE - 130} ${BUILD_W - 26},${BUILD_BASE - 122}`, fill: "#f0b429" }));
-    }
+    const t = tones(hue);
+    const draw = MOTIFS[spec.motif] || MOTIFS.memory;
+    const parts = [...podium(t, done), ...draw(t)];
 
     if (typeof ratio === "number") parts.push(progressBadge(Math.max(0, Math.min(1, ratio)), hue));
 
@@ -1219,7 +1714,7 @@
       tabindex: "0",
       "aria-label": label,
     }, [
-      el("rect", { x: 0, y: BUILD_BASE - 180, width: BUILD_W, height: 180, fill: "transparent", class: "train-building-hit" }),
+      el("rect", { x: 0, y: BUILD_BASE - BUILD_H, width: BUILD_W, height: BUILD_H, fill: "transparent", class: "train-building-hit" }),
       ...parts,
     ]);
   }
@@ -1231,7 +1726,7 @@
     el, group, shade, inkOn,
     driverHead, wheel,
     buildLoco, buildWagon, buildTrain, buildTrack, buildStartSignal,
-    areaIcon, buildGate, buildBuilding, BUILDINGS, GATE_W, GATE_H, BUILD_W, PART_FOCUS, PART_HIT, PART_PREVIEW, PART_DOT,
+    areaIcon, buildGate, buildBuilding, BUILDINGS, AREA_HUES, GATE_W, GATE_H, BUILD_W, BUILD_H, PART_FOCUS, PART_HIT, PART_PREVIEW, PART_DOT,
     locoConfig,
   };
 })();

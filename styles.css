@@ -4114,6 +4114,10 @@ body[data-page="train"].list-open { overflow: auto; }
   to { opacity: 1; transform: none; }
 }
 
+/* Dieselbe Ansicht, nur neu gezeichnet – etwa weil der Fortschritt aus der
+   Cloud kam: dann steht das Bild schon und schwebt nicht noch einmal herein. */
+.stage-layer.is-quiet .stage-svg { animation: none; }
+
 .train-gate, .train-building {
   transform-box: fill-box;
   transform-origin: center bottom;
@@ -4130,6 +4134,260 @@ body[data-page="train"].list-open { overflow: auto; }
   outline: 4px solid #ffffff;
   outline-offset: 3px;
   border-radius: 12px;
+}
+
+/* --- Spiel-Symbole: leichte Bewegung --- */
+
+/* Jedes Bild eines Spiels hat ein, zwei Teile, die sich rühren: der Fisch
+   wippt, die Karte dreht sich um, der Turm wächst Block um Block. Nur
+   transform und opacity – das zeichnet der Browser günstig, und vier Bilder
+   nebeneinander bleiben auch auf einem alten Tablet flüssig.
+
+   transform-box: fill-box, damit sich ein Teil um seinen eigenen Kasten dreht
+   und nicht um die Ecke der Bühne. Der Ruhezustand ohne Bewegung ist immer das
+   fertige Bild: wer weniger Bewegung eingestellt hat, sieht alles, nur still. */
+.gi { transform-box: fill-box; transform-origin: center; }
+
+.gi-bob { animation: gi-bob 2.8s ease-in-out infinite; }
+@keyframes gi-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+/* Die Maus springt: erst ducken, dann hoch, dann weich landen. */
+.gi-hop { transform-origin: center bottom; animation: gi-hop 1.7s ease-in-out infinite; }
+@keyframes gi-hop {
+  0%, 100% { transform: translateY(0) scale(1, 1); }
+  12% { transform: translateY(0) scale(1.08, 0.9); }
+  50% { transform: translateY(-30px) scale(0.96, 1.06); }
+  84% { transform: translateY(0) scale(1, 1); }
+  92% { transform: translateY(0) scale(1.06, 0.94); }
+}
+.gi-hop-shadow { animation: gi-hop-shadow 1.7s ease-in-out infinite; }
+@keyframes gi-hop-shadow {
+  0%, 84%, 100% { transform: scaleX(1); opacity: 0.3; }
+  50% { transform: scaleX(0.55); opacity: 0.14; }
+}
+
+.gi-sway { transform-origin: center bottom; animation: gi-sway 3.8s ease-in-out infinite; }
+@keyframes gi-sway {
+  0%, 100% { transform: rotate(-3deg); }
+  50% { transform: rotate(3deg); }
+}
+
+.gi-twinkle { animation: gi-twinkle 2.4s ease-in-out infinite; }
+@keyframes gi-twinkle {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.8); }
+}
+
+/* Eine Karte dreht sich um: die Rückseite wird schmal, dann kommt die
+   Vorderseite aus der Kante heraus – und nach einer Weile wieder zurück. */
+.gi-flip-back { animation: gi-flip-back 4.4s ease-in-out infinite; }
+.gi-flip-front { animation: gi-flip-front 4.4s ease-in-out infinite; }
+@keyframes gi-flip-back {
+  0%, 24% { transform: scaleX(1); }
+  32%, 68% { transform: scaleX(0); }
+  76%, 100% { transform: scaleX(1); }
+}
+@keyframes gi-flip-front {
+  0%, 32% { transform: scaleX(0); }
+  40%, 60% { transform: scaleX(1); }
+  68%, 100% { transform: scaleX(0); }
+}
+
+.gi-tail { transform-origin: right center; animation: gi-tail 0.9s ease-in-out infinite; }
+@keyframes gi-tail {
+  0%, 100% { transform: rotate(-12deg); }
+  50% { transform: rotate(12deg); }
+}
+
+.gi-bubble { animation: gi-bubble 3s ease-in infinite; }
+@keyframes gi-bubble {
+  0% { transform: translateY(0); opacity: 0; }
+  20% { opacity: 0.9; }
+  100% { transform: translateY(-34px); opacity: 0; }
+}
+
+/* Drei Bahnen im Teich, jede anders – sonst schwämmen alle im Gleichschritt. */
+.gi-swim-1 { animation: gi-swim-1 4.6s ease-in-out infinite; }
+.gi-swim-2 { animation: gi-swim-2 5.4s ease-in-out infinite; }
+.gi-swim-3 { animation: gi-swim-3 3.9s ease-in-out infinite; }
+@keyframes gi-swim-1 {
+  0%, 100% { transform: translate(0, 0); }
+  30% { transform: translate(14px, -6px); }
+  65% { transform: translate(-8px, 5px); }
+}
+@keyframes gi-swim-2 {
+  0%, 100% { transform: translate(0, 0); }
+  40% { transform: translate(-16px, 4px); }
+  70% { transform: translate(6px, -7px); }
+}
+@keyframes gi-swim-3 {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(10px, 7px); }
+}
+
+/* Die Weiche schlägt um, und die beiden Wagen rücken auf ihren Ästen weiter. */
+.gi-switch { transform-origin: center bottom; animation: gi-switch 2.8s ease-in-out infinite; }
+@keyframes gi-switch {
+  0%, 42% { transform: rotate(-45deg); }
+  50%, 92% { transform: rotate(45deg); }
+  100% { transform: rotate(-45deg); }
+}
+.gi-nudge-l { animation: gi-nudge-l 2.8s ease-in-out infinite; }
+.gi-nudge-r { animation: gi-nudge-r 2.8s ease-in-out infinite; animation-delay: -1.4s; }
+@keyframes gi-nudge-l {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(-6px, -6px); }
+}
+@keyframes gi-nudge-r {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(6px, -6px); }
+}
+
+/* Freie Fahrt: der Zug fährt durch die Lücke, wartet kurz, kommt zurück. */
+.gi-slide { animation: gi-slide 3.6s ease-in-out infinite; }
+@keyframes gi-slide {
+  0%, 14% { transform: translateX(0); }
+  56%, 72% { transform: translateX(48px); }
+  100% { transform: translateX(0); }
+}
+
+/* Blätter im Strom: jedes Blatt hat seinen Platz auf dem Bach und treibt von
+   dort einmal über die ganze Länge. Drei Bahnen nach rechts, zwei nach unten;
+   die Startpunkte sind so gewählt, dass die Blätter gleich weit auseinander
+   liegen – und ohne Bewegung verteilt stehen bleiben. */
+.gi-flow-x-a { animation: gi-flow-x-a 5s linear infinite; }
+.gi-flow-x-b { animation: gi-flow-x-b 5s linear infinite; animation-delay: -1.7s; }
+.gi-flow-x-c { animation: gi-flow-x-c 5s linear infinite; animation-delay: -3.4s; }
+.gi-flow-y-a { animation: gi-flow-y-a 5.6s linear infinite; }
+.gi-flow-y-b { animation: gi-flow-y-b 5.6s linear infinite; animation-delay: -2.8s; }
+@keyframes gi-flow-x-a {
+  0% { transform: translateX(-26px); opacity: 0; }
+  12% { opacity: 1; }
+  88% { opacity: 1; }
+  100% { transform: translateX(82px); opacity: 0; }
+}
+@keyframes gi-flow-x-b {
+  0% { transform: translateX(-56px); opacity: 0; }
+  12% { opacity: 1; }
+  88% { opacity: 1; }
+  100% { transform: translateX(52px); opacity: 0; }
+}
+@keyframes gi-flow-x-c {
+  0% { transform: translateX(-86px); opacity: 0; }
+  12% { opacity: 1; }
+  88% { opacity: 1; }
+  100% { transform: translateX(22px); opacity: 0; }
+}
+@keyframes gi-flow-y-a {
+  0% { transform: translateY(-22px); opacity: 0; }
+  12% { opacity: 1; }
+  88% { opacity: 1; }
+  100% { transform: translateY(100px); opacity: 0; }
+}
+@keyframes gi-flow-y-b {
+  0% { transform: translateY(-104px); opacity: 0; }
+  12% { opacity: 1; }
+  88% { opacity: 1; }
+  100% { transform: translateY(18px); opacity: 0; }
+}
+
+/* Der Turm wächst: Block um Block fällt von oben auf den Stapel, dann ist er
+   fertig, dann fängt er von vorn an. Fünf eigene Abläufe statt eines mit
+   Verzögerung: so verschwinden alle Blöcke im selben Moment, statt dass der
+   unterste vor dem obersten weg wäre. */
+.gi-swing { animation: gi-swing 1.6s ease-in-out infinite alternate; }
+@keyframes gi-swing {
+  from { transform: translateX(-22px); }
+  to { transform: translateX(22px); }
+}
+.gi-build-1 { animation: gi-build-1 6s ease-out infinite; }
+.gi-build-2 { animation: gi-build-2 6s ease-out infinite; }
+.gi-build-3 { animation: gi-build-3 6s ease-out infinite; }
+.gi-build-4 { animation: gi-build-4 6s ease-out infinite; }
+.gi-build-5 { animation: gi-build-5 6s ease-out infinite; }
+@keyframes gi-build-1 {
+  0% { opacity: 0; transform: translateY(-18px); }
+  6%, 90% { opacity: 1; transform: translateY(0); }
+  94%, 100% { opacity: 0; transform: translateY(0); }
+}
+@keyframes gi-build-2 {
+  0%, 12% { opacity: 0; transform: translateY(-18px); }
+  18%, 90% { opacity: 1; transform: translateY(0); }
+  94%, 100% { opacity: 0; transform: translateY(0); }
+}
+@keyframes gi-build-3 {
+  0%, 24% { opacity: 0; transform: translateY(-18px); }
+  30%, 90% { opacity: 1; transform: translateY(0); }
+  94%, 100% { opacity: 0; transform: translateY(0); }
+}
+@keyframes gi-build-4 {
+  0%, 36% { opacity: 0; transform: translateY(-18px); }
+  42%, 90% { opacity: 1; transform: translateY(0); }
+  94%, 100% { opacity: 0; transform: translateY(0); }
+}
+@keyframes gi-build-5 {
+  0%, 48% { opacity: 0; transform: translateY(-18px); }
+  54%, 90% { opacity: 1; transform: translateY(0); }
+  94%, 100% { opacity: 0; transform: translateY(0); }
+}
+
+/* Ein Weg zeichnet sich: der Pfad trägt pathLength="1", also ist ein Strich
+   von 1 der ganze Weg, und der Versatz schiebt ihn Stück für Stück ins Bild. */
+.gi-draw { stroke-dasharray: 1; stroke-dashoffset: 0; animation: gi-draw 5s ease-in-out infinite; }
+@keyframes gi-draw {
+  0% { stroke-dashoffset: 1; opacity: 1; }
+  50%, 86% { stroke-dashoffset: 0; opacity: 1; }
+  92% { stroke-dashoffset: 0; opacity: 0; }
+  93%, 100% { stroke-dashoffset: 1; opacity: 0; }
+}
+
+.gi-spin { transform-origin: center bottom; animation: gi-spin 4s linear infinite; }
+@keyframes gi-spin {
+  to { transform: rotate(360deg); }
+}
+
+.gi-hover { animation: gi-hover 4.2s ease-in-out infinite; }
+@keyframes gi-hover {
+  0%, 100% { transform: translate(0, 0); }
+  25% { transform: translate(5px, -4px); }
+  50% { transform: translate(0, -7px); }
+  75% { transform: translate(-5px, -3px); }
+}
+
+.gi-rock { animation: gi-rock 3.2s ease-in-out infinite; }
+@keyframes gi-rock {
+  0%, 100% { transform: translateY(0) rotate(-2deg); }
+  50% { transform: translateY(-3px) rotate(2deg); }
+}
+.gi-wave { animation: gi-wave 2.4s ease-in-out infinite; }
+@keyframes gi-wave {
+  0%, 100% { transform: translateX(0); }
+  50% { transform: translateX(-7px); }
+}
+
+.gi-net { transform-origin: right top; animation: gi-net 2.8s ease-in-out infinite; }
+@keyframes gi-net {
+  0%, 100% { transform: rotate(-7deg); }
+  50% { transform: rotate(6deg); }
+}
+
+.gi-fade { animation: gi-fade 4s ease-in-out infinite; }
+@keyframes gi-fade {
+  0%, 30% { opacity: 0; transform: scale(0.6); }
+  45%, 85% { opacity: 1; transform: scale(1); }
+  95%, 100% { opacity: 0; transform: scale(0.6); }
+}
+.gi-pulse { animation: gi-pulse 2s ease-in-out infinite; }
+@keyframes gi-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.14); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gi { animation: none !important; }
 }
 
 /* --- Zurück-Knopf der Bühne --- */
@@ -4457,7 +4715,10 @@ body[data-page="train"] .help-voice { display: none; }
   .wagon-crate { transition: none; }
 }
 
-.crate-icon { width: clamp(44px, 7vh, 68px); height: clamp(44px, 7vh, 68px); display: block; }
+/* Etwas grösser als die Bänder breit sind: die Bilder tragen mehr als ein
+   Haus mit einem Zeichen, und an der Kiste sollen sie ebenso schnell zu
+   erkennen sein wie auf der Bühne. */
+.crate-icon { width: clamp(52px, 8.5vh, 80px); height: clamp(52px, 8.5vh, 80px); display: block; }
 
 .crate-bands { display: flex; flex-direction: column; gap: 3px; width: clamp(64px, 10vh, 96px); }
 
