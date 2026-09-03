@@ -149,7 +149,8 @@
     { t: 1, oben: "#141c38", unten: "#2c3a63" },
   ];
 
-  const RUNS_FOR_DONE = 5;
+  // Wie viele, sagt das Wagen-Set: fünf im ersten, neun im zweiten (kids.js).
+  const RUNS_FOR_DONE = window.LernappKids?.wagonRounds?.() || 5;
   const TOP_COUNT = 5;
 
   const HELP = [

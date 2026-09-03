@@ -57,7 +57,8 @@
   // hinzuschauen – und das Hinschauen ist die Aufgabe.
   const SPERRE_MS = 1500;
 
-  const RUNS_FOR_DONE = 5;
+  // Wie viele, sagt das Wagen-Set: fünf im ersten, neun im zweiten (kids.js).
+  const RUNS_FOR_DONE = window.LernappKids?.wagonRounds?.() || 5;
   const TOP_COUNT = 5;
 
   // Jeder Fisch sieht anders aus – das ist der Haken, an dem das Merken hängt.

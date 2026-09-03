@@ -71,7 +71,8 @@
 
   // Fünf abgeschlossene Level, und der Wagen im Bereich Konzentration ist für
   // dieses Spiel fertig – welche fünf, ist gleich.
-  const LEVELS_FOR_DONE = 5;
+  // Wie viele, sagt das Wagen-Set: fünf im ersten, neun im zweiten (kids.js).
+  const LEVELS_FOR_DONE = window.LernappKids?.wagonRounds?.() || 5;
 
   // Neun Farben, jede mit eigenem Zeichen: Farbe allein trennt neun Häuser zu
   // schwach, und für ein farbenblindes Kind gar nicht.

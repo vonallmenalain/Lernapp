@@ -130,6 +130,19 @@ assert(train.SET_BY_ID["2"].stepAt.join(",") === "3,6,9", "das zweite Set gibt S
 const runden = (set) => set.stepAt[set.stepAt.length - 1] * 4;
 assert(runden(train.SET_BY_ID["2"]) >= runden(train.SET_BY_ID["1"]) * 1.8, "das zweite Set ist nicht deutlich langsamer als das erste");
 
+// Die Spielseiten kennen die Zahl je Set aus kids.js – sie muss dieselbe sein
+// wie hier, sonst sagt der Lautsprecher im Spiel "noch eine Runde", und der
+// Wagen wächst trotzdem nicht.
+const kidsQuelle = fs.readFileSync(path.join(root, "kids.js"), "utf8");
+const tabelle = kidsQuelle.match(/const WAGON_ROUNDS = (\{[^}]*\});/);
+assert(tabelle, "kids.js kennt die Rundenzahl je Wagen-Set nicht (WAGON_ROUNDS)");
+const rundenJeSet = JSON.parse(tabelle[1].replace(/(\w+):/g, '"$1":'));
+for (const set of train.SETS) {
+  const ziel = set.stepAt[set.stepAt.length - 1];
+  assert(rundenJeSet[set.id] === ziel, `kids.js sagt für Set ${set.id} ${rundenJeSet[set.id]} Runden, train-progress.js ${ziel}`);
+}
+assert(Object.keys(rundenJeSet).length === train.SETS.length, "kids.js kennt andere Sets als train-progress.js");
+
 // Ohne Eintrag gilt das erste Set; ein unbekannter Eintrag ebenfalls.
 useSet(null);
 assert(train.activeSet().id === "1", "ohne Eintrag muss das erste Set gelten");
