@@ -48,7 +48,7 @@
   // Der Titel steht hier ein zweites Mal, obwohl train-progress.js ihn auch
   // führt. Das ist kein Versehen: train-progress.js läuft nur auf dem
   // Startbild, der Adminbereich geht auf jeder Seite auf. Damit die beiden
-  // Listen nicht auseinanderlaufen, hält sie scripts/validate-highscore.mjs
+  // Listen nicht auseinanderlaufen, hält sie scripts/validate-bestenliste.mjs
   // zusammen.
   const SPIELE = [
     // Gedächtnis
@@ -84,6 +84,18 @@
     { id: "kakuro", titel: "Kakuro", bereich: "zahlbuchstabe", art: "katalog" },
     { id: "hidoku", titel: "Hidoku", bereich: "zahlbuchstabe", art: "katalog" },
   ];
+
+  // Die fünf Bereiche des Zugs, nur mit Namen: der Adminbereich stellt seine
+  // Auswertung danach zusammen, und "Gedächtnis" liest sich besser als
+  // "gedaechtnis". Farbe, Symbol und Wagenbauart bleiben in train-progress.js –
+  // hier wird nichts gezeichnet.
+  const BEREICHE = {
+    gedaechtnis: "Gedächtnis",
+    konzentration: "Konzentration",
+    geschwindigkeit: "Geschwindigkeit",
+    problemloesen: "Problemlösen",
+    zahlbuchstabe: "Zahl und Buchstabe",
+  };
 
   // Spiele, die es einmal gab oder die nur im Levelkatalog auftauchen. Ihr
   // Fortschritt kann in alten Konten stehen, und der Adminbereich soll ihn
@@ -416,6 +428,7 @@
 
   window.LernappHighscore = {
     SPIELE,
+    BEREICHE,
     SCHWIERIGKEIT_WORT,
     spiel,
     titel,

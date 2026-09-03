@@ -99,8 +99,13 @@
     guestId: null,
     guestCreatedAtMs: 0,
     adminView: "users",
+    adminGamesArea: "all",
     adminUsers: [],
     adminGuests: [],
+    // Geladen ist nicht dasselbe wie nicht leer: ohne diese beiden Marken
+    // fragte jede Zeichnung eine leere Liste noch einmal bei Firestore nach.
+    adminUsersLoaded: false,
+    adminGuestsLoaded: false,
     adminDetails: new Map(),
     adminGuestDetails: new Map(),
     selectedAdminUserId: null,
@@ -407,8 +412,11 @@
 
   function resetAdminState() {
     state.adminView = "users";
+    state.adminGamesArea = "all";
     state.adminUsers = [];
     state.adminGuests = [];
+    state.adminUsersLoaded = false;
+    state.adminGuestsLoaded = false;
     state.adminDetails.clear();
     state.adminGuestDetails.clear();
     state.selectedAdminUserId = null;
@@ -1478,10 +1486,11 @@
           <div>
             <p class="small-label">Administration</p>
             <h3>Admin-Bereich</h3>
-            <p class="account-muted">Accounts, G&auml;ste, Level-Fortschritte und Spielsitzungen.</p>
+            <p class="account-muted">Konten und G&auml;ste zum Aufklappen, dazu eine Auswertung je Spiel.</p>
             <div class="admin-tabs" role="tablist" aria-label="Admin-Bereich wechseln">
               <button type="button" data-admin-view="users">User</button>
               <button type="button" data-admin-view="guests">G&auml;ste</button>
+              <button type="button" data-admin-view="games">Spiele</button>
             </div>
           </div>
           <button type="button" class="secondary-action" data-admin-refresh>Aktualisieren</button>
@@ -1512,6 +1521,8 @@
     if (force) {
       state.adminUsers = [];
       state.adminGuests = [];
+      state.adminUsersLoaded = false;
+      state.adminGuestsLoaded = false;
       state.adminDetails.clear();
       state.adminGuestDetails.clear();
     }
@@ -1521,18 +1532,25 @@
       await hydrateAdminGuests(root);
       return;
     }
+    if (state.adminView === "games") {
+      await hydrateAdminGames(root);
+      return;
+    }
 
-    if (!state.adminUsers.length) {
+    if (!state.adminUsersLoaded) {
       renderAdminBody(root, "<p class=\"account-muted\">Admin-Daten werden geladen...</p>");
       try {
         state.adminUsers = await loadAdminUsers();
-        if (!state.selectedAdminUserId && state.adminUsers.length) state.selectedAdminUserId = state.adminUsers[0].id;
+        state.adminUsersLoaded = true;
       } catch (error) {
         renderAdminBody(root, `<p class="auth-status">${escapeHtml(authErrorMessage(error))}</p>`);
         return;
       }
     }
 
+    // Zugeklappt beginnt die Liste. Bei einem Dutzend Konten ist eine Seite
+    // voller Leveltabellen keine Übersicht mehr, sondern das Gegenteil – und
+    // wer ein bestimmtes Kind sucht, findet es in einer kurzen Liste sofort.
     renderAdminUsers(root);
     if (state.selectedAdminUserId && !state.adminDetails.has(state.selectedAdminUserId)) {
       await selectAdminUser(state.selectedAdminUserId, { root });
@@ -1540,11 +1558,11 @@
   }
 
   async function hydrateAdminGuests(root) {
-    if (!state.adminGuests.length) {
+    if (!state.adminGuestsLoaded) {
       renderAdminBody(root, "<p class=\"account-muted\">Gast-Daten werden geladen...</p>");
       try {
         state.adminGuests = await loadAdminGuests();
-        if (!state.selectedAdminGuestId && state.adminGuests.length) state.selectedAdminGuestId = state.adminGuests[0].id;
+        state.adminGuestsLoaded = true;
       } catch (error) {
         renderAdminBody(root, `<p class="auth-status">${escapeHtml(authErrorMessage(error))}</p>`);
         return;
@@ -1555,6 +1573,24 @@
     if (state.selectedAdminGuestId && !state.adminGuestDetails.has(state.selectedAdminGuestId)) {
       await selectAdminGuest(state.selectedAdminGuestId, { root });
     }
+  }
+
+  // Die Auswertung je Spiel rechnet über alle Konten und alle Gäste. Beide
+  // müssen also da sein – wer nur die Konten zählte, unterschlüge die Runden,
+  // die am Küchentisch ohne Anmeldung gespielt wurden.
+  async function hydrateAdminGames(root) {
+    if (!state.adminUsersLoaded || !state.adminGuestsLoaded) {
+      renderAdminBody(root, "<p class=\"account-muted\">Spieldaten werden geladen...</p>");
+      try {
+        if (!state.adminUsersLoaded) { state.adminUsers = await loadAdminUsers(); state.adminUsersLoaded = true; }
+        if (!state.adminGuestsLoaded) { state.adminGuests = await loadAdminGuests(); state.adminGuestsLoaded = true; }
+      } catch (error) {
+        renderAdminBody(root, `<p class="auth-status">${escapeHtml(authErrorMessage(error))}</p>`);
+        return;
+      }
+    }
+
+    renderAdminGames(root);
   }
 
   function updateAdminViewButtons(root) {
@@ -1594,14 +1630,18 @@
     return attachAdminSummaries("guests", guests);
   }
 
+  // Die Level jedes Kontos werden hier ohnehin gelesen – für die Kurzfassung in
+  // der Zeile. Sie bleiben am Eintrag stehen, weil die Auswertung je Spiel und
+  // der Zug-Fortschritt genau daraus gerechnet werden; ein zweites Lesen wäre
+  // derselbe Weg zum selben Ziel.
   async function attachAdminSummaries(collectionName, entries) {
     return Promise.all(entries.map(async (entry) => {
       try {
         const snapshot = await state.db.collection(collectionName).doc(entry.id).collection("levelProgress").get();
         const progressDocs = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-        return { ...entry, adminSummary: summarizeAdminEntity(entry, progressDocs) };
+        return { ...entry, levelDocs: progressDocs, adminSummary: summarizeAdminEntity(entry, progressDocs) };
       } catch (error) {
-        return entry;
+        return { ...entry, levelDocs: [] };
       }
     }));
   }
@@ -1639,9 +1679,33 @@
     };
   }
 
+  // Ein zweiter Tipp auf dieselbe Zeile klappt sie wieder zu. Ohne das gäbe es
+  // keinen Weg zurück zur reinen Übersicht – ausser über einen anderen User,
+  // und der ist nicht gemeint.
+  async function toggleAdminUser(userId, root) {
+    if (state.selectedAdminUserId === userId) {
+      state.selectedAdminUserId = null;
+      renderAdminUsers(root);
+      return;
+    }
+    await selectAdminUser(userId, { root });
+  }
+
+  async function toggleAdminGuest(guestId, root) {
+    if (state.selectedAdminGuestId === guestId) {
+      state.selectedAdminGuestId = null;
+      renderAdminGuests(root);
+      return;
+    }
+    await selectAdminGuest(guestId, { root });
+  }
+
   async function selectAdminUser(userId, { root = modalContent.querySelector("[data-admin-section]"), force = false } = {}) {
     if (!root) return;
     state.selectedAdminUserId = userId;
+    // Der Filter gehört zum aufgeklappten Konto: wer beim vorigen auf "Kakuro"
+    // stand, sähe beim nächsten eine leere Liste und hielte sie für den Stand.
+    state.selectedAdminGame = "all";
     renderAdminUsers(root, { loadingUserId: userId });
 
     try {
@@ -1658,6 +1722,7 @@
   async function selectAdminGuest(guestId, { root = modalContent.querySelector("[data-admin-section]"), force = false } = {}) {
     if (!root) return;
     state.selectedAdminGuestId = guestId;
+    state.selectedAdminGame = "all";
     renderAdminGuests(root, { loadingGuestId: guestId });
 
     try {
@@ -1671,6 +1736,12 @@
     if (modalContent.contains(root)) renderAdminGuests(root);
   }
 
+  // --- Die Liste zum Aufklappen ---------------------------------------------
+  // Zugeklappt steht je Konto eine Zeile: Name, Gruppe, der Zug als fünf
+  // Balken und die drei Zahlen, nach denen man zuerst schaut. Alles Weitere –
+  // Level, Sitzungen, Gruppe ändern, zurücksetzen – erscheint erst beim
+  // Aufklappen. Vorher lagen alle Konten nebeneinander und alle Einzelheiten
+  // daneben; bei einem Dutzend Kindern war das keine Übersicht mehr.
   function renderAdminUsers(root, { loadingUserId = null } = {}) {
     const users = state.adminUsers;
     if (!users.length) {
@@ -1678,23 +1749,20 @@
       return;
     }
 
-    const selectedId = state.selectedAdminUserId || users[0].id;
-    state.selectedAdminUserId = selectedId;
-    const detail = state.adminDetails.get(selectedId);
-
+    const openId = state.selectedAdminUserId;
     renderAdminBody(root, `
-      <div class="admin-layout">
-        <div class="admin-user-list" aria-label="User">
-          ${users.map((user) => renderAdminUserButton(user, selectedId)).join("")}
-        </div>
-        <div class="admin-detail" data-admin-detail>
-          ${loadingUserId === selectedId && !detail ? "<p class=\"account-muted\">Details werden geladen...</p>" : renderAdminUserDetail(detail, users.find((user) => user.id === selectedId))}
-        </div>
+      <div class="admin-accordion" aria-label="User">
+        ${users.map((user) => renderAdminEntry(user, {
+          kind: "user",
+          open: user.id === openId,
+          loading: loadingUserId === user.id && !state.adminDetails.get(user.id),
+          detail: state.adminDetails.get(user.id),
+        })).join("")}
       </div>
     `);
 
     root.querySelectorAll("[data-admin-user]").forEach((button) => {
-      button.addEventListener("click", () => selectAdminUser(button.dataset.adminUser, { root }));
+      button.addEventListener("click", () => toggleAdminUser(button.dataset.adminUser, root));
     });
 
     root.querySelectorAll("[data-admin-game]").forEach((button) => {
@@ -1715,23 +1783,20 @@
       return;
     }
 
-    const selectedId = state.selectedAdminGuestId || guests[0].id;
-    state.selectedAdminGuestId = selectedId;
-    const detail = state.adminGuestDetails.get(selectedId);
-
+    const openId = state.selectedAdminGuestId;
     renderAdminBody(root, `
-      <div class="admin-layout">
-        <div class="admin-user-list" aria-label="G&auml;ste">
-          ${guests.map((guest) => renderAdminGuestButton(guest, selectedId)).join("")}
-        </div>
-        <div class="admin-detail" data-admin-detail>
-          ${loadingGuestId === selectedId && !detail ? "<p class=\"account-muted\">Details werden geladen...</p>" : renderAdminUserDetail(detail, guests.find((guest) => guest.id === selectedId))}
-        </div>
+      <div class="admin-accordion" aria-label="G&auml;ste">
+        ${guests.map((guest) => renderAdminEntry(guest, {
+          kind: "guest",
+          open: guest.id === openId,
+          loading: loadingGuestId === guest.id && !state.adminGuestDetails.get(guest.id),
+          detail: state.adminGuestDetails.get(guest.id),
+        })).join("")}
       </div>
     `);
 
     root.querySelectorAll("[data-admin-guest]").forEach((button) => {
-      button.addEventListener("click", () => selectAdminGuest(button.dataset.adminGuest, { root }));
+      button.addEventListener("click", () => toggleAdminGuest(button.dataset.adminGuest, root));
     });
 
     root.querySelectorAll("[data-admin-game]").forEach((button) => {
@@ -1742,30 +1807,180 @@
     });
   }
 
-  function renderAdminUserButton(user, selectedId) {
-    return renderAdminEntityButton(user, selectedId, "user");
-  }
-
-  function renderAdminGuestButton(guest, selectedId) {
-    return renderAdminEntityButton(guest, selectedId, "guest");
-  }
-
-  function renderAdminEntityButton(entity, selectedId, kind) {
+  function renderAdminEntry(entity, { kind, open, loading, detail }) {
     const summary = entity.adminSummary || summarizeAdminEntity(entity, []);
     const name = adminDisplayName(entity);
     const subline = kind === "guest" ? entity.id : (entity.authEmail || entity.email || entity.id);
     const dataAttribute = kind === "guest" ? "data-admin-guest" : "data-admin-user";
+    const group = kind === "guest" ? null : readGroup(entity.group);
+    // Nur für die aufgeklappte Zeile. Die Einzelheiten zu bauen, um sie dann
+    // wegzuwerfen, wäre nicht nur Arbeit ohne Zweck: renderAdminUserDetail
+    // merkt sich unterwegs, welche Rätselart gerade gefiltert ist, und das
+    // gälte danach für ein Konto, das gar nicht offen steht.
+    const body = !open
+      ? ""
+      : (loading
+        ? "<p class=\"account-muted\">Details werden geladen...</p>"
+        : renderAdminUserDetail(detail, entity));
+
     return `
-      <button type="button" class="admin-user-button${entity.id === selectedId ? " active" : ""}" ${dataAttribute}="${escapeHtml(entity.id)}">
-        <strong>${escapeHtml(name)}</strong>
-        <span>${escapeHtml(subline)}</span>
-        <div class="admin-user-summary" aria-label="Kurzfassung">
-          <span><b>Spielzeit</b>${escapeHtml(formatDuration(summary.totalSeconds))}</span>
-          <span><b>Gel&ouml;st</b>${escapeHtml(summary.totalSolved)}</span>
-          <span><b>Sessions</b>${escapeHtml(summary.sessions)}</span>
+      <article class="admin-entry${open ? " is-open" : ""}">
+        <button type="button" class="admin-entry-head" ${dataAttribute}="${escapeHtml(entity.id)}" aria-expanded="${open ? "true" : "false"}">
+          <span class="admin-entry-caret" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </span>
+          <span class="admin-entry-name">
+            <strong>${escapeHtml(name)}</strong>
+            <span>${escapeHtml(subline)}</span>
+          </span>
+          ${group ? `<span class="admin-entry-group">${escapeHtml(group.name)}</span>` : ""}
+          ${renderAdminTrainStrip(entity)}
+          <span class="admin-user-summary" aria-label="Kurzfassung">
+            <span><b>Gel&ouml;st</b>${escapeHtml(summary.totalSolved)}</span>
+            <span><b>Spielzeit</b>${escapeHtml(formatDuration(summary.totalSeconds))}</span>
+            <span><b>Sessions</b>${escapeHtml(summary.sessions)}</span>
+          </span>
+        </button>
+        ${open ? `<div class="admin-entry-body" data-admin-detail>${body}</div>` : ""}
+      </article>
+    `;
+  }
+
+  // --- Auswertung je Spiel ---------------------------------------------------
+  // Die dritte Sicht: nicht "was hat dieses Kind gemacht", sondern "was ist mit
+  // diesem Spiel los". Gerechnet wird über alle Konten und alle Gäste zusammen,
+  // mit derselben Datei, die auch die Bestenliste der Gruppe rechnet
+  // (highscore.js) – ein Bestwert im Adminbereich und einer beim Kind, die
+  // auseinanderlaufen, wären schlimmer als keiner.
+  //
+  // Sortiert nach gespielten Runden: die erste Frage an so eine Liste ist,
+  // welches Spiel überhaupt angekommen ist.
+  function adminAccounts() {
+    const konten = state.adminUsers.map((entry) => ({
+      id: entry.id,
+      name: adminDisplayName(entry),
+      gameState: readGameState(entry.gameState),
+      levels: entry.levelDocs || [],
+    }));
+
+    // Gäste haben keinen Kasten in der Cloud – ihr Spielstand steht auf ihrem
+    // Gerät. Was sie in den Katalog-Spielen getan haben, steht dagegen in
+    // Firestore und zählt hier mit.
+    const gaeste = state.adminGuests.map((entry) => ({
+      id: entry.id,
+      name: adminDisplayName(entry),
+      gameState: {},
+      levels: entry.levelDocs || [],
+    }));
+
+    return [...konten, ...gaeste];
+  }
+
+  function renderAdminGames(root) {
+    const hs = window.LernappHighscore;
+    if (!hs) {
+      renderAdminBody(root, "<p class=\"account-muted\">Die Spiel-Auswertung ist gerade nicht zu haben.</p>");
+      return;
+    }
+
+    const konten = adminAccounts();
+    const bereich = state.adminGamesArea;
+    const alle = hs.alleAuswertungen(konten);
+    const gezeigt = (bereich === "all" ? alle : alle.filter((eintrag) => eintrag.bereich === bereich))
+      .sort((a, b) => (b.gespielt - a.gespielt) || a.titel.localeCompare(b.titel, "de"));
+
+    const gesamtGespielt = alle.reduce((summe, eintrag) => summe + eintrag.gespielt, 0);
+    const gesamtFertig = alle.reduce((summe, eintrag) => summe + eintrag.abgeschlossen, 0);
+    const angefasst = alle.filter((eintrag) => eintrag.gespielt > 0).length;
+
+    renderAdminBody(root, `
+      <div class="stat-strip admin-stat-strip">
+        <div><strong>${konten.length}</strong><span>Konten &amp; G&auml;ste</span></div>
+        <div><strong>${gesamtGespielt}</strong><span>gespielt</span></div>
+        <div><strong>${gesamtFertig}</strong><span>abgeschlossen</span></div>
+        <div><strong>${angefasst}/${alle.length}</strong><span>Spiele benutzt</span></div>
+      </div>
+      <div class="admin-game-filter" aria-label="Bereich filtern">
+        <button type="button" class="${bereich === "all" ? "active" : ""}" data-admin-area="all">Alle Bereiche</button>
+        ${Object.entries(hs.BEREICHE).map(([id, label]) => `
+          <button type="button" class="${bereich === id ? "active" : ""}" data-admin-area="${escapeHtml(id)}">${escapeHtml(label)}</button>
+        `).join("")}
+      </div>
+      <div class="admin-game-grid">
+        ${gezeigt.map((eintrag) => renderAdminGameCard(eintrag, hs)).join("")}
+      </div>
+      <p class="account-muted admin-note">
+        Neustarts z&auml;hlt nur, wer seinen Fortschritt Level f&uuml;r Level in der Cloud ablegt –
+        die R&auml;tsel aus dem Levelkatalog. Die Spiele mit eigenem Konto f&uuml;hren nur ihre
+        Runden und ihre Bestenliste; dort steht ein Strich statt einer Null.
+      </p>
+    `);
+
+    root.querySelectorAll("[data-admin-area]").forEach((button) => {
+      button.addEventListener("click", () => {
+        state.adminGamesArea = button.dataset.adminArea || "all";
+        renderAdminGames(root);
+      });
+    });
+  }
+
+  function renderAdminGameCard(eintrag, hs) {
+    const zahlen = [
+      ["Gespielt", eintrag.gespielt],
+      ["Abgeschlossen", eintrag.abgeschlossen],
+      ["Neu gestartet", eintrag.neugestartet],
+      ["Spieler", eintrag.spieler],
+    ];
+
+    return `
+      <article class="admin-game-card${eintrag.gespielt ? "" : " is-quiet"}">
+        <header>
+          <strong>${escapeHtml(eintrag.titel)}</strong>
+          <span>${escapeHtml(hs.BEREICHE[eintrag.bereich] || "")}</span>
+        </header>
+        <div class="admin-data-grid">
+          ${zahlen.map(([label, wert]) => `<span><b>${escapeHtml(label)}</b>${wert === null ? "–" : escapeHtml(wert)}</span>`).join("")}
         </div>
-        <em>${escapeHtml(adminTopLevelsText(summary))}</em>
-      </button>
+        <p class="admin-game-best">
+          ${eintrag.bestwert
+            ? `<b>Bestwert</b> ${escapeHtml(eintrag.bestwert)} <em>${escapeHtml(eintrag.bestwertVon)}</em>`
+            : "<b>Bestwert</b> noch keiner"}
+        </p>
+        ${eintrag.zeit ? `<small>Spielzeit zusammen: ${escapeHtml(formatDuration(eintrag.zeit))}</small>` : ""}
+      </article>
+    `;
+  }
+
+  // --- Der Zug eines Kontos, als fünf Balken ---------------------------------
+  // Genau die Rechnung, die auch das Startbild benutzt: ein Wagen bedeutet im
+  // Adminbereich dasselbe wie beim Kind. Eine zweite Rechnung wäre eine zweite
+  // Wahrheit – und die falsche wäre immer die hier.
+  //
+  // Gerechnet wird das im Startbild-Teil der App (train-progress.js), und der
+  // ist nur dort geladen. Auf einer Spielseite bleibt der Streifen deshalb weg,
+  // statt eine Zahl zu zeigen, die ohne den Levelkatalog nicht stimmen kann.
+  function adminTrainAreas(entity) {
+    const train = window.LernappTrain;
+    if (!train?.areasForAccount || !window.LernappLevelCatalog) return null;
+    const solved = (entity.levelDocs || [])
+      .filter((doc) => doc.solved && doc.game && doc.levelId)
+      .map((doc) => `${doc.game}.${doc.levelId}`);
+    return train.areasForAccount({ solved, gameState: readGameState(entity.gameState) });
+  }
+
+  function renderAdminTrainStrip(entity) {
+    const areas = adminTrainAreas(entity);
+    if (!areas) return "";
+    return `
+      <span class="admin-train" aria-label="Fortschritt des Zugs">
+        ${areas.map((area) => `
+          <span class="admin-train-car" style="--wagen: ${escapeHtml(area.color)}" title="${escapeHtml(area.label)}: Stufe ${area.stage} von ${window.LernappTrain.STAGE_COUNT}">
+            <b>${area.stage}</b>
+            <i><s style="width: ${Math.round(Math.min(1, area.ratio) * 100)}%"></s></i>
+            <em>${escapeHtml(area.label)}</em>
+          </span>
+        `).join("")}
+      </span>
     `;
   }
 
@@ -1784,15 +1999,10 @@
     const identityLine = isGuest ? `Gast-ID: ${detail.id}` : (userData.authEmail || userData.email || detail.id);
 
     return `
-      <div class="admin-detail-head">
-        <div>
-          <h3>${escapeHtml(adminDisplayName(userData))}</h3>
-          <p class="account-muted">${escapeHtml(identityLine)}</p>
-        </div>
-        <div class="admin-meta">
-          <span>Erstellt: ${formatDateTime(userData.createdAt || userData.createdAtMs)}</span>
-          <span>Zuletzt gesehen: ${formatDateTime(userData.lastSeenAt)}</span>
-        </div>
+      <div class="admin-meta">
+        <span>${escapeHtml(identityLine)}</span>
+        <span>Erstellt: ${formatDateTime(userData.createdAt || userData.createdAtMs)}</span>
+        <span>Zuletzt gesehen: ${formatDateTime(userData.lastSeenAt)}</span>
       </div>
       <div class="stat-strip admin-stat-strip">
         <div><strong>${summary.totalSolved}</strong><span>gelöst</span></div>
@@ -1800,6 +2010,7 @@
         <div><strong>${summary.moves}</strong><span>Züge</span></div>
         <div><strong>${sessions.filter((session) => !session.solved && session.endedAt).length}</strong><span>Abbrüche</span></div>
       </div>
+      ${renderAdminTrainDetail({ ...userData, levelDocs: progressDocs })}
       ${isGuest ? "" : renderAdminGroupBlock(detail.id, userData)}
       ${isGuest ? "" : renderAdminResetBlock(detail.id, adminDisplayName(userData))}
       ${renderAdminTopLevels(summary)}
@@ -1818,6 +2029,38 @@
           </div>
         </section>
       </div>
+    `;
+  }
+
+  // Derselbe Zug wie oben in der Zeile, nur ausgeschrieben: welche Stufe der
+  // Wagen hat, wie voll der Bereich ist und wie viele Level dahinterstehen. Die
+  // Stufe allein sagt nicht, ob bis zur nächsten zwei Level fehlen oder zwanzig.
+  function renderAdminTrainDetail(entity) {
+    const areas = adminTrainAreas(entity);
+    if (!areas) {
+      return `
+        <section class="admin-train-detail">
+          <h4>Fortschritt des Zugs</h4>
+          <p class="account-muted">Steht im Profilfenster auf dem Startbild – dort ist der Levelkatalog geladen, aus dem sich die Wagen rechnen.</p>
+        </section>
+      `;
+    }
+
+    const stufen = window.LernappTrain.STAGE_COUNT;
+    return `
+      <section class="admin-train-detail">
+        <h4>Fortschritt des Zugs</h4>
+        <div>
+          ${areas.map((area) => `
+            <span style="--wagen: ${escapeHtml(area.color)}">
+              <b>${escapeHtml(area.label)}</b>
+              <i><s style="width: ${Math.round(Math.min(1, area.ratio) * 100)}%"></s></i>
+              <em>Stufe ${area.stage} von ${stufen} · ${Math.round(area.ratio * 100)}%</em>
+              <em>${area.solved} von ${area.total} geschafft</em>
+            </span>
+          `).join("")}
+        </div>
+      </section>
     `;
   }
 
@@ -1918,6 +2161,7 @@
     // Die Liste trägt die Gruppe jedes Kontos mit sich, die Detailansicht
     // ebenso: beides neu laden statt an zwei Stellen nachbessern.
     state.adminUsers = [];
+    state.adminUsersLoaded = false;
     state.adminDetails.delete(userId);
     await hydrateAdminSection();
   }
@@ -2003,6 +2247,7 @@
     // beides stimmt jetzt nicht mehr. Neu laden statt nachrechnen – nachrechnen
     // hiesse, dieselbe Zusammenfassung ein zweites Mal zu bauen.
     state.adminUsers = [];
+    state.adminUsersLoaded = false;
     state.adminDetails.delete(userId);
 
     if (userId === state.user?.uid) {
@@ -2013,6 +2258,17 @@
     }
 
     await hydrateAdminSection();
+  }
+
+  // Wie ein Spiel heisst. Die erste Adresse ist highscore.js: dort steht der
+  // Name, den auch das Kind auf der Bühne liest. GAME_LABELS bleibt für die
+  // Rätsel, die es dort nicht (mehr) gibt und deren Fortschritt trotzdem noch
+  // in alten Konten stehen kann.
+  function gameLabel(game) {
+    return window.LernappHighscore?.spiel?.(game)?.titel
+      || GAME_LABELS[game]
+      || game
+      || "Rätsel";
   }
 
   function adminDisplayName(userData = {}) {
@@ -2039,7 +2295,7 @@
       <div class="admin-game-filter" aria-label="Rätselart filtern">
         ${options.map((game) => `
           <button type="button" class="${game === selectedGame ? "active" : ""}" data-admin-game="${escapeHtml(game)}">
-            ${game === "all" ? "Alle" : escapeHtml(GAME_LABELS[game] || game)}
+            ${game === "all" ? "Alle" : escapeHtml(gameLabel(game))}
           </button>
         `).join("")}
       </div>
@@ -2047,7 +2303,7 @@
   }
 
   function adminLevelSort(a, b) {
-    return `${GAME_LABELS[a.game] || a.game || ""} ${a.levelName || a.levelId || ""}`.localeCompare(`${GAME_LABELS[b.game] || b.game || ""} ${b.levelName || b.levelId || ""}`, "de");
+    return `${gameLabel(a.game)} ${a.levelName || a.levelId || ""}`.localeCompare(`${gameLabel(b.game)} ${b.levelName || b.levelId || ""}`, "de");
   }
 
   function renderAdminLevelDetail(entry) {
@@ -2067,7 +2323,7 @@
 
     return `
       <article class="admin-data-card">
-        <strong>${escapeHtml(GAME_LABELS[entry.game] || entry.game || "Rätsel")} · ${escapeHtml(entry.levelName || entry.title || entry.levelId || entry.id || "Level")}</strong>
+        <strong>${escapeHtml(gameLabel(entry.game))} · ${escapeHtml(entry.levelName || entry.title || entry.levelId || entry.id || "Level")}</strong>
         <span>${escapeHtml(DIFFICULTY_LABELS[entry.difficulty] || entry.difficulty || "")}</span>
         <div class="admin-data-grid">${details.map(renderAdminDetailPair).join("")}</div>
       </article>
@@ -2087,7 +2343,7 @@
 
     return `
       <article class="admin-data-card ${session.solved ? "solved" : (session.endedAt ? "abandoned" : "open")}">
-        <strong>${escapeHtml(GAME_LABELS[session.game] || session.game || "Rätsel")} · ${escapeHtml(session.levelName || session.title || session.levelId || "Level")}</strong>
+        <strong>${escapeHtml(gameLabel(session.game))} · ${escapeHtml(session.levelName || session.title || session.levelId || "Level")}</strong>
         <span>${escapeHtml(DIFFICULTY_LABELS[session.difficulty] || session.difficulty || "")}</span>
         <div class="admin-data-grid">${details.map(renderAdminDetailPair).join("")}</div>
       </article>
@@ -2122,7 +2378,7 @@
   }
 
   function adminLevelShortLabel(entry = {}) {
-    const game = GAME_LABELS[entry.game] || entry.game || "Rätsel";
+    const game = gameLabel(entry.game);
     const level = entry.levelName || entry.title || entry.levelId || entry.id || "Level";
     return `${game} · ${level}`;
   }
@@ -2192,7 +2448,7 @@
       moves,
       byGame: Object.keys(GAME_LABELS).map((game) => ({
         game,
-        label: GAME_LABELS[game],
+        label: gameLabel(game),
         solved: solvedByGame[game] || 0,
         total: totals[game] || 0,
         seconds: timeByGame[game] || 0,
@@ -2219,12 +2475,12 @@
 
   function renderSession(session) {
     const levelLabel = session.levelName || session.title || session.levelId || "Level";
-    const gameLabel = GAME_LABELS[session.game] || session.game || "Rätsel";
+    const spielName = gameLabel(session.game);
     const difficulty = DIFFICULTY_LABELS[session.difficulty] || session.difficulty || "";
     return `
       <article class="session-item">
         <div>
-          <strong>${escapeHtml(gameLabel)} · ${escapeHtml(levelLabel)}</strong>
+          <strong>${escapeHtml(spielName)} · ${escapeHtml(levelLabel)}</strong>
           <span>${escapeHtml(difficulty)}${session.solved ? " · gelöst" : ""}</span>
         </div>
         <small>${formatDuration(Number(session.durationSeconds || 0))} · ${Number(session.moves || 0)} Züge · ${Number(session.resets || 0)} Resets</small>

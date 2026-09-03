@@ -101,6 +101,15 @@ for (const spiel of zugSpiele) {
   }
 }
 
+// Und die Bereichsnamen: der Adminbereich stellt seine Auswertung danach
+// zusammen, gezeichnet werden die Bereiche aber in train-progress.js.
+for (const bereich of train.AREAS) {
+  assert(hs.BEREICHE[bereich.id] === bereich.label,
+    `Bereich ${bereich.id}: der Zug nennt ihn "${bereich.label}", die Bestenliste "${hs.BEREICHE[bereich.id]}"`);
+}
+assert(Object.keys(hs.BEREICHE).length === train.AREAS.length,
+  "Die Bestenliste kennt andere Bereiche als der Zug");
+
 // Der Schlüssel eines Spiels mit eigenem Konto muss derselbe sein, unter dem
 // das Spiel wirklich speichert. Sonst zeigt die Bestenliste einen leeren
 // Kasten und niemand merkt es – die Liste sähe nur aus, als hätte niemand
