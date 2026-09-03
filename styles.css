@@ -2465,6 +2465,70 @@ body.puzzle-active .spatialPuzzle-board .spatial-option-graphic > svg {
   justify-content: flex-end;
 }
 
+/* Die Gruppe eines Kontos: mit wem sein Zug das Startbild teilt und unter
+   welchem Namen er dort steht. Dieselbe Karte wie beim Zurücksetzen, nur mit
+   zwei Feldern statt einer Rückfrage. */
+.admin-group {
+  display: grid;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: #fff;
+  border: 2px solid var(--line);
+  box-shadow: 0 10px 22px rgba(50, 44, 109, 0.08);
+}
+
+.admin-group > div:first-child {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.admin-group strong { color: var(--ink); }
+.admin-group span { color: var(--muted); font-weight: 800; }
+
+.admin-group-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+}
+
+.admin-group-fields label {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.admin-group-fields label span {
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.admin-group-fields input {
+  width: 100%;
+  min-width: 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 2px solid var(--line);
+  background: #fff;
+  color: var(--ink);
+  font: inherit;
+  font-weight: 700;
+}
+
+.admin-group-fields input:focus-visible {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.admin-group > .card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  justify-content: flex-end;
+}
+
 .stat-strip {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -4406,6 +4470,183 @@ body[data-page="train"] .help-voice { display: none; }
 .crate-band.is-full { box-shadow: 0 0 0 1.5px rgba(240, 180, 41, 0.9); }
 
 .crate-fill { display: block; height: 100%; border-radius: 999px; transition: width 0.5s ease; }
+
+/* ===========================================================================
+   Die Züge der Gruppe
+   ---------------------------------------------------------------------------
+   Über dem eigenen Zug, jeder auf seinem eigenen Gleis und mit seinem Namen
+   davor. Nur auf dem Startbild: unterwegs geht es um den eigenen Weg.
+
+   Wie hoch und wie breit die Züge stehen, rechnet train-home.js aus und setzt
+   es hier ein – das hängt daran, wie hoch der eigene Zug im Fenster steht und
+   wie viele Züge oben Platz finden müssen.
+   =========================================================================== */
+
+.train-friends {
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  pointer-events: none;
+  /* Erst sichtbar, wenn train-home.js Platz und Grösse gemessen hat – sonst
+     stünden die Züge für einen Wimpernschlag irgendwo im Bild. */
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+
+.train-friends[hidden] { display: none; }
+.train-friends[data-ready="1"] { opacity: 1; }
+
+/* Nur auf dem Startbild. Beim Einfahren des eigenen Zugs bleiben sie noch weg:
+   erst der eigene Zug, dann die anderen. */
+.train-stage:not([data-view="home"]) .train-friends { display: none; }
+.train-stage[data-entering] .train-friends { opacity: 0; }
+
+.friend-train {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  max-width: 98%;
+  padding: 0;
+  border: none;
+  /* Ohne die Mindesthöhe für Knöpfe: wie hoch eine Zeile werden darf, sagt
+     hier der Platz über dem eigenen Zug. Getroffen wird sie trotzdem – die
+     Zeile ist so breit wie ein halbes Bild, und je weniger Züge oben stehen,
+     desto höher wird jeder. */
+  min-height: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  pointer-events: auto;
+  border-radius: 14px;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.16s ease;
+}
+
+.friend-train:hover { transform: scale(1.02); }
+.friend-train:active { transform: scale(0.97); }
+.friend-train:focus-visible { outline: 3px solid #fff; outline-offset: 4px; }
+
+/* Der Name steht vor dem Zug, wie das Schild an einem Bahnsteig. Auf dem Bild
+   sonst kein Wort – hier eines, weil genau darum geht es: wessen Zug das ist.
+
+   Er hängt neben der Zeile statt in ihr: sonst bestimmte auf einem flachen
+   Bildschirm die Höhe des Schilds die Höhe der Zeile, und der Stapel wäre
+   höher geworden als der Platz, den train-home.js dafür ausgerechnet hat. */
+.friend-name {
+  position: absolute;
+  right: calc(100% + clamp(6px, 1.2vw, 12px));
+  top: 50%;
+  transform: translateY(-50%);
+  max-width: min(8em, 22vw);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.88);
+  color: #243047;
+  font-size: clamp(0.7rem, 1.9vh, 1rem);
+  font-weight: 800;
+  line-height: 1.3;
+  box-shadow: 0 3px 10px rgba(36, 48, 71, 0.2);
+}
+
+.friend-svg {
+  flex: 0 0 auto;
+  display: block;
+  height: auto;
+  max-width: 100%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .train-friends { transition: none; }
+  .friend-train { transition: none; }
+  .friend-train:hover { transform: none; }
+}
+
+/* --- Der Zug eines anderen, gross --- */
+
+.train-stage[data-view="friend"] .train-band { opacity: 0; pointer-events: none; }
+.train-stage[data-view="friend"] .stage-layer { z-index: 4; }
+
+.friend-detail {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(8px, 2.4vh, 24px);
+  padding: calc(var(--safe-top) + 76px) 16px calc(var(--safe-bottom) + 16px);
+  pointer-events: auto;
+}
+
+.friend-detail-name {
+  flex: 0 0 auto;
+  margin: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 6px 18px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.9);
+  color: #243047;
+  font-size: clamp(1rem, 2.6vh, 1.45rem);
+  font-weight: 900;
+  box-shadow: 0 4px 14px rgba(36, 48, 71, 0.2);
+}
+
+/* Der Zug ist hier die Auswahl: ein Tipp auf einen Wagen zeigt dessen Spiele.
+   Der gewählte Wagen steht voll da, die anderen treten zurück – ohne Rahmen
+   und ohne Pfeil, denn beides wäre ein Zeichen mehr, das erklärt werden will. */
+.friend-detail-train {
+  flex: 0 1 auto;
+  min-height: 0;
+  width: 100%;
+  display: grid;
+  place-items: center;
+}
+
+.friend-detail-train .train-svg {
+  width: min(100%, 760px);
+  height: auto;
+  max-height: 100%;
+  display: block;
+}
+
+.friend-detail-train [data-area] {
+  cursor: pointer;
+  transition: opacity 0.18s ease;
+}
+.friend-detail-train [data-area]:not(.is-current) { opacity: 0.5; }
+.friend-detail-train [data-area]:focus-visible { outline: 3px solid #fff; }
+
+@media (prefers-reduced-motion: reduce) {
+  .friend-detail-train [data-area] { transition: none; }
+}
+
+/* Anschauen, nicht antippen: beim Zug eines anderen führt keine Kiste in ein
+   Spiel. Dafür steht die Zahl darunter – wer vergleicht, will sie wissen. */
+.wagon-crate.is-static { cursor: default; }
+.wagon-crate.is-static:hover { background: rgba(255, 255, 255, 0.72); }
+.wagon-crate.is-static:active { transform: none; }
+
+.crate-count {
+  font-size: clamp(0.68rem, 1.6vh, 0.86rem);
+  font-weight: 800;
+  color: #4a5568;
+  font-variant-numeric: tabular-nums;
+}
 
 /* ===========================================================================
    Szenenwahl
