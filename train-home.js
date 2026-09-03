@@ -37,15 +37,18 @@
   // wird der Hintergrund, nicht der Zug – so bleibt die Lok an ihrem Platz und
   // muss nicht bei jedem Bild neu gezeichnet werden.
   const scenes = () => window.LernappScenes || null;
+  // Gezeigt wird, was gewählt ist – ob die Landschaft nach dem Stand dieses
+  // Geräts gerade frei wäre, spielt hier keine Rolle. Die Sperre gehört in die
+  // Auswahl: dort lässt sich Gesperrtes nicht antippen. Beim Anzeigen wäre sie
+  // nur ein Fehler: gleich nach dem Laden ist der Fortschritt aus der Cloud
+  // noch unterwegs, und die gewählte Landschaft galt als gesperrt – die Wiese
+  // stand da, und einen Augenblick später sprang das Bild um. Und nach einem
+  // Zurücksetzen des Fortschritts sollen Lok und Landschaft ausdrücklich
+  // bleiben. Dieselbe Regel gilt auf den Spielseiten (train-scenes.js).
   function currentScene() {
     const list = scenes();
     if (!list) return null;
-    const saved = recall(SCENE_KEY);
-    const scene = list.BY_ID[saved];
-    // Eine gewählte Szene kann gesperrt sein, wenn der Fortschritt auf einem
-    // anderen Gerät steht. Dann lieber die erste als gar keine.
-    if (scene && list.isUnlocked(scene.id, progress.trainProgress().builtWagons)) return scene;
-    return list.SCENES[0];
+    return list.BY_ID[recall(SCENE_KEY)] || list.SCENES[0];
   }
 
   // Gebaut wird die Landschaft in train-scenes.js – die Spielseiten brauchen
@@ -577,18 +580,21 @@
     return wrap;
   }
 
-  // Der Inhalt einer Kiste: das Gebäude des Spiels als Deckel und darunter ein
+  // Der Inhalt einer Kiste: das Bild des Spiels als Deckel und darunter ein
   // Band je Welt. Zweimal gebraucht – am eigenen Wagen zum Antippen, am Zug
   // eines anderen zum Anschauen. Einmal gebaut, damit beide dasselbe zeigen.
   function crateParts(game, color) {
-    // Das Gebäude des Spiels als Deckel der Kiste: so ist die Verbindung zur
-    // Gebäudewahl sofort da, ohne dass irgendwo ein Name stehen muss.
-    const icon = art.buildBuilding(game.id, { label: game.title });
+    // Das Bild des Spiels als Deckel der Kiste: so ist die Verbindung zur
+    // Spielauswahl sofort da, ohne dass irgendwo ein Name stehen muss.
+    // In der Farbe des Bereichs, genau wie auf der Bühne. Ohne die Angabe
+    // nähme jedes Bild die Farbe seines eigenen Bereichs – das stimmt nur
+    // zufällig mit dem Wagen überein, an dem die Kiste hängt.
+    const icon = art.buildBuilding(game.id, { label: game.title, hue: color });
     icon.removeAttribute("role");
     icon.removeAttribute("tabindex");
     icon.classList.remove("train-building");
     const iconSvg = el("svg", {
-      viewBox: `0 ${art.GROUND - 176} ${art.BUILD_W} 180`,
+      viewBox: `0 ${art.GROUND - art.BUILD_H} ${art.BUILD_W} ${art.BUILD_H + 2}`,
       class: "crate-icon", "aria-hidden": "true",
     }, [icon]);
 
@@ -1063,8 +1069,15 @@
     return new Promise((resolve) => { window.setTimeout(resolve, reduced() ? 0 : ms); });
   }
 
+  // Ob die Bühne schon einmal gezeichnet wurde, und ob die nächste Ebene ohne
+  // Auftritt erscheinen soll (siehe render()).
+  let rendered = false;
+  let quietLayer = false;
+
   function renderLayer(node) {
     layerHost.innerHTML = "";
+    layerHost.classList.toggle("is-quiet", quietLayer);
+    quietLayer = false;
     if (node) layerHost.append(node);
   }
 
@@ -1538,9 +1551,20 @@
     // nach einem Wimpernschlag wieder weg, samt Wagen und Balken.
     const laufendeFeiern = [...stage.querySelectorAll(".wagon-reward")];
 
-    stage.innerHTML = "";
+    // Die Landschaft bleibt stehen, solange es dieselbe ist. Neu gebaut fingen
+    // Wolken, Hügel und Gras wieder am Anfang an – ein Ruck durch das ganze
+    // Bild bei jedem Neuzeichnen. Und neu gezeichnet wird nach dem Laden noch
+    // zwei-, dreimal, sobald Firebase Einstellungen und Fortschritt meldet:
+    // das sah aus, als würde der Hintergrund mehrmals hintereinander geladen.
     const scene = currentScene();
-    if (scene) stage.append(buildScene(scene));
+    const standing = stage.querySelector(":scope > .scene");
+    const keepScene = standing && scene && standing.dataset.scene === scene.id ? standing : null;
+    [...stage.children].forEach((child) => { if (child !== keepScene) child.remove(); });
+    if (scene && !keepScene) stage.prepend(buildScene(scene));
+    // Beim Neuzeichnen derselben Ansicht soll die Ebene nicht noch einmal
+    // hereinschweben: das Bild steht schon, es bekommt nur frische Zahlen.
+    quietLayer = rendered;
+    rendered = true;
 
     const band = document.createElement("div");
     band.className = "train-band";

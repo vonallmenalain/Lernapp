@@ -66,6 +66,10 @@
     <h2>Tiere am Steuer</h2>
     <div class="card"><div class="row" id="drivers"></div></div>
 
+    <h2>Spiel-Symbole</h2>
+    <p class="note">Ein Bild je Spiel, in der Farbe seines Bereichs – so stehen sie auf der Bühne und an den Kisten des Wagens. Die zweite Zeile je Bereich zeigt die fertig gespielten mit Marke, die dritte alle Bilder klein, wie an der Kiste.</p>
+    <div id="buildings"></div>
+
     <script src="train-art.js"></script>
     <script>
       const art = window.LernappTrainArt;
@@ -182,6 +186,56 @@
         });
       }
 
+      const GAMES = {
+        gedaechtnis: ["backpack", "memory", "beachTreasure", "tileMemory"],
+        konzentration: ["flanker", "trackRouter", "fishPond", "gridlock"],
+        geschwindigkeit: ["tiersprung", "cardMatch", "leafFlow", "towerStack"],
+        problemloesen: ["spatialPuzzle", "arukone", "bimaru", "shikaku"],
+        zahlbuchstabe: ["letterPuzzle", "readingPuzzle", "kakuro", "hidoku"],
+      };
+
+      function buildingFrame(id, area, options, scale) {
+        const node = art.buildBuilding(id, { label: id, hue: area.color, ...options });
+        const svg = el("svg", {
+          viewBox: `0 ${art.GROUND - art.BUILD_H} ${art.BUILD_W} ${art.BUILD_H + 2}`,
+          width: art.BUILD_W * scale, height: (art.BUILD_H + 2) * scale,
+        });
+        svg.append(node);
+        return svg;
+      }
+
+      function renderBuildings() {
+        const host = document.getElementById("buildings");
+        host.innerHTML = "";
+        AREAS.forEach((area) => {
+          const card = document.createElement("div");
+          card.className = "card";
+          card.style.background = "#d9eef7";
+          const title = document.createElement("div");
+          title.style.cssText = "font-weight:700;font-size:0.85rem;margin-bottom:8px";
+          title.innerHTML = `<span class="swatch" style="background:${area.color}"></span>${area.label}`;
+          card.append(title);
+          [[{ ratio: 0.4 }, 0.8], [{ ratio: 1, done: true }, 0.8], [{}, 0.36]].forEach(([options, scale]) => {
+            const row = document.createElement("div");
+            row.className = "row";
+            GAMES[area.id].forEach((id) => {
+              const cell = document.createElement("div");
+              cell.className = "cell";
+              cell.append(buildingFrame(id, area, options, scale));
+              if (scale > 0.5) {
+                const cap = document.createElement("div");
+                cap.className = "cap";
+                cap.textContent = id;
+                cell.append(cap);
+              }
+              row.append(cell);
+            });
+            card.append(row);
+          });
+          host.append(card);
+        });
+      }
+
       function renderDrivers() {
         const host = document.getElementById("drivers");
         host.innerHTML = "";
@@ -203,6 +257,7 @@
       renderStages();
       renderParts();
       renderDrivers();
+      renderBuildings();
     </script>
   </body>
 </html>
