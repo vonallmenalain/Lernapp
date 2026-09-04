@@ -7716,18 +7716,26 @@ body.has-scene.puzzle-active .game-panel {
   width: 100%;
 }
 
-/* Oben und unten am Platz festgemacht: damit steht die Höhe fest, und die
-   Breite ergibt sich aus dem Seitenverhältnis. Auf einem hohen Bildschirm
-   begrenzt sie die Höchstbreite – lieber eine schmalere Baustelle als eine,
-   die über den Rand hinausgeht. */
+/* Oben und unten am Platz festgemacht: damit steht die Höhe fest, und das
+   Seitenverhältnis macht daraus die Breite. Weil die Höhe schon feststeht,
+   wirkt es hier wie eine Höchstbreite: gut doppelt so breit wie hoch, mehr
+   nicht. Genau das ist auf dem Handy quer der Fall – dort ist die Höhe knapp
+   und die Breite reichlich, und die Baustelle nimmt sie sich. Auf einem hohen
+   Bildschirm greift stattdessen max-width, und die Baustelle bleibt eine
+   stehende Fläche; über den Rand geht sie nie.
+
+   Wie viel Welt in dieser Fläche steckt, rechnet turmbau.js aus der Form aus:
+   die Höhe bleibt dieselbe, die Breite wächst mit – und mit ihr jeder Block.
+   Deshalb darf hier jede Form herauskommen, ohne dass das Spiel ein anderes
+   wird. */
 .tb-feld {
   position: absolute;
   top: 0;
   bottom: 0;
   left: 50%;
   transform: translateX(-50%);
-  aspect-ratio: 4 / 5;
-  max-width: min(92vw, 470px);
+  aspect-ratio: 21 / 10;
+  max-width: min(92vw, 1100px);
   border-radius: 30px;
   overflow: hidden;
   overflow: clip;
@@ -7812,14 +7820,6 @@ body.has-scene.puzzle-active .game-panel {
   0% { transform: scale(0.6) rotate(-4deg); opacity: 0; }
   60% { transform: scale(1.08) rotate(1.5deg); opacity: 1; }
   100% { transform: scale(1) rotate(0); opacity: 1; }
-}
-
-/* Auf einem flachen Bildschirm ist die Höhe das knappe Mass. Dort steht die
-   Baustelle quadratisch statt hochkant – sonst schrumpfen die Blöcke unter das,
-   was ein Kind noch mit dem Finger treffen kann. Kürzer wird der Turm dadurch
-   nicht: die Kamera zieht nur ein paar Blöcke früher nach. */
-@media (max-height: 560px) {
-  .tb-feld { aspect-ratio: 1 / 1; }
 }
 
 @media (prefers-reduced-motion: reduce) {
