@@ -493,7 +493,9 @@ const SZENARIEN = [
       { name: "Ergebnis", tun: async (blatt) => {
         await blatt.evaluate(() => {
           const spiel = window.LernappTurmbau;
-          if (spiel?.state?.schweber) spiel.state.schweber.x += 400;
+          // Eine ganze Weltbreite daneben: die Welt ist je nach Bildschirm
+          // verschieden breit, ein fester Abstand träfe mal daneben, mal nicht.
+          if (spiel?.state?.schweber) spiel.state.schweber.x += spiel.welt.w;
         });
         await tippe(blatt, ".tb-feld");
         await pause(blatt, 1600);

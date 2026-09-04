@@ -18,9 +18,13 @@
  * Browser als eigene Kästen mehr flüssig durchs Bild. Die Leiste oben, der
  * Zähler und die Ergebnistafel kommen weiter aus game-shell.js.
  *
- * Gerechnet wird in Welteinheiten, nicht in Bildpunkten: die Leinwand ist
- * immer WELT_W Einheiten breit, egal wie gross das Gerät ist. Sonst wäre das
- * Spiel auf einem Tablet ein anderes als auf einem Handy.
+ * Gerechnet wird in Welteinheiten, nicht in Bildpunkten. Fest steht dabei die
+ * Höhe: immer SICHT_H Einheiten Welt stehen im Bild. Wie breit die Welt dazu
+ * ist, sagt die Form der Baustelle – auf einem Handy quer ist sie gut doppelt
+ * so breit wie hoch, also ist es die Welt auch. Alle Masse quer wachsen dann
+ * im selben Verhältnis mit, und weil alle dasselbe Mass bekommen, ist das
+ * Spiel auf jedem Gerät dasselbe: der Block ist immer derselbe Anteil des
+ * Bildes und schwingt über denselben Anteil davon. Nur grösser ist es.
  */
 (() => {
   "use strict";
@@ -45,7 +49,18 @@
   // Der Nullpunkt liegt auf dem Boden, y zählt nach oben. Ein Block wird über
   // seine Mitte und seine Unterkante geführt: beim Stapeln geht es um genau
   // diese zwei Zahlen.
-  const WELT_W = 300;              // so breit ist das Bild immer, in Einheiten
+  //
+  // WELT_W ist das Grundmass der Breite: so breit ist die Welt, wenn die
+  // Baustelle so breit wie hoch ist. Auf einem Handy quer ist sie gut doppelt
+  // so breit – dann ist es die Welt auch, und mit ihr jedes Mass quer (siehe
+  // welt weiter unten). Schmaler als das Grundmass wird sie nie: auf einem
+  // hohen Bild steht dann eben mehr Turm im Bild.
+  //
+  // Jede Zahl quer ist darum ein Grundmass, keine Länge: im Spiel gilt, was
+  // dazu in welt steht.
+  const WELT_W = 300;              // Grundmass der Breite, in Einheiten
+  const WELT_W_MAX = 700;          // breiter als das wird die Welt nicht
+  const SICHT_H = 300;             // so viel Welt steht in der Höhe immer im Bild
   const BLOCK_H = 26;
   const START_W = 132;             // knapp die Hälfte des Bildes
   // Schmaler als das wird kein Block. Eine Grenze, an der der Turm "zu schmal"
@@ -89,6 +104,7 @@
   const ZITTER = 0.16;             // ±8 % auf die Periode
   const WEITE_START = 44;          // halbe Auslenkung in Einheiten
   const WEITE_SCHRITT = 1.8;       // je Block ein Stück weiter
+  const WEITE_MIN = 18;            // ganz ohne Bogen schwingt kein Block
   const RAND = 8;                  // so weit bleibt der Block vom Bildrand weg
 
   // ---------------------------------------------------------------------------
@@ -225,14 +241,24 @@
     return { oben: mischeFarbe(von.oben, bis.oben, k), unten: mischeFarbe(von.unten, bis.unten, k) };
   }
 
-  const STERNE = [...Array(46).keys()].map((i) => ({
+  // Sterne und Wolken sind auf Vorrat gerechnet; wie viele davon am Himmel
+  // stehen, sagt die Form der Baustelle. Auf einem Handy quer ist doppelt so
+  // viel Himmel im Bild wie auf einem quadratischen – mit derselben Handvoll
+  // Sterne wäre die Nacht dort halb so dicht besetzt. Die ersten sind immer
+  // dieselben, es kommen nur welche dazu.
+  const STERNE_JE_QUADRAT = 46;
+  const WOLKEN_JE_QUADRAT = 4;
+  const wieViele = (jeQuadrat, vorrat) =>
+    Math.min(vorrat.length, Math.round(jeQuadrat * clamp(view.cssW / Math.max(1, view.cssH), 1, 2.4)));
+
+  const STERNE = [...Array(112).keys()].map((i) => ({
     x: hash01(i * 3.7),
     y: hash01(i * 7.3 + 1),
     r: 0.6 + hash01(i * 11.1) * 1.1,
     ph: hash01(i * 5.5) * Math.PI * 2,
   }));
 
-  const WOLKEN = [...Array(4).keys()].map((i) => ({
+  const WOLKEN = [...Array(10).keys()].map((i) => ({
     x: hash01(i * 2.3),
     y: 0.1 + hash01(i * 9.1) * 0.5,
     r: 16 + hash01(i * 4.4) * 14,
@@ -273,6 +299,63 @@
   let stepTimer = null;
 
   const view = { s: 1, dpr: 1, cssW: 0, cssH: 0, h: 400 };
+
+  // ---------------------------------------------------------------------------
+  // Die Welt in der Breite
+  // ---------------------------------------------------------------------------
+  // Hier steht alles, was quer misst, noch einmal – diesmal nicht als feste
+  // Zahl, sondern so breit, wie die Baustelle es gerade zulässt. welt.mass sagt,
+  // um wie viel das mehr ist als das Grundmass. Weil jedes Mass quer denselben
+  // Faktor bekommt, ändert sich am Spiel nichts: der Block ist immer derselbe
+  // Anteil des Bildes, sein Bogen immer derselbe Anteil des Blocks, und die
+  // Zeit für eine Schwingung steht ohnehin in Sekunden.
+  const welt = {
+    w: WELT_W,
+    mass: 1,
+    startW: START_W,
+    kleinsteW: KLEINSTE_W,
+    sockelW: SOCKEL_W,
+    perfektMin: PERFEKT_MIN,
+    bonus: BONUS,
+    weiteStart: WEITE_START,
+    weiteSchritt: WEITE_SCHRITT,
+    weiteMin: WEITE_MIN,
+    rand: RAND,
+  };
+
+  // Was schon steht, wird mitgezogen. Ohne das stünde nach dem Drehen des
+  // Geräts ein Turm aus zu schmalen Blöcken auf einem zu breiten Sockel – und
+  // der schwingende Block schwänge über einem Turm, den es so nicht mehr gibt.
+  // Gestreckt wird allein quer; alle Höhen bleiben, wie sie sind.
+  function weltStrecken(faktor) {
+    state.breite *= faktor;
+    state.camX *= faktor;
+    state.bloecke.forEach((block) => { block.x *= faktor; block.w *= faktor; });
+    state.teile.forEach((teil) => { teil.x *= faktor; teil.w *= faktor; teil.vx *= faktor; });
+    state.funken.forEach((funke) => { funke.x *= faktor; funke.vx *= faktor; });
+    const s = state.schweber;
+    if (s) { s.x *= faktor; s.w *= faktor; s.mitte *= faktor; s.weite *= faktor; }
+  }
+
+  // Die Welt auf eine neue Breite bringen. Kommt aus messen(), also beim Start,
+  // beim Drehen des Geräts und beim Ziehen am Fenster.
+  function weltBreite(gewuenscht) {
+    const breit = clamp(gewuenscht, WELT_W, WELT_W_MAX);
+    const faktor = breit / welt.w;
+    if (Math.abs(faktor - 1) < 0.001) return;
+    welt.w = breit;
+    welt.mass = breit / WELT_W;
+    welt.startW = START_W * welt.mass;
+    welt.kleinsteW = KLEINSTE_W * welt.mass;
+    welt.sockelW = SOCKEL_W * welt.mass;
+    welt.perfektMin = PERFEKT_MIN * welt.mass;
+    welt.bonus = BONUS * welt.mass;
+    welt.weiteStart = WEITE_START * welt.mass;
+    welt.weiteSchritt = WEITE_SCHRITT * welt.mass;
+    welt.weiteMin = WEITE_MIN * welt.mass;
+    welt.rand = RAND * welt.mass;
+    weltStrecken(faktor);
+  }
 
   function clearStep() {
     if (stepTimer) { window.clearTimeout(stepTimer); stepTimer = null; }
@@ -323,8 +406,9 @@
     return platz;
   }
 
-  // Grösse der Leinwand. Die Welt ist immer WELT_W Einheiten breit; wie hoch
-  // sie ist, hängt am Seitenverhältnis der Baustelle.
+  // Grösse der Leinwand. Immer SICHT_H Einheiten Welt stehen im Bild; wie breit
+  // die Welt dazu ist, hängt am Seitenverhältnis der Baustelle. Auf einem hohen
+  // Bild bleibt es beim Grundmass, und dann steht eben mehr Turm im Bild.
   function messen() {
     if (!canvas || !feld) return;
     const cssW = Math.max(80, feld.clientWidth);
@@ -334,7 +418,9 @@
     view.cssW = cssW;
     view.cssH = cssH;
     view.dpr = dpr;
-    view.s = cssW / WELT_W;
+    // Erst die Welt, dann der Massstab – der hängt an ihrer Breite.
+    weltBreite(SICHT_H * (cssW / cssH));
+    view.s = cssW / welt.w;
     view.h = cssH / view.s;
     const pw = Math.round(cssW * dpr);
     const ph = Math.round(cssH * dpr);
@@ -394,18 +480,25 @@
     // der Turm – daher sehen sie weit weg aus.
     const par = ruhig() ? 0 : (state.camY + GRUND) * view.s;
 
+    // Sonne und Mond messen an der kürzeren Seite der Baustelle, nicht an der
+    // Breite: auf einem Handy quer ist die Baustelle doppelt so breit wie hoch,
+    // und eine Sonne nach ihrer Breite füllte dort das halbe Bild.
+    const kurz = Math.min(view.cssW, view.cssH);
+
     const sterneAuf = sanft(0.48, 0.85, t);
     if (sterneAuf > 0.01) {
       const band = view.cssH * 1.4;
+      const wieVieleSterne = wieViele(STERNE_JE_QUADRAT, STERNE);
       g.fillStyle = "#ffffff";
-      STERNE.forEach((stern) => {
+      for (let i = 0; i < wieVieleSterne; i += 1) {
+        const stern = STERNE[i];
         const funkeln = ruhig() ? 0.85 : 0.55 + 0.45 * Math.sin(state.zeit * 1.6 + stern.ph);
         g.globalAlpha = sterneAuf * funkeln;
         const y = ((stern.y * band + par * 0.22) % band + band) % band;
         g.beginPath();
         g.arc(stern.x * view.cssW, y, stern.r, 0, Math.PI * 2);
         g.fill();
-      });
+      }
       g.globalAlpha = 1;
     }
 
@@ -419,7 +512,7 @@
     if (sonneAuf > 0.01) {
       const x = view.cssW * 0.27;
       const y = view.cssH * (0.15 + 1.05 * sanft(0, 0.62, t));
-      const r = view.cssW * 0.075;
+      const r = kurz * 0.075;
       schein(x, y, r * 2.4, "rgba(255, 232, 150, 0.55)", sonneAuf);
       g.globalAlpha = sonneAuf;
       g.fillStyle = "#ffe38a";
@@ -433,7 +526,7 @@
     if (mondAuf > 0.01) {
       const x = view.cssW * 0.73;
       const y = view.cssH * (1.08 - 0.86 * sanft(0.42, 1, t));
-      const r = view.cssW * 0.082;
+      const r = kurz * 0.082;
       schein(x, y, r * 2.1, "rgba(255, 248, 216, 0.4)", mondAuf);
       g.globalAlpha = mondAuf;
       g.fillStyle = "#f8f3dd";
@@ -454,9 +547,11 @@
     const wolkenAuf = (1 - sanft(0.3, 0.62, t)) * 0.9;
     if (wolkenAuf > 0.01) {
       const band = view.cssH * 0.95;
+      const wieVieleWolken = wieViele(WOLKEN_JE_QUADRAT, WOLKEN);
       g.globalAlpha = wolkenAuf;
       g.fillStyle = "#ffffff";
-      WOLKEN.forEach((wolke) => {
+      for (let i = 0; i < wieVieleWolken; i += 1) {
+        const wolke = WOLKEN[i];
         const treib = ruhig() ? 0 : state.zeit * wolke.v;
         const x = (((wolke.x + treib) % 1.3) - 0.15) * view.cssW;
         const y = ((wolke.y * band + par * 0.4) % band + band) % band;
@@ -467,7 +562,7 @@
         g.arc(x + r * 1.75, y + r * 0.05, r * 0.62, 0, Math.PI * 2);
         g.arc(x + r * 0.85, y + r * 0.42, r * 0.72, 0, Math.PI * 2);
         g.fill();
-      });
+      }
       g.globalAlpha = 1;
     }
 
@@ -514,11 +609,11 @@
     // Nur solange der Boden noch im Bild ist – oben im Turm gibt es keinen.
     if (state.camY > 4) return;
     g.fillStyle = "#7a5b3c";
-    g.fillRect(-WELT_W, -GRUND - 60, WELT_W * 2, GRUND + 60);
+    g.fillRect(-welt.w, -GRUND - 60, welt.w * 2, GRUND + 60);
     g.fillStyle = "#5f9f52";
-    g.fillRect(-WELT_W, -15, WELT_W * 2, 15);
+    g.fillRect(-welt.w, -15, welt.w * 2, 15);
     g.fillStyle = "#78b863";
-    g.fillRect(-WELT_W, -5, WELT_W * 2, 5);
+    g.fillRect(-welt.w, -5, welt.w * 2, 5);
   }
 
   function zeichneBlock(block) {
@@ -640,8 +735,8 @@
   function weiteFuer(n, breite) {
     // Nach innen begrenzt vom Bildrand: der Block darf nie halb aus dem Bild
     // schwingen, sonst wäre er im Moment des Tipps nicht zu sehen.
-    const platz = WELT_W / 2 - breite / 2 - RAND;
-    return Math.max(18, Math.min(platz, WEITE_START + n * WEITE_SCHRITT));
+    const platz = welt.w / 2 - breite / 2 - welt.rand;
+    return Math.max(welt.weiteMin, Math.min(platz, welt.weiteStart + n * welt.weiteSchritt));
   }
 
   function neuerSchweber() {
@@ -729,7 +824,7 @@
     const links = Math.max(a1, b1);
     const rechts = Math.min(a2, b2);
     const versatz = s.x - unten.x;
-    const genau = Math.abs(versatz) <= Math.max(PERFEKT_MIN, s.w * PERFEKT_ANTEIL);
+    const genau = Math.abs(versatz) <= Math.max(welt.perfektMin, s.w * PERFEKT_ANTEIL);
 
     if (genau) {
       s.x = unten.x;
@@ -739,7 +834,7 @@
       if (b1 < links) abbrechen(b1, links, s, -1);
       if (b2 > rechts) abbrechen(rechts, b2, s, 1);
       s.x = (links + rechts) / 2;
-      s.w = Math.max(KLEINSTE_W, rechts - links);
+      s.w = Math.max(welt.kleinsteW, rechts - links);
     }
 
     s.stauch = 1;
@@ -760,8 +855,8 @@
       kids()?.vibrate?.(24);
       // Drei genaue Treffer hintereinander: ein Stück Breite zurück, aber
       // nie über die Anfangsbreite hinaus.
-      if (state.perfekte % BONUS_NACH === 0 && state.breite < START_W) {
-        state.breite = Math.min(START_W, s.w + BONUS);
+      if (state.perfekte % BONUS_NACH === 0 && state.breite < welt.startW) {
+        state.breite = Math.min(welt.startW, s.w + welt.bonus);
         funkenSpruehen(s.x, s.y + s.h, "#ffffff", 12);
         kids()?.playJingle?.("unlock");
       } else {
@@ -921,7 +1016,6 @@
     state.punkte = 0;
     state.combo = 0;
     state.perfekte = 0;
-    state.breite = START_W;
     state.bloecke = [];
     state.teile = [];
     state.funken = [];
@@ -941,8 +1035,11 @@
     view.cssH = 0;
     messen();
 
+    // Erst jetzt, nach dem Messen: wie breit der erste Block ist, weiss die
+    // Welt erst, wenn sie ihre Breite kennt.
+    state.breite = welt.startW;
     state.bloecke.push({
-      x: 0, y: 0, w: SOCKEL_W, h: SOCKEL_H, farbe: SOCKEL_FARBE,
+      x: 0, y: 0, w: welt.sockelW, h: SOCKEL_H, farbe: SOCKEL_FARBE,
       sockel: true, stauch: 0, glanz: 0, wackel: 0,
     });
     neuerSchweber();
@@ -1061,7 +1158,8 @@
   // scripts/check-handy.mjs muss die Ergebnistafel anfahren, und wo der Block
   // gerade schwingt, lässt sich von aussen nicht abwarten.
   window.LernappTurmbau = {
-    WELT_W, BLOCK_H, START_W, KLEINSTE_W, RUNS_FOR_DONE,
+    WELT_W, SICHT_H, BLOCK_H, START_W, KLEINSTE_W, RUNS_FOR_DONE,
+    welt, view,
     schwungFuer, weiteFuer, himmelFarben, state,
   };
 })();
