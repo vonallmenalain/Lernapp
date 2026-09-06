@@ -14,9 +14,9 @@
  * ausgeglichener Baum mit n-1 Weichen. Zehn von Hand gepflegte Netze wären
  * zehnmal die Gelegenheit, ein Haus unerreichbar zu machen.
  *
- * Gezeichnet wird auf eine Leinwand statt in SVG: bis zu vier Züge bewegen
- * sich gleichzeitig, und dafür ist ein Bild pro Bild neu gemaltes Canvas
- * ruhiger als hundert Knoten, die der Browser einzeln nachrechnet.
+ * Gezeichnet wird auf eine Leinwand statt in SVG: ein halbes Dutzend Züge
+ * bewegt sich gleichzeitig, und dafür ist ein Bild pro Bild neu gemaltes
+ * Canvas ruhiger als hundert Knoten, die der Browser einzeln nachrechnet.
  */
 (() => {
   "use strict";
@@ -35,44 +35,58 @@
   // Die zehn Level
   // ---------------------------------------------------------------------------
   // farben = Häuser und Zugfarben, zuege = wie viele fahren insgesamt,
-  // takt = Abstand der Abfahrten, gleichzeitig = wie viele höchstens zugleich
-  // auf der Strecke sind.
+  // takt = Abstand von einer Abfahrt zur nächsten.
   //
   // tempo ist die Strecke, die ein Zug in einer Sekunde zurücklegt, gemessen in
   // Bildbreiten – nicht Gleisstücke pro Sekunde. Ein Zug fährt damit überall
   // gleich schnell; nach Gleisstücken gerechnet raste er auf den langen Ästen
   // und kroch auf den kurzen.
   //
-  // Die Züge fahren noch einmal halb so schnell: in Level 1 braucht einer gut
-  // eine halbe Minute über das Bild, in Level 10 gut zwanzig Sekunden. Auf drei
-  // Sterne kommt nur, wer keinen einzigen Zug verfährt, und dafür muss vor
-  // jeder Weiche Zeit zum Schauen bleiben – in den schweren Levels war die
-  // vorher weg.
+  // Die Züge fahren gemächlich: in Level 1 braucht einer eine halbe Minute über
+  // das Bild, in Level 10 keine zwanzig Sekunden. Auf drei Sterne kommt nur, wer
+  // keinen einzigen Zug verfährt, und dafür muss vor jeder Weiche Zeit zum
+  // Schauen bleiben.
   //
-  // Wie oft eine Entscheidung ansteht, hängt nicht am Takt, sondern daran, wie
-  // viele Züge zugleich unterwegs sind mal ihrem Tempo: halbes Tempo heisst
-  // halb so viele Weichen pro Minute. Genau das war gewünscht, und deshalb
-  // bleiben Takt und Gleichzeitigkeit, wie sie waren – mehr Züge nebeneinander
-  // hätten die Entscheidungsdichte wieder hochgezogen.
+  // Sie kommen einer nach dem anderen, gleichmässig: es zählt allein der Takt.
+  // Daneben stand vorher eine zweite Zahl – wie viele Züge höchstens zugleich
+  // unterwegs sein dürfen –, und die machte aus dem Takt eine Absichtserklärung.
+  // In Level 1 fuhren vier Züge in je gut drei Sekunden Abstand los, dann war
+  // die Strecke voll und über zwanzig Sekunden lang kam keiner mehr aus dem
+  // Tunnel; erst als der erste ankam, ging es weiter. Nachgemessen: 3,1
+  // Sekunden Abstand, dann 21,3 Sekunden Pause. Ein Level war so kein Strom von
+  // Zügen, sondern zwei Schübe mit Leerlauf dazwischen. Die Sperre ist deshalb
+  // weg.
   //
-  // Weil ein Zug damit doppelt so lange über das Bild braucht, fahren halb so
-  // viele: sonst dauerte ein Level über zwei Minuten statt gut einer. Die
-  // Rechnung dazu steht in scripts/validate-weichen.mjs und wird dort geprüft.
+  // Der Takt ist dafür doppelt so gross: in Level 1 gut sechs Sekunden von Zug
+  // zu Zug statt gut drei, in Level 10 knapp drei statt knapp anderthalb. Damit
+  // halbiert sich, wie oft eine Entscheidung ansteht – und genau daran hing der
+  // dritte Stern in den schweren Levels.
   //
-  // Schwerer wird es weiterhin über die Dichte, nicht über das Tempo. Ab
-  // Level 4 zieht das Tempo leicht an, aber auch in Level 10 fährt ein Zug
-  // langsamer als früher in Level 1.
+  // Dass mehr Züge zugleich auf dem Bild sind, ist die Folge und kein Versehen:
+  // wie viele es sind, ist Fahrzeit geteilt durch Takt und damit in jedem Level
+  // fest – fünf bis sieben, gleichmässig über die Strecke verteilt statt in
+  // einem Pulk. Ineinander schieben können sie sich nicht; dafür sorgt die
+  // Sperre am Tunnel weiter unten.
+  //
+  // Weil ohne Pause gefahren wird, passen mehr Züge in dieselbe Zeit: aus acht
+  // bis achtzehn werden zehn bis zweiundzwanzig. Kein Level dauert dadurch mehr
+  // als zwanzig Sekunden länger als vorher. Die Rechnung dazu steht in
+  // scripts/validate-weichen.mjs und wird dort geprüft.
+  //
+  // Schwerer wird es über die Dichte, nicht über das Tempo. Ab Level 4 zieht das
+  // Tempo leicht an, aber auch in Level 10 fährt ein Zug langsamer als früher in
+  // Level 1.
   const LEVELS = [
-    { nr: 1, farben: 3, zuege: 8, tempo: 0.0275, takt: 2600, gleichzeitig: 4 },
-    { nr: 2, farben: 4, zuege: 8, tempo: 0.0275, takt: 2400, gleichzeitig: 4 },
-    { nr: 3, farben: 5, zuege: 10, tempo: 0.03, takt: 2200, gleichzeitig: 5 },
-    { nr: 4, farben: 5, zuege: 12, tempo: 0.0325, takt: 2000, gleichzeitig: 6 },
-    { nr: 5, farben: 6, zuege: 12, tempo: 0.035, takt: 1900, gleichzeitig: 6 },
-    { nr: 6, farben: 6, zuege: 15, tempo: 0.0375, takt: 1800, gleichzeitig: 6 },
-    { nr: 7, farben: 7, zuege: 15, tempo: 0.04, takt: 1700, gleichzeitig: 6 },
-    { nr: 8, farben: 8, zuege: 15, tempo: 0.0425, takt: 1600, gleichzeitig: 6 },
-    { nr: 9, farben: 8, zuege: 18, tempo: 0.045, takt: 1500, gleichzeitig: 6 },
-    { nr: 10, farben: 9, zuege: 18, tempo: 0.0475, takt: 1400, gleichzeitig: 6 },
+    { nr: 1, farben: 3, zuege: 10, tempo: 0.0275, takt: 6200 },
+    { nr: 2, farben: 4, zuege: 10, tempo: 0.0275, takt: 6000 },
+    { nr: 3, farben: 5, zuege: 12, tempo: 0.03, takt: 5000 },
+    { nr: 4, farben: 5, zuege: 13, tempo: 0.0325, takt: 4600 },
+    { nr: 5, farben: 6, zuege: 14, tempo: 0.035, takt: 3800 },
+    { nr: 6, farben: 6, zuege: 17, tempo: 0.0375, takt: 3600 },
+    { nr: 7, farben: 7, zuege: 18, tempo: 0.04, takt: 3400 },
+    { nr: 8, farben: 8, zuege: 19, tempo: 0.0425, takt: 3200 },
+    { nr: 9, farben: 8, zuege: 20, tempo: 0.045, takt: 3000 },
+    { nr: 10, farben: 9, zuege: 22, tempo: 0.0475, takt: 2800 },
   ];
 
   // Fünf abgeschlossene Level, und der Wagen im Bereich Konzentration ist für
@@ -338,14 +352,12 @@
 
   function spawnTrain() {
     if (run.gestartet >= state.level.zuege) return false;
-    if (run.trains.length >= state.level.gleichzeitig) return false;
-    // Seit die Züge halb so schnell fahren, kommen sie im selben Takt halb so
-    // weit auseinander aus dem Tunnel. Auf einem schmalen Handybild ist ein Zug
-    // fast ein Sechstel der Breite lang – ohne diese Sperre schöbe sich der
-    // nächste in den vorherigen hinein. Er wartet deshalb, bis der davor eine
-    // Zuglänge und einen Viertel weit draussen ist: genug für eine sichtbare
-    // Lücke, wenig genug, dass auch auf dem Handy so viele Züge zugleich fahren
-    // wie vorgesehen. Auf breiten Bildern greift die Sperre nie.
+    // Die einzige Sperre, die es noch gibt, und sie ist keine Spielregel,
+    // sondern Platz: auf einem schmalen Handybild ist ein Zug fast ein Sechstel
+    // der Breite lang, und im Hochformat reicht der Takt allein nicht, um zwei
+    // auseinanderzuhalten. Der nächste wartet deshalb, bis der davor eine
+    // Zuglänge und einen Viertel weit draussen ist – im Querformat, wo die App
+    // läuft, greift das bei diesen Takten nie.
     const letzter = run.trains[run.trains.length - 1];
     if (letzter && letzter.from === "start"
       && letzter.t * edgeLength("start", letzter.to) < zugLaenge() * 1.25) return false;
