@@ -300,7 +300,7 @@ const RUNDEN_SPIELE = [
   { id: "missingItem", key: "lernapp.wasfehlt", name: "Was fehlt?", drei: 8, einer: 2 },
   { id: "goSignal", key: "lernapp.signal", name: "Halt am Signal", drei: 22, einer: 4 },
   { id: "twinSpot", key: "lernapp.doppelt", name: "Doppelt gleich", drei: 20, einer: 4 },
-  { id: "numberLine", key: "lernapp.zahlengleis", name: "Wo hält der Zug?", drei: 25, einer: 5 },
+  { id: "numberLine", key: "lernapp.zahlengleis", name: "Wo hält der Zug?", drei: 42, einer: 8 },
 ];
 for (const spiel of RUNDEN_SPIELE) {
   store.clear();
@@ -347,7 +347,7 @@ for (const spielId of ["arukone", "bimaru", "shikaku", "letterPuzzle", "readingP
 // Spiel – vier aus dem Katalog und eines mit Runden.
 store.clear();
 for (const game of train.AREA_BY_ID.zahlbuchstabe.games) solve(game.id, 5);
-store.set("lernapp.zahlengleis", JSON.stringify({ runs: 5, scores: [30, 26, 20, 12, 8] }));
+store.set("lernapp.zahlengleis", JSON.stringify({ runs: 5, scores: [50, 44, 30, 12, 8] }));
 const zb = train.areaProgress("zahlbuchstabe");
 assert(zb.stage === 15 && zb.complete && zb.solved === 25, `Zahl und Buchstabe: fünfmal fünf sind der fertige Wagen (${zb.stage}, ${zb.solved})`);
 

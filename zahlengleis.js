@@ -5,7 +5,10 @@
  * Bahnhof. Oben steht eine Zahl. Das Kind schiebt seine Lok dorthin, wo diese
  * Zahl auf dem Gleis liegt, und lässt los – oder tippt die Stelle einfach an.
  * Danach fährt ein Schild an die richtige Stelle und zeigt, wie nah es war.
- * Zehn Zahlen je Runde, bis zu drei Punkte je Zahl.
+ * Zehn Zahlen je Runde, bis zu fünf Punkte je Zahl: fünf für die Mitte der
+ * Lok genau auf der Zahl, und je weiter daneben, desto weniger. Wo die Mitte
+ * ist, zeigt ein kleiner Strich unter der Lok – ohne ihn müsste ein Kind
+ * raten, ob der Kamin zählt oder das Führerhaus.
  *
  * Kein Zeitdruck und kein Ende nach einem Fehler: die Aufgabe ist das
  * Schätzen, und jede Antwort zeigt die richtige Stelle – das ist der Moment,
@@ -71,20 +74,25 @@
 
   // Wie weit die Lok daneben stehen darf – in Zahlen, nicht in Bildpunkten,
   // und im Verhältnis zum Gleis: ein Finger überdeckt auf dem langen Gleis
-  // mehr Zahlen als auf dem kurzen. Innerhalb von `genau` gibt es drei Punkte,
-  // bis `knapp` zwei, bis `nah` einen, sonst keinen. Auf den ganz kurzen
-  // Gleisen gilt eine Untergrenze, sonst müsste ein Kind auf dem Gleis bis
+  // mehr Zahlen als auf dem kurzen. Fünf Stufen, von innen nach aussen:
+  // innerhalb von `genau` fünf Punkte, bis `fast` vier, bis `knapp` drei, bis
+  // `nah` zwei, bis `weit` einen, sonst keinen. Auf den ganz kurzen Gleisen
+  // gilt je Stufe eine Untergrenze, sonst müsste ein Kind auf dem Gleis bis
   // fünf genauer treffen als ein Finger breit ist.
   function toleranzFuer(bis) {
     return {
-      genau: Math.max(0.35, bis * 0.05),
-      knapp: Math.max(0.8, bis * 0.125),
-      nah: Math.max(1.5, bis * 0.25),
+      genau: Math.max(0.15, bis * 0.02),
+      fast: Math.max(0.35, bis * 0.045),
+      knapp: Math.max(0.7, bis * 0.08),
+      nah: Math.max(1.2, bis * 0.14),
+      weit: Math.max(2, bis * 0.25),
     };
   }
 
   const ZAHLEN_JE_RUNDE = PLAN.length;
-  const PUNKTE_JE_ZAHL = 3;
+  const PUNKTE_JE_ZAHL = 5;
+  // Wie eine Antwort heisst, je nach Punkten – für Farbe und Zählung.
+  const WIE = ["daneben", "weit", "nah", "knapp", "fast", "genau"];
   // So lange steht das Schild an der richtigen Stelle, bevor die nächste Zahl
   // kommt: lang genug zum Hinschauen, kurz genug, dass keine Runde zäh wird.
   const ZEIGEN_MS = 1500;
@@ -97,15 +105,16 @@
     "Dann siehst du unten ein Gleis. Links ist der Bahnhof Null, rechts der letzte Bahnhof.",
     "Oben steht eine Zahl. Schieb die Lok mit dem Finger dorthin, wo diese Zahl auf dem Gleis liegt, und lass los.",
     "Du kannst die Stelle auch einfach antippen.",
+    "Der kleine Strich unter der Lok zeigt ihre Mitte – die soll genau auf der Zahl stehen.",
     "Danach zeigt ein Schild, wo die Zahl wirklich liegt.",
-    "Je näher du dran bist, desto mehr Punkte gibt es: bis zu drei für jede Zahl.",
+    "Je näher du dran bist, desto mehr Punkte gibt es: fünf, wenn du genau triffst, und weniger, je weiter du daneben liegst.",
     "Zehn Zahlen, dann ist die Runde vorbei. Du hast so viel Zeit, wie du willst.",
   ].join(" ");
 
   // ---------------------------------------------------------------------------
   // Bestenliste – lokal und in der Cloud
   // ---------------------------------------------------------------------------
-  // Eine Liste für alle Stufen: jede Runde hat zehn Zahlen und bis zu dreissig
+  // Eine Liste für alle Stufen: jede Runde hat zehn Zahlen und bis zu fünfzig
   // Punkte, und die Runden zählen für den Wagen gleich, egal auf welcher Stufe.
   const store = cloudApi
     ? cloudApi.register({ key: "lernapp.zahlengleis", empty: { runs: 0, scores: [] }, merge: cloudApi.mergeScores(TOP_COUNT) })
@@ -140,10 +149,12 @@
 
   function punkteFuer(abweichung, bis) {
     const t = toleranzFuer(bis);
-    const weit = Math.abs(abweichung);
-    if (weit <= t.genau) return 3;
-    if (weit <= t.knapp) return 2;
-    if (weit <= t.nah) return 1;
+    const d = Math.abs(abweichung);
+    if (d <= t.genau) return 5;
+    if (d <= t.fast) return 4;
+    if (d <= t.knapp) return 3;
+    if (d <= t.nah) return 2;
+    if (d <= t.weit) return 1;
     return 0;
   }
 
@@ -175,7 +186,7 @@
   // ---------------------------------------------------------------------------
   const state = {
     phase: "menu", stufe: STUFEN[0], index: 0, gleis: null, zahl: 0, vorher: null,
-    p: 0, punkte: 0, genau: 0, knapp: 0, nah: 0, daneben: 0, drag: false,
+    p: 0, punkte: 0, genau: 0, fast: 0, knapp: 0, nah: 0, weit: 0, daneben: 0, drag: false,
   };
   let shell = null;
   let schild = null;
@@ -276,12 +287,24 @@
     lok.style.setProperty("--zg-p", String(state.p));
   }
 
-  // Aus der Fingerstelle wird ein Anteil der Strecke.
+  // Aus der Fingerstelle wird ein Anteil der Strecke. Gemessen wird an den
+  // beiden Bahnhofsmarken – dort, wo CSS sie wirklich hingestellt hat. Den
+  // Rand aus --zg-rand zu lesen ginge nicht: eine Custom Property kommt aus
+  // getComputedStyle als unaufgelöster Text ("clamp(44px, …)") zurück, nicht
+  // als Zahl, und die Lok stünde neben dem Finger statt darunter.
   function anteilVon(clientX) {
     const box = gleis.getBoundingClientRect();
-    const rand = parseFloat(getComputedStyle(gleis).getPropertyValue("--zg-rand")) || 0;
-    const breite = Math.max(1, box.width - 2 * rand);
-    return (clientX - box.left - rand) / breite;
+    let links = box.left;
+    let rechts = box.right;
+    const erste = marken.firstElementChild;
+    const letzte = marken.lastElementChild;
+    if (erste && letzte && letzte !== erste) {
+      const a = erste.getBoundingClientRect();
+      const b = letzte.getBoundingClientRect();
+      links = a.left + a.width / 2;
+      rechts = b.left + b.width / 2;
+    }
+    return (clientX - links) / Math.max(1, rechts - links);
   }
 
   // ---------------------------------------------------------------------------
@@ -293,7 +316,7 @@
     releaseHelp = null;
     shell.closeOverlay();
     shell.setPhase("play");
-    Object.assign(state, { phase: "aufgabe", stufe, index: 0, vorher: null, punkte: 0, genau: 0, knapp: 0, nah: 0, daneben: 0, drag: false });
+    Object.assign(state, { phase: "aufgabe", stufe, index: 0, vorher: null, punkte: 0, genau: 0, fast: 0, knapp: 0, nah: 0, weit: 0, daneben: 0, drag: false });
     shell.setCount(0);
 
     shell.clear();
@@ -336,7 +359,7 @@
     baueMarken(state.gleis);
     ziel.hidden = true;
     plus.hidden = true;
-    lok.classList.remove("is-genau", "is-knapp", "is-nah", "is-daneben");
+    lok.classList.remove(...WIE.map((wie) => `is-${wie}`));
     setLok(0);
 
     schild.textContent = String(state.zahl);
@@ -367,7 +390,7 @@
     const { bis } = state.gleis;
     const wert = state.p * bis;
     const punkte = punkteFuer(wert - state.zahl, bis);
-    const wie = ["daneben", "nah", "knapp", "genau"][punkte];
+    const wie = WIE[punkte];
     state[wie] += 1;
     state.punkte += punkte;
     shell.setCount(state.punkte);
@@ -385,8 +408,8 @@
     gleis.setAttribute("aria-valuenow", wert.toFixed(1));
     gleis.setAttribute("aria-valuetext", `Lok steht bei ${wert.toFixed(1)}, gesucht war ${state.zahl}: ${punkte} Punkte.`);
 
-    if (punkte >= 2) { kids()?.playJingle?.("correct"); kids()?.vibrate?.(16); }
-    else if (punkte === 1) kids()?.playJingle?.("star");
+    if (punkte >= 4) { kids()?.playJingle?.("correct"); kids()?.vibrate?.(16); }
+    else if (punkte >= 2) kids()?.playJingle?.("star");
     else kids()?.playJingle?.("retry");
 
     stepTimer = window.setTimeout(() => {
@@ -420,7 +443,7 @@
     shell.showResult({
       label: "Deine Punkte",
       points: punkte,
-      detail: `Stufe ${state.stufe.nr} · ${state.genau} genau · ${state.knapp} knapp · ${state.nah + state.daneben} daneben`,
+      detail: `Stufe ${state.stufe.nr} · ${state.genau} genau · ${state.fast + state.knapp} knapp · ${state.nah + state.weit + state.daneben} daneben`,
       scores: next.scores,
       top: TOP_COUNT,
       note: { text: runsText(next.runs), done: next.runs >= RUNS_FOR_DONE },
@@ -511,7 +534,7 @@
   window.addEventListener("pagehide", clearStep);
 
   window.LernappZahlengleis = {
-    STUFEN, PLAN, ZAHLEN_JE_RUNDE, PUNKTE_JE_ZAHL, RUNS_FOR_DONE,
+    STUFEN, PLAN, WIE, ZAHLEN_JE_RUNDE, PUNKTE_JE_ZAHL, RUNS_FOR_DONE,
     gleisFuer, toleranzFuer, zahlFuer, punkteFuer, state,
   };
 })();
