@@ -7,8 +7,13 @@
  * Danach fährt ein Schild an die richtige Stelle und zeigt, wie nah es war.
  * Zehn Zahlen je Runde, bis zu fünf Punkte je Zahl: fünf für die Mitte der
  * Lok genau auf der Zahl, und je weiter daneben, desto weniger. Wo die Mitte
- * ist, zeigt ein kleiner Strich unter der Lok – ohne ihn müsste ein Kind
- * raten, ob der Kamin zählt oder das Führerhaus.
+ * ist, zeigt ein roter Strich unter der Lok – ohne ihn müsste ein Kind raten,
+ * ob der Kamin zählt oder das Führerhaus.
+ *
+ * Die Marken des Gleises hängen unter der Schiene, nicht darüber. Über ihr
+ * verdeckte die Lok genau die Marke, auf die gezielt wurde; unten stehen
+ * Marke und Lok-Strich nebeneinander, und das Kind sieht beim Schieben, wie
+ * nah es ist.
  *
  * Kein Zeitdruck und kein Ende nach einem Fehler: die Aufgabe ist das
  * Schätzen, und jede Antwort zeigt die richtige Stelle – das ist der Moment,
@@ -105,7 +110,7 @@
     "Dann siehst du unten ein Gleis. Links ist der Bahnhof Null, rechts der letzte Bahnhof.",
     "Oben steht eine Zahl. Schieb die Lok mit dem Finger dorthin, wo diese Zahl auf dem Gleis liegt, und lass los.",
     "Du kannst die Stelle auch einfach antippen.",
-    "Der kleine Strich unter der Lok zeigt ihre Mitte – die soll genau auf der Zahl stehen.",
+    "Der rote Strich unter der Lok zeigt ihre Mitte. Unter dem Gleis stehen kleine schwarze Striche – schieb den roten genau über den richtigen.",
     "Danach zeigt ein Schild, wo die Zahl wirklich liegt.",
     "Je näher du dran bist, desto mehr Punkte gibt es: fünf, wenn du genau triffst, und weniger, je weiter du daneben liegst.",
     "Zehn Zahlen, dann ist die Runde vorbei. Du hast so viel Zeit, wie du willst.",
@@ -262,7 +267,12 @@
       const ende = n === 0 || n === bis;
       const marke = shell.el("span", `zg-marke${ende ? " is-bahnhof" : ""}`);
       marke.style.setProperty("--zg-p", String(n / bis));
+      // Der Strich hängt unter der Schiene. Über ihr verdeckte die Lok ihn
+      // genau dann, wenn es darauf ankam – beim Zielen; unten bleibt er frei,
+      // und der Strich der Lok reicht bis neben ihn hinunter.
+      marke.append(shell.el("span", "zg-marke-strich"));
       if (ende) {
+        // Der Bahnhof steht oben auf der Schiene, mit seiner Zahl im Giebel.
         const bahnhof = shell.el("span", "zg-bahnhof");
         bahnhof.append(art.el("svg", { viewBox: "0 0 40 34", "aria-hidden": "true" }, [
           art.el("path", { d: "M4 16 L20 4 L36 16 V32 H4 Z", fill: "#fff8ea", stroke: "#8a3a2c", "stroke-width": 2.5, "stroke-linejoin": "round" }),
@@ -272,7 +282,7 @@
         bahnhof.append(zahl);
         marke.append(bahnhof);
       } else if (zahlen) {
-        // Auf dem ersten Gleis steht an jeder Marke die Zahl – hier wird
+        // Auf dem ersten Gleis steht unter jedem Strich seine Zahl – hier wird
         // gezählt, nicht geschätzt.
         marke.append(shell.el("span", "zg-marke-zahl", String(n)));
       }
@@ -292,6 +302,9 @@
   // Rand aus --zg-rand zu lesen ginge nicht: eine Custom Property kommt aus
   // getComputedStyle als unaufgelöster Text ("clamp(44px, …)") zurück, nicht
   // als Zahl, und die Lok stünde neben dem Finger statt darunter.
+  //
+  // Eine Marke ist ohne Breite; ihre linke Kante ist die Stelle. Die Mitte zu
+  // rechnen schadet trotzdem nicht und hielte, wenn sie je wieder Breite bekäme.
   function anteilVon(clientX) {
     const box = gleis.getBoundingClientRect();
     let links = box.left;

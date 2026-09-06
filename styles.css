@@ -7886,27 +7886,33 @@ body.has-scene.puzzle-active .game-panel {
 }
 .zg-punkt.is-dran { background: var(--cm-accent); transform: scale(1.35); }
 
-/* Das Gleis. Die Höhe ist die der Lok samt Schild darüber; die Breite nimmt,
-   was da ist. */
+/* Das Gleis. Die Höhe ist die der Lok, das Messband darunter und Platz für das
+   Schild darüber; die Breite nimmt, was da ist. */
 .zg-gleis {
   --zg-rand: clamp(44px, 7vw, 80px);
   --zg-lok: clamp(72px, 14vh, 116px);
+  /* Das Messband unter der Schiene. Dort stehen die Marken – über der Schiene
+     verdeckte die Lok sie genau dann, wenn es darauf ankam: beim Zielen. Unten
+     bleiben sie frei, und der Strich der Lok reicht bis zu ihnen hinunter, so
+     dass beides nebeneinander zu sehen ist. */
+  --zg-band: clamp(26px, 5.5vh, 38px);
+  --zg-strich: clamp(10px, 2.2vh, 16px);
   position: relative;
   flex: 0 0 auto;
   width: min(96vw, 1100px);
-  height: calc(var(--zg-lok) + 52px);
+  height: calc(var(--zg-lok) + 52px + var(--zg-band));
   cursor: pointer;
   outline: none;
   -webkit-tap-highlight-color: transparent;
 }
 .zg-gleis:focus-visible .zg-schiene { box-shadow: 0 0 0 3px #243047; }
 
-/* Zwei Schienen auf Schwellen, unten am Gleis. */
+/* Zwei Schienen auf Schwellen, über dem Messband. */
 .zg-schiene {
   position: absolute;
   left: 0;
   right: 0;
-  bottom: 0;
+  bottom: var(--zg-band);
   height: 16px;
   border-radius: 6px;
   background:
@@ -7915,37 +7921,64 @@ body.has-scene.puzzle-active .game-panel {
     repeating-linear-gradient(90deg, transparent 0 14px, #c98a3f 14px 22px);
 }
 
-/* Die Marken: ein Strich über der Schiene, an den Enden ein Bahnhof mit Zahl. */
+/* Eine Marke ist nur eine Stelle auf dem Gleis: der Strich hängt unter der
+   Schiene, seine Zahl darunter, und an den Enden steht der Bahnhof oben auf
+   der Schiene. Die Marke selbst ist ohne Breite – ihre linke Kante ist die
+   Stelle, und genau daran misst zahlengleis.js die Strecke nach. */
 .zg-marken { position: absolute; inset: 0; pointer-events: none; }
 .zg-marke {
   position: absolute;
-  bottom: 14px;
+  top: 0;
+  bottom: 0;
   left: calc(var(--zg-rand) + var(--zg-p, 0) * (100% - 2 * var(--zg-rand)));
-  width: 4px;
-  height: 14px;
-  border-radius: 2px;
+  width: 0;
+}
+
+/* Der Strich: hängt an der Unterkante der Schiene und zeigt nach unten. Er ist
+   breiter als der Strich der Lok, damit er auch dann links und rechts
+   hervorschaut, wenn dieser genau darauf liegt – daran sieht ein Kind, dass es
+   wirklich mittig steht und nicht bloss irgendwo darüber. */
+.zg-marke-strich {
+  position: absolute;
+  left: 50%;
+  bottom: calc(var(--zg-band) - var(--zg-strich));
+  width: 9px;
+  height: var(--zg-strich);
+  border-radius: 0 0 3px 3px;
   background: #243047;
   transform: translateX(-50%);
 }
-.zg-marke.is-bahnhof { height: 22px; background: #8a3a2c; }
-.zg-marke-zahl,
+.zg-marke.is-bahnhof .zg-marke-strich { background: #8a3a2c; }
+
+/* Die Zahl steht unter ihrem Strich, im Gras – nur auf dem ersten Gleis, wo
+   gezählt statt geschätzt wird. */
+.zg-marke-zahl {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  transform: translateX(-50%);
+  color: #243047;
+  font-weight: 900;
+  font-size: clamp(0.8rem, 2.6vh, 1.15rem);
+  line-height: 1;
+  white-space: nowrap;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.85), 0 0 4px rgba(255, 255, 255, 0.9);
+}
+
+/* Der Bahnhof steht oben auf der Schiene, mit seiner Zahl im Giebel. */
 .zg-bahnhof {
   position: absolute;
   left: 50%;
-  bottom: 100%;
+  bottom: calc(var(--zg-band) + 12px);
   transform: translateX(-50%);
+  display: grid;
+  place-items: center;
+  width: clamp(38px, 8vh, 54px);
   color: #243047;
   font-weight: 900;
   font-size: clamp(0.9rem, 3vh, 1.25rem);
   line-height: 1;
   white-space: nowrap;
-}
-.zg-marke-zahl { padding-bottom: 3px; text-shadow: 0 1px 0 rgba(255, 255, 255, 0.8); }
-.zg-bahnhof {
-  display: grid;
-  place-items: center;
-  width: clamp(38px, 8vh, 54px);
-  padding-bottom: 2px;
 }
 .zg-bahnhof svg { width: 100%; height: auto; display: block; }
 .zg-bahnhof-zahl {
@@ -7962,7 +7995,7 @@ body.has-scene.puzzle-active .game-panel {
    Anfang, wenn die nächste Zahl kommt. */
 .zg-lok {
   position: absolute;
-  bottom: 12px;
+  bottom: calc(var(--zg-band) + 12px);
   left: calc(var(--zg-rand) + var(--zg-p, 0) * (100% - 2 * var(--zg-rand)));
   width: var(--zg-lok);
   transform: translateX(-50%);
@@ -7971,18 +8004,20 @@ body.has-scene.puzzle-active .game-panel {
 }
 .zg-lok.is-drag, .zg-lok.is-sofort { transition: none; }
 /* Der Strich unter der Lok: genau ihre Mitte, und genau die wird gewertet.
-   Er reicht bis auf die Schiene hinunter, mit hellem Saum, damit er auf dem
-   Holz zu sehen bleibt. */
+   Er reicht durch die Schiene hinunter bis zur Unterkante der Marken – dorthin,
+   wo ihn nichts verdeckt. Rot statt dunkel, damit er auf der dunklen Marke zu
+   sehen bleibt: liegt er mittig darin, steht die Lok genau auf der Zahl. Der
+   helle Saum trennt ihn vom Holz der Schiene. */
 .zg-lok::after {
   content: "";
   position: absolute;
   left: 50%;
-  bottom: -14px;
+  bottom: calc(-12px - var(--zg-strich));
   width: 3px;
-  height: 18px;
-  border-radius: 2px;
-  background: #243047;
-  box-shadow: 0 0 0 1.5px rgba(255, 255, 255, 0.85);
+  height: calc(18px + var(--zg-strich));
+  border-radius: 1px;
+  background: #c1341f;
+  box-shadow: 0 0 0 1px #fff;
   transform: translateX(-50%);
 }
 .zg-lok-bild { display: block; width: 100%; height: auto; filter: drop-shadow(0 4px 6px rgba(31, 42, 51, 0.25)); }
@@ -8024,13 +8059,15 @@ body.has-scene.puzzle-active .game-panel {
    Kreis. Grün, wenn die Lok genau davorsteht, sonst gelb bis rot – dieselbe
    Farbe wie der Schein um die Lok. Es kommt von oben herunter, damit der
    Blick von der Lok dorthin springt. */
+/* Der Pfahl reicht bis zur Unterkante der Marken hinunter, genau wie der Strich
+   der Lok: so stehen beide auf derselben Linie und lassen sich vergleichen. */
 .zg-ziel {
   --zg-ziel-farbe: #2f9e44;
   position: absolute;
-  bottom: 16px;
+  bottom: calc(var(--zg-band) - var(--zg-strich));
   left: calc(var(--zg-rand) + var(--zg-p, 0) * (100% - 2 * var(--zg-rand)));
   width: 6px;
-  height: calc(var(--zg-lok) + 8px);
+  height: calc(var(--zg-lok) + 24px + var(--zg-strich));
   border-radius: 3px;
   background: #243047;
   transform: translateX(-50%);
