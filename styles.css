@@ -7831,6 +7831,814 @@ body.has-scene.puzzle-active .game-panel {
 }
 
 /* ===========================================================================
+   Wo hält der Zug?
+   ---------------------------------------------------------------------------
+   Dieselbe Bühne wie die anderen Spiele, in der Farbe des Bereichs Zahl und
+   Buchstabe. Oben das Schild mit der Zahl, darunter zehn Punkte für die zehn
+   Zahlen der Runde, unten das Gleis: so breit wie die Bühne, mit der Lok des
+   Kindes darauf.
+
+   Alles auf dem Gleis steht an einem Anteil --zg-p zwischen 0 und 1; die
+   Strecke beginnt --zg-rand vom linken Rand und endet --zg-rand vor dem
+   rechten. zahlengleis.js rechnet nur mit diesem Anteil und liest den Rand
+   von hier – so stimmen Finger, Lok, Marken und Schild an derselben Stelle
+   überein, egal wie breit das Gleis gerade ist.
+   =========================================================================== */
+
+.zg-stage {
+  --cm-accent: #E8543F;
+  --cm-accent-dark: #a8321f;
+  /* Geschoben wird auf dem Gleis; ohne diese Zeile hielte der Browser das
+     Schieben für einen Anlauf zum Rollen. */
+  touch-action: none;
+}
+
+/* Das Schild mit der gesuchten Zahl: gross, weil es das Einzige ist, was ein
+   Kind hier lesen muss – und die Zahl ist die ganze Aufgabe. */
+.zg-schild {
+  flex: 0 0 auto;
+  min-width: 2.2em;
+  padding: 0.05em 0.45em;
+  border-radius: 18px;
+  background: #fff8ea;
+  color: #243047;
+  font-size: clamp(2.4rem, 11vh, 4.4rem);
+  font-weight: 900;
+  line-height: 1.2;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  box-shadow: 0 8px 20px rgba(31, 42, 51, 0.2), inset 0 0 0 4px var(--cm-accent);
+}
+.zg-schild.is-neu { animation: zg-schild 0.4s cubic-bezier(0.2, 1.4, 0.4, 1) both; }
+@keyframes zg-schild {
+  0% { transform: scale(0.7); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* Zehn Punkte, einer je Zahl; der, der dran ist, ist gross. */
+.zg-fortschritt { display: flex; gap: 7px; flex: 0 0 auto; }
+.zg-punkt {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: rgba(36, 48, 71, 0.22);
+  transition: transform 0.2s ease, background 0.2s ease;
+}
+.zg-punkt.is-dran { background: var(--cm-accent); transform: scale(1.35); }
+
+/* Das Gleis. Die Höhe ist die der Lok samt Schild darüber; die Breite nimmt,
+   was da ist. */
+.zg-gleis {
+  --zg-rand: clamp(44px, 7vw, 80px);
+  --zg-lok: clamp(72px, 14vh, 116px);
+  position: relative;
+  flex: 0 0 auto;
+  width: min(96vw, 1100px);
+  height: calc(var(--zg-lok) + 52px);
+  cursor: pointer;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.zg-gleis:focus-visible .zg-schiene { box-shadow: 0 0 0 3px #243047; }
+
+/* Zwei Schienen auf Schwellen, unten am Gleis. */
+.zg-schiene {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 16px;
+  border-radius: 6px;
+  background:
+    linear-gradient(#8a5f1c, #8a5f1c) 0 2px / 100% 3px no-repeat,
+    linear-gradient(#8a5f1c, #8a5f1c) 0 11px / 100% 3px no-repeat,
+    repeating-linear-gradient(90deg, transparent 0 14px, #c98a3f 14px 22px);
+}
+
+/* Die Marken: ein Strich über der Schiene, an den Enden ein Bahnhof mit Zahl. */
+.zg-marken { position: absolute; inset: 0; pointer-events: none; }
+.zg-marke {
+  position: absolute;
+  bottom: 14px;
+  left: calc(var(--zg-rand) + var(--zg-p, 0) * (100% - 2 * var(--zg-rand)));
+  width: 4px;
+  height: 14px;
+  border-radius: 2px;
+  background: #243047;
+  transform: translateX(-50%);
+}
+.zg-marke.is-bahnhof { height: 22px; background: #8a3a2c; }
+.zg-marke-zahl,
+.zg-bahnhof {
+  position: absolute;
+  left: 50%;
+  bottom: 100%;
+  transform: translateX(-50%);
+  color: #243047;
+  font-weight: 900;
+  font-size: clamp(0.9rem, 3vh, 1.25rem);
+  line-height: 1;
+  white-space: nowrap;
+}
+.zg-marke-zahl { padding-bottom: 3px; text-shadow: 0 1px 0 rgba(255, 255, 255, 0.8); }
+.zg-bahnhof {
+  display: grid;
+  place-items: center;
+  width: clamp(38px, 8vh, 54px);
+  padding-bottom: 2px;
+}
+.zg-bahnhof svg { width: 100%; height: auto; display: block; }
+.zg-bahnhof-zahl {
+  position: absolute;
+  top: 38%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: clamp(0.85rem, 2.8vh, 1.15rem);
+  color: #8a3a2c;
+}
+
+/* Die Lok des Kindes. Sie steht mit ihrer Mitte an --zg-p; beim Schieben
+   folgt sie dem Finger ohne Verzögerung, sonst fährt sie – etwa zurück zum
+   Anfang, wenn die nächste Zahl kommt. */
+.zg-lok {
+  position: absolute;
+  bottom: 12px;
+  left: calc(var(--zg-rand) + var(--zg-p, 0) * (100% - 2 * var(--zg-rand)));
+  width: var(--zg-lok);
+  transform: translateX(-50%);
+  transition: left 0.55s cubic-bezier(0.3, 0.7, 0.3, 1);
+  pointer-events: none;
+}
+.zg-lok.is-drag, .zg-lok.is-sofort { transition: none; }
+.zg-lok-bild { display: block; width: 100%; height: auto; filter: drop-shadow(0 4px 6px rgba(31, 42, 51, 0.25)); }
+.zg-lok.is-drag .zg-lok-bild { transform: scale(1.06); }
+.zg-lok.is-genau .zg-lok-bild { filter: drop-shadow(0 0 10px #2f9e44); }
+.zg-lok.is-knapp .zg-lok-bild { filter: drop-shadow(0 0 10px #f6b93b); }
+.zg-lok.is-nah .zg-lok-bild { filter: drop-shadow(0 0 8px #ff9f1c); }
+.zg-lok.is-daneben .zg-lok-bild { filter: drop-shadow(0 0 8px #e2694f); }
+
+/* Die Punkte für diese Zahl, über der Lok. */
+.zg-plus {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 4px);
+  transform: translateX(-50%);
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: #fff;
+  color: #243047;
+  font-weight: 900;
+  font-size: clamp(0.95rem, 3vh, 1.3rem);
+  box-shadow: 0 3px 8px rgba(31, 42, 51, 0.2);
+  animation: zg-plus 0.4s cubic-bezier(0.2, 1.4, 0.4, 1) both;
+}
+.zg-plus.is-genau { background: #2f9e44; color: #fff; }
+.zg-plus.is-knapp { background: #f6b93b; }
+.zg-plus.is-nah { background: #ffd8a8; }
+.zg-plus.is-daneben { background: #f2c4bb; }
+@keyframes zg-plus {
+  0% { transform: translate(-50%, 8px) scale(0.6); opacity: 0; }
+  100% { transform: translate(-50%, 0) scale(1); opacity: 1; }
+}
+
+/* Das Schild an der richtigen Stelle: ein Pfahl, obendrauf die Zahl in einem
+   Kreis. Grün, wenn die Lok genau davorsteht, sonst gelb bis rot – dieselbe
+   Farbe wie der Schein um die Lok. Es kommt von oben herunter, damit der
+   Blick von der Lok dorthin springt. */
+.zg-ziel {
+  --zg-ziel-farbe: #2f9e44;
+  position: absolute;
+  bottom: 16px;
+  left: calc(var(--zg-rand) + var(--zg-p, 0) * (100% - 2 * var(--zg-rand)));
+  width: 6px;
+  height: calc(var(--zg-lok) + 8px);
+  border-radius: 3px;
+  background: #243047;
+  transform: translateX(-50%);
+  pointer-events: none;
+  animation: zg-ziel 0.45s cubic-bezier(0.2, 1.2, 0.4, 1) both;
+}
+.zg-ziel.is-knapp { --zg-ziel-farbe: #d9950f; }
+.zg-ziel.is-nah { --zg-ziel-farbe: #e07b1a; }
+.zg-ziel.is-daneben { --zg-ziel-farbe: #c94a33; }
+.zg-ziel-zahl {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  display: grid;
+  place-items: center;
+  width: 2.1em;
+  height: 2.1em;
+  border-radius: 50%;
+  background: var(--zg-ziel-farbe);
+  color: #fff;
+  font-weight: 900;
+  font-size: clamp(1.1rem, 4vh, 1.7rem);
+  line-height: 1;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 4px 10px rgba(31, 42, 51, 0.25), inset 0 0 0 3px #fff;
+}
+@keyframes zg-ziel {
+  0% { transform: translate(-50%, -30px); opacity: 0; }
+  100% { transform: translate(-50%, 0); opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .zg-lok { transition: none; }
+  .zg-schild.is-neu, .zg-plus, .zg-ziel { animation: none; }
+}
+
+/* ===========================================================================
+   Halt am Signal
+   ---------------------------------------------------------------------------
+   Dieselbe Bühne wie Schwarm-Fokus, in der Farbe des Bereichs Konzentration.
+   In der Mitte die Strecke: links der Tunnel, rechts das Signal mit der
+   Schranke, dazwischen das Gleis. Der Zug ist die Lok des Kindes; wo er
+   gerade ist, sagt eine Klasse (is-tunnel, is-fahrt, is-halt, is-durch,
+   is-ruck), und die Fahrt selbst ist ein Übergang auf left – signal.js setzt
+   nur die Klasse und zählt die Zeit daneben mit.
+   =========================================================================== */
+
+.sg-stage {
+  --cm-accent: #00A5B5;
+  --cm-accent-dark: #00707c;
+  --sg-fahrt: 0.9s;
+  --sg-weiter: 0.48s;
+  touch-action: manipulation;
+}
+
+.sg-strecke {
+  --sg-lok: clamp(84px, 18vh, 150px);
+  position: relative;
+  flex: 0 0 auto;
+  width: min(96vw, 1000px);
+  height: calc(var(--sg-lok) + 30px);
+  overflow: hidden;
+  overflow: clip;
+  border-radius: 22px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.sg-strecke.is-fehler { animation: sg-fehler 0.45s ease both; }
+@keyframes sg-fehler {
+  0%, 100% { box-shadow: none; }
+  30% { box-shadow: inset 0 0 0 6px rgba(226, 105, 79, 0.85); }
+}
+
+.sg-gleis {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 6px;
+  height: 16px;
+  border-radius: 6px;
+  background:
+    linear-gradient(#8a5f1c, #8a5f1c) 0 2px / 100% 3px no-repeat,
+    linear-gradient(#8a5f1c, #8a5f1c) 0 11px / 100% 3px no-repeat,
+    repeating-linear-gradient(90deg, transparent 0 14px, #c98a3f 14px 22px);
+}
+
+/* Der Tunnel: ein dunkler Bogen am linken Rand, vor dem Zug – so kommt der
+   Zug aus ihm heraus. */
+.sg-tunnel {
+  position: absolute;
+  left: -14px;
+  bottom: 0;
+  width: 64px;
+  height: calc(var(--sg-lok) + 10px);
+  border-radius: 40px 40px 0 0;
+  background: linear-gradient(#5b6470, #3c4652 60%, #2b3440);
+  box-shadow: inset -10px 0 14px rgba(0, 0, 0, 0.35);
+  z-index: 3;
+}
+
+/* Der Zug. Sein linker Rand steht bei left; die Klassen setzen die Stationen:
+   im Tunnel (links, unsichtbar), vor dem Signal, hinter dem Bild. */
+.sg-zug {
+  position: absolute;
+  bottom: 2px;
+  left: calc(-1 * var(--sg-lok) - 20px);
+  width: var(--sg-lok);
+  z-index: 2;
+  filter: drop-shadow(0 4px 6px rgba(31, 42, 51, 0.25));
+}
+.sg-zug.is-fahrt { left: calc(100% - var(--sg-lok) - 118px); transition: left var(--sg-fahrt) cubic-bezier(0.3, 0.8, 0.5, 1); }
+.sg-zug.is-halt { left: calc(100% - var(--sg-lok) - 118px); }
+.sg-zug.is-durch { left: calc(100% + 30px); transition: left var(--sg-weiter) cubic-bezier(0.5, 0, 0.8, 0.6); }
+.sg-zug.is-ruck { left: calc(100% - var(--sg-lok) - 110px); animation: sg-ruck 0.5s ease both; }
+@keyframes sg-ruck {
+  0% { transform: translateX(0); }
+  30% { transform: translateX(10px) rotate(-2deg); }
+  60% { transform: translateX(-6px); }
+  100% { transform: translateX(0); }
+}
+.sg-lok-bild { display: block; width: 100%; height: auto; }
+
+/* Das Signal rechts. Rot oben, Grün unten; das leuchtende Licht bekommt einen
+   Schein, das andere bleibt dunkel. */
+.sg-signal {
+  position: absolute;
+  right: 16px;
+  bottom: 18px;
+  width: clamp(30px, 6vh, 46px);
+  z-index: 4;
+}
+.sg-signal-bild { display: block; width: 100%; height: auto; }
+.sg-licht-rot { fill: #6b2b23; }
+.sg-licht-gruen { fill: #1f5a2b; }
+.sg-signal.is-rot .sg-licht-rot { fill: #ff5d5d; filter: drop-shadow(0 0 8px #ff5d5d); }
+.sg-signal.is-gruen .sg-licht-gruen { fill: #4be27a; filter: drop-shadow(0 0 8px #4be27a); }
+
+/* Die Schranke vor dem Signal: zu, bis der Zug durchdarf. */
+.sg-schranke {
+  position: absolute;
+  right: calc(16px + clamp(30px, 6vh, 46px) - 6px);
+  bottom: 20px;
+  width: clamp(70px, 14vh, 112px);
+  z-index: 4;
+}
+.sg-schranke-bild { display: block; width: 100%; height: auto; overflow: visible; }
+.sg-balken { transform-box: fill-box; transform-origin: 8% 50%; transition: transform 0.28s cubic-bezier(0.3, 1.2, 0.5, 1); }
+.sg-schranke.is-offen .sg-balken { transform: rotate(-78deg); }
+
+/* Der grosse Knopf unter der Strecke: derselbe Tipp wie auf die Strecke, für
+   Kinder, die lieber einen Knopf haben. */
+.sg-knopf {
+  flex: 0 0 auto;
+  width: clamp(64px, 14vh, 96px);
+  height: clamp(64px, 14vh, 96px);
+  border: none;
+  border-radius: 50%;
+  background: #2f9e44;
+  color: #fff;
+  box-shadow: 0 6px 0 #1f6b2e, 0 10px 20px rgba(31, 42, 51, 0.25);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  -webkit-tap-highlight-color: transparent;
+}
+.sg-knopf svg { width: 50%; height: auto; }
+.sg-knopf:active { transform: translateY(3px); box-shadow: 0 3px 0 #1f6b2e, 0 6px 12px rgba(31, 42, 51, 0.25); }
+.sg-knopf:focus-visible { outline: 3px solid #243047; outline-offset: 4px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .sg-zug.is-fahrt, .sg-zug.is-durch { transition: opacity 0.2s linear; }
+  .sg-zug.is-ruck { animation: none; }
+  .sg-strecke.is-fehler { animation: none; box-shadow: inset 0 0 0 6px rgba(226, 105, 79, 0.85); }
+}
+
+/* ===========================================================================
+   Was fehlt?
+   ---------------------------------------------------------------------------
+   Dieselbe Bühne wie Kacheln-Knobeln, in der Farbe des Bereichs Gedächtnis.
+   In der Mitte ein offener Güterwagen, die Fracht in einer Reihe darauf, und
+   eine Plane, die von oben herunterkommt (is-zu). Darunter die Auswahl.
+   Die Fracht sind die Gegenstände aus strand-art.js; wie viele nebeneinander
+   liegen, sagt --wf-stuecke, und danach richtet sich, wie gross jedes wird.
+   =========================================================================== */
+
+.wf-stage { --cm-accent: #7C5CE6; --cm-accent-dark: #5a41b8; }
+
+.wf-prompt { flex: 0 0 auto; min-height: 1.4em; }
+
+/* Der Wagen: Bordwand, Ladefläche, zwei Räder – aus Rahmen und
+   Pseudo-Elementen, damit er so breit sein darf, wie die Fracht braucht. */
+.wf-wagen {
+  --wf-stueck: clamp(44px, 12vh, 84px);
+  position: relative;
+  flex: 0 0 auto;
+  max-width: 96vw;
+  padding: clamp(6px, 1.4vh, 12px) clamp(14px, 2.6vw, 26px) clamp(8px, 1.6vh, 14px);
+  margin-bottom: clamp(12px, 3vh, 22px);
+  border-radius: 8px 8px 14px 14px;
+  background: linear-gradient(#a58ef0, #7C5CE6 30%, #6a4bd0);
+  box-shadow: inset 0 -4px 0 #4d37a8, 0 10px 24px rgba(31, 42, 51, 0.22);
+}
+.wf-wagen::before,
+.wf-wagen::after {
+  content: "";
+  position: absolute;
+  bottom: calc(-1 * clamp(10px, 2.4vh, 18px));
+  width: clamp(20px, 4.8vh, 36px);
+  height: clamp(20px, 4.8vh, 36px);
+  border-radius: 50%;
+  background: radial-gradient(circle, #c9bcf5 0 24%, #3b2a86 26% 62%, #5a41b8 64%);
+  box-shadow: 0 3px 6px rgba(31, 42, 51, 0.3);
+}
+.wf-wagen::before { left: 12%; }
+.wf-wagen::after { right: 12%; }
+
+/* Die Fracht in einer Reihe, jedes Stück gleich breit. */
+.wf-ladung {
+  display: flex;
+  gap: clamp(4px, 1vw, 10px);
+  align-items: flex-end;
+  justify-content: center;
+}
+.wf-stueck {
+  display: block;
+  width: var(--wf-stueck);
+  height: var(--wf-stueck);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.35);
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+.wf-stueck .st-art { display: block; width: 100%; height: 100%; }
+
+/* Die Lücke: das Stück ist unsichtbar, sein Platz bleibt als gestrichelter
+   Rahmen stehen – wo etwas fehlt, sieht man; was, muss man wissen. */
+.wf-stueck.is-weg .st-art { visibility: hidden; }
+.wf-stueck.is-weg { background: none; box-shadow: inset 0 0 0 3px rgba(255, 255, 255, 0.75); border-style: dashed; }
+.wf-stueck.is-zurueck { animation: wf-zurueck 0.5s cubic-bezier(0.2, 1.4, 0.4, 1) both; }
+@keyframes wf-zurueck {
+  0% { transform: translateY(-40px) scale(0.6); opacity: 0; }
+  100% { transform: none; opacity: 1; }
+}
+
+/* Die Plane: liegt oberhalb des Wagens bereit und kommt herunter. */
+.wf-plane {
+  position: absolute;
+  inset: -6px -4px -2px;
+  border-radius: 12px;
+  background:
+    repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0 12px, transparent 12px 24px),
+    linear-gradient(#e6d3ad, #c9b48a);
+  box-shadow: 0 6px 14px rgba(31, 42, 51, 0.3);
+  transform: translateY(-115%);
+  opacity: 0;
+  transition: transform 0.5s cubic-bezier(0.3, 0.8, 0.4, 1), opacity 0.2s linear;
+  pointer-events: none;
+}
+.wf-wagen.is-zu .wf-plane { transform: translateY(0); opacity: 1; }
+
+/* Die Auswahl: drei oder vier grosse Knöpfe mit je einem Stück. */
+.wf-wahl {
+  display: flex;
+  gap: clamp(10px, 2.4vw, 24px);
+  flex: 0 0 auto;
+  min-height: clamp(56px, 14vh, 100px);
+}
+.wf-knopf {
+  width: clamp(56px, 14vh, 100px);
+  height: clamp(56px, 14vh, 100px);
+  padding: 6px;
+  border: none;
+  border-radius: 18px;
+  background: rgba(253, 251, 246, 0.94);
+  box-shadow: 0 6px 0 rgba(31, 42, 51, 0.15), 0 10px 20px rgba(31, 42, 51, 0.18);
+  cursor: pointer;
+  animation: wf-knopf 0.35s cubic-bezier(0.2, 1.4, 0.4, 1) both;
+  -webkit-tap-highlight-color: transparent;
+}
+.wf-knopf:nth-child(2) { animation-delay: 0.06s; }
+.wf-knopf:nth-child(3) { animation-delay: 0.12s; }
+.wf-knopf:nth-child(4) { animation-delay: 0.18s; }
+@keyframes wf-knopf {
+  0% { transform: translateY(16px) scale(0.8); opacity: 0; }
+  100% { transform: none; opacity: 1; }
+}
+.wf-knopf .st-art { display: block; width: 100%; height: 100%; }
+.wf-knopf:active:not(:disabled) { transform: scale(0.94); }
+.wf-knopf:focus-visible { outline: 3px solid #243047; outline-offset: 3px; }
+.wf-knopf:disabled { cursor: default; opacity: 1; }
+.wf-knopf.is-richtig { background: #d3f1da; box-shadow: 0 0 0 4px #2f9e44, 0 10px 20px rgba(31, 42, 51, 0.18); }
+.wf-knopf.is-daneben { background: #f7d6cf; box-shadow: 0 0 0 4px #e2694f, 0 10px 20px rgba(31, 42, 51, 0.18); animation: kk-daneben 0.4s ease both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .wf-plane { transition: opacity 0.2s linear; }
+  .wf-stueck.is-zurueck, .wf-knopf, .wf-knopf.is-daneben { animation: none; }
+}
+
+/* ===========================================================================
+   Doppelt gleich
+   ---------------------------------------------------------------------------
+   Dieselbe Bühne wie Schwarm-Fokus, in der Farbe des Bereichs
+   Geschwindigkeit. Zwei runde Karten nebeneinander, so gross, wie die Höhe
+   hergibt; jedes Bild sitzt an einem Anteil --dg-x/--dg-y der Karte, gedreht
+   um --dg-drehung und --dg-groesse Kartenbreiten gross – doppelt.js würfelt
+   die Werte, hier steht nur, wie sie wirken.
+   =========================================================================== */
+
+.dg-stage { --cm-accent: #F5A623; --cm-accent-dark: #b9741a; }
+
+.dg-karten {
+  display: flex;
+  gap: clamp(14px, 4vw, 48px);
+  flex: 0 0 auto;
+  justify-content: center;
+}
+
+.dg-karte {
+  --dg-karte: clamp(150px, 56vh, 320px);
+  position: relative;
+  width: var(--dg-karte);
+  height: var(--dg-karte);
+  border-radius: 50%;
+  background: #fff8ea;
+  box-shadow: 0 12px 30px rgba(31, 42, 51, 0.22), inset 0 0 0 5px var(--cm-accent);
+  animation: dg-karte 0.32s cubic-bezier(0.2, 1.3, 0.4, 1) both;
+}
+.dg-karte.is-b { animation-delay: 0.05s; }
+/* Vor dem Start liegt unter den Karten noch der Startknopf: dann sind sie
+   kleiner, sonst rutscht er auf dem Handy unter den Rand. */
+.dg-stage[data-phase="intro"] .dg-karte { --dg-karte: clamp(110px, 38vh, 240px); }
+@keyframes dg-karte {
+  0% { transform: scale(0.7); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* Ein Bild: Mitte an --dg-x/--dg-y, in eigener Grösse. Gedreht wird das Bild
+   im Knopf, nicht der Knopf: so bleibt die Tippfläche ein gerades Quadrat, und
+   die Prüfung auf dem Handy kann nachmessen, dass sich keine zwei berühren. */
+.dg-bild {
+  position: absolute;
+  left: calc(var(--dg-x, 0.5) * 100%);
+  top: calc(var(--dg-y, 0.5) * 100%);
+  width: calc(var(--dg-groesse, 0.3) * var(--dg-karte));
+  height: calc(var(--dg-groesse, 0.3) * var(--dg-karte));
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  transform: translate(-50%, -50%);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.dg-bild .st-art { display: block; width: 100%; height: 100%; transform: rotate(var(--dg-drehung, 0deg)); }
+.dg-bild:focus-visible { outline: 3px solid #243047; outline-offset: 2px; }
+.dg-bild:active { transform: translate(-50%, -50%) scale(0.92); }
+
+/* Gefunden: beide Zwillinge bekommen einen grünen Ring und hüpfen. */
+.dg-bild.is-richtig {
+  background: rgba(47, 158, 68, 0.18);
+  box-shadow: 0 0 0 4px #2f9e44;
+  animation: dg-richtig 0.3s ease both;
+}
+@keyframes dg-richtig {
+  0% { transform: translate(-50%, -50%) scale(1); }
+  50% { transform: translate(-50%, -50%) scale(1.22); }
+  100% { transform: translate(-50%, -50%) scale(1); }
+}
+
+/* Daneben: ein roter Ring, und das Bild wackelt einmal. */
+.dg-bild.is-daneben {
+  box-shadow: 0 0 0 4px #e2694f;
+  animation: dg-daneben 0.4s ease both;
+}
+@keyframes dg-daneben {
+  0%, 100% { transform: translate(-50%, -50%); }
+  25% { transform: translate(calc(-50% - 6px), -50%); }
+  75% { transform: translate(calc(-50% + 6px), -50%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dg-karte, .dg-bild.is-richtig, .dg-bild.is-daneben { animation: none; }
+}
+
+/* ===========================================================================
+   Fässer stapeln
+   ---------------------------------------------------------------------------
+   Dieselbe Bühne wie Weichen-Wirrwarr, in der Farbe des Bereichs
+   Problemlösen. Erst die Levelwahl, dann der Platz: oben die Kranschiene mit
+   der Laufkatze, die über einem der drei Gleise steht (--fs-x: 0, 1 oder 2),
+   darunter die drei Gleise mit ihren Fässern. Ein Fass hängt entweder im
+   Stapel eines Gleises oder am Haken der Laufkatze – faesser.js hängt das
+   Element um, die Fahrt dazwischen ist ein Übergang auf left.
+   =========================================================================== */
+
+.fs-stage { --cm-accent: #3FA34D; --cm-accent-dark: #2b7336; }
+
+/* --- Levelwahl ------------------------------------------------------------ */
+
+.fs-levels {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: clamp(8px, 1.6vh, 14px);
+  width: min(94vw, 760px);
+}
+.fs-level {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: clamp(6px, 1.4vh, 12px) 6px;
+  border: 3px solid transparent;
+  border-radius: 18px;
+  background: rgba(253, 251, 246, 0.94);
+  box-shadow: 0 6px 16px rgba(31, 42, 51, 0.16);
+  cursor: pointer;
+  transition: transform 0.12s ease, background 0.12s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.fs-level:hover { background: #fff; }
+.fs-level:active { transform: scale(0.95); }
+.fs-level:focus-visible { outline: 3px solid #243047; outline-offset: 3px; }
+.fs-level-nr {
+  display: grid;
+  place-items: center;
+  width: clamp(28px, 5vh, 36px);
+  height: clamp(28px, 5vh, 36px);
+  border-radius: 50%;
+  background: var(--cm-accent);
+  color: #fff;
+  font-weight: 900;
+  font-size: clamp(0.9rem, 2.6vh, 1.1rem);
+}
+.fs-level-turm {
+  display: flex;
+  flex-direction: column-reverse;
+  align-items: center;
+  gap: 2px;
+  width: 100%;
+  min-height: clamp(30px, 7vh, 50px);
+  justify-content: flex-start;
+}
+.fs-level-fass { height: clamp(5px, 1.2vh, 8px); border-radius: 3px; box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.18); }
+.fs-level-stars { display: flex; gap: 1px; font-size: 0.85rem; line-height: 1; color: #d5dae2; }
+.fs-level-star.is-on { color: #f6b93b; }
+
+/* --- Der Platz ------------------------------------------------------------ */
+
+.fs-prompt { flex: 0 0 auto; }
+
+.fs-platz {
+  --fs-fass: clamp(18px, 5.2vh, 36px);
+  position: relative;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: flex-end;
+  width: min(96vw, 900px);
+  height: calc(var(--fs-fass) * 5 + clamp(90px, 22vh, 150px));
+  padding: 0 clamp(6px, 2vw, 20px);
+  border-radius: 24px;
+  background: rgba(253, 251, 246, 0.55);
+  box-shadow: inset 0 0 0 3px rgba(255, 255, 255, 0.6);
+}
+.fs-platz.is-geschafft { box-shadow: inset 0 0 0 5px #2f9e44; }
+
+/* Die Kranschiene oben, mit Trägern. */
+.fs-schiene {
+  position: absolute;
+  top: clamp(8px, 2vh, 14px);
+  left: 4%;
+  right: 4%;
+  height: 10px;
+  border-radius: 5px;
+  background: #5a6b5c;
+  box-shadow: inset 0 -3px 0 #3a4a3c;
+}
+
+/* Die Laufkatze: steht über Gleis --fs-x. Die Gleise teilen sich die Breite
+   zu dritt, ihre Mitten liegen bei 1/6, 3/6 und 5/6. */
+.fs-laufkatze {
+  position: absolute;
+  top: clamp(4px, 1vh, 8px);
+  left: calc((var(--fs-x, 0) * 2 + 1) / 6 * 100%);
+  width: clamp(40px, 9vh, 64px);
+  transform: translateX(-50%);
+  transition: left 0.3s cubic-bezier(0.4, 0, 0.3, 1);
+  z-index: 3;
+  pointer-events: none;
+}
+.fs-laufkatze::before {
+  content: "";
+  display: block;
+  height: clamp(14px, 3.4vh, 22px);
+  border-radius: 6px;
+  background: var(--cm-accent);
+  box-shadow: inset 0 -4px 0 var(--cm-accent-dark);
+}
+.fs-seil {
+  display: block;
+  width: 3px;
+  height: clamp(14px, 4vh, 28px);
+  margin: 0 auto;
+  background: #3a4a3c;
+  transition: height 0.2s ease;
+}
+.fs-laufkatze.is-hebt .fs-seil { height: clamp(10px, 2.6vh, 18px); }
+.fs-haken {
+  position: relative;
+  display: block;
+  width: 100%;
+  min-height: 12px;
+}
+.fs-haken::before {
+  content: "";
+  position: absolute;
+  top: -4px;
+  left: 50%;
+  width: 10px;
+  height: 10px;
+  border: 3px solid #3a4a3c;
+  border-top-color: transparent;
+  border-radius: 50%;
+  transform: translateX(-50%);
+}
+/* Das Fass am Haken: hängt mittig unter der Laufkatze, so breit wie im Stapel
+   – die Laufkatze ist so breit wie ein Gleis ohne Rand. */
+.fs-haken .fs-fass {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(var(--fs-groesse, 1) * 26px + 14px);
+}
+.fs-laufkatze.is-verboten .fs-haken .fs-fass { animation: fs-verboten 0.4s ease both; }
+@keyframes fs-verboten {
+  0%, 100% { transform: translateX(-50%); }
+  25% { transform: translateX(calc(-50% - 7px)); }
+  75% { transform: translateX(calc(-50% + 7px)); }
+}
+
+/* Ein Gleis: ein Drittel der Breite, tippbar in ganzer Höhe. Der Pfosten
+   steht in der Mitte, die Fässer stapeln sich von unten. */
+.fs-gleis {
+  position: relative;
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  height: calc(100% - clamp(40px, 9vh, 64px));
+  margin: 0 clamp(4px, 1vw, 12px) clamp(8px, 2vh, 14px);
+  border-radius: 16px;
+  cursor: pointer;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.fs-gleis:hover { background: rgba(255, 255, 255, 0.35); }
+.fs-gleis:focus-visible { box-shadow: 0 0 0 3px #243047; }
+.fs-gleis::after {
+  content: "";
+  position: absolute;
+  bottom: calc(-1 * clamp(6px, 1.4vh, 10px));
+  left: 4%;
+  right: 4%;
+  height: clamp(8px, 2vh, 14px);
+  border-radius: 6px;
+  background: #8a5f1c;
+  box-shadow: inset 0 -3px 0 #5a3b10;
+}
+.fs-gleis.is-ziel::after { background: #2f9e44; box-shadow: inset 0 -3px 0 #1f6b2e; }
+.fs-pfosten {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  width: clamp(8px, 1.8vh, 12px);
+  height: calc(var(--fs-fass) * 5 + 10px);
+  border-radius: 5px 5px 0 0;
+  background: #5a6b5c;
+  transform: translateX(-50%);
+}
+.fs-fahne {
+  position: absolute;
+  top: calc(100% - var(--fs-fass) * 5 - 10px - clamp(26px, 6vh, 40px));
+  left: calc(50% - 2px);
+  width: clamp(20px, 4.6vh, 30px);
+  height: auto;
+}
+.fs-stapel {
+  position: relative;
+  display: flex;
+  flex-direction: column-reverse;
+  align-items: center;
+  width: 100%;
+  min-height: var(--fs-fass);
+}
+
+/* Ein Fass: Breite nach Grösse, zwei Reifen, ein Glanz. */
+.fs-fass {
+  display: block;
+  width: calc(28% + var(--fs-groesse, 1) * 13%);
+  height: var(--fs-fass);
+  border-radius: calc(var(--fs-fass) * 0.42);
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.35), transparent 40%),
+    linear-gradient(transparent 26%, rgba(0, 0, 0, 0.28) 26% 36%, transparent 36% 64%, rgba(0, 0, 0, 0.28) 64% 74%, transparent 74%),
+    var(--fs-farbe, #c98a3f);
+  box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.18), 0 2px 4px rgba(31, 42, 51, 0.2);
+}
+.fs-fass.is-gelandet { animation: fs-gelandet 0.3s cubic-bezier(0.2, 1.3, 0.4, 1) both; }
+@keyframes fs-gelandet {
+  0% { transform: translateY(-14px); }
+  100% { transform: none; }
+}
+
+/* Ein Tipp auf ein leeres Gleis ohne Fass am Haken, oder ein verbotenes
+   Ablegen: das Gleis blinkt kurz. */
+.fs-gleis.is-leer, .fs-gleis.is-nein { animation: fs-nein 0.4s ease both; }
+@keyframes fs-nein {
+  0%, 100% { background: transparent; }
+  40% { background: rgba(226, 105, 79, 0.35); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fs-laufkatze, .fs-seil { transition: none; }
+  .fs-fass.is-gelandet, .fs-laufkatze.is-verboten .fs-haken .fs-fass, .fs-gleis.is-leer, .fs-gleis.is-nein { animation: none; }
+}
+
+/* ===========================================================================
    Handy quer: alles passt aufs Bild
    ---------------------------------------------------------------------------
    Die App läuft auf dem Handy im Querformat, und dort ist die Höhe das knappe

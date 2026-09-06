@@ -291,7 +291,7 @@ await page.locator('[data-admin-view="games"]').click();
 await page.waitForTimeout(900);
 
 const karten = await page.locator(".admin-game-card").count();
-pruefe(karten === 20, `Die Auswertung zeigt ${karten} Spiele, erwartet 20`);
+pruefe(karten === 25, `Die Auswertung zeigt ${karten} Spiele, erwartet 25`);
 
 // Arukone: drei Konten haben daran gespielt – Mia zweimal gelöst, Ben nicht,
 // der Gast einmal. Versuche 3+1+2+1 = 7, gelöst 3, Neustarts 2+0+1+0 = 3.
@@ -313,7 +313,7 @@ pruefe(/Mia/.test(turmbauText), `Turmbau: der Halter des Bestwerts fehlt – "${
 await page.locator('[data-admin-area="zahlbuchstabe"]').click();
 await page.waitForTimeout(400);
 const gefiltert = await page.locator(".admin-game-card").count();
-pruefe(gefiltert === 4, `Der Bereich "Zahl und Buchstabe" zeigt ${gefiltert} Spiele, erwartet 4`);
+pruefe(gefiltert === 5, `Der Bereich "Zahl und Buchstabe" zeigt ${gefiltert} Spiele, erwartet 5`);
 
 // --- Der Reiter "Wagen" ------------------------------------------------------
 // Zwei Sets als Zug, das erste aktiv, das zweite zum Wechseln – aber erst nach

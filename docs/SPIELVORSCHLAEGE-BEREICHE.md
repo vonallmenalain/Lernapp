@@ -3,6 +3,14 @@
 Stand: September 2026 · Grundlage: `train-progress.js`, `train-art.js`, `game-shell.js`,
 `highscore.js`, alle zwanzig Spielseiten, `docs/UX-REVIEW-KINDER-4-8.md`
 
+> **Umsetzungsstand:** Entschieden wurde **Weg B** (fünfzehn Schritte je Wagen), und alle
+> fünf empfohlenen Spiele sind gebaut: `zahlengleis.html` (Wo hält der Zug?),
+> `signal.html` (Halt am Signal), `wasfehlt.html` (Was fehlt?), `faesser.html`
+> (Fässer stapeln) und `doppelt.html` (Doppelt gleich). Jeder der zehn Wagen hat drei
+> neue Ausbaustufen, und die Prüfskripte `validate-zahlengleis`, `-signal`, `-wasfehlt`,
+> `-faesser` und `-doppelt` rechnen die Regeln nach. Der folgende Bericht bleibt als
+> Begründung erhalten.
+
 Der Zug hat fünf Bereiche mit je vier Spielen. Dieses Dokument beantwortet zwei Fragen:
 **welches fünfte Spiel gehört in welchen Bereich** – und **was das mit den zwölf
 Ausbauschritten eines Wagens macht**. Die zweite Frage muss vor der ersten Zeile Code

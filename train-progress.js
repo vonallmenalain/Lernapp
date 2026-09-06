@@ -14,7 +14,7 @@
   // ---------------------------------------------------------------------------
   // Die fünf Bereiche
   // ---------------------------------------------------------------------------
-  // Jeder Bereich hat eine Farbe, ein Symbol und vier Spiele. Welche Bauart
+  // Jeder Bereich hat eine Farbe, ein Symbol und fünf Spiele. Welche Bauart
   // sein Wagen hat, sagt nicht der Bereich, sondern das Wagen-Set (unten):
   // derselbe Bereich hat im ersten Set einen Kastenwagen und im zweiten ein
   // Einhorn. Farbe und Symbol bleiben über die Sets gleich – das ist es, woran
@@ -33,6 +33,7 @@
         { id: "memory", title: "Memory", page: "memory.html", ownProgress: "memory" },
         { id: "beachTreasure", title: "Strand-Schätze", page: "strandschatz.html", ownProgress: "beachTreasure" },
         { id: "tileMemory", title: "Kacheln-Knobeln", page: "kacheln.html", ownProgress: "tileMemory" },
+        { id: "missingItem", title: "Was fehlt?", page: "wasfehlt.html", ownProgress: "missingItem" },
       ],
     },
     {
@@ -45,6 +46,7 @@
         { id: "trackRouter", title: "Weichen-Wirrwarr", page: "weichen.html", ownProgress: "trackRouter" },
         { id: "fishPond", title: "Fischteich", page: "fischteich.html", ownProgress: "fishPond" },
         { id: "gridlock", title: "Freie Fahrt", page: "freiefahrt.html", ownProgress: "gridlock" },
+        { id: "goSignal", title: "Halt am Signal", page: "signal.html", ownProgress: "goSignal" },
       ],
     },
     {
@@ -57,6 +59,7 @@
         { id: "cardMatch", title: "Karten-Merker", page: "kartenmerker.html", ownProgress: "cardMatch" },
         { id: "leafFlow", title: "Blätter im Strom", page: "blaetter.html", ownProgress: "leafFlow" },
         { id: "towerStack", title: "Turmbau", page: "turmbau.html", ownProgress: "towerStack" },
+        { id: "twinSpot", title: "Doppelt gleich", page: "doppelt.html", ownProgress: "twinSpot" },
       ],
     },
     {
@@ -69,6 +72,7 @@
         { id: "arukone", title: "Arukone", page: "arukone.html" },
         { id: "bimaru", title: "Battleships", page: "bimaru.html" },
         { id: "shikaku", title: "Tiergehege", page: "shikaku.html" },
+        { id: "craneStack", title: "Fässer stapeln", page: "faesser.html", ownProgress: "craneStack" },
       ],
     },
     {
@@ -81,6 +85,7 @@
         { id: "readingPuzzle", title: "Wortdetektiv", page: "wortdetektiv.html" },
         { id: "kakuro", title: "Kakuro", page: "kakuro.html" },
         { id: "hidoku", title: "Hidoku", page: "hidoku.html" },
+        { id: "numberLine", title: "Wo hält der Zug?", page: "zahlengleis.html", ownProgress: "numberLine" },
       ],
     },
   ];
@@ -102,8 +107,8 @@
   // auch, wie oft ein Spiel gespielt sein muss, bis es "geschafft" ist.
   //
   //   Set 1: 1, 3, 5 – der erste Erfolg verändert den Zug sofort, danach alle
-  //          zwei Runden ein Schritt. Zwanzig Runden je Wagen.
-  //   Set 2: 3, 6, 9 – jede dritte Runde ein Schritt, sechsunddreissig je
+  //          zwei Runden ein Schritt. Fünfundzwanzig Runden je Wagen.
+  //   Set 2: 3, 6, 9 – jede dritte Runde ein Schritt, fünfundvierzig je
   //          Wagen. Fast doppelt so lang wie das erste, wie gewünscht.
   const SETS = [
     {
@@ -156,15 +161,16 @@
   // ---------------------------------------------------------------------------
   // Ausbauschritte
   // ---------------------------------------------------------------------------
-  // Zwölf Schritte je Wagen, drei je Spiel: jeder Wagen hat vier Spiele, und
+  // Fünfzehn Schritte je Wagen, drei je Spiel: jeder Wagen hat fünf Spiele, und
   // jedes davon baut genau drei Teile an. So ist jeder Schritt einem Spiel
   // zuzuordnen, und ein Kind sieht nach dem Spielen genau, was dazugekommen
   // ist – nicht einen Balken, der ein bisschen voller wurde.
   //
-  // Ab der Hälfte steht der Wagen: das ist die Marke, an der eine neue
-  // Landschaft frei wird. Fertig ist er mit allen zwölf.
+  // Nach sechs Schritten steht der Wagen (zwei Spiele ganz gespielt): das ist
+  // die Marke, an der eine neue Landschaft frei wird. Danach wird beladen bzw.
+  // verwandelt; fertig ist er mit allen fünfzehn.
   const STEPS_PER_GAME = 3;
-  const STAGE_COUNT = 12;
+  const STAGE_COUNT = 15;
   const BUILT_STAGE = 6;
 
   // Wie viele Schritte ein Spiel mit so vielen gespielten Runden freigibt.
@@ -194,6 +200,11 @@
   const LEAF_KEY = "lernapp.blaetter";
   const TOWER_KEY = "lernapp.turmbau";
   const GRIDLOCK_KEY = "lernapp.freiefahrt";
+  const MISSING_KEY = "lernapp.wasfehlt";
+  const SIGNAL_KEY = "lernapp.signal";
+  const TWINS_KEY = "lernapp.doppelt";
+  const BARRELS_KEY = "lernapp.faesser";
+  const NUMBERLINE_KEY = "lernapp.zahlengleis";
   // Die Kartenzahlen, die Memory zur Wahl stellt.
   const MEMORY_SIZES = [8, 12, 16, 20, 24];
   // So viele Bestwerte behält eine Bestenliste – unabhängig davon, wie viele
@@ -281,7 +292,7 @@
   // ---------------------------------------------------------------------------
   // Aus gespielten Runden werden Schritte
   // ---------------------------------------------------------------------------
-  // Alle zwanzig Spiele zählen am Ende dasselbe: wie oft wurde gespielt – ein
+  // Alle fünfundzwanzig Spiele zählen am Ende dasselbe: wie oft wurde gespielt – ein
   // Level gelöst, eine Runde zu Ende gebracht, eine Kartenzahl geschafft. Wie
   // ein Spiel zu dieser Zahl kommt, steht bei ihm; was die Zahl bedeutet, steht
   // hier, einmal für alle. Sonst hiesse ein Schritt in jedem Spiel etwas
@@ -390,10 +401,10 @@
     return fromPlays(game, plays, { stars: Array.from({ length: plays }, () => 3) });
   }
 
-  // Weichen-Wirrwarr und Freie Fahrt zählen abgeschlossene Level, nicht Runden:
-  // zehn bzw. zwölf stehen zur Wahl, und beliebige davon bauen den Wagen. Wer
-  // die leichten spielt, kommt genauso an wie wer die schweren spielt – die
-  // Sterne unterscheiden das.
+  // Weichen-Wirrwarr, Freie Fahrt und Fässer stapeln zählen abgeschlossene
+  // Level, nicht Runden: zehn bzw. zwölf stehen zur Wahl, und beliebige davon
+  // bauen den Wagen. Wer die leichten spielt, kommt genauso an wie wer die
+  // schweren spielt – die Sterne unterscheiden das.
   function bestenLevelProgress(key) {
     return (game) => {
       const stored = gameState(key) || {};
@@ -413,6 +424,7 @@
     backpack: runsProgress(BACKPACK_KEY, 12),
     trackRouter: bestenLevelProgress(TRACK_KEY),
     gridlock: bestenLevelProgress(GRIDLOCK_KEY),
+    craneStack: bestenLevelProgress(BARRELS_KEY),
     memory: memoryProgress,
     // Raumdetektiv legt keine Punktzahl ab, sondern die Sterne der Runde: die
     // Bewertung steht schon fest, wenn die zehn Aufgaben durch sind. Drei
@@ -430,6 +442,21 @@
     // gute Runde: bis dahin schwingt der Block schon halb so lang wie am Anfang,
     // und mehr schafft nur, wer den Takt wirklich trifft.
     towerStack: runsProgress(TOWER_KEY, 14),
+    // Was fehlt? zählt einen Punkt je richtig kontrolliertem Wagen. Acht sind
+    // eine gute Runde: bis dahin liegen zehn Stücke Fracht auf dem Wagen.
+    missingItem: runsProgress(MISSING_KEY, 8),
+    // Halt am Signal zählt jeden richtig durchgelassenen und jeden richtig
+    // abgewarteten Zug, ein Tipp bei Rot kostet zwei. In fünfundvierzig
+    // Sekunden kommen gut fünfundzwanzig Züge; zweiundzwanzig Punkte heisst:
+    // fast alle richtig und höchstens einmal bei Rot getippt. Wer immer tippt,
+    // landet bei sechs (scripts/validate-signal.mjs rechnet das nach).
+    goSignal: runsProgress(SIGNAL_KEY, 22),
+    // Doppelt gleich zählt gefundene Paare in fünfundvierzig Sekunden. Zwanzig
+    // heisst: alle gut zwei Sekunden eines, bei Karten mit bis zu sechs Bildern.
+    twinSpot: runsProgress(TWINS_KEY, 20),
+    // Wo hält der Zug? gibt je Zahl bis zu drei Punkte für die Nähe, zehn Zahlen
+    // je Runde. Fünfundzwanzig von dreissig ist eine gute Runde.
+    numberLine: runsProgress(NUMBERLINE_KEY, 25),
   };
 
   // Die Spiele mit eigenem Konto legen ihren Stand nicht im Levelkatalog ab,
@@ -443,8 +470,10 @@
     cloudGames.register({ key: RUNNER_KEY, empty: { unlocked: 1, best: {} }, merge: cloudGames.mergeLevels }).onChange(redraw);
     cloudGames.register({ key: TRACK_KEY, empty: { best: {} }, merge: cloudGames.mergeLevels }).onChange(redraw);
     cloudGames.register({ key: GRIDLOCK_KEY, empty: { best: {} }, merge: cloudGames.mergeLevels }).onChange(redraw);
+    cloudGames.register({ key: BARRELS_KEY, empty: { best: {} }, merge: cloudGames.mergeLevels }).onChange(redraw);
     cloudGames.register({ key: MEMORY_KEY, empty: { best: {} }, merge: cloudGames.mergeLevels }).onChange(redraw);
-    [CARDMATCH_KEY, BEACH_KEY, FLANKER_KEY, BACKPACK_KEY, RAUM_KEY, TILE_KEY, POND_KEY, LEAF_KEY, TOWER_KEY].forEach((key) => {
+    [CARDMATCH_KEY, BEACH_KEY, FLANKER_KEY, BACKPACK_KEY, RAUM_KEY, TILE_KEY, POND_KEY, LEAF_KEY, TOWER_KEY,
+      MISSING_KEY, SIGNAL_KEY, TWINS_KEY, NUMBERLINE_KEY].forEach((key) => {
       cloudGames.register({ key, empty: { runs: 0, scores: [] }, merge: cloudGames.mergeScores(SCORES_KEPT) }).onChange(redraw);
     });
   }
@@ -457,7 +486,7 @@
     return own ? own(game) : catalogProgress(game);
   }
 
-  // Bereichsfortschritt: die Schritte der vier Spiele zusammengezählt.
+  // Bereichsfortschritt: die Schritte der fünf Spiele zusammengezählt.
   //
   // Jedes Spiel zählt gleich viel, egal wie viele Level es hat: Kakuro hat
   // vierzig, der Karten-Merker gar keine. Über die Schritte wächst ein Wagen

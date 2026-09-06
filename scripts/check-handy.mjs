@@ -222,6 +222,23 @@ async function tippe(blatt, auswahl) {
   if (!ok) throw new Error(`nicht gefunden: ${auswahl}`);
 }
 
+// Wo hält der Zug?: die Lok an einen Anteil des Gleises setzen – ein Tipp auf
+// das Gleis ist schon die Antwort.
+async function zugSchieben(blatt, anteil) {
+  const ok = await blatt.evaluate((p) => {
+    const gleis = document.querySelector(".zg-gleis");
+    if (!gleis) return false;
+    const box = gleis.getBoundingClientRect();
+    const rand = parseFloat(getComputedStyle(gleis).getPropertyValue("--zg-rand")) || 0;
+    const x = box.left + rand + p * (box.width - 2 * rand);
+    const y = box.top + box.height / 2;
+    gleis.dispatchEvent(new PointerEvent("pointerdown", { clientX: x, clientY: y, pointerId: 1, bubbles: true }));
+    gleis.dispatchEvent(new PointerEvent("pointerup", { clientX: x, clientY: y, pointerId: 1, bubbles: true }));
+    return true;
+  }, anteil);
+  if (!ok) throw new Error("kein Gleis gefunden");
+}
+
 // Der Zug wartet beim ersten Laden am linken Rand auf die erste Berührung.
 async function zugHereinholen(blatt) {
   await blatt.evaluate(() => document.dispatchEvent(new Event("pointerdown")));
@@ -291,7 +308,7 @@ async function memoryLoesen(blatt) {
 // Jede Seite: eine Folge von Bildschirmen. „tun“ führt dorthin, danach wird
 // gemessen. Ein Schritt, der scheitert, bricht nur diese Seite ab.
 const RAETSEL = ["arukone", "bimaru", "hidoku", "kakuro", "shikaku", "buchstaben", "wortdetektiv", "raumdetektiv"];
-const UHR_SPIELE = ["kartenmerker", "schwarmfokus", "blaetter"];
+const UHR_SPIELE = ["kartenmerker", "schwarmfokus", "blaetter", "signal", "doppelt"];
 
 function raetselSzenario(seite) {
   const schritte = [
@@ -499,6 +516,52 @@ const SZENARIEN = [
         });
         await tippe(blatt, ".tb-feld");
         await pause(blatt, 1600);
+      } },
+    ],
+  },
+  {
+    seite: "zahlengleis",
+    schritte: [
+      { name: "Aufgabe", tun: async (blatt) => { await pause(blatt, 400); } },
+      { name: "Antwort", tun: async (blatt) => { await zugSchieben(blatt, 0.5); await pause(blatt, 500); } },
+      { name: "Ergebnis", tun: async (blatt) => {
+        for (let i = 0; i < 9; i += 1) { await pause(blatt, 1700); await zugSchieben(blatt, 0.5); }
+        await pause(blatt, 2000);
+      } },
+    ],
+  },
+  {
+    seite: "wasfehlt",
+    schritte: [
+      { name: "Merken", tun: async (blatt) => { await pause(blatt, 400); } },
+      { name: "Wahl", tun: async (blatt) => { await pause(blatt, 2500 + 900 + 500); } },
+      { name: "Ergebnis", tun: async (blatt) => {
+        const falsch = await blatt.evaluate(() => {
+          const fehlt = window.LernappWasFehlt.state.fehlt;
+          const el = [...document.querySelectorAll(".wf-knopf")].find((k) => k.dataset.id !== fehlt);
+          el?.click();
+          return Boolean(el);
+        });
+        if (!falsch) throw new Error("kein falsches Stück gefunden");
+        await pause(blatt, 1900);
+      } },
+    ],
+  },
+  {
+    seite: "faesser",
+    schritte: [
+      { name: "Levelwahl", tun: async () => {} },
+      { name: "Spiel", tun: async (blatt) => {
+        await blatt.locator(".fs-level").first().click();
+        await pause(blatt, 400);
+        await tippe(blatt, '[data-gleis="0"]');
+        await pause(blatt, 300);
+      } },
+      // Level 1 in seinen vier Zügen: 3 nach rechts, 1 nach links, 2 nach
+      // rechts, 1 nach rechts – je ein Tipp zum Heben und einer zum Stellen.
+      { name: "Ergebnis", tun: async (blatt) => {
+        for (const gleis of [2, 1, 0, 1, 2, 0, 2]) { await tippe(blatt, `[data-gleis="${gleis}"]`); await pause(blatt, 420); }
+        await pause(blatt, 1500);
       } },
     ],
   },

@@ -128,6 +128,11 @@ const KASTEN_IN = {
   "lernapp.blaetter": "blaetter.js",
   "lernapp.turmbau": "turmbau.js",
   "lernapp.raumdetektiv": "app.js",
+  "lernapp.wasfehlt": "wasfehlt.js",
+  "lernapp.signal": "signal.js",
+  "lernapp.doppelt": "doppelt.js",
+  "lernapp.faesser": "faesser.js",
+  "lernapp.zahlengleis": "zahlengleis.js",
 };
 
 for (const spiel of hs.SPIELE) {

@@ -4,23 +4,23 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <meta name="application-name" content="Lernapp" />
-    <meta name="description" content="Kacheln-Knobeln: Merk dir, welche Kacheln geleuchtet haben, und tippe sie nach." />
+    <meta name="description" content="Doppelt gleich: Zwei Karten, ein gemeinsames Bild – finde es so schnell du kannst." />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Lernapp" />
     <meta name="theme-color" content="#a8ddf0" />
-    <title>Kacheln-Knobeln · Lernapp</title>
+    <title>Doppelt gleich · Lernapp</title>
     <link rel="stylesheet" href="styles.css?v=2026-09-11-1" />
     <link rel="manifest" href="app.webmanifest?v=2026-09-11-1" />
     <link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon-180.png" />
   </head>
-  <body data-page="tiles">
-    <!-- Die Bühne baut kacheln.js: dieselbe Landschaft wie das Startbild,
-         darauf das Raster. Bewusst leer im HTML – hier steht kein Wort, das ein
-         Kind lesen müsste, ausser dem Namen des Spiels. -->
-    <div id="kk-stage" class="cm-stage kk-stage" aria-label="Kacheln-Knobeln"></div>
+  <body data-page="twins">
+    <!-- Die Bühne baut doppelt.js: dieselbe Landschaft wie das Startbild, darauf
+         das Spiel. Bewusst leer im HTML – hier steht kein Wort, das ein Kind
+         lesen müsste, ausser dem Namen des Spiels. -->
+    <div id="dg-stage" class="cm-stage dg-stage" aria-label="Doppelt gleich"></div>
 
     <script defer src="https://www.gstatic.com/firebasejs/12.7.0/firebase-app-compat.js"></script>
     <script defer src="https://www.gstatic.com/firebasejs/12.7.0/firebase-auth-compat.js"></script>
@@ -30,9 +30,10 @@
     <script defer src="kids.js?v=2026-09-11-1"></script>
     <script defer src="train-art.js?v=2026-09-11-1"></script>
     <script defer src="train-scenes.js?v=2026-09-11-1"></script>
+    <script defer src="strand-art.js?v=2026-09-11-1"></script>
     <script defer src="game-cloud.js?v=2026-09-11-1"></script>
     <script defer src="game-shell.js?v=2026-09-11-1"></script>
-    <script defer src="kacheln.js?v=2026-09-11-1"></script>
+    <script defer src="doppelt.js?v=2026-09-11-1"></script>
     <script defer src="pwa.js?v=2026-09-11-1"></script>
   </body>
 </html>
