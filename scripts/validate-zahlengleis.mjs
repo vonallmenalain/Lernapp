@@ -96,25 +96,43 @@ api.STUFEN.forEach((stufe) => {
 });
 
 // --- Die Toleranzen -----------------------------------------------------------
+// Fünf Stufen von innen nach aussen; jede weiter als die davor, die äusserste
+// enger als die halbe Strecke – sonst gäbe es für die halbe Strecke daneben
+// noch einen Punkt.
+const RINGE = ["genau", "fast", "knapp", "nah", "weit"];
+assert(api.WIE.length === 6 && api.WIE[5] === "genau" && api.WIE[0] === "daneben", "sechs Antworten von daneben bis genau");
 const gleise = api.STUFEN.flatMap((s) => s.gleise);
 gleise.forEach((gleis) => {
   const t = api.toleranzFuer(gleis.bis);
-  assert(t.genau > 0 && t.genau < t.knapp && t.knapp < t.nah, `Gleis bis ${gleis.bis}: die Toleranzen müssen steigen`);
-  assert(t.nah < gleis.bis / 2, `Gleis bis ${gleis.bis}: einen Punkt gäbe es noch für die halbe Strecke daneben`);
+  RINGE.forEach((ring, i) => {
+    assert(t[ring] > 0, `Gleis bis ${gleis.bis}: Toleranz "${ring}" fehlt`);
+    if (i) assert(t[ring] > t[RINGE[i - 1]], `Gleis bis ${gleis.bis}: die Toleranzen müssen von "${RINGE[i - 1]}" zu "${ring}" steigen`);
+  });
+  assert(t.weit < gleis.bis / 2, `Gleis bis ${gleis.bis}: einen Punkt gäbe es noch für die halbe Strecke daneben`);
   // Ein Finger ist auf jedem Gleis gleich breit; in Zahlen gerechnet wächst
   // die Toleranz mit dem Gleis, im Verhältnis wird sie nie grosszügiger als
-  // auf dem kurzen Gleis.
-  assert(t.genau <= gleis.bis * 0.07 + 1e-9, `Gleis bis ${gleis.bis}: "genau" ist grosszügiger als sieben Prozent`);
+  // auf dem kurzen Gleis – und "genau" heisst wirklich genau.
+  assert(t.genau <= Math.max(0.15, gleis.bis * 0.035) + 1e-9, `Gleis bis ${gleis.bis}: "genau" ist grosszügiger als dreieinhalb Prozent`);
 });
 for (let bis = 5; bis <= 100; bis += 1) {
   const a = api.toleranzFuer(bis);
   const b = api.toleranzFuer(bis + 1);
-  assert(a.genau <= b.genau && a.knapp <= b.knapp && a.nah <= b.nah, `die Toleranz fällt zwischen ${bis} und ${bis + 1}`);
+  RINGE.forEach((ring) => assert(a[ring] <= b[ring], `die Toleranz "${ring}" fällt zwischen ${bis} und ${bis + 1}`));
 }
-assert(api.punkteFuer(0, 5) === 3 && api.punkteFuer(-0.3, 5) === 3, "genau getroffen gibt drei Punkte");
-assert(api.punkteFuer(0.6, 5) === 2 && api.punkteFuer(1.2, 5) === 1 && api.punkteFuer(3, 5) === 0, "die Stufen zwei, eins, null stimmen auf dem kurzen Gleis nicht");
-assert(api.punkteFuer(4.9, 20) === 1 && api.punkteFuer(5.1, 20) === 0, "auf dem Gleis bis zwanzig gibt es bis fünf daneben noch einen Punkt");
-assert(api.punkteFuer(4, 100) === 3 && api.punkteFuer(12, 100) === 2 && api.punkteFuer(24, 100) === 1 && api.punkteFuer(26, 100) === 0, "auf dem Gleis bis hundert stimmen die Stufen nicht");
+// Fünf Punkte für die Mitte auf der Zahl, dann eins weniger je Ring.
+assert(api.punkteFuer(0, 5) === 5 && api.punkteFuer(-0.1, 5) === 5, "genau getroffen gibt fünf Punkte");
+assert([0.3, 0.6, 1, 1.8, 2.2].map((d) => api.punkteFuer(d, 5)).join(",") === "4,3,2,1,0", `auf dem kurzen Gleis stimmen die Ringe nicht: ${[0.3, 0.6, 1, 1.8, 2.2].map((d) => api.punkteFuer(d, 5)).join(",")}`);
+assert([0.3, 0.8, 1.5, 2.5, 4.9, 5.1].map((d) => api.punkteFuer(d, 20)).join(",") === "5,4,3,2,1,0", `auf dem Gleis bis zwanzig stimmen die Ringe nicht: ${[0.3, 0.8, 1.5, 2.5, 4.9, 5.1].map((d) => api.punkteFuer(d, 20)).join(",")}`);
+assert([1.5, 4, 7, 12, 24, 26].map((d) => api.punkteFuer(d, 100)).join(",") === "5,4,3,2,1,0", `auf dem Gleis bis hundert stimmen die Ringe nicht: ${[1.5, 4, 7, 12, 24, 26].map((d) => api.punkteFuer(d, 100)).join(",")}`);
+for (let bis = 5; bis <= 100; bis += 5) {
+  let vorher = 5;
+  for (let d = 0; d <= bis / 2; d += bis / 400) {
+    const p = api.punkteFuer(d, bis);
+    assert(p <= vorher, `Gleis bis ${bis}: weiter weg gibt mehr Punkte (${d})`);
+    vorher = p;
+  }
+  assert(api.punkteFuer(bis / 2, bis) === 0, `Gleis bis ${bis}: die halbe Strecke daneben gibt noch Punkte`);
+}
 
 // --- Die Zahlen ---------------------------------------------------------------
 gleise.forEach((gleis) => {
@@ -131,10 +149,10 @@ gleise.forEach((gleis) => {
 });
 
 // --- Die Schwelle im Zug ------------------------------------------------------
-// Höchstens dreissig Punkte je Runde; die gute Runde in train-progress.js muss
+// Höchstens fünfzig Punkte je Runde; die gute Runde in train-progress.js muss
 // darunter liegen, sonst gäbe es nie drei Sterne.
 const max = api.ZAHLEN_JE_RUNDE * api.PUNKTE_JE_ZAHL;
-assert(max === 30, `dreissig Punkte je Runde erwartet, gerechnet ${max}`);
+assert(max === 50, `fünfzig Punkte je Runde erwartet, gerechnet ${max}`);
 const progress = fs.readFileSync(path.join(root, "train-progress.js"), "utf8");
 const gut = Number((progress.match(/numberLine: runsProgress\(NUMBERLINE_KEY, (\d+)\)/) || [])[1]);
 assert(gut > max / 2 && gut < max, `train-progress.js verlangt ${gut} Punkte für drei Sterne – bei höchstens ${max}`);

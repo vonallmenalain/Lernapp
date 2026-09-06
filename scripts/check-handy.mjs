@@ -228,9 +228,15 @@ async function zugSchieben(blatt, anteil) {
   const ok = await blatt.evaluate((p) => {
     const gleis = document.querySelector(".zg-gleis");
     if (!gleis) return false;
+    // Die Strecke reicht von der ersten bis zur letzten Marke – gemessen, wie
+    // das Spiel es auch tut.
+    const marken = gleis.querySelectorAll(".zg-marke");
+    const a = marken[0].getBoundingClientRect();
+    const b = marken[marken.length - 1].getBoundingClientRect();
+    const links = a.left + a.width / 2;
+    const rechts = b.left + b.width / 2;
+    const x = links + p * (rechts - links);
     const box = gleis.getBoundingClientRect();
-    const rand = parseFloat(getComputedStyle(gleis).getPropertyValue("--zg-rand")) || 0;
-    const x = box.left + rand + p * (box.width - 2 * rand);
     const y = box.top + box.height / 2;
     gleis.dispatchEvent(new PointerEvent("pointerdown", { clientX: x, clientY: y, pointerId: 1, bubbles: true }));
     gleis.dispatchEvent(new PointerEvent("pointerup", { clientX: x, clientY: y, pointerId: 1, bubbles: true }));

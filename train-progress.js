@@ -454,9 +454,10 @@
     // Doppelt gleich zählt gefundene Paare in fünfundvierzig Sekunden. Zwanzig
     // heisst: alle gut zwei Sekunden eines, bei Karten mit bis zu sechs Bildern.
     twinSpot: runsProgress(TWINS_KEY, 20),
-    // Wo hält der Zug? gibt je Zahl bis zu drei Punkte für die Nähe, zehn Zahlen
-    // je Runde. Fünfundzwanzig von dreissig ist eine gute Runde.
-    numberLine: runsProgress(NUMBERLINE_KEY, 25),
+    // Wo hält der Zug? gibt je Zahl bis zu fünf Punkte für die Nähe, zehn Zahlen
+    // je Runde. Zweiundvierzig von fünfzig ist eine gute Runde: fast jede Zahl
+    // genau oder fast genau getroffen.
+    numberLine: runsProgress(NUMBERLINE_KEY, 42),
   };
 
   // Die Spiele mit eigenem Konto legen ihren Stand nicht im Levelkatalog ab,

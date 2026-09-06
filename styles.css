@@ -7840,9 +7840,9 @@ body.has-scene.puzzle-active .game-panel {
 
    Alles auf dem Gleis steht an einem Anteil --zg-p zwischen 0 und 1; die
    Strecke beginnt --zg-rand vom linken Rand und endet --zg-rand vor dem
-   rechten. zahlengleis.js rechnet nur mit diesem Anteil und liest den Rand
-   von hier – so stimmen Finger, Lok, Marken und Schild an derselben Stelle
-   überein, egal wie breit das Gleis gerade ist.
+   rechten. zahlengleis.js rechnet nur mit diesem Anteil und misst die Strecke
+   an den beiden Bahnhofsmarken nach – so stimmen Finger, Lok, Marken und
+   Schild an derselben Stelle überein, egal wie breit das Gleis gerade ist.
    =========================================================================== */
 
 .zg-stage {
@@ -7970,11 +7970,28 @@ body.has-scene.puzzle-active .game-panel {
   pointer-events: none;
 }
 .zg-lok.is-drag, .zg-lok.is-sofort { transition: none; }
+/* Der Strich unter der Lok: genau ihre Mitte, und genau die wird gewertet.
+   Er reicht bis auf die Schiene hinunter, mit hellem Saum, damit er auf dem
+   Holz zu sehen bleibt. */
+.zg-lok::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -14px;
+  width: 3px;
+  height: 18px;
+  border-radius: 2px;
+  background: #243047;
+  box-shadow: 0 0 0 1.5px rgba(255, 255, 255, 0.85);
+  transform: translateX(-50%);
+}
 .zg-lok-bild { display: block; width: 100%; height: auto; filter: drop-shadow(0 4px 6px rgba(31, 42, 51, 0.25)); }
 .zg-lok.is-drag .zg-lok-bild { transform: scale(1.06); }
 .zg-lok.is-genau .zg-lok-bild { filter: drop-shadow(0 0 10px #2f9e44); }
+.zg-lok.is-fast .zg-lok-bild { filter: drop-shadow(0 0 10px #8fd14f); }
 .zg-lok.is-knapp .zg-lok-bild { filter: drop-shadow(0 0 10px #f6b93b); }
 .zg-lok.is-nah .zg-lok-bild { filter: drop-shadow(0 0 8px #ff9f1c); }
+.zg-lok.is-weit .zg-lok-bild { filter: drop-shadow(0 0 8px #f0885a); }
 .zg-lok.is-daneben .zg-lok-bild { filter: drop-shadow(0 0 8px #e2694f); }
 
 /* Die Punkte für diese Zahl, über der Lok. */
@@ -7993,8 +8010,10 @@ body.has-scene.puzzle-active .game-panel {
   animation: zg-plus 0.4s cubic-bezier(0.2, 1.4, 0.4, 1) both;
 }
 .zg-plus.is-genau { background: #2f9e44; color: #fff; }
+.zg-plus.is-fast { background: #b5e48c; }
 .zg-plus.is-knapp { background: #f6b93b; }
 .zg-plus.is-nah { background: #ffd8a8; }
+.zg-plus.is-weit { background: #f7c7b4; }
 .zg-plus.is-daneben { background: #f2c4bb; }
 @keyframes zg-plus {
   0% { transform: translate(-50%, 8px) scale(0.6); opacity: 0; }
@@ -8018,8 +8037,10 @@ body.has-scene.puzzle-active .game-panel {
   pointer-events: none;
   animation: zg-ziel 0.45s cubic-bezier(0.2, 1.2, 0.4, 1) both;
 }
+.zg-ziel.is-fast { --zg-ziel-farbe: #5aa832; }
 .zg-ziel.is-knapp { --zg-ziel-farbe: #d9950f; }
 .zg-ziel.is-nah { --zg-ziel-farbe: #e07b1a; }
+.zg-ziel.is-weit { --zg-ziel-farbe: #d6613f; }
 .zg-ziel.is-daneben { --zg-ziel-farbe: #c94a33; }
 .zg-ziel-zahl {
   position: absolute;
