@@ -6,6 +6,11 @@
  * geschafft. Fünf abgeschlossene Runden bauen den Wagen – ob mit acht Karten
  * oder mit vierundzwanzig, ist gleich.
  *
+ * Jede umgedrehte Karte ist von Anfang an eine ganze Karte: heller Karton mit
+ * einem Ring in der Farbe des Bereichs. Dass ein Paar stimmt, sagt nicht mehr
+ * das Aussehen, sondern ein kurzes Zeichen – der Ring wird grün, und beide
+ * Karten pulsieren einmal, bevor sie verschwinden.
+ *
  * Die Karten werden einmal je Runde gebaut und danach nur noch umgedreht.
  * Vorher wurde das ganze Feld bei jedem Tipp neu gezeichnet – und jedes
  * gefundene Paar spielte dabei sein Verschwinden noch einmal ab: für einen
@@ -47,6 +52,14 @@
     "Zeit hast du so viel du willst, und Punkte gibt es keine.",
   ].join(" ");
 
+  // Die Motive. Viele, damit zwei Runden hintereinander kaum je dieselben
+  // Sachen zeigen: eine Runde braucht höchstens zwölf, und gewählt wird aus
+  // über hundert. Was in der letzten Runde lag, wird zusätzlich übersprungen
+  // (siehe waehleItems) – so ist jede Runde wirklich neu.
+  //
+  // Jedes Motiv muss sich von allen anderen auf einen Blick unterscheiden:
+  // zwei Sachen, die einander ähneln, machen das Spiel nicht schwerer, sondern
+  // unfair. Deshalb steht hier weder Tomate neben Apfel noch Hamster neben Maus.
   const ITEMS = [
     { emoji: "🍎", label: "Apfel" },
     { emoji: "🍌", label: "Banane" },
@@ -88,6 +101,93 @@
     { emoji: "🧢", label: "Kappe" },
     { emoji: "👟", label: "Schuh" },
     { emoji: "🧦", label: "Socke" },
+    { emoji: "🍐", label: "Birne" },
+    { emoji: "🍊", label: "Orange" },
+    { emoji: "🍋", label: "Zitrone" },
+    { emoji: "🍉", label: "Melone" },
+    { emoji: "🍒", label: "Kirschen" },
+    { emoji: "🍍", label: "Ananas" },
+    { emoji: "🥝", label: "Kiwi" },
+    { emoji: "🥦", label: "Broccoli" },
+    { emoji: "🥨", label: "Brezel" },
+    { emoji: "🥐", label: "Gipfeli" },
+    { emoji: "🧁", label: "Muffin" },
+    { emoji: "🍰", label: "Kuchen" },
+    { emoji: "🍦", label: "Glace" },
+    { emoji: "🍩", label: "Donut" },
+    { emoji: "🍕", label: "Pizza" },
+    { emoji: "🥚", label: "Ei" },
+    { emoji: "🍿", label: "Popcorn" },
+    { emoji: "🐶", label: "Hund" },
+    { emoji: "🐱", label: "Katze" },
+    { emoji: "🐭", label: "Maus" },
+    { emoji: "🐰", label: "Hase" },
+    { emoji: "🦊", label: "Fuchs" },
+    { emoji: "🐻", label: "Bär" },
+    { emoji: "🐼", label: "Panda" },
+    { emoji: "🦁", label: "Löwe" },
+    { emoji: "🐮", label: "Kuh" },
+    { emoji: "🐷", label: "Schwein" },
+    { emoji: "🐸", label: "Frosch" },
+    { emoji: "🐵", label: "Affe" },
+    { emoji: "🐔", label: "Huhn" },
+    { emoji: "🐧", label: "Pinguin" },
+    { emoji: "🦉", label: "Eule" },
+    { emoji: "🦆", label: "Ente" },
+    { emoji: "🐴", label: "Pferd" },
+    { emoji: "🦄", label: "Einhorn" },
+    { emoji: "🐝", label: "Biene" },
+    { emoji: "🦋", label: "Schmetterling" },
+    { emoji: "🐌", label: "Schnecke" },
+    { emoji: "🐞", label: "Marienkäfer" },
+    { emoji: "🐢", label: "Schildkröte" },
+    { emoji: "🐙", label: "Krake" },
+    { emoji: "🦀", label: "Krebs" },
+    { emoji: "🐠", label: "Fisch" },
+    { emoji: "🐬", label: "Delfin" },
+    { emoji: "🐳", label: "Wal" },
+    { emoji: "🐘", label: "Elefant" },
+    { emoji: "🦒", label: "Giraffe" },
+    { emoji: "🐑", label: "Schaf" },
+    { emoji: "🦔", label: "Igel" },
+    { emoji: "🚗", label: "Auto" },
+    { emoji: "🚌", label: "Bus" },
+    { emoji: "🚒", label: "Feuerwehrauto" },
+    { emoji: "🚜", label: "Traktor" },
+    { emoji: "🚲", label: "Velo" },
+    { emoji: "🚂", label: "Lokomotive" },
+    { emoji: "✈️", label: "Flugzeug" },
+    { emoji: "🚁", label: "Helikopter" },
+    { emoji: "🚀", label: "Rakete" },
+    { emoji: "⛵", label: "Segelboot" },
+    { emoji: "🎸", label: "Gitarre" },
+    { emoji: "🥁", label: "Trommel" },
+    { emoji: "🎺", label: "Trompete" },
+    { emoji: "🎹", label: "Klavier" },
+    { emoji: "🔔", label: "Glocke" },
+    { emoji: "⌚", label: "Uhr" },
+    { emoji: "📷", label: "Fotoapparat" },
+    { emoji: "💡", label: "Glühbirne" },
+    { emoji: "🔦", label: "Taschenlampe" },
+    { emoji: "🔨", label: "Hammer" },
+    { emoji: "🧹", label: "Besen" },
+    { emoji: "🪥", label: "Zahnbürste" },
+    { emoji: "🎨", label: "Farbkasten" },
+    { emoji: "🪁", label: "Drachen" },
+    { emoji: "🏀", label: "Basketball" },
+    { emoji: "🛷", label: "Schlitten" },
+    { emoji: "⛄", label: "Schneemann" },
+    { emoji: "🎃", label: "Kürbis" },
+    { emoji: "⭐", label: "Stern" },
+    { emoji: "⚡", label: "Blitz" },
+    { emoji: "🌵", label: "Kaktus" },
+    { emoji: "🌷", label: "Tulpe" },
+    { emoji: "🌻", label: "Sonnenblume" },
+    { emoji: "🍀", label: "Kleeblatt" },
+    { emoji: "🐚", label: "Muschel" },
+    { emoji: "🎩", label: "Zylinder" },
+    { emoji: "👓", label: "Brille" },
+    { emoji: "🧤", label: "Handschuh" },
   ];
 
   // ---------------------------------------------------------------------------
@@ -134,6 +234,23 @@
       [copy[i], copy[j]] = [copy[j], copy[i]];
     }
     return copy;
+  }
+
+  // Was die letzte Runde gezeigt hat. Die nächste wählt darum herum: bei über
+  // hundert Motiven und höchstens zwölf je Runde geht das immer auf, und ein
+  // Kind sieht nie zweimal hintereinander dieselben Sachen. Bloss zu mischen
+  // reichte nicht – bei zwölf aus hundert lägen im Schnitt trotzdem ein bis
+  // zwei alte Bekannte wieder da.
+  //
+  // Gemerkt wird nur für diese Sitzung. Beim nächsten Öffnen darf alles wieder
+  // vorkommen; einen Speicher dafür anzulegen wäre viel Aufwand für nichts.
+  let zuletzt = [];
+
+  function waehleItems(anzahl) {
+    const frisch = ITEMS.filter((item) => !zuletzt.includes(item.label));
+    const gewaehlt = shuffle(frisch.length >= anzahl ? frisch : ITEMS).slice(0, anzahl);
+    zuletzt = gewaehlt.map((item) => item.label);
+    return gewaehlt;
   }
 
   function clearStep() {
@@ -193,9 +310,9 @@
     state.locked = false;
     shell.setCount(0);
 
-    const paare = shuffle(ITEMS).slice(0, groesse / 2);
+    const paare = waehleItems(groesse / 2);
     state.karten = shuffle([...paare, ...paare].map((item, index) => ({
-      id: index, item, offen: false, weg: false, node: null, bild: null,
+      id: index, item, offen: false, paar: false, weg: false, node: null, bild: null,
     })));
 
     shell.clear();
@@ -234,6 +351,7 @@
     if (!node) return;
     const sichtbar = karte.offen || karte.weg;
     node.classList.toggle("is-offen", karte.offen);
+    if (karte.paar && !node.classList.contains("is-paar")) node.classList.add("is-paar");
     if (karte.weg && !node.classList.contains("is-weg")) node.classList.add("is-weg");
     node.disabled = sichtbar;
     node.setAttribute("aria-label", sichtbar ? karte.item.label : "Verdeckte Karte");
@@ -256,6 +374,12 @@
       shell.setCount(state.gefunden);
       kids()?.playJingle?.("correct");
       kids()?.vibrate?.(14);
+      // Das Zeichen für "gestimmt": beide Karten bekommen einen grünen Ring
+      // und pulsieren einmal kurz, bevor sie verschwinden.
+      a.paar = true;
+      b.paar = true;
+      zeichne(a);
+      zeichne(b);
       stepTimer = window.setTimeout(() => {
         a.weg = true;
         b.weg = true;
@@ -324,7 +448,7 @@
 
   showMenu();
 
-  window.LernappMemory = { GROESSEN, ITEMS, RUNDEN_FUER_WAGEN };
+  window.LernappMemory = { GROESSEN, ITEMS, RUNDEN_FUER_WAGEN, waehleItems };
 
   window.addEventListener("pagehide", clearStep);
 })();

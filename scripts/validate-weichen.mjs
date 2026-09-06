@@ -49,8 +49,8 @@ assert(api, "weichen.js hat window.LernappWeichen nicht gesetzt");
 // Genau so, wie sie bestellt wurde. Eine Zahl, die sich unbemerkt verschiebt,
 // macht aus dem Einstiegslevel ein Level für Fortgeschrittene.
 const SOLL = [
-  [3, 15], [4, 15], [5, 20], [5, 25], [6, 25],
-  [6, 30], [7, 30], [8, 30], [8, 35], [9, 35],
+  [3, 8], [4, 8], [5, 10], [5, 12], [6, 12],
+  [6, 15], [7, 15], [8, 15], [8, 18], [9, 18],
 ];
 
 assert(api.LEVELS.length === 10, `erwartet 10 Level, gefunden ${api.LEVELS.length}`);

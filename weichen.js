@@ -43,30 +43,36 @@
   // gleich schnell; nach Gleisstücken gerechnet raste er auf den langen Ästen
   // und kroch auf den kurzen.
   //
-  // Die Züge fahren halb so schnell wie in der ersten Fassung: in Level 1
-  // braucht einer gut sechzehn Sekunden über das Bild, und bis zur ersten
-  // Weiche bleiben ihm fast fünf Sekunden Bedenkzeit. Damit ein Level deswegen
-  // nicht doppelt so lange dauert, sind dafür mehr Züge zugleich unterwegs:
-  // vier am Anfang und sechs ab Level 4 statt bisher zwei bis fünf. Der Takt
-  // ist derselbe geblieben, also kommen sie auch enger hintereinander aus dem
-  // Tunnel. Ein Level dauert damit gut eine Minute wie bisher – auf einem
-  // schmalen Handybild etwas länger, weil dort weniger Züge nebeneinander
-  // Platz haben.
+  // Die Züge fahren noch einmal halb so schnell: in Level 1 braucht einer gut
+  // eine halbe Minute über das Bild, in Level 10 gut zwanzig Sekunden. Auf drei
+  // Sterne kommt nur, wer keinen einzigen Zug verfährt, und dafür muss vor
+  // jeder Weiche Zeit zum Schauen bleiben – in den schweren Levels war die
+  // vorher weg.
+  //
+  // Wie oft eine Entscheidung ansteht, hängt nicht am Takt, sondern daran, wie
+  // viele Züge zugleich unterwegs sind mal ihrem Tempo: halbes Tempo heisst
+  // halb so viele Weichen pro Minute. Genau das war gewünscht, und deshalb
+  // bleiben Takt und Gleichzeitigkeit, wie sie waren – mehr Züge nebeneinander
+  // hätten die Entscheidungsdichte wieder hochgezogen.
+  //
+  // Weil ein Zug damit doppelt so lange über das Bild braucht, fahren halb so
+  // viele: sonst dauerte ein Level über zwei Minuten statt gut einer. Die
+  // Rechnung dazu steht in scripts/validate-weichen.mjs und wird dort geprüft.
   //
   // Schwerer wird es weiterhin über die Dichte, nicht über das Tempo. Ab
   // Level 4 zieht das Tempo leicht an, aber auch in Level 10 fährt ein Zug
   // langsamer als früher in Level 1.
   const LEVELS = [
-    { nr: 1, farben: 3, zuege: 15, tempo: 0.055, takt: 2600, gleichzeitig: 4 },
-    { nr: 2, farben: 4, zuege: 15, tempo: 0.055, takt: 2400, gleichzeitig: 4 },
-    { nr: 3, farben: 5, zuege: 20, tempo: 0.06, takt: 2200, gleichzeitig: 5 },
-    { nr: 4, farben: 5, zuege: 25, tempo: 0.065, takt: 2000, gleichzeitig: 6 },
-    { nr: 5, farben: 6, zuege: 25, tempo: 0.07, takt: 1900, gleichzeitig: 6 },
-    { nr: 6, farben: 6, zuege: 30, tempo: 0.075, takt: 1800, gleichzeitig: 6 },
-    { nr: 7, farben: 7, zuege: 30, tempo: 0.08, takt: 1700, gleichzeitig: 6 },
-    { nr: 8, farben: 8, zuege: 30, tempo: 0.085, takt: 1600, gleichzeitig: 6 },
-    { nr: 9, farben: 8, zuege: 35, tempo: 0.09, takt: 1500, gleichzeitig: 6 },
-    { nr: 10, farben: 9, zuege: 35, tempo: 0.095, takt: 1400, gleichzeitig: 6 },
+    { nr: 1, farben: 3, zuege: 8, tempo: 0.0275, takt: 2600, gleichzeitig: 4 },
+    { nr: 2, farben: 4, zuege: 8, tempo: 0.0275, takt: 2400, gleichzeitig: 4 },
+    { nr: 3, farben: 5, zuege: 10, tempo: 0.03, takt: 2200, gleichzeitig: 5 },
+    { nr: 4, farben: 5, zuege: 12, tempo: 0.0325, takt: 2000, gleichzeitig: 6 },
+    { nr: 5, farben: 6, zuege: 12, tempo: 0.035, takt: 1900, gleichzeitig: 6 },
+    { nr: 6, farben: 6, zuege: 15, tempo: 0.0375, takt: 1800, gleichzeitig: 6 },
+    { nr: 7, farben: 7, zuege: 15, tempo: 0.04, takt: 1700, gleichzeitig: 6 },
+    { nr: 8, farben: 8, zuege: 15, tempo: 0.0425, takt: 1600, gleichzeitig: 6 },
+    { nr: 9, farben: 8, zuege: 18, tempo: 0.045, takt: 1500, gleichzeitig: 6 },
+    { nr: 10, farben: 9, zuege: 18, tempo: 0.0475, takt: 1400, gleichzeitig: 6 },
   ];
 
   // Fünf abgeschlossene Level, und der Wagen im Bereich Konzentration ist für
