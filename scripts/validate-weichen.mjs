@@ -49,8 +49,8 @@ assert(api, "weichen.js hat window.LernappWeichen nicht gesetzt");
 // Genau so, wie sie bestellt wurde. Eine Zahl, die sich unbemerkt verschiebt,
 // macht aus dem Einstiegslevel ein Level für Fortgeschrittene.
 const SOLL = [
-  [3, 8], [4, 8], [5, 10], [5, 12], [6, 12],
-  [6, 15], [7, 15], [8, 15], [8, 18], [9, 18],
+  [3, 10], [4, 10], [5, 12], [5, 13], [6, 14],
+  [6, 17], [7, 18], [8, 19], [8, 20], [9, 22],
 ];
 
 assert(api.LEVELS.length === 10, `erwartet 10 Level, gefunden ${api.LEVELS.length}`);
@@ -60,34 +60,60 @@ api.LEVELS.forEach((level, index) => {
   assert(level.farben === farben, `Level ${level.nr}: ${level.farben} Farben statt ${farben}`);
   assert(level.zuege === zuege, `Level ${level.nr}: ${level.zuege} Züge statt ${zuege}`);
   assert(level.tempo > 0 && level.takt > 0, `Level ${level.nr}: Tempo oder Takt fehlt`);
-  assert(level.gleichzeitig >= 1 && level.gleichzeitig <= 6, `Level ${level.nr}: ${level.gleichzeitig} Züge gleichzeitig sind unsinnig`);
+  // Die Obergrenze für gleichzeitig fahrende Züge gibt es nicht mehr, und sie
+  // soll auch nicht zurückkommen: sie war es, die aus dem Takt zwei Schübe mit
+  // einer Pause dazwischen machte. Wer sie wieder einführt, merkt es hier.
+  assert(!("gleichzeitig" in level), `Level ${level.nr} hat wieder eine Obergrenze für gleichzeitige Züge`);
 });
 
 // Ab Level 4 zieht das Tempo an, und es fällt danach nie wieder ab. Auch die
-// Dichte wächst nur: ein späteres Level lässt nie weniger Züge zugleich fahren.
+// Dichte wächst nur: ein späteres Level rückt die Züge näher zusammen und lässt
+// mehr davon fahren.
 assert(api.LEVELS[3].tempo > api.LEVELS[2].tempo, "ab Level 4 sollte es schneller werden");
 api.LEVELS.forEach((level, index) => {
   if (index === 0) return;
   assert(level.tempo >= api.LEVELS[index - 1].tempo, `Level ${level.nr} ist langsamer als das davor`);
   assert(level.takt <= api.LEVELS[index - 1].takt, `Level ${level.nr} lässt mehr Zeit zwischen den Zügen als das davor`);
-  assert(level.gleichzeitig >= api.LEVELS[index - 1].gleichzeitig, `Level ${level.nr} lässt weniger Züge zugleich fahren als das davor`);
+  assert(level.zuege >= api.LEVELS[index - 1].zuege, `Level ${level.nr} schickt weniger Züge los als das davor`);
 });
+
+// Wie lang ein Zug unterwegs ist, lässt sich hier ohne Browser nur schätzen:
+// vom Tunnel zum Haus sind es 0,91 Bildbreiten, aber gezeichnet wird in einen
+// Rahmen mit Rand, und dazu kommen die Auf- und Abwege über die Weichen. Im
+// Querformat, in dem die App läuft, kommen so gut 0,85 Bildbreiten heraus –
+// nachgemessen an Level 1, 5 und 10 mit gestellter Uhr.
+const WEG = 0.85;
+const fahrzeit = (level) => WEG / level.tempo;
+// Wie viele Züge zugleich unterwegs sind, ist keine eingestellte Zahl mehr,
+// sondern fällt aus Fahrzeit und Takt heraus.
+const zugleich = (level) => fahrzeit(level) / (level.takt / 1000);
+// Und wie lange ein Level dauert, ebenso: der letzte fährt nach zuege-1 Takten
+// los und braucht dann noch einmal die Fahrzeit. Eine Pause gibt es nicht mehr.
+const dauer = (level) => 0.5 + (level.zuege - 1) * level.takt / 1000 + fahrzeit(level);
 
 // Das gemächliche Tempo ist der Sinn des Spiels: ein Zug legt in einer Sekunde
 // höchstens ein Zehntel der Bildbreite zurück, braucht also über zehn Sekunden
-// über das Bild. Und mindestens drei Züge sind zugleich unterwegs – sonst
-// stünde ein Kind zwischen zwei Zügen lange vor einer leeren Strecke.
+// über das Bild.
+//
+// Zwischen zwei Zügen liegen mindestens 2,8 Sekunden. Enger war es vorher, und
+// enger soll es nicht wieder werden: wer zwei Züge auseinanderhalten muss,
+// braucht diese Zeit, und in den schweren Levels hing der dritte Stern daran.
+//
+// Mindestens drei Züge sind zugleich unterwegs – sonst stünde ein Kind zwischen
+// zwei Zügen lange vor einer leeren Strecke. Mehr als acht werden es nie, sonst
+// ist das Bild voll.
 api.LEVELS.forEach((level) => {
   assert(level.tempo <= 0.1, `Level ${level.nr} fährt mit ${level.tempo} zu schnell`);
-  assert(level.gleichzeitig >= 3, `Level ${level.nr} lässt nur ${level.gleichzeitig} Züge zugleich fahren`);
+  assert(level.takt >= 2800, `Level ${level.nr} lässt nur ${level.takt} ms zwischen zwei Zügen`);
+  const n = zugleich(level);
+  assert(n >= 3 && n <= 8, `Level ${level.nr} hat rund ${n.toFixed(1)} Züge zugleich auf dem Bild`);
 });
 
-// Und trotzdem darf kein Level zur Geduldsprobe werden: gerechnet auf eine
-// Bildbreite Weg je Zug dauert keines länger als anderthalb Minuten. Weniger
-// Tempo verlangt also mehr Züge zugleich, sonst wartet das Kind nur noch.
+// Und trotzdem darf kein Level zur Geduldsprobe werden. Vorher dauerte das
+// längste 72 Sekunden; ohne die Pause in der Mitte passen mehr Züge hinein,
+// aber kein Level darf dadurch mehr als zwanzig Sekunden länger werden.
 api.LEVELS.forEach((level) => {
-  const dauer = level.zuege / level.gleichzeitig / level.tempo;
-  assert(dauer <= 90, `Level ${level.nr} dauert rund ${Math.round(dauer)} Sekunden`);
+  assert(dauer(level) <= 92, `Level ${level.nr} dauert rund ${Math.round(dauer(level))} Sekunden`);
 });
 
 // Genug Farben für das schwerste Level, und jede mit eigenem Zeichen.
