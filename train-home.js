@@ -1809,21 +1809,25 @@
     const previous = view.name;
     const previousArea = view.areaId;
 
-    // Eine laufende Feier überlebt das Neuzeichnen. Die Bühne wird auch dann
-    // neu gebaut, wenn Firebase sich nach dem Laden meldet – und das tut es
-    // jedes Mal, mit oder ohne Konto. Ohne diesen Handgriff war die Feier
-    // nach einem Wimpernschlag wieder weg, samt Wagen und Balken.
-    const laufendeFeiern = [...stage.querySelectorAll(".wagon-reward")];
-
     // Die Landschaft bleibt stehen, solange es dieselbe ist. Neu gebaut fingen
     // Wolken, Hügel und Gras wieder am Anfang an – ein Ruck durch das ganze
     // Bild bei jedem Neuzeichnen. Und neu gezeichnet wird nach dem Laden noch
     // zwei-, dreimal, sobald Firebase Einstellungen und Fortschritt meldet:
     // das sah aus, als würde der Hintergrund mehrmals hintereinander geladen.
+    //
+    // Eine laufende Feier bleibt genauso stehen – an Ort und Stelle. Früher
+    // wurde sie herausgenommen und hinten wieder angehängt, damit sie das
+    // Neuzeichnen überlebt. Aber ein Element, das neu ins Dokument kommt,
+    // spielt alle seine Animationen von vorn: das Fenster blendete sich beim
+    // zweiten und dritten Zeichnen noch einmal ein, die Punkte und Teile
+    // sprangen noch einmal hervor – es sah aus, als würde die Feier mehrmals
+    // hintereinander geladen. Jetzt wird sie gar nicht erst angefasst; ihr
+    // z-index hält sie über allem, was darunter neu entsteht.
     const scene = currentScene();
     const standing = stage.querySelector(":scope > .scene");
     const keepScene = standing && scene && standing.dataset.scene === scene.id ? standing : null;
-    [...stage.children].forEach((child) => { if (child !== keepScene) child.remove(); });
+    const bleibt = (child) => child === keepScene || child.classList.contains("wagon-reward");
+    [...stage.children].forEach((child) => { if (!bleibt(child)) child.remove(); });
     if (scene && !keepScene) stage.prepend(buildScene(scene));
     // Beim Neuzeichnen derselben Ansicht soll die Ebene nicht noch einmal
     // hereinschweben: das Bild steht schon, es bekommt nur frische Zahlen.
@@ -1882,7 +1886,6 @@
 
     stage.append(friendsHost, band, layerHost, backButton, startButton);
     if (sceneButton) stage.append(sceneButton);
-    laufendeFeiern.forEach((overlay) => stage.append(overlay));
 
     renderFriends();
 

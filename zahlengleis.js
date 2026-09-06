@@ -1,8 +1,8 @@
 /*
  * zahlengleis.js – Wo hält der Zug? Der Zahlenstrahl als Gleis.
  *
- * Ein Gleis quer über das Bild, links der Bahnhof 0, rechts der Bahnhof 5, 10
- * oder 20. Oben steht eine Zahl. Das Kind schiebt seine Lok dorthin, wo diese
+ * Ein Gleis quer über das Bild, links der Bahnhof 0, rechts der letzte
+ * Bahnhof. Oben steht eine Zahl. Das Kind schiebt seine Lok dorthin, wo diese
  * Zahl auf dem Gleis liegt, und lässt los – oder tippt die Stelle einfach an.
  * Danach fährt ein Schild an die richtige Stelle und zeigt, wie nah es war.
  * Zehn Zahlen je Runde, bis zu drei Punkte je Zahl.
@@ -12,13 +12,13 @@
  * in dem sich die Zahlenreihe im Kopf festsetzt. Wer daneben liegt, sieht
  * wohin, und bekommt die nächste Zahl.
  *
- * Die Runde wird von selbst schwerer: die ersten Zahlen liegen auf einem Gleis
- * bis fünf mit einer Marke an jeder Zahl – da wird gezählt. Dann bis zehn mit
- * Marken nur an den Enden und in der Mitte – da wird geschätzt. Zuletzt bis
- * zwanzig. Wer dort daneben liegt, verliert nichts als Punkte; die Runde geht
- * zu Ende wie jede andere. Eine Wahl zwischen Leicht und Schwer gibt es nicht:
- * ein Vierjähriges könnte sie nicht treffen, und so bekommt jedes Kind in jeder
- * Runde die leichten und die schweren Zahlen.
+ * Vier Stufen, vor der Runde gewählt: bis 20, bis 50, bis 100, und bis 100
+ * ohne Marken dazwischen. Innerhalb einer Stufe wird die Runde von selbst
+ * schwerer – die ersten Zahlen liegen auf dem kürzesten Gleis der Stufe, die
+ * letzten auf dem längsten. Auf der ersten Stufe steht am Anfang an jeder
+ * Zahl eine Marke, da wird gezählt; danach stehen Marken nur noch an runden
+ * Zahlen, da wird geschätzt; auf der letzten Stufe nur noch an den beiden
+ * Bahnhöfen. Wer daneben liegt, verliert nichts als Punkte.
  *
  * Bühne, Knöpfe und Bestenliste kommen aus game-shell.js; die Lok ist die des
  * Kindes, so wie sie auf dem Startbild steht.
@@ -39,27 +39,49 @@
   // ---------------------------------------------------------------------------
   // Regeln
   // ---------------------------------------------------------------------------
-  // Drei Gleise: bis wohin sie gehen und wo Marken stehen (alle `marken`
-  // Zahlen eine). Die Enden tragen immer eine Marke mit Zahl.
+  // Vier Stufen mit je drei Gleisen. bis = wohin das Gleis geht, marken = alle
+  // wie viele Zahlen eine Marke steht (die Enden tragen immer eine mit Zahl),
+  // zahlen = ob auch an den Marken dazwischen die Zahl steht. Marken so weit
+  // wie das Gleis heisst: nur die beiden Bahnhöfe.
+  //
+  // Schwerer wird es zweifach: die Zahlen werden grösser, und die Marken
+  // dazwischen werden weniger – bis auf der vierten Stufe keine mehr steht.
   const STUFEN = [
-    { bis: 5, marken: 1 },
-    { bis: 10, marken: 5 },
-    { bis: 20, marken: 10 },
+    {
+      nr: 1, bis: 20, name: "bis 20, mit einer Marke an jeder Zahl", striche: 5,
+      gleise: [{ bis: 5, marken: 1, zahlen: true }, { bis: 10, marken: 5 }, { bis: 20, marken: 10 }],
+    },
+    {
+      nr: 2, bis: 50, name: "bis 50, mit Marken an den runden Zahlen", striche: 3,
+      gleise: [{ bis: 20, marken: 5 }, { bis: 30, marken: 10 }, { bis: 50, marken: 10 }],
+    },
+    {
+      nr: 3, bis: 100, name: "bis 100, mit wenigen Marken", striche: 1,
+      gleise: [{ bis: 50, marken: 10 }, { bis: 100, marken: 25 }, { bis: 100, marken: 50 }],
+    },
+    {
+      nr: 4, bis: 100, name: "bis 100, ohne Marken dazwischen", striche: 0,
+      gleise: [{ bis: 60, marken: 60 }, { bis: 80, marken: 80 }, { bis: 100, marken: 100 }],
+    },
   ];
 
-  // Welches Gleis die zehn Zahlen einer Runde bekommen: drei auf dem kurzen,
-  // vier auf dem mittleren, drei auf dem langen.
+  // Welches Gleis der Stufe die zehn Zahlen einer Runde bekommen: drei auf
+  // dem kurzen, vier auf dem mittleren, drei auf dem langen.
   const PLAN = [0, 0, 0, 1, 1, 1, 1, 2, 2, 2];
 
   // Wie weit die Lok daneben stehen darf – in Zahlen, nicht in Bildpunkten,
-  // weil ein Finger auf dem langen Gleis mehr Zahlen überdeckt als auf dem
-  // kurzen. Innerhalb von `genau` gibt es drei Punkte, bis `knapp` zwei, bis
-  // `nah` einen, sonst keinen.
-  const TOLERANZ = [
-    { genau: 0.35, knapp: 0.8, nah: 1.5 },
-    { genau: 0.5, knapp: 1.2, nah: 2.5 },
-    { genau: 1, knapp: 2.5, nah: 5 },
-  ];
+  // und im Verhältnis zum Gleis: ein Finger überdeckt auf dem langen Gleis
+  // mehr Zahlen als auf dem kurzen. Innerhalb von `genau` gibt es drei Punkte,
+  // bis `knapp` zwei, bis `nah` einen, sonst keinen. Auf den ganz kurzen
+  // Gleisen gilt eine Untergrenze, sonst müsste ein Kind auf dem Gleis bis
+  // fünf genauer treffen als ein Finger breit ist.
+  function toleranzFuer(bis) {
+    return {
+      genau: Math.max(0.35, bis * 0.05),
+      knapp: Math.max(0.8, bis * 0.125),
+      nah: Math.max(1.5, bis * 0.25),
+    };
+  }
 
   const ZAHLEN_JE_RUNDE = PLAN.length;
   const PUNKTE_JE_ZAHL = 3;
@@ -71,7 +93,8 @@
   const TOP_COUNT = 5;
 
   const HELP = [
-    "Wo hält der Zug? Unten siehst du ein Gleis. Links ist der Bahnhof Null, rechts der letzte Bahnhof.",
+    "Wo hält der Zug? Zuerst wählst du, wie gross die Zahlen sind: bis zwanzig, bis fünfzig oder bis hundert.",
+    "Dann siehst du unten ein Gleis. Links ist der Bahnhof Null, rechts der letzte Bahnhof.",
     "Oben steht eine Zahl. Schieb die Lok mit dem Finger dorthin, wo diese Zahl auf dem Gleis liegt, und lass los.",
     "Du kannst die Stelle auch einfach antippen.",
     "Danach zeigt ein Schild, wo die Zahl wirklich liegt.",
@@ -82,6 +105,8 @@
   // ---------------------------------------------------------------------------
   // Bestenliste – lokal und in der Cloud
   // ---------------------------------------------------------------------------
+  // Eine Liste für alle Stufen: jede Runde hat zehn Zahlen und bis zu dreissig
+  // Punkte, und die Runden zählen für den Wagen gleich, egal auf welcher Stufe.
   const store = cloudApi
     ? cloudApi.register({ key: "lernapp.zahlengleis", empty: { runs: 0, scores: [] }, merge: cloudApi.mergeScores(TOP_COUNT) })
     : {
@@ -101,17 +126,20 @@
   // ---------------------------------------------------------------------------
   // Zahlen und Punkte
   // ---------------------------------------------------------------------------
+  function gleisFuer(stufe, index) {
+    return stufe.gleise[PLAN[index]];
+  }
+
   // Nie die Enden – die stehen angeschrieben da – und nie zweimal dieselbe
   // hintereinander.
-  function zahlFuer(stufe, vorher = null) {
-    const { bis } = STUFEN[stufe];
+  function zahlFuer(gleis, vorher = null) {
     const moeglich = [];
-    for (let n = 1; n < bis; n += 1) if (n !== vorher) moeglich.push(n);
+    for (let n = 1; n < gleis.bis; n += 1) if (n !== vorher) moeglich.push(n);
     return moeglich[Math.floor(Math.random() * moeglich.length)];
   }
 
-  function punkteFuer(abweichung, stufe) {
-    const t = TOLERANZ[stufe];
+  function punkteFuer(abweichung, bis) {
+    const t = toleranzFuer(bis);
     const weit = Math.abs(abweichung);
     if (weit <= t.genau) return 3;
     if (weit <= t.knapp) return 2;
@@ -146,7 +174,7 @@
   // Zustand
   // ---------------------------------------------------------------------------
   const state = {
-    phase: "aufgabe", index: 0, stufe: 0, zahl: 0, vorher: null,
+    phase: "menu", stufe: STUFEN[0], index: 0, gleis: null, zahl: 0, vorher: null,
     p: 0, punkte: 0, genau: 0, knapp: 0, nah: 0, daneben: 0, drag: false,
   };
   let shell = null;
@@ -165,15 +193,60 @@
   }
 
   // ---------------------------------------------------------------------------
+  // Die Stufenwahl
+  // ---------------------------------------------------------------------------
+  // Vier Knöpfe: die grösste Zahl der Stufe, und darunter ein kleines Gleis
+  // mit immer weniger Strichen – so ist auch ohne Lesen zu sehen, dass es
+  // nach rechts schwerer wird.
+  function gleisBild(striche) {
+    const teile = [
+      art.el("rect", { x: 2, y: 13, width: 76, height: 4, rx: 2, fill: "#8a5f1c" }),
+      art.el("rect", { x: 2, y: 8, width: 3, height: 14, rx: 1.5, fill: "#8a3a2c" }),
+      art.el("rect", { x: 75, y: 8, width: 3, height: 14, rx: 1.5, fill: "#8a3a2c" }),
+    ];
+    for (let i = 1; i <= striche; i += 1) {
+      const x = 2 + (76 * i) / (striche + 1);
+      teile.push(art.el("rect", { x: x - 1.2, y: 10, width: 2.4, height: 8, rx: 1, fill: "#243047" }));
+    }
+    return art.el("svg", { viewBox: "0 0 80 24", class: "zg-stufe-gleis", "aria-hidden": "true" }, teile);
+  }
+
+  function showMenu() {
+    clearStep();
+    releaseHelp?.();
+    releaseHelp = null;
+    shell.closeOverlay();
+    shell.setPhase("menu");
+    state.phase = "menu";
+    state.drag = false;
+    shell.setCount(0);
+
+    shell.clear();
+    shell.play.append(shell.el("p", "cm-prompt", "Wie gross sollen die Zahlen sein?"));
+    const reihe = shell.el("div", "zg-stufen");
+    STUFEN.forEach((stufe) => {
+      const button = shell.el("button", "zg-stufe");
+      button.type = "button";
+      button.dataset.stufe = String(stufe.nr);
+      button.setAttribute("aria-label", `Stufe ${stufe.nr}: Zahlen ${stufe.name}.`);
+      button.append(shell.el("span", "zg-stufe-zahl", String(stufe.bis)));
+      button.append(gleisBild(stufe.striche));
+      button.addEventListener("click", () => startRun(stufe));
+      reihe.append(button);
+    });
+    shell.play.append(reihe);
+  }
+
+  // ---------------------------------------------------------------------------
   // Das Gleis
   // ---------------------------------------------------------------------------
   // Alles auf dem Gleis steht an einem Anteil zwischen 0 und 1 der Strecke; die
   // Ränder links und rechts sind im CSS als --zg-rand abgezogen. So rechnet das
   // Spiel nie in Bildpunkten, und das Gleis darf so breit sein, wie die Bühne
   // hergibt.
-  function baueMarken(stufe) {
+  function baueMarken(aktuell) {
     marken.innerHTML = "";
-    const { bis, marken: alle } = STUFEN[stufe];
+    const { bis, marken: alle, zahlen } = aktuell;
     for (let n = 0; n <= bis; n += alle) {
       const ende = n === 0 || n === bis;
       const marke = shell.el("span", `zg-marke${ende ? " is-bahnhof" : ""}`);
@@ -184,11 +257,11 @@
           art.el("path", { d: "M4 16 L20 4 L36 16 V32 H4 Z", fill: "#fff8ea", stroke: "#8a3a2c", "stroke-width": 2.5, "stroke-linejoin": "round" }),
           art.el("rect", { x: 15, y: 20, width: 10, height: 12, fill: "#8a3a2c" }),
         ]));
-        const zahl = shell.el("span", "zg-bahnhof-zahl", String(n));
+        const zahl = shell.el("span", `zg-bahnhof-zahl${String(n).length > 2 ? " is-lang" : ""}`, String(n));
         bahnhof.append(zahl);
         marke.append(bahnhof);
-      } else if (bis <= 5) {
-        // Auf dem kurzen Gleis steht an jeder Marke die Zahl – hier wird
+      } else if (zahlen) {
+        // Auf dem ersten Gleis steht an jeder Marke die Zahl – hier wird
         // gezählt, nicht geschätzt.
         marke.append(shell.el("span", "zg-marke-zahl", String(n)));
       }
@@ -214,13 +287,13 @@
   // ---------------------------------------------------------------------------
   // Ablauf
   // ---------------------------------------------------------------------------
-  function startRun() {
+  function startRun(stufe = state.stufe) {
     clearStep();
     releaseHelp?.();
     releaseHelp = null;
     shell.closeOverlay();
     shell.setPhase("play");
-    Object.assign(state, { phase: "aufgabe", index: 0, vorher: null, punkte: 0, genau: 0, knapp: 0, nah: 0, daneben: 0, drag: false });
+    Object.assign(state, { phase: "aufgabe", stufe, index: 0, vorher: null, punkte: 0, genau: 0, knapp: 0, nah: 0, daneben: 0, drag: false });
     shell.setCount(0);
 
     shell.clear();
@@ -255,12 +328,12 @@
   function naechsteZahl() {
     clearStep();
     state.phase = "aufgabe";
-    state.stufe = PLAN[state.index];
-    state.zahl = zahlFuer(state.stufe, state.vorher);
+    state.gleis = gleisFuer(state.stufe, state.index);
+    state.zahl = zahlFuer(state.gleis, state.vorher);
     state.vorher = state.zahl;
-    const { bis } = STUFEN[state.stufe];
+    const { bis } = state.gleis;
 
-    baueMarken(state.stufe);
+    baueMarken(state.gleis);
     ziel.hidden = true;
     plus.hidden = true;
     lok.classList.remove("is-genau", "is-knapp", "is-nah", "is-daneben");
@@ -291,9 +364,9 @@
     state.drag = false;
     lok.classList.remove("is-drag");
     setLok(p);
-    const { bis } = STUFEN[state.stufe];
+    const { bis } = state.gleis;
     const wert = state.p * bis;
-    const punkte = punkteFuer(wert - state.zahl, state.stufe);
+    const punkte = punkteFuer(wert - state.zahl, bis);
     const wie = ["daneben", "nah", "knapp", "genau"][punkte];
     state[wie] += 1;
     state.punkte += punkte;
@@ -333,7 +406,7 @@
 
   function resultSpeech(punkte, runs) {
     const treffer = state.genau === 0 ? "keine Zahl" : state.genau === 1 ? "eine Zahl" : `${state.genau} Zahlen`;
-    return `Du hast ${punkte} von ${ZAHLEN_JE_RUNDE * PUNKTE_JE_ZAHL} Punkten und ${treffer} genau getroffen. ${runsText(runs)}`;
+    return `Stufe ${state.stufe.nr}, Zahlen bis ${state.stufe.bis}: Du hast ${punkte} von ${ZAHLEN_JE_RUNDE * PUNKTE_JE_ZAHL} Punkten und ${treffer} genau getroffen. ${runsText(runs)}`;
   }
 
   function finish() {
@@ -347,19 +420,18 @@
     shell.showResult({
       label: "Deine Punkte",
       points: punkte,
-      detail: `${state.genau} genau · ${state.knapp} knapp · ${state.nah + state.daneben} daneben`,
+      detail: `Stufe ${state.stufe.nr} · ${state.genau} genau · ${state.knapp} knapp · ${state.nah + state.daneben} daneben`,
       scores: next.scores,
       top: TOP_COUNT,
       note: { text: runsText(next.runs), done: next.runs >= RUNS_FOR_DONE },
       speech: resultSpeech(punkte, next.runs),
+      onBack: showMenu,
     });
   }
 
   // ---------------------------------------------------------------------------
   // Start
   // ---------------------------------------------------------------------------
-  // Kein Erklärbild und kein Startknopf: die erste Zahl steht da, die Lok
-  // wartet bei null. Was zu tun ist, sagt der Lautsprecher.
   shell = shellApi.mount({
     host,
     title: "Wo hält der Zug?",
@@ -368,10 +440,19 @@
     accentDark: "#a8321f",
     help: HELP,
     clock: false,
-    onRestart: startRun,
+    // Neu starten heisst: dieselbe Stufe noch einmal; aus der Stufenwahl
+    // heraus wieder die Stufenwahl.
+    onRestart: () => (state.phase === "menu" ? showMenu() : startRun(state.stufe)),
+    // Zurück aus einer Runde führt in die Stufenwahl, nicht gleich aus dem
+    // Spiel heraus. Erst von dort aus geht es in die Bereichsauswahl.
+    onBack: () => {
+      if (state.phase === "menu") return false;
+      showMenu();
+      return true;
+    },
   });
 
-  startRun();
+  showMenu();
 
   // --- Schieben und Tippen ---------------------------------------------------
   // Ein Tipp auf das Gleis setzt die Lok dorthin und zählt schon als Antwort;
@@ -404,10 +485,15 @@
 
   // --- Tastatur ----------------------------------------------------------------
   // Pfeile schieben die Lok um ein Viertel einer Zahl, Enter oder Leertaste
-  // lassen sie halten.
+  // lassen sie halten. Die Tasten 1 bis 4 wählen die Stufe.
   document.addEventListener("keydown", (event) => {
+    if (state.phase === "menu") {
+      const stufe = STUFEN[["1", "2", "3", "4"].indexOf(event.key)];
+      if (stufe) { event.preventDefault(); startRun(stufe); }
+      return;
+    }
     if (state.phase !== "aufgabe") return;
-    const { bis } = STUFEN[state.stufe];
+    const { bis } = state.gleis;
     if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
       event.preventDefault();
       const schritt = 1 / (bis * 4);
@@ -424,5 +510,8 @@
 
   window.addEventListener("pagehide", clearStep);
 
-  window.LernappZahlengleis = { STUFEN, PLAN, TOLERANZ, ZAHLEN_JE_RUNDE, PUNKTE_JE_ZAHL, RUNS_FOR_DONE, zahlFuer, punkteFuer, state };
+  window.LernappZahlengleis = {
+    STUFEN, PLAN, ZAHLEN_JE_RUNDE, PUNKTE_JE_ZAHL, RUNS_FOR_DONE,
+    gleisFuer, toleranzFuer, zahlFuer, punkteFuer, state,
+  };
 })();

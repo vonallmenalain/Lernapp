@@ -8043,6 +8043,38 @@ body.has-scene.puzzle-active .game-panel {
   100% { transform: translate(-50%, 0); opacity: 1; }
 }
 
+/* Die Stufenwahl: vier Knöpfe mit der grössten Zahl der Stufe und einem
+   kleinen Gleis darunter, das nach rechts immer weniger Striche trägt. */
+.zg-stufen { display: flex; gap: clamp(10px, 2.4vw, 22px); flex: 0 0 auto; }
+.zg-stufe {
+  display: grid;
+  place-items: center;
+  gap: 4px;
+  min-width: clamp(64px, 14vw, 110px);
+  padding: clamp(10px, 2.2vh, 18px) clamp(8px, 1.6vw, 16px);
+  border: 3px solid #fff;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.9);
+  cursor: pointer;
+  box-shadow: 0 8px 18px rgba(31, 42, 51, 0.18);
+  transition: transform 0.12s ease, background 0.16s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.zg-stufe:hover { background: #fff; }
+.zg-stufe:active { transform: scale(0.95); }
+.zg-stufe:focus-visible { outline: 3px solid #243047; outline-offset: 3px; }
+.zg-stufe-zahl {
+  font-size: clamp(1.6rem, 6.5vh, 2.6rem);
+  font-weight: 900;
+  line-height: 1.1;
+  color: #243047;
+  font-variant-numeric: tabular-nums;
+}
+.zg-stufe-gleis { display: block; width: clamp(56px, 11vw, 84px); height: auto; }
+
+/* Dreistellige Bahnhofszahlen brauchen eine kleinere Schrift. */
+.zg-bahnhof-zahl.is-lang { font-size: clamp(0.7rem, 2.3vh, 0.95rem); }
+
 @media (prefers-reduced-motion: reduce) {
   .zg-lok { transition: none; }
   .zg-schild.is-neu, .zg-plus, .zg-ziel { animation: none; }
