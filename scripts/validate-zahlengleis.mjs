@@ -1,10 +1,12 @@
 /*
  * Prüft "Wo hält der Zug?" aus zahlengleis.js, ohne Browser.
  *
- * Die drei Gleise, der Plan der zehn Zahlen und die Toleranzen stehen als
- * Tabellen in der Datei. Eine Zahl, die an einem Ende liegt, stünde schon
- * angeschrieben da; eine Toleranz, die grösser ist als das Gleis, gäbe jedem
- * Tipp drei Punkte. Beides fiele im Spiel erst auf, wenn ein Kind es merkt.
+ * Die vier Stufen mit ihren Gleisen, der Plan der zehn Zahlen und die
+ * Toleranzen stehen als Tabellen in der Datei. Eine Zahl, die an einem Ende
+ * liegt, stünde schon angeschrieben da; eine Toleranz, die grösser ist als
+ * das Gleis, gäbe jedem Tipp drei Punkte; eine Stufe, die leichter ist als
+ * die davor, hiesse "schwerer" und wäre es nicht. All das fiele im Spiel erst
+ * auf, wenn ein Kind es merkt.
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -46,50 +48,87 @@ vm.runInContext(source, context);
 const api = windowStub.LernappZahlengleis;
 assert(api, "zahlengleis.js hat window.LernappZahlengleis nicht gesetzt");
 
-// --- Die Gleise ---------------------------------------------------------------
-assert(api.STUFEN.length === 3, `drei Gleise erwartet, gefunden ${api.STUFEN.length}`);
+// Wie viele Marken ein Gleis trägt, die Bahnhöfe mitgezählt.
+const markenAuf = (gleis) => Math.floor(gleis.bis / gleis.marken) + 1;
+
+// --- Die Stufen ---------------------------------------------------------------
+assert(api.STUFEN.length === 4, `vier Stufen erwartet, gefunden ${api.STUFEN.length}`);
 api.STUFEN.forEach((stufe, i) => {
-  assert(Number.isInteger(stufe.bis) && stufe.bis >= 3, `Gleis ${i + 1}: bis ${stufe.bis} ist zu kurz`);
-  assert(Number.isInteger(stufe.marken) && stufe.marken >= 1 && stufe.bis % stufe.marken === 0, `Gleis ${i + 1}: die Marken gehen nicht auf`);
-  if (i) assert(stufe.bis > api.STUFEN[i - 1].bis, `Gleis ${i + 1} ist nicht länger als das davor`);
+  assert(stufe.nr === i + 1, `Stufe an Stelle ${i + 1} heisst ${stufe.nr}`);
+  assert(typeof stufe.name === "string" && stufe.name.length > 0, `Stufe ${stufe.nr} hat keinen Namen für den Lautsprecher`);
+  assert(Number.isInteger(stufe.striche) && stufe.striche >= 0, `Stufe ${stufe.nr}: Striche auf dem Knopf fehlen`);
+  assert(Array.isArray(stufe.gleise) && stufe.gleise.length === 3, `Stufe ${stufe.nr}: drei Gleise erwartet`);
+  assert(stufe.bis === Math.max(...stufe.gleise.map((g) => g.bis)), `Stufe ${stufe.nr}: bis ${stufe.bis} ist nicht das längste Gleis`);
+  stufe.gleise.forEach((gleis, k) => {
+    assert(Number.isInteger(gleis.bis) && gleis.bis >= 3, `Stufe ${stufe.nr}, Gleis ${k + 1}: bis ${gleis.bis} ist zu kurz`);
+    assert(Number.isInteger(gleis.marken) && gleis.marken >= 1 && gleis.bis % gleis.marken === 0, `Stufe ${stufe.nr}, Gleis ${k + 1}: die Marken gehen nicht auf`);
+    if (k) assert(gleis.bis >= stufe.gleise[k - 1].bis, `Stufe ${stufe.nr}: Gleis ${k + 1} ist kürzer als das davor`);
+    if (k && gleis.bis === stufe.gleise[k - 1].bis) {
+      assert(markenAuf(gleis) < markenAuf(stufe.gleise[k - 1]), `Stufe ${stufe.nr}: Gleis ${k + 1} ist gleich lang wie das davor, aber nicht schwerer`);
+    }
+  });
+  // Der Knopf zeigt die Striche der Stufe – nach rechts immer weniger.
+  if (i) assert(stufe.striche < api.STUFEN[i - 1].striche, `Stufe ${stufe.nr}: der Knopf zeigt nicht weniger Striche als der davor`);
+  // Schwerer heisst: grössere Zahlen oder weniger Marken – nie leichter.
+  if (i) {
+    const vorher = api.STUFEN[i - 1];
+    assert(stufe.bis >= vorher.bis, `Stufe ${stufe.nr} geht weniger weit als Stufe ${vorher.nr}`);
+    const dichte = (s) => s.gleise.reduce((sum, g) => sum + markenAuf(g), 0);
+    assert(stufe.bis > vorher.bis || dichte(stufe) < dichte(vorher), `Stufe ${stufe.nr} ist nicht schwerer als Stufe ${vorher.nr}`);
+  }
 });
-assert(api.STUFEN[0].marken === 1, "das kurze Gleis trägt an jeder Zahl eine Marke – hier wird gezählt");
-assert(api.STUFEN[api.STUFEN.length - 1].bis === 20, "das lange Gleis geht bis zwanzig");
+assert(api.STUFEN[0].gleise[0].marken === 1 && api.STUFEN[0].gleise[0].zahlen === true, "das allererste Gleis trägt an jeder Zahl eine Marke mit Zahl – hier wird gezählt");
+assert(api.STUFEN[0].bis === 20, "die erste Stufe geht bis zwanzig");
+assert(api.STUFEN[3].bis === 100, "die letzte Stufe geht bis hundert");
+api.STUFEN[3].gleise.forEach((g, k) => assert(g.marken === g.bis, `Stufe 4, Gleis ${k + 1}: die letzte Stufe hat keine Marken zwischen den Bahnhöfen`));
+api.STUFEN.slice(1).forEach((stufe) => stufe.gleise.forEach((g, k) => assert(!g.zahlen, `Stufe ${stufe.nr}, Gleis ${k + 1}: ab der zweiten Stufe stehen keine Zahlen an den Marken`)));
 
 // --- Der Plan -----------------------------------------------------------------
 assert(api.PLAN.length === api.ZAHLEN_JE_RUNDE && api.ZAHLEN_JE_RUNDE === 10, "zehn Zahlen je Runde");
-api.PLAN.forEach((stufe, i) => {
-  assert(Number.isInteger(stufe) && stufe >= 0 && stufe < api.STUFEN.length, `Zahl ${i + 1} liegt auf einem Gleis, das es nicht gibt`);
-  if (i) assert(stufe >= api.PLAN[i - 1], `Zahl ${i + 1} fällt auf ein kürzeres Gleis zurück`);
+api.PLAN.forEach((g, i) => {
+  assert(Number.isInteger(g) && g >= 0 && g < 3, `Zahl ${i + 1} liegt auf einem Gleis, das es nicht gibt`);
+  if (i) assert(g >= api.PLAN[i - 1], `Zahl ${i + 1} fällt auf ein kürzeres Gleis zurück`);
 });
-assert(api.PLAN[0] === 0 && api.PLAN[api.PLAN.length - 1] === api.STUFEN.length - 1, "die Runde beginnt auf dem kurzen und endet auf dem langen Gleis");
-api.STUFEN.forEach((_, s) => assert(api.PLAN.includes(s), `Gleis ${s + 1} kommt in keiner Runde vor`));
+assert(api.PLAN[0] === 0 && api.PLAN[api.PLAN.length - 1] === 2, "die Runde beginnt auf dem kurzen und endet auf dem langen Gleis");
+[0, 1, 2].forEach((g) => assert(api.PLAN.includes(g), `Gleis ${g + 1} kommt in keiner Runde vor`));
+api.STUFEN.forEach((stufe) => {
+  for (let i = 0; i < api.ZAHLEN_JE_RUNDE; i += 1) assert(api.gleisFuer(stufe, i) === stufe.gleise[api.PLAN[i]], `Stufe ${stufe.nr}: gleisFuer folgt dem Plan nicht`);
+});
 
 // --- Die Toleranzen -----------------------------------------------------------
-api.TOLERANZ.forEach((t, i) => {
-  assert(t.genau > 0 && t.genau < t.knapp && t.knapp < t.nah, `Gleis ${i + 1}: die Toleranzen müssen steigen`);
-  assert(t.nah < api.STUFEN[i].bis / 2, `Gleis ${i + 1}: einen Punkt gäbe es noch für die halbe Strecke daneben`);
-  // Ein Finger ist auf jedem Gleis gleich breit; in Zahlen gerechnet muss die
-  // Toleranz mit dem Gleis wachsen.
-  if (i) assert(t.genau >= api.TOLERANZ[i - 1].genau, `Gleis ${i + 1} ist strenger als das kürzere davor`);
+const gleise = api.STUFEN.flatMap((s) => s.gleise);
+gleise.forEach((gleis) => {
+  const t = api.toleranzFuer(gleis.bis);
+  assert(t.genau > 0 && t.genau < t.knapp && t.knapp < t.nah, `Gleis bis ${gleis.bis}: die Toleranzen müssen steigen`);
+  assert(t.nah < gleis.bis / 2, `Gleis bis ${gleis.bis}: einen Punkt gäbe es noch für die halbe Strecke daneben`);
+  // Ein Finger ist auf jedem Gleis gleich breit; in Zahlen gerechnet wächst
+  // die Toleranz mit dem Gleis, im Verhältnis wird sie nie grosszügiger als
+  // auf dem kurzen Gleis.
+  assert(t.genau <= gleis.bis * 0.07 + 1e-9, `Gleis bis ${gleis.bis}: "genau" ist grosszügiger als sieben Prozent`);
 });
-assert(api.punkteFuer(0, 0) === 3 && api.punkteFuer(-0.3, 0) === 3, "genau getroffen gibt drei Punkte");
-assert(api.punkteFuer(0.6, 0) === 2 && api.punkteFuer(1.2, 0) === 1 && api.punkteFuer(3, 0) === 0, "die Stufen zwei, eins, null stimmen nicht");
-assert(api.punkteFuer(4.9, 2) === 1 && api.punkteFuer(5.1, 2) === 0, "auf dem langen Gleis gibt es bis fünf daneben noch einen Punkt");
+for (let bis = 5; bis <= 100; bis += 1) {
+  const a = api.toleranzFuer(bis);
+  const b = api.toleranzFuer(bis + 1);
+  assert(a.genau <= b.genau && a.knapp <= b.knapp && a.nah <= b.nah, `die Toleranz fällt zwischen ${bis} und ${bis + 1}`);
+}
+assert(api.punkteFuer(0, 5) === 3 && api.punkteFuer(-0.3, 5) === 3, "genau getroffen gibt drei Punkte");
+assert(api.punkteFuer(0.6, 5) === 2 && api.punkteFuer(1.2, 5) === 1 && api.punkteFuer(3, 5) === 0, "die Stufen zwei, eins, null stimmen auf dem kurzen Gleis nicht");
+assert(api.punkteFuer(4.9, 20) === 1 && api.punkteFuer(5.1, 20) === 0, "auf dem Gleis bis zwanzig gibt es bis fünf daneben noch einen Punkt");
+assert(api.punkteFuer(4, 100) === 3 && api.punkteFuer(12, 100) === 2 && api.punkteFuer(24, 100) === 1 && api.punkteFuer(26, 100) === 0, "auf dem Gleis bis hundert stimmen die Stufen nicht");
 
 // --- Die Zahlen ---------------------------------------------------------------
-for (let s = 0; s < api.STUFEN.length; s += 1) {
+gleise.forEach((gleis) => {
   const gesehen = new Set();
   let vorher = null;
-  for (let i = 0; i < 400; i += 1) {
-    const zahl = api.zahlFuer(s, vorher);
-    assert(Number.isInteger(zahl) && zahl >= 1 && zahl <= api.STUFEN[s].bis - 1, `Gleis ${s + 1}: ${zahl} liegt nicht zwischen den Bahnhöfen`);
-    assert(zahl !== vorher, `Gleis ${s + 1}: ${zahl} kam zweimal hintereinander`);
+  for (let i = 0; i < 4000; i += 1) {
+    const zahl = api.zahlFuer(gleis, vorher);
+    assert(Number.isInteger(zahl) && zahl >= 1 && zahl <= gleis.bis - 1, `Gleis bis ${gleis.bis}: ${zahl} liegt nicht zwischen den Bahnhöfen`);
+    assert(zahl !== vorher, `Gleis bis ${gleis.bis}: ${zahl} kam zweimal hintereinander`);
     gesehen.add(zahl);
     vorher = zahl;
   }
-  assert(gesehen.size === api.STUFEN[s].bis - 1, `Gleis ${s + 1}: nicht jede Zahl kommt dran (${gesehen.size} von ${api.STUFEN[s].bis - 1})`);
-}
+  assert(gesehen.size === gleis.bis - 1, `Gleis bis ${gleis.bis}: nicht jede Zahl kommt dran (${gesehen.size} von ${gleis.bis - 1})`);
+});
 
 // --- Die Schwelle im Zug ------------------------------------------------------
 // Höchstens dreissig Punkte je Runde; die gute Runde in train-progress.js muss
@@ -100,4 +139,4 @@ const progress = fs.readFileSync(path.join(root, "train-progress.js"), "utf8");
 const gut = Number((progress.match(/numberLine: runsProgress\(NUMBERLINE_KEY, (\d+)\)/) || [])[1]);
 assert(gut > max / 2 && gut < max, `train-progress.js verlangt ${gut} Punkte für drei Sterne – bei höchstens ${max}`);
 
-console.log(`Wo hält der Zug? geprüft: ${api.STUFEN.length} Gleise bis ${api.STUFEN.map((s) => s.bis).join("/")}, ${api.ZAHLEN_JE_RUNDE} Zahlen je Runde, gute Runde ab ${gut} von ${max}.`);
+console.log(`Wo hält der Zug? geprüft: ${api.STUFEN.length} Stufen bis ${api.STUFEN.map((s) => s.bis).join("/")}, ${api.ZAHLEN_JE_RUNDE} Zahlen je Runde, gute Runde ab ${gut} von ${max}.`);

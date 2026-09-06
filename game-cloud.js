@@ -114,16 +114,48 @@
 
   // --- Fertige Zusammenführungen ---------------------------------------------
 
-  // Bestenliste plus Rundenzähler. Die Listen werden vereinigt und gekürzt, der
-  // Zähler nimmt den grösseren Wert. Summieren wäre falsch: derselbe Stand kann
-  // mehrfach ankommen, und dann zählte jede Runde doppelt.
+  // Bestenliste plus Rundenzähler. Derselbe Stand kommt mehrfach an – vom
+  // Gerät in die Cloud und von dort zurück, bei jedem Abgleich –, deshalb darf
+  // beim Zusammenführen kein Ergebnis doppelt werden. Vorher wurden die beiden
+  // Listen aneinandergehängt: aus einer 29 wurden zwei, dann vier, und die
+  // Bestenliste zeigte viermal dieselbe Runde. Jetzt bleibt von jeder
+  // Punktzahl so oft, wie sie auf einer Seite höchstens vorkommt: zweimal 29
+  // auf demselben Gerät sind zwei Runden, 29 hier und 29 aus der Cloud sind
+  // dieselbe. Der Zähler nimmt aus demselben Grund den grösseren Wert und
+  // summiert nicht.
+  //
+  // Und nie mehr Ergebnisse als Runden: eine Liste, die länger ist, trägt
+  // Doppelte aus der Zeit des Aneinanderhängens. Die fallen zuerst weg, das
+  // häufigste zuerst – so heilt ein Stand von damals beim nächsten Abgleich.
+  // Lauter verschiedene Ergebnisse bleiben stehen, auch wenn der Zähler
+  // kleiner ist: der wird über Geräte hinweg nicht summiert, die Liste schon.
   function mergeScores(limit = 5) {
+    const zaehle = (list) => {
+      const counts = new Map();
+      (Array.isArray(list) ? list : []).filter((n) => Number.isFinite(n)).forEach((n) => counts.set(n, (counts.get(n) || 0) + 1));
+      return counts;
+    };
     return (a, b) => {
-      const scores = [...(a.scores || []), ...(b.scores || [])]
-        .filter((n) => Number.isFinite(n))
-        .sort((x, y) => y - x)
-        .slice(0, limit);
-      return { runs: Math.max(Number(a.runs) || 0, Number(b.runs) || 0), scores };
+      const runs = Math.max(Number(a.runs) || 0, Number(b.runs) || 0);
+      const ca = zaehle(a.scores);
+      const cb = zaehle(b.scores);
+      const counts = new Map();
+      new Set([...ca.keys(), ...cb.keys()]).forEach((n) => counts.set(n, Math.max(ca.get(n) || 0, cb.get(n) || 0)));
+
+      let total = 0;
+      counts.forEach((k) => { total += k; });
+      while (runs > 0 && total > runs) {
+        let top = null;
+        counts.forEach((k, n) => { if (k > 1 && (top === null || k > counts.get(top))) top = n; });
+        if (top === null) break;
+        counts.set(top, counts.get(top) - 1);
+        total -= 1;
+      }
+
+      const scores = [];
+      counts.forEach((k, n) => { for (let i = 0; i < k; i += 1) scores.push(n); });
+      scores.sort((x, y) => y - x);
+      return { runs, scores: scores.slice(0, limit) };
     };
   }
 

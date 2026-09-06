@@ -522,7 +522,8 @@ const SZENARIEN = [
   {
     seite: "zahlengleis",
     schritte: [
-      { name: "Aufgabe", tun: async (blatt) => { await pause(blatt, 400); } },
+      { name: "Stufenwahl", tun: async (blatt) => { await pause(blatt, 400); } },
+      { name: "Aufgabe", tun: async (blatt) => { await blatt.click('.zg-stufe[data-stufe="4"]'); await pause(blatt, 400); } },
       { name: "Antwort", tun: async (blatt) => { await zugSchieben(blatt, 0.5); await pause(blatt, 500); } },
       { name: "Ergebnis", tun: async (blatt) => {
         for (let i = 0; i < 9; i += 1) { await pause(blatt, 1700); await zugSchieben(blatt, 0.5); }
