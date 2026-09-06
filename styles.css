@@ -6414,15 +6414,38 @@ body.has-scene.puzzle-active .game-panel {
 .me-karte:active:not(:disabled) { transform: scale(0.94); }
 .me-karte:focus-visible { outline: 3px solid #243047; outline-offset: 3px; }
 
-/* Offen: kein Kasten mehr, nur noch das Bild. */
+/* Eine aufgedeckte Karte ist ein abgeschalteter Knopf – sonst liesse sie sich
+   ein zweites Mal antippen. Abgeschaltete Knöpfe blendet die App auf knapp die
+   Hälfte aus (button:disabled, ganz oben); für eine Karte ist das falsch: sie
+   ist nicht ausser Betrieb, sie liegt offen da, und ihr Bild war dadurch blass.
+   Kacheln-Knobeln, Fischteich und Was fehlt? nehmen die Regel schon zurück –
+   Memory hat sie als einziges Spiel bis jetzt mitgenommen. */
+.me-karte:disabled { cursor: default; opacity: 1; }
+
+/* Offen: die Vorderseite der Karte – heller Karton mit einem Ring in der Farbe
+   des Bereichs, darauf das Bild. Vorher fiel der Kasten beim Umdrehen ganz weg
+   und das Bild schwebte allein auf der weissen Tafel; neben den kräftigen
+   Rückseiten sah eine aufgedeckte Karte damit aus, als fehlte sie. Jetzt ist
+   jede umgedrehte Karte von Anfang an eine ganze Karte. */
 .me-karte.is-offen {
-  background: none;
-  box-shadow: none;
+  background: linear-gradient(150deg, #fffdf6 40%, #dbcdff);
+  box-shadow: 0 5px 12px rgba(31, 42, 51, 0.24), inset 0 0 0 4px var(--cm-accent-dark);
   cursor: default;
   animation: me-auf 0.16s ease both;
 }
 
 .me-karte.is-offen::after { content: none; }
+
+/* Ein Paar gefunden: der Ring wird grün, und beide Karten pulsieren einmal
+   kurz. Das ist das Zeichen, dass es gestimmt hat – vorher lag es allein
+   darin, dass die Karten überhaupt erst jetzt schön aussahen. Der Ring bleibt
+   grün, bis sie weg sind; wer weniger Bewegung eingestellt hat, sieht ihn
+   ohne das Pulsieren. */
+.me-karte.is-paar {
+  background: linear-gradient(150deg, #ecfced 40%, #b3e8c1);
+  box-shadow: 0 5px 12px rgba(31, 42, 51, 0.24), inset 0 0 0 4px #2f9e44;
+  animation: me-paar 0.42s ease both;
+}
 
 .me-karte-bild {
   font-size: clamp(1.5rem, 5.5vw, 3rem);
@@ -6449,6 +6472,13 @@ body.has-scene.puzzle-active .game-panel {
   to { transform: scaleX(1); }
 }
 
+@keyframes me-paar {
+  0% { transform: scale(1); }
+  35% { transform: scale(1.12); }
+  70% { transform: scale(0.97); }
+  100% { transform: scale(1); }
+}
+
 @keyframes me-weg {
   0% { visibility: visible; transform: scale(1); opacity: 1; }
   40% { visibility: visible; transform: scale(1.15); opacity: 1; }
@@ -6457,7 +6487,7 @@ body.has-scene.puzzle-active .game-panel {
 
 @media (prefers-reduced-motion: reduce) {
   .me-groesse, .me-karte { transition: none; }
-  .me-karte.is-offen, .me-karte.is-weg { animation: none; }
+  .me-karte.is-offen, .me-karte.is-paar, .me-karte.is-weg { animation: none; }
 }
 
 /* ===========================================================================
