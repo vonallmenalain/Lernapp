@@ -1,4 +1,4 @@
-const APP_VERSION = "2026-09-10-2";
+const APP_VERSION = "2026-09-11-1";
 const CACHE_PREFIX = "lernapp-pwa-";
 const CACHE_NAME = `${CACHE_PREFIX}${APP_VERSION}`;
 const ASSET_VERSION_QUERY = `?v=${APP_VERSION}`;
@@ -43,6 +43,11 @@ const CORE_ASSETS = [
   "./fischteich.html",
   "./freiefahrt.html",
   "./turmbau.html",
+  "./zahlengleis.html",
+  "./signal.html",
+  "./wasfehlt.html",
+  "./faesser.html",
+  "./doppelt.html",
   `./styles.css${ASSET_VERSION_QUERY}`,
   `./spatial-puzzles.js${ASSET_VERSION_QUERY}`,
   `./kids.js${ASSET_VERSION_QUERY}`,
@@ -67,6 +72,11 @@ const CORE_ASSETS = [
   `./freiefahrt.js${ASSET_VERSION_QUERY}`,
   `./blaetter.js${ASSET_VERSION_QUERY}`,
   `./turmbau.js${ASSET_VERSION_QUERY}`,
+  `./zahlengleis.js${ASSET_VERSION_QUERY}`,
+  `./signal.js${ASSET_VERSION_QUERY}`,
+  `./wasfehlt.js${ASSET_VERSION_QUERY}`,
+  `./faesser.js${ASSET_VERSION_QUERY}`,
+  `./doppelt.js${ASSET_VERSION_QUERY}`,
   `./firebase.js${ASSET_VERSION_QUERY}`,
   `./pwa.js${ASSET_VERSION_QUERY}`,
   `./app.webmanifest${ASSET_VERSION_QUERY}`,

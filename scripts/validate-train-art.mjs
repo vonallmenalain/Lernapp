@@ -1,6 +1,6 @@
 /*
  * Prüft die Zeichnung des Zugs (train-art.js):
- * Lässt sich jede Bauteil-Variante bauen, wächst jeder Wagen über die zwölf
+ * Lässt sich jede Bauteil-Variante bauen, wächst jeder Wagen über die fünfzehn
  * Schritte tatsächlich an, hängt jeder Schritt in seiner eigenen Gruppe, und
  * tragen die Wagen ab Stufe 0 die Bereichsfarbe?
  *
@@ -132,7 +132,7 @@ assert(art, "train-art.js hat window.LernappTrainArt nicht gesetzt");
 // --- Wagen: jede Bauart über alle Schritte ------------------------------------
 const AREA_COLOR = "#7C5CE6";
 const STAGES = art.WAGON_STAGES;
-assert(STAGES === 12, `ein Wagen hat zwölf Schritte, gefunden ${STAGES}`);
+assert(STAGES === 15, `ein Wagen hat fünfzehn Schritte, gefunden ${STAGES}`);
 assert(art.WAGON_TYPES.length === 10, `zwei Sets zu fünf Wagen sind zehn Bauarten, gefunden ${art.WAGON_TYPES.length}`);
 
 for (const type of art.WAGON_TYPES) {
@@ -202,7 +202,7 @@ for (const name of classes) {
 }
 assert(/prefers-reduced-motion[^}]*\{[^}]*\.wa\b[^}]*animation:\s*none/s.test(css), "styles.css hält die Gestalten bei weniger Bewegung nicht still");
 
-// Ausserhalb des Bereichs 0..12 darf nichts kaputtgehen.
+// Ausserhalb des Bereichs 0..15 darf nichts kaputtgehen.
 assert(art.buildWagon("boxcar", AREA_COLOR, -5).attrs["data-stage"] === "0", "negative Stufe wird nicht abgefangen");
 assert(art.buildWagon("boxcar", AREA_COLOR, 99).attrs["data-stage"] === String(STAGES), "zu hohe Stufe wird nicht abgefangen");
 assert(art.buildWagon("gibtsnicht", AREA_COLOR, 5).attrs["data-wagon"] === "boxcar", "unbekannte Bauart fällt nicht zurück");
@@ -262,7 +262,7 @@ const progressContext = vm.createContext({
 vm.runInContext(fs.readFileSync(path.join(root, "train-progress.js"), "utf8"), progressContext, { filename: "train-progress.js" });
 const train = progressContext.window.LernappTrain;
 const spiele = train.AREAS.flatMap((area) => area.games.map((game) => game.id));
-assert(spiele.length === 20, `erwartet 20 Spiele im Zug, gefunden ${spiele.length}`);
+assert(spiele.length === 25, `erwartet 25 Spiele im Zug, gefunden ${spiele.length}`);
 
 // Jedes Set nennt für jeden Bereich eine Bauart, die es auch gibt – und die
 // zehn Wagen der zwei Sets sind zehn verschiedene.

@@ -560,7 +560,7 @@
     top.append(heroSvg);
     wrap.append(top);
 
-    // Die zwölf Schritte als Punkte, drei je Spiel – dieselbe Reihe wie in der
+    // Die fünfzehn Schritte als Punkte, drei je Spiel – dieselbe Reihe wie in der
     // Feier, damit das Kind wiedererkennt, was dort gewachsen ist.
     wrap.append(stepDots(area, area.stage, { className: "wagon-steps" }));
 
@@ -1468,7 +1468,7 @@
   // Die Feier zeigt jeden neuen Schritt einzeln: erst steht der Wagen, wie er
   // war, dann springt Teil um Teil dazu – jedes mit seinem Punkt in der Reihe
   // und seinem Ton. Wie lang ein Schritt bleibt, hängt davon ab, wie viele es
-  // sind: einer darf sich Zeit lassen, zwölf auf einmal dürfen nicht eine
+  // sind: einer darf sich Zeit lassen, fünfzehn auf einmal dürfen nicht eine
   // halbe Minute dauern. Danach bleibt das Bild stehen, bis das Kind tippt –
   // eine Feier, die von selbst wieder verschwindet, sieht niemand richtig.
   // Während sie läuft, tut ein Tipp nichts: sie soll zu Ende gehen.
@@ -1532,7 +1532,7 @@
     return grown.sort((a, b) => (b.area.stage - b.before) - (a.area.stage - a.before));
   }
 
-  // Die zwölf Schritte eines Wagens als Reihe von Punkten, drei je Spiel. Bis
+  // Die fünfzehn Schritte eines Wagens als Reihe von Punkten, drei je Spiel. Bis
   // "done" sind sie voll; die Feier füllt die nächsten einen nach dem anderen.
   function stepDots(area, done, { className = "wagon-reward-steps" } = {}) {
     const row = document.createElement("div");

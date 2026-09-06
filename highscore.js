@@ -56,18 +56,21 @@
     { id: "memory", titel: "Memory", bereich: "gedaechtnis", art: "sterne", key: "lernapp.memory", levelWort: (id) => `${id} Karten` },
     { id: "beachTreasure", titel: "Strand-Schätze", bereich: "gedaechtnis", art: "punkte", key: "lernapp.beachtreasure", einheit: "Schätze" },
     { id: "tileMemory", titel: "Kacheln-Knobeln", bereich: "gedaechtnis", art: "punkte", key: "lernapp.kacheln", einheit: "Kacheln" },
+    { id: "missingItem", titel: "Was fehlt?", bereich: "gedaechtnis", art: "punkte", key: "lernapp.wasfehlt", einheit: "Wagen" },
 
     // Konzentration
     { id: "flanker", titel: "Schwarm-Fokus", bereich: "konzentration", art: "punkte", key: "lernapp.flanker", einheit: "Punkte" },
     { id: "trackRouter", titel: "Weichen-Wirrwarr", bereich: "konzentration", art: "sterne", key: "lernapp.trackrouter" },
     { id: "fishPond", titel: "Fischteich", bereich: "konzentration", art: "punkte", key: "lernapp.fischteich", einheit: "Fische" },
     { id: "gridlock", titel: "Freie Fahrt", bereich: "konzentration", art: "sterne", key: "lernapp.freiefahrt" },
+    { id: "goSignal", titel: "Halt am Signal", bereich: "konzentration", art: "punkte", key: "lernapp.signal", einheit: "Punkte" },
 
     // Geschwindigkeit
     { id: "tiersprung", titel: "Tier-Sprung", bereich: "geschwindigkeit", art: "sterne", key: "lernapp.tiersprung.progress" },
     { id: "cardMatch", titel: "Karten-Merker", bereich: "geschwindigkeit", art: "punkte", key: "lernapp.cardmatch", einheit: "Punkte" },
     { id: "leafFlow", titel: "Blätter im Strom", bereich: "geschwindigkeit", art: "punkte", key: "lernapp.blaetter", einheit: "Blätter" },
     { id: "towerStack", titel: "Turmbau", bereich: "geschwindigkeit", art: "punkte", key: "lernapp.turmbau", einheit: "Blöcke" },
+    { id: "twinSpot", titel: "Doppelt gleich", bereich: "geschwindigkeit", art: "punkte", key: "lernapp.doppelt", einheit: "Paare" },
 
     // Problemlösen
     // Raumdetektiv legt keine Punktzahl ab, sondern die Sterne der Runde: die
@@ -77,12 +80,14 @@
     { id: "arukone", titel: "Arukone", bereich: "problemloesen", art: "katalog" },
     { id: "bimaru", titel: "Battleships", bereich: "problemloesen", art: "katalog" },
     { id: "shikaku", titel: "Tiergehege", bereich: "problemloesen", art: "katalog" },
+    { id: "craneStack", titel: "Fässer stapeln", bereich: "problemloesen", art: "sterne", key: "lernapp.faesser" },
 
     // Zahl und Buchstabe
     { id: "letterPuzzle", titel: "Buchstabenjagd", bereich: "zahlbuchstabe", art: "katalog" },
     { id: "readingPuzzle", titel: "Wortdetektiv", bereich: "zahlbuchstabe", art: "katalog" },
     { id: "kakuro", titel: "Kakuro", bereich: "zahlbuchstabe", art: "katalog" },
     { id: "hidoku", titel: "Hidoku", bereich: "zahlbuchstabe", art: "katalog" },
+    { id: "numberLine", titel: "Wo hält der Zug?", bereich: "zahlbuchstabe", art: "punkte", key: "lernapp.zahlengleis", einheit: "Punkte" },
   ];
 
   // Die fünf Bereiche des Zugs, nur mit Namen: der Adminbereich stellt seine

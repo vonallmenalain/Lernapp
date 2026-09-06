@@ -122,7 +122,7 @@ await page.locator('.friend-detail-train [data-area="geschwindigkeit"]').click()
 await page.waitForTimeout(500);
 
 const kisten = await page.locator(".wagon-crate").count();
-pruefe(kisten === 4, `Im Wagen stehen ${kisten} Kisten, erwartet 4`);
+pruefe(kisten === 5, `Im Wagen stehen ${kisten} Kisten, erwartet 5`);
 
 // Und auf Turmbau: hier muss die Bestenliste aufgehen.
 await page.locator('.wagon-crate[data-game="towerStack"]').click();
