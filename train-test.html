@@ -129,6 +129,9 @@
         cell("Die Schiebelok", 260, 200, `0 0 ${art.LOCO_W} ${art.ART_H}`, [
           art.buildLoco({ body: "#f0b429", cab: { color: "#4a5568" }, driver: "bear", wheels: { shape: "disc", color: "#4a5568" }, flag: { pattern: "plain", color: "#c9483a" }, whistle: "tief" }),
         ]);
+        cell("Lok mit Funke: in der Werkstatt wartet etwas Neues", 260, 200, `0 0 ${art.LOCO_W} ${art.ART_H}`, [
+          art.buildLoco({ sparkle: true }),
+        ]);
         cell("Streckenschild, Reise 2, Station 73", 260, 178, `0 0 ${art.SIGN_W} ${art.SIGN_H + 8}`, [art.buildJourneySign({ station: 73, total: 130, lap: 2, lapFirst: 61, lapTotal: 70, sparkle: true })]);
       })();
       const { el, buildLoco, buildWagon, buildTrain, driverHead, ART_H, WAGON_W, LOCO_W } = art;

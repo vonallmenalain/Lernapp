@@ -9259,6 +9259,19 @@ body[data-page="train"] .train-stage[data-view="reise"] ~ .help-voice {
 .journey-fog { transition: opacity 0.9s ease, transform 0.9s ease; pointer-events: none; }
 .journey-station:not(.is-fog) .journey-fog { opacity: 0; transform: translate(60px, -12px); }
 
+/* Die Nummer unter dem Gleis: das Ziel für den Finger. An der Station, die
+   dran ist, pulst ein grüner Ring darum; die anderen tragen ihn unsichtbar
+   mit, damit nichts springt, wenn der Zug weiterfährt. Im Nebel wird die
+   Scheibe grau: da gibt es noch nichts zu tippen. */
+.journey-ruler { position: absolute; width: 0; height: 0; overflow: hidden; pointer-events: none; }
+.journey-number { pointer-events: none; }
+.journey-number-disc { transition: fill 0.5s ease; }
+.journey-number-ring { opacity: 0; transform-box: fill-box; transform-origin: center; transition: opacity 0.3s ease; }
+.journey-station.is-current .journey-number-ring { opacity: 1; animation: journey-pulse 1.9s ease-in-out infinite; }
+.journey-station.is-fog .journey-number-disc { fill: #9aa4b2; }
+.journey-station.is-fog .journey-number { opacity: 0.7; }
+.journey-station.is-current .journey-number-disc { filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.35)); }
+
 /* Der Stempel fällt von oben auf die Station und prallt kurz zurück. */
 .journey-stamp { transform-box: fill-box; transform-origin: center; }
 .journey-stamp.is-new { animation: journey-stamp-in 0.55s cubic-bezier(0.2, 1.6, 0.4, 1) both; }
@@ -9506,9 +9519,6 @@ body[data-page="train"] .train-stage[data-view="reise"] ~ .help-voice {
 .journey-plan-card.is-lap2 { border-color: #d9a520; }
 .journey-plan-card.is-lap2.is-current { border-color: #ffd166; }
 .journey-plan-card.is-lap2.is-golden { border-color: #f0b429; }
-/* Wer aus der Gruppe gerade auf dieser Karte fährt. */
-.journey-plan-friends { display: flex; flex-wrap: wrap; gap: 3px; justify-content: center; }
-.journey-plan-friends i { font-style: normal; font-size: 0.62rem; font-weight: 900; padding: 1px 6px; border-radius: 999px; background: #eaf0f8; color: #2b5fb3; }
 .journey-plan-dots .is-pushed { background: #8c93a1; border-color: #8c93a1; }
 @media (max-height: 600px) {
   .journey-plan { gap: 6px; }
@@ -9563,9 +9573,8 @@ body[data-page="train"] .train-stage[data-view="reise"] ~ .help-voice {
 @keyframes journey-liftoff { 0% { transform: translateY(0); } 30% { transform: translateY(-4px); } 100% { transform: translateY(-150px); opacity: 0; } }
 @keyframes journey-flame { from { transform: scaleY(0.8); } to { transform: scaleY(1.25); } }
 
-/* --- Die Schiebelok und die Gruppe --- */
+/* --- Die Schiebelok --- */
 .journey-pusher.is-driving .train-wheel { animation: wheel-roll 1.5s linear infinite; }
-.journey-friend { pointer-events: none; }
 
 /* Konfetti an einer Station: ein kleiner Kasten über ihr, in den kids.js
    seine Schnipsel streut. */
@@ -9582,6 +9591,48 @@ body[data-page="train"] .train-stage[data-view="reise"] ~ .help-voice {
 }
 .journey-reward-pic svg { display: block; width: 100%; height: auto; animation: scene-reward-in 0.5s ease both; }
 .journey-reward-pic .journey-reward-scene { border-radius: 20px; box-shadow: 0 10px 24px rgba(31, 42, 51, 0.28); }
+
+/* --- Die Werkstatt: neu freigeschaltete Teile --- */
+/* Was die Reise gebracht hat, muss auffallen, sonst sucht ein Kind es nie:
+   goldener Rahmen, goldener Stern in der Ecke, ein ruhiges Pulsieren. */
+/* Der Stern sitzt aussen an der Ecke: dafür muss der Knopf ihn herauslassen. */
+.loco-choice.is-new { position: relative; overflow: visible; }
+/* In der Landschaftswahl bleibt das Bild beschnitten – dort sitzt er innen. */
+.scene-choice .loco-new { top: 4px; right: 4px; }
+.loco-choice.is-new,
+.scene-choice.is-new {
+  border-color: #f0b429;
+  box-shadow: 0 0 0 4px rgba(240, 180, 41, 0.35), 0 6px 16px rgba(240, 180, 41, 0.4);
+  animation: loco-new-pulse 1.8s ease-in-out infinite;
+}
+@keyframes loco-new-pulse {
+  0%, 100% { box-shadow: 0 0 0 4px rgba(240, 180, 41, 0.32), 0 6px 16px rgba(240, 180, 41, 0.32); }
+  50% { box-shadow: 0 0 0 7px rgba(240, 180, 41, 0.5), 0 8px 22px rgba(240, 180, 41, 0.5); }
+}
+.loco-new {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  width: 24px;
+  height: 24px;
+  color: #f0b429;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.45));
+  pointer-events: none;
+  animation: loco-new-star 2.4s ease-in-out infinite;
+}
+.loco-new svg { width: 100%; height: 100%; display: block; }
+@keyframes loco-new-star {
+  0%, 100% { transform: rotate(-8deg) scale(1); }
+  50% { transform: rotate(8deg) scale(1.15); }
+}
+/* Der Punkt an der Lok, wo etwas Neues steckt. */
+.loco-hotspot.is-new .loco-hotspot-halo { animation: journey-glow 1.4s ease-in-out infinite alternate; }
+.loco-hotspot.is-new .loco-hotspot-dot { animation: loco-new-star 2.4s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+/* Und der Funke am Zug auf dem Startbild. */
+.loco-sparkle { transform-box: fill-box; transform-origin: center; animation: loco-new-star 2.2s ease-in-out infinite; }
+/* Der Landschafts-Knopf trägt seinen Stern aussen. */
+.scene-button { position: relative; }
+.scene-button .loco-new { top: -6px; right: -6px; width: 22px; height: 22px; }
 
 /* --- Die Werkstatt: gesperrte Teile --- */
 /* Was die Reise erst freischaltet, steht mit Schloss da – zu sehen, nicht zu
@@ -9630,11 +9681,14 @@ body[data-page="train"] .train-stage[data-view="reise"] ~ .help-voice {
   .journey-showcase:not(.is-locked) .journey-glow, .journey-reward-pic svg, .cm-icon.is-primary,
   .journey.is-entering .journey-map, .journey.is-switching .journey-map { animation: none; }
   .journey-train.is-driving .train-wheel, .journey-train.is-driving .train-steam-puff { animation: none; }
-  .journey-fog, .journey-station .journey-picture, .journey-station .journey-choice, .journey-signal, .journey-lock, .journey-glow, .journey-dot, .journey-motif { transition: none; }
+  .journey-station.is-current .journey-number-ring { animation: none; }
+  .journey-fog, .journey-station .journey-picture, .journey-station .journey-choice, .journey-signal, .journey-lock, .journey-glow, .journey-dot, .journey-motif, .journey-number-disc, .journey-number-ring { transition: none; }
   .journey-sparkle { opacity: 0.9; }
   .journey-showcase:not(.is-locked) .journey-glow { opacity: 0.7; }
   .journey-plan { animation: none; }
   .journey-plan-card, .journey-dots { transition: none; }
+  .loco-choice.is-new, .scene-choice.is-new, .loco-new, .loco-sparkle,
+  .loco-hotspot.is-new .loco-hotspot-halo, .loco-hotspot.is-new .loco-hotspot-dot,
   .journey-passenger.is-waving .journey-passenger-arm, .journey-firefly, .journey-portal-glow, .journey-landmark.is-lit .journey-home-light,
   .is-party .journey-rocket, .is-party .journey-flame, .journey-passenger-stand.is-arriving, .journey-pusher.is-driving .train-wheel { animation: none; }
   .journey-passenger-stand, .journey-aboard, .journey-home-light, .journey-headlight { transition: none; }

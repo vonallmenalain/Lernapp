@@ -369,4 +369,22 @@ const lap2 = reise.progressFor({ done: Object.fromEntries(Array.from({ length: 6
 assert(lap2.lap === 2 && lap2.station === 66 && lap2.lapStation === 6 && lap2.lapTotal === 70 && lap2.lapFirst === 61 && lap2.firstLapComplete && !lap2.complete && lap2.stars === 6, "progressFor kennt die zweite Reise");
 assert(reise.progressFor({ done: Object.fromEntries(Array.from({ length: 130 }, (_, i) => [String(i + 1), { stars: 3 }])) }).complete, "130 Stempel: beide Reisen geschafft");
 
-console.log(`Fahrplan geprüft: ${MAPS.length} Karten (${LAPS[0].maps} + ${LAPS[1].maps}), ${STATION_COUNT} Stationen, ${Object.keys(GAMES).length} Spiele je mindestens zweimal, ${rewards.size} Belohnungen, Reisetempo und Schiebelok.`);
+// --- Was neu ist ---------------------------------------------------------------------
+// Die Werkstatt fragt, was die Reise freigeschaltet hat und was davon noch
+// niemand angesehen hat: sonst müsste ein Kind die Reihen absuchen.
+const alle = reise.unlockedParts();
+assert(alle.some((entry) => entry.part === "flag" && entry.value === "rainbow" && entry.label === "Wimpel Regenbogen"), "unlockedParts kennt den Regenbogen nicht");
+assert(alle.every((entry) => LOCKS[entry.part]?.[entry.value]), "unlockedParts nennt ein Teil, das in LOCKS fehlt");
+assert(!alle.some((entry) => entry.id === "starloco"), "die Sternenlok ist noch nicht gefahren");
+const neu = reise.newParts();
+assert(neu.length === alle.length, "vor dem ersten Blick ist alles neu");
+reise.markPartsSeen(neu.filter((entry) => entry.part === "flag"));
+const danach = reise.newParts();
+assert(!danach.some((entry) => entry.part === "flag"), "angesehene Wimpel gelten nicht mehr als neu");
+assert(danach.length === neu.length - neu.filter((entry) => entry.part === "flag").length, "nur die angesehenen Teile fallen weg");
+// Ein Teil, das erst später dazukommt, ist dann neu – auch wenn schon einmal
+// etwas anderes angesehen wurde.
+for (let nr = 21; nr <= 30; nr += 1) reise.markDone(nr, { stars: 1, game: "x" });
+assert(reise.newParts().some((entry) => entry.value === "schiffshorn"), "eine neue Belohnung muss als neu gelten");
+
+console.log(`Fahrplan geprüft: ${MAPS.length} Karten (${LAPS[0].maps} + ${LAPS[1].maps}), ${STATION_COUNT} Stationen, ${Object.keys(GAMES).length} Spiele je mindestens zweimal, ${rewards.size} Belohnungen, Reisetempo, Schiebelok und die neuen Teile der Werkstatt.`);

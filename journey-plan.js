@@ -31,6 +31,9 @@
   // Was die Karte zuletzt gezeigt hat – damit sie beim nächsten Öffnen nur
   // feiert, was seither dazugekommen ist. Wie lernapp.train.gesehen.
   const SEEN_KEY = "lernapp.reise.gesehen";
+  // Welche freigeschalteten Teile in der Werkstatt schon angesehen wurden.
+  // Was hier fehlt, ist neu und wird dort golden markiert.
+  const PARTS_KEY = "lernapp.reise.teile";
   const STATIONS_PER_MAP = 10;
 
   // ---------------------------------------------------------------------------
@@ -691,6 +694,50 @@
     return Object.keys(done).map(Number).filter((nr) => (Number(done[nr]?.stars) || 0) >= 3).sort((a, b) => a - b);
   }
 
+  // Alles, was die Reise freischaltet, als Liste: Bauteil, Wert, Name. Die
+  // Werkstatt und die Landschaftswahl fragen damit, was neu dazugekommen ist.
+  function partsOf(id) {
+    const map = MAPS.find((entry) => entry.reward.id === id);
+    const bonus = BONUSES.find((entry) => entry.id === id);
+    const label = map?.reward.label || bonus?.label || "";
+    const list = [];
+    Object.entries(LOCKS).forEach(([part, entries]) => {
+      Object.entries(entries).forEach(([value, entryId]) => {
+        if (entryId === id) list.push({ id, part, value, label });
+      });
+    });
+    return list;
+  }
+
+  function unlockedParts() {
+    const list = [];
+    rewardsIn(read()).forEach((id) => list.push(...partsOf(id)));
+    return list;
+  }
+
+  // Gesehen wird je Teil gemerkt, nicht je Belohnung: die Sternenlok bringt
+  // Lampe und Wimpel zugleich, und beide liegen an verschiedenen Orten.
+  function seenParts() {
+    try {
+      const raw = JSON.parse(localStorage.getItem(PARTS_KEY) || "null");
+      return Array.isArray(raw) ? raw.map(String) : [];
+    } catch { return []; }
+  }
+
+  function keyOf(entry) { return `${entry.part}.${entry.value}`; }
+
+  function newParts() {
+    const seen = new Set(seenParts());
+    return unlockedParts().filter((entry) => !seen.has(keyOf(entry)));
+  }
+
+  function markPartsSeen(entries) {
+    const list = Array.isArray(entries) ? entries : [entries];
+    const seen = new Set(seenParts());
+    list.filter(Boolean).forEach((entry) => seen.add(typeof entry === "string" ? entry : keyOf(entry)));
+    try { localStorage.setItem(PARTS_KEY, JSON.stringify([...seen])); } catch { /* privater Modus */ }
+  }
+
   // Ob eine Variante der Werkstatt (oder eine Landschaft) noch gesperrt ist.
   // Zurück kommt, was sie freischaltet – die Karte oder der Bonus, mit einem
   // Satz für die Beschriftung –, oder null, wenn sie frei ist.
@@ -831,6 +878,7 @@
     read, current, isDone, doneInfo, triesFor, markDone, recordTry, choose, useAlt, needsPush, pushThrough,
     tempo, setTempo, plateStars,
     hasReward, lockFor, finishedMaps, mapFinished, goldenMaps, mapGolden, goldenStations, progressFor, merge,
+    unlockedParts, newParts, markPartsSeen, PARTS_KEY,
     readSeen, writeSeen, urlFor, mapUrl, fromLocation, describe,
     onChange: (fn) => store.onChange(fn),
   };

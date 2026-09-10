@@ -300,4 +300,20 @@ for (const set of train.SETS) {
   assert(viewBox[3] === art.ART_H, "die Höhe des Zugs passt nicht zum Koordinatensystem");
 }
 
+// --- Die Werkstatt schreibt in dieselben Schlüssel, aus denen die Lok liest ---
+// Der Wimpel heisst in der Lok-Einstellung "pattern", nicht "shape". Weil die
+// Werkstatt trotzdem "shape" schrieb, liess sich kein Wimpel wechseln – auch
+// der Regenbogen nicht, den die Reise freischaltet. Jedes Bauteil muss seine
+// Schlüssel in DEFAULT_LOCO wiederfinden.
+for (const spec of art.LOCO_PARTS) {
+  if (spec.kind !== "shapeColor") continue;
+  const defaults = art.DEFAULT_LOCO[spec.id];
+  assert(defaults && typeof defaults === "object", `${spec.id}: fehlt in DEFAULT_LOCO`);
+  const shapeKey = spec.shapeKey || "shape";
+  const colorKey = spec.colorKey || "color";
+  assert(shapeKey in defaults, `${spec.id}: die Werkstatt schriebe ${shapeKey}, die Lok liest ${Object.keys(defaults).join(", ")}`);
+  assert(colorKey in defaults, `${spec.id}: die Werkstatt schriebe ${colorKey}, die Lok liest ${Object.keys(defaults).join(", ")}`);
+  assert(Array.isArray(spec.shapes) && spec.shapes.includes(defaults[shapeKey]), `${spec.id}: die Vorgabe ${defaults[shapeKey]} steht nicht zur Wahl`);
+}
+
 console.log(`Zug-Zeichnung geprüft: ${art.WAGON_TYPES.length} Bauarten × ${STAGES + 1} Stufen, ${variants.length} Lok-Varianten, ${art.DRIVERS.length} Tiere, ${spiele.length} Gebäude, ${classes.size} Bewegungen.`);
