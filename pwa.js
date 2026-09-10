@@ -4,6 +4,9 @@
   let lastUpdateCheck = 0;
   let hasController = "serviceWorker" in navigator && Boolean(navigator.serviceWorker.controller);
   let refreshing = false;
+  // Eine neue Fassung wartet, aber gerade läuft etwas, das kein Neuladen
+  // verträgt.
+  let pendingReload = false;
 
   function isStandaloneMode() {
     return displayModeQueries.some((query) => window.matchMedia(query).matches) || window.navigator.standalone === true;
@@ -53,11 +56,35 @@
     document.addEventListener(type, enterFullscreen, { capture: true, passive: true });
   });
 
+  // Ob die App gerade etwas tut, das ein Neuladen zerstören würde: eine Runde
+  // im Spiel, eine Feier, die Streckenkarte mit ihren Fahrten. Ein Neuladen
+  // mitten darin sah aus, als stürze die App ab – und es traf ausgerechnet den
+  // Moment nach einem Spiel, weil dann nach neuen Fassungen gesucht wird.
+  function appBusy() {
+    try {
+      if (window.LernappBusy && window.LernappBusy()) return true;
+      if (document.body && document.body.classList.contains("puzzle-active")) return true;
+      return Boolean(document.querySelector(".wagon-reward, .journey-plan, .scene-picker"));
+    } catch { return false; }
+  }
+
+  // Aufgeschoben, nicht aufgehoben: sobald die Seite aus dem Blick ist – beim
+  // Wechsel in ein Spiel, beim Weglegen des Geräts –, wird nachgeholt. Dort
+  // sieht niemand etwas davon, und beim Zurückkommen steht die neue Fassung.
   function reloadForUpdate() {
     if (refreshing) return;
+    if (appBusy()) { pendingReload = true; return; }
     refreshing = true;
     window.location.reload();
   }
+
+  function reloadWhenHidden() {
+    if (!pendingReload || refreshing || document.visibilityState !== "hidden") return;
+    refreshing = true;
+    window.location.reload();
+  }
+  document.addEventListener("visibilitychange", reloadWhenHidden);
+  window.addEventListener("pagehide", reloadWhenHidden);
 
   function activateWaitingWorker(registration) {
     if (registration.waiting) {

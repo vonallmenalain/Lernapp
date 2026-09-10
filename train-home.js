@@ -1495,11 +1495,12 @@
       // Vom Fahrplan aus: eine fertige Karte noch einmal fahren – oder zurück
       // auf die eigene.
       onVisit: (index) => showJourney(index === null ? { mode: "quiet", visit: null } : { mode: "visit", visit: index }),
-      onSettled: () => {
-        if (!renderAfterJourney) return;
-        renderAfterJourney = false;
-        render();
-      },
+      // Neu gezeichnet wird nicht, solange die Karte im Bild ist – auch nicht
+      // nach der Feier. Ein Neuaufbau räumt die ganze Bühne ab und stellt sie
+      // wieder her; auf der Karte sah das aus, als lade die Seite neu, genau
+      // in dem Moment, in dem der Zug an einer Station ankam. Nachgeholt wird
+      // es beim Verlassen der Karte, wo die Bühne ohnehin wechselt.
+      onSettled: () => {},
     });
   }
 
@@ -1635,7 +1636,13 @@
       busy = true;
       stage.dataset.moving = "in";
       await after(40);
-      showAreas();
+      // Was während der Karte an Neuzeichnen anfiel, kommt jetzt: hier wechselt
+      // das Bild ohnehin, da fällt ein frisch gebauter Zug nicht auf.
+      if (renderAfterJourney) {
+        renderAfterJourney = false;
+        view.name = "areas";
+        render();
+      } else showAreas();
       delete stage.dataset.moving;
       await after(560);
       busy = false;
@@ -2014,10 +2021,19 @@
       applyCloudSettings(waiting);
       return;
     }
-    // Mitten in Stempel und Fahrt wird die Karte nicht neu gebaut – das
-    // risse die Feier ab. Neu gezeichnet wird, sobald sie durch ist.
-    if (view.name === "reise" && journeyApi()?.isPlaying?.()) {
+    // Solange die Karte im Bild ist, wird die Bühne nicht neu gebaut. Ein
+    // Neuaufbau nimmt alles heraus und setzt es wieder hinein – auf der Karte
+    // wirkte das wie ein Neuladen der Seite, und ausgelöst hat es meist ein
+    // Echo aus der Cloud, das ein, zwei Sekunden nach dem Spiel eintraf: also
+    // gerade dann, wenn der Zug an der Station ankam. Die Karte braucht davon
+    // nichts, sie liest ihren Stand selbst. Gemerkt wird es und beim Verlassen
+    // nachgeholt – dort wechselt die Bühne ohnehin.
+    //
+    // Eine Wagen-Feier darf trotzdem nicht verlorengehen: sie reiht sich in
+    // dieselbe Warteschlange wie die Feiern der Reise ein und kommt nach ihnen.
+    if (view.name === "reise") {
       renderAfterJourney = true;
+      maybeCelebrate(progress.allAreas());
       return;
     }
     const areas = progress.allAreas();
@@ -2126,6 +2142,11 @@
   }
 
   render();
+
+  // Für pwa.js: solange die Karte im Bild ist, eine Feier läuft oder die Bühne
+  // gerade wechselt, darf eine neue Fassung die Seite nicht neu laden. Sie
+  // wartet, bis das Kind ohnehin die Seite wechselt.
+  window.LernappBusy = () => view.name === "reise" || busy || Boolean(stage.querySelector(".wagon-reward"));
 
   // Das Gleis der Reise vermessen, solange nichts anderes zu tun ist. Es hängt
   // allein am Streckenverlauf, ist also für jede Karte dasselbe – und wenn das

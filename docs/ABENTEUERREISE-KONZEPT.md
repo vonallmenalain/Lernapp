@@ -30,6 +30,15 @@ Stand: September 2026 · Grundlage: `train-home.js`, `train-progress.js`, `train
 > Auftrag unerreichbar wird). Je fertiger Karte wird ein Stern auf dem Reise-Schild zum
 > Goldstern; im Fahrplan steht Reise 2 als zweite Reihe mit goldenem Rahmen. Stationen 61–130.
 > Prüfskript: `scripts/validate-reise.mjs`.
+> **Zweite Runde (September 2026):** Es stehen jetzt **zwei Stationen zugleich offen** –
+> die, vor der der Zug steht, und die nächste. Ein Kind, das mit einer nicht zurechtkommt,
+> lässt sie liegen und spielt die andere; der Zug wartet vor der Lücke und holt auf, sobald
+> sie geschlossen ist. Der **Stempel tritt an die Stelle der Nummer** statt neben sie: ein
+> Zeichen je Station. Und solange die Karte im Bild ist, wird die Bühne **nicht mehr neu
+> gebaut** – ein Echo aus der Cloud kam bisher ein, zwei Sekunden nach dem Spiel an und
+> zeichnete alles neu, gerade wenn der Zug an der Station ankam; das sah aus wie ein
+> Neuladen der Seite. Nachgeholt wird es beim Verlassen der Karte.
+>
 > **Nachgeschärft (September 2026, nach dem ersten Spielen):** Die **Gruppe auf der Karte**
 > ist wieder weg – wie weit die anderen sind, steht auf dem Startbild an ihren Zügen, zweimal
 > dasselbe war auf der Karte nur Gedränge. Die **Stationsnummern** sind gross und tragen die
@@ -144,10 +153,14 @@ Lautsprecher und den Zurück-Knopf, die dort schon stehen.
   sichtbar durchfährt, käme auf dem Kopf stehend heraus. Im Tunnel dreht sie sich
   unbemerkt um. Für Vierjährige ist es ausserdem ein Versteckspiel: weg – und da!
 - **Zehn Stationen** am Gleis, jede mit dem Bild ihres Spiels (`buildBuilding`, klein) in
-  der Farbe seines Bereichs. Vier Zustände:
-  - *gestempelt*: das Bild trägt einen Stempel – in der Bereichsfarbe, bei drei Sternen
-    oder einer „guten" Runde in Gold;
-  - *aktuell*: ein grünes Signal mit pulsierendem Ring, wie das Startsignal. Hier geht es
+  der Farbe seines Bereichs und einer grossen Nummer darunter, ebenfalls in der
+  Bereichsfarbe. Die Nummer ist das Ziel für den Finger. Vier Zustände:
+  - *gestempelt*: der Stempel tritt an die Stelle der Nummer – in der Bereichsfarbe, bei
+    drei Sternen oder einer „guten" Runde in Gold;
+  - *offen*: ein grüner Ring um die Nummer. Es stehen immer **zwei** Stationen offen, die
+    des Zugs und die nächste: wer mit einer nicht zurechtkommt, lässt sie liegen und
+    spielt die andere. Der Zug wartet vor der Lücke und holt auf, sobald sie zu ist.
+  - *aktuell*: dazu ein grünes Signal mit pulsierendem Ring, wie das Startsignal. Hier steht
     weiter;
   - *nächste*: sichtbar, ohne Signal – das Kind sieht, was danach kommt;
   - *im Nebel*: alle weiteren Stationen liegen unter einer Wolke, nur als Umriss zu
@@ -165,7 +178,8 @@ Lautsprecher und den Zurück-Knopf, die dort schon stehen.
 
 ### Was ein Tipp tut
 
-- **Aktuelle Station** → das Spiel startet sofort mit dem Auftrag (Abschnitt 4).
+- **Offene Station** (die des Zugs oder die nächste) → das Spiel startet sofort mit dem
+  Auftrag (Abschnitt 4).
 - **Gestempelte Station** → dasselbe Spiel noch einmal, um den goldenen Stempel zu holen.
   Der Zug bleibt, wo er ist.
 - **Zug** → wie auf dem Startbild: Wagen gross ansehen, Lok in die Werkstatt. Zurück führt

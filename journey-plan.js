@@ -572,6 +572,27 @@
     return task;
   }
 
+  // Wie viele Stationen einer Karte zugleich offen stehen. Eine allein hielte
+  // ein Kind fest, das mit ihr nicht zurechtkommt: mit zweien kann es die
+  // schwierige liegen lassen und später wiederkommen.
+  const OPEN_AT_ONCE = 2;
+
+  // Die offenen Stationen einer Karte, von vorn: die ersten beiden ohne
+  // Stempel. Ist die Karte fertig, kommt eine leere Liste zurück.
+  function openOn(mapIndex) {
+    const state = read();
+    const list = [];
+    for (let i = 1; i <= STATIONS_PER_MAP && list.length < OPEN_AT_ONCE; i += 1) {
+      const nr = mapIndex * STATIONS_PER_MAP + i;
+      if (!isDoneIn(state, nr)) list.push(nr);
+    }
+    return list;
+  }
+
+  // Ob eine Station gespielt werden darf: eine der offenen – oder eine
+  // gestempelte, die für einen goldenen Stempel noch einmal drankommt.
+  function isOpen(nr) { return openOn(mapIndexOf(nr)).includes(nr); }
+
   // Nach so vielen Fehlversuchen stellt sich die Weiche zum Ausweichgleis.
   const TRIES_FOR_ALT = 2;
   // Und nach so vielen (das Ausweichgleis eingerechnet) kommt die Schiebelok
@@ -830,6 +851,10 @@
         gold: Array.isArray(raw.gold) ? raw.gold.map(Number) : [],
         goldenMaps: Number(raw.goldenMaps) || 0,
         pushed: Array.isArray(raw.pushed) ? raw.pushed.map(Number) : [],
+        // Stationen, deren Stempel schon gezeigt wurde, obwohl der Zug noch
+        // davor steht: wer eine Station überspringt und die nächste schafft,
+        // hat einen Stempel vor sich liegen.
+        done: Array.isArray(raw.done) ? raw.done.map(Number) : [],
       };
     } catch { return null; }
   }
@@ -837,7 +862,8 @@
   function writeSeen(seen) {
     try {
       localStorage.setItem(SEEN_KEY, JSON.stringify({
-        station: seen.station, gold: seen.gold || [], goldenMaps: Number(seen.goldenMaps) || 0, pushed: seen.pushed || [],
+        station: seen.station, gold: seen.gold || [], goldenMaps: Number(seen.goldenMaps) || 0,
+        pushed: seen.pushed || [], done: seen.done || [],
       }));
     } catch { /* privater Modus */ }
   }
@@ -874,7 +900,7 @@
   window.LernappReise = {
     KEY, SEEN_KEY, MAPS, LAPS, GAMES, AREAS, WORLDS, LOCKS, BONUSES, STATION_COUNT, STATIONS_PER_MAP,
     TRIES_FOR_ALT, TRIES_FOR_PUSH, LEVEL_MAX, MEMORY_SIZES, CATALOG_PER_WORLD,
-    stationAt, taskFor, altTaskFor, mapIndexOf, lapOf,
+    stationAt, taskFor, altTaskFor, mapIndexOf, lapOf, openOn, isOpen, OPEN_AT_ONCE,
     read, current, isDone, doneInfo, triesFor, markDone, recordTry, choose, useAlt, needsPush, pushThrough,
     tempo, setTempo, plateStars,
     hasReward, lockFor, finishedMaps, mapFinished, goldenMaps, mapGolden, goldenStations, progressFor, merge,
