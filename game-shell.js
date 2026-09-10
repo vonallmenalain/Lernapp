@@ -104,6 +104,9 @@
     host.style.setProperty("--cm-accent-dark", accentDark);
     host.innerHTML = "";
     host.dataset.phase = "intro";
+    // Für pwa.js: eine laufende Runde verträgt kein Neuladen. Eine neue
+    // Fassung wartet, bis das Kind ohnehin die Seite wechselt.
+    window.LernappBusy = () => host.dataset.phase === "play";
 
     // --- Der Auftrag der Reise -----------------------------------------------
     // Nur, wenn diese Seite mit einer Station geöffnet wurde, die zu ihr

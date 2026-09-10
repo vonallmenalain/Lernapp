@@ -9225,13 +9225,13 @@ body[data-page="train"] .train-stage[data-view="reise"] ~ .help-voice {
   to { opacity: 1; transform: none; }
 }
 
-/* Antippbar ist nur, was dran ist: die aktuelle Station, gestempelte für
-   den goldenen Stempel, die beiden Bilder einer Wahlstation, das
+/* Antippbar ist nur, was dran ist: die beiden offenen Stationen, gestempelte
+   für den goldenen Stempel, die beiden Bilder einer Wahlstation, das
    Ausweichgleis. Der Nebel nimmt nichts entgegen. */
 .stage-layer .journey-station,
 .stage-layer .journey-choice,
 .stage-layer .journey-alt { pointer-events: auto; cursor: pointer; }
-.stage-layer .journey-station:not(.is-current):not(.is-done),
+.stage-layer .journey-station:not(.is-open):not(.is-done),
 .stage-layer .journey-station.has-choice { pointer-events: none; cursor: default; }
 .journey-station:focus-visible { outline: none; }
 .journey-station:focus-visible > .journey-station-hit,
@@ -9266,11 +9266,22 @@ body[data-page="train"] .train-stage[data-view="reise"] ~ .help-voice {
 .journey-ruler { position: absolute; width: 0; height: 0; overflow: hidden; pointer-events: none; }
 .journey-number { pointer-events: none; }
 .journey-number-disc { transition: fill 0.5s ease; }
+/* Offen sind immer zwei Stationen: beide tragen den grünen Ring, die mit dem
+   Zug pulst dazu. Gestempelt braucht keinen Ring mehr. */
 .journey-number-ring { opacity: 0; transform-box: fill-box; transform-origin: center; transition: opacity 0.3s ease; }
+.journey-station.is-open .journey-number-ring { opacity: 0.9; }
 .journey-station.is-current .journey-number-ring { opacity: 1; animation: journey-pulse 1.9s ease-in-out infinite; }
+.journey-station.is-done .journey-number-ring { opacity: 0; animation: none; }
 .journey-station.is-fog .journey-number-disc { fill: #9aa4b2; }
 .journey-station.is-fog .journey-number { opacity: 0.7; }
-.journey-station.is-current .journey-number-disc { filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.35)); }
+.journey-station.is-open .journey-number-disc { filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.28)); }
+
+/* Ist die Station geschafft, tritt der Stempel an die Stelle der Zahl. Zwei
+   Zeichen nebeneinander waren eines zu viel. */
+.journey-number-text, .journey-number-disc { transition: opacity 0.35s ease; }
+.journey-station.is-done .journey-number-text,
+.journey-station.is-done .journey-number-disc { opacity: 0; }
+.journey-stamp-slot { pointer-events: none; }
 
 /* Der Stempel fällt von oben auf die Station und prallt kurz zurück. */
 .journey-stamp { transform-box: fill-box; transform-origin: center; }

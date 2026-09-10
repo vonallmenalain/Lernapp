@@ -289,8 +289,21 @@ for (const map of MAPS) assert(scenesWin.LernappScenes.BY_ID[map.scene], `Landsc
 
 // --- Der Stand ---------------------------------------------------------------------
 assert(reise.current() === 1, "ein frischer Stand beginnt bei Station 1");
+// Zwei Stationen stehen immer offen: wer mit einer nicht zurechtkommt, lässt
+// sie liegen und spielt die andere.
+assert(reise.OPEN_AT_ONCE === 2, "erwartet zwei offene Stationen zugleich");
+assert(JSON.stringify(reise.openOn(0)) === "[1,2]", "auf einer frischen Karte stehen die ersten beiden Stationen offen");
+assert(reise.isOpen(1) && reise.isOpen(2) && !reise.isOpen(3), "offen sind genau die ersten beiden");
 reise.markDone(1, { stars: 2, game: "missingItem" });
 assert(reise.current() === 2 && reise.isDone(1), "nach dem ersten Stempel ist Station 2 dran");
+assert(JSON.stringify(reise.openOn(0)) === "[2,3]", "mit Station 1 im Kasten rücken 2 und 3 nach");
+// Eine übersprungene Station bleibt offen, die nächste rückt nach – geprüft
+// auf der zweiten Karte, damit die erste für die Tests darunter frei bleibt.
+assert(JSON.stringify(reise.openOn(1)) === "[11,12]", "auf der zweiten Karte stehen 11 und 12 offen");
+reise.markDone(12, { stars: 1, game: "x" });
+assert(JSON.stringify(reise.openOn(1)) === "[11,13]", "wer 12 überspringt und schafft, dem stehen 11 und 13 offen");
+reise.markDone(11, { stars: 1, game: "x" });
+assert(JSON.stringify(reise.openOn(1)) === "[13,14]", "ist die Lücke zu, rücken beide nach");
 assert(reise.recordTry(2) === 1 && reise.recordTry(2) === 2, "Fehlversuche zählen hoch");
 assert(reise.altTaskFor(2).viaAlt, "nach zwei Fehlversuchen gibt es ein Ausweichgleis");
 reise.useAlt(2);
@@ -311,8 +324,18 @@ assert(reise.goldenStations().length === 10 && reise.goldenStations()[0] === 1, 
 for (let nr = 11; nr <= 20; nr += 1) reise.markDone(nr, { stars: 3, game: "x" });
 assert(reise.goldenMaps() === 2 && reise.hasReward("gold-2"), "zwei goldene Karten geben den zweiten Bonus");
 assert(reise.progressFor(reise.read()).goldenMaps === 2, "progressFor zählt die goldenen Karten");
-reise.writeSeen({ station: 21, gold: [1, 2], goldenMaps: 2 });
+reise.writeSeen({ station: 21, gold: [1, 2], goldenMaps: 2, done: [24] });
 assert(reise.readSeen().goldenMaps === 2 && reise.readSeen().gold.length === 2, "gesehen merkt sich die goldenen Karten");
+assert(reise.readSeen().done[0] === 24, "gesehen merkt sich Stempel, die vor dem Zug liegen");
+// Auf jeder Karte stehen höchstens zwei offen, und keine davon ist gestempelt.
+for (let m = 0; m < MAPS.length; m += 1) {
+  const offen = reise.openOn(m);
+  assert(offen.length <= reise.OPEN_AT_ONCE, `Karte ${m + 1}: ${offen.length} offene Stationen`);
+  offen.forEach((nr) => {
+    assert(!reise.isDone(nr) && reise.mapIndexOf(nr) === m && reise.isOpen(nr), `Karte ${m + 1}: Station ${nr} steht falsch offen`);
+  });
+  if (reise.mapFinished(m)) assert(offen.length === 0, `Karte ${m + 1} ist fertig, da steht nichts mehr offen`);
+}
 const merged = reise.merge({ done: { "3": { stars: 1 } }, tries: { "5": 2 } }, { done: { "3": { stars: 3 }, "4": { stars: 2 } }, tries: { "5": 1 } });
 assert(merged.done["3"].stars === 3 && merged.done["4"].stars === 2 && merged.tries["5"] === 2, "das Zusammenführen behält das Bessere");
 assert(reise.progressFor({ done: { "1": { stars: 3 } } }).station === 2, "progressFor rechnet mit einem fremden Kasten");

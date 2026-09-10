@@ -23,6 +23,10 @@
  * Die Karte zeigt nur den eigenen Zug: wie weit die anderen sind, steht auf
  * dem Startbild an ihren Zügen – zweimal dasselbe wäre hier nur Gedränge.
  *
+ * Zwei Stationen stehen immer offen: die, vor der der Zug steht, und die
+ * nächste. Wer mit einer nicht zurechtkommt, lässt sie liegen und spielt die
+ * andere; der Zug wartet, bis die Lücke geschlossen ist, und holt dann auf.
+ *
  * Gefeiert wird, was seit dem letzten Öffnen dazugekommen ist: die Karte
  * merkt sich, an welcher Station sie den Zug zuletzt gezeigt hat
  * (lernapp.reise.gesehen), und spielt beim nächsten Mal Stempel um Stempel
@@ -552,6 +556,17 @@
     let mapIndex = visiting !== null ? visiting : Math.min(reise.MAPS.length - 1, reise.mapIndexOf(Math.min(startNr, total)));
     let visibleCurrent = Math.min(startNr, total + 1);
     const goldShown = new Set(seen.gold || []);
+    // Welche Stempel schon auf der Karte liegen. Gestempelt und gezeigt ist
+    // nicht dasselbe: wer eine Station überspringt und die nächste schafft,
+    // hat einen Stempel vor dem Zug – und was seit dem letzten Blick neu ist,
+    // fällt erst bei der Feier. Alles vor dem Zug ist längst gezeigt, der Rest
+    // steht im gemerkten Stand.
+    const seenDone = new Set(seen.done || []);
+    const playedDone = new Set();
+    for (let nr = 1; nr <= reise.STATION_COUNT; nr += 1) {
+      if (!reise.isDone(nr)) continue;
+      if (mode === "quiet" || visiting !== null || nr < seen.station || seenDone.has(nr)) playedDone.add(nr);
+    }
     // Golden zeigt sich ein Stempel sofort – ausser an der Station, aus der
     // das Kind gerade zurückkommt: dort fällt er erst mit der Feier.
     const goldPending = returned && reise.isDone(returned) && (Number(reise.doneInfo(returned)?.stars) || 0) >= 3 && !goldShown.has(returned)
@@ -712,7 +727,7 @@
 
     // Ob eine Station als gestempelt gezeigt wird: gespeichert ist sie es
     // vielleicht schon, aber die Feier ist noch nicht bei ihr angekommen.
-    function shownDone(nr) { return reise.isDone(nr) && nr < visibleCurrent; }
+    function shownDone(nr) { return playedDone.has(nr); }
     function shownGold(nr) {
       const info = reise.doneInfo(nr);
       if (!info || (Number(info.stars) || 0) < 3 || !shownDone(nr)) return false;
@@ -772,12 +787,17 @@
       // weissem Rand. Sie ist die eine Zahl, die hier stehen darf – und
       // zugleich das Ziel für den Finger. An der Station, die dran ist, legt
       // sich ein grüner Ring darum und pulst: hier geht es weiter.
+      // Ist die Station geschafft, tritt der Stempel an die Stelle der Zahl:
+      // ein Zeichen je Station statt zweier. Er sitzt im selben Kreis und
+      // deckt ihn ab.
+      const zahl = textNode(0, i + 1 >= 10 ? 39 : 39.5, i + 1 >= 10 ? 24 : 27, "#ffffff", i + 1);
+      zahl.setAttribute("class", "journey-number-text");
       g.append(group({ class: "journey-number" }, [
         el("circle", { cx: 0, cy: 30, r: 29, class: "journey-number-ring", fill: "none", stroke: "#3fbf74", "stroke-width": 5 }),
         el("circle", { cx: 0, cy: 30, r: 23, class: "journey-number-disc", fill: color, stroke: "#ffffff", "stroke-width": 4 }),
-        textNode(0, i + 1 >= 10 ? 39 : 39.5, i + 1 >= 10 ? 24 : 27, "#ffffff", i + 1),
+        zahl,
+        group({ class: "journey-stamp-slot", transform: "translate(0,30) scale(1.35)" }),
       ]));
-      g.append(group({ class: "journey-stamp-slot", transform: "translate(36,-98)" }));
       g.append(group({ transform: "translate(0,-52) scale(1.3)" }, [art.buildFog()]));
 
       // Das Ausweichgleis: nach zwei Fehlversuchen steht neben der Station ein
@@ -823,22 +843,33 @@
       slot.append(stamp);
     }
 
+    // Die beiden Stationen, die gerade offen stehen.
+    function openHere() { return reise.openOn(mapIndex); }
+
     function applyStates() {
+      const offen = openHere();
       stationNodes.forEach((node, i) => {
         const nr = nrOf(i);
         const done = shownDone(nr);
+        const open = offen.includes(nr);
         node.classList.toggle("is-done", done);
-        node.classList.toggle("is-current", nr === visibleCurrent);
-        node.classList.toggle("is-next", nr === visibleCurrent + 1);
-        node.classList.toggle("is-fog", !done && nr > visibleCurrent + 1);
-        const tappable = nr === visibleCurrent || done;
+        node.classList.toggle("is-current", nr === visibleCurrent && !done);
+        node.classList.toggle("is-open", open);
+        // Im Nebel liegt, was weder offen noch gestempelt ist. Ein Stempel,
+        // der noch auf seine Feier wartet, gehört nicht dorthin: die Station
+        // war ja schon dran.
+        node.classList.toggle("is-fog", !open && !reise.isDone(nr));
+        const tappable = open || done;
         if (tappable && !node.classList.contains("has-choice")) { node.setAttribute("role", "button"); node.setAttribute("tabindex", "0"); }
         else { node.removeAttribute("role"); node.removeAttribute("tabindex"); }
         const task = reise.taskFor(nr);
         const label = task?.choice
           ? `Station ${i + 1}, Wahlstation: ${task.choice.map((c) => c.title).join(" oder ")}.`
           : `Station ${i + 1}: ${task?.title || ""}. ${task?.speech || ""}`;
-        node.setAttribute("aria-label", `${label}${done ? (shownPushed(nr) ? " Von der Schiebelok geschoben, noch ohne Stempel." : " Gestempelt.") : nr === visibleCurrent ? " Hier geht es weiter." : nr > visibleCurrent + 1 ? " Noch im Nebel." : ""}`);
+        node.setAttribute("aria-label", `${label}${done
+          ? (shownPushed(nr) ? " Von der Schiebelok geschoben, noch ohne Stempel." : " Gestempelt.")
+          : open ? (nr === visibleCurrent ? " Hier steht dein Zug. Antippen zum Spielen." : " Auch offen: du kannst sie statt der anderen spielen.")
+          : " Noch im Nebel."}`);
         if (done && !node.querySelector(".journey-stamp")) stampFor(i);
       });
       dots.innerHTML = "";
@@ -984,8 +1015,10 @@
         kids()?.setHelp?.("Du hast beide Reisen geschafft – alle hundertdreissig Stationen! Dein Zug steht an der Sternwarte, und auf dem Reise-Schild sind alle Sterne golden.");
         return;
       }
-      const i = visibleCurrent - nrOf(0);
-      const task = reise.taskFor(visibleCurrent);
+      const offen = openHere();
+      const erste = offen[0] ?? visibleCurrent;
+      const i = erste - nrOf(0);
+      const task = reise.taskFor(erste);
       if (!task) return;
       let text = `${lapPrefix}Karte ${map.nr}, ${map.name}. Station ${i + 1} von ${reise.STATIONS_PER_MAP}. `;
       if (justPushed) {
@@ -996,11 +1029,21 @@
       if (task.choice) {
         text += `Wahlstation: ${task.choice.map((c) => c.title).join(" oder ")}. Tippe eines an.`;
       } else {
-        text += `Als Nächstes: ${task.title}. ${task.speech} Tippe auf die Station mit dem grünen Signal.`;
-        if (!task.viaAlt && reise.triesFor(visibleCurrent) >= reise.TRIES_FOR_ALT) {
-          const alt = reise.altTaskFor(visibleCurrent);
+        text += `Als Nächstes: ${task.title}. ${task.speech} Tippe auf den grünen Kreis mit der ${i + 1}.`;
+        if (!task.viaAlt && reise.triesFor(erste) >= reise.TRIES_FOR_ALT) {
+          const alt = reise.altTaskFor(erste);
           if (alt) text += ` Oder nimm das Ausweichgleis: ${alt.title}.`;
         }
+      }
+      // Es stehen immer zwei Stationen offen: wer mit der einen nicht
+      // zurechtkommt, lässt sie liegen und nimmt die andere.
+      const zweite = offen[1];
+      if (zweite) {
+        const auch = reise.taskFor(zweite);
+        const j = zweite - nrOf(0) + 1;
+        text += auch?.choice
+          ? ` Du kannst sie auch überspringen und Station ${j} spielen: ${auch.choice.map((c) => c.title).join(" oder ")}.`
+          : ` Du kannst sie auch überspringen und Station ${j} spielen: ${auch?.title || ""}. ${auch?.speech || ""}`;
       }
       const left = reise.STATIONS_PER_MAP - i;
       text += ` Am Ziel wartet: ${map.reward.label}${left > 1 ? `, noch ${left} Stationen` : ", die nächste Station"}.`;
@@ -1015,7 +1058,7 @@
       onPlay?.(reise.urlFor(task));
     }
     function choose(nr, option) {
-      if (busy || nr !== visibleCurrent || playing) return;
+      if (busy || playing || !reise.isOpen(nr)) return;
       reise.choose(nr, option.game);
       const node = stationNodes[nr - nrOf(0)];
       node?.querySelectorAll(".journey-choice").forEach((pick) => {
@@ -1027,7 +1070,7 @@
     function onStation(i) {
       if (busy || playing) return;
       const nr = nrOf(i);
-      if (nr !== visibleCurrent && !shownDone(nr)) return;
+      if (!reise.isOpen(nr) && !shownDone(nr)) return;
       go(reise.taskFor(nr));
     }
 
@@ -1211,29 +1254,43 @@
 
     // Spielt Stempel und Fahrten von der zuletzt gezeigten Station bis zur
     // aktuellen. Bricht ab, sobald die Karte neu gebaut wurde (token).
+    // Alle Stempel dieser Karte, die noch nicht auf ihr liegen – von vorn.
+    // Stempel und Fahrt sind getrennt, seit zwei Stationen zugleich offen
+    // stehen: ein Stempel kann vor dem Zug liegen, und der Zug rückt erst
+    // vor, wenn die Lücke davor geschlossen ist.
+    async function stampFresh() {
+      for (let i = 0; i < reise.STATIONS_PER_MAP; i += 1) {
+        const nr = nrOf(i);
+        if (!reise.isDone(nr) || playedDone.has(nr)) continue;
+        const info = reise.doneInfo(nr);
+        if (info && (Number(info.stars) || 0) >= 3) goldShown.add(nr);
+        playedDone.add(nr);
+        hideSignal();
+        if (nr === pushPending) {
+          await pushArrives(i);
+        } else {
+          stampFor(i, { fresh: true });
+          applyStates();
+          kids()?.playStarSound?.(goldShown.has(nr) ? 2 : 1);
+          kids()?.vibrate?.(14);
+          burstAt(i, goldShown.has(nr) ? 30 : 18);
+        }
+        await wait(900);
+        if (token !== mountToken) return false;
+      }
+      applyStates();
+      return true;
+    }
+
     async function playNew() {
       playing = true;
       try {
         const target = visiting !== null ? visibleCurrent : Math.min(current, total + 1);
+        if (!await stampFresh()) return;
         while (visibleCurrent < target && token === mountToken) {
           const nr = visibleCurrent;
           const i = stationIndexOf(nr);
-          const info = reise.doneInfo(nr);
-          if (info && (Number(info.stars) || 0) >= 3) goldShown.add(nr);
           visibleCurrent = nr + 1;
-          if (nr === pushPending) {
-            await pushArrives(i);
-            if (token !== mountToken) return;
-          } else {
-            stampFor(i, { fresh: true });
-            applyStates();
-            kids()?.playStarSound?.(goldShown.has(nr) ? 2 : 1);
-            kids()?.vibrate?.(14);
-            burstAt(i, goldShown.has(nr) ? 30 : 18);
-          }
-          hideSignal();
-          await wait(900);
-          if (token !== mountToken) return;
           const last = i === reise.STATIONS_PER_MAP - 1;
           if (last) {
             if (nr === pushPending) { await pushLeaves(); justPushed = nr; }
@@ -1243,6 +1300,9 @@
             if (mapIndex + 1 < reise.MAPS.length) {
               await switchMap(mapIndex + 1);
               if (token !== mountToken) return;
+              // Auf der neuen Karte kann schon etwas gestempelt sein, wenn der
+              // Stand von einem anderen Gerät kommt.
+              if (!await stampFresh()) return;
             }
           } else {
             await layTrack(L[i], L[i + 1]);
@@ -1295,6 +1355,9 @@
         gold: reise.goldenStations(),
         goldenMaps: reise.goldenMaps(),
         pushed: Object.entries(reise.read().done || {}).filter(([, entry]) => entry?.pushed).map(([nr]) => Number(nr)),
+        // Stempel, die vor dem Zug liegen: alles dahinter versteht sich von
+        // selbst und muss nicht mitgeschrieben werden.
+        done: [...playedDone].filter((nr) => nr >= visibleCurrent),
       });
       speakState();
     }
@@ -1458,11 +1521,19 @@
 
     // --- Los ---------------------------------------------------------------------
     drawMap();
-    // Neu ist eine weitere Station, ein goldener Stempel aus dem Spiel – oder
-    // eine Karte, die schon ganz golden ist, deren Bonus aber noch nie gefeiert
-    // wurde.
+    // Neu ist ein Stempel, der noch nicht auf der Karte liegt – auch einer vor
+    // dem Zug, wenn eine Station übersprungen wurde –, ein goldener Stempel aus
+    // dem Spiel, oder eine Karte, die schon ganz golden ist, deren Bonus aber
+    // noch nie gefeiert wurde.
     const goldenNew = reise.goldenMaps() > (Number(seen.goldenMaps) || 0);
-    const pending = Boolean(goldPending) || Boolean(restampPending) || goldenNew;
+    const freshStamp = (() => {
+      for (let i = 0; i < reise.STATIONS_PER_MAP; i += 1) {
+        const nr = nrOf(i);
+        if (reise.isDone(nr) && !playedDone.has(nr)) return true;
+      }
+      return false;
+    })();
+    const pending = Boolean(goldPending) || Boolean(restampPending) || goldenNew || freshStamp;
     const somethingNew = visiting === null ? current > seen.station || pending : pending;
     const standAt = stationIndexOf(Math.min(visibleCurrent, nrOf(reise.STATIONS_PER_MAP - 1)));
 
