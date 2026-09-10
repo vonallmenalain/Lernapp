@@ -5,25 +5,33 @@ Stand: September 2026 · Grundlage: `train-home.js`, `train-progress.js`, `train
 `docs/SPIELVORSCHLAEGE-BEREICHE.md`, `docs/UX-REVIEW-KINDER-4-8.md`
 
 > **Umsetzungsstand (September 2026):** Die zwölf offenen Entscheidungen in Abschnitt 11
-> sind alle gemäss Empfehlung gefallen. Gebaut sind **Etappe 1** und **Etappe 2**: das
-> Streckenschild vor den Toren (`train-home.js`), der Fahrplan mit allen sechs Karten und
-> sechzig Stationen samt Aufträgen und Ausweichgleisen (`journey-plan.js`), die Streckenkarte
-> mit Nebel, Stempeln, Fahrt, Kehren, Wahlstationen, Ausweichgleis, Ziel-Bahnhof, Schaufenster
-> und Feier (`train-journey.js`), die Übergabe an alle 25 Spiele über `?station=`
+> sind alle gemäss Empfehlung gefallen. Gebaut sind alle drei Etappen. **Etappe 1:** das
+> Streckenschild vor den Toren (`train-home.js`), der Fahrplan mit sechs Karten und sechzig
+> Stationen samt Aufträgen und Ausweichgleisen (`journey-plan.js`), die Streckenkarte mit
+> Nebel, Stempeln, Fahrt, Kehren, Wahlstationen, Ausweichgleis, Ziel-Bahnhof, Schaufenster und
+> Feier (`train-journey.js`), die Übergabe an alle 25 Spiele über `?station=`
 > (`game-shell.js`, `app.js`, die Spieldateien), der Kasten `lernapp.reise` in der Cloud, die
-> Belohnungen in der Werkstatt mit Schloss (Wimpel Regenbogen, Chauffeure Eichhörnchen und
-> Steinbock, Pfeife Schiffshorn, Sternlampe und Sterne-Wimpel), die Landschaft Savanne, das
-> Reise-Schild am Zug (auch bei der Gruppe) und die Zeile im Adminbereich. Aus Etappe 2 dazu:
-> die **Fahrplan-Übersicht** (der Knopf oben in der Mitte der Karte öffnet alle sechs Karten
-> mit den Stempeln als Zehnerfeld, der Belohnung und der Lok auf der eigenen Karte), fertige
-> Karten **zu Besuch** noch einmal fahren (jede Station spielbar, drei Sterne machen den
-> Stempel golden, der Pfeil führt zurück auf die eigene Karte) und der **Bonus für zehn
-> goldene Stempel** (Räder Sonnenrad nach der ersten ganz goldenen Karte, Wimpel Sonne nach
-> der zweiten – mit der Feier-Tafel, in der Werkstatt bis dahin mit Schloss).
+> Belohnungen in der Werkstatt mit Schloss, die Landschaft Savanne, das Reise-Schild am Zug
+> und die Zeile im Adminbereich. **Etappe 2:** die Fahrplan-Übersicht, fertige Karten zu
+> Besuch, der Bonus für zehn goldene Stempel. **Etappe 3:** der **Fahrgast** je Karte (wartet
+> an Station 1, springt in den ersten Wagen, steigt am Ziel aus – dort geht ein Licht an;
+> Hase, Eichhörnchen, Pinguin, Panda, Steinbock, Eule, Maus, Löwe), die
+> **Streckenbesonderheiten** (Kühe am Bahnübergang, Bach mit Holzbrücke, die Fähre über die
+> Bucht in der rechten Kehre der See-Karte, Lianenbrücke, Zahnradstrecke mit Ratterton, Nacht
+> mit Glühwürmchen, Scheinwerferkegel, leuchtendem Tunnelmund und Feuerwerk am Ziel, der Mond
+> mit der Erde am Himmel, Elefanten in der Savanne), die **Gruppe auf der Karte** (Fähnchen mit
+> Namen an der Station, Namen auf den Karten des Fahrplans), die **Schiebelok** (nach fünf
+> Fehlversuchen schiebt sie den Zug zur nächsten Station – grauer Stempel, die Station lässt
+> sich später nachspielen), das **Reisetempo** (Schalter je Konto im Adminbereich, «langsam»
+> nimmt jeder Karte ein Stück Schwierigkeit; liegt mit Zeitmarke im Kasten der Reise) und
+> **Reise 2**: nach der Sternwarte die Weltraum-Karte mit eigenem Fahrplan aus Weltall-Leveln
+> (Belohnung: Landschaft Weltraum), dann die Savanne mit den Stationen der Wiese und Wald bis
+> Nacht noch einmal – dieselben Stationen, drei Level höher, grössere Memorys, Weltall-Level,
+> oberste Stufe, Zielpunktzahl gleich der Drei-Sterne-Schwelle (nicht darüber, damit kein
+> Auftrag unerreichbar wird). Je fertiger Karte wird ein Stern auf dem Reise-Schild zum
+> Goldstern; im Fahrplan steht Reise 2 als zweite Reihe mit goldenem Rahmen. Stationen 61–130.
 > Prüfskript: `scripts/validate-reise.mjs`.
-> **Noch offen (Etappe 3):** der Fahrgast, die Streckenbesonderheiten (Fähre, Zahnrad,
-> Nachtlicht), die Gruppe auf der Karte, Reise 2 mit der Landschaft Weltraum, Schiebelok und
-> Reisetempo.
+> **Nicht gebaut (bewusst):** Kabuse und Postkarten aus Abschnitt 9.
 > Der Rest des Dokuments bleibt als Begründung stehen; zum Konzept gehört eine Seite mit
 > einer klickbaren Streckenkarte (Artefakt „Abenteuerreise").
 

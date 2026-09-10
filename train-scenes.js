@@ -512,6 +512,52 @@
         },
       },
     },
+    // Der Weltraum: die Belohnung der Weltraum-Karte, mit der Reise 2 beginnt
+    // (journey-plan.js). Sterne statt Wolken, die Erde am Horizont, graue
+    // Kraterhügel und Mondstaub statt Gras.
+    {
+      id: "weltraum",
+      reward: "scene-weltraum",
+      thumb: () => [
+        ...[[14, 10], [40, 22], [70, 8], [98, 26], [24, 40], [86, 44]].map(([x, y], i) => el("circle", { cx: x, cy: y, r: i % 2 ? 1.2 : 1.8, fill: "#ffffff", opacity: "0.9" })),
+        el("circle", { cx: 92, cy: 30, r: 11, fill: "#3d7be0" }),
+        el("path", { d: "M84 26 q5 -4 9 0 q-2 5 -9 0 z M92 34 q6 -3 8 2 q-5 3 -8 -2 z", fill: "#5cb85c" }),
+        thumbHill(52, "#5b6480"), thumbHill(60, "#8f96a8"),
+        el("ellipse", { cx: 40, cy: 68, rx: 9, ry: 3, fill: "#7d8598" }),
+        el("rect", { x: 0, y: 70, width: 120, height: 6, fill: "#9aa2b4" }),
+      ],
+      label: "Weltraum",
+      sky: ["#0b1030", "#1c2752"],
+      ground: "#9aa2b4",
+      groundDark: "#7d8598",
+      light: { color: "#fff3b0", glow: 0.25 },
+      layers: {
+        clouds: () => tile([
+          ...Array.from({ length: 26 }, (_, i) => el("circle", { cx: (i * 233) % W, cy: 8 + ((i * 71) % 110), r: i % 3 === 0 ? 2 : 1.3, fill: "#ffffff", opacity: String(0.55 + (i % 4) * 0.11) })),
+          el("path", { d: "M470 40 l-40 12", stroke: "#ffffff", "stroke-width": 2, "stroke-linecap": "round", opacity: "0.5" }),
+          el("circle", { cx: 472, cy: 39, r: 3, fill: "#ffffff" }),
+        ]),
+        far: () => tile([
+          el("circle", { cx: 130, cy: 96, r: 40, fill: "#3d7be0" }),
+          el("path", { d: "M104 82 q16 -12 30 -2 q-8 14 -30 2 z M136 104 q18 -8 26 6 q-14 10 -26 -6 z M110 116 q10 -6 18 2 q-8 8 -18 -2 z", fill: "#5cb85c" }),
+          el("path", { d: "M100 70 a40 40 0 0 1 20 -12", fill: "none", stroke: "#ffffff", "stroke-width": 5, "stroke-linecap": "round", opacity: "0.55" }),
+          hills(118, 24, "#5b6480"),
+          hills(142, 16, "#4a536d"),
+        ]),
+        mid: () => tile([
+          hills(154, 12, "#7d8598"),
+          ...[60, 200, 330, 470, 560].map((x, i) => group({}, [
+            el("ellipse", { cx: x, cy: 176 + (i % 2) * 6, rx: 22 + (i % 3) * 6, ry: 6, fill: "#6a7188" }),
+            el("ellipse", { cx: x, cy: 174 + (i % 2) * 6, rx: 18 + (i % 3) * 5, ry: 4, fill: "#8f96a8" }),
+          ])),
+        ]),
+        near: () => {
+          const parts = [nearGround(22, "#7d8598", 3), nearGround(28, "#9aa2b4", 3)];
+          [30, 110, 190, 270, 350, 430, 510, 580].forEach((x, i) => parts.push(el("ellipse", { cx: x, cy: 44 + (i % 2) * 4, rx: 7 + (i % 3) * 2, ry: 4, fill: i % 2 ? "#6a7188" : "#8f96a8" })));
+          return nearTile(parts);
+        },
+      },
+    },
   ];
 
   const BY_ID = Object.fromEntries(SCENES.map((scene) => [scene.id, scene]));
@@ -559,8 +605,8 @@
       wrap.append(bandEl);
     });
 
-    // Vögel gibt es nur, wo sie hingehören.
-    if (scene.id !== "nacht") {
+    // Vögel gibt es nur, wo sie hingehören: nicht in der Nacht, nicht im All.
+    if (scene.id !== "nacht" && scene.id !== "weltraum") {
       const birds = document.createElement("div");
       birds.className = "scene-birds";
       birds.setAttribute("aria-hidden", "true");

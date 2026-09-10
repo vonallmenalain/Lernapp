@@ -783,6 +783,21 @@
     hiss(start + 0.01, 0.13 * strength, 0.022 * strength, 1500, 0.6, "highpass");
   }
 
+  // Das Rattern auf der Zahnradstrecke (Reise, Berge-Karte): viele kurze
+  // Klicks, wie Zähne, die in die Zahnstange greifen.
+  function playRattle(seconds = 3) {
+    const ctx = ensureAudio();
+    if (!ctx) return;
+    const now = ctx.currentTime + 0.02;
+    let at = 0;
+    let i = 0;
+    while (at < seconds && i < 80) {
+      hiss(now + at, 0.05, 0.03, i % 2 ? 260 : 190, 2.4);
+      at += 0.11 + (i % 3) * 0.01;
+      i += 1;
+    }
+  }
+
   // Tüüt tüüt: kurz, dann lang – das Signal vor dem Losfahren.
   function playHorn(options = {}) {
     const { chuffs = 0, volume = 0.05 } = options;
@@ -872,8 +887,8 @@
     audioEnabled, setAudioEnabled, updateAudioToggle,
     // Lok-Pfeife
     WHISTLE_NAMES, playWhistle,
-    // Dampfhorn und Auspuffschläge
-    playHorn, chuff,
+    // Dampfhorn, Auspuffschläge und das Rattern der Zahnradstrecke
+    playHorn, chuff, playRattle,
     // Menü-Musik
     startMusic, stopMusic, musicPlaying,
     // Ausrichtung

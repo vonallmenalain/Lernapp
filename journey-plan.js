@@ -1,12 +1,18 @@
 /*
  * journey-plan.js – Der Fahrplan der Reise.
  *
- * Sechs Karten, zehn Stationen je Karte, sechzig Stationen. Jede Station ist
- * ein Spiel mit genau einem Auftrag: ein bestimmtes Level, eine Kartenzahl
- * oder eine Runde mit Zielpunktzahl. Welche Station welches Spiel ist, steht
- * hier fest und ist für alle Kinder gleich – so lässt es sich prüfen
- * (scripts/validate-reise.mjs), und in der Gruppe heisst "Station 23" für
- * alle dasselbe.
+ * Reise 1: sechs Karten, zehn Stationen je Karte, sechzig Stationen. Jede
+ * Station ist ein Spiel mit genau einem Auftrag: ein bestimmtes Level, eine
+ * Kartenzahl oder eine Runde mit Zielpunktzahl. Welche Station welches Spiel
+ * ist, steht hier fest und ist für alle Kinder gleich – so lässt es sich
+ * prüfen (scripts/validate-reise.mjs), und in der Gruppe heisst "Station 23"
+ * für alle dasselbe. Reise 2 hängt hinten dran: eine Weltraum-Karte mit
+ * eigenem Fahrplan, dann die Savanne und die bekannten Karten noch einmal,
+ * mit denselben Stationen und schwereren Aufträgen (Stationen 61–130).
+ *
+ * Dazu die Regeln, die nicht zeichnen: der Fahrgast je Karte, die
+ * Streckenbesonderheit, die Schiebelok nach fünf Fehlversuchen und das
+ * Reisetempo, das der Admin je Konto auf "langsam" stellen kann.
  *
  * Die Datei rechnet und speichert, zeichnet aber nichts: die Karte baut
  * train-journey.js, das Startbild verdrahtet train-home.js, und die Spiele
@@ -85,8 +91,16 @@
 
   // Rucksack packen und Wo hält der Zug? haben vier Stufen zur Wahl. Auf der
   // Reise wählt die Karte: die ersten beiden Karten die leichteste, danach
-  // Stufe um Stufe hinauf.
+  // Stufe um Stufe hinauf; Reise 2 fährt die oberste.
   const STUFE_BY_TIER = [0, 0, 1, 1, 2, 3];
+  const STUFE_MAX = 3;
+  // Wie viele Level die Level-Spiele haben (das Prüfskript zählt in den
+  // Spieldateien nach), welche Kartenzahlen Memory kennt und wie viele Level
+  // je Welt die Katalog-Spiele haben: zehn, der Raumdetektiv eins.
+  const LEVEL_MAX = { trackRouter: 10, gridlock: 12, craneStack: 10, tiersprung: 10 };
+  const MEMORY_SIZES = [8, 12, 16, 20, 24];
+  const CATALOG_PER_WORLD = { spatialPuzzle: 1 };
+  const WORLD_ORDER = ["easy", "medium", "hard", "extreme"];
 
   // ---------------------------------------------------------------------------
   // Die sechs Karten
@@ -102,9 +116,15 @@
   //
   // alt: das Ausweichgleis je Bereich – ein zweites Spiel mit etwas leichterem
   // Auftrag, das sich nach zwei Fehlversuchen an einer Station öffnet.
-  const MAPS = [
+  //
+  // passenger: das Tier, das an Station 1 auf dem Bahnsteig wartet, mitfährt
+  // und am Ziel aussteigt (ein Kopf aus train-art.js, DRIVERS). Auf zwei
+  // Karten ist es zugleich die Belohnung: Eichhörnchen und Steinbock dürfen
+  // danach die Lok fahren.
+  // feature: die Streckenbesonderheit, die train-journey.js zeichnet.
+  const FIRST_LAP = [
     {
-      id: "wiese", nr: 1, name: "Wiese", scene: "wiese", factor: 0.35, landmark: "windmill",
+      id: "wiese", nr: 1, lap: 1, name: "Wiese", scene: "wiese", factor: 0.35, landmark: "windmill", passenger: "rabbit", feature: "cows",
       reward: { id: "flag-rainbow", label: "Wimpel Regenbogen", part: "flag" },
       stations: [
         { area: "gedaechtnis", game: "missingItem" },
@@ -127,7 +147,7 @@
       },
     },
     {
-      id: "wald", nr: 2, name: "Wald", scene: "wald", factor: 0.45, landmark: "treehouse",
+      id: "wald", nr: 2, lap: 1, name: "Wald", scene: "wald", factor: 0.45, landmark: "treehouse", passenger: "squirrel", feature: "brook",
       reward: { id: "driver-squirrel", label: "Chauffeur Eichhörnchen", part: "driver" },
       stations: [
         { area: "konzentration", game: "flanker" },
@@ -150,7 +170,7 @@
       },
     },
     {
-      id: "see", nr: 3, name: "See", scene: "see", factor: 0.55, landmark: "lighthouse",
+      id: "see", nr: 3, lap: 1, name: "See", scene: "see", factor: 0.55, landmark: "lighthouse", passenger: "penguin", feature: "ferry",
       reward: { id: "whistle-schiffshorn", label: "Pfeife Schiffshorn", part: "whistle" },
       stations: [
         { area: "geschwindigkeit", game: "twinSpot" },
@@ -173,7 +193,7 @@
       },
     },
     {
-      id: "dschungel", nr: 4, name: "Dschungel", scene: "dschungel", factor: 0.65, landmark: "temple",
+      id: "dschungel", nr: 4, lap: 1, name: "Dschungel", scene: "dschungel", factor: 0.65, landmark: "temple", passenger: "panda", feature: "liana",
       reward: { id: "scene-savanne", label: "Landschaft Savanne", part: "scene" },
       stations: [
         { area: "zahlbuchstabe", game: "numberLine" },
@@ -196,7 +216,7 @@
       },
     },
     {
-      id: "berge", nr: 5, name: "Berge", scene: "berge", factor: 0.8, landmark: "hut",
+      id: "berge", nr: 5, lap: 1, name: "Berge", scene: "berge", factor: 0.8, landmark: "hut", passenger: "ibex", feature: "rack",
       reward: { id: "driver-ibex", label: "Chauffeur Steinbock", part: "driver" },
       stations: [
         { area: "problemloesen", game: "craneStack", level: 7 },
@@ -219,7 +239,7 @@
       },
     },
     {
-      id: "nacht", nr: 6, name: "Nacht", scene: "nacht", factor: 1, landmark: "observatory",
+      id: "nacht", nr: 6, lap: 1, name: "Nacht", scene: "nacht", factor: 1, landmark: "observatory", passenger: "owl", feature: "night",
       reward: { id: "starloco", label: "Sternenlok", part: "loco" },
       stations: [
         { area: "gedaechtnis", game: "missingItem" },
@@ -243,7 +263,76 @@
     },
   ];
 
+  // ---------------------------------------------------------------------------
+  // Reise 2
+  // ---------------------------------------------------------------------------
+  // Nach der Sternwarte geht es weiter: zuerst im Weltraum, mit einem eigenen
+  // Fahrplan aus Weltall-Leveln und den obersten Leveln, dann durch die
+  // Savanne und noch einmal durch die bekannten Landschaften. Diese sechs
+  // Karten fahren dieselben Stationen wie in Reise 1, nur schwerer (boost,
+  // siehe shiftSpec): Weltall-Level, drei Level höher, grössere Memorys, die
+  // ganze Drei-Sterne-Schwelle und die oberste Stufe. Belohnung je Karte: ein
+  // goldener Stern auf dem Reise-Schild der Lok – und im Fahrplan der goldene
+  // Rahmen. Die Weltraum-Karte selbst gibt die Landschaft Weltraum.
+  const WELTRAUM = {
+    id: "weltraum", nr: 7, lap: 2, name: "Weltraum", scene: "weltraum", factor: 1, landmark: "rocket", passenger: "mouse", feature: "moon",
+    reward: { id: "scene-weltraum", label: "Landschaft Weltraum", part: "scene" },
+    stations: [
+      { area: "gedaechtnis", game: "memory", size: 24 },
+      { area: "geschwindigkeit", game: "tiersprung", level: 10 },
+      { area: "konzentration", game: "trackRouter", level: 10 },
+      { area: "zahlbuchstabe", choice: [{ game: "numberLine" }, { game: "letterPuzzle", world: "extreme", pos: 2 }] },
+      { area: "problemloesen", game: "bimaru", world: "extreme", pos: 3 },
+      { area: "gedaechtnis", game: "tileMemory" },
+      { area: "konzentration", game: "gridlock", level: 12 },
+      { area: "problemloesen", choice: [{ game: "shikaku", world: "extreme", pos: 4 }, { game: "craneStack", level: 10 }] },
+      { area: "geschwindigkeit", game: "cardMatch" },
+      { area: "zahlbuchstabe", game: "hidoku", world: "extreme", pos: 5, goal: true },
+    ],
+    alt: {
+      gedaechtnis: { game: "backpack" },
+      konzentration: { game: "fishPond" },
+      geschwindigkeit: { game: "twinSpot" },
+      problemloesen: { game: "arukone", world: "extreme", pos: 2 },
+      zahlbuchstabe: { game: "kakuro", world: "extreme", pos: 1 },
+    },
+  };
+  // Die Savanne fährt die Stationen der Wiese – mit Baobab, Löwe und
+  // Elefanten –, die übrigen fünf ihre eigenen von damals.
+  const SECOND_LAP_SCENES = [
+    { id: "savanne", name: "Savanne", scene: "savanne", landmark: "baobab", passenger: "lion", feature: "elephants", from: "wiese" },
+    { id: "wald-2", name: "Wald", scene: "wald", from: "wald" },
+    { id: "see-2", name: "See", scene: "see", from: "see" },
+    { id: "dschungel-2", name: "Dschungel", scene: "dschungel", from: "dschungel" },
+    { id: "berge-2", name: "Berge", scene: "berge", from: "berge" },
+    { id: "nacht-2", name: "Nacht", scene: "nacht", from: "nacht" },
+  ];
+  const SECOND_LAP = SECOND_LAP_SCENES.map((entry, k) => {
+    const source = FIRST_LAP.find((map) => map.id === entry.from);
+    return {
+      id: entry.id, nr: FIRST_LAP.length + 2 + k, lap: 2, name: entry.name, scene: entry.scene, factor: 1,
+      landmark: entry.landmark || source.landmark, passenger: entry.passenger || source.passenger, feature: entry.feature || source.feature,
+      reward: { id: `gold-star-${k + 1}`, label: "Goldener Stern", part: "plate", star: k + 1 },
+      stations: source.stations, alt: source.alt, boost: true, from: source.id,
+    };
+  });
+  const MAPS = [...FIRST_LAP, WELTRAUM, ...SECOND_LAP];
+
   const STATION_COUNT = MAPS.length * STATIONS_PER_MAP;
+
+  // Die beiden Reisen: wo sie anfangen und aufhören.
+  const LAPS = [
+    { nr: 1, name: "Reise 1", maps: FIRST_LAP.length },
+    { nr: 2, name: "Reise 2", maps: 1 + SECOND_LAP.length },
+  ];
+  LAPS.reduce((offset, lap) => {
+    lap.firstMap = offset;
+    lap.first = offset * STATIONS_PER_MAP + 1;
+    lap.total = lap.maps * STATIONS_PER_MAP;
+    lap.last = lap.first + lap.total - 1;
+    return offset + lap.maps;
+  }, 0);
+  function lapOf(nr) { return LAPS.find((lap) => nr >= lap.first && nr <= lap.last) || LAPS[LAPS.length - 1]; }
 
   // Was die Reise freischaltet, und wo es in der Werkstatt hängt. Gesperrt
   // ist eine Variante, bis die Karte mit ihrer Belohnung fertig ist.
@@ -253,7 +342,7 @@
     whistle: { schiffshorn: "whistle-schiffshorn" },
     lamp: { star: "starloco" },
     wheels: { sun: "gold-1" },
-    scene: { savanne: "scene-savanne" },
+    scene: { savanne: "scene-savanne", weltraum: "scene-weltraum" },
   };
 
   // Der Bonus für zehn goldene Stempel auf einer Karte. Er steht in keinem
@@ -268,10 +357,13 @@
   // ---------------------------------------------------------------------------
   // Der Kasten
   // ---------------------------------------------------------------------------
-  // done:   je gestempelter Station das beste Ergebnis
-  // tries:  Fehlversuche an einer offenen Station (für das Ausweichgleis)
+  // done:   je gestempelter Station das beste Ergebnis; pushed: true heisst,
+  //         die Schiebelok hat den Zug hier weitergeschoben (kein Stempel)
+  // tries:  Fehlversuche an einer offenen Station (Ausweichgleis, Schiebelok)
   // choice: was an einer Wahlstation gewählt wurde
   // alt:    an welchen Stationen das Ausweichgleis genommen wurde
+  // tempo:  das Reisetempo ("normal" oder "langsam"), vom Admin gesetzt, mit
+  //         tempoAt als Zeitmarke – beim Zusammenführen gewinnt das neuere
   const EMPTY = { done: {}, tries: {}, choice: {}, alt: {} };
 
   function clone(value) { try { return JSON.parse(JSON.stringify(value)); } catch { return value; } }
@@ -295,7 +387,15 @@
     [obj(a.tries), obj(b.tries)].forEach((source) => {
       Object.keys(source).forEach((nr) => { tries[nr] = Math.max(Number(tries[nr]) || 0, Number(source[nr]) || 0); });
     });
-    return { done, tries, choice: { ...obj(b.choice), ...obj(a.choice) }, alt: { ...obj(b.alt), ...obj(a.alt) } };
+    const out = { done, tries, choice: { ...obj(b.choice), ...obj(a.choice) }, alt: { ...obj(b.alt), ...obj(a.alt) } };
+    const atA = Number(a.tempoAt) || 0;
+    const atB = Number(b.tempoAt) || 0;
+    const source = atB > atA ? b : a;
+    if (source.tempo !== undefined && source.tempo !== null) {
+      out.tempo = source.tempo === "langsam" ? "langsam" : "normal";
+      out.tempoAt = Math.max(atA, atB);
+    }
+    return out;
   }
 
   function readLocal() {
@@ -337,38 +437,96 @@
     return { nr, mapIndex, map, index, area: spec.area, spec, goal: Boolean(spec.goal), choice: spec.choice || null, alt: map.alt[spec.area] || null };
   }
 
+  // Memory kennt nur fünf Kartenzahlen: die nächstkleinere, die es gibt.
+  function memorySize(size) {
+    let best = MEMORY_SIZES[0];
+    MEMORY_SIZES.forEach((entry) => { if (entry <= size) best = entry; });
+    return best;
+  }
+  // Ein Katalog-Level als eine Zahl über alle Welten: Wiese 1 … Weltall 10.
+  // So lässt sich "drei Level leichter" auch über eine Weltgrenze rechnen.
+  function catalogIndex(gameId, world, pos) {
+    const per = CATALOG_PER_WORLD[gameId] || 10;
+    return Math.max(0, WORLD_ORDER.indexOf(world)) * per + Math.max(1, Math.min(per, Number(pos) || 1));
+  }
+  function catalogAt(gameId, index) {
+    const per = CATALOG_PER_WORLD[gameId] || 10;
+    const i = Math.max(1, Math.min(per * WORLD_ORDER.length, index));
+    return { world: WORLD_ORDER[Math.floor((i - 1) / per)], pos: ((i - 1) % per) + 1 };
+  }
+
+  // Reise 2 fährt die Stationen von Reise 1 schwerer (boost): drei Level
+  // höher, das Memory um acht Karten grösser, Katalog-Level aus dem Weltall.
+  // Das Reisetempo "langsam" (slow) nimmt von jeder Karte wieder etwas weg:
+  // zwei Level, vier Karten, drei Katalog-Level – für Vier- bis Fünfjährige,
+  // ohne dass ein Kind je "leicht" wählen muss.
+  function shiftSpec(game, spec, { boost = false, slow = false } = {}) {
+    if (!boost && !slow) return spec;
+    const out = { ...spec };
+    if (game.kind === "level") {
+      const max = LEVEL_MAX[spec.game] || 10;
+      let level = Number(spec.level) || 1;
+      if (boost) level = Math.min(max, level + 3);
+      if (slow) level = Math.max(1, level - 2);
+      out.level = level;
+    } else if (game.kind === "size") {
+      let size = Number(spec.size) || 8;
+      if (boost) size = Math.min(MEMORY_SIZES[MEMORY_SIZES.length - 1], size + 8);
+      if (slow) size = Math.max(MEMORY_SIZES[0], size - 4);
+      out.size = memorySize(size);
+    } else if (game.kind === "catalog") {
+      let at = { world: spec.world || "easy", pos: Number(spec.pos) || 1 };
+      if (boost) at = { world: "extreme", pos: at.pos };
+      if (slow) at = catalogAt(spec.game, catalogIndex(spec.game, at.world, at.pos) - 3);
+      out.world = at.world;
+      out.pos = at.pos;
+    }
+    return out;
+  }
+
+  // Der Faktor der Karte davor – für das Reisetempo "langsam": Karte 2
+  // verlangt dann die Zielpunktzahlen von Karte 1, Karte 1 noch weniger.
+  function previousFactor(mapIndex) {
+    return mapIndex > 0 ? MAPS[mapIndex - 1].factor : 0.25;
+  }
+
   // Aus einer Spielangabe wird der Auftrag: welches Level, welche Kartenzahl,
   // wie viele Punkte. Zielpunktzahlen sind keine Handarbeit, sondern
   // gut × Faktor, aufgerundet, mindestens 3. Das Ausweichgleis rechnet mit
-  // einem Zehntel weniger.
+  // einem Zehntel weniger. Reise 2 und das Reisetempo verschieben die
+  // Angabe vorher (shiftSpec).
   function buildTask(station, spec, { easier = false } = {}) {
     const game = GAMES[spec.game];
     if (!game) return null;
     const map = station.map;
     const tier = station.mapIndex;
+    const slow = tempoIn(read()) === "langsam";
+    const shifted = shiftSpec(game, spec, { boost: Boolean(map.boost), slow });
     const task = {
-      nr: station.nr, mapIndex: station.mapIndex, index: station.index, mapNr: map.nr, mapName: map.name,
+      nr: station.nr, mapIndex: station.mapIndex, index: station.index, mapNr: map.nr, mapName: map.name, lap: map.lap || 1,
       area: game.area, areaLabel: AREAS[game.area].label, color: AREAS[game.area].color,
       game: spec.game, title: game.title, page: game.page, kind: game.kind, goal: station.goal,
     };
     if (game.kind === "score") {
-      const factor = Math.max(0.2, map.factor - (easier ? 0.1 : 0));
+      const base = slow ? previousFactor(station.mapIndex) : map.factor;
+      const factor = Math.max(0.2, base - (easier ? 0.1 : 0));
       task.gut = game.gut;
       task.target = Math.max(3, Math.ceil(game.gut * factor));
-      task.stufe = STUFE_BY_TIER[tier] || 0;
+      const stufe = map.lap === 2 ? STUFE_MAX : (STUFE_BY_TIER[tier] || 0);
+      task.stufe = Math.max(0, stufe - (slow ? 1 : 0));
       task.label = `${task.target} ${game.einheit}`;
       task.speech = game.auftrag(task.target);
     } else if (game.kind === "level") {
-      task.level = Number(spec.level) || 1;
+      task.level = Number(shifted.level) || 1;
       task.label = `Level ${task.level}`;
       task.speech = game.auftrag(task.level);
     } else if (game.kind === "size") {
-      task.size = Number(spec.size) || 8;
+      task.size = Number(shifted.size) || 8;
       task.label = `${task.size} Karten`;
       task.speech = game.auftrag(task.size);
     } else {
-      task.world = spec.world || "easy";
-      task.pos = Number(spec.pos) || 1;
+      task.world = shifted.world || "easy";
+      task.pos = Number(shifted.pos) || 1;
       task.worldLabel = WORLDS[task.world] || task.world;
       task.label = `${task.worldLabel} ${task.pos}`;
       task.speech = game.auftrag(`${task.worldLabel} ${task.pos}`);
@@ -413,6 +571,10 @@
 
   // Nach so vielen Fehlversuchen stellt sich die Weiche zum Ausweichgleis.
   const TRIES_FOR_ALT = 2;
+  // Und nach so vielen (das Ausweichgleis eingerechnet) kommt die Schiebelok
+  // und schiebt den Zug zur nächsten Station – ohne Stempel. Niemand bleibt
+  // für immer vor Kakuro stehen.
+  const TRIES_FOR_PUSH = 5;
 
   // ---------------------------------------------------------------------------
   // Der Stand
@@ -454,6 +616,21 @@
     return count;
   }
 
+  // Das Reise-Schild an der Lok: ein Stern je fertiger Karte der ersten
+  // Reise, und je fertiger Karte der zweiten wird einer davon zum Goldstern.
+  function plateStarsIn(state) {
+    let stars = 0;
+    let gold = 0;
+    MAPS.forEach((map, index) => {
+      if (!mapFinishedIn(state, index)) return;
+      if (map.lap === 1) stars += 1;
+      else if (map.reward?.part === "plate") gold += 1;
+    });
+    return { stars, gold };
+  }
+
+  function tempoIn(state) { return state?.tempo === "langsam" ? "langsam" : "normal"; }
+
   function rewardsIn(state) {
     const list = MAPS.filter((_, index) => mapFinishedIn(state, index)).map((map) => map.reward.id);
     const golden = goldenMapsIn(state);
@@ -465,17 +642,41 @@
   function progressFor(raw) {
     const state = merge(obj(raw), EMPTY);
     const current = currentIn(state);
+    const lap = lapOf(Math.min(current, STATION_COUNT));
+    const entries = Object.values(state.done);
+    const plate = plateStarsIn(state);
     return {
       station: current,
-      done: Object.keys(state.done).length,
+      lap: lap.nr,
+      lapFirst: lap.first,
+      lapTotal: lap.total,
+      lapStation: Math.min(lap.total + 1, current - lap.first + 1),
+      done: entries.length,
       finishedMaps: finishedMapsIn(state),
       goldenMaps: goldenMapsIn(state),
-      golden: Object.values(state.done).filter((entry) => (Number(entry?.stars) || 0) >= 3).length,
+      golden: entries.filter((entry) => (Number(entry?.stars) || 0) >= 3).length,
+      pushed: entries.filter((entry) => entry?.pushed).length,
+      stars: plate.stars,
+      goldStars: plate.gold,
+      tempo: tempoIn(state),
+      firstLapComplete: current > LAPS[0].last,
       complete: current > STATION_COUNT,
     };
   }
 
   function current() { return currentIn(read()); }
+  function plateStars() { return plateStarsIn(read()); }
+  function tempo() { return tempoIn(read()); }
+  // Das Reisetempo umstellen – auf dem eigenen Gerät; der Admin schreibt es
+  // für ein fremdes Konto direkt in dessen Kasten (firebase.js).
+  function setTempo(value) {
+    store.update((old) => {
+      const state = merge(obj(old), EMPTY);
+      state.tempo = value === "langsam" ? "langsam" : "normal";
+      state.tempoAt = Date.now();
+      return state;
+    });
+  }
   function isDone(nr) { return isDoneIn(read(), nr); }
   function doneInfo(nr) { return obj(read().done)[String(nr)] || null; }
   function triesFor(nr) { return Number(obj(read().tries)[String(nr)]) || 0; }
@@ -524,6 +725,24 @@
     return { first, improved, gold: stars >= 3 };
   }
 
+  // Die Schiebelok: ob sie an dieser Station fällig ist, und der Schub selbst.
+  // Die Station gilt danach als gefahren, nicht als geschafft – kein Gold,
+  // aber die Karte kann fertig werden, und die Station lässt sich später
+  // noch einmal spielen; ein echter Stempel ersetzt den Schub.
+  function needsPush(nr) { return !isDone(nr) && triesFor(nr) >= TRIES_FOR_PUSH; }
+  function pushThrough(nr) {
+    let pushed = false;
+    store.update((old) => {
+      const state = merge(obj(old), EMPTY);
+      if (state.done[String(nr)]) return state;
+      state.done[String(nr)] = { stars: 0, pushed: true, game: "", at: Date.now() };
+      delete state.tries[String(nr)];
+      pushed = true;
+      return state;
+    });
+    return pushed;
+  }
+
   function recordTry(nr) {
     let count = 0;
     store.update((old) => {
@@ -563,13 +782,16 @@
         station: Number(raw.station) || 1,
         gold: Array.isArray(raw.gold) ? raw.gold.map(Number) : [],
         goldenMaps: Number(raw.goldenMaps) || 0,
+        pushed: Array.isArray(raw.pushed) ? raw.pushed.map(Number) : [],
       };
     } catch { return null; }
   }
 
   function writeSeen(seen) {
     try {
-      localStorage.setItem(SEEN_KEY, JSON.stringify({ station: seen.station, gold: seen.gold || [], goldenMaps: Number(seen.goldenMaps) || 0 }));
+      localStorage.setItem(SEEN_KEY, JSON.stringify({
+        station: seen.station, gold: seen.gold || [], goldenMaps: Number(seen.goldenMaps) || 0, pushed: seen.pushed || [],
+      }));
     } catch { /* privater Modus */ }
   }
 
@@ -599,13 +821,15 @@
   // Der Satz für den Lautsprecher, wenn ein Spiel mit Auftrag öffnet.
   function describe(task) {
     if (!task) return "";
-    return `Reise, Station ${task.nr}: ${task.title}. ${task.speech}`;
+    return `Reise${(task.lap || lapOf(task.nr).nr) === 2 ? " 2" : ""}, Station ${task.nr}: ${task.title}. ${task.speech}`;
   }
 
   window.LernappReise = {
-    KEY, SEEN_KEY, MAPS, GAMES, AREAS, WORLDS, LOCKS, BONUSES, STATION_COUNT, STATIONS_PER_MAP, TRIES_FOR_ALT,
-    stationAt, taskFor, altTaskFor, mapIndexOf,
-    read, current, isDone, doneInfo, triesFor, markDone, recordTry, choose, useAlt,
+    KEY, SEEN_KEY, MAPS, LAPS, GAMES, AREAS, WORLDS, LOCKS, BONUSES, STATION_COUNT, STATIONS_PER_MAP,
+    TRIES_FOR_ALT, TRIES_FOR_PUSH, LEVEL_MAX, MEMORY_SIZES, CATALOG_PER_WORLD,
+    stationAt, taskFor, altTaskFor, mapIndexOf, lapOf,
+    read, current, isDone, doneInfo, triesFor, markDone, recordTry, choose, useAlt, needsPush, pushThrough,
+    tempo, setTempo, plateStars,
     hasReward, lockFor, finishedMaps, mapFinished, goldenMaps, mapGolden, goldenStations, progressFor, merge,
     readSeen, writeSeen, urlFor, mapUrl, fromLocation, describe,
     onChange: (fn) => store.onChange(fn),

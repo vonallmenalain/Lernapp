@@ -368,11 +368,18 @@
     // Das Reise-Schild: eine kleine Tafel unter dem Fenster, ein Stern je
     // fertiger Karte der Reise. Sie gehört zum Zug, nicht zur Lok-Einstellung
     // – buildTrain reicht die Zahl durch, gespeichert wird sie nirgends.
+    // Reise 2 macht Stern um Stern zum Goldstern: heller, auf rotem Grund,
+    // mit einem weissen Funken – am selben Schild, für alle zu sehen.
     const journeyStars = Math.max(0, Math.min(6, Math.floor(Number(c.journeyStars) || 0)));
+    const journeyGold = Math.max(0, Math.min(journeyStars, Math.floor(Number(c.journeyGold) || 0)));
     if (journeyStars > 0) {
       cabParts.push(el("rect", { x: 15, y: 124, width: 52, height: 17, rx: 3, fill: "#f8f1dc", stroke: shade(cabColor, -0.3), "stroke-width": 1.5 }));
       for (let i = 0; i < journeyStars; i += 1) {
-        cabParts.push(el("polygon", { points: starPoints(22 + i * 8, 132.5, 3.6, 1.6), fill: "#f0b429", stroke: "#b8860b", "stroke-width": 0.6 }));
+        const gold = i < journeyGold;
+        const cx = 22 + i * 8;
+        if (gold) cabParts.push(el("circle", { cx, cy: 132.5, r: 3.9, fill: "#c9483a" }));
+        cabParts.push(el("polygon", { points: starPoints(cx, 132.5, gold ? 3.7 : 3.6, gold ? 1.7 : 1.6), fill: gold ? "#ffe066" : "#f0b429", stroke: "#b8860b", "stroke-width": 0.6 }));
+        if (gold) cabParts.push(el("circle", { cx, cy: 132.5, r: 1, fill: "#ffffff" }));
       }
     }
     const cab = group({ "data-part": "cab", mask: `url(#${maskId})` }, cabParts);
@@ -1570,7 +1577,9 @@
       svg.append(wagon);
     });
 
-    const loco = buildLoco(options.journeyStars ? { ...config, journeyStars: options.journeyStars } : config);
+    const loco = buildLoco(options.journeyStars || options.journeyGold
+      ? { ...config, journeyStars: options.journeyStars || 0, journeyGold: options.journeyGold || 0 }
+      : config);
     loco.setAttribute("transform", `translate(${pad + areas.length * (WAGON_W + gap)},0)`);
     svg.append(loco);
 
@@ -2721,8 +2730,10 @@
   const PLATE = "#2b5fb3";
 
   function buildJourneySign(options = {}) {
-    const { station = 1, total = 60, sparkle = false, label = "Auf die Reise" } = options;
-    const ratio = Math.max(0, Math.min(1, (station - 1) / Math.max(1, total)));
+    const { station = 1, total = 60, sparkle = false, label = "Auf die Reise", lap = 1, lapFirst = 1, lapTotal = total } = options;
+    // Der Ring zählt die laufende Reise; auf der zweiten ist er golden.
+    const ratio = Math.max(0, Math.min(1, (station - lapFirst) / Math.max(1, lapTotal)));
+    const ringColor = lap === 2 ? GOLD : PLATE;
     const ring = 2 * Math.PI * 13;
     const number = el("text", {
       x: 226, y: 31, "font-family": "Inter, system-ui, sans-serif", "font-size": 15,
@@ -2751,7 +2762,7 @@
       el("circle", { cx: 226, cy: 26, r: 20, fill: "#ffffff", stroke: "#b9c4d0", "stroke-width": 2 }),
       el("circle", { cx: 226, cy: 26, r: 13, fill: "none", stroke: "#d3dbe4", "stroke-width": 5 }),
       el("circle", {
-        cx: 226, cy: 26, r: 13, fill: "none", stroke: PLATE, "stroke-width": 5, "stroke-linecap": "round",
+        cx: 226, cy: 26, r: 13, fill: "none", stroke: ringColor, "stroke-width": 5, "stroke-linecap": "round",
         "stroke-dasharray": `${(ratio * ring).toFixed(2)} ${ring.toFixed(2)}`, transform: "rotate(-90 226 26)",
       }),
       number,
@@ -2767,15 +2778,59 @@
 
   // Der Stempel: rund, in der Bereichsfarbe mit Haken – oder golden mit
   // Stern, wenn die Runde gut war. Um (0,0), leicht schief wie ein echter.
+  // Grau mit Doppelpfeil, wo die Schiebelok den Zug weitergeschoben hat: die
+  // Station ist gefahren, aber nicht geschafft.
   function buildStamp(color, options = {}) {
-    const { gold = false } = options;
+    const { gold = false, pushed = false } = options;
     const parts = [
-      el("circle", { cx: 0, cy: 0, r: 17, fill: gold ? GOLD : color, stroke: "#ffffff", "stroke-width": 3 }),
+      el("circle", { cx: 0, cy: 0, r: 17, fill: pushed ? "#8c93a1" : gold ? GOLD : color, stroke: "#ffffff", "stroke-width": 3 }),
       el("circle", { cx: 0, cy: 0, r: 11.5, fill: "none", stroke: "#ffffff", "stroke-width": 1.6, opacity: "0.75" }),
     ];
-    if (gold) parts.push(el("polygon", { points: starPoints(0, 0.5, 8.5, 3.8), fill: "#ffffff" }));
+    if (pushed) parts.push(el("path", { d: "M-8 -5 l5 5 -5 5 M-1 -5 l5 5 -5 5", fill: "none", stroke: "#ffffff", "stroke-width": 3, "stroke-linecap": "round", "stroke-linejoin": "round" }));
+    else if (gold) parts.push(el("polygon", { points: starPoints(0, 0.5, 8.5, 3.8), fill: "#ffffff" }));
     else parts.push(el("path", { d: "M-7 0 l4.5 4.8 9.5 -9.6", fill: "none", stroke: "#ffffff", "stroke-width": 3.4, "stroke-linecap": "round", "stroke-linejoin": "round" }));
-    return group({ class: `journey-stamp${gold ? " is-gold" : ""}`, transform: "rotate(-14)" }, parts);
+    return group({ class: `journey-stamp${pushed ? " is-pushed" : gold ? " is-gold" : ""}`, transform: "rotate(-14)" }, parts);
+  }
+
+  // Der Fahrgast: ein Tier auf zwei Beinen, der Kopf aus DRIVERS, ein Arm zum
+  // Winken (Klasse journey-passenger-arm, styles.css). Der Boden bei (0,0).
+  function buildPassenger(driverId, options = {}) {
+    const { waving = false } = options;
+    const driver = DRIVER_BY_ID[driverId] || DRIVERS[0];
+    const body = shade(driver.coat, -0.18);
+    return group({ class: `journey-passenger${waving ? " is-waving" : ""}`, "data-passenger": driver.id, "aria-hidden": "true" }, [
+      el("ellipse", { cx: 0, cy: 1, rx: 12, ry: 3, fill: "#000000", opacity: "0.12" }),
+      el("rect", { x: -6.5, y: -9, width: 5, height: 9.5, rx: 2, fill: shade(driver.coat, -0.4) }),
+      el("rect", { x: 1.5, y: -9, width: 5, height: 9.5, rx: 2, fill: shade(driver.coat, -0.4) }),
+      el("rect", { x: -8, y: -27, width: 16, height: 20, rx: 6, fill: body }),
+      el("rect", { x: -4, y: -23, width: 8, height: 12, rx: 3, fill: driver.inner, opacity: "0.85" }),
+      el("path", { d: "M-8 -22 q-6 3 -7 9", fill: "none", stroke: body, "stroke-width": 4, "stroke-linecap": "round" }),
+      group({ class: "journey-passenger-arm", transform: "translate(8,-22)" }, [
+        el("path", { d: "M0 0 q6 -4 8 -11", fill: "none", stroke: body, "stroke-width": 4, "stroke-linecap": "round" }),
+        el("circle", { cx: 8.5, cy: -11.5, r: 2.6, fill: driver.inner }),
+      ]),
+      group({ transform: "translate(0,-35)" }, [driverHead(driver.id, 10)]),
+    ]);
+  }
+
+  // Die Fähre über die Bucht der See-Karte: ein Schiff mit Dach über dem
+  // Deck – darunter fährt der Zug mit –, Brücke, Kamin und Wimpel. Die
+  // Wasserlinie liegt bei y = 0, das Schiff steht um x = 0.
+  function buildFerry() {
+    return group({ class: "journey-ferry", "aria-hidden": "true" }, [
+      el("path", { d: "M-70 -2 L-56 18 L56 18 L72 -2 Z", fill: "#2f4f7f" }),
+      el("rect", { x: -62, y: -7, width: 126, height: 6, rx: 2, fill: "#c9483a" }),
+      el("rect", { x: -48, y: -38, width: 96, height: 32, rx: 4, fill: "#f4f1ea" }),
+      el("rect", { x: -52, y: -42, width: 104, height: 6, rx: 3, fill: "#4a5568" }),
+      ...[-36, -14, 8, 30].map((x) => el("rect", { x, y: -32, width: 12, height: 10, rx: 2, fill: "#a8ddf0" })),
+      el("rect", { x: 20, y: -58, width: 24, height: 16, rx: 3, fill: "#f4f1ea" }),
+      el("rect", { x: 22, y: -55, width: 20, height: 7, rx: 2, fill: "#a8ddf0" }),
+      el("rect", { x: -20, y: -60, width: 8, height: 18, fill: "#c9483a" }),
+      el("circle", { cx: -16, cy: -66, r: 5, fill: "#dfe6ee", class: "journey-smoke" }),
+      el("rect", { x: 50, y: -70, width: 2, height: 28, fill: "#4a5568" }),
+      el("polygon", { points: "52,-70 66,-65 52,-60", fill: GOLD }),
+      el("path", { d: "M-80 8 q6 -5 12 0 t12 0 M58 10 q6 -5 12 0 t12 0", fill: "none", stroke: "#ffffff", "stroke-width": 2.5, "stroke-linecap": "round", opacity: "0.8" }),
+    ]);
   }
 
   // Der Nebel über einer Station, die noch nicht dran ist. Um (0,0), rund
@@ -2826,7 +2881,7 @@
         el("polygon", { points: "-24,0 24,0 15,-80 -15,-80", fill: "#e8d9a8" }),
         el("polygon", { points: "-19,-78 19,-78 0,-98", fill: "#c9483a" }),
         el("rect", { x: -7, y: -24, width: 14, height: 24, rx: 6, fill: WOOD.base }),
-        el("rect", { x: -6, y: -58, width: 12, height: 12, rx: 3, fill: "#a8ddf0" }),
+        el("rect", { x: -6, y: -58, width: 12, height: 12, rx: 3, fill: "#a8ddf0", class: "journey-home-light" }),
         group({ transform: "translate(0,-86)" }, [blades, el("circle", { cx: 0, cy: 0, r: 5, fill: WOOD.base })]),
       ];
     },
@@ -2838,7 +2893,7 @@
         el("circle", { cx: 30, cy: -62, r: 26, fill: "#2a6236" }),
         el("rect", { x: -22, y: -94, width: 44, height: 30, rx: 4, fill: "#e8d9a8" }),
         el("polygon", { points: "-27,-93 0,-114 27,-93", fill: "#c9483a" }),
-        el("rect", { x: -7, y: -84, width: 14, height: 13, rx: 2, fill: "#a8ddf0", class: "journey-window" }),
+        el("rect", { x: -7, y: -84, width: 14, height: 13, rx: 2, fill: "#a8ddf0", class: "journey-window journey-home-light" }),
         el("path", { d: "M12 -62 V-4 M20 -62 V-4 M12 -50 H20 M12 -38 H20 M12 -26 H20 M12 -14 H20", fill: "none", stroke: WOOD.base, "stroke-width": 2.5, "stroke-linecap": "round" }),
       ];
     },
@@ -2851,6 +2906,7 @@
         el("rect", { x: -10, y: -114, width: 20, height: 18, rx: 2, fill: "#ffe066", class: "journey-lantern" }),
         el("polygon", { points: "-13,-114 13,-114 0,-126", fill: "#c9483a" }),
         el("polygon", { points: "8,-112 70,-124 70,-96", fill: "#ffe066", opacity: "0.35", class: "journey-beam" }),
+        el("rect", { x: -5, y: -32, width: 10, height: 8, rx: 2, fill: "#a8ddf0", class: "journey-home-light" }),
         el("rect", { x: -6, y: -20, width: 12, height: 20, rx: 5, fill: "#4a5568" }),
       ];
     },
@@ -2860,7 +2916,7 @@
         el("rect", { x: -42, y: -20, width: 84, height: 10, rx: 2, fill: "#c9bb9c" }),
         el("rect", { x: -36, y: -78, width: 72, height: 58, fill: "#d9cfb1" }),
         ...[-26, -9, 9, 26].map((x) => el("rect", { x: x - 4, y: -76, width: 8, height: 56, rx: 2, fill: "#eee6cf" })),
-        el("rect", { x: -9, y: -48, width: 18, height: 28, rx: 3, fill: "#5a4a2e" }),
+        el("rect", { x: -9, y: -48, width: 18, height: 28, rx: 3, fill: "#5a4a2e", class: "journey-home-light" }),
         el("polygon", { points: "-44,-78 44,-78 0,-108", fill: "#8a5f1c" }),
         el("polygon", { points: "-34,-80 34,-80 0,-102", fill: "#a8743a" }),
         el("path", { d: "M-40 -60 q-8 20 2 40 M40 -66 q10 18 0 38", fill: "none", stroke: "#3f8f57", "stroke-width": 4, "stroke-linecap": "round" }),
@@ -2873,7 +2929,7 @@
         el("path", { d: "M-32 -50 H32 M-32 -40 H32 M-32 -30 H32", stroke: WOOD.dark, "stroke-width": 1.5, opacity: "0.6" }),
         el("polygon", { points: "-44,-58 44,-58 0,-96", fill: "#5a3b10" }),
         el("polygon", { points: "-36,-60 36,-60 0,-90", fill: WOOD.dark }),
-        el("rect", { x: -8, y: -50, width: 16, height: 14, rx: 2, fill: "#ffe066", class: "journey-window" }),
+        el("rect", { x: -8, y: -50, width: 16, height: 14, rx: 2, fill: "#a8ddf0", class: "journey-window journey-home-light" }),
         el("rect", { x: 14, y: -84, width: 10, height: 22, fill: "#6f7b89" }),
         el("circle", { cx: 19, cy: -92, r: 6, fill: "#dfe6ee", class: "journey-smoke" }),
         el("rect", { x: -30, y: -112, width: 3, height: 54, fill: "#4a5568" }),
@@ -2885,7 +2941,7 @@
         el("rect", { x: -30, y: -60, width: 60, height: 60, fill: "#e8ecf2" }),
         el("rect", { x: -34, y: -64, width: 68, height: 8, rx: 3, fill: "#b9c4d0" }),
         el("path", { d: "M-30 -62 A30 30 0 0 1 30 -62 Z", fill: "#7d95ad" }),
-        el("path", { d: "M-6 -62 L-2 -90 L6 -90 L10 -62 Z", fill: "#31456a" }),
+        el("path", { d: "M-6 -62 L-2 -90 L6 -90 L10 -62 Z", fill: "#31456a", class: "journey-home-light" }),
         el("line", { x1: 0, y1: -78, x2: 26, y2: -104, stroke: "#4a5568", "stroke-width": 6, "stroke-linecap": "round" }),
         el("rect", { x: -7, y: -22, width: 14, height: 22, rx: 5, fill: "#4a5568" }),
         ...[[-42, -96], [40, -82], [-20, -118], [24, -124]].map(([x, y], i) => el("polygon", {
@@ -2894,6 +2950,37 @@
       ];
     },
   };
+
+  // Reise 2: die Rakete auf der Startrampe (sie hebt bei der Ankunft ab) und
+  // der Baobab der Savanne, ein Baum mit Tür und Fenster.
+  LANDMARKS.rocket = () => {
+    const ship = group({ class: "journey-rocket" }, [
+      el("polygon", { points: "-14,-26 -24,-4 -14,-4", fill: "#c9483a" }),
+      el("polygon", { points: "14,-26 24,-4 14,-4", fill: "#c9483a" }),
+      el("rect", { x: -14, y: -84, width: 28, height: 80, rx: 12, fill: "#f4f1ea" }),
+      el("path", { d: "M-14 -76 Q0 -114 14 -76 Z", fill: "#c9483a" }),
+      el("circle", { cx: 0, cy: -58, r: 8, fill: "#a8ddf0", stroke: "#4a5568", "stroke-width": 3, class: "journey-home-light" }),
+      el("rect", { x: -14, y: -30, width: 28, height: 6, fill: "#c9483a" }),
+      el("polygon", { points: "-9,-4 9,-4 0,18", fill: "#ffb020", class: "journey-flame" }),
+      el("polygon", { points: "-5,-4 5,-4 0,9", fill: "#ffe066", class: "journey-flame" }),
+    ]);
+    return [
+      el("rect", { x: -48, y: -8, width: 96, height: 8, rx: 2, fill: "#6a7188" }),
+      el("rect", { x: 30, y: -100, width: 8, height: 92, fill: "#8c93a1" }),
+      el("path", { d: "M30 -90 H20 M30 -70 H20 M30 -50 H20 M30 -30 H20", stroke: "#8c93a1", "stroke-width": 4, "stroke-linecap": "round" }),
+      el("circle", { cx: 34, cy: -104, r: 4, fill: "#c9483a", class: "journey-lantern" }),
+      group({ transform: "translate(-6,-8)" }, [ship]),
+    ];
+  };
+  LANDMARKS.baobab = () => [
+    el("path", { d: "M-22 0 L-18 -60 Q-20 -80 -8 -84 L8 -84 Q20 -80 18 -60 L22 0 Z", fill: WOOD.dark }),
+    el("path", { d: "M-10 -84 q-30 -14 -40 -34 M-4 -86 q-6 -30 -22 -44 M4 -86 q4 -32 18 -46 M10 -84 q28 -14 40 -32", fill: "none", stroke: WOOD.dark, "stroke-width": 6, "stroke-linecap": "round" }),
+    ...[[-46, -118], [-24, -128], [4, -134], [26, -130], [48, -116], [0, -110]].map(([x, y], i) => el("ellipse", { cx: x, cy: y, rx: 20, ry: 11, fill: i % 2 ? "#4f8a3c" : "#5a9646" })),
+    el("rect", { x: -7, y: -30, width: 14, height: 30, rx: 6, fill: "#5a3b10" }),
+    el("rect", { x: -19, y: -54, width: 10, height: 10, rx: 2, fill: "#a8ddf0", class: "journey-home-light" }),
+    el("rect", { x: 26, y: -22, width: 3, height: 22, fill: "#4a5568" }),
+    el("rect", { x: 22, y: -30, width: 11, height: 9, rx: 2, fill: "#ffe066", class: "journey-lantern" }),
+  ];
 
   function buildLandmark(id) {
     const draw = LANDMARKS[id] || LANDMARKS.windmill;
@@ -2933,6 +3020,6 @@
     locoConfig,
     // Die Reise
     routeGlyph, buildJourneySign, buildStamp, buildFog, buildJourneySignal, buildSwitchMark,
-    buildLandmark, buildShowcase, LANDMARKS, SIGN_W, SIGN_H, GOLD, PLATE,
+    buildLandmark, buildShowcase, buildPassenger, buildFerry, LANDMARKS, SIGN_W, SIGN_H, GOLD, PLATE,
   };
 })();

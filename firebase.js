@@ -123,6 +123,10 @@
     adminGroupBusyId: null,
     adminGroupErrorId: null,
     adminGroupError: "",
+    // Das Reisetempo eines Kontos wird gerade umgestellt.
+    adminTempoBusyId: null,
+    adminTempoErrorId: null,
+    adminTempoError: "",
     progressResetAtMs: 0,
     // Das Wagen-Set aus der Cloud, und der Stand der Umstellung im Adminbereich.
     wagonSet: null,
@@ -1921,6 +1925,7 @@
 
     bindAdminResetButtons(root);
     bindAdminGroupCard(root);
+    bindAdminTempoCard(root);
   }
 
   function renderAdminGuests(root, { loadingGuestId = null } = {}) {
@@ -2159,6 +2164,7 @@
       </div>
       ${renderAdminTrainDetail({ ...userData, levelDocs: progressDocs })}
       ${isGuest ? "" : renderAdminGroupBlock(detail.id, userData)}
+      ${isGuest ? "" : renderAdminTempoBlock(detail.id, userData)}
       ${isGuest ? "" : renderAdminResetBlock(detail.id, adminDisplayName(userData))}
       ${renderAdminTopLevels(summary)}
       ${renderAdminGameFilters(progressDocs, sessions, selectedGame)}
@@ -2200,9 +2206,9 @@
     const fahrt = reise ? reise.progressFor(readGameState(entity.gameState)[reise.KEY]?.data) : null;
     const reiseZeile = fahrt
       ? `<p class="admin-train-reise">${fahrt.complete
-        ? `Reise: alle ${reise.STATION_COUNT} Stationen geschafft`
-        : `Reise: Station ${fahrt.station} von ${reise.STATION_COUNT}, Karte ${reise.mapIndexOf(fahrt.station) + 1} (${reise.MAPS[reise.mapIndexOf(fahrt.station)]?.name || ""})`}
-        · ${fahrt.finishedMaps} von ${reise.MAPS.length} Karten fertig · ${fahrt.golden} goldene Stempel</p>`
+        ? `Reise: beide Reisen geschafft, alle ${reise.STATION_COUNT} Stationen`
+        : `Reise ${fahrt.lap}: Station ${fahrt.lapStation} von ${fahrt.lapTotal} (Nr. ${fahrt.station}), Karte ${reise.mapIndexOf(fahrt.station) + 1} (${reise.MAPS[reise.mapIndexOf(fahrt.station)]?.name || ""})`}
+        · ${fahrt.finishedMaps} von ${reise.MAPS.length} Karten fertig · ${fahrt.golden} goldene Stempel${fahrt.pushed ? ` · ${fahrt.pushed}× von der Schiebelok geschoben` : ""} · Reisetempo ${fahrt.tempo}</p>`
       : "";
     return `
       <section class="admin-train-detail">
@@ -2461,6 +2467,76 @@
     // ebenso: beides neu laden statt an zwei Stellen nachbessern.
     state.adminUsers = [];
     state.adminUsersLoaded = false;
+    state.adminDetails.delete(userId);
+    await hydrateAdminSection();
+  }
+
+  // --- Das Reisetempo ----------------------------------------------------------
+  // "langsam" nimmt jeder Karte der Reise ein Stück Schwierigkeit
+  // (journey-plan.js, shiftSpec). Die Einstellung liegt im Kasten der Reise
+  // (gameState lernapp.reise) mit einer Zeitmarke: das Gerät des Kindes nimmt
+  // beim Zusammenführen die neuere – und gameState darf der Admin schreiben
+  // (firestore.rules, isProgressReset). Ein Zurücksetzen räumt sie mit weg.
+  async function setJourneyTempoFor(userId, tempo) {
+    const reise = window.LernappReise;
+    const ref = userRef(userId);
+    if (!ref || !reise) return false;
+    const value = tempo === "langsam" ? "langsam" : "normal";
+    const at = Date.now();
+    await ref.set({
+      gameState: { [reise.KEY]: { data: { tempo: value, tempoAt: at }, updatedAt: at } },
+      updatedAt: serverTimestamp(),
+    }, { merge: true });
+    if (userId === state.user?.uid) reise.setTempo(value);
+    return true;
+  }
+
+  function renderAdminTempoBlock(userId, userData = {}) {
+    const reise = window.LernappReise;
+    if (!userId || !reise) return "";
+    const fahrt = reise.progressFor(readGameState(userData.gameState)[reise.KEY]?.data);
+    const busy = state.adminTempoBusyId === userId;
+    const failed = state.adminTempoErrorId === userId ? state.adminTempoError : "";
+    const knopf = (value, label) => `<button type="button" class="${fahrt.tempo === value ? "" : "secondary-action"}" data-admin-tempo-set="${value}" ${busy ? "disabled" : ""} aria-pressed="${fahrt.tempo === value ? "true" : "false"}">${label}${fahrt.tempo === value ? " ✓" : ""}</button>`;
+    return `
+      <div class="admin-reset admin-tempo" data-admin-tempo="${escapeHtml(userId)}">
+        <div>
+          <strong>Reisetempo</strong>
+          <span>Mit «langsam» verlangt jede Karte der Reise weniger: die Zielpunktzahlen der Karte davor, zwei Level tiefer, kleinere Memorys, leichtere Rätsel. Für Vier- bis Fünfjährige, ohne dass das Kind je «leicht» wählen muss. Gilt auf allen Geräten des Kindes.</span>
+          ${busy ? "<span>Wird gespeichert...</span>" : ""}
+          ${failed ? `<span class="auth-status">${escapeHtml(failed)}</span>` : ""}
+        </div>
+        <div class="card-actions">
+          ${knopf("normal", "Normal")}
+          ${knopf("langsam", "Langsam")}
+        </div>
+      </div>
+    `;
+  }
+
+  function bindAdminTempoCard(root) {
+    const card = root.querySelector("[data-admin-tempo]");
+    if (!card) return;
+    const userId = card.dataset.adminTempo;
+    card.querySelectorAll("[data-admin-tempo-set]").forEach((button) => {
+      button.addEventListener("click", () => saveAdminTempo(userId, button.dataset.adminTempoSet, root));
+    });
+  }
+
+  async function saveAdminTempo(userId, tempo, root) {
+    if (!userId) return;
+    state.adminTempoBusyId = userId;
+    state.adminTempoErrorId = null;
+    state.adminTempoError = "";
+    renderAdminUsers(root);
+    try {
+      await setJourneyTempoFor(userId, tempo);
+    } catch (error) {
+      state.adminTempoErrorId = userId;
+      state.adminTempoError = authErrorMessage(error);
+    }
+    state.adminTempoBusyId = null;
+    // Die Detailansicht trägt den Kasten der Reise mit sich: neu laden.
     state.adminDetails.delete(userId);
     await hydrateAdminSection();
   }
