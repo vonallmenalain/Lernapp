@@ -248,12 +248,22 @@
   // Was die Reise freischaltet, und wo es in der Werkstatt hängt. Gesperrt
   // ist eine Variante, bis die Karte mit ihrer Belohnung fertig ist.
   const LOCKS = {
-    flag: { rainbow: "flag-rainbow", stars: "starloco" },
+    flag: { rainbow: "flag-rainbow", stars: "starloco", sun: "gold-2" },
     driver: { squirrel: "driver-squirrel", ibex: "driver-ibex" },
     whistle: { schiffshorn: "whistle-schiffshorn" },
     lamp: { star: "starloco" },
+    wheels: { sun: "gold-1" },
     scene: { savanne: "scene-savanne" },
   };
+
+  // Der Bonus für zehn goldene Stempel auf einer Karte. Er steht in keinem
+  // Schaufenster – eine Überraschung für Kinder, die eine fertige Karte noch
+  // einmal fahren: nach der ersten ganz goldenen Karte das Sonnenrad, nach
+  // der zweiten der Sonnen-Wimpel.
+  const BONUSES = [
+    { id: "gold-1", after: 1, label: "Räder Sonnenrad", part: "wheels", text: "eine Karte mit zehn goldenen Stempeln" },
+    { id: "gold-2", after: 2, label: "Wimpel Sonne", part: "flag", text: "zwei Karten mit zehn goldenen Stempeln" },
+  ];
 
   // ---------------------------------------------------------------------------
   // Der Kasten
@@ -429,8 +439,26 @@
     return count;
   }
 
+  // Ganz golden: alle zehn Stationen einer Karte mit drei Sternen.
+  function mapGoldenIn(state, mapIndex) {
+    for (let i = 1; i <= STATIONS_PER_MAP; i += 1) {
+      const info = obj(state.done)[String(mapIndex * STATIONS_PER_MAP + i)];
+      if (!info || (Number(info.stars) || 0) < 3) return false;
+    }
+    return true;
+  }
+
+  function goldenMapsIn(state) {
+    let count = 0;
+    MAPS.forEach((_, index) => { if (mapGoldenIn(state, index)) count += 1; });
+    return count;
+  }
+
   function rewardsIn(state) {
-    return MAPS.filter((_, index) => mapFinishedIn(state, index)).map((map) => map.reward.id);
+    const list = MAPS.filter((_, index) => mapFinishedIn(state, index)).map((map) => map.reward.id);
+    const golden = goldenMapsIn(state);
+    BONUSES.forEach((bonus) => { if (golden >= bonus.after) list.push(bonus.id); });
+    return list;
   }
 
   // Für Adminbereich und Gruppe: derselbe Stand, aus einem fremden Kasten.
@@ -441,6 +469,7 @@
       station: current,
       done: Object.keys(state.done).length,
       finishedMaps: finishedMapsIn(state),
+      goldenMaps: goldenMapsIn(state),
       golden: Object.values(state.done).filter((entry) => (Number(entry?.stars) || 0) >= 3).length,
       complete: current > STATION_COUNT,
     };
@@ -452,14 +481,25 @@
   function triesFor(nr) { return Number(obj(read().tries)[String(nr)]) || 0; }
   function hasReward(id) { return rewardsIn(read()).includes(id); }
   function finishedMaps() { return finishedMapsIn(read()); }
+  function goldenMaps() { return goldenMapsIn(read()); }
   function mapFinished(mapIndex) { return mapFinishedIn(read(), mapIndex); }
+  function mapGolden(mapIndex) { return mapGoldenIn(read(), mapIndex); }
+  // Alle Stationen mit goldenem Stempel.
+  function goldenStations() {
+    const done = obj(read().done);
+    return Object.keys(done).map(Number).filter((nr) => (Number(done[nr]?.stars) || 0) >= 3).sort((a, b) => a - b);
+  }
 
   // Ob eine Variante der Werkstatt (oder eine Landschaft) noch gesperrt ist.
-  // Zurück kommt die Karte, die sie freischaltet – oder null, wenn sie frei ist.
+  // Zurück kommt, was sie freischaltet – die Karte oder der Bonus, mit einem
+  // Satz für die Beschriftung –, oder null, wenn sie frei ist.
   function lockFor(part, value) {
     const id = LOCKS[part]?.[value];
     if (!id || hasReward(id)) return null;
-    return MAPS.find((map) => map.reward.id === id) || null;
+    const map = MAPS.find((entry) => entry.reward.id === id);
+    if (map) return { nr: map.nr, name: map.name, text: `Karte ${map.nr}: ${map.name}`, map };
+    const bonus = BONUSES.find((entry) => entry.id === id);
+    return bonus ? { nr: null, name: bonus.label, text: bonus.text, bonus } : null;
   }
 
   // Der Stempel. Zurück kommt, ob er neu ist und ob er golden ist – die Karte
@@ -519,12 +559,18 @@
     try {
       const raw = JSON.parse(localStorage.getItem(SEEN_KEY) || "null");
       if (!raw || typeof raw !== "object") return null;
-      return { station: Number(raw.station) || 1, gold: Array.isArray(raw.gold) ? raw.gold.map(Number) : [] };
+      return {
+        station: Number(raw.station) || 1,
+        gold: Array.isArray(raw.gold) ? raw.gold.map(Number) : [],
+        goldenMaps: Number(raw.goldenMaps) || 0,
+      };
     } catch { return null; }
   }
 
   function writeSeen(seen) {
-    try { localStorage.setItem(SEEN_KEY, JSON.stringify({ station: seen.station, gold: seen.gold || [] })); } catch { /* privater Modus */ }
+    try {
+      localStorage.setItem(SEEN_KEY, JSON.stringify({ station: seen.station, gold: seen.gold || [], goldenMaps: Number(seen.goldenMaps) || 0 }));
+    } catch { /* privater Modus */ }
   }
 
   // ---------------------------------------------------------------------------
@@ -557,10 +603,10 @@
   }
 
   window.LernappReise = {
-    KEY, SEEN_KEY, MAPS, GAMES, AREAS, WORLDS, LOCKS, STATION_COUNT, STATIONS_PER_MAP, TRIES_FOR_ALT,
+    KEY, SEEN_KEY, MAPS, GAMES, AREAS, WORLDS, LOCKS, BONUSES, STATION_COUNT, STATIONS_PER_MAP, TRIES_FOR_ALT,
     stationAt, taskFor, altTaskFor, mapIndexOf,
     read, current, isDone, doneInfo, triesFor, markDone, recordTry, choose, useAlt,
-    hasReward, lockFor, finishedMaps, mapFinished, progressFor, merge,
+    hasReward, lockFor, finishedMaps, mapFinished, goldenMaps, mapGolden, goldenStations, progressFor, merge,
     readSeen, writeSeen, urlFor, mapUrl, fromLocation, describe,
     onChange: (fn) => store.onChange(fn),
   };

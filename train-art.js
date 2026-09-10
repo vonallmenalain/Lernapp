@@ -72,7 +72,9 @@
   // ---------------------------------------------------------------------------
   // Räder
   // ---------------------------------------------------------------------------
-  const WHEEL_SHAPES = ["spoke", "disc", "star"];
+  // Das Sonnenrad schaltet die Reise frei: der Bonus für eine ganz goldene
+  // Karte (journey-plan.js, BONUSES).
+  const WHEEL_SHAPES = ["spoke", "disc", "star", "sun"];
 
   function wheel(cx, radius, color, shape = "spoke") {
     const rim = shade(color, -0.25);
@@ -91,6 +93,20 @@
         points.push(`${(Math.cos(angle) * r).toFixed(1)},${(Math.sin(angle) * r).toFixed(1)}`);
       }
       parts.push(el("polygon", { points: points.join(" "), fill: shade(color, 0.3) }));
+    } else if (shape === "sun") {
+      // Das Sonnenrad: eine goldene Scheibe mit acht Strahlen, gleich in
+      // welcher Farbe der Reifen ist. Die Strahlen zeigen die Drehung.
+      const gold = "#f0b429";
+      for (let i = 0; i < 8; i += 1) {
+        const angle = (Math.PI / 4) * i;
+        parts.push(el("line", {
+          x1: (Math.cos(angle) * radius * 0.5).toFixed(1), y1: (Math.sin(angle) * radius * 0.5).toFixed(1),
+          x2: (Math.cos(angle) * radius * 0.78).toFixed(1), y2: (Math.sin(angle) * radius * 0.78).toFixed(1),
+          stroke: shade(gold, -0.18), "stroke-width": Math.max(2, radius * 0.16), "stroke-linecap": "round",
+        }));
+      }
+      parts.push(el("circle", { cx: 0, cy: 0, r: radius * 0.52, fill: gold }));
+      parts.push(el("circle", { cx: 0, cy: 0, r: radius * 0.2, fill: shade(gold, -0.4) }));
     } else {
       const spokes = [];
       for (let i = 0; i < 4; i += 1) {
@@ -272,7 +288,7 @@
   // Stern, Regenbogen, Sterne-Wimpel und Schiffshorn schaltet die Reise frei
   // (journey-plan.js, LOCKS); die Werkstatt zeigt sie bis dahin mit Schloss.
   const LAMP_SHAPES = ["round", "square", "star"];
-  const FLAG_PATTERNS = ["plain", "stripes", "dots", "zigzag", "rainbow", "stars"];
+  const FLAG_PATTERNS = ["plain", "stripes", "dots", "zigzag", "rainbow", "stars", "sun"];
   const WHISTLES = ["hoch", "tief", "doppelt", "dampf", "schiffshorn"];
 
   let locoUid = 0;
@@ -499,6 +515,19 @@
       flagBody.push(el("polygon", { points: starPoints(50, 24, 3.4, 1.5), fill: inkOn(flagColor) }));
       flagBody.push(el("polygon", { points: starPoints(50, 33, 3.4, 1.5), fill: inkOn(flagColor) }));
       flagBody.push(el("polygon", { points: starPoints(61, 28.5, 3.4, 1.5), fill: inkOn(flagColor) }));
+    } else if (c.flag.pattern === "sun") {
+      // Eine Sonne auf dem Wimpel: der Bonus für zwei ganz goldene Karten.
+      flagBody.push(el("polygon", { points: "41,18 78,28 41,38", fill: flagColor }));
+      const ink = inkOn(flagColor);
+      for (let i = 0; i < 8; i += 1) {
+        const angle = (Math.PI / 4) * i;
+        flagBody.push(el("line", {
+          x1: (53 + Math.cos(angle) * 4.6).toFixed(1), y1: (28 + Math.sin(angle) * 4.6).toFixed(1),
+          x2: (53 + Math.cos(angle) * 7).toFixed(1), y2: (28 + Math.sin(angle) * 7).toFixed(1),
+          stroke: ink, "stroke-width": 1.4, "stroke-linecap": "round",
+        }));
+      }
+      flagBody.push(el("circle", { cx: 53, cy: 28, r: 3.6, fill: ink }));
     } else {
       flagBody.push(el("polygon", { points: "41,18 78,28 41,38", fill: flagColor }));
     }

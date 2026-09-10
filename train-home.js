@@ -565,7 +565,7 @@
           if (lockedBy) {
             button.classList.add("is-locked");
             button.disabled = true;
-            button.setAttribute("aria-label", `${art.LOCO_PARTS.find((e) => e.id === part)?.label}: ${value}, noch gesperrt. Belohnung der Reise, Karte ${lockedBy.nr}: ${lockedBy.name}.`);
+            button.setAttribute("aria-label", `${art.LOCO_PARTS.find((e) => e.id === part)?.label}: ${value}, noch gesperrt. Belohnung der Reise: ${lockedBy.text}.`);
             button.append(el("svg", { viewBox: "0 0 24 24", class: "loco-lock", "aria-hidden": "true" }, [
               el("path", { d: "M7 11V8a5 5 0 0 1 10 0v3", fill: "none", stroke: "currentColor", "stroke-width": 2.4, "stroke-linecap": "round" }),
               el("rect", { x: 5, y: 11, width: 14, height: 10, rx: 3, fill: "currentColor" }),
@@ -1244,6 +1244,8 @@
     // Welches Spiel die Bestenliste zeigt und welches Level darin. Null heisst
     // "das ganze Spiel".
     highscoreGame: null, highscoreLevel: null,
+    // Welche fertige Karte der Reise gerade besucht wird; null ist die eigene.
+    journeyVisit: null,
   };
   let layerHost = null;
   let backButton = null;
@@ -1262,7 +1264,7 @@
   function setView(name, areaId = null) {
     // Der Lautsprecher spricht nur auf der Karte; wer sie verlässt, nimmt den
     // Text mit.
-    if (view.name === "reise" && name !== "reise") kids()?.setHelp?.("");
+    if (view.name === "reise" && name !== "reise") { kids()?.setHelp?.(""); view.journeyVisit = null; }
     view.name = name;
     view.areaId = areaId;
     stage.dataset.view = name;
@@ -1388,10 +1390,13 @@
   //        "quiet"   nur neu gezeichnet
   let renderAfterJourney = false;
 
-  function showJourney({ mode = "quiet", returned = null } = {}) {
+  //   visit   eine fertige Karte zu Besuch (Nummer), null die eigene Karte;
+  //           weggelassen bleibt, was gerade gilt
+  function showJourney({ mode = "quiet", returned = null, visit } = {}) {
     const journey = journeyApi();
     if (!journey || !reiseApi()) { showAreas(); return; }
     setView("reise");
+    if (visit !== undefined) view.journeyVisit = visit;
     const host = document.createElement("div");
     host.className = "journey";
     renderLayer(host);
@@ -1402,8 +1407,12 @@
       areas: progress.allAreas(),
       mode,
       returned,
+      visit: view.journeyVisit,
       celebrate: feiere,
       onPlay: (url) => enterGame(url),
+      // Vom Fahrplan aus: eine fertige Karte noch einmal fahren – oder zurück
+      // auf die eigene.
+      onVisit: (index) => showJourney(index === null ? { mode: "quiet", visit: null } : { mode: "visit", visit: index }),
       onSettled: () => {
         if (!renderAfterJourney) return;
         renderAfterJourney = false;
@@ -1491,7 +1500,7 @@
     stage.dataset.moving = "out";
     await after(620);
     delete stage.dataset.moving;
-    showJourney({ mode: "enter" });
+    showJourney({ mode: "enter", visit: null });
     busy = false;
   }
 
@@ -1538,6 +1547,9 @@
     // Von der Karte zurück vor die Tore: der Zug kommt von links herein, wie
     // aus einem Bereich.
     if (view.name === "reise") {
+      // Zu Besuch auf einer fertigen Karte führt der Pfeil erst einmal zurück
+      // auf die eigene – nicht gleich hinaus vor die Tore.
+      if (view.journeyVisit !== null && !journeyApi()?.isPlaying?.()) { showJourney({ mode: "quiet", visit: null }); return; }
       busy = true;
       stage.dataset.moving = "in";
       await after(40);
@@ -2094,7 +2106,7 @@
     // gefeiert, was neu ist.
     if (reiseWanted && journeyApi() && reiseApi()) {
       try { window.history.replaceState(null, "", window.location.pathname); } catch { /* ohne Verlauf */ }
-      showJourney({ mode: "return", returned: station });
+      showJourney({ mode: "return", returned: station, visit: null });
       return true;
     }
     if (!wanted || !progress.areaProgress(wanted)) return false;
@@ -2181,7 +2193,9 @@
     busy = false;
     delete stage.dataset.moving;
     stage.querySelector(".scene-picker")?.remove();
+    stage.querySelector(".journey-plan")?.remove();
     view.name = "home";
+    view.journeyVisit = null;
     view.areaId = null;
     view.part = "whole";
     view.from = null;

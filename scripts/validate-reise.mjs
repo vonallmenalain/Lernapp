@@ -40,7 +40,7 @@ const win = load(["journey-plan.js"]);
 const reise = win.LernappReise;
 assert(reise, "journey-plan.js hat window.LernappReise nicht gesetzt");
 
-const { MAPS, GAMES, STATIONS_PER_MAP, STATION_COUNT, LOCKS } = reise;
+const { MAPS, GAMES, STATIONS_PER_MAP, STATION_COUNT, LOCKS, BONUSES } = reise;
 const AREAS = ["gedaechtnis", "konzentration", "geschwindigkeit", "problemloesen", "zahlbuchstabe"];
 const READING = new Set(["letterPuzzle", "readingPuzzle", "kakuro"]);
 const WORLDS = ["easy", "medium", "hard", "extreme"];
@@ -212,10 +212,21 @@ assert(reise.taskFor(1).target === 3 && reise.taskFor(3).target === 15, "Wiese: 
 assert(reise.taskFor(51).target === 8, "Nacht: Was fehlt? verlangt die ganze Schwelle");
 
 // --- Belohnungen und Schlösser ----------------------------------------------------
+// Der Bonus für ganz goldene Karten: zwei Stufen, beide an einem Bauteil.
+assert(Array.isArray(BONUSES) && BONUSES.length === 2, "erwartet zwei Bonus-Stufen für goldene Karten");
+BONUSES.forEach((bonus, index) => {
+  assert(bonus.id && bonus.label && bonus.part && bonus.text, `Bonus ${index + 1} unvollständig`);
+  assert(bonus.after === index + 1, `Bonus ${bonus.id} müsste nach ${index + 1} goldenen Karten kommen`);
+  assert(!rewards.has(bonus.id), `Bonus ${bonus.id} ist zugleich eine Karten-Belohnung`);
+});
+const bonusIds = new Set(BONUSES.map((bonus) => bonus.id));
 for (const [part, entries] of Object.entries(LOCKS)) {
   for (const [value, id] of Object.entries(entries)) {
-    assert(rewards.has(id), `LOCKS ${part}.${value}: Belohnung ${id} gibt es auf keiner Karte`);
+    assert(rewards.has(id) || bonusIds.has(id), `LOCKS ${part}.${value}: Belohnung ${id} gibt es auf keiner Karte und als kein Bonus`);
   }
+}
+for (const bonus of BONUSES) {
+  assert(Object.values(LOCKS[bonus.part] || {}).includes(bonus.id), `Bonus ${bonus.id} hängt an keiner Variante von ${bonus.part}`);
 }
 const artWin = load(["train-art.js"]);
 const art = artWin.LernappTrainArt;
@@ -223,6 +234,7 @@ if (art) {
   assert(art.FLAG_PATTERNS.includes("rainbow") && art.FLAG_PATTERNS.includes("stars"), "train-art.js kennt die Wimpel der Reise nicht");
   assert(art.LAMP_SHAPES.includes("star"), "train-art.js kennt die Sternlampe nicht");
   assert(art.WHISTLES.includes("schiffshorn"), "train-art.js kennt das Schiffshorn nicht");
+  assert(art.WHEEL_SHAPES.includes("sun") && art.FLAG_PATTERNS.includes("sun"), "train-art.js kennt Sonnenrad und Sonnen-Wimpel nicht");
   assert(art.DRIVERS.some((d) => d.id === "squirrel") && art.DRIVERS.some((d) => d.id === "ibex"), "train-art.js kennt die Chauffeure der Reise nicht");
   for (const map of MAPS) assert(art.LANDMARKS[map.landmark], `Wahrzeichen ${map.landmark} fehlt in train-art.js`);
 }
@@ -246,6 +258,18 @@ assert(!reise.hasReward("flag-rainbow"), "ohne fertige Karte keine Belohnung");
 for (let nr = 1; nr <= 10; nr += 1) reise.markDone(nr, { stars: 3, game: "x" });
 assert(reise.hasReward("flag-rainbow") && reise.finishedMaps() === 1, "die fertige erste Karte gibt den Wimpel");
 assert(reise.lockFor("flag", "rainbow") === null && reise.lockFor("driver", "squirrel")?.nr === 2, "lockFor zeigt auf die Karte der Belohnung");
+assert(reise.lockFor("driver", "squirrel")?.text === "Karte 2: Wald", "lockFor beschriftet die Karte");
+// Zehn goldene Stempel auf Karte 1 (oben alle mit drei Sternen gestempelt): der erste Bonus.
+assert(reise.goldenMaps() === 1 && reise.mapGolden(0) && !reise.mapGolden(1), "Karte 1 ist ganz golden, Karte 2 nicht");
+assert(reise.hasReward("gold-1") && !reise.hasReward("gold-2"), "der erste Bonus ist frei, der zweite nicht");
+assert(reise.lockFor("wheels", "sun") === null, "das Sonnenrad ist nach der ersten goldenen Karte frei");
+assert(reise.lockFor("flag", "sun")?.bonus?.after === 2 && /zwei Karten/.test(reise.lockFor("flag", "sun").text), "der Sonnen-Wimpel wartet auf die zweite goldene Karte");
+assert(reise.goldenStations().length === 10 && reise.goldenStations()[0] === 1, "goldenStations zählt die goldenen Stempel");
+for (let nr = 11; nr <= 20; nr += 1) reise.markDone(nr, { stars: 3, game: "x" });
+assert(reise.goldenMaps() === 2 && reise.hasReward("gold-2"), "zwei goldene Karten geben den zweiten Bonus");
+assert(reise.progressFor(reise.read()).goldenMaps === 2, "progressFor zählt die goldenen Karten");
+reise.writeSeen({ station: 21, gold: [1, 2], goldenMaps: 2 });
+assert(reise.readSeen().goldenMaps === 2 && reise.readSeen().gold.length === 2, "gesehen merkt sich die goldenen Karten");
 const merged = reise.merge({ done: { "3": { stars: 1 } }, tries: { "5": 2 } }, { done: { "3": { stars: 3 }, "4": { stars: 2 } }, tries: { "5": 1 } });
 assert(merged.done["3"].stars === 3 && merged.done["4"].stars === 2 && merged.tries["5"] === 2, "das Zusammenführen behält das Bessere");
 assert(reise.progressFor({ done: { "1": { stars: 3 } } }).station === 2, "progressFor rechnet mit einem fremden Kasten");
