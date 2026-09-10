@@ -1659,12 +1659,14 @@
     // Der Auftrag der Reise: geschafft heisst Stempel, sonst zählt der
     // Fehlversuch für das Ausweichgleis.
     const reise = window.LernappReise;
-    if (shell?.journey && reise && !success) reise.recordTry(shell.journey.nr);
+    const tries = shell?.journey && reise && !success ? reise.recordTry(shell.journey.nr) : 0;
+    // Nach fünf Fehlversuchen wartet auf der Karte die Schiebelok.
+    const pushHint = reise && tries >= reise.TRIES_FOR_PUSH ? " Auf der Karte kommt jetzt die Schiebelok und schiebt deinen Zug zur nächsten Station." : "";
 
     if (!success) {
       soundFail();
       kids.vibrate([90, 60, 90]);
-      setStageHelp(`Diesmal hat es nicht gereicht. Du hast ${game.treats} ${game.level.treatName} gesammelt. Tippe auf Nochmal für einen neuen Versuch oder auf Zur Karte, um ein anderes Level zu wählen.`);
+      setStageHelp(`Diesmal hat es nicht gereicht. Du hast ${game.treats} ${game.level.treatName} gesammelt. Tippe auf Nochmal für einen neuen Versuch oder auf Zur Karte, um ein anderes Level zu wählen.${pushHint}`);
       showOverlay(`
         <div class="runner-mascot sad">${kids.mascotSVG("sad")}</div>
         <h2>Fast geschafft!</h2>

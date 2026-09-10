@@ -119,6 +119,17 @@
         cell("Bonus: Sonnenrad und Sonnen-Wimpel", 260, 200, `0 0 ${art.LOCO_W} ${art.ART_H}`, [
           art.buildLoco({ wheels: { shape: "sun", color: "#c9483a" }, flag: { pattern: "sun", color: "#2f6f8f" } }),
         ]);
+        // Etappe 3: die Fahrgäste, die Fähre, der Schiebe-Stempel, die
+        // Goldsterne der zweiten Reise, die Schiebelok, das Schild der Reise 2.
+        cell("Fahrgäste: Hase, Eichhörnchen, Pinguin, Panda, Steinbock, Eule, Maus, Löwe", 320, 84, "-20 -64 320 72",
+          ["rabbit", "squirrel", "penguin", "panda", "ibex", "owl", "mouse", "lion"].map((id, i) => art.el("g", { transform: `translate(${i * 38},0)` }, [art.buildPassenger(id, { waving: i % 2 === 0 })])));
+        cell("Fähre", 190, 100, "-95 -80 190 100", [art.buildFerry()]);
+        cell("Stempel: geschoben", 60, 60, "-30 -30 60 60", [art.buildStamp("#00A5B5", { pushed: true })]);
+        cell("Reise-Schild: sechs Sterne, drei golden", 260, 200, `0 0 ${art.LOCO_W} ${art.ART_H}`, [art.buildLoco({ journeyStars: 6, journeyGold: 3 })]);
+        cell("Die Schiebelok", 260, 200, `0 0 ${art.LOCO_W} ${art.ART_H}`, [
+          art.buildLoco({ body: "#f0b429", cab: { color: "#4a5568" }, driver: "bear", wheels: { shape: "disc", color: "#4a5568" }, flag: { pattern: "plain", color: "#c9483a" }, whistle: "tief" }),
+        ]);
+        cell("Streckenschild, Reise 2, Station 73", 260, 178, `0 0 ${art.SIGN_W} ${art.SIGN_H + 8}`, [art.buildJourneySign({ station: 73, total: 130, lap: 2, lapFirst: 61, lapTotal: 70, sparkle: true })]);
       })();
       const { el, buildLoco, buildWagon, buildTrain, driverHead, ART_H, WAGON_W, LOCO_W } = art;
 

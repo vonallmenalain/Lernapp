@@ -283,10 +283,14 @@
         } else {
           const tries = reise().recordTry(journey.nr);
           const alt = tries >= reise().TRIES_FOR_ALT ? reise().altTaskFor(journey.nr) : null;
+          // Nach fünf Fehlversuchen wartet auf der Karte die Schiebelok.
+          const push = tries >= (reise().TRIES_FOR_PUSH || Infinity);
           journeyNote = {
             done: false,
-            text: `Auftrag: ${journey.label} – noch nicht. Die Runde zählt trotzdem für den Wagen.`,
-            speech: `Der Auftrag war ${journey.speech.replace(/\.$/, "")} – diesmal noch nicht. Die Runde zählt trotzdem für deinen Wagen. Probier es noch einmal${alt ? `, oder nimm auf der Karte das Ausweichgleis: ${alt.title}` : ""}.`,
+            text: push ? `Auftrag: ${journey.label} – noch nicht. Auf der Karte hilft die Schiebelok.` : `Auftrag: ${journey.label} – noch nicht. Die Runde zählt trotzdem für den Wagen.`,
+            speech: `Der Auftrag war ${journey.speech.replace(/\.$/, "")} – diesmal noch nicht. Die Runde zählt trotzdem für deinen Wagen. ${push
+              ? "Auf der Karte kommt jetzt die Schiebelok und schiebt deinen Zug zur nächsten Station."
+              : `Probier es noch einmal${alt ? `, oder nimm auf der Karte das Ausweichgleis: ${alt.title}` : ""}.`}`,
           };
         }
       }

@@ -323,16 +323,18 @@
     const reise = reiseApi();
     if (!reise || !art.buildJourneySign) return null;
     const total = reise.STATION_COUNT;
-    const station = reise.current();
+    const fahrt = reise.progressFor(reise.read());
+    const station = fahrt.station;
     const seen = reise.readSeen();
-    const complete = station > total;
+    const complete = fahrt.complete;
     // Funkeln, wenn ein Ziel-Bahnhof ansteht oder seit dem letzten Blick auf
     // die Karte etwas dazugekommen ist.
     const sparkle = complete || station % reise.STATIONS_PER_MAP === 0 || Boolean(seen && station > seen.station);
     const label = complete
-      ? "Auf die Reise: alle Stationen geschafft. Antippen, und der Zug fährt auf die Karte."
-      : `Auf die Reise: Station ${station} von ${total}. Antippen, und der Zug fährt los.`;
-    const sign = art.buildJourneySign({ station: Math.min(station, total), total, sparkle, label });
+      ? "Auf die Reise: beide Reisen geschafft. Antippen, und der Zug fährt auf die Karte."
+      : `Auf die Reise${fahrt.lap === 2 ? " 2" : ""}: Station ${station} von ${total}. Antippen, und der Zug fährt los.`;
+    // Der Ring zählt je Reise: golden auf der zweiten.
+    const sign = art.buildJourneySign({ station: Math.min(station, total), total, sparkle, label, lap: fahrt.lap, lapFirst: fahrt.lapFirst, lapTotal: fahrt.lapTotal });
     return group({ transform: `translate(${SIGN_X},${RAIL_Y - art.SIGN_H * SIGN_SCALE}) scale(${SIGN_SCALE})` }, [sign]);
   }
 
@@ -692,6 +694,14 @@
   // nicht überschreiben – etwa wenn der Admin die Gruppe gerade geändert hat.
   let friendsToken = 0;
 
+  // Wie weit ein anderes Konto auf der Reise ist: Sterne und Goldsterne für
+  // das Reise-Schild am Zug, die Station für das Fähnchen auf der Karte.
+  function journeyOf(account) {
+    const reise = reiseApi();
+    const fahrt = reise?.progressFor?.(account.gameState?.[reise.KEY]?.data) || null;
+    return { journeyStars: fahrt?.stars || 0, journeyGold: fahrt?.goldStars || 0, journeyStation: fahrt?.station || null };
+  }
+
   async function loadFriends() {
     const token = friendsToken += 1;
     let all = [];
@@ -713,9 +723,7 @@
       name: account.name,
       loco: { ...art.DEFAULT_LOCO, ...(account.loco || {}) },
       areas: progress.areasForAccount(account),
-      // Wie weit der andere auf der Reise ist: ein Stern je fertiger Karte,
-      // am selben Schild wie beim eigenen Zug.
-      journeyStars: reiseApi()?.progressFor?.(account.gameState?.[reiseApi().KEY]?.data)?.finishedMaps || 0,
+      ...journeyOf(account),
     }));
 
     // Steht gerade der Zug eines Kindes offen, das nicht mehr dazugehört, führt
@@ -766,7 +774,7 @@
     // Mit eigenem Gleis: gezeichnet im selben Koordinatensystem wie der Zug,
     // also immer genau unter den Rädern. Ein Strich im CSS müsste dafür auf
     // Prozentwerte vertrauen, die bei jedem Seitenverhältnis anders liegen.
-    const svg = art.buildTrain(friend.areas, friend.loco, { pad: 4, gap: 4, withTrack: true, journeyStars: friend.journeyStars || 0 });
+    const svg = art.buildTrain(friend.areas, friend.loco, { pad: 4, gap: 4, withTrack: true, journeyStars: friend.journeyStars || 0, journeyGold: friend.journeyGold || 0 });
     svg.setAttribute("class", "train-svg friend-svg");
     svg.setAttribute("aria-hidden", "true");
     svg.removeAttribute("role");
@@ -1405,6 +1413,8 @@
       stage,
       loco: locoConfig || readLoco(),
       areas: progress.allAreas(),
+      // Die Gruppe auf der Karte: je Zug ein Fähnchen an seiner Station.
+      friends: friends.map((friend) => ({ name: friend.name, station: friend.journeyStation })),
       mode,
       returned,
       visit: view.journeyVisit,
@@ -1981,7 +1991,8 @@
     // Ohne Gleis: das liegt jetzt fest in der Bühnenebene, damit es beim
     // Losfahren stehen bleibt. Der Nachlauf rechts ist der Platz, auf dem das
     // Startsignal vor der Lok schwebt.
-    const svg = art.buildTrain(areas, loco, { pad: 4, gap: 4, trailing: 160, withTrack: false, journeyStars: reiseApi()?.finishedMaps?.() || 0 });
+    const plate = reiseApi()?.plateStars?.() || { stars: 0, gold: 0 };
+    const svg = art.buildTrain(areas, loco, { pad: 4, gap: 4, trailing: 160, withTrack: false, journeyStars: plate.stars, journeyGold: plate.gold });
     svg.setAttribute("aria-label", describeTrain(areas));
 
     svg.querySelectorAll("[data-area]").forEach((node) => {
