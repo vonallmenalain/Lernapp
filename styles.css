@@ -9172,3 +9172,253 @@ body.puzzle-active.pad-docked .number-pad button {
 
   body.puzzle-active.pad-docked .number-pad .clear-number-button { font-size: 0.8rem; }
 }
+
+/* ===========================================================================
+   Die Reise: Streckenschild, Streckenkarte, Stempel
+   ---------------------------------------------------------------------------
+   Der sechste Weg vor den Toren. Die Karte zeichnet train-journey.js in die
+   Bühnen-Ebene; hier steht, was sich bewegt: das Funkeln am Schild, der Nebel,
+   der Stempel, das Signal, die Räder und der Dampf des kleinen Zugs, die
+   Wahrzeichen bei der Ankunft.
+   =========================================================================== */
+
+/* --- Das Streckenschild vor den Toren --- */
+.stage-layer .journey-sign { pointer-events: auto; cursor: pointer; }
+.journey-sparkle {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: journey-sparkle 1.8s ease-in-out infinite;
+}
+.journey-sparkle-2 { animation-delay: 0.6s; }
+@keyframes journey-sparkle {
+  0%, 100% { transform: scale(0.55); opacity: 0.35; }
+  50% { transform: scale(1.15); opacity: 1; }
+}
+
+/* --- Die Ansicht --- */
+/* Das grosse Zugband weg – der Zug steht klein auf der Karte. Die Ebene liegt
+   über allen Landschaftsebenen, wie Werkstatt und Wagen-Ansicht. */
+.train-stage[data-view="reise"] .train-band { opacity: 0; pointer-events: none; }
+.train-stage[data-view="reise"] .stage-layer { z-index: 4; }
+/* Der Lautsprecher spricht nur auf der Karte, neben dem Zurück-Knopf. */
+body[data-page="train"] .train-stage[data-view="reise"] ~ .help-voice {
+  display: flex;
+  left: calc(var(--safe-left) + 86px);
+}
+
+.journey {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+}
+/* Von den Toren her schiebt sich die Karte von rechts herein, beim Wechsel
+   auf die nächste Karte ebenso. */
+.journey.is-entering .journey-map,
+.journey.is-switching .journey-map { animation: journey-slide-in 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+@keyframes journey-slide-in {
+  from { opacity: 0; transform: translateX(26%); }
+  to { opacity: 1; transform: none; }
+}
+
+/* Antippbar ist nur, was dran ist: die aktuelle Station, gestempelte für
+   den goldenen Stempel, die beiden Bilder einer Wahlstation, das
+   Ausweichgleis. Der Nebel nimmt nichts entgegen. */
+.stage-layer .journey-station,
+.stage-layer .journey-choice,
+.stage-layer .journey-alt { pointer-events: auto; cursor: pointer; }
+.stage-layer .journey-station:not(.is-current):not(.is-done),
+.stage-layer .journey-station.has-choice { pointer-events: none; cursor: default; }
+.journey-station:focus-visible { outline: none; }
+.journey-station:focus-visible > .journey-station-hit,
+.journey-choice:focus-visible > rect,
+.journey-alt:focus-visible > rect { stroke: #243047; stroke-width: 3; stroke-dasharray: 8 6; }
+/* Beim Antippen wächst das Bild – das Bild selbst, nicht die Gruppe, die es
+   aufstellt: ein transform-origin auf einer Gruppe mit transform-Attribut
+   verschöbe die ganze Aufstellung. */
+.journey-motif {
+  transform-box: fill-box;
+  transform-origin: center bottom;
+  transition: transform 0.16s ease;
+}
+.journey-station.is-current:hover .journey-picture .journey-motif,
+.journey-station.is-done:hover .journey-picture .journey-motif,
+.journey-choice:hover .journey-motif, .journey-alt:hover .journey-motif { transform: scale(1.06); }
+.journey-choice { transition: opacity 0.3s ease; }
+.journey-choice.is-dropped { opacity: 0; }
+
+/* Der Nebel: über allem, was noch nicht dran ist; hebt sich und treibt weg. */
+.journey-station .journey-picture,
+.journey-station .journey-choice { transition: opacity 0.6s ease, filter 0.6s ease; }
+.journey-station.is-fog .journey-picture,
+.journey-station.is-fog .journey-choice { opacity: 0.42; filter: grayscale(0.85); }
+.journey-fog { transition: opacity 0.9s ease, transform 0.9s ease; pointer-events: none; }
+.journey-station:not(.is-fog) .journey-fog { opacity: 0; transform: translate(60px, -12px); }
+
+/* Der Stempel fällt von oben auf die Station und prallt kurz zurück. */
+.journey-stamp { transform-box: fill-box; transform-origin: center; }
+.journey-stamp.is-new { animation: journey-stamp-in 0.55s cubic-bezier(0.2, 1.6, 0.4, 1) both; }
+@keyframes journey-stamp-in {
+  from { transform: scale(2.6) rotate(-30deg); opacity: 0; }
+  60% { opacity: 1; }
+  to { transform: scale(1) rotate(-14deg); opacity: 1; }
+}
+
+/* Das Signal an der aktuellen Station pulst wie das Startsignal. */
+.journey-signal { transition: opacity 0.3s ease; }
+.journey-signal.is-hidden { opacity: 0; }
+.journey-signal-ring {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: journey-pulse 2.2s ease-in-out infinite;
+}
+@keyframes journey-pulse {
+  0%, 100% { transform: scale(1); opacity: 0.55; }
+  50% { transform: scale(1.4); opacity: 0.15; }
+}
+
+/* Das Gleis, das noch nicht gelegt ist, bleibt blass. */
+.journey-rails-dim { opacity: 0.42; }
+
+/* Der kleine Zug: Räder drehen und der Dampf stösst nur in der Fahrt. Im
+   Stand dampft die Lok leise weiter, wie überall. */
+.journey-train .train-wheel { transform-box: fill-box; transform-origin: center; }
+.journey-train.is-driving .train-wheel { animation: wheel-roll var(--turn, 1.5s) linear infinite; }
+.journey-train.is-driving .train-steam-puff { animation: train-puff 1.6s ease-out infinite; }
+.journey-train.is-driving .train-steam-2 { animation-delay: 0.55s; }
+.journey-train.is-driving .train-steam-3 { animation-delay: 1.1s; }
+
+/* Die Karte lebt: das Wasser glitzert, die Mühle dreht sich, die Sterne
+   blinken. Bei der Ankunft dreht die Mühle schneller, das Licht geht an. */
+.journey-water { animation: journey-wave 7s linear infinite; }
+@keyframes journey-wave { from { transform: translateX(0); } to { transform: translateX(60px); } }
+.journey-blades {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: journey-spin 14s linear infinite;
+}
+.is-party .journey-blades { animation-duration: 2.2s; }
+@keyframes journey-spin { to { transform: rotate(1turn); } }
+.journey-beam { animation: journey-beam 3.2s ease-in-out infinite alternate; }
+.is-party .journey-beam { animation-duration: 0.9s; }
+@keyframes journey-beam { from { opacity: 0.15; } to { opacity: 0.55; } }
+.journey-star { animation: journey-twinkle 2.6s ease-in-out infinite; }
+.journey-star:nth-child(odd) { animation-delay: 1.1s; }
+@keyframes journey-twinkle { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
+.journey-smoke {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: journey-smoke 3.4s ease-out infinite;
+}
+@keyframes journey-smoke {
+  0% { transform: translate(0, 0) scale(0.6); opacity: 0; }
+  20% { opacity: 0.9; }
+  100% { transform: translate(14px, -34px) scale(1.6); opacity: 0; }
+}
+.is-party .journey-lantern, .is-party .journey-window { animation: journey-glow 0.9s ease-in-out infinite alternate; }
+
+/* Das Schaufenster: das Schloss fällt ab, dahinter leuchtet es. */
+.journey-lock { transition: opacity 0.5s ease, transform 0.5s ease; transform-box: fill-box; transform-origin: center; }
+.journey-showcase:not(.is-locked) .journey-lock { opacity: 0; transform: translate(0, 30px) rotate(40deg); }
+.journey-glow { transition: opacity 0.6s ease; }
+.journey-showcase:not(.is-locked) .journey-glow { opacity: 0.8; animation: journey-glow 1.4s ease-in-out infinite alternate; }
+@keyframes journey-glow { from { opacity: 0.45; } to { opacity: 0.95; } }
+
+/* Die zehn Punkte der Karte, oben in der Mitte – wie die Schrittpunkte des
+   Wagens: voll, wenn gestempelt, golden, wenn die Runde gut war. */
+.journey-dots {
+  position: absolute;
+  top: calc(var(--safe-top) + 24px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 5;
+  display: flex;
+  gap: 6px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.6);
+  box-shadow: 0 3px 10px rgba(36, 48, 71, 0.16);
+  pointer-events: none;
+}
+.journey-dot {
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.85);
+  border: 2px solid rgba(36, 48, 71, 0.28);
+  transition: background 0.3s ease, border-color 0.3s ease;
+}
+.journey-dot.is-done { background: #2f9e44; border-color: #2f9e44; }
+.journey-dot.is-gold { background: #f0b429; border-color: #f0b429; }
+@media (max-height: 600px) {
+  .journey-dots { top: calc(var(--safe-top) + 14px); padding: 5px 10px; gap: 5px; }
+  .journey-dot { width: 11px; height: 11px; }
+}
+
+/* Konfetti an einer Station: ein kleiner Kasten über ihr, in den kids.js
+   seine Schnipsel streut. */
+.journey-burst { position: absolute; pointer-events: none; z-index: 6; }
+
+/* Die Feier am Ziel-Bahnhof: dieselbe Tafel wie beim Wagen, statt des Wagens
+   die Belohnung – die eigene Lok mit dem neuen Teil, oder die Landschaft. */
+.journey-reward .wagon-reward-card { --reward-color: #2b5fb3; }
+.journey-reward-pic {
+  grid-area: bild;
+  width: clamp(150px, 30vw, 320px);
+  display: grid;
+  place-items: center;
+}
+.journey-reward-pic svg { display: block; width: 100%; height: auto; animation: scene-reward-in 0.5s ease both; }
+.journey-reward-pic .journey-reward-scene { border-radius: 20px; box-shadow: 0 10px 24px rgba(31, 42, 51, 0.28); }
+
+/* --- Die Werkstatt: gesperrte Teile --- */
+/* Was die Reise erst freischaltet, steht mit Schloss da – zu sehen, nicht zu
+   wählen. Dieselbe Sprache wie bei den gesperrten Landschaften. */
+.loco-choice.is-locked {
+  position: relative;
+  cursor: not-allowed;
+  filter: grayscale(0.7);
+  opacity: 0.62;
+}
+.loco-choice.is-locked:hover { transform: none; }
+.loco-lock {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 38%;
+  height: auto;
+  color: #ffffff;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.55));
+}
+
+/* --- In den Spielen: der Auftrag --- */
+/* Oben rechts steht bei einer Zielpunktzahl das Ziel dabei: "3 / 5", mit dem
+   Fähnchen des Auftrags statt des Hakens. */
+.cm-count.has-target .cm-count-tick { color: #f0b429; }
+.cm-count-target { font-size: 0.72em; opacity: 0.8; margin-left: 2px; font-variant-numeric: tabular-nums; }
+.cm-journey {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 0.98rem;
+  font-weight: 800;
+  color: #4a5b52;
+}
+.cm-journey.is-done { color: #2f6f4f; }
+.cm-journey-icon { width: 22px; height: 22px; flex: 0 0 auto; color: currentColor; }
+/* Der Weg zurück auf die Karte pulst, wenn der Stempel wartet. */
+.cm-icon.is-primary { box-shadow: 0 0 0 4px rgba(63, 191, 116, 0.4); animation: cm-pulse 2.1s ease-in-out infinite; }
+.success-journey, .runner-journey { font-weight: 800; color: #2f6f4f; }
+
+@media (prefers-reduced-motion: reduce) {
+  .journey-sparkle, .journey-stamp.is-new, .journey-signal-ring, .journey-water, .journey-blades, .journey-beam,
+  .journey-star, .journey-smoke, .is-party .journey-lantern, .is-party .journey-window,
+  .journey-showcase:not(.is-locked) .journey-glow, .journey-reward-pic svg, .cm-icon.is-primary,
+  .journey.is-entering .journey-map, .journey.is-switching .journey-map { animation: none; }
+  .journey-train.is-driving .train-wheel, .journey-train.is-driving .train-steam-puff { animation: none; }
+  .journey-fog, .journey-station .journey-picture, .journey-station .journey-choice, .journey-signal, .journey-lock, .journey-glow, .journey-dot, .journey-motif { transition: none; }
+  .journey-sparkle { opacity: 0.9; }
+  .journey-showcase:not(.is-locked) .journey-glow { opacity: 0.7; }
+}

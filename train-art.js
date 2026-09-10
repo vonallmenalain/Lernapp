@@ -136,6 +136,10 @@
     { id: "penguin", name: "Pinguin", coat: "#3a4250", inner: "#ffffff", ear: "none" },
     { id: "lion", name: "Löwe", coat: "#e0a53c", inner: "#f6dda3", ear: "mane" },
     { id: "mouse", name: "Maus", coat: "#b0b3bd", inner: "#f7c9d4", ear: "big" },
+    // Die beiden schaltet die Reise frei (journey-plan.js, LOCKS): das
+    // Eichhörnchen am Ende der Wald-Karte, der Steinbock nach den Bergen.
+    { id: "squirrel", name: "Eichhörnchen", coat: "#c9743a", inner: "#f2c9a6", ear: "tuft" },
+    { id: "ibex", name: "Steinbock", coat: "#a99a86", inner: "#e9e2d6", ear: "horns" },
   ];
   const DRIVER_BY_ID = Object.fromEntries(DRIVERS.map((d) => [d.id, d]));
 
@@ -153,6 +157,7 @@
     tuft: { up: 1.3, side: 1 },
     mane: { up: 1.5, side: 1.5 },
     eyes: { up: 1.12, side: 1 },
+    horns: { up: 1.7, side: 1.25 },
   };
 
   // Der grösste Kopf, der in ein Fenster passt, samt der Höhe, auf der er
@@ -189,6 +194,17 @@
     } else if (ear === "tuft") {
       parts.push(el("polygon", { points: `${-r},${-r * 0.5} ${-r * 0.86},${-r * 1.3} ${-r * 0.3},${-r * 0.8}`, fill: coat }));
       parts.push(el("polygon", { points: `${r},${-r * 0.5} ${r * 0.86},${-r * 1.3} ${r * 0.3},${-r * 0.8}`, fill: coat }));
+    } else if (ear === "horns") {
+      // Zwei Hörner, die aus dem Scheitel nach hinten und oben biegen. Dick
+      // genug, dass sie auch im kleinen Fenster noch als Hörner lesen.
+      [-1, 1].forEach((side) => {
+        parts.push(el("path", {
+          d: `M${side * r * 0.42} ${-r * 0.72} C${side * r * 0.8} ${-r * 1.25} ${side * r * 1.3} ${-r * 1.45} ${side * r * 0.95} ${-r * 1.65}`,
+          fill: "none", stroke: shade(coat, -0.45), "stroke-width": r * 0.3, "stroke-linecap": "round",
+        }));
+      });
+      parts.push(el("polygon", { points: `${-r * 0.55},${-r * 0.55} ${-r * 0.22},${-r * 1.05} ${-r * 0.05},${-r * 0.7}`, fill: coat }));
+      parts.push(el("polygon", { points: `${r * 0.55},${-r * 0.55} ${r * 0.22},${-r * 1.05} ${r * 0.05},${-r * 0.7}`, fill: coat }));
     } else if (ear === "mane") {
       // Die Mähne braucht deutlich mehr Kontrast als der Kopf, sonst liest der
       // Löwe nur als goldene Scheibe. Zackenkranz statt zweiter Kreis.
@@ -241,6 +257,9 @@
       parts.push(el("ellipse", { cx: 0, cy: r * 0.36, rx: r * 0.34, ry: r * 0.26, fill: inner }));
       parts.push(el("circle", { cx: 0, cy: r * 0.26, r: r * 0.11, fill: dark }));
     }
+    if (driverId === "ibex") {
+      parts.push(el("polygon", { points: `${-r * 0.16},${r * 0.58} ${r * 0.16},${r * 0.58} 0,${r * 0.98}`, fill: shade(coat, -0.3) }));
+    }
 
     return group({ class: "train-driver" }, parts);
   }
@@ -250,9 +269,11 @@
   // ---------------------------------------------------------------------------
   const CHIMNEY_SHAPES = ["classic", "funnel", "double", "slim"];
   const CAB_SHAPES = ["round", "flat", "peak"];
-  const LAMP_SHAPES = ["round", "square"];
-  const FLAG_PATTERNS = ["plain", "stripes", "dots", "zigzag"];
-  const WHISTLES = ["hoch", "tief", "doppelt", "dampf"];
+  // Stern, Regenbogen, Sterne-Wimpel und Schiffshorn schaltet die Reise frei
+  // (journey-plan.js, LOCKS); die Werkstatt zeigt sie bis dahin mit Schloss.
+  const LAMP_SHAPES = ["round", "square", "star"];
+  const FLAG_PATTERNS = ["plain", "stripes", "dots", "zigzag", "rainbow", "stars"];
+  const WHISTLES = ["hoch", "tief", "doppelt", "dampf", "schiffshorn"];
 
   let locoUid = 0;
 
@@ -328,6 +349,16 @@
       ]),
     ]);
 
+    // Das Reise-Schild: eine kleine Tafel unter dem Fenster, ein Stern je
+    // fertiger Karte der Reise. Sie gehört zum Zug, nicht zur Lok-Einstellung
+    // – buildTrain reicht die Zahl durch, gespeichert wird sie nirgends.
+    const journeyStars = Math.max(0, Math.min(6, Math.floor(Number(c.journeyStars) || 0)));
+    if (journeyStars > 0) {
+      cabParts.push(el("rect", { x: 15, y: 124, width: 52, height: 17, rx: 3, fill: "#f8f1dc", stroke: shade(cabColor, -0.3), "stroke-width": 1.5 }));
+      for (let i = 0; i < journeyStars; i += 1) {
+        cabParts.push(el("polygon", { points: starPoints(22 + i * 8, 132.5, 3.6, 1.6), fill: "#f0b429", stroke: "#b8860b", "stroke-width": 0.6 }));
+      }
+    }
     const cab = group({ "data-part": "cab", mask: `url(#${maskId})` }, cabParts);
 
     // --- Chauffeur in der Fensteröffnung ---
@@ -364,8 +395,14 @@
     // eigene Form auf dem Kessel, sonst gäbe es in der Werkstatt nichts
     // anzutippen. Die vier Klänge unterscheiden sich nur im Ton, deshalb zeigt
     // die Form die Anzahl der Rohre.
-    const pipes = { hoch: 1, tief: 1, doppelt: 2, dampf: 3 }[c.whistle] || 1;
+    const pipes = { hoch: 1, tief: 1, doppelt: 2, dampf: 3, schiffshorn: 0 }[c.whistle] ?? 1;
     const whistleParts = [el("rect", { x: 92, y: 118, width: 24, height: 12, rx: 4, fill: shade(body, -0.5) })];
+    if (c.whistle === "schiffshorn") {
+      // Kein Rohr, sondern ein Trichter: das Horn eines Schiffs, nach oben
+      // hinten geöffnet.
+      whistleParts.push(el("path", { d: "M98 122 L94 92 L122 86 L114 122 Z", fill: shade(body, -0.4) }));
+      whistleParts.push(el("path", { d: "M93 93 L123 86 L124 92 L94 99 Z", fill: shade(body, -0.55) }));
+    }
     for (let i = 0; i < pipes; i += 1) {
       const x = 104 - (pipes - 1) * 6 + i * 12;
       const height = c.whistle === "tief" ? 40 : 30;
@@ -416,7 +453,9 @@
     const lampColor = c.lamp.color;
     const lampShape = c.lamp.shape === "square"
       ? el("rect", { x: 166, y: 98, width: 22, height: 22, rx: 4, fill: lampColor, stroke: bodyDark, "stroke-width": 3 })
-      : el("circle", { cx: 177, cy: 109, r: 12, fill: lampColor, stroke: bodyDark, "stroke-width": 3 });
+      : c.lamp.shape === "star"
+        ? el("polygon", { points: starPoints(177, 109, 15, 7), fill: lampColor, stroke: bodyDark, "stroke-width": 3, "stroke-linejoin": "round" })
+        : el("circle", { cx: 177, cy: 109, r: 12, fill: lampColor, stroke: bodyDark, "stroke-width": 3 });
     const lamp = group({ "data-part": "lamp" }, [
       lampShape,
       el("circle", { cx: 177, cy: 109, r: 4.5, fill: shade(lampColor, 0.55) }),
@@ -443,6 +482,23 @@
       flagBody.push(el("circle", { cx: 60, cy: 28.5, r: 2.8, fill: inkOn(flagColor) }));
     } else if (c.flag.pattern === "zigzag") {
       flagBody.push(el("polygon", { points: "41,18 78,28 41,38 52,28", fill: flagColor }));
+    } else if (c.flag.pattern === "rainbow") {
+      // Fünf Bänder, jedes so breit, wie der Wimpel an dieser Höhe noch ist:
+      // die Spitze liegt bei (78,28), die Kante wandert also je Höhe.
+      const edge = (y) => 41 + 37 * (1 - Math.abs(y - 28) / 10);
+      ["#ff5d5d", "#ffb347", "#ffe66d", "#6ee7a8", "#6ec6ff"].forEach((color, i) => {
+        const y0 = 18 + i * 4;
+        const y1 = y0 + 4;
+        const points = [`41,${y0}`, `${edge(y0).toFixed(1)},${y0}`];
+        if (y0 < 28 && y1 > 28) points.push("78,28");
+        points.push(`${edge(y1).toFixed(1)},${y1}`, `41,${y1}`);
+        flagBody.push(el("polygon", { points: points.join(" "), fill: color }));
+      });
+    } else if (c.flag.pattern === "stars") {
+      flagBody.push(el("polygon", { points: "41,18 78,28 41,38", fill: flagColor }));
+      flagBody.push(el("polygon", { points: starPoints(50, 24, 3.4, 1.5), fill: inkOn(flagColor) }));
+      flagBody.push(el("polygon", { points: starPoints(50, 33, 3.4, 1.5), fill: inkOn(flagColor) }));
+      flagBody.push(el("polygon", { points: starPoints(61, 28.5, 3.4, 1.5), fill: inkOn(flagColor) }));
     } else {
       flagBody.push(el("polygon", { points: "41,18 78,28 41,38", fill: flagColor }));
     }
@@ -1485,7 +1541,7 @@
       svg.append(wagon);
     });
 
-    const loco = buildLoco(config);
+    const loco = buildLoco(options.journeyStars ? { ...config, journeyStars: options.journeyStars } : config);
     loco.setAttribute("transform", `translate(${pad + areas.length * (WAGON_W + gap)},0)`);
     svg.append(loco);
 
@@ -2607,6 +2663,236 @@
     ]);
   }
 
+
+  // ---------------------------------------------------------------------------
+  // Die Reise
+  // ---------------------------------------------------------------------------
+  // Was die Streckenkarte (train-journey.js) und der Einstieg vor den Toren
+  // (train-home.js) an Zeichnungen brauchen. Alles in eigenen Koordinaten mit
+  // dem Boden bei y = 0; wer es aufstellt, verschiebt und skaliert.
+
+  // Das Zeichen der Reise: eine geschwungene Strecke mit drei Stationen. Steht
+  // auf dem Streckenschild und später auf dem Fahrplan-Knopf.
+  function routeGlyph(color = "#ffffff") {
+    return group({ class: "journey-glyph", "aria-hidden": "true" }, [
+      el("path", { d: "M8 44 C24 44 24 12 44 12 S64 44 80 44", fill: "none", stroke: color, "stroke-width": 5, "stroke-linecap": "round", opacity: "0.5" }),
+      el("path", { d: "M8 44 C24 44 24 12 44 12", fill: "none", stroke: color, "stroke-width": 5, "stroke-linecap": "round" }),
+      el("circle", { cx: 8, cy: 44, r: 6.5, fill: color }),
+      el("circle", { cx: 44, cy: 12, r: 6.5, fill: color }),
+      el("circle", { cx: 80, cy: 44, r: 6.5, fill: "none", stroke: color, "stroke-width": 3.5 }),
+      el("polygon", { points: "74,4 88,-2 88,12", fill: GOLD }),
+    ]);
+  }
+
+  // Das Streckenschild: Bahnsteig, Laterne, Bank, und ein Pfosten mit der
+  // blauen Tafel. In der Marke oben rechts die Nummer der nächsten Station –
+  // die eine Zahl, die hier stehen darf, weil sie der Inhalt ist.
+  const SIGN_W = 260;
+  const SIGN_H = 170;
+  const PLATE = "#2b5fb3";
+
+  function buildJourneySign(options = {}) {
+    const { station = 1, total = 60, sparkle = false, label = "Auf die Reise" } = options;
+    const ratio = Math.max(0, Math.min(1, (station - 1) / Math.max(1, total)));
+    const ring = 2 * Math.PI * 13;
+    const number = el("text", {
+      x: 226, y: 31, "font-family": "Inter, system-ui, sans-serif", "font-size": 15,
+      "font-weight": 900, fill: "#243047", "text-anchor": "middle",
+    });
+    number.textContent = String(station);
+    const parts = [
+      el("rect", { x: -8, y: 0, width: SIGN_W + 16, height: SIGN_H + 8, rx: 16, fill: "transparent", class: "train-gate-hit" }),
+      // Bahnsteig
+      el("rect", { x: 20, y: 150, width: 240, height: 20, rx: 4, fill: "#d8c9a3" }),
+      el("rect", { x: 20, y: 148, width: 240, height: 5, rx: 2, fill: "#efe5c8" }),
+      // Bank
+      el("rect", { x: 36, y: 126, width: 44, height: 6, rx: 2, fill: WOOD.base }),
+      el("rect", { x: 36, y: 134, width: 44, height: 5, rx: 2, fill: WOOD.light }),
+      el("rect", { x: 40, y: 138, width: 4, height: 10, fill: WOOD.ink }),
+      el("rect", { x: 72, y: 138, width: 4, height: 10, fill: WOOD.ink }),
+      // Laterne
+      el("rect", { x: 238, y: 92, width: 5, height: 58, fill: "#4a5568" }),
+      el("rect", { x: 231, y: 82, width: 19, height: 14, rx: 3, fill: "#ffe066", class: "journey-lantern" }),
+      el("rect", { x: 229, y: 78, width: 23, height: 5, rx: 2, fill: "#4a5568" }),
+      // Pfosten und Tafel
+      el("rect", { x: 152, y: 56, width: 9, height: 96, rx: 3, fill: "#4a5568" }),
+      el("rect", { x: 96, y: 22, width: 124, height: 74, rx: 10, fill: PLATE, stroke: "#ffffff", "stroke-width": 4 }),
+      group({ transform: "translate(114,38) scale(0.95)" }, [routeGlyph("#ffffff")]),
+      // Marke mit der Nummer
+      el("circle", { cx: 226, cy: 26, r: 20, fill: "#ffffff", stroke: "#b9c4d0", "stroke-width": 2 }),
+      el("circle", { cx: 226, cy: 26, r: 13, fill: "none", stroke: "#d3dbe4", "stroke-width": 5 }),
+      el("circle", {
+        cx: 226, cy: 26, r: 13, fill: "none", stroke: PLATE, "stroke-width": 5, "stroke-linecap": "round",
+        "stroke-dasharray": `${(ratio * ring).toFixed(2)} ${ring.toFixed(2)}`, transform: "rotate(-90 226 26)",
+      }),
+      number,
+    ];
+    if (sparkle) {
+      parts.push(el("polygon", { points: starPoints(84, 30, 9, 4), fill: GOLD, class: "journey-sparkle" }));
+      parts.push(el("polygon", { points: starPoints(72, 58, 6, 2.6), fill: GOLD, class: "journey-sparkle journey-sparkle-2" }));
+    }
+    return group({
+      class: "train-gate journey-sign", "data-journey": "sign", role: "button", tabindex: "0", "aria-label": label,
+    }, parts);
+  }
+
+  // Der Stempel: rund, in der Bereichsfarbe mit Haken – oder golden mit
+  // Stern, wenn die Runde gut war. Um (0,0), leicht schief wie ein echter.
+  function buildStamp(color, options = {}) {
+    const { gold = false } = options;
+    const parts = [
+      el("circle", { cx: 0, cy: 0, r: 17, fill: gold ? GOLD : color, stroke: "#ffffff", "stroke-width": 3 }),
+      el("circle", { cx: 0, cy: 0, r: 11.5, fill: "none", stroke: "#ffffff", "stroke-width": 1.6, opacity: "0.75" }),
+    ];
+    if (gold) parts.push(el("polygon", { points: starPoints(0, 0.5, 8.5, 3.8), fill: "#ffffff" }));
+    else parts.push(el("path", { d: "M-7 0 l4.5 4.8 9.5 -9.6", fill: "none", stroke: "#ffffff", "stroke-width": 3.4, "stroke-linecap": "round", "stroke-linejoin": "round" }));
+    return group({ class: `journey-stamp${gold ? " is-gold" : ""}`, transform: "rotate(-14)" }, parts);
+  }
+
+  // Der Nebel über einer Station, die noch nicht dran ist. Um (0,0), rund
+  // hundert breit.
+  function buildFog() {
+    const f = "#ffffff";
+    return group({ class: "journey-fog", "aria-hidden": "true" }, [
+      el("ellipse", { cx: 0, cy: 18, rx: 46, ry: 6, fill: "#000000", opacity: "0.07" }),
+      el("ellipse", { cx: 4, cy: 8, rx: 42, ry: 14, fill: f, opacity: "0.96" }),
+      el("ellipse", { cx: -22, cy: -4, rx: 25, ry: 16, fill: f, opacity: "0.96" }),
+      el("ellipse", { cx: 12, cy: -11, rx: 29, ry: 19, fill: f, opacity: "0.96" }),
+      el("ellipse", { cx: 34, cy: 0, rx: 21, ry: 14, fill: f, opacity: "0.96" }),
+    ]);
+  }
+
+  // Das Signal an der aktuellen Station: grün, mit dem Ring des Startsignals.
+  // Der Fuss steht bei (0,0).
+  function buildJourneySignal() {
+    return group({ class: "journey-signal", "aria-hidden": "true" }, [
+      el("rect", { x: -2.5, y: -40, width: 5, height: 40, rx: 2, fill: "#4a5568" }),
+      el("rect", { x: -9, y: -3, width: 18, height: 4, rx: 2, fill: "#3a4250" }),
+      el("circle", { cx: 0, cy: -47, r: 14, fill: "none", stroke: "#3fbf74", "stroke-width": 3, class: "journey-signal-ring" }),
+      el("circle", { cx: 0, cy: -47, r: 10.5, fill: shade("#3fbf74", -0.35) }),
+      el("circle", { cx: 0, cy: -47, r: 8, fill: "#3fbf74", class: "journey-signal-lamp" }),
+      el("polygon", { points: "-3.5,-52 5.5,-47 -3.5,-42", fill: "#ffffff" }),
+    ]);
+  }
+
+  // Die Weiche zum Ausweichgleis: ein kleines Y, das sich stellt.
+  function buildSwitchMark(color) {
+    return group({ class: "journey-switch", "aria-hidden": "true" }, [
+      el("path", { d: "M0 14 V2 M0 2 L-11 -9 M0 2 L11 -9", fill: "none", stroke: shade(color, -0.25), "stroke-width": 3.4, "stroke-linecap": "round" }),
+      el("circle", { cx: 11, cy: -9, r: 3.2, fill: shade(color, -0.25) }),
+    ]);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Die Wahrzeichen am Ziel-Bahnhof
+  // ---------------------------------------------------------------------------
+  // Eines je Karte, der Boden bei y = 0, rund hundert breit und gut hundert
+  // hoch. Jedes tut bei der Ankunft etwas (Klasse journey-*, styles.css).
+  const LANDMARKS = {
+    windmill() {
+      const blades = group({ class: "journey-blades" }, [0, 90, 180, 270].map((deg) => el("rect", {
+        x: -4, y: -52, width: 8, height: 50, rx: 3, fill: "#f4f1ea", stroke: WOOD.base, "stroke-width": 2, transform: `rotate(${deg})`,
+      })));
+      return [
+        el("polygon", { points: "-24,0 24,0 15,-80 -15,-80", fill: "#e8d9a8" }),
+        el("polygon", { points: "-19,-78 19,-78 0,-98", fill: "#c9483a" }),
+        el("rect", { x: -7, y: -24, width: 14, height: 24, rx: 6, fill: WOOD.base }),
+        el("rect", { x: -6, y: -58, width: 12, height: 12, rx: 3, fill: "#a8ddf0" }),
+        group({ transform: "translate(0,-86)" }, [blades, el("circle", { cx: 0, cy: 0, r: 5, fill: WOOD.base })]),
+      ];
+    },
+    treehouse() {
+      return [
+        el("rect", { x: -9, y: -72, width: 18, height: 72, rx: 5, fill: WOOD.dark }),
+        el("circle", { cx: 0, cy: -74, r: 40, fill: "#2f6b3b" }),
+        el("circle", { cx: -30, cy: -60, r: 26, fill: "#377643" }),
+        el("circle", { cx: 30, cy: -62, r: 26, fill: "#2a6236" }),
+        el("rect", { x: -22, y: -94, width: 44, height: 30, rx: 4, fill: "#e8d9a8" }),
+        el("polygon", { points: "-27,-93 0,-114 27,-93", fill: "#c9483a" }),
+        el("rect", { x: -7, y: -84, width: 14, height: 13, rx: 2, fill: "#a8ddf0", class: "journey-window" }),
+        el("path", { d: "M12 -62 V-4 M20 -62 V-4 M12 -50 H20 M12 -38 H20 M12 -26 H20 M12 -14 H20", fill: "none", stroke: WOOD.base, "stroke-width": 2.5, "stroke-linecap": "round" }),
+      ];
+    },
+    lighthouse() {
+      return [
+        el("polygon", { points: "-18,0 18,0 12,-92 -12,-92", fill: "#f4f1ea" }),
+        el("polygon", { points: "-15.5,-38 15.5,-38 14.8,-52 -14.8,-52", fill: "#c9483a" }),
+        el("polygon", { points: "-13.5,-66 13.5,-66 12.8,-80 -12.8,-80", fill: "#c9483a" }),
+        el("rect", { x: -17, y: -96, width: 34, height: 6, rx: 2, fill: "#4a5568" }),
+        el("rect", { x: -10, y: -114, width: 20, height: 18, rx: 2, fill: "#ffe066", class: "journey-lantern" }),
+        el("polygon", { points: "-13,-114 13,-114 0,-126", fill: "#c9483a" }),
+        el("polygon", { points: "8,-112 70,-124 70,-96", fill: "#ffe066", opacity: "0.35", class: "journey-beam" }),
+        el("rect", { x: -6, y: -20, width: 12, height: 20, rx: 5, fill: "#4a5568" }),
+      ];
+    },
+    temple() {
+      return [
+        el("rect", { x: -50, y: -10, width: 100, height: 10, rx: 2, fill: "#b8a98a" }),
+        el("rect", { x: -42, y: -20, width: 84, height: 10, rx: 2, fill: "#c9bb9c" }),
+        el("rect", { x: -36, y: -78, width: 72, height: 58, fill: "#d9cfb1" }),
+        ...[-26, -9, 9, 26].map((x) => el("rect", { x: x - 4, y: -76, width: 8, height: 56, rx: 2, fill: "#eee6cf" })),
+        el("rect", { x: -9, y: -48, width: 18, height: 28, rx: 3, fill: "#5a4a2e" }),
+        el("polygon", { points: "-44,-78 44,-78 0,-108", fill: "#8a5f1c" }),
+        el("polygon", { points: "-34,-80 34,-80 0,-102", fill: "#a8743a" }),
+        el("path", { d: "M-40 -60 q-8 20 2 40 M40 -66 q10 18 0 38", fill: "none", stroke: "#3f8f57", "stroke-width": 4, "stroke-linecap": "round" }),
+      ];
+    },
+    hut() {
+      return [
+        el("rect", { x: -34, y: -22, width: 68, height: 22, fill: "#8e9aa8" }),
+        el("rect", { x: -32, y: -60, width: 64, height: 40, fill: WOOD.base }),
+        el("path", { d: "M-32 -50 H32 M-32 -40 H32 M-32 -30 H32", stroke: WOOD.dark, "stroke-width": 1.5, opacity: "0.6" }),
+        el("polygon", { points: "-44,-58 44,-58 0,-96", fill: "#5a3b10" }),
+        el("polygon", { points: "-36,-60 36,-60 0,-90", fill: WOOD.dark }),
+        el("rect", { x: -8, y: -50, width: 16, height: 14, rx: 2, fill: "#ffe066", class: "journey-window" }),
+        el("rect", { x: 14, y: -84, width: 10, height: 22, fill: "#6f7b89" }),
+        el("circle", { cx: 19, cy: -92, r: 6, fill: "#dfe6ee", class: "journey-smoke" }),
+        el("rect", { x: -30, y: -112, width: 3, height: 54, fill: "#4a5568" }),
+        el("polygon", { points: "-27,-112 -7,-105 -27,-98", fill: "#c9483a" }),
+      ];
+    },
+    observatory() {
+      return [
+        el("rect", { x: -30, y: -60, width: 60, height: 60, fill: "#e8ecf2" }),
+        el("rect", { x: -34, y: -64, width: 68, height: 8, rx: 3, fill: "#b9c4d0" }),
+        el("path", { d: "M-30 -62 A30 30 0 0 1 30 -62 Z", fill: "#7d95ad" }),
+        el("path", { d: "M-6 -62 L-2 -90 L6 -90 L10 -62 Z", fill: "#31456a" }),
+        el("line", { x1: 0, y1: -78, x2: 26, y2: -104, stroke: "#4a5568", "stroke-width": 6, "stroke-linecap": "round" }),
+        el("rect", { x: -7, y: -22, width: 14, height: 22, rx: 5, fill: "#4a5568" }),
+        ...[[-42, -96], [40, -82], [-20, -118], [24, -124]].map(([x, y], i) => el("polygon", {
+          points: starPoints(x, y, i % 2 ? 4 : 5.5, i % 2 ? 1.8 : 2.4), fill: "#ffe98a", class: "journey-star",
+        })),
+      ];
+    },
+  };
+
+  function buildLandmark(id) {
+    const draw = LANDMARKS[id] || LANDMARKS.windmill;
+    return group({ class: `journey-landmark journey-landmark-${LANDMARKS[id] ? id : "windmill"}`, "aria-hidden": "true" }, draw());
+  }
+
+  // Das Schaufenster am Ziel-Bahnhof: ein Kasten mit Glas, darin die
+  // Belohnung, davor das Schloss. Der Boden steht bei (0,0), das Bild kommt
+  // von der Karte (sie kennt Landschaften und Lok).
+  function buildShowcase(picture, options = {}) {
+    const { locked = true } = options;
+    const parts = [
+      el("ellipse", { cx: 0, cy: -34, rx: 52, ry: 42, fill: GOLD, opacity: "0", class: "journey-glow" }),
+      el("rect", { x: -34, y: -70, width: 68, height: 70, rx: 8, fill: WOOD.base }),
+      el("rect", { x: -29, y: -65, width: 58, height: 48, rx: 5, fill: "#eaf4fb" }),
+      group({ class: "journey-showcase-picture", transform: "translate(0,-41)" }, picture ? [picture] : []),
+      el("rect", { x: -29, y: -65, width: 58, height: 48, rx: 5, fill: "#ffffff", opacity: "0.16" }),
+    ];
+    if (locked) {
+      parts.push(group({ class: "journey-lock" }, [
+        el("circle", { cx: 0, cy: -10, r: 12, fill: "#ffffff", stroke: "#b9c4d0", "stroke-width": 2 }),
+        el("path", { d: "M-5 -11 v-3 a5 5 0 0 1 10 0 v3", fill: "none", stroke: "#4a5568", "stroke-width": 2.2, "stroke-linecap": "round" }),
+        el("rect", { x: -7, y: -11, width: 14, height: 9, rx: 2.5, fill: "#4a5568" }),
+      ]));
+    }
+    return group({ class: `journey-showcase${locked ? " is-locked" : ""}` }, parts);
+  }
+
   window.LernappTrainArt = {
     GROUND, ART_H, WAGON_W, LOCO_W, WAGON_GAP, WAGON_STAGES, WAGON_BUILT, WAGON_VIEW,
     DRIVERS, DRIVER_BY_ID, PALETTE, LOCO_PARTS, DEFAULT_LOCO,
@@ -2616,5 +2902,8 @@
     buildLoco, buildWagon, buildTrain, buildTrack, buildStartSignal,
     areaIcon, buildGate, buildBuilding, BUILDINGS, AREA_HUES, GATE_W, GATE_H, BUILD_W, BUILD_H, PART_FOCUS, PART_HIT, PART_PREVIEW, PART_DOT,
     locoConfig,
+    // Die Reise
+    routeGlyph, buildJourneySign, buildStamp, buildFog, buildJourneySignal, buildSwitchMark,
+    buildLandmark, buildShowcase, LANDMARKS, SIGN_W, SIGN_H, GOLD, PLATE,
   };
 })();

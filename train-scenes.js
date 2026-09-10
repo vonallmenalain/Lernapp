@@ -448,9 +448,75 @@
         },
       },
     },
+    // Die Savanne schaltet nicht ein Wagen frei, sondern die Reise: sie ist
+    // die Belohnung der vierten Karte (journey-plan.js). Deshalb steht sie
+    // hinter den sechs Landschaften, die der Zug freigibt – die Zählung unten
+    // lässt sie aus.
+    {
+      id: "savanne",
+      reward: "scene-savanne",
+      thumb: () => [
+        thumbHill(48, "#e0c46a"), thumbHill(58, "#d1a94a"),
+        group({ transform: "translate(30,66)" }, [
+          el("rect", { x: -1.5, y: -14, width: 3, height: 16, fill: "#6d4b2a" }),
+          el("path", { d: "M-14 -14 q14 -12 28 0 q-14 3 -28 0 z", fill: "#4f8a3c" }),
+        ]),
+        group({ transform: "translate(86,68)" }, [
+          el("rect", { x: -1.2, y: -11, width: 2.4, height: 13, fill: "#6d4b2a" }),
+          el("path", { d: "M-11 -11 q11 -9 22 0 q-11 2.5 -22 0 z", fill: "#5a9646" }),
+        ]),
+        el("rect", { x: 0, y: 66, width: 120, height: 10, fill: "#c9a13c" }),
+      ],
+      label: "Savanne",
+      sky: ["#ffd28a", "#ffefc9"],
+      ground: "#d9b44a",
+      groundDark: "#b8913a",
+      light: { color: "#ff9f1c", glow: 0.38 },
+      layers: {
+        clouds: () => tile([
+          el("ellipse", { cx: 150, cy: 70, rx: 50, ry: 16, fill: "#ffffff", opacity: "0.5" }),
+          el("ellipse", { cx: 420, cy: 50, rx: 40, ry: 13, fill: "#ffffff", opacity: "0.4" }),
+          // Ein Vogelschwarm in der Ferne: drei Bögen, sonst nichts.
+          el("path", { d: "M300 90 q5 -6 10 0 M312 86 q5 -6 10 0 M290 98 q5 -6 10 0", fill: "none", stroke: "#8a6b3c", "stroke-width": 1.6, "stroke-linecap": "round", opacity: "0.7" }),
+        ]),
+        far: () => tile([
+          hills(110, 30, "#e0c46a"),
+          hills(140, 22, "#d1a94a"),
+          // Giraffen am Horizont: lange Hälse, sonst nichts.
+          group({ transform: "translate(150,138)", fill: "#c98a3f" }, [
+            el("rect", { x: -12, y: -14, width: 24, height: 12, rx: 5 }),
+            el("rect", { x: 6, y: -40, width: 5, height: 30, rx: 2 }),
+            el("rect", { x: 3, y: -46, width: 11, height: 8, rx: 3 }),
+            el("rect", { x: -10, y: -3, width: 4, height: 8 }), el("rect", { x: 6, y: -3, width: 4, height: 8 }),
+          ]),
+          group({ transform: "translate(470,140) scale(0.8)", fill: "#b8742f" }, [
+            el("rect", { x: -12, y: -14, width: 24, height: 12, rx: 5 }),
+            el("rect", { x: -11, y: -40, width: 5, height: 30, rx: 2 }),
+            el("rect", { x: -14, y: -46, width: 11, height: 8, rx: 3 }),
+            el("rect", { x: -10, y: -3, width: 4, height: 8 }), el("rect", { x: 6, y: -3, width: 4, height: 8 }),
+          ]),
+        ]),
+        mid: () => tile([
+          hills(154, 16, "#c9a13c"),
+          ...[70, 260, 430, 560].map((x, i) => group({ transform: `translate(${x},${186 - (i % 2) * 6}) scale(${0.9 + (i % 3) * 0.15})` }, [
+            el("rect", { x: -4, y: -34, width: 8, height: 40, rx: 3, fill: "#6d4b2a" }),
+            el("path", { d: "M-40 -34 q40 -34 80 0 q-40 8 -80 0 z", fill: i % 2 ? "#5a9646" : "#4f8a3c" }),
+          ])),
+        ]),
+        near: () => {
+          const parts = [nearGround(22, "#c9a13c", 4), nearGround(28, "#d9b44a", 4)];
+          [10, 34, 58, 80, 104, 128, 152, 176, 200, 224, 248, 272, 296, 320, 344, 368, 392, 416, 440, 464, 488, 512, 536, 560, 584]
+            .forEach((x, i) => parts.push(grassClump(x, 31 + (i % 3) * 3, 12 + (i % 4) * 4, i % 4 === 0 ? "#e0c46a" : "#b8913a")));
+          [140, 330, 500].forEach((x, i) => parts.push(el("ellipse", { cx: x, cy: 44 + (i % 2) * 3, rx: 9, ry: 4.5, fill: "#a8896a" })));
+          return nearTile(parts);
+        },
+      },
+    },
   ];
 
   const BY_ID = Object.fromEntries(SCENES.map((scene) => [scene.id, scene]));
+  // Die Landschaften, die der Zug freigibt – ohne die Belohnungen der Reise.
+  const REGULAR = SCENES.filter((scene) => !scene.reward);
 
   // ---------------------------------------------------------------------------
   // Die Landschaft aufbauen
@@ -528,18 +594,24 @@
   // Freigeschaltet wird über fertig gebaute Wagen: zwei Szenen sind von Anfang
   // an da, jede weitere kostet einen Wagen, der mindestens fertig gebaut ist.
   // So lohnt es sich, alle fünf Bereiche anzufassen statt nur den liebsten.
+  //
+  // Eine Landschaft mit reward gehört nicht in diese Zählung: sie schaltet
+  // die Reise frei (journey-plan.js), wenn die Karte dazu fertig ist.
   function unlockedCount(builtWagons) {
-    const free = SCENES.filter((scene) => scene.free).length;
-    return Math.min(SCENES.length, free + Math.max(0, builtWagons));
+    const free = REGULAR.filter((scene) => scene.free).length;
+    return Math.min(REGULAR.length, free + Math.max(0, builtWagons));
   }
 
   function isUnlocked(id, builtWagons) {
-    const index = SCENES.findIndex((scene) => scene.id === id);
+    const scene = BY_ID[id];
+    if (!scene) return false;
+    if (scene.reward) return Boolean(window.LernappReise?.hasReward?.(scene.reward));
+    const index = REGULAR.indexOf(scene);
     return index >= 0 && index < unlockedCount(builtWagons);
   }
 
   window.LernappScenes = {
-    SCENES, BY_ID, unlockedCount, isUnlocked,
+    SCENES, BY_ID, REGULAR, unlockedCount, isUnlocked,
     buildScene, savedScene, LAYER_SPEED,
     tile, nearTile, hills, nearGround, grassClump, flower, tree, fir, palm, bush, grassTile, cloudTile,
     W, H, NW, NH, TW, TH,

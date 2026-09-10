@@ -91,12 +91,28 @@ const free = scenes.SCENES.filter((scene) => scene.free).length;
 assert(free >= 2, `erwartet mindestens zwei freie Landschaften, gefunden ${free}`);
 assert(scenes.SCENES.slice(0, free).every((scene) => scene.free), "die freien Landschaften müssen vorne stehen");
 
+// Landschaften mit reward schaltet nicht der Zug frei, sondern die Reise
+// (journey-plan.js). Sie stehen hinten und zählen bei den Wagen nicht mit.
+const regular = scenes.REGULAR;
+assert(Array.isArray(regular) && regular.length >= 4, "REGULAR fehlt oder ist zu kurz");
+assert(scenes.SCENES.slice(0, regular.length).every((scene) => !scene.reward), "die Belohnungs-Landschaften der Reise müssen hinten stehen");
+const rewarded = scenes.SCENES.filter((scene) => scene.reward);
+assert(rewarded.length >= 1, "erwartet mindestens eine Landschaft als Belohnung der Reise");
+
 assert(scenes.unlockedCount(0) === free, "ohne fertigen Wagen dürfen nur die freien Landschaften offen sein");
 assert(scenes.unlockedCount(1) === free + 1, "ein fertiger Wagen muss genau eine Landschaft freischalten");
-assert(scenes.unlockedCount(99) === scenes.SCENES.length, "mit allen Wagen müssen alle Landschaften offen sein");
+assert(scenes.unlockedCount(99) === regular.length, "mit allen Wagen müssen alle Landschaften des Zugs offen sein");
 assert(scenes.isUnlocked(scenes.SCENES[0].id, 0), "die erste Landschaft muss immer offen sein");
-assert(!scenes.isUnlocked(scenes.SCENES.at(-1).id, 0), "die letzte Landschaft darf nicht von Anfang an offen sein");
+assert(!scenes.isUnlocked(regular.at(-1).id, 0), "die letzte Landschaft des Zugs darf nicht von Anfang an offen sein");
+assert(regular.every((scene) => scenes.isUnlocked(scene.id, 99)), "mit allen Wagen muss jede Landschaft des Zugs offen sein");
 assert(!scenes.isUnlocked("gibtsnicht", 99), "eine unbekannte Landschaft darf nicht als offen gelten");
+// Ohne Reise bleibt die Belohnung zu; mit der passenden Belohnung geht sie auf.
+for (const scene of rewarded) {
+  assert(!scenes.isUnlocked(scene.id, 99), `${scene.id}: darf nicht über die Wagen aufgehen`);
+  windowStub.LernappReise = { hasReward: (id) => id === scene.reward };
+  assert(scenes.isUnlocked(scene.id, 0), `${scene.id}: muss mit der Belohnung ${scene.reward} offen sein`);
+  delete windowStub.LernappReise;
+}
 
 // Die Vorschaubilder müssen sich unterscheiden – sechs Hügel mit Sonne wären
 // in der Auswahl nicht auseinanderzuhalten.

@@ -807,6 +807,8 @@
     tief: [[392, 0, 0.75], [588, 0.03, 0.65]],
     doppelt: [[660, 0, 0.3], [990, 0.02, 0.28], [880, 0.34, 0.42], [1320, 0.36, 0.4]],
     dampf: [[523, 0, 0.7], [659, 0.04, 0.62], [784, 0.08, 0.55]],
+    // Tief und lang, wie vom See her: die Belohnung der dritten Karte.
+    schiffshorn: [[147, 0, 1.2], [185, 0.02, 1.1], [220, 0.05, 0.9]],
   };
   const WHISTLE_NAMES = Object.keys(WHISTLES);
 

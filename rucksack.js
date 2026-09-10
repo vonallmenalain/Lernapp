@@ -507,7 +507,13 @@
     },
   });
 
-  showMenu();
+  // Auf der Reise (journey-plan.js) wählt die Karte die Stufe: gleich
+  // hinein, kein Menü. Der Rückweg führt dann auf die Karte, das regelt die
+  // Bühne.
+  const auftrag = shell.journey;
+  const auftragStufe = auftrag ? STUFEN[Math.max(0, Math.min(STUFEN.length - 1, Number(auftrag.stufe) || 0))] : null;
+  if (auftragStufe) startRun(auftragStufe);
+  else showMenu();
 
   // Die Punkteformel nach aussen: das Prüfskript rechnet sie ohne Browser nach.
   window.LernappRucksack = { STUFEN, ITEMS, punkte, RUNS_FOR_DONE };

@@ -446,7 +446,12 @@
     },
   });
 
-  showMenu();
+  // Auf der Reise (journey-plan.js) steht die Kartenzahl fest: gleich
+  // hinein, kein Menü. Der Rückweg führt dann auf die Karte, das regelt die
+  // Bühne.
+  const auftrag = shell.journey;
+  if (auftrag?.size && GROESSEN.includes(auftrag.size)) startRunde(auftrag.size);
+  else showMenu();
 
   window.LernappMemory = { GROESSEN, ITEMS, RUNDEN_FUER_WAGEN, waehleItems };
 
