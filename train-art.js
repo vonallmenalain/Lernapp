@@ -384,6 +384,16 @@
     }
     const cab = group({ "data-part": "cab", mask: `url(#${maskId})` }, cabParts);
 
+    // Ein goldener Funke über dem Kessel, wenn in der Werkstatt etwas Neues
+    // wartet. Er sitzt in der Lücke zwischen Wimpel und Kamin, damit er kein
+    // Bauteil verdeckt – und er zeigt vom Startbild aus dorthin, wo es steckt.
+    const sparkle = c.sparkle
+      ? group({ class: "loco-sparkle", "aria-hidden": "true" }, [
+        el("circle", { cx: 102, cy: 22, r: 11, fill: GOLD, opacity: "0.3" }),
+        el("polygon", { points: starPoints(102, 22, 9, 3.8), fill: GOLD, stroke: "#ffffff", "stroke-width": 1.4 }),
+      ])
+      : null;
+
     // --- Chauffeur in der Fensteröffnung ---
     // Zwei Gruppen: die äussere trägt den Beschnitt, die innere stellt das
     // Tier an seinen Platz. An einem Element ginge das nicht – ein Beschnitt in
@@ -550,7 +560,7 @@
     ]);
 
     return group({ class: "train-loco", "data-loco": "true" },
-      [defs, steam, flag, frame, cab, driver, windowFrame, boiler, whistle, chimney, lamp, wheels, plough]);
+      [defs, steam, flag, frame, cab, driver, windowFrame, boiler, whistle, chimney, lamp, wheels, plough, sparkle].filter(Boolean));
   }
 
   // ---------------------------------------------------------------------------
@@ -1577,8 +1587,8 @@
       svg.append(wagon);
     });
 
-    const loco = buildLoco(options.journeyStars || options.journeyGold
-      ? { ...config, journeyStars: options.journeyStars || 0, journeyGold: options.journeyGold || 0 }
+    const loco = buildLoco(options.journeyStars || options.journeyGold || options.sparkle
+      ? { ...config, journeyStars: options.journeyStars || 0, journeyGold: options.journeyGold || 0, sparkle: Boolean(options.sparkle) }
       : config);
     loco.setAttribute("transform", `translate(${pad + areas.length * (WAGON_W + gap)},0)`);
     svg.append(loco);
@@ -1712,7 +1722,10 @@
     { id: "cab", label: "Führerhaus", kind: "shapeColor", shapes: CAB_SHAPES, options: PALETTE },
     { id: "lamp", label: "Frontlampe", kind: "shapeColor", shapes: LAMP_SHAPES, options: ["#ffe066", "#ffffff", "#9be7ff", "#ffb3c1"] },
     { id: "whistle", label: "Pfeife", kind: "sound", options: WHISTLES },
-    { id: "flag", label: "Wimpel", kind: "shapeColor", shapes: FLAG_PATTERNS, options: PALETTE },
+    // Der Wimpel heisst in der Lok-Einstellung "pattern" und nicht "shape":
+    // shapeKey sagt der Werkstatt, welchen Schlüssel sie schreiben muss.
+    // Ohne ihn schrieb sie flag.shape, und kein Muster liess sich wechseln.
+    { id: "flag", label: "Wimpel", kind: "shapeColor", shapes: FLAG_PATTERNS, shapeKey: "pattern", options: PALETTE },
   ];
 
   // ---------------------------------------------------------------------------

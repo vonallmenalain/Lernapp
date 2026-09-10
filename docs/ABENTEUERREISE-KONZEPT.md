@@ -19,8 +19,7 @@ Stand: September 2026 · Grundlage: `train-home.js`, `train-progress.js`, `train
 > **Streckenbesonderheiten** (Kühe am Bahnübergang, Bach mit Holzbrücke, die Fähre über die
 > Bucht in der rechten Kehre der See-Karte, Lianenbrücke, Zahnradstrecke mit Ratterton, Nacht
 > mit Glühwürmchen, Scheinwerferkegel, leuchtendem Tunnelmund und Feuerwerk am Ziel, der Mond
-> mit der Erde am Himmel, Elefanten in der Savanne), die **Gruppe auf der Karte** (Fähnchen mit
-> Namen an der Station, Namen auf den Karten des Fahrplans), die **Schiebelok** (nach fünf
+> mit der Erde am Himmel, Elefanten in der Savanne), die **Schiebelok** (nach fünf
 > Fehlversuchen schiebt sie den Zug zur nächsten Station – grauer Stempel, die Station lässt
 > sich später nachspielen), das **Reisetempo** (Schalter je Konto im Adminbereich, «langsam»
 > nimmt jeder Karte ein Stück Schwierigkeit; liegt mit Zeitmarke im Kasten der Reise) und
@@ -31,6 +30,16 @@ Stand: September 2026 · Grundlage: `train-home.js`, `train-progress.js`, `train
 > Auftrag unerreichbar wird). Je fertiger Karte wird ein Stern auf dem Reise-Schild zum
 > Goldstern; im Fahrplan steht Reise 2 als zweite Reihe mit goldenem Rahmen. Stationen 61–130.
 > Prüfskript: `scripts/validate-reise.mjs`.
+> **Nachgeschärft (September 2026, nach dem ersten Spielen):** Die **Gruppe auf der Karte**
+> ist wieder weg – wie weit die anderen sind, steht auf dem Startbild an ihren Zügen, zweimal
+> dasselbe war auf der Karte nur Gedränge. Die **Stationsnummern** sind gross und tragen die
+> Farbe ihres Bereichs; an der Station, die dran ist, pulst ein grüner Ring darum. Sie sind
+> jetzt das Ziel für den Finger, das Spielbild nur noch die Auskunft, was dort wartet. Die
+> Karte wird **einmal je Sitzung vermessen** statt bei jedem Öffnen (der Weg dorthin dauerte
+> auf einem Tablet Sekunden) und im Leerlauf nach dem Start schon vorbereitet; sie kommt erst
+> ins Bild, wenn der Zug an seinem Platz steht. **Neu freigeschaltete Teile** funkeln am Zug,
+> stehen in der Werkstatt mit goldenem Stern und werden vom Lautsprecher genannt, bis sie
+> einmal angesehen wurden.
 > **Nicht gebaut (bewusst):** Kabuse und Postkarten aus Abschnitt 9.
 > Der Rest des Dokuments bleibt als Begründung stehen; zum Konzept gehört eine Seite mit
 > einer klickbaren Streckenkarte (Artefakt „Abenteuerreise").
@@ -82,8 +91,8 @@ Schloss, ein Regenbogen-Wimpel für die Lok.
 
 Dazu kommen meine Vorschläge, die im Rest des Dokuments ausgeführt sind: Wahlstationen,
 der Nebel, das Schaufenster am Ziel-Bahnhof, goldene Stempel, Belohnungen für Lok und
-Landschaft, ein Fahrgast je Karte als kleine Geschichte, die Gruppe auf der Karte und je
-Landschaft eine Streckenbesonderheit (Fähre, Zahnrad, Tunnel).
+Landschaft, ein Fahrgast je Karte als kleine Geschichte und je Landschaft eine
+Streckenbesonderheit (Fähre, Zahnrad, Tunnel).
 
 ---
 
@@ -270,7 +279,7 @@ zum Fernsten:
    Fortschrittsbalken: hinter dem Zug Stempel, vor ihm Wolken.
 3. **Die zehn Punkte** in der Kopfzeile und das **Schaufenster** am Ziel, das mit jeder
    Station näher rückt.
-4. **Der Fahrplan** (Knopf in der Kopfzeile): alle sechs Karten als ein Streckenband, wie
+4. **Der Fahrplan** (Knopf in der Kopfzeile): alle Karten als ein Streckenband, wie
    ein Liniennetzplan – jede Station ein Punkt, gestempelt oder nicht, die Belohnungen an
    den Zielen, die eigene Position markiert. Von hier aus lassen sich fertige Karten wieder
    öffnen, für goldene Stempel. Für Eltern ist das zugleich die Übersicht, was das Kind
@@ -382,10 +391,9 @@ Alles läuft über `transform` und `opacity`, wie die bestehende Bühne; mit
 
 ## 9. Weitere Ideen, ausserhalb des Kerns
 
-- **Die Gruppe auf der Karte.** Die Züge der Gruppe stehen schon auf dem Startbild; ihr
-  Reisestand liegt im selben Kasten (`gameState`), den `loadGroupMembers` bereits lädt. Auf
-  der Karte stünde je Freund ein Fähnchen mit Namen an seiner Station, auf dem Fahrplan
-  seine Position. Vergleichen ohne Rangliste: ein Fähnchen, kein Platz eins.
+- **Die Gruppe auf der Karte.** *(Gebaut und wieder entfernt.)* Je Freund ein Fähnchen mit
+  Namen an seiner Station sah nach Gedränge aus und sagte nichts, was der Zug des anderen auf
+  dem Startbild nicht schon zeigt. Der Vergleich bleibt dort, die Karte gehört dem eigenen Zug.
 - **Reise 2.** Nach der Sternwarte beginnt die Reise von vorn, zuerst auf einer
   Weltraum-Karte, danach auf den bekannten Karten mit Weltall-Leveln und Aufträgen über
   „gut". Im Fahrplan golden gerahmt.

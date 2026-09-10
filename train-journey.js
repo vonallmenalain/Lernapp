@@ -18,8 +18,10 @@
  * Streckenbesonderheit: Kühe am Bahnübergang, ein Bach mit Holzbrücke, die
  * Fähre über die Bucht, eine Lianenbrücke, die Zahnradstrecke, die Nacht mit
  * Glühwürmchen und Scheinwerfer, der Mond mit der Erde am Himmel, Elefanten
- * in der Savanne. Die Züge der Gruppe stehen als Fähnchen an ihrer Station,
- * und nach fünf Fehlversuchen kommt die Schiebelok.
+ * in der Savanne. Nach fünf Fehlversuchen kommt die Schiebelok.
+ *
+ * Die Karte zeigt nur den eigenen Zug: wie weit die anderen sind, steht auf
+ * dem Startbild an ihren Zügen – zweimal dasselbe wäre hier nur Gedränge.
  *
  * Gefeiert wird, was seit dem letzten Öffnen dazugekommen ist: die Karte
  * merkt sich, an welcher Station sie den Zug zuletzt gezeigt hat
@@ -100,6 +102,74 @@
     return scenes()?.BY_ID?.[map.scene] || FALLBACK_SCENE;
   }
   function lookOf(map) { return LOOK[map.scene] || LOOK.wiese; }
+
+  // ---------------------------------------------------------------------------
+  // Das Gleis vermessen – einmal für die ganze Sitzung
+  // ---------------------------------------------------------------------------
+  // Wo eine Station auf dem Gleis liegt, lässt sich nicht rechnen, nur messen.
+  // Früher lief dafür je Station der ganze Pfad in Zweierschritten durch: gut
+  // 27000 Messungen bei jedem Öffnen der Karte, auf einem Tablet mehrere
+  // Sekunden, in denen nichts geschah.
+  //
+  // Jetzt wird der Pfad einmal grob abgetastet, und jede Station sucht in
+  // diesem Raster ihren nächsten Punkt und verfeinert ihn nur dort. Das
+  // Ergebnis hängt allein am Pfad, ist also für alle Karten dasselbe und
+  // bleibt gespeichert. Aus 27000 Messungen werden knapp tausend.
+  const COARSE = 12;
+  let rail = null;
+
+  function measureRail() {
+    if (rail) return rail;
+    // Ein eigenes, unsichtbares SVG: so lässt sich messen, bevor (und ohne
+    // dass) die Karte im Bild hängt – und das Ergebnis steht schon bereit,
+    // wenn das Kind das Streckenschild antippt.
+    const holder = el("svg", { width: "0", height: "0", "aria-hidden": "true", focusable: "false", class: "journey-ruler" });
+    const path = el("path", { d: PATH_D, fill: "none", stroke: "none" });
+    holder.append(path);
+    document.body.append(holder);
+    const total = path.getTotalLength ? path.getTotalLength() : 4600;
+    const xs = [];
+    const ys = [];
+    for (let d = 0; d <= total + COARSE; d += COARSE) {
+      const p = path.getPointAtLength ? path.getPointAtLength(Math.min(d, total)) : { x: 0, y: 0 };
+      xs.push(p.x);
+      ys.push(p.y);
+    }
+    function at(d) {
+      if (!path.getPointAtLength) return { x: 0, y: 540 };
+      // Vor dem Anfang und hinter dem Ende läuft das Gleis gerade weiter:
+      // dort fährt der Zug herein und hinaus.
+      if (d <= 0) { const p = path.getPointAtLength(0); return { x: p.x + d, y: p.y }; }
+      if (d >= total) { const p = path.getPointAtLength(total); return { x: p.x + (d - total), y: p.y }; }
+      return path.getPointAtLength(d);
+    }
+    function nearest(x, y) {
+      let best = 0;
+      let bd = Infinity;
+      for (let i = 0; i < xs.length; i += 1) {
+        const dd = (xs[i] - x) ** 2 + (ys[i] - y) ** 2;
+        if (dd < bd) { bd = dd; best = i; }
+      }
+      // Im Raster gefunden, im Fenster daneben verfeinert.
+      let d = best * COARSE;
+      for (let step = COARSE / 2; step >= 0.5; step /= 2) {
+        [-step, step].forEach((delta) => {
+          const t = Math.max(0, Math.min(total, d + delta));
+          const p = at(t);
+          const dd = (p.x - x) ** 2 + (p.y - y) ** 2;
+          if (dd < bd) { bd = dd; d = t; }
+        });
+      }
+      return d;
+    }
+    rail = {
+      total, at,
+      L: STOPS.map(([x, y]) => nearest(x, y)),
+      platform: nearest(PLATFORM_AT[0], PLATFORM_AT[1]),
+      bay: nearest(1035, STOPS[0][1]),
+    };
+    return rail;
+  }
 
   // ---------------------------------------------------------------------------
   // Kleine Helfer
@@ -445,7 +515,7 @@
    *   onPlay     (url) => void: das Kind will ein Spiel öffnen
    *   onSettled  () => void: die Feiern sind durch
    */
-  function mount({ host, stage, loco, areas, friends = [], mode = "quiet", returned = null, visit = null, celebrate, onPlay, onVisit, onSettled }) {
+  function mount({ host, stage, loco, areas, mode = "quiet", returned = null, visit = null, celebrate, onPlay, onVisit, onSettled }) {
     const token = mountToken += 1;
     settleHook = onSettled || null;
     host.innerHTML = "";
@@ -501,35 +571,10 @@
       layers[name] = group({ class: `journey-layer journey-${name}` });
       svg.append(layers[name]);
     });
-    host.append(svg);
 
-    const railPath = el("path", { d: PATH_D, fill: "none", stroke: "none" });
-    layers.track.append(railPath);
-    const total_ = railPath.getTotalLength ? railPath.getTotalLength() : 4600;
-    // Wo die Stationen auf dem Gleis liegen: gemessen, nicht gerechnet.
-    function lengthNear(x, y) {
-      if (!railPath.getPointAtLength) return 0;
-      let best = 0;
-      let bd = Infinity;
-      for (let d = 0; d <= total_; d += 2) {
-        const p = railPath.getPointAtLength(d);
-        const dd = (p.x - x) ** 2 + (p.y - y) ** 2;
-        if (dd < bd) { bd = dd; best = d; }
-      }
-      return best;
-    }
-    const L = STOPS.map(([x, y]) => lengthNear(x, y));
-    const PLATFORM_D = lengthNear(PLATFORM_AT[0], PLATFORM_AT[1]);
-    // Wo der Zug rechts in die Kehre fährt: dort steht das Bootshaus.
-    const BAY_D = lengthNear(1035, STOPS[0][1]);
+    // Gemessen wird am eigenen Lineal, einmal für die ganze Sitzung.
+    const { total: total_, L, platform: PLATFORM_D, bay: BAY_D, at: pointAt } = measureRail();
     const headAt = (i) => L[i] - STOP_BEFORE;
-
-    function pointAt(d) {
-      if (!railPath.getPointAtLength) return { x: 0, y: 540 };
-      if (d <= 0) { const p = railPath.getPointAtLength(0); return { x: p.x + d, y: p.y }; }
-      if (d >= total_) { const p = railPath.getPointAtLength(total_); return { x: p.x + (d - total_), y: p.y }; }
-      return railPath.getPointAtLength(d);
-    }
 
     // --- Kopfzeile: zehn Punkte ----------------------------------------------
     // Ein Knopf: die zehn Punkte dieser Karte, und ein Tipp darauf öffnet den
@@ -538,7 +583,6 @@
     dots.type = "button";
     dots.className = "journey-dots";
     dots.addEventListener("click", () => { if (!busy && !playing) showPlan(); });
-    host.append(dots);
 
     // --- Konfetti-Host über einem Punkt der Karte ------------------------------
     function burstXY(cx, cy, count = 26) {
@@ -699,8 +743,9 @@
       const color = task?.color || "#7C5CE6";
       const g = group({ class: "journey-station", "data-station": String(nr), transform: `translate(${x},${y})` });
       // Grosse, unsichtbare Trefferfläche: ein Kinderfinger trifft die Station,
-      // nicht das Bild.
-      g.append(el("rect", { x: -64, y: -112, width: 128, height: 140, rx: 18, fill: "transparent", class: "journey-station-hit" }));
+      // nicht das Bild. Sie reicht bis unter die Nummer – die ist das Ziel,
+      // das ein Kind ansteuert.
+      g.append(el("rect", { x: -64, y: -112, width: 128, height: 168, rx: 18, fill: "transparent", class: "journey-station-hit" }));
 
       if (task?.choice) {
         // Wahlstation: zwei Bilder nebeneinander, jedes für sich antippbar.
@@ -723,10 +768,15 @@
         if (task.viaAlt) g.append(group({ transform: "translate(-60,4)" }, [art.buildSwitchMark(color)]));
       }
 
-      // Die Nummer der Station, klein unten links: die eine Zahl, die hier
-      // stehen darf.
-      g.append(el("circle", { cx: -54, cy: 14, r: 11, fill: "#ffffff", stroke: "#b9c4d0", "stroke-width": 2 }));
-      g.append(textNode(-54, 18.5, 12, "#243047", i + 1));
+      // Die Nummer unter dem Gleis: gross, in der Farbe ihres Bereichs, mit
+      // weissem Rand. Sie ist die eine Zahl, die hier stehen darf – und
+      // zugleich das Ziel für den Finger. An der Station, die dran ist, legt
+      // sich ein grüner Ring darum und pulst: hier geht es weiter.
+      g.append(group({ class: "journey-number" }, [
+        el("circle", { cx: 0, cy: 30, r: 29, class: "journey-number-ring", fill: "none", stroke: "#3fbf74", "stroke-width": 5 }),
+        el("circle", { cx: 0, cy: 30, r: 23, class: "journey-number-disc", fill: color, stroke: "#ffffff", "stroke-width": 4 }),
+        textNode(0, i + 1 >= 10 ? 39 : 39.5, i + 1 >= 10 ? 24 : 27, "#ffffff", i + 1),
+      ]));
       g.append(group({ class: "journey-stamp-slot", transform: "translate(36,-98)" }));
       g.append(group({ transform: "translate(0,-52) scale(1.3)" }, [art.buildFog()]));
 
@@ -760,38 +810,6 @@
         layers.stations.append(node);
       }
       applyStates();
-      renderFriends();
-    }
-
-    // Die Züge der Gruppe: ein Fähnchen mit Namen an der Station, an der sie
-    // stehen – vergleichen ohne Rangliste, ein Fähnchen, kein Platz eins.
-    const FLAG_COLORS = ["#c9483a", "#2f6f8f", "#7c5ce6", "#2f8f5b", "#e8763a", "#c2559b"];
-    function renderFriends() {
-      layers.signal.querySelectorAll(".journey-friend").forEach((node) => node.remove());
-      const perStation = new Map();
-      (friends || []).forEach((friend, k) => {
-        const station = Number(friend?.station);
-        if (!Number.isInteger(station) || station < nrOf(0) || station > nrOf(reise.STATIONS_PER_MAP - 1)) return;
-        const i = station - nrOf(0);
-        const n = perStation.get(i) || 0;
-        perStation.set(i, n + 1);
-        const [x, y] = STOPS[i];
-        const name = String(friend.name || "").slice(0, 10);
-        const label = el("text", {
-          x: 27, y: 12, "font-family": "Inter, system-ui, sans-serif", "font-size": 12, "font-weight": 900,
-          fill: "#243047", stroke: "#ffffff", "stroke-width": 3, "paint-order": "stroke", "text-anchor": "start",
-        });
-        label.textContent = name;
-        const flag = group({
-          class: "journey-friend", role: "img", "aria-label": `${friend.name} steht an Station ${i + 1}.`,
-          transform: `translate(${x - 44 + n * 4},${y - 130 - n * 22})`,
-        }, [
-          el("rect", { x: -1.5, y: 0, width: 3, height: 30, rx: 1.5, fill: "#4a5568" }),
-          el("polygon", { points: "1,0 24,7 1,14", fill: FLAG_COLORS[k % FLAG_COLORS.length] }),
-          label,
-        ]);
-        layers.signal.append(flag);
-      });
     }
 
     function stampFor(i, { fresh = false } = {}) {
@@ -905,7 +923,7 @@
       layers.bg.innerHTML = "";
       layers.bg.append(buildBackground(map));
       layers.track.innerHTML = "";
-      layers.track.append(railPath, ...featureTrack(map), rails({ class: "journey-rails-dim" }), ...featureTrack(map, { above: true }));
+      layers.track.append(...featureTrack(map), rails({ class: "journey-rails-dim" }), ...featureTrack(map, { above: true }));
       layers.lit.innerHTML = "";
       // Gelegt ist das Gleis bis zur aktuellen Station.
       const upto = Math.min(reise.STATIONS_PER_MAP - 1, Math.max(0, visibleCurrent - nrOf(0)));
@@ -1368,30 +1386,11 @@
           card.append(here);
         }
 
-        // Wer aus der Gruppe gerade auf dieser Karte fährt.
-        const mates = (friends || []).filter((friend) => Number.isInteger(friend?.station) && reise.mapIndexOf(Math.min(friend.station, total)) === k);
-        if (mates.length) {
-          const chips = document.createElement("span");
-          chips.className = "journey-plan-friends";
-          mates.slice(0, 3).forEach((friend) => {
-            const chip = document.createElement("i");
-            chip.textContent = String(friend.name || "").slice(0, 8);
-            chips.append(chip);
-          });
-          if (mates.length > 3) {
-            const more = document.createElement("i");
-            more.textContent = `+${mates.length - 3}`;
-            chips.append(more);
-          }
-          card.append(chips);
-        }
-
         const state = locked ? "noch im Nebel"
           : finished ? (golden ? "fertig, alle Stempel golden" : `fertig, ${gold} von ${reise.STATIONS_PER_MAP} Stempeln golden${pushed ? `, ${pushed} geschoben` : ""}`)
           : `${done} von ${reise.STATIONS_PER_MAP} Stationen gestempelt`;
-        const who = mates.length ? ` Hier ${mates.length === 1 ? "fährt" : "fahren"} ${mates.map((friend) => friend.name).join(" und ")}.` : "";
-        card.setAttribute("aria-label", `Karte ${map.nr}, ${map.name}: ${state}.${who}${finished ? " Antippen, um sie noch einmal zu fahren." : isCurrent ? " Deine Karte. Antippen, um sie zu zeigen." : ""}`);
-        said.push(`Karte ${map.nr}, ${map.name}: ${state}.${who}`);
+        card.setAttribute("aria-label", `Karte ${map.nr}, ${map.name}: ${state}.${finished ? " Antippen, um sie noch einmal zu fahren." : isCurrent ? " Deine Karte. Antippen, um sie zu zeigen." : ""}`);
+        said.push(`Karte ${map.nr}, ${map.name}: ${state}.`);
         card.addEventListener("click", () => {
           if (locked) return;
           close();
@@ -1467,6 +1466,15 @@
     const somethingNew = visiting === null ? current > seen.station || pending : pending;
     const standAt = stationIndexOf(Math.min(visibleCurrent, nrOf(reise.STATIONS_PER_MAP - 1)));
 
+    // Der Zug steht an seinem Platz, bevor die Karte ins Bild kommt. Vorher
+    // hing das leere SVG schon da, während Landschaft, Stationen und Zug erst
+    // noch gebaut wurden: für einen Moment war eine halbe Karte zu sehen, und
+    // der Zug sass in der linken oberen Ecke.
+    const startsOutside = mode === "enter" && !reduced() && !somethingNew;
+    setHead(startsOutside ? headAt(standAt) - 520 : headAt(standAt));
+    applyStates();
+    host.append(svg, dots);
+
     if (somethingNew && mode !== "quiet") {
       setHead(headAt(standAt));
       applyStates();
@@ -1499,5 +1507,9 @@
     };
   }
 
-  window.LernappJourney = { mount, isPlaying, rewardPicture, LOOK, STOPS, PATH_D };
+  // Vor dem ersten Öffnen im Leerlauf aufrufen: dann ist das Gleis schon
+  // vermessen, wenn das Kind das Streckenschild antippt.
+  function warmUp() { try { measureRail(); } catch { /* ohne Messung baut die Karte sie selbst */ } }
+
+  window.LernappJourney = { mount, isPlaying, rewardPicture, warmUp, LOOK, STOPS, PATH_D };
 })();

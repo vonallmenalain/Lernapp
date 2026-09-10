@@ -462,6 +462,22 @@
     }, [art.buildLoco(config)]);
   }
 
+  // Was die Reise freigeschaltet hat, seit die Werkstatt zuletzt offen war.
+  // Beim Betreten der Werkstatt gefüllt, beim Verlassen geleert: so bleibt die
+  // goldene Markierung stehen, solange das Kind darin herumsucht, und ist beim
+  // nächsten Mal weg.
+  let freshParts = [];
+
+  function newBadge() {
+    const badge = document.createElement("span");
+    badge.className = "loco-new";
+    badge.setAttribute("aria-hidden", "true");
+    badge.append(el("svg", { viewBox: "0 0 24 24" }, [
+      el("polygon", { points: "12,2 14.8,8.6 22,9.3 16.6,14.1 18.2,21 12,17.4 5.8,21 7.4,14.1 2,9.3 9.2,8.6", fill: "currentColor" }),
+    ]));
+    return badge;
+  }
+
   // Eine Variante ändert immer nur ihr eigenes Bauteil.
   function withVariant(config, part, kind, value) {
     const next = { ...config };
@@ -474,15 +490,18 @@
 
   // Welche Varianten ein Bauteil hat. Formen und Farben stehen getrennt, damit
   // das Kind nicht in einer Liste aus dreissig Kombinationen sucht.
+  // kind ist der Schlüssel, unter dem der Wert in der Lok-Einstellung steht –
+  // beim Wimpel "pattern", sonst "shape". frei sagt, ob die Reise in dieser
+  // Zeile etwas freischaltet (Formen, Chauffeure, Pfeifen; Farben nie).
   function variantsFor(part) {
     const spec = art.LOCO_PARTS.find((entry) => entry.id === part);
     if (!spec) return [];
-    if (spec.kind === "driver") return [{ kind: "driver", values: spec.options }];
+    if (spec.kind === "driver") return [{ kind: "driver", values: spec.options, frei: true }];
     if (spec.kind === "color") return [{ kind: "body", values: spec.options }];
-    if (spec.kind === "sound") return [{ kind: "whistle", values: spec.options }];
+    if (spec.kind === "sound") return [{ kind: "whistle", values: spec.options, frei: true }];
     const colorKey = spec.colorKey || "color";
     return [
-      { kind: "shape", values: spec.shapes },
+      { kind: spec.shapeKey || "shape", values: spec.shapes, frei: true },
       { kind: colorKey, values: spec.options },
     ];
   }
@@ -525,13 +544,28 @@
         // Mitte läge er beim Chauffeur mitten im Gesicht. Wo kein Ort
         // eingetragen ist, bleibt es bei der Mitte.
         const dot = art.PART_DOT[spec.id] || { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+        // Wo die Reise etwas freigeschaltet hat, wird aus dem weissen Punkt
+        // ein goldener Stern mit Ring: das Kind sieht auf einen Blick, wo das
+        // Neue steckt, statt acht Bauteile durchzuprobieren.
+        const frisch = freshParts.filter((entry) => entry.part === spec.id);
         const hot = el("g", {
-          class: "loco-hotspot", "data-hot": spec.id,
-          role: "button", tabindex: "0", "aria-label": `${spec.label} ändern`,
+          class: `loco-hotspot${frisch.length ? " is-new" : ""}`, "data-hot": spec.id,
+          role: "button", tabindex: "0",
+          "aria-label": frisch.length ? `${spec.label} ändern. Neu: ${frisch.map((entry) => entry.label).join(", ")}.` : `${spec.label} ändern`,
         }, [
           el("rect", { ...box, rx: 7, fill: "transparent", class: "loco-hotspot-hit" }),
-          el("circle", { cx: dot.x, cy: dot.y, r: 5.5, class: "loco-hotspot-halo", fill: "#ffffff", opacity: "0.28" }),
-          el("circle", { cx: dot.x, cy: dot.y, r: 3.2, class: "loco-hotspot-dot", fill: "#ffffff", stroke: "#6c5ce7", "stroke-width": 1.4 }),
+          el("circle", { cx: dot.x, cy: dot.y, r: frisch.length ? 8.5 : 5.5, class: "loco-hotspot-halo", fill: frisch.length ? art.GOLD : "#ffffff", opacity: frisch.length ? "0.55" : "0.28" }),
+          frisch.length
+            ? el("polygon", {
+              class: "loco-hotspot-dot",
+              points: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((i) => {
+                const a = (Math.PI / 5) * i - Math.PI / 2;
+                const r = i % 2 === 0 ? 6 : 2.7;
+                return `${(dot.x + Math.cos(a) * r).toFixed(1)},${(dot.y + Math.sin(a) * r).toFixed(1)}`;
+              }).join(" "),
+              fill: art.GOLD, stroke: "#ffffff", "stroke-width": 1.2,
+            })
+            : el("circle", { cx: dot.x, cy: dot.y, r: 3.2, class: "loco-hotspot-dot", fill: "#ffffff", stroke: "#6c5ce7", "stroke-width": 1.4 }),
         ]);
         activate(hot, () => showWorkshop(spec.id));
         hotspots.append(hot);
@@ -557,12 +591,21 @@
             : row.kind === "whistle" ? config.whistle
             : config[part]?.[row.kind];
           if (current === value) button.classList.add("is-current");
-          button.setAttribute("aria-label", `${art.LOCO_PARTS.find((e) => e.id === part)?.label}: Auswahl ${value}`);
+          const teilLabel = art.LOCO_PARTS.find((e) => e.id === part)?.label;
+          button.setAttribute("aria-label", `${teilLabel}: Auswahl ${value}`);
           button.setAttribute("aria-pressed", current === value ? "true" : "false");
           button.append(partPreview(part, choice));
+          // Neu freigeschaltet: golden umrandet, mit Stern – sonst müsste ein
+          // Kind die Reihe absuchen, um zu finden, was die Reise gebracht hat.
+          const frisch = row.frei ? freshParts.find((entry) => entry.part === part && entry.value === value) : null;
+          if (frisch) {
+            button.classList.add("is-new");
+            button.setAttribute("aria-label", `${teilLabel}: ${value} – neu! Belohnung der Reise: ${frisch.label}.`);
+            button.append(newBadge());
+          }
           // Was die Reise erst freischaltet, steht mit Schloss da: zu sehen,
           // damit ein Kind weiss, wofür es fährt – nicht zu wählen.
-          const lockedBy = ["shape", "driver", "whistle"].includes(row.kind) && current !== value
+          const lockedBy = row.frei && current !== value
             ? reiseApi()?.lockFor?.(part, value) : null;
           if (lockedBy) {
             button.classList.add("is-locked");
@@ -1071,6 +1114,10 @@
     if (!list) return;
     const built = progress.trainProgress().builtWagons;
     const active = currentScene()?.id;
+    // Was die Reise neu freigegeben hat, steht golden da – und gilt danach als
+    // gesehen, weil das Kind es hier vor sich hat.
+    const neu = (reiseApi()?.newParts?.() || []).filter((entry) => entry.part === "scene");
+    reiseApi()?.markPartsSeen?.(neu);
 
     const overlay = document.createElement("div");
     overlay.className = "scene-picker";
@@ -1092,6 +1139,12 @@
           ? `Landschaft ${scene.label}, noch gesperrt. Eine Belohnung der Reise.`
           : `Landschaft ${scene.label}, noch gesperrt. Baue einen Wagen fertig, um sie freizuschalten.`);
       button.append(sceneThumb(scene));
+      const frisch = neu.find((entry) => entry.value === scene.id);
+      if (frisch && unlocked) {
+        button.classList.add("is-new");
+        button.setAttribute("aria-label", `Landschaft ${scene.label} – neu! Eine Belohnung der Reise.`);
+        button.append(newBadge());
+      }
       if (!unlocked) {
         button.append(el("svg", { viewBox: "0 0 24 24", class: "scene-lock", "aria-hidden": "true" }, [
           el("path", { d: "M7 11V8a5 5 0 0 1 10 0v3", fill: "none", stroke: "currentColor", "stroke-width": 2.4, "stroke-linecap": "round" }),
@@ -1125,8 +1178,9 @@
   function buildSceneButton(scene) {
     const button = document.createElement("button");
     button.type = "button";
-    button.className = "scene-button";
-    button.setAttribute("aria-label", `Landschaft wechseln. Jetzt: ${scene.label}.`);
+    const neu = (reiseApi()?.newParts?.() || []).filter((entry) => entry.part === "scene");
+    button.className = `scene-button${neu.length ? " is-new" : ""}`;
+    button.setAttribute("aria-label", `Landschaft wechseln. Jetzt: ${scene.label}.${neu.length ? ` Neu dazu: ${neu.map((entry) => entry.label).join(" und ")}.` : ""}`);
 
     // Der Ausschnitt sitzt auf dem Horizont: im Vorschaubild ist die obere
     // Hälfte Himmel, und in einem 58-Pixel-Kreis bliebe davon nur ein blasser
@@ -1155,6 +1209,7 @@
     ]));
 
     button.append(porthole, badge);
+    if (neu.length) button.append(newBadge());
     button.addEventListener("click", () => { if (!busy) showScenePicker(); });
     return button;
   }
@@ -1273,6 +1328,7 @@
     // Der Lautsprecher spricht nur auf der Karte; wer sie verlässt, nimmt den
     // Text mit.
     if (view.name === "reise" && name !== "reise") { kids()?.setHelp?.(""); view.journeyVisit = null; }
+    if (view.name === "loco" && name !== "loco") freshParts = [];
     view.name = name;
     view.areaId = areaId;
     stage.dataset.view = name;
@@ -1297,10 +1353,28 @@
   }
 
   function showWorkshop(part = "whole") {
-    if (view.name !== "loco") view.from = fromView();
+    if (view.name !== "loco") {
+      view.from = fromView();
+      // Beim Betreten: was seit dem letzten Mal dazugekommen ist.
+      freshParts = (reiseApi()?.newParts?.() || []).filter((entry) => art.LOCO_PARTS.some((spec) => spec.id === entry.part));
+    }
     view.part = part;
     setView("loco");
     renderLayer(buildWorkshop(locoConfig, part));
+    // Angesehen ist angesehen: wer das Bauteil geöffnet hat, hat das Neue
+    // gesehen. Die Markierung bleibt trotzdem stehen, bis die Werkstatt zu ist.
+    if (part !== "whole") reiseApi()?.markPartsSeen?.(freshParts.filter((entry) => entry.part === part));
+    const frisch = part === "whole" ? freshParts : freshParts.filter((entry) => entry.part === part);
+    const teil = art.LOCO_PARTS.find((e) => e.id === part)?.label;
+    if (frisch.length) {
+      kids()?.setHelp?.(part === "whole"
+        ? `Neu an deiner Lok: ${frisch.map((entry) => entry.label).join(" und ")}. Tippe auf den goldenen Stern, um es anzuschauen.`
+        : `${teil} ändern. Neu und golden umrandet: ${frisch.map((entry) => entry.label).join(" und ")}. Tippe darauf, um es an deine Lok zu bauen.`);
+    } else {
+      kids()?.setHelp?.(part === "whole"
+        ? "Deine Lokomotive. Tippe auf einen Punkt, um ein Teil zu ändern."
+        : `${teil} ändern. Tippe eine Form oder eine Farbe an.`);
+    }
   }
 
   // Der Zug eines anderen aus der Gruppe. Angetippt wird er nur auf dem
@@ -1413,8 +1487,6 @@
       stage,
       loco: locoConfig || readLoco(),
       areas: progress.allAreas(),
-      // Die Gruppe auf der Karte: je Zug ein Fähnchen an seiner Station.
-      friends: friends.map((friend) => ({ name: friend.name, station: friend.journeyStation })),
       mode,
       returned,
       visit: view.journeyVisit,
@@ -1992,8 +2064,11 @@
     // Losfahren stehen bleibt. Der Nachlauf rechts ist der Platz, auf dem das
     // Startsignal vor der Lok schwebt.
     const plate = reiseApi()?.plateStars?.() || { stars: 0, gold: 0 };
-    const svg = art.buildTrain(areas, loco, { pad: 4, gap: 4, trailing: 160, withTrack: false, journeyStars: plate.stars, journeyGold: plate.gold });
-    svg.setAttribute("aria-label", describeTrain(areas));
+    // Wartet in der Werkstatt etwas Neues, funkelt es an der Lok: sonst müsste
+    // ein Kind von sich aus nachsehen gehen.
+    const neu = (reiseApi()?.newParts?.() || []).filter((entry) => art.LOCO_PARTS.some((spec) => spec.id === entry.part));
+    const svg = art.buildTrain(areas, loco, { pad: 4, gap: 4, trailing: 160, withTrack: false, journeyStars: plate.stars, journeyGold: plate.gold, sparkle: neu.length > 0 });
+    svg.setAttribute("aria-label", `${describeTrain(areas)}${neu.length ? ` Neu in der Werkstatt: ${neu.map((entry) => entry.label).join(" und ")}.` : ""}`);
 
     svg.querySelectorAll("[data-area]").forEach((node) => {
       const id = node.getAttribute("data-area");
@@ -2051,6 +2126,12 @@
   }
 
   render();
+
+  // Das Gleis der Reise vermessen, solange nichts anderes zu tun ist. Es hängt
+  // allein am Streckenverlauf, ist also für jede Karte dasselbe – und wenn das
+  // Kind das Streckenschild antippt, steht das Ergebnis schon bereit, statt die
+  // Karte um Sekunden zu verzögern.
+  (window.requestIdleCallback || ((fn) => window.setTimeout(fn, 400)))(() => journeyApi()?.warmUp?.());
 
   // Die Einfahrt. Zuerst stehen nur Landschaft und Gleis da, dann kommt der Zug
   // von links herein und meldet sich mit dem Horn. Ohne Bewegung entfällt das:
