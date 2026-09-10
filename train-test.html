@@ -116,6 +116,9 @@
         cell("Sterne-Wimpel, Eichhörnchen", 260, 200, `0 0 ${art.LOCO_W} ${art.ART_H}`, [
           art.buildLoco({ driver: "squirrel", flag: { pattern: "stars", color: "#2f6f8f" }, journeyStars: 2 }),
         ]);
+        cell("Bonus: Sonnenrad und Sonnen-Wimpel", 260, 200, `0 0 ${art.LOCO_W} ${art.ART_H}`, [
+          art.buildLoco({ wheels: { shape: "sun", color: "#c9483a" }, flag: { pattern: "sun", color: "#2f6f8f" } }),
+        ]);
       })();
       const { el, buildLoco, buildWagon, buildTrain, driverHead, ART_H, WAGON_W, LOCO_W } = art;
 

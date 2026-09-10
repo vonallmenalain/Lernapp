@@ -246,6 +246,8 @@
       case "whistle-schiffshorn": return partPicture("whistle", { ...base, whistle: "schiffshorn" });
       case "starloco": return partPicture("whole", { ...base, lamp: { ...base.lamp, shape: "star" }, flag: { pattern: "stars", color: "#2f6f8f" } });
       case "scene-savanne": return sceneThumb("savanne") || partPicture("whole", base);
+      case "gold-1": return partPicture("wheels", { ...base, wheels: { ...base.wheels, shape: "sun" } });
+      case "gold-2": return partPicture("flag", { ...base, flag: { ...base.flag, pattern: "sun" } });
       default: return partPicture("whole", base);
     }
   }
@@ -274,23 +276,38 @@
    *   onPlay     (url) => void: das Kind will ein Spiel öffnen
    *   onSettled  () => void: die Feiern sind durch
    */
-  function mount({ host, stage, loco, areas, mode = "quiet", returned = null, celebrate, onPlay, onSettled }) {
+  function mount({ host, stage, loco, areas, mode = "quiet", returned = null, visit = null, celebrate, onPlay, onVisit, onSettled }) {
     const token = mountToken += 1;
     settleHook = onSettled || null;
     host.innerHTML = "";
     host.classList.add("journey");
     if (mode === "enter") host.classList.add("is-entering");
+    if (mode === "visit") {
+      host.classList.add("is-switching");
+      window.setTimeout(() => host.classList.remove("is-switching"), 900);
+    }
 
-    const seen = reise.readSeen() || { station: 1, gold: [] };
+    const seen = reise.readSeen() || { station: 1, gold: [], goldenMaps: 0 };
     const current = reise.current();
     const total = reise.STATION_COUNT;
+    const currentMap = Math.min(reise.MAPS.length - 1, reise.mapIndexOf(Math.min(current, total)));
+    // Zu Besuch auf einer fertigen Karte: vom Fahrplan aus, oder zurück aus
+    // einer Station, die dort noch einmal gespielt wurde. Dort gibt es keine
+    // Fahrt mehr, nur Stempel, die golden werden können.
+    let visiting = null;
+    if (Number.isInteger(visit) && visit >= 0 && visit < currentMap && reise.mapFinished(visit)) visiting = visit;
+    else if (returned && reise.mapIndexOf(returned) < currentMap && reise.mapFinished(reise.mapIndexOf(returned))) visiting = reise.mapIndexOf(returned);
     // Von welcher Station aus gespielt wird: dort, wo die Karte den Zug
     // zuletzt gezeigt hat – oder an der aktuellen, wenn nichts neu ist. Beim
-    // blossen Neuzeichnen steht gleich der Endstand da.
-    const startNr = mode === "quiet" ? Math.min(current, total + 1) : Math.max(1, Math.min(seen.station, current, total));
-    let mapIndex = Math.min(reise.MAPS.length - 1, reise.mapIndexOf(Math.min(startNr, total)));
+    // blossen Neuzeichnen und zu Besuch steht gleich der Endstand da.
+    const startNr = mode === "quiet" || visiting !== null ? Math.min(current, total + 1) : Math.max(1, Math.min(seen.station, current, total));
+    let mapIndex = visiting !== null ? visiting : Math.min(reise.MAPS.length - 1, reise.mapIndexOf(Math.min(startNr, total)));
     let visibleCurrent = Math.min(startNr, total + 1);
     const goldShown = new Set(seen.gold || []);
+    // Golden zeigt sich ein Stempel sofort – ausser an der Station, aus der
+    // das Kind gerade zurückkommt: dort fällt er erst mit der Feier.
+    const goldPending = returned && reise.isDone(returned) && (Number(reise.doneInfo(returned)?.stars) || 0) >= 3 && !goldShown.has(returned)
+      ? returned : null;
 
     // --- SVG und Ebenen ------------------------------------------------------
     const svg = el("svg", {
@@ -329,9 +346,12 @@
     }
 
     // --- Kopfzeile: zehn Punkte ----------------------------------------------
-    const dots = document.createElement("div");
+    // Ein Knopf: die zehn Punkte dieser Karte, und ein Tipp darauf öffnet den
+    // Fahrplan mit allen sechs.
+    const dots = document.createElement("button");
+    dots.type = "button";
     dots.className = "journey-dots";
-    dots.setAttribute("role", "img");
+    dots.addEventListener("click", () => { if (!busy && !playing) showPlan(); });
     host.append(dots);
 
     // --- Konfetti-Host über einer Station ------------------------------------
@@ -416,7 +436,8 @@
     function shownDone(nr) { return reise.isDone(nr) && nr < visibleCurrent; }
     function shownGold(nr) {
       const info = reise.doneInfo(nr);
-      return Boolean(info && (Number(info.stars) || 0) >= 3 && (nr < visibleCurrent) && (goldShown.has(nr) || nr < seen.station));
+      if (!info || (Number(info.stars) || 0) < 3 || !shownDone(nr)) return false;
+      return nr !== goldPending || goldShown.has(nr);
     }
 
     function building(gameId, color, title) {
@@ -528,6 +549,7 @@
         if (done && !node.querySelector(".journey-stamp")) stampFor(i);
       });
       dots.innerHTML = "";
+      dots.append(el("svg", { viewBox: "0 -10 96 62", class: "journey-dots-glyph", "aria-hidden": "true" }, [art.routeGlyph("currentColor")]));
       let doneCount = 0;
       for (let i = 0; i < reise.STATIONS_PER_MAP; i += 1) {
         const nr = nrOf(i);
@@ -536,7 +558,7 @@
         if (shownDone(nr)) { d.classList.add(shownGold(nr) ? "is-gold" : "is-done"); doneCount += 1; }
         dots.append(d);
       }
-      dots.setAttribute("aria-label", `Karte ${reise.MAPS[mapIndex].nr}: ${doneCount} von ${reise.STATIONS_PER_MAP} Stationen gestempelt`);
+      dots.setAttribute("aria-label", `Fahrplan öffnen. Karte ${reise.MAPS[mapIndex].nr}: ${doneCount} von ${reise.STATIONS_PER_MAP} Stationen gestempelt.`);
     }
 
     // --- Ziel-Bahnhof ----------------------------------------------------------
@@ -599,6 +621,10 @@
     // --- Sprechen --------------------------------------------------------------
     function speakState() {
       const map = reise.MAPS[mapIndex];
+      if (visiting !== null) {
+        kids()?.setHelp?.(`Karte ${map.nr}, ${map.name} – fertig. Tippe auf eine Station, um sie noch einmal zu spielen: mit drei Sternen wird der Stempel golden. Mit dem Pfeil oben links kommst du zurück zu deiner Karte.`);
+        return;
+      }
       if (visibleCurrent > reise.STATION_COUNT) {
         kids()?.setHelp?.("Du hast alle sechzig Stationen geschafft – die ganze Reise! Dein Zug steht an der Sternwarte.");
         return;
@@ -658,29 +684,54 @@
       burstAt(reise.STATIONS_PER_MAP - 1, 40);
       await wait(1300);
       if (token !== mountToken) return;
-      await showReward(map);
+      await showReward({
+        aria: `Karte ${map.nr} geschafft: ${map.reward.label} ist frei.`,
+        title: `Karte ${map.nr} geschafft!`,
+        note: `Neu für deinen Zug: ${map.reward.label}. ${map.reward.part === "scene" ? "Du kannst sie oben links auswählen." : "Du findest es in der Werkstatt an deiner Lok."}`,
+        picture: rewardPicture(map.reward, loco),
+      });
       svg.classList.remove("is-party");
     }
 
-    function showReward(map) {
+    // Der Bonus für ganz goldene Karten – gefeiert, sobald eine dazukommt.
+    // Er steht in keinem Schaufenster, die Tafel ist die Überraschung.
+    async function celebrateGold() {
+      const golden = reise.goldenMaps();
+      const shown = Number(seen.goldenMaps) || 0;
+      for (let n = shown + 1; n <= golden; n += 1) {
+        const bonus = reise.BONUSES.find((entry) => entry.after === n);
+        if (!bonus || token !== mountToken) continue;
+        await showReward({
+          aria: `Zehn goldene Stempel: ${bonus.label} ist frei.`,
+          title: "Zehn goldene Stempel!",
+          note: `Neu für deinen Zug: ${bonus.label}. Du findest es in der Werkstatt an deiner Lok.`,
+          picture: rewardPicture(bonus, loco),
+          color: "#f0b429",
+        });
+      }
+      seen.goldenMaps = golden;
+    }
+
+    // Die Feier-Tafel: dieselbe wie beim Wagen, mit dem neuen Teil gross in
+    // der Mitte. Bleibt stehen, bis das Kind tippt.
+    function showReward({ aria, title: titleText, note: noteText, picture, color = "#2b5fb3" }) {
       return new Promise((resolve) => {
         const overlay = document.createElement("div");
         overlay.className = "wagon-reward journey-reward";
         overlay.setAttribute("role", "dialog");
-        overlay.setAttribute("aria-label", `Karte ${map.nr} geschafft: ${map.reward.label} ist frei.`);
+        overlay.setAttribute("aria-label", aria || titleText);
         const card = document.createElement("div");
         card.className = "wagon-reward-card";
-        card.style.setProperty("--reward-color", "#2b5fb3");
+        card.style.setProperty("--reward-color", color);
         const title = document.createElement("p");
         title.className = "wagon-reward-title";
-        title.textContent = `Karte ${map.nr} geschafft!`;
+        title.textContent = titleText;
         const pic = document.createElement("div");
         pic.className = "journey-reward-pic";
-        pic.append(rewardPicture(map.reward, loco));
+        pic.append(picture);
         const note = document.createElement("p");
         note.className = "wagon-reward-note";
-        const where = map.reward.part === "scene" ? "Du kannst sie oben links auswählen." : "Du findest es in der Werkstatt an deiner Lok.";
-        note.textContent = `Neu für deinen Zug: ${map.reward.label}. ${where}`;
+        note.textContent = noteText;
         const weiter = document.createElement("button");
         weiter.type = "button";
         weiter.className = "wagon-reward-next";
@@ -691,7 +742,7 @@
         card.append(title, pic, note, weiter);
         overlay.append(card);
         stage.append(overlay);
-        const release = kids()?.pushHelp?.(`Karte ${map.nr} geschafft! ${note.textContent} Tippe auf den Haken, um weiterzufahren.`) || null;
+        const release = kids()?.pushHelp?.(`${titleText} ${noteText} Tippe auf den Haken, um weiterzufahren.`) || null;
         kids()?.playJingle?.("unlock");
         window.setTimeout(() => kids()?.burstConfetti?.(card, 44), reduced() ? 0 : 200);
         let fertig = false;
@@ -730,7 +781,7 @@
     async function playNew() {
       playing = true;
       try {
-        const target = Math.min(current, total + 1);
+        const target = visiting !== null ? visibleCurrent : Math.min(current, total + 1);
         while (visibleCurrent < target && token === mountToken) {
           const nr = visibleCurrent;
           const i = stationIndexOf(nr);
@@ -763,17 +814,15 @@
           }
         }
         // Ein goldener Stempel auf einer Station, die schon gestempelt war.
-        if (returned && shownDone(returned) && !goldShown.has(returned)) {
-          const info = reise.doneInfo(returned);
-          if (info && (Number(info.stars) || 0) >= 3 && returned >= nrOf(0) && returned <= nrOf(reise.STATIONS_PER_MAP - 1)) {
-            goldShown.add(returned);
-            stampFor(stationIndexOf(returned), { fresh: true });
-            applyStates();
-            kids()?.playJingle?.("unlock");
-            burstAt(stationIndexOf(returned), 30);
-            await wait(700);
-          }
+        if (goldPending && !goldShown.has(goldPending) && goldPending >= nrOf(0) && goldPending <= nrOf(reise.STATIONS_PER_MAP - 1)) {
+          goldShown.add(goldPending);
+          stampFor(stationIndexOf(goldPending), { fresh: true });
+          applyStates();
+          kids()?.playJingle?.("unlock");
+          burstAt(stationIndexOf(goldPending), 30);
+          await wait(800);
         }
+        if (token === mountToken) await celebrateGold();
       } finally {
         if (token === mountToken) settle();
         playing = false;
@@ -784,16 +833,163 @@
     // Der Zug steht, das Signal auch, gemerkt ist der Stand.
     function settle() {
       visibleCurrent = Math.min(current, total + 1);
-      const i = stationIndexOf(Math.min(visibleCurrent, nrOf(reise.STATIONS_PER_MAP - 1)));
+      const inThisMap = visibleCurrent <= total && reise.mapIndexOf(visibleCurrent) === mapIndex;
+      const i = stationIndexOf(inThisMap ? visibleCurrent : nrOf(reise.STATIONS_PER_MAP - 1));
       applyStates();
-      if (visibleCurrent <= total && reise.mapIndexOf(visibleCurrent) === mapIndex) placeSignal(i); else hideSignal();
-      reise.writeSeen({ station: visibleCurrent, gold: [...goldShown] });
+      if (inThisMap) placeSignal(i); else hideSignal();
+      // Zu Besuch rückt die gemerkte Station nicht vor: was auf der aktuellen
+      // Karte neu ist, wird beim nächsten Mal dort gefeiert.
+      const before = reise.readSeen() || { station: 1 };
+      reise.writeSeen({
+        station: visiting !== null ? Math.max(1, before.station) : visibleCurrent,
+        gold: reise.goldenStations(),
+        goldenMaps: reise.goldenMaps(),
+      });
       speakState();
+    }
+
+    // -------------------------------------------------------------------------
+    // Der Fahrplan: alle sechs Karten
+    // -------------------------------------------------------------------------
+    // Wie ein Liniennetzplan: je Karte ein Bild mit dem Wahrzeichen, zehn
+    // Punkte (gestempelt, golden), die Belohnung am Ziel, die eigene Karte
+    // markiert. Fertige Karten lassen sich antippen und noch einmal fahren –
+    // für goldene Stempel.
+    function lockSvg(cls = "journey-plan-lock") {
+      return el("svg", { viewBox: "0 0 24 24", class: cls, "aria-hidden": "true" }, [
+        el("path", { d: "M7 11V8a5 5 0 0 1 10 0v3", fill: "none", stroke: "currentColor", "stroke-width": 2.4, "stroke-linecap": "round" }),
+        el("rect", { x: 5, y: 11, width: 14, height: 10, rx: 3, fill: "currentColor" }),
+      ]);
+    }
+
+    function planArt(map) {
+      const scene = sceneOf(map);
+      const look = lookOf(map);
+      const id = `journey-plan-sky-${skyUid += 1}`;
+      return el("svg", { viewBox: "0 0 120 84", class: "journey-plan-art", "aria-hidden": "true" }, [
+        el("defs", {}, [
+          el("linearGradient", { id, x1: "0", y1: "0", x2: "0", y2: "1" }, [
+            el("stop", { offset: "0", "stop-color": scene.sky[0] }),
+            el("stop", { offset: "1", "stop-color": scene.sky[1] }),
+          ]),
+        ]),
+        el("rect", { x: 0, y: 0, width: 120, height: 84, fill: `url(#${id})` }),
+        el("circle", { cx: 100, cy: 16, r: 8, fill: scene.light.color }),
+        el("path", { d: "M0 84 L0 46 Q20 34 40 46 T80 46 T120 46 L120 84 Z", fill: look.far }),
+        el("rect", { x: 0, y: 58, width: 120, height: 26, fill: scene.ground }),
+        el("rect", { x: 0, y: 74, width: 120, height: 3, fill: "#8c93a1", opacity: "0.8" }),
+        group({ transform: "translate(74,74) scale(0.42)" }, [art.buildLandmark(map.landmark)]),
+      ]);
+    }
+
+    function showPlan() {
+      if (stage.querySelector(".journey-plan")) return;
+      const overlay = document.createElement("div");
+      overlay.className = "journey-plan";
+      overlay.setAttribute("role", "dialog");
+      overlay.setAttribute("aria-modal", "true");
+      overlay.setAttribute("aria-label", "Der Fahrplan der Reise");
+
+      const row = document.createElement("div");
+      row.className = "journey-plan-row";
+      const said = [];
+      reise.MAPS.forEach((map, k) => {
+        const finished = reise.mapFinished(k);
+        const golden = reise.mapGolden(k);
+        const isCurrent = k === currentMap;
+        const locked = k > currentMap;
+        const card = document.createElement("button");
+        card.type = "button";
+        card.className = `journey-plan-card${isCurrent && current <= total ? " is-current" : ""}${finished ? " is-done" : ""}${golden ? " is-golden" : ""}${locked ? " is-locked" : ""}`;
+        card.disabled = locked;
+        card.append(planArt(map));
+
+        const dotsRow = document.createElement("span");
+        dotsRow.className = "journey-plan-dots";
+        let done = 0;
+        let gold = 0;
+        for (let i = 1; i <= reise.STATIONS_PER_MAP; i += 1) {
+          const info = reise.doneInfo(k * reise.STATIONS_PER_MAP + i);
+          const d = document.createElement("span");
+          if (info) {
+            done += 1;
+            if ((Number(info.stars) || 0) >= 3) { gold += 1; d.className = "is-gold"; } else d.className = "is-done";
+          }
+          dotsRow.append(d);
+        }
+        const name = document.createElement("span");
+        name.className = "journey-plan-name";
+        name.textContent = `${map.nr} · ${map.name}`;
+        const reward = document.createElement("span");
+        reward.className = "journey-plan-reward";
+        reward.append(rewardPicture(map.reward, loco));
+        if (!finished) reward.append(lockSvg());
+        card.append(dotsRow, name, reward);
+        if (isCurrent && current <= total) {
+          const here = document.createElement("span");
+          here.className = "journey-plan-here";
+          here.append(el("svg", { viewBox: `0 30 ${art.LOCO_W} ${art.ART_H - 30}`, "aria-hidden": "true" }, [strip(art.buildLoco(art.locoConfig(loco || {})))]));
+          card.append(here);
+        }
+
+        const state = locked ? "noch im Nebel"
+          : finished ? (golden ? "fertig, alle Stempel golden" : `fertig, ${gold} von ${reise.STATIONS_PER_MAP} Stempeln golden`)
+          : `${done} von ${reise.STATIONS_PER_MAP} Stationen gestempelt`;
+        card.setAttribute("aria-label", `Karte ${map.nr}, ${map.name}: ${state}.${finished ? " Antippen, um sie noch einmal zu fahren." : isCurrent ? " Deine Karte. Antippen, um sie zu zeigen." : ""}`);
+        said.push(`Karte ${map.nr}, ${map.name}: ${state}.`);
+        card.addEventListener("click", () => {
+          if (locked) return;
+          close();
+          onVisit?.(isCurrent ? null : k);
+        });
+        row.append(card);
+      });
+
+      // Der Fuss: wie weit insgesamt, und der Bonus für goldene Karten.
+      const foot = document.createElement("div");
+      foot.className = "journey-plan-foot";
+      const stand = document.createElement("span");
+      stand.className = "journey-plan-stand";
+      const doneAll = Object.keys(reise.read().done || {}).length;
+      const goldAll = reise.goldenStations().length;
+      stand.textContent = `${doneAll} von ${total} Stationen · ${goldAll} goldene Stempel`;
+      foot.append(stand);
+      reise.BONUSES.forEach((bonus) => {
+        const open = reise.hasReward(bonus.id);
+        const b = document.createElement("span");
+        b.className = `journey-plan-bonus${open ? " is-open" : ""}`;
+        b.setAttribute("role", "img");
+        b.setAttribute("aria-label", `${bonus.label}: ${open ? "frei" : `noch gesperrt – ${bonus.text}`}.`);
+        b.append(rewardPicture(bonus, loco));
+        if (!open) b.append(lockSvg());
+        foot.append(b);
+      });
+
+      const closeButton = document.createElement("button");
+      closeButton.type = "button";
+      closeButton.className = "scene-close";
+      closeButton.setAttribute("aria-label", "Schliessen");
+      closeButton.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></svg>`;
+      closeButton.addEventListener("click", () => close());
+
+      overlay.append(row, foot, closeButton);
+      overlay.addEventListener("click", (event) => { if (event.target === overlay) close(); });
+      stage.append(overlay);
+      const release = kids()?.pushHelp?.(`Der Fahrplan: sechs Karten. ${said.join(" ")} ${stand.textContent}. Tippe auf eine fertige Karte, um sie noch einmal zu fahren.`) || null;
+      function close() {
+        release?.();
+        overlay.remove();
+      }
+      closeButton.focus({ preventScroll: true });
     }
 
     // --- Los ---------------------------------------------------------------------
     drawMap();
-    const somethingNew = current > seen.station || (returned && reise.isDone(returned) && (reise.doneInfo(returned)?.stars || 0) >= 3 && !goldShown.has(returned));
+    // Neu ist eine weitere Station, ein goldener Stempel aus dem Spiel – oder
+    // eine Karte, die schon ganz golden ist, deren Bonus aber noch nie gefeiert
+    // wurde.
+    const goldenNew = reise.goldenMaps() > (Number(seen.goldenMaps) || 0);
+    const somethingNew = visiting === null ? current > seen.station || Boolean(goldPending) || goldenNew : Boolean(goldPending) || goldenNew;
     const standAt = stationIndexOf(Math.min(visibleCurrent, nrOf(reise.STATIONS_PER_MAP - 1)));
 
     if (somethingNew && mode !== "quiet") {

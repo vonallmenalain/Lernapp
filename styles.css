@@ -9326,20 +9326,32 @@ body[data-page="train"] .train-stage[data-view="reise"] ~ .help-voice {
 
 /* Die zehn Punkte der Karte, oben in der Mitte – wie die Schrittpunkte des
    Wagens: voll, wenn gestempelt, golden, wenn die Runde gut war. */
+/* Ein Knopf: ein Tipp darauf öffnet den Fahrplan mit allen sechs Karten. Das
+   Zeichen der Reise davor sagt das ohne Wort. */
 .journey-dots {
   position: absolute;
-  top: calc(var(--safe-top) + 24px);
+  top: calc(var(--safe-top) + 20px);
   left: 50%;
   transform: translateX(-50%);
   z-index: 5;
   display: flex;
+  align-items: center;
   gap: 6px;
-  padding: 7px 12px;
+  padding: 7px 14px 7px 10px;
+  border: 3px solid rgba(255, 255, 255, 0.9);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.6);
-  box-shadow: 0 3px 10px rgba(36, 48, 71, 0.16);
-  pointer-events: none;
+  background: rgba(255, 255, 255, 0.72);
+  box-shadow: 0 3px 10px rgba(36, 48, 71, 0.18);
+  cursor: pointer;
+  pointer-events: auto;
+  font: inherit;
+  color: #2b5fb3;
+  transition: transform 0.15s ease;
 }
+.journey-dots:hover { transform: translateX(-50%) translateY(-2px); }
+.journey-dots:active { transform: translateX(-50%) scale(0.96); }
+.journey-dots:focus-visible { outline: 3px solid #243047; outline-offset: 3px; }
+.journey-dots-glyph { width: 30px; height: 20px; margin-right: 4px; display: block; }
 .journey-dot {
   width: 13px;
   height: 13px;
@@ -9351,8 +9363,123 @@ body[data-page="train"] .train-stage[data-view="reise"] ~ .help-voice {
 .journey-dot.is-done { background: #2f9e44; border-color: #2f9e44; }
 .journey-dot.is-gold { background: #f0b429; border-color: #f0b429; }
 @media (max-height: 600px) {
-  .journey-dots { top: calc(var(--safe-top) + 14px); padding: 5px 10px; gap: 5px; }
+  .journey-dots { top: calc(var(--safe-top) + 12px); padding: 5px 10px 5px 8px; gap: 5px; }
   .journey-dot { width: 11px; height: 11px; }
+  .journey-dots-glyph { width: 24px; height: 16px; }
+}
+
+/* --- Der Fahrplan: alle sechs Karten --- */
+/* Wie die Landschaftswahl: ein dunkler Vorhang, darauf je Karte ein Bild mit
+   dem Wahrzeichen, zehn Punkte, der Name und die Belohnung. Die eigene Karte
+   trägt die Lok, fertige Karten sind antippbar, kommende liegen im Nebel. */
+.journey-plan {
+  position: absolute;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  grid-template-rows: 1fr auto;
+  align-items: center;
+  justify-items: center;
+  gap: 10px;
+  padding: calc(var(--safe-top) + 14px) calc(var(--safe-right) + 16px) calc(var(--safe-bottom) + 12px) calc(var(--safe-left) + 16px);
+  overflow: auto;
+  background: rgba(23, 34, 42, 0.55);
+  backdrop-filter: blur(3px);
+  animation: scene-picker-in 0.22s ease both;
+}
+.journey-plan-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: stretch;
+  gap: clamp(8px, 1.6vw, 16px);
+  max-width: min(100%, 1000px);
+  padding: 22px 8px 6px;
+}
+.journey-plan-card {
+  position: relative;
+  width: clamp(104px, 14.5vw, 156px);
+  padding: 6px 6px 8px;
+  border: 4px solid rgba(255, 255, 255, 0.9);
+  border-radius: 16px;
+  background: #fff;
+  color: #243047;
+  cursor: pointer;
+  display: grid;
+  gap: 5px;
+  justify-items: center;
+  font: inherit;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.28);
+  transition: transform 0.15s ease, border-color 0.15s ease;
+}
+.journey-plan-card:hover:not(:disabled) { transform: translateY(-3px); }
+.journey-plan-card:active:not(:disabled) { transform: scale(0.96); }
+.journey-plan-card:focus-visible { outline: 3px solid #ffd166; outline-offset: 3px; }
+.journey-plan-card.is-current { border-color: #ffd166; }
+.journey-plan-card.is-golden { border-color: #f0b429; box-shadow: 0 6px 18px rgba(240, 180, 41, 0.45); }
+.journey-plan-card.is-locked { cursor: not-allowed; filter: grayscale(0.75); opacity: 0.55; }
+.journey-plan-art { width: 100%; height: auto; display: block; border-radius: 10px; }
+/* Die zehn Stempel als Zehnerfeld: zwei Reihen zu fünf. So passen sie auch
+   auf eine schmale Karte, und ein Kind sieht "fünf und noch drei". */
+.journey-plan-dots { display: grid; grid-template-columns: repeat(5, 10px); gap: 3px 4px; justify-content: center; }
+.journey-plan-dots span {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #e6ebf2;
+  border: 1.5px solid rgba(36, 48, 71, 0.25);
+}
+.journey-plan-dots .is-done { background: #2f9e44; border-color: #2f9e44; }
+.journey-plan-dots .is-gold { background: #f0b429; border-color: #f0b429; }
+.journey-plan-name { font-weight: 900; font-size: 0.86rem; letter-spacing: 0.01em; max-width: 100%; text-align: center; line-height: 1.15; }
+.journey-plan-reward { position: relative; width: 46px; height: 40px; display: block; }
+.journey-plan-reward svg, .journey-plan-bonus svg { width: 100%; height: 100%; display: block; }
+.journey-plan-reward .journey-reward-scene { border-radius: 8px; }
+.journey-plan-lock {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 52%;
+  height: auto;
+  color: #ffffff;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.55));
+}
+/* Die eigene Karte trägt die Lok oben auf dem Rand – über der eigenen
+   Karte, nicht über der Nachbarin. */
+.journey-plan-here {
+  position: absolute;
+  top: -22px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 52px;
+  height: 46px;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.35));
+}
+.journey-plan-here svg { width: 100%; height: 100%; display: block; }
+.journey-plan-foot {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 7px 16px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  color: #243047;
+  font-weight: 800;
+  font-size: 0.9rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.22);
+}
+.journey-plan-bonus { position: relative; width: 40px; height: 34px; display: block; filter: grayscale(0.8); opacity: 0.7; }
+.journey-plan-bonus.is-open { filter: none; opacity: 1; }
+@media (max-height: 600px) {
+  .journey-plan { gap: 6px; }
+  .journey-plan-row { gap: 8px; padding-top: 18px; }
+  .journey-plan-card { width: clamp(92px, 13vw, 128px); padding: 4px 4px 6px; gap: 3px; }
+  .journey-plan-name { font-size: 0.72rem; }
+  .journey-plan-reward { width: 36px; height: 32px; }
+  .journey-plan-dots { grid-template-columns: repeat(5, 9px); gap: 2px 3px; }
+  .journey-plan-dots span { width: 9px; height: 9px; }
+  .journey-plan-here { width: 42px; height: 36px; top: -18px; }
+  .journey-plan-foot { font-size: 0.8rem; padding: 5px 12px; }
 }
 
 /* Konfetti an einer Station: ein kleiner Kasten über ihr, in den kids.js
@@ -9421,4 +9548,6 @@ body[data-page="train"] .train-stage[data-view="reise"] ~ .help-voice {
   .journey-fog, .journey-station .journey-picture, .journey-station .journey-choice, .journey-signal, .journey-lock, .journey-glow, .journey-dot, .journey-motif { transition: none; }
   .journey-sparkle { opacity: 0.9; }
   .journey-showcase:not(.is-locked) .journey-glow { opacity: 0.7; }
+  .journey-plan { animation: none; }
+  .journey-plan-card, .journey-dots { transition: none; }
 }

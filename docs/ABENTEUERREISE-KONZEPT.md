@@ -5,19 +5,25 @@ Stand: September 2026 · Grundlage: `train-home.js`, `train-progress.js`, `train
 `docs/SPIELVORSCHLAEGE-BEREICHE.md`, `docs/UX-REVIEW-KINDER-4-8.md`
 
 > **Umsetzungsstand (September 2026):** Die zwölf offenen Entscheidungen in Abschnitt 11
-> sind alle gemäss Empfehlung gefallen. Gebaut sind **Etappe 1** und der grössere Teil
-> von **Etappe 2**: das Streckenschild vor den Toren (`train-home.js`), der Fahrplan mit
-> allen sechs Karten und sechzig Stationen samt Aufträgen und Ausweichgleisen
-> (`journey-plan.js`), die Streckenkarte mit Nebel, Stempeln, Fahrt, Kehren, Wahlstationen,
-> Ausweichgleis, Ziel-Bahnhof, Schaufenster und Feier (`train-journey.js`), die Übergabe an
-> alle 25 Spiele über `?station=` (`game-shell.js`, `app.js`, die Spieldateien), der Kasten
-> `lernapp.reise` in der Cloud, die Belohnungen in der Werkstatt mit Schloss (Wimpel
-> Regenbogen, Chauffeure Eichhörnchen und Steinbock, Pfeife Schiffshorn, Sternlampe und
-> Sterne-Wimpel), die Landschaft Savanne, das Reise-Schild am Zug (auch bei der Gruppe)
-> und die Zeile im Adminbereich. Prüfskript: `scripts/validate-reise.mjs`.
-> **Noch offen:** die Fahrplan-Übersicht (Karten wieder öffnen), der Bonus für zehn goldene
-> Stempel, der Fahrgast, die Streckenbesonderheiten (Fähre, Zahnrad, Nachtlicht), die Gruppe
-> auf der Karte, Reise 2 mit der Landschaft Weltraum, Schiebelok und Reisetempo.
+> sind alle gemäss Empfehlung gefallen. Gebaut sind **Etappe 1** und **Etappe 2**: das
+> Streckenschild vor den Toren (`train-home.js`), der Fahrplan mit allen sechs Karten und
+> sechzig Stationen samt Aufträgen und Ausweichgleisen (`journey-plan.js`), die Streckenkarte
+> mit Nebel, Stempeln, Fahrt, Kehren, Wahlstationen, Ausweichgleis, Ziel-Bahnhof, Schaufenster
+> und Feier (`train-journey.js`), die Übergabe an alle 25 Spiele über `?station=`
+> (`game-shell.js`, `app.js`, die Spieldateien), der Kasten `lernapp.reise` in der Cloud, die
+> Belohnungen in der Werkstatt mit Schloss (Wimpel Regenbogen, Chauffeure Eichhörnchen und
+> Steinbock, Pfeife Schiffshorn, Sternlampe und Sterne-Wimpel), die Landschaft Savanne, das
+> Reise-Schild am Zug (auch bei der Gruppe) und die Zeile im Adminbereich. Aus Etappe 2 dazu:
+> die **Fahrplan-Übersicht** (der Knopf oben in der Mitte der Karte öffnet alle sechs Karten
+> mit den Stempeln als Zehnerfeld, der Belohnung und der Lok auf der eigenen Karte), fertige
+> Karten **zu Besuch** noch einmal fahren (jede Station spielbar, drei Sterne machen den
+> Stempel golden, der Pfeil führt zurück auf die eigene Karte) und der **Bonus für zehn
+> goldene Stempel** (Räder Sonnenrad nach der ersten ganz goldenen Karte, Wimpel Sonne nach
+> der zweiten – mit der Feier-Tafel, in der Werkstatt bis dahin mit Schloss).
+> Prüfskript: `scripts/validate-reise.mjs`.
+> **Noch offen (Etappe 3):** der Fahrgast, die Streckenbesonderheiten (Fähre, Zahnrad,
+> Nachtlicht), die Gruppe auf der Karte, Reise 2 mit der Landschaft Weltraum, Schiebelok und
+> Reisetempo.
 > Der Rest des Dokuments bleibt als Begründung stehen; zum Konzept gehört eine Seite mit
 > einer klickbaren Streckenkarte (Artefakt „Abenteuerreise").
 
