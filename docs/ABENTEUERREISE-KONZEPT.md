@@ -4,10 +4,22 @@ Stand: September 2026 · Grundlage: `train-home.js`, `train-progress.js`, `train
 `train-art.js`, `game-shell.js`, `game-cloud.js`, `app.js`, alle 25 Spielseiten,
 `docs/SPIELVORSCHLAEGE-BEREICHE.md`, `docs/UX-REVIEW-KINDER-4-8.md`
 
-> **Umsetzungsstand:** noch nichts gebaut. Dieses Dokument ist der Entwurf zum
-> Durchschauen; was noch zu entscheiden ist, steht in Abschnitt 11. Zum Konzept gehört
-> eine Seite mit einer klickbaren Streckenkarte (Artefakt „Abenteuerreise"), die dieselben
-> Abschnitte zeigt und die Fahrt des Zugs von Station zu Station vorführt.
+> **Umsetzungsstand (September 2026):** Die zwölf offenen Entscheidungen in Abschnitt 11
+> sind alle gemäss Empfehlung gefallen. Gebaut sind **Etappe 1** und der grössere Teil
+> von **Etappe 2**: das Streckenschild vor den Toren (`train-home.js`), der Fahrplan mit
+> allen sechs Karten und sechzig Stationen samt Aufträgen und Ausweichgleisen
+> (`journey-plan.js`), die Streckenkarte mit Nebel, Stempeln, Fahrt, Kehren, Wahlstationen,
+> Ausweichgleis, Ziel-Bahnhof, Schaufenster und Feier (`train-journey.js`), die Übergabe an
+> alle 25 Spiele über `?station=` (`game-shell.js`, `app.js`, die Spieldateien), der Kasten
+> `lernapp.reise` in der Cloud, die Belohnungen in der Werkstatt mit Schloss (Wimpel
+> Regenbogen, Chauffeure Eichhörnchen und Steinbock, Pfeife Schiffshorn, Sternlampe und
+> Sterne-Wimpel), die Landschaft Savanne, das Reise-Schild am Zug (auch bei der Gruppe)
+> und die Zeile im Adminbereich. Prüfskript: `scripts/validate-reise.mjs`.
+> **Noch offen:** die Fahrplan-Übersicht (Karten wieder öffnen), der Bonus für zehn goldene
+> Stempel, der Fahrgast, die Streckenbesonderheiten (Fähre, Zahnrad, Nachtlicht), die Gruppe
+> auf der Karte, Reise 2 mit der Landschaft Weltraum, Schiebelok und Reisetempo.
+> Der Rest des Dokuments bleibt als Begründung stehen; zum Konzept gehört eine Seite mit
+> einer klickbaren Streckenkarte (Artefakt „Abenteuerreise").
 
 ---
 

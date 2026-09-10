@@ -1307,6 +1307,22 @@ const AUDIO_FEEDBACK_STORAGE_KEY = "lernapp.audioFeedback";
 const PRACTICE_GAMES = new Set(["readingPuzzle", "letterPuzzle"]);
 
 function progressKey(game, levelId) { return `${LOCAL_SOLVED_PREFIX}${game}.${levelId}`; }
+// --- Die Reise -------------------------------------------------------------
+// Mit ?station= geöffnet, steht das Level fest (journey-plan.js): es startet
+// direkt, ohne Levelwahl und ohne die Freischaltkette, und jeder Weg zurück
+// führt auf die Streckenkarte. Gelöst heisst Stempel.
+const journeyTask = window.LernappReise?.fromLocation?.() || null;
+let journeySolved = false;
+function journeyLevel() {
+  if (!journeyTask || !currentGame || !LEVELS_BY_GAME[currentGame]) return null;
+  return levelsForDifficulty(journeyTask.world)[journeyTask.pos - 1] || null;
+}
+function isJourneyLevel(level) {
+  const wanted = journeyLevel();
+  return Boolean(wanted && level && levelId(wanted) === levelId(level));
+}
+function journeyMapUrl() { return window.LernappReise?.mapUrl?.(journeyTask?.nr) || "index.html?reise=1"; }
+function goToJourneyMap() { window.location.href = journeyMapUrl(); }
 function cloudProgress() { return window.LernappFirebase || null; }
 function isSignedIn() { return Boolean(cloudProgress()?.isSignedIn?.()); }
 function isSolved(level) {
@@ -1425,6 +1441,8 @@ function isUnlockedModeEnabled() {
 function isLevelUnlocked(level) {
   if (!level) return false;
   if (isUnlockedModeEnabled()) return true;
+  // Die Station der Reise ist der Schlüssel zu ihrem Level.
+  if (isJourneyLevel(level)) return true;
   const levels = LEVELS_BY_GAME[level.game] || [];
   const index = levelIndex(level);
   if (index === 0 && level.difficulty === "easy") return true;
@@ -1851,7 +1869,7 @@ function showLevelSelect() { finishMove(); clearPracticeAdvanceTimer(); GAME_HAN
 // Kakuro bekommt sein Zahlenfeld fest an die Seite gestellt: es hat seinen
 // Platz vom ersten Bild an, und das Brett rückt nicht, wenn es gebraucht wird.
 const DOCKED_PAD_GAMES = new Set(["kakuro"]);
-function showGame() { if (levelPanel) levelPanel.hidden = true; if (gamePanel) gamePanel.hidden = false; if (gameControls) gameControls.hidden = false; document.body.classList.add("puzzle-active"); document.body.classList.toggle("pad-docked", DOCKED_PAD_GAMES.has(currentGame)); setHelpText(boardHelpText()); }
+function showGame() { if (levelPanel) levelPanel.hidden = true; if (gamePanel) gamePanel.hidden = false; if (gameControls) gameControls.hidden = false; document.body.classList.add("puzzle-active"); document.body.classList.toggle("pad-docked", DOCKED_PAD_GAMES.has(currentGame)); setHelpText(journeyTask ? `${window.LernappReise.describe(journeyTask)} ${boardHelpText()}` : boardHelpText()); }
 function startLevel(index) { const levelToStart = LEVELS_BY_GAME[currentGame]?.[index]; if (!isLevelUnlocked(levelToStart)) { if (levelToStart) selectedDifficulty = levelToStart.difficulty; renderLevelSelect(); return; } clearPracticeAdvanceTimer(); GAME_HANDLERS[currentGame]?.stop?.(); hideSuccess(); currentIndex = index; const level = currentLevel(); selectedDifficulty = level.difficulty; const config = GAME_CONFIGS[currentGame]; history = []; winShown = false; helpCount = 0; if (undoButton) undoButton.disabled = true; const boardSize = level.cols || level.size || 5; board.className = `board ${currentGame}-board board-size-${boardSize}`; board.style.setProperty("--size", boardSize); board.setAttribute("aria-label", `${config.title} Spielfeld`); puzzleTitle.textContent = level.title; puzzleDescription.textContent = level.description || config.subtitle; cloudProgress()?.recordLevelStart?.(level); kids()?.setLastPlayed?.(currentGame, level.id || level.levelName); /* Jedes Level wird frisch eingepasst – die Grösse des vorigen darf nicht nachwirken. */ board.style.removeProperty("--active-board-size"); board.style.removeProperty("--active-board-offset"); resetState(); showGame(); render(); }
 function resetGame() { history = []; helpCount = 0; if (undoButton) undoButton.disabled = true; hideSuccess(); cloudProgress()?.recordLevelStart?.(currentLevel()); resetState(); recordResetMetric(); render("Neu gestartet. Viel Spass!"); }
 function undo() {
@@ -1866,9 +1884,15 @@ function undo() {
   if (undoButton) undoButton.disabled = history.length === 0;
   setStatus("Ein Schritt zurück.");
 }
-function nextLevel() { const next = nextPlayableLevel(currentLevel()); if (next) startLevel(LEVELS_BY_GAME[currentGame].indexOf(next)); else showLevelSelect(); }
+function nextLevel() { if (journeyTask) { goToJourneyMap(); return; } const next = nextPlayableLevel(currentLevel()); if (next) startLevel(LEVELS_BY_GAME[currentGame].indexOf(next)); else showLevelSelect(); }
 function updateNextPuzzleButton() {
   if (!nextPuzzleButton || !currentGame) return;
+  if (journeyTask) {
+    nextPuzzleButton.textContent = "Zur Karte \u2713";
+    nextPuzzleButton.title = "Zurück zur Karte";
+    nextPuzzleButton.setAttribute("aria-label", "Zurück zur Karte der Reise");
+    return;
+  }
   const next = nextPlayableLevel(currentLevel());
   nextPuzzleButton.textContent = next ? "Weiter \u2192" : "Fertig \u2713";
   nextPuzzleButton.title = next ? "N\u00e4chstes Level" : "Zur Levelauswahl";
@@ -1918,7 +1942,13 @@ function showSuccess() {
   const saved = saveLevelStars(level, stars);
   markSolved(level, result);
   GAME_HANDLERS[currentGame]?.afterWin?.(level, result, stars);
-  lastCelebration = { level, result, stars, improved: saved.improved };
+  // Der Stempel der Reise: gelöst ist geschafft, drei Sterne machen ihn golden.
+  let journeyStamp = null;
+  if (journeyTask && isJourneyLevel(level)) {
+    journeySolved = true;
+    journeyStamp = window.LernappReise.markDone(journeyTask.nr, { stars, game: currentGame });
+  }
+  lastCelebration = { level, result, stars, improved: saved.improved, journeyStamp };
   updateNextPuzzleButton();
   updateSuccessContent();
   if (successOverlay) {
@@ -1928,7 +1958,9 @@ function showSuccess() {
   revealSuccessContent();
   releaseSuccessHelp?.();
   const next = nextPlayableLevel(level);
-  releaseSuccessHelp = kids()?.pushHelp?.(`Geschafft! Du hast ${stars} von 3 Sternen. ${next ? "Tippe auf Weiter für das nächste Level" : "Tippe auf Fertig für die Levelauswahl"} oder auf Nochmal, um dieses Level noch einmal zu spielen.`) || null;
+  releaseSuccessHelp = kids()?.pushHelp?.(journeyStamp
+    ? `Geschafft! Du hast ${stars} von 3 Sternen. ${journeyStamp.gold ? "Ein goldener Stempel!" : "Der Stempel wartet auf der Karte."} Tippe auf Zur Karte, und der Zug fährt weiter – oder auf Nochmal, um dieses Level noch einmal zu spielen.`
+    : `Geschafft! Du hast ${stars} von 3 Sternen. ${next ? "Tippe auf Weiter für das nächste Level" : "Tippe auf Fertig für die Levelauswahl"} oder auf Nochmal, um dieses Level noch einmal zu spielen.`) || null;
   setStatus("Geschafft!");
 }
 function hideSuccess() {
@@ -1963,6 +1995,13 @@ function updateSuccessContent() {
   note.className = "success-summary success-note";
   note.textContent = (celebration.stars || 1) >= 3 ? "Perfekt! Alle drei Sterne! 🌟" : "Spiel nochmal für mehr Sterne!";
   successContent.append(note);
+
+  if (celebration.journeyStamp) {
+    const stamp = document.createElement("p");
+    stamp.className = "success-summary success-journey";
+    stamp.textContent = celebration.journeyStamp.gold ? "Auftrag geschafft – ein goldener Stempel!" : "Auftrag geschafft – Stempel für die Karte!";
+    successContent.append(stamp);
+  }
 
 }
 
@@ -3145,11 +3184,24 @@ function renderBimaruBoard(level, makeCell) {
 if (currentGame && LEVELS_BY_GAME[currentGame]) renderDifficultySelect();
 if (undoButton) undoButton.addEventListener("click", undo);
 if (resetButton) resetButton.addEventListener("click", resetGame);
-if (backButton) backButton.addEventListener("click", showLevelSelect);
+// Auf der Reise führt der Pfeil zurück auf die Karte, nicht in die Levelwahl.
+if (backButton) backButton.addEventListener("click", journeyTask ? goToJourneyMap : showLevelSelect);
+if (backButton && journeyTask) { backButton.setAttribute("aria-label", "Zurück zur Karte"); backButton.title = "Zurück zur Karte"; }
 setupSuccessOverlay();
 setupAudioFeedback();
 mountScene();
 applyAreaStyle();
+
+// Auf der Reise: gleich in das verlangte Level. Wer es ungelöst verlässt, hat
+// einen Versuch verbraucht – nach zweien öffnet die Karte das Ausweichgleis.
+if (journeyTask) {
+  const wanted = journeyLevel();
+  const index = wanted ? LEVELS_BY_GAME[currentGame].indexOf(wanted) : -1;
+  if (index >= 0) startLevel(index);
+  window.addEventListener("pagehide", () => {
+    if (!journeySolved) window.LernappReise?.recordTry?.(journeyTask.nr);
+  });
+}
 
 // Dieselbe Landschaft wie auf dem Startbild, hinter allem. Die Rätsel standen
 // bisher auf einem eigenen Farbverlauf; damit sahen sie aus wie eine zweite

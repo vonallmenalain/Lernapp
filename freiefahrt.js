@@ -925,7 +925,12 @@
     },
   });
 
-  showMenu();
+  // Auf der Reise (journey-plan.js) steht das Level fest: gleich hinein,
+  // kein Menü. Der Rückweg führt dann auf die Karte, das regelt die Bühne.
+  const auftrag = shell.journey;
+  const auftragLevel = auftrag?.level ? LEVELS.find((level) => level.nr === auftrag.level) : null;
+  if (auftragLevel) startLevel(auftragLevel);
+  else showMenu();
 
   window.addEventListener("resize", messen);
   window.addEventListener("orientationchange", messen);

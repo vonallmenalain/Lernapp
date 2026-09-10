@@ -2194,9 +2194,20 @@
     }
 
     const stufen = window.LernappTrain.STAGE_COUNT;
+    // Die Reise: wie weit der Zug auf der Streckenkarte ist. Gerechnet in
+    // journey-plan.js aus demselben Kasten, den auch die Karte liest.
+    const reise = window.LernappReise;
+    const fahrt = reise ? reise.progressFor(readGameState(entity.gameState)[reise.KEY]?.data) : null;
+    const reiseZeile = fahrt
+      ? `<p class="admin-train-reise">${fahrt.complete
+        ? `Reise: alle ${reise.STATION_COUNT} Stationen geschafft`
+        : `Reise: Station ${fahrt.station} von ${reise.STATION_COUNT}, Karte ${reise.mapIndexOf(fahrt.station) + 1} (${reise.MAPS[reise.mapIndexOf(fahrt.station)]?.name || ""})`}
+        · ${fahrt.finishedMaps} von ${reise.MAPS.length} Karten fertig · ${fahrt.golden} goldene Stempel</p>`
+      : "";
     return `
       <section class="admin-train-detail">
         <h4>Fortschritt des Zugs</h4>
+        ${reiseZeile}
         <div>
           ${areas.map((area) => `
             <span style="--wagen: ${escapeHtml(area.color)}">

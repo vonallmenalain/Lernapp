@@ -1633,7 +1633,7 @@
         const action = button.dataset.action;
         if (action === "resume") resumeGame();
         else if (action === "restart") startLevel(game.level.id);
-        else if (action === "map") leaveStage();
+        else if (action === "map") { if (shell?.journey) shell.toMap(); else leaveStage(); }
         else if (action === "next") startLevel(Math.min(LEVEL_COUNT, game.level.id + 1));
       });
     });
@@ -1655,6 +1655,11 @@
     game.over = true;
     game.holding = false;
     releaseWakeLock();
+
+    // Der Auftrag der Reise: geschafft heisst Stempel, sonst zählt der
+    // Fehlversuch für das Ausweichgleis.
+    const reise = window.LernappReise;
+    if (shell?.journey && reise && !success) reise.recordTry(shell.journey.nr);
 
     if (!success) {
       soundFail();
@@ -1683,6 +1688,9 @@
     const unlockedNext = level.id === progress.unlocked && level.id < LEVEL_COUNT;
     if (unlockedNext) progress.unlocked = level.id + 1;
     saveProgress(progress);
+    const journeyDone = shell?.journey && reise && shell.journey.level === level.id
+      ? reise.markDone(shell.journey.nr, { stars, game: "tiersprung" })
+      : null;
 
     soundFinish();
     kids.vibrate([40, 40, 90]);
@@ -1699,10 +1707,12 @@
       ${starRow(stars)}
       <p class="runner-dialog-sub">${game.treats} von ${game.treatTotal} ${level.treatName} ${level.treat}</p>
       ${growLine}
+      ${journeyDone ? `<p class="runner-grow runner-journey">${journeyDone.gold ? "Auftrag geschafft – ein goldener Stempel!" : "Auftrag geschafft – Stempel für die Karte!"}</p>` : ""}
       <div class="runner-dialog-actions">
-        ${nextLevel ? `<button type="button" class="runner-primary" data-action="next">Weiter zu ${nextAnimal.name} ${nextAnimal.emoji}</button>` : ""}
+        ${nextLevel && !journeyDone ? `<button type="button" class="runner-primary" data-action="next">Weiter zu ${nextAnimal.name} ${nextAnimal.emoji}</button>` : ""}
+        ${journeyDone ? `<button type="button" class="runner-primary" data-action="map">Zur Karte ✓</button>` : ""}
         <button type="button" class="runner-secondary" data-action="restart">Nochmal ↻</button>
-        <button type="button" class="runner-secondary" data-action="map">Zur Karte</button>
+        ${journeyDone ? "" : `<button type="button" class="runner-secondary" data-action="map">Zur Karte</button>`}
       </div>`, wireDialog);
 
     const dialog = hud.overlay?.querySelector(".runner-dialog");
@@ -1847,7 +1857,9 @@
 
   function startLevel(levelId) {
     const level = LEVELS[levelId - 1];
-    if (!level || !isUnlocked(level.id)) return;
+    // Auf der Reise ist das verlangte Level frei, auch wenn das Tier davor
+    // noch nicht im Ziel war: die Station ist der Schlüssel.
+    if (!level || (!isUnlocked(level.id) && shell?.journey?.level !== level.id)) return;
     closeOverlay();
     enterStage();
     resetRun(level);
@@ -1903,7 +1915,7 @@
   });
 
   hud.pauseButton?.addEventListener("click", () => { if (game.paused) resumeGame(); else pauseGame(); });
-  hud.quitButton?.addEventListener("click", () => leaveStage());
+  hud.quitButton?.addEventListener("click", () => { if (shell?.journey) shell.toMap(); else leaveStage(); });
   hud.fullscreenButton?.addEventListener("click", () => toggleFullscreen());
   document.addEventListener("fullscreenchange", () => { updateFullscreenButton(); resizeCanvas(); });
   document.addEventListener("webkitfullscreenchange", () => { updateFullscreenButton(); resizeCanvas(); });
@@ -1938,9 +1950,18 @@
     accentDark: "#b9741a",
     help: "",
     clock: false,
-    onRestart: () => { renderMap(); setMapHelp(); },
+    onRestart: () => {
+      if (shell?.journey?.level) { startLevel(shell.journey.level); return; }
+      renderMap();
+      setMapHelp();
+    },
   });
 
-  renderMap();
-  setMapHelp();
+  // Auf der Reise (journey-plan.js) steht das Level fest: gleich hinein, ohne
+  // die Levelkarte. Der Rückweg führt dann auf die Streckenkarte.
+  if (shell.journey?.level && LEVELS[shell.journey.level - 1]) startLevel(shell.journey.level);
+  else {
+    renderMap();
+    setMapHelp();
+  }
 })();

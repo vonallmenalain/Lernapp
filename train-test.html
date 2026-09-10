@@ -71,6 +71,10 @@
     <h2>Tiere am Steuer</h2>
     <div class="card"><div class="row" id="drivers"></div></div>
 
+    <h2>Die Reise</h2>
+    <p class="note">Streckenschild vor den Toren, Stempel, Nebel, Signal, die sechs Wahrzeichen der Ziel-Bahnhöfe und das Schaufenster (train-journey.js setzt das Bild hinein). Dazu die Lok mit den Teilen, die die Reise freischaltet.</p>
+    <div class="card"><div class="row" id="journey"></div></div>
+
     <h2>Spiel-Symbole</h2>
     <p class="note">Ein Bild je Spiel, in der Farbe seines Bereichs – so stehen sie auf der Bühne und an den Kisten des Wagens. Die zweite Zeile je Bereich zeigt die fertig gespielten mit Marke, die dritte alle Bilder klein, wie an der Kiste.</p>
     <div id="buildings"></div>
@@ -78,6 +82,41 @@
     <script src="train-art.js"></script>
     <script>
       const art = window.LernappTrainArt;
+
+      // --- Die Reise ---------------------------------------------------------
+      (() => {
+        const host = document.getElementById("journey");
+        if (!host) return;
+        const cell = (label, width, height, viewBox, children) => {
+          const wrap = document.createElement("div");
+          wrap.className = "cell";
+          wrap.append(art.el("svg", { viewBox, width, height }, children));
+          const cap = document.createElement("div");
+          cap.className = "cap";
+          cap.textContent = label;
+          wrap.append(cap);
+          host.append(wrap);
+        };
+        cell("Streckenschild, Station 13", 260, 178, `0 0 ${art.SIGN_W} ${art.SIGN_H + 8}`, [art.buildJourneySign({ station: 13, total: 60, sparkle: true })]);
+        cell("Stempel", 120, 60, "-60 -30 120 60", [
+          art.el("g", { transform: "translate(-30,0)" }, [art.buildStamp("#00A5B5")]),
+          art.el("g", { transform: "translate(30,0)" }, [art.buildStamp("#00A5B5", { gold: true })]),
+        ]);
+        cell("Nebel und Signal", 200, 100, "-70 -80 200 100", [
+          art.el("g", { transform: "translate(0,-20)" }, [art.buildFog()]),
+          art.el("g", { transform: "translate(100,10)" }, [art.buildJourneySignal()]),
+          art.el("g", { transform: "translate(50,0)" }, [art.buildSwitchMark("#3FA34D")]),
+        ]);
+        Object.keys(art.LANDMARKS).forEach((id) => cell(id, 130, 150, "-65 -140 130 150", [art.buildLandmark(id)]));
+        cell("Schaufenster, gesperrt", 100, 90, "-50 -80 100 90", [art.buildShowcase(null, { locked: true })]);
+        cell("Schaufenster, offen", 100, 90, "-50 -80 100 90", [art.buildShowcase(null, { locked: false })]);
+        cell("Lok mit Belohnungen", 260, 200, `0 0 ${art.LOCO_W} ${art.ART_H}`, [
+          art.buildLoco({ driver: "ibex", lamp: { shape: "star" }, flag: { pattern: "rainbow" }, whistle: "schiffshorn", journeyStars: 6 }),
+        ]);
+        cell("Sterne-Wimpel, Eichhörnchen", 260, 200, `0 0 ${art.LOCO_W} ${art.ART_H}`, [
+          art.buildLoco({ driver: "squirrel", flag: { pattern: "stars", color: "#2f6f8f" }, journeyStars: 2 }),
+        ]);
+      })();
       const { el, buildLoco, buildWagon, buildTrain, driverHead, ART_H, WAGON_W, LOCO_W } = art;
 
       const AREAS = [

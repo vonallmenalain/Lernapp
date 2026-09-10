@@ -697,7 +697,11 @@
     },
   });
 
-  showMenu();
+  // Auf der Reise (journey-plan.js) steht das Level fest: gleich hinein,
+  // kein Menü. Der Rückweg führt dann auf die Karte, das regelt die Bühne.
+  const auftrag = shell.journey;
+  if (auftrag?.level && LEVELS[auftrag.level - 1]) startLevel(LEVELS[auftrag.level - 1]);
+  else showMenu();
 
   // Die Tabelle, das Netz und die Sternregel nach aussen: die Prüfskripte
   // rechnen damit ohne Browser nach, ob jedes Haus erreichbar ist und die zehn

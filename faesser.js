@@ -422,7 +422,11 @@
     },
   });
 
-  showMenu();
+  // Auf der Reise (journey-plan.js) steht das Level fest: gleich hinein,
+  // kein Menü. Der Rückweg führt dann auf die Karte, das regelt die Bühne.
+  const auftrag = shell.journey;
+  if (auftrag?.level && LEVELS[auftrag.level - 1]) startLevel(LEVELS[auftrag.level - 1]);
+  else showMenu();
 
   // Die Tasten 1, 2 und 3 wählen die Gleise.
   document.addEventListener("keydown", (event) => {

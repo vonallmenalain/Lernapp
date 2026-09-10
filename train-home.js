@@ -37,6 +37,11 @@
   // wird der Hintergrund, nicht der Zug – so bleibt die Lok an ihrem Platz und
   // muss nicht bei jedem Bild neu gezeichnet werden.
   const scenes = () => window.LernappScenes || null;
+  // Die Reise: Fahrplan und Stand in journey-plan.js, die Karte in
+  // train-journey.js. Beides darf fehlen – dann gibt es vor den Toren kein
+  // Streckenschild, und sonst ändert sich nichts.
+  const reiseApi = () => window.LernappReise || null;
+  const journeyApi = () => window.LernappJourney || null;
   // Gezeigt wird, was gewählt ist – ob die Landschaft nach dem Stand dieses
   // Geräts gerade frei wäre, spielt hier keine Rolle. Die Sperre gehört in die
   // Auswahl: dort lässt sich Gesperrtes nicht antippen. Beim Anzeigen wäre sie
@@ -295,11 +300,40 @@
       }, [gate]));
     });
 
+    // Das Streckenschild der Reise: rechts auf der Hauptstrecke, dort, wo sie
+    // aus dem Bild läuft. Kein sechstes Tor – die Tore sind Hallen, in die man
+    // abbiegt; die Reise ist die Strecke selbst, und der Zug fährt geradeaus.
+    const sign = buildJourneySign();
+
     return layerSvg([
       group({ "aria-hidden": "true" }, rails),
       stageRail(),
       ...gates,
+      ...(sign ? [sign] : []),
     ], "Wohin soll der Zug fahren?");
+  }
+
+  // Wo das Streckenschild steht: unten rechts, mit dem Bahnsteig auf dem
+  // Gleis. Die Rampen zu den oberen Toren laufen darüber hinweg, der Zug
+  // wartet links – dazwischen ist genau dieser Platz frei.
+  const SIGN_SCALE = 0.86;
+  const SIGN_X = 916;
+
+  function buildJourneySign() {
+    const reise = reiseApi();
+    if (!reise || !art.buildJourneySign) return null;
+    const total = reise.STATION_COUNT;
+    const station = reise.current();
+    const seen = reise.readSeen();
+    const complete = station > total;
+    // Funkeln, wenn ein Ziel-Bahnhof ansteht oder seit dem letzten Blick auf
+    // die Karte etwas dazugekommen ist.
+    const sparkle = complete || station % reise.STATIONS_PER_MAP === 0 || Boolean(seen && station > seen.station);
+    const label = complete
+      ? "Auf die Reise: alle Stationen geschafft. Antippen, und der Zug fährt auf die Karte."
+      : `Auf die Reise: Station ${station} von ${total}. Antippen, und der Zug fährt los.`;
+    const sign = art.buildJourneySign({ station: Math.min(station, total), total, sparkle, label });
+    return group({ transform: `translate(${SIGN_X},${RAIL_Y - art.SIGN_H * SIGN_SCALE}) scale(${SIGN_SCALE})` }, [sign]);
   }
 
   // Wohin sich der Zug schieben muss, um in einem Tor zu stehen – in Pixeln.
@@ -524,7 +558,21 @@
           button.setAttribute("aria-label", `${art.LOCO_PARTS.find((e) => e.id === part)?.label}: Auswahl ${value}`);
           button.setAttribute("aria-pressed", current === value ? "true" : "false");
           button.append(partPreview(part, choice));
+          // Was die Reise erst freischaltet, steht mit Schloss da: zu sehen,
+          // damit ein Kind weiss, wofür es fährt – nicht zu wählen.
+          const lockedBy = ["shape", "driver", "whistle"].includes(row.kind) && current !== value
+            ? reiseApi()?.lockFor?.(part, value) : null;
+          if (lockedBy) {
+            button.classList.add("is-locked");
+            button.disabled = true;
+            button.setAttribute("aria-label", `${art.LOCO_PARTS.find((e) => e.id === part)?.label}: ${value}, noch gesperrt. Belohnung der Reise, Karte ${lockedBy.nr}: ${lockedBy.name}.`);
+            button.append(el("svg", { viewBox: "0 0 24 24", class: "loco-lock", "aria-hidden": "true" }, [
+              el("path", { d: "M7 11V8a5 5 0 0 1 10 0v3", fill: "none", stroke: "currentColor", "stroke-width": 2.4, "stroke-linecap": "round" }),
+              el("rect", { x: 5, y: 11, width: 14, height: 10, rx: 3, fill: "currentColor" }),
+            ]));
+          }
           button.addEventListener("click", () => {
+            if (lockedBy) return;
             saveLoco(choice);
             if (part === "whistle") kids()?.playWhistle?.(value);
             showWorkshop(part);
@@ -665,6 +713,9 @@
       name: account.name,
       loco: { ...art.DEFAULT_LOCO, ...(account.loco || {}) },
       areas: progress.areasForAccount(account),
+      // Wie weit der andere auf der Reise ist: ein Stern je fertiger Karte,
+      // am selben Schild wie beim eigenen Zug.
+      journeyStars: reiseApi()?.progressFor?.(account.gameState?.[reiseApi().KEY]?.data)?.finishedMaps || 0,
     }));
 
     // Steht gerade der Zug eines Kindes offen, das nicht mehr dazugehört, führt
@@ -715,7 +766,7 @@
     // Mit eigenem Gleis: gezeichnet im selben Koordinatensystem wie der Zug,
     // also immer genau unter den Rädern. Ein Strich im CSS müsste dafür auf
     // Prozentwerte vertrauen, die bei jedem Seitenverhältnis anders liegen.
-    const svg = art.buildTrain(friend.areas, friend.loco, { pad: 4, gap: 4, withTrack: true });
+    const svg = art.buildTrain(friend.areas, friend.loco, { pad: 4, gap: 4, withTrack: true, journeyStars: friend.journeyStars || 0 });
     svg.setAttribute("class", "train-svg friend-svg");
     svg.setAttribute("aria-hidden", "true");
     svg.removeAttribute("role");
@@ -1029,7 +1080,9 @@
       button.disabled = !unlocked;
       button.setAttribute("aria-label", unlocked
         ? `Landschaft ${scene.label}${scene.id === active ? ", ausgewählt" : ""}`
-        : `Landschaft ${scene.label}, noch gesperrt. Baue einen Wagen fertig, um sie freizuschalten.`);
+        : scene.reward
+          ? `Landschaft ${scene.label}, noch gesperrt. Eine Belohnung der Reise.`
+          : `Landschaft ${scene.label}, noch gesperrt. Baue einen Wagen fertig, um sie freizuschalten.`);
       button.append(sceneThumb(scene));
       if (!unlocked) {
         button.append(el("svg", { viewBox: "0 0 24 24", class: "scene-lock", "aria-hidden": "true" }, [
@@ -1207,6 +1260,9 @@
   const TRAIN_TAPPABLE = new Set(["home", "games"]);
 
   function setView(name, areaId = null) {
+    // Der Lautsprecher spricht nur auf der Karte; wer sie verlässt, nimmt den
+    // Text mit.
+    if (view.name === "reise" && name !== "reise") kids()?.setHelp?.("");
     view.name = name;
     view.areaId = areaId;
     stage.dataset.view = name;
@@ -1317,8 +1373,43 @@
       const id = gate.getAttribute("data-gate");
       activate(gate, () => enterArea(id));
     });
+    layer.querySelectorAll("[data-journey]").forEach((sign) => activate(sign, enterJourney));
     renderLayer(layer);
     window.requestAnimationFrame(alignTrainToRail);
+  }
+
+  // Die Streckenkarte der Reise. Gezeichnet wird sie in train-journey.js;
+  // hier bekommt sie ihren Platz in der Bühnen-Ebene, den Zug des Kindes und
+  // die Warteschlange der Feiern – ihre eigene Feier (Stempel, Fahrt, Ziel)
+  // kommt vor der des Wagens, der dabei gewachsen ist.
+  //
+  //   mode "enter"   von den Toren her: der Zug fährt ein
+  //        "return"  zurück aus einem Spiel: was neu ist, wird gefeiert
+  //        "quiet"   nur neu gezeichnet
+  let renderAfterJourney = false;
+
+  function showJourney({ mode = "quiet", returned = null } = {}) {
+    const journey = journeyApi();
+    if (!journey || !reiseApi()) { showAreas(); return; }
+    setView("reise");
+    const host = document.createElement("div");
+    host.className = "journey";
+    renderLayer(host);
+    journey.mount({
+      host,
+      stage,
+      loco: locoConfig || readLoco(),
+      areas: progress.allAreas(),
+      mode,
+      returned,
+      celebrate: feiere,
+      onPlay: (url) => enterGame(url),
+      onSettled: () => {
+        if (!renderAfterJourney) return;
+        renderAfterJourney = false;
+        render();
+      },
+    });
   }
 
   function showGames(areaId) {
@@ -1390,6 +1481,20 @@
     busy = false;
   }
 
+  // Auf die Reise: kein Abbiegen, der Zug fährt geradeaus an den fünf Weichen
+  // vorbei und rechts aus dem Bild. Dann kommt die Karte, und er fährt links
+  // auf ihr ein – klein, mit allen Wagen.
+  async function enterJourney() {
+    if (busy || !journeyApi()) return;
+    busy = true;
+    toot(5);
+    stage.dataset.moving = "out";
+    await after(620);
+    delete stage.dataset.moving;
+    showJourney({ mode: "enter" });
+    busy = false;
+  }
+
   // Zählt die Seitenwechsel. Die Notbremse unten darf nur den Wechsel abräumen,
   // den sie selbst scharf gemacht hat: kommt die Seite aus dem Vor-Zurück-
   // Speicher, läuft ihr alter Zeitgeber weiter und riss sonst mitten in einer
@@ -1430,6 +1535,18 @@
       return;
     }
     if (view.name === "areas") { showHome(); return; }
+    // Von der Karte zurück vor die Tore: der Zug kommt von links herein, wie
+    // aus einem Bereich.
+    if (view.name === "reise") {
+      busy = true;
+      stage.dataset.moving = "in";
+      await after(40);
+      showAreas();
+      delete stage.dataset.moving;
+      await after(560);
+      busy = false;
+      return;
+    }
     if (view.name === "wagon") { backFromDetail(); return; }
     if (view.name === "friend") { view.friendId = null; backFromDetail(); return; }
     // Aus der Bestenliste zurück an den Zug, von dem aus sie geöffnet wurde.
@@ -1803,6 +1920,12 @@
       applyCloudSettings(waiting);
       return;
     }
+    // Mitten in Stempel und Fahrt wird die Karte nicht neu gebaut – das
+    // risse die Feier ab. Neu gezeichnet wird, sobald sie durch ist.
+    if (view.name === "reise" && journeyApi()?.isPlaying?.()) {
+      renderAfterJourney = true;
+      return;
+    }
     const areas = progress.allAreas();
     if (!locoConfig) locoConfig = readLoco();
     const loco = locoConfig;
@@ -1846,7 +1969,7 @@
     // Ohne Gleis: das liegt jetzt fest in der Bühnenebene, damit es beim
     // Losfahren stehen bleibt. Der Nachlauf rechts ist der Platz, auf dem das
     // Startsignal vor der Lok schwebt.
-    const svg = art.buildTrain(areas, loco, { pad: 4, gap: 4, trailing: 160, withTrack: false });
+    const svg = art.buildTrain(areas, loco, { pad: 4, gap: 4, trailing: 160, withTrack: false, journeyStars: reiseApi()?.finishedMaps?.() || 0 });
     svg.setAttribute("aria-label", describeTrain(areas));
 
     svg.querySelectorAll("[data-area]").forEach((node) => {
@@ -1895,6 +2018,7 @@
     else if (previous === "wagon" && previousArea) showWagon(previousArea);
     else if (previous === "friend" && view.friendId) showFriend(view.friendId, view.friendArea);
     else if (previous === "highscore" && view.highscoreGame) showHighscore(view.highscoreGame, view.highscoreLevel);
+    else if (previous === "reise") showJourney({ mode: "quiet" });
     else showHome();
 
     // Ganz zum Schluss: hat sich seit dem letzten Mal ein Wagen weiterentwickelt,
@@ -1958,7 +2082,21 @@
   // führt.
   function openRequestedArea() {
     let wanted = null;
-    try { wanted = new URLSearchParams(window.location.search).get("bereich"); } catch { wanted = null; }
+    let reiseWanted = null;
+    let station = null;
+    try {
+      const params = new URLSearchParams(window.location.search);
+      wanted = params.get("bereich");
+      reiseWanted = params.get("reise");
+      station = Number(params.get("station")) || null;
+    } catch { wanted = null; }
+    // Zurück aus einem Spiel der Reise: gleich auf die Karte, und dort wird
+    // gefeiert, was neu ist.
+    if (reiseWanted && journeyApi() && reiseApi()) {
+      try { window.history.replaceState(null, "", window.location.pathname); } catch { /* ohne Verlauf */ }
+      showJourney({ mode: "return", returned: station });
+      return true;
+    }
     if (!wanted || !progress.areaProgress(wanted)) return false;
     try { window.history.replaceState(null, "", window.location.pathname); } catch { /* ohne Verlauf */ }
     showGames(wanted);
