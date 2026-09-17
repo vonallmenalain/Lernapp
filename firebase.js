@@ -101,6 +101,18 @@
     group: null,
     pendingDisplayName: null,
     unlockedMode: false,
+    // Die Familie und der Kauf. role sagt, was für ein Konto das ist:
+    // "child" mit technischer Adresse, "parent" mit echter, "admin" der eine.
+    // parentUid steht am Kind, children am Elternkonto – beides schreibt der
+    // Server, der Client liest es nur (firestore.rules). entitlement ist der
+    // Kaufstand aus entitlements/{uid}, live beobachtet: Nach dem Kauf muss
+    // niemand neu laden.
+    role: null,
+    parentUid: null,
+    children: [],
+    entitlement: null,
+    entitlementLoaded: false,
+    entitlementUnsubscribe: null,
     guestId: null,
     guestCreatedAtMs: 0,
     adminView: "users",
@@ -177,6 +189,16 @@
     isSignedIn: () => Boolean(state.user),
     isLevelSolved,
     isUnlockedModeEnabled: () => Boolean(state.user && state.unlockedMode),
+    // Der Kauf und die Familie. Was jemand darf, entscheidet nicht diese
+    // Zeile, sondern firestore.rules; hier steht nur, was gelesen wurde.
+    getEntitlement,
+    isEntitlementLoaded: () => state.entitlementLoaded,
+    getRole,
+    getParentUid,
+    getChildren,
+    isParentAccount,
+    getUser: () => (state.user ? { uid: state.user.uid, email: state.user.email || null, name: profileNameForUser(state.user) } : null),
+    openAccount: () => openModal(),
     // Ohne Angabe das eigene Konto. Mit Angabe ein fremdes – wer das darf,
     // entscheidet nicht diese Zeile, sondern firestore.rules.
     resetProgress: (userId) => resetProgressFor(userId || state.user?.uid),
@@ -266,6 +288,10 @@
       state.gameState = null;
       state.group = null;
       state.progressResetAtMs = 0;
+      state.role = null;
+      state.parentUid = null;
+      state.children = [];
+      stopWatchingEntitlement();
       resetAdminState();
       stopActiveSession();
       renderLoggedOut();
@@ -281,6 +307,7 @@
 
     try {
       await upsertUserProfile(user);
+      watchEntitlement(user.uid);
       if (!isAdminUser(user)) resetAdminState();
       // Vor allem anderen: wurde dieses Konto anderswo zurückgesetzt, muss
       // dieses Gerät seinen alten Stand loswerden, bevor syncLocalSolvedProgress
@@ -522,16 +549,23 @@
     state.gameState = readGameState(existingData.gameState);
     state.group = readGroup(existingData.group);
     state.progressResetAtMs = Number(existingData.progressReset?.atMs) || 0;
+    state.parentUid = typeof existingData.parentUid === "string" ? existingData.parentUid : null;
+    state.children = readChildren(existingData.children);
     const providers = user.providerData.map((provider) => provider.providerId);
     const username = profileNameForUser(user, existingData);
     const isNameLogin = isTechnicalEmail(user.email);
     const admin = isAdminUser(user);
+    // Was für ein Konto das ist, entscheidet die Adresse: eine technische
+    // gehört einem Kind, eine echte den Eltern. Der Admin ist der eine mit
+    // der bekannten Adresse. Das Feld ist eine Auskunft, keine Berechtigung –
+    // was jemand darf, entscheidet firestore.rules.
+    state.role = admin ? "admin" : (isNameLogin ? "child" : "parent");
     const payload = {
       authEmail: user.email || null,
       email: isNameLogin ? null : (user.email || null),
       username,
       displayName: username,
-      role: admin ? "admin" : "user",
+      role: state.role,
       isAdmin: admin,
       loginMethod: isNameLogin ? "name-password" : (providers.includes("google.com") ? "google" : "email-password"),
       providers,
@@ -696,6 +730,140 @@
     document.dispatchEvent(new CustomEvent("lernapp:group-changed", { detail: getGroup() }));
   }
 
+  // ---------------------------------------------------------------------------
+  // Der Kauf
+  // ---------------------------------------------------------------------------
+  // entitlements/{uid} schreibt nur der Server, nach einer Zahlung bei Stripe.
+  // Hier wird er nur gelesen – und zwar beobachtet, nicht einmal geholt: Wer
+  // im Profilfenster kauft, kommt von Stripe zurück, und der Eintrag ist da,
+  // ohne dass jemand neu laden muss. Wer die Sperre in der App entscheidet
+  // (entitlement.js), hört auf lernapp:entitlement-changed.
+  function readEntitlement(data) {
+    if (!data || typeof data !== "object") return null;
+    return {
+      plan: typeof data.plan === "string" ? data.plan : "",
+      active: Boolean(data.active),
+      via: typeof data.via === "string" ? data.via : null,
+      grantedAtMs: Number(data.grantedAtMs) || 0,
+    };
+  }
+
+  function watchEntitlement(userId) {
+    stopWatchingEntitlement();
+    if (!state.db || !userId) return;
+    state.entitlementLoaded = false;
+    const uebernehmen = (snapshot) => {
+      const next = snapshot?.exists ? readEntitlement(snapshot.data()) : null;
+      const changed = JSON.stringify(next) !== JSON.stringify(state.entitlement) || !state.entitlementLoaded;
+      state.entitlement = next;
+      state.entitlementLoaded = true;
+      if (changed) announceEntitlement();
+      if (changed && state.dashboardOpen && state.user) refreshDashboard().catch(() => {});
+    };
+    // Kein Zugriff oder kein Netz: dann gilt "nicht gekauft" – die Sperre
+    // fällt zu, nicht auf. Ein Kind aus der Zeit vor dem Kauf bleibt trotzdem
+    // frei, das entscheidet entitlement.js an der Rolle.
+    const gescheitert = () => {
+      state.entitlement = null;
+      state.entitlementLoaded = true;
+      announceEntitlement();
+    };
+    // Nichts hiervon darf den Anmeldevorgang zu Fall bringen: Der Kauf ist
+    // ein Zusatz zum Konto, nicht seine Voraussetzung. Fehlt onSnapshot –
+    // etwa in einem Prüfskript mit nachgebautem Firestore –, reicht ein
+    // einmaliges Lesen.
+    try {
+      const ref = state.db.collection("entitlements").doc(userId);
+      if (typeof ref.onSnapshot === "function") {
+        state.entitlementUnsubscribe = ref.onSnapshot(uebernehmen, gescheitert);
+      } else {
+        Promise.resolve(ref.get()).then(uebernehmen, gescheitert);
+      }
+    } catch {
+      gescheitert();
+    }
+  }
+
+  function stopWatchingEntitlement() {
+    if (typeof state.entitlementUnsubscribe === "function") state.entitlementUnsubscribe();
+    state.entitlementUnsubscribe = null;
+    const hatte = state.entitlement || state.entitlementLoaded;
+    state.entitlement = null;
+    state.entitlementLoaded = false;
+    if (hatte) announceEntitlement();
+  }
+
+  function announceEntitlement() {
+    document.dispatchEvent(new CustomEvent("lernapp:entitlement-changed", { detail: getEntitlement() }));
+  }
+
+  function getEntitlement() {
+    return state.entitlement ? { ...state.entitlement } : null;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Die Familie
+  // ---------------------------------------------------------------------------
+  // children[] am Elternkonto: {uid, name}. Der Server schreibt es, wenn er
+  // ein Kind anlegt; hier wird es gelesen, damit das Profilfenster die Kinder
+  // nennen kann, ohne ihre Konten lesen zu dürfen.
+  function readChildren(value) {
+    if (!Array.isArray(value)) return [];
+    return value
+      .map((entry) => {
+        if (typeof entry === "string") return { uid: entry, name: "" };
+        if (entry && typeof entry === "object" && typeof entry.uid === "string") {
+          return { uid: entry.uid, name: typeof entry.name === "string" ? entry.name : "" };
+        }
+        return null;
+      })
+      .filter(Boolean);
+  }
+
+  function getRole() { return state.user ? state.role : null; }
+  function getParentUid() { return state.user ? state.parentUid : null; }
+  function getChildren() { return state.user ? state.children.map((child) => ({ ...child })) : []; }
+  // Ein Elternkonto kauft und legt Kinder an. Der Admin ist auch eines: Er
+  // hat eine echte Adresse, und seine Kinder sollen bei ihm stehen.
+  function isParentAccount() { return state.role === "parent" || state.role === "admin"; }
+
+  // ---------------------------------------------------------------------------
+  // Eltern: Anmelden mit echter Adresse
+  // ---------------------------------------------------------------------------
+  // Anders als beim Kind gibt es hier keine technische Adresse und keine
+  // feste Endung am Passwort: Es ist ein gewöhnliches Firebase-Konto, mit dem
+  // auch "Passwort vergessen" geht – die Mail kommt von Firebase.
+  function cleanEmail(value) {
+    return String(value || "").trim().toLowerCase();
+  }
+
+  function assertParentEmail(email) {
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw authInputError("auth/invalid-parent-email");
+    if (isTechnicalEmail(email)) throw authInputError("auth/invalid-parent-email");
+  }
+
+  async function signInParent(email, password) {
+    const clean = cleanEmail(email);
+    assertParentEmail(clean);
+    await state.auth.signInWithEmailAndPassword(clean, String(password || ""));
+  }
+
+  async function signUpParent(email, password) {
+    const clean = cleanEmail(email);
+    assertParentEmail(clean);
+    if (String(password || "").length < 6) throw authInputError("auth/parent-password-short");
+    const credential = await state.auth.createUserWithEmailAndPassword(clean, String(password));
+    // Die Bestätigung ist keine Pflicht – aber wer sie hat, bekommt später
+    // die Rechnung an eine Adresse, die ihm gehört.
+    try { await credential.user?.sendEmailVerification?.(); } catch { /* dann eben ohne */ }
+  }
+
+  async function sendParentPasswordReset(email) {
+    const clean = cleanEmail(email);
+    assertParentEmail(clean);
+    await state.auth.sendPasswordResetEmail(clean);
+  }
+
   // Übernimmt eine gelesene Gruppe und meldet sie weiter, wenn sich etwas
   // geändert hat. Ohne den Vergleich meldete jedes Öffnen des Profilfensters
   // eine Änderung, und das Startbild lüde die fremden Züge jedes Mal neu.
@@ -853,19 +1021,6 @@
 
   async function signIn(loginName, password) {
     await state.auth.signInWithEmailAndPassword(emailForSignIn(loginName), passwordForSignIn(loginName, password));
-  }
-
-  async function signUp(loginName, password) {
-    const displayName = cleanDisplayName(loginName);
-    const email = technicalEmailFromName(displayName);
-    state.pendingDisplayName = displayName;
-    try {
-      const credential = await state.auth.createUserWithEmailAndPassword(email, childPassword(password));
-      if (credential.user?.updateProfile) await credential.user.updateProfile({ displayName });
-    } catch (error) {
-      state.pendingDisplayName = null;
-      throw error;
-    }
   }
 
   async function signInWithGoogle() {
@@ -1392,74 +1547,162 @@
     accountButton.focus();
   }
 
+  // Zwei Wege ins Konto. Das Kind: Name und Passwort, wie bisher. Die
+  // Eltern: ihre E-Mail-Adresse – damit kaufen sie, legen Kinderprofile an
+  // und bekommen "Passwort vergessen" per Mail. Ein neues Kind legt nicht
+  // mehr das Kind selbst an, sondern das Elternkonto: sonst gehörte es zu
+  // niemandem, und der Kauf der Eltern käme nie bei ihm an. Konten aus der
+  // Zeit davor melden sich wie immer an.
+  const LOGIN_TAB_KEY = "lernapp.login.reiter";
+
+  function readLoginTab() {
+    try { return localStorage.getItem(LOGIN_TAB_KEY) === "eltern" ? "eltern" : "kind"; } catch { return "kind"; }
+  }
+
+  function writeLoginTab(tab) {
+    try { localStorage.setItem(LOGIN_TAB_KEY, tab); } catch { /* privater Modus */ }
+  }
+
   function renderLoggedOut() {
     accountPanel.classList.remove("has-admin");
+    const tab = readLoginTab();
     modalContent.innerHTML = `
       <p class="small-label">Profil</p>
-      <h2 id="account-modal-title">Einloggen</h2>
-      <p class="account-muted">Ein Name und ein kurzes Passwort reichen. Auf diesem Gerät bleibst du auch nach einem Neustart angemeldet.</p>
-      <form class="auth-form" data-auth-mode="login">
+      <h2 id="account-modal-title">Anmelden</h2>
+      <div class="auth-tabs" role="tablist" aria-label="Wer meldet sich an?">
+        <button type="button" class="auth-tab" role="tab" data-auth-tab="kind" aria-selected="${tab === "kind"}" aria-controls="auth-pane-kind">
+          Kind<small>Name und Passwort</small>
+        </button>
+        <button type="button" class="auth-tab" role="tab" data-auth-tab="eltern" aria-selected="${tab === "eltern"}" aria-controls="auth-pane-eltern">
+          Eltern<small>E-Mail-Adresse</small>
+        </button>
+      </div>
+
+      <form class="auth-form auth-pane" id="auth-pane-kind" role="tabpanel" data-auth-pane="kind" ${tab === "kind" ? "" : "hidden"}>
+        <p class="auth-hint">Der Name und das Passwort, die deine Eltern für dich angelegt haben.</p>
         <label>
           <span>Name</span>
-          <input name="loginName" type="text" autocomplete="username" required />
+          <input name="loginName" type="text" autocomplete="username" autocapitalize="none" required />
         </label>
         <label>
           <span>Passwort</span>
           <input name="password" type="password" autocomplete="current-password" minlength="4" required />
         </label>
         <div class="auth-actions">
-          <button type="submit" data-mode="login">Einloggen</button>
-          <button type="button" class="secondary-action" data-auth-register>Neues Konto</button>
+          <button type="submit">Einloggen</button>
         </div>
+        <p class="auth-hint">Noch kein Konto? <button type="button" data-auth-switch="eltern">Die Eltern legen es an.</button></p>
+      </form>
+
+      <form class="auth-form auth-pane" id="auth-pane-eltern" role="tabpanel" data-auth-pane="eltern" ${tab === "eltern" ? "" : "hidden"}>
+        <p class="auth-hint">Mit deiner E-Mail-Adresse. Hier kaufst du Gripszug und legst Profile für deine Kinder an.</p>
+        <label>
+          <span>E-Mail-Adresse</span>
+          <input name="email" type="email" autocomplete="email" inputmode="email" required />
+        </label>
+        <label>
+          <span>Passwort</span>
+          <input name="password" type="password" autocomplete="current-password" minlength="6" required />
+        </label>
+        <div class="auth-actions">
+          <button type="submit">Einloggen</button>
+          <button type="button" class="secondary-action" data-auth-register>Neues Elternkonto</button>
+        </div>
+        <button type="button" class="auth-link" data-auth-reset>Passwort vergessen?</button>
         <button type="button" class="google-action" data-auth-google>Mit Google anmelden</button>
       </form>
       <p class="auth-status" role="status" aria-live="polite">${state.firebaseReady ? "" : "Firebase SDK ist noch nicht geladen."}</p>
     `;
 
-    const form = modalContent.querySelector(".auth-form");
-    const registerButton = modalContent.querySelector("[data-auth-register]");
-    const googleButton = modalContent.querySelector("[data-auth-google]");
     const status = modalContent.querySelector(".auth-status");
+    const setStatus = (text, ok = false) => {
+      status.textContent = text;
+      status.classList.toggle("is-ok", ok);
+    };
+    const bereit = () => {
+      if (state.firebaseReady) return true;
+      setStatus("Firebase ist nicht verfügbar.");
+      return false;
+    };
 
-    form.addEventListener("submit", async (event) => {
+    // Die Reiter
+    const zeigeReiter = (name) => {
+      modalContent.querySelectorAll("[data-auth-tab]").forEach((button) => {
+        button.setAttribute("aria-selected", String(button.dataset.authTab === name));
+      });
+      modalContent.querySelectorAll("[data-auth-pane]").forEach((pane) => {
+        pane.hidden = pane.dataset.authPane !== name;
+      });
+      setStatus("");
+      writeLoginTab(name);
+      modalContent.querySelector(`[data-auth-pane="${name}"] input`)?.focus();
+    };
+    modalContent.querySelectorAll("[data-auth-tab]").forEach((button) => {
+      button.addEventListener("click", () => zeigeReiter(button.dataset.authTab));
+    });
+    modalContent.querySelectorAll("[data-auth-switch]").forEach((button) => {
+      button.addEventListener("click", () => zeigeReiter(button.dataset.authSwitch));
+    });
+
+    // Das Kind
+    const kindForm = modalContent.querySelector('[data-auth-pane="kind"]');
+    kindForm.addEventListener("submit", async (event) => {
       event.preventDefault();
-      if (!state.firebaseReady) {
-        status.textContent = "Firebase ist nicht verfügbar.";
-        return;
-      }
-      const formData = new FormData(form);
-      status.textContent = "Anmeldung läuft...";
+      if (!bereit()) return;
+      const formData = new FormData(kindForm);
+      setStatus("Anmeldung läuft...");
       try {
         await signIn(String(formData.get("loginName")), String(formData.get("password")));
       } catch (error) {
-        status.textContent = authErrorMessage(error);
+        setStatus(authErrorMessage(error));
       }
     });
 
-    registerButton.addEventListener("click", async () => {
-      if (!state.firebaseReady) {
-        status.textContent = "Firebase ist nicht verfügbar.";
-        return;
-      }
-      const formData = new FormData(form);
-      status.textContent = "Konto wird erstellt...";
+    // Die Eltern
+    const elternForm = modalContent.querySelector('[data-auth-pane="eltern"]');
+    const elternDaten = () => {
+      const formData = new FormData(elternForm);
+      return { email: String(formData.get("email") || ""), password: String(formData.get("password") || "") };
+    };
+    elternForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      if (!bereit()) return;
+      const { email, password } = elternDaten();
+      setStatus("Anmeldung läuft...");
       try {
-        await signUp(String(formData.get("loginName")), String(formData.get("password")));
+        await signInParent(email, password);
       } catch (error) {
-        status.textContent = authErrorMessage(error);
+        setStatus(authErrorMessage(error));
       }
     });
-
-    googleButton.addEventListener("click", async () => {
-      if (!state.firebaseReady) {
-        status.textContent = "Firebase ist nicht verfügbar.";
-        return;
+    elternForm.querySelector("[data-auth-register]").addEventListener("click", async () => {
+      if (!bereit()) return;
+      const { email, password } = elternDaten();
+      setStatus("Elternkonto wird erstellt...");
+      try {
+        await signUpParent(email, password);
+      } catch (error) {
+        setStatus(authErrorMessage(error));
       }
-      status.textContent = "Google-Anmeldung wird geöffnet...";
+    });
+    elternForm.querySelector("[data-auth-reset]").addEventListener("click", async () => {
+      if (!bereit()) return;
+      const { email } = elternDaten();
+      setStatus("Mail wird verschickt...");
+      try {
+        await sendParentPasswordReset(email);
+        setStatus(`Eine Mail zum Zurücksetzen ist unterwegs an ${cleanEmail(email)}.`, true);
+      } catch (error) {
+        setStatus(authErrorMessage(error));
+      }
+    });
+    elternForm.querySelector("[data-auth-google]").addEventListener("click", async () => {
+      if (!bereit()) return;
+      setStatus("Google-Anmeldung wird geöffnet...");
       try {
         await signInWithGoogle();
       } catch (error) {
-        status.textContent = authErrorMessage(error);
+        setStatus(authErrorMessage(error));
       }
     });
   }
@@ -2900,6 +3143,10 @@
   function authErrorMessage(error) {
     const code = error?.code || "";
     if (code.includes("missing-name")) return "Bitte gib einen Namen ein.";
+    if (code.includes("invalid-parent-email")) return "Bitte gib eine gültige E-Mail-Adresse ein.";
+    if (code.includes("parent-password-short")) return "Das Passwort muss mindestens 6 Zeichen haben.";
+    if (code.includes("too-many-requests")) return "Zu viele Versuche. Bitte warte einen Moment.";
+    if (code.includes("network-request-failed")) return "Keine Verbindung. Bitte prüfe das Netz.";
     if (code.includes("short-password") || code.includes("weak-password")) return "Das Passwort muss mindestens 4 Zeichen haben.";
     if (code.includes("invalid-email")) return "Dieser Name kann nicht verwendet werden.";
     if (code.includes("email-already-in-use")) return "Dieser Name ist bereits vergeben.";

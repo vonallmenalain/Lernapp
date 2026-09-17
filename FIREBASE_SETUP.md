@@ -14,6 +14,22 @@ Der Web-API-Key in `firebase.js` ist bei Firebase-Webapps öffentlich; geschütz
 
 Hinweis: Firebase Auth verlangt intern mindestens 6 Passwortzeichen. Die App erlaubt den Kindern trotzdem Passwörter ab 4 Zeichen und hängt intern eine feste Endung an, damit Firebase die Anmeldung akzeptiert. Das ist bewusst einfach gehalten und für eine kleine Kindergruppe gedacht.
 
+### Eltern melden sich mit ihrer E-Mail-Adresse an
+
+Der Anmeldedialog hat zwei Reiter. **Kind:** Name und Passwort, wie bisher. **Eltern:** eine
+echte E-Mail-Adresse mit Passwort (mindestens 6 Zeichen, ohne feste Endung – ein gewöhnliches
+Firebase-Konto) oder Google. Beides läuft über denselben Provider **Email/Password**; es ist
+also nichts zusätzlich zu aktivieren.
+
+Ein Elternkonto kann **Passwort vergessen** nutzen. Die Mail dazu verschickt Firebase; damit
+der Link darin auf die App zeigt, muss `kids.alae.app` unter **Authentication → Settings →
+Authorized domains** stehen. Absender und Vorlage lassen sich unter **Authentication →
+Templates** anpassen – dort steht sonst der Projektname als Absender.
+
+Ein neues **Kinderkonto** legt nicht mehr das Kind selbst an, sondern das Elternkonto über
+den Server (siehe Netlify-Funktionen). Der Kind-Reiter hat deshalb keinen Knopf „Neues Konto"
+mehr; Konten aus der Zeit davor melden sich unverändert an.
+
 ## 2. Firestore Database aktivieren
 
 1. Gehe zu **Build > Firestore Database**.
