@@ -216,6 +216,25 @@ Die App schreibt folgende Dokumente:
 | `users/{uid}/levelProgress/{levelKey}` | Fortschritt pro Level: gelöst, Versuche, Spielzeit, Züge, Resets, Hinweise |
 | `users/{uid}/sessions/{sessionId}` | Einzelne Spielstände/Sitzungen mit Start, Ende, Dauer, Zügen, Resets und gelöst-Status |
 | `config/train` | Das gültige Wagen-Set und der Zeitpunkt des letzten Wechsels; nur der Admin schreibt es, jedes Gerät liest es |
+| `entitlements/{uid}` | Der Kauf eines Kontos (`plan`, `active`, `via`, Zeitstempel). **Schreibt nur der Server** nach einer Zahlung bei Stripe, für das Elternkonto und jedes seiner Kinder – kein Client, auch der Admin nicht von Hand. Lesen darf jedes Konto seinen eigenen Eintrag, der Admin alle |
+
+### Familie: Elternkonto und Kinderprofile
+
+Ein Konto mit **echter E-Mail-Adresse** (E-Mail/Passwort oder Google) ist ein Elternkonto: Es
+kann den Kauf auslösen und Kinderprofile anlegen. Ein Konto mit technischer Adresse
+(`name@lernapp.local`) ist ein Kinderprofil. Die Zuordnung steht an beiden Enden:
+
+| Feld | Wo | Wer schreibt |
+| --- | --- | --- |
+| `parentUid` | am Kind | der Server beim Anlegen des Kindes, oder der Admin |
+| `children` | am Elternkonto (Liste von uids) | der Server beim Anlegen des Kindes, oder der Admin |
+
+Das Konto selbst darf beide Felder nie anfassen – sie stehen mit `group` in
+`ownerMayNotTouch()`. Wer sich einem fremden Elternkonto zuordnen könnte, erbte dessen Kauf.
+
+Konten, die keinen `parentUid` haben und keine Elternkonten sind, stammen aus der Zeit vor dem
+Kauf. Sie bleiben frei (Gründer-Zugang); das entscheidet der Client, nicht eine Regel – die
+Level liegen ohnehin in der App, die Schranke ist eine für Eltern, nicht für Hacker.
 
 Beispiel für `levelProgress`:
 
