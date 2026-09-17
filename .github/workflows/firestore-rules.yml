@@ -1,0 +1,169 @@
+# Die Firestore-Regeln fahren automatisch nach Firebase.
+#
+# Bisher stand in FIREBASE_SETUP.md, dass der Inhalt von firestore.rules von
+# Hand in die Firebase-Console kopiert werden muss. Das ist der Weg, auf dem
+# Repository und Projekt auseinanderlaufen: Die Datei hier sagt dann das eine,
+# die Datenbank tut das andere, und welche von beiden gilt, sieht man erst,
+# wenn etwas nicht mehr geht. Dieser Workflow macht die Datei zur Wahrheit.
+#
+# Zwei Wege, und der Unterschied ist Absicht:
+#
+#   Pull Request, oder von Hand auf einem Branch
+#       -> nur geprüft (--dry-run). Firebase nimmt die Regeln entgegen, prüft
+#          Syntax und Semantik und wirft sie weg. Nichts wird veröffentlicht.
+#
+#   Push auf main, oder von Hand auf main
+#       -> veröffentlicht. Ab diesem Moment gelten sie in der Datenbank.
+#
+# Entschieden wird das unten aus dem Branch, nicht aus einem Schalter beim
+# Auslösen: Wer den Workflow von Hand auf einem Feature-Branch startet, soll
+# dessen Regeln nicht versehentlich scharf schalten.
+#
+# Anders als ein Netlify-Deploy ist das hier NICHT durch ein gesperrtes
+# Publishing abgefedert. Ein Merge nach main wirkt sofort auf die Produktion.
+
+name: Firestore-Regeln
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "firestore.rules"
+      - "firebase.json"
+      - ".firebaserc"
+      - ".github/workflows/firestore-rules.yml"
+  pull_request:
+    paths:
+      - "firestore.rules"
+      - "firebase.json"
+      - ".firebaserc"
+      - ".github/workflows/firestore-rules.yml"
+  workflow_dispatch:
+
+# Nur lesen. Der Workflow schreibt nichts ins Repository.
+permissions:
+  contents: read
+
+# Zwei Deploys gleichzeitig würden sich überholen; der letzte gewinnt, und
+# welcher das ist, wäre Zufall. Laufende Prüfungen auf einem PR dürfen dagegen
+# abgebrochen werden, sobald ein neuer Commit kommt.
+concurrency:
+  group: firestore-rules-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  regeln:
+    name: Prüfen und veröffentlichen
+    runs-on: ubuntu-latest
+    env:
+      FIREBASE_PROJEKT: lernapp-8d944
+      # Veröffentlicht wird ausschliesslich von main, und nie aus einem Pull
+      # Request heraus - auch dann nicht, wenn dessen Ziel main ist.
+      VEROEFFENTLICHEN: ${{ github.ref == 'refs/heads/main' && github.event_name != 'pull_request' }}
+
+    steps:
+      - name: Repository holen
+        uses: actions/checkout@v4
+
+      - name: Node einrichten
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      # Der Schlüssel liegt als Secret im Repository. Fehlt er, soll der
+      # Workflow das im Klartext sagen statt an einer Firebase-Fehlermeldung zu
+      # scheitern, die nach etwas anderem aussieht.
+      - name: Schlüssel prüfen
+        id: schluessel
+        env:
+          DIENSTKONTO: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          set -euo pipefail
+          if [ -z "${DIENSTKONTO}" ]; then
+            echo "vorhanden=nein" >> "$GITHUB_OUTPUT"
+            {
+              echo "### Kein Schlüssel hinterlegt"
+              echo
+              echo "Das Secret \`FIREBASE_SERVICE_ACCOUNT\` fehlt in diesem Repository."
+              echo "Ohne den Schlüssel kann dieser Workflow nicht mit Firebase reden."
+              echo
+              echo "Anzulegen unter **Settings → Secrets and variables → Actions**."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          # Der häufigste Fehler beim Einfügen: die Datei base64-kodiert statt
+          # als Klartext-JSON. Das hier sagt es sofort, statt es Firebase
+          # herausfinden zu lassen.
+          umask 077
+          printf '%s' "${DIENSTKONTO}" > "${RUNNER_TEMP}/dienstkonto.json"
+          if ! node -e '
+            const fs = require("node:fs");
+            let daten;
+            try {
+              daten = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+            } catch (fehler) {
+              console.error("Der Schlüssel ist kein gültiges JSON: " + fehler.message);
+              console.error("Wahrscheinlich wurde die Datei base64-kodiert eingefügt statt im Klartext.");
+              process.exit(1);
+            }
+            if (daten.type !== "service_account") {
+              console.error("Das JSON ist kein Dienstkonto-Schlüssel (type: \"service_account\" fehlt).");
+              process.exit(1);
+            }
+            if (!daten.client_email || !daten.private_key) {
+              console.error("Im Schlüssel fehlt client_email oder private_key.");
+              process.exit(1);
+            }
+            console.log("Dienstkonto: " + daten.client_email);
+          ' "${RUNNER_TEMP}/dienstkonto.json"; then
+            exit 1
+          fi
+
+          echo "vorhanden=ja" >> "$GITHUB_OUTPUT"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=${RUNNER_TEMP}/dienstkonto.json" >> "$GITHUB_ENV"
+
+      # Auf main ohne Schlüssel abzubrechen ist wichtiger, als grün zu sein:
+      # Ein stiller Durchlauf sähe aus, als wären die Regeln veröffentlicht.
+      # Auf einem PR darf der Lauf dagegen durchgehen - dort ist "noch kein
+      # Schlüssel" ein normaler Zustand, etwa beim Einrichten.
+      - name: Ohne Schlüssel nicht veröffentlichen
+        if: steps.schluessel.outputs.vorhanden == 'nein' && env.VEROEFFENTLICHEN == 'true'
+        run: |
+          echo "::error::Das Secret FIREBASE_SERVICE_ACCOUNT fehlt. Die Regeln wurden NICHT veröffentlicht."
+          exit 1
+
+      - name: Firebase CLI installieren
+        if: steps.schluessel.outputs.vorhanden == 'ja'
+        run: npm install --global --no-audit --no-fund firebase-tools@15
+
+      - name: Regeln prüfen
+        if: steps.schluessel.outputs.vorhanden == 'ja' && env.VEROEFFENTLICHEN != 'true'
+        run: |
+          set -euo pipefail
+          firebase deploy --only firestore:rules \
+            --project "${FIREBASE_PROJEKT}" \
+            --dry-run \
+            --non-interactive
+          {
+            echo "### Regeln geprüft"
+            echo
+            echo "\`firestore.rules\` ist für \`${FIREBASE_PROJEKT}\` gültig."
+            echo "Veröffentlicht wurde nichts - das passiert erst beim Merge nach \`main\`."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Regeln veröffentlichen
+        if: steps.schluessel.outputs.vorhanden == 'ja' && env.VEROEFFENTLICHEN == 'true'
+        run: |
+          set -euo pipefail
+          firebase deploy --only firestore:rules \
+            --project "${FIREBASE_PROJEKT}" \
+            --non-interactive \
+            --message "${GITHUB_SHA::7} aus ${GITHUB_REF_NAME}"
+          {
+            echo "### Regeln veröffentlicht"
+            echo
+            echo "\`firestore.rules\` gilt ab jetzt in \`${FIREBASE_PROJEKT}\`."
+            echo
+            echo "Stand: \`${GITHUB_SHA::7}\`"
+          } >> "$GITHUB_STEP_SUMMARY"

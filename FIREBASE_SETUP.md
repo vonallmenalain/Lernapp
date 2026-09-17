@@ -23,11 +23,24 @@ Hinweis: Firebase Auth verlangt intern mindestens 6 Passwortzeichen. Die App erl
 
 ## 3. Firestore Rules hinterlegen
 
-In der Firebase Console:
+Die Regeln werden **nicht mehr von Hand in die Console kopiert**. Das übernimmt der
+Workflow [`.github/workflows/firestore-rules.yml`](./.github/workflows/firestore-rules.yml):
 
-1. Gehe zu **Build > Firestore Database > Rules**.
-2. Ersetze die vorhandenen Regeln vollständig mit dem Inhalt aus [`firestore.rules`](./firestore.rules).
-3. Klicke auf **Publish**.
+| Wann | Was passiert |
+| --- | --- |
+| Pull Request, der `firestore.rules` ändert | Firebase prüft die Regeln (`--dry-run`). Nichts wird veröffentlicht. |
+| Merge nach `main` | Die Regeln werden veröffentlicht und gelten sofort. |
+| **Actions → Firestore-Regeln → Run workflow** auf `main` | Dasselbe von Hand, ohne Änderung an der Datei. |
+
+Damit ist [`firestore.rules`](./firestore.rules) die Wahrheit: Was in dieser Datei auf
+`main` steht, gilt in der Datenbank. Wer die Regeln stattdessen in der Console bearbeitet,
+verliert seine Änderung beim nächsten Merge – dort also nur noch nachsehen, nicht mehr
+schreiben.
+
+Der Workflow meldet sich am Dienstkonto `firestore-rules-deploy` an, dessen Schlüssel als
+Secret `FIREBASE_SERVICE_ACCOUNT` im Repository liegt. Nötige Rolle: **Firebase Rules Admin**
+(`roles/firebaserules.admin`). Fehlt das Secret, bricht der Lauf auf `main` mit einer
+deutlichen Meldung ab, statt stillschweigend nichts zu tun.
 
 Die Regeln erlauben eingeloggten Nutzern Zugriff auf ihren eigenen Bereich:
 
