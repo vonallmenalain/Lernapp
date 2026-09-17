@@ -59,11 +59,33 @@ den Schlüssel nicht mehr; lässt er sie stehen, kommt er von einem anderen Bran
 | Secret | `FIREBASE_SERVICE_ACCOUNT` | `FIREBASE_SERVICE_ACCOUNT_PRUEFUNG` |
 | liegt in | Umgebung `produktion` (nur `main`) | Repository-Secrets |
 | Dienstkonto | `firestore-rules-deploy` | `firestore-rules-pruefung` |
-| Rolle | **Firebase Rules Admin** (`roles/firebaserules.admin`) | eigene Rolle, siehe unten |
+| Rollen | **Firebase Rules Admin** (`roles/firebaserules.admin`) **und** **Service Usage Consumer** (`roles/serviceusage.serviceUsageConsumer`) | eigene Rolle, siehe unten |
 | kann | Regeln erstellen **und** freischalten | Regeln nur erstellen, nie freischalten |
 
 Fehlt das Deploy-Secret, bricht der Lauf auf `main` mit einer deutlichen Meldung ab, statt
 stillschweigend nichts zu tun – ein grüner Lauf ohne Deploy sähe aus wie ein erfolgreicher.
+
+#### Warum zwei Rollen, und nicht nur Firebase Rules Admin
+
+Weil die Firebase CLI vor dem Deploy nachsieht, ob die Firestore-API überhaupt aktiv ist:
+
+```text
+i  firestore: ensuring required API firestore.googleapis.com is enabled...
+```
+
+Dafür fragt sie `serviceusage.googleapis.com`, und **Firebase Rules Admin** darf das nicht.
+Ohne die zweite Rolle scheitert der Lauf mit `HTTP Error: 403, Permission denied to get
+service [firestore.googleapis.com]` – einer Meldung, die nach einem Firestore-Problem
+aussieht, aber eine fehlende Berechtigung bei einem ganz anderen Dienst meint. Umgehen lässt
+sich die Prüfung nicht: Für Firestore ruft die CLI `ensure()` und nicht die fehlertolerante
+Variante `bestEffortEnsure()`.
+
+**Service Usage Consumer** erlaubt nur, den Zustand einer API zu lesen und sie zu nutzen –
+kein Aktivieren von APIs, kein Zugriff auf Daten.
+
+Das gilt auch für das Prüfkonto: `--dry-run` überspringt nur das Veröffentlichen, nicht die
+Vorbereitung. In `deploy/index.js` steht die Deploy-Phase hinter `if (!options.dryRun)`, die
+`prepare`-Phase mit dem API-Check läuft immer.
 
 ### Die Vorabprüfung nachrüsten
 
@@ -77,7 +99,8 @@ kurz rot. Wer den Fehler schon im Pull Request sehen will, legt ein zweites Dien
    - `firebaserules.rulesets.create`
    - `firebaserules.rulesets.get`
    - `resourcemanager.projects.get`
-2. Dienstkonto `firestore-rules-pruefung` anlegen und ihm diese Rolle geben.
+2. Dienstkonto `firestore-rules-pruefung` anlegen, ihm diese Rolle geben und zusätzlich
+   **Service Usage Consumer** – aus dem Grund im Abschnitt davor.
 3. Den JSON-Schlüssel als Repository-Secret `FIREBASE_SERVICE_ACCOUNT_PRUEFUNG` hinterlegen.
 
 Dieses Konto kann Regelwerke zur Prüfung hochladen, aber keines davon freischalten
