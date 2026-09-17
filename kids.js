@@ -35,6 +35,40 @@
   }
 
   // ---------------------------------------------------------------------------
+  // Tastatur oder Finger?
+  // ---------------------------------------------------------------------------
+  // Der Fokusrahmen gehört der Tastatur. Wer tippt oder klickt, hat den Finger
+  // schon auf dem Ding – er braucht keinen Rahmen, der ihm sagt, wo er gerade
+  // war, und ein Kind hält den schwarzen Kasten für einen Fehler.
+  //
+  // :focus-visible allein reicht dafür nicht. Die antippbaren Teile der App
+  // sind zum grossen Teil SVG-Gruppen mit tabindex – Zug, Wagen, Stationen der
+  // Reisekarte, Bauteile der Lok –, und dort malen die Browser ihren eigenen
+  // Rahmen schon auf :focus, obwohl :focus-visible gar nicht zutrifft
+  // (nachgemessen in Chromium: outline "auto 5px", :focus-visible false).
+  // Deshalb steht hier fest, womit zuletzt bedient wurde; das Stylesheet
+  // richtet sich danach.
+  //
+  // Defensiv wie der Rest der Datei: die Prüfskripte laden kids.js mit einem
+  // von Hand gebauten document, und das hat nicht jedes Feld eines Browsers.
+  const wurzel = document.documentElement || null;
+  function merkeEingabe(art) {
+    if (!wurzel?.dataset || wurzel.dataset.eingabe === art) return;
+    wurzel.dataset.eingabe = art;
+  }
+  // Bis zur ersten Taste gilt: Finger. Wer nur schaut, sieht keinen Rahmen.
+  merkeEingabe("zeiger");
+  ["pointerdown", "mousedown", "touchstart"].forEach((typ) => {
+    document.addEventListener(typ, () => merkeEingabe("zeiger"), { capture: true, passive: true });
+  });
+  // Nur Tabulator und Pfeile schalten auf Tastatur um: Enter und Leertaste
+  // drückt auch, wer vorher mit dem Finger irgendwo hingekommen ist. Abgehört
+  // wird im Einfangen, damit die Marke steht, bevor der Fokus umspringt.
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Tab" || (typeof event.key === "string" && event.key.startsWith("Arrow"))) merkeEingabe("tastatur");
+  }, { capture: true });
+
+  // ---------------------------------------------------------------------------
   // Sterne pro Level (1–3)
   // ---------------------------------------------------------------------------
   function getStars(game, levelId) {
