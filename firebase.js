@@ -741,6 +741,9 @@
         // seinen Namen dort nicht findet, glaubt, er sei nicht dabei.
         eigen: doc.id === state.user.uid,
         loco: settings?.loco || null,
+        // Auch die Landschaft: wer den Zug eines anderen gross ansieht, sieht
+        // ihn vor dessen Himmel stehen, nicht vor dem eigenen.
+        scene: settings?.scene || null,
         gameState: readGameState(data.gameState),
         // Zweimal dasselbe, für zwei Rechnungen: der Zug braucht nur zu wissen,
         // was gelöst ist, die Bestenliste auch Zeit, Züge und Neustarts.

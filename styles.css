@@ -30,6 +30,14 @@
 html {
   min-height: 100%;
   touch-action: pan-x pan-y;
+  /* Der graue Kasten, den ein Handy beim Antippen über das Getippte legt, hat
+     hier nichts zu suchen. Bei einem Knopf sieht er nur unschön aus; über
+     einer Station der Reisekarte oder einem Bauteil der Lok legt er sich als
+     dunkler Balken über das halbe Bild – und zwar genau dann, wenn der Tipp
+     sitzt. Ein Kind hält das für einen Fehler. Jede Fläche sagt ohnehin
+     selbst, dass sie getroffen wurde: der Punkt wächst, das Bild wächst, der
+     Bereich geht auf. */
+  -webkit-tap-highlight-color: transparent;
 }
 
 * { box-sizing: border-box; }
@@ -8189,6 +8197,17 @@ body.has-scene.puzzle-active .game-panel {
   --sg-fahrt: 0.9s;
   --sg-weiter: 0.48s;
   touch-action: manipulation;
+}
+
+/* Getippt wird auf der ganzen Spielfläche, und schnell hintereinander. Ohne
+   das markiert ein zweiter Tipp den Text darüber, und der Browser legt seinen
+   grauen Schatten über die Stelle – beides sieht aus, als wäre etwas
+   schiefgegangen. */
+.sg-stage .cm-play {
+  cursor: pointer;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .sg-strecke {

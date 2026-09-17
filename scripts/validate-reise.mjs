@@ -383,6 +383,42 @@ assert(pushedMerge.done["9"].stars === 1 && !pushedMerge.done["9"].pushed, "beim
 reise.writeSeen({ station: 22, gold: [], goldenMaps: 2, pushed: [21] });
 assert(reise.readSeen().pushed[0] === 21, "gesehen merkt sich geschobene Stationen");
 
+// --- Die letzte Lücke einer Karte -------------------------------------------------
+// Steht auf einer Karte nur noch eine einzige Station offen, kommt die
+// Schiebelok schon nach dem ersten Fehlversuch: sonst hängt die ganze
+// Zehnerkette an einer Station, die ein Kind nicht schafft, und das Ziel der
+// Karte bleibt unerreichbar. Gespielt werden muss sie trotzdem.
+// Jeder Fall in einem eigenen Kasten, damit er den Stand oben nicht anfasst.
+{
+  // Der Fall aus dem Alltag: neun Stationen gestempelt, die zehnte klemmt.
+  const w = load(["journey-plan.js"]).LernappReise;
+  for (let nr = 1; nr <= 9; nr += 1) w.markDone(nr, { stars: 1, game: "x" });
+  assert(w.TRIES_FOR_PUSH_LAST === 1 && w.current() === 10, "Station 10 ist die letzte offene der ersten Karte");
+  assert(w.lastGap(10) && !w.lastGap(11) && w.triesForPush(10) === 1, "an der letzten Lücke reicht ein Versuch");
+  assert(!w.needsPush(10), "ohne Versuch schiebt niemand – gespielt werden muss die Station");
+  w.recordTry(10);
+  assert(w.needsPush(10) && w.pushThrough(10), "nach dem ersten Fehlversuch kommt die Schiebelok");
+  assert(w.mapFinished(0) && w.current() === 11 && w.doneInfo(10).pushed, "die Zehnerkette ist zu, die Station bleibt ohne Stempel");
+}
+{
+  // Und dasselbe für eine übersprungene Station mitten auf der Karte.
+  const w = load(["journey-plan.js"]).LernappReise;
+  for (let nr = 1; nr <= 10; nr += 1) if (nr !== 3) w.markDone(nr, { stars: 1, game: "x" });
+  assert(w.lastGap(3) && w.triesForPush(3) === 1, "auch eine übersprungene Station mittendrin ist irgendwann die letzte Lücke");
+  w.recordTry(3);
+  assert(w.needsPush(3) && w.pushThrough(3) && w.mapFinished(0), "ein Fehlversuch genügt, und die Karte ist fertig");
+}
+{
+  // Solange mehr als eine Station fehlt, bleibt es bei fünf Fehlversuchen.
+  const w = load(["journey-plan.js"]).LernappReise;
+  for (let nr = 1; nr <= 8; nr += 1) if (nr !== 6) w.markDone(nr, { stars: 1, game: "x" });
+  assert(!w.lastGap(6) && w.triesForPush(6) === w.TRIES_FOR_PUSH, "mit zwei Lücken gilt die alte Regel");
+  for (let i = 0; i < 4; i += 1) w.recordTry(6);
+  assert(!w.needsPush(6), "vier Fehlversuche sind noch kein Schub");
+  w.recordTry(6);
+  assert(w.needsPush(6), "der fünfte schon");
+}
+
 // --- Das Reise-Schild -----------------------------------------------------------------
 assert(reise.plateStars().stars === 2 && reise.plateStars().gold === 0, "zwei fertige Karten der ersten Reise: zwei Sterne");
 for (let nr = 71; nr <= 80; nr += 1) reise.markDone(nr, { stars: 1, game: "x" });

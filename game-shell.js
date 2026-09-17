@@ -286,8 +286,10 @@
         } else {
           const tries = reise().recordTry(journey.nr);
           const alt = tries >= reise().TRIES_FOR_ALT ? reise().altTaskFor(journey.nr) : null;
-          // Nach fünf Fehlversuchen wartet auf der Karte die Schiebelok.
-          const push = tries >= (reise().TRIES_FOR_PUSH || Infinity);
+          // Nach fünf Fehlversuchen wartet auf der Karte die Schiebelok – und
+          // an der letzten Lücke einer Karte schon nach dem ersten, sonst
+          // hinge die ganze Zehnerkette an dieser einen Station.
+          const push = tries >= (reise().triesForPush?.(journey.nr) ?? reise().TRIES_FOR_PUSH ?? Infinity);
           journeyNote = {
             done: false,
             text: push ? `Auftrag: ${journey.label} – noch nicht. Auf der Karte hilft die Schiebelok.` : `Auftrag: ${journey.label} – noch nicht. Die Runde zählt trotzdem für den Wagen.`,

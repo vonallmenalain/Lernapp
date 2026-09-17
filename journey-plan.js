@@ -599,6 +599,12 @@
   // und schiebt den Zug zur nächsten Station – ohne Stempel. Niemand bleibt
   // für immer vor Kakuro stehen.
   const TRIES_FOR_PUSH = 5;
+  // Ist es die letzte Lücke einer Karte, kommt sie schon nach dem ersten
+  // Versuch. Sonst hängt eine ganze Zehnerkette an einer einzigen Station:
+  // alles andere ist gestempelt, das Ausweichgleis führt zum selben Spiel, und
+  // wer die eine nicht schafft, sieht das Ziel der Karte nie. Gespielt werden
+  // muss sie trotzdem – geschoben wird erst, wer es versucht hat.
+  const TRIES_FOR_PUSH_LAST = 1;
 
   // ---------------------------------------------------------------------------
   // Der Stand
@@ -797,7 +803,21 @@
   // Die Station gilt danach als gefahren, nicht als geschafft – kein Gold,
   // aber die Karte kann fertig werden, und die Station lässt sich später
   // noch einmal spielen; ein echter Stempel ersetzt den Schub.
-  function needsPush(nr) { return !isDone(nr) && triesFor(nr) >= TRIES_FOR_PUSH; }
+
+  // Die letzte Lücke ihrer Karte: alle neun anderen Stationen sind gestempelt
+  // oder geschoben, nur diese nicht.
+  function lastGapIn(state, nr) {
+    const map = mapIndexOf(nr);
+    for (let i = 1; i <= STATIONS_PER_MAP; i += 1) {
+      const other = map * STATIONS_PER_MAP + i;
+      if (other !== nr && !isDoneIn(state, other)) return false;
+    }
+    return true;
+  }
+  function lastGap(nr) { return lastGapIn(read(), nr); }
+  // Nach wie vielen Fehlversuchen die Schiebelok an dieser Station kommt.
+  function triesForPush(nr) { return lastGap(nr) ? TRIES_FOR_PUSH_LAST : TRIES_FOR_PUSH; }
+  function needsPush(nr) { return !isDone(nr) && triesFor(nr) >= triesForPush(nr); }
   function pushThrough(nr) {
     let pushed = false;
     store.update((old) => {
@@ -899,8 +919,8 @@
 
   window.LernappReise = {
     KEY, SEEN_KEY, MAPS, LAPS, GAMES, AREAS, WORLDS, LOCKS, BONUSES, STATION_COUNT, STATIONS_PER_MAP,
-    TRIES_FOR_ALT, TRIES_FOR_PUSH, LEVEL_MAX, MEMORY_SIZES, CATALOG_PER_WORLD,
-    stationAt, taskFor, altTaskFor, mapIndexOf, lapOf, openOn, isOpen, OPEN_AT_ONCE,
+    TRIES_FOR_ALT, TRIES_FOR_PUSH, TRIES_FOR_PUSH_LAST, LEVEL_MAX, MEMORY_SIZES, CATALOG_PER_WORLD,
+    stationAt, taskFor, altTaskFor, mapIndexOf, lapOf, openOn, isOpen, OPEN_AT_ONCE, lastGap, triesForPush,
     read, current, isDone, doneInfo, triesFor, markDone, recordTry, choose, useAlt, needsPush, pushThrough,
     tempo, setTempo, plateStars,
     hasReward, lockFor, finishedMaps, mapFinished, goldenMaps, mapGolden, goldenStations, progressFor, merge,
