@@ -68,6 +68,7 @@
     "Stimmt es, kommt der nächste Wagen mit einem Stück mehr.",
     "Tippst du daneben, ist die Runde vorbei.",
     "Beim Antworten hast du so viel Zeit, wie du willst.",
+    "Tippe auf Starten, wenn du bereit bist.",
   ].join(" ");
 
   // ---------------------------------------------------------------------------
@@ -157,14 +158,9 @@
   // ---------------------------------------------------------------------------
   // Ablauf
   // ---------------------------------------------------------------------------
-  function startRun() {
-    clearStep();
-    shell.closeOverlay();
-    shell.setPhase("play");
-    state.wagen = 0;
-    state.punkte = 0;
-    shell.setCount(0);
-
+  // Der Wagen mit seiner Plane – dieselbe Bühne im Intro wie im Spiel, damit
+  // beim Start nichts springt.
+  function bauBuehne() {
     shell.clear();
     prompt = shell.el("p", "cm-prompt wf-prompt", "Merk dir die Fracht.");
     wagen = shell.el("div", "wf-wagen");
@@ -173,7 +169,42 @@
     plane.setAttribute("aria-hidden", "true");
     wagen.append(ladeflaeche, plane);
     wahl = shell.el("div", "wf-wahl");
-    shell.play.append(prompt, wagen, wahl);
+    shell.play.append(prompt, wagen);
+  }
+
+  // Erst der Knopf, dann der erste Wagen. Wer das Spiel öffnet, hat noch die
+  // Spielauswahl im Kopf und schaut nicht auf die Fracht – ohne Knopf wäre der
+  // erste Wagen halb vorbei, bevor das Kind hinsieht. Ein Beispielwagen steht
+  // schon da: was zu tun ist, sieht man daran schneller als an jedem Satz.
+  function showIntro() {
+    clearStep();
+    shell.closeOverlay();
+    shell.setPhase("intro");
+    Object.assign(state, { phase: "intro", wagen: 0, punkte: 0, ladung: [], fehlt: null, auswahl: [] });
+    shell.setCount(0);
+
+    bauBuehne();
+    const stufe = stufeFuer(0);
+    ladeflaeche.style.setProperty("--wf-stuecke", String(stufe.stuecke));
+    ladeflaeche.setAttribute("aria-label", `Wagen mit ${stufe.stuecke} Stücken Fracht`);
+    ladungFuer(stufe).forEach((id) => ladeflaeche.append(stueck(id)));
+
+    const start = shell.el("button", "cm-start", "Starten");
+    start.type = "button";
+    start.addEventListener("click", startRun);
+    shell.play.append(start);
+  }
+
+  function startRun() {
+    clearStep();
+    shell.closeOverlay();
+    shell.setPhase("play");
+    state.wagen = 0;
+    state.punkte = 0;
+    shell.setCount(0);
+
+    bauBuehne();
+    shell.play.append(wahl);
 
     naechsterWagen();
   }
@@ -296,8 +327,9 @@
   // ---------------------------------------------------------------------------
   // Start
   // ---------------------------------------------------------------------------
-  // Kein Erklärbild und kein Startknopf: ein Tipp auf das Gebäude, und der
-  // erste Wagen steht da. Was zu tun ist, sagt der Lautsprecher.
+  // Ein Beispielwagen und ein Startknopf, wie beim Karten-Merker: der erste
+  // Wagen fährt erst vor, wenn das Kind bereit ist. Was zu tun ist, sagt
+  // ausserdem der Lautsprecher.
   shell = shellApi.mount({
     host,
     title: "Was fehlt?",
@@ -306,10 +338,18 @@
     accentDark: "#5a41b8",
     help: HELP,
     clock: false,
-    onRestart: startRun,
+    onRestart: showIntro,
   });
 
-  startRun();
+  showIntro();
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key !== " " && event.key !== "Enter") return;
+    if (document.activeElement?.tagName === "BUTTON") return;
+    if (state.phase !== "intro") return;
+    event.preventDefault();
+    startRun();
+  });
 
   window.addEventListener("pagehide", clearStep);
 

@@ -20,8 +20,9 @@ Stand: September 2026 · Grundlage: `train-home.js`, `train-progress.js`, `train
 > Bucht in der rechten Kehre der See-Karte, Lianenbrücke, Zahnradstrecke mit Ratterton, Nacht
 > mit Glühwürmchen, Scheinwerferkegel, leuchtendem Tunnelmund und Feuerwerk am Ziel, der Mond
 > mit der Erde am Himmel, Elefanten in der Savanne), die **Schiebelok** (nach fünf
-> Fehlversuchen schiebt sie den Zug zur nächsten Station – grauer Stempel, die Station lässt
-> sich später nachspielen), das **Reisetempo** (Schalter je Konto im Adminbereich, «langsam»
+> Fehlversuchen schiebt sie den Zug zur nächsten Station – an der letzten Lücke einer Karte
+> schon nach dem ersten, damit eine Zehnerkette nie an einer einzigen Station hängenbleibt;
+> grauer Stempel, die Station lässt sich später nachspielen), das **Reisetempo** (Schalter je Konto im Adminbereich, «langsam»
 > nimmt jeder Karte ein Stück Schwierigkeit; liegt mit Zeitmarke im Kasten der Reise) und
 > **Reise 2**: nach der Sternwarte die Weltraum-Karte mit eigenem Fahrplan aus Weltall-Leveln
 > (Belohnung: Landschaft Weltraum), dann die Savanne mit den Stationen der Wiese und Wald bis
@@ -420,6 +421,11 @@ Alles läuft über `transform` und `opacity`, wie die bestehende Bühne; mit
 - **Schiebelok.** Für die Jüngsten: nach fünf Fehlversuchen an einer Station (Ausweichgleis
   eingerechnet) kommt eine Hilfslok und schiebt den Zug zur nächsten Station – ohne Stempel.
   Niemand bleibt für immer vor Kakuro stehen. Ob das gewollt ist: Abschnitt 11.
+  Ist die Station die **letzte Lücke ihrer Karte** – alle neun anderen sind gestempelt oder
+  geschoben –, kommt die Schiebelok schon nach dem ersten Fehlversuch: dort hängt sonst die
+  ganze Zehnerkette an einer Station, das Ausweichgleis kommt gar nicht mehr dazu, und das
+  Ziel der Karte bliebe unerreichbar. Gespielt werden muss sie trotzdem, ein Versuch zählt
+  erst, wenn eine Runde zu Ende ist (`TRIES_FOR_PUSH_LAST`, `journey-plan.js`).
 - **Reisetempo (Admin).** Ein Schalter im Adminbereich, „langsam": alle Stufen um eine Karte
   nach hinten (Karte 2 verlangt die Aufträge von Karte 1). Für Vier- bis Fünfjährige, ohne
   dass ein Kind je „leicht" wählen muss.

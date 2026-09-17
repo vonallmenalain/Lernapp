@@ -60,6 +60,14 @@
   const STATION_SCALE = 0.5;
   const CHOICE_SCALE = 0.36;
   const ALT_SCALE = 0.34;
+  // Die unsichtbare Trefferfläche einer Station: breit genug, dass zwischen
+  // zwei Stationen kaum noch Platz zum Danebentippen bleibt (sie stehen 240
+  // auseinander), und hoch genug, dass sie vom Dach des Bildes bis unter die
+  // Nummer reicht. Die Reihen liegen 170 auseinander – deshalb oben etwas
+  // weniger Luft als früher, damit sich die Reihen nicht überlappen.
+  const HIT_W = 208;
+  const HIT_TOP = -104;
+  const HIT_H = 168;
   const LANDMARK_AT = [1092, 200];
   const SHOWCASE_AT = [1160, 200];
   // Wo der Zug vor einer Station hält: ein Stück davor, damit die Lok das
@@ -785,21 +793,29 @@
       const color = task?.color || "#7C5CE6";
       const g = group({ class: "journey-station", "data-station": String(nr), transform: `translate(${x},${y})` });
       // Grosse, unsichtbare Trefferfläche: ein Kinderfinger trifft die Station,
-      // nicht das Bild. Sie reicht bis unter die Nummer – die ist das Ziel,
-      // das ein Kind ansteuert.
-      g.append(el("rect", { x: -64, y: -112, width: 128, height: 168, rx: 18, fill: "transparent", class: "journey-station-hit" }));
+      // nicht das Bild. Sie reicht vom Dach des Bildes bis unter die Nummer –
+      // die ist das Ziel, das ein Kind ansteuert – und fast bis zur nächsten
+      // Station. Daneben tippen soll hier kaum möglich sein.
+      g.append(el("rect", { x: -HIT_W / 2, y: HIT_TOP, width: HIT_W, height: HIT_H, rx: 18, fill: "transparent", class: "journey-station-hit" }));
 
       if (task?.choice) {
         // Wahlstation: zwei Bilder nebeneinander, jedes für sich antippbar.
         g.classList.add("has-choice");
         task.choice.forEach((option, k) => {
+          // Die Trefferfläche steht neben dem Bild und nicht darin: sie misst
+          // in den Einheiten der Station, nicht in denen des verkleinerten
+          // Gebäudes. Jedes Bild bekommt seine halbe Station, von oben bis
+          // unter die Nummer, und die beiden Hälften stossen in der Mitte
+          // aneinander – vorher war nur das kleine Gebäude selbst antippbar,
+          // und daneben ging jeder Tipp ins Leere.
           const pick = group({
             class: "journey-choice", "data-choice": option.game, role: "button", tabindex: "0",
             "aria-label": `${option.title}: ${option.speech}`,
-            transform: `translate(${k === 0 ? -66 : 8},${-4 - art.GROUND * CHOICE_SCALE}) scale(${CHOICE_SCALE})`,
           }, [
-            el("rect", { x: -6, y: art.GROUND - art.BUILD_H - 6, width: art.BUILD_W + 12, height: art.BUILD_H + 12, rx: 14, fill: "transparent" }),
-            building(option.game, color, option.title),
+            el("rect", { x: k === 0 ? -HIT_W / 2 : 0, y: HIT_TOP, width: HIT_W / 2, height: HIT_H, rx: 16, fill: "transparent" }),
+            group({ transform: `translate(${k === 0 ? -66 : 8},${-4 - art.GROUND * CHOICE_SCALE}) scale(${CHOICE_SCALE})` }, [
+              building(option.game, color, option.title),
+            ]),
           ]);
           activate(pick, () => choose(nr, option));
           g.append(pick);

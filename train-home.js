@@ -61,6 +61,18 @@
   // auseinander.
   const buildScene = (scene) => scenes().buildScene(scene);
 
+  // Die Landschaft im Hintergrund austauschen, ohne die Bühne neu zu bauen.
+  // Steht schon dieselbe da, bleibt sie stehen: eine neu gebaute Landschaft
+  // liesse Wolken und Gras von vorn anlaufen.
+  function applyScene(scene) {
+    if (!scene) return;
+    const standing = stage?.querySelector(":scope > .scene");
+    if (standing?.dataset.scene === scene.id) return;
+    const fresh = buildScene(scene);
+    if (standing) standing.replaceWith(fresh);
+    else stage?.prepend(fresh);
+  }
+
   // ---------------------------------------------------------------------------
   // Speicher
   // ---------------------------------------------------------------------------
@@ -533,6 +545,9 @@
     // ein Kind nicht, dass an der Lok überhaupt etwas zu holen ist.
     if (part === "whole") {
       const hotspots = el("g", { class: "loco-hotspots" });
+      // Feld und Punkt jeder Stelle, in den Massen der Lok – damit unten
+      // ausgerechnet werden kann, wohin ein Tipp gehört.
+      const felder = [];
       art.LOCO_PARTS.forEach((spec) => {
         const box = art.PART_HIT[spec.id];
         if (!box) return;
@@ -567,10 +582,61 @@
             })
             : el("circle", { cx: dot.x, cy: dot.y, r: 3.2, class: "loco-hotspot-dot", fill: "#ffffff", stroke: "#6c5ce7", "stroke-width": 1.4 }),
         ]);
-        activate(hot, () => showWorkshop(spec.id));
+        // Der Punkt selbst ist ein Ziel: eine unsichtbare Scheibe darum. Beim
+        // Chauffeur liegt der Punkt ausserhalb seines Feldes – dort tat
+        // ausgerechnet der Tipp auf den Punkt nichts, obwohl der Lautsprecher
+        // genau dazu auffordert.
+        hot.append(el("circle", { cx: dot.x, cy: dot.y, r: 14, fill: "transparent", class: "loco-hotspot-hit" }));
+        // Getippt wird über die Fläche unten; hier hört nur die Tastatur zu,
+        // sonst zählte ein Tipp zweimal.
+        hot.addEventListener("keydown", (event) => {
+          if (event.key !== "Enter" && event.key !== " ") return;
+          event.preventDefault();
+          showWorkshop(spec.id);
+        });
+        felder.push({ id: spec.id, box, dot });
         hotspots.append(hot);
       });
       camera.append(hotspots);
+
+      // Wohin ein Tipp gehört, rechnet die Werkstatt aus, statt es der
+      // Zeichnung zu überlassen. Acht Felder mit Lücken dazwischen heissen
+      // sonst: manchmal trifft man, manchmal nicht – und wer knapp daneben
+      // tippt, glaubt, an der Lok sei nichts zu holen. Gesucht wird das Feld,
+      // in dem der Tipp liegt; liegt er in keinem, das nächstgelegene. Sind
+      // zwei gleich weit, gewinnt das mit dem näheren Punkt – so gehört der
+      // Punkt immer seiner eigenen Stelle, auch wo er über einem fremden Feld
+      // liegt.
+      const GRIFF = 26;    // so weit daneben darf ein Tipp liegen (Lok-Einheiten)
+      const PUNKT_R = 14;  // und so gross ist der Punkt als Ziel
+
+      function randAbstand(box, x, y) {
+        const dx = Math.max(box.x - x, 0, x - (box.x + box.width));
+        const dy = Math.max(box.y - y, 0, y - (box.y + box.height));
+        return Math.hypot(dx, dy);
+      }
+
+      function feldFuer(x, y) {
+        let best = null;
+        felder.forEach((feld) => {
+          const zumPunkt = Math.hypot(feld.dot.x - x, feld.dot.y - y);
+          const weg = Math.min(randAbstand(feld.box, x, y), Math.max(0, zumPunkt - PUNKT_R));
+          if (!best || weg < best.weg - 0.5 || (weg < best.weg + 0.5 && zumPunkt < best.zumPunkt)) {
+            best = { feld, weg, zumPunkt };
+          }
+        });
+        return best && best.weg <= GRIFF ? best.feld : null;
+      }
+
+      stageBox.addEventListener("click", (event) => {
+        // Der Kamerastand steckt als Transformation in der Gruppe; ihre Matrix
+        // rechnet den Bildschirmpunkt in die Masse der Lok zurück.
+        const ctm = camera.getScreenCTM();
+        if (!ctm) return;
+        const punkt = new DOMPoint(event.clientX, event.clientY).matrixTransform(ctm.inverse());
+        const feld = feldFuer(punkt.x, punkt.y);
+        if (feld) showWorkshop(feld.id);
+      });
     }
 
     wrap.append(stageBox);
@@ -765,6 +831,7 @@
       id: account.id,
       name: account.name,
       loco: { ...art.DEFAULT_LOCO, ...(account.loco || {}) },
+      scene: account.scene || null,
       areas: progress.areasForAccount(account),
       ...journeyOf(account),
     }));
@@ -908,7 +975,14 @@
 
     const trainBox = document.createElement("div");
     trainBox.className = "friend-detail-train";
-    const svg = art.buildTrain(areas, friend.loco, { pad: 4, gap: 4, withTrack: true });
+    // Mit dem Reise-Schild: die Sterne stehen schon am kleinen Zug oben, und
+    // ausgerechnet in der Grossansicht fehlten sie – dabei ist das die
+    // Ansicht, in der man nachsieht, wie weit jemand ist.
+    const svg = art.buildTrain(areas, friend.loco, {
+      pad: 4, gap: 4, withTrack: true,
+      journeyStars: friend.journeyStars || 0,
+      journeyGold: friend.journeyGold || 0,
+    });
     // Als Gruppe, nicht als Bild: in einem Bild gelten alle Kinder als
     // Dekoration, und die Wagen sind hier die Auswahl. Ein Bildschirmleser
     // käme sonst an keinen von ihnen heran.
@@ -1329,6 +1403,11 @@
     // Text mit.
     if (view.name === "reise" && name !== "reise") { kids()?.setHelp?.(""); view.journeyVisit = null; }
     if (view.name === "loco" && name !== "loco") freshParts = [];
+    // Hinter dem Zug eines anderen steht dessen Landschaft: sie gehört zu
+    // seinem Zug wie seine Lok, und wer sie sieht, sieht das Bild, das dieses
+    // Kind sich gebaut hat. Überall sonst wieder die eigene.
+    const gast = name === "friend" ? friends.find((entry) => entry.id === view.friendId) : null;
+    applyScene(gast?.scene ? scenes()?.BY_ID?.[gast.scene] || currentScene() : currentScene());
     view.name = name;
     view.areaId = areaId;
     stage.dataset.view = name;
