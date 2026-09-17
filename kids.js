@@ -1,5 +1,5 @@
 /*
- * kids.js – Gemeinsame Kinder-Funktionen für die Lernapp.
+ * kids.js – Gemeinsame Kinder-Funktionen für Gripszug.
  * Wird auf jeder Seite vor app.js geladen und stellt window.LernappKids bereit:
  * Sterne, Vorlesen (TTS), Maskottchen, Konfetti, Töne.
  * Bewusst ohne Framework und defensiv (localStorage kann fehlschlagen).

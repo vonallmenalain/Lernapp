@@ -1,4 +1,4 @@
-# Firebase Setup für Lernapp
+# Firebase Setup für Gripszug
 
 Diese App verwendet Firebase Authentication und Cloud Firestore. Kinder melden sich nur mit **Name + Passwort** an. Intern erzeugt die App daraus eine technische Firebase-Login-Adresse wie `anna@lernapp.local`; diese Adresse ist nur für Firebase Auth da und wird Kindern nicht angezeigt.
 
