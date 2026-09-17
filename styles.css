@@ -40,6 +40,23 @@ html {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* --- Kein Rahmen nach einem Tipp ----------------------------------------------
+   Browser malen um das zuletzt angetippte Ding einen fast schwarzen Rahmen.
+   Bei einem Knopf sähe er nur unschön aus; die antippbaren Teile dieser App
+   sind aber zum grossen Teil SVG-Gruppen – ein Wagen des Zugs, eine Station
+   der Reisekarte, ein Bauteil der Lok –, und dort legt sich der Rahmen als
+   Kasten über das halbe Bild und bleibt dort stehen, bis irgendwo anders
+   hingetippt wird. Ein Kind hält das für einen Fehler.
+
+   Zwei Regeln, weil eine allein nicht reicht. Diese hier nimmt den Rahmen
+   überall weg, wo der Browser selbst weiss, dass nicht mit der Tastatur
+   bedient wurde. Die zweite steht ganz unten und greift auch dort, wo er es
+   nicht weiss: bei SVG-Gruppen malen die Browser den Rahmen schon auf :focus,
+   obwohl :focus-visible nicht zutrifft. Was die Tastatur bekommt, bleibt in
+   beiden Fällen stehen – die App setzt ihre eigenen Rahmen auf
+   :focus-visible, und die sind genauer als diese Regel. */
+:focus:not(:focus-visible) { outline: none; }
+
 * { box-sizing: border-box; }
 
 body {
@@ -9728,3 +9745,25 @@ body[data-page="train"] .train-stage[data-view="reise"] ~ .help-voice {
   .journey-passenger-stand, .journey-aboard, .journey-home-light, .journey-headlight { transition: none; }
   .is-party .journey-flame { opacity: 1; }
 }
+
+/* ===========================================================================
+   Kein Fokusrahmen nach Tipp oder Klick
+   ---------------------------------------------------------------------------
+   Die Gegenprobe zur Regel ganz oben, und der Grund, warum sie hier unten
+   steht: sie muss die eigenen :focus-visible-Rahmen der App überstimmen, und
+   das geht nur nach ihnen. Womit zuletzt bedient wurde, schreibt kids.js an
+   das Wurzelelement – Tabulator und Pfeile setzen "tastatur", jeder Tipp und
+   jeder Klick "zeiger". So hängt der Rahmen nicht daran, ob ein Browser bei
+   einer SVG-Gruppe von sich aus zwischen Finger und Tastatur unterscheidet.
+
+   :root zählt für die Gewichtung wie eine Klasse; zusammen mit dem
+   Attribut und :focus wiegt jede Regel hier schwerer als die Rahmen, die sie
+   abschaltet.
+   =========================================================================== */
+:root[data-eingabe="zeiger"] *:focus,
+:root[data-eingabe="zeiger"] *:focus-visible { outline: none; }
+/* Der gestrichelte Rahmen der Reisekarte ist kein outline, sondern ein Strich
+   am Rechteck – er braucht seine eigene Zeile. */
+:root[data-eingabe="zeiger"] .journey-station:focus-visible > .journey-station-hit,
+:root[data-eingabe="zeiger"] .journey-choice:focus-visible > rect,
+:root[data-eingabe="zeiger"] .journey-alt:focus-visible > rect { stroke: none; }
