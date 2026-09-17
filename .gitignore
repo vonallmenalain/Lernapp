@@ -1,0 +1,12 @@
+# Werkzeuge der Prüfskripte – die App selbst braucht nichts davon.
+node_modules/
+
+# Was der Firebase-Emulator beim Laufen hinterlässt.
+firestore-debug.log
+firebase-debug.log
+ui-debug.log
+.firebase/
+
+# Bilder aus den Browser-Prüfungen landen unter /tmp, nie hier.
+*.png
+!icons/*.png

@@ -47,6 +47,9 @@ on:
       - "firebase.json"
       - ".firebaserc"
       - "scripts/pruefe-dienstkonto.mjs"
+      - "scripts/test-rules.mjs"
+      - "package.json"
+      - "package-lock.json"
       - ".github/workflows/firestore-rules.yml"
   pull_request:
     paths: *pfade
@@ -66,11 +69,18 @@ jobs:
   # ---------------------------------------------------------------------------
   # Prüfen - auf allem, was nicht das veröffentlichte main ist
   # ---------------------------------------------------------------------------
-  # Dieser Job sieht nie den Deploy-Schlüssel. Er nimmt, wenn vorhanden, ein
-  # eigenes Secret mit einem Konto, das Regeln zwar erstellen, aber nicht
-  # freischalten darf. Fehlt es, wird die Prüfung übersprungen statt zu
-  # scheitern: Eine fehlende Vorabprüfung ist kein Fehler im Pull Request,
-  # und der Deploy auf main prüft ohnehin ein zweites Mal.
+  # Dieser Job sieht nie den Deploy-Schlüssel. Zwei Prüfungen, die eine ohne
+  # jedes Geheimnis, die andere nur, wenn eines da ist:
+  #
+  #   1. scripts/test-rules.mjs lädt die Regeln in den Firestore-Emulator und
+  #      probiert für jede Rolle, was sie darf und was nicht. Das läuft auf
+  #      jedem Pull Request, braucht kein Konto, und fängt auch Regeln mit
+  #      Syntaxfehlern: Der Emulator nimmt die stumm an und verweigert dann
+  #      alles – und die "darf"-Fälle schlagen fehl.
+  #   2. Wenn das Secret FIREBASE_SERVICE_ACCOUNT_PRUEFUNG hinterlegt ist,
+  #      liest Firebase die Regeln zusätzlich selbst gegen (--dry-run). Fehlt
+  #      es, wird das übersprungen statt zu scheitern: der Deploy auf main
+  #      prüft ohnehin ein zweites Mal.
   pruefen:
     name: Regeln prüfen
     if: github.event_name == 'pull_request' || github.ref != 'refs/heads/main'
@@ -83,6 +93,20 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "22"
+          cache: npm
+
+      # Der Firestore-Emulator ist ein Java-Programm.
+      - name: Java einrichten
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Werkzeuge installieren
+        run: npm ci --no-audit --no-fund
+
+      - name: Regeln im Emulator durchspielen
+        run: npm run test:rules
 
       - name: Schlüssel prüfen
         id: schluessel
