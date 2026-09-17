@@ -49,6 +49,12 @@ Stand: September 2026 · Grundlage: `train-home.js`, `train-progress.js`, `train
 > ins Bild, wenn der Zug an seinem Platz steht. **Neu freigeschaltete Teile** funkeln am Zug,
 > stehen in der Werkstatt mit goldenem Stern und werden vom Lautsprecher genannt, bis sie
 > einmal angesehen wurden.
+> **Ohne Flackern (September 2026):** Das gelegte Gleis war bisher der ganze Gleispfad mit
+> einem Strichmuster, das nur den gelegten Teil zeigte. Wuchs das Muster beim Legen des
+> nächsten Stücks, änderte sich ein Pfad, der die ganze Karte überspannt – und der Browser
+> zeichnete in jedem Bild die ganze Karte neu; auf einem Tablet mit grossem Bildschirm
+> flackerte das. Jetzt ist jedes gelegte Stück ein eigener, kurzer Pfad aus dem einmal je
+> Sitzung vermessenen Raster: neu gezeichnet wird nur, was dazukommt.
 > **Nicht gebaut (bewusst):** Kabuse und Postkarten aus Abschnitt 9.
 > Der Rest des Dokuments bleibt als Begründung stehen; zum Konzept gehört eine Seite mit
 > einer klickbaren Streckenkarte (Artefakt „Abenteuerreise").
