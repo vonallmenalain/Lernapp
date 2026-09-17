@@ -6,7 +6,7 @@
  * Tipp (oder Leertaste) lässt springen – länger drücken springt höher.
  *
  * Alles wird prozedural auf ein 2D-Canvas gezeichnet: keine Bild- oder
- * Sounddateien, damit die Seite so klein bleibt wie der Rest der Lernapp
+ * Sounddateien, damit die Seite so klein bleibt wie der Rest von Gripszug
  * und der vorhandene Service-Worker sie komplett offline halten kann.
  */
 (() => {
@@ -1066,7 +1066,7 @@
   }
 
   // ---------------------------------------------------------------------------
-  // Töne (respektiert den globalen Ton-Schalter der Lernapp)
+  // Töne (respektiert den globalen Ton-Schalter von Gripszug)
   // ---------------------------------------------------------------------------
   const AUDIO_KEY = "lernapp.audioFeedback";
   let audioContext = null;
