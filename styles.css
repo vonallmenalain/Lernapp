@@ -6044,6 +6044,102 @@ body[data-page="train"] .help-voice { display: none; }
   100% { transform: scale(1); opacity: 1; filter: brightness(1) drop-shadow(0 0 0 rgba(255, 255, 255, 0)); }
 }
 
+/* Der Hinweis "auf den Startbildschirm" liegt wie eine Feier über der Bühne,
+   ist aber eine Tafel zum Lesen: einspaltig, Icon oben, Text darunter, zwei
+   nummerierte Schritte mit den Symbolen, die iOS selbst zeigt, und Knöpfe mit
+   Wörtern statt des grünen Hakens – hier lesen Eltern. */
+.install-hint-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(8px, 1.8vh, 14px);
+  width: min(520px, 100%);
+  text-align: center;
+  overflow: auto;
+}
+.install-hint-icon {
+  width: clamp(56px, 12vh, 84px);
+  height: auto;
+  border-radius: 22%;
+  box-shadow: 0 8px 20px rgba(36, 48, 71, 0.22);
+}
+.install-hint-title { color: #4c3fd6; }
+.install-hint-text {
+  margin: 0;
+  font-size: clamp(0.95rem, 2.2vw, 1.08rem);
+  line-height: 1.4;
+  color: #2d3a45;
+  max-width: 44ch;
+}
+.install-hint-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+  width: 100%;
+  max-width: 44ch;
+  text-align: left;
+}
+.install-hint-step {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px 12px;
+  border-radius: 14px;
+  background: #f3f0ff;
+  color: #2d3a45;
+  font-size: clamp(0.92rem, 2.1vw, 1.02rem);
+  line-height: 1.35;
+}
+.install-hint-step-number {
+  flex: 0 0 auto;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: #6c5ce7;
+  color: #fff;
+  font-weight: 900;
+  font-size: 0.9rem;
+}
+.install-hint-symbol {
+  width: 1.35em;
+  height: 1.35em;
+  vertical-align: -0.3em;
+  color: #2b7de9;
+  flex: 0 0 auto;
+}
+.install-hint-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-top: 4px;
+}
+.install-hint-primary,
+.install-hint-later {
+  border: 0;
+  border-radius: 999px;
+  padding: 12px 22px;
+  font-size: 1rem;
+  font-weight: 800;
+  cursor: pointer;
+  min-height: 46px;
+}
+.install-hint-primary {
+  background: #3fbf74;
+  color: #fff;
+  box-shadow: 0 8px 20px rgba(36, 48, 71, 0.22);
+}
+.install-hint-primary:disabled { opacity: 0.6; cursor: default; }
+.install-hint-later {
+  background: #eef1f5;
+  color: #2d3a45;
+}
+
 /* Die zwölf Schritte als Punkte, in Dreiergruppen – ein Spiel je Gruppe. Die
    vollen sind in der Farbe des Bereichs, der neue leuchtet kurz auf. */
 .wagon-reward-steps,

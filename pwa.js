@@ -114,6 +114,80 @@
     registration.update().then(() => activateWaitingWorker(registration)).catch(() => {});
   }
 
+  // ---------------------------------------------------------------------------
+  // Auf den Startbildschirm
+  // ---------------------------------------------------------------------------
+  // Chrome und Edge (Android wie Desktop) melden mit beforeinstallprompt, dass
+  // die App installierbar ist – und zeigen ohne unser Zutun irgendwann eine
+  // eigene Leiste. Wir fangen das Ereignis ab und heben es auf: der Vorschlag
+  // soll erst kommen, wenn das Kind seinen ersten Wagenschritt geschafft hat,
+  // nicht beim ersten Öffnen einer fremden Seite. Safari auf dem iPhone kennt
+  // das Ereignis nicht; dort bleibt nur die Anleitung "Teilen → Zum
+  // Home-Bildschirm". Wer den Link aus Instagram oder Facebook öffnet, sitzt
+  // in deren eingebautem Browser, und der kann das gar nicht – dann heisst der
+  // erste Schritt: in Safari öffnen.
+  const INSTALL_HINT_KEY = "lernapp.install.hinweis";
+  let deferredInstallPrompt = null;
+
+  window.addEventListener("beforeinstallprompt", (event) => {
+    event.preventDefault();
+    deferredInstallPrompt = event;
+  });
+
+  window.addEventListener("appinstalled", () => {
+    deferredInstallPrompt = null;
+    try { localStorage.setItem(INSTALL_HINT_KEY, "installiert"); } catch { /* privater Modus */ }
+  });
+
+  function installPlatform() {
+    const ua = navigator.userAgent || "";
+    // iPadOS meldet sich seit Version 13 als Mac – mit Touch verrät es sich.
+    const ios = /iPad|iPhone|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+    if (ios) {
+      // Die eingebauten Browser von Instagram, Facebook, Messenger, LinkedIn.
+      if (/Instagram|FBAN|FBAV|FB_IAB|Messenger|LinkedInApp/i.test(ua)) return "ios-inapp";
+      // Chrome und Firefox auf iOS können auch nicht installieren – nur Safari.
+      if (/CriOS|FxiOS|EdgiOS|OPiOS/.test(ua)) return "ios-anderer-browser";
+      return "ios-safari";
+    }
+    if (deferredInstallPrompt) return "prompt";
+    return "keine";
+  }
+
+  function installHintState() {
+    try { return localStorage.getItem(INSTALL_HINT_KEY) || ""; } catch { return ""; }
+  }
+
+  window.LernappInstall = {
+    isStandalone: isStandaloneMode,
+    // Ob ein Hinweis überhaupt Sinn hat: nicht installiert, nicht schon
+    // gezeigt, und auf einer Plattform, für die wir etwas zu sagen haben.
+    hintWanted() {
+      if (isStandaloneMode()) return false;
+      if (installHintState()) return false;
+      return installPlatform() !== "keine";
+    },
+    platform: installPlatform,
+    markHintShown() {
+      try { localStorage.setItem(INSTALL_HINT_KEY, "gezeigt"); } catch { /* privater Modus */ }
+    },
+    canPrompt: () => Boolean(deferredInstallPrompt),
+    // Löst den Dialog des Browsers aus. Geht nur einmal je aufgehobenem
+    // Ereignis – danach ist es verbraucht, ob angenommen oder nicht.
+    async prompt() {
+      const event = deferredInstallPrompt;
+      if (!event) return "unmoeglich";
+      deferredInstallPrompt = null;
+      try {
+        event.prompt();
+        const choice = await event.userChoice;
+        return choice && choice.outcome === "accepted" ? "angenommen" : "abgelehnt";
+      } catch {
+        return "unmoeglich";
+      }
+    },
+  };
+
   if ("serviceWorker" in navigator) {
     navigator.serviceWorker.addEventListener("controllerchange", () => {
       if (hasController) reloadForUpdate();
