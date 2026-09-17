@@ -28,7 +28,7 @@ Workflow [`.github/workflows/firestore-rules.yml`](./.github/workflows/firestore
 
 | Wann | Was passiert |
 | --- | --- |
-| Pull Request, der `firestore.rules` ändert | Firebase prüft die Regeln (`--dry-run`). Nichts wird veröffentlicht. |
+| Pull Request, der `firestore.rules` ändert | Firebase liest die Regeln gegen (`--dry-run`), sofern die Vorabprüfung eingerichtet ist. Nichts wird veröffentlicht. |
 | Merge nach `main` | Die Regeln werden veröffentlicht und gelten sofort. |
 | **Actions → Firestore-Regeln → Run workflow** auf `main` | Dasselbe von Hand, ohne Änderung an der Datei. |
 
@@ -37,10 +37,55 @@ Damit ist [`firestore.rules`](./firestore.rules) die Wahrheit: Was in dieser Dat
 verliert seine Änderung beim nächsten Merge – dort also nur noch nachsehen, nicht mehr
 schreiben.
 
-Der Workflow meldet sich am Dienstkonto `firestore-rules-deploy` an, dessen Schlüssel als
-Secret `FIREBASE_SERVICE_ACCOUNT` im Repository liegt. Nötige Rolle: **Firebase Rules Admin**
-(`roles/firebaserules.admin`). Fehlt das Secret, bricht der Lauf auf `main` mit einer
-deutlichen Meldung ab, statt stillschweigend nichts zu tun.
+### Wo der Schlüssel liegt, und warum nicht im Repository
+
+Der Deploy-Schlüssel liegt **nicht** als gewöhnliches Repository-Secret, sondern in der
+GitHub-Umgebung **`produktion`**, die nur von `main` aus erreichbar ist.
+
+Das ist kein Zierrat. Bei einem Pull Request aus demselben Repository stellt GitHub die
+Repository-Secrets bereit, und ausgeführt wird der Workflow in der Fassung, die im Pull
+Request steht – samt Änderungen an der Workflow-Datei selbst. Läge der Schlüssel im
+Repository, könnte jeder, der einen Branch pushen darf, den Workflow im Pull Request
+umschreiben und damit veröffentlichen, ohne je nach `main` mergen zu dürfen. Der
+Branchschutz wäre wirkungslos, und das Konto darf die Regeln der Produktionsdatenbank
+überschreiben.
+
+Eine Umgebung gibt ihre Secrets nur an einen Job, der sie mit `environment:` anfordert, und
+nur von den Branches, die in ihrer Regel stehen. Entfernt jemand die Zeile, bekommt der Job
+den Schlüssel nicht mehr; lässt er sie stehen, kommt er von einem anderen Branch nicht durch.
+
+| | Deploy | Vorabprüfung (freiwillig) |
+| --- | --- | --- |
+| Secret | `FIREBASE_SERVICE_ACCOUNT` | `FIREBASE_SERVICE_ACCOUNT_PRUEFUNG` |
+| liegt in | Umgebung `produktion` (nur `main`) | Repository-Secrets |
+| Dienstkonto | `firestore-rules-deploy` | `firestore-rules-pruefung` |
+| Rolle | **Firebase Rules Admin** (`roles/firebaserules.admin`) | eigene Rolle, siehe unten |
+| kann | Regeln erstellen **und** freischalten | Regeln nur erstellen, nie freischalten |
+
+Fehlt das Deploy-Secret, bricht der Lauf auf `main` mit einer deutlichen Meldung ab, statt
+stillschweigend nichts zu tun – ein grüner Lauf ohne Deploy sähe aus wie ein erfolgreicher.
+
+### Die Vorabprüfung nachrüsten
+
+Ohne das zweite Secret werden die Regeln erst beim Merge von Firebase gegengelesen. Das ist
+ein gültiger Zustand: Ein ungültiges Regelwerk wird beim Deploy abgelehnt, **bevor** etwas
+freigeschaltet wird – die bisherigen Regeln bleiben dann unverändert stehen, `main` ist nur
+kurz rot. Wer den Fehler schon im Pull Request sehen will, legt ein zweites Dienstkonto an:
+
+1. Eigene Rolle in der Google Cloud Console erstellen (**IAM → Rollen → Rolle erstellen**),
+   mit genau diesen Berechtigungen:
+   - `firebaserules.rulesets.create`
+   - `firebaserules.rulesets.get`
+   - `resourcemanager.projects.get`
+2. Dienstkonto `firestore-rules-pruefung` anlegen und ihm diese Rolle geben.
+3. Den JSON-Schlüssel als Repository-Secret `FIREBASE_SERVICE_ACCOUNT_PRUEFUNG` hinterlegen.
+
+Dieses Konto kann Regelwerke zur Prüfung hochladen, aber keines davon freischalten
+(`firebaserules.releases.*` fehlt). Selbst wenn jemand das Secret aus einem Pull Request
+heraus missbraucht, entsteht nichts als ein unbenutztes Regelwerk.
+
+Geprüft wird das Format beider Schlüssel von `scripts/pruefe-dienstkonto.mjs`, bevor sie an
+Firebase gehen – ohne Netz, und ohne dass der Schlüssel je im Protokoll landet.
 
 Die Regeln erlauben eingeloggten Nutzern Zugriff auf ihren eigenen Bereich:
 
