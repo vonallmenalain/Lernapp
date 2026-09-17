@@ -9300,6 +9300,10 @@ body[data-page="train"] .train-stage[data-view="reise"] ~ .help-voice {
   transform-origin: center;
   animation: journey-pulse 2.2s ease-in-out infinite;
 }
+/* Unsichtbar pulst der Ring nicht weiter: während der Feier – Stempel, Legen,
+   Fahrt – ist das Signal weg, und eine Animation, die niemand sieht, kostet
+   auf einem Tablet trotzdem Bilder. */
+.journey-signal.is-hidden .journey-signal-ring { animation-play-state: paused; }
 @keyframes journey-pulse {
   0%, 100% { transform: scale(1); opacity: 0.55; }
   50% { transform: scale(1.4); opacity: 0.15; }

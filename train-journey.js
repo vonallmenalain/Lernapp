@@ -115,11 +115,16 @@
   // 27000 Messungen bei jedem Öffnen der Karte, auf einem Tablet mehrere
   // Sekunden, in denen nichts geschah.
   //
-  // Jetzt wird der Pfad einmal grob abgetastet, und jede Station sucht in
-  // diesem Raster ihren nächsten Punkt und verfeinert ihn nur dort. Das
-  // Ergebnis hängt allein am Pfad, ist also für alle Karten dasselbe und
-  // bleibt gespeichert. Aus 27000 Messungen werden knapp tausend.
-  const COARSE = 12;
+  // Jetzt wird der Pfad einmal abgetastet, und jede Station sucht in diesem
+  // Raster ihren nächsten Punkt und verfeinert ihn nur dort. Das Ergebnis
+  // hängt allein am Pfad, ist also für alle Karten dasselbe und bleibt
+  // gespeichert. Aus 27000 Messungen werden gut tausend.
+  //
+  // Aus demselben Raster werden die gelegten Gleisstücke gezeichnet: jedes
+  // als eigener, kurzer Pfad (piece). Das Raster ist darum fein genug, dass
+  // ein Stück auch in den Kehren rund aussieht – bei sechs Einheiten Abstand
+  // weicht es dort um weniger als ein Zehntel Einheit von der Kurve ab.
+  const STEP = 6;
   let rail = null;
 
   function measureRail() {
@@ -134,8 +139,8 @@
     const total = path.getTotalLength ? path.getTotalLength() : 4600;
     const xs = [];
     const ys = [];
-    for (let d = 0; d <= total + COARSE; d += COARSE) {
-      const p = path.getPointAtLength ? path.getPointAtLength(Math.min(d, total)) : { x: 0, y: 0 };
+    for (let d = 0; d <= total; d += STEP) {
+      const p = path.getPointAtLength ? path.getPointAtLength(d) : { x: 0, y: 0 };
       xs.push(p.x);
       ys.push(p.y);
     }
@@ -155,8 +160,8 @@
         if (dd < bd) { bd = dd; best = i; }
       }
       // Im Raster gefunden, im Fenster daneben verfeinert.
-      let d = best * COARSE;
-      for (let step = COARSE / 2; step >= 0.5; step /= 2) {
+      let d = best * STEP;
+      for (let step = STEP / 2; step >= 0.5; step /= 2) {
         [-step, step].forEach((delta) => {
           const t = Math.max(0, Math.min(total, d + delta));
           const p = at(t);
@@ -166,8 +171,28 @@
       }
       return d;
     }
+    // Ein Stück des Gleises von a bis b als eigener Pfad: die Rasterpunkte
+    // dazwischen, dazu die genauen Enden. Gebraucht wird es für das gelegte
+    // Gleis (siehe layTrack): ein kurzer Pfad statt des ganzen mit einem
+    // Strichmuster, damit beim Legen nur das neue Stück neu gezeichnet wird.
+    // Die Länge ist die des gezeichneten Linienzugs – für das Strichmuster,
+    // das ihn beim Legen wachsen lässt.
+    function piece(a, b) {
+      const from = Math.max(0, Math.min(total, a));
+      const to = Math.max(from, Math.min(total, b));
+      if (to - from < 0.5) return { d: "", length: 0 };
+      const points = [at(from)];
+      for (let i = Math.floor(from / STEP) + 1; i * STEP < to; i += 1) points.push({ x: xs[i], y: ys[i] });
+      points.push(at(to));
+      let length = 0;
+      const d = points.map((p, i) => {
+        if (i) length += Math.hypot(p.x - points[i - 1].x, p.y - points[i - 1].y);
+        return `${i ? "L" : "M"}${p.x.toFixed(1)} ${p.y.toFixed(1)}`;
+      }).join(" ");
+      return { d, length };
+    }
     rail = {
-      total, at,
+      total, at, piece,
       L: STOPS.map(([x, y]) => nearest(x, y)),
       platform: nearest(PLATFORM_AT[0], PLATFORM_AT[1]),
       bay: nearest(1035, STOPS[0][1]),
@@ -434,11 +459,13 @@
   // Das Gleis
   // ---------------------------------------------------------------------------
   // Gezeichnet wie die Rampen zu den Toren: Schwellenband, Schiene, Lichtkante.
-  function rails(extra = {}) {
+  // Ohne Pfad das ganze Gleis; die gelegten Stücke bringen ihren eigenen mit.
+  // Die Ecken sind rund, weil ein Stück aus dem Raster ein Linienzug ist.
+  function rails(extra = {}, d = PATH_D) {
     return group(extra, [
-      el("path", { d: PATH_D, fill: "none", stroke: "#7b5c3a", "stroke-width": 17, "stroke-linecap": "round", opacity: "0.4" }),
-      el("path", { d: PATH_D, fill: "none", stroke: "#8c93a1", "stroke-width": 9, "stroke-linecap": "round" }),
-      el("path", { d: PATH_D, fill: "none", stroke: "#dfe4ec", "stroke-width": 3, "stroke-linecap": "round", opacity: "0.85" }),
+      el("path", { d, fill: "none", stroke: "#7b5c3a", "stroke-width": 17, "stroke-linecap": "round", "stroke-linejoin": "round", opacity: "0.4" }),
+      el("path", { d, fill: "none", stroke: "#8c93a1", "stroke-width": 9, "stroke-linecap": "round", "stroke-linejoin": "round" }),
+      el("path", { d, fill: "none", stroke: "#dfe4ec", "stroke-width": 3, "stroke-linecap": "round", "stroke-linejoin": "round", opacity: "0.85" }),
     ]);
   }
 
@@ -588,7 +615,7 @@
     });
 
     // Gemessen wird am eigenen Lineal, einmal für die ganze Sitzung.
-    const { total: total_, L, platform: PLATFORM_D, bay: BAY_D, at: pointAt } = measureRail();
+    const { total: total_, L, platform: PLATFORM_D, bay: BAY_D, at: pointAt, piece: railPiece } = measureRail();
     const headAt = (i) => L[i] - STOP_BEFORE;
 
     // --- Kopfzeile: zehn Punkte ----------------------------------------------
@@ -982,24 +1009,39 @@
       });
     }
 
+    // Das gelegte Gleis von a bis b: ein eigenes, kurzes Stück aus dem
+    // vermessenen Raster. Früher war es der ganze Gleispfad – von weit links
+    // bis weit rechts über die Karte hinaus – mit einem Strichmuster, das nur
+    // den gelegten Teil zeigte. Beim Legen (layTrack) wuchs dieses Muster,
+    // und weil sich damit ein Pfad änderte, der die ganze Karte überspannt,
+    // zeichnete der Browser in jedem Bild die ganze Karte neu: Landschaft,
+    // Stationen, Nebel. Auf einem Tablet mit grossem Bildschirm schaffte er
+    // das nicht in der Zeit eines Bildes, und die Karte flackerte. Ein kurzer
+    // Pfad hat einen kleinen Kasten – neu gezeichnet wird nur das Stück.
     function litSegment(a, b) {
-      const g = rails({ class: "journey-rails-lit" });
-      g.querySelectorAll("path").forEach((p) => {
-        p.setAttribute("stroke-dasharray", `${Math.max(0, b - a)} ${total_ + 10}`);
-        p.setAttribute("stroke-dashoffset", String(-a));
-      });
-      return g;
+      return rails({ class: "journey-rails-lit" }, railPiece(a, b).d);
     }
 
+    // Das Stück zur nächsten Station legt sich: das Strichmuster wächst von
+    // nichts bis über die ganze Länge des Stücks hinaus. Fertig gelegt wird
+    // die Animation weggenommen; das Stück steht dann ohne Muster ganz da –
+    // derselbe Anblick, aber ohne einen Endzustand, der für immer gehalten
+    // werden müsste.
     function layTrack(a, b) {
-      const g = litSegment(a, b);
+      const { d, length } = railPiece(a, b);
+      if (!length) return Promise.resolve();
+      const g = rails({ class: "journey-rails-lit" }, d);
       layers.lit.append(g);
-      if (reduced() || token !== mountToken || !g.querySelector("path").animate) return Promise.resolve();
-      const anims = [...g.querySelectorAll("path")].map((p) => p.animate(
-        [{ strokeDasharray: `0 ${total_ + 10}` }, { strokeDasharray: `${b - a} ${total_ + 10}` }],
+      const paths = [...g.querySelectorAll("path")];
+      if (reduced() || token !== mountToken || !paths[0].animate) return Promise.resolve();
+      const gap = length + 10;
+      const anims = paths.map((p) => p.animate(
+        [{ strokeDasharray: `0 ${gap}` }, { strokeDasharray: `${length + 2} ${gap}` }],
         { duration: 700, easing: "ease-out", fill: "forwards" },
       ));
-      return Promise.all(anims.map((a_) => a_.finished.catch(() => {}))).then(() => {});
+      return Promise.all(anims.map((anim) => anim.finished.catch(() => {}))).then(() => {
+        anims.forEach((anim) => anim.cancel());
+      });
     }
 
     // --- Sprechen --------------------------------------------------------------
