@@ -87,6 +87,24 @@ Das gilt auch für das Prüfkonto: `--dry-run` überspringt nur das Veröffentli
 Vorbereitung. In `deploy/index.js` steht die Deploy-Phase hinter `if (!options.dryRun)`, die
 `prepare`-Phase mit dem API-Check läuft immer.
 
+### Die Regeln werden durchgespielt, nicht gelesen
+
+`npm run test:rules` lädt `firestore.rules` in den Firestore-Emulator und probiert für jede
+Rolle – Kind, Gruppenmitglied, Fremde, andere Gruppe, Admin, Admin ohne verifizierte Adresse,
+Gast – rund siebzig Zugriffe: was sie darf und was nicht. Läuft ohne Netz und ohne
+Zugangsdaten; braucht Java und einmalig `npm install`. Derselbe Lauf steht im Workflow vor
+jedem Pull Request, der die Regeln berührt, und braucht dort kein Secret.
+
+Der Anlass war eine Lücke, die Lesen nicht gefunden hätte: Unter `users/{userId}` stand ein
+rekursiver Platzhalter `match /{document=**}`, gedacht für die Unterkollektionen. In
+`rules_version = '2'` passt er aber auf null oder mehr Pfadstücke – also auch auf das Konto
+selbst. Sein `allow write: if isOwner(userId)` galt damit für das Kontodokument, und weil
+Regeln, die etwas erlauben, mit ODER verknüpft sind, gewann er über die Regel, die `group`
+vor dem Kind schützt. **Ein Kind konnte sich in jede Gruppe schreiben und deren Fortschritt
+mitlesen.** Jetzt stehen dort die beiden Unterkollektionen, die es gibt, `levelProgress` und
+`sessions` – und sonst nichts. Mit `RULES_DATEI=/pfad/zur/alten.rules` lässt sich das gegen
+jede frühere Fassung nachvollziehen.
+
 ### Die Vorabprüfung nachrüsten
 
 Ohne das zweite Secret werden die Regeln erst beim Merge von Firebase gegengelesen. Das ist

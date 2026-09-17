@@ -83,17 +83,28 @@ service cloud.firestore {
       allow delete: if isOwner(userId);
       allow update: if isAdmin() && (isProgressReset() || isGroupChange());
 
-      // Gelöste Level sind das, was die Gruppe voneinander sehen soll. Nur
-      // lesen, und nur diese eine Unterkollektion – Sitzungen bleiben privat.
+      // Die beiden Unterkollektionen, die es gibt – und nur die. Bis hierher
+      // stand hier ein rekursiver Platzhalter, match /{document=**}, und der
+      // war eine Lücke: In rules_version 2 passt er auf null oder mehr
+      // Pfadstücke, also auch auf das Konto selbst. Sein "write: if isOwner"
+      // galt damit für users/{userId} – und weil Regeln, die etwas erlauben,
+      // mit ODER verknüpft sind, gewann er über die Regel oben, die group
+      // vor dem Kind schützt. Ein Kind konnte sich in jede Gruppe schreiben.
+      // Geprüft wird das jetzt von scripts/test-rules.mjs.
+      //
+      // Gelöste Level und Sitzungen darf der Admin löschen, aber nicht
+      // schreiben: Fortschritt wegräumen ja, Fortschritt erfinden nein.
       match /levelProgress/{levelId} {
-        allow read: if sharesGroupWith(userId);
+        // Gelöste Level sind das, was die Gruppe voneinander sehen soll. Nur
+        // lesen, und nur diese eine Unterkollektion – Sitzungen bleiben privat.
+        allow read: if isOwner(userId) || isAdmin() || sharesGroupWith(userId);
+        allow write: if isOwner(userId);
+        allow delete: if isAdmin();
       }
 
-      match /{document=**} {
+      match /sessions/{sessionId} {
         allow read: if isOwner(userId) || isAdmin();
         allow write: if isOwner(userId);
-        // Gelöste Level und Sitzungen darf der Admin löschen, aber nicht
-        // schreiben: Fortschritt wegräumen ja, Fortschritt erfinden nein.
         allow delete: if isAdmin();
       }
     }
@@ -127,12 +138,14 @@ service cloud.firestore {
         allow delete: if false;
       }
 
-      match /{document=**} {
-        allow read: if isAdmin();
-        allow write: if false;
-      }
+      // Kein rekursiver Platzhalter, aus demselben Grund wie bei users: Er
+      // passte auch auf das Gastdokument selbst. Hier stand zwar write: false,
+      // aber read: isAdmin() – und was einmal zu weit passt, passt beim
+      // nächsten Umbau zu weit an einer Stelle, die es dann schmerzt.
     }
 
+    // Alles andere ist gesperrt. Dieser Platzhalter auf oberster Ebene ist
+    // der einzige, der bleiben darf: er verbietet nur.
     match /{document=**} {
       allow read, write: if false;
     }

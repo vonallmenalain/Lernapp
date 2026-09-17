@@ -495,7 +495,13 @@ assert(/allow update: if isOwner\(userId\)\s*\n\s*&& !request\.resource\.data\.d
   "ein Kind darf sein eigenes Gruppenfeld schreiben – damit läse es fremden Fortschritt mit");
 assert(rules.includes('!("group" in request.resource.data)'),
   "ein neues Konto darf sich mit einer Gruppe anlegen");
-assert(/match \/levelProgress\/\{levelId\} \{\s*\n\s*allow read: if sharesGroupWith\(userId\);/.test(rules),
+// Die Leseregel für levelProgress muss sharesGroupWith enthalten – an welcher
+// Stelle im ODER, ist gleich: Seit die Unterkollektion nur noch einen Block
+// hat (statt einem für die Gruppe und einem rekursiven Platzhalter für den
+// Rest), steht sie neben Besitzer und Admin. Ob das Verhalten stimmt, spielt
+// scripts/test-rules.mjs im Emulator durch; hier geht es nur darum, dass die
+// Absicht nicht versehentlich aus der Datei fällt.
+assert(/match \/levelProgress\/\{levelId\} \{[^}]*allow read: if [^;]*sharesGroupWith\(userId\)[^;]*;/.test(rules),
   "die Gruppe darf die gelösten Level der anderen nicht lesen – die fremden Wagen blieben leer");
 assert(!/match \/sessions\/\{[^}]*\} \{[^}]*sharesGroupWith/.test(rules),
   "die Gruppe darf fremde Sitzungen lesen – geteilt werden nur gelöste Level");

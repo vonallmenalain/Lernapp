@@ -1,0 +1,13 @@
+{
+  "name": "gripszug",
+  "private": true,
+  "description": "Gripszug – Rätsel und Gehirntraining für Kinder. Kein Build: die App sind die Dateien im Wurzelverzeichnis. Hier stehen nur die Werkzeuge für die Prüfskripte.",
+  "type": "module",
+  "scripts": {
+    "test:rules": "node scripts/test-rules.mjs"
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^5.0.2",
+    "firebase-tools": "^15.30.1"
+  }
+}
