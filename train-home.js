@@ -2079,15 +2079,151 @@
     });
   }
 
+  // ---------------------------------------------------------------------------
+  // Auf den Startbildschirm
+  // ---------------------------------------------------------------------------
+  // Der Hinweis an die Eltern, die App zu installieren – und zwar nach einer
+  // Wagen-Feier, nicht beim ersten Öffnen: Wer gerade gesehen hat, dass der
+  // Zug des Kindes wächst, hat einen Grund, ihn behalten zu wollen. Die
+  // Fassung hängt vom Gerät ab (siehe pwa.js): Chrome und Edge können den
+  // Dialog des Browsers selbst aufrufen, Safari auf dem iPhone braucht die
+  // Anleitung mit den zwei Symbolen, und im eingebauten Browser von Instagram
+  // heisst der erste Schritt "in Safari öffnen". Gezeigt wird er einmal.
+  //
+  // Für die Eltern, nicht für das Kind: hier steht Text. Das Kind kann ihn
+  // trotzdem mit einem Tipp wegdrücken, wie jede Feier.
+  function showInstallHint(done) {
+    const install = window.LernappInstall;
+    if (!install || !install.hintWanted()) { done?.(); return; }
+    const platform = install.platform();
+    install.markHintShown();
+
+    const overlay = document.createElement("div");
+    overlay.className = "wagon-reward install-hint";
+    overlay.setAttribute("role", "dialog");
+    overlay.setAttribute("aria-label", "Gripszug auf den Startbildschirm");
+
+    const card = document.createElement("div");
+    card.className = "wagon-reward-card install-hint-card";
+
+    const icon = document.createElement("img");
+    icon.className = "install-hint-icon";
+    icon.src = "icons/icon-192.png";
+    icon.alt = "";
+    icon.width = 96;
+    icon.height = 96;
+
+    const title = document.createElement("p");
+    title.className = "wagon-reward-title install-hint-title";
+    title.textContent = "Gripszug auf den Startbildschirm";
+
+    const text = document.createElement("p");
+    text.className = "install-hint-text";
+
+    // Zwei Symbole, wie sie iOS zeigt: das Teilen-Quadrat mit dem Pfeil und
+    // das Plus im Rahmen für "Zum Home-Bildschirm".
+    const symbolTeilen = () => el("svg", { viewBox: "0 0 24 24", class: "install-hint-symbol", "aria-hidden": "true" }, [
+      el("path", { d: "M12 3.5v11M8.5 7l3.5-3.5L15.5 7", fill: "none", stroke: "currentColor", "stroke-width": 2, "stroke-linecap": "round", "stroke-linejoin": "round" }),
+      el("path", { d: "M6 10.5H5a1 1 0 0 0-1 1V19a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7.5a1 1 0 0 0-1-1h-1", fill: "none", stroke: "currentColor", "stroke-width": 2, "stroke-linecap": "round" }),
+    ]);
+    const symbolPlus = () => el("svg", { viewBox: "0 0 24 24", class: "install-hint-symbol", "aria-hidden": "true" }, [
+      el("rect", { x: 3.5, y: 3.5, width: 17, height: 17, rx: 3.5, fill: "none", stroke: "currentColor", "stroke-width": 2 }),
+      el("path", { d: "M12 8v8M8 12h8", fill: "none", stroke: "currentColor", "stroke-width": 2, "stroke-linecap": "round" }),
+    ]);
+    const schritt = (nummer, inhalt) => {
+      const row = document.createElement("li");
+      row.className = "install-hint-step";
+      const zahl = document.createElement("span");
+      zahl.className = "install-hint-step-number";
+      zahl.textContent = String(nummer);
+      row.append(zahl, ...inhalt);
+      return row;
+    };
+    const wort = (s) => { const span = document.createElement("span"); span.textContent = s; return span; };
+
+    const steps = document.createElement("ol");
+    steps.className = "install-hint-steps";
+
+    const actions = document.createElement("div");
+    actions.className = "install-hint-actions";
+    const primary = document.createElement("button");
+    primary.type = "button";
+    primary.className = "install-hint-primary";
+    actions.append(primary);
+
+    if (platform === "prompt") {
+      text.textContent = "Dann öffnet sich Gripszug wie eine richtige App: ohne Browser, im Vollbild, mit einem Tipp.";
+      primary.textContent = "Installieren";
+      const later = document.createElement("button");
+      later.type = "button";
+      later.className = "install-hint-later";
+      later.textContent = "Später";
+      actions.append(later);
+      later.addEventListener("click", () => close());
+      primary.addEventListener("click", async () => {
+        primary.disabled = true;
+        await install.prompt();
+        close();
+      });
+    } else if (platform === "ios-inapp") {
+      // Knapp: Im Querformat eines Handys ist wenig Höhe, und die Tafel soll
+      // samt Knopf ohne Blättern ins Bild passen.
+      text.textContent = "Der Browser dieser App kann Gripszug nicht installieren. Öffne die Seite zuerst in Safari:";
+      steps.append(
+        schritt(1, [wort("Oben rechts "), wort("···"), wort(" → «In Safari öffnen»")]),
+        schritt(2, [wort("Dort "), symbolTeilen(), wort(" Teilen → "), symbolPlus(), wort(" «Zum Home-Bildschirm»")]),
+      );
+      primary.textContent = "Verstanden";
+      primary.addEventListener("click", () => close());
+    } else if (platform === "ios-anderer-browser") {
+      text.textContent = "Auf iPhone und iPad kann nur Safari eine App auf den Startbildschirm legen:";
+      steps.append(
+        schritt(1, [wort("Öffne "), wort("kids.alae.app"), wort(" in Safari")]),
+        schritt(2, [wort("Dort "), symbolTeilen(), wort(" Teilen → "), symbolPlus(), wort(" «Zum Home-Bildschirm»")]),
+      );
+      primary.textContent = "Verstanden";
+      primary.addEventListener("click", () => close());
+    } else {
+      // ios-safari
+      text.textContent = "Dann öffnet sich Gripszug wie eine richtige App, im Vollbild – und der Zug bleibt auch nach Tagen Pause auf dem Gerät.";
+      steps.append(
+        schritt(1, [wort("Tippe unten auf "), symbolTeilen(), wort(" Teilen")]),
+        schritt(2, [wort("Wähle "), symbolPlus(), wort(" «Zum Home-Bildschirm»")]),
+      );
+      primary.textContent = "Verstanden";
+      primary.addEventListener("click", () => close());
+    }
+
+    card.append(icon, title, text);
+    if (steps.childElementCount) card.append(steps);
+    card.append(actions);
+    overlay.append(card);
+    stage.append(overlay);
+    kids()?.playChime?.();
+
+    let closed = false;
+    function close() {
+      if (closed) return;
+      closed = true;
+      overlay.remove();
+      done?.();
+    }
+    // Anders als die Feier schliesst ein Tipp daneben nichts: Eltern lesen.
+    return close;
+  }
+
   // Prüft nach jedem Aufbau, ob es etwas zu feiern gibt. Kommen beide zusammen,
   // kommt erst der Wagen und dann die Landschaft – die Landschaft ist die
-  // Folge, nicht die Ursache.
+  // Folge, nicht die Ursache. Und wenn ein Wagen gewachsen ist, folgt einmal
+  // der Hinweis, die App auf den Startbildschirm zu legen – zu einem Zeitpunkt,
+  // an dem es etwas zu behalten gibt.
   function maybeCelebrate(areas) {
     const grown = grownAreas(areas);
     const built = areas.filter((area) => area.built).length;
     const scene = newlyUnlockedScene(built);
     grown.forEach((entry) => feiere((done) => showWagonReward(entry, done)));
     if (scene) feiere((done) => showSceneReward(scene, done));
+    if (grown.length) feiere((done) => showInstallHint(done));
   }
 
   // ---------------------------------------------------------------------------
