@@ -108,6 +108,8 @@ const bert = () => als("bert", { email: "bert@lernapp.local", email_verified: fa
 const carl = () => als("carl", { email: "carl@lernapp.local", email_verified: false });
 const dora = () => als("dora", { email: "dora@lernapp.local", email_verified: false });
 const neu = () => als("neu", { email: "neu@lernapp.local", email_verified: false });
+const mama = () => als("mama", { email: "mama@example.com", email_verified: true });
+const kind1 = () => als("kind1", { email: "kind1@lernapp.local", email_verified: false });
 const admin = () => als("admin", { email: ADMIN_MAIL, email_verified: true });
 const adminOhneVerifikation = () => als("admin2", { email: ADMIN_MAIL, email_verified: false });
 const gast = () => env.unauthenticatedContext().firestore();
@@ -124,6 +126,11 @@ await env.withSecurityRulesDisabled(async (ctx) => {
   await db.doc("users/anna/levelProgress/arukone.A1-1").set({ solved: true });
   await db.doc("users/anna/sessions/s1").set({ startedAt: 1, solved: true });
   await db.doc("config/train").set({ wagonSet: "1", switchedAtMs: 1 });
+  // Ein Elternkonto (echte Adresse) mit einem Kind, und der Kauf dazu.
+  await db.doc("users/mama").set({ username: "Mama", email: "mama@example.com", role: "parent", children: ["kind1"] });
+  await db.doc("users/kind1").set({ username: "Kind 1", parentUid: "mama" });
+  await db.doc("entitlements/mama").set({ plan: "familie", active: true });
+  await db.doc("entitlements/kind1").set({ plan: "familie", active: true, via: "mama" });
   await db.doc(`guests/${GAST_ID}`).set({ type: "guest", guestId: GAST_ID });
 });
 
@@ -197,6 +204,42 @@ try {
   await darfNicht("Admin löscht fremdes Konto", () => admin().doc("users/anna").delete());
   await darfNicht("Admin ohne verifizierte Adresse liest fremdes Konto", () => adminOhneVerifikation().doc("users/anna").get());
   await darfNicht("Admin ohne verifizierte Adresse setzt Gruppe", () => adminOhneVerifikation().doc("users/carl").update({ group: { id: "x" }, updatedAt: 1 }));
+
+  // --- Der Kauf ----------------------------------------------------------------
+  await darf("Elternkonto liest eigenen Kauf", () => mama().doc("entitlements/mama").get());
+  await darf("Kind liest eigenen Kauf", () => kind1().doc("entitlements/kind1").get());
+  await darf("Kind ohne Kauf liest seinen (leeren) Eintrag", () => anna().doc("entitlements/anna").get());
+  await darf("Admin liest fremden Kauf", () => admin().doc("entitlements/mama").get());
+  await darf("Admin listet alle Käufe", () => admin().collection("entitlements").get());
+  await darfNicht("Kind schreibt sich selbst einen Kauf", () => anna().doc("entitlements/anna").set({ plan: "familie", active: true }));
+  await darfNicht("Elternkonto ändert eigenen Kauf", () => mama().doc("entitlements/mama").update({ active: true, plan: "lebenslang" }));
+  await darfNicht("Elternkonto löscht eigenen Kauf", () => mama().doc("entitlements/mama").delete());
+  await darfNicht("Kind liest fremden Kauf", () => anna().doc("entitlements/mama").get());
+  await darfNicht("Kind liest den Kauf seines Elternkontos", () => kind1().doc("entitlements/mama").get());
+  await darfNicht("Gast liest einen Kauf", () => gast().doc("entitlements/mama").get());
+  await darfNicht("Admin schreibt einen Kauf von Hand", () => admin().doc("entitlements/anna").set({ plan: "familie", active: true }));
+  await darfNicht("Admin löscht einen Kauf", () => admin().doc("entitlements/mama").delete());
+
+  // --- Die Familie ---------------------------------------------------------------
+  // parentUid und children schreibt der Server (oder der Admin) – nie das
+  // Konto selbst: Wer sich einem fremden Elternkonto zuordnen könnte, erbte
+  // dessen Kauf.
+  await darfNicht("Kind ordnet sich per update einem Elternkonto zu", () => anna().doc("users/anna").update({ parentUid: "mama" }));
+  await darfNicht("Kind ordnet sich per set+merge einem Elternkonto zu", () => anna().doc("users/anna").set({ parentUid: "mama" }, { merge: true }));
+  await darfNicht("Neues Konto legt sich mit parentUid an", () => neu().doc("users/neu").set({ username: "N", parentUid: "mama" }));
+  await darfNicht("Kind löst sich vom Elternkonto", () => kind1().doc("users/kind1").update({ parentUid: null }));
+  await darfNicht("Konto trägt sich selbst Kinder ein", () => anna().doc("users/anna").update({ children: ["kind1"] }));
+  await darfNicht("Elternkonto ändert seine Kinderliste selbst", () => mama().doc("users/mama").update({ children: ["kind1", "anna"] }));
+  await darfNicht("Neues Konto legt sich mit children an", () => neu().doc("users/neu").set({ username: "N", children: ["anna"] }));
+  await darf("Elternkonto ändert seinen Namen (children bleibt unberührt)", () => mama().doc("users/mama").update({ username: "Mami" }));
+  await darf("Kind mit Elternkonto schreibt seinen Spielstand", () => kind1().doc("users/kind1").set({ gameState: { x: 1 } }, { merge: true }));
+  await darf("Kind mit Elternkonto schreibt eigenes Level", () => kind1().doc("users/kind1/levelProgress/a").set({ solved: true }));
+  await darfNicht("Elternkonto liest das Konto seines Kindes", () => mama().doc("users/kind1").get());
+  await darfNicht("Elternkonto schreibt das Konto seines Kindes", () => mama().doc("users/kind1").update({ username: "X" }));
+  await darf("Admin ordnet ein Kind einem Elternkonto zu", () => admin().doc("users/anna").update({ parentUid: "mama", updatedAt: 1 }));
+  await darf("Admin schreibt die Kinderliste", () => admin().doc("users/mama").update({ children: ["kind1", "anna"], updatedAt: 1 }));
+  await darfNicht("Admin mischt Zuordnung mit Namensänderung", () => admin().doc("users/anna").update({ parentUid: "mama", username: "X" }));
+  await darfNicht("Admin ohne verifizierte Adresse ordnet zu", () => adminOhneVerifikation().doc("users/anna").update({ parentUid: "mama", updatedAt: 1 }));
 
   // --- Das Wagen-Set -----------------------------------------------------------
   await darf("Gast liest config/train", () => gast().doc("config/train").get());

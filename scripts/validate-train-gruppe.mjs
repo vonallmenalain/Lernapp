@@ -487,13 +487,21 @@ const rules = fs.readFileSync(path.join(root, "firestore.rules"), "utf8");
 
 assert(rules.includes("function isGroupChange()"),
   "firestore.rules kennt isGroupChange nicht – der Admin könnte niemanden zuordnen");
-assert(/allow update: if isAdmin\(\) && \(isProgressReset\(\) \|\| isGroupChange\(\)\);/.test(rules),
+assert(/allow update: if isAdmin\(\) && \([^;]*isGroupChange\(\)[^;]*\);/.test(rules),
   "der Admin darf die Gruppe nicht schreiben – die Zuordnung im Profilfenster liefe ins Leere");
 assert(rules.includes('hasOnly(["group", "updatedAt"])'),
   "isGroupChange erlaubt mehr als das Gruppenfeld");
-assert(/allow update: if isOwner\(userId\)\s*\n\s*&& !request\.resource\.data\.diff\(resource\.data\)\.affectedKeys\(\)\.hasAny\(\["group"\]\);/.test(rules),
-  "ein Kind darf sein eigenes Gruppenfeld schreiben – damit läse es fremden Fortschritt mit");
-assert(rules.includes('!("group" in request.resource.data)'),
+// Die Felder, die das Kind nicht anfasst, stehen in ownerMayNotTouch() –
+// group gehört dazu, seit es die Gruppe gibt, parentUid und children seit der
+// Familie. Geprüft wird, dass group in der Liste steht und dass create wie
+// update die Liste benutzen. Ob die Sperre hält, spielt scripts/test-rules.mjs
+// im Emulator durch.
+const gesperrt = rules.match(/function ownerMayNotTouch\(\) \{\s*return \[([^\]]*)\];/);
+assert(gesperrt && /"group"/.test(gesperrt[1]),
+  "group steht nicht in ownerMayNotTouch – ein Kind dürfte sein eigenes Gruppenfeld schreiben und läse fremden Fortschritt mit");
+assert(/allow update: if isOwner\(userId\)\s*\n\s*&& !request\.resource\.data\.diff\(resource\.data\)\.affectedKeys\(\)\.hasAny\(ownerMayNotTouch\(\)\);/.test(rules),
+  "die update-Regel des Kindes sperrt die geschützten Felder nicht");
+assert(/allow create: if isOwner\(userId\) && !request\.resource\.data\.keys\(\)\.hasAny\(ownerMayNotTouch\(\)\);/.test(rules),
   "ein neues Konto darf sich mit einer Gruppe anlegen");
 // Die Leseregel für levelProgress muss sharesGroupWith enthalten – an welcher
 // Stelle im ODER, ist gleich: Seit die Unterkollektion nur noch einen Block

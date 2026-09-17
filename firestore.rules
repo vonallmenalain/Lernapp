@@ -65,6 +65,22 @@ service cloud.firestore {
         .hasOnly(["group", "updatedAt"]);
     }
 
+    // --- Familie -------------------------------------------------------------
+    // Ein Elternkonto (echte Adresse) legt Kinderkonten an; die Zuordnung
+    // steht an beiden Enden: parentUid am Kind, children[] am Elternkonto.
+    // Geschrieben wird beides vom Server, wenn er ein Kind anlegt – über das
+    // Admin-SDK, an diesen Regeln vorbei –, oder vom Admin von Hand. Nie vom
+    // Konto selbst: Wer sich einem fremden Elternkonto zuordnen könnte, erbte
+    // dessen Kauf. Dieselbe Sperre wie bei der Gruppe, aus demselben Grund.
+    function ownerMayNotTouch() {
+      return ["group", "parentUid", "children"];
+    }
+
+    function isFamilyChange() {
+      return request.resource.data.diff(resource.data).affectedKeys()
+        .hasOnly(["parentUid", "children", "updatedAt"]);
+    }
+
     match /users/{userId} {
       // Wer in derselben Gruppe ist, darf das Konto lesen: Name, Lok,
       // Landschaft und die Spielstände, aus denen sein Zug gezeichnet wird.
@@ -77,11 +93,11 @@ service cloud.firestore {
         || (isSignedIn() && groupIdIn(resource.data) != "" && groupIdIn(resource.data) == myGroupId());
       // Das eigene Konto gehört dem Kind – bis auf die Gruppe. Wer sich selbst
       // eintragen dürfte, läse damit den Fortschritt fremder Kinder mit.
-      allow create: if isOwner(userId) && !("group" in request.resource.data);
+      allow create: if isOwner(userId) && !request.resource.data.keys().hasAny(ownerMayNotTouch());
       allow update: if isOwner(userId)
-        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(["group"]);
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(ownerMayNotTouch());
       allow delete: if isOwner(userId);
-      allow update: if isAdmin() && (isProgressReset() || isGroupChange());
+      allow update: if isAdmin() && (isProgressReset() || isGroupChange() || isFamilyChange());
 
       // Die beiden Unterkollektionen, die es gibt – und nur die. Bis hierher
       // stand hier ein rekursiver Platzhalter, match /{document=**}, und der
@@ -107,6 +123,24 @@ service cloud.firestore {
         allow write: if isOwner(userId);
         allow delete: if isAdmin();
       }
+    }
+
+    // --- Der Kauf --------------------------------------------------------------
+    // Wer bezahlt hat, steht in entitlements/{uid}. Geschrieben wird das nur
+    // vom Server: nach einer Zahlung bei Stripe, über das Admin-SDK und damit
+    // an diesen Regeln vorbei – für das Elternkonto und für jedes seiner
+    // Kinder. Kein Client schreibt hier, auch der Admin nicht von Hand: Sonst
+    // wäre die Schranke nur so gut wie das Passwort eines Kontos. Lesen darf
+    // jedes Konto seinen eigenen Stand, und der Admin alle.
+    //
+    // Konten ohne Eintrag hier sind nicht gesperrt, sondern frei, sofern sie
+    // von vor dem Kauf stammen: Ob ein Konto ein Kinderprofil eines
+    // Elternkontos ist (parentUid) oder ein Konto aus der Zeit davor,
+    // entscheidet der Client. Das ist bewusst keine Regel: Die Level liegen
+    // ohnehin in der App, die Schranke ist eine für Eltern, nicht für Hacker.
+    match /entitlements/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow write: if false;
     }
 
     // --- Das Wagen-Set -----------------------------------------------------
