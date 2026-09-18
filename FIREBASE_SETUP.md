@@ -194,6 +194,15 @@ variables*). Ohne sie antworten sie mit einem klaren Fehler statt zu raten:
 | `STRIPE_WEBHOOK_SECRET` | Stripe-Dashboard → Developers → Webhooks → Endpunkt `https://kids.alae.app/api/stripe-webhook` mit den Ereignissen `checkout.session.completed`, `checkout.session.async_payment_succeeded` (Zahlarten, die erst später bestätigt werden) und `charge.refunded` → *Signing secret* (beginnt mit `whsec` und einem Unterstrich). |
 | `SITE_URL` | optional; Netlify setzt `URL` ohnehin. Fallback `https://kids.alae.app`. |
 
+**Unter `jwks-rsa` liegt jose 5, nicht 6** (`overrides` in der package.json). firebase-admin
+prüft die Unterschrift eines echten ID-Tokens mit den öffentlichen Schlüsseln von Google und
+rechnet sie mit `jwks-rsa` um; `jwks-rsa` ist CommonJS und macht `require("jose")`. jose 6 ist
+reines ESM. Node kann seit 20.19/22.12 ESM auch requiren – die Lambda bei Netlify nicht, sie
+antwortet mit `ERR_REQUIRE_ESM`, und die ganze Funktion stürzt mit 502 ab, bevor unser Code
+dran ist. jose 5 bringt einen CommonJS-Einstieg mit und kann dasselbe. Gegen den Emulator
+fällt das nie auf: Der überspringt die Signaturprüfung. `npm run test:functions` lädt deshalb
+`jwks-rsa` eigens mit abgeschaltetem `require(esm)` und rechnet einen Schlüssel durch.
+
 **Firestore spricht REST, nicht gRPC.** Eine Funktion lebt ein paar Sekunden; gRPC baut
 dafür jedes Mal eine HTTP/2-Verbindung samt Protokolldateien auf, was Sekunden kostet und
 in einer Lambda-Umgebung gern hängen bleibt – der Anrufer sieht dann kein Ergebnis, sondern
