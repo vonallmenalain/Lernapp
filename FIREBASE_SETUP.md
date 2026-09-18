@@ -21,10 +21,16 @@ echte E-Mail-Adresse mit Passwort (mindestens 6 Zeichen, ohne feste Endung – e
 Firebase-Konto) oder Google. Beides läuft über denselben Provider **Email/Password**; es ist
 also nichts zusätzlich zu aktivieren.
 
-Ein Elternkonto kann **Passwort vergessen** nutzen. Die Mail dazu verschickt Firebase; damit
-der Link darin auf die App zeigt, muss `kids.alae.app` unter **Authentication → Settings →
-Authorized domains** stehen. Absender und Vorlage lassen sich unter **Authentication →
-Templates** anpassen – dort steht sonst der Projektname als Absender.
+Ein Elternkonto kann **Passwort vergessen** nutzen. Die Mail dazu verschickt seit dem Umbau
+nicht mehr Firebase, sondern Gripszug selbst, über Resend und mit `kids@alae.app` als
+Absender (Abschnitt 10). Firebase rechnet nur noch den Link aus. Damit er auf die App zeigt,
+muss `kids.alae.app` weiterhin unter **Authentication → Settings → Authorized domains**
+stehen. Die Vorlagen unter **Authentication → Templates** sind damit ohne Belang – ausser als
+Rückfalllösung: Antwortet der Server nicht, verschickt der Client die Mail wieder über
+Firebase, damit ein vergessenes Passwort nie an einer schlafenden Funktion hängenbleibt.
+
+Beim **Anlegen** eines Elternkontos verschickt Firebase ebenfalls nichts mehr. Die Begrüssung
+kommt von Gripszug und enthält den Bestätigungslink als Angebot; bestätigen muss ihn niemand.
 
 Ein neues **Kinderkonto** legt nicht mehr das Kind selbst an, sondern das Elternkonto über
 den Server (siehe Netlify-Funktionen). Der Kind-Reiter hat deshalb keinen Knopf „Neues Konto"
@@ -182,7 +188,11 @@ es sind dieselben Dateien. Die Site-Einstellung „Publish directory" bei Netlif
 | `POST /api/checkout` | Elternkonto | erstellt die Kasse bei Stripe und gibt ihre URL zurück |
 | `POST /api/stripe-webhook` | Stripe (mit Unterschrift) | verbucht `checkout.session.completed` und `checkout.session.async_payment_succeeded` als Kauf für Eltern und Kinder, `charge.refunded` als Rücknahme |
 | `GET /api/status` | jeder | sagt, welche Node-Fassung läuft und welche Umgebungsvariablen gesetzt sind – nur ob, nie der Inhalt. Lädt nichts (keine import-Zeile), antwortet deshalb auch, wenn die anderen es nicht tun. |
-| `GET /api/status-tief` | jeder | lädt dasselbe wie die Kasse und fragt Firebase Auth, Firestore und Stripe wirklich an, mit Zeiten. Antwortet sie mit 502, während `/api/status` 200 gibt, liegt es an den Paketen. |
+| `GET /api/status-tief` | jeder | lädt dasselbe wie die Kasse und fragt Firebase Auth, Firestore, Stripe und Resend wirklich an, mit Zeiten. Antwortet sie mit 502, während `/api/status` 200 gibt, liegt es an den Paketen. |
+| `POST /api/willkommen` | Elternkonto | schickt die Begrüssung samt Bestätigungslink – einmal je Konto (Abschnitt 10) |
+| `POST /api/passwort-mail` | jeder, ohne Anmeldung | schickt den Link für ein neues Passwort, nur an Adressen mit Konto und höchstens einmal je 90 Sekunden |
+| `POST /api/mail-eingang` | der Cloudflare-Worker (mit Geheimnis im Kopf) | nimmt Post an kids@alae.app an, archiviert sie und leitet sie weiter |
+| `POST /api/mail-einstellungen` | Admin | liest und setzt die Weiterleitungsadresse, verschickt die Testmail |
 
 Die Funktionen brauchen **Umgebungsvariablen** (Netlify: *Site configuration → Environment
 variables*). Ohne sie antworten sie mit einem klaren Fehler statt zu raten:
@@ -194,6 +204,9 @@ variables*). Ohne sie antworten sie mit einem klaren Fehler statt zu raten:
 | `STRIPE_PRICE_ID` | Der Preis des Produkts „Gripszug Familie" (Einmalkauf, CHF 30); die Kennung beginnt mit `price` und einem Unterstrich. Wer stattdessen die Produkt-Kennung einträgt (`prod` und Unterstrich, im Dashboard steht sie zuoberst), bekommt den Standardpreis dieses Produkts; die Statusseite schreibt dann dazu, woher der Preis kommt. |
 | `STRIPE_WEBHOOK_SECRET` | Stripe-Dashboard → Developers → Webhooks → Endpunkt `https://kids.alae.app/api/stripe-webhook` mit den Ereignissen `checkout.session.completed`, `checkout.session.async_payment_succeeded` (Zahlarten, die erst später bestätigt werden) und `charge.refunded` → *Signing secret* (beginnt mit `whsec` und einem Unterstrich). |
 | `SITE_URL` | optional; Netlify setzt `URL` ohnehin. Fallback `https://kids.alae.app`. |
+| `RESEND_API_KEY` | Resend-Dashboard → API Keys → *Sending access*. Ohne ihn verschickt Gripszug keine Mails – sonst läuft alles weiter. Siehe Abschnitt 10. |
+| `MAIL_WEBHOOK_SECRET` | selbst erfunden (`openssl rand -hex 32`), muss beim Cloudflare-Worker als `MAIL_GEHEIMNIS` genauso stehen. Ohne ihn nimmt `/api/mail-eingang` nichts an. |
+| `MAIL_ABSENDER` / `MAIL_ABSENDER_NAME` | optional; Vorgabe `kids@alae.app` und `Gripszug`. |
 
 **Unter `jwks-rsa` liegt jose 5, nicht 6** (`overrides` in der package.json). firebase-admin
 prüft die Unterschrift eines echten ID-Tokens mit den öffentlichen Schlüsseln von Google und
@@ -230,6 +243,12 @@ Wenn du dich in der App mit Google und `Alain.sc2@gmail.com` anmeldest, erschein
 Das Feld `role: "admin"` bzw. `isAdmin: true` im eigenen Profil dient nur als Anzeige/Metadatum. Die echte Berechtigung liegt in `firestore.rules` und prüft das verifizierte Auth-Token mit der Admin-E-Mail.
 
 Bei jedem User steht dort auch **Fortschritt zurücksetzen**. Gäste haben den Knopf bewusst nicht: ihr Stand liegt auf ihrem Gerät, das Gastdokument ist nur eine Kopie davon, und ein Aufräumen in Firestore liesse den Zug des Kindes unverändert stehen.
+
+### E-Mail
+
+Der Reiter **E-Mail** zeigt, was Gripszug verschickt hat und was an kids@alae.app ankam – und
+stellt ein, wohin eingehende Post weitergeleitet wird. Einrichtung und Fehlersuche stehen in
+Abschnitt 10.
 
 ### Gruppen
 
@@ -355,3 +374,158 @@ node scripts/local-pwa-server.cjs
 ```
 
 Öffne dann die angezeigte `localhost`-Adresse, registriere einen Testnutzer nur mit Name + Passwort und löse ein Level. Danach sollten in Firestore Dokumente unter `users/{uid}` erscheinen.
+
+## 10. E-Mails: kids@alae.app
+
+Gripszug schreibt seine Mails selbst und verschickt sie über **Resend**, mit **kids@alae.app**
+als Absender und Antwortadresse. Vorher kamen sie von Firebase – Absender
+`noreply@lernapp-8d944.firebaseapp.com`, Betreff „Verify your email for
+project-123146993935", darunter ein nackter Link. Das ist weg.
+
+**Bestätigen muss niemand.** Die Adresse zu bestätigen ist ein Angebot in der
+Begrüssungsmail, keine Schranke: Kein Teil der App fragt danach. Die einzige Ausnahme ist
+der Adminbereich – er verlangt eine bestätigte Adresse (`firestore.rules`, `isAdmin`), und
+das bleibt so. Beim Anmelden über Google ist die Adresse ohnehin bewiesen, und der
+Admin-Zugang läuft über Google.
+
+Es gibt genau vier Mails. Mehr verschickt Gripszug nicht:
+
+| Wann | Was | Ausgelöst von |
+| --- | --- | --- |
+| Elternkonto angelegt | Begrüssung, mit optionalem Bestätigungslink | `POST /api/willkommen` (der Client, direkt nach dem Anlegen) |
+| Zahlung angekommen | Bestellbestätigung mit Betrag und Datum | `stripe-webhook.mjs`, nach dem Verbuchen |
+| Admin schaltet gratis frei | „Gripszug ist freigeschaltet" | `freischalten.mjs` |
+| „Passwort vergessen" | Link zum Neusetzen | `POST /api/passwort-mail` |
+
+Dazu die Post **an** kids@alae.app: Sie kommt über Cloudflare bei
+`POST /api/mail-eingang` an, landet im Archiv und wird an die Adresse weitergeleitet, die im
+Adminbereich steht. Jede verschickte und jede empfangene Mail steht in der Firestore-Sammlung
+`mails` – das ist der Reiter **E-Mail** im Adminbereich. Lesen darf sie nur der Admin,
+schreiben nur der Server.
+
+### 10a. Was du einmalig einrichten musst
+
+Reihenfolge einhalten: Ohne Schritt 1 verschickt Schritt 4 nichts.
+
+**1. Resend: Domain prüfen (meist schon erledigt)**
+
+Im [Resend-Dashboard](https://resend.com/domains) muss **alae.app** auf `verified` stehen.
+Für die anderen Apps ist das bereits eingerichtet – im DNS von alae.app stehen
+`resend._domainkey` (DKIM) und `send.alae.app` (MX + SPF für Bounces). Steht die Domain dort,
+ist **kein einziger neuer DNS-Eintrag nötig**: Resend erlaubt jede Absenderadresse einer
+bestätigten Domain, also auch `kids@alae.app`.
+
+**2. Resend: eigenen Schlüssel für Gripszug**
+
+[API Keys](https://resend.com/api-keys) → *Create API key* → Name `gripszug-kids`,
+Permission **Sending access**. Der vorhandene Schlüssel `SMTP alae.app` (Full access) täte es
+auch, aber ein eigener lässt sich zurückziehen, ohne die anderen Apps mitzunehmen – und
+„Sending access" kann nicht mehr, als verschicken. Den Wert (`re_…`) kopieren; er wird nur
+einmal angezeigt.
+
+**3. Netlify: Umgebungsvariablen**
+
+*Site configuration → Environment variables*, für die Site von kids.alae.app:
+
+| Variable | Wert |
+| --- | --- |
+| `RESEND_API_KEY` | der Schlüssel aus Schritt 2 (`re_…`) |
+| `MAIL_WEBHOOK_SECRET` | eine selbst erfundene lange Zufallszeichenkette, z. B. aus `openssl rand -hex 32`. Sie ist das Passwort des Posteingangs – dasselbe kommt in Schritt 5 zu Cloudflare. |
+| `MAIL_ABSENDER` | optional. Vorgabe `kids@alae.app`; nur setzen, wenn die Adresse einmal eine andere wird. |
+| `MAIL_ABSENDER_NAME` | optional. Vorgabe `Gripszug`. |
+
+Danach einmal neu deployen – Netlify reicht Variablen nur an neue Deploys weiter.
+Ob sie ankommen, sagt [`/api/status`](https://kids.alae.app/api/status) (nur ob, nie der
+Inhalt), und ob Resend den Schlüssel mag,
+[`/api/status-tief`](https://kids.alae.app/api/status-tief) – dort steht `Resend` mit dem
+Stand der Domain. Eine fehlende Mail-Einrichtung macht diese Seite **nicht** rot: Verkaufen
+lässt sich auch ohne.
+
+**4. Probelauf**
+
+Adminbereich → Reiter **E-Mail** → *Testmail schicken*. Kommt sie an, steht der Ausgang.
+Kommt sie nicht an, steht der Grund im Resend-Dashboard unter *Emails*.
+
+**5. Cloudflare: Post an kids@alae.app**
+
+Für alae.app läuft Email Routing bereits (die MX-Einträge `route1–3.mx.cloudflare.net` stehen
+im DNS). Es fehlt nur die Adresse. Zwei Wege:
+
+*Der kleine Weg – nur weiterleiten, zwei Minuten:*
+
+1. Cloudflare → alae.app → **Email** → *Email Routing* → *Destination addresses*:
+   `vonallmenalain@gmail.com` hinzufügen und die Bestätigungsmail von Cloudflare anklicken.
+2. *Routing rules* → *Create address*: `kids@alae.app` → *Send to an email* →
+   `vonallmenalain@gmail.com`.
+
+Damit kommt die Post an. Im Adminbereich steht sie dann aber **nicht** – Gripszug erfährt
+nichts davon.
+
+*Der ganze Weg – weiterleiten und im Adminbereich sehen:*
+
+1. Schritt 1 von oben (Zieladresse bestätigen) ist auch hier nötig: Der Worker braucht sie
+   als Reissleine.
+2. Cloudflare → **Workers & Pages** → *Create* → *Create Worker*, Name z. B. `kids-mail`.
+   Den Inhalt von [`cloudflare/kids-mail-worker.js`](./cloudflare/kids-mail-worker.js) in den
+   Editor kopieren und speichern.
+3. Im Worker → *Settings* → *Variables and Secrets*:
+   - `GRIPSZUG_EINGANG` = `https://kids.alae.app/api/mail-eingang` (Text)
+   - `MAIL_GEHEIMNIS` = derselbe Wert wie `MAIL_WEBHOOK_SECRET` bei Netlify (**Secret**, nicht Text)
+4. Cloudflare → alae.app → **Email** → *Email Routing* → *Routing rules* → *Create address*:
+   `kids@alae.app` → *Send to a Worker* → `kids-mail`.
+5. Eine Mail an kids@alae.app schicken. Sie muss im Postfach ankommen **und** im Adminbereich
+   unter *Eingang* stehen.
+
+Wohin weitergeleitet wird, steht danach im Adminbereich, nicht bei Cloudflare: Der Worker gibt
+die Mail an Gripszug, und Gripszug leitet sie über Resend weiter. Die Adresse lässt sich
+deshalb jederzeit ändern, ohne sie bei Cloudflare zu bestätigen. Nur die Adresse im Worker
+(`WEITERLEITUNG`) steht fest – sie zu ändern heisst, den Worker zu ändern. Sie ist zweierlei:
+
+- **Die Reissleine.** Der Worker hält eine Mail erst für erledigt, wenn Gripszug das
+  ausdrücklich sagt (`erledigt: true` in der Antwort). Antwortet Netlify nicht – oder nimmt es
+  die Mail an, kann sie aber nicht zustellen, etwa weil Resend den Schlüssel ablehnt –, leitet
+  der Worker selbst weiter. Post geht nicht verloren, nur weil eine Funktion hustet.
+- **Der Weg für Anhänge.** Weitergeleitet wird über Resend als neue Mail mit dem Text der
+  alten; ein Bild oder ein PDF kann darin nicht mitkommen. Hat eine Mail Anhänge, schickt der
+  Worker sie deshalb **zusätzlich** im Original. Du bekommst dann zwei Mails – die lesbare aus
+  Gripszug und das Original mit dem Anhang –, und in der ersten steht, dass die zweite kommt.
+
+Ist die Weiterleitung im Adminbereich **ausgeschaltet**, leitet auch der Worker nicht weiter;
+sonst hiesse der Schalter nichts. Die Post steht dann nur im Archiv.
+
+### 10b. Was wo liegt
+
+| Datei | Wofür |
+| --- | --- |
+| [`netlify/functions/_lib/mail.mjs`](./netlify/functions/_lib/mail.mjs) | verschickt über Resend, schreibt ins Archiv, liest die Weiterleitungsadresse |
+| [`netlify/functions/_lib/mail-vorlagen.mjs`](./netlify/functions/_lib/mail-vorlagen.mjs) | wie eine Mail aussieht – ein Rahmen, sechs Anlässe, immer auch als reiner Text |
+| [`netlify/functions/willkommen.mjs`](./netlify/functions/willkommen.mjs) | `POST /api/willkommen`, Begrüssung samt Bestätigungslink |
+| [`netlify/functions/passwort-mail.mjs`](./netlify/functions/passwort-mail.mjs) | `POST /api/passwort-mail`, ohne Anmeldung – mit Bremse |
+| [`netlify/functions/mail-eingang.mjs`](./netlify/functions/mail-eingang.mjs) | `POST /api/mail-eingang`, der Posteingang von Cloudflare |
+| [`netlify/functions/mail-einstellungen.mjs`](./netlify/functions/mail-einstellungen.mjs) | `POST /api/mail-einstellungen`, der Reiter E-Mail |
+| [`cloudflare/kids-mail-worker.js`](./cloudflare/kids-mail-worker.js) | läuft bei Cloudflare, nicht bei Netlify – liegt hier zum Nachlesen |
+
+### 10c. Wenn keine Mail ankommt
+
+1. **`/api/status`** – steht `RESEND_API_KEY: true`? Wenn nein: Variable gesetzt, aber nicht
+   neu deployt.
+2. **Adminbereich → E-Mail → Filter *Fehler*** – jede Mail, die nicht rausging, steht dort mit
+   dem Grund von Resend. `Domain is not verified` heisst: Schritt 1.
+3. **Resend → Emails** – dort steht, ob die Mail angenommen, zugestellt oder abgelehnt wurde.
+   Zugestellt und trotzdem nicht da: Spam-Ordner.
+4. **Post kommt an, steht aber nicht im Adminbereich** – dann läuft der kleine Weg (nur
+   Routing-Regel) statt des Workers, oder `MAIL_GEHEIMNIS` und `MAIL_WEBHOOK_SECRET` sind
+   verschieden. Der Worker zeigt es in Cloudflare unter *Logs*.
+5. **Post steht im Adminbereich, kommt aber nicht im Postfach an** – dann hat Gripszug sie
+   archiviert und Resend die Weiterleitung abgelehnt; der Grund steht am Eintrag *Weiterleitung*
+   unter dem Filter *Fehler*. Der Worker leitet in diesem Fall selbst weiter, die Mail sollte
+   also trotzdem da sein – wenn nicht, ist `vonallmenalain@gmail.com` bei Cloudflare nicht als
+   *Destination address* bestätigt.
+
+### 10d. Was die Prüfungen abdecken
+
+`npm run test:functions` fängt Resend ab und prüft den ganzen Weg ohne Netz: dass die
+Begrüssung genau einmal rausgeht, dass „Passwort vergessen" nur an Adressen mit Konto geht und
+nicht im Sekundentakt, dass der Posteingang ohne Geheimnis nichts annimmt und dieselbe Mail
+nicht zweimal weiterleitet, und dass ein Kauf verbucht bleibt, wenn die Bestätigung scheitert.
+`npm run test:rules` prüft, dass die Post nur der Admin liest und niemand schreibt.

@@ -29,6 +29,8 @@
  *   - freischalten ruft den Server mit Token und Kennung an
  *   - der Reiter "Spiele" zählt richtig
  *   - der Reiter "Gruppen" legt eine übergreifende Gruppe an
+ *   - der Reiter "E-Mail" zeigt Ein- und Ausgang, filtert, und das Speichern
+ *     der Weiterleitung ruft den Server an
  *
  * Aufruf:  node scripts/check-adminbereich.mjs
  * Nötig:   Playwright (npm i -D playwright).
@@ -135,6 +137,25 @@ const DATEN = {
     "users/kind-mia/sessions/s1": { game: "arukone", levelId: "a1", levelName: "Rätsel eins", difficulty: "easy", solved: true, durationSeconds: 120, moves: 40, resets: 2 },
     "users/kind-mia/sessions/s2": { game: "kakuro", levelId: "k1", levelName: "Kakuro eins", difficulty: "medium", solved: false, durationSeconds: 200, moves: 60, resets: 3 },
   },
+  // Die Post: eine verschickte, eine angekommene und eine, die nicht rausging.
+  // Die dritte ist die wichtigste – der Filter "Fehler" ist der einzige Weg,
+  // eine Mail zu finden, von der man nicht weiss, dass sie fehlt.
+  mails: {
+    "willkommen-eltern-1": {
+      richtung: "aus", art: "willkommen", status: "gesendet", von: "kids@alae.app", an: "eltern@example.com",
+      betreff: "Willkommen bei Gripszug", text: "Schön, dass du da bist.", zeitMs: 1699900000000,
+    },
+    "ein-abc123": {
+      richtung: "ein", art: "eingang", status: "empfangen", von: "mutter@example.com", an: "kids@alae.app",
+      betreff: "Frage zur Lizenz", text: "Gibt es das auch für eine Schulklasse?", zeitMs: 1699950000000,
+      pruefung: { spf: "pass", dkim: "pass" },
+    },
+    "bestellung-cs_test_1": {
+      richtung: "aus", art: "bestellung", status: "fehler", von: "kids@alae.app", an: "eltern@example.com",
+      betreff: "Deine Bestellung bei Gripszug", text: "Danke für deinen Kauf!", zeitMs: 1699960000000,
+      fehler: "Domain is not verified",
+    },
+  },
 };
 
 // Der Ersatz läuft im Browser, vor allen Skripten der Seite. addInitScript
@@ -146,6 +167,7 @@ function firebaseErsatz({ daten, adminEmail }) {
   Object.entries(daten.kaeufe || {}).forEach(([id, doc]) => laden.set(`entitlements/${id}`, doc));
   Object.entries(daten.levels).forEach(([pfad, doc]) => laden.set(pfad, doc));
   Object.entries(daten.sitzungen).forEach(([pfad, doc]) => laden.set(pfad, doc));
+  Object.entries(daten.mails || {}).forEach(([id, doc]) => laden.set(`mails/${id}`, doc));
 
   const SERVER = "__serverTimestamp";
   const DELETE = "__deleteField";
@@ -290,6 +312,25 @@ async function neuesFenster(daten) {
     let body = null;
     try { body = request.postDataJSON(); } catch { body = null; }
     anfragen.push({ pfad, methode: request.method(), token: request.headers().authorization || "", body });
+    // Der Reiter E-Mail fragt nach den Einstellungen und erwartet eine andere
+    // Antwort als "freischalten". Gespeichert wird hier nichts – zurück kommt,
+    // was hineingereicht wurde, damit die Oberfläche zeigen kann, was sie
+    // gerade gespeichert hat.
+    if (pfad === "mail-einstellungen") {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          weiterleitungAn: body?.weiterleitungAn || "vonallmenalain@gmail.com",
+          weiterleitungAktiv: body?.weiterleitungAktiv !== false,
+          absender: "kids@alae.app",
+          bereit: true,
+          eingangBereit: true,
+          ...(body?.aktion === "test" ? { test: { an: body?.weiterleitungAn || "vonallmenalain@gmail.com", gesendet: true } } : {}),
+        }),
+      });
+      return;
+    }
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ uid: body?.uid, frei: body?.frei !== false, konten: 3 }) });
   });
   await page.addInitScript(firebaseErsatz, { daten, adminEmail: ADMIN });
@@ -347,8 +388,8 @@ await page.locator(".admin-reiter").waitFor({ timeout: 15000 });
 await page.locator(".admin-entry").first().waitFor({ timeout: 15000 });
 
 const reiter = (await page.locator(".admin-reiter [data-reiter]").allTextContents()).map((t) => t.trim());
-pruefe(reiter.length === 5, `Es gibt ${reiter.length} Reiter, erwartet 5: ${reiter.join(", ")}`);
-["User", "Gäste", "Spiele", "Wagen", "Gruppen"].forEach((name) => {
+pruefe(reiter.length === 6, `Es gibt ${reiter.length} Reiter, erwartet 6: ${reiter.join(", ")}`);
+["User", "Gäste", "Spiele", "Wagen", "Gruppen", "E-Mail"].forEach((name) => {
   pruefe(reiter.includes(name), `Der Reiter "${name}" fehlt: ${reiter.join(", ")}`);
 });
 
@@ -580,6 +621,43 @@ pruefe(await page.locator(".admin-entry-body .admin-reset").count() === 0,
 pruefe(await page.locator(".admin-entry-body .admin-kauf").count() === 0,
   "Ein Gast bekommt den Freischalten-Knopf – ohne Konto gibt es nichts freizuschalten");
 
+// --- Der Reiter "E-Mail" ---------------------------------------------------------
+// Was verschickt wurde, was ankam, und wohin die Post weitergeleitet wird.
+await page.locator('[data-reiter="mails"]').click();
+await page.locator(".admin-mail-einstellungen").waitFor({ timeout: 10000 });
+await page.locator(".admin-mail-zeile").first().waitFor({ timeout: 10000 });
+pruefe(await page.locator(".admin-mail-zeile").count() === 3, `Der Reiter E-Mail zeigt ${await page.locator(".admin-mail-zeile").count()} Mails, erwartet 3`);
+pruefe(await page.locator(".admin-mail-zeile.is-fehler").count() === 1, "Die Mail, die nicht rausging, ist nicht als Fehler zu erkennen");
+pruefe((await page.locator("[data-mail-adresse]").inputValue()) === "vonallmenalain@gmail.com",
+  "Die Weiterleitungsadresse steht nicht im Feld");
+
+// Filtern: Eingang lässt genau die eine übrig.
+await page.locator('[data-mail-filter="ein"]').click();
+await page.waitForTimeout(200);
+pruefe(await page.locator(".admin-mail-zeile").count() === 1, "Der Filter «Eingang» zeigt nicht genau die eine angekommene Mail");
+await page.locator('[data-mail-filter="fehler"]').click();
+await page.waitForTimeout(200);
+pruefe(await page.locator(".admin-mail-zeile").count() === 1, "Der Filter «Fehler» zeigt nicht genau die eine misslungene Mail");
+await page.locator('[data-mail-filter="alle"]').click();
+await page.waitForTimeout(200);
+
+// Aufklappen: der Inhalt steht da.
+await page.locator('.admin-mail-zeile:has-text("Frage zur Lizenz") .admin-entry-head').click();
+await page.locator(".admin-mail-text").waitFor({ timeout: 5000 });
+pruefe((await text(page.locator(".admin-mail-text"))).includes("Schulklasse"),
+  "Die aufgeklappte Mail zeigt ihren Text nicht");
+await knips("9-mails");
+
+// Speichern ruft den Server an – ändern darf das nur er.
+await page.locator("[data-mail-adresse]").fill("post@example.com");
+await page.locator("[data-mail-speichern]").click();
+await page.waitForTimeout(1500);
+const gespeichert = anfragen.filter((a) => a.pfad === "mail-einstellungen" && a.body?.aktion === "speichern");
+pruefe(gespeichert.length === 1, `Speichern rief den Server ${gespeichert.length}-mal an, erwartet einmal`);
+pruefe(gespeichert[0]?.body?.weiterleitungAn === "post@example.com",
+  `Gespeichert wurde ${JSON.stringify(gespeichert[0]?.body)}`);
+pruefe(gespeichert[0]?.token.startsWith("Bearer "), "Das Speichern ging ohne Token an den Server");
+
 await browser.close();
 halt();
 
@@ -590,4 +668,4 @@ if (befunde.length) {
   process.exit(1);
 }
 
-console.log("Adminbereich geprüft: eigene Seite, fünf Reiter, filtern und sortieren, probierte Level, freischalten, Auswertung je Spiel, Wagen mit Rückfrage und aufgehobenen Familienwahlen, übergreifende Gruppe.");
+console.log("Adminbereich geprüft: eigene Seite, sechs Reiter, filtern und sortieren, probierte Level, freischalten, Auswertung je Spiel, Wagen mit Rückfrage und aufgehobenen Familienwahlen, übergreifende Gruppe, Postein- und -ausgang.");

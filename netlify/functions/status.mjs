@@ -19,7 +19,13 @@
  * gesetzt ist. Die Seite ist offen – wer die Adresse kennt, ruft sie auf.
  */
 
-const VARIABLEN = ["FIREBASE_SERVICE_ACCOUNT", "STRIPE_SECRET_KEY", "STRIPE_PRICE_ID", "STRIPE_WEBHOOK_SECRET", "SITE_URL", "URL"];
+const VARIABLEN = [
+  "FIREBASE_SERVICE_ACCOUNT", "STRIPE_SECRET_KEY", "STRIPE_PRICE_ID", "STRIPE_WEBHOOK_SECRET", "SITE_URL", "URL",
+  // Die Post: ohne RESEND_API_KEY verschickt Gripszug nichts, ohne
+  // MAIL_WEBHOOK_SECRET nimmt es nichts an. Beides ist kein Grund, dass etwas
+  // anderes nicht liefe – deshalb steht es hier und nicht als Fehler.
+  "RESEND_API_KEY", "MAIL_WEBHOOK_SECRET", "MAIL_ABSENDER",
+];
 
 export default async () => {
   const daten = {

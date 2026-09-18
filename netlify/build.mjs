@@ -54,7 +54,7 @@ for (const pflicht of ["index.html", "service-worker.js", "app.webmanifest", "st
   if (!existsSync(path.join(ZIEL, pflicht))) throw new Error(`${pflicht} fehlt in dist/ – die Site wäre kaputt.`);
 }
 // Und nichts, was nicht hingehört.
-for (const verboten of ["node_modules", "scripts", "netlify", "docs", "firestore.rules", "package.json"]) {
+for (const verboten of ["node_modules", "scripts", "netlify", "docs", "cloudflare", "firestore.rules", "package.json"]) {
   if (existsSync(path.join(ZIEL, verboten))) throw new Error(`${verboten} ist in dist/ gelandet – das gehört nicht auf die Site.`);
 }
 

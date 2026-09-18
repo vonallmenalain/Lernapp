@@ -1,7 +1,7 @@
 /*
- * Die Seiten für Erwachsene: Willkommen, Impressum, Datenschutz, AGB.
+ * Die Seiten für Erwachsene: Willkommen, Impressum, Datenschutz, AGB, Kontakt.
  * ---------------------------------------------------------------------------
- * Vier Seiten ohne Skript und ohne Firebase – und trotzdem die, auf die es
+ * Fünf Seiten ohne Skript und ohne Firebase – und trotzdem die, auf die es
  * rechtlich ankommt. Diese Prüfung hält zweierlei fest:
  *
  *   1. Der Inhalt: kein Platzhalter mehr, kein Entwurfs-Hinweis, die
@@ -32,11 +32,11 @@ const WURZEL = path.resolve(HIER, "..");
 const PORT = Number(process.env.PORT || 4189);
 const BASIS = `http://127.0.0.1:${PORT}`;
 const BILDER = process.env.BILDER || "";
-const SEITEN = ["willkommen", "impressum", "datenschutz", "agb"];
+const SEITEN = ["willkommen", "impressum", "datenschutz", "agb", "kontakt"];
 // Von der Faltschachtel bis zum Bildschirm. 280 px ist das aufgeklappte
 // Falthandy, 320 das kleinste iPhone, 1280 ein Laptop.
 const BREITEN = [280, 320, 360, 390, 430, 460, 600, 900, 1280];
-const KONTAKT = "kontakt@alae.app";
+const KONTAKT = "kids@alae.app";
 
 const befunde = [];
 const fehlt = (was) => befunde.push(was);
@@ -172,4 +172,4 @@ if (befunde.length) {
   befunde.forEach((b) => console.error(`  - ${b}`));
   process.exit(1);
 }
-console.log(`Die vier Seiten stehen: ausgefüllt, verlinkt, und von ${BREITEN[0]} bis ${BREITEN[BREITEN.length - 1]} px ohne Überlauf.`);
+console.log(`Die fünf Seiten stehen: ausgefüllt, verlinkt, und von ${BREITEN[0]} bis ${BREITEN[BREITEN.length - 1]} px ohne Überlauf.`);

@@ -95,7 +95,38 @@ export async function pruefungenLaufen({ stripeClient = null } = {}) {
     }));
   }
 
-  return { ok: pruefungen.every((p) => p.ok), node: process.version, zeit: new Date().toISOString(), pruefungen };
+  // Die Post. Gefragt wird nach den Domains des Kontos – das ändert nichts,
+  // sagt aber beides auf einmal: ob der Schlüssel gilt und ob alae.app dort
+  // wirklich bestätigt ist. Ohne bestätigte Domain nimmt Resend zwar den
+  // Aufruf an, verschickt aber nichts.
+  //
+  // Sie zählt aber nicht in das Gesamturteil (wichtig: false): Diese Seite
+  // beantwortet die Frage "kann verkauft werden?", und verkaufen lässt sich
+  // auch ohne Mailversand. Ein rotes Gesamtergebnis wegen einer fehlenden
+  // Bestätigungsmail schickte die Suche in die falsche Richtung.
+  if (!process.env.RESEND_API_KEY) {
+    pruefungen.push({ name: "Resend", ok: false, wichtig: false, ms: 0, fehler: "fehlt", text: "RESEND_API_KEY ist nicht gesetzt – Gripszug verschickt keine Mails." });
+  } else {
+    pruefungen.push({ wichtig: false, ...await pruefe("Resend", async () => {
+      const antwortResend = await fetch("https://api.resend.com/domains", {
+        headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}` },
+      });
+      if (!antwortResend.ok) throw new Error(`Resend antwortet mit ${antwortResend.status}`);
+      const daten = await antwortResend.json().catch(() => ({}));
+      const liste = Array.isArray(daten?.data) ? daten.data : [];
+      const absender = (process.env.MAIL_ABSENDER || "kids@alae.app").split("@")[1] || "alae.app";
+      const passend = liste.find((eintrag) => String(eintrag?.name || "").toLowerCase() === absender.toLowerCase());
+      if (!passend) return `Schlüssel gilt, aber ${absender} ist in diesem Resend-Konto nicht eingetragen`;
+      return `${absender}: ${passend.status || "ohne Stand"}`;
+    }) });
+  }
+
+  return {
+    ok: pruefungen.every((p) => p.ok || p.wichtig === false),
+    node: process.version,
+    zeit: new Date().toISOString(),
+    pruefungen,
+  };
 }
 
 // Das letzte Ergebnis, solange es frisch ist.

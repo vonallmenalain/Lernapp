@@ -198,6 +198,33 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // --- Die Post ------------------------------------------------------------
+    // Jede Mail, die Gripszug verschickt hat, und jede, die an kids@alae.app
+    // ankam: der Reiter E-Mail im Adminbereich. Geschrieben wird hier nur vom
+    // Server (netlify/functions/_lib/mail.mjs, über das Admin-SDK und damit an
+    // diesen Regeln vorbei) – von keinem Client, auch nicht vom Admin.
+    //
+    // Warum nicht einmal er: In diesen Dokumenten steht, was verschickt wurde
+    // und was ankam. Ein Postausgang, in dem sich Einträge nachträglich ändern
+    // lassen, beweist nichts mehr – und die eine Frage, für die es ihn gibt,
+    // ist ja gerade "ist das rausgegangen?".
+    //
+    // Lesen darf nur der Admin: Hier stehen fremde Adressen und fremder Text.
+    match /mails/{mailId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    // Wohin eingehende Post weitergeleitet wird. Steht bewusst NICHT in
+    // config/, obwohl es dazu passte: config/ darf jeder lesen (ein Gast muss
+    // das Wagen-Set erfahren), und eine private Adresse geht niemanden etwas
+    // an. Geschrieben wird auch das nur vom Server – er prüft die Adresse,
+    // bevor sie dasteht (/api/mail-einstellungen).
+    match /mailConfig/{docId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
     // --- Das Wagen-Set -----------------------------------------------------
     // Ein einziges Dokument für alle: config/train sagt, welches Wagen-Set
     // gilt und wann zuletzt gewechselt wurde. Lesen darf jeder, auch ohne
