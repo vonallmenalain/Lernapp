@@ -208,6 +208,7 @@
     zurKasse,
     kindAnlegen,
     kindPasswortSetzen,
+    familieVerbinden,
     // Wie aus Name und Passwort eines Kindes Adresse und Passwort für Firebase
     // werden. Der Server (netlify/functions/_lib/kind.mjs) rechnet dasselbe,
     // wenn er ein Kind anlegt – scripts/test-functions.mjs vergleicht beide.
@@ -334,6 +335,7 @@
       await syncLocalSolvedProgress();
       await refreshDashboard();
       announceProgress();
+      familieNachholen();
       if (state.kaufRueckkehr && modal.hidden) openModal();
     } catch (error) {
       renderError("Firebase ist verbunden, aber Firestore hat den Zugriff abgelehnt oder ist noch nicht eingerichtet.", error);
@@ -861,6 +863,26 @@
 
   async function kindPasswortSetzen(uid, passwort) {
     return serverAufruf("kind-passwort", { uid, passwort });
+  }
+
+  // Die Familie als Gruppe: Damit stehen die Züge der Geschwister auf dem
+  // Startbild nebeneinander. Neue Kinder bekommen das beim Anlegen; Konten
+  // von vorher holen es hier nach – einmal je Sitzung, still, und ein
+  // Fehlschlag darf nichts aufhalten: Ohne Gruppe fehlt ein Zug auf dem
+  // Bild, sonst nichts.
+  let familieGefragt = false;
+  async function familieVerbinden() {
+    const antwort = await serverAufruf("familie");
+    if (antwort?.gruppe) applyGroup(readGroup(antwort.gruppe));
+    return antwort;
+  }
+
+  function familieNachholen() {
+    if (familieGefragt || state.group) return;
+    const gehoertZuFamilie = (state.role === "child" && state.parentUid) || (isParentAccount() && state.children.length > 0);
+    if (!gehoertZuFamilie) return;
+    familieGefragt = true;
+    familieVerbinden().catch(() => { /* beim nächsten Anmelden wieder */ });
   }
 
   // Zurück von der Kasse. Stripe leitet auf ?kauf=erfolg oder ?kauf=abbruch;

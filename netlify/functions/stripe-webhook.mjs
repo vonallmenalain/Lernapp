@@ -25,13 +25,11 @@
 import { db, FieldValue } from "./_lib/firebase.mjs";
 import { stripe, webhookGeheimnis } from "./_lib/stripe.mjs";
 import { antwort } from "./_lib/anfrage.mjs";
+import { kinderVon } from "./_lib/familie.mjs";
 
 const BEZAHLT = new Set(["paid", "no_payment_required"]);
 
-function kinderVon(daten) {
-  const liste = Array.isArray(daten?.children) ? daten.children : [];
-  return liste.map((kind) => (typeof kind === "string" ? kind : kind?.uid)).filter((uid) => typeof uid === "string" && uid);
-}
+
 
 export async function kaufVerbuchen(session) {
   const uid = session.client_reference_id || session.metadata?.uid;
@@ -64,7 +62,7 @@ export async function kaufVerbuchen(session) {
 
   const stapel = db().batch();
   stapel.set(ref, eintrag);
-  const kinder = kinderVon(eltern.data());
+  const kinder = kinderVon(eltern.data()).map((kind) => kind.uid);
   kinder.forEach((kindUid) => {
     stapel.set(db().collection("entitlements").doc(kindUid), { ...eintrag, via: uid });
   });

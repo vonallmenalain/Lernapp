@@ -12,13 +12,13 @@
 import { auth, db } from "./_lib/firebase.mjs";
 import { AnfrageFehler, antwort, fehlerAntwort, liesJson, elternAnrufer, nurMethode } from "./_lib/anfrage.mjs";
 import { kindPasswort, MIN_KIND_PASSWORT } from "./_lib/kind.mjs";
+import { kinderVon } from "./_lib/familie.mjs";
 
 export async function kindPasswortSetzen({ eltern, uid, passwort }) {
   const pw = kindPasswort(passwort);
   if (!pw) throw new AnfrageFehler(400, "short-password", `Das Passwort muss mindestens ${MIN_KIND_PASSWORT} Zeichen haben.`);
   const elternDoc = await db().collection("users").doc(eltern.uid).get();
-  const kinder = Array.isArray(elternDoc.data()?.children) ? elternDoc.data().children : [];
-  const meins = kinder.some((kind) => (typeof kind === "string" ? kind : kind?.uid) === uid);
+  const meins = kinderVon(elternDoc.data()).some((kind) => kind.uid === uid);
   if (!meins) throw new AnfrageFehler(403, "not-your-child", "Dieses Kind gehört nicht zu deinem Konto.");
   await auth().updateUser(uid, { password: pw });
   return { ok: true };
