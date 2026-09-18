@@ -156,6 +156,44 @@ Zusätzlich darf das verifizierte Admin-Google-Konto `Alain.sc2@gmail.com` alle 
 
 Wer in derselben **Gruppe** ist (Feld `group.id` am Konto), darf ausserdem die Konten der anderen Mitglieder und deren `levelProgress` **lesen** – mehr nicht: Sitzungen bleiben privat, und geschrieben wird beim anderen nirgends. Das Feld `group` selbst ist dem Admin vorbehalten; ein Kind kann es weder anlegen noch ändern, sonst schriebe es sich in eine fremde Gruppe und läse deren Fortschritt mit.
 
+## 3b. Die Server-Funktionen bei Netlify
+
+Was kein Client darf, tut der Server: Kinderkonten anlegen, die Eltern an die Kasse von
+Stripe schicken, nach der Zahlung freischalten. Das sind vier kleine Funktionen unter
+[`netlify/functions/`](./netlify/functions/), die Netlify neben der App ausliefert.
+
+`netlify.toml` sagt Netlify zweierlei: wo die Funktionen liegen – und dass **`dist/`**
+veröffentlicht wird, nicht das Wurzelverzeichnis. Seit die Funktionen Pakete brauchen,
+installiert Netlify vor jedem Deploy `node_modules` (gut hundert Megabyte), und die dürfen
+nicht mit auf die Site. [`netlify/build.mjs`](./netlify/build.mjs) kopiert deshalb nur die
+App – Seiten, Skripte, Stylesheet, Manifest, Icons – nach `dist/`. Gebaut wird dabei nichts;
+es sind dieselben Dateien. Die Site-Einstellung „Publish directory" bei Netlify wird davon
+überschrieben.
+
+| Pfad | Wer ruft | Was |
+| --- | --- | --- |
+| `POST /api/kind-anlegen` | Elternkonto (Bearer-Token) | legt Auth-Nutzer und Konto des Kindes an, trägt es bei den Eltern ein, gibt den Kauf mit, falls vorhanden |
+| `POST /api/kind-passwort` | Elternkonto | setzt das Passwort eines eigenen Kindes neu |
+| `POST /api/checkout` | Elternkonto | erstellt die Kasse bei Stripe und gibt ihre URL zurück |
+| `POST /api/stripe-webhook` | Stripe (mit Unterschrift) | verbucht `checkout.session.completed` als Kauf für Eltern und Kinder, `charge.refunded` als Rücknahme |
+
+Die Funktionen brauchen **Umgebungsvariablen** (Netlify: *Site configuration → Environment
+variables*). Ohne sie antworten sie mit einem klaren Fehler statt zu raten:
+
+| Variable | Woher |
+| --- | --- |
+| `FIREBASE_SERVICE_ACCOUNT` | Ein **eigenes** Dienstkonto `gripszug-server` (nicht das Deploy-Konto!) mit den Rollen **Cloud Datastore User** und **Firebase Authentication Admin**. JSON-Schlüssel im Klartext. Es darf Daten schreiben und Nutzer anlegen, aber keine Regeln ändern. |
+| `STRIPE_SECRET_KEY` | Stripe-Dashboard → Developers → API keys. Zum Testen der Testschlüssel, fürs Echte der Live-Schlüssel (beide beginnen mit `sk_`). |
+| `STRIPE_PRICE_ID` | Der Preis des Produkts „Gripszug Familie" (Einmalkauf, CHF 30); die Kennung beginnt mit `price` und einem Unterstrich. |
+| `STRIPE_WEBHOOK_SECRET` | Stripe-Dashboard → Developers → Webhooks → Endpunkt `https://kids.alae.app/api/stripe-webhook` mit den Ereignissen `checkout.session.completed` und `charge.refunded` → *Signing secret* (beginnt mit `whsec` und einem Unterstrich). |
+| `SITE_URL` | optional; Netlify setzt `URL` ohnehin. Fallback `https://kids.alae.app`. |
+
+Wie ein Kinderkonto heisst, rechnet der Server in
+[`netlify/functions/_lib/kind.mjs`](./netlify/functions/_lib/kind.mjs) genauso wie der
+Client beim Anmelden – Zeile für Zeile. `npm run test:functions` prüft das gegen Auth- und
+Firestore-Emulator, samt Kasse (Stripe nachgebaut) und Webhook (echte Unterschrift, von der
+Stripe-Bibliothek ohne Netz gerechnet). Derselbe Lauf steht im Workflow.
+
 ## 4. Admin-Bereich
 
 Wenn du dich in der App mit Google und `Alain.sc2@gmail.com` anmeldest, erscheint im Profil oben rechts zusätzlich der **Admin-Bereich**. Dort werden alle Accounts geladen und pro User folgende Daten angezeigt:

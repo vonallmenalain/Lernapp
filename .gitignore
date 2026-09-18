@@ -10,3 +10,6 @@ ui-debug.log
 # Bilder aus den Browser-Prüfungen landen unter /tmp, nie hier.
 *.png
 !icons/*.png
+
+# Was netlify/build.mjs fuer die Site zusammenstellt.
+dist/

@@ -48,6 +48,8 @@ on:
       - ".firebaserc"
       - "scripts/pruefe-dienstkonto.mjs"
       - "scripts/test-rules.mjs"
+      - "scripts/test-functions.mjs"
+      - "netlify/**"
       - "package.json"
       - "package-lock.json"
       - ".github/workflows/firestore-rules.yml"
@@ -107,6 +109,11 @@ jobs:
 
       - name: Regeln im Emulator durchspielen
         run: npm run test:rules
+
+      # Die Server-Funktionen (Kauf, Kinderkonten) gegen Auth- und
+      # Firestore-Emulator, mit nachgebautem Stripe – ebenfalls ohne Geheimnis.
+      - name: Server-Funktionen im Emulator durchspielen
+        run: npm run test:functions
 
       - name: Schlüssel prüfen
         id: schluessel

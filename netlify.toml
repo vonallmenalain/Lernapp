@@ -1,0 +1,35 @@
+# Die App sind die Dateien im Wurzelverzeichnis; gebaut wird nichts. Aber
+# veröffentlicht wird nicht das Wurzelverzeichnis: Daneben liegen Werkzeuge,
+# Regeln, Doku und der Server, und nach dem Installieren der Server-Pakete
+# hundert Megabyte node_modules. netlify/build.mjs kopiert nur die App nach
+# dist/, und dist/ geht auf die Site.
+#
+# Die Funktionen brauchen Umgebungsvariablen (Site configuration → Environment
+# variables): FIREBASE_SERVICE_ACCOUNT, STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET,
+# STRIPE_PRICE_ID. Welche wofür, steht in FIREBASE_SETUP.md, Abschnitt 3b.
+
+[build]
+  publish = "dist"
+  # Nur die Pakete der Funktionen (dependencies), nicht die Prüfwerkzeuge –
+  # dann die App nach dist/ kopieren.
+  command = "npm ci --omit=dev --no-audit --no-fund && node netlify/build.mjs"
+
+[build.environment]
+  # Node 22: firebase-admin verlangt es, und Netlify lässt die Funktionen mit
+  # derselben Node-Fassung laufen, mit der gebaut wurde.
+  NODE_VERSION = "22"
+  NPM_FLAGS = "--omit=dev"
+  # Netlify sucht nach dem Bauen in allen Dateien nach Geheimnissen und bricht
+  # ab, wenn es eines zu finden glaubt. Der Web-API-Schlüssel von Firebase in
+  # firebase.js sieht für den Scanner so aus – er ist aber kein Geheimnis: Er
+  # steht in jeder App, die Firebase im Browser nutzt, und die Firestore-Regeln
+  # schützen die Daten, nicht dieser Schlüssel.
+  SECRETS_SCAN_SMART_DETECTION_OMIT_VALUES = "AIzaSyDJKaBS1W-EU6d8N3pL2R4amSl8R0vD-Uc"
+
+[functions]
+  directory = "netlify/functions"
+  # nft statt esbuild: Es bündelt nicht, sondern sammelt die Dateien ein, die
+  # eine Funktion wirklich lädt – und kommt so auch mit den Teilen von
+  # firebase-admin zurecht, an denen esbuild scheitert (gRPC, dynamische
+  # Requires). Etwas grössere Pakete, dafür keine Überraschung.
+  node_bundler = "nft"
