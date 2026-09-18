@@ -38,7 +38,7 @@ export async function kasseErstellen({ eltern, stripeClient = stripe(), price = 
     consent_collection: { terms_of_service: "required" },
     custom_text: {
       terms_of_service_acceptance: {
-        message: "Ich stimme zu, dass Gripszug sofort freigeschaltet wird, und weiss, dass damit das Widerrufsrecht erlischt. Innerhalb von 30 Tagen gibt es das Geld trotzdem zurück – eine Mail genügt.",
+        message: "Ich stimme zu, dass Gripszug sofort freigeschaltet wird, und weiss, dass damit das Widerrufsrecht erlischt und der Kauf verbindlich ist.",
       },
     },
     allow_promotion_codes: true,

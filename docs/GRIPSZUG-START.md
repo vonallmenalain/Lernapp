@@ -95,8 +95,8 @@ Besucher sie sehen. Vor dem Veröffentlichen einmal selbst lesen:
 - [datenschutz.html](../datenschutz.html) – die Region stimmt mit deinem Firestore
   überein? Firebase Console → Projekteinstellungen → *Standardspeicherort für Cloud
   Firestore*.
-- [agb.html](../agb.html) – Preis, 30 Tage Geld zurück und der Satz zum Widerrufsrecht
-  müssen mit der Kasse und der Preiskarte zusammenpassen (siehe unten).
+- [agb.html](../agb.html) – Preis, der Ausschluss der Rückgabe und der Satz zum
+  Widerrufsrecht müssen mit der Kasse und der Preiskarte zusammenpassen (siehe unten).
 
 Die Texte sind von mir geschrieben, nicht von einer Juristin geprüft. Für einen
 Einmalkauf von CHF 30 an Privatpersonen in der Schweiz ist das üblich – wenn du
@@ -105,10 +105,18 @@ ruhiger schläfst, lass sie einmal gegenlesen.
   Schulen (`PLATZHALTER@example.com`).
 
 Die AGB ([agb.html](../agb.html)) passen zur Kasse: Einmalkauf, sofortige Freischaltung mit
-Verzicht auf das Widerrufsrecht, trotzdem 30 Tage Geld zurück auf eine Mail hin. Wenn du
-etwas davon änderst, muss es an drei Stellen gleich lauten: AGB, der Satz an der Kasse
-(`netlify/functions/checkout.mjs`, `custom_text`) und die Preiskarte auf der
-Willkommensseite.
+Verzicht auf das Widerrufsrecht, danach keine Rückgabe. Das trägt in der Schweiz – ein
+gesetzliches Widerrufsrecht für Käufe im Internet gibt es hier nicht (Art. 40a OR gilt für
+Haustür- und Telefongeschäfte). Wer auch in die EU verkauft: Dort gibt es eines, und es
+erlischt bei digitalen Inhalten genau durch die Zustimmung an der Kasse – deshalb steht sie
+dort. Eine Rückbuchung über die Kartenfirma kann eine Kundin trotzdem auslösen; dagegen
+hilft keine Klausel, sondern nur eine Antwort auf ihre Mail.
+
+Wenn du etwas davon änderst, muss es an vier Stellen gleich lauten: AGB, der Satz an der
+Kasse (`netlify/functions/checkout.mjs`, `custom_text`), die Preiskarte auf der
+Willkommensseite und der Verkaufsbildschirm in der App (`firebase.js`, `renderKaufSeite`).
+`scripts/check-seiten.mjs` und `scripts/test-functions.mjs` halten fest, dass nirgends
+wieder ein Rückgabeversprechen auftaucht.
 
 ## 5. Die Testzahlung  ☐
 

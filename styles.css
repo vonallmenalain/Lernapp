@@ -2543,6 +2543,119 @@ body.puzzle-active .spatialPuzzle-board .spatial-option-graphic > svg {
   border-color: #06d6a0;
 }
 
+/* Der Verkaufsbildschirm hinter dem Elterntor (firebase.js, renderKaufSeite).
+   Aufgebaut wie die Preiskarte auf willkommen.html, nur in ein Fenster
+   gefaltet: oben der Betrag, dann fünf Zeilen, was dazugehört, dann drei
+   Versprechen – und darunter, abgetrennt, der Weg an die Kasse. Wer vor der
+   Schranke stand, soll in einem Blick sehen, was es kostet, und im zweiten,
+   wo er tippt. */
+.kauf-seite {
+  display: grid;
+  gap: 14px;
+}
+
+.kauf-preis {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin: 0;
+}
+
+.kauf-preis strong {
+  font-size: clamp(2rem, 7vw, 2.6rem);
+  font-weight: 950;
+  line-height: 1;
+  color: var(--ink);
+}
+
+.kauf-preis span {
+  color: var(--muted);
+  font-weight: 800;
+}
+
+/* Haken statt Punkte: Was dazugehört, ist eine Liste von Zusagen, keine
+   Aufzählung. Zwei Spalten, sobald das Fenster sie hergibt – fünf Zeilen
+   untereinander schöben die Anmeldung aus dem Bild. */
+.kauf-vorteile {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 4px 18px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.kauf-vorteile li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 9px;
+  align-items: baseline;
+  color: var(--ink);
+  font-size: 0.97rem;
+  font-weight: 800;
+}
+
+.kauf-vorteile li::before {
+  content: "✓";
+  color: #1e7f4e;
+  font-weight: 950;
+}
+
+.kauf-versprechen {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+}
+
+.kauf-versprechen span {
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: #f4f1ff;
+  border: 2px solid var(--line);
+  color: var(--primary-dark);
+  font-size: 0.9rem;
+  font-weight: 850;
+}
+
+/* Die Anmeldung: derselbe Block wie sonst, nur mit einem Strich darüber –
+   hier hört das Angebot auf und fängt das Tun an. */
+.kauf-anmeldung {
+  display: grid;
+  gap: 12px;
+  margin-top: 4px;
+  padding-top: 16px;
+  border-top: 2px solid var(--line);
+}
+
+.kauf-anmeldung .auth-hint {
+  margin: 0;
+}
+
+/* Der Hauptknopf zuerst und so breit wie möglich: Er ist der Weg, der
+   zweite Knopf nur die Abzweigung für die, die schon ein Konto haben. */
+.kauf-aktionen {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+  justify-content: stretch;
+}
+
+.kauf-aktionen button {
+  width: 100%;
+}
+
+.kauf-knopf {
+  width: 100%;
+}
+
+.kauf-frei {
+  margin: 0;
+  color: var(--muted);
+  font-weight: 800;
+}
+
 /* Die Kinder. Die Karte baut untereinander statt nebeneinander: der Kopf,
    die Liste, darunter der Knopf oder das Formular. Eine Zeile je Kind, mit dem
    Namen links und "Passwort neu" rechts; wer tippt, bekommt an derselben

@@ -114,6 +114,11 @@
     entitlement: null,
     entitlementLoaded: false,
     entitlementUnsubscribe: null,
+    // Das Profilfenster zeigt ausnahmsweise den Verkaufsbildschirm: Das Kind
+    // stand vor der Schranke, ein Erwachsener hat die Rechenaufgabe gelöst –
+    // dann gehört dorthin, was der Kauf kostet und bringt, nicht das
+    // Anmeldeformular (renderKaufSeite).
+    kaufModus: false,
     // Zurück von der Kasse: "erfolg" oder "abbruch", einmal gezeigt.
     kaufRueckkehr: null,
     // Ein Server-Aufruf läuft – der Knopf dazu ist so lange stumm.
@@ -180,6 +185,8 @@
     isParentAccount,
     getUser: () => (state.user ? { uid: state.user.uid, email: state.user.email || null, name: profileNameForUser(state.user) } : null),
     openAccount: () => openModal(),
+    // Hinter dem Elterntor: erst der Preis, dann die Anmeldung (renderKaufSeite).
+    openKauf: () => openKauf(),
     // Der Server: Kasse und Kinder. Wer das darf, entscheidet der Server am
     // Token – hier wird nur angerufen.
     zurKasse,
@@ -1793,17 +1800,27 @@
     modal.hidden = false;
     modal.classList.remove("hidden");
     state.dashboardOpen = true;
-    if (state.user) refreshDashboard();
+    if (state.kaufModus) renderKaufSeite();
+    else if (state.user) refreshDashboard();
     else renderLoggedOut();
     releaseAccountHelp?.();
-    releaseAccountHelp = window.LernappKids?.pushHelp?.("Das ist das Profilfenster für Erwachsene. Hier siehst du den Lernfortschritt und kannst dich an- oder abmelden. Mit dem Kreuz oben rechts schliesst du das Fenster.") || null;
+    releaseAccountHelp = window.LernappKids?.pushHelp?.(state.kaufModus
+      ? "Das ist die Seite für Erwachsene: Hier steht, was Gripszug kostet und was dazugehört. Mit dem Kreuz oben rechts schliesst du das Fenster."
+      : "Das ist das Profilfenster für Erwachsene. Hier siehst du den Lernfortschritt und kannst dich an- oder abmelden. Mit dem Kreuz oben rechts schliesst du das Fenster.") || null;
     modalContent.querySelector("input, button")?.focus();
+  }
+
+  // Das Tor der Schranke führt hierher: erst der Preis, dann die Anmeldung.
+  function openKauf() {
+    state.kaufModus = true;
+    openModal();
   }
 
   function closeModal() {
     modal.hidden = true;
     modal.classList.add("hidden");
     state.dashboardOpen = false;
+    state.kaufModus = false;
     state.kaufRueckkehr = null;
     releaseAccountHelp?.();
     releaseAccountHelp = null;
@@ -1827,6 +1844,10 @@
   }
 
   function renderLoggedOut() {
+    // Im Kaufmodus bleibt der Verkaufsbildschirm stehen – auch wenn sich
+    // zwischendurch ein Konto abmeldet (ein Kind, das dem Elternkonto Platz
+    // macht). Sonst stünde mitten im Kauf plötzlich "Anmelden" da.
+    if (state.kaufModus) { renderKaufSeite(); return; }
     accountPanel.classList.remove("has-admin");
     const tab = readLoginTab();
     modalContent.innerHTML = `
@@ -1994,6 +2015,7 @@
     });
 
     if (!state.dashboardOpen && modal.hidden) return;
+    if (state.kaufModus) { renderKaufSeite(); return; }
     renderDashboard(userData, progressDocs, sessions);
   }
 
@@ -2161,6 +2183,180 @@
         status.textContent = serverErrorMessage(error);
       }
     });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Der Verkaufsbildschirm hinter dem Elterntor
+  // ---------------------------------------------------------------------------
+  // Vor der Schranke steht das Kind, dahinter die Rechenaufgabe, und wer die
+  // löst, ist erwachsen (entitlement.js). Dieser Mensch will zuerst wissen,
+  // was das kostet – ein Anmeldeformular wäre eine Frage, bevor das Angebot
+  // dasteht. Also: oben der Preis und was dazugehört, darunter der kürzeste
+  // Weg an die Kasse. Dieselben Punkte wie auf willkommen.html, nur kompakt;
+  // wer es ausführlich will, findet den Link am Fuss.
+  //
+  // Angemeldet wird hier nur als Eltern: Ein Kinderkonto kann nicht kaufen –
+  // der Server erkennt es an der technischen Adresse und lehnt ab
+  // (netlify/functions/_lib/anfrage.mjs). Deshalb führt jeder Weg über eine
+  // E-Mail-Adresse, und nach der Anmeldung geht es ohne Zwischenhalt weiter
+  // an die Kasse: Wer bis hierher getippt hat, will kaufen, nicht ein Profil
+  // ansehen.
+  // Kurz genug für eine Zeile: Die Liste steht auf dem Handy untereinander und
+  // zweispaltig auf dem Tisch – Zeilen, die umbrechen, machen daraus ein
+  // Treppenmuster statt einer Aufzählung.
+  const KAUF_VORTEILE = [
+    "Alle 25 Spiele, alle Stufen",
+    "Alle 130 Stationen der Reise",
+    "Bis zu 4 Kinder mit eigenem Zug",
+    "Fortschritt auf jedem Gerät",
+    "Alle neuen Spiele inbegriffen",
+  ];
+
+  // Nach dem Anmelden steht das Konto erst fest, wenn Firebase den Wechsel
+  // gemeldet hat (handleAuthState). Die Kasse braucht das Token dieses Kontos,
+  // also wird darauf gewartet – ein paar Hundertstel, keine Sanduhr.
+  async function warteAufKonto(ms = 8000) {
+    const bis = Date.now() + ms;
+    while (!state.user && Date.now() < bis) await new Promise((weiter) => setTimeout(weiter, 50));
+    return Boolean(state.user);
+  }
+
+  function renderKaufSeite() {
+    accountPanel.classList.remove("has-admin");
+    const stand = kaufStand();
+    const frei = stand === "gekauft" || stand === "gruender";
+    const eltern = Boolean(state.user) && isParentAccount();
+    const kindDa = Boolean(state.user) && !eltern;
+    const rechtliches = `<p class="auth-rechtliches"><a href="willkommen.html">Alles über Gripszug</a> · <a href="impressum.html">Impressum</a> · <a href="datenschutz.html">Datenschutz</a> · <a href="agb.html">AGB</a></p>`;
+
+    if (frei) {
+      modalContent.innerHTML = `
+        <div class="kauf-seite">
+          <p class="small-label">Für Eltern</p>
+          <h2 id="account-modal-title">Gripszug ist freigeschaltet</h2>
+          <p class="kauf-frei">Alle Spiele, alle Stationen, alle Kinder dieser Familie. Es gibt nichts mehr zu bezahlen.</p>
+          <div class="auth-actions"><button type="button" data-kauf-fertig>Weiterspielen</button></div>
+          ${rechtliches}
+        </div>`;
+      modalContent.querySelector("[data-kauf-fertig]").addEventListener("click", closeModal);
+      return;
+    }
+
+    const anmeldung = `
+      <form class="auth-form kauf-anmeldung" data-kauf-form>
+        <p class="auth-hint">${kindDa
+          ? "Gekauft wird im Elternkonto – nicht im Konto des Kindes. Melde dich an oder leg eines an; dein Kind bleibt, wo es ist."
+          : "Eine Adresse, ein Passwort – und der nächste Tipp führt an die Kasse."}</p>
+        <label>
+          <span>E-Mail-Adresse der Eltern</span>
+          <input name="email" type="email" autocomplete="email" inputmode="email" required />
+        </label>
+        <label>
+          <span>Passwort (ab 6 Zeichen)</span>
+          <input name="password" type="password" autocomplete="new-password" minlength="6" required />
+        </label>
+        <div class="auth-actions kauf-aktionen">
+          <button type="submit">Konto anlegen und bezahlen</button>
+          <button type="button" class="secondary-action" data-kauf-anmelden>Ich habe schon ein Konto</button>
+        </div>
+        <button type="button" class="google-action" data-kauf-google>Mit Google anmelden und bezahlen</button>
+        <button type="button" class="auth-link" data-kauf-reset>Passwort vergessen?</button>
+        <p class="auth-status" role="status" aria-live="polite">${state.firebaseReady ? "" : "Firebase SDK ist noch nicht geladen."}</p>
+      </form>`;
+
+    const kaufen = `
+      <div class="kauf-anmeldung">
+        <p class="auth-hint">Angemeldet als ${escapeHtml(state.user?.email || "Elternkonto")}. Die Zahlung läuft über Stripe; die Freischaltung kommt in wenigen Sekunden zurück.</p>
+        <button type="button" class="kauf-knopf" data-kaufen>Jetzt kaufen · ${KAUF_PREIS}</button>
+        <p class="auth-status" role="status" aria-live="polite"></p>
+      </div>`;
+
+    modalContent.innerHTML = `
+      <div class="kauf-seite">
+        <p class="small-label">Für Eltern</p>
+        <h2 id="account-modal-title">${stand === "zurueck" ? "Gripszug wieder freischalten" : "Die ganze Strecke öffnen"}</h2>
+        <p class="kauf-preis"><strong>${KAUF_PREIS}</strong><span>einmal – für die ganze Familie, für immer</span></p>
+        <ul class="kauf-vorteile">${KAUF_VORTEILE.map((zeile) => `<li>${escapeHtml(zeile)}</li>`).join("")}</ul>
+        <p class="kauf-versprechen"><span>Kein Abo</span><span>Keine Werbung</span><span>Kein echter Name nötig</span></p>
+        ${eltern ? kaufen : anmeldung}
+        ${rechtliches}
+      </div>`;
+
+    if (eltern) { bindKaufKarte(); return; }
+    bindKaufAnmeldung();
+  }
+
+  // Anmelden und ohne Zwischenhalt an die Kasse. Klappt die Kasse nicht, bleibt
+  // das Konto trotzdem bestehen – die Meldung sagt, was war, und der Knopf
+  // steht dann im Profilfenster.
+  function bindKaufAnmeldung() {
+    const form = modalContent.querySelector("[data-kauf-form]");
+    if (!form) return;
+    const status = form.querySelector(".auth-status");
+    const knoepfe = [...form.querySelectorAll("button")];
+    const daten = () => {
+      const werte = new FormData(form);
+      return { email: String(werte.get("email") || ""), password: String(werte.get("password") || "") };
+    };
+    const setStatus = (text, ok = false) => {
+      status.textContent = text;
+      status.classList.toggle("is-ok", ok);
+    };
+
+    async function zurKasseMit(tun, text) {
+      if (!state.firebaseReady) { setStatus("Firebase ist nicht verfügbar."); return; }
+      if (state.serverBusy) return;
+      state.serverBusy = true;
+      knoepfe.forEach((knopf) => { knopf.disabled = true; });
+      setStatus(text);
+      try {
+        await tun();
+        if (!(await warteAufKonto())) throw authInputError("lernapp/not-signed-in");
+        setStatus("Die Kasse wird geöffnet...");
+        await zurKasse();
+        // Ab hier übernimmt Stripe: Die Seite wechselt, dieses Fenster geht mit.
+      } catch (fehler) {
+        state.serverBusy = false;
+        knoepfe.forEach((knopf) => { knopf.disabled = false; });
+        setStatus(kaufFehlerText(fehler));
+      }
+    }
+
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const { email, password } = daten();
+      zurKasseMit(() => signUpParent(email, password), "Elternkonto wird angelegt...");
+    });
+    form.querySelector("[data-kauf-anmelden]").addEventListener("click", () => {
+      const { email, password } = daten();
+      if (!form.reportValidity()) return;
+      zurKasseMit(() => signInParent(email, password), "Anmeldung läuft...");
+    });
+    form.querySelector("[data-kauf-google]").addEventListener("click", () => {
+      zurKasseMit(() => signInWithGoogle(), "Google-Anmeldung wird geöffnet...");
+    });
+    form.querySelector("[data-kauf-reset]").addEventListener("click", async () => {
+      if (!state.firebaseReady) { setStatus("Firebase ist nicht verfügbar."); return; }
+      const { email } = daten();
+      setStatus("Mail wird verschickt...");
+      try {
+        await sendParentPasswordReset(email);
+        setStatus(`Eine Mail zum Zurücksetzen ist unterwegs an ${cleanEmail(email)}.`, true);
+      } catch (fehler) {
+        setStatus(kaufFehlerText(fehler));
+      }
+    });
+  }
+
+  // Dieselben Fehler wie bei der Anmeldung – nur zwei sagen hier etwas anderes,
+  // weil sie hier etwas anderes bedeuten: Eine Adresse, die es schon gibt, ist
+  // kein "Name vergeben", sondern der Hinweis auf den zweiten Knopf.
+  function kaufFehlerText(fehler) {
+    const code = fehler?.code || "";
+    if (code.includes("email-already-in-use")) return "Diese Adresse hat schon ein Konto. Tipp auf «Ich habe schon ein Konto».";
+    if (code === "server/already-owned") return "Diese Familie hat Gripszug schon – schliesse das Fenster und spiel weiter.";
+    if (code.startsWith("server/")) return serverErrorMessage(fehler);
+    return authErrorMessage(fehler);
   }
 
   // ---------------------------------------------------------------------------

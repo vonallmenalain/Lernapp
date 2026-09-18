@@ -230,6 +230,9 @@ ok(empfangen?.success_url === "https://kids.alae.app/?kauf=erfolg&session_id={CH
 ok(empfangen?.cancel_url === "https://kids.alae.app/?kauf=abbruch", `cancel_url: ${empfangen?.cancel_url}`);
 ok(empfangen?.consent_collection?.terms_of_service === "required", "Zustimmung zum sofortigen Start fehlt");
 ok(/Widerrufsrecht/.test(empfangen?.custom_text?.terms_of_service_acceptance?.message || ""), "Der Hinweis auf das Widerrufsrecht fehlt an der Kasse");
+// Und keine Zusage, die den AGB widerspricht: Der Kauf ist verbindlich
+// (agb.html, Abschnitt 4), eine Rückgabe gibt es nicht.
+ok(!/zurück|erstatt|30 Tage/i.test(empfangen?.custom_text?.terms_of_service_acceptance?.message || ""), `An der Kasse steht ein Rückgabeversprechen: "${empfangen?.custom_text?.terms_of_service_acceptance?.message}"`);
 
 // --- 4. Der Webhook -------------------------------------------------------------
 const session = { id: "cs_test_1", payment_status: "paid", client_reference_id: mama.uid, payment_intent: "pi_test_1", customer: "cus_test_1", customer_details: { email: "mama@example.com" }, amount_total: 3000, currency: "chf" };
