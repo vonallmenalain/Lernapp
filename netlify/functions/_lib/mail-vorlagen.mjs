@@ -46,16 +46,14 @@ const SCHRIFT = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, H
  *   fussnote   warum diese Mail kommt
  */
 export function rahmen({ titel, vorschau = "", absaetze = [], knopf = null, kasten = null, fussnote = "" }) {
+  // Nur der Knopf, kein Ersatzlink darunter. Der Knopf IST ein gewöhnlicher
+  // Link – dass er nicht geht, käme so selten vor, dass die zwei Zeilen
+  // Erklärung in jeder Mail teurer sind als der Fall, den sie abfangen. In der
+  // Textfassung steht die Adresse ohnehin ausgeschrieben (alsText).
   const knopfHtml = knopf ? `
               <tr>
                 <td style="padding: 8px 0 20px;">
                   <a href="${escape(knopf.href)}" style="display: inline-block; background: #6c5ce7; color: #ffffff; font-weight: 700; font-size: 16px; text-decoration: none; padding: 14px 28px; border-radius: 999px;">${escape(knopf.text)}</a>
-                </td>
-              </tr>
-              <tr>
-                <td style="padding: 0 0 20px; font-size: 13px; line-height: 20px; color: #667085;">
-                  Falls der Knopf nicht geht, diese Adresse in den Browser kopieren:<br />
-                  <span style="color: #5141c9; word-break: break-all;">${escape(knopf.href)}</span>
                 </td>
               </tr>` : "";
 
@@ -113,7 +111,6 @@ export function rahmen({ titel, vorschau = "", absaetze = [], knopf = null, kast
               <td style="padding: 8px 28px 26px;">
                 <div style="border-top: 1px solid #d9d6ee; padding-top: 16px; font-size: 13px; line-height: 21px; color: #667085;">
                   ${fussnote ? `${escape(fussnote)}<br /><br />` : ""}
-                  Fragen? Einfach auf diese Mail antworten &#8211; sie geht an <a href="mailto:${escape(KONTAKT())}" style="color: #5141c9;">${escape(KONTAKT())}</a>.<br />
                   <a href="${SEITE}/willkommen.html" style="color: #5141c9;">kids.alae.app</a> &#183;
                   <a href="${SEITE}/impressum.html" style="color: #5141c9;">Impressum</a> &#183;
                   <a href="${SEITE}/datenschutz.html" style="color: #5141c9;">Datenschutz</a> &#183;
@@ -153,7 +150,7 @@ export function alsText({ titel, absaetze = [], knopf = null, kasten = null, fus
   }
   if (knopf) teile.push(`${knopf.text}: ${knopf.href}`, "");
   if (fussnote) teile.push(fussnote, "");
-  teile.push(`Fragen? Antworte auf diese Mail – sie geht an ${KONTAKT()}.`, `${SEITE}/willkommen.html`);
+  teile.push(`${SEITE}/willkommen.html`);
   return teile.join("\n").replace(/\n{3,}/g, "\n\n");
 }
 
@@ -167,49 +164,44 @@ function fertig(teile) {
 
 // 1. Ein Elternkonto ist da.
 //
-// Der Link zum Bestätigen der Adresse ist eine Einladung, keine Schranke: Wer
-// ihn nicht anklickt, kann Gripszug trotzdem in vollem Umfang nutzen. Er steht
-// da, weil eine bestätigte Adresse zweierlei wert ist – die Bestellbestätigung
-// kommt sicher an, und "Passwort vergessen" führt zurück ins eigene Konto.
+// Drei Sätze, mehr braucht es nicht: Das Konto steht, so meldest du dich an,
+// so kommen die Kinder dazu. Der Link zum Bestätigen der Adresse ist eine
+// Einladung, keine Schranke – wer ihn nicht anklickt, kann Gripszug trotzdem
+// in vollem Umfang nutzen.
 export function willkommenMail({ email, bestaetigungsLink = "" }) {
   const absaetze = [
-    "Schön, dass du da bist. Das Elternkonto für Gripszug ist angelegt – ab jetzt kannst du Kinderprofile anlegen, den Fortschritt ansehen und den Zug für deine Familie einstellen.",
-    `Angemeldet wird sich mit dieser Adresse: <strong>${escape(email)}</strong>. Die Kinder brauchen keine Adresse – sie melden sich mit ihrem Namen und einem eigenen Passwort an, das du vergibst.`,
+    `Das Elternkonto für Gripszug ist angelegt. Du meldest dich mit <strong>${escape(email)}</strong> an; für deine Kinder legst du im Elternbereich Profile mit Name und Passwort an.`,
   ];
   if (bestaetigungsLink) {
-    absaetze.push("Ein Klick noch, wenn du magst: Bestätige kurz, dass diese Adresse dir gehört. Nötig ist das nicht – es sorgt nur dafür, dass Bestellbestätigung und „Passwort vergessen“ sicher bei dir ankommen.");
+    absaetze.push("Ein Klick, und deine Adresse ist bestätigt. Nötig ist das nicht.");
   }
   return fertig({
     betreff: "Willkommen bei Gripszug",
     titel: "Hallo!",
-    vorschau: "Das Elternkonto ist angelegt – so geht es weiter.",
+    vorschau: "Das Elternkonto ist angelegt.",
     absaetze,
     knopf: bestaetigungsLink ? { text: "Adresse bestätigen", href: bestaetigungsLink } : { text: "Zur App", href: `${SEITE}/index.html` },
-    fussnote: "Diese Mail kommt, weil mit dieser Adresse ein Elternkonto bei Gripszug angelegt wurde. Warst du das nicht, ignoriere sie einfach – ohne das Passwort kommt niemand ins Konto.",
   });
 }
 
 // 2. Bezahlt.
-export function bestellMail({ email, betragText = "", datumText = "", kinder = 0 }) {
-  const zeilen = [
-    ["Produkt", "Gripszug Familie – Einmalkauf"],
-    ["Konto", email],
-  ];
-  if (betragText) zeilen.splice(1, 0, ["Betrag", betragText]);
+//
+// Ein Satz und die Zahlen. Was in der Tabelle steht, ist das, was man später
+// sucht: was, für wie viel, auf welches Konto, wann.
+export function bestellMail({ email, betragText = "", datumText = "" }) {
+  const zeilen = [["Produkt", "Gripszug Familie – Einmalkauf"]];
+  if (betragText) zeilen.push(["Betrag", betragText]);
+  zeilen.push(["Konto", email]);
   if (datumText) zeilen.push(["Datum", datumText]);
   return fertig({
     betreff: "Deine Bestellung bei Gripszug",
     titel: "Danke für deinen Kauf!",
-    vorschau: "Gripszug ist freigeschaltet – für die ganze Familie.",
+    vorschau: "Gripszug ist freigeschaltet.",
     absaetze: [
-      "Die Zahlung ist angekommen. Gripszug ist jetzt freigeschaltet – alle Spiele, die ganze Reise, für bis zu vier Kinder. Auch für alles, was noch dazukommt: Einmal bezahlt ist bezahlt.",
-      kinder > 0
-        ? `${kinder === 1 ? "Das Kinderprofil, das schon da ist, ist" : `Die ${kinder} Kinderprofile, die schon da sind, sind`} mit freigeschaltet. Neue Profile bekommen den Kauf automatisch mit.`
-        : "Als Nächstes: Leg im Elternbereich ein Profil für dein Kind an – Name und ein kurzes Passwort genügen. Jedes Kind bekommt dann seinen eigenen Zug.",
+      "Die Zahlung ist angekommen. Gripszug ist freigeschaltet – alle Spiele, die ganze Reise, für bis zu vier Kinder.",
     ],
     kasten: { titel: "Bestellung", zeilen },
     knopf: { text: "Zur App", href: `${SEITE}/index.html` },
-    fussnote: "Diese Mail ist deine Bestellbestätigung – heb sie auf. Die Quittung mit allen Zahlungsdetails kommt zusätzlich von Stripe, unserem Zahlungsdienstleister.",
   });
 }
 
@@ -220,12 +212,9 @@ export function freischaltMail({ email }) {
     titel: "Gripszug ist freigeschaltet",
     vorschau: "Alle Spiele und die ganze Reise sind offen.",
     absaetze: [
-      "Gripszug ist für dein Konto freigeschaltet – alle Spiele, die ganze Reise, für bis zu vier Kinder. Zu bezahlen ist nichts.",
-      "Leg im Elternbereich ein Profil für dein Kind an, dann kann es losgehen.",
+      "Alle Spiele, die ganze Reise, für bis zu vier Kinder. Zu bezahlen ist nichts.",
     ],
-    kasten: { titel: "Konto", zeilen: [["Adresse", email], ["Freischaltung", "Geschenk"]] },
     knopf: { text: "Zur App", href: `${SEITE}/index.html` },
-    fussnote: "Diese Mail kommt, weil Gripszug für dieses Konto freigeschaltet wurde.",
   });
 }
 
@@ -234,17 +223,20 @@ export function freischaltMail({ email }) {
 // Der Link kommt vom Firebase-Admin-SDK (generatePasswordResetLink) – es ist
 // derselbe, den Firebase auch selbst verschickt hätte, nur eben in unserer
 // Mail statt in seiner.
+//
+// Der eine Satz zum Schluss bleibt: Wer diese Mail bekommt, ohne sie
+// angefordert zu haben, soll wissen, dass nichts passiert ist, solange er
+// nicht klickt.
 export function passwortMail({ email, link }) {
   return fertig({
     betreff: "Neues Passwort für Gripszug",
     titel: "Passwort zurücksetzen",
     vorschau: "Ein Klick, und du vergibst ein neues Passwort.",
     absaetze: [
-      `Für das Elternkonto <strong>${escape(email)}</strong> wurde ein neues Passwort angefordert. Mit dem Knopf unten vergibst du es.`,
-      "Der Link gilt eine Stunde lang und nur ein einziges Mal.",
+      `Mit dem Knopf unten vergibst du ein neues Passwort für <strong>${escape(email)}</strong>. Der Link gilt eine Stunde.`,
     ],
     knopf: { text: "Neues Passwort vergeben", href: link },
-    fussnote: "Warst du das nicht, ignoriere diese Mail. Dein Passwort bleibt dann unverändert – ohne den Link ändert sich nichts.",
+    fussnote: "Nicht angefordert? Dann ignoriere diese Mail – ohne den Klick ändert sich nichts.",
   });
 }
 

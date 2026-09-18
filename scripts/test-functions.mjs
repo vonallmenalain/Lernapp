@@ -919,7 +919,7 @@ ok(r400.status === 400, `kind-anlegen mit kaputtem JSON: ${r400.status}`);
   // "f&uuml;r" im Betreff und in der Überschrift.
   for (const [name, gebaut] of Object.entries({
     willkommen: vorlagen.willkommenMail({ email: "a@b.ch", bestaetigungsLink: "https://x.test/y" }),
-    bestellung: vorlagen.bestellMail({ email: "a@b.ch", betragText: "CHF 30.00", datumText: "1. Januar 2026", kinder: 2 }),
+    bestellung: vorlagen.bestellMail({ email: "a@b.ch", betragText: "CHF 30.00", datumText: "1. Januar 2026" }),
     freischaltung: vorlagen.freischaltMail({ email: "a@b.ch" }),
     passwort: vorlagen.passwortMail({ email: "a@b.ch", link: "https://x.test/y" }),
     test: vorlagen.testMail({ an: "a@b.ch" }),
@@ -928,7 +928,12 @@ ok(r400.status === 400, `kind-anlegen mit kaputtem JSON: ${r400.status}`);
     ok(!/&[a-z]+;|[<>]/.test(gebaut.betreff), `${name}: im Betreff steckt Auszeichnung – ${gebaut.betreff}`);
     ok(!/&amp;[a-z]+;/.test(gebaut.html), `${name}: doppelt maskierte Zeichen im HTML`);
     ok(gebaut.text.length > 40 && !/<[a-z]/.test(gebaut.text), `${name}: die Textfassung enthält HTML oder ist leer`);
-    ok(/kids@alae\.app/.test(gebaut.html), `${name}: die Kontaktadresse fehlt in der Mail`);
+    // Nicht mehr die Kontaktadresse: Die stand einmal in der Fusszeile jeder
+    // Mail ("Fragen? Einfach auf diese Mail antworten") und ist dort bewusst
+    // weg – geantwortet wird trotzdem an sie, dafür sorgt reply_to. Was bleiben
+    // muss, ist der Weg zurück: die Seite und das Impressum.
+    ok(/kids\.alae\.app/.test(gebaut.html), `${name}: der Link zur Seite fehlt in der Mail`);
+    ok(/impressum\.html/.test(gebaut.html), `${name}: das Impressum fehlt in der Fusszeile`);
   }
   // Fremder Text wird maskiert, nicht eingebaut.
   const boese = vorlagen.weiterleitungsMail({ von: "c@d.ch", an: "kids@alae.app", betreff: "Hallo", text: "<script>alert(1)</script>" });
