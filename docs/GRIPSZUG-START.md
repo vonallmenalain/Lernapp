@@ -198,13 +198,11 @@ node scripts/validate-schranke.mjs       # die Schranke rechnet richtig
 NODE_PATH=… node scripts/check-seiten.mjs         # Willkommen und Rechtstexte
 NODE_PATH=… node scripts/check-schranke.mjs       # das Tor im Browser (Playwright)
 NODE_PATH=… node scripts/check-elternbereich.mjs  # der Elternbereich im Browser
+NODE_PATH=… node scripts/check-rucksack.mjs       # jeder Gegenstand im Bild, auf jeder Stufe
 ```
 
 ## Was offen bleibt
 
-- **Rucksack packen** schneidet auf schmalen Handys einzelne Gegenstände an
-  (`scripts/check-handy.mjs` meldet es) – das war schon vor dem Umbau so und hat mit dem
-  Kauf nichts zu tun.
 - Werbung, Instagram, Englisch: nichts davon ist gebaut. Die Willkommensseite ist die
   Adresse, die man weitergibt: `https://kids.alae.app/willkommen.html`.
 - Die Levelmodus-Karte („Alle Levels freischalten") gibt es nicht mehr; das Feld
