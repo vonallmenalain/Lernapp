@@ -1,0 +1,11 @@
+# Die App sind die Dateien im Wurzelverzeichnis; gebaut wird nichts. Was Netlify
+# veröffentlicht und von wo, steht in den Einstellungen der Site – hier nur,
+# was die Datei wissen muss: wo die Server-Funktionen liegen.
+#
+# Die Funktionen brauchen Umgebungsvariablen (Site configuration → Environment
+# variables): FIREBASE_SERVICE_ACCOUNT, STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET,
+# STRIPE_PRICE_ID. Welche wofür, steht in netlify/functions/_lib/.
+
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"

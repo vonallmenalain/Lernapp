@@ -1,13 +1,18 @@
 {
   "name": "gripszug",
   "private": true,
-  "description": "Gripszug – Rätsel und Gehirntraining für Kinder. Kein Build: die App sind die Dateien im Wurzelverzeichnis. Hier stehen nur die Werkzeuge für die Prüfskripte.",
+  "description": "Gripszug – Rätsel und Gehirntraining für Kinder. Kein Build: die App sind die Dateien im Wurzelverzeichnis. dependencies sind für die Netlify-Funktionen, devDependencies für die Prüfskripte.",
   "type": "module",
   "scripts": {
-    "test:rules": "node scripts/test-rules.mjs"
+    "test:rules": "node scripts/test-rules.mjs",
+    "test:functions": "node scripts/test-functions.mjs"
   },
   "devDependencies": {
     "@firebase/rules-unit-testing": "^5.0.2",
     "firebase-tools": "^15.30.1"
+  },
+  "dependencies": {
+    "firebase-admin": "^14.4.0",
+    "stripe": "^22.6.2"
   }
 }

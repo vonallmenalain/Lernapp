@@ -199,6 +199,10 @@
     isParentAccount,
     getUser: () => (state.user ? { uid: state.user.uid, email: state.user.email || null, name: profileNameForUser(state.user) } : null),
     openAccount: () => openModal(),
+    // Wie aus Name und Passwort eines Kindes Adresse und Passwort für Firebase
+    // werden. Der Server (netlify/functions/_lib/kind.mjs) rechnet dasselbe,
+    // wenn er ein Kind anlegt – scripts/test-functions.mjs vergleicht beide.
+    kontoSchema: { technicalEmailFromName, childPassword, isTechnicalEmail, loginSlug },
     // Ohne Angabe das eigene Konto. Mit Angabe ein fremdes – wer das darf,
     // entscheidet nicht diese Zeile, sondern firestore.rules.
     resetProgress: (userId) => resetProgressFor(userId || state.user?.uid),
