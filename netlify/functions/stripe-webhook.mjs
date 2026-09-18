@@ -60,14 +60,13 @@ function datumText(ms) {
 // Die Kennung im Archiv ist die Stripe-Session – Stripe schickt dasselbe
 // Ereignis gern mehrmals, und eine zweite Bestätigung für denselben Kauf
 // sieht aus wie eine zweite Abbuchung.
-export async function bestellbestaetigung({ session, eintrag, elternDaten, kinder }) {
+export async function bestellbestaetigung({ session, eintrag, elternDaten }) {
   const email = eintrag.email || elternDaten?.email || elternDaten?.authEmail || "";
   if (!email) return { gesendet: false, grund: "keine Adresse" };
   const vorlage = bestellMail({
     email,
     betragText: betragText(eintrag.amountTotal, eintrag.currency),
     datumText: datumText(eintrag.grantedAtMs || Date.now()),
-    kinder,
   });
   return sendeMail({
     an: email,
@@ -124,7 +123,7 @@ export async function kaufVerbuchen(session) {
   // gerade nicht mag.
   let bestaetigung = { gesendet: false, grund: "nicht versucht" };
   try {
-    bestaetigung = await bestellbestaetigung({ session, eintrag, elternDaten: eltern.data(), kinder: kinder.length });
+    bestaetigung = await bestellbestaetigung({ session, eintrag, elternDaten: eltern.data() });
   } catch (fehler) {
     console.error("Bestellbestätigung nicht verschickt:", fehler?.message || fehler);
   }
