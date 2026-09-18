@@ -73,9 +73,9 @@ if (!process.env.FIRESTORE_EMULATOR_HOST) {
       // Gegen den Emulator wird damit nie etwas unterschrieben, das ein
       // echter Dienst prüfen würde – er nimmt alles.
       FIREBASE_SERVICE_ACCOUNT: JSON.stringify(wegwerfSchluessel()),
-      STRIPE_SECRET_KEY: "sk_test_gripszug_attrappe",
-      STRIPE_WEBHOOK_SECRET: "whsec_gripszug_attrappe",
-      STRIPE_PRICE_ID: "price_gripszug_attrappe",
+      STRIPE_SECRET_KEY: "attrappe-geheimer-schluessel",
+      STRIPE_WEBHOOK_SECRET: "attrappe-webhook-geheimnis",
+      STRIPE_PRICE_ID: "attrappe-preis",
       SITE_URL: "https://kids.alae.app",
     },
   });
@@ -177,12 +177,12 @@ await wirft(() => kindAnlegen({ eltern, name: "!!!", passwort: "1234" }), "missi
 // --- 3. Die Kasse ---------------------------------------------------------------
 let empfangen = null;
 const stripeAttrappe = { checkout: { sessions: { create: async (params) => { empfangen = params; return { id: "cs_test_1", url: "https://checkout.stripe.com/c/pay/cs_test_1" }; } } } };
-const kasse = await kasseErstellen({ eltern, stripeClient: stripeAttrappe, price: "price_gripszug_attrappe", site: "https://kids.alae.app" });
+const kasse = await kasseErstellen({ eltern, stripeClient: stripeAttrappe, price: "attrappe-preis", site: "https://kids.alae.app" });
 ok(kasse.url?.startsWith("https://checkout.stripe.com/"), "Kasse liefert keine Stripe-URL");
 ok(empfangen?.mode === "payment", `mode: ${empfangen?.mode} – ein Abo wäre "subscription"`);
 ok(empfangen?.client_reference_id === mama.uid, "client_reference_id ist nicht die uid der Eltern");
 ok(empfangen?.customer_email === "mama@example.com", "Mailadresse nicht vorbefüllt");
-ok(empfangen?.line_items?.[0]?.price === "price_gripszug_attrappe" && empfangen.line_items[0].quantity === 1, "Preis oder Menge falsch");
+ok(empfangen?.line_items?.[0]?.price === "attrappe-preis" && empfangen.line_items[0].quantity === 1, "Preis oder Menge falsch");
 ok(empfangen?.success_url === "https://kids.alae.app/?kauf=erfolg&session_id={CHECKOUT_SESSION_ID}", `success_url: ${empfangen?.success_url}`);
 ok(empfangen?.cancel_url === "https://kids.alae.app/?kauf=abbruch", `cancel_url: ${empfangen?.cancel_url}`);
 ok(empfangen?.consent_collection?.terms_of_service === "required", "Zustimmung zum sofortigen Start fehlt");

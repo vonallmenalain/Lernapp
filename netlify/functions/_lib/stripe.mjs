@@ -3,10 +3,10 @@
  * ---------------------------------------------------------------------------
  * Drei Umgebungsvariablen bei Netlify, alle aus dem Stripe-Dashboard:
  *
- *   STRIPE_SECRET_KEY       der geheime Schlüssel (sk_live_… oder sk_test_…)
+ *   STRIPE_SECRET_KEY       der geheime Schlüssel aus dem Stripe-Dashboard (Test- oder Live-Schlüssel)
  *   STRIPE_WEBHOOK_SECRET   das Signiergeheimnis des Webhook-Endpunkts
- *                           (whsec_…), damit niemand uns Zahlungen vorspielt
- *   STRIPE_PRICE_ID         der Preis des Einmalkaufs (price_…)
+ *                           aus dem Stripe-Dashboard, damit niemand uns Zahlungen vorspielt
+ *   STRIPE_PRICE_ID         die Kennung des Preises für den Einmalkauf
  *
  * Dazu SITE_URL, damit Stripe nach dem Bezahlen zurück in die App leitet –
  * bei Netlify steht sie als URL ohnehin bereit.

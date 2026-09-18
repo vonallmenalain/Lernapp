@@ -15,12 +15,21 @@
   command = "npm ci --omit=dev --no-audit --no-fund && node netlify/build.mjs"
 
 [build.environment]
+  # Node 22: firebase-admin verlangt es, und Netlify lässt die Funktionen mit
+  # derselben Node-Fassung laufen, mit der gebaut wurde.
   NODE_VERSION = "22"
   NPM_FLAGS = "--omit=dev"
+  # Netlify sucht nach dem Bauen in allen Dateien nach Geheimnissen und bricht
+  # ab, wenn es eines zu finden glaubt. Der Web-API-Schlüssel von Firebase in
+  # firebase.js sieht für den Scanner so aus – er ist aber kein Geheimnis: Er
+  # steht in jeder App, die Firebase im Browser nutzt, und die Firestore-Regeln
+  # schützen die Daten, nicht dieser Schlüssel.
+  SECRETS_SCAN_SMART_DETECTION_OMIT_VALUES = "AIzaSyDJKaBS1W-EU6d8N3pL2R4amSl8R0vD-Uc"
 
 [functions]
   directory = "netlify/functions"
-  node_bundler = "esbuild"
-  # firebase-admin bringt Teile mit, die esbuild nicht einpacken kann (gRPC,
-  # dynamische Requires). Als "external" werden sie mitkopiert statt gebündelt.
-  external_node_modules = ["firebase-admin", "stripe"]
+  # nft statt esbuild: Es bündelt nicht, sondern sammelt die Dateien ein, die
+  # eine Funktion wirklich lädt – und kommt so auch mit den Teilen von
+  # firebase-admin zurecht, an denen esbuild scheitert (gRPC, dynamische
+  # Requires). Etwas grössere Pakete, dafür keine Überraschung.
+  node_bundler = "nft"
