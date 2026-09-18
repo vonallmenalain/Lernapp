@@ -101,6 +101,7 @@ const { kindAnlegen, default: kindAnlegenHandler } = await import("../netlify/fu
 const { kindPasswortSetzen } = await import("../netlify/functions/kind-passwort.mjs");
 const { kasseErstellen } = await import("../netlify/functions/checkout.mjs");
 const { kaufVerbuchen, rueckerstattungVerbuchen, default: webhookHandler } = await import("../netlify/functions/stripe-webhook.mjs");
+const { default: statusHandler } = await import("../netlify/functions/status.mjs");
 const Stripe = (await import("stripe")).default;
 
 // --- 1. Client und Server rechnen gleich ------------------------------------
@@ -291,6 +292,34 @@ const r200 = await kindAnlegenHandler(postJson(papaToken, { name: "Papas Kind", 
 ok(r200.status === 200, `kind-anlegen als Eltern: ${r200.status} ${await r200.text().catch(() => "")}`);
 const r400 = await kindAnlegenHandler(new Request("http://x/api", { method: "POST", headers: { authorization: `Bearer ${papaToken}` }, body: "{kaputt" }));
 ok(r400.status === 400, `kind-anlegen mit kaputtem JSON: ${r400.status}`);
+
+// --- 9. Die Statusseite -----------------------------------------------------------
+// Sie ist die einzige Funktion, die auch dann antworten muss, wenn sonst
+// nichts geht – deshalb lädt sie beim Start nichts Schweres.
+{
+  const flach = await statusHandler(new Request("http://x/api/status"));
+  ok(flach.status === 200, `status flach: ${flach.status}`);
+  const daten = await flach.json();
+  ok(daten.node === process.version, `status nennt die falsche Node-Fassung: ${daten.node}`);
+  ok(daten.umgebung?.FIREBASE_SERVICE_ACCOUNT === true, "status sieht FIREBASE_SERVICE_ACCOUNT nicht");
+  ok(daten.umgebung?.STRIPE_SECRET_KEY === true, "status sieht STRIPE_SECRET_KEY nicht");
+  // Und nie der Inhalt, nur das Ob.
+  const roh = JSON.stringify(daten);
+  for (const name of ["FIREBASE_SERVICE_ACCOUNT", "STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET"]) {
+    const wert = process.env[name];
+    ok(!wert || !roh.includes(wert), `status gibt den Inhalt von ${name} preis`);
+  }
+
+  const tief = await statusHandler(new Request("http://x/api/status?tief=1"));
+  const daten2 = await tief.json();
+  const namen = (daten2.pruefungen || []).map((p) => p.name);
+  ok(namen.includes("firebase-admin laden"), `Tiefenprüfung ohne firebase-admin: ${namen.join(", ")}`);
+  ok(daten2.pruefungen?.[0]?.ok === true, `firebase-admin lädt nicht: ${JSON.stringify(daten2.pruefungen?.[0])}`);
+  const firestore = (daten2.pruefungen || []).find((p) => p.name === "Firestore lesen");
+  ok(firestore?.ok === true, `Firestore antwortet der Statusseite nicht: ${JSON.stringify(firestore)}`);
+  const authPruefung = (daten2.pruefungen || []).find((p) => p.name === "Firebase Auth");
+  ok(authPruefung?.ok === true, `Firebase Auth antwortet der Statusseite nicht: ${JSON.stringify(authPruefung)}`);
+}
 
 console.log(`\n${geprueft} Prüfungen.`);
 if (befunde.length) {

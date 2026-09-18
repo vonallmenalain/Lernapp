@@ -2047,7 +2047,10 @@
     if (code === "server/too-many-children") return "Vier Kinder – mehr gehen je Elternkonto nicht.";
     if (code === "server/not-your-child") return "Dieses Kind gehört nicht zu deinem Konto.";
     if (code === "server/already-owned") return "Dieses Konto hat Gripszug schon gekauft.";
-    if (code === "server/404" || code === "server/502") return "Der Server ist gerade nicht erreichbar. Bitte später noch einmal.";
+    // 502/504: Die Funktion war kalt und hat zu lange gebraucht. Der zweite
+    // Versuch trifft sie wach an und geht fast immer durch.
+    if (code === "server/502" || code === "server/504") return "Der Server hat zu lange gebraucht – er war noch am Aufwachen. Bitte gleich noch einmal tippen.";
+    if (code === "server/404") return "Der Server ist gerade nicht erreichbar. Bitte später noch einmal.";
     if (code === "server/500") return "Auf dem Server ist etwas schiefgegangen. Bitte später noch einmal.";
     if (code.includes("network")) return "Keine Verbindung. Bitte prüfe das Netz.";
     return error?.message || "Das hat nicht geklappt.";

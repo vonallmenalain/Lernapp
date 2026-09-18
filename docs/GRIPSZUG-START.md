@@ -147,8 +147,17 @@ in `entitlement.js` ganz oben (`STATIONS_FREE`, `FREE_DIFFICULTY`, die Tabelle d
 
 ## Wenn etwas hakt
 
+**Zuerst immer:** [`https://kids.alae.app/api/status`](https://kids.alae.app/api/status) im
+Browser öffnen. Kommt dort JSON mit `node` und einer Liste der Umgebungsvariablen, läuft der
+Server und es fehlt höchstens eine Variable (`false` heisst: nicht gesetzt). Kommt dort ein
+Fehler von Netlify, liegt es nicht an einer Variablen, sondern am Paket selbst – dann sagt
+Netlify → Logs → Functions, warum. Mit `?tief=1` fragt die Seite Firebase und Stripe wirklich
+an und schreibt dazu, wie lange jeder gebraucht hat; so siehst du auch, ob der Stripe-Preis
+stimmt. Inhalte von Schlüsseln stehen dort nie, nur ob sie gesetzt sind.
+
 | Was du siehst | Woran es liegt | Was hilft |
 | --- | --- | --- |
+| *Der Server hat zu lange gebraucht* beim Kaufen (im Browser-Protokoll: 502) | Die Funktion war kalt und hat die Zeit überschritten – oder eine Umgebungsvariable fehlt und Firebase wartet ins Leere | noch einmal tippen (die zweite Anfrage trifft sie wach an); bleibt es dabei: `/api/status?tief=1` aufrufen und nachsehen, welche Prüfung hängt |
 | *Auf dem Server ist etwas schiefgegangen* beim Kaufen oder Kind anlegen | eine Umgebungsvariable fehlt oder ist falsch (die Funktion sagt in ihrem Log, welche) | Netlify → Logs → Functions → `checkout` bzw. `kind-anlegen` |
 | Die Kasse öffnet sich nicht, im Log steht etwas von *terms of service* | AGB-URL bei Stripe nicht hinterlegt (Schritt 2.4) | eintragen, noch einmal |
 | Bezahlt, aber die Karte zeigt keinen Haken | der Webhook ist nicht angekommen oder wurde abgelehnt | Stripe → Entwickler → Webhooks → Endpunkt → *Ereignisse*: rot = Antwort ansehen (meist falsches `whsec_`, Test statt Live oder umgekehrt), dann *Erneut senden* |
