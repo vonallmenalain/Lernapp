@@ -2411,9 +2411,12 @@
         <p class="auth-status" role="status" aria-live="polite">${state.firebaseReady ? "" : "Firebase SDK ist noch nicht geladen."}</p>
       </form>`;
 
+    // Hier stand einmal ein Satz über Stripe und die Wartezeit. Er stand
+    // zwischen dem Entschluss und dem Knopf, sagte nichts, was der Knopf
+    // nicht selbst sagt, und die Adresse darunter kennt, wer sie eben
+    // eingetippt hat.
     const kaufen = `
       <div class="kauf-anmeldung">
-        <p class="auth-hint">Angemeldet als ${escapeHtml(state.user?.email || "Elternkonto")}. Die Zahlung läuft über Stripe; die Freischaltung kommt in wenigen Sekunden zurück.</p>
         <button type="button" class="kauf-knopf" data-kaufen>Jetzt kaufen · ${KAUF_PREIS}</button>
         <p class="auth-status" role="status" aria-live="polite"></p>
       </div>`;

@@ -54,6 +54,20 @@ for (const name of SEITEN) {
   // ausgeschlossen" soll ja gerade dastehen.
   if (/Geld zurück|erstatten wir|Betrag zurück|30 Tagen?[^.]*(zurück|erstatt)/i.test(html)) fehlt(`${name}.html: ein Rückgabeversprechen steht noch da`);
 }
+// Der Weg auf den Startbildschirm steht auf der Willkommensseite – für beide
+// Systeme, und für iOS mit dem Hinweis auf Safari. Ohne den versucht es
+// jemand in Chrome auf dem iPhone und findet den Punkt nicht, weil es ihn
+// dort nicht gibt.
+{
+  const w = lies("willkommen");
+  if (!/id="installieren"/.test(w)) fehlt("willkommen.html: der Abschnitt zum Installieren fehlt");
+  if (!/Safari/.test(w)) fehlt("willkommen.html: die iOS-Anleitung nennt Safari nicht – in anderen Browsern geht es dort nicht");
+  if (!/Home-Bildschirm/.test(w)) fehlt("willkommen.html: der iOS-Schritt «Zum Home-Bildschirm» fehlt");
+  if (!/Chrome/.test(w)) fehlt("willkommen.html: die Android-Anleitung nennt Chrome nicht");
+  if (!/App installieren/.test(w)) fehlt("willkommen.html: der Android-Schritt «App installieren» fehlt");
+  if (!/href="#installieren"/.test(w)) fehlt("willkommen.html: nichts verweist auf den Abschnitt zum Installieren");
+}
+
 // Und die AGB sagen, was stattdessen gilt.
 {
   const agb = lies("agb");
