@@ -102,6 +102,7 @@ const { kindPasswortSetzen } = await import("../netlify/functions/kind-passwort.
 const { kasseErstellen } = await import("../netlify/functions/checkout.mjs");
 const { kaufVerbuchen, rueckerstattungVerbuchen, default: webhookHandler } = await import("../netlify/functions/stripe-webhook.mjs");
 const { default: statusHandler } = await import("../netlify/functions/status.mjs");
+const { default: statusTiefHandler } = await import("../netlify/functions/status-tief.mjs");
 const Stripe = (await import("stripe")).default;
 
 // --- 1. Client und Server rechnen gleich ------------------------------------
@@ -310,15 +311,25 @@ ok(r400.status === 400, `kind-anlegen mit kaputtem JSON: ${r400.status}`);
     ok(!wert || !roh.includes(wert), `status gibt den Inhalt von ${name} preis`);
   }
 
-  const tief = await statusHandler(new Request("http://x/api/status?tief=1"));
+  // Und sie lädt nichts: keine import-Zeile in der Datei. Sonst zöge der
+  // Bündler firebase-admin mit hinein, und die Seite fiele mit allem
+  // anderen zusammen aus – genau dann, wenn man sie braucht.
+  const quelle = readFileSync(path.join(WURZEL, "netlify/functions/status.mjs"), "utf8");
+  ok(!/^\s*import[\s{]/m.test(quelle), "status.mjs importiert etwas – dann ist sie nicht mehr die Funktion, die immer antwortet");
+
+  const tief = await statusTiefHandler(new Request("http://x/api/status-tief"));
   const daten2 = await tief.json();
-  const namen = (daten2.pruefungen || []).map((p) => p.name);
-  ok(namen.includes("firebase-admin laden"), `Tiefenprüfung ohne firebase-admin: ${namen.join(", ")}`);
-  ok(daten2.pruefungen?.[0]?.ok === true, `firebase-admin lädt nicht: ${JSON.stringify(daten2.pruefungen?.[0])}`);
   const firestore = (daten2.pruefungen || []).find((p) => p.name === "Firestore lesen");
-  ok(firestore?.ok === true, `Firestore antwortet der Statusseite nicht: ${JSON.stringify(firestore)}`);
+  ok(firestore?.ok === true, `Firestore antwortet der Tiefenprüfung nicht: ${JSON.stringify(firestore)}`);
   const authPruefung = (daten2.pruefungen || []).find((p) => p.name === "Firebase Auth");
-  ok(authPruefung?.ok === true, `Firebase Auth antwortet der Statusseite nicht: ${JSON.stringify(authPruefung)}`);
+  ok(authPruefung?.ok === true, `Firebase Auth antwortet der Tiefenprüfung nicht: ${JSON.stringify(authPruefung)}`);
+  const stripePruefung = (daten2.pruefungen || []).find((p) => p.name === "Stripe");
+  ok(stripePruefung, "die Tiefenprüfung fragt Stripe nicht");
+  const roh2 = JSON.stringify(daten2);
+  for (const name of ["FIREBASE_SERVICE_ACCOUNT", "STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET"]) {
+    const wert = process.env[name];
+    ok(!wert || !roh2.includes(wert), `die Tiefenprüfung gibt den Inhalt von ${name} preis`);
+  }
 }
 
 console.log(`\n${geprueft} Prüfungen.`);

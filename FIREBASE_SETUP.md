@@ -180,7 +180,8 @@ es sind dieselben Dateien. Die Site-Einstellung „Publish directory" bei Netlif
 | `POST /api/kind-passwort` | Elternkonto | setzt das Passwort eines eigenen Kindes neu |
 | `POST /api/checkout` | Elternkonto | erstellt die Kasse bei Stripe und gibt ihre URL zurück |
 | `POST /api/stripe-webhook` | Stripe (mit Unterschrift) | verbucht `checkout.session.completed` und `checkout.session.async_payment_succeeded` als Kauf für Eltern und Kinder, `charge.refunded` als Rücknahme |
-| `GET /api/status` | jeder | sagt, welche Node-Fassung läuft und welche Umgebungsvariablen gesetzt sind (nur ob, nie der Inhalt). Mit `?tief=1` fragt sie Firebase und Stripe wirklich an und misst, wie lange sie brauchen. |
+| `GET /api/status` | jeder | sagt, welche Node-Fassung läuft und welche Umgebungsvariablen gesetzt sind – nur ob, nie der Inhalt. Lädt nichts (keine import-Zeile), antwortet deshalb auch, wenn die anderen es nicht tun. |
+| `GET /api/status-tief` | jeder | lädt dasselbe wie die Kasse und fragt Firebase Auth, Firestore und Stripe wirklich an, mit Zeiten. Antwortet sie mit 502, während `/api/status` 200 gibt, liegt es an den Paketen. |
 
 Die Funktionen brauchen **Umgebungsvariablen** (Netlify: *Site configuration → Environment
 variables*). Ohne sie antworten sie mit einem klaren Fehler statt zu raten:
