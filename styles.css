@@ -4532,6 +4532,32 @@ body[data-page="train"].list-open { overflow: auto; }
   transform: translate(2%, var(--train-lift, 0px)) scale(0.42);
 }
 
+/* Der Zug ist das Menü: Ein Tipp auf einen Wagen zeigt die fünf Spiele seines
+   Bereichs (train-home.js, showWagon). Seit der grüne Knopf gleich ins
+   Abenteuer fährt, ist das der Weg dorthin – und ein Zug, der stillsteht,
+   sieht nicht nach Knopf aus. Also wippen die Wagen beim Erscheinen dreimal
+   kurz nacheinander, solange noch nie einer angetippt wurde; danach nie
+   wieder (data-hint-wagons).
+
+   translate statt transform: Jeder Wagen trägt schon ein transform-Attribut,
+   das ihn an seinen Platz im Zug setzt. Eine Animation auf transform
+   überschriebe es, und die Wagen lägen alle übereinander in der Ecke. */
+.train-stage[data-view="home"][data-hint-wagons="1"] [data-area] {
+  animation: wagen-winkt 1.9s ease-in-out var(--wagen-verzug, 0s) 3 both;
+}
+
+@keyframes wagen-winkt {
+  0%, 55%, 100% { translate: 0 0; }
+  62% { translate: 0 -7px; }
+  70% { translate: 0 0; }
+  77% { translate: 0 -4px; }
+  85% { translate: 0 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .train-stage[data-view="home"][data-hint-wagons="1"] [data-area] { animation: none; }
+}
+
 /* Die Fahrt zum Tor, in zwei Abschnitten: anrollen bis zur Weiche, dann die
    Rampe hinauf in die Halle. In translate() vor scale() geschriebene Werte
    werden nicht mitverkleinert – deshalb passen hier gemessene Bildschirmpixel

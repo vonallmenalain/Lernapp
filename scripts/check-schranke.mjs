@@ -17,6 +17,8 @@
  *   - Startbild frisch: kein Haus trägt ein Schloss
  *   - Startbild mit verbrauchter Runde: genau dieses Haus trägt ein Schloss,
  *     ist blass, zeigt beim Tippen das Tor – die anderen nicht
+ *   - Der Zug als Menü: ein Tipp auf einen Wagen zeigt die fünf Spiele seines
+ *     Bereichs, verbrauchte mit Schloss
  *   - Tor: Zurück schliesst; "Für Eltern" → Rätsel; falsch dreimal → Tor;
  *     richtig → der Preis, nicht die Anmeldung;
  *     richtig → Profilfenster
@@ -232,34 +234,39 @@ try {
   await page.waitForTimeout(700);
   if (!(await tor.count())) fehlt("nach dem Schliessen kommt das Tor kein zweites Mal – die Bühne ist gesperrt geblieben");
 
-  // --- Die Tore: ein Schloss erst, wenn dahinter alles zu ist ---------------
+  // --- Der Zug: ein Schloss erst, wenn das Spiel verbraucht ist -------------
   // Alle fünf Spiele des Gedächtnis-Bereichs verbraucht, von der Konzentration
   // nur eines. Dann trägt genau ein Tor ein Schloss.
   await tor.locator(".tor-zurueck").click();
   await page.waitForTimeout(300);
+  // Seit der grüne Knopf gleich ins Abenteuer fährt, ist der Zug das Menü:
+  // Ein Tipp auf einen Wagen zeigt die fünf Spiele seines Bereichs, jedes als
+  // Kiste – und eine verbrauchte Kiste trägt ein Schloss.
   await verbrauche({ backpack: 1, memory: 1, beachTreasure: 1, tileMemory: 1, missingItem: 1, flanker: 1 });
   await oeffne("index.html");
-  await page.waitForTimeout(1200);
-  await page.locator(".train-start").click();
-  await page.waitForTimeout(2600);
-  const toreAlle = await page.locator("[data-gate]").count();
-  if (toreAlle !== 5) fehlt(`nach dem Abfahren stehen ${toreAlle} Tore, erwartet 5`);
-  const toreZu = await page.locator(".train-gate.is-locked").count();
-  if (toreZu !== 1) fehlt(`${toreZu} Tore tragen ein Schloss, erwartet genau 1 (nur Gedächtnis ist ganz verbraucht)`);
-  const gedaechtnisTor = page.locator('[data-gate="gedaechtnis"]');
-  if (!(await gedaechtnisTor.count())) fehlt("das Tor des Gedächtnis-Bereichs steht nicht auf der Bühne");
-  else {
-    if (!(await gedaechtnisTor.first().locator(".train-lock-badge").count())) fehlt("am ganz verbrauchten Tor fehlt das Schloss");
-    const blassesTor = await gedaechtnisTor.first().locator(".train-gate-art").evaluate((n) => getComputedStyle(n).filter);
-    if (!blassesTor || blassesTor === "none") fehlt("das ganz verbrauchte Tor wird nicht blass gezeichnet");
-    const beschriftung = (await gedaechtnisTor.first().getAttribute("aria-label")) || "";
-    if (!/gesperrt/.test(beschriftung)) fehlt(`am verbrauchten Tor fehlt "gesperrt" in der Beschriftung: "${beschriftung}"`);
-  }
-  // Das halb verbrauchte Tor bleibt offen: dort wartet noch ein Spiel.
-  const konzentrationTor = page.locator('[data-gate="konzentration"]');
-  if ((await konzentrationTor.count()) && (await konzentrationTor.first().evaluate((n) => n.classList.contains("is-locked")))) {
-    fehlt("ein Tor mit noch offenen Spielen trägt ein Schloss");
-  }
+  // Der Zug fährt erst herein, wenn die Seite eine Berührung gesehen hat.
+  await page.evaluate(() => document.dispatchEvent(new Event("pointerdown")));
+  await page.waitForTimeout(2400);
+  const tippeWagen = async (id) => {
+    await page.evaluate((bereich) => document.querySelector(`[data-area="${bereich}"]`)?.dispatchEvent(new MouseEvent("click", { bubbles: true })), id);
+    await page.waitForTimeout(800);
+  };
+  await tippeWagen("gedaechtnis");
+  if (await page.evaluate(() => document.querySelector("#train-stage")?.dataset.view) !== "wagon") fehlt("ein Tipp auf den Wagen öffnet seinen Bereich nicht");
+  const kisten = await page.locator(".wagon-crate").count();
+  if (kisten !== 5) fehlt(`der Wagen zeigt ${kisten} Spiele, erwartet 5`);
+  const kistenZu = await page.locator(".wagon-crate.is-locked").count();
+  if (kistenZu !== 5) fehlt(`${kistenZu} Spiele tragen ein Schloss, erwartet 5 (der ganze Bereich ist verbraucht)`);
+  const beschriftung = (await page.locator(".wagon-crate").first().getAttribute("aria-label")) || "";
+  if (!/Gesperrt/.test(beschriftung)) fehlt(`am verbrauchten Spiel fehlt "Gesperrt" in der Beschriftung: "${beschriftung}"`);
+  // Der halb verbrauchte Bereich: dort wartet noch etwas.
+  await page.locator(".stage-back").click();
+  await page.waitForTimeout(800);
+  await tippeWagen("konzentration");
+  const kistenZuHalb = await page.locator(".wagon-crate.is-locked").count();
+  if (kistenZuHalb !== 1) fehlt(`im halb verbrauchten Bereich tragen ${kistenZuHalb} Spiele ein Schloss, erwartet 1`);
+  await page.locator(".stage-back").click();
+  await page.waitForTimeout(600);
 
   // --- Zurück zum Tor über ein gesperrtes Haus ------------------------------
   await oeffne("index.html?bereich=gedaechtnis");

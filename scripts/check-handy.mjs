@@ -122,10 +122,11 @@ function messen() {
     return !(oberstes === el || el.contains(oberstes) || oberstes.contains(el));
   };
 
-  // Die Knöpfe im Zug-Bild sind SVG-Gruppen mit einer eigenen, unsichtbaren
-  // Trefferfläche; nur die zählt. Der Kasten der ganzen Gruppe wäre grösser –
-  // beim Hinweispunkt der Werkstatt etwa ragt der Lichthof über das Feld.
-  const trefferflaeche = (el) => el.querySelector(":scope > .train-gate-hit, :scope > .train-building-hit, :scope > .train-wagon-hit, :scope > .loco-hotspot-hit") || el;
+  // Die Knöpfe im Zug-Bild und auf der Reisekarte sind SVG-Gruppen mit einer
+  // eigenen, unsichtbaren Trefferfläche; nur die zählt. Der Kasten der ganzen
+  // Gruppe wäre grösser – beim Hinweispunkt der Werkstatt etwa ragt der
+  // Lichthof über das Feld, bei einer Station der Nebel bis zur nächsten.
+  const trefferflaeche = (el) => el.querySelector(":scope > .train-gate-hit, :scope > .train-building-hit, :scope > .train-wagon-hit, :scope > .loco-hotspot-hit, :scope > .journey-station-hit") || el;
 
   const angeschnitten = [];
   const draussen = [];
@@ -357,9 +358,11 @@ const SZENARIEN = [
     seite: "index",
     schritte: [
       { name: "Startbild", tun: zugHereinholen },
-      { name: "Bereiche", tun: async (blatt) => { await blatt.click(".train-start"); await pause(blatt, 1100); } },
-      { name: "Spiele", tun: async (blatt) => { await blatt.click('[data-gate="problemloesen"]'); await pause(blatt, 2600); } },
-      { name: "Wagen", tun: async (blatt) => { await tippe(blatt, '[data-area="problemloesen"]'); await pause(blatt, 700); } },
+      // Der grüne Knopf fährt gleich ins Abenteuer, der Zug führt zu den
+      // Spielen: zwei Wege, ein Startbild.
+      { name: "Abenteuer", tun: async (blatt) => { await blatt.click(".train-start"); await pause(blatt, 2400); } },
+      { name: "Spiele", tun: async (blatt) => { await blatt.click(".stage-back"); await pause(blatt, 1100); await blatt.goto(`${BASIS}/index.html?bereich=problemloesen`, { waitUntil: "load" }); await zugHereinholen(blatt); } },
+      { name: "Wagen", tun: async (blatt) => { await blatt.click(".stage-back"); await pause(blatt, 900); await tippe(blatt, '[data-area="problemloesen"]'); await pause(blatt, 700); } },
       { name: "Werkstatt", tun: async (blatt) => { await blatt.click(".stage-back"); await pause(blatt, 300); await tippe(blatt, "[data-loco]"); await pause(blatt, 800); } },
       { name: "Werkstatt Räder", tun: async (blatt) => { await tippe(blatt, '.loco-hotspot[data-hot="wheels"]'); await pause(blatt, 800); } },
       { name: "Werkstatt Chauffeur", tun: async (blatt) => { await blatt.click(".stage-back"); await pause(blatt, 400); await tippe(blatt, '.loco-hotspot[data-hot="driver"]'); await pause(blatt, 800); } },

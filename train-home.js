@@ -25,6 +25,11 @@
 
   const LOCO_KEY = "lernapp.train.loco";
   const LAST_AREA_KEY = "lernapp.train.lastArea";
+  // Ob schon einmal ein Wagen angetippt wurde. Solange nicht, wippen die Wagen
+  // auf dem Startbild kurz: Seit der grüne Knopf gleich ins Abenteuer fährt,
+  // sind sie der Weg zu den einzelnen Spielen – und ein Zug, der nur dasteht,
+  // sieht nicht nach Knopf aus. Nach dem ersten Tipp nie wieder.
+  const WAGON_HINT_KEY = "lernapp.train.wagenGetippt";
   const SCENE_KEY = "lernapp.train.scene";
   const SAVED_AT_KEY = "lernapp.train.savedAt";
 
@@ -81,6 +86,13 @@
       const raw = localStorage.getItem(LOCO_KEY);
       return raw ? { ...art.DEFAULT_LOCO, ...JSON.parse(raw) } : { ...art.DEFAULT_LOCO };
     } catch { return { ...art.DEFAULT_LOCO }; }
+  }
+
+  function wagenSchonGetippt() { return recall(WAGON_HINT_KEY) === "1"; }
+  function merkeWagenGetippt() {
+    if (wagenSchonGetippt()) return;
+    remember(WAGON_HINT_KEY, "1");
+    if (stage) stage.dataset.hintWagons = "0";
   }
 
   function remember(key, value) {
@@ -1434,6 +1446,8 @@
     view.name = name;
     view.areaId = areaId;
     stage.dataset.view = name;
+    // Der Hinweis gehört auf das Startbild und nur dorthin.
+    stage.dataset.hintWagons = name === "home" && !wagenSchonGetippt() ? "1" : "0";
     if (backButton) backButton.hidden = name === "home";
     // Die Landschaft wechselt man auf dem Startbild. Unterwegs wäre der Knopf
     // nur eine zweite Möglichkeit, sich zu verfahren.
@@ -1449,6 +1463,7 @@
   function showWagon(areaId) {
     const area = progress.areaProgress(areaId);
     if (!area) { showHome(); return; }
+    merkeWagenGetippt();
     view.from = fromView();
     setView("wagon", areaId);
     renderLayer(buildWagonDetail(area));
@@ -1629,8 +1644,18 @@
     kids()?.playHorn?.({ chuffs });
   }
 
+  // Der grüne Knopf ist der Weg ins Abenteuer. Vorher lag davor die Wahl
+  // zwischen fünf Toren – ein Bild, das jedes Kind bei jedem Start noch einmal
+  // wegtippen musste, obwohl die Reise das ist, wofür es kommt. Die einzelnen
+  // Spiele sind darum nicht verloren: Sie hängen am Zug selbst. Ein Tipp auf
+  // einen Wagen zeigt die fünf Spiele seines Bereichs (showWagon), und dass
+  // die Wagen antippbar sind, zeigt der Hinweis beim ersten Mal
+  // (data-hint-wagons).
   async function start() {
     if (busy || view.name !== "home") return;
+    if (journeyApi() && reiseApi()) { enterJourney(); return; }
+    // Ohne die Reise – eine Seite, die journey-plan.js nicht lädt – bleibt es
+    // beim alten Weg vor die Tore. Sonst führte der Knopf ins Leere.
     busy = true;
     toot(5);
     showAreas();          // der Zug schrumpft und rückt nach links (CSS)
@@ -1733,19 +1758,23 @@
 
   async function goBack() {
     if (busy) return;
+    // Zurück geht es an den Zug: Das Startbild ist die Mitte, von der aus
+    // beides losgeht – das Abenteuer über den grünen Knopf, die Spiele über
+    // die Wagen. Ein Zwischenhalt vor den Toren wäre ein Bild mehr auf dem
+    // Weg dorthin.
     if (view.name === "games") {
       busy = true;
       stage.dataset.moving = "in";
       await after(40);
-      showAreas();
+      showHome();
       delete stage.dataset.moving;
       await after(560);
       busy = false;
       return;
     }
     if (view.name === "areas") { showHome(); return; }
-    // Von der Karte zurück vor die Tore: der Zug kommt von links herein, wie
-    // aus einem Bereich.
+    // Von der Karte zurück an den Zug: Er kommt von links herein, wie aus
+    // einem Bereich – und steht wieder gross auf dem Startbild.
     if (view.name === "reise") {
       // Zu Besuch auf einer fertigen Karte führt der Pfeil erst einmal zurück
       // auf die eigene – nicht gleich hinaus vor die Tore.
@@ -1757,9 +1786,9 @@
       // das Bild ohnehin, da fällt ein frisch gebauter Zug nicht auf.
       if (renderAfterJourney) {
         renderAfterJourney = false;
-        view.name = "areas";
+        view.name = "home";
         render();
-      } else showAreas();
+      } else showHome();
       delete stage.dataset.moving;
       await after(560);
       busy = false;
@@ -2345,7 +2374,13 @@
       if (!area) return;
       node.setAttribute("role", "button");
       node.setAttribute("tabindex", "0");
-      node.setAttribute("aria-label", `${describeArea(area)} Antippen für Einzelheiten.`);
+      node.setAttribute("aria-label", `${describeArea(area)} Antippen für die Spiele in diesem Bereich.`);
+      // Die Wagen wippen nacheinander, nicht im Gleichschritt: eine Reihe, die
+      // von vorn nach hinten durchläuft, liest sich als "alle fünf", ein
+      // gemeinsamer Hüpfer als Zucken. Die erste Sekunde gehört der Einfahrt
+      // des Zugs – wer währenddessen wippt, wippt in einer Bewegung, die
+      // ohnehin läuft, und fällt niemandem auf.
+      node.style.setProperty("--wagen-verzug", `${(1.2 + areas.indexOf(area) * 0.14).toFixed(2)}s`);
       activate(node, () => { if (TRAIN_TAPPABLE.has(view.name) && !busy) showWagon(id); });
     });
     svg.querySelector("[data-loco]")?.setAttribute("aria-label", "Deine Lokomotive");
