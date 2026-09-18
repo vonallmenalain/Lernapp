@@ -38,7 +38,13 @@
   // Züge, die zur Lösung nötig sind – ein volles Feld kann in fünf Zügen frei
   // sein, ein halb leeres in dreissig. Deshalb ist die Mindestzugzahl das Mass
   // der Stufe; die Wagenzahl ergibt sich beim Suchen von selbst.
+  // "Sehr leicht" sehen nur Kinder auf der Schwierigkeitsstufe "leicht"
+  // (journey-plan.js): drei kleine Bahnhöfe mit vier bis sieben Zügen, für
+  // Drei- bis Fünfjährige, denen schon "Leicht" zu schwer ist. Sie stehen am
+  // Ende der Tabelle (Nummern 13 bis 15), damit die Nummern der übrigen Level
+  // – und damit die Bestmarken der Kinder – bleiben, wo sie sind.
   const STUFEN = [
+    { id: "sehrleicht", label: "Sehr leicht", farbe: "#8fd3a5" },
     { id: "leicht", label: "Leicht", farbe: "#3fbf74" },
     { id: "mittel", label: "Mittel", farbe: "#00A5B5" },
     { id: "schwer", label: "Schwer", farbe: "#e8a13c" },
@@ -152,6 +158,33 @@
       "GGHIF.",
       "..HIJJ",
       ".KKKLL",
+    ]],
+
+    // Sehr leicht: die kleinen Bahnhöfe, aus dem Generator mit dem Band 3–7.
+    // Hinten angehängt, damit die Nummern 1–12 bleiben (siehe STUFEN).
+    ["sehrleicht", 3, [
+      "..AA.B",
+      ".....B",
+      "RR...B",
+      "....C.",
+      "....C.",
+      "....DD",
+    ]],
+    ["sehrleicht", 4, [
+      "..AA..",
+      "...B..",
+      "RR.BC.",
+      "....C.",
+      "....C.",
+      "....DD",
+    ]],
+    ["sehrleicht", 6, [
+      ".....A",
+      ".....A",
+      "RR.B.A",
+      "...B..",
+      "...CDD",
+      "...C..",
     ]],
   ];
 
@@ -374,6 +407,7 @@
   let run = null;
 
   const stufeVon = (id) => STUFEN.find((s) => s.id === id) || STUFEN[0];
+  const stufenZurWahl = () => STUFEN.filter((stufe) => stufe.id !== "sehrleicht" || window.LernappReise?.stufe?.() === "leicht");
   const achse = (w) => (w.richtung === "waagerecht" ? w.spalte : w.reihe);
 
   function setzeAchse(w, wert) {
@@ -852,8 +886,9 @@
     shell.clear();
     shell.play.append(shell.el("p", "cm-prompt", "Welchen Bahnhof möchtest du räumen?"));
 
-    const reihen = shell.el("div", "ff-stufen");
-    STUFEN.forEach((stufe) => {
+    const zurWahl = stufenZurWahl();
+    const reihen = shell.el("div", `ff-stufen${zurWahl.length > 4 ? " has-fuenf" : ""}`);
+    zurWahl.forEach((stufe) => {
       const spalte = shell.el("div", "ff-stufe");
       spalte.style.setProperty("--ff-stufe-farbe", stufe.farbe);
       spalte.append(shell.el("p", "ff-stufe-name", stufe.label));

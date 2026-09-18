@@ -85,6 +85,10 @@ const browser = await playwright.chromium.launch({
 });
 const sitzung = await browser.newContext({ viewport: { width: 914, height: 411 }, isMobile: true, hasTouch: true });
 await sitzung.addInitScript(schrankeOffen);
+// Die Stufe "leicht": nur sie zeigt die acht Karten, mit denen hier gemessen
+// wird (memory.js, GROESSEN_JE_STUFE). Der Kasten der Reise liegt im
+// localStorage unter demselben Schlüssel wie in der Cloud.
+await sitzung.addInitScript(() => { try { localStorage.setItem("lernapp.reise", JSON.stringify({ stufe: "leicht", stufeAt: 1 })); } catch { /* egal */ } });
 const blatt = await sitzung.newPage();
 // Ohne Netz kommen die Firebase-Skripte nicht; sie sollen nicht warten lassen.
 await blatt.route("**/*gstatic.com/**", (route) => route.abort());

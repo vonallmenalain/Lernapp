@@ -60,9 +60,12 @@ function ensureUnique(levels, label, signatureFn) {
 }
 
 function validateShikaku() {
-  for (const difficulty of difficulties) {
+  // Der Garten: sechs Gehege zu drei mal drei, vor der Wiese (app.js, STARTER_KEY).
+  const worlds = [["starter", 6, 3], ...difficulties.map((difficulty) => [difficulty, 10, null])];
+  for (const [difficulty, expected, size] of worlds) {
     const levels = data.shikaku[difficulty];
-    if (levels.length !== 10) fail(`shikaku ${difficulty} has ${levels.length} levels`);
+    if (!levels || levels.length !== expected) fail(`shikaku ${difficulty} has ${levels?.length} levels`);
+    if (size) levels.forEach((level, index) => { if (level.rows !== size || level.cols !== size) fail(`shikaku ${difficulty} ${index + 1} is not ${size}×${size}`); });
     ensureUnique(levels, `shikaku ${difficulty}`, (level) => JSON.stringify([level.clues, level.solutionRegions]));
 
     levels.forEach((level, index) => {

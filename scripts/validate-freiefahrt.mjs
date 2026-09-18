@@ -128,14 +128,18 @@ VORLAGEN.forEach(([name, soll, feld]) => {
 // --- Die Stufen --------------------------------------------------------------
 // Die Bänder aus der Aufgabenstellung. Ein Level, das aus seinem Band fällt,
 // stünde unter dem falschen Namen in der Auswahl.
+// "Sehr leicht" kam später dazu: drei kleine Bahnhöfe für die Stufe "leicht"
+// (journey-plan.js), hinten an der Tabelle, damit die Nummern 1–12 bleiben.
 const BAENDER = {
+  sehrleicht: [3, 7],
   leicht: [8, 12],
   mittel: [13, 18],
   schwer: [19, 26],
   knifflig: [27, 40],
 };
 
-assert(STUFEN.length === 4, `erwartet 4 Stufen, gefunden ${STUFEN.length}`);
+assert(STUFEN.length === 5, `erwartet 5 Stufen, gefunden ${STUFEN.length}`);
+assert(STUFEN[0].id === "sehrleicht" && STUFEN[1].id === "leicht", "die Stufen fangen mit sehr leicht und leicht an");
 STUFEN.forEach((stufe) => {
   assert(BAENDER[stufe.id], `unbekannte Stufe "${stufe.id}"`);
   assert(stufe.label && stufe.farbe, `Stufe ${stufe.id}: Name oder Farbe fehlt`);
@@ -144,7 +148,11 @@ const farben = STUFEN.map((s) => s.farbe);
 assert(new Set(farben).size === farben.length, "zwei Stufen haben dieselbe Farbe");
 
 // --- Jedes Level -------------------------------------------------------------
-assert(LEVELS.length >= 12, `erwartet mindestens 12 Level, gefunden ${LEVELS.length}`);
+assert(LEVELS.length >= 15, `erwartet mindestens 15 Level, gefunden ${LEVELS.length}`);
+// Die kleinen Bahnhöfe stehen hinten – der Fahrplan (journey-plan.js,
+// STARTER_LEVELS) nennt sie mit genau diesen Nummern.
+assert(JSON.stringify(LEVELS.filter((level) => level.stufe === "sehrleicht").map((level) => level.nr)) === "[13,14,15]", "die sehr leichten Bahnhöfe müssen die Nummern 13 bis 15 tragen");
+assert(LEVELS.slice(0, 12).every((level) => level.stufe !== "sehrleicht"), "vor Nummer 13 darf kein sehr leichter Bahnhof stehen");
 
 const gesehen = new Set();
 LEVELS.forEach((level) => {

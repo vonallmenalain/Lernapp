@@ -11,8 +11,9 @@
  * mit denselben Stationen und schwereren Aufträgen (Stationen 61–130).
  *
  * Dazu die Regeln, die nicht zeichnen: der Fahrgast je Karte, die
- * Streckenbesonderheit, die Schiebelok nach fünf Fehlversuchen und das
- * Reisetempo, das der Admin je Konto auf "langsam" stellen kann.
+ * Streckenbesonderheit, die Schiebelok nach fünf Fehlversuchen und die
+ * Schwierigkeitsstufe (leicht, mittel, schwer), die Eltern und Admin je Konto
+ * stellen können.
  *
  * Die Datei rechnet und speichert, zeichnet aber nichts: die Karte baut
  * train-journey.js, das Startbild verdrahtet train-home.js, und die Spiele
@@ -59,7 +60,7 @@
     flanker: { title: "Schwarm-Fokus", area: "konzentration", page: "schwarmfokus.html", kind: "score", gut: 30, einheit: "Punkte", auftrag: (n) => `Hol ${n} Punkte.` },
     trackRouter: { title: "Weichen-Wirrwarr", area: "konzentration", page: "weichen.html", kind: "level", auftrag: (n) => `Schaff Level ${n}.` },
     fishPond: { title: "Fischteich", area: "konzentration", page: "fischteich.html", kind: "score", gut: 14, einheit: "Fische", auftrag: (n) => `Fang ${n} Fische.` },
-    gridlock: { title: "Freie Fahrt", area: "konzentration", page: "freiefahrt.html", kind: "level", auftrag: (n) => `Räum Bahnhof ${n} frei.` },
+    gridlock: { title: "Freie Fahrt", area: "konzentration", page: "freiefahrt.html", kind: "level", auftrag: (n) => `Räum Bahnhof ${n} frei.`, klein: (n) => `Räum den kleinen Bahnhof ${n} frei.` },
     goSignal: { title: "Halt am Signal", area: "konzentration", page: "signal.html", kind: "score", gut: 22, einheit: "Punkte", auftrag: (n) => `Hol ${n} Punkte.` },
     // Geschwindigkeit
     tiersprung: { title: "Tier-Sprung", area: "geschwindigkeit", page: "tiersprung.html", kind: "level", auftrag: (n) => `Bring Tier ${n} ins Ziel.` },
@@ -89,21 +90,51 @@
     zahlbuchstabe: { label: "Zahl und Buchstabe", color: "#E8543F" },
   };
 
-  // Die Welten der Katalog-Spiele, wie app.js sie nennt.
-  const WORLDS = { easy: "Wiese", medium: "Wald", hard: "Meer", extreme: "Weltall" };
+  // Die Welten der Katalog-Spiele, wie app.js sie nennt. Der Garten ist die
+  // Welt vor der Wiese: Battleships und Tiergehege haben dort ein paar ganz
+  // kleine Rätsel, die nur Kinder auf der Stufe "leicht" zu sehen bekommen.
+  const WORLDS = { starter: "Garten", easy: "Wiese", medium: "Wald", hard: "Meer", extreme: "Weltall" };
 
-  // Rucksack packen und Wo hält der Zug? haben vier Stufen zur Wahl. Auf der
-  // Reise wählt die Karte: die ersten beiden Karten die leichteste, danach
-  // Stufe um Stufe hinauf; Reise 2 fährt die oberste.
+  // Die Schwierigkeitsstufe eines Kindes: beim Anlegen als Altersgruppe
+  // gewählt, von Eltern und Admin umstellbar, im Kasten der Reise gespeichert
+  // – sie gilt damit auf allen Geräten des Kindes, und die Spiele lesen sie
+  // hier (stufe()).
+  //   leicht  3 bis 5 Jahre: die Reise verlangt von jeder Karte weniger, und
+  //           auf den ersten beiden Karten fährt sie die Garten-Rätsel und die
+  //           kleinen Bahnhöfe an
+  //   mittel  5 bis 7 Jahre: die Reise wie bisher
+  //   schwer  7 bis 10 Jahre: dieselben Aufträge, aber den Stempel gibt es
+  //           nur mit drei Sternen bzw. der ganzen Punktzahl
+  const STUFEN = ["leicht", "mittel", "schwer"];
+  const STUFE_DEFAULT = "mittel";
+  const STUFE_INFO = {
+    leicht: { label: "Leicht", alter: "3 bis 5 Jahre" },
+    mittel: { label: "Mittel", alter: "5 bis 7 Jahre" },
+    schwer: { label: "Schwer", alter: "7 bis 10 Jahre" },
+  };
+
+  // Wo hält der Zug? hat vier Stufen zur Wahl. Auf der Reise wählt die Karte:
+  // die ersten beiden Karten die leichteste, danach Stufe um Stufe hinauf;
+  // Reise 2 fährt die oberste. (Rucksack packen liest seine Kartenzahl nicht
+  // mehr aus dem Auftrag, sondern aus der Schwierigkeitsstufe des Kindes.)
   const STUFE_BY_TIER = [0, 0, 1, 1, 2, 3];
   const STUFE_MAX = 3;
   // Wie viele Level die Level-Spiele haben (das Prüfskript zählt in den
   // Spieldateien nach), welche Kartenzahlen Memory kennt und wie viele Level
   // je Welt die Katalog-Spiele haben: zehn, der Raumdetektiv eins.
   const LEVEL_MAX = { trackRouter: 10, gridlock: 12, craneStack: 10, tiersprung: 10 };
-  const MEMORY_SIZES = [8, 12, 16, 20, 24];
+  const MEMORY_SIZES = [8, 12, 16, 20, 24, 30];
+  // Grösser wird ein Memory auf der Stufe "leicht" nie – auch nicht in Reise 2:
+  // in der Auswahl des Spiels reicht diese Stufe bis zwanzig (memory.js).
+  const MEMORY_MAX_LEICHT = 20;
   const CATALOG_PER_WORLD = { spatialPuzzle: 1 };
   const WORLD_ORDER = ["easy", "medium", "hard", "extreme"];
+  // Was es vor der Wiese noch gibt: die Garten-Rätsel (Welt "starter" in
+  // app.js, so viele je Spiel) und die kleinen Bahnhöfe von Freie Fahrt (ihre
+  // Levelnummern, vom leichtesten an). Beides fährt die Reise nur auf der
+  // Stufe "leicht" an, und nur auf den ersten beiden Karten.
+  const STARTER_WORLD = { bimaru: 6, shikaku: 6 };
+  const STARTER_LEVELS = { gridlock: [13, 14, 15] };
 
   // ---------------------------------------------------------------------------
   // Die sechs Karten
@@ -365,8 +396,10 @@
   // tries:  Fehlversuche an einer offenen Station (Ausweichgleis, Schiebelok)
   // choice: was an einer Wahlstation gewählt wurde
   // alt:    an welchen Stationen das Ausweichgleis genommen wurde
-  // tempo:  das Reisetempo ("normal" oder "langsam"), vom Admin gesetzt, mit
-  //         tempoAt als Zeitmarke – beim Zusammenführen gewinnt das neuere
+  // stufe:  die Schwierigkeitsstufe ("leicht", "mittel", "schwer"), von Eltern
+  //         oder Admin gesetzt, mit stufeAt als Zeitmarke – beim Zusammenführen
+  //         gewinnt die neuere. Ältere Kästen tragen statt dessen noch das
+  //         Reisetempo (tempo: "langsam" hiess leicht); das wird mitgelesen.
   const EMPTY = { done: {}, tries: {}, choice: {}, alt: {} };
 
   function clone(value) { try { return JSON.parse(JSON.stringify(value)); } catch { return value; } }
@@ -391,14 +424,23 @@
       Object.keys(source).forEach((nr) => { tries[nr] = Math.max(Number(tries[nr]) || 0, Number(source[nr]) || 0); });
     });
     const out = { done, tries, choice: { ...obj(b.choice), ...obj(a.choice) }, alt: { ...obj(b.alt), ...obj(a.alt) } };
-    const atA = Number(a.tempoAt) || 0;
-    const atB = Number(b.tempoAt) || 0;
-    const source = atB > atA ? b : a;
-    if (source.tempo !== undefined && source.tempo !== null) {
-      out.tempo = source.tempo === "langsam" ? "langsam" : "normal";
-      out.tempoAt = Math.max(atA, atB);
+    const setting = [settingOf(a), settingOf(b)].filter(Boolean).sort((x, y) => y.at - x.at)[0];
+    if (setting) {
+      out.stufe = setting.stufe;
+      out.stufeAt = setting.at;
     }
     return out;
+  }
+
+  // Die Stufe, wie sie in einem Kasten steht – auch in der alten Form: Vor
+  // den Stufen gab es das Reisetempo, und "langsam" war, was jetzt "leicht"
+  // ist, "normal" die Mitte.
+  function settingOf(state) {
+    if (STUFEN.includes(state?.stufe)) return { stufe: state.stufe, at: Number(state.stufeAt) || 0 };
+    if (state?.tempo === "langsam" || state?.tempo === "normal") {
+      return { stufe: state.tempo === "langsam" ? "leicht" : "mittel", at: Number(state.tempoAt) || 0 };
+    }
+    return null;
   }
 
   function readLocal() {
@@ -452,18 +494,24 @@
     const per = CATALOG_PER_WORLD[gameId] || 10;
     return Math.max(0, WORLD_ORDER.indexOf(world)) * per + Math.max(1, Math.min(per, Number(pos) || 1));
   }
+  // Unter Wiese 1 liegt bei Battleships und Tiergehege der Garten: Wiese 1
+  // minus eins ist Garten 6.
   function catalogAt(gameId, index) {
     const per = CATALOG_PER_WORLD[gameId] || 10;
+    const garten = STARTER_WORLD[gameId] || 0;
+    if (index < 1 && garten) return { world: "starter", pos: Math.max(1, Math.min(garten, index + garten)) };
     const i = Math.max(1, Math.min(per * WORLD_ORDER.length, index));
     return { world: WORLD_ORDER[Math.floor((i - 1) / per)], pos: ((i - 1) % per) + 1 };
   }
 
   // Reise 2 fährt die Stationen von Reise 1 schwerer (boost): drei Level
   // höher, das Memory um acht Karten grösser, Katalog-Level aus dem Weltall.
-  // Das Reisetempo "langsam" (slow) nimmt von jeder Karte wieder etwas weg:
-  // zwei Level, vier Karten, drei Katalog-Level – für Vier- bis Fünfjährige,
-  // ohne dass ein Kind je "leicht" wählen muss.
-  function shiftSpec(game, spec, { boost = false, slow = false } = {}) {
+  // Die Stufe "leicht" (slow) nimmt von jeder Karte wieder etwas weg: zwei
+  // Level, vier Karten, drei Katalog-Level – für Drei- bis Fünfjährige, ohne
+  // dass ein Kind je "leicht" wählen muss. Auf den ersten beiden Karten
+  // (starter) fährt sie dazu die Garten-Rätsel und die kleinen Bahnhöfe an:
+  // für die Kleinsten sind schon die leichten Level zu schwer.
+  function shiftSpec(game, spec, { boost = false, slow = false, starter = false } = {}) {
     if (!boost && !slow) return spec;
     const out = { ...spec };
     if (game.kind === "level") {
@@ -471,24 +519,28 @@
       let level = Number(spec.level) || 1;
       if (boost) level = Math.min(max, level + 3);
       if (slow) level = Math.max(1, level - 2);
+      const klein = STARTER_LEVELS[spec.game];
+      if (slow && starter && klein) level = klein[Math.min(klein.length, level) - 1];
       out.level = level;
     } else if (game.kind === "size") {
       let size = Number(spec.size) || 8;
       if (boost) size = Math.min(MEMORY_SIZES[MEMORY_SIZES.length - 1], size + 8);
-      if (slow) size = Math.max(MEMORY_SIZES[0], size - 4);
+      if (slow) size = Math.min(MEMORY_MAX_LEICHT, Math.max(MEMORY_SIZES[0], size - 4));
       out.size = memorySize(size);
     } else if (game.kind === "catalog") {
       let at = { world: spec.world || "easy", pos: Number(spec.pos) || 1 };
       if (boost) at = { world: "extreme", pos: at.pos };
       if (slow) at = catalogAt(spec.game, catalogIndex(spec.game, at.world, at.pos) - 3);
+      const garten = STARTER_WORLD[spec.game];
+      if (slow && starter && garten) at = { world: "starter", pos: Math.max(1, Math.min(garten, Number(spec.pos) || 1)) };
       out.world = at.world;
       out.pos = at.pos;
     }
     return out;
   }
 
-  // Der Faktor der Karte davor – für das Reisetempo "langsam": Karte 2
-  // verlangt dann die Zielpunktzahlen von Karte 1, Karte 1 noch weniger.
+  // Der Faktor der Karte davor – für die Stufe "leicht": Karte 2 verlangt
+  // dann die Zielpunktzahlen von Karte 1, Karte 1 noch weniger.
   function previousFactor(mapIndex) {
     return mapIndex > 0 ? MAPS[mapIndex - 1].factor : 0.25;
   }
@@ -496,33 +548,45 @@
   // Aus einer Spielangabe wird der Auftrag: welches Level, welche Kartenzahl,
   // wie viele Punkte. Zielpunktzahlen sind keine Handarbeit, sondern
   // gut × Faktor, aufgerundet, mindestens 3. Das Ausweichgleis rechnet mit
-  // einem Zehntel weniger. Reise 2 und das Reisetempo verschieben die
+  // einem Zehntel weniger. Reise 2 und die Stufe "leicht" verschieben die
   // Angabe vorher (shiftSpec).
+  //
+  // Die Stufe "schwer" verschiebt nichts – sie verlangt mehr vom Ergebnis:
+  // die ganze Drei-Sterne-Schwelle als Zielpunktzahl, und bei Leveln,
+  // Memorys und Rätseln drei Sterne für den Stempel (needStars; das
+  // Ausweichgleis begnügt sich mit zweien). Die Spiele lesen needStars, wenn
+  // sie stempeln (game-shell.js, app.js).
   function buildTask(station, spec, { easier = false } = {}) {
     const game = GAMES[spec.game];
     if (!game) return null;
     const map = station.map;
     const tier = station.mapIndex;
-    const slow = tempoIn(read()) === "langsam";
-    const shifted = shiftSpec(game, spec, { boost: Boolean(map.boost), slow });
+    const stufe = stufeIn(read());
+    const slow = stufe === "leicht";
+    const strict = stufe === "schwer";
+    const shifted = shiftSpec(game, spec, { boost: Boolean(map.boost), slow, starter: tier < 2 });
     const task = {
       nr: station.nr, mapIndex: station.mapIndex, index: station.index, mapNr: map.nr, mapName: map.name, lap: map.lap || 1,
       area: game.area, areaLabel: AREAS[game.area].label, color: AREAS[game.area].color,
       game: spec.game, title: game.title, page: game.page, kind: game.kind, goal: station.goal,
+      needStars: 1,
     };
     if (game.kind === "score") {
-      const base = slow ? previousFactor(station.mapIndex) : map.factor;
+      const base = strict ? 1 : slow ? previousFactor(station.mapIndex) : map.factor;
       const factor = Math.max(0.2, base - (easier ? 0.1 : 0));
       task.gut = game.gut;
       task.target = Math.max(3, Math.ceil(game.gut * factor));
-      const stufe = map.lap === 2 ? STUFE_MAX : (STUFE_BY_TIER[tier] || 0);
-      task.stufe = Math.max(0, stufe - (slow ? 1 : 0));
+      const level = map.lap === 2 ? STUFE_MAX : (STUFE_BY_TIER[tier] || 0);
+      task.stufe = Math.max(0, level - (slow ? 1 : 0));
       task.label = `${task.target} ${game.einheit}`;
       task.speech = game.auftrag(task.target);
     } else if (game.kind === "level") {
       task.level = Number(shifted.level) || 1;
-      task.label = `Level ${task.level}`;
-      task.speech = game.auftrag(task.level);
+      // Ein kleiner Bahnhof heisst auf dem Knopf "Sehr leicht 1", nicht
+      // "Level 13" – so steht es auch in der Levelwahl des Spiels.
+      const klein = (STARTER_LEVELS[spec.game] || []).indexOf(task.level) + 1;
+      task.label = klein ? `Sehr leicht ${klein}` : `Level ${task.level}`;
+      task.speech = klein && game.klein ? game.klein(klein) : game.auftrag(task.level);
     } else if (game.kind === "size") {
       task.size = Number(shifted.size) || 8;
       task.label = `${task.size} Karten`;
@@ -533,6 +597,10 @@
       task.worldLabel = WORLDS[task.world] || task.world;
       task.label = `${task.worldLabel} ${task.pos}`;
       task.speech = game.auftrag(`${task.worldLabel} ${task.pos}`);
+    }
+    if (strict && game.kind !== "score") {
+      task.needStars = easier ? 2 : 3;
+      task.speech = `${task.speech} Für den Stempel brauchst du ${task.needStars === 3 ? "drei" : "zwei"} Sterne.`;
     }
     return task;
   }
@@ -659,7 +727,7 @@
     return { stars, gold };
   }
 
-  function tempoIn(state) { return state?.tempo === "langsam" ? "langsam" : "normal"; }
+  function stufeIn(state) { return settingOf(state)?.stufe || STUFE_DEFAULT; }
 
   function rewardsIn(state) {
     const list = MAPS.filter((_, index) => mapFinishedIn(state, index)).map((map) => map.reward.id);
@@ -688,7 +756,7 @@
       pushed: entries.filter((entry) => entry?.pushed).length,
       stars: plate.stars,
       goldStars: plate.gold,
-      tempo: tempoIn(state),
+      stufe: stufeIn(state),
       firstLapComplete: current > LAPS[0].last,
       complete: current > STATION_COUNT,
     };
@@ -696,14 +764,15 @@
 
   function current() { return currentIn(read()); }
   function plateStars() { return plateStarsIn(read()); }
-  function tempo() { return tempoIn(read()); }
-  // Das Reisetempo umstellen – auf dem eigenen Gerät; der Admin schreibt es
-  // für ein fremdes Konto direkt in dessen Kasten (firebase.js).
-  function setTempo(value) {
+  function stufe() { return stufeIn(read()); }
+  // Die Stufe umstellen – auf dem eigenen Gerät; Eltern und Admin schreiben
+  // sie für ein fremdes Konto direkt in dessen Kasten (firebase.js).
+  function setStufe(value) {
+    const next = STUFEN.includes(value) ? value : STUFE_DEFAULT;
     store.update((old) => {
       const state = merge(obj(old), EMPTY);
-      state.tempo = value === "langsam" ? "langsam" : "normal";
-      state.tempoAt = Date.now();
+      state.stufe = next;
+      state.stufeAt = Date.now();
       return state;
     });
   }
@@ -919,10 +988,11 @@
 
   window.LernappReise = {
     KEY, SEEN_KEY, MAPS, LAPS, GAMES, AREAS, WORLDS, LOCKS, BONUSES, STATION_COUNT, STATIONS_PER_MAP,
-    TRIES_FOR_ALT, TRIES_FOR_PUSH, TRIES_FOR_PUSH_LAST, LEVEL_MAX, MEMORY_SIZES, CATALOG_PER_WORLD,
+    TRIES_FOR_ALT, TRIES_FOR_PUSH, TRIES_FOR_PUSH_LAST, LEVEL_MAX, MEMORY_SIZES, CATALOG_PER_WORLD, STARTER_WORLD, STARTER_LEVELS,
+    STUFEN, STUFE_DEFAULT, STUFE_INFO,
     stationAt, taskFor, altTaskFor, mapIndexOf, lapOf, openOn, isOpen, OPEN_AT_ONCE, lastGap, triesForPush,
     read, current, isDone, doneInfo, triesFor, markDone, recordTry, choose, useAlt, needsPush, pushThrough,
-    tempo, setTempo, plateStars,
+    stufe, setStufe, stufeIn, plateStars,
     hasReward, lockFor, finishedMaps, mapFinished, goldenMaps, mapGolden, goldenStations, progressFor, merge,
     unlockedParts, newParts, markPartsSeen, PARTS_KEY,
     readSeen, writeSeen, urlFor, mapUrl, fromLocation, describe,

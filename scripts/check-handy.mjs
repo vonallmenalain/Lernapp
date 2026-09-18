@@ -397,7 +397,9 @@ const SZENARIEN = [
     seite: "backpack",
     schritte: [
       { name: "Wahl", tun: async () => {} },
-      { name: "Aussuchen", tun: async (blatt) => { await blatt.click('.rs-stufe[data-anzahl="6"]'); await pause(blatt, 400); } },
+      // Eine Wahl der Kartenzahl gibt es nicht mehr – die Stufe des Kindes
+      // entscheidet, und die Runde läuft sofort.
+      { name: "Aussuchen", tun: async (blatt) => { await pause(blatt, 400); } },
       // Nach dem Aussuchen steht der Gegenstand eine Sekunde allein da, fliegt
       // dann in den Rucksack, und der wird ausgeleert – erst danach wird
       // gepackt. Der Gegenstand wird gemerkt, solange er allein dasteht.
@@ -423,7 +425,7 @@ const SZENARIEN = [
     schritte: [
       { name: "Wahl", tun: async () => {} },
       { name: "Spiel 24", tun: async (blatt) => { await blatt.click('.me-groesse[data-karten="24"]'); await pause(blatt, 400); } },
-      { name: "Spiel 8", tun: async (blatt) => { await blatt.click(".cm-icon-back"); await pause(blatt, 300); await blatt.click('.me-groesse[data-karten="8"]'); await pause(blatt, 400); } },
+      { name: "Spiel 12", tun: async (blatt) => { await blatt.click(".cm-icon-back"); await pause(blatt, 300); await blatt.click('.me-groesse[data-karten="12"]'); await pause(blatt, 400); } },
       { name: "Ergebnis", tun: async (blatt) => {
         if (!await memoryLoesen(blatt)) throw new Error("Memory nicht gelöst");
         await pause(blatt, 1200);

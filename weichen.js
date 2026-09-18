@@ -89,6 +89,14 @@
     { nr: 10, farben: 9, zuege: 22, tempo: 0.0475, takt: 2800 },
   ];
 
+  // Wie schnell die Züge wirklich fahren, hängt an der Schwierigkeitsstufe des
+  // Kindes (journey-plan.js): Die Tabelle gilt für "schwer"; "mittel" fährt
+  // mit 85, "leicht" mit 70 Prozent davon. Der Takt wächst im selben Mass,
+  // damit nicht mehr Züge zugleich auf dem Bild sind als vorher – nur
+  // langsamere. Gelesen wird der Faktor beim Start eines Levels.
+  const TEMPO_JE_STUFE = { leicht: 0.7, mittel: 0.85, schwer: 1 };
+  const tempoFaktor = () => TEMPO_JE_STUFE[window.LernappReise?.stufe?.()] || TEMPO_JE_STUFE.mittel;
+
   // Fünf abgeschlossene Level, und der Wagen im Bereich Konzentration ist für
   // dieses Spiel fertig – welche fünf, ist gleich.
   // Wie viele, sagt das Wagen-Set: fünf im ersten, neun im zweiten (kids.js).
@@ -278,6 +286,7 @@
     shell.setCount(0);
 
     run = {
+      faktor: tempoFaktor(),
       switches: {},
       trains: [],
       gestartet: 0,
@@ -384,7 +393,7 @@
   }
 
   function advance(train, delta) {
-    train.t += state.level.tempo * delta / edgeLength(train.from, train.to);
+    train.t += state.level.tempo * run.faktor * delta / edgeLength(train.from, train.to);
     while (train.t >= 1) {
       train.t -= 1;
       const node = nodeById(train.to);
@@ -425,7 +434,7 @@
       // Ist die Strecke voll, wird gleich wieder nachgeschaut statt die
       // Abfahrt zu verwerfen: sonst führe ein volles Level immer kürzer.
       const los = spawnTrain();
-      run.naechsteAbfahrt = now + (los ? state.level.takt : 300);
+      run.naechsteAbfahrt = now + (los ? state.level.takt / run.faktor : 300);
     }
 
     draw();
@@ -707,7 +716,7 @@
   // rechnen damit ohne Browser nach, ob jedes Haus erreichbar ist und die zehn
   // Level anwachsen.
   window.LernappWeichen = {
-    LEVELS, FARBEN, buildNet, starsFor, LEVELS_FOR_DONE, FIRST_SWITCH_X,
+    LEVELS, FARBEN, TEMPO_JE_STUFE, buildNet, starsFor, LEVELS_FOR_DONE, FIRST_SWITCH_X,
     // Die Züge, die gerade unterwegs sind – als Kopie, nur zum Nachmessen.
     // Der Browsertest prüft damit, dass ein Zug auf jedem Gleisstück gleich
     // schnell fährt, statt auf den langen zu rasen.
