@@ -355,6 +355,33 @@ ok(r400.status === 400, `kind-anlegen mit kaputtem JSON: ${r400.status}`);
   }
 }
 
+// --- 10. Was der Emulator nie anfasst: die Signaturprüfung echter Token -------------
+// firebase-admin holt dafür die öffentlichen Schlüssel von Google und rechnet
+// sie mit jwks-rsa um – und jwks-rsa ist CommonJS und macht require("jose").
+// Gegen den Emulator läuft das nie: Der überspringt die Signaturprüfung, und
+// deshalb fiel es hier nicht auf, sondern erst auf kids.alae.app, mit 502.
+//
+// jose 6 ist reines ESM. Node kann seit 20.19/22.12 ESM auch requiren – die
+// Lambda bei Netlify aber nicht, sie antwortet mit ERR_REQUIRE_ESM. Deshalb
+// liegt unter jwks-rsa jose 5 (package.json, overrides), das CommonJS kann.
+// Geprüft wird mit abgeschaltetem require(esm), also so, wie es dort läuft.
+{
+  const utils = path.join(WURZEL, "node_modules/jwks-rsa/src/utils.js");
+  ok(existsSync(utils), "jwks-rsa/src/utils.js fehlt – hat firebase-admin die Abhängigkeit gewechselt?");
+  const probe = `
+    const { retrieveSigningKeys } = require(${JSON.stringify(utils)});
+    const { generateKeyPairSync } = require("node:crypto");
+    const { publicKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
+    const jwk = publicKey.export({ format: "jwk" });
+    retrieveSigningKeys([{ ...jwk, kid: "probe", alg: "RS256", use: "sig" }])
+      .then((keys) => console.log(keys.length === 1 && keys[0].publicKey ? "GEHT" : "LEER"))
+      .catch((fehler) => console.log("FEHLER " + fehler.code + " " + fehler.message.split("\\n")[0]));
+  `;
+  const lauf = spawnSync(process.execPath, ["--no-experimental-require-module", "-e", probe], { encoding: "utf8" });
+  const ausgabe = `${lauf.stdout || ""}${lauf.stderr || ""}`.trim();
+  ok(/GEHT/.test(ausgabe), `jwks-rsa lädt ohne require(esm) nicht oder rechnet nicht: ${ausgabe.split("\n")[0].slice(0, 180)}`);
+}
+
 console.log(`\n${geprueft} Prüfungen.`);
 if (befunde.length) {
   console.error(`\n${befunde.length} Befund${befunde.length === 1 ? "" : "e"}:`);

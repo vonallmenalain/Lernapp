@@ -161,6 +161,7 @@ der beiden Seiten, nur ob sie gesetzt sind.
 
 | Was du siehst | Woran es liegt | Was hilft |
 | --- | --- | --- |
+| *This function has crashed* mit `ERR_REQUIRE_ESM` | Ein CommonJS-Paket lädt ein Paket, das nur ESM kann – die Lambda erlaubt das nicht | war bei `jwks-rsa`/`jose` so und ist behoben (siehe FIREBASE_SETUP.md, Abschnitt 3b). Trifft es ein anderes Paar: in der package.json unter `overrides` die ESM-Fassung gegen eine mit CommonJS tauschen |
 | *Der Server hat zu lange gebraucht* beim Kaufen (im Browser-Protokoll: 502) | Die Funktion war kalt und hat die Zeit überschritten – oder eine Umgebungsvariable fehlt und Firebase wartet ins Leere | noch einmal tippen (die zweite Anfrage trifft sie wach an); bleibt es dabei: `/api/status-tief` aufrufen und nachsehen, welche Prüfung hängt |
 | *Auf dem Server ist etwas schiefgegangen* beim Kaufen oder Kind anlegen | eine Umgebungsvariable fehlt oder ist falsch (die Funktion sagt in ihrem Log, welche) | Netlify → Logs → Functions → `checkout` bzw. `kind-anlegen` |
 | Die Kasse öffnet sich nicht, im Log steht etwas von *terms of service* | AGB-URL bei Stripe nicht hinterlegt (Schritt 2.4) | eintragen, noch einmal |
