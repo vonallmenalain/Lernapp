@@ -20,6 +20,9 @@
  *   Gruppen  Wer sieht wessen Zug. Familien sind von selbst eine Gruppe – hier
  *            entstehen die übergreifenden, und nur hier: Das kann sonst
  *            niemand, weder ein Kind noch ein Elternkonto (firestore.rules).
+ *   E-Mail   Was Gripszug verschickt hat und was an kids@alae.app ankam, in
+ *            einer Liste – und die Adresse, an die eingehende Post
+ *            weitergeleitet wird.
  *
  * Gerechnet und gezeichnet wird mit denselben Bausteinen wie beim Kind:
  * window.LernappFirebase.ansicht (in firebase.js), train-progress.js für den
@@ -49,6 +52,7 @@
     ["games", "Spiele"],
     ["wagons", "Wagen"],
     ["groups", "Gruppen"],
+    ["mails", "E-Mail"],
   ];
 
   const SORTIERUNGEN = [
@@ -92,6 +96,16 @@
     gruppeLaeuft: "",
     gruppeFehler: "",
     gruppeFertig: "",
+    // E-Mail
+    mails: [],
+    mailsGeladen: false,
+    mailFilter: "alle",     // alle | ein | aus | fehler
+    offeneMail: null,
+    mailStand: null,        // {weiterleitungAn, weiterleitungAktiv, absender, bereit, eingangBereit}
+    mailEntwurf: null,      // die Adresse im Feld, solange sie noch nicht gespeichert ist
+    mailLaeuft: "",
+    mailFehler: "",
+    mailFertig: "",
   };
 
   // ---------------------------------------------------------------------------
@@ -287,6 +301,9 @@
   }
 
   function inhalt() {
+    // Die Post steht für sich: Sie braucht weder Konten noch Käufe, also
+    // wartet sie auch nicht auf sie.
+    if (zustand.reiter === "mails") return mailSicht();
     if (!zustand.geladen.konten) return `<p class="account-muted">Daten werden geladen...</p>`;
     if (zustand.reiter === "guests") return gaesteSicht();
     if (zustand.reiter === "games") return spieleSicht();
@@ -301,6 +318,7 @@
     if (zustand.reiter === "games") bindeSpiele();
     if (zustand.reiter === "wagons") bindeWagen();
     if (zustand.reiter === "groups") bindeGruppen();
+    if (zustand.reiter === "mails") bindeMails();
   }
 
   // ---------------------------------------------------------------------------
@@ -1158,6 +1176,237 @@
     }
     zustand.gruppeLaeuft = "";
     await lade({ neu: true });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Sicht: E-Mail
+  // ---------------------------------------------------------------------------
+  // Zwei Dinge auf einer Seite, und beide gehören zusammen:
+  //
+  //   Oben   die Weiterleitung. Post an kids@alae.app kommt über Cloudflare
+  //          bei /api/mail-eingang an und geht von dort an die Adresse, die
+  //          hier steht. Sie steht in der Datenbank, nicht im Code – ändern
+  //          soll man sie hier können, nicht in einem Deploy.
+  //   Unten  das Archiv: was Gripszug verschickt hat (Begrüssung,
+  //          Bestellbestätigung, Passwort) und was angekommen ist.
+  //
+  // Geschrieben wird beides vom Server; diese Seite liest nur und drückt
+  // Knöpfe. Wer hier hereindarf, entscheiden firestore.rules und das Token.
+  const MAIL_ARTEN = {
+    willkommen: "Begrüssung",
+    bestellung: "Bestellung",
+    freischaltung: "Freischaltung",
+    passwort: "Passwort",
+    weiterleitung: "Weiterleitung",
+    eingang: "Eingang",
+    test: "Test",
+    sonstige: "Sonstige",
+  };
+
+  const MAIL_FILTER = [
+    ["alle", "Alle"],
+    ["ein", "Eingang"],
+    ["aus", "Ausgang"],
+    ["fehler", "Fehler"],
+  ];
+
+  function mailsGefiltert() {
+    return zustand.mails.filter((mail) => {
+      if (zustand.mailFilter === "ein") return mail.richtung === "ein";
+      if (zustand.mailFilter === "aus") return mail.richtung === "aus";
+      if (zustand.mailFilter === "fehler") return mail.status === "fehler";
+      return true;
+    });
+  }
+
+  function mailSicht() {
+    const stand = zustand.mailStand;
+    const liste = mailsGefiltert();
+    const fehlerZahl = zustand.mails.filter((mail) => mail.status === "fehler").length;
+
+    return `
+      <div class="admin-mail">
+        ${mailEinstellungenKarte(stand)}
+        ${zustand.mailFehler ? `<p class="auth-status">${t(zustand.mailFehler)}</p>` : ""}
+        ${zustand.mailFertig ? `<p class="auth-status admin-set-done" role="status">${t(zustand.mailFertig)}</p>` : ""}
+        <div class="admin-mail-kopf">
+          <div class="admin-filtergruppe" role="group" aria-label="Filter">
+            ${MAIL_FILTER.map(([id, label]) => `
+              <button type="button" data-mail-filter="${id}" class="${zustand.mailFilter === id ? "active" : ""}">${t(label)}${id === "fehler" && fehlerZahl ? ` (${fehlerZahl})` : ""}</button>
+            `).join("")}
+          </div>
+          <button type="button" class="secondary-action" data-mail-neu>Neu laden</button>
+        </div>
+        ${!zustand.mailsGeladen
+          ? `<p class="account-muted">Post wird geladen...</p>`
+          : liste.length
+            ? `<div class="admin-accordion" aria-label="E-Mails">${liste.map(mailZeile).join("")}</div>`
+            : `<p class="account-muted">Hier steht noch nichts. Sobald jemand ein Konto anlegt, kauft oder an ${t(stand?.absender || "kids@alae.app")} schreibt, taucht die Mail hier auf.</p>`}
+      </div>`;
+  }
+
+  function mailEinstellungenKarte(stand) {
+    if (!stand) return `<p class="account-muted">Einstellungen werden geladen...</p>`;
+    const adresse = zustand.mailEntwurf === null ? (stand.weiterleitungAn || "") : zustand.mailEntwurf;
+    const laeuft = Boolean(zustand.mailLaeuft);
+    return `
+      <section class="admin-mail-einstellungen">
+        <header>
+          <div>
+            <strong>Weiterleitung</strong>
+            <span>Alles, was an ${t(stand.absender)} geschrieben wird, geht zusätzlich an diese Adresse. Im Archiv unten steht es so oder so.</span>
+          </div>
+        </header>
+        <label class="admin-gruppe-name">
+          <span>Weiterleiten an</span>
+          <input type="email" data-mail-adresse value="${t(adresse)}" placeholder="name@beispiel.ch" autocomplete="off" spellcheck="false" />
+        </label>
+        <label class="admin-mitglied admin-mail-schalter">
+          <input type="checkbox" data-mail-aktiv ${stand.weiterleitungAktiv ? "checked" : ""} />
+          <span>Weiterleitung eingeschaltet</span>
+        </label>
+        <div class="card-actions">
+          <button type="button" data-mail-speichern ${laeuft ? "disabled" : ""}>Speichern</button>
+          <button type="button" class="secondary-action" data-mail-test ${laeuft || !stand.bereit ? "disabled" : ""}>Testmail schicken</button>
+        </div>
+        ${zustand.mailLaeuft ? `<p class="auth-status" role="status" aria-live="polite">${t(zustand.mailLaeuft)}</p>` : ""}
+        <div class="admin-mail-stand">
+          <span class="${stand.bereit ? "is-ok" : "is-weg"}"><b>Versand</b>${stand.bereit ? "bereit" : "RESEND_API_KEY fehlt bei Netlify"}</span>
+          <span class="${stand.eingangBereit ? "is-ok" : "is-weg"}"><b>Eingang</b>${stand.eingangBereit ? "bereit" : "MAIL_WEBHOOK_SECRET fehlt bei Netlify"}</span>
+          <span><b>Absender</b>${t(stand.absender)}</span>
+        </div>
+      </section>`;
+  }
+
+  function mailZeile(mail) {
+    const offen = zustand.offeneMail === mail.id;
+    const ein = mail.richtung === "ein";
+    const art = MAIL_ARTEN[mail.art] || mail.art;
+    const fehler = mail.status === "fehler";
+    const gegenueber = ein ? mail.von : mail.an;
+    return `
+      <article class="admin-entry admin-mail-zeile${offen ? " is-open" : ""}${fehler ? " is-fehler" : ""}">
+        <button type="button" class="admin-entry-head" data-mail="${t(mail.id)}" aria-expanded="${offen}">
+          <span class="admin-entry-caret" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </span>
+          <span class="admin-mail-richtung${ein ? " ist-ein" : ""}">${ein ? "Eingang" : "Ausgang"}</span>
+          <span class="admin-entry-name">
+            <strong>${t(mail.betreff || "(ohne Betreff)")}</strong>
+            <span>${ein ? "von" : "an"} ${t(gegenueber || "unbekannt")}</span>
+          </span>
+          <span class="admin-mail-art">${t(art)}</span>
+          <span class="admin-entry-zuletzt"><b>${fehler ? "Fehler" : "Zeit"}</b>${mail.zeitMs ? t(v().datum(mail.zeitMs)) : "unbekannt"}</span>
+        </button>
+        ${offen ? `<div class="admin-entry-body">${mailDetail(mail)}</div>` : ""}
+      </article>`;
+  }
+
+  function mailDetail(mail) {
+    const pruefung = mail.pruefung && typeof mail.pruefung === "object"
+      ? Object.entries(mail.pruefung).map(([name, wert]) => `<span><b>${t(name)}</b>${t(String(wert))}</span>`).join("")
+      : "";
+    return `
+      <div class="admin-data-grid">
+        <span><b>Von</b>${t(mail.von || "–")}</span>
+        <span><b>An</b>${t(mail.an || "–")}</span>
+        <span><b>Art</b>${t(MAIL_ARTEN[mail.art] || mail.art)}</span>
+        <span><b>Stand</b>${t(mail.status || "–")}</span>
+        ${pruefung}
+      </div>
+      ${mail.fehler ? `<p class="auth-status">${t(mail.fehler)}</p>` : ""}
+      <pre class="admin-mail-text">${t(mail.text || "(kein Text)")}</pre>`;
+  }
+
+  // Geladen wird erst, wenn jemand den Reiter öffnet: Die meisten Besuche im
+  // Adminbereich gelten den Konten, und zwei Abfragen, die niemand ansieht,
+  // sind zwei Abfragen zu viel.
+  let mailsLaufen = false;
+
+  async function mailsLaden({ neu = false } = {}) {
+    if (mailsLaufen) return;
+    if (zustand.mailsGeladen && !neu) return;
+    mailsLaufen = true;
+    zustand.mailFehler = "";
+    try {
+      const [mails, stand] = await Promise.all([api().ladeMails(), api().mailEinstellungen()]);
+      zustand.mails = mails;
+      zustand.mailStand = stand;
+      zustand.mailsGeladen = true;
+      zustand.mailEntwurf = null;
+    } catch (fehler) {
+      zustand.mailFehler = api().serverFehlerText(fehler);
+    }
+    mailsLaufen = false;
+    zeichne();
+  }
+
+  function bindeMails() {
+    if (!zustand.mailsGeladen && !mailsLaufen) mailsLaden();
+
+    seite.querySelectorAll("[data-mail-filter]").forEach((knopf) => {
+      knopf.addEventListener("click", () => { zustand.mailFilter = knopf.dataset.mailFilter; zeichne(); });
+    });
+    seite.querySelector("[data-mail-neu]")?.addEventListener("click", () => mailsLaden({ neu: true }));
+    seite.querySelectorAll("[data-mail]").forEach((knopf) => {
+      knopf.addEventListener("click", () => {
+        zustand.offeneMail = zustand.offeneMail === knopf.dataset.mail ? null : knopf.dataset.mail;
+        zeichne();
+      });
+    });
+
+    // Das Adressfeld merkt sich, was getippt wurde: Jedes zeichne() baut die
+    // Seite neu, und ohne das stünde nach dem ersten Tastendruck wieder die
+    // gespeicherte Adresse da.
+    const feld = seite.querySelector("[data-mail-adresse]");
+    feld?.addEventListener("input", () => { zustand.mailEntwurf = feld.value; });
+    seite.querySelector("[data-mail-speichern]")?.addEventListener("click", () => mailEinstellungenSpeichern());
+    seite.querySelector("[data-mail-test]")?.addEventListener("click", () => testmailSchicken());
+  }
+
+  function mailFormular() {
+    return {
+      adresse: (seite.querySelector("[data-mail-adresse]")?.value || "").trim(),
+      aktiv: Boolean(seite.querySelector("[data-mail-aktiv]")?.checked),
+    };
+  }
+
+  async function mailEinstellungenSpeichern() {
+    if (zustand.mailLaeuft) return;
+    const { adresse, aktiv } = mailFormular();
+    zustand.mailLaeuft = "Wird gespeichert...";
+    zustand.mailFehler = "";
+    zustand.mailFertig = "";
+    zeichne();
+    try {
+      zustand.mailStand = await api().speichereMailEinstellungen(adresse, aktiv);
+      zustand.mailEntwurf = null;
+      zustand.mailFertig = aktiv
+        ? `Post an ${zustand.mailStand.absender} geht jetzt an ${zustand.mailStand.weiterleitungAn}.`
+        : "Die Weiterleitung ist aus. Post kommt weiterhin an und steht im Archiv.";
+    } catch (fehler) {
+      zustand.mailFehler = api().serverFehlerText(fehler);
+    }
+    zustand.mailLaeuft = "";
+    zeichne();
+  }
+
+  async function testmailSchicken() {
+    if (zustand.mailLaeuft) return;
+    const { adresse } = mailFormular();
+    zustand.mailLaeuft = "Testmail wird verschickt...";
+    zustand.mailFehler = "";
+    zustand.mailFertig = "";
+    zeichne();
+    try {
+      const antwort = await api().testMail(adresse);
+      zustand.mailStand = antwort;
+      zustand.mailFertig = `Testmail an ${antwort.test?.an || adresse} ist raus. Kommt sie nicht an, steht der Grund im Resend-Konto.`;
+    } catch (fehler) {
+      zustand.mailFehler = api().serverFehlerText(fehler);
+    }
+    zustand.mailLaeuft = "";
+    await mailsLaden({ neu: true });
   }
 
   // ---------------------------------------------------------------------------

@@ -27,6 +27,12 @@
  *   - Der Admin schaltet eine Familie gratis frei und nimmt es zurück; ein
  *     bezahlter Kauf bleibt dabei unberührt, und niemand sonst darf das.
  *   - Ohne Anmeldung 401, als Kind 403, als Eltern 200.
+ *   - Die Post: Die Begrüssung geht einmal raus und kein zweites Mal; die
+ *     Passwortmail nur an Adressen mit Konto und nicht im Sekundentakt; der
+ *     Eingang nimmt ohne Geheimnis nichts an und leitet dieselbe Mail nicht
+ *     zweimal weiter; die Bestellbestätigung hängt am Kauf und lässt ihn
+ *     stehen, wenn sie scheitert. Resend wird dabei abgefangen, nicht
+ *     angerufen.
  *
  *   npm run test:functions        oder        node scripts/test-functions.mjs
  */
@@ -656,7 +662,235 @@ ok(r400.status === 400, `kind-anlegen mit kaputtem JSON: ${r400.status}`);
   }
 }
 
-// --- 10. Was der Emulator nie anfasst: die Signaturprüfung echter Token -------------
+// --- 10. Die Post -----------------------------------------------------------------
+// Gripszug schreibt seine Mails selbst und verschickt sie über Resend. Resend
+// liegt im Netz; hier wird es abgefangen – alles an api.resend.com landet in
+// einer Liste, alles andere geht weiter an den Emulator.
+//
+// Geprüft wird das, was schiefgehen kann, ohne dass es jemand merkt: dass eine
+// Mail zweimal rausgeht, dass ein Fremder über "Passwort vergessen" beliebig
+// viele Mails auslösen kann, dass der Eingang ohne Geheimnis offen steht.
+{
+  const echtesFetch = globalThis.fetch;
+  let verschickt = [];
+  globalThis.fetch = async (ziel, optionen) => {
+    const adresse = String(ziel?.url || ziel);
+    if (adresse.startsWith("https://api.resend.com/")) {
+      let inhalt = {};
+      try { inhalt = JSON.parse(optionen?.body || "{}"); } catch { inhalt = {}; }
+      verschickt.push({ adresse, inhalt, schluessel: optionen?.headers?.Authorization || "" });
+      return new Response(JSON.stringify({ id: `resend-${verschickt.length}` }), { status: 200, headers: { "content-type": "application/json" } });
+    }
+    return echtesFetch(ziel, optionen);
+  };
+
+  const { sendeMail, einstellungen, mailBereit } = await import("../netlify/functions/_lib/mail.mjs");
+  const vorlagen = await import("../netlify/functions/_lib/mail-vorlagen.mjs");
+  const { default: willkommenHandler, willkommenSchicken } = await import("../netlify/functions/willkommen.mjs");
+  const { default: passwortHandler, passwortMailSchicken } = await import("../netlify/functions/passwort-mail.mjs");
+  const { default: eingangHandler, eingangVerarbeiten } = await import("../netlify/functions/mail-eingang.mjs");
+  const { default: einstellungenHandler } = await import("../netlify/functions/mail-einstellungen.mjs");
+
+  // Ohne Schlüssel geht nichts raus – aber es stürzt auch nichts ab, und im
+  // Archiv steht, warum. Sonst suchte man eine Mail, die es nie gab.
+  ok(mailBereit() === false, "ohne RESEND_API_KEY hält sich der Versand für bereit");
+  const ohneSchluessel = await sendeMail({ an: "wer@example.com", betreff: "Ohne", html: "<p>x</p>", text: "x", art: "test", id: "ohne-schluessel" });
+  ok(ohneSchluessel.gesendet === false, "ohne Schlüssel gilt die Mail als verschickt");
+  ok(verschickt.length === 0, "ohne Schlüssel wurde Resend trotzdem angerufen");
+  const ohneDoc = (await db().collection("mails").doc("ohne-schluessel").get()).data();
+  ok(ohneDoc?.status === "fehler" && /RESEND_API_KEY/.test(ohneDoc?.fehler || ""), `im Archiv steht nicht, warum nichts ging: ${JSON.stringify(ohneDoc)}`);
+
+  process.env.RESEND_API_KEY = "re_attrappe";
+  process.env.MAIL_WEBHOOK_SECRET = "geheimnis-attrappe";
+  ok(mailBereit() === true, "mit RESEND_API_KEY hält sich der Versand für nicht bereit");
+
+  // --- Die Begrüssung -------------------------------------------------------
+  verschickt = [];
+  const begruessung = await willkommenSchicken({ uid: mama.uid, email: "mama@example.com" });
+  ok(begruessung.gesendet === true, `Begrüssung: ${JSON.stringify(begruessung)}`);
+  ok(verschickt.length === 1, `Begrüssung rief Resend ${verschickt.length}-mal an`);
+  const erste = verschickt[0]?.inhalt || {};
+  ok(/kids@alae\.app/.test(erste.from || ""), `Absender: ${erste.from}`);
+  ok((erste.to || [])[0] === "mama@example.com", `Empfänger: ${JSON.stringify(erste.to)}`);
+  ok(erste.subject === "Willkommen bei Gripszug", `Betreff: ${erste.subject}`);
+  // Eine Mail ohne Textteil gilt manchem Spamfilter schon als verdächtig.
+  ok(typeof erste.text === "string" && erste.text.length > 50, "die Begrüssung hat keinen Textteil");
+  ok(/<table/.test(erste.html || ""), "die Begrüssung hat keine HTML-Fassung");
+  // Keine HTML-Schnipsel im Betreff, keine doppelt maskierten Umlaute im Text.
+  ok(!/[<>]|&[a-z]+;/.test(erste.subject || ""), `im Betreff steckt Auszeichnung: ${erste.subject}`);
+  ok(!/&(amp|uuml|auml|ouml);/.test(erste.text || ""), "in der Textfassung stehen HTML-Entities");
+  ok(begruessung.bestaetigung === true, "die Begrüssung enthält keinen Bestätigungslink");
+
+  // Und genau einmal: Der Client ruft beim Anlegen an und bei der ersten
+  // Google-Anmeldung noch einmal.
+  const nochmalBegruessung = await willkommenSchicken({ uid: mama.uid, email: "mama@example.com" });
+  ok(nochmalBegruessung.gesendet === false, "die Begrüssung ging ein zweites Mal raus");
+  ok(verschickt.length === 1, `nach dem zweiten Anlauf ${verschickt.length} Mails`);
+
+  ok((await willkommenHandler(bearer(mamaToken))).status === 200, "die Begrüssung ist für ein Elternkonto nicht zu haben");
+  ok((await willkommenHandler(new Request("http://x/api", { method: "POST" }))).status === 401, "die Begrüssung geht auch ohne Anmeldung");
+  // Ein eigenes Kinderkonto: Das aus Abschnitt 2 hat unterwegs ein neues
+  // Passwort bekommen, und ein Token, das gar nicht erst zustande kommt,
+  // prüfte hier nur die Anmeldung und nicht die Rolle.
+  await auth().createUser({ email: "postkind@lernapp.local", password: kind.kindPasswort("1234") });
+  const kindToken = await anmelden("postkind@lernapp.local", kind.kindPasswort("1234"));
+  ok(Boolean(kindToken), "das Kinderkonto für die Postprüfung bekommt kein Token");
+  ok((await willkommenHandler(bearer(kindToken))).status === 403, "ein Kinderkonto löst eine Begrüssung aus");
+
+  // --- Passwort vergessen ---------------------------------------------------
+  // Der einzige Weg, ohne Anmeldung eine Mail auszulösen. Deshalb: nur an
+  // Adressen mit Konto, nur an echte, und nicht im Sekundentakt.
+  verschickt = [];
+  const reset = await passwortMailSchicken("mama@example.com");
+  ok(reset.gesendet === true, `Passwortmail: ${JSON.stringify(reset)}`);
+  ok(verschickt[0]?.inhalt?.subject === "Neues Passwort für Gripszug", `Betreff: ${verschickt[0]?.inhalt?.subject}`);
+  ok(/https?:\/\//.test(verschickt[0]?.inhalt?.text || ""), "in der Passwortmail steht kein Link");
+
+  const sofortNochmal = await passwortMailSchicken("mama@example.com");
+  ok(sofortNochmal.gesendet === false, "zwei Passwortmails im selben Moment");
+  ok(verschickt.length === 1, `die Bremse liess ${verschickt.length} Mails durch`);
+
+  verschickt = [];
+  ok((await passwortMailSchicken("gibtesnicht@example.com")).gesendet === false, "eine Adresse ohne Konto bekommt eine Mail");
+  ok((await passwortMailSchicken("lina@lernapp.local")).gesendet === false, "eine technische Kinderadresse bekommt eine Mail");
+  ok((await passwortMailSchicken("keine-adresse")).gesendet === false, "eine krumme Adresse bekommt eine Mail");
+  ok(verschickt.length === 0, `an Adressen ohne Konto gingen ${verschickt.length} Mails`);
+  // Nach aussen sieht alles gleich aus: Wer hier eine Auskunft bekäme, hätte
+  // eine Liste aller Kundinnen und Kunden.
+  const fremdeAntwort = await passwortHandler(postJson(null, { email: "gibtesnicht@example.com" }));
+  const fremdeDaten = await fremdeAntwort.json();
+  ok(fremdeAntwort.status === 200 && fremdeDaten.ok === true, "die Antwort verrät, ob es ein Konto gibt");
+  const eigeneAntwort = await (await passwortHandler(postJson(null, { email: "mama@example.com" }))).json();
+  ok(JSON.stringify(fremdeDaten) === JSON.stringify(eigeneAntwort),
+    `die Antwort unterscheidet Adressen mit und ohne Konto: ${JSON.stringify(fremdeDaten)} vs ${JSON.stringify(eigeneAntwort)}`);
+  ok(fremdeDaten.versand === true, "die Antwort sagt nicht, dass der Server verschicken kann – der Client fiele auf Firebase zurück");
+
+  // --- Der Eingang ----------------------------------------------------------
+  verschickt = [];
+  const ohneGeheimnis = await eingangHandler(postJson(null, { von: "wer@example.com", betreff: "Hallo" }));
+  ok(ohneGeheimnis.status === 401, `der Eingang nimmt ohne Geheimnis an: ${ohneGeheimnis.status}`);
+  const mitFalschem = await eingangHandler(new Request("http://x/api", {
+    method: "POST", headers: { "content-type": "application/json", "x-mail-geheimnis": "falsch" }, body: JSON.stringify({ von: "wer@example.com" }),
+  }));
+  ok(mitFalschem.status === 401, `der Eingang nimmt ein falsches Geheimnis an: ${mitFalschem.status}`);
+  ok(verschickt.length === 0, "eine abgewiesene Mail wurde trotzdem weitergeleitet");
+
+  const post = {
+    von: "Mutter@Example.com", an: "kids@alae.app", betreff: "Frage zur Lizenz",
+    text: "Gibt es das auch für eine Schulklasse?", messageId: "<abc@example.com>",
+    empfangenAmMs: 1700000000000, pruefung: { spf: "pass", dkim: "pass" },
+  };
+  const angekommen = await eingangVerarbeiten(post);
+  ok(angekommen.ok === true && angekommen.weitergeleitet === true, `Eingang: ${JSON.stringify(angekommen)}`);
+  const eingangDoc = (await db().collection("mails").doc(angekommen.id).get()).data();
+  ok(eingangDoc?.richtung === "ein" && eingangDoc?.betreff === "Frage zur Lizenz", `im Archiv: ${JSON.stringify(eingangDoc)}`);
+  ok(eingangDoc?.von === "mutter@example.com", `die Absenderadresse steht nicht klein geschrieben da: ${eingangDoc?.von}`);
+  const weiter = verschickt[verschickt.length - 1]?.inhalt || {};
+  ok((weiter.to || [])[0] === "vonallmenalain@gmail.com", `weitergeleitet an ${JSON.stringify(weiter.to)}`);
+  // Ein "Antworten" im Postfach muss beim Schreiber landen, nicht bei uns.
+  ok(weiter.reply_to === "mutter@example.com", `Antwortadresse: ${weiter.reply_to}`);
+  ok(/Schulklasse/.test(weiter.text || ""), "der weitergeleitete Text fehlt");
+
+  // Cloudflare versucht es bei einem Fehler noch einmal – dieselbe Mail darf
+  // dann nicht ein zweites Mal im Postfach landen.
+  const anzahlVorher = verschickt.length;
+  const nochmalEingang = await eingangVerarbeiten(post);
+  ok(nochmalEingang.weitergeleitet === false, "dieselbe Mail wurde zweimal weitergeleitet");
+  ok(verschickt.length === anzahlVorher, `die Wiederholung schickte ${verschickt.length - anzahlVorher} Mails`);
+
+  // --- Die Einstellungen ----------------------------------------------------
+  const chefToken2 = await anmelden(ADMIN_ADRESSEN[0], "adminpasswort");
+  ok((await einstellungenHandler(postJson(mamaToken, { aktion: "lesen" }))).status === 403, "ein Elternkonto liest die Mail-Einstellungen");
+  ok((await einstellungenHandler(postJson(null, { aktion: "lesen" }))).status === 401, "die Mail-Einstellungen sind ohne Anmeldung zu haben");
+
+  const gelesen = await (await einstellungenHandler(postJson(chefToken2, { aktion: "lesen" }))).json();
+  ok(gelesen.weiterleitungAn === "vonallmenalain@gmail.com", `Weiterleitung: ${JSON.stringify(gelesen)}`);
+  ok(gelesen.absender === "kids@alae.app" && gelesen.bereit === true, `Stand: ${JSON.stringify(gelesen)}`);
+
+  const krumm = await einstellungenHandler(postJson(chefToken2, { aktion: "speichern", weiterleitungAn: "keine adresse" }));
+  ok(krumm.status === 400, `eine krumme Adresse wurde gespeichert: ${krumm.status}`);
+  const gespeichert = await (await einstellungenHandler(postJson(chefToken2, { aktion: "speichern", weiterleitungAn: "Post@Example.com", weiterleitungAktiv: true }))).json();
+  ok(gespeichert.weiterleitungAn === "post@example.com", `gespeichert: ${JSON.stringify(gespeichert)}`);
+  ok((await einstellungen()).weiterleitungAn === "post@example.com", "die neue Adresse steht nicht in der Datenbank");
+
+  verschickt = [];
+  const testAntwort = await einstellungenHandler(postJson(chefToken2, { aktion: "test" }));
+  ok(testAntwort.status === 200, `Testmail: ${testAntwort.status}`);
+  ok((verschickt[0]?.inhalt?.to || [])[0] === "post@example.com", `die Testmail ging an ${JSON.stringify(verschickt[0]?.inhalt?.to)}`);
+
+  // Aus heisst aus: Die Mail steht im Archiv, geht aber nirgends hin.
+  await einstellungenHandler(postJson(chefToken2, { aktion: "speichern", weiterleitungAn: "post@example.com", weiterleitungAktiv: false }));
+  verschickt = [];
+  const stillerEingang = await eingangVerarbeiten({ ...post, messageId: "<zweite@example.com>" });
+  ok(stillerEingang.weitergeleitet === false, "die ausgeschaltete Weiterleitung leitet weiter");
+  ok(verschickt.length === 0, "die ausgeschaltete Weiterleitung rief Resend an");
+  ok((await db().collection("mails").doc(stillerEingang.id).get()).exists, "ohne Weiterleitung steht die Mail nicht im Archiv");
+
+  // --- Die Bestellbestätigung -----------------------------------------------
+  // Sie hängt am Kauf, nicht am Klick: Erst wenn Stripe die Zahlung meldet,
+  // geht sie raus – und dann genau einmal je Kasse, auch wenn Stripe dasselbe
+  // Ereignis dreimal schickt.
+  verschickt = [];
+  const kaeufer = await auth().createUser({ email: "kaeufer@example.com", password: "elternpasswort" });
+  await db().collection("users").doc(kaeufer.uid).set({ username: "Käufer", email: "kaeufer@example.com", role: "parent" });
+  const kasse = {
+    id: "cs_test_mail_1", client_reference_id: kaeufer.uid, payment_status: "paid",
+    payment_intent: "pi_mail_1", customer: "cus_mail_1",
+    customer_details: { email: "kaeufer@example.com" }, amount_total: 3000, currency: "chf",
+  };
+  const verbucht = await kaufVerbuchen(kasse);
+  ok(verbucht.verbucht === true && verbucht.bestaetigung === true, `Kauf verbucht: ${JSON.stringify(verbucht)}`);
+  const bestellung = verschickt[verschickt.length - 1]?.inhalt || {};
+  ok(bestellung.subject === "Deine Bestellung bei Gripszug", `Betreff: ${bestellung.subject}`);
+  ok(/CHF/.test(bestellung.text || "") && /30/.test(bestellung.text || ""), `der Betrag fehlt: ${(bestellung.text || "").slice(0, 200)}`);
+  const bestellDoc = (await db().collection("mails").doc("bestellung-cs_test_mail_1").get()).data();
+  ok(bestellDoc?.status === "gesendet", `Archiv der Bestellung: ${JSON.stringify(bestellDoc)}`);
+
+  const anzahlNachKauf = verschickt.length;
+  await kaufVerbuchen({ ...kasse, id: "cs_test_mail_1" });
+  ok(verschickt.length === anzahlNachKauf, "derselbe Kauf schickte eine zweite Bestätigung");
+
+  // Ein Kauf bleibt ein Kauf, auch wenn Resend nicht mag.
+  verschickt = [];
+  const kaputtesFetch = globalThis.fetch;
+  globalThis.fetch = async (ziel, optionen) => {
+    if (String(ziel?.url || ziel).startsWith("https://api.resend.com/")) return new Response(JSON.stringify({ message: "Domain is not verified" }), { status: 403 });
+    return echtesFetch(ziel, optionen);
+  };
+  const trotzdem = await kaufVerbuchen({ ...kasse, id: "cs_test_mail_2", payment_intent: "pi_mail_2" });
+  ok(trotzdem.verbucht === true && trotzdem.bestaetigung === false, `Kauf ohne Mail: ${JSON.stringify(trotzdem)}`);
+  ok((await db().collection("entitlements").doc(kaeufer.uid).get()).data()?.active === true, "der Kauf ging verloren, weil die Mail scheiterte");
+  const kaputtDoc = (await db().collection("mails").doc("bestellung-cs_test_mail_2").get()).data();
+  ok(kaputtDoc?.status === "fehler" && /not verified/i.test(kaputtDoc?.fehler || ""), `im Archiv fehlt der Grund: ${JSON.stringify(kaputtDoc)}`);
+  globalThis.fetch = kaputtesFetch;
+
+  // --- Die Vorlagen ---------------------------------------------------------
+  // Was in escape() läuft, darf keine HTML-Entities enthalten – sonst stünde
+  // "f&uuml;r" im Betreff und in der Überschrift.
+  for (const [name, gebaut] of Object.entries({
+    willkommen: vorlagen.willkommenMail({ email: "a@b.ch", bestaetigungsLink: "https://x.test/y" }),
+    bestellung: vorlagen.bestellMail({ email: "a@b.ch", betragText: "CHF 30.00", datumText: "1. Januar 2026", kinder: 2 }),
+    freischaltung: vorlagen.freischaltMail({ email: "a@b.ch" }),
+    passwort: vorlagen.passwortMail({ email: "a@b.ch", link: "https://x.test/y" }),
+    test: vorlagen.testMail({ an: "a@b.ch" }),
+    weiterleitung: vorlagen.weiterleitungsMail({ von: "c@d.ch", an: "kids@alae.app", betreff: "Hallo", text: "Ein ganz gewöhnlicher Satz." }),
+  })) {
+    ok(!/&[a-z]+;|[<>]/.test(gebaut.betreff), `${name}: im Betreff steckt Auszeichnung – ${gebaut.betreff}`);
+    ok(!/&amp;[a-z]+;/.test(gebaut.html), `${name}: doppelt maskierte Zeichen im HTML`);
+    ok(gebaut.text.length > 40 && !/<[a-z]/.test(gebaut.text), `${name}: die Textfassung enthält HTML oder ist leer`);
+    ok(/kids@alae\.app/.test(gebaut.html), `${name}: die Kontaktadresse fehlt in der Mail`);
+  }
+  // Fremder Text wird maskiert, nicht eingebaut.
+  const boese = vorlagen.weiterleitungsMail({ von: "c@d.ch", an: "kids@alae.app", betreff: "Hallo", text: "<script>alert(1)</script>" });
+  ok(!/<script>/.test(boese.html), "fremder Text landet unmaskiert in der Mail");
+  ok(/&lt;script&gt;/.test(boese.html), "fremder Text steht nicht maskiert in der Mail");
+
+  globalThis.fetch = echtesFetch;
+  delete process.env.RESEND_API_KEY;
+  delete process.env.MAIL_WEBHOOK_SECRET;
+}
+
+// --- 11. Was der Emulator nie anfasst: die Signaturprüfung echter Token -------------
 // firebase-admin holt dafür die öffentlichen Schlüssel von Google und rechnet
 // sie mit jwks-rsa um – und jwks-rsa ist CommonJS und macht require("jose").
 // Gegen den Emulator läuft das nie: Der überspringt die Signaturprüfung, und

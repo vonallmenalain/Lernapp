@@ -35,9 +35,12 @@
  * Rückerstattung wiedererkennt.
  */
 
-import { db, FieldValue } from "./_lib/firebase.mjs";
+import { db, FieldValue, auth } from "./_lib/firebase.mjs";
 import { AnfrageFehler, antwort, fehlerAntwort, liesJson, adminAnrufer, nurMethode } from "./_lib/anfrage.mjs";
 import { kinderVon } from "./_lib/familie.mjs";
+import { sendeMail } from "./_lib/mail.mjs";
+import { freischaltMail } from "./_lib/mail-vorlagen.mjs";
+import { istTechnischeAdresse } from "./_lib/kind.mjs";
 
 export const GESCHENK_PLAN = "geschenk";
 export const GESCHENK_QUELLE = "admin";
@@ -61,6 +64,29 @@ async function familieUm(uid) {
 // weder das Vergeben noch das Zurücknehmen an.
 function istBezahlterKauf(daten) {
   return Boolean(daten?.source) && daten.source !== GESCHENK_QUELLE;
+}
+
+// Wer etwas geschenkt bekommt, soll es erfahren. Die Mail geht an das
+// Elternkonto der Familie – ein Kinderkonto hat nur eine technische Adresse,
+// die niemand liest. Und sie geht nur beim Vergeben raus, nicht beim
+// Zurücknehmen: "Dir wurde etwas weggenommen" ist keine Mail, die hilft.
+//
+// Einmal je Konto: die feste Kennung im Archiv sorgt dafür, dass ein zweiter
+// Klick auf denselben Knopf keine zweite Mail schickt.
+export async function freischaltungMelden(kopfUid) {
+  const nutzer = await auth().getUser(kopfUid).catch(() => null);
+  const email = String(nutzer?.email || "").toLowerCase();
+  if (!email || istTechnischeAdresse(email)) return { gesendet: false, grund: "keine Elternadresse" };
+  const vorlage = freischaltMail({ email });
+  return sendeMail({
+    an: email,
+    betreff: vorlage.betreff,
+    html: vorlage.html,
+    text: vorlage.text,
+    art: "freischaltung",
+    id: `freischaltung-${kopfUid}`,
+    uid: kopfUid,
+  });
 }
 
 export async function freischalten({ admin, uid, frei = true }) {
@@ -95,7 +121,7 @@ export async function freischalten({ admin, uid, frei = true }) {
         // wird hier nichts, überschrieben nur, was das Geschenk ausmacht.
         transaktion.set(ref, kontoUid === kopf ? eintrag : { ...eintrag, via: kopf }, { merge: true });
       });
-      return { uid, frei: true, konten: konten.length };
+      return { uid, frei: true, konten: konten.length, kopf };
     }
 
     if (bezahlt) {
@@ -107,7 +133,7 @@ export async function freischalten({ admin, uid, frei = true }) {
       transaktion.delete(refs[index]);
       entfernt += 1;
     });
-    return { uid, frei: false, konten: entfernt };
+    return { uid, frei: false, konten: entfernt, kopf };
   });
 }
 
@@ -116,7 +142,18 @@ export default async (request) => {
     nurMethode(request, "POST");
     const admin = await adminAnrufer(request);
     const { uid, frei } = await liesJson(request);
-    return antwort(await freischalten({ admin, uid, frei: frei !== false }));
+    const ergebnis = await freischalten({ admin, uid, frei: frei !== false });
+    // Erst schenken, dann davon erzählen: Eine Mail, die nicht rausgeht, darf
+    // die Freischaltung nicht rückgängig machen.
+    let mail = { gesendet: false, grund: "nicht versucht" };
+    if (ergebnis.frei) {
+      try {
+        mail = await freischaltungMelden(ergebnis.kopf || uid);
+      } catch (fehler) {
+        console.error("Freischaltungs-Mail nicht verschickt:", fehler?.message || fehler);
+      }
+    }
+    return antwort({ ...ergebnis, mail: Boolean(mail.gesendet) });
   } catch (fehler) {
     return fehlerAntwort(fehler);
   }

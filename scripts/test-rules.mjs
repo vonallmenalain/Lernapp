@@ -143,6 +143,9 @@ await env.withSecurityRulesDisabled(async (ctx) => {
   await db.doc("users/papa").set({ username: "Papa", email: "papa@example.com", role: "parent", children: [{ uid: "kind2", name: "Kind 2" }] });
   await db.doc("users/kind2").set({ username: "Kind 2", parentUid: "papa" });
   await db.doc(`guests/${GAST_ID}`).set({ type: "guest", guestId: GAST_ID });
+  // Die Post: eine verschickte Mail und die Weiterleitungsadresse.
+  await db.doc("mails/willkommen-mama").set({ richtung: "aus", art: "willkommen", an: "mama@example.com", betreff: "Willkommen", zeitMs: 1 });
+  await db.doc("mailConfig/einstellungen").set({ weiterleitungAn: "post@example.com", weiterleitungAktiv: true });
 });
 
 try {
@@ -326,6 +329,29 @@ try {
   await darfNicht("Angemeldetes Kind liest einen Gastkasten", () => anna().doc(`guests/${GAST_ID}`).get());
   await darfNicht("Gast schreibt in erfundene Unterkollektion", () => gast().doc(`guests/${GAST_ID}/geheim/x`).set({ a: 1 }));
   await darfNicht("Admin schreibt Gastkasten", () => admin().doc(`guests/${GAST_ID}`).set({ type: "guest", x: 1 }, { merge: true }));
+
+  // --- Die Post ----------------------------------------------------------------
+  // Der Adminbereich liest sie, sonst niemand – und geschrieben wird sie nur
+  // vom Server. Auch der Admin darf hier nichts ändern: Ein Postausgang, in
+  // dem sich Einträge nachträglich ändern lassen, beweist nichts mehr.
+  await darf("Admin liest eine Mail", () => admin().doc("mails/willkommen-mama").get());
+  await darf("Admin listet die Post", () => admin().collection("mails").get());
+  await darf("Admin liest die Weiterleitungsadresse", () => admin().doc("mailConfig/einstellungen").get());
+  await darfNicht("Elternkonto liest die eigene Post", () => mama().doc("mails/willkommen-mama").get());
+  await darfNicht("Elternkonto listet die Post", () => mama().collection("mails").get());
+  await darfNicht("Kind liest die Post", () => anna().doc("mails/willkommen-mama").get());
+  await darfNicht("Gast liest die Post", () => gast().doc("mails/willkommen-mama").get());
+  await darfNicht("Gast liest die Weiterleitungsadresse", () => gast().doc("mailConfig/einstellungen").get());
+  await darfNicht("Elternkonto liest die Weiterleitungsadresse", () => mama().doc("mailConfig/einstellungen").get());
+  await darfNicht("Admin schreibt eine Mail von Hand", () => admin().doc("mails/erfunden").set({ richtung: "aus", betreff: "X" }));
+  await darfNicht("Admin ändert eine Mail", () => admin().doc("mails/willkommen-mama").update({ betreff: "Anders" }));
+  await darfNicht("Admin löscht eine Mail", () => admin().doc("mails/willkommen-mama").delete());
+  await darfNicht("Admin setzt die Weiterleitung von Hand", () => admin().doc("mailConfig/einstellungen").set({ weiterleitungAn: "fremd@example.com" }, { merge: true }));
+  await darfNicht("Kind schreibt sich eine Mail", () => anna().doc("mails/erfunden").set({ richtung: "ein" }));
+  // Die Bremse für "Passwort vergessen" gehört ganz dem Server: Wer sie lesen
+  // könnte, wüsste, welche Adressen ein Konto haben.
+  await darfNicht("Admin liest die Versandbremse", () => admin().doc("mailBremse/irgendwas").get());
+  await darfNicht("Gast schreibt die Versandbremse", () => gast().doc("mailBremse/irgendwas").set({ zuletztMs: 0 }));
 
   // --- Alles andere ------------------------------------------------------------
   await darfNicht("Kind schreibt in fremde Kollektion", () => anna().doc("irgendwas/x").set({ a: 1 }));

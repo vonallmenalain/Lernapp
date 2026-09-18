@@ -85,7 +85,7 @@ live – mit Kasse, Kinderkonten, Schranke, Willkommensseite und Rechtstexten au
 ## 4. Die Rechtstexte  ☑ (ausgefüllt, gegenlesen)
 
 Impressum, Datenschutzerklärung und AGB tragen deine Angaben: Alain von Allmen,
-3414 Oberburg, `kontakt@alae.app`, Stand September 2026, Gerichtsstand Oberburg,
+3414 Oberburg, `kids@alae.app`, Stand September 2026, Gerichtsstand Oberburg,
 Firebase-Region Europe West. Die Entwurfs-Hinweise sind weg, die Seiten sind so, wie
 Besucher sie sehen. Vor dem Veröffentlichen einmal selbst lesen:
 

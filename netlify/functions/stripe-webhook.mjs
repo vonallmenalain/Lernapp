@@ -26,8 +26,60 @@ import { db, FieldValue } from "./_lib/firebase.mjs";
 import { stripe, webhookGeheimnis } from "./_lib/stripe.mjs";
 import { antwort } from "./_lib/anfrage.mjs";
 import { kinderVon } from "./_lib/familie.mjs";
+import { sendeMail } from "./_lib/mail.mjs";
+import { bestellMail } from "./_lib/mail-vorlagen.mjs";
 
 const BEZAHLT = new Set(["paid", "no_payment_required"]);
+
+// Was auf der Bestellbestätigung steht. amount_total kommt in Rappen bzw.
+// Cents; eine Währung ohne Nachkommastellen (JPY) gibt es bei uns nicht, aber
+// Intl rechnet sie ohnehin richtig.
+function betragText(amountTotal, currency) {
+  const betrag = Number(amountTotal);
+  if (!Number.isFinite(betrag) || betrag <= 0) return "";
+  const waehrung = String(currency || "chf").toUpperCase();
+  try {
+    return new Intl.NumberFormat("de-CH", { style: "currency", currency: waehrung }).format(betrag / 100);
+  } catch {
+    return `${waehrung} ${(betrag / 100).toFixed(2)}`;
+  }
+}
+
+function datumText(ms) {
+  try {
+    return new Intl.DateTimeFormat("de-CH", { dateStyle: "long", timeZone: "Europe/Zurich" }).format(new Date(ms));
+  } catch {
+    return new Date(ms).toISOString().slice(0, 10);
+  }
+}
+
+// Die Bestellbestätigung. Sie darf nichts aufhalten: Der Kauf ist verbucht,
+// bevor sie losgeht, und wenn sie scheitert, bleibt er verbucht. Deshalb
+// steht der Aufruf hinter dem commit und in einem try.
+//
+// Die Kennung im Archiv ist die Stripe-Session – Stripe schickt dasselbe
+// Ereignis gern mehrmals, und eine zweite Bestätigung für denselben Kauf
+// sieht aus wie eine zweite Abbuchung.
+export async function bestellbestaetigung({ session, eintrag, elternDaten, kinder }) {
+  const email = eintrag.email || elternDaten?.email || elternDaten?.authEmail || "";
+  if (!email) return { gesendet: false, grund: "keine Adresse" };
+  const vorlage = bestellMail({
+    email,
+    betragText: betragText(eintrag.amountTotal, eintrag.currency),
+    datumText: datumText(eintrag.grantedAtMs || Date.now()),
+    kinder,
+  });
+  return sendeMail({
+    an: email,
+    betreff: vorlage.betreff,
+    html: vorlage.html,
+    text: vorlage.text,
+    art: "bestellung",
+    id: `bestellung-${session.id}`,
+    uid: session.client_reference_id || session.metadata?.uid || "",
+    meta: { stripeSessionId: session.id },
+  });
+}
 
 
 
@@ -67,7 +119,16 @@ export async function kaufVerbuchen(session) {
     stapel.set(db().collection("entitlements").doc(kindUid), { ...eintrag, via: uid });
   });
   await stapel.commit();
-  return { verbucht: true, uid, kinder: kinder.length };
+
+  // Erst jetzt die Mail: Was verbucht ist, ist verbucht – auch wenn Resend
+  // gerade nicht mag.
+  let bestaetigung = { gesendet: false, grund: "nicht versucht" };
+  try {
+    bestaetigung = await bestellbestaetigung({ session, eintrag, elternDaten: eltern.data(), kinder: kinder.length });
+  } catch (fehler) {
+    console.error("Bestellbestätigung nicht verschickt:", fehler?.message || fehler);
+  }
+  return { verbucht: true, uid, kinder: kinder.length, bestaetigung: Boolean(bestaetigung.gesendet) };
 }
 
 export async function rueckerstattungVerbuchen(charge) {

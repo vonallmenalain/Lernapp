@@ -257,6 +257,11 @@
       resetProgress: resetProgressFor,
       freischalten: kontoFreischalten,
       switchWagonSet,
+      // Der Reiter E-Mail: das Archiv und die Weiterleitung.
+      ladeMails: loadMails,
+      mailEinstellungen,
+      speichereMailEinstellungen,
+      testMail: testMailSchicken,
       fehlerText: (error) => authErrorMessage(error),
       serverFehlerText: (error) => serverErrorMessage(error),
     },
@@ -879,12 +884,18 @@
   // ---------------------------------------------------------------------------
   // Der Server
   // ---------------------------------------------------------------------------
-  // Die vier Netlify-Funktionen unter /api/ tun, was der Client nicht darf:
-  // Kinder anlegen, die Kasse bei Stripe öffnen. Sie erkennen den Anrufer am
-  // ID-Token des Kontos – Firebase stellt es aus, der Server prüft es.
-  async function serverAufruf(pfad, body = {}) {
-    if (!state.user) throw authInputError("lernapp/not-signed-in");
-    const token = await state.user.getIdToken();
+  // Die Netlify-Funktionen unter /api/ tun, was der Client nicht darf: Kinder
+  // anlegen, die Kasse bei Stripe öffnen, Mails verschicken. Sie erkennen den
+  // Anrufer am ID-Token des Kontos – Firebase stellt es aus, der Server prüft
+  // es.
+  // nutzer: normalerweise das angemeldete Konto. Mitgegeben wird es nur direkt
+  // nach dem Anlegen – dann steht das Konto schon fest, aber der Beobachter
+  // von Firebase hat state.user noch nicht gesetzt, und ohne Token gäbe es
+  // eine Absage für etwas, das längst erlaubt ist.
+  async function serverAufruf(pfad, body = {}, nutzer = null) {
+    const konto = nutzer || state.user;
+    if (!konto) throw authInputError("lernapp/not-signed-in");
+    const token = await konto.getIdToken();
     let antwort;
     try {
       antwort = await fetch(`/api/${pfad}`, {
@@ -904,6 +915,24 @@
       throw fehler;
     }
     return daten;
+  }
+
+  // Der eine Aufruf, der ohne Anmeldung auskommt: "Passwort vergessen". Wer
+  // sein Passwort vergessen hat, kann sich ja gerade nicht anmelden. Der
+  // Server prüft deshalb nicht, wer anruft, sondern bremst nach Adresse
+  // (netlify/functions/passwort-mail.mjs).
+  async function offenerServerAufruf(pfad, body = {}) {
+    const antwort = await fetch(`/api/${pfad}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body || {}),
+    });
+    if (!antwort.ok) {
+      const fehler = new Error("Der Server hat abgelehnt.");
+      fehler.code = `server/${antwort.status}`;
+      throw fehler;
+    }
+    return antwort.json().catch(() => ({}));
   }
 
   // Die Kasse: Der Server erstellt die Sitzung bei Stripe, wir gehen hin.
@@ -1041,15 +1070,54 @@
     assertParentEmail(clean);
     if (String(password || "").length < 6) throw authInputError("auth/parent-password-short");
     const credential = await state.auth.createUserWithEmailAndPassword(clean, String(password));
-    // Die Bestätigung ist keine Pflicht – aber wer sie hat, bekommt später
-    // die Rechnung an eine Adresse, die ihm gehört.
-    try { await credential.user?.sendEmailVerification?.(); } catch { /* dann eben ohne */ }
+    await begruessung(credential?.user);
+  }
+
+  // Die Begrüssung, und mit ihr der Bestätigungslink.
+  //
+  // Bis hierher stand hier sendEmailVerification – Firebase schickte dann von
+  // selbst eine Mail: Absender noreply@lernapp-8d944.firebaseapp.com, Betreff
+  // "Verify your email for project-123146993935", darunter ein nackter Link.
+  // Wer so etwas bekommt, glaubt an Betrug, nicht an eine Kinder-App.
+  //
+  // Jetzt schreibt der Server die Mail, mit kids@alae.app als Absender, und
+  // rechnet denselben Bestätigungslink selbst aus
+  // (netlify/functions/willkommen.mjs). Bestätigen muss weiterhin niemand.
+  //
+  // Zwei Dinge sind hier Absicht:
+  //
+  //   - Gewartet wird darauf. Direkt nach dem Anlegen geht es in der Kaufkarte
+  //     weiter zur Kasse, und ein Aufruf, der erst nach dem Seitenwechsel
+  //     losläuft, läuft gar nicht mehr.
+  //   - Und ein Fehler bleibt hier. Ein Konto ist angelegt, auch wenn die
+  //     Begrüssung hängt; wer deshalb eine Fehlermeldung bekäme, versuchte es
+  //     noch einmal – und stünde dann vor "diese Adresse gibt es schon".
+  async function begruessung(nutzer) {
+    try {
+      await serverAufruf("willkommen", {}, nutzer || null);
+    } catch (fehler) {
+      console.warn("Begrüssungsmail nicht ausgelöst", fehler);
+    }
   }
 
   async function sendParentPasswordReset(email) {
     const clean = cleanEmail(email);
     assertParentEmail(clean);
-    await state.auth.sendPasswordResetEmail(clean);
+    // Auch diese Mail schreibt der Server. Geht er nicht ans Telefon – Netz
+    // weg, Funktion schläft –, oder sagt er, dass er gar nicht verschicken
+    // kann (RESEND_API_KEY fehlt), schickt Firebase sie wie früher: hässlich,
+    // aber da. Ein vergessenes Passwort ist der schlechteste Moment für
+    // "probier es später noch einmal".
+    //
+    // Was der Server NICHT verrät, ist, ob es zu dieser Adresse ein Konto
+    // gibt: Seine Antwort ist für jede Adresse dieselbe.
+    try {
+      const antwort = await offenerServerAufruf("passwort-mail", { email: clean });
+      if (antwort?.versand === false) throw new Error("Der Server kann keine Mails verschicken.");
+    } catch (fehler) {
+      console.warn("Passwortmail über den Server ging nicht, Firebase übernimmt", fehler);
+      await state.auth.sendPasswordResetEmail(clean);
+    }
   }
 
   // Übernimmt eine gelesene Gruppe und meldet sie weiter, wenn sich etwas
@@ -1219,7 +1287,12 @@
 
   async function signInWithGoogle() {
     const provider = new window.firebase.auth.GoogleAuthProvider();
-    await state.auth.signInWithPopup(provider);
+    const credential = await state.auth.signInWithPopup(provider);
+    // Wer sich zum ersten Mal mit Google anmeldet, legt damit ein Elternkonto
+    // an – und soll dieselbe Begrüssung bekommen wie jemand, der es mit
+    // Adresse und Passwort tut. Einen Bestätigungslink braucht diese Mail
+    // nicht: Bei Google ist die Adresse bewiesen.
+    if (credential?.additionalUserInfo?.isNewUser) await begruessung(credential.user);
   }
 
   async function signOut() {
@@ -1942,7 +2015,7 @@
         <button type="button" class="google-action" data-auth-google>Mit Google anmelden</button>
       </form>
       <p class="auth-status" role="status" aria-live="polite">${state.firebaseReady ? "" : "Firebase SDK ist noch nicht geladen."}</p>
-      <p class="auth-rechtliches"><a href="willkommen.html">Was ist Gripszug?</a> · <a href="impressum.html">Impressum</a> · <a href="datenschutz.html">Datenschutz</a> · <a href="agb.html">AGB</a></p>
+      <p class="auth-rechtliches"><a href="willkommen.html">Was ist Gripszug?</a> · <a href="kontakt.html">Kontakt</a> · <a href="impressum.html">Impressum</a> · <a href="datenschutz.html">Datenschutz</a> · <a href="agb.html">AGB</a></p>
     `;
 
     const status = modalContent.querySelector(".auth-status");
@@ -2273,7 +2346,7 @@
     const frei = stand === "gekauft" || stand === "gruender";
     const eltern = Boolean(state.user) && isParentAccount();
     const kindDa = Boolean(state.user) && !eltern;
-    const rechtliches = `<p class="auth-rechtliches"><a href="willkommen.html">Alles über Gripszug</a> · <a href="impressum.html">Impressum</a> · <a href="datenschutz.html">Datenschutz</a> · <a href="agb.html">AGB</a></p>`;
+    const rechtliches = `<p class="auth-rechtliches"><a href="willkommen.html">Alles über Gripszug</a> · <a href="kontakt.html">Kontakt</a> · <a href="impressum.html">Impressum</a> · <a href="datenschutz.html">Datenschutz</a> · <a href="agb.html">AGB</a></p>`;
 
     if (frei) {
       modalContent.innerHTML = `
@@ -2924,6 +2997,9 @@
     if (code === "server/too-many-children") return "Vier Kinder – mehr gehen je Elternkonto nicht.";
     if (code === "server/not-your-child") return "Dieses Kind gehört nicht zu deinem Konto.";
     if (code === "server/already-owned") return "Dieses Konto hat Gripszug schon gekauft.";
+    if (code === "server/bad-address") return "Das ist keine gültige E-Mail-Adresse.";
+    if (code === "server/no-key") return "RESEND_API_KEY fehlt bei Netlify – ohne Schlüssel verschickt Gripszug nichts.";
+    if (code === "server/send-failed") return error?.message || "Die Mail ging nicht raus. Steht die Domain bei Resend auf \u00ABverified\u00BB?";
     // 502/504: Die Funktion war kalt und hat zu lange gebraucht. Der zweite
     // Versuch trifft sie wach an und geht fast immer durch.
     if (code === "server/502" || code === "server/504") return "Der Server hat zu lange gebraucht – er war noch am Aufwachen. Bitte gleich noch einmal tippen.";
@@ -3039,6 +3115,58 @@
       });
     });
     return map;
+  }
+
+  // --- Die Post ---------------------------------------------------------------
+  // Jede Mail, die Gripszug verschickt hat, und jede, die an kids@alae.app
+  // ankam, steht in "mails" (netlify/functions/_lib/mail.mjs schreibt sie
+  // dorthin). Lesen darf das nur der Admin, schreiben niemand – auch er nicht:
+  // Ein Postausgang, in dem sich Einträge ändern lassen, ist keiner.
+  //
+  // Die Neuesten zuerst, und nicht alle: Wer weiter zurück will, sucht in
+  // Resend oder im weitergeleiteten Postfach. Der Adminbereich ist der
+  // schnelle Blick, kein Archiv für die Ewigkeit.
+  const MAIL_GRENZE = 300;
+
+  async function loadMails() {
+    const snapshot = await state.db.collection("mails").orderBy("zeitMs", "desc").limit(MAIL_GRENZE).get();
+    return snapshot.docs.map((doc) => {
+      const data = doc.data() || {};
+      return {
+        id: doc.id,
+        richtung: data.richtung === "ein" ? "ein" : "aus",
+        art: typeof data.art === "string" ? data.art : "sonstige",
+        status: typeof data.status === "string" ? data.status : "",
+        von: typeof data.von === "string" ? data.von : "",
+        an: typeof data.an === "string" ? data.an : "",
+        betreff: typeof data.betreff === "string" ? data.betreff : "",
+        text: typeof data.text === "string" ? data.text : "",
+        html: typeof data.html === "string" ? data.html : "",
+        fehler: typeof data.fehler === "string" ? data.fehler : "",
+        uid: typeof data.uid === "string" ? data.uid : "",
+        pruefung: data.pruefung || null,
+        zeitMs: Number(data.zeitMs) || timestampDate(data.zeit)?.getTime() || 0,
+      };
+    });
+  }
+
+  // Die Weiterleitung: Wohin die Post an kids@alae.app geht. Gelesen wird sie
+  // über den Server, damit in einer Antwort auch steht, ob überhaupt ein
+  // Schlüssel hinterlegt ist – das sieht das Dokument nicht.
+  // Als Funktionsdeklaration, nicht als const: cloudApi steht weiter oben in
+  // dieser Datei und nennt sie beim Namen. Ein const wäre zu diesem Zeitpunkt
+  // noch nicht da (temporal dead zone), und der Adminbereich bekäme beim Laden
+  // einen ReferenceError statt einer Oberfläche.
+  function mailEinstellungen() {
+    return serverAufruf("mail-einstellungen", { aktion: "lesen" });
+  }
+
+  function speichereMailEinstellungen(weiterleitungAn, weiterleitungAktiv) {
+    return serverAufruf("mail-einstellungen", { aktion: "speichern", weiterleitungAn, weiterleitungAktiv });
+  }
+
+  function testMailSchicken(weiterleitungAn) {
+    return serverAufruf("mail-einstellungen", { aktion: "test", weiterleitungAn });
   }
 
   async function loadAdminGuests() {
