@@ -182,13 +182,17 @@ pruefe(await blatt.evaluate(() => localStorage.getItem("lernapp.train.gesehen.sz
 console.log("Die Bühne danach:");
 await blatt.click(".stage-back");
 await pause(blatt, 800);
-pruefe(await ansicht(blatt) === "areas", "zurück führt zu den Toren");
-await blatt.click('[data-gate="konzentration"]');
-await pause(blatt, 2600);
-pruefe(await ansicht(blatt) === "games", "ein Tor führt in seinen Bereich");
-pruefe(await blatt.evaluate(() => document.querySelectorAll("[data-building]").length) === 5, "mit seinen fünf Häusern");
+// Zurück führt an den Zug: Das Startbild ist die Mitte, seit der grüne Knopf
+// gleich ins Abenteuer fährt.
+pruefe(await ansicht(blatt) === "home", "zurück führt an den Zug");
+// Und der Zug ist das Menü: Ein Tipp auf einen Wagen zeigt die Spiele seines
+// Bereichs, mit einer Kiste je Spiel.
+await blatt.evaluate(() => document.querySelector('[data-area="konzentration"]')?.dispatchEvent(new MouseEvent("click", { bubbles: true })));
+await pause(blatt, 900);
+pruefe(await ansicht(blatt) === "wagon", "ein Wagen führt zu seinem Bereich");
+pruefe(await blatt.evaluate(() => document.querySelectorAll(".wagon-crate").length) === 5, "mit seinen fünf Spielen");
 await blatt.click(".stage-back"); await pause(blatt, 800);
-await blatt.click(".stage-back"); await pause(blatt, 400);
+pruefe(await ansicht(blatt) === "home", "und von dort zurück an den Zug");
 await blatt.click(".scene-button"); await pause(blatt, 400);
 pruefe(await blatt.evaluate(() => [...document.querySelectorAll(".scene-choice")].filter((b) => !b.disabled).length) === 3, "drei Landschaften sind frei");
 await blatt.locator(".scene-choice:not(:disabled)").nth(2).click();
