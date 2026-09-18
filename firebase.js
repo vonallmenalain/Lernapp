@@ -113,6 +113,10 @@
     entitlement: null,
     entitlementLoaded: false,
     entitlementUnsubscribe: null,
+    // Zurück von der Kasse: "erfolg" oder "abbruch", einmal gezeigt.
+    kaufRueckkehr: null,
+    // Ein Server-Aufruf läuft – der Knopf dazu ist so lange stumm.
+    serverBusy: false,
     guestId: null,
     guestCreatedAtMs: 0,
     adminView: "users",
@@ -199,6 +203,11 @@
     isParentAccount,
     getUser: () => (state.user ? { uid: state.user.uid, email: state.user.email || null, name: profileNameForUser(state.user) } : null),
     openAccount: () => openModal(),
+    // Der Server: Kasse und Kinder. Wer das darf, entscheidet der Server am
+    // Token – hier wird nur angerufen.
+    zurKasse,
+    kindAnlegen,
+    kindPasswortSetzen,
     // Wie aus Name und Passwort eines Kindes Adresse und Passwort für Firebase
     // werden. Der Server (netlify/functions/_lib/kind.mjs) rechnet dasselbe,
     // wenn er ein Kind anlegt – scripts/test-functions.mjs vergleicht beide.
@@ -249,6 +258,7 @@
     flushCurrentSession({ close: true, includeElapsed: true });
   });
 
+  liesKaufRueckkehr();
   initialiseFirebase();
   renderLoggedOut();
 
@@ -324,6 +334,7 @@
       await syncLocalSolvedProgress();
       await refreshDashboard();
       announceProgress();
+      if (state.kaufRueckkehr && modal.hidden) openModal();
     } catch (error) {
       renderError("Firebase ist verbunden, aber Firestore hat den Zugriff abgelehnt oder ist noch nicht eingerichtet.", error);
     }
@@ -806,8 +817,74 @@
   }
 
   // ---------------------------------------------------------------------------
+  // Der Server
+  // ---------------------------------------------------------------------------
+  // Die vier Netlify-Funktionen unter /api/ tun, was der Client nicht darf:
+  // Kinder anlegen, die Kasse bei Stripe öffnen. Sie erkennen den Anrufer am
+  // ID-Token des Kontos – Firebase stellt es aus, der Server prüft es.
+  async function serverAufruf(pfad, body = {}) {
+    if (!state.user) throw authInputError("lernapp/not-signed-in");
+    const token = await state.user.getIdToken();
+    let antwort;
+    try {
+      antwort = await fetch(`/api/${pfad}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify(body || {}),
+      });
+    } catch {
+      throw authInputError("auth/network-request-failed");
+    }
+    let daten = {};
+    try { daten = await antwort.json(); } catch { daten = {}; }
+    if (!antwort.ok) {
+      const fehler = new Error(daten.message || "Der Server hat abgelehnt.");
+      fehler.code = `server/${daten.error || antwort.status}`;
+      fehler.status = antwort.status;
+      throw fehler;
+    }
+    return daten;
+  }
+
+  // Die Kasse: Der Server erstellt die Sitzung bei Stripe, wir gehen hin.
+  async function zurKasse() {
+    const { url } = await serverAufruf("checkout");
+    if (!url) throw new Error("Die Kasse hat keine Adresse geliefert.");
+    window.location.assign(url);
+  }
+
+  async function kindAnlegen(name, passwort) {
+    const ergebnis = await serverAufruf("kind-anlegen", { name, passwort });
+    if (ergebnis?.uid) state.children = [...state.children, { uid: ergebnis.uid, name: ergebnis.name || name }];
+    return ergebnis;
+  }
+
+  async function kindPasswortSetzen(uid, passwort) {
+    return serverAufruf("kind-passwort", { uid, passwort });
+  }
+
+  // Zurück von der Kasse. Stripe leitet auf ?kauf=erfolg oder ?kauf=abbruch;
+  // der Parameter wird gelesen, aus der Adresse genommen und einmal im
+  // Profilfenster gezeigt. Ob wirklich bezahlt wurde, sagt nicht die
+  // Adresse, sondern der Eintrag, den der Webhook schreibt – auf den wartet
+  // die Karte im Profilfenster.
+  function liesKaufRueckkehr() {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const kauf = params.get("kauf");
+      if (kauf !== "erfolg" && kauf !== "abbruch") return;
+      state.kaufRueckkehr = kauf;
+      params.delete("kauf");
+      params.delete("session_id");
+      const rest = params.toString();
+      window.history.replaceState(null, "", `${window.location.pathname}${rest ? `?${rest}` : ""}`);
+    } catch { /* ohne Verlauf oder ohne Adresse */ }
+  }
+
+  // ---------------------------------------------------------------------------
   // Die Familie
   // ---------------------------------------------------------------------------
+
   // children[] am Elternkonto: {uid, name}. Der Server schreibt es, wenn er
   // ein Kind anlegt; hier wird es gelesen, damit das Profilfenster die Kinder
   // nennen kann, ohne ihre Konten lesen zu dürfen.
@@ -1037,26 +1114,6 @@
     await state.auth.signOut();
   }
 
-  async function setUnlockAllLevels(enabled) {
-    if (!state.user || !state.db) return;
-    const previousMode = state.unlockedMode;
-    state.unlockedMode = Boolean(enabled);
-    try {
-      await userRef().set({
-        levelAccess: {
-          unlockAllLevels: state.unlockedMode,
-          updatedAt: serverTimestamp(),
-        },
-        lastSeenAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      }, { merge: true });
-    } catch (error) {
-      state.unlockedMode = previousMode;
-      throw error;
-    }
-    announceProgress();
-    await refreshDashboard();
-  }
 
   // --- Das Wagen-Set ---------------------------------------------------------
   // Der Zug hat zwei Sets Wagen: die Güterwagen und die Gestalten, die sich
@@ -1546,6 +1603,7 @@
     modal.hidden = true;
     modal.classList.add("hidden");
     state.dashboardOpen = false;
+    state.kaufRueckkehr = null;
     releaseAccountHelp?.();
     releaseAccountHelp = null;
     accountButton.focus();
@@ -1722,6 +1780,8 @@
 
     const userData = userDoc.data() || {};
     state.unlockedMode = Boolean(userData.levelAccess?.unlockAllLevels);
+    state.parentUid = typeof userData.parentUid === "string" ? userData.parentUid : null;
+    state.children = readChildren(userData.children);
     applyGroup(readGroup(userData.group));
     const progressDocs = progressSnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
     const sessions = sessionSnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
@@ -1753,15 +1813,9 @@
         </div>
         <button type="button" class="secondary-action" data-logout>Logout</button>
       </div>
-      <div class="unlock-mode-card${state.unlockedMode ? " active" : ""}">
-        <div>
-          <strong>Levelmodus</strong>
-          <span>${state.unlockedMode ? "Alle Levels frei" : "Gesperrter Modus"}</span>
-        </div>
-        <button type="button" class="${state.unlockedMode ? "secondary-action" : ""}" data-unlock-mode-toggle>
-          ${state.unlockedMode ? "Gesperrten Modus einschalten" : "Alle Levels freischalten"}
-        </button>
-      </div>
+      ${renderKaufRueckkehr()}
+      ${renderKaufKarte()}
+      ${isParentAccount() ? renderKinderKarte() : ""}
       ${renderResetProgressCard()}
       <div class="stat-strip" aria-label="Gesamtstatistik">
         <div><strong>${stats.totalSolved}</strong><span>gelöst</span></div>
@@ -1790,18 +1844,214 @@
       }
     });
 
-    modalContent.querySelector("[data-unlock-mode-toggle]").addEventListener("click", async () => {
-      const status = modalContent.querySelector(".auth-status");
-      status.textContent = state.unlockedMode ? "Gesperrter Modus wird eingeschaltet..." : "Alle Levels werden freigeschaltet...";
-      try {
-        await setUnlockAllLevels(!state.unlockedMode);
-      } catch (error) {
-        status.textContent = authErrorMessage(error);
-      }
-    });
-
+    bindKaufKarte();
+    if (isParentAccount()) bindKinderKarte();
     bindResetProgressCard();
   }
+
+  // ---------------------------------------------------------------------------
+  // Der Kauf im Profilfenster
+  // ---------------------------------------------------------------------------
+  // Eine Karte, je nach Konto ein anderer Satz: Das Elternkonto kauft hier;
+  // ein Kind mit Elternkonto sieht, ob die Eltern gekauft haben; ein Konto
+  // aus der Zeit davor ist frei und erfährt, warum.
+  const KAUF_PREIS = "CHF 30";
+
+  function kaufStand() {
+    const e = state.entitlement;
+    if (e?.active) return "gekauft";
+    if (e && !e.active) return "zurueck";
+    if (state.role === "child" && !state.parentUid) return "gruender";
+    return "offen";
+  }
+
+  function renderKaufRueckkehr() {
+    if (!state.kaufRueckkehr) return "";
+    if (state.kaufRueckkehr === "abbruch") {
+      return `<div class="kauf-hinweis" role="status">Die Kasse wurde geschlossen. Es wurde nichts abgebucht.</div>`;
+    }
+    return `<div class="kauf-hinweis is-ok" role="status">Danke! Die Zahlung ist angekommen. ${state.entitlement?.active ? "Gripszug ist freigeschaltet." : "Die Freischaltung kommt in wenigen Sekunden – dieses Fenster zeigt sie von selbst."}</div>`;
+  }
+
+  function renderKaufKarte() {
+    const stand = kaufStand();
+    const eltern = isParentAccount();
+    if (stand === "gekauft") {
+      const seit = state.entitlement.grantedAtMs ? formatDateTime(new Date(state.entitlement.grantedAtMs)) : "";
+      const via = state.entitlement.via ? "Freigeschaltet durch dein Elternkonto." : (eltern ? "Alle Kinder unten sind freigeschaltet." : "");
+      return `
+        <div class="unlock-mode-card kauf-karte active" data-kauf-karte>
+          <div>
+            <strong>Gripszug Familie ✓</strong>
+            <span>${escapeHtml(via)}${seit ? ` Gekauft am ${escapeHtml(seit)}.` : ""}</span>
+          </div>
+        </div>`;
+    }
+    if (stand === "gruender") {
+      return `
+        <div class="unlock-mode-card kauf-karte active" data-kauf-karte>
+          <div>
+            <strong>Gründer-Zugang</strong>
+            <span>Dieses Konto war vor dem Kauf dabei. Alles ist frei – und bleibt es.</span>
+          </div>
+        </div>`;
+    }
+    if (!eltern) {
+      return `
+        <div class="unlock-mode-card kauf-karte" data-kauf-karte>
+          <div>
+            <strong>Noch nicht freigeschaltet</strong>
+            <span>Gripszug kauft man im Elternkonto. Danach sind alle Kinder der Familie frei.</span>
+          </div>
+        </div>`;
+    }
+    return `
+      <div class="unlock-mode-card kauf-karte" data-kauf-karte>
+        <div>
+          <strong>${stand === "zurueck" ? "Der Kauf wurde zurückerstattet" : "Gripszug Familie"}</strong>
+          <span>Alle 25 Spiele, alle 130 Stationen, bis zu 4 Kinder. Einmal zahlen, für immer – kein Abo, keine Werbung.</span>
+        </div>
+        <button type="button" data-kaufen>${stand === "zurueck" ? "Erneut kaufen" : "Jetzt kaufen"} · ${KAUF_PREIS}</button>
+        <p class="auth-status karten-status" role="status" aria-live="polite"></p>
+      </div>`;
+  }
+
+  function bindKaufKarte() {
+    const knopf = modalContent.querySelector("[data-kaufen]");
+    if (!knopf) return;
+    knopf.addEventListener("click", async () => {
+      if (state.serverBusy) return;
+      const status = modalContent.querySelector("[data-kauf-karte] .karten-status") || modalContent.querySelector(".auth-status");
+      state.serverBusy = true;
+      knopf.disabled = true;
+      status.textContent = "Die Kasse wird geöffnet...";
+      try {
+        await zurKasse();
+      } catch (error) {
+        state.serverBusy = false;
+        knopf.disabled = false;
+        if (error?.code === "server/already-owned") { await refreshDashboard(); return; }
+        status.textContent = serverErrorMessage(error);
+      }
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Die Kinder im Profilfenster
+  // ---------------------------------------------------------------------------
+  const MAX_KINDER = 4;
+
+  // Die Rückmeldung steht in der Karte, bei dem, was sie betrifft – nicht am
+  // Ende des Fensters, wo sie beim Formular weiter oben niemand sieht. Weil
+  // die Karte nach jedem Schritt neu gezeichnet wird, kommt die Meldung als
+  // Teil des Bildes mit.
+  function renderKinderKarte(form = null, meldung = null) {
+    const kinder = state.children;
+    const zeilen = kinder.length
+      ? kinder.map((kind) => `
+          <li class="kind-zeile" data-kind-uid="${escapeHtml(kind.uid)}">
+            <span class="kind-name">${escapeHtml(kind.name || "Kind")}</span>
+            ${form?.art === "passwort" && form.uid === kind.uid ? `
+              <form class="kind-form" data-kind-passwort-form>
+                <input name="passwort" type="password" minlength="4" required placeholder="Neues Passwort" autocomplete="new-password" />
+                <button type="submit">Speichern</button>
+                <button type="button" class="secondary-action" data-kind-abbrechen>Abbrechen</button>
+              </form>` : `
+              <button type="button" class="secondary-action" data-kind-passwort="${escapeHtml(kind.uid)}">Passwort neu</button>`}
+          </li>`).join("")
+      : `<li class="kind-zeile kind-leer">Noch kein Kind. Leg das erste an – mit dem Namen und dem Passwort meldet es sich dann an.</li>`;
+
+    const neu = form?.art === "neu" ? `
+      <form class="kind-form kind-form-neu" data-kind-neu-form>
+        <label><span>Name des Kindes</span><input name="name" type="text" required autocomplete="off" autocapitalize="words" placeholder="z. B. Lina" /></label>
+        <label><span>Passwort (ab 4 Zeichen)</span><input name="passwort" type="password" minlength="4" required autocomplete="new-password" placeholder="z. B. 1234" /></label>
+        <p class="auth-hint">Damit meldet sich dein Kind an. Ein Spitzname reicht – der echte Name muss nirgends stehen.</p>
+        <div class="card-actions">
+          <button type="button" class="secondary-action" data-kind-abbrechen>Abbrechen</button>
+          <button type="submit">Kind anlegen</button>
+        </div>
+      </form>` : (kinder.length < MAX_KINDER ? `<button type="button" class="secondary-action" data-kind-neu>Kind hinzufügen</button>` : `<p class="auth-hint">Vier Kinder – mehr gehen je Elternkonto nicht.</p>`);
+
+    return `
+      <div class="unlock-mode-card kinder-karte" data-kinder-karte>
+        <div class="kinder-kopf">
+          <strong>Kinder</strong>
+          <span>${kinder.length} von ${MAX_KINDER}${kaufStand() === "gekauft" ? " · alle freigeschaltet" : ""}</span>
+        </div>
+        <ul class="kinder-liste">${zeilen}</ul>
+        ${neu}
+        <p class="auth-status karten-status${meldung?.ok ? " is-ok" : ""}" role="status" aria-live="polite">${meldung ? escapeHtml(meldung.text) : ""}</p>
+      </div>`;
+  }
+
+  function bindKinderKarte() {
+    const karte = modalContent.querySelector("[data-kinder-karte]");
+    if (!karte) return;
+    const status = karte.querySelector(".karten-status");
+    const zeichne = (form, meldung = null) => {
+      karte.outerHTML = renderKinderKarte(form, meldung);
+      bindKinderKarte();
+      modalContent.querySelector("[data-kinder-karte] input")?.focus();
+    };
+    karte.querySelector("[data-kind-neu]")?.addEventListener("click", () => zeichne({ art: "neu" }));
+    karte.querySelectorAll("[data-kind-passwort]").forEach((knopf) => {
+      knopf.addEventListener("click", () => zeichne({ art: "passwort", uid: knopf.dataset.kindPasswort }));
+    });
+    karte.querySelectorAll("[data-kind-abbrechen]").forEach((knopf) => {
+      knopf.addEventListener("click", () => { status.textContent = ""; zeichne(null); });
+    });
+    karte.querySelector("[data-kind-neu-form]")?.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      if (state.serverBusy) return;
+      const daten = new FormData(event.currentTarget);
+      state.serverBusy = true;
+      status.textContent = "Kind wird angelegt...";
+      try {
+        const kind = await kindAnlegen(String(daten.get("name")), String(daten.get("passwort")));
+        zeichne(null, { ok: true, text: `${kind.name} kann sich jetzt mit Name und Passwort anmelden.` });
+      } catch (error) {
+        status.textContent = serverErrorMessage(error);
+        status.classList.remove("is-ok");
+      } finally {
+        state.serverBusy = false;
+      }
+    });
+    karte.querySelector("[data-kind-passwort-form]")?.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      if (state.serverBusy) return;
+      const zeile = event.currentTarget.closest("[data-kind-uid]");
+      const uid = zeile?.dataset.kindUid;
+      const daten = new FormData(event.currentTarget);
+      state.serverBusy = true;
+      status.textContent = "Passwort wird gesetzt...";
+      try {
+        await kindPasswortSetzen(uid, String(daten.get("passwort")));
+        zeichne(null, { ok: true, text: "Das neue Passwort gilt ab sofort." });
+      } catch (error) {
+        status.textContent = serverErrorMessage(error);
+        status.classList.remove("is-ok");
+      } finally {
+        state.serverBusy = false;
+      }
+    });
+  }
+
+  function serverErrorMessage(error) {
+    const code = String(error?.code || "");
+    if (code === "server/not-signed-in" || code === "server/bad-token") return "Die Anmeldung ist abgelaufen. Bitte neu anmelden.";
+    if (code === "server/parents-only") return "Das kann nur ein Elternkonto.";
+    if (code === "server/name-taken") return "Diesen Namen gibt es schon. Nimm einen anderen – mit Nachnamen oder einer Zahl.";
+    if (code === "server/short-password") return "Das Passwort muss mindestens 4 Zeichen haben.";
+    if (code === "server/missing-name") return "Bitte gib einen Namen ein.";
+    if (code === "server/too-many-children") return "Vier Kinder – mehr gehen je Elternkonto nicht.";
+    if (code === "server/not-your-child") return "Dieses Kind gehört nicht zu deinem Konto.";
+    if (code === "server/already-owned") return "Dieses Konto hat Gripszug schon gekauft.";
+    if (code === "server/404" || code === "server/502") return "Der Server ist gerade nicht erreichbar. Bitte später noch einmal.";
+    if (code === "server/500") return "Auf dem Server ist etwas schiefgegangen. Bitte später noch einmal.";
+    if (code.includes("network")) return "Keine Verbindung. Bitte prüfe das Netz.";
+    return error?.message || "Das hat nicht geklappt.";
+  }
+
 
   // Zurücksetzen ist nicht rückgängig zu machen, also fragt die Karte nach:
   // erst der Klick, dann die Frage, dann die Tat. Eine eigene Rückfrage statt
