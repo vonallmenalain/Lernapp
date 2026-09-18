@@ -10,14 +10,22 @@
  * Admin-SDK, an firestore.rules vorbei; genau deshalb prüfen die Regeln, dass
  * ein Client diese Felder nie selbst schreibt.
  *
- * Höchstens MAX_KINDER je Elternkonto. Der Name ist die Adresse: Zwei Kinder
- * mit demselben Namen gibt es nicht – auch nicht bei zwei Familien. Das ist
- * eine Grenze der Anmeldung mit Name statt Adresse; die Meldung sagt es.
+ * Höchstens MAX_KINDER je Elternkonto – gezählt in einer Transaktion, damit
+ * zwei gleichzeitige Anfragen nicht beide den letzten Platz bekommen. Der
+ * Name ist die Adresse: Zwei Kinder mit demselben Namen gibt es nicht – auch
+ * nicht bei zwei Familien. Das ist eine Grenze der Anmeldung mit Name statt
+ * Adresse; die Meldung sagt es.
+ *
+ * Erst das Auth-Konto, dann Firestore. Scheitert Firestore – der Platz ist
+ * doch schon weg, ein Aussetzer –, kommt das Auth-Konto wieder weg: Sonst
+ * bliebe der Name für immer belegt, ohne dass es das Kind gäbe.
  */
 
 import { auth, db, FieldValue } from "./_lib/firebase.mjs";
 import { AnfrageFehler, antwort, fehlerAntwort, liesJson, elternAnrufer, nurMethode } from "./_lib/anfrage.mjs";
 import { sauberName, technischeAdresse, kindPasswort, MAX_KINDER, MIN_KIND_PASSWORT } from "./_lib/kind.mjs";
+
+const kinderVon = (daten) => (Array.isArray(daten?.children) ? daten.children : []);
 
 export async function kindAnlegen({ eltern, name, passwort }) {
   const anzeigeName = sauberName(name);
@@ -27,9 +35,10 @@ export async function kindAnlegen({ eltern, name, passwort }) {
   if (!pw) throw new AnfrageFehler(400, "short-password", `Das Passwort muss mindestens ${MIN_KIND_PASSWORT} Zeichen haben.`);
 
   const elternRef = db().collection("users").doc(eltern.uid);
-  const elternDoc = await elternRef.get();
-  const kinder = Array.isArray(elternDoc.data()?.children) ? elternDoc.data().children : [];
-  if (kinder.length >= MAX_KINDER) throw new AnfrageFehler(409, "too-many-children", `Bis zu ${MAX_KINDER} Kinder je Elternkonto.`);
+  const voll = () => new AnfrageFehler(409, "too-many-children", `Bis zu ${MAX_KINDER} Kinder je Elternkonto.`);
+  // Ein erster Blick, bevor ein Auth-Konto entsteht: Wer schon voll ist,
+  // bekommt die Absage ohne Umweg. Verbindlich zählt die Transaktion unten.
+  if (kinderVon((await elternRef.get()).data()).length >= MAX_KINDER) throw voll();
 
   let nutzer;
   try {
@@ -41,39 +50,50 @@ export async function kindAnlegen({ eltern, name, passwort }) {
     throw fehler;
   }
 
-  const jetzt = FieldValue.serverTimestamp();
-  const kauf = await db().collection("entitlements").doc(eltern.uid).get();
-  const stapel = db().batch();
-  stapel.set(db().collection("users").doc(nutzer.uid), {
-    authEmail: adresse,
-    email: null,
-    username: anzeigeName,
-    displayName: anzeigeName,
-    role: "child",
-    parentUid: eltern.uid,
-    loginMethod: "name-password",
-    providers: ["password"],
-    localPersistence: true,
-    createdAt: jetzt,
-    updatedAt: jetzt,
-    lastSeenAt: jetzt,
-    stats: { totalSeconds: 0, moves: 0, resets: 0, solvedLevels: 0, sessions: 0 },
-  });
-  stapel.set(elternRef, {
-    children: FieldValue.arrayUnion({ uid: nutzer.uid, name: anzeigeName }),
-    updatedAt: jetzt,
-  }, { merge: true });
-  if (kauf.exists && kauf.data()?.active) {
-    stapel.set(db().collection("entitlements").doc(nutzer.uid), {
-      ...kauf.data(),
-      via: eltern.uid,
-      grantedAtMs: Date.now(),
-      grantedAt: jetzt,
+  try {
+    const kauf = await db().runTransaction(async (transaktion) => {
+      const elternDoc = await transaktion.get(elternRef);
+      if (kinderVon(elternDoc.data()).length >= MAX_KINDER) throw voll();
+      const kaufDoc = await transaktion.get(db().collection("entitlements").doc(eltern.uid));
+      const gekauft = Boolean(kaufDoc.exists && kaufDoc.data()?.active);
+      const jetzt = FieldValue.serverTimestamp();
+      transaktion.set(db().collection("users").doc(nutzer.uid), {
+        authEmail: adresse,
+        email: null,
+        username: anzeigeName,
+        displayName: anzeigeName,
+        role: "child",
+        parentUid: eltern.uid,
+        loginMethod: "name-password",
+        providers: ["password"],
+        localPersistence: true,
+        createdAt: jetzt,
+        updatedAt: jetzt,
+        lastSeenAt: jetzt,
+        stats: { totalSeconds: 0, moves: 0, resets: 0, solvedLevels: 0, sessions: 0 },
+      });
+      transaktion.set(elternRef, {
+        children: FieldValue.arrayUnion({ uid: nutzer.uid, name: anzeigeName }),
+        updatedAt: jetzt,
+      }, { merge: true });
+      if (gekauft) {
+        transaktion.set(db().collection("entitlements").doc(nutzer.uid), {
+          ...kaufDoc.data(),
+          via: eltern.uid,
+          grantedAtMs: Date.now(),
+          grantedAt: jetzt,
+        });
+      }
+      return gekauft;
     });
+    return { uid: nutzer.uid, name: anzeigeName, loginName: anzeigeName, kauf };
+  } catch (fehler) {
+    // Ohne Kontodokument gibt es das Kind nicht – dann darf auch der Name
+    // nicht belegt bleiben. Klappt das Aufräumen nicht, meldet der nächste
+    // Versuch "name-taken"; das ist die Ausnahme von der Ausnahme.
+    try { await auth().deleteUser(nutzer.uid); } catch { /* siehe oben */ }
+    throw fehler;
   }
-  await stapel.commit();
-
-  return { uid: nutzer.uid, name: anzeigeName, loginName: anzeigeName, kauf: Boolean(kauf.exists && kauf.data()?.active) };
 }
 
 export default async (request) => {

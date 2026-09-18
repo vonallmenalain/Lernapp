@@ -200,6 +200,12 @@ const zweit = await kaufVerbuchen(session);
 ok(zweit.verbucht === false && /schon/.test(zweit.grund), `dieselbe Session noch einmal: ${JSON.stringify(zweit)}`);
 const unbezahlt = await kaufVerbuchen({ ...session, id: "cs_test_2", payment_status: "unpaid" });
 ok(unbezahlt.verbucht === false, "unbezahlte Session wurde verbucht");
+// Ein Gutschein über 100 %: Stripe meldet "no_payment_required" – gekauft ist gekauft.
+const oma = await auth().createUser({ email: "oma@example.com", password: "elternpasswort" });
+await db().collection("users").doc(oma.uid).set({ username: "Oma", role: "parent" });
+const gratis = await kaufVerbuchen({ id: "cs_test_gratis", payment_status: "no_payment_required", client_reference_id: oma.uid, payment_intent: null, amount_total: 0, currency: "chf" });
+ok(gratis.verbucht === true, `Gutschein über 100 %: ${JSON.stringify(gratis)}`);
+ok((await db().collection("entitlements").doc(oma.uid).get()).data()?.active === true, "Kauf per Gutschein fehlt");
 await wirft(() => kasseErstellen({ eltern, stripeClient: stripeAttrappe, price: "p", site: "s" }), "already-owned", "Kasse nach dem Kauf");
 
 // Ein Kind, das nach dem Kauf dazukommt, bekommt ihn mit.
@@ -222,6 +228,29 @@ ok(ohne.status === 400, `Webhook ohne Unterschrift: ${ohne.status}, erwartet 400
 await kindAnlegen({ eltern, name: "Kind Drei", passwort: "1234" });
 await kindAnlegen({ eltern, name: "Kind Vier", passwort: "1234" });
 await wirft(() => kindAnlegen({ eltern, name: "Kind Fünf", passwort: "1234" }), "too-many-children", "fünftes Kind");
+// Der abgelehnte Versuch hinterlässt kein Auth-Konto – sonst wäre der Name belegt, ohne dass es das Kind gäbe.
+await wirft(() => auth().getUserByEmail("kind-funf@lernapp.local"), "auth/user-not-found", "verwaistes Auth-Konto nach dem fünften Kind");
+
+// Zwei Kinder gleichzeitig, ein Platz: Die Transaktion lässt genau eines durch.
+const opa = await auth().createUser({ email: "opa@example.com", password: "elternpasswort" });
+const opaEltern = { uid: opa.uid, email: "opa@example.com", istEltern: true };
+await db().collection("users").doc(opa.uid).set({ username: "Opa", role: "parent" });
+for (const n of ["Opa Eins", "Opa Zwei", "Opa Drei"]) await kindAnlegen({ eltern: opaEltern, name: n, passwort: "1234" });
+const gleichzeitig = await Promise.allSettled([
+  kindAnlegen({ eltern: opaEltern, name: "Opa Vier", passwort: "1234" }),
+  kindAnlegen({ eltern: opaEltern, name: "Opa Fuenf", passwort: "1234" }),
+]);
+const gelungen = gleichzeitig.filter((r) => r.status === "fulfilled").length;
+ok(gelungen === 1, `zwei Kinder gleichzeitig auf den letzten Platz: ${gelungen} angelegt, erwartet 1`);
+const opaKinder = (await db().collection("users").doc(opa.uid).get()).data()?.children || [];
+ok(opaKinder.length === 4, `Opa hat ${opaKinder.length} Kinder, erwartet 4`);
+const abgewiesen = gleichzeitig.find((r) => r.status === "rejected");
+ok(abgewiesen?.reason?.code === "too-many-children", `Absage beim gleichzeitigen Anlegen: ${abgewiesen?.reason?.code || "keine"}`);
+for (const adresse of ["opa-vier@lernapp.local", "opa-fuenf@lernapp.local"]) {
+  const daDoc = opaKinder.some((k) => k.name === (adresse.startsWith("opa-vier") ? "Opa Vier" : "Opa Fuenf"));
+  let daAuth = true; try { await auth().getUserByEmail(adresse); } catch { daAuth = false; }
+  ok(daDoc === daAuth, `${adresse}: Auth-Konto ${daAuth ? "da" : "weg"}, Kontodokument ${daDoc ? "da" : "weg"} – beides oder keines`);
+}
 
 // --- 6. Passwort eines Kindes ---------------------------------------------------
 await kindPasswortSetzen({ eltern, uid: kind1.uid, passwort: "neu1" });
