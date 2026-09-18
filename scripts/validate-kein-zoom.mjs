@@ -29,7 +29,11 @@ const fehler = [];
 function pruefe(bedingung, meldung) { if (!bedingung) fehler.push(meldung); }
 
 // --- 1. Jede Seite ----------------------------------------------------------
-const seiten = fs.readdirSync(root).filter((name) => name.endsWith(".html")).sort();
+// Ausser den Seiten für Erwachsene: die Willkommensseite und die Rechtstexte
+// sind Text zum Lesen, nicht Bühne zum Spielen. Dort darf hineinziehen, wer
+// klein gedruckte AGB lesen will – und nichts rechnet dort mit dem ganzen Bild.
+const ERWACHSENENSEITEN = new Set(["willkommen.html", "impressum.html", "datenschutz.html", "agb.html"]);
+const seiten = fs.readdirSync(root).filter((name) => name.endsWith(".html") && !ERWACHSENENSEITEN.has(name)).sort();
 pruefe(seiten.length > 10, `Nur ${seiten.length} Seiten gefunden – stimmt der Ordner?`);
 
 seiten.forEach((name) => {
