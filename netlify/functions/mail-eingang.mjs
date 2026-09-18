@@ -21,6 +21,15 @@
  * Absenders: Ein "Antworten" im Postfach geht dann an den, der geschrieben
  * hat, nicht an uns selbst.
  *
+ * In der Antwort steht "erledigt": Sie ist das Zeichen für den Worker, dass er
+ * nichts mehr tun muss. Nicht der Status-Code allein – die Mail kann
+ * angekommen und archiviert sein und trotzdem nirgends zugestellt, weil Resend
+ * den Schlüssel ablehnt. Stünde dann 200 ohne weiteres da, hielte der Worker
+ * die Sache für erledigt, liesse seine eigene Weiterleitung aus, und die Mail
+ * wäre im Archiv und sonst nirgends. Deshalb: erledigt ist sie, wenn sie
+ * weitergeleitet wurde – oder wenn die Weiterleitung absichtlich aus ist.
+ * Sonst 502, und der Worker übernimmt.
+ *
  * Das Geheimnis im Kopf ist die ganze Anmeldung – es gibt hier kein Konto und
  * keinen Anrufer. Verglichen wird es zeitunabhängig (timingSafeEqual): Ein
  * gewöhnlicher Vergleich bricht beim ersten falschen Zeichen ab und verrät
@@ -83,14 +92,20 @@ export async function eingangVerarbeiten(nachricht) {
     // grosser Wahrscheinlichkeit gefälscht.
     pruefung: nachricht.pruefung || null,
     groesse: Number(nachricht.groesse) || 0,
+    // Was drangehangen hat. Weitergeleitet wird von hier aus nur der Text –
+    // das Original mit dem Anhang schickt der Worker zusätzlich selbst.
+    anhaenge: Array.isArray(nachricht.anhaenge) ? nachricht.anhaenge.slice(0, 20).map((name) => String(name).slice(0, 200)) : [],
   });
 
   const stand = await einstellungen();
   if (!stand.weiterleitungAktiv || !istAdresse(stand.weiterleitungAn)) {
-    return { ok: true, id, weitergeleitet: false, grund: "Weiterleitung aus" };
+    // Aus ist aus: Dann soll auch der Worker nicht weiterleiten, sonst hiesse
+    // der Schalter im Adminbereich nichts. Also erledigt.
+    return { ok: true, id, weitergeleitet: false, erledigt: true, grund: "Weiterleitung aus" };
   }
 
-  const vorlage = weiterleitungsMail({ von, an, betreff, text, empfangenText: datumText(empfangenMs) });
+  const anhaenge = Array.isArray(nachricht.anhaenge) ? nachricht.anhaenge : [];
+  const vorlage = weiterleitungsMail({ von, an, betreff, text, empfangenText: datumText(empfangenMs), anhaenge });
   const ergebnis = await sendeMail({
     an: stand.weiterleitungAn,
     betreff: vorlage.betreff,
@@ -101,7 +116,10 @@ export async function eingangVerarbeiten(nachricht) {
     antwortAn: istAdresse(von) ? von : "",
     meta: { quelle: id },
   });
-  return { ok: true, id, weitergeleitet: Boolean(ergebnis.gesendet), grund: ergebnis.grund || "" };
+  // "Schon gesendet" ist auch erledigt: Cloudflare hat es dann nur zweimal
+  // versucht, und die Mail liegt längst im Postfach.
+  const erledigt = Boolean(ergebnis.gesendet) || ergebnis.grund === "schon gesendet";
+  return { ok: true, id, weitergeleitet: Boolean(ergebnis.gesendet), erledigt, grund: ergebnis.grund || "" };
 }
 
 export default async (request) => {
@@ -110,7 +128,11 @@ export default async (request) => {
     if (!geheimnisStimmt(request)) throw new AnfrageFehler(401, "bad-secret", "Falsches Geheimnis.");
     const nachricht = await liesJson(request);
     if (!nachricht || typeof nachricht !== "object") throw new AnfrageFehler(400, "bad-body", "Keine Nachricht.");
-    return antwort(await eingangVerarbeiten(nachricht));
+    const ergebnis = await eingangVerarbeiten(nachricht);
+    // 502, wenn die Weiterleitung versucht wurde und misslang: Die Mail ist
+    // archiviert (deshalb steht die Kennung in der Antwort), aber sie liegt in
+    // keinem Postfach. Der Worker leitet dann selbst weiter.
+    return antwort(ergebnis, ergebnis.erledigt ? 200 : 502);
   } catch (fehler) {
     return fehlerAntwort(fehler);
   }

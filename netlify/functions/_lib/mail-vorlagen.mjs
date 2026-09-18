@@ -254,16 +254,25 @@ export function passwortMail({ email, link }) {
 // wie er es geschrieben hat. Der Rahmen sagt nur, von wem es kam – und die
 // Antwortadresse ist der ursprüngliche Absender, damit ein "Antworten" im
 // Postfach beim Richtigen landet.
-export function weiterleitungsMail({ von, an, betreff, text, empfangenText = "" }) {
+export function weiterleitungsMail({ von, an, betreff, text, empfangenText = "", anhaenge = [] }) {
   const zeilen = [["Von", von || "unbekannt"], ["An", an || KONTAKT()]];
   if (empfangenText) zeilen.push(["Empfangen", empfangenText]);
+  if (anhaenge.length) zeilen.push([anhaenge.length === 1 ? "Anhang" : "Anhänge", anhaenge.join(", ")]);
+
+  const absaetze = [`<span style="white-space: pre-wrap;">${escape(text || "(kein Textinhalt)")}</span>`];
+  // Hier steht nur der Text der Mail – ein Bild oder ein PDF kann darin nicht
+  // mitkommen. Der Worker bei Cloudflare schickt das Original deshalb
+  // zusätzlich; dieser Satz sagt, dass es unterwegs ist, damit niemand nach
+  // einem Anhang sucht, der nie in dieser Mail war.
+  if (anhaenge.length) {
+    absaetze.push(`<em style="color: #667085;">Diese Mail hat ${anhaenge.length === 1 ? "einen Anhang" : `${anhaenge.length} Anhänge`}. Hier steht nur der Text – das Original mit ${anhaenge.length === 1 ? "dem Anhang" : "den Anhängen"} kommt gleich noch einmal, direkt von Cloudflare.</em>`);
+  }
+
   return fertig({
     betreff: `[kids] ${betreff || "(ohne Betreff)"}`,
     titel: betreff || "(ohne Betreff)",
     vorschau: `Post an ${an || KONTAKT()} von ${von || "unbekannt"}`,
-    absaetze: [
-      `<span style="white-space: pre-wrap;">${escape(text || "(kein Textinhalt)")}</span>`,
-    ],
+    absaetze,
     kasten: { titel: "Weitergeleitet", zeilen },
     fussnote: "Diese Mail ging an kids@alae.app und wurde an dich weitergeleitet. Ein Antworten geht direkt an den ursprünglichen Absender.",
   });

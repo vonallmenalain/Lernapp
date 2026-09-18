@@ -3145,6 +3145,7 @@
         fehler: typeof data.fehler === "string" ? data.fehler : "",
         uid: typeof data.uid === "string" ? data.uid : "",
         pruefung: data.pruefung || null,
+        anhaenge: Array.isArray(data.anhaenge) ? data.anhaenge.map((name) => String(name)) : [],
         zeitMs: Number(data.zeitMs) || timestampDate(data.zeit)?.getTime() || 0,
       };
     });

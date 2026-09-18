@@ -1313,7 +1313,9 @@
         <span><b>Art</b>${t(MAIL_ARTEN[mail.art] || mail.art)}</span>
         <span><b>Stand</b>${t(mail.status || "–")}</span>
         ${pruefung}
+        ${mail.anhaenge?.length ? `<span><b>Anhänge</b>${t(mail.anhaenge.join(", "))}</span>` : ""}
       </div>
+      ${mail.anhaenge?.length ? `<p class="account-muted admin-note">Anhänge kommen in der Weiterleitung nicht mit – das Original mit ${mail.anhaenge.length === 1 ? "dem Anhang" : "den Anhängen"} schickt der Cloudflare-Worker zusätzlich direkt ans Postfach.</p>` : ""}
       ${mail.fehler ? `<p class="auth-status">${t(mail.fehler)}</p>` : ""}
       <pre class="admin-mail-text">${t(mail.text || "(kein Text)")}</pre>`;
   }

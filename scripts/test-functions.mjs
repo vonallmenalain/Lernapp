@@ -763,7 +763,22 @@ ok(r400.status === 400, `kind-anlegen mit kaputtem JSON: ${r400.status}`);
   const eigeneAntwort = await (await passwortHandler(postJson(null, { email: "mama@example.com" }))).json();
   ok(JSON.stringify(fremdeDaten) === JSON.stringify(eigeneAntwort),
     `die Antwort unterscheidet Adressen mit und ohne Konto: ${JSON.stringify(fremdeDaten)} vs ${JSON.stringify(eigeneAntwort)}`);
-  ok(fremdeDaten.versand === true, "die Antwort sagt nicht, dass der Server verschicken kann – der Client fiele auf Firebase zurück");
+  ok(fremdeDaten.versand === true, "eine Adresse ohne Konto lässt den Client auf Firebase zurückfallen – dort gäbe es genauso wenig ein Konto");
+
+  // Und andersherum: Lehnt Resend ab, MUSS der Client auf Firebase
+  // zurückfallen. Sonst bekäme niemand mehr ein neues Passwort, solange die
+  // Störung dauert – genau dann, wenn er es braucht.
+  const heilesFetch = globalThis.fetch;
+  globalThis.fetch = async (ziel, optionen) => {
+    if (String(ziel?.url || ziel).startsWith("https://api.resend.com/")) return new Response(JSON.stringify({ message: "Domain is not verified" }), { status: 403 });
+    return echtesFetch(ziel, optionen);
+  };
+  // Die Bremse steht der Prüfung im Weg – deshalb eine zweite Adresse.
+  await auth().createUser({ email: "bremse-frei@example.com", password: "elternpasswort" });
+  const beiStoerung = await (await passwortHandler(postJson(null, { email: "bremse-frei@example.com" }))).json();
+  ok(beiStoerung.ok === true, "bei einer Störung antwortet der Server nicht mehr mit ok");
+  ok(beiStoerung.versand === false, "bei einer Störung meldet der Server trotzdem Versand – der Client fiele nicht auf Firebase zurück");
+  globalThis.fetch = heilesFetch;
 
   // --- Der Eingang ----------------------------------------------------------
   verschickt = [];
@@ -791,12 +806,44 @@ ok(r400.status === 400, `kind-anlegen mit kaputtem JSON: ${r400.status}`);
   ok(weiter.reply_to === "mutter@example.com", `Antwortadresse: ${weiter.reply_to}`);
   ok(/Schulklasse/.test(weiter.text || ""), "der weitergeleitete Text fehlt");
 
+  ok(angekommen.erledigt === true, "eine zugestellte Mail gilt dem Worker nicht als erledigt");
+
   // Cloudflare versucht es bei einem Fehler noch einmal – dieselbe Mail darf
-  // dann nicht ein zweites Mal im Postfach landen.
+  // dann nicht ein zweites Mal im Postfach landen, und der Worker soll sie
+  // trotzdem als erledigt ansehen.
   const anzahlVorher = verschickt.length;
   const nochmalEingang = await eingangVerarbeiten(post);
   ok(nochmalEingang.weitergeleitet === false, "dieselbe Mail wurde zweimal weitergeleitet");
+  ok(nochmalEingang.erledigt === true, "die Wiederholung gilt als nicht erledigt – der Worker leitete ein zweites Mal weiter");
   ok(verschickt.length === anzahlVorher, `die Wiederholung schickte ${verschickt.length - anzahlVorher} Mails`);
+
+  // Und der Fall, an dem alles hängt: Gripszug nimmt die Mail an, kann sie
+  // aber nicht zustellen. Dann muss der Worker es erfahren – sonst liegt die
+  // Mail im Archiv und in keinem Postfach.
+  const heilesFetch2 = globalThis.fetch;
+  globalThis.fetch = async (ziel, optionen) => {
+    if (String(ziel?.url || ziel).startsWith("https://api.resend.com/")) return new Response(JSON.stringify({ message: "Domain is not verified" }), { status: 403 });
+    return echtesFetch(ziel, optionen);
+  };
+  const misslungen = await eingangHandler(new Request("http://x/api", {
+    method: "POST",
+    headers: { "content-type": "application/json", "x-mail-geheimnis": "geheimnis-attrappe" },
+    body: JSON.stringify({ ...post, messageId: "<dritte@example.com>" }),
+  }));
+  const misslungenDaten = await misslungen.json();
+  ok(misslungen.status === 502, `eine nicht zugestellte Mail wird mit ${misslungen.status} quittiert – der Worker hielte sie für zugestellt`);
+  ok(misslungenDaten.erledigt === false, `erledigt: ${JSON.stringify(misslungenDaten)}`);
+  ok((await db().collection("mails").doc(misslungenDaten.id).get()).exists, "die nicht zugestellte Mail steht nicht einmal im Archiv");
+  globalThis.fetch = heilesFetch2;
+
+  // Anhänge kommen in der weitergeleiteten Mail nicht mit – deshalb steht
+  // wenigstens dabei, dass es welche gibt.
+  verschickt = [];
+  const mitAnhang = await eingangVerarbeiten({ ...post, messageId: "<vierte@example.com>", anhaenge: ["fehler.png"] });
+  ok(mitAnhang.erledigt === true, `Mail mit Anhang: ${JSON.stringify(mitAnhang)}`);
+  ok(/fehler\.png/.test(verschickt[0]?.inhalt?.text || ""), "der Name des Anhangs fehlt in der Weiterleitung");
+  ok(/Original/.test(verschickt[0]?.inhalt?.text || ""), "es steht nicht dabei, dass das Original noch kommt");
+  ok((await db().collection("mails").doc(mitAnhang.id).get()).data()?.anhaenge?.[0] === "fehler.png", "der Anhang steht nicht im Archiv");
 
   // --- Die Einstellungen ----------------------------------------------------
   const chefToken2 = await anmelden(ADMIN_ADRESSEN[0], "adminpasswort");
@@ -823,6 +870,9 @@ ok(r400.status === 400, `kind-anlegen mit kaputtem JSON: ${r400.status}`);
   verschickt = [];
   const stillerEingang = await eingangVerarbeiten({ ...post, messageId: "<zweite@example.com>" });
   ok(stillerEingang.weitergeleitet === false, "die ausgeschaltete Weiterleitung leitet weiter");
+  // Aus ist aus: Dann soll auch der Worker nicht weiterleiten, sonst hiesse
+  // der Schalter im Adminbereich nichts.
+  ok(stillerEingang.erledigt === true, "bei ausgeschalteter Weiterleitung leitet der Worker ersatzweise weiter");
   ok(verschickt.length === 0, "die ausgeschaltete Weiterleitung rief Resend an");
   ok((await db().collection("mails").doc(stillerEingang.id).get()).exists, "ohne Weiterleitung steht die Mail nicht im Archiv");
 
@@ -884,6 +934,71 @@ ok(r400.status === 400, `kind-anlegen mit kaputtem JSON: ${r400.status}`);
   const boese = vorlagen.weiterleitungsMail({ von: "c@d.ch", an: "kids@alae.app", betreff: "Hallo", text: "<script>alert(1)</script>" });
   ok(!/<script>/.test(boese.html), "fremder Text landet unmaskiert in der Mail");
   ok(/&lt;script&gt;/.test(boese.html), "fremder Text steht nicht maskiert in der Mail");
+
+  // --- Der Briefträger bei Cloudflare ---------------------------------------
+  // Der Worker läuft nicht hier, sondern bei Cloudflare – seine Rechnerei aber
+  // schon: Wie aus einer rohen Mail lesbarer Text wird, entscheidet sich in
+  // reinen Funktionen, und die lassen sich prüfen.
+  //
+  // Der Fall, um den es geht: quoted-printable und base64 ergeben BYTES. Wer
+  // jedes Byte einzeln zu einem Zeichen macht, bekommt aus "Gr=C3=BCsse" ein
+  // "GrÃ¼sse" – und das stünde dann im Archiv und in der Weiterleitung.
+  {
+    const worker = await import("../cloudflare/kids-mail-worker.js");
+    ok(worker.quotedPrintable("Gr=C3=BCsse aus Oberburg") === "Grüsse aus Oberburg",
+      `quoted-printable: ${worker.quotedPrintable("Gr=C3=BCsse aus Oberburg")}`);
+    ok(worker.quotedPrintable("Ein sehr langer Satz, der =\r\numgebrochen wurde") === "Ein sehr langer Satz, der umgebrochen wurde",
+      "der weiche Zeilenumbruch von quoted-printable bleibt stehen");
+    const b64 = Buffer.from("Grüsse aus Oberburg", "utf8").toString("base64");
+    ok(worker.base64Text(b64) === "Grüsse aus Oberburg", `base64: ${worker.base64Text(b64)}`);
+    // Ein Zeichensatz, den niemand kennt, darf nichts umwerfen.
+    ok(typeof worker.quotedPrintable("Hallo", "erfunden-8") === "string", "ein unbekannter Zeichensatz wirft");
+
+    // Betreffzeilen mit Umlauten stehen als =?UTF-8?Q?…?= da (RFC 2047).
+    ok(worker.dekodiereKopf("=?UTF-8?Q?Gr=C3=BCsse_aus_Oberburg?=") === "Grüsse aus Oberburg",
+      `Betreff Q: ${worker.dekodiereKopf("=?UTF-8?Q?Gr=C3=BCsse_aus_Oberburg?=")}`);
+    ok(worker.dekodiereKopf(`=?UTF-8?B?${Buffer.from("Frage zur Lizenz für Schulen", "utf8").toString("base64")}?=`) === "Frage zur Lizenz für Schulen",
+      "Betreff in base64 wird nicht entschlüsselt");
+    ok(worker.dekodiereKopf("Ganz gewöhnlicher Betreff") === "Ganz gewöhnlicher Betreff", "ein Betreff ohne Kodierung wird verändert");
+
+    // Eine ganze Mail, wie sie wirklich ankommt: mehrteilig, mit Anhang.
+    const grenze = "----grenze1234";
+    const rohmail = [
+      "From: Sandra <sandra@example.com>",
+      "To: kids@alae.app",
+      "Subject: =?UTF-8?Q?Gr=C3=BCsse?=",
+      `Content-Type: multipart/mixed; boundary="${grenze}"`,
+      "",
+      `--${grenze}`,
+      "Content-Type: text/plain; charset=UTF-8",
+      "Content-Transfer-Encoding: quoted-printable",
+      "",
+      "Gr=C3=BCezi mitenand",
+      "",
+      "Sch=C3=B6ne App!",
+      `--${grenze}`,
+      "Content-Type: image/png; name=\"fehler.png\"",
+      "Content-Disposition: attachment; filename=\"fehler.png\"",
+      "Content-Transfer-Encoding: base64",
+      "",
+      "iVBORw0KGgo=",
+      `--${grenze}--`,
+      "",
+    ].join("\r\n");
+
+    const text = worker.textAusRoh(rohmail);
+    ok(text.startsWith("Grüezi mitenand"), `der Text der Mail: ${JSON.stringify(text.slice(0, 60))}`);
+    ok(text.includes("Schöne App!"), "der zweite Absatz fehlt oder ist verstümmelt");
+    ok(!text.includes("fehler.png"), "der Anhang steht im Text");
+    ok(!/Ã/.test(text), `im Text stehen falsch übersetzte Umlaute: ${JSON.stringify(text)}`);
+
+    const anhaenge = worker.anhaengeAusRoh(rohmail);
+    ok(anhaenge.length === 1 && anhaenge[0] === "fehler.png", `Anhänge: ${JSON.stringify(anhaenge)}`);
+    ok(worker.anhaengeAusRoh("Subject: ohne\r\n\r\nNur Text").length === 0, "eine Mail ohne Anhang bekommt einen");
+
+    // Eine einteilige Mail ohne Kodierung.
+    ok(worker.textAusRoh("From: a@b.ch\r\nSubject: x\r\n\r\nNur ein Satz.") === "Nur ein Satz.", "die einfachste Mail wird nicht gelesen");
+  }
 
   globalThis.fetch = echtesFetch;
   delete process.env.RESEND_API_KEY;

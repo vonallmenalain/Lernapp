@@ -21,6 +21,27 @@
  * eine Auskunft, die niemand bekommt, der sie nicht ohnehin hat – sonst wäre
  * dieser Endpunkt eine Liste aller Kundinnen und Kunden.
  *
+ * Ein einziges Feld steht noch in der Antwort: "versand". Es sagt, ob der
+ * Versandweg diese Anfrage tragen konnte, und der Client fällt sonst auf die
+ * Mail von Firebase zurück. Ohne das wäre ein Konto nicht mehr zu erreichen,
+ * sobald Resend hustet – und ein vergessenes Passwort ist der schlechteste
+ * Moment dafür.
+ *
+ * "versand" ist deshalb ausdrücklich NICHT dasselbe wie "eine Mail ging raus":
+ *
+ *   true   eine Mail ging raus – ODER es gab nichts zu verschicken, und zwar
+ *          aus einem Grund, der nichts mit der Technik zu tun hat: kein Konto
+ *          zu dieser Adresse, eine technische Kinderadresse, eine krumme
+ *          Adresse, oder die Bremse. In all diesen Fällen brächte ein
+ *          zweiter Anlauf über Firebase auch nichts.
+ *   false  es wurde verschickt und ging schief – oder es ist gar kein
+ *          Schlüssel hinterlegt. Nur dann übernimmt Firebase.
+ *
+ * Die Adresse verrät das nicht: Für ein Konto und für kein Konto steht
+ * dieselbe Antwort da, solange der Versand läuft. Nur WÄHREND einer Störung
+ * unterscheiden sich die beiden – ein enges Fenster, und der Preis dafür,
+ * dass in genau diesem Fenster niemand aus seinem Konto ausgesperrt bleibt.
+ *
  * Der Link stammt aus dem Admin-SDK (generatePasswordResetLink); Firebase
  * verschickt dabei selbst nichts.
  */
@@ -65,10 +86,12 @@ export async function darfSchicken(email, jetzt = Date.now()) {
 
 export async function passwortMailSchicken(rohAdresse) {
   const email = sauberAdresse(rohAdresse);
-  if (!istAdresse(email) || istTechnischeAdresse(email)) return { gesendet: false, grund: "keine Elternadresse" };
+  // "nichtsZuTun": nichts ging raus, aber der Versandweg ist in Ordnung – ein
+  // zweiter Anlauf über Firebase brächte nichts.
+  if (!istAdresse(email) || istTechnischeAdresse(email)) return { gesendet: false, nichtsZuTun: true, grund: "keine Elternadresse" };
 
   const bremse = await darfSchicken(email);
-  if (!bremse.ok) return { gesendet: false, grund: bremse.grund };
+  if (!bremse.ok) return { gesendet: false, nichtsZuTun: true, grund: bremse.grund };
 
   let link = "";
   try {
@@ -78,8 +101,9 @@ export async function passwortMailSchicken(rohAdresse) {
       link = await auth().generatePasswordResetLink(email);
     } catch {
       // Kein Konto zu dieser Adresse – oder Firebase mag die Rücksprungadresse
-      // nicht. Beides ist kein Fehler, den der Anrufer erfahren darf.
-      return { gesendet: false, grund: "kein Konto zu dieser Adresse" };
+      // nicht. Beides ist kein Fehler, den der Anrufer erfahren darf, und
+      // beides bekäme Firebase auch nicht besser hin.
+      return { gesendet: false, nichtsZuTun: true, grund: "kein Konto zu dieser Adresse" };
     }
   }
 
@@ -101,12 +125,9 @@ export default async (request) => {
     // Immer ok: siehe oben. Was wirklich passiert ist, steht im Archiv und
     // damit im Adminbereich.
     if (!ergebnis.gesendet) console.info("passwort-mail:", ergebnis.grund);
-    // "versand" sagt nichts über diese eine Adresse, sondern nur, ob hier
-    // überhaupt Mails rausgehen können. Der Client fällt sonst auf Firebase
-    // zurück – solange RESEND_API_KEY noch nicht gesetzt ist, soll ein
-    // vergessenes Passwort nicht ins Leere laufen. Über das Konto verrät das
-    // nichts: Die Antwort ist für jede Adresse dieselbe.
-    return antwort({ ok: true, versand: mailBereit() });
+    // Siehe oben: nicht "ging raus", sondern "der Weg trug diese Anfrage".
+    const versand = mailBereit() && (ergebnis.gesendet || ergebnis.nichtsZuTun === true);
+    return antwort({ ok: true, versand });
   } catch (fehler) {
     return fehlerAntwort(fehler);
   }

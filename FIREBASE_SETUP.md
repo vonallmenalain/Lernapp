@@ -478,9 +478,20 @@ nichts davon.
 
 Wohin weitergeleitet wird, steht danach im Adminbereich, nicht bei Cloudflare: Der Worker gibt
 die Mail an Gripszug, und Gripszug leitet sie über Resend weiter. Die Adresse lässt sich
-deshalb jederzeit ändern, ohne sie bei Cloudflare zu bestätigen. Nur die Reissleine im Worker
-(`WEITERLEITUNG`, wenn Netlify nicht antwortet) steht fest – sie zu ändern heisst, den Worker
-zu ändern.
+deshalb jederzeit ändern, ohne sie bei Cloudflare zu bestätigen. Nur die Adresse im Worker
+(`WEITERLEITUNG`) steht fest – sie zu ändern heisst, den Worker zu ändern. Sie ist zweierlei:
+
+- **Die Reissleine.** Der Worker hält eine Mail erst für erledigt, wenn Gripszug das
+  ausdrücklich sagt (`erledigt: true` in der Antwort). Antwortet Netlify nicht – oder nimmt es
+  die Mail an, kann sie aber nicht zustellen, etwa weil Resend den Schlüssel ablehnt –, leitet
+  der Worker selbst weiter. Post geht nicht verloren, nur weil eine Funktion hustet.
+- **Der Weg für Anhänge.** Weitergeleitet wird über Resend als neue Mail mit dem Text der
+  alten; ein Bild oder ein PDF kann darin nicht mitkommen. Hat eine Mail Anhänge, schickt der
+  Worker sie deshalb **zusätzlich** im Original. Du bekommst dann zwei Mails – die lesbare aus
+  Gripszug und das Original mit dem Anhang –, und in der ersten steht, dass die zweite kommt.
+
+Ist die Weiterleitung im Adminbereich **ausgeschaltet**, leitet auch der Worker nicht weiter;
+sonst hiesse der Schalter nichts. Die Post steht dann nur im Archiv.
 
 ### 10b. Was wo liegt
 
@@ -505,6 +516,11 @@ zu ändern.
 4. **Post kommt an, steht aber nicht im Adminbereich** – dann läuft der kleine Weg (nur
    Routing-Regel) statt des Workers, oder `MAIL_GEHEIMNIS` und `MAIL_WEBHOOK_SECRET` sind
    verschieden. Der Worker zeigt es in Cloudflare unter *Logs*.
+5. **Post steht im Adminbereich, kommt aber nicht im Postfach an** – dann hat Gripszug sie
+   archiviert und Resend die Weiterleitung abgelehnt; der Grund steht am Eintrag *Weiterleitung*
+   unter dem Filter *Fehler*. Der Worker leitet in diesem Fall selbst weiter, die Mail sollte
+   also trotzdem da sein – wenn nicht, ist `vonallmenalain@gmail.com` bei Cloudflare nicht als
+   *Destination address* bestätigt.
 
 ### 10d. Was die Prüfungen abdecken
 
