@@ -6,17 +6,29 @@
  * ist. Diese Prüfung meldet sich als Admin an, klappt ein Konto auf und
  * schaut nach, ob dasteht, was dastehen soll.
  *
+ * Er ist seit dem Umbau eine eigene Seite (admin.html), kein Abschnitt im
+ * Profilfenster mehr: Kontenliste, Gästeliste, Spielauswertung, Wagen und
+ * Gruppen brauchen Platz. Geprüft wird deshalb die Seite – und dazu, dass
+ * das Profilfenster überhaupt noch dorthin führt.
+ *
  * Firebase kommt nicht aus dem Netz: vor allen Skripten der Seite wird ein
  * Ersatz eingehängt, der Anmeldung und Firestore im Speicher nachbildet – ein
  * kleiner Bruder des Ersatzes in validate-train-gruppe.mjs. Geprüft wird die
  * Oberfläche, nicht Google.
  *
  * Gemessen wird:
- *   - drei Reiter, und die Konten stehen zugeklappt da
- *   - jede Zeile trägt den Zug als fünf Balken
+ *   - das Profilfenster führt mit einem Knopf auf die Seite
+ *   - fünf Reiter, und die Konten stehen zugeklappt da
+ *   - jede Zeile trägt den Zug als fünf Balken, dazu Rolle, Kaufstand und
+ *     das Datum der letzten Aktivität
+ *   - filtern nach bezahlt/gratis und Eltern/Kind, sortieren nach Datum,
+ *     Kaufstand und Name – und andersherum
  *   - ein Tipp klappt auf, ein zweiter wieder zu
- *   - aufgeklappt: Zug-Fortschritt, Gruppe, Zurücksetzen, Level, Sitzungen
+ *   - aufgeklappt: Zug, probierte Level, Freischalten, Gruppe, Zurücksetzen,
+ *     Level, Sitzungen
+ *   - freischalten ruft den Server mit Token und Kennung an
  *   - der Reiter "Spiele" zählt richtig
+ *   - der Reiter "Gruppen" legt eine übergreifende Gruppe an
  *
  * Aufruf:  node scripts/check-adminbereich.mjs
  * Nötig:   Playwright (npm i -D playwright).
@@ -69,8 +81,19 @@ async function warteAufServer() {
 const DATEN = {
   users: {
     admin1: { authEmail: ADMIN, username: "Alain", displayName: "Alain", role: "admin", isAdmin: true, stats: { totalSeconds: 60, moves: 5, resets: 0, solvedLevels: 0, sessions: 1 } },
+    // Ein Elternkonto, das bezahlt hat, mit zwei Kindern – und eines ohne
+    // Kauf. Erst damit lässt sich prüfen, ob die Liste bezahlt von gratis
+    // trennt und ob sie nach dem Datum wirklich sortiert.
+    "eltern-1": {
+      authEmail: "eltern@example.com", email: "eltern@example.com", username: "Familie Muster", displayName: "Familie Muster", role: "parent",
+      children: [{ uid: "kind-mia", name: "Mia" }, { uid: "kind-ben", name: "Ben" }],
+      group: { id: "familie", name: "Familie", displayName: "Eltern" },
+      lastSeenAt: 1699900000000,
+      stats: { totalSeconds: 10, moves: 1, resets: 0, solvedLevels: 0, sessions: 1 },
+    },
     "kind-mia": {
-      authEmail: "mia@lernapp.local", username: "Mia", displayName: "Mia",
+      authEmail: "mia@lernapp.local", username: "Mia", displayName: "Mia", parentUid: "eltern-1",
+      lastSeenAt: 1699800000000,
       group: { id: "familie", name: "Familie", displayName: "Mia" },
       stats: { totalSeconds: 900, moves: 120, resets: 4, solvedLevels: 3, sessions: 7 },
       gameState: {
@@ -79,14 +102,22 @@ const DATEN = {
       },
     },
     "kind-ben": {
-      authEmail: "ben@lernapp.local", username: "Ben", displayName: "Ben",
+      authEmail: "ben@lernapp.local", username: "Ben", displayName: "Ben", parentUid: "eltern-1",
+      lastSeenAt: 1699700000000,
       group: { id: "familie", name: "Familie", displayName: "Ben" },
       stats: { totalSeconds: 300, moves: 20, resets: 1, solvedLevels: 0, sessions: 2 },
       gameState: { "lernapp.turmbau": { data: { runs: 3, scores: [15] }, updatedAt: 1 } },
     },
   },
   guests: {
-    guest_abcdefgh12345678: { type: "guest", displayName: "Gast 345678", stats: { totalSeconds: 120, moves: 8, resets: 2, solvedLevels: 1, sessions: 1 } },
+    guest_abcdefgh12345678: { type: "guest", displayName: "Gast 345678", lastSeenAt: 1699600000000, stats: { totalSeconds: 120, moves: 8, resets: 2, solvedLevels: 1, sessions: 1 } },
+  },
+  // Wer bezahlt hat. Die Familie ja, der Admin nicht – so steht in der Liste
+  // beides nebeneinander.
+  kaeufe: {
+    "eltern-1": { plan: "familie", active: true, source: "stripe", grantedAtMs: 1699000000000 },
+    "kind-mia": { plan: "familie", active: true, source: "stripe", via: "eltern-1", grantedAtMs: 1699000000000 },
+    "kind-ben": { plan: "familie", active: true, source: "stripe", via: "eltern-1", grantedAtMs: 1699000000000 },
   },
   // Level-Fortschritt: Pfad -> Dokument
   levels: {
@@ -108,6 +139,7 @@ function firebaseErsatz({ daten, adminEmail }) {
   const laden = new Map();
   Object.entries(daten.users).forEach(([id, doc]) => laden.set(`users/${id}`, doc));
   Object.entries(daten.guests).forEach(([id, doc]) => laden.set(`guests/${id}`, doc));
+  Object.entries(daten.kaeufe || {}).forEach(([id, doc]) => laden.set(`entitlements/${id}`, doc));
   Object.entries(daten.levels).forEach(([pfad, doc]) => laden.set(pfad, doc));
   Object.entries(daten.sitzungen).forEach(([pfad, doc]) => laden.set(pfad, doc));
 
@@ -161,9 +193,13 @@ function firebaseErsatz({ daten, adminEmail }) {
           const rest = key.slice(pfad.length + 1);
           if (rest.includes("/")) return;
           if (!filter.every(({ f, wert }) => feld(doc, f) === wert)) return;
-          docs.push({ id: rest, data: () => JSON.parse(JSON.stringify(doc)) });
+          // ref gehört dazu: Das echte SDK gibt jedem Treffer einer Abfrage
+          // eine Referenz mit, und firebase.js löscht darüber (deleteAllDocs,
+          // batch.delete(doc.ref)). Ohne ref liefe jedes Zurücksetzen hier in
+          // einen Fehler, den es im Ernstfall nicht gibt.
+          docs.push({ id: rest, ref: docRef(key), data: () => JSON.parse(JSON.stringify(doc)) });
         });
-        return { docs, size: docs.length, forEach: (fn) => docs.forEach(fn) };
+        return { docs, size: docs.length, empty: docs.length === 0, forEach: (fn) => docs.forEach(fn) };
       },
       doc: (id) => docRef(`${pfad}/${id}`),
     };
@@ -177,6 +213,9 @@ function firebaseErsatz({ daten, adminEmail }) {
     displayName: "Alain",
     providerData: [{ providerId: "google.com" }],
     updateProfile: async () => {},
+    // Das Token, mit dem der Client beim Server anruft – ohne das käme kein
+    // Aufruf zustande, und "freischalten" wäre nicht zu prüfen.
+    getIdToken: async () => "token-attrappe",
   };
 
   const auth = () => ({
@@ -210,6 +249,9 @@ function firebaseErsatz({ daten, adminEmail }) {
   };
 
   window.firebase = { apps: [], initializeApp: () => ({}), app: () => ({}), auth, firestore };
+  // Zum Nachsehen, was die Seite geschrieben hat: Eine Gruppe, die nur so
+  // aussieht, als wäre sie gesetzt, fiele sonst nicht auf.
+  window.__ersatz = { lies: (pfad) => { const doc = laden.get(pfad); return doc === undefined ? null : JSON.parse(JSON.stringify(doc)); } };
 }
 
 const befunde = [];
@@ -219,55 +261,176 @@ if (!(await warteAufServer())) {
   console.error(`Der lokale Server auf ${BASIS} kam nicht hoch.`);
   process.exit(2);
 }
-
 const browser = await playwright.chromium.launch({
   executablePath: process.env.CHROMIUM_PFAD || undefined,
   args: ["--no-sandbox"],
 });
-const page = await browser.newPage({ viewport: { width: 1100, height: 800 } });
-// Das echte SDK liegt auf einem fremden Server und wird hier nicht gebraucht.
-await page.route("https://www.gstatic.com/**", (route) => route.fulfill({ status: 200, contentType: "application/javascript", body: "" }));
-await page.addInitScript(firebaseErsatz, { daten: DATEN, adminEmail: ADMIN });
-await page.goto(`${BASIS}/index.html`, { waitUntil: "networkidle" });
-await page.waitForTimeout(600);
+const seitenFehler = [];
+// Den Server unter /api/ spielt Playwright. Gemerkt wird, was er gefragt wurde.
+const anfragen = [];
 
-// Profilfenster öffnen – dort steckt der Adminbereich.
+// Ein Fenster mit Firebase-Ersatz und Server-Ersatz. daten wird als Ganzes
+// hineingereicht – addInitScript läuft bei jeder Navigation neu und baut den
+// Speicher jedes Mal daraus auf. Deshalb lässt sich unterwegs nichts
+// hinzufügen, was eine Navigation überlebt: Wer andere Daten braucht, macht
+// ein neues Fenster auf.
+async function neuesFenster(daten) {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 }, serviceWorkers: "block", reducedMotion: "reduce" });
+  const page = await context.newPage();
+  page.on("pageerror", (e) => seitenFehler.push(e.message));
+  // Das echte SDK liegt auf einem fremden Server und wird hier nicht gebraucht.
+  await page.route("https://www.gstatic.com/**", (route) => route.fulfill({ status: 200, contentType: "application/javascript", body: "" }));
+  await page.route("**/api/**", async (route) => {
+    const request = route.request();
+    const pfad = new URL(request.url()).pathname.replace(/^\/api\//, "");
+    let body = null;
+    try { body = request.postDataJSON(); } catch { body = null; }
+    anfragen.push({ pfad, methode: request.method(), token: request.headers().authorization || "", body });
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ uid: body?.uid, frei: body?.frei !== false, konten: 3 }) });
+  });
+  await page.addInitScript(firebaseErsatz, { daten, adminEmail: ADMIN });
+  return { context, page };
+}
+
+let page;
+const knips = async (name) => {
+  const ordner = process.env.SCREENSHOT_DIR || process.env.BILDER;
+  if (ordner) await page.screenshot({ path: path.join(ordner, `${name}.png`), fullPage: true });
+};
+const text = async (locator) => ((await locator.textContent()) || "").replace(/\s+/g, " ").trim();
+
+// --- Der Weg hinein ----------------------------------------------------------
+// Im Profilfenster steht seit dem Umbau nur noch die Tür: ein Knopf auf die
+// eigene Seite. Führte er ins Leere, käme niemand mehr hin.
+const erstes = await neuesFenster(DATEN);
+page = erstes.page;
+await page.goto(`${BASIS}/index.html`, { waitUntil: "domcontentloaded" });
+await page.waitForFunction(() => Boolean(window.LernappFirebase), null, { timeout: 10000 });
 await page.locator(".account-button").click();
-await page.waitForSelector("[data-admin-section]", { timeout: 5000 }).catch(() => {});
-await page.waitForTimeout(900);
+const tuer = page.locator("a.admin-link");
+await tuer.waitFor({ timeout: 10000 }).catch(() => {});
+pruefe(await tuer.count() === 1, "Im Profilfenster steht kein Knopf zum Adminbereich");
+pruefe((await text(tuer)).includes("Zum Adminbereich"), `Der Knopf heisst anders: "${await text(tuer)}"`);
+pruefe(await page.locator("[data-admin-section]").count() === 0, "Der Adminbereich steht immer noch im Profilfenster");
+await knips("0-tuer-im-fenster");
+await tuer.click();
+await page.waitForURL(/admin\.html/, { timeout: 10000 });
 
-pruefe(await page.locator("[data-admin-section]").count() === 1, "Der Adminbereich geht nicht auf");
+// Welche Level es wirklich gibt. Die Levelabdeckung vergleicht den
+// Fortschritt eines Kontos mit dem Katalog aus app.js – mit erfundenen
+// Kennungen träfe sie nichts, und die Prüfung sagte nur, dass nichts
+// getroffen wird. Also werden die Vorgabe-Level auf echte umgeschrieben.
+const katalog = await page.evaluate(() => ({
+  arukone: (window.LernappLevelCatalog?.arukone || []).slice(0, 2).map((level) => level.id),
+  kakuro: (window.LernappLevelCatalog?.kakuro || []).slice(0, 1).map((level) => level.id),
+}));
+pruefe(katalog.arukone.length === 2 && katalog.kakuro.length === 1, `Der Levelkatalog ist auf der Seite nicht geladen: ${JSON.stringify(katalog)}`);
+await erstes.context.close();
 
-const reiter = await page.locator(".admin-tabs button").allTextContents();
-pruefe(reiter.length === 4, `Es gibt ${reiter.length} Reiter, erwartet 4 (User, Gäste, Spiele, Wagen)`);
-pruefe(reiter.includes("Spiele"), `Der Reiter "Spiele" fehlt: ${reiter.join(", ")}`);
-pruefe(reiter.includes("Wagen"), `Der Reiter "Wagen" fehlt: ${reiter.join(", ")}`);
+const ECHTE_DATEN = { ...DATEN, levels: { ...DATEN.levels } };
+delete ECHTE_DATEN.levels["users/kind-mia/levelProgress/arukone_a1"];
+delete ECHTE_DATEN.levels["users/kind-mia/levelProgress/arukone_a2"];
+delete ECHTE_DATEN.levels["users/kind-mia/levelProgress/kakuro_k1"];
+ECHTE_DATEN.levels[`users/kind-mia/levelProgress/arukone_${katalog.arukone[0]}`] = { game: "arukone", levelId: katalog.arukone[0], levelName: "Rätsel eins", difficulty: "easy", solved: true, attempts: 3, resets: 2, moves: 40, timeSeconds: 120 };
+ECHTE_DATEN.levels[`users/kind-mia/levelProgress/arukone_${katalog.arukone[1]}`] = { game: "arukone", levelId: katalog.arukone[1], levelName: "Rätsel zwei", difficulty: "easy", solved: true, attempts: 1, resets: 0, moves: 25, timeSeconds: 80 };
+ECHTE_DATEN.levels[`users/kind-mia/levelProgress/kakuro_${katalog.kakuro[0]}`] = { game: "kakuro", levelId: katalog.kakuro[0], levelName: "Kakuro eins", difficulty: "medium", solved: false, attempts: 4, resets: 3, moves: 60, timeSeconds: 200 };
 
-// --- Zugeklappt --------------------------------------------------------------
+// --- Die Seite ----------------------------------------------------------------
+const zweites = await neuesFenster(ECHTE_DATEN);
+page = zweites.page;
+await page.goto(`${BASIS}/admin.html`, { waitUntil: "domcontentloaded" });
+await page.locator(".admin-reiter").waitFor({ timeout: 15000 });
+await page.locator(".admin-entry").first().waitFor({ timeout: 15000 });
+
+const reiter = (await page.locator(".admin-reiter [data-reiter]").allTextContents()).map((t) => t.trim());
+pruefe(reiter.length === 5, `Es gibt ${reiter.length} Reiter, erwartet 5: ${reiter.join(", ")}`);
+["User", "Gäste", "Spiele", "Wagen", "Gruppen"].forEach((name) => {
+  pruefe(reiter.includes(name), `Der Reiter "${name}" fehlt: ${reiter.join(", ")}`);
+});
+
+// --- Zugeklappt ----------------------------------------------------------------
 const zeilen = await page.locator(".admin-entry").count();
-pruefe(zeilen === 3, `Es stehen ${zeilen} Konten da, erwartet 3`);
+pruefe(zeilen === 4, `Es stehen ${zeilen} Konten da, erwartet 4`);
 pruefe(await page.locator(".admin-entry-body").count() === 0,
   "Beim Öffnen ist schon ein Konto aufgeklappt – die Liste soll zugeklappt beginnen");
 
 const balken = await page.locator(".admin-entry").first().locator(".admin-train-car").count();
 pruefe(balken === 5, `Die Zeile zeigt ${balken} Wagen, erwartet 5`);
 
-const gruppen = await page.locator(".admin-entry-group").allTextContents();
-pruefe(gruppen.filter((eintrag) => eintrag.trim() === "Familie").length === 2,
-  `Die Gruppe steht an ${gruppen.length} Zeilen: ${gruppen.join(", ")}`);
+const gruppenMarken = await page.locator(".admin-entry-group").allTextContents();
+pruefe(gruppenMarken.filter((eintrag) => eintrag.trim() === "Familie").length === 3,
+  `Die Gruppe steht an ${gruppenMarken.length} Zeilen: ${gruppenMarken.join(", ")}`);
 
-// --- Aufklappen --------------------------------------------------------------
-const miaZeile = page.locator('.admin-entry:has([data-admin-user="kind-mia"])');
+// Rolle und Kaufstand: die beiden Wörter, nach denen hier gesucht wird.
+const marken = await page.locator(".admin-marke").allTextContents();
+pruefe(marken.some((m) => m.trim() === "Eltern"), `Keine Zeile ist als Eltern markiert: ${marken.join(", ")}`);
+pruefe(marken.filter((m) => m.trim() === "Kind").length === 2, `Erwartet zwei Kinder-Marken: ${marken.join(", ")}`);
+pruefe(marken.filter((m) => m.trim() === "Bezahlt").length === 3, `Erwartet drei Bezahlt-Marken: ${marken.join(", ")}`);
+pruefe(await page.locator(".admin-entry-zuletzt").count() === 4, "Nicht jede Zeile trägt das Datum der letzten Aktivität");
+await knips("1-konten-zugeklappt");
+
+// --- Zahlen oben ---------------------------------------------------------------
+const kopfzahlen = await text(page.locator(".admin-stat-strip").first());
+pruefe(/4\s*Konten/.test(kopfzahlen), `Die Kopfzahlen zählen nicht 4 Konten: "${kopfzahlen}"`);
+pruefe(/3\s*bezahlt/.test(kopfzahlen), `Die Kopfzahlen zählen nicht 3 bezahlte: "${kopfzahlen}"`);
+pruefe(/1\s*gratis/.test(kopfzahlen), `Die Kopfzahlen zählen nicht 1 gratis: "${kopfzahlen}"`);
+
+// --- Filtern -------------------------------------------------------------------
+const namen = async () => (await page.locator(".admin-entry-name strong").allTextContents()).map((t) => t.trim());
+await page.locator('[data-kauf-filter="gratis"]').click();
+await page.waitForTimeout(200);
+pruefe((await namen()).join(",") === "Alain", `Der Gratis-Filter zeigt ${(await namen()).join(", ")}, erwartet nur Alain`);
+await page.locator('[data-kauf-filter="bezahlt"]').click();
+await page.waitForTimeout(200);
+pruefe((await namen()).length === 3, `Der Bezahlt-Filter zeigt ${(await namen()).length} Konten, erwartet 3`);
+await page.locator('[data-kauf-filter="alle"]').click();
+await page.locator('[data-rolle-filter="kinder"]').click();
+await page.waitForTimeout(200);
+pruefe((await namen()).sort().join(",") === "Ben,Mia", `Der Kinder-Filter zeigt ${(await namen()).join(", ")}`);
+await page.locator('[data-rolle-filter="eltern"]').click();
+await page.waitForTimeout(200);
+pruefe(!(await namen()).includes("Mia"), "Der Eltern-Filter zeigt ein Kind");
+await page.locator('[data-rolle-filter="alle"]').click();
+await page.waitForTimeout(200);
+
+// Suchen: der kürzeste Weg zu einem bestimmten Kind.
+await page.locator("[data-suche]").fill("ben");
+await page.waitForTimeout(250);
+pruefe((await namen()).join(",") === "Ben", `Die Suche nach "ben" findet ${(await namen()).join(", ")}`);
+await page.locator("[data-suche]").fill("");
+await page.waitForTimeout(250);
+await knips("2-gefiltert");
+
+// --- Sortieren -----------------------------------------------------------------
+// Das Datum der letzten Aktivität ist die Voreinstellung, neueste zuerst.
+pruefe((await namen())[0] === "Alain", `Zuoberst steht ${(await namen())[0]}, erwartet das zuletzt aktive Konto (Alain)`);
+pruefe((await namen()).at(-1) === "Ben", `Zuunterst steht ${(await namen()).at(-1)}, erwartet das längst inaktive (Ben)`);
+// Noch einmal dieselbe Spalte dreht die Richtung um.
+await page.locator('[data-sortierung="aktivitaet"]').click();
+await page.waitForTimeout(200);
+pruefe((await namen())[0] === "Ben", `Umgedreht steht ${(await namen())[0]} zuoberst, erwartet Ben`);
+await page.locator('[data-sortierung="name"]').click();
+await page.waitForTimeout(200);
+pruefe((await namen()).join(",") === "Alain,Ben,Familie Muster,Mia", `Nach Namen sortiert: ${(await namen()).join(", ")}`);
+await page.locator('[data-sortierung="kauf"]').click();
+await page.waitForTimeout(200);
+pruefe((await namen()).at(-1) === "Alain", `Nach Kaufstand sortiert steht ${(await namen()).at(-1)} zuunterst, erwartet das Konto ohne Kauf`);
+await page.locator('[data-sortierung="aktivitaet"]').click();
+await page.waitForTimeout(200);
+
+// --- Aufklappen ------------------------------------------------------------------
+const miaZeile = page.locator('.admin-entry:has([data-konto="kind-mia"])');
 await miaZeile.locator(".admin-entry-head").click();
-await page.waitForTimeout(700);
+await miaZeile.locator(".admin-entry-body").waitFor({ timeout: 10000 });
 
-pruefe(await page.locator(".admin-entry-body").count() === 1, "Ein Tipp klappt das Konto nicht auf");
-pruefe(await miaZeile.locator(".admin-entry-body").count() === 1, "Aufgeklappt wurde das falsche Konto");
-
+pruefe(await page.locator(".admin-entry-body").count() === 1, "Ein Tipp klappt mehr als ein Konto auf");
 const koerper = miaZeile.locator(".admin-entry-body");
 for (const [wahl, was] of [
   [".admin-train-detail", "der Zug-Fortschritt"],
+  [".admin-abdeckung", "die probierten Level"],
+  [".admin-kauf", "der Kaufstand"],
   [".admin-group", "die Gruppe"],
+  [".admin-tempo", "das Reisetempo"],
   [".admin-reset", "das Zurücksetzen"],
   [".admin-game-filter", "der Spiel-Filter"],
   [".admin-columns", "Level und Sitzungen"],
@@ -277,82 +440,133 @@ for (const [wahl, was] of [
 
 const levelKarten = await koerper.locator(".admin-columns section").first().locator(".admin-data-card").count();
 pruefe(levelKarten === 3, `Mia hat ${levelKarten} Level-Karten, erwartet 3`);
+const wagenZahl = await koerper.locator(".admin-train-detail > div > span").count();
+pruefe(wagenZahl === 5, `Der Zug-Fortschritt zeigt ${wagenZahl} Bereiche, erwartet 5`);
 
-const wagen = await koerper.locator(".admin-train-detail span").count();
-pruefe(wagen === 5, `Der Zug-Fortschritt zeigt ${wagen} Bereiche, erwartet 5`);
+// Die Frage, die eine Liste gelöster Level nicht beantwortet: was NICHT
+// angefasst wurde. Ein Punkt je Level, und Mia hat genau zwei gelöst.
+const abdeckung = koerper.locator(".admin-abdeckung");
+pruefe(await abdeckung.locator(".abdeckung-punkte i").count() > 50, "Die Levelabdeckung zeigt kaum Punkte – der Levelkatalog fehlt");
+pruefe(await abdeckung.locator(".abdeckung-punkte i.ist-geloest").count() === 2, `Mia hat ${await abdeckung.locator(".abdeckung-punkte i.ist-geloest").count()} gelöste Punkte, erwartet 2`);
+pruefe(await abdeckung.locator(".abdeckung-punkte i.ist-probiert").count() === 1, "Das angefangene, ungelöste Level ist nicht als solches markiert");
+pruefe(await abdeckung.locator(".abdeckung-punkte i.ist-offen").count() > 50, "Kein Level gilt als nie geöffnet – so wäre nicht zu sehen, was fehlt");
+await knips("3-konto-aufgeklappt");
 
-// Ein zweiter Tipp klappt wieder zu.
+// --- Freischalten ------------------------------------------------------------------
+// Der Knopf, den es sonst nirgends gibt. Geschrieben wird der Eintrag vom
+// Server, nicht vom Client – hier wird geprüft, dass der Aufruf hingeht.
+const alainZeile = page.locator('.admin-entry:has([data-konto="admin1"])');
 await miaZeile.locator(".admin-entry-head").click();
-await page.waitForTimeout(500);
-pruefe(await page.locator(".admin-entry-body").count() === 0, "Ein zweiter Tipp klappt das Konto nicht wieder zu");
+await page.waitForTimeout(300);
+await alainZeile.locator(".admin-entry-head").click();
+await alainZeile.locator(".admin-entry-body").waitFor({ timeout: 10000 });
+const kaufKarte = alainZeile.locator(".admin-kauf");
+pruefe((await text(kaufKarte)).includes("Nicht freigeschaltet"), `Das Konto ohne Kauf zeigt: "${await text(kaufKarte)}"`);
+await knips("4-freischalten");
+await alainZeile.locator("[data-gratis-an]").click();
+await page.waitForTimeout(1200);
+const ruf = anfragen.find((a) => a.pfad === "freischalten");
+pruefe(Boolean(ruf), "Freischalten ruft den Server nicht an");
+pruefe(ruf?.body?.uid === "admin1" && ruf?.body?.frei === true, `Freischalten schickt ${JSON.stringify(ruf?.body)}`);
+pruefe(ruf?.methode === "POST" && ruf?.token.startsWith("Bearer "), "Freischalten geht ohne Token oder nicht per POST");
 
-// --- Der Reiter "Spiele" -----------------------------------------------------
-await page.locator('[data-admin-view="games"]').click();
-await page.waitForTimeout(900);
+// --- Der Reiter "Spiele" -------------------------------------------------------
+await page.locator('[data-reiter="games"]').click();
+await page.locator(".admin-game-card").first().waitFor({ timeout: 10000 });
 
 const karten = await page.locator(".admin-game-card").count();
 pruefe(karten === 25, `Die Auswertung zeigt ${karten} Spiele, erwartet 25`);
 
 // Arukone: drei Konten haben daran gespielt – Mia zweimal gelöst, Ben nicht,
 // der Gast einmal. Versuche 3+1+2+1 = 7, gelöst 3, Neustarts 2+0+1+0 = 3.
-const arukone = page.locator('.admin-game-card:has-text("Arukone")').first();
-const arukoneText = (await arukone.textContent() || "").replace(/\s+/g, " ");
+const arukoneText = await text(page.locator('.admin-game-card:has-text("Arukone")').first());
 pruefe(/Gespielt\s*7/.test(arukoneText), `Arukone: "${arukoneText.slice(0, 160)}"`);
 pruefe(/Abgeschlossen\s*3/.test(arukoneText), `Arukone abgeschlossen stimmt nicht: "${arukoneText.slice(0, 160)}"`);
 pruefe(/Neu gestartet\s*3/.test(arukoneText), `Arukone Neustarts stimmen nicht: "${arukoneText.slice(0, 160)}"`);
 
 // Turmbau führt keine Neustarts – dort muss ein Strich stehen, keine Null.
-const turmbau = page.locator('.admin-game-card:has-text("Turmbau")').first();
-const turmbauText = (await turmbau.textContent() || "").replace(/\s+/g, " ");
+const turmbauText = await text(page.locator('.admin-game-card:has-text("Turmbau")').first());
 pruefe(/Neu gestartet\s*–/.test(turmbauText), `Turmbau zeigt bei Neustarts keine „–“: "${turmbauText.slice(0, 160)}"`);
 pruefe(/Gespielt\s*9/.test(turmbauText), `Turmbau: 6 + 3 Runden erwartet – "${turmbauText.slice(0, 160)}"`);
 pruefe(/24 Blöcke/.test(turmbauText), `Turmbau: der Bestwert fehlt – "${turmbauText.slice(0, 160)}"`);
 pruefe(/Mia/.test(turmbauText), `Turmbau: der Halter des Bestwerts fehlt – "${turmbauText.slice(0, 160)}"`);
 
 // Ein Bereichsfilter blendet aus.
-await page.locator('[data-admin-area="zahlbuchstabe"]').click();
-await page.waitForTimeout(400);
-const gefiltert = await page.locator(".admin-game-card").count();
-pruefe(gefiltert === 5, `Der Bereich "Zahl und Buchstabe" zeigt ${gefiltert} Spiele, erwartet 5`);
+await page.locator('[data-bereich="zahlbuchstabe"]').click();
+await page.waitForTimeout(300);
+pruefe(await page.locator(".admin-game-card").count() === 5, `Der Bereich "Zahl und Buchstabe" zeigt ${await page.locator(".admin-game-card").count()} Spiele, erwartet 5`);
 
-// --- Der Reiter "Wagen" ------------------------------------------------------
+// --- Der Reiter "Wagen" ---------------------------------------------------------
 // Zwei Sets als Zug, das erste aktiv, das zweite zum Wechseln – aber erst nach
 // einer Rückfrage, und die lässt sich abbrechen.
-await page.locator('[data-admin-view="wagons"]').click();
-await page.waitForTimeout(700);
+await page.locator('[data-reiter="wagons"]').click();
+await page.locator(".admin-set").first().waitFor({ timeout: 10000 });
 pruefe(await page.locator(".admin-set").count() === 2, "Der Wagen-Reiter zeigt nicht zwei Sets");
 pruefe(await page.locator(".admin-set.is-active").count() === 1, "Genau ein Set muss als aktiv markiert sein");
-pruefe(await page.locator('.admin-set[data-admin-set="1"].is-active').count() === 1, "Ohne Umstellung gilt das erste Set");
 pruefe(await page.locator(".admin-set-preview svg").count() === 2, "Die Vorschau-Züge fehlen");
-pruefe(await page.locator('.admin-set[data-admin-set="2"] [data-wagon="unicorn"]').count() === 1, "Im zweiten Set fehlt das Einhorn in der Vorschau");
-pruefe(await page.locator("[data-admin-set-confirm]").count() === 0, "Die Rückfrage steht schon da, bevor jemand wechseln will");
-if (process.env.SCREENSHOT_DIR) await page.screenshot({ path: path.join(process.env.SCREENSHOT_DIR, "admin-wagen.png"), fullPage: true });
-await page.locator("[data-admin-set-start]").click();
-await page.waitForTimeout(400);
-pruefe(await page.locator("[data-admin-set-confirm]").count() === 1, "Der Wechsel fragt nicht nach");
-if (process.env.SCREENSHOT_DIR) await page.screenshot({ path: path.join(process.env.SCREENSHOT_DIR, "admin-wagen-rueckfrage.png"), fullPage: true });
-await page.locator("[data-admin-set-cancel]").click();
-await page.waitForTimeout(400);
-pruefe(await page.locator("[data-admin-set-confirm]").count() === 0, "Abbrechen nimmt die Rückfrage nicht weg");
-pruefe(await page.evaluate(() => document.querySelector('[data-area="gedaechtnis"]')?.dataset.wagon) === "boxcar", "Der Zug auf der Bühne hat schon gewechselt, obwohl abgebrochen wurde");
+pruefe(await page.locator('[data-set-vorschau="2"] [data-wagon="unicorn"]').count() === 1, "Im zweiten Set fehlt das Einhorn in der Vorschau");
+pruefe(await page.locator("[data-set-ja]").count() === 0, "Die Rückfrage steht schon da, bevor jemand wechseln will");
+await knips("5-wagen");
+await page.locator("[data-set-frage]").click();
+await page.waitForTimeout(300);
+pruefe(await page.locator("[data-set-ja]").count() === 1, "Der Wechsel fragt nicht nach");
+await knips("6-wagen-rueckfrage");
+await page.locator("[data-set-ab]").click();
+await page.waitForTimeout(300);
+pruefe(await page.locator("[data-set-ja]").count() === 0, "Abbrechen nimmt die Rückfrage nicht weg");
+pruefe(await page.evaluate(() => window.__ersatz.lies("config/train")) === null,
+  "Das Wagen-Set wurde umgestellt, obwohl abgebrochen wurde");
+
+// --- Der Reiter "Gruppen" --------------------------------------------------------
+// Eine Familie ist von selbst eine Gruppe. Was es nur hier gibt, ist die
+// übergreifende: zwei Familien in einer. Das kann sonst niemand.
+await page.locator('[data-reiter="groups"]').click();
+await page.locator(".admin-gruppen").waitFor({ timeout: 10000 });
+pruefe(await page.locator(".admin-gruppe").count() >= 2, "Die Gruppen-Sicht zeigt weder die Familie noch die Konten ohne Gruppe");
+pruefe((await text(page.locator('.admin-gruppe:has-text("Familie")').first())).includes("3 Konten"),
+  "Die Familiengruppe zählt nicht ihre drei Konten");
+await page.locator("[data-gruppe-neu]").click();
+await page.locator(".admin-gruppe-editor").waitFor({ timeout: 5000 });
+await page.locator("[data-editor-name]").fill("Nachbarschaft");
+// Eine ganze Familie auf einmal: Wer zwei Familien zusammenlegt, hakt zwei
+// Blöcke an und sucht nicht acht Zeilen zusammen.
+await page.locator('[data-familie="eltern-1"]').check();
+await page.waitForTimeout(300);
+pruefe(await page.locator("[data-mitglied]:checked").count() === 3, `Die Familie hakt ${await page.locator("[data-mitglied]:checked").count()} Konten an, erwartet 3`);
+await knips("7-gruppen-editor");
+await page.locator("[data-editor-speichern]").click();
+await page.waitForTimeout(2000);
+const nachher = await page.evaluate(() => ({
+  eltern: window.__ersatz.lies("users/eltern-1")?.group,
+  mia: window.__ersatz.lies("users/kind-mia")?.group,
+  admin: window.__ersatz.lies("users/admin1")?.group,
+}));
+pruefe(nachher.eltern?.name === "Nachbarschaft", `Das Elternkonto steht in ${JSON.stringify(nachher.eltern)}`);
+pruefe(nachher.mia?.name === "Nachbarschaft", `Das Kind steht in ${JSON.stringify(nachher.mia)}`);
+pruefe(nachher.eltern?.by === "admin", "Die Zuordnung ist nicht als vom Admin gesetzt markiert – der Server schriebe sie beim nächsten Anmelden weg");
+pruefe(!nachher.admin, "Ein nicht angehaktes Konto ist in der Gruppe gelandet");
+await knips("8-gruppen-fertig");
 
 // --- Gäste -------------------------------------------------------------------
-await page.locator('[data-admin-view="guests"]').click();
-await page.waitForTimeout(900);
+await page.locator('[data-reiter="guests"]').click();
+await page.locator(".admin-entry").first().waitFor({ timeout: 10000 });
 pruefe(await page.locator(".admin-entry").count() === 1, "Der Gast fehlt im Gäste-Reiter");
 pruefe(await page.locator(".admin-entry-body").count() === 0, "Der Gäste-Reiter beginnt nicht zugeklappt");
 await page.locator(".admin-entry-head").first().click();
-await page.waitForTimeout(700);
+await page.locator(".admin-entry-body").waitFor({ timeout: 10000 });
 pruefe(await page.locator(".admin-entry-body .admin-reset").count() === 0,
   "Ein Gast bekommt den Zurücksetzen-Knopf – sein Stand liegt auf seinem Gerät, der Knopf täte dort nichts Sichtbares");
+pruefe(await page.locator(".admin-entry-body .admin-kauf").count() === 0,
+  "Ein Gast bekommt den Freischalten-Knopf – ohne Konto gibt es nichts freizuschalten");
 
 await browser.close();
 halt();
 
+if (seitenFehler.length) befunde.push(...seitenFehler.map((f) => `Fehler auf der Seite: ${f}`));
 if (befunde.length) {
   console.error(`${befunde.length} Befund(e):`);
   befunde.forEach((zeile) => console.error(`  - ${zeile}`));
   process.exit(1);
 }
 
-console.log("Adminbereich geprüft: vier Reiter, Konten zugeklappt, Zug je Konto, Auswertung je Spiel, Wagen-Set mit Rückfrage.");
+console.log("Adminbereich geprüft: eigene Seite, fünf Reiter, filtern und sortieren, probierte Level, freischalten, Auswertung je Spiel, Wagen mit Rückfrage, übergreifende Gruppe.");

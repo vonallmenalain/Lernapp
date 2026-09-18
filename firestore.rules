@@ -20,6 +20,26 @@ service cloud.firestore {
       return guestId.matches('guest_[A-Za-z0-9_-]{8,48}');
     }
 
+    // --- Eltern und ihre Kinder ----------------------------------------------
+    // Wer zu wem gehört, steht am Kind: parentUid. Geschrieben wird das Feld
+    // nur vom Server (Admin-SDK) oder vom Admin – ein Konto, das sich selbst
+    // eintragen dürfte, erbte den Kauf einer fremden Familie (ownerMayNotTouch).
+    // Deshalb darf diese Regel sich darauf verlassen.
+    //
+    // Der get() kostet einen Lesevorgang je Prüfung. Das ist der Preis dafür,
+    // dass die Elternschaft am Kind steht und nicht in einer zweiten Liste,
+    // die mit der ersten auseinanderlaufen könnte.
+    function isParentOf(userId) {
+      return isSignedIn()
+        && get(/databases/$(database)/documents/users/$(userId)).data.get("parentUid", "") == request.auth.uid;
+    }
+
+    // Ein Konto mit Kindern ist ein Elternkonto. Gefragt wird das nur für das
+    // eigene Dokument – deshalb reicht resource.data, ohne zweiten get().
+    function hasChildren() {
+      return resource.data.get("children", []).size() > 0;
+    }
+
     // --- Gruppen -------------------------------------------------------------
     // Eine Gruppe ist kein eigenes Dokument, sondern ein Feld am Konto:
     // group.id sagt, wer zusammengehört. Das ist Absicht – so entscheidet eine
@@ -60,6 +80,11 @@ service cloud.firestore {
 
     // Und er darf ein Konto einer Gruppe zuordnen und den Namen ändern, unter
     // dem dessen Zug in der Gruppe steht. Auch hier nur dieses eine Feld.
+    //
+    // Nur er: Eine Familie bekommt ihre Gruppe vom Server (familie.mjs), aber
+    // eine übergreifende Gruppe – zwei Familien, eine Klasse – legt der Admin
+    // an. Ein Elternkonto, das Gruppen setzen dürfte, könnte sein Kind in eine
+    // fremde Familie schreiben und läse deren Fortschritt mit.
     function isGroupChange() {
       return request.resource.data.diff(resource.data).affectedKeys()
         .hasOnly(["group", "updatedAt"]);
@@ -73,12 +98,24 @@ service cloud.firestore {
     // Konto selbst: Wer sich einem fremden Elternkonto zuordnen könnte, erbte
     // dessen Kauf. Dieselbe Sperre wie bei der Gruppe, aus demselben Grund.
     function ownerMayNotTouch() {
-      return ["group", "parentUid", "children"];
+      return ["group", "parentUid", "children", "wagonSet"];
     }
 
     function isFamilyChange() {
       return request.resource.data.diff(resource.data).affectedKeys()
         .hasOnly(["parentUid", "children", "updatedAt"]);
+    }
+
+    // --- Das Wagen-Set der Familie -------------------------------------------
+    // config/train sagt, welches Set für alle gilt; users/<uid>.wagonSet sagt,
+    // welches für dieses eine Konto gilt, und schlägt das globale, wenn es
+    // neuer ist. Setzen darf das ein Elternkonto – für sich und für seine
+    // Kinder – und der Admin. Nicht das Kind selbst: Ein Wechsel setzt den
+    // ganzen Fortschritt auf 0, und das ist keine Entscheidung eines
+    // Sechsjährigen, der einen hübscheren Wagen sieht.
+    function isWagonSetChange() {
+      return request.resource.data.diff(resource.data).affectedKeys()
+        .hasOnly(["wagonSet", "updatedAt"]);
     }
 
     match /users/{userId} {
@@ -91,13 +128,28 @@ service cloud.firestore {
       // Gruppen nur der Admin an, und er weiss, wen er zusammenlegt.
       allow get, list: if isOwner(userId) || isAdmin()
         || (isSignedIn() && groupIdIn(resource.data) != "" && groupIdIn(resource.data) == myGroupId());
+      // Und die Eltern das Konto ihres Kindes: Der Elternbereich zeigt Namen,
+      // Zug und Zahlen der eigenen Kinder. get, nicht list – die Eltern kennen
+      // die Kennungen ihrer Kinder aus children[] und holen sie einzeln; eine
+      // Abfrage über die ganze Kollektion bekommt niemand.
+      allow get: if isParentOf(userId);
       // Das eigene Konto gehört dem Kind – bis auf die Gruppe. Wer sich selbst
       // eintragen dürfte, läse damit den Fortschritt fremder Kinder mit.
       allow create: if isOwner(userId) && !request.resource.data.keys().hasAny(ownerMayNotTouch());
       allow update: if isOwner(userId)
         && !request.resource.data.diff(resource.data).affectedKeys().hasAny(ownerMayNotTouch());
       allow delete: if isOwner(userId);
-      allow update: if isAdmin() && (isProgressReset() || isGroupChange() || isFamilyChange());
+      allow update: if isAdmin() && (isProgressReset() || isGroupChange() || isFamilyChange() || isWagonSetChange());
+      // Die Eltern dürfen an ihrem Kind genau zweierlei: den Fortschritt
+      // zurücksetzen und das Wagen-Set der Familie setzen. Nicht den Namen,
+      // nicht die Gruppe, nicht die Elternschaft – sonst könnte ein
+      // Elternkonto sein Kind in eine fremde Gruppe schreiben, und die
+      // Gruppen sind Sache des Admins.
+      allow update: if isParentOf(userId) && (isProgressReset() || isWagonSetChange());
+      // Das eigene Wagen-Set: wagonSet steht in ownerMayNotTouch, damit kein
+      // Kind es sich selbst setzt. Ein Elternkonto – erkennbar an children[],
+      // das nur der Server schreibt – darf es für sich selbst.
+      allow update: if isOwner(userId) && hasChildren() && isWagonSetChange();
 
       // Die beiden Unterkollektionen, die es gibt – und nur die. Bis hierher
       // stand hier ein rekursiver Platzhalter, match /{document=**}, und der
@@ -113,15 +165,18 @@ service cloud.firestore {
       match /levelProgress/{levelId} {
         // Gelöste Level sind das, was die Gruppe voneinander sehen soll. Nur
         // lesen, und nur diese eine Unterkollektion – Sitzungen bleiben privat.
-        allow read: if isOwner(userId) || isAdmin() || sharesGroupWith(userId);
+        allow read: if isOwner(userId) || isAdmin() || sharesGroupWith(userId) || isParentOf(userId);
         allow write: if isOwner(userId);
-        allow delete: if isAdmin();
+        allow delete: if isAdmin() || isParentOf(userId);
       }
 
       match /sessions/{sessionId} {
-        allow read: if isOwner(userId) || isAdmin();
+        // Die Sitzungen des eigenen Kindes dürfen die Eltern sehen: Im
+        // Elternbereich steht, wie lange und woran es gesessen hat. Die
+        // Gruppe sieht sie weiterhin nicht – eine Klasse ist keine Familie.
+        allow read: if isOwner(userId) || isAdmin() || isParentOf(userId);
         allow write: if isOwner(userId);
-        allow delete: if isAdmin();
+        allow delete: if isAdmin() || isParentOf(userId);
       }
     }
 

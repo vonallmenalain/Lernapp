@@ -17,7 +17,13 @@
  * Gemessen wird:
  *   - Eltern ohne Kauf: die Kaufkarte mit Preis, die Kinderkarte "0 von 4"
  *   - Kind anlegen: Formular, Aufruf mit Token und Name, danach in der Liste
+ *   - ein Kind aufklappen: Zug, probierte Level, Sitzungen – die Sicht, die
+ *     der Adminbereich für alle hat, hier für die eigene Familie
  *   - Passwort neu: Formular an der Zeile, Aufruf mit der uid des Kindes
+ *   - Fortschritt zurücksetzen: Rückfrage, danach sind Level und Sitzungen weg
+ *   - Konto löschen: Rückfrage, Aufruf von /api/kind-loeschen, danach weg
+ *   - Wagen der Familie: umstellen schreibt das Set an JEDES Konto der Familie
+ *     und an kein fremdes – das ist der ganze Unterschied zum Adminbereich
  *   - der Server lehnt ab: die Meldung steht da, nichts stürzt
  *   - Jetzt kaufen: Aufruf der Kasse, Weiterleitung, Rückkehr mit Hinweis
  *   - Eltern mit Kauf: Haken statt Knopf
@@ -139,7 +145,11 @@ function firebaseErsatz({ daten, nutzer }) {
           const rest = key.slice(pfad.length + 1);
           if (rest.includes("/")) return;
           if (!filter.every(({ f, wert }) => feld(doc, f) === wert)) return;
-          docs.push({ id: rest, data: () => JSON.parse(JSON.stringify(doc)) });
+          // ref gehört dazu: Das echte SDK gibt jedem Treffer einer Abfrage
+          // eine Referenz mit, und firebase.js löscht darüber (deleteAllDocs,
+          // batch.delete(doc.ref)). Ohne ref liefe jedes Zurücksetzen hier in
+          // einen Fehler, den es im Ernstfall nicht gibt.
+          docs.push({ id: rest, ref: docRef(key), data: () => JSON.parse(JSON.stringify(doc)) });
         });
         return { docs, size: docs.length, empty: docs.length === 0, forEach: (fn) => docs.forEach(fn) };
       },
@@ -191,7 +201,12 @@ function firebaseErsatz({ daten, nutzer }) {
 
   window.firebase = { apps: [], initializeApp: () => ({}), app: () => ({}), auth, firestore };
   // Die Hintertür der Prüfung: was der Webhook auf dem Server schriebe.
-  window.__ersatz = { setze: (pfad, doc) => { laden.set(pfad, doc); melden(pfad); } };
+  window.__ersatz = {
+    setze: (pfad, doc) => { laden.set(pfad, doc); melden(pfad); },
+    // Zum Nachsehen, was die Seite geschrieben hat: Ein Zurücksetzen, das
+    // nur so aussieht, fiele sonst nicht auf.
+    lies: (pfad) => { const doc = laden.get(pfad); return doc === undefined ? null : JSON.parse(JSON.stringify(doc)); },
+  };
 }
 
 // --- Der Ersatz für den Server --------------------------------------------------
@@ -303,6 +318,30 @@ try {
     pruefe(anlegen.every((a) => a.methode === "POST"), "Kind anlegen: kein POST");
     pruefe(anlegen[1]?.body?.name === "Lina" && anlegen[1]?.body?.passwort === "1234", "Kind anlegen: Name oder Passwort kommen nicht so beim Server an, wie sie eingegeben wurden");
 
+    // Ein Kind aufklappen: Dahinter steht dieselbe Sicht wie im Adminbereich,
+    // nur für das eigene Kind – und dahinter liegen auch die Knöpfe. Zugeklappt
+    // steht in der Zeile nur der Name; bei vier Kindern wäre alles andere keine
+    // Übersicht mehr.
+    await page.locator("[data-kind-auf='kind-1']").click({ timeout: 5000 });
+    await page.locator("[data-kind-uid='kind-1'] .kind-detail").waitFor({ timeout: 10000 }).catch(() => {});
+    const detail = page.locator("[data-kind-uid='kind-1'] .kind-detail");
+    pruefe(await detail.count() === 1, "Kind aufklappen: keine Detailansicht");
+    pruefe(await detail.locator(".admin-train-detail").count() === 1, "Kind aufklappen: der Zug des Kindes fehlt");
+    pruefe(await detail.locator(".admin-abdeckung").count() === 1, "Kind aufklappen: die probierten Level fehlen");
+    pruefe(await detail.locator(".admin-tempo").count() === 1, "Kind aufklappen: das Reisetempo fehlt");
+    // Die Gruppe gehört dem Admin. Ein Elternkonto, das sie setzen könnte,
+    // schriebe sein Kind in eine fremde Familie – firestore.rules lässt das
+    // nicht zu, und hier darf der Knopf deshalb gar nicht erst stehen.
+    pruefe(await detail.locator(".admin-group").count() === 0, "Kind aufklappen: Eltern bekommen die Gruppen-Karte, die dem Admin gehört");
+    // Und das Tempo lässt sich umstellen.
+    await detail.locator('[data-kind-tempo="langsam"]').click({ timeout: 5000 });
+    await page.waitForFunction(() => /Reisetempo auf/.test(document.querySelector("[data-kinder-karte] .karten-status")?.textContent || ""), null, { timeout: 10000 }).catch(() => {});
+    pruefe((await text(kinderStatus(page))).includes("Langsam"), "Reisetempo: die Bestätigung fehlt");
+    const tempoStand = await page.evaluate(() => window.__ersatz.lies("users/kind-1")?.gameState?.["lernapp.reise"]?.data?.tempo);
+    pruefe(tempoStand === "langsam", `Reisetempo: am Konto steht ${tempoStand} statt langsam`);
+    pruefe((await text(detail.locator(".admin-abdeckung"))).includes("nie geöffnet"), "Kind aufklappen: es steht nicht da, was noch nie geöffnet wurde");
+    await knips(page, "3a-kind-aufgeklappt");
+
     // Passwort neu setzen.
     await page.locator("[data-kind-passwort='kind-1']").click({ timeout: 5000 });
     const pwForm = page.locator("[data-kind-passwort-form]");
@@ -327,6 +366,93 @@ try {
     pruefe(!(await page.evaluate(() => window.location.search)).includes("kauf"), "Rückkehr: ?kauf= bleibt in der Adresse stehen – ein Neuladen zeigte den Hinweis noch einmal");
     pruefe(await page.locator("[data-kaufen]").count() === 1, "Rückkehr nach Abbruch: der Kaufknopf ist weg, obwohl nicht gekauft wurde");
     await knips(page, "4-rueckkehr-abbruch");
+    await context.close();
+  }
+
+  // --- 1b) Zurücksetzen, Löschen und die Wagen der Familie -----------------------
+  // Der Kern der Sache: Was Eltern hier tun, gilt für ihre Familie – und für
+  // niemanden sonst. Deshalb steht neben jedem Konto der Familie ein fremdes
+  // Konto in denselben Daten, und nach jedem Schritt wird nachgesehen, dass es
+  // unberührt geblieben ist.
+  {
+    let geloescht = null;
+    const { page, context, anfragen } = await starteSeite({
+      daten: {
+        "users/eltern1": elternDoc([{ uid: "kind-mia", name: "Mia" }, { uid: "kind-ben", name: "Ben" }]),
+        "users/kind-mia": kindDoc("Mia", "eltern1"),
+        "users/kind-ben": kindDoc("Ben", "eltern1"),
+        // Eine fremde Familie, die nichts davon mitbekommen darf.
+        "users/fremd": kindDoc("Fremd", "fremde-eltern"),
+        "users/kind-mia/levelProgress/arukone_a1": { game: "arukone", levelId: "a1", levelName: "Rätsel eins", solved: true, attempts: 2, timeSeconds: 90 },
+        "users/kind-mia/sessions/s1": { game: "arukone", levelId: "a1", startedAt: 1, solved: true, durationSeconds: 90 },
+        "users/fremd/levelProgress/arukone_a1": { game: "arukone", levelId: "a1", solved: true, attempts: 1, timeSeconds: 30 },
+      },
+      nutzer: ELTERN,
+      antworten: {
+        "kind-loeschen": ({ body }) => { geloescht = body?.uid; return { body: { uid: body?.uid, name: "Ben", geloescht: { level: 0, sitzungen: 0 } } }; },
+      },
+    });
+    await oeffneProfil(page);
+
+    // Zurücksetzen: die Rückfrage nennt den Namen, und erst danach passiert es.
+    await page.locator("[data-kind-auf='kind-mia']").click({ timeout: 5000 });
+    await page.locator("[data-kind-reset='kind-mia']").click({ timeout: 10000 });
+    const frage = page.locator("[data-kind-uid='kind-mia'] .admin-reset.is-confirming");
+    pruefe(await frage.count() === 1, "Zurücksetzen: keine Rückfrage");
+    pruefe((await text(frage)).includes("Mia"), "Zurücksetzen: die Rückfrage nennt das Kind nicht beim Namen");
+    await page.locator("[data-kind-reset-ja='kind-mia']").click({ timeout: 5000 });
+    await page.waitForFunction(() => /Zug beginnt wieder/.test(document.querySelector("[data-kinder-karte] .karten-status")?.textContent || ""), null, { timeout: 15000 }).catch(() => {});
+    const nachReset = await page.evaluate(() => ({
+      mia: window.__ersatz.lies("users/kind-mia/levelProgress/arukone_a1"),
+      miaSitzung: window.__ersatz.lies("users/kind-mia/sessions/s1"),
+      miaMarke: Boolean(window.__ersatz.lies("users/kind-mia")?.progressReset),
+      fremd: window.__ersatz.lies("users/fremd/levelProgress/arukone_a1"),
+      ben: window.__ersatz.lies("users/kind-ben"),
+    }));
+    pruefe(!nachReset.mia, "Zurücksetzen: die Level des Kindes stehen noch da");
+    pruefe(!nachReset.miaSitzung, "Zurücksetzen: die Sitzungen des Kindes stehen noch da");
+    pruefe(nachReset.miaMarke, "Zurücksetzen: die Marke am Konto fehlt – das Gerät des Kindes schöbe seinen alten Stand wieder hoch");
+    pruefe(Boolean(nachReset.fremd), "Zurücksetzen: es hat ein fremdes Konto getroffen");
+    pruefe(!nachReset.ben?.progressReset, "Zurücksetzen: es hat das Geschwisterkind mitgetroffen");
+    await knips(page, "3b-zuruecksetzen");
+
+    // Löschen: Rückfrage, dann der Aufruf an den Server.
+    await page.locator("[data-kind-auf='kind-ben']").click({ timeout: 5000 });
+    await page.locator("[data-kind-weg='kind-ben']").click({ timeout: 10000 });
+    pruefe((await text(page.locator("[data-kind-uid='kind-ben'] .admin-reset.is-confirming"))).includes("Ben"), "Löschen: keine Rückfrage mit Namen");
+    await page.locator("[data-kind-weg-ja='kind-ben']").click({ timeout: 5000 });
+    // Auf die FERTIGE Meldung warten, nicht auf "wird gelöscht": Die beiden
+    // unterscheiden sich nur am Ende des Satzes, und wer auf das Wort
+    // "gelöscht" wartet, misst den Stand vor dem Serveraufruf.
+    await page.waitForFunction(() => /wieder frei/.test(document.querySelector("[data-kinder-karte] .karten-status")?.textContent || ""), null, { timeout: 10000 }).catch(() => {});
+    pruefe(geloescht === "kind-ben", `Löschen: der Server wurde mit ${geloescht} statt kind-ben angerufen`);
+    pruefe(anfragen.some((a) => a.pfad === "kind-loeschen" && a.token === "Bearer token-attrappe"), "Löschen: der Aufruf trägt nicht das Token des Kontos");
+    pruefe(await page.locator("[data-kind-uid='kind-ben']").count() === 0, "Löschen: das Kind steht noch in der Liste");
+    pruefe((await text(page.locator(".kinder-kopf"))).includes("1 von 4"), "Löschen: der Kopf zählt das gelöschte Kind noch mit");
+
+    // Die Wagen der Familie: umstellen schreibt das Set an jedes Konto der
+    // Familie – und an keines ausserhalb. Das ist der ganze Unterschied zum
+    // Adminbereich, wo derselbe Wechsel für alle gilt.
+    const wagen = page.locator("[data-wagen-karte]");
+    pruefe(await wagen.count() === 1, "Wagen: die Karte der Familie fehlt");
+    pruefe((await text(wagen)).includes("wie bei allen"), "Wagen: ohne eigene Wahl steht nicht da, dass das Set für alle gilt");
+    await wagen.locator("[data-wagen-set='2']").click({ timeout: 5000 });
+    pruefe(await page.locator("[data-wagen-ja='2']").count() === 1, "Wagen: keine Rückfrage vor dem Wechsel");
+    pruefe((await text(page.locator(".admin-set-confirm"))).includes("deiner Familie"), "Wagen: die Rückfrage sagt nicht, dass es die eigene Familie trifft");
+    await page.locator("[data-wagen-ja='2']").click({ timeout: 5000 });
+    await page.waitForFunction(() => /eigene Wahl/.test(document.querySelector("[data-wagen-karte]")?.textContent || ""), null, { timeout: 20000 }).catch(() => {});
+    const nachWechsel = await page.evaluate(() => ({
+      eltern: window.__ersatz.lies("users/eltern1")?.wagonSet?.id,
+      mia: window.__ersatz.lies("users/kind-mia")?.wagonSet?.id,
+      fremd: window.__ersatz.lies("users/fremd")?.wagonSet,
+      global: window.__ersatz.lies("config/train"),
+    }));
+    pruefe(nachWechsel.eltern === "2", `Wagen: das Elternkonto steht auf ${nachWechsel.eltern} statt 2`);
+    pruefe(nachWechsel.mia === "2", `Wagen: das Kind steht auf ${nachWechsel.mia} statt 2`);
+    pruefe(!nachWechsel.fremd, "Wagen: ein fremdes Konto hat das Set der Familie bekommen");
+    pruefe(!nachWechsel.global, "Wagen: die Familie hat config/train umgestellt – das gilt für alle");
+    pruefe((await text(wagen)).includes("eigene Wahl"), "Wagen: nach dem Wechsel steht nicht da, dass die Familie eine eigene Wahl hat");
+    await knips(page, "3c-wagen-der-familie");
     await context.close();
   }
 
@@ -408,4 +534,4 @@ if (befunde.length) {
   befunde.forEach((b) => console.error(`  - ${b}`));
   process.exit(1);
 }
-console.log("Der Elternbereich tut, was er soll: kaufen, Kinder anlegen, Passwort neu, Rückkehr von der Kasse, Kaufstand für Eltern, Kind und Gründer.");
+console.log("Der Elternbereich tut, was er soll: kaufen, Kinder anlegen, aufklappen, Passwort neu, Reisetempo, zurücksetzen, löschen, die Wagen der Familie – und nichts davon trifft eine fremde Familie.");

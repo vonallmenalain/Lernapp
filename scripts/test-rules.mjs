@@ -13,6 +13,8 @@
  *   Kind         das eigene Konto, die eigenen Level, fremde Konten
  *   Gruppe       Konto und Level eines Mitglieds lesen, sonst nichts
  *   Fremde       nichts
+ *   Eltern       das eigene Kind lesen, zurücksetzen, sein Wagen-Set setzen –
+ *                nicht seinen Namen, nicht seine Gruppe, und kein fremdes Kind
  *   Admin        alles lesen, zurücksetzen, Gruppen setzen – nicht mehr
  *   Gast         nur den eigenen Gastkasten, nur ohne Anmeldung
  *
@@ -110,6 +112,10 @@ const dora = () => als("dora", { email: "dora@lernapp.local", email_verified: fa
 const neu = () => als("neu", { email: "neu@lernapp.local", email_verified: false });
 const mama = () => als("mama", { email: "mama@example.com", email_verified: true });
 const kind1 = () => als("kind1", { email: "kind1@lernapp.local", email_verified: false });
+// Eine zweite Familie: ohne sie liesse sich nicht zeigen, dass ein
+// Elternkonto nur an die EIGENEN Kinder darf.
+const papa = () => als("papa", { email: "papa@example.com", email_verified: true });
+const kind2 = () => als("kind2", { email: "kind2@lernapp.local", email_verified: false });
 const admin = () => als("admin", { email: ADMIN_MAIL, email_verified: true });
 const adminOhneVerifikation = () => als("admin2", { email: ADMIN_MAIL, email_verified: false });
 const gast = () => env.unauthenticatedContext().firestore();
@@ -131,6 +137,11 @@ await env.withSecurityRulesDisabled(async (ctx) => {
   await db.doc("users/kind1").set({ username: "Kind 1", parentUid: "mama" });
   await db.doc("entitlements/mama").set({ plan: "familie", active: true });
   await db.doc("entitlements/kind1").set({ plan: "familie", active: true, via: "mama" });
+  await db.doc("users/kind1/levelProgress/arukone.A1-1").set({ solved: true });
+  await db.doc("users/kind1/sessions/s1").set({ startedAt: 1, solved: true });
+  // Die zweite Familie. papa hat ein Kind, mama darf davon nichts wissen.
+  await db.doc("users/papa").set({ username: "Papa", email: "papa@example.com", role: "parent", children: [{ uid: "kind2", name: "Kind 2" }] });
+  await db.doc("users/kind2").set({ username: "Kind 2", parentUid: "papa" });
   await db.doc(`guests/${GAST_ID}`).set({ type: "guest", guestId: GAST_ID });
 });
 
@@ -205,6 +216,49 @@ try {
   await darfNicht("Admin ohne verifizierte Adresse liest fremdes Konto", () => adminOhneVerifikation().doc("users/anna").get());
   await darfNicht("Admin ohne verifizierte Adresse setzt Gruppe", () => adminOhneVerifikation().doc("users/carl").update({ group: { id: "x" }, updatedAt: 1 }));
 
+  // --- Eltern und ihre eigenen Kinder --------------------------------------------
+  // Der Elternbereich zeigt Zug, Level und Sitzungen der eigenen Kinder und
+  // lässt sie zurücksetzen. Die Grenze ist "eigen": Ein Elternkonto, das ein
+  // fremdes Kind läse, läse eine fremde Familie.
+  await darf("Eltern lesen das Konto ihres Kindes", () => mama().doc("users/kind1").get());
+  await darf("Eltern lesen die Level ihres Kindes", () => mama().collection("users/kind1/levelProgress").get());
+  await darf("Eltern lesen die Sitzungen ihres Kindes", () => mama().collection("users/kind1/sessions").get());
+  await darf("Eltern setzen den Fortschritt ihres Kindes zurück", () => mama().doc("users/kind1").update({ stats: {}, gameState: {}, progressReset: { atMs: 1, by: "admin" }, updatedAt: 1 }));
+  await darf("Eltern löschen die Level ihres Kindes", () => mama().doc("users/kind1/levelProgress/arukone.A1-1").delete());
+  await darf("Eltern löschen die Sitzungen ihres Kindes", () => mama().doc("users/kind1/sessions/s1").delete());
+  await darfNicht("Eltern ändern den Namen ihres Kindes", () => mama().doc("users/kind1").update({ username: "X" }));
+  await darfNicht("Eltern setzen die Gruppe ihres Kindes", () => mama().doc("users/kind1").update({ group: { id: "fremd", name: "Fremd" }, updatedAt: 1 }));
+  await darfNicht("Eltern setzen ihre eigene Gruppe", () => mama().doc("users/mama").update({ group: { id: "fremd", name: "Fremd" }, updatedAt: 1 }));
+  await darfNicht("Eltern hängen sich ein fremdes Kind an", () => mama().doc("users/kind2").update({ parentUid: "mama", updatedAt: 1 }));
+  await darfNicht("Eltern erfinden Level bei ihrem Kind", () => mama().doc("users/kind1/levelProgress/neu").set({ solved: true }));
+  await darfNicht("Eltern löschen das Konto ihres Kindes", () => mama().doc("users/kind1").delete());
+  await darfNicht("Eltern lesen ein fremdes Kind", () => papa().doc("users/kind1").get());
+  await darfNicht("Eltern lesen die Level eines fremden Kindes", () => papa().collection("users/kind1/levelProgress").get());
+  await darfNicht("Eltern setzen ein fremdes Kind zurück", () => papa().doc("users/kind1").update({ stats: {}, updatedAt: 1 }));
+  await darfNicht("Eltern löschen die Level eines fremden Kindes", () => papa().doc("users/kind1/levelProgress/arukone.A1-1").delete());
+  await darfNicht("Elternkonto listet alle Konten", () => mama().collection("users").get());
+
+  // --- Das Wagen-Set einer Familie ------------------------------------------------
+  // users/<uid>.wagonSet gilt für ein Konto und schlägt config/train, wenn es
+  // neuer ist. Setzen darf es ein Elternkonto (für sich und seine Kinder) und
+  // der Admin – nie das Kind selbst: Ein Wechsel setzt allen Fortschritt auf 0.
+  //
+  // Die "darf nicht"-Fälle stehen zuerst, und das ist kein Zufall: Sobald an
+  // einem Konto ein Wagen-Set steht, ändert ein Schreiben desselben Werts
+  // nichts – affectedKeys ist dann leer, und JEDE Regel lässt es durch. Ein
+  // solcher Test wäre grün, ohne etwas über die Regel zu sagen. Also erst
+  // schreiben lassen, was nicht dasteht.
+  await darfNicht("Kind setzt sich selbst ein Wagen-Set", () => anna().doc("users/anna").update({ wagonSet: { id: "2", switchedAtMs: 9 } }));
+  await darfNicht("Kind setzt sich per set+merge ein Wagen-Set", () => anna().doc("users/anna").set({ wagonSet: { id: "2", switchedAtMs: 8 } }, { merge: true }));
+  await darfNicht("Kind mit Elternkonto setzt sich ein Wagen-Set", () => kind1().doc("users/kind1").update({ wagonSet: { id: "2", switchedAtMs: 9 } }));
+  await darfNicht("Konto ohne Kinder setzt sich ein Wagen-Set", () => carl().doc("users/carl").update({ wagonSet: { id: "2", switchedAtMs: 9 }, updatedAt: 1 }));
+  await darfNicht("Eltern setzen das Wagen-Set eines fremden Kindes", () => papa().doc("users/kind1").update({ wagonSet: { id: "2", switchedAtMs: 9 }, updatedAt: 1 }));
+  await darfNicht("Eltern mischen Wagen-Set mit Namensänderung", () => mama().doc("users/kind1").update({ wagonSet: { id: "2", switchedAtMs: 7 }, username: "X" }));
+  await darf("Eltern setzen das Wagen-Set ihres Kindes", () => mama().doc("users/kind1").update({ wagonSet: { id: "2", switchedAtMs: 9 }, updatedAt: 1 }));
+  await darf("Eltern setzen ihr eigenes Wagen-Set", () => mama().doc("users/mama").update({ wagonSet: { id: "2", switchedAtMs: 9 }, updatedAt: 1 }));
+  await darf("Eltern nehmen das Wagen-Set wieder weg", () => mama().doc("users/kind1").update({ wagonSet: null, updatedAt: 1 }));
+  await darf("Admin setzt ein Wagen-Set", () => admin().doc("users/anna").update({ wagonSet: { id: "2", switchedAtMs: 9 }, updatedAt: 1 }));
+
   // --- Der Kauf ----------------------------------------------------------------
   await darf("Elternkonto liest eigenen Kauf", () => mama().doc("entitlements/mama").get());
   await darf("Kind liest eigenen Kauf", () => kind1().doc("entitlements/kind1").get());
@@ -218,6 +272,11 @@ try {
   await darfNicht("Kind liest den Kauf seines Elternkontos", () => kind1().doc("entitlements/mama").get());
   await darfNicht("Gast liest einen Kauf", () => gast().doc("entitlements/mama").get());
   await darfNicht("Admin schreibt einen Kauf von Hand", () => admin().doc("entitlements/anna").set({ plan: "familie", active: true }));
+  // Auch die Gratis-Freischaltung nicht: Sie kommt über /api/freischalten,
+  // also über das Admin-SDK an diesen Regeln vorbei. Was ein Client schreiben
+  // könnte, wäre keine Schranke mehr.
+  await darfNicht("Admin schenkt einen Zugang von Hand", () => admin().doc("entitlements/anna").set({ plan: "geschenk", active: true, source: "admin" }));
+  await darfNicht("Elternkonto schenkt seinem Kind einen Zugang", () => mama().doc("entitlements/kind1").set({ plan: "geschenk", active: true }));
   await darfNicht("Admin löscht einen Kauf", () => admin().doc("entitlements/mama").delete());
 
   // --- Die Familie ---------------------------------------------------------------
@@ -234,7 +293,9 @@ try {
   await darf("Elternkonto ändert seinen Namen (children bleibt unberührt)", () => mama().doc("users/mama").update({ username: "Mami" }));
   await darf("Kind mit Elternkonto schreibt seinen Spielstand", () => kind1().doc("users/kind1").set({ gameState: { x: 1 } }, { merge: true }));
   await darf("Kind mit Elternkonto schreibt eigenes Level", () => kind1().doc("users/kind1/levelProgress/a").set({ solved: true }));
-  await darfNicht("Elternkonto liest das Konto seines Kindes", () => mama().doc("users/kind1").get());
+  // Lesen dürfen sie es seit dem Elternbereich – das steht oben bei "Eltern
+  // und ihre eigenen Kinder". Schreiben weiterhin nicht, ausser den beiden
+  // Feldern, die dort geprüft sind.
   await darfNicht("Elternkonto schreibt das Konto seines Kindes", () => mama().doc("users/kind1").update({ username: "X" }));
   await darf("Admin ordnet ein Kind einem Elternkonto zu", () => admin().doc("users/anna").update({ parentUid: "mama", updatedAt: 1 }));
   await darf("Admin schreibt die Kinderliste", () => admin().doc("users/mama").update({ children: ["kind1", "anna"], updatedAt: 1 }));

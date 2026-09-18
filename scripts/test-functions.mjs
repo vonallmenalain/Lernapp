@@ -22,6 +22,10 @@
  *     ein später angelegtes Kind bekommt den Kauf mit; eine Rückerstattung
  *     nimmt ihn allen wieder; eine falsche Unterschrift wird abgewiesen.
  *   - Eltern setzen das Passwort ihres Kindes neu, nicht das eines fremden.
+ *   - Eltern löschen ihr eigenes Kind ganz – Konto, Fortschritt, Anmeldung –
+ *     und kein fremdes.
+ *   - Der Admin schaltet eine Familie gratis frei und nimmt es zurück; ein
+ *     bezahlter Kauf bleibt dabei unberührt, und niemand sonst darf das.
  *   - Ohne Anmeldung 401, als Kind 403, als Eltern 200.
  *
  *   npm run test:functions        oder        node scripts/test-functions.mjs
@@ -96,9 +100,11 @@ const wirft = async (fn, code, was) => {
 
 const { auth, db, FieldValue } = await import("../netlify/functions/_lib/firebase.mjs");
 const kind = await import("../netlify/functions/_lib/kind.mjs");
-const { anrufer, elternAnrufer } = await import("../netlify/functions/_lib/anfrage.mjs");
+const { anrufer, elternAnrufer, adminAnrufer, istAdminAdresse, ADMIN_ADRESSEN } = await import("../netlify/functions/_lib/anfrage.mjs");
 const { kindAnlegen, default: kindAnlegenHandler } = await import("../netlify/functions/kind-anlegen.mjs");
 const { kindPasswortSetzen } = await import("../netlify/functions/kind-passwort.mjs");
+const { kindLoeschen, default: kindLoeschenHandler } = await import("../netlify/functions/kind-loeschen.mjs");
+const { freischalten, default: freischaltenHandler } = await import("../netlify/functions/freischalten.mjs");
 const { kasseErstellen } = await import("../netlify/functions/checkout.mjs");
 const { kaufVerbuchen, rueckerstattungVerbuchen, default: webhookHandler } = await import("../netlify/functions/stripe-webhook.mjs");
 const { default: statusHandler } = await import("../netlify/functions/status.mjs");
@@ -355,13 +361,27 @@ ok(r400.status === 400, `kind-anlegen mit kaputtem JSON: ${r400.status}`);
   const kindDaten = await alsKind.json();
   ok(alsKind.status === 200 && kindDaten.gruppe?.id === gruppe, `Kind verbindet die Familie nicht: ${alsKind.status} ${JSON.stringify(kindDaten)}`);
 
-  // Als Eltern: Die Kinder werden verbunden, das Elternkonto selbst bleibt
-  // aussen vor – sonst stünde auf jedem Kinderbild ein leerer Elternzug.
+  // Als Eltern: Die Kinder werden verbunden – und das Elternkonto mit. Bis
+  // hierher blieb es aussen vor, damit auf keinem Kinderbild ein leerer
+  // Elternzug stünde. Seit dem Elternbereich spielen Eltern aber selbst und
+  // sehen ihre eigenen Zahlen; auf dem Startbild sollen die Züge ALLER
+  // Familienmitglieder stehen, nicht nur die der Geschwister.
   const alsEltern = await familieHandler(new Request("http://x/api/familie", { method: "POST", headers: { authorization: `Bearer ${mamaToken}` } }));
   const elternDaten = await alsEltern.json();
   ok(elternDaten.kinder >= 2, `Eltern sehen ${elternDaten.kinder} Kinder`);
-  ok(!elternDaten.gruppe, "das Elternkonto steckt selbst in der Gruppe");
-  ok(!(await db().collection("users").doc(mama.uid).get()).data()?.group, "das Elternkonto hat eine Gruppe bekommen");
+  ok(elternDaten.gruppe?.id === gruppe, `das Elternkonto ist nicht in der Familiengruppe: ${JSON.stringify(elternDaten.gruppe)}`);
+  ok((await db().collection("users").doc(mama.uid).get()).data()?.group?.id === gruppe, "das Elternkonto hat keine Gruppe bekommen");
+
+  // Eine Gruppe, die der Admin von Hand gesetzt hat, überlebt jede Anmeldung.
+  // Ohne diese Marke schriebe familieVerbinden sie bei jedem Anruf wieder weg –
+  // und eine übergreifende Gruppe (zwei Familien, eine Klasse) hielte keinen Tag.
+  await db().collection("users").doc(kind2.uid).set({ group: { id: "nachbarschaft", name: "Nachbarschaft", by: "admin", updatedAt: 1 } }, { merge: true });
+  await familieVerbinden(mama.uid);
+  ok((await db().collection("users").doc(kind2.uid).get()).data()?.group?.id === "nachbarschaft", "die Familie hat die Gruppe des Admins überschrieben");
+  // Und zurück, damit die Prüfungen danach von der Familiengruppe ausgehen.
+  await db().collection("users").doc(kind2.uid).set({ group: FieldValue.delete() }, { merge: true });
+  await familieVerbinden(mama.uid);
+  ok((await db().collection("users").doc(kind2.uid).get()).data()?.group?.id === gruppe, "die Familiengruppe kam nicht zurück");
 
   // Ohne Token: nichts.
   const ohne = await familieHandler(new Request("http://x/api/familie", { method: "POST" }));
@@ -372,6 +392,130 @@ ok(r400.status === 400, `kind-anlegen mit kaputtem JSON: ${r400.status}`);
   const einsamToken = await anmelden("einsam@lernapp.local", "1234::lernapp");
   const einsamAntwort = await (await familieHandler(new Request("http://x/api/familie", { method: "POST", headers: { authorization: `Bearer ${einsamToken}` } }))).json();
   ok(!einsamAntwort.gruppe && einsamAntwort.kinder === 0, `Gründer-Kind bekommt eine Gruppe: ${JSON.stringify(einsamAntwort)}`);
+}
+
+// --- 8c. Ein Kind wieder entfernen ------------------------------------------------
+// Das Gegenstück zum Anlegen, und es muss dasselbe rückwärts tun: Auth-Konto,
+// Kontodokument samt Unterkollektionen, Kaufeintrag, children[] der Eltern.
+// Bliebe eines davon stehen, wäre der Name für immer belegt, stünde ein Zug
+// ohne Kind in der Familiengruppe, oder zählte ein Kind mit, das es nicht mehr
+// gibt – und damit die Grenze von vier.
+{
+  const weg = await kindAnlegen({ eltern: { uid: papa.uid, email: "papa@example.com", istEltern: true }, name: "Weg", passwort: "1234" });
+  await db().collection("users").doc(weg.uid).collection("levelProgress").doc("a").set({ solved: true });
+  await db().collection("users").doc(weg.uid).collection("sessions").doc("s").set({ startedAt: 1 });
+  await db().collection("entitlements").doc(weg.uid).set({ plan: "familie", active: true, via: papa.uid });
+
+  const papaEltern2 = { uid: papa.uid, email: "papa@example.com", istEltern: true };
+  await wirft(() => kindLoeschen({ eltern, uid: weg.uid }), "not-your-child", "fremdes Elternkonto löscht ein Kind");
+  await wirft(() => kindLoeschen({ eltern: papaEltern2, uid: papa.uid }), "not-your-child", "Elternkonto löscht sich selbst");
+  await wirft(() => kindLoeschen({ eltern: papaEltern2, uid: "" }), "missing-uid", "löschen ohne Kennung");
+
+  const ergebnis = await kindLoeschen({ eltern: papaEltern2, uid: weg.uid });
+  ok(ergebnis.geloescht.level === 1 && ergebnis.geloescht.sitzungen === 1, `gelöscht: ${JSON.stringify(ergebnis.geloescht)}`);
+  ok(!(await db().collection("users").doc(weg.uid).get()).exists, "das Kontodokument steht noch da");
+  ok((await db().collection("users").doc(weg.uid).collection("levelProgress").get()).empty, "die Level stehen noch da");
+  ok((await db().collection("users").doc(weg.uid).collection("sessions").get()).empty, "die Sitzungen stehen noch da");
+  ok(!(await db().collection("entitlements").doc(weg.uid).get()).exists, "der Kaufeintrag steht noch da");
+  const papaDoc = (await db().collection("users").doc(papa.uid).get()).data();
+  ok(!(papaDoc?.children || []).some((k) => (typeof k === "string" ? k : k.uid) === weg.uid), "das Kind steht noch in children[]");
+  ok(!(await auth().getUser(weg.uid).catch(() => null)), "die Anmeldung gibt es noch");
+  // Und der Name ist wieder frei: genau das ist der Grund, warum das
+  // Auth-Konto mit weg muss.
+  const neuerWeg = await kindAnlegen({ eltern: papaEltern2, name: "Weg", passwort: "1234" });
+  ok(neuerWeg.uid && neuerWeg.uid !== weg.uid, "der Name blieb belegt");
+  await kindLoeschen({ eltern: papaEltern2, uid: neuerWeg.uid });
+
+  // Über den Weg von aussen: ohne Token 401, als Kind 403.
+  const ohne = await kindLoeschenHandler(postJson(null, { uid: kind1.uid }));
+  ok(ohne.status === 401, `kind-loeschen ohne Token: ${ohne.status}`);
+  const alsKind = await kindLoeschenHandler(postJson(await anmelden("lina@lernapp.local", "neu1::lernapp"), { uid: kind1.uid }));
+  ok(alsKind.status === 403, `kind-loeschen als Kind: ${alsKind.status}`);
+}
+
+// --- 8d. Gratis freischalten -------------------------------------------------------
+// entitlements/{uid} darf kein Client schreiben – auch der Admin nicht
+// (firestore.rules: write: if false). Wenn der Adminbereich ein Konto per Klick
+// freischaltet, geht das deshalb über diese Funktion, und sie prüft am Token,
+// wer anruft. Wer das umgehen könnte, könnte sich einen Kauf schreiben.
+{
+  // Der eine Administrator. Dieselbe Adresse wie in firestore.rules – und das
+  // wird hier nicht geglaubt, sondern nachgelesen: Laufen die beiden
+  // auseinander, kommt der Admin an der einen Stelle durch und an der anderen
+  // nicht, und niemand merkt, an welcher.
+  const regeln = readFileSync(path.join(WURZEL, "firestore.rules"), "utf8");
+  ADMIN_ADRESSEN.forEach((adresse) => {
+    ok(regeln.toLowerCase().includes(adresse), `firestore.rules kennt die Admin-Adresse ${adresse} nicht`);
+  });
+  ok(istAdminAdresse("  ALAIN.SC2@Gmail.com "), "die Admin-Adresse wird nicht normalisiert erkannt");
+  ok(!istAdminAdresse("alain.sc2@gmail.com.example.org"), "eine ähnliche Adresse gilt als Admin");
+
+  const chef = await auth().createUser({ email: ADMIN_ADRESSEN[0], password: "adminpasswort", emailVerified: true });
+  await db().collection("users").doc(chef.uid).set({ username: "Chef", role: "admin" });
+  const chefToken = await anmelden(ADMIN_ADRESSEN[0], "adminpasswort");
+  const werChef = await adminAnrufer(bearer(chefToken));
+  ok(werChef.uid === chef.uid && werChef.istAdmin === true, "der Admin wird nicht als Admin erkannt");
+  await wirft(() => adminAnrufer(bearer(mamaToken)), "admin-only", "ein gewöhnliches Elternkonto ruft die Admin-Funktion");
+
+  // Eine unbestätigte Adresse reicht nicht – sonst genügte es, ein Konto mit
+  // dieser Adresse anzulegen. Dieselbe Bedingung wie in firestore.rules.
+  const falsch = await auth().createUser({ email: "admin-attrappe@example.com", password: "adminpasswort", emailVerified: false });
+  await db().collection("users").doc(falsch.uid).set({ username: "Attrappe" });
+  ok(!istAdminAdresse("admin-attrappe@example.com"), "eine fremde Adresse gilt als Admin");
+
+  // Freischalten trifft die ganze Familie, wie ein Kauf: ein freigeschaltetes
+  // Kind neben gesperrten Geschwistern wäre kein Geschenk, sondern ein Rätsel.
+  const oma2 = await auth().createUser({ email: "oma2@example.com", password: "elternpasswort" });
+  await db().collection("users").doc(oma2.uid).set({ username: "Oma zwei", role: "parent" });
+  const omaEltern = { uid: oma2.uid, email: "oma2@example.com", istEltern: true };
+  const enkel = await kindAnlegen({ eltern: omaEltern, name: "Enkel", passwort: "1234" });
+
+  const geschenkt = await freischalten({ admin: werChef, uid: oma2.uid, frei: true });
+  ok(geschenkt.konten === 2, `freigeschaltet: ${JSON.stringify(geschenkt)} – erwartet Elternkonto und Kind`);
+  const omaKauf = (await db().collection("entitlements").doc(oma2.uid).get()).data();
+  ok(omaKauf?.active === true && omaKauf?.source === "admin", `Eintrag am Elternkonto: ${JSON.stringify(omaKauf)}`);
+  ok(omaKauf?.grantedBy === chef.uid, "im Eintrag steht nicht, wer freigeschaltet hat");
+  const enkelKauf = (await db().collection("entitlements").doc(enkel.uid).get()).data();
+  ok(enkelKauf?.active === true && enkelKauf?.via === oma2.uid, `Eintrag am Kind: ${JSON.stringify(enkelKauf)}`);
+
+  // Ein Kind anzuklicken schaltet trotzdem die Familie frei – der Server
+  // sucht das Elternkonto über parentUid.
+  await freischalten({ admin: werChef, uid: enkel.uid, frei: false });
+  const nochmal = await freischalten({ admin: werChef, uid: enkel.uid, frei: true });
+  ok(nochmal.konten === 2, `über das Kind freigeschaltet: ${JSON.stringify(nochmal)}`);
+  ok((await db().collection("entitlements").doc(oma2.uid).get()).data()?.active === true, "das Elternkonto blieb aussen vor");
+
+  // Ein später angelegtes Geschwisterkind erbt die Freischaltung, genau wie
+  // bei einem Kauf – das rechnet kind-anlegen.mjs, nicht diese Funktion.
+  const enkel2 = await kindAnlegen({ eltern: omaEltern, name: "Enkel zwei", passwort: "1234" });
+  ok((await db().collection("entitlements").doc(enkel2.uid).get()).data()?.active === true, "das zweite Kind erbt die Freischaltung nicht");
+
+  // Zurücknehmen: alles weg.
+  const zurueckgenommen = await freischalten({ admin: werChef, uid: oma2.uid, frei: false });
+  ok(zurueckgenommen.konten === 3, `zurückgenommen: ${JSON.stringify(zurueckgenommen)}`);
+  for (const uid of [oma2.uid, enkel.uid, enkel2.uid]) {
+    ok(!(await db().collection("entitlements").doc(uid).get()).exists, `der Eintrag steht noch da: ${uid}`);
+  }
+
+  // Ein bezahlter Kauf wird hier NICHT zurückgenommen. Sonst verlöre eine
+  // Familie ihren Kauf durch einen Fehlgriff in einer Liste – zurückerstattet
+  // wird bei Stripe, und der Webhook trägt es ein.
+  await db().collection("entitlements").doc(oma2.uid).set({ plan: "familie", active: true, source: "stripe" });
+  await wirft(() => freischalten({ admin: werChef, uid: oma2.uid, frei: false }), "paid-not-gift", "ein bezahlter Kauf wird per Klick zurückgenommen");
+  ok((await db().collection("entitlements").doc(oma2.uid).get()).data()?.active === true, "der bezahlte Kauf ist weg");
+
+  await wirft(() => freischalten({ admin: werChef, uid: "gibtesnicht" }), "no-account", "ein Konto, das es nicht gibt");
+  await wirft(() => freischalten({ admin: werChef, uid: "" }), "missing-uid", "freischalten ohne Kennung");
+
+  // Und von aussen: ohne Token 401, als Eltern 403, als Admin 200.
+  const ohne = await freischaltenHandler(postJson(null, { uid: oma2.uid }));
+  ok(ohne.status === 401, `freischalten ohne Token: ${ohne.status}`);
+  const alsEltern = await freischaltenHandler(postJson(mamaToken, { uid: oma2.uid }));
+  ok(alsEltern.status === 403, `freischalten als Elternkonto: ${alsEltern.status}`);
+  const alsAdmin = await freischaltenHandler(postJson(chefToken, { uid: enkel.uid, frei: true }));
+  ok(alsAdmin.status === 200, `freischalten als Admin: ${alsAdmin.status} ${await alsAdmin.clone().text().catch(() => "")}`);
+  const perGet = await freischaltenHandler(new Request("http://x/api", { method: "GET", headers: { authorization: `Bearer ${chefToken}` } }));
+  ok(perGet.status === 405, `freischalten per GET: ${perGet.status}`);
 }
 
 // --- 9. Die Statusseite -----------------------------------------------------------

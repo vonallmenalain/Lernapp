@@ -2546,7 +2546,8 @@ body.puzzle-active .spatialPuzzle-board .spatial-option-graphic > svg {
   gap: 12px;
 }
 
-.kinder-kopf {
+.kinder-kopf,
+.karten-kopf {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
@@ -2958,58 +2959,10 @@ body.puzzle-active .spatialPuzzle-board .spatial-option-graphic > svg {
   text-align: right;
 }
 
-.admin-section {
-  display: grid;
-  gap: 14px;
-  padding-top: 4px;
-}
-
-.admin-section-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 14px;
-}
-
-.admin-section-head h3,
 .admin-columns h4,
 .admin-top-levels h4,
 .admin-train-detail h4 {
   margin: 0;
-}
-
-.admin-tabs {
-  display: inline-flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 12px;
-  padding: 4px;
-  border-radius: 999px;
-  background: #fbfaff;
-  border: 2px solid var(--line);
-}
-
-.admin-tabs button {
-  min-height: 36px;
-  padding: 0 14px;
-  border-radius: 999px;
-  background: transparent;
-  border-color: transparent;
-  color: var(--primary-dark);
-  font-size: 0.9rem;
-}
-
-.admin-tabs button.active,
-.admin-tabs button:hover:not(:disabled),
-.admin-tabs button:focus-visible {
-  background: var(--primary);
-  color: #fff;
-  border-color: var(--primary);
-  outline: none;
-}
-
-.admin-body {
-  min-width: 0;
 }
 
 /* --- Die Konten zum Aufklappen ---
@@ -3529,10 +3482,6 @@ body.puzzle-active .spatialPuzzle-board .spatial-option-graphic > svg {
     grid-template-columns: 1fr;
   }
 
-  .admin-section-head {
-    flex-direction: column;
-  }
-
   .admin-columns,
   .admin-data-grid,
   .admin-top-levels > div,
@@ -3543,10 +3492,6 @@ body.puzzle-active .spatialPuzzle-board .spatial-option-graphic > svg {
   .admin-data-list {
     max-height: none;
     padding-right: 0;
-  }
-
-  .admin-section-head > button {
-    width: 100%;
   }
 
   .admin-train-car em { display: none; }
@@ -10217,3 +10162,669 @@ body.tor-offen { overflow: hidden; }
   cursor: pointer;
 }
 
+
+/* ===========================================================================
+   Der Adminbereich als eigene Seite (admin.html)
+   ===========================================================================
+   Die Regeln oben zeichnen den Adminbereich, wie er im Profilfenster stand:
+   in einem Panel, das höchstens 1120 px breit ist. Diese hier setzen ihn auf
+   eine eigene Seite – mehr Platz, ein Kopf, Reiter über die ganze Breite.
+   Alles, was dazwischen gleich aussieht (Konten-Akkordeon, Zug-Balken,
+   Level-Karten), kommt aus denselben Regeln: Es ist dieselbe Ansicht, nur an
+   einem anderen Ort.
+
+   Diese Seite sieht kein Kind. Deshalb darf hier Text stehen, und deshalb ist
+   sie auf Lesen ausgelegt statt auf grosse Finger. */
+body[data-page="admin"] {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--bg, #f7f3ff);
+  color: var(--ink, #1f2a33);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  overflow: auto;
+}
+
+/* Rechts oben schweben auf jeder Seite der App zwei Knöpfe: der Lautsprecher
+   und das Profil. Der Lautsprecher liest Kindern vor – hier gibt es kein Kind
+   und nichts vorzulesen, also weg damit. Das Profil bleibt: darüber meldet
+   man sich ab. Der Kopf macht ihm Platz, statt sich von ihm überdecken zu
+   lassen. */
+body[data-page="admin"] .sound-toggle { display: none; }
+
+.admin-kopf {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+  width: min(1400px, 100% - 32px);
+  margin: 0 auto;
+  padding: 24px 0 8px;
+}
+
+.admin-kopf-nav { padding-right: 68px; }
+
+.admin-kopf h1 {
+  margin: 0;
+  font-size: clamp(1.6rem, 3vw, 2.4rem);
+  font-weight: 950;
+  letter-spacing: -0.01em;
+}
+
+.admin-kopf-nav {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* Fünf Zahlen, nicht vier: Die feste Vierspaltigkeit des Streifens liesse die
+   fünfte allein in einer zweiten Reihe stehen. */
+body[data-page="admin"] .stat-strip {
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+}
+
+.admin-wer {
+  font-weight: 800;
+  color: var(--muted, #5b6b7a);
+  font-size: 0.95rem;
+}
+
+.admin-kopf-nav a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 42px;
+  padding: 0 18px;
+  border-radius: 999px;
+  border: 2px solid var(--line, #e4e0f7);
+  background: #fff;
+  color: var(--primary-dark, #4c3fd6);
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.admin-seite {
+  width: min(1400px, 100% - 32px);
+  margin: 0 auto;
+  padding: 8px 0 64px;
+  display: grid;
+  gap: 16px;
+}
+
+.admin-seite .admin-inhalt {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+
+/* Die Reiter: eine Pillenleiste, die oben stehen bleibt, mit dem
+   Aktualisieren-Knopf am rechten Rand. */
+.admin-reiter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 6px;
+  border-radius: 999px;
+  background: #fff;
+  border: 2px solid var(--line, #e4e0f7);
+  position: sticky;
+  top: 8px;
+  z-index: 3;
+  box-shadow: 0 8px 24px rgba(50, 44, 109, 0.08);
+}
+
+.admin-reiter button {
+  min-height: 40px;
+  padding: 0 18px;
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--primary-dark, #4c3fd6);
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.admin-reiter button.active,
+.admin-reiter button:hover,
+.admin-reiter button:focus-visible {
+  background: var(--primary, #6c5ce7);
+  color: #fff;
+  outline: none;
+}
+
+.admin-reiter .admin-neu {
+  margin-left: auto;
+  background: #fbfaff;
+  border-color: var(--line, #e4e0f7);
+}
+
+.admin-reiter .admin-neu:hover,
+.admin-reiter .admin-neu:focus-visible {
+  background: var(--primary, #6c5ce7);
+  color: #fff;
+}
+
+.admin-hinweis {
+  background: #fff;
+  border: 2px solid var(--line, #e4e0f7);
+  border-radius: 24px;
+  padding: 28px;
+  display: grid;
+  gap: 12px;
+  max-width: 640px;
+}
+
+.admin-hinweis h2 { margin: 0; }
+.admin-hinweis p { margin: 0; }
+
+.knopf {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 999px;
+  min-height: 46px;
+  padding: 0 24px;
+  background: var(--primary, #6c5ce7);
+  color: #fff;
+  font: inherit;
+  font-weight: 900;
+  text-decoration: none;
+  cursor: pointer;
+  width: fit-content;
+}
+
+.knopf.zweit {
+  background: #fff;
+  color: var(--primary-dark, #4c3fd6);
+  border: 2px solid var(--line, #e4e0f7);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* --- Suchen, filtern, sortieren ---
+   Eine Zeile über der Liste: Suchfeld links, die Filtergruppen daneben. Jede
+   Gruppe ist eine Frage mit drei Antworten, und die gewählte ist gefüllt –
+   so sieht man den Stand der Liste, ohne ihn zu lesen. */
+.admin-werkzeug {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  align-items: center;
+}
+
+.admin-suche { flex: 1 1 240px; min-width: 200px; }
+
+.admin-suche input {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 16px;
+  border-radius: 999px;
+  border: 2px solid var(--line, #e4e0f7);
+  background: #fff;
+  font: inherit;
+}
+
+.admin-filtergruppe {
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 999px;
+  background: #fff;
+  border: 2px solid var(--line, #e4e0f7);
+}
+
+.admin-filtergruppe button {
+  min-height: 34px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--primary-dark, #4c3fd6);
+  font: inherit;
+  font-weight: 800;
+  font-size: 0.9rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.admin-filtergruppe button.active {
+  background: var(--primary, #6c5ce7);
+  color: #fff;
+}
+
+/* --- Marken in der Kontenzeile ---
+   Zwei Wörter, die alles sagen, wonach hier gesucht wird: was für ein Konto
+   das ist, und ob es bezahlt ist. Farbe statt Text, damit eine Liste von
+   dreissig Konten auf einen Blick lesbar bleibt. */
+.admin-marken {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: flex-start;
+}
+
+.admin-marke {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 0.74rem;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  border: 2px solid transparent;
+}
+
+.admin-marke.rolle-admin { background: #322c6d; color: #fff; }
+.admin-marke.rolle-eltern { background: #ece8ff; color: #4c3fd6; }
+.admin-marke.rolle-kind { background: #e3f6ec; color: #1d7a45; }
+.admin-marke.kauf-bezahlt { background: #3fbf74; color: #fff; }
+.admin-marke.kauf-geschenk { background: #ffd166; color: #6b4e00; }
+.admin-marke.kauf-gruender { background: #dff1fb; color: #0b5875; }
+.admin-marke.kauf-zurueck { background: #ffe2e8; color: #b0002a; }
+.admin-marke.kauf-gratis { background: #f1eff9; color: #5b6b7a; border-color: var(--line, #e4e0f7); }
+
+.admin-entry-zuletzt {
+  display: grid;
+  gap: 2px;
+  font-size: 0.85rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.admin-entry-zuletzt b {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted, #5b6b7a);
+}
+
+/* Eine Gruppe, die der Admin von Hand gesetzt hat, sieht anders aus als eine,
+   die von der Familie kommt: Sonst wäre nicht zu sehen, welche der Server
+   beim nächsten Anmelden nachzieht und welche stehen bleibt. */
+.admin-entry-group.ist-admin {
+  background: #322c6d;
+  color: #fff;
+}
+
+.admin-kauf strong { display: block; }
+
+/* --- Welche Level probiert wurden ---
+   Ein Punkt je Level, Spiel für Spiel. Die Frage, die eine Liste gelöster
+   Level nicht beantwortet, ist die nach den ungelösten – und die beantwortet
+   ein Raster in drei Farben auf einen Blick. */
+.admin-abdeckung {
+  display: grid;
+  gap: 10px;
+}
+
+.admin-abdeckung h4 { margin: 0; }
+
+.abdeckung-legende {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  margin: 0;
+  font-weight: 800;
+  font-size: 0.9rem;
+}
+
+.abdeckung-legende span { display: inline-flex; align-items: center; gap: 6px; }
+
+.abdeckung-legende span::before {
+  content: "";
+  width: 12px;
+  height: 12px;
+  border-radius: 4px;
+  background: currentColor;
+}
+
+.abdeckung-legende .ist-geloest { color: #2f9e5c; }
+.abdeckung-legende .ist-probiert { color: #d98b00; }
+.abdeckung-legende .ist-offen { color: #b7b2cc; }
+
+.abdeckung-spiele {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 10px;
+}
+
+.abdeckung-spiele article {
+  background: #fbfaff;
+  border: 2px solid var(--line, #e4e0f7);
+  border-radius: 16px;
+  padding: 10px 12px;
+  display: grid;
+  gap: 8px;
+}
+
+.abdeckung-spiele header {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.9rem;
+}
+
+.abdeckung-spiele header span {
+  font-weight: 900;
+  color: var(--muted, #5b6b7a);
+}
+
+.abdeckung-punkte {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+
+.abdeckung-punkte i {
+  width: 11px;
+  height: 11px;
+  border-radius: 3px;
+  background: #e6e3f2;
+}
+
+.abdeckung-punkte i.ist-geloest { background: #2f9e5c; }
+.abdeckung-punkte i.ist-probiert { background: #f0b429; }
+.abdeckung-punkte i.ist-offen { background: #e6e3f2; }
+
+.abdeckung-runden-titel { margin: 6px 0 0; }
+.abdeckung-runden span.ist-offen { opacity: 0.55; }
+
+/* --- Gruppen ---
+   Wer sieht wessen Zug. Links die Gruppen, die es gibt; beim Ändern ein
+   Editor mit Häkchen, nach Familien gebündelt – eine Gruppe ist eine Menge
+   von Konten, und eine Menge hakt man an. */
+.admin-gruppen {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
+}
+
+.admin-gruppe {
+  background: #fff;
+  border: 2px solid var(--line, #e4e0f7);
+  border-radius: 20px;
+  padding: 14px 16px;
+  display: grid;
+  gap: 10px;
+  align-content: start;
+}
+
+.admin-gruppe.ist-admin { border-color: var(--primary, #6c5ce7); }
+.admin-gruppe.ist-leer { background: #fbfaff; }
+
+.admin-gruppe header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.admin-gruppe header span {
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: var(--muted, #5b6b7a);
+}
+
+.admin-gruppe ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 4px;
+  font-weight: 700;
+}
+
+.admin-gruppe li small {
+  color: var(--muted, #5b6b7a);
+  font-weight: 800;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.admin-gruppen-kopf { justify-content: flex-start; }
+
+.admin-gruppe-editor {
+  background: #fff;
+  border: 2px solid var(--line, #e4e0f7);
+  border-radius: 24px;
+  padding: 18px 20px;
+  display: grid;
+  gap: 14px;
+}
+
+.admin-gruppe-editor h3 { margin: 0; }
+
+.admin-gruppe-name {
+  display: grid;
+  gap: 4px;
+  max-width: 420px;
+  font-weight: 800;
+}
+
+.admin-gruppe-name input {
+  min-height: 44px;
+  padding: 0 14px;
+  border-radius: 14px;
+  border: 2px solid var(--line, #e4e0f7);
+  font: inherit;
+}
+
+.admin-familien {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px;
+}
+
+.admin-familie {
+  border: 2px solid var(--line, #e4e0f7);
+  border-radius: 16px;
+  padding: 10px 14px 12px;
+  margin: 0;
+  display: grid;
+  gap: 6px;
+  align-content: start;
+}
+
+.admin-familie legend {
+  font-weight: 900;
+  padding: 0 6px;
+}
+
+.admin-familie legend label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.admin-mitglied {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.admin-mitglied small {
+  color: var(--muted, #5b6b7a);
+  font-weight: 800;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+}
+
+.admin-mitglied em {
+  color: var(--primary-dark, #4c3fd6);
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.admin-familie input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--primary, #6c5ce7);
+}
+
+.admin-eigene-sets {
+  display: grid;
+  gap: 8px;
+  padding-top: 8px;
+  border-top: 2px solid var(--line, #e4e0f7);
+}
+
+.admin-eigene-sets h3 { margin: 0; }
+
+/* ===========================================================================
+   Der Elternbereich im Profilfenster
+   ===========================================================================
+   Was der Adminbereich für alle ist, ist das hier für die eigene Familie:
+   die Kinder zum Aufklappen, ihr Zug, ihre Level, und die Knöpfe, mit denen
+   Eltern sie verwalten. Es sind dieselben Bausteine wie auf admin.html –
+   deshalb steht hier nur, was an der Kinderliste anders ist. */
+.admin-link {
+  text-decoration: none;
+  color: inherit;
+}
+
+.admin-link-knopf {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 20px;
+  border-radius: 999px;
+  background: var(--primary, #6c5ce7);
+  color: #fff;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.kinder-liste .kind-zeile {
+  display: grid;
+  gap: 8px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line, #e4e0f7);
+}
+
+.kinder-liste .kind-zeile:last-child { border-bottom: 0; }
+
+.kind-kopf {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 6px 4px;
+  border: 0;
+  border-radius: 14px;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  flex-wrap: wrap;
+}
+
+.kind-kopf:hover,
+.kind-kopf:focus-visible {
+  background: #fbfaff;
+  outline: none;
+}
+
+.kind-zeile.is-open > .kind-kopf .admin-entry-caret { transform: rotate(90deg); }
+
+.kind-kopf .kind-name {
+  display: grid;
+  gap: 2px;
+  flex: 1 1 140px;
+  min-width: 0;
+}
+
+.kind-kopf .kind-name span {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--muted, #5b6b7a);
+}
+
+.kind-detail {
+  display: grid;
+  gap: 12px;
+  padding: 10px 4px 14px;
+}
+
+.kind-aktionen { flex-wrap: wrap; justify-content: flex-start; }
+
+.wagen-sets {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 10px;
+}
+
+@media (max-width: 720px) {
+  .admin-kopf,
+  .admin-seite { width: calc(100% - 24px); }
+  .admin-reiter { position: static; }
+  .admin-werkzeug { gap: 8px; }
+  .admin-filtergruppe { width: 100%; justify-content: space-between; }
+  .admin-marken { flex-direction: row; }
+  .abdeckung-spiele,
+  .admin-familien,
+  .admin-gruppen { grid-template-columns: 1fr; }
+}
+
+/* Die Kontenzeile auf der eigenen Seite trägt zwei Dinge mehr als die im
+   Fenster: die Marken (Rolle, Kaufstand) und das Datum der letzten Aktivität.
+   Das Raster oben hat für jedes Kind eine feste Spalte – ein fünftes und
+   sechstes Kind hätte dort keinen Platz. Auf dieser Seite wird die Zeile
+   deshalb zu einer Flex-Reihe, die umbricht, wenn es eng wird: Die Reihenfolge
+   im HTML ist dann auch die auf dem Bild. */
+body[data-page="admin"] .admin-entry-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  padding: 14px 16px;
+}
+
+body[data-page="admin"] .admin-entry-head > * {
+  grid-column: auto;
+  grid-row: auto;
+}
+
+body[data-page="admin"] .admin-entry-name { flex: 1 1 200px; }
+body[data-page="admin"] .admin-entry-head .admin-train { flex: 1 1 100%; }
+body[data-page="admin"] .admin-entry-head .admin-user-summary { margin-left: auto; }
+body[data-page="admin"] .admin-data-list { max-height: 520px; }
+
+@media (max-width: 900px) {
+  body[data-page="admin"] .admin-columns,
+  body[data-page="admin"] .admin-top-levels > div,
+  body[data-page="admin"] .admin-game-grid {
+    grid-template-columns: 1fr;
+  }
+
+  body[data-page="admin"] .admin-data-list {
+    max-height: none;
+    padding-right: 0;
+  }
+
+  body[data-page="admin"] .admin-entry-head .admin-user-summary {
+    margin-left: 0;
+    flex: 1 1 100%;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}

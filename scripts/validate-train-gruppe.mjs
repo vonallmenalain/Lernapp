@@ -469,16 +469,35 @@ await cloud.setUserGroup("adminUid", { name: "Familie", displayName: "Papa" });
 assert(groupEvents().length > vorher, "die eigene Gruppe wird nach dem Zuordnen nicht gemeldet");
 assert(cloud.getGroup()?.id === "familie", "die eigene Gruppe steht nach dem Zuordnen nicht im Zustand");
 
-// Die Karte im Admin-Bereich ist an das Fenster angeschlossen. Ohne DOM lässt
+// Die Karte im Adminbereich ist an die Seite angeschlossen. Ohne DOM lässt
 // sich das nicht klicken, also wird geprüft, dass sie überhaupt gebaut und
 // gebunden wird – eine Karte, die niemand rendert, fiele sonst nicht auf.
-const quelle = fs.readFileSync(path.join(root, "firebase.js"), "utf8");
-assert(/\$\{isGuest \? "" : renderAdminGroupBlock\(detail\.id, userData\)\}/.test(quelle),
+//
+// Sie steht seit dem Umbau in admin.js: Der Adminbereich ist eine eigene Seite
+// (admin.html) und kein Abschnitt im Profilfenster mehr.
+const quelle = fs.readFileSync(path.join(root, "admin.js"), "utf8");
+assert(/\$\{gruppenBlock\(konto, userData\)\}/.test(quelle),
   "die Gruppen-Karte steht in keiner Detailansicht – der Admin könnte niemanden zuordnen");
-assert(/bindAdminGroupCard\(root\);/.test(quelle),
+assert(/data-gruppe-speichern.*addEventListener/s.test(quelle),
   "die Gruppen-Karte wird nicht gebunden – ihre Knöpfe täten nichts");
-assert(quelle.includes("data-admin-group-name") && quelle.includes("data-admin-group-display"),
+assert(quelle.includes("data-gruppe-name") && quelle.includes("data-gruppe-anzeige"),
   "der Karte fehlt ein Feld: Gruppe oder Name des Zugs");
+// Und die Sicht, in der übergreifende Gruppen entstehen: Ohne sie liessen sich
+// zwei Familien nur zusammenlegen, indem man jedes Konto einzeln aufklappt.
+assert(/function gruppenSicht\(\)/.test(quelle) && quelle.includes("data-editor-speichern"),
+  "der Adminseite fehlt die Gruppen-Sicht – übergreifende Gruppen liessen sich nicht anlegen");
+
+// Der Weg dorthin: Im Profilfenster steht nur noch die Tür zur Adminseite.
+const fenster = fs.readFileSync(path.join(root, "firebase.js"), "utf8");
+assert(/href="admin\.html"/.test(fenster),
+  "das Profilfenster führt nicht mehr in den Adminbereich");
+// Und die Marke, an der der Server eine Zuordnung des Admins stehen lässt.
+// Ohne sie schriebe familieVerbinden sie bei der nächsten Anmeldung weg.
+assert(/by: "admin"/.test(fenster),
+  "setUserGroup markiert die Zuordnung nicht als vom Admin gesetzt");
+const familie = fs.readFileSync(path.join(root, "netlify/functions/_lib/familie.mjs"), "utf8");
+assert(/vomAdminGesetzt/.test(familie),
+  "der Server achtet nicht auf Gruppen, die der Admin gesetzt hat");
 
 // ============================================================================
 // 4. firestore.rules erlauben genau das – nicht mehr
