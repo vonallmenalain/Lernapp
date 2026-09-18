@@ -114,6 +114,16 @@
     entitlement: null,
     entitlementLoaded: false,
     entitlementUnsubscribe: null,
+    // Ob schon feststeht, wer hier spielt. Beim Laden einer Seite weiss das
+    // niemand: Firebase holt die gespeicherte Anmeldung erst aus dem Speicher,
+    // und bis dahin sieht ein angemeldetes Kind aus wie ein Gast. Wer in
+    // diesem Moment sperrt, zeigt einem Kind, dem alles gehört, das Tor
+    // (entitlement.js, isLoaded).
+    //   authReady     der erste Bescheid von Firebase ist da
+    //   profileReady  das Kontodokument ist gelesen – erst dann steht die
+    //                 Rolle fest, und an ihr hängt der Gründer-Zugang
+    authReady: false,
+    profileReady: false,
     // Das Profilfenster zeigt ausnahmsweise den Verkaufsbildschirm: Das Kind
     // stand vor der Schranke, ein Erwachsener hat die Rechenaufgabe gelöst –
     // dann gehört dorthin, was der Kauf kostet und bringt, nicht das
@@ -179,6 +189,7 @@
     // Zeile, sondern firestore.rules; hier steht nur, was gelesen wurde.
     getEntitlement,
     isEntitlementLoaded: () => state.entitlementLoaded,
+    isAccountReady,
     getRole,
     getParentUid,
     getChildren,
@@ -299,6 +310,9 @@
   function initialiseFirebase() {
     if (!window.firebase?.initializeApp) {
       state.firebaseReady = false;
+      // Kein SDK, kein Konto: Der Stand steht fest, bevor er je wackeln konnte.
+      state.authReady = true;
+      state.profileReady = true;
       setAccountStatus(false);
       return;
     }
@@ -316,6 +330,8 @@
       watchWagonSet();
     } catch (error) {
       state.firebaseReady = false;
+      state.authReady = true;
+      state.profileReady = true;
       renderError("Firebase konnte nicht gestartet werden.", error);
     }
   }
@@ -347,6 +363,10 @@
       resetElternState();
       stopWatchingEntitlement();
       stopActiveSession();
+      // Niemand angemeldet – mehr gibt es nicht zu wissen.
+      state.authReady = true;
+      state.profileReady = true;
+      announceEntitlement();
       renderLoggedOut();
       announceProgress();
       // Ohne Konto zählt wieder, was auf diesem Gerät steht.
@@ -358,8 +378,18 @@
       return;
     }
 
+    // Bis das Kontodokument gelesen ist, ist die Rolle unbekannt – und ein
+    // Konto ohne bekannte Rolle gilt nirgends als frei. Deshalb steht der
+    // Stand hier ausdrücklich auf "noch nicht": Die Schranke wartet darauf,
+    // statt zu sperren.
+    state.profileReady = false;
     try {
       await upsertUserProfile(user);
+      state.authReady = true;
+      state.profileReady = true;
+      // Die Rolle steht – der Kauf kommt gleich (watchEntitlement). Wer
+      // zuhört, rechnet jetzt neu: ein Gründerkind ist ab hier frei.
+      announceEntitlement();
       watchEntitlement(user.uid);
       // Vor allem anderen: wurde dieses Konto anderswo zurückgesetzt, muss
       // dieses Gerät seinen alten Stand loswerden, bevor syncLocalSolvedProgress
@@ -375,6 +405,11 @@
       familieNachholen();
       if (state.kaufRueckkehr && modal.hidden) openModal();
     } catch (error) {
+      // Auch ein Fehlschlag ist ein Bescheid: Sonst wartete die Schranke
+      // ewig auf einen Stand, der nicht mehr kommt.
+      state.authReady = true;
+      state.profileReady = true;
+      announceEntitlement();
       renderError("Firebase ist verbunden, aber Firestore hat den Zugriff abgelehnt oder ist noch nicht eingerichtet.", error);
     }
   }
@@ -960,6 +995,17 @@
         return null;
       })
       .filter(Boolean);
+  }
+
+  // Steht fest, wer hier spielt? Erst dann darf etwas gesperrt werden. Ohne
+  // Firebase ist es das Gerät allein; mit Firebase braucht es den Bescheid
+  // der Anmeldung, und bei einem angemeldeten Konto dazu die Rolle (der
+  // Gründer-Zugang hängt an ihr) und den Kaufstand.
+  function isAccountReady() {
+    if (!state.firebaseReady) return true;
+    if (!state.authReady) return false;
+    if (!state.user) return true;
+    return state.profileReady && state.entitlementLoaded;
   }
 
   function getRole() { return state.user ? state.role : null; }

@@ -30,6 +30,15 @@
  * Kauf selbst (kein Client kann sich einen schreiben). Wer die Konsole öffnet,
  * kommt durch – der hätte nie bezahlt.
  *
+ * Und sie sperrt nie, bevor sie weiss, wen sie vor sich hat: Beim Laden einer
+ * Seite holt Firebase die gespeicherte Anmeldung erst aus dem Speicher, und
+ * bis dahin sieht jedes angemeldete Kind aus wie ein Gast. Wer in diesem
+ * Moment sperrte, zeigte einem Kind mit Gründer-Zugang – dem alles gehört –
+ * das Tor, und zwar bei jedem Öffnen. Deshalb fragt niemand targetFree()
+ * direkt beim Laden, sondern targetLocked(): die Antwort kommt, sobald der
+ * Kontostand feststeht (isLoaded). Und ein Tor, das trotzdem einmal steht,
+ * geht von selbst wieder auf, sobald sein Ziel frei ist.
+ *
  * Das Tor sieht das Kind, nicht den Preis: Der Zug steht vor einer Schranke,
  * und der Satz sagt, dass die Eltern sie öffnen. Dahinter liegt ein kleines
  * Rechenrätsel, das ein Kind mit vier Jahren nicht löst – und erst danach,
@@ -118,13 +127,42 @@
     return r === "gekauft" || r === "gruender";
   }
 
-  // Ob der Stand schon bekannt ist. Bis dahin gilt "nicht frei" – die Sperre
-  // fällt zu, nicht auf. Aber ein Tor, das nur eine Sekunde zu spät aufgeht,
-  // ist besser als eines, das eine Sekunde zu spät zugeht.
+  // Ob der Stand schon bekannt ist: die Anmeldung beantwortet, die Rolle
+  // gelesen, der Kauf geladen. Ohne firebase.js entscheidet das Gerät allein,
+  // dann steht der Stand sofort.
   function isLoaded() {
     const c = cloud();
-    if (!c?.isSignedIn?.()) return true;
+    if (!c) return true;
+    if (typeof c.isAccountReady === "function") return c.isAccountReady();
+    // Eine ältere Fassung aus dem Zwischenspeicher: so gut es geht.
+    if (!c.isSignedIn?.()) return true;
     return Boolean(c.isEntitlementLoaded?.());
+  }
+
+  // Wartet, bis der Stand feststeht – höchstens so lange. Kommt Firebase gar
+  // nicht (kein Netz), gilt nach dem Zeitlimit, was das Gerät weiss: Dann
+  // sperrt die Schranke wie bisher, statt für immer offen zu stehen.
+  const WARTEZEIT_MS = 6000;
+  function whenReady(ms = WARTEZEIT_MS) {
+    if (isLoaded()) return Promise.resolve(true);
+    return new Promise((fertig) => {
+      let uhr = 0;
+      const ab = onChange(() => {
+        if (!isLoaded()) return;
+        window.clearTimeout(uhr);
+        ab();
+        fertig(true);
+      });
+      uhr = window.setTimeout(() => { ab(); fertig(false); }, ms);
+    });
+  }
+
+  // Ist dieses Ziel gesperrt? Dieselbe Frage wie !targetFree(), nur beantwortet
+  // sie sich erst, wenn feststeht, wer spielt. Das ist die Frage, die jede
+  // Seite beim Laden stellt.
+  async function targetLocked(url, { ms = WARTEZEIT_MS } = {}) {
+    await whenReady(ms);
+    return !targetFree(url);
   }
 
   // ---------------------------------------------------------------------------
@@ -272,17 +310,23 @@
   }
 
   let offenesTor = null;
+  // Wofür das Tor steht – damit es sich schliessen kann, sobald genau dieses
+  // Ziel frei wird.
+  let torZiel = null;
 
   function closeGate() {
     if (!offenesTor) return;
     offenesTor.remove();
     offenesTor = null;
+    torZiel = null;
     document.body.classList.remove("tor-offen");
   }
 
   // Zeigt das Tor. onBack läuft, wenn das Kind es zumacht; wer nichts angibt,
-  // bekommt nur das Zumachen. Gibt eine Funktion zum Schliessen zurück.
-  function showGate({ onBack = null, host = document.body } = {}) {
+  // bekommt nur das Zumachen. ziel ist die Seite, vor der es steht – wird sie
+  // frei, geht das Tor von selbst auf. Gibt eine Funktion zum Schliessen
+  // zurück.
+  function showGate({ onBack = null, host = document.body, ziel = null } = {}) {
     closeGate();
     const overlay = document.createElement("div");
     overlay.className = "tor-overlay";
@@ -320,6 +364,7 @@
     host.append(overlay);
     document.body.classList.add("tor-offen");
     offenesTor = overlay;
+    torZiel = ziel || null;
     kids()?.playChime?.();
     try { kids()?.speak?.("Hier geht es weiter, wenn deine Eltern die Strecke öffnen."); } catch { /* ohne Ton */ }
 
@@ -383,6 +428,11 @@
   const listeners = new Set();
   function onChange(fn) { listeners.add(fn); return () => listeners.delete(fn); }
   document.addEventListener("lernapp:entitlement-changed", () => {
+    // Zuerst das Tor: Kommt der Kontostand erst jetzt an – ein Kind mit
+    // Gründer-Zugang, eine Familie, die eben gekauft hat –, dann steht dort
+    // eine Schranke, die nicht mehr gilt. Sie geht von selbst auf; niemand
+    // soll ein Tor wegtippen müssen, das keines mehr ist.
+    if (offenesTor && (torZiel ? targetFree(torZiel) : isFree())) closeGate();
     listeners.forEach((fn) => { try { fn(); } catch { /* ein Zuhörer, der stolpert, hält die anderen nicht auf */ } });
   });
 
@@ -397,6 +447,8 @@
     gameFree,
     levelFree,
     targetFree,
+    targetLocked,
+    whenReady,
     gameEntry,
     gameGespielt,
     gespielteRunden,

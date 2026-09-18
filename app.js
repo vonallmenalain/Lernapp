@@ -3450,6 +3450,9 @@ if (currentGame && LEVELS_BY_GAME[currentGame]) renderDifficultySelect();
 // die Eltern sie um), zeigt die Weltwahl den Garten nach, statt ihn erst beim
 // nächsten Öffnen zu kennen.
 window.LernappReise?.onChange?.(() => refreshProgressView());
+// Dasselbe, wenn der Kontostand eintrifft oder eine Runde verbraucht ist:
+// Die Schlösser an den Leveln hängen daran.
+window.LernappEntitlement?.onChange?.(() => refreshProgressView());
 if (undoButton) undoButton.addEventListener("click", undo);
 if (resetButton) resetButton.addEventListener("click", resetGame);
 // Auf der Reise führt der Pfeil zurück auf die Karte, nicht in die Levelwahl.
@@ -3463,9 +3466,17 @@ applyAreaStyle();
 // Auf der Reise: gleich in das verlangte Level. Wer es ungelöst verlässt, hat
 // einen Versuch verbraucht – nach zweien öffnet die Karte das Ausweichgleis.
 if (journeyTask) {
-  const wanted = journeyLevel();
-  const index = wanted ? LEVELS_BY_GAME[currentGame].indexOf(wanted) : -1;
-  if (index >= 0) startLevel(index);
+  // Erst wenn feststeht, wer spielt: isLevelUnlocked fragt die Schranke, und
+  // die weiss beim Laden noch nicht, ob hier ein Kind mit Gründer-Zugang
+  // sitzt. Ohne das Warten landete es in der Levelwahl statt im Level.
+  const starteStation = () => {
+    const wanted = journeyLevel();
+    const index = wanted ? LEVELS_BY_GAME[currentGame].indexOf(wanted) : -1;
+    if (index >= 0) startLevel(index);
+  };
+  const schranke = window.LernappEntitlement;
+  if (typeof schranke?.whenReady === "function") schranke.whenReady().then(starteStation);
+  else starteStation();
   window.addEventListener("pagehide", () => {
     if (!journeySolved) window.LernappReise?.recordTry?.(journeyTask.nr);
   });
