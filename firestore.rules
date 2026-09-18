@@ -260,6 +260,17 @@ service cloud.firestore {
       // nächsten Umbau zu weit an einer Stelle, die es dann schmerzt.
     }
 
+    // --- Der Friedhof ---------------------------------------------------------
+    // Wer gelöscht wurde, bleibt gelöscht: geloeschteKonten/{uid} ist die
+    // Marke, an der der Stripe-Webhook einen verspäteten Kauf erkennt und
+    // verwirft. Geschrieben und gelesen wird sie nur vom Server – ein Client,
+    // der sie löschen könnte, könnte sich damit einen Kauf zurückholen; einer,
+    // der sie lesen könnte, erführe, welche Konten es einmal gab.
+    //
+    // Sie braucht keine eigene Regel: Der Platzhalter unten sperrt sie schon.
+    // Sie steht hier trotzdem, damit beim nächsten Lesen niemand sucht, wo die
+    // Erlaubnis dafür steht – es gibt keine, und das ist Absicht.
+
     // Alles andere ist gesperrt. Dieser Platzhalter auf oberster Ebene ist
     // der einzige, der bleiben darf: er verbietet nur.
     match /{document=**} {

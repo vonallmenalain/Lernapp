@@ -597,6 +597,7 @@ ok(r400.status === 400, `kind-anlegen mit kaputtem JSON: ${r400.status}`);
   const chefToken = await anmelden(ADMIN_ADRESSEN[0], "adminpasswort");
   const werChef = await adminAnrufer(bearer(chefToken));
   const { kontoLoeschen, default: loeschenHandler } = await import("../netlify/functions/konto-loeschen.mjs");
+  const { default: willkommenHandler } = await import("../netlify/functions/willkommen.mjs");
 
   // Eine ganze Familie: Elternkonto, zwei Kinder, Fortschritt, Kauf, Mails.
   const grossvater = await auth().createUser({ email: "grossvater@example.com", password: "elternpasswort" });
@@ -650,6 +651,89 @@ ok(r400.status === 400, `kind-anlegen mit kaputtem JSON: ${r400.status}`);
   const testtanteDanach = (await db().collection("users").doc(testtante.uid).get()).data();
   ok((testtanteDanach?.children || []).length === 0, `das Kind steht noch in children[]: ${JSON.stringify(testtanteDanach?.children)}`);
   ok((await db().collection("users").doc(testtante.uid).get()).exists, "das Elternkonto wurde mitgelöscht");
+
+  // --- Was ein gelöschtes Konto nicht mehr kann -----------------------------
+  // Ein ID-Token ist ein JWT und gilt eine Stunde. Ohne checkRevoked käme der
+  // Browser eines gerade gelöschten Kontos damit noch bis zu einer Stunde
+  // durch – Kinder anlegen, an die Kasse gehen, Mails auslösen.
+  {
+    const kurzlebig = await auth().createUser({ email: "kurzlebig@example.com", password: "elternpasswort" });
+    await db().collection("users").doc(kurzlebig.uid).set({ username: "Kurzlebig", email: "kurzlebig@example.com", role: "parent" });
+    const tokenVorher = await anmelden("kurzlebig@example.com", "elternpasswort");
+    ok(Boolean(tokenVorher), "das Konto für die Token-Prüfung bekommt kein Token");
+    // Vor dem Löschen geht es durch.
+    const wer = await anrufer(bearer(tokenVorher));
+    ok(wer.uid === kurzlebig.uid, "das frische Token wird nicht angenommen");
+
+    await kontoLoeschen({ admin: werChef, uid: kurzlebig.uid });
+
+    // Danach nicht mehr – mit DEMSELBEN Token, das noch lange gültig wäre.
+    await wirft(() => anrufer(bearer(tokenVorher)), "bad-token", "das Token eines gelöschten Kontos");
+    const nachLoeschung = await willkommenHandler(bearer(tokenVorher));
+    ok(nachLoeschung.status === 401, `ein gelöschtes Konto löst noch eine Mail aus: ${nachLoeschung.status}`);
+
+    // Und jetzt das Unangenehme: Die zwei Prüfungen darüber gehen AUCH durch,
+    // wenn checkRevoked fehlt. Der Auth-Emulator prüft Token, indem er den
+    // Benutzer nachschlägt – ist der weg, lehnt er von sich aus ab. Der echte
+    // Dienst tut das nicht: Dort ist ein ID-Token ein signiertes JWT, und
+    // verifyIdToken prüft ohne das zweite Argument nur Unterschrift und
+    // Ablauf. Ein gelöschtes Konto käme damit bis zu eine Stunde lang durch.
+    //
+    // Gegen einen Unterschied, den der Emulator nicht nachstellt, hilft kein
+    // Verhaltenstest – also wird hier die Zeile selbst gelesen. Das ist
+    // dieselbe Art Prüfung wie oben bei der Admin-Adresse in firestore.rules:
+    // Wo sich etwas nicht ausprobieren lässt, wird nachgelesen.
+    const anfrageQuelle = readFileSync(path.join(WURZEL, "netlify/functions/_lib/anfrage.mjs"), "utf8");
+    ok(/verifyIdToken\(\s*token\s*,\s*true\s*\)/.test(anfrageQuelle),
+      "anrufer() prüft nicht auf Widerruf (verifyIdToken ohne checkRevoked) – im Emulator fällt das nicht auf, in der Produktion käme ein gelöschtes Konto eine Stunde lang durch");
+  }
+
+  // --- Der Grabstein ---------------------------------------------------------
+  // Stripe wiederholt ein Ereignis tagelang, und eine verzögerte Zahlung
+  // meldet sich ohnehin später. Ohne die Marke entstünde nach dem Löschen
+  // wieder ein Kaufeintrag – und eine Bestellbestätigung an eine Adresse,
+  // deren Konto es nicht mehr gibt.
+  {
+    const spaet = await auth().createUser({ email: "spaetzahler@example.com", password: "elternpasswort" });
+    await db().collection("users").doc(spaet.uid).set({ username: "Spätzahler", email: "spaetzahler@example.com", role: "parent" });
+    await kontoLoeschen({ admin: werChef, uid: spaet.uid });
+    ok((await db().collection("geloeschteKonten").doc(spaet.uid).get()).exists, "das gelöschte Konto hat keinen Grabstein");
+
+    const nachzuegler = await kaufVerbuchen({
+      id: "cs_test_nach_loeschung", client_reference_id: spaet.uid, payment_status: "paid",
+      payment_intent: "pi_nach_loeschung", customer_details: { email: "spaetzahler@example.com" },
+      amount_total: 3000, currency: "chf",
+    });
+    ok(nachzuegler.verbucht === false && /gelöscht/.test(nachzuegler.grund || ""), `ein Kauf nach dem Löschen: ${JSON.stringify(nachzuegler)}`);
+    ok(!(await db().collection("entitlements").doc(spaet.uid).get()).exists, "der Kauf ist nach dem Löschen wieder da");
+    ok(!(await db().collection("mails").doc("bestellung-cs_test_nach_loeschung").get()).exists, "die Bestellbestätigung ging an ein gelöschtes Konto");
+
+    // Und geschenkt bekommt es auch nichts mehr.
+    await wirft(() => freischalten({ admin: werChef, uid: spaet.uid, frei: true }), "no-account", "ein gelöschtes Konto wird freigeschaltet");
+  }
+
+  // --- Mails ohne Kennung ----------------------------------------------------
+  // Die Mail zum Zurücksetzen des Passworts geht an jemanden, der gerade NICHT
+  // angemeldet ist – sie trägt deshalb keine Kennung, nur die Adresse. Eine
+  // Suche nach der Kennung allein liesse sie stehen.
+  {
+    const vergesslich = await auth().createUser({ email: "vergesslich@example.com", password: "elternpasswort" });
+    await db().collection("users").doc(vergesslich.uid).set({ username: "Vergesslich", email: "vergesslich@example.com", role: "parent" });
+    await db().collection("mails").doc("passwort-ohne-kennung").set({
+      richtung: "aus", art: "passwort", an: "vergesslich@example.com", uid: null, betreff: "Neues Passwort", zeitMs: 1,
+    });
+    // Eine Mail AN kids@alae.app VON dieser Adresse ist Korrespondenz und
+    // gehört nicht dem Konto – sie muss stehen bleiben.
+    await db().collection("mails").doc("eingang-von-ihr").set({
+      richtung: "ein", art: "eingang", von: "vergesslich@example.com", an: "kids@alae.app", betreff: "Frage", zeitMs: 1,
+    });
+
+    await kontoLoeschen({ admin: werChef, uid: vergesslich.uid });
+    ok(!(await db().collection("mails").doc("passwort-ohne-kennung").get()).exists,
+      "die Passwortmail ohne Kennung steht noch – sie trägt nur die Adresse");
+    ok((await db().collection("mails").doc("eingang-von-ihr").get()).exists,
+      "eine Mail AN kids@alae.app wurde mitgelöscht – das ist Korrespondenz, kein Kontodatum");
+  }
 
   // Ein Admin-Konto bleibt, auch wenn ein anderer Admin es versucht.
   const zweiterChef = { uid: "fremd", email: ADMIN_ADRESSEN[0], istEltern: true, istAdmin: true };

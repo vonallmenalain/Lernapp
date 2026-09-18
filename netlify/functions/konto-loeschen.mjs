@@ -61,7 +61,11 @@ export async function kontoLoeschen({ admin, uid, auchKinder = false }) {
   const geloescht = [];
   const summe = { level: 0, sitzungen: 0, mails: 0 };
   for (const eintrag of reihe) {
-    const ergebnis = await kontoTilgen(eintrag.uid);
+    // Die Adresse VOR dem Löschen holen: Danach gibt es sie nicht mehr zu
+    // lesen, und kontoTilgen braucht sie für die Mails ohne Kennung (die zum
+    // Zurücksetzen des Passworts).
+    const eigeneAdresse = eintrag.uid === uid ? adresse : await adresseVon(eintrag.uid);
+    const ergebnis = await kontoTilgen(eintrag.uid, eigeneAdresse);
     summe.level += ergebnis.level;
     summe.sitzungen += ergebnis.sitzungen;
     summe.mails += ergebnis.mails;

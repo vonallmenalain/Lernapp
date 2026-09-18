@@ -278,6 +278,27 @@ Drei Dinge gehen **nicht**:
   `entitlement.js` als „Gründer" und wäre damit dauerhaft frei – aus dem
   Aufräumen würde ein Geschenk. Der Knopf nimmt die Familie deshalb zusammen.
 
+Zwei Dinge, die ein Löschen **nicht** sofort kann, und was dagegen getan ist:
+
+- **Ein Token, das schon in einem offenen Browser liegt**, entwertet es nicht.
+  Ein Firebase-ID-Token ist ein signiertes JWT und gilt eine Stunde; geprüft
+  wird beim Ausstellen, nicht beim Benutzen. Am Server ist das geschlossen:
+  `verifyIdToken` prüft auf Widerruf (`_lib/anfrage.mjs`, `checkRevoked`), also
+  gibt es ab dem Löschen kein Kinderanlegen, keinen Gang zur Kasse und keine
+  Mail mehr. In **Firestore** bleibt das alte Token gültig, bis es abläuft –
+  die Regeln kennen nur seinen Inhalt, und eine Regel, die auf das
+  Kontodokument prüfte, machte das Anlegen eines Kontos unmöglich. Ein offener
+  Browser kann also bis zu eine Stunde lang seinen Fortschritt zurückschreiben
+  und taucht dann wieder in der Kontenliste auf, ohne Anmeldung und ohne Kauf.
+  Derselbe Knopf räumt ihn weg.
+- **Ein verspäteter Kauf.** Stripe wiederholt ein Ereignis tagelang, und eine
+  verzögerte Zahlung meldet sich ohnehin später. Deshalb hinterlässt das
+  Löschen eine Marke in `geloeschteKonten/{uid}`; der Webhook verwirft daran
+  einen Kauf für ein gelöschtes Konto, statt Kaufeintrag und
+  Bestellbestätigung neu anzulegen. Die Marke bleibt für immer stehen – sie
+  ist drei Felder gross, und Firebase vergibt eine uid nie zweimal. Lesen oder
+  löschen kann sie kein Client (`firestore.rules`).
+
 Serverseitig ist das `POST /api/konto-loeschen` (Admin-Token); was wo liegt und
 warum die Reihenfolge so ist, steht in
 [`netlify/functions/_lib/konto.mjs`](./netlify/functions/_lib/konto.mjs).

@@ -28,6 +28,7 @@ import { antwort } from "./_lib/anfrage.mjs";
 import { kinderVon } from "./_lib/familie.mjs";
 import { sendeMail } from "./_lib/mail.mjs";
 import { bestellMail } from "./_lib/mail-vorlagen.mjs";
+import { istGeloescht } from "./_lib/konto.mjs";
 
 const BEZAHLT = new Set(["paid", "no_payment_required"]);
 
@@ -90,6 +91,14 @@ export async function kaufVerbuchen(session) {
   // "no_payment_required". Alles andere (unpaid: eine verzögerte Zahlung,
   // die noch aussteht) wartet auf das nächste Ereignis.
   if (session.payment_status && !BEZAHLT.has(session.payment_status)) return { verbucht: false, grund: `payment_status ${session.payment_status}` };
+
+  // Gibt es dieses Konto noch? Stripe wiederholt ein Ereignis tagelang, und
+  // eine verzögerte Zahlung meldet sich ohnehin später. Ohne diese Frage
+  // entstünde nach dem Löschen eines Kontos wieder ein Kaufeintrag – die
+  // Prüfung "schon verbucht" gleich darunter hängt an genau dem Eintrag, den
+  // das Löschen entfernt hat – und eine Bestellbestätigung ginge an eine
+  // Adresse, deren Konto es nicht mehr gibt.
+  if (await istGeloescht(uid)) return { verbucht: false, grund: "Konto gelöscht" };
 
   const ref = db().collection("entitlements").doc(uid);
   const vorhanden = await ref.get();
