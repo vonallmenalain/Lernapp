@@ -1336,6 +1336,9 @@ function markSolved(level, result = {}) {
     localStorage.setItem(progressKey(level.game, id), "1");
   }
   cloudProgress()?.recordSolve?.(level, resultData);
+  // Geschafft heisst gespielt: Ohne Kauf war das die Schnupperrunde dieses
+  // Spiels. Auf der Reise zählt nichts – das entscheidet entitlement.js.
+  window.LernappEntitlement?.rundeBeendet?.(level.game);
 }
 function recordMoveMetric() { cloudProgress()?.recordMove?.(); }
 function recordResetMetric() { cloudProgress()?.recordReset?.(currentLevel()); }

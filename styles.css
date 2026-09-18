@@ -4662,6 +4662,43 @@ body[data-page="train"].list-open { overflow: auto; }
 .train-gate > *:not(.train-gate-hit),
 .train-building > *:not(.train-building-hit) { pointer-events: none; }
 
+/* --- Gesperrt: blass, mit Schloss --- */
+
+/* Was das Kind noch nicht spielen darf, sieht aus wie im Nebel: die Farbe
+   raus, etwas aufgehellt. Nur die Zeichnung – das gelbe Schloss liegt
+   daneben in einer eigenen Gruppe und behält seine Farbe, sonst wäre das
+   Zeichen selbst kaum zu sehen.
+
+   Blass statt unsichtbar, und antippbar bleibt es auch: Tippt das Kind
+   darauf, kommt das Tor mit dem Satz, warum hier Schluss ist. Ein Haus, das
+   auf nichts reagiert, sähe nach kaputt aus. */
+.train-building.is-locked .train-building-art,
+.wagon-crate.is-locked .train-building-art,
+.train-gate.is-locked .train-gate-art {
+  filter: grayscale(0.85) brightness(1.12) opacity(0.55);
+}
+
+/* Die Kiste am Wagen führt ins selbe Spiel wie das Haus auf der Bühne –
+   also trägt sie dasselbe Schloss, und ihre Bänder werden blass mit. */
+.wagon-crate.is-locked .crate-bands { opacity: 0.45; }
+
+/* Das Schloss soll auffallen: es wippt einmal alle paar Sekunden, wie ein
+   Schild im Wind. Kurz genug, dass es nicht nervt, und lang genug, dass ein
+   Kind es aus dem Augenwinkel sieht. */
+@keyframes lock-badge-nudge {
+  0%, 88%, 100% { transform: none; }
+  92% { transform: rotate(-7deg); }
+  96% { transform: rotate(5deg); }
+}
+.train-lock-badge {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: lock-badge-nudge 5s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .train-lock-badge { animation: none; }
+}
+
 @keyframes stage-layer-in {
   from { opacity: 0; transform: translateY(14px); }
   to { opacity: 1; transform: none; }

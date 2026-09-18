@@ -1784,7 +1784,7 @@
   const GATE_H = 132;
 
   function buildGate(area, options = {}) {
-    const { label = area.label } = options;
+    const { label = area.label, locked = false } = options;
     const color = area.color;
     const dark = shade(color, -0.3);
     const light = shade(color, 0.4);
@@ -1793,32 +1793,38 @@
     icon.setAttribute("transform", `translate(${GATE_W / 2 - 34},14) scale(0.68)`);
 
     return group({
-      class: "train-gate",
+      class: `train-gate${locked ? " is-locked" : ""}`,
       "data-gate": area.id,
       role: "button",
       tabindex: "0",
-      "aria-label": label,
+      "aria-label": locked ? `${label}, alles gesperrt` : label,
     }, [
       // Unsichtbare Trefferfläche über dem ganzen Tor – so ist das Ziel gross
       // und ändert sich nicht, wenn das Tor beim Hovern wächst.
       // Die Trefferfläche ragt nur wenig über das Tor hinaus: die Tore stehen
       // dicht gestaffelt, und zwei Trefferflächen dürfen sich nicht berühren.
       el("rect", { x: -4, y: -8, width: GATE_W + 8, height: GATE_H + 16, rx: 16, fill: "transparent", class: "train-gate-hit" }),
-      // Das Innere der Halle. Ohne diese Fläche wäre der Bogen ein Loch, und
-      // durch das Loch sähe man alle Gleise, die hinter dem Tor vorbeiführen –
-      // fünf Tore, durch die je vier fremde Gleise laufen. Mit dem dunklen
-      // Feld wird aus dem Bogen ein Schuppen, in den genau ein Gleis führt.
-      el("path", {
-        d: `M34 ${GATE_H} L34 74 A${GATE_W / 2 - 34} 40 0 0 1 ${GATE_W - 34} 74 L${GATE_W - 34} ${GATE_H} Z`,
-        fill: shade(color, -0.62),
-      }),
-      el("path", {
-        d: `M6 ${GATE_H} L6 60 A${GATE_W / 2 - 6} 54 0 0 1 ${GATE_W - 6} 60 L${GATE_W - 6} ${GATE_H} L${GATE_W - 34} ${GATE_H} L${GATE_W - 34} 74 A${GATE_W / 2 - 34} 40 0 0 0 34 74 L34 ${GATE_H} Z`,
-        fill: color,
-      }),
-      el("rect", { x: 0, y: GATE_H - 12, width: GATE_W, height: 14, rx: 5, fill: dark }),
-      el("rect", { x: 22, y: 46, width: GATE_W - 44, height: 8, rx: 4, fill: light, opacity: "0.6" }),
-      icon,
+      // Die Halle in einer eigenen Gruppe, wie beim Haus: gesperrt wird sie
+      // blass, das Schloss daneben bleibt gelb.
+      group({ class: "train-gate-art" }, [
+        // Das Innere der Halle. Ohne diese Fläche wäre der Bogen ein Loch, und
+        // durch das Loch sähe man alle Gleise, die hinter dem Tor vorbeiführen –
+        // fünf Tore, durch die je vier fremde Gleise laufen. Mit dem dunklen
+        // Feld wird aus dem Bogen ein Schuppen, in den genau ein Gleis führt.
+        el("path", {
+          d: `M34 ${GATE_H} L34 74 A${GATE_W / 2 - 34} 40 0 0 1 ${GATE_W - 34} 74 L${GATE_W - 34} ${GATE_H} Z`,
+          fill: shade(color, -0.62),
+        }),
+        el("path", {
+          d: `M6 ${GATE_H} L6 60 A${GATE_W / 2 - 6} 54 0 0 1 ${GATE_W - 6} 60 L${GATE_W - 6} ${GATE_H} L${GATE_W - 34} ${GATE_H} L${GATE_W - 34} 74 A${GATE_W / 2 - 34} 40 0 0 0 34 74 L34 ${GATE_H} Z`,
+          fill: color,
+        }),
+        el("rect", { x: 0, y: GATE_H - 12, width: GATE_W, height: 14, rx: 5, fill: dark }),
+        el("rect", { x: 22, y: 46, width: GATE_W - 44, height: 8, rx: 4, fill: light, opacity: "0.6" }),
+        icon,
+      ]),
+      // Ein Schloss am Tor, wenn dahinter jedes Spiel gesperrt ist.
+      ...(locked ? [lockBadge([GATE_W - 30, 30])] : []),
     ]);
   }
 
@@ -2652,6 +2658,19 @@
   const BADGE_AT = [BUILD_W - 26, BUILD_BASE - 158];
   const BADGE_R = 14;
 
+  // Das Schloss. Es sitzt, wo sonst der Fortschritt sitzt: ein Zeichen je
+  // Haus, sonst wird das Bild unruhig. Gelb wie der Bügel am Tor der Schranke
+  // (entitlement.js) – dasselbe Schloss, damit ein Kind es wiedererkennt.
+  function lockBadge(at = BADGE_AT) {
+    const [cx, cy] = at;
+    return group({ class: "train-lock-badge", "aria-hidden": "true" }, [
+      el("circle", { cx, cy, r: 21, fill: "#ffd166", stroke: "#b07d12", "stroke-width": 2 }),
+      el("path", { d: `M${cx - 6} ${cy - 1} v-5 a6 6 0 0 1 12 0 v5`, fill: "none", stroke: "#7a5600", "stroke-width": 3.2, "stroke-linecap": "round" }),
+      el("rect", { x: cx - 10, y: cy - 1, width: 20, height: 15, rx: 4, fill: "#7a5600" }),
+      el("circle", { cx, cy: cy + 6, r: 2.6, fill: "#ffd166" }),
+    ]);
+  }
+
   function progressBadge(ratio, hue) {
     const done = ratio >= 1;
     const [cx, cy] = BADGE_AT;
@@ -2693,24 +2712,32 @@
    *                               Farbe des Bereichs, zu dem das Spiel gehört
    */
   function buildBuilding(gameId, options = {}) {
-    const { done = false, label = gameId, ratio = null } = options;
+    const { done = false, label = gameId, ratio = null, locked = false } = options;
     const spec = BUILDINGS[gameId] || BUILDINGS.memory;
     const hue = options.hue || spec.hue;
     const t = tones(hue);
     const draw = MOTIFS[spec.motif] || MOTIFS.memory;
     const parts = [...podium(t, done), ...draw(t)];
 
-    if (typeof ratio === "number") parts.push(progressBadge(Math.max(0, Math.min(1, ratio)), hue));
+    // Gesperrt: das Schloss statt des Fortschritts. Beides nebeneinander wären
+    // zwei Zeichen an einem kleinen Haus, und das wichtigere ist das Schloss.
+    const abzeichen = locked
+      ? lockBadge()
+      : (typeof ratio === "number" ? progressBadge(Math.max(0, Math.min(1, ratio)), hue) : null);
 
     return group({
-      class: `train-building${done ? " is-done" : ""}`,
+      class: `train-building${done ? " is-done" : ""}${locked ? " is-locked" : ""}`,
       "data-building": gameId,
       role: "button",
       tabindex: "0",
-      "aria-label": label,
+      "aria-label": locked ? `${label}, gesperrt` : label,
     }, [
       el("rect", { x: 0, y: BUILD_BASE - BUILD_H, width: BUILD_W, height: BUILD_H, fill: "transparent", class: "train-building-hit" }),
-      ...parts,
+      // Das Bild in einer eigenen Gruppe: Gesperrt wird es blass, das Schloss
+      // darüber bleibt farbig. Ein Filter auf dem Ganzen nähme auch ihm die
+      // Farbe.
+      group({ class: "train-building-art" }, parts),
+      ...(abzeichen ? [abzeichen] : []),
     ]);
   }
 
@@ -3029,7 +3056,7 @@
     el, group, shade, inkOn,
     driverHead, wheel,
     buildLoco, buildWagon, buildTrain, buildTrack, buildStartSignal,
-    areaIcon, buildGate, buildBuilding, BUILDINGS, AREA_HUES, GATE_W, GATE_H, BUILD_W, BUILD_H, PART_FOCUS, PART_HIT, PART_PREVIEW, PART_DOT,
+    areaIcon, buildGate, buildBuilding, lockBadge, BUILDINGS, AREA_HUES, GATE_W, GATE_H, BUILD_W, BUILD_H, PART_FOCUS, PART_HIT, PART_PREVIEW, PART_DOT,
     locoConfig,
     // Die Reise
     routeGlyph, buildJourneySign, buildStamp, buildFog, buildJourneySignal, buildSwitchMark,

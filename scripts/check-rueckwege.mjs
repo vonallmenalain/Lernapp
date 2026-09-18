@@ -112,10 +112,10 @@ if (!await warteAufServer()) {
 // die Zuweisung von entitlement.js entgegen und lässt alles frei.
 function schrankeOffen() {
   const frei = {
-    STATIONS_FREE: 10, FREE_DIFFICULTY: "easy", AREAS: [],
+    STATIONS_FREE: 10, GRATIS_RUNDEN: 1, AREAS: [],
     reason: () => "gekauft", isFree: () => true, isLoaded: () => true,
     stationFree: () => true, gameFree: () => true, levelFree: () => true, targetFree: () => true,
-    gameEntry: () => null, showGate: () => () => {}, closeGate() {}, onChange: () => () => {},
+    gameEntry: () => null, gameGespielt: () => false, gespielteRunden: () => 0, rundeBeendet() {}, showGate: () => () => {}, closeGate() {}, onChange: () => () => {},
   };
   Object.defineProperty(window, "LernappEntitlement", { get: () => frei, set() {}, configurable: true });
 }

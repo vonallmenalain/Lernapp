@@ -131,11 +131,18 @@ Noch mit den Testschlüsseln – es fliesst kein Geld.
 7. Zur Kontrolle in Firestore: `entitlements/{uid}` der Eltern (`active`, `stripeSessionId`)
    und der Kinder (`via` = uid der Eltern).
 
-Was das Kind sieht, ohne Kauf: Haus 1 jedes Bereichs (Rucksack packen, Schwarm-Fokus,
-Tier-Sprung, Raumdetektiv, Buchstabenjagd), dort nur die Welt *Wiese*, und die ersten zehn
-Stationen der Reise. Alles andere zeigt den Zug vor der Schranke; *Für Eltern* führt über
-ein Rechenrätsel (zwei zweistellige Zahlen addieren) ins Profil. Wo die Grenze liegt, steht
-in `entitlement.js` ganz oben (`STATIONS_FREE`, `FREE_DIFFICULTY`, die Tabelle der Bereiche).
+Was das Kind sieht, ohne Kauf: von **jedem** der 25 Spiele **eine Runde**, in jeder Welt,
+und die ersten zehn Stationen der Reise. Ist die Runde eines Spiels gespielt, trägt sein
+Haus auf der Bühne ein gelbes Schloss und wird blass gezeichnet; Antippen zeigt den Zug vor
+der Schranke statt das Spiel. Auf der Reise zählt keine Runde – die ersten zehn Stationen
+bleiben offen, auch wenn das Spiel dahinter seine Runde schon verbraucht hat. *Für Eltern*
+führt über ein Rechenrätsel (zwei zweistellige Zahlen addieren) ins Profil.
+
+Wo die Grenze liegt, steht in `entitlement.js` ganz oben (`STATIONS_FREE`, `GRATIS_RUNDEN`,
+die Tabelle der Bereiche). Die verbrauchten Runden liegen im Speicher des Geräts unter
+`lernapp.gratis.runden` – ein neues Gerät oder ein geleerter Browser fängt also wieder von
+vorn an. Das ist Absicht: Die Schnupperrunde soll einladen, nicht bewacht werden; wer
+dauerhaft spielen will, kauft.
 
 ## 6. Live schalten  ☐
 

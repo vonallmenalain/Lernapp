@@ -166,6 +166,24 @@
     return parts.join(" ");
   }
 
+  // Was gesperrt ist, sagt die Schranke. Fehlt sie – die Seite kann ohne das
+  // Modul laufen –, ist nichts gesperrt: lieber ein Haus zu viel offen als ein
+  // Kind vor einem Schloss, das niemand aufsperren kann.
+  function gesperrt(page) {
+    const schranke = window.LernappEntitlement;
+    if (!schranke) return false;
+    return !schranke.targetFree(page);
+  }
+
+  // Ein Tor bekommt das Schloss erst, wenn hinter ihm nichts mehr offen ist.
+  // Ein halb gesperrter Bereich ist kein gesperrter Bereich – dort wartet noch
+  // ein Spiel, und das Kind soll hineingehen.
+  function bereichGesperrt(area) {
+    const spiele = area?.games || [];
+    if (!spiele.length) return false;
+    return spiele.every((game) => gesperrt(game.page));
+  }
+
   function describeArea(area) {
     const total = progress.STAGE_COUNT;
     if (area.complete) return `${area.label}: Wagen fertig, alle ${total} Schritte gebaut.`;
@@ -305,7 +323,7 @@
       rails.push(el("rect", {
         "data-switch": area.id, x: g.beginX - 1, y: g.beginY - 1, width: 2, height: 2, fill: "none",
       }));
-      const gate = art.buildGate(area, { label: describeArea(area) });
+      const gate = art.buildGate(area, { label: describeArea(area), locked: bereichGesperrt(area) });
       gates.push(group({
         "data-stop": area.id,
         transform: "translate(" + (stop.x - gateW / 2) + "," + (stop.y - gateH) + ") scale(" + GATE_SCALE + ")",
@@ -403,6 +421,7 @@
         ratio: game.ratio,
         label: describeGame(game),
         hue: area.color,
+        locked: gesperrt(game.page),
       });
       node.dataset.page = game.page;
       return group({ transform: `translate(${x},${groundOffset}) scale(${scale})` }, [node]);
@@ -735,9 +754,13 @@
       crate.className = "wagon-crate";
       crate.dataset.page = game.page;
       crate.dataset.game = game.id;
-      crate.setAttribute("aria-label", `${describeGame(game)} Antippen zum Spielen.`);
+      const zu = gesperrt(game.page);
+      if (zu) crate.classList.add("is-locked");
+      crate.setAttribute("aria-label", zu
+        ? `${describeGame(game)} Gesperrt.`
+        : `${describeGame(game)} Antippen zum Spielen.`);
       crate.addEventListener("click", () => enterGame(game.page));
-      crate.append(...crateParts(game, area.color));
+      crate.append(...crateParts(game, area.color, zu));
       shelf.append(crate);
     });
 
@@ -748,13 +771,13 @@
   // Der Inhalt einer Kiste: das Bild des Spiels als Deckel und darunter ein
   // Band je Welt. Zweimal gebraucht – am eigenen Wagen zum Antippen, am Zug
   // eines anderen zum Anschauen. Einmal gebaut, damit beide dasselbe zeigen.
-  function crateParts(game, color) {
+  function crateParts(game, color, locked = false) {
     // Das Bild des Spiels als Deckel der Kiste: so ist die Verbindung zur
     // Spielauswahl sofort da, ohne dass irgendwo ein Name stehen muss.
     // In der Farbe des Bereichs, genau wie auf der Bühne. Ohne die Angabe
     // nähme jedes Bild die Farbe seines eigenen Bereichs – das stimmt nur
     // zufällig mit dem Wagen überein, an dem die Kiste hängt.
-    const icon = art.buildBuilding(game.id, { label: game.title, hue: color });
+    const icon = art.buildBuilding(game.id, { label: game.title, hue: color, locked });
     icon.removeAttribute("role");
     icon.removeAttribute("tabindex");
     icon.classList.remove("train-building");
@@ -2492,6 +2515,11 @@
   // Der Admin hat auf ein anderes Wagen-Set umgestellt: andere Wagen, alles
   // wieder bei 0. Die Bühne zeichnet sich neu, ohne etwas zu feiern.
   document.addEventListener("lernapp:wagon-set", () => render());
+
+  // Die Schranke bewegt sich in beide Richtungen: eine gespielte Gratis-Runde
+  // legt ein Schloss auf ein Haus, ein Kauf nimmt alle wieder weg. Beides geht
+  // an der Bühne vorbei, wenn sie nicht zuhört.
+  document.addEventListener("lernapp:entitlement-changed", () => render());
 
   // Die Gruppe kommt erst mit der Anmeldung – und sie kann sich ändern, wenn
   // der Admin jemanden dazunimmt oder herausnimmt. Beides führt hierher.

@@ -2,12 +2,14 @@
  * Rechnet die Schranke richtig – und kennt sie dieselben Spiele wie der Zug?
  * ---------------------------------------------------------------------------
  * entitlement.js entscheidet, was ohne Kauf frei ist: die ersten zehn
- * Stationen, das erste Spiel je Bereich, dort die Stufe Wiese. Dafür trägt
+ * Stationen der Reise, und von jedem Spiel eine einzige Runde. Dafür trägt
  * es eine eigene Tabelle der Bereiche, weil die Spielseiten train-progress.js
  * nicht laden. Diese Prüfung hält die beiden Tabellen gleich und spielt die
  * Rechnung für jede Sorte Konto durch: Gast, Konto ohne Kauf, Konto mit
- * Kauf, Kind aus der Zeit vor dem Kauf. Dazu: Jede Spielseite und die
- * Startseite laden entitlement.js, und der Service Worker hält es vor.
+ * Kauf, Kind aus der Zeit vor dem Kauf. Dazu die Schnupperrunden: Zählt eine
+ * Runde? Zählt sie nur einmal? Lässt die Reise sie in Ruhe? Und: Jede
+ * Spielseite und die Startseite laden entitlement.js, und der Service Worker
+ * hält es vor.
  *
  * Läuft ohne Browser: die Skripte laufen in einer Sandbox.
  *
@@ -23,7 +25,7 @@ function pruefe(bedingung, meldung) { if (!bedingung) fehler.push(meldung); }
 const lies = (name) => fs.readFileSync(path.join(root, name), "utf8");
 
 // --- Sandbox ----------------------------------------------------------------
-function sandbox() {
+function sandbox({ suche = "", pfad = "/index.html" } = {}) {
   const store = new Map();
   const elementStub = {
     style: { setProperty() {}, removeProperty() {} },
@@ -33,7 +35,12 @@ function sandbox() {
     addEventListener() {}, querySelector: () => null, querySelectorAll: () => [],
     insertBefore() {}, after() {},
   };
-  const windowStub = { addEventListener() {}, matchMedia: () => ({ matches: false, addEventListener() {} }) };
+  const windowStub = {
+    addEventListener() {},
+    matchMedia: () => ({ matches: false, addEventListener() {} }),
+    // Die Schranke liest hier ab, ob gerade eine Station der Reise läuft.
+    location: { search: suche, pathname: pfad },
+  };
   const context = vm.createContext({
     window: windowStub,
     document: {
@@ -44,7 +51,7 @@ function sandbox() {
       querySelector: () => null,
       querySelectorAll: () => [],
       addEventListener() {},
-      dispatchEvent() {},
+      dispatchEvent() { return true; },
       readyState: "complete",
     },
     localStorage: {
@@ -60,6 +67,9 @@ function sandbox() {
     cancelAnimationFrame: () => {},
     structuredClone: (value) => JSON.parse(JSON.stringify(value)),
     URLSearchParams,
+    // rundeBeendet meldet sich mit einem Ereignis; ohne Browser reicht eine
+    // Attrappe, die den Namen und die Angaben behält.
+    CustomEvent: class { constructor(type, init = {}) { this.type = type; this.detail = init.detail ?? null; } },
   });
   return { context, windowStub };
 }
@@ -106,9 +116,9 @@ function sandbox() {
   }));
 }
 
-// --- 2. Die Rechnung je Konto --------------------------------------------------------
-function rechne(konto) {
-  const { context, windowStub } = sandbox();
+// --- 2. Die Rechnung je Konto ----------------------------------------------
+function rechne(konto, optionen = {}) {
+  const { context, windowStub } = sandbox(optionen);
   windowStub.LernappFirebase = konto;
   vm.runInContext(lies("entitlement.js"), context, { filename: "entitlement.js" });
   return windowStub.LernappEntitlement;
@@ -129,21 +139,21 @@ const konto = ({ angemeldet = true, kauf = null, rolle = "child", eltern = null,
   pruefe(e.isLoaded(), "für den Gast gilt der Stand nicht als bekannt");
   pruefe(e.stationFree(1) && e.stationFree(10) && !e.stationFree(11) && !e.stationFree(130), "Gast: Stationen 1–10 frei, 11–130 zu – stimmt nicht");
   pruefe(e.stationFree(0) && e.stationFree("x"), "Gast: eine Fahrt ohne Station gilt als zu");
-  pruefe(e.gameFree("backpack.html") && e.gameFree("schwarmfokus.html") && e.gameFree("tiersprung.html") && e.gameFree("raumdetektiv.html") && e.gameFree("buchstaben.html"), "Gast: das erste Spiel eines Bereichs ist zu");
-  pruefe(!e.gameFree("memory.html") && !e.gameFree("kakuro.html") && !e.gameFree("faesser.html"), "Gast: ein späteres Spiel ist frei");
-  pruefe(e.gameFree("memory") === false && e.gameFree("runner") === true && e.gameFree("spatial") === true, "Gast: Kennung oder ownProgress werden nicht erkannt");
+  // Neues Modell: Jedes Spiel ist offen, bis es einmal gespielt wurde.
+  pruefe(e.gameFree("backpack.html") && e.gameFree("memory.html") && e.gameFree("kakuro.html") && e.gameFree("faesser.html"), "Gast: ein noch nie gespieltes Spiel ist zu");
+  pruefe(e.gameFree("memory") && e.gameFree("runner") && e.gameFree("spatial"), "Gast: Kennung oder ownProgress werden nicht erkannt");
   pruefe(e.gameFree("train-test.html") && e.gameFree("index.html") && e.gameFree(""), "Gast: eine Seite ohne Bereich ist zu");
-  pruefe(e.targetFree("arukone.html?station=10") && !e.targetFree("kakuro.html?station=11") && !e.targetFree("backpack.html?station=11"), "Gast: mit Station entscheidet nicht die Station");
-  pruefe(e.targetFree("backpack.html") && !e.targetFree("memory.html"), "Gast: ohne Station entscheidet nicht das Spiel");
-  pruefe(e.levelFree({ game: "letterPuzzle", difficulty: "easy" }) && !e.levelFree({ game: "letterPuzzle", difficulty: "medium" }), "Gast: Wiese im ersten Spiel frei, Wald zu – stimmt nicht");
-  pruefe(!e.levelFree({ game: "kakuro", difficulty: "easy" }), "Gast: Wiese im dritten Spiel ist frei");
+  pruefe(e.targetFree("arukone.html?station=10") && !e.targetFree("kakuro.html?station=11"), "Gast: mit Station entscheidet nicht die Station");
+  pruefe(e.targetFree("backpack.html") && e.targetFree("memory.html"), "Gast: ohne Station entscheidet nicht das Spiel");
+  pruefe(e.levelFree({ game: "letterPuzzle", difficulty: "easy" }) && e.levelFree({ game: "letterPuzzle", difficulty: "medium" }) && e.levelFree({ game: "kakuro", difficulty: "hard" }), "Gast: die Welten sind einzeln gesperrt – es soll nur das Spiel zählen");
   pruefe(!e.levelFree(null), "Gast: ein fehlendes Level ist frei");
+  pruefe(!e.gameGespielt("memory.html") && e.gespielteRunden("memory.html") === 0, "Gast: eine Runde gilt als gespielt, bevor etwas gespielt wurde");
 }
 // Ein Konto ohne Kauf (die Eltern haben noch nicht gekauft): wie der Gast.
 {
   const e = rechne(konto({ rolle: "child", eltern: "eltern1" }));
   pruefe(e.reason() === "offen", `Kind ohne Kauf: Grund ${e.reason()}, erwartet offen`);
-  pruefe(!e.isFree() && !e.stationFree(11) && !e.gameFree("memory.html"), "Kind ohne Kauf ist frei");
+  pruefe(!e.isFree() && !e.stationFree(11) && e.gameFree("memory.html"), "Kind ohne Kauf: Station 11 offen oder die erste Runde zu");
   const p = rechne(konto({ rolle: "parent" }));
   pruefe(p.reason() === "offen" && !p.isFree(), "Eltern ohne Kauf sind frei");
   const n = rechne(konto({ rolle: "child", eltern: "eltern1", geladen: false }));
@@ -154,9 +164,84 @@ const konto = ({ angemeldet = true, kauf = null, rolle = "child", eltern = null,
   const e = rechne(konto({ rolle: "child", eltern: "eltern1", kauf: { active: true } }));
   pruefe(e.reason() === "gekauft" && e.isFree(), "Kind mit Kauf ist nicht frei");
   pruefe(e.stationFree(130) && e.gameFree("kakuro.html") && e.levelFree({ game: "kakuro", difficulty: "hard" }) && e.targetFree("memory.html?station=99"), "Kind mit Kauf: etwas ist zu");
+  // Wer gekauft hat, verbraucht nichts: Die Runden werden gar nicht gezählt.
+  e.rundeBeendet("memory");
+  e.rundeBeendet("memory");
+  pruefe(e.gameFree("memory.html") && !e.gameGespielt("memory.html") && e.gespielteRunden("memory.html") === 0, "Kind mit Kauf: die Runden werden mitgezählt");
   const z = rechne(konto({ rolle: "parent", kauf: { active: false } }));
   pruefe(z.reason() === "offen" && !z.isFree(), "ein zurückerstatteter Kauf schaltet noch frei");
 }
+// --- 3. Die Schnupperrunden -------------------------------------------------
+// Eine Runde je Spiel. Danach liegt ein Schloss auf dem Haus, und zwar nur auf
+// diesem: Die anderen vierundzwanzig Spiele bleiben offen.
+{
+  const e = rechne(konto({ rolle: "child", eltern: "eltern1" }));
+  pruefe(e.GRATIS_RUNDEN === 1, `GRATIS_RUNDEN ist ${e.GRATIS_RUNDEN}, erwartet 1`);
+  pruefe(e.gameFree("memory.html"), "vor der ersten Runde ist Memory zu");
+  e.rundeBeendet("memory");
+  pruefe(e.gespielteRunden("memory.html") === 1, `nach einer Runde stehen ${e.gespielteRunden("memory.html")} Runden`);
+  pruefe(!e.gameFree("memory.html") && e.gameGespielt("memory.html"), "nach der Runde ist Memory noch offen");
+  pruefe(!e.targetFree("memory.html") && !e.levelFree({ game: "memory", difficulty: "easy" }), "nach der Runde führen Ziel und Level noch hinein");
+  // Nur dieses eine Spiel.
+  pruefe(e.gameFree("kakuro.html") && e.gameFree("backpack.html") && !e.gameGespielt("kakuro.html"), "die Runde in Memory sperrt andere Spiele mit");
+  // Ein zweites Mal zählt nicht weiter: Der Stand bleibt bei eins.
+  e.rundeBeendet("memory");
+  pruefe(e.gespielteRunden("memory.html") === 1, "die Runde wird über das Gratis-Mass hinaus weitergezählt");
+  // Über die Seite statt über die Kennung, und über den eigenen Fortschritt.
+  e.rundeBeendet("kakuro.html");
+  pruefe(!e.gameFree("kakuro.html"), "rundeBeendet erkennt die Seite nicht");
+  e.rundeBeendet("runner");
+  pruefe(!e.gameFree("tiersprung.html"), "rundeBeendet erkennt die Kennung aus ownProgress nicht");
+  // Eine Seite, die zu keinem Spiel gehört, zählt nichts hoch.
+  e.rundeBeendet("train-test.html");
+  pruefe(e.gameFree("train-test.html"), "eine fremde Seite wird gesperrt");
+  // Die Reise bleibt die Reise: Ihre ersten zehn Stationen sind frei, auch
+  // wenn das Spiel dahinter seine Runde schon verbraucht hat.
+  pruefe(e.targetFree("memory.html?station=3") && e.stationFree(10) && !e.stationFree(11), "die verbrauchte Runde schließt die freien Stationen");
+}
+// Auf der Reise zählt keine Runde: Die Adresse trägt eine Station.
+{
+  const e = rechne(konto({ rolle: "child", eltern: "eltern1" }), { suche: "?station=4", pfad: "/memory.html" });
+  e.rundeBeendet("memory");
+  pruefe(e.gespielteRunden("memory.html") === 0 && e.gameFree("memory.html"), "eine Runde auf der Reise verbraucht die Schnupperrunde");
+}
+// Ohne Speicher (privates Fenster): nichts wird gezählt, alles bleibt offen.
+{
+  const { context, windowStub } = sandbox();
+  windowStub.LernappFirebase = konto({ rolle: "child", eltern: "eltern1" });
+  vm.runInContext("localStorage.getItem = () => { throw new Error('kein Speicher'); }; localStorage.setItem = () => { throw new Error('kein Speicher'); };", context);
+  vm.runInContext(lies("entitlement.js"), context, { filename: "entitlement.js" });
+  const e = windowStub.LernappEntitlement;
+  e.rundeBeendet("memory");
+  pruefe(e.gameFree("memory.html") && e.gespielteRunden("memory.html") === 0, "ohne Speicher sperrt die Schranke");
+}
+
+// --- 4. Wo die Runde gemeldet wird -------------------------------------------
+// Eine Runde zählt nur, wenn sie gemeldet wird. Drei Stellen melden, und jede
+// hat ihren Grund: die Bühne, wenn das Ergebnis dasteht; die Levelwahl, wenn
+// ein Level geschafft ist; Tier-Sprung, weil es seine Runden selbst zählt.
+// Nimmt jemand einen Aufruf heraus, ist das Spiel still unbegrenzt gratis.
+{
+  const shell = lies("game-shell.js");
+  pruefe(/window\.LernappEntitlement\?\.rundeBeendet\?\.\(\)/.test(shell), "game-shell.js meldet die Runde nicht (rundeBeendet fehlt in showResult)");
+  const app = lies("app.js");
+  pruefe(/window\.LernappEntitlement\?\.rundeBeendet\?\.\(level\.game\)/.test(app), "app.js meldet die Runde nicht (rundeBeendet fehlt in markSolved)");
+  const sprung = lies("tiersprung.js");
+  pruefe(/window\.LernappEntitlement\?\.rundeBeendet\?\.\("tiersprung"\)/.test(sprung), "tiersprung.js meldet die Runde nicht");
+  // Und der Weg zurück ins Spiel geht über die Schranke: Beide Neu-Knöpfe der
+  // Bühne rufen nochEinmal(), nicht onRestart() – sonst spielt ein Kind nach
+  // der Gratis-Runde einfach weiter.
+  pruefe(/function nochEinmal\(\)/.test(shell), "game-shell.js hat kein nochEinmal()");
+  const neuKnoepfe = shell.split("\n").filter((zeile) => zeile.includes('iconButton("again"'));
+  pruefe(neuKnoepfe.length === 2, `game-shell.js hat ${neuKnoepfe.length} Neu-Knöpfe, erwartet 2`);
+  neuKnoepfe.forEach((knopf) => {
+    pruefe(/nochEinmal\(\)/.test(knopf), `ein Neu-Knopf geht an der Schranke vorbei: ${knopf.trim().slice(0, 90)}`);
+  });
+  // Die Bühne zeichnet sich neu, wenn ein Schloss dazukommt oder wegfällt.
+  pruefe(/lernapp:entitlement-changed[\s\S]{0,60}render\(\)/.test(lies("train-home.js")), "train-home.js zeichnet die Bühne nicht neu, wenn sich die Schranke bewegt");
+}
+
+// --- 5. Der Gründer ---------------------------------------------------------
 // Der Gründer: ein Kind ohne Elternkonto, aus der Zeit vor dem Kauf.
 {
   const e = rechne(konto({ rolle: "child", eltern: null }));
