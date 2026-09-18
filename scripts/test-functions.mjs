@@ -180,6 +180,36 @@ await wirft(() => kindAnlegen({ eltern, name: "!!!", passwort: "1234" }), "missi
 let empfangen = null;
 const stripeAttrappe = { checkout: { sessions: { create: async (params) => { empfangen = params; return { id: "cs_test_1", url: "https://checkout.stripe.com/c/pay/cs_test_1" }; } } } };
 const kasse = await kasseErstellen({ eltern, stripeClient: stripeAttrappe, price: "attrappe-preis", site: "https://kids.alae.app" });
+
+// Wer die Produkt-Kennung einträgt statt der des Preises (prod_ statt price_,
+// im Dashboard leicht verwechselt), soll trotzdem an die Kasse kommen.
+{
+  const gesehen = [];
+  const mitProdukt = {
+    ...stripeAttrappe,
+    products: { retrieve: async (id, optionen) => { gesehen.push([id, optionen?.expand?.[0]]); return { id, default_price: { id: "preis-aus-produkt" } }; } },
+  };
+  await kasseErstellen({ eltern, stripeClient: mitProdukt, price: "prod_attrappe", site: "https://kids.alae.app" });
+  ok(gesehen[0]?.[0] === "prod_attrappe" && gesehen[0]?.[1] === "default_price", `Produkt nicht mit Standardpreis geholt: ${JSON.stringify(gesehen)}`);
+  ok(empfangen?.line_items?.[0]?.price === "preis-aus-produkt", `die Kasse bekommt nicht den Standardpreis: ${JSON.stringify(empfangen?.line_items)}`);
+
+  // Ein Produkt ohne Standardpreis: Die Meldung muss sagen, was zu tun ist.
+  geprueft += 1;
+  const ohneStandard = { ...stripeAttrappe, products: { retrieve: async (id) => ({ id, default_price: null }) } };
+  try {
+    await kasseErstellen({ eltern, stripeClient: ohneStandard, price: "prod_leer", site: "https://kids.alae.app" });
+    befunde.push("Produkt ohne Standardpreis: ging durch, sollte scheitern");
+  } catch (fehler) {
+    if (!/keinen Standardpreis/.test(String(fehler?.message))) befunde.push(`Produkt ohne Standardpreis: unklare Meldung – ${fehler?.message}`);
+  }
+
+  // Und eine echte Preis-Kennung wird nicht angefasst.
+  const nichtAngefasst = { ...stripeAttrappe, products: { retrieve: async () => { throw new Error("hätte nicht gefragt werden dürfen"); } } };
+  await kasseErstellen({ eltern, stripeClient: nichtAngefasst, price: "price_echt", site: "https://kids.alae.app" });
+  ok(empfangen?.line_items?.[0]?.price === "price_echt", `eine price_-Kennung wird verändert: ${JSON.stringify(empfangen?.line_items)}`);
+}
+// Danach wieder der gewöhnliche Fall, damit die Prüfungen unten darauf zeigen.
+await kasseErstellen({ eltern, stripeClient: stripeAttrappe, price: "attrappe-preis", site: "https://kids.alae.app" });
 ok(kasse.url?.startsWith("https://checkout.stripe.com/"), "Kasse liefert keine Stripe-URL");
 ok(empfangen?.mode === "payment", `mode: ${empfangen?.mode} – ein Abo wäre "subscription"`);
 ok(empfangen?.client_reference_id === mama.uid, "client_reference_id ist nicht die uid der Eltern");
@@ -328,6 +358,18 @@ ok(r400.status === 400, `kind-anlegen mit kaputtem JSON: ${r400.status}`);
   const stripePruefung = (daten2.pruefungen || []).find((p) => p.name === "Stripe");
   ok(stripePruefung?.ok === true, `Stripe-Prüfung: ${JSON.stringify(stripePruefung)}`);
   ok(/30 CHF/.test(stripePruefung?.info || ""), `der gefundene Preis steht nicht in der Antwort: ${stripePruefung?.info}`);
+
+  // Trägt jemand die Produkt-Kennung ein, sagt die Antwort, woher der Preis kommt.
+  const preisVorherTief = process.env.STRIPE_PRICE_ID;
+  process.env.STRIPE_PRICE_ID = "prod_attrappe";
+  const mitProduktStatus = {
+    ...stripeStatus,
+    products: { retrieve: async (id) => ({ id, default_price: { id: "preis-aus-produkt" } }) },
+  };
+  const ueberProdukt = await pruefungenLaufen({ stripeClient: mitProduktStatus });
+  const stripeProdukt = (ueberProdukt.pruefungen || []).find((p) => p.name === "Stripe");
+  ok(stripeProdukt?.ok === true && /Standardpreis des Produkts prod_attrappe/.test(stripeProdukt?.info || ""), `Produkt-Kennung nicht erklärt: ${JSON.stringify(stripeProdukt)}`);
+  process.env.STRIPE_PRICE_ID = preisVorherTief;
   ok(daten2.ok === true, `Tiefenprüfung insgesamt: ${JSON.stringify(daten2.pruefungen)}`);
 
   // Fehlt eine Angabe, die die Kasse braucht, ist das kein "alles gut".
