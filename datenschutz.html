@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="de-CH">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Datenschutzerklärung – Gripszug</title>
+    <meta name="robots" content="noindex" />
+    <link rel="stylesheet" href="seiten.css" />
+    <link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32.png" />
+  </head>
+  <body>
+    <header class="wrap kopf">
+      <a class="marke" href="willkommen.html"><img src="icons/icon-192.png" alt="" width="40" height="40" /> Gripszug</a>
+      <nav aria-label="Seiten"><a href="willkommen.html">Willkommen</a><a href="index.html">Zur App</a></nav>
+    </header>
+    <main class="wrap text abschnitt">
+      <h1>Datenschutzerklärung</h1>
+      <p class="entwurf">Entwurf nach Schweizer Datenschutzgesetz (DSG) und DSGVO – vor dem Start von einer Fachperson prüfen lassen. Gelb markierte Stellen sind zu ersetzen.</p>
+      <p>Stand: <span class="platzhalter">[Datum]</span></p>
+
+      <h2>Kurz gesagt</h2>
+      <ul>
+        <li>Gripszug speichert von Kindern nur einen frei gewählten Namen, ein Passwort und den Spielfortschritt. Kein Geburtsdatum, kein echter Name, kein Foto.</li>
+        <li>Es gibt keine Werbung, kein Tracking und keine Analyse-Werkzeuge. Keine Cookies von Dritten.</li>
+        <li>Ohne Konto bleibt der Fortschritt auf dem Gerät.</li>
+        <li>Zahlungsdaten sieht nur Stripe, nicht wir.</li>
+      </ul>
+
+      <h2>1. Verantwortliche Stelle</h2>
+      <p><span class="platzhalter">[Vorname Nachname, Adresse, Schweiz]</span>, E-Mail <span class="platzhalter">[kontakt@adresse.ch]</span>.</p>
+
+      <h2>2. Welche Daten wir verarbeiten</h2>
+      <h3>Ohne Konto (Gast)</h3>
+      <p>Der Spielfortschritt liegt im Speicher des Browsers auf dem Gerät. Zusätzlich wird eine zufällige Gastkennung mit dem Fortschritt in unserer Datenbank abgelegt, damit der Betreiber sehen kann, wie die Spiele genutzt werden. Sie lässt sich keiner Person zuordnen.</p>
+      <h3>Kinderprofil</h3>
+      <p>Ein frei gewählter Name (ein Spitzname genügt), ein Passwort (verschlüsselt gespeichert bei Firebase Authentication), der Spielfortschritt (gelöste Level, Sterne, Spielzeit, Züge), Einstellungen (Lok, Landschaft, Ton) und die Zuordnung zum Elternkonto. Intern erhält jedes Kinderprofil eine technische Adresse der Form <code>name@lernapp.local</code>; das ist keine echte E-Mail-Adresse.</p>
+      <h3>Elternkonto</h3>
+      <p>E-Mail-Adresse, Passwort (verschlüsselt bei Firebase Authentication) oder Google-Anmeldung, die Liste der zugeordneten Kinderprofile, und – nach einem Kauf – die Information, dass gekauft wurde, mit Zeitpunkt und Kennungen der Zahlung bei Stripe.</p>
+      <h3>Beim Kauf</h3>
+      <p>Die Zahlung läuft bei Stripe. Karten- oder Kontodaten geben Sie dort ein; wir sehen sie nicht. Stripe übermittelt uns die Bestätigung der Zahlung, die verwendete E-Mail-Adresse, den Betrag und eine Zahlungskennung.</p>
+      <h3>Technisch</h3>
+      <p>Beim Aufruf der Website verarbeitet unser Hosting-Anbieter (Netlify) die IP-Adresse und übliche Verbindungsdaten in Server-Protokollen. Wir setzen keine Cookies zur Analyse; Firebase speichert die Anmeldung im lokalen Speicher des Browsers, damit das Kind angemeldet bleibt.</p>
+
+      <h2>3. Wozu</h2>
+      <p>Um Gripszug bereitzustellen: den Fortschritt zu speichern und auf mehreren Geräten zu zeigen, Kinderprofile einem Elternkonto zuzuordnen, den Kauf abzuwickeln und freizuschalten, und um bei Fragen zu antworten. Rechtsgrundlage ist die Erfüllung des Vertrags mit Ihnen und unser berechtigtes Interesse am Betrieb.</p>
+
+      <h2>4. Wer die Daten verarbeitet</h2>
+      <ul>
+        <li><strong>Google Firebase</strong> (Google Ireland Ltd. / Google LLC, USA): Authentifizierung und Datenbank. Region der Datenbank: <span class="platzhalter">[Region des Firebase-Projekts, z. B. europe-west]</span>. Google ist nach dem EU-US Data Privacy Framework zertifiziert; Standardvertragsklauseln sind Teil der Nutzungsbedingungen.</li>
+        <li><strong>Netlify Inc.</strong> (USA): Hosting der Website und Betrieb der Server-Funktionen. Server-Protokolle werden nach kurzer Zeit gelöscht.</li>
+        <li><strong>Stripe Payments Europe Ltd.</strong> (Irland) und Stripe Inc. (USA): Zahlungsabwicklung. Es gelten die Datenschutzbestimmungen von Stripe.</li>
+      </ul>
+      <p>Wir verkaufen keine Daten und geben sie nicht zu Werbezwecken weiter.</p>
+
+      <h2>5. Wie lange</h2>
+      <p>Konto- und Fortschrittsdaten bleiben, solange das Konto besteht. Ein Elternkonto kann seine Kinderprofile und sich selbst jederzeit löschen lassen (siehe unten); dann werden alle zugehörigen Daten innerhalb von 30 Tagen entfernt. Zahlungsbelege bewahren wir auf, solange das Gesetz es verlangt (in der Schweiz zehn Jahre).</p>
+
+      <h2>6. Ihre Rechte</h2>
+      <p>Sie können Auskunft über Ihre Daten verlangen, sie berichtigen oder löschen lassen und eine erteilte Einwilligung widerrufen. Eine E-Mail an <span class="platzhalter">[kontakt@adresse.ch]</span> genügt. Sie haben ausserdem das Recht, sich bei einer Aufsichtsbehörde zu beschweren – in der Schweiz beim Eidgenössischen Datenschutz- und Öffentlichkeitsbeauftragten (EDÖB).</p>
+
+      <h2>7. Kinder</h2>
+      <p>Gripszug richtet sich an Kinder, wird aber von Erwachsenen eingerichtet: Konten legen Eltern an. Wir erheben von Kindern keine Daten, die über Spitzname, Passwort und Spielfortschritt hinausgehen, und zeigen keine Werbung.</p>
+
+      <h2>8. Änderungen</h2>
+      <p>Diese Erklärung kann angepasst werden, wenn sich Gripszug oder das Recht ändert. Die aktuelle Fassung steht immer unter kids.alae.app/datenschutz.html.</p>
+
+      <p style="margin-top: 32px"><a href="impressum.html">Impressum</a> · <a href="agb.html">AGB</a></p>
+    </main>
+    <footer class="wrap fuss"><p>Gripszug · kids.alae.app</p></footer>
+  </body>
+</html>

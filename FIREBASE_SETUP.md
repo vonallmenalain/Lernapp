@@ -158,6 +158,10 @@ Wer in derselben **Gruppe** ist (Feld `group.id` am Konto), darf ausserdem die K
 
 ## 3b. Die Server-Funktionen bei Netlify
 
+> Was du einmalig einrichten musst, damit verkauft werden kann – Dienstkonto, Stripe,
+> Umgebungsvariablen, Impressum, Testzahlung –, steht Schritt für Schritt in
+> [docs/GRIPSZUG-START.md](./docs/GRIPSZUG-START.md).
+
 Was kein Client darf, tut der Server: Kinderkonten anlegen, die Eltern an die Kasse von
 Stripe schicken, nach der Zahlung freischalten. Das sind vier kleine Funktionen unter
 [`netlify/functions/`](./netlify/functions/), die Netlify neben der App ausliefert.
@@ -235,7 +239,7 @@ Geprüft wird das von `node scripts/validate-wagen-set.mjs` – ohne Browser und
 
 ## 5. Fortschritt zurücksetzen
 
-Im Profil steht neben **Alle Levels freischalten** die Karte **Fortschritt zurücksetzen**; im Admin-Bereich gibt es dieselbe Möglichkeit für jedes fremde Konto. Beides fragt vorher nach.
+Im Profil steht unter den Karten **Gripszug Familie** und **Kinder** die Karte **Fortschritt zurücksetzen**; im Admin-Bereich gibt es dieselbe Möglichkeit für jedes fremde Konto. Beides fragt vorher nach.
 
 Weggeräumt wird:
 
@@ -244,7 +248,7 @@ Weggeräumt wird:
 - die Spielstände in `users/{uid}.gameState` (Tier-Sprung, Karten-Merker und die anderen Spiele mit eigenem Konto)
 - auf dem Gerät alles unter `lernapp.` ausser den Einstellungen: gelöste Level, Sterne, Übungsstände und die gesehenen Wagenschritte
 
-Stehen bleiben Name, Lok, Landschaft, Levelmodus, Ton-Einstellungen, das Wagen-Set und die Gastkennung. Ein Kind, das von vorn anfängt, behält also seinen Zug – nur die Wagen starten wieder bei 0.
+Stehen bleiben Name, Lok, Landschaft, der Kauf (er hängt am Konto, nicht am Fortschritt), Ton-Einstellungen, das Wagen-Set und die Gastkennung. Ein Kind, das von vorn anfängt, behält also seinen Zug – nur die Wagen starten wieder bei 0.
 
 ### Die Marke `progressReset`
 

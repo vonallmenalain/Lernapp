@@ -1674,6 +1674,7 @@
         <button type="button" class="google-action" data-auth-google>Mit Google anmelden</button>
       </form>
       <p class="auth-status" role="status" aria-live="polite">${state.firebaseReady ? "" : "Firebase SDK ist noch nicht geladen."}</p>
+      <p class="auth-rechtliches"><a href="willkommen.html">Was ist Gripszug?</a> · <a href="impressum.html">Impressum</a> · <a href="datenschutz.html">Datenschutz</a> · <a href="agb.html">AGB</a></p>
     `;
 
     const status = modalContent.querySelector(".auth-status");

@@ -13,3 +13,9 @@ ui-debug.log
 
 # Was netlify/build.mjs fuer die Site zusammenstellt.
 dist/
+
+# Die Bilder der Willkommensseite.
+!bilder/*.png
+
+# Was netlify build lokal ablegt (gebündelte Funktionen).
+.netlify/

@@ -24,7 +24,8 @@ const ZIEL = path.join(WURZEL, "dist");
 // Was die App ist: die Seiten, ihre Skripte, das Stylesheet, das Manifest,
 // die Icons. Alles im Wurzelverzeichnis, das so endet – und der Ordner icons.
 const ENDUNGEN = new Set([".html", ".js", ".css", ".webmanifest"]);
-const ORDNER = ["icons"];
+// Und die Bilder der Willkommensseite.
+const ORDNER = ["icons", "bilder"];
 // Was nie mit soll, auch wenn es die Endung hätte.
 const NIE = new Set(["netlify.toml", "package.json", "package-lock.json"]);
 

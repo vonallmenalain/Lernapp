@@ -1,0 +1,115 @@
+/*
+ * seiten.css – Die Seiten für Erwachsene: Willkommen, Impressum, Datenschutz,
+ * AGB. Bewusst getrennt von styles.css (das ist die App, dreihundert
+ * Kilobyte für Zug und Spiele): Hier wird gelesen, nicht gespielt. Dieselben
+ * Farben wie die App, damit es zusammengehört.
+ */
+:root {
+  --primary: #6c5ce7;
+  --primary-dark: #4c3fd6;
+  --ink: #1f2a33;
+  --muted: #5b6b7a;
+  --line: #e4e0f7;
+  --bg: #f7f3ff;
+  --card: #fff;
+  --ok: #3fbf74;
+  --gedaechtnis: #7C5CE6;
+  --konzentration: #00A5B5;
+  --geschwindigkeit: #F5A623;
+  --problemloesen: #3FA34D;
+  --zahlbuchstabe: #E8543F;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color: var(--ink);
+  background: var(--bg);
+  line-height: 1.55;
+  font-size: 17px;
+}
+a { color: var(--primary-dark); }
+h1, h2, h3 { line-height: 1.15; letter-spacing: -0.01em; }
+h1 { font-size: clamp(2rem, 5vw, 3.2rem); margin: 0 0 12px; font-weight: 950; }
+h2 { font-size: clamp(1.4rem, 3vw, 1.9rem); margin: 0 0 14px; font-weight: 900; }
+h3 { font-size: 1.1rem; margin: 0 0 6px; font-weight: 900; }
+p { margin: 0 0 14px; }
+.wrap { width: min(1040px, 100% - 32px); margin: 0 auto; }
+.kopf {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  padding: 16px 0;
+}
+.marke { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--ink); font-weight: 950; font-size: 1.15rem; }
+.marke img { width: 40px; height: 40px; border-radius: 11px; }
+.kopf nav { display: flex; gap: 6px 18px; flex-wrap: wrap; font-weight: 800; }
+.kopf nav a { text-decoration: none; }
+.knopf {
+  display: inline-block; border: 0; border-radius: 999px; padding: 14px 26px;
+  background: var(--ok); color: #fff; font: inherit; font-weight: 900; text-decoration: none;
+  cursor: pointer; box-shadow: 0 10px 24px rgba(63, 191, 116, 0.35);
+}
+.knopf.zweit { background: var(--card); color: var(--primary-dark); border: 2px solid var(--line); box-shadow: none; }
+.hero { padding: clamp(24px, 6vw, 72px) 0 clamp(20px, 5vw, 56px); display: grid; gap: 28px; grid-template-columns: 1.1fr 1fr; align-items: center; }
+.hero p.lead { font-size: clamp(1.1rem, 2.2vw, 1.35rem); color: var(--muted); max-width: 40ch; }
+.hero .aktionen { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 8px; }
+.hero .bild { border-radius: 24px; overflow: hidden; box-shadow: 0 24px 60px rgba(50, 44, 109, 0.22); background: #a8ddf0; aspect-ratio: 16 / 9; }
+.hero .bild img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.versprechen { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin: 8px 0 40px; }
+.versprechen div { background: var(--card); border: 2px solid var(--line); border-radius: 18px; padding: 16px 18px; font-weight: 900; text-align: center; }
+.versprechen small { display: block; font-weight: 700; color: var(--muted); margin-top: 4px; }
+.abschnitt { padding: clamp(24px, 5vw, 56px) 0; }
+.abschnitt.hell { background: var(--card); }
+.bereiche { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; }
+.bereich { border-radius: 18px; padding: 16px; color: #fff; }
+.bereich h3 { color: #fff; }
+.bereich p { margin: 0; opacity: 0.95; font-size: 0.98rem; }
+.bereich.gedaechtnis { background: var(--gedaechtnis); }
+.bereich.konzentration { background: var(--konzentration); }
+.bereich.geschwindigkeit { background: var(--geschwindigkeit); }
+.bereich.problemloesen { background: var(--problemloesen); }
+.bereich.zahlbuchstabe { background: var(--zahlbuchstabe); }
+.schritte { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; counter-reset: schritt; }
+.schritt { background: var(--card); border: 2px solid var(--line); border-radius: 20px; padding: 18px; }
+.schritt::before { counter-increment: schritt; content: counter(schritt); display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; background: var(--primary); color: #fff; font-weight: 950; margin-bottom: 10px; }
+.bilder { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
+.bilder figure { margin: 0; border-radius: 18px; overflow: hidden; border: 2px solid var(--line); background: var(--card); }
+.bilder img { display: block; width: 100%; height: auto; }
+.bilder figcaption { padding: 10px 14px; font-weight: 800; color: var(--muted); font-size: 0.95rem; }
+.preis { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+.preis-karte { background: var(--card); border: 2px solid var(--line); border-radius: 22px; padding: 22px; }
+.preis-karte.haupt { border-color: var(--primary); box-shadow: 0 16px 40px rgba(108, 92, 231, 0.18); }
+.preis-karte .betrag { font-size: 2.4rem; font-weight: 950; margin: 6px 0; }
+.preis-karte .betrag small { font-size: 1rem; color: var(--muted); font-weight: 800; }
+.preis-karte ul { padding-left: 20px; margin: 10px 0 16px; }
+.preis-karte li { margin: 4px 0; }
+.faq details { background: var(--card); border: 2px solid var(--line); border-radius: 16px; padding: 12px 16px; margin: 8px 0; }
+.faq summary { font-weight: 900; cursor: pointer; }
+.faq details p { margin: 10px 0 4px; color: var(--muted); }
+.formular { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+.formular input[type=email] { flex: 1 1 240px; min-height: 50px; border-radius: 14px; border: 2px solid var(--line); padding: 0 14px; font: inherit; font-weight: 700; }
+.formular input:focus-visible { border-color: var(--primary); outline: 4px solid rgba(108, 92, 231, 0.16); }
+.fuss { padding: 28px 0 40px; color: var(--muted); font-size: 0.95rem; }
+.fuss nav { display: flex; gap: 8px 18px; flex-wrap: wrap; margin-bottom: 8px; }
+.text { max-width: 72ch; }
+.text h2 { margin-top: 32px; }
+.text h3 { margin-top: 22px; }
+.text ul { padding-left: 22px; }
+.entwurf { background: #fff4e5; border: 2px solid #f5a623; border-radius: 14px; padding: 12px 16px; font-weight: 800; color: #5c3d00; margin: 0 0 24px; }
+.platzhalter { background: #ffe9a8; padding: 0 5px; border-radius: 5px; font-weight: 900; }
+@media (max-width: 760px) {
+  .hero, .preis, .schritte, .versprechen { grid-template-columns: 1fr; }
+  .hero .bild { order: -1; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .knopf { transition: transform 0.15s ease; }
+  .knopf:hover { transform: translateY(-2px); }
+}
+
+/* Lange Wörter – Adressen, Paragraphen, E-Mails – brechen um, statt die
+   Seite auf dem Handy breiter zu machen als das Bild. */
+.text,
+.text p,
+.text li {
+  overflow-wrap: anywhere;
+}
