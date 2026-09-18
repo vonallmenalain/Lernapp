@@ -280,14 +280,17 @@
       window.LernappEntitlement?.rundeBeendet?.();
 
       // --- Der Auftrag der Reise: geschafft oder nicht? ------------------------
-      // Punkte gegen das Ziel, Level gegen "mindestens ein Stern". Geschafft
-      // heisst Stempel – mit drei Sternen bzw. einer guten Runde ein goldener.
-      // Nicht geschafft kostet nichts: die Runde hat für den Wagen gezählt, und
-      // der Fehlversuch zählt für das Ausweichgleis.
+      // Punkte gegen das Ziel, Level gegen "mindestens ein Stern" – auf der
+      // Stufe "schwer" gegen drei Sterne (needStars, journey-plan.js).
+      // Geschafft heisst Stempel – mit drei Sternen bzw. einer guten Runde ein
+      // goldener. Nicht geschafft kostet nichts: die Runde hat für den Wagen
+      // gezählt, und der Fehlversuch zählt für das Ausweichgleis.
       let journeyNote = null;
       if (journey) {
         const scored = typeof points === "number";
-        const won = journey.kind === "score" ? scored && points >= journey.target : (Number(stars) || 0) >= 1;
+        const need = Math.max(1, Math.min(3, Number(journey.needStars) || 1));
+        const got = Number(stars) || 0;
+        const won = journey.kind === "score" ? scored && points >= journey.target : got >= need;
         if (won) {
           const runStars = journey.kind === "score"
             ? (points >= journey.gut ? 3 : points >= journey.gut / 2 ? 2 : 1)
@@ -306,12 +309,21 @@
           // an der letzten Lücke einer Karte schon nach dem ersten, sonst
           // hinge die ganze Zehnerkette an dieser einen Station.
           const push = tries >= (reise().triesForPush?.(journey.nr) ?? reise().TRIES_FOR_PUSH ?? Infinity);
+          // Geschafft, aber mit zu wenigen Sternen: das sagt der Hinweis so –
+          // "noch nicht" unter einem gewonnenen Level verstünde kein Kind.
+          const knapp = journey.kind !== "score" && got >= 1 && got < need;
+          const sterne = need === 3 ? "drei Sterne" : "zwei Sterne";
+          const weiter = push
+            ? "Auf der Karte kommt jetzt die Schiebelok und schiebt deinen Zug zur nächsten Station."
+            : `Probier es noch einmal${alt ? `, oder nimm auf der Karte das Ausweichgleis: ${alt.title}` : ""}.`;
           journeyNote = {
             done: false,
-            text: push ? `Auftrag: ${journey.label} – noch nicht. Auf der Karte hilft die Schiebelok.` : `Auftrag: ${journey.label} – noch nicht. Die Runde zählt trotzdem für den Wagen.`,
-            speech: `Der Auftrag war ${journey.speech.replace(/\.$/, "")} – diesmal noch nicht. Die Runde zählt trotzdem für deinen Wagen. ${push
-              ? "Auf der Karte kommt jetzt die Schiebelok und schiebt deinen Zug zur nächsten Station."
-              : `Probier es noch einmal${alt ? `, oder nimm auf der Karte das Ausweichgleis: ${alt.title}` : ""}.`}`,
+            text: knapp
+              ? `Auftrag: ${journey.label} – geschafft, aber der Stempel braucht ${sterne}.${push ? " Auf der Karte hilft die Schiebelok." : ""}`
+              : push ? `Auftrag: ${journey.label} – noch nicht. Auf der Karte hilft die Schiebelok.` : `Auftrag: ${journey.label} – noch nicht. Die Runde zählt trotzdem für den Wagen.`,
+            speech: knapp
+              ? `Geschafft – aber für den Stempel brauchst du ${sterne}. Die Runde zählt trotzdem für deinen Wagen. ${weiter}`
+              : `Der Auftrag war ${journey.speech.replace(/\.$/, "")} – diesmal noch nicht. Die Runde zählt trotzdem für deinen Wagen. ${weiter}`,
           };
         }
       }

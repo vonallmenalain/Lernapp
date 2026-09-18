@@ -414,7 +414,7 @@
       ${fehler ? `<p class="auth-status">${t(fehler)}</p>` : ""}
       ${kaufBlock(konto)}
       ${gruppenBlock(konto, userData)}
-      ${tempoBlock(konto, userData)}
+      ${stufeBlock(konto, userData)}
       ${resetBlock(konto)}
       ${v().kontoDetail({ ...detail, userData }, { selectedGame: zustand.spielFilter, withFilters: true })}
     `;
@@ -525,21 +525,23 @@
     return [...namen.values()].sort((a, b) => a.localeCompare(b, "de"));
   }
 
-  // --- Reisetempo ------------------------------------------------------------
-  function tempoBlock(konto, userData) {
+  // --- Schwierigkeitsstufe ----------------------------------------------------
+  // Dieselbe Einstellung, die Eltern an ihren Kindern setzen (firebase.js,
+  // renderKindStufe) – hier für jedes Konto.
+  function stufeBlock(konto, userData) {
     const reise = window.LernappReise;
     if (!reise) return "";
     const kasten = (userData.gameState || {})[reise.KEY]?.data;
     const fahrt = reise.progressFor(kasten);
     const laeuft = zustand.laeuft === konto.id;
-    const knopf = (wert, label) => `<button type="button" class="${fahrt.tempo === wert ? "" : "secondary-action"}" data-tempo="${wert}" ${laeuft ? "disabled" : ""} aria-pressed="${fahrt.tempo === wert}">${label}${fahrt.tempo === wert ? " ✓" : ""}</button>`;
+    const knopf = (wert) => `<button type="button" class="${fahrt.stufe === wert ? "" : "secondary-action"}" data-stufe="${wert}" ${laeuft ? "disabled" : ""} aria-pressed="${fahrt.stufe === wert}">${t(reise.STUFE_INFO[wert].label)} (${t(reise.STUFE_INFO[wert].alter)})${fahrt.stufe === wert ? " ✓" : ""}</button>`;
     return `
-      <div class="admin-reset admin-tempo" data-tempo-konto="${t(konto.id)}">
+      <div class="admin-reset admin-stufe" data-stufe-konto="${t(konto.id)}">
         <div>
-          <strong>Reisetempo</strong>
-          <span>Mit «langsam» verlangt jede Karte der Reise weniger: die Zielpunktzahlen der Karte davor, zwei Level tiefer, kleinere Memorys, leichtere Rätsel. Für Vier- bis Fünfjährige, ohne dass das Kind je «leicht» wählen muss.</span>
+          <strong>Schwierigkeitsstufe</strong>
+          <span>«Leicht» (3 bis 5 Jahre) verlangt auf der Reise weniger und zeigt die kleinsten Rätsel; «Mittel» (5 bis 7) ist die Reise, wie sie ist; «Schwer» (7 bis 10) gibt den Stempel nur mit drei Sternen oder der ganzen Punktzahl. Die Stufe stellt auch Buchstaben-Jagd, Wortdetektiv, Rucksack, Memory, Weichen-Wirrwarr und Freie Fahrt ein.</span>
         </div>
-        <div class="card-actions">${knopf("normal", "Normal")}${knopf("langsam", "Langsam")}</div>
+        <div class="card-actions">${reise.STUFEN.map(knopf).join("")}</div>
       </div>`;
   }
 
@@ -632,9 +634,9 @@
       gruppe.querySelector("[data-gruppe-raus]")?.addEventListener("click", () => gruppeSetzen(uid, { name: "", displayName: "" }));
     }
 
-    const tempo = seite.querySelector("[data-tempo-konto]");
-    tempo?.querySelectorAll("[data-tempo]").forEach((knopf) => {
-      knopf.addEventListener("click", () => tempoSetzen(tempo.dataset.tempoKonto, knopf.dataset.tempo));
+    const stufe = seite.querySelector("[data-stufe-konto]");
+    stufe?.querySelectorAll("[data-stufe]").forEach((knopf) => {
+      knopf.addEventListener("click", () => stufeSetzen(stufe.dataset.stufeKonto, knopf.dataset.stufe));
     });
   }
 
@@ -683,7 +685,7 @@
 
   const zuruecksetzen = (uid) => mitLaufen(uid, () => api().resetProgress(uid));
   const freischalten = (uid, frei) => mitLaufen(uid, () => api().freischalten(uid, frei));
-  const tempoSetzen = (uid, tempo) => mitLaufen(uid, () => api().setJourneyTempo(uid, tempo));
+  const stufeSetzen = (uid, stufe) => mitLaufen(uid, () => api().setJourneyStufe(uid, stufe));
   const gruppeSetzen = (uid, werte) => mitLaufen(uid, () => api().setUserGroup(uid, werte));
 
   // ---------------------------------------------------------------------------

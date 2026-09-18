@@ -28,6 +28,7 @@
   };
 
   const DIFFICULTY_LABELS = {
+    starter: "Garten",
     easy: "Leicht",
     medium: "Mittel",
     hard: "Schwer",
@@ -234,7 +235,7 @@
       ladeKontoDetails: loadAdminUserDetails,
       ladeGastDetails: loadAdminGuestDetails,
       setUserGroup,
-      setJourneyTempo: setJourneyTempoFor,
+      setJourneyStufe: setJourneyStufeFor,
       resetProgress: resetProgressFor,
       freischalten: kontoFreischalten,
       switchWagonSet,
@@ -870,8 +871,9 @@
     window.location.assign(url);
   }
 
-  async function kindAnlegen(name, passwort) {
-    const ergebnis = await serverAufruf("kind-anlegen", { name, passwort });
+  // stufe: die Altersgruppe, als Schwierigkeitsstufe (journey-plan.js, STUFEN).
+  async function kindAnlegen(name, passwort, stufe = "mittel") {
+    const ergebnis = await serverAufruf("kind-anlegen", { name, passwort, stufe });
     if (ergebnis?.uid) state.children = [...state.children, { uid: ergebnis.uid, name: ergebnis.name || name }];
     return ergebnis;
   }
@@ -1442,6 +1444,16 @@
     // Eine laufende Sitzung würde ihre Zahlen nach dem Aufräumen nachtragen.
     if (own) stopActiveSession();
 
+    // Die Schwierigkeitsstufe überlebt das Zurücksetzen: Sie ist keine
+    // Leistung, sondern das Alter des Kindes – läge sie im gelöschten
+    // gameState, spielte ein Dreijähriges danach auf "mittel".
+    const reise = window.LernappReise;
+    let stufe = null;
+    try {
+      const kasten = ((await ref.get()).data()?.gameState || {})[reise?.KEY]?.data;
+      if (reise && kasten && (kasten.stufe || kasten.tempo)) stufe = reise.stufeIn(kasten);
+    } catch { stufe = null; }
+
     await deleteAllDocs(ref.collection("levelProgress"));
     await deleteAllDocs(ref.collection("sessions"));
 
@@ -1457,6 +1469,12 @@
       },
       updatedAt: serverTimestamp(),
     }, { merge: true });
+    if (stufe) {
+      await ref.set({
+        gameState: { [reise.KEY]: { data: { stufe, stufeAt: resetAtMs }, updatedAt: resetAtMs } },
+        updatedAt: serverTimestamp(),
+      }, { merge: true });
+    }
 
     // Das eigene Konto auf diesem Gerät: alles hier auch wegräumen. Ein fremdes
     // Konto nicht – der Fortschritt am Admin-Gerät gehört dem Admin.
@@ -1467,6 +1485,7 @@
       clearLocalProgress();
       markLocalReset(userId, resetAtMs);
       window.LernappGameCloud?.resetAll?.();
+      if (stufe) reise.setStufe(stufe);
       announceGameState();
       announceProgress();
     }
@@ -2218,6 +2237,7 @@
         <label><span>Name des Kindes</span><input name="name" type="text" required autocomplete="off" autocapitalize="words" placeholder="z. B. Lina" /></label>
         <label><span>Passwort (ab 4 Zeichen)</span><input name="passwort" type="password" minlength="4" required autocomplete="new-password" placeholder="z. B. 1234" /></label>
         <p class="auth-hint">Damit meldet sich dein Kind an. Ein Spitzname reicht – der echte Name muss nirgends stehen.</p>
+        ${renderStufeWahl("mittel")}
         <div class="card-actions">
           <button type="button" class="secondary-action" data-kind-abbrechen>Abbrechen</button>
           <button type="submit">Kind anlegen</button>
@@ -2277,7 +2297,7 @@
             <button type="button" class="secondary-action" data-kind-reset="${escapeHtml(kind.uid)}">Fortschritt zurücksetzen</button>
             <button type="button" class="danger-action" data-kind-weg="${escapeHtml(kind.uid)}">Konto löschen</button>
           </div>
-          ${renderKindTempo(kind, detail)}
+          ${renderKindStufe(kind, detail)}
           ${renderEntityDetail(detail, { withFilters: false })}
         </div>`
       : `<div class="kind-detail"><p class="account-muted">${laeuft ? "Wird geladen..." : "Konnte nicht geladen werden."}</p></div>`);
@@ -2304,36 +2324,64 @@
       </li>`;
   }
 
-  // Das Reisetempo des eigenen Kindes. Dieselbe Einstellung, die der Admin
-  // für jedes Konto setzen kann – hier für die eigene Familie. Sie liegt im
-  // Kasten der Reise (gameState), und den darf ein Elternkonto an seinem Kind
-  // schreiben (firestore.rules, isProgressReset).
-  function renderKindTempo(kind, detail) {
+  // Die drei Stufen mit Name und Alter, wie journey-plan.js sie führt – mit
+  // Ersatz für den Fall, dass die Datei auf dieser Seite fehlt.
+  function stufenInfo() {
+    return window.LernappReise?.STUFE_INFO || {
+      leicht: { label: "Leicht", alter: "3 bis 5 Jahre" },
+      mittel: { label: "Mittel", alter: "5 bis 7 Jahre" },
+      schwer: { label: "Schwer", alter: "7 bis 10 Jahre" },
+    };
+  }
+  const STUFE_ERKLAERUNG = "«Leicht» (3 bis 5 Jahre) verlangt auf der Reise weniger und zeigt die kleinsten Rätsel; «Mittel» (5 bis 7) ist die Reise, wie sie ist; «Schwer» (7 bis 10) gibt den Stempel nur mit drei Sternen oder der ganzen Punktzahl. Die Stufe stellt auch Buchstaben-Jagd, Wortdetektiv, Rucksack, Memory, Weichen-Wirrwarr und Freie Fahrt ein.";
+
+  // Die Altersgruppe beim Anlegen: drei Knöpfe, einer ist gewählt. Sie wird
+  // zur Schwierigkeitsstufe des Kindes und lässt sich am Kind jederzeit
+  // umstellen.
+  function renderStufeWahl(gewaehlt) {
+    const knoepfe = Object.entries(stufenInfo()).map(([wert, eintrag]) => `
+          <label>
+            <input type="radio" name="stufe" value="${wert}" ${wert === gewaehlt ? "checked" : ""} />
+            <span><strong>${escapeHtml(eintrag.label)}</strong><small>${escapeHtml(eintrag.alter)}</small></span>
+          </label>`).join("");
+    return `
+        <fieldset class="kind-stufe-wahl">
+          <legend>Wie alt ist dein Kind?</legend>
+          <div class="kind-stufe-knoepfe">${knoepfe}</div>
+        </fieldset>
+        <p class="auth-hint">Die Stufe bestimmt, wie schwer die Reise und die Spiele sind – von den Rätseln bis zum Tempo der Züge. Du kannst sie später jederzeit umstellen.</p>`;
+  }
+
+  // Die Schwierigkeitsstufe des eigenen Kindes. Dieselbe Einstellung, die der
+  // Admin für jedes Konto setzen kann – hier für die eigene Familie. Sie liegt
+  // im Kasten der Reise (gameState), und den darf ein Elternkonto an seinem
+  // Kind schreiben (firestore.rules, isProgressReset).
+  function renderKindStufe(kind, detail) {
     const reise = window.LernappReise;
     if (!reise || !detail?.userData) return "";
     const fahrt = reise.progressFor((detail.userData.gameState || {})[reise.KEY]?.data);
     const busy = eltern.kindLaeuft === kind.uid;
-    const knopf = (wert, label) => `<button type="button" class="${fahrt.tempo === wert ? "" : "secondary-action"}" data-kind-tempo="${wert}" ${busy ? "disabled" : ""} aria-pressed="${fahrt.tempo === wert ? "true" : "false"}">${label}${fahrt.tempo === wert ? " ✓" : ""}</button>`;
+    const knopf = ([wert, eintrag]) => `<button type="button" class="${fahrt.stufe === wert ? "" : "secondary-action"}" data-kind-stufe="${wert}" ${busy ? "disabled" : ""} aria-pressed="${fahrt.stufe === wert ? "true" : "false"}">${escapeHtml(eintrag.label)} (${escapeHtml(eintrag.alter)})${fahrt.stufe === wert ? " ✓" : ""}</button>`;
     return `
-      <div class="admin-reset admin-tempo">
+      <div class="admin-reset admin-stufe">
         <div>
-          <strong>Reisetempo</strong>
-          <span>Mit «langsam» verlangt jede Karte der Reise weniger: die Zielpunktzahlen der Karte davor, zwei Level tiefer, kleinere Memorys, leichtere Rätsel. Für Vier- bis Fünfjährige, ohne dass dein Kind je «leicht» wählen muss. Gilt auf allen Geräten deines Kindes.</span>
+          <strong>Schwierigkeitsstufe</strong>
+          <span>${STUFE_ERKLAERUNG} Gilt auf allen Geräten deines Kindes.</span>
         </div>
-        <div class="card-actions">${knopf("normal", "Normal")}${knopf("langsam", "Langsam")}</div>
+        <div class="card-actions">${Object.entries(stufenInfo()).map(knopf).join("")}</div>
       </div>`;
   }
 
-  async function kindTempoSetzen(uid, tempo) {
+  async function kindStufeSetzen(uid, stufe) {
     if (!uid) return;
     eltern.kindLaeuft = uid;
-    eltern.kindMeldung = { ok: false, text: "Das Reisetempo wird gespeichert..." };
+    eltern.kindMeldung = { ok: false, text: "Die Schwierigkeitsstufe wird gespeichert..." };
     zeichneKinderKarte();
     try {
-      await setJourneyTempoFor(uid, tempo);
+      await setJourneyStufeFor(uid, stufe);
       eltern.kindDetails.delete(uid);
       await kindNachladen(uid);
-      eltern.kindMeldung = { ok: true, text: `Reisetempo auf «${tempo === "langsam" ? "Langsam" : "Normal"}» gestellt.` };
+      eltern.kindMeldung = { ok: true, text: `Schwierigkeitsstufe auf «${stufenInfo()[stufe]?.label || stufe}» gestellt.` };
     } catch (error) {
       eltern.kindMeldung = { ok: false, text: authErrorMessage(error) };
     }
@@ -2386,8 +2434,8 @@
     karte.querySelector("[data-kind-weg-ja]")?.addEventListener("click", (event) => {
       kindEntfernen(event.currentTarget.dataset.kindWegJa);
     });
-    karte.querySelectorAll("[data-kind-tempo]").forEach((knopf) => {
-      knopf.addEventListener("click", () => kindTempoSetzen(eltern.offenesKind, knopf.dataset.kindTempo));
+    karte.querySelectorAll("[data-kind-stufe]").forEach((knopf) => {
+      knopf.addEventListener("click", () => kindStufeSetzen(eltern.offenesKind, knopf.dataset.kindStufe));
     });
 
     karte.querySelector("[data-kind-neu-form]")?.addEventListener("submit", async (event) => {
@@ -2397,7 +2445,7 @@
       state.serverBusy = true;
       status.textContent = "Kind wird angelegt...";
       try {
-        const kind = await kindAnlegen(String(daten.get("name")), String(daten.get("passwort")));
+        const kind = await kindAnlegen(String(daten.get("name")), String(daten.get("passwort")), String(daten.get("stufe") || "mittel"));
         zeichne(null, { ok: true, text: `${kind.name} kann sich jetzt mit Name und Passwort anmelden.` });
       } catch (error) {
         status.textContent = serverErrorMessage(error);
@@ -2812,23 +2860,24 @@
     };
   }
 
-  // --- Das Reisetempo ----------------------------------------------------------
-  // "langsam" nimmt jeder Karte der Reise ein Stück Schwierigkeit
-  // (journey-plan.js, shiftSpec). Die Einstellung liegt im Kasten der Reise
+  // --- Die Schwierigkeitsstufe --------------------------------------------------
+  // "leicht", "mittel" oder "schwer" (journey-plan.js, STUFEN): Sie stellt die
+  // Reise und die Spiele ein. Die Einstellung liegt im Kasten der Reise
   // (gameState lernapp.reise) mit einer Zeitmarke: das Gerät des Kindes nimmt
-  // beim Zusammenführen die neuere – und gameState darf der Admin schreiben
-  // (firestore.rules, isProgressReset). Ein Zurücksetzen räumt sie mit weg.
-  async function setJourneyTempoFor(userId, tempo) {
+  // beim Zusammenführen die neuere – und gameState dürfen Admin und Eltern
+  // schreiben (firestore.rules, isProgressReset). Ein Zurücksetzen schreibt
+  // sie danach wieder hin (resetProgressFor).
+  async function setJourneyStufeFor(userId, stufe) {
     const reise = window.LernappReise;
     const ref = userRef(userId);
     if (!ref || !reise) return false;
-    const value = tempo === "langsam" ? "langsam" : "normal";
+    const value = reise.STUFEN.includes(stufe) ? stufe : reise.STUFE_DEFAULT;
     const at = Date.now();
     await ref.set({
-      gameState: { [reise.KEY]: { data: { tempo: value, tempoAt: at }, updatedAt: at } },
+      gameState: { [reise.KEY]: { data: { stufe: value, stufeAt: at }, updatedAt: at } },
       updatedAt: serverTimestamp(),
     }, { merge: true });
-    if (userId === state.user?.uid) reise.setTempo(value);
+    if (userId === state.user?.uid) reise.setStufe(value);
     return true;
   }
 
@@ -2943,7 +2992,7 @@
       ? `<p class="admin-train-reise">${fahrt.complete
         ? `Reise: beide Reisen geschafft, alle ${reise.STATION_COUNT} Stationen`
         : `Reise ${fahrt.lap}: Station ${fahrt.lapStation} von ${fahrt.lapTotal} (Nr. ${fahrt.station}), Karte ${reise.mapIndexOf(fahrt.station) + 1} (${reise.MAPS[reise.mapIndexOf(fahrt.station)]?.name || ""})`}
-        · ${fahrt.finishedMaps} von ${reise.MAPS.length} Karten fertig · ${fahrt.golden} goldene Stempel${fahrt.pushed ? ` · ${fahrt.pushed}× von der Schiebelok geschoben` : ""} · Reisetempo ${fahrt.tempo}</p>`
+        · ${fahrt.finishedMaps} von ${reise.MAPS.length} Karten fertig · ${fahrt.golden} goldene Stempel${fahrt.pushed ? ` · ${fahrt.pushed}× von der Schiebelok geschoben` : ""} · Stufe ${reise.STUFE_INFO?.[fahrt.stufe]?.label || fahrt.stufe}</p>`
       : "";
     return `
       <section class="admin-train-detail">

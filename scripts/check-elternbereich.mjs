@@ -311,6 +311,11 @@ try {
     await knips(page, "2-kind-anlegen-absage");
 
     await form.locator("input[name=name]").fill("Lina");
+    // Die Altersgruppe: drei Knöpfe, die Mitte vorgewählt; hier die Kleinsten.
+    pruefe(await form.locator(".kind-stufe-wahl input[name=stufe]").count() === 3, "Kind anlegen: die drei Altersgruppen fehlen im Formular");
+    pruefe(await form.locator('input[name=stufe][value="mittel"]').isChecked(), "Kind anlegen: die Mitte ist nicht vorgewählt");
+    await form.locator('.kind-stufe-wahl label:has(input[value="leicht"])').click({ timeout: 5000 });
+    pruefe(await form.locator('input[name=stufe][value="leicht"]').isChecked(), "Kind anlegen: der Tipp auf «Leicht» wählt die Stufe nicht");
     await form.locator("button[type=submit]").click({ timeout: 5000 });
     await page.locator("[data-kind-uid='kind-1']").waitFor({ timeout: 5000 }).catch(() => {});
     pruefe(await page.locator("[data-kind-uid='kind-1']").count() === 1, "Kind anlegen: Lina steht nach dem Anlegen nicht in der Liste");
@@ -324,6 +329,7 @@ try {
     pruefe(anlegen.every((a) => a.token === "Bearer token-attrappe"), "Kind anlegen: der Aufruf trägt nicht das Token des Kontos");
     pruefe(anlegen.every((a) => a.methode === "POST"), "Kind anlegen: kein POST");
     pruefe(anlegen[1]?.body?.name === "Lina" && anlegen[1]?.body?.passwort === "1234", "Kind anlegen: Name oder Passwort kommen nicht so beim Server an, wie sie eingegeben wurden");
+    pruefe(anlegen[1]?.body?.stufe === "leicht", `Kind anlegen: die Altersgruppe kommt nicht beim Server an (${anlegen[1]?.body?.stufe})`);
 
     // Ein Kind aufklappen: Dahinter steht dieselbe Sicht wie im Adminbereich,
     // nur für das eigene Kind – und dahinter liegen auch die Knöpfe. Zugeklappt
@@ -335,17 +341,19 @@ try {
     pruefe(await detail.count() === 1, "Kind aufklappen: keine Detailansicht");
     pruefe(await detail.locator(".admin-train-detail").count() === 1, "Kind aufklappen: der Zug des Kindes fehlt");
     pruefe(await detail.locator(".admin-abdeckung").count() === 1, "Kind aufklappen: die probierten Level fehlen");
-    pruefe(await detail.locator(".admin-tempo").count() === 1, "Kind aufklappen: das Reisetempo fehlt");
+    pruefe(await detail.locator(".admin-stufe").count() === 1, "Kind aufklappen: die Schwierigkeitsstufe fehlt");
+    pruefe(await detail.locator("[data-kind-stufe]").count() === 3, "Kind aufklappen: die drei Stufen fehlen");
     // Die Gruppe gehört dem Admin. Ein Elternkonto, das sie setzen könnte,
     // schriebe sein Kind in eine fremde Familie – firestore.rules lässt das
     // nicht zu, und hier darf der Knopf deshalb gar nicht erst stehen.
     pruefe(await detail.locator(".admin-group").count() === 0, "Kind aufklappen: Eltern bekommen die Gruppen-Karte, die dem Admin gehört");
-    // Und das Tempo lässt sich umstellen.
-    await detail.locator('[data-kind-tempo="langsam"]').click({ timeout: 5000 });
-    await page.waitForFunction(() => /Reisetempo auf/.test(document.querySelector("[data-kinder-karte] .karten-status")?.textContent || ""), null, { timeout: 10000 }).catch(() => {});
-    pruefe((await text(kinderStatus(page))).includes("Langsam"), "Reisetempo: die Bestätigung fehlt");
-    const tempoStand = await page.evaluate(() => window.__ersatz.lies("users/kind-1")?.gameState?.["lernapp.reise"]?.data?.tempo);
-    pruefe(tempoStand === "langsam", `Reisetempo: am Konto steht ${tempoStand} statt langsam`);
+    // Und die Stufe lässt sich umstellen.
+    await detail.locator('[data-kind-stufe="schwer"]').click({ timeout: 5000 });
+    await page.waitForFunction(() => /Schwierigkeitsstufe auf/.test(document.querySelector("[data-kinder-karte] .karten-status")?.textContent || ""), null, { timeout: 10000 }).catch(() => {});
+    pruefe((await text(kinderStatus(page))).includes("Schwer"), "Schwierigkeitsstufe: die Bestätigung fehlt");
+    const stufeStand = await page.evaluate(() => window.__ersatz.lies("users/kind-1")?.gameState?.["lernapp.reise"]?.data);
+    pruefe(stufeStand?.stufe === "schwer" && Number.isFinite(stufeStand?.stufeAt), `Schwierigkeitsstufe: am Konto steht ${JSON.stringify(stufeStand)} statt schwer`);
+    pruefe(await page.locator('[data-kind-uid="kind-1"] [data-kind-stufe="schwer"][aria-pressed="true"]').count() === 1, "Schwierigkeitsstufe: der gewählte Knopf ist nicht als gewählt markiert");
     pruefe((await text(detail.locator(".admin-abdeckung"))).includes("nie geöffnet"), "Kind aufklappen: es steht nicht da, was noch nie geöffnet wurde");
     await knips(page, "3a-kind-aufgeklappt");
 
@@ -541,4 +549,4 @@ if (befunde.length) {
   befunde.forEach((b) => console.error(`  - ${b}`));
   process.exit(1);
 }
-console.log("Der Elternbereich tut, was er soll: kaufen, Kinder anlegen, aufklappen, Passwort neu, Reisetempo, zurücksetzen, löschen, die Wagen der Familie – und nichts davon trifft eine fremde Familie.");
+console.log("Der Elternbereich tut, was er soll: kaufen, Kinder anlegen, aufklappen, Passwort neu, Schwierigkeitsstufe, zurücksetzen, löschen, die Wagen der Familie – und nichts davon trifft eine fremde Familie.");

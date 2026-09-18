@@ -7,8 +7,9 @@
  * Spiele mindestens zweimal dran? Und stimmen die Drei-Sterne-Schwellen mit
  * train-progress.js überein, die Titel mit highscore.js?
  *
- * Dazu Reise 2 (Weltraum, Savanne, die bekannten Karten schwerer), das
- * Reisetempo, die Schiebelok und das Reise-Schild.
+ * Dazu Reise 2 (Weltraum, Savanne, die bekannten Karten schwerer), die
+ * Schwierigkeitsstufe (leicht, mittel, schwer), die Schiebelok und das
+ * Reise-Schild.
  *
  * Läuft ohne Browser: journey-plan.js braucht nur window und localStorage.
  */
@@ -106,9 +107,24 @@ assert(LEVEL_MAX.trackRouter === 10 && LEVEL_MAX.craneStack === 10 && LEVEL_MAX.
 // Der Fahrplan rechnet mit denselben Zahlen (Reise 2 und Reisetempo
 // verschieben Level) – sie dürfen nicht auseinanderlaufen.
 for (const [id, max] of Object.entries(LEVEL_MAX)) assert(reise.LEVEL_MAX[id] === max, `LEVEL_MAX.${id} in journey-plan.js ist ${reise.LEVEL_MAX[id]}, die Spieldatei hat ${max}`);
-const MEMORY_SIZES = [8, 12, 16, 20, 24];
+const MEMORY_SIZES = [8, 12, 16, 20, 24, 30];
 const CATALOG_PER_WORLD = { spatialPuzzle: 1 };
 assert(JSON.stringify(reise.MEMORY_SIZES) === JSON.stringify(MEMORY_SIZES) && JSON.stringify(reise.CATALOG_PER_WORLD) === JSON.stringify(CATALOG_PER_WORLD), "Kartenzahlen oder Katalog-Level in journey-plan.js weichen ab");
+// Was es vor der Wiese gibt: die kleinen Bahnhöfe von Freie Fahrt (Stufe
+// "sehrleicht", hinten an der Tabelle) und der Garten von Battleships und
+// Tiergehege (app.js). Der Fahrplan fährt beides nur auf der Stufe "leicht" an.
+const STARTER_GRIDLOCK = count("freiefahrt.js", /^\s+\["sehrleicht", \d+, \[/gm);
+assert(STARTER_GRIDLOCK === 3, `erwartet 3 sehr leichte Bahnhöfe in freiefahrt.js, gefunden ${STARTER_GRIDLOCK}`);
+assert(JSON.stringify(reise.STARTER_LEVELS) === JSON.stringify({ gridlock: [13, 14, 15] }), `STARTER_LEVELS in journey-plan.js: ${JSON.stringify(reise.STARTER_LEVELS)}`);
+const appSource = fs.readFileSync(path.join(root, "app.js"), "utf8");
+const gartenBimaru = (appSource.match(/^\s+\["starter", sea\(/gm) || []).length;
+assert(gartenBimaru === 6 && /"shikaku":\{"starter":\[(\{[^}]*\}\]?,?){6}/.test(appSource) && JSON.stringify(reise.STARTER_WORLD) === JSON.stringify({ bimaru: 6, shikaku: 6 }),
+  `Garten: ${gartenBimaru} Battleships-Level in app.js, journey-plan.js rechnet mit ${JSON.stringify(reise.STARTER_WORLD)}`);
+// Ein Level, das es gibt: aus der Tabelle – oder einer der kleinen Bahnhöfe.
+const levelOk = (t) => (t.level >= 1 && t.level <= LEVEL_MAX[t.game]) || (reise.STARTER_LEVELS[t.game] || []).includes(t.level);
+// Ein Rätsel, das es gibt: aus einer der vier Welten – oder aus dem Garten.
+const catalogOk = (t) => (WORLDS.includes(t.world) && t.pos >= 1 && t.pos <= (CATALOG_PER_WORLD[t.game] || 10))
+  || (t.world === "starter" && t.pos >= 1 && t.pos <= (reise.STARTER_WORLD[t.game] || 0));
 const artWin = load(["train-art.js"]);
 const art = artWin.LernappTrainArt;
 
@@ -235,10 +251,12 @@ for (let nr = 1; nr <= STATION_COUNT; nr += 1) {
     if (t.kind === "score") assert(t.target >= 3 && t.target <= t.gut, `Station ${nr}: Ziel ${t.target} ausserhalb 3…${t.gut}`);
     // Auch nach dem Verschieben (Reise 2) muss jeder Auftrag auf ein Level
     // zeigen, das es gibt.
-    if (t.kind === "level") assert(t.level >= 1 && t.level <= LEVEL_MAX[t.game], `Station ${nr}: Level ${t.level} gibt es bei ${t.game} nicht`);
+    if (t.kind === "level") assert(levelOk(t), `Station ${nr}: Level ${t.level} gibt es bei ${t.game} nicht`);
     if (t.kind === "size") assert(MEMORY_SIZES.includes(t.size), `Station ${nr}: Kartenzahl ${t.size} gibt es nicht`);
-    if (t.kind === "catalog") assert(WORLDS.includes(t.world) && t.pos >= 1 && t.pos <= (CATALOG_PER_WORLD[t.game] || 10), `Station ${nr}: ${t.worldLabel} ${t.pos} gibt es bei ${t.game} nicht`);
+    if (t.kind === "catalog") assert(catalogOk(t), `Station ${nr}: ${t.worldLabel} ${t.pos} gibt es bei ${t.game} nicht`);
     assert(t.lap === reise.lapOf(nr).nr, `Station ${nr}: Reise ${t.lap} statt ${reise.lapOf(nr).nr}`);
+    // Auf der Stufe mittel (der Vorgabe) reicht überall ein Stern.
+    assert(t.needStars === 1, `Station ${nr}: needStars ${t.needStars} auf der Stufe mittel`);
   }
   const alt = reise.altTaskFor(nr);
   assert(alt && alt.viaAlt, `Station ${nr}: kein Ausweichgleis`);
@@ -346,28 +364,68 @@ assert(reise.taskFor(71).stufe === 3 && reise.taskFor(71).target === 8 && reise.
 assert(reise.taskFor(130).kind === "catalog" && reise.taskFor(130).world === "extreme" && reise.taskFor(130).goal, "die letzte Station ist ein Weltall-Rätsel am Ziel");
 assert(/^Reise 2, Station 73/.test(reise.describe(reise.taskFor(73))), "describe nennt Reise 2");
 
-// --- Das Reisetempo -----------------------------------------------------------------
-assert(reise.tempo() === "normal", "ohne Eintrag gilt das normale Reisetempo");
-const normal3 = reise.taskFor(3).target;
-const normal23 = reise.taskFor(23).stufe;
-reise.setTempo("langsam");
-assert(reise.tempo() === "langsam" && reise.taskFor(3).target === 11 && reise.taskFor(3).target < normal3, "langsam: Wo hält der Zug? auf der Wiese verlangt weniger");
-assert(reise.taskFor(72).level === 2 && reise.taskFor(27).label === "Wiese 5" && reise.taskFor(23).stufe === normal23 - 1, "langsam: zwei Level tiefer, drei Katalog-Level zurück, eine Stufe tiefer");
-assert(reise.taskFor(12).target === Math.max(3, Math.ceil(GAMES.tileMemory.gut * MAPS[0].factor)), "langsam: Karte 2 verlangt die Zielpunktzahlen von Karte 1");
+// --- Die Schwierigkeitsstufe ---------------------------------------------------------
+assert(JSON.stringify(reise.STUFEN) === JSON.stringify(["leicht", "mittel", "schwer"]) && reise.STUFE_DEFAULT === "mittel", "drei Stufen, die Mitte als Vorgabe");
+for (const id of reise.STUFEN) assert(reise.STUFE_INFO[id]?.label && reise.STUFE_INFO[id]?.alter, `Stufe ${id}: Name oder Alter fehlt`);
+assert(reise.stufe() === "mittel", "ohne Eintrag gilt die Stufe mittel");
+const mittel3 = reise.taskFor(3).target;
+const mittel23 = reise.taskFor(23).stufe;
+
+// leicht: was früher das Reisetempo "langsam" war – und dazu auf den ersten
+// beiden Karten der Garten und die kleinen Bahnhöfe.
+reise.setStufe("leicht");
+assert(reise.stufe() === "leicht" && reise.taskFor(3).target === 11 && reise.taskFor(3).target < mittel3, "leicht: Wo hält der Zug? auf der Wiese verlangt weniger");
+assert(reise.taskFor(72).level === 2 && reise.taskFor(27).label === "Wiese 5" && reise.taskFor(23).stufe === mittel23 - 1, "leicht: zwei Level tiefer, drei Katalog-Level zurück, eine Stufe tiefer");
+assert(reise.taskFor(12).target === Math.max(3, Math.ceil(GAMES.tileMemory.gut * MAPS[0].factor)), "leicht: Karte 2 verlangt die Zielpunktzahlen von Karte 1");
+assert(reise.taskFor(10).world === "starter" && reise.taskFor(10).pos === 1 && reise.taskFor(10).label === "Garten 1" && /Garten 1/.test(reise.taskFor(10).speech), "leicht: das Ziel der Wiese ist ein Gehege im Garten");
+assert(reise.taskFor(19).world === "starter" && reise.taskFor(19).pos === 5, "leicht: Battleships im Wald kommt aus dem Garten");
+assert(reise.altTaskFor(10).world === "easy" && reise.altTaskFor(10).pos === 1, "leicht: Arukone hat keinen Garten und bleibt auf der Wiese");
+assert(reise.taskFor(16).level === 13 && reise.taskFor(16).label === "Sehr leicht 1" && /kleinen Bahnhof 1/.test(reise.taskFor(16).speech), "leicht: Freie Fahrt im Wald ist ein kleiner Bahnhof");
+assert(reise.taskFor(30).world === "easy" && reise.taskFor(30).pos === 9 && reise.taskFor(39).level === 5, "leicht: ab Karte 3 gibt es keinen Garten und keine kleinen Bahnhöfe mehr");
+assert(reise.taskFor(61).size === 20 && reise.taskFor(6).size === 8, "leicht: Memorys von acht bis zwanzig Karten");
 for (let nr = 1; nr <= STATION_COUNT; nr += 1) {
   const task = reise.taskFor(nr);
   (task.choice ? task.choice : [task]).forEach((t) => {
-    if (t.kind === "level") assert(t.level >= 1, `langsam, Station ${nr}: Level ${t.level}`);
-    if (t.kind === "size") assert(MEMORY_SIZES.includes(t.size), `langsam, Station ${nr}: Kartenzahl ${t.size}`);
-    if (t.kind === "catalog") assert(t.pos >= 1 && WORLDS.includes(t.world), `langsam, Station ${nr}: ${t.world} ${t.pos}`);
-    if (t.kind === "score") assert(t.target >= 3, `langsam, Station ${nr}: Ziel ${t.target}`);
+    if (t.kind === "level") assert(levelOk(t), `leicht, Station ${nr}: Level ${t.level}`);
+    if (t.kind === "size") assert(MEMORY_SIZES.includes(t.size) && t.size <= 20, `leicht, Station ${nr}: Kartenzahl ${t.size}`);
+    if (t.kind === "catalog") assert(catalogOk(t), `leicht, Station ${nr}: ${t.world} ${t.pos}`);
+    if (t.kind === "score") assert(t.target >= 3, `leicht, Station ${nr}: Ziel ${t.target}`);
+    assert(t.needStars === 1, `leicht, Station ${nr}: needStars ${t.needStars}`);
+    if (nr > 20) assert(t.world !== "starter" && !(reise.STARTER_LEVELS[t.game] || []).includes(t.level), `leicht, Station ${nr}: Garten oder kleiner Bahnhof nach Karte 2`);
   });
 }
-reise.setTempo("normal");
-assert(reise.taskFor(3).target === normal3 && reise.taskFor(72).level === 4, "normal: alles wie vorher");
-const tempoMerged = reise.merge({ tempo: "langsam", tempoAt: 5 }, { tempo: "normal", tempoAt: 9 });
-assert(tempoMerged.tempo === "normal" && tempoMerged.tempoAt === 9 && reise.merge({ tempo: "langsam", tempoAt: 5 }, {}).tempo === "langsam", "beim Zusammenführen gewinnt das neuere Tempo");
-assert(reise.progressFor({ tempo: "langsam", tempoAt: 1 }).tempo === "langsam", "progressFor nennt das Tempo");
+
+// schwer: dieselben Aufträge wie in der Mitte, aber mehr vom Ergebnis.
+reise.setStufe("schwer");
+assert(reise.stufe() === "schwer" && reise.taskFor(3).target === GAMES.numberLine.gut && reise.taskFor(1).target === GAMES.missingItem.gut, "schwer: die ganze Drei-Sterne-Schwelle");
+assert(reise.taskFor(72).level === 4 && reise.taskFor(27).label === "Wiese 8" && reise.taskFor(10).world === "easy" && reise.taskFor(23).stufe === mittel23, "schwer: Level, Rätsel und Stufen wie in der Mitte");
+assert(reise.taskFor(7).needStars === 3 && reise.taskFor(6).needStars === 3 && reise.taskFor(10).needStars === 3 && /drei Sterne/.test(reise.taskFor(7).speech), "schwer: Level, Memory und Rätsel brauchen drei Sterne");
+assert(reise.altTaskFor(5).needStars === 2 && /zwei Sterne/.test(reise.altTaskFor(5).speech), "schwer: das Ausweichgleis begnügt sich mit zwei Sternen");
+assert(reise.altTaskFor(1).needStars === 1 && reise.altTaskFor(1).target === Math.ceil(GAMES.backpack.gut * 0.9), "schwer: ein Ausweichgleis mit Punkten verlangt ein Zehntel weniger");
+for (let nr = 1; nr <= STATION_COUNT; nr += 1) {
+  const task = reise.taskFor(nr);
+  (task.choice ? task.choice : [task]).forEach((t) => {
+    // Station 2 fährt seit oben das Ausweichgleis (useAlt): ein Zehntel weniger,
+    // zwei Sterne statt drei.
+    if (t.kind === "score") assert(t.target === (t.viaAlt ? Math.ceil(t.gut * 0.9) : t.gut) && t.needStars === 1, `schwer, Station ${nr}: Ziel ${t.target} von ${t.gut}`);
+    else assert(t.needStars === (t.viaAlt ? 2 : 3), `schwer, Station ${nr}: needStars ${t.needStars}`);
+    if (t.kind === "level") assert(levelOk(t) && !(reise.STARTER_LEVELS[t.game] || []).includes(t.level), `schwer, Station ${nr}: Level ${t.level}`);
+    if (t.kind === "catalog") assert(catalogOk(t) && t.world !== "starter", `schwer, Station ${nr}: ${t.world} ${t.pos}`);
+  });
+}
+
+reise.setStufe("mittel");
+assert(reise.stufe() === "mittel" && reise.taskFor(3).target === mittel3 && reise.taskFor(72).level === 4 && reise.taskFor(7).needStars === 1, "mittel: alles wie vorher");
+reise.setStufe("quatsch");
+assert(reise.stufe() === "mittel", "eine unbekannte Stufe wird zur Mitte");
+
+// Zusammenführen: die neuere Stufe gewinnt – und alte Kästen mit dem
+// Reisetempo ("langsam" hiess leicht) werden mitgelesen.
+const stufeMerged = reise.merge({ stufe: "leicht", stufeAt: 5 }, { stufe: "schwer", stufeAt: 9 });
+assert(stufeMerged.stufe === "schwer" && stufeMerged.stufeAt === 9 && reise.merge({ stufe: "leicht", stufeAt: 5 }, {}).stufe === "leicht", "beim Zusammenführen gewinnt die neuere Stufe");
+assert(reise.merge({ tempo: "langsam", tempoAt: 5 }, {}).stufe === "leicht" && reise.merge({ tempo: "normal", tempoAt: 5 }, {}).stufe === "mittel" && !("tempo" in reise.merge({ tempo: "langsam", tempoAt: 5 }, {})), "das alte Reisetempo wird zur Stufe");
+assert(reise.merge({ tempo: "langsam", tempoAt: 5 }, { stufe: "schwer", stufeAt: 9 }).stufe === "schwer" && reise.merge({ tempo: "langsam", tempoAt: 9 }, { stufe: "schwer", stufeAt: 5 }).stufe === "leicht", "Reisetempo und Stufe: die neuere Zeitmarke gewinnt");
+assert(reise.progressFor({ stufe: "leicht", stufeAt: 1 }).stufe === "leicht" && reise.progressFor({ tempo: "langsam", tempoAt: 1 }).stufe === "leicht" && reise.progressFor({}).stufe === "mittel", "progressFor nennt die Stufe");
 
 // --- Die Schiebelok ---------------------------------------------------------------
 assert(reise.TRIES_FOR_PUSH === 5 && reise.current() === 21, "Station 21 ist dran");
@@ -446,4 +504,4 @@ assert(danach.length === neu.length - neu.filter((entry) => entry.part === "flag
 for (let nr = 21; nr <= 30; nr += 1) reise.markDone(nr, { stars: 1, game: "x" });
 assert(reise.newParts().some((entry) => entry.value === "schiffshorn"), "eine neue Belohnung muss als neu gelten");
 
-console.log(`Fahrplan geprüft: ${MAPS.length} Karten (${LAPS[0].maps} + ${LAPS[1].maps}), ${STATION_COUNT} Stationen, ${Object.keys(GAMES).length} Spiele je mindestens zweimal, ${rewards.size} Belohnungen, Reisetempo, Schiebelok und die neuen Teile der Werkstatt.`);
+console.log(`Fahrplan geprüft: ${MAPS.length} Karten (${LAPS[0].maps} + ${LAPS[1].maps}), ${STATION_COUNT} Stationen, ${Object.keys(GAMES).length} Spiele je mindestens zweimal, ${rewards.size} Belohnungen, Schwierigkeitsstufe, Schiebelok und die neuen Teile der Werkstatt.`);

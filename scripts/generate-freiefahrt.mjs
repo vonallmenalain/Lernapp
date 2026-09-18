@@ -40,6 +40,7 @@ const { N, TOR_REIHE, loesen } = windowStub.LernappFreieFahrt;
 // Die Bänder aus der Aufgabenstellung: so viele Züge muss die kürzeste Lösung
 // brauchen, damit ein Level unter diesem Namen in der Auswahl stehen darf.
 const STUFEN = {
+  sehrleicht: { wagen: 5, lange: 1, band: [3, 7] },
   leicht: { wagen: 9, lange: 2, band: [8, 12] },
   mittel: { wagen: 11, lange: 3, band: [13, 18] },
   schwer: { wagen: 12, lange: 4, band: [19, 26] },

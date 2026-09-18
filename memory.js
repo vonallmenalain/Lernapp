@@ -35,7 +35,12 @@
   // Regeln
   // ---------------------------------------------------------------------------
   // Die Grössen sind Kartenzahlen, nicht Paare: ein Kind zählt, was es sieht.
-  const GROESSEN = [8, 12, 16, 20, 24];
+  const GROESSEN = [8, 12, 16, 20, 24, 30];
+  // Welche Kartenzahlen die Auswahl zeigt – je Schwierigkeitsstufe des Kindes
+  // (journey-plan.js): die Kleinsten von 8 bis 20, die Mitte von 12 bis 24,
+  // die Grossen von 16 bis 30. Ein Auftrag der Reise darf jede Zahl nennen.
+  const GROESSEN_JE_STUFE = { leicht: [8, 12, 16, 20], mittel: [12, 16, 20, 24], schwer: [16, 20, 24, 30] };
+  const groessenZurWahl = () => GROESSEN_JE_STUFE[window.LernappReise?.stufe?.()] || GROESSEN_JE_STUFE.mittel;
   const RUNDEN_FUER_WAGEN = 5;
   // Wie lange zwei ungleiche Karten offen bleiben. Lang genug, um beide zu
   // sehen, kurz genug, dass niemand darauf wartet.
@@ -206,7 +211,11 @@
     };
 
   const geschafft = (groesse) => (Number(store.read().best?.[groesse]?.stars) || 0) > 0;
-  const fertigeZahl = () => GROESSEN.filter(geschafft).length;
+  // Was für den Wagen zählt, wie train-progress.js es rechnet: gespielte
+  // Runden, mindestens aber die geschafften Kartenzahlen (Stände von früher).
+  // Nur Kartenzahlen zu zählen ginge nicht mehr auf: eine Stufe zeigt vier
+  // davon, der Wagen will fünf Runden.
+  const fertigeZahl = () => Math.max(Number(store.read().runs) || 0, GROESSEN.filter(geschafft).length);
 
   // Dazu zählt jede geschaffte Runde: der Zug rechnet mit gespielten Runden,
   // und wer dieselbe Grösse dreimal schafft, hat dreimal gespielt.
@@ -272,7 +281,7 @@
     shell.play.append(prompt);
 
     const reihe = shell.el("div", "me-groessen");
-    GROESSEN.forEach((groesse) => {
+    groessenZurWahl().forEach((groesse) => {
       const button = shell.el("button", `me-groesse${geschafft(groesse) ? " is-done" : ""}`);
       button.type = "button";
       button.dataset.karten = String(groesse);
@@ -453,7 +462,7 @@
   if (auftrag?.size && GROESSEN.includes(auftrag.size)) startRunde(auftrag.size);
   else showMenu();
 
-  window.LernappMemory = { GROESSEN, ITEMS, RUNDEN_FUER_WAGEN, waehleItems };
+  window.LernappMemory = { GROESSEN, GROESSEN_JE_STUFE, ITEMS, RUNDEN_FUER_WAGEN, waehleItems };
 
   window.addEventListener("pagehide", clearStep);
 })();

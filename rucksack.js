@@ -40,17 +40,27 @@
   // ---------------------------------------------------------------------------
   // Regeln
   // ---------------------------------------------------------------------------
-  // Die vier Stufen sind die Zahl der Karten, die bei jedem Schritt zur Wahl
+  // Die Stufen sind die Zahl der Karten, die bei jedem Schritt zur Wahl
   // stehen. Der Faktor gleicht aus, dass Raten bei drei Karten dreimal so oft
   // trifft wie bei sechsen. Gerundet wird aufwärts – eine halbe Punktzahl
-  // müsste ein Kind erst deuten. Auf den Knöpfen steht nur die Zahl der
-  // Karten; der Faktor rechnet im Hintergrund.
+  // müsste ein Kind erst deuten.
+  //
+  // Gewählt wird nicht mehr: Die Schwierigkeitsstufe des Kindes (journey-plan.js)
+  // sagt, wie viele Karten zur Wahl stehen – drei auf "leicht", vier auf
+  // "mittel", sechs auf "schwer". Die Stufe mit fünf bleibt in der Tabelle,
+  // damit ihre Punkteformel für alte Bestenlisten nachvollziehbar bleibt.
   const STUFEN = [
     { anzahl: 3, faktor: 1 },
     { anzahl: 4, faktor: 1.2 },
     { anzahl: 5, faktor: 1.5 },
     { anzahl: 6, faktor: 2 },
   ];
+  const ANZAHL_JE_STUFE = { leicht: 3, mittel: 4, schwer: 6 };
+  function stufeFuer(name) {
+    const anzahl = ANZAHL_JE_STUFE[name] || ANZAHL_JE_STUFE.mittel;
+    return STUFEN.find((stufe) => stufe.anzahl === anzahl) || STUFEN[1];
+  }
+  const aktuelleStufe = () => stufeFuer(window.LernappReise?.stufe?.());
 
   // Wie viele, sagt das Wagen-Set: fünf im ersten, neun im zweiten (kids.js).
   const RUNS_FOR_DONE = window.LernappKids?.wagonRounds?.() || 5;
@@ -70,7 +80,7 @@
     "Stimmt die Reihe, kommt ein neuer Gegenstand dazu, und du packst wieder von vorn.",
     "Tippst du einmal daneben, ist die Runde vorbei.",
     "Gezählt wird die längste Reihe, die du ganz geschafft hast.",
-    "Je mehr Karten zur Wahl stehen, desto mehr Punkte gibt jeder Gegenstand.",
+    "Wie viele Karten zur Wahl stehen, hängt von deiner Stufe ab – je mehr, desto mehr Punkte gibt jeder Gegenstand.",
     "Zeit hast du so viel du willst.",
   ].join(" ");
 
@@ -190,34 +200,6 @@
   function setPhase(phase) {
     state.phase = phase;
     host.dataset.rsPhase = phase;
-  }
-
-  // ---------------------------------------------------------------------------
-  // Die Wahl der Schwierigkeit
-  // ---------------------------------------------------------------------------
-  function showMenu() {
-    clearStep();
-    shell.closeOverlay();
-    shell.setPhase("menu");
-    setPhase("menu");
-    shell.setCount(0);
-    rucksack = null;
-    rucksackZahl = null;
-
-    shell.clear();
-    shell.play.append(shell.el("p", "cm-prompt", "Auswahl Gegenstände"));
-
-    const reihe = shell.el("div", "rs-stufen");
-    STUFEN.forEach((stufe) => {
-      const button = shell.el("button", "rs-stufe");
-      button.type = "button";
-      button.dataset.anzahl = String(stufe.anzahl);
-      button.setAttribute("aria-label", `${stufe.anzahl} Gegenstände zur Wahl.`);
-      button.append(shell.el("span", "rs-stufe-zahl", String(stufe.anzahl)));
-      button.addEventListener("click", () => startRun(stufe));
-      reihe.append(button);
-    });
-    shell.play.append(reihe);
   }
 
   function runsText(runs) {
@@ -482,7 +464,6 @@
       top: TOP_COUNT,
       note: { text: runsText(next.runs), done: next.runs >= RUNS_FOR_DONE },
       speech: resultSpeech(points, next.runs),
-      onBack: showMenu,
     });
   }
 
@@ -497,26 +478,16 @@
     accentDark: "#5a41b8",
     help: HELP,
     clock: false,
-    onRestart: () => (state.phase === "menu" ? showMenu() : startRun(state.stufe)),
-    // Zurück aus einer Runde führt in die Wahl der Schwierigkeit, nicht gleich
-    // aus dem Spiel heraus.
-    onBack: () => {
-      if (state.phase === "menu") return false;
-      showMenu();
-      return true;
-    },
+    onRestart: () => startRun(aktuelleStufe()),
   });
 
-  // Auf der Reise (journey-plan.js) wählt die Karte die Stufe: gleich
-  // hinein, kein Menü. Der Rückweg führt dann auf die Karte, das regelt die
-  // Bühne.
-  const auftrag = shell.journey;
-  const auftragStufe = auftrag ? STUFEN[Math.max(0, Math.min(STUFEN.length - 1, Number(auftrag.stufe) || 0))] : null;
-  if (auftragStufe) startRun(auftragStufe);
-  else showMenu();
+  // Kein Menü: Die Kartenzahl steht mit der Schwierigkeitsstufe fest, im
+  // freien Spiel wie auf der Reise (journey-plan.js). Der Rückweg führt aus
+  // dem Spiel hinaus bzw. auf die Karte, das regelt die Bühne.
+  startRun(aktuelleStufe());
 
   // Die Punkteformel nach aussen: das Prüfskript rechnet sie ohne Browser nach.
-  window.LernappRucksack = { STUFEN, ITEMS, punkte, RUNS_FOR_DONE };
+  window.LernappRucksack = { STUFEN, ANZAHL_JE_STUFE, stufeFuer, ITEMS, punkte, RUNS_FOR_DONE };
 
   window.addEventListener("pagehide", clearStep);
 })();

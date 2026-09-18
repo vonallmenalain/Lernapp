@@ -434,7 +434,7 @@ for (const [wahl, was] of [
   [".admin-abdeckung", "die probierten Level"],
   [".admin-kauf", "der Kaufstand"],
   [".admin-group", "die Gruppe"],
-  [".admin-tempo", "das Reisetempo"],
+  [".admin-stufe", "die Schwierigkeitsstufe"],
   [".admin-reset", "das Zurücksetzen"],
   [".admin-game-filter", "der Spiel-Filter"],
   [".admin-columns", "Level und Sitzungen"],

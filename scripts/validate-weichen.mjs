@@ -190,6 +190,14 @@ function buildAndCheck(count) {
   return { switches: switches.length };
 }
 
+// --- Die Stufen -------------------------------------------------------------
+// Die Tabelle gilt für "schwer"; "mittel" und "leicht" fahren langsamer, und
+// niemand fährt schneller als die Tabelle. Halb so schnell wäre zu wenig: dann
+// stünde ein Kind minutenlang vor einer leeren Strecke.
+const stufen = api.TEMPO_JE_STUFE;
+assert(stufen && stufen.schwer === 1, `die Tabelle muss für "schwer" gelten (Faktor ${stufen?.schwer})`);
+assert(stufen.mittel < 1 && stufen.leicht < stufen.mittel && stufen.leicht >= 0.5, `Tempofaktoren unerwartet: ${JSON.stringify(stufen)}`);
+
 // --- Die Sternregel ---------------------------------------------------------
 // Fehlerlos drei, bis vier verfahrene zwei, darüber einer.
 assert(api.starsFor(0) === 3, "fehlerlos muss drei Sterne geben");

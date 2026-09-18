@@ -172,6 +172,9 @@ const kind1Doc = (await db().collection("users").doc(kind1.uid).get()).data();
 ok(kind1Doc?.parentUid === mama.uid, "parentUid fehlt am Kind");
 ok(kind1Doc?.role === "child", `role am Kind: ${kind1Doc?.role}`);
 ok(kind1Doc?.stats?.solvedLevels === 0, "stats fehlen am Kind");
+// Ohne Angabe die Mitte – dort, wo journey-plan.js die Stufe liest.
+ok(kind1Doc?.gameState?.["lernapp.reise"]?.data?.stufe === "mittel" && Number.isFinite(kind1Doc?.gameState?.["lernapp.reise"]?.data?.stufeAt), `Stufe am Kind ohne Angabe: ${JSON.stringify(kind1Doc?.gameState)}`);
+ok(kind1.stufe === "mittel", `die Antwort nennt die Stufe nicht: ${kind1.stufe}`);
 const mamaDoc = (await db().collection("users").doc(mama.uid).get()).data();
 ok(Array.isArray(mamaDoc?.children) && mamaDoc.children.some((k) => k.uid === kind1.uid && k.name === "Lina"), "Kind steht nicht in children[] der Eltern");
 ok(await anmelden("lina@lernapp.local", "1234::lernapp"), "das angelegte Kind kann sich nicht anmelden");
@@ -249,7 +252,11 @@ ok((await db().collection("entitlements").doc(oma.uid).get()).data()?.active ===
 await wirft(() => kasseErstellen({ eltern, stripeClient: stripeAttrappe, price: "p", site: "s" }), "already-owned", "Kasse nach dem Kauf");
 
 // Ein Kind, das nach dem Kauf dazukommt, bekommt ihn mit.
-const kind2 = await kindAnlegen({ eltern, name: "Noa", passwort: "5678" });
+const kind2 = await kindAnlegen({ eltern, name: "Noa", passwort: "5678", stufe: "leicht" });
+{
+  const kind2Doc = (await db().collection("users").doc(kind2.uid).get()).data();
+  ok(kind2Doc?.gameState?.["lernapp.reise"]?.data?.stufe === "leicht" && kind2.stufe === "leicht", `Stufe leicht kommt nicht am Kind an: ${JSON.stringify(kind2Doc?.gameState)}`);
+}
 ok(kind2.kauf === true, "Kind nach dem Kauf bekommt keinen Kauf mit");
 ok((await db().collection("entitlements").doc(kind2.uid).get()).data()?.via === mama.uid, "Kauf des zweiten Kindes fehlt");
 
@@ -265,7 +272,12 @@ const ohne = await webhookHandler(new Request("http://x/api/stripe-webhook", { m
 ok(ohne.status === 400, `Webhook ohne Unterschrift: ${ohne.status}, erwartet 400`);
 
 // --- 5. Bis zu vier Kinder ------------------------------------------------------
-await kindAnlegen({ eltern, name: "Kind Drei", passwort: "1234" });
+{
+  // Eine unbekannte Stufe ist keine Absage – sie wird zur Mitte.
+  const kind3 = await kindAnlegen({ eltern, name: "Kind Drei", passwort: "1234", stufe: "extrem" });
+  const kind3Doc = (await db().collection("users").doc(kind3.uid).get()).data();
+  ok(kind3Doc?.gameState?.["lernapp.reise"]?.data?.stufe === "mittel" && kind3.stufe === "mittel", `unbekannte Stufe: ${JSON.stringify(kind3Doc?.gameState)}`);
+}
 await kindAnlegen({ eltern, name: "Kind Vier", passwort: "1234" });
 await wirft(() => kindAnlegen({ eltern, name: "Kind Fünf", passwort: "1234" }), "too-many-children", "fünftes Kind");
 // Der abgelehnte Versuch hinterlässt kein Auth-Konto – sonst wäre der Name belegt, ohne dass es das Kind gäbe.

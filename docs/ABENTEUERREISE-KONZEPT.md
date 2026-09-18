@@ -22,8 +22,11 @@ Stand: September 2026 · Grundlage: `train-home.js`, `train-progress.js`, `train
 > mit der Erde am Himmel, Elefanten in der Savanne), die **Schiebelok** (nach fünf
 > Fehlversuchen schiebt sie den Zug zur nächsten Station – an der letzten Lücke einer Karte
 > schon nach dem ersten, damit eine Zehnerkette nie an einer einzigen Station hängenbleibt;
-> grauer Stempel, die Station lässt sich später nachspielen), das **Reisetempo** (Schalter je Konto im Adminbereich, «langsam»
-> nimmt jeder Karte ein Stück Schwierigkeit; liegt mit Zeitmarke im Kasten der Reise) und
+> grauer Stempel, die Station lässt sich später nachspielen), die **Schwierigkeitsstufe** (leicht, mittel,
+> schwer je Kind – beim Anlegen als Altersgruppe gewählt, von Eltern und Admin umstellbar; «leicht»
+> nimmt jeder Karte ein Stück Schwierigkeit und fährt auf den ersten beiden Karten die Garten-Rätsel
+> und die kleinen Bahnhöfe an, «schwer» gibt den Stempel nur mit drei Sternen bzw. der ganzen
+> Punktzahl; liegt mit Zeitmarke im Kasten der Reise, früher hiess das «Reisetempo») und
 > **Reise 2**: nach der Sternwarte die Weltraum-Karte mit eigenem Fahrplan aus Weltall-Leveln
 > (Belohnung: Landschaft Weltraum), dann die Savanne mit den Stationen der Wiese und Wald bis
 > Nacht noch einmal – dieselben Stationen, drei Level höher, grössere Memorys, Weltall-Level,
@@ -426,9 +429,14 @@ Alles läuft über `transform` und `opacity`, wie die bestehende Bühne; mit
   ganze Zehnerkette an einer Station, das Ausweichgleis kommt gar nicht mehr dazu, und das
   Ziel der Karte bliebe unerreichbar. Gespielt werden muss sie trotzdem, ein Versuch zählt
   erst, wenn eine Runde zu Ende ist (`TRIES_FOR_PUSH_LAST`, `journey-plan.js`).
-- **Reisetempo (Admin).** Ein Schalter im Adminbereich, „langsam": alle Stufen um eine Karte
-  nach hinten (Karte 2 verlangt die Aufträge von Karte 1). Für Vier- bis Fünfjährige, ohne
-  dass ein Kind je „leicht" wählen muss.
+- **Schwierigkeitsstufe (Eltern/Admin).** Drei Stufen je Kind – leicht (3–5 Jahre), mittel
+  (5–7), schwer (7–10) –, beim Anlegen als Altersgruppe gewählt und im Eltern- wie im
+  Adminbereich umstellbar. „leicht": alle Stufen um eine Karte nach hinten (Karte 2 verlangt
+  die Aufträge von Karte 1), dazu auf den ersten beiden Karten die Garten-Rätsel von
+  Battleships und Tiergehege und die kleinen Bahnhöfe von Freie Fahrt. „schwer": dieselben
+  Aufträge, aber den Stempel gibt es nur mit drei Sternen bzw. der ganzen Punktzahl. Die Stufe
+  stellt auch die Spiele ein (Buchstaben-Jagd, Wortdetektiv, Rucksack, Memory, Weichen-Wirrwarr,
+  Freie Fahrt). *Umgesetzt (September 2026); davor gab es nur das „Reisetempo" mit „langsam".*
 - **Kabuse.** Ein Schlusswagen mit Laterne als Trophäe nach Reise 1, hinten am Zug. Schön,
   aber der Zug ist in der Breite ausgereizt (`buildTrain` rechnet mit fünf Wagen); deshalb
   erst, wenn sonst nichts mehr ansteht.
@@ -505,7 +513,7 @@ die Züge der Gruppe.
 | die 25 Spielseiten | `?station=` einlösen (meist über `game-shell`), `journey-plan.js` einbinden |
 | `kids.js` | Pfeife Schiffshorn, Reise-Jingle |
 | `styles.css` | Karte, Nebel, Stempel, Signal, Fahrplan (rund 400 Zeilen) |
-| `firebase.js` | Adminbereich: „Station 23 von 60", Fahrplan-Strich je Kind, optional Reisetempo |
+| `firebase.js` | Adminbereich: „Station 23 von 60", Fahrplan-Strich je Kind, Schwierigkeitsstufe je Kind |
 | `service-worker.js`, `train-test.html` | Vorratsliste; Prüfseite mit Stempeln und Wahrzeichen |
 | `scripts/validate-reise.mjs` *(neu)* | Fahrplan-Regeln, Verweise auf echte Level, steigende Stufen, Aufträge ≥ 3 |
 | `scripts/check-reise.mjs` *(neu)* | Playwright: Schild sichtbar, Fahrt kommt an, Tipp öffnet das richtige Level, Rückweg |
@@ -522,7 +530,7 @@ die Züge der Gruppe.
    Adminbereich. *Aufwand: mittel.*
 3. **Ausbau.** Fahrgast, Streckenbesonderheiten (Fähre, Zahnrad, Tunnel-Licht), neue
    Landschaften Savanne und Weltraum, Gruppe auf der Karte, Reise 2, Schiebelok,
-   Reisetempo. *Aufwand: je Stück klein bis mittel, einzeln entscheidbar.*
+   Schwierigkeitsstufe. *Aufwand: je Stück klein bis mittel, einzeln entscheidbar.*
 
 ---
 

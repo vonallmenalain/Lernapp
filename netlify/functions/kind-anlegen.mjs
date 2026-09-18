@@ -1,7 +1,7 @@
 /*
  * Ein Elternkonto legt ein Kinderprofil an.
  * ---------------------------------------------------------------------------
- *   POST /api/kind-anlegen   { name, passwort }   mit Bearer-Token der Eltern
+ *   POST /api/kind-anlegen   { name, passwort, stufe }   mit Bearer-Token der Eltern
  *
  * Der Server tut, was der Client nicht darf: Er legt den Firebase-Auth-Nutzer
  * mit der technischen Adresse an, schreibt das Kontodokument mit parentUid,
@@ -11,6 +11,13 @@
  * Kind als einziges einen anderen Zug als seine Geschwister. Alles über das
  * Admin-SDK, an firestore.rules vorbei; genau deshalb prüfen die Regeln, dass
  * ein Client diese Felder nie selbst schreibt.
+ *
+ * stufe ist die Altersgruppe, die die Eltern beim Anlegen wählen – "leicht"
+ * (3 bis 5), "mittel" (5 bis 7) oder "schwer" (7 bis 10). Sie wird zur
+ * Schwierigkeitsstufe des Kindes und liegt dort, wo journey-plan.js sie
+ * liest: im Kasten der Reise (gameState "lernapp.reise"), mit Zeitmarke, damit
+ * beim Zusammenführen die neuere Einstellung gewinnt. Fehlt sie oder ist sie
+ * unbekannt, gilt die Mitte – nichts, was ein Kind bestrafte.
  *
  * Höchstens MAX_KINDER je Elternkonto – gezählt in einer Transaktion, damit
  * zwei gleichzeitige Anfragen nicht beide den letzten Platz bekommen. Der
@@ -28,8 +35,13 @@ import { AnfrageFehler, antwort, fehlerAntwort, liesJson, elternAnrufer, nurMeth
 import { sauberName, technischeAdresse, kindPasswort, MAX_KINDER, MIN_KIND_PASSWORT } from "./_lib/kind.mjs";
 import { gruppenId, familieVerbinden, kinderVon } from "./_lib/familie.mjs";
 
-export async function kindAnlegen({ eltern, name, passwort }) {
+export const STUFEN = ["leicht", "mittel", "schwer"];
+export const STUFE_DEFAULT = "mittel";
+export const REISE_KASTEN = "lernapp.reise";
+
+export async function kindAnlegen({ eltern, name, passwort, stufe }) {
   const anzeigeName = sauberName(name);
+  const stufeWert = STUFEN.includes(stufe) ? stufe : STUFE_DEFAULT;
   const adresse = technischeAdresse(anzeigeName);
   if (!adresse) throw new AnfrageFehler(400, "missing-name", "Bitte gib einen Namen ein.");
   const pw = kindPasswort(passwort);
@@ -80,6 +92,9 @@ export async function kindAnlegen({ eltern, name, passwort }) {
         updatedAt: jetzt,
         lastSeenAt: jetzt,
         stats: { totalSeconds: 0, moves: 0, resets: 0, solvedLevels: 0, sessions: 0 },
+        // Die Schwierigkeitsstufe, in der Form, in der das Gerät des Kindes
+        // sie aus der Cloud liest (game-cloud.js: data + updatedAt).
+        gameState: { [REISE_KASTEN]: { data: { stufe: stufeWert, stufeAt: Date.now() }, updatedAt: Date.now() } },
         ...familienSet,
       });
       transaktion.set(elternRef, {
@@ -102,7 +117,7 @@ export async function kindAnlegen({ eltern, name, passwort }) {
     // /api/familie beim nächsten Anmelden nach.
     try { await familieVerbinden(eltern.uid); } catch (fehler) { console.error("Familie verbinden:", fehler); }
 
-    return { uid: nutzer.uid, name: anzeigeName, loginName: anzeigeName, kauf };
+    return { uid: nutzer.uid, name: anzeigeName, loginName: anzeigeName, kauf, stufe: stufeWert };
   } catch (fehler) {
     // Ohne Kontodokument gibt es das Kind nicht – dann darf auch der Name
     // nicht belegt bleiben. Klappt das Aufräumen nicht, meldet der nächste
@@ -116,8 +131,8 @@ export default async (request) => {
   try {
     nurMethode(request, "POST");
     const eltern = await elternAnrufer(request);
-    const { name, passwort } = await liesJson(request);
-    return antwort(await kindAnlegen({ eltern, name, passwort }));
+    const { name, passwort, stufe } = await liesJson(request);
+    return antwort(await kindAnlegen({ eltern, name, passwort, stufe }));
   } catch (fehler) {
     return fehlerAntwort(fehler);
   }

@@ -877,6 +877,7 @@ body.puzzle-active .board {
   color: #7b8190;
 }
 
+.level-tile.starter { border-color: #f4a7c3; }
 .level-tile.easy { border-color: #06d6a0; }
 .level-tile.medium { border-color: #ffd166; }
 .level-tile.hard { border-color: #ef476f; }
@@ -1213,6 +1214,10 @@ body.puzzle-active .count-corner {
   gap: clamp(10px, 1.6vw, 18px);
 }
 
+/* Mit dem Garten sind es fünf Welten – nur auf der Stufe "leicht" (app.js,
+   worldsFor). */
+.difficulty-grid.has-garten { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+
 .difficulty-card {
   min-width: 0;
   min-height: 172px;
@@ -1230,6 +1235,7 @@ body.puzzle-active .count-corner {
   overflow: hidden;
 }
 
+.difficulty-card.starter { border-color: #f4a7c3; background: #fff2f7; }
 .difficulty-card.easy { border-color: #06d6a0; background: #effff8; }
 .difficulty-card.medium { border-color: #ffd166; background: #fff8df; }
 .difficulty-card.hard { border-color: #ef476f; background: #fff0f4; }
@@ -2639,6 +2645,39 @@ body.puzzle-active .spatialPuzzle-board .spatial-option-graphic > svg {
   justify-content: flex-end;
 }
 
+/* Die Altersgruppe beim Anlegen: drei Kacheln mit Radio, eine ist gewählt.
+   Der Kreis bleibt sichtbar – so ist die Wahl auch ohne :has() zu sehen. */
+.kind-stufe-wahl { margin: 0; padding: 0; border: 0; min-width: 0; }
+.kind-stufe-wahl legend { padding: 0; margin-bottom: 8px; color: var(--muted); font-weight: 850; }
+.kind-stufe-knoepfe { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.kind-form-neu .kind-stufe-wahl label {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 2px solid var(--line);
+  border-radius: 14px;
+  background: #fff;
+  color: var(--ink);
+  cursor: pointer;
+}
+.kind-form-neu .kind-stufe-wahl input {
+  width: 22px;
+  height: 22px;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  flex: none;
+  accent-color: var(--primary);
+}
+.kind-stufe-wahl label:has(input:checked) { border-color: var(--primary); background: rgba(108, 92, 231, 0.08); }
+.kind-stufe-wahl label:has(input:focus-visible) { outline: 4px solid rgba(108, 92, 231, 0.16); }
+.kind-stufe-wahl label > span { display: grid; gap: 2px; min-width: 0; }
+.kind-stufe-wahl strong { font-size: 1rem; font-weight: 900; }
+.kind-stufe-wahl small { color: var(--muted); font-weight: 750; font-size: 0.8rem; }
+@media (max-width: 460px) { .kind-stufe-knoepfe { grid-template-columns: 1fr; } }
+
 /* Die Rückmeldung einer Karte: in der Karte, unter dem, was sie betrifft.
    Leer nimmt sie keinen Platz. */
 .karten-status {
@@ -2693,9 +2732,9 @@ body.puzzle-active .spatialPuzzle-board .spatial-option-graphic > svg {
   font-weight: 800;
 }
 
-/* Das Reisetempo: derselbe Kasten, zwei Knöpfe, der gültige ist markiert. */
-.admin-tempo .card-actions { display: flex; gap: 8px; flex-wrap: wrap; }
-.admin-tempo button[aria-pressed="true"] { box-shadow: inset 0 0 0 3px rgba(255, 255, 255, 0.5); }
+/* Die Schwierigkeitsstufe: derselbe Kasten, drei Knöpfe, der gültige ist markiert. */
+.admin-stufe .card-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.admin-stufe button[aria-pressed="true"] { box-shadow: inset 0 0 0 3px rgba(255, 255, 255, 0.5); }
 
 .reset-card.is-confirming,
 .admin-reset.is-confirming {
@@ -3616,6 +3655,8 @@ body.puzzle-active .spatialPuzzle-board .spatial-option-graphic > svg {
 /* --- Buchstaben-Jagd --- */
 .letter-task { display: flex; flex-direction: column; align-items: center; gap: 6px; }
 .letter-image { font-size: clamp(3.4rem, 16vw, 5.4rem); line-height: 1; }
+/* Zum Buchstaben das Wort: der Buchstabe steht gross, wo sonst das Bild ist. */
+.letter-image.is-letter { font-weight: 950; color: var(--primary-dark); letter-spacing: 0.02em; }
 .letter-word { font-size: 1.6rem; font-weight: 900; margin: 0; letter-spacing: 0.06em; color: var(--ink); }
 .letter-question { font-size: 1.15rem; font-weight: 800; margin: 0; color: var(--primary-dark); }
 .letterPuzzle-options .practice-option { font-size: 2rem; font-weight: 950; }
@@ -6702,12 +6743,15 @@ body.has-scene.puzzle-active .game-panel {
 .me-feld[data-karten="16"] { --me-spalten: 4; --me-zeilen: 4; }
 .me-feld[data-karten="20"] { --me-spalten: 5; --me-zeilen: 4; }
 .me-feld[data-karten="24"] { --me-spalten: 6; --me-zeilen: 4; }
+.me-feld[data-karten="30"] { --me-spalten: 6; --me-zeilen: 5; }
 
 /* Auf dem Handy stehen nie mehr als vier nebeneinander: schmaler wäre eine
-   Karte kaum noch zu treffen. */
+   Karte kaum noch zu treffen. Nur die dreissig Karten der Stufe "schwer"
+   stehen zu fünft – acht Reihen zu vieren passten nicht mehr aufs Bild. */
 @media (max-width: 560px) {
   .me-feld[data-karten="20"] { --me-spalten: 4; --me-zeilen: 5; }
   .me-feld[data-karten="24"] { --me-spalten: 4; --me-zeilen: 6; }
+  .me-feld[data-karten="30"] { --me-spalten: 5; --me-zeilen: 6; }
 }
 
 .me-karte {
@@ -6832,35 +6876,6 @@ body.has-scene.puzzle-active .game-panel {
   --rs-gold: #f2b134;
   --rs-gold-dark: #b97a12;
   --rs-rucksack: clamp(76px, 15vh, 118px);
-}
-
-/* --- Die Wahl der Schwierigkeit --- */
-
-.rs-stufen { display: flex; gap: clamp(10px, 2.4vw, 22px); }
-
-.rs-stufe {
-  display: grid;
-  place-items: center;
-  min-width: clamp(64px, 14vw, 104px);
-  padding: clamp(12px, 2.4vh, 20px) clamp(8px, 1.6vw, 16px);
-  border: 3px solid #fff;
-  border-radius: 22px;
-  background: rgba(255, 255, 255, 0.9);
-  cursor: pointer;
-  box-shadow: 0 8px 18px rgba(31, 42, 51, 0.18);
-  transition: transform 0.12s ease, background 0.16s ease;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.rs-stufe:hover { background: #fff; }
-.rs-stufe:active { transform: scale(0.95); }
-.rs-stufe:focus-visible { outline: 3px solid #243047; outline-offset: 3px; }
-
-.rs-stufe-zahl {
-  font-size: clamp(1.6rem, 4.5vw, 2.4rem);
-  font-weight: 950;
-  line-height: 1;
-  color: var(--cm-accent-dark);
 }
 
 /* --- Die Zeile über den Gegenständen --- */
@@ -7082,7 +7097,7 @@ body.has-scene.puzzle-active .game-panel {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .rs-stufe, .rs-item { transition: none; }
+  .rs-item { transition: none; }
   .rs-item, .rs-item.is-right, .rs-item.is-gewaehlt, .rs-item.is-wrong, .rs-flug,
   .rs-rucksack.is-bump, .rs-rucksack.is-leer, .rs-platz.is-dran { animation: none; }
 }
@@ -7735,6 +7750,12 @@ body.has-scene.puzzle-active .game-panel {
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: clamp(6px, 1.4vw, 16px);
   width: min(94vw, 860px);
+}
+
+/* Fünf Spalten, wenn "Sehr leicht" dabei ist (Stufe "leicht"). */
+.ff-stufen.has-fuenf {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  width: min(96vw, 1000px);
 }
 
 .ff-stufe { display: grid; gap: clamp(4px, 1vh, 8px); align-content: start; }
@@ -9152,6 +9173,7 @@ body.has-scene .difficulty-grid {
   gap: clamp(8px, 1.6vw, 18px);
   width: 100%;
 }
+body.has-scene .difficulty-grid.has-garten { grid-template-columns: repeat(5, minmax(0, 1fr)); }
 
 body.has-scene .difficulty-card {
   min-height: 0;
@@ -10018,6 +10040,7 @@ body[data-page="train"] .train-stage[data-view="reise"] ~ .help-voice {
 /* Der Weg zurück auf die Karte pulst, wenn der Stempel wartet. */
 .cm-icon.is-primary { box-shadow: 0 0 0 4px rgba(63, 191, 116, 0.4); animation: cm-pulse 2.1s ease-in-out infinite; }
 .success-journey, .runner-journey { font-weight: 800; color: #2f6f4f; }
+.success-journey.is-missing { color: #b53a28; }
 
 @media (prefers-reduced-motion: reduce) {
   .journey-sparkle, .journey-stamp.is-new, .journey-signal-ring, .journey-water, .journey-blades, .journey-beam,
