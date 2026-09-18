@@ -482,17 +482,34 @@ nichts davon.
    [`cloudflare/kids-mail-worker.js`](./cloudflare/kids-mail-worker.js) einfügen, *Deploy*.
 
    Der Umweg über Hello World ist nötig, weil Cloudflare erst einen Worker angelegt haben
-   will, bevor sich Code einfügen lässt. Die Vorschau im Editor meldet danach, dass ein
-   `fetch`-Handler fehlt – das ist richtig so: Dieser Worker beantwortet keine
-   HTTP-Anfragen, sondern nimmt Mails entgegen. Deployen lässt er sich trotzdem.
+   will, bevor sich Code einfügen lässt.
+
+   > **Die Datei muss GANZ hineinkopiert werden.** Sie ist gut 260 Zeilen lang und endet mit
+   > `};`. Eine abgeschnittene Zwischenablage nimmt der Editor stillschweigend an, und es
+   > sieht aus, als hätte es geklappt – nur fehlt dann der `email`-Handler ganz unten. Der
+   > Worker ist deployt, taucht aber bei der Routing-Regel nicht auf („**No deployed Email
+   > Workers found**"), und man sucht den Fehler bei Email Routing statt im eigenen Editor.
+   >
+   > Am sichersten ist der Knopf **Copy raw file** in der GitHub-Ansicht der Datei. Nach dem
+   > Einfügen kurz nach unten scrollen: Ganz unten muss `async email(message, env)` stehen.
 3. Im Worker → *Settings* → *Variables and Secrets*:
    - `GRIPSZUG_EINGANG` = `https://kids.alae.app/api/mail-eingang` (Type **Text**)
    - `MAIL_GEHEIMNIS` = derselbe Wert wie `MAIL_WEBHOOK_SECRET` bei Netlify (Type **Secret**,
      nicht Text)
-4. **Compute → Email Service → Email Routing** → Domain `alae.app` wählen → Reiter
+4. **Nachsehen, ob alles oben ist:** Die Adresse des Workers aufrufen –
+   `https://kids-mail.<dein-konto>.workers.dev`. Dort steht in einem Satz, ob der
+   `email`-Handler da ist und ob die beiden Variablen gesetzt sind (nur *ob*, nie ihr
+   Inhalt). Steht dort „FEHLT", ist es genau das.
+
+   Diese Adresse ist nicht der Zweck des Workers, sondern seine Quittung. Mails nimmt er
+   über Email Routing entgegen, nicht über HTTP.
+5. **Compute → Email Service → Email Routing** → Domain `alae.app` wählen → Reiter
    *Routing Rules* → *Create routing rule*: Pattern `kids`, Action *Send to a Worker*,
    Worker `kids-mail`.
-5. Eine Mail an kids@alae.app schicken. Sie muss im Postfach ankommen **und** im Adminbereich
+
+   Steht `kids-mail` nicht in der Liste, sondern „No deployed Email Workers found"? Dann ist
+   der `email`-Handler nicht im deployten Code – zurück zu Schritt 2.
+6. Eine Mail an kids@alae.app schicken. Sie muss im Postfach ankommen **und** im Adminbereich
    unter *Eingang* stehen.
 
    Nur im Postfach, nicht im Adminbereich? Dann greift noch eine alte Routing-Regel, oder
@@ -539,6 +556,10 @@ sonst hiesse der Schalter nichts. Die Post steht dann nur im Archiv.
 4. **Post kommt an, steht aber nicht im Adminbereich** – dann läuft der kleine Weg (nur
    Routing-Regel) statt des Workers, oder `MAIL_GEHEIMNIS` und `MAIL_WEBHOOK_SECRET` sind
    verschieden. Der Worker zeigt es in Cloudflare unter *Logs*.
+4b. **„No deployed Email Workers found" bei der Routing-Regel** – der deployte Worker hat
+   keinen `email`-Handler. Fast immer eine abgeschnittene Zwischenablage: Die Datei aus
+   `cloudflare/` ist gut 260 Zeilen lang, und der Handler steht ganz unten. Die Adresse
+   `https://kids-mail.<dein-konto>.workers.dev` sagt es geradeheraus.
 5. **Post steht im Adminbereich, kommt aber nicht im Postfach an** – dann hat Gripszug sie
    archiviert und Resend die Weiterleitung abgelehnt; der Grund steht am Eintrag *Weiterleitung*
    unter dem Filter *Fehler*. Der Worker leitet in diesem Fall selbst weiter, die Mail sollte

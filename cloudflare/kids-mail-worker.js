@@ -171,6 +171,42 @@ export function anhaengeAusRoh(roh) {
 }
 
 export default {
+  /*
+   * Die Quittung. Ein Email Worker beantwortet keine Webseiten-Aufrufe – er
+   * bräuchte diesen Teil nicht, und ohne ihn meldet die Vorschau im
+   * Cloudflare-Editor "No fetch handler!".
+   *
+   * Er steht trotzdem hier, aus einem Grund, der sich beim Einrichten gezeigt
+   * hat: Der Editor nimmt eingefügten Code auch dann an, wenn die Zwischenablage
+   * ihn abgeschnitten hat. Fehlt dabei der email-Handler ganz unten, ist der
+   * Worker deployt, taucht in der Routing-Regel aber nicht auf – "No deployed
+   * Email Workers found" –, und man sucht den Fehler bei Email Routing statt im
+   * eigenen Editor.
+   *
+   * Diese Adresse sagt in einem Satz, ob das Hochladen vollständig war. Sie
+   * verrät nichts: Von den Variablen steht nur da, OB sie gesetzt sind, nie ihr
+   * Inhalt – genauso wie /api/status bei Gripszug.
+   */
+  async fetch(request, env) {
+    const zeilen = [
+      "Gripszug – der Briefträger für kids@alae.app.",
+      "",
+      "Diese Adresse ist nur die Quittung: Sie sagt, ob der Worker vollständig",
+      "hochgeladen ist. Mails nimmt er über Email Routing entgegen, nicht hier.",
+      "",
+      `email-Handler:      ${typeof this.email === "function" ? "ja" : "FEHLT – der eingefügte Code ist unvollständig"}`,
+      `GRIPSZUG_EINGANG:   ${env.GRIPSZUG_EINGANG ? env.GRIPSZUG_EINGANG : "FEHLT"}`,
+      `MAIL_GEHEIMNIS:     ${env.MAIL_GEHEIMNIS ? "gesetzt" : "FEHLT"}`,
+      `Weiterleitung:      ${WEITERLEITUNG}`,
+      "",
+      "Steht überall etwas, ist der Worker bereit für die Routing-Regel:",
+      "Compute → Email Service → Email Routing → Routing Rules.",
+    ];
+    return new Response(`${zeilen.join("\n")}\n`, {
+      headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" },
+    });
+  },
+
   async email(message, env) {
     const roh = await new Response(message.raw).text();
     const anhaenge = anhaengeAusRoh(roh);
