@@ -2377,10 +2377,10 @@
       node.setAttribute("aria-label", `${describeArea(area)} Antippen für die Spiele in diesem Bereich.`);
       // Die Wagen wippen nacheinander, nicht im Gleichschritt: eine Reihe, die
       // von vorn nach hinten durchläuft, liest sich als "alle fünf", ein
-      // gemeinsamer Hüpfer als Zucken. Die erste Sekunde gehört der Einfahrt
-      // des Zugs – wer währenddessen wippt, wippt in einer Bewegung, die
-      // ohnehin läuft, und fällt niemandem auf.
-      node.style.setProperty("--wagen-verzug", `${(1.2 + areas.indexOf(area) * 0.14).toFixed(2)}s`);
+      // gemeinsamer Hüpfer als Zucken. Angehalten wird kurz, bis der Zug nach
+      // der Einfahrt wirklich steht – das Stylesheet lässt die Animation erst
+      // los, wenn data-entering weg ist.
+      node.style.setProperty("--wagen-verzug", `${(0.35 + areas.indexOf(area) * 0.14).toFixed(2)}s`);
       activate(node, () => { if (TRAIN_TAPPABLE.has(view.name) && !busy) showWagon(id); });
     });
     svg.querySelector("[data-loco]")?.setAttribute("aria-label", "Deine Lokomotive");

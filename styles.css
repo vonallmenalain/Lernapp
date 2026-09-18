@@ -4539,23 +4539,34 @@ body[data-page="train"].list-open { overflow: auto; }
    kurz nacheinander, solange noch nie einer angetippt wurde; danach nie
    wieder (data-hint-wagons).
 
+   Erst nach der Einfahrt: Solange data-entering steht, wartet der Zug am
+   linken Rand oder rollt gerade herein. Ein Wippen dort wäre ein Wippen
+   ausserhalb des Bilds – die drei Runden wären vorbei, bevor ein Kind den Zug
+   überhaupt sieht. Die Regel greift erst, wenn das Attribut weg ist, und da
+   beginnt auch die Animation.
+
    translate statt transform: Jeder Wagen trägt schon ein transform-Attribut,
    das ihn an seinen Platz im Zug setzt. Eine Animation auf transform
    überschriebe es, und die Wagen lägen alle übereinander in der Ecke. */
-.train-stage[data-view="home"][data-hint-wagons="1"] [data-area] {
+.train-stage[data-view="home"][data-hint-wagons="1"]:not([data-entering]) [data-area] {
   animation: wagen-winkt 1.9s ease-in-out var(--wagen-verzug, 0s) 3 both;
 }
 
+/* Die Werte sind Einheiten des Zug-Bilds, keine Bildschirmpixel: Am Laptop
+   sind das rund 10 px Hub, am Handy rund 7 – dort ist das Bild kleiner, und
+   ein kleinerer Zug darf auch kleiner hüpfen. Zweimal, das zweite Mal
+   kleiner: So federt ein Ball aus, und so liest sich die Bewegung als Absicht
+   und nicht als Ruckler. */
 @keyframes wagen-winkt {
   0%, 55%, 100% { translate: 0 0; }
-  62% { translate: 0 -7px; }
+  62% { translate: 0 -9px; }
   70% { translate: 0 0; }
-  77% { translate: 0 -4px; }
+  77% { translate: 0 -5px; }
   85% { translate: 0 0; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .train-stage[data-view="home"][data-hint-wagons="1"] [data-area] { animation: none; }
+  .train-stage[data-view="home"][data-hint-wagons="1"]:not([data-entering]) [data-area] { animation: none; }
 }
 
 /* Die Fahrt zum Tor, in zwei Abschnitten: anrollen bis zur Weiche, dann die
