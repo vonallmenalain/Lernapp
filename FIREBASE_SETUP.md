@@ -160,8 +160,15 @@ Wer in derselben **Gruppe** ist (Feld `group.id` am Konto), darf ausserdem die K
 
 Was kein Client darf, tut der Server: Kinderkonten anlegen, die Eltern an die Kasse von
 Stripe schicken, nach der Zahlung freischalten. Das sind vier kleine Funktionen unter
-[`netlify/functions/`](./netlify/functions/), die Netlify neben der App ausliefert
-(`netlify.toml` sagt ihm, wo sie liegen):
+[`netlify/functions/`](./netlify/functions/), die Netlify neben der App ausliefert.
+
+`netlify.toml` sagt Netlify zweierlei: wo die Funktionen liegen – und dass **`dist/`**
+veröffentlicht wird, nicht das Wurzelverzeichnis. Seit die Funktionen Pakete brauchen,
+installiert Netlify vor jedem Deploy `node_modules` (gut hundert Megabyte), und die dürfen
+nicht mit auf die Site. [`netlify/build.mjs`](./netlify/build.mjs) kopiert deshalb nur die
+App – Seiten, Skripte, Stylesheet, Manifest, Icons – nach `dist/`. Gebaut wird dabei nichts;
+es sind dieselben Dateien. Die Site-Einstellung „Publish directory" bei Netlify wird davon
+überschrieben.
 
 | Pfad | Wer ruft | Was |
 | --- | --- | --- |

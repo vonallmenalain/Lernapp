@@ -1,13 +1,18 @@
-# Die App sind die Dateien im Wurzelverzeichnis; gebaut wird nichts. Was hier
-# steht, ist nur für die Server-Funktionen nötig – und dafür, dass ihr Code
-# und die installierten Pakete nicht als Teil der Site abrufbar sind.
+# Die App sind die Dateien im Wurzelverzeichnis; gebaut wird nichts. Aber
+# veröffentlicht wird nicht das Wurzelverzeichnis: Daneben liegen Werkzeuge,
+# Regeln, Doku und der Server, und nach dem Installieren der Server-Pakete
+# hundert Megabyte node_modules. netlify/build.mjs kopiert nur die App nach
+# dist/, und dist/ geht auf die Site.
+#
+# Die Funktionen brauchen Umgebungsvariablen (Site configuration → Environment
+# variables): FIREBASE_SERVICE_ACCOUNT, STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET,
+# STRIPE_PRICE_ID. Welche wofür, steht in FIREBASE_SETUP.md, Abschnitt 3b.
 
 [build]
-  # Wurzelverzeichnis veröffentlichen, wie bisher in den Site-Einstellungen.
-  publish = "."
-  # Nur die Pakete der Funktionen installieren (dependencies), nicht die
-  # Prüfwerkzeuge (devDependencies) – die sind gross und hier nutzlos.
-  command = "npm ci --omit=dev --no-audit --no-fund"
+  publish = "dist"
+  # Nur die Pakete der Funktionen (dependencies), nicht die Prüfwerkzeuge –
+  # dann die App nach dist/ kopieren.
+  command = "npm ci --omit=dev --no-audit --no-fund && node netlify/build.mjs"
 
 [build.environment]
   NODE_VERSION = "22"
@@ -19,23 +24,3 @@
   # firebase-admin bringt Teile mit, die esbuild nicht einpacken kann (gRPC,
   # dynamische Requires). Als "external" werden sie mitkopiert statt gebündelt.
   external_node_modules = ["firebase-admin", "stripe"]
-
-# Was auf dem Server liegt, hat im Browser nichts verloren. Die Funktionen
-# selbst laufen unter /api/…; ihre Quelldateien und die Pakete bleiben zu.
-[[redirects]]
-  from = "/netlify/*"
-  to = "/index.html"
-  status = 404
-  force = true
-
-[[redirects]]
-  from = "/node_modules/*"
-  to = "/index.html"
-  status = 404
-  force = true
-
-[[redirects]]
-  from = "/scripts/*"
-  to = "/index.html"
-  status = 404
-  force = true
