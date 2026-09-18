@@ -9,6 +9,10 @@
  *
  *   checkout.session.completed   bezahlt → entitlements/{uid} für die Eltern
  *                                und jedes Kind in ihrer Liste
+ *   checkout.session.async_payment_succeeded
+ *                                dasselbe für Zahlarten, die erst später
+ *                                bestätigt werden (completed kommt dann mit
+ *                                payment_status "unpaid" und wartet)
  *   charge.refunded              Geld zurück → active: false, für alle
  *
  * Stripe schickt dasselbe Ereignis gern mehrmals (und im Zweifel noch
@@ -22,6 +26,8 @@ import { db, FieldValue } from "./_lib/firebase.mjs";
 import { stripe, webhookGeheimnis } from "./_lib/stripe.mjs";
 import { antwort } from "./_lib/anfrage.mjs";
 
+const BEZAHLT = new Set(["paid", "no_payment_required"]);
+
 function kinderVon(daten) {
   const liste = Array.isArray(daten?.children) ? daten.children : [];
   return liste.map((kind) => (typeof kind === "string" ? kind : kind?.uid)).filter((uid) => typeof uid === "string" && uid);
@@ -30,7 +36,11 @@ function kinderVon(daten) {
 export async function kaufVerbuchen(session) {
   const uid = session.client_reference_id || session.metadata?.uid;
   if (!uid) return { verbucht: false, grund: "keine uid" };
-  if (session.payment_status && session.payment_status !== "paid") return { verbucht: false, grund: `payment_status ${session.payment_status}` };
+  // Bezahlt – oder nichts zu bezahlen: Ein Gutschein über 100 % (die Kasse
+  // erlaubt Gutscheincodes) ergibt eine fertige Kasse mit dem Stand
+  // "no_payment_required". Alles andere (unpaid: eine verzögerte Zahlung,
+  // die noch aussteht) wartet auf das nächste Ereignis.
+  if (session.payment_status && !BEZAHLT.has(session.payment_status)) return { verbucht: false, grund: `payment_status ${session.payment_status}` };
 
   const ref = db().collection("entitlements").doc(uid);
   const vorhanden = await ref.get();
