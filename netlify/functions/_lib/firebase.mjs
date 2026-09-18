@@ -11,17 +11,28 @@
  * Gegen den Emulator braucht es keinen Schlüssel: Sind FIRESTORE_EMULATOR_HOST
  * und FIREBASE_AUTH_EMULATOR_HOST gesetzt, reicht die Projekt-ID. So laufen
  * die Prüfskripte ohne Netz und ohne Geheimnis.
+ *
+ * Firestore spricht hier REST, nicht gRPC (preferRest). Eine Netlify-Funktion
+ * lebt ein paar Sekunden: Sie startet, antwortet, verschwindet. gRPC baut
+ * dafür jedes Mal eine HTTP/2-Verbindung samt Protokolldateien auf – das
+ * kostet Sekunden und bleibt in einer Lambda-Umgebung gern ganz hängen, und
+ * dann sieht der Anrufer kein Ergebnis, sondern eine Zeitüberschreitung (502).
+ * Über REST ist der erste Aufruf schnell da. Für das, was wir tun – einzelne
+ * Dokumente lesen und schreiben – gibt es keinen Unterschied; nur onSnapshot
+ * bräuchte gRPC, und das tut hier niemand.
  */
 
 import { initializeApp, cert, getApps, getApp } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
-import { getFirestore, FieldValue } from "firebase-admin/firestore";
+import { getFirestore, initializeFirestore, FieldValue } from "firebase-admin/firestore";
 
 const PROJEKT_ID = process.env.FIREBASE_PROJECT_ID || "lernapp-8d944";
 
+const imEmulatorLaeuft = () => Boolean(process.env.FIRESTORE_EMULATOR_HOST || process.env.FIREBASE_AUTH_EMULATOR_HOST);
+
 function app() {
   if (getApps().length) return getApp();
-  const imEmulator = Boolean(process.env.FIRESTORE_EMULATOR_HOST || process.env.FIREBASE_AUTH_EMULATOR_HOST);
+  const imEmulator = imEmulatorLaeuft();
   const roh = process.env.FIREBASE_SERVICE_ACCOUNT;
 
   if (!roh) {
@@ -44,5 +55,25 @@ function app() {
 }
 
 export const auth = () => getAuth(app());
-export const db = () => getFirestore(app());
+
+// initializeFirestore nimmt die Einstellungen entgegen, verträgt aber nur
+// einen Aufruf je App – deshalb gemerkt. Danach gibt getFirestore dieselbe
+// Instanz zurück; der Umweg hier ist nur für das erste Mal.
+let firestore = null;
+export function db() {
+  if (firestore) return firestore;
+  const anwendung = app();
+  try {
+    // Nicht im Emulator: Der spricht mit dem Wegwerf-Schlüssel der Prüfung
+    // nur gRPC; über REST verlangte er ein echtes Google-Token und
+    // antwortete mit 403. Im Ernstfall zählt ohnehin nur dieser Zweig.
+    firestore = initializeFirestore(anwendung, { preferRest: !imEmulatorLaeuft() });
+  } catch {
+    // Schon anderswo initialisiert (zwei Module, ein Prozess): dann die
+    // bestehende Instanz nehmen, wie sie ist.
+    firestore = getFirestore(anwendung);
+  }
+  return firestore;
+}
+
 export { FieldValue };

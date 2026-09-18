@@ -180,6 +180,8 @@ es sind dieselben Dateien. Die Site-Einstellung „Publish directory" bei Netlif
 | `POST /api/kind-passwort` | Elternkonto | setzt das Passwort eines eigenen Kindes neu |
 | `POST /api/checkout` | Elternkonto | erstellt die Kasse bei Stripe und gibt ihre URL zurück |
 | `POST /api/stripe-webhook` | Stripe (mit Unterschrift) | verbucht `checkout.session.completed` und `checkout.session.async_payment_succeeded` als Kauf für Eltern und Kinder, `charge.refunded` als Rücknahme |
+| `GET /api/status` | jeder | sagt, welche Node-Fassung läuft und welche Umgebungsvariablen gesetzt sind – nur ob, nie der Inhalt. Lädt nichts (keine import-Zeile), antwortet deshalb auch, wenn die anderen es nicht tun. |
+| `GET /api/status-tief` | jeder | lädt dasselbe wie die Kasse und fragt Firebase Auth, Firestore und Stripe wirklich an, mit Zeiten. Antwortet sie mit 502, während `/api/status` 200 gibt, liegt es an den Paketen. |
 
 Die Funktionen brauchen **Umgebungsvariablen** (Netlify: *Site configuration → Environment
 variables*). Ohne sie antworten sie mit einem klaren Fehler statt zu raten:
@@ -191,6 +193,13 @@ variables*). Ohne sie antworten sie mit einem klaren Fehler statt zu raten:
 | `STRIPE_PRICE_ID` | Der Preis des Produkts „Gripszug Familie" (Einmalkauf, CHF 30); die Kennung beginnt mit `price` und einem Unterstrich. |
 | `STRIPE_WEBHOOK_SECRET` | Stripe-Dashboard → Developers → Webhooks → Endpunkt `https://kids.alae.app/api/stripe-webhook` mit den Ereignissen `checkout.session.completed`, `checkout.session.async_payment_succeeded` (Zahlarten, die erst später bestätigt werden) und `charge.refunded` → *Signing secret* (beginnt mit `whsec` und einem Unterstrich). |
 | `SITE_URL` | optional; Netlify setzt `URL` ohnehin. Fallback `https://kids.alae.app`. |
+
+**Firestore spricht REST, nicht gRPC.** Eine Funktion lebt ein paar Sekunden; gRPC baut
+dafür jedes Mal eine HTTP/2-Verbindung samt Protokolldateien auf, was Sekunden kostet und
+in einer Lambda-Umgebung gern hängen bleibt – der Anrufer sieht dann kein Ergebnis, sondern
+502. `preferRest` in [`_lib/firebase.mjs`](./netlify/functions/_lib/firebase.mjs) schaltet
+das um. Gegen den Emulator bleibt es bei gRPC: Der verlangt über REST ein echtes
+Google-Token und weist den Wegwerf-Schlüssel der Prüfung mit 403 ab.
 
 Wie ein Kinderkonto heisst, rechnet der Server in
 [`netlify/functions/_lib/kind.mjs`](./netlify/functions/_lib/kind.mjs) genauso wie der
