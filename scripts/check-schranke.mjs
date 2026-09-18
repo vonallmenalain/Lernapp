@@ -27,6 +27,13 @@
  *   - Die Rechnung selbst: Station 10 frei, 11 zu; jedes Spiel frei, bis es
  *     gespielt ist, und dann nur dieses zu
  *
+ * Und zum Schluss mit Konto (ein nachgebautes Firebase, das sich – wie im
+ * Ernstfall – erst nach einem Moment meldet): Ein Kind mit Gründer-Zugang
+ * darf das Tor nie sehen, auch nicht für den Augenblick, in dem die Anmeldung
+ * noch unterwegs ist. Genau das ging einmal schief: Die Bühne fragte die
+ * Schranke, bevor Firebase gesagt hatte, wer spielt, bekam "Gast" zur Antwort
+ * und liess das Tor stehen – bei jedem Öffnen einer Station.
+ *
  * Aufruf:  node scripts/check-schranke.mjs
  * Nötig:   Playwright. Der lokale Server wird selbst gestartet und beendet.
  */
@@ -56,6 +63,61 @@ async function warteAufServer() {
 
 const befunde = [];
 const fehlt = (was) => befunde.push(was);
+
+// Drei angemeldete Konten. verzoegerung ist der Moment, in dem Firebase sagt,
+// wer da ist – im Ernstfall ein paar Hundertstel bis Sekunden, und genau in
+// dieser Lücke stand das Tor einmal falsch.
+const KONTEN = [
+  { name: "Gründerkind (langsame Anmeldung)", verzoegerung: 700, parentUid: null, kauf: false, grund: "gruender", tor: false },
+  { name: "Gründerkind (sofort)", verzoegerung: 0, parentUid: null, kauf: false, grund: "gruender", tor: false },
+  { name: "Kind mit Elternkonto, ohne Kauf", verzoegerung: 300, parentUid: "eltern1", kauf: false, grund: "offen", tor: true },
+  { name: "Kind mit Elternkonto, gekauft", verzoegerung: 300, parentUid: "eltern1", kauf: true, grund: "gekauft", tor: false },
+];
+
+// Ein schlankes Firebase für den Browser: ein Kind, sein Kontodokument und –
+// wenn gekauft – sein Kaufeintrag. Mehr braucht die Schranke nicht zu wissen.
+function firebaseErsatz({ verzoegerung, parentUid, kauf }) {
+  const KIND = { uid: "kind-alt", email: "lino@lernapp.local", emailVerified: false, displayName: "Lino", providerData: [{ providerId: "password" }] };
+  const daten = new Map([["users/kind-alt", {
+    authEmail: KIND.email, email: null, username: "Lino", displayName: "Lino", role: "child",
+    ...(parentUid ? { parentUid } : {}),
+    stats: { totalSeconds: 60, moves: 5, resets: 0, solvedLevels: 0, sessions: 1 },
+  }]]);
+  if (kauf) daten.set("entitlements/kind-alt", { plan: "familie", active: true, grantedAtMs: 1700000000000, source: "stripe" });
+  const schnapp = (pfad) => ({ exists: daten.has(pfad), id: pfad.split("/").pop(), data: () => daten.get(pfad) });
+  const docRef = (pfad) => ({
+    path: pfad, id: pfad.split("/").pop(),
+    async get() { return schnapp(pfad); },
+    async set(nutzlast, optionen) { daten.set(pfad, optionen?.merge ? { ...(daten.get(pfad) || {}), ...nutzlast } : nutzlast); },
+    async update(nutzlast) { daten.set(pfad, { ...(daten.get(pfad) || {}), ...nutzlast }); },
+    async delete() { daten.delete(pfad); },
+    onSnapshot(rueckruf) { setTimeout(() => rueckruf(schnapp(pfad)), 10); return () => {}; },
+    collection: (name) => collRef(`${pfad}/${name}`),
+  });
+  function collRef(pfad) {
+    const abfrage = {
+      orderBy: () => abfrage, limit: () => abfrage, where: () => abfrage,
+      async get() { return { docs: [], size: 0, empty: true, forEach() {} }; },
+      doc: (id) => docRef(`${pfad}/${id}`),
+    };
+    return abfrage;
+  }
+  const nutzer = { ...KIND, updateProfile: async () => {}, reload: async () => {}, getIdToken: async () => "token-attrappe" };
+  const auth = () => ({
+    currentUser: null,
+    setPersistence: () => Promise.resolve(),
+    onAuthStateChanged(rueckruf) { setTimeout(() => rueckruf(nutzer), verzoegerung); return () => {}; },
+    signOut: async () => {},
+  });
+  auth.Auth = { Persistence: { LOCAL: "local" } };
+  auth.GoogleAuthProvider = function GoogleAuthProvider() {};
+  const firestore = () => ({
+    collection: (name) => collRef(name),
+    batch: () => ({ set() { return this; }, update() { return this; }, delete() { return this; }, async commit() {} }),
+  });
+  firestore.FieldValue = { serverTimestamp: () => 1700000000000, increment: (um) => um, delete: () => null };
+  window.firebase = { apps: [], initializeApp: () => ({}), app: () => ({}), auth, firestore };
+}
 
 if (!(await warteAufServer())) { console.error("Server antwortet nicht."); process.exit(2); }
 const browser = await playwright.chromium.launch();
@@ -299,6 +361,41 @@ try {
 
   if (fehler.length) fehlt(`JavaScript-Fehler: ${fehler.slice(0, 3).join(" | ")}`);
   await context.close();
+
+  // --- Mit Konto: Gründer, Familie ohne Kauf, Familie mit Kauf ----------------
+  for (const fall of KONTEN) {
+    const eigener = await browser.newContext({ viewport: { width: 1024, height: 640 }, serviceWorkers: "block", reducedMotion: "reduce" });
+    eigener.setDefaultTimeout(5000);
+    // Das echte SDK liegt auf einem fremden Server; hier zählt der Ersatz.
+    await eigener.route("**/*gstatic.com/**", (route) => route.fulfill({ status: 200, contentType: "application/javascript", body: "" }));
+    await eigener.addInitScript(firebaseErsatz, fall);
+    const seite = await eigener.newPage();
+    const seitenfehler = [];
+    seite.on("pageerror", (e) => seitenfehler.push(e.message));
+    // Station 15 liegt auf Karte 2 – die ist nur mit Kauf oder Gründer-Zugang frei.
+    await seite.goto(`${BASIS}/memory.html?station=15`, { waitUntil: "domcontentloaded" });
+    // Zweimal messen: gleich nach dem Laden (da ist die Anmeldung noch
+    // unterwegs) und wenn alles steht.
+    await seite.waitForTimeout(400);
+    const frueh = await seite.locator(".tor-overlay").count();
+    await seite.waitForTimeout(1800);
+    const spaet = await seite.locator(".tor-overlay").count();
+    const stand = await seite.evaluate(() => ({
+      grund: window.LernappEntitlement.reason(),
+      frei: window.LernappEntitlement.isFree(),
+      geladen: window.LernappEntitlement.isLoaded(),
+      station15: window.LernappEntitlement.stationFree(15),
+    }));
+    if (stand.grund !== fall.grund) fehlt(`${fall.name}: der Grund ist "${stand.grund}", erwartet "${fall.grund}"`);
+    if (stand.frei !== !fall.tor) fehlt(`${fall.name}: isFree ist ${stand.frei}`);
+    if (!stand.geladen) fehlt(`${fall.name}: der Kontostand steht auch nach zwei Sekunden nicht fest`);
+    if (stand.station15 === fall.tor) fehlt(`${fall.name}: Station 15 ist ${stand.station15 ? "frei" : "zu"}`);
+    if (Boolean(spaet) !== fall.tor) fehlt(`${fall.name}: nach dem Laden ${spaet ? "steht" : "fehlt"} das Tor`);
+    // Der eigentliche Fehler von damals: das Tor im Augenblick der Anmeldung.
+    if (Boolean(frueh) !== fall.tor) fehlt(`${fall.name}: während der Anmeldung ${frueh ? "blitzt das Tor auf" : "fehlt das Tor"}`);
+    if (seitenfehler.length) fehlt(`${fall.name}: JavaScript-Fehler: ${seitenfehler.slice(0, 2).join(" | ")}`);
+    await eigener.close();
+  }
 } catch (abbruch) {
   fehlt(`Abbruch: ${String(abbruch?.message || abbruch).split("\n")[0]}`);
 } finally {
@@ -311,4 +408,4 @@ if (befunde.length) {
   befunde.forEach((b) => console.error(`  - ${b}`));
   process.exit(1);
 }
-console.log("Das Tor steht, wo es soll – und nur dort.");
+console.log(`Das Tor steht, wo es soll – und nur dort (auch für ${KONTEN.length} angemeldete Konten).`);

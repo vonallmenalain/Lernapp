@@ -119,12 +119,30 @@
     // Dort entscheidet die Station, nicht das Spiel.
     function nochEinmal() {
       const schranke = window.LernappEntitlement;
-      const ziel = `${window.location.pathname.split("/").pop() || ""}${window.location.search}`;
-      if (schranke && !schranke.targetFree(ziel)) {
-        schranke.showGate({ host, onBack: () => { if (journey) toMap(); else window.location.href = "index.html"; } });
-        return;
-      }
-      onRestart();
+      if (!schranke) { onRestart(); return; }
+      // targetLocked statt targetFree: Die Antwort kommt erst, wenn feststeht,
+      // wer spielt. Steht der Stand längst – und das tut er hier, nach einer
+      // ganzen Runde –, kommt sie ohne Verzögerung.
+      gesperrt(schranke, torZiel()).then((zu) => {
+        if (zu) zeigeTor(schranke);
+        else onRestart();
+      });
+    }
+
+    // Das Ziel, vor dem das Tor steht: diese Seite mit ihrer Station.
+    function torZiel() {
+      return `${window.location.pathname.split("/").pop() || ""}${window.location.search}`;
+    }
+
+    function zeigeTor(schranke) {
+      schranke.showGate({ host, ziel: torZiel(), onBack: () => { if (journey) toMap(); else window.location.href = "index.html"; } });
+    }
+
+    // Ist das Ziel zu? Eine ältere Fassung der Schranke aus dem
+    // Zwischenspeicher kennt targetLocked noch nicht – dann wie früher.
+    function gesperrt(schranke, ziel) {
+      if (typeof schranke.targetLocked === "function") return schranke.targetLocked(ziel);
+      return Promise.resolve(!schranke.targetFree(ziel));
     }
 
     function toMap() {
@@ -403,10 +421,11 @@
     // gesperrt, steht das Tor über der Bühne; zurück geht es zur Karte oder
     // zum Zug. Die Bühne selbst wird trotzdem gebaut: Das Spiel dahinter
     // rechnet mit ihr, und unter dem Tor sieht und erreicht sie niemand.
+    // Gefragt wird erst, wenn feststeht, wer spielt: Beim Laden ist die
+    // Anmeldung noch unterwegs, und ein Kind mit Gründer-Zugang sähe sonst
+    // hier das Tor – bei jedem Öffnen einer Station.
     const schranke = window.LernappEntitlement;
-    if (schranke && !schranke.targetFree(`${window.location.pathname.split("/").pop() || ""}${window.location.search}`)) {
-      schranke.showGate({ host, onBack: () => { if (journey) toMap(); else window.location.href = "index.html"; } });
-    }
+    if (schranke) gesperrt(schranke, torZiel()).then((zu) => { if (zu) zeigeTor(schranke); });
 
     return {
       play,

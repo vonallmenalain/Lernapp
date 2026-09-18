@@ -1698,11 +1698,19 @@
   async function enterGame(page) {
     if (busy || !page) return;
     // Vor der Schranke: Ist das Ziel frei? Ein gesperrtes zeigt das Tor und
-    // lässt die Bühne, wie sie ist – der Zug fährt nirgendwohin.
+    // lässt die Bühne, wie sie ist – der Zug fährt nirgendwohin. Gefragt wird
+    // erst, wenn feststeht, wer spielt: Wer gleich nach dem Laden tippt, ist
+    // sonst für einen Augenblick ein Gast – und ein Kind mit Gründer-Zugang
+    // bekäme ein Tor zu sehen, das für es nie gilt.
     const schranke = window.LernappEntitlement;
-    if (schranke && !schranke.targetFree(page)) {
-      schranke.showGate({ host: stage });
-      return;
+    if (schranke) {
+      const zu = typeof schranke.targetLocked === "function"
+        ? await schranke.targetLocked(page)
+        : !schranke.targetFree(page);
+      if (zu) {
+        schranke.showGate({ host: stage, ziel: page });
+        return;
+      }
     }
     const from = view.name;
     const token = leaveToken += 1;
