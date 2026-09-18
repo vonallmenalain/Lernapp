@@ -214,6 +214,37 @@
     const play = el("div", "cm-play");
     host.append(play);
 
+    // Und das Tor davor, für alles, was in dieser Fläche getippt wird.
+    //
+    // Fünf Spiele haben ein eigenes Levelmenü – Fässer stapeln, Memory,
+    // Weichen-Wirrwarr, Zahlengleis, Freie Fahrt – und bauen ihre Knöpfe
+    // selbst hier hinein. Das Tor stand bisher an zwei Stellen: beim Öffnen
+    // der Seite und vor "noch einmal". Dazwischen lag das Menü, und dort
+    // stand keines: Wer nach der Schnupperrunde zurückging und ein anderes
+    // Level tippte, spielte weiter, so oft er wollte. In "Fässer stapeln"
+    // waren das alle zwölf Level.
+    //
+    // Deshalb hier, einmal für alle Spiele mit Bühne: Solange das Spiel zu
+    // ist, kommt kein Tipp in der Fläche durch. In der Einfangphase, bevor
+    // das Spiel den Klick sieht – sonst hätte es schon begonnen.
+    //
+    // Das Ergebnisfenster hängt an host, nicht an play: "Noch einmal" und
+    // "Zurück zur Auswahl" bleiben erreichbar, und der erste davon prüft
+    // ohnehin selbst.
+    //
+    // Gefragt wird nur, wenn der Kontostand feststeht (isLoaded). Beim Laden
+    // ist die Anmeldung noch unterwegs, und ein Kind mit Gründer-Zugang sähe
+    // sonst ein Tor, das ihm nicht gilt. Hier ist der Stand längst da – ein
+    // Tipp im Menü kommt nach dem Laden, nicht währenddessen.
+    play.addEventListener("click", (ereignis) => {
+      const schranke = window.LernappEntitlement;
+      if (!schranke?.isLoaded?.()) return;
+      if (schranke.targetFree(torZiel())) return;
+      ereignis.preventDefault();
+      ereignis.stopPropagation();
+      zeigeTor(schranke);
+    }, true);
+
     // --- Uhr ------------------------------------------------------------------
     let ticker = null;
     let endsAt = 0;

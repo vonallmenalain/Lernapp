@@ -24,6 +24,10 @@
  *     richtig → Profilfenster
  *   - Direktaufruf: memory.html frisch baut die Bühne, memory.html mit
  *     verbrauchter Runde zeigt das Tor mit Rückweg
+ *   - Spiele mit eigenem Levelmenü (Fässer stapeln, Memory): Wird die Runde
+ *     während der Sitzung verbraucht, startet das Menü kein Level mehr,
+ *     sondern zeigt das Tor. Genau das fehlte – das Tor stand nur beim
+ *     Öffnen der Seite und vor "noch einmal", nicht dazwischen.
  *   - Levelwahl: buchstaben.html frisch hat alle Stufen offen, mit
  *     verbrauchter Runde alle zu und mit Tor
  *   - Die Rechnung selbst: Station 10 frei, 11 zu; jedes Spiel frei, bis es
@@ -336,6 +340,42 @@ try {
   await oeffne("memory.html?station=3");
   await page.waitForTimeout(600);
   if (await page.locator(".tor-overlay").count()) fehlt("memory.html auf einer freien Station zeigt das Tor");
+
+  // --- Spiele mit eigenem Levelmenü ------------------------------------------------
+  // Fünf Spiele bauen ihre Levelwahl selbst in die Bühne: Fässer stapeln,
+  // Memory, Weichen-Wirrwarr, Zahlengleis, Freie Fahrt. Das Tor stand bisher
+  // an zwei Stellen – beim Öffnen der Seite und vor "noch einmal". Dazwischen
+  // lag das Menü, und dort stand keines: Wer nach der Schnupperrunde
+  // zurückging und ein anderes Level tippte, spielte weiter, so oft er wollte.
+  //
+  // Nachgestellt wird genau dieser Übergang: Die Seite wird frei geöffnet (das
+  // Menü steht), dann wird die Runde verbraucht – so, wie es das Spielende tut
+  // –, und dann wird ein Level getippt. Die Runden liegen im Speicher und
+  // werden bei jeder Frage neu gelesen; ein Neuladen würde den Fall gerade
+  // verdecken, denn beim Laden greift das Tor ohnehin.
+  for (const [seite, spielId, levelKnopf] of [
+    ["faesser.html", "craneStack", ".fs-level"],
+    ["memory.html", "memory", ".cm-play button"],
+  ]) {
+    if (await page.locator(".tor-overlay").count()) await page.locator(".tor-zurueck").click();
+    await frischerSpeicher();
+    await oeffne(seite);
+    await page.waitForTimeout(800);
+    if (await page.locator(".tor-overlay").count()) { fehlt(`${seite}: das Tor steht schon beim Öffnen, obwohl die Runde offen ist`); continue; }
+    const knoepfe = page.locator(levelKnopf);
+    const wieViele = await knoepfe.count();
+    if (!wieViele) { fehlt(`${seite}: kein Levelmenü gefunden (${levelKnopf})`); continue; }
+
+    // Die Runde ist jetzt gespielt – ohne Neuladen, wie im Ernstfall.
+    await page.evaluate(([key, id]) => localStorage.setItem(key, JSON.stringify({ [id]: 1 })), [RUNDEN_KEY, spielId]);
+    await knoepfe.first().click();
+    await page.waitForTimeout(600);
+    if (!(await page.locator(".tor-overlay").count())) {
+      fehlt(`${seite}: nach der verbrauchten Runde startet das Levelmenü noch ein Spiel – die Schranke fehlt im Menü`);
+    }
+  }
+  if (await page.locator(".tor-overlay").count()) await page.locator(".tor-zurueck").click();
+  await frischerSpeicher();
 
   // --- Levelwahl -------------------------------------------------------------------
   // Frisch: die Schranke sperrt keine Welt. Wiese ist offen, weil sie immer
