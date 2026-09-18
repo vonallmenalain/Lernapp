@@ -36,8 +36,11 @@ h2 { font-size: clamp(1.4rem, 3vw, 1.9rem); margin: 0 0 14px; font-weight: 900; 
 h3 { font-size: 1.1rem; margin: 0 0 6px; font-weight: 900; }
 p { margin: 0 0 14px; }
 .wrap { width: min(1040px, 100% - 32px); margin: 0 auto; }
+/* Umbrechen statt überstehen: Auf sehr schmalen Bildern (ein aufgeklapptes
+   Falthandy, 280 px) passen Marke und Menü nicht nebeneinander. */
 .kopf {
-  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  display: flex; align-items: center; justify-content: space-between; gap: 8px 16px;
+  flex-wrap: wrap;
   padding: 16px 0;
 }
 .marke { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--ink); font-weight: 950; font-size: 1.15rem; }
@@ -87,7 +90,9 @@ p { margin: 0 0 14px; }
 .faq summary { font-weight: 900; cursor: pointer; }
 .faq details p { margin: 10px 0 4px; color: var(--muted); }
 .formular { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
-.formular input[type=email] { flex: 1 1 240px; min-height: 50px; border-radius: 14px; border: 2px solid var(--line); padding: 0 14px; font: inherit; font-weight: 700; }
+/* min-width: 0 – sonst hält das Feld seine 240 px auch auf einem Bild, das
+   schmaler ist, und schiebt die Seite über den Rand. */
+.formular input[type=email] { flex: 1 1 240px; min-width: 0; min-height: 50px; border-radius: 14px; border: 2px solid var(--line); padding: 0 14px; font: inherit; font-weight: 700; }
 .formular input:focus-visible { border-color: var(--primary); outline: 4px solid rgba(108, 92, 231, 0.16); }
 .fuss { padding: 28px 0 40px; color: var(--muted); font-size: 0.95rem; }
 .fuss nav { display: flex; gap: 8px 18px; flex-wrap: wrap; margin-bottom: 8px; }
@@ -95,8 +100,6 @@ p { margin: 0 0 14px; }
 .text h2 { margin-top: 32px; }
 .text h3 { margin-top: 22px; }
 .text ul { padding-left: 22px; }
-.entwurf { background: #fff4e5; border: 2px solid #f5a623; border-radius: 14px; padding: 12px 16px; font-weight: 800; color: #5c3d00; margin: 0 0 24px; }
-.platzhalter { background: #ffe9a8; padding: 0 5px; border-radius: 5px; font-weight: 900; }
 @media (max-width: 760px) {
   .hero, .preis, .schritte, .versprechen { grid-template-columns: 1fr; }
   .hero .bild { order: -1; }
@@ -112,4 +115,26 @@ p { margin: 0 0 14px; }
 .text p,
 .text li {
   overflow-wrap: anywhere;
+}
+
+/* Lange deutsche Wörter in Überschriften: erst trennen, wenn der Browser
+   weiss wo (die Seiten tragen lang="de-CH"), sonst hart umbrechen – aber nie
+   über den Rand hinaus. "Geschäftsbedin-|gungen" sieht nach Absicht aus,
+   "Geschäftsbedingun|gen" nach Fehler, ein Querbalken nach kaputt. */
+.text h1,
+.text h2,
+.text h3 {
+  hyphens: auto;
+  overflow-wrap: break-word;
+}
+
+/* Auf dem Handy passt "Geschäftsbedingungen" bei 2rem nicht mehr in eine
+   Zeile, und ein Wort, das mitten drin umbricht, sieht nach Fehler aus.
+   Also wächst die Überschrift dort mit dem Bild statt mit dem Wunsch:
+   6,8 vw halten das längste Wort der drei Seiten von 280 bis 460 px
+   zusammen. Gemessen, nicht geschätzt. */
+@media (max-width: 460px) {
+  .text h1 {
+    font-size: clamp(1.2rem, 6.8vw, 2rem);
+  }
 }

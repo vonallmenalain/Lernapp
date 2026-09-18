@@ -79,17 +79,25 @@ Umgebungsvariablen gelten erst für den **nächsten Build**: Deploys → *Trigge
 Deploy site*. Wenn der Build grün ist: **Publish deploy**. Erst jetzt ist der neue Stand
 live – mit Kasse, Kinderkonten, Schranke, Willkommensseite und Rechtstexten auf einmal.
 
-## 4. Impressum ausfüllen  ☐
+## 4. Die Rechtstexte  ☑ (ausgefüllt, gegenlesen)
 
-Vor dem Veröffentlichen, nicht danach – ohne Impressum keinen Verkauf.
+Impressum, Datenschutzerklärung und AGB tragen deine Angaben: Alain von Allmen,
+3414 Oberburg, `kontakt@alae.app`, Stand September 2026, Gerichtsstand Oberburg,
+Firebase-Region Europe West. Die Entwurfs-Hinweise sind weg, die Seiten sind so, wie
+Besucher sie sehen. Vor dem Veröffentlichen einmal selbst lesen:
 
-- [impressum.html](../impressum.html): die gelb markierten Stellen (Name, Adresse, E-Mail;
-  den Absatz „Betrieb" anpassen oder streichen). Den Hinweis „Entwurf mit Platzhaltern"
-  danach löschen.
-- [datenschutz.html](../datenschutz.html): Datum, Kontaktangaben (dieselben wie im
-  Impressum) und die Region des Firebase-Projekts (Firebase Console → Projekteinstellungen →
-  *Standardspeicherort für Cloud Firestore*, z. B. `europe-west6` für Zürich).
-- [agb.html](../agb.html): Datum, Name und Adresse, Gerichtsstand (dein Wohnort).
+- [impressum.html](../impressum.html) – ohne Strasse und Nummer. Das reicht, damit dich
+  jemand erreicht; wer es genau nimmt, ergänzt sie, weil das Gesetz gegen unlauteren
+  Wettbewerb (Art. 3 Abs. 1 lit. s UWG) eine vollständige Adresse verlangt.
+- [datenschutz.html](../datenschutz.html) – die Region stimmt mit deinem Firestore
+  überein? Firebase Console → Projekteinstellungen → *Standardspeicherort für Cloud
+  Firestore*.
+- [agb.html](../agb.html) – Preis, 30 Tage Geld zurück und der Satz zum Widerrufsrecht
+  müssen mit der Kasse und der Preiskarte zusammenpassen (siehe unten).
+
+Die Texte sind von mir geschrieben, nicht von einer Juristin geprüft. Für einen
+Einmalkauf von CHF 30 an Privatpersonen in der Schweiz ist das üblich – wenn du
+ruhiger schläfst, lass sie einmal gegenlesen.
 - [willkommen.html](../willkommen.html), Abschnitt „Fragen": die Mailadresse für Praxen und
   Schulen (`PLATZHALTER@example.com`).
 
@@ -155,6 +163,7 @@ npm ci                                   # einmal
 npm run test:rules                       # Regeln im Emulator (braucht Java)
 npm run test:functions                   # Kasse, Webhook, Kinderkonten im Emulator
 node scripts/validate-schranke.mjs       # die Schranke rechnet richtig
+NODE_PATH=… node scripts/check-seiten.mjs         # Willkommen und Rechtstexte
 NODE_PATH=… node scripts/check-schranke.mjs       # das Tor im Browser (Playwright)
 NODE_PATH=… node scripts/check-elternbereich.mjs  # der Elternbereich im Browser
 ```
