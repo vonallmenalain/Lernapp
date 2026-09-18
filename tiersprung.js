@@ -1651,6 +1651,9 @@
   }
 
   function finishRun(success) {
+    // Tier-Sprung beendet seine Runden selbst, nicht über die Bühne – deshalb
+    // meldet es die Schnupperrunde hier, geschafft oder nicht.
+    window.LernappEntitlement?.rundeBeendet?.("tiersprung");
     if (game.over) return;
     game.over = true;
     game.holding = false;

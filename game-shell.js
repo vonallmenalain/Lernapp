@@ -114,6 +114,19 @@
     const journey = reise()?.fromLocation?.() || null;
     if (journey) host.dataset.journey = String(journey.nr);
     const mapHref = journey ? reise().mapUrl(journey.nr) : null;
+    // Noch eine Runde? Ohne Kauf ist nach der ersten Schluss – dann steht hier
+    // das Tor statt eines neuen Spiels. Wer auf der Reise ist, spielt weiter:
+    // Dort entscheidet die Station, nicht das Spiel.
+    function nochEinmal() {
+      const schranke = window.LernappEntitlement;
+      const ziel = `${window.location.pathname.split("/").pop() || ""}${window.location.search}`;
+      if (schranke && !schranke.targetFree(ziel)) {
+        schranke.showGate({ host, onBack: () => { if (journey) toMap(); else window.location.href = "index.html"; } });
+        return;
+      }
+      onRestart();
+    }
+
     function toMap() {
       stopClock();
       window.location.href = mapHref;
@@ -147,7 +160,7 @@
       if (onBack?.()) return;
       window.location.href = `index.html?bereich=${encodeURIComponent(area)}`;
     }));
-    left.append(iconButton("again", "Neu starten", ICONS.again(), () => { stopClock(); onRestart(); }));
+    left.append(iconButton("again", "Neu starten", ICONS.again(), () => { stopClock(); nochEinmal(); }));
     bar.append(left, el("h1", "cm-title", title));
 
     // Dezent oben rechts: wie viel bisher geschafft ist. Beim Karten-Merker ist
@@ -262,6 +275,9 @@
     function showResult({ points, stars, detail, scores, note, speech, onBack, label = "Deine Punkte", top = 5 }) {
       host.dataset.phase = "over";
       timeFill.style.transform = "scaleX(0)";
+      // Eine Runde ist zu Ende: Ohne Kauf war das die Schnupperrunde dieses
+      // Spiels. Auf der Reise zählt nichts – das entscheidet entitlement.js.
+      window.LernappEntitlement?.rundeBeendet?.();
 
       // --- Der Auftrag der Reise: geschafft oder nicht? ------------------------
       // Punkte gegen das Ziel, Level gegen "mindestens ein Stern". Geschafft
@@ -350,7 +366,7 @@
       if (note) parts.push(el("p", `cm-runs${note.done ? " is-done" : ""}`, note.text));
 
       const actions = el("div", "cm-actions");
-      actions.append(iconButton("again", "Noch einmal", ICONS.again(), () => { closeOverlay(); onRestart(); }, "big"));
+      actions.append(iconButton("again", "Noch einmal", ICONS.again(), () => { closeOverlay(); nochEinmal(); }, "big"));
       if (journey) {
         // Zurück auf die Karte – der Stempel wartet dort. Bei geschafftem
         // Auftrag ist das der Knopf, der pulst.

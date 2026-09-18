@@ -5,10 +5,20 @@
  * liegt so, dass ein Kind alles einmal gesehen hat, bevor sie kommt:
  *
  *   frei     die erste Karte der Reise (Stationen 1 bis 10),
- *            in jedem der fünf Bereiche das erste Spiel,
- *            und dort bei den Spielen mit Levelwahl die Stufe Wiese.
- *   gekauft  alles andere – die Karten 2 bis 13, die Spiele 2 bis 5 je
- *            Bereich, die Stufen Wald, Meer und Weltall.
+ *            und von jedem der 25 Spiele eine Runde.
+ *   gekauft  alles andere – die Karten 2 bis 13, und jedes Spiel ab der
+ *            zweiten Runde.
+ *
+ * Eine Runde ist gespielt, wenn sie zu Ende ist: bei den Spielen mit Bühne,
+ * wenn das Ergebnis dasteht (game-shell.js), bei denen mit Levelwahl, wenn
+ * ein Level geschafft ist (app.js). Wer abbricht, hat seine Runde noch. Und
+ * was auf der Reise gespielt wird, zählt nicht mit: Die erste Karte ist frei,
+ * und sie soll nicht die Schnupperrunden aufbrauchen.
+ *
+ * Gezählt wird auf dem Gerät (localStorage), nicht am Konto. Das ist Absicht:
+ * Die Schranke ist eine für Eltern, nicht für Hacker – ein zweites Gerät gibt
+ * einem Kind noch einmal 25 Runden, und wer bis dahin nicht gekauft hat,
+ * kauft auch dann nicht.
  *
  * Wer frei ist, entscheidet firebase.js: Das Konto hat einen Kauf
  * (entitlements/{uid}, den der Server nach der Zahlung schreibt), oder es ist
@@ -32,15 +42,20 @@
   "use strict";
 
   const STATIONS_FREE = 10;
-  const FREE_DIFFICULTY = "easy";
+  // Eine Runde je Spiel. Die Zahl steht hier, damit sie sich ändern lässt,
+  // ohne den Rest zu lesen.
+  const GRATIS_RUNDEN = 1;
+  const RUNDEN_KEY = "lernapp.gratis.runden";
 
   const cloud = () => window.LernappFirebase || null;
   const kids = () => window.LernappKids || null;
 
-  // Die Bereiche und ihre Spiele in der Reihenfolge der Häuser: das erste je
-  // Bereich ist frei. Es ist dieselbe Tabelle wie AREAS in train-progress.js,
+  // Die Bereiche und ihre Spiele in der Reihenfolge der Häuser. Gebraucht
+  // wird sie, um von einer Seite (memory.html) auf ein Spiel (memory) zu
+  // kommen. Es ist dieselbe Tabelle wie AREAS in train-progress.js,
   // auf die Kennungen gekürzt – die Spielseiten laden train-progress.js
-  // nicht, und die Schranke muss auch dort wissen, wer das erste Haus ist.
+  // nicht, und die Schranke muss auch dort wissen, welches Spiel sie vor sich
+  // hat.
   // scripts/validate-schranke.mjs hält beide Tabellen gleich.
   const AREAS = [
     { id: "gedaechtnis", games: [
@@ -112,6 +127,50 @@
   }
 
   // ---------------------------------------------------------------------------
+  // Die Schnupperrunden
+  // ---------------------------------------------------------------------------
+  // Wie oft ein Spiel schon zu Ende gespielt wurde, steht als { spiel: anzahl }
+  // im Speicher des Geräts. Ohne Speicher (privates Fenster) zählt nichts –
+  // dann bleibt alles frei, und das ist besser, als ein Kind auszusperren,
+  // weil sein Browser nichts merkt.
+  function runden() {
+    try { return JSON.parse(localStorage.getItem(RUNDEN_KEY) || "{}") || {}; } catch { return {}; }
+  }
+
+  function rundenSchreiben(stand) {
+    try { localStorage.setItem(RUNDEN_KEY, JSON.stringify(stand)); } catch { /* privater Modus */ }
+  }
+
+  function gespielteRunden(pageOrId) {
+    const eintrag = gameEntry(pageOrId);
+    if (!eintrag) return 0;
+    return Number(runden()[eintrag.game.id]) || 0;
+  }
+
+  // Welche Station die Seite gerade spielt, falls sie eine spielt.
+  function aktuelleStation() {
+    try { return Number(new URLSearchParams(window.location.search).get("station")) || 0; } catch { return 0; }
+  }
+
+  // Eine Runde ist zu Ende. Rufen: game-shell.js (Ergebnis steht), app.js
+  // (Level geschafft), tiersprung.js (eigenes Rundenende).
+  function rundeBeendet(pageOrId) {
+    if (isFree()) return;
+    // Auf der Reise zählt nichts: Die erste Karte ist frei, und sie soll die
+    // Schnupperrunden nicht aufbrauchen.
+    if (aktuelleStation()) return;
+    const eintrag = gameEntry(pageOrId || window.location.pathname);
+    if (!eintrag) return;
+    const stand = runden();
+    const vorher = Number(stand[eintrag.game.id]) || 0;
+    if (vorher >= GRATIS_RUNDEN) return;
+    stand[eintrag.game.id] = vorher + 1;
+    rundenSchreiben(stand);
+    // Das Startbild zeichnet die Häuser neu: Dieses trägt jetzt ein Schloss.
+    document.dispatchEvent(new CustomEvent("lernapp:entitlement-changed", { detail: { grund: "runde", spiel: eintrag.game.id } }));
+  }
+
+  // ---------------------------------------------------------------------------
   // Was ist frei?
   // ---------------------------------------------------------------------------
   function stationFree(nr) {
@@ -135,14 +194,22 @@
     const entry = gameEntry(pageOrId);
     // Unbekannte Seiten (die Werkstatt, die Startseite) sperrt niemand.
     if (!entry) return true;
-    return entry.index === 0;
+    return gespielteRunden(pageOrId) < GRATIS_RUNDEN;
   }
 
+  // Ob die Schnupperrunde schon verbraucht ist – für das Schloss am Haus.
+  // Unterschied zu !gameFree: Wer gekauft hat, hat nichts verbraucht.
+  function gameGespielt(pageOrId) {
+    return !isFree() && gespielteRunden(pageOrId) >= GRATIS_RUNDEN;
+  }
+
+  // Die Welten (Wiese, Wald, Meer, Weltall) sind nicht einzeln gesperrt: Die
+  // eine freie Runde darf in jeder davon gespielt werden. Was zählt, ist das
+  // Spiel.
   function levelFree(level) {
     if (!level) return false;
     if (isFree()) return true;
-    if (!gameFree(level.game)) return false;
-    return level.difficulty === FREE_DIFFICULTY;
+    return gameFree(level.game);
   }
 
   // Ein Ziel, wie enterGame es bekommt: "memory.html" oder
@@ -315,7 +382,7 @@
 
   window.LernappEntitlement = {
     STATIONS_FREE,
-    FREE_DIFFICULTY,
+    GRATIS_RUNDEN,
     AREAS,
     reason,
     isFree,
@@ -325,6 +392,9 @@
     levelFree,
     targetFree,
     gameEntry,
+    gameGespielt,
+    gespielteRunden,
+    rundeBeendet,
     showGate,
     closeGate,
     onChange,
