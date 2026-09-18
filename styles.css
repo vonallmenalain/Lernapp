@@ -2634,10 +2634,6 @@ body.puzzle-active .spatialPuzzle-board .spatial-option-graphic > svg {
   border-top: 2px solid var(--line);
 }
 
-.kauf-anmeldung .auth-hint {
-  margin: 0;
-}
-
 /* Der Hauptknopf zuerst und so breit wie möglich: Er ist der Weg, der
    zweite Knopf nur die Abzweigung für die, die schon ein Konto haben. */
 .kauf-aktionen {
