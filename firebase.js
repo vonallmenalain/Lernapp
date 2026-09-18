@@ -882,6 +882,26 @@
   }
 
   // ---------------------------------------------------------------------------
+  // Die Statuszeile
+  // ---------------------------------------------------------------------------
+  // .auth-status ist rot, und das ist richtig: Dort steht meistens, was
+  // schiefging. Nur stand dort auch "Die Kasse wird geöffnet..." – in
+  // Alarmrot, mitten im Kauf, und es sah aus, als wäre gerade etwas
+  // misslungen. Eine Meldung, die nur sagt, dass etwas läuft, ist kein
+  // Fehler; sie bekommt die ruhige Farbe.
+  //
+  // Drei Zustände, mehr gibt es nicht: "fehler" (rot, die Vorgabe), "ok"
+  // (grün) und "laeuft" (grau). Wer eine neue Meldung setzt, überschreibt
+  // damit auch immer den vorherigen Zustand – deshalb steht das hier an
+  // einer Stelle und nicht als classList.add neben jedem Text.
+  function zeigeMeldung(element, text, art = "fehler") {
+    if (!element) return;
+    element.textContent = text;
+    element.classList.toggle("is-ok", art === "ok");
+    element.classList.toggle("is-laeuft", art === "laeuft");
+  }
+
+  // ---------------------------------------------------------------------------
   // Der Server
   // ---------------------------------------------------------------------------
   // Die Netlify-Funktionen unter /api/ tun, was der Client nicht darf: Kinder
@@ -2019,10 +2039,9 @@
     `;
 
     const status = modalContent.querySelector(".auth-status");
-    const setStatus = (text, ok = false) => {
-      status.textContent = text;
-      status.classList.toggle("is-ok", ok);
-    };
+    // art: "fehler" (Vorgabe), "ok" oder "laeuft". true bleibt erlaubt und
+    // heisst "ok" – so lesen sich die Aufrufe von früher weiter richtig.
+    const setStatus = (text, art = "fehler") => zeigeMeldung(status, text, art === true ? "ok" : art);
     const bereit = () => {
       if (state.firebaseReady) return true;
       setStatus("Firebase ist nicht verfügbar.");
@@ -2054,7 +2073,7 @@
       event.preventDefault();
       if (!bereit()) return;
       const formData = new FormData(kindForm);
-      setStatus("Anmeldung läuft...");
+      setStatus("Anmeldung läuft...", "laeuft");
       try {
         await signIn(String(formData.get("loginName")), String(formData.get("password")));
       } catch (error) {
@@ -2072,7 +2091,7 @@
       event.preventDefault();
       if (!bereit()) return;
       const { email, password } = elternDaten();
-      setStatus("Anmeldung läuft...");
+      setStatus("Anmeldung läuft...", "laeuft");
       try {
         await signInParent(email, password);
       } catch (error) {
@@ -2082,7 +2101,7 @@
     elternForm.querySelector("[data-auth-register]").addEventListener("click", async () => {
       if (!bereit()) return;
       const { email, password } = elternDaten();
-      setStatus("Elternkonto wird erstellt...");
+      setStatus("Elternkonto wird erstellt...", "laeuft");
       try {
         await signUpParent(email, password);
       } catch (error) {
@@ -2092,7 +2111,7 @@
     elternForm.querySelector("[data-auth-reset]").addEventListener("click", async () => {
       if (!bereit()) return;
       const { email } = elternDaten();
-      setStatus("Mail wird verschickt...");
+      setStatus("Mail wird verschickt...", "laeuft");
       try {
         await sendParentPasswordReset(email);
         setStatus(`Eine Mail zum Zurücksetzen ist unterwegs an ${cleanEmail(email)}.`, true);
@@ -2102,7 +2121,7 @@
     });
     elternForm.querySelector("[data-auth-google]").addEventListener("click", async () => {
       if (!bereit()) return;
-      setStatus("Google-Anmeldung wird geöffnet...");
+      setStatus("Google-Anmeldung wird geöffnet...", "laeuft");
       try {
         await signInWithGoogle();
       } catch (error) {
@@ -2182,11 +2201,11 @@
 
     modalContent.querySelector("[data-logout]").addEventListener("click", async () => {
       const status = modalContent.querySelector(".auth-status");
-      status.textContent = "Logout läuft...";
+      zeigeMeldung(status, "Logout läuft...", "laeuft");
       try {
         await signOut();
       } catch (error) {
-        status.textContent = authErrorMessage(error);
+        zeigeMeldung(status, authErrorMessage(error));
       }
     });
 
@@ -2292,14 +2311,14 @@
       const status = modalContent.querySelector("[data-kauf-karte] .karten-status") || modalContent.querySelector(".auth-status");
       state.serverBusy = true;
       knopf.disabled = true;
-      status.textContent = "Die Kasse wird geöffnet...";
+      zeigeMeldung(status, "Weiterleitung zur Zahlung...", "laeuft");
       try {
         await zurKasse();
       } catch (error) {
         state.serverBusy = false;
         knopf.disabled = false;
         if (error?.code === "server/already-owned") { await refreshDashboard(); return; }
-        status.textContent = serverErrorMessage(error);
+        zeigeMeldung(status, serverErrorMessage(error));
       }
     });
   }
@@ -2417,10 +2436,9 @@
       const werte = new FormData(form);
       return { email: String(werte.get("email") || ""), password: String(werte.get("password") || "") };
     };
-    const setStatus = (text, ok = false) => {
-      status.textContent = text;
-      status.classList.toggle("is-ok", ok);
-    };
+    // art: "fehler" (Vorgabe), "ok" oder "laeuft". true bleibt erlaubt und
+    // heisst "ok" – so lesen sich die Aufrufe von früher weiter richtig.
+    const setStatus = (text, art = "fehler") => zeigeMeldung(status, text, art === true ? "ok" : art);
 
     async function zurKasseMit(tun, text) {
       if (!state.firebaseReady) { setStatus("Firebase ist nicht verfügbar."); return; }
@@ -2431,7 +2449,7 @@
       try {
         await tun();
         if (!(await warteAufKonto())) throw authInputError("lernapp/not-signed-in");
-        setStatus("Die Kasse wird geöffnet...");
+        setStatus("Weiterleitung zur Zahlung...", "laeuft");
         await zurKasse();
         // Ab hier übernimmt Stripe: Die Seite wechselt, dieses Fenster geht mit.
       } catch (fehler) {
@@ -2457,7 +2475,7 @@
     form.querySelector("[data-kauf-reset]").addEventListener("click", async () => {
       if (!state.firebaseReady) { setStatus("Firebase ist nicht verfügbar."); return; }
       const { email } = daten();
-      setStatus("Mail wird verschickt...");
+      setStatus("Mail wird verschickt...", "laeuft");
       try {
         await sendParentPasswordReset(email);
         setStatus(`Eine Mail zum Zurücksetzen ist unterwegs an ${cleanEmail(email)}.`, true);
@@ -2758,13 +2776,12 @@
       if (state.serverBusy) return;
       const daten = new FormData(event.currentTarget);
       state.serverBusy = true;
-      status.textContent = "Kind wird angelegt...";
+      zeigeMeldung(status, "Kind wird angelegt...", "laeuft");
       try {
         const kind = await kindAnlegen(String(daten.get("name")), String(daten.get("passwort")), String(daten.get("stufe") || "mittel"));
         zeichne(null, { ok: true, text: `${kind.name} kann sich jetzt mit Name und Passwort anmelden.` });
       } catch (error) {
-        status.textContent = serverErrorMessage(error);
-        status.classList.remove("is-ok");
+        zeigeMeldung(status, serverErrorMessage(error));
       } finally {
         state.serverBusy = false;
       }
@@ -2776,13 +2793,12 @@
       const uid = event.currentTarget.closest("[data-kind-uid]")?.dataset.kindUid;
       const daten = new FormData(event.currentTarget);
       state.serverBusy = true;
-      status.textContent = "Passwort wird gesetzt...";
+      zeigeMeldung(status, "Passwort wird gesetzt...", "laeuft");
       try {
         await kindPasswortSetzen(uid, String(daten.get("passwort")));
         zeichne(null, { ok: true, text: "Das neue Passwort gilt ab sofort." });
       } catch (error) {
-        status.textContent = serverErrorMessage(error);
-        status.classList.remove("is-ok");
+        zeigeMeldung(status, serverErrorMessage(error));
       } finally {
         state.serverBusy = false;
       }
@@ -3050,10 +3066,7 @@
       bindResetProgressCard();
     };
 
-    const setStatus = (text) => {
-      const status = modalContent.querySelector(".auth-status");
-      if (status) status.textContent = text;
-    };
+    const setStatus = (text, art = "fehler") => zeigeMeldung(modalContent.querySelector(".auth-status"), text, art);
 
     card.querySelector("[data-reset-progress]")?.addEventListener("click", () => {
       setStatus("");
@@ -3068,7 +3081,7 @@
     card.querySelector("[data-reset-confirm]")?.addEventListener("click", async (event) => {
       const button = event.currentTarget;
       button.disabled = true;
-      setStatus("Fortschritt wird zurückgesetzt...");
+      setStatus("Fortschritt wird zurückgesetzt...", "laeuft");
       try {
         await resetProgressFor(state.user?.uid);
         // resetProgressFor hat das Dashboard nicht neu gebaut; das passiert

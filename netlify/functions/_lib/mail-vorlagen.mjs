@@ -164,23 +164,21 @@ function fertig(teile) {
 
 // 1. Ein Elternkonto ist da.
 //
-// Drei Sätze, mehr braucht es nicht: Das Konto steht, so meldest du dich an,
-// so kommen die Kinder dazu. Der Link zum Bestätigen der Adresse ist eine
-// Einladung, keine Schranke – wer ihn nicht anklickt, kann Gripszug trotzdem
-// in vollem Umfang nutzen.
-export function willkommenMail({ email, bestaetigungsLink = "" }) {
-  const absaetze = [
-    `Das Elternkonto für Gripszug ist angelegt. Du meldest dich mit <strong>${escape(email)}</strong> an; für deine Kinder legst du im Elternbereich Profile mit Name und Passwort an.`,
-  ];
-  if (bestaetigungsLink) {
-    absaetze.push("Ein Klick, und deine Adresse ist bestätigt. Nötig ist das nicht.");
-  }
+// Ein Satz: Das Konto steht, so meldest du dich an, so kommen die Kinder dazu.
+//
+// Hier stand einmal ein Link zum Bestätigen der Adresse, mit dem Zusatz "nötig
+// ist das nicht". Das war ehrlich und deshalb überflüssig: Kein Teil der App
+// fragt nach einer bestätigten Adresse. Ein Angebot, das man im selben Atemzug
+// als verzichtbar bezeichnet, gehört nicht in eine Mail von vier Zeilen.
+export function willkommenMail({ email }) {
   return fertig({
     betreff: "Willkommen bei Gripszug",
     titel: "Hallo!",
     vorschau: "Das Elternkonto ist angelegt.",
-    absaetze,
-    knopf: bestaetigungsLink ? { text: "Adresse bestätigen", href: bestaetigungsLink } : { text: "Zur App", href: `${SEITE}/index.html` },
+    absaetze: [
+      `Das Elternkonto für Gripszug ist angelegt. Du meldest dich mit <strong>${escape(email)}</strong> an; für deine Kinder legst du im Elternbereich Profile mit Name und Passwort an.`,
+    ],
+    knopf: { text: "Zur App", href: `${SEITE}/index.html` },
   });
 }
 
@@ -212,7 +210,7 @@ export function freischaltMail({ email }) {
     titel: "Gripszug ist freigeschaltet",
     vorschau: "Alle Spiele und die ganze Reise sind offen.",
     absaetze: [
-      "Alle Spiele, die ganze Reise, für bis zu vier Kinder. Zu bezahlen ist nichts.",
+      "Alle Spiele, die ganze Reise, für bis zu vier Kinder.",
     ],
     knopf: { text: "Zur App", href: `${SEITE}/index.html` },
   });

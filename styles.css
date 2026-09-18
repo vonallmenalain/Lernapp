@@ -2390,6 +2390,11 @@ body.puzzle-active .spatialPuzzle-board .spatial-option-graphic > svg {
   min-height: 0;
 }
 .auth-status.is-ok { color: #1e7f4e; }
+/* "Weiterleitung zur Zahlung..." ist keine Fehlermeldung. In der roten
+   Grundfarbe von .auth-status sah sie aber aus wie eine – mitten im Kauf,
+   genau dort, wo man am ehesten glaubt, es sei etwas schiefgegangen.
+   Was gerade läuft, steht deshalb ruhig da. */
+.auth-status.is-laeuft { color: var(--muted, #667085); }
 
 .auth-form {
   display: grid;

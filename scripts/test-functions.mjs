@@ -719,7 +719,10 @@ ok(r400.status === 400, `kind-anlegen mit kaputtem JSON: ${r400.status}`);
   // Keine HTML-Schnipsel im Betreff, keine doppelt maskierten Umlaute im Text.
   ok(!/[<>]|&[a-z]+;/.test(erste.subject || ""), `im Betreff steckt Auszeichnung: ${erste.subject}`);
   ok(!/&(amp|uuml|auml|ouml);/.test(erste.text || ""), "in der Textfassung stehen HTML-Entities");
-  ok(begruessung.bestaetigung === true, "die Begrüssung enthält keinen Bestätigungslink");
+  // Kein Bestätigungslink mehr, und das ist Absicht: Kein Teil der App fragt
+  // nach einer bestätigten Adresse, und ein Angebot, das man im selben Atemzug
+  // als verzichtbar bezeichnet, gehört nicht in eine Mail von vier Zeilen.
+  ok(!/verifyEmail|bestätig/i.test(erste.html || ""), "in der Begrüssung steht wieder ein Bestätigungslink");
 
   // Und genau einmal: Der Client ruft beim Anlegen an und bei der ersten
   // Google-Anmeldung noch einmal.
@@ -918,7 +921,7 @@ ok(r400.status === 400, `kind-anlegen mit kaputtem JSON: ${r400.status}`);
   // Was in escape() läuft, darf keine HTML-Entities enthalten – sonst stünde
   // "f&uuml;r" im Betreff und in der Überschrift.
   for (const [name, gebaut] of Object.entries({
-    willkommen: vorlagen.willkommenMail({ email: "a@b.ch", bestaetigungsLink: "https://x.test/y" }),
+    willkommen: vorlagen.willkommenMail({ email: "a@b.ch" }),
     bestellung: vorlagen.bestellMail({ email: "a@b.ch", betragText: "CHF 30.00", datumText: "1. Januar 2026" }),
     freischaltung: vorlagen.freischaltMail({ email: "a@b.ch" }),
     passwort: vorlagen.passwortMail({ email: "a@b.ch", link: "https://x.test/y" }),
@@ -935,6 +938,18 @@ ok(r400.status === 400, `kind-anlegen mit kaputtem JSON: ${r400.status}`);
     ok(/kids\.alae\.app/.test(gebaut.html), `${name}: der Link zur Seite fehlt in der Mail`);
     ok(/impressum\.html/.test(gebaut.html), `${name}: das Impressum fehlt in der Fusszeile`);
   }
+  // Kurz bleiben sie nur, wenn es jemand nachhält. Die Grenze ist grosszügig
+  // gesetzt – sie fängt das Zuwachsen, nicht den einzelnen Nebensatz.
+  for (const [name, gebaut] of Object.entries({
+    willkommen: vorlagen.willkommenMail({ email: "a@b.ch" }),
+    bestellung: vorlagen.bestellMail({ email: "a@b.ch", betragText: "CHF 30.00", datumText: "1. Januar 2026" }),
+    freischaltung: vorlagen.freischaltMail({ email: "a@b.ch" }),
+    passwort: vorlagen.passwortMail({ email: "a@b.ch", link: "https://x.test/y" }),
+  })) {
+    const woerter = gebaut.text.split(/\s+/).filter(Boolean).length;
+    ok(woerter <= 60, `${name}: ${woerter} Wörter – die Mail ist wieder zugewachsen`);
+  }
+
   // Fremder Text wird maskiert, nicht eingebaut.
   const boese = vorlagen.weiterleitungsMail({ von: "c@d.ch", an: "kids@alae.app", betreff: "Hallo", text: "<script>alert(1)</script>" });
   ok(!/<script>/.test(boese.html), "fremder Text landet unmaskiert in der Mail");
