@@ -190,7 +190,7 @@ variables*). Ohne sie antworten sie mit einem klaren Fehler statt zu raten:
 | --- | --- |
 | `FIREBASE_SERVICE_ACCOUNT` | Ein **eigenes** Dienstkonto `gripszug-server` (nicht das Deploy-Konto!) mit den Rollen **Cloud Datastore User** und **Firebase Authentication Admin**. JSON-Schlüssel im Klartext. Es darf Daten schreiben und Nutzer anlegen, aber keine Regeln ändern. |
 | `STRIPE_SECRET_KEY` | Stripe-Dashboard → Developers → API keys. Zum Testen der Testschlüssel, fürs Echte der Live-Schlüssel (beide beginnen mit `sk_`). |
-| `STRIPE_PRICE_ID` | Der Preis des Produkts „Gripszug Familie" (Einmalkauf, CHF 30); die Kennung beginnt mit `price` und einem Unterstrich. |
+| `STRIPE_PRICE_ID` | Der Preis des Produkts „Gripszug Familie" (Einmalkauf, CHF 30); die Kennung beginnt mit `price` und einem Unterstrich. Wer stattdessen die Produkt-Kennung einträgt (`prod` und Unterstrich, im Dashboard steht sie zuoberst), bekommt den Standardpreis dieses Produkts; die Statusseite schreibt dann dazu, woher der Preis kommt. |
 | `STRIPE_WEBHOOK_SECRET` | Stripe-Dashboard → Developers → Webhooks → Endpunkt `https://kids.alae.app/api/stripe-webhook` mit den Ereignissen `checkout.session.completed`, `checkout.session.async_payment_succeeded` (Zahlarten, die erst später bestätigt werden) und `charge.refunded` → *Signing secret* (beginnt mit `whsec` und einem Unterstrich). |
 | `SITE_URL` | optional; Netlify setzt `URL` ohnehin. Fallback `https://kids.alae.app`. |
 

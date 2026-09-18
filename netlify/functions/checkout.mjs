@@ -15,7 +15,7 @@
  */
 
 import { db } from "./_lib/firebase.mjs";
-import { stripe, preisId, seitenUrl } from "./_lib/stripe.mjs";
+import { stripe, preisId, preisAufloesen, seitenUrl } from "./_lib/stripe.mjs";
 import { AnfrageFehler, antwort, fehlerAntwort, elternAnrufer, nurMethode } from "./_lib/anfrage.mjs";
 
 export async function kasseErstellen({ eltern, stripeClient = stripe(), price = preisId(), site = seitenUrl() }) {
@@ -26,7 +26,7 @@ export async function kasseErstellen({ eltern, stripeClient = stripe(), price = 
 
   const session = await stripeClient.checkout.sessions.create({
     mode: "payment",
-    line_items: [{ price, quantity: 1 }],
+    line_items: [{ price: await preisAufloesen(stripeClient, price), quantity: 1 }],
     client_reference_id: eltern.uid,
     customer_email: eltern.email || undefined,
     metadata: { uid: eltern.uid, produkt: "gripszug-familie" },

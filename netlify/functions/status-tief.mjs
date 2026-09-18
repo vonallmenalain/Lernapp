@@ -26,7 +26,7 @@
  */
 
 import { auth, db } from "./_lib/firebase.mjs";
-import { stripe, preisId } from "./_lib/stripe.mjs";
+import { stripe, preisId, preisAufloesen } from "./_lib/stripe.mjs";
 
 const antwort = (daten, status) => new Response(JSON.stringify(daten, null, 2), {
   status,
@@ -86,8 +86,12 @@ export async function pruefungenLaufen({ stripeClient = null } = {}) {
     pruefungen.push({ name: "Stripe", ok: false, ms: 0, fehler: "fehlt", text: "STRIPE_PRICE_ID ist nicht gesetzt – ohne Preis öffnet die Kasse nicht." });
   } else {
     pruefungen.push(await pruefe("Stripe", async () => {
-      const preis = await (stripeClient || stripe()).prices.retrieve(preisId());
-      return `Preis gefunden: ${(preis.unit_amount ?? 0) / 100} ${String(preis.currency || "").toUpperCase()}, ${preis.type}`;
+      const client = stripeClient || stripe();
+      const eingetragen = preisId();
+      const kennung = await preisAufloesen(client, eingetragen);
+      const preis = await client.prices.retrieve(kennung);
+      const woher = kennung === eingetragen ? "" : ` (Standardpreis des Produkts ${eingetragen})`;
+      return `Preis gefunden: ${(preis.unit_amount ?? 0) / 100} ${String(preis.currency || "").toUpperCase()}, ${preis.type}${woher}`;
     }));
   }
 

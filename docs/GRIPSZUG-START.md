@@ -38,8 +38,11 @@ veröffentlicht.
 Alles zuerst im **Testmodus** (Schalter oben rechts im Dashboard). Live kommt in Schritt 6.
 
 1. **Produkt**: Produktkatalog → Produkt hinzufügen. Name „Gripszug Familie", Preis
-   **CHF 30**, **einmalig** (nicht wiederkehrend). Nach dem Speichern die **Preis-ID**
-   kopieren (beginnt mit `price_`).
+   **CHF 30**, **einmalig** (nicht wiederkehrend). Danach die **Preis-ID** kopieren, nicht
+   die Produkt-ID: im Produkt unter *Preise* die Zeile mit CHF 30 anklicken – die Kennung
+   beginnt mit `price_` (oder hinter den drei Punkten rechts: *Preis-ID kopieren*). Die
+   Kennung zuoberst auf der Produktseite beginnt mit `prod_` und ist die des Produkts.
+   Beides wird angenommen: Bei `prod_` nimmt der Server den Standardpreis des Produkts.
 2. **Geheimer Schlüssel**: Entwickler → API-Schlüssel → *Geheimer Schlüssel* (beginnt mit
    `sk_test_`). Anzeigen, kopieren.
 3. **Webhook**: Entwickler → Webhooks → Endpunkt hinzufügen.
@@ -72,7 +75,7 @@ bleiben oder *All*.
 | --- | --- |
 | `FIREBASE_SERVICE_ACCOUNT` | der ganze Inhalt der JSON-Datei aus Schritt 1 (in einer Zeile oder mit Umbrüchen, beides geht) |
 | `STRIPE_SECRET_KEY` | `sk_test_…` aus Schritt 2 |
-| `STRIPE_PRICE_ID` | `price_…` aus Schritt 2 |
+| `STRIPE_PRICE_ID` | `price_…` aus Schritt 2 (eine `prod_…`-Kennung geht auch, dann gilt der Standardpreis des Produkts) |
 | `STRIPE_WEBHOOK_SECRET` | `whsec_…` aus Schritt 2 |
 
 Umgebungsvariablen gelten erst für den **nächsten Build**: Deploys → *Trigger deploy →
