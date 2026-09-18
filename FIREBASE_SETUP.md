@@ -449,14 +449,26 @@ Kommt sie nicht an, steht der Grund im Resend-Dashboard unter *Emails*.
 **5. Cloudflare: Post an kids@alae.app**
 
 Für alae.app läuft Email Routing bereits (die MX-Einträge `route1–3.mx.cloudflare.net` stehen
-im DNS). Es fehlt nur die Adresse. Zwei Wege:
+im DNS). Es fehlt nur die Adresse.
+
+> **Wo Email Routing liegt.** Nicht bei der Domain, sondern auf **Kontoebene**:
+> **Compute → Email Service → Email Routing**. Wer es in der Seitenleiste der Domain unter
+> *Email* sucht, findet dort nur *DMARC Management* und *Email Security* – das ist etwas
+> anderes. Cloudflare hat Email Routing im Lauf von 2025/26 unter *Compute* zusammengelegt;
+> falls es beim Lesen wieder woanders liegt, ist der Weg über die Suche im Dashboard
+> („Email Routing") der kürzeste. Unter *Compute* liegen auch die Workers.
+
+Zwei Wege:
 
 *Der kleine Weg – nur weiterleiten, zwei Minuten:*
 
-1. Cloudflare → alae.app → **Email** → *Email Routing* → *Destination addresses*:
+1. **Compute → Email Service → Email Routing → Destination Addresses**:
    `vonallmenalain@gmail.com` hinzufügen und die Bestätigungsmail von Cloudflare anklicken.
-2. *Routing rules* → *Create address*: `kids@alae.app` → *Send to an email* →
-   `vonallmenalain@gmail.com`.
+   Die Liste gilt kontoweit – eine Adresse, die für eine andere Domain schon bestätigt ist,
+   steht hier bereits.
+2. **Email Routing** → Domain `alae.app` wählen → Reiter *Routing Rules* →
+   *Create routing rule*: Pattern `kids`, Action *Send to an email*,
+   Destination `vonallmenalain@gmail.com`.
 
 Damit kommt die Post an. Im Adminbereich steht sie dann aber **nicht** – Gripszug erfährt
 nichts davon.
@@ -465,16 +477,27 @@ nichts davon.
 
 1. Schritt 1 von oben (Zieladresse bestätigen) ist auch hier nötig: Der Worker braucht sie
    als Reissleine.
-2. Cloudflare → **Workers & Pages** → *Create* → *Create Worker*, Name z. B. `kids-mail`.
-   Den Inhalt von [`cloudflare/kids-mail-worker.js`](./cloudflare/kids-mail-worker.js) in den
-   Editor kopieren und speichern.
+2. **Compute → Workers & Pages** → *Create* → Reiter *Workers* → *Start with Hello World!* →
+   Name `kids-mail` → *Deploy*. Danach *Edit code*, im Editor alles löschen, den Inhalt von
+   [`cloudflare/kids-mail-worker.js`](./cloudflare/kids-mail-worker.js) einfügen, *Deploy*.
+
+   Der Umweg über Hello World ist nötig, weil Cloudflare erst einen Worker angelegt haben
+   will, bevor sich Code einfügen lässt. Die Vorschau im Editor meldet danach, dass ein
+   `fetch`-Handler fehlt – das ist richtig so: Dieser Worker beantwortet keine
+   HTTP-Anfragen, sondern nimmt Mails entgegen. Deployen lässt er sich trotzdem.
 3. Im Worker → *Settings* → *Variables and Secrets*:
-   - `GRIPSZUG_EINGANG` = `https://kids.alae.app/api/mail-eingang` (Text)
-   - `MAIL_GEHEIMNIS` = derselbe Wert wie `MAIL_WEBHOOK_SECRET` bei Netlify (**Secret**, nicht Text)
-4. Cloudflare → alae.app → **Email** → *Email Routing* → *Routing rules* → *Create address*:
-   `kids@alae.app` → *Send to a Worker* → `kids-mail`.
+   - `GRIPSZUG_EINGANG` = `https://kids.alae.app/api/mail-eingang` (Type **Text**)
+   - `MAIL_GEHEIMNIS` = derselbe Wert wie `MAIL_WEBHOOK_SECRET` bei Netlify (Type **Secret**,
+     nicht Text)
+4. **Compute → Email Service → Email Routing** → Domain `alae.app` wählen → Reiter
+   *Routing Rules* → *Create routing rule*: Pattern `kids`, Action *Send to a Worker*,
+   Worker `kids-mail`.
 5. Eine Mail an kids@alae.app schicken. Sie muss im Postfach ankommen **und** im Adminbereich
    unter *Eingang* stehen.
+
+   Nur im Postfach, nicht im Adminbereich? Dann greift noch eine alte Routing-Regel, oder
+   `MAIL_GEHEIMNIS` und `MAIL_WEBHOOK_SECRET` sind verschieden. Was der Worker dazu sagt,
+   steht in Cloudflare unter *Workers & Pages* → `kids-mail` → *Logs* → *Begin log stream*.
 
 Wohin weitergeleitet wird, steht danach im Adminbereich, nicht bei Cloudflare: Der Worker gibt
 die Mail an Gripszug, und Gripszug leitet sie über Resend weiter. Die Adresse lässt sich
