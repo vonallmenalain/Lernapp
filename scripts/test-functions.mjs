@@ -102,7 +102,7 @@ const { kindPasswortSetzen } = await import("../netlify/functions/kind-passwort.
 const { kasseErstellen } = await import("../netlify/functions/checkout.mjs");
 const { kaufVerbuchen, rueckerstattungVerbuchen, default: webhookHandler } = await import("../netlify/functions/stripe-webhook.mjs");
 const { default: statusHandler } = await import("../netlify/functions/status.mjs");
-const { default: statusTiefHandler } = await import("../netlify/functions/status-tief.mjs");
+const { default: statusTiefHandler, pruefungenLaufen } = await import("../netlify/functions/status-tief.mjs");
 const Stripe = (await import("stripe")).default;
 
 // --- 1. Client und Server rechnen gleich ------------------------------------
@@ -317,15 +317,38 @@ ok(r400.status === 400, `kind-anlegen mit kaputtem JSON: ${r400.status}`);
   const quelle = readFileSync(path.join(WURZEL, "netlify/functions/status.mjs"), "utf8");
   ok(!/^\s*import[\s{]/m.test(quelle), "status.mjs importiert etwas – dann ist sie nicht mehr die Funktion, die immer antwortet");
 
-  const tief = await statusTiefHandler(new Request("http://x/api/status-tief"));
-  const daten2 = await tief.json();
+  // Die Tiefenprüfung mit nachgebautem Stripe: Der echte liegt im Netz, und
+  // eine Prüfung, die ohne Netz sechs Sekunden wartet, prüft nichts.
+  const stripeStatus = { prices: { retrieve: async (id) => ({ id, unit_amount: 3000, currency: "chf", type: "one_time" }) } };
+  const daten2 = await pruefungenLaufen({ stripeClient: stripeStatus });
   const firestore = (daten2.pruefungen || []).find((p) => p.name === "Firestore lesen");
   ok(firestore?.ok === true, `Firestore antwortet der Tiefenprüfung nicht: ${JSON.stringify(firestore)}`);
   const authPruefung = (daten2.pruefungen || []).find((p) => p.name === "Firebase Auth");
   ok(authPruefung?.ok === true, `Firebase Auth antwortet der Tiefenprüfung nicht: ${JSON.stringify(authPruefung)}`);
   const stripePruefung = (daten2.pruefungen || []).find((p) => p.name === "Stripe");
-  ok(stripePruefung, "die Tiefenprüfung fragt Stripe nicht");
-  const roh2 = JSON.stringify(daten2);
+  ok(stripePruefung?.ok === true, `Stripe-Prüfung: ${JSON.stringify(stripePruefung)}`);
+  ok(/30 CHF/.test(stripePruefung?.info || ""), `der gefundene Preis steht nicht in der Antwort: ${stripePruefung?.info}`);
+  ok(daten2.ok === true, `Tiefenprüfung insgesamt: ${JSON.stringify(daten2.pruefungen)}`);
+
+  // Fehlt eine Angabe, die die Kasse braucht, ist das kein "alles gut".
+  const preisVorher = process.env.STRIPE_PRICE_ID;
+  delete process.env.STRIPE_PRICE_ID;
+  const ohnePreis = await pruefungenLaufen({ stripeClient: stripeStatus });
+  ok(ohnePreis.ok === false, "ohne STRIPE_PRICE_ID meldet die Tiefenprüfung trotzdem 'alles gut'");
+  ok(/PRICE_ID/.test((ohnePreis.pruefungen.find((p) => p.name === "Stripe") || {}).text || ""), "die Meldung sagt nicht, welche Angabe fehlt");
+  const schluesselVorher = process.env.STRIPE_SECRET_KEY;
+  delete process.env.STRIPE_SECRET_KEY;
+  ok((await pruefungenLaufen()).ok === false, "ohne STRIPE_SECRET_KEY meldet die Tiefenprüfung trotzdem 'alles gut'");
+  process.env.STRIPE_PRICE_ID = preisVorher;
+  process.env.STRIPE_SECRET_KEY = schluesselVorher;
+
+  // Und über den Weg von aussen: eine Antwort, danach die gemerkte.
+  const tief = await statusTiefHandler(new Request("http://x/api/status-tief"));
+  ok(tief.status === 200 || tief.status === 503, `status-tief: ${tief.status}`);
+  const wieder = await (await statusTiefHandler(new Request("http://x/api/status-tief"))).json();
+  ok(typeof wieder.gemessenVorSekunden === "number", "die zweite Anfrage misst noch einmal nach, statt das Ergebnis zu merken");
+
+  const roh2 = JSON.stringify(daten2) + JSON.stringify(wieder);
   for (const name of ["FIREBASE_SERVICE_ACCOUNT", "STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET"]) {
     const wert = process.env[name];
     ok(!wert || !roh2.includes(wert), `die Tiefenprüfung gibt den Inhalt von ${name} preis`);
