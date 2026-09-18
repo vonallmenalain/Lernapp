@@ -107,6 +107,19 @@ if (!await warteAufServer()) {
   process.exit(2);
 }
 
+// Die Schranke (entitlement.js) bleibt für diese Prüfung offen: geprüft wird
+// die Bühne, nicht der Kauf – den prüft check-schranke.mjs. Der Ersatz nimmt
+// die Zuweisung von entitlement.js entgegen und lässt alles frei.
+function schrankeOffen() {
+  const frei = {
+    STATIONS_FREE: 10, FREE_DIFFICULTY: "easy", AREAS: [],
+    reason: () => "gekauft", isFree: () => true, isLoaded: () => true,
+    stationFree: () => true, gameFree: () => true, levelFree: () => true, targetFree: () => true,
+    gameEntry: () => null, showGate: () => () => {}, closeGate() {}, onChange: () => () => {},
+  };
+  Object.defineProperty(window, "LernappEntitlement", { get: () => frei, set() {}, configurable: true });
+}
+
 const browser = await playwright.chromium.launch({
   executablePath: process.env.CHROMIUM_PFAD || undefined,
   args: ["--no-sandbox"],
@@ -118,6 +131,7 @@ const sitzung = await browser.newContext({
   isMobile: true,
   hasTouch: true,
 });
+await sitzung.addInitScript(schrankeOffen);
 
 const festgefahren = [];
 

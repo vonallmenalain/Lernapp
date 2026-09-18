@@ -613,6 +613,19 @@ const SZENARIEN = [
 ].filter((szenario) => !NUR || NUR.includes(szenario.titel || szenario.seite));
 
 // --- Der Lauf ------------------------------------------------------------------
+// Die Schranke (entitlement.js) bleibt für diese Prüfung offen: geprüft wird
+// die Bühne, nicht der Kauf – den prüft check-schranke.mjs. Der Ersatz nimmt
+// die Zuweisung von entitlement.js entgegen und lässt alles frei.
+function schrankeOffen() {
+  const frei = {
+    STATIONS_FREE: 10, FREE_DIFFICULTY: "easy", AREAS: [],
+    reason: () => "gekauft", isFree: () => true, isLoaded: () => true,
+    stationFree: () => true, gameFree: () => true, levelFree: () => true, targetFree: () => true,
+    gameEntry: () => null, showGate: () => () => {}, closeGate() {}, onChange: () => () => {},
+  };
+  Object.defineProperty(window, "LernappEntitlement", { get: () => frei, set() {}, configurable: true });
+}
+
 const browser = await playwright.chromium.launch({
   executablePath: process.env.CHROMIUM_PFAD || undefined,
   args: ["--no-sandbox"],
@@ -642,6 +655,7 @@ async function laufFuerGeraet(geraet) {
     hasTouch: true,
     deviceScaleFactor: 2,
   });
+  await sitzung.addInitScript(schrankeOffen);
   // Firebase liegt auf einem fremden Server. Ohne Netz bleibt die App stumm –
   // hier soll sie das auch, damit der Lauf schnell und gleich bleibt.
   await sitzung.route("**/*gstatic.com/**", (route) => route.abort());

@@ -1,0 +1,332 @@
+/*
+ * entitlement.js – Was frei ist, was gekauft werden muss, und das Tor davor.
+ * ---------------------------------------------------------------------------
+ * Gripszug ist zum Anfangen gratis und zum Weiterspielen gekauft. Die Grenze
+ * liegt so, dass ein Kind alles einmal gesehen hat, bevor sie kommt:
+ *
+ *   frei     die erste Karte der Reise (Stationen 1 bis 10),
+ *            in jedem der fünf Bereiche das erste Spiel,
+ *            und dort bei den Spielen mit Levelwahl die Stufe Wiese.
+ *   gekauft  alles andere – die Karten 2 bis 13, die Spiele 2 bis 5 je
+ *            Bereich, die Stufen Wald, Meer und Weltall.
+ *
+ * Wer frei ist, entscheidet firebase.js: Das Konto hat einen Kauf
+ * (entitlements/{uid}, den der Server nach der Zahlung schreibt), oder es ist
+ * ein Konto aus der Zeit vor dem Kauf – ein Kind ohne Elternkonto. Ein Gast
+ * ohne Konto bekommt den freien Teil, mehr nicht.
+ *
+ * Die Schranke ist eine für Eltern, nicht für Hacker: Die Level liegen ohnehin
+ * in der App. Deshalb prüft sie der Client, und der Server schützt nur den
+ * Kauf selbst (kein Client kann sich einen schreiben). Wer die Konsole öffnet,
+ * kommt durch – der hätte nie bezahlt.
+ *
+ * Das Tor sieht das Kind, nicht den Preis: Der Zug steht vor einer Schranke,
+ * und der Satz sagt, dass die Eltern sie öffnen. Dahinter liegt ein kleines
+ * Rechenrätsel, das ein Kind mit vier Jahren nicht löst, und erst dann das
+ * Profilfenster mit dem Kauf.
+ *
+ * Wird nach firebase.js und train-progress.js geladen, vor app.js,
+ * game-shell.js und train-home.js.
+ */
+(() => {
+  "use strict";
+
+  const STATIONS_FREE = 10;
+  const FREE_DIFFICULTY = "easy";
+
+  const cloud = () => window.LernappFirebase || null;
+  const kids = () => window.LernappKids || null;
+
+  // Die Bereiche und ihre Spiele in der Reihenfolge der Häuser: das erste je
+  // Bereich ist frei. Es ist dieselbe Tabelle wie AREAS in train-progress.js,
+  // auf die Kennungen gekürzt – die Spielseiten laden train-progress.js
+  // nicht, und die Schranke muss auch dort wissen, wer das erste Haus ist.
+  // scripts/validate-schranke.mjs hält beide Tabellen gleich.
+  const AREAS = [
+    { id: "gedaechtnis", games: [
+      { id: "backpack", page: "backpack.html", ownProgress: "backpack" },
+      { id: "memory", page: "memory.html", ownProgress: "memory" },
+      { id: "beachTreasure", page: "strandschatz.html", ownProgress: "beachTreasure" },
+      { id: "tileMemory", page: "kacheln.html", ownProgress: "tileMemory" },
+      { id: "missingItem", page: "wasfehlt.html", ownProgress: "missingItem" },
+    ] },
+    { id: "konzentration", games: [
+      { id: "flanker", page: "schwarmfokus.html", ownProgress: "flanker" },
+      { id: "trackRouter", page: "weichen.html", ownProgress: "trackRouter" },
+      { id: "fishPond", page: "fischteich.html", ownProgress: "fishPond" },
+      { id: "gridlock", page: "freiefahrt.html", ownProgress: "gridlock" },
+      { id: "goSignal", page: "signal.html", ownProgress: "goSignal" },
+    ] },
+    { id: "geschwindigkeit", games: [
+      { id: "tiersprung", page: "tiersprung.html", ownProgress: "runner" },
+      { id: "cardMatch", page: "kartenmerker.html", ownProgress: "cardMatch" },
+      { id: "leafFlow", page: "blaetter.html", ownProgress: "leafFlow" },
+      { id: "towerStack", page: "turmbau.html", ownProgress: "towerStack" },
+      { id: "twinSpot", page: "doppelt.html", ownProgress: "twinSpot" },
+    ] },
+    { id: "problemloesen", games: [
+      { id: "spatialPuzzle", page: "raumdetektiv.html", ownProgress: "spatial" },
+      { id: "arukone", page: "arukone.html" },
+      { id: "bimaru", page: "bimaru.html" },
+      { id: "shikaku", page: "shikaku.html" },
+      { id: "craneStack", page: "faesser.html", ownProgress: "craneStack" },
+    ] },
+    { id: "zahlbuchstabe", games: [
+      { id: "letterPuzzle", page: "buchstaben.html" },
+      { id: "readingPuzzle", page: "wortdetektiv.html" },
+      { id: "kakuro", page: "kakuro.html" },
+      { id: "hidoku", page: "hidoku.html" },
+      { id: "numberLine", page: "zahlengleis.html", ownProgress: "numberLine" },
+    ] },
+  ];
+
+  // ---------------------------------------------------------------------------
+  // Wer ist frei?
+  // ---------------------------------------------------------------------------
+  // "gekauft"   das Konto hat einen aktiven Kauf
+  // "gruender"  ein Kind ohne Elternkonto – von vor dem Kauf
+  // "gast"      niemand angemeldet
+  // "offen"     ein Konto ohne Kauf: die Eltern haben noch nicht gekauft, oder
+  //             ein Elternkonto spielt selbst
+  function reason() {
+    const c = cloud();
+    if (!c?.isSignedIn?.()) return "gast";
+    const e = c.getEntitlement?.();
+    if (e?.active) return "gekauft";
+    if (c.getRole?.() === "child" && !c.getParentUid?.()) return "gruender";
+    return "offen";
+  }
+
+  function isFree() {
+    const r = reason();
+    return r === "gekauft" || r === "gruender";
+  }
+
+  // Ob der Stand schon bekannt ist. Bis dahin gilt "nicht frei" – die Sperre
+  // fällt zu, nicht auf. Aber ein Tor, das nur eine Sekunde zu spät aufgeht,
+  // ist besser als eines, das eine Sekunde zu spät zugeht.
+  function isLoaded() {
+    const c = cloud();
+    if (!c?.isSignedIn?.()) return true;
+    return Boolean(c.isEntitlementLoaded?.());
+  }
+
+  // ---------------------------------------------------------------------------
+  // Was ist frei?
+  // ---------------------------------------------------------------------------
+  function stationFree(nr) {
+    const n = Number(nr);
+    if (!Number.isInteger(n) || n < 1) return true;
+    return n <= STATIONS_FREE || isFree();
+  }
+
+  // Die Seite eines Spiels (memory.html) oder seine Kennung (memory).
+  function gameEntry(pageOrId) {
+    const key = String(pageOrId || "").split("?")[0].split("/").pop();
+    for (const area of AREAS) {
+      const index = area.games.findIndex((g) => g.page === key || g.id === key || g.ownProgress === key);
+      if (index >= 0) return { area, index, game: area.games[index] };
+    }
+    return null;
+  }
+
+  function gameFree(pageOrId) {
+    if (isFree()) return true;
+    const entry = gameEntry(pageOrId);
+    // Unbekannte Seiten (die Werkstatt, die Startseite) sperrt niemand.
+    if (!entry) return true;
+    return entry.index === 0;
+  }
+
+  function levelFree(level) {
+    if (!level) return false;
+    if (isFree()) return true;
+    if (!gameFree(level.game)) return false;
+    return level.difficulty === FREE_DIFFICULTY;
+  }
+
+  // Ein Ziel, wie enterGame es bekommt: "memory.html" oder
+  // "arukone.html?station=15". Mit Station entscheidet die Station allein –
+  // auf der Reise spielt ein Kind jedes Spiel, das die Station verlangt.
+  function targetFree(url) {
+    const text = String(url || "");
+    let station = 0;
+    try { station = Number(new URLSearchParams(text.split("?")[1] || "").get("station")) || 0; } catch { station = 0; }
+    if (station) return stationFree(station);
+    return gameFree(text);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Das Tor
+  // ---------------------------------------------------------------------------
+  // Eine Schranke vor dem Gleis, der Zug davor, und ein Satz für das Kind.
+  // Der Knopf für die Eltern führt über das Rechenrätsel ins Profilfenster.
+  function el(tag, attrs = {}, children = []) {
+    const ns = "http://www.w3.org/2000/svg";
+    const node = document.createElementNS(ns, tag);
+    Object.entries(attrs).forEach(([k, v]) => node.setAttribute(k, String(v)));
+    children.forEach((c) => node.append(c));
+    return node;
+  }
+
+  function schrankeSvg() {
+    const svg = el("svg", { viewBox: "0 0 240 120", class: "tor-bild-svg", role: "img", "aria-label": "Der Zug wartet vor einer Schranke" });
+    // Himmel und Boden
+    svg.append(el("rect", { x: 0, y: 0, width: 240, height: 120, rx: 14, fill: "#dff1fb" }));
+    svg.append(el("rect", { x: 0, y: 92, width: 240, height: 28, fill: "#9fd68a" }));
+    // Gleis
+    svg.append(el("rect", { x: 0, y: 96, width: 240, height: 3, fill: "#7a6a5a" }));
+    svg.append(el("rect", { x: 0, y: 104, width: 240, height: 3, fill: "#7a6a5a" }));
+    for (let x = 6; x < 240; x += 16) svg.append(el("rect", { x, y: 94, width: 6, height: 15, fill: "#a58a6a" }));
+    // Die Lok (wie das App-Icon)
+    const lok = el("g", { transform: "translate(22 40)" });
+    lok.append(el("rect", { x: 0, y: 22, width: 70, height: 30, rx: 8, fill: "#6c5ce7" }));
+    lok.append(el("rect", { x: 46, y: 6, width: 26, height: 30, rx: 6, fill: "#6c5ce7" }));
+    lok.append(el("rect", { x: 52, y: 12, width: 12, height: 10, rx: 3, fill: "#ffd166" }));
+    lok.append(el("rect", { x: 8, y: 8, width: 12, height: 18, rx: 3, fill: "#6c5ce7" }));
+    lok.append(el("circle", { cx: 4, cy: 4, r: 5, fill: "#c8c2f4" }));
+    lok.append(el("circle", { cx: 12, cy: -3, r: 4, fill: "#c8c2f4", opacity: 0.8 }));
+    [14, 36, 58].forEach((cx) => {
+      lok.append(el("circle", { cx, cy: 54, r: 7, fill: "#fff", stroke: "#4c3fd6", "stroke-width": 3 }));
+    });
+    svg.append(lok);
+    // Die Schranke: Pfosten und rot-weisser Balken, geschlossen
+    svg.append(el("rect", { x: 150, y: 50, width: 10, height: 46, rx: 3, fill: "#5c6b7a" }));
+    svg.append(el("circle", { cx: 155, cy: 56, r: 7, fill: "#ef476f" }));
+    const balken = el("g", { transform: "translate(152 60)" });
+    balken.append(el("rect", { x: 0, y: 0, width: 82, height: 10, rx: 5, fill: "#fff", stroke: "#3d4a57", "stroke-width": 2 }));
+    [10, 30, 50, 70].forEach((x) => balken.append(el("rect", { x, y: 1, width: 10, height: 8, fill: "#ef476f" })));
+    svg.append(balken);
+    // Das Schloss am Balken
+    svg.append(el("rect", { x: 196, y: 30, width: 20, height: 16, rx: 4, fill: "#ffd166", stroke: "#b8860b", "stroke-width": 2 }));
+    svg.append(el("path", { d: "M200 30v-5a6 6 0 0 1 12 0v5", fill: "none", stroke: "#b8860b", "stroke-width": 3 }));
+    return svg;
+  }
+
+  let offenesTor = null;
+
+  function closeGate() {
+    if (!offenesTor) return;
+    offenesTor.remove();
+    offenesTor = null;
+    document.body.classList.remove("tor-offen");
+  }
+
+  // Zeigt das Tor. onBack läuft, wenn das Kind es zumacht; wer nichts angibt,
+  // bekommt nur das Zumachen. Gibt eine Funktion zum Schliessen zurück.
+  function showGate({ onBack = null, host = document.body } = {}) {
+    closeGate();
+    const overlay = document.createElement("div");
+    overlay.className = "tor-overlay";
+    overlay.setAttribute("role", "dialog");
+    overlay.setAttribute("aria-label", "Hier geht es weiter, wenn deine Eltern die Strecke öffnen");
+
+    const card = document.createElement("div");
+    card.className = "tor-card";
+
+    const bild = document.createElement("div");
+    bild.className = "tor-bild";
+    bild.append(schrankeSvg());
+
+    const text = document.createElement("p");
+    text.className = "tor-text";
+    text.textContent = "Hier geht es weiter, wenn deine Eltern die Strecke öffnen.";
+
+    const actions = document.createElement("div");
+    actions.className = "tor-actions";
+    const zurueck = document.createElement("button");
+    zurueck.type = "button";
+    zurueck.className = "tor-zurueck";
+    zurueck.setAttribute("aria-label", "Zurück");
+    zurueck.append(el("svg", { viewBox: "0 0 24 24", "aria-hidden": "true" }, [
+      el("path", { d: "M15 5 8 12l7 7", fill: "none", stroke: "currentColor", "stroke-width": 3, "stroke-linecap": "round", "stroke-linejoin": "round" }),
+    ]));
+    const eltern = document.createElement("button");
+    eltern.type = "button";
+    eltern.className = "tor-eltern";
+    eltern.textContent = "Für Eltern";
+    actions.append(zurueck, eltern);
+
+    card.append(bild, text, actions);
+    overlay.append(card);
+    host.append(overlay);
+    document.body.classList.add("tor-offen");
+    offenesTor = overlay;
+    kids()?.playChime?.();
+    try { kids()?.speak?.("Hier geht es weiter, wenn deine Eltern die Strecke öffnen."); } catch { /* ohne Ton */ }
+
+    zurueck.addEventListener("click", () => { closeGate(); onBack?.(); });
+    eltern.addEventListener("click", () => showParentGate(card, text, actions));
+    zurueck.focus();
+    return closeGate;
+  }
+
+  // Das Rechenrätsel. Zwei zweistellige Zahlen addieren – das kann ein Kind
+  // von vier nicht, ein Erwachsener ohne Nachdenken. Drei Versuche, dann ist
+  // das Tor wieder das Tor.
+  function showParentGate(card, text, actions) {
+    const a = 11 + Math.floor(Math.random() * 30);
+    const b = 12 + Math.floor(Math.random() * 30);
+    const form = document.createElement("form");
+    form.className = "tor-gate";
+    form.innerHTML = `
+      <p class="tor-gate-text">Für Eltern: Wie viel ist <strong>${a} + ${b}</strong>?</p>
+      <div class="tor-gate-row">
+        <input name="antwort" type="number" inputmode="numeric" autocomplete="off" required aria-label="Antwort" />
+        <button type="submit">Weiter</button>
+      </div>
+      <p class="tor-gate-status" role="status" aria-live="polite"></p>
+    `;
+    text.hidden = true;
+    actions.hidden = true;
+    card.append(form);
+    const input = form.querySelector("input");
+    const status = form.querySelector(".tor-gate-status");
+    let versuche = 0;
+    input.focus();
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      if (Number(input.value) === a + b) {
+        closeGate();
+        cloud()?.openAccount?.();
+        return;
+      }
+      versuche += 1;
+      input.value = "";
+      if (versuche >= 3) {
+        form.remove();
+        text.hidden = false;
+        actions.hidden = false;
+        return;
+      }
+      status.textContent = "Das stimmt nicht. Noch einmal?";
+      input.focus();
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Änderungen weitergeben
+  // ---------------------------------------------------------------------------
+  const listeners = new Set();
+  function onChange(fn) { listeners.add(fn); return () => listeners.delete(fn); }
+  document.addEventListener("lernapp:entitlement-changed", () => {
+    listeners.forEach((fn) => { try { fn(); } catch { /* ein Zuhörer, der stolpert, hält die anderen nicht auf */ } });
+  });
+
+  window.LernappEntitlement = {
+    STATIONS_FREE,
+    FREE_DIFFICULTY,
+    AREAS,
+    reason,
+    isFree,
+    isLoaded,
+    stationFree,
+    gameFree,
+    levelFree,
+    targetFree,
+    gameEntry,
+    showGate,
+    closeGate,
+    onChange,
+  };
+})();
