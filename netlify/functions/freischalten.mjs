@@ -41,6 +41,7 @@ import { kinderVon } from "./_lib/familie.mjs";
 import { sendeMail } from "./_lib/mail.mjs";
 import { freischaltMail } from "./_lib/mail-vorlagen.mjs";
 import { istTechnischeAdresse } from "./_lib/kind.mjs";
+import { istGeloescht } from "./_lib/konto.mjs";
 
 export const GESCHENK_PLAN = "geschenk";
 export const GESCHENK_QUELLE = "admin";
@@ -91,6 +92,10 @@ export async function freischaltungMelden(kopfUid) {
 
 export async function freischalten({ admin, uid, frei = true }) {
   if (typeof uid !== "string" || !uid) throw new AnfrageFehler(400, "missing-uid", "Welches Konto?");
+  // Ein gelöschtes Konto bekommt nichts geschenkt: Sonst stünde nach einem
+  // Fehlgriff in einer Liste, die einen Moment alt ist, wieder ein
+  // Kaufeintrag ohne Konto da.
+  if (await istGeloescht(uid)) throw new AnfrageFehler(404, "no-account", "Dieses Konto gibt es nicht (mehr).");
   const konten = await familieUm(uid);
   const refs = konten.map((kontoUid) => db().collection("entitlements").doc(kontoUid));
   const kopf = konten[0];

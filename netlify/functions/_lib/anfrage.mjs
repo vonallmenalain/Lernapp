@@ -55,7 +55,18 @@ export async function anrufer(request) {
   if (!token) throw new AnfrageFehler(401, "not-signed-in", "Nicht angemeldet.");
   let decoded;
   try {
-    decoded = await auth().verifyIdToken(token);
+    // Das zweite Argument ist checkRevoked, und es steht nicht umsonst da:
+    // Ein ID-Token ist ein JWT und gilt eine Stunde. Ohne diese Prüfung
+    // beweist es nur, dass es einmal ausgestellt wurde – nicht, dass es das
+    // Konto noch gibt. Wer gerade gelöscht wurde (Adminbereich, "Ganz
+    // entfernen") oder dessen Token zurückgezogen wurde, käme sonst mit dem
+    // Token im offenen Browser noch bis zu einer Stunde hier durch und
+    // könnte Kinder anlegen oder an die Kasse gehen.
+    //
+    // Es kostet eine Nachfrage bei Firebase je Aufruf. Die Funktionen hier
+    // laufen ein paar Mal je Sitzung, nicht ein paar Mal je Sekunde – dieser
+    // Preis ist die Gewissheit wert.
+    decoded = await auth().verifyIdToken(token, true);
   } catch {
     throw new AnfrageFehler(401, "bad-token", "Die Anmeldung ist abgelaufen. Bitte neu anmelden.");
   }

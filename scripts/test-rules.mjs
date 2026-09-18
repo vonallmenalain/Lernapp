@@ -353,6 +353,13 @@ try {
   await darfNicht("Admin liest die Versandbremse", () => admin().doc("mailBremse/irgendwas").get());
   await darfNicht("Gast schreibt die Versandbremse", () => gast().doc("mailBremse/irgendwas").set({ zuletztMs: 0 }));
 
+  // Und der Friedhof: Wer die Marke löschen könnte, holte sich damit einen
+  // verspäteten Kauf zurück, den das Löschen gerade verworfen hat.
+  await darfNicht("Admin liest den Friedhof", () => admin().doc("geloeschteKonten/anna").get());
+  await darfNicht("Admin löscht eine Grabstein-Marke", () => admin().doc("geloeschteKonten/anna").delete());
+  await darfNicht("Kind setzt sich eine Grabstein-Marke", () => anna().doc("geloeschteKonten/anna").set({ zeitMs: 0 }));
+  await darfNicht("Gast liest den Friedhof", () => gast().doc("geloeschteKonten/anna").get());
+
   // --- Alles andere ------------------------------------------------------------
   await darfNicht("Kind schreibt in fremde Kollektion", () => anna().doc("irgendwas/x").set({ a: 1 }));
   await darfNicht("Admin liest fremde Kollektion", () => admin().doc("irgendwas/x").get());

@@ -29,6 +29,8 @@
  *   - freischalten ruft den Server mit Token und Kennung an
  *   - der Reiter "Spiele" zählt richtig
  *   - der Reiter "Gruppen" legt eine übergreifende Gruppe an
+ *   - "Ganz entfernen" fragt zweimal, nennt die Kinder beim Namen und fehlt
+ *     beim eigenen Konto des Admins
  *   - der Reiter "E-Mail" zeigt Ein- und Ausgang, filtert, und das Speichern
  *     der Weiterleitung ruft den Server an
  *
@@ -621,6 +623,56 @@ pruefe(await page.locator(".admin-entry-body .admin-reset").count() === 0,
 pruefe(await page.locator(".admin-entry-body .admin-kauf").count() === 0,
   "Ein Gast bekommt den Freischalten-Knopf – ohne Konto gibt es nichts freizuschalten");
 
+// --- Ganz entfernen ---------------------------------------------------------------
+// Der einzige Knopf, der auch die Anmeldung mitnimmt. Geprüft wird, dass er
+// zweimal fragt, dass er beim eigenen Konto gar nicht erst erscheint, und dass
+// eine Familie die Namen der Kinder nennt, bevor sie verschwindet.
+// Frisch laden: Die Abschnitte davor haben gefiltert, sortiert, Konten
+// aufgeklappt und Gruppen umgeschrieben. addInitScript baut den Speicher bei
+// jeder Navigation neu aus DATEN auf – damit steht hier wieder der Anfangs-
+// zustand, und die Prüfung hängt nicht daran, was vorher geklickt wurde.
+await page.goto(`${BASIS}/admin.html`, { waitUntil: "load" });
+await page.locator(".admin-reiter").waitFor({ timeout: 15000 });
+await page.locator(".admin-entry-head").first().waitFor({ timeout: 10000 });
+
+// Das eigene Konto des Admins: kein Knopf, sondern der Grund dafür.
+await page.locator('.admin-entry:has-text("Alain") .admin-entry-head').first().click();
+await page.locator(".admin-entry-body").waitFor({ timeout: 10000 });
+pruefe(await page.locator("[data-loeschen-frage]").count() === 0,
+  "Der Admin kann sein eigenes Konto löschen – danach käme er nicht mehr herein");
+pruefe((await text(page.locator(".admin-entry-body"))).includes("Das ist dein eigenes Konto"),
+  "Beim eigenen Konto fehlt der Grund, warum nicht gelöscht werden kann");
+await page.locator('.admin-entry:has-text("Alain") .admin-entry-head').first().click();
+
+// Das Elternkonto mit zwei Kindern: Die Rückfrage nennt beide.
+await page.locator('.admin-entry:has-text("Familie Muster") .admin-entry-head').first().click();
+await page.locator("[data-loeschen-frage]").first().waitFor({ timeout: 10000 });
+await page.locator("[data-loeschen-frage]").first().click();
+await page.locator("[data-loeschen-ja]").waitFor({ timeout: 5000 });
+const frageText = await text(page.locator(".admin-reset.is-confirming"));
+pruefe(frageText.includes("Mia") && frageText.includes("Ben"),
+  `Die Rückfrage nennt die Kinder nicht: ${frageText.slice(0, 200)}`);
+pruefe(frageText.includes("3 Konten"), "Die Rückfrage sagt nicht, wie viele Konten es trifft");
+await knips("10-loeschen-frage");
+
+// Abbrechen tut nichts.
+const vorherAnfragen = anfragen.filter((a) => a.pfad === "konto-loeschen").length;
+await page.locator("[data-frage-ab]").first().click();
+await page.waitForTimeout(300);
+pruefe(anfragen.filter((a) => a.pfad === "konto-loeschen").length === vorherAnfragen,
+  "Abbrechen hat trotzdem gelöscht");
+
+// Und mit Ja geht es an den Server – mit Token und mit auchKinder.
+await page.locator("[data-loeschen-frage]").first().click();
+await page.locator("[data-loeschen-ja]").waitFor({ timeout: 5000 });
+await page.locator("[data-loeschen-ja]").click();
+await page.waitForTimeout(1500);
+const geloescht = anfragen.filter((a) => a.pfad === "konto-loeschen");
+pruefe(geloescht.length === 1, `Löschen rief den Server ${geloescht.length}-mal an, erwartet einmal`);
+pruefe(geloescht[0]?.body?.uid === "eltern-1", `Gelöscht wurde ${JSON.stringify(geloescht[0]?.body)}`);
+pruefe(geloescht[0]?.body?.auchKinder === true, "Die Kinder wurden nicht mitgeschickt – sie blieben als Gründer zurück");
+pruefe(geloescht[0]?.token.startsWith("Bearer "), "Das Löschen ging ohne Token an den Server");
+
 // --- Der Reiter "E-Mail" ---------------------------------------------------------
 // Was verschickt wurde, was ankam, und wohin die Post weitergeleitet wird.
 await page.locator('[data-reiter="mails"]').click();
@@ -668,4 +720,4 @@ if (befunde.length) {
   process.exit(1);
 }
 
-console.log("Adminbereich geprüft: eigene Seite, sechs Reiter, filtern und sortieren, probierte Level, freischalten, Auswertung je Spiel, Wagen mit Rückfrage und aufgehobenen Familienwahlen, übergreifende Gruppe, Postein- und -ausgang.");
+console.log("Adminbereich geprüft: eigene Seite, sechs Reiter, filtern und sortieren, probierte Level, freischalten, Konten ganz entfernen mit Rückfrage, Auswertung je Spiel, Wagen mit Rückfrage und aufgehobenen Familienwahlen, übergreifende Gruppe, Postein- und -ausgang.");

@@ -256,6 +256,7 @@
       setJourneyStufe: setJourneyStufeFor,
       resetProgress: resetProgressFor,
       freischalten: kontoFreischalten,
+      loeschen: kontoLoeschen,
       switchWagonSet,
       // Der Reiter E-Mail: das Archiv und die Weiterleitung.
       ladeMails: loadMails,
@@ -986,6 +987,14 @@
   // nicht an dieser Zeile. Es trifft immer die ganze Familie, wie ein Kauf.
   async function kontoFreischalten(uid, frei = true) {
     return serverAufruf("freischalten", { uid, frei: frei !== false });
+  }
+
+  // Ein Konto restlos entfernen, Anmeldung eingeschlossen. Nur der Admin;
+  // geprüft wird das am Token auf dem Server, nicht an dieser Zeile. Ein
+  // Elternkonto mit Kindern geht nur mit auchKinder – sonst blieben die
+  // Kinder als Konten ohne Eltern zurück und wären damit dauerhaft frei.
+  async function kontoLoeschen(uid, auchKinder = false) {
+    return serverAufruf("konto-loeschen", { uid, auchKinder: auchKinder === true });
   }
 
   // Die Familie als Gruppe: Damit stehen die Züge der Geschwister auf dem
@@ -3015,6 +3024,9 @@
     if (code === "server/already-owned") return "Dieses Konto hat Gripszug schon gekauft.";
     if (code === "server/bad-address") return "Das ist keine gültige E-Mail-Adresse.";
     if (code === "server/no-key") return "RESEND_API_KEY fehlt bei Netlify – ohne Schlüssel verschickt Gripszug nichts.";
+    if (code === "server/not-yourself") return "Dein eigenes Konto löschst du nicht hier.";
+    if (code === "server/admin-account") return "Ein Admin-Konto wird hier nicht gelöscht.";
+    if (code === "server/has-children") return error?.message || "Dieses Elternkonto führt noch Kinder.";
     if (code === "server/send-failed") return error?.message || "Die Mail ging nicht raus. Steht die Domain bei Resend auf \u00ABverified\u00BB?";
     // 502/504: Die Funktion war kalt und hat zu lange gebraucht. Der zweite
     // Versuch trifft sie wach an und geht fast immer durch.

@@ -589,6 +589,165 @@ ok(r400.status === 400, `kind-anlegen mit kaputtem JSON: ${r400.status}`);
   ok(perGet.status === 405, `freischalten per GET: ${perGet.status}`);
 }
 
+// --- 8e. Ein Konto restlos entfernen -----------------------------------------------
+// Der einzige Knopf, der auch die Anmeldung mitnimmt – und deshalb der, bei
+// dem am meisten übrig bleiben kann. Geprüft wird, dass nichts übrig bleibt,
+// und dass die drei Schranken halten.
+{
+  const chefToken = await anmelden(ADMIN_ADRESSEN[0], "adminpasswort");
+  const werChef = await adminAnrufer(bearer(chefToken));
+  const { kontoLoeschen, default: loeschenHandler } = await import("../netlify/functions/konto-loeschen.mjs");
+  const { default: willkommenHandler } = await import("../netlify/functions/willkommen.mjs");
+
+  // Eine ganze Familie: Elternkonto, zwei Kinder, Fortschritt, Kauf, Mails.
+  const grossvater = await auth().createUser({ email: "grossvater@example.com", password: "elternpasswort" });
+  await db().collection("users").doc(grossvater.uid).set({ username: "Grossvater", email: "grossvater@example.com", role: "parent" });
+  const grossvaterEltern = { uid: grossvater.uid, email: "grossvater@example.com", istEltern: true };
+  const testkind1 = await kindAnlegen({ eltern: grossvaterEltern, name: "Testkind eins", passwort: "1234" });
+  const testkind2 = await kindAnlegen({ eltern: grossvaterEltern, name: "Testkind zwei", passwort: "1234" });
+  await db().collection("users").doc(testkind1.uid).collection("levelProgress").doc("arukone.A1-1").set({ solved: true });
+  await db().collection("users").doc(testkind1.uid).collection("sessions").doc("s1").set({ startedAt: 1 });
+  await db().collection("entitlements").doc(grossvater.uid).set({ plan: "familie", active: true, source: "stripe" });
+  await db().collection("mails").doc(`willkommen-${grossvater.uid}`).set({ richtung: "aus", art: "willkommen", uid: grossvater.uid, zeitMs: 1 });
+
+  // Ohne auchKinder geht es nicht: Ein Kind ohne Elternkonto gilt als Gründer
+  // und wäre dauerhaft frei – aus dem Aufräumen würde ein Geschenk.
+  await wirft(() => kontoLoeschen({ admin: werChef, uid: grossvater.uid }), "has-children", "ein Elternkonto mit Kindern ohne auchKinder");
+  ok((await auth().getUser(grossvater.uid).catch(() => null)) !== null, "das abgelehnte Löschen hat die Anmeldung trotzdem genommen");
+
+  // Und die drei Schranken.
+  await wirft(() => kontoLoeschen({ admin: werChef, uid: werChef.uid }), "not-yourself", "der Admin löscht sich selbst");
+  await wirft(() => kontoLoeschen({ admin: werChef, uid: "gibtesnicht" }), "no-account", "ein Konto, das es nicht gibt");
+  await wirft(() => kontoLoeschen({ admin: werChef, uid: "" }), "missing-uid", "löschen ohne Kennung");
+
+  // Jetzt richtig: die ganze Familie.
+  const weg = await kontoLoeschen({ admin: werChef, uid: grossvater.uid, auchKinder: true });
+  ok(weg.konten === 3, `gelöscht: ${JSON.stringify(weg)} – erwartet Elternkonto und zwei Kinder`);
+  ok(weg.level === 1 && weg.sitzungen === 1, `Unterkollektionen: ${JSON.stringify(weg)}`);
+  ok(weg.mails === 1, `Mails: ${weg.mails}`);
+
+  // Und wirklich nichts übrig – an allen fünf Orten.
+  for (const [name, uid] of [["Elternkonto", grossvater.uid], ["Kind 1", testkind1.uid], ["Kind 2", testkind2.uid]]) {
+    ok((await auth().getUser(uid).catch(() => null)) === null, `${name}: die Anmeldung steht noch`);
+    ok(!(await db().collection("users").doc(uid).get()).exists, `${name}: das Profil steht noch`);
+    ok(!(await db().collection("entitlements").doc(uid).get()).exists, `${name}: der Kaufeintrag steht noch`);
+  }
+  ok((await db().collection("users").doc(testkind1.uid).collection("levelProgress").get()).empty, "die Level des Kindes stehen noch");
+  ok((await db().collection("users").doc(testkind1.uid).collection("sessions").get()).empty, "die Sitzungen des Kindes stehen noch");
+  ok(!(await db().collection("mails").doc(`willkommen-${grossvater.uid}`).get()).exists, "die Mail an das Konto steht noch");
+
+  // Die Adresse ist wieder frei – das ist der ganze Zweck.
+  const nochmal = await auth().createUser({ email: "grossvater@example.com", password: "elternpasswort" });
+  ok(Boolean(nochmal.uid), "die Adresse ist nach dem Löschen noch belegt");
+  await auth().deleteUser(nochmal.uid);
+
+  // Ein einzelnes Kind: Es muss auch aus children[] der Eltern verschwinden,
+  // sonst zählt es weiter gegen die Grenze von vier.
+  const testtante = await auth().createUser({ email: "testtante@example.com", password: "elternpasswort" });
+  await db().collection("users").doc(testtante.uid).set({ username: "Testtante", email: "testtante@example.com", role: "parent" });
+  const testnichte = await kindAnlegen({ eltern: { uid: testtante.uid, email: "testtante@example.com", istEltern: true }, name: "Testtestnichte", passwort: "1234" });
+  const einzeln = await kontoLoeschen({ admin: werChef, uid: testnichte.uid });
+  ok(einzeln.konten === 1, `ein Kind allein: ${JSON.stringify(einzeln)}`);
+  const testtanteDanach = (await db().collection("users").doc(testtante.uid).get()).data();
+  ok((testtanteDanach?.children || []).length === 0, `das Kind steht noch in children[]: ${JSON.stringify(testtanteDanach?.children)}`);
+  ok((await db().collection("users").doc(testtante.uid).get()).exists, "das Elternkonto wurde mitgelöscht");
+
+  // --- Was ein gelöschtes Konto nicht mehr kann -----------------------------
+  // Ein ID-Token ist ein JWT und gilt eine Stunde. Ohne checkRevoked käme der
+  // Browser eines gerade gelöschten Kontos damit noch bis zu einer Stunde
+  // durch – Kinder anlegen, an die Kasse gehen, Mails auslösen.
+  {
+    const kurzlebig = await auth().createUser({ email: "kurzlebig@example.com", password: "elternpasswort" });
+    await db().collection("users").doc(kurzlebig.uid).set({ username: "Kurzlebig", email: "kurzlebig@example.com", role: "parent" });
+    const tokenVorher = await anmelden("kurzlebig@example.com", "elternpasswort");
+    ok(Boolean(tokenVorher), "das Konto für die Token-Prüfung bekommt kein Token");
+    // Vor dem Löschen geht es durch.
+    const wer = await anrufer(bearer(tokenVorher));
+    ok(wer.uid === kurzlebig.uid, "das frische Token wird nicht angenommen");
+
+    await kontoLoeschen({ admin: werChef, uid: kurzlebig.uid });
+
+    // Danach nicht mehr – mit DEMSELBEN Token, das noch lange gültig wäre.
+    await wirft(() => anrufer(bearer(tokenVorher)), "bad-token", "das Token eines gelöschten Kontos");
+    const nachLoeschung = await willkommenHandler(bearer(tokenVorher));
+    ok(nachLoeschung.status === 401, `ein gelöschtes Konto löst noch eine Mail aus: ${nachLoeschung.status}`);
+
+    // Und jetzt das Unangenehme: Die zwei Prüfungen darüber gehen AUCH durch,
+    // wenn checkRevoked fehlt. Der Auth-Emulator prüft Token, indem er den
+    // Benutzer nachschlägt – ist der weg, lehnt er von sich aus ab. Der echte
+    // Dienst tut das nicht: Dort ist ein ID-Token ein signiertes JWT, und
+    // verifyIdToken prüft ohne das zweite Argument nur Unterschrift und
+    // Ablauf. Ein gelöschtes Konto käme damit bis zu eine Stunde lang durch.
+    //
+    // Gegen einen Unterschied, den der Emulator nicht nachstellt, hilft kein
+    // Verhaltenstest – also wird hier die Zeile selbst gelesen. Das ist
+    // dieselbe Art Prüfung wie oben bei der Admin-Adresse in firestore.rules:
+    // Wo sich etwas nicht ausprobieren lässt, wird nachgelesen.
+    const anfrageQuelle = readFileSync(path.join(WURZEL, "netlify/functions/_lib/anfrage.mjs"), "utf8");
+    ok(/verifyIdToken\(\s*token\s*,\s*true\s*\)/.test(anfrageQuelle),
+      "anrufer() prüft nicht auf Widerruf (verifyIdToken ohne checkRevoked) – im Emulator fällt das nicht auf, in der Produktion käme ein gelöschtes Konto eine Stunde lang durch");
+  }
+
+  // --- Der Grabstein ---------------------------------------------------------
+  // Stripe wiederholt ein Ereignis tagelang, und eine verzögerte Zahlung
+  // meldet sich ohnehin später. Ohne die Marke entstünde nach dem Löschen
+  // wieder ein Kaufeintrag – und eine Bestellbestätigung an eine Adresse,
+  // deren Konto es nicht mehr gibt.
+  {
+    const spaet = await auth().createUser({ email: "spaetzahler@example.com", password: "elternpasswort" });
+    await db().collection("users").doc(spaet.uid).set({ username: "Spätzahler", email: "spaetzahler@example.com", role: "parent" });
+    await kontoLoeschen({ admin: werChef, uid: spaet.uid });
+    ok((await db().collection("geloeschteKonten").doc(spaet.uid).get()).exists, "das gelöschte Konto hat keinen Grabstein");
+
+    const nachzuegler = await kaufVerbuchen({
+      id: "cs_test_nach_loeschung", client_reference_id: spaet.uid, payment_status: "paid",
+      payment_intent: "pi_nach_loeschung", customer_details: { email: "spaetzahler@example.com" },
+      amount_total: 3000, currency: "chf",
+    });
+    ok(nachzuegler.verbucht === false && /gelöscht/.test(nachzuegler.grund || ""), `ein Kauf nach dem Löschen: ${JSON.stringify(nachzuegler)}`);
+    ok(!(await db().collection("entitlements").doc(spaet.uid).get()).exists, "der Kauf ist nach dem Löschen wieder da");
+    ok(!(await db().collection("mails").doc("bestellung-cs_test_nach_loeschung").get()).exists, "die Bestellbestätigung ging an ein gelöschtes Konto");
+
+    // Und geschenkt bekommt es auch nichts mehr.
+    await wirft(() => freischalten({ admin: werChef, uid: spaet.uid, frei: true }), "no-account", "ein gelöschtes Konto wird freigeschaltet");
+  }
+
+  // --- Mails ohne Kennung ----------------------------------------------------
+  // Die Mail zum Zurücksetzen des Passworts geht an jemanden, der gerade NICHT
+  // angemeldet ist – sie trägt deshalb keine Kennung, nur die Adresse. Eine
+  // Suche nach der Kennung allein liesse sie stehen.
+  {
+    const vergesslich = await auth().createUser({ email: "vergesslich@example.com", password: "elternpasswort" });
+    await db().collection("users").doc(vergesslich.uid).set({ username: "Vergesslich", email: "vergesslich@example.com", role: "parent" });
+    await db().collection("mails").doc("passwort-ohne-kennung").set({
+      richtung: "aus", art: "passwort", an: "vergesslich@example.com", uid: null, betreff: "Neues Passwort", zeitMs: 1,
+    });
+    // Eine Mail AN kids@alae.app VON dieser Adresse ist Korrespondenz und
+    // gehört nicht dem Konto – sie muss stehen bleiben.
+    await db().collection("mails").doc("eingang-von-ihr").set({
+      richtung: "ein", art: "eingang", von: "vergesslich@example.com", an: "kids@alae.app", betreff: "Frage", zeitMs: 1,
+    });
+
+    await kontoLoeschen({ admin: werChef, uid: vergesslich.uid });
+    ok(!(await db().collection("mails").doc("passwort-ohne-kennung").get()).exists,
+      "die Passwortmail ohne Kennung steht noch – sie trägt nur die Adresse");
+    ok((await db().collection("mails").doc("eingang-von-ihr").get()).exists,
+      "eine Mail AN kids@alae.app wurde mitgelöscht – das ist Korrespondenz, kein Kontodatum");
+  }
+
+  // Ein Admin-Konto bleibt, auch wenn ein anderer Admin es versucht.
+  const zweiterChef = { uid: "fremd", email: ADMIN_ADRESSEN[0], istEltern: true, istAdmin: true };
+  await wirft(() => kontoLoeschen({ admin: zweiterChef, uid: werChef.uid }), "admin-account", "ein Admin-Konto wird gelöscht");
+
+  // Von aussen: ohne Token 401, als Eltern 403, als Admin 200.
+  ok((await loeschenHandler(postJson(null, { uid: testtante.uid }))).status === 401, "löschen ohne Token");
+  ok((await loeschenHandler(postJson(mamaToken, { uid: testtante.uid }))).status === 403, "löschen als Elternkonto");
+  const alsAdminWeg = await loeschenHandler(postJson(chefToken, { uid: testtante.uid }));
+  ok(alsAdminWeg.status === 200, `löschen als Admin: ${alsAdminWeg.status} ${await alsAdminWeg.clone().text().catch(() => "")}`);
+  ok((await auth().getUser(testtante.uid).catch(() => null)) === null, "der Weg von aussen nimmt die Anmeldung nicht mit");
+  ok((await loeschenHandler(new Request("http://x/api", { method: "GET", headers: { authorization: `Bearer ${chefToken}` } }))).status === 405, "löschen per GET");
+}
+
 // --- 9. Die Statusseite -----------------------------------------------------------
 // Sie ist die einzige Funktion, die auch dann antworten muss, wenn sonst
 // nichts geht – deshalb lädt sie beim Start nichts Schweres.

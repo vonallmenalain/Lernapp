@@ -39,19 +39,7 @@
 import { auth, db, FieldValue } from "./_lib/firebase.mjs";
 import { AnfrageFehler, antwort, fehlerAntwort, liesJson, elternAnrufer, nurMethode } from "./_lib/anfrage.mjs";
 import { kinderVon } from "./_lib/familie.mjs";
-
-// Firestore löscht keine Kollektion, nur Dokumente – und ein Stapel fasst 500.
-// Vierzig Level mal acht Spiele plus Sitzungen kommen da durchaus hin.
-async function unterkollektionLeeren(ref) {
-  const schnappschuss = await ref.get();
-  const docs = schnappschuss.docs;
-  for (let von = 0; von < docs.length; von += 400) {
-    const stapel = db().batch();
-    docs.slice(von, von + 400).forEach((doc) => stapel.delete(doc.ref));
-    await stapel.commit();
-  }
-  return docs.length;
-}
+import { unterkollektionLeeren } from "./_lib/konto.mjs";
 
 export async function kindLoeschen({ eltern, uid }) {
   if (typeof uid !== "string" || !uid) throw new AnfrageFehler(400, "missing-uid", "Welches Kind?");
