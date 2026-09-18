@@ -24,6 +24,15 @@
  * bezahlter Kauf bleibt unberührt – den nimmt eine Rückerstattung bei Stripe
  * zurück, nicht ein Klick. Sonst verlöre eine Familie ihren Kauf durch einen
  * Fehlgriff in einer Liste.
+ *
+ * Aus demselben Grund schreibt auch das VERGEBEN nicht blind: Es sieht in
+ * einer Transaktion nach, ob die Familie inzwischen bezahlt hat, und lehnt
+ * dann ab. Der Adminbereich zeigt den Knopf bei bezahlten Konten zwar gar
+ * nicht – aber die Liste ist einen Moment alt, und wer in genau diesem Moment
+ * an der Kasse war, bekäme sonst ein Geschenk über seinen Kauf geschrieben.
+ * Danach stünde dort source: "admin", und ein späteres Zurücknehmen löschte
+ * den bezahlten Zugang samt der Stripe-Kennungen, an denen der Webhook eine
+ * Rückerstattung wiedererkennt.
  */
 
 import { db, FieldValue } from "./_lib/firebase.mjs";
@@ -48,43 +57,58 @@ async function familieUm(uid) {
   return [...new Set([kopfUid, ...kinder, uid])];
 }
 
+// Ein Eintrag, der nicht von hier stammt: ein Kauf bei Stripe. Den fasst
+// weder das Vergeben noch das Zurücknehmen an.
+function istBezahlterKauf(daten) {
+  return Boolean(daten?.source) && daten.source !== GESCHENK_QUELLE;
+}
+
 export async function freischalten({ admin, uid, frei = true }) {
   if (typeof uid !== "string" || !uid) throw new AnfrageFehler(400, "missing-uid", "Welches Konto?");
   const konten = await familieUm(uid);
-  const stapel = db().batch();
-  const jetzt = FieldValue.serverTimestamp();
+  const refs = konten.map((kontoUid) => db().collection("entitlements").doc(kontoUid));
   const kopf = konten[0];
 
-  if (frei) {
-    const eintrag = {
-      plan: GESCHENK_PLAN,
-      active: true,
-      source: GESCHENK_QUELLE,
-      grantedAtMs: Date.now(),
-      grantedAt: jetzt,
-      grantedBy: admin.uid,
-    };
-    konten.forEach((kontoUid) => {
-      stapel.set(db().collection("entitlements").doc(kontoUid), kontoUid === kopf ? eintrag : { ...eintrag, via: kopf });
-    });
-    await stapel.commit();
-    return { uid, frei: true, konten: konten.length };
-  }
+  // Lesen und Schreiben in einer Transaktion: Zwischen "ist noch nichts da"
+  // und "dann schreibe ich" passt sonst genau eine Zahlung.
+  return db().runTransaction(async (transaktion) => {
+    const staende = await Promise.all(refs.map((ref) => transaktion.get(ref)));
+    const bezahlt = staende.find((doc) => doc.exists && istBezahlterKauf(doc.data()));
+    const jetzt = FieldValue.serverTimestamp();
 
-  // Zurücknehmen: erst nachsehen, ob wirklich alles vom Haus ist.
-  const staende = await Promise.all(konten.map((kontoUid) => db().collection("entitlements").doc(kontoUid).get()));
-  const bezahlt = staende.find((doc) => doc.exists && doc.data()?.source && doc.data().source !== GESCHENK_QUELLE);
-  if (bezahlt) {
-    throw new AnfrageFehler(409, "paid-not-gift", "Diese Familie hat bezahlt. Ein Kauf wird bei Stripe zurückerstattet, nicht hier.");
-  }
-  let entfernt = 0;
-  staende.forEach((doc) => {
-    if (!doc.exists) return;
-    stapel.delete(doc.ref);
-    entfernt += 1;
+    if (frei) {
+      if (bezahlt) {
+        throw new AnfrageFehler(409, "already-paid", "Diese Familie hat bezahlt – da ist nichts freizuschalten.");
+      }
+      const eintrag = {
+        plan: GESCHENK_PLAN,
+        active: true,
+        source: GESCHENK_QUELLE,
+        grantedAtMs: Date.now(),
+        grantedAt: jetzt,
+        grantedBy: admin.uid,
+      };
+      refs.forEach((ref, index) => {
+        const kontoUid = konten[index];
+        // merge: Was aus einer früheren Zahlung noch dasteht – etwa die
+        // Stripe-Kennungen einer Rückerstattung – bleibt stehen. Gelöscht
+        // wird hier nichts, überschrieben nur, was das Geschenk ausmacht.
+        transaktion.set(ref, kontoUid === kopf ? eintrag : { ...eintrag, via: kopf }, { merge: true });
+      });
+      return { uid, frei: true, konten: konten.length };
+    }
+
+    if (bezahlt) {
+      throw new AnfrageFehler(409, "paid-not-gift", "Diese Familie hat bezahlt. Ein Kauf wird bei Stripe zurückerstattet, nicht hier.");
+    }
+    let entfernt = 0;
+    staende.forEach((doc, index) => {
+      if (!doc.exists) return;
+      transaktion.delete(refs[index]);
+      entfernt += 1;
+    });
+    return { uid, frei: false, konten: entfernt };
   });
-  if (entfernt) await stapel.commit();
-  return { uid, frei: false, konten: entfernt };
 }
 
 export default async (request) => {

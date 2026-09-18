@@ -17,10 +17,23 @@
  * am Token und an children[] der Eltern: Die Liste am Elternkonto ist die
  * Wahrheit, nicht parentUid am Kind. Dieselbe Prüfung wie bei kind-passwort.
  *
- * Reihenfolge: erst die Daten, dann das Auth-Konto. Bricht es unterwegs ab,
- * ist ein Kind ohne Daten übrig, das sich noch anmelden kann – unschön, aber
- * harmlos. Andersherum bliebe ein Konto ohne Anmeldung mit allen Daten stehen,
- * und niemand käme mehr heran, um sie wegzuräumen.
+ * Reihenfolge: ERST die Anmeldung, dann die Daten. Das ist die einzige, die
+ * einen Abbruch mittendrin übersteht, und der Grund dafür ist children[]:
+ *
+ *   Daten zuerst – das Kind ist schon aus children[] gestrichen, und dann
+ *   scheitert auth().deleteUser(). Ein zweiter Versuch prallt an der Prüfung
+ *   "gehört dieses Kind zu dir?" ab, denn es steht nicht mehr in der Liste.
+ *   Die Anmeldung bleibt bestehen; meldet sich das Kind an, legt der Client
+ *   sein Kontodokument neu an – ohne parentUid, denn die darf er nicht
+ *   schreiben. Damit ist aus dem Kind ein Konto ohne Eltern geworden, und
+ *   das gilt in entitlement.js als "Gründer": dauerhaft frei. Der Name bleibt
+ *   obendrein belegt.
+ *
+ *   Anmeldung zuerst – scheitert danach das Aufräumen, steht das Kind noch in
+ *   children[], und derselbe Knopf räumt beim nächsten Tippen zu Ende auf.
+ *   Anmelden kann sich in der Zwischenzeit niemand mehr.
+ *
+ * Deshalb erst löschen, was den Weg zurück versperrt, und dann aufräumen.
  */
 
 import { auth, db, FieldValue } from "./_lib/firebase.mjs";
@@ -48,6 +61,15 @@ export async function kindLoeschen({ eltern, uid }) {
   const kind = kinder.find((eintrag) => eintrag.uid === uid);
   if (!kind) throw new AnfrageFehler(403, "not-your-child", "Dieses Kind gehört nicht zu deinem Konto.");
 
+  // Zuerst die Anmeldung: Ab hier kommt niemand mehr in dieses Konto, und
+  // der Name ist wieder frei. Gibt es sie schon nicht mehr – ein zweiter
+  // Versuch nach einem Abbruch –, ist das kein Fehler, sondern das Ziel.
+  try {
+    await auth().deleteUser(uid);
+  } catch (fehler) {
+    if (fehler?.code !== "auth/user-not-found") throw fehler;
+  }
+
   const kindRef = db().collection("users").doc(uid);
   const level = await unterkollektionLeeren(kindRef.collection("levelProgress"));
   const sitzungen = await unterkollektionLeeren(kindRef.collection("sessions"));
@@ -65,14 +87,6 @@ export async function kindLoeschen({ eltern, uid }) {
     transaktion.delete(db().collection("entitlements").doc(uid));
     transaktion.set(elternRef, { children: bleiben, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
   });
-
-  // Zum Schluss die Anmeldung. Gibt es sie nicht mehr, ist das kein Fehler:
-  // Das Ziel ist erreicht.
-  try {
-    await auth().deleteUser(uid);
-  } catch (fehler) {
-    if (fehler?.code !== "auth/user-not-found") throw fehler;
-  }
 
   return { uid, name: kind.name, geloescht: { level, sitzungen } };
 }

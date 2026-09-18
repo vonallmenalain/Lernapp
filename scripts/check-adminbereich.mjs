@@ -104,6 +104,10 @@ const DATEN = {
     "kind-ben": {
       authEmail: "ben@lernapp.local", username: "Ben", displayName: "Ben", parentUid: "eltern-1",
       lastSeenAt: 1699700000000,
+      // Diese Familie hat eigene Wagen gewählt. Ein globaler Wechsel muss die
+      // Wahl aufheben – sonst hiesse "für alle" in Wahrheit "für alle ausser
+      // denen, die sich einmal anders entschieden haben".
+      wagonSet: { id: "2", switchedAtMs: 1699700000000, switchedBy: "eltern-1" },
       group: { id: "familie", name: "Familie", displayName: "Ben" },
       stats: { totalSeconds: 300, moves: 20, resets: 1, solvedLevels: 0, sessions: 2 },
       gameState: { "lernapp.turmbau": { data: { runs: 3, scores: [15] }, updatedAt: 1 } },
@@ -516,6 +520,23 @@ await page.waitForTimeout(300);
 pruefe(await page.locator("[data-set-ja]").count() === 0, "Abbrechen nimmt die Rückfrage nicht weg");
 pruefe(await page.evaluate(() => window.__ersatz.lies("config/train")) === null,
   "Das Wagen-Set wurde umgestellt, obwohl abgebrochen wurde");
+pruefe((await text(page.locator(".admin-eigene-sets"))).includes("Ben"),
+  "Der Wagen-Reiter nennt die Familie mit eigener Wahl nicht");
+
+// Und jetzt wirklich umstellen: Das hebt die eigene Wahl auf.
+await page.locator("[data-set-frage]").click();
+await page.waitForTimeout(300);
+await page.locator("[data-set-ja]").click();
+await page.waitForFunction(() => /Umgestellt auf/.test(document.querySelector(".admin-set-done")?.textContent || ""), null, { timeout: 30000 }).catch(() => {});
+const nachUmstellen = await page.evaluate(() => ({
+  global: window.__ersatz.lies("config/train")?.wagonSet,
+  ben: window.__ersatz.lies("users/kind-ben")?.wagonSet,
+  meldung: document.querySelector(".admin-set-done")?.textContent || "",
+}));
+pruefe(nachUmstellen.global === "2", `config/train steht auf ${nachUmstellen.global} statt 2`);
+pruefe(!nachUmstellen.ben, `die eigene Wahl der Familie steht noch da: ${JSON.stringify(nachUmstellen.ben)}`);
+pruefe(/eigener Wahl/.test(nachUmstellen.meldung), `die Meldung sagt nichts über die aufgehobenen Wahlen: "${nachUmstellen.meldung.replace(/\s+/g, " ").trim()}"`);
+await knips("6b-wagen-umgestellt");
 
 // --- Der Reiter "Gruppen" --------------------------------------------------------
 // Eine Familie ist von selbst eine Gruppe. Was es nur hier gibt, ist die
@@ -569,4 +590,4 @@ if (befunde.length) {
   process.exit(1);
 }
 
-console.log("Adminbereich geprüft: eigene Seite, fünf Reiter, filtern und sortieren, probierte Level, freischalten, Auswertung je Spiel, Wagen mit Rückfrage, übergreifende Gruppe.");
+console.log("Adminbereich geprüft: eigene Seite, fünf Reiter, filtern und sortieren, probierte Level, freischalten, Auswertung je Spiel, Wagen mit Rückfrage und aufgehobenen Familienwahlen, übergreifende Gruppe.");

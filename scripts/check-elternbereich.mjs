@@ -289,6 +289,12 @@ try {
     pruefe(await kinderKarte.count() === 1, "Eltern: die Kinderkarte fehlt");
     pruefe((await text(kinderKarte.locator(".kinder-kopf"))).includes("0 von 4"), "Eltern ohne Kinder: der Kopf zählt nicht 0 von 4");
     pruefe(await page.locator(".kind-leer").count() === 1, "Eltern ohne Kinder: der Satz für die leere Liste fehlt");
+    // Ohne Kinder keine Wagenkarte: Die Wagen gelten für eine Familie, und
+    // eine gibt es noch nicht. Stünde die Karte trotzdem da, setzte ein Tipp
+    // darauf erst den eigenen Fortschritt zurück und liefe dann in ein
+    // permission-denied – firestore.rules lässt das eigene wagonSet nur durch,
+    // wenn children[] nicht leer ist.
+    pruefe(await page.locator("[data-wagen-karte]").count() === 0, "Eltern ohne Kinder: die Wagenkarte steht da, obwohl es keine Familie gibt");
     await knips(page, "1-eltern-ohne-kauf");
 
     // Kind anlegen – erst lehnt der Server ab, dann klappt es.
@@ -311,6 +317,7 @@ try {
     pruefe((await text(page.locator("[data-kind-uid='kind-1'] .kind-name"))).includes("Lina"), "Kind anlegen: der Name in der Zeile stimmt nicht");
     pruefe((await text(page.locator("[data-kinder-karte] .kinder-kopf"))).includes("1 von 4"), "Kind anlegen: der Kopf zählt nicht 1 von 4");
     pruefe((await text(kinderStatus(page))).includes("Lina kann sich jetzt"), "Kind anlegen: die Bestätigung fehlt in der Karte");
+    pruefe(await page.locator("[data-wagen-karte]").count() === 1, "Mit dem ersten Kind muss die Wagenkarte erscheinen");
     pruefe(await page.locator("[data-kinder-karte] .karten-status.is-ok").count() === 1, "Kind anlegen: die Bestätigung ist nicht grün");
     const anlegen = anfragen.filter((a) => a.pfad === "kind-anlegen");
     pruefe(anlegen.length === 2, `Kind anlegen: ${anlegen.length} Aufrufe statt 2`);

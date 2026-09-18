@@ -858,7 +858,7 @@
           <h3>Familien mit eigener Wahl</h3>
           ${eigene.length
             ? `<div class="admin-data-grid">${eigene.map((konto) => `<span><b>${t(v().name(konto))}</b>${t(train.SET_BY_ID[konto.wagonSet.id]?.label || konto.wagonSet.id)}</span>`).join("")}</div>
-               <p class="account-muted">Diese Konten folgen dem Set oben nur, wenn du später umstellst – dann gewinnt der jüngere Wechsel.</p>`
+               <p class="account-muted">Ihre Wahl gilt vor dem Set oben. Stellst du hier um, fällt sie weg: Danach fahren wieder alle dasselbe.</p>`
             : `<p class="account-muted">Keine. Alle Konten folgen dem Set für alle.</p>`}
         </section>
       </div>`;
@@ -878,7 +878,7 @@
       aktionen = `
         <div class="admin-set-confirm">
           <strong>Wirklich auf «${t(set.label)}» wechseln?</strong>
-          <span>Alle Wagen aller Konten starten bei 0: gelöste Level, Runden und Spielstände werden gelöscht – auch auf den Geräten der Kinder, sobald sie die App öffnen. Lok, Landschaft, Namen und Gruppen bleiben. Das lässt sich nicht rückgängig machen.</span>
+          <span>Alle Wagen aller Konten starten bei 0: gelöste Level, Runden und Spielstände werden gelöscht – auch auf den Geräten der Kinder, sobald sie die App öffnen. Familien, die eigene Wagen gewählt haben, verlieren diese Wahl und fahren wieder mit. Lok, Landschaft, Namen und Gruppen bleiben. Das lässt sich nicht rückgängig machen.</span>
           <div class="card-actions">
             <button type="button" class="secondary-action" data-set-ab>Abbrechen</button>
             <button type="button" class="danger-action" data-set-ja="${t(set.id)}">Ja, wechseln und alle Wagen zurücksetzen</button>
@@ -945,7 +945,7 @@
           zeichne();
         },
       });
-      zustand.setFertig = `Umgestellt auf «${label}». ${ergebnis.accounts} Konten zurückgesetzt; Gäste ohne Konto stellen beim nächsten Öffnen der App um.`;
+      zustand.setFertig = `Umgestellt auf «${label}». ${ergebnis.accounts} Konten zurückgesetzt${ergebnis.eigeneWahl ? `, davon ${ergebnis.eigeneWahl} mit eigener Wahl, die nun wieder mitfahren` : ""}; Gäste ohne Konto stellen beim nächsten Öffnen der App um.`;
     } catch (fehler) {
       zustand.setFehler = api().fehlerText(fehler);
     }

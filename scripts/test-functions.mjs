@@ -426,11 +426,47 @@ ok(r400.status === 400, `kind-anlegen mit kaputtem JSON: ${r400.status}`);
   ok(neuerWeg.uid && neuerWeg.uid !== weg.uid, "der Name blieb belegt");
   await kindLoeschen({ eltern: papaEltern2, uid: neuerWeg.uid });
 
+  // Bricht es nach der Anmeldung ab, muss derselbe Knopf zu Ende aufräumen
+  // können. Nachgestellt wird das, indem die Anmeldung schon weg ist, das
+  // Kind aber noch in children[] steht – genau der Zustand nach einem
+  // Abbruch. Ginge es andersherum (Daten zuerst), stünde das Kind nicht mehr
+  // in children[], der zweite Versuch scheiterte an "not-your-child", und das
+  // Auth-Konto bliebe für immer: ein Kind ohne Eltern, das in entitlement.js
+  // als "Gründer" dauerhaft frei wäre.
+  const halb = await kindAnlegen({ eltern: papaEltern2, name: "Halb", passwort: "1234" });
+  await auth().deleteUser(halb.uid);
+  const zuEnde = await kindLoeschen({ eltern: papaEltern2, uid: halb.uid });
+  ok(zuEnde.uid === halb.uid, "ein abgebrochenes Löschen lässt sich nicht zu Ende bringen");
+  ok(!(await db().collection("users").doc(halb.uid).get()).exists, "beim zweiten Versuch blieb das Kontodokument stehen");
+  const papaNachHalb = (await db().collection("users").doc(papa.uid).get()).data();
+  ok(!(papaNachHalb?.children || []).some((k) => (typeof k === "string" ? k : k.uid) === halb.uid), "beim zweiten Versuch blieb das Kind in children[]");
+
   // Über den Weg von aussen: ohne Token 401, als Kind 403.
   const ohne = await kindLoeschenHandler(postJson(null, { uid: kind1.uid }));
   ok(ohne.status === 401, `kind-loeschen ohne Token: ${ohne.status}`);
   const alsKind = await kindLoeschenHandler(postJson(await anmelden("lina@lernapp.local", "neu1::lernapp"), { uid: kind1.uid }));
   ok(alsKind.status === 403, `kind-loeschen als Kind: ${alsKind.status}`);
+}
+
+// --- 8c2. Das Wagen-Set der Familie erbt sich ------------------------------------
+// Wählen die Eltern eigene Wagen, steht das Set an jedem Konto der Familie.
+// Ein später angelegtes Kind muss es mitbekommen – sonst führe das jüngste
+// Geschwister als einziges einen anderen Zug.
+{
+  const oma3 = await auth().createUser({ email: "oma3@example.com", password: "elternpasswort" });
+  await db().collection("users").doc(oma3.uid).set({ username: "Oma drei", role: "parent" });
+  const omaEltern3 = { uid: oma3.uid, email: "oma3@example.com", istEltern: true };
+  const erstes = await kindAnlegen({ eltern: omaEltern3, name: "Erstes", passwort: "1234" });
+  ok(!(await db().collection("users").doc(erstes.uid).get()).data()?.wagonSet, "ein Kind bekommt ein Wagen-Set, das niemand gewählt hat");
+
+  // So, wie es firebase.js (switchFamilyWagonSet) schreibt: an jedes Konto.
+  const wahl = { id: "2", switchedAtMs: 1700000500000, switchedBy: oma3.uid };
+  await db().collection("users").doc(oma3.uid).set({ wagonSet: wahl }, { merge: true });
+  await db().collection("users").doc(erstes.uid).set({ wagonSet: wahl }, { merge: true });
+
+  const spaeter = await kindAnlegen({ eltern: omaEltern3, name: "Spaeter", passwort: "1234" });
+  const spaeterDoc = (await db().collection("users").doc(spaeter.uid).get()).data();
+  ok(spaeterDoc?.wagonSet?.id === "2", `das später angelegte Kind fährt ${JSON.stringify(spaeterDoc?.wagonSet)} statt Set 2 der Familie`);
 }
 
 // --- 8d. Gratis freischalten -------------------------------------------------------
@@ -504,6 +540,15 @@ ok(r400.status === 400, `kind-anlegen mit kaputtem JSON: ${r400.status}`);
   await wirft(() => freischalten({ admin: werChef, uid: oma2.uid, frei: false }), "paid-not-gift", "ein bezahlter Kauf wird per Klick zurückgenommen");
   ok((await db().collection("entitlements").doc(oma2.uid).get()).data()?.active === true, "der bezahlte Kauf ist weg");
 
+  // Und ein bezahlter Kauf wird auch nicht ÜBERSCHRIEBEN. Der Adminbereich
+  // zeigt den Knopf bei bezahlten Konten nicht – aber die Liste ist einen
+  // Moment alt, und wer in genau diesem Moment an der Kasse war, bekäme sonst
+  // ein Geschenk über seinen Kauf geschrieben. Danach stünde dort
+  // source: "admin", und ein Zurücknehmen löschte den bezahlten Zugang.
+  await wirft(() => freischalten({ admin: werChef, uid: oma2.uid, frei: true }), "already-paid", "ein bezahlter Kauf wird mit einem Geschenk überschrieben");
+  const nochBezahlt = (await db().collection("entitlements").doc(oma2.uid).get()).data();
+  ok(nochBezahlt?.source === "stripe" && nochBezahlt?.active === true, `der bezahlte Kauf wurde angefasst: ${JSON.stringify(nochBezahlt)}`);
+
   await wirft(() => freischalten({ admin: werChef, uid: "gibtesnicht" }), "no-account", "ein Konto, das es nicht gibt");
   await wirft(() => freischalten({ admin: werChef, uid: "" }), "missing-uid", "freischalten ohne Kennung");
 
@@ -512,8 +557,13 @@ ok(r400.status === 400, `kind-anlegen mit kaputtem JSON: ${r400.status}`);
   ok(ohne.status === 401, `freischalten ohne Token: ${ohne.status}`);
   const alsEltern = await freischaltenHandler(postJson(mamaToken, { uid: oma2.uid }));
   ok(alsEltern.status === 403, `freischalten als Elternkonto: ${alsEltern.status}`);
-  const alsAdmin = await freischaltenHandler(postJson(chefToken, { uid: enkel.uid, frei: true }));
+  // Für den 200er ein Konto ohne Kauf: Die Familie von oma2 trägt inzwischen
+  // einen bezahlten Eintrag, und der wird zu Recht abgelehnt.
+  const frisch = await auth().createUser({ email: "frisch@example.com", password: "elternpasswort" });
+  await db().collection("users").doc(frisch.uid).set({ username: "Frisch", role: "parent" });
+  const alsAdmin = await freischaltenHandler(postJson(chefToken, { uid: frisch.uid, frei: true }));
   ok(alsAdmin.status === 200, `freischalten als Admin: ${alsAdmin.status} ${await alsAdmin.clone().text().catch(() => "")}`);
+  ok((await db().collection("entitlements").doc(frisch.uid).get()).data()?.source === "admin", "der Weg von aussen schreibt keinen Eintrag");
   const perGet = await freischaltenHandler(new Request("http://x/api", { method: "GET", headers: { authorization: `Bearer ${chefToken}` } }));
   ok(perGet.status === 405, `freischalten per GET: ${perGet.status}`);
 }

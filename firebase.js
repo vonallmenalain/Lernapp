@@ -1184,10 +1184,19 @@
   //                           Elternkonto – für sich und seine Kinder –, und
   //                           es gilt dann auch nur für diese Familie.
   //
-  // Welches von beiden zählt, entscheidet kein Vorrang, sondern der Zeitpunkt:
-  // das jüngere gewinnt. So wirkt der globale Wechsel des Admins überall, und
-  // eine Familie, die sich danach anders entscheidet, behält ihre Wahl – ohne
-  // dass eine der beiden Seiten die andere für immer aussperrt.
+  // Welches von beiden zählt, ist eine Frage des Vorrangs und ausdrücklich
+  // KEINE der Uhrzeit: Die Wahl der Familie gewinnt, solange es sie gibt, und
+  // ein globaler Wechsel des Admins hebt alle Familienwahlen auf (er schreibt
+  // das Feld an jedem Konto weg). Damit wirkt "für alle" wirklich für alle.
+  //
+  // Zwei Zeitmarken zu vergleichen wäre der naheliegende Weg gewesen und war
+  // der falsche: switchedAtMs kommt vom Gerät dessen, der umstellt – beim
+  // globalen Wechsel vom Laptop des Admins, bei der Familie vom Handy der
+  // Eltern. Geht das Handy einen Tag vor, hätte ein späterer globaler Wechsel
+  // die kleinere Zahl und käme bei dieser Familie nie an, obwohl ihr
+  // Fortschritt dabei zurückgesetzt würde. Verglichen wird eine Zeitmarke
+  // deshalb nur noch mit sich selbst: die aus der Cloud mit der Kopie, die
+  // dieses Gerät davon gemerkt hat (applyWagonSet).
   //
   // Ein Wechsel heisst: andere Wagen, anderes Tempo, und alle Wagen beginnen
   // bei 0.
@@ -1225,12 +1234,11 @@
     } catch { /* privater Modus */ }
   }
 
-  // Das wirksame Set: von den beiden bekannten das jüngere. Kennt dieses Gerät
-  // keines, gilt das zuletzt gemerkte, und ganz am Anfang das erste.
+  // Das wirksame Set: die Wahl der Familie, sonst die für alle. Kennt dieses
+  // Gerät keines von beiden, gilt das zuletzt gemerkte, und ganz am Anfang
+  // das erste.
   function effectiveWagonSet() {
-    const kandidaten = [state.globalWagonSet, state.ownWagonSet].filter(Boolean);
-    if (!kandidaten.length) return null;
-    return kandidaten.reduce((a, b) => (b.switchedAtMs > a.switchedAtMs ? b : a));
+    return state.ownWagonSet || state.globalWagonSet || null;
   }
 
   function getWagonSet() {
@@ -1315,12 +1323,24 @@
   }
 
   // Der globale Wechsel, nur für den Admin: alle Konten, und config/train.
+  //
+  // Dabei fallen die Familienwahlen weg. Ohne das hiesse "für alle" in
+  // Wahrheit "für alle ausser denen, die sich einmal anders entschieden
+  // haben" – und deren Fortschritt würde hier trotzdem zurückgesetzt, ihre
+  // Wagen aber nicht gewechselt. Wer danach wieder eigene Wagen will, wählt
+  // sie neu; das ist ein Klick und dafür eindeutig.
   async function switchWagonSet(id, { onProgress } = {}) {
     const setId = String(id || "").trim();
     if (!setId || !state.db || !isAdminUser()) throw Object.assign(new Error("lernapp/not-admin"), { code: "permission-denied" });
 
     const snapshot = await state.db.collection("users").get();
-    const accounts = await resetAccountsForSwitch(snapshot.docs.map((doc) => doc.id), onProgress);
+    const ids = snapshot.docs.map((doc) => doc.id);
+    const eigeneWahl = snapshot.docs.filter((doc) => doc.data()?.wagonSet?.id).map((doc) => doc.id);
+    const accounts = await resetAccountsForSwitch(ids, onProgress);
+    for (const userId of eigeneWahl) {
+      await userRef(userId).set({ wagonSet: deleteField(), updatedAt: serverTimestamp() }, { merge: true });
+    }
+    state.ownWagonSet = null;
 
     const switchedAtMs = Date.now();
     await wagonSetRef().set({
@@ -1334,7 +1354,21 @@
     // Dieses Gerät gleich, nicht erst über den Umweg der Cloud.
     state.globalWagonSet = { id: setId, switchedAtMs };
     applyWagonSet(effectiveWagonSet());
-    return { accounts, switchedAtMs };
+    return { accounts, switchedAtMs, eigeneWahl: eigeneWahl.length };
+  }
+
+  // Ein Elternkonto ohne Kinder ist noch keine Familie – und es DARF das Feld
+  // nicht schreiben: firestore.rules lässt das eigene wagonSet nur durch, wenn
+  // children[] nicht leer ist (hasChildren). Geprüft wird das hier, VOR dem
+  // Zurücksetzen: Sonst wäre der Fortschritt gelöscht und der Wechsel danach
+  // abgelehnt – das Schlimmste von beidem. Die Karte bleibt ohne Kinder
+  // ohnehin weg; das hier ist die zweite Tür für denselben Raum.
+  function canSetFamilyWagonSet() {
+    return Boolean(state.user) && isParentAccount() && state.children.length > 0;
+  }
+
+  function assertFamilyWagonAllowed() {
+    if (!canSetFamilyWagonSet()) throw Object.assign(new Error("lernapp/family-needed"), { code: "lernapp/family-needed" });
   }
 
   // Der Wechsel für eine Familie, nur für ein Elternkonto: die eigenen Konten,
@@ -1348,7 +1382,7 @@
   async function switchFamilyWagonSet(id, { onProgress } = {}) {
     const setId = String(id || "").trim();
     if (!setId || !state.db || !state.user) throw authInputError("lernapp/not-signed-in");
-    if (!isParentAccount()) throw Object.assign(new Error("lernapp/parents-only"), { code: "permission-denied" });
+    assertFamilyWagonAllowed();
 
     const ids = [state.user.uid, ...state.children.map((kind) => kind.uid)];
     const accounts = await resetAccountsForSwitch(ids, onProgress);
@@ -1369,7 +1403,7 @@
   // sonst anders aus, als sein Fortschritt sagt.
   async function clearFamilyWagonSet({ onProgress } = {}) {
     if (!state.db || !state.user) throw authInputError("lernapp/not-signed-in");
-    if (!isParentAccount()) throw Object.assign(new Error("lernapp/parents-only"), { code: "permission-denied" });
+    assertFamilyWagonAllowed();
 
     const ids = [state.user.uid, ...state.children.map((kind) => kind.uid)];
     const accounts = await resetAccountsForSwitch(ids, onProgress);
@@ -1968,7 +2002,7 @@
       ${renderAdminLink()}
       ${renderKaufKarte()}
       ${isParentAccount() ? renderKinderKarte() : ""}
-      ${isParentAccount() ? renderFamilienWagenKarte() : ""}
+      ${isParentAccount() ? `<div data-wagen-platz>${renderFamilienWagenKarte()}</div>` : ""}
       ${renderResetProgressCard()}
       <div class="stat-strip" aria-label="Gesamtstatistik">
         <div><strong>${stats.totalSolved}</strong><span>gelöst</span></div>
@@ -2312,6 +2346,8 @@
     if (!karte) return;
     karte.outerHTML = renderKinderKarte();
     bindKinderKarte();
+    // Das erste Kind bringt die Wagenkarte, das letzte nimmt sie wieder mit.
+    zeichneWagenKarte();
   }
 
   function bindKinderKarte() {
@@ -2468,6 +2504,9 @@
   function renderFamilienWagenKarte() {
     const train = window.LernappTrain;
     if (!train?.SETS) return "";
+    // Ohne Kinder gibt es keine Familie, für die sich etwas festlegen liesse –
+    // und die Regeln liessen das Feld auch gar nicht zu.
+    if (!canSetFamilyWagonSet()) return "";
     const aktuell = getWagonSet();
     const eigen = getFamilyWagonSet();
     const aktivId = train.SET_BY_ID[aktuell.id] ? aktuell.id : train.SETS[0].id;
@@ -2480,6 +2519,7 @@
           <div class="admin-set-confirm">
             <strong>Wirklich auf «${escapeHtml(set.label)}» wechseln?</strong>
             <span>Alle Wagen deiner Familie starten bei 0: gelöste Level, Runden und Spielstände werden gelöscht – bei dir und bei jedem deiner Kinder, auch auf ihren Geräten, sobald sie die App öffnen. Lok, Landschaft und Namen bleiben. Das lässt sich nicht rückgängig machen.</span>
+            <span>Neue Kinder bekommen diese Wagen von selbst. Stellt Gripszug später für alle um, fährt auch deine Familie wieder mit.</span>
             <div class="card-actions">
               <button type="button" class="secondary-action" data-wagen-ab>Abbrechen</button>
               <button type="button" class="danger-action" data-wagen-ja="${escapeHtml(set.id)}">Ja, wechseln</button>
@@ -2522,10 +2562,13 @@
       </div>`;
   }
 
+  // Gezeichnet wird in den Platz, nicht über die Karte: Mit dem ersten Kind
+  // entsteht sie, mit dem letzten verschwindet sie – und eine Karte, die es
+  // gerade nicht gibt, liesse sich nicht ersetzen.
   function zeichneWagenKarte() {
-    const karte = modalContent.querySelector("[data-wagen-karte]");
-    if (!karte) return;
-    karte.outerHTML = renderFamilienWagenKarte();
+    const platz = modalContent.querySelector("[data-wagen-platz]");
+    if (!platz) return;
+    platz.innerHTML = renderFamilienWagenKarte();
     bindFamilienWagenKarte();
   }
 
@@ -2581,6 +2624,10 @@
     const code = String(error?.code || "");
     if (code === "server/not-signed-in" || code === "server/bad-token") return "Die Anmeldung ist abgelaufen. Bitte neu anmelden.";
     if (code === "server/parents-only") return "Das kann nur ein Elternkonto.";
+    if (code === "server/admin-only") return "Das kann nur der Administrator.";
+    if (code === "server/no-account") return "Dieses Konto gibt es nicht (mehr). Lade die Liste neu.";
+    if (code === "server/already-paid") return "Diese Familie hat bezahlt – da ist nichts freizuschalten.";
+    if (code === "server/paid-not-gift") return "Diese Familie hat bezahlt. Ein Kauf wird bei Stripe zurückerstattet, nicht hier.";
     if (code === "server/name-taken") return "Diesen Namen gibt es schon. Nimm einen anderen – mit Nachnamen oder einer Zahl.";
     if (code === "server/short-password") return "Das Passwort muss mindestens 4 Zeichen haben.";
     if (code === "server/missing-name") return "Bitte gib einen Namen ein.";
@@ -3277,6 +3324,7 @@
     if (code.includes("invalid-email")) return "Dieser Name kann nicht verwendet werden.";
     if (code.includes("email-already-in-use")) return "Dieser Name ist bereits vergeben.";
     if (code.includes("user-not-found") || code.includes("wrong-password") || code.includes("invalid-credential")) return "Name oder Passwort stimmt nicht.";
+    if (code.includes("family-needed")) return "Dafür braucht es erst ein Kind: Die Wagen gelten für die ganze Familie.";
     if (code.includes("permission-denied")) return "Keine Berechtigung. Der Admin-Bereich ist nur für das verifizierte Admin-Google-Konto freigegeben.";
     if (code.includes("popup")) return "Die Google-Anmeldung wurde nicht abgeschlossen.";
     return "Die Anmeldung hat nicht geklappt. Prüfe Firebase Auth und die Firestore-Regeln.";
