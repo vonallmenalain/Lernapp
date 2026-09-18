@@ -589,6 +589,81 @@ ok(r400.status === 400, `kind-anlegen mit kaputtem JSON: ${r400.status}`);
   ok(perGet.status === 405, `freischalten per GET: ${perGet.status}`);
 }
 
+// --- 8e. Ein Konto restlos entfernen -----------------------------------------------
+// Der einzige Knopf, der auch die Anmeldung mitnimmt – und deshalb der, bei
+// dem am meisten übrig bleiben kann. Geprüft wird, dass nichts übrig bleibt,
+// und dass die drei Schranken halten.
+{
+  const chefToken = await anmelden(ADMIN_ADRESSEN[0], "adminpasswort");
+  const werChef = await adminAnrufer(bearer(chefToken));
+  const { kontoLoeschen, default: loeschenHandler } = await import("../netlify/functions/konto-loeschen.mjs");
+
+  // Eine ganze Familie: Elternkonto, zwei Kinder, Fortschritt, Kauf, Mails.
+  const grossvater = await auth().createUser({ email: "grossvater@example.com", password: "elternpasswort" });
+  await db().collection("users").doc(grossvater.uid).set({ username: "Grossvater", email: "grossvater@example.com", role: "parent" });
+  const grossvaterEltern = { uid: grossvater.uid, email: "grossvater@example.com", istEltern: true };
+  const testkind1 = await kindAnlegen({ eltern: grossvaterEltern, name: "Testkind eins", passwort: "1234" });
+  const testkind2 = await kindAnlegen({ eltern: grossvaterEltern, name: "Testkind zwei", passwort: "1234" });
+  await db().collection("users").doc(testkind1.uid).collection("levelProgress").doc("arukone.A1-1").set({ solved: true });
+  await db().collection("users").doc(testkind1.uid).collection("sessions").doc("s1").set({ startedAt: 1 });
+  await db().collection("entitlements").doc(grossvater.uid).set({ plan: "familie", active: true, source: "stripe" });
+  await db().collection("mails").doc(`willkommen-${grossvater.uid}`).set({ richtung: "aus", art: "willkommen", uid: grossvater.uid, zeitMs: 1 });
+
+  // Ohne auchKinder geht es nicht: Ein Kind ohne Elternkonto gilt als Gründer
+  // und wäre dauerhaft frei – aus dem Aufräumen würde ein Geschenk.
+  await wirft(() => kontoLoeschen({ admin: werChef, uid: grossvater.uid }), "has-children", "ein Elternkonto mit Kindern ohne auchKinder");
+  ok((await auth().getUser(grossvater.uid).catch(() => null)) !== null, "das abgelehnte Löschen hat die Anmeldung trotzdem genommen");
+
+  // Und die drei Schranken.
+  await wirft(() => kontoLoeschen({ admin: werChef, uid: werChef.uid }), "not-yourself", "der Admin löscht sich selbst");
+  await wirft(() => kontoLoeschen({ admin: werChef, uid: "gibtesnicht" }), "no-account", "ein Konto, das es nicht gibt");
+  await wirft(() => kontoLoeschen({ admin: werChef, uid: "" }), "missing-uid", "löschen ohne Kennung");
+
+  // Jetzt richtig: die ganze Familie.
+  const weg = await kontoLoeschen({ admin: werChef, uid: grossvater.uid, auchKinder: true });
+  ok(weg.konten === 3, `gelöscht: ${JSON.stringify(weg)} – erwartet Elternkonto und zwei Kinder`);
+  ok(weg.level === 1 && weg.sitzungen === 1, `Unterkollektionen: ${JSON.stringify(weg)}`);
+  ok(weg.mails === 1, `Mails: ${weg.mails}`);
+
+  // Und wirklich nichts übrig – an allen fünf Orten.
+  for (const [name, uid] of [["Elternkonto", grossvater.uid], ["Kind 1", testkind1.uid], ["Kind 2", testkind2.uid]]) {
+    ok((await auth().getUser(uid).catch(() => null)) === null, `${name}: die Anmeldung steht noch`);
+    ok(!(await db().collection("users").doc(uid).get()).exists, `${name}: das Profil steht noch`);
+    ok(!(await db().collection("entitlements").doc(uid).get()).exists, `${name}: der Kaufeintrag steht noch`);
+  }
+  ok((await db().collection("users").doc(testkind1.uid).collection("levelProgress").get()).empty, "die Level des Kindes stehen noch");
+  ok((await db().collection("users").doc(testkind1.uid).collection("sessions").get()).empty, "die Sitzungen des Kindes stehen noch");
+  ok(!(await db().collection("mails").doc(`willkommen-${grossvater.uid}`).get()).exists, "die Mail an das Konto steht noch");
+
+  // Die Adresse ist wieder frei – das ist der ganze Zweck.
+  const nochmal = await auth().createUser({ email: "grossvater@example.com", password: "elternpasswort" });
+  ok(Boolean(nochmal.uid), "die Adresse ist nach dem Löschen noch belegt");
+  await auth().deleteUser(nochmal.uid);
+
+  // Ein einzelnes Kind: Es muss auch aus children[] der Eltern verschwinden,
+  // sonst zählt es weiter gegen die Grenze von vier.
+  const testtante = await auth().createUser({ email: "testtante@example.com", password: "elternpasswort" });
+  await db().collection("users").doc(testtante.uid).set({ username: "Testtante", email: "testtante@example.com", role: "parent" });
+  const testnichte = await kindAnlegen({ eltern: { uid: testtante.uid, email: "testtante@example.com", istEltern: true }, name: "Testtestnichte", passwort: "1234" });
+  const einzeln = await kontoLoeschen({ admin: werChef, uid: testnichte.uid });
+  ok(einzeln.konten === 1, `ein Kind allein: ${JSON.stringify(einzeln)}`);
+  const testtanteDanach = (await db().collection("users").doc(testtante.uid).get()).data();
+  ok((testtanteDanach?.children || []).length === 0, `das Kind steht noch in children[]: ${JSON.stringify(testtanteDanach?.children)}`);
+  ok((await db().collection("users").doc(testtante.uid).get()).exists, "das Elternkonto wurde mitgelöscht");
+
+  // Ein Admin-Konto bleibt, auch wenn ein anderer Admin es versucht.
+  const zweiterChef = { uid: "fremd", email: ADMIN_ADRESSEN[0], istEltern: true, istAdmin: true };
+  await wirft(() => kontoLoeschen({ admin: zweiterChef, uid: werChef.uid }), "admin-account", "ein Admin-Konto wird gelöscht");
+
+  // Von aussen: ohne Token 401, als Eltern 403, als Admin 200.
+  ok((await loeschenHandler(postJson(null, { uid: testtante.uid }))).status === 401, "löschen ohne Token");
+  ok((await loeschenHandler(postJson(mamaToken, { uid: testtante.uid }))).status === 403, "löschen als Elternkonto");
+  const alsAdminWeg = await loeschenHandler(postJson(chefToken, { uid: testtante.uid }));
+  ok(alsAdminWeg.status === 200, `löschen als Admin: ${alsAdminWeg.status} ${await alsAdminWeg.clone().text().catch(() => "")}`);
+  ok((await auth().getUser(testtante.uid).catch(() => null)) === null, "der Weg von aussen nimmt die Anmeldung nicht mit");
+  ok((await loeschenHandler(new Request("http://x/api", { method: "GET", headers: { authorization: `Bearer ${chefToken}` } }))).status === 405, "löschen per GET");
+}
+
 // --- 9. Die Statusseite -----------------------------------------------------------
 // Sie ist die einzige Funktion, die auch dann antworten muss, wenn sonst
 // nichts geht – deshalb lädt sie beim Start nichts Schweres.

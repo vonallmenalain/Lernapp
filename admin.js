@@ -434,6 +434,7 @@
       ${gruppenBlock(konto, userData)}
       ${stufeBlock(konto, userData)}
       ${resetBlock(konto)}
+      ${loeschBlock(konto)}
       ${v().kontoDetail({ ...detail, userData }, { selectedGame: zustand.spielFilter, withFilters: true })}
     `;
   }
@@ -592,6 +593,62 @@
       </div>`;
   }
 
+  // --- Ganz entfernen --------------------------------------------------------
+  // Der einzige Knopf im Adminbereich, der etwas endgültig wegnimmt – und der
+  // einzige, der auch die Anmeldung mitnimmt. Genau die ist der Grund, warum
+  // es ihn gibt: Wer ein Konto in der Firebase-Console löscht, löscht das
+  // Profil, nicht die Adresse. Beim nächsten Registrieren heisst es dann
+  // "diese Adresse hat schon ein Konto", und niemand weiss, wo sie noch liegt.
+  //
+  // Zwei Stufen, wie beim Zurücksetzen: erst fragen, dann tun. Bei einem
+  // Elternkonto mit Kindern nennt die Frage die Kinder beim Namen – wer eine
+  // Familie wegräumt, soll lesen, wen es trifft.
+  function loeschBlock(konto) {
+    const frage = zustand.frage?.uid === konto.id ? zustand.frage.art : null;
+    if (zustand.laeuft === konto.id) return "";
+
+    const eigenes = konto.id === cloud()?.getUser?.()?.uid;
+    const istAdmin = rolleVon(konto) === "admin";
+    if (eigenes || istAdmin) {
+      return `
+        <div class="admin-reset">
+          <div>
+            <strong>Konto entfernen</strong>
+            <span>${eigenes ? "Das ist dein eigenes Konto." : "Ein Admin-Konto wird hier nicht gelöscht."}</span>
+          </div>
+        </div>`;
+    }
+
+    // Die Kinder kommen aus der Kontenliste, nicht aus children[]: Was hier
+    // steht, ist dasselbe, was der Server gleich löscht – und es ist die
+    // Liste, die der Admin vor sich sieht.
+    const kinder = zustand.konten.filter((eintrag) => eintrag.parentUid === konto.id);
+
+    if (frage === "loeschen") {
+      return `
+        <div class="admin-reset is-confirming">
+          <div>
+            <strong>${t(v().name(konto))} wirklich ganz entfernen?</strong>
+            <span>Anmeldung, Profil, gelöste Level, Sitzungen, Kaufeintrag und die Mails an dieses Konto werden gelöscht. Die Adresse ist danach wieder frei. Das lässt sich nicht rückgängig machen.</span>
+            ${kinder.length ? `<span class="admin-loesch-kinder"><b>Mit dabei: ${kinder.length} ${kinder.length === 1 ? "Kind" : "Kinder"}</b> – ${t(kinder.map((kind) => v().name(kind)).join(", "))}. Ein Kind ohne Elternkonto gilt als Gründer und wäre dauerhaft frei; deshalb geht es nur zusammen.</span>` : ""}
+          </div>
+          <div class="card-actions">
+            <button type="button" class="secondary-action" data-frage-ab>Abbrechen</button>
+            <button type="button" class="danger-action" data-loeschen-ja="${t(konto.id)}">Ja, ${kinder.length ? `${kinder.length + 1} Konten` : "Konto"} ganz entfernen</button>
+          </div>
+        </div>`;
+    }
+
+    return `
+      <div class="admin-reset">
+        <div>
+          <strong>Konto entfernen</strong>
+          <span>Anmeldung und alle Daten. Nur so wird die Adresse wieder frei – das Löschen in der Firebase-Console lässt die Anmeldung stehen.${kinder.length ? ` Dieses Elternkonto führt ${kinder.length} ${kinder.length === 1 ? "Kind" : "Kinder"}; sie gehen mit.` : ""}</span>
+        </div>
+        <button type="button" class="danger-action" data-loeschen-frage="${t(konto.id)}">Ganz entfernen</button>
+      </div>`;
+  }
+
   function bindeUser() {
     const suche = seite.querySelector("[data-suche]");
     if (suche) {
@@ -635,6 +692,11 @@
       zeichne();
     });
     seite.querySelector("[data-reset-ja]")?.addEventListener("click", (e) => zuruecksetzen(e.currentTarget.dataset.resetJa));
+    seite.querySelector("[data-loeschen-frage]")?.addEventListener("click", (e) => {
+      zustand.frage = { art: "loeschen", uid: e.currentTarget.dataset.loeschenFrage };
+      zeichne();
+    });
+    seite.querySelector("[data-loeschen-ja]")?.addEventListener("click", (e) => kontoEntfernen(e.currentTarget.dataset.loeschenJa));
     seite.querySelector("[data-gratis-an]")?.addEventListener("click", (e) => freischalten(e.currentTarget.dataset.gratisAn, true));
     seite.querySelector("[data-gratis-frage]")?.addEventListener("click", (e) => {
       zustand.frage = { art: "gratis-weg", uid: e.currentTarget.dataset.gratisFrage };
@@ -702,6 +764,27 @@
   }
 
   const zuruecksetzen = (uid) => mitLaufen(uid, () => api().resetProgress(uid));
+
+  // Anders als die übrigen Knöpfe lädt dieser die ganze Liste neu, statt nur
+  // ein Konto: Nach dem Löschen gibt es die Zeile nicht mehr, die er
+  // aufklappen würde – und bei einer Familie sind es gleich mehrere.
+  async function kontoEntfernen(uid) {
+    if (!uid || zustand.laeuft) return;
+    zustand.frage = null;
+    zustand.laeuft = uid;
+    zustand.kontoFehler = { id: null, text: "" };
+    zeichne();
+    try {
+      const kinder = zustand.konten.filter((eintrag) => eintrag.parentUid === uid);
+      await api().loeschen(uid, kinder.length > 0);
+      zustand.offenesKonto = null;
+      zustand.details.delete(uid);
+    } catch (fehler) {
+      zustand.kontoFehler = { id: uid, text: api().serverFehlerText(fehler) };
+    }
+    zustand.laeuft = null;
+    await lade({ neu: true });
+  }
   const freischalten = (uid, frei) => mitLaufen(uid, () => api().freischalten(uid, frei));
   const stufeSetzen = (uid, stufe) => mitLaufen(uid, () => api().setJourneyStufe(uid, stufe));
   const gruppeSetzen = (uid, werte) => mitLaufen(uid, () => api().setUserGroup(uid, werte));

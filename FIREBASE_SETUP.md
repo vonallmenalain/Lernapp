@@ -193,6 +193,7 @@ es sind dieselben Dateien. Die Site-Einstellung „Publish directory" bei Netlif
 | `POST /api/passwort-mail` | jeder, ohne Anmeldung | schickt den Link für ein neues Passwort, nur an Adressen mit Konto und höchstens einmal je 90 Sekunden |
 | `POST /api/mail-eingang` | der Cloudflare-Worker (mit Geheimnis im Kopf) | nimmt Post an kids@alae.app an, archiviert sie und leitet sie weiter |
 | `POST /api/mail-einstellungen` | Admin | liest und setzt die Weiterleitungsadresse, verschickt die Testmail |
+| `POST /api/konto-loeschen` | Admin | entfernt ein Konto restlos – Anmeldung, Profil, Level, Sitzungen, Kauf und Mails; ein Elternkonto nur samt seinen Kindern (Abschnitt 4) |
 
 Die Funktionen brauchen **Umgebungsvariablen** (Netlify: *Site configuration → Environment
 variables*). Ohne sie antworten sie mit einem klaren Fehler statt zu raten:
@@ -241,6 +242,48 @@ Wenn du dich in der App mit Google und `Alain.sc2@gmail.com` anmeldest, erschein
 - abgebrochene Sitzungen als Sessions ohne `solved`, aber mit `endedAt`
 
 Das Feld `role: "admin"` bzw. `isAdmin: true` im eigenen Profil dient nur als Anzeige/Metadatum. Die echte Berechtigung liegt in `firestore.rules` und prüft das verifizierte Auth-Token mit der Admin-E-Mail.
+
+### Ein Konto ganz entfernen
+
+Ein Konto liegt an **fünf** Orten, und keiner räumt die anderen mit auf:
+
+| Wo | Was |
+| --- | --- |
+| **Firebase Auth** | die Anmeldung: Adresse und Passwort. Nur hier – Firestore weiss davon nichts. |
+| `users/{uid}` | das Profil: Name, Rolle, Lok, Gruppe, Zahlen |
+| `users/{uid}/levelProgress`, `/sessions` | gelöste Level und Sitzungen |
+| `entitlements/{uid}` | ob gekauft wurde |
+| `mails` | was an dieses Konto geschickt wurde |
+
+Daraus folgt die Falle, in die man genau einmal tappt: **Wer in der
+Firebase-Console `users/{uid}` löscht, löscht das Profil, nicht die
+Anmeldung.** Die Adresse bleibt belegt, und beim nächsten Registrieren steht
+da „diese Adresse hat schon ein Konto" – ohne dass in Firestore noch etwas zu
+sehen wäre. Von Hand aufräumen liesse sich das nur in **Authentication →
+Users**, und dann fehlten die übrigen vier Orte.
+
+Deshalb gibt es im Adminbereich unter jedem Konto **Ganz entfernen**. Der Knopf
+nimmt alle fünf mit, in dieser Reihenfolge: zuerst die Anmeldung (ab da kommt
+niemand mehr hinein, und ein Abbruch danach lässt sich mit demselben Knopf zu
+Ende räumen), dann die Daten. Er fragt vorher, und bei einem Elternkonto nennt
+die Frage die Kinder beim Namen.
+
+Drei Dinge gehen **nicht**:
+
+- **Das eigene Konto.** Wer es löschte, käme nicht mehr in den Adminbereich –
+  der Zugang hängt an der Adresse (`firestore.rules`, `isAdmin`), und niemand
+  könnte ihn wieder hereinlassen.
+- **Ein anderes Admin-Konto**, aus demselben Grund.
+- **Ein Elternkonto ohne seine Kinder.** Ein Kind ohne Elternkonto gilt in
+  `entitlement.js` als „Gründer" und wäre damit dauerhaft frei – aus dem
+  Aufräumen würde ein Geschenk. Der Knopf nimmt die Familie deshalb zusammen.
+
+Serverseitig ist das `POST /api/konto-loeschen` (Admin-Token); was wo liegt und
+warum die Reihenfolge so ist, steht in
+[`netlify/functions/_lib/konto.mjs`](./netlify/functions/_lib/konto.mjs).
+`npm run test:functions` löscht eine ganze Testfamilie und sieht an allen fünf
+Orten nach, dass nichts übrig bleibt – und dass die Adresse danach wieder frei
+ist.
 
 Bei jedem User steht dort auch **Fortschritt zurücksetzen**. Gäste haben den Knopf bewusst nicht: ihr Stand liegt auf ihrem Gerät, das Gastdokument ist nur eine Kopie davon, und ein Aufräumen in Firestore liesse den Zug des Kindes unverändert stehen.
 

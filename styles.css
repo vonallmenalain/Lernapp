@@ -10679,6 +10679,18 @@ body[data-page="admin"] .stat-strip {
    Oben die Weiterleitung als Karte, darunter dieselbe Liste zum Aufklappen
    wie bei Konten und Gästen – die Zeile ist nur anders gefüllt: Richtung,
    Betreff, Gegenüber, Art, Zeit. */
+/* Wen eine Familienlöschung mit trifft: Die Namen stehen in der Rückfrage,
+   damit niemand "Ja" tippt und danach sucht, wer weg ist. */
+.admin-loesch-kinder {
+  display: block;
+  padding: 8px 12px;
+  margin-top: 6px;
+  border-radius: 12px;
+  background: #fff1f4;
+  border: 1px solid #ffb3c1;
+  color: #7a0020;
+}
+
 .admin-mail {
   display: grid;
   gap: 14px;
