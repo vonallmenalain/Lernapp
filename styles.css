@@ -2504,6 +2504,135 @@ body.puzzle-active .spatialPuzzle-board .spatial-option-graphic > svg {
   font-weight: 800;
 }
 
+/* Der Kauf. Zurück von der Kasse steht ein Satz über den Karten: grün, wenn
+   die Zahlung angekommen ist, sonst gelb – die Kasse wurde nur geschlossen. */
+.kauf-hinweis {
+  padding: 12px 16px;
+  border-radius: 16px;
+  background: #fff6d6;
+  border: 2px solid #ffd166;
+  color: var(--ink);
+  font-weight: 800;
+  line-height: 1.4;
+}
+
+.kauf-hinweis.is-ok {
+  background: #f0fff9;
+  border-color: #06d6a0;
+}
+
+/* Die Kinder. Die Karte baut untereinander statt nebeneinander: der Kopf,
+   die Liste, darunter der Knopf oder das Formular. Eine Zeile je Kind, mit dem
+   Namen links und "Passwort neu" rechts; wer tippt, bekommt an derselben
+   Stelle das Feld. */
+.kinder-karte {
+  display: grid;
+  gap: 12px;
+}
+
+.kinder-kopf {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px 12px;
+}
+
+.kinder-liste {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.kind-zeile {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: #f7f6ff;
+}
+
+.kind-zeile.kind-leer {
+  color: var(--muted);
+  font-weight: 800;
+  line-height: 1.4;
+}
+
+.kind-name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--ink);
+  font-weight: 900;
+}
+
+.kind-form {
+  flex: 1 1 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.kind-form input {
+  flex: 1 1 150px;
+  min-width: 0;
+  min-height: 46px;
+  border-radius: 14px;
+  border: 2px solid var(--line);
+  padding: 0 12px;
+  color: var(--ink);
+  font: inherit;
+  font-weight: 800;
+  background: #fff;
+}
+
+.kind-form input:focus-visible {
+  border-color: var(--primary);
+  outline: 4px solid rgba(108, 92, 231, 0.16);
+}
+
+/* Das Formular für ein neues Kind: zwei Felder untereinander, die Knöpfe
+   rechts darunter – wie die Anmeldung, nur kleiner. */
+.kind-form-neu {
+  display: grid;
+  gap: 12px;
+}
+
+.kind-form-neu label {
+  display: grid;
+  gap: 7px;
+  color: var(--muted);
+  font-weight: 850;
+}
+
+.kind-form-neu input {
+  width: 100%;
+}
+
+.kind-form-neu > .card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+/* Die Rückmeldung einer Karte: in der Karte, unter dem, was sie betrifft.
+   Leer nimmt sie keinen Platz. */
+.karten-status {
+  flex: 1 1 100%;
+  margin: 0;
+}
+
+.karten-status:empty {
+  display: none;
+}
+
 /* Zurücksetzen lässt sich nicht rückgängig machen. Rot statt Violett, damit
    die Karte nicht wie der Levelmodus direkt darüber aussieht – und in der
    Rückfrage steht der Satz über den Knöpfen, nicht neben ihnen: gelesen werden
