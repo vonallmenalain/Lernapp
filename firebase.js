@@ -119,37 +119,13 @@
     serverBusy: false,
     guestId: null,
     guestCreatedAtMs: 0,
-    adminView: "users",
-    adminGamesArea: "all",
-    adminUsers: [],
-    adminGuests: [],
-    // Geladen ist nicht dasselbe wie nicht leer: ohne diese beiden Marken
-    // fragte jede Zeichnung eine leere Liste noch einmal bei Firestore nach.
-    adminUsersLoaded: false,
-    adminGuestsLoaded: false,
-    adminDetails: new Map(),
-    adminGuestDetails: new Map(),
-    selectedAdminUserId: null,
-    selectedAdminGuestId: null,
-    selectedAdminGame: "all",
-    adminResetId: null,
-    adminResetBusyId: null,
-    adminResetErrorId: null,
-    adminResetError: "",
-    adminGroupBusyId: null,
-    adminGroupErrorId: null,
-    adminGroupError: "",
-    // Das Reisetempo eines Kontos wird gerade umgestellt.
-    adminTempoBusyId: null,
-    adminTempoErrorId: null,
-    adminTempoError: "",
     progressResetAtMs: 0,
-    // Das Wagen-Set aus der Cloud, und der Stand der Umstellung im Adminbereich.
+    // Das Wagen-Set. Zwei Quellen: config/train gilt für alle, users/<uid>
+    // .wagonSet für dieses eine Konto. Welches zählt, entscheidet der
+    // Zeitpunkt des Wechsels – das jüngere gewinnt.
     wagonSet: null,
-    adminSetConfirmId: null,
-    adminSetBusy: "",
-    adminSetError: "",
-    adminSetDone: "",
+    globalWagonSet: null,
+    ownWagonSet: null,
   };
 
   const accountButton = document.createElement("button");
@@ -239,6 +215,55 @@
     // Lesen darf jeder, umstellen nur der Admin – auch das steht in den Regeln.
     getWagonSet,
     switchWagonSet,
+    // Das Set der eigenen Familie: ein Elternkonto wählt es für sich und
+    // seine Kinder. Auch hier entscheidet die Regel, nicht diese Zeile.
+    getFamilyWagonSet,
+    switchFamilyWagonSet,
+    clearFamilyWagonSet,
+
+    // --- Für admin.html --------------------------------------------------
+    // Die eigene Seite des Adminbereichs zeichnet selbst (admin.js); von hier
+    // bekommt sie die Daten und die gemeinsamen Bausteine. Alles darunter ist
+    // eine Auskunft, keine Berechtigung: Wer nichts lesen darf, bekommt von
+    // Firestore nichts – das entscheidet firestore.rules.
+    admin: {
+      isAdmin: () => isAdminUser(),
+      ladeKonten: loadAdminUsers,
+      ladeGaeste: loadAdminGuests,
+      ladeKaeufe: loadEntitlements,
+      ladeKontoDetails: loadAdminUserDetails,
+      ladeGastDetails: loadAdminGuestDetails,
+      setUserGroup,
+      setJourneyTempo: setJourneyTempoFor,
+      resetProgress: resetProgressFor,
+      freischalten: kontoFreischalten,
+      switchWagonSet,
+      fehlerText: (error) => authErrorMessage(error),
+      serverFehlerText: (error) => serverErrorMessage(error),
+    },
+
+    // Die Bausteine, aus denen Elternbereich und Adminseite ein Konto zeichnen.
+    // Sie stehen in firebase.js, weil beide Seiten dasselbe zeigen sollen.
+    ansicht: {
+      name: entityDisplayName,
+      zuletzt: lastActivityMs,
+      zusammenfassung: summarizeEntity,
+      zugStreifen: renderTrainStrip,
+      zugDetail: renderTrainDetail,
+      levelAbdeckung: renderLevelCoverage,
+      levelKarte: renderLevelDetail,
+      sitzungsKarte: renderSessionDetail,
+      spielFilter: renderGameFilters,
+      topLevel: renderTopLevels,
+      kontoDetail: renderEntityDetail,
+      levelSort,
+      gruppe: readGroup,
+      spielName: gameLabel,
+      dauer: formatDuration,
+      datum: formatDateTime,
+      zeitpunkt: timestampDate,
+      text: escapeHtml,
+    },
   };
 
   window.LernappFirebase = cloudApi;
@@ -306,8 +331,13 @@
       state.role = null;
       state.parentUid = null;
       state.children = [];
+      // Ohne Konto gilt wieder das Set für alle. Zurückgesetzt wird dabei
+      // nichts: applyWagonSet räumt nur bei einem NEUEREN Wechsel auf, und
+      // das globale ist älter als das, was dieses Gerät schon kennt.
+      state.ownWagonSet = null;
+      applyWagonSet(effectiveWagonSet());
+      resetElternState();
       stopWatchingEntitlement();
-      resetAdminState();
       stopActiveSession();
       renderLoggedOut();
       announceProgress();
@@ -323,7 +353,6 @@
     try {
       await upsertUserProfile(user);
       watchEntitlement(user.uid);
-      if (!isAdminUser(user)) resetAdminState();
       // Vor allem anderen: wurde dieses Konto anderswo zurückgesetzt, muss
       // dieses Gerät seinen alten Stand loswerden, bevor syncLocalSolvedProgress
       // ihn wieder hochschiebt.
@@ -474,31 +503,6 @@
     return Boolean(user.emailVerified || hasGoogleProvider);
   }
 
-  function resetAdminState() {
-    state.adminView = "users";
-    state.adminGamesArea = "all";
-    state.adminUsers = [];
-    state.adminGuests = [];
-    state.adminUsersLoaded = false;
-    state.adminGuestsLoaded = false;
-    state.adminDetails.clear();
-    state.adminGuestDetails.clear();
-    state.selectedAdminUserId = null;
-    state.selectedAdminGuestId = null;
-    state.selectedAdminGame = "all";
-    state.adminResetId = null;
-    state.adminResetBusyId = null;
-    state.adminResetErrorId = null;
-    state.adminResetError = "";
-    state.adminGroupBusyId = null;
-    state.adminGroupErrorId = null;
-    state.adminGroupError = "";
-    state.adminSetConfirmId = null;
-    state.adminSetBusy = "";
-    state.adminSetError = "";
-    state.adminSetDone = "";
-  }
-
   function randomToken(length = 16) {
     const alphabet = "abcdefghijklmnopqrstuvwxyz0123456789";
     const bytes = new Uint8Array(length);
@@ -568,6 +572,12 @@
     state.progressResetAtMs = Number(existingData.progressReset?.atMs) || 0;
     state.parentUid = typeof existingData.parentUid === "string" ? existingData.parentUid : null;
     state.children = readChildren(existingData.children);
+    // Das Wagen-Set der Familie, falls die Eltern eines gesetzt haben. Es
+    // kommt hier an und nicht über einen eigenen Beobachter: Ein onSnapshot
+    // auf das eigene Konto meldete jede Zahl, die dieses Gerät selbst
+    // hochschreibt, und das sind viele. Ein Wechsel der Eltern erreicht ein
+    // anderes Gerät der Familie deshalb beim nächsten Öffnen der App.
+    applyOwnWagonSet(existingData.wagonSet);
     const providers = user.providerData.map((provider) => provider.providerId);
     const username = profileNameForUser(user, existingData);
     const isNameLogin = isTechnicalEmail(user.email);
@@ -726,8 +736,12 @@
   //   id           gemeinsamer Schlüssel aller Mitglieder
   //   name         wie die Gruppe heisst (nur zum Anzeigen im Admin-Bereich)
   //   displayName  unter welchem Namen der Zug dieses Kontos in der Gruppe steht
+  //   by           woher die Gruppe kommt: "familie" vom Server, "admin" von Hand
   //
-  // Geschrieben wird das Feld nur vom Admin.
+  // Geschrieben wird das Feld nur vom Admin – und vom Server, der jede Familie
+  // von selbst zu einer Gruppe macht (netlify/functions/_lib/familie.mjs). An
+  // "by" erkennt der Server, was er nicht anfassen darf: Eine übergreifende
+  // Gruppe, die der Admin gesetzt hat, überlebt jede Anmeldung.
   function readGroup(raw) {
     if (!raw || typeof raw !== "object") return null;
     const id = String(raw.id || "").trim();
@@ -736,6 +750,7 @@
       id,
       name: cleanDisplayName(raw.name) || id,
       displayName: cleanDisplayName(raw.displayName),
+      by: raw.by === "admin" ? "admin" : "familie",
     };
   }
 
@@ -863,6 +878,21 @@
 
   async function kindPasswortSetzen(uid, passwort) {
     return serverAufruf("kind-passwort", { uid, passwort });
+  }
+
+  // Ein Kinderprofil ganz entfernen: Konto, Fortschritt, Anmeldung. Der Server
+  // prüft an children[] der Eltern, ob das Kind wirklich zu ihnen gehört.
+  async function kindLoeschen(uid) {
+    const ergebnis = await serverAufruf("kind-loeschen", { uid });
+    state.children = state.children.filter((kind) => kind.uid !== uid);
+    return ergebnis;
+  }
+
+  // Ein Konto freischalten, ohne dass jemand zahlt – oder die Freischaltung
+  // zurücknehmen. Nur der Admin; geprüft wird das am Token auf dem Server,
+  // nicht an dieser Zeile. Es trifft immer die ganze Familie, wie ein Kauf.
+  async function kontoFreischalten(uid, frei = true) {
+    return serverAufruf("freischalten", { uid, frei: frei !== false });
   }
 
   // Die Familie als Gruppe: Damit stehen die Züge der Geschwister auf dem
@@ -1048,13 +1078,19 @@
   }
 
   // Ordnet ein Konto einer Gruppe zu oder nimmt es heraus. Nur der Admin darf
-  // das; die Regel lässt genau dieses eine Feld durch.
+  // das; die Regel lässt genau dieses eine Feld durch. Ein leerer Name nimmt
+  // das Konto heraus – und ein Konto einer Familie bekommt beim nächsten
+  // Anmelden seine Familiengruppe zurück, weil der Server sie nachträgt.
   async function setUserGroup(userId, { name = "", displayName = "" } = {}) {
     if (!userId || !state.db) return false;
     const groupName = cleanDisplayName(name);
     const id = loginSlug(groupName);
+    // by: "admin" ist die Marke, an der der Server diese Zuordnung stehen
+    // lässt. Ohne sie schriebe familieVerbinden bei der nächsten Anmeldung
+    // die Familiengruppe darüber – und eine übergreifende Gruppe hielte
+    // keinen Tag.
     const payload = id
-      ? { id, name: groupName, displayName: cleanDisplayName(displayName), updatedAt: Date.now() }
+      ? { id, name: groupName, displayName: cleanDisplayName(displayName), by: "admin", updatedAt: Date.now() }
       : deleteField();
 
     await state.db.collection("users").doc(userId).set(
@@ -1139,10 +1175,31 @@
 
   // --- Das Wagen-Set ---------------------------------------------------------
   // Der Zug hat zwei Sets Wagen: die Güterwagen und die Gestalten, die sich
-  // aus Fracht verwandeln. Welches gilt, entscheidet der Admin für alle auf
-  // einmal – in config/train, dem einzigen Dokument, das jedes Gerät liest,
-  // ob mit Konto oder ohne. Ein Wechsel heisst: andere Wagen, anderes Tempo,
-  // und alle Wagen beginnen bei 0.
+  // aus Fracht verwandeln. Es gibt sie an zwei Stellen, und das ist der Kern
+  // dieses Abschnitts:
+  //
+  //   config/train            gilt für alle, auch für Gäste ohne Konto.
+  //                           Umstellen darf das nur der Admin.
+  //   users/<uid>.wagonSet    gilt für dieses eine Konto. Setzen darf das ein
+  //                           Elternkonto – für sich und seine Kinder –, und
+  //                           es gilt dann auch nur für diese Familie.
+  //
+  // Welches von beiden zählt, ist eine Frage des Vorrangs und ausdrücklich
+  // KEINE der Uhrzeit: Die Wahl der Familie gewinnt, solange es sie gibt, und
+  // ein globaler Wechsel des Admins hebt alle Familienwahlen auf (er schreibt
+  // das Feld an jedem Konto weg). Damit wirkt "für alle" wirklich für alle.
+  //
+  // Zwei Zeitmarken zu vergleichen wäre der naheliegende Weg gewesen und war
+  // der falsche: switchedAtMs kommt vom Gerät dessen, der umstellt – beim
+  // globalen Wechsel vom Laptop des Admins, bei der Familie vom Handy der
+  // Eltern. Geht das Handy einen Tag vor, hätte ein späterer globaler Wechsel
+  // die kleinere Zahl und käme bei dieser Familie nie an, obwohl ihr
+  // Fortschritt dabei zurückgesetzt würde. Verglichen wird eine Zeitmarke
+  // deshalb nur noch mit sich selbst: die aus der Cloud mit der Kopie, die
+  // dieses Gerät davon gemerkt hat (applyWagonSet).
+  //
+  // Ein Wechsel heisst: andere Wagen, anderes Tempo, und alle Wagen beginnen
+  // bei 0.
   //
   // Dazu trägt das Dokument den Zeitpunkt des Wechsels. Jedes Gerät merkt
   // sich, welchen Wechsel es schon kennt, und räumt bei einem neueren seinen
@@ -1151,8 +1208,8 @@
   // setzt der Admin beim Wechsel eines nach dem anderen zurück; Gäste haben
   // ihren Stand nur auf dem Gerät, und das räumt beim nächsten Öffnen auf.
   //
-  // Die Zahl bleibt eine Zahl in Millisekunden vom Gerät des Admins und wird
-  // nur mit sich selbst verglichen: Uhren müssen nicht übereinstimmen.
+  // Die Zahl bleibt eine Zahl in Millisekunden vom Gerät des Umstellenden und
+  // wird nur mit sich selbst verglichen: Uhren müssen nicht übereinstimmen.
   function wagonSetRef() {
     return state.db ? state.db.collection("config").doc("train") : null;
   }
@@ -1177,8 +1234,28 @@
     } catch { /* privater Modus */ }
   }
 
+  // Das wirksame Set: die Wahl der Familie, sonst die für alle. Kennt dieses
+  // Gerät keines von beiden, gilt das zuletzt gemerkte, und ganz am Anfang
+  // das erste.
+  function effectiveWagonSet() {
+    return state.ownWagonSet || state.globalWagonSet || null;
+  }
+
   function getWagonSet() {
     return state.wagonSet || readLocalWagonSet() || { id: "1", switchedAtMs: 0 };
+  }
+
+  // Das Set der eigenen Familie, sofern eines gesetzt ist – sonst null, und
+  // dann gilt das globale. Der Elternbereich zeigt das eine oder das andere.
+  function getFamilyWagonSet() {
+    return state.ownWagonSet ? { ...state.ownWagonSet } : null;
+  }
+
+  // Übernimmt das Set, das am eigenen Konto steht. Wird beim Anmelden und bei
+  // jedem Lesen des Kontos aufgerufen; ohne Konto gibt es keines.
+  function applyOwnWagonSet(raw) {
+    state.ownWagonSet = readWagonSet(raw);
+    return applyWagonSet(effectiveWagonSet());
   }
 
   // Hört auf das Dokument, solange die Seite offen ist: stellt der Admin um,
@@ -1188,7 +1265,10 @@
   function watchWagonSet() {
     const ref = wagonSetRef();
     if (!ref) return;
-    const uebernehmen = (doc) => applyWagonSet(readWagonSet(typeof doc?.data === "function" ? doc.data() : null));
+    const uebernehmen = (doc) => {
+      state.globalWagonSet = readWagonSet(typeof doc?.data === "function" ? doc.data() : null);
+      applyWagonSet(effectiveWagonSet());
+    };
     const melden = (error) => console.warn("Das Wagen-Set konnte nicht gelesen werden", error);
     try {
       if (typeof ref.onSnapshot === "function") ref.onSnapshot(uebernehmen, melden);
@@ -1225,25 +1305,42 @@
     return true;
   }
 
-  // Der Wechsel selbst, nur für den Admin: erst jedes Konto zurücksetzen, dann
-  // das Set umstellen. In dieser Reihenfolge, damit ein Gerät, das den Wechsel
-  // sieht, in der Cloud schon leere Konten vorfindet. onProgress meldet, wie
-  // weit es ist – bei einem Dutzend Konten dauert das einen Moment.
+  // Erst jedes betroffene Konto zurücksetzen, dann das Set umstellen. In
+  // dieser Reihenfolge, damit ein Gerät, das den Wechsel sieht, in der Cloud
+  // schon leere Konten vorfindet. onProgress meldet, wie weit es ist – bei
+  // einem Dutzend Konten dauert das einen Moment.
+  async function resetAccountsForSwitch(ids, onProgress) {
+    // Das eigene Konto zuletzt: es räumt auch dieses Gerät auf, und bis dahin
+    // sollen die anderen schon durch sein.
+    const reihe = [...ids].sort((a, b) => (a === state.user?.uid) - (b === state.user?.uid));
+    let done = 0;
+    for (const userId of reihe) {
+      await resetProgressFor(userId);
+      done += 1;
+      onProgress?.(done, reihe.length);
+    }
+    return reihe.length;
+  }
+
+  // Der globale Wechsel, nur für den Admin: alle Konten, und config/train.
+  //
+  // Dabei fallen die Familienwahlen weg. Ohne das hiesse "für alle" in
+  // Wahrheit "für alle ausser denen, die sich einmal anders entschieden
+  // haben" – und deren Fortschritt würde hier trotzdem zurückgesetzt, ihre
+  // Wagen aber nicht gewechselt. Wer danach wieder eigene Wagen will, wählt
+  // sie neu; das ist ein Klick und dafür eindeutig.
   async function switchWagonSet(id, { onProgress } = {}) {
     const setId = String(id || "").trim();
     if (!setId || !state.db || !isAdminUser()) throw Object.assign(new Error("lernapp/not-admin"), { code: "permission-denied" });
 
     const snapshot = await state.db.collection("users").get();
     const ids = snapshot.docs.map((doc) => doc.id);
-    // Das eigene Konto zuletzt: es räumt auch dieses Gerät auf, und bis dahin
-    // sollen die anderen schon durch sein.
-    ids.sort((a, b) => (a === state.user?.uid) - (b === state.user?.uid));
-    let done = 0;
-    for (const userId of ids) {
-      await resetProgressFor(userId);
-      done += 1;
-      onProgress?.(done, ids.length);
+    const eigeneWahl = snapshot.docs.filter((doc) => doc.data()?.wagonSet?.id).map((doc) => doc.id);
+    const accounts = await resetAccountsForSwitch(ids, onProgress);
+    for (const userId of eigeneWahl) {
+      await userRef(userId).set({ wagonSet: deleteField(), updatedAt: serverTimestamp() }, { merge: true });
     }
+    state.ownWagonSet = null;
 
     const switchedAtMs = Date.now();
     await wagonSetRef().set({
@@ -1255,8 +1352,71 @@
     }, { merge: true });
 
     // Dieses Gerät gleich, nicht erst über den Umweg der Cloud.
-    applyWagonSet({ id: setId, switchedAtMs });
-    return { accounts: ids.length, switchedAtMs };
+    state.globalWagonSet = { id: setId, switchedAtMs };
+    applyWagonSet(effectiveWagonSet());
+    return { accounts, switchedAtMs, eigeneWahl: eigeneWahl.length };
+  }
+
+  // Ein Elternkonto ohne Kinder ist noch keine Familie – und es DARF das Feld
+  // nicht schreiben: firestore.rules lässt das eigene wagonSet nur durch, wenn
+  // children[] nicht leer ist (hasChildren). Geprüft wird das hier, VOR dem
+  // Zurücksetzen: Sonst wäre der Fortschritt gelöscht und der Wechsel danach
+  // abgelehnt – das Schlimmste von beidem. Die Karte bleibt ohne Kinder
+  // ohnehin weg; das hier ist die zweite Tür für denselben Raum.
+  function canSetFamilyWagonSet() {
+    return Boolean(state.user) && isParentAccount() && state.children.length > 0;
+  }
+
+  function assertFamilyWagonAllowed() {
+    if (!canSetFamilyWagonSet()) throw Object.assign(new Error("lernapp/family-needed"), { code: "lernapp/family-needed" });
+  }
+
+  // Der Wechsel für eine Familie, nur für ein Elternkonto: die eigenen Konten,
+  // und das Set steht an jedem davon statt in config/train. Dasselbe Bild für
+  // das Kind – nur eben nicht für alle anderen Familien.
+  //
+  // Geschrieben wird an jedes Konto einzeln und nicht einmal am Elternkonto,
+  // weil ein Kind das Konto seiner Eltern nicht liest: Es kennt nur sein
+  // eigenes Dokument. Ein Feld, das es nicht lesen darf, könnte es auch nicht
+  // befolgen.
+  async function switchFamilyWagonSet(id, { onProgress } = {}) {
+    const setId = String(id || "").trim();
+    if (!setId || !state.db || !state.user) throw authInputError("lernapp/not-signed-in");
+    assertFamilyWagonAllowed();
+
+    const ids = [state.user.uid, ...state.children.map((kind) => kind.uid)];
+    const accounts = await resetAccountsForSwitch(ids, onProgress);
+
+    const switchedAtMs = Date.now();
+    const payload = { id: setId, switchedAtMs, switchedBy: state.user.uid };
+    for (const userId of ids) {
+      await userRef(userId).set({ wagonSet: payload, updatedAt: serverTimestamp() }, { merge: true });
+    }
+
+    state.ownWagonSet = { id: setId, switchedAtMs };
+    applyWagonSet(effectiveWagonSet());
+    return { accounts, switchedAtMs };
+  }
+
+  // Zurück zum Set, das für alle gilt: das Feld am Konto verschwindet, und
+  // damit zählt wieder config/train. Auch das setzt zurück – der Zug sähe
+  // sonst anders aus, als sein Fortschritt sagt.
+  async function clearFamilyWagonSet({ onProgress } = {}) {
+    if (!state.db || !state.user) throw authInputError("lernapp/not-signed-in");
+    assertFamilyWagonAllowed();
+
+    const ids = [state.user.uid, ...state.children.map((kind) => kind.uid)];
+    const accounts = await resetAccountsForSwitch(ids, onProgress);
+    for (const userId of ids) {
+      await userRef(userId).set({ wagonSet: deleteField(), updatedAt: serverTimestamp() }, { merge: true });
+    }
+
+    state.ownWagonSet = null;
+    // Ohne eigenes Set gilt wieder das globale – und weil es älter ist als der
+    // Stand, den dieses Gerät kennt, räumt applyWagonSet von sich aus nichts
+    // weg. Das haben die Zurücksetzungen oben schon getan.
+    applyWagonSet(effectiveWagonSet());
+    return { accounts };
   }
 
   // --- Fortschritt zurücksetzen ---------------------------------------------
@@ -1806,6 +1966,7 @@
     state.parentUid = typeof userData.parentUid === "string" ? userData.parentUid : null;
     state.children = readChildren(userData.children);
     applyGroup(readGroup(userData.group));
+    applyOwnWagonSet(userData.wagonSet);
     const progressDocs = progressSnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
     const sessions = sessionSnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
 
@@ -1815,15 +1976,16 @@
 
     if (!state.dashboardOpen && modal.hidden) return;
     renderDashboard(userData, progressDocs, sessions);
-    if (isAdminUser()) hydrateAdminSection();
   }
 
   function renderDashboard(userData, progressDocs, sessions) {
     const stats = summarizeProgress(userData, progressDocs);
     const loginName = userData.username || profileNameForUser(state.user, userData);
     const providerText = providerLabel(state.user.providerData.map((provider) => provider.providerId), userData);
-    const admin = isAdminUser();
-    accountPanel.classList.toggle("has-admin", admin);
+    // Das breite Panel gehörte einmal dem Adminbereich; der hat jetzt eine
+    // eigene Seite. Breit braucht es nun der Elternbereich: die Kinder zum
+    // Aufklappen, mit Zug, Levelabdeckung und Sitzungen.
+    accountPanel.classList.toggle("has-admin", isParentAccount());
 
     modalContent.innerHTML = `
       <p class="small-label">Profil</p>
@@ -1837,8 +1999,10 @@
         <button type="button" class="secondary-action" data-logout>Logout</button>
       </div>
       ${renderKaufRueckkehr()}
+      ${renderAdminLink()}
       ${renderKaufKarte()}
       ${isParentAccount() ? renderKinderKarte() : ""}
+      ${isParentAccount() ? `<div data-wagen-platz>${renderFamilienWagenKarte()}</div>` : ""}
       ${renderResetProgressCard()}
       <div class="stat-strip" aria-label="Gesamtstatistik">
         <div><strong>${stats.totalSolved}</strong><span>gelöst</span></div>
@@ -1853,7 +2017,6 @@
         <h3>Letzte Spielstände</h3>
         ${sessions.length ? sessions.map(renderSession).join("") : "<p class=\"account-muted\">Noch keine Cloud-Spielstände vorhanden.</p>"}
       </div>
-      ${admin ? renderAdminSectionShell() : ""}
       <p class="auth-status" role="status" aria-live="polite"></p>
     `;
 
@@ -1868,8 +2031,30 @@
     });
 
     bindKaufKarte();
-    if (isParentAccount()) bindKinderKarte();
+    if (isParentAccount()) {
+      bindKinderKarte();
+      bindFamilienWagenKarte();
+    }
     bindResetProgressCard();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Der Weg in den Adminbereich
+  // ---------------------------------------------------------------------------
+  // Der Adminbereich war einmal ein Abschnitt in diesem Fenster. Er ist es
+  // nicht mehr: Kontenliste, Gästeliste, Spielauswertung, Wagen und Gruppen
+  // brauchen Platz, und ein Popup über dem Zug eines Kindes ist der falsche
+  // Ort dafür. Hier steht nur noch die Tür – die Seite dahinter ist admin.html.
+  function renderAdminLink() {
+    if (!isAdminUser()) return "";
+    return `
+      <a class="unlock-mode-card admin-link" href="admin.html">
+        <div>
+          <strong>Adminbereich</strong>
+          <span>Konten, G&auml;ste, Spiele, Wagen und Gruppen &#8211; auf einer eigenen Seite.</span>
+        </div>
+        <span class="admin-link-knopf">Zum Adminbereich</span>
+      </a>`;
   }
 
   // ---------------------------------------------------------------------------
@@ -1968,20 +2153,64 @@
   // Ende des Fensters, wo sie beim Formular weiter oben niemand sieht. Weil
   // die Karte nach jedem Schritt neu gezeichnet wird, kommt die Meldung als
   // Teil des Bildes mit.
-  function renderKinderKarte(form = null, meldung = null) {
+  // Der Zustand des Elternbereichs: welches Kind aufgeklappt ist, was gerade
+  // läuft, was zu bestätigen ist. Er lebt hier und nicht im DOM, weil die
+  // Karte nach jedem Schritt neu gezeichnet wird.
+  const eltern = {
+    offenesKind: null,
+    kindDetails: new Map(),
+    kindLaeuft: null,
+    kindForm: null,
+    kindMeldung: null,
+    // Zurücksetzen und Löschen fragen nach: {art: "reset"|"weg", uid}
+    kindFrage: null,
+    wagenFrage: null,
+    wagenLaeuft: "",
+    wagenFehler: "",
+    wagenFertig: "",
+  };
+
+  function resetElternState() {
+    eltern.offenesKind = null;
+    eltern.kindDetails.clear();
+    eltern.kindLaeuft = null;
+    eltern.kindForm = null;
+    eltern.kindMeldung = null;
+    eltern.kindFrage = null;
+    eltern.wagenFrage = null;
+    eltern.wagenLaeuft = "";
+    eltern.wagenFehler = "";
+    eltern.wagenFertig = "";
+  }
+
+  // Das Konto eines Kindes samt Leveln und Sitzungen. Lesen darf das ein
+  // Elternkonto seit firestore.rules (isParentOf) – und nur die eigenen:
+  // Wer eine fremde Kennung einsetzte, bekäme von Firestore nichts.
+  async function loadKindDetails(uid) {
+    const ref = state.db.collection("users").doc(uid);
+    const [doc, progressSnapshot, sessionSnapshot] = await Promise.all([
+      ref.get(),
+      ref.collection("levelProgress").get(),
+      ref.collection("sessions").orderBy("startedAt", "desc").get(),
+    ]);
+    return {
+      id: uid,
+      userData: doc.data() || {},
+      progressDocs: progressSnapshot.docs.map((d) => ({ id: d.id, ...d.data() })),
+      sessions: sessionSnapshot.docs.map((d) => ({ id: d.id, ...d.data() })),
+    };
+  }
+
+  // Die Rückmeldung steht in der Karte, bei dem, was sie betrifft – nicht am
+  // Ende des Fensters, wo sie beim Formular weiter oben niemand sieht. Weil
+  // die Karte nach jedem Schritt neu gezeichnet wird, kommt die Meldung als
+  // Teil des Bildes mit.
+  function renderKinderKarte() {
     const kinder = state.children;
+    const form = eltern.kindForm;
+    const meldung = eltern.kindMeldung;
     const zeilen = kinder.length
-      ? kinder.map((kind) => `
-          <li class="kind-zeile" data-kind-uid="${escapeHtml(kind.uid)}">
-            <span class="kind-name">${escapeHtml(kind.name || "Kind")}</span>
-            ${form?.art === "passwort" && form.uid === kind.uid ? `
-              <form class="kind-form" data-kind-passwort-form>
-                <input name="passwort" type="password" minlength="4" required placeholder="Neues Passwort" autocomplete="new-password" />
-                <button type="submit">Speichern</button>
-                <button type="button" class="secondary-action" data-kind-abbrechen>Abbrechen</button>
-              </form>` : `
-              <button type="button" class="secondary-action" data-kind-passwort="${escapeHtml(kind.uid)}">Passwort neu</button>`}
-          </li>`).join("")
+      ? kinder.map((kind) => renderKindZeile(kind, form)).join("")
       : `<li class="kind-zeile kind-leer">Noch kein Kind. Leg das erste an – mit dem Namen und dem Passwort meldet es sich dann an.</li>`;
 
     const neu = form?.art === "neu" ? `
@@ -2001,10 +2230,124 @@
           <strong>Kinder</strong>
           <span>${kinder.length} von ${MAX_KINDER}${kaufStand() === "gekauft" ? " · alle freigeschaltet" : ""}</span>
         </div>
+        <p class="auth-hint">Tipp auf ein Kind: Zug, probierte Level, Sitzungen. Was du hier änderst, gilt nur für deine Familie.</p>
         <ul class="kinder-liste">${zeilen}</ul>
         ${neu}
         <p class="auth-status karten-status${meldung?.ok ? " is-ok" : ""}" role="status" aria-live="polite">${meldung ? escapeHtml(meldung.text) : ""}</p>
       </div>`;
+  }
+
+  // Eine Zeile je Kind: zugeklappt der Name, wann es zuletzt da war und sein
+  // Zug als fünf Balken. Aufgeklappt alles Weitere.
+  function renderKindZeile(kind, form) {
+    const offen = eltern.offenesKind === kind.uid;
+    const detail = eltern.kindDetails.get(kind.uid);
+    const laeuft = eltern.kindLaeuft === kind.uid;
+    const entity = detail ? { ...detail.userData, levelDocs: detail.progressDocs } : null;
+    const gesehen = entity ? lastActivityMs(entity) : 0;
+
+    const frage = eltern.kindFrage?.uid === kind.uid ? eltern.kindFrage.art : null;
+    const koerper = !offen ? "" : (detail
+      ? `
+        <div class="kind-detail">
+          ${frage === "reset" ? `
+            <div class="admin-reset is-confirming">
+              <div>
+                <strong>Wirklich allen Fortschritt von ${escapeHtml(kind.name || "diesem Kind")} zurücksetzen?</strong>
+                <span>Gelöste Level, Sitzungen und Spielstände werden gelöscht. Der Zug fängt wieder von vorn an: alle Wagen starten bei 0, auch auf dem Gerät des Kindes. Lok und Landschaft bleiben. Das lässt sich nicht rückgängig machen.</span>
+              </div>
+              <div class="card-actions">
+                <button type="button" class="secondary-action" data-kind-frage-ab>Abbrechen</button>
+                <button type="button" class="danger-action" data-kind-reset-ja="${escapeHtml(kind.uid)}">Ja, zurücksetzen</button>
+              </div>
+            </div>` : ""}
+          ${frage === "weg" ? `
+            <div class="admin-reset is-confirming">
+              <div>
+                <strong>Konto von ${escapeHtml(kind.name || "diesem Kind")} wirklich löschen?</strong>
+                <span>Das Konto, sein Fortschritt und seine Anmeldung verschwinden. Danach ist der Name wieder frei. Das lässt sich nicht rückgängig machen – zum blossen Neuanfangen reicht «Fortschritt zurücksetzen».</span>
+              </div>
+              <div class="card-actions">
+                <button type="button" class="secondary-action" data-kind-frage-ab>Abbrechen</button>
+                <button type="button" class="danger-action" data-kind-weg-ja="${escapeHtml(kind.uid)}">Ja, Konto löschen</button>
+              </div>
+            </div>` : ""}
+          <div class="card-actions kind-aktionen">
+            <button type="button" class="secondary-action" data-kind-passwort="${escapeHtml(kind.uid)}">Passwort neu</button>
+            <button type="button" class="secondary-action" data-kind-reset="${escapeHtml(kind.uid)}">Fortschritt zurücksetzen</button>
+            <button type="button" class="danger-action" data-kind-weg="${escapeHtml(kind.uid)}">Konto löschen</button>
+          </div>
+          ${renderKindTempo(kind, detail)}
+          ${renderEntityDetail(detail, { withFilters: false })}
+        </div>`
+      : `<div class="kind-detail"><p class="account-muted">${laeuft ? "Wird geladen..." : "Konnte nicht geladen werden."}</p></div>`);
+
+    return `
+      <li class="kind-zeile${offen ? " is-open" : ""}" data-kind-uid="${escapeHtml(kind.uid)}">
+        <button type="button" class="kind-kopf" data-kind-auf="${escapeHtml(kind.uid)}" aria-expanded="${offen ? "true" : "false"}">
+          <span class="admin-entry-caret" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </span>
+          <span class="kind-name">
+            <strong>${escapeHtml(kind.name || "Kind")}</strong>
+            <span>${gesehen ? `zuletzt ${escapeHtml(formatDateTime(gesehen))}` : (detail ? "noch nie gespielt" : "")}</span>
+          </span>
+          ${entity ? renderTrainStrip(entity) : ""}
+        </button>
+        ${form?.art === "passwort" && form.uid === kind.uid ? `
+          <form class="kind-form" data-kind-passwort-form>
+            <input name="passwort" type="password" minlength="4" required placeholder="Neues Passwort" autocomplete="new-password" />
+            <button type="submit">Speichern</button>
+            <button type="button" class="secondary-action" data-kind-abbrechen>Abbrechen</button>
+          </form>` : ""}
+        ${koerper}
+      </li>`;
+  }
+
+  // Das Reisetempo des eigenen Kindes. Dieselbe Einstellung, die der Admin
+  // für jedes Konto setzen kann – hier für die eigene Familie. Sie liegt im
+  // Kasten der Reise (gameState), und den darf ein Elternkonto an seinem Kind
+  // schreiben (firestore.rules, isProgressReset).
+  function renderKindTempo(kind, detail) {
+    const reise = window.LernappReise;
+    if (!reise || !detail?.userData) return "";
+    const fahrt = reise.progressFor((detail.userData.gameState || {})[reise.KEY]?.data);
+    const busy = eltern.kindLaeuft === kind.uid;
+    const knopf = (wert, label) => `<button type="button" class="${fahrt.tempo === wert ? "" : "secondary-action"}" data-kind-tempo="${wert}" ${busy ? "disabled" : ""} aria-pressed="${fahrt.tempo === wert ? "true" : "false"}">${label}${fahrt.tempo === wert ? " ✓" : ""}</button>`;
+    return `
+      <div class="admin-reset admin-tempo">
+        <div>
+          <strong>Reisetempo</strong>
+          <span>Mit «langsam» verlangt jede Karte der Reise weniger: die Zielpunktzahlen der Karte davor, zwei Level tiefer, kleinere Memorys, leichtere Rätsel. Für Vier- bis Fünfjährige, ohne dass dein Kind je «leicht» wählen muss. Gilt auf allen Geräten deines Kindes.</span>
+        </div>
+        <div class="card-actions">${knopf("normal", "Normal")}${knopf("langsam", "Langsam")}</div>
+      </div>`;
+  }
+
+  async function kindTempoSetzen(uid, tempo) {
+    if (!uid) return;
+    eltern.kindLaeuft = uid;
+    eltern.kindMeldung = { ok: false, text: "Das Reisetempo wird gespeichert..." };
+    zeichneKinderKarte();
+    try {
+      await setJourneyTempoFor(uid, tempo);
+      eltern.kindDetails.delete(uid);
+      await kindNachladen(uid);
+      eltern.kindMeldung = { ok: true, text: `Reisetempo auf «${tempo === "langsam" ? "Langsam" : "Normal"}» gestellt.` };
+    } catch (error) {
+      eltern.kindMeldung = { ok: false, text: authErrorMessage(error) };
+    }
+    eltern.kindLaeuft = null;
+    zeichneKinderKarte();
+  }
+
+  function zeichneKinderKarte() {
+    const karte = modalContent.querySelector("[data-kinder-karte]");
+    if (!karte) return;
+    karte.outerHTML = renderKinderKarte();
+    bindKinderKarte();
+    // Das erste Kind bringt die Wagenkarte, das letzte nimmt sie wieder mit.
+    zeichneWagenKarte();
   }
 
   function bindKinderKarte() {
@@ -2012,17 +2355,41 @@
     if (!karte) return;
     const status = karte.querySelector(".karten-status");
     const zeichne = (form, meldung = null) => {
-      karte.outerHTML = renderKinderKarte(form, meldung);
-      bindKinderKarte();
+      eltern.kindForm = form;
+      eltern.kindMeldung = meldung;
+      zeichneKinderKarte();
       modalContent.querySelector("[data-kinder-karte] input")?.focus();
     };
+
     karte.querySelector("[data-kind-neu]")?.addEventListener("click", () => zeichne({ art: "neu" }));
     karte.querySelectorAll("[data-kind-passwort]").forEach((knopf) => {
       knopf.addEventListener("click", () => zeichne({ art: "passwort", uid: knopf.dataset.kindPasswort }));
     });
     karte.querySelectorAll("[data-kind-abbrechen]").forEach((knopf) => {
-      knopf.addEventListener("click", () => { status.textContent = ""; zeichne(null); });
+      knopf.addEventListener("click", () => zeichne(null));
     });
+    karte.querySelectorAll("[data-kind-auf]").forEach((knopf) => {
+      knopf.addEventListener("click", () => kindAufklappen(knopf.dataset.kindAuf));
+    });
+    karte.querySelectorAll("[data-kind-reset]").forEach((knopf) => {
+      knopf.addEventListener("click", () => { eltern.kindFrage = { art: "reset", uid: knopf.dataset.kindReset }; zeichne(null); });
+    });
+    karte.querySelectorAll("[data-kind-weg]").forEach((knopf) => {
+      knopf.addEventListener("click", () => { eltern.kindFrage = { art: "weg", uid: knopf.dataset.kindWeg }; zeichne(null); });
+    });
+    karte.querySelectorAll("[data-kind-frage-ab]").forEach((knopf) => {
+      knopf.addEventListener("click", () => { eltern.kindFrage = null; zeichne(null); });
+    });
+    karte.querySelector("[data-kind-reset-ja]")?.addEventListener("click", (event) => {
+      kindZuruecksetzen(event.currentTarget.dataset.kindResetJa);
+    });
+    karte.querySelector("[data-kind-weg-ja]")?.addEventListener("click", (event) => {
+      kindEntfernen(event.currentTarget.dataset.kindWegJa);
+    });
+    karte.querySelectorAll("[data-kind-tempo]").forEach((knopf) => {
+      knopf.addEventListener("click", () => kindTempoSetzen(eltern.offenesKind, knopf.dataset.kindTempo));
+    });
+
     karte.querySelector("[data-kind-neu-form]")?.addEventListener("submit", async (event) => {
       event.preventDefault();
       if (state.serverBusy) return;
@@ -2039,11 +2406,11 @@
         state.serverBusy = false;
       }
     });
+
     karte.querySelector("[data-kind-passwort-form]")?.addEventListener("submit", async (event) => {
       event.preventDefault();
       if (state.serverBusy) return;
-      const zeile = event.currentTarget.closest("[data-kind-uid]");
-      const uid = zeile?.dataset.kindUid;
+      const uid = event.currentTarget.closest("[data-kind-uid]")?.dataset.kindUid;
       const daten = new FormData(event.currentTarget);
       state.serverBusy = true;
       status.textContent = "Passwort wird gesetzt...";
@@ -2059,10 +2426,208 @@
     });
   }
 
+  // Ein zweiter Tipp auf dieselbe Zeile klappt sie wieder zu – sonst gäbe es
+  // keinen Weg zurück zur kurzen Liste.
+  async function kindAufklappen(uid) {
+    if (!uid) return;
+    eltern.kindForm = null;
+    eltern.kindFrage = null;
+    if (eltern.offenesKind === uid) {
+      eltern.offenesKind = null;
+      zeichneKinderKarte();
+      return;
+    }
+    eltern.offenesKind = uid;
+    if (!eltern.kindDetails.has(uid)) {
+      eltern.kindLaeuft = uid;
+      zeichneKinderKarte();
+      try {
+        eltern.kindDetails.set(uid, await loadKindDetails(uid));
+      } catch (error) {
+        eltern.kindDetails.set(uid, { id: uid, error });
+      }
+      eltern.kindLaeuft = null;
+    }
+    zeichneKinderKarte();
+  }
+
+  async function kindZuruecksetzen(uid) {
+    if (!uid || state.serverBusy) return;
+    eltern.kindFrage = null;
+    eltern.kindMeldung = { ok: false, text: "Fortschritt wird zurückgesetzt..." };
+    zeichneKinderKarte();
+    try {
+      await resetProgressFor(uid);
+      eltern.kindDetails.delete(uid);
+      await kindNachladen(uid);
+      eltern.kindMeldung = { ok: true, text: "Zurückgesetzt. Der Zug beginnt wieder bei 0." };
+    } catch (error) {
+      eltern.kindMeldung = { ok: false, text: authErrorMessage(error) };
+    }
+    zeichneKinderKarte();
+  }
+
+  async function kindEntfernen(uid) {
+    if (!uid || state.serverBusy) return;
+    const name = state.children.find((kind) => kind.uid === uid)?.name || "Das Kind";
+    eltern.kindFrage = null;
+    state.serverBusy = true;
+    eltern.kindMeldung = { ok: false, text: "Konto wird gelöscht..." };
+    zeichneKinderKarte();
+    try {
+      await kindLoeschen(uid);
+      eltern.kindDetails.delete(uid);
+      if (eltern.offenesKind === uid) eltern.offenesKind = null;
+      eltern.kindMeldung = { ok: true, text: `${name} ist gelöscht. Der Name ist wieder frei.` };
+    } catch (error) {
+      eltern.kindMeldung = { ok: false, text: serverErrorMessage(error) };
+    }
+    state.serverBusy = false;
+    zeichneKinderKarte();
+  }
+
+  async function kindNachladen(uid) {
+    if (!uid || eltern.offenesKind !== uid) return;
+    try { eltern.kindDetails.set(uid, await loadKindDetails(uid)); }
+    catch (error) { eltern.kindDetails.set(uid, { id: uid, error }); }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Die Wagen der Familie
+  // ---------------------------------------------------------------------------
+  // Dasselbe, was der Admin für alle tut – nur für die eigene Familie. Wer
+  // hier umstellt, ändert nichts an anderen Familien: Das Set steht am Konto
+  // (users/<uid>.wagonSet) und nicht in config/train.
+  //
+  // Ein Wechsel setzt den Fortschritt der ganzen Familie auf 0. Deshalb eine
+  // Rückfrage, die das ausspricht, und ein Weg zurück zum Set für alle.
+  function renderFamilienWagenKarte() {
+    const train = window.LernappTrain;
+    if (!train?.SETS) return "";
+    // Ohne Kinder gibt es keine Familie, für die sich etwas festlegen liesse –
+    // und die Regeln liessen das Feld auch gar nicht zu.
+    if (!canSetFamilyWagonSet()) return "";
+    const aktuell = getWagonSet();
+    const eigen = getFamilyWagonSet();
+    const aktivId = train.SET_BY_ID[aktuell.id] ? aktuell.id : train.SETS[0].id;
+    const laeuft = Boolean(eltern.wagenLaeuft);
+
+    const knopfFuer = (set) => {
+      if (set.id === aktivId) return `<span class="admin-set-active">Aktiv${eigen ? " · für deine Familie gewählt" : " · gilt für alle"}</span>`;
+      if (eltern.wagenFrage === set.id) {
+        return `
+          <div class="admin-set-confirm">
+            <strong>Wirklich auf «${escapeHtml(set.label)}» wechseln?</strong>
+            <span>Alle Wagen deiner Familie starten bei 0: gelöste Level, Runden und Spielstände werden gelöscht – bei dir und bei jedem deiner Kinder, auch auf ihren Geräten, sobald sie die App öffnen. Lok, Landschaft und Namen bleiben. Das lässt sich nicht rückgängig machen.</span>
+            <span>Neue Kinder bekommen diese Wagen von selbst. Stellt Gripszug später für alle um, fährt auch deine Familie wieder mit.</span>
+            <div class="card-actions">
+              <button type="button" class="secondary-action" data-wagen-ab>Abbrechen</button>
+              <button type="button" class="danger-action" data-wagen-ja="${escapeHtml(set.id)}">Ja, wechseln</button>
+            </div>
+          </div>`;
+      }
+      return `<button type="button" class="secondary-action" data-wagen-set="${escapeHtml(set.id)}" ${laeuft ? "disabled" : ""}>Diese Wagen für meine Familie</button>`;
+    };
+
+    return `
+      <div class="unlock-mode-card wagen-karte" data-wagen-karte>
+        <div class="karten-kopf">
+          <strong>Wagen deiner Familie</strong>
+          <span>${eigen ? "eigene Wahl" : "wie bei allen"}</span>
+        </div>
+        <p class="auth-hint">Welche Wagen der Zug hat und wie schnell sie wachsen. Die Wahl gilt für dich und deine Kinder – für niemanden sonst.</p>
+        <div class="wagen-sets">
+          ${train.SETS.map((set) => `
+            <article class="admin-set${set.id === aktivId ? " is-active" : ""}">
+              <header>
+                <div>
+                  <strong>${escapeHtml(set.label)}</strong>
+                  <span>${escapeHtml(`Ein Schritt nach ${set.stepAt.join(", ")} Runden je Spiel.`)}</span>
+                </div>
+              </header>
+              <div class="admin-set-actions">${knopfFuer(set)}</div>
+            </article>
+          `).join("")}
+        </div>
+        ${eigen ? `
+          <div class="card-actions">
+            ${eltern.wagenFrage === "zurueck"
+              ? `<button type="button" class="secondary-action" data-wagen-ab>Abbrechen</button><button type="button" class="danger-action" data-wagen-zurueck-ja>Ja, zur&uuml;ck zu den Wagen f&uuml;r alle</button>`
+              : `<button type="button" class="secondary-action" data-wagen-zurueck ${laeuft ? "disabled" : ""}>Zur&uuml;ck zu den Wagen f&uuml;r alle</button>`}
+          </div>
+          ${eltern.wagenFrage === "zurueck" ? `<p class="auth-hint">Auch das setzt die Wagen deiner Familie auf 0.</p>` : ""}` : ""}
+        ${eltern.wagenLaeuft ? `<p class="auth-status karten-status" role="status" aria-live="polite">${escapeHtml(eltern.wagenLaeuft)}</p>` : ""}
+        ${eltern.wagenFehler ? `<p class="auth-status">${escapeHtml(eltern.wagenFehler)}</p>` : ""}
+        ${eltern.wagenFertig ? `<p class="auth-status is-ok" role="status">${escapeHtml(eltern.wagenFertig)}</p>` : ""}
+      </div>`;
+  }
+
+  // Gezeichnet wird in den Platz, nicht über die Karte: Mit dem ersten Kind
+  // entsteht sie, mit dem letzten verschwindet sie – und eine Karte, die es
+  // gerade nicht gibt, liesse sich nicht ersetzen.
+  function zeichneWagenKarte() {
+    const platz = modalContent.querySelector("[data-wagen-platz]");
+    if (!platz) return;
+    platz.innerHTML = renderFamilienWagenKarte();
+    bindFamilienWagenKarte();
+  }
+
+  function bindFamilienWagenKarte() {
+    const karte = modalContent.querySelector("[data-wagen-karte]");
+    if (!karte) return;
+    const frage = (wert) => { eltern.wagenFrage = wert; eltern.wagenFehler = ""; eltern.wagenFertig = ""; zeichneWagenKarte(); };
+    karte.querySelectorAll("[data-wagen-set]").forEach((knopf) => {
+      knopf.addEventListener("click", () => frage(knopf.dataset.wagenSet));
+    });
+    karte.querySelector("[data-wagen-zurueck]")?.addEventListener("click", () => frage("zurueck"));
+    karte.querySelectorAll("[data-wagen-ab]").forEach((knopf) => {
+      knopf.addEventListener("click", () => frage(null));
+    });
+    karte.querySelector("[data-wagen-ja]")?.addEventListener("click", (event) => {
+      wagenUmstellen(event.currentTarget.dataset.wagenJa);
+    });
+    karte.querySelector("[data-wagen-zurueck-ja]")?.addEventListener("click", () => wagenUmstellen(null));
+  }
+
+  // setId gesetzt: auf dieses Set. setId null: zurück zum Set für alle.
+  async function wagenUmstellen(setId) {
+    if (eltern.wagenLaeuft) return;
+    const train = window.LernappTrain;
+    const label = setId ? (train?.SET_BY_ID?.[setId]?.label || `Set ${setId}`) : "die Wagen für alle";
+    eltern.wagenFrage = null;
+    eltern.wagenFehler = "";
+    eltern.wagenFertig = "";
+    eltern.wagenLaeuft = "Die Konten der Familie werden zurückgesetzt...";
+    zeichneWagenKarte();
+
+    const melden = (done, total) => {
+      eltern.wagenLaeuft = `Konto ${done} von ${total} zurückgesetzt...`;
+      zeichneWagenKarte();
+    };
+
+    try {
+      const ergebnis = setId
+        ? await switchFamilyWagonSet(setId, { onProgress: melden })
+        : await clearFamilyWagonSet({ onProgress: melden });
+      eltern.wagenFertig = `Umgestellt auf ${label}. ${ergebnis.accounts} Konten zurückgesetzt; andere Geräte deiner Familie stellen beim nächsten Öffnen der App um.`;
+      eltern.kindDetails.clear();
+    } catch (error) {
+      eltern.wagenFehler = authErrorMessage(error);
+    }
+    eltern.wagenLaeuft = "";
+    // Das eigene Konto ist mit zurückgesetzt: das ganze Profilfenster neu.
+    try { await refreshDashboard(); } catch { zeichneWagenKarte(); }
+  }
+
+
   function serverErrorMessage(error) {
     const code = String(error?.code || "");
     if (code === "server/not-signed-in" || code === "server/bad-token") return "Die Anmeldung ist abgelaufen. Bitte neu anmelden.";
     if (code === "server/parents-only") return "Das kann nur ein Elternkonto.";
+    if (code === "server/admin-only") return "Das kann nur der Administrator.";
+    if (code === "server/no-account") return "Dieses Konto gibt es nicht (mehr). Lade die Liste neu.";
+    if (code === "server/already-paid") return "Diese Familie hat bezahlt – da ist nichts freizuschalten.";
+    if (code === "server/paid-not-gift") return "Diese Familie hat bezahlt. Ein Kauf wird bei Stripe zurückerstattet, nicht hier.";
     if (code === "server/name-taken") return "Diesen Namen gibt es schon. Nimm einen anderen – mit Nachnamen oder einer Zahl.";
     if (code === "server/short-password") return "Das Passwort muss mindestens 4 Zeichen haben.";
     if (code === "server/missing-name") return "Bitte gib einen Namen ein.";
@@ -2151,138 +2716,6 @@
     });
   }
 
-  function renderAdminSectionShell() {
-    return `
-      <section class="admin-section" data-admin-section>
-        <div class="admin-section-head">
-          <div>
-            <p class="small-label">Administration</p>
-            <h3>Admin-Bereich</h3>
-            <p class="account-muted">Konten und G&auml;ste zum Aufklappen, eine Auswertung je Spiel und das Wagen-Set des Zugs.</p>
-            <div class="admin-tabs" role="tablist" aria-label="Admin-Bereich wechseln">
-              <button type="button" data-admin-view="users">User</button>
-              <button type="button" data-admin-view="guests">G&auml;ste</button>
-              <button type="button" data-admin-view="games">Spiele</button>
-              <button type="button" data-admin-view="wagons">Wagen</button>
-            </div>
-          </div>
-          <button type="button" class="secondary-action" data-admin-refresh>Aktualisieren</button>
-        </div>
-        <div class="admin-body" data-admin-body>
-          <p class="account-muted">Admin-Daten werden geladen...</p>
-        </div>
-      </section>
-    `;
-  }
-
-  async function hydrateAdminSection({ force = false } = {}) {
-    const root = modalContent.querySelector("[data-admin-section]");
-    if (!root || !isAdminUser()) return;
-
-    if (!root.dataset.adminBound) {
-      root.querySelector("[data-admin-refresh]")?.addEventListener("click", () => hydrateAdminSection({ force: true }));
-      root.querySelectorAll("[data-admin-view]").forEach((button) => {
-        button.addEventListener("click", () => {
-          state.adminView = button.dataset.adminView || "users";
-          state.selectedAdminGame = "all";
-          hydrateAdminSection();
-        });
-      });
-      root.dataset.adminBound = "true";
-    }
-
-    if (force) {
-      state.adminUsers = [];
-      state.adminGuests = [];
-      state.adminUsersLoaded = false;
-      state.adminGuestsLoaded = false;
-      state.adminDetails.clear();
-      state.adminGuestDetails.clear();
-    }
-
-    updateAdminViewButtons(root);
-    if (state.adminView === "guests") {
-      await hydrateAdminGuests(root);
-      return;
-    }
-    if (state.adminView === "games") {
-      await hydrateAdminGames(root);
-      return;
-    }
-    if (state.adminView === "wagons") {
-      renderAdminWagonSets(root);
-      return;
-    }
-
-    if (!state.adminUsersLoaded) {
-      renderAdminBody(root, "<p class=\"account-muted\">Admin-Daten werden geladen...</p>");
-      try {
-        state.adminUsers = await loadAdminUsers();
-        state.adminUsersLoaded = true;
-      } catch (error) {
-        renderAdminBody(root, `<p class="auth-status">${escapeHtml(authErrorMessage(error))}</p>`);
-        return;
-      }
-    }
-
-    // Zugeklappt beginnt die Liste. Bei einem Dutzend Konten ist eine Seite
-    // voller Leveltabellen keine Übersicht mehr, sondern das Gegenteil – und
-    // wer ein bestimmtes Kind sucht, findet es in einer kurzen Liste sofort.
-    renderAdminUsers(root);
-    if (state.selectedAdminUserId && !state.adminDetails.has(state.selectedAdminUserId)) {
-      await selectAdminUser(state.selectedAdminUserId, { root });
-    }
-  }
-
-  async function hydrateAdminGuests(root) {
-    if (!state.adminGuestsLoaded) {
-      renderAdminBody(root, "<p class=\"account-muted\">Gast-Daten werden geladen...</p>");
-      try {
-        state.adminGuests = await loadAdminGuests();
-        state.adminGuestsLoaded = true;
-      } catch (error) {
-        renderAdminBody(root, `<p class="auth-status">${escapeHtml(authErrorMessage(error))}</p>`);
-        return;
-      }
-    }
-
-    renderAdminGuests(root);
-    if (state.selectedAdminGuestId && !state.adminGuestDetails.has(state.selectedAdminGuestId)) {
-      await selectAdminGuest(state.selectedAdminGuestId, { root });
-    }
-  }
-
-  // Die Auswertung je Spiel rechnet über alle Konten und alle Gäste. Beide
-  // müssen also da sein – wer nur die Konten zählte, unterschlüge die Runden,
-  // die am Küchentisch ohne Anmeldung gespielt wurden.
-  async function hydrateAdminGames(root) {
-    if (!state.adminUsersLoaded || !state.adminGuestsLoaded) {
-      renderAdminBody(root, "<p class=\"account-muted\">Spieldaten werden geladen...</p>");
-      try {
-        if (!state.adminUsersLoaded) { state.adminUsers = await loadAdminUsers(); state.adminUsersLoaded = true; }
-        if (!state.adminGuestsLoaded) { state.adminGuests = await loadAdminGuests(); state.adminGuestsLoaded = true; }
-      } catch (error) {
-        renderAdminBody(root, `<p class="auth-status">${escapeHtml(authErrorMessage(error))}</p>`);
-        return;
-      }
-    }
-
-    renderAdminGames(root);
-  }
-
-  function updateAdminViewButtons(root) {
-    root.querySelectorAll("[data-admin-view]").forEach((button) => {
-      const active = button.dataset.adminView === state.adminView;
-      button.classList.toggle("active", active);
-      button.setAttribute("aria-selected", active ? "true" : "false");
-    });
-  }
-
-  function renderAdminBody(root, html) {
-    const body = root?.querySelector("[data-admin-body]");
-    if (body) body.innerHTML = html;
-  }
-
   async function loadAdminUsers() {
     const snapshot = await state.db.collection("users").get();
     const users = snapshot.docs
@@ -2293,6 +2726,29 @@
         return bDate - aDate;
       });
     return attachAdminSummaries("users", users);
+  }
+
+  // Alle Käufe auf einmal – daraus entscheidet die Adminseite, welches Konto
+  // bezahlt ist und welches gratis unterwegs. Lesen darf das nur der Admin
+  // (firestore.rules); ein Konto ohne Eintrag ist einfach keines mit Kauf.
+  //
+  // Zurück kommt eine Map von Kennung auf den Eintrag, damit die Kontenliste
+  // nicht für jedes Konto einzeln nachfragen muss.
+  async function loadEntitlements() {
+    const snapshot = await state.db.collection("entitlements").get();
+    const map = new Map();
+    snapshot.docs.forEach((doc) => {
+      const data = doc.data() || {};
+      map.set(doc.id, {
+        plan: typeof data.plan === "string" ? data.plan : "",
+        active: Boolean(data.active),
+        source: typeof data.source === "string" ? data.source : "",
+        via: typeof data.via === "string" ? data.via : null,
+        grantedAtMs: Number(data.grantedAtMs) || 0,
+        refundedAtMs: Number(data.refundedAtMs) || 0,
+      });
+    });
+    return map;
   }
 
   async function loadAdminGuests() {
@@ -2316,7 +2772,7 @@
       try {
         const snapshot = await state.db.collection(collectionName).doc(entry.id).collection("levelProgress").get();
         const progressDocs = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-        return { ...entry, levelDocs: progressDocs, adminSummary: summarizeAdminEntity(entry, progressDocs) };
+        return { ...entry, levelDocs: progressDocs, adminSummary: summarizeEntity(entry, progressDocs) };
       } catch (error) {
         return { ...entry, levelDocs: [] };
       }
@@ -2356,298 +2812,100 @@
     };
   }
 
-  // Ein zweiter Tipp auf dieselbe Zeile klappt sie wieder zu. Ohne das gäbe es
-  // keinen Weg zurück zur reinen Übersicht – ausser über einen anderen User,
-  // und der ist nicht gemeint.
-  async function toggleAdminUser(userId, root) {
-    if (state.selectedAdminUserId === userId) {
-      state.selectedAdminUserId = null;
-      renderAdminUsers(root);
-      return;
-    }
-    await selectAdminUser(userId, { root });
+  // --- Das Reisetempo ----------------------------------------------------------
+  // "langsam" nimmt jeder Karte der Reise ein Stück Schwierigkeit
+  // (journey-plan.js, shiftSpec). Die Einstellung liegt im Kasten der Reise
+  // (gameState lernapp.reise) mit einer Zeitmarke: das Gerät des Kindes nimmt
+  // beim Zusammenführen die neuere – und gameState darf der Admin schreiben
+  // (firestore.rules, isProgressReset). Ein Zurücksetzen räumt sie mit weg.
+  async function setJourneyTempoFor(userId, tempo) {
+    const reise = window.LernappReise;
+    const ref = userRef(userId);
+    if (!ref || !reise) return false;
+    const value = tempo === "langsam" ? "langsam" : "normal";
+    const at = Date.now();
+    await ref.set({
+      gameState: { [reise.KEY]: { data: { tempo: value, tempoAt: at }, updatedAt: at } },
+      updatedAt: serverTimestamp(),
+    }, { merge: true });
+    if (userId === state.user?.uid) reise.setTempo(value);
+    return true;
   }
 
-  async function toggleAdminGuest(guestId, root) {
-    if (state.selectedAdminGuestId === guestId) {
-      state.selectedAdminGuestId = null;
-      renderAdminGuests(root);
-      return;
-    }
-    await selectAdminGuest(guestId, { root });
-  }
-
-  async function selectAdminUser(userId, { root = modalContent.querySelector("[data-admin-section]"), force = false } = {}) {
-    if (!root) return;
-    state.selectedAdminUserId = userId;
-    // Der Filter gehört zum aufgeklappten Konto: wer beim vorigen auf "Kakuro"
-    // stand, sähe beim nächsten eine leere Liste und hielte sie für den Stand.
-    state.selectedAdminGame = "all";
-    renderAdminUsers(root, { loadingUserId: userId });
-
-    try {
-      if (force || !state.adminDetails.has(userId)) {
-        state.adminDetails.set(userId, await loadAdminUserDetails(userId));
-      }
-    } catch (error) {
-      state.adminDetails.set(userId, { id: userId, error });
-    }
-
-    if (modalContent.contains(root)) renderAdminUsers(root);
-  }
-
-  async function selectAdminGuest(guestId, { root = modalContent.querySelector("[data-admin-section]"), force = false } = {}) {
-    if (!root) return;
-    state.selectedAdminGuestId = guestId;
-    state.selectedAdminGame = "all";
-    renderAdminGuests(root, { loadingGuestId: guestId });
-
-    try {
-      if (force || !state.adminGuestDetails.has(guestId)) {
-        state.adminGuestDetails.set(guestId, await loadAdminGuestDetails(guestId));
-      }
-    } catch (error) {
-      state.adminGuestDetails.set(guestId, { id: guestId, kind: "guest", error });
-    }
-
-    if (modalContent.contains(root)) renderAdminGuests(root);
-  }
-
-  // --- Die Liste zum Aufklappen ---------------------------------------------
-  // Zugeklappt steht je Konto eine Zeile: Name, Gruppe, der Zug als fünf
-  // Balken und die drei Zahlen, nach denen man zuerst schaut. Alles Weitere –
-  // Level, Sitzungen, Gruppe ändern, zurücksetzen – erscheint erst beim
-  // Aufklappen. Vorher lagen alle Konten nebeneinander und alle Einzelheiten
-  // daneben; bei einem Dutzend Kindern war das keine Übersicht mehr.
-  function renderAdminUsers(root, { loadingUserId = null } = {}) {
-    const users = state.adminUsers;
-    if (!users.length) {
-      renderAdminBody(root, "<p class=\"account-muted\">Noch keine User gefunden.</p>");
-      return;
-    }
-
-    const openId = state.selectedAdminUserId;
-    renderAdminBody(root, `
-      <div class="admin-accordion" aria-label="User">
-        ${users.map((user) => renderAdminEntry(user, {
-          kind: "user",
-          open: user.id === openId,
-          loading: loadingUserId === user.id && !state.adminDetails.get(user.id),
-          detail: state.adminDetails.get(user.id),
-        })).join("")}
-      </div>
-    `);
-
-    root.querySelectorAll("[data-admin-user]").forEach((button) => {
-      button.addEventListener("click", () => toggleAdminUser(button.dataset.adminUser, root));
-    });
-
-    root.querySelectorAll("[data-admin-game]").forEach((button) => {
-      button.addEventListener("click", () => {
-        state.selectedAdminGame = button.dataset.adminGame || "all";
-        renderAdminUsers(root);
-      });
-    });
-
-    bindAdminResetButtons(root);
-    bindAdminGroupCard(root);
-    bindAdminTempoCard(root);
-  }
-
-  function renderAdminGuests(root, { loadingGuestId = null } = {}) {
-    const guests = state.adminGuests;
-    if (!guests.length) {
-      renderAdminBody(root, "<p class=\"account-muted\">Noch keine G&auml;ste gefunden.</p>");
-      return;
-    }
-
-    const openId = state.selectedAdminGuestId;
-    renderAdminBody(root, `
-      <div class="admin-accordion" aria-label="G&auml;ste">
-        ${guests.map((guest) => renderAdminEntry(guest, {
-          kind: "guest",
-          open: guest.id === openId,
-          loading: loadingGuestId === guest.id && !state.adminGuestDetails.get(guest.id),
-          detail: state.adminGuestDetails.get(guest.id),
-        })).join("")}
-      </div>
-    `);
-
-    root.querySelectorAll("[data-admin-guest]").forEach((button) => {
-      button.addEventListener("click", () => toggleAdminGuest(button.dataset.adminGuest, root));
-    });
-
-    root.querySelectorAll("[data-admin-game]").forEach((button) => {
-      button.addEventListener("click", () => {
-        state.selectedAdminGame = button.dataset.adminGame || "all";
-        renderAdminGuests(root);
-      });
-    });
-  }
-
-  function renderAdminEntry(entity, { kind, open, loading, detail }) {
-    const summary = entity.adminSummary || summarizeAdminEntity(entity, []);
-    const name = adminDisplayName(entity);
-    const subline = kind === "guest" ? entity.id : (entity.authEmail || entity.email || entity.id);
-    const dataAttribute = kind === "guest" ? "data-admin-guest" : "data-admin-user";
-    const group = kind === "guest" ? null : readGroup(entity.group);
-    // Nur für die aufgeklappte Zeile. Die Einzelheiten zu bauen, um sie dann
-    // wegzuwerfen, wäre nicht nur Arbeit ohne Zweck: renderAdminUserDetail
-    // merkt sich unterwegs, welche Rätselart gerade gefiltert ist, und das
-    // gälte danach für ein Konto, das gar nicht offen steht.
-    const body = !open
-      ? ""
-      : (loading
-        ? "<p class=\"account-muted\">Details werden geladen...</p>"
-        : renderAdminUserDetail(detail, entity));
-
-    return `
-      <article class="admin-entry${open ? " is-open" : ""}">
-        <button type="button" class="admin-entry-head" ${dataAttribute}="${escapeHtml(entity.id)}" aria-expanded="${open ? "true" : "false"}">
-          <span class="admin-entry-caret" aria-hidden="true">
-            <svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          </span>
-          <span class="admin-entry-name">
-            <strong>${escapeHtml(name)}</strong>
-            <span>${escapeHtml(subline)}</span>
-          </span>
-          ${group ? `<span class="admin-entry-group">${escapeHtml(group.name)}</span>` : ""}
-          ${renderAdminTrainStrip(entity)}
-          <span class="admin-user-summary" aria-label="Kurzfassung">
-            <span><b>Gel&ouml;st</b>${escapeHtml(summary.totalSolved)}</span>
-            <span><b>Spielzeit</b>${escapeHtml(formatDuration(summary.totalSeconds))}</span>
-            <span><b>Sessions</b>${escapeHtml(summary.sessions)}</span>
-          </span>
-        </button>
-        ${open ? `<div class="admin-entry-body" data-admin-detail>${body}</div>` : ""}
-      </article>
-    `;
-  }
-
-  // --- Auswertung je Spiel ---------------------------------------------------
-  // Die dritte Sicht: nicht "was hat dieses Kind gemacht", sondern "was ist mit
-  // diesem Spiel los". Gerechnet wird über alle Konten und alle Gäste zusammen,
-  // mit derselben Datei, die auch die Bestenliste der Gruppe rechnet
-  // (highscore.js) – ein Bestwert im Adminbereich und einer beim Kind, die
-  // auseinanderlaufen, wären schlimmer als keiner.
+  // ---------------------------------------------------------------------------
+  // Ein Konto ansehen – gemeinsam für Elternbereich und Adminseite
+  // ---------------------------------------------------------------------------
+  // Diese Funktionen zeichnen, was an einem Konto zu sehen ist: der Zug als
+  // Balken, die Levelabdeckung, die Level, die Sitzungen. Sie stehen hier und
+  // nicht zweimal, weil sie zweimal gebraucht werden – im Profilfenster für
+  // die eigene Familie (Elternbereich) und auf admin.html für alle. Zwei
+  // Fassungen wären zwei Wahrheiten, und die falsche wäre immer die, die
+  // gerade niemand angesehen hat.
   //
-  // Sortiert nach gespielten Runden: die erste Frage an so eine Liste ist,
-  // welches Spiel überhaupt angekommen ist.
-  function adminAccounts() {
-    const konten = state.adminUsers.map((entry) => ({
-      id: entry.id,
-      name: adminDisplayName(entry),
-      gameState: readGameState(entry.gameState),
-      levels: entry.levelDocs || [],
-    }));
-
-    // Gäste haben keinen Kasten in der Cloud – ihr Spielstand steht auf ihrem
-    // Gerät. Was sie in den Katalog-Spielen getan haben, steht dagegen in
-    // Firestore und zählt hier mit.
-    const gaeste = state.adminGuests.map((entry) => ({
-      id: entry.id,
-      name: adminDisplayName(entry),
-      gameState: {},
-      levels: entry.levelDocs || [],
-    }));
-
-    return [...konten, ...gaeste];
-  }
-
-  function renderAdminGames(root) {
-    const hs = window.LernappHighscore;
-    if (!hs) {
-      renderAdminBody(root, "<p class=\"account-muted\">Die Spiel-Auswertung ist gerade nicht zu haben.</p>");
-      return;
-    }
-
-    const konten = adminAccounts();
-    const bereich = state.adminGamesArea;
-    const alle = hs.alleAuswertungen(konten);
-    const gezeigt = (bereich === "all" ? alle : alle.filter((eintrag) => eintrag.bereich === bereich))
-      .sort((a, b) => (b.gespielt - a.gespielt) || a.titel.localeCompare(b.titel, "de"));
-
-    const gesamtGespielt = alle.reduce((summe, eintrag) => summe + eintrag.gespielt, 0);
-    const gesamtFertig = alle.reduce((summe, eintrag) => summe + eintrag.abgeschlossen, 0);
-    const angefasst = alle.filter((eintrag) => eintrag.gespielt > 0).length;
-
-    renderAdminBody(root, `
-      <div class="stat-strip admin-stat-strip">
-        <div><strong>${konten.length}</strong><span>Konten &amp; G&auml;ste</span></div>
-        <div><strong>${gesamtGespielt}</strong><span>gespielt</span></div>
-        <div><strong>${gesamtFertig}</strong><span>abgeschlossen</span></div>
-        <div><strong>${angefasst}/${alle.length}</strong><span>Spiele benutzt</span></div>
-      </div>
-      <div class="admin-game-filter" aria-label="Bereich filtern">
-        <button type="button" class="${bereich === "all" ? "active" : ""}" data-admin-area="all">Alle Bereiche</button>
-        ${Object.entries(hs.BEREICHE).map(([id, label]) => `
-          <button type="button" class="${bereich === id ? "active" : ""}" data-admin-area="${escapeHtml(id)}">${escapeHtml(label)}</button>
-        `).join("")}
-      </div>
-      <div class="admin-game-grid">
-        ${gezeigt.map((eintrag) => renderAdminGameCard(eintrag, hs)).join("")}
-      </div>
-      <p class="account-muted admin-note">
-        Neustarts z&auml;hlt nur, wer seinen Fortschritt Level f&uuml;r Level in der Cloud ablegt –
-        die R&auml;tsel aus dem Levelkatalog. Die Spiele mit eigenem Konto f&uuml;hren nur ihre
-        Runden und ihre Bestenliste; dort steht ein Strich statt einer Null.
-      </p>
-    `);
-
-    root.querySelectorAll("[data-admin-area]").forEach((button) => {
-      button.addEventListener("click", () => {
-        state.adminGamesArea = button.dataset.adminArea || "all";
-        renderAdminGames(root);
-      });
-    });
-  }
-
-  function renderAdminGameCard(eintrag, hs) {
-    const zahlen = [
-      ["Gespielt", eintrag.gespielt],
-      ["Abgeschlossen", eintrag.abgeschlossen],
-      ["Neu gestartet", eintrag.neugestartet],
-      ["Spieler", eintrag.spieler],
-    ];
-
-    return `
-      <article class="admin-game-card${eintrag.gespielt ? "" : " is-quiet"}">
-        <header>
-          <strong>${escapeHtml(eintrag.titel)}</strong>
-          <span>${escapeHtml(hs.BEREICHE[eintrag.bereich] || "")}</span>
-        </header>
-        <div class="admin-data-grid">
-          ${zahlen.map(([label, wert]) => `<span><b>${escapeHtml(label)}</b>${wert === null ? "–" : escapeHtml(wert)}</span>`).join("")}
-        </div>
-        <p class="admin-game-best">
-          ${eintrag.bestwert
-            ? `<b>Bestwert</b> ${escapeHtml(eintrag.bestwert)} <em>${escapeHtml(eintrag.bestwertVon)}</em>`
-            : "<b>Bestwert</b> noch keiner"}
-        </p>
-        ${eintrag.zeit ? `<small>Spielzeit zusammen: ${escapeHtml(formatDuration(eintrag.zeit))}</small>` : ""}
-      </article>
-    `;
-  }
-
-  // --- Der Zug eines Kontos, als fünf Balken ---------------------------------
-  // Genau die Rechnung, die auch das Startbild benutzt: ein Wagen bedeutet im
-  // Adminbereich dasselbe wie beim Kind. Eine zweite Rechnung wäre eine zweite
-  // Wahrheit – und die falsche wäre immer die hier.
+  // Sie rechnen nur; nichts hier fragt, wer angemeldet ist. Was jemand sehen
+  // DARF, entscheidet firestore.rules – wer nichts lesen darf, bekommt keine
+  // Daten und damit auch kein Bild.
   //
-  // Gerechnet wird das im Startbild-Teil der App (train-progress.js), und der
-  // ist nur dort geladen. Auf einer Spielseite bleibt der Streifen deshalb weg,
-  // statt eine Zahl zu zeigen, die ohne den Levelkatalog nicht stimmen kann.
-  function adminTrainAreas(entity) {
+  // Nach aussen stehen sie unter window.LernappFirebase.ansicht.
+
+  function entityDisplayName(userData = {}) {
+    if (userData.type === "guest") return cleanDisplayName(userData.displayName || guestDisplayName(userData.guestId || userData.id));
+    return cleanDisplayName(userData.displayName || userData.username || userData.email || userData.authEmail || "Unbekannter User");
+  }
+
+  function levelSort(a, b) {
+    return `${gameLabel(a.game)} ${a.levelName || a.levelId || ""}`.localeCompare(`${gameLabel(b.game)} ${b.levelName || b.levelId || ""}`, "de");
+  }
+
+  function levelShortLabel(entry = {}) {
+    return `${gameLabel(entry.game)} · ${entry.levelName || entry.title || entry.levelId || entry.id || "Level"}`;
+  }
+
+  function summarizeEntity(entityData = {}, progressDocs = [], sessions = []) {
+    const stats = summarizeProgress(entityData, progressDocs);
+    const topLevels = progressDocs
+      .map((entry) => {
+        const attempts = Number(entry.attempts || 0) || (entry.solved || entry.timeSeconds || entry.moves ? 1 : 0);
+        return { entry, attempts, seconds: Number(entry.timeSeconds || entry.elapsedSeconds || 0) };
+      })
+      .filter((item) => item.attempts > 0)
+      .sort((a, b) => (b.attempts - a.attempts) || (b.seconds - a.seconds) || levelSort(a.entry, b.entry))
+      .slice(0, 3);
+
+    return {
+      ...stats,
+      sessions: Number(entityData.stats?.sessions || 0) || sessions.length || 0,
+      attemptedLevels: progressDocs.filter((entry) => entry.solved || Number(entry.attempts || 0) || Number(entry.timeSeconds || 0)).length,
+      topLevels,
+    };
+  }
+
+  // Wann dieses Konto zuletzt da war. Mehrere Felder, weil nicht jedes Konto
+  // alle trägt: lastSeenAt schreibt jede Sitzung, updatedAt jede Änderung,
+  // createdAt gibt es immer. Das Ergebnis ist eine Zahl in Millisekunden –
+  // damit lässt sich sortieren, was als Zeitstempel, Datum oder Zahl dasteht.
+  function lastActivityMs(entity = {}) {
+    return timestampDate(entity.lastSeenAt || entity.updatedAt || entity.createdAt || entity.createdAtMs)?.getTime() || 0;
+  }
+
+  // Der Zug eines Kontos: genau die Rechnung, die auch das Startbild benutzt.
+  // Ein Wagen bedeutet hier dasselbe wie beim Kind. Eine zweite Rechnung wäre
+  // eine zweite Wahrheit – und die falsche wäre immer die hier.
+  //
+  // Gerechnet wird das in train-progress.js, und der Levelkatalog steht in
+  // app.js. Fehlt eines von beiden (auf einer Spielseite etwa), bleibt der
+  // Streifen weg, statt eine Zahl zu zeigen, die nicht stimmen kann.
+  function trainAreasFor(entity) {
     const train = window.LernappTrain;
     if (!train?.areasForAccount || !window.LernappLevelCatalog) return null;
-    const solved = (entity.levelDocs || [])
+    const solved = (entity.levelDocs || entity.progressDocs || [])
       .filter((doc) => doc.solved && doc.game && doc.levelId)
       .map((doc) => `${doc.game}.${doc.levelId}`);
     return train.areasForAccount({ solved, gameState: readGameState(entity.gameState) });
   }
 
-  function renderAdminTrainStrip(entity) {
-    const areas = adminTrainAreas(entity);
+  function renderTrainStrip(entity) {
+    const areas = trainAreasFor(entity);
     if (!areas) return "";
     return `
       <span class="admin-train" aria-label="Fortschritt des Zugs">
@@ -2662,65 +2920,16 @@
     `;
   }
 
-  function renderAdminUserDetail(detail, fallbackUser = {}) {
-    if (!detail) return "<p class=\"account-muted\">Wähle einen User aus.</p>";
-    if (detail.error) return `<p class="auth-status">${escapeHtml(authErrorMessage(detail.error))}</p>`;
-
-    const userData = { ...fallbackUser, ...detail.userData };
-    const progressDocs = detail.progressDocs || [];
-    const sessions = detail.sessions || [];
-    const summary = summarizeAdminEntity(userData, progressDocs, sessions);
-    const selectedGame = adminSelectedGame(progressDocs, sessions);
-    const filteredProgress = selectedGame === "all" ? progressDocs : progressDocs.filter((entry) => entry.game === selectedGame);
-    const filteredSessions = selectedGame === "all" ? sessions : sessions.filter((session) => session.game === selectedGame);
-    const isGuest = userData.type === "guest" || detail.kind === "guest";
-    const identityLine = isGuest ? `Gast-ID: ${detail.id}` : (userData.authEmail || userData.email || detail.id);
-
-    return `
-      <div class="admin-meta">
-        <span>${escapeHtml(identityLine)}</span>
-        <span>Erstellt: ${formatDateTime(userData.createdAt || userData.createdAtMs)}</span>
-        <span>Zuletzt gesehen: ${formatDateTime(userData.lastSeenAt)}</span>
-      </div>
-      <div class="stat-strip admin-stat-strip">
-        <div><strong>${summary.totalSolved}</strong><span>gelöst</span></div>
-        <div><strong>${formatDuration(summary.totalSeconds)}</strong><span>Spielzeit</span></div>
-        <div><strong>${summary.moves}</strong><span>Züge</span></div>
-        <div><strong>${sessions.filter((session) => !session.solved && session.endedAt).length}</strong><span>Abbrüche</span></div>
-      </div>
-      ${renderAdminTrainDetail({ ...userData, levelDocs: progressDocs })}
-      ${isGuest ? "" : renderAdminGroupBlock(detail.id, userData)}
-      ${isGuest ? "" : renderAdminTempoBlock(detail.id, userData)}
-      ${isGuest ? "" : renderAdminResetBlock(detail.id, adminDisplayName(userData))}
-      ${renderAdminTopLevels(summary)}
-      ${renderAdminGameFilters(progressDocs, sessions, selectedGame)}
-      <div class="admin-columns">
-        <section>
-          <h4>Level-Fortschritt</h4>
-          <div class="admin-data-list">
-            ${filteredProgress.length ? [...filteredProgress].sort(adminLevelSort).map(renderAdminLevelDetail).join("") : "<p class=\"account-muted\">Keine Leveldaten für diese Auswahl.</p>"}
-          </div>
-        </section>
-        <section>
-          <h4>Sitzungen</h4>
-          <div class="admin-data-list">
-            ${filteredSessions.length ? filteredSessions.map(renderAdminSessionDetail).join("") : "<p class=\"account-muted\">Keine Sitzungen für diese Auswahl.</p>"}
-          </div>
-        </section>
-      </div>
-    `;
-  }
-
-  // Derselbe Zug wie oben in der Zeile, nur ausgeschrieben: welche Stufe der
-  // Wagen hat, wie voll der Bereich ist und wie viele Level dahinterstehen. Die
-  // Stufe allein sagt nicht, ob bis zur nächsten zwei Level fehlen oder zwanzig.
-  function renderAdminTrainDetail(entity) {
-    const areas = adminTrainAreas(entity);
+  // Derselbe Zug, nur ausgeschrieben: welche Stufe der Wagen hat, wie voll der
+  // Bereich ist und wie viele Runden dahinterstehen. Die Stufe allein sagt
+  // nicht, ob bis zur nächsten zwei Runden fehlen oder zwanzig.
+  function renderTrainDetail(entity) {
+    const areas = trainAreasFor(entity);
     if (!areas) {
       return `
         <section class="admin-train-detail">
           <h4>Fortschritt des Zugs</h4>
-          <p class="account-muted">Steht im Profilfenster auf dem Startbild – dort ist der Levelkatalog geladen, aus dem sich die Wagen rechnen.</p>
+          <p class="account-muted">Steht dort, wo der Levelkatalog geladen ist &#8211; auf dem Startbild und im Adminbereich.</p>
         </section>
       `;
     }
@@ -2754,460 +2963,110 @@
     `;
   }
 
-  // --- Das Wagen-Set umstellen -----------------------------------------------
-  // Der vierte Reiter: welche Wagen der Zug hat und wie schnell sie wachsen.
-  // Beide Sets stehen als Zug da, das gültige ist markiert; das andere lässt
-  // sich wählen – nach einer Rückfrage, die sagt, was das für alle heisst.
-  // Gerechnet und gezeichnet wird mit denselben Dateien wie auf dem Startbild;
-  // auf einer Spielseite sind sie nicht geladen, und dann steht hier nur ein
-  // Hinweis statt eines Zugs, der nicht stimmen kann.
-  function renderAdminWagonSets(root) {
-    const train = window.LernappTrain;
-    if (!train?.SETS) {
-      renderAdminBody(root, "<p class=\"account-muted\">Das Wagen-Set lässt sich im Profilfenster auf dem Startbild umstellen – dort ist der Zug geladen.</p>");
-      return;
-    }
-
-    const current = getWagonSet();
-    const activeId = train.SET_BY_ID[current.id] ? current.id : train.SETS[0].id;
-    renderAdminBody(root, `
-      <div class="admin-sets">
-        <p class="account-muted">Welche Wagen der Zug hat und wie schnell sie wachsen – f&uuml;r alle Konten und G&auml;ste zugleich. Ein Wechsel setzt alle Wagen auf 0, auch auf den Ger&auml;ten der Kinder. Lok, Landschaft, Namen und Gruppen bleiben.</p>
-        ${train.SETS.map((set) => renderAdminSetCard(set, set.id === activeId, current)).join("")}
-        ${state.adminSetBusy ? `<p class="auth-status" role="status" aria-live="polite">${escapeHtml(state.adminSetBusy)}</p>` : ""}
-        ${state.adminSetError ? `<p class="auth-status">${escapeHtml(state.adminSetError)}</p>` : ""}
-        ${state.adminSetDone ? `<p class="auth-status admin-set-done" role="status">${escapeHtml(state.adminSetDone)}</p>` : ""}
-      </div>
-    `);
-
-    // Die Vorschau: der ganze Zug mit den fünf fertigen Wagen des Sets, vor
-    // der Lok dieses Kontos.
-    const art = window.LernappTrainArt;
-    if (art?.buildTrain) {
-      root.querySelectorAll("[data-set-preview]").forEach((host) => {
-        const set = train.SET_BY_ID[host.dataset.setPreview];
-        if (!set) return;
-        const areas = train.AREAS.map((area) => ({ id: area.id, color: area.color, wagon: set.wagons[area.id], stage: art.WAGON_STAGES }));
-        const svg = art.buildTrain(areas, state.trainSettings?.loco || {}, { withTrack: true });
-        svg.setAttribute("aria-hidden", "true");
-        svg.removeAttribute("role");
-        host.append(svg);
-      });
-    }
-
-    bindAdminSetButtons(root);
-  }
-
-  function renderAdminSetCard(set, active, current) {
-    const total = set.stepAt[set.stepAt.length - 1];
-    const tempo = `Ein Schritt nach ${set.stepAt.join(", ")} Runden je Spiel – ${total} je Spiel, ${total * 4} je Wagen.`;
-    const since = active && current.switchedAtMs ? ` seit ${formatDateTime(current.switchedAtMs)}` : "";
-    const confirming = state.adminSetConfirmId === set.id;
-    const busy = Boolean(state.adminSetBusy);
-
-    let actions = "";
-    if (active) {
-      actions = `<span class="admin-set-active">Aktiv${escapeHtml(since)}</span>`;
-    } else if (confirming) {
-      actions = `
-        <div class="admin-set-confirm">
-          <strong>Wirklich auf «${escapeHtml(set.label)}» wechseln?</strong>
-          <span>Alle Wagen aller Konten starten bei 0: gel&ouml;ste Level, Runden und Spielst&auml;nde werden gel&ouml;scht – auch auf den Ger&auml;ten der Kinder, sobald sie die App &ouml;ffnen. Lok, Landschaft, Namen und Gruppen bleiben. Das l&auml;sst sich nicht r&uuml;ckg&auml;ngig machen.</span>
-          <div class="card-actions">
-            <button type="button" class="secondary-action" data-admin-set-cancel>Abbrechen</button>
-            <button type="button" class="danger-action" data-admin-set-confirm="${escapeHtml(set.id)}">Ja, wechseln und alle Wagen zur&uuml;cksetzen</button>
-          </div>
-        </div>
-      `;
-    } else {
-      actions = `<button type="button" data-admin-set-start="${escapeHtml(set.id)}" ${busy ? "disabled" : ""}>Auf dieses Set wechseln</button>`;
-    }
-
-    return `
-      <article class="admin-set${active ? " is-active" : ""}${confirming ? " is-confirming" : ""}" data-admin-set="${escapeHtml(set.id)}">
-        <header>
-          <div>
-            <strong>Set ${escapeHtml(set.id)}: ${escapeHtml(set.label)}</strong>
-            <span>${escapeHtml(tempo)}</span>
-          </div>
-        </header>
-        <div class="admin-set-preview" data-set-preview="${escapeHtml(set.id)}"></div>
-        <div class="admin-set-actions">${actions}</div>
-      </article>
-    `;
-  }
-
-  function bindAdminSetButtons(root) {
-    root.querySelectorAll("[data-admin-set-start]").forEach((button) => {
-      button.addEventListener("click", () => {
-        state.adminSetConfirmId = button.dataset.adminSetStart;
-        state.adminSetError = "";
-        state.adminSetDone = "";
-        renderAdminWagonSets(root);
-      });
-    });
-    root.querySelector("[data-admin-set-cancel]")?.addEventListener("click", () => {
-      state.adminSetConfirmId = null;
-      renderAdminWagonSets(root);
-    });
-    root.querySelector("[data-admin-set-confirm]")?.addEventListener("click", (event) => {
-      runAdminSetSwitch(event.currentTarget.dataset.adminSetConfirm, root);
-    });
-  }
-
-  async function runAdminSetSwitch(setId, root) {
-    if (!setId || state.adminSetBusy) return;
-    const train = window.LernappTrain;
-    const label = train?.SET_BY_ID?.[setId]?.label || `Set ${setId}`;
-    state.adminSetConfirmId = null;
-    state.adminSetError = "";
-    state.adminSetDone = "";
-    state.adminSetBusy = "Die Konten werden zurückgesetzt...";
-    renderAdminWagonSets(root);
-
-    // Die Bühne wird unterwegs neu gebaut, sobald das eigene Konto dran ist;
-    // deshalb bei jeder Meldung neu nachsehen, wo der Adminbereich steht.
-    const zeichne = () => {
-      const stelle = modalContent.querySelector("[data-admin-section]");
-      if (stelle) renderAdminWagonSets(stelle);
-    };
-
-    try {
-      const result = await switchWagonSet(setId, {
-        onProgress: (done, total) => {
-          state.adminSetBusy = `Konto ${done} von ${total} zurückgesetzt...`;
-          zeichne();
-        },
-      });
-      state.adminSetDone = `Umgestellt auf «${label}». ${result.accounts} Konten zurückgesetzt; Gäste ohne Konto stellen beim nächsten Öffnen der App um.`;
-    } catch (error) {
-      state.adminSetError = authErrorMessage(error);
-    }
-
-    state.adminSetBusy = "";
-    // Die Liste trägt die Gesamtzahlen mit sich, die Detailansichten die Level:
-    // nichts davon stimmt mehr. Neu laden, wenn es das nächste Mal gebraucht wird.
-    state.adminUsers = [];
-    state.adminUsersLoaded = false;
-    state.adminDetails.clear();
-    // Das eigene Konto ist mit zurückgesetzt: das ganze Profilfenster neu, der
-    // Adminbereich kommt dabei mit dem Wagen-Reiter wieder.
-    try { await refreshDashboard(); } catch { zeichne(); }
-  }
-
-  // --- Gruppe eines Kontos ---------------------------------------------------
-  // Zwei Felder reichen: wie die Gruppe heisst und wie der Zug dieses Kontos
-  // darin heissen soll. Der Schlüssel der Gruppe wird aus dem Namen gebildet –
-  // wer zweimal "Familie" tippt, landet in derselben Gruppe, auch mit anderer
-  // Gross- und Kleinschreibung.
+  // --- Welche Level probiert wurden, und welche nicht -------------------------
+  // Die Frage, die eine Liste gelöster Level nicht beantwortet: Was hat das
+  // Kind NICHT angefasst? Gezeichnet wird deshalb der ganze Katalog, Spiel für
+  // Spiel, jedes Level ein Punkt in einer von drei Farben:
   //
-  // Ein leeres Namensfeld nimmt das Konto aus der Gruppe. Ein eigener Knopf
-  // dafür steht daneben, damit das nicht nur derjenige findet, der auf die
-  // Idee kommt, ein Feld zu leeren.
-  function renderAdminGroupBlock(userId, userData = {}) {
-    if (!userId) return "";
-
-    if (state.adminGroupBusyId === userId) {
-      return `<div class="admin-group"><p class="account-muted">Gruppe wird gespeichert...</p></div>`;
-    }
-
-    const group = readGroup(userData.group);
-    const failed = state.adminGroupErrorId === userId ? state.adminGroupError : "";
-    const listId = "admin-group-names";
-    const options = knownGroupNames()
-      .map((name) => `<option value="${escapeHtml(name)}"></option>`)
-      .join("");
-
-    return `
-      <div class="admin-group" data-admin-group="${escapeHtml(userId)}">
-        <div>
-          <strong>Gruppe${group ? `: ${escapeHtml(group.name)}` : ""}</strong>
-          <span>Konten derselben Gruppe sehen die Z&uuml;ge der anderen oben auf dem Startbild.</span>
-        </div>
-        <div class="admin-group-fields">
-          <label>
-            <span>Gruppe</span>
-            <input type="text" data-admin-group-name list="${listId}" placeholder="z. B. Familie"
-              value="${escapeHtml(group?.name || "")}" />
-          </label>
-          <label>
-            <span>Name des Zugs</span>
-            <input type="text" data-admin-group-display placeholder="${escapeHtml(adminDisplayName(userData))}"
-              value="${escapeHtml(group?.displayName || "")}" />
-          </label>
-        </div>
-        <datalist id="${listId}">${options}</datalist>
-        <div class="card-actions">
-          ${group ? `<button type="button" class="secondary-action" data-admin-group-clear>Aus der Gruppe nehmen</button>` : ""}
-          <button type="button" data-admin-group-save>Gruppe speichern</button>
-        </div>
-        ${failed ? `<p class="auth-status">${escapeHtml(failed)}</p>` : ""}
-      </div>
-    `;
-  }
-
-  // Die Gruppen, die es schon gibt – als Vorschlagsliste, damit ein Tippfehler
-  // nicht heimlich eine zweite Gruppe aufmacht.
-  function knownGroupNames() {
-    const names = new Map();
-    state.adminUsers.forEach((user) => {
-      const group = readGroup(user.group);
-      if (group) names.set(group.id, group.name);
-    });
-    return [...names.values()].sort((a, b) => a.localeCompare(b, "de"));
-  }
-
-  function bindAdminGroupCard(root) {
-    const card = root.querySelector("[data-admin-group]");
-    if (!card) return;
-    const userId = card.dataset.adminGroup;
-
-    card.querySelector("[data-admin-group-save]")?.addEventListener("click", () => {
-      saveAdminGroup(userId, {
-        name: card.querySelector("[data-admin-group-name]")?.value || "",
-        displayName: card.querySelector("[data-admin-group-display]")?.value || "",
-      }, root);
-    });
-
-    card.querySelector("[data-admin-group-clear]")?.addEventListener("click", () => {
-      saveAdminGroup(userId, { name: "", displayName: "" }, root);
-    });
-  }
-
-  async function saveAdminGroup(userId, values, root) {
-    if (!userId) return;
-    state.adminGroupBusyId = userId;
-    state.adminGroupErrorId = null;
-    state.adminGroupError = "";
-    renderAdminUsers(root);
-
-    try {
-      await setUserGroup(userId, values);
-    } catch (error) {
-      state.adminGroupErrorId = userId;
-      state.adminGroupError = authErrorMessage(error);
-    }
-
-    state.adminGroupBusyId = null;
-    // Die Liste trägt die Gruppe jedes Kontos mit sich, die Detailansicht
-    // ebenso: beides neu laden statt an zwei Stellen nachbessern.
-    state.adminUsers = [];
-    state.adminUsersLoaded = false;
-    state.adminDetails.delete(userId);
-    await hydrateAdminSection();
-  }
-
-  // --- Das Reisetempo ----------------------------------------------------------
-  // "langsam" nimmt jeder Karte der Reise ein Stück Schwierigkeit
-  // (journey-plan.js, shiftSpec). Die Einstellung liegt im Kasten der Reise
-  // (gameState lernapp.reise) mit einer Zeitmarke: das Gerät des Kindes nimmt
-  // beim Zusammenführen die neuere – und gameState darf der Admin schreiben
-  // (firestore.rules, isProgressReset). Ein Zurücksetzen räumt sie mit weg.
-  async function setJourneyTempoFor(userId, tempo) {
-    const reise = window.LernappReise;
-    const ref = userRef(userId);
-    if (!ref || !reise) return false;
-    const value = tempo === "langsam" ? "langsam" : "normal";
-    const at = Date.now();
-    await ref.set({
-      gameState: { [reise.KEY]: { data: { tempo: value, tempoAt: at }, updatedAt: at } },
-      updatedAt: serverTimestamp(),
-    }, { merge: true });
-    if (userId === state.user?.uid) reise.setTempo(value);
-    return true;
-  }
-
-  function renderAdminTempoBlock(userId, userData = {}) {
-    const reise = window.LernappReise;
-    if (!userId || !reise) return "";
-    const fahrt = reise.progressFor(readGameState(userData.gameState)[reise.KEY]?.data);
-    const busy = state.adminTempoBusyId === userId;
-    const failed = state.adminTempoErrorId === userId ? state.adminTempoError : "";
-    const knopf = (value, label) => `<button type="button" class="${fahrt.tempo === value ? "" : "secondary-action"}" data-admin-tempo-set="${value}" ${busy ? "disabled" : ""} aria-pressed="${fahrt.tempo === value ? "true" : "false"}">${label}${fahrt.tempo === value ? " ✓" : ""}</button>`;
-    return `
-      <div class="admin-reset admin-tempo" data-admin-tempo="${escapeHtml(userId)}">
-        <div>
-          <strong>Reisetempo</strong>
-          <span>Mit «langsam» verlangt jede Karte der Reise weniger: die Zielpunktzahlen der Karte davor, zwei Level tiefer, kleinere Memorys, leichtere Rätsel. Für Vier- bis Fünfjährige, ohne dass das Kind je «leicht» wählen muss. Gilt auf allen Geräten des Kindes.</span>
-          ${busy ? "<span>Wird gespeichert...</span>" : ""}
-          ${failed ? `<span class="auth-status">${escapeHtml(failed)}</span>` : ""}
-        </div>
-        <div class="card-actions">
-          ${knopf("normal", "Normal")}
-          ${knopf("langsam", "Langsam")}
-        </div>
-      </div>
-    `;
-  }
-
-  function bindAdminTempoCard(root) {
-    const card = root.querySelector("[data-admin-tempo]");
-    if (!card) return;
-    const userId = card.dataset.adminTempo;
-    card.querySelectorAll("[data-admin-tempo-set]").forEach((button) => {
-      button.addEventListener("click", () => saveAdminTempo(userId, button.dataset.adminTempoSet, root));
-    });
-  }
-
-  async function saveAdminTempo(userId, tempo, root) {
-    if (!userId) return;
-    state.adminTempoBusyId = userId;
-    state.adminTempoErrorId = null;
-    state.adminTempoError = "";
-    renderAdminUsers(root);
-    try {
-      await setJourneyTempoFor(userId, tempo);
-    } catch (error) {
-      state.adminTempoErrorId = userId;
-      state.adminTempoError = authErrorMessage(error);
-    }
-    state.adminTempoBusyId = null;
-    // Die Detailansicht trägt den Kasten der Reise mit sich: neu laden.
-    state.adminDetails.delete(userId);
-    await hydrateAdminSection();
-  }
-
-  // Dasselbe Zurücksetzen wie im eigenen Profil, nur für ein fremdes Konto.
-  // Die Rückfrage wiegt hier schwerer: in einer Liste fremder Konten ist ein
-  // Klick zu viel schneller passiert, deshalb steht der Name in der Frage.
+  //   gelöst     einmal geschafft
+  //   probiert   angefangen, aber nicht geschafft
+  //   offen      nie geöffnet
   //
-  // Gäste bekommen den Knopf nicht. Ihr Stand steht auf ihrem Gerät, das
-  // Gastdokument ist eine Kopie davon; ein Aufräumen in Firestore träfe die
-  // Kopie, und der Zug des Kindes stünde unverändert da. Ein Knopf, der nichts
-  // Sichtbares tut, ist schlimmer als keiner.
-  function renderAdminResetBlock(userId, name = "") {
-    if (!userId) return "";
+  // Der Katalog kommt aus app.js (window.LernappLevelCatalog) und umfasst nur
+  // die Spiele mit Levelwahl. Die Spiele mit eigenem Kasten – Memory, Turmbau,
+  // Tiersprung und die anderen – haben keine Level, sondern Runden; für sie
+  // steht darunter, wie viele Runden gespielt wurden.
+  function levelCoverageFor(progressDocs = [], gameState = null) {
+    const katalog = window.LernappLevelCatalog || {};
+    const stand = new Map();
+    progressDocs.forEach((entry) => {
+      if (!entry.game) return;
+      const id = entry.levelId || entry.id;
+      stand.set(`${entry.game}.${id}`, entry);
+    });
 
-    if (state.adminResetBusyId === userId) {
-      return `<div class="admin-reset"><p class="account-muted">Fortschritt wird zurückgesetzt...</p></div>`;
+    const spiele = Object.entries(katalog).map(([game, levels]) => {
+      const punkte = (levels || []).map((level) => {
+        const entry = stand.get(`${game}.${level.id || level.levelName}`);
+        const versuche = Number(entry?.attempts || 0);
+        const status = entry?.solved ? "geloest" : ((versuche || Number(entry?.timeSeconds || 0)) ? "probiert" : "offen");
+        return { level, entry: entry || null, status, versuche };
+      });
+      return {
+        game,
+        label: gameLabel(game),
+        punkte,
+        geloest: punkte.filter((p) => p.status === "geloest").length,
+        probiert: punkte.filter((p) => p.status === "probiert").length,
+        offen: punkte.filter((p) => p.status === "offen").length,
+      };
+    }).filter((spiel) => spiel.punkte.length);
+
+    // Und die Spiele mit eigenem Kasten: keine Level, aber Runden. Gezählt
+    // wird das in train-progress.js – dieselbe Zahl, aus der sich die Wagen
+    // rechnen.
+    const train = window.LernappTrain;
+    const runden = [];
+    if (train?.AREAS && gameState) {
+      const quelle = { solved: progressDocs.filter((d) => d.solved && d.game && d.levelId).map((d) => `${d.game}.${d.levelId}`), gameState };
+      (train.areasForAccount(quelle) || []).forEach((area) => {
+        (area.games || []).forEach((spiel) => {
+          if (katalog[spiel.id]) return;
+          // solved ist bei diesen Spielen die Zahl der gezählten Runden,
+          // gedeckelt bei dem, was das Wagen-Set je Spiel verlangt (total).
+          runden.push({ id: spiel.id, label: spiel.title || gameLabel(spiel.id), gespielt: Number(spiel.solved || 0), noetig: Number(spiel.total || 0) });
+        });
+      });
     }
 
-    if (state.adminResetId === userId) {
-      return `
-        <div class="admin-reset is-confirming">
-          <div>
-            <strong>Wirklich allen Fortschritt von ${escapeHtml(name || "diesem Konto")} zurücksetzen?</strong>
-            <span>Gelöste Level, Sitzungen und Spielstände werden gelöscht. Der Zug fängt wieder von vorn an: alle Wagen starten bei 0, auch auf den Geräten des Kindes. Das lässt sich nicht rückgängig machen.</span>
-          </div>
-          <div class="card-actions">
-            <button type="button" class="secondary-action" data-admin-reset-cancel>Abbrechen</button>
-            <button type="button" class="danger-action" data-admin-reset-confirm="${escapeHtml(userId)}">Ja, alles zurücksetzen</button>
-          </div>
-        </div>
-      `;
+    return { spiele, runden };
+  }
+
+  function renderLevelCoverage(progressDocs = [], entity = {}) {
+    const { spiele, runden } = levelCoverageFor(progressDocs, readGameState(entity.gameState));
+    if (!spiele.length && !runden.length) {
+      return `<section class="admin-abdeckung"><h4>Probierte Level</h4><p class="account-muted">Der Levelkatalog ist hier nicht geladen.</p></section>`;
     }
 
-    const failed = state.adminResetErrorId === userId ? state.adminResetError : "";
+    const gesamt = spiele.reduce((summe, s) => summe + s.punkte.length, 0);
+    const geloest = spiele.reduce((summe, s) => summe + s.geloest, 0);
+    const probiert = spiele.reduce((summe, s) => summe + s.probiert, 0);
+
     return `
-      <div class="admin-reset">
-        <div>
-          <strong>Fortschritt</strong>
-          <span>${userId === state.user?.uid ? "Das ist dein eigenes Konto." : "Zug und Wagen dieses Kontos wieder auf 0 stellen"}</span>
+      <section class="admin-abdeckung">
+        <h4>Probierte Level</h4>
+        <p class="abdeckung-legende">
+          <span class="ist-geloest">${geloest} gel&ouml;st</span>
+          <span class="ist-probiert">${probiert} angefangen</span>
+          <span class="ist-offen">${gesamt - geloest - probiert} nie ge&ouml;ffnet</span>
+        </p>
+        <div class="abdeckung-spiele">
+          ${spiele.map((spiel) => `
+            <article>
+              <header>
+                <strong>${escapeHtml(spiel.label)}</strong>
+                <span>${spiel.geloest}/${spiel.punkte.length}</span>
+              </header>
+              <div class="abdeckung-punkte">
+                ${spiel.punkte.map((p) => `<i class="ist-${p.status}" title="${escapeHtml(`${p.level.levelName || p.level.id}: ${p.status === "geloest" ? "gelöst" : (p.status === "probiert" ? `${p.versuche || 1}× versucht` : "nie geöffnet")}`)}"></i>`).join("")}
+              </div>
+            </article>
+          `).join("")}
         </div>
-        <button type="button" class="danger-action" data-admin-reset-start="${escapeHtml(userId)}">Fortschritt zurücksetzen</button>
-      </div>
-      ${failed ? `<p class="auth-status">${escapeHtml(failed)}</p>` : ""}
+        ${runden.length ? `
+          <h4 class="abdeckung-runden-titel">Spiele ohne Level &#8211; gespielte Runden</h4>
+          <div class="admin-data-grid abdeckung-runden">
+            ${runden.map((spiel) => `<span class="${spiel.gespielt ? "" : "ist-offen"}"><b>${escapeHtml(spiel.label)}</b>${spiel.gespielt ? `${spiel.gespielt} von ${spiel.noetig} Runden` : "nie gespielt"}</span>`).join("")}
+          </div>` : ""}
+      </section>
     `;
   }
 
-  function bindAdminResetButtons(root) {
-    root.querySelector("[data-admin-reset-start]")?.addEventListener("click", (event) => {
-      state.adminResetId = event.currentTarget.dataset.adminResetStart;
-      state.adminResetErrorId = null;
-      state.adminResetError = "";
-      renderAdminUsers(root);
-    });
-
-    root.querySelector("[data-admin-reset-cancel]")?.addEventListener("click", () => {
-      state.adminResetId = null;
-      renderAdminUsers(root);
-    });
-
-    root.querySelector("[data-admin-reset-confirm]")?.addEventListener("click", (event) => {
-      runAdminReset(event.currentTarget.dataset.adminResetConfirm, root);
-    });
+  function renderDetailPair([label, value]) {
+    return `<span><b>${escapeHtml(label)}</b>${escapeHtml(value ?? "-")}</span>`;
   }
 
-  async function runAdminReset(userId, root) {
-    if (!userId) return;
-    state.adminResetId = null;
-    state.adminResetBusyId = userId;
-    state.adminResetErrorId = null;
-    state.adminResetError = "";
-    renderAdminUsers(root);
-
-    try {
-      await resetProgressFor(userId);
-    } catch (error) {
-      state.adminResetErrorId = userId;
-      state.adminResetError = authErrorMessage(error);
-    }
-
-    state.adminResetBusyId = null;
-    // Die Liste trägt die Gesamtzahlen mit sich, die Detailansicht die Level:
-    // beides stimmt jetzt nicht mehr. Neu laden statt nachrechnen – nachrechnen
-    // hiesse, dieselbe Zusammenfassung ein zweites Mal zu bauen.
-    state.adminUsers = [];
-    state.adminUsersLoaded = false;
-    state.adminDetails.delete(userId);
-
-    if (userId === state.user?.uid) {
-      // Das eigene Konto: das ganze Profilfenster ist betroffen. refreshDashboard
-      // baut es neu und ruft den Admin-Bereich von selbst wieder auf.
-      await refreshDashboard();
-      return;
-    }
-
-    await hydrateAdminSection();
-  }
-
-  // Wie ein Spiel heisst. Die erste Adresse ist highscore.js: dort steht der
-  // Name, den auch das Kind auf der Bühne liest. GAME_LABELS bleibt für die
-  // Rätsel, die es dort nicht (mehr) gibt und deren Fortschritt trotzdem noch
-  // in alten Konten stehen kann.
-  function gameLabel(game) {
-    return window.LernappHighscore?.spiel?.(game)?.titel
-      || GAME_LABELS[game]
-      || game
-      || "Rätsel";
-  }
-
-  function adminDisplayName(userData = {}) {
-    if (userData.type === "guest") return cleanDisplayName(userData.displayName || guestDisplayName(userData.guestId || userData.id));
-    return cleanDisplayName(userData.displayName || userData.username || userData.email || userData.authEmail || "Unbekannter User");
-  }
-
-  function adminSelectedGame(progressDocs, sessions) {
-    const available = new Set(["all"]);
-    progressDocs.forEach((entry) => { if (entry.game) available.add(entry.game); });
-    sessions.forEach((session) => { if (session.game) available.add(session.game); });
-    if (!available.has(state.selectedAdminGame)) state.selectedAdminGame = "all";
-    return state.selectedAdminGame;
-  }
-
-  function renderAdminGameFilters(progressDocs, sessions, selectedGame) {
-    const games = new Set();
-    progressDocs.forEach((entry) => { if (entry.game) games.add(entry.game); });
-    sessions.forEach((session) => { if (session.game) games.add(session.game); });
-    const labeledGames = Object.keys(GAME_LABELS).filter((game) => games.has(game));
-    const customGames = [...games].filter((game) => !GAME_LABELS[game]).sort((a, b) => a.localeCompare(b, "de"));
-    const options = ["all", ...labeledGames, ...customGames];
-    return `
-      <div class="admin-game-filter" aria-label="Rätselart filtern">
-        ${options.map((game) => `
-          <button type="button" class="${game === selectedGame ? "active" : ""}" data-admin-game="${escapeHtml(game)}">
-            ${game === "all" ? "Alle" : escapeHtml(gameLabel(game))}
-          </button>
-        `).join("")}
-      </div>
-    `;
-  }
-
-  function adminLevelSort(a, b) {
-    return `${gameLabel(a.game)} ${a.levelName || a.levelId || ""}`.localeCompare(`${gameLabel(b.game)} ${b.levelName || b.levelId || ""}`, "de");
-  }
-
-  function renderAdminLevelDetail(entry) {
+  function renderLevelDetail(entry) {
     const status = entry.solved ? "Gelöst" : (Number(entry.attempts || 0) ? "Begonnen" : "Offen");
     const details = [
       ["Status", status],
@@ -3226,12 +3085,12 @@
       <article class="admin-data-card">
         <strong>${escapeHtml(gameLabel(entry.game))} · ${escapeHtml(entry.levelName || entry.title || entry.levelId || entry.id || "Level")}</strong>
         <span>${escapeHtml(DIFFICULTY_LABELS[entry.difficulty] || entry.difficulty || "")}</span>
-        <div class="admin-data-grid">${details.map(renderAdminDetailPair).join("")}</div>
+        <div class="admin-data-grid">${details.map(renderDetailPair).join("")}</div>
       </article>
     `;
   }
 
-  function renderAdminSessionDetail(session) {
+  function renderSessionDetail(session) {
     const status = session.solved ? "Gelöst" : (session.endedAt ? "Abgebrochen" : "Offen");
     const details = [
       ["Status", status],
@@ -3246,50 +3105,12 @@
       <article class="admin-data-card ${session.solved ? "solved" : (session.endedAt ? "abandoned" : "open")}">
         <strong>${escapeHtml(gameLabel(session.game))} · ${escapeHtml(session.levelName || session.title || session.levelId || "Level")}</strong>
         <span>${escapeHtml(DIFFICULTY_LABELS[session.difficulty] || session.difficulty || "")}</span>
-        <div class="admin-data-grid">${details.map(renderAdminDetailPair).join("")}</div>
+        <div class="admin-data-grid">${details.map(renderDetailPair).join("")}</div>
       </article>
     `;
   }
 
-  function renderAdminDetailPair([label, value]) {
-    return `<span><b>${escapeHtml(label)}</b>${escapeHtml(value ?? "-")}</span>`;
-  }
-
-  function summarizeAdminEntity(entityData = {}, progressDocs = [], sessions = []) {
-    const stats = summarizeProgress(entityData, progressDocs);
-    const topLevels = progressDocs
-      .map((entry) => {
-        const attempts = Number(entry.attempts || 0) || (entry.solved || entry.timeSeconds || entry.moves ? 1 : 0);
-        return {
-          entry,
-          attempts,
-          seconds: Number(entry.timeSeconds || entry.elapsedSeconds || 0),
-        };
-      })
-      .filter((item) => item.attempts > 0)
-      .sort((a, b) => (b.attempts - a.attempts) || (b.seconds - a.seconds) || adminLevelSort(a.entry, b.entry))
-      .slice(0, 3);
-
-    return {
-      ...stats,
-      sessions: Number(entityData.stats?.sessions || 0) || sessions.length || 0,
-      attemptedLevels: progressDocs.filter((entry) => entry.solved || Number(entry.attempts || 0) || Number(entry.timeSeconds || 0)).length,
-      topLevels,
-    };
-  }
-
-  function adminLevelShortLabel(entry = {}) {
-    const game = gameLabel(entry.game);
-    const level = entry.levelName || entry.title || entry.levelId || entry.id || "Level";
-    return `${game} · ${level}`;
-  }
-
-  function adminTopLevelsText(summary = {}) {
-    if (!summary.topLevels?.length) return "Top: noch keine Level";
-    return `Top: ${summary.topLevels.map((item) => `${adminLevelShortLabel(item.entry)} (${item.attempts}x)`).join(", ")}`;
-  }
-
-  function renderAdminTopLevels(summary = {}) {
+  function renderTopLevels(summary = {}) {
     if (!summary.topLevels?.length) {
       return `<section class="admin-top-levels"><h4>Meist gespielte Level</h4><p class="account-muted">Noch keine gespielten Level.</p></section>`;
     }
@@ -3300,13 +3121,85 @@
         <div>
           ${summary.topLevels.map((item) => `
             <span>
-              <b>${escapeHtml(adminLevelShortLabel(item.entry))}</b>
+              <b>${escapeHtml(levelShortLabel(item.entry))}</b>
               ${escapeHtml(`${item.attempts}x gespielt · ${formatDuration(item.seconds)}`)}
             </span>
           `).join("")}
         </div>
       </section>
     `;
+  }
+
+  // Die Rätselarten, zu denen es bei diesem Konto überhaupt etwas gibt – als
+  // Filterleiste. "all" steht immer voran.
+  function renderGameFilters(progressDocs, sessions, selectedGame) {
+    const games = new Set();
+    progressDocs.forEach((entry) => { if (entry.game) games.add(entry.game); });
+    sessions.forEach((session) => { if (session.game) games.add(session.game); });
+    const labeledGames = Object.keys(GAME_LABELS).filter((game) => games.has(game));
+    const customGames = [...games].filter((game) => !GAME_LABELS[game]).sort((a, b) => a.localeCompare(b, "de"));
+    const options = ["all", ...labeledGames, ...customGames];
+    return `
+      <div class="admin-game-filter" aria-label="Rätselart filtern">
+        ${options.map((game) => `
+          <button type="button" class="${game === selectedGame ? "active" : ""}" data-admin-game="${escapeHtml(game)}">
+            ${game === "all" ? "Alle" : escapeHtml(gameLabel(game))}
+          </button>
+        `).join("")}
+      </div>
+    `;
+  }
+
+  // Der ganze Bauch eines aufgeklappten Kontos. selectedGame filtert Level und
+  // Sitzungen; wer keine Filterleiste will, gibt "all" und zeigt sie nicht an.
+  function renderEntityDetail(detail, { selectedGame = "all", withFilters = true } = {}) {
+    if (!detail) return "<p class=\"account-muted\">Wähle ein Konto aus.</p>";
+    if (detail.error) return `<p class="auth-status">${escapeHtml(authErrorMessage(detail.error))}</p>`;
+
+    const userData = detail.userData || {};
+    const progressDocs = detail.progressDocs || [];
+    const sessions = detail.sessions || [];
+    const summary = summarizeEntity(userData, progressDocs, sessions);
+    const filteredProgress = selectedGame === "all" ? progressDocs : progressDocs.filter((entry) => entry.game === selectedGame);
+    const filteredSessions = selectedGame === "all" ? sessions : sessions.filter((session) => session.game === selectedGame);
+
+    return `
+      <div class="stat-strip admin-stat-strip">
+        <div><strong>${summary.totalSolved}</strong><span>gelöst</span></div>
+        <div><strong>${formatDuration(summary.totalSeconds)}</strong><span>Spielzeit</span></div>
+        <div><strong>${summary.moves}</strong><span>Züge</span></div>
+        <div><strong>${sessions.filter((session) => !session.solved && session.endedAt).length}</strong><span>Abbrüche</span></div>
+      </div>
+      ${renderTrainDetail({ ...userData, levelDocs: progressDocs })}
+      ${renderLevelCoverage(progressDocs, userData)}
+      ${renderTopLevels(summary)}
+      ${withFilters ? renderGameFilters(progressDocs, sessions, selectedGame) : ""}
+      <div class="admin-columns">
+        <section>
+          <h4>Level-Fortschritt</h4>
+          <div class="admin-data-list">
+            ${filteredProgress.length ? [...filteredProgress].sort(levelSort).map(renderLevelDetail).join("") : "<p class=\"account-muted\">Keine Leveldaten für diese Auswahl.</p>"}
+          </div>
+        </section>
+        <section>
+          <h4>Sitzungen</h4>
+          <div class="admin-data-list">
+            ${filteredSessions.length ? filteredSessions.map(renderSessionDetail).join("") : "<p class=\"account-muted\">Keine Sitzungen für diese Auswahl.</p>"}
+          </div>
+        </section>
+      </div>
+    `;
+  }
+
+  // Wie ein Spiel heisst. Die erste Adresse ist highscore.js: dort steht der
+  // Name, den auch das Kind auf der Bühne liest. GAME_LABELS bleibt für die
+  // Rätsel, die es dort nicht (mehr) gibt und deren Fortschritt trotzdem noch
+  // in alten Konten stehen kann.
+  function gameLabel(game) {
+    return window.LernappHighscore?.spiel?.(game)?.titel
+      || GAME_LABELS[game]
+      || game
+      || "Rätsel";
   }
 
   function summarizeProgress(userData, progressDocs) {
@@ -3431,6 +3324,7 @@
     if (code.includes("invalid-email")) return "Dieser Name kann nicht verwendet werden.";
     if (code.includes("email-already-in-use")) return "Dieser Name ist bereits vergeben.";
     if (code.includes("user-not-found") || code.includes("wrong-password") || code.includes("invalid-credential")) return "Name oder Passwort stimmt nicht.";
+    if (code.includes("family-needed")) return "Dafür braucht es erst ein Kind: Die Wagen gelten für die ganze Familie.";
     if (code.includes("permission-denied")) return "Keine Berechtigung. Der Admin-Bereich ist nur für das verifizierte Admin-Google-Konto freigegeben.";
     if (code.includes("popup")) return "Die Google-Anmeldung wurde nicht abgeschlossen.";
     return "Die Anmeldung hat nicht geklappt. Prüfe Firebase Auth und die Firestore-Regeln.";

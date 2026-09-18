@@ -6,7 +6,9 @@
  * Der Server tut, was der Client nicht darf: Er legt den Firebase-Auth-Nutzer
  * mit der technischen Adresse an, schreibt das Kontodokument mit parentUid,
  * trägt das Kind in children[] der Eltern ein – und wenn die Eltern schon
- * gekauft haben, bekommt das Kind den Kauf gleich mit. Alles über das
+ * gekauft haben, bekommt das Kind den Kauf gleich mit. Ebenso das Wagen-Set
+ * der Familie, falls die Eltern eines gewählt haben: Sonst führe das jüngste
+ * Kind als einziges einen anderen Zug als seine Geschwister. Alles über das
  * Admin-SDK, an firestore.rules vorbei; genau deshalb prüfen die Regeln, dass
  * ein Client diese Felder nie selbst schreibt.
  *
@@ -56,6 +58,11 @@ export async function kindAnlegen({ eltern, name, passwort }) {
       const kaufDoc = await transaktion.get(db().collection("entitlements").doc(eltern.uid));
       const gekauft = Boolean(kaufDoc.exists && kaufDoc.data()?.active);
       const jetzt = FieldValue.serverTimestamp();
+      // Das Wagen-Set der Familie, falls die Eltern eines gewählt haben. Es
+      // steht an jedem Konto der Familie einzeln (firebase.js,
+      // switchFamilyWagonSet), weil ein Kind das Konto seiner Eltern nicht
+      // liest – ein Feld, das es nicht lesen darf, könnte es nicht befolgen.
+      const familienSet = elternDoc.data()?.wagonSet?.id ? { wagonSet: elternDoc.data().wagonSet } : {};
       transaktion.set(db().collection("users").doc(nutzer.uid), {
         authEmail: adresse,
         email: null,
@@ -73,6 +80,7 @@ export async function kindAnlegen({ eltern, name, passwort }) {
         updatedAt: jetzt,
         lastSeenAt: jetzt,
         stats: { totalSeconds: 0, moves: 0, resets: 0, solvedLevels: 0, sessions: 0 },
+        ...familienSet,
       });
       transaktion.set(elternRef, {
         children: FieldValue.arrayUnion({ uid: nutzer.uid, name: anzeigeName }),

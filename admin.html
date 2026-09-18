@@ -4,23 +4,38 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <meta name="application-name" content="Gripszug" />
-    <meta name="description" content="Rätsel und Gehirntraining für Kinder: ein Zug, der mit dem Fortschritt wächst. Merkspiele, Konzentration, Tempo, Knobeln sowie Zahlen und Buchstaben." />
-    <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="apple-mobile-web-app-title" content="Gripszug" />
+    <meta name="robots" content="noindex" />
     <meta name="theme-color" content="#a8ddf0" />
-    <title>Gripszug: Dein Zug</title>
+    <title>Adminbereich · Gripszug</title>
     <link rel="stylesheet" href="styles.css?v=2026-09-18-6" />
-    <link rel="manifest" href="app.webmanifest?v=2026-09-18-6" />
     <link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon-180.png" />
   </head>
-  <body data-page="train">
-    <!-- Die Bühne baut train-home.js: Landschaft, Zug, Startsignal. Bewusst
-         leer im HTML, damit hier kein Text steht, den ein Kind lesen müsste. -->
-    <div id="train-stage" class="train-stage" aria-label="Dein Zug"></div>
+  <body data-page="admin">
+    <!-- Diese Seite sieht kein Kind. Deshalb steht hier Text: Wer sie öffnet,
+         liest. Gebaut wird der Inhalt von admin.js – bis die Anmeldung geprüft
+         ist, steht hier nur, dass geprüft wird. -->
+    <header class="admin-kopf">
+      <div>
+        <p class="small-label">Administration</p>
+        <h1>Adminbereich</h1>
+      </div>
+      <nav class="admin-kopf-nav" aria-label="Navigation">
+        <span class="admin-wer" data-admin-wer></span>
+        <a class="secondary-action" href="index.html">Zur App</a>
+      </nav>
+    </header>
 
+    <main class="admin-seite" data-admin-seite>
+      <p class="account-muted">Anmeldung wird geprüft...</p>
+    </main>
+
+    <!-- Dieselben Dateien wie das Startbild, und aus demselben Grund: Der Zug
+         eines Kontos, die Levelabdeckung und die Auswertung je Spiel werden
+         mit genau den Modulen gerechnet, mit denen sie auch beim Kind
+         gerechnet werden. Eine zweite Rechnung wäre eine zweite Wahrheit.
+         Was hier fehlt, ist die Bühne selbst: train-home.js und
+         train-journey.js bauen den Zug für das Kind – hier gibt es kein Kind. -->
     <script defer src="https://www.gstatic.com/firebasejs/12.7.0/firebase-app-compat.js"></script>
     <script defer src="https://www.gstatic.com/firebasejs/12.7.0/firebase-auth-compat.js"></script>
     <script defer src="https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore-compat.js"></script>
@@ -34,9 +49,6 @@
     <script defer src="entitlement.js?v=2026-09-18-6"></script>
     <script defer src="journey-plan.js?v=2026-09-18-6"></script>
     <script defer src="train-art.js?v=2026-09-18-6"></script>
-    <script defer src="train-scenes.js?v=2026-09-18-6"></script>
-    <script defer src="train-journey.js?v=2026-09-18-6"></script>
-    <script defer src="train-home.js?v=2026-09-18-6"></script>
-    <script defer src="pwa.js?v=2026-09-18-6"></script>
+    <script defer src="admin.js?v=2026-09-18-6"></script>
   </body>
 </html>

@@ -16,7 +16,14 @@
  *
  * familieVerbinden räumt jedes Mal die ganze Familie auf, nicht nur das neue
  * Kind: Konten aus der Zeit vor dieser Datei haben noch keine Gruppe, und
- * niemand soll dafür etwas von Hand tun müssen.
+ * niemand soll dafür etwas von Hand tun müssen. Das Elternkonto gehört dazu –
+ * auf dem Startbild sollen die Züge ALLER Familienmitglieder stehen, nicht nur
+ * die der Geschwister.
+ *
+ * Eine Gruppe, die der Admin von Hand gesetzt hat, bleibt unberührt: Sie trägt
+ * by: "admin". Der Admin ist der einzige, der übergreifende Gruppen anlegt –
+ * zwei Familien, eine Klasse –, und diese Funktion läuft bei jeder Anmeldung.
+ * Ohne die Marke schriebe sie seine Zuordnung jedes Mal wieder weg.
  */
 
 import { db, FieldValue } from "./firebase.mjs";
@@ -36,8 +43,17 @@ function gruppeFuer(elternUid, elternDaten, anzeigeName) {
     id: gruppenId(elternUid),
     name: sauberName(elternDaten?.username || elternDaten?.displayName) || "Familie",
     displayName: anzeigeName || "",
+    // Woher die Gruppe kommt. "familie" darf diese Funktion beim nächsten Mal
+    // wieder anfassen, "admin" nicht.
+    by: "familie",
     updatedAt: Date.now(),
   };
+}
+
+// Hat der Admin dieses Konto von Hand in eine Gruppe gesteckt? Dann bleibt es
+// dort, und die Familie holt es nicht zurück.
+export function vomAdminGesetzt(daten) {
+  return daten?.group?.by === "admin";
 }
 
 // Setzt die Gruppe bei allen Kindern eines Elternkontos. Gibt zurück, wie
@@ -46,22 +62,30 @@ function gruppeFuer(elternUid, elternDaten, anzeigeName) {
 export async function familieVerbinden(elternUid) {
   const elternRef = db().collection("users").doc(elternUid);
   const elternDoc = await elternRef.get();
-  const kinder = kinderVon(elternDoc.data());
+  const elternDaten = elternDoc.data() || {};
+  const kinder = kinderVon(elternDaten);
   if (!kinder.length) return { id: null, kinder: 0, geaendert: 0 };
 
   const id = gruppenId(elternUid);
   const stapel = db().batch();
   let geaendert = 0;
 
+  // Erst die Eltern selbst, dann die Kinder: dieselbe Gruppe, derselbe Grund.
+  const eintragen = (ref, daten, name) => {
+    if (vomAdminGesetzt(daten)) return;
+    const anzeige = sauberName(daten.username || daten.displayName) || name;
+    if (daten.group?.id === id && daten.group?.displayName === anzeige) return;
+    stapel.set(ref, { group: gruppeFuer(elternUid, elternDaten, anzeige), updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+    geaendert += 1;
+  };
+
+  eintragen(elternRef, elternDaten, "Eltern");
+
   for (const kind of kinder) {
     const ref = db().collection("users").doc(kind.uid);
     const doc = await ref.get();
     if (!doc.exists) continue;
-    const daten = doc.data() || {};
-    const anzeige = sauberName(daten.username || daten.displayName) || kind.name;
-    if (daten.group?.id === id && daten.group?.displayName === anzeige) continue;
-    stapel.set(ref, { group: gruppeFuer(elternUid, elternDoc.data(), anzeige), updatedAt: FieldValue.serverTimestamp() }, { merge: true });
-    geaendert += 1;
+    eintragen(ref, doc.data() || {}, kind.name);
   }
 
   if (geaendert) await stapel.commit();

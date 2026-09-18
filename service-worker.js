@@ -1,4 +1,4 @@
-const APP_VERSION = "2026-09-18-5";
+const APP_VERSION = "2026-09-18-6";
 const CACHE_PREFIX = "lernapp-pwa-";
 const CACHE_NAME = `${CACHE_PREFIX}${APP_VERSION}`;
 const ASSET_VERSION_QUERY = `?v=${APP_VERSION}`;
@@ -23,6 +23,7 @@ const FIREBASE_SDK = [
 const CORE_ASSETS = [
   "./",
   "./index.html",
+  "./admin.html",
   "./arukone.html",
   "./backpack.html",
   "./blaetter.html",
@@ -81,6 +82,7 @@ const CORE_ASSETS = [
   `./faesser.js${ASSET_VERSION_QUERY}`,
   `./doppelt.js${ASSET_VERSION_QUERY}`,
   `./firebase.js${ASSET_VERSION_QUERY}`,
+  `./admin.js${ASSET_VERSION_QUERY}`,
   `./pwa.js${ASSET_VERSION_QUERY}`,
   `./app.webmanifest${ASSET_VERSION_QUERY}`,
   "./icons/icon-32.png",

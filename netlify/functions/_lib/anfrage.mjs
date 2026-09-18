@@ -8,6 +8,11 @@
  * Nur Elternkonten dürfen kaufen und Kinder anlegen. Ob ein Konto eines ist,
  * entscheidet die Adresse: eine technische (@lernapp.local) gehört einem
  * Kind. Dieselbe Regel wie im Client (firebase.js, isTechnicalEmail).
+ *
+ * Und einer darf mehr als alle anderen: der Admin. Wer das ist, steht hier
+ * genauso wie in firestore.rules (isAdmin) und in firebase.js (ADMIN_EMAILS) –
+ * an drei Stellen dieselbe Adresse, weil drei Stellen sie getrennt prüfen
+ * müssen. scripts/test-functions.mjs vergleicht sie mit den Regeln.
  */
 
 import { auth } from "./firebase.mjs";
@@ -55,12 +60,34 @@ export async function anrufer(request) {
     throw new AnfrageFehler(401, "bad-token", "Die Anmeldung ist abgelaufen. Bitte neu anmelden.");
   }
   const email = String(decoded.email || "").toLowerCase();
-  return { uid: decoded.uid, email, istEltern: Boolean(email) && !istTechnischeAdresse(email) };
+  const istEltern = Boolean(email) && !istTechnischeAdresse(email);
+  // Die Bestätigung zählt, oder die Anmeldung über Google: Wer sich mit
+  // Google anmeldet, hat die Adresse dort bewiesen. Firebase setzt
+  // email_verified dann von selbst; die zweite Bedingung ist für den Fall,
+  // dass ein Anbieter das nicht tut.
+  const bestaetigt = Boolean(decoded.email_verified) || decoded.firebase?.sign_in_provider === "google.com";
+  return { uid: decoded.uid, email, istEltern, istAdmin: istEltern && bestaetigt && istAdminAdresse(email) };
 }
 
 export async function elternAnrufer(request) {
   const wer = await anrufer(request);
   if (!wer.istEltern) throw new AnfrageFehler(403, "parents-only", "Das kann nur ein Elternkonto.");
+  return wer;
+}
+
+// Der eine Administrator. Dieselbe Bedingung wie in firestore.rules: die
+// bekannte Adresse UND eine bestätigte Adresse. Ohne das zweite genügte es,
+// ein Konto mit dieser Adresse anzulegen – Firebase lässt das zu, bis die
+// Adresse bestätigt ist.
+export const ADMIN_ADRESSEN = ["alain.sc2@gmail.com"];
+
+export function istAdminAdresse(email) {
+  return ADMIN_ADRESSEN.includes(String(email || "").trim().toLowerCase());
+}
+
+export async function adminAnrufer(request) {
+  const wer = await anrufer(request);
+  if (!wer.istAdmin) throw new AnfrageFehler(403, "admin-only", "Das kann nur der Administrator.");
   return wer;
 }
 
