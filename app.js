@@ -1440,6 +1440,13 @@ function isUnlockedModeEnabled() {
 }
 function isLevelUnlocked(level) {
   if (!level) return false;
+  // Die Schranke zuerst: Was gekauft werden muss, ist zu – egal, was das
+  // Kind sonst schon geschafft hat. Auf der Reise entscheidet die Station.
+  const schranke = window.LernappEntitlement;
+  if (schranke) {
+    if (isJourneyLevel(level)) { if (!schranke.stationFree(journeyTask?.nr)) return false; }
+    else if (!schranke.levelFree(level)) return false;
+  }
   if (isUnlockedModeEnabled()) return true;
   // Die Station der Reise ist der Schlüssel zu ihrem Level.
   if (isJourneyLevel(level)) return true;
@@ -1764,7 +1771,10 @@ function renderFlatLevelSelect() {
     const button = document.createElement("button");
     button.className = `difficulty-card ${level.difficulty}${solved ? " solved" : ""}${unlocked ? "" : " locked"}`;
     button.type = "button";
-    button.disabled = !unlocked;
+    // Zu wegen Kauf: der Knopf bleibt tippbar und zeigt das Tor. Zu, weil
+    // das Level davor noch fehlt: wie bisher stumm.
+    const gekauftZu = !unlocked && Boolean(window.LernappEntitlement) && !window.LernappEntitlement.levelFree(level);
+    button.disabled = !unlocked && !gekauftZu;
     button.setAttribute("aria-label", `${info.label}, ${level.targetCount} Aufgaben${solved ? `, geschafft, ${stars} von 3 Sternen` : ""}${unlocked ? "" : ", gesperrt"}`);
     const icon = document.createElement("span");
     icon.className = "difficulty-icon";
@@ -1780,7 +1790,7 @@ function renderFlatLevelSelect() {
       small.textContent = `${level.targetCount} Aufgaben`;
       button.append(small);
     }
-    button.addEventListener("click", () => startLevel(index));
+    button.addEventListener("click", () => (gekauftZu ? window.LernappEntitlement.showGate() : startLevel(index)));
     levelGrid.append(button);
   });
   setHelpText(`${sentence(config.title)} ${config.subtitle} Such dir eine Welt aus: Leicht, Mittel, Schwer oder Extrem. Jede ist eine Runde über zehn Aufgaben. Je weiter rechts, desto kniffliger.`);
@@ -1806,14 +1816,18 @@ function renderDifficultySelect() {
     const button = document.createElement("button");
     button.className = `difficulty-card ${difficulty}${unlocked ? "" : " locked"}`;
     button.type = "button";
-    button.disabled = unlocked === 0;
+    // Zu wegen Kauf: die Welt bleibt tippbar und zeigt das Tor. Zu, weil
+    // noch kein Level darin frei ist: wie bisher stumm.
+    const schranke = window.LernappEntitlement;
+    const gekauftZu = unlocked === 0 && Boolean(schranke) && levels.length > 0 && !schranke.levelFree(levels[0]);
+    button.disabled = unlocked === 0 && !gekauftZu;
     button.setAttribute("aria-label", `${info.label} wählen, ${levels.length} Levels, ${solved} gelöst, ${unlocked} frei`);
     button.innerHTML = `
       <span class="difficulty-icon" aria-hidden="true">${info.icon}</span>
       <span class="difficulty-name">${info.label}</span>
       <small>${solved} gelöst · ${unlocked}/${levels.length} frei</small>
     `;
-    button.addEventListener("click", () => selectDifficulty(difficulty));
+    button.addEventListener("click", () => (gekauftZu ? schranke.showGate() : selectDifficulty(difficulty)));
     levelGrid.append(button);
   });
   setHelpText(`${sentence(config.title)} ${config.subtitle} Wähle zuerst deine Welt: Leicht, Mittel, Schwer oder Extrem. Je weiter rechts, desto kniffliger.`);

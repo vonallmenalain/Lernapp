@@ -1674,6 +1674,13 @@
 
   async function enterGame(page) {
     if (busy || !page) return;
+    // Vor der Schranke: Ist das Ziel frei? Ein gesperrtes zeigt das Tor und
+    // lässt die Bühne, wie sie ist – der Zug fährt nirgendwohin.
+    const schranke = window.LernappEntitlement;
+    if (schranke && !schranke.targetFree(page)) {
+      schranke.showGate({ host: stage });
+      return;
+    }
     const from = view.name;
     const token = leaveToken += 1;
     busy = true;

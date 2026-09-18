@@ -370,6 +370,16 @@
       }
     }
 
+    // Wer die Seite direkt aufruft – ein Lesezeichen, eine geteilte Adresse –,
+    // kommt an der Bühne vorbei hierher. Ist das Spiel oder die Station
+    // gesperrt, steht das Tor über der Bühne; zurück geht es zur Karte oder
+    // zum Zug. Die Bühne selbst wird trotzdem gebaut: Das Spiel dahinter
+    // rechnet mit ihr, und unter dem Tor sieht und erreicht sie niemand.
+    const schranke = window.LernappEntitlement;
+    if (schranke && !schranke.targetFree(`${window.location.pathname.split("/").pop() || ""}${window.location.search}`)) {
+      schranke.showGate({ host, onBack: () => { if (journey) toMap(); else window.location.href = "index.html"; } });
+    }
+
     return {
       play,
       el,
