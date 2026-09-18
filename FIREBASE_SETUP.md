@@ -178,6 +178,7 @@ es sind dieselben Dateien. Die Site-Einstellung „Publish directory" bei Netlif
 | --- | --- | --- |
 | `POST /api/kind-anlegen` | Elternkonto (Bearer-Token) | legt Auth-Nutzer und Konto des Kindes an, trägt es bei den Eltern ein, gibt den Kauf mit, falls vorhanden |
 | `POST /api/kind-passwort` | Elternkonto | setzt das Passwort eines eigenen Kindes neu |
+| `POST /api/familie` | jedes Konto einer Familie | gibt allen Kindern eines Elternkontos dieselbe `group.id` (`familie-<uid der Eltern>`), damit die Geschwister die Züge der anderen auf dem Startbild sehen. Neue Kinder bekommen sie beim Anlegen; der Client holt sie für ältere Konten einmal nach. |
 | `POST /api/checkout` | Elternkonto | erstellt die Kasse bei Stripe und gibt ihre URL zurück |
 | `POST /api/stripe-webhook` | Stripe (mit Unterschrift) | verbucht `checkout.session.completed` und `checkout.session.async_payment_succeeded` als Kauf für Eltern und Kinder, `charge.refunded` als Rücknahme |
 | `GET /api/status` | jeder | sagt, welche Node-Fassung läuft und welche Umgebungsvariablen gesetzt sind – nur ob, nie der Inhalt. Lädt nichts (keine import-Zeile), antwortet deshalb auch, wenn die anderen es nicht tun. |
@@ -304,6 +305,14 @@ kann den Kauf auslösen und Kinderprofile anlegen. Ein Konto mit technischer Adr
 | --- | --- | --- |
 | `parentUid` | am Kind | der Server beim Anlegen des Kindes, oder der Admin |
 | `children` | am Elternkonto (Liste von uids) | der Server beim Anlegen des Kindes, oder der Admin |
+| `group` | am Kind | der Server: alle Kinder eines Elternkontos teilen `familie-<uid der Eltern>` |
+
+**Die Familie ist eine Gruppe.** Auf dem Startbild stehen die Züge aller mit derselben
+`group.id` – das gab es für Schulklassen, die der Admin zusammenstellt, und eine Familie
+bekommt es ohne Zutun: Wer zu einem Elternkonto gehört, gehört zu dessen Gruppe. Die Kennung
+ist die uid der Eltern, nicht ihr Name; zwei Familien Müller sähen sonst gegenseitig ihre
+Kinder. Das **Elternkonto selbst ist nicht in der Gruppe** – sonst stünde auf jedem
+Kinderbild ein leerer Elternzug.
 
 Das Konto selbst darf beide Felder nie anfassen – sie stehen mit `group` in
 `ownerMayNotTouch()`. Wer sich einem fremden Elternkonto zuordnen könnte, erbte dessen Kauf.

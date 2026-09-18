@@ -24,8 +24,7 @@
 import { auth, db, FieldValue } from "./_lib/firebase.mjs";
 import { AnfrageFehler, antwort, fehlerAntwort, liesJson, elternAnrufer, nurMethode } from "./_lib/anfrage.mjs";
 import { sauberName, technischeAdresse, kindPasswort, MAX_KINDER, MIN_KIND_PASSWORT } from "./_lib/kind.mjs";
-
-const kinderVon = (daten) => (Array.isArray(daten?.children) ? daten.children : []);
+import { gruppenId, familieVerbinden, kinderVon } from "./_lib/familie.mjs";
 
 export async function kindAnlegen({ eltern, name, passwort }) {
   const anzeigeName = sauberName(name);
@@ -64,6 +63,9 @@ export async function kindAnlegen({ eltern, name, passwort }) {
         displayName: anzeigeName,
         role: "child",
         parentUid: eltern.uid,
+        // Die Familie ist eine Gruppe: So stehen die Züge der Geschwister
+        // auf dem Startbild nebeneinander (siehe _lib/familie.mjs).
+        group: { id: gruppenId(eltern.uid), name: sauberName(elternDoc.data()?.username) || "Familie", displayName: anzeigeName, updatedAt: Date.now() },
         loginMethod: "name-password",
         providers: ["password"],
         localPersistence: true,
@@ -86,6 +88,12 @@ export async function kindAnlegen({ eltern, name, passwort }) {
       }
       return gekauft;
     });
+    // Und die Geschwister, die es schon gab, bekommen dieselbe Gruppe –
+    // Konten aus der Zeit vor der Familiengruppe haben noch keine. Das darf
+    // scheitern, ohne das Kind zu verlieren: Es ist angelegt, die Gruppe holt
+    // /api/familie beim nächsten Anmelden nach.
+    try { await familieVerbinden(eltern.uid); } catch (fehler) { console.error("Familie verbinden:", fehler); }
+
     return { uid: nutzer.uid, name: anzeigeName, loginName: anzeigeName, kauf };
   } catch (fehler) {
     // Ohne Kontodokument gibt es das Kind nicht – dann darf auch der Name

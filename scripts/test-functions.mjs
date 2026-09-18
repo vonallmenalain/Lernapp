@@ -94,7 +94,7 @@ const wirft = async (fn, code, was) => {
   catch (fehler) { if (fehler?.code !== code) befunde.push(`${was}: warf ${fehler?.code || fehler?.message}, erwartet ${code}`); }
 };
 
-const { auth, db } = await import("../netlify/functions/_lib/firebase.mjs");
+const { auth, db, FieldValue } = await import("../netlify/functions/_lib/firebase.mjs");
 const kind = await import("../netlify/functions/_lib/kind.mjs");
 const { anrufer, elternAnrufer } = await import("../netlify/functions/_lib/anfrage.mjs");
 const { kindAnlegen, default: kindAnlegenHandler } = await import("../netlify/functions/kind-anlegen.mjs");
@@ -102,6 +102,8 @@ const { kindPasswortSetzen } = await import("../netlify/functions/kind-passwort.
 const { kasseErstellen } = await import("../netlify/functions/checkout.mjs");
 const { kaufVerbuchen, rueckerstattungVerbuchen, default: webhookHandler } = await import("../netlify/functions/stripe-webhook.mjs");
 const { default: statusHandler } = await import("../netlify/functions/status.mjs");
+const { default: familieHandler } = await import("../netlify/functions/familie.mjs");
+const { familieVerbinden, gruppenId } = await import("../netlify/functions/_lib/familie.mjs");
 const { default: statusTiefHandler, pruefungenLaufen } = await import("../netlify/functions/status-tief.mjs");
 const Stripe = (await import("stripe")).default;
 
@@ -323,6 +325,54 @@ const r200 = await kindAnlegenHandler(postJson(papaToken, { name: "Papas Kind", 
 ok(r200.status === 200, `kind-anlegen als Eltern: ${r200.status} ${await r200.text().catch(() => "")}`);
 const r400 = await kindAnlegenHandler(new Request("http://x/api", { method: "POST", headers: { authorization: `Bearer ${papaToken}` }, body: "{kaputt" }));
 ok(r400.status === 400, `kind-anlegen mit kaputtem JSON: ${r400.status}`);
+
+// --- 8b. Die Familie als Gruppe ------------------------------------------------
+// Auf dem Startbild stehen die Züge aller mit derselben group.id. Eine
+// Familie soll das ohne Zutun haben – und zwar auch die Kinder, die es vor
+// dieser Funktion schon gab.
+{
+  const gruppe = gruppenId(mama.uid);
+  const lina = (await db().collection("users").doc(kind1.uid).get()).data();
+  ok(lina?.group?.id === gruppe, `Kind bekommt beim Anlegen keine Gruppe: ${JSON.stringify(lina?.group)}`);
+  ok(lina?.group?.displayName === "Lina", `im Zug steht nicht der Name des Kindes: ${JSON.stringify(lina?.group)}`);
+  const noa = (await db().collection("users").doc(kind2.uid).get()).data();
+  ok(noa?.group?.id === gruppe, "das zweite Kind ist in einer anderen Gruppe");
+
+  // Zwei Familien mit demselben Nachnamen dürfen sich nicht sehen.
+  ok(gruppenId("eltern-a") !== gruppenId("eltern-b"), "zwei Elternkonten teilen sich eine Gruppenkennung");
+
+  // Ein Kind aus der Zeit davor: Gruppe von Hand entfernt, dann nachgeholt.
+  await db().collection("users").doc(kind1.uid).set({ group: FieldValue.delete() }, { merge: true });
+  ok(!(await db().collection("users").doc(kind1.uid).get()).data()?.group, "die Gruppe liess sich nicht entfernen (Aufbau der Prüfung)");
+  const nachgeholt = await familieVerbinden(mama.uid);
+  ok(nachgeholt.geaendert === 1, `nachgeholt: ${JSON.stringify(nachgeholt)} – erwartet genau ein geändertes Kind`);
+  ok((await db().collection("users").doc(kind1.uid).get()).data()?.group?.id === gruppe, "die Gruppe kam nicht zurück");
+  ok((await familieVerbinden(mama.uid)).geaendert === 0, "ein zweiter Lauf schreibt noch einmal, obwohl nichts fehlt");
+
+  // Über den Weg von aussen, als Kind: Es darf seine eigene Familie verbinden.
+  const linaToken2 = await anmelden("lina@lernapp.local", "neu1::lernapp");
+  const alsKind = await familieHandler(new Request("http://x/api/familie", { method: "POST", headers: { authorization: `Bearer ${linaToken2}` } }));
+  const kindDaten = await alsKind.json();
+  ok(alsKind.status === 200 && kindDaten.gruppe?.id === gruppe, `Kind verbindet die Familie nicht: ${alsKind.status} ${JSON.stringify(kindDaten)}`);
+
+  // Als Eltern: Die Kinder werden verbunden, das Elternkonto selbst bleibt
+  // aussen vor – sonst stünde auf jedem Kinderbild ein leerer Elternzug.
+  const alsEltern = await familieHandler(new Request("http://x/api/familie", { method: "POST", headers: { authorization: `Bearer ${mamaToken}` } }));
+  const elternDaten = await alsEltern.json();
+  ok(elternDaten.kinder >= 2, `Eltern sehen ${elternDaten.kinder} Kinder`);
+  ok(!elternDaten.gruppe, "das Elternkonto steckt selbst in der Gruppe");
+  ok(!(await db().collection("users").doc(mama.uid).get()).data()?.group, "das Elternkonto hat eine Gruppe bekommen");
+
+  // Ohne Token: nichts.
+  const ohne = await familieHandler(new Request("http://x/api/familie", { method: "POST" }));
+  ok(ohne.status === 401, `familie ohne Token: ${ohne.status}`);
+  // Ein Gründer-Kind ohne Elternkonto gehört zu keiner Familie.
+  const einsam = await auth().createUser({ email: "einsam@lernapp.local", password: "1234::lernapp", displayName: "Einsam" });
+  await db().collection("users").doc(einsam.uid).set({ username: "Einsam", role: "child" });
+  const einsamToken = await anmelden("einsam@lernapp.local", "1234::lernapp");
+  const einsamAntwort = await (await familieHandler(new Request("http://x/api/familie", { method: "POST", headers: { authorization: `Bearer ${einsamToken}` } }))).json();
+  ok(!einsamAntwort.gruppe && einsamAntwort.kinder === 0, `Gründer-Kind bekommt eine Gruppe: ${JSON.stringify(einsamAntwort)}`);
+}
 
 // --- 9. Die Statusseite -----------------------------------------------------------
 // Sie ist die einzige Funktion, die auch dann antworten muss, wenn sonst
