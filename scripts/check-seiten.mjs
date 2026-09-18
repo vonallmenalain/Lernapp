@@ -11,6 +11,10 @@
  *   2. Die Darstellung von 280 bis 1280 px: nichts steht über den Rand (dann
  *      liesse sich die Seite seitwärts schieben), und keine Überschrift bricht
  *      mitten im Wort um. "Geschäftsbedingun|gen" sieht nach kaputt aus.
+ *   3. Die Blöcke der Willkommensseite stehen auf einer Achse. Eine
+ *      margin-Kurzform hat dort einmal die Zentrierung von .wrap überschrieben,
+ *      und die drei Kacheln klebten am linken Rand, während der Rest mittig
+ *      stand. Von blossem Lesen fällt so etwas nicht auf, von Messen schon.
  *
  * Aufruf:  node scripts/check-seiten.mjs
  *          BILDER=/ein/ordner node scripts/check-seiten.mjs   legt Bilder ab
@@ -45,6 +49,22 @@ for (const name of SEITEN) {
   if (/class="platzhalter"|\[Datum\]|\[Vorname|\[PLZ|\[kontakt|PLATZHALTER/.test(html)) fehlt(`${name}.html: noch ein Platzhalter drin`);
   if (/class="entwurf"/.test(html)) fehlt(`${name}.html: der Entwurfs-Hinweis steht noch da`);
   if (/adresse\.ch/.test(html) && !/deine@adresse\.ch/.test(html)) fehlt(`${name}.html: die Beispiel-Adresse adresse.ch steht noch drin`);
+  // Zugesagt wird keine Rückgabe mehr: Der Kauf ist verbindlich (agb.html,
+  // Abschnitt 4). Gesucht wird die Zusage, nicht das Wort – "eine Rückgabe ist
+  // ausgeschlossen" soll ja gerade dastehen.
+  if (/Geld zurück|erstatten wir|Betrag zurück|30 Tagen?[^.]*(zurück|erstatt)/i.test(html)) fehlt(`${name}.html: ein Rückgabeversprechen steht noch da`);
+}
+// Und die AGB sagen, was stattdessen gilt.
+{
+  const agb = lies("agb");
+  if (!/Rückgabe oder Rückerstattung ist ausgeschlossen/.test(agb)) fehlt("agb.html: der Ausschluss der Rückgabe fehlt");
+  if (!/Widerrufsrecht erlischt/.test(agb)) fehlt("agb.html: der Hinweis auf das erlöschende Widerrufsrecht fehlt");
+}
+// Das Alter steht an drei Stellen und muss überall dasselbe sagen.
+{
+  const html = lies("willkommen");
+  if (/4 bis 8/.test(html)) fehlt("willkommen.html: irgendwo stehen noch 4 bis 8 Jahre");
+  if ((html.match(/3 bis 10/g) || []).length < 3) fehlt("willkommen.html: das Alter 3 bis 10 fehlt in Titel, Vorspann oder Fragen");
 }
 for (const name of ["impressum", "datenschutz", "agb"]) {
   const html = lies(name);
@@ -124,6 +144,19 @@ try {
       const mass = await page.evaluate(messen);
       if (mass.scroll > mass.breite + 1) fehlt(`${name} @${breite}px: waagrecht scrollbar (${mass.scroll}px)${mass.raus.length ? ` – ${mass.raus.join(", ")}` : ""}`);
       if (mass.zerrissen.length) fehlt(`${name} @${breite}px: Überschrift mitten im Wort umgebrochen (${mass.zerrissen.join(", ")})`);
+      if (name === "willkommen") {
+        // Alles, was .wrap trägt, steht auf derselben Achse – links wie rechts.
+        const achsen = await page.evaluate(() => [...document.querySelectorAll(".wrap")].map((el) => {
+          const r = el.getBoundingClientRect();
+          return { name: String(el.className).split(" ").filter((k) => k !== "wrap")[0] || "wrap", links: Math.round(r.left), rechts: Math.round(r.right) };
+        }));
+        const links = new Set(achsen.map((a) => a.links));
+        const rechts = new Set(achsen.map((a) => a.rechts));
+        if (links.size > 1 || rechts.size > 1) {
+          const schief = achsen.filter((a) => a.links !== achsen[0].links || a.rechts !== achsen[0].rechts);
+          fehlt(`willkommen @${breite}px: ${schief.map((a) => `${a.name} (${a.links}–${a.rechts})`).join(", ")} steht nicht auf der Achse von ${achsen[0].name} (${achsen[0].links}–${achsen[0].rechts})`);
+        }
+      }
       if (BILDER && breite === 390) await page.screenshot({ path: path.join(BILDER, `${name}.png`), fullPage: true });
     }
     if (fehler.length) fehlt(`@${breite}px: ${fehler.slice(0, 2).join(" | ")}`);

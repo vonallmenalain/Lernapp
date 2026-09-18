@@ -32,8 +32,9 @@
  *
  * Das Tor sieht das Kind, nicht den Preis: Der Zug steht vor einer Schranke,
  * und der Satz sagt, dass die Eltern sie öffnen. Dahinter liegt ein kleines
- * Rechenrätsel, das ein Kind mit vier Jahren nicht löst, und erst dann das
- * Profilfenster mit dem Kauf.
+ * Rechenrätsel, das ein Kind mit vier Jahren nicht löst – und erst danach,
+ * für den Erwachsenen, der es gelöst hat, der Preis: was Gripszug kostet, was
+ * dazugehört, und der kürzeste Weg an die Kasse (firebase.js, openKauf).
  *
  * Wird nach firebase.js und train-progress.js geladen, vor app.js,
  * game-shell.js und train-home.js.
@@ -227,7 +228,7 @@
   // Das Tor
   // ---------------------------------------------------------------------------
   // Eine Schranke vor dem Gleis, der Zug davor, und ein Satz für das Kind.
-  // Der Knopf für die Eltern führt über das Rechenrätsel ins Profilfenster.
+  // Der Knopf für die Eltern führt über das Rechenrätsel zum Preis.
   function el(tag, attrs = {}, children = []) {
     const ns = "http://www.w3.org/2000/svg";
     const node = document.createElementNS(ns, tag);
@@ -355,7 +356,12 @@
       event.preventDefault();
       if (Number(input.value) === a + b) {
         closeGate();
-        cloud()?.openAccount?.();
+        // Der Verkaufsbildschirm. Ist firebase.js noch die alte Fassung (ein
+        // Gerät mit altem Zwischenspeicher), bleibt es beim Profilfenster –
+        // besser das zweitbeste Fenster als gar keines.
+        const c = cloud();
+        if (c?.openKauf) c.openKauf();
+        else c?.openAccount?.();
         return;
       }
       versuche += 1;

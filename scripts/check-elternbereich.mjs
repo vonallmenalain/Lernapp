@@ -381,6 +381,26 @@ try {
     pruefe(!(await page.evaluate(() => window.location.search)).includes("kauf"), "Rückkehr: ?kauf= bleibt in der Adresse stehen – ein Neuladen zeigte den Hinweis noch einmal");
     pruefe(await page.locator("[data-kaufen]").count() === 1, "Rückkehr nach Abbruch: der Kaufknopf ist weg, obwohl nicht gekauft wurde");
     await knips(page, "4-rueckkehr-abbruch");
+
+    // --- Der Verkaufsbildschirm hinter dem Elterntor ----------------------------
+    // Dorthin führt die Schranke eines Kindes, wenn ein Erwachsener die
+    // Rechenaufgabe gelöst hat (entitlement.js → firebase.js, openKauf). Für
+    // ein angemeldetes Elternkonto steht dort kein Formular mehr, sondern der
+    // Preis und ein Knopf, der an die Kasse führt.
+    const vorher = anfragen.filter((a) => a.pfad === "checkout").length;
+    await page.evaluate(() => window.LernappFirebase.openKauf());
+    await page.locator(".kauf-seite").waitFor({ timeout: 5000 });
+    const kaufSeite = page.locator(".kauf-seite");
+    pruefe((await text(kaufSeite)).includes("CHF 30"), "Verkaufsbildschirm: der Preis steht nicht da");
+    pruefe((await text(kaufSeite)).includes("Familie"), "Verkaufsbildschirm: es steht nicht da, dass der Kauf für die Familie gilt");
+    pruefe(await kaufSeite.locator(".kauf-vorteile li").count() === 5, `Verkaufsbildschirm: ${await kaufSeite.locator(".kauf-vorteile li").count()} Punkte statt 5`);
+    pruefe(await kaufSeite.locator("[data-kauf-form]").count() === 0, "Verkaufsbildschirm: ein angemeldetes Elternkonto bekommt trotzdem das Anmeldeformular");
+    pruefe(await kaufSeite.locator(".auth-tabs").count() === 0, "Verkaufsbildschirm: die Reiter Kind/Eltern stehen da");
+    pruefe(await kaufSeite.locator('[href="agb.html"]').count() === 1, "Verkaufsbildschirm: die AGB sind nicht verlinkt");
+    await knips(page, "5-verkaufsbildschirm");
+    await kaufSeite.locator("[data-kaufen]").click({ timeout: 5000 });
+    await page.waitForTimeout(600);
+    pruefe(anfragen.filter((a) => a.pfad === "checkout").length === vorher + 1, "Verkaufsbildschirm: der Kaufknopf ruft die Kasse nicht an");
     await context.close();
   }
 
@@ -549,4 +569,4 @@ if (befunde.length) {
   befunde.forEach((b) => console.error(`  - ${b}`));
   process.exit(1);
 }
-console.log("Der Elternbereich tut, was er soll: kaufen, Kinder anlegen, aufklappen, Passwort neu, Schwierigkeitsstufe, zurücksetzen, löschen, die Wagen der Familie – und nichts davon trifft eine fremde Familie.");
+console.log("Der Elternbereich tut, was er soll: kaufen, Kinder anlegen, aufklappen, Passwort neu, Schwierigkeitsstufe, zurücksetzen, löschen, die Wagen der Familie, der Verkaufsbildschirm – und nichts davon trifft eine fremde Familie.");

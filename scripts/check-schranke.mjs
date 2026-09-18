@@ -18,6 +18,7 @@
  *   - Startbild mit verbrauchter Runde: genau dieses Haus trägt ein Schloss,
  *     ist blass, zeigt beim Tippen das Tor – die anderen nicht
  *   - Tor: Zurück schliesst; "Für Eltern" → Rätsel; falsch dreimal → Tor;
+ *     richtig → der Preis, nicht die Anmeldung;
  *     richtig → Profilfenster
  *   - Direktaufruf: memory.html frisch baut die Bühne, memory.html mit
  *     verbrauchter Runde zeigt das Tor mit Rückweg
@@ -217,7 +218,9 @@ try {
   for (let i = 0; i < 3; i += 1) { await gate.locator("input").fill("1"); await gate.locator("button[type=submit]").click(); await page.waitForTimeout(150); }
   if (await tor.locator(".tor-gate").count()) fehlt("nach drei falschen Antworten steht das Rätsel noch");
   if (!(await tor.locator(".tor-eltern").isVisible())) fehlt("nach drei falschen Antworten fehlt der Eltern-Knopf");
-  // Richtig → Profilfenster.
+  // Richtig → der Verkaufsbildschirm: erst der Preis, dann die Anmeldung. Wer
+  // hier steht, hat gerechnet wie ein Erwachsener und will wissen, was das
+  // kostet – ein Anmeldeformular allein wäre eine Frage ohne Angebot.
   await tor.locator(".tor-eltern").click();
   await page.waitForTimeout(200);
   const text2 = (await tor.locator(".tor-gate-text").textContent()) || "";
@@ -227,7 +230,24 @@ try {
     await tor.locator(".tor-gate button[type=submit]").click();
     await page.waitForTimeout(400);
     if (await tor.count()) fehlt("nach der richtigen Antwort steht das Tor noch");
-    if (!(await page.locator(".account-modal:not(.hidden) .auth-tabs").count())) fehlt("nach der richtigen Antwort ist das Profilfenster nicht offen");
+    const kauf = page.locator(".account-modal:not(.hidden) .kauf-seite");
+    if (!(await kauf.count())) fehlt("nach der richtigen Antwort kommt nicht der Verkaufsbildschirm");
+    else {
+      const text = (await kauf.textContent()) || "";
+      if (!/CHF 30/.test(text)) fehlt("im Verkaufsbildschirm fehlt der Preis");
+      if (!/Familie/.test(text)) fehlt("im Verkaufsbildschirm steht nicht, dass der Kauf für die Familie gilt");
+      if (!(await kauf.locator(".kauf-vorteile li").count())) fehlt("im Verkaufsbildschirm fehlt, was dazugehört");
+      // Darunter die Anmeldung – nur für Eltern, und sie führt an die Kasse.
+      if (await kauf.locator(".auth-tabs").count()) fehlt("der Verkaufsbildschirm zeigt die Reiter Kind/Eltern");
+      if (!(await kauf.locator('[data-kauf-form] input[name="email"]').count())) fehlt("im Verkaufsbildschirm fehlt das Feld für die Eltern-Adresse");
+      if (await kauf.locator('input[name="loginName"]').count()) fehlt("der Verkaufsbildschirm fragt nach einem Kindernamen");
+      const knopf = (await kauf.locator('[data-kauf-form] button[type="submit"]').textContent()) || "";
+      if (!/bezahlen/i.test(knopf)) fehlt(`der Hauptknopf führt nicht zur Zahlung: "${knopf}"`);
+      // Das Fenster lässt sich wieder schliessen, ohne dass das Kind hängen bleibt.
+      await page.locator(".account-close").click();
+      await page.waitForTimeout(200);
+      if (await page.locator(".account-modal:not(.hidden)").count()) fehlt("der Verkaufsbildschirm lässt sich nicht schliessen");
+    }
   }
 
   // --- Direktaufruf ----------------------------------------------------------------
