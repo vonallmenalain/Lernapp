@@ -42,6 +42,40 @@
     try { localStorage.setItem(key, JSON.stringify(data)); } catch { /* privater Modus */ }
   }
 
+  // Im Mini-Modus (mini-games.js) bekommt ein Spiel eine Ablage, die nichts
+  // ablegt: kein localStorage, keine Cloud, kein Zuhören auf fremde Stände.
+  //
+  // Das ist keine Sparsamkeit, sondern der Sinn der Sache. Die Mini-Games
+  // laufen auf demselben Gerät und unter derselben Adresse wie die App – ohne
+  // diese Trennung schriebe die Runde, die ein Besucher über einen geteilten
+  // Link spielt, in die Bestenliste des Kindes, das hier wohnt, und zählte
+  // für dessen Wagen. Die Runde gehört aber in miniScores, sonst nirgends
+  // hin.
+  const miniModus = () => document.body?.dataset?.mini === "1";
+
+  function fluechtigesKonto(empty) {
+    // Einen Startwert darf der Mini-Modus mitgeben: den eigenen Bestwert aus
+    // der offenen Bestenliste. Sonst wäre für das Spiel jede erste Runde die
+    // beste, die es je gab – und Turmbau riefe bei jedem Neuladen "Neuer
+    // Rekord!". Mehr als diese eine Zahl kommt nicht herein.
+    let current = clone(window.LernappMini?.startStand?.(empty) || empty);
+    const listeners = [];
+    return {
+      read() { return current; },
+      write(data) {
+        current = data;
+        listeners.forEach((fn) => { try { fn(current); } catch { /* egal */ } });
+        return current;
+      },
+      update(fn) { return this.write(fn(current)); },
+      reset() { return this.write(clone(empty)); },
+      onChange(fn) { listeners.push(fn); return () => {
+        const i = listeners.indexOf(fn);
+        if (i >= 0) listeners.splice(i, 1);
+      }; },
+    };
+  }
+
   /*
    * Meldet einen Spielstand an.
    *
@@ -53,6 +87,7 @@
    * Zurück kommt ein kleines Konto mit read(), write() und onChange().
    */
   function register({ key, empty = {}, merge = (local) => local }) {
+    if (miniModus()) return fluechtigesKonto(empty);
     let current = readLocal(key, empty);
     const listeners = [];
 

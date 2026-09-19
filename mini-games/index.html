@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="application-name" content="Gripszug" />
+    <meta name="description" content="Mini-Games von Gripszug: eine Runde spielen, Namen eintragen, oben stehen. Ohne Konto, ohne Anmeldung – die Bestenliste sehen alle." />
+    <meta name="theme-color" content="#a8ddf0" />
+    <title>Mini-Games · Gripszug</title>
+    <link rel="stylesheet" href="../styles.css?v=2026-09-19-22" />
+    <link rel="icon" type="image/png" sizes="32x32" href="../icons/icon-32.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="../icons/apple-touch-icon-180.png" />
+  </head>
+  <!-- Diese Seite sieht kein Kind auf dem Weg durch die App, sondern jemand,
+       dem ein Link geschickt wurde. Deshalb steht hier Text, und deshalb steht
+       am body data-mini: Daran erkennen firebase.js (kein Besuch zählen) und
+       das Stylesheet (kein Konto-Knopf), dass wir neben der App stehen und
+       nicht in ihr. Gebaut wird der Inhalt von mini-games.js. -->
+  <body data-page="mini-hub" data-mini="1">
+    <main class="mini-seite" data-mini-uebersicht>
+      <p class="mini-hinweis">Die Mini-Games werden geladen...</p>
+    </main>
+
+    <script defer src="https://www.gstatic.com/firebasejs/12.7.0/firebase-app-compat.js"></script>
+    <script defer src="https://www.gstatic.com/firebasejs/12.7.0/firebase-auth-compat.js"></script>
+    <script defer src="https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore-compat.js"></script>
+    <script defer src="../highscore.js?v=2026-09-19-22"></script>
+    <script defer src="../firebase.js?v=2026-09-19-22"></script>
+    <script defer src="../mini-games.js?v=2026-09-19-22"></script>
+  </body>
+</html>
