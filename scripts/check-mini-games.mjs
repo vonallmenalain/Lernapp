@@ -91,7 +91,19 @@ const ATTRAPPE = `
     isFreieSpieleLoaded: () => true,
     getMiniSpiele: () => [...spiele],
     isMiniSpieleLoaded: () => true,
-    miniErgebnisse: async () => [...eintraege.values()].map((e) => ({ ...e })),
+    miniErgebnisse: async (spiele) => {
+      const gefragt = Array.isArray(spiele) ? spiele : [];
+      window.__miniGefragt = gefragt;
+      return [...eintraege.values()].filter((e) => gefragt.includes(e.game)).map((e) => ({ ...e }));
+    },
+    miniNameAendern: async ({ game, spieler, name }) => {
+      const id = game + "_" + spieler;
+      const alt = eintraege.get(id);
+      if (!alt) return null;
+      eintraege.set(id, { ...alt, name, updatedAtMs: Date.now() });
+      sichern();
+      return { rekord: false, punkte: alt.punkte, versuche: alt.versuche };
+    },
     miniSpeichern: async ({ game, spieler, name, punkte }) => {
       const id = game + "_" + spieler;
       const alt = eintraege.get(id);
@@ -225,6 +237,20 @@ try {
     const versuche = await seite.evaluate(() => [...window.__miniEintraege.values()].filter((e) => e.game === "towerStack" && e.name === "Testkind")[0]?.versuche);
     pruefe(versuche === 2, `Nach zwei Runden stehen ${versuche} Versuche in der Liste.`);
 
+    // Umbenennen ist keine Runde. Vorher meldete "Name ändern" dieselbe Runde
+    // ein zweites Mal – und aus zwei gespielten wurden drei gezählte.
+    await seite.click(".mini-name-steht button");
+    await seite.waitForSelector(".mini-namensfeld input", { timeout: 4000 });
+    await seite.fill(".mini-namensfeld input", "Testkind Zwei");
+    await seite.click(".mini-namensfeld button");
+    // Gewartet wird auf den Eintrag, nicht auf den Satz darüber: Der Satz ist
+    // schon wieder der über den eigenen Platz, sobald die Liste neu da ist.
+    await seite.waitForFunction(() => [...window.__miniEintraege.values()]
+      .some((e) => e.game === "towerStack" && e.name === "Testkind Zwei"), null, { timeout: 6000 });
+    const nachUmbenennen = await seite.evaluate(() => [...window.__miniEintraege.values()].filter((e) => e.game === "towerStack" && e.spieler === localStorage.getItem("lernapp.mini.id"))[0]);
+    pruefe(nachUmbenennen?.versuche === 2, `Das Umbenennen hat eine Runde erfunden: ${nachUmbenennen?.versuche} statt 2.`);
+    pruefe(nachUmbenennen?.name === "Testkind Zwei", `Der neue Name kam nicht an: ${nachUmbenennen?.name}`);
+
     await kontext.close();
   }
 
@@ -240,6 +266,9 @@ try {
     pruefe(await seite.locator(".mini-tabelle tbody tr").count() >= 1, "Die Auswertung der Spieler fehlt.");
     const kopfzeilen = await seite.locator(".mini-tabelle th").allInnerTexts();
     pruefe(kopfzeilen.some((z) => /rang/i.test(z)), `In der Auswertung fehlt der Durchschnittsrang (Spalten: ${kopfzeilen.join(", ")}).`);
+    const gefragt = await seite.evaluate(() => window.__miniGefragt || []);
+    pruefe(gefragt.length === 2 && gefragt.includes("towerStack") && gefragt.includes("fishPond"),
+      `Die Übersicht fragt nach ${JSON.stringify(gefragt)} statt nach genau den freigegebenen Spielen.`);
     const zurApp = await seite.getAttribute(".mini-kopf a", "href");
     pruefe(zurApp === "/", `"Zur App" zeigt auf ${zurApp} statt auf /.`);
     const spielen = await seite.getAttribute(".mini-karte-aktionen a", "href");

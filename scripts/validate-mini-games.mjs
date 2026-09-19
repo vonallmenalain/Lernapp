@@ -107,6 +107,41 @@ pruefe(worker.includes("./mini-games.js"), "service-worker.js legt mini-games.js
 const regeln = lies("firestore.rules");
 pruefe(/match \/miniScores\/\{/.test(regeln), "firestore.rules kennt miniScores nicht – niemand käme in die Bestenliste.");
 pruefe(/istMiniEintrag/.test(regeln), "firestore.rules prüft die Einträge der Mini-Games nicht.");
+// Die Liste der erlaubten Spiele steht zweimal: in mini-games.js, damit die
+// Seiten entstehen, und in den Regeln, damit niemand ein erfundenes Spiel
+// einträgt. Zwei Listen, die auseinanderlaufen, wären schlimmer als eine
+// schlechte: Ein neues Mini-Game käme dann durch die Regeln nicht durch, und
+// niemand wüsste warum.
+{
+  const block = regeln.match(/function miniSpiele\(\) \{\s*return \[([\s\S]*?)\];/);
+  pruefe(Boolean(block), "firestore.rules führt keine Liste der erlaubten Mini-Games (miniSpiele).");
+  if (block) {
+    const inRegeln = [...block[1].matchAll(/"([^"]+)"/g)].map(([, id]) => id).sort();
+    const inModul = spieleAusModul().map((spiel) => spiel.id).sort();
+    pruefe(inRegeln.join(",") === inModul.join(","),
+      `firestore.rules und mini-games.js nennen verschiedene Spiele:\n      Regeln: ${inRegeln.join(", ")}\n      Modul:  ${inModul.join(", ")}`);
+  }
+}
+// Ein Name, eine Kennung und ein Bestwert sind kein Fortschritt der App: Ein
+// Zurücksetzen oder ein Wechsel des Wagen-Sets räumt alles unter "lernapp."
+// weg, was nicht in LOCAL_KEEP_KEYS steht – und nähme einem fremden Besucher
+// mit, was ihn in der Liste ausmacht.
+{
+  const cloud = lies("firebase.js");
+  const keep = cloud.match(/const LOCAL_KEEP_KEYS = new Set\(\[([\s\S]*?)\]\);/);
+  pruefe(Boolean(keep), "firebase.js führt keine Liste LOCAL_KEEP_KEYS mehr.");
+  ["lernapp.mini.name", "lernapp.mini.id", "lernapp.mini.best"].forEach((schluessel) => {
+    pruefe(Boolean(keep) && keep[1].includes(`"${schluessel}"`),
+      `${schluessel} steht nicht in LOCAL_KEEP_KEYS – ein Zurücksetzen der App löschte ihn mit.`);
+  });
+}
+// Gelesen wird je Spiel, nicht die ganze Kollektion: Sonst drängte ein gut
+// laufendes Mini-Game die Einträge eines anderen aus der Antwort.
+{
+  const cloud = lies("firebase.js");
+  pruefe(/\.where\("game", "==", id\)/.test(cloud), "firebase.js liest die Bestenliste nicht je Spiel.");
+  pruefe(/aendereMiniName/.test(cloud), "firebase.js kann einen Namen nicht ändern, ohne eine Runde daraus zu machen.");
+}
 
 // --- 6. Der Adminbereich -----------------------------------------------------
 const admin = lies("admin.js");

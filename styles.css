@@ -11732,21 +11732,26 @@ body[data-mini] .cm-bar .cm-title { display: none; }
 }
 .mini-kopf {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 16px;
   flex-wrap: wrap;
   /* Der Text nimmt den Platz, der Knopf nur seinen eigenen – sonst bricht der
      Vorspann mitten im Satz um, während rechts daneben nichts steht. */
-  padding: clamp(18px, 4vw, 30px);
-  border-radius: 26px;
+  padding: clamp(14px, 3vw, 20px) clamp(18px, 4vw, 26px);
+  border-radius: 22px;
   color: #fff;
   background:
     radial-gradient(circle at 88% -10%, rgba(255, 255, 255, 0.35), transparent 55%),
     linear-gradient(135deg, var(--mini-ton), var(--mini-ton-dunkel));
   box-shadow: 0 18px 40px rgba(185, 116, 26, 0.28);
 }
-.mini-kopf > div { flex: 1 1 18rem; min-width: 0; }
+.mini-kopf > div { flex: 1 1 auto; min-width: 0; }
+.mini-kopf h1.mini-marke {
+  margin: 0;
+  font-size: clamp(0.9rem, 2.6vw, 1.15rem);
+  letter-spacing: 0.1em;
+}
 .mini-kopf > .mini-knopf { flex: 0 0 auto; }
 .mini-kopf .mini-marke { color: rgba(255, 255, 255, 0.85); }
 .mini-kopf h1 {

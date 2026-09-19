@@ -90,6 +90,15 @@
     LOCAL_GUEST_ID_KEY,
     LOCAL_GUEST_CREATED_KEY,
     LOCAL_GUEST_PING_KEY,
+    // Die Mini-Games (mini-games.js) liegen neben der App: Name, Gerätekennung
+    // und der eigene Bestwert dort gehören keinem Konto und sind kein
+    // Fortschritt, den ein Zurücksetzen meint. Ohne diese drei Zeilen nähme
+    // ein zurückgesetztes Kinderkonto – oder ein Wechsel des Wagen-Sets –
+    // einem fremden Besucher seinen Namen und seine Kennung weg, und er stünde
+    // beim nächsten Mal als zweiter Eintrag in derselben Liste.
+    "lernapp.mini.name",
+    "lernapp.mini.id",
+    "lernapp.mini.best",
   ]);
   const EMPTY_STATS = { totalSeconds: 0, moves: 0, resets: 0, solvedLevels: 0, sessions: 0 };
   const state = {
@@ -276,6 +285,7 @@
     isMiniSpieleLoaded: () => state.miniSpieleBereit,
     miniErgebnisse: ladeMiniErgebnisse,
     miniSpeichern: speichereMiniErgebnis,
+    miniNameAendern: aendereMiniName,
 
     admin: {
       isAdmin: () => isAdminUser(),
@@ -1746,13 +1756,19 @@
   // Spieler und Spiel – deshalb steht in der Liste eine Zeile je Person, so
   // wie die Bestenliste der Gruppe in der App eine Zeile je Kind zeigt.
   //
-  // Gelesen wird alles auf einmal, sortiert wird im Browser (mini-games.js).
-  // Eine Abfrage mit where und orderBy verlangte einen zusammengesetzten
-  // Index – eine Datei mehr, die jemand von Hand nach Firebase bringen muss,
-  // und ein Fehler, der erst in der Produktion auffällt. Die Liste ist eine
-  // unter Freunden; die Grenze unten ist grosszügiger, als sie je gebraucht
-  // wird, und sie ist da, damit ein voller Topf keine Seite lahmlegt.
-  const MINI_MAX = 800;
+  // Gelesen wird je Spiel, nicht die ganze Kollektion: where("game", "==", …)
+  // ist eine Abfrage über ein einziges Feld und braucht deshalb keinen
+  // zusammengesetzten Index – eine Datei mehr, die jemand von Hand nach
+  // Firebase bringen muss, wäre ein Fehler, der erst in der Produktion
+  // auffällt.
+  //
+  // Hier stand einmal eine einzige Abfrage über alles mit limit(800), und das
+  // war falsch: Die Grenze galt für den Topf, nicht für das Spiel. Ein gut
+  // laufendes Mini-Game hätte mit seinen Einträgen die eines anderen aus der
+  // Antwort gedrängt – samt der Einträge von Spielen, die gar nicht mehr
+  // freigegeben sind und trotzdem gelesen wurden. Je Spiel gilt die Grenze
+  // jetzt für dieses Spiel, und wer nicht gefragt wird, kostet nichts.
+  const MINI_MAX_JE_SPIEL = 300;
   const MINI_NAME_MAX = 24;
 
   function miniScoresRef() {
@@ -1778,16 +1794,66 @@
     };
   }
 
-  async function ladeMiniErgebnisse() {
+  /*
+   * Die Ergebnisse der genannten Spiele. Gefragt wird nur nach denen, die
+   * gerade freigegeben sind – wer nicht gefragt wird, taucht auch in keiner
+   * Zahl auf, und ein Spiel, das der Admin herausgenommen hat, blähte sonst
+   * die Runden der Übersicht auf, ohne selbst dazustehen.
+   *
+   * Ein Spiel, das nicht antwortet, wirft die anderen nicht um: Die Liste
+   * kommt dann ohne dieses eine – besser als eine leere Seite.
+   */
+  async function ladeMiniErgebnisse(spiele = []) {
     const ref = miniScoresRef();
-    if (!ref) return [];
-    const schnappschuss = await ref.limit(MINI_MAX).get();
+    const ids = [...new Set((Array.isArray(spiele) ? spiele : [])
+      .map((id) => String(id || "").trim())
+      .filter(Boolean))];
+    if (!ref || !ids.length) return [];
+
+    const antworten = await Promise.all(ids.map((id) => ref
+      .where("game", "==", id)
+      .limit(MINI_MAX_JE_SPIEL)
+      .get()
+      .catch((error) => {
+        console.warn(`Die Bestenliste von ${id} konnte nicht gelesen werden`, error);
+        return null;
+      })));
+
     const liste = [];
-    schnappschuss.forEach((doc) => {
-      const eintrag = liesMiniEintrag(doc);
-      if (eintrag) liste.push(eintrag);
+    antworten.forEach((schnappschuss) => {
+      if (!schnappschuss) return;
+      schnappschuss.forEach((doc) => {
+        const eintrag = liesMiniEintrag(doc);
+        if (eintrag) liste.push(eintrag);
+      });
     });
     return liste;
+  }
+
+  /*
+   * Ein neuer Name, ohne dass eine Runde daraus wird.
+   *
+   * Ohne diesen Weg musste sich ein Umbenennen als Runde verkleiden – und
+   * genau das tat es: Wer nach einer Runde auf "Name ändern" tippte, hatte
+   * danach zwei Versuche für ein Spiel. Die Regeln lassen deshalb eine
+   * Änderung zu, die nur den Namen anfasst (firestore.rules, miniScores).
+   */
+  async function aendereMiniName({ game, spieler, name }) {
+    const spielId = String(game || "").trim();
+    const spielerId = String(spieler || "").trim();
+    const wie = String(name || "").replace(/\s+/g, " ").trim().slice(0, MINI_NAME_MAX);
+    if (!spielId || !spielerId || !wie) throw new Error("Für einen neuen Namen fehlt etwas.");
+    const ref = miniScoresRef();
+    if (!ref) throw new Error("Firestore ist nicht bereit.");
+
+    const doc = ref.doc(`${spielId}_${spielerId}`);
+    const vorher = await doc.get();
+    // Noch kein Eintrag: Dann gibt es auch nichts umzubenennen – der Name
+    // gilt ab der nächsten Runde.
+    if (!vorher.exists) return null;
+    await doc.set({ name: wie, updatedAtMs: Date.now(), updatedAt: serverTimestamp() }, { merge: true });
+    const alt = liesMiniEintrag(vorher);
+    return { rekord: false, punkte: alt?.punkte ?? 0, versuche: alt?.versuche ?? 1 };
   }
 
   /*

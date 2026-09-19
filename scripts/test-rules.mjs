@@ -357,6 +357,10 @@ try {
   await darfNicht("Gast legt einen Eintrag ohne Namen an", () => gast().doc(MINI).set(miniEintrag({ name: "" })));
   await darfNicht("Gast legt einen Eintrag mit endlos langem Namen an", () => gast().doc(MINI).set(miniEintrag({ name: "X".repeat(25) })));
   await darfNicht("Gast legt einen Eintrag mit erfundener Kennung an", () => gast().doc("miniScores/towerStack_wer-auch-immer").set(miniEintrag({ spieler: "wer-auch-immer" })));
+  // Nur Spiele, die es als Mini-Game gibt: Sonst füllte sich die Kollektion
+  // mit erfundenen Namen, und die Übersicht führte Spiele, die niemand kennt.
+  await darfNicht("Gast legt einen Eintrag für ein erfundenes Spiel an", () => gast().doc("miniScores/schachweltmeister_mini_abcdefghijkl").set(miniEintrag({ game: "schachweltmeister" })));
+  await darfNicht("Gast legt einen Eintrag für ein Spiel ohne Punktzahl an", () => gast().doc("miniScores/arukone_mini_abcdefghijkl").set(miniEintrag({ game: "arukone" })));
   await darfNicht("Gast legt einen Eintrag mit unmöglicher Punktzahl an", () => gast().doc(MINI).set(miniEintrag({ punkte: 99999999 })));
   await darfNicht("Gast legt einen Eintrag mit Kommazahl an", () => gast().doc(MINI).set(miniEintrag({ punkte: 17.5 })));
   await darfNicht("Gast schmuggelt ein eigenes Feld in den Eintrag", () => gast().doc(MINI).set(miniEintrag({ admin: true })));
@@ -368,6 +372,11 @@ try {
   await darf("Gast schreibt eine bessere Runde", () => gast().doc(MINI).set({ name: "Alain", punkte: 42, versuche: 2, updatedAtMs: 2 }, { merge: true }));
   await darf("Gast zählt eine schlechtere Runde mit", () => gast().doc(MINI).set({ name: "Alain", punkte: 42, versuche: 3, updatedAtMs: 3 }, { merge: true }));
   await darf("Gast ändert seinen Namen", () => gast().doc(MINI).set({ name: "Alain S.", punkte: 42, versuche: 4, updatedAtMs: 4 }, { merge: true }));
+  // Ein neuer Name ist keine Runde: Der Zähler bleibt stehen, und genau das
+  // muss erlaubt sein – sonst hätte jede Umbenennung einen Versuch erfunden.
+  await darf("Gast ändert nur seinen Namen, ohne neue Runde", () => gast().doc(MINI).set({ name: "Alain V.", updatedAtMs: 6 }, { merge: true }));
+  await darfNicht("Gast schmuggelt Punkte in eine Umbenennung", () => gast().doc(MINI).set({ name: "Alain", punkte: 99, updatedAtMs: 7 }, { merge: true }));
+  await darfNicht("Gast schmuggelt einen Versuch aus einer Umbenennung heraus", () => gast().doc(MINI).set({ name: "Alain", versuche: 3, updatedAtMs: 7 }, { merge: true }));
   await darfNicht("Gast rechnet seine Punktzahl klein", () => gast().doc(MINI).set({ name: "Alain", punkte: 3, versuche: 5, updatedAtMs: 5 }, { merge: true }));
   await darfNicht("Gast lässt Versuche verschwinden", () => gast().doc(MINI).set({ name: "Alain", punkte: 42, versuche: 1, updatedAtMs: 5 }, { merge: true }));
   await darfNicht("Gast schreibt eine Runde ohne neuen Versuch", () => gast().doc(MINI).set({ name: "Alain", punkte: 43, versuche: 4, updatedAtMs: 5 }, { merge: true }));

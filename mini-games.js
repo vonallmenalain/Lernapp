@@ -253,20 +253,28 @@
   // ---------------------------------------------------------------------------
   // Die Ergebnisse
   // ---------------------------------------------------------------------------
-  // Gelesen wird die ganze Kollektion auf einmal und dann hier sortiert: Eine
-  // Abfrage mit Sortierung bräuchte einen zusammengesetzten Index in Firestore,
-  // und ein Index, den jemand von Hand anlegen muss, ist eine Falle für den
-  // Tag, an dem die Datenbank neu aufgesetzt wird. So viele Zeilen werden es
-  // ohnehin nicht: Es ist eine Liste unter Freunden, keine Weltrangliste.
+  // Gefragt wird je Spiel, und nur nach den freigegebenen: firebase.js stellt
+  // eine Abfrage je Spiel (ohne Sortierung, die bräuchte einen
+  // zusammengesetzten Index) und legt die Antworten zusammen. Sortiert wird
+  // hier. Ein Spiel, das der Admin herausgenommen hat, wird gar nicht erst
+  // gelesen – seine Ergebnisse bleiben stehen, zählen aber nirgends mit,
+  // solange es nicht dabei ist.
   let zwischenspeicher = null;
   let zwischenspeicherMs = 0;
+  let zwischenspeicherFuer = "";
   const FRISCH_MS = 20000;
 
   async function alleErgebnisse({ neu = false } = {}) {
-    if (!neu && zwischenspeicher && Date.now() - zwischenspeicherMs < FRISCH_MS) return zwischenspeicher;
-    const daten = await (cloud()?.miniErgebnisse?.() || Promise.resolve([]));
+    const spiele = freigegeben();
+    const schluessel = spiele.join(",");
+    // Der Zwischenspeicher gilt nur für dieselbe Frage: Hakt der Admin ein
+    // Spiel dazu, wäre eine Antwort von vorhin eine falsche.
+    if (!neu && zwischenspeicher && zwischenspeicherFuer === schluessel
+      && Date.now() - zwischenspeicherMs < FRISCH_MS) return zwischenspeicher;
+    const daten = await (cloud()?.miniErgebnisse?.(spiele) || Promise.resolve([]));
     zwischenspeicher = Array.isArray(daten) ? daten : [];
     zwischenspeicherMs = Date.now();
+    zwischenspeicherFuer = schluessel;
     return zwischenspeicher;
   }
 
@@ -334,6 +342,16 @@
   // sie besser ist als die bisherige, und ein Versuch mehr. Ohne Namen wird
   // noch nichts geschrieben – dann steht erst das Feld da, und der Eintrag
   // entsteht, wenn jemand ihn haben will.
+  // Nur den Namen ändern, ohne dass eine Runde daraus wird. Gibt es noch
+  // keinen Eintrag, gilt der neue Name ab der nächsten Runde von selbst.
+  async function benenneUm(spiel) {
+    const wie = name();
+    if (!wie || !spiel) return null;
+    const ergebnis = await cloud()?.miniNameAendern?.({ game: spiel, spieler: kennung(), name: wie });
+    zwischenspeicher = null;
+    return ergebnis || null;
+  }
+
   async function melde(spiel, punkte) {
     const wie = name();
     if (!wie) return null;
@@ -555,7 +573,15 @@
       });
     }
 
+    // Diese Runde wird genau einmal gemeldet. Danach ändert "Name ändern" nur
+    // noch den Namen: Wer sich umbenennt, hat nicht noch einmal gespielt – und
+    // ein zweiter Aufruf von melde() zählte ihm einen Versuch an, den es nie
+    // gab.
+    let schonGemeldet = false;
+
     function melden() {
+      if (schonGemeldet) { benennen(); return; }
+      schonGemeldet = true;
       meldung.textContent = "Wird eingetragen...";
       melde(spiel, punkte)
         .then((stand) => {
@@ -564,7 +590,26 @@
           zeigeListe(true);
         })
         .catch(() => {
+          // Angekommen ist nichts – dann ist die Runde auch nicht gemeldet,
+          // und der nächste Anlauf darf es wieder versuchen, statt nur noch
+          // umbenennen zu wollen.
+          schonGemeldet = false;
           meldung.textContent = "Das Eintragen hat nicht geklappt. Die Runde zählt trotzdem.";
+          zeigeListe(false);
+        });
+    }
+
+    function benennen() {
+      meldung.textContent = "Wird geändert...";
+      benenneUm(spiel)
+        .then((stand) => {
+          // Ohne Eintrag gibt es nichts umzubenennen – der Name gilt dann ab
+          // der nächsten Runde, und das steht auch so da.
+          meldung.textContent = stand ? "Geändert." : "Der Name gilt ab der nächsten Runde.";
+          zeigeListe(Boolean(stand));
+        })
+        .catch(() => {
+          meldung.textContent = "Der neue Name konnte nicht gespeichert werden.";
           zeigeListe(false);
         });
     }
@@ -713,11 +758,13 @@
   async function baueUebersicht(wirt) {
     wirt.innerHTML = "";
 
+    // Kein Werbesatz und kein Vorspann: Wer hier ankommt, hat einen Link
+    // angeklickt und weiss, warum. Was er sucht, sind die Spiele und die
+    // Liste – der Name des Orts genügt darüber, und er ist zugleich die
+    // Überschrift der Seite.
     const kopf = el("header", "mini-kopf");
     const text = el("div");
-    text.append(el("p", "mini-marke", "Gripszug · Mini-Games"));
-    text.append(el("h1", "", "Spiel eine Runde. Und dann noch eine."));
-    text.append(el("p", "mini-lead", "Kein Konto, keine Anmeldung: Spielen, Namen eintragen, oben stehen. Deine Bestzahl sehen alle, die hier vorbeikommen."));
+    text.append(el("h1", "mini-marke", "Gripszug · Mini-Games"));
     kopf.append(text);
     kopf.append(verweis("Zur App", appLink(), "mini-knopf-hell"));
     wirt.append(kopf);
@@ -737,6 +784,9 @@
       return;
     }
 
+    // alle enthält nur noch die freigegebenen Spiele (alleErgebnisse fragt gar
+    // nicht nach den anderen) – die Zahl oben zählt also dasselbe, was
+    // darunter als Karte und als Spieler dasteht.
     const runden = alle.reduce((summe, eintrag) => summe + Math.max(1, Number(eintrag.versuche) || 1), 0);
     const personen = auswertung(alle, offen);
     wirt.append(streifen([

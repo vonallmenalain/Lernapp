@@ -269,12 +269,25 @@ service cloud.firestore {
       return id is string && id.matches('mini_[A-Za-z0-9_-]{8,48}');
     }
 
+    // Die Spiele, die es als Mini-Game überhaupt gibt. Dieselbe Liste steht in
+    // mini-games.js (SPIELE); scripts/validate-mini-games.mjs hält die beiden
+    // zusammen. Ohne sie stünde in game, was der Schreiber hineinschreibt –
+    // und die Kollektion füllte sich mit Spielen, die es nicht gibt.
+    function miniSpiele() {
+      return [
+        "backpack", "beachTreasure", "tileMemory", "missingItem",
+        "flanker", "fishPond", "goSignal",
+        "cardMatch", "leafFlow", "towerStack", "twinSpot",
+        "numberLine",
+      ];
+    }
+
     function istMiniEintrag(eintragId) {
       let d = request.resource.data;
       return eintragId == d.game + "_" + d.spieler
         && d.keys().hasAll(["game", "spieler", "name", "punkte", "versuche", "updatedAtMs"])
         && d.keys().hasOnly(["game", "spieler", "name", "punkte", "versuche", "erstesMs", "updatedAtMs", "updatedAt"])
-        && d.game is string && d.game.size() > 0 && d.game.size() <= 40
+        && d.game is string && d.game in miniSpiele()
         && istMiniSpieler(d.spieler)
         && d.name is string && d.name.size() > 0 && d.name.size() <= 24
         && d.punkte is int && d.punkte >= 0 && d.punkte <= 1000000
@@ -282,15 +295,31 @@ service cloud.firestore {
         && d.updatedAtMs is int;
     }
 
+    // Ein Eintrag bleibt, wem er gehört, und bleibt in seinem Spiel.
+    function istDerselbeEintrag() {
+      return request.resource.data.game == resource.data.game
+        && request.resource.data.spieler == resource.data.spieler;
+    }
+
     match /miniScores/{eintragId} {
       // Lesen darf jeder, auch ohne Konto: Die Liste ist der Sinn der Sache.
       allow read: if true;
       allow create: if istMiniEintrag(eintragId) && request.resource.data.versuche == 1;
+      // Eine Runde: die Punktzahl steigt oder bleibt, der Zähler steigt.
       allow update: if istMiniEintrag(eintragId)
-        && request.resource.data.game == resource.data.game
-        && request.resource.data.spieler == resource.data.spieler
+        && istDerselbeEintrag()
         && request.resource.data.punkte >= resource.data.punkte
         && request.resource.data.versuche > resource.data.versuche;
+      // Und ein neuer Name, ohne dass eine Runde daraus wird. Wer sich
+      // umbenennt, hat nicht gespielt – ein Zähler, der dabei steigt, machte
+      // aus jeder Umbenennung einen Versuch, den es nie gab. Erlaubt ist
+      // deshalb genau eines: der Name (und die Uhr daneben), sonst nichts.
+      allow update: if istMiniEintrag(eintragId)
+        && istDerselbeEintrag()
+        && request.resource.data.punkte == resource.data.punkte
+        && request.resource.data.versuche == resource.data.versuche
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(["name", "updatedAtMs", "updatedAt"]);
       allow delete: if isAdmin();
     }
 
