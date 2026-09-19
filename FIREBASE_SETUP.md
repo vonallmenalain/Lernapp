@@ -276,14 +276,22 @@ Der Filter trennt die beiden Fragen, die hier zusammenliegen: „Wie viele waren
 haben gespielt?".
 
 **Was als „gespielt" zählt.** Die Spiele mit Levelkatalog hinterlassen `levelProgress` und
-`sessions`. Die Spiele mit eigenem Konto – Turmbau, Memory, Tier-Sprung, der Karten-Merker und die
+`sessions`. Die Spiele mit eigenem Kasten – Turmbau, Memory, Tier-Sprung, der Karten-Merker und die
 übrigen aus `game-cloud.js` – tun das nicht: Sie rufen `recordLevelStart` nie auf, und ihr Stand
-geht für einen Gast gar nicht in die Cloud (`saveGameState` bricht ohne Konto ab). Ein Kind, das
-eine Stunde Turmbau spielt, hinterliess damit in der Cloud genau nichts – und stünde hier als „nur
-besucht", mitten im Zugriff des Sammelknopfs. Deshalb setzt `markiereGastSpiel()` (firebase.js)
-für einen Gast die Marke `hatGespielt: true`, gedrosselt auf einmal je Minute. Der Spielstand
-selbst bleibt dabei auf dem Gerät, wie bisher. Die Frage selbst beantwortet `guestHasPlayed()` an
-einer Stelle, nicht zweimal.
+ging für einen Gast nirgendwohin, weil `saveGameState` ohne Konto abbrach. Ein Kind, das eine
+Stunde Turmbau spielte, hinterliess in der Cloud genau nichts; im Adminbereich stand bei jedem
+dieser Spiele „nie gespielt", egal wie viel gespielt wurde.
+
+Seit `gastSpielstandSichern()` (firebase.js) geht der Kasten deshalb auch für einen Gast in die
+Cloud – in derselben Form wie bei einem Konto (`gameState.<schlüssel> = { data, updatedAt }`),
+dazu die Marke `hatGespielt`. Der Adminbereich rechnet damit unverändert weiter und zeigt unter
+„Spiele ohne Level" die Runden **und das beste Ergebnis**; ohne diese Zahl liesse sich nur
+ablesen, DASS gespielt wurde, nicht wie weit jemand gekommen ist.
+
+Massgeblich bleibt trotzdem das Gerät: Gelesen wird der Kasten für einen Gast nie zurück –
+`game-cloud.js` führt ihn aus dem localStorage, und ein zweites Gerät hat ohnehin eine eigene
+Gastkennung. Was in der Cloud liegt, ist eine Kopie für den Adminbereich, kein Speicherort. Die
+Frage „hat gespielt?" beantwortet `guestHasPlayed()` an einer Stelle, nicht zweimal.
 
 `/api/besuch` ist neben `passwort-mail` der einzige offene Endpunkt – ein Gast hat kein
 Firebase-Token, es gibt niemanden zu prüfen. Deshalb zwei Schranken: Die Gastkennung muss dem

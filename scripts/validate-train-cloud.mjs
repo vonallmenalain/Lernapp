@@ -4,7 +4,10 @@
  * der Fortschritt: users/<uid>.
  *
  * Hier geht es um die Regeln, nicht um das Bild:
- *   - Ohne Konto wird nichts geschrieben.
+ *   - Ohne Konto wird nichts nach users/ geschrieben. Lok und Landschaft
+ *     schweigen ganz; der Kasten eines Spiels ohne Levelkatalog geht als
+ *     Kopie an das Gastdokument, damit der Adminbereich sieht, wer gespielt
+ *     hat – massgeblich bleibt trotzdem das Gerät.
  *   - Beim Anmelden meldet die App, was in der Cloud steht.
  *   - Geschrieben wird zusammenführend, damit ein Feld den Fortschritt daneben
  *     nicht wegwirft.
@@ -204,11 +207,37 @@ const LOCO = {
 
 const settingsEvents = () => events.filter((event) => event.type === "lernapp:train-settings");
 
-// --- Ohne Konto wird nichts geschrieben -------------------------------------
+// --- Ohne Konto: die Einstellungen schweigen, der Spielkasten nicht ---------
+// Zwei verschiedene Dinge, und der Unterschied ist Absicht.
+//
+// Lok und Landschaft gehören einem Konto. Ohne Anmeldung gibt es nichts zu
+// schreiben, und es wird auch nichts geschrieben.
+//
+// Der Kasten eines Spiels ohne Levelkatalog dagegen geht als Kopie an das
+// Gastdokument. Ohne diese Kopie stand im Adminbereich bei jedem dieser Spiele
+// "nie gespielt" – auch bei dem, das eine Stunde lang gespielt wurde. Was hier
+// zählt: Es geht nach guests/, nie nach users/, und der Rückgabewert bleibt
+// false, weil sich für die App selbst nichts geändert hat.
 assert(cloud.getTrainSettings() === null, "ohne Anmeldung meldet die App schon Einstellungen");
 assert(await cloud.saveTrainSettings({ loco: LOCO, scene: "wald", updatedAt: 5 }) === false,
   "ohne Anmeldung wird gespeichert");
-assert(writes.length === 0, `ohne Anmeldung wurden ${writes.length} Schreibvorgänge ausgelöst`);
+assert(writes.length === 0, `ohne Anmeldung wurden ${writes.length} Schreibvorgänge für die Einstellungen ausgelöst`);
+
+assert(await cloud.saveGameState("lernapp.turmbau", { runs: 1, scores: [17] }) === false,
+  "ohne Anmeldung meldet saveGameState einen Treffer im Zustand der App");
+const gastSchreibt = writes.filter((w) => String(w.path).startsWith("guests/"));
+assert(gastSchreibt.length === 1,
+  `ohne Anmeldung ging der Spielkasten ${gastSchreibt.length} Mal an einen Gast, erwartet einmal`);
+assert(!writes.some((w) => String(w.path).startsWith("users/")),
+  "ohne Anmeldung wurde nach users/ geschrieben");
+assert(gastSchreibt[0].merge === true,
+  "der Gastkasten wird ohne merge geschrieben – das löschte Besuchszähler, Ort und Gerät daneben");
+assert(gastSchreibt[0].payload?.gameState?.["lernapp.turmbau"]?.data?.scores?.[0] === 17,
+  `die Punkte fehlen im geschriebenen Kasten: ${JSON.stringify(gastSchreibt[0].payload?.gameState)}`);
+assert(gastSchreibt[0].payload?.hatGespielt === true, "die Marke «hat gespielt» fehlt am Gastdokument");
+assert(cloud.getGameState() === null,
+  "der Kasten eines Gastes landet im Zustand der App – massgeblich bleibt sein Gerät");
+writes.length = 0;
 
 // --- Anmelden: was in der Cloud steht, wird gemeldet -------------------------
 store.set("users/kind1", {
@@ -329,6 +358,8 @@ assert(writes.length === 0, "für Unfug wurde geschrieben");
 await authCallback(null);
 assert(cloud.getGameState() === null, "nach dem Abmelden hängen die Spielstände noch im Zustand");
 assert(await cloud.saveGameState("lernapp.cardmatch", { runs: 1 }) === false,
-  "nach dem Abmelden wird noch geschrieben");
+  "nach dem Abmelden meldet saveGameState einen Treffer im Zustand der App");
+assert(!writes.some((w) => String(w.path).startsWith("users/")),
+  "nach dem Abmelden wurde noch nach users/ geschrieben");
 
-console.log(`Cloud-Einstellungen geprüft: users/<uid>.trainSettings und .gameState, zusammenführendes Schreiben je Spiel, ohne Konto stumm.`);
+console.log(`Cloud-Einstellungen geprüft: users/<uid>.trainSettings und .gameState, zusammenführendes Schreiben je Spiel, ohne Konto nichts nach users/ – der Spielkasten als Kopie an den Gast.`);

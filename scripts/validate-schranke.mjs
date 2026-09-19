@@ -195,9 +195,43 @@ const konto = ({ angemeldet = true, kauf = null, rolle = "child", eltern = null,
   // Eine Seite, die zu keinem Spiel gehört, zählt nichts hoch.
   e.rundeBeendet("train-test.html");
   pruefe(e.gameFree("train-test.html"), "eine fremde Seite wird gesperrt");
+  // --- Die saubere Adresse, ohne .html ------------------------------------
+  // Netlify liefert jede Seite auch ohne Endung aus, und genau so sieht eine
+  // Adresse aus, die man weitergibt: kids.alae.app/turmbau. Genau dort stand
+  // die Schranke offen – "turmbau" ist weder "turmbau.html" noch die Kennung
+  // "towerStack", also fand gameEntry nichts, und was es nicht findet, sperrt
+  // es nicht. Siebzehn der fünfundzwanzig Spiele waren so unbegrenzt frei.
+  e.rundeBeendet("turmbau");
+  pruefe(e.gespielteRunden("turmbau") === 1, `nach einer Runde über die saubere Adresse stehen ${e.gespielteRunden("turmbau")} Runden`);
+  pruefe(!e.gameFree("turmbau") && !e.gameFree("turmbau.html") && !e.targetFree("turmbau"),
+    "über die saubere Adresse (ohne .html) bleibt das Spiel offen – die Schnupperrunde greift nicht");
+  // Und ein voller Pfad, wie ihn window.location.pathname liefert.
+  pruefe(!e.gameFree("/turmbau") && !e.targetFree("/turmbau"), "ein Pfad mit Schrägstrich wird nicht erkannt");
+  // Die Reise gilt auch über die saubere Adresse.
+  pruefe(e.targetFree("turmbau?station=3"), "über die saubere Adresse entscheidet die Station nicht mehr");
   // Die Reise bleibt die Reise: Ihre ersten zehn Stationen sind frei, auch
   // wenn das Spiel dahinter seine Runde schon verbraucht hat.
   pruefe(e.targetFree("memory.html?station=3") && e.stationFree(10) && !e.stationFree(11), "die verbrauchte Runde schließt die freien Stationen");
+}
+// --- Jedes Spiel, in beiden Schreibweisen -----------------------------------
+// Eine Stichprobe genügte hier nicht: Offen standen genau die Spiele, deren
+// Kennung nicht zufällig so heisst wie ihre Datei – siebzehn von
+// fünfundzwanzig. Deshalb jedes einzeln, und jedes mit eigenem Zustand: Eine
+// verbrauchte Runde im selben Speicher verfälschte die nächste Prüfung.
+{
+  const ungefunden = [];
+  const vorlage = rechne(konto({ rolle: "child", eltern: "eltern1" }));
+  for (const bereich of vorlage.AREAS || []) {
+    for (const spiel of bereich.games || []) {
+      const sauber = spiel.page.replace(/\.html$/, "");
+      const e = rechne(konto({ rolle: "child", eltern: "eltern1" }));
+      if (!e.gameFree(sauber)) { ungefunden.push(`${sauber}: schon vor der Runde gesperrt`); continue; }
+      e.rundeBeendet(sauber);
+      if (e.gespielteRunden(spiel.page) !== 1 || e.gameFree(sauber)) ungefunden.push(`${sauber} (${spiel.id})`);
+    }
+  }
+  pruefe(ungefunden.length === 0,
+    `Über die saubere Adresse nicht erkannt und damit unbegrenzt frei: ${ungefunden.join(", ")}`);
 }
 // Auf der Reise zählt keine Runde: Die Adresse trägt eine Station.
 {

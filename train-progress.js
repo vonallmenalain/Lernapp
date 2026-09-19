@@ -301,7 +301,7 @@
   // Die drei Bänder an der Kiste des Wagens sind die drei Schritte: jedes füllt
   // sich, bis sein Schritt steht, und dann füllt sich das nächste. So ist auch
   // ohne Zahl zu sehen, wie weit es bis zum nächsten Teil noch ist.
-  function fromPlays(game, plays, { stars = [], unit = LEVEL_UNIT } = {}) {
+  function fromPlays(game, plays, { stars = [], unit = LEVEL_UNIT, best = null } = {}) {
     const stepAt = activeSet().stepAt;
     const total = stepAt[stepAt.length - 1];
     const solved = Math.max(0, Math.min(total, Math.floor(Number(plays) || 0)));
@@ -331,6 +331,11 @@
       stepAt: [...stepAt],
       stars: counted.reduce((sum, value) => sum + value, 0),
       maxStars: total * 3,
+      // Das beste Ergebnis, wo es eines gibt (Spiele mit Punkten). Für den
+      // Wagen zählt es nicht – der Adminbereich zeigt es, und ohne diese Zahl
+      // liesse sich bei einem Spiel ohne Level nur ablesen, DASS gespielt
+      // wurde, nicht wie weit jemand gekommen ist.
+      best: Number.isFinite(best) ? best : null,
       unit,
       worlds,
     };
@@ -376,7 +381,9 @@
       const scores = Array.isArray(stored.scores) ? stored.scores.filter((n) => Number.isFinite(n)) : [];
       const stars = [];
       for (let i = 0; i < runs; i += 1) stars.push(starsForScore(scores[i], gut));
-      return fromPlays(game, runs, { stars, unit: ROUND_UNIT });
+      // scores kommt absteigend sortiert aus dem Spiel – Math.max verlässt
+      // sich trotzdem nicht darauf.
+      return fromPlays(game, runs, { stars, unit: ROUND_UNIT, best: scores.length ? Math.max(...scores) : null });
     };
   }
 
