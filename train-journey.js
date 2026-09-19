@@ -371,11 +371,6 @@
           el("path", { d: "M652 206 L660 262 L710 262 L718 206 Z", fill: shade(look.mid, -0.35) }),
           el("ellipse", { cx: 685, cy: 258, rx: 22, ry: 5, fill: "#57b6d8" }),
         ];
-      case "night":
-        return [4, 5, 6, 7, 8, 9, 10, 11, 12].map((i) => el("circle", {
-          cx: 160 + i * 96 + (i % 3) * 20, cy: i % 2 ? 300 - (i % 4) * 14 : 470 - (i % 3) * 16, r: 2.6, fill: "#ffe98a",
-          class: "journey-firefly", style: `animation-delay: ${(i * 0.7) % 4}s`,
-        }));
       case "moon":
         return [[240, 300], [700, 296], [1000, 470], [380, 476]].map(([x, y], i) => group({}, [
           el("ellipse", { cx: x, cy: y, rx: 30 + (i % 2) * 10, ry: 9, fill: shade(look.mid, -0.3) }),
@@ -386,6 +381,17 @@
       default:
         return [];
     }
+  }
+  // Was zuoberst schwebt: die Glühwürmchen der Nacht. Sie sind das Einzige
+  // auf der Karte, das sich im Stand bewegt, und liegen darum über allem –
+  // ein animiertes Teil, das nichts überlappt, kostet nur seine eigene
+  // kleine Ebene (siehe layers in mount).
+  function featureTop(map) {
+    if (map.feature !== "night") return [];
+    return [4, 5, 6, 7, 8, 9, 10, 11, 12].map((i) => el("circle", {
+      cx: 160 + i * 96 + (i % 3) * 20, cy: i % 2 ? 300 - (i % 4) * 14 : 470 - (i % 3) * 16, r: 2.6, fill: "#ffe98a",
+      class: "journey-firefly", style: `animation-delay: ${(i * 0.7) % 4}s`,
+    }));
   }
   // Was auf der Gleis-Ebene liegt: unter den Schienen (die Brücke) oder
   // darüber (Geländer, Seile, die Zahnstange).
@@ -616,10 +622,23 @@
       class: "stage-svg journey-map", viewBox: `0 0 ${W} ${H}`, preserveAspectRatio: "xMidYMax meet",
       role: "group", "aria-label": "Die Streckenkarte der Reise",
     });
+    // Das Signal, der pulsende Ring und die Glühwürmchen liegen zuoberst,
+    // über Zug und Kehren: Der Browser legt jedes animierte SVG-Teil auf eine
+    // eigene Ebene der Grafikkarte – und alles, was danach gezeichnet wird
+    // und es überlappt, gleich mit. Was zuoberst liegt, überlappt nichts
+    // mehr und kostet nur sich selbst (siehe styles.css, "Ruhe auf der
+    // Karte"). Zug und Kehren überdecken sie trotzdem nie: das Signal steht
+    // neben der Station, der Ring liegt unter dem Gleis.
     const layers = {};
-    ["bg", "track", "lit", "front", "stations", "signal", "train", "covers"].forEach((name) => {
+    ["bg", "track", "lit", "front", "stations", "train", "covers", "signal", "marker", "top"].forEach((name) => {
       layers[name] = group({ class: `journey-layer journey-${name}` });
       svg.append(layers[name]);
+    });
+    // Von rechts hereingeschoben – und danach ohne Animation: Solange eine
+    // fertige Animation an der Karte hängt, hält der Browser die ganze
+    // Zeichnung samt Rändern als eigene Ebene auf der Grafikkarte.
+    svg.addEventListener("animationend", (event) => {
+      if (event.target === svg && event.animationName === "journey-slide-in") host.classList.remove("is-entering", "is-switching");
     });
 
     // Gemessen wird am eigenen Lineal, einmal für die ganze Sitzung.
@@ -698,6 +717,31 @@
     }
 
     let head = 0;
+    // Wie weit sich ein Rad je Einheit Weg dreht. Die Räder dreht die Fahrt
+    // selbst, über das Attribut – nicht eine CSS-Animation: Die legte jedes
+    // Rad auf eine eigene Ebene der Grafikkarte (und die Kehre, hinter der
+    // der Zug gerade fährt, auf eine weitere), und die Räder drehten sich
+    // auch, wenn der Zug stand. So drehen sie sich genau mit dem Weg.
+    const WHEEL_DEG_PER_UNIT = 4;
+    // Und der Dampf: drei Wolken, die in der Fahrt aus dem Kamin steigen –
+    // ebenfalls von der Fahrt bewegt statt vom Stylesheet. Dieselbe Bahn wie
+    // train-puff in styles.css, nur schneller, wie beim kleinen Zug.
+    const PUFF_MS = 1600;
+    const puffs = [...locoNode.querySelectorAll(".train-steam-puff")].map((node) => ({
+      node, cx: Number(node.getAttribute("cx")) || 0, cy: Number(node.getAttribute("cy")) || 0,
+    }));
+    function puff(now) {
+      puffs.forEach((p, i) => {
+        const t = ((now / PUFF_MS) + i / puffs.length) % 1;
+        const s = (0.6 + 1.1 * t).toFixed(2);
+        const o = t < 0.15 ? 0.9 * (t / 0.15) : 0.9 * (1 - (t - 0.15) / 0.85);
+        p.node.setAttribute("transform", `translate(${(30 * t).toFixed(1)},${(-54 * t).toFixed(1)}) translate(${p.cx},${p.cy}) scale(${s}) translate(${-p.cx},${-p.cy})`);
+        p.node.style.opacity = o.toFixed(2);
+      });
+    }
+    function restPuffs() {
+      puffs.forEach((p) => { p.node.removeAttribute("transform"); p.node.style.opacity = ""; });
+    }
     function place(v, d) {
       const p = pointAt(d);
       const q = pointAt(d + 2);
@@ -705,6 +749,10 @@
       const left = Math.cos(a * Math.PI / 180) < 0;
       const r = left ? a - 180 : a;
       v.node.setAttribute("transform", `translate(${p.x.toFixed(1)},${p.y.toFixed(1)}) rotate(${r.toFixed(1)}) ${left ? "scale(-1,1) " : ""}scale(${TRAIN_SCALE}) translate(${-v.cx},${-art.GROUND})`);
+      if (!v.wheels) v.wheels = [...v.node.querySelectorAll(".train-wheel")];
+      const deg = (((d * WHEEL_DEG_PER_UNIT) % 360) + 360) % 360;
+      const turn = `rotate(${deg.toFixed(1)})`;
+      v.wheels.forEach((wheel) => wheel.setAttribute("transform", turn));
     }
     function setHead(d) {
       head = d;
@@ -717,12 +765,14 @@
         const t0 = performance.now();
         const ease = (t) => (t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t);
         const step = (now) => {
-          if (token !== mountToken) { train.classList.remove("is-driving"); resolve(); return; }
+          if (token !== mountToken) { train.classList.remove("is-driving"); restPuffs(); resolve(); return; }
           const t = Math.min(1, (now - t0) / ms);
           setHead(from + (to - from) * ease(t));
+          puff(now - t0);
           during?.(head);
           if (t < 1) { window.requestAnimationFrame(step); return; }
           train.classList.remove("is-driving");
+          restPuffs();
           resolve();
         };
         window.requestAnimationFrame(step);
@@ -745,15 +795,28 @@
       });
     }
 
-    // --- Signal ----------------------------------------------------------------
+    // --- Signal und Ring -------------------------------------------------------
+    // Beides zeigt, wo es weitergeht: das Signal neben der Station, der grüne
+    // Ring pulsend um ihre Nummer. Der Ring ist ein eigenes Teil zuoberst auf
+    // der Karte, nicht der Ring der Station (der steht still, styles.css).
     const signal = art.buildJourneySignal();
     layers.signal.append(signal);
+    // Die äussere Gruppe stellt den Ring hin, der Ring selbst pulst: ein
+    // CSS-transform würde ein transform-Attribut am selben Element verdrängen.
+    const pulse = el("circle", { cx: 0, cy: 0, r: 29, fill: "none", stroke: "#3fbf74", "stroke-width": 5, class: "journey-pulse is-hidden", "aria-hidden": "true" });
+    const pulseHost = group({ class: "journey-pulse-host" }, [pulse]);
+    layers.marker.append(pulseHost);
     function placeSignal(i) {
       const [x, y] = STOPS[i];
       signal.setAttribute("transform", `translate(${x + 58},${y})`);
       signal.classList.remove("is-hidden");
+      pulseHost.setAttribute("transform", `translate(${x},${y + 30})`);
+      pulse.classList.remove("is-hidden");
     }
-    function hideSignal() { signal.classList.add("is-hidden"); }
+    function hideSignal() {
+      signal.classList.add("is-hidden");
+      pulse.classList.add("is-hidden");
+    }
 
     // --- Stationen -------------------------------------------------------------
     const stationNodes = [];
@@ -837,6 +900,8 @@
       zahl.setAttribute("class", "journey-number-text");
       g.append(group({ class: "journey-number" }, [
         el("circle", { cx: 0, cy: 30, r: 29, class: "journey-number-ring", fill: "none", stroke: "#3fbf74", "stroke-width": 5 }),
+        // Der Schatten unter der offenen Scheibe: gezeichnet, kein Filter.
+        el("circle", { cx: 0, cy: 34, r: 24, class: "journey-number-shadow", fill: "#243047" }),
         el("circle", { cx: 0, cy: 30, r: 23, class: "journey-number-disc", fill: color, stroke: "#ffffff", "stroke-width": 4 }),
         zahl,
         group({ class: "journey-stamp-slot", transform: "translate(0,30) scale(1.35)" }),
@@ -994,8 +1059,13 @@
       const map = reise.MAPS[mapIndex];
       host.dataset.map = map.id;
       if (lookOf(map).stars) host.dataset.night = "1"; else delete host.dataset.night;
+      // Der Himmel über der Zeichnung, wo sie auf einem hohen, schmalen Bild
+      // nicht hinreicht – die Landschaft des Startbilds ist dort ausgeblendet.
+      host.style.setProperty("--journey-sky", sceneOf(map).sky[0]);
       layers.bg.innerHTML = "";
       layers.bg.append(buildBackground(map));
+      layers.top.innerHTML = "";
+      layers.top.append(...featureTop(map));
       layers.track.innerHTML = "";
       layers.track.append(...featureTrack(map), rails({ class: "journey-rails-dim" }), ...featureTrack(map, { above: true }));
       layers.lit.innerHTML = "";
@@ -1017,11 +1087,13 @@
         const to = STOPS[4][1];
         const dock = () => ferry.setAttribute("transform", `translate(1122,${to})`);
         if (reduced() || !ferry.animate) { dock(); resolve(); return; }
+        // Solange sie fährt, raucht der Kamin (styles.css, is-sailing).
+        svg.classList.add("is-sailing");
         const anim = ferry.animate(
           [{ transform: `translate(1122px, ${from}px)` }, { transform: `translate(1122px, ${to}px)` }],
           { duration: 1800, easing: "ease-in-out", fill: "forwards" },
         );
-        anim.finished.catch(() => {}).then(() => { dock(); anim.cancel(); resolve(); });
+        anim.finished.catch(() => {}).then(() => { dock(); anim.cancel(); svg.classList.remove("is-sailing"); resolve(); });
       });
     }
 
@@ -1146,8 +1218,14 @@
       kids()?.vibrate?.([12, 60, 18]);
       burstAt(reise.STATIONS_PER_MAP - 1, 40);
       alightPassenger(map);
-      if (map.feature === "night") await fireworks(); else await wait(1300);
+      // Die Rakete braucht ihre Zeit zum Abheben (styles.css, journey-liftoff).
+      if (map.feature === "night") await fireworks(); else await wait(map.landmark === "rocket" ? 2700 : 1300);
       if (token !== mountToken) return;
+      // Die Feier auf der Karte ist vorbei, bevor die Tafel kommt: Hinter der
+      // Tafel sähe niemand die Mühle und das Wasser, aber der Browser hielte
+      // für jedes bewegte Teil eine Ebene bereit – so lange, bis das Kind
+      // tippt.
+      svg.classList.remove("is-party");
       const firstLap = reise.LAPS[0];
       const lastOfFirst = mapIndex === firstLap.firstMap + firstLap.maps - 1;
       const lastOfAll = mapIndex === reise.MAPS.length - 1;
@@ -1166,7 +1244,6 @@
         picture: rewardPicture(map.reward, loco),
         color: map.lap === 2 ? "#b8860b" : "#2b5fb3",
       });
-      svg.classList.remove("is-party");
     }
 
     // Die Schiebelok kommt von hinten, kuppelt an, schiebt mit – und fährt

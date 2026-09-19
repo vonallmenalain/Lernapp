@@ -59,6 +59,25 @@ Stand: September 2026 · Grundlage: `train-home.js`, `train-progress.js`, `train
 > zeichnete in jedem Bild die ganze Karte neu; auf einem Tablet mit grossem Bildschirm
 > flackerte das. Jetzt ist jedes gelegte Stück ein eigener, kurzer Pfad aus dem einmal je
 > Sitzung vermessenen Raster: neu gezeichnet wird nur, was dazukommt.
+> **Ruhe auf der Karte (September 2026, Xiaomi Pad 7):** Auf einem Tablet mit hoher
+> Auflösung flackerte die ganze Karte auch im Stand: Stationen, Stempel und die Knöpfe oben
+> fielen bildweise aus. Der Grund war nicht das Zeichnen, sondern das Schichten. Chrome legt
+> jedes SVG-Teil mit laufender transform- oder opacity-Animation auf eine eigene Ebene der
+> Grafikkarte – und alles, was danach gezeichnet wird und es überlappt, gleich mit. Auf der
+> Karte kamen so an die hundert Ebenen zusammen (die kleinen Bewegungen in jedem Stationsbild,
+> der Dampf, das Wasser, die Mühle, der pulsende Ring), dazu die ganze Karte als eine Ebene,
+> weil die fertige Einschub-Animation (`animation-fill-mode: both`) an ihr hängen blieb, und
+> darunter unsichtbar die vier Bänder der Startbild-Landschaft: zusammen ein Vielfaches des
+> Bildschirms an Texturfläche. Jetzt steht die Karte im Stand still (`.journey-map .gi`,
+> Wasser, Mühle, Leuchtturm und Sterne bewegen sich nur bei der Feier am Ziel), Räder und Dampf
+> bewegt die Fahrt selbst über Attribute, der pulsende Ring und das Signal liegen als eigene
+> Ebenen zuoberst, wo sie nichts überlappen, die Glühwürmchen ebenso, Schatten und Nebel sind
+> gezeichnet statt gefiltert, die Landschaft des Startbilds ist unter der Karte ausgeblendet
+> (samt ihren Animationen – eine Animation an Unsichtbarem läuft sonst im Hauptthread und lässt
+> den Browser in jedem Bild die ganze Karte neu auslegen), und keine Einschub-Animation bleibt
+> hängen. Gemessen in Chromium bei 1600 × 1068 mit doppelter Auflösung: von 96 Ebenen und gut
+> 100 Megapixeln Ebenenfläche auf 9 Ebenen und 16 Megapixel; im Stand null Layout- und
+> Paint-Invalidierungen je Sekunde, in der Fahrt keine SVG-Ebene mehr.
 > **Nicht gebaut (bewusst):** Kabuse und Postkarten aus Abschnitt 9.
 > Der Rest des Dokuments bleibt als Begründung stehen; zum Konzept gehört eine Seite mit
 > einer klickbaren Streckenkarte (Artefakt „Abenteuerreise").
