@@ -11307,3 +11307,93 @@ body[data-page="admin"] .admin-data-list { max-height: 520px; }
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
+
+/* --- Gäste: woher der Besuch kam ------------------------------------------
+   Drei Klassen für den Reiter "Gäste", seit dort auch Geräte stehen, die nur
+   besucht und nie gespielt haben.
+
+   .admin-entry-herkunft  Gerät und Standort in der zugeklappten Zeile. Gleich
+                          gebaut wie .admin-entry-zuletzt daneben, nur zwei
+                          Angaben statt einer – und ohne nowrap, weil ein
+                          Ortsname länger sein darf als ein Datum.
+   .admin-gast-nurbesuch  Steht anstelle des Zug-Streifens, wenn es keinen
+                          Fortschritt gibt. Ein leerer Zug sähe aus wie ein Zug
+                          bei null; hier gibt es gar keinen.
+   .admin-herkunft        Dasselbe ausgeschrieben im aufgeklappten Eintrag. */
+
+.admin-entry-herkunft {
+  display: grid;
+  gap: 2px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.admin-entry-herkunft b {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 800;
+  color: var(--muted, #5b6b7a);
+  margin-right: 6px;
+}
+
+.admin-gast-nurbesuch {
+  align-self: center;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: #f1eefc;
+  border: 1px solid var(--line, #e4e0f7);
+  color: var(--muted, #5b6b7a);
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.admin-herkunft {
+  margin: 0 0 18px;
+  padding: 14px 16px;
+  border: 1px solid var(--line, #e4e0f7);
+  border-radius: 14px;
+  background: #faf9ff;
+}
+
+.admin-herkunft h4 {
+  margin: 0 0 10px;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted, #5b6b7a);
+}
+
+.admin-herkunft dl {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 170px), 1fr));
+  gap: 10px 18px;
+  margin: 0 0 10px;
+}
+
+.admin-herkunft dt {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 800;
+  color: var(--muted, #5b6b7a);
+}
+
+.admin-herkunft dd {
+  margin: 2px 0 0;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.admin-herkunft p { margin: 0; font-size: 0.78rem; }
+
+body[data-page="admin"] .admin-entry-herkunft { flex: 1 1 220px; }
+
+@media (max-width: 900px) {
+  body[data-page="admin"] .admin-entry-herkunft { flex: 1 1 100%; }
+}

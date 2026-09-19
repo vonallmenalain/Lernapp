@@ -29,6 +29,10 @@
  *   - freischalten ruft den Server mit Token und Kennung an
  *   - der Reiter "Spiele" zählt richtig
  *   - der Reiter "Gruppen" legt eine übergreifende Gruppe an
+ *   - der Reiter "Gäste" zeigt auch, wer nur besucht und nie gespielt hat:
+ *     Gerät, Standort und Besuchszähler, ein Filter dafür, und die beiden
+ *     Löschwege – einzeln mit Rückfrage und der Sammelknopf, der nur die
+ *     Besuche ohne Spiel anfasst
  *   - "Ganz entfernen" fragt zweimal, nennt die Kinder beim Namen und fehlt
  *     beim eigenen Konto des Admins
  *   - der Reiter "E-Mail" zeigt Ein- und Ausgang, filtert, und das Speichern
@@ -117,8 +121,35 @@ const DATEN = {
       gameState: { "lernapp.turmbau": { data: { runs: 3, scores: [15] }, updatedAt: 1 } },
     },
   },
+  // Zwei Gäste, und der Unterschied ist der Punkt: Der erste hat gespielt, der
+  // zweite hat die App nur geöffnet. Seit besuch.mjs jeden Aufruf zählt, ist
+  // der zweite der häufigere Fall – und der einzige, den der Sammelknopf
+  // anfasst.
   guests: {
-    guest_abcdefgh12345678: { type: "guest", displayName: "Gast 345678", lastSeenAt: 1699600000000, stats: { totalSeconds: 120, moves: 8, resets: 2, solvedLevels: 1, sessions: 1 } },
+    guest_abcdefgh12345678: {
+      type: "guest", displayName: "Gast 345678", lastSeenAt: 1699600000000, besuche: 4,
+      ersterBesuchMs: 1699000000000,
+      client: { geraet: "Tablet", system: "iOS", browser: "Safari", sprache: "de-CH", zeitzone: "Europe/Zurich", bildschirm: "1024×768", installiert: true },
+      ort: { land: "Schweiz", landCode: "CH", region: "Bern", stadt: "Burgdorf" },
+      stats: { totalSeconds: 120, moves: 8, resets: 2, solvedLevels: 1, sessions: 1 },
+    },
+    guest_nurbesuch87654321: {
+      type: "guest", displayName: "Gast 654321", lastSeenAt: 1699650000000, besuche: 1,
+      ersterBesuchMs: 1699650000000,
+      client: { geraet: "Handy", system: "Android", browser: "Chrome", sprache: "fr-CH" },
+      ort: { land: "Frankreich", landCode: "FR", stadt: "Lyon" },
+    },
+    // Der dritte Fall, und der heikelste: Turmbau, Memory und die übrigen
+    // Spiele mit eigenem Konto haben keine Level. Ein Gast, der nur die
+    // spielt, hinterlässt keinen Level-Fortschritt und keine Sitzung – nur
+    // diese Marke (firebase.js, markiereGastSpiel). Ohne sie stünde er als
+    // "nur besucht" da und flöge beim Aufräumen mit raus.
+    guest_ohnelevel11223344: {
+      type: "guest", displayName: "Gast 223344", lastSeenAt: 1699680000000, besuche: 2,
+      ersterBesuchMs: 1699400000000, hatGespielt: true, letztesSpielAt: 1699680000000,
+      client: { geraet: "Computer", system: "Windows", browser: "Firefox", sprache: "de-CH" },
+      ort: { land: "Schweiz", landCode: "CH", stadt: "Bern" },
+    },
   },
   // Wer bezahlt hat. Die Familie ja, der Admin nicht – so steht in der Liste
   // beides nebeneinander.
@@ -279,7 +310,12 @@ function firebaseErsatz({ daten, adminEmail }) {
   window.firebase = { apps: [], initializeApp: () => ({}), app: () => ({}), auth, firestore };
   // Zum Nachsehen, was die Seite geschrieben hat: Eine Gruppe, die nur so
   // aussieht, als wäre sie gesetzt, fiele sonst nicht auf.
-  window.__ersatz = { lies: (pfad) => { const doc = laden.get(pfad); return doc === undefined ? null : JSON.parse(JSON.stringify(doc)); } };
+  window.__ersatz = {
+    lies: (pfad) => { const doc = laden.get(pfad); return doc === undefined ? null : JSON.parse(JSON.stringify(doc)); },
+    // Zum Nachstellen dessen, was zwischen zwei Klicks passieren kann: ein
+    // Kind, das anfängt zu spielen, während die Rückfrage offen steht.
+    schreib: (pfad, doc) => { laden.set(pfad, doc); },
+  };
 }
 
 const befunde = [];
@@ -612,16 +648,147 @@ pruefe(!nachher.admin, "Ein nicht angehaktes Konto ist in der Gruppe gelandet");
 await knips("8-gruppen-fertig");
 
 // --- Gäste -------------------------------------------------------------------
+// Der Reiter zeigt seit besuch.mjs jedes Gerät, das die App geöffnet hat – auch
+// das, welches nie gespielt hat. Geprüft wird beides nebeneinander: dass der
+// blosse Besuch sichtbar ist, und dass er sich von einem Gast mit Spielstand
+// unterscheiden lässt.
 await page.locator('[data-reiter="guests"]').click();
 await page.locator(".admin-entry").first().waitFor({ timeout: 10000 });
-pruefe(await page.locator(".admin-entry").count() === 1, "Der Gast fehlt im Gäste-Reiter");
+pruefe(await page.locator(".admin-entry").count() === 3, "Der Gäste-Reiter zeigt nicht alle drei Gäste");
 pruefe(await page.locator(".admin-entry-body").count() === 0, "Der Gäste-Reiter beginnt nicht zugeklappt");
-await page.locator(".admin-entry-head").first().click();
+
+// Die Kurzfassung oben zählt Geräte, Besuche und wer gespielt hat.
+const gaesteStreifen = await text(page.locator(".admin-stat-strip").first());
+pruefe(/3\s*Geräte/.test(gaesteStreifen), `Die Gästezahl fehlt: ${gaesteStreifen}`);
+pruefe(/7\s*Besuche/.test(gaesteStreifen), `Die Besuche werden nicht summiert (4 + 1 + 2 = 7): ${gaesteStreifen}`);
+pruefe(/1\s*nur besucht/.test(gaesteStreifen), `"nur besucht" wird nicht gezählt: ${gaesteStreifen}`);
+// Der Gast ohne Level zählt als gespielt – sonst läge er im Zugriff des
+// Sammelknopfs.
+pruefe(/2\s*gespielt/.test(gaesteStreifen), `Ein Gast mit Spielmarke, aber ohne Level, gilt nicht als gespielt: ${gaesteStreifen}`);
+
+// Gerät und Standort stehen schon in der zugeklappten Zeile – sonst müsste man
+// jeden Gast einzeln aufklappen, um zu sehen, wer da war.
+const nurBesuchZeile = page.locator('.admin-entry:has-text("NURBESUCH")');
+const gespieltZeile = page.locator('.admin-entry:has-text("ABCDEFGH")');
+const nurBesuchText = await text(nurBesuchZeile);
+pruefe(nurBesuchText.includes("Handy") && nurBesuchText.includes("Android"),
+  `Das Gerät fehlt in der Gästezeile: ${nurBesuchText.slice(0, 200)}`);
+pruefe(nurBesuchText.includes("Lyon") && nurBesuchText.includes("Frankreich"),
+  `Der Standort fehlt in der Gästezeile: ${nurBesuchText.slice(0, 200)}`);
+pruefe(await nurBesuchZeile.locator(".admin-gast-nurbesuch").count() === 1,
+  "Ein Gast ohne Spiel bekommt keine Marke – ein leerer Zug sähe aus wie ein Zug bei null");
+pruefe(await gespieltZeile.locator(".admin-gast-nurbesuch").count() === 0,
+  "Ein Gast mit Spielstand wird als «nur besucht» ausgewiesen");
+await knips("11-gaeste-liste");
+
+// Der Filter trennt die beiden Fragen: "wie viele waren da" und "wie viele
+// haben gespielt".
+await page.locator('[data-gast-filter="gespielt"]').click();
+pruefe(await page.locator(".admin-entry").count() === 2, "Der Filter «Mit Spiel» zeigt nicht beide Gäste mit Spiel");
+await page.locator('[data-gast-filter="nurbesuch"]').click();
+pruefe(await page.locator(".admin-entry").count() === 1, "Der Filter «Nur besucht» zeigt nicht genau einen Gast");
+pruefe((await text(page.locator(".admin-entry").first())).includes("guest_nurbesuch"),
+  "Der Filter «Nur besucht» zeigt den falschen Gast");
+await page.locator('[data-gast-filter="alle"]').click();
+pruefe(await page.locator(".admin-entry").count() === 3, "Zurück auf «Alle» fehlt ein Gast");
+
+// Aufgeklappt: die Herkunft ausgeschrieben, kein Zurücksetzen, kein
+// Freischalten – und der Löschknopf.
+await gespieltZeile.locator(".admin-entry-head").click();
 await page.locator(".admin-entry-body").waitFor({ timeout: 10000 });
-pruefe(await page.locator(".admin-entry-body .admin-reset").count() === 0,
+pruefe(await page.locator(".admin-entry-body [data-reset-frage]").count() === 0,
   "Ein Gast bekommt den Zurücksetzen-Knopf – sein Stand liegt auf seinem Gerät, der Knopf täte dort nichts Sichtbares");
 pruefe(await page.locator(".admin-entry-body .admin-kauf").count() === 0,
   "Ein Gast bekommt den Freischalten-Knopf – ohne Konto gibt es nichts freizuschalten");
+const herkunft = await text(page.locator(".admin-herkunft"));
+pruefe(herkunft.includes("Burgdorf") && herkunft.includes("Bern") && herkunft.includes("Schweiz"),
+  `Der Standort fehlt im aufgeklappten Gast: ${herkunft.slice(0, 200)}`);
+pruefe(herkunft.includes("de-CH") && herkunft.includes("Europe/Zurich") && herkunft.includes("1024×768"),
+  `Sprache, Zeitzone oder Bildschirm fehlen: ${herkunft.slice(0, 250)}`);
+pruefe(/Keine IP-Adresse/i.test(herkunft),
+  "Im aufgeklappten Gast steht nicht, dass keine IP gespeichert wird – genau das ist die Zusage in der Datenschutzerklärung");
+await knips("12-gast-herkunft");
+
+// Löschen fragt nach, und die Frage sagt bei einem Gast mit Spielstand auch,
+// dass Statistik verloren geht.
+await page.locator("[data-gast-loeschen-frage]").first().click();
+await page.locator("[data-gast-loeschen-ja]").waitFor({ timeout: 5000 });
+const gastFrage = await text(page.locator(".admin-reset.is-confirming"));
+pruefe(/hat gespielt/i.test(gastFrage), `Die Rückfrage warnt nicht vor dem Verlust der Spielstatistik: ${gastFrage.slice(0, 250)}`);
+await knips("13-gast-loeschen-frage");
+
+// Abbrechen tut nichts.
+await page.locator("[data-gast-frage-ab]").first().click();
+pruefe(await page.evaluate(() => window.__ersatz.lies("guests/guest_abcdefgh12345678")) !== null,
+  "Abbrechen hat den Gast trotzdem gelöscht");
+
+// Und jetzt wirklich: Der Gast geht, und seine Level gehen mit. Ein
+// Level-Fortschritt ohne Gast fände danach niemand mehr – die Liste führt nur
+// über guests/.
+await page.locator("[data-gast-loeschen-frage]").first().click();
+await page.locator("[data-gast-loeschen-ja]").first().click();
+await page.waitForTimeout(2000);
+const nachLoeschen = await page.evaluate(() => ({
+  gast: window.__ersatz.lies("guests/guest_abcdefgh12345678"),
+  level: window.__ersatz.lies("guests/guest_abcdefgh12345678/levelProgress/arukone_a1"),
+  andere: window.__ersatz.lies("guests/guest_nurbesuch87654321"),
+}));
+pruefe(nachLoeschen.gast === null, "Der Gast steht nach dem Löschen noch da");
+pruefe(nachLoeschen.level === null, "Der Level-Fortschritt des gelöschten Gastes ist liegen geblieben");
+pruefe(nachLoeschen.andere !== null, "Das Löschen hat den zweiten Gast mitgenommen");
+pruefe(await page.locator(".admin-entry").count() === 2, "Die Liste zeigt den gelöschten Gast weiter");
+
+// Der Sammelknopf: frisch laden, damit wieder beide Gäste dastehen.
+await page.goto(`${BASIS}/admin.html`, { waitUntil: "load" });
+await page.locator(".admin-reiter").waitFor({ timeout: 15000 });
+await page.locator('[data-reiter="guests"]').click();
+await page.locator(".admin-entry").first().waitFor({ timeout: 10000 });
+await page.locator("[data-gast-sammel-frage]").click();
+await page.locator("[data-gast-sammel-ja]").waitFor({ timeout: 5000 });
+const sammelFrage = await text(page.locator(".admin-reset.is-confirming"));
+pruefe(/1 Besuch/.test(sammelFrage), `Die Sammelfrage nennt die Zahl nicht: ${sammelFrage.slice(0, 200)}`);
+
+// Und jetzt der unangenehme Fall: Zwischen dem Laden der Liste und dem Klick
+// auf "Ja" fängt jemand an zu spielen. Der Adminbereich kann stundenlang offen
+// stehen – die Liste im Speicher ist dann beliebig alt. Der Knopf verspricht,
+// nur Geräte ohne Spiel anzufassen; eingelöst wird das erst dadurch, dass
+// firebase.js jeden Gast unmittelbar vor dem Löschen noch einmal liest.
+await page.evaluate(() => {
+  window.__ersatz.schreib("guests/guest_nurbesuch87654321/levelProgress/arukone_a1", {
+    game: "arukone", levelId: "a1", levelName: "Rätsel eins", difficulty: "easy",
+    solved: false, attempts: 1, resets: 0, moves: 3, timeSeconds: 12,
+  });
+});
+await page.locator("[data-gast-sammel-ja]").click();
+await page.waitForTimeout(2000);
+pruefe(await page.evaluate(() => window.__ersatz.lies("guests/guest_nurbesuch87654321")) !== null,
+  "Ein Gast, der zwischen Rückfrage und Klick angefangen hat zu spielen, wurde trotzdem gelöscht");
+const hinweisNachSammel = await text(page.locator(".admin-inhalt"));
+pruefe(/angefangen zu spielen/.test(hinweisNachSammel),
+  `Es steht nirgends, warum weniger gelöscht wurde als angekündigt: ${hinweisNachSammel.slice(0, 200)}`);
+await knips("15-gaeste-uebersprungen");
+
+// Danach noch einmal, jetzt ohne Zwischenfall: Der Gast ist wieder ohne Spiel,
+// und der Knopf räumt ihn weg.
+await page.goto(`${BASIS}/admin.html`, { waitUntil: "load" });
+await page.locator(".admin-reiter").waitFor({ timeout: 15000 });
+await page.locator('[data-reiter="guests"]').click();
+await page.locator(".admin-entry").first().waitFor({ timeout: 10000 });
+await page.locator("[data-gast-sammel-frage]").click();
+await page.locator("[data-gast-sammel-ja]").waitFor({ timeout: 5000 });
+await page.locator("[data-gast-sammel-ja]").click();
+await page.waitForTimeout(2000);
+const nachSammel = await page.evaluate(() => ({
+  nurBesuch: window.__ersatz.lies("guests/guest_nurbesuch87654321"),
+  gespielt: window.__ersatz.lies("guests/guest_abcdefgh12345678"),
+  ohneLevel: window.__ersatz.lies("guests/guest_ohnelevel11223344"),
+}));
+pruefe(nachSammel.nurBesuch === null, "Der Sammelknopf hat den Besuch ohne Spiel stehen lassen");
+pruefe(nachSammel.gespielt !== null,
+  "Der Sammelknopf hat einen Gast mit Spielstand mitgenommen – er darf nur Besuche ohne Spiel anfassen");
+pruefe(nachSammel.ohneLevel !== null,
+  "Der Sammelknopf hat einen Gast mitgenommen, der nur Spiele ohne Level gespielt hat – genau der Fall, für den es die Spielmarke gibt");
+await knips("14-gaeste-aufgeraeumt");
 
 // --- Ganz entfernen ---------------------------------------------------------------
 // Der einzige Knopf, der auch die Anmeldung mitnimmt. Geprüft wird, dass er
@@ -720,4 +887,4 @@ if (befunde.length) {
   process.exit(1);
 }
 
-console.log("Adminbereich geprüft: eigene Seite, sechs Reiter, filtern und sortieren, probierte Level, freischalten, Konten ganz entfernen mit Rückfrage, Auswertung je Spiel, Wagen mit Rückfrage und aufgehobenen Familienwahlen, übergreifende Gruppe, Postein- und -ausgang.");
+console.log("Adminbereich geprüft: eigene Seite, sechs Reiter, filtern und sortieren, probierte Level, freischalten, Konten ganz entfernen mit Rückfrage, Auswertung je Spiel, Gäste samt Gerät, Standort und beiden Löschwegen, Wagen mit Rückfrage und aufgehobenen Familienwahlen, übergreifende Gruppe, Postein- und -ausgang.");

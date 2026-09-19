@@ -27,6 +27,10 @@
  *   - Der Admin schaltet eine Familie gratis frei und nimmt es zurück; ein
  *     bezahlter Kauf bleibt dabei unberührt, und niemand sonst darf das.
  *   - Ohne Anmeldung 401, als Kind 403, als Eltern 200.
+ *   - Die Besuchszählung: Sie erkennt Handy, Tablet und Computer richtig herum,
+ *     nimmt Land, Region und Ort aus dem Edge, zählt ein Neuladen nicht als
+ *     zweiten Besuch, weist erfundene Gastkennungen ab, bremst je Anschluss –
+ *     und schreibt dabei nirgends eine IP-Adresse.
  *   - Die Post: Die Begrüssung geht einmal raus und kein zweites Mal; die
  *     Passwortmail nur an Adressen mit Konto und nicht im Sekundentakt; der
  *     Eingang nimmt ohne Geheimnis nichts an und leitet dieselbe Mail nicht
@@ -1209,6 +1213,129 @@ ok(r400.status === 400, `kind-anlegen mit kaputtem JSON: ${r400.status}`);
   const lauf = spawnSync(process.execPath, ["--no-experimental-require-module", "-e", probe], { encoding: "utf8" });
   const ausgabe = `${lauf.stdout || ""}${lauf.stderr || ""}`.trim();
   ok(/GEHT/.test(ausgabe), `jwks-rsa lädt ohne require(esm) nicht oder rechnet nicht: ${ausgabe.split("\n")[0].slice(0, 180)}`);
+}
+
+// --- Die Besuchszählung -------------------------------------------------------
+// Die einzige Funktion, die jeder anrufen kann, ohne angemeldet zu sein – und
+// die einzige, die dabei etwas anlegt. Beides zusammen heisst: Was hier nicht
+// geprüft ist, ist ein offenes Tor.
+{
+  const {
+    default: besuchHandler, besuchEintragen, darfZaehlen, geraetAus, ortAus, clientAus,
+    GAST_MUSTER, ZAEHL_ABSTAND_MS, JE_ANSCHLUSS_AM_TAG,
+  } = await import("../netlify/functions/besuch.mjs");
+
+  // Dieselbe Form an drei Stellen: hier, in firestore.rules (isGuestId) und in
+  // firebase.js (getGuestId). Läuft eine davon weg, schreibt der Client
+  // Kennungen, die der Server ablehnt – oder umgekehrt.
+  const regelMuster = readFileSync(path.join(WURZEL, "firestore.rules"), "utf8")
+    .match(/guestId\.matches\('([^']+)'\)/)?.[1];
+  ok(regelMuster === "guest_[A-Za-z0-9_-]{8,48}", `Die Regeln prüfen ein anderes Muster: ${regelMuster}`);
+  ok(GAST_MUSTER.test("guest_abcdefgh12345678"), "Eine gültige Gastkennung wird abgelehnt");
+  ok(!GAST_MUSTER.test("hacker"), "Eine Kennung ohne Präfix kommt durch");
+  ok(!GAST_MUSTER.test("guest_kurz"), "Eine zu kurze Kennung kommt durch");
+  ok(!GAST_MUSTER.test(`guest_${"a".repeat(60)}`), "Eine übermässig lange Kennung kommt durch");
+
+  // Das Gerät: grob, aber richtig herum. Edge nennt sich Chrome, Chrome nennt
+  // sich Safari, und iPadOS nennt sich Macintosh – wer die Reihenfolge
+  // vertauscht, sieht überall Safari auf dem Mac.
+  const iPhone = geraetAus("Mozilla/5.0 (iPhone; CPU iPhone OS 17_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Mobile/15E148 Safari/604.1");
+  ok(iPhone.geraet === "Handy" && iPhone.system === "iOS" && iPhone.browser === "Safari", `iPhone falsch erkannt: ${JSON.stringify(iPhone)}`);
+  const iPad = geraetAus("Mozilla/5.0 (iPad; CPU OS 17_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Mobile/15E148 Safari/604.1");
+  ok(iPad.geraet === "Tablet" && iPad.system === "iOS", `iPad falsch erkannt: ${JSON.stringify(iPad)}`);
+  const androidHandy = geraetAus("Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36");
+  ok(androidHandy.geraet === "Handy" && androidHandy.system === "Android" && androidHandy.browser === "Chrome", `Android-Handy falsch erkannt: ${JSON.stringify(androidHandy)}`);
+  const androidTablet = geraetAus("Mozilla/5.0 (Linux; Android 14; Pad 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
+  ok(androidTablet.geraet === "Tablet", `Ein Android ohne "Mobile" ist ein Tablet, erkannt wurde: ${androidTablet.geraet}`);
+  const edge = geraetAus("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0");
+  ok(edge.geraet === "Computer" && edge.system === "Windows" && edge.browser === "Edge", `Edge falsch erkannt: ${JSON.stringify(edge)}`);
+  ok(geraetAus("").geraet === "", "Ohne User-Agent wird ein Gerät erfunden");
+
+  // Der Ort: was das Edge weiss, und nicht mehr. Breite und Länge bleiben
+  // absichtlich liegen.
+  const ort = ortAus({ country: { name: "Schweiz", code: "ch" }, subdivision: { name: "Bern" }, city: "Burgdorf", latitude: 47, longitude: 7 });
+  ok(ort.land === "Schweiz" && ort.landCode === "CH" && ort.region === "Bern" && ort.stadt === "Burgdorf", `Der Ort stimmt nicht: ${JSON.stringify(ort)}`);
+  ok(!("latitude" in ort) && !("longitude" in ort), "Breite und Länge landen in der Datenbank – genauer als die Frage verlangt");
+  ok(Object.keys(ortAus({})).length === 0, "Ohne Geo-Angaben entsteht ein Ort aus leeren Feldern");
+  ok(!Object.values(ortAus({ country: { name: "x".repeat(200) } })).some((wert) => wert.length > 60), "Ein überlanger Ländername wird nicht gekappt");
+
+  // Was der Client schickt, ist eine Behauptung. Gekappt wird trotzdem, und
+  // krumme Bildschirmangaben fliegen ganz raus.
+  const client = clientAus({ sprache: "de-CH", zeitzone: "Europe/Zurich", bildschirm: "1024×768", installiert: true, seite: "index" });
+  ok(client.sprache === "de-CH" && client.bildschirm === "1024×768" && client.installiert === true, `Die Client-Angaben stimmen nicht: ${JSON.stringify(client)}`);
+  ok(clientAus({ bildschirm: "<script>" }).bildschirm === undefined, "Eine krumme Bildschirmangabe kommt durch");
+  ok(clientAus({ zeitzone: "z".repeat(500) }).zeitzone.length === 60, "Eine überlange Zeitzone wird nicht gekappt");
+  ok(clientAus({ installiert: "ja" }).installiert === undefined, "installiert nimmt alles an, nicht nur true");
+  ok(Object.keys(clientAus({})).length === 0, "Ohne Angaben entsteht ein Kasten aus leeren Feldern");
+
+  // Anlegen, zählen, nicht doppelt zählen.
+  const GAST = "guest_besuchtest12345";
+  const ersterLauf = await besuchEintragen({ guestId: GAST, client: { sprache: "de-CH" }, ort: { land: "Schweiz" }, geraet: { geraet: "Handy" }, jetzt: 1_000_000_000_000 });
+  ok(ersterLauf.neu === true && ersterLauf.gezaehlt === true, `Der erste Besuch gilt nicht als neu: ${JSON.stringify(ersterLauf)}`);
+  const nachErstem = (await db().collection("guests").doc(GAST).get()).data();
+  ok(nachErstem.type === "guest", "Ohne type dürfte der Client das Dokument nie fortschreiben (firestore.rules)");
+  ok(nachErstem.besuche === 1, `Der Besuchszähler steht auf ${nachErstem.besuche}`);
+  ok(nachErstem.ersterBesuchMs === 1_000_000_000_000, "Der erste Besuch ist nicht festgehalten");
+  ok(nachErstem.ort?.land === "Schweiz" && nachErstem.client?.geraet === "Handy" && nachErstem.client?.sprache === "de-CH",
+    `Ort und Gerät fehlen am Dokument: ${JSON.stringify({ ort: nachErstem.ort, client: nachErstem.client })}`);
+  ok(nachErstem.ip === undefined && JSON.stringify(nachErstem).includes("1.2.3.4") === false,
+    "Eine IP-Adresse ist am Gastdokument gelandet – genau das soll nie passieren");
+
+  // Ein Neuladen ist kein zweiter Besuch – und es darf die Sperrfrist auch
+  // nicht verlängern. Genau das ging einmal schief: Der nicht gezählte Aufruf
+  // schob den Bezugspunkt mit vor, und wer alle 29 Minuten neu lud, blieb für
+  // immer bei Besuch eins. Deshalb stehen hier zwei Neuladungen hintereinander
+  // und danach der Besuch, der wieder zählen muss.
+  const gleichDanach = await besuchEintragen({ guestId: GAST, jetzt: 1_000_000_000_000 + 60_000 });
+  ok(gleichDanach.gezaehlt === false, "Ein Neuladen innerhalb der Sperrfrist zählt als neuer Besuch");
+  const kurzVorSchluss = await besuchEintragen({ guestId: GAST, jetzt: 1_000_000_000_000 + ZAEHL_ABSTAND_MS - 1 });
+  ok(kurzVorSchluss.gezaehlt === false, "Kurz vor Ablauf der Sperrfrist wird schon gezählt");
+  ok((await db().collection("guests").doc(GAST).get()).data().besuche === 1, "Der Zähler ist beim Neuladen trotzdem gestiegen");
+
+  // Später am Tag schon.
+  await besuchEintragen({ guestId: GAST, ort: { land: "Frankreich" }, jetzt: 1_000_000_000_000 + ZAEHL_ABSTAND_MS });
+  const nachZweitem = (await db().collection("guests").doc(GAST).get()).data();
+  ok(nachZweitem.besuche === 2, `Der zweite Besuch zählt nicht: ${nachZweitem.besuche}`);
+  ok(nachZweitem.ersterBesuchMs === 1_000_000_000_000, "Der erste Besuch wurde überschrieben");
+  ok(nachZweitem.ort?.land === "Frankreich", "Der Ort wird nicht nachgeführt – wer in den Ferien spielt, soll dort auftauchen");
+
+  // Der Handler: falsche Methode, krumme Kennung, guter Fall.
+  const anfrage = (body, methode = "POST") => new Request("http://x/api/besuch", {
+    method: methode,
+    headers: { "content-type": "application/json", "user-agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_2 like Mac OS X) Safari/604.1", "x-nf-client-connection-ip": "203.0.113.7" },
+    ...(methode === "POST" ? { body: JSON.stringify(body) } : {}),
+  });
+  ok((await besuchHandler(anfrage({}, "GET"))).status === 405, "GET wird angenommen");
+  ok((await besuchHandler(anfrage({ guestId: "hacker" }))).status === 400, "Eine erfundene Kennung wird angenommen");
+  ok((await besuchHandler(anfrage({}))).status === 400, "Eine Anfrage ohne Kennung wird angenommen");
+
+  const guteAntwort = await besuchHandler(anfrage({ guestId: "guest_ueberhandler123", client: { sprache: "fr-CH" } }), { geo: { country: { name: "Frankreich", code: "fr" }, city: "Lyon" } });
+  ok(guteAntwort.status === 200, `Der gute Fall antwortet mit ${guteAntwort.status}`);
+  const ueberHandler = (await db().collection("guests").doc("guest_ueberhandler123").get()).data();
+  ok(ueberHandler.client?.geraet === "Handy" && ueberHandler.client?.system === "iOS",
+    `Das Gerät wurde nicht aus dem User-Agent gelesen: ${JSON.stringify(ueberHandler.client)}`);
+  ok(ueberHandler.ort?.stadt === "Lyon" && ueberHandler.ort?.landCode === "FR",
+    `Der Ort kam nicht aus context.geo: ${JSON.stringify(ueberHandler.ort)}`);
+  ok(!JSON.stringify(ueberHandler).includes("203.0.113.7"), "Die IP-Adresse steht im Gastdokument");
+
+  // Die Bremse: Sie merkt sich den Anschluss als Prüfsumme, nicht als Adresse.
+  ok(await darfZaehlen("198.51.100.5") === true, "Der erste Besuch eines Anschlusses wird gebremst");
+  const bremsDocs = (await db().collection("besuchBremse").get()).docs;
+  ok(bremsDocs.length > 0, "Die Bremse merkt sich nichts");
+  ok(!bremsDocs.some((doc) => doc.id.includes(".") || JSON.stringify(doc.data()).includes("198.51.100.5")),
+    "Die IP-Adresse steht im Klartext in der Bremse");
+
+  // Und sie hält irgendwann an. Der Zähler wird direkt hochgesetzt statt 240
+  // Mal angerufen: Geprüft wird die Grenze, nicht die Geduld.
+  const { createHash } = await import("node:crypto");
+  const SALZ = process.env.FIREBASE_SERVICE_ACCOUNT || process.env.FIREBASE_PROJECT_ID || "lernapp";
+  const bremsId = createHash("sha256").update(`besuch:${SALZ}:198.51.100.9`).digest("hex").slice(0, 24);
+  const heute = new Date().toISOString().slice(0, 10);
+  await db().collection("besuchBremse").doc(bremsId).set({ tag: heute, amTag: JE_ANSCHLUSS_AM_TAG });
+  ok(await darfZaehlen("198.51.100.9") === false, "Die Bremse lässt über das Tagesmass hinaus zählen");
+  // Morgen wieder: Der Zähler hängt am Datum, nicht am Dokument.
+  await db().collection("besuchBremse").doc(bremsId).set({ tag: "2000-01-01", amTag: JE_ANSCHLUSS_AM_TAG });
+  ok(await darfZaehlen("198.51.100.9") === true, "Die Bremse löst sich am nächsten Tag nicht");
 }
 
 console.log(`\n${geprueft} Prüfungen.`);

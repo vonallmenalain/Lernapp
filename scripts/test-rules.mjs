@@ -319,6 +319,17 @@ try {
   await darf("Gast schreibt eigene Sitzung", () => gast().doc(`guests/${GAST_ID}/sessions/s`).set({ startedAt: 1 }));
   await darf("Admin liest Gastkasten", () => admin().doc(`guests/${GAST_ID}`).get());
   await darf("Admin liest Gast-Level", () => admin().collection(`guests/${GAST_ID}/levelProgress`).get());
+  // Die Felder, die nur der Server schreibt. Ein Client, der sie setzen dürfte,
+  // könnte dem Adminbereich erfundene Länder und beliebige Besuchszahlen
+  // unterschieben – der Standort kommt aus der Verbindung, nicht aus einer
+  // Behauptung des Browsers.
+  await darf("Gast schreibt seine eigenen Felder weiter", () => gast().doc(`guests/${GAST_ID}`).set({ type: "guest", hatGespielt: true, stats: { solved: 2 } }, { merge: true }));
+  await darfNicht("Gast setzt den Besuchszähler", () => gast().doc(`guests/${GAST_ID}`).set({ type: "guest", besuche: 9999 }, { merge: true }));
+  await darfNicht("Gast setzt seinen Standort", () => gast().doc(`guests/${GAST_ID}`).set({ type: "guest", ort: { land: "Erfunden" } }, { merge: true }));
+  await darfNicht("Gast setzt seine Geräteangaben", () => gast().doc(`guests/${GAST_ID}`).set({ type: "guest", client: { geraet: "Erfunden" } }, { merge: true }));
+  await darfNicht("Gast setzt den ersten Besuch", () => gast().doc(`guests/${GAST_ID}`).set({ type: "guest", ersterBesuchMs: 1 }, { merge: true }));
+  await darfNicht("Gast verschiebt die Sperrfrist", () => gast().doc(`guests/${GAST_ID}`).set({ type: "guest", letzterBesuchMs: 1 }, { merge: true }));
+  await darfNicht("Gast legt einen Kasten mit Serverfeldern an", () => gast().doc("guests/guest_mitserverfeld1").set({ type: "guest", besuche: 500, ort: { land: "Erfunden" } }));
   await darfNicht("Gast legt Kasten ohne type an", () => gast().doc("guests/guest_ohnetype123").set({ stats: {} }));
   await darfNicht("Gast legt Kasten mit falscher Kennung an", () => gast().doc("guests/hacker").set({ type: "guest" }));
   await darfNicht("Gast liest seinen eigenen Kasten", () => gast().doc(`guests/${GAST_ID}`).get());
@@ -329,6 +340,17 @@ try {
   await darfNicht("Angemeldetes Kind liest einen Gastkasten", () => anna().doc(`guests/${GAST_ID}`).get());
   await darfNicht("Gast schreibt in erfundene Unterkollektion", () => gast().doc(`guests/${GAST_ID}/geheim/x`).set({ a: 1 }));
   await darfNicht("Admin schreibt Gastkasten", () => admin().doc(`guests/${GAST_ID}`).set({ type: "guest", x: 1 }, { merge: true }));
+
+  // Löschen darf der Admin – seit die App jeden Aufruf zählt (besuch.mjs),
+  // entsteht hier eine Zeile je Gerät, und eine Liste, die nur wächst, liest
+  // niemand mehr. Es nimmt dem Gast nichts weg: Sein Stand liegt auf seinem
+  // Gerät, das Dokument hier ist die Kopie. Zuletzt geprüft, weil es weg ist,
+  // was danach geprüft würde.
+  await darf("Admin löscht ein Gast-Level", () => admin().doc(`guests/${GAST_ID}/levelProgress/x`).delete());
+  await darf("Admin löscht eine Gast-Sitzung", () => admin().doc(`guests/${GAST_ID}/sessions/s`).delete());
+  await darf("Admin löscht einen Gastkasten", () => admin().doc(`guests/${GAST_ID}`).delete());
+  await darfNicht("Angemeldetes Kind löscht einen Gastkasten", () => anna().doc("guests/guest_neuerkasten1").delete());
+  await darfNicht("Gast löscht einen fremden Gastkasten", () => gast().doc("guests/guest_neuerkasten1").delete());
 
   // --- Die Post ----------------------------------------------------------------
   // Der Adminbereich liest sie, sonst niemand – und geschrieben wird sie nur

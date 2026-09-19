@@ -84,6 +84,10 @@
     // Gäste
     offenerGast: null,
     gastDetails: new Map(),
+    gastFilter: "alle",     // alle | gespielt | nurbesuch
+    gastFrage: null,        // {art: "gast"|"sammel", id}
+    gastLaeuft: "",
+    gastFehler: "",
     // Spiele
     spieleBereich: "all",
     // Wagen
@@ -792,12 +796,162 @@
   // ---------------------------------------------------------------------------
   // Sicht: Gäste
   // ---------------------------------------------------------------------------
+  // Hier steht jedes Gerät, das die App je geöffnet hat – seit besuch.mjs
+  // existiert, auch das, welches nur hereingeschaut und nie gespielt hat.
+  // Genau dafür ist der Reiter da: Er beantwortet "wie viele Leute besuchen
+  // meine App?", und diese Frage beantwortet ein Gerät, das nach zehn
+  // Sekunden wieder weg war, genauso wie eines, das eine Stunde gerätselt hat.
+  //
+  // Damit beide Fragen nebeneinander lesbar bleiben, trennt der Filter sie:
+  // "Alle" zählt Besuche, "Mit Spiel" zählt die, bei denen etwas passiert ist.
+
+  // Gespielt hat, wer Spuren hinterlassen hat. Die Frage wird in firebase.js
+  // beantwortet (guestHasPlayed) und nicht hier: Genau diese Frage entscheidet,
+  // wen der Sammelknopf löscht, und sie wird dort vor jedem Löschen noch
+  // einmal frisch gestellt. Zwei Fassungen wären zwei Wahrheiten – und die
+  // gefährlichere gewänne.
+  //
+  // Der Notnagel darunter greift nur, wenn firebase.js noch nicht steht;
+  // gelöscht wird in dem Fall ohnehin nichts.
+  const gastHatGespielt = (gast) => {
+    const frage = api()?.hatGespielt;
+    if (frage) return frage(gast);
+    return (gast.levelDocs?.length || 0) > 0 || gast.hatGespielt === true;
+  };
+
+  // "Bern, Schweiz" – und wenn das Edge nichts wusste, gar nichts. Ein
+  // "Unbekannt" in jeder Zeile sähe aus wie eine Angabe; die Lücke ist
+  // ehrlicher.
+  function gastOrt(gast) {
+    const ort = gast.ort || {};
+    const teile = [ort.stadt, ort.region, ort.land].filter(Boolean);
+    // Region weglassen, wenn sie neben der Stadt steht: "Bern, Bern, Schweiz"
+    // liest niemand gern.
+    const knapp = teile.filter((teil, index) => teile.indexOf(teil) === index);
+    return knapp.join(", ");
+  }
+
+  // "Handy · iOS · Safari". Der Server liest das aus dem User-Agent und legt
+  // nur diese drei groben Angaben ab – die vollständige Kennung wäre ein
+  // Fingerabdruck und beantwortete die Frage nicht besser.
+  function gastGeraet(gast) {
+    const client = gast.client || {};
+    const teile = [client.geraet, client.system, client.browser].filter(Boolean);
+    return teile.join(" · ");
+  }
+
+  function gaesteGefiltert() {
+    if (zustand.gastFilter === "gespielt") return zustand.gaeste.filter(gastHatGespielt);
+    if (zustand.gastFilter === "nurbesuch") return zustand.gaeste.filter((gast) => !gastHatGespielt(gast));
+    return zustand.gaeste;
+  }
+
+  const GAST_FILTER = [
+    ["alle", "Alle"],
+    ["gespielt", "Mit Spiel"],
+    ["nurbesuch", "Nur besucht"],
+  ];
+
   function gaesteSicht() {
     if (!zustand.gaeste.length) return `<p class="account-muted">Noch keine Gäste gefunden.</p>`;
+
+    const gespielt = zustand.gaeste.filter(gastHatGespielt).length;
+    const ohneSpiel = zustand.gaeste.length - gespielt;
+    // Besuche zählt besuch.mjs; bei Gästen von vor dieser Zählung steht das
+    // Feld nicht. Die gab es trotzdem – deshalb mindestens einer je Gerät.
+    const besuche = zustand.gaeste.reduce((summe, gast) => summe + Math.max(1, Number(gast.besuche) || 0), 0);
+    const liste = gaesteGefiltert();
+
     return `
-      <p class="account-muted admin-note">Gäste spielen ohne Konto. Ihr Stand liegt auf ihrem Gerät; was hier steht, ist die Kopie in der Cloud – zurücksetzen lässt sich das von hier aus deshalb nicht.</p>
-      <div class="admin-accordion" aria-label="Gäste">
-        ${zustand.gaeste.map(gastZeile).join("")}
+      <p class="account-muted admin-note">Jedes Gerät, das die App geöffnet hat – auch ohne Konto und ohne gespieltes Level. Der Stand eines Gastes liegt auf seinem Gerät; was hier steht, ist die Kopie in der Cloud. Zurücksetzen lässt sich das von hier aus deshalb nicht, löschen schon: Es nimmt dem Gast nichts weg, es räumt nur diese Liste auf.</p>
+
+      <div class="stat-strip admin-stat-strip">
+        <div><strong>${zustand.gaeste.length}</strong><span>Geräte</span></div>
+        <div><strong>${besuche}</strong><span>Besuche</span></div>
+        <div><strong>${gespielt}</strong><span>gespielt</span></div>
+        <div><strong>${ohneSpiel}</strong><span>nur besucht</span></div>
+      </div>
+
+      <div class="admin-werkzeug">
+        <div class="admin-filtergruppe" role="group" aria-label="Gäste filtern">
+          ${GAST_FILTER.map(([id, beschriftung]) => `
+            <button type="button" data-gast-filter="${id}" class="${zustand.gastFilter === id ? "active" : ""}">${beschriftung}</button>`).join("")}
+        </div>
+      </div>
+
+      ${zustand.gastFehler ? `<p class="auth-status">${t(zustand.gastFehler)}</p>` : ""}
+      ${sammelLoeschBlock(ohneSpiel)}
+
+      ${liste.length
+        ? `<div class="admin-accordion" aria-label="Gäste">${liste.map(gastZeile).join("")}</div>`
+        : `<p class="account-muted">Zu diesem Filter gibt es keine Gäste.</p>`}`;
+  }
+
+  // --- Alle Besuche ohne Spiel wegräumen ---------------------------------------
+  // Der Knopf, den es nach ein paar Monaten braucht: Wer jeden Aufruf zählt,
+  // sammelt Zeilen, die nichts erzählen. Er fasst bewusst nur die an, bei
+  // denen nie gespielt wurde – für alles andere gibt es den Knopf am
+  // einzelnen Gast, und ein Sammelknopf, der auch Spielstatistik wegwirft,
+  // wäre ein Fehlklick zu viel.
+  function sammelLoeschBlock(ohneSpiel) {
+    if (zustand.gastLaeuft === "sammel") {
+      return `<div class="admin-reset"><p class="account-muted">Wird gelöscht...</p></div>`;
+    }
+    if (!ohneSpiel) return "";
+    if (zustand.gastFrage?.art === "sammel") {
+      return `
+        <div class="admin-reset is-confirming">
+          <div>
+            <strong>Wirklich ${ohneSpiel} ${ohneSpiel === 1 ? "Besuch" : "Besuche"} ohne Spiel entfernen?</strong>
+            <span>Betroffen sind nur Geräte, die nie ein Level gestartet haben. Gäste mit Spielstatistik bleiben stehen. Kommt eines dieser Geräte wieder, steht es neu in der Liste – bei Besuch eins. Das lässt sich nicht rückgängig machen.</span>
+          </div>
+          <div class="card-actions">
+            <button type="button" class="secondary-action" data-gast-frage-ab>Abbrechen</button>
+            <button type="button" class="danger-action" data-gast-sammel-ja>Ja, ${ohneSpiel} ${ohneSpiel === 1 ? "Besuch" : "Besuche"} entfernen</button>
+          </div>
+        </div>`;
+    }
+    return `
+      <div class="admin-reset">
+        <div>
+          <strong>Aufräumen</strong>
+          <span>${ohneSpiel} ${ohneSpiel === 1 ? "Gerät hat" : "Geräte haben"} die App geöffnet, aber nie gespielt.</span>
+        </div>
+        <button type="button" class="danger-action" data-gast-sammel-frage>Besuche ohne Spiel entfernen</button>
+      </div>`;
+  }
+
+  // --- Ein einzelner Gast ------------------------------------------------------
+  // Zwei Stufen wie beim Konto, und bei einem Gast, der gespielt hat, sagt die
+  // Rückfrage das auch: Dann geht Statistik verloren, die es nur hier gibt.
+  function gastLoeschBlock(gast) {
+    if (zustand.gastLaeuft === gast.id) {
+      return `<div class="admin-reset"><p class="account-muted">Wird gelöscht...</p></div>`;
+    }
+    const gespielt = gastHatGespielt(gast);
+    const summary = gast.adminSummary || v().zusammenfassung(gast, gast.levelDocs || []);
+
+    if (zustand.gastFrage?.art === "gast" && zustand.gastFrage.id === gast.id) {
+      return `
+        <div class="admin-reset is-confirming">
+          <div>
+            <strong>${t(v().name(gast))} wirklich entfernen?</strong>
+            <span>Besuchszähler, Gerät, Standort${gespielt ? ", gelöste Level und Sitzungen" : ""} werden gelöscht.${gespielt ? ` <b>Dieser Gast hat gespielt:</b> ${summary.totalSolved} gelöst, ${t(v().dauer(summary.totalSeconds))} Spielzeit – das steht nur hier und ist danach weg.` : ""} Auf dem Gerät selbst ändert sich nichts; kommt es wieder, steht es neu in der Liste. Das lässt sich nicht rückgängig machen.</span>
+          </div>
+          <div class="card-actions">
+            <button type="button" class="secondary-action" data-gast-frage-ab>Abbrechen</button>
+            <button type="button" class="danger-action" data-gast-loeschen-ja="${t(gast.id)}">Ja, entfernen</button>
+          </div>
+        </div>`;
+    }
+
+    return `
+      <div class="admin-reset">
+        <div>
+          <strong>Gast entfernen</strong>
+          <span>Nimmt nur diese Zeile weg. Der Stand auf dem Gerät des Gastes bleibt, wie er ist – dort liegt er, nicht hier.</span>
+        </div>
+        <button type="button" class="danger-action" data-gast-loeschen-frage="${t(gast.id)}">Entfernen</button>
       </div>`;
   }
 
@@ -806,6 +960,10 @@
     const detail = zustand.gastDetails.get(gast.id);
     const summary = gast.adminSummary || v().zusammenfassung(gast, gast.levelDocs || []);
     const gesehen = v().zuletzt(gast);
+    const ort = gastOrt(gast);
+    const geraet = gastGeraet(gast);
+    const besuche = Math.max(1, Number(gast.besuche) || 0);
+    const gespielt = gastHatGespielt(gast);
     return `
       <article class="admin-entry${offen ? " is-open" : ""}">
         <button type="button" class="admin-entry-head" data-gast="${t(gast.id)}" aria-expanded="${offen}">
@@ -817,17 +975,53 @@
             <span>${t(gast.id)}</span>
           </span>
           <span class="admin-entry-zuletzt"><b>Zuletzt</b>${gesehen ? t(v().datum(gesehen)) : "nie"}</span>
-          ${v().zugStreifen(gast)}
+          <span class="admin-entry-herkunft">
+            <span><b>Gerät</b>${geraet ? t(geraet) : "–"}</span>
+            <span><b>Standort</b>${ort ? t(ort) : "–"}</span>
+          </span>
+          ${gespielt ? v().zugStreifen(gast) : `<span class="admin-gast-nurbesuch">nur besucht</span>`}
           <span class="admin-user-summary" aria-label="Kurzfassung">
+            <span><b>Besuche</b>${besuche}</span>
             <span><b>Gelöst</b>${summary.totalSolved}</span>
             <span><b>Spielzeit</b>${t(v().dauer(summary.totalSeconds))}</span>
-            <span><b>Sessions</b>${summary.sessions}</span>
           </span>
         </button>
-        ${offen ? `<div class="admin-entry-body">${detail
-          ? v().kontoDetail(detail, { selectedGame: zustand.spielFilter, withFilters: true })
-          : `<p class="account-muted">Details werden geladen...</p>`}</div>` : ""}
+        ${offen ? `<div class="admin-entry-body">
+          ${gastHerkunftBlock(gast)}
+          ${gespielt
+            ? (detail
+              ? v().kontoDetail(detail, { selectedGame: zustand.spielFilter, withFilters: true })
+              : `<p class="account-muted">Details werden geladen...</p>`)
+            : `<p class="account-muted">Dieses Gerät hat die App geöffnet, aber nie ein Level gestartet.</p>`}
+          ${gastLoeschBlock(gast)}
+        </div>` : ""}
       </article>`;
+  }
+
+  // Was der Besuch verraten hat, ausgeschrieben. Sprache, Zeitzone und
+  // Bildschirmgrösse kommen vom Browser des Gastes und sind damit keine
+  // Tatsache, sondern eine Behauptung – für die Frage "wer schaut vorbei?"
+  // reicht das, für alles andere nicht.
+  function gastHerkunftBlock(gast) {
+    const client = gast.client || {};
+    const ort = gastOrt(gast);
+    const zeilen = [
+      ["Gerät", gastGeraet(gast)],
+      ["Standort", ort],
+      ["Sprache", client.sprache || ""],
+      ["Zeitzone", client.zeitzone || ""],
+      ["Bildschirm", client.bildschirm || ""],
+      ["Als App installiert", client.installiert ? "ja" : ""],
+      ["Erster Besuch", gast.ersterBesuchMs ? v().datum(new Date(Number(gast.ersterBesuchMs))) : ""],
+      ["Besuche", String(Math.max(1, Number(gast.besuche) || 0))],
+    ].filter(([, wert]) => wert);
+
+    return `
+      <div class="admin-herkunft">
+        <h4>Woher</h4>
+        <dl>${zeilen.map(([name, wert]) => `<div><dt>${name}</dt><dd>${t(wert)}</dd></div>`).join("")}</dl>
+        <p class="account-muted">Keine IP-Adresse gespeichert – der Standort kommt vom Netlify-Edge, das die Anfrage entgegennimmt.</p>
+      </div>`;
   }
 
   function bindeGaeste() {
@@ -837,22 +1031,105 @@
     seite.querySelectorAll("[data-admin-game]").forEach((knopf) => {
       knopf.addEventListener("click", () => { zustand.spielFilter = knopf.dataset.adminGame || "all"; zeichne(); });
     });
+    seite.querySelectorAll("[data-gast-filter]").forEach((knopf) => {
+      knopf.addEventListener("click", () => {
+        zustand.gastFilter = knopf.dataset.gastFilter;
+        // Die Frage gilt für einen Gast, der nach dem Filterwechsel vielleicht
+        // gar nicht mehr dasteht. Sie stehen zu lassen hiesse, sie unsichtbar
+        // offen zu halten.
+        zustand.gastFrage = null;
+        zeichne();
+      });
+    });
+    seite.querySelectorAll("[data-gast-frage-ab]").forEach((knopf) => {
+      knopf.addEventListener("click", () => { zustand.gastFrage = null; zeichne(); });
+    });
+    seite.querySelectorAll("[data-gast-loeschen-frage]").forEach((knopf) => {
+      knopf.addEventListener("click", () => {
+        zustand.gastFrage = { art: "gast", id: knopf.dataset.gastLoeschenFrage };
+        zustand.gastFehler = "";
+        zeichne();
+      });
+    });
+    seite.querySelectorAll("[data-gast-loeschen-ja]").forEach((knopf) => {
+      knopf.addEventListener("click", () => gastEntfernen(knopf.dataset.gastLoeschenJa));
+    });
+    seite.querySelector("[data-gast-sammel-frage]")?.addEventListener("click", () => {
+      zustand.gastFrage = { art: "sammel", id: null };
+      zustand.gastFehler = "";
+      zeichne();
+    });
+    seite.querySelector("[data-gast-sammel-ja]")?.addEventListener("click", () => besucheAufraeumen());
   }
 
   async function gastAufklappen(id) {
     if (zustand.offenerGast === id) {
       zustand.offenerGast = null;
+      zustand.gastFrage = null;
       zeichne();
       return;
     }
     zustand.offenerGast = id;
     zustand.spielFilter = "all";
+    zustand.gastFrage = null;
     if (!zustand.gastDetails.has(id)) {
       zeichne();
       try { zustand.gastDetails.set(id, await api().ladeGastDetails(id)); }
       catch (fehler) { zustand.gastDetails.set(id, { id, error: fehler }); }
     }
     zeichne();
+  }
+
+  // Wie kontoEntfernen: Nach dem Löschen gibt es die Zeile nicht mehr, die
+  // aufgeklappt wäre – also die Liste neu holen statt einen einzelnen Eintrag
+  // nachzuführen.
+  async function gastEntfernen(id) {
+    if (!id || zustand.gastLaeuft) return;
+    zustand.gastFrage = null;
+    zustand.gastLaeuft = id;
+    zustand.gastFehler = "";
+    zeichne();
+    try {
+      await api().loescheGast(id);
+      zustand.offenerGast = null;
+      zustand.gastDetails.delete(id);
+    } catch (fehler) {
+      zustand.gastFehler = api().serverFehlerText(fehler);
+    }
+    zustand.gastLaeuft = "";
+    await lade({ neu: true });
+  }
+
+  async function besucheAufraeumen() {
+    if (zustand.gastLaeuft) return;
+    // Die Liste wird hier festgehalten, bevor gelöscht wird: Sonst entschiede
+    // beim zweiten Durchgang ein Zustand mit, der sich gerade ändert.
+    const ids = zustand.gaeste.filter((gast) => !gastHatGespielt(gast)).map((gast) => gast.id);
+    if (!ids.length) { zustand.gastFrage = null; zeichne(); return; }
+    zustand.gastFrage = null;
+    zustand.gastLaeuft = "sammel";
+    zustand.gastFehler = "";
+    zeichne();
+    try {
+      // nurOhneSpiel: firebase.js liest jeden Gast unmittelbar vor dem Löschen
+      // noch einmal. Wer in der Zwischenzeit angefangen hat zu spielen, bleibt
+      // stehen – und wird hier benannt, sonst wäre die Zahl in der Rückfrage
+      // eine andere als die Zahl der gelöschten Zeilen, ohne dass jemand
+      // erführe, warum.
+      const ergebnis = await api().loescheGaeste(ids, { nurOhneSpiel: true });
+      const uebersprungen = ergebnis?.uebersprungen?.length || 0;
+      if (uebersprungen) {
+        zustand.gastFehler = `${uebersprungen} ${uebersprungen === 1 ? "Gast hat" : "Gäste haben"} in der Zwischenzeit angefangen zu spielen und ${uebersprungen === 1 ? "bleibt" : "bleiben"} stehen.`;
+      }
+      zustand.offenerGast = null;
+      ids.forEach((id) => zustand.gastDetails.delete(id));
+    } catch (fehler) {
+      // Abgebrochen heisst nicht "nichts passiert": Was vor dem Fehler dran
+      // war, ist weg. Die Liste danach neu zu laden zeigt, wie weit es kam.
+      zustand.gastFehler = api().serverFehlerText(fehler);
+    }
+    zustand.gastLaeuft = "";
+    await lade({ neu: true });
   }
 
   // ---------------------------------------------------------------------------

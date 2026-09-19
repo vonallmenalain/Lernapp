@@ -235,23 +235,61 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // Felder, die nur der Server schreibt (netlify/functions/besuch.mjs, über
+    // das Admin-SDK und damit an diesen Regeln vorbei). Ein Client darf sie
+    // nicht anfassen: Der Standort kommt aus der Verbindung, nicht aus einer
+    // Behauptung des Browsers, und ein Besuchszähler, den jeder selbst setzen
+    // kann, zählt nichts. Ohne diese Schranke könnte ein Unangemeldeter dem
+    // Adminbereich erfundene Länder und beliebige Besuchszahlen unterschieben.
+    function gastServerFelder() {
+      return ["besuche", "ort", "client", "ersterBesuchMs", "ersterBesuchAt", "letzterBesuchMs", "letzterBesuchAt"];
+    }
+
     match /guests/{guestId} {
       allow get, list: if isAdmin();
-      allow create, update: if !isSignedIn()
+      // Beim Anlegen gibt es kein resource.data, gegen das sich ein diff
+      // rechnen liesse – deshalb zwei Regeln statt einer.
+      allow create: if !isSignedIn()
         && isGuestId(guestId)
-        && request.resource.data.type == "guest";
-      allow delete: if false;
+        && request.resource.data.type == "guest"
+        && !request.resource.data.keys().hasAny(gastServerFelder());
+      allow update: if !isSignedIn()
+        && isGuestId(guestId)
+        && request.resource.data.type == "guest"
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(gastServerFelder());
+      // Löschen darf der Admin, sonst niemand.
+      //
+      // Hier stand "if false", und zwar für alle – auch für den Admin. Das
+      // war richtig, solange ein Gastdokument nur beim Spielen entstand: Es
+      // gab wenige, sie bedeuteten etwas, und niemand musste aufräumen.
+      //
+      // Seit besuch.mjs jeden Aufruf der App zählt, entsteht hier eine Zeile
+      // für jedes Gerät, das einmal vorbeischaut – auch für den Besuch, der
+      // nach zehn Sekunden wieder weg war. Eine Liste, die nur wächst, liest
+      // nach einem halben Jahr niemand mehr. Deshalb der Knopf im
+      // Adminbereich, und deshalb diese Zeile.
+      //
+      // Ein Gast verliert dabei nichts: Sein Stand liegt auf seinem Gerät,
+      // das Dokument hier ist die Kopie davon. Genau deshalb hat er auch
+      // keinen Zurücksetzen-Knopf. Und ein Gast darf weiterhin selbst nichts
+      // löschen – er käme sonst an die Dokumente aller anderen, denn eine
+      // fremde Gastkennung zu raten ist schwer, aber eine eigene Regel wäre
+      // das nicht wert: lesen darf er sie ohnehin nicht.
+      allow delete: if isAdmin();
 
       match /levelProgress/{levelId} {
         allow read: if isAdmin();
         allow create, update: if !isSignedIn() && isGuestId(guestId);
-        allow delete: if false;
+        // Mit dem Gast gehen seine Level – sonst bliebe ein Fortschritt ohne
+        // Besitzer stehen, den danach niemand mehr findet: Die Liste im
+        // Adminbereich führt nur über guests/.
+        allow delete: if isAdmin();
       }
 
       match /sessions/{sessionId} {
         allow read: if isAdmin();
         allow create, update: if !isSignedIn() && isGuestId(guestId);
-        allow delete: if false;
+        allow delete: if isAdmin();
       }
 
       // Kein rekursiver Platzhalter, aus demselben Grund wie bei users: Er
@@ -259,6 +297,19 @@ service cloud.firestore {
       // aber read: isAdmin() – und was einmal zu weit passt, passt beim
       // nächsten Umbau zu weit an einer Stelle, die es dann schmerzt.
     }
+
+    // --- Die Bremse der Besuchszählung ----------------------------------------
+    // besuchBremse/{hash} zählt, wie oft ein Anschluss heute schon einen
+    // Besuch gemeldet hat (netlify/functions/besuch.mjs). /api/besuch ist
+    // offen – ein Gast hat kein Token, es gibt niemanden zu prüfen –, und
+    // ohne diese Bremse könnte jemand in einer Schleife erfundene
+    // Gastkennungen schicken und die Datenbank vollschreiben.
+    //
+    // Im Dokument steht der SHA-256 der Adresse als Name, nie die Adresse
+    // selbst: Die Bremse braucht Wiedererkennung, nicht die IP.
+    //
+    // Wie der Friedhof unten braucht sie keine eigene Regel – nur der Server
+    // schreibt sie, und der Platzhalter am Ende sperrt sie für alle anderen.
 
     // --- Der Friedhof ---------------------------------------------------------
     // Wer gelöscht wurde, bleibt gelöscht: geloeschteKonten/{uid} ist die
