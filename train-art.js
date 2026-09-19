@@ -559,8 +559,13 @@
       el("line", { x1: 38, y1: WHEEL_Y, x2: 160, y2: WHEEL_Y, stroke: shade(wheelColor, -0.4), "stroke-width": 4, "stroke-linecap": "round", opacity: "0.75" }),
     ]);
 
+    // Der Dampf kommt nach dem Kamin: Die Wolken sind bewegt, und was der
+    // Browser nach einem bewegten Teil zeichnet und es überlappt, legt er auf
+    // eine eigene Ebene der Grafikkarte – vorher war das die halbe Lok. Zu
+    // sehen ist kein Unterschied: Die Wolken werden erst über dem Kamin
+    // sichtbar.
     return group({ class: "train-loco", "data-loco": "true" },
-      [defs, steam, flag, frame, cab, driver, windowFrame, boiler, whistle, chimney, lamp, wheels, plough, sparkle].filter(Boolean));
+      [defs, flag, frame, cab, driver, windowFrame, boiler, whistle, chimney, lamp, wheels, plough, steam, sparkle].filter(Boolean));
   }
 
   // ---------------------------------------------------------------------------
@@ -2888,14 +2893,18 @@
 
   // Das Signal an der aktuellen Station: grün, mit dem Ring des Startsignals.
   // Der Fuss steht bei (0,0).
+  // Der pulsende Ring kommt zuletzt: Er ist das einzige bewegte Teil, und
+  // was nach einem bewegten Teil gezeichnet wird und es überlappt, legt der
+  // Browser auf eine eigene Ebene der Grafikkarte. Er liegt frei um die
+  // Lampe, gedeckt wird nichts.
   function buildJourneySignal() {
     return group({ class: "journey-signal", "aria-hidden": "true" }, [
       el("rect", { x: -2.5, y: -40, width: 5, height: 40, rx: 2, fill: "#4a5568" }),
       el("rect", { x: -9, y: -3, width: 18, height: 4, rx: 2, fill: "#3a4250" }),
-      el("circle", { cx: 0, cy: -47, r: 14, fill: "none", stroke: "#3fbf74", "stroke-width": 3, class: "journey-signal-ring" }),
       el("circle", { cx: 0, cy: -47, r: 10.5, fill: shade("#3fbf74", -0.35) }),
       el("circle", { cx: 0, cy: -47, r: 8, fill: "#3fbf74", class: "journey-signal-lamp" }),
       el("polygon", { points: "-3.5,-52 5.5,-47 -3.5,-42", fill: "#ffffff" }),
+      el("circle", { cx: 0, cy: -47, r: 14, fill: "none", stroke: "#3fbf74", "stroke-width": 3, class: "journey-signal-ring" }),
     ]);
   }
 

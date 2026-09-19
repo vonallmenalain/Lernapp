@@ -30,6 +30,13 @@
 html {
   min-height: 100%;
   touch-action: pan-x pan-y;
+  /* Safari auf dem iPhone und iPad vergrössert Text von sich aus, wenn es die
+     Seite für zu klein hält – hier ist alles bewusst gross, und nichts soll
+     hinter seinem Rahmen hinauswachsen. */
+  -webkit-text-size-adjust: 100%;
+  /* Und beim langen Drücken auf einen Link oder ein Bild kein Vorschau-Blatt:
+     ein Kind hält den Finger länger auf dem Bild, nicht kürzer. */
+  -webkit-touch-callout: none;
   /* Der graue Kasten, den ein Handy beim Antippen über das Getippte legt, hat
      hier nichts zu suchen. Bei einem Knopf sieht er nur unschön aus; über
      einer Station der Reisekarte oder einem Bauteil der Lok legt er sich als
@@ -132,6 +139,7 @@ h1 {
   background: rgba(255, 255, 255, 0.84);
   border: 1px solid rgba(255, 255, 255, 0.75);
   box-shadow: var(--shadow);
+  -webkit-backdrop-filter: blur(10px);
   backdrop-filter: blur(10px);
 }
 
@@ -238,6 +246,7 @@ h2 {
   font-size: clamp(1.2rem, 5vw, 2.3rem);
   font-weight: 900;
   cursor: pointer;
+  -webkit-user-select: none;
   user-select: none;
   transition: transform 0.12s ease, border-color 0.12s ease, background 0.12s ease;
 }
@@ -251,6 +260,7 @@ h2 {
 
 .arukone-board {
   touch-action: none;
+  -webkit-user-select: none;
   user-select: none;
 }
 
@@ -293,6 +303,7 @@ h2 {
   place-items: center;
   padding: 24px;
   background: rgba(36, 48, 71, 0.55);
+  -webkit-backdrop-filter: blur(6px);
   backdrop-filter: blur(6px);
   animation: fade-in 0.25s ease;
 }
@@ -633,6 +644,7 @@ body.puzzle-active #puzzle-title {
 body.puzzle-active .board {
   grid-row: 2;
   width: var(--active-board-size, min(calc(100vw - 36px), calc(100vh - 78px)));
+  width: var(--active-board-size, min(calc(100vw - 36px), calc(100dvh - 78px)));
   max-width: 860px;
   margin-top: var(--active-board-offset, 0px);
   /* Mittig im freien Bereich: quadratische Bretter kleben sonst oben und
@@ -696,6 +708,7 @@ body.puzzle-active .task-board {
 
   body.puzzle-active .board {
     width: var(--active-board-size, min(calc(100vw - 28px), calc(100vh - 64px)));
+    width: var(--active-board-size, min(calc(100vw - 28px), calc(100dvh - 64px)));
     gap: 5px;
   }
 
@@ -748,6 +761,7 @@ body.puzzle-active .icon-button {
 
 body.puzzle-active .board {
   width: var(--active-board-size, min(calc(100vw - 36px), calc(100vh - 164px)));
+  width: var(--active-board-size, min(calc(100vw - 36px), calc(100dvh - 164px)));
 }
 
 @media (max-width: 640px) {
@@ -762,6 +776,7 @@ body.puzzle-active .board {
 
   body.puzzle-active .board {
     width: var(--active-board-size, min(calc(100vw - 28px), calc(100vh - 154px)));
+    width: var(--active-board-size, min(calc(100vw - 28px), calc(100dvh - 154px)));
   }
 }
 
@@ -1146,6 +1161,7 @@ a.icon-button {
 body.puzzle-active .count-board,
 body.puzzle-active .bimaru-count-board {
   width: var(--active-board-size, min(calc(100vw - 36px), calc(100vh - 170px), 760px));
+  width: var(--active-board-size, min(calc(100vw - 36px), calc(100dvh - 170px), 760px));
 }
 
 body.puzzle-active .bimaru-count-board {
@@ -1273,6 +1289,7 @@ body.puzzle-active .count-corner {
   font-weight: 950;
   line-height: 1.08;
   overflow-wrap: anywhere;
+  -webkit-hyphens: auto;
   hyphens: auto;
 }
 
@@ -1412,6 +1429,7 @@ button.selection-back-button:focus-visible {
   border-radius: 18px;
   overflow: hidden;
   touch-action: none;
+  -webkit-user-select: none;
   user-select: none;
 }
 
@@ -1464,6 +1482,7 @@ button.selection-back-button:focus-visible {
 
 body.puzzle-active .hidoku-board {
   width: var(--active-board-size, min(calc(100vw - 36px), calc(100vh - 190px), 760px));
+  width: var(--active-board-size, min(calc(100vw - 36px), calc(100dvh - 190px), 760px));
 }
 
 @media (max-width: 640px) {
@@ -1481,6 +1500,7 @@ body.puzzle-active .hidoku-board {
 
   body.puzzle-active .hidoku-board {
     width: var(--active-board-size, min(calc(100vw - 28px), calc(100vh - 178px)));
+    width: var(--active-board-size, min(calc(100vw - 28px), calc(100dvh - 178px)));
   }
 }
 
@@ -1488,6 +1508,7 @@ body.puzzle-active .hidoku-board {
   gap: 4px;
   max-width: min(720px, 100%);
   touch-action: none;
+  -webkit-user-select: none;
   user-select: none;
 }
 
@@ -1565,6 +1586,7 @@ body.puzzle-active .hidoku-board {
 
 body.puzzle-active .shikaku-board {
   width: var(--active-board-size, min(calc(100vw - 32px), calc(100vh - 172px)));
+  width: var(--active-board-size, min(calc(100vw - 32px), calc(100dvh - 172px)));
 }
 
 body.puzzle-active .shikaku-cell {
@@ -1575,6 +1597,7 @@ body.puzzle-active .shikaku-cell {
   .shikaku-board { gap: 3px; }
   body.puzzle-active .shikaku-board {
     width: var(--active-board-size, min(calc(100vw - 24px), calc(100vh - 160px)));
+    width: var(--active-board-size, min(calc(100vw - 24px), calc(100dvh - 160px)));
   }
   .shikaku-cell {
     border-radius: 9px;
@@ -1648,6 +1671,7 @@ body.puzzle-active .task-board {
   white-space: normal;
   overflow-wrap: normal;
   word-break: normal;
+  -webkit-hyphens: none;
   hyphens: none;
 }
 
@@ -2260,6 +2284,7 @@ body.puzzle-active .spatialPuzzle-board .spatial-option-graphic > svg {
   place-items: center;
   padding: calc(var(--safe-top) + 18px) calc(var(--safe-right) + 18px) calc(var(--safe-bottom) + 18px) calc(var(--safe-left) + 18px);
   background: rgba(36, 48, 71, 0.56);
+  -webkit-backdrop-filter: blur(7px);
   backdrop-filter: blur(7px);
 }
 
@@ -2271,6 +2296,7 @@ body.puzzle-active .spatialPuzzle-board .spatial-option-graphic > svg {
   position: relative;
   width: min(720px, 100%);
   max-height: min(820px, calc(100vh - var(--safe-top) - var(--safe-bottom) - 36px));
+  max-height: min(820px, calc(100dvh - var(--safe-top) - var(--safe-bottom) - 36px));
   overflow: auto;
   padding: clamp(22px, 4vw, 34px);
   border-radius: 28px;
@@ -3370,6 +3396,7 @@ body.puzzle-active .spatialPuzzle-board .spatial-option-graphic > svg {
    ausgezeichnet, der Browser weiss also, wo. */
 .admin-game-card .admin-data-grid span {
   overflow-wrap: normal;
+  -webkit-hyphens: auto;
   hyphens: auto;
 }
 
@@ -3711,7 +3738,7 @@ body.puzzle-active .spatialPuzzle-board .spatial-option-graphic > svg {
 .kids-modal-overlay {
   position: fixed; inset: 0; z-index: 60;
   display: flex; align-items: center; justify-content: center; padding: 20px;
-  background: rgba(36, 30, 60, 0.55); backdrop-filter: blur(4px);
+  background: rgba(36, 30, 60, 0.55); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px);
   animation: kids-fade 0.2s ease;
 }
 @keyframes kids-fade { from { opacity: 0; } to { opacity: 1; } }
@@ -3909,7 +3936,7 @@ body.runner-playing { overflow: hidden; }
 /* --- Dialoge im Spiel --- */
 .runner-overlay {
   position: absolute; inset: 0; z-index: 3; display: grid; place-items: center;
-  padding: 20px; background: rgba(24, 30, 48, 0.52); backdrop-filter: blur(3px);
+  padding: 20px; background: rgba(24, 30, 48, 0.52); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px);
 }
 .runner-overlay[hidden] { display: none; }
 .runner-dialog {
@@ -4776,7 +4803,12 @@ body[data-page="train"].list-open { overflow: auto; }
      der Ausschnitt wird eingepasst, nicht beschnitten, und bei einem sehr
      breiten Fenster bliebe links und rechts sonst ein Stück Gleis fehlend. */
   overflow: visible;
-  animation: stage-layer-in 0.5s ease both;
+  /* backwards, nicht both: Der Endzustand ist der Ruhezustand. Mit "both"
+     hielte der Browser die fertige Animation für immer fest – und hält dafür
+     die ganze Ebene als eigene Compositing-Schicht auf der Grafikkarte, mit
+     allem, was über die Ränder hinaus gezeichnet ist. Auf einem Tablet mit
+     hoher Auflösung sind das Dutzende Megapixel für nichts. */
+  animation: stage-layer-in 0.5s ease backwards;
 }
 
 /* Auf einem flachen Bildschirm wird die Ebene in der Breite eingepasst und
@@ -5946,6 +5978,7 @@ body[data-page="train"] .help-voice { display: none; }
   display: grid;
   place-items: center;
   background: rgba(23, 34, 42, 0.55);
+  -webkit-backdrop-filter: blur(3px);
   backdrop-filter: blur(3px);
   animation: scene-picker-in 0.22s ease both;
 }
@@ -6247,6 +6280,7 @@ body[data-page="train"] .help-voice { display: none; }
   place-items: center;
   padding: calc(var(--safe-top) + 84px) 16px calc(var(--safe-bottom) + 16px);
   background: rgba(23, 34, 42, 0.42);
+  -webkit-backdrop-filter: blur(3px);
   backdrop-filter: blur(3px);
   animation: cm-fade 0.2s ease both;
 }
@@ -6373,6 +6407,7 @@ body[data-page="train"] .help-voice { display: none; }
   place-items: center;
   padding: calc(var(--safe-top) + 12px) calc(var(--safe-right) + 12px) calc(var(--safe-bottom) + 12px) calc(var(--safe-left) + 12px);
   background: rgba(23, 34, 42, 0.5);
+  -webkit-backdrop-filter: blur(3px);
   backdrop-filter: blur(3px);
   animation: wagon-reward-in 0.24s ease both;
 }
@@ -6688,6 +6723,7 @@ body.has-scene .status-row {
   background: none;
   border: none;
   box-shadow: none;
+  -webkit-backdrop-filter: none;
   backdrop-filter: none;
 }
 
@@ -6720,6 +6756,7 @@ body.has-scene .controls {
   background: none;
   border: none;
   box-shadow: none;
+  -webkit-backdrop-filter: none;
   backdrop-filter: none;
 }
 
@@ -6881,6 +6918,7 @@ body.has-scene.puzzle-active .game-panel {
    ohne Leiste, Zeile, Rand und den Rand der Tafel. */
 .me-feld {
   --me-platz: calc(100vh - var(--safe-top, 0px) - var(--safe-bottom, 0px) - 190px - 2 * var(--me-rand, 12px));
+  --me-platz: calc(100dvh - var(--safe-top, 0px) - var(--safe-bottom, 0px) - 190px - 2 * var(--me-rand, 12px));
   display: grid;
   gap: clamp(5px, 1.2vw, 14px);
   grid-template-columns: repeat(var(--me-spalten, 4), minmax(0, 1fr));
@@ -9387,6 +9425,7 @@ body.has-scene .difficulty-grid.has-garten { grid-template-columns: repeat(5, mi
 body.has-scene .difficulty-card {
   min-height: 0;
   height: clamp(110px, calc(100vh - var(--safe-top) - var(--safe-bottom) - 100px), 230px);
+  height: clamp(110px, calc(100dvh - var(--safe-top) - var(--safe-bottom) - 100px), 230px);
   display: grid;
   grid-template-columns: none;
   grid-template-rows: none;
@@ -9437,6 +9476,7 @@ body.has-scene .level-tile {
   min-width: 0;
   min-height: 0;
   height: clamp(58px, calc((100vh - var(--safe-top) - var(--safe-bottom) - 110px) / 2), 124px);
+  height: clamp(58px, calc((100dvh - var(--safe-top) - var(--safe-bottom) - 110px) / 2), 124px);
   padding: 4px;
   gap: 2px;
   border-radius: clamp(12px, 3vh, 22px);
@@ -9775,11 +9815,33 @@ body[data-page="train"] .train-stage[data-view="reise"] ~ .help-voice {
   inset: 0;
   display: grid;
   place-items: center;
+  /* Beschnitten am Rand der Bühne: Die Karte ist weit über ihren Ausschnitt
+     hinaus gezeichnet, und beim Hereinschieben wäre sonst die ganze
+     Zeichnung samt Rändern eine Ebene auf der Grafikkarte. */
+  overflow: hidden;
+  /* Der Himmel der Karte, wo die Zeichnung nicht hinreicht (hohes, schmales
+     Bild): train-journey.js setzt die Farbe je Landschaft. */
+  background: var(--journey-sky, transparent);
 }
+/* Unter der Karte bleibt die Landschaft des Startbilds unsichtbar. Sie war
+   verdeckt, aber da: vier Bänder, doppelt so breit wie das Bild, jedes eine
+   eigene Ebene, die der Browser Bild für Bild mitzeichnete. Was darin und
+   am unsichtbaren Zugband noch animiert ist, steht dabei still: Eine
+   Animation an etwas Unsichtbarem läuft nicht mehr auf der Grafikkarte,
+   sondern im Hauptthread – und sobald eine einzige das tut, rechnet der
+   Browser in jedem Bild alle Animationen der Seite nach und legt die ganze
+   Karte neu aus. */
+.train-stage[data-view="reise"] .scene { visibility: hidden; }
+.train-stage[data-view="reise"] .scene-bird { animation-play-state: paused; }
+.train-stage[data-view="reise"] .train-band * { animation: none; }
 /* Von den Toren her schiebt sich die Karte von rechts herein, beim Wechsel
-   auf die nächste Karte ebenso. */
+   auf die nächste Karte ebenso. Ohne die Klasse läuft nichts – auch nicht
+   das Hereinschweben der Bühnen-Ebene, das die Karte sonst erbte. Und
+   backwards statt both: Ist die Fahrt vorbei, hält nichts die Karte als
+   eigene Ebene fest (siehe .stage-svg). */
+.journey .journey-map { animation: none; }
 .journey.is-entering .journey-map,
-.journey.is-switching .journey-map { animation: journey-slide-in 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+.journey.is-switching .journey-map { animation: journey-slide-in 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) backwards; }
 @keyframes journey-slide-in {
   from { opacity: 0; transform: translateX(26%); }
   to { opacity: 1; transform: none; }
@@ -9811,11 +9873,13 @@ body[data-page="train"] .train-stage[data-view="reise"] ~ .help-voice {
 .journey-choice { transition: opacity 0.3s ease; }
 .journey-choice.is-dropped { opacity: 0; }
 
-/* Der Nebel: über allem, was noch nicht dran ist; hebt sich und treibt weg. */
+/* Der Nebel: über allem, was noch nicht dran ist; hebt sich und treibt weg.
+   Blass, aber ohne Filter: ein filter auf einem SVG-Teil ist eine eigene
+   Zwischenfläche auf der Grafikkarte, je Station eine. */
 .journey-station .journey-picture,
-.journey-station .journey-choice { transition: opacity 0.6s ease, filter 0.6s ease; }
+.journey-station .journey-choice { transition: opacity 0.6s ease; }
 .journey-station.is-fog .journey-picture,
-.journey-station.is-fog .journey-choice { opacity: 0.42; filter: grayscale(0.85); }
+.journey-station.is-fog .journey-choice { opacity: 0.38; }
 .journey-fog { transition: opacity 0.9s ease, transform 0.9s ease; pointer-events: none; }
 .journey-station:not(.is-fog) .journey-fog { opacity: 0; transform: translate(60px, -12px); }
 
@@ -9828,13 +9892,29 @@ body[data-page="train"] .train-stage[data-view="reise"] ~ .help-voice {
 .journey-number-disc { transition: fill 0.5s ease; }
 /* Offen sind immer zwei Stationen: beide tragen den grünen Ring, die mit dem
    Zug pulst dazu. Gestempelt braucht keinen Ring mehr. */
-.journey-number-ring { opacity: 0; transform-box: fill-box; transform-origin: center; transition: opacity 0.3s ease; }
+.journey-number-ring { opacity: 0; transition: opacity 0.3s ease; }
 .journey-station.is-open .journey-number-ring { opacity: 0.9; }
-.journey-station.is-current .journey-number-ring { opacity: 1; animation: journey-pulse 1.9s ease-in-out infinite; }
-.journey-station.is-done .journey-number-ring { opacity: 0; animation: none; }
+.journey-station.is-current .journey-number-ring { opacity: 1; }
+.journey-station.is-done .journey-number-ring { opacity: 0; }
 .journey-station.is-fog .journey-number-disc { fill: #9aa4b2; }
 .journey-station.is-fog .journey-number { opacity: 0.7; }
-.journey-station.is-open .journey-number-disc { filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.28)); }
+/* Der Schatten unter der Scheibe ist gezeichnet, kein drop-shadow-Filter:
+   der Filter hiesse eine eigene Zwischenfläche je offener Station. */
+.journey-number-shadow { opacity: 0; transition: opacity 0.3s ease; }
+.journey-station.is-open .journey-number-shadow { opacity: 0.2; }
+/* Das Pulsieren an der Station, die dran ist, ist ein eigener Ring ganz
+   zuoberst auf der Karte (train-journey.js, layers.marker) – nicht der Ring
+   der Station selbst. Der Browser legt jedes animierte SVG-Teil auf eine
+   eigene Ebene, und alles, was danach gezeichnet wird und es überlappt,
+   gleich mit: ein pulsierender Ring mitten in der Karte riss so Nummer,
+   Stempel, Zug und Berge in weitere Ebenen. Zuoberst überlappt ihn nichts. */
+.journey-pulse {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: journey-pulse 1.9s ease-in-out infinite;
+  pointer-events: none;
+}
+.journey-pulse.is-hidden { opacity: 0; animation: none; }
 
 /* Ist die Station geschafft, tritt der Stempel an die Stelle der Zahl. Zwei
    Zeichen nebeneinander waren eines zu viel. */
@@ -9845,7 +9925,7 @@ body[data-page="train"] .train-stage[data-view="reise"] ~ .help-voice {
 
 /* Der Stempel fällt von oben auf die Station und prallt kurz zurück. */
 .journey-stamp { transform-box: fill-box; transform-origin: center; }
-.journey-stamp.is-new { animation: journey-stamp-in 0.55s cubic-bezier(0.2, 1.6, 0.4, 1) both; }
+.journey-stamp.is-new { animation: journey-stamp-in 0.55s cubic-bezier(0.2, 1.6, 0.4, 1) backwards; }
 @keyframes journey-stamp-in {
   from { transform: scale(2.6) rotate(-30deg); opacity: 0; }
   60% { opacity: 1; }
@@ -9862,8 +9942,9 @@ body[data-page="train"] .train-stage[data-view="reise"] ~ .help-voice {
 }
 /* Unsichtbar pulst der Ring nicht weiter: während der Feier – Stempel, Legen,
    Fahrt – ist das Signal weg, und eine Animation, die niemand sieht, kostet
-   auf einem Tablet trotzdem Bilder. */
-.journey-signal.is-hidden .journey-signal-ring { animation-play-state: paused; }
+   auf einem Tablet trotzdem Bilder. Ganz weg, nicht angehalten: auch eine
+   angehaltene Animation hält ihre Ebene auf der Grafikkarte. */
+.journey-signal.is-hidden .journey-signal-ring { animation: none; }
 @keyframes journey-pulse {
   0%, 100% { transform: scale(1); opacity: 0.55; }
   50% { transform: scale(1.4); opacity: 0.15; }
@@ -9872,36 +9953,44 @@ body[data-page="train"] .train-stage[data-view="reise"] ~ .help-voice {
 /* Das Gleis, das noch nicht gelegt ist, bleibt blass. */
 .journey-rails-dim { opacity: 0.42; }
 
-/* Der kleine Zug: Räder drehen und der Dampf stösst nur in der Fahrt. Im
-   Stand dampft die Lok leise weiter, wie überall. */
-.journey-train .train-wheel { transform-box: fill-box; transform-origin: center; }
-.journey-train.is-driving .train-wheel { animation: wheel-roll var(--turn, 1.5s) linear infinite; }
-.journey-train.is-driving .train-steam-puff { animation: train-puff 1.6s ease-out infinite; }
-.journey-train.is-driving .train-steam-2 { animation-delay: 0.55s; }
-.journey-train.is-driving .train-steam-3 { animation-delay: 1.1s; }
+/* --- Ruhe auf der Karte ---
+   Der Browser legt jedes SVG-Teil mit laufender transform- oder
+   opacity-Animation auf eine eigene Ebene der Grafikkarte – und alles, was
+   danach gezeichnet wird und es überlappt, auf weitere. Auf der Karte kamen
+   so an die hundert Ebenen zusammen (die kleinen Bewegungen in jedem
+   Stationsbild, der Dampf, das Wasser, die Mühle), zusammen ein Vielfaches
+   des Bildschirms an Texturfläche. Ein Tablet mit hoher Auflösung
+   (Xiaomi Pad 7) kam damit nicht mehr nach: Stationen, Stempel und Knöpfe
+   fielen bildweise aus, die Karte flackerte. Deshalb steht die Karte im
+   Stand still. Es bewegt sich nur, was zeigt, wo es weitergeht (der Ring
+   und das Signal, beide zuoberst), und was gerade geschieht: die Fahrt, der
+   Stempel, die Feier am Ziel. */
+.journey-map .gi { animation: none; }
 
-/* Die Karte lebt: das Wasser glitzert, die Mühle dreht sich, die Sterne
-   blinken. Bei der Ankunft dreht die Mühle schneller, das Licht geht an. */
-.journey-water { animation: journey-wave 7s linear infinite; }
+/* Der kleine Zug: Räder drehen und der Dampf stösst nur in der Fahrt. Beides
+   bewegt train-journey.js mit der Fahrt selbst, über Attribute – keine
+   CSS-Animation, keine Ebene. Im Stand steht der Dampf als kleine Wolke am
+   Kamin, wie bei weniger Bewegung. */
+.journey-map .train-wheel { animation: none; }
+.journey-map .train-steam-puff { animation: none; opacity: 0.5; }
+
+/* Die Karte lebt bei der Ankunft: das Wasser glitzert, die Mühle dreht sich
+   schnell, das Licht geht an, der Leuchtturm blinkt, die Sterne funkeln.
+   Im Stand steht das alles still (siehe oben). Der Rauch der Fähre steigt
+   auch, solange sie fährt. */
+.is-party .journey-water { animation: journey-wave 7s linear infinite; }
 @keyframes journey-wave { from { transform: translateX(0); } to { transform: translateX(60px); } }
-.journey-blades {
-  transform-box: fill-box;
-  transform-origin: center;
-  animation: journey-spin 14s linear infinite;
-}
-.is-party .journey-blades { animation-duration: 2.2s; }
+.journey-blades { transform-box: fill-box; transform-origin: center; }
+.is-party .journey-blades { animation: journey-spin 2.2s linear infinite; }
 @keyframes journey-spin { to { transform: rotate(1turn); } }
-.journey-beam { animation: journey-beam 3.2s ease-in-out infinite alternate; }
-.is-party .journey-beam { animation-duration: 0.9s; }
+.is-party .journey-beam { animation: journey-beam 0.9s ease-in-out infinite alternate; }
 @keyframes journey-beam { from { opacity: 0.15; } to { opacity: 0.55; } }
-.journey-star { animation: journey-twinkle 2.6s ease-in-out infinite; }
-.journey-star:nth-child(odd) { animation-delay: 1.1s; }
+.is-party .journey-star { animation: journey-twinkle 2.6s ease-in-out infinite; }
+.is-party .journey-star:nth-child(odd) { animation-delay: 1.1s; }
 @keyframes journey-twinkle { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
-.journey-smoke {
-  transform-box: fill-box;
-  transform-origin: center;
-  animation: journey-smoke 3.4s ease-out infinite;
-}
+.journey-smoke { transform-box: fill-box; transform-origin: center; }
+.is-party .journey-smoke, .is-sailing .journey-ferry .journey-smoke { animation: journey-smoke 3.4s ease-out infinite; }
+.is-sailing .journey-ferry .journey-smoke { animation-duration: 2.6s; }
 @keyframes journey-smoke {
   0% { transform: translate(0, 0) scale(0.6); opacity: 0; }
   20% { opacity: 0.9; }
@@ -9913,7 +10002,8 @@ body[data-page="train"] .train-stage[data-view="reise"] ~ .help-voice {
 .journey-lock { transition: opacity 0.5s ease, transform 0.5s ease; transform-box: fill-box; transform-origin: center; }
 .journey-showcase:not(.is-locked) .journey-lock { opacity: 0; transform: translate(0, 30px) rotate(40deg); }
 .journey-glow { transition: opacity 0.6s ease; }
-.journey-showcase:not(.is-locked) .journey-glow { opacity: 0.8; animation: journey-glow 1.4s ease-in-out infinite alternate; }
+.journey-showcase:not(.is-locked) .journey-glow { opacity: 0.8; }
+.is-party .journey-showcase:not(.is-locked) .journey-glow { animation: journey-glow 1.4s ease-in-out infinite alternate; }
 @keyframes journey-glow { from { opacity: 0.45; } to { opacity: 0.95; } }
 
 /* Die zehn Punkte der Karte, oben in der Mitte – wie die Schrittpunkte des
@@ -9979,6 +10069,7 @@ body[data-page="train"] .train-stage[data-view="reise"] ~ .help-voice {
   padding: calc(var(--safe-top) + 14px) calc(var(--safe-right) + 16px) calc(var(--safe-bottom) + 12px) calc(var(--safe-left) + 16px);
   overflow: auto;
   background: rgba(23, 34, 42, 0.55);
+  -webkit-backdrop-filter: blur(3px);
   backdrop-filter: blur(3px);
   animation: scene-picker-in 0.22s ease both;
 }
@@ -10114,15 +10205,17 @@ body[data-page="train"] .train-stage[data-view="reise"] ~ .help-voice {
    Aufstellung, animiert werden nur die inneren. */
 .journey-passenger-stand { transform-box: fill-box; transform-origin: 50% 100%; transition: opacity 0.35s ease, transform 0.35s ease; }
 .journey-passenger-stand.is-boarding { opacity: 0; transform: translateY(-26px) scale(0.8); }
-.journey-passenger-stand.is-arriving { animation: journey-arrive 0.6s cubic-bezier(0.2, 1.4, 0.4, 1) both; }
+.journey-passenger-stand.is-arriving { animation: journey-arrive 0.6s cubic-bezier(0.2, 1.4, 0.4, 1) backwards; }
 @keyframes journey-arrive { from { opacity: 0; transform: translateY(-30px) scale(0.6); } to { opacity: 1; transform: none; } }
 .journey-passenger-arm { transform-box: fill-box; transform-origin: 0% 100%; }
-.journey-passenger.is-waving .journey-passenger-arm { animation: journey-wave-arm 0.9s ease-in-out infinite alternate; }
+/* Gewinkt wird bei der Ankunft; danach steht er ruhig vor seinem Haus. */
+.is-party .journey-passenger.is-waving .journey-passenger-arm { animation: journey-wave-arm 0.9s ease-in-out infinite alternate; }
 @keyframes journey-wave-arm { from { transform: rotate(-18deg); } to { transform: rotate(22deg); } }
 .journey-aboard { opacity: 0; transform: translateY(12px); transform-box: fill-box; transform-origin: 50% 100%; transition: opacity 0.3s ease, transform 0.4s cubic-bezier(0.2, 1.4, 0.4, 1); }
 .journey-aboard.is-aboard { opacity: 1; transform: none; }
 .journey-home-light { transition: fill 0.6s ease; }
-.journey-landmark.is-lit .journey-home-light { fill: #ffe066; filter: drop-shadow(0 0 5px rgba(255, 224, 102, 0.9)); animation: journey-glow 1.6s ease-in-out infinite alternate; }
+.journey-landmark.is-lit .journey-home-light { fill: #ffe066; }
+.is-party .journey-landmark.is-lit .journey-home-light { animation: journey-glow 1.6s ease-in-out infinite alternate; }
 
 /* --- Die Strecke --- */
 /* Der Scheinwerferkegel vor der Lok: nur in der Nacht und im All, nur in der
@@ -10130,7 +10223,9 @@ body[data-page="train"] .train-stage[data-view="reise"] ~ .help-voice {
    blinken. Auf der Zahnradstrecke drehen die Räder langsamer. */
 .journey-headlight { opacity: 0; transition: opacity 0.5s ease; }
 .journey[data-night] .journey-train.is-driving .journey-headlight { opacity: 0.55; }
-.journey-portal-glow { animation: journey-glow 2.4s ease-in-out infinite alternate; }
+.is-party .journey-portal-glow { animation: journey-glow 2.4s ease-in-out infinite alternate; }
+/* Die Glühwürmchen schweben immer – sie liegen zuoberst auf der Karte
+   (layers.top), wo sie nichts überlappen und darum nur sich selbst kosten. */
 .journey-firefly { animation: journey-firefly 4s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
 @keyframes journey-firefly {
   0%, 100% { opacity: 0.2; transform: translate(0, 0); }
@@ -10138,8 +10233,6 @@ body[data-page="train"] .train-stage[data-view="reise"] ~ .help-voice {
   50% { opacity: 0.4; transform: translate(10px, -14px); }
   80% { opacity: 0.9; transform: translate(-6px, -6px); }
 }
-.journey-train.is-rack .train-wheel { animation-duration: 2.6s; }
-.journey-ferry .journey-smoke { animation-duration: 2.6s; }
 /* Die Rakete hebt bei der Ankunft ab, mit Flamme. */
 .journey-flame { opacity: 0; transform-box: fill-box; transform-origin: 50% 0; }
 .journey-rocket { transform-box: fill-box; transform-origin: 50% 100%; }
@@ -10147,9 +10240,6 @@ body[data-page="train"] .train-stage[data-view="reise"] ~ .help-voice {
 .is-party .journey-flame { opacity: 1; animation: journey-flame 0.18s ease-in-out infinite alternate; }
 @keyframes journey-liftoff { 0% { transform: translateY(0); } 30% { transform: translateY(-4px); } 100% { transform: translateY(-150px); opacity: 0; } }
 @keyframes journey-flame { from { transform: scaleY(0.8); } to { transform: scaleY(1.25); } }
-
-/* --- Die Schiebelok --- */
-.journey-pusher.is-driving .train-wheel { animation: wheel-roll 1.5s linear infinite; }
 
 /* Konfetti an einer Station: ein kleiner Kasten über ihr, in den kids.js
    seine Schnipsel streut. */
@@ -10164,7 +10254,7 @@ body[data-page="train"] .train-stage[data-view="reise"] ~ .help-voice {
   display: grid;
   place-items: center;
 }
-.journey-reward-pic svg { display: block; width: 100%; height: auto; animation: scene-reward-in 0.5s ease both; }
+.journey-reward-pic svg { display: block; width: 100%; height: auto; animation: scene-reward-in 0.5s ease backwards; }
 .journey-reward-pic .journey-reward-scene { border-radius: 20px; box-shadow: 0 10px 24px rgba(31, 42, 51, 0.28); }
 
 /* --- Die Werkstatt: neu freigeschaltete Teile --- */
@@ -10256,8 +10346,9 @@ body[data-page="train"] .train-stage[data-view="reise"] ~ .help-voice {
   .journey-star, .journey-smoke, .is-party .journey-lantern, .is-party .journey-window,
   .journey-showcase:not(.is-locked) .journey-glow, .journey-reward-pic svg, .cm-icon.is-primary,
   .journey.is-entering .journey-map, .journey.is-switching .journey-map { animation: none; }
-  .journey-train.is-driving .train-wheel, .journey-train.is-driving .train-steam-puff { animation: none; }
-  .journey-station.is-current .journey-number-ring { animation: none; }
+  .journey-train.is-driving .train-steam-puff { animation: none; }
+  .journey-pulse, .journey-firefly, .is-party .journey-portal-glow, .is-sailing .journey-ferry .journey-smoke,
+  .is-party .journey-passenger.is-waving .journey-passenger-arm, .is-party .journey-landmark.is-lit .journey-home-light { animation: none; }
   .journey-fog, .journey-station .journey-picture, .journey-station .journey-choice, .journey-signal, .journey-lock, .journey-glow, .journey-dot, .journey-motif, .journey-number-disc, .journey-number-ring { transition: none; }
   .journey-sparkle { opacity: 0.9; }
   .journey-showcase:not(.is-locked) .journey-glow { opacity: 0.7; }
@@ -10303,6 +10394,7 @@ body[data-page="train"] .train-stage[data-view="reise"] ~ .help-voice {
   place-items: center;
   padding: calc(var(--safe-top, 0px) + 12px) calc(var(--safe-right, 0px) + 12px) calc(var(--safe-bottom, 0px) + 12px) calc(var(--safe-left, 0px) + 12px);
   background: rgba(23, 34, 42, 0.5);
+  -webkit-backdrop-filter: blur(3px);
   backdrop-filter: blur(3px);
   animation: wagon-reward-in 0.24s ease both;
 }
