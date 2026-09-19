@@ -264,6 +264,7 @@
       ladeGastDetails: loadAdminGuestDetails,
       loescheGast: deleteGuest,
       loescheGaeste: deleteGuests,
+      hatGespielt: guestHasPlayed,
       setUserGroup,
       setJourneyStufe: setJourneyStufeFor,
       resetProgress: resetProgressFor,
@@ -799,9 +800,49 @@
     document.dispatchEvent(new CustomEvent("lernapp:game-state", { detail: getGameState() }));
   }
 
+  // --- Gespielt, aber ohne Level -----------------------------------------------
+  // Die Spiele mit eigenem Konto – Turmbau, Memory, Tier-Sprung, der
+  // Karten-Merker und die übrigen aus game-cloud.js – laufen nicht über den
+  // Levelkatalog. Sie rufen recordLevelStart nie auf, und ihr Stand geht für
+  // einen Gast nicht in die Cloud (saveGameState bricht unten ohne Konto ab).
+  // Ein Gast, der eine Stunde Turmbau spielt, hinterliess damit in der Cloud
+  // genau nichts.
+  //
+  // Solange die Gästeliste nur zum Anschauen war, war das bloss eine Lücke in
+  // der Statistik. Seit der Adminbereich "Besuche ohne Spiel" sammeln und
+  // löschen kann, ist es ein Fehler mit Folgen: Genau diese Kinder stünden
+  // dort als "nur besucht" und flögen beim Aufräumen mit raus.
+  //
+  // Deshalb diese Marke. Sie speichert NICHT den Spielstand – der bleibt auf
+  // dem Gerät, wie bisher – sondern nur, DASS gespielt wurde. Gedrosselt,
+  // weil register() in game-cloud.js nach jeder Runde schreibt und ein
+  // Schreibvorgang je Zug niemandem nützt.
+  const SPIELMARKE_ABSTAND_MS = 60 * 1000;
+  let letzteSpielmarkeMs = 0;
+
+  function markiereGastSpiel() {
+    if (state.user || !state.db || !state.firebaseReady) return;
+    const jetzt = Date.now();
+    if (jetzt - letzteSpielmarkeMs < SPIELMARKE_ABSTAND_MS) return;
+    letzteSpielmarkeMs = jetzt;
+    const owner = currentOwner();
+    if (owner?.kind !== "guest") return;
+    ownerRef(owner)
+      .set({ ...ownerActivityPayload(owner), hatGespielt: true, letztesSpielAt: serverTimestamp() }, { merge: true })
+      .catch(() => {
+        // Wie überall bei den Gastzahlen: Eine fehlende Zeile in einer
+        // Statistik ist kein Grund, ein Spiel zu stören.
+      });
+  }
+
   async function saveGameState(key, data) {
     if (!key || !data || typeof data !== "object") return false;
-    if (!state.user || !state.db) return false;
+    if (!state.user || !state.db) {
+      // Ohne Konto bleibt der Stand auf dem Gerät – aber dass gespielt wurde,
+      // darf nicht verloren gehen.
+      markiereGastSpiel();
+      return false;
+    }
     const entry = { data, updatedAt: Date.now() };
 
     const previous = state.gameState;
@@ -3354,17 +3395,66 @@
     await ref.delete();
   }
 
+  // Hat dieser Gast gespielt? Die Frage entscheidet, wen der Sammelknopf im
+  // Adminbereich anfasst – deshalb steht sie hier und nicht dort: Eine zweite
+  // Fassung in admin.js wäre eine zweite Wahrheit, und die teurere Hälfte der
+  // Antwort (der Level-Fortschritt) wird ohnehin hier gelesen.
+  //
+  // Vier Wege, weil vier Stellen Spuren hinterlassen: recordLevelStart,
+  // mergeSolvedLevel und flushCurrentSession für die Spiele mit Levelkatalog –
+  // und markiereGastSpiel für die Spiele mit eigenem Konto, die gar keine
+  // Level haben. Wer nur den ersten prüfte, hielte eine Stunde Turmbau für
+  // einen Nichtbesuch.
+  function guestHasPlayed(guest, levelDocs = guest?.levelDocs) {
+    if (!guest) return false;
+    if (guest.hatGespielt === true) return true;
+    if ((levelDocs?.length || 0) > 0) return true;
+    const stats = guest.stats || {};
+    return Number(stats.sessions || 0) > 0
+      || Number(stats.solvedLevels || 0) > 0
+      || Number(stats.totalSeconds || 0) > 0;
+  }
+
   // Nacheinander, nicht alle auf einmal: Jeder Gast sind bis zu drei Runden
   // Lesen und Löschen, und ein Promise.all über hundert Gäste heisst hundert
   // gleichzeitige Abfragen. Firestore nimmt das übel, und der Sammelknopf
   // läuft ohnehin im Hintergrund.
-  async function deleteGuests(guestIds = []) {
+  //
+  // nurOhneSpiel liest jeden Gast unmittelbar vor dem Löschen noch einmal.
+  // Das ist nicht übervorsichtig: Der Adminbereich kann stundenlang offen
+  // stehen, und zwischen dem Laden der Liste und dem Klick auf "Ja" kann ein
+  // Kind angefangen haben zu spielen. Der Knopf verspricht, nur Geräte ohne
+  // Spiel anzufassen – ohne diese Nachfrage wäre das Versprechen an einen
+  // Stand gebunden, der beliebig alt sein darf.
+  async function deleteGuests(guestIds = [], { nurOhneSpiel = false } = {}) {
     let geloescht = 0;
+    const uebersprungen = [];
     for (const id of guestIds) {
+      if (nurOhneSpiel && await guestPlayedNow(id)) { uebersprungen.push(id); continue; }
       await deleteGuest(id);
       geloescht += 1;
     }
-    return geloescht;
+    return { geloescht, uebersprungen };
+  }
+
+  // Der frische Blick auf einen einzelnen Gast. limit(1) genügt: Gefragt ist,
+  // OB etwas dasteht, nicht wie viel.
+  async function guestPlayedNow(guestId) {
+    const ref = state.db.collection("guests").doc(guestId);
+    try {
+      const [gastDoc, level, sitzungen] = await Promise.all([
+        ref.get(),
+        ref.collection("levelProgress").limit(1).get(),
+        ref.collection("sessions").limit(1).get(),
+      ]);
+      if (!gastDoc.exists) return false;
+      if (!level.empty || !sitzungen.empty) return true;
+      return guestHasPlayed({ id: guestId, ...(gastDoc.data() || {}) }, []);
+    } catch (error) {
+      // Nicht lesbar heisst hier: nicht anfassen. Ein Gast, über den wir
+      // gerade nichts wissen, ist der schlechteste Kandidat zum Löschen.
+      return true;
+    }
   }
 
   // --- Die Schwierigkeitsstufe --------------------------------------------------

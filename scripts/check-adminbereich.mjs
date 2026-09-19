@@ -139,6 +139,17 @@ const DATEN = {
       client: { geraet: "Handy", system: "Android", browser: "Chrome", sprache: "fr-CH" },
       ort: { land: "Frankreich", landCode: "FR", stadt: "Lyon" },
     },
+    // Der dritte Fall, und der heikelste: Turmbau, Memory und die übrigen
+    // Spiele mit eigenem Konto haben keine Level. Ein Gast, der nur die
+    // spielt, hinterlässt keinen Level-Fortschritt und keine Sitzung – nur
+    // diese Marke (firebase.js, markiereGastSpiel). Ohne sie stünde er als
+    // "nur besucht" da und flöge beim Aufräumen mit raus.
+    guest_ohnelevel11223344: {
+      type: "guest", displayName: "Gast 223344", lastSeenAt: 1699680000000, besuche: 2,
+      ersterBesuchMs: 1699400000000, hatGespielt: true, letztesSpielAt: 1699680000000,
+      client: { geraet: "Computer", system: "Windows", browser: "Firefox", sprache: "de-CH" },
+      ort: { land: "Schweiz", landCode: "CH", stadt: "Bern" },
+    },
   },
   // Wer bezahlt hat. Die Familie ja, der Admin nicht – so steht in der Liste
   // beides nebeneinander.
@@ -299,7 +310,12 @@ function firebaseErsatz({ daten, adminEmail }) {
   window.firebase = { apps: [], initializeApp: () => ({}), app: () => ({}), auth, firestore };
   // Zum Nachsehen, was die Seite geschrieben hat: Eine Gruppe, die nur so
   // aussieht, als wäre sie gesetzt, fiele sonst nicht auf.
-  window.__ersatz = { lies: (pfad) => { const doc = laden.get(pfad); return doc === undefined ? null : JSON.parse(JSON.stringify(doc)); } };
+  window.__ersatz = {
+    lies: (pfad) => { const doc = laden.get(pfad); return doc === undefined ? null : JSON.parse(JSON.stringify(doc)); },
+    // Zum Nachstellen dessen, was zwischen zwei Klicks passieren kann: ein
+    // Kind, das anfängt zu spielen, während die Rückfrage offen steht.
+    schreib: (pfad, doc) => { laden.set(pfad, doc); },
+  };
 }
 
 const befunde = [];
@@ -638,14 +654,17 @@ await knips("8-gruppen-fertig");
 // unterscheiden lässt.
 await page.locator('[data-reiter="guests"]').click();
 await page.locator(".admin-entry").first().waitFor({ timeout: 10000 });
-pruefe(await page.locator(".admin-entry").count() === 2, "Der Gäste-Reiter zeigt nicht beide Gäste");
+pruefe(await page.locator(".admin-entry").count() === 3, "Der Gäste-Reiter zeigt nicht alle drei Gäste");
 pruefe(await page.locator(".admin-entry-body").count() === 0, "Der Gäste-Reiter beginnt nicht zugeklappt");
 
 // Die Kurzfassung oben zählt Geräte, Besuche und wer gespielt hat.
 const gaesteStreifen = await text(page.locator(".admin-stat-strip").first());
-pruefe(/2\s*Geräte/.test(gaesteStreifen), `Die Gästezahl fehlt: ${gaesteStreifen}`);
-pruefe(/5\s*Besuche/.test(gaesteStreifen), `Die Besuche werden nicht summiert (4 + 1 = 5): ${gaesteStreifen}`);
+pruefe(/3\s*Geräte/.test(gaesteStreifen), `Die Gästezahl fehlt: ${gaesteStreifen}`);
+pruefe(/7\s*Besuche/.test(gaesteStreifen), `Die Besuche werden nicht summiert (4 + 1 + 2 = 7): ${gaesteStreifen}`);
 pruefe(/1\s*nur besucht/.test(gaesteStreifen), `"nur besucht" wird nicht gezählt: ${gaesteStreifen}`);
+// Der Gast ohne Level zählt als gespielt – sonst läge er im Zugriff des
+// Sammelknopfs.
+pruefe(/2\s*gespielt/.test(gaesteStreifen), `Ein Gast mit Spielmarke, aber ohne Level, gilt nicht als gespielt: ${gaesteStreifen}`);
 
 // Gerät und Standort stehen schon in der zugeklappten Zeile – sonst müsste man
 // jeden Gast einzeln aufklappen, um zu sehen, wer da war.
@@ -665,13 +684,13 @@ await knips("11-gaeste-liste");
 // Der Filter trennt die beiden Fragen: "wie viele waren da" und "wie viele
 // haben gespielt".
 await page.locator('[data-gast-filter="gespielt"]').click();
-pruefe(await page.locator(".admin-entry").count() === 1, "Der Filter «Mit Spiel» zeigt nicht genau einen Gast");
+pruefe(await page.locator(".admin-entry").count() === 2, "Der Filter «Mit Spiel» zeigt nicht beide Gäste mit Spiel");
 await page.locator('[data-gast-filter="nurbesuch"]').click();
 pruefe(await page.locator(".admin-entry").count() === 1, "Der Filter «Nur besucht» zeigt nicht genau einen Gast");
 pruefe((await text(page.locator(".admin-entry").first())).includes("guest_nurbesuch"),
   "Der Filter «Nur besucht» zeigt den falschen Gast");
 await page.locator('[data-gast-filter="alle"]').click();
-pruefe(await page.locator(".admin-entry").count() === 2, "Zurück auf «Alle» fehlt ein Gast");
+pruefe(await page.locator(".admin-entry").count() === 3, "Zurück auf «Alle» fehlt ein Gast");
 
 // Aufgeklappt: die Herkunft ausgeschrieben, kein Zurücksetzen, kein
 // Freischalten – und der Löschknopf.
@@ -717,7 +736,7 @@ const nachLoeschen = await page.evaluate(() => ({
 pruefe(nachLoeschen.gast === null, "Der Gast steht nach dem Löschen noch da");
 pruefe(nachLoeschen.level === null, "Der Level-Fortschritt des gelöschten Gastes ist liegen geblieben");
 pruefe(nachLoeschen.andere !== null, "Das Löschen hat den zweiten Gast mitgenommen");
-pruefe(await page.locator(".admin-entry").count() === 1, "Die Liste zeigt den gelöschten Gast weiter");
+pruefe(await page.locator(".admin-entry").count() === 2, "Die Liste zeigt den gelöschten Gast weiter");
 
 // Der Sammelknopf: frisch laden, damit wieder beide Gäste dastehen.
 await page.goto(`${BASIS}/admin.html`, { waitUntil: "load" });
@@ -728,15 +747,47 @@ await page.locator("[data-gast-sammel-frage]").click();
 await page.locator("[data-gast-sammel-ja]").waitFor({ timeout: 5000 });
 const sammelFrage = await text(page.locator(".admin-reset.is-confirming"));
 pruefe(/1 Besuch/.test(sammelFrage), `Die Sammelfrage nennt die Zahl nicht: ${sammelFrage.slice(0, 200)}`);
+
+// Und jetzt der unangenehme Fall: Zwischen dem Laden der Liste und dem Klick
+// auf "Ja" fängt jemand an zu spielen. Der Adminbereich kann stundenlang offen
+// stehen – die Liste im Speicher ist dann beliebig alt. Der Knopf verspricht,
+// nur Geräte ohne Spiel anzufassen; eingelöst wird das erst dadurch, dass
+// firebase.js jeden Gast unmittelbar vor dem Löschen noch einmal liest.
+await page.evaluate(() => {
+  window.__ersatz.schreib("guests/guest_nurbesuch87654321/levelProgress/arukone_a1", {
+    game: "arukone", levelId: "a1", levelName: "Rätsel eins", difficulty: "easy",
+    solved: false, attempts: 1, resets: 0, moves: 3, timeSeconds: 12,
+  });
+});
+await page.locator("[data-gast-sammel-ja]").click();
+await page.waitForTimeout(2000);
+pruefe(await page.evaluate(() => window.__ersatz.lies("guests/guest_nurbesuch87654321")) !== null,
+  "Ein Gast, der zwischen Rückfrage und Klick angefangen hat zu spielen, wurde trotzdem gelöscht");
+const hinweisNachSammel = await text(page.locator(".admin-inhalt"));
+pruefe(/angefangen zu spielen/.test(hinweisNachSammel),
+  `Es steht nirgends, warum weniger gelöscht wurde als angekündigt: ${hinweisNachSammel.slice(0, 200)}`);
+await knips("15-gaeste-uebersprungen");
+
+// Danach noch einmal, jetzt ohne Zwischenfall: Der Gast ist wieder ohne Spiel,
+// und der Knopf räumt ihn weg.
+await page.goto(`${BASIS}/admin.html`, { waitUntil: "load" });
+await page.locator(".admin-reiter").waitFor({ timeout: 15000 });
+await page.locator('[data-reiter="guests"]').click();
+await page.locator(".admin-entry").first().waitFor({ timeout: 10000 });
+await page.locator("[data-gast-sammel-frage]").click();
+await page.locator("[data-gast-sammel-ja]").waitFor({ timeout: 5000 });
 await page.locator("[data-gast-sammel-ja]").click();
 await page.waitForTimeout(2000);
 const nachSammel = await page.evaluate(() => ({
   nurBesuch: window.__ersatz.lies("guests/guest_nurbesuch87654321"),
   gespielt: window.__ersatz.lies("guests/guest_abcdefgh12345678"),
+  ohneLevel: window.__ersatz.lies("guests/guest_ohnelevel11223344"),
 }));
 pruefe(nachSammel.nurBesuch === null, "Der Sammelknopf hat den Besuch ohne Spiel stehen lassen");
 pruefe(nachSammel.gespielt !== null,
   "Der Sammelknopf hat einen Gast mit Spielstand mitgenommen – er darf nur Besuche ohne Spiel anfassen");
+pruefe(nachSammel.ohneLevel !== null,
+  "Der Sammelknopf hat einen Gast mitgenommen, der nur Spiele ohne Level gespielt hat – genau der Fall, für den es die Spielmarke gibt");
 await knips("14-gaeste-aufgeraeumt");
 
 // --- Ganz entfernen ---------------------------------------------------------------

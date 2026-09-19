@@ -235,11 +235,28 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // Felder, die nur der Server schreibt (netlify/functions/besuch.mjs, über
+    // das Admin-SDK und damit an diesen Regeln vorbei). Ein Client darf sie
+    // nicht anfassen: Der Standort kommt aus der Verbindung, nicht aus einer
+    // Behauptung des Browsers, und ein Besuchszähler, den jeder selbst setzen
+    // kann, zählt nichts. Ohne diese Schranke könnte ein Unangemeldeter dem
+    // Adminbereich erfundene Länder und beliebige Besuchszahlen unterschieben.
+    function gastServerFelder() {
+      return ["besuche", "ort", "client", "ersterBesuchMs", "ersterBesuchAt", "letzterBesuchMs", "letzterBesuchAt"];
+    }
+
     match /guests/{guestId} {
       allow get, list: if isAdmin();
-      allow create, update: if !isSignedIn()
+      // Beim Anlegen gibt es kein resource.data, gegen das sich ein diff
+      // rechnen liesse – deshalb zwei Regeln statt einer.
+      allow create: if !isSignedIn()
         && isGuestId(guestId)
-        && request.resource.data.type == "guest";
+        && request.resource.data.type == "guest"
+        && !request.resource.data.keys().hasAny(gastServerFelder());
+      allow update: if !isSignedIn()
+        && isGuestId(guestId)
+        && request.resource.data.type == "guest"
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(gastServerFelder());
       // Löschen darf der Admin, sonst niemand.
       //
       // Hier stand "if false", und zwar für alle – auch für den Admin. Das

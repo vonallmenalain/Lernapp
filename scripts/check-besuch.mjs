@@ -23,6 +23,10 @@
  *   - Ist die Sperrfrist abgelaufen, meldet die App wieder
  *   - Wer angemeldet ist, meldet gar nicht: Ein Konto steht im Reiter "User",
  *     nicht bei den Gästen
+ *   - Ein Spiel ohne Levelkatalog (Turmbau und Verwandte) hinterlässt beim
+ *     Gast eine Marke, dass gespielt wurde – sonst gälte er als "nur besucht"
+ *     und der Sammelknopf im Adminbereich nähme ihn mit. Der Spielstand selbst
+ *     bleibt dabei auf dem Gerät
  *   - Antwortet der Server nicht, passiert nichts Sichtbares. Ein Zähler ist
  *     das Unwichtigste in dieser App und darf nie etwas kaputtmachen –
  *     deshalb wird hier auch auf Fehler in der Seite geachtet
@@ -102,6 +106,7 @@ function firebaseErsatz({ angemeldet }) {
   });
   firestore.FieldValue = { serverTimestamp: () => 1700000000000, increment: (um) => um, delete: () => null };
   window.firebase = { apps: [], initializeApp: () => ({}), app: () => ({}), auth, firestore };
+  window.__ersatz = { lies: (pfad) => { const doc = daten.get(pfad); return doc === undefined ? null : JSON.parse(JSON.stringify(doc)); } };
 }
 
 if (!(await warteAufServer())) { console.error("Server antwortet nicht."); process.exit(2); }
@@ -168,6 +173,22 @@ try {
     await page.waitForTimeout(1200);
     pruefe(aufrufe.length === 2, `Nach Ablauf der Sperrfrist wurde nicht wieder gemeldet (${aufrufe.length} Aufrufe)`);
     pruefe(aufrufe[1]?.guestId === erster.guestId, "Der zweite Besuch kam unter einer anderen Kennung – dasselbe Gerät zählte doppelt");
+
+    // --- Gespielt, aber ohne Level ----------------------------------------
+    // Turmbau, Memory, Tier-Sprung und die übrigen Spiele mit eigenem Konto
+    // laufen nicht über den Levelkatalog: Sie rufen recordLevelStart nie auf,
+    // und ihr Stand geht für einen Gast nicht in die Cloud. Ohne eine eigene
+    // Marke stünde ein Kind, das eine Stunde Turmbau gespielt hat, im
+    // Adminbereich als "nur besucht" – und flöge beim Aufräumen mit raus.
+    const vorSpiel = await page.evaluate((id) => window.__ersatz.lies(`guests/${id}`), erster.guestId);
+    pruefe(!vorSpiel?.hatGespielt, "Die Spielmarke steht schon da, bevor gespielt wurde");
+    await page.evaluate(() => window.LernappFirebase.saveGameState("lernapp.turmbau", { runs: 1, scores: [12] }));
+    await page.waitForTimeout(600);
+    const nachSpiel = await page.evaluate((id) => window.__ersatz.lies(`guests/${id}`), erster.guestId);
+    pruefe(nachSpiel?.hatGespielt === true,
+      `Ein Spiel ohne Level hinterlässt beim Gast keine Marke: ${JSON.stringify(nachSpiel)?.slice(0, 200)}`);
+    pruefe(nachSpiel?.gameState === undefined,
+      "Der Spielstand selbst ist in der Cloud gelandet – bei einem Gast bleibt er auf dem Gerät");
 
     pruefe(seitenFehler.length === 0, `Die Seite hat Fehler geworfen: ${seitenFehler.slice(0, 2).join(" | ")}`);
     await context.close();

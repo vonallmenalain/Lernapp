@@ -805,15 +805,19 @@
   // Damit beide Fragen nebeneinander lesbar bleiben, trennt der Filter sie:
   // "Alle" zählt Besuche, "Mit Spiel" zählt die, bei denen etwas passiert ist.
 
-  // Gespielt hat, wer Spuren hinterlassen hat – ein Level, eine Sitzung, eine
-  // Sekunde. Vier Wege, weil vier Stellen sie schreiben (firebase.js,
-  // recordLevelStart / mergeSolvedLevel / flushCurrentSession): Wer nur den
-  // ersten prüfte, hielte einen abgebrochenen Versuch für einen Nichtbesuch.
-  const gastHatGespielt = (gast) =>
-    (gast.levelDocs?.length || 0) > 0
-    || Number(gast.stats?.sessions || 0) > 0
-    || Number(gast.stats?.solvedLevels || 0) > 0
-    || Number(gast.stats?.totalSeconds || 0) > 0;
+  // Gespielt hat, wer Spuren hinterlassen hat. Die Frage wird in firebase.js
+  // beantwortet (guestHasPlayed) und nicht hier: Genau diese Frage entscheidet,
+  // wen der Sammelknopf löscht, und sie wird dort vor jedem Löschen noch
+  // einmal frisch gestellt. Zwei Fassungen wären zwei Wahrheiten – und die
+  // gefährlichere gewänne.
+  //
+  // Der Notnagel darunter greift nur, wenn firebase.js noch nicht steht;
+  // gelöscht wird in dem Fall ohnehin nichts.
+  const gastHatGespielt = (gast) => {
+    const frage = api()?.hatGespielt;
+    if (frage) return frage(gast);
+    return (gast.levelDocs?.length || 0) > 0 || gast.hatGespielt === true;
+  };
 
   // "Bern, Schweiz" – und wenn das Edge nichts wusste, gar nichts. Ein
   // "Unbekannt" in jeder Zeile sähe aus wie eine Angabe; die Lücke ist
@@ -1107,7 +1111,16 @@
     zustand.gastFehler = "";
     zeichne();
     try {
-      await api().loescheGaeste(ids);
+      // nurOhneSpiel: firebase.js liest jeden Gast unmittelbar vor dem Löschen
+      // noch einmal. Wer in der Zwischenzeit angefangen hat zu spielen, bleibt
+      // stehen – und wird hier benannt, sonst wäre die Zahl in der Rückfrage
+      // eine andere als die Zahl der gelöschten Zeilen, ohne dass jemand
+      // erführe, warum.
+      const ergebnis = await api().loescheGaeste(ids, { nurOhneSpiel: true });
+      const uebersprungen = ergebnis?.uebersprungen?.length || 0;
+      if (uebersprungen) {
+        zustand.gastFehler = `${uebersprungen} ${uebersprungen === 1 ? "Gast hat" : "Gäste haben"} in der Zwischenzeit angefangen zu spielen und ${uebersprungen === 1 ? "bleibt" : "bleiben"} stehen.`;
+      }
       zustand.offenerGast = null;
       ids.forEach((id) => zustand.gastDetails.delete(id));
     } catch (fehler) {

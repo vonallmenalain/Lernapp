@@ -275,6 +275,16 @@ es läuft die Funktion gar nicht.
 Der Filter trennt die beiden Fragen, die hier zusammenliegen: „Wie viele waren da?" und „Wie viele
 haben gespielt?".
 
+**Was als „gespielt" zählt.** Die Spiele mit Levelkatalog hinterlassen `levelProgress` und
+`sessions`. Die Spiele mit eigenem Konto – Turmbau, Memory, Tier-Sprung, der Karten-Merker und die
+übrigen aus `game-cloud.js` – tun das nicht: Sie rufen `recordLevelStart` nie auf, und ihr Stand
+geht für einen Gast gar nicht in die Cloud (`saveGameState` bricht ohne Konto ab). Ein Kind, das
+eine Stunde Turmbau spielt, hinterliess damit in der Cloud genau nichts – und stünde hier als „nur
+besucht", mitten im Zugriff des Sammelknopfs. Deshalb setzt `markiereGastSpiel()` (firebase.js)
+für einen Gast die Marke `hatGespielt: true`, gedrosselt auf einmal je Minute. Der Spielstand
+selbst bleibt dabei auf dem Gerät, wie bisher. Die Frage selbst beantwortet `guestHasPlayed()` an
+einer Stelle, nicht zweimal.
+
 `/api/besuch` ist neben `passwort-mail` der einzige offene Endpunkt – ein Gast hat kein
 Firebase-Token, es gibt niemanden zu prüfen. Deshalb zwei Schranken: Die Gastkennung muss dem
 Muster `guest_[A-Za-z0-9_-]{8,48}` entsprechen (dasselbe wie in `firestore.rules`), und je
@@ -287,8 +297,11 @@ Zwei Wege, beide mit Rückfrage:
 
 - **Einzeln** im aufgeklappten Gast. Hat er gespielt, sagt die Rückfrage das – dann geht
   Statistik verloren, die es nur dort gibt.
-- **Sammelknopf** „Besuche ohne Spiel entfernen". Er fasst nur Geräte an, die nie ein Level
-  gestartet haben.
+- **Sammelknopf** „Besuche ohne Spiel entfernen". Er fasst nur Geräte an, die nie gespielt haben –
+  und liest jeden davon **unmittelbar vor dem Löschen noch einmal**. Das ist nicht
+  übervorsichtig: Der Adminbereich kann stundenlang offen stehen, und zwischen dem Laden der
+  Liste und dem Klick auf „Ja" kann ein Kind angefangen haben zu spielen. Wer dabei übersprungen
+  wird, steht danach als Hinweis über der Liste.
 
 Es nimmt dem Gast nichts weg: Sein Stand liegt auf **seinem Gerät** (localStorage), das Dokument
 in der Cloud ist nur die Kopie, die der Adminbereich lesen kann. Genau deshalb hat ein Gast auch
@@ -434,7 +447,7 @@ Die App schreibt folgende Dokumente:
 | `users/{uid}/sessions/{sessionId}` | Einzelne Spielstände/Sitzungen mit Start, Ende, Dauer, Zügen, Resets und gelöst-Status |
 | `config/train` | Das gültige Wagen-Set und der Zeitpunkt des letzten Wechsels; nur der Admin schreibt es, jedes Gerät liest es |
 | `entitlements/{uid}` | Der Kauf eines Kontos (`plan`, `active`, `via`, Zeitstempel). **Schreibt nur der Server** nach einer Zahlung bei Stripe, für das Elternkonto und jedes seiner Kinder – kein Client, auch der Admin nicht von Hand. Lesen darf jedes Konto seinen eigenen Eintrag, der Admin alle |
-| `guests/{guestId}` | Ein Gerät ohne Konto: Besuchszähler, erster und letzter Besuch, grobe Geräteangabe, ungefährer Standort, Gesamtstatistik. Die Kennung (`guest_…`) entsteht auf dem Gerät und liegt im localStorage. Lesen darf nur der Admin |
+| `guests/{guestId}` | Ein Gerät ohne Konto: Besuchszähler, erster und letzter Besuch, grobe Geräteangabe, ungefährer Standort, Gesamtstatistik, Marke `hatGespielt`. Die Kennung (`guest_…`) entsteht auf dem Gerät und liegt im localStorage. Lesen darf nur der Admin. `besuche`, `ort`, `client` und die Besuchs-Zeitstempel schreibt **nur der Server** – die Regeln sperren sie für jeden Client, sonst könnte ein Unangemeldeter erfundene Länder und Besuchszahlen unterschieben |
 | `guests/{guestId}/levelProgress/{levelKey}` | Wie beim Konto, nur ohne Konto |
 | `guests/{guestId}/sessions/{sessionId}` | Wie beim Konto, nur ohne Konto |
 | `besuchBremse/{hash}` | Wie oft ein Anschluss heute einen Besuch gemeldet hat. Der Name ist eine gesalzene Prüfsumme der IP, nie die Adresse. **Schreibt nur der Server**, liest niemand sonst |
