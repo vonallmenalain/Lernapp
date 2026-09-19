@@ -330,6 +330,17 @@ try {
   await darfNicht("Gast schreibt in erfundene Unterkollektion", () => gast().doc(`guests/${GAST_ID}/geheim/x`).set({ a: 1 }));
   await darfNicht("Admin schreibt Gastkasten", () => admin().doc(`guests/${GAST_ID}`).set({ type: "guest", x: 1 }, { merge: true }));
 
+  // Löschen darf der Admin – seit die App jeden Aufruf zählt (besuch.mjs),
+  // entsteht hier eine Zeile je Gerät, und eine Liste, die nur wächst, liest
+  // niemand mehr. Es nimmt dem Gast nichts weg: Sein Stand liegt auf seinem
+  // Gerät, das Dokument hier ist die Kopie. Zuletzt geprüft, weil es weg ist,
+  // was danach geprüft würde.
+  await darf("Admin löscht ein Gast-Level", () => admin().doc(`guests/${GAST_ID}/levelProgress/x`).delete());
+  await darf("Admin löscht eine Gast-Sitzung", () => admin().doc(`guests/${GAST_ID}/sessions/s`).delete());
+  await darf("Admin löscht einen Gastkasten", () => admin().doc(`guests/${GAST_ID}`).delete());
+  await darfNicht("Angemeldetes Kind löscht einen Gastkasten", () => anna().doc("guests/guest_neuerkasten1").delete());
+  await darfNicht("Gast löscht einen fremden Gastkasten", () => gast().doc("guests/guest_neuerkasten1").delete());
+
   // --- Die Post ----------------------------------------------------------------
   // Der Adminbereich liest sie, sonst niemand – und geschrieben wird sie nur
   // vom Server. Auch der Admin darf hier nichts ändern: Ein Postausgang, in

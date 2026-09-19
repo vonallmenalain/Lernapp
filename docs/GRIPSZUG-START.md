@@ -193,6 +193,8 @@ node scripts/validate-schranke.mjs       # die Schranke rechnet richtig
 NODE_PATH=… node scripts/check-seiten.mjs         # Willkommen und Rechtstexte
 NODE_PATH=… node scripts/check-schranke.mjs       # das Tor im Browser (Playwright)
 NODE_PATH=… node scripts/check-elternbereich.mjs  # der Elternbereich im Browser
+NODE_PATH=… node scripts/check-adminbereich.mjs   # der Adminbereich samt Gästen
+NODE_PATH=… node scripts/check-besuch.mjs         # meldet die App den Besuch – und nur dann, wenn sie soll
 NODE_PATH=… node scripts/check-rucksack.mjs       # jeder Gegenstand im Bild, auf jeder Stufe
 ```
 

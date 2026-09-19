@@ -20,7 +20,7 @@
       <h2>Kurz gesagt</h2>
       <ul>
         <li>Gripszug speichert von Kindern nur einen frei gewählten Namen, ein Passwort und den Spielfortschritt. Kein Geburtsdatum, kein echter Name, kein Foto.</li>
-        <li>Es gibt keine Werbung, kein Tracking und keine Analyse-Werkzeuge. Keine Cookies von Dritten.</li>
+        <li>Es gibt keine Werbung, keine Analyse-Werkzeuge von Dritten und keine Cookies von Dritten. Wir zählen selbst, wie viele Geräte die App öffnen – ohne IP-Adresse zu speichern.</li>
         <li>Ohne Konto bleibt der Fortschritt auf dem Gerät.</li>
         <li>Zahlungsdaten sieht nur Stripe, nicht wir.</li>
       </ul>
@@ -30,7 +30,16 @@
 
       <h2>2. Welche Daten wir verarbeiten</h2>
       <h3>Ohne Konto (Gast)</h3>
-      <p>Der Spielfortschritt liegt im Speicher des Browsers auf dem Gerät. Zusätzlich wird eine zufällige Gastkennung mit dem Fortschritt in unserer Datenbank abgelegt, damit der Betreiber sehen kann, wie die Spiele genutzt werden. Sie lässt sich keiner Person zuordnen.</p>
+      <p>Der Spielfortschritt liegt im Speicher des Browsers auf dem Gerät. Zusätzlich wird eine zufällige Gastkennung in unserer Datenbank abgelegt, damit der Betreiber sehen kann, wie die App genutzt wird. Die Kennung wird auf dem Gerät erzeugt und nicht aus Geräteeigenschaften berechnet; sie sagt nichts darüber, wer das Gerät benutzt.</p>
+      <p>Zu dieser Kennung speichern wir:</p>
+      <ul>
+        <li>wie oft und wann die App geöffnet wurde;</li>
+        <li>den Spielfortschritt (gestartete und gelöste Level, Spielzeit, Züge), sofern gespielt wurde;</li>
+        <li>eine grobe Geräteangabe (Handy, Tablet oder Computer; Betriebssystem und Browser ohne Versionsnummer), die Anzeigesprache, die Zeitzone und die Bildschirmgrösse;</li>
+        <li>den ungefähren Standort der Anfrage – Land, Region und Ort –, den uns Netlify beim Aufruf mitteilt.</li>
+      </ul>
+      <p><strong>Die IP-Adresse speichern wir dabei nicht</strong>, auch nicht gekürzt. Den ungefähren Standort teilt uns Netlify beim Aufruf mit; wir schlagen die Adresse nirgends nach. Für den Schutz vor Missbrauch legen wir zur Adresse eine Prüfsumme ab, die mit einem nur uns bekannten Schlüssel berechnet ist (SHA-256 mit Schlüssel) – ohne diesen Schlüssel lässt sich daraus keine Adresse zurückrechnen. Gespeichert sind zu dieser Prüfsumme nur das Datum und ein Zähler.</p>
+      <p>Diese Angaben dienen ausschliesslich unserer eigenen Statistik – wie viele Geräte die App besuchen und auf welchen Geräten sie läuft. Sie werden nicht weitergegeben, nicht für Werbung genutzt und nicht mit Daten aus anderen Quellen zusammengeführt.</p>
       <h3>Kinderprofil</h3>
       <p>Ein frei gewählter Name (ein Spitzname genügt), ein Passwort (verschlüsselt gespeichert bei Firebase Authentication), der Spielfortschritt (gelöste Level, Sterne, Spielzeit, Züge), Einstellungen (Lok, Landschaft, Ton) und die Zuordnung zum Elternkonto. Intern erhält jedes Kinderprofil eine technische Adresse der Form <code>name@lernapp.local</code>; das ist keine echte E-Mail-Adresse.</p>
       <h3>Elternkonto</h3>
@@ -52,7 +61,7 @@
       <p>Wir verkaufen keine Daten und geben sie nicht zu Werbezwecken weiter.</p>
 
       <h2>5. Wie lange</h2>
-      <p>Konto- und Fortschrittsdaten bleiben, solange das Konto besteht. Ein Elternkonto kann seine Kinderprofile und sich selbst jederzeit löschen lassen (siehe unten); dann werden alle zugehörigen Daten innerhalb von 30 Tagen entfernt. Zahlungsbelege bewahren wir auf, solange das Gesetz es verlangt (in der Schweiz zehn Jahre).</p>
+      <p>Gastbesuche bleiben, bis wir sie im Adminbereich entfernen; wir räumen sie regelmässig auf. Konto- und Fortschrittsdaten bleiben, solange das Konto besteht. Ein Elternkonto kann seine Kinderprofile und sich selbst jederzeit löschen lassen (siehe unten); dann werden alle zugehörigen Daten innerhalb von 30 Tagen entfernt. Zahlungsbelege bewahren wir auf, solange das Gesetz es verlangt (in der Schweiz zehn Jahre).</p>
 
       <h2>6. Ihre Rechte</h2>
       <p>Sie können Auskunft über Ihre Daten verlangen, sie berichtigen oder löschen lassen und eine erteilte Einwilligung widerrufen. Eine E-Mail an <a href="mailto:kids@alae.app">kids@alae.app</a> genügt. Sie haben ausserdem das Recht, sich bei einer Aufsichtsbehörde zu beschweren – in der Schweiz beim Eidgenössischen Datenschutz- und Öffentlichkeitsbeauftragten (EDÖB).</p>

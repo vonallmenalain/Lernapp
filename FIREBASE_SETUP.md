@@ -243,6 +243,63 @@ Wenn du dich in der App mit Google und `Alain.sc2@gmail.com` anmeldest, erschein
 
 Das Feld `role: "admin"` bzw. `isAdmin: true` im eigenen Profil dient nur als Anzeige/Metadatum. Die echte Berechtigung liegt in `firestore.rules` und prüft das verifizierte Auth-Token mit der Admin-E-Mail.
 
+### Der Reiter „Gäste": wer die App besucht
+
+Ein Gast ist ein Gerät ohne Konto. Bis vor Kurzem entstand sein Dokument erst, wenn jemand ein
+**Level startete** – wer die App öffnete, sich umsah und wieder ging, hinterliess nichts. Genau
+diese Leute fehlten aber in der Antwort auf die Frage, wie viele Menschen überhaupt vorbeischauen.
+
+Seither meldet die App jeden Aufruf an `POST /api/besuch`
+(`netlify/functions/besuch.mjs`). Der Reiter zeigt deshalb **jedes Gerät, das die App je geöffnet
+hat**, mit:
+
+- **Besuche** – wie oft. Ein Neuladen zählt nicht: Innerhalb von 30 Minuten wird nur der
+  Zeitstempel nachgeführt. Gemessen wird dabei ab dem letzten *gezählten* Besuch, nicht ab dem
+  letzten Aufruf – sonst verlängerte jedes Neuladen die Sperrfrist, und wer alle 29 Minuten neu
+  lädt, bliebe für immer bei Besuch eins.
+- **Gerät** – „Handy · iOS · Safari". Der Server liest das aus dem User-Agent und legt nur diese
+  drei groben Angaben ab. Die vollständige Kennung wäre ein Fingerabdruck und beantwortete
+  dieselbe Frage nicht besser.
+- **Standort** – Land, Region, Ort. Die Angabe kommt aus `context.geo`, das Netlify der Funktion
+  mitgibt; niemand schlägt eine IP nach. Breite und Länge stehen dort auch und bleiben
+  absichtlich liegen.
+- **Sprache, Zeitzone, Bildschirmgrösse, als App installiert** – vom Browser des Gastes, also
+  eine Behauptung und keine Tatsache. Für einen Zähler reicht das.
+
+**Eine IP-Adresse wird nirgends gespeichert**, auch nicht gekürzt. Für die Bremse (siehe unten)
+liegt zur Adresse eine mit einem Serverschlüssel gesalzene Prüfsumme in `besuchBremse/{hash}` –
+ein blosser SHA-256 wäre hier wertlos, weil sich vier Milliarden IPv4-Adressen in Minuten
+durchrechnen lassen. Als Salz dient `FIREBASE_SERVICE_ACCOUNT`; es liegt ohnehin bereit, und ohne
+es läuft die Funktion gar nicht.
+
+Der Filter trennt die beiden Fragen, die hier zusammenliegen: „Wie viele waren da?" und „Wie viele
+haben gespielt?".
+
+`/api/besuch` ist neben `passwort-mail` der einzige offene Endpunkt – ein Gast hat kein
+Firebase-Token, es gibt niemanden zu prüfen. Deshalb zwei Schranken: Die Gastkennung muss dem
+Muster `guest_[A-Za-z0-9_-]{8,48}` entsprechen (dasselbe wie in `firestore.rules`), und je
+Anschluss zählt die Bremse höchstens 240 Besuche am Tag. Ohne sie könnte jemand in einer Schleife
+erfundene Kennungen schicken und die Datenbank vollschreiben.
+
+### Gäste wieder loswerden
+
+Zwei Wege, beide mit Rückfrage:
+
+- **Einzeln** im aufgeklappten Gast. Hat er gespielt, sagt die Rückfrage das – dann geht
+  Statistik verloren, die es nur dort gibt.
+- **Sammelknopf** „Besuche ohne Spiel entfernen". Er fasst nur Geräte an, die nie ein Level
+  gestartet haben.
+
+Es nimmt dem Gast nichts weg: Sein Stand liegt auf **seinem Gerät** (localStorage), das Dokument
+in der Cloud ist nur die Kopie, die der Adminbereich lesen kann. Genau deshalb hat ein Gast auch
+keinen Zurücksetzen-Knopf – er täte auf dem Gerät nichts. Kommt ein gelöschter Gast wieder, legt
+`besuch.mjs` ihn neu an: gleiche Kennung, aber bei Besuch eins.
+
+In `firestore.rules` stand für Gäste lange `allow delete: if false` – für alle, auch für den
+Admin. Das war richtig, solange ein Gastdokument nur beim Spielen entstand. Seit jeder Aufruf
+zählt, entsteht hier eine Zeile je Gerät, und eine Liste, die nur wächst, liest nach einem halben
+Jahr niemand mehr. Löschen darf jetzt der Admin, sonst weiterhin niemand.
+
 ### Ein Konto ganz entfernen
 
 Ein Konto liegt an **fünf** Orten, und keiner räumt die anderen mit auf:
@@ -377,6 +434,10 @@ Die App schreibt folgende Dokumente:
 | `users/{uid}/sessions/{sessionId}` | Einzelne Spielstände/Sitzungen mit Start, Ende, Dauer, Zügen, Resets und gelöst-Status |
 | `config/train` | Das gültige Wagen-Set und der Zeitpunkt des letzten Wechsels; nur der Admin schreibt es, jedes Gerät liest es |
 | `entitlements/{uid}` | Der Kauf eines Kontos (`plan`, `active`, `via`, Zeitstempel). **Schreibt nur der Server** nach einer Zahlung bei Stripe, für das Elternkonto und jedes seiner Kinder – kein Client, auch der Admin nicht von Hand. Lesen darf jedes Konto seinen eigenen Eintrag, der Admin alle |
+| `guests/{guestId}` | Ein Gerät ohne Konto: Besuchszähler, erster und letzter Besuch, grobe Geräteangabe, ungefährer Standort, Gesamtstatistik. Die Kennung (`guest_…`) entsteht auf dem Gerät und liegt im localStorage. Lesen darf nur der Admin |
+| `guests/{guestId}/levelProgress/{levelKey}` | Wie beim Konto, nur ohne Konto |
+| `guests/{guestId}/sessions/{sessionId}` | Wie beim Konto, nur ohne Konto |
+| `besuchBremse/{hash}` | Wie oft ein Anschluss heute einen Besuch gemeldet hat. Der Name ist eine gesalzene Prüfsumme der IP, nie die Adresse. **Schreibt nur der Server**, liest niemand sonst |
 
 ### Familie: Elternkonto und Kinderprofile
 
