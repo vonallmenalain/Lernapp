@@ -60,11 +60,6 @@ Alles zuerst im **Testmodus** (Schalter oben rechts im Dashboard). Live kommt in
 5. Schön, nicht nötig: Einstellungen → Branding (Icon aus `icons/`, Farbe `#6c5ce7`), und
    Einstellungen → E-Mails → *Quittungen bei erfolgreichen Zahlungen* einschalten.
 
-Und einmal bei Netlify, für das Feld „Neue Spiele? Sag mir Bescheid" auf der
-Willkommensseite: [Forms → *Enable form detection*](https://app.netlify.com/projects/lernappkinder/forms).
-Die Adressen sammelt dann Netlify (Forms → neuigkeiten); ohne den Schalter geht der Eintrag
-ins Leere. Wer sich einträgt, bekommt nichts Automatisches – schreiben musst du selbst.
-
 ## 3. Netlify: die vier Umgebungsvariablen  ☐
 
 [Netlify → lernappkinder → Site configuration → Environment variables](https://app.netlify.com/projects/lernappkinder/configuration/env).

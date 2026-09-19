@@ -129,7 +129,6 @@
               </ol>
             </div>
           </div>
-          <p class="installier-fuss">Die App fragt von selbst danach, sobald ein Kind das erste Mal etwas geschafft hat – man muss also nichts davon auswendig lernen. Rückgängig geht es wie bei jeder App: Symbol gedrückt halten, entfernen.</p>
         </div>
       </section>
 
@@ -144,20 +143,6 @@
           <details><summary>Für Praxis, Kita oder Schule?</summary><p>Gripszug wird auch in Logopädie und Ergotherapie eingesetzt. Für Praxen und Klassen gibt es eine eigene Lizenz mit beliebig vielen Kindern – <a href="mailto:kids@alae.app?subject=Gripszug%20f%C3%BCr%20Praxis%20oder%20Schule">schreib mir</a>.</p></details>
         </div>
       </section>
-
-      <section class="abschnitt hell">
-        <div class="wrap">
-          <h2>Neue Spiele? Sag mir Bescheid.</h2>
-          <p>Ab und zu kommt ein neues Spiel oder eine neue Karte dazu. Eine Mail, wenn es so weit ist – sonst nichts.</p>
-          <form class="formular" name="neuigkeiten" method="POST" data-netlify="true" netlify-honeypot="website" action="willkommen.html?danke=1">
-            <input type="hidden" name="form-name" value="neuigkeiten" />
-            <p hidden><label>Nicht ausfüllen: <input name="website" /></label></p>
-            <input type="email" name="email" placeholder="deine@adresse.ch" required aria-label="E-Mail-Adresse" />
-            <button class="knopf" type="submit">Eintragen</button>
-          </form>
-          <p id="danke" hidden style="margin-top: 12px; font-weight: 800; color: #1e7f4e">Danke! Du hörst von uns, wenn es Neues gibt.</p>
-        </div>
-      </section>
     </main>
 
     <footer class="wrap fuss">
@@ -170,13 +155,5 @@
       </nav>
       <p>Gripszug · kids.alae.app · Gemacht in der Schweiz, für Kinder, die gern knobeln.</p>
     </footer>
-    <script>
-      // Nach dem Eintragen kommt Netlify hierher zurück, mit ?danke=1.
-      if (new URLSearchParams(location.search).get("danke")) {
-        document.getElementById("danke").hidden = false;
-        document.querySelector(".formular").hidden = true;
-        history.replaceState(null, "", location.pathname + "#danke");
-      }
-    </script>
   </body>
 </html>
