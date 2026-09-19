@@ -28,6 +28,9 @@
  *     als "nur besucht" und der Sammelknopf nähme ihn mit; ohne den Kasten
  *     stünde im Adminbereich "nie gespielt", egal wie viel gespielt wurde.
  *     Auf dem Gerät bleibt der Stand trotzdem der massgebliche
+ *   - Ein Spiel, das der Admin freigegeben hat ("Gratis ohne Limite"), wird
+ *     trotzdem vollständig gezählt: Der Haken nimmt die Schranke weg, nicht
+ *     die Aufzeichnung. Gerade dort will man sehen, wer gespielt hat
  *   - Antwortet der Server nicht, passiert nichts Sichtbares. Ein Zähler ist
  *     das Unwichtigste in dieser App und darf nie etwas kaputtmachen –
  *     deshalb wird hier auch auf Fehler in der Seite geachtet
@@ -71,9 +74,12 @@ const pruefe = (bedingung, was) => { if (!bedingung) befunde.push(was); };
 // Ein Firebase, das nur eines kann: sagen, ob jemand angemeldet ist. Mehr
 // braucht die Zählung nicht zu wissen – und weniger auch nicht, denn genau an
 // dieser Antwort hängt sie.
-function firebaseErsatz({ angemeldet }) {
+function firebaseErsatz({ angemeldet, freieSpiele = [] }) {
   const KIND = { uid: "kind-1", email: "lino@lernapp.local", emailVerified: false, displayName: "Lino", providerData: [{ providerId: "password" }] };
   const daten = new Map([["users/kind-1", { authEmail: KIND.email, username: "Lino", displayName: "Lino", role: "child", stats: { totalSeconds: 0, moves: 0, resets: 0, solvedLevels: 0, sessions: 0 } }]]);
+  // Die Spiele, die der Admin unbegrenzt freigegeben hat. firebase.js liest
+  // sie hier heraus, genau wie im Ernstfall.
+  if (freieSpiele.length) daten.set("config/gratisSpiele", { spiele: [...freieSpiele] });
   const schnapp = (pfad) => ({ exists: daten.has(pfad), id: pfad.split("/").pop(), data: () => daten.get(pfad) });
   const docRef = (pfad) => ({
     path: pfad, id: pfad.split("/").pop(),
@@ -238,6 +244,51 @@ try {
     await page.waitForTimeout(1200);
     pruefe(seitenFehler.length === 0, `Ein fehlgeschlagener Besuchsaufruf wirft Fehler in der Seite: ${seitenFehler.slice(0, 2).join(" | ")}`);
     pruefe(await page.locator("body").isVisible(), "Die Seite steht nach einem fehlgeschlagenen Besuchsaufruf nicht mehr");
+    await context.close();
+  }
+  // --- Ein freigegebenes Spiel wird trotzdem gezählt ------------------------
+  // Der Haken "Gratis ohne Limite" nimmt die Schranke weg, nicht die
+  // Aufzeichnung. Das sind zwei getrennte Dinge, und genau das ist hier die
+  // Frage: rundeBeendet() schreibt in den localStorage (lernapp.gratis.runden)
+  // und entscheidet nur, ob das Tor kommt; was im Adminbereich steht, kommt aus
+  // Firestore – aus levelProgress, sessions und dem Spielkasten.
+  //
+  // Wer ein Spiel für eine Werbeaktion freigibt, will gerade DORT sehen, wer
+  // gespielt hat. Würde der Haken die Zählung mit abschalten, wäre die Aktion
+  // blind – und man merkte es erst, wenn die Auswertung leer bleibt.
+  {
+    const context = await browser.newContext({ viewport: { width: 1024, height: 640 }, serviceWorkers: "block", reducedMotion: "reduce" });
+    context.setDefaultTimeout(5000);
+    await context.route("**/*gstatic.com/**", (route) => route.abort());
+    await context.addInitScript(firebaseErsatz, { angemeldet: false, freieSpiele: ["towerStack"] });
+    await context.route("**/api/besuch", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true }) }));
+    const page = await context.newPage();
+    await page.goto(`${BASIS}/index.html`, { waitUntil: "domcontentloaded" });
+    await page.waitForFunction(() => Boolean(window.LernappFirebase && window.LernappEntitlement), null, { timeout: 10000 });
+    await page.waitForTimeout(1200);
+
+    // Der Haken ist angekommen: Das Spiel ist offen, und zwar unbegrenzt.
+    pruefe(await page.evaluate(() => window.LernappEntitlement.istGratisSpiel("turmbau")),
+      "Der Haken aus config/gratisSpiele kommt in der Schranke nicht an");
+    pruefe(await page.evaluate(() => window.LernappEntitlement.gameFree("turmbau")),
+      "Das freigegebene Spiel ist trotzdem zu");
+
+    // Und trotzdem wird gespielt gezählt: Der Kasten geht in die Cloud.
+    const kennung = await page.evaluate(() => localStorage.getItem("lernapp.guest.id"));
+    await page.evaluate(() => window.LernappFirebase.saveGameState("lernapp.turmbau", { runs: 3, scores: [42, 19, 7] }));
+    await page.waitForTimeout(600);
+    const gast = await page.evaluate((id) => window.__ersatz.lies(`guests/${id}`), kennung);
+    pruefe(gast?.gameState?.["lernapp.turmbau"]?.data?.runs === 3,
+      `Ein freigegebenes Spiel wird nicht mehr gezählt – genau dort will man es sehen: ${JSON.stringify(gast?.gameState)?.slice(0, 200)}`);
+    pruefe(gast?.gameState?.["lernapp.turmbau"]?.data?.scores?.[0] === 42,
+      "Die Punkte eines freigegebenen Spiels fehlen – dann ist die Challenge nicht auswertbar");
+    pruefe(gast?.hatGespielt === true, "Die Marke fehlt bei einem freigegebenen Spiel");
+
+    // Die andere Richtung: Die Schnupperrunde bleibt unangetastet. Nur das
+    // steht hinter "verbraucht nichts" – mit der Statistik hat es nichts zu tun.
+    await page.evaluate(() => window.LernappEntitlement.rundeBeendet("turmbau"));
+    pruefe(await page.evaluate(() => window.LernappEntitlement.gespielteRunden("turmbau")) === 0,
+      "Ein freigegebenes Spiel verbraucht die Schnupperrunde – dann sperrte das Entfernen des Hakens alle aus, die mitgespielt haben");
     await context.close();
   }
 } finally {

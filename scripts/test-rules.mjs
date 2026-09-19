@@ -312,6 +312,18 @@ try {
   await darfNicht("Kind schreibt config/train", () => anna().doc("config/train").set({ wagonSet: "1" }));
   await darfNicht("Gast schreibt config/train", () => gast().doc("config/train").set({ wagonSet: "1" }));
 
+  // --- Spiele, die für alle offen stehen ---------------------------------------
+  // config/gratisSpiele nennt die Spiele, die der Admin unbegrenzt freigegeben
+  // hat. Lesen muss jeder dürfen, auch ohne Konto – sonst erführe ein Gast nie,
+  // dass ein Spiel offen ist, und genau er ist gemeint. Schreiben darf nur der
+  // Admin: Wer es selbst setzen könnte, schaltete sich die ganze App frei.
+  await darf("Gast liest die freien Spiele", () => gast().doc("config/gratisSpiele").get());
+  await darf("Kind liest die freien Spiele", () => anna().doc("config/gratisSpiele").get());
+  await darf("Admin gibt ein Spiel frei", () => admin().doc("config/gratisSpiele").set({ spiele: ["towerStack"], updatedAtMs: 1 }));
+  await darfNicht("Gast gibt ein Spiel frei", () => gast().doc("config/gratisSpiele").set({ spiele: ["towerStack"] }));
+  await darfNicht("Kind gibt ein Spiel frei", () => anna().doc("config/gratisSpiele").set({ spiele: ["towerStack"] }));
+  await darfNicht("Elternkonto gibt ein Spiel frei", () => mama().doc("config/gratisSpiele").set({ spiele: ["towerStack"] }));
+
   // --- Gäste -------------------------------------------------------------------
   await darf("Gast legt Gastkasten an", () => gast().doc("guests/guest_neuerkasten1").set({ type: "guest" }));
   await darf("Gast schreibt seinen Kasten", () => gast().doc(`guests/${GAST_ID}`).set({ type: "guest", stats: { solved: 1 } }, { merge: true }));

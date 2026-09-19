@@ -10413,6 +10413,33 @@ body[data-page="train"] .train-stage[data-view="reise"] ~ .help-voice {
   animation: wagon-reward-pop 0.34s cubic-bezier(0.2, 1.3, 0.4, 1) both;
   text-align: center;
 }
+/* Das Kreuz oben rechts. Die Karte wird dafür position: relative – sonst
+   klebte es am Bildschirmrand statt an der Karte. Es bleibt in jedem Zustand
+   sichtbar, auch während des Rechenrätsels: Wer sich auf "Für Eltern"
+   vertippt, muss ohne Neuladen wieder herauskommen. */
+.tor-card { position: relative; }
+.tor-schliessen {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: #f1eefc;
+  color: #5b6b7a;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.tor-schliessen svg { width: 22px; height: 22px; }
+.tor-schliessen:hover,
+.tor-schliessen:focus-visible { background: #e2dcf8; color: #2d3a45; }
+/* Nicht unter das Kreuz laufen: Die Karte ist eng, und der Text steht mittig. */
+.tor-card > .tor-bild { margin-top: 6px; }
+
 .tor-bild { width: min(320px, 70vw); }
 .tor-bild-svg { width: 100%; height: auto; display: block; }
 .tor-text {
@@ -11397,3 +11424,43 @@ body[data-page="admin"] .admin-entry-herkunft { flex: 1 1 220px; }
 @media (max-width: 900px) {
   body[data-page="admin"] .admin-entry-herkunft { flex: 1 1 100%; }
 }
+
+/* --- Gespielte Spiele -------------------------------------------------------
+   Eine Liste statt Punkteraster plus Zeile darunter. Das Raster hatte 40
+   Kästchen je Spiel und stand auch für Spiele da, die nie jemand geöffnet hat –
+   die Antwort auf "wer hat was gespielt?" ging darin unter. Jetzt steht hier
+   nur, wozu es einen Eintrag gibt, und für beide Sorten Spiel dieselbe Form. */
+.abdeckung-kopf { margin: 0 0 10px; }
+.abdeckung-gespielt span { align-content: start; }
+.abdeckung-gespielt b {
+  display: block;
+  margin-bottom: 2px;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted, #5b6b7a);
+}
+
+/* --- Gratis ohne Limite ------------------------------------------------------
+   Der Haken im Reiter "Spiele": Er gibt ein einzelnes Spiel ohne Kauf frei,
+   für eine Werbeaktion. Weil er als einziges Element auf der Karte etwas
+   ändert statt etwas zu zeigen, hebt er sich ab – und eine freigegebene Karte
+   trägt einen Rahmen, damit man von oben sieht, was gerade offen steht. */
+.admin-gratis {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--line, #e4e0f7);
+  border-radius: 12px;
+  background: #faf9ff;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--muted, #5b6b7a);
+  cursor: pointer;
+}
+.admin-gratis input { width: 18px; height: 18px; accent-color: #6c5ce7; cursor: pointer; }
+.admin-gratis:hover { border-color: var(--line-strong, #cdc6ee); }
+.admin-gratis.ist-an { background: #eaf7ef; border-color: #9fd8b5; color: #23713f; }
+.admin-game-card.ist-gratis { border-color: #9fd8b5; box-shadow: 0 0 0 2px rgba(47, 158, 92, 0.18); }

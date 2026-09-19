@@ -243,6 +243,46 @@ Wenn du dich in der App mit Google und `Alain.sc2@gmail.com` anmeldest, erschein
 
 Das Feld `role: "admin"` bzw. `isAdmin: true` im eigenen Profil dient nur als Anzeige/Metadatum. Die echte Berechtigung liegt in `firestore.rules` und prüft das verifizierte Auth-Token mit der Admin-E-Mail.
 
+### Der Reiter „Spiele": ein Spiel unbegrenzt freigeben
+
+Jede Spielkarte trägt den Haken **„Gratis ohne Limite"**. Er schreibt die Kennung des Spiels nach
+`config/gratisSpiele`; von dort liest sie `entitlement.js` auf jedem Gerät, auch ohne Konto.
+
+Gedacht ist er für eine Werbeaktion – ein Spiel als Challenge auf Social Media, ohne dass nach der
+ersten Runde das Tor kommt. Drei Eigenschaften, und jede war eine Entscheidung:
+
+- **Nur dieses Spiel.** Die übrigen vierundzwanzig behalten ihre eine Schnupperrunde.
+- **Nur solange der Haken steht.** Ein Klick nimmt ihn zurück, ohne Rückfrage – er nimmt niemandem
+  etwas weg.
+- **Er verbraucht nichts.** Während der Aktion zählt `rundeBeendet()` für dieses Spiel nicht, genau
+  wie bei einem Kind, das gekauft hat. Andersherum wäre der Haken eine Falle: Wer ihn wegnimmt,
+  sperrte damit alle aus, die in der Aktion gespielt haben. So hat danach jedes Gerät wieder seine
+  eine freie Runde.
+
+Wer sein Spiel schon verbraucht hatte, kommt beim Setzen des Hakens ebenfalls herein – sonst liefe
+die Werbung genau bei denen ins Leere, die die App schon einmal gesehen haben. Steht das Tor
+gerade offen, geht es von selbst auf.
+
+**„Verbraucht nichts" heisst nicht „zählt nicht".** Das sind zwei getrennte Dinge, und die
+Verwechslung wäre teuer:
+
+| | wo | was |
+| --- | --- | --- |
+| Schnupperrunde | `localStorage`, `lernapp.gratis.runden` | entscheidet nur, ob das Tor kommt |
+| Statistik | Firestore: `levelProgress`, `sessions`, `gameState` | was im Adminbereich steht |
+
+`rundeBeendet()` fasst ausschliesslich das Erste an. Die drei Schreibwege in die Cloud
+(`recordLevelStart`, `flushCurrentSession`, `gastSpielstandSichern`) fragen die Schranke nirgends.
+Ein freigegebenes Spiel wird also vollständig gezählt – mit Runden, Punkten und Spielern, gerade
+dort, wo man es für eine Aktion wissen will. `scripts/check-besuch.mjs` prüft genau das.
+
+Geschrieben wird der Haken mit `arrayUnion`/`arrayRemove`, nicht als ganze Liste: Zwei offene
+Adminfenster – oder ein Klick, bevor der erste `onSnapshot` da war – hätten sonst die Freigabe der
+jeweils anderen Seite still gelöscht, mitten in einer laufenden Aktion.
+
+Die Schranke wartet auf die Liste: `isLoaded()` gilt erst als beantwortet, wenn sie da ist. Sonst
+sähe ein Kind für einen Moment ein Tor, das gleich wieder verschwindet.
+
 ### Der Reiter „Gäste": wer die App besucht
 
 Ein Gast ist ein Gerät ohne Konto. Bis vor Kurzem entstand sein Dokument erst, wenn jemand ein
@@ -454,6 +494,7 @@ Die App schreibt folgende Dokumente:
 | `users/{uid}/levelProgress/{levelKey}` | Fortschritt pro Level: gelöst, Versuche, Spielzeit, Züge, Resets, Hinweise |
 | `users/{uid}/sessions/{sessionId}` | Einzelne Spielstände/Sitzungen mit Start, Ende, Dauer, Zügen, Resets und gelöst-Status |
 | `config/train` | Das gültige Wagen-Set und der Zeitpunkt des letzten Wechsels; nur der Admin schreibt es, jedes Gerät liest es |
+| `config/gratisSpiele` | `spiele: [...]` – welche Spiele ohne Kauf **unbegrenzt** offen stehen. Gesetzt wird das im Adminbereich unter „Spiele" (ein Haken je Spiel), gedacht für eine Werbeaktion. Nur der Admin schreibt es, jedes Gerät liest es – auch ein Gast, denn genau er ist gemeint |
 | `entitlements/{uid}` | Der Kauf eines Kontos (`plan`, `active`, `via`, Zeitstempel). **Schreibt nur der Server** nach einer Zahlung bei Stripe, für das Elternkonto und jedes seiner Kinder – kein Client, auch der Admin nicht von Hand. Lesen darf jedes Konto seinen eigenen Eintrag, der Admin alle |
 | `guests/{guestId}` | Ein Gerät ohne Konto: Besuchszähler, erster und letzter Besuch, grobe Geräteangabe, ungefährer Standort, Gesamtstatistik, Marke `hatGespielt`. Die Kennung (`guest_…`) entsteht auf dem Gerät und liegt im localStorage. Lesen darf nur der Admin. `besuche`, `ort`, `client` und die Besuchs-Zeitstempel schreibt **nur der Server** – die Regeln sperren sie für jeden Client, sonst könnte ein Unangemeldeter erfundene Länder und Besuchszahlen unterschieben |
 | `guests/{guestId}/levelProgress/{levelKey}` | Wie beim Konto, nur ohne Konto |

@@ -27,7 +27,8 @@
  *   - aufgeklappt: Zug, probierte Level, Freischalten, Gruppe, Zurücksetzen,
  *     Level, Sitzungen
  *   - freischalten ruft den Server mit Token und Kennung an
- *   - der Reiter "Spiele" zählt richtig
+ *   - der Reiter "Spiele" zählt richtig, und der Haken "Gratis ohne Limite"
+ *     gibt genau ein Spiel frei und nimmt es wieder zurück
  *   - der Reiter "Gruppen" legt eine übergreifende Gruppe an
  *   - der Reiter "Gäste" zeigt auch, wer nur besucht und nie gespielt hat:
  *     Gerät, Standort und Besuchszähler, ein Filter dafür, und die beiden
@@ -208,6 +209,13 @@ function firebaseErsatz({ daten, adminEmail }) {
 
   const SERVER = "__serverTimestamp";
   const DELETE = "__deleteField";
+  // Firestore rechnet arrayUnion und arrayRemove auf dem Server: Sie fassen nur
+  // die genannten Einträge an, nicht die Liste. Der Adminbereich schreibt den
+  // Haken "Gratis ohne Limite" damit – ohne diese beiden hier liefe die Prüfung
+  // an einem Ersatz, der weniger kann als das Echte, und meldete grün für
+  // etwas, das im Ernstfall wirft.
+  const UNION = "__arrayUnion";
+  const REMOVE = "__arrayRemove";
 
   const aufloesen = (wert) => {
     if (wert && wert.__marker === SERVER) return 1700000000000;
@@ -222,6 +230,13 @@ function firebaseErsatz({ daten, adminEmail }) {
     const raus = { ...(ziel || {}) };
     for (const [key, wert] of Object.entries(patch)) {
       if (wert && wert.__marker === DELETE) { delete raus[key]; continue; }
+      if (wert && (wert.__marker === UNION || wert.__marker === REMOVE)) {
+        const vorher = Array.isArray(raus[key]) ? raus[key] : [];
+        raus[key] = wert.__marker === UNION
+          ? [...vorher, ...wert.werte.filter((w) => !vorher.includes(w))]
+          : vorher.filter((w) => !wert.werte.includes(w));
+        continue;
+      }
       const einfach = wert && typeof wert === "object" && !Array.isArray(wert) && !wert.__marker;
       raus[key] = einfach && raus[key] && typeof raus[key] === "object" ? mischen(raus[key], wert) : aufloesen(wert);
     }
@@ -309,6 +324,8 @@ function firebaseErsatz({ daten, adminEmail }) {
     serverTimestamp: () => ({ __marker: SERVER }),
     increment: (um) => um,
     delete: () => ({ __marker: DELETE }),
+    arrayUnion: (...werte) => ({ __marker: UNION, werte }),
+    arrayRemove: (...werte) => ({ __marker: REMOVE, werte }),
   };
 
   window.firebase = { apps: [], initializeApp: () => ({}), app: () => ({}), auth, firestore };
@@ -530,13 +547,22 @@ pruefe(levelKarten === 3, `Mia hat ${levelKarten} Level-Karten, erwartet 3`);
 const wagenZahl = await koerper.locator(".admin-train-detail > div > span").count();
 pruefe(wagenZahl === 5, `Der Zug-Fortschritt zeigt ${wagenZahl} Bereiche, erwartet 5`);
 
-// Die Frage, die eine Liste gelöster Level nicht beantwortet: was NICHT
-// angefasst wurde. Ein Punkt je Level, und Mia hat genau zwei gelöst.
+// Gespielte Spiele: eine Zeile je Spiel, beide Sorten in derselben Form – und
+// nur, wozu es einen Eintrag gibt. Vorher stand hier ein Raster aus 40
+// Kästchen je Spiel, dazu eine zweite Liste darunter, und in beiden standen
+// auch die Spiele, die nie jemand geöffnet hat. Mia hat Arukone (2 gelöst),
+// Kakuro (1 angefangen) und zwei Spiele ohne Level gespielt.
 const abdeckung = koerper.locator(".admin-abdeckung");
-pruefe(await abdeckung.locator(".abdeckung-punkte i").count() > 50, "Die Levelabdeckung zeigt kaum Punkte – der Levelkatalog fehlt");
-pruefe(await abdeckung.locator(".abdeckung-punkte i.ist-geloest").count() === 2, `Mia hat ${await abdeckung.locator(".abdeckung-punkte i.ist-geloest").count()} gelöste Punkte, erwartet 2`);
-pruefe(await abdeckung.locator(".abdeckung-punkte i.ist-probiert").count() === 1, "Das angefangene, ungelöste Level ist nicht als solches markiert");
-pruefe(await abdeckung.locator(".abdeckung-punkte i.ist-offen").count() > 50, "Kein Level gilt als nie geöffnet – so wäre nicht zu sehen, was fehlt");
+const abdeckungText = await text(abdeckung);
+pruefe(/Arukone/.test(abdeckungText), `Arukone fehlt in den gespielten Spielen: ${abdeckungText.slice(0, 250)}`);
+pruefe(/Arukone\s*2 gelöst/.test(abdeckungText), `Arukone steht nicht mit 2 gelösten da: ${abdeckungText.slice(0, 250)}`);
+pruefe(/Kakuro\s*1 angefangen/.test(abdeckungText), `Kakuro steht nicht als angefangen da: ${abdeckungText.slice(0, 250)}`);
+pruefe(!/nie gespielt/.test(abdeckungText), "Spiele ohne Eintrag stehen weiterhin in der Liste");
+pruefe(!/Battleships|Hidoku/.test(abdeckungText), `Ein nie angefasstes Spiel steht in der Liste: ${abdeckungText.slice(0, 250)}`);
+pruefe(await abdeckung.locator(".abdeckung-punkte").count() === 0, "Das alte Punkteraster steht noch da");
+// Die Spiele ohne Level stehen in derselben Liste, nicht mehr in einer zweiten.
+pruefe(await abdeckung.locator(".abdeckung-gespielt span").count() >= 3,
+  `Die Liste zeigt ${await abdeckung.locator(".abdeckung-gespielt span").count()} Spiele, erwartet mindestens 3`);
 await knips("3-konto-aufgeklappt");
 
 // --- Freischalten ------------------------------------------------------------------
@@ -570,6 +596,53 @@ const arukoneText = await text(page.locator('.admin-game-card:has-text("Arukone"
 pruefe(/Gespielt\s*7/.test(arukoneText), `Arukone: "${arukoneText.slice(0, 160)}"`);
 pruefe(/Abgeschlossen\s*3/.test(arukoneText), `Arukone abgeschlossen stimmt nicht: "${arukoneText.slice(0, 160)}"`);
 pruefe(/Neu gestartet\s*3/.test(arukoneText), `Arukone Neustarts stimmen nicht: "${arukoneText.slice(0, 160)}"`);
+
+// --- Gratis ohne Limite ------------------------------------------------------
+// Der Haken gibt ein einzelnes Spiel ohne Kauf frei – für eine Werbeaktion.
+// Geschrieben wird er nach config/gratisSpiele; von dort liest ihn die
+// Schranke auf jedem Gerät (entitlement.js).
+const turmbauKarte = page.locator('.admin-game-card:has-text("Turmbau")').first();
+pruefe(await turmbauKarte.locator("[data-gratis]").count() === 1, "Der Spielkarte fehlt der Haken für «Gratis ohne Limite»");
+pruefe(!(await turmbauKarte.locator("[data-gratis]").isChecked()), "Der Haken steht schon, bevor jemand ihn gesetzt hat");
+pruefe(await page.locator("[data-gratis]").count() === 25, `Es gibt ${await page.locator("[data-gratis]").count()} Haken, erwartet einen je Spiel`);
+await turmbauKarte.locator("[data-gratis]").check();
+await page.waitForTimeout(1500);
+const nachHaken = await page.evaluate(() => window.__ersatz.lies("config/gratisSpiele"));
+pruefe(Array.isArray(nachHaken?.spiele) && nachHaken.spiele.includes("towerStack"),
+  `Der Haken landet nicht in config/gratisSpiele: ${JSON.stringify(nachHaken)}`);
+pruefe((nachHaken?.spiele || []).length === 1, "Der Haken gibt mehr als das eine Spiel frei");
+pruefe(await turmbauKarte.locator("[data-gratis]").isChecked(), "Nach dem Setzen steht der Haken nicht");
+pruefe(await turmbauKarte.locator(".admin-gratis.ist-an").count() === 1, "Die freigegebene Karte ist nicht als solche markiert");
+pruefe(/Zurzeit frei/.test(await text(page.locator(".admin-inhalt"))), "Es steht nirgends, welches Spiel gerade freigegeben ist");
+await knips("5b-gratis-haken");
+// Zwei Sitzungen: Das zweite Fenster hat inzwischen ein anderes Spiel
+// freigegeben. Der nächste Haken hier darf es nicht mitnehmen – vorher wurde
+// die ganze Liste aus dem eigenen Zustand geschrieben, und der kannte das
+// fremde Spiel nicht. Still abgeschaltet mitten in einer Aktion, ohne dass es
+// jemand tat.
+await page.evaluate(() => window.__ersatz.schreib("config/gratisSpiele", { spiele: ["towerStack", "memory"], updatedAtMs: 1 }));
+const arukoneKarte = page.locator('.admin-game-card:has-text("Arukone")').first();
+await arukoneKarte.locator("[data-gratis]").check();
+await page.waitForTimeout(1500);
+const nachZweitem = await page.evaluate(() => window.__ersatz.lies("config/gratisSpiele"));
+pruefe((nachZweitem?.spiele || []).includes("memory"),
+  `Der Haken hat die Freigabe einer anderen Sitzung gelöscht: ${JSON.stringify(nachZweitem?.spiele)}`);
+pruefe((nachZweitem?.spiele || []).includes("arukone") || (nachZweitem?.spiele || []).includes("towerStack"),
+  `Der zweite Haken ist nicht angekommen: ${JSON.stringify(nachZweitem?.spiele)}`);
+await arukoneKarte.locator("[data-gratis]").uncheck();
+await page.waitForTimeout(1500);
+const nachRuecknahme = await page.evaluate(() => window.__ersatz.lies("config/gratisSpiele"));
+pruefe((nachRuecknahme?.spiele || []).includes("memory"),
+  `Das Entfernen eines Hakens nimmt fremde Freigaben mit: ${JSON.stringify(nachRuecknahme?.spiele)}`);
+// Für die folgende Prüfung wieder aufräumen.
+await page.evaluate(() => window.__ersatz.schreib("config/gratisSpiele", { spiele: ["towerStack"], updatedAtMs: 1 }));
+
+// Und wieder weg.
+await turmbauKarte.locator("[data-gratis]").uncheck();
+await page.waitForTimeout(1500);
+const nachWeg = await page.evaluate(() => window.__ersatz.lies("config/gratisSpiele"));
+pruefe((nachWeg?.spiele || []).length === 0, `Das Entfernen des Hakens wirkt nicht: ${JSON.stringify(nachWeg)}`);
+pruefe(!(await turmbauKarte.locator("[data-gratis]").isChecked()), "Nach dem Entfernen steht der Haken noch");
 
 // Turmbau führt keine Neustarts – dort muss ein Strich stehen, keine Null.
 const turmbauText = await text(page.locator('.admin-game-card:has-text("Turmbau")').first());

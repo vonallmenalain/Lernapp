@@ -32,6 +32,8 @@
  *     verbrauchter Runde alle zu und mit Tor
  *   - Die saubere Adresse ohne .html (/turmbau), so wie man sie weitergibt:
  *     verbrauchte Runde → Tor, frischer Speicher → offen
+ *   - Gibt der Admin ein Spiel frei, während sein Tor offen steht, geht es von
+ *     selbst auf – auch bei der Levelwahl, die showGate() ohne Ziel aufruft
  *   - Die Rechnung selbst: Station 10 frei, 11 zu; jedes Spiel frei, bis es
  *     gespielt ist, und dann nur dieses zu
  *
@@ -310,6 +312,33 @@ try {
   if (!(await tor.count())) fehlt("das gesperrte Haus zeigt kein Tor mehr");
 
   // --- Das Rechenrätsel ---------------------------------------------------------
+  // --- Das Kreuz: raus aus dem Rechenrätsel ---------------------------------
+  // Wer sich auf "Für Eltern" vertippt, landete in einer Aufgabe, die er nicht
+  // lösen wollte – und kam ohne Neuladen nicht mehr heraus: Das Rätsel blendet
+  // den Zurück-Pfeil aus, und einen anderen Weg gab es nicht. Das Kreuz bleibt
+  // in jedem Zustand sichtbar.
+  if (!(await tor.locator(".tor-schliessen").count())) fehlt("im Tor fehlt das Kreuz zum Schliessen");
+  await tor.locator(".tor-eltern").click();
+  await page.waitForTimeout(300);
+  if (!(await tor.locator(".tor-gate").count())) fehlt("nach «Für Eltern» steht kein Rechenrätsel");
+  if (!(await tor.locator(".tor-schliessen").isVisible())) fehlt("im Rechenrätsel ist das Kreuz verschwunden – genau dort wird es gebraucht");
+  await tor.locator(".tor-schliessen").click();
+  await page.waitForTimeout(300);
+  if (await tor.count()) fehlt("das Kreuz schliesst das Tor nicht");
+  // Und die Escape-Taste tut dasselbe.
+  await memoryHaus.first().click({ force: true });
+  await page.waitForTimeout(700);
+  await tor.locator(".tor-eltern").click();
+  await page.waitForTimeout(300);
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(300);
+  if (await tor.count()) fehlt("Escape schliesst das Tor nicht");
+  // Danach ist das Tor wieder das Tor, nicht das Rätsel.
+  await memoryHaus.first().click({ force: true });
+  await page.waitForTimeout(700);
+  if (await tor.locator(".tor-gate").count()) fehlt("nach dem Schliessen steht das Rechenrätsel noch im Tor");
+  if (!/Nur ein Versuch pro Spiel kostenlos/.test((await tor.textContent()) || "")) fehlt(`im Tor steht nicht der erwartete Satz: "${((await tor.textContent()) || "").slice(0, 120)}"`);
+
   await tor.locator(".tor-eltern").click();
   await page.waitForTimeout(200);
   const gate = tor.locator(".tor-gate");
@@ -434,6 +463,24 @@ try {
     await wiese.click();
     await page.waitForTimeout(400);
     if (!(await page.locator(".tor-overlay").count())) fehlt("Tipp auf die gesperrte Wiese zeigt kein Tor");
+
+    // --- Freigabe bei offenem Tor -------------------------------------------
+    // Der Admin setzt den Haken "Gratis ohne Limite", während vor genau diesem
+    // Spiel ein Tor steht. Es muss von selbst aufgehen.
+    //
+    // Es ging nicht: Die Levelwahl ruft showGate() ohne Ziel auf, und ohne Ziel
+    // fiel der Handler auf isFree() zurück – das bleibt bei einem Konto ohne
+    // Kauf false, auch wenn dieses eine Spiel längst offen ist. Wer die Aktion
+    // startet, während jemand davorsteht, erreicht genau den nicht.
+    await page.evaluate(() => {
+      window.LernappFirebase.getFreieSpiele = () => ["letterPuzzle"];
+      document.dispatchEvent(new CustomEvent("lernapp:entitlement-changed", { detail: { grund: "gratis-spiele" } }));
+    });
+    await page.waitForTimeout(400);
+    if (await page.locator(".tor-overlay").count()) fehlt("das Tor bleibt stehen, obwohl der Admin das Spiel eben freigegeben hat");
+    // Und das Startbild bleibt davon unberührt: Dort steht das Tor vor einem
+    // fremden Ziel, nicht vor dieser Seite.
+    await page.evaluate(() => { window.LernappFirebase.getFreieSpiele = () => []; });
   }
 
   if (fehler.length) fehlt(`JavaScript-Fehler: ${fehler.slice(0, 3).join(" | ")}`);

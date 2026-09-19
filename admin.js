@@ -90,6 +90,8 @@
     gastFehler: "",
     // Spiele
     spieleBereich: "all",
+    gratisLaeuft: "",
+    gratisFehler: "",
     // Wagen
     setFrage: null,
     setLaeuft: "",
@@ -1171,6 +1173,18 @@
         ${Object.entries(hs.BEREICHE).map(([id, label]) => `
           <button type="button" class="${bereich === id ? "active" : ""}" data-bereich="${t(id)}">${t(label)}</button>`).join("")}
       </div>
+      ${zustand.gratisFehler ? `<p class="auth-status">${t(zustand.gratisFehler)}</p>` : ""}
+      <p class="account-muted admin-note">
+        <strong>Gratis ohne Limite:</strong> Ein Haken gibt dieses eine Spiel für alle frei –
+        ohne Kauf, ohne Tor, so oft jemand will. Gedacht für eine Werbeaktion: ein Spiel als
+        Challenge, ohne dass nach der ersten Runde die Schranke kommt. Es gilt nur für das
+        angehakte Spiel und nur, solange der Haken steht. Wer ihn wegnimmt, sperrt niemanden
+        aus: In der Aktion gespielte Runden zählen nicht mit, danach hat jedes Gerät wieder
+        seine eine freie Runde.
+        ${freieSpieleListe().length
+          ? `Zurzeit frei: <b>${t(freieSpieleListe().map((id) => hs.titel(id) || id).join(", "))}</b>.`
+          : "Zurzeit ist kein Spiel freigegeben."}
+      </p>
       <div class="admin-game-grid">
         ${gezeigt.map((eintrag) => spielKarte(eintrag, hs)).join("")}
       </div>
@@ -1181,6 +1195,11 @@
       </p>`;
   }
 
+  // Welche Spiele gerade unbegrenzt gratis sind. Die Antwort kommt aus
+  // firebase.js, nicht aus einer eigenen Kopie hier: Zwei Listen liefen
+  // auseinander, und die im Adminbereich wäre die, der man glaubt.
+  const freieSpieleListe = () => cloud()?.getFreieSpiele?.() || [];
+
   function spielKarte(eintrag, hs) {
     const zahlen = [
       ["Gespielt", eintrag.gespielt],
@@ -1188,12 +1207,18 @@
       ["Neu gestartet", eintrag.neugestartet],
       ["Spieler", eintrag.spieler],
     ];
+    const frei = freieSpieleListe().includes(eintrag.id);
+    const laeuft = zustand.gratisLaeuft === eintrag.id;
     return `
-      <article class="admin-game-card${eintrag.gespielt ? "" : " is-quiet"}">
+      <article class="admin-game-card${eintrag.gespielt ? "" : " is-quiet"}${frei ? " ist-gratis" : ""}">
         <header>
           <strong>${t(eintrag.titel)}</strong>
           <span>${t(hs.BEREICHE[eintrag.bereich] || "")}</span>
         </header>
+        <label class="admin-gratis${frei ? " ist-an" : ""}">
+          <input type="checkbox" data-gratis="${t(eintrag.id)}"${frei ? " checked" : ""}${laeuft ? " disabled" : ""} />
+          <span>${laeuft ? "Wird gespeichert..." : "Gratis ohne Limite"}</span>
+        </label>
         <div class="admin-data-grid">
           ${zahlen.map(([label, wert]) => `<span><b>${t(label)}</b>${wert === null ? "–" : t(wert)}</span>`).join("")}
         </div>
@@ -1210,6 +1235,26 @@
     seite.querySelectorAll("[data-bereich]").forEach((knopf) => {
       knopf.addEventListener("click", () => { zustand.spieleBereich = knopf.dataset.bereich; zeichne(); });
     });
+    seite.querySelectorAll("[data-gratis]").forEach((kasten) => {
+      kasten.addEventListener("change", () => gratisSetzen(kasten.dataset.gratis, kasten.checked));
+    });
+  }
+
+  // Ohne Rückfrage, und das ist Absicht: Der Haken nimmt niemandem etwas weg
+  // und lässt sich mit demselben Klick zurücknehmen. Eine Rückfrage vor jedem
+  // Umlegen wäre hier nur eine Bremse.
+  async function gratisSetzen(id, frei) {
+    if (!id || zustand.gratisLaeuft) { zeichne(); return; }
+    zustand.gratisLaeuft = id;
+    zustand.gratisFehler = "";
+    zeichne();
+    try {
+      await api().setGratisSpiel(id, frei);
+    } catch (fehler) {
+      zustand.gratisFehler = api().serverFehlerText(fehler);
+    }
+    zustand.gratisLaeuft = "";
+    zeichne();
   }
 
   // ---------------------------------------------------------------------------
