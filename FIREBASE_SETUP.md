@@ -283,6 +283,53 @@ jeweils anderen Seite still gelöscht, mitten in einer laufenden Aktion.
 Die Schranke wartet auf die Liste: `isLoaded()` gilt erst als beantwortet, wenn sie da ist. Sonst
 sähe ein Kind für einen Moment ein Tor, das gleich wieder verschwindet.
 
+### Der Reiter „Spiele": ein Spiel als Mini-Game verschicken
+
+Auf derselben Karte steht ein zweiter Haken: **„Mini-Game"**. Er tut etwas ganz anderes als der
+erste. Er gibt dem Spiel eine eigene Adresse *neben* der App:
+
+```
+https://kids.alae.app/mini-games/turmbau
+```
+
+Wer sie öffnet, spielt sofort – kein Konto, keine Anmeldung, kein Zug, keine Wagen, keine
+Schranke. Am Schluss trägt er seinen Namen ein und steht in einer Bestenliste, die alle sehen, die
+vorbeikommen. Gedacht ist das zum Weitergeben: ein Link an Freunde, an die Verwandtschaft, in eine
+Gruppe – „schaffst du mehr?". Unter `kids.alae.app/mini-games` liegt die Übersicht: alle
+freigegebenen Spiele mit ihren Ranglisten und eine Auswertung über alle Namen (Durchschnittsrang,
+Siege, gespielte Runden).
+
+Der Haken schreibt nach `config/miniGames`, mit `arrayUnion`/`arrayRemove` und aus demselben Grund
+wie oben. Gelesen wird er von jedem Gerät, auch ohne Konto.
+
+**Nicht jedes Spiel kann eines sein.** Den Haken gibt es nur bei den zwölf Spielen mit einer
+Punktzahl (`highscore.js`, `art: "punkte"`). Bei den Spielen mit Sternen je Level und bei den
+Rätseln aus dem Levelkatalog hätten am Ende alle drei Sterne oder alle Level gelöst – eine
+Bestenliste, die nichts mehr unterscheidet, ist keine. Welche Spiele es sind, steht in
+`mini-games.js`; die Seiten dazu erzeugt `node scripts/generate-mini-games.mjs` aus den Seiten der
+App, und `scripts/validate-mini-games.mjs` prüft, dass sie zusammenpassen.
+
+**Die Mini-Games fassen die App nicht an.** Das ist der Kern der Sache, und es hängt an einem
+einzigen Schalter: `data-mini="1"` am `body` der Seiten unter `mini-games/`.
+
+| Datei | was sie im Mini-Modus anders macht | warum |
+| --- | --- | --- |
+| `entitlement.js` | nichts gesperrt, nichts verbraucht | Wer den Link anklickt, verbrauchte sonst die eine freie Runde, die er in der App noch gar nicht gesehen hat |
+| `game-cloud.js` | schreibt weder auf das Gerät noch in die Cloud | Die Runde eines fremden Besuchers gehört nicht in den Spielstand des Kindes, dem das Gerät gehört, und zählt für keinen Wagen |
+| `firebase.js` | meldet keinen Besuch | Ein Mini-Game ist kein Besuch der App – sonst sagte die Gästeliste etwas anderes, als sie zu sagen scheint |
+| `game-shell.js` | andere Knöpfe, offene Bestenliste statt der eigenen fünf, keine Reise | Es gibt kein Zuhause, keine Spielauswahl und keine Karte, auf die ein Stempel gehörte |
+
+Umgekehrt gilt dasselbe: Wer den Haken wieder wegnimmt, löscht nichts. Die Adresse steht dann nur
+nicht mehr in der Liste der Mini-Games, und die Ergebnisse warten, bis der Haken wieder steht.
+
+**Was die Bestenliste über Ehrlichkeit verspricht – und was nicht.** Ohne Konto gibt es niemanden
+zu prüfen: Wer schreibt, sagt nur, wer er zu sein behauptet. Die Regeln prüfen deshalb nicht *wer*,
+sondern *was* (siehe `firestore.rules`, `miniScores`): ein Dokument je Spiel und Spieler, nur die
+erlaubten Felder, ein Name von höchstens 24 Zeichen, Punkte, die nie fallen, Versuche, die nur
+steigen. Was bleibt, ist, dass jemand mit genug Mühe einen fremden Eintrag hochsetzen könnte.
+Dagegen hülfe nur ein Konto – und ein Konto ist genau das, was dieser Bereich nicht haben soll. Der
+Admin kann einen Eintrag löschen; sonst niemand.
+
 ### Der Reiter „Gäste": wer die App besucht
 
 Ein Gast ist ein Gerät ohne Konto. Bis vor Kurzem entstand sein Dokument erst, wenn jemand ein
@@ -495,6 +542,8 @@ Die App schreibt folgende Dokumente:
 | `users/{uid}/sessions/{sessionId}` | Einzelne Spielstände/Sitzungen mit Start, Ende, Dauer, Zügen, Resets und gelöst-Status |
 | `config/train` | Das gültige Wagen-Set und der Zeitpunkt des letzten Wechsels; nur der Admin schreibt es, jedes Gerät liest es |
 | `config/gratisSpiele` | `spiele: [...]` – welche Spiele ohne Kauf **unbegrenzt** offen stehen. Gesetzt wird das im Adminbereich unter „Spiele" (ein Haken je Spiel), gedacht für eine Werbeaktion. Nur der Admin schreibt es, jedes Gerät liest es – auch ein Gast, denn genau er ist gemeint |
+| `config/miniGames` | `spiele: [...]` – welche Spiele es als **Mini-Game** unter `kids.alae.app/mini-games/…` gibt: eigene Adresse, offene Bestenliste, kein Konto. Gesetzt im Adminbereich unter „Spiele" (zweiter Haken je Spielkarte). Nur der Admin schreibt es, jedes Gerät liest es |
+| `miniScores/{spiel}_{spieler}` | Ein Ergebnis je Spieler und Mini-Game: `game`, `spieler` (Kennung `mini_…` vom Gerät), `name`, `punkte` (Bestwert), `versuche`, Zeitstempel. **Lesen darf jeder** – die Liste ist der Sinn der Sache –, schreiben auch, aber nur nach Form: ein Dokument je Spiel und Spieler, nur diese Felder, Punkte fallen nie, Versuche zählen nur hoch. Löschen darf nur der Admin |
 | `entitlements/{uid}` | Der Kauf eines Kontos (`plan`, `active`, `via`, Zeitstempel). **Schreibt nur der Server** nach einer Zahlung bei Stripe, für das Elternkonto und jedes seiner Kinder – kein Client, auch der Admin nicht von Hand. Lesen darf jedes Konto seinen eigenen Eintrag, der Admin alle |
 | `guests/{guestId}` | Ein Gerät ohne Konto: Besuchszähler, erster und letzter Besuch, grobe Geräteangabe, ungefährer Standort, Gesamtstatistik, Marke `hatGespielt`. Die Kennung (`guest_…`) entsteht auf dem Gerät und liegt im localStorage. Lesen darf nur der Admin. `besuche`, `ort`, `client` und die Besuchs-Zeitstempel schreibt **nur der Server** – die Regeln sperren sie für jeden Client, sonst könnte ein Unangemeldeter erfundene Länder und Besuchszahlen unterschieben |
 | `guests/{guestId}/levelProgress/{levelKey}` | Wie beim Konto, nur ohne Konto |
@@ -561,6 +610,20 @@ node scripts/local-pwa-server.cjs
 ```
 
 Öffne dann die angezeigte `localhost`-Adresse, registriere einen Testnutzer nur mit Name + Passwort und löse ein Level. Danach sollten in Firestore Dokumente unter `users/{uid}` erscheinen.
+
+Die Mini-Games liegen unter denselben Adressen wie später auf der Site – der lokale Server liefert
+sie genauso aus wie Netlify: `/mini-games` ist die Übersicht, `/mini-games/turmbau` das Spiel.
+Geprüft werden sie ohne Firestore:
+
+```bash
+node scripts/generate-mini-games.mjs     # die Seiten aus den Seiten der App schreiben
+node scripts/validate-mini-games.mjs     # stimmen Seiten, Regeln und Adminbereich zusammen?
+node scripts/check-mini-games.mjs        # im Browser: spielen, eintragen, in der Liste stehen
+```
+
+`check-mini-games.mjs` ersetzt `firebase.js` im Browser durch eine Attrappe und hält die Einträge
+im Speicher. Ein Prüfskript, das in die Produktionsdatenbank schreibt, wäre eines, das man nicht
+laufen lässt.
 
 ## 10. E-Mails: kids@alae.app
 
