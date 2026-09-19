@@ -1446,6 +1446,17 @@
     return window.firebase.firestore.FieldValue.delete();
   }
 
+  // Ein Eintrag in eine Liste hinein oder heraus, ohne die übrigen anzufassen.
+  // Firestore rechnet das auf dem Server – deshalb ist es gleichgültig, ob der
+  // Client die Liste gerade richtig kennt.
+  function arrayUnion(...werte) {
+    return window.firebase.firestore.FieldValue.arrayUnion(...werte);
+  }
+
+  function arrayRemove(...werte) {
+    return window.firebase.firestore.FieldValue.arrayRemove(...werte);
+  }
+
   async function signIn(loginName, password) {
     await state.auth.signInWithEmailAndPassword(emailForSignIn(loginName), passwordForSignIn(loginName, password));
   }
@@ -1603,31 +1614,46 @@
     }
   }
 
-  // Der Admin setzt oder nimmt den Haken. Geschrieben wird die ganze Liste,
-  // nicht ein einzelner Eintrag: Sie ist höchstens fünfundzwanzig Namen lang,
-  // und arrayUnion/arrayRemove wären zwei Wege zu einem Ziel, das ein
-  // Schreibvorgang schon erreicht.
+  // Der Admin setzt oder nimmt den Haken. Geändert wird genau ein Eintrag,
+  // nicht die ganze Liste.
+  //
+  // Der Unterschied ist nicht theoretisch: Die ganze Liste zu schreiben hiesse,
+  // sie aus state.freieSpiele zu nehmen – und die kann veraltet sein. Zwei
+  // Fälle, beide mit demselben stillen Ergebnis, dass eine laufende Aktion
+  // abgeschaltet wird, ohne dass es jemand tat:
+  //
+  //   Zwei Sitzungen  Zwei Browserfenster, zwei Haken kurz nacheinander. Das
+  //                   zweite schriebe die Liste, die es beim Laden sah, und
+  //                   nähme den Haken des ersten mit.
+  //   Zu früh         Ein Klick, bevor der erste onSnapshot da war. Dann ist
+  //                   die Liste hier leer, und der Schreibvorgang leerte sie
+  //                   auch in der Datenbank.
+  //
+  // arrayUnion und arrayRemove rechnet Firestore auf dem Server: Sie fassen
+  // nur diesen einen Eintrag an. Gegen den zweiten Fall steht zusätzlich die
+  // Schranke darunter – ein Haken, der eine ungelesene Liste ändert, ist auch
+  // atomar keine gute Idee.
   async function setGratisSpiel(gameId, frei) {
     const id = String(gameId || "").trim();
-    if (!id) return state.freieSpiele;
+    if (!id) return [...state.freieSpiele];
     const ref = freieSpieleRef();
     if (!ref) throw new Error("Firestore ist nicht bereit.");
-    const jetzt = [...state.freieSpiele];
-    const drin = jetzt.includes(id);
-    if (frei && drin) return jetzt;
-    if (!frei && !drin) return jetzt;
-    const neu = frei ? [...jetzt, id] : jetzt.filter((eintrag) => eintrag !== id);
+    if (!state.freieSpieleBereit) throw new Error("Die Liste der freien Spiele ist noch nicht geladen.");
+
     await ref.set({
-      spiele: neu,
+      spiele: frei ? arrayUnion(id) : arrayRemove(id),
       updatedAtMs: Date.now(),
       updatedAt: serverTimestamp(),
       by: state.user?.uid || null,
     }, { merge: true });
-    // Ohne onSnapshot (oder bevor er kommt) gilt sofort, was eben geschrieben
-    // wurde – sonst spränge der Haken im Adminbereich kurz zurück.
-    state.freieSpiele = neu;
+
+    // Vorweggenommen, damit der Haken im Adminbereich nicht kurz zurückspringt,
+    // bis der Snapshot kommt. Kommt er, gilt wieder er – und nur er.
+    const jetzt = new Set(state.freieSpiele);
+    if (frei) jetzt.add(id); else jetzt.delete(id);
+    state.freieSpiele = [...jetzt];
     document.dispatchEvent(new CustomEvent("lernapp:entitlement-changed", { detail: { grund: "gratis-spiele" } }));
-    return neu;
+    return [...state.freieSpiele];
   }
 
   function watchWagonSet() {

@@ -429,7 +429,21 @@
     host.append(overlay);
     document.body.classList.add("tor-offen");
     offenesTor = overlay;
-    torZiel = ziel || null;
+    // Wofür das Tor steht. Ohne Angabe: diese Seite, sofern sie überhaupt ein
+    // Spiel ist.
+    //
+    // Das ist nicht Bequemlichkeit. Der Handler unten schliesst ein Tor, sobald
+    // sein Ziel frei wird – ohne Ziel fiel er auf isFree() zurück, und das
+    // bleibt bei einem Konto ohne Kauf false. Gibt der Admin mitten in einer
+    // Aktion ein Spiel frei, stand dessen Tor also weiter da, obwohl das Spiel
+    // längst offen war; die Levelwahl in app.js ruft showGate() ohne Ziel auf.
+    //
+    // Nur, wenn diese Seite ein Spiel ist: Auf dem Startbild steht das Tor vor
+    // einem fremden Ziel (train-home.js gibt es mit), und index.html gälte als
+    // unbekannte Seite – also als frei. Dann ginge dort jedes Tor sofort wieder
+    // zu.
+    const eigeneSeite = `${window.location.pathname}${window.location.search}`;
+    torZiel = ziel || (gameEntry(window.location.pathname) ? eigeneSeite : null);
     kids()?.playChime?.();
     try { kids()?.speak?.(TOR_SATZ); } catch { /* ohne Ton */ }
 

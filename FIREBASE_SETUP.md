@@ -260,7 +260,25 @@ ersten Runde das Tor kommt. Drei Eigenschaften, und jede war eine Entscheidung:
   eine freie Runde.
 
 Wer sein Spiel schon verbraucht hatte, kommt beim Setzen des Hakens ebenfalls herein – sonst liefe
-die Werbung genau bei denen ins Leere, die die App schon einmal gesehen haben.
+die Werbung genau bei denen ins Leere, die die App schon einmal gesehen haben. Steht das Tor
+gerade offen, geht es von selbst auf.
+
+**„Verbraucht nichts" heisst nicht „zählt nicht".** Das sind zwei getrennte Dinge, und die
+Verwechslung wäre teuer:
+
+| | wo | was |
+| --- | --- | --- |
+| Schnupperrunde | `localStorage`, `lernapp.gratis.runden` | entscheidet nur, ob das Tor kommt |
+| Statistik | Firestore: `levelProgress`, `sessions`, `gameState` | was im Adminbereich steht |
+
+`rundeBeendet()` fasst ausschliesslich das Erste an. Die drei Schreibwege in die Cloud
+(`recordLevelStart`, `flushCurrentSession`, `gastSpielstandSichern`) fragen die Schranke nirgends.
+Ein freigegebenes Spiel wird also vollständig gezählt – mit Runden, Punkten und Spielern, gerade
+dort, wo man es für eine Aktion wissen will. `scripts/check-besuch.mjs` prüft genau das.
+
+Geschrieben wird der Haken mit `arrayUnion`/`arrayRemove`, nicht als ganze Liste: Zwei offene
+Adminfenster – oder ein Klick, bevor der erste `onSnapshot` da war – hätten sonst die Freigabe der
+jeweils anderen Seite still gelöscht, mitten in einer laufenden Aktion.
 
 Die Schranke wartet auf die Liste: `isLoaded()` gilt erst als beantwortet, wenn sie da ist. Sonst
 sähe ein Kind für einen Moment ein Tor, das gleich wieder verschwindet.

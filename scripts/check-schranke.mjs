@@ -32,6 +32,8 @@
  *     verbrauchter Runde alle zu und mit Tor
  *   - Die saubere Adresse ohne .html (/turmbau), so wie man sie weitergibt:
  *     verbrauchte Runde → Tor, frischer Speicher → offen
+ *   - Gibt der Admin ein Spiel frei, während sein Tor offen steht, geht es von
+ *     selbst auf – auch bei der Levelwahl, die showGate() ohne Ziel aufruft
  *   - Die Rechnung selbst: Station 10 frei, 11 zu; jedes Spiel frei, bis es
  *     gespielt ist, und dann nur dieses zu
  *
@@ -461,6 +463,24 @@ try {
     await wiese.click();
     await page.waitForTimeout(400);
     if (!(await page.locator(".tor-overlay").count())) fehlt("Tipp auf die gesperrte Wiese zeigt kein Tor");
+
+    // --- Freigabe bei offenem Tor -------------------------------------------
+    // Der Admin setzt den Haken "Gratis ohne Limite", während vor genau diesem
+    // Spiel ein Tor steht. Es muss von selbst aufgehen.
+    //
+    // Es ging nicht: Die Levelwahl ruft showGate() ohne Ziel auf, und ohne Ziel
+    // fiel der Handler auf isFree() zurück – das bleibt bei einem Konto ohne
+    // Kauf false, auch wenn dieses eine Spiel längst offen ist. Wer die Aktion
+    // startet, während jemand davorsteht, erreicht genau den nicht.
+    await page.evaluate(() => {
+      window.LernappFirebase.getFreieSpiele = () => ["letterPuzzle"];
+      document.dispatchEvent(new CustomEvent("lernapp:entitlement-changed", { detail: { grund: "gratis-spiele" } }));
+    });
+    await page.waitForTimeout(400);
+    if (await page.locator(".tor-overlay").count()) fehlt("das Tor bleibt stehen, obwohl der Admin das Spiel eben freigegeben hat");
+    // Und das Startbild bleibt davon unberührt: Dort steht das Tor vor einem
+    // fremden Ziel, nicht vor dieser Seite.
+    await page.evaluate(() => { window.LernappFirebase.getFreieSpiele = () => []; });
   }
 
   if (fehler.length) fehlt(`JavaScript-Fehler: ${fehler.slice(0, 3).join(" | ")}`);

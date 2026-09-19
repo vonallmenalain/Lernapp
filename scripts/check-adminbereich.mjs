@@ -209,6 +209,13 @@ function firebaseErsatz({ daten, adminEmail }) {
 
   const SERVER = "__serverTimestamp";
   const DELETE = "__deleteField";
+  // Firestore rechnet arrayUnion und arrayRemove auf dem Server: Sie fassen nur
+  // die genannten Einträge an, nicht die Liste. Der Adminbereich schreibt den
+  // Haken "Gratis ohne Limite" damit – ohne diese beiden hier liefe die Prüfung
+  // an einem Ersatz, der weniger kann als das Echte, und meldete grün für
+  // etwas, das im Ernstfall wirft.
+  const UNION = "__arrayUnion";
+  const REMOVE = "__arrayRemove";
 
   const aufloesen = (wert) => {
     if (wert && wert.__marker === SERVER) return 1700000000000;
@@ -223,6 +230,13 @@ function firebaseErsatz({ daten, adminEmail }) {
     const raus = { ...(ziel || {}) };
     for (const [key, wert] of Object.entries(patch)) {
       if (wert && wert.__marker === DELETE) { delete raus[key]; continue; }
+      if (wert && (wert.__marker === UNION || wert.__marker === REMOVE)) {
+        const vorher = Array.isArray(raus[key]) ? raus[key] : [];
+        raus[key] = wert.__marker === UNION
+          ? [...vorher, ...wert.werte.filter((w) => !vorher.includes(w))]
+          : vorher.filter((w) => !wert.werte.includes(w));
+        continue;
+      }
       const einfach = wert && typeof wert === "object" && !Array.isArray(wert) && !wert.__marker;
       raus[key] = einfach && raus[key] && typeof raus[key] === "object" ? mischen(raus[key], wert) : aufloesen(wert);
     }
@@ -310,6 +324,8 @@ function firebaseErsatz({ daten, adminEmail }) {
     serverTimestamp: () => ({ __marker: SERVER }),
     increment: (um) => um,
     delete: () => ({ __marker: DELETE }),
+    arrayUnion: (...werte) => ({ __marker: UNION, werte }),
+    arrayRemove: (...werte) => ({ __marker: REMOVE, werte }),
   };
 
   window.firebase = { apps: [], initializeApp: () => ({}), app: () => ({}), auth, firestore };
@@ -599,6 +615,28 @@ pruefe(await turmbauKarte.locator("[data-gratis]").isChecked(), "Nach dem Setzen
 pruefe(await turmbauKarte.locator(".admin-gratis.ist-an").count() === 1, "Die freigegebene Karte ist nicht als solche markiert");
 pruefe(/Zurzeit frei/.test(await text(page.locator(".admin-inhalt"))), "Es steht nirgends, welches Spiel gerade freigegeben ist");
 await knips("5b-gratis-haken");
+// Zwei Sitzungen: Das zweite Fenster hat inzwischen ein anderes Spiel
+// freigegeben. Der nächste Haken hier darf es nicht mitnehmen – vorher wurde
+// die ganze Liste aus dem eigenen Zustand geschrieben, und der kannte das
+// fremde Spiel nicht. Still abgeschaltet mitten in einer Aktion, ohne dass es
+// jemand tat.
+await page.evaluate(() => window.__ersatz.schreib("config/gratisSpiele", { spiele: ["towerStack", "memory"], updatedAtMs: 1 }));
+const arukoneKarte = page.locator('.admin-game-card:has-text("Arukone")').first();
+await arukoneKarte.locator("[data-gratis]").check();
+await page.waitForTimeout(1500);
+const nachZweitem = await page.evaluate(() => window.__ersatz.lies("config/gratisSpiele"));
+pruefe((nachZweitem?.spiele || []).includes("memory"),
+  `Der Haken hat die Freigabe einer anderen Sitzung gelöscht: ${JSON.stringify(nachZweitem?.spiele)}`);
+pruefe((nachZweitem?.spiele || []).includes("arukone") || (nachZweitem?.spiele || []).includes("towerStack"),
+  `Der zweite Haken ist nicht angekommen: ${JSON.stringify(nachZweitem?.spiele)}`);
+await arukoneKarte.locator("[data-gratis]").uncheck();
+await page.waitForTimeout(1500);
+const nachRuecknahme = await page.evaluate(() => window.__ersatz.lies("config/gratisSpiele"));
+pruefe((nachRuecknahme?.spiele || []).includes("memory"),
+  `Das Entfernen eines Hakens nimmt fremde Freigaben mit: ${JSON.stringify(nachRuecknahme?.spiele)}`);
+// Für die folgende Prüfung wieder aufräumen.
+await page.evaluate(() => window.__ersatz.schreib("config/gratisSpiele", { spiele: ["towerStack"], updatedAtMs: 1 }));
+
 // Und wieder weg.
 await turmbauKarte.locator("[data-gratis]").uncheck();
 await page.waitForTimeout(1500);
