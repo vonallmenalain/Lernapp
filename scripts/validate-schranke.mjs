@@ -7,7 +7,9 @@
  * nicht laden. Diese Prüfung hält die beiden Tabellen gleich und spielt die
  * Rechnung für jede Sorte Konto durch: Gast, Konto ohne Kauf, Konto mit
  * Kauf, Kind aus der Zeit vor dem Kauf. Dazu die Schnupperrunden: Zählt eine
- * Runde? Zählt sie nur einmal? Lässt die Reise sie in Ruhe? Und: Jede
+ * Runde? Zählt sie nur einmal? Lässt die Reise sie in Ruhe? Und der Haken aus
+ * dem Adminbereich, der ein einzelnes Spiel unbegrenzt freigibt: Gilt er nur
+ * für dieses Spiel, verbraucht er nichts, und wartet die Schranke auf ihn? Und: Jede
  * Spielseite und die Startseite laden entitlement.js, und der Service Worker
  * hält es vor.
  *
@@ -123,12 +125,15 @@ function rechne(konto, optionen = {}) {
   vm.runInContext(lies("entitlement.js"), context, { filename: "entitlement.js" });
   return windowStub.LernappEntitlement;
 }
-const konto = ({ angemeldet = true, kauf = null, rolle = "child", eltern = null, geladen = true } = {}) => ({
+const konto = ({ angemeldet = true, kauf = null, rolle = "child", eltern = null, geladen = true, freieSpiele = [], freiGeladen = true } = {}) => ({
   isSignedIn: () => angemeldet,
   getEntitlement: () => kauf,
   getRole: () => rolle,
   getParentUid: () => eltern,
   isEntitlementLoaded: () => geladen,
+  // Die Spiele, die der Admin unbegrenzt freigegeben hat (config/gratisSpiele).
+  getFreieSpiele: () => [...freieSpiele],
+  isFreieSpieleLoaded: () => freiGeladen,
 });
 
 // Der Gast: nur der Anfang.
@@ -213,6 +218,74 @@ const konto = ({ angemeldet = true, kauf = null, rolle = "child", eltern = null,
   // wenn das Spiel dahinter seine Runde schon verbraucht hat.
   pruefe(e.targetFree("memory.html?station=3") && e.stationFree(10) && !e.stationFree(11), "die verbrauchte Runde schließt die freien Stationen");
 }
+// --- Gratis ohne Limite: der Haken im Adminbereich ---------------------------
+// Ein einzelnes Spiel lässt sich ohne Kauf unbegrenzt freigeben – für eine
+// Werbeaktion. Es gilt nur für dieses Spiel und nur, solange der Haken steht.
+{
+  const e = rechne(konto({ rolle: "child", eltern: "eltern1", freieSpiele: ["towerStack"] }));
+  // Unbegrenzt: auch nach mehreren Runden kein Tor.
+  e.rundeBeendet("turmbau");
+  e.rundeBeendet("turmbau");
+  e.rundeBeendet("turmbau.html");
+  pruefe(e.gameFree("turmbau") && e.gameFree("turmbau.html") && e.targetFree("turmbau"),
+    "ein freigegebenes Spiel ist nach ein paar Runden trotzdem zu");
+  pruefe(e.istGratisSpiel("turmbau") && e.istGratisSpiel("turmbau.html") && e.istGratisSpiel("towerStack"),
+    "das freigegebene Spiel wird über Adresse oder Kennung nicht erkannt");
+  pruefe(!e.gameGespielt("turmbau"),
+    "ein freigegebenes Spiel trägt ein Schloss am Haus – dort ist nichts verbraucht");
+  // Und es verbraucht nichts: Nimmt der Admin den Haken weg, ist die
+  // Schnupperrunde noch da. Andersherum wäre der Haken eine Falle.
+  pruefe(e.gespielteRunden("turmbau") === 0,
+    `während der Aktion wurden ${e.gespielteRunden("turmbau")} Runden verbraucht`);
+  // Nur dieses Spiel. Die anderen vierundzwanzig gelten weiter.
+  e.rundeBeendet("memory");
+  pruefe(!e.gameFree("memory.html") && e.gameGespielt("memory.html"),
+    "der Haken bei Turmbau gibt auch die anderen Spiele frei");
+  pruefe(!e.istGratisSpiel("memory.html"), "ein nicht angehaktes Spiel gilt als freigegeben");
+}
+// Ohne Haken gilt wieder eine Runde – mit dem Stand, der vor der Aktion galt.
+{
+  const e = rechne(konto({ rolle: "child", eltern: "eltern1", freieSpiele: [] }));
+  pruefe(e.gameFree("turmbau"), "ohne Haken ist das Spiel sofort zu, statt eine Runde zu geben");
+  e.rundeBeendet("turmbau");
+  pruefe(!e.gameFree("turmbau"), "ohne Haken greift die Schnupperrunde nicht mehr");
+}
+// Der Fall, auf den es bei einer Werbeaktion ankommt: Das Gerät hat seine
+// Runde längst verbraucht, und ERST DANN setzt der Admin den Haken. Wer dann
+// nicht hereinkäme, für den wäre die Aktion wirkungslos – und genau das sind
+// die Leute, die die App schon einmal gesehen haben.
+//
+// Die Liste ist hier absichtlich dieselbe, die der Stub ausliest: So lässt
+// sich der Haken mitten im Lauf umlegen, wie es der Admin tut.
+{
+  const frei = [];
+  const e = rechne(konto({ rolle: "child", eltern: "eltern1", freieSpiele: frei }));
+  e.rundeBeendet("turmbau");
+  pruefe(!e.gameFree("turmbau"), "vor dem Haken müsste die verbrauchte Runde sperren");
+  frei.push("towerStack");
+  pruefe(e.gameFree("turmbau") && e.targetFree("turmbau") && !e.gameGespielt("turmbau"),
+    "der Haken öffnet ein Spiel nicht, dessen Runde schon verbraucht war – dann liefe die Werbung ins Leere");
+  frei.length = 0;
+  pruefe(!e.gameFree("turmbau"),
+    "nach dem Entfernen des Hakens bleibt das Spiel offen – die alte Runde war verbraucht");
+}
+// Solange die Liste noch unterwegs ist, gilt der Stand als unbekannt: Wer
+// vorher entscheidet, zeigt einem Kind ein Tor, das gleich wieder verschwindet.
+{
+  const e = rechne(konto({ rolle: "child", eltern: "eltern1", freiGeladen: false }));
+  pruefe(!e.isLoaded(), "der Stand gilt als bekannt, obwohl die Liste der freien Spiele fehlt");
+}
+// Eine ältere Fassung von firebase.js kennt die Liste nicht. Dann wartet
+// niemand auf sie – sonst stünde die Schranke für immer auf "noch unbekannt".
+{
+  const alt = konto({ rolle: "child", eltern: "eltern1" });
+  delete alt.getFreieSpiele;
+  delete alt.isFreieSpieleLoaded;
+  const e = rechne(alt);
+  pruefe(e.isLoaded(), "ohne die neue Funktion wartet die Schranke ewig");
+  pruefe(e.gameFree("turmbau") && !e.istGratisSpiel("turmbau"), "ohne die neue Funktion rechnet die Schranke falsch");
+}
+
 // --- Jedes Spiel, in beiden Schreibweisen -----------------------------------
 // Eine Stichprobe genügte hier nicht: Offen standen genau die Spiele, deren
 // Kennung nicht zufällig so heisst wie ihre Datei – siebzehn von

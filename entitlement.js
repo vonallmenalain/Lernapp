@@ -127,12 +127,38 @@
     return r === "gekauft" || r === "gruender";
   }
 
+  // --- Spiele, die für alle offen stehen ---------------------------------------
+  // Der Admin kann einzelne Spiele unbegrenzt freigeben (config/gratisSpiele,
+  // Reiter "Spiele" im Adminbereich). Gedacht ist das für eine Werbeaktion:
+  // ein Spiel als Challenge auf Social Media, ohne dass nach der ersten Runde
+  // das Tor kommt.
+  //
+  // Es gilt nur für das angehakte Spiel und nur, solange der Haken steht.
+  // Nimmt der Admin ihn weg, gilt wieder eine Runde – und zwar eine ganze:
+  // Während der Aktion zählt rundeBeendet() für dieses Spiel nichts, genau wie
+  // bei einem Kind, das gekauft hat. Andersherum wäre der Haken eine Falle:
+  // Wer ihn wegnimmt, sperrte damit alle aus, die in der Aktion gespielt
+  // haben.
+  function freieSpiele() {
+    try { return cloud()?.getFreieSpiele?.() || []; } catch { return []; }
+  }
+
+  function istGratisSpiel(pageOrId) {
+    const eintrag = gameEntry(pageOrId);
+    if (!eintrag) return false;
+    return freieSpiele().includes(eintrag.game.id);
+  }
+
   // Ob der Stand schon bekannt ist: die Anmeldung beantwortet, die Rolle
   // gelesen, der Kauf geladen. Ohne firebase.js entscheidet das Gerät allein,
   // dann steht der Stand sofort.
   function isLoaded() {
     const c = cloud();
     if (!c) return true;
+    // Auch die Liste der freigegebenen Spiele gehört zum Stand. Fehlt die
+    // Funktion (eine ältere Fassung aus dem Zwischenspeicher), gilt sie als
+    // beantwortet – sonst wartete die Schranke auf etwas, das nie kommt.
+    if (typeof c.isFreieSpieleLoaded === "function" && !c.isFreieSpieleLoaded()) return false;
     if (typeof c.isAccountReady === "function") return c.isAccountReady();
     // Eine ältere Fassung aus dem Zwischenspeicher: so gut es geht.
     if (!c.isSignedIn?.()) return true;
@@ -195,6 +221,8 @@
   // (Level geschafft), tiersprung.js (eigenes Rundenende).
   function rundeBeendet(pageOrId) {
     if (isFree()) return;
+    // Ein freigegebenes Spiel verbraucht nichts – siehe istGratisSpiel().
+    if (istGratisSpiel(pageOrId || window.location.pathname)) return;
     // Auf der Reise zählt nichts: Die erste Karte ist frei, und sie soll die
     // Schnupperrunden nicht aufbrauchen.
     if (aktuelleStation()) return;
@@ -250,13 +278,15 @@
     const entry = gameEntry(pageOrId);
     // Unbekannte Seiten (die Werkstatt, die Startseite) sperrt niemand.
     if (!entry) return true;
+    if (freieSpiele().includes(entry.game.id)) return true;
     return gespielteRunden(pageOrId) < GRATIS_RUNDEN;
   }
 
   // Ob die Schnupperrunde schon verbraucht ist – für das Schloss am Haus.
   // Unterschied zu !gameFree: Wer gekauft hat, hat nichts verbraucht.
   function gameGespielt(pageOrId) {
-    return !isFree() && gespielteRunden(pageOrId) >= GRATIS_RUNDEN;
+    if (isFree() || istGratisSpiel(pageOrId)) return false;
+    return gespielteRunden(pageOrId) >= GRATIS_RUNDEN;
   }
 
   // Die Welten (Wiese, Wald, Meer, Weltall) sind nicht einzeln gesperrt: Die
@@ -331,6 +361,11 @@
   // Ziel frei wird.
   let torZiel = null;
 
+  // Der Satz im Tor. Er stand dreimal da – als Beschriftung, als Text und als
+  // das, was vorgelesen wird. Dreimal derselbe Satz heisst: beim nächsten Mal
+  // wird einer davon vergessen.
+  const TOR_SATZ = "Nur ein Versuch pro Spiel kostenlos.";
+
   function closeGate() {
     if (!offenesTor) return;
     offenesTor.remove();
@@ -348,10 +383,23 @@
     const overlay = document.createElement("div");
     overlay.className = "tor-overlay";
     overlay.setAttribute("role", "dialog");
-    overlay.setAttribute("aria-label", "Hier geht es weiter, wenn deine Eltern die Strecke öffnen");
+    overlay.setAttribute("aria-label", TOR_SATZ);
 
     const card = document.createElement("div");
     card.className = "tor-card";
+
+    // Das Kreuz. Es steht ausserhalb von text und actions, und genau deshalb
+    // gibt es es: Der Weg zurück führte bisher nur über den Pfeil – und den
+    // blendet das Rechenrätsel aus. Wer sich auf "Für Eltern" vertippte, sass
+    // in einer Aufgabe fest, die er nicht lösen wollte, ohne Ausweg ausser
+    // Neuladen. Das Kreuz bleibt in jedem Zustand des Fensters sichtbar.
+    const schliessen = document.createElement("button");
+    schliessen.type = "button";
+    schliessen.className = "tor-schliessen";
+    schliessen.setAttribute("aria-label", "Schliessen");
+    schliessen.append(el("svg", { viewBox: "0 0 24 24", "aria-hidden": "true" }, [
+      el("path", { d: "M7 7l10 10M17 7 7 17", fill: "none", stroke: "currentColor", "stroke-width": 2.6, "stroke-linecap": "round" }),
+    ]));
 
     const bild = document.createElement("div");
     bild.className = "tor-bild";
@@ -359,7 +407,7 @@
 
     const text = document.createElement("p");
     text.className = "tor-text";
-    text.textContent = "Hier geht es weiter, wenn deine Eltern die Strecke öffnen.";
+    text.textContent = TOR_SATZ;
 
     const actions = document.createElement("div");
     actions.className = "tor-actions";
@@ -376,16 +424,23 @@
     eltern.textContent = "Für Eltern";
     actions.append(zurueck, eltern);
 
-    card.append(bild, text, actions);
+    card.append(schliessen, bild, text, actions);
     overlay.append(card);
     host.append(overlay);
     document.body.classList.add("tor-offen");
     offenesTor = overlay;
     torZiel = ziel || null;
     kids()?.playChime?.();
-    try { kids()?.speak?.("Hier geht es weiter, wenn deine Eltern die Strecke öffnen."); } catch { /* ohne Ton */ }
+    try { kids()?.speak?.(TOR_SATZ); } catch { /* ohne Ton */ }
 
-    zurueck.addEventListener("click", () => { closeGate(); onBack?.(); });
+    // Zumachen heisst immer dasselbe: Fenster zu, und zurück, wo das Kind
+    // herkam. Drei Wege dorthin – der Pfeil, das Kreuz und die Escape-Taste.
+    const zumachen = () => { closeGate(); onBack?.(); };
+    zurueck.addEventListener("click", zumachen);
+    schliessen.addEventListener("click", zumachen);
+    overlay.addEventListener("keydown", (ereignis) => {
+      if (ereignis.key === "Escape") { ereignis.preventDefault(); zumachen(); }
+    });
     eltern.addEventListener("click", () => showParentGate(card, text, actions));
     zurueck.focus();
     return closeGate;
@@ -468,6 +523,8 @@
     whenReady,
     gameEntry,
     gameGespielt,
+    istGratisSpiel,
+    freieSpiele,
     gespielteRunden,
     rundeBeendet,
     showGate,

@@ -100,6 +100,12 @@
     // Einmal je Seitenaufruf, nicht einmal je Anmeldewechsel: besuchMelden()
     // hängt an handleAuthState, und das läuft auch beim Abmelden noch einmal.
     besuchGemeldet: false,
+    // Spiele, die ohne Kauf unbegrenzt offen stehen (config/gratisSpiele).
+    // Leer ist der Normalfall; gesetzt wird es für eine Werbeaktion.
+    freieSpiele: [],
+    // Steht die Liste schon fest? Die Schranke fragt danach: Wer vor der
+    // Antwort entscheidet, zeigt einem Kind ein Tor, das gleich verschwindet.
+    freieSpieleBereit: false,
     progress: new Map(),
     levelCatalog: [],
     levelsByKey: new Map(),
@@ -255,6 +261,12 @@
     // bekommt sie die Daten und die gemeinsamen Bausteine. Alles darunter ist
     // eine Auskunft, keine Berechtigung: Wer nichts lesen darf, bekommt von
     // Firestore nichts – das entscheidet firestore.rules.
+    // Welche Spiele ohne Kauf unbegrenzt offen stehen, und ob die Antwort schon
+    // feststeht. Die Schranke (entitlement.js) fragt beides – wer vor der
+    // Antwort entscheidet, zeigt einem Kind ein Tor, das gleich verschwindet.
+    getFreieSpiele: () => [...state.freieSpiele],
+    isFreieSpieleLoaded: () => state.freieSpieleBereit,
+
     admin: {
       isAdmin: () => isAdminUser(),
       ladeKonten: loadAdminUsers,
@@ -271,6 +283,7 @@
       freischalten: kontoFreischalten,
       loeschen: kontoLoeschen,
       switchWagonSet,
+      setGratisSpiel,
       // Der Reiter E-Mail: das Archiv und die Weiterleitung.
       ladeMails: loadMails,
       mailEinstellungen,
@@ -332,6 +345,7 @@
       // Kein SDK, kein Konto: Der Stand steht fest, bevor er je wackeln konnte.
       state.authReady = true;
       state.profileReady = true;
+      state.freieSpieleBereit = true;
       setAccountStatus(false);
       return;
     }
@@ -347,10 +361,12 @@
         .finally(() => state.auth.onAuthStateChanged(handleAuthState));
       startHeartbeat();
       watchWagonSet();
+      watchFreieSpiele();
     } catch (error) {
       state.firebaseReady = false;
       state.authReady = true;
       state.profileReady = true;
+      state.freieSpieleBereit = true;
       renderError("Firebase konnte nicht gestartet werden.", error);
     }
   }
@@ -1539,6 +1555,81 @@
   // während ein Kind spielt, wechseln dessen Wagen beim nächsten Blick auf den
   // Zug – nicht erst beim nächsten Öffnen der App. Ohne Netz oder vor dem
   // Anlegen der Regeln bleibt es beim gemerkten Set.
+  // --- Spiele, die für alle offen stehen ---------------------------------------
+  // Ein Dokument für alle, wie config/train: config/gratisSpiele nennt die
+  // Spiele, die ohne Kauf unbegrenzt gespielt werden dürfen. Gedacht ist es
+  // für eine Werbeaktion – ein Spiel auf Social Media als Challenge, ohne dass
+  // nach der ersten Runde das Tor kommt.
+  //
+  // Lesen darf es jeder, auch ohne Konto (firestore.rules, match /config):
+  // Ein Gast muss davon genauso erfahren wie ein Kind mit Konto. Schreiben
+  // darf nur der Admin.
+  function freieSpieleRef() {
+    return state.db ? state.db.collection("config").doc("gratisSpiele") : null;
+  }
+
+  function readFreieSpiele(raw) {
+    const liste = Array.isArray(raw?.spiele) ? raw.spiele : [];
+    // Gekappt und gesäubert: Was hier steht, entscheidet über die Schranke.
+    return liste
+      .map((id) => String(id || "").trim())
+      .filter((id) => id && id.length <= 40)
+      .slice(0, 50);
+  }
+
+  function watchFreieSpiele() {
+    const ref = freieSpieleRef();
+    if (!ref) { state.freieSpieleBereit = true; return; }
+    const uebernehmen = (doc) => {
+      state.freieSpiele = readFreieSpiele(typeof doc?.data === "function" ? doc.data() : null);
+      state.freieSpieleBereit = true;
+      // Dasselbe Ereignis wie beim Kauf: Die Schranke rechnet neu, und ein
+      // offenes Tor vor einem eben freigegebenen Spiel geht von selbst auf.
+      document.dispatchEvent(new CustomEvent("lernapp:entitlement-changed", { detail: { grund: "gratis-spiele" } }));
+    };
+    const melden = (error) => {
+      // Nicht lesbar heisst: Es gilt, was ohne die Liste gälte. Ein Kind soll
+      // nicht deshalb vor einem Tor stehen, weil ein Dokument fehlt – und
+      // auch nicht deshalb alles gratis bekommen.
+      state.freieSpieleBereit = true;
+      console.warn("Die Liste der freien Spiele konnte nicht gelesen werden", error);
+      document.dispatchEvent(new CustomEvent("lernapp:entitlement-changed", { detail: { grund: "gratis-spiele" } }));
+    };
+    try {
+      if (typeof ref.onSnapshot === "function") ref.onSnapshot(uebernehmen, melden);
+      else ref.get().then(uebernehmen).catch(melden);
+    } catch (error) {
+      melden(error);
+    }
+  }
+
+  // Der Admin setzt oder nimmt den Haken. Geschrieben wird die ganze Liste,
+  // nicht ein einzelner Eintrag: Sie ist höchstens fünfundzwanzig Namen lang,
+  // und arrayUnion/arrayRemove wären zwei Wege zu einem Ziel, das ein
+  // Schreibvorgang schon erreicht.
+  async function setGratisSpiel(gameId, frei) {
+    const id = String(gameId || "").trim();
+    if (!id) return state.freieSpiele;
+    const ref = freieSpieleRef();
+    if (!ref) throw new Error("Firestore ist nicht bereit.");
+    const jetzt = [...state.freieSpiele];
+    const drin = jetzt.includes(id);
+    if (frei && drin) return jetzt;
+    if (!frei && !drin) return jetzt;
+    const neu = frei ? [...jetzt, id] : jetzt.filter((eintrag) => eintrag !== id);
+    await ref.set({
+      spiele: neu,
+      updatedAtMs: Date.now(),
+      updatedAt: serverTimestamp(),
+      by: state.user?.uid || null,
+    }, { merge: true });
+    // Ohne onSnapshot (oder bevor er kommt) gilt sofort, was eben geschrieben
+    // wurde – sonst spränge der Haken im Adminbereich kurz zurück.
+    state.freieSpiele = neu;
+    document.dispatchEvent(new CustomEvent("lernapp:entitlement-changed", { detail: { grund: "gratis-spiele" } }));
+    return neu;
+  }
+
   function watchWagonSet() {
     const ref = wagonSetRef();
     if (!ref) return;
@@ -3684,45 +3775,86 @@
       });
     }
 
-    return { spiele, runden };
+    // Eine Liste statt zweier. Bisher standen die Spiele mit Levelkatalog als
+    // Punkteraster da und die mit eigenem Kasten als Zeile darunter – zwei
+    // Darstellungen für dieselbe Frage ("wer hat was gespielt?"), und das
+    // Raster war mit 40 Kästchen je Spiel so dicht, dass man nichts mehr sah.
+    //
+    // Hier kommt beides in derselben Form zusammen, und zwar nur das, wozu es
+    // einen Eintrag gibt: Eine Liste, in der bei 23 von 25 Spielen "nie
+    // gespielt" steht, beantwortet keine Frage, sie verdeckt die Antwort.
+    const gespielt = [
+      ...spiele
+        .filter((spiel) => spiel.geloest || spiel.probiert)
+        .map((spiel) => ({
+          id: spiel.game,
+          label: spiel.label,
+          art: "level",
+          geloest: spiel.geloest,
+          probiert: spiel.probiert,
+          gesamt: spiel.punkte.length,
+          // Wie oft insgesamt angefasst – die Frage lautet "wie oft gespielt",
+          // und ein Level, das fünfmal versucht wurde, ist fünf Runden.
+          versuche: spiel.punkte.reduce((summe, p) => summe + (Number(p.versuche) || 0), 0),
+        })),
+      ...runden
+        .filter((spiel) => spiel.gespielt)
+        .map((spiel) => ({
+          id: spiel.id,
+          label: spiel.label,
+          art: "runden",
+          runden: spiel.gespielt,
+          noetig: spiel.noetig,
+          best: spiel.best,
+        })),
+    ].sort((a, b) => a.label.localeCompare(b.label, "de"));
+
+    return { spiele, runden, gespielt };
+  }
+
+  // Eine Zeile je Spiel, für beide Sorten dieselbe Form: Name, dann was
+  // passiert ist. Spiele ohne Eintrag stehen nicht da – siehe levelCoverageFor.
+  function renderGespieltesSpiel(spiel) {
+    const teile = [];
+    if (spiel.art === "level") {
+      if (spiel.geloest) teile.push(`${spiel.geloest} gel&ouml;st`);
+      if (spiel.probiert) teile.push(`${spiel.probiert} angefangen`);
+      // Die Versuche nur, wenn sie mehr sagen als die Zahl der Level: Wer ein
+      // Level dreimal probiert hat, hat dreimal gespielt.
+      if (spiel.versuche > spiel.geloest + spiel.probiert) teile.push(`${spiel.versuche}&times; gespielt`);
+      teile.push(`von ${spiel.gesamt} Level`);
+    } else {
+      teile.push(`${spiel.runden} ${spiel.runden === 1 ? "Runde" : "Runden"}`);
+      if (spiel.best !== null && spiel.best !== undefined) teile.push(`bestes Ergebnis ${spiel.best}`);
+    }
+    return `<span><b>${escapeHtml(spiel.label)}</b>${teile.join(" &middot; ")}</span>`;
   }
 
   function renderLevelCoverage(progressDocs = [], entity = {}) {
-    const { spiele, runden } = levelCoverageFor(progressDocs, readGameState(entity.gameState));
+    const { spiele, runden, gespielt } = levelCoverageFor(progressDocs, readGameState(entity.gameState));
     if (!spiele.length && !runden.length) {
-      return `<section class="admin-abdeckung"><h4>Probierte Level</h4><p class="account-muted">Der Levelkatalog ist hier nicht geladen.</p></section>`;
+      return `<section class="admin-abdeckung"><h4>Gespielte Spiele</h4><p class="account-muted">Der Levelkatalog ist hier nicht geladen.</p></section>`;
+    }
+    if (!gespielt.length) {
+      return `<section class="admin-abdeckung"><h4>Gespielte Spiele</h4><p class="account-muted">Noch kein Spiel gespielt.</p></section>`;
     }
 
-    const gesamt = spiele.reduce((summe, s) => summe + s.punkte.length, 0);
     const geloest = spiele.reduce((summe, s) => summe + s.geloest, 0);
     const probiert = spiele.reduce((summe, s) => summe + s.probiert, 0);
+    const gesamtRunden = runden.reduce((summe, s) => summe + (Number(s.gespielt) || 0), 0);
+
+    const kopf = [];
+    if (geloest) kopf.push(`${geloest} Level gel&ouml;st`);
+    if (probiert) kopf.push(`${probiert} Level angefangen`);
+    if (gesamtRunden) kopf.push(`${gesamtRunden} ${gesamtRunden === 1 ? "Runde" : "Runden"} in Spielen ohne Level`);
 
     return `
       <section class="admin-abdeckung">
-        <h4>Probierte Level</h4>
-        <p class="abdeckung-legende">
-          <span class="ist-geloest">${geloest} gel&ouml;st</span>
-          <span class="ist-probiert">${probiert} angefangen</span>
-          <span class="ist-offen">${gesamt - geloest - probiert} nie ge&ouml;ffnet</span>
-        </p>
-        <div class="abdeckung-spiele">
-          ${spiele.map((spiel) => `
-            <article>
-              <header>
-                <strong>${escapeHtml(spiel.label)}</strong>
-                <span>${spiel.geloest}/${spiel.punkte.length}</span>
-              </header>
-              <div class="abdeckung-punkte">
-                ${spiel.punkte.map((p) => `<i class="ist-${p.status}" title="${escapeHtml(`${p.level.levelName || p.level.id}: ${p.status === "geloest" ? "gelöst" : (p.status === "probiert" ? `${p.versuche || 1}× versucht` : "nie geöffnet")}`)}"></i>`).join("")}
-              </div>
-            </article>
-          `).join("")}
+        <h4>Gespielte Spiele</h4>
+        <p class="account-muted abdeckung-kopf">${gespielt.length} von ${spiele.length + runden.length} Spielen angefasst${kopf.length ? ` &middot; ${kopf.join(" &middot; ")}` : ""}. Spiele ohne Eintrag stehen nicht in der Liste.</p>
+        <div class="admin-data-grid abdeckung-gespielt">
+          ${gespielt.map(renderGespieltesSpiel).join("")}
         </div>
-        ${runden.length ? `
-          <h4 class="abdeckung-runden-titel">Spiele ohne Level &#8211; gespielte Runden</h4>
-          <div class="admin-data-grid abdeckung-runden">
-            ${runden.map((spiel) => `<span class="${spiel.gespielt ? "" : "ist-offen"}"><b>${escapeHtml(spiel.label)}</b>${spiel.gespielt ? `${spiel.gespielt} von ${spiel.noetig} Runden${spiel.best !== null ? ` &middot; bestes Ergebnis ${spiel.best}` : ""}` : "nie gespielt"}</span>`).join("")}
-          </div>` : ""}
       </section>
     `;
   }

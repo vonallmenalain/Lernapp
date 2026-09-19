@@ -354,7 +354,17 @@ try {
     const stufeStand = await page.evaluate(() => window.__ersatz.lies("users/kind-1")?.gameState?.["lernapp.reise"]?.data);
     pruefe(stufeStand?.stufe === "schwer" && Number.isFinite(stufeStand?.stufeAt), `Schwierigkeitsstufe: am Konto steht ${JSON.stringify(stufeStand)} statt schwer`);
     pruefe(await page.locator('[data-kind-uid="kind-1"] [data-kind-stufe="schwer"][aria-pressed="true"]').count() === 1, "Schwierigkeitsstufe: der gewählte Knopf ist nicht als gewählt markiert");
-    pruefe((await text(detail.locator(".admin-abdeckung"))).includes("nie geöffnet"), "Kind aufklappen: es steht nicht da, was noch nie geöffnet wurde");
+    // Dieses Kind hat noch nichts gespielt. Früher stand deshalb ein Raster
+    // aus 300 grauen Kästchen da, dazu eine Liste mit 15-mal "nie gespielt" –
+    // viel Fläche für die Aussage "nichts". Jetzt steht ein Satz da.
+    //
+    // Die gefüllte Liste prüft check-adminbereich.mjs an Mia; hier zählt der
+    // leere Fall, weil nur er hier vorkommt.
+    const abdeckungEltern = await text(detail.locator(".admin-abdeckung"));
+    pruefe(/Noch kein Spiel gespielt/.test(abdeckungEltern),
+      `Kind aufklappen: der leere Fall steht nicht als Satz da: ${abdeckungEltern.slice(0, 200)}`);
+    pruefe(!/nie gespielt/.test(abdeckungEltern) && !(await detail.locator(".abdeckung-punkte").count()),
+      "Kind aufklappen: das alte Raster oder die «nie gespielt»-Liste steht noch da");
     await knips(page, "3a-kind-aufgeklappt");
 
     // Passwort neu setzen.

@@ -310,6 +310,33 @@ try {
   if (!(await tor.count())) fehlt("das gesperrte Haus zeigt kein Tor mehr");
 
   // --- Das Rechenrätsel ---------------------------------------------------------
+  // --- Das Kreuz: raus aus dem Rechenrätsel ---------------------------------
+  // Wer sich auf "Für Eltern" vertippt, landete in einer Aufgabe, die er nicht
+  // lösen wollte – und kam ohne Neuladen nicht mehr heraus: Das Rätsel blendet
+  // den Zurück-Pfeil aus, und einen anderen Weg gab es nicht. Das Kreuz bleibt
+  // in jedem Zustand sichtbar.
+  if (!(await tor.locator(".tor-schliessen").count())) fehlt("im Tor fehlt das Kreuz zum Schliessen");
+  await tor.locator(".tor-eltern").click();
+  await page.waitForTimeout(300);
+  if (!(await tor.locator(".tor-gate").count())) fehlt("nach «Für Eltern» steht kein Rechenrätsel");
+  if (!(await tor.locator(".tor-schliessen").isVisible())) fehlt("im Rechenrätsel ist das Kreuz verschwunden – genau dort wird es gebraucht");
+  await tor.locator(".tor-schliessen").click();
+  await page.waitForTimeout(300);
+  if (await tor.count()) fehlt("das Kreuz schliesst das Tor nicht");
+  // Und die Escape-Taste tut dasselbe.
+  await memoryHaus.first().click({ force: true });
+  await page.waitForTimeout(700);
+  await tor.locator(".tor-eltern").click();
+  await page.waitForTimeout(300);
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(300);
+  if (await tor.count()) fehlt("Escape schliesst das Tor nicht");
+  // Danach ist das Tor wieder das Tor, nicht das Rätsel.
+  await memoryHaus.first().click({ force: true });
+  await page.waitForTimeout(700);
+  if (await tor.locator(".tor-gate").count()) fehlt("nach dem Schliessen steht das Rechenrätsel noch im Tor");
+  if (!/Nur ein Versuch pro Spiel kostenlos/.test((await tor.textContent()) || "")) fehlt(`im Tor steht nicht der erwartete Satz: "${((await tor.textContent()) || "").slice(0, 120)}"`);
+
   await tor.locator(".tor-eltern").click();
   await page.waitForTimeout(200);
   const gate = tor.locator(".tor-gate");
