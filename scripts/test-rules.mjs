@@ -324,6 +324,11 @@ try {
   // unterschieben – der Standort kommt aus der Verbindung, nicht aus einer
   // Behauptung des Browsers.
   await darf("Gast schreibt seine eigenen Felder weiter", () => gast().doc(`guests/${GAST_ID}`).set({ type: "guest", hatGespielt: true, stats: { solved: 2 } }, { merge: true }));
+  // Der Kasten eines Spiels ohne Levelkatalog (Turmbau und Verwandte). Er muss
+  // durchkommen: Ohne ihn steht im Adminbereich bei jedem dieser Spiele "nie
+  // gespielt", egal wie viel gespielt wurde. Gerät er versehentlich in die
+  // Liste der Serverfelder, fällt genau diese Prüfung um.
+  await darf("Gast schreibt seinen Spielkasten", () => gast().doc(`guests/${GAST_ID}`).set({ type: "guest", gameState: { "lernapp.turmbau": { data: { runs: 1, scores: [17] }, updatedAt: 1 } } }, { merge: true }));
   await darfNicht("Gast setzt den Besuchszähler", () => gast().doc(`guests/${GAST_ID}`).set({ type: "guest", besuche: 9999 }, { merge: true }));
   await darfNicht("Gast setzt seinen Standort", () => gast().doc(`guests/${GAST_ID}`).set({ type: "guest", ort: { land: "Erfunden" } }, { merge: true }));
   await darfNicht("Gast setzt seine Geräteangaben", () => gast().doc(`guests/${GAST_ID}`).set({ type: "guest", client: { geraet: "Erfunden" } }, { merge: true }));

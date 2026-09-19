@@ -149,6 +149,10 @@ const DATEN = {
       ersterBesuchMs: 1699400000000, hatGespielt: true, letztesSpielAt: 1699680000000,
       client: { geraet: "Computer", system: "Windows", browser: "Firefox", sprache: "de-CH" },
       ort: { land: "Schweiz", landCode: "CH", stadt: "Bern" },
+      // Der Kasten des Spiels, wie ihn gastSpielstandSichern ablegt. Ohne ihn
+      // stand im Adminbereich bei jedem Spiel ohne Level "nie gespielt" –
+      // auch bei dem, das eine Stunde lang gespielt wurde.
+      gameState: { "lernapp.turmbau": { data: { runs: 2, scores: [17, 9] }, updatedAt: 1699680000000 } },
     },
   },
   // Wer bezahlt hat. Die Familie ja, der Admin nicht – so steht in der Liste
@@ -570,7 +574,10 @@ pruefe(/Neu gestartet\s*3/.test(arukoneText), `Arukone Neustarts stimmen nicht: 
 // Turmbau führt keine Neustarts – dort muss ein Strich stehen, keine Null.
 const turmbauText = await text(page.locator('.admin-game-card:has-text("Turmbau")').first());
 pruefe(/Neu gestartet\s*–/.test(turmbauText), `Turmbau zeigt bei Neustarts keine „–“: "${turmbauText.slice(0, 160)}"`);
-pruefe(/Gespielt\s*9/.test(turmbauText), `Turmbau: 6 + 3 Runden erwartet – "${turmbauText.slice(0, 160)}"`);
+// Mia 6, Ben 3, dazu 2 vom Gast ohne Level: Seit sein Spielkasten in die Cloud
+// geht, zählt er hier mit – und genau darum geht es, wenn man wissen will, wie
+// eine Werbung wirkt.
+pruefe(/Gespielt\s*11/.test(turmbauText), `Turmbau: 6 + 3 + 2 Runden erwartet – "${turmbauText.slice(0, 160)}"`);
 pruefe(/24 Blöcke/.test(turmbauText), `Turmbau: der Bestwert fehlt – "${turmbauText.slice(0, 160)}"`);
 pruefe(/Mia/.test(turmbauText), `Turmbau: der Halter des Bestwerts fehlt – "${turmbauText.slice(0, 160)}"`);
 
@@ -680,6 +687,21 @@ pruefe(await nurBesuchZeile.locator(".admin-gast-nurbesuch").count() === 1,
 pruefe(await gespieltZeile.locator(".admin-gast-nurbesuch").count() === 0,
   "Ein Gast mit Spielstand wird als «nur besucht» ausgewiesen");
 await knips("11-gaeste-liste");
+
+// Ein Spiel ohne Levelkatalog muss beim Gast sichtbar sein – mit Runden und
+// mit dem besten Ergebnis. Ohne beides liesse sich weder sagen, wer Turmbau
+// gespielt hat, noch wie weit er gekommen ist.
+const ohneLevelZeile = page.locator('.admin-entry:has-text("guest_ohnelevel")');
+await ohneLevelZeile.locator(".admin-entry-head").click();
+await page.locator(".admin-entry-body").waitFor({ timeout: 10000 });
+const ohneLevelText = await text(page.locator(".admin-entry-body"));
+pruefe(/Turmbau/.test(ohneLevelText), `Turmbau fehlt beim Gast ganz: ${ohneLevelText.slice(0, 250)}`);
+pruefe(!/Turmbau\s*nie gespielt/.test(ohneLevelText),
+  "Turmbau steht beim Gast als «nie gespielt», obwohl ein Spielkasten vorliegt");
+pruefe(/bestes Ergebnis 17/.test(ohneLevelText),
+  `Das beste Ergebnis fehlt – ohne die Zahl lässt sich eine Challenge nicht auswerten: ${ohneLevelText.slice(0, 400)}`);
+await knips("11b-gast-ohne-level");
+await ohneLevelZeile.locator(".admin-entry-head").click();
 
 // Der Filter trennt die beiden Fragen: "wie viele waren da" und "wie viele
 // haben gespielt".

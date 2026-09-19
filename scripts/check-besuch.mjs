@@ -24,9 +24,10 @@
  *   - Wer angemeldet ist, meldet gar nicht: Ein Konto steht im Reiter "User",
  *     nicht bei den Gästen
  *   - Ein Spiel ohne Levelkatalog (Turmbau und Verwandte) hinterlässt beim
- *     Gast eine Marke, dass gespielt wurde – sonst gälte er als "nur besucht"
- *     und der Sammelknopf im Adminbereich nähme ihn mit. Der Spielstand selbst
- *     bleibt dabei auf dem Gerät
+ *     Gast eine Marke UND seinen Kasten samt Punkten. Ohne die Marke gälte er
+ *     als "nur besucht" und der Sammelknopf nähme ihn mit; ohne den Kasten
+ *     stünde im Adminbereich "nie gespielt", egal wie viel gespielt wurde.
+ *     Auf dem Gerät bleibt der Stand trotzdem der massgebliche
  *   - Antwortet der Server nicht, passiert nichts Sichtbares. Ein Zähler ist
  *     das Unwichtigste in dieser App und darf nie etwas kaputtmachen –
  *     deshalb wird hier auch auf Fehler in der Seite geachtet
@@ -175,20 +176,26 @@ try {
     pruefe(aufrufe[1]?.guestId === erster.guestId, "Der zweite Besuch kam unter einer anderen Kennung – dasselbe Gerät zählte doppelt");
 
     // --- Gespielt, aber ohne Level ----------------------------------------
-    // Turmbau, Memory, Tier-Sprung und die übrigen Spiele mit eigenem Konto
-    // laufen nicht über den Levelkatalog: Sie rufen recordLevelStart nie auf,
-    // und ihr Stand geht für einen Gast nicht in die Cloud. Ohne eine eigene
-    // Marke stünde ein Kind, das eine Stunde Turmbau gespielt hat, im
-    // Adminbereich als "nur besucht" – und flöge beim Aufräumen mit raus.
+    // Turmbau, Memory, Tier-Sprung und die übrigen Spiele mit eigenem Kasten
+    // laufen nicht über den Levelkatalog: Sie rufen recordLevelStart nie auf.
+    // Ihr Stand ging für einen Gast nirgendwohin – im Adminbereich stand bei
+    // jedem dieser Spiele "nie gespielt", egal wie viel gespielt wurde.
+    //
+    // Geprüft wird beides: die Marke (für den Sammelknopf) UND der Kasten
+    // selbst. Nur die Marke beantwortet, OB jemand gespielt hat; die Frage
+    // lautet aber "wer hat Turmbau gespielt, und wie weit ist er gekommen".
     const vorSpiel = await page.evaluate((id) => window.__ersatz.lies(`guests/${id}`), erster.guestId);
     pruefe(!vorSpiel?.hatGespielt, "Die Spielmarke steht schon da, bevor gespielt wurde");
+    pruefe(!vorSpiel?.gameState, "Der Spielkasten steht schon da, bevor gespielt wurde");
     await page.evaluate(() => window.LernappFirebase.saveGameState("lernapp.turmbau", { runs: 1, scores: [12] }));
     await page.waitForTimeout(600);
     const nachSpiel = await page.evaluate((id) => window.__ersatz.lies(`guests/${id}`), erster.guestId);
     pruefe(nachSpiel?.hatGespielt === true,
       `Ein Spiel ohne Level hinterlässt beim Gast keine Marke: ${JSON.stringify(nachSpiel)?.slice(0, 200)}`);
-    pruefe(nachSpiel?.gameState === undefined,
-      "Der Spielstand selbst ist in der Cloud gelandet – bei einem Gast bleibt er auf dem Gerät");
+    pruefe(nachSpiel?.gameState?.["lernapp.turmbau"]?.data?.runs === 1,
+      `Der Spielkasten kommt nicht in der Cloud an: ${JSON.stringify(nachSpiel?.gameState)?.slice(0, 200)}`);
+    pruefe(nachSpiel?.gameState?.["lernapp.turmbau"]?.data?.scores?.[0] === 12,
+      "Die Punkte fehlen im Spielkasten – ohne sie lässt sich eine Challenge nicht auswerten");
 
     pruefe(seitenFehler.length === 0, `Die Seite hat Fehler geworfen: ${seitenFehler.slice(0, 2).join(" | ")}`);
     await context.close();

@@ -30,6 +30,8 @@
  *     Öffnen der Seite und vor "noch einmal", nicht dazwischen.
  *   - Levelwahl: buchstaben.html frisch hat alle Stufen offen, mit
  *     verbrauchter Runde alle zu und mit Tor
+ *   - Die saubere Adresse ohne .html (/turmbau), so wie man sie weitergibt:
+ *     verbrauchte Runde → Tor, frischer Speicher → offen
  *   - Die Rechnung selbst: Station 10 frei, 11 zu; jedes Spiel frei, bis es
  *     gespielt ist, und dann nur dieses zu
  *
@@ -243,6 +245,34 @@ try {
   // nur eines. Dann trägt genau ein Tor ein Schloss.
   await tor.locator(".tor-zurueck").click();
   await page.waitForTimeout(300);
+
+  // --- Die saubere Adresse, im Browser --------------------------------------
+  // Der Fall aus dem Alltag: Die Adresse, die man weitergibt, heisst
+  // kids.alae.app/turmbau – ohne .html. Netlify liefert sie aus, und wer sie
+  // anklickt, kommt an der Bühne vorbei direkt ins Spiel.
+  //
+  // Genau dort stand die Schranke offen. "turmbau" ist weder "turmbau.html"
+  // noch die Kennung "towerStack", also fand gameEntry nichts – und was es
+  // nicht findet, sperrt es nicht. Die verbrauchte Runde zählte ebenso wenig,
+  // die Schranke ging also auch nie zu. Siebzehn der fünfundzwanzig Spiele
+  // waren über ihre saubere Adresse unbegrenzt frei.
+  //
+  // Dass keine Browser-Prüfung das je bemerkte, lag am Testserver: Er kannte
+  // nur turmbau.html. Seit er saubere Adressen ausliefert wie Netlify, lässt
+  // sich der Fall hier nachstellen.
+  await oeffne("turmbau.html");
+  await frischerSpeicher();
+  await verbrauche({ towerStack: 1 });
+  await oeffne("turmbau");
+  if (page.url().endsWith(".html")) fehlt(`der Testserver liefert die saubere Adresse nicht aus: ${page.url()}`);
+  if (!(await tor.count())) fehlt("über die saubere Adresse (/turmbau) steht kein Tor, obwohl die Schnupperrunde verbraucht ist");
+  // Und andersherum: frisch ist sie offen – die Schranke sperrt nicht alles.
+  await frischerSpeicher();
+  await oeffne("turmbau");
+  if (await tor.count()) fehlt("über die saubere Adresse steht ein Tor, obwohl noch keine Runde gespielt wurde");
+  await frischerSpeicher();
+  await oeffne("index.html");
+
   // Seit der grüne Knopf gleich ins Abenteuer fährt, ist der Zug das Menü:
   // Ein Tipp auf einen Wagen zeigt die fünf Spiele seines Bereichs, jedes als
   // Kiste – und eine verbrauchte Kiste trägt ein Schloss.

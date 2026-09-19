@@ -803,32 +803,39 @@
   // --- Gespielt, aber ohne Level -----------------------------------------------
   // Die Spiele mit eigenem Konto – Turmbau, Memory, Tier-Sprung, der
   // Karten-Merker und die übrigen aus game-cloud.js – laufen nicht über den
-  // Levelkatalog. Sie rufen recordLevelStart nie auf, und ihr Stand geht für
-  // einen Gast nicht in die Cloud (saveGameState bricht unten ohne Konto ab).
-  // Ein Gast, der eine Stunde Turmbau spielt, hinterliess damit in der Cloud
-  // genau nichts.
+  // Levelkatalog. Sie rufen recordLevelStart nie auf, und ihr Stand ging für
+  // einen Gast nirgendwohin: saveGameState brach ohne Konto ab. Ein Kind, das
+  // eine Stunde Turmbau spielt, hinterliess in der Cloud genau nichts – im
+  // Adminbereich stand bei jedem dieser Spiele "nie gespielt", und zwar
+  // unabhängig davon, wie viel wirklich gespielt wurde.
   //
-  // Solange die Gästeliste nur zum Anschauen war, war das bloss eine Lücke in
-  // der Statistik. Seit der Adminbereich "Besuche ohne Spiel" sammeln und
-  // löschen kann, ist es ein Fehler mit Folgen: Genau diese Kinder stünden
-  // dort als "nur besucht" und flögen beim Aufräumen mit raus.
+  // Eine blosse Marke "hat gespielt" reichte dafür nicht: Sie beantwortet, OB
+  // jemand gespielt hat, aber nicht WAS. Die Frage lautet aber "wer hat
+  // Turmbau gespielt, und wie weit ist er gekommen" – und die beantwortet nur
+  // der Kasten des Spiels selbst.
   //
-  // Deshalb diese Marke. Sie speichert NICHT den Spielstand – der bleibt auf
-  // dem Gerät, wie bisher – sondern nur, DASS gespielt wurde. Gedrosselt,
-  // weil register() in game-cloud.js nach jeder Runde schreibt und ein
-  // Schreibvorgang je Zug niemandem nützt.
-  const SPIELMARKE_ABSTAND_MS = 60 * 1000;
-  let letzteSpielmarkeMs = 0;
-
-  function markiereGastSpiel() {
-    if (state.user || !state.db || !state.firebaseReady) return;
-    const jetzt = Date.now();
-    if (jetzt - letzteSpielmarkeMs < SPIELMARKE_ABSTAND_MS) return;
-    letzteSpielmarkeMs = jetzt;
+  // Deshalb geht er jetzt auch für einen Gast in die Cloud, in derselben Form
+  // wie bei einem Konto (gameState.<schluessel> = { data, updatedAt }). Der
+  // Adminbereich rechnet damit unverändert weiter.
+  //
+  // Was sich dabei NICHT ändert: Massgeblich bleibt das Gerät. Gelesen wird
+  // der Kasten für einen Gast nie zurück – game-cloud.js führt ihn aus dem
+  // localStorage, und ein zweites Gerät hat ohnehin eine eigene Gastkennung.
+  // Was hier liegt, ist eine Kopie für den Adminbereich, kein Speicherort.
+  function gastSpielstandSichern(key, entry) {
+    if (!state.db || !state.firebaseReady) return;
     const owner = currentOwner();
     if (owner?.kind !== "guest") return;
     ownerRef(owner)
-      .set({ ...ownerActivityPayload(owner), hatGespielt: true, letztesSpielAt: serverTimestamp() }, { merge: true })
+      .set({
+        ...ownerActivityPayload(owner),
+        // Die Marke bleibt: guestHasPlayed() fragt zuerst sie, und sie
+        // beantwortet die Frage auch dann noch, wenn ein Spiel einmal keinen
+        // Kasten schreibt.
+        hatGespielt: true,
+        letztesSpielAt: serverTimestamp(),
+        gameState: { [key]: entry },
+      }, { merge: true })
       .catch(() => {
         // Wie überall bei den Gastzahlen: Eine fehlende Zeile in einer
         // Statistik ist kein Grund, ein Spiel zu stören.
@@ -837,13 +844,15 @@
 
   async function saveGameState(key, data) {
     if (!key || !data || typeof data !== "object") return false;
+    const entry = { data, updatedAt: Date.now() };
+
     if (!state.user || !state.db) {
-      // Ohne Konto bleibt der Stand auf dem Gerät – aber dass gespielt wurde,
-      // darf nicht verloren gehen.
-      markiereGastSpiel();
+      // Ohne Konto: Der Stand bleibt auf dem Gerät, eine Kopie geht in die
+      // Cloud. Zurück kommt false, weil sich für die App nichts geändert hat –
+      // state.gameState gehört einem Konto, und ein Gast hat keines.
+      gastSpielstandSichern(key, entry);
       return false;
     }
-    const entry = { data, updatedAt: Date.now() };
 
     const previous = state.gameState;
     state.gameState = { ...(state.gameState || {}), [key]: entry };
@@ -3400,15 +3409,19 @@
   // Fassung in admin.js wäre eine zweite Wahrheit, und die teurere Hälfte der
   // Antwort (der Level-Fortschritt) wird ohnehin hier gelesen.
   //
-  // Vier Wege, weil vier Stellen Spuren hinterlassen: recordLevelStart,
+  // Mehrere Wege, weil mehrere Stellen Spuren hinterlassen: recordLevelStart,
   // mergeSolvedLevel und flushCurrentSession für die Spiele mit Levelkatalog –
-  // und markiereGastSpiel für die Spiele mit eigenem Konto, die gar keine
+  // und gastSpielstandSichern für die Spiele mit eigenem Kasten, die gar keine
   // Level haben. Wer nur den ersten prüfte, hielte eine Stunde Turmbau für
   // einen Nichtbesuch.
   function guestHasPlayed(guest, levelDocs = guest?.levelDocs) {
     if (!guest) return false;
     if (guest.hatGespielt === true) return true;
     if ((levelDocs?.length || 0) > 0) return true;
+    // Der Kasten eines Spiels ohne Level. Auch ein alter Gast, dessen Marke
+    // noch fehlt, ist damit erkannt – geschrieben wurde der Kasten schon,
+    // bevor es die Marke gab.
+    if (Object.keys(readGameState(guest.gameState)).length > 0) return true;
     const stats = guest.stats || {};
     return Number(stats.sessions || 0) > 0
       || Number(stats.solvedLevels || 0) > 0
@@ -3660,7 +3673,13 @@
           if (katalog[spiel.id]) return;
           // solved ist bei diesen Spielen die Zahl der gezählten Runden,
           // gedeckelt bei dem, was das Wagen-Set je Spiel verlangt (total).
-          runden.push({ id: spiel.id, label: spiel.title || gameLabel(spiel.id), gespielt: Number(spiel.solved || 0), noetig: Number(spiel.total || 0) });
+          runden.push({
+            id: spiel.id,
+            label: spiel.title || gameLabel(spiel.id),
+            gespielt: Number(spiel.solved || 0),
+            noetig: Number(spiel.total || 0),
+            best: Number.isFinite(spiel.best) ? spiel.best : null,
+          });
         });
       });
     }
@@ -3702,7 +3721,7 @@
         ${runden.length ? `
           <h4 class="abdeckung-runden-titel">Spiele ohne Level &#8211; gespielte Runden</h4>
           <div class="admin-data-grid abdeckung-runden">
-            ${runden.map((spiel) => `<span class="${spiel.gespielt ? "" : "ist-offen"}"><b>${escapeHtml(spiel.label)}</b>${spiel.gespielt ? `${spiel.gespielt} von ${spiel.noetig} Runden` : "nie gespielt"}</span>`).join("")}
+            ${runden.map((spiel) => `<span class="${spiel.gespielt ? "" : "ist-offen"}"><b>${escapeHtml(spiel.label)}</b>${spiel.gespielt ? `${spiel.gespielt} von ${spiel.noetig} Runden${spiel.best !== null ? ` &middot; bestes Ergebnis ${spiel.best}` : ""}` : "nie gespielt"}</span>`).join("")}
           </div>` : ""}
       </section>
     `;

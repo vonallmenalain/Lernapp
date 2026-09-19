@@ -64,6 +64,21 @@ http.createServer((req, res) => {
       return;
     }
 
+    // Saubere Adressen, wie Netlify sie ausliefert: /turmbau findet
+    // turmbau.html. Das ist nicht Bequemlichkeit, sondern die Form, in der
+    // eine Adresse weitergegeben wird – und genau in dieser Form stand die
+    // Schranke einmal offen, weil entitlement.js die Endung erwartete. Solange
+    // dieser Server nur turmbau.html kannte, konnte keine Browser-Prüfung das
+    // je bemerken.
+    if (error && !path.extname(filePath)) {
+      const mitEndung = `${filePath}.html`;
+      fs.stat(mitEndung, (fehlt) => {
+        if (!fehlt) sendFile(res, mitEndung, req.method);
+        else sendFile(res, filePath, req.method);
+      });
+      return;
+    }
+
     sendFile(res, filePath, req.method);
   });
 }).listen(port, host, () => {

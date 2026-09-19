@@ -218,11 +218,28 @@
     return n <= STATIONS_FREE || isFree();
   }
 
-  // Die Seite eines Spiels (memory.html) oder seine Kennung (memory).
+  // Die Seite eines Spiels (memory.html), seine saubere Adresse (memory) oder
+  // seine Kennung (towerStack).
+  //
+  // Die Endung muss weg, und das ist keine Kosmetik: Netlify liefert jede
+  // Seite auch ohne .html aus, und genau so sieht eine Adresse aus, die man
+  // weitergibt – kids.alae.app/turmbau. Wer so hereinkommt, landete hier
+  // vorher bei null, denn "turmbau" ist weder "turmbau.html" noch die Kennung
+  // "towerStack". Und null heisst weiter unten "unbekannte Seite, sperrt
+  // niemand": Die Schranke stand offen, und rundeBeendet() zählte nichts, also
+  // ging sie auch nie zu. Siebzehn der fünfundzwanzig Spiele waren über ihre
+  // saubere Adresse unbegrenzt frei – alle, deren Kennung nicht zufällig so
+  // heisst wie ihre Datei.
+  //
+  // scripts/validate-schranke.mjs prüft beide Schreibweisen für jedes Spiel.
   function gameEntry(pageOrId) {
-    const key = String(pageOrId || "").split("?")[0].split("/").pop();
+    const ohneEndung = (wert) => String(wert || "").replace(/\.html$/i, "");
+    const key = String(pageOrId || "").split("?")[0].split("#")[0].split("/").pop();
+    if (!key) return null;
+    const gesucht = ohneEndung(key);
     for (const area of AREAS) {
-      const index = area.games.findIndex((g) => g.page === key || g.id === key || g.ownProgress === key);
+      const index = area.games.findIndex((g) =>
+        g.page === key || ohneEndung(g.page) === gesucht || g.id === key || g.ownProgress === key);
       if (index >= 0) return { area, index, game: area.games[index] };
     }
     return null;
