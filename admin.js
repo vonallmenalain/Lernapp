@@ -92,8 +92,6 @@
     spieleBereich: "all",
     gratisLaeuft: "",
     gratisFehler: "",
-    miniLaeuft: "",
-    miniFehler: "",
     // Wagen
     setFrage: null,
     setLaeuft: "",
@@ -1187,22 +1185,6 @@
           ? `Zurzeit frei: <b>${t(freieSpieleListe().map((id) => hs.titel(id) || id).join(", "))}</b>.`
           : "Zurzeit ist kein Spiel freigegeben."}
       </p>
-      ${zustand.miniFehler ? `<p class="auth-status">${t(zustand.miniFehler)}</p>` : ""}
-      <p class="account-muted admin-note">
-        <strong>Mini-Game:</strong> Ein Haken gibt diesem Spiel eine eigene Adresse neben der App –
-        <code>${t(miniBeispiel())}</code>. Wer sie öffnet, spielt sofort: kein Konto, keine Anmeldung,
-        kein Zug, keine Schranke. Am Schluss trägt er seinen Namen ein und steht in einer Bestenliste,
-        die alle sehen; der Name bleibt auf seinem Gerät und gilt für die nächsten Mini-Games.
-        Gedacht ist das zum Weitergeben: ein Link an Freunde, an die Verwandtschaft, in eine Gruppe –
-        «schaffst du mehr?». Die Runden dort zählen für niemandes Wagen und tauchen in den Zahlen
-        oben nicht auf: Das ist ein anderer Ort.
-        ${miniSpieleListe().length
-          ? `Zurzeit dabei: <b>${t(miniSpieleListe().map((id) => hs.titel(id) || id).join(", "))}</b> –
-             <a href="${t(miniUebersicht())}" target="_blank" rel="noopener">Übersicht und Rangliste ansehen</a>.`
-          : "Zurzeit ist kein Spiel als Mini-Game freigegeben."}
-        Möglich ist es bei den Spielen mit einer Punktzahl: Wo es Sterne je Level gibt, hätten am
-        Ende alle drei, und die Liste sagte nichts mehr.
-      </p>
       <div class="admin-game-grid">
         ${gezeigt.map((eintrag) => spielKarte(eintrag, hs)).join("")}
       </div>
@@ -1218,15 +1200,6 @@
   // auseinander, und die im Adminbereich wäre die, der man glaubt.
   const freieSpieleListe = () => cloud()?.getFreieSpiele?.() || [];
 
-  // Dasselbe für die Mini-Games (config/miniGames). Welche Spiele dafür
-  // überhaupt in Frage kommen, weiss mini-games.js – dieselbe Tabelle, mit der
-  // die Mini-Seiten gebaut werden. Ist die Datei nicht geladen, gibt es hier
-  // keinen Haken statt eines geratenen.
-  const mini = () => window.LernappMini || null;
-  const miniSpieleListe = () => (cloud()?.getMiniSpiele?.() || []).filter((id) => mini()?.kannMini?.(id));
-  const miniUebersicht = () => mini()?.uebersichtLink?.() || "/mini-games/";
-  const miniBeispiel = () => mini()?.teilLink?.("towerStack") || "kids.alae.app/mini-games/turmbau";
-
   function spielKarte(eintrag, hs) {
     const zahlen = [
       ["Gespielt", eintrag.gespielt],
@@ -1236,11 +1209,8 @@
     ];
     const frei = freieSpieleListe().includes(eintrag.id);
     const laeuft = zustand.gratisLaeuft === eintrag.id;
-    const kannMini = Boolean(mini()?.kannMini?.(eintrag.id));
-    const istMini = kannMini && miniSpieleListe().includes(eintrag.id);
-    const miniLaeuft = zustand.miniLaeuft === eintrag.id;
     return `
-      <article class="admin-game-card${eintrag.gespielt ? "" : " is-quiet"}${frei ? " ist-gratis" : ""}${istMini ? " ist-mini" : ""}">
+      <article class="admin-game-card${eintrag.gespielt ? "" : " is-quiet"}${frei ? " ist-gratis" : ""}">
         <header>
           <strong>${t(eintrag.titel)}</strong>
           <span>${t(hs.BEREICHE[eintrag.bereich] || "")}</span>
@@ -1249,12 +1219,6 @@
           <input type="checkbox" data-gratis="${t(eintrag.id)}"${frei ? " checked" : ""}${laeuft ? " disabled" : ""} />
           <span>${laeuft ? "Wird gespeichert..." : "Gratis ohne Limite"}</span>
         </label>
-        ${kannMini ? `
-        <label class="admin-gratis admin-mini${istMini ? " ist-an" : ""}">
-          <input type="checkbox" data-mini-spiel="${t(eintrag.id)}"${istMini ? " checked" : ""}${miniLaeuft ? " disabled" : ""} />
-          <span>${miniLaeuft ? "Wird gespeichert..." : "Mini-Game"}</span>
-        </label>` : ""}
-        ${istMini ? `<p class="admin-mini-link"><a href="${t(mini().spielLink(eintrag.id))}" target="_blank" rel="noopener">${t(mini().teilLink(eintrag.id))}</a></p>` : ""}
         <div class="admin-data-grid">
           ${zahlen.map(([label, wert]) => `<span><b>${t(label)}</b>${wert === null ? "–" : t(wert)}</span>`).join("")}
         </div>
@@ -1274,9 +1238,6 @@
     seite.querySelectorAll("[data-gratis]").forEach((kasten) => {
       kasten.addEventListener("change", () => gratisSetzen(kasten.dataset.gratis, kasten.checked));
     });
-    seite.querySelectorAll("[data-mini-spiel]").forEach((kasten) => {
-      kasten.addEventListener("change", () => miniSetzen(kasten.dataset.miniSpiel, kasten.checked));
-    });
   }
 
   // Ohne Rückfrage, und das ist Absicht: Der Haken nimmt niemandem etwas weg
@@ -1293,24 +1254,6 @@
       zustand.gratisFehler = api().serverFehlerText(fehler);
     }
     zustand.gratisLaeuft = "";
-    zeichne();
-  }
-
-  // Und derselbe Haken für die Mini-Games. Auch hier ohne Rückfrage: Ein Spiel
-  // wieder herauszunehmen nimmt niemandem etwas weg – die Ergebnisse bleiben
-  // stehen und sind wieder da, sobald der Haken wieder steht. Nur die Adresse
-  // zeigt dann ein Spiel, das nicht mehr in der Liste der Mini-Games steht.
-  async function miniSetzen(id, an) {
-    if (!id || zustand.miniLaeuft) { zeichne(); return; }
-    zustand.miniLaeuft = id;
-    zustand.miniFehler = "";
-    zeichne();
-    try {
-      await api().setMiniSpiel(id, an);
-    } catch (fehler) {
-      zustand.miniFehler = api().serverFehlerText(fehler);
-    }
-    zustand.miniLaeuft = "";
     zeichne();
   }
 

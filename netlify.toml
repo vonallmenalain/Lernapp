@@ -33,3 +33,35 @@
   # firebase-admin zurecht, an denen esbuild scheitert (gRPC, dynamische
   # Requires). Etwas grössere Pakete, dafür keine Überraschung.
   node_bundler = "nft"
+
+# --- Die Mini-Games sind ausgezogen ------------------------------------------
+# Sie stehen als eigene App unter games.alae.app, mit eigener Firebase und
+# eigenem Adminbereich. Unter kids.alae.app/mini-games/ liegt nichts mehr.
+#
+# Die Adressen bleiben trotzdem gültig: Sie wurden verschickt – in Nachrichten,
+# in Gruppen –, und ein Link, den jemand weitergegeben hat, soll nicht ins
+# Leere zeigen. /mini-games/turmbau führt auf games.alae.app/turmbau; die
+# Spiele heissen dort gleich.
+#
+# Die Reihenfolge zählt: Der Service Worker steht vor der allgemeinen Regel,
+# sonst würde auch er umgeleitet.
+
+# Der alte Service Worker wird nicht umgeleitet, sondern ersetzt. Warum, steht
+# in mini-games-abschied.js.
+[[redirects]]
+  from = "/mini-games/service-worker.js"
+  to = "/mini-games-abschied.js"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/mini-games"
+  to = "https://games.alae.app/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/mini-games/*"
+  to = "https://games.alae.app/:splat"
+  status = 301
+  force = true

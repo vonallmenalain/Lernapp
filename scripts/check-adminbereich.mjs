@@ -29,8 +29,6 @@
  *   - freischalten ruft den Server mit Token und Kennung an
  *   - der Reiter "Spiele" zählt richtig, und der Haken "Gratis ohne Limite"
  *     gibt genau ein Spiel frei und nimmt es wieder zurück
- *   - der Haken "Mini-Game" gibt dem Spiel seine eigene Adresse, steht nur bei
- *     den Spielen mit Punktzahl, und die Adresse zum Weitergeben steht dabei
  *   - der Reiter "Gruppen" legt eine übergreifende Gruppe an
  *   - der Reiter "Gäste" zeigt auch, wer nur besucht und nie gespielt hat:
  *     Gerät, Standort und Besuchszähler, ein Filter dafür, und die beiden
@@ -646,56 +644,6 @@ const nachWeg = await page.evaluate(() => window.__ersatz.lies("config/gratisSpi
 pruefe((nachWeg?.spiele || []).length === 0, `Das Entfernen des Hakens wirkt nicht: ${JSON.stringify(nachWeg)}`);
 pruefe(!(await turmbauKarte.locator("[data-gratis]").isChecked()), "Nach dem Entfernen steht der Haken noch");
 
-// --- Mini-Game ---------------------------------------------------------------
-// Der zweite Haken auf derselben Karte, und er tut etwas ganz anderes: Er gibt
-// dem Spiel eine eigene Adresse neben der App (kids.alae.app/mini-games/…) mit
-// offener Bestenliste. Geschrieben wird er nach config/miniGames.
-//
-// Ihn gibt es nicht bei jedem Spiel: Ein Mini-Game braucht eine Punktzahl.
-// Arukone hat Level aus dem Katalog – dort steht kein Haken, und das ist keine
-// Nachlässigkeit, sondern die Antwort auf "warum nicht".
-pruefe(await turmbauKarte.locator("[data-mini-spiel]").count() === 1, "Der Spielkarte fehlt der Haken für «Mini-Game»");
-pruefe(await arukoneKarte.locator("[data-mini-spiel]").count() === 0, "Arukone hat einen Mini-Game-Haken, obwohl es keine Punktzahl führt");
-pruefe(await page.locator("[data-mini-spiel]").count() === 12,
-  `Es gibt ${await page.locator("[data-mini-spiel]").count()} Mini-Game-Haken, erwartet einen je Spiel mit Punktzahl`);
-pruefe(!(await turmbauKarte.locator("[data-mini-spiel]").isChecked()), "Der Mini-Game-Haken steht schon, bevor jemand ihn gesetzt hat");
-await turmbauKarte.locator("[data-mini-spiel]").check();
-await page.waitForTimeout(1500);
-const nachMini = await page.evaluate(() => window.__ersatz.lies("config/miniGames"));
-pruefe(Array.isArray(nachMini?.spiele) && nachMini.spiele.includes("towerStack"),
-  `Der Mini-Game-Haken landet nicht in config/miniGames: ${JSON.stringify(nachMini)}`);
-pruefe(await turmbauKarte.locator("[data-mini-spiel]").isChecked(), "Nach dem Setzen steht der Mini-Game-Haken nicht");
-// Die Adresse zum Weitergeben ist der ganze Zweck des Hakens – sie muss
-// dastehen, und zwar so, wie man sie in eine Nachricht kopiert.
-const miniLink = await turmbauKarte.locator(".admin-mini-link a").getAttribute("href");
-pruefe(miniLink === "/mini-games/turmbau", `Die Adresse des Mini-Games zeigt auf ${miniLink}`);
-pruefe(/mini-games\/turmbau/.test(await text(turmbauKarte)), "Die Adresse zum Weitergeben steht nicht auf der Karte");
-pruefe(/Zurzeit dabei/.test(await text(page.locator(".admin-inhalt"))), "Es steht nirgends, welches Spiel gerade Mini-Game ist");
-await knips("5c-mini-haken");
-// Zwei Sitzungen, dieselbe Falle wie oben: Der eigene Haken darf die Wahl
-// eines anderen Fensters nicht mitnehmen. Das zweite Fenster hat inzwischen
-// den Fischteich dazugenommen – davon weiss dieses hier nichts.
-await page.evaluate(() => window.__ersatz.schreib("config/miniGames", { spiele: ["towerStack", "fishPond"], updatedAtMs: 1 }));
-const blaetterKarte = page.locator('.admin-game-card:has-text("Blätter im Strom")').first();
-await blaetterKarte.locator("[data-mini-spiel]").check();
-await page.waitForTimeout(1500);
-const nachZweitemMini = await page.evaluate(() => window.__ersatz.lies("config/miniGames"));
-pruefe((nachZweitemMini?.spiele || []).includes("fishPond"),
-  `Der Haken hat die Wahl einer anderen Sitzung gelöscht: ${JSON.stringify(nachZweitemMini?.spiele)}`);
-pruefe((nachZweitemMini?.spiele || []).includes("leafFlow"),
-  `Der zweite Mini-Game-Haken ist nicht angekommen: ${JSON.stringify(nachZweitemMini?.spiele)}`);
-
-// Und wieder weg – auch das fasst nur diesen einen Eintrag an.
-await turmbauKarte.locator("[data-mini-spiel]").uncheck();
-await page.waitForTimeout(1500);
-const ohneTurmbau = await page.evaluate(() => window.__ersatz.lies("config/miniGames"));
-pruefe(!(ohneTurmbau?.spiele || []).includes("towerStack"),
-  `Das Entfernen des Mini-Game-Hakens wirkt nicht: ${JSON.stringify(ohneTurmbau?.spiele)}`);
-pruefe((ohneTurmbau?.spiele || []).includes("fishPond"),
-  `Das Entfernen eines Mini-Game-Hakens nimmt fremde Wahlen mit: ${JSON.stringify(ohneTurmbau?.spiele)}`);
-pruefe(!(await turmbauKarte.locator("[data-mini-spiel]").isChecked()), "Nach dem Entfernen steht der Mini-Game-Haken noch");
-pruefe(await turmbauKarte.locator(".admin-mini-link").count() === 0, "Die Adresse steht noch da, obwohl das Spiel kein Mini-Game mehr ist");
-
 // Turmbau führt keine Neustarts – dort muss ein Strich stehen, keine Null.
 const turmbauText = await text(page.locator('.admin-game-card:has-text("Turmbau")').first());
 pruefe(/Neu gestartet\s*–/.test(turmbauText), `Turmbau zeigt bei Neustarts keine „–“: "${turmbauText.slice(0, 160)}"`);
@@ -1034,4 +982,4 @@ if (befunde.length) {
   process.exit(1);
 }
 
-console.log("Adminbereich geprüft: eigene Seite, sechs Reiter, filtern und sortieren, probierte Level, freischalten, Konten ganz entfernen mit Rückfrage, Auswertung je Spiel samt Mini-Game-Adresse, Gäste samt Gerät, Standort und beiden Löschwegen, Wagen mit Rückfrage und aufgehobenen Familienwahlen, übergreifende Gruppe, Postein- und -ausgang.");
+console.log("Adminbereich geprüft: eigene Seite, sechs Reiter, filtern und sortieren, probierte Level, freischalten, Konten ganz entfernen mit Rückfrage, Auswertung je Spiel, Gäste samt Gerät, Standort und beiden Löschwegen, Wagen mit Rückfrage und aufgehobenen Familienwahlen, übergreifende Gruppe, Postein- und -ausgang.");
