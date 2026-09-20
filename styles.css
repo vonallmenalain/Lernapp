@@ -11968,3 +11968,8 @@ body[data-mini] .cm-bar .cm-title { display: none; }
   line-height: 1.5;
 }
 .mini-install-aktionen { display: flex; gap: 8px; flex: 0 0 auto; }
+
+/* Der Nachsatz unter dem Hinweis auf die zweite Adresse: leiser als der Rest,
+   aber er muss dastehen – ein Name gehört zu der Adresse, unter der er
+   eingetragen wurde, und das merkt man sonst erst hinterher. */
+.mini-install-nachsatz { font-size: 0.82rem; opacity: 0.85; }

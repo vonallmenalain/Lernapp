@@ -143,6 +143,12 @@
   // der es entstanden ist. Deshalb steht die Adresse der App dort vollständig
   // da.
   const APP_HOST = "kids.alae.app";
+  // Die zweite Adresse, über die sich die Mini-Games installieren lassen.
+  // Dieselbe Site, derselbe Pfad – nur eine andere Herkunft, und genau darauf
+  // schaut Android (siehe oben). Ein Domain-Alias in Netlify, ein CNAME im
+  // DNS, sonst nichts.
+  const INSTALL_HOST = "games.alae.app";
+  const installLink = () => `https://${INSTALL_HOST}/mini-games/`;
 
   // host ist ein Parameter, damit sich die Entscheidung prüfen lässt, ohne die
   // Prüfung unter einem anderen Namen laufen lassen zu müssen.
@@ -732,10 +738,37 @@
     "Oben rechts «Hinzufügen» tippen – fertig.",
   ];
 
+  // Auf welcher Adresse stehen wir, und kann Android hier überhaupt
+  // installieren? Auf kids.alae.app nicht: Dort belegt Gripszug den ganzen
+  // Bereich, Chrome meldet die falsche App als installiert und schickt das
+  // Ereignis gar nicht erst, auf das der Knopf unten wartet. Dann ist der
+  // richtige Hinweis nicht "installieren", sondern "hier entlang".
+  //
+  // Nur für Android und nur auf der Adresse der App: Auf dem iPhone legt
+  // Safari die Seite unabhängig vom Bereich auf den Startbildschirm, dort
+  // stimmen die drei Schritte weiterhin. Und auf der zweiten Adresse selbst
+  // wäre der Verweis ein Kreis.
+  // host und ua sind Parameter, damit sich die Entscheidung prüfen lässt,
+  // ohne die Prüfung unter einem anderen Namen und mit einem anderen Gerät
+  // laufen lassen zu müssen.
+  function brauchtZweiteAdresse(art, host, ua) {
+    if (art !== "keine") return false;
+    let wo = host;
+    let wer = ua;
+    try {
+      if (wo === undefined) wo = window.location.hostname || "";
+      if (wer === undefined) wer = navigator.userAgent || "";
+    } catch { return false; }
+    if (wo !== APP_HOST) return false;
+    return /Android/.test(wer) && /Chrome/.test(wer);
+  }
+
   function installBlock() {
     const hilfe = pwa();
     if (!hilfe || hilfe.isStandalone?.() || installErledigt()) return null;
     const art = hilfe.platform?.() || "keine";
+
+    if (brauchtZweiteAdresse(art)) return zweiteAdresseBlock();
     if (art === "keine") return null;
 
     const karte = el("section", "mini-install");
@@ -784,6 +817,27 @@
     if (pwa()) { bauen(); return; }
     if (document.readyState === "complete") { bauen(); return; }
     window.addEventListener("load", bauen, { once: true });
+  }
+
+  // Dieselbe Karte, andere Auskunft: Statt eines Knopfes, den der Browser hier
+  // nicht bedient, die Adresse, unter der es geht.
+  function zweiteAdresseBlock() {
+    const karte = el("section", "mini-install");
+    const text = el("div", "mini-install-text");
+    text.append(el("strong", "", "Die Mini-Games als eigene App"));
+    text.append(el("p", "", "Auf dieser Adresse geht das nicht – hier wohnt schon Gripszug. Dieselben Spiele und dieselben Listen gibt es unter der zweiten Adresse, und dort lässt sich die App auf den Startbildschirm legen."));
+    // Ehrlich gesagt, statt später überrascht: Ein Name gehört zu der
+    // Adresse, unter der er eingetragen wurde.
+    text.append(el("p", "mini-install-nachsatz", `Deinen Namen trägst du dort einmal neu ein. In den Listen stehst du trotzdem nur einmal – gezählt wird der Name, nicht das Gerät.`));
+    karte.append(text);
+
+    const aktionen = el("div", "mini-install-aktionen");
+    const hin = verweis(INSTALL_HOST, installLink(), "mini-knopf-voll");
+    hin.rel = "noopener";
+    aktionen.append(hin);
+    aktionen.append(knopf("Nicht jetzt", "mini-knopf-still", () => { merkeInstall("weggetippt"); karte.remove(); }));
+    karte.append(aktionen);
+    return karte;
   }
 
   // ---------------------------------------------------------------------------
@@ -970,6 +1024,8 @@
     teilLink,
     uebersichtLink,
     appLink,
+    installLink,
+    brauchtZweiteAdresse,
     kannMini: (id) => NACH_ID.has(id),
     seiteVon: (id) => NACH_ID.get(id)?.seite || "",
     spielZuSeite: (seite) => NACH_SEITE.get(seite)?.id || "",

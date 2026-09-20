@@ -29,6 +29,9 @@ const WURZEL = path.resolve(HIER, "..");
 const PORT = Number(process.env.PORT || 4191);
 const BASIS = `http://127.0.0.1:${PORT}`;
 
+const APP_HOST = "kids.alae.app";
+const INSTALL_HOST = "games.alae.app";
+
 const befunde = [];
 const fehlt = (was) => befunde.push(was);
 let geprueft = 0;
@@ -130,7 +133,13 @@ const ATTRAPPE = `
 // Normalerweise findet Playwright seinen Browser selbst. Wo eine fertige
 // Chromium-Installation danebensteht – in manchen CI-Abbildern –, sagt
 // CHROMIUM, wo sie liegt.
-const browser = await playwright.chromium.launch(process.env.CHROMIUM ? { executablePath: process.env.CHROMIUM } : {});
+// kids.alae.app und games.alae.app zeigen auf den lokalen Server: Nur so
+// lässt sich prüfen, was auf der Adresse der App passiert – und dort passiert
+// etwas anderes als sonst (siehe den Abschnitt zur zweiten Adresse).
+const browser = await playwright.chromium.launch({
+  ...(process.env.CHROMIUM ? { executablePath: process.env.CHROMIUM } : {}),
+  args: [`--host-resolver-rules=MAP ${APP_HOST} 127.0.0.1, MAP ${INSTALL_HOST} 127.0.0.1`],
+});
 const fehlerAufSeite = [];
 
 // Ohne Service Worker: Sobald einer die Seite bedient, beantwortet er die
@@ -397,6 +406,59 @@ try {
     });
     pruefe(typeof bereich === "string" && bereich.endsWith("/mini-games/"),
       `Der Service Worker bedient ${bereich} statt .../mini-games/.`);
+    await kontext.close();
+  }
+
+  // --- 2d. Die zweite Adresse --------------------------------------------------
+  // Auf kids.alae.app kann Android nicht installieren: Dort belegt Gripszug
+  // den ganzen Bereich. Statt eines Knopfes, den der Browser nicht bedient,
+  // muss dort die Adresse stehen, unter der es geht.
+  {
+    const { kontext, seite } = await neueSeite();
+    await seite.goto(`${BASIS}/mini-games/`, { waitUntil: "load" });
+    await seite.waitForSelector(".mini-karte", { timeout: 8000 });
+    const tabelle = await seite.evaluate(({ appHost, installHost }) => {
+      const m = window.LernappMini;
+      const android = "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Mobile Safari/537.36";
+      const iphone = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Version/17.0 Mobile/15E148 Safari/604.1";
+      return {
+        adresse: m.installLink(),
+        androidAufApp: m.brauchtZweiteAdresse("keine", appHost, android),
+        androidAufZweiter: m.brauchtZweiteAdresse("keine", installHost, android),
+        iphoneAufApp: m.brauchtZweiteAdresse("keine", appHost, iphone),
+        mitKnopfAufApp: m.brauchtZweiteAdresse("prompt", appHost, android),
+        androidLokal: m.brauchtZweiteAdresse("keine", "localhost", android),
+      };
+    }, { appHost: APP_HOST, installHost: INSTALL_HOST });
+    pruefe(tabelle.adresse === `https://${INSTALL_HOST}/mini-games/`, `Die zweite Adresse lautet ${tabelle.adresse}.`);
+    pruefe(tabelle.androidAufApp === true, "Auf der Adresse der App fehlt dem Android-Handy der Weg zur zweiten Adresse.");
+    pruefe(tabelle.androidAufZweiter === false, "Auf der zweiten Adresse verweist der Hinweis auf sich selbst – ein Kreis.");
+    pruefe(tabelle.iphoneAufApp === false, "Auf dem iPhone wird umgeleitet, obwohl Safari dort selbst installieren kann.");
+    pruefe(tabelle.mitKnopfAufApp === false, "Der Verweis kommt, obwohl der Browser die Installation anbietet.");
+    pruefe(tabelle.androidLokal === false, "Beim Entwickeln verweist der Hinweis in die Produktion.");
+    await kontext.close();
+  }
+
+  // Und dieselbe Sache echt: unter dem Namen der App, mit einem Android-Handy.
+  {
+    const kontext = await browser.newContext({
+      viewport: { width: 400, height: 900 },
+      serviceWorkers: "block",
+      userAgent: "Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36",
+    });
+    const seite = await kontext.newPage();
+    await seite.route("**/firebase.js*", (route) => route.fulfill({ contentType: "text/javascript; charset=utf-8", body: ATTRAPPE }));
+    await seite.route("https://www.gstatic.com/firebasejs/**", (route) => route.fulfill({ contentType: "text/javascript; charset=utf-8", body: "" }));
+    await seite.goto(`http://${APP_HOST}:${PORT}/mini-games/`, { waitUntil: "load" });
+    await seite.waitForSelector(".mini-install", { timeout: 8000 });
+    const karte = await seite.locator(".mini-install").innerText();
+    pruefe(/zweiten Adresse|games\.alae\.app/i.test(karte), `Die Karte sagt nicht, wo es geht:\n      ${karte.replace(/\n/g, " | ")}`);
+    const ziel = await seite.getAttribute(".mini-install a", "href");
+    pruefe(ziel === `https://${INSTALL_HOST}/mini-games/`, `Der Weg zur zweiten Adresse zeigt auf ${ziel}.`);
+    pruefe(await seite.locator(".mini-install button").count() === 1, "Auf der Karte steht ein Knopf zu viel oder zu wenig – erwartet nur «Nicht jetzt».");
+    // Und «Nicht jetzt» lässt sie verschwinden, für immer.
+    await seite.click(".mini-install button");
+    pruefe(await seite.locator(".mini-install").count() === 0, "«Nicht jetzt» räumt die Karte nicht weg.");
     await kontext.close();
   }
 

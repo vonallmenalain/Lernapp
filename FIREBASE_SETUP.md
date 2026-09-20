@@ -357,18 +357,37 @@ einzige Präfix, das sie abdeckt. Bleibt die andere Richtung – eine zweite
 Adresse:
 
 1. In Netlify unter *Domain management* eine Subdomain als weiteres Domain-Alias
-   auf dieselbe Site legen (z. B. `spiele.alae.app`), samt DNS-Eintrag.
+   auf dieselbe Site legen – eingerichtet ist **`games.alae.app`** – und im DNS
+   einen CNAME darauf: `games` → `lernappkinder.netlify.app`, **DNS only**
+   (in Cloudflare die graue Wolke). Mit oranger Wolke kommt Netlify nicht an
+   die Domain-Validierung und stellt kein Zertifikat aus. `kids.alae.app` steht
+   genauso – derselbe CNAME, unproxied.
 2. Sonst nichts. **Keine Weiterleitungsregel**, kein zweiter Build: Die
    Subdomain liefert dieselben Dateien unter denselben Pfaden aus, die
    Mini-Games liegen dort ebenso unter `/mini-games/`. Damit stimmt jeder Pfad
    – Stylesheet, Skripte, Icons, Service Worker – unverändert, und nur die
    Herkunft unterscheidet sich. Genau die ist es, auf die es Android ankommt.
-3. Installiert wird über `https://<subdomain>/mini-games/`. Dort ist Gripszug
+3. Installiert wird über `https://games.alae.app/mini-games/`. Dort ist Gripszug
    nicht installiert, der Bereich ist frei, und Chrome bietet die Installation
    an.
 
+Auf `kids.alae.app` steht deshalb auf der Übersicht keine Aufforderung zum
+Installieren, sondern der Weg dorthin – aber nur für Android, denn nur dort
+ist der Bereich im Weg. Auf dem iPhone legt Safari die Seite unabhängig davon
+auf den Startbildschirm, und auf der zweiten Adresse wäre der Verweis ein
+Kreis. Die drei Fälle entscheidet `brauchtZweiteAdresse()` in `mini-games.js`,
+und `scripts/check-mini-games.mjs` spielt sie durch – einmal als Tabelle und
+einmal echt, unter dem Namen der App mit einem Android-Handy (Chromium löst
+den Namen dafür auf den lokalen Server auf).
+
+Ein Name gehört zu der Adresse, unter der er eingetragen wurde: Wer von der
+einen auf die andere wechselt, trägt ihn dort einmal neu ein. In den Listen
+steht er trotzdem nur einmal – verdichtet wird nach Name, nicht nach Gerät
+(`verdichte()`).
+
 Der Link zum Weitergeben bleibt `kids.alae.app/mini-games/…`; er funktioniert
-unverändert. Nur «Zur App» muss auf der zweiten Adresse die volle Adresse der
+unverändert – `games.alae.app` ist für das Installieren da, nicht für das
+Verschicken. Nur «Zur App» muss auf der zweiten Adresse die volle Adresse der
 App nennen (`mini-games.js`, `appLink`) – ein `/` führte dort in eine zweite,
 leere Gripszug-Instanz, denn Konto und Fortschritt gehören zu der Adresse,
 unter der sie entstanden sind.
