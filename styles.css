@@ -11493,16 +11493,42 @@ body[data-page="admin"] .admin-entry-herkunft { flex: 1 1 220px; }
 body[data-mini] .account-button,
 body[data-mini] .account-modal { display: none !important; }
 
-/* Ohne den Konto-Knopf rückt die Leiste der Bühne nach rechts: Dort steht jetzt
-   nur noch der Ton-Schalter. */
+/* Ohne den Konto-Knopf wird oben rechts ein Platz frei. Der Ton-Schalter steht
+   sonst auf dem zweiten (76 px) und der Konto-Knopf auf dem ersten (14 px) –
+   hier rückt er auf den ersten nach, sonst bliebe in der Ecke ein Loch und die
+   Leiste daneben verlöre Platz, den sie braucht. */
+body[data-mini] .sound-toggle { right: calc(var(--safe-right) + 14px); }
 body[data-mini] .cm-bar { right: calc(var(--safe-right) + 76px); }
-/* Und links brauchen die beiden Wortknöpfe mehr Platz als zwei runde. Auf
-   einem schmalen Handy darf der Spieltitel dafür weichen – die Knöpfe sind
-   das, was man braucht, der Name des Spiels steht ohnehin im Spiel. */
-body[data-mini] .cm-bar { left: calc(var(--safe-left) + 12px); }
+
+/* Drei Wortknöpfe nebeneinander brauchen Platz, den ein hochkant gehaltenes
+   Handy nicht hat. Statt umzubrechen – eine zweite Zeile läge über der
+   Spielfläche – werden sie mit dem Bild kleiner: erst die Innenabstände, dann
+   die Schrift. Ab 560 px stehen sie wieder in voller Grösse da. */
+/* Passt es trotzdem nicht – ein schmales Fenster am Rechner, wo kein
+   Dreh-Hinweis kommt –, rutschen die Knöpfe in eine zweite Zeile, statt
+   einander und den Zähler zu überdecken. Auf dem Handy quer, wie diese Spiele
+   gespielt werden, passiert das nie. */
+body[data-mini] .cm-bar { flex-wrap: wrap; row-gap: 6px; }
+body[data-mini] .cm-bar-left { gap: clamp(4px, 1vw, 10px); min-width: 0; }
+body[data-mini] .cm-bar-left .mini-knopf {
+  min-height: clamp(34px, 8vw, 44px);
+  padding: 0 clamp(7px, 1.7vw, 18px);
+  font-size: clamp(0.62rem, 1.75vw, 0.95rem);
+  border-width: clamp(2px, 0.6vw, 3px);
+}
+body[data-mini] .cm-bar-left .cm-icon {
+  width: clamp(32px, 7.5vw, 48px);
+  height: clamp(32px, 7.5vw, 48px);
+}
+body[data-mini] .cm-bar-left .cm-icon svg { width: clamp(16px, 4vw, 24px); height: auto; }
+/* Der Zähler behält seinen Platz: Er ist die Zahl, um die es im Spiel geht. */
+body[data-mini] .cm-count { flex: 0 0 auto; }
+/* Links bleibt der Platz für den Lautsprecher aus kids.js frei – er steht dort
+   fest, und Knöpfe darunter wären unerreichbar. Weichen darf dafür der
+   Spieltitel: Die Knöpfe sind das, was man braucht, der Name des Spiels steht
+   ohnehin im Spiel. */
 body[data-mini] .cm-bar .cm-title { display: none; }
-@media (min-width: 720px) {
-  body[data-mini] .cm-bar { left: calc(var(--safe-left) + 98px); }
+@media (min-width: 860px) {
   body[data-mini] .cm-bar .cm-title {
     display: block;
     position: static;
@@ -11760,15 +11786,6 @@ body[data-mini] .cm-bar .cm-title { display: none; }
   font-weight: 900;
   line-height: 1.1;
 }
-.mini-lead {
-  margin: 0;
-  max-width: 46ch;
-  font-size: 1rem;
-  font-weight: 600;
-  line-height: 1.45;
-}
-.mini-lead-klein { font-size: 0.9rem; color: #667085; margin-bottom: 10px; }
-
 .mini-streifen {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -11885,15 +11902,6 @@ body[data-mini] .cm-bar .cm-title { display: none; }
   .mini-rangzahl { min-width: 22px; height: 22px; font-size: 0.7rem; }
 }
 
-.mini-fuss {
-  margin: 0;
-  font-size: 0.88rem;
-  font-weight: 600;
-  color: #667085;
-  text-align: center;
-}
-.mini-fuss a { color: var(--mini-ton-dunkel); font-weight: 800; }
-
 @media (max-height: 600px) {
   .cm-panel .mini-ergebnis {
     grid-area: liste;
@@ -11932,3 +11940,31 @@ body[data-mini] .cm-bar .cm-title { display: none; }
   overflow-wrap: anywhere;
 }
 .admin-mini-link a { color: #9a5f13; }
+
+/* Der Weg auf den Startbildschirm, ganz unten auf der Übersicht. Zurückhaltend:
+   Wer nur eine Runde spielen will, soll nicht über eine Aufforderung stolpern –
+   wer wiederkommt, findet sie. */
+.mini-install {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 16px 18px;
+  border-radius: 20px;
+  background: #fff;
+  border: 2px dashed rgba(245, 166, 35, 0.55);
+}
+.mini-install-text { flex: 1 1 16rem; min-width: 0; }
+.mini-install-text strong { display: block; font-size: 1.05rem; font-weight: 900; color: #243047; }
+.mini-install-text p { margin: 4px 0 0; font-size: 0.9rem; font-weight: 600; color: #667085; line-height: 1.45; }
+.mini-install-schritte {
+  flex: 1 1 100%;
+  margin: 0;
+  padding-left: 1.2rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #4a5b52;
+  line-height: 1.5;
+}
+.mini-install-aktionen { display: flex; gap: 8px; flex: 0 0 auto; }

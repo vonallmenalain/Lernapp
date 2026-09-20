@@ -59,14 +59,22 @@ for (const { spiel, appSeite, datei, html } of seiten) {
   pruefe(/<body[^>]*data-mini="1"/.test(vorhanden), `${name}: der Schalter data-mini fehlt – ohne ihn ist es die App, nicht das Mini-Game.`);
   pruefe(vorhanden.includes(`data-mini-spiel="${spiel.id}"`), `${name}: data-mini-spiel="${spiel.id}" fehlt.`);
   pruefe(/src="\.\.\/mini-games\.js/.test(vorhanden), `${name}: mini-games.js wird nicht geladen.`);
-  pruefe(!/pwa\.js/.test(vorhanden), `${name}: pwa.js gehört nicht auf eine Mini-Seite.`);
-  pruefe(!/rel="manifest"/.test(vorhanden), `${name}: das Manifest der App gehört nicht auf eine Mini-Seite.`);
-  pruefe(!/(href|src)="(?!https?:|\.\.\/|#)[^"]/.test(vorhanden), `${name}: eine Adresse zeigt nicht eine Ebene höher – von /mini-games/ aus geht sie ins Leere.`);
+  // pwa.js meldet den Service Worker an – und zwar den in DIESEM Ordner, weil
+  // es "./service-worker.js" registriert. Ohne ihn liesse sich nichts
+  // installieren.
+  pruefe(/src="\.\.\/pwa\.js/.test(vorhanden), `${name}: pwa.js fehlt – ohne Service Worker lässt sich nichts auf den Startbildschirm legen.`);
+  pruefe(/<link rel="manifest" href="app\.webmanifest/.test(vorhanden), `${name}: das eigene Manifest fehlt.`);
+  pruefe(!/app\.webmanifest\?v=[^"]*"[^>]*>[\s\S]*rel="manifest"/.test(vorhanden), `${name}: es sind zwei Manifeste verlinkt.`);
+  pruefe(!/icons\/(icon|apple-touch-icon)-/.test(vorhanden), `${name}: hier steht noch das Icon der App – auf dem Startbildschirm wären beide nicht zu unterscheiden.`);
+  pruefe(/content="Mini-Games"/.test(vorhanden), `${name}: der Name für den Startbildschirm fehlt.`);
+  // Jede Adresse zeigt eine Ebene höher – bis auf das Manifest, das neben der
+  // Seite liegt.
+  pruefe(!/(href|src)="(?!https?:|\.\.\/|app\.webmanifest|#)[^"]/.test(vorhanden), `${name}: eine Adresse zeigt nicht eine Ebene höher – von /mini-games/ aus geht sie ins Leere.`);
 
   // Dieselben Skripte wie in der App: Ein vergessenes und das Spiel startet
   // nicht. Verglichen werden die Dateinamen ohne Fassung und ohne Pfad.
   const skripte = (text) => [...text.matchAll(/<script defer src="(?:\.\.\/)?([^"?]+)/g)].map(([, s]) => s);
-  const inApp = skripte(lies(appSeite)).filter((s) => s !== "pwa.js");
+  const inApp = skripte(lies(appSeite));
   const inMini = skripte(vorhanden).filter((s) => s !== "mini-games.js");
   pruefe(inApp.join("|") === inMini.join("|"),
     `${name}: lädt andere Dateien als ${appSeite}\n      App:  ${inApp.join(", ")}\n      Mini: ${inMini.join(", ")}`);
@@ -80,9 +88,58 @@ if (fs.existsSync(uebersicht)) {
   pruefe(/data-mini-uebersicht/.test(html), "mini-games/index.html: der Platz für die Übersicht (data-mini-uebersicht) fehlt.");
   pruefe(/data-page="mini-hub"/.test(html), "mini-games/index.html: data-page=\"mini-hub\" fehlt – mini-games.js baut dann nichts.");
   pruefe(/<body[^>]*data-mini="1"/.test(html), "mini-games/index.html: der Schalter data-mini fehlt.");
-  ["highscore.js", "firebase.js", "mini-games.js"].forEach((datei) => {
+  ["highscore.js", "firebase.js", "mini-games.js", "pwa.js"].forEach((datei) => {
     pruefe(html.includes(`../${datei}`), `mini-games/index.html: ${datei} wird nicht geladen.`);
   });
+  pruefe(/<link rel="manifest" href="app\.webmanifest/.test(html), "mini-games/index.html: das eigene Manifest fehlt – sie ist der Startpunkt der installierten App.");
+}
+
+// --- 4b. Die eigene App ------------------------------------------------------
+// Installierbar ist etwas erst, wenn dreierlei stimmt: ein Manifest mit Namen,
+// Icons und Startadresse, ein Service Worker, der den Bereich bedient, und
+// Icons, die es wirklich gibt. Fehlt eines, legt kein Browser etwas auf den
+// Startbildschirm – und sagt auch nicht, warum.
+{
+  const manifestPfad = path.join(WURZEL, "mini-games", "app.webmanifest");
+  pruefe(fs.existsSync(manifestPfad), "mini-games/app.webmanifest fehlt – ohne Manifest keine eigene App.");
+  if (fs.existsSync(manifestPfad)) {
+    let manifest = null;
+    try { manifest = JSON.parse(fs.readFileSync(manifestPfad, "utf8")); }
+    catch (fehler) { fehlt(`mini-games/app.webmanifest ist kein gültiges JSON: ${fehler.message}`); }
+    if (manifest) {
+      pruefe(manifest.start_url === "/mini-games/", `Das Manifest startet bei ${manifest.start_url} statt bei /mini-games/.`);
+      pruefe(manifest.scope === "/mini-games/", `Der Bereich des Manifests ist ${manifest.scope} statt /mini-games/ – die App zöge sonst die ganze Site mit hinein.`);
+      pruefe(Boolean(manifest.name) && Boolean(manifest.short_name), "Dem Manifest fehlt ein Name für den Startbildschirm.");
+      pruefe(manifest.name !== "Gripszug", "Die Mini-Games heissen auf dem Startbildschirm wie die App – dann sind zwei Zeichen nicht zu unterscheiden.");
+      const groessen = (manifest.icons || []).map((icon) => icon.sizes);
+      pruefe(groessen.includes("192x192") && groessen.includes("512x512"), `Dem Manifest fehlen Icons in 192 und 512 (hat: ${groessen.join(", ") || "keine"}).`);
+      pruefe((manifest.icons || []).some((icon) => icon.purpose === "maskable"), "Dem Manifest fehlt ein maskierbares Icon – Android schneidet sonst ein weisses Quadrat zurecht.");
+      (manifest.icons || []).forEach((icon) => {
+        const datei = path.join(WURZEL, String(icon.src || "").replace(/^\//, ""));
+        pruefe(fs.existsSync(datei), `Das Manifest nennt ${icon.src}, die Datei gibt es nicht.`);
+      });
+    }
+  }
+
+  const workerPfad = path.join(WURZEL, "mini-games", "service-worker.js");
+  pruefe(fs.existsSync(workerPfad), "mini-games/service-worker.js fehlt – ohne ihn installiert kein Browser etwas.");
+  if (fs.existsSync(workerPfad)) {
+    const worker = fs.readFileSync(workerPfad, "utf8");
+    pruefe(/addEventListener\("fetch"/.test(worker), "Der Service Worker beantwortet keine Abrufe – dann gilt er als nicht vorhanden.");
+    pruefe(/CACHE_PREFIX = "lernapp-mini-"/.test(worker), "Der Service Worker teilt sich den Cache mit der App.");
+    // Jede Datei, die eine Seite lädt, muss er auch ablegen: Was fehlt, fehlt
+    // ohne Netz.
+    const gebraucht = new Set();
+    [...seiten.map(({ datei }) => datei), path.join(WURZEL, "mini-games", "index.html")]
+      .filter((datei) => fs.existsSync(datei))
+      .forEach((datei) => {
+        const html = fs.readFileSync(datei, "utf8");
+        [...html.matchAll(/(?:src|href)="(\.\.\/[^"]+)"/g)].forEach(([, wert]) => gebraucht.add(wert));
+      });
+    [...gebraucht].forEach((wert) => {
+      pruefe(worker.includes(`"${wert}"`), `Der Service Worker legt ${wert} nicht ab – ohne Netz fehlte die Datei.`);
+    });
+  }
 }
 
 // --- 3. Jedes Mini-Game hat eine Punktzahl -----------------------------------

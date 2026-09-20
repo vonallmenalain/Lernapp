@@ -496,7 +496,7 @@
       inhalt.append(laedt);
       const knoepfe = el("div", "mini-tafel-aktionen");
       knoepfe.append(verweis("Spielen", spielLink(spiel), "mini-knopf-voll"));
-      knoepfe.append(verweis("Alle Ergebnisse", uebersichtLink(), "mini-knopf-still"));
+      knoepfe.append(verweis("Hall of Fame", uebersichtLink(), "mini-knopf-still"));
       inhalt.append(knoepfe);
 
       listeFuer(spiel).then((liste) => {
@@ -525,14 +525,24 @@
   // Die Knöpfe oben links
   // ---------------------------------------------------------------------------
   // In der App stehen dort das Haus und der Weg zurück in die Auswahl. Hier
-  // gibt es beides nicht: kein Zug, keine Bereiche. Stattdessen der Weg in die
-  // App – für den, der mehr will – und die Liste der Mini-Games.
+  // gibt es beides nicht: kein Zug, keine Bereiche. Stattdessen drei Wege, und
+  // jeder führt woandershin:
+  //
+  //   Zur App        für den, der nach einer Runde mehr will
+  //   Mini Games     das Fenster: ein anderes Spiel wählen, ohne die Seite zu
+  //                  verlassen
+  //   Hall of Fame   die Übersicht mit allen Ranglisten und allen Namen
+  //
+  // Die beiden letzten sahen bis hierher aus wie einer: Wer die Übersicht
+  // wollte, musste erst das Fenster öffnen und dort noch einmal tippen.
   function leiste() {
     const zurApp = verweis("Zur App", appLink(), "mini-knopf-hell");
     zurApp.title = "Zur App: kids.alae.app";
     const liste = knopf("Mini Games", "mini-knopf-voll", () => oeffneFenster(spielId()));
-    liste.title = "Alle Mini-Games und ihre Ranglisten";
-    return [zurApp, liste];
+    liste.title = "Ein anderes Mini-Game wählen";
+    const halle = verweis("Hall of Fame", uebersichtLink(), "mini-knopf-still");
+    halle.title = "Alle Ranglisten und alle Namen";
+    return [zurApp, liste, halle];
   }
 
   // ---------------------------------------------------------------------------
@@ -660,6 +670,89 @@
   function ergebnisSprache({ punkte, label }) {
     const wort = String(label || "Punkte").replace(/^Deine?\s+/i, "");
     return `${punkte} ${wort}. Trag deinen Namen ein, dann stehst du in der Bestenliste.`;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Auf den Startbildschirm
+  // ---------------------------------------------------------------------------
+  // Die Mini-Games sind eine eigene App: eigenes Manifest, eigener Service
+  // Worker, eigenes Icon (mini-games/app.webmanifest). Ohne einen Hinweis
+  // findet das nur, wer das Browsermenü kennt – und auf dem Handy ist die
+  // Adresszeile sonst der einzige Weg hierher, den man jedes Mal neu tippt.
+  //
+  // Der Hinweis steht nur auf der Übersicht, nie über einem laufenden Spiel,
+  // und nur einmal: Wer ihn wegtippt, sieht ihn nicht wieder. Er benutzt
+  // pwa.js (window.LernappInstall) und merkt sich seinen eigenen Stand – der
+  // Hinweis der App gehört der App.
+  const INSTALL_KEY = "lernapp.mini.install";
+  const pwa = () => window.LernappInstall || null;
+
+  function installErledigt() {
+    try { return Boolean(localStorage.getItem(INSTALL_KEY)); } catch { return false; }
+  }
+
+  function merkeInstall(wert) {
+    try { localStorage.setItem(INSTALL_KEY, wert); } catch { /* privater Modus */ }
+  }
+
+  const IOS_SCHRITTE = [
+    "Unten auf das Teilen-Zeichen tippen (das Quadrat mit dem Pfeil nach oben).",
+    "In der Liste «Zum Home-Bildschirm» wählen.",
+    "Oben rechts «Hinzufügen» tippen – fertig.",
+  ];
+
+  function installBlock() {
+    const hilfe = pwa();
+    if (!hilfe || hilfe.isStandalone?.() || installErledigt()) return null;
+    const art = hilfe.platform?.() || "keine";
+    if (art === "keine") return null;
+
+    const karte = el("section", "mini-install");
+    const text = el("div", "mini-install-text");
+    text.append(el("strong", "", "Die Mini-Games als eigene App"));
+    text.append(el("p", "", art === "prompt"
+      ? "Ein Tipp, und sie liegen auf dem Startbildschirm – mit eigenem Zeichen, neben Gripszug und unabhängig davon."
+      : "Leg sie auf den Startbildschirm, dann brauchst du diese Adresse nie wieder zu tippen."));
+    karte.append(text);
+
+    const aktionen = el("div", "mini-install-aktionen");
+    if (art === "prompt") {
+      const los = knopf("Installieren", "mini-knopf-voll", () => {
+        hilfe.prompt?.().then((ausgang) => {
+          if (ausgang === "angenommen") { merkeInstall("installiert"); karte.remove(); }
+          else if (ausgang === "unmoeglich") text.querySelector("p").textContent = "Das hat der Browser nicht zugelassen. Im Browsermenü steht der Punkt «App installieren».";
+        });
+      });
+      aktionen.append(los);
+    } else if (art === "ios-safari") {
+      const schritte = el("ol", "mini-install-schritte");
+      IOS_SCHRITTE.forEach((zeile) => schritte.append(el("li", "", zeile)));
+      karte.append(schritte);
+    } else if (art === "ios-anderer-browser") {
+      text.querySelector("p").textContent = "Auf dem iPhone geht das nur in Safari. Öffne diese Seite dort, dann steht der Weg hier.";
+    } else if (art === "ios-inapp") {
+      text.querySelector("p").textContent = "Du bist im eingebauten Browser einer anderen App. Öffne diese Seite in Safari, dann geht es.";
+    }
+
+    const weg = knopf("Nicht jetzt", "mini-knopf-still", () => { merkeInstall("weggetippt"); karte.remove(); });
+    aktionen.append(weg);
+    karte.append(aktionen);
+    return karte;
+  }
+
+  // pwa.js steht in der Seite hinter dieser Datei und hat beim Bauen der
+  // Übersicht womöglich noch nicht gelaufen: Aufgeschobene Skripte laufen der
+  // Reihe nach, und was hier auf eine Zusage wartet, kommt vor dem nächsten
+  // dran. Deshalb wird nicht gefragt "gibt es window.LernappInstall", sondern
+  // notfalls gewartet, bis die Seite fertig geladen ist.
+  function zeigeInstall(wirt) {
+    const bauen = () => {
+      const karte = installBlock();
+      if (karte) wirt.append(karte);
+    };
+    if (pwa()) { bauen(); return; }
+    if (document.readyState === "complete") { bauen(); return; }
+    window.addEventListener("load", bauen, { once: true });
   }
 
   // ---------------------------------------------------------------------------
@@ -807,16 +900,13 @@
 
     const leuteBlock = el("section", "mini-block");
     leuteBlock.append(el("h2", "", "Die Spieler"));
-    leuteBlock.append(el("p", "mini-lead mini-lead-klein", "Ø Rang ist der Durchschnitt aller Plätze – wer überall weit vorn steht, steht auch hier oben. Pro Name zählt ein Ergebnis je Spiel."));
     leuteBlock.append(spielerTabelle(personen));
     wirt.append(leuteBlock);
 
-    const fuss = el("footer", "mini-fuss");
-    fuss.append(document.createTextNode("Die Mini-Games sind ein Ausschnitt aus Gripszug – Rätsel und Gehirntraining für Kinder. "));
-    const mehr = el("a", "", "Mehr über Gripszug");
-    mehr.href = "/willkommen.html";
-    fuss.append(mehr, document.createTextNode("."));
-    wirt.append(fuss);
+    // Ganz unten, nach dem, wofür man gekommen ist: der Weg auf den
+    // Startbildschirm. Oben stünde er im Weg.
+    zeigeInstall(wirt);
+
   }
 
   // ---------------------------------------------------------------------------

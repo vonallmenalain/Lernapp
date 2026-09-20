@@ -323,6 +323,36 @@ einzigen Schalter: `data-mini="1"` am `body` der Seiten unter `mini-games/`.
 Umgekehrt gilt dasselbe: Wer den Haken wieder wegnimmt, löscht nichts. Die Adresse steht dann nur
 nicht mehr in der Liste der Mini-Games, und die Ergebnisse warten, bis der Haken wieder steht.
 
+**Die Mini-Games sind eine eigene App.** Auf dem Handy gäbe es sonst keinen Weg
+zu ihnen ausser der Adresszeile, und die tippt niemand zweimal. Unter
+`mini-games/` liegen deshalb ein eigenes Manifest und ein eigener Service
+Worker:
+
+| Datei | was sie tut |
+| --- | --- |
+| `mini-games/app.webmanifest` | Name «Mini-Games», eigenes Icon (weisser Pokal auf Orange statt der Lok), `start_url` und `scope` auf `/mini-games/` |
+| `mini-games/service-worker.js` | **Erzeugt**, nicht getippt: `scripts/generate-mini-games.mjs` schreibt ihn aus den Seiten, damit seine Liste nicht veralten kann. Er bedient nur diesen Ordner |
+| `icons/mini-*.png` | Die Icons der eigenen App, in denselben Grössen wie die der App |
+
+Der Bereich (`scope`) ist der Kern: Ein Service Worker bedient den Ordner, in
+dem er liegt. Der der App liegt eine Ebene höher und bleibt für alles andere
+zuständig; für Seiten unter `/mini-games/` gewinnt der speziellere. Beide haben
+eigene Caches (`lernapp-pwa-` und `lernapp-mini-`) und stehen sich nicht im
+Weg. Angemeldet wird er von `pwa.js` – dieselbe Datei wie in der App, sie
+registriert `./service-worker.js`, und «hier» ist von einer Mini-Seite aus
+dieser Ordner.
+
+Den Weg auf den Startbildschirm zeigt ein Hinweis zuunterst auf der Übersicht:
+unter Android der Knopf des Browsers, unter iOS die drei Schritte über das
+Teilen-Zeichen (dort geht es nur in Safari). Er erscheint einmal und merkt sich
+unter `lernapp.mini.install`, dass er gezeigt wurde – getrennt vom Hinweis der
+App, der seinen eigenen Schlüssel hat.
+
+**Aus der App führt bewusst kein Link hierher.** Wer Gripszug spielt, soll
+nicht in einen Bereich ohne Konto und ohne Zug abbiegen. Der einzige Weg von
+innen nach aussen steht im Adminbereich neben dem Haken, zum Kopieren; die
+Mini-Games verweisen umgekehrt mit «Zur App» auf die Startseite.
+
 **Was die Bestenliste über Ehrlichkeit verspricht – und was nicht.** Ohne Konto gibt es niemanden
 zu prüfen: Wer schreibt, sagt nur, wer er zu sein behauptet. Die Regeln prüfen deshalb nicht *wer*,
 sondern *was* (siehe `firestore.rules`, `miniScores`):
@@ -637,9 +667,9 @@ sie genauso aus wie Netlify: `/mini-games` ist die Übersicht, `/mini-games/turm
 Geprüft werden sie ohne Firestore:
 
 ```bash
-node scripts/generate-mini-games.mjs     # die Seiten aus den Seiten der App schreiben
-node scripts/validate-mini-games.mjs     # stimmen Seiten, Regeln und Adminbereich zusammen?
-node scripts/check-mini-games.mjs        # im Browser: spielen, eintragen, in der Liste stehen
+node scripts/generate-mini-games.mjs     # Seiten und Service Worker aus den Seiten der App schreiben
+node scripts/validate-mini-games.mjs     # stimmen Seiten, Manifest, Regeln und Adminbereich zusammen?
+node scripts/check-mini-games.mjs        # im Browser: spielen, eintragen, in der Liste stehen – und installierbar?
 ```
 
 `check-mini-games.mjs` ersetzt `firebase.js` im Browser durch eine Attrappe und hält die Einträge

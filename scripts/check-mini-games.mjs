@@ -133,8 +133,12 @@ const ATTRAPPE = `
 const browser = await playwright.chromium.launch(process.env.CHROMIUM ? { executablePath: process.env.CHROMIUM } : {});
 const fehlerAufSeite = [];
 
-async function neueSeite() {
-  const kontext = await browser.newContext({ viewport: { width: 420, height: 820 } });
+// Ohne Service Worker: Sobald einer die Seite bedient, beantwortet er die
+// Abrufe selbst – und die Attrappe unten, die firebase.js ersetzt, käme nicht
+// mehr zum Zug. Für die Prüfung der Spiele ist das im Weg; dass er da ist und
+// funktioniert, prüft weiter unten ein eigener Abschnitt mit eigenem Fenster.
+async function neueSeite(viewport = { width: 420, height: 820 }) {
+  const kontext = await browser.newContext({ viewport, serviceWorkers: "block" });
   const seite = await kontext.newPage();
   await seite.route("**/firebase.js*", (route) => route.fulfill({ contentType: "text/javascript; charset=utf-8", body: ATTRAPPE }));
   // Das SDK von gstatic braucht hier niemand: firebase.js ist ersetzt. So
@@ -168,6 +172,9 @@ try {
     const leiste = await seite.locator(".cm-bar-left").innerText();
     pruefe(leiste.includes("Zur App"), `Oben links fehlt "Zur App" (steht: ${JSON.stringify(leiste)}).`);
     pruefe(leiste.includes("Mini Games"), `Oben links fehlt "Mini Games" (steht: ${JSON.stringify(leiste)}).`);
+    pruefe(leiste.includes("Hall of Fame"), `Oben links fehlt "Hall of Fame" (steht: ${JSON.stringify(leiste)}).`);
+    const halle = await seite.getAttribute('.cm-bar-left a:has-text("Hall of Fame")', "href");
+    pruefe(halle === "/mini-games/", `"Hall of Fame" zeigt auf ${halle} statt auf /mini-games/ – der Weg zur Übersicht muss ohne Umweg gehen.`);
     pruefe(await seite.locator(".cm-icon-home").count() === 0, "Das Haus führte auf ein Startbild, das dem Spieler nicht gehört – es darf hier nicht stehen.");
     pruefe(await seite.locator(".account-button:visible").count() === 0, "Der Konto-Knopf ist im Mini-Modus sichtbar – hier gibt es kein Konto.");
     pruefe(await seite.locator(".cm-icon-again").count() === 1, "Der Knopf zum Neustarten fehlt.");
@@ -185,6 +192,8 @@ try {
     await seite.waitForSelector(".mini-fenster .mini-zeile", { timeout: 4000 });
     pruefe((await seite.locator(".mini-fenster .mini-zeile").first().innerText()).includes("Grosi"),
       "Im Fenster steht die bestehende Bestenliste nicht.");
+    pruefe(fenster.includes("Hall of Fame"), "Im Fenster fehlt der Weg zur Übersicht.");
+    pruefe(!fenster.includes("Alle Ergebnisse"), "Im Fenster steht noch die alte Beschriftung «Alle Ergebnisse».");
     const spielen = await seite.getAttribute(".mini-tafel-aktionen a", "href");
     pruefe(spielen === "/mini-games/turmbau", `"Spielen" zeigt auf ${spielen} statt auf /mini-games/turmbau.`);
     await seite.keyboard.press("Escape");
@@ -260,7 +269,11 @@ try {
     await seite.goto(`${BASIS}/mini-games`, { waitUntil: "load" });
     await seite.waitForSelector(".mini-karte", { timeout: 8000 });
     const text = await seite.locator(".mini-seite").innerText();
-    pruefe(text.includes("Mini-Games"), "Auf der Übersicht steht nicht, wo man ist.");
+    // Ohne Rücksicht auf Gross- und Kleinschreibung: Das Stylesheet schreibt
+    // die Zeile in Versalien, innerText gibt sie so zurück.
+    pruefe(/mini-games/i.test(text), "Auf der Übersicht steht nicht, wo man ist.");
+    pruefe(!/Ausschnitt aus Gripszug|Mehr über Gripszug/.test(text), "Der Fuss der Übersicht steht noch da.");
+    pruefe(!/Durchschnitt aller Plätze/.test(text), "Die Erklärung über der Spielertabelle steht noch da.");
     pruefe(await seite.locator(".mini-karte").count() === 2, `Auf der Übersicht stehen ${await seite.locator(".mini-karte").count()} Spiele statt zwei.`);
     pruefe(text.includes("Grosi"), "Auf der Übersicht fehlen die Spieler.");
     pruefe(await seite.locator(".mini-tabelle tbody tr").count() >= 1, "Die Auswertung der Spieler fehlt.");
@@ -277,6 +290,98 @@ try {
     // Nichts darf seitwärts über den Rand stehen: Das Handy ist der Normalfall.
     const ueberstand = await seite.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
     pruefe(ueberstand <= 1, `Die Übersicht steht ${ueberstand} px über den rechten Rand.`);
+    await kontext.close();
+  }
+
+  // --- 2b. Die Leiste quer: drei Wortknöpfe, und nichts liegt übereinander ----
+  // Oben links stehen jetzt drei Knöpfe statt zwei, dazu der Neustart. Rechts
+  // daneben der Zähler und der Ton-Schalter, und links davor der Lautsprecher
+  // aus kids.js – beide sitzen fest, unabhängig von der Leiste. Was sich hier
+  // überdeckt, ist nicht unschön, sondern unerreichbar: ein Knopf unter einem
+  // anderen lässt sich nicht drücken. Gemessen wird deshalb, nicht angesehen.
+  for (const [name, viewport] of [["Handy quer", { width: 568, height: 320 }], ["Tablet quer", { width: 844, height: 390 }]]) {
+    const { kontext, seite } = await neueSeite(viewport);
+    await seite.goto(`${BASIS}/mini-games/turmbau`, { waitUntil: "load" });
+    await seite.waitForSelector(".cm-bar-left .mini-knopf", { timeout: 8000 });
+    await seite.waitForTimeout(300);
+    const befund = await seite.evaluate(() => {
+      const stuecke = [
+        ...[...document.querySelectorAll(".cm-bar-left > *")].map((e) => ({ was: (e.textContent || "Neustart").trim() || "Neustart", r: e.getBoundingClientRect() })),
+        { was: "Zähler", r: document.querySelector(".cm-count").getBoundingClientRect() },
+        { was: "Lautsprecher", r: document.querySelector(".help-voice-button")?.getBoundingClientRect() },
+        { was: "Ton", r: document.querySelector(".sound-toggle")?.getBoundingClientRect() },
+      ].filter((s) => s.r && s.r.width > 0);
+      const stoesse = [];
+      for (let i = 0; i < stuecke.length; i += 1) {
+        for (let j = i + 1; j < stuecke.length; j += 1) {
+          const a = stuecke[i].r;
+          const b = stuecke[j].r;
+          // Nur was auf derselben Höhe steht, kann sich überdecken: Rutscht
+          // etwas in eine zweite Zeile, ist das der gewollte Rückfall.
+          const quer = a.left < b.right - 1 && b.left < a.right - 1;
+          const hoch = a.top < b.bottom - 1 && b.top < a.bottom - 1;
+          if (quer && hoch) stoesse.push(`${stuecke[i].was} × ${stuecke[j].was}`);
+        }
+      }
+      const letzte = stuecke.reduce((max, s) => Math.max(max, s.r.right), 0);
+      return { stoesse, ueberRand: Math.round(letzte - window.innerWidth) };
+    });
+    pruefe(befund.stoesse.length === 0, `${name}: In der Leiste liegt etwas übereinander – ${befund.stoesse.join(", ")}`);
+    pruefe(befund.ueberRand <= 0, `${name}: Die Leiste steht ${befund.ueberRand} px über den rechten Rand.`);
+    await kontext.close();
+  }
+
+  // --- 2c. Die eigene App ------------------------------------------------------
+  // Auf dem Handy gibt es sonst keinen Weg zu den Mini-Games ausser der
+  // Adresszeile. Installierbar sind sie nur, wenn drei Dinge zusammenkommen:
+  // ein Manifest mit eigenem Namen und Bereich, ein Service Worker, der genau
+  // diesen Bereich bedient, und Icons, die es gibt. Das lässt sich nicht
+  // lesen, nur ausführen – ein Manifest mit einem Tippfehler im scope meldet
+  // niemand, der Browser bietet die Installation dann einfach nicht an.
+  {
+    const kontext = await browser.newContext({ viewport: { width: 420, height: 820 } });
+    const seite = await kontext.newPage();
+    await seite.route("https://www.gstatic.com/firebasejs/**", (route) => route.fulfill({ contentType: "text/javascript; charset=utf-8", body: "" }));
+    await seite.goto(`${BASIS}/mini-games/`, { waitUntil: "load" });
+
+    const manifestHref = await seite.getAttribute('link[rel="manifest"]', "href");
+    pruefe(Boolean(manifestHref) && manifestHref.startsWith("app.webmanifest"),
+      `Die Übersicht verweist auf das Manifest ${manifestHref} – erwartet wird das eigene daneben.`);
+    const manifest = await seite.evaluate(async () => {
+      const link = document.querySelector('link[rel="manifest"]');
+      const antwort = await fetch(link.href);
+      return antwort.ok ? antwort.json() : null;
+    });
+    pruefe(Boolean(manifest), "Das Manifest ist unter seiner Adresse nicht zu holen.");
+    if (manifest) {
+      pruefe(manifest.scope === "/mini-games/", `Der Bereich des Manifests ist ${manifest.scope} statt /mini-games/.`);
+      pruefe(manifest.start_url === "/mini-games/", `Das Manifest startet bei ${manifest.start_url} statt bei /mini-games/.`);
+      pruefe(manifest.short_name === "Mini-Games", `Auf dem Startbildschirm stünde "${manifest.short_name}".`);
+      // Die Icons müssen wirklich da sein – ein 404 hier ist der häufigste
+      // Grund, warum eine Installation stillschweigend nicht angeboten wird.
+      const fehlende = await seite.evaluate(async (icons) => {
+        const raus = [];
+        for (const icon of icons) {
+          const antwort = await fetch(icon.src, { method: "HEAD" });
+          if (!antwort.ok) raus.push(`${icon.src} (${antwort.status})`);
+        }
+        return raus;
+      }, manifest.icons || []);
+      pruefe(fehlende.length === 0, `Icons aus dem Manifest fehlen: ${fehlende.join(", ")}`);
+    }
+
+    // Und der Service Worker: Er muss diesen Ordner bedienen und nicht die
+    // ganze Site – sonst nähme er der App ihren eigenen weg.
+    const bereich = await seite.evaluate(async () => {
+      if (!("serviceWorker" in navigator)) return "ohne Unterstützung";
+      const anmeldung = await Promise.race([
+        navigator.serviceWorker.ready,
+        new Promise((weiter) => setTimeout(() => weiter(null), 10000)),
+      ]);
+      return anmeldung ? anmeldung.scope : "keiner";
+    });
+    pruefe(typeof bereich === "string" && bereich.endsWith("/mini-games/"),
+      `Der Service Worker bedient ${bereich} statt .../mini-games/.`);
     await kontext.close();
   }
 
