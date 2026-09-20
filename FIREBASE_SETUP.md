@@ -283,159 +283,27 @@ jeweils anderen Seite still gelöscht, mitten in einer laufenden Aktion.
 Die Schranke wartet auf die Liste: `isLoaded()` gilt erst als beantwortet, wenn sie da ist. Sonst
 sähe ein Kind für einen Moment ein Tor, das gleich wieder verschwindet.
 
-### Der Reiter „Spiele": ein Spiel als Mini-Game verschicken
+### Die Mini-Games sind ausgezogen
 
-Auf derselben Karte steht ein zweiter Haken: **„Mini-Game"**. Er tut etwas ganz anderes als der
-erste. Er gibt dem Spiel eine eigene Adresse *neben* der App:
+Bis September 2026 gab es hier einen zweiten Haken, **„Mini-Game"**. Er gab einem Spiel eine eigene
+Adresse neben der App – `kids.alae.app/mini-games/turmbau` –, mit offener Bestenliste und ohne
+Konto, zum Weitergeben an Freunde und Verwandtschaft.
 
-```
-https://kids.alae.app/mini-games/turmbau
-```
+Das ist jetzt eine eigene App: **[games.alae.app](https://games.alae.app/)**, eigenes Repository
+([vonallmenalain/games](https://github.com/vonallmenalain/games)), eigenes Firebase-Projekt
+(`games-a0cd4`), eigener Adminbereich. Dort wird auch ausgewählt, welche Spiele gespielt werden
+können. Der Grund für den Umzug war die Installation: Auf `kids.alae.app` belegt Gripszug den
+ganzen Bereich, und Chrome bietet deshalb keine zweite App zur Installation an.
 
-Wer sie öffnet, spielt sofort – kein Konto, keine Anmeldung, kein Zug, keine Wagen, keine
-Schranke. Am Schluss trägt er seinen Namen ein und steht in einer Bestenliste, die alle sehen, die
-vorbeikommen. Gedacht ist das zum Weitergeben: ein Link an Freunde, an die Verwandtschaft, in eine
-Gruppe – „schaffst du mehr?". Unter `kids.alae.app/mini-games` liegt die Übersicht: alle
-freigegebenen Spiele mit ihren Ranglisten und eine Auswertung über alle Namen (Durchschnittsrang,
-Siege, gespielte Runden).
+**Hier ist davon nichts übrig.** Kein Ordner, kein Skript, keine Regel, keine Verzweigung – und
+auch keine Weiterleitung: `kids.alae.app/mini-games/…` ist eine Adresse wie jede andere, die es
+nicht gibt. Die neue App ist ein Neustart und fängt mit einer leeren Bestenliste an; die alten
+Ergebnisse werden nicht übernommen.
 
-Der Haken schreibt nach `config/miniGames`, mit `arrayUnion`/`arrayRemove` und aus demselben Grund
-wie oben. Gelesen wird er von jedem Gerät, auch ohne Konto.
-
-**Nicht jedes Spiel kann eines sein.** Den Haken gibt es nur bei den zwölf Spielen mit einer
-Punktzahl (`highscore.js`, `art: "punkte"`). Bei den Spielen mit Sternen je Level und bei den
-Rätseln aus dem Levelkatalog hätten am Ende alle drei Sterne oder alle Level gelöst – eine
-Bestenliste, die nichts mehr unterscheidet, ist keine. Welche Spiele es sind, steht in
-`mini-games.js`; die Seiten dazu erzeugt `node scripts/generate-mini-games.mjs` aus den Seiten der
-App, und `scripts/validate-mini-games.mjs` prüft, dass sie zusammenpassen.
-
-**Die Mini-Games fassen die App nicht an.** Das ist der Kern der Sache, und es hängt an einem
-einzigen Schalter: `data-mini="1"` am `body` der Seiten unter `mini-games/`.
-
-| Datei | was sie im Mini-Modus anders macht | warum |
-| --- | --- | --- |
-| `entitlement.js` | nichts gesperrt, nichts verbraucht | Wer den Link anklickt, verbrauchte sonst die eine freie Runde, die er in der App noch gar nicht gesehen hat |
-| `game-cloud.js` | schreibt weder auf das Gerät noch in die Cloud | Die Runde eines fremden Besuchers gehört nicht in den Spielstand des Kindes, dem das Gerät gehört, und zählt für keinen Wagen |
-| `firebase.js` | `lernapp.mini.name`, `.id`, `.best` überleben jedes Zurücksetzen (`LOCAL_KEEP_KEYS`) | Umgekehrt gilt dasselbe: Ein zurückgesetztes Kinderkonto darf einem fremden Besucher nicht Namen und Kennung wegnehmen – er stünde sonst beim nächsten Mal als zweiter Eintrag da |
-| `firebase.js` | meldet keinen Besuch | Ein Mini-Game ist kein Besuch der App – sonst sagte die Gästeliste etwas anderes, als sie zu sagen scheint |
-| `game-shell.js` | andere Knöpfe, offene Bestenliste statt der eigenen fünf, keine Reise | Es gibt kein Zuhause, keine Spielauswahl und keine Karte, auf die ein Stempel gehörte |
-
-Umgekehrt gilt dasselbe: Wer den Haken wieder wegnimmt, löscht nichts. Die Adresse steht dann nur
-nicht mehr in der Liste der Mini-Games, und die Ergebnisse warten, bis der Haken wieder steht.
-
-**Die Mini-Games sind eine eigene App.** Auf dem Handy gäbe es sonst keinen Weg
-zu ihnen ausser der Adresszeile, und die tippt niemand zweimal. Unter
-`mini-games/` liegen deshalb ein eigenes Manifest und ein eigener Service
-Worker:
-
-| Datei | was sie tut |
-| --- | --- |
-| `mini-games/app.webmanifest` | Name «Mini-Games», eigenes Icon (weisser Pokal auf Orange statt der Lok), `start_url` und `scope` auf `/mini-games/` |
-| `mini-games/service-worker.js` | **Erzeugt**, nicht getippt: `scripts/generate-mini-games.mjs` schreibt ihn aus den Seiten, damit seine Liste nicht veralten kann. Er bedient nur diesen Ordner |
-| `icons/mini-*.png` | Die Icons der eigenen App, in denselben Grössen wie die der App |
-
-Der Bereich (`scope`) ist der Kern: Ein Service Worker bedient den Ordner, in
-dem er liegt. Der der App liegt eine Ebene höher und bleibt für alles andere
-zuständig; für Seiten unter `/mini-games/` gewinnt der speziellere. Beide haben
-eigene Caches (`lernapp-pwa-` und `lernapp-mini-`) und stehen sich nicht im
-Weg. Angemeldet wird er von `pwa.js` – dieselbe Datei wie in der App, sie
-registriert `./service-worker.js`, und «hier» ist von einer Mini-Seite aus
-dieser Ordner.
-
-**Installieren geht nur über eine zweite Adresse – und das hat einen Grund, den
-man einmal verstanden haben muss.** Android installiert eine Web-App als WebAPK
-und ordnet danach jede Adresse dem installierten WebAPK zu, dessen Bereich sie
-als Präfix enthält. Gripszug wohnt an der Wurzel, sein Bereich ist also
-`https://kids.alae.app/` – und `/mini-games/` fängt damit an. Für Android
-gehört die Seite deshalb zu Gripszug, und Chrome meldet beim Installieren:
-«Diese App wurde bereits installiert.» Gemeint ist die falsche.
-
-Zwei Apps nebeneinander gehen nur, wenn sich ihre Bereiche **nicht** enthalten.
-Den Bereich von Gripszug enger zu fassen ist unmöglich: Seine Seiten liegen
-alle direkt an der Wurzel (`/turmbau.html`, `/index.html`, …), und `/` ist das
-einzige Präfix, das sie abdeckt. Bleibt die andere Richtung – eine zweite
-Adresse:
-
-1. In Netlify unter *Domain management* eine Subdomain als weiteres Domain-Alias
-   auf dieselbe Site legen – eingerichtet ist **`games.alae.app`** – und im DNS
-   einen CNAME darauf: `games` → `lernappkinder.netlify.app`, **DNS only**
-   (in Cloudflare die graue Wolke). Mit oranger Wolke kommt Netlify nicht an
-   die Domain-Validierung und stellt kein Zertifikat aus. `kids.alae.app` steht
-   genauso – derselbe CNAME, unproxied.
-2. Sonst nichts. **Keine Weiterleitungsregel**, kein zweiter Build: Die
-   Subdomain liefert dieselben Dateien unter denselben Pfaden aus, die
-   Mini-Games liegen dort ebenso unter `/mini-games/`. Damit stimmt jeder Pfad
-   – Stylesheet, Skripte, Icons, Service Worker – unverändert, und nur die
-   Herkunft unterscheidet sich. Genau die ist es, auf die es Android ankommt.
-3. Installiert wird über `https://games.alae.app/mini-games/`. Dort ist Gripszug
-   nicht installiert, der Bereich ist frei, und Chrome bietet die Installation
-   an.
-
-Auf `kids.alae.app` steht deshalb auf der Übersicht keine Aufforderung zum
-Installieren, sondern der Weg dorthin – aber nur für Android, denn nur dort
-ist der Bereich im Weg. Auf dem iPhone legt Safari die Seite unabhängig davon
-auf den Startbildschirm, und auf der zweiten Adresse wäre der Verweis ein
-Kreis. Die drei Fälle entscheidet `brauchtZweiteAdresse()` in `mini-games.js`,
-und `scripts/check-mini-games.mjs` spielt sie durch – einmal als Tabelle und
-einmal echt, unter dem Namen der App mit einem Android-Handy (Chromium löst
-den Namen dafür auf den lokalen Server auf).
-
-Ein Name gehört zu der Adresse, unter der er eingetragen wurde: Wer von der
-einen auf die andere wechselt, trägt ihn dort einmal neu ein. In den Listen
-steht er trotzdem nur einmal – verdichtet wird nach Name, nicht nach Gerät
-(`verdichte()`).
-
-Der Link zum Weitergeben bleibt `kids.alae.app/mini-games/…`; er funktioniert
-unverändert – `games.alae.app` ist für das Installieren da, nicht für das
-Verschicken. Nur «Zur App» muss auf der zweiten Adresse die volle Adresse der
-App nennen (`mini-games.js`, `appLink`) – ein `/` führte dort in eine zweite,
-leere Gripszug-Instanz, denn Konto und Fortschritt gehören zu der Adresse,
-unter der sie entstanden sind.
-
-Eine hübschere Variante – die Subdomain direkt auf die Spiele zeigen zu lassen,
-also `spiele.alae.app/turmbau` – wäre möglich, kostet aber eine
-Weiterleitungsregel je Spiel und einen zweiten, hostabhängigen Service Worker,
-dessen Dateiliste sich je nach Adresse anders auflöst. Der Gewinn ist ein
-kürzerer Pfad, den nach dem Installieren ohnehin niemand mehr sieht.
-
-Den Weg auf den Startbildschirm zeigt ein Hinweis zuunterst auf der Übersicht:
-unter Android der Knopf des Browsers, unter iOS die drei Schritte über das
-Teilen-Zeichen (dort geht es nur in Safari). Er erscheint einmal und merkt sich
-unter `lernapp.mini.install`, dass er gezeigt wurde – getrennt vom Hinweis der
-App, der seinen eigenen Schlüssel hat.
-
-**Aus der App führt bewusst kein Link hierher.** Wer Gripszug spielt, soll
-nicht in einen Bereich ohne Konto und ohne Zug abbiegen. Der einzige Weg von
-innen nach aussen steht im Adminbereich neben dem Haken, zum Kopieren; die
-Mini-Games verweisen umgekehrt mit «Zur App» auf die Startseite.
-
-**Was die Bestenliste über Ehrlichkeit verspricht – und was nicht.** Ohne Konto gibt es niemanden
-zu prüfen: Wer schreibt, sagt nur, wer er zu sein behauptet. Die Regeln prüfen deshalb nicht *wer*,
-sondern *was* (siehe `firestore.rules`, `miniScores`):
-
-- ein Dokument je Spiel und Spieler – der Name des Dokuments ist `spiel_spieler`
-- nur eines der zwölf Spiele, die es als Mini-Game gibt (die Liste steht in den Regeln und in
-  `mini-games.js`; `validate-mini-games.mjs` hält sie zusammen)
-- nur die erlaubten Felder, ein Name von höchstens 24 Zeichen, eine ganze Punktzahl in Grenzen
-- eine Runde: Punkte steigen oder bleiben, der Zähler steigt
-- eine Umbenennung: nur der Name ändert sich, der Zähler bleibt stehen – wer sich umbenennt, hat
-  nicht gespielt
-
-**Was bleibt, und das soll hier stehen, statt beruhigend zu klingen:** Wer will, kann sich beliebig
-viele Kennungen ausdenken und die Kollektion mit Einträgen füllen, ohne je gespielt zu haben. Ein
-Eintrag je Spieler ist keine Grenze, solange jeder beliebig viele Spieler sein kann. Ein fremder
-Eintrag lässt sich ausserdem hochsetzen, wenn jemand seinen Dokumentnamen errät. Beides liesse sich
-nur mit einem Konto oder einem eigenen Server-Endpunkt mit Bremse verhindern – und ein Konto ist
-genau das, was dieser Bereich nicht haben soll. Die Folgen wären: ein paar tausend überflüssige
-Dokumente und eine Liste, die man leeren müsste. Der Admin kann Einträge löschen; sonst niemand.
-Wenn das je jemand tut, ist der nächste Schritt ein Endpunkt unter `netlify/functions/`, der
-schreibt, und Regeln, die es keinem Client mehr erlauben – so wie es beim Besuchszähler schon ist
-(`besuchBremse`).
-
-Gelesen wird je Spiel, nicht die ganze Kollektion: `where("game", "==", …)` mit einer Grenze je
-Spiel. Eine einzige Abfrage über alles hätte eine gemeinsame Grenze gehabt – ein gut laufendes
-Mini-Game hätte die Einträge eines anderen aus der Antwort gedrängt, und Spiele ohne Haken wären
-mitgelesen worden, obwohl sie nirgends dastehen.
+Was noch in **dieser** Datenbank steht, sind zwei verwaiste Stellen: `config/miniGames` und die
+Kollektion `miniScores`. Sie werden von nichts mehr gelesen oder geschrieben, `miniScores` hat auch
+keine Regeln mehr. Wer aufräumen will, löscht sie in der Firebase-Konsole – nötig ist es nicht, sie
+kosten nichts.
 
 ### Der Reiter „Gäste": wer die App besucht
 
@@ -649,8 +517,7 @@ Die App schreibt folgende Dokumente:
 | `users/{uid}/sessions/{sessionId}` | Einzelne Spielstände/Sitzungen mit Start, Ende, Dauer, Zügen, Resets und gelöst-Status |
 | `config/train` | Das gültige Wagen-Set und der Zeitpunkt des letzten Wechsels; nur der Admin schreibt es, jedes Gerät liest es |
 | `config/gratisSpiele` | `spiele: [...]` – welche Spiele ohne Kauf **unbegrenzt** offen stehen. Gesetzt wird das im Adminbereich unter „Spiele" (ein Haken je Spiel), gedacht für eine Werbeaktion. Nur der Admin schreibt es, jedes Gerät liest es – auch ein Gast, denn genau er ist gemeint |
-| `config/miniGames` | `spiele: [...]` – welche Spiele es als **Mini-Game** unter `kids.alae.app/mini-games/…` gibt: eigene Adresse, offene Bestenliste, kein Konto. Gesetzt im Adminbereich unter „Spiele" (zweiter Haken je Spielkarte). Nur der Admin schreibt es, jedes Gerät liest es |
-| `miniScores/{spiel}_{spieler}` | Ein Ergebnis je Spieler und Mini-Game: `game` (nur eines der zwölf), `spieler` (Kennung `mini_…` vom Gerät), `name`, `punkte` (Bestwert), `versuche`, Zeitstempel. **Lesen darf jeder** – die Liste ist der Sinn der Sache –, schreiben auch, aber nur nach Form: ein Dokument je Spiel und Spieler, nur diese Felder, Punkte fallen nie, Versuche zählen nur hoch, und eine reine Umbenennung lässt den Zähler stehen. Löschen darf nur der Admin. Was die Regeln **nicht** verhindern, steht oben bei „Der Reiter Spiele" |
+| `config/miniGames`, `miniScores/…` | Verwaist. Übrig von den ausgezogenen Mini-Games (siehe „Die Mini-Games sind ausgezogen"), von nichts mehr gelesen oder geschrieben. `miniScores` hat keine Regeln mehr, ist also aus einem Browser nicht erreichbar; `config/miniGames` fällt weiter unter die allgemeine Regel für `config/…`, nur liest es niemand. Beide dürfen in der Firebase-Konsole weg |
 | `entitlements/{uid}` | Der Kauf eines Kontos (`plan`, `active`, `via`, Zeitstempel). **Schreibt nur der Server** nach einer Zahlung bei Stripe, für das Elternkonto und jedes seiner Kinder – kein Client, auch der Admin nicht von Hand. Lesen darf jedes Konto seinen eigenen Eintrag, der Admin alle |
 | `guests/{guestId}` | Ein Gerät ohne Konto: Besuchszähler, erster und letzter Besuch, grobe Geräteangabe, ungefährer Standort, Gesamtstatistik, Marke `hatGespielt`. Die Kennung (`guest_…`) entsteht auf dem Gerät und liegt im localStorage. Lesen darf nur der Admin. `besuche`, `ort`, `client` und die Besuchs-Zeitstempel schreibt **nur der Server** – die Regeln sperren sie für jeden Client, sonst könnte ein Unangemeldeter erfundene Länder und Besuchszahlen unterschieben |
 | `guests/{guestId}/levelProgress/{levelKey}` | Wie beim Konto, nur ohne Konto |
@@ -717,20 +584,6 @@ node scripts/local-pwa-server.cjs
 ```
 
 Öffne dann die angezeigte `localhost`-Adresse, registriere einen Testnutzer nur mit Name + Passwort und löse ein Level. Danach sollten in Firestore Dokumente unter `users/{uid}` erscheinen.
-
-Die Mini-Games liegen unter denselben Adressen wie später auf der Site – der lokale Server liefert
-sie genauso aus wie Netlify: `/mini-games` ist die Übersicht, `/mini-games/turmbau` das Spiel.
-Geprüft werden sie ohne Firestore:
-
-```bash
-node scripts/generate-mini-games.mjs     # Seiten und Service Worker aus den Seiten der App schreiben
-node scripts/validate-mini-games.mjs     # stimmen Seiten, Manifest, Regeln und Adminbereich zusammen?
-node scripts/check-mini-games.mjs        # im Browser: spielen, eintragen, in der Liste stehen – und installierbar?
-```
-
-`check-mini-games.mjs` ersetzt `firebase.js` im Browser durch eine Attrappe und hält die Einträge
-im Speicher. Ein Prüfskript, das in die Produktionsdatenbank schreibt, wäre eines, das man nicht
-laufen lässt.
 
 ## 10. E-Mails: kids@alae.app
 

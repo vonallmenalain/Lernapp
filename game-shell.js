@@ -30,10 +30,6 @@
   const scenes = () => window.LernappScenes || null;
   const kids = () => window.LernappKids || null;
   const reise = () => window.LernappReise || null;
-  // Der Mini-Modus (mini-games.js): dieselbe Bühne, aber ohne App drumherum –
-  // kein Zuhause, keine Spielauswahl, keine Runden für den Wagen. Dafür eine
-  // Bestenliste, auf der alle stehen. Fehlt die Datei, gibt es ihn nicht.
-  const mini = () => (window.LernappMini?.aktiv?.() ? window.LernappMini : null);
 
   function el(tag, className, text) {
     const node = document.createElement(tag);
@@ -75,12 +71,6 @@
       art().el("rect", { x: 4, y: 3, width: 3, height: 18, rx: 1.2, fill: "currentColor" }),
       art().el("path", { d: "M7 4h11l-3 4 3 4H7z", fill: "currentColor", opacity: "0.85" }),
     ],
-    // Der Pokal: die Bestenliste der Mini-Games.
-    cup: () => [
-      art().el("path", { d: "M7 4h10v4a5 5 0 0 1-10 0z", fill: "currentColor" }),
-      art().el("path", { d: "M7 6H4.5v1.5A3.5 3.5 0 0 0 8 11M17 6h2.5v1.5A3.5 3.5 0 0 1 16 11", fill: "none", stroke: "currentColor", "stroke-width": 2, "stroke-linecap": "round" }),
-      art().el("path", { d: "M12 13v4m-3.5 3h7", fill: "none", stroke: "currentColor", "stroke-width": 2.4, "stroke-linecap": "round" }),
-    ],
     // Die Karte: das Zeichen der Reise, für den Weg zurück.
     map: () => [
       art().el("path", { d: "M4 17 C8 17 8 7 12 7 S16 17 20 17", fill: "none", stroke: "currentColor", "stroke-width": 2.4, "stroke-linecap": "round" }),
@@ -121,10 +111,7 @@
     // --- Der Auftrag der Reise -----------------------------------------------
     // Nur, wenn diese Seite mit einer Station geöffnet wurde, die zu ihr
     // gehört. Dann führt jeder Weg zurück auf die Karte.
-    // Im Mini-Modus gibt es keine Reise, auch wenn jemand ?station= an die
-    // Adresse hängt: Ein Stempel, den ein fremder Besucher setzt, landete
-    // sonst auf der Karte des Kindes, dem dieses Gerät gehört.
-    const journey = mini() ? null : (reise()?.fromLocation?.() || null);
+    const journey = reise()?.fromLocation?.() || null;
     if (journey) host.dataset.journey = String(journey.nr);
     const mapHref = journey ? reise().mapUrl(journey.nr) : null;
     // Noch eine Runde? Ohne Kauf ist nach der ersten Schluss – dann steht hier
@@ -177,12 +164,7 @@
     // --- Leiste oben ---------------------------------------------------------
     const bar = el("div", "cm-bar");
     const left = el("div", "cm-bar-left");
-    // Im Mini-Modus stehen dort zwei andere Knöpfe: der Weg in die App – für
-    // den, der nach einer Runde mehr will – und die Liste aller Mini-Games.
-    // Ein Haus führte hier auf ein Startbild, das dem Spieler nicht gehört,
-    // und "zurück zur Auswahl" ginge in eine Auswahl, die er nie gesehen hat.
-    if (mini()) mini().leiste().forEach((knopf) => left.append(knopf));
-    else left.append(iconButton("home", "Zur Startseite", ICONS.home(), () => {
+    left.append(iconButton("home", "Zur Startseite", ICONS.home(), () => {
       stopClock();
       window.location.href = "index.html";
     }));
@@ -190,7 +172,7 @@
     // einem Spiel mit Levelwahl erst dorthin, sonst gleich in die Spielauswahl
     // des Bereichs. onBack meldet mit true, dass es die Stufe selbst genommen
     // hat.
-    if (!mini()) left.append(iconButton(journey ? "map" : "back", journey ? "Zurück zur Karte" : "Zurück zur Auswahl", journey ? ICONS.map() : ICONS.back(), () => {
+    left.append(iconButton(journey ? "map" : "back", journey ? "Zurück zur Karte" : "Zurück zur Auswahl", journey ? ICONS.map() : ICONS.back(), () => {
       stopClock();
       if (journey) { toMap(); return; }
       if (onBack?.()) return;
@@ -399,10 +381,7 @@
       // Ein Kind, das die Zahlen nicht liest, erfährt so, wie es gelaufen ist
       // und wie weit es noch bis zum fertigen Wagen hat.
       releaseHelp?.();
-      // Im Mini-Modus sagt der Lautsprecher etwas anderes: Der Satz aus dem
-      // Spiel zählt Runden bis zum nächsten Wagen – und hier gibt es keinen.
-      const miniSpeech = mini() ? mini().ergebnisSprache({ punkte: points, label }) : null;
-      const fullSpeech = miniSpeech || (journeyNote ? `${speech || ""} ${journeyNote.speech}`.trim() : speech);
+      const fullSpeech = journeyNote ? `${speech || ""} ${journeyNote.speech}`.trim() : speech;
       releaseHelp = fullSpeech ? kids()?.pushHelp?.(fullSpeech) || null : null;
       const parts = [el("p", "cm-result-label", label)];
       if (typeof stars === "number") {
@@ -432,10 +411,8 @@
         item.append(el("span", "cm-score-rank", `${index + 1}.`), el("span", "cm-score-value", String(value)));
         list.append(item);
       });
-      // Die eigenen fünf besten Runden – aber nicht im Mini-Modus: Dort ist
-      // die Liste, auf die es ankommt, die mit den anderen Namen darauf, und
-      // zwei Bestenlisten übereinander sind eine zu viel.
-      if (scores && !mini()) {
+      // Die eigenen fünf besten Runden.
+      if (scores) {
         for (let i = scores.length; i < top; i += 1) {
           const item = el("li", "cm-score-item is-empty");
           item.append(el("span", "cm-score-rank", `${i + 1}.`), el("span", "cm-score-value", "–"));
@@ -443,24 +420,16 @@
         }
         parts.push(list);
       }
-      // Stattdessen: Namensfeld, eigener Platz, die Liste aller (mini-games.js).
-      if (mini()) parts.push(mini().ergebnis({ punkte: points }));
       if (journeyNote) {
         const line = el("p", `cm-journey${journeyNote.done ? " is-done" : ""}`, journeyNote.text);
         line.prepend(svg(journeyNote.done ? ICONS.tick() : ICONS.flag(), { class: "cm-journey-icon" }));
         parts.push(line);
       }
-      // "Noch zwei Runden, dann wächst dein Wagen" – im Mini-Modus wächst
-      // nichts, es gibt keinen Zug. Der Satz bliebe unverständlich.
-      if (note && !mini()) parts.push(el("p", `cm-runs${note.done ? " is-done" : ""}`, note.text));
+      if (note) parts.push(el("p", `cm-runs${note.done ? " is-done" : ""}`, note.text));
 
       const actions = el("div", "cm-actions");
       actions.append(iconButton("again", "Noch einmal", ICONS.again(), () => { closeOverlay(); nochEinmal(); }, "big"));
-      if (mini()) {
-        // Kein Weg "zurück": Wer über einen Link hereinkam, hat keine Auswahl
-        // hinter sich. Der Pokal führt zu den anderen Mini-Games.
-        actions.append(iconButton("cup", "Mini Games", ICONS.cup(), () => mini().oeffneFenster(mini().spielId()), "big"));
-      } else if (journey) {
+      if (journey) {
         // Zurück auf die Karte – der Stempel wartet dort. Bei geschafftem
         // Auftrag ist das der Knopf, der pulst.
         actions.append(iconButton("map", "Zurück zur Karte", ICONS.map(), toMap, `big${journeyNote?.done ? " is-primary" : ""}`));

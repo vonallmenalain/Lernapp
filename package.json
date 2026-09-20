@@ -5,9 +5,7 @@
   "type": "module",
   "scripts": {
     "test:rules": "node scripts/test-rules.mjs",
-    "test:functions": "node scripts/test-functions.mjs",
-    "mini-games": "node scripts/generate-mini-games.mjs",
-    "test:mini-games": "node scripts/validate-mini-games.mjs"
+    "test:functions": "node scripts/test-functions.mjs"
   },
   "devDependencies": {
     "@firebase/rules-unit-testing": "^5.0.2",

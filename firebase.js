@@ -90,15 +90,6 @@
     LOCAL_GUEST_ID_KEY,
     LOCAL_GUEST_CREATED_KEY,
     LOCAL_GUEST_PING_KEY,
-    // Die Mini-Games (mini-games.js) liegen neben der App: Name, Gerätekennung
-    // und der eigene Bestwert dort gehören keinem Konto und sind kein
-    // Fortschritt, den ein Zurücksetzen meint. Ohne diese drei Zeilen nähme
-    // ein zurückgesetztes Kinderkonto – oder ein Wechsel des Wagen-Sets –
-    // einem fremden Besucher seinen Namen und seine Kennung weg, und er stünde
-    // beim nächsten Mal als zweiter Eintrag in derselben Liste.
-    "lernapp.mini.name",
-    "lernapp.mini.id",
-    "lernapp.mini.best",
   ]);
   const EMPTY_STATS = { totalSeconds: 0, moves: 0, resets: 0, solvedLevels: 0, sessions: 0 };
   const state = {
@@ -115,10 +106,6 @@
     // Steht die Liste schon fest? Die Schranke fragt danach: Wer vor der
     // Antwort entscheidet, zeigt einem Kind ein Tor, das gleich verschwindet.
     freieSpieleBereit: false,
-    // Spiele, die es als Mini-Game gibt (config/miniGames): eigene Adresse
-    // unter /mini-games/, offene Bestenliste, kein Konto. Siehe mini-games.js.
-    miniSpiele: [],
-    miniSpieleBereit: false,
     progress: new Map(),
     levelCatalog: [],
     levelsByKey: new Map(),
@@ -279,13 +266,6 @@
     // Antwort entscheidet, zeigt einem Kind ein Tor, das gleich verschwindet.
     getFreieSpiele: () => [...state.freieSpiele],
     isFreieSpieleLoaded: () => state.freieSpieleBereit,
-    // Dasselbe für die Mini-Games: welche Spiele eine eigene Adresse mit
-    // offener Bestenliste haben, und ob die Antwort schon feststeht.
-    getMiniSpiele: () => [...state.miniSpiele],
-    isMiniSpieleLoaded: () => state.miniSpieleBereit,
-    miniErgebnisse: ladeMiniErgebnisse,
-    miniSpeichern: speichereMiniErgebnis,
-    miniNameAendern: aendereMiniName,
 
     admin: {
       isAdmin: () => isAdminUser(),
@@ -304,7 +284,6 @@
       loeschen: kontoLoeschen,
       switchWagonSet,
       setGratisSpiel,
-      setMiniSpiel,
       // Der Reiter E-Mail: das Archiv und die Weiterleitung.
       ladeMails: loadMails,
       mailEinstellungen,
@@ -367,7 +346,6 @@
       state.authReady = true;
       state.profileReady = true;
       state.freieSpieleBereit = true;
-      state.miniSpieleBereit = true;
       setAccountStatus(false);
       return;
     }
@@ -384,13 +362,11 @@
       startHeartbeat();
       watchWagonSet();
       watchFreieSpiele();
-      watchMiniSpiele();
     } catch (error) {
       state.firebaseReady = false;
       state.authReady = true;
       state.profileReady = true;
       state.freieSpieleBereit = true;
-      state.miniSpieleBereit = true;
       renderError("Firebase konnte nicht gestartet werden.", error);
     }
   }
@@ -681,13 +657,6 @@
   function besuchMelden() {
     if (state.besuchGemeldet) return;
     state.besuchGemeldet = true;
-
-    // Ein Mini-Game ist kein Besuch der App. Wer über einen geteilten Link
-    // eine Runde Turmbau spielt, hat Gripszug nicht geöffnet – er hat auf
-    // etwas getippt, das ihm jemand geschickt hat. Ihn in der Gästeliste zu
-    // zählen, machte die einzige Zahl kaputt, für die es sie gibt: wie viele
-    // Leute die App ausprobiert haben.
-    if (document.body?.dataset?.mini === "1") return;
 
     // Zweite Bremse neben der auf dem Server: Ein Neuladen ist kein zweiter
     // Besuch, und ein Aufruf, den wir gar nicht erst machen, kostet auch
@@ -1685,226 +1654,6 @@
     state.freieSpiele = [...jetzt];
     document.dispatchEvent(new CustomEvent("lernapp:entitlement-changed", { detail: { grund: "gratis-spiele" } }));
     return [...state.freieSpiele];
-  }
-
-  // --- Die Mini-Games ----------------------------------------------------------
-  // Dasselbe Muster wie oben, ein Dokument weiter: config/miniGames nennt die
-  // Spiele, die es unter kids.alae.app/mini-games/… einzeln gibt – mit offener
-  // Bestenliste, ohne Konto, ohne Zug. Der Haken dafür steht im Adminbereich
-  // neben dem für "Gratis ohne Limite", und die beiden haben nichts
-  // miteinander zu tun: Ein Mini-Game ist ein eigener Eingang, kein
-  // Freifahrtschein für die App.
-  //
-  // Lesen darf es jeder (firestore.rules, match /config) – die Mini-Seiten
-  // haben ja gerade kein Konto. Schreiben nur der Admin.
-  function miniSpieleRef() {
-    return state.db ? state.db.collection("config").doc("miniGames") : null;
-  }
-
-  function watchMiniSpiele() {
-    const ref = miniSpieleRef();
-    if (!ref) { state.miniSpieleBereit = true; return; }
-    const uebernehmen = (doc) => {
-      state.miniSpiele = readFreieSpiele(typeof doc?.data === "function" ? doc.data() : null);
-      state.miniSpieleBereit = true;
-      // Die Übersicht und das Fenster "Mini Games" zeichnen neu: Ein Spiel,
-      // das der Admin eben angehakt hat, ist sofort da.
-      document.dispatchEvent(new CustomEvent("lernapp:mini-spiele", { detail: { spiele: [...state.miniSpiele] } }));
-    };
-    const melden = (error) => {
-      // Nicht lesbar heisst hier: keine Mini-Games. Anders als bei der
-      // Schranke ist das die harmlose Antwort – niemand wird ausgesperrt, es
-      // steht nur nichts da.
-      state.miniSpieleBereit = true;
-      console.warn("Die Liste der Mini-Games konnte nicht gelesen werden", error);
-      document.dispatchEvent(new CustomEvent("lernapp:mini-spiele", { detail: { spiele: [] } }));
-    };
-    try {
-      if (typeof ref.onSnapshot === "function") ref.onSnapshot(uebernehmen, melden);
-      else ref.get().then(uebernehmen).catch(melden);
-    } catch (error) {
-      melden(error);
-    }
-  }
-
-  // Ein Haken, ein Eintrag – arrayUnion und arrayRemove aus demselben Grund
-  // wie bei setGratisSpiel: Zwei offene Adminfenster dürfen einander die
-  // Liste nicht wegschreiben.
-  async function setMiniSpiel(gameId, an) {
-    const id = String(gameId || "").trim();
-    if (!id) return [...state.miniSpiele];
-    const ref = miniSpieleRef();
-    if (!ref) throw new Error("Firestore ist nicht bereit.");
-    if (!state.miniSpieleBereit) throw new Error("Die Liste der Mini-Games ist noch nicht geladen.");
-
-    await ref.set({
-      spiele: an ? arrayUnion(id) : arrayRemove(id),
-      updatedAtMs: Date.now(),
-      updatedAt: serverTimestamp(),
-      by: state.user?.uid || null,
-    }, { merge: true });
-
-    const jetzt = new Set(state.miniSpiele);
-    if (an) jetzt.add(id); else jetzt.delete(id);
-    state.miniSpiele = [...jetzt];
-    document.dispatchEvent(new CustomEvent("lernapp:mini-spiele", { detail: { spiele: [...state.miniSpiele] } }));
-    return [...state.miniSpiele];
-  }
-
-  // --- Die Ergebnisse der Mini-Games -------------------------------------------
-  // Eine flache Kollektion: miniScores/<spiel>_<spieler>. Ein Dokument je
-  // Spieler und Spiel – deshalb steht in der Liste eine Zeile je Person, so
-  // wie die Bestenliste der Gruppe in der App eine Zeile je Kind zeigt.
-  //
-  // Gelesen wird je Spiel, nicht die ganze Kollektion: where("game", "==", …)
-  // ist eine Abfrage über ein einziges Feld und braucht deshalb keinen
-  // zusammengesetzten Index – eine Datei mehr, die jemand von Hand nach
-  // Firebase bringen muss, wäre ein Fehler, der erst in der Produktion
-  // auffällt.
-  //
-  // Hier stand einmal eine einzige Abfrage über alles mit limit(800), und das
-  // war falsch: Die Grenze galt für den Topf, nicht für das Spiel. Ein gut
-  // laufendes Mini-Game hätte mit seinen Einträgen die eines anderen aus der
-  // Antwort gedrängt – samt der Einträge von Spielen, die gar nicht mehr
-  // freigegeben sind und trotzdem gelesen wurden. Je Spiel gilt die Grenze
-  // jetzt für dieses Spiel, und wer nicht gefragt wird, kostet nichts.
-  const MINI_MAX_JE_SPIEL = 300;
-  const MINI_NAME_MAX = 24;
-
-  function miniScoresRef() {
-    return state.db ? state.db.collection("miniScores") : null;
-  }
-
-  function liesMiniEintrag(doc) {
-    const daten = typeof doc?.data === "function" ? doc.data() : null;
-    if (!daten) return null;
-    const punkte = Math.max(0, Math.round(Number(daten.punkte) || 0));
-    const versuche = Math.max(1, Math.round(Number(daten.versuche) || 1));
-    const name = String(daten.name || "").trim().slice(0, MINI_NAME_MAX);
-    const game = String(daten.game || "").trim();
-    if (!game || !name) return null;
-    return {
-      id: doc.id,
-      game,
-      spieler: String(daten.spieler || ""),
-      name,
-      punkte,
-      versuche,
-      updatedAtMs: Number(daten.updatedAtMs) || 0,
-    };
-  }
-
-  /*
-   * Die Ergebnisse der genannten Spiele. Gefragt wird nur nach denen, die
-   * gerade freigegeben sind – wer nicht gefragt wird, taucht auch in keiner
-   * Zahl auf, und ein Spiel, das der Admin herausgenommen hat, blähte sonst
-   * die Runden der Übersicht auf, ohne selbst dazustehen.
-   *
-   * Ein Spiel, das nicht antwortet, wirft die anderen nicht um: Die Liste
-   * kommt dann ohne dieses eine – besser als eine leere Seite.
-   */
-  async function ladeMiniErgebnisse(spiele = []) {
-    const ref = miniScoresRef();
-    const ids = [...new Set((Array.isArray(spiele) ? spiele : [])
-      .map((id) => String(id || "").trim())
-      .filter(Boolean))];
-    if (!ref || !ids.length) return [];
-
-    const antworten = await Promise.all(ids.map((id) => ref
-      .where("game", "==", id)
-      .limit(MINI_MAX_JE_SPIEL)
-      .get()
-      .catch((error) => {
-        console.warn(`Die Bestenliste von ${id} konnte nicht gelesen werden`, error);
-        return null;
-      })));
-
-    const liste = [];
-    antworten.forEach((schnappschuss) => {
-      if (!schnappschuss) return;
-      schnappschuss.forEach((doc) => {
-        const eintrag = liesMiniEintrag(doc);
-        if (eintrag) liste.push(eintrag);
-      });
-    });
-    return liste;
-  }
-
-  /*
-   * Ein neuer Name, ohne dass eine Runde daraus wird.
-   *
-   * Ohne diesen Weg musste sich ein Umbenennen als Runde verkleiden – und
-   * genau das tat es: Wer nach einer Runde auf "Name ändern" tippte, hatte
-   * danach zwei Versuche für ein Spiel. Die Regeln lassen deshalb eine
-   * Änderung zu, die nur den Namen anfasst (firestore.rules, miniScores).
-   */
-  async function aendereMiniName({ game, spieler, name }) {
-    const spielId = String(game || "").trim();
-    const spielerId = String(spieler || "").trim();
-    const wie = String(name || "").replace(/\s+/g, " ").trim().slice(0, MINI_NAME_MAX);
-    if (!spielId || !spielerId || !wie) throw new Error("Für einen neuen Namen fehlt etwas.");
-    const ref = miniScoresRef();
-    if (!ref) throw new Error("Firestore ist nicht bereit.");
-
-    const doc = ref.doc(`${spielId}_${spielerId}`);
-    const vorher = await doc.get();
-    // Noch kein Eintrag: Dann gibt es auch nichts umzubenennen – der Name
-    // gilt ab der nächsten Runde.
-    if (!vorher.exists) return null;
-    await doc.set({ name: wie, updatedAtMs: Date.now(), updatedAt: serverTimestamp() }, { merge: true });
-    const alt = liesMiniEintrag(vorher);
-    return { rekord: false, punkte: alt?.punkte ?? 0, versuche: alt?.versuche ?? 1 };
-  }
-
-  /*
-   * Eine Runde ist zu Ende.
-   *
-   * Zwei Dinge gehören in dasselbe Dokument, und sie folgen verschiedenen
-   * Regeln: Die Punktzahl ist ein Bestwert – sie steigt oder bleibt –, die
-   * Versuche sind ein Zähler und steigen immer. Deshalb wird erst gelesen und
-   * dann geschrieben: Ohne das würde eine schlechtere Runde die Bestzahl
-   * überschreiben, und die Liste wäre keine Bestenliste mehr.
-   *
-   * Zurück kommt, was die Seite braucht, um es hinzuschreiben: ob es eine neue
-   * Bestzahl war und wie der Stand jetzt ist.
-   */
-  async function speichereMiniErgebnis({ game, spieler, name, punkte }) {
-    const spielId = String(game || "").trim();
-    const spielerId = String(spieler || "").trim();
-    const wie = String(name || "").replace(/\s+/g, " ").trim().slice(0, MINI_NAME_MAX);
-    const zahl = Math.max(0, Math.min(1000000, Math.round(Number(punkte) || 0)));
-    if (!spielId || !spielerId || !wie) throw new Error("Für einen Eintrag fehlt etwas.");
-    const ref = miniScoresRef();
-    if (!ref) throw new Error("Firestore ist nicht bereit.");
-
-    const doc = ref.doc(`${spielId}_${spielerId}`);
-    const vorher = await doc.get();
-    const alt = vorher.exists ? liesMiniEintrag(vorher) : null;
-    const jetzt = Date.now();
-
-    if (!alt) {
-      await doc.set({
-        game: spielId,
-        spieler: spielerId,
-        name: wie,
-        punkte: zahl,
-        versuche: 1,
-        erstesMs: jetzt,
-        updatedAtMs: jetzt,
-        updatedAt: serverTimestamp(),
-      });
-      return { rekord: true, punkte: zahl, versuche: 1 };
-    }
-
-    const rekord = zahl > alt.punkte;
-    await doc.set({
-      name: wie,
-      punkte: rekord ? zahl : alt.punkte,
-      versuche: increment(1),
-      updatedAtMs: jetzt,
-      updatedAt: serverTimestamp(),
-    }, { merge: true });
-    return { rekord, punkte: rekord ? zahl : alt.punkte, versuche: alt.versuche + 1 };
   }
 
   function watchWagonSet() {

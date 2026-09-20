@@ -122,16 +122,7 @@
     return "offen";
   }
 
-  // Die Mini-Games (mini-games.js) liegen neben der App, nicht in ihr: ein
-  // Link, den jemand weitergibt, eine Runde, eine offene Bestenliste. Dort gibt
-  // es nichts zu kaufen und also auch nichts zu sperren – und eine
-  // Schnupperrunde darf eine geteilte Runde schon gar nicht kosten: Wer den
-  // Link anklickt, verbrauchte sonst die eine freie Runde, die er in der App
-  // noch gar nicht gesehen hat.
-  const istMini = () => document.body?.dataset?.mini === "1";
-
   function isFree() {
-    if (istMini()) return true;
     const r = reason();
     return r === "gekauft" || r === "gruender";
   }
