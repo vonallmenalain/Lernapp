@@ -181,6 +181,21 @@ try {
     pruefe(await seite.getAttribute("body", "data-mini") === "1", "Am body fehlt data-mini.");
     const zurApp = await seite.getAttribute(".cm-bar-left a", "href");
     pruefe(zurApp === "/", `"Zur App" zeigt auf ${zurApp} statt auf /.`);
+    // Und auf einer fremden Adresse vollständig: Die Mini-Games sind auch über
+    // eine zweite Adresse erreichbar (nur dort lassen sie sich auf einem
+    // Android-Handy installieren, weil Gripszug hier den ganzen Bereich
+    // belegt). Dort führte "/" in eine zweite, leere Gripszug-Instanz ohne
+    // Konto und ohne Fortschritt.
+    const wege = await seite.evaluate(() => ({
+      eigen: window.LernappMini.appLink("kids.alae.app"),
+      fremd: window.LernappMini.appLink("spiele.alae.app"),
+      lokal: window.LernappMini.appLink("localhost"),
+      vorschau: window.LernappMini.appLink("deploy-preview-9--lernappkinder.netlify.app"),
+    }));
+    pruefe(wege.eigen === "/", `Auf der Adresse der App zeigt "Zur App" auf ${wege.eigen} statt auf /.`);
+    pruefe(wege.fremd === "https://kids.alae.app/", `Auf einer fremden Adresse zeigt "Zur App" auf ${wege.fremd} statt auf die volle Adresse der App.`);
+    pruefe(wege.lokal === "/", `Beim Entwickeln zeigt "Zur App" auf ${wege.lokal} – ein Sprung in die Produktion.`);
+    pruefe(wege.vorschau === "/", `In der Vorschau zeigt "Zur App" auf ${wege.vorschau} – ein Sprung in die Produktion.`);
 
     // Das Fenster mit allen Mini-Games.
     await seite.click(".cm-bar-left button.mini-knopf");

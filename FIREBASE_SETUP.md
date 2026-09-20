@@ -342,6 +342,43 @@ Weg. Angemeldet wird er von `pwa.js` – dieselbe Datei wie in der App, sie
 registriert `./service-worker.js`, und «hier» ist von einer Mini-Seite aus
 dieser Ordner.
 
+**Installieren geht nur über eine zweite Adresse – und das hat einen Grund, den
+man einmal verstanden haben muss.** Android installiert eine Web-App als WebAPK
+und ordnet danach jede Adresse dem installierten WebAPK zu, dessen Bereich sie
+als Präfix enthält. Gripszug wohnt an der Wurzel, sein Bereich ist also
+`https://kids.alae.app/` – und `/mini-games/` fängt damit an. Für Android
+gehört die Seite deshalb zu Gripszug, und Chrome meldet beim Installieren:
+«Diese App wurde bereits installiert.» Gemeint ist die falsche.
+
+Zwei Apps nebeneinander gehen nur, wenn sich ihre Bereiche **nicht** enthalten.
+Den Bereich von Gripszug enger zu fassen ist unmöglich: Seine Seiten liegen
+alle direkt an der Wurzel (`/turmbau.html`, `/index.html`, …), und `/` ist das
+einzige Präfix, das sie abdeckt. Bleibt die andere Richtung – eine zweite
+Adresse:
+
+1. In Netlify unter *Domain management* eine Subdomain als weiteres Domain-Alias
+   auf dieselbe Site legen (z. B. `spiele.alae.app`), samt DNS-Eintrag.
+2. Sonst nichts. **Keine Weiterleitungsregel**, kein zweiter Build: Die
+   Subdomain liefert dieselben Dateien unter denselben Pfaden aus, die
+   Mini-Games liegen dort ebenso unter `/mini-games/`. Damit stimmt jeder Pfad
+   – Stylesheet, Skripte, Icons, Service Worker – unverändert, und nur die
+   Herkunft unterscheidet sich. Genau die ist es, auf die es Android ankommt.
+3. Installiert wird über `https://<subdomain>/mini-games/`. Dort ist Gripszug
+   nicht installiert, der Bereich ist frei, und Chrome bietet die Installation
+   an.
+
+Der Link zum Weitergeben bleibt `kids.alae.app/mini-games/…`; er funktioniert
+unverändert. Nur «Zur App» muss auf der zweiten Adresse die volle Adresse der
+App nennen (`mini-games.js`, `appLink`) – ein `/` führte dort in eine zweite,
+leere Gripszug-Instanz, denn Konto und Fortschritt gehören zu der Adresse,
+unter der sie entstanden sind.
+
+Eine hübschere Variante – die Subdomain direkt auf die Spiele zeigen zu lassen,
+also `spiele.alae.app/turmbau` – wäre möglich, kostet aber eine
+Weiterleitungsregel je Spiel und einen zweiten, hostabhängigen Service Worker,
+dessen Dateiliste sich je nach Adresse anders auflöst. Der Gewinn ist ein
+kürzerer Pfad, den nach dem Installieren ohnehin niemand mehr sieht.
+
 Den Weg auf den Startbildschirm zeigt ein Hinweis zuunterst auf der Übersicht:
 unter Android der Knopf des Browsers, unter iOS die drei Schritte über das
 Teilen-Zeichen (dort geht es nur in Safari). Er erscheint einmal und merkt sich

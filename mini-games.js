@@ -125,7 +125,38 @@
   // (/mini-games/turmbau), die Übersicht je nach Aufruf auf /mini-games oder
   // /mini-games/ – und "turmbau" hiesse von der einen aus /turmbau und von der
   // anderen /mini-games/turmbau. Ab der Wurzel heisst es überall dasselbe.
-  const appLink = () => "/";
+  //
+  // Beim Weg zur App reicht das nicht. Die Mini-Games sind auch über eine
+  // zweite Adresse erreichbar, und das ist kein Zufall, sondern der einzige
+  // Weg, sie auf einem Android-Handy als eigene App zu installieren:
+  //
+  //   Android ordnet jede Adresse der installierten App zu, deren Bereich sie
+  //   als Präfix enthält. Gripszug wohnt an der Wurzel, sein Bereich ist also
+  //   die ganze Domain – und /mini-games/ steckt darin. Wer die Mini-Games
+  //   installieren will, bekommt deshalb auf kids.alae.app zu hören, die App
+  //   sei schon da: gemeint ist Gripszug. Auf einer eigenen Subdomain, unter
+  //   der Gripszug nicht installiert ist, gibt es diese Verwechslung nicht.
+  //
+  // Dort darf "Zur App" aber nicht "/" heissen. Dieselbe Site liegt zwar auch
+  // unter der Subdomain, und Gripszug startete dort sogar – aber als fremde
+  // App ohne Konto und ohne Fortschritt, denn beides gehört zur Adresse, unter
+  // der es entstanden ist. Deshalb steht die Adresse der App dort vollständig
+  // da.
+  const APP_HOST = "kids.alae.app";
+
+  // host ist ein Parameter, damit sich die Entscheidung prüfen lässt, ohne die
+  // Prüfung unter einem anderen Namen laufen lassen zu müssen.
+  function appLink(host) {
+    let wo = host;
+    if (wo === undefined) {
+      try { wo = window.location.hostname || ""; } catch { wo = ""; }
+    }
+    if (!wo || wo === APP_HOST) return "/";
+    // Beim Entwickeln und in der Netlify-Vorschau liegt die App auf demselben
+    // Host – dort wäre eine vollständige Adresse ein Sprung in die Produktion.
+    if (/^(localhost|127\.|0\.0\.0\.0|\[?::1)/.test(wo) || wo.endsWith(".netlify.app")) return "/";
+    return `https://${APP_HOST}/`;
+  }
   const uebersichtLink = () => "/mini-games/";
   const spielLink = (id) => `/mini-games/${NACH_ID.get(id)?.seite || ""}`;
   // Zum Weitergeben, mit allem davor: Das ist die Zeile, die im Adminbereich
@@ -938,6 +969,7 @@
     spielLink,
     teilLink,
     uebersichtLink,
+    appLink,
     kannMini: (id) => NACH_ID.has(id),
     seiteVon: (id) => NACH_ID.get(id)?.seite || "",
     spielZuSeite: (seite) => NACH_SEITE.get(seite)?.id || "",
