@@ -295,17 +295,15 @@ Das ist jetzt eine eigene App: **[games.alae.app](https://games.alae.app/)**, ei
 können. Der Grund für den Umzug war die Installation: Auf `kids.alae.app` belegt Gripszug den
 ganzen Bereich, und Chrome bietet deshalb keine zweite App zur Installation an.
 
-Was hier davon übrig ist:
+**Hier ist davon nichts übrig.** Kein Ordner, kein Skript, keine Regel, keine Verzweigung – und
+auch keine Weiterleitung: `kids.alae.app/mini-games/…` ist eine Adresse wie jede andere, die es
+nicht gibt. Die neue App ist ein Neustart und fängt mit einer leeren Bestenliste an; die alten
+Ergebnisse werden nicht übernommen.
 
-| Was | Wo |
-|---|---|
-| Die alten Adressen | `netlify.toml` leitet `/mini-games/*` dauerhaft auf `games.alae.app/:splat` um – verschickte Links zeigen nicht ins Leere |
-| Der alte Service Worker | `mini-games-abschied.js` wird unter seiner alten Adresse ausgeliefert und räumt sich selbst ab. Ohne ihn bliebe ein installiertes Mini-Games auf dem Startbildschirm für immer bei seiner alten, gespeicherten Fassung |
-| Die alten Ergebnisse | Die Kollektion `miniScores` steht noch in dieser Datenbank, aber ohne Regeln: Aus einem Browser ist sie nicht mehr erreichbar. Die Daten sind da – über die Firebase-Konsole und das Admin-SDK –, sie sind nur nicht mehr offen. Gelöscht wurde nichts |
-
-Die neue App fängt mit einer leeren Bestenliste an. Wer die alten Ergebnisse dort haben will,
-kopiert sie mit dem Admin-SDK von `gripszug` nach `games-a0cd4`; die Dokumente haben in beiden
-dieselbe Form.
+Was noch in **dieser** Datenbank steht, sind zwei verwaiste Stellen: `config/miniGames` und die
+Kollektion `miniScores`. Sie werden von nichts mehr gelesen oder geschrieben, `miniScores` hat auch
+keine Regeln mehr. Wer aufräumen will, löscht sie in der Firebase-Konsole – nötig ist es nicht, sie
+kosten nichts.
 
 ### Der Reiter „Gäste": wer die App besucht
 
@@ -519,7 +517,7 @@ Die App schreibt folgende Dokumente:
 | `users/{uid}/sessions/{sessionId}` | Einzelne Spielstände/Sitzungen mit Start, Ende, Dauer, Zügen, Resets und gelöst-Status |
 | `config/train` | Das gültige Wagen-Set und der Zeitpunkt des letzten Wechsels; nur der Admin schreibt es, jedes Gerät liest es |
 | `config/gratisSpiele` | `spiele: [...]` – welche Spiele ohne Kauf **unbegrenzt** offen stehen. Gesetzt wird das im Adminbereich unter „Spiele" (ein Haken je Spiel), gedacht für eine Werbeaktion. Nur der Admin schreibt es, jedes Gerät liest es – auch ein Gast, denn genau er ist gemeint |
-| `config/miniGames`, `miniScores/…` | Von den ausgezogenen Mini-Games übrig (siehe „Die Mini-Games sind ausgezogen"). Beide stehen noch in der Datenbank, `miniScores` hat keine Regeln mehr – aus einem Browser ist die Kollektion nicht mehr erreichbar. Gelöscht wurde nichts. `config/miniGames` fällt unter die allgemeine Regel für `config/…`: lesen alle, schreiben der Admin; es liest nur niemand mehr |
+| `config/miniGames`, `miniScores/…` | Verwaist. Übrig von den ausgezogenen Mini-Games (siehe „Die Mini-Games sind ausgezogen"), von nichts mehr gelesen oder geschrieben. `miniScores` hat keine Regeln mehr, ist also aus einem Browser nicht erreichbar; `config/miniGames` fällt weiter unter die allgemeine Regel für `config/…`, nur liest es niemand. Beide dürfen in der Firebase-Konsole weg |
 | `entitlements/{uid}` | Der Kauf eines Kontos (`plan`, `active`, `via`, Zeitstempel). **Schreibt nur der Server** nach einer Zahlung bei Stripe, für das Elternkonto und jedes seiner Kinder – kein Client, auch der Admin nicht von Hand. Lesen darf jedes Konto seinen eigenen Eintrag, der Admin alle |
 | `guests/{guestId}` | Ein Gerät ohne Konto: Besuchszähler, erster und letzter Besuch, grobe Geräteangabe, ungefährer Standort, Gesamtstatistik, Marke `hatGespielt`. Die Kennung (`guest_…`) entsteht auf dem Gerät und liegt im localStorage. Lesen darf nur der Admin. `besuche`, `ort`, `client` und die Besuchs-Zeitstempel schreibt **nur der Server** – die Regeln sperren sie für jeden Client, sonst könnte ein Unangemeldeter erfundene Länder und Besuchszahlen unterschieben |
 | `guests/{guestId}/levelProgress/{levelKey}` | Wie beim Konto, nur ohne Konto |
