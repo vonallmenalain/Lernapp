@@ -610,11 +610,24 @@ try {
     pruefe(/Alles ist offen/.test(seiteText), `Ganze App gratis: der Verkaufsbildschirm sagt nicht, dass alles offen ist: "${seiteText.slice(0, 120)}"`);
     pruefe(!/CHF|kaufen|bezahl|Kasse/i.test(seiteText), `Ganze App gratis: der Verkaufsbildschirm nennt Preis oder Kasse: "${seiteText.slice(0, 160)}"`);
     pruefe(await page.locator(".kauf-seite [data-kaufen], .kauf-seite [data-kauf-form]").count() === 0, "Ganze App gratis: der Verkaufsbildschirm hat einen Kaufknopf oder ein Kaufformular");
+    const hilfe = () => page.evaluate(() => window.LernappKids?.currentHelp?.() || "");
+    pruefe(/offen/.test(await hilfe()) && !/kostet/.test(await hilfe()), `Ganze App gratis: der Lautsprecher sagt zum Verkaufsbildschirm: "${await hilfe()}"`);
     await knips(page, "9b-alles-offen");
     // Die Kasse selbst, direkt gerufen: kein Weg zu Stripe, kein Aufruf beim Server.
     const kasse = await page.evaluate(() => window.LernappFirebase.zurKasse().then(() => "offen", (e) => e?.code || "fehler"));
     pruefe(kasse === "lernapp/app-gratis", `Ganze App gratis: zurKasse() lässt durch oder scheitert anders (${kasse})`);
     pruefe(!anfragen.some((a) => a.pfad === "checkout"), "Ganze App gratis: die Kasse wurde trotzdem beim Server angerufen");
+    // Der Haken fällt, während der Verkaufsbildschirm offen ist: Die Seite und
+    // der Satz des Lautsprechers wechseln mit – in beide Richtungen. Sonst läse
+    // er den Preis weiter vor, während die Seite schon "Alles ist offen" zeigt.
+    await page.evaluate(() => window.__ersatz.setze("config/gratisSpiele", { spiele: [], ganzeApp: false }));
+    await page.waitForFunction(() => /CHF 30/.test(document.querySelector(".kauf-seite")?.textContent || ""), null, { timeout: 5000 }).catch(() => {});
+    pruefe(/CHF 30/.test(await text(page.locator(".kauf-seite"))), "Haken weg bei offenem Verkaufsbildschirm: das Angebot kommt nicht zurück");
+    pruefe(/kostet/.test(await hilfe()), `Haken weg bei offenem Verkaufsbildschirm: der Lautsprecher sagt nicht, was es kostet: "${await hilfe()}"`);
+    await page.evaluate(() => window.__ersatz.setze("config/gratisSpiele", { spiele: [], ganzeApp: true }));
+    await page.waitForFunction(() => /Alles ist offen/.test(document.querySelector(".kauf-seite")?.textContent || ""), null, { timeout: 5000 }).catch(() => {});
+    pruefe(/Alles ist offen/.test(await text(page.locator(".kauf-seite"))), "Haken wieder an bei offenem Verkaufsbildschirm: das Angebot bleibt stehen");
+    pruefe(!/kostet/.test(await hilfe()), `Haken wieder an bei offenem Verkaufsbildschirm: der Lautsprecher liest weiter den Preis vor: "${await hilfe()}"`);
     if (await page.locator("[data-kauf-fertig]").count()) await page.locator("[data-kauf-fertig]").click({ timeout: 5000 });
     else await page.locator(".account-close").click({ timeout: 5000 });
 

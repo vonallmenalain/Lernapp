@@ -2273,17 +2273,24 @@
     if (state.kaufModus) renderKaufSeite();
     else if (state.user) refreshDashboard();
     else renderLoggedOut();
+    fensterHilfeSetzen();
+    modalContent.querySelector("input, button")?.focus();
+  }
+
+  // Was der Lautsprecher zum offenen Fenster sagt. Ist die ganze App gratis,
+  // zeigt der Kaufmodus kein Angebot, sondern dass alles offen ist
+  // (renderKaufSeite) – und dann sagt auch der Lautsprecher nichts vom Preis.
+  // Gesetzt wird der Satz beim Öffnen und noch einmal, wenn der Haken bei
+  // offenem Fenster fällt (freigabeNeuZeichnen): Sonst läse er weiter den
+  // Preis vor, während die Seite längst "Alles ist offen" zeigt.
+  function fensterHilfeSetzen() {
     releaseAccountHelp?.();
-    // Ist die ganze App gratis, zeigt der Kaufmodus kein Angebot, sondern dass
-    // alles offen ist (renderKaufSeite) – und dann sagt auch der Lautsprecher
-    // nichts vom Preis.
     const hilfe = !state.kaufModus
       ? "Das ist das Profilfenster für Erwachsene. Hier siehst du den Lernfortschritt und kannst dich an- oder abmelden. Mit dem Kreuz oben rechts schliesst du das Fenster."
       : (state.appGratis
         ? "Das ist die Seite für Erwachsene: Hier steht, dass alles offen ist. Mit dem Kreuz oben rechts schliesst du das Fenster."
         : "Das ist die Seite für Erwachsene: Hier steht, was Gripszug kostet und was dazugehört. Mit dem Kreuz oben rechts schliesst du das Fenster.");
     releaseAccountHelp = window.LernappKids?.pushHelp?.(hilfe) || null;
-    modalContent.querySelector("input, button")?.focus();
   }
 
   // Das Tor der Schranke führt hierher: erst der Preis, dann die Anmeldung.
@@ -2661,7 +2668,7 @@
   // Kindes eintippt, soll sie nicht verlieren, weil anderswo ein Haken fällt.
   function freigabeNeuZeichnen() {
     if (modal.hidden) return;
-    if (state.kaufModus) { renderKaufSeite(); return; }
+    if (state.kaufModus) { renderKaufSeite(); fensterHilfeSetzen(); return; }
     const platz = modalContent.querySelector("[data-kauf-platz]");
     if (platz) { platz.innerHTML = renderKaufKarte(); bindKaufKarte(); }
     const satz = modalContent.querySelector("[data-eltern-satz]");
