@@ -28,7 +28,9 @@
  *     Level, Sitzungen
  *   - freischalten ruft den Server mit Token und Kennung an
  *   - der Reiter "Spiele" zählt richtig, und der Haken "Gratis ohne Limite"
- *     gibt genau ein Spiel frei und nimmt es wieder zurück
+ *     gibt genau ein Spiel frei und nimmt es wieder zurück; der grosse Haken
+ *     "Ganze App gratis" schreibt nur sein eigenes Feld, öffnet die Schranke
+ *     und nimmt sie wieder zurück, ohne die Liste der Spiele anzufassen
  *   - der Reiter "Gruppen" legt eine übergreifende Gruppe an
  *   - der Reiter "Gäste" zeigt auch, wer nur besucht und nie gespielt hat:
  *     Gerät, Standort und Besuchszähler, ein Filter dafür, und die beiden
@@ -643,6 +645,55 @@ await page.waitForTimeout(1500);
 const nachWeg = await page.evaluate(() => window.__ersatz.lies("config/gratisSpiele"));
 pruefe((nachWeg?.spiele || []).length === 0, `Das Entfernen des Hakens wirkt nicht: ${JSON.stringify(nachWeg)}`);
 pruefe(!(await turmbauKarte.locator("[data-gratis]").isChecked()), "Nach dem Entfernen steht der Haken noch");
+
+// --- Ganze App gratis --------------------------------------------------------
+// Der grosse Haken über den Spielkarten stellt die ganze App gratis. Er
+// schreibt ein einziges Feld in dasselbe Dokument (ganzeApp) und lässt die
+// Liste der einzelnen Spiele in Ruhe: Eine laufende Werbeaktion für ein Spiel
+// ist noch da, wenn er wieder weg ist. Hier läuft gerade eine für Memory –
+// geschrieben von einem anderen Fenster, also kennt diese Seite sie nicht.
+await page.evaluate(() => window.__ersatz.schreib("config/gratisSpiele", { spiele: ["memory"], updatedAtMs: 1 }));
+const appHaken = page.locator("[data-gratis-app]");
+pruefe(await appHaken.count() === 1, "Im Reiter «Spiele» fehlt der Haken für die ganze App");
+pruefe(!(await appHaken.isChecked()), "Der Haken für die ganze App steht schon, bevor jemand ihn gesetzt hat");
+pruefe(await page.locator("[data-gratis]").count() === 25, "Der Haken für die ganze App zählt als Haken eines Spiels");
+await appHaken.check();
+await page.waitForTimeout(1500);
+const nachApp = await page.evaluate(() => ({
+  doc: window.__ersatz.lies("config/gratisSpiele"),
+  app: window.LernappEntitlement?.appGratis?.(),
+  frei: window.LernappEntitlement?.isFree?.(),
+  kopie: localStorage.getItem("lernapp.app.gratis"),
+}));
+pruefe(nachApp.doc?.ganzeApp === true, `Der Haken für die ganze App landet nicht in config/gratisSpiele: ${JSON.stringify(nachApp.doc)}`);
+pruefe(JSON.stringify(nachApp.doc?.spiele) === JSON.stringify(["memory"]),
+  `Der Haken für die ganze App hat die Liste der Spiele angefasst: ${JSON.stringify(nachApp.doc?.spiele)}`);
+pruefe(nachApp.app === true && nachApp.frei === true, `Nach dem Haken ist die Schranke nicht offen: ${JSON.stringify(nachApp)}`);
+pruefe(nachApp.kopie === "1", "Das Gerät merkt sich den Haken nicht – beim nächsten Öffnen blitzten die Schlösser auf");
+pruefe(await page.locator("[data-gratis-app]").isChecked(), "Nach dem Setzen steht der Haken für die ganze App nicht");
+pruefe(await page.locator(".admin-ganze-app.ist-an").count() === 1, "Die Karte für die ganze App ist nicht als an markiert");
+const appText = await text(page.locator(".admin-inhalt"));
+pruefe(/Zurzeit ist die ganze App gratis/.test(appText), "Es steht nirgends, dass die ganze App gratis ist");
+pruefe(/ändern diese Haken nichts/.test(appText), "Es steht nicht da, dass die Haken je Spiel nichts ändern, solange die ganze App gratis ist");
+pruefe(/Willkommen, Kontakt, AGB/.test(appText), "Es steht nicht da, dass die Seiten ausserhalb der App den Kauf weiter beschreiben");
+await knips("5c-ganze-app-gratis");
+// Und wieder weg: das Feld auf false, die Liste noch immer unberührt, die
+// Kopie auf dem Gerät weg.
+await page.locator("[data-gratis-app]").uncheck();
+await page.waitForTimeout(1500);
+const nachAppWeg = await page.evaluate(() => ({
+  doc: window.__ersatz.lies("config/gratisSpiele"),
+  app: window.LernappEntitlement?.appGratis?.(),
+  kopie: localStorage.getItem("lernapp.app.gratis"),
+}));
+pruefe(nachAppWeg.doc?.ganzeApp === false, `Das Wegnehmen des Hakens für die ganze App wirkt nicht: ${JSON.stringify(nachAppWeg.doc)}`);
+pruefe(JSON.stringify(nachAppWeg.doc?.spiele) === JSON.stringify(["memory"]),
+  `Das Wegnehmen des Hakens für die ganze App hat die Liste der Spiele angefasst: ${JSON.stringify(nachAppWeg.doc?.spiele)}`);
+pruefe(nachAppWeg.app === false && nachAppWeg.kopie === null, `Nach dem Wegnehmen gilt die App noch als gratis: ${JSON.stringify(nachAppWeg)}`);
+pruefe(!(await page.locator("[data-gratis-app]").isChecked()), "Nach dem Wegnehmen steht der Haken für die ganze App noch");
+pruefe(await page.locator(".admin-ganze-app.ist-an").count() === 0, "Nach dem Wegnehmen ist die Karte noch als an markiert");
+// Für die folgenden Prüfungen wieder aufräumen.
+await page.evaluate(() => window.__ersatz.schreib("config/gratisSpiele", { spiele: [], updatedAtMs: 1 }));
 
 // Turmbau führt keine Neustarts – dort muss ein Strich stehen, keine Null.
 const turmbauText = await text(page.locator('.admin-game-card:has-text("Turmbau")').first());

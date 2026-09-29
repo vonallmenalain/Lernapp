@@ -92,6 +92,8 @@
     spieleBereich: "all",
     gratisLaeuft: "",
     gratisFehler: "",
+    appGratisLaeuft: false,
+    appGratisFehler: "",
     // Wagen
     setFrage: null,
     setLaeuft: "",
@@ -1168,6 +1170,7 @@
         <div><strong>${fertig}</strong><span>abgeschlossen</span></div>
         <div><strong>${angefasst}/${alle.length}</strong><span>Spiele benutzt</span></div>
       </div>
+      ${appSchalter()}
       <div class="admin-game-filter" aria-label="Bereich filtern">
         <button type="button" class="${bereich === "all" ? "active" : ""}" data-bereich="all">Alle Bereiche</button>
         ${Object.entries(hs.BEREICHE).map(([id, label]) => `
@@ -1184,6 +1187,9 @@
         ${freieSpieleListe().length
           ? `Zurzeit frei: <b>${t(freieSpieleListe().map((id) => hs.titel(id) || id).join(", "))}</b>.`
           : "Zurzeit ist kein Spiel freigegeben."}
+        ${appGratisAn()
+          ? "Solange die ganze App gratis ist, ändern diese Haken nichts – sie gelten wieder, sobald der Haken oben weg ist."
+          : ""}
       </p>
       <div class="admin-game-grid">
         ${gezeigt.map((eintrag) => spielKarte(eintrag, hs)).join("")}
@@ -1199,6 +1205,38 @@
   // firebase.js, nicht aus einer eigenen Kopie hier: Zwei Listen liefen
   // auseinander, und die im Adminbereich wäre die, der man glaubt.
   const freieSpieleListe = () => cloud()?.getFreieSpiele?.() || [];
+  // Dasselbe für den grossen Haken: die Antwort von firebase.js, keine Kopie.
+  const appGratisAn = () => Boolean(cloud()?.isAppGratis?.());
+
+  // Der grosse Haken: die ganze App gratis. Er steht über dem Bereichsfilter,
+  // weil er für keinen Bereich gilt, sondern für alle – und er sieht anders
+  // aus als die Haken je Spiel, damit niemand den einen für den anderen hält.
+  //
+  // Der letzte Satz ist wichtig: Die Seiten ausserhalb der App (Willkommen,
+  // Kontakt, AGB, Datenschutz) sind feste Seiten ohne Skript. Sie wissen
+  // nichts von diesem Haken und beschreiben den Kauf weiter – das soll hier
+  // stehen, bevor jemand es draussen bemerkt.
+  function appSchalter() {
+    const an = appGratisAn();
+    const laeuft = zustand.appGratisLaeuft;
+    return `
+      <section class="admin-ganze-app${an ? " ist-an" : ""}" aria-label="Ganze App gratis">
+        <label class="admin-gratis${an ? " ist-an" : ""}">
+          <input type="checkbox" data-gratis-app${an ? " checked" : ""}${laeuft ? " disabled" : ""} />
+          <span>${laeuft ? "Wird gespeichert..." : "Ganze App gratis"}</span>
+        </label>
+        ${zustand.appGratisFehler ? `<p class="auth-status">${t(zustand.appGratisFehler)}</p>` : ""}
+        <p class="account-muted admin-note">
+          ${an ? "<b>Zurzeit ist die ganze App gratis.</b>" : ""}
+          Ein Haken öffnet alles für alle – jedes Spiel, jede Stufe und jede Station der Reise,
+          mit und ohne Konto. In der App steht dann nirgends mehr, dass etwas kostet: kein Tor,
+          kein Schloss, keine Kaufkarte im Profilfenster und kein Weg zur Kasse. Wer den Haken
+          wegnimmt, bekommt den Stand von vorher zurück: Gekaufte Konten bleiben gekauft, und
+          in der Zeit gespielte Runden zählen nicht mit. Die Seiten ausserhalb der App –
+          Willkommen, Kontakt, AGB, Datenschutz – ändern sich nicht und beschreiben den Kauf weiter.
+        </p>
+      </section>`;
+  }
 
   function spielKarte(eintrag, hs) {
     const zahlen = [
@@ -1238,6 +1276,24 @@
     seite.querySelectorAll("[data-gratis]").forEach((kasten) => {
       kasten.addEventListener("change", () => gratisSetzen(kasten.dataset.gratis, kasten.checked));
     });
+    seite.querySelector("[data-gratis-app]")?.addEventListener("change", (e) => appGratisSetzen(e.currentTarget.checked));
+  }
+
+  // Ohne Rückfrage, wie der Haken je Spiel: Er nimmt niemandem etwas weg, und
+  // derselbe Klick nimmt ihn zurück. Gewollt ist, dass er sofort wirkt – auf
+  // jedem Gerät, das die App gerade offen hat.
+  async function appGratisSetzen(an) {
+    if (zustand.appGratisLaeuft) { zeichne(); return; }
+    zustand.appGratisLaeuft = true;
+    zustand.appGratisFehler = "";
+    zeichne();
+    try {
+      await api().setAppGratis(an);
+    } catch (fehler) {
+      zustand.appGratisFehler = api().serverFehlerText(fehler);
+    }
+    zustand.appGratisLaeuft = false;
+    zeichne();
   }
 
   // Ohne Rückfrage, und das ist Absicht: Der Haken nimmt niemandem etwas weg
@@ -1815,6 +1871,14 @@
     zustand.mailLaeuft = "";
     await mailsLaden({ neu: true });
   }
+
+  // Die Freigaben ändern sich auch ohne Klick hier: aus einem zweiten
+  // Adminfenster, oder weil die Antwort der Cloud erst nach dem ersten
+  // Zeichnen ankommt. Der Reiter "Spiele" zeigt dann, was gilt – nicht, was
+  // beim Öffnen galt. Die anderen Reiter hängen nicht daran.
+  document.addEventListener("lernapp:entitlement-changed", () => {
+    if (bereitsGezeichnet && zustand.reiter === "games") zeichne();
+  });
 
   // ---------------------------------------------------------------------------
   start();

@@ -2574,6 +2574,12 @@ body.puzzle-active .spatialPuzzle-board .spatial-option-graphic > svg {
   border-color: #06d6a0;
 }
 
+/* Der feste Platz der Kaufkarte im Profilfenster (firebase.js,
+   freigabeNeuZeichnen): Dort wird die Karte allein neu gezeichnet, wenn der
+   Admin die ganze App gratis stellt. Der Platz selbst ist kein Kasten – ohne
+   Karte darin fiele sonst im Raster eine leere Zeile samt Abstand auf. */
+.kauf-platz { display: contents; }
+
 /* Der Verkaufsbildschirm hinter dem Elterntor (firebase.js, renderKaufSeite).
    Aufgebaut wie die Preiskarte auf willkommen.html, nur in ein Fenster
    gefaltet: oben der Betrag, dann fünf Zeilen, was dazugehört, dann drei
@@ -11464,3 +11470,26 @@ body[data-page="admin"] .admin-entry-herkunft { flex: 1 1 220px; }
 .admin-gratis:hover { border-color: var(--line-strong, #cdc6ee); }
 .admin-gratis.ist-an { background: #eaf7ef; border-color: #9fd8b5; color: #23713f; }
 .admin-game-card.ist-gratis { border-color: #9fd8b5; box-shadow: 0 0 0 2px rgba(47, 158, 92, 0.18); }
+
+/* --- Ganze App gratis --------------------------------------------------------
+   Der grosse Haken im Reiter "Spiele": Er öffnet die ganze App für alle, und
+   er steht über dem Bereichsfilter, weil er für keinen Bereich gilt, sondern
+   für alle. Gebaut aus demselben Kasten wie der Haken je Spiel, aber grösser
+   und in einer eigenen Karte – damit niemand den einen für den anderen hält.
+   Steht er, trägt die Karte denselben grünen Rahmen wie ein freigegebenes
+   Spiel, nur kräftiger. */
+.admin-ganze-app {
+  display: grid;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 2px solid var(--line, #e4e0f7);
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 10px 22px rgba(50, 44, 109, 0.08);
+}
+.admin-ganze-app.ist-an { border-color: #9fd8b5; box-shadow: 0 0 0 3px rgba(47, 158, 92, 0.2); }
+.admin-ganze-app .admin-gratis { margin-top: 0; padding: 12px 14px; font-size: 1rem; color: var(--ink, #1f2a33); }
+.admin-ganze-app .admin-gratis.ist-an { color: #23713f; }
+.admin-ganze-app .admin-gratis input { width: 22px; height: 22px; }
+.admin-ganze-app .admin-note,
+.admin-ganze-app .auth-status { margin: 0; }

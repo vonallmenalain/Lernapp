@@ -283,6 +283,55 @@ jeweils anderen Seite still gelöscht, mitten in einer laufenden Aktion.
 Die Schranke wartet auf die Liste: `isLoaded()` gilt erst als beantwortet, wenn sie da ist. Sonst
 sähe ein Kind für einen Moment ein Tor, das gleich wieder verschwindet.
 
+### Der Reiter „Spiele": die ganze App gratis
+
+Über den Spielkarten steht ein grösserer Haken: **„Ganze App gratis"**. Er schreibt
+`ganzeApp: true` in dasselbe Dokument `config/gratisSpiele` und öffnet damit alles für alle – jedes
+Spiel, jede Stufe, jede Station der Reise, für Gäste genauso wie für Konten ohne Kauf.
+
+In der App steht dann nirgends mehr, dass etwas kostet, und es führt kein Weg mehr zur Zahlung:
+
+| Stelle | ohne Haken | mit Haken |
+| --- | --- | --- |
+| Tor vor einem gespielten Spiel oder ab Station 11 | steht da | gibt es nicht – `showGate()` zeigt auch auf direkten Aufruf keines |
+| Schloss an Haus, Kiste, Welt | nach der Schnupperrunde | keines |
+| Rechenrätsel „Für Eltern" → Verkaufsbildschirm | Preis und Kasse | unerreichbar; wer ihn offen hatte, liest „Alles ist offen" |
+| Kaufkarte im Profilfenster | Preis und Kaufknopf, beim Kind „noch nicht freigeschaltet" | fällt weg |
+| Satz über dem Elternformular | „Hier kaufst du Gripszug …" | „Hier legst du Profile für deine Kinder an." |
+| `zurKasse()` | ruft `/api/checkout` | wirft `lernapp/app-gratis`, ohne den Server anzurufen |
+
+Was bleibt: Die Familie, die gekauft hat, sieht ihren Haken „Gripszug Familie ✓", das Gründer-Konto
+seinen Gründer-Zugang. Das ist kein Angebot, sondern ihr Stand – und der gilt auch dann noch, wenn
+der grosse Haken wieder weg ist.
+
+**Wie beim einzelnen Spiel verbraucht in der Zeit niemand etwas.** `isFree()` ist für alle wahr,
+also zählt `rundeBeendet()` nichts. Nimmt der Admin den Haken weg, gilt wieder der Stand von vorher:
+gekauft bleibt gekauft, und jedes Gerät hat genau die Schnupperrunden, die es vor der Aktion noch
+hatte. Die Statistik im Adminbereich läuft ungestört weiter, aus demselben Grund wie oben.
+
+Geschrieben wird mit `merge`, und nur dieses eine Feld: Die Liste der einzelnen Spiele bleibt
+unberührt. Solange der grosse Haken steht, ändern die Haken je Spiel nichts; sie gelten wieder,
+sobald er weg ist.
+
+Die Schranke wartet auf nichts Zusätzliches – das Feld kommt mit derselben Antwort wie die Liste.
+Dazu merkt sich jedes Gerät die letzte Antwort (`localStorage`, `lernapp.app.gratis`): Ohne diese
+Kopie zeichnete das Startbild bei jedem Öffnen der App zuerst die Schlösser des alten Stands und
+nähme sie erst weg, wenn die Cloud geantwortet hat – ein Aufblitzen genau bei den Kindern, die ihre
+Runden vor der Aktion verbraucht hatten. Über ein Tor entscheidet die Kopie nie: `targetLocked()`
+wartet auf die Antwort der Cloud, und die überschreibt sie. Die Kopie ist kein Fortschritt und
+übersteht deshalb auch das Zurücksetzen.
+
+**Nicht betroffen sind die Seiten ausserhalb der App.** `willkommen.html`, `kontakt.html`,
+`agb.html` und `datenschutz.html` sind feste Seiten ohne Skript; sie wissen nichts vom Haken und
+beschreiben den Kauf weiter. Die Willkommensseite nennt den Preis. Soll sie sich mit dem Haken
+ändern, braucht sie ein Skript, das `config/gratisSpiele` liest – und damit eine Anfrage an Google,
+die sie heute nicht stellt. Das steht auch im Adminbereich neben dem Haken.
+
+Auch der Server weiss nichts vom Haken: `/api/checkout` prüft ihn nicht. Aus der App führt kein
+Weg dorthin, und eine ältere Fassung der App aus dem Zwischenspeicher lädt sich beim nächsten Öffnen
+neu. Wer die Kasse ganz schliessen will, ergänzt `kasseErstellen()` um einen Blick auf
+`config/gratisSpiele`.
+
 ### Die Mini-Games sind ausgezogen
 
 Bis September 2026 gab es hier einen zweiten Haken, **„Mini-Game"**. Er gab einem Spiel eine eigene
@@ -516,7 +565,7 @@ Die App schreibt folgende Dokumente:
 | `users/{uid}/levelProgress/{levelKey}` | Fortschritt pro Level: gelöst, Versuche, Spielzeit, Züge, Resets, Hinweise |
 | `users/{uid}/sessions/{sessionId}` | Einzelne Spielstände/Sitzungen mit Start, Ende, Dauer, Zügen, Resets und gelöst-Status |
 | `config/train` | Das gültige Wagen-Set und der Zeitpunkt des letzten Wechsels; nur der Admin schreibt es, jedes Gerät liest es |
-| `config/gratisSpiele` | `spiele: [...]` – welche Spiele ohne Kauf **unbegrenzt** offen stehen. Gesetzt wird das im Adminbereich unter „Spiele" (ein Haken je Spiel), gedacht für eine Werbeaktion. Nur der Admin schreibt es, jedes Gerät liest es – auch ein Gast, denn genau er ist gemeint |
+| `config/gratisSpiele` | `spiele: [...]` – welche Spiele ohne Kauf **unbegrenzt** offen stehen. Gesetzt wird das im Adminbereich unter „Spiele" (ein Haken je Spiel), gedacht für eine Werbeaktion. Dazu `ganzeApp: true\|false` – der grosse Haken darüber, der die **ganze App** gratis stellt: kein Tor, kein Schloss, kein Preis, kein Weg zur Kasse. Nur der Admin schreibt es, jedes Gerät liest es – auch ein Gast, denn genau er ist gemeint |
 | `config/miniGames`, `miniScores/…` | Verwaist. Übrig von den ausgezogenen Mini-Games (siehe „Die Mini-Games sind ausgezogen"), von nichts mehr gelesen oder geschrieben. `miniScores` hat keine Regeln mehr, ist also aus einem Browser nicht erreichbar; `config/miniGames` fällt weiter unter die allgemeine Regel für `config/…`, nur liest es niemand. Beide dürfen in der Firebase-Konsole weg |
 | `entitlements/{uid}` | Der Kauf eines Kontos (`plan`, `active`, `via`, Zeitstempel). **Schreibt nur der Server** nach einer Zahlung bei Stripe, für das Elternkonto und jedes seiner Kinder – kein Client, auch der Admin nicht von Hand. Lesen darf jedes Konto seinen eigenen Eintrag, der Admin alle |
 | `guests/{guestId}` | Ein Gerät ohne Konto: Besuchszähler, erster und letzter Besuch, grobe Geräteangabe, ungefährer Standort, Gesamtstatistik, Marke `hatGespielt`. Die Kennung (`guest_…`) entsteht auf dem Gerät und liegt im localStorage. Lesen darf nur der Admin. `besuche`, `ort`, `client` und die Besuchs-Zeitstempel schreibt **nur der Server** – die Regeln sperren sie für jeden Client, sonst könnte ein Unangemeldeter erfundene Länder und Besuchszahlen unterschieben |

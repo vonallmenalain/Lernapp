@@ -80,6 +80,10 @@
   // – deshalb steht es in der Cloud unter config/train und wird hier nur
   // gespiegelt. Kein Fortschritt: es überlebt jedes Zurücksetzen.
   const LOCAL_WAGON_SET_KEY = "lernapp.train.set";
+  // Ob die ganze App gratis ist (config/gratisSpiele, ganzeApp), so wie dieses
+  // Gerät es zuletzt gelesen hat. Wie das Wagen-Set eine Kopie aus der Cloud,
+  // kein Fortschritt – siehe watchFreieSpiele, wozu es sie braucht.
+  const LOCAL_APP_GRATIS_KEY = "lernapp.app.gratis";
   const LOCAL_KEEP_KEYS = new Set([
     "lernapp.tts",             // Vorlesen an/aus
     "lernapp.audioFeedback",   // Töne an/aus
@@ -87,6 +91,7 @@
     "lernapp.train.scene",     // gewählte Landschaft
     "lernapp.train.savedAt",
     LOCAL_WAGON_SET_KEY,       // welches Wagen-Set gilt
+    LOCAL_APP_GRATIS_KEY,      // ob die ganze App gratis ist
     LOCAL_GUEST_ID_KEY,
     LOCAL_GUEST_CREATED_KEY,
     LOCAL_GUEST_PING_KEY,
@@ -106,6 +111,10 @@
     // Steht die Liste schon fest? Die Schranke fragt danach: Wer vor der
     // Antwort entscheidet, zeigt einem Kind ein Tor, das gleich verschwindet.
     freieSpieleBereit: false,
+    // Die ganze App für alle offen – der grosse Haken im Reiter "Spiele", im
+    // selben Dokument wie die Liste (ganzeApp) und mit ihr zusammen gelesen.
+    // Bis die Cloud antwortet, gilt, was dieses Gerät zuletzt davon wusste.
+    appGratis: readLocalAppGratis(),
     progress: new Map(),
     levelCatalog: [],
     levelsByKey: new Map(),
@@ -266,6 +275,9 @@
     // Antwort entscheidet, zeigt einem Kind ein Tor, das gleich verschwindet.
     getFreieSpiele: () => [...state.freieSpiele],
     isFreieSpieleLoaded: () => state.freieSpieleBereit,
+    // Ob die ganze App gratis ist. Kommt mit der Liste darüber an, also sagt
+    // isFreieSpieleLoaded auch, ob diese Antwort schon feststeht.
+    isAppGratis: () => state.appGratis,
 
     admin: {
       isAdmin: () => isAdminUser(),
@@ -284,6 +296,7 @@
       loeschen: kontoLoeschen,
       switchWagonSet,
       setGratisSpiel,
+      setAppGratis,
       // Der Reiter E-Mail: das Archiv und die Weiterleitung.
       ladeMails: loadMails,
       mailEinstellungen,
@@ -1093,7 +1106,13 @@
   }
 
   // Die Kasse: Der Server erstellt die Sitzung bei Stripe, wir gehen hin.
+  //
+  // Ist die ganze App gratis, führt von hier kein Weg zu Stripe. Kein Knopf
+  // ruft das dann auf – sie stehen gar nicht da –, aber ein Knopf, der aus der
+  // Zeit vor dem Haken noch im Fenster steht, oder ein Aufruf von anderswo
+  // soll nicht doch noch an der Kasse ankommen.
   async function zurKasse() {
+    if (state.appGratis) throw authInputError("lernapp/app-gratis");
     const { url } = await serverAufruf("checkout");
     if (!url) throw new Error("Die Kasse hat keine Adresse geliefert.");
     window.location.assign(url);
@@ -1588,12 +1607,47 @@
       .slice(0, 50);
   }
 
+  // Die ganze App gratis: ein Feld im selben Dokument, kein zweites. Damit
+  // kommt es mit derselben Antwort an wie die Liste, und die Schranke wartet
+  // auf eine Antwort statt auf zwei (isFreieSpieleLoaded gilt für beides).
+  // Nur ein echtes true zählt – ein fehlendes Feld, ein fehlendes Dokument
+  // oder ein Tippfehler in der Console geben nichts frei.
+  function readAppGratis(raw) {
+    return raw?.ganzeApp === true;
+  }
+
+  // Die Kopie auf dem Gerät. Ohne sie zeichnete jeder Start das Startbild
+  // zuerst mit dem Stand ohne Haken: Wer seine Runde vor der Aktion verbraucht
+  // hat, sähe bei jedem Öffnen der App die Schlösser kurz aufblitzen, bis die
+  // Cloud antwortet – genau die Kinder, für die der Haken gedacht ist. Über
+  // ein Tor entscheidet die Kopie nie: targetLocked wartet auf die Antwort der
+  // Cloud (entitlement.js, isLoaded), und die überschreibt sie.
+  function readLocalAppGratis() {
+    try { return localStorage.getItem(LOCAL_APP_GRATIS_KEY) === "1"; } catch { return false; }
+  }
+
+  function writeLocalAppGratis(an) {
+    try {
+      if (an) localStorage.setItem(LOCAL_APP_GRATIS_KEY, "1");
+      else localStorage.removeItem(LOCAL_APP_GRATIS_KEY);
+    } catch { /* privater Modus */ }
+  }
+
+  function uebernimmAppGratis(an) {
+    const vorher = state.appGratis;
+    state.appGratis = an;
+    writeLocalAppGratis(an);
+    if (vorher !== an) freigabeNeuZeichnen();
+  }
+
   function watchFreieSpiele() {
     const ref = freieSpieleRef();
     if (!ref) { state.freieSpieleBereit = true; return; }
     const uebernehmen = (doc) => {
-      state.freieSpiele = readFreieSpiele(typeof doc?.data === "function" ? doc.data() : null);
+      const daten = typeof doc?.data === "function" ? doc.data() : null;
+      state.freieSpiele = readFreieSpiele(daten);
       state.freieSpieleBereit = true;
+      uebernimmAppGratis(readAppGratis(daten));
       // Dasselbe Ereignis wie beim Kauf: Die Schranke rechnet neu, und ein
       // offenes Tor vor einem eben freigegebenen Spiel geht von selbst auf.
       document.dispatchEvent(new CustomEvent("lernapp:entitlement-changed", { detail: { grund: "gratis-spiele" } }));
@@ -1601,7 +1655,9 @@
     const melden = (error) => {
       // Nicht lesbar heisst: Es gilt, was ohne die Liste gälte. Ein Kind soll
       // nicht deshalb vor einem Tor stehen, weil ein Dokument fehlt – und
-      // auch nicht deshalb alles gratis bekommen.
+      // auch nicht deshalb alles gratis bekommen. Die ganze App bleibt, wie
+      // dieses Gerät sie zuletzt gelesen hat: Das ist eine Antwort der Cloud,
+      // nur eine ältere, und kein Fehler soll sie ins Gegenteil drehen.
       state.freieSpieleBereit = true;
       console.warn("Die Liste der freien Spiele konnte nicht gelesen werden", error);
       document.dispatchEvent(new CustomEvent("lernapp:entitlement-changed", { detail: { grund: "gratis-spiele" } }));
@@ -1654,6 +1710,35 @@
     state.freieSpiele = [...jetzt];
     document.dispatchEvent(new CustomEvent("lernapp:entitlement-changed", { detail: { grund: "gratis-spiele" } }));
     return [...state.freieSpiele];
+  }
+
+  // Der grosse Haken: die ganze App gratis, oder wieder nicht. Geschrieben
+  // wird nur das eine Feld (merge), die Liste der einzelnen Spiele bleibt
+  // unberührt – wer den Haken wieder wegnimmt, findet seine Werbeaktion für
+  // ein einzelnes Spiel so vor, wie er sie verlassen hat.
+  //
+  // Anders als bei der Liste gibt es hier nichts, was ein zweites Fenster
+  // verlieren könnte: Ein Feld, ein Wert, und der letzte Klick gilt. Die
+  // Schranke gegen einen Klick vor dem ersten Lesen steht trotzdem da – der
+  // Haken im Adminbereich zeigt bis dahin einen Stand, den niemand kennt.
+  async function setAppGratis(frei) {
+    const ref = freieSpieleRef();
+    if (!ref) throw new Error("Firestore ist nicht bereit.");
+    if (!state.freieSpieleBereit) throw new Error("Die Freigaben sind noch nicht geladen.");
+    const an = frei === true;
+
+    await ref.set({
+      ganzeApp: an,
+      updatedAtMs: Date.now(),
+      updatedAt: serverTimestamp(),
+      by: state.user?.uid || null,
+    }, { merge: true });
+
+    // Vorweggenommen wie beim einzelnen Spiel: Der Haken springt nicht zurück,
+    // bis der Snapshot kommt.
+    uebernimmAppGratis(an);
+    document.dispatchEvent(new CustomEvent("lernapp:entitlement-changed", { detail: { grund: "ganze-app" } }));
+    return an;
   }
 
   function watchWagonSet() {
@@ -2188,11 +2273,24 @@
     if (state.kaufModus) renderKaufSeite();
     else if (state.user) refreshDashboard();
     else renderLoggedOut();
-    releaseAccountHelp?.();
-    releaseAccountHelp = window.LernappKids?.pushHelp?.(state.kaufModus
-      ? "Das ist die Seite für Erwachsene: Hier steht, was Gripszug kostet und was dazugehört. Mit dem Kreuz oben rechts schliesst du das Fenster."
-      : "Das ist das Profilfenster für Erwachsene. Hier siehst du den Lernfortschritt und kannst dich an- oder abmelden. Mit dem Kreuz oben rechts schliesst du das Fenster.") || null;
+    fensterHilfeSetzen();
     modalContent.querySelector("input, button")?.focus();
+  }
+
+  // Was der Lautsprecher zum offenen Fenster sagt. Ist die ganze App gratis,
+  // zeigt der Kaufmodus kein Angebot, sondern dass alles offen ist
+  // (renderKaufSeite) – und dann sagt auch der Lautsprecher nichts vom Preis.
+  // Gesetzt wird der Satz beim Öffnen und noch einmal, wenn der Haken bei
+  // offenem Fenster fällt (freigabeNeuZeichnen): Sonst läse er weiter den
+  // Preis vor, während die Seite längst "Alles ist offen" zeigt.
+  function fensterHilfeSetzen() {
+    releaseAccountHelp?.();
+    const hilfe = !state.kaufModus
+      ? "Das ist das Profilfenster für Erwachsene. Hier siehst du den Lernfortschritt und kannst dich an- oder abmelden. Mit dem Kreuz oben rechts schliesst du das Fenster."
+      : (state.appGratis
+        ? "Das ist die Seite für Erwachsene: Hier steht, dass alles offen ist. Mit dem Kreuz oben rechts schliesst du das Fenster."
+        : "Das ist die Seite für Erwachsene: Hier steht, was Gripszug kostet und was dazugehört. Mit dem Kreuz oben rechts schliesst du das Fenster.");
+    releaseAccountHelp = window.LernappKids?.pushHelp?.(hilfe) || null;
   }
 
   // Das Tor der Schranke führt hierher: erst der Preis, dann die Anmeldung.
@@ -2226,6 +2324,14 @@
 
   function writeLoginTab(tab) {
     try { localStorage.setItem(LOGIN_TAB_KEY, tab); } catch { /* privater Modus */ }
+  }
+
+  // Der Satz über dem Elternformular. Ist die ganze App gratis, kauft hier
+  // niemand etwas – dann steht es auch nicht da.
+  function elternSatz() {
+    return state.appGratis
+      ? "Mit deiner E-Mail-Adresse. Hier legst du Profile für deine Kinder an."
+      : "Mit deiner E-Mail-Adresse. Hier kaufst du Gripszug und legst Profile für deine Kinder an.";
   }
 
   function renderLoggedOut() {
@@ -2264,7 +2370,7 @@
       </form>
 
       <form class="auth-form auth-pane" id="auth-pane-eltern" role="tabpanel" data-auth-pane="eltern" ${tab === "eltern" ? "" : "hidden"}>
-        <p class="auth-hint">Mit deiner E-Mail-Adresse. Hier kaufst du Gripszug und legst Profile für deine Kinder an.</p>
+        <p class="auth-hint" data-eltern-satz>${escapeHtml(elternSatz())}</p>
         <label>
           <span>E-Mail-Adresse</span>
           <input name="email" type="email" autocomplete="email" inputmode="email" required />
@@ -2425,7 +2531,7 @@
       </div>
       ${renderKaufRueckkehr()}
       ${renderAdminLink()}
-      ${renderKaufKarte()}
+      <div class="kauf-platz" data-kauf-platz>${renderKaufKarte()}</div>
       ${isParentAccount() ? renderKinderKarte() : ""}
       ${isParentAccount() ? `<div data-wagen-platz>${renderFamilienWagenKarte()}</div>` : ""}
       ${renderResetProgressCard()}
@@ -2509,6 +2615,12 @@
   function renderKaufKarte() {
     const stand = kaufStand();
     const eltern = isParentAccount();
+    // Ist die ganze App gratis, gibt es nichts zu kaufen, und die Karte fällt
+    // weg: kein Preis, kein Knopf, kein "noch nicht freigeschaltet". Bleiben
+    // darf sie nur, wo sie kein Angebot ist, sondern ein Stand – bei der
+    // Familie, die gekauft hat, und beim Gründer-Konto. Beides gilt auch dann
+    // noch, wenn der Haken wieder weg ist.
+    if (state.appGratis && stand !== "gekauft" && stand !== "gruender") return "";
     if (stand === "gekauft") {
       const seit = state.entitlement.grantedAtMs ? formatDateTime(new Date(state.entitlement.grantedAtMs)) : "";
       const via = state.entitlement.via ? "Freigeschaltet durch dein Elternkonto." : (eltern ? "Alle Kinder unten sind freigeschaltet." : "");
@@ -2547,6 +2659,20 @@
         <button type="button" data-kaufen>${stand === "zurueck" ? "Erneut kaufen" : "Jetzt kaufen"} · ${KAUF_PREIS}</button>
         <p class="auth-status karten-status" role="status" aria-live="polite"></p>
       </div>`;
+  }
+
+  // Der Admin hat die ganze App gratis gestellt oder das zurückgenommen, und
+  // das Profilfenster ist offen. Neu gezeichnet wird nur, was davon abhängt –
+  // der Verkaufsbildschirm, die Kaufkarte, der Satz über dem Elternformular –,
+  // nicht das ganze Fenster: Wer gerade eine Adresse oder den Namen eines
+  // Kindes eintippt, soll sie nicht verlieren, weil anderswo ein Haken fällt.
+  function freigabeNeuZeichnen() {
+    if (modal.hidden) return;
+    if (state.kaufModus) { renderKaufSeite(); fensterHilfeSetzen(); return; }
+    const platz = modalContent.querySelector("[data-kauf-platz]");
+    if (platz) { platz.innerHTML = renderKaufKarte(); bindKaufKarte(); }
+    const satz = modalContent.querySelector("[data-eltern-satz]");
+    if (satz) satz.textContent = elternSatz();
   }
 
   function bindKaufKarte() {
@@ -2613,12 +2739,20 @@
     const kindDa = Boolean(state.user) && !eltern;
     const rechtliches = `<p class="auth-rechtliches"><a href="willkommen.html">Alles über Gripszug</a> · <a href="kontakt.html">Kontakt</a> · <a href="impressum.html">Impressum</a> · <a href="datenschutz.html">Datenschutz</a> · <a href="agb.html">AGB</a></p>`;
 
-    if (frei) {
+    // Ist die ganze App gratis, steht hier kein Angebot, sondern dass alles
+    // offen ist. Hierher kommt dann eigentlich niemand mehr – das Tor davor
+    // öffnet sich nicht (entitlement.js, showGate) –, aber wer den
+    // Bildschirm offen hatte, als der Haken fiel, sieht nicht weiter einen
+    // Preis für etwas, das es gratis gibt.
+    if (frei || state.appGratis) {
+      const [titel, satz] = frei
+        ? ["Gripszug ist freigeschaltet", "Alle Spiele, alle Stationen, alle Kinder dieser Familie. Es gibt nichts mehr zu bezahlen."]
+        : ["Alles ist offen", "Alle Spiele und alle Stationen stehen offen – für jedes Kind, mit und ohne Konto."];
       modalContent.innerHTML = `
         <div class="kauf-seite">
           <p class="small-label">Für Eltern</p>
-          <h2 id="account-modal-title">Gripszug ist freigeschaltet</h2>
-          <p class="kauf-frei">Alle Spiele, alle Stationen, alle Kinder dieser Familie. Es gibt nichts mehr zu bezahlen.</p>
+          <h2 id="account-modal-title">${titel}</h2>
+          <p class="kauf-frei">${satz}</p>
           <div class="auth-actions"><button type="button" data-kauf-fertig>Weiterspielen</button></div>
           ${rechtliches}
         </div>`;
@@ -2741,7 +2875,7 @@
     const code = fehler?.code || "";
     if (code.includes("email-already-in-use")) return "Diese Adresse hat schon ein Konto. Tipp auf «Ich habe schon ein Konto».";
     if (code === "server/already-owned") return "Diese Familie hat Gripszug schon – schliesse das Fenster und spiel weiter.";
-    if (code.startsWith("server/")) return serverErrorMessage(fehler);
+    if (code.startsWith("server/") || code === "lernapp/app-gratis") return serverErrorMessage(fehler);
     return authErrorMessage(fehler);
   }
 
@@ -3250,6 +3384,8 @@
 
   function serverErrorMessage(error) {
     const code = String(error?.code || "");
+    // zurKasse, während die ganze App gratis ist.
+    if (code === "lernapp/app-gratis") return "Alles ist offen – schliesse das Fenster und spiel weiter.";
     if (code === "server/not-signed-in" || code === "server/bad-token") return "Die Anmeldung ist abgelaufen. Bitte neu anmelden.";
     if (code === "server/parents-only") return "Das kann nur ein Elternkonto.";
     if (code === "server/admin-only") return "Das kann nur der Administrator.";
