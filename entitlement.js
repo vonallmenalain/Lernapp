@@ -25,6 +25,11 @@
  * ein Konto aus der Zeit vor dem Kauf – ein Kind ohne Elternkonto. Ein Gast
  * ohne Konto bekommt den freien Teil, mehr nicht.
  *
+ * Und über allem steht ein Haken im Adminbereich: die ganze App gratis
+ * (config/gratisSpiele, ganzeApp). Steht er, ist jeder frei, mit und ohne
+ * Konto – kein Tor, kein Schloss, und damit auch kein Weg über das
+ * Rechenrätsel an die Kasse.
+ *
  * Die Schranke ist eine für Eltern, nicht für Hacker: Die Level liegen ohnehin
  * in der App. Deshalb prüft sie der Client, und der Server schützt nur den
  * Kauf selbst (kein Client kann sich einen schreiben). Wer die Konsole öffnet,
@@ -122,7 +127,20 @@
     return "offen";
   }
 
+  // --- Die ganze App für alle offen --------------------------------------------
+  // Der grosse Haken im Reiter "Spiele". reason() bleibt dabei, was es ist –
+  // die Auskunft über das Konto –, aber frei ist jeder: Gast, Kind, Eltern.
+  //
+  // Wie beim einzelnen Spiel verbraucht in der Zeit niemand etwas:
+  // rundeBeendet() fragt isFree() und zählt nicht. Nimmt der Admin den Haken
+  // weg, gilt wieder, was vorher galt – gekauft bleibt gekauft, und jedes
+  // Gerät hat genau die freien Runden, die es vor der Aktion noch hatte.
+  function appGratis() {
+    try { return Boolean(cloud()?.isAppGratis?.()); } catch { return false; }
+  }
+
   function isFree() {
+    if (appGratis()) return true;
     const r = reason();
     return r === "gekauft" || r === "gruender";
   }
@@ -380,6 +398,11 @@
   // zurück.
   function showGate({ onBack = null, host = document.body, ziel = null } = {}) {
     closeGate();
+    // Ist die ganze App gratis, gibt es kein Tor. Wer es aufruft, hat vorher
+    // gefragt, ob sein Ziel frei ist, und dann kommt er gar nicht hierher –
+    // aber hinter dem Tor liegt das Rechenrätsel und dahinter die Kasse, und
+    // dieser Weg soll nicht davon abhängen, dass jeder Aufrufer daran denkt.
+    if (appGratis()) return closeGate;
     const overlay = document.createElement("div");
     overlay.className = "tor-overlay";
     overlay.setAttribute("role", "dialog");
@@ -528,6 +551,7 @@
     AREAS,
     reason,
     isFree,
+    appGratis,
     isLoaded,
     stationFree,
     gameFree,

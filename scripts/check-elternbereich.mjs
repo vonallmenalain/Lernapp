@@ -32,6 +32,12 @@
  *   - Gründer-Kind ohne Eltern: frei, und es steht da
  *   - Rückkehr mit ?kauf=erfolg: Fenster offen, Adresse sauber, und die
  *     Freischaltung kommt nach
+ *   - Die ganze App gratis (der grosse Haken im Adminbereich): keine
+ *     Kaufkarte, kein Preis, kein Angebot hinter dem Elterntor, zurKasse()
+ *     ruft den Server nicht an; der Haken fällt bei offenem Fenster, und nur
+ *     die Kaufkarte zeichnet sich neu – der halb eingetippte Name bleibt.
+ *     Das Kind ohne Kauf liest nicht "noch nicht freigeschaltet", die
+ *     Familie mit Kauf behält ihren Haken
  *
  * Aufruf:  node scripts/check-elternbereich.mjs
  *          BILDER=/ein/ordner node scripts/check-elternbereich.mjs  legt
@@ -566,6 +572,92 @@ try {
     pruefe((await text(page.locator("[data-kauf-karte]"))).includes("✓"), "Rückkehr mit Erfolg: der Kauf kam an, die Karte zeigt keinen Haken");
     pruefe((await text(page.locator(".kauf-hinweis"))).includes("ist freigeschaltet"), "Rückkehr mit Erfolg: der Hinweis bleibt beim 'kommt gleich', obwohl der Kauf da ist");
     await knips(page, "8-rueckkehr-erfolg");
+    await context.close();
+  }
+
+  // --- 6) Die ganze App gratis ---------------------------------------------------
+  // Der grosse Haken im Adminbereich (config/gratisSpiele, ganzeApp). Dann steht
+  // im Profilfenster nirgends ein Preis: keine Kaufkarte, kein Kaufknopf, kein
+  // Angebot hinter dem Elterntor, und auch direkt gerufen kein Weg zur Kasse.
+  //
+  // Und der Haken kann fallen, während das Fenster offen ist und jemand darin
+  // tippt: Dann zeichnet sich nur die Kaufkarte neu, und der halb eingetippte
+  // Name eines Kindes bleibt stehen.
+  {
+    // Die Kasse antwortet hier mit einem Fehler statt mit einer Adresse: Kommt
+    // doch ein Aufruf durch, soll die Seite nicht wegnavigieren und die
+    // Prüfung mitnehmen, sondern der Befund unten dastehen.
+    const { page, context, anfragen } = await starteSeite({
+      daten: { "users/eltern1": elternDoc(), "config/gratisSpiele": { spiele: [], ganzeApp: true } },
+      nutzer: ELTERN,
+      antworten: { "checkout": () => ({ status: 500, body: { error: "500", message: "Diese Prüfung lässt niemanden an die Kasse." } }) },
+    });
+    const fenster = page.locator(".account-modal:not(.hidden)");
+    await page.locator(".account-button").click({ timeout: 5000 });
+    await page.locator("[data-kinder-karte]").waitFor({ state: "visible", timeout: 10000 });
+    pruefe(await page.locator("[data-kauf-karte]").count() === 0, "Ganze App gratis: die Kaufkarte steht noch da");
+    pruefe(await page.locator("[data-kaufen]").count() === 0, "Ganze App gratis: es gibt noch einen Kaufknopf");
+    const fensterText = await text(fenster);
+    pruefe(!/CHF|kauf|Kasse|bezahl|Zahlung/i.test(fensterText),
+      `Ganze App gratis: im Profilfenster steht noch etwas vom Kaufen: "${(fensterText.match(/.{0,40}(CHF|kauf|Kasse|bezahl|Zahlung).{0,40}/i) || [""])[0]}"`);
+    pruefe(await page.locator("[data-kinder-karte]").count() === 1, "Ganze App gratis: die Kinderkarte fehlt – Kinder anlegen geht auch ohne Kauf");
+    await knips(page, "9-ganze-app-gratis");
+
+    // Hinter dem Elterntor: kein Angebot, sondern dass alles offen ist.
+    await page.evaluate(() => window.LernappFirebase.openKauf());
+    await page.locator(".kauf-seite").waitFor({ timeout: 5000 });
+    const seiteText = await text(page.locator(".kauf-seite"));
+    pruefe(/Alles ist offen/.test(seiteText), `Ganze App gratis: der Verkaufsbildschirm sagt nicht, dass alles offen ist: "${seiteText.slice(0, 120)}"`);
+    pruefe(!/CHF|kaufen|bezahl|Kasse/i.test(seiteText), `Ganze App gratis: der Verkaufsbildschirm nennt Preis oder Kasse: "${seiteText.slice(0, 160)}"`);
+    pruefe(await page.locator(".kauf-seite [data-kaufen], .kauf-seite [data-kauf-form]").count() === 0, "Ganze App gratis: der Verkaufsbildschirm hat einen Kaufknopf oder ein Kaufformular");
+    await knips(page, "9b-alles-offen");
+    // Die Kasse selbst, direkt gerufen: kein Weg zu Stripe, kein Aufruf beim Server.
+    const kasse = await page.evaluate(() => window.LernappFirebase.zurKasse().then(() => "offen", (e) => e?.code || "fehler"));
+    pruefe(kasse === "lernapp/app-gratis", `Ganze App gratis: zurKasse() lässt durch oder scheitert anders (${kasse})`);
+    pruefe(!anfragen.some((a) => a.pfad === "checkout"), "Ganze App gratis: die Kasse wurde trotzdem beim Server angerufen");
+    if (await page.locator("[data-kauf-fertig]").count()) await page.locator("[data-kauf-fertig]").click({ timeout: 5000 });
+    else await page.locator(".account-close").click({ timeout: 5000 });
+
+    // Der Haken fällt, während jemand im Fenster tippt.
+    await page.locator(".account-button").click({ timeout: 5000 });
+    await page.locator("[data-kind-neu]").click({ timeout: 10000 });
+    const kindName = page.locator('[data-kind-neu-form] input[name="name"]');
+    await kindName.fill("Lina");
+    await page.evaluate(() => window.__ersatz.setze("config/gratisSpiele", { spiele: [], ganzeApp: false }));
+    await page.waitForFunction(() => Boolean(document.querySelector("[data-kaufen]")), null, { timeout: 5000 }).catch(() => {});
+    pruefe((await text(page.locator("[data-kaufen]"))).includes("CHF 30"), "Haken weg bei offenem Fenster: die Kaufkarte kommt nicht zurück");
+    pruefe(await kindName.inputValue().catch(() => "") === "Lina", "Haken weg bei offenem Fenster: das ganze Fenster wurde neu gezeichnet – der eingetippte Name ist weg");
+    // Und wieder an: Die Karte geht, der Name bleibt.
+    await page.evaluate(() => window.__ersatz.setze("config/gratisSpiele", { spiele: [], ganzeApp: true }));
+    await page.waitForFunction(() => !document.querySelector("[data-kauf-karte]"), null, { timeout: 5000 }).catch(() => {});
+    pruefe(await page.locator("[data-kauf-karte]").count() === 0, "Haken wieder an bei offenem Fenster: die Kaufkarte bleibt stehen");
+    pruefe(await kindName.inputValue().catch(() => "") === "Lina", "Haken wieder an bei offenem Fenster: der eingetippte Name ist weg");
+    await context.close();
+  }
+  // Das Kind ohne Kauf: kein "noch nicht freigeschaltet", denn es ist frei.
+  {
+    const { page, context } = await starteSeite({
+      daten: { "users/kind-mia": kindDoc("Mia", "eltern1"), "config/gratisSpiele": { ganzeApp: true } },
+      nutzer: MIA,
+    });
+    await page.locator(".account-button").click({ timeout: 5000 });
+    await page.locator(".profile-summary").waitFor({ state: "visible", timeout: 10000 });
+    await page.waitForTimeout(300);
+    pruefe(await page.locator("[data-kauf-karte]").count() === 0, "Ganze App gratis: das Kind ohne Kauf sieht eine Kaufkarte");
+    pruefe(!(await text(page.locator(".account-modal:not(.hidden)"))).includes("Noch nicht freigeschaltet"), "Ganze App gratis: das Kind liest «Noch nicht freigeschaltet»");
+    pruefe(await page.evaluate(() => window.LernappEntitlement?.isFree?.() === true), "Ganze App gratis: das Kind ohne Kauf ist für die Schranke nicht frei");
+    await context.close();
+  }
+  // Die Familie mit Kauf behält ihren Haken: Das ist kein Angebot, sondern ihr
+  // Stand – und der gilt auch, wenn der grosse Haken wieder weg ist.
+  {
+    const { page, context } = await starteSeite({
+      daten: { "users/eltern1": elternDoc([{ uid: "kind-mia", name: "Mia" }]), "entitlements/eltern1": KAUF, "config/gratisSpiele": { ganzeApp: true } },
+      nutzer: ELTERN,
+    });
+    await oeffneProfil(page);
+    pruefe((await text(page.locator("[data-kauf-karte]"))).includes("✓"), "Ganze App gratis: die Familie mit Kauf sieht ihren Haken nicht mehr");
+    pruefe(await page.locator("[data-kaufen]").count() === 0, "Ganze App gratis: die Familie mit Kauf hat einen Kaufknopf");
     await context.close();
   }
 } finally {

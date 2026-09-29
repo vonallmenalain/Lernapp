@@ -33,7 +33,13 @@
  *   - Die saubere Adresse ohne .html (/turmbau), so wie man sie weitergibt:
  *     verbrauchte Runde → Tor, frischer Speicher → offen
  *   - Gibt der Admin ein Spiel frei, während sein Tor offen steht, geht es von
- *     selbst auf – auch bei der Levelwahl, die showGate() ohne Ziel aufruft
+ *     selbst auf – auch bei der Levelwahl, die showGate() ohne Ziel aufruft.
+ *     Dasselbe, wenn er die ganze App gratis stellt
+ *   - Die ganze App gratis (hier aus der Kopie auf dem Gerät): kein Schloss,
+ *     kein Tor – auch nicht für verbrauchte Spiele, jenseits der ersten Karte
+ *     oder über showGate() direkt –, im Profilfenster weder Preis noch Kasse,
+ *     eine Runde in der Zeit zählt nicht, und ohne Haken ist der alte Stand
+ *     zurück
  *   - Die Rechnung selbst: Station 10 frei, 11 zu; jedes Spiel frei, bis es
  *     gespielt ist, und dann nur dieses zu
  *
@@ -42,7 +48,8 @@
  * darf das Tor nie sehen, auch nicht für den Augenblick, in dem die Anmeldung
  * noch unterwegs ist. Genau das ging einmal schief: Die Bühne fragte die
  * Schranke, bevor Firebase gesagt hatte, wer spielt, bekam "Gast" zur Antwort
- * und liess das Tor stehen – bei jedem Öffnen einer Station.
+ * und liess das Tor stehen – bei jedem Öffnen einer Station. Dasselbe für ein
+ * Kind ohne Kauf, wenn die Cloud sagt, dass die ganze App gratis ist.
  *
  * Aufruf:  node scripts/check-schranke.mjs
  * Nötig:   Playwright. Der lokale Server wird selbst gestartet und beendet.
@@ -82,11 +89,16 @@ const KONTEN = [
   { name: "Gründerkind (sofort)", verzoegerung: 0, parentUid: null, kauf: false, grund: "gruender", tor: false },
   { name: "Kind mit Elternkonto, ohne Kauf", verzoegerung: 300, parentUid: "eltern1", kauf: false, grund: "offen", tor: true },
   { name: "Kind mit Elternkonto, gekauft", verzoegerung: 300, parentUid: "eltern1", kauf: true, grund: "gekauft", tor: false },
+  // Der grosse Haken im Adminbereich, diesmal aus der Cloud und nicht aus der
+  // Kopie auf dem Gerät: Das Konto hat nichts gekauft, und trotzdem steht
+  // nirgends ein Tor – auch nicht im Augenblick, bevor das Dokument da ist.
+  { name: "Kind mit Elternkonto, ohne Kauf, ganze App gratis", verzoegerung: 300, parentUid: "eltern1", kauf: false, ganzeApp: true, grund: "offen", tor: false },
 ];
 
 // Ein schlankes Firebase für den Browser: ein Kind, sein Kontodokument und –
 // wenn gekauft – sein Kaufeintrag. Mehr braucht die Schranke nicht zu wissen.
-function firebaseErsatz({ verzoegerung, parentUid, kauf }) {
+// Dazu, wenn verlangt, der grosse Haken in config/gratisSpiele.
+function firebaseErsatz({ verzoegerung, parentUid, kauf, ganzeApp = false }) {
   const KIND = { uid: "kind-alt", email: "lino@lernapp.local", emailVerified: false, displayName: "Lino", providerData: [{ providerId: "password" }] };
   const daten = new Map([["users/kind-alt", {
     authEmail: KIND.email, email: null, username: "Lino", displayName: "Lino", role: "child",
@@ -94,6 +106,7 @@ function firebaseErsatz({ verzoegerung, parentUid, kauf }) {
     stats: { totalSeconds: 60, moves: 5, resets: 0, solvedLevels: 0, sessions: 1 },
   }]]);
   if (kauf) daten.set("entitlements/kind-alt", { plan: "familie", active: true, grantedAtMs: 1700000000000, source: "stripe" });
+  if (ganzeApp) daten.set("config/gratisSpiele", { spiele: [], ganzeApp: true });
   const schnapp = (pfad) => ({ exists: daten.has(pfad), id: pfad.split("/").pop(), data: () => daten.get(pfad) });
   const docRef = (pfad) => ({
     path: pfad, id: pfad.split("/").pop(),
@@ -481,6 +494,113 @@ try {
     // Und das Startbild bleibt davon unberührt: Dort steht das Tor vor einem
     // fremden Ziel, nicht vor dieser Seite.
     await page.evaluate(() => { window.LernappFirebase.getFreieSpiele = () => []; });
+
+    // Dasselbe mit dem grossen Haken: Das Tor steht wieder, und der Admin
+    // stellt die ganze App gratis. Auch dieses Tor geht von selbst auf.
+    await oeffne("buchstaben.html");
+    await page.waitForTimeout(600);
+    await page.locator(".difficulty-card").first().click();
+    await page.waitForTimeout(400);
+    if (!(await page.locator(".tor-overlay").count())) fehlt("vor dem grossen Haken steht kein Tor – die Prüfung dahinter sagt nichts");
+    await page.evaluate(() => {
+      window.LernappFirebase.isAppGratis = () => true;
+      document.dispatchEvent(new CustomEvent("lernapp:entitlement-changed", { detail: { grund: "ganze-app" } }));
+    });
+    await page.waitForTimeout(400);
+    if (await page.locator(".tor-overlay").count()) fehlt("das Tor bleibt stehen, obwohl der Admin eben die ganze App gratis gestellt hat");
+    // Die Levelwahl zeichnet sich neu: kein Schloss mehr an der Wiese.
+    if (await page.locator(".difficulty-card").first().evaluate((n) => n.classList.contains("locked"))) {
+      fehlt("nach dem grossen Haken trägt die Wiese noch ein Schloss");
+    }
+    await page.evaluate(() => { window.LernappFirebase.isAppGratis = () => false; });
+  }
+
+  // --- Die ganze App gratis ------------------------------------------------
+  // Der grosse Haken im Adminbereich öffnet alles für alle. Hier, ohne
+  // Firebase, kommt er aus der Kopie auf dem Gerät (lernapp.app.gratis), die
+  // firebase.js von der letzten Antwort der Cloud behält – genau der Weg, auf
+  // dem ein Kind mit verbrauchten Runden beim Öffnen der App keine Schlösser
+  // aufblitzen sieht, bevor die Cloud antwortet.
+  //
+  // Gemessen wird, was ein Kind und seine Eltern sähen: kein Schloss, kein
+  // Tor, auch nicht jenseits der ersten Karte, und im Profilfenster weder
+  // Preis noch Kasse. Danach der Haken wieder weg: Der alte Stand ist zurück,
+  // die verbrauchten Runden sind noch verbraucht.
+  {
+    if (await page.locator(".tor-overlay").count()) await page.locator(".tor-zurueck").click();
+    await frischerSpeicher();
+    await verbrauche({ backpack: 1, memory: 1, beachTreasure: 1, tileMemory: 1, missingItem: 1, letterPuzzle: 1 });
+    await page.evaluate(() => localStorage.setItem("lernapp.app.gratis", "1"));
+    await oeffne("index.html?bereich=gedaechtnis");
+    await page.waitForTimeout(800);
+    const stand = await page.evaluate(() => {
+      const e = window.LernappEntitlement;
+      return { app: e.appGratis?.(), frei: e.isFree(), grund: e.reason(), s130: e.stationFree(130), memory: e.gameFree("memory.html"), gespielt: e.gameGespielt("memory.html") };
+    });
+    if (!stand.app || !stand.frei) fehlt(`ganze App gratis: die Schranke weiss nichts davon (${JSON.stringify(stand)})`);
+    if (stand.grund !== "gast") fehlt(`ganze App gratis: der Grund ist ${stand.grund} – reason() soll weiter das Konto beschreiben`);
+    if (!stand.s130 || !stand.memory || stand.gespielt) fehlt(`ganze App gratis: etwas ist noch zu (${JSON.stringify(stand)})`);
+    if (await page.locator(".train-building.is-locked").count()) fehlt("ganze App gratis: ein Haus trägt ein Schloss");
+    if (await page.locator(".stage-layer .train-lock-badge").count()) fehlt("ganze App gratis: auf der Bühne hängt ein Schloss");
+    // Eine Runde, die während der Aktion zu Ende geht, zählt nicht: Kakuro
+    // hat danach seine Schnupperrunde noch.
+    await page.evaluate(() => window.LernappEntitlement.rundeBeendet("kakuro"));
+    // Das Haus des verbrauchten Spiels führt ins Spiel, nicht vor ein Tor.
+    await page.locator('[data-building="memory"]').first().click({ force: true });
+    await page.waitForTimeout(700);
+    if (await page.locator(".tor-overlay").count()) fehlt("ganze App gratis: das verbrauchte Haus zeigt ein Tor");
+    await page.waitForURL(/memory/, { timeout: 8000 }).catch(() => fehlt(`ganze App gratis: das Haus von Memory führt nicht ins Spiel (${page.url()})`));
+    // Direktaufrufe: das verbrauchte Spiel, und eine Station jenseits der
+    // ersten Karte.
+    for (const ziel of ["memory.html", "memory.html?station=15", "turmbau"]) {
+      await oeffne(ziel);
+      await page.waitForTimeout(700);
+      if (await page.locator(".tor-overlay").count()) fehlt(`ganze App gratis: ${ziel} zeigt ein Tor`);
+    }
+    // Die Levelwahl: Wiese offen, ohne Schloss.
+    await oeffne("buchstaben.html");
+    await page.waitForTimeout(700);
+    const wieseGratis = page.locator(".difficulty-card").first();
+    if (await wieseGratis.evaluate((n) => n.classList.contains("locked"))) fehlt("ganze App gratis: die Wiese ist gesperrt");
+    // Wer das Tor direkt verlangt, bekommt keines: Dahinter lägen das
+    // Rechenrätsel und die Kasse.
+    await page.evaluate(() => window.LernappEntitlement.showGate());
+    await page.waitForTimeout(300);
+    if (await page.locator(".tor-overlay").count()) fehlt("ganze App gratis: showGate() zeigt trotzdem ein Tor");
+    // Das Profilfenster: kein Satz vom Kaufen über dem Elternformular, und
+    // der Verkaufsbildschirm hat keinen Preis und keine Kasse.
+    await page.evaluate(() => window.LernappFirebase.openAccount());
+    await page.waitForTimeout(300);
+    const satz = await page.locator("[data-eltern-satz]").textContent().catch(() => "");
+    if (!satz) fehlt("ganze App gratis: der Satz über dem Elternformular fehlt");
+    if (/kauf/i.test(satz || "")) fehlt(`ganze App gratis: über dem Elternformular steht noch vom Kaufen: "${satz}"`);
+    await page.locator(".account-close").click();
+    await page.evaluate(() => window.LernappFirebase.openKauf());
+    await page.waitForTimeout(300);
+    const kaufSeite = page.locator(".account-modal:not(.hidden) .kauf-seite");
+    const kaufText = ((await kaufSeite.textContent().catch(() => "")) || "").replace(/\s+/g, " ");
+    if (!/Alles ist offen/.test(kaufText)) fehlt(`ganze App gratis: der Verkaufsbildschirm sagt nicht, dass alles offen ist: "${kaufText.slice(0, 120)}"`);
+    if (/CHF|bezahlen|kaufen/i.test(kaufText)) fehlt(`ganze App gratis: der Verkaufsbildschirm nennt Preis oder Kasse: "${kaufText.slice(0, 160)}"`);
+    if (await kaufSeite.locator("[data-kauf-form], [data-kaufen]").count()) fehlt("ganze App gratis: der Verkaufsbildschirm hat ein Kaufformular oder einen Kaufknopf");
+    await page.locator(".account-close").click();
+
+    // Der Haken ist weg: Der alte Stand ist zurück, und zwar genau der alte –
+    // die verbrauchten Runden sind noch verbraucht, und die Runde in Kakuro
+    // während der Aktion hat nichts verbraucht.
+    await page.evaluate(() => localStorage.removeItem("lernapp.app.gratis"));
+    await oeffne("index.html?bereich=gedaechtnis");
+    await page.waitForTimeout(800);
+    const danach = await page.evaluate((key) => ({
+      app: window.LernappEntitlement.appGratis?.(),
+      runden: JSON.parse(localStorage.getItem(key) || "{}"),
+      kakuro: window.LernappEntitlement.gameFree("kakuro.html"),
+    }), RUNDEN_KEY);
+    if (danach.app) fehlt("ohne die Kopie auf dem Gerät gilt die App noch als gratis");
+    if (danach.runden.memory !== 1) fehlt(`nach der Aktion stehen bei Memory ${danach.runden.memory} Runden, erwartet 1`);
+    if (danach.runden.kakuro || !danach.kakuro) fehlt(`die Runde in Kakuro während der Aktion wurde verbraucht (${JSON.stringify(danach.runden)})`);
+    const zuDanach = await page.locator(".stage-layer .train-building.is-locked").count();
+    if (zuDanach !== 5) fehlt(`nach dem grossen Haken tragen ${zuDanach} Häuser ein Schloss, erwartet 5 – der alte Stand ist nicht zurück`);
+    await frischerSpeicher();
   }
 
   if (fehler.length) fehlt(`JavaScript-Fehler: ${fehler.slice(0, 3).join(" | ")}`);
@@ -509,8 +629,10 @@ try {
       frei: window.LernappEntitlement.isFree(),
       geladen: window.LernappEntitlement.isLoaded(),
       station15: window.LernappEntitlement.stationFree(15),
+      app: Boolean(window.LernappEntitlement.appGratis?.()),
     }));
     if (stand.grund !== fall.grund) fehlt(`${fall.name}: der Grund ist "${stand.grund}", erwartet "${fall.grund}"`);
+    if (stand.app !== Boolean(fall.ganzeApp)) fehlt(`${fall.name}: die ganze App gilt ${stand.app ? "als" : "nicht als"} gratis`);
     if (stand.frei !== !fall.tor) fehlt(`${fall.name}: isFree ist ${stand.frei}`);
     if (!stand.geladen) fehlt(`${fall.name}: der Kontostand steht auch nach zwei Sekunden nicht fest`);
     if (stand.station15 === fall.tor) fehlt(`${fall.name}: Station 15 ist ${stand.station15 ? "frei" : "zu"}`);

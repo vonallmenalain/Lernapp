@@ -9,7 +9,9 @@
  * Kauf, Kind aus der Zeit vor dem Kauf. Dazu die Schnupperrunden: Zählt eine
  * Runde? Zählt sie nur einmal? Lässt die Reise sie in Ruhe? Und der Haken aus
  * dem Adminbereich, der ein einzelnes Spiel unbegrenzt freigibt: Gilt er nur
- * für dieses Spiel, verbraucht er nichts, und wartet die Schranke auf ihn? Und: Jede
+ * für dieses Spiel, verbraucht er nichts, und wartet die Schranke auf ihn?
+ * Und der grosse Haken, der die ganze App gratis stellt: Ist dann jeder frei,
+ * verbraucht niemand etwas, und gilt danach der alte Stand? Und: Jede
  * Spielseite und die Startseite laden entitlement.js, und der Service Worker
  * hält es vor.
  *
@@ -125,7 +127,7 @@ function rechne(konto, optionen = {}) {
   vm.runInContext(lies("entitlement.js"), context, { filename: "entitlement.js" });
   return windowStub.LernappEntitlement;
 }
-const konto = ({ angemeldet = true, kauf = null, rolle = "child", eltern = null, geladen = true, freieSpiele = [], freiGeladen = true } = {}) => ({
+const konto = ({ angemeldet = true, kauf = null, rolle = "child", eltern = null, geladen = true, freieSpiele = [], freiGeladen = true, appGratis = false } = {}) => ({
   isSignedIn: () => angemeldet,
   getEntitlement: () => kauf,
   getRole: () => rolle,
@@ -134,6 +136,8 @@ const konto = ({ angemeldet = true, kauf = null, rolle = "child", eltern = null,
   // Die Spiele, die der Admin unbegrenzt freigegeben hat (config/gratisSpiele).
   getFreieSpiele: () => [...freieSpiele],
   isFreieSpieleLoaded: () => freiGeladen,
+  // Der grosse Haken: die ganze App gratis (config/gratisSpiele, ganzeApp).
+  isAppGratis: () => appGratis,
 });
 
 // Der Gast: nur der Anfang.
@@ -284,6 +288,66 @@ const konto = ({ angemeldet = true, kauf = null, rolle = "child", eltern = null,
   const e = rechne(alt);
   pruefe(e.isLoaded(), "ohne die neue Funktion wartet die Schranke ewig");
   pruefe(e.gameFree("turmbau") && !e.istGratisSpiel("turmbau"), "ohne die neue Funktion rechnet die Schranke falsch");
+}
+
+// --- Die ganze App gratis: der grosse Haken im Adminbereich ------------------
+// Ein Haken öffnet alles für alle – den Gast, das Kind ohne Kauf, die Eltern
+// ohne Kauf. Kein Tor, kein Schloss, jede Station. Und wie beim einzelnen
+// Spiel verbraucht in der Zeit niemand etwas.
+{
+  const g = rechne(konto({ angemeldet: false, appGratis: true }));
+  // reason() beschreibt weiter das Konto; frei ist trotzdem jeder.
+  pruefe(g.reason() === "gast", `ganze App gratis: der Gast gilt als ${g.reason()} – reason() soll weiter das Konto beschreiben`);
+  pruefe(Boolean(g.appGratis?.()) && g.isFree(), "ganze App gratis: der Gast ist nicht frei");
+  pruefe(g.stationFree(11) && g.stationFree(130) && g.targetFree("kakuro.html?station=99"),
+    "ganze App gratis: eine Station hinter der ersten Karte ist zu");
+  pruefe(g.levelFree({ game: "kakuro", difficulty: "hard" }) && g.gameFree("faesser"),
+    "ganze App gratis: ein Level oder ein Spiel ist zu");
+  for (let i = 0; i < 3; i += 1) g.rundeBeendet("memory");
+  pruefe(g.gameFree("memory.html") && g.targetFree("memory") && !g.gameGespielt("memory.html"),
+    "ganze App gratis: nach ein paar Runden ist Memory zu oder trägt ein Schloss");
+  pruefe(g.gespielteRunden("memory.html") === 0,
+    `ganze App gratis: ${g.gespielteRunden("memory.html")} Runden verbraucht – in der Zeit soll nichts zählen`);
+  const k = rechne(konto({ rolle: "child", eltern: "eltern1", appGratis: true }));
+  pruefe(k.reason() === "offen" && k.isFree() && k.stationFree(130), "ganze App gratis: das Kind ohne Kauf ist nicht frei");
+  const p = rechne(konto({ rolle: "parent", appGratis: true }));
+  pruefe(p.isFree() && p.stationFree(130), "ganze App gratis: die Eltern ohne Kauf sind nicht frei");
+  // Die Schranke wartet dafür auf nichts Zusätzliches: Der Haken kommt mit
+  // der Liste der freien Spiele an, im selben Dokument.
+  pruefe(rechne(konto({ rolle: "child", eltern: "eltern1", appGratis: true, freiGeladen: false })).isLoaded() === false,
+    "ganze App gratis: der Stand gilt als bekannt, bevor das Dokument gelesen ist");
+}
+// Der Fall, für den es den Haken gibt: Das Gerät hat seine Runde längst
+// verbraucht, erst dann kommt der Haken – es muss herein. Und wenn er wieder
+// geht, gilt der alte Stand: nicht mehr und nicht weniger. Der Haken wird hier
+// mitten im Lauf umgelegt, wie es der Admin tut.
+{
+  const k = konto({ rolle: "child", eltern: "eltern1" });
+  const e = rechne(k);
+  e.rundeBeendet("memory");
+  pruefe(!e.gameFree("memory.html") && !e.stationFree(11), "vor dem grossen Haken müsste die verbrauchte Runde sperren");
+  k.isAppGratis = () => true;
+  pruefe(e.gameFree("memory.html") && !e.gameGespielt("memory.html") && e.stationFree(11),
+    "der grosse Haken öffnet ein verbrauchtes Spiel oder die Reise nicht");
+  e.rundeBeendet("kakuro");
+  k.isAppGratis = () => false;
+  pruefe(!e.gameFree("memory.html") && e.gameGespielt("memory.html"),
+    "nach dem grossen Haken ist Memory offen, obwohl seine Runde vorher verbraucht war");
+  pruefe(e.gameFree("kakuro.html") && e.gespielteRunden("kakuro.html") === 0,
+    "die Runde in Kakuro während der Aktion wurde verbraucht – nach dem Haken fehlt sie");
+  pruefe(!e.stationFree(11), "nach dem grossen Haken ist Station 11 noch offen");
+}
+// Eine ältere Fassung von firebase.js kennt den Haken nicht, oder die Frage
+// wirft: Dann gilt er als nicht gesetzt – nichts wird frei, und niemand
+// wartet auf ihn.
+{
+  const alt = konto({ rolle: "child", eltern: "eltern1" });
+  delete alt.isAppGratis;
+  const e = rechne(alt);
+  pruefe(!e.appGratis?.() && !e.isFree() && e.isLoaded(), "ohne isAppGratis rechnet die Schranke falsch oder wartet");
+  const wirft = konto({ rolle: "child", eltern: "eltern1" });
+  wirft.isAppGratis = () => { throw new Error("kaputt"); };
+  pruefe(!rechne(wirft).appGratis?.() && !rechne(wirft).isFree(), "eine isAppGratis, die wirft, gibt die ganze App frei");
 }
 
 // --- Jedes Spiel, in beiden Schreibweisen -----------------------------------
