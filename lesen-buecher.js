@@ -39,6 +39,13 @@
  *   fragen     [{ frage, antworten: [{ text, bild?, figur? }], richtig, seite }]
  *               richtig: welche Antwort stimmt (ab 0); seite: wo es im Buch
  *               steht (ab 1) – dorthin führt «Im Buch nachsehen».
+ *   bilder      der Ordner mit gemalten Bildern, wenn das Buch welche hat:
+ *               seite-01.webp, seite-02.webp … (eines je Seite, 1200 × 760),
+ *               umschlag.webp (1200 × 760) und umschlag-klein.webp (480 × 304)
+ *               fürs Regal. Sie stehen über der Zeichnung aus «bild», die
+ *               bleibt, falls ein Bild nicht lädt (lesen-bilder.js). Wird ein
+ *               Bild ersetzt, braucht der Cache der Buchbilder im Service
+ *               Worker eine neue Nummer (BUCHBILDER_CACHE).
  *
  * Ein Bild ist 240 × 152 gross, der Boden liegt bei y = 136:
  *
@@ -1186,6 +1193,7 @@
       figur: "squirrel",
       landschaft: "wald",
       farbe: "#3d7a4a",
+      bilder: "bilder/buecher/baumhaus-nacht",
       seiten: [
         {
           kapitel: "Die Einladung",

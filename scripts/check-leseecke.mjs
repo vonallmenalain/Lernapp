@@ -31,6 +31,9 @@
  *                 Lesezeichen führt zurück, wo das Kind aufgehört hat, und
  *                 fällt heraus, wenn das Buch aus ist. Ohne Wort-Hilfe
  *                 schweigt ein Tipp beim Selberlesen; «sehr gross» ist grösser.
+ *                 Das Baumhaus hat gemalte Bilder: im Regal, auf der
+ *                 Titelseite und auf jeder Seite, alle gleich beim Aufgehen
+ *                 geladen; fehlt eines, zeigt die Seite ihre Zeichnung.
  *   Auf Zeit      Auf «schwer» bieten Stimmt das? und Stolperwörter die Uhr
  *                 an: ohne Vorlesen, mit eigenem Bestwert im Lesestand.
  *   Mitwachsen    Ein Spiel, das einen Schritt gewachsen ist, spielt eine
@@ -1425,6 +1428,71 @@ try {
   if (!ausgelesen.buch || ausgelesen.buch.sterne !== 3) fehlt(`Kapitelbuch: im Lesestand steht ${JSON.stringify(ausgelesen.buch)}`);
   if (Object.keys(ausgelesen.zeichen).join(",") !== "baumhaus-nacht") fehlt(`Kapitelbuch: Lesezeichen stecken in ${Object.keys(ausgelesen.zeichen).join(", ") || "keinem Buch"}`);
 
+  // Gemalte Bilder: Das Baumhaus hat sie – klein auf dem Umschlag im Regal,
+  // gross auf der Titelseite, und eines auf jeder Seite, über der Zeichnung.
+  // Geht das Buch auf, kommen gleich alle seine Bilder. Lädt ein Bild nicht
+  // (hier ist Seite 2 gesperrt), zeigt die Seite ihre Zeichnung; ein Buch ohne
+  // Bilder zeichnet wie bisher.
+  const gemalt = await offen.newPage();
+  gemalt.on("pageerror", (e) => fehler.push(`${gemalt.url().replace(BASIS, "")}: ${e.message}`));
+  await gemalt.route("**/bilder/buecher/baumhaus-nacht/seite-02.webp", (route) => route.abort());
+  const fotoVon = (wahl) => gemalt.evaluate((w) => {
+    const svg = document.querySelector(w);
+    const foto = svg?.querySelector("image.bu-foto");
+    return {
+      da: Boolean(svg), stand: svg?.dataset.foto || null,
+      pfad: foto?.getAttribute("href") || null,
+      breite: foto ? Math.round(foto.getBoundingClientRect().width) : 0,
+      // Innen gemessen: Der Rahmen des Bildes ist ein CSS-Rand um die Zeichnung.
+      svgBreite: svg ? svg.clientWidth : 0,
+      zeichnung: svg ? svg.querySelectorAll(".journey-passenger").length : 0,
+      abgedeckt: Boolean(svg?.querySelector(".bu-foto-grund")),
+    };
+  }, wahl);
+  const fotoFertig = (wahl) => gemalt.waitForFunction((w) => ["da", "fehlt"].includes(document.querySelector(w)?.dataset.foto), wahl, { timeout: 8000 }).catch(() => {});
+  await gemalt.goto(`${BASIS}/buecher.html`, { waitUntil: "domcontentloaded" });
+  await gemalt.waitForSelector(".bu-reiter", { timeout: 8000 }).catch(() => {});
+  await gemalt.locator('.bu-reiter[data-stufe="kapitel"]').click().catch(() => {});
+  const imRegal = '.bu-umschlag[data-buch="baumhaus-nacht"] svg.bu-umschlag-svg';
+  await fotoFertig(imRegal);
+  const regalFoto = await fotoVon(imRegal);
+  if (regalFoto.stand !== "da" || !/baumhaus-nacht\/umschlag-klein\.webp$/.test(regalFoto.pfad || "")) fehlt(`Gemalte Bilder: im Regal zeigt das Baumhaus nicht seinen kleinen Umschlag (${JSON.stringify(regalFoto)})`);
+  const ohneBilder = await fotoVon('.bu-umschlag[data-buch="bergrennen"] svg.bu-umschlag-svg');
+  if (ohneBilder.stand || ohneBilder.pfad) fehlt(`Gemalte Bilder: ein Buch ohne Bilder lädt eines (${JSON.stringify(ohneBilder)})`);
+  await gemalt.goto(`${BASIS}/buecher.html?buch=baumhaus-nacht`, { waitUntil: "domcontentloaded" });
+  await gemalt.waitForSelector(".bu-titelseite", { timeout: 8000 }).catch(() => {});
+  const aufDemTitel = ".bu-titel-deckel svg.bu-umschlag-svg";
+  await fotoFertig(aufDemTitel);
+  const titelFoto = await fotoVon(aufDemTitel);
+  if (titelFoto.stand !== "da" || !/baumhaus-nacht\/umschlag\.webp$/.test(titelFoto.pfad || "")) fehlt(`Gemalte Bilder: die Titelseite zeigt nicht den grossen Umschlag (${JSON.stringify(titelFoto)})`);
+  // Gleich beim Aufgehen geladen: der Umschlag und alle zwölf Seiten.
+  await gemalt.waitForFunction(() => performance.getEntriesByType("resource").filter((e) => e.name.includes("/bilder/buecher/baumhaus-nacht/seite-")).length >= 11, null, { timeout: 8000 }).catch(() => {});
+  const vorgeladen = await gemalt.evaluate(() => [...new Set(performance.getEntriesByType("resource").map((e) => e.name.match(/baumhaus-nacht\/(seite-\d+)\.webp/)?.[1]).filter(Boolean))].sort());
+  if (vorgeladen.length < 11) fehlt(`Gemalte Bilder: beim Aufgehen sind erst ${vorgeladen.length} Seiten geladen (${vorgeladen.join(", ")})`);
+  await gemalt.locator('.bu-modus[data-modus="selbst"]').click().catch(() => {});
+  const seitenBild = ".bu-bild svg.bu-bild-svg";
+  await fotoFertig(seitenBild);
+  const ersteSeite = await fotoVon(seitenBild);
+  if (ersteSeite.stand !== "da" || !/baumhaus-nacht\/seite-01\.webp$/.test(ersteSeite.pfad || "") || ersteSeite.abgedeckt) fehlt(`Gemalte Bilder: Seite 1 zeigt ihr Bild nicht (${JSON.stringify(ersteSeite)})`);
+  if (ersteSeite.breite < ersteSeite.svgBreite - 2) fehlt(`Gemalte Bilder: das Bild auf Seite 1 füllt seinen Rahmen nicht (${ersteSeite.breite} von ${ersteSeite.svgBreite} px)`);
+  await gemalt.locator(".bu-weiter").click().catch(() => {});
+  await gemalt.waitForFunction(() => window.LernappBuecher.state.seite === 1, null, { timeout: 4000 }).catch(() => {});
+  await fotoFertig(seitenBild);
+  const gesperrt = await fotoVon(seitenBild);
+  if (gesperrt.stand !== "fehlt" || gesperrt.pfad || gesperrt.abgedeckt || gesperrt.zeichnung < 1) fehlt(`Gemalte Bilder: ohne Bild zeigt Seite 2 nicht ihre Zeichnung (${JSON.stringify(gesperrt)})`);
+  await gemalt.locator(".bu-weiter").click().catch(() => {});
+  await gemalt.waitForFunction(() => window.LernappBuecher.state.seite === 2, null, { timeout: 4000 }).catch(() => {});
+  await fotoFertig(seitenBild);
+  const dritteSeite = await fotoVon(seitenBild);
+  if (dritteSeite.stand !== "da" || !/baumhaus-nacht\/seite-03\.webp$/.test(dritteSeite.pfad || "")) fehlt(`Gemalte Bilder: Seite 3 zeigt ihr Bild nicht (${JSON.stringify(dritteSeite)})`);
+  await gemalt.goto(`${BASIS}/buecher.html?buch=leo-melone`, { waitUntil: "domcontentloaded" });
+  await gemalt.waitForSelector(".bu-titelseite", { timeout: 8000 }).catch(() => {});
+  await gemalt.locator('.bu-modus[data-modus="selbst"]').click().catch(() => {});
+  await gemalt.waitForSelector(seitenBild, { timeout: 4000 }).catch(() => {});
+  const gezeichnet = await fotoVon(seitenBild);
+  if (gezeichnet.stand || gezeichnet.pfad || gezeichnet.zeichnung < 1) fehlt(`Gemalte Bilder: ein Buch ohne Bilder zeigt nicht seine Zeichnung (${JSON.stringify(gezeichnet)})`);
+  await gemalt.close();
+
   // Auf Zeit (ab Stufe «schwer»): neben «Los» die Uhr, 45 Sekunden ohne
   // Vorlesen, und das Ergebnis ist ein eigener Bestwert. Auf «mittel» gibt es
   // die Uhr nicht.
@@ -1751,4 +1819,4 @@ if (befunde.length) {
   befunde.forEach((b) => console.error(`  - ${b}`));
   process.exit(1);
 }
-console.log("Die Leseecke läuft: Lesewagen, Zimmer mit Auswahl, alle Spiele hin und zurück, eine Runde Silbenzug bis zum Tor, Laute kuppeln ohne verratenes Wort, Buchstabenhaus, der Würfel von «Stimmt das?», Reimkupplung, Anlaut-Lauscher, Wer fährt mit?, Wörter bauen, Silbenbahn, Blitzwörter, Mein Name, der Lesewurm bekommt seinen Namen, Lückensätze, Buchstabengleis, Satz kuppeln, Quatschsätze, Stolperwörter, Quatschwörter, Laut-Position, Buchstaben-Signal, Lies und tu!, Geschichtenzug, Wer bin ich?, Wortbaustelle, Steckbriefe, Detektivfälle, Postkarten, die Buchstaben der Schule, Hörbuch mit Nachsehen, Zusammen lesen, Kapitelbücher mit Überschrift und Lesezeichen, Runden auf Zeit, Wort-Hilfe und Schriftgrösse der Eltern, Spiele, die mitwachsen, Ruhe nach der Rückkehr mit Konto, winkende Tiere mit Bewegung, der Lesewurm wächst, der Lesewagen wird gemütlich, und der Lesewurm fährt auf der Lok mit.");
+console.log("Die Leseecke läuft: Lesewagen, Zimmer mit Auswahl, alle Spiele hin und zurück, eine Runde Silbenzug bis zum Tor, Laute kuppeln ohne verratenes Wort, Buchstabenhaus, der Würfel von «Stimmt das?», Reimkupplung, Anlaut-Lauscher, Wer fährt mit?, Wörter bauen, Silbenbahn, Blitzwörter, Mein Name, der Lesewurm bekommt seinen Namen, Lückensätze, Buchstabengleis, Satz kuppeln, Quatschsätze, Stolperwörter, Quatschwörter, Laut-Position, Buchstaben-Signal, Lies und tu!, Geschichtenzug, Wer bin ich?, Wortbaustelle, Steckbriefe, Detektivfälle, Postkarten, die Buchstaben der Schule, Hörbuch mit Nachsehen, Zusammen lesen, Kapitelbücher mit Überschrift und Lesezeichen, das Baumhaus mit gemalten Bildern, Runden auf Zeit, Wort-Hilfe und Schriftgrösse der Eltern, Spiele, die mitwachsen, Ruhe nach der Rückkehr mit Konto, winkende Tiere mit Bewegung, der Lesewurm wächst, der Lesewagen wird gemütlich, und der Lesewurm fährt auf der Lok mit.");

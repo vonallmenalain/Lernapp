@@ -1,4 +1,4 @@
-const APP_VERSION = "2026-10-06-18";
+const APP_VERSION = "2026-10-06-19";
 const CACHE_PREFIX = "lernapp-pwa-";
 const CACHE_NAME = `${CACHE_PREFIX}${APP_VERSION}`;
 const ASSET_VERSION_QUERY = `?v=${APP_VERSION}`;
@@ -9,6 +9,15 @@ const FALLBACK_DOCUMENT = "./index.html";
 // beliebig lange – die installierte App bliebe dabei auf einem leeren Bild
 // stehen, und von aussen sieht das aus, als starte sie gar nicht.
 const NETWORK_TIMEOUT_MS = 3500;
+
+// Die gemalten Bilder der Bücher (bilder/buecher/…) sind gross und ändern sich
+// selten. Sie liegen in einem eigenen Cache, den ein Versionswechsel der App
+// nicht leert: Ein Buch, das einmal offen war, hat seine Bilder auch nach
+// einem Update ohne Netz. Wird ein Bild ersetzt, braucht der Name hier eine
+// neue Nummer – dann holt jedes Gerät die Bilder neu. Ein Bild darf länger
+// laden als eine Seite: Fehlt es, zeigt das Buch seine Zeichnung.
+const BUCHBILDER_CACHE = "lernapp-buchbilder-1";
+const BUCHBILDER_TIMEOUT_MS = 20000;
 
 // Das Firebase-SDK liegt auf einem fremden Server. Ohne eigene Kopie hängen
 // die drei Zeilen im <head>-losen Seitenfuss am Netz: sie stehen vor allen
@@ -186,7 +195,8 @@ self.addEventListener("activate", (event) => {
     caches.keys()
       .then((keys) => {
         const staleKeys = keys.filter((key) => key.startsWith(CACHE_PREFIX) && key !== CACHE_NAME);
-        return Promise.all(staleKeys.map((key) => caches.delete(key))).then(() => staleKeys.length > 0);
+        const alteBilder = keys.filter((key) => key.startsWith("lernapp-buchbilder-") && key !== BUCHBILDER_CACHE);
+        return Promise.all([...staleKeys, ...alteBilder].map((key) => caches.delete(key))).then(() => staleKeys.length > 0);
       })
       .then((wasUpdated) => self.clients.claim().then(() => wasUpdated))
       .then((wasUpdated) => {
@@ -200,15 +210,15 @@ self.addEventListener("activate", (event) => {
   );
 });
 
-function fetchWithTimeout(request) {
+function fetchWithTimeout(request, timeoutMs = NETWORK_TIMEOUT_MS) {
   return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error("Netz zu langsam")), NETWORK_TIMEOUT_MS);
+    const timer = setTimeout(() => reject(new Error("Netz zu langsam")), timeoutMs);
     fetch(request).then(resolve, reject).finally(() => clearTimeout(timer));
   });
 }
 
-async function fetchAndStore(cache, request) {
-  const response = await fetchWithTimeout(request);
+async function fetchAndStore(cache, request, timeoutMs = NETWORK_TIMEOUT_MS) {
+  const response = await fetchWithTimeout(request, timeoutMs);
   // Undurchsichtige Antworten (Status 0) sind brauchbar und gehören mit in
   // den Cache; Weiterleitungen und Fehlerseiten nicht. cache.put() lehnt
   // manche Antwort ab – das darf den Abruf nicht umwerfen.
@@ -218,11 +228,11 @@ async function fetchAndStore(cache, request) {
   return response;
 }
 
-async function cacheFirst(event) {
-  const cache = await caches.open(CACHE_NAME);
+async function cacheFirst(event, cacheName = CACHE_NAME, timeoutMs = NETWORK_TIMEOUT_MS) {
+  const cache = await caches.open(cacheName);
   const cached = await cache.match(event.request);
   if (cached) return cached;
-  return fetchAndStore(cache, event.request);
+  return fetchAndStore(cache, event.request, timeoutMs);
 }
 
 async function staleWhileRevalidate(event) {
@@ -283,6 +293,11 @@ self.addEventListener("fetch", (event) => {
   // antworten, ohne vorher das Netz zu fragen.
   if (requestUrl.searchParams.has("v")) {
     event.respondWith(cacheFirst(event));
+    return;
+  }
+
+  if (requestUrl.pathname.includes("/bilder/buecher/")) {
+    event.respondWith(cacheFirst(event, BUCHBILDER_CACHE, BUCHBILDER_TIMEOUT_MS));
     return;
   }
 

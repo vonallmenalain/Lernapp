@@ -506,6 +506,53 @@ function lautgetreu(wort) {
   });
 }
 
+// --- 3b. Die gemalten Bilder der Bücher --------------------------------------------
+// Ein Buch mit «bilder» hat in seinem Ordner genau dies: einen Umschlag und ein
+// Bild je Seite (1200 × 760, wie die Zeichnung 240 × 152 gross, nur feiner) und
+// einen kleinen Umschlag fürs Regal (480 × 304) – alle WebP und so klein, dass
+// ein Buch am Handy schnell da ist. Der Service Worker legt sie in einen Cache,
+// der ein Update übersteht.
+function webpMasse(daten) {
+  if (daten.length < 30 || daten.toString("ascii", 0, 4) !== "RIFF" || daten.toString("ascii", 8, 12) !== "WEBP") return null;
+  const art = daten.toString("ascii", 12, 16);
+  if (art === "VP8 ") return { breite: daten.readUInt16LE(26) & 0x3fff, hoehe: daten.readUInt16LE(28) & 0x3fff };
+  if (art === "VP8L") { const bits = daten.readUInt32LE(21); return { breite: (bits & 0x3fff) + 1, hoehe: ((bits >> 14) & 0x3fff) + 1 }; }
+  if (art === "VP8X") return { breite: daten.readUIntLE(24, 3) + 1, hoehe: daten.readUIntLE(27, 3) + 1 };
+  return null;
+}
+let gemalteBuecher = 0;
+{
+  const GROSS = { breite: 1200, hoehe: 760, kb: 160 };
+  const KLEIN = { breite: 480, hoehe: 304, kb: 40 };
+  bib.BUECHER.filter((buch) => buch.bilder !== undefined).forEach((buch) => {
+    const wo = `Bilder von «${buch.titel}»`;
+    pruefe(buch.bilder === `bilder/buecher/${buch.id}`, `${wo}: der Ordner heisst ${buch.bilder}, nicht bilder/buecher/${buch.id}`);
+    const ordner = path.join(root, buch.bilder);
+    if (!fs.existsSync(ordner)) { pruefe(false, `${wo}: der Ordner ${buch.bilder} fehlt`); return; }
+    gemalteBuecher += 1;
+    const soll = new Map([["umschlag.webp", GROSS], ["umschlag-klein.webp", KLEIN]]);
+    buch.seiten.forEach((_, nr) => soll.set(`seite-${String(nr + 1).padStart(2, "0")}.webp`, GROSS));
+    const da = fs.readdirSync(ordner);
+    da.filter((name) => !soll.has(name)).forEach((name) => pruefe(false, `${wo}: ${name} gehört zu keiner Seite`));
+    let summe = 0;
+    soll.forEach((mass, name) => {
+      const datei = path.join(ordner, name);
+      if (!fs.existsSync(datei)) { pruefe(false, `${wo}: ${name} fehlt`); return; }
+      const daten = fs.readFileSync(datei);
+      summe += daten.length;
+      const masse = webpMasse(daten);
+      pruefe(masse, `${wo}: ${name} ist kein WebP`);
+      if (masse) pruefe(masse.breite === mass.breite && masse.hoehe === mass.hoehe, `${wo}: ${name} ist ${masse.breite} × ${masse.hoehe} statt ${mass.breite} × ${mass.hoehe}`);
+      pruefe(daten.length <= mass.kb * 1024, `${wo}: ${name} hat ${Math.round(daten.length / 1024)} KB, erlaubt sind ${mass.kb}`);
+    });
+    pruefe(summe <= 1.6 * 1024 * 1024, `${wo}: zusammen ${Math.round(summe / 1024)} KB – mehr als 1,6 MB lädt am Handy zu lange`);
+  });
+  const sw = lies("service-worker.js");
+  pruefe(/const BUCHBILDER_CACHE = "lernapp-buchbilder-\d+";/.test(sw), "service-worker.js: der Cache der Buchbilder (BUCHBILDER_CACHE) fehlt");
+  pruefe(sw.includes('requestUrl.pathname.includes("/bilder/buecher/")') && sw.includes("cacheFirst(event, BUCHBILDER_CACHE"), "service-worker.js: die Buchbilder gehen nicht in ihren eigenen Cache");
+  pruefe(!sw.includes('startsWith("lernapp-buchbilder-") && key !== CACHE_NAME'), "service-worker.js: ein Update würde die Buchbilder löschen");
+}
+
 // --- 4. Der Lesestand -------------------------------------------------------------
 {
   const { windowStub: s, store } = lade("lesen-inhalte.js", "lesen-stand.js");
@@ -907,4 +954,4 @@ if (fehler.length) {
   process.exit(1);
 }
 const aufgenommen = Object.keys(lade("lesen-laute.js").windowStub.LernappLauteAufnahmen || {}).length;
-console.log(`Die Leseecke stimmt: ${inhalte.LAUTE.length} Laute (${aufgenommen} aufgenommen), ${inhalte.SILBEN_WOERTER.length + inhalte.KUPPEL_WOERTER.length} Wörter, ${bib.BUECHER.length} Bücher mit ${bib.BUECHER.reduce((n, b) => n + b.fragen.length, 0)} Fragen, der Lesestand, die Seiten und die Aufnahmeseite.`);
+console.log(`Die Leseecke stimmt: ${inhalte.LAUTE.length} Laute (${aufgenommen} aufgenommen), ${inhalte.SILBEN_WOERTER.length + inhalte.KUPPEL_WOERTER.length} Wörter, ${bib.BUECHER.length} Bücher mit ${bib.BUECHER.reduce((n, b) => n + b.fragen.length, 0)} Fragen (${gemalteBuecher} mit gemalten Bildern), der Lesestand, die Seiten und die Aufnahmeseite.`);
