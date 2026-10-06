@@ -350,17 +350,21 @@
     woerterbauen: { page: "woerterbauen.html", titel: "Wörter bauen", ort: "woerter", bild: "🧱" },
     silbenbahn: { page: "silbenbahn.html", titel: "Silbenbahn", ort: "woerter", bild: "🚂" },
     blitzwoerter: { page: "blitzwoerter.html", titel: "Blitzwörter", ort: "woerter", bild: "⚡" },
+    quatschwoerter: { page: "quatschwoerter.html", titel: "Quatschwörter", ort: "woerter", bild: "👾" },
     stimmtdas: { page: "stimmtdas.html", titel: "Stimmt das?", ort: "saetze", bild: "👍" },
     lueckensaetze: { page: "lueckensaetze.html", titel: "Lückensätze", ort: "saetze", bild: "🧩" },
+    satzkuppeln: { page: "satzkuppeln.html", titel: "Satz kuppeln", ort: "saetze", bild: "🚃" },
+    quatschsaetze: { page: "quatschsaetze.html", titel: "Quatschsätze", ort: "saetze", bild: "🤪" },
+    stolperwoerter: { page: "stolperwoerter.html", titel: "Stolperwörter", ort: "saetze", bild: "🪨" },
     buecher: { page: "buecher.html", titel: "Bücherregal", ort: "buecher", bild: "📚", weiter: "buecher.html?weiter=1" },
   };
   // Was der Lesewurm im Sessel je Lesestufe aussucht.
   const AUSWAHL = {
     hoeren: ["silbenzug", "reimkupplung", "anlautlauscher", "buecher", "buchstabenhaus", "buchstabengleis"],
     buchstaben: ["buchstabenhaus", "meinname", "buchstabengleis", "anlautlauscher", "lautekuppeln", "silbenzug", "reimkupplung", "buecher"],
-    woerter: ["lautekuppeln", "werfaehrtmit", "woerterbauen", "buchstabenhaus", "silbenbahn", "buecher"],
-    saetze: ["stimmtdas", "lueckensaetze", "blitzwoerter", "silbenbahn", "werfaehrtmit", "woerterbauen", "buecher"],
-    geschichten: ["buecher", "lueckensaetze", "stimmtdas", "blitzwoerter", "silbenbahn"],
+    woerter: ["lautekuppeln", "werfaehrtmit", "woerterbauen", "buchstabenhaus", "silbenbahn", "quatschwoerter", "buecher"],
+    saetze: ["stimmtdas", "lueckensaetze", "satzkuppeln", "quatschsaetze", "blitzwoerter", "quatschwoerter", "silbenbahn", "buecher"],
+    geschichten: ["buecher", "stolperwoerter", "quatschsaetze", "lueckensaetze", "satzkuppeln", "stimmtdas", "blitzwoerter"],
   };
 
   function naechstes(s = stand()) {

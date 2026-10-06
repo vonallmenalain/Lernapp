@@ -491,6 +491,7 @@ function lautgetreu(wort) {
     silbenzug: [], buchstabenhaus: [], lautekuppeln: [], stimmtdas: [], buecher: ["lesen-buecher.js"],
     reimkupplung: [], anlautlauscher: [], werfaehrtmit: [], woerterbauen: [], silbenbahn: [], blitzwoerter: [],
     meinname: [], lueckensaetze: [], buchstabengleis: [],
+    satzkuppeln: [], quatschsaetze: [], stolperwoerter: ["lesen-buecher.js"], quatschwoerter: [],
   };
   const stand = lies("lesen-stand.js");
   for (const [seite, extra] of Object.entries(SEITEN)) {
@@ -610,7 +611,8 @@ function lautgetreu(wort) {
 {
   const KUERZEL = { "lesen-spiel.js": "lese", "buchstabenhaus.js": "bh", "lautekuppeln.js": "kp", "stimmtdas.js": "sd", "buecher.js": "bu",
     "reimkupplung.js": "rk", "anlautlauscher.js": "al", "werfaehrtmit.js": "wm", "woerterbauen.js": "wb", "silbenbahn.js": "sb", "blitzwoerter.js": "bw",
-    "meinname.js": "mn", "lueckensaetze.js": "ls", "buchstabengleis.js": "bg" };
+    "meinname.js": "mn", "lueckensaetze.js": "ls", "buchstabengleis.js": "bg",
+    "satzkuppeln.js": "sk", "quatschsaetze.js": "qs", "stolperwoerter.js": "sw", "quatschwoerter.js": "qw" };
   const eigene = new Set(Object.keys(KUERZEL));
   const fremde = fs.readdirSync(root).filter((name) => name.endsWith(".js") && !eigene.has(name) && !name.startsWith("lesen-") && name !== "train-leseecke.js" && name !== "laute-aufnehmen.js" && name !== "silbenzug.js");
   Object.entries(KUERZEL).forEach(([datei, kuerzel]) => {
@@ -628,6 +630,7 @@ function lautgetreu(wort) {
     "reimkupplung.js", "anlautlauscher.js", "werfaehrtmit.js", "woerterbauen.js", "silbenbahn.js", "blitzwoerter.js",
     "reimkupplung.html", "anlautlauscher.html", "werfaehrtmit.html", "woerterbauen.html", "silbenbahn.html", "blitzwoerter.html",
     "meinname.js", "meinname.html", "lueckensaetze.js", "lueckensaetze.html", "buchstabengleis.js", "buchstabengleis.html",
+    "satzkuppeln.js", "satzkuppeln.html", "quatschsaetze.js", "quatschsaetze.html", "stolperwoerter.js", "stolperwoerter.html", "quatschwoerter.js", "quatschwoerter.html",
     "laute-aufnehmen.html", "laute-aufnehmen.js"];
   dateien.forEach((datei) => {
     if (!fs.existsSync(path.join(root, datei))) return;

@@ -13012,3 +13012,137 @@ body[data-page="laute-aufnehmen"] {
 @media (prefers-reduced-motion: reduce) {
   .bg-tipp, .bg-lok-innen.wackelt { animation: none; }
 }
+
+/* ===========================================================================
+   Leseecke, Etappe 3: Sätze
+   =========================================================================== */
+/* --- Satz kuppeln --- */
+.sk-bild { width: min(46vw, calc((100vh - 120px) * 0.62 * 1.58), 420px); }
+.sk-bild svg { display: block; width: 100%; height: auto; filter: drop-shadow(0 6px 12px rgba(36, 48, 71, 0.16)); }
+.sk-gleis {
+  position: relative;
+  width: min(96vw, 1040px);
+  height: min(clamp(46px, 15vh, 96px), calc(90vw / (1.2 + 1.25 * var(--sk-n, 6))));
+}
+.sk-zug { position: absolute; left: 1%; bottom: 8px; display: flex; align-items: flex-end; height: 100%; transition: transform 0.9s cubic-bezier(0.45, 0, 0.55, 1); }
+.sk-zug.faehrt-ab { transform: translateX(110vw); }
+.sk-zug .lese-lok { height: 100%; }
+.sk-angekuppelt { display: flex; align-items: flex-end; height: 72%; }
+.sk-wagen { display: block; flex: none; min-height: 0; padding: 0; border: none; border-radius: 12px; background: none; cursor: pointer; }
+.sk-wagen:hover:not(:disabled) { background: none; }
+.sk-wagen svg { display: block; height: clamp(38px, 11vh, 78px); width: auto; }
+.sk-angekuppelt .sk-wagen { height: 100%; margin-left: -4px; animation: rk-kuppelt 0.4s cubic-bezier(0.25, 1, 0.5, 1); }
+.sk-angekuppelt .sk-wagen svg { height: 100%; }
+.sk-neben { display: flex; flex-wrap: wrap; justify-content: center; gap: clamp(5px, 1.4vw, 16px); max-width: 96vw; }
+.sk-wagen.zeigt-hin { animation: lese-zeigt-hin 0.9s ease-in-out infinite; }
+
+/* --- Quatschsätze --- */
+.qs-strecke { position: relative; display: flex; flex-direction: column; align-items: center; width: min(96vw, 860px); overflow: hidden; padding-bottom: 6px; }
+.qs-wagen {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  max-width: min(92vw, 760px);
+  min-height: clamp(70px, 22vh, 150px);
+  padding: clamp(8px, 2.4vh, 18px) clamp(16px, 3.5vw, 34px) clamp(16px, 3.5vh, 26px);
+  border: 6px solid #5b3a29;
+  border-radius: 20px 20px 12px 12px;
+  background: #fffaf0;
+  box-shadow: inset 0 -8px 0 rgba(0, 0, 0, 0.08), 0 8px 16px rgba(36, 48, 71, 0.2);
+  color: #243047;
+  cursor: default;
+  transition: transform 0.9s cubic-bezier(0.45, 0, 0.55, 1), opacity 0.9s ease;
+}
+.qs-wagen:hover:not(:disabled) { background: #fffaf0; }
+.qs-wagen.ist-hoerbar { cursor: pointer; }
+.qs-wagen.faehrt-ein { animation: qs-einfahren 0.5s cubic-bezier(0.25, 1, 0.5, 1); }
+@keyframes qs-einfahren { from { transform: translateX(-70vw); } to { transform: none; } }
+.qs-wagen.faehrt-weiter { transform: translateX(110vw); }
+.qs-wagen.faehrt-ab { transform: translate(30vw, 22vh) rotate(8deg); opacity: 0.35; }
+.qs-satz { font-family: "Andika", Inter, system-ui, sans-serif; font-size: clamp(1.25rem, 7.5vh, 2.6rem); font-weight: 700; line-height: 1.25; text-align: center; }
+.qs-raeder { position: absolute; left: 12%; right: 12%; bottom: -14px; height: 22px; background: radial-gradient(circle at 11px 11px, #3a3f4a 9px, transparent 10px) left / 22px 22px no-repeat, radial-gradient(circle at 11px 11px, #3a3f4a 9px, transparent 10px) right / 22px 22px no-repeat; }
+.qs-schiene { width: 100%; height: 8px; margin-top: 12px; border-radius: 4px; background: #6b5b4a; }
+.qs-ergebnis { margin: 0; padding: 4px 14px; border-radius: 12px; background: #eaf7ef; color: #1f6b3a; font-size: clamp(0.95rem, 4.4vh, 1.4rem); font-weight: 800; }
+.qs-ergebnis.ist-quatsch { background: #fff0e6; color: #a8452e; }
+.qs-ergebnis[hidden] { display: none; }
+.qs-knoepfe { display: flex; gap: clamp(16px, 5vw, 48px); }
+.qs-knopf {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-width: clamp(96px, 22vw, 180px);
+  min-height: clamp(60px, 18vh, 112px);
+  padding: 6px 14px;
+  border: 4px solid #ffffff;
+  border-radius: 22px;
+  background: #fff6e0;
+  box-shadow: 0 8px 16px rgba(36, 48, 71, 0.2);
+  color: #243047;
+}
+.qs-knopf:hover:not(:disabled) { background: #ffeccc; }
+.qs-knopf:disabled { cursor: default; }
+.qs-knopf-bild { font-size: clamp(1.6rem, 9vh, 3rem); line-height: 1; }
+.qs-knopf-text { font-size: clamp(0.85rem, 3.8vh, 1.2rem); font-weight: 800; }
+.qs-knopf.ist-richtig { background: #c9f2d6; box-shadow: 0 0 0 5px #3fbf74; }
+.qs-knopf.ist-falsch { background: #ffd9d4; }
+
+/* --- Stolperwörter --- */
+.sw-hinweis { margin: 0; padding: 4px 14px; border-radius: 12px; background: rgba(255, 255, 255, 0.85); color: #243047; font-size: clamp(0.9rem, 4vh, 1.3rem); font-weight: 800; }
+.sw-gleis { display: flex; flex-direction: column; align-items: center; width: min(96vw, 1040px); }
+.sw-reihe { display: flex; flex-wrap: wrap; justify-content: center; align-items: flex-end; gap: clamp(5px, 1.2vw, 12px); padding: 0 8px 4px; }
+.sw-wort {
+  min-height: clamp(48px, 14vh, 80px);
+  padding: 0 clamp(10px, 1.8vw, 18px);
+  border: 3px solid #9aa3b2;
+  border-radius: 16px;
+  background: #f4f6f9;
+  box-shadow: 0 5px 0 #9aa3b2, 0 8px 14px rgba(36, 48, 71, 0.16);
+  color: #243047;
+  font-family: "Andika", Inter, system-ui, sans-serif;
+  font-size: clamp(1.15rem, 7vh, 2.3rem);
+  font-weight: 700;
+}
+.sw-wort:hover:not(:disabled) { background: #ffffff; }
+.sw-wort.ist-falsch { opacity: 0.55; }
+.sw-wort.zeigt-hin { animation: lese-zeigt-hin 0.9s ease-in-out infinite; }
+.sw-wort.fliegt-weg { animation: sw-weg 0.45s ease-in forwards; background: #ffd98a; border-color: #c8935a; box-shadow: none; }
+@keyframes sw-weg { to { transform: translateY(-40vh) rotate(-25deg); opacity: 0; } }
+.sw-reihe.ist-frei .sw-wort:not(.fliegt-weg) { border-color: #3fbf74; box-shadow: 0 5px 0 #3fbf74; }
+
+/* --- Quatschwörter --- */
+.qw-oben { display: flex; align-items: flex-start; gap: 6px; }
+.qw-monster { width: clamp(110px, 34vh, 230px); padding: 0; border: none; background: none; cursor: pointer; }
+.qw-monster:hover:not(:disabled) { background: none; }
+.qw-monster svg { display: block; width: 100%; height: auto; }
+.qw-monster.kommt { animation: lese-bild-neu 0.45s cubic-bezier(0.34, 1.56, 0.64, 1); }
+.qw-monster.ist-froh { animation: qw-hopsen 0.5s ease-in-out 2; }
+@keyframes qw-hopsen { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-16%); } }
+.qw-monster.schuettelt { animation: lese-wackeln 0.42s ease-in-out; }
+.qw-blase { font-size: clamp(1.2rem, 6vh, 2rem); }
+.qw-schilder { display: flex; flex-wrap: wrap; justify-content: center; gap: clamp(10px, 3vw, 30px); }
+.qw-schild {
+  min-width: clamp(96px, 20vw, 190px);
+  min-height: clamp(52px, 15vh, 86px);
+  padding: 0 18px;
+  border: 5px solid #8a5a35;
+  border-radius: 14px;
+  background: #e2b07a;
+  box-shadow: 0 6px 0 #6b4428, 0 10px 16px rgba(36, 48, 71, 0.2);
+  color: #243047;
+  font-family: "Andika", Inter, system-ui, sans-serif;
+  font-size: clamp(1.4rem, 8vh, 2.8rem);
+  font-weight: 700;
+}
+.qw-schild:hover:not(:disabled) { background: #ecc08f; }
+.qw-schild.ist-falsch { opacity: 0.5; }
+.qw-schild.ist-richtig { background: #c9f2d6; border-color: #3fbf74; box-shadow: 0 6px 0 #2f9d5d; }
+.qw-schild.zeigt-hin { animation: lese-zeigt-hin 0.9s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .sk-angekuppelt .sk-wagen, .sk-wagen.zeigt-hin, .qs-wagen.faehrt-ein, .sw-wort.zeigt-hin, .sw-wort.fliegt-weg,
+  .qw-monster.kommt, .qw-monster.ist-froh, .qw-monster.schuettelt, .qw-schild.zeigt-hin { animation: none; }
+  .sk-zug, .qs-wagen { transition: none; }
+}
