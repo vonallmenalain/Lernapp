@@ -197,11 +197,228 @@
     } catch { return false; }
   }
   function stopSpeaking() {
+    aufnahmeStopp();
     if (ttsSupported()) { try { window.speechSynthesis.cancel(); } catch { /* ignore */ } }
   }
+
+  // ---------------------------------------------------------------------------
+  // Aufnahmen fester Texte (lesen-stimme.js)
+  // ---------------------------------------------------------------------------
+  // Feste Texte – die Sätze eines Buches, die Hilfe eines Spiels – können als
+  // Aufnahme vorliegen: mit Alains Stimme, wie die Laute (lesen-laute.js), statt
+  // mit der Stimme des Geräts. lesen-stimme.js trägt sie als
+  //   window.LernappStimmeDateien = { "<Text>": "stimme/alain/<hash>.mp3", … }
+  // Gibt es zu einem Text eine Aufnahme, spielt sie; sonst spricht die
+  // Gerätestimme wie bisher. Besteht ein Text aus festen und wechselnden Teilen
+  // – der Lesewurm sagt seinen Namen, dann kommt die Hilfe des Lesewagens –,
+  // wird er Satz für Satz zusammengesetzt: die längsten aufgenommenen Stücke
+  // aus ihren Dateien, der Rest von der Gerätestimme. Lädt eine Datei nicht
+  // (ohne Netz und noch nicht im Cache), spricht für sie die Gerätestimme.
+  //
+  // Alle Aufnahmen laufen über ein einziges Audio-Element. Safari auf iPhone
+  // und iPad lässt ein Element nur spielen, wenn es einmal aus einem Tipp
+  // heraus gestartet wurde – danach auch, wenn ein Satz nach dem anderen von
+  // selbst kommt. Deshalb startet der erste Tipp auf einer Seite mit Aufnahmen
+  // das Element mit einem Augenblick Stille.
+  const AUFNAHME_LADEFRIST_MS = 6000;
+  const STILLE = "data:audio/wav;base64,UklGRnQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YVAAAACAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgA==";
+  let aufnahmeEl = null;      // das Audio-Element für alle Aufnahmen
+  let aufnahmeJetzt = null;   // die Aufnahme, die gerade spielt: { ende(ausgang), laeuft() }
+  let aufnahmeLauf = 0;       // jede neue Ausgabe macht ältere ungültig
+  let folgeLaeuft = null;     // die Folge, die gerade spricht
+
+  // So steht ein Text im Verzeichnis: Leerräume zu je einem Leerzeichen.
+  function sprechText(text) {
+    return String(text ?? "").replace(/\s+/g, " ").trim();
+  }
+  function aufnahmeVon(text) {
+    const dateien = window.LernappStimmeDateien;
+    const schluessel = sprechText(text);
+    if (!dateien || !schluessel || !Object.prototype.hasOwnProperty.call(dateien, schluessel)) return null;
+    const datei = dateien[schluessel];
+    return typeof datei === "string" && datei ? datei : null;
+  }
+  // Die Sätze eines Textes: geteilt hinter . ! ? … (und einem schliessenden
+  // Anführungszeichen), wo ein Leerzeichen folgt. Mit je einem Leerzeichen
+  // aneinandergehängt, ergeben sie wieder den Text.
+  function saetzeVon(text) {
+    const teile = [];
+    const muster = /[.!?…]+[»"]?(?=\s)/g;
+    let anfang = 0;
+    let treffer;
+    while ((treffer = muster.exec(text))) {
+      const ende = treffer.index + treffer[0].length;
+      teile.push(text.slice(anfang, ende).trim());
+      anfang = ende;
+    }
+    teile.push(text.slice(anfang).trim());
+    return teile.filter(Boolean);
+  }
+  // Wie ein Text gesprochen wird: [{ text, datei }], datei null heisst
+  // Gerätestimme. Ohne Aufnahmen ist es ein einziges Stück ohne Datei.
+  function aufnahmeStuecke(text) {
+    const ganz = sprechText(text);
+    if (!ganz) return [];
+    const datei = aufnahmeVon(ganz);
+    if (datei || !window.LernappStimmeDateien) return [{ text: ganz, datei }];
+    const saetze = saetzeVon(ganz);
+    const stuecke = [];
+    let i = 0;
+    while (i < saetze.length) {
+      // Das längste aufgenommene Stück, das mit diesem Satz anfängt.
+      let bis = saetze.length;
+      let treffer = null;
+      for (; bis > i; bis -= 1) {
+        treffer = aufnahmeVon(saetze.slice(i, bis).join(" "));
+        if (treffer) break;
+      }
+      if (treffer) {
+        stuecke.push({ text: saetze.slice(i, bis).join(" "), datei: treffer });
+        i = bis;
+        continue;
+      }
+      const vorher = stuecke[stuecke.length - 1];
+      if (vorher && !vorher.datei) vorher.text += ` ${saetze[i]}`;
+      else stuecke.push({ text: saetze[i], datei: null });
+      i += 1;
+    }
+    return stuecke;
+  }
+  function hatAufnahme(text) { return aufnahmeStuecke(text).some((stueck) => stueck.datei); }
+
+  function aufnahmeElement() {
+    if (aufnahmeEl) return aufnahmeEl;
+    if (typeof window.Audio !== "function") return null;
+    try { aufnahmeEl = new window.Audio(); } catch { return null; }
+    aufnahmeEl.preload = "auto";
+    aufnahmeEl.addEventListener("ended", () => aufnahmeJetzt?.ende("fertig"));
+    aufnahmeEl.addEventListener("error", () => aufnahmeJetzt?.ende("fehler"));
+    aufnahmeEl.addEventListener("playing", () => aufnahmeJetzt?.laeuft());
+    // Hält das Gerät sie an (ein Anruf, der Sperrbildschirm), ist sie vorbei.
+    // Ein «pause», das noch vom Anhalten der vorigen kommt, trifft eine
+    // Aufnahme, die schon wieder spielt – das zählt nicht.
+    aufnahmeEl.addEventListener("pause", () => {
+      if (aufnahmeEl.paused && !aufnahmeEl.ended) aufnahmeJetzt?.ende("abbruch");
+    });
+    return aufnahmeEl;
+  }
+  // Spielt eine Aufnahme. Wie es ausging: "fertig" (zu Ende gehört),
+  // "fehler" (lädt nicht oder darf nicht spielen – dann spricht die
+  // Gerätestimme) oder "abbruch" (angehalten).
+  function spieleAufnahme(datei, onLaeuft) {
+    const el = aufnahmeElement();
+    if (!el) return Promise.resolve("fehler");
+    aufnahmeJetzt?.ende("abbruch");
+    return new Promise((fertig) => {
+      let uhr = 0;
+      const jetzt = {
+        ende(ausgang) {
+          if (aufnahmeJetzt !== jetzt) return;
+          aufnahmeJetzt = null;
+          window.clearTimeout(uhr);
+          if (ausgang !== "fertig") { try { el.pause(); } catch { /* egal */ } }
+          fertig(ausgang);
+        },
+        laeuft() {
+          if (aufnahmeJetzt !== jetzt) return;
+          window.clearTimeout(uhr);
+          onLaeuft?.();
+        },
+      };
+      aufnahmeJetzt = jetzt;
+      // Kommt sie nicht bald in Gang – ein zähes Netz –, spricht die
+      // Gerätestimme.
+      uhr = window.setTimeout(() => jetzt.ende("fehler"), AUFNAHME_LADEFRIST_MS);
+      try {
+        el.src = datei;
+        const versuch = el.play();
+        if (versuch?.then) versuch.then(() => jetzt.laeuft(), () => jetzt.ende("fehler"));
+      } catch { jetzt.ende("fehler"); }
+    });
+  }
+  function aufnahmeStopp() {
+    aufnahmeLauf += 1;
+    folgeLaeuft = null;
+    aufnahmeJetzt?.ende("abbruch");
+  }
+  // Spielt die Stücke nacheinander: was eine Datei hat, aus der Datei, den
+  // Rest – und eine Datei, die nicht lädt – mit geraet(text, versatz), der
+  // Gerätestimme des Aufrufers. versatz: wie viele Wörter vor dem Stück
+  // kommen, fürs Mitleuchten. true: alles gesagt; false: abgebrochen.
+  async function aufnahmeFolge(stuecke, { geraet = null, onStart = null } = {}) {
+    const meine = aufnahmeLauf;
+    const folge = {};
+    folgeLaeuft = folge;
+    let gestartet = false;
+    const los = () => {
+      if (gestartet || meine !== aufnahmeLauf) return;
+      gestartet = true;
+      onStart?.();
+    };
+    let versatz = 0;
+    try {
+      for (const stueck of stuecke) {
+        if (meine !== aufnahmeLauf) return false;
+        const ausgang = stueck.datei ? await spieleAufnahme(stueck.datei, los) : "fehler";
+        if (ausgang === "abbruch" || meine !== aufnahmeLauf) return false;
+        if (ausgang === "fehler") {
+          los();
+          if (geraet) await geraet(stueck.text, versatz);
+          if (meine !== aufnahmeLauf) return false;
+        }
+        versatz += (stueck.text.match(/\S+/g) || []).length;
+      }
+      return true;
+    } finally {
+      if (folgeLaeuft === folge) folgeLaeuft = null;
+    }
+  }
+  // Spricht gerade etwas – eine Aufnahme oder die Sprachausgabe?
+  function sprichtGerade() {
+    if (folgeLaeuft) return true;
+    if (!ttsSupported()) return false;
+    try { return Boolean(window.speechSynthesis.speaking || window.speechSynthesis.pending); } catch { return false; }
+  }
+  // Der erste Tipp auf der Seite gibt das Audio-Element frei (siehe oben) –
+  // nur, wo es Aufnahmen gibt, und nur einmal.
+  const FREIGABE = ["click", "touchend", "keydown"];
+  function aufnahmeFreigeben() {
+    FREIGABE.forEach((typ) => document.removeEventListener(typ, aufnahmeFreigeben, true));
+    if (!Object.keys(window.LernappStimmeDateien || {}).length || aufnahmeJetzt) return;
+    const el = aufnahmeElement();
+    if (!el) return;
+    try {
+      el.src = STILLE;
+      const versuch = el.play();
+      if (versuch?.catch) versuch.catch(() => {});
+    } catch { /* dann eben beim ersten Satz */ }
+  }
+  if (typeof document.addEventListener === "function") {
+    FREIGABE.forEach((typ) => document.addEventListener(typ, aufnahmeFreigeben, true));
+  }
+
   // Wichtig: speak() wird ausschliesslich aus einem Klick auf einen
   // Lautsprecher-Knopf heraus aufgerufen. Die App liest nie von selbst vor.
+  // Gibt es den Text als Aufnahme (lesen-stimme.js), spielt sie.
   function speak(text, options = {}) {
+    if (!text || !ttsEnabled()) { options.onEnd?.(); return; }
+    const stuecke = aufnahmeStuecke(text);
+    if (!stuecke.some((stueck) => stueck.datei)) { sprichMitGeraet(text, options); return; }
+    stopSpeaking();
+    aufnahmeFolge(stuecke, {
+      onStart: options.onStart,
+      geraet: (teil) => new Promise((fertig) => {
+        // Meldet die Sprachausgabe ihr Ende nie (Safari nach dem
+        // Sperrbildschirm), gilt das Stück nach einer grosszügigen Frist als
+        // gesagt.
+        const frist = window.setTimeout(() => fertig(false), 1500 + teil.length * 140);
+        const ende = () => { window.clearTimeout(frist); fertig(true); };
+        sprichMitGeraet(teil, { ...options, queue: true, onStart: null, onEnd: ende });
+      }),
+    }).then(() => options.onEnd?.());
+  }
+  // Die Sprachausgabe des Geräts.
+  function sprichMitGeraet(text, options = {}) {
     if (!text || !ttsSupported() || !ttsEnabled()) { options.onEnd?.(); return; }
     if (!options.queue) stopSpeaking();
     try {
@@ -500,10 +717,7 @@
   function watchSpeech() {
     if (helpWatch) window.clearInterval(helpWatch);
     helpWatch = window.setInterval(() => {
-      try {
-        const synth = window.speechSynthesis;
-        if (!synth.speaking && !synth.pending) setSpeaking(false);
-      } catch { setSpeaking(false); }
+      if (!sprichtGerade()) setSpeaking(false);
     }, 500);
   }
   // Nur die Sprechblase weg – das Vorlesen läuft weiter. Das passiert bei
@@ -538,7 +752,8 @@
     if (!text) return;
     if (helpSpeaking) { stopHelp(); return; }
     showHelpBubble(text);
-    if (!ttsSupported() || !ttsEnabled()) return;
+    // Eine Aufnahme spielt auch auf einem Gerät ohne Sprachausgabe.
+    if (!ttsEnabled() || (!ttsSupported() && !hatAufnahme(text))) return;
     helpSpeechToken += 1;
     const token = helpSpeechToken;
     // Nur, wenn seither keine neue Ansage angefangen hat: das Ende einer
@@ -555,10 +770,7 @@
       // Gerät –, geht der Knopf nach kurzer Zeit von selbst zurück.
       window.setTimeout(() => {
         if (!gilt() || !helpSpeaking) return;
-        try {
-          const synth = window.speechSynthesis;
-          if (!synth.speaking && !synth.pending) setSpeaking(false);
-        } catch { setSpeaking(false); }
+        if (!sprichtGerade()) setSpeaking(false);
       }, 2500);
     }
   }
@@ -997,7 +1209,9 @@
     wagonSetId, wagonRounds,
 
     // TTS (nur auf Lautsprecher-Klick)
-    ttsSupported, ttsEnabled, setTtsEnabled, speak, stopSpeaking,
+    ttsSupported, ttsEnabled, setTtsEnabled, speak, stopSpeaking, sprichtGerade,
+    // Aufnahmen fester Texte (lesen-stimme.js)
+    aufnahmeStuecke, aufnahmeFolge, aufnahmeStopp, hatAufnahme,
     // Die Stimme dieses Geräts
     STIMME_KEY, deutscheStimmen, pickGermanVoice, stimmeId, stimmeName, gewaehlteStimme, stimmeWaehlen, stimmeProbe, onStimmen,
     // Hilfe-Lautsprecher
