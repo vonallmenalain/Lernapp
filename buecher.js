@@ -56,7 +56,7 @@
 
   const ID = "buecher";
   // Die Bilder der Seiten und Umschläge zeichnet lesen-bilder.js.
-  const { buchBild, umschlagBild } = window.LernappLeseBilder;
+  const { buchBild, umschlagBild, vorladen } = window.LernappLeseBilder;
 
   // Wie schnell die Stimme liest: Für Erstleser langsamer.
   const TEMPO = { hoerbuch: 0.9, erste: 0.78, klein: 0.85, geschichte: 0.9, kapitel: 0.95 };
@@ -369,8 +369,9 @@
     deckel.type = "button";
     deckel.style.setProperty("--buch", buch.farbe);
     deckel.setAttribute("aria-label", `Der Titel: ${buch.titel}`);
-    deckel.append(umschlagBild(buch), shell.el("span", "bu-titel-text", stand?.zeige?.(buch.titel) ?? buch.titel));
+    deckel.append(umschlagBild(buch, { gross: true }), shell.el("span", "bu-titel-text", stand?.zeige?.(buch.titel) ?? buch.titel));
     deckel.addEventListener("click", () => ton.sprich(buch.titel, { rate: TEMPO[buch.stufe] || 0.9 }));
+    vorladen(buch);
 
     const wahl = shell.el("div", "bu-wahl");
     const stufe = bib.STUFEN.find((s) => s.id === buch.stufe);

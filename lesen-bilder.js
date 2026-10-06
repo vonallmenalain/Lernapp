@@ -10,6 +10,12 @@
  *
  * Ein Bild ist 240 × 152 gross – doppelt so gross wie die Vorschau einer
  * Landschaft, die darin den Hintergrund gibt. Der Boden liegt bei 136.
+ *
+ * Hat ein Buch gemalte Bilder (lesen-buecher.js, bilder), liegt das gemalte
+ * Bild über der Zeichnung. Die Zeichnung entsteht trotzdem: Lädt das Bild
+ * nicht – ohne Netz, bevor das Buch je offen war –, kommt sie zum Vorschein.
+ * Solange es lädt, deckt eine ruhige Fläche sie ab; sonst blitzte sie auf.
+ * Am SVG steht, wie es steht: data-foto="laedt", "da" oder "fehlt".
  */
 (() => {
   "use strict";
@@ -188,6 +194,51 @@
     ];
   }
 
+  // ---------------------------------------------------------------------------
+  // Gemalte Bilder
+  // ---------------------------------------------------------------------------
+  // Der Ordner eines Buches hat seite-01.webp, seite-02.webp … und den
+  // Umschlag, gross und klein (fürs Regal).
+  function seitenFoto(buch, nr) {
+    return buch?.bilder ? `${buch.bilder}/seite-${String(nr + 1).padStart(2, "0")}.webp` : null;
+  }
+
+  function umschlagFoto(buch, gross = false) {
+    return buch?.bilder ? `${buch.bilder}/${gross ? "umschlag" : "umschlag-klein"}.webp` : null;
+  }
+
+  // Das gemalte Bild über die Zeichnung legen. Fehlt es, bleibt die Zeichnung.
+  function mitFoto(svg, pfad) {
+    const grund = art.el("rect", { x: 0, y: 0, width: W, height: H, fill: "#ece4d3", class: "bu-foto-grund" });
+    const foto = art.el("image", { href: pfad, x: 0, y: 0, width: W, height: H, preserveAspectRatio: "xMidYMid slice", class: "bu-foto" });
+    svg.dataset.foto = "laedt";
+    foto.addEventListener("load", () => {
+      svg.dataset.foto = "da";
+      grund.remove();
+    });
+    foto.addEventListener("error", () => {
+      svg.dataset.foto = "fehlt";
+      grund.remove();
+      foto.remove();
+    });
+    svg.append(grund, foto);
+    return svg;
+  }
+
+  // Wenn ein Buch aufgeht, kommen alle seine Bilder schon in den Speicher:
+  // Danach ist es auch ohne Netz ganz da (der Service Worker legt sie ab),
+  // und beim Umblättern wartet niemand.
+  const vorgeladen = new Set();
+  function vorladen(buch) {
+    if (!buch?.bilder || vorgeladen.has(buch.id)) return;
+    vorgeladen.add(buch.id);
+    [umschlagFoto(buch, true), ...buch.seiten.map((_, nr) => seitenFoto(buch, nr))].forEach((pfad) => {
+      const bild = new Image();
+      bild.decoding = "async";
+      bild.src = pfad;
+    });
+  }
+
   //   seite  eine Seite des Buches; ohne Seite nur die Landschaft
   function buchBild(buch, seite = null) {
     const b = seite?.bild || {};
@@ -225,16 +276,20 @@
     (b.figuren || []).forEach((f) => svg.append(figur(f)));
     (b.zeichnungen || []).filter((z) => z.vorne).forEach((z) => { const g = zeichnung(z); if (g) svg.append(g); });
     (b.dinge || []).filter((d) => d.vorne).forEach((d) => svg.append(emoji(d.e, d.x, d.y, d.s, d.dreh)));
+    const nr = seite && buch?.seiten ? buch.seiten.indexOf(seite) : -1;
+    if (nr >= 0 && buch.bilder) mitFoto(svg, seitenFoto(buch, nr));
     return svg;
   }
 
-  // Der Umschlag: die Landschaft des Buches, davor das Tier, um das es geht.
-  function umschlagBild(buch) {
+  // Der Umschlag: die Landschaft des Buches, davor das Tier, um das es geht –
+  // oder das gemalte Bild. gross: für die Titelseite, sonst reicht das kleine.
+  function umschlagBild(buch, { gross = false } = {}) {
     const svg = art.el("svg", { viewBox: `0 0 ${W} ${H}`, class: "bu-umschlag-svg", "aria-hidden": "true" });
     svg.append(buchBild(buch));
     svg.append(art.group({ transform: `translate(${W / 2} ${BODEN + 2}) scale(2.3)` }, [zugArt.buildPassenger(buch.figur)]));
+    if (buch?.bilder) mitFoto(svg, umschlagFoto(buch, gross));
     return svg;
   }
 
-  window.LernappLeseBilder = { W, H, BODEN, ZEICHNUNGEN, emoji, zeichnung, figur, buchBild, umschlagBild };
+  window.LernappLeseBilder = { W, H, BODEN, ZEICHNUNGEN, emoji, zeichnung, figur, buchBild, umschlagBild, seitenFoto, umschlagFoto, vorladen };
 })();
