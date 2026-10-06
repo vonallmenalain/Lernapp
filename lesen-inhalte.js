@@ -476,6 +476,82 @@
   const BLITZ_JE_STUFE = { leicht: [1], mittel: [1], schwer: [1, 2] };
 
   // ---------------------------------------------------------------------------
+  // Sätze mit und ohne Sinn (Quatschsätze, Stolperwörter)
+  // ---------------------------------------------------------------------------
+  // Was ein Kind aus dem Alltag kennt – und Quatsch, der so klar Quatsch ist,
+  // dass niemand darüber streiten muss. Der Sinn hängt am Wissen, nicht an
+  // einem Bild: Wer liest, merkt, dass Fische nicht klettern.
+  const SINN_SAETZE = [
+    { satz: "Der Fisch schwimmt im Wasser.", sinn: true },
+    { satz: "Die Katze trinkt Milch.", sinn: true },
+    { satz: "Der Vogel sitzt im Nest.", sinn: true },
+    { satz: "Die Kuh frisst Gras.", sinn: true },
+    { satz: "Der Hund bellt laut.", sinn: true },
+    { satz: "Die Biene fliegt zur Blume.", sinn: true },
+    { satz: "Das Baby schläft im Bett.", sinn: true },
+    { satz: "Der Bäcker backt Brot.", sinn: true },
+    { satz: "Die Sonne scheint am Himmel.", sinn: true },
+    { satz: "Der Frosch springt in den Teich.", sinn: true },
+    { satz: "Die Maus frisst Käse.", sinn: true },
+    { satz: "Ich putze mir die Zähne.", sinn: true },
+    { satz: "Der Zug fährt über die Brücke.", sinn: true },
+    { satz: "Die Eule ist in der Nacht wach.", sinn: true },
+    { satz: "Das Eis schmilzt in der Sonne.", sinn: true },
+    { satz: "Der Elefant hat einen langen Rüssel.", sinn: true },
+    { satz: "Wir essen die Suppe mit dem Löffel.", sinn: true },
+    { satz: "Im Herbst fallen die Blätter von den Bäumen.", sinn: true },
+    { satz: "Mit dem Velo fahre ich zur Schule.", sinn: true },
+    { satz: "Im Winter liegt oft Schnee.", sinn: true },
+    { satz: "Der Hase frisst ein Rüebli.", sinn: true },
+    { satz: "Am Morgen kräht der Hahn.", sinn: true },
+    { satz: "Die Schnecke kriecht ganz langsam.", sinn: true },
+    { satz: "Der Pinguin schwimmt im kalten Meer.", sinn: true },
+    { satz: "Papa giesst die Blumen.", sinn: true },
+    { satz: "Der Igel rollt sich zusammen.", sinn: true },
+    { satz: "Im Sommer baden wir im See.", sinn: true },
+    { satz: "Der Löwe brüllt laut.", sinn: true },
+    { satz: "Weil es regnet, ziehe ich Stiefel an.", sinn: true },
+    { satz: "Das Flugzeug fliegt über die Wolken.", sinn: true },
+    { satz: "Oma liest ein Buch.", sinn: true },
+    { satz: "Der Bauer fährt mit dem Traktor.", sinn: true },
+    { satz: "Der Fisch klettert auf den Baum.", sinn: false },
+    { satz: "Die Katze bellt den Briefträger an.", sinn: false },
+    { satz: "Der Hund legt ein Ei.", sinn: false },
+    { satz: "Die Kuh fliegt über das Haus.", sinn: false },
+    { satz: "Das Baby fährt den Bus.", sinn: false },
+    { satz: "Der Bäcker backt Steine.", sinn: false },
+    { satz: "Die Sonne scheint mitten in der Nacht.", sinn: false },
+    { satz: "Die Maus frisst einen Elefanten.", sinn: false },
+    { satz: "Ich putze mir die Zähne mit Senf.", sinn: false },
+    { satz: "Der Zug schwimmt über den See.", sinn: false },
+    { satz: "Der Schneemann sonnt sich am heissen Strand.", sinn: false },
+    { satz: "Das Eis wird in der Sonne hart.", sinn: false },
+    { satz: "Der Elefant passt in eine Tasse.", sinn: false },
+    { satz: "Der Tisch isst eine Banane.", sinn: false },
+    { satz: "Das Velo schläft im Bett.", sinn: false },
+    { satz: "Der Mond backt einen Kuchen.", sinn: false },
+    { satz: "Die Blume singt ein Lied.", sinn: false },
+    { satz: "Der Fisch fährt Velo.", sinn: false },
+    { satz: "Die Schnecke rennt schneller als ein Auto.", sinn: false },
+    { satz: "Der Löwe strickt eine Mütze.", sinn: false },
+    { satz: "Im Sommer fahren wir im Garten Ski.", sinn: false },
+    { satz: "Am Abend kräht der Mond.", sinn: false },
+    { satz: "Die Giraffe wohnt in einem Schneckenhaus.", sinn: false },
+    { satz: "Der Pinguin wohnt in der heissen Wüste.", sinn: false },
+    { satz: "Papa giesst die Blumen mit Milch.", sinn: false },
+    { satz: "Der Igel ist weich wie ein Kissen.", sinn: false },
+    { satz: "Ich ziehe die Stiefel über die Ohren.", sinn: false },
+    { satz: "Das Flugzeug fährt in den Keller.", sinn: false },
+    { satz: "Oma liest einen Apfel.", sinn: false },
+    { satz: "Der Traktor fliegt zum Mond.", sinn: false },
+    { satz: "Der Stuhl rennt in den Wald.", sinn: false },
+    { satz: "Die Ente bellt laut.", sinn: false },
+  ];
+
+  // Wörter, die in keinen dieser Sätze gehören: die Stolpersteine.
+  const STOLPERSTEINE = ["Tasse", "Schuh", "Banane", "Löffel", "Kamm", "Gabel", "Lampe", "Socke", "Pfanne", "Teller", "Schere", "Kissen", "Gurke", "Zahnbürste", "Regenschirm", "Pinsel"];
+
+  // ---------------------------------------------------------------------------
   // Wie ein Buchstabe geschrieben wird (Buchstabengleis)
   // ---------------------------------------------------------------------------
   // Jeder Strich ein Weg in Schreibrichtung, in der Reihenfolge, wie er in der
@@ -548,6 +624,6 @@
     TIERE, DINGE, ZAHLWOERTER, TUN, TUN_BY_ID, satzTeile, satzZurLage,
     REIME, HOER_ANLAUT, HOER_ANLAUT_WORT, AEHNLICHE_ANLAUTE, MEHRDEUTIG, anlautVon, bildWoerter,
     BLITZWOERTER, BLITZ_JE_STUFE,
-    GLEISE,
+    GLEISE, SINN_SAETZE, STOLPERSTEINE,
   };
 })();

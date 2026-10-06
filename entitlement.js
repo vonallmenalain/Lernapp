@@ -130,6 +130,10 @@
     { id: "blitzwoerter", page: "blitzwoerter.html" },
     { id: "stimmtdas", page: "stimmtdas.html" },
     { id: "lueckensaetze", page: "lueckensaetze.html" },
+    { id: "satzkuppeln", page: "satzkuppeln.html" },
+    { id: "quatschsaetze", page: "quatschsaetze.html" },
+    { id: "stolperwoerter", page: "stolperwoerter.html" },
+    { id: "quatschwoerter", page: "quatschwoerter.html" },
   ] };
 
   // Das Bücherregal ist kein Spiel mit Runden: Diese zwei Bücher sind frei,

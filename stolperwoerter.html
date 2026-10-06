@@ -4,23 +4,24 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <meta name="application-name" content="Gripszug" />
-    <meta name="description" content="Was fehlt? Merk dir die Fracht auf dem Wagen, und sag, welches Stück nach der Plane fehlt." />
+    <meta name="description" content="Stolperwörter: Ein Wort gehört nicht in den Satz – tipp den Stolperstein vom Gleis." />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Gripszug" />
-    <meta name="theme-color" content="#a8ddf0" />
-    <title>Was fehlt? · Gripszug</title>
+    <meta name="theme-color" content="#f4e4c9" />
+    <title>Stolperwörter · Gripszug</title>
     <link rel="stylesheet" href="styles.css?v=2026-10-06-07" />
+    <link rel="stylesheet" href="leseschrift.css?v=2026-10-06-07" />
     <link rel="manifest" href="app.webmanifest?v=2026-10-06-07" />
     <link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon-180.png" />
   </head>
-  <body data-page="missing">
-    <!-- Die Bühne baut wasfehlt.js: dieselbe Landschaft wie das Startbild, darauf
-         das Spiel. Bewusst leer im HTML – hier steht kein Wort, das ein Kind
-         lesen müsste, ausser dem Namen des Spiels. -->
-    <div id="wf-stage" class="cm-stage wf-stage" aria-label="Was fehlt?"></div>
+  <body data-page="stolperwoerter">
+    <!-- Ein Spiel der Leseecke. Die Bühne baut stolperwoerter.js auf game-shell.js:
+         dieselbe Landschaft wie das Startbild, der Lautsprecher oben links,
+         zurück geht es in den Lesewagen. -->
+    <div id="lese-stage" class="cm-stage lese-stage" aria-label="Stolperwörter"></div>
 
     <script defer src="https://www.gstatic.com/firebasejs/12.7.0/firebase-app-compat.js"></script>
     <script defer src="https://www.gstatic.com/firebasejs/12.7.0/firebase-auth-compat.js"></script>
@@ -31,11 +32,17 @@
     <script defer src="kids.js?v=2026-10-06-07"></script>
     <script defer src="train-art.js?v=2026-10-06-07"></script>
     <script defer src="train-scenes.js?v=2026-10-06-07"></script>
-    <script defer src="strand-art.js?v=2026-10-06-07"></script>
     <script defer src="game-cloud.js?v=2026-10-06-07"></script>
     <script defer src="journey-plan.js?v=2026-10-06-07"></script>
+    <script defer src="lesen-inhalte.js?v=2026-10-06-07"></script>
+    <script defer src="lesen-stand.js?v=2026-10-06-07"></script>
+    <script defer src="lesen-laute.js?v=2026-10-06-07"></script>
+    <script defer src="lesen-ton.js?v=2026-10-06-07"></script>
+    <script defer src="lesen-art.js?v=2026-10-06-07"></script>
     <script defer src="game-shell.js?v=2026-10-06-07"></script>
-    <script defer src="wasfehlt.js?v=2026-10-06-07"></script>
+    <script defer src="lesen-spiel.js?v=2026-10-06-07"></script>
+    <script defer src="lesen-buecher.js?v=2026-10-06-07"></script>
+    <script defer src="stolperwoerter.js?v=2026-10-06-07"></script>
     <script defer src="pwa.js?v=2026-10-06-07"></script>
   </body>
 </html>

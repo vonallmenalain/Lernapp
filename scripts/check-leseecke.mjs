@@ -557,6 +557,130 @@ try {
     if (!(await gesagt()).includes(zeichen === "E" ? "Ente" : "Igel")) fehlt(`Buchstabengleis ${zeichen}: die Stimme sagt das Wort nicht`);
   }
 
+  // --- 6g. Etappe 3: Satz kuppeln, Quatschsätze, Stolperwörter, Quatschwörter ------------
+  // Satz kuppeln: Die Wagen ergeben den Satz zum Bild, vorne gross, hinten der
+  // Punkt; ein Wagen am falschen Platz stösst an, und der Satz zählt nicht.
+  await oeffne("satzkuppeln.html", "window.LernappSatzKuppeln");
+  for (const stufe of ["leicht", "mittel", "schwer"]) {
+    const probleme = await page.evaluate((st) => {
+      window.LernappLeseStand.stufe = () => st;
+      const d = window.LernappSatzKuppeln;
+      const fehler = [];
+      for (let i = 0; i < 200; i += 1) {
+        const a = d.aufgabe();
+        if (!/^[A-ZÄÖÜ]/.test(a.woerter[0]) || !/\.$/.test(a.woerter[a.woerter.length - 1])) fehler.push(`Anfang oder Punkt fehlt: ${a.satz}`);
+        if (a.woerter.join(" ") !== a.satz) fehler.push(`Wagen und Satz passen nicht: ${a.satz}`);
+        if (st === "leicht" && a.woerter.length !== 3) fehler.push(`auf leicht zu lang: ${a.satz}`);
+        if (st !== "leicht" && a.satz !== window.LernappLeseInhalte.satzZurLage(a.lage)) fehler.push(`der Satz sagt nicht, was das Bild zeigt: ${a.satz}`);
+        if (!window.LernappLeseArt.szenePasst(a.lage)) fehler.push(`das Bild passt nicht in den Rahmen: ${a.satz}`);
+      }
+      return [...new Set(fehler)].slice(0, 3);
+    }, stufe);
+    probleme.forEach((p) => fehlt(`Satz kuppeln (${stufe}): ${p}`));
+  }
+  await oeffne("satzkuppeln.html", "window.LernappSatzKuppeln");
+  await vergiss();
+  await page.locator(".lese-los-knopf").click();
+  await page.waitForSelector(".sk-neben .sk-wagen", { timeout: 5000 }).catch(() => {});
+  const sk = await page.evaluate(() => window.LernappSatzKuppeln.jetzt());
+  await page.locator(`.sk-neben .sk-wagen[data-nr="${sk.woerter.length - 1}"]`).click();
+  await page.waitForTimeout(150);
+  if ((await page.evaluate(() => window.LernappSatzKuppeln.dran())) !== 0) fehlt("Satz kuppeln: der letzte Wagen kuppelt als erster an");
+  for (let i = 0; i < sk.woerter.length; i += 1) {
+    await page.waitForFunction(() => window.LernappSatzKuppeln.phase() === "kuppeln", null, { timeout: 4000 }).catch(() => {});
+    await page.locator(`.sk-neben .sk-wagen[data-nr="${i}"]`).click();
+  }
+  await page.waitForFunction(() => window.LernappSatzKuppeln.nr() === 1, null, { timeout: 6000 }).catch(() => {});
+  if (!(await gesagt()).includes(sk.satz)) fehlt(`Satz kuppeln: der fertige Satz wird nicht vorgelesen (${sk.satz})`);
+  if ((await zaehler()) !== "0") fehlt("Satz kuppeln: nach einem Fehlgriff zählt der Satz trotzdem");
+
+  // Quatschsätze: halb Sinn, halb Quatsch, kurz genug für die Stufe; wohin
+  // der Wagen fährt, sagt der Satz, nicht der Tipp.
+  await oeffne("quatschsaetze.html", "window.LernappQuatschsaetze");
+  for (const stufe of ["leicht", "mittel", "schwer"]) {
+    const r = await page.evaluate((st) => {
+      window.LernappLeseStand.stufe = () => st;
+      const d = window.LernappQuatschsaetze;
+      const runde = d.runde();
+      return { n: runde.length, sinn: runde.filter((s) => s.sinn).length, doppelt: new Set(runde.map((s) => s.satz)).size !== runde.length, lang: runde.filter((s) => s.satz.split(/\s+/).length > d.LAENGE[st]).map((s) => s.satz) };
+    }, stufe);
+    if (r.n !== 8 || r.sinn !== 4 || r.doppelt || r.lang.length) fehlt(`Quatschsätze (${stufe}): ${JSON.stringify(r)}`);
+  }
+  await oeffne("quatschsaetze.html", "window.LernappQuatschsaetze");
+  await vergiss();
+  await page.locator(".lese-los-knopf").click();
+  await page.waitForSelector(".qs-knopf", { timeout: 5000 }).catch(() => {});
+  const qs = await page.evaluate(() => window.LernappQuatschsaetze.jetzt());
+  await page.locator(qs.sinn ? ".qs-nein" : ".qs-ja").click();
+  await page.waitForFunction(() => window.LernappQuatschsaetze.nr() === 1, null, { timeout: 6000 }).catch(() => {});
+  if ((await zaehler()) !== "0") fehlt("Quatschsätze: eine falsche Antwort zählt");
+  if (!(await gesagt()).some((t) => t.startsWith(qs.satz) && t.includes(qs.sinn ? "Das kann sein" : "Quatsch"))) fehlt("Quatschsätze: nach der Antwort sagt niemand, wohin der Satz gehört");
+  const qs2 = await page.evaluate(() => window.LernappQuatschsaetze.jetzt());
+  await page.locator(qs2.sinn ? ".qs-ja" : ".qs-nein").click();
+  await page.waitForFunction(() => window.LernappQuatschsaetze.nr() === 2, null, { timeout: 6000 }).catch(() => {});
+  if ((await zaehler()) !== "1") fehlt("Quatschsätze: die richtige Antwort zählt nicht");
+
+  // Stolperwörter: Der Stein liegt nie am Anfang oder am Ende und steht nicht
+  // schon im Satz; vom Gleis getippt, liest die Stimme den Satz ohne ihn.
+  await oeffne("stolperwoerter.html", "window.LernappStolperwoerter");
+  const sw = await page.evaluate(() => {
+    window.LernappLeseStand.stufe = () => "schwer";
+    const d = window.LernappStolperwoerter;
+    const fehler = [];
+    const saetze = d.saetze();
+    for (let i = 0; i < 300; i += 1) {
+      const a = d.aufgabe(saetze[i % saetze.length]);
+      if (a.stelle < 1 || a.stelle > a.woerter.length - 2) fehler.push(`Stein am Rand: ${a.woerter.join(" ")}`);
+      if (a.satz.toLowerCase().split(/[\s.,!?]+/).includes(a.stein.toLowerCase())) fehler.push(`Stein steht schon im Satz: ${a.satz}`);
+      if (a.woerter.filter((w, j) => j !== a.stelle).join(" ") !== a.satz) fehler.push(`ohne Stein nicht der Satz: ${a.woerter.join(" ")}`);
+    }
+    return { fehler: [...new Set(fehler)].slice(0, 3), anzahl: saetze.length };
+  });
+  sw.fehler.forEach((p) => fehlt(`Stolperwörter: ${p}`));
+  if (sw.anzahl < 40) fehlt(`Stolperwörter: auf schwer nur ${sw.anzahl} Sätze`);
+  await oeffne("stolperwoerter.html", "window.LernappStolperwoerter");
+  await vergiss();
+  await page.locator(".lese-los-knopf").click();
+  await page.waitForSelector(".sw-wort", { timeout: 5000 }).catch(() => {});
+  const swa = await page.evaluate(() => window.LernappStolperwoerter.jetzt());
+  await page.locator('.sw-wort[data-stein="1"]').click();
+  await page.waitForFunction(() => window.LernappStolperwoerter.nr() === 1, null, { timeout: 6000 }).catch(() => {});
+  if (!(await gesagt()).includes(swa.satz)) fehlt(`Stolperwörter: der Satz ohne Stein wird nicht vorgelesen (${swa.satz})`);
+  if ((await zaehler()) !== "1") fehlt("Stolperwörter: der gefundene Stein zählt nicht");
+
+  // Quatschwörter: Den Namen gibt es nicht als Wort, die Schilder sind fast
+  // gleich, und das Monster stellt sich vor.
+  await oeffne("quatschwoerter.html", "window.LernappQuatschwoerter");
+  for (const stufe of ["leicht", "mittel", "schwer"]) {
+    const probleme = await page.evaluate((st) => {
+      window.LernappLeseStand.stufe = () => st;
+      const d = window.LernappQuatschwoerter;
+      const fehler = [];
+      const abstand = (a, b) => { let n = Math.abs(a.length - b.length); for (let i = 0; i < Math.min(a.length, b.length); i += 1) if (a[i] !== b[i]) n += 1; return n; };
+      for (let i = 0; i < 300; i += 1) {
+        const a = d.aufgabe();
+        if (d.ECHTE.has(a.wort)) fehler.push(`ein echtes Wort: ${a.wort}`);
+        if (!a.wahl.includes(a.wort) || new Set(a.wahl).size !== a.wahl.length) fehler.push(`Schilder ${a.wahl.join("/")}`);
+        if (a.wahl.length !== (st === "leicht" ? 2 : 3)) fehler.push(`${a.wahl.length} Schilder`);
+        a.wahl.filter((w) => w !== a.wort).forEach((w) => { if (abstand(w, a.wort) > 2) fehler.push(`${w} sieht ${a.wort} nicht ähnlich`); });
+        if (/(.)\1/.test(a.wort)) fehler.push(`doppelter Buchstabe: ${a.wort}`);
+      }
+      return [...new Set(fehler)].slice(0, 3);
+    }, stufe);
+    probleme.forEach((p) => fehlt(`Quatschwörter (${stufe}): ${p}`));
+  }
+  await oeffne("quatschwoerter.html", "window.LernappQuatschwoerter");
+  await vergiss();
+  await page.locator(".lese-los-knopf").click();
+  await page.waitForSelector(".qw-schild", { timeout: 5000 }).catch(() => {});
+  const qw = await page.evaluate(() => window.LernappQuatschwoerter.jetzt());
+  const qwName = qw.wort.charAt(0).toUpperCase() + qw.wort.slice(1);
+  await page.waitForFunction((n) => (window.__gesagt || []).includes(`Ich heisse ${n}.`), qwName, { timeout: 4000 }).catch(() => {});
+  if (!(await gesagt()).includes(`Ich heisse ${qwName}.`)) fehlt("Quatschwörter: das Monster stellt sich nicht vor");
+  await page.locator('.qw-schild[data-richtig="1"]').click();
+  await page.waitForFunction(() => window.LernappQuatschwoerter.nr() === 1, null, { timeout: 6000 }).catch(() => {});
+  if ((await zaehler()) !== "1") fehlt("Quatschwörter: das richtige Schild zählt nicht");
+
   // --- 6d. Die Buchstaben der Schule --------------------------------------------------
   // Haben die Eltern abgehakt, wohnen genau diese Laute im Buchstabenhaus, und
   // Laute kuppeln nimmt nur Wörter, die sich damit lesen lassen.
@@ -691,4 +815,4 @@ if (befunde.length) {
   befunde.forEach((b) => console.error(`  - ${b}`));
   process.exit(1);
 }
-console.log("Die Leseecke läuft: Lesewagen, Zimmer mit Auswahl, alle Spiele hin und zurück, eine Runde Silbenzug bis zum Tor, Laute kuppeln ohne verratenes Wort, Buchstabenhaus, der Würfel von «Stimmt das?», Reimkupplung, Anlaut-Lauscher, Wer fährt mit?, Wörter bauen, Silbenbahn, Blitzwörter, Mein Name, der Lesewurm bekommt seinen Namen, Lückensätze, Buchstabengleis, die Buchstaben der Schule, Hörbuch mit Nachsehen, Zusammen lesen, und der Lesewurm wächst.");
+console.log("Die Leseecke läuft: Lesewagen, Zimmer mit Auswahl, alle Spiele hin und zurück, eine Runde Silbenzug bis zum Tor, Laute kuppeln ohne verratenes Wort, Buchstabenhaus, der Würfel von «Stimmt das?», Reimkupplung, Anlaut-Lauscher, Wer fährt mit?, Wörter bauen, Silbenbahn, Blitzwörter, Mein Name, der Lesewurm bekommt seinen Namen, Lückensätze, Buchstabengleis, Satz kuppeln, Quatschsätze, Stolperwörter, Quatschwörter, die Buchstaben der Schule, Hörbuch mit Nachsehen, Zusammen lesen, und der Lesewurm wächst.");

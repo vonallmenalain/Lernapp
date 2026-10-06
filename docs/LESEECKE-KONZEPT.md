@@ -34,6 +34,9 @@ Stand: Oktober 2026 · Grundlage: das Konzept «Leseecke – Konzept & Ideensamm
 >
 > **Etappe 2 ist fertig (Oktober 2026)** mit dem **Buchstabengleis**: Der Buchstabe liegt als
 > Gleis da, das Kind fährt die eigene Lok Strich für Strich in Schreibrichtung darüber.
+>
+> **Etappe 3, erster Teil:** **Satz kuppeln**, **Quatschsätze** und **Stolperwörter** (hinter
+> dem Spielzeugzug) und **Quatschwörter** (hinter der Wortkiste).
 
 ## 1. Die Idee in drei Sätzen
 
@@ -80,6 +83,10 @@ Lesewagen selbst und der Lesewurm darin.
 | Blitzwörter | `blitzwoerter.html` | ein kleines Wort blitzt im Zugfenster auf – welches war es? Je sicherer, desto kürzer | häufige Wörter auf einen Blick |
 | Mein Name | `meinname.html` | kuppelt seinen Namen Buchstabe für Buchstabe an die Lok, in drei Fahrten immer selbständiger (Vorlage, Schild, zugedecktes Schild mit fremden Wagen); gibt dem Lesewurm einen Namen | die eigenen Buchstaben |
 | Buchstabengleis | `buchstabengleis.html` | fährt die eigene Lok mit dem Finger über den Buchstaben – grüner Startpunkt mit Zahl, Pfeil, rotes Signal am Ende; die Lok folgt nur auf dem Gleis und nur vorwärts, Punkte werden angetippt, das Auge macht den Strich vor | Form und Schreibrichtung |
+| Satz kuppeln | `satzkuppeln.html` | kuppelt die Wörter eines Satzes zum Bild an die Lok – vorne der grosse Anfang, hinten der Wagen mit Punkt und Schlusslicht | Satzbau, Gross am Anfang, Punkt |
+| Quatschsätze | `quatschsaetze.html` | liest einen Satz auf einem Wagen: Kann das sein, fährt er weiter, Quatsch kommt aufs Abstellgleis | Sinn prüfen |
+| Stolperwörter | `stolperwoerter.html` | ein Wort gehört nicht in den Satz («Der Hund bellt Tasse laut.») – tippt den Stolperstein vom Gleis | sinnentnehmend und flüssig lesen |
+| Quatschwörter | `quatschwoerter.html` | ein Monster sagt seinen Namen («Lomu»), welches Schild stimmt: Lomu, Lumo, Loma? | genau lesen statt raten |
 | Lückensätze | `lueckensaetze.html` | ein Wort fehlt im Satz – auf, unter, neben, ein Tunwort, das Tier, das Ding, die Zahl; die Stimme liest den Satz mit dem gewählten Wort | Sätze genau lesen |
 
 Drei Regeln gelten überall:
@@ -159,7 +166,7 @@ neuere Fassung und schreibt sie nie selbst. Wie die Stufe überlebt sie das Zur�
 
 ### Gratis
 
-Die Schranke (`entitlement.js`) kennt die dreizehn Spiele der Leseecke in einer eigenen Tabelle
+Die Schranke (`entitlement.js`) kennt die siebzehn Spiele der Leseecke in einer eigenen Tabelle
 `LESEECKE` – nicht in `AREAS`, die gleich bleiben muss wie im Zug – und gibt je Spiel eine
 Runde frei. Den Lesewurm taufen ist kein Spiel und immer frei. Das Bücherregal hat keine Runden: *Wo ist das Rüebli?* und *Leo und die Melone*
 sind immer frei (`GRATIS_BUECHER`, `buchFree`), die anderen gehören zum Kauf. «Ganze App
@@ -176,7 +183,7 @@ Ordner im Build** – `netlify/build.mjs` bleibt unverändert –, und offline f
 
 | Datei | Was |
 | --- | --- |
-| `lesen-inhalte.js` | Laute, Laut-Steine, Wörter für die Spiele, was sich mit den Buchstaben der Schule lesen lässt, Bausteine für die Sätze (Tiere, Dinge, Tunwörter), wie jeder Buchstabe geschrieben wird (`GLEISE`) |
+| `lesen-inhalte.js` | Laute, Laut-Steine, Wörter für die Spiele, was sich mit den Buchstaben der Schule lesen lässt, Bausteine für die Sätze (Tiere, Dinge, Tunwörter), Sätze mit und ohne Sinn (`SINN_SAETZE`), Stolpersteine, wie jeder Buchstabe geschrieben wird (`GLEISE`) |
 | `lesen-buecher.js` | die Bücher: Text, Bild, Fragen |
 | `lesen-stand.js` | Lesestand, Lesewurm, Einstellungen der Eltern, was als Nächstes dran ist |
 | `lesen-ton.js` | Laute (Aufnahme oder Sprachausgabe), Wörter und Sätze, mit Mitleuchten |
@@ -187,6 +194,7 @@ Ordner im Build** – `netlify/build.mjs` bleibt unverändert –, und offline f
 | `train-leseecke.js` | das Zimmer als Ansicht der Bühne |
 | `silbenzug.*`, `buchstabenhaus.*`, `lautekuppeln.*`, `stimmtdas.*`, `buecher.*` | die Spiele aus Etappe 1 |
 | `reimkupplung.*`, `anlautlauscher.*`, `werfaehrtmit.*`, `woerterbauen.*`, `silbenbahn.*`, `blitzwoerter.*`, `meinname.*`, `lueckensaetze.*`, `buchstabengleis.*` | die Spiele aus Etappe 2 |
+| `satzkuppeln.*`, `quatschsaetze.*`, `stolperwoerter.*`, `quatschwoerter.*` | die Spiele aus Etappe 3 |
 | `leseschrift.css` | Andika |
 | `train-home.js`, `index.html` | Lesewagen auf dem Startbild, `?lesen=1` |
 | `entitlement.js` | `LESEECKE`, `GRATIS_BUECHER`, `buchFree`, `targetFree` mit `buch=` |
@@ -201,6 +209,7 @@ Wörter, Sätze und Bücher sind Entwürfe nach den Regeln je Stufe – bitte ge
   `KUPPEL_WOERTER`, `TIERE` und `DINGE`.
 - `lesen-buecher.js`: die sechzehn Bücher, je mit Seiten und Fragen.
 - `lueckensaetze.js` und `lesen-inhalte.js` (`TUN`): die Tunwörter der Lückensätze.
+- `lesen-inhalte.js` (`SINN_SAETZE`, `STOLPERSTEINE`): Sätze mit Sinn und Quatsch, die Stolpersteine.
 
 Schweizer Wörter, die Kinder hier sagen (Rüebli, Velo, fein), keine Bilder, die hier anders
 heissen (ein Keks ist ein Guetzli), und nirgends das scharfe S. `validate-lesen.mjs` prüft
@@ -219,9 +228,9 @@ Zwielaute spricht die Sprachausgabe, Mitlaute bleiben stumm und werden gezeigt.
 - **Etappe 2 – Laute und Wörter:** fertig – Reimkupplung, Anlaut-Lauscher, Wer fährt mit?,
   Wörter bauen, Silbenbahn, Blitzwörter, die Buchstaben der Schule, Mein Name und der Name des
   Lesewurms, Lückensätze, Buchstabengleis und zehn weitere Bücher.
-- **Etappe 3 – Sätze:** Satz kuppeln, Quatschsätze, Lies und tu!, Stolperwörter,
-  Laut-Position, Buchstaben-Signal, Quatschwörter, Geschichtenzug, der Lesewagen in 15
-  Ausbaustufen, der Elternbericht.
+- **Etappe 3 – Sätze:** gebaut sind Satz kuppeln, Quatschsätze, Stolperwörter und
+  Quatschwörter. Es folgen: Lies und tu!, Laut-Position, Buchstaben-Signal, Geschichtenzug,
+  der Lesewagen in 15 Ausbaustufen, der Elternbericht.
 - **Etappe 4 – Lesedetektive:** Detektivfälle, Wer bin ich?, Steckbriefe, Postkarten,
   Wortbaustelle, der Lesewurm fährt auf der Lok mit.
 

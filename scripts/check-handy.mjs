@@ -624,6 +624,7 @@ const SZENARIEN = [
       // Die grösste Auswahl: fünf Spiele hinter der Wortkiste.
       { name: "Auswahl Wörter", tun: async (blatt) => { await tippe(blatt, '.lesezimmer-svg [data-ort="woerter"]'); await pause(blatt, 500); } },
       { name: "Auswahl Buchstaben", tun: async (blatt) => { await tippe(blatt, ".lese-wahl-zu"); await pause(blatt, 200); await tippe(blatt, '.lesezimmer-svg [data-ort="buchstaben"]'); await pause(blatt, 500); } },
+      { name: "Auswahl Sätze", tun: async (blatt) => { await tippe(blatt, ".lese-wahl-zu"); await pause(blatt, 200); await tippe(blatt, '.lesezimmer-svg [data-ort="saetze"]'); await pause(blatt, 500); } },
     ],
   },
   ...["reimkupplung", "anlautlauscher", "werfaehrtmit", "woerterbauen", "silbenbahn", "blitzwoerter"].map((seite) => ({
@@ -664,6 +665,22 @@ const SZENARIEN = [
         for (const b of ["w", "u", "m", "p", "i", "l", "o", "s"]) await tippe(blatt, `.mn-taste[data-laut="${b}"]`);
         await pause(blatt, 300);
       } },
+    ],
+  },
+  ...["satzkuppeln", "quatschsaetze", "stolperwoerter", "quatschwoerter"].map((seite) => ({
+    seite,
+    schritte: [
+      { name: "Los", tun: async () => {} },
+      { name: "Spiel", tun: async (blatt) => { await tippe(blatt, ".lese-los-knopf"); await pause(blatt, 700); } },
+    ],
+  })),
+  // Der längste Satz für Satz kuppeln: auf «schwer» mit mehreren Tieren.
+  {
+    seite: "satzkuppeln",
+    titel: "satzkuppeln-schwer",
+    speicher: { "lernapp.reise": JSON.stringify({ stufe: "schwer", stufeAt: 1 }) },
+    schritte: [
+      { name: "Langer Satz", tun: async (blatt) => { await tippe(blatt, ".lese-los-knopf"); await pause(blatt, 700); } },
     ],
   },
   {

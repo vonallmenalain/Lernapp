@@ -45,6 +45,7 @@ const SPIEL_SEITEN = [
   // die Startseite – dieselbe Leiste.
   "silbenzug", "buchstabenhaus", "lautekuppeln", "stimmtdas", "buecher",
   "reimkupplung", "anlautlauscher", "werfaehrtmit", "woerterbauen", "silbenbahn", "blitzwoerter", "meinname", "lueckensaetze", "buchstabengleis",
+  "satzkuppeln", "quatschsaetze", "stolperwoerter", "quatschwoerter",
 ];
 
 // Alles, was zurückführt: das Haus auf die Startseite, der Pfeil eine Stufe
