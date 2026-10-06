@@ -667,6 +667,15 @@ const SZENARIEN = [
     ],
   },
   {
+    seite: "buchstabengleis",
+    schritte: [
+      { name: "Los", tun: async () => {} },
+      { name: "Gleis", tun: async (blatt) => { await tippe(blatt, ".lese-los-knopf"); await pause(blatt, 600); } },
+      // Das breiteste Gleis: das W.
+      { name: "Breiter Buchstabe", tun: async (blatt) => { await blatt.evaluate(() => window.LernappBuchstabengleis.uebe("W")); await pause(blatt, 400); } },
+    ],
+  },
+  {
     seite: "lueckensaetze",
     schritte: [
       { name: "Los", tun: async () => {} },

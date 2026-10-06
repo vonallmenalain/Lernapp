@@ -344,6 +344,7 @@
     anlautlauscher: { page: "anlautlauscher.html", titel: "Anlaut-Lauscher", ort: "silben", bild: "👂" },
     buchstabenhaus: { page: "buchstabenhaus.html", titel: "Buchstabenhaus", ort: "buchstaben", bild: "🏠" },
     meinname: { page: "meinname.html", titel: "Mein Name", ort: "buchstaben", bild: "🏷️" },
+    buchstabengleis: { page: "buchstabengleis.html", titel: "Buchstabengleis", ort: "buchstaben", bild: "🛤️" },
     lautekuppeln: { page: "lautekuppeln.html", titel: "Laute kuppeln", ort: "woerter", bild: "🚃" },
     werfaehrtmit: { page: "werfaehrtmit.html", titel: "Wer fährt mit?", ort: "woerter", bild: "🎫" },
     woerterbauen: { page: "woerterbauen.html", titel: "Wörter bauen", ort: "woerter", bild: "🧱" },
@@ -355,8 +356,8 @@
   };
   // Was der Lesewurm im Sessel je Lesestufe aussucht.
   const AUSWAHL = {
-    hoeren: ["silbenzug", "reimkupplung", "anlautlauscher", "buecher", "buchstabenhaus"],
-    buchstaben: ["buchstabenhaus", "meinname", "anlautlauscher", "lautekuppeln", "silbenzug", "reimkupplung", "buecher"],
+    hoeren: ["silbenzug", "reimkupplung", "anlautlauscher", "buecher", "buchstabenhaus", "buchstabengleis"],
+    buchstaben: ["buchstabenhaus", "meinname", "buchstabengleis", "anlautlauscher", "lautekuppeln", "silbenzug", "reimkupplung", "buecher"],
     woerter: ["lautekuppeln", "werfaehrtmit", "woerterbauen", "buchstabenhaus", "silbenbahn", "buecher"],
     saetze: ["stimmtdas", "lueckensaetze", "blitzwoerter", "silbenbahn", "werfaehrtmit", "woerterbauen", "buecher"],
     geschichten: ["buecher", "lueckensaetze", "stimmtdas", "blitzwoerter", "silbenbahn"],

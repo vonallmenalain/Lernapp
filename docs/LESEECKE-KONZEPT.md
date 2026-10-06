@@ -31,6 +31,9 @@ Stand: Oktober 2026 · Grundlage: das Konzept «Leseecke – Konzept & Ideensamm
 > auf einem Schild im Lesewagen und unter dem Wurm vor jeder Runde). **Lückensätze** mit
 > Tunwörtern – im Bild schlafen, lesen, singen und hüpfen die Tiere. **Zehn weitere Bücher**
 > (16 im Ganzen), das Regal hat jetzt ein Fach je Stufe.
+>
+> **Etappe 2 ist fertig (Oktober 2026)** mit dem **Buchstabengleis**: Der Buchstabe liegt als
+> Gleis da, das Kind fährt die eigene Lok Strich für Strich in Schreibrichtung darüber.
 
 ## 1. Die Idee in drei Sätzen
 
@@ -76,6 +79,7 @@ Lesewagen selbst und der Lesewurm darin.
 | Silbenbahn | `silbenbahn.html` | kuppelt Silben-Wagen zum Wort; nach jedem dritten ein Quatschtier («Bamate») | Silben lesen |
 | Blitzwörter | `blitzwoerter.html` | ein kleines Wort blitzt im Zugfenster auf – welches war es? Je sicherer, desto kürzer | häufige Wörter auf einen Blick |
 | Mein Name | `meinname.html` | kuppelt seinen Namen Buchstabe für Buchstabe an die Lok, in drei Fahrten immer selbständiger (Vorlage, Schild, zugedecktes Schild mit fremden Wagen); gibt dem Lesewurm einen Namen | die eigenen Buchstaben |
+| Buchstabengleis | `buchstabengleis.html` | fährt die eigene Lok mit dem Finger über den Buchstaben – grüner Startpunkt mit Zahl, Pfeil, rotes Signal am Ende; die Lok folgt nur auf dem Gleis und nur vorwärts, Punkte werden angetippt, das Auge macht den Strich vor | Form und Schreibrichtung |
 | Lückensätze | `lueckensaetze.html` | ein Wort fehlt im Satz – auf, unter, neben, ein Tunwort, das Tier, das Ding, die Zahl; die Stimme liest den Satz mit dem gewählten Wort | Sätze genau lesen |
 
 Drei Regeln gelten überall:
@@ -155,7 +159,7 @@ neuere Fassung und schreibt sie nie selbst. Wie die Stufe überlebt sie das Zur�
 
 ### Gratis
 
-Die Schranke (`entitlement.js`) kennt die zwölf Spiele der Leseecke in einer eigenen Tabelle
+Die Schranke (`entitlement.js`) kennt die dreizehn Spiele der Leseecke in einer eigenen Tabelle
 `LESEECKE` – nicht in `AREAS`, die gleich bleiben muss wie im Zug – und gibt je Spiel eine
 Runde frei. Den Lesewurm taufen ist kein Spiel und immer frei. Das Bücherregal hat keine Runden: *Wo ist das Rüebli?* und *Leo und die Melone*
 sind immer frei (`GRATIS_BUECHER`, `buchFree`), die anderen gehören zum Kauf. «Ganze App
@@ -172,7 +176,7 @@ Ordner im Build** – `netlify/build.mjs` bleibt unverändert –, und offline f
 
 | Datei | Was |
 | --- | --- |
-| `lesen-inhalte.js` | Laute, Laut-Steine, Wörter für die Spiele, was sich mit den Buchstaben der Schule lesen lässt, Bausteine für die Sätze (Tiere, Dinge, Tunwörter) |
+| `lesen-inhalte.js` | Laute, Laut-Steine, Wörter für die Spiele, was sich mit den Buchstaben der Schule lesen lässt, Bausteine für die Sätze (Tiere, Dinge, Tunwörter), wie jeder Buchstabe geschrieben wird (`GLEISE`) |
 | `lesen-buecher.js` | die Bücher: Text, Bild, Fragen |
 | `lesen-stand.js` | Lesestand, Lesewurm, Einstellungen der Eltern, was als Nächstes dran ist |
 | `lesen-ton.js` | Laute (Aufnahme oder Sprachausgabe), Wörter und Sätze, mit Mitleuchten |
@@ -182,7 +186,7 @@ Ordner im Build** – `netlify/build.mjs` bleibt unverändert –, und offline f
 | `lesen-spiel.js` | was alle Spiele der Leseecke teilen: Bühne, «Los», Ergebnis mit Sternen |
 | `train-leseecke.js` | das Zimmer als Ansicht der Bühne |
 | `silbenzug.*`, `buchstabenhaus.*`, `lautekuppeln.*`, `stimmtdas.*`, `buecher.*` | die Spiele aus Etappe 1 |
-| `reimkupplung.*`, `anlautlauscher.*`, `werfaehrtmit.*`, `woerterbauen.*`, `silbenbahn.*`, `blitzwoerter.*`, `meinname.*`, `lueckensaetze.*` | die Spiele aus Etappe 2 |
+| `reimkupplung.*`, `anlautlauscher.*`, `werfaehrtmit.*`, `woerterbauen.*`, `silbenbahn.*`, `blitzwoerter.*`, `meinname.*`, `lueckensaetze.*`, `buchstabengleis.*` | die Spiele aus Etappe 2 |
 | `leseschrift.css` | Andika |
 | `train-home.js`, `index.html` | Lesewagen auf dem Startbild, `?lesen=1` |
 | `entitlement.js` | `LESEECKE`, `GRATIS_BUECHER`, `buchFree`, `targetFree` mit `buch=` |
@@ -212,10 +216,9 @@ Zwielaute spricht die Sprachausgabe, Mitlaute bleiben stumm und werden gezeigt.
 
 ## 7. Die nächsten Etappen
 
-- **Etappe 2 – Laute und Wörter:** gebaut sind Reimkupplung, Anlaut-Lauscher, Wer fährt
-  mit?, Wörter bauen, Silbenbahn, Blitzwörter, die Buchstaben der Schule, Mein Name und der
-  Name des Lesewurms, Lückensätze und zehn weitere Bücher. Es fehlt noch das Buchstabengleis
-  (Buchstaben mit dem Finger nachfahren).
+- **Etappe 2 – Laute und Wörter:** fertig – Reimkupplung, Anlaut-Lauscher, Wer fährt mit?,
+  Wörter bauen, Silbenbahn, Blitzwörter, die Buchstaben der Schule, Mein Name und der Name des
+  Lesewurms, Lückensätze, Buchstabengleis und zehn weitere Bücher.
 - **Etappe 3 – Sätze:** Satz kuppeln, Quatschsätze, Lies und tu!, Stolperwörter,
   Laut-Position, Buchstaben-Signal, Quatschwörter, Geschichtenzug, der Lesewagen in 15
   Ausbaustufen, der Elternbericht.
