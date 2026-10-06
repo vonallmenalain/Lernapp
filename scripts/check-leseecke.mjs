@@ -25,7 +25,10 @@
  *                 der Lesewurm im Sessel öffnet ein passendes Buch. Ein
  *                 Kapitelbuch zeigt und liest seine Überschriften, sein
  *                 Lesezeichen führt zurück, wo das Kind aufgehört hat, und
- *                 fällt heraus, wenn das Buch aus ist.
+ *                 fällt heraus, wenn das Buch aus ist. Ohne Wort-Hilfe
+ *                 schweigt ein Tipp beim Selberlesen; «sehr gross» ist grösser.
+ *   Auf Zeit      Auf «schwer» bieten Stimmt das? und Stolperwörter die Uhr
+ *                 an: ohne Vorlesen, mit eigenem Bestwert im Lesestand.
  *
  * Aufruf:  node scripts/check-leseecke.mjs
  * Nötig:   Playwright. Der lokale Server wird selbst gestartet und beendet.
@@ -1237,6 +1240,95 @@ try {
   if (ausgelesen.zeichen.bergrennen) fehlt("Kapitelbuch: nach dem letzten Kapitel steckt das Lesezeichen noch");
   if (!ausgelesen.buch || ausgelesen.buch.sterne !== 3) fehlt(`Kapitelbuch: im Lesestand steht ${JSON.stringify(ausgelesen.buch)}`);
   if (Object.keys(ausgelesen.zeichen).join(",") !== "baumhaus-nacht") fehlt(`Kapitelbuch: Lesezeichen stecken in ${Object.keys(ausgelesen.zeichen).join(", ") || "keinem Buch"}`);
+
+  // Auf Zeit (ab Stufe «schwer»): neben «Los» die Uhr, 45 Sekunden ohne
+  // Vorlesen, und das Ergebnis ist ein eigener Bestwert. Auf «mittel» gibt es
+  // die Uhr nicht.
+  const stufeSetzen = (stufe) => leser.evaluate((st) => localStorage.setItem("lernapp.reise", JSON.stringify({ stufe: st, stufeAt: Date.now() })), stufe);
+  await stufeSetzen("mittel");
+  await leser.goto(`${BASIS}/stimmtdas.html`, { waitUntil: "domcontentloaded" });
+  await leser.waitForFunction("window.LernappStimmtDas", null, { timeout: 8000 }).catch(() => {});
+  await leser.waitForTimeout(300);
+  if (await leser.locator(".lese-zeit-knopf").count()) fehlt("Auf Zeit: «Stimmt das?» bietet die Uhr schon auf «mittel» an");
+  await stufeSetzen("schwer");
+  const zeitRunde = async (seite, api, tippen) => {
+    await leser.goto(`${BASIS}/${seite}`, { waitUntil: "domcontentloaded" });
+    await leser.waitForFunction(`window.${api}`, null, { timeout: 8000 }).catch(() => {});
+    await leser.waitForTimeout(300);
+    if (!(await leser.locator(".lese-zeit-knopf").count())) { fehlt(`Auf Zeit: ${seite} bietet auf «schwer» keine Runde auf Zeit an`); return null; }
+    await leser.locator(".lese-zeit-knopf").click();
+    await leser.waitForTimeout(300);
+    await leserVergiss();
+    const uhr = await leser.evaluate(() => {
+      const balken = document.querySelector(".cm-time");
+      return { zeit: document.querySelector("#lese-stage")?.dataset.zeit, balken: Boolean(balken) && getComputedStyle(balken).display !== "none" && getComputedStyle(balken).visibility !== "hidden" };
+    });
+    if (uhr.zeit !== "1" || !uhr.balken) fehlt(`Auf Zeit: ${seite} zeigt keinen Zeitbalken (${JSON.stringify(uhr)})`);
+    await tippen();
+    const zwischen = await leser.evaluate((a) => ({ punkte: window[a].punkte(), gesagt: window.__gesagt }), api);
+    await leser.evaluate((a) => window[a].zeitUm(), api);
+    await leser.waitForSelector(".cm-overlay", { timeout: 5000 }).catch(() => {});
+    const ende = await leser.evaluate(() => document.querySelector(".cm-overlay")?.textContent || "");
+    return { ...zwischen, ende };
+  };
+  // Stimmt das?: drei Sätze richtig, einer falsch – die Lösung steht kurz da, gesagt wird nichts.
+  const sdZeit = await zeitRunde("stimmtdas.html", "LernappStimmtDas", async () => {
+    for (let i = 0; i < 4; i += 1) {
+      const a = await leser.evaluate(() => window.LernappStimmtDas.jetzt());
+      const richtig = i !== 2;
+      await leser.locator(a?.stimmt === richtig ? ".sd-ja" : ".sd-nein").click();
+      await leser.waitForFunction((n) => window.LernappStimmtDas.nr() > n, i, { timeout: 5000 }).catch(() => {});
+    }
+  });
+  if (sdZeit) {
+    const eintrag = await leser.evaluate(() => window.LernappLeseStand.stand().spiele.stimmtdas);
+    if (sdZeit.punkte !== 3) fehlt(`Auf Zeit: «Stimmt das?» zählt ${sdZeit.punkte} statt drei richtige Sätze`);
+    if (sdZeit.gesagt.length) fehlt(`Auf Zeit: «Stimmt das?» liest vor und kostet Zeit (${sdZeit.gesagt.join(" | ")})`);
+    if (eintrag?.zeit !== 3 || eintrag?.best !== 0 || eintrag?.runden !== 1) fehlt(`Auf Zeit: im Lesestand steht ${JSON.stringify(eintrag)}`);
+    if (!/3 Sätze in 45 Sekunden/.test(sdZeit.ende)) fehlt(`Auf Zeit: das Ergebnis von «Stimmt das?» sagt «${sdZeit.ende.slice(0, 90)}»`);
+  }
+  // Stolperwörter: drei Steine, gleich der nächste Satz, nichts vorgelesen.
+  const swZeit = await zeitRunde("stolperwoerter.html", "LernappStolperwoerter", async () => {
+    for (let i = 0; i < 3; i += 1) {
+      await leser.locator('.sw-wort[data-stein="1"]').click();
+      await leser.waitForFunction((n) => window.LernappStolperwoerter.nr() > n, i, { timeout: 5000 }).catch(() => {});
+    }
+  });
+  if (swZeit) {
+    const eintrag = await leser.evaluate(() => window.LernappLeseStand.stand().spiele.stolperwoerter);
+    if (swZeit.punkte !== 3) fehlt(`Auf Zeit: Stolperwörter zählt ${swZeit.punkte} statt drei Steine`);
+    if (swZeit.gesagt.length) fehlt(`Auf Zeit: Stolperwörter liest vor und kostet Zeit (${swZeit.gesagt.join(" | ")})`);
+    if (eintrag?.zeit !== 3 || eintrag?.runden !== 1) fehlt(`Auf Zeit: im Lesestand von Stolperwörter steht ${JSON.stringify(eintrag)}`);
+  }
+  await leser.evaluate(() => localStorage.removeItem("lernapp.reise"));
+
+  // Die Eltern schalten die Wort-Hilfe aus und stellen die Schrift sehr gross:
+  // Beim Selberlesen schweigt ein Tipp auf ein Wort, der Lautsprecher fehlt,
+  // die Schrift ist grösser. Beim Vorlesen hilft der Tipp weiterhin.
+  const buchSchrift = async (modus) => {
+    await leser.goto(`${BASIS}/buecher.html?buch=leo-melone`, { waitUntil: "domcontentloaded" });
+    await leser.waitForSelector(".bu-titelseite", { timeout: 8000 }).catch(() => {});
+    await leser.locator(`.bu-modus[data-modus="${modus}"]`).click();
+    await leser.waitForTimeout(700);
+    await leserVergiss();
+    await leser.locator(".bu-text .bu-wort").first().click();
+    await leser.waitForTimeout(200);
+    return leser.evaluate(() => ({
+      hilfe: document.querySelector(".bu-buch")?.dataset.hilfe || "an",
+      lautsprecher: !document.querySelector(".bu-leiste .bu-vorlesen")?.hidden,
+      gesagt: window.__gesagt,
+      schrift: parseFloat(getComputedStyle(document.querySelector(".bu-text")).fontSize),
+    }));
+  };
+  const normal = await buchSchrift("selbst");
+  await leser.evaluate(() => localStorage.setItem("lernapp.lesen.eltern", JSON.stringify({ startpunkt: "auto", schrift: "auto", groesse: "sehr-gross", hilfe: "aus", at: Date.now() })));
+  const ohneHilfe = await buchSchrift("selbst");
+  if (normal.hilfe !== "an" || !normal.lautsprecher || !normal.gesagt.length) fehlt(`Wort-Hilfe: ohne Einstellung fehlt sie (${JSON.stringify(normal)})`);
+  if (ohneHilfe.hilfe !== "aus" || ohneHilfe.lautsprecher || ohneHilfe.gesagt.length) fehlt(`Wort-Hilfe: abgeschaltet hilft sie trotzdem (${JSON.stringify(ohneHilfe)})`);
+  if (!(ohneHilfe.schrift > normal.schrift * 1.2)) fehlt(`Schriftgrösse: «sehr gross» steht in ${ohneHilfe.schrift} px statt mehr als ${normal.schrift} px`);
+  const vorgelesen = await buchSchrift("vorlesen");
+  if (!vorgelesen.gesagt.length) fehlt("Wort-Hilfe: beim Vorlesen sagt ein Tipp auf ein Wort nichts mehr");
+  await leser.evaluate(() => localStorage.removeItem("lernapp.lesen.eltern"));
   await offen.close();
 
   // Der Lesewurm im Sessel: ein passendes Buch, das noch nicht gelesen ist.
@@ -1306,4 +1398,4 @@ if (befunde.length) {
   befunde.forEach((b) => console.error(`  - ${b}`));
   process.exit(1);
 }
-console.log("Die Leseecke läuft: Lesewagen, Zimmer mit Auswahl, alle Spiele hin und zurück, eine Runde Silbenzug bis zum Tor, Laute kuppeln ohne verratenes Wort, Buchstabenhaus, der Würfel von «Stimmt das?», Reimkupplung, Anlaut-Lauscher, Wer fährt mit?, Wörter bauen, Silbenbahn, Blitzwörter, Mein Name, der Lesewurm bekommt seinen Namen, Lückensätze, Buchstabengleis, Satz kuppeln, Quatschsätze, Stolperwörter, Quatschwörter, Laut-Position, Buchstaben-Signal, Lies und tu!, Geschichtenzug, Wer bin ich?, Wortbaustelle, Steckbriefe, Detektivfälle, Postkarten, die Buchstaben der Schule, Hörbuch mit Nachsehen, Zusammen lesen, Kapitelbücher mit Überschrift und Lesezeichen, der Lesewurm wächst, der Lesewagen wird gemütlich, und der Lesewurm fährt auf der Lok mit.");
+console.log("Die Leseecke läuft: Lesewagen, Zimmer mit Auswahl, alle Spiele hin und zurück, eine Runde Silbenzug bis zum Tor, Laute kuppeln ohne verratenes Wort, Buchstabenhaus, der Würfel von «Stimmt das?», Reimkupplung, Anlaut-Lauscher, Wer fährt mit?, Wörter bauen, Silbenbahn, Blitzwörter, Mein Name, der Lesewurm bekommt seinen Namen, Lückensätze, Buchstabengleis, Satz kuppeln, Quatschsätze, Stolperwörter, Quatschwörter, Laut-Position, Buchstaben-Signal, Lies und tu!, Geschichtenzug, Wer bin ich?, Wortbaustelle, Steckbriefe, Detektivfälle, Postkarten, die Buchstaben der Schule, Hörbuch mit Nachsehen, Zusammen lesen, Kapitelbücher mit Überschrift und Lesezeichen, Runden auf Zeit, Wort-Hilfe und Schriftgrösse der Eltern, der Lesewurm wächst, der Lesewagen wird gemütlich, und der Lesewurm fährt auf der Lok mit.");

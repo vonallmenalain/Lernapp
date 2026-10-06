@@ -3121,6 +3121,11 @@
         <div class="card-actions">${LESEN_STARTPUNKTE.map((eintrag) => knopf("startpunkt", eintrag)).join("")}</div>
         <p class="admin-lesen-frage">Schrift</p>
         <div class="card-actions">${LESEN_SCHRIFTEN.map((eintrag) => knopf("schrift", eintrag)).join("")}</div>
+        <p class="admin-lesen-frage">Schriftgrösse in den Büchern</p>
+        <div class="card-actions">${LESEN_GROESSEN.map((eintrag) => knopf("groesse", eintrag)).join("")}</div>
+        <p class="admin-lesen-frage">Wort-Hilfe beim Selberlesen</p>
+        <p class="auth-hint">${LESEN_HILFE_ERKLAERUNG}</p>
+        <div class="card-actions">${LESEN_HILFEN.map((eintrag) => knopf("hilfe", eintrag)).join("")}</div>
         ${renderKindLaute(kind, jetzt, busy)}
       </div>`;
   }
@@ -3154,6 +3159,7 @@
     }
     if (b.blitzSicher) zeilen.push(zeile("Blitzwörter auf einen Blick", escapeHtml(String(b.blitzSicher))));
     if (b.spiele.length) zeilen.push(zeile("Am meisten gespielt", b.spiele.slice(0, 3).map((s) => escapeHtml(`${s.titel} (${s.runden})`)).join(", ")));
+    if (b.zeit?.length) zeilen.push(zeile("Bestwert auf Zeit (45 Sekunden)", b.zeit.map((z) => escapeHtml(`${z.titel}: ${z.best}`)).join(", ")));
     return `${kopf}
         <div class="lesebericht">${zeilen.join("")}</div>
         <p class="auth-hint">Ein Laut sitzt, wenn ${escapeHtml(name)} ihn an zwei verschiedenen Tagen dreimal richtig erkannt hat. Verwechslungen wie b und d sind am Anfang normal – sie zeigen, wo Üben lohnt.</p>`;
@@ -3211,7 +3217,7 @@
   }
 
   async function kindLesenSetzen(uid, feld, wert) {
-    if (!uid || !["startpunkt", "schrift"].includes(feld)) return;
+    if (!uid || !["startpunkt", "schrift", "groesse", "hilfe"].includes(feld)) return;
     const jetzt = lesenEinstellungIn(eltern.kindDetails.get(uid)?.userData?.gameState);
     eltern.kindLaeuft = uid;
     eltern.kindMeldung = { ok: false, text: "Die Leseecke wird eingestellt..." };
@@ -3923,6 +3929,8 @@
   // Was die Eltern an der Leseecke einstellen (lesen-stand.js liest es):
   //   startpunkt  "auto" (nach der Stufe) oder eine Lesestufe
   //   schrift     "auto", "gross" (nur Grossbuchstaben) oder "gemischt"
+  //   groesse     die Schrift in den Büchern: "normal", "gross", "sehr-gross"
+  //   hilfe       "an" oder "aus": liest ein Tipp auf ein Wort es vor?
   // Ein eigener Kasten im gameState mit Zeitmarke, den nur dieser Bereich
   // schreibt – das Kind liest ihn nur. Wie die Stufe kein Fortschritt: Er
   // überlebt das Zurücksetzen (resetProgressFor).
@@ -3940,6 +3948,16 @@
     ["gross", "Nur Grossbuchstaben"],
     ["gemischt", "Gross und klein"],
   ];
+  const LESEN_GROESSEN = [
+    ["normal", "Normal"],
+    ["gross", "Gross"],
+    ["sehr-gross", "Sehr gross"],
+  ];
+  const LESEN_HILFEN = [
+    ["an", "Ein Tipp liest vor"],
+    ["aus", "Aus"],
+  ];
+  const LESEN_HILFE_ERKLAERUNG = "Beim Selber- und Zusammenlesen sagt ein Tipp auf ein Wort dieses Wort, und der Lautsprecher liest die Seite vor. Liest dein Kind schon sicher, schalte die Hilfe aus: Dann liest es wirklich selbst. «Vorlesen» bleibt immer möglich.";
   // Die Laute der Leseecke in ihrer festen Reihenfolge (lesen-inhalte.js,
   // LAUTE – validate-lesen.mjs prüft, dass beide Listen gleich sind). Hier
   // eine Kopie, weil der Elternbereich auf jeder Seite aufgehen kann, auch wo
@@ -3957,6 +3975,8 @@
       startpunkt: LESEN_STARTPUNKTE.some(([wert]) => wert === daten.startpunkt) ? daten.startpunkt : "auto",
       schrift: LESEN_SCHRIFTEN.some(([wert]) => wert === daten.schrift) ? daten.schrift : "auto",
       bekannt: bekannt.length ? bekannt : null,
+      groesse: LESEN_GROESSEN.some(([wert]) => wert === daten.groesse) ? daten.groesse : "normal",
+      hilfe: LESEN_HILFEN.some(([wert]) => wert === daten.hilfe) ? daten.hilfe : "an",
     };
   }
 

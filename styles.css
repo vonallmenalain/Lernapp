@@ -11686,6 +11686,30 @@ button.lese-bild:active { transform: scale(0.96); }
 }
 .lese-los-knopf svg { width: 100%; height: 100%; display: block; }
 .lese-los-knopf:active { transform: scale(0.94); }
+/* Auf Zeit (ab Stufe «schwer»): neben «Los» der Knopf mit der Uhr. Der
+   Zeitbalken der Bühne zeigt sich nur in dieser Runde. */
+.lese-zeit-knopf {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-width: clamp(78px, 18vh, 120px);
+  min-height: clamp(70px, 18vh, 112px);
+  padding: 8px 12px;
+  border: 4px solid #ffffff;
+  border-radius: 24px;
+  background: #fff3c4;
+  box-shadow: 0 6px 14px rgba(36, 48, 71, 0.2);
+  color: #243047;
+  font-family: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+.lese-zeit-knopf:active { transform: scale(0.95); }
+.lese-zeit-bild { font-size: clamp(1.6rem, 7vh, 2.6rem); line-height: 1; }
+.lese-zeit-text { font-size: clamp(0.75rem, 2.6vh, 1rem); line-height: 1.1; }
+.lese-buehne:not([data-zeit="1"]) .cm-time { display: none; }
 @keyframes lese-los-puls {
   0%, 100% { transform: scale(1); }
   50% { transform: scale(1.06); }
@@ -12312,13 +12336,22 @@ button.lese-bild:active { transform: scale(0.96); }
   line-height: 1.55;
   box-sizing: border-box;
 }
-.bu-buch[data-stufe="hoerbuch"] .bu-text { font-size: clamp(1rem, 4.4vh, 1.6rem); }
-.bu-buch[data-stufe="erste"] .bu-text { font-size: clamp(1.5rem, 9vh, 3.2rem); line-height: 1.4; text-align: center; }
-.bu-buch[data-stufe="klein"] .bu-text { font-size: clamp(1.1rem, 5.6vh, 2.1rem); }
-.bu-buch[data-stufe="geschichte"] .bu-text { font-size: clamp(1rem, 4.8vh, 1.8rem); }
+/* Die Schriftgrösse, die die Eltern gewählt haben, ist ein Faktor auf die
+   Schrift jeder Stufe. Wo der Platz nicht reicht, macht buecher.js
+   (textEinpassen) sie wieder kleiner. */
+.bu-buch { --bu-zoom: 1; }
+.bu-buch[data-groesse="gross"] { --bu-zoom: 1.15; }
+.bu-buch[data-groesse="sehr-gross"] { --bu-zoom: 1.3; }
+.bu-buch[data-stufe="hoerbuch"] .bu-text { font-size: calc(clamp(1rem, 4.4vh, 1.6rem) * var(--bu-zoom)); }
+.bu-buch[data-stufe="erste"] .bu-text { font-size: calc(clamp(1.5rem, 9vh, 3.2rem) * var(--bu-zoom)); line-height: 1.4; text-align: center; }
+.bu-buch[data-stufe="klein"] .bu-text { font-size: calc(clamp(1.1rem, 5.6vh, 2.1rem) * var(--bu-zoom)); }
+.bu-buch[data-stufe="geschichte"] .bu-text { font-size: calc(clamp(1rem, 4.8vh, 1.8rem) * var(--bu-zoom)); }
+/* Ohne Wort-Hilfe sagt ein Tipp auf ein Wort nichts – es sieht dann auch
+   nicht danach aus. */
+.bu-buch[data-hilfe="aus"] .bu-wort { cursor: default; }
 /* Kapitelbücher: eine halbe Buchseite Text, das Bild daneben kleiner. */
 .bu-buch[data-stufe="kapitel"] .bu-bild { width: min(34vw, calc((85vh - 104px) * 1.58), 480px); }
-.bu-buch[data-stufe="kapitel"] .bu-text { max-width: 660px; font-size: clamp(0.95rem, 4.4vh, 1.6rem); line-height: 1.42; }
+.bu-buch[data-stufe="kapitel"] .bu-text { max-width: 660px; font-size: calc(clamp(0.95rem, 4.4vh, 1.6rem) * var(--bu-zoom)); line-height: 1.42; }
 .bu-kapitel {
   display: block;
   min-height: 0;
@@ -12452,6 +12485,7 @@ button.lese-bild:active { transform: scale(0.96); }
 @media (prefers-reduced-motion: reduce) {
   .bu-modus.is-empfohlen, .bu-weiter.pulst, .bu-buch.blaettert .bu-seite, .bu-antwort.zeigt-hin,
   .bu-wort.ist-getippt, .bu-nachsehen.ist-neu, .bu-bild-svg .journey-passenger.is-waving .journey-passenger-arm, .bu-lesezeichen { animation: none; }
+  .lese-zeit-knopf:active { transform: none; }
   .bu-umschlag-deckel, .bu-satz, .bu-kapitel { transition: none; }
 }
 

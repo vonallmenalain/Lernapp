@@ -12,6 +12,11 @@
  *
  * Auf der Stufe «leicht» liest die Stimme den Satz vor: Dann ist es ein
  * Hörspiel, und Kinder, die noch nicht lesen, üben dasselbe Verstehen.
+ *
+ * Auf «schwer» gibt es neben «Los» die Runde auf Zeit: 45 Sekunden, so viele
+ * Sätze wie möglich. Die Stimme schweigt dann; wer danebenliegt, sieht kurz,
+ * wie es richtig heisst. Gezählt werden die richtig geprüften Sätze, zwölf
+ * sind drei Sterne.
  */
 (() => {
   "use strict";
@@ -31,6 +36,8 @@
 
   const ID = "stimmtdas";
   const RUNDE = 8;
+  // Auf Zeit: so viele richtig geprüfte Sätze sind drei Sterne.
+  const ZEIT_ZIEL = 12;
   // Wie viele Tiere wo Platz haben, steht beim Bild (lesen-art.js, buildSzene).
   const PLAETZE = art.SZENE_PLAETZE;
 
@@ -92,13 +99,14 @@
     "Passt er zum Bild, tippe auf den Daumen nach oben. Passt er nicht, auf den Daumen nach unten.",
     "Schau genau: auf, unter oder neben – und wie viele?",
   ].join(" ");
+  const HELP_ZEIT = "Mit der Uhr spielst du auf Zeit: 45 Sekunden, so viele Sätze wie möglich.";
   const HELP_LEICHT = [
     "Stimmt das? Hör gut zu, was die Stimme sagt, und schau aufs Bild.",
     "Passt es, tippe auf den Daumen nach oben. Passt es nicht, auf den Daumen nach unten.",
     "Ein Tipp auf den Satz sagt ihn noch einmal.",
   ].join(" ");
 
-  const state = { nr: 0, punkte: 0, woerter: 0, aufgabe: null, phase: "intro" };
+  const state = { nr: 0, punkte: 0, woerter: 0, aufgabe: null, phase: "intro", zeit: false };
   let shell = null;
   let el = {};
 
@@ -134,20 +142,38 @@
     state.nr = 0;
     state.punkte = 0;
     state.woerter = 0;
+    state.zeit = false;
+    state.phase = "intro";
+    delete host.dataset.zeit;
+    shell.stopClock?.();
     shell.setCount(0);
     shell.closeOverlay();
-    kids()?.setHelp?.(stufe() === "leicht" ? HELP_LEICHT : HELP);
+    kids()?.setHelp?.(stufe() === "leicht" ? HELP_LEICHT : stufe() === "schwer" ? `${HELP} ${HELP_ZEIT}` : HELP);
     spiel.losKnopf(shell, {
-      onLos: () => {
-        shell.setPhase("play");
-        buehne();
-        naechstes();
-      },
+      onLos: () => los(false),
+      zeit: stufe() === "schwer" ? { onLos: () => los(true) } : null,
     });
   }
 
+  //   zeit  die Runde auf Zeit: Die Uhr läuft, und es kommen Sätze, bis sie
+  //         abgelaufen ist
+  function los(zeit) {
+    state.zeit = zeit;
+    if (zeit) host.dataset.zeit = "1";
+    shell.setPhase("play");
+    buehne();
+    if (zeit) shell.startClock(spiel.ZEIT_MS, zeitUm);
+    naechstes();
+  }
+
+  function zeitUm() {
+    if (state.phase === "over") return;
+    fertig();
+  }
+
   function naechstes() {
-    if (state.nr >= RUNDE) { fertig(); return; }
+    if (state.phase === "over") return;
+    if (!state.zeit && state.nr >= RUNDE) { fertig(); return; }
     state.aufgabe = aufgabe();
     state.phase = "lesen";
     el.bildHost.innerHTML = "";
@@ -174,6 +200,18 @@
       knopf.classList.add("ist-falsch", "wackelt");
       kids()?.playJingle?.("retry");
     }
+    // Auf Zeit: kein Vorlesen. Wer danebenlag, sieht kurz, wie es heisst.
+    if (state.zeit) {
+      if (!richtig) {
+        el.loesung.hidden = false;
+        el.loesung.textContent = state.aufgabe.stimmt ? "Der Satz stimmt." : `So stimmt es: ${stand?.zeige?.(state.aufgabe.richtig) ?? state.aufgabe.richtig}`;
+      }
+      await ton.pause(richtig ? 320 : 1300);
+      if (state.phase === "over") return;
+      state.nr += 1;
+      naechstes();
+      return;
+    }
     // Wie es richtig heisst – geschrieben und gesagt, wenn der Satz nicht
     // stimmte oder das Kind danebenlag.
     if (!state.aufgabe.stimmt || !richtig) {
@@ -190,6 +228,21 @@
 
   function fertig() {
     state.phase = "over";
+    if (state.zeit) {
+      shell.stopClock?.();
+      const bisher = spiel.zeitBest(ID);
+      spiel.ergebnis(shell, {
+        id: ID,
+        punkte: state.punkte,
+        von: ZEIT_ZIEL,
+        woerter: state.woerter,
+        zeit: true,
+        label: "Stimmt das? – auf Zeit",
+        detail: `${state.punkte} Sätze in ${spiel.ZEIT_MS / 1000} Sekunden richtig geprüft${bisher ? ` · Bestwert bisher ${bisher}` : ""}`,
+        speech: `Die Zeit ist um. Du hast ${state.punkte} Sätze richtig geprüft.`,
+      });
+      return;
+    }
     spiel.ergebnis(shell, {
       id: ID,
       punkte: state.punkte,
@@ -203,9 +256,14 @@
     });
   }
 
-  shell = spiel.mount({ host, id: ID, title: "Stimmt das?", help: HELP, onRestart: start });
+  shell = spiel.mount({ host, id: ID, title: "Stimmt das?", help: HELP, onRestart: start, clock: true });
   start();
 
   // Für die Prüfung (check-leseecke.mjs): die Würfel und die Aufgabe, die gerade dran ist.
-  window.LernappStimmtDas = { RUNDE, aufgabe, satz, weiche, wuerfleLage, passt, PLAETZE, jetzt: () => state.aufgabe };
+  window.LernappStimmtDas = {
+    RUNDE, ZEIT_ZIEL, aufgabe, satz, weiche, wuerfleLage, passt, PLAETZE,
+    jetzt: () => state.aufgabe, nr: () => state.nr, punkte: () => state.punkte, phase: () => state.phase, zeit: () => state.zeit,
+    // Die Uhr vorstellen, damit die Prüfung nicht 45 Sekunden wartet.
+    zeitUm,
+  };
 })();

@@ -537,6 +537,29 @@ function lautgetreu(wort) {
     pruefe(stand.lesestufe() === "woerter" && stand.nurGross() && stand.zeige("Rose") === "ROSE", "Lesestand: die Einstellung der Eltern gilt nicht");
     store.set(stand.ELTERN_KEY, JSON.stringify({ startpunkt: "auto", schrift: "auto", at: 6 }));
     pruefe(stand.lesestufe() === "buchstaben" && !stand.nurGross(), `Lesestand: ohne Einstellung und ohne Stufe beginnt die Leseecke bei ${stand.lesestufe()}`);
+    // Schriftgrösse und Wort-Hilfe: ohne Einstellung normal und an, Unsinn ebenso.
+    pruefe(stand.schriftGroesse() === "normal" && stand.wortHilfe() === true, "Lesestand: ohne Einstellung ist die Schrift nicht normal oder die Wort-Hilfe aus");
+    const quer = stand.elternSauber({ groesse: "riesig", hilfe: "vielleicht" });
+    pruefe(quer.groesse === "normal" && quer.hilfe === "an", `Lesestand: elternSauber lässt Unsinn bei Schriftgrösse oder Wort-Hilfe durch: ${JSON.stringify(quer)}`);
+    store.set(stand.ELTERN_KEY, JSON.stringify({ startpunkt: "auto", schrift: "auto", groesse: "sehr-gross", hilfe: "aus", at: 7 }));
+    pruefe(stand.schriftGroesse() === "sehr-gross" && stand.wortHilfe() === false, "Lesestand: die Schriftgrösse oder die Wort-Hilfe der Eltern gilt nicht");
+    store.set(stand.ELTERN_KEY, JSON.stringify({ startpunkt: "auto", schrift: "auto", at: 8 }));
+
+    // Die Runde auf Zeit: Sie zählt als Runde, ihr Ergebnis ist ein eigener
+    // Bestwert (zeit) neben dem der gewöhnlichen Runde (best) – und eine
+    // gewöhnliche Runde danach lässt ihn stehen.
+    stand.zeitRunde("stimmtdas", { punkte: 11 });
+    stand.zeitRunde("stimmtdas", { punkte: 7 });
+    stand.spielRunde("stimmtdas", { punkte: 6 });
+    const nachZeit = stand.stand().spiele.stimmtdas;
+    pruefe(nachZeit.runden === 3 && nachZeit.zeit === 11 && nachZeit.best === 6, `Lesestand: die Runde auf Zeit wird falsch eingetragen: ${JSON.stringify(nachZeit)}`);
+    const z1 = { spiele: { stimmtdas: { runden: 2, best: 7, zeit: 9, zuletzt: 1 } } };
+    const z2 = { spiele: { stimmtdas: { runden: 3, best: 5, zuletzt: 2 }, silbenzug: { runden: 1, best: 4, zuletzt: 1 } } };
+    const mz = stand.merge(z1, z2);
+    pruefe(mz.spiele.stimmtdas.zeit === 9 && mz.spiele.stimmtdas.best === 7 && mz.spiele.stimmtdas.runden === 3 && !("zeit" in mz.spiele.silbenzug),
+      `Lesestand: der Bestwert auf Zeit wird nicht richtig zusammengeführt: ${JSON.stringify(mz.spiele)}`);
+    const sortiert = (x) => (x && typeof x === "object" && !Array.isArray(x) ? Object.fromEntries(Object.keys(x).sort().map((k) => [k, sortiert(x[k])])) : x);
+    pruefe(JSON.stringify(sortiert(mz)) === JSON.stringify(sortiert(stand.merge(z2, z1))), "Lesestand: mit Bestwert auf Zeit ist merge(a, b) nicht dasselbe wie merge(b, a)");
     // Was als Nächstes dran ist, gibt es auch.
     for (const [stufe, liste] of Object.entries(stand.AUSWAHL)) {
       pruefe(stand.STARTPUNKTE.includes(stufe), `Lesestand: AUSWAHL kennt die Stufe ${stufe} nicht`);
@@ -611,7 +634,7 @@ function lautgetreu(wort) {
       woerter: 340,
       laute: { m: { r: 4, f: 0, tage: ["2026-10-01", "2026-10-03"] }, a: { r: 3, f: 1, tage: ["2026-10-02", "2026-10-04"] }, b: { r: 1, f: 2, tage: ["2026-10-04"] }, s: { r: 1, f: 0, tage: ["2026-10-04"] } },
       buecher: { y: { mal: 2, sterne: 3 }, z: { mal: 1, sterne: 2 } },
-      spiele: { silbenzug: { runden: 5 }, buchstabenhaus: { runden: 2 }, reimkupplung: { runden: 0 } },
+      spiele: { silbenzug: { runden: 5 }, buchstabenhaus: { runden: 2 }, reimkupplung: { runden: 0 }, stolperwoerter: { runden: 0, zeit: 8 } },
       blitz: { und: { r: 3, tage: ["2026-10-01", "2026-10-02"] } },
       verwechselt: { "b|d": 3, "m|n": 1 },
     });
@@ -620,6 +643,7 @@ function lautgetreu(wort) {
     pruefe(br.sicher.join(",") === "m,a" && br.wackelig.join(",") === "b", `Lesestand: sichere ${br.sicher} oder wackelige Laute ${br.wackelig} falsch (s ist nur geübt)`);
     pruefe(br.verwechslungen.length === 1 && br.verwechslungen[0].paar.join("|") === "b|d" && br.verwechslungen[0].mal === 3, `Lesestand: Verwechslungen im Bericht: ${JSON.stringify(br.verwechslungen)}`);
     pruefe(br.spiele.map((x) => `${x.id}:${x.runden}`).join(",") === "silbenzug:5,buchstabenhaus:2" && br.spiele[0].titel === "Silbenzug", `Lesestand: Spiele im Bericht: ${JSON.stringify(br.spiele)}`);
+    pruefe(br.zeit.length === 1 && br.zeit[0].titel === "Stolperwörter" && br.zeit[0].best === 8, `Lesestand: der Bestwert auf Zeit im Bericht: ${JSON.stringify(br.zeit)}`);
     pruefe(stand.bericht({}).woerter === 0 && stand.bericht(null).sicher.length === 0, "Lesestand: ein leerer Kasten gibt keinen leeren Bericht");
   }
 }

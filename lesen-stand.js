@@ -16,14 +16,17 @@
  *     laute:   { m: { r: 4, f: 1, tage: ["2026-10-06", …], zuletzt: … } },
  *     blitz:   { und: { r: 2, f: 0, tage: [...], zuletzt: … } },
  *     buecher: { "hase-rueebli": { mal: 2, sterne: 3, at: … } },
- *     spiele:  { silbenzug: { runden: 3, best: 6, zuletzt: … } },
+ *     spiele:  { silbenzug: { runden: 3, best: 6, zuletzt: … },
+ *                stimmtdas: { runden: 5, best: 8, zeit: 14, zuletzt: … } },
+ *                                   // zeit: Bestwert der Runde auf Zeit
  *     wurm:    { name: "Moli", at: … },   // so hat das Kind ihn getauft
  *     verwechselt: { "b|d": 3 },          // wie oft b für d genommen wurde
  *   }                                     // oder d für b – für die Eltern
  *
  * Daneben die Einstellungen der Eltern (lernapp.lesen.eltern): wo die
- * Leseecke beginnt, ob nur Grossbuchstaben stehen und welche Buchstaben die
- * Schule schon eingeführt hat. Die schreibt nur der
+ * Leseecke beginnt, ob nur Grossbuchstaben stehen, welche Buchstaben die
+ * Schule schon eingeführt hat, wie gross die Schrift in den Büchern ist und
+ * ob ein Tipp auf ein Wort es vorliest. Die schreibt nur der
  * Elternbereich (firebase.js); hier werden sie gelesen. Sie sind kein
  * Fortschritt und überleben deshalb jedes Zurücksetzen – wie die Stufe.
  */
@@ -63,13 +66,16 @@
   // nie die Summe.
   const zahl = (wert) => (Number.isFinite(Number(wert)) ? Number(wert) : 0);
 
-  function mergeEintraege(a = {}, b = {}, felder) {
+  //   wahlweise  Felder, die nur manche Einträge haben (der Bestwert auf
+  //              Zeit): Sie kommen nur dazu, wo eine Seite sie kennt.
+  function mergeEintraege(a = {}, b = {}, felder, wahlweise = []) {
     const out = {};
     new Set([...Object.keys(a || {}), ...Object.keys(b || {})]).forEach((id) => {
       const x = (a || {})[id] || {};
       const y = (b || {})[id] || {};
       const eintrag = {};
       felder.forEach((feld) => { eintrag[feld] = Math.max(zahl(x[feld]), zahl(y[feld])); });
+      wahlweise.forEach((feld) => { if (feld in x || feld in y) eintrag[feld] = Math.max(zahl(x[feld]), zahl(y[feld])); });
       if ("tage" in x || "tage" in y) {
         eintrag.tage = [...new Set([...(x.tage || []), ...(y.tage || [])])].sort().slice(-TAGE_MERKEN);
       }
@@ -130,7 +136,7 @@
       laute: mergeEintraege(a.laute, b.laute, ["r", "f", "zuletzt"]),
       blitz: mergeEintraege(a.blitz, b.blitz, ["r", "f", "zuletzt"]),
       buecher: mergeEintraege(a.buecher, b.buecher, ["mal", "sterne", "at"]),
-      spiele: mergeEintraege(a.spiele, b.spiele, ["runden", "best", "zuletzt"]),
+      spiele: mergeEintraege(a.spiele, b.spiele, ["runden", "best", "zuletzt"], ["zeit"]),
       wurm: neuereTaufe(a?.wurm, b?.wurm),
       verwechselt: verwechseltKuerzen(verwechselt),
     };
@@ -229,6 +235,22 @@
       const spiele = { ...(s.spiele || {}) };
       const vorher = spiele[id] || {};
       spiele[id] = { runden: zahl(vorher.runden) + 1, best: Math.max(zahl(vorher.best), zahl(punkte)), zuletzt: Date.now() };
+      // Der Bestwert auf Zeit bleibt stehen.
+      if ("zeit" in vorher) spiele[id].zeit = zahl(vorher.zeit);
+      return { ...s, spiele };
+    });
+  }
+
+  // Eine Runde auf Zeit (45 Sekunden, so viele wie möglich): Sie zählt als
+  // Runde, ihr Ergebnis aber als eigener Bestwert – mit den acht Aufgaben
+  // einer gewöhnlichen Runde ist es nicht zu vergleichen.
+  function zeitRunde(id, { punkte = 0 } = {}) {
+    if (!id) return stand();
+    return box.update((alt) => {
+      const s = { ...EMPTY, ...alt };
+      const spiele = { ...(s.spiele || {}) };
+      const vorher = spiele[id] || {};
+      spiele[id] = { runden: zahl(vorher.runden) + 1, best: zahl(vorher.best), zeit: Math.max(zahl(vorher.zeit), zahl(punkte)), zuletzt: Date.now() };
       return { ...s, spiele };
     });
   }
@@ -300,6 +322,11 @@
       .filter(([, e]) => zahl(e?.runden) > 0)
       .map(([id, e]) => ({ id, titel: SPIELE[id]?.titel || id, runden: zahl(e.runden) }))
       .sort((x, y) => y.runden - x.runden || (x.titel < y.titel ? -1 : 1));
+    // Die Bestwerte auf Zeit: so viele Aufgaben in 45 Sekunden.
+    const zeit = Object.entries(s.spiele || {})
+      .filter(([, e]) => zahl(e?.zeit) > 0)
+      .map(([id, e]) => ({ id, titel: SPIELE[id]?.titel || id, best: zahl(e.zeit) }))
+      .sort((x, y) => (x.titel < y.titel ? -1 : 1));
     const verwechslungen = Object.entries(verwechseltSauber(s.verwechselt))
       .filter(([, mal]) => mal >= 2)
       .sort((x, y) => y[1] - x[1] || (x[0] < y[0] ? -1 : 1))
@@ -310,6 +337,7 @@
       glieder: wurmGlieder(s),
       runden: spiele.reduce((summe, e) => summe + e.runden, 0),
       spiele,
+      zeit,
       buecher: buecher.length,
       buecherGold: buecher.filter(([, e]) => zahl(e?.sterne) >= 3).length,
       buecherIds: buecher.map(([id]) => id),
@@ -343,6 +371,10 @@
   //   bekannt     die Laute, die das Kind aus der Schule kennt – von den
   //               Eltern abgehakt –, oder null: dann gilt die feste
   //               Reihenfolge nach der Stufe (lesen-inhalte.js)
+  //   groesse     die Schrift in den Büchern: "normal", "gross", "sehr-gross"
+  //   hilfe       "an": ein Tipp auf ein Wort liest es vor, auch beim
+  //               Selberlesen; "aus" für Ältere, die sich nicht auf die
+  //               Stimme verlassen sollen
   const STARTPUNKTE = ["hoeren", "buchstaben", "woerter", "saetze", "geschichten"];
   const STARTPUNKT_INFO = {
     auto: { label: "Nach Alter" },
@@ -353,7 +385,9 @@
     geschichten: { label: "Geschichten" },
   };
   const SCHRIFTEN = ["auto", "gross", "gemischt"];
-  const ELTERN_LEER = { startpunkt: "auto", schrift: "auto", bekannt: null, at: 0 };
+  const GROESSEN = ["normal", "gross", "sehr-gross"];
+  const HILFEN = ["an", "aus"];
+  const ELTERN_LEER = { startpunkt: "auto", schrift: "auto", bekannt: null, groesse: "normal", hilfe: "an", at: 0 };
 
   // Ein Laut ist ein bis drei kleine Buchstaben (m, ei, sch). Eine leere Liste
   // heisst dasselbe wie keine: nichts abgehakt, die feste Reihenfolge gilt.
@@ -370,6 +404,8 @@
       startpunkt: d.startpunkt === "auto" || STARTPUNKTE.includes(d.startpunkt) ? d.startpunkt : "auto",
       schrift: SCHRIFTEN.includes(d.schrift) ? d.schrift : "auto",
       bekannt: bekanntSauber(d.bekannt),
+      groesse: GROESSEN.includes(d.groesse) ? d.groesse : "normal",
+      hilfe: HILFEN.includes(d.hilfe) ? d.hilfe : "an",
       at: zahl(d.at),
     };
   }
@@ -418,6 +454,16 @@
     if (schrift === "gross") return true;
     if (schrift === "gemischt") return false;
     return lesestufe() === "hoeren";
+  }
+
+  // Wie gross die Schrift in den Büchern steht, und ob ein Tipp auf ein Wort
+  // es vorliest (buecher.js).
+  function schriftGroesse() {
+    return einstellungen().groesse;
+  }
+
+  function wortHilfe() {
+    return einstellungen().hilfe !== "aus";
   }
 
   // Die Laute, die das Kind aus der Schule kennt, als Menge – oder null, wenn
@@ -494,11 +540,11 @@
 
   window.LernappLeseStand = {
     KEY, ELTERN_KEY, EMPTY, WOERTER_JE_GLIED, GLIEDER_MAX, SITZT_RICHTIG, SITZT_TAGE,
-    STARTPUNKTE, STARTPUNKT_INFO, SCHRIFTEN, SPIELE, AUSWAHL,
+    STARTPUNKTE, STARTPUNKT_INFO, SCHRIFTEN, GROESSEN, HILFEN, SPIELE, AUSWAHL,
     merge, stand, onChange: (fn) => box.onChange(fn),
-    lautGeuebt, lautSitzt, sitzendeLaute, blitzGeuebt, blitzSitzt, woerterGelesen, buchGelesen, spielRunde, spielGeoeffnet, wurmGlieder,
+    lautGeuebt, lautSitzt, sitzendeLaute, blitzGeuebt, blitzSitzt, woerterGelesen, buchGelesen, spielRunde, zeitRunde, spielGeoeffnet, wurmGlieder,
     WAGEN_SCHRITTE, lesestuecke, wagenStufe, verwechselt, bericht,
     nameSauber, wurmName, wurmTaufen,
-    einstellungen, elternSauber, bekannteLaute, stufe, lesestufe, nurGross, zeige, naechstes,
+    einstellungen, elternSauber, bekannteLaute, schriftGroesse, wortHilfe, stufe, lesestufe, nurGross, zeige, naechstes,
   };
 })();
