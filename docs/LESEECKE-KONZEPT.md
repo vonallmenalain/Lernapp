@@ -269,10 +269,11 @@ Firestore-Dokument (Grenze 1 MiB), das Eltern und Gruppe lesen können.
   dran ist das, was am längsten nicht gespielt wurde.
 - Der **Lesewagen** wird gemütlich: Am Anfang stehen nur die Dinge zum Spielen da. Nach 1, 2,
   4, 6, 9, 12, 15, 19, 23, 28, 33, 39, 45, 52 und 60 gelesenen Stücken (fertige Runden und
-  Bücher, `wagenStufe`) kommt je ein Ding dazu: Lampe, Teppich, Kissen, Vorhänge, Blumen am
-  Fenster, ein Bild, eine Stehlampe, ein Stapel Bücher, eine Uhr, eine Hängepflanze, eine
-  Decke, eine Wimpelkette, ein Mobile mit Sternen, eine schlafende Katze und zuletzt eine
-  Lichterkette (`lesen-art.js`, `AUSBAU`). Was seit dem letzten Besuch dazukam, leuchtet, und
+  Bücher, `wagenStufe`) kommt je ein Ding dazu: Lampe, Teppich, ein lesender Teddybär
+  (vorne auf dem Teppich – das Sofa gehört dem Lesewurm), Vorhänge, Blumen am Fenster, ein
+  Bild, eine Stehlampe, ein Stapel Bücher, eine Uhr, eine Hängepflanze, eine Decke, eine
+  Wimpelkette, ein Mobile mit Sternen, eine schlafende Katze und zuletzt eine Lichterkette
+  (`lesen-art.js`, `AUSBAU`). Was seit dem letzten Besuch dazukam, leuchtet, und
   der Lautsprecher nennt es. Von aussen sieht man Vorhänge, Blumenkästen und die
   Lichterkette auch auf dem Startbild. Die Dinge sind keine Knöpfe – getippt wird durch sie
   hindurch.
