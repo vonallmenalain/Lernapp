@@ -97,12 +97,16 @@
 
   const gespielt = (page) => Boolean(window.LernappEntitlement?.gameGespielt?.(page));
 
-  // Ein Schloss an einem Ding, wenn die Schnupperrunde jedes Spiels dahinter
-  // gespielt ist – wie an den Häusern der Bereiche. Ist noch eines offen,
-  // trägt nur dessen Karte in der Auswahl kein Schloss.
-  function schloss(svg, ort) {
+  // Ob an einem Ding ein Schloss hängt: wenn die Schnupperrunde jedes Spiels
+  // dahinter gespielt ist – wie an den Häusern der Bereiche. Ist noch eines
+  // offen, trägt nur dessen Karte in der Auswahl kein Schloss.
+  function zu(ort) {
     const spiele = spieleAm(ort);
-    if (!spiele.length || !spiele.every((spiel) => gespielt(spiel.page))) return;
+    return spiele.length > 0 && spiele.every((spiel) => gespielt(spiel.page));
+  }
+
+  function schloss(svg, ort) {
+    if (!zu(ort)) return;
     const knoten = svg.querySelector(`[data-ort="${ort}"]`);
     if (!knoten) return;
     knoten.classList.add("is-locked");
@@ -185,15 +189,53 @@
     window.setTimeout(() => reihe.querySelector("button")?.focus?.({ preventScroll: true }), 30);
   }
 
+  // Das Zimmer, das gerade steht: sein Platz auf der Bühne, wohin ein Tipp
+  // führt, und was es zeigt (zustand).
+  let offen = null;
+
+  // Was das Zimmer zeigt: der Lesewurm mit seinen Gliedern und seinem Namen,
+  // die gelesenen Bücher, die Einrichtung und die Schlösser an den Dingen.
+  // Den Zug draussen, die Lok und die Landschaft sieht hier niemand.
+  function zustand() {
+    const s = stand();
+    const jetzt = s ? s.stand() : { woerter: 0, buecher: {} };
+    const wurmName = s?.wurmName?.(jetzt) || "";
+    return JSON.stringify([
+      s ? s.wurmGlieder(jetzt) : 1,
+      Object.keys(jetzt.buecher || {}).length,
+      s?.zeige?.(wurmName) ?? wurmName,
+      s?.wagenStufe?.(jetzt) || 0,
+      Object.keys(ORTE).filter(zu),
+    ]);
+  }
+
   /*
    *   host    das Element auf der Bühne, in das das Zimmer kommt
    *   onPlay  (seite) => …, öffnet ein Spiel (train-home.js, enterGame)
    */
   function mount({ host, onPlay }) {
+    if (!art() || !host) return;
+    schriftLaden();
+    offen = { host, onPlay, zustand: "" };
+    zeichne();
+  }
+
+  // Nach der Rückkehr aus einem Lesespiel melden sich Anmeldung, Schranke,
+  // Einstellungen und Fortschritt nacheinander aus der Cloud. Früher baute
+  // jeder Bescheid das Zimmer neu, und es blendete sich jedes Mal von vorn
+  // ein: drei-, viermal hintereinander. Jetzt fragt train-home.js hier nach,
+  // und neu gezeichnet wird nur, wenn sich am Zimmer etwas ändert – an Ort und
+  // Stelle, ohne Einblenden, und eine offene Auswahl bleibt offen.
+  function auffrischen() {
+    if (!offen?.host.isConnected || zustand() === offen.zustand) return false;
+    zeichne();
+    return true;
+  }
+
+  function zeichne() {
+    const { host, onPlay } = offen;
     const a = art();
     const s = stand();
-    if (!a || !host) return;
-    schriftLaden();
     const jetzt = s ? s.stand() : { woerter: 0, buecher: {} };
     const glieder = s ? s.wurmGlieder(jetzt) : 1;
     const gelesen = Object.keys(jetzt.buecher || {}).length;
@@ -205,8 +247,11 @@
       try { return localStorage.getItem(AUSBAU_GESEHEN_KEY) === null ? ausbau : gesehen(AUSBAU_GESEHEN_KEY); } catch { return ausbau; }
     })();
     const svg = a.buildLesezimmer({ glieder, gelesen, wurmName: s?.zeige?.(wurmName) ?? wurmName, ausbau, neuAb: ausbauVorher });
-    host.innerHTML = "";
-    host.append(svg);
+    // Beim Auffrischen weicht nur die Zeichnung: Der Platz bleibt, also blendet
+    // sich nichts neu ein, und die Auswahl darüber bleibt stehen.
+    const alt = host.querySelector(":scope > .lesezimmer-svg");
+    if (alt) alt.replaceWith(svg);
+    else host.append(svg);
 
     svg.querySelectorAll("[data-ort]").forEach((knoten) => {
       const ort = knoten.getAttribute("data-ort");
@@ -242,10 +287,18 @@
     const teile = [];
     if (gewachsen) teile.push(`Dein Lesewurm ist gewachsen! Er hat jetzt ${glieder} Glieder.`);
     if (neues.length) teile.push(`Neu im Lesewagen: ${neues.length > 1 ? `${neues.slice(0, -1).join(", ")} und ${neues[neues.length - 1]}` : neues[0]}!`);
-    kids()?.setHelp?.(teile.length ? `${teile.join(" ")} ${HILFE}` : `${hallo}${HILFE}`);
+    // Steht die Auswahl offen, gehört der Lautsprecher ihr – ausser es gibt
+    // etwas Neues zu sagen.
+    if (teile.length) kids()?.setHelp?.(`${teile.join(" ")} ${HILFE}`);
+    else if (!host.querySelector(".lese-wahl")) kids()?.setHelp?.(`${hallo}${HILFE}`);
     merkeGesehen(glieder);
     merkeGesehen(ausbau, AUSBAU_GESEHEN_KEY);
+    offen.zustand = zustand();
   }
 
-  window.LernappLeseecke = { mount, ZIELE, ORTE, HILFE, TAUFE, spieleAm };
+  // Bringt die Cloud einen neueren Lesestand – gelesen auf einem anderen
+  // Gerät –, frischt sich das Zimmer selbst auf.
+  stand()?.onChange?.(() => auffrischen());
+
+  window.LernappLeseecke = { mount, auffrischen, ZIELE, ORTE, HILFE, TAUFE, spieleAm };
 })();
