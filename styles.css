@@ -11819,7 +11819,13 @@ button.lese-bild:active { transform: scale(0.96); }
   margin-bottom: -2px;
 }
 .bh-fassade {
-  --bh-h: calc((min(46vh, 440px) - 16px - (var(--bh-reihen) - 1) * 6px) / var(--bh-reihen));
+  /* Ein Fenster ist 1,2-mal so breit wie hoch. Seine Höhe teilt sich die
+     Höhe des Hauses mit den anderen Reihen – und wird kleiner, wo die Breite
+     nicht reicht: Im Suchspiel stehen wenige grosse Fenster in einer Reihe. */
+  --bh-h: min(
+    calc((min(46vh, 440px) - 16px - (var(--bh-reihen) - 1) * 6px) / var(--bh-reihen)),
+    calc((92vw - 24px - (var(--bh-spalten) - 1) * 6px) / (1.2 * var(--bh-spalten)))
+  );
   display: grid;
   grid-template-columns: repeat(var(--bh-spalten), calc(var(--bh-h) * 1.2));
   grid-auto-rows: var(--bh-h);
@@ -11838,6 +11844,9 @@ button.lese-bild:active { transform: scale(0.96); }
   justify-content: center;
   gap: 0;
   padding: 0;
+  /* So hoch wie seine Reihe, nicht wie ein gewöhnlicher Knopf (44 px): Im
+     vollen Haus auf dem Handy ragte jedes Fenster sonst ins nächste. */
+  min-height: 0;
   border: 3px solid #2f6f8f;
   border-radius: 8px;
   background: #a8ddf0;
@@ -11847,11 +11856,14 @@ button.lese-bild:active { transform: scale(0.96); }
   cursor: pointer;
   transition: transform 0.12s ease, box-shadow 0.2s ease, background 0.2s ease;
 }
+.bh-fenster[hidden] { display: none; }
 .bh-fenster:active { transform: scale(0.95); }
-.bh-zeichen { font-size: calc(var(--bh-h) * 0.4); font-weight: 700; white-space: nowrap; }
+/* Lange Beschriftungen («Sch sch», «Au au») werden kleiner, statt über den
+   Rand zu laufen (--bh-laenge: Zeichen der Beschriftung). */
+.bh-zeichen { font-size: calc(var(--bh-h) * min(0.4, 1.8 / var(--bh-laenge, 3))); font-weight: 700; white-space: nowrap; }
 .bh-bildchen { font-size: calc(var(--bh-h) * 0.26); margin-top: calc(var(--bh-h) * 0.04); }
 .lese-stage[data-modus="suchen"] .bh-bildchen { display: none; }
-.lese-stage[data-modus="suchen"] .bh-zeichen { font-size: calc(var(--bh-h) * 0.5); }
+.lese-stage[data-modus="suchen"] .bh-zeichen { font-size: calc(var(--bh-h) * min(0.5, 2 / var(--bh-laenge, 3))); }
 /* Was sitzt, hat einen goldenen Rahmen und ein Sternchen. */
 .bh-fenster.sitzt { border-color: #e0a800; background: #fff3c4; box-shadow: 0 0 0 2px #ffd166; }
 .bh-fenster.sitzt::after {

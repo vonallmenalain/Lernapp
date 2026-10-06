@@ -917,6 +917,22 @@ const SZENARIEN = [
       { name: "Suchen", tun: async (blatt) => { await blatt.click(".bh-karte-zu"); await pause(blatt, 200); await blatt.click(".bh-lupe"); await pause(blatt, 600); } },
     ],
   },
+  // Das volle Haus auf «schwer»: alle sechsunddreissig Laute, auch «Sch sch»
+  // und «Au au» ganz in ihrem Fenster – und im Suchspiel sechs offene.
+  {
+    seite: "buchstabenhaus",
+    titel: "buchstabenhaus-schwer",
+    speicher: { "lernapp.reise": JSON.stringify({ stufe: "schwer", stufeAt: 1 }) },
+    schritte: [
+      { name: "Volles Haus", tun: async (blatt) => {
+        const ueber = await blatt.evaluate(() => [...document.querySelectorAll(".bh-fenster")]
+          .filter((f) => f.querySelector(".bh-zeichen").scrollWidth > f.clientWidth + 1).map((f) => f.dataset.laut));
+        const { width, height } = blatt.viewportSize();
+        if (ueber.length) befunde.push(`${width}×${height} buchstabenhaus-schwer: Beschriftung breiter als ihr Fenster (${ueber.join(", ")})`);
+      } },
+      { name: "Suchen mit sechs", tun: async (blatt) => { await blatt.click(".bh-lupe"); await pause(blatt, 600); } },
+    ],
+  },
   {
     seite: "lautekuppeln",
     schritte: [

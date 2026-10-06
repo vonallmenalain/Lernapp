@@ -115,7 +115,7 @@ Lesewagen selbst und der Lesewurm darin.
 | Spiel | Seite | Was das Kind tut | Übt |
 | --- | --- | --- | --- |
 | Silbenzug | `silbenzug.html` | hört ein Wort, schlägt je Silbe auf die Trommel, für jeden Schlag kommt ein Wagen; das grüne Signal prüft | Silben hören und zählen |
-| Buchstabenhaus | `buchstabenhaus.html` | Entdecken: jedes Fenster zeigt Laut, Bild und Wort (M wie **M**aus). Suchen: «Wo wohnt dieser Laut?» | Laut und Buchstabe verbinden |
+| Buchstabenhaus | `buchstabenhaus.html` | Entdecken: jedes Fenster zeigt Laut, Bild und Wort (M wie **M**aus). Suchen: «Wo wohnt dieser Laut? – a, wie Affe», mit Bild; offen sind nur drei, vier oder sechs Fenster (leicht, mittel, schwer), nie zwei, die gleich klingen oder ineinander stecken (i/ie, S/Sch) | Laut und Buchstabe verbinden |
 | Laute kuppeln | `lautekuppeln.html` | tippt Laut-Wagen von links nach rechts an, sie rollen zusammen («R», «Ro», «s», «se»); dann das passende Bild unter drei | Laute zusammenziehen |
 | Stimmt das? | `stimmtdas.html` | liest einen Satz, prüft ihn am Bild: Daumen hoch oder runter. Auf «leicht» liest die Stimme vor | genau lesen: auf, unter, neben, wie viele |
 | Bücherregal | `buecher.html` | liest ein Buch – vorlesen lassen, zusammen (abwechselnd ein Satz), selbst – und beantwortet drei Fragen (Kapitelbücher: vier; ein Lesezeichen merkt sich die Seite) | Freude am Buch, Hör- und Leseverstehen |

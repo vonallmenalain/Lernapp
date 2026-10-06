@@ -563,7 +563,7 @@
     lautposition: { page: "lautposition.html", titel: "Laut-Position", ort: "silben", bild: "🔎" },
     reimkupplung: { page: "reimkupplung.html", titel: "Reimkupplung", ort: "silben", bild: "🎶" },
     anlautlauscher: { page: "anlautlauscher.html", titel: "Anlaut-Lauscher", ort: "silben", bild: "👂" },
-    buchstabenhaus: { page: "buchstabenhaus.html", titel: "Buchstabenhaus", ort: "buchstaben", bild: "🏠", ohneStufe: true },
+    buchstabenhaus: { page: "buchstabenhaus.html", titel: "Buchstabenhaus", ort: "buchstaben", bild: "🏠" },
     meinname: { page: "meinname.html", titel: "Mein Name", ort: "buchstaben", bild: "🏷️", ohneStufe: true },
     buchstabengleis: { page: "buchstabengleis.html", titel: "Buchstabengleis", ort: "buchstaben", bild: "🛤️", ohneStufe: true },
     buchstabensignal: { page: "buchstabensignal.html", titel: "Buchstaben-Signal", ort: "buchstaben", bild: "🚦" },
