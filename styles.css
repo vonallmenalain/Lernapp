@@ -12364,3 +12364,86 @@ button.lese-bild:active { transform: scale(0.96); }
   .bu-wort.ist-getippt, .bu-nachsehen.ist-neu, .bu-bild-svg .journey-passenger.is-waving .journey-passenger-arm { animation: none; }
   .bu-umschlag-deckel, .bu-satz { transition: none; }
 }
+
+/* =============================================================================
+   Laute aufnehmen (laute-aufnehmen.html)
+   =============================================================================
+   Eine Seite für Erwachsene: Hier spricht jemand die Laute der Leseecke ein.
+   Sie darf rollen und Text zeigen – wie der Adminbereich. Auf dem Handy wird
+   sie hochkant benutzt, und dort steht jede Zeile untereinander. */
+body[data-page="laute-aufnehmen"] {
+  overflow: auto;
+  background: var(--bg, #f7f3ff);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+.la-kopf, .la-liste { width: min(980px, 100% - 32px); margin: 0 auto; }
+.la-kopf { padding: 24px 0 8px; }
+.la-kopf h1 { margin: 0 0 8px; font-size: clamp(1.6rem, 3vw, 2.3rem); font-weight: 950; }
+.la-einleitung { margin: 0 0 10px; color: var(--ink); font-weight: 600; line-height: 1.5; }
+.la-tipps { margin: 0 0 14px; padding-left: 1.3em; color: var(--muted); line-height: 1.5; }
+.la-tipps li { margin: 3px 0; }
+.la-leiste {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 2px solid var(--line);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 8px 22px rgba(50, 44, 109, 0.08);
+}
+.la-zaehler { flex: 1 1 180px; font-weight: 850; }
+.la-leiste button:disabled { opacity: 0.5; cursor: default; }
+.la-meldung { min-height: 1.5em; margin: 10px 0 0; font-weight: 750; color: var(--muted); }
+.la-meldung[data-art="ok"] { color: #1f7a45; }
+.la-meldung[data-art="warnung"] { color: #9a5b00; }
+.la-meldung[data-art="fehler"] { color: #b42318; }
+.la-meldung[data-art="laeuft"] { color: #c4553a; }
+
+.la-liste { display: grid; gap: 18px; padding: 8px 0 64px; }
+.la-gruppe h2 { margin: 0 0 8px; font-size: 1.05rem; font-weight: 900; color: var(--muted); }
+.la-gruppe ul { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.la-laut {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(84px, max-content) minmax(110px, 0.8fr) minmax(160px, 1.6fr) auto;
+  grid-template-areas: "zeichen wort hinweis knoepfe" "zeichen wort hinweis stand";
+  align-items: center;
+  gap: 4px 14px;
+  padding: 10px 14px 12px;
+  border: 2px solid var(--line);
+  border-radius: 18px;
+  background: #fff;
+}
+.la-zeichen { grid-area: zeichen; font-family: "Andika", Inter, system-ui, sans-serif; font-size: 2rem; font-weight: 700; color: #243047; white-space: nowrap; }
+.la-wort { grid-area: wort; display: flex; align-items: center; gap: 6px; font-weight: 800; }
+.la-bild { font-size: 1.6rem; }
+.la-hinweis { grid-area: hinweis; color: var(--muted); font-weight: 600; line-height: 1.35; }
+.la-knoepfe { grid-area: knoepfe; display: flex; gap: 6px; justify-content: flex-end; }
+.la-knoepfe button { min-height: 40px; padding: 0 14px; }
+.la-hoer { background: #fff; color: var(--primary-dark); border-color: var(--line); }
+.la-hoer:disabled { opacity: 0.45; cursor: default; }
+.la-weg { background: #fff; color: #b42318; border-color: #f2c1bc; padding: 0 12px; }
+.la-weg[hidden] { display: none; }
+.la-stand { grid-area: stand; justify-self: end; font-size: 0.85rem; font-weight: 800; color: var(--muted); }
+.la-stand[data-stand="neu"] { color: #1f7a45; }
+.la-stand[data-stand="app"] { color: var(--primary-dark); }
+.la-stand[data-stand="fehlt"] { color: #b42318; }
+.la-pegel { position: absolute; left: 14px; right: 14px; bottom: 4px; height: 4px; border-radius: 2px; overflow: hidden; }
+.la-pegel span { display: block; width: 0; height: 100%; background: #3fbf74; transition: width 0.06s linear; }
+.la-laut.nimmt-auf { border-color: #e8543f; box-shadow: 0 0 0 4px rgba(232, 84, 63, 0.18); }
+.la-laut.nimmt-auf .la-auf { background: #e8543f; }
+.la-laut.spielt { border-color: #3fbf74; }
+
+@media (max-width: 720px) {
+  .la-laut {
+    grid-template-columns: minmax(64px, max-content) 1fr;
+    grid-template-areas: "zeichen wort" "zeichen hinweis" "knoepfe knoepfe" "stand stand";
+  }
+  .la-knoepfe { justify-content: flex-start; flex-wrap: wrap; margin-top: 6px; }
+  .la-stand { justify-self: start; }
+}

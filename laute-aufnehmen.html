@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="application-name" content="Gripszug" />
+    <meta name="robots" content="noindex" />
+    <meta name="theme-color" content="#f4e4c9" />
+    <title>Laute aufnehmen · Gripszug</title>
+    <link rel="stylesheet" href="styles.css?v=2026-10-06-03" />
+    <link rel="stylesheet" href="leseschrift.css?v=2026-10-06-03" />
+    <link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon-180.png" />
+  </head>
+  <body data-page="laute-aufnehmen">
+    <!-- Diese Seite sieht kein Kind: Hier spricht ein Erwachsener die Laute der
+         Leseecke ein. Gebaut wird die Liste von laute-aufnehmen.js. -->
+    <header class="la-kopf">
+      <p class="small-label">Leseecke</p>
+      <h1>Laute aufnehmen</h1>
+      <p class="la-einleitung">
+        In der Leseecke klingt jeder Buchstabe nach seinem Laut: M ist «mmm», nicht «Em». Das kann
+        keine Sprachausgabe – darum braucht es eine echte Stimme, gern deine.
+      </p>
+      <ol class="la-tipps">
+        <li>Ein ruhiger Raum, das Handy etwa eine Handbreit vor dem Mund. Alle Laute in einem Zug, mit derselben Stimme.</li>
+        <li>Tippe auf <strong>Aufnehmen</strong>, warte auf «Aufnahme läuft» und sprich den Laut einmal – so, wie ein Kind ihn hören soll. Ein zweiter Tipp hält an, nach drei Sekunden hält die Aufnahme von selbst.</li>
+        <li>Die kurzen Laute (b, d, g, k, p, t) ohne «e» hinterher: «b», nicht «be». Die langen (m, s, f …) eine gute halbe Sekunde dehnen.</li>
+        <li>Anhören. Gefällt es nicht, einfach noch einmal aufnehmen. Was du aufnimmst, bleibt auf diesem Gerät, bis du die Datei erstellst.</li>
+        <li>Am Schluss <strong>lesen-laute.js erstellen</strong> und die Datei schicken oder auf GitHub hochladen – wie, steht in <code>docs/LAUTE-AUFNEHMEN.md</code>.</li>
+      </ol>
+      <div class="la-leiste">
+        <span class="la-zaehler" data-zaehler></span>
+        <button type="button" class="secondary-action" data-alle>▶ Alle anhören</button>
+        <button type="button" data-datei>lesen-laute.js erstellen</button>
+        <button type="button" class="secondary-action" data-teilen hidden>Teilen</button>
+      </div>
+      <p class="la-meldung" data-meldung role="status" aria-live="polite"></p>
+    </header>
+
+    <main class="la-liste" data-laute></main>
+
+    <script defer src="lesen-inhalte.js?v=2026-10-06-03"></script>
+    <script defer src="lesen-laute.js?v=2026-10-06-03"></script>
+    <script defer src="laute-aufnehmen.js?v=2026-10-06-03"></script>
+  </body>
+</html>

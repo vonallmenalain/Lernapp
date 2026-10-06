@@ -348,11 +348,86 @@ function lautgetreu(wort) {
   pruefe(/SIL Open Font\s+(?:\*\s+)?License/.test(schrift), "leseschrift.css: der Hinweis auf die Lizenz fehlt");
 }
 
-// --- 6. Schweizer Rechtschreibung ----------------------------------------------------
+// --- 6. Die Aufnahmen der Laute ----------------------------------------------------------
+// lesen-laute.js entsteht auf laute-aufnehmen.html und kommt von Hand ins Repo.
+// Darum wird hier jede Aufnahme aufgemacht: Laut der Leseecke, WAV, 16 kHz,
+// 16 Bit, mono, nicht zu kurz und nicht zu lang. Und die Bearbeitung der
+// Aufnahmeseite wird an künstlichen Tönen nachgerechnet.
+{
+  const { windowStub: l } = lade("lesen-laute.js");
+  const aufnahmen = l.LernappLauteAufnahmen;
+  pruefe(aufnahmen && typeof aufnahmen === "object", "lesen-laute.js legt window.LernappLauteAufnahmen nicht an");
+  const groesse = fs.statSync(path.join(root, "lesen-laute.js")).size;
+  pruefe(groesse < 1.6 * 1024 * 1024, `lesen-laute.js ist ${Math.round(groesse / 1024)} KB gross – mehr als 1,6 MB lädt jede Seite der Leseecke zu lange`);
+  Object.entries(aufnahmen || {}).forEach(([id, quelle]) => {
+    const name = `Aufnahme ${id}`;
+    pruefe(Boolean(LAUT[id]), `${name}: diesen Laut gibt es in lesen-inhalte.js nicht`);
+    const treffer = /^data:audio\/wav;base64,([A-Za-z0-9+/=]+)$/.exec(String(quelle || ""));
+    if (!treffer) { fehler.push(`${name}: keine WAV-Daten-Adresse`); return; }
+    const bytes = Buffer.from(treffer[1], "base64");
+    const text = (stelle, laenge) => bytes.toString("latin1", stelle, stelle + laenge);
+    const ok = bytes.length > 44 && text(0, 4) === "RIFF" && text(8, 4) === "WAVE" && text(12, 4) === "fmt " && text(36, 4) === "data";
+    if (!ok) { fehler.push(`${name}: kein gültiger WAV-Kopf`); return; }
+    const format = bytes.readUInt16LE(20);
+    const kanaele = bytes.readUInt16LE(22);
+    const rate = bytes.readUInt32LE(24);
+    const bits = bytes.readUInt16LE(34);
+    const daten = bytes.readUInt32LE(40);
+    pruefe(format === 1 && kanaele === 1 && rate === 16000 && bits === 16, `${name}: ${format === 1 ? "PCM" : `Format ${format}`}, ${kanaele} Kanäle, ${rate} Hz, ${bits} Bit – erwartet PCM, mono, 16000 Hz, 16 Bit`);
+    pruefe(daten === bytes.length - 44, `${name}: die Länge im Kopf stimmt nicht`);
+    const sekunden = daten / 2 / (rate || 1);
+    pruefe(sekunden >= 0.04 && sekunden <= 1.3, `${name}: ${sekunden.toFixed(2)} s lang`);
+  });
+
+  const box = sandbox();
+  box.context.document.body.dataset.page = "anderswo";
+  vm.runInContext(lies("laute-aufnehmen.js"), box.context, { filename: "laute-aufnehmen.js" });
+  const auf = box.windowStub.LernappLauteAufnehmen;
+  pruefe(Boolean(auf), "laute-aufnehmen.js legt seine Werkzeuge nicht an");
+  if (auf) {
+    inhalte.LAUTE.forEach((laut) => pruefe(/«[^»]+»/.test(auf.HINWEISE?.[laut.id] || ""), `laute-aufnehmen.js: kein Hinweis, wie «${laut.gross}» klingt`));
+    const R = 48000;
+    const ton = (sekunden, freq, amp, pause = 0.3) => {
+      const n = Math.round((sekunden + 2 * pause) * R);
+      const a = new Float32Array(n);
+      for (let i = Math.round(pause * R); i < n - Math.round(pause * R); i += 1) a[i] = amp * Math.sin(2 * Math.PI * freq * i / R);
+      return a;
+    };
+    // Zuschneiden: eine halbe Sekunde Ton zwischen Stille – übrig bleiben der
+    // Ton und ein kleiner Rand (40 ms vorne, 80 ms hinten).
+    const geschnitten = auf.zuschneiden(ton(0.5, 440, 0.3), R);
+    const dauer = (geschnitten?.length || 0) / R;
+    pruefe(dauer > 0.6 && dauer < 0.64, `Aufnahme: Zuschneiden lässt ${dauer.toFixed(3)} s statt rund 0,62 s`);
+    pruefe(auf.zuschneiden(new Float32Array(R), R) === null, "Aufnahme: Stille wird nicht als «nichts gehört» erkannt");
+    // Umrechnen auf 16 kHz: ein Ton von 440 Hz bleibt, wie er ist; einer von
+    // 12 kHz – über der neuen Grenze von 8 kHz – verschwindet, statt als
+    // falscher Ton bei 4 kHz wiederzukommen.
+    const rms = (a, von = 0, bis = a.length) => { let s = 0; for (let i = von; i < bis; i += 1) s += a[i] * a[i]; return Math.sqrt(s / Math.max(1, bis - von)); };
+    const tief = auf.umrechnen(ton(0.5, 440, 0.3, 0), R, 16000);
+    pruefe(Math.abs(tief.length - 8000) <= 1, `Aufnahme: aus 0,5 s bei 48 kHz werden ${tief.length} statt 8000 Werte`);
+    const mitte = rms(tief, 1000, 7000);
+    pruefe(Math.abs(mitte - 0.3 / Math.SQRT2) < 0.01, `Aufnahme: 440 Hz kommt mit ${mitte.toFixed(3)} statt ${(0.3 / Math.SQRT2).toFixed(3)} an`);
+    const hoch = auf.umrechnen(ton(0.5, 12000, 0.3, 0), R, 16000);
+    pruefe(rms(hoch, 1000, 7000) < 0.3 / Math.SQRT2 * 0.02, `Aufnahme: 12 kHz klirrt nach dem Umrechnen mit ${rms(hoch, 1000, 7000).toFixed(4)} weiter`);
+    // Glätten: Spitze bei 90 %, Anfang und Ende bei null.
+    const glatt = auf.glaetten(tief, 16000);
+    const spitze = glatt.reduce((m, v) => Math.max(m, Math.abs(v)), 0);
+    pruefe(Math.abs(spitze - 0.9) < 0.01 && Math.abs(glatt[0]) < 1e-6 && Math.abs(glatt[glatt.length - 1]) < 1e-6, `Aufnahme: nach dem Glätten Spitze ${spitze.toFixed(3)}, Rand ${glatt[0]}, ${glatt[glatt.length - 1]}`);
+    // Und die Datei: 44 Bytes Kopf, zwei je Wert.
+    const datei = auf.wav(glatt, 16000);
+    pruefe(datei.length === 44 + glatt.length * 2 && Buffer.from(datei).toString("latin1", 0, 4) === "RIFF", "Aufnahme: die WAV-Datei hat die falsche Länge oder keinen Kopf");
+  }
+  const seite = lies("laute-aufnehmen.html");
+  pruefe(/<body data-page="laute-aufnehmen">/.test(seite) && /<meta name="robots" content="noindex"/.test(seite), "laute-aufnehmen.html: data-page oder noindex fehlt");
+  ["lesen-inhalte.js", "lesen-laute.js", "laute-aufnehmen.js"].forEach((skript) => pruefe(seite.includes(`src="${skript}?v=`), `laute-aufnehmen.html: lädt ${skript} nicht`));
+}
+
+// --- 7. Schweizer Rechtschreibung ----------------------------------------------------
 {
   const dateien = ["lesen-inhalte.js", "lesen-buecher.js", "lesen-stand.js", "lesen-ton.js", "lesen-art.js", "lesen-spiel.js", "lesen-laute.js", "train-leseecke.js",
     "silbenzug.js", "buchstabenhaus.js", "lautekuppeln.js", "stimmtdas.js", "buecher.js",
-    "silbenzug.html", "buchstabenhaus.html", "lautekuppeln.html", "stimmtdas.html", "buecher.html"];
+    "silbenzug.html", "buchstabenhaus.html", "lautekuppeln.html", "stimmtdas.html", "buecher.html",
+    "laute-aufnehmen.html", "laute-aufnehmen.js"];
   dateien.forEach((datei) => {
     if (!fs.existsSync(path.join(root, datei))) return;
     const zeilen = lies(datei).split("\n");
@@ -365,4 +440,5 @@ if (fehler.length) {
   fehler.forEach((f) => console.error(`  - ${f}`));
   process.exit(1);
 }
-console.log(`Die Leseecke stimmt: ${inhalte.LAUTE.length} Laute, ${inhalte.SILBEN_WOERTER.length + inhalte.KUPPEL_WOERTER.length} Wörter, ${bib.BUECHER.length} Bücher mit ${bib.BUECHER.reduce((n, b) => n + b.fragen.length, 0)} Fragen, der Lesestand und die Seiten.`);
+const aufgenommen = Object.keys(lade("lesen-laute.js").windowStub.LernappLauteAufnahmen || {}).length;
+console.log(`Die Leseecke stimmt: ${inhalte.LAUTE.length} Laute (${aufgenommen} aufgenommen), ${inhalte.SILBEN_WOERTER.length + inhalte.KUPPEL_WOERTER.length} Wörter, ${bib.BUECHER.length} Bücher mit ${bib.BUECHER.reduce((n, b) => n + b.fragen.length, 0)} Fragen, der Lesestand, die Seiten und die Aufnahmeseite.`);
