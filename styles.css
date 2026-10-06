@@ -2881,6 +2881,12 @@ body.puzzle-active .spatialPuzzle-board .spatial-option-graphic > svg {
 /* Die Schwierigkeitsstufe: derselbe Kasten, drei Knöpfe, der gültige ist markiert. */
 .admin-stufe .card-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .admin-stufe button[aria-pressed="true"] { box-shadow: inset 0 0 0 3px rgba(255, 255, 255, 0.5); }
+/* Die Leseecke: zwei Fragen untereinander, je eine Reihe Knöpfe – wie bei
+   der Stufe ist der gültige markiert. */
+.admin-lesen { flex-direction: column; align-items: stretch; }
+.admin-lesen .card-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.admin-lesen button[aria-pressed="true"] { box-shadow: inset 0 0 0 3px rgba(255, 255, 255, 0.5); }
+.admin-lesen .admin-lesen-frage { margin: 4px 0 -4px; color: var(--ink); font-weight: 900; }
 
 .reset-card.is-confirming,
 .admin-reset.is-confirming {
@@ -11493,3 +11499,868 @@ body[data-page="admin"] .admin-entry-herkunft { flex: 1 1 220px; }
 .admin-ganze-app .admin-gratis input { width: 22px; height: 22px; }
 .admin-ganze-app .admin-note,
 .admin-ganze-app .auth-status { margin: 0; }
+
+/* =============================================================================
+   Die Leseecke
+   =============================================================================
+   Der Lesewagen steht auf dem Startbild links oben auf einem Abstellgleis
+   (train-home.js, positionLesewagen); ein Tipp, und man steht in ihm
+   (train-leseecke.js). Die Spiele der Leseecke liegen weiter unten. */
+
+.lesewagen-knopf {
+  position: absolute;
+  z-index: 3;
+  width: clamp(80px, 16vw, 210px);
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  filter: drop-shadow(0 6px 10px rgba(36, 48, 71, 0.22));
+  transform-origin: 50% 80%;
+  transition: opacity 0.4s ease, transform 0.15s ease;
+}
+.lesewagen-knopf[hidden] { display: none; }
+/* Erst gemessen, dann sichtbar – wie das Startsignal. */
+.lesewagen-knopf[data-placed="0"] { opacity: 0; pointer-events: none; }
+.lesewagen-knopf:active { transform: scale(0.95); }
+.lesewagen-knopf:focus-visible { outline: 3px solid #6c5ce7; outline-offset: 4px; border-radius: 12px; }
+.lesewagen-knopf svg { display: block; width: 100%; height: auto; }
+.train-stage[data-entering] .lesewagen-knopf { opacity: 0; pointer-events: none; }
+/* Einsteigen: der Wagen wächst kurz auf, dann steht man drinnen. */
+.train-stage[data-lesen-ein] .lesewagen-knopf { transform: scale(1.35); opacity: 0; transition: transform 0.42s ease-in, opacity 0.42s ease-in; }
+
+.lesewagen-rauch {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: lesewagen-rauch 3.4s ease-out infinite;
+}
+.lesewagen-rauch-2 { animation-delay: -1.7s; }
+@keyframes lesewagen-rauch {
+  0% { transform: translate(0, 4px) scale(0.6); opacity: 0; }
+  20% { opacity: 0.85; }
+  100% { transform: translate(10px, -14px) scale(1.5); opacity: 0; }
+}
+
+/* --- Im Lesewagen --- */
+.train-stage[data-view="lesen"] .train-band { opacity: 0; pointer-events: none; }
+.train-stage[data-view="lesen"] .stage-layer { z-index: 4; }
+.train-stage[data-view="lesen"] .scene { visibility: hidden; }
+.train-stage[data-view="lesen"] .scene-bird { animation-play-state: paused; }
+.train-stage[data-view="lesen"] .train-band * { animation: none; }
+/* Der Lautsprecher spricht im Lesewagen, neben dem Zurück-Knopf. */
+body[data-page="train"] .train-stage[data-view="lesen"] ~ .help-voice {
+  display: flex;
+  left: calc(var(--safe-left) + 86px);
+}
+
+.leseecke {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  pointer-events: auto;
+  /* Die Wand des Wagens, wo die Zeichnung nicht hinreicht. */
+  background: linear-gradient(to bottom, #5b3a29 0, #5b3a29 6%, #f4e4c9 6%, #f4e4c9 78%, #b07a4a 78%);
+  animation: leseecke-ein 0.45s ease backwards;
+}
+@keyframes leseecke-ein {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: none; }
+}
+.leseecke .lesezimmer-svg {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+/* Die Dinge im Zimmer sind Knöpfe. Kein CSS-transform an ihnen: Ihre Lage
+   steht im transform-Attribut, und eine CSS-Transformation ersetzte sie. */
+.lese-ort { cursor: pointer; transition: filter 0.15s ease; }
+.lese-ort:hover, .lese-ort:focus-visible { filter: brightness(1.07) drop-shadow(0 0 10px rgba(255, 217, 138, 0.9)); }
+.lese-ort:active { filter: brightness(0.94); }
+.lese-ort.is-locked { filter: saturate(0.55); }
+.lese-ort-weiter .wurm-gesicht { animation: wurm-nicken 3.2s ease-in-out infinite; transform-box: fill-box; transform-origin: 50% 90%; }
+@keyframes wurm-nicken {
+  0%, 70%, 100% { transform: rotate(0deg); }
+  80% { transform: rotate(-6deg); }
+  90% { transform: rotate(4deg); }
+}
+.lesewurm.is-gewachsen { animation: wurm-gewachsen 1.2s ease-in-out 3; }
+@keyframes wurm-gewachsen {
+  0%, 100% { filter: none; }
+  50% { filter: drop-shadow(0 0 14px #ffd166) brightness(1.1); }
+}
+.regal-buch.is-gelesen { filter: drop-shadow(0 0 6px #ffd166); }
+.wurm-auge { animation: wurm-blinzeln 5s infinite; transform-box: fill-box; transform-origin: center; }
+@keyframes wurm-blinzeln {
+  0%, 94%, 100% { transform: scaleY(1); }
+  97% { transform: scaleY(0.1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lesewagen-rauch, .lese-ort-weiter .wurm-gesicht, .lesewurm.is-gewachsen, .wurm-auge, .leseecke { animation: none; }
+  .train-stage[data-lesen-ein] .lesewagen-knopf { transition: none; }
+}
+
+/* --- Die Spiele der Leseecke: was alle gemeinsam haben --- */
+/* Gelesen wird in Andika (leseschrift.css): a und g wie von Hand, I und l
+   verschieden. Die Leiste oben bleibt in der Schrift der App. */
+.lese-stage .cm-play { font-family: "Andika", Inter, ui-sans-serif, system-ui, sans-serif; }
+
+.lese-bild {
+  display: grid;
+  place-items: center;
+  width: clamp(72px, 19vh, 150px);
+  height: clamp(72px, 19vh, 150px);
+  border: 4px solid #ffffff;
+  border-radius: 50%;
+  background: #fff6e0;
+  box-shadow: 0 8px 18px rgba(36, 48, 71, 0.2);
+  font-size: clamp(40px, 11vh, 92px);
+  line-height: 1;
+  padding: 0;
+  cursor: pointer;
+}
+button.lese-bild:active { transform: scale(0.96); }
+.lese-bild.ist-neu { animation: lese-bild-neu 0.45s cubic-bezier(0.34, 1.56, 0.64, 1); }
+@keyframes lese-bild-neu {
+  from { transform: scale(0.4); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.lese-los {
+  display: flex;
+  align-items: center;
+  gap: clamp(12px, 3vw, 32px);
+}
+.lese-los-wurm { width: clamp(90px, 22vh, 170px); height: auto; }
+.lese-los-knopf {
+  width: clamp(84px, 22vh, 140px);
+  height: clamp(84px, 22vh, 140px);
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: none;
+  cursor: pointer;
+  filter: drop-shadow(0 8px 14px rgba(36, 48, 71, 0.3));
+  animation: lese-los-puls 1.6s ease-in-out infinite;
+}
+.lese-los-knopf svg { width: 100%; height: 100%; display: block; }
+.lese-los-knopf:active { transform: scale(0.94); }
+@keyframes lese-los-puls {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.06); }
+}
+.lese-lok { height: clamp(56px, 15vh, 120px); width: auto; flex: none; }
+
+.wackelt { animation: lese-wackeln 0.42s ease-in-out; }
+@keyframes lese-wackeln {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-9px); }
+  40% { transform: translateX(8px); }
+  60% { transform: translateX(-6px); }
+  80% { transform: translateX(4px); }
+}
+
+/* --- Silbenzug --- */
+.silben-oben { display: flex; justify-content: center; }
+.silben-gleis {
+  position: relative;
+  width: min(96vw, 1040px);
+  height: clamp(78px, 24vh, 170px);
+  overflow: hidden;
+}
+.silben-schiene {
+  position: absolute;
+  left: 0; right: 0; bottom: 4px;
+  height: 6px;
+  border-radius: 3px;
+  background: #6d7480;
+  box-shadow: 0 6px 0 -2px #8d6e52;
+}
+.silben-zug {
+  position: absolute;
+  right: 4%;
+  bottom: 6px;
+  display: flex;
+  align-items: flex-end;
+  height: 100%;
+  transition: transform 0.9s cubic-bezier(0.5, 0, 0.75, 0);
+}
+.silben-zug .lese-lok { height: 100%; margin-left: -4px; }
+.silben-zug.faehrt-ab { transform: translateX(120vw); }
+.silben-zug.kommt-an { animation: silben-kommt-an 0.7s cubic-bezier(0.25, 1, 0.5, 1); }
+@keyframes silben-kommt-an {
+  from { transform: translateX(-110vw); }
+  to { transform: translateX(0); }
+}
+.silben-wagen { display: flex; align-items: flex-end; height: 64%; margin-bottom: 1px; }
+.silben-ein-wagen {
+  height: 100%;
+  margin-left: -2px;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  transition: transform 0.2s ease, filter 0.2s ease;
+}
+.silben-ein-wagen svg { height: 100%; width: auto; display: block; }
+.silben-ein-wagen.rollt-an { animation: silben-rollt-an 0.32s ease-out; }
+@keyframes silben-rollt-an {
+  from { transform: translateX(-60px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+.silben-ein-wagen.ist-dran { transform: translateY(-8px); filter: drop-shadow(0 0 10px #ffd166); }
+.silben-unten { display: flex; align-items: center; justify-content: center; gap: clamp(20px, 6vw, 70px); }
+.silben-trommel {
+  width: clamp(96px, 26vh, 200px);
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.silben-trommel svg { width: 100%; height: auto; display: block; }
+.silben-trommel.schlag { animation: silben-schlag 0.18s ease-out; }
+@keyframes silben-schlag {
+  0% { transform: scale(1); }
+  40% { transform: scale(0.92, 0.88); }
+  100% { transform: scale(1); }
+}
+.silben-abfahrt {
+  width: clamp(64px, 17vh, 120px);
+  height: clamp(64px, 17vh, 120px);
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  filter: drop-shadow(0 6px 10px rgba(36, 48, 71, 0.28));
+}
+.silben-abfahrt svg { width: 100%; height: 100%; display: block; }
+.silben-abfahrt:disabled { opacity: 0.5; cursor: default; }
+.silben-abfahrt:active:not(:disabled) { transform: scale(0.94); }
+
+@media (prefers-reduced-motion: reduce) {
+  .lese-los-knopf, .lese-bild.ist-neu, .wackelt, .silben-ein-wagen.rollt-an, .silben-trommel.schlag { animation: none; }
+  .silben-zug { transition: none; }
+  .silben-zug.kommt-an { animation: none; }
+}
+
+/* --- Buchstabenhaus --- */
+.bh-haus { display: flex; flex-direction: column; align-items: center; }
+.bh-dach {
+  width: calc(100% + 24px);
+  height: clamp(24px, 7vh, 64px);
+  background: #e8543f;
+  clip-path: polygon(50% 0, 100% 100%, 0 100%);
+  margin-bottom: -2px;
+}
+.bh-fassade {
+  --bh-h: calc((min(46vh, 440px) - 16px - (var(--bh-reihen) - 1) * 6px) / var(--bh-reihen));
+  display: grid;
+  grid-template-columns: repeat(var(--bh-spalten), calc(var(--bh-h) * 1.2));
+  grid-auto-rows: var(--bh-h);
+  gap: 6px;
+  padding: 8px;
+  border: 4px solid #c8935a;
+  border-radius: 12px;
+  background: #fff6e0;
+  box-shadow: 0 10px 22px rgba(36, 48, 71, 0.22);
+}
+.bh-fenster {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  padding: 0;
+  border: 3px solid #2f6f8f;
+  border-radius: 8px;
+  background: #a8ddf0;
+  color: #243047;
+  font-family: "Andika", Inter, system-ui, sans-serif;
+  line-height: 1;
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+.bh-fenster:active { transform: scale(0.95); }
+.bh-zeichen { font-size: calc(var(--bh-h) * 0.4); font-weight: 700; white-space: nowrap; }
+.bh-bildchen { font-size: calc(var(--bh-h) * 0.26); margin-top: calc(var(--bh-h) * 0.04); }
+.lese-stage[data-modus="suchen"] .bh-bildchen { display: none; }
+.lese-stage[data-modus="suchen"] .bh-zeichen { font-size: calc(var(--bh-h) * 0.5); }
+/* Was sitzt, hat einen goldenen Rahmen und ein Sternchen. */
+.bh-fenster.sitzt { border-color: #e0a800; background: #fff3c4; box-shadow: 0 0 0 2px #ffd166; }
+.bh-fenster.sitzt::after {
+  content: "★";
+  position: absolute;
+  top: 1px; right: 3px;
+  font-size: calc(var(--bh-h) * 0.2);
+  color: #e0a800;
+}
+.bh-fenster.ist-richtig { background: #c9f2d6; border-color: #2f9e5c; box-shadow: 0 0 14px #3fbf74; }
+.bh-fenster.ist-falsch { animation: lese-wackeln 0.42s ease-in-out; background: #ffd9d4; }
+.bh-fenster.zeigt-hin { animation: bh-zeigt-hin 0.9s ease-in-out infinite; }
+@keyframes bh-zeigt-hin {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(63, 191, 116, 0.0); }
+  50% { box-shadow: 0 0 0 6px rgba(63, 191, 116, 0.75); }
+}
+.bh-leiste { display: flex; justify-content: center; }
+.bh-leiste[hidden] { display: none; }
+.bh-lupe {
+  width: clamp(54px, 15vh, 84px);
+  height: clamp(54px, 15vh, 84px);
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: none;
+  cursor: pointer;
+  filter: drop-shadow(0 6px 10px rgba(36, 48, 71, 0.28));
+}
+.bh-lupe svg { width: 100%; height: 100%; display: block; }
+.bh-lupe:active { transform: scale(0.94); }
+.bh-blase {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 18px 8px 8px;
+  border-radius: 999px;
+  background: #ffffff;
+  box-shadow: 0 6px 16px rgba(36, 48, 71, 0.2);
+  font-size: clamp(1rem, 4vh, 1.6rem);
+  font-weight: 700;
+  color: #243047;
+}
+.bh-blase[hidden] { display: none; }
+.bh-blase-ton {
+  display: grid;
+  place-items: center;
+  width: clamp(40px, 11vh, 60px);
+  height: clamp(40px, 11vh, 60px);
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: #6c5ce7;
+  color: #fff;
+  cursor: pointer;
+}
+.bh-blase-ton svg { width: 60%; height: 60%; }
+.bh-blase-bild { font-size: clamp(28px, 9vh, 52px); line-height: 1; }
+.bh-karte-huelle {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  display: grid;
+  place-items: center;
+  background: rgba(36, 48, 71, 0.28);
+}
+.bh-karte {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  min-width: min(70vw, 340px);
+  padding: 14px 40px 18px;
+  border: 5px solid #2f6f8f;
+  border-radius: 22px;
+  background: #fffaf0;
+  box-shadow: 0 16px 40px rgba(36, 48, 71, 0.3);
+  cursor: pointer;
+  animation: lese-bild-neu 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.bh-karte p { margin: 0; line-height: 1.05; }
+.bh-karte-zeichen { font-size: clamp(54px, 20vh, 150px); font-weight: 700; color: #243047; }
+.bh-karte-bild { font-size: clamp(38px, 13vh, 96px); }
+.bh-karte-wort { font-size: clamp(24px, 7vh, 52px); color: #243047; }
+.bh-karte-wort mark { background: #ffd166; color: inherit; border-radius: 6px; padding: 0 2px; }
+.bh-karte-zu {
+  position: absolute;
+  top: -16px; right: -16px;
+  width: 48px; height: 48px;
+  border: 3px solid #fff;
+  border-radius: 50%;
+  background: #3fbf74;
+  color: #fff;
+  font-size: 1.5rem;
+  font-weight: 900;
+  cursor: pointer;
+}
+@media (prefers-reduced-motion: reduce) {
+  .bh-fenster.ist-falsch, .bh-fenster.zeigt-hin, .bh-karte { animation: none; }
+}
+
+/* --- Laute kuppeln --- */
+.kp-frage {
+  margin: 0;
+  padding: 6px 20px;
+  border-radius: 999px;
+  background: #ffffff;
+  box-shadow: 0 6px 14px rgba(36, 48, 71, 0.18);
+  font-size: clamp(1.05rem, 5vh, 2rem);
+  font-weight: 700;
+  color: #243047;
+}
+.kp-frage[hidden] { display: none; }
+.kp-gleis {
+  position: relative;
+  width: min(96vw, 1040px);
+  height: clamp(84px, 26vh, 180px);
+  overflow: hidden;
+}
+.kp-zug {
+  position: absolute;
+  left: 6%;
+  bottom: 6px;
+  display: flex;
+  align-items: flex-end;
+  height: 70%;
+  transition: transform 0.9s cubic-bezier(0.5, 0, 0.75, 0);
+}
+.kp-zug.faehrt-ab { transform: translateX(120vw); }
+.kp-wagen {
+  height: 100%;
+  margin-left: clamp(16px, 3.4vw, 34px);
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  transition: margin-left 0.38s cubic-bezier(0.34, 1.3, 0.64, 1);
+}
+.kp-wagen:first-child { margin-left: 0; }
+.kp-wagen.gekuppelt:not(:first-child) { margin-left: -4px; }
+.kp-wagen svg { height: 100%; width: auto; display: block; }
+.kp-wagen.ist-dran { animation: kp-dran 1s ease-in-out infinite; }
+@keyframes kp-dran {
+  0%, 100% { transform: translateY(0); filter: none; }
+  50% { transform: translateY(-8px); filter: drop-shadow(0 0 10px #ffd166); }
+}
+.kp-lok { height: 128%; margin-left: -6px; align-self: flex-end; }
+.kp-lok.kommt-an { animation: kp-lok-an 0.62s cubic-bezier(0.25, 1, 0.5, 1); }
+@keyframes kp-lok-an {
+  from { transform: translateX(70vw); }
+  to { transform: translateX(0); }
+}
+.kp-bilder { display: flex; gap: clamp(14px, 4vw, 44px); }
+.kp-bilder[hidden] { display: none; }
+.kp-bild.ist-falsch { opacity: 0.45; }
+.kp-bild.ist-richtig { box-shadow: 0 0 0 6px #3fbf74, 0 8px 18px rgba(36, 48, 71, 0.2); }
+.kp-bild.zeigt-hin { animation: bh-zeigt-hin 0.9s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .kp-wagen { transition: none; }
+  .kp-wagen.ist-dran, .kp-lok.kommt-an, .kp-bild.zeigt-hin { animation: none; }
+  .kp-zug { transition: none; }
+}
+
+/* --- Stimmt das? --- */
+.sd-reihe {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(12px, 3vw, 40px);
+  width: min(96vw, 1120px);
+}
+.sd-bild { flex: 0 1 auto; width: min(52vw, calc((100vh - 120px) * 1.55), 640px); }
+.sd-bild svg { display: block; width: 100%; height: auto; filter: drop-shadow(0 8px 16px rgba(36, 48, 71, 0.18)); }
+.sd-rechts { display: flex; flex-direction: column; align-items: center; gap: clamp(8px, 2.4vh, 18px); max-width: min(42vw, 460px); }
+.sd-satz {
+  margin: 0;
+  padding: 10px 18px;
+  border: none;
+  border-radius: 18px;
+  background: #ffffff;
+  box-shadow: 0 6px 14px rgba(36, 48, 71, 0.16);
+  color: #243047;
+  font-family: "Andika", Inter, system-ui, sans-serif;
+  font-size: clamp(1.15rem, 6vh, 2.3rem);
+  font-weight: 700;
+  line-height: 1.3;
+  text-align: center;
+  cursor: default;
+}
+.sd-satz.ist-hoerbar { cursor: pointer; }
+.sd-loesung {
+  margin: 0;
+  padding: 6px 12px;
+  border-radius: 12px;
+  background: #eaf7ef;
+  color: #1f6b3a;
+  font-size: clamp(0.95rem, 4vh, 1.4rem);
+  font-weight: 700;
+  text-align: center;
+}
+.sd-loesung[hidden] { display: none; }
+.sd-unten { display: flex; gap: clamp(14px, 4vw, 30px); }
+.sd-daumen {
+  display: grid;
+  place-items: center;
+  width: clamp(62px, 18vh, 112px);
+  height: clamp(62px, 18vh, 112px);
+  padding: 0;
+  border: 4px solid #ffffff;
+  border-radius: 50%;
+  background: #fff6e0;
+  box-shadow: 0 8px 16px rgba(36, 48, 71, 0.2);
+  font-size: clamp(30px, 10vh, 60px);
+  line-height: 1;
+  cursor: pointer;
+}
+.sd-daumen:active:not(:disabled) { transform: scale(0.94); }
+.sd-daumen:disabled { cursor: default; }
+.sd-daumen.ist-richtig { background: #c9f2d6; box-shadow: 0 0 0 6px #3fbf74; }
+.sd-daumen.ist-falsch { background: #ffd9d4; }
+
+/* --- Bücherregal (buecher.js) --- */
+/* Kein Zähler oben rechts: Ein Buch ist keine Punktejagd. */
+.bu-buehne .cm-count { display: none; }
+/* In den Bildern winken die Tiere, wie auf der Reise beim Fest. */
+.bu-bild-svg .journey-passenger.is-waving .journey-passenger-arm { animation: journey-wave-arm 0.9s ease-in-out infinite alternate; }
+.bu-emoji { font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif; }
+
+/* Eine Reihe, die Grösse der Bücher rechnet buecher.js aus (regalEinpassen)
+   – mit denselben Abständen wie hier. */
+.bu-regal {
+  --bu-w: 120px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 14px;
+  max-width: 100%;
+  padding: 14px 12px 8px;
+  box-sizing: border-box;
+}
+.bu-fach { display: flex; flex-direction: column; align-items: center; gap: 8px; min-width: 0; }
+.bu-schild {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  padding: 3px 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 3px 8px rgba(36, 48, 71, 0.12);
+  color: #243047;
+  font-size: clamp(0.78rem, 2.6vh, 1.05rem);
+  font-weight: 800;
+}
+.bu-schild-zeichen { font-size: 1.1em; }
+.bu-reihe { display: flex; align-items: flex-end; gap: 8px; padding: 0 6px; }
+.bu-brett {
+  align-self: stretch;
+  height: 12px;
+  margin-top: -6px;
+  border-radius: 4px;
+  background: linear-gradient(#a06a3c, #7a4f2e);
+  box-shadow: 0 4px 8px rgba(36, 48, 71, 0.25);
+}
+
+.bu-umschlag {
+  position: relative;
+  display: block;
+  width: var(--bu-w);
+  padding: 0;
+  border: none;
+  background: none;
+  font-family: inherit;
+  cursor: pointer;
+}
+.bu-umschlag-deckel {
+  display: flex;
+  flex-direction: column;
+  aspect-ratio: 3 / 4;
+  padding: 6px 6px 8px;
+  border-left: 7px solid rgba(0, 0, 0, 0.22);
+  border-radius: 5px 12px 12px 5px;
+  background: var(--buch);
+  box-shadow: 0 6px 14px rgba(36, 48, 71, 0.28);
+  box-sizing: border-box;
+  transition: transform 0.15s ease;
+}
+.bu-umschlag:hover .bu-umschlag-deckel, .bu-umschlag:focus-visible .bu-umschlag-deckel { transform: translateY(-4px); }
+.bu-umschlag:active .bu-umschlag-deckel { transform: scale(0.97); }
+.bu-umschlag-svg { display: block; width: 100%; height: auto; border-radius: 7px; background: #ffffff; }
+.bu-umschlag-titel {
+  flex: 1;
+  display: grid;
+  place-items: center;
+  margin-top: 4px;
+  color: #ffffff;
+  font-family: "Andika", Inter, system-ui, sans-serif;
+  font-size: clamp(0.62rem, calc(var(--bu-w) * 0.105), 1.05rem);
+  font-weight: 700;
+  line-height: 1.15;
+  text-align: center;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+  hyphens: auto;
+}
+.bu-umschlag.is-locked .bu-umschlag-deckel { filter: saturate(0.5) brightness(0.92); }
+.bu-schloss { position: absolute; top: -10px; right: -10px; width: 38px; height: 38px; pointer-events: none; }
+.bu-sterne {
+  position: absolute;
+  top: -12px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 1px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: #ffffff;
+  box-shadow: 0 2px 6px rgba(36, 48, 71, 0.2);
+  font-size: clamp(0.8rem, 2.4vh, 1rem);
+  line-height: 1.25;
+  pointer-events: none;
+}
+.bu-stern { color: #d6dde6; }
+.bu-stern.is-on { color: #f5b800; }
+
+/* Die Titelseite: der Umschlag gross, daneben, wie gelesen wird. */
+.bu-titelseite {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(16px, 4vw, 52px);
+  width: min(96vw, 1000px);
+}
+.bu-titel-deckel {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  width: clamp(140px, min(30vw, 46vh), 300px);
+  aspect-ratio: 3 / 4;
+  padding: 10px 10px 12px;
+  border: none;
+  border-left: 10px solid rgba(0, 0, 0, 0.22);
+  border-radius: 7px 18px 18px 7px;
+  background: var(--buch);
+  box-shadow: 0 10px 24px rgba(36, 48, 71, 0.3);
+  box-sizing: border-box;
+  cursor: pointer;
+}
+.bu-titel-deckel .bu-umschlag-svg { border-radius: 10px; }
+.bu-titel-text {
+  flex: 1;
+  display: grid;
+  place-items: center;
+  color: #ffffff;
+  font-family: "Andika", Inter, system-ui, sans-serif;
+  font-size: clamp(1rem, min(2.6vw, 4.6vh), 1.9rem);
+  font-weight: 700;
+  line-height: 1.15;
+  text-align: center;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+}
+.bu-wahl { display: flex; flex-direction: column; align-items: center; gap: clamp(8px, 2.6vh, 20px); }
+.bu-stufe {
+  margin: 0;
+  padding: 4px 14px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.9);
+  color: #243047;
+  font-size: clamp(0.85rem, 3vh, 1.15rem);
+  font-weight: 800;
+}
+.bu-modi { display: flex; gap: clamp(10px, 2.4vw, 24px); }
+.bu-modus {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: clamp(78px, min(13vw, 23vh), 132px);
+  aspect-ratio: 1;
+  padding: 4px;
+  border: 4px solid #ffffff;
+  border-radius: 24px;
+  background: #fff6e0;
+  box-shadow: 0 6px 14px rgba(36, 48, 71, 0.2);
+  color: #243047;
+  font-family: inherit;
+  cursor: pointer;
+}
+.bu-modus-bild { font-size: clamp(1.7rem, 7vh, 3rem); line-height: 1; }
+.bu-modus-text { font-size: clamp(0.7rem, 2.4vh, 1rem); font-weight: 800; line-height: 1.1; text-align: center; }
+.bu-modus.is-empfohlen { border-color: #3fbf74; background: #c9f2d6; animation: lese-los-puls 1.6s ease-in-out infinite; }
+.bu-modus:active { transform: scale(0.95); }
+.bu-modus.is-los {
+  width: clamp(84px, 22vh, 140px);
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: none;
+  box-shadow: none;
+  filter: drop-shadow(0 8px 14px rgba(36, 48, 71, 0.3));
+}
+.bu-modus.is-los svg { width: 100%; height: 100%; display: block; }
+.bu-wahl .bu-sterne { position: static; transform: none; }
+
+/* Eine Seite: links das Bild, rechts der Text, unten die Leiste. */
+.bu-buch {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(6px, 1.8vh, 14px);
+  width: min(98vw, 1180px);
+  max-height: 100%;
+}
+.bu-seite {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(10px, 2.6vw, 34px);
+  width: 100%;
+  min-height: 0;
+  touch-action: pan-y;
+}
+.bu-buch.blaettert .bu-seite { animation: bu-blaettern 0.35s ease-out; }
+@keyframes bu-blaettern {
+  from { opacity: 0; transform: translateX(26px); }
+  to { opacity: 1; transform: none; }
+}
+/* Die Fläche ist 100vh - 100px hoch; darunter liegt die Leiste (bis 15vh). */
+.bu-bild { flex: 0 1 auto; width: min(52vw, calc((85vh - 104px) * 1.58), 660px); }
+.bu-bild-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 4px solid #ffffff;
+  border-radius: 18px;
+  background: #ffffff;
+  box-shadow: 0 8px 18px rgba(36, 48, 71, 0.22);
+  box-sizing: border-box;
+}
+.bu-text {
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: 540px;
+  max-height: calc(85vh - 104px);
+  overflow-y: auto;
+  padding: clamp(10px, 2.4vh, 22px) clamp(12px, 2vw, 24px);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 6px 16px rgba(36, 48, 71, 0.16);
+  color: #243047;
+  font-family: "Andika", Inter, system-ui, sans-serif;
+  line-height: 1.55;
+  box-sizing: border-box;
+}
+.bu-buch[data-stufe="hoerbuch"] .bu-text { font-size: clamp(1rem, 4.4vh, 1.6rem); }
+.bu-buch[data-stufe="erste"] .bu-text { font-size: clamp(1.5rem, 9vh, 3.2rem); line-height: 1.4; text-align: center; }
+.bu-buch[data-stufe="klein"] .bu-text { font-size: clamp(1.1rem, 5.6vh, 2.1rem); }
+.bu-buch[data-stufe="geschichte"] .bu-text { font-size: clamp(1rem, 4.8vh, 1.8rem); }
+.bu-satz {
+  padding: 0 2px;
+  border-radius: 8px;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  transition: background-color 0.2s ease, box-shadow 0.2s ease;
+}
+.bu-satz.ist-dran { background: #fff3c4; }
+.bu-satz.du-bist-dran { background: #e3f7ea; box-shadow: inset 0 -4px 0 #3fbf74; }
+.bu-wort { border-radius: 6px; cursor: pointer; }
+.bu-wort.ist-gesprochen { background: #ffd166; }
+.bu-wort.ist-getippt { animation: bu-wort-tipp 0.9s ease; }
+@keyframes bu-wort-tipp {
+  0%, 60% { background: #ffd166; }
+  100% { background: transparent; }
+}
+
+.bu-leiste { display: flex; flex: none; align-items: center; justify-content: center; gap: clamp(12px, 3vw, 32px); }
+.bu-pfeil, .bu-vorlesen {
+  flex: none;
+  width: clamp(46px, 13vh, 76px);
+  height: clamp(46px, 13vh, 76px);
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: none;
+  filter: drop-shadow(0 4px 8px rgba(36, 48, 71, 0.25));
+  cursor: pointer;
+}
+.bu-pfeil svg, .bu-vorlesen svg { width: 100%; height: 100%; display: block; }
+.bu-pfeil:active, .bu-vorlesen:active { transform: scale(0.94); }
+.bu-pfeil[hidden], .bu-punkte[hidden] { display: none; }
+.bu-weiter { width: clamp(54px, 15vh, 88px); height: clamp(54px, 15vh, 88px); }
+.bu-weiter.pulst { animation: lese-los-puls 1.4s ease-in-out infinite; }
+.bu-punkte { display: flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 999px; background: rgba(255, 255, 255, 0.55); }
+.bu-punkt { width: 10px; height: 10px; border-radius: 50%; background: rgba(255, 255, 255, 0.75); box-shadow: inset 0 0 0 2px rgba(36, 48, 71, 0.25); }
+.bu-punkt.is-gelesen { background: #9ad9b0; box-shadow: none; }
+.bu-punkt.is-hier { background: #3fbf74; box-shadow: 0 0 0 3px rgba(63, 191, 116, 0.3); transform: scale(1.25); }
+
+/* Fragen zum Buch */
+.bu-fragen { display: flex; flex-direction: column; align-items: center; gap: clamp(8px, 2.6vh, 22px); width: min(96vw, 1000px); }
+.bu-frage-kopf { display: flex; align-items: center; gap: 12px; max-width: 100%; }
+.bu-frage {
+  margin: 0;
+  padding: 8px 18px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 6px 14px rgba(36, 48, 71, 0.16);
+  color: #243047;
+  font-family: "Andika", Inter, system-ui, sans-serif;
+  font-size: clamp(1.1rem, 5.4vh, 2.1rem);
+  font-weight: 700;
+  line-height: 1.25;
+  text-align: center;
+}
+.bu-antworten { display: flex; flex-wrap: wrap; justify-content: center; gap: clamp(10px, 2.6vw, 30px); }
+.bu-antwort {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-width: clamp(92px, min(18vw, 30vh), 200px);
+  min-height: clamp(92px, min(18vw, 30vh), 200px);
+  max-width: clamp(140px, 28vw, 300px);
+  padding: 10px 12px;
+  border: 4px solid #ffffff;
+  border-radius: 24px;
+  background: #fff6e0;
+  box-shadow: 0 8px 16px rgba(36, 48, 71, 0.2);
+  color: #243047;
+  font-family: "Andika", Inter, system-ui, sans-serif;
+  cursor: pointer;
+}
+.bu-antwort-emoji { font-size: clamp(2.2rem, 12vh, 4.6rem); line-height: 1; }
+.bu-antwort-figur { width: clamp(56px, 15vh, 110px); height: auto; }
+.bu-antwort-text { font-size: clamp(0.85rem, 3.4vh, 1.3rem); font-weight: 700; line-height: 1.2; }
+.bu-antwort.nur-text .bu-antwort-text { font-size: clamp(1.05rem, 5vh, 1.9rem); }
+.bu-fragen[data-stufe="hoerbuch"] .bu-antwort-text { font-size: clamp(0.72rem, 2.8vh, 1.05rem); opacity: 0.8; }
+.bu-antwort:active:not(.ist-falsch) { transform: scale(0.96); }
+.bu-antwort.ist-falsch { opacity: 0.45; background: #ffd9d4; cursor: default; }
+.bu-antwort.ist-richtig { background: #c9f2d6; box-shadow: 0 0 0 6px #3fbf74, 0 8px 16px rgba(36, 48, 71, 0.2); }
+.bu-antwort.zeigt-hin { animation: bh-zeigt-hin 0.9s ease-in-out infinite; }
+.bu-frage-unten { display: flex; align-items: center; gap: 18px; }
+.bu-nachsehen {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 999px;
+  background: #ffffff;
+  box-shadow: 0 4px 10px rgba(36, 48, 71, 0.2);
+  color: #243047;
+  font-family: inherit;
+  font-size: clamp(0.85rem, 3vh, 1.1rem);
+  font-weight: 800;
+  cursor: pointer;
+}
+.bu-nachsehen[hidden] { display: none; }
+.bu-nachsehen-bild { font-size: 1.4em; }
+.bu-nachsehen.ist-neu { animation: lese-bild-neu 0.45s cubic-bezier(0.34, 1.56, 0.64, 1); }
+
+/* Hochkant: das Bild über dem Text. */
+@media (max-aspect-ratio: 1/1) {
+  .bu-seite { flex-direction: column; }
+  .bu-bild { width: min(94vw, calc((100vh - 380px) * 1.58), 560px); }
+  .bu-text { flex: 0 1 auto; max-width: 94vw; max-height: 34vh; }
+  .bu-titelseite { flex-direction: column; }
+  .bu-titel-deckel { width: clamp(130px, 44vw, 260px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bu-modus.is-empfohlen, .bu-weiter.pulst, .bu-buch.blaettert .bu-seite, .bu-antwort.zeigt-hin,
+  .bu-wort.ist-getippt, .bu-nachsehen.ist-neu, .bu-bild-svg .journey-passenger.is-waving .journey-passenger-arm { animation: none; }
+  .bu-umschlag-deckel, .bu-satz { transition: none; }
+}

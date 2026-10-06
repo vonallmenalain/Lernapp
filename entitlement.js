@@ -5,9 +5,11 @@
  * liegt so, dass ein Kind alles einmal gesehen hat, bevor sie kommt:
  *
  *   frei     die erste Karte der Reise (Stationen 1 bis 10),
- *            und von jedem der 25 Spiele eine Runde.
- *   gekauft  alles andere – die Karten 2 bis 13, und jedes Spiel ab der
- *            zweiten Runde.
+ *            von jedem der 25 Spiele eine Runde,
+ *            in der Leseecke von jedem ihrer Spiele eine Runde und zwei
+ *            Bücher – die für immer.
+ *   gekauft  alles andere – die Karten 2 bis 13, jedes Spiel ab der
+ *            zweiten Runde und die anderen Bücher.
  *
  * Eine Runde ist gespielt, wenn sie zu Ende ist: bei den Spielen mit Bühne,
  * wenn das Ergebnis dasteht (game-shell.js), bei denen mit Levelwahl, wenn
@@ -109,6 +111,23 @@
       { id: "numberLine", page: "zahlengleis.html", ownProgress: "numberLine" },
     ] },
   ];
+
+  // Die Spiele der Leseecke. Sie gehören zu keinem Bereich des Zugs – Lesen
+  // zählt nicht für den Zug – und stehen deshalb nicht in AREAS, die gleich
+  // bleiben muss wie in train-progress.js. Für die Schranke sind es Spiele wie
+  // alle anderen: eine Runde frei.
+  const LESEECKE = { id: "lesen", games: [
+    { id: "silbenzug", page: "silbenzug.html" },
+    { id: "buchstabenhaus", page: "buchstabenhaus.html" },
+    { id: "lautekuppeln", page: "lautekuppeln.html" },
+    { id: "stimmtdas", page: "stimmtdas.html" },
+  ] };
+
+  // Das Bücherregal ist kein Spiel mit Runden: Diese zwei Bücher sind frei,
+  // so oft ein Kind will, die anderen gehören zum Kauf. Lesen soll nicht
+  // nach einer Runde aufhören. lesen-buecher.js markiert dieselben mit
+  // gratis – scripts/validate-lesen.mjs hält beides gleich.
+  const GRATIS_BUECHER = ["hase-rueebli", "leo-melone"];
 
   // ---------------------------------------------------------------------------
   // Wer ist frei?
@@ -283,7 +302,7 @@
     const key = String(pageOrId || "").split("?")[0].split("#")[0].split("/").pop();
     if (!key) return null;
     const gesucht = ohneEndung(key);
-    for (const area of AREAS) {
+    for (const area of [...AREAS, LESEECKE]) {
       const index = area.games.findIndex((g) =>
         g.page === key || ohneEndung(g.page) === gesucht || g.id === key || g.ownProgress === key);
       if (index >= 0) return { area, index, game: area.games[index] };
@@ -307,6 +326,12 @@
     return gespielteRunden(pageOrId) >= GRATIS_RUNDEN;
   }
 
+  // Ein Buch im Regal der Leseecke: die zwei freien immer, sonst mit Kauf.
+  function buchFree(id) {
+    if (isFree()) return true;
+    return GRATIS_BUECHER.includes(String(id || ""));
+  }
+
   // Die Welten (Wiese, Wald, Meer, Weltall) sind nicht einzeln gesperrt: Die
   // eine freie Runde darf in jeder davon gespielt werden. Was zählt, ist das
   // Spiel.
@@ -318,12 +343,19 @@
 
   // Ein Ziel, wie enterGame es bekommt: "memory.html" oder
   // "arukone.html?station=15". Mit Station entscheidet die Station allein –
-  // auf der Reise spielt ein Kind jedes Spiel, das die Station verlangt.
+  // auf der Reise spielt ein Kind jedes Spiel, das die Station verlangt. Mit
+  // Buch ("buecher.html?buch=leo-melone") entscheidet das Buch.
   function targetFree(url) {
     const text = String(url || "");
     let station = 0;
-    try { station = Number(new URLSearchParams(text.split("?")[1] || "").get("station")) || 0; } catch { station = 0; }
+    let buch = "";
+    try {
+      const params = new URLSearchParams(text.split("?")[1] || "");
+      station = Number(params.get("station")) || 0;
+      buch = params.get("buch") || "";
+    } catch { station = 0; buch = ""; }
     if (station) return stationFree(station);
+    if (buch) return buchFree(buch);
     return gameFree(text);
   }
 
@@ -549,6 +581,8 @@
     STATIONS_FREE,
     GRATIS_RUNDEN,
     AREAS,
+    LESEECKE,
+    GRATIS_BUECHER,
     reason,
     isFree,
     appGratis,
@@ -556,6 +590,7 @@
     stationFree,
     gameFree,
     levelFree,
+    buchFree,
     targetFree,
     targetLocked,
     whenReady,

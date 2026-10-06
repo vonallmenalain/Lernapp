@@ -425,4 +425,38 @@ assert(localStorageStub.getItem("lernapp.stars.sudoku.S 1-1") === "2", "die Ster
 assert(localStorageStub.getItem("lernapp.reset.kind3") === null,
   "die Marke eines fremden Kontos liegt auf dem Gerät des Admins – dessen nächste Anmeldung räumte grundlos auf");
 
-console.log("Zurücksetzen geprüft: eigenes Konto, fremdes Konto durch den Admin, zweites Gerät beim nächsten Anmelden.");
+// ============================================================================
+// 4. Die Einstellung der Leseecke überlebt – der Lesestand nicht
+// ============================================================================
+// Wo die Leseecke beginnt und welche Schrift sie zeigt, haben die Eltern
+// gewählt (firebase.js, setLesenElternFor). Das ist kein Fortschritt: Wie die
+// Schwierigkeitsstufe steht es nach dem Zurücksetzen wieder am Konto, und auf
+// dem Gerät bleibt es liegen. Was das Kind gelesen hat (lernapp.lesen), geht.
+await authCallback(null);
+store.clear();
+deletes.length = 0;
+writes.length = 0;
+localStorageStub.clear();
+seedAccount("kind4", "Lou");
+store.set("users/kind4", mergeInto(store.get("users/kind4"), {
+  gameState: {
+    "lernapp.lesen.eltern": { data: { startpunkt: "woerter", schrift: "gross", at: 5 }, updatedAt: 5 },
+    "lernapp.lesen": { data: { woerter: 240, laute: {}, buecher: { "hase-rueebli": { mal: 2, sterne: 3, at: 4 } }, spiele: {} }, updatedAt: 6 },
+  },
+}));
+localStorageStub.setItem("lernapp.lesen.eltern", '{"startpunkt":"woerter","schrift":"gross","at":5}');
+localStorageStub.setItem("lernapp.lesen", '{"woerter":240}');
+await authCallback({ ...KIND, uid: "kind4", email: "lou@lernapp.local" });
+await cloud.resetProgress();
+const lou = store.get("users/kind4");
+const loesen = lou.gameState || {};
+assert(Object.keys(loesen).join(",") === "lernapp.lesen.eltern",
+  `nach dem Zurücksetzen stehen im gameState ${Object.keys(loesen).join(", ") || "keine Kästen"} – erwartet nur die Einstellung der Leseecke`);
+assert(loesen["lernapp.lesen.eltern"].data.startpunkt === "woerter" && loesen["lernapp.lesen.eltern"].data.schrift === "gross"
+  && loesen["lernapp.lesen.eltern"].data.at > 5 && loesen["lernapp.lesen.eltern"].updatedAt > 5,
+  `die Einstellung der Leseecke kam nicht zurück: ${JSON.stringify(loesen["lernapp.lesen.eltern"])}`);
+assert(localStorageStub.getItem("lernapp.lesen.eltern") !== null, "die Einstellung der Leseecke wurde auf dem Gerät mitgelöscht");
+assert(localStorageStub.getItem("lernapp.lesen") === null || JSON.parse(localStorageStub.getItem("lernapp.lesen")).woerter !== 240,
+  "der Lesestand liegt nach dem Zurücksetzen noch auf dem Gerät");
+
+console.log("Zurücksetzen geprüft: eigenes Konto, fremdes Konto durch den Admin, zweites Gerät beim nächsten Anmelden, die Einstellung der Leseecke.");

@@ -92,6 +92,7 @@
     "lernapp.train.savedAt",
     LOCAL_WAGON_SET_KEY,       // welches Wagen-Set gilt
     LOCAL_APP_GRATIS_KEY,      // ob die ganze App gratis ist
+    "lernapp.lesen.eltern",    // wie die Eltern die Leseecke eingestellt haben
     LOCAL_GUEST_ID_KEY,
     LOCAL_GUEST_CREATED_KEY,
     LOCAL_GUEST_PING_KEY,
@@ -291,6 +292,7 @@
       hatGespielt: guestHasPlayed,
       setUserGroup,
       setJourneyStufe: setJourneyStufeFor,
+      setLesenEltern: setLesenElternFor,
       resetProgress: resetProgressFor,
       freischalten: kontoFreischalten,
       loeschen: kontoLoeschen,
@@ -1924,12 +1926,17 @@
     // Die Schwierigkeitsstufe überlebt das Zurücksetzen: Sie ist keine
     // Leistung, sondern das Alter des Kindes – läge sie im gelöschten
     // gameState, spielte ein Dreijähriges danach auf "mittel".
+    // Dasselbe gilt für die Einstellung der Leseecke: wo sie beginnt und
+    // welche Schrift sie zeigt, haben die Eltern gewählt.
     const reise = window.LernappReise;
     let stufe = null;
+    let lesen = null;
     try {
-      const kasten = ((await ref.get()).data()?.gameState || {})[reise?.KEY]?.data;
+      const alles = (await ref.get()).data()?.gameState || {};
+      const kasten = alles[reise?.KEY]?.data;
       if (reise && kasten && (kasten.stufe || kasten.tempo)) stufe = reise.stufeIn(kasten);
-    } catch { stufe = null; }
+      if (alles[LESEN_ELTERN_KEY]?.data) lesen = lesenEinstellungIn(alles);
+    } catch { stufe = null; lesen = null; }
 
     await deleteAllDocs(ref.collection("levelProgress"));
     await deleteAllDocs(ref.collection("sessions"));
@@ -1946,11 +1953,11 @@
       },
       updatedAt: serverTimestamp(),
     }, { merge: true });
-    if (stufe) {
-      await ref.set({
-        gameState: { [reise.KEY]: { data: { stufe, stufeAt: resetAtMs }, updatedAt: resetAtMs } },
-        updatedAt: serverTimestamp(),
-      }, { merge: true });
+    if (stufe || lesen) {
+      const behalten = {};
+      if (stufe) behalten[reise.KEY] = { data: { stufe, stufeAt: resetAtMs }, updatedAt: resetAtMs };
+      if (lesen) behalten[LESEN_ELTERN_KEY] = { data: { ...lesen, at: resetAtMs }, updatedAt: resetAtMs };
+      await ref.set({ gameState: behalten, updatedAt: serverTimestamp() }, { merge: true });
     }
 
     // Das eigene Konto auf diesem Gerät: alles hier auch wegräumen. Ein fremdes
@@ -3014,6 +3021,7 @@
             <button type="button" class="danger-action" data-kind-weg="${escapeHtml(kind.uid)}">Konto löschen</button>
           </div>
           ${renderKindStufe(kind, detail)}
+          ${renderKindLesen(kind, detail)}
           ${renderEntityDetail(detail, { withFilters: false })}
         </div>`
       : `<div class="kind-detail"><p class="account-muted">${laeuft ? "Wird geladen..." : "Konnte nicht geladen werden."}</p></div>`);
@@ -3088,6 +3096,48 @@
       </div>`;
   }
 
+  // Die Leseecke des eigenen Kindes: wo sie beginnt und welche Schrift sie
+  // zeigt (lesen-stand.js). Wie die Stufe ein Kasten im gameState des Kindes,
+  // mit Zeitmarke – das Gerät des Kindes nimmt die neuere Fassung.
+  function renderKindLesen(kind, detail) {
+    if (!detail?.userData) return "";
+    const jetzt = lesenEinstellungIn(detail.userData.gameState);
+    const busy = eltern.kindLaeuft === kind.uid;
+    const knopf = (feld, [wert, label]) => {
+      const an = jetzt[feld] === wert;
+      return `<button type="button" class="${an ? "" : "secondary-action"}" data-kind-lesen="${feld}:${wert}" ${busy ? "disabled" : ""} aria-pressed="${an ? "true" : "false"}">${escapeHtml(label)}${an ? " ✓" : ""}</button>`;
+    };
+    return `
+      <div class="admin-reset admin-lesen">
+        <div>
+          <strong>Leseecke</strong>
+          <span>${LESEN_ERKLAERUNG}</span>
+        </div>
+        <p class="admin-lesen-frage">Wo beginnt die Leseecke?</p>
+        <div class="card-actions">${LESEN_STARTPUNKTE.map((eintrag) => knopf("startpunkt", eintrag)).join("")}</div>
+        <p class="admin-lesen-frage">Schrift</p>
+        <div class="card-actions">${LESEN_SCHRIFTEN.map((eintrag) => knopf("schrift", eintrag)).join("")}</div>
+      </div>`;
+  }
+
+  async function kindLesenSetzen(uid, feld, wert) {
+    if (!uid || !["startpunkt", "schrift"].includes(feld)) return;
+    const jetzt = lesenEinstellungIn(eltern.kindDetails.get(uid)?.userData?.gameState);
+    eltern.kindLaeuft = uid;
+    eltern.kindMeldung = { ok: false, text: "Die Leseecke wird eingestellt..." };
+    zeichneKinderKarte();
+    try {
+      await setLesenElternFor(uid, { ...jetzt, [feld]: wert });
+      eltern.kindDetails.delete(uid);
+      await kindNachladen(uid);
+      eltern.kindMeldung = { ok: true, text: "Die Leseecke ist eingestellt. Sie gilt auf allen Geräten deines Kindes." };
+    } catch (error) {
+      eltern.kindMeldung = { ok: false, text: authErrorMessage(error) };
+    }
+    eltern.kindLaeuft = null;
+    zeichneKinderKarte();
+  }
+
   async function kindStufeSetzen(uid, stufe) {
     if (!uid) return;
     eltern.kindLaeuft = uid;
@@ -3152,6 +3202,10 @@
     });
     karte.querySelectorAll("[data-kind-stufe]").forEach((knopf) => {
       knopf.addEventListener("click", () => kindStufeSetzen(eltern.offenesKind, knopf.dataset.kindStufe));
+    });
+    karte.querySelectorAll("[data-kind-lesen]").forEach((knopf) => {
+      const [feld, wert] = String(knopf.dataset.kindLesen || "").split(":");
+      knopf.addEventListener("click", () => kindLesenSetzen(eltern.offenesKind, feld, wert));
     });
 
     karte.querySelector("[data-kind-neu-form]")?.addEventListener("submit", async (event) => {
@@ -3741,6 +3795,52 @@
       updatedAt: serverTimestamp(),
     }, { merge: true });
     if (userId === state.user?.uid) reise.setStufe(value);
+    return true;
+  }
+
+  // --- Die Leseecke ------------------------------------------------------------
+  // Was die Eltern an der Leseecke einstellen (lesen-stand.js liest es):
+  //   startpunkt  "auto" (nach der Stufe) oder eine Lesestufe
+  //   schrift     "auto", "gross" (nur Grossbuchstaben) oder "gemischt"
+  // Ein eigener Kasten im gameState mit Zeitmarke, den nur dieser Bereich
+  // schreibt – das Kind liest ihn nur. Wie die Stufe kein Fortschritt: Er
+  // überlebt das Zurücksetzen (resetProgressFor).
+  const LESEN_ELTERN_KEY = "lernapp.lesen.eltern";
+  const LESEN_STARTPUNKTE = [
+    ["auto", "Nach Alter"],
+    ["hoeren", "Hören"],
+    ["buchstaben", "Buchstaben"],
+    ["woerter", "Wörter"],
+    ["saetze", "Sätze"],
+    ["geschichten", "Geschichten"],
+  ];
+  const LESEN_SCHRIFTEN = [
+    ["auto", "Automatisch"],
+    ["gross", "Nur Grossbuchstaben"],
+    ["gemischt", "Gross und klein"],
+  ];
+  const LESEN_ERKLAERUNG = "Der Lesewagen auf dem Startbild. «Nach Alter» beginnt mit der Schwierigkeitsstufe: «Leicht» beim Hören von Silben und Lauten, «Mittel» bei den Buchstaben, «Schwer» bei den Sätzen. Kann dein Kind schon mehr – oder braucht es noch Zeit –, wähle selbst. «Automatisch» zeigt den Jüngsten nur Grossbuchstaben, wie im Kindergarten, allen anderen gross und klein.";
+
+  function lesenEinstellungIn(gameState) {
+    const daten = (gameState || {})[LESEN_ELTERN_KEY]?.data || {};
+    return {
+      startpunkt: LESEN_STARTPUNKTE.some(([wert]) => wert === daten.startpunkt) ? daten.startpunkt : "auto",
+      schrift: LESEN_SCHRIFTEN.some(([wert]) => wert === daten.schrift) ? daten.schrift : "auto",
+    };
+  }
+
+  async function setLesenElternFor(userId, einstellung = {}) {
+    const ref = userRef(userId);
+    if (!ref) return false;
+    const at = Date.now();
+    const data = { ...lesenEinstellungIn({ [LESEN_ELTERN_KEY]: { data: einstellung } }), at };
+    await ref.set({
+      gameState: { [LESEN_ELTERN_KEY]: { data, updatedAt: at } },
+      updatedAt: serverTimestamp(),
+    }, { merge: true });
+    if (userId === state.user?.uid) {
+      try { localStorage.setItem(LESEN_ELTERN_KEY, JSON.stringify(data)); } catch { /* privater Modus */ }
+    }
     return true;
   }
 
