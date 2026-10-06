@@ -973,6 +973,72 @@ try {
     }
   }
 
+  // --- 6k. Etappe 4: Steckbriefe, Detektivfälle, Postkarten --------------------------------
+  // Steckbriefe: Wer danebentippt, sieht die Zeile leuchten, in der die
+  // Antwort steht; die richtige Antwort zählt nur beim ersten Versuch.
+  await oeffne("steckbriefe.html", "window.LernappSteckbriefe");
+  await vergiss();
+  await page.locator(".lese-los-knopf").click();
+  await page.waitForSelector(".stb-weiter", { timeout: 5000 }).catch(() => {});
+  const stb = await page.evaluate(() => window.LernappSteckbriefe.jetzt());
+  await page.locator(".stb-weiter").click();
+  await page.locator(".stb-antwort:not([data-richtig])").first().click();
+  await page.waitForTimeout(150);
+  const stbHin = await page.evaluate(() => [...document.querySelectorAll(".stb-zeile.zeigt-hin")].map((z) => z.dataset.zeile).join(","));
+  if (stbHin !== stb.fragen[0].zeile) fehlt(`Steckbriefe: nach dem Fehlgriff leuchtet «${stbHin}» statt «${stb.fragen[0].zeile}»`);
+  await page.locator('.stb-antwort[data-richtig="1"]').click();
+  await page.waitForFunction(() => window.LernappSteckbriefe.frage() === 1, null, { timeout: 6000 }).catch(() => {});
+  await page.locator('.stb-antwort[data-richtig="1"]').click();
+  await page.waitForFunction(() => window.LernappSteckbriefe.frage() === 2, null, { timeout: 6000 }).catch(() => {});
+  if ((await zaehler()) !== "1") fehlt(`Steckbriefe: nach einem Fehlgriff und einer richtigen Antwort ${await zaehler()} Punkte statt 1`);
+
+  // Detektivfälle: erst der Täter, dann der Beweis; am Schluss die Auflösung.
+  await oeffne("detektivfaelle.html", "window.LernappDetektivfaelle");
+  await vergiss();
+  await page.locator(".lese-los-knopf").click();
+  await page.waitForSelector(".df-wer", { timeout: 5000 }).catch(() => {});
+  const df = await page.evaluate(() => window.LernappDetektivfaelle.jetzt());
+  await page.locator(".df-wer:not([data-taeter])").first().click();
+  await page.locator('.df-wer[data-taeter="1"]').click();
+  await page.waitForFunction(() => window.LernappDetektivfaelle.phase() === "beweis", null, { timeout: 4000 }).catch(() => {});
+  if ((await page.evaluate(() => window.LernappDetektivfaelle.phase())) !== "beweis") fehlt("Detektivfälle: nach dem Täter kommt die Frage nach dem Beweis nicht");
+  await page.locator('.df-satz:not([data-beweis])').first().click();
+  await page.waitForTimeout(120);
+  if ((await page.evaluate(() => window.LernappDetektivfaelle.nr())) !== 0) fehlt("Detektivfälle: ein falscher Satz gilt als Beweis");
+  await page.locator('.df-satz[data-beweis="1"]').click();
+  await page.waitForFunction(() => window.LernappDetektivfaelle.nr() === 1, null, { timeout: 6000 }).catch(() => {});
+  if (!(await gesagt()).includes(df.aufloesung)) fehlt("Detektivfälle: die Auflösung wird nicht vorgelesen");
+  if ((await zaehler()) !== "0") fehlt(`Detektivfälle: nach zwei Fehlgriffen ${await zaehler()} Punkte statt 0`);
+  await page.locator('.df-wer[data-taeter="1"]').click();
+  await page.waitForFunction(() => window.LernappDetektivfaelle.phase() === "beweis", null, { timeout: 4000 }).catch(() => {});
+  await page.locator('.df-satz[data-beweis="1"]').click();
+  await page.waitForFunction(() => window.LernappDetektivfaelle.nr() === 2, null, { timeout: 6000 }).catch(() => {});
+  if ((await zaehler()) !== "2") fehlt(`Detektivfälle: Täter und Beweis gleich gefunden geben ${await zaehler()} statt 2 Punkte`);
+
+  // Postkarten: Ohne Reise ist nur Finos Karte da, und es heisst, wer als
+  // Nächstes schreibt. Ist die Karte «Wiese» gefahren, kommt Hoppels Karte.
+  await oeffne("postkarten.html", "window.LernappPostkarten");
+  const pkLeer = await page.evaluate(() => ({ da: window.LernappPostkarten.angekommen().map((k) => k.karte), naechst: window.LernappPostkarten.naechstePost()?.karte }));
+  if (pkLeer.da.join() !== "" || pkLeer.da.length !== 1 || pkLeer.naechst !== "wiese") fehlt(`Postkarten ohne Reise: ${JSON.stringify(pkLeer)}`);
+  await vergiss();
+  await page.locator(".lese-los-knopf").click();
+  await page.waitForSelector(".pk-weiter", { timeout: 5000 }).catch(() => {});
+  await page.locator(".pk-weiter").click();
+  await page.locator('.pk-antwort[data-richtig="1"]').click();
+  await page.waitForSelector(".cm-overlay", { timeout: 8000 }).catch(() => {});
+  const pkEnde = await page.evaluate(() => document.querySelector(".cm-overlay")?.textContent || "");
+  if (!/Hoppel/.test(pkEnde) || !/Wiese/.test(pkEnde)) fehlt(`Postkarten: am Schluss steht nicht, wer als Nächstes schreibt (${pkEnde.slice(0, 120)})`);
+  await page.evaluate(() => {
+    const done = {};
+    for (let nr = 1; nr <= 10; nr += 1) done[String(nr)] = { stars: 3, game: "x", at: 1 };
+    const alt = JSON.parse(localStorage.getItem("lernapp.reise") || "{}");
+    localStorage.setItem("lernapp.reise", JSON.stringify({ ...alt, done, tries: {}, choice: {}, alt: {} }));
+  });
+  await oeffne("postkarten.html", "window.LernappPostkarten");
+  const pkReise = await page.evaluate(() => ({ da: window.LernappPostkarten.angekommen().map((k) => k.karte || "fino"), runde: window.LernappPostkarten.runde().map((k) => k.karte || "fino") }));
+  if (pkReise.da.join() !== "fino,wiese" || pkReise.runde[0] !== "wiese") fehlt(`Postkarten nach der Wiese: ${JSON.stringify(pkReise)}`);
+  await page.evaluate(() => localStorage.removeItem("lernapp.reise"));
+
   // --- 6d. Die Buchstaben der Schule --------------------------------------------------
   // Haben die Eltern abgehakt, wohnen genau diese Laute im Buchstabenhaus, und
   // Laute kuppeln nimmt nur Wörter, die sich damit lesen lassen.
@@ -1146,4 +1212,4 @@ if (befunde.length) {
   befunde.forEach((b) => console.error(`  - ${b}`));
   process.exit(1);
 }
-console.log("Die Leseecke läuft: Lesewagen, Zimmer mit Auswahl, alle Spiele hin und zurück, eine Runde Silbenzug bis zum Tor, Laute kuppeln ohne verratenes Wort, Buchstabenhaus, der Würfel von «Stimmt das?», Reimkupplung, Anlaut-Lauscher, Wer fährt mit?, Wörter bauen, Silbenbahn, Blitzwörter, Mein Name, der Lesewurm bekommt seinen Namen, Lückensätze, Buchstabengleis, Satz kuppeln, Quatschsätze, Stolperwörter, Quatschwörter, Laut-Position, Buchstaben-Signal, Lies und tu!, Geschichtenzug, Wer bin ich?, Wortbaustelle, die Buchstaben der Schule, Hörbuch mit Nachsehen, Zusammen lesen, der Lesewurm wächst, der Lesewagen wird gemütlich, und der Lesewurm fährt auf der Lok mit.");
+console.log("Die Leseecke läuft: Lesewagen, Zimmer mit Auswahl, alle Spiele hin und zurück, eine Runde Silbenzug bis zum Tor, Laute kuppeln ohne verratenes Wort, Buchstabenhaus, der Würfel von «Stimmt das?», Reimkupplung, Anlaut-Lauscher, Wer fährt mit?, Wörter bauen, Silbenbahn, Blitzwörter, Mein Name, der Lesewurm bekommt seinen Namen, Lückensätze, Buchstabengleis, Satz kuppeln, Quatschsätze, Stolperwörter, Quatschwörter, Laut-Position, Buchstaben-Signal, Lies und tu!, Geschichtenzug, Wer bin ich?, Wortbaustelle, Steckbriefe, Detektivfälle, Postkarten, die Buchstaben der Schule, Hörbuch mit Nachsehen, Zusammen lesen, der Lesewurm wächst, der Lesewagen wird gemütlich, und der Lesewurm fährt auf der Lok mit.");

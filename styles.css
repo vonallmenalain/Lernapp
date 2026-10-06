@@ -13531,3 +13531,95 @@ body[data-page="laute-aufnehmen"] {
 @media (prefers-reduced-motion: reduce) {
   .ws-wahl.zeigt-hin, .ws-buchstabe.zeigt-hin, .ws-buchstabe.ist-falsch { animation: none; }
 }
+
+/* --- Steckbriefe --- */
+/* Links der Steckbrief wie an der Pinnwand, rechts das Tier – und später die
+   Fragen. */
+.stb-mitte { display: flex; align-items: center; justify-content: center; gap: clamp(10px, 3vw, 36px); width: min(96vw, 1100px); }
+.stb-brief {
+  flex: 1.4 1 0;
+  min-width: 0;
+  max-width: 640px;
+  padding: clamp(6px, 2vh, 16px) clamp(10px, 2vw, 18px);
+  border-top: 8px solid #e8543f;
+  border-radius: 8px;
+  background: #fffaf0;
+  box-shadow: 0 8px 18px rgba(36, 48, 71, 0.18);
+}
+.stb-name { margin: 0 0 4px; color: #5b3a29; font-family: "Andika", Inter, system-ui, sans-serif; font-size: clamp(1rem, 5vh, 1.7rem); font-weight: 700; }
+.stb-zeilen { display: flex; flex-direction: column; gap: 2px; }
+.stb-zeile { border-radius: 8px; }
+.stb-zeile.zeigt-hin { background: #fff1c2; box-shadow: 0 0 0 3px #f5a623; }
+.stb-text { display: block; width: 100%; min-height: 0; padding: 2px 6px; border: none; border-radius: 8px; background: none; color: #243047; font-family: "Andika", Inter, system-ui, sans-serif; font-size: clamp(0.76rem, 3.7vh, 1.2rem); font-weight: 700; line-height: 1.24; text-align: left; }
+.stb-text:hover:not(:disabled) { background: rgba(255, 209, 102, 0.25); }
+.stb-feld { color: #c4402c; font-weight: 800; }
+.stb-staunen { margin-top: 4px; background: #e9f6ff; }
+.stb-staunen .stb-feld { color: #2f6fd0; }
+.stb-seite { display: flex; flex: 1 1 0; flex-direction: column; align-items: center; gap: clamp(6px, 2vh, 14px); min-width: 0; max-width: 420px; }
+.stb-bild { width: clamp(70px, 32vh, 210px); }
+.stb-figur { display: block; width: 100%; height: auto; }
+.stb-weiter, .pk-weiter { display: inline-flex; align-items: center; gap: 8px; min-height: 0; padding: 8px 18px; border-radius: 999px; background: #3fbf74; color: #ffffff; font-size: clamp(0.9rem, 4vh, 1.2rem); font-weight: 800; }
+.stb-weiter:hover:not(:disabled), .pk-weiter:hover:not(:disabled) { background: #2f9d5d; }
+.stb-frage, .pk-frage { min-height: 0; padding: 4px 12px; border: none; border-radius: 12px; background: rgba(255, 255, 255, 0.92); color: #243047; font-family: "Andika", Inter, system-ui, sans-serif; font-size: clamp(0.9rem, 4.4vh, 1.4rem); font-weight: 700; line-height: 1.2; text-align: center; }
+.stb-antworten { display: flex; flex-direction: column; gap: clamp(5px, 1.5vh, 10px); width: 100%; }
+.stb-antwort, .pk-antwort { min-height: 0; padding: clamp(4px, 1.5vh, 10px) 12px; border: 3px solid #ffffff; border-radius: 14px; background: #ffffff; box-shadow: 0 4px 10px rgba(36, 48, 71, 0.14); color: #243047; font-family: "Andika", Inter, system-ui, sans-serif; font-size: clamp(0.82rem, 3.9vh, 1.25rem); font-weight: 700; line-height: 1.2; }
+.stb-antwort:hover:not(:disabled), .pk-antwort:hover:not(:disabled) { background: #ffffff; border-color: #ffd166; }
+.stb-antwort.ist-falsch, .pk-antwort.ist-falsch { opacity: 0.45; }
+.stb-antwort.ist-richtig, .pk-antwort.ist-richtig { border-color: #3fbf74; background: #c9f2d6; }
+
+/* --- Detektivfälle --- */
+/* Oben der Fall als Frage, links die Akte (Satz für Satz antippbar), rechts
+   die Verdächtigen. Bei der Frage nach dem Beweis sind die Sätze umrandet. */
+.df-titel { min-height: 0; padding: 3px 14px; border: none; border-radius: 12px; background: rgba(255, 255, 255, 0.92); color: #5b3a29; font-family: "Andika", Inter, system-ui, sans-serif; font-size: clamp(0.92rem, 4.4vh, 1.45rem); font-weight: 700; }
+.df-mitte { display: flex; align-items: center; justify-content: center; gap: clamp(10px, 3vw, 30px); width: min(96vw, 1100px); }
+.df-akte {
+  flex: 1.5 1 0;
+  min-width: 0;
+  max-width: 660px;
+  margin: 0;
+  padding: clamp(5px, 1.6vh, 12px) clamp(8px, 1.6vw, 14px) clamp(5px, 1.6vh, 12px) 2em;
+  border-radius: 8px;
+  background: #fffaf0;
+  box-shadow: 0 8px 18px rgba(36, 48, 71, 0.18);
+  color: #243047;
+  font-family: "Andika", Inter, system-ui, sans-serif;
+  font-size: clamp(0.74rem, 3.6vh, 1.2rem);
+  font-weight: 700;
+}
+.df-zeile::marker { color: #9aa3b2; }
+.df-satz { display: block; width: 100%; min-height: 0; padding: 1px 6px; border: 2px solid transparent; border-radius: 8px; background: none; color: inherit; font: inherit; line-height: 1.22; text-align: left; }
+.df-satz:hover:not(:disabled) { background: rgba(255, 209, 102, 0.25); }
+.lese-stage[data-frage="beweis"] .df-satz { border-color: rgba(47, 111, 208, 0.3); }
+.df-satz.ist-falsch { background: #ffe1dc; animation: lese-stoesst 0.5s ease-out; }
+.df-satz.ist-richtig { border-color: #3fbf74; background: #c9f2d6; }
+.df-satz.zeigt-hin { animation: lese-zeigt-hin 0.9s ease-in-out infinite; }
+.df-seite { display: flex; flex: 1 1 0; flex-direction: column; align-items: center; gap: clamp(6px, 1.8vh, 12px); min-width: 0; max-width: 400px; }
+.df-frage { margin: 0; padding: 3px 12px; border-radius: 12px; background: rgba(255, 255, 255, 0.92); color: #243047; font-family: "Andika", Inter, system-ui, sans-serif; font-size: clamp(0.86rem, 4vh, 1.35rem); font-weight: 700; text-align: center; }
+.df-verdaechtige { display: flex; justify-content: center; gap: clamp(6px, 1.4vw, 14px); }
+.df-wer { display: flex; flex-direction: column; align-items: center; gap: 2px; width: clamp(62px, min(19vh, 9vw), 126px); min-height: 0; padding: 4px; border: 4px solid #ffffff; border-radius: 18px; background: #ffffff; box-shadow: 0 5px 12px rgba(36, 48, 71, 0.16); }
+.df-wer:hover:not(:disabled) { background: #ffffff; border-color: #ffd166; }
+.df-wer:disabled { cursor: default; }
+.df-figur { display: block; width: 82%; height: auto; }
+.df-name { color: #243047; font-family: "Andika", Inter, system-ui, sans-serif; font-size: clamp(0.72rem, 3.3vh, 1.05rem); font-weight: 700; }
+.df-wer.ist-falsch { opacity: 0.4; }
+.df-wer.ist-richtig { border-color: #3fbf74; background: #c9f2d6; opacity: 1; }
+
+/* --- Postkarten --- */
+/* Eine Postkarte: links das Bild (bei der Frage die Frage), rechts der Text
+   mit Briefmarke, dazwischen die gestrichelte Linie. */
+.pk-zaehler { margin: 0; padding: 2px 12px; border-radius: 10px; background: rgba(255, 255, 255, 0.85); color: #243047; font-size: clamp(0.72rem, 3.3vh, 1rem); font-weight: 800; }
+.pk-karte { display: flex; align-items: stretch; width: min(94vw, 900px); border-radius: 10px; background: #fffdf6; box-shadow: 0 10px 22px rgba(36, 48, 71, 0.22); overflow: hidden; }
+.pk-vorne { display: flex; flex: 0 0 auto; flex-direction: column; align-items: stretch; justify-content: center; gap: clamp(4px, 1.4vh, 8px); width: min(46vw, calc((100vh - 220px) * 1.58 + 16px)); padding: 8px; }
+.pk-vorne .bu-bild-svg { border-width: 2px; border-radius: 6px; box-shadow: none; }
+.pk-antworten { display: flex; flex-direction: column; gap: clamp(4px, 1.2vh, 8px); }
+.pk-hinten { position: relative; flex: 1 1 0; min-width: 0; padding: clamp(6px, 2vh, 14px) clamp(8px, 1.8vw, 16px); border-left: 2px dashed #c9b88f; }
+.pk-marke { position: absolute; top: 8px; right: 8px; display: grid; place-items: center; width: clamp(26px, 9vh, 44px); height: clamp(30px, 10.5vh, 50px); border: 3px dotted #e8543f; background: #fff3e0; font-size: clamp(0.9rem, 5vh, 1.6rem); }
+.pk-text { display: flex; flex-direction: column; gap: 2px; padding-right: clamp(30px, 10vh, 54px); }
+.pk-satz { min-height: 0; padding: 1px 4px; border: none; border-radius: 6px; background: none; color: #2f3a52; font-family: "Andika", Inter, system-ui, sans-serif; font-size: clamp(0.76rem, 3.7vh, 1.2rem); font-weight: 700; line-height: 1.24; text-align: left; }
+.pk-satz:hover:not(:disabled) { background: rgba(255, 209, 102, 0.25); }
+.pk-gruss { margin-top: 4px; color: #5b3a29; font-style: italic; }
+.pk-unten { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .df-satz.ist-falsch, .df-satz.zeigt-hin { animation: none; }
+}

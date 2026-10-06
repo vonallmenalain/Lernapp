@@ -302,6 +302,60 @@ const spaet = (text) => [...String(text || "")].some((z) => { const c = z.codePo
   });
 }
 
+// --- 2e. Steckbriefe, Detektivfälle, Postkarten (lesen-detektive.js) ------------------------
+// Steht die Antwort, wo die Frage hinzeigt? Mindestens ein Wort der richtigen
+// Antwort (vier Buchstaben und mehr) steht in der Zeile.
+const steht = (antwort, text) => String(antwort).toLowerCase().replace(/[.,!?«»]/g, "").split(/\s+/).filter((w) => w.length >= 4 || /^\d+$/.test(w))
+  .some((w) => String(text).toLowerCase().includes(w));
+{
+  const { windowStub: d } = lade("lesen-detektive.js");
+  const det = d.LernappLeseDetektive;
+  pruefe(Boolean(det), "lesen-detektive.js legt nichts an");
+  const TIERE_DER_APP = [...FIGUREN];
+  const felder = ["wohnt", "frisst", "gross", "besonders"];
+  (det?.STECKBRIEFE || []).forEach((b) => {
+    const wo = `Steckbrief ${b.id}`;
+    pruefe(TIERE_DER_APP.includes(b.tier), `${wo}: das Tier ${b.tier} gibt es nicht in train-art.js`);
+    felder.forEach((f) => pruefe(typeof b[f] === "string" && b[f].length > 3, `${wo}: «${f}» fehlt`));
+    pruefe(/[.!]$/.test(b.staunen || ""), `${wo}: die Zahl zum Staunen ist kein Satz`);
+    pruefe(Array.isArray(b.fragen) && b.fragen.length === 3, `${wo}: ${b.fragen?.length} Fragen statt 3`);
+    (b.fragen || []).forEach((f) => {
+      pruefe(/\?$/.test(f.frage) && f.antworten?.length === 3 && new Set(f.antworten).size === 3 && f.richtig === 0, `${wo}: Frage «${f.frage}» – drei verschiedene Antworten, die richtige vorne`);
+      const zeile = f.zeile === "staunen" ? b.staunen : b[f.zeile];
+      pruefe(Boolean(zeile) && steht(f.antworten[f.richtig], zeile), `${wo}: «${f.antworten[f.richtig]}» steht nicht in der Zeile ${f.zeile}`);
+    });
+  });
+  pruefe((det?.STECKBRIEFE || []).length >= 8, "Steckbriefe: weniger als acht");
+  (det?.FAELLE || []).forEach((f) => {
+    const wo = `Detektivfall ${f.id}`;
+    pruefe(/\?$/.test(f.titel), `${wo}: der Titel ist keine Frage`);
+    pruefe(Array.isArray(f.saetze) && f.saetze.length >= 4 && f.saetze.length <= 7 && f.saetze.every((x) => /[.!?]$/.test(x)), `${wo}: vier bis sieben Sätze`);
+    const tiere = (f.verdaechtige || []).map(([tier]) => tier);
+    pruefe(tiere.length === 3 && new Set(tiere).size === 3 && tiere.every((t) => TIERE_DER_APP.includes(t)), `${wo}: drei verschiedene Verdächtige aus train-art.js`);
+    pruefe(tiere.includes(f.taeter), `${wo}: der Täter steht nicht unter den Verdächtigen`);
+    pruefe(Number.isInteger(f.beweis) && f.saetze[f.beweis], `${wo}: der Beweis zeigt auf keinen Satz`);
+    const name = (f.verdaechtige || []).find(([tier]) => tier === f.taeter)?.[1] || "";
+    pruefe(!(f.saetze[f.beweis] || "").includes(name), `${wo}: der Beweis nennt den Täter beim Namen – zu leicht`);
+    pruefe(/[.!]$/.test(f.aufloesung || "") && (f.aufloesung || "").includes(name), `${wo}: die Auflösung nennt den Täter nicht`);
+  });
+  pruefe((det?.FAELLE || []).length >= 6, "Detektivfälle: weniger als sechs");
+  // Postkarten: je Karte der Reise eine, vom Fahrgast dieser Karte.
+  const maps = lade("journey-plan.js").windowStub.LernappReise?.MAPS || [];
+  const karten = maps.map((m) => m.id);
+  const fahrgaeste = Object.fromEntries(maps.map((m) => [m.id, m.passenger]));
+  const post = det?.POSTKARTEN || [];
+  pruefe(karten.length >= 13 && post.length === karten.length, `Postkarten: ${post.length} Karten für ${karten.length} Karten der Reise`);
+  karten.forEach((k) => pruefe(post.filter((p) => p.karte === k).length === 1, `Postkarten: zur Karte ${k} nicht genau eine`));
+  post.forEach((p) => {
+    const wo = `Postkarte ${p.karte}`;
+    pruefe(fahrgaeste[p.karte] === p.tier, `${wo}: geschrieben von ${p.tier}, gefahren ist ${fahrgaeste[p.karte]}`);
+    pruefe(Array.isArray(p.text) && p.text.length >= 2 && p.text.length <= 4 && p.text.every((x) => /[.!?]$/.test(x)), `${wo}: zwei bis vier Sätze`);
+    pruefe((p.gruss || "").endsWith(p.von), `${wo}: der Gruss ist nicht von ${p.von}`);
+    const f = p.frage || {};
+    pruefe(/\?$/.test(f.frage || "") && f.antworten?.length === 3 && f.richtig === 0 && steht(f.antworten[0], p.text.join(" ")), `${wo}: die Antwort steht nicht auf der Karte`);
+  });
+}
+
 // --- 3. Bücher ------------------------------------------------------------------
 const GRATIS_SCHRANKE = (lies("entitlement.js").match(/const GRATIS_BUECHER = \[([^\]]*)\]/)?.[1] || "")
   .split(",").map((s) => s.trim().replace(/^"|"$/g, "")).filter(Boolean);
@@ -573,6 +627,7 @@ function lautgetreu(wort) {
     lautposition: [], buchstabensignal: [], liesundtu: [],
     geschichtenzug: ["lesen-buecher.js", "lesen-bilder.js"],
     werbinich: [], wortbaustelle: [],
+    steckbriefe: ["lesen-detektive.js"], detektivfaelle: ["lesen-detektive.js"], postkarten: ["lesen-detektive.js", "lesen-bilder.js"],
   };
   const stand = lies("lesen-stand.js");
   for (const [seite, extra] of Object.entries(SEITEN)) {
@@ -601,7 +656,7 @@ function lautgetreu(wort) {
   });
   const sw = lies("service-worker.js");
   [...Object.keys(SEITEN).flatMap((s) => [`./${s}.html"`, `./${s}.js\${`]), "./leseschrift.css${", "./lesen-inhalte.js${", "./lesen-stand.js${", "./lesen-laute.js${",
-    "./lesen-ton.js${", "./lesen-art.js${", "./lesen-spiel.js${", "./lesen-buecher.js${", "./lesen-bilder.js${", "./train-leseecke.js${"].forEach((eintrag) => {
+    "./lesen-ton.js${", "./lesen-art.js${", "./lesen-spiel.js${", "./lesen-buecher.js${", "./lesen-bilder.js${", "./lesen-detektive.js${", "./train-leseecke.js${"].forEach((eintrag) => {
     pruefe(sw.includes(eintrag), `service-worker.js: ${eintrag.replace(/["${]/g, "")} fehlt in CORE_ASSETS`);
   });
   // Die Schrift liegt in der Datei selbst: Der Build kopiert keine Ordner
@@ -695,7 +750,8 @@ function lautgetreu(wort) {
     "meinname.js": "mn", "lueckensaetze.js": "ls", "buchstabengleis.js": "bg",
     "satzkuppeln.js": "sk", "quatschsaetze.js": "qs", "stolperwoerter.js": "sw", "quatschwoerter.js": "qw",
     "lautposition.js": "lp", "buchstabensignal.js": "bsg", "liesundtu.js": "lt",
-    "geschichtenzug.js": "gz", "werbinich.js": "wi", "wortbaustelle.js": "ws" };
+    "geschichtenzug.js": "gz", "werbinich.js": "wi", "wortbaustelle.js": "ws",
+    "steckbriefe.js": "stb", "detektivfaelle.js": "df", "postkarten.js": "pk" };
   const eigene = new Set(Object.keys(KUERZEL));
   const fremde = fs.readdirSync(root).filter((name) => name.endsWith(".js") && !eigene.has(name) && !name.startsWith("lesen-") && name !== "train-leseecke.js" && name !== "laute-aufnehmen.js" && name !== "silbenzug.js");
   Object.entries(KUERZEL).forEach(([datei, kuerzel]) => {
@@ -717,6 +773,7 @@ function lautgetreu(wort) {
     "lautposition.js", "lautposition.html", "buchstabensignal.js", "buchstabensignal.html", "liesundtu.js", "liesundtu.html",
     "geschichtenzug.js", "geschichtenzug.html", "lesen-bilder.js",
     "werbinich.js", "werbinich.html", "wortbaustelle.js", "wortbaustelle.html",
+    "lesen-detektive.js", "steckbriefe.js", "steckbriefe.html", "detektivfaelle.js", "detektivfaelle.html", "postkarten.js", "postkarten.html",
     "laute-aufnehmen.html", "laute-aufnehmen.js"];
   dateien.forEach((datei) => {
     if (!fs.existsSync(path.join(root, datei))) return;

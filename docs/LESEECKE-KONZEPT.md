@@ -54,6 +54,11 @@ Stand: Oktober 2026 · Grundlage: das Konzept «Leseecke – Konzept & Ideensamm
 > die **Wortbaustelle** (lange Wörter bauen und zerlegen). Ist der Lesewagen ganz
 > eingerichtet, **fährt der Lesewurm auf der Lok mit** – am eigenen Zug und an denen der
 > Geschwister auf dem Startbild.
+>
+> **Etappe 4, zweiter Teil:** **Detektivfälle** (ein kurzer Krimi: wer war es, und welcher Satz
+> beweist es?), **Steckbriefe** (Sachtexte über die zwölf Tiere der App mit einer Zahl zum
+> Staunen) und **Postkarten von der Reise** (bringt das Kind einen Fahrgast nach Hause,
+> schreibt er; Fino erklärt mit der ersten Karte, wie die Post kommt).
 
 ## 1. Die Idee in drei Sätzen
 
@@ -112,6 +117,9 @@ Lesewagen selbst und der Lesewurm darin.
 | Lückensätze | `lueckensaetze.html` | ein Wort fehlt im Satz – auf, unter, neben, ein Tunwort, das Tier, das Ding, die Zahl; die Stimme liest den Satz mit dem gewählten Wort | Sätze genau lesen |
 | Wer bin ich? | `werbinich.html` | ein Rätsel in Häppchen: «Ich bin ein Tier. Ich bin grau. …» – raten oder mit der Lupe den nächsten Hinweis holen; drei Punkte nach höchstens zwei Hinweisen, zwei nach drei, sonst einer. Ein falsches Bild kostet einen Hinweis. Auf «leicht» drei Bilder und die Stimme liest | Schlussfolgern, genau lesen |
 | Wortbaustelle | `wortbaustelle.html` | bauen: an den Kranteil «Schnee» passt «Mann», nicht «Fisch» – auch der Unsinn wird vorgelesen; zerlegen: im langen Wort den Buchstaben antippen, mit dem das zweite Wort anfängt (Regen\|wurm). «leicht» baut, «mittel» abwechselnd, «schwer» zerlegt | lange Wörter zerlegen |
+| Detektivfälle | `detektivfaelle.html` | ein kurzer Krimi in Sätzen («Wer hat den Kuchen gegessen?»): erst den Täter unter drei Verdächtigen wählen, dann den Satz antippen, der es beweist («Auf dem Fenstersims liegt ein rotes Haar.»); je ein Punkt beim ersten Versuch | Schlussfolgern, Belege im Text finden |
+| Steckbriefe | `steckbriefe.html` | ein Steckbrief über ein Tier der App – wohnt, frisst, Grösse, Besonderes, eine Zahl zum Staunen –, dann drei Fragen; wer danebentippt, sieht die Zeile leuchten, in der die Antwort steht | Sachtexte lesen |
+| Postkarten | `postkarten.html` | ist eine Karte der Reise ganz gefahren, schreibt der Fahrgast eine Postkarte (vorne Landschaft, Wahrzeichen, Tier; hinten ein paar Sätze), dazu eine Frage. Ungelesene zuerst; am Schluss steht, wer als Nächstes schreibt | persönliche Texte lesen |
 | Geschichtenzug | `geschichtenzug.html` | vier Seiten aus einem Buch stehen als Wagen durcheinander – Bild und, wer liest, ein Satz; das Kind kuppelt sie so an die Lok, wie die Geschichte geht. Gelesene Bücher kommen zuerst; auf «leicht» drei Wagen nur mit Bildern, für Leser auf «schwer» nur Sätze | Handlungsfolge verstehen |
 
 Drei Regeln gelten überall:
@@ -212,7 +220,7 @@ neuere Fassung und schreibt sie nie selbst. Wie die Stufe überlebt sie das Zur�
 
 ### Gratis
 
-Die Schranke (`entitlement.js`) kennt die dreiundzwanzig Spiele der Leseecke in einer eigenen Tabelle
+Die Schranke (`entitlement.js`) kennt die sechsundzwanzig Spiele der Leseecke in einer eigenen Tabelle
 `LESEECKE` – nicht in `AREAS`, die gleich bleiben muss wie im Zug – und gibt je Spiel eine
 Runde frei. Den Lesewurm taufen ist kein Spiel und immer frei. Das Bücherregal hat keine Runden: *Wo ist das Rüebli?* und *Leo und die Melone*
 sind immer frei (`GRATIS_BUECHER`, `buchFree`), die anderen gehören zum Kauf. «Ganze App
@@ -231,7 +239,8 @@ Ordner im Build** – `netlify/build.mjs` bleibt unverändert –, und offline f
 | --- | --- |
 | `lesen-inhalte.js` | Laute, Laut-Steine, Wörter für die Spiele, was sich mit den Buchstaben der Schule lesen lässt, Bausteine für die Sätze (Tiere, Dinge, Tunwörter), Sätze mit und ohne Sinn (`SINN_SAETZE`), Stolpersteine, wie jeder Buchstabe geschrieben wird (`GLEISE`), Rätsel (`RAETSEL`), zusammengesetzte Wörter (`BAUSTELLE`) |
 | `lesen-buecher.js` | die Bücher: Text, Bild, Fragen |
-| `lesen-bilder.js` | die Bilder der Bücher und ihre Umschläge – für Regal und Geschichtenzug |
+| `lesen-bilder.js` | die Bilder der Bücher und ihre Umschläge – für Regal, Geschichtenzug und Postkarten |
+| `lesen-detektive.js` | Steckbriefe, Detektivfälle und Postkarten (nur Inhalt) |
 | `lesen-stand.js` | Lesestand, Lesewurm, Lesewagen (`wagenStufe`), Verwechslungen, der Bericht für die Eltern, Einstellungen der Eltern, was als Nächstes dran ist |
 | `lesen-ton.js` | Laute (Aufnahme oder Sprachausgabe), Wörter und Sätze, mit Mitleuchten |
 | `lesen-laute.js` | die Aufnahmen der Laute als Daten – heute noch leer |
@@ -242,7 +251,7 @@ Ordner im Build** – `netlify/build.mjs` bleibt unverändert –, und offline f
 | `silbenzug.*`, `buchstabenhaus.*`, `lautekuppeln.*`, `stimmtdas.*`, `buecher.*` | die Spiele aus Etappe 1 |
 | `reimkupplung.*`, `anlautlauscher.*`, `werfaehrtmit.*`, `woerterbauen.*`, `silbenbahn.*`, `blitzwoerter.*`, `meinname.*`, `lueckensaetze.*`, `buchstabengleis.*` | die Spiele aus Etappe 2 |
 | `satzkuppeln.*`, `quatschsaetze.*`, `stolperwoerter.*`, `quatschwoerter.*`, `lautposition.*`, `buchstabensignal.*`, `liesundtu.*`, `geschichtenzug.*` | die Spiele aus Etappe 3 |
-| `werbinich.*`, `wortbaustelle.*` | die Spiele aus Etappe 4 |
+| `werbinich.*`, `wortbaustelle.*`, `detektivfaelle.*`, `steckbriefe.*`, `postkarten.*` | die Spiele aus Etappe 4 |
 | `leseschrift.css` | Andika |
 | `train-home.js`, `index.html` | Lesewagen auf dem Startbild, `?lesen=1` |
 | `entitlement.js` | `LESEECKE`, `GRATIS_BUECHER`, `buchFree`, `targetFree` mit `buch=` |
@@ -258,6 +267,9 @@ Wörter, Sätze und Bücher sind Entwürfe nach den Regeln je Stufe – bitte ge
 - `lesen-buecher.js`: die sechzehn Bücher, je mit Seiten und Fragen.
 - `lueckensaetze.js` und `lesen-inhalte.js` (`TUN`): die Tunwörter der Lückensätze.
 - `lesen-inhalte.js` (`SINN_SAETZE`, `STOLPERSTEINE`): Sätze mit Sinn und Quatsch, die Stolpersteine.
+- `lesen-inhalte.js` (`RAETSEL`, `BAUSTELLE`): die Rätsel von «Wer bin ich?» und die Wörter der Wortbaustelle.
+- `lesen-detektive.js`: die zwölf Steckbriefe (die Zahlen sind abgerundet – bitte besonders
+  genau prüfen), die acht Detektivfälle und die vierzehn Postkarten.
 
 Schweizer Wörter, die Kinder hier sagen (Rüebli, Velo, fein), keine Bilder, die hier anders
 heissen (ein Keks ist ein Guetzli), und nirgends das scharfe S. `validate-lesen.mjs` prüft
@@ -279,8 +291,9 @@ Zwielaute spricht die Sprachausgabe, Mitlaute bleiben stumm und werden gezeigt.
 - **Etappe 3 – Sätze:** gebaut sind Satz kuppeln, Quatschsätze, Stolperwörter,
   Quatschwörter, Laut-Position, Buchstaben-Signal, Lies und tu!, der Geschichtenzug, der
   Lesewagen in 15 Schritten und der Lesebericht für die Eltern. Es folgen weitere Bücher.
-- **Etappe 4 – Lesedetektive:** gebaut sind die Pinnwand, Wer bin ich?, die Wortbaustelle
-  und der Lesewurm auf der Lok. Es folgen: Detektivfälle, Steckbriefe, Postkarten.
+- **Etappe 4 – Lesedetektive:** fertig – die Pinnwand, Wer bin ich?, die Wortbaustelle, der
+  Lesewurm auf der Lok, Detektivfälle, Steckbriefe und Postkarten. Ein Vorlese-Studio mit
+  Mikrofon bleibt vorerst weg (Entscheid 9).
 
 ## 8. Die Entscheidungen
 

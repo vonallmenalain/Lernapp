@@ -16,7 +16,8 @@
  *                        Silbenbahn, Blitzwörter, Quatschwörter
  *   Spielzeugzug         Sätze: Stimmt das?, Lückensätze, Satz kuppeln, …
  *   Bücherregal          Bücher: das Regal und der Geschichtenzug
- *   Pinnwand             Lesedetektive: Wer bin ich?, Wortbaustelle
+ *   Pinnwand             Lesedetektive: Wer bin ich?, Detektivfälle,
+ *                        Steckbriefe, Postkarten, Wortbaustelle
  *   Schild am Sessel     der Name des Lesewurms: ein Tipp, und das Kind tauft
  *                        ihn (meinname.html?wurm=1)
  *
