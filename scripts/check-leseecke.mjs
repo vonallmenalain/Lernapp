@@ -31,9 +31,10 @@
  *                 Lesezeichen führt zurück, wo das Kind aufgehört hat, und
  *                 fällt heraus, wenn das Buch aus ist. Ohne Wort-Hilfe
  *                 schweigt ein Tipp beim Selberlesen; «sehr gross» ist grösser.
- *                 Das Baumhaus hat gemalte Bilder: im Regal, auf der
- *                 Titelseite und auf jeder Seite, alle gleich beim Aufgehen
- *                 geladen; fehlt eines, zeigt die Seite ihre Zeichnung.
+ *                 Die vier Kapitelbücher haben gemalte Bilder: im Regal, auf
+ *                 der Titelseite und auf jeder Seite, alle gleich beim
+ *                 Aufgehen geladen; fehlt eines, zeigt die Seite ihre
+ *                 Zeichnung.
  *   Auf Zeit      Auf «schwer» bieten Stimmt das? und Stolperwörter die Uhr
  *                 an: ohne Vorlesen, mit eigenem Bestwert im Lesestand.
  *   Mitwachsen    Ein Spiel, das einen Schritt gewachsen ist, spielt eine
@@ -1428,11 +1429,12 @@ try {
   if (!ausgelesen.buch || ausgelesen.buch.sterne !== 3) fehlt(`Kapitelbuch: im Lesestand steht ${JSON.stringify(ausgelesen.buch)}`);
   if (Object.keys(ausgelesen.zeichen).join(",") !== "baumhaus-nacht") fehlt(`Kapitelbuch: Lesezeichen stecken in ${Object.keys(ausgelesen.zeichen).join(", ") || "keinem Buch"}`);
 
-  // Gemalte Bilder: Das Baumhaus hat sie – klein auf dem Umschlag im Regal,
-  // gross auf der Titelseite, und eines auf jeder Seite, über der Zeichnung.
-  // Geht das Buch auf, kommen gleich alle seine Bilder. Lädt ein Bild nicht
-  // (hier ist Seite 2 gesperrt), zeigt die Seite ihre Zeichnung; ein Buch ohne
-  // Bilder zeichnet wie bisher.
+  // Gemalte Bilder: Die vier Kapitelbücher haben sie – klein auf dem Umschlag
+  // im Regal, gross auf der Titelseite, und eines auf jeder Seite, über der
+  // Zeichnung. Geht ein Buch auf, kommen gleich alle seine Bilder. Lädt ein Bild
+  // nicht (hier ist Seite 2 im Baumhaus gesperrt), zeigt die Seite ihre
+  // Zeichnung; ein Buch ohne Bilder zeichnet wie bisher.
+  const gemalteBuecher = ["baumhaus-nacht", "leuchtturm-licht", "bergrennen", "pippa-bambus"];
   const gemalt = await offen.newPage();
   gemalt.on("pageerror", (e) => fehler.push(`${gemalt.url().replace(BASIS, "")}: ${e.message}`));
   await gemalt.route("**/bilder/buecher/baumhaus-nacht/seite-02.webp", (route) => route.abort());
@@ -1453,12 +1455,15 @@ try {
   await gemalt.goto(`${BASIS}/buecher.html`, { waitUntil: "domcontentloaded" });
   await gemalt.waitForSelector(".bu-reiter", { timeout: 8000 }).catch(() => {});
   await gemalt.locator('.bu-reiter[data-stufe="kapitel"]').click().catch(() => {});
-  const imRegal = '.bu-umschlag[data-buch="baumhaus-nacht"] svg.bu-umschlag-svg';
-  await fotoFertig(imRegal);
-  const regalFoto = await fotoVon(imRegal);
-  if (regalFoto.stand !== "da" || !/baumhaus-nacht\/umschlag-klein\.webp$/.test(regalFoto.pfad || "")) fehlt(`Gemalte Bilder: im Regal zeigt das Baumhaus nicht seinen kleinen Umschlag (${JSON.stringify(regalFoto)})`);
-  const ohneBilder = await fotoVon('.bu-umschlag[data-buch="bergrennen"] svg.bu-umschlag-svg');
-  if (ohneBilder.stand || ohneBilder.pfad) fehlt(`Gemalte Bilder: ein Buch ohne Bilder lädt eines (${JSON.stringify(ohneBilder)})`);
+  for (const id of gemalteBuecher) {
+    const imRegal = `.bu-umschlag[data-buch="${id}"] svg.bu-umschlag-svg`;
+    await fotoFertig(imRegal);
+    const regalFoto = await fotoVon(imRegal);
+    if (regalFoto.stand !== "da" || regalFoto.pfad !== `bilder/buecher/${id}/umschlag-klein.webp`) fehlt(`Gemalte Bilder: im Regal zeigt ${id} nicht seinen kleinen Umschlag (${JSON.stringify(regalFoto)})`);
+  }
+  // Sepp im Gewitter steht in einem anderen Fach und hat keine Bilder.
+  const ohneBilder = await fotoVon('.bu-umschlag[data-buch="sepp-gewitter"] svg.bu-umschlag-svg');
+  if (!ohneBilder.da || ohneBilder.stand || ohneBilder.pfad) fehlt(`Gemalte Bilder: ein Buch ohne Bilder lädt eines (${JSON.stringify(ohneBilder)})`);
   await gemalt.goto(`${BASIS}/buecher.html?buch=baumhaus-nacht`, { waitUntil: "domcontentloaded" });
   await gemalt.waitForSelector(".bu-titelseite", { timeout: 8000 }).catch(() => {});
   const aufDemTitel = ".bu-titel-deckel svg.bu-umschlag-svg";
@@ -1485,6 +1490,21 @@ try {
   await fotoFertig(seitenBild);
   const dritteSeite = await fotoVon(seitenBild);
   if (dritteSeite.stand !== "da" || !/baumhaus-nacht\/seite-03\.webp$/.test(dritteSeite.pfad || "")) fehlt(`Gemalte Bilder: Seite 3 zeigt ihr Bild nicht (${JSON.stringify(dritteSeite)})`);
+  // Die anderen drei: der grosse Umschlag auf der Titelseite, und beim
+  // Aufgehen kommt jede Seite an – keine fehlt im Ordner.
+  for (const id of gemalteBuecher.slice(1)) {
+    await gemalt.goto(`${BASIS}/buecher.html?buch=${id}`, { waitUntil: "domcontentloaded" });
+    await gemalt.waitForSelector(".bu-titelseite", { timeout: 8000 }).catch(() => {});
+    await fotoFertig(aufDemTitel);
+    const titel = await fotoVon(aufDemTitel);
+    if (titel.stand !== "da" || titel.pfad !== `bilder/buecher/${id}/umschlag.webp`) fehlt(`Gemalte Bilder: die Titelseite von ${id} zeigt nicht den grossen Umschlag (${JSON.stringify(titel)})`);
+    const ordner = `/bilder/buecher/${id}/seite-`;
+    const anzahl = await gemalt.evaluate((i) => window.LernappLeseBuecher.BY_ID[i].seiten.length, id);
+    await gemalt.waitForFunction(([o, n]) => performance.getEntriesByType("resource").filter((e) => e.name.includes(o)).length >= n, [ordner, anzahl], { timeout: 8000 }).catch(() => {});
+    const angekommen = await gemalt.evaluate((o) => [...new Set(performance.getEntriesByType("resource").filter((e) => e.name.includes(o) && e.responseStatus === 200).map((e) => e.name.split("/").pop()))].sort(), ordner);
+    const soll = Array.from({ length: anzahl }, (_, nr) => `seite-${String(nr + 1).padStart(2, "0")}.webp`);
+    if (angekommen.join(",") !== soll.join(",")) fehlt(`Gemalte Bilder: von ${id} kommen beim Aufgehen nur ${angekommen.length} von ${anzahl} Seiten an (${angekommen.join(", ")})`);
+  }
   await gemalt.goto(`${BASIS}/buecher.html?buch=leo-melone`, { waitUntil: "domcontentloaded" });
   await gemalt.waitForSelector(".bu-titelseite", { timeout: 8000 }).catch(() => {});
   await gemalt.locator('.bu-modus[data-modus="selbst"]').click().catch(() => {});
@@ -1819,4 +1839,4 @@ if (befunde.length) {
   befunde.forEach((b) => console.error(`  - ${b}`));
   process.exit(1);
 }
-console.log("Die Leseecke läuft: Lesewagen, Zimmer mit Auswahl, alle Spiele hin und zurück, eine Runde Silbenzug bis zum Tor, Laute kuppeln ohne verratenes Wort, Buchstabenhaus, der Würfel von «Stimmt das?», Reimkupplung, Anlaut-Lauscher, Wer fährt mit?, Wörter bauen, Silbenbahn, Blitzwörter, Mein Name, der Lesewurm bekommt seinen Namen, Lückensätze, Buchstabengleis, Satz kuppeln, Quatschsätze, Stolperwörter, Quatschwörter, Laut-Position, Buchstaben-Signal, Lies und tu!, Geschichtenzug, Wer bin ich?, Wortbaustelle, Steckbriefe, Detektivfälle, Postkarten, die Buchstaben der Schule, Hörbuch mit Nachsehen, Zusammen lesen, Kapitelbücher mit Überschrift und Lesezeichen, das Baumhaus mit gemalten Bildern, Runden auf Zeit, Wort-Hilfe und Schriftgrösse der Eltern, Spiele, die mitwachsen, Ruhe nach der Rückkehr mit Konto, winkende Tiere mit Bewegung, der Lesewurm wächst, der Lesewagen wird gemütlich, und der Lesewurm fährt auf der Lok mit.");
+console.log("Die Leseecke läuft: Lesewagen, Zimmer mit Auswahl, alle Spiele hin und zurück, eine Runde Silbenzug bis zum Tor, Laute kuppeln ohne verratenes Wort, Buchstabenhaus, der Würfel von «Stimmt das?», Reimkupplung, Anlaut-Lauscher, Wer fährt mit?, Wörter bauen, Silbenbahn, Blitzwörter, Mein Name, der Lesewurm bekommt seinen Namen, Lückensätze, Buchstabengleis, Satz kuppeln, Quatschsätze, Stolperwörter, Quatschwörter, Laut-Position, Buchstaben-Signal, Lies und tu!, Geschichtenzug, Wer bin ich?, Wortbaustelle, Steckbriefe, Detektivfälle, Postkarten, die Buchstaben der Schule, Hörbuch mit Nachsehen, Zusammen lesen, Kapitelbücher mit Überschrift, Lesezeichen und gemalten Bildern, Runden auf Zeit, Wort-Hilfe und Schriftgrösse der Eltern, Spiele, die mitwachsen, Ruhe nach der Rückkehr mit Konto, winkende Tiere mit Bewegung, der Lesewurm wächst, der Lesewagen wird gemütlich, und der Lesewurm fährt auf der Lok mit.");

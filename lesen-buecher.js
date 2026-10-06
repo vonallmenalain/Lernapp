@@ -1283,6 +1283,7 @@
       figur: "penguin",
       landschaft: "see",
       farbe: "#c9483a",
+      bilder: "bilder/buecher/leuchtturm-licht",
       seiten: [
         {
           kapitel: "Ferien am See",
@@ -1368,6 +1369,7 @@
       figur: "ibex",
       landschaft: "berge",
       farbe: "#8a6d3b",
+      bilder: "bilder/buecher/bergrennen",
       seiten: [
         {
           kapitel: "Das Plakat",
@@ -1453,6 +1455,7 @@
       figur: "panda",
       landschaft: "dschungel",
       farbe: "#2f8f5b",
+      bilder: "bilder/buecher/pippa-bambus",
       seiten: [
         {
           kapitel: "Der Bambus ist weg",

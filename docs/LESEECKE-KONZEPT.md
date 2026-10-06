@@ -177,12 +177,15 @@ Fliege, ein grosses Blatt als Schirm, ein rotes Velo – das Emoji hat je nach G
 andere Farbe –, ein Bambusstapel, ein Stein und die Wahrzeichen der Reise).
 
 **Gemalte Bilder.** Ein Buch kann statt der Zeichnungen gemalte Bilder haben
-(`lesen-buecher.js`, `bilder`: der Ordner). Als Erstes hat sie *Die Nacht im Baumhaus*
-(`bilder/buecher/baumhaus-nacht/`), mit Higgsfield gemalt nach einem Figurenblatt, damit
-Flitz, Hoppel, Mia und Ella auf jeder Seite gleich aussehen. Im Ordner liegen
+(`lesen-buecher.js`, `bilder`: der Ordner). Die vier Kapitelbücher haben sie, jedes in seinem
+Ordner unter `bilder/buecher/` (`baumhaus-nacht/`, `leuchtturm-licht/`, `bergrennen/`,
+`pippa-bambus/`). Gemalt sind sie mit Higgsfield, nach einem Figurenblatt je Buch, damit die
+Figuren auf jeder Seite gleich aussehen; wer in mehreren Büchern vorkommt (Hoppel, Mia,
+Ella), sieht überall gleich aus, denn alle spielen in derselben Welt. Zeichnet das Modell
+eine Pfote mit vier Zehen, bekommt sie von Hand die fünfte (Pippa, Seite 3). Im Ordner liegen
 `seite-01.webp` … (eines je Seite, 1200 × 760, wie die Zeichnung 240 × 152, nur feiner),
 `umschlag.webp` für die Titelseite und `umschlag-klein.webp` (480 × 304) fürs Regal, zusammen
-rund 1 MB:
+rund 1 MB je Buch:
 - **Über der Zeichnung:** Das gemalte Bild liegt über der Zeichnung, die trotzdem entsteht.
   Lädt ein Bild nicht (ohne Netz, bevor das Buch je offen war), zeigt die Seite ihre
   Zeichnung. Solange es lädt, deckt eine ruhige Fläche sie ab.
@@ -191,8 +194,8 @@ rund 1 MB:
   ein Update der App nicht leert. Wird ein Bild ersetzt, braucht dieser Cache eine neue
   Nummer.
 - **Prüfungen:** `validate-lesen.mjs` prüft Ordner, Masse und Grösse.
-  `check-leseecke.mjs` prüft Regal, Titelseite, Seiten, Vorladen und den Rückfall auf die
-  Zeichnung.
+  `check-leseecke.mjs` prüft Regal und Titelseite aller vier Bücher, die Seiten, das
+  Vorladen und den Rückfall auf die Zeichnung.
 
 **Kapitelbücher** sind länger: Über der ersten Seite eines Kapitels steht seine Überschrift
 («Kapitel 2 · Geräusche in der Nacht»); die Stimme liest sie mit, beim Selberlesen nur auf
@@ -299,7 +302,7 @@ Ordner im Build** – `netlify/build.mjs` bleibt unverändert –, und offline f
 | `lesen-inhalte.js` | Laute, Laut-Steine, Wörter für die Spiele, was sich mit den Buchstaben der Schule lesen lässt, Bausteine für die Sätze (Tiere, Dinge, Tunwörter), Sätze mit und ohne Sinn (`SINN_SAETZE`), Stolpersteine, wie jeder Buchstabe geschrieben wird (`GLEISE`), Rätsel (`RAETSEL`), zusammengesetzte Wörter (`BAUSTELLE`) |
 | `lesen-buecher.js` | die Bücher: Text, Bild, Fragen |
 | `lesen-bilder.js` | die Bilder der Bücher und ihre Umschläge – für Regal, Geschichtenzug und Postkarten; gemalte Bilder über der Zeichnung, mit Rückfall |
-| `bilder/buecher/<buch>/` | die gemalten Bilder eines Buches (WebP), heute für *Die Nacht im Baumhaus* |
+| `bilder/buecher/<buch>/` | die gemalten Bilder eines Buches (WebP), heute für die vier Kapitelbücher |
 | `lesen-detektive.js` | Steckbriefe, Detektivfälle und Postkarten (nur Inhalt) |
 | `lesen-stand.js` | Lesestand, Lesewurm, Lesewagen (`wagenStufe`), Verwechslungen, der Bericht für die Eltern, Einstellungen der Eltern, was als Nächstes dran ist |
 | `lesen-ton.js` | Laute (Aufnahme oder Sprachausgabe), Wörter und Sätze, mit Mitleuchten |
