@@ -3,8 +3,10 @@
  *
  * Ein Kasten im Speicher, der dem Kind folgt (game-cloud.js), wie der Kasten
  * der Reise. Darin steht, wie sicher jeder Laut sitzt, wie viele Wörter das
- * Kind gelesen oder gehört hat – davon lebt der Lesewurm –, welche Bücher
- * gelesen sind und wann welches Spiel zuletzt dran war.
+ * Kind gelesen oder gehört hat, welche Bücher gelesen sind und wann welches
+ * Spiel zuletzt dran war. Vom Gespielten lebt der Lesewurm: Jede fertige
+ * Runde ist ein Buchstabe für ihn, die Runde, die er selbst vorschlägt, zwei
+ * (wurmStand).
  *
  * Bewusst Zähler, kein Protokoll: Alle Kästen eines Kindes liegen in einem
  * Firestore-Dokument, das Eltern und Gruppe lesen können. Ein Protokoll jeder
@@ -12,7 +14,7 @@
  *
  *   lernapp.lesen
  *   {
- *     woerter: 240,                 // gelesen oder gehört – der Lesewurm
+ *     woerter: 240,                 // gelesen oder gehört – für die Eltern
  *     laute:   { m: { r: 4, f: 1, tage: ["2026-10-06", …], zuletzt: … } },
  *     blitz:   { und: { r: 2, f: 0, tage: [...], zuletzt: … } },
  *     buecher: { "hase-rueebli": { mal: 2, sterne: 3, at: … } },
@@ -21,6 +23,8 @@
  *                                   // zeit: Bestwert der Runde auf Zeit;
  *                                   // schritt, serie: das Spiel wächst mit
  *                                   // (siehe mitwachsen)
+ *     missionen: 4,                 // Runden, die der Lesewurm vorschlug
+ *                                   // (je ein Buchstabe mehr)
  *     wurm:    { name: "Moli", at: … },   // so hat das Kind ihn getauft
  *     verwechselt: { "b|d": 3 },          // wie oft b für d genommen wurde
  *   }                                     // oder d für b – für die Eltern
@@ -37,13 +41,32 @@
 
   const KEY = "lernapp.lesen";
   const ELTERN_KEY = "lernapp.lesen.eltern";
-  const EMPTY = { woerter: 0, laute: {}, buecher: {}, spiele: {}, blitz: {}, wurm: null, verwechselt: {} };
+  const EMPTY = { woerter: 0, laute: {}, buecher: {}, spiele: {}, blitz: {}, missionen: 0, wurm: null, verwechselt: {} };
 
-  // Je so viele Wörter wächst der Lesewurm um ein Glied.
+  // Je so viele Wörter ein Glied: So wuchs der Lesewurm, bis er Stufen bekam.
+  // Gezählt wird weiter (für den Bericht und wer es noch braucht).
   const WOERTER_JE_GLIED = 20;
-  // Mehr Glieder zeichnet niemand: Er rollt sich dann ein, statt den Wagen zu
-  // sprengen. Gezählt wird trotzdem weiter.
   const GLIEDER_MAX = 60;
+
+  // Der Lesewurm lebt drei Leben (lesen-wurm.js zeichnet sie): Zuerst wird er
+  // ein Lesefalter, dann ein neuer Wurm der Lesewurm-Express, zuletzt ein
+  // dritter der Lesezauberer. Jedes Leben hat fünfzehn Stufen. Sein Futter
+  // sind Buchstaben: jede fertige Runde einer – auch ein gelesenes Buch ist
+  // eine Runde des Bücherregals –, die Runde, die der Wurm vorschlägt, einer
+  // mehr. So viele braucht es von einer Stufe zur nächsten, am Anfang wenige:
+  const WURM_BEDARF = [1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8];
+  // Nach Stufe 15 noch so viele, dann zieht der fertige aufs Regal und ein
+  // neuer Wurm schlüpft. Nach dem dritten Leben ist Schluss: Er bleibt der
+  // Lesezauberer, und der Wurm schlägt nur noch vor, was dran ist.
+  const WURM_WECHSEL = 8;
+  const WURM_LEBEN = ["falter", "express", "zauberer"];
+  const WURM_NAMEN = { falter: "Lesefalter", express: "Lesewurm-Express", zauberer: "Lesezauberer" };
+  const WURM_STUFEN = 15;
+  // Hat das Kind auf den Wurm getippt, gilt sein Vorschlag so lange – auf
+  // diesem Gerät. Wird dieses Spiel in der Zeit fertig gespielt, gibt es den
+  // Buchstaben mehr (missionErfuellt).
+  const MISSION_KEY = "lernapp.lesen.mission";
+  const MISSION_GILT_MS = 3 * 60 * 60 * 1000;
 
   // Ein Laut sitzt, wenn er dreimal richtig erkannt wurde, und zwar an zwei
   // verschiedenen Tagen: Einmal Glück und dreimal hintereinander am selben
@@ -158,6 +181,7 @@
     new Set([...Object.keys(x), ...Object.keys(y)]).forEach((paar) => { verwechselt[paar] = Math.max(zahl(x[paar]), zahl(y[paar])); });
     return {
       woerter: Math.max(zahl(a.woerter), zahl(b.woerter)),
+      missionen: Math.max(zahl(a.missionen), zahl(b.missionen)),
       laute: mergeEintraege(a.laute, b.laute, ["r", "f", "zuletzt"]),
       blitz: mergeEintraege(a.blitz, b.blitz, ["r", "f", "zuletzt"]),
       buecher: mergeEintraege(a.buecher, b.buecher, ["mal", "sterne", "at"]),
@@ -352,6 +376,65 @@
     return WAGEN_SCHRITTE.filter((ab) => n >= ab).length;
   }
 
+  // ---------------------------------------------------------------------------
+  // Der Lesewurm: Buchstaben, Leben und Stufen
+  // ---------------------------------------------------------------------------
+  // Wie viele Buchstaben der Wurm bekommen hat: jede fertige Runde einen – ein
+  // Buch zählt als Runde des Bücherregals, nicht noch einmal als Buch –, und
+  // jede Runde, die er vorgeschlagen hat, einen mehr.
+  function buchstaben(s = stand()) {
+    const runden = Object.values(s?.spiele || {}).reduce((summe, e) => summe + zahl(e?.runden), 0);
+    return runden + zahl(s?.missionen);
+  }
+
+  // Wo der Wurm steht:
+  //   leben    0 Lesefalter, 1 Lesewurm-Express, 2 Lesezauberer
+  //   id       dasselbe als Name (WURM_LEBEN)
+  //   stufe    1 bis 15
+  //   nr       alle Stufen der drei Leben durchgezählt, 1 bis 45
+  //   hat      so viele Buchstaben liegen schon in der Leiste
+  //   braucht  so viele braucht es bis zur nächsten Stufe (nach Stufe 15:
+  //            bis zum neuen Wurm); 0, wenn alles geschafft ist
+  //   fertig   das dritte Leben ist ganz durch
+  //   regal    so viele fertige Würmer stehen auf dem Regal (0 bis 2)
+  function wurmStand(s = stand()) {
+    return wurmAus(buchstaben(s));
+  }
+
+  // Dasselbe aus einer Zahl von Buchstaben: Das Zimmer rechnet damit nach, wo
+  // der Wurm beim letzten Besuch stand.
+  function wurmAus(anzahl) {
+    let rest = Math.max(0, Math.floor(zahl(anzahl)));
+    for (let leben = 0; leben < WURM_LEBEN.length; leben += 1) {
+      const letztes = leben === WURM_LEBEN.length - 1;
+      for (let stufe = 1; stufe <= WURM_STUFEN; stufe += 1) {
+        const braucht = stufe < WURM_STUFEN ? WURM_BEDARF[stufe - 1] : letztes ? 0 : WURM_WECHSEL;
+        const ort = { leben, id: WURM_LEBEN[leben], stufe, nr: leben * WURM_STUFEN + stufe, regal: leben };
+        if (!braucht) return { ...ort, hat: 0, braucht: 0, fertig: true };
+        if (rest < braucht) return { ...ort, hat: rest, braucht, fertig: false };
+        rest -= braucht;
+      }
+    }
+    return { leben: 2, id: WURM_LEBEN[2], stufe: WURM_STUFEN, nr: WURM_LEBEN.length * WURM_STUFEN, regal: 2, hat: 0, braucht: 0, fertig: true };
+  }
+
+  // Das Kind hat auf den Wurm getippt: Sein Vorschlag gilt jetzt als Mission.
+  function missionStarten(id) {
+    if (!id) return;
+    try { localStorage.setItem(MISSION_KEY, JSON.stringify({ id, at: Date.now() })); } catch { /* privater Modus */ }
+  }
+
+  // Eine Runde ist fertig. War es die, die der Wurm vorgeschlagen hat, gibt es
+  // einen Buchstaben mehr – einmal je Tipp auf den Wurm.
+  function missionErfuellt(id) {
+    let mission = null;
+    try { mission = JSON.parse(localStorage.getItem(MISSION_KEY) || "null"); } catch { mission = null; }
+    if (!id || !mission || mission.id !== id || Date.now() - zahl(mission.at) > MISSION_GILT_MS) return false;
+    try { localStorage.removeItem(MISSION_KEY); } catch { /* privater Modus */ }
+    box.update((alt) => ({ ...EMPTY, ...alt, missionen: zahl(alt?.missionen) + 1 }));
+    return true;
+  }
+
   // Der Bericht für die Eltern (firebase.js, Karte «Leseecke»): nur Zahlen
   // und Listen, die Worte macht der Elternbereich. Laute in der Reihenfolge
   // des Buchstabenhauses, wenn lesen-inhalte.js geladen ist.
@@ -390,6 +473,7 @@
     return {
       woerter: zahl(s.woerter),
       glieder: wurmGlieder(s),
+      wurm: wurmStand(s),
       runden: spiele.reduce((summe, e) => summe + e.runden, 0),
       spiele,
       zeit,
@@ -610,6 +694,7 @@
 
   window.LernappLeseStand = {
     KEY, ELTERN_KEY, EMPTY, WOERTER_JE_GLIED, GLIEDER_MAX, SITZT_RICHTIG, SITZT_TAGE, STUFEN_REIHE, SERIE_FUER_SCHRITT,
+    WURM_BEDARF, WURM_WECHSEL, WURM_LEBEN, WURM_NAMEN, WURM_STUFEN, MISSION_KEY, buchstaben, wurmStand, wurmAus, missionStarten, missionErfuellt,
     STARTPUNKTE, STARTPUNKT_INFO, SCHRIFTEN, GROESSEN, HILFEN, SPIELE, AUSWAHL,
     merge, stand, onChange: (fn) => box.onChange(fn),
     lautGeuebt, lautSitzt, sitzendeLaute, blitzGeuebt, blitzSitzt, woerterGelesen, buchGelesen, spielRunde, zeitRunde, spielGeoeffnet, wurmGlieder,

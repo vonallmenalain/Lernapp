@@ -79,6 +79,17 @@ Stand: Oktober 2026 · Grundlage: das Konzept «Leseecke – Konzept & Ideensamm
 > ohne dass es jemand ansagt, und nie über «schwer» oder unter «leicht». Der Schritt gilt
 > je Spiel und relativ zur Stufe des Kindes; der Lesebericht zeigt, was von selbst schwerer
 > oder leichter geworden ist.
+>
+> **Der Lesewurm als Hauptmission (Oktober 2026):** Der Wurm auf dem Sessel ist die
+> Hauptmission des Zimmers. Über ihm steht eine **Missionskarte** – was er als Nächstes
+> vorschlägt, eine Leiste mit den Buchstaben bis zur nächsten Überraschung und am Ende ein
+> Geschenk. Für jede fertige Runde bekommt er einen Buchstaben, für die Runde, die er
+> vorgeschlagen hat, zwei. Er lebt **drei Leben zu je 15 Stufen**: zuerst der **Lesefalter**
+> (vom Wurm im Buch über den Kokon aus Buchseiten zum Schmetterling), dann der
+> **Lesewurm-Express** (aus seinen Gliedern werden Wagen) und zuletzt der **Lesezauberer**
+> (Zauberhut, Eule Ella, ein Regenbogen aus Buchstaben). Ist ein Leben fertig, zieht die Figur
+> aufs Bücherregal und bleibt dort, und ein neuer kleiner Lesewurm beginnt; nach dem dritten
+> Leben ist alles geschafft (`lesen-wurm.js`).
 
 ## 1. Die Idee in drei Sätzen
 
@@ -100,13 +111,15 @@ Lesewagen selbst und der Lesewurm darin.
   Bildschirm Platz, auch wenn Geschwister mit ihren Zügen daneben stehen. Höchstens 16 % der
   Breite, nie kleiner als 70 Pixel.
 - **Das Zimmer** (`train-leseecke.js`, gezeichnet in `lesen-art.js`): eine Ansicht der Bühne
-  wie die Reise. Jedes Ding ist ein Weg: Sessel mit Lesewurm (er sucht aus, was dran ist),
+  wie die Reise. Jedes Ding ist ein Weg: Sessel mit Lesewurm (die Hauptmission: er sucht aus,
+  was dran ist, und zeigt es auf einer Karte über sich),
   Buchstabenhaus, Trommel (Hören), Wortkiste (Wörter), Spielzeugzug (Sätze), Bücherregal
   (Bücher und Geschichtenzug), die Pinnwand zwischen den Fenstern (Lesedetektive), und links
   vom Sessel ein Schild mit dem Namen des Lesewurms.
   Alles andere im Zimmer ist **Einrichtung** und kommt erst mit dem Lesen (siehe unten).
   Beim Hereinkommen **hüpft reihum alles, was sich antippen lässt** – wie die Wagen auf dem
-  Startbild, einmal im Uhrzeigersinn vom Buchstabenhaus bis zum Lesewurm in der Mitte, zweimal
+  Startbild, einmal im Uhrzeigersinn vom Buchstabenhaus bis zum Lesewurm in der Mitte und seiner
+  Karte, zweimal
   (`train-leseecke.js`, `REIHUM`; `styles.css`, `lese-ort-huepft`). Die Einrichtung hüpft nie,
   die Schatten am Boden bleiben liegen, und frischt sich das Zimmer auf (neuer Lesestand aus der
   Cloud), hüpft nichts noch einmal. Ohne Bewegung (Einstellung des Geräts) hüpft gar nichts.
@@ -222,10 +235,37 @@ Firestore-Dokument (Grenze 1 MiB), das Eltern und Gruppe lesen können.
 
 - Ein Laut **sitzt** nach drei Treffern an zwei verschiedenen Tagen; dann trägt sein Fenster
   im Buchstabenhaus einen goldenen Rahmen.
-- Der **Lesewurm** wächst je 20 gelesene oder gehörte Wörter um ein Glied (höchstens 60
-  gezeichnet). Ist er gewachsen, seit das Kind zuletzt im Wagen war, sagt der Lautsprecher das
-  zuerst.
-- Der Wurm im Sessel wählt, was **als Nächstes dran ist**: je Lesestufe ein paar Spiele, und
+- Der **Lesewurm** sammelt **Buchstaben** (`buchstaben`): einen für jede fertige Runde eines
+  Spiels – ein gelesenes Buch ist eine Runde des Bücherregals –, zwei für die Runde, die er
+  selbst vorgeschlagen hat. Die zweite zählt der Kasten als `missionen` (zwischen Geräten gilt
+  der grössere Wert, wie bei den Runden). Ob eine Runde seine war, merkt sich nur das Gerät
+  (`lernapp.lesen.mission`, drei Stunden lang): Der Tipp auf den Wurm legt die Marke, das
+  Ergebnis der passenden Runde löst sie ein.
+- Er lebt **drei Leben zu je 15 Stufen** (`lesen-stand.js`, `wurmAus`; gezeichnet in
+  `lesen-wurm.js`): **Lesefalter**, **Lesewurm-Express**, **Lesezauberer**. Die nächste Stufe
+  braucht 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7 und 8 Buchstaben (63 je Leben), der Wechsel ins
+  nächste Leben 8. Jede Stufe bringt etwas Neues, etwa jede zweite eine Überraschung (Tupfen,
+  Kokon, Räder, Kamin, Eule …). Mit 205 Buchstaben ist der Lesezauberer fertig, und es geht
+  nicht weiter: Die Karte zeigt dann keine Leiste mehr.
+- Ein fertiges Leben **zieht aufs Bücherregal**: erst der Lesefalter, dann daneben der
+  Lesewurm-Express, und auf dem Sessel beginnt ein neuer kleiner Lesewurm.
+- Die **Missionskarte** über dem Wurm zeigt, was er vorschlägt (Bild und Name des Spiels, ein
+  grüner Knopf), darunter die Leiste bis zur nächsten Überraschung mit einem Geschenk am Ende.
+  Ein Tipp auf den Wurm, die Karte oder den Knopf öffnet den Vorschlag. Die Karte ist ein
+  eigener Knopf (`data-ort="mission"`, `data-wie="weiter"`): Hinge sie am Sofa, reichte dessen
+  Fläche bis über Pinnwand und Wortkiste. Sie steht so hoch, dass der Wurm sie in keiner Stufe
+  verdeckt, und hinter ihm – reckt er Fühler oder Hut, stehen die vor ihrem Zipfel.
+  `check-leseecke.mjs` geht alle 45 Stufen durch und prüft, dass ein Tipp auf Pinnwand,
+  Namensschild und Karte immer diese trifft. Ist die
+  Schnupperrunde dieses Spiels ohne Kauf schon gespielt, trägt die Karte ein Schloss.
+- Ist er gewachsen, seit das Kind zuletzt im Wagen war (`lernapp.lesen.wurm-gesehen`, nur auf
+  dem Gerät), **verwandelt er sich vor den Augen des Kindes**: Die neuen Felder der Leiste
+  springen auf, das Geschenk öffnet sich, der Wurm wird klein und kommt mit einem Knall als
+  nächste Stufe wieder; ein fertiges Leben funkelt auf dem Regal. Der Lautsprecher sagt, was
+  neu ist. Ohne Bewegung (Einstellung des Geräts) steht gleich die neue Stufe da. Das Ergebnis
+  einer Runde sagt nur «Ein Buchstabe für …» (bei seiner Runde «Zwei Buchstaben») oder «… hat
+  eine Überraschung für dich – schau im Lesewagen nach!»; was es ist, zeigt erst das Zimmer.
+- Der Wurm wählt, was **als Nächstes dran ist**: je Lesestufe ein paar Spiele, und
   dran ist das, was am längsten nicht gespielt wurde.
 - Der **Lesewagen** wird gemütlich: Am Anfang stehen nur die Dinge zum Spielen da. Nach 1, 2,
   4, 6, 9, 12, 15, 19, 23, 28, 33, 39, 45, 52 und 60 gelesenen Stücken (fertige Runden und
@@ -271,7 +311,8 @@ der Lesewurm als Nächstes vorschlägt, folgt weiter der Stufe des Kindes. Im El
   nichts, und der Lautsprecher unten fehlt. «Vorlesen» bleibt immer möglich.
 - **Lesebericht** (`renderKindLesebericht`, gerechnet in `lesen-stand.js`, `bericht`):
   gelesene oder gehörte Wörter, Bücher (und wie viele mit allen Fragen richtig), Runden,
-  wie weit der Lesewagen eingerichtet ist, Laute, die sitzen, Laute, die noch wackeln
+  wie weit der Lesewagen eingerichtet ist, wo der Lesewurm steht (Leben und Stufe), Laute,
+  die sitzen, Laute, die noch wackeln
   (geübt, mit Fehlern, sitzen noch nicht), oft Verwechseltes (ab zweimal), die liebsten
   Spiele, die Bestwerte auf Zeit und welche Spiele von selbst schwerer oder leichter
   geworden sind. Nur aus den Zählern im Kasten – kein Protokoll einzelner Antworten.
@@ -309,11 +350,12 @@ Ordner im Build** – `netlify/build.mjs` bleibt unverändert –, und offline f
 | `lesen-bilder.js` | die Bilder der Bücher und ihre Umschläge – für Regal, Geschichtenzug und Postkarten; gemalte Bilder über der Zeichnung, mit Rückfall |
 | `bilder/buecher/<buch>/` | die gemalten Bilder eines Buches (WebP), heute für die vier Kapitelbücher |
 | `lesen-detektive.js` | Steckbriefe, Detektivfälle und Postkarten (nur Inhalt) |
-| `lesen-stand.js` | Lesestand, Lesewurm, Lesewagen (`wagenStufe`), Verwechslungen, der Bericht für die Eltern, Einstellungen der Eltern, was als Nächstes dran ist |
+| `lesen-stand.js` | Lesestand, Lesewurm (Buchstaben, Leben und Stufe, die Marke für seine Runde), Lesewagen (`wagenStufe`), Verwechslungen, der Bericht für die Eltern, Einstellungen der Eltern, was als Nächstes dran ist |
 | `lesen-ton.js` | Laute (Aufnahme oder Sprachausgabe), Wörter und Sätze, mit Mitleuchten |
 | `lesen-laute.js` | die Aufnahmen der Laute als Daten: alle 36, zusammen gut 500 KB |
 | `laute-aufnehmen.html`, `laute-aufnehmen.js` | die Aufnahmeseite: aufnehmen, zuschneiden, `lesen-laute.js` erzeugen |
-| `lesen-art.js` | Lesewagen, Zimmer mit Namensschild, Pinnwand und Einrichtung (`AUSBAU`), Lesewurm, Trommel, Laut-Wagen, das Bild zu einem Satz (`buildSzene`) |
+| `lesen-art.js` | Lesewagen, Zimmer mit Namensschild, Pinnwand und Einrichtung (`AUSBAU`), der kleine Lesewurm vor jeder Runde, Trommel, Laut-Wagen, das Bild zu einem Satz (`buildSzene`) |
+| `lesen-wurm.js` | der Lesewurm im Zimmer: drei Leben zu je 15 Stufen, was er bei jeder Stufe sagt, die Missionskarte, die fertigen Leben auf dem Regal |
 | `lesen-spiel.js` | was alle Spiele der Leseecke teilen: Bühne, «Los», Ergebnis mit Sternen |
 | `train-leseecke.js` | das Zimmer als Ansicht der Bühne |
 | `silbenzug.*`, `buchstabenhaus.*`, `lautekuppeln.*`, `stimmtdas.*`, `buecher.*` | die Spiele aus Etappe 1 |

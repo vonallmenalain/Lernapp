@@ -571,9 +571,60 @@ let gemalteBuecher = 0;
     pruefe(!stand.lautSitzt("m", { laute: { m: { r: 5, tage: ["2026-10-01"] } } }), "Lesestand: ein Laut sitzt nach einem einzigen Tag");
     pruefe(!stand.lautSitzt("m", { laute: { m: { r: 2, tage: ["2026-10-01", "2026-10-02"] } } }), "Lesestand: ein Laut sitzt nach zwei Treffern");
     pruefe(stand.lautSitzt("m", { laute: { m: { r: 3, tage: ["2026-10-01", "2026-10-02"] } } }), "Lesestand: drei Treffer an zwei Tagen sitzen nicht");
-    // Der Lesewurm: ein Glied je zwanzig Wörter, höchstens sechzig.
+    // Die alten Glieder (je zwanzig Wörter, höchstens sechzig) zählen weiter.
     pruefe(stand.wurmGlieder({ woerter: 0 }) === 1 && stand.wurmGlieder({ woerter: 39 }) === 2 && stand.wurmGlieder({ woerter: 40 }) === 3 && stand.wurmGlieder({ woerter: 99999 }) === stand.GLIEDER_MAX,
-      "Lesestand: der Lesewurm wächst nicht je zwanzig Wörter");
+      "Lesestand: die Glieder zählen nicht je zwanzig Wörter");
+    // Der Lesewurm lebt von Buchstaben: jede fertige Runde einer, jede Runde,
+    // die er vorgeschlagen hat, einer mehr. Ein Buch zählt als Runde des
+    // Bücherregals, nicht noch einmal als Buch.
+    pruefe(stand.buchstaben({ spiele: { silbenzug: { runden: 3 }, buecher: { runden: 2 } }, buecher: { x: { mal: 2 } }, missionen: 4, woerter: 999 }) === 9,
+      "Lesestand: die Buchstaben des Lesewurms sind nicht Runden plus Missionen");
+    // Drei Leben zu je fünfzehn Stufen: 63 Buchstaben bis Stufe 15, acht mehr
+    // bis zum neuen Wurm, nach dem dritten Leben ist Schluss.
+    pruefe(stand.WURM_BEDARF.length === 14 && stand.WURM_BEDARF.reduce((a, b) => a + b, 0) === 63 && stand.WURM_WECHSEL === 8 && stand.WURM_LEBEN.join() === "falter,express,zauberer",
+      "Lesestand: die Schwellen des Lesewurms stimmen nicht");
+    const wurmBei = (n) => { const w = stand.wurmAus(n); return `${w.id}/${w.stufe} ${w.hat}/${w.braucht} r${w.regal}${w.fertig ? " fertig" : ""}`; };
+    [[0, "falter/1 0/1 r0"], [1, "falter/2 0/2 r0"], [2, "falter/2 1/2 r0"], [3, "falter/3 0/2 r0"], [62, "falter/14 7/8 r0"], [63, "falter/15 0/8 r0"], [70, "falter/15 7/8 r0"],
+      [71, "express/1 0/1 r1"], [134, "express/15 0/8 r1"], [142, "zauberer/1 0/1 r2"], [204, "zauberer/14 7/8 r2"], [205, "zauberer/15 0/0 r2 fertig"], [9999, "zauberer/15 0/0 r2 fertig"]]
+      .forEach(([n, soll]) => pruefe(wurmBei(n) === soll, `Lesewurm bei ${n} Buchstaben: ${wurmBei(n)} statt ${soll}`));
+    let nrVorher = 0;
+    for (let n = 0; n <= 260; n += 1) {
+      const w = stand.wurmAus(n);
+      if (w.nr < nrVorher || w.nr > nrVorher + 1 || w.nr !== w.leben * 15 + w.stufe || w.nr > 45 || (!w.fertig && (w.hat < 0 || w.hat >= w.braucht))) {
+        pruefe(false, `Lesewurm bei ${n} Buchstaben: Stufe ${w.nr} nach ${nrVorher} (${JSON.stringify(w)})`);
+        break;
+      }
+      nrVorher = w.nr;
+    }
+    pruefe(nrVorher === 45, `Lesewurm: nach 260 Buchstaben erst Stufe ${nrVorher} von 45`);
+    const mm = stand.merge({ missionen: 3 }, { missionen: 5 });
+    pruefe(mm.missionen === 5 && stand.merge({ missionen: 5 }, { missionen: 3 }).missionen === 5, `Lesestand: die Missionen werden nicht als Maximum zusammengeführt (${mm.missionen})`);
+    // Die Mission: Ein Tipp auf den Wurm merkt seinen Vorschlag; wird genau
+    // dieses Spiel fertig gespielt, gibt es einen Buchstaben mehr – einmal.
+    const missionenVorher = stand.stand().missionen;
+    stand.missionStarten("silbenzug");
+    pruefe(!stand.missionErfuellt("stimmtdas") && stand.missionErfuellt("silbenzug") && !stand.missionErfuellt("silbenzug") && stand.stand().missionen === missionenVorher + 1,
+      `Lesestand: die Mission zählt falsch (${missionenVorher} → ${stand.stand().missionen})`);
+    store.set(stand.MISSION_KEY, JSON.stringify({ id: "silbenzug", at: Date.now() - 4 * 60 * 60 * 1000 }));
+    pruefe(!stand.missionErfuellt("silbenzug"), "Lesestand: eine Mission von vor vier Stunden zählt noch");
+    // Die drei Leben in lesen-wurm.js: je fünfzehn Stufen mit Titel und dem,
+    // was der Lautsprecher sagt; der Name kommt an seine Stelle.
+    const { windowStub: z } = lade("lesen-art.js", "lesen-wurm.js");
+    const W = z.LernappLeseWurm;
+    pruefe(Boolean(W), "lesen-wurm.js legt nichts an");
+    if (W) {
+      pruefe(W.LEBEN.map((l) => l.id).join() === stand.WURM_LEBEN.join(), `lesen-wurm.js: die Leben (${W.LEBEN.map((l) => l.id).join()}) passen nicht zum Lesestand`);
+      W.LEBEN.forEach((leben, i) => {
+        pruefe(leben.stufen.length === 15 && leben.stufen.every((st) => st.titel && st.sagt), `lesen-wurm.js: ${leben.id} hat nicht fünfzehn Stufen mit Titel und Text`);
+        pruefe(i === W.LEBEN.length - 1 ? !leben.wechsel : /aufs Regal/.test(leben.wechsel || ""), `lesen-wurm.js: ${leben.id} sagt beim Wechsel aufs Regal nichts (oder als letztes Leben etwas)`);
+        pruefe(leben.name === stand.WURM_NAMEN[leben.id], `lesen-wurm.js: ${leben.id} heisst ${leben.name}, im Lesestand ${stand.WURM_NAMEN[leben.id]}`);
+      });
+      const satz = W.sagt(0, 5, "Moli");
+      pruefe(satz === "Moli hat Füsschen bekommen!" && W.sagt(0, 10, "") === "Pssst! Dein Lesewurm hat sich in Buchseiten eingesponnen." && !/\{wer\}/.test(W.LEBEN.flatMap((l) => l.stufen.map((st, n) => W.sagt(W.LEBEN.indexOf(l), n + 1, "X"))).join()),
+        `lesen-wurm.js: der Name kommt nicht an seine Stelle («${satz}»)`);
+      const ss = lies("lesen-wurm.js");
+      pruefe(!/wv-/.test(ss), "lesen-wurm.js: es stehen noch Klassen der Entwürfe darin (wv-)");
+    }
     stand.woerterGelesen(25);
     stand.buchGelesen("hase-rueebli", { sterne: 2 });
     stand.buchGelesen("hase-rueebli", { sterne: 1 });
@@ -816,13 +867,15 @@ let gemalteBuecher = 0;
     pruefe(stand.includes(`"${datei}`), `lesen-stand.js: SPIELE kennt ${datei} nicht`);
   }
   const index = lies("index.html");
-  ["lesen-inhalte.js", "lesen-stand.js", "lesen-art.js", "train-leseecke.js"].forEach((skript) => {
+  ["lesen-inhalte.js", "lesen-stand.js", "lesen-art.js", "lesen-wurm.js", "train-leseecke.js"].forEach((skript) => {
     const stelle = index.indexOf(`src="${skript}?v=`);
     pruefe(stelle >= 0 && stelle < index.indexOf('src="train-home.js?v='), `index.html: ${skript} fehlt oder steht nach train-home.js`);
   });
+  // lesen-wurm.js zeichnet mit lesen-art.js: erst danach geladen.
+  pruefe(index.indexOf('src="lesen-wurm.js?v=') > index.indexOf('src="lesen-art.js?v='), "index.html: lesen-wurm.js steht vor lesen-art.js");
   const sw = lies("service-worker.js");
   [...Object.keys(SEITEN).flatMap((s) => [`./${s}.html"`, `./${s}.js\${`]), "./leseschrift.css${", "./lesen-inhalte.js${", "./lesen-stand.js${", "./lesen-laute.js${",
-    "./lesen-ton.js${", "./lesen-art.js${", "./lesen-spiel.js${", "./lesen-buecher.js${", "./lesen-bilder.js${", "./lesen-detektive.js${", "./train-leseecke.js${"].forEach((eintrag) => {
+    "./lesen-ton.js${", "./lesen-art.js${", "./lesen-wurm.js${", "./lesen-spiel.js${", "./lesen-buecher.js${", "./lesen-bilder.js${", "./lesen-detektive.js${", "./train-leseecke.js${"].forEach((eintrag) => {
     pruefe(sw.includes(eintrag), `service-worker.js: ${eintrag.replace(/["${]/g, "")} fehlt in CORE_ASSETS`);
   });
   // Die Schrift liegt in der Datei selbst: Der Build kopiert keine Ordner

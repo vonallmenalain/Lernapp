@@ -11687,8 +11687,98 @@ body[data-page="train"] .train-stage[data-view="lesen"] ~ .help-voice {
   97% { transform: scaleY(0.1); }
 }
 
+/* --- Der Lesewurm in seinen drei Leben (lesen-wurm.js) --------------------
+   Was sich bewegt, bewegt sich über translate, scale und rotate an Gruppen
+   ohne eigene Lage – nie über transform: Das Attribut hält die Lage, und eine
+   Animation darauf ersetzte sie. Gruppen mit Lage werden nur verschoben. */
+.lw-nicken { animation: lw-nicken 3.2s ease-in-out infinite; transform-box: fill-box; transform-origin: 50% 90%; }
+@keyframes lw-nicken { 0%, 70%, 100% { rotate: 0deg; } 80% { rotate: -6deg; } 90% { rotate: 4deg; } }
+.lw-auge { animation: lw-blinzeln 5s infinite; transform-box: fill-box; transform-origin: center; }
+@keyframes lw-blinzeln { 0%, 94%, 100% { scale: 1 1; } 97% { scale: 1 0.1; } }
+.lw-funkeln, .lw-stabstern { animation: lw-funkeln 1.8s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+.lw-stabstern { animation-duration: 1.4s; }
+@keyframes lw-funkeln { 0%, 100% { scale: 0.5; opacity: 0.3; } 50% { scale: 1.1; opacity: 1; } }
+.lw-fuehlerkugel, .lw-eule { animation: lw-wippen 1.6s ease-in-out infinite; }
+.lw-eule { animation-duration: 3s; }
+@keyframes lw-wippen { 0%, 100% { translate: 0 0; } 50% { translate: 0 -3px; } }
+.lw-krume { animation: lw-krume 2.1s ease-in infinite; }
+@keyframes lw-krume { 0% { translate: 0 0; opacity: 0; } 15% { opacity: 1; } 100% { translate: -6px 26px; opacity: 0; } }
+.lw-zzz, .lw-tuut { animation: lw-zzz 2.6s ease-in-out infinite; }
+.lw-tuut { animation-duration: 1.6s; }
+@keyframes lw-zzz { 0%, 100% { translate: 0 0; opacity: 0.4; } 50% { translate: 4px -6px; opacity: 1; } }
+/* Der Kokon atmet, später wackelt er, und Licht scheint aus den Rissen. */
+.lw-atmen { animation: lw-atmen 3.4s ease-in-out infinite; transform-box: fill-box; transform-origin: 50% 100%; }
+@keyframes lw-atmen { 0%, 100% { scale: 1 1; } 50% { scale: 1.015 1.04; } }
+.lw-wackeln, .lw-geschenk-bald { animation: lw-wackeln 1.1s ease-in-out infinite; transform-box: fill-box; transform-origin: 50% 100%; }
+@keyframes lw-wackeln { 0%, 60%, 100% { rotate: 0deg; } 70% { rotate: -3deg; } 80% { rotate: 3deg; } 90% { rotate: -2deg; } }
+.lw-strahlen, .lw-buchlicht, .lw-regenbogen, .lw-schein { animation: lw-strahlen 1.1s ease-in-out infinite; }
+.lw-buchlicht { animation-duration: 2.4s; }
+.lw-regenbogen { animation-duration: 4s; }
+.lw-schein { animation-duration: 4.5s; }
+@keyframes lw-strahlen { 0%, 100% { opacity: 0.35; } 50% { opacity: 0.9; } }
+.lw-schweben, .lw-schwebebuch { animation: lw-schweben 2.6s ease-in-out infinite; }
+.lw-schwebebuch { animation-duration: 2.2s; }
+@keyframes lw-schweben { 0%, 100% { translate: 0 0; } 50% { translate: 0 -10px; } }
+.lw-falterschatten { animation: lw-schattenatmen 2.6s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+@keyframes lw-schattenatmen { 0%, 100% { scale: 1; } 50% { scale: 0.85; } }
+/* Die Flügel schlagen um den Körper (x = 0 der Flügelgruppe). Auf dem Regal
+   gehen sie nur ab und zu auf und zu. */
+.lw-fluegel, .lw-fluegel-ruhig { transform-box: view-box; transform-origin: 0 -70px; }
+.lw-fluegel { animation: lw-flattern 0.5s ease-in-out infinite alternate; }
+@keyframes lw-flattern { from { scale: 1 1; } to { scale: 0.55 1; } }
+.lw-fluegel-ruhig { animation: lw-ruhig 6s ease-in-out infinite; }
+@keyframes lw-ruhig { 0%, 70%, 94%, 100% { scale: 1 1; } 76% { scale: 0.45 1; } 82% { scale: 1 1; } 88% { scale: 0.55 1; } }
+.lw-rad, .lw-kreisen { animation: lw-drehen 0.9s linear infinite; transform-box: fill-box; transform-origin: center; }
+.lw-kreisen { animation-duration: 7s; transform-box: view-box; transform-origin: 0 0; }
+@keyframes lw-drehen { to { rotate: 360deg; } }
+.lw-rauch { animation: lw-rauch 2.4s ease-out infinite; transform-box: fill-box; transform-origin: center; }
+.lw-rauch-1 { animation-delay: -0.8s; }
+.lw-rauch-2 { animation-delay: -1.6s; }
+@keyframes lw-rauch { 0% { translate: 0 6px; scale: 0.6; opacity: 0; } 25% { opacity: 0.95; } 100% { translate: 6px -14px; scale: 1.3; opacity: 0; } }
+.lw-fahren { animation: lw-ruckeln 0.45s ease-in-out infinite; }
+@keyframes lw-ruckeln { 0%, 100% { translate: 0 0; } 50% { translate: 0 -2px; } }
+.lw-winken { animation: lw-winken 0.9s ease-in-out infinite; transform-box: fill-box; transform-origin: 0% 100%; }
+@keyframes lw-winken { 0%, 100% { rotate: 0deg; } 50% { rotate: -35deg; } }
+.lw-fahne { animation: lw-fahne 1.2s ease-in-out infinite; transform-box: fill-box; transform-origin: 0% 50%; }
+@keyframes lw-fahne { 0%, 100% { scale: 1 1; } 50% { scale: 0.85 1.08; } }
+.lw-buchstabe { animation: lw-aufsteigen 2.7s ease-out infinite; }
+@keyframes lw-aufsteigen { 0% { translate: 0 6px; opacity: 0; } 20% { opacity: 1; } 100% { translate: 0 -46px; opacity: 0; } }
+.lw-teppich { animation: lw-teppich 1.8s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+@keyframes lw-teppich { 0%, 100% { scale: 1 1; } 50% { scale: 1 1.25; } }
+.lw-schalende { animation: lw-schal 1.4s ease-in-out infinite; }
+@keyframes lw-schal { 0%, 100% { translate: 0 0; } 50% { translate: -3px 2px; } }
+.lw-gucken { animation: lw-gucken 3.6s ease-in-out infinite; }
+@keyframes lw-gucken { 0%, 100% { translate: 0 6px; } 30%, 75% { translate: 0 -4px; } }
+/* Die Missionskarte: Sie wiegt sich, der grüne Knopf pulsiert wie vor jeder
+   Runde, neue Buchstaben springen in die Leiste, und ist sie voll, geht das
+   Geschenk auf. */
+.lw-blase { animation: lw-blase 3s ease-in-out infinite; }
+@keyframes lw-blase { 0%, 100% { translate: 0 0; } 50% { translate: 0 -4px; } }
+.lw-los { animation: lw-puls 1.6s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+@keyframes lw-puls { 0%, 100% { scale: 1; } 50% { scale: 1.12; } }
+.lw-feld-neu { animation: lw-feld 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both; transform-box: fill-box; transform-origin: center; }
+@keyframes lw-feld { from { scale: 0; rotate: -90deg; opacity: 0; } to { scale: 1; rotate: 0deg; opacity: 1; } }
+.lw-geschenk-auf { animation: lw-geschenk-auf 0.7s ease-in-out both; transform-box: fill-box; transform-origin: 50% 100%; }
+@keyframes lw-geschenk-auf { 0% { rotate: 0deg; scale: 1; } 20% { rotate: -14deg; } 40% { rotate: 12deg; scale: 1.15; } 60% { rotate: -8deg; scale: 1.3; } 100% { rotate: 0deg; scale: 1.6; opacity: 0; } }
+/* Die Verwandlung: Der alte Wurm schrumpft weg, der neue springt hervor, und
+   Sterne und Buchstaben fliegen auseinander. */
+.lw-wurm-inhalt { transform-box: fill-box; transform-origin: 50% 100%; }
+.lw-platz.is-weg .lw-wurm-inhalt { animation: lw-weg 0.45s ease-in both; }
+@keyframes lw-weg { to { scale: 0.2; opacity: 0; } }
+.lw-platz.is-neu .lw-wurm-inhalt { animation: lw-da 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+@keyframes lw-da { from { scale: 0.3; opacity: 0; } to { scale: 1; opacity: 1; } }
+.lw-knall-teil { animation: lw-knall 1.1s cubic-bezier(0.2, 0.7, 0.3, 1) both; }
+@keyframes lw-knall { from { translate: 0 0; opacity: 1; } 70% { opacity: 1; } to { translate: var(--dx) var(--dy); opacity: 0; } }
+.lw-blitz { animation: lw-blitz 0.9s ease-out both; transform-box: fill-box; transform-origin: center; }
+@keyframes lw-blitz { from { scale: 0.3; opacity: 1; } to { scale: 2.6; opacity: 0; } }
+/* Ist eben ein fertiger Wurm aufs Regal gezogen, leuchtet er ein paar Mal. */
+.lw-vitrine .is-neu { animation: lese-ausbau-neu 1.2s ease-in-out 4; }
+
 @media (prefers-reduced-motion: reduce) {
   .lesewagen-rauch, .lese-ort-weiter .wurm-gesicht, .lesewurm.is-gewachsen, .wurm-auge, .leseecke, .lese-ausbau.is-neu, .lese-birne, .lesezimmer-svg.is-huepfen .lese-ort, .lesezimmer-svg.is-huepfen .lese-ort .lese-schatten { animation: none; }
+  /* Der Lesewurm steht still; neue Buchstaben und die Verwandlung erscheinen
+     ohne Bewegung. */
+  .lesezimmer-svg [class*="lw-"], .lesezimmer-svg .lw-platz .lw-wurm-inhalt { animation: none !important; }
   .train-stage[data-lesen-ein] .lesewagen-knopf { transition: none; }
 }
 

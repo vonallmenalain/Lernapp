@@ -11,8 +11,9 @@
  *               wurde – und die Hörspiele brauchen die Stimme vom ersten
  *               Wort an.
  *   Ergebnis    Sterne statt Bestenliste, und der Lesestand wird geschrieben:
- *               Runde gespielt, Wörter für den Lesewurm – und die Sterne,
- *               von denen das Spiel in kleinen Schritten mitwächst.
+ *               Runde gespielt – ein Buchstabe für den Lesewurm, zwei, wenn er
+ *               die Runde vorgeschlagen hat –, die gelesenen Wörter und die
+ *               Sterne, von denen das Spiel in kleinen Schritten mitwächst.
  *   auf Zeit    ab Stufe «schwer» bieten «Stimmt das?» und «Stolperwörter»
  *               neben «Los» eine Runde auf Zeit an: 45 Sekunden, so viele
  *               Sätze wie möglich – das übt Tempo, ohne das Verstehen
@@ -107,14 +108,14 @@
 
   // Das Ende einer Runde: Lesestand schreiben, Sterne zeigen, vorlesen.
   //   woerter  so viele Wörter hat das Kind in dieser Runde gelesen oder
-  //            gehört – davon wächst der Lesewurm
+  //            gehört – für den Bericht der Eltern
   //   stars    wenn die Sterne anders gerechnet werden (ein Buch)
   //   onBack   wohin der Zurück-Knopf der Tafel führt; sonst in den Lesewagen
   //   zeit     eine Runde auf Zeit: von ist dann das Ziel für drei Sterne,
   //            und das Ergebnis zählt als Bestwert auf Zeit
   function ergebnis(shell, { id, punkte, von, woerter = 0, detail, speech, label = "Geschafft!", stars = null, onBack = null, zeit = false }) {
     const s = stand();
-    const glieder = s?.wurmGlieder?.() || 1;
+    const vorher = s?.wurmStand?.() || null;
     const bisher = Number(s?.stand?.().spiele?.[id]?.zeit) || 0;
     const sternZahl = stars ?? sterne(punkte, von);
     // Von den Sternen einer gewöhnlichen Runde wächst das Spiel mit
@@ -123,8 +124,19 @@
     if (zeit) s?.zeitRunde?.(id, { punkte });
     else s?.spielRunde?.(id, { punkte, sterne: stars === null ? sternZahl : null });
     if (woerter) s?.woerterGelesen?.(woerter);
-    const neu = s?.wurmGlieder?.() || 1;
-    const wurm = neu > glieder ? " Dein Lesewurm ist gewachsen!" : "";
+    // Hat der Wurm diese Runde vorgeschlagen (ein Tipp auf ihn im Lesewagen),
+    // bekommt er einen Buchstaben mehr. Verwandelt er sich, verrät die Tafel
+    // nicht wie: Das zeigt der Lesewagen.
+    const mission = Boolean(s?.missionErfuellt?.(id));
+    const nachher = s?.wurmStand?.() || null;
+    const getauft = s?.wurmName?.() || "";
+    const name = getauft ? (s?.zeige?.(getauft) ?? getauft) : "";
+    let wurm = "";
+    if (vorher && nachher && !vorher.fertig) {
+      wurm = nachher.nr > vorher.nr
+        ? ` ${name || "Dein Lesewurm"} hat eine Überraschung für dich – schau im Lesewagen nach!`
+        : ` ${mission ? "Zwei Buchstaben" : "Ein Buchstabe"} für ${name || "deinen Lesewurm"}!`;
+    }
     // Ein neuer Bestwert auf Zeit – nicht schon beim allerersten Mal.
     const rekord = zeit && bisher > 0 && punkte > bisher ? " Neuer Rekord!" : "";
     const notiz = [rekord.trim(), wurm.trim()].filter(Boolean).join(" ");

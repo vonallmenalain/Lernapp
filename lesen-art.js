@@ -7,8 +7,11 @@
  *   buildLesewagen()        der alte Wagen auf dem Abstellgleis, für das
  *                           Startbild
  *   buildLesezimmer(stand)  der Wagen von innen: Sessel, Regal, Buchstabenhaus,
- *                           Trommel, Wortkiste, Spielzeugzug
- *   buildLesewurm(glieder)  der Lesewurm – je gelesene Wörter ein Glied mehr
+ *                           Trommel, Wortkiste, Spielzeugzug; auf dem Sofa der
+ *                           Lesewurm in seiner Stufe mit der Missionskarte
+ *                           (gezeichnet in lesen-wurm.js)
+ *   buildLesewurm(glieder)  der kleine Lesewurm – vor jeder Runde neben «Los»,
+ *                           bei «Mein Name», im Fenster des Lesewagens
  *   buildTrommel(), buildLautWagen(text), buildDing(id)  Teile der Spiele
  *
  * Zeichnet nur; was ein Tipp tut, entscheiden train-leseecke.js und die Spiele.
@@ -474,21 +477,24 @@
       el("path", { d: "M-14 -6 L-7 3 L-21 3 Z M20 0 L26 7 L14 7 Z", fill: "#ffffff" }),
       el("circle", { cx: 27, cy: -16, r: 8, fill: "#ffd166" }),
     ])],
-    stehlampe: () => [group({ transform: "translate(812 0)" }, [
-      el("ellipse", { cx: 0, cy: 380, rx: 64, ry: 56, fill: "url(#lese-licht)", opacity: "0.7" }),
-      el("ellipse", { cx: 0, cy: 522, rx: 28, ry: 7, fill: FARBE.tinte }),
-      el("rect", { x: -3, y: 332, width: 6, height: 190, fill: FARBE.tinte }),
-      el("path", { d: "M-34 338 L-22 288 L22 288 L34 338 Z", fill: "#00a5b5" }),
-      el("ellipse", { cx: 0, cy: 338, rx: 34, ry: 6, fill: shade("#00a5b5", -0.2) }),
+    // Eine kleine Stehlampe neben dem Sofa – so niedrig, dass sie unter der
+    // Missionskarte bleibt.
+    stehlampe: () => [group({ transform: "translate(836 0)" }, [
+      el("ellipse", { cx: 0, cy: 446, rx: 58, ry: 48, fill: "url(#lese-licht)", opacity: "0.7" }),
+      el("ellipse", { cx: 0, cy: 522, rx: 24, ry: 6, fill: FARBE.tinte }),
+      el("rect", { x: -3, y: 404, width: 6, height: 118, fill: FARBE.tinte }),
+      el("path", { d: "M-30 408 L-20 366 L20 366 L30 408 Z", fill: "#00a5b5" }),
+      el("ellipse", { cx: 0, cy: 408, rx: 30, ry: 5, fill: shade("#00a5b5", -0.2) }),
     ])],
-    stapel: () => [group({ transform: "translate(876 0)" }, [
+    stapel: () => [group({ transform: "translate(904 0)" }, [
       el("rect", { x: -32, y: 507, width: 64, height: 13, rx: 3, fill: "#2f6f8f" }),
       el("rect", { x: -29, y: 494, width: 58, height: 13, rx: 3, fill: "#e8543f", transform: "rotate(-3 0 500)" }),
       el("rect", { x: -30, y: 481, width: 60, height: 13, rx: 3, fill: "#f5a623", transform: "rotate(2 0 487)" }),
       el("rect", { x: -26, y: 468, width: 52, height: 13, rx: 3, fill: "#3fa34d", transform: "rotate(-4 0 474)" }),
       ...[507, 494, 481, 468].map((y) => el("rect", { x: 14, y: y + 3, width: 10, height: 7, rx: 2, fill: "#ffffff", opacity: "0.6" })),
     ])],
-    uhr: () => [group({ transform: "translate(1100 112)" }, [
+    // Über dem linken Fenster: Oben auf dem Regal stehen die fertigen Würmer.
+    uhr: () => [group({ transform: "translate(400 70) scale(0.72)" }, [
       el("circle", { cx: 0, cy: 0, r: 36, fill: "#fff6e0", stroke: FARBE.holzDunkel, "stroke-width": 7 }),
       ...[0, 90, 180, 270].map((w) => el("rect", { x: -2, y: -29, width: 4, height: 8, rx: 2, fill: FARBE.tinte, transform: `rotate(${w})` })),
       el("path", { d: "M0 0 L0 -20 M0 0 L14 6", stroke: FARBE.tinte, "stroke-width": 4, "stroke-linecap": "round" }),
@@ -561,10 +567,20 @@
     return group({ class: `lese-ausbau${nr >= neuAb ? " is-neu" : ""}`, "data-ausbau": id }, EINRICHTUNG[id]());
   }
 
-  //   stand     aus lesen-stand.js: glieder (Lesewurm), gelesen (Bücher),
-  //             wurmName (wie das Kind ihn getauft hat), ausbau (so viele
-  //             Dinge der Einrichtung sind da), neuAb (ab diesem leuchten sie)
-  function buildLesezimmer({ glieder = 1, gelesen = 0, wurmName = "", ausbau = 0, neuAb = Infinity } = {}) {
+  //   stand     aus lesen-stand.js: glieder (der Lesewurm, wie er früher
+  //             wuchs), gelesen (Bücher), wurmName (wie das Kind ihn getauft
+  //             hat), ausbau (so viele Dinge der Einrichtung sind da), neuAb
+  //             (ab diesem leuchten sie)
+  //   wurm      wo der Lesewurm steht (lesen-stand.js, wurmStand): leben,
+  //             stufe, regal; dazu was gerade geschieht – neu (er ist eben
+  //             erschienen), weg (er verschwindet), knall (Sterne fliegen),
+  //             regalNeu (auf dem Regal ist eben einer eingezogen)
+  //   mission   die Missionskarte (lesen-wurm.js, sprechblase): bild, name,
+  //             hat, braucht, neuAb, geschenkAuf, zu
+  // Ohne lesen-wurm.js oder ohne wurm sitzt der Lesewurm wie früher im
+  // Sessel.
+  function buildLesezimmer({ glieder = 1, gelesen = 0, wurmName = "", ausbau = 0, neuAb = Infinity, wurm = null, mission = null } = {}) {
+    const W = wurm ? window.LernappLeseWurm : null;
     const da = (id) => einrichtung(id, { ausbau, neuAb });
     const svg = el("svg", { viewBox: `0 0 ${ZIMMER_W} ${ZIMMER_H}`, class: "lesezimmer-svg", role: "img", "aria-label": "Im Lesewagen" });
     const defs = el("defs", {}, [
@@ -574,6 +590,7 @@
       ]),
     ]);
     svg.append(defs);
+    if (W) [...W.defs().childNodes].forEach((knoten) => defs.append(knoten));
     // Wand, Holzleisten, Boden
     svg.append(el("rect", { x: -400, y: -200, width: 2000, height: 1100, fill: FARBE.wand }));
     for (let x = -400; x < 1600; x += 60) svg.append(el("rect", { x, y: 70, width: 2, height: 470, fill: shade(FARBE.wand, -0.08) }));
@@ -605,16 +622,40 @@
 
     // Die Dinge, die etwas tun. Beim Hereinkommen hüpfen sie (Stylesheet,
     // lese-ort-huepft); ihr Schatten am Boden (lese-schatten) bleibt liegen.
-    const ort = (id, label, transform, kinder) => group({ class: `lese-ort lese-ort-${id}`, "data-ort": id, transform, role: "button", tabindex: "0", "aria-label": label }, kinder);
+    //   extra  weitere Attribute, etwa data-wie: Der Knopf tut dasselbe wie
+    //          der Ort mit diesem Namen.
+    const ort = (id, label, transform, kinder, extra = {}) => group({ class: `lese-ort lese-ort-${id}`, "data-ort": id, transform, role: "button", tabindex: "0", "aria-label": label, ...extra }, kinder);
 
     svg.append(ort("buchstaben", "Das Buchstabenhaus", "translate(48 150)", buchstabenhausWand()));
-    svg.append(ort("buecher", "Das Bücherregal", "translate(940 172)", buecherregal(gelesen)));
+    // Auf dem Regal stehen die fertigen Würmer: Sie gehören zum Regal und
+    // hüpfen mit ihm (die Zeichnung des Regals allein: lese-ort-bild).
+    svg.append(ort("buecher", "Das Bücherregal", "translate(940 172)", [
+      group({ class: "lese-ort-bild" }, buecherregal(gelesen)),
+      W ? W.vitrine(wurm.regal || 0, { neu: Boolean(wurm.regalNeu) }) : null,
+    ]));
     svg.append(ort("detektiv", "Die Pinnwand der Lesedetektive", "translate(595 148)", pinnwand()));
-    svg.append(ort("weiter", "Der Lesewurm im Sessel: Er sucht dir etwas aus", "translate(590 400)", [
+    const wurmTeile = W
+      ? [
+        group({ transform: "translate(0 92)", class: ["lw-platz", wurm.neu ? "is-neu" : "", wurm.weg ? "is-weg" : ""].filter(Boolean).join(" ") }, [W.zeichne(wurm.leben, wurm.stufe)]),
+        wurm.knall ? group({ transform: "translate(10 -10)" }, [W.knall()]) : null,
+      ]
+      : [group({ transform: "translate(-10 70)" }, [buildLesewurm(glieder, { r: 24, buch: true })])];
+    const wurmLabel = mission
+      ? `Der Lesewurm auf dem Sofa schlägt vor: ${mission.name}. Antippen, und es geht los.`
+      : "Der Lesewurm im Sessel: Er sucht dir etwas aus";
+    // Die Missionskarte über dem Wurm ist ein eigener Knopf und tut dasselbe
+    // wie er (data-wie; train-leseecke.js). Hinge sie mit am Sofa, reichte
+    // dessen Kasten von der Karte bis zum Boden – über Pinnwand und Wortkiste.
+    // Sie steht so hoch, dass der Wurm sie in keiner Stufe verdeckt, und
+    // hinter ihm: Reckt er Fühler oder Hut, stehen sie vor ihrem Zipfel.
+    if (W && mission) {
+      svg.append(ort("mission", `Die Missionskarte: ${mission.name}. Antippen, und es geht los.`, "translate(722 320)", [W.sprechblase(mission)], { "data-wie": "weiter" }));
+    }
+    svg.append(ort("weiter", wurmLabel, "translate(590 400)", [
       ...sessel(),
       da("kissen"),
       da("decke"),
-      group({ transform: "translate(-10 70)" }, [buildLesewurm(glieder, { r: 24, buch: true })]),
+      ...wurmTeile,
     ]));
     svg.append(ort("wurmname", wurmName ? `Das Schild: Der Lesewurm heisst ${wurmName}` : "Das Schild: Hier bekommt der Lesewurm seinen Namen", "translate(322 470)", namensschild(wurmName)));
     svg.append(ort("silben", "Die Silbentrommel", "translate(150 540)", trommel()));

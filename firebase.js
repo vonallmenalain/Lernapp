@@ -3146,11 +3146,20 @@
     }
     const laute = (ids) => (ids.length ? ids.map((id) => escapeHtml(lautZeichen(id))).join(" · ") : "–");
     const zeile = (titel, wert) => `<div class="lesebericht-zeile"><span>${escapeHtml(titel)}</span><strong>${wert}</strong></div>`;
+    // Der Lesewurm: in welchem seiner drei Leben und auf welcher Stufe.
+    const wurmText = (w) => {
+      const namen = lese.WURM_NAMEN || {};
+      if (!w) return "–";
+      if (w.fertig) return "Alle drei Leben geschafft";
+      const fertig = (lese.WURM_LEBEN || []).slice(0, w.regal).map((id) => namen[id] || id).join(" und ");
+      return `${namen[w.id] || w.id}, Stufe ${w.stufe} von 15${fertig ? ` (fertig: ${fertig})` : ""}`;
+    };
     const zeilen = [
       zeile("Gelesene oder gehörte Wörter", escapeHtml(String(b.woerter))),
       zeile("Bücher gelesen", escapeHtml(b.buecherGold ? `${b.buecher}, davon ${b.buecherGold} mit allen Fragen richtig` : String(b.buecher))),
       zeile("Runden in den Lesespielen", escapeHtml(String(b.runden))),
       zeile("Lesewagen eingerichtet", escapeHtml(`${b.wagen} von ${b.wagenVon}`)),
+      zeile("Lesewurm", escapeHtml(wurmText(b.wurm))),
       zeile("Laute, die sitzen", laute(b.sicher)),
       zeile("Laute, die noch wackeln", laute(b.wackelig)),
     ];

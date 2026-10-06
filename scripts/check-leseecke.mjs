@@ -39,6 +39,12 @@
  *                 an: ohne Vorlesen, mit eigenem Bestwert im Lesestand.
  *   Mitwachsen    Ein Spiel, das einen Schritt gewachsen ist, spielt eine
  *                 Stufe höher als das Kind; eine Runde zählt für die Serie.
+ *   Lesewurm      Auf dem Sofa sitzt er in der Stufe, die der Lesestand sagt;
+ *                 die Missionskarte zeigt, was er vorschlägt, und so viele
+ *                 Buchstaben, wie er hat. Ein Tipp auf ihn merkt die Mission,
+ *                 und die Runde dieses Spiels bringt zwei Buchstaben. Nach dem
+ *                 Lesefalter zieht er aufs Regal und ein neuer schlüpft, dann
+ *                 der Express, zuletzt der Zauberer – danach keine Leiste mehr.
  *   Ruhe          Zurück aus einem Spiel, mit Konto: Das Zimmer steht einmal
  *                 da, auch wenn sich die Cloud nacheinander meldet; was sie am
  *                 Zimmer ändert, kommt an Ort und Stelle hinein.
@@ -229,6 +235,12 @@ try {
     ansicht: document.querySelector(".train-stage")?.dataset.view,
     orte: [...document.querySelectorAll(".lesezimmer-svg [data-ort]")].map((o) => o.dataset.ort).sort().join(","),
     wurm: Boolean(document.querySelector(".lese-ort-weiter .lesewurm")),
+    // Ein Kind ohne Runde: der Lesefalter in Stufe 1 (das Buch mit dem Loch),
+    // und die Karte schlägt vor, was naechstes() sagt.
+    stufe: `${document.querySelector(".lese-ort-weiter .lesewurm")?.dataset.leben}/${document.querySelector(".lese-ort-weiter .lesewurm")?.dataset.stufe}`,
+    mission: document.querySelector(".lese-ort-mission .lw-missionsname")?.textContent || "",
+    missionSoll: (() => { const n = window.LernappLeseStand.naechstes(); return n.id === "buecher" ? "Ein Buch" : n.titel; })(),
+    leiste: `${document.querySelector(".lese-ort-mission .lw-blase")?.dataset.hat}/${document.querySelector(".lese-ort-mission .lw-blase")?.dataset.braucht}`,
     hilfe: window.LernappKids?.currentHelp?.() || "",
     zurueck: (() => { const k = document.querySelector(".stage-back"); return Boolean(k && !k.hidden && k.getBoundingClientRect().width > 20); })(),
     // Durch beide Fenster sieht man dieselbe Landschaft: eine Sonne, und die
@@ -247,8 +259,11 @@ try {
   }));
   if (zimmer.ansicht !== "lesen") fehlt(`Lesewagen: nach dem Tipp ist die Ansicht ${zimmer.ansicht}, nicht lesen`);
   if (zimmer.sonnen !== 1 || !zimmer.sonneImFenster) fehlt(`Lesewagen: ${zimmer.sonnen} Sonnen in den Fenstern${zimmer.sonneImFenster ? "" : ", und keine steht in einem Fenster"}`);
-  if (zimmer.orte !== "buchstaben,buecher,detektiv,saetze,silben,weiter,woerter,wurmname") fehlt(`Lesewagen: die Orte sind ${zimmer.orte}`);
+  if (zimmer.orte !== "buchstaben,buecher,detektiv,mission,saetze,silben,weiter,woerter,wurmname") fehlt(`Lesewagen: die Orte sind ${zimmer.orte}`);
   if (!zimmer.wurm) fehlt("Lesewagen: der Lesewurm sitzt nicht im Sessel");
+  if (zimmer.stufe !== "falter/1") fehlt(`Lesewagen: ohne eine Runde sitzt der Lesewurm als ${zimmer.stufe} auf dem Sofa statt als Lesefalter in Stufe 1`);
+  if (!zimmer.mission || zimmer.mission !== zimmer.missionSoll) fehlt(`Lesewagen: die Missionskarte zeigt «${zimmer.mission}» statt «${zimmer.missionSoll}»`);
+  if (zimmer.leiste !== "0/1") fehlt(`Lesewagen: die Leiste der Missionskarte steht auf ${zimmer.leiste} statt 0/1`);
   if (zimmer.huepft) fehlt("Lesewagen ohne Bewegung: die Dinge im Zimmer hüpfen trotzdem");
   if (!zimmer.zurueck) fehlt("Lesewagen: kein Pfeil zurück an den Zug");
   if (zimmer.hilfe && !/Lesewagen/.test(zimmer.hilfe)) fehlt(`Lesewagen: der Lautsprecher sagt etwas anderes: ${zimmer.hilfe.slice(0, 60)}`);
@@ -296,15 +311,29 @@ try {
   if (await page.locator(".lese-wahl").count()) fehlt("Auswahl im Lesewagen: das Kreuz schliesst sie nicht");
   if (!page.url().includes("index.html")) fehlt("Auswahl im Lesewagen: das Kreuz öffnet ein Spiel");
 
-  // Der Lesewurm im Sessel wählt etwas, das es gibt.
-  await oeffne("index.html?lesen=1", "document.querySelector('.lesezimmer-svg')");
-  await page.locator('.lesezimmer-svg [data-ort="weiter"]').click({ force: true });
+  // Der Lesewurm im Sessel wählt etwas, das es gibt – ein Tipp auf ihn oder
+  // auf seine Karte führt dorthin und merkt sich die Mission.
   const spielSeiten = new RegExp(`(${katalog.map((s) => s.page.replace(".html", "")).join("|")})\\.html`);
-  await page.waitForURL(spielSeiten, { timeout: 8000 }).catch(() => {});
-  if (!spielSeiten.test(page.url())) fehlt(`Lesewurm im Sessel: führt nach ${page.url()}`);
+  for (const [ort, wer] of [["mission", "Missionskarte"], ["weiter", "Lesewurm im Sessel"]]) {
+    await page.evaluate(() => localStorage.removeItem("lernapp.lesen.mission"));
+    await oeffne("index.html?lesen=1", "document.querySelector('.lesezimmer-svg')");
+    const vorgeschlagen = await page.evaluate(() => window.LernappLeseStand.naechstes());
+    await page.locator(`.lesezimmer-svg [data-ort="${ort}"]`).click({ force: true });
+    await page.waitForURL(spielSeiten, { timeout: 8000 }).catch(() => {});
+    if (!spielSeiten.test(page.url())) fehlt(`${wer}: führt nach ${page.url()}`);
+    else if (!page.url().includes(vorgeschlagen.page.split("?")[0])) fehlt(`${wer}: die Karte schlägt ${vorgeschlagen.page} vor, der Tipp führt nach ${page.url()}`);
+    const gemerkt = await page.evaluate(() => JSON.parse(localStorage.getItem("lernapp.lesen.mission") || "null"));
+    if (gemerkt?.id !== vorgeschlagen.id) fehlt(`${wer}: der Tipp merkt die Mission nicht (${JSON.stringify(gemerkt)} statt ${vorgeschlagen.id})`);
+  }
 
   // --- 3. Silbenzug: eine ganze Runde ----------------------------------------------
+  // Als Mission: Der Wurm hat den Silbenzug vorgeschlagen, also bringt die
+  // Runde zwei Buchstaben, und die Tafel sagt es.
   await oeffne("silbenzug.html", "window.LernappSilbenzug");
+  const vorMission = await page.evaluate(() => {
+    localStorage.setItem("lernapp.lesen.mission", JSON.stringify({ id: "silbenzug", at: Date.now() }));
+    return { buchstaben: window.LernappLeseStand.buchstaben(), missionen: window.LernappLeseStand.stand().missionen };
+  });
   await page.locator(".lese-los-knopf").click();
   for (let i = 0; i < 6; i += 1) {
     await page.waitForFunction(() => window.LernappSilbenzug.wort() && !document.querySelector(".silben-abfahrt")?.disabled, null, { timeout: 8000 }).catch(() => {});
@@ -320,7 +349,15 @@ try {
     sterne: document.querySelectorAll(".cm-overlay .cm-result-star.is-on").length,
     stand: window.LernappLeseStand.stand().spiele.silbenzug,
     gespielt: window.LernappEntitlement.gameGespielt("silbenzug.html"),
+    buchstaben: window.LernappLeseStand.buchstaben(),
+    missionen: window.LernappLeseStand.stand().missionen,
+    mission: localStorage.getItem("lernapp.lesen.mission"),
+    notiz: document.querySelector(".cm-overlay .cm-runs")?.textContent || "",
   }));
+  if (silbenzug.buchstaben !== vorMission.buchstaben + 2 || silbenzug.missionen !== vorMission.missionen + 1 || silbenzug.mission) {
+    fehlt(`Silbenzug als Mission: ${silbenzug.buchstaben - vorMission.buchstaben} Buchstaben statt zwei (Missionen ${vorMission.missionen} → ${silbenzug.missionen}, gemerkt: ${silbenzug.mission})`);
+  }
+  if (!/Zwei Buchstaben|Überraschung/.test(silbenzug.notiz)) fehlt(`Silbenzug als Mission: die Tafel sagt nicht, was der Wurm bekommt («${silbenzug.notiz}»)`);
   if (silbenzug.sterne !== 3) fehlt(`Silbenzug: nach sechs richtigen Zügen ${silbenzug.sterne} Sterne`);
   if (silbenzug.stand?.runden !== 1 || silbenzug.stand?.best !== 6) fehlt(`Silbenzug: im Lesestand steht ${JSON.stringify(silbenzug.stand)}`);
   if (!silbenzug.gespielt) fehlt("Silbenzug: die Schnupperrunde ist nach der Runde nicht verbraucht");
@@ -1668,15 +1705,115 @@ try {
   if (!weiter) fehlt("Bücher ?weiter=1: es geht kein Buch auf");
   else if (weiter === "hase-rueebli") fehlt("Bücher ?weiter=1: es geht das Buch auf, das eben gelesen wurde");
 
-  // --- 8. Der Lesewurm ist gewachsen ---------------------------------------------------
+  // --- 8. Der Lesewurm wächst ------------------------------------------------------------
+  // Seit dem letzten Besuch sind Runden fertig geworden (das Buch, die Spiele):
+  // Das Zimmer zeigt ihn in der Stufe aus dem Lesestand, die Karte so viele
+  // Buchstaben, wie er hat, und entweder springen neue in die Leiste, oder er
+  // hat sich verwandelt.
+  const imZimmer = () => page.evaluate(() => {
+    const w = document.querySelector(".lese-ort-weiter .lesewurm");
+    const blase = document.querySelector(".lese-ort-mission .lw-blase");
+    return {
+      ist: `${w?.dataset.leben}/${w?.dataset.stufe}`,
+      leiste: `${blase?.dataset.hat}/${blase?.dataset.braucht}`,
+      geschenk: Boolean(blase?.querySelector(".lw-geschenk")),
+      soll: window.LernappLeseStand.wurmStand(),
+      regal: [...document.querySelectorAll(".lese-ort-buecher [data-regal]")].map((n) => n.dataset.regal).join(","),
+      neu: Boolean(document.querySelector(".lesezimmer-svg .lw-platz.is-neu, .lesezimmer-svg .lw-feld-neu")),
+      regalNeu: Boolean(document.querySelector(".lesezimmer-svg .lw-vitrine .is-neu")),
+      knall: Boolean(document.querySelector(".lesezimmer-svg .lw-knall")),
+      hilfe: window.LernappKids?.currentHelp?.() || "",
+    };
+  });
   await oeffne("index.html?lesen=1", "document.querySelector('.lesezimmer-svg')");
-  const wurm = await page.evaluate(() => ({
-    glieder: Number(document.querySelector(".lese-ort-weiter .lesewurm")?.dataset.glieder || 0),
-    gewachsen: Boolean(document.querySelector(".lesewurm.is-gewachsen")),
-    soll: window.LernappLeseStand.wurmGlieder(),
-  }));
-  if (wurm.glieder !== wurm.soll || wurm.glieder < 2) fehlt(`Lesewurm: ${wurm.glieder} Glieder gezeichnet, ${wurm.soll} im Lesestand`);
-  if (!wurm.gewachsen) fehlt("Lesewurm: nach dem Buch zeigt das Zimmer nicht, dass er gewachsen ist");
+  const wurm = await imZimmer();
+  if (wurm.ist !== `${wurm.soll.id}/${wurm.soll.stufe}` || wurm.leiste !== `${wurm.soll.hat}/${wurm.soll.braucht}`) {
+    fehlt(`Lesewurm: gezeichnet ${wurm.ist} mit Leiste ${wurm.leiste}, im Lesestand ${wurm.soll.id}/${wurm.soll.stufe} mit ${wurm.soll.hat}/${wurm.soll.braucht}`);
+  }
+  if (!wurm.neu) fehlt("Lesewurm: nach den Runden zeigt das Zimmer weder neue Buchstaben noch eine Verwandlung");
+  // Die drei Leben: Steht er beim Hereinkommen weiter als beim letzten Besuch,
+  // zeigt das Zimmer die Verwandlung – nach dem Lesefalter mit einem neuen
+  // Wurm und dem Falter auf dem Regal, nach dem Express mit beiden dort, und
+  // nach dem Zauberer bleibt nur die Karte ohne Leiste.
+  const lesenMit = (runden, gesehen) => page.evaluate(({ runden: n, gesehen: g }) => {
+    const s = JSON.parse(localStorage.getItem("lernapp.lesen") || "{}");
+    localStorage.setItem("lernapp.lesen", JSON.stringify({ ...s, spiele: { silbenzug: { runden: n, best: 6, zuletzt: 1 } }, missionen: 0 }));
+    localStorage.setItem("lernapp.lesen.wurm-gesehen", JSON.stringify(g));
+  }, { runden, gesehen });
+  const sicherung = await page.evaluate(() => localStorage.getItem("lernapp.lesen"));
+  for (const fall of [
+    { runden: 75, gesehen: { nr: 15, buchstaben: 70 }, ist: "express/3", leiste: "1/2", regal: "falter", sagt: /Lesefalter fliegt aufs Regal/ },
+    { runden: 150, gesehen: { nr: 30, buchstaben: 140 }, ist: "zauberer/5", leiste: "0/3", regal: "falter,express", sagt: /Lesewurm-Express fährt aufs Regal/ },
+    { runden: 230, gesehen: { nr: 44, buchstaben: 204 }, ist: "zauberer/15", leiste: "0/0", regal: "falter,express", sagt: /Regenbogen aus Buchstaben/ },
+  ]) {
+    await lesenMit(fall.runden, fall.gesehen);
+    await oeffne("index.html?lesen=1", "document.querySelector('.lesezimmer-svg')");
+    const z = await imZimmer();
+    const wo = `Lesewurm nach ${fall.runden} Runden`;
+    if (z.ist !== fall.ist || z.leiste !== fall.leiste) fehlt(`${wo}: ${z.ist} mit Leiste ${z.leiste} statt ${fall.ist} mit ${fall.leiste}`);
+    if (z.regal !== fall.regal) fehlt(`${wo}: auf dem Regal stehen «${z.regal}» statt «${fall.regal}»`);
+    if (!z.neu || !fall.sagt.test(z.hilfe)) fehlt(`${wo}: die Verwandlung fehlt, oder der Lautsprecher sagt sie nicht (${z.hilfe.slice(0, 90)})`);
+    if (fall.regal.split(",").length > Math.floor((fall.gesehen.nr - 1) / 15) && !z.regalNeu) fehlt(`${wo}: was eben aufs Regal gezogen ist, funkelt nicht`);
+    if (fall.leiste === "0/0" && z.geschenk) fehlt(`${wo}: nach dem dritten Leben hat die Karte noch ein Geschenk`);
+    // Ohne Bewegung steht der Knall nicht still um den Wurm herum.
+    if (z.knall) fehlt(`${wo}: ohne Bewegung bleibt der Knall der Verwandlung als Sternhaufen stehen`);
+  }
+  // Der Wurm verdeckt in keiner seiner 45 Stufen, was neben ihm ein Knopf ist:
+  // Auf Pinnwand und Namensschild und auf Knopf, Name und Leiste der Karte
+  // liegt obenauf das Ding selbst – ein Tipp dorthin trifft es. Stehen Fühler
+  // oder Hut vor dem Zipfel der Karte, ist das recht: Wurm und Karte führen
+  // zum selben Spiel. Gezählt wird bis zum fertigen Lesezauberer, eine Runde
+  // nach der anderen, und das Zimmer frischt sich dabei an Ort und Stelle auf.
+  await page.evaluate(() => {
+    localStorage.setItem("lernapp.lesen", JSON.stringify({ woerter: 0, spiele: {}, buecher: {}, laute: {}, blitz: {}, missionen: 0 }));
+    localStorage.removeItem("lernapp.lesen.wurm-gesehen");
+  });
+  await oeffne("index.html?lesen=1", "document.querySelector('.lesezimmer-svg .lese-ort-mission')");
+  const verdecktVomWurm = await page.evaluate(async () => {
+    const s = window.LernappLeseStand;
+    const warte = (ms) => new Promise((weiter) => setTimeout(weiter, ms));
+    const raster = (r, nx, ny) => {
+      const punkte = [];
+      for (let i = 1; i <= nx; i += 1) for (let j = 1; j <= ny; j += 1) punkte.push([r.left + (r.width * i) / (nx + 1), r.top + (r.height * j) / (ny + 1)]);
+      return punkte;
+    };
+    const trifft = (ort, [x, y]) => Boolean(document.elementFromPoint(x, y)?.closest(`[data-ort="${ort}"]`));
+    const kasten = (wahl) => document.querySelector(wahl)?.getBoundingClientRect();
+    // Wo Pinnwand und Schild ohne grossen Wurm obenauf liegen (Stufe 1).
+    const fest = {
+      detektiv: raster(kasten('.lesezimmer-svg [data-ort="detektiv"] > rect'), 7, 6).filter((p) => trifft("detektiv", p)),
+      wurmname: raster(kasten('.lesezimmer-svg [data-ort="wurmname"]'), 5, 6).filter((p) => trifft("wurmname", p)),
+    };
+    const funde = [];
+    if (fest.detektiv.length < 30 || fest.wurmname.length < 6) funde.push(`zu wenig Messpunkte (${fest.detektiv.length}, ${fest.wurmname.length})`);
+    for (let nr = 1; nr <= 45; nr += 1) {
+      let runden = 0;
+      while (s.wurmStand().nr < nr && runden < 20) { s.spielRunde("silbenzug", { punkte: 6 }); runden += 1; }
+      const soll = s.wurmStand();
+      for (let mal = 0; mal < 60; mal += 1) {
+        const w = document.querySelector(".lese-ort-weiter .lesewurm");
+        if (w && `${w.dataset.leben}/${w.dataset.stufe}` === `${soll.id}/${soll.stufe}`) break;
+        await warte(25);
+      }
+      const w = document.querySelector(".lese-ort-weiter .lesewurm");
+      if (`${w?.dataset.leben}/${w?.dataset.stufe}` !== `${soll.id}/${soll.stufe}`) { funde.push(`Stufe ${nr}: das Zimmer zeigt ${w?.dataset.leben}/${w?.dataset.stufe}`); continue; }
+      const blase = document.querySelector(".lese-ort-mission .lw-blase");
+      const karte = [
+        ...raster(blase?.querySelector(".lw-los circle")?.getBoundingClientRect() || { left: 0, top: 0, width: 0, height: 0 }, 2, 2),
+        ...raster(blase?.querySelector(".lw-missionsname")?.getBoundingClientRect() || { left: 0, top: 0, width: 0, height: 0 }, 3, 1),
+        ...[...(blase?.querySelectorAll("rect") || [])].filter((r) => r.getAttribute("fill") === "#f6efe2").flatMap((r) => raster(r.getBoundingClientRect(), 8, 1)),
+      ];
+      const zu = [
+        ["Pinnwand", fest.detektiv.filter((p) => !trifft("detektiv", p)).length],
+        ["Namensschild", fest.wurmname.filter((p) => !trifft("wurmname", p)).length],
+        ["Missionskarte", karte.filter((p) => !trifft("mission", p)).length],
+      ].filter(([, n]) => n);
+      if (zu.length) funde.push(`Stufe ${nr} (${soll.id}/${soll.stufe}) verdeckt ${zu.map(([was, n]) => `${was} an ${n} Punkten`).join(", ")}`);
+    }
+    return funde;
+  });
+  if (verdecktVomWurm.length) fehlt(`Lesewurm verdeckt Knöpfe: ${verdecktVomWurm.slice(0, 4).join(" | ")}`);
+  await page.evaluate((s) => { localStorage.setItem("lernapp.lesen", s); localStorage.removeItem("lernapp.lesen.wurm-gesehen"); }, sicherung);
 
   // --- 9. Der Lesewagen wird gemütlich -------------------------------------------------
   // So viele Dinge, wie der Lesestand sagt; was seit dem letzten Besuch dazukam,
@@ -1726,15 +1863,15 @@ try {
   const konto = await browser.newContext({ viewport: { width: 1024, height: 640 }, serviceWorkers: "block", reducedMotion: "reduce" });
   konto.setDefaultTimeout(8000);
   await konto.route("**/*gstatic.com/**", (route) => route.fulfill({ status: 200, contentType: "application/javascript", body: "" }));
-  await konto.addInitScript(firebaseMitKonto, { woerter: 400, buecher: {}, spiele: {}, laute: {}, blitz: {} });
+  await konto.addInitScript(firebaseMitKonto, { woerter: 400, buecher: {}, spiele: { silbenzug: { runden: 12, best: 6, zuletzt: 1 } }, laute: {}, blitz: {} });
   await konto.addInitScript(stimmeErsatz);
   await konto.addInitScript(zimmerZaehler);
   // Auf dem Gerät: weniger gelesen als in der Cloud, und das Zimmer kennt es.
   await konto.addInitScript(() => {
     if (sessionStorage.getItem("__vorbereitet")) return;
     sessionStorage.setItem("__vorbereitet", "1");
-    localStorage.setItem("lernapp.lesen", JSON.stringify({ woerter: 42, buecher: {}, spiele: {}, laute: {}, blitz: {} }));
-    localStorage.setItem("lernapp.lesen.gesehen", "3");
+    localStorage.setItem("lernapp.lesen", JSON.stringify({ woerter: 42, buecher: {}, spiele: { silbenzug: { runden: 2, best: 6, zuletzt: 1 } }, laute: {}, blitz: {} }));
+    localStorage.setItem("lernapp.lesen.wurm-gesehen", JSON.stringify({ nr: 2, buchstaben: 2 }));
     localStorage.setItem("lernapp.lesen.ausbau-gesehen", "0");
   });
   const kind = await konto.newPage();
@@ -1744,17 +1881,18 @@ try {
   await kind.waitForTimeout(2000);
   const ruhe = await kind.evaluate(() => ({
     ...window.__zimmer,
-    glieder: Number(document.querySelector(".leseecke .lesewurm")?.dataset.glieder),
-    soll: window.LernappLeseStand.wurmGlieder(),
-    gewachsen: Boolean(document.querySelector(".leseecke .lesewurm.is-gewachsen")),
+    ist: `${document.querySelector(".leseecke .lesewurm")?.dataset.leben}/${document.querySelector(".leseecke .lesewurm")?.dataset.stufe}`,
+    soll: (() => { const w = window.LernappLeseStand.wurmStand(); return `${w.id}/${w.stufe}`; })(),
+    gewachsen: Boolean(document.querySelector(".leseecke .lw-platz.is-neu")),
     hilfe: window.LernappKids?.currentHelp?.() || "",
     angemeldet: Boolean(window.LernappFirebase?.getGameState?.("lernapp.lesen")),
   }));
   if (!ruhe.angemeldet) fehlt("Ruhe: das nachgebaute Konto hat sich nicht angemeldet");
   if (ruhe.platz !== 1) fehlt(`Ruhe: nach der Rückkehr mit Konto wird das Lesezimmer ${ruhe.platz}-mal eingeblendet (erwartet einmal)`);
   if (ruhe.zeichnung > 2) fehlt(`Ruhe: das Zimmer wird ${ruhe.zeichnung}-mal gezeichnet – nur einmal und einmal für den Wurm aus der Cloud`);
-  if (ruhe.soll !== 21 || ruhe.glieder !== ruhe.soll) fehlt(`Ruhe: der Lesewurm aus der Cloud fehlt im Zimmer (${ruhe.glieder} Glieder gezeichnet, ${ruhe.soll} im Lesestand, erwartet 21)`);
-  if (!ruhe.gewachsen || !/21 Glieder/.test(ruhe.hilfe)) fehlt(`Ruhe: dass der Wurm gewachsen ist, zeigt und sagt das Zimmer nicht (${ruhe.hilfe.slice(0, 80)})`);
+  // Zwölf Runden aus der Cloud sind zwölf Buchstaben: Stufe 6, die Fühler.
+  if (ruhe.soll !== "falter/6" || ruhe.ist !== ruhe.soll) fehlt(`Ruhe: der Lesewurm aus der Cloud fehlt im Zimmer (${ruhe.ist} gezeichnet, ${ruhe.soll} im Lesestand, erwartet falter/6)`);
+  if (!ruhe.gewachsen || !/Fühler/.test(ruhe.hilfe)) fehlt(`Ruhe: dass der Wurm sich verwandelt hat, zeigt und sagt das Zimmer nicht (${ruhe.hilfe.slice(0, 80)})`);
   // Hinaus an den Zug: Jetzt wird die Bühne neu gebaut, und der Text des
   // Lesewagens geht mit.
   await kind.evaluate(() => { document.querySelector(".train-band").dataset.alt = "1"; });
@@ -1854,7 +1992,7 @@ try {
   });
   if (!huepfen.klasse || huepfen.still.length) fehlt(`Zimmer mit Bewegung: es hüpft nicht alles, was sich antippen lässt (still: ${huepfen.still.join(", ") || "alles"})`);
   if (huepfen.einrichtung) fehlt(`Zimmer mit Bewegung: ${huepfen.einrichtung} Teile der Einrichtung hüpfen mit`);
-  if (huepfen.reihe !== huepfen.soll || huepfen.verzuege < 8 || !huepfen.reihe.endsWith("weiter")) fehlt(`Zimmer mit Bewegung: die Dinge hüpfen nicht reihum (${huepfen.reihe})`);
+  if (huepfen.reihe !== huepfen.soll || huepfen.verzuege < 9 || !huepfen.reihe.endsWith("weiter,mission")) fehlt(`Zimmer mit Bewegung: die Dinge hüpfen nicht reihum (${huepfen.reihe})`);
   if (huepfen.schatten.length < 4 || huepfen.schatten.some((n) => n !== "lese-schatten-bleibt")) fehlt(`Zimmer mit Bewegung: die Schatten hüpfen mit (${huepfen.schatten.join(", ")})`);
   // Ein paar Bilder lang hinsehen: Jedes Ding geht wirklich hoch, sein Schatten
   // bleibt liegen, und keine Lage geht an CSS verloren.
@@ -1877,18 +2015,80 @@ try {
   if (kaumBewegt.length) fehlt(`Zimmer mit Bewegung: ${kaumBewegt.join(", ")} hüpft nicht sichtbar`);
   if (schattenWandert.length) fehlt(`Zimmer mit Bewegung: Schatten heben vom Boden ab (${schattenWandert.join(", ")})`);
   if (lageWeg.size) fehlt(`Zimmer mit Bewegung: CSS verdrängt die Lage von ${[...lageWeg].slice(0, 3).join(", ")}`);
-  await bunt.evaluate(() => window.LernappLeseStand.woerterGelesen(200));
+  // Eine Runde mehr (aus der Cloud, von einem anderen Gerät): ein Buchstabe
+  // mehr in der Leiste, an Ort und Stelle.
+  const leisteVorher = await bunt.evaluate(() => Number(document.querySelector(".lesezimmer-svg .lw-blase")?.dataset.hat || 0));
+  await bunt.evaluate(() => window.LernappLeseStand.spielRunde("stimmtdas", { punkte: 6 }));
   await bunt.waitForTimeout(150);
   const aufgefrischt = await bunt.evaluate(() => {
     const svg = document.querySelector(".lesezimmer-svg");
     return {
-      glieder: Number(svg?.querySelector(".lesewurm")?.dataset.glieder || 0),
+      hat: Number(svg?.querySelector(".lw-blase")?.dataset.hat || 0),
+      neuesFeld: svg?.querySelectorAll(".lw-feld-neu").length || 0,
       klasse: Boolean(svg?.classList.contains("is-huepfen")),
       huepfen: [...(svg?.querySelectorAll("[data-ort]") || [])].filter((n) => getComputedStyle(n).animationName === "lese-ort-huepft").length,
     };
   });
-  if (aufgefrischt.glieder !== 31) fehlt(`Zimmer mit Bewegung: nach neuem Lesestand frischt sich das Zimmer nicht auf (${aufgefrischt.glieder} Glieder)`);
+  if (aufgefrischt.hat !== leisteVorher + 1 || aufgefrischt.neuesFeld !== 1) fehlt(`Zimmer mit Bewegung: nach einer Runde mehr frischt sich die Leiste nicht auf (${leisteVorher} → ${aufgefrischt.hat}, ${aufgefrischt.neuesFeld} neue Felder)`);
   else if (aufgefrischt.klasse || aufgefrischt.huepfen) fehlt("Zimmer mit Bewegung: beim Auffrischen hüpft alles noch einmal");
+
+  // Die Verwandlung mit Bewegung, Bild für Bild: Beim letzten Besuch stand der
+  // Lesefalter auf Stufe 6 mit 13 Buchstaben, jetzt sind es 15 – Stufe 7.
+  // Erst springen die zwei neuen Buchstaben in die alte Leiste, dann geht das
+  // Geschenk auf, der Wurm verschwindet und erscheint mit einem Knall in der
+  // neuen Stufe. Dabei hüpft nichts (die Verwandlung ist das Ereignis), und
+  // keine Lage geht an CSS verloren. Beim nächsten Besuch ist sie vorbei.
+  await bunt.evaluate(() => {
+    localStorage.setItem("lernapp.lesen", JSON.stringify({ woerter: 400, spiele: { silbenzug: { runden: 15, best: 6, zuletzt: 1 } }, buecher: {}, laute: {}, blitz: {} }));
+    localStorage.setItem("lernapp.lesen.wurm-gesehen", JSON.stringify({ nr: 6, buchstaben: 13 }));
+  });
+  await bunt.goto(`${BASIS}/index.html?lesen=1`, { waitUntil: "domcontentloaded" });
+  await bunt.waitForFunction(() => document.querySelector(".lesezimmer-svg .lesewurm"), null, { timeout: 10000 }).catch(() => {});
+  const bilder = [];
+  const lageVerwandlung = new Set();
+  for (let mal = 0; mal < 40; mal += 1) {
+    bilder.push(await bunt.evaluate(() => {
+      const svg = document.querySelector(".lesezimmer-svg");
+      const q = (s) => Boolean(svg?.querySelector(s));
+      return {
+        stufe: svg?.querySelector(".lese-ort-weiter .lesewurm")?.dataset.stufe || "",
+        felder: q(".lw-feld-neu"),
+        geschenk: q(".lw-geschenk-auf"),
+        weg: q(".lw-platz.is-weg"),
+        knall: q(".lw-knall"),
+        huepft: Boolean(svg?.classList.contains("is-huepfen")),
+      };
+    }));
+    if (mal % 5 === 0) (await verdraengt()).forEach((f) => lageVerwandlung.add(f));
+    await bunt.waitForTimeout(80);
+  }
+  const zuerst = (pruef) => bilder.findIndex(pruef);
+  const phasen = [
+    zuerst((b) => b.stufe === "6" && b.felder),
+    zuerst((b) => b.stufe === "6" && b.geschenk),
+    zuerst((b) => b.stufe === "6" && b.weg),
+    zuerst((b) => b.stufe === "7" && b.knall),
+  ];
+  if (phasen.some((i) => i < 0) || phasen.some((i, n) => n && i < phasen[n - 1])) {
+    fehlt(`Verwandlung mit Bewegung: nicht Buchstaben, Geschenk, Verschwinden, Knall nacheinander (${phasen.join(", ")}; ${bilder.map((b) => `${b.stufe}${b.felder ? "f" : ""}${b.geschenk ? "g" : ""}${b.weg ? "w" : ""}${b.knall ? "k" : ""}`).join(" ")})`);
+  }
+  if (bilder.at(-1)?.stufe !== "7" || bilder.at(-1)?.weg) fehlt(`Verwandlung mit Bewegung: am Schluss steht nicht Stufe 7 da (${JSON.stringify(bilder.at(-1))})`);
+  if (bilder.some((b) => b.huepft)) fehlt("Verwandlung mit Bewegung: das Zimmer hüpft mitten in die Verwandlung");
+  if (lageVerwandlung.size) fehlt(`Verwandlung mit Bewegung: CSS verdrängt die Lage von ${[...lageVerwandlung].slice(0, 3).join(", ")}`);
+  const nachVerwandlung = await bunt.evaluate(() => ({
+    hilfe: window.LernappKids?.currentHelp?.() || "",
+    gesehen: localStorage.getItem("lernapp.lesen.wurm-gesehen"),
+  }));
+  if (!/Überraschung! Dein Lesewurm ist dick und bunt geringelt!/.test(nachVerwandlung.hilfe)) fehlt(`Verwandlung mit Bewegung: der Lautsprecher sagt die Überraschung nicht (${nachVerwandlung.hilfe.slice(0, 90)})`);
+  if (nachVerwandlung.gesehen !== JSON.stringify({ nr: 7, buchstaben: 15 })) fehlt(`Verwandlung mit Bewegung: gemerkt ist ${nachVerwandlung.gesehen}`);
+  await bunt.goto(`${BASIS}/index.html?lesen=1`, { waitUntil: "domcontentloaded" });
+  await bunt.waitForFunction(() => document.querySelector(".lesezimmer-svg .lesewurm"), null, { timeout: 10000 }).catch(() => {});
+  await bunt.waitForTimeout(300);
+  const zweiterBesuch = await bunt.evaluate(() => {
+    const svg = document.querySelector(".lesezimmer-svg");
+    return { huepft: Boolean(svg?.classList.contains("is-huepfen")), alt: Boolean(svg?.querySelector(".lw-geschenk-auf, .lw-platz.is-weg, .lw-knall, .lw-platz.is-neu")) };
+  });
+  if (!zweiterBesuch.huepft || zweiterBesuch.alt) fehlt(`Verwandlung mit Bewegung: beim nächsten Besuch ${zweiterBesuch.alt ? "verwandelt er sich noch einmal" : "hüpft das Zimmer nicht"}`);
 
   for (const [seite, bereit, wahl] of [["index.html", "document.querySelector('.train-stage .train-band')", ".train-stage"], ["buchstaben.html", "document.querySelector('.app-shell')", ".app-shell"]]) {
     await bunt.goto(`${BASIS}/${seite}`, { waitUntil: "domcontentloaded" });
@@ -1909,4 +2109,4 @@ if (befunde.length) {
   befunde.forEach((b) => console.error(`  - ${b}`));
   process.exit(1);
 }
-console.log("Die Leseecke läuft: Lesewagen, Zimmer mit Auswahl, alle Spiele hin und zurück, eine Runde Silbenzug bis zum Tor, Laute kuppeln ohne verratenes Wort, Buchstabenhaus, der Würfel von «Stimmt das?», Reimkupplung, Anlaut-Lauscher, Wer fährt mit?, Wörter bauen, Silbenbahn, Blitzwörter, Mein Name, der Lesewurm bekommt seinen Namen, Lückensätze, Buchstabengleis, Satz kuppeln, Quatschsätze, Stolperwörter, Quatschwörter, Laut-Position, Buchstaben-Signal, Lies und tu!, Geschichtenzug, Wer bin ich?, Wortbaustelle, Steckbriefe, Detektivfälle, Postkarten, die Buchstaben der Schule, Hörbuch mit Nachsehen, Zusammen lesen, Kapitelbücher mit Überschrift, Lesezeichen und gemalten Bildern, Runden auf Zeit, Wort-Hilfe und Schriftgrösse der Eltern, Spiele, die mitwachsen, Ruhe nach der Rückkehr mit Konto, winkende Tiere mit Bewegung, der Lesewurm wächst, der Lesewagen wird gemütlich, und der Lesewurm fährt auf der Lok mit.");
+console.log("Die Leseecke läuft: Lesewagen, Zimmer mit Auswahl, alle Spiele hin und zurück, eine Runde Silbenzug bis zum Tor, Laute kuppeln ohne verratenes Wort, Buchstabenhaus, der Würfel von «Stimmt das?», Reimkupplung, Anlaut-Lauscher, Wer fährt mit?, Wörter bauen, Silbenbahn, Blitzwörter, Mein Name, der Lesewurm bekommt seinen Namen, Lückensätze, Buchstabengleis, Satz kuppeln, Quatschsätze, Stolperwörter, Quatschwörter, Laut-Position, Buchstaben-Signal, Lies und tu!, Geschichtenzug, Wer bin ich?, Wortbaustelle, Steckbriefe, Detektivfälle, Postkarten, die Buchstaben der Schule, Hörbuch mit Nachsehen, Zusammen lesen, Kapitelbücher mit Überschrift, Lesezeichen und gemalten Bildern, Runden auf Zeit, Wort-Hilfe und Schriftgrösse der Eltern, Spiele, die mitwachsen, Ruhe nach der Rückkehr mit Konto, winkende Tiere mit Bewegung, die Missionskarte des Lesewurms mit zwei Buchstaben für seine Runde, seine drei Leben mit Verwandlung (auch mit Bewegung) und den Fertigen auf dem Regal, der Lesewagen wird gemütlich, und der Lesewurm fährt auf der Lok mit.");
