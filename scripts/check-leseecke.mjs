@@ -36,6 +36,9 @@
  *   Ruhe          Zurück aus einem Spiel, mit Konto: Das Zimmer steht einmal
  *                 da, auch wenn sich die Cloud nacheinander meldet; was sie am
  *                 Zimmer ändert, kommt an Ort und Stelle hinein.
+ *   Bewegung      Mit Animationen: Kein Teil einer Zeichnung verliert seine
+ *                 Lage an CSS, der winkende Arm ist oben; Text in den Spielen
+ *                 lässt sich nicht markieren (Android: «Tippen zum Suchen»).
  *
  * Aufruf:  node scripts/check-leseecke.mjs
  * Nötig:   Playwright. Der lokale Server wird selbst gestartet und beendet.
@@ -526,6 +529,10 @@ try {
   // Wagen; ein Fehlgriff kostet den Punkt dieser Fahrt.
   await oeffne("meinname.html", "window.LernappMeinName");
   if (!(await page.locator(".mn-eingabe input").count())) fehlt("Mein Name: ohne Konto fragt niemand nach dem Namen");
+  // Die Spiele markieren keinen Text – ein Eingabefeld schon: Safari liesse
+  // sonst nicht hineinschreiben.
+  const mnMarkieren = await page.evaluate(() => getComputedStyle(document.querySelector(".mn-eingabe input")).userSelect);
+  if (mnMarkieren === "none") fehlt("Mein Name: das Eingabefeld lässt sich nicht markieren – Safari liesse nicht hineinschreiben");
   await page.fill(".mn-eingabe input", "  noah ");
   await page.locator(".mn-eingabe-ok").click();
   await page.waitForSelector(".mn-schild", { timeout: 5000 }).catch(() => {});
@@ -1051,6 +1058,15 @@ try {
   await page.locator('.gz-neben .gz-wagen[data-reihe="1"]').click();
   await page.waitForTimeout(150);
   if ((await page.evaluate(() => window.LernappGeschichtenzug.dran())) !== 0) fehlt("Geschichtenzug: ein Wagen kuppelt an, bevor er dran ist");
+  // Der Text auf einem angekuppelten Wagen lässt sich nicht markieren: Auf
+  // Android öffnete ein Tipp darauf sonst «Tippen zum Suchen» von Google.
+  await page.locator('.gz-neben .gz-wagen[data-reihe="0"]').click();
+  await page.waitForSelector(".gz-angekuppelt .gz-dran", { timeout: 5000 }).catch(() => {});
+  const gzMarkieren = await page.evaluate(() => [".gz-angekuppelt .gz-dran", ".gz-titel", ".cm-stage"].map((wahl) => {
+    const knoten = document.querySelector(wahl);
+    return `${wahl} ${knoten ? getComputedStyle(knoten).userSelect : "fehlt"}`;
+  }));
+  if (gzMarkieren.some((z) => !z.endsWith(" none"))) fehlt(`Geschichtenzug: Text lässt sich markieren (${gzMarkieren.join(", ")}) – auf Android öffnet ein Tipp die Google-Suche`);
   await gzKuppeln(0);
   await page.waitForFunction(() => window.LernappGeschichtenzug.nr() === 1, null, { timeout: 8000 }).catch(() => {});
   if ((await page.evaluate(() => window.LernappGeschichtenzug.nr())) !== 1) fehlt("Geschichtenzug: die ganze Geschichte fährt nicht ab");
@@ -1177,6 +1193,11 @@ try {
   await vergiss();
   await page.locator(".lese-los-knopf").click();
   await page.waitForSelector(".pk-weiter", { timeout: 5000 }).catch(() => {});
+  // Der Zähler sagt beides getrennt: die wievielte Karte der Runde, und wie
+  // viele schon angekommen sind. «4 von 14» allein sah aus wie die Nummer der
+  // Karte und blieb doch auf jeder gleich.
+  const pkZaehler = await page.locator(".pk-zaehler").textContent();
+  if (!/Postkarte 1 von 1/.test(pkZaehler) || !/1 von 14 gesammelt/.test(pkZaehler)) fehlt(`Postkarten: oben steht «${pkZaehler}»`);
   await page.locator(".pk-weiter").click();
   await page.locator('.pk-antwort[data-richtig="1"]').click();
   await page.waitForSelector(".cm-overlay", { timeout: 8000 }).catch(() => {});
@@ -1465,6 +1486,28 @@ try {
   await leser.waitForFunction("window.LernappStolperwoerter", null, { timeout: 8000 }).catch(() => {});
   await leser.waitForTimeout(300);
   if (await leser.locator(".lese-zeit-knopf").count()) fehlt("Mitwachsen: Stolperwörter ist mitgewachsen, obwohl nur «Stimmt das?» einen Schritt gemacht hat");
+
+  // Postkarten, zwei in einer Runde (die Karte «Wiese» ist gefahren): Oben
+  // steht, die wievielte Karte der Runde es ist, und daneben, wie viele schon
+  // angekommen sind. «2 von 14» allein sah aus wie die Nummer der Karte und
+  // blieb doch auf jeder gleich.
+  await leser.evaluate(() => {
+    const done = {};
+    for (let nr = 1; nr <= 10; nr += 1) done[String(nr)] = { stars: 3, game: "x", at: 1 };
+    localStorage.setItem("lernapp.reise", JSON.stringify({ done, tries: {}, choice: {}, alt: {} }));
+    localStorage.removeItem("lernapp.lesen.postkarten");
+  });
+  await leser.goto(`${BASIS}/postkarten.html`, { waitUntil: "domcontentloaded" });
+  await leser.waitForFunction("window.LernappPostkarten", null, { timeout: 8000 }).catch(() => {});
+  await leser.waitForTimeout(300);
+  await leser.locator(".lese-los-knopf").click();
+  await leser.waitForSelector(".pk-weiter", { timeout: 5000 }).catch(() => {});
+  const pkErste = await leser.locator(".pk-zaehler").textContent();
+  await leser.locator(".pk-weiter").click();
+  await leser.locator('.pk-antwort[data-richtig="1"]').click();
+  await leser.waitForFunction(() => window.LernappPostkarten.nr() === 1 && window.LernappPostkarten.phase() === "lesen", null, { timeout: 8000 }).catch(() => {});
+  const pkZweite = await leser.locator(".pk-zaehler").textContent();
+  if (!/Postkarte 1 von 2/.test(pkErste) || !/Postkarte 2 von 2/.test(pkZweite) || ![pkErste, pkZweite].every((z) => /2 von 14 gesammelt/.test(z))) fehlt(`Postkarten nach der Wiese: oben steht «${pkErste}», dann «${pkZweite}»`);
   await leser.evaluate(() => localStorage.removeItem("lernapp.reise"));
 
   // Die Eltern schalten die Wort-Hilfe aus und stellen die Schrift sehr gross:
@@ -1605,6 +1648,71 @@ try {
   if (/Lesewagen|Lesewurm/.test(draussen.hilfe)) fehlt(`Ruhe: draussen spricht noch der Lesewagen (${draussen.hilfe.slice(0, 60)})`);
   await konto.close();
 
+  // --- 12. Mit Bewegung ---------------------------------------------------------------------
+  // Alles oben läuft mit «weniger Bewegung», und dann steht jede Animation
+  // still. Genau darum fiel nicht auf, dass der winkende Arm der Tiere seine
+  // Lage verlor: Die CSS-Bewegung ersetzte sein transform-Attribut, und er
+  // lag beim Winken unten am Boden. Hier mit Bewegung, wie bei einem Kind,
+  // das nichts eingestellt hat: Kein Teil einer Zeichnung verliert sein
+  // transform-Attribut an CSS, und Finos Hand ist oben, nicht bei den Füssen.
+  // Dazu: Startbild und die älteren Spiele markieren keinen Text.
+  const bewegt = await browser.newContext({ viewport: { width: 1024, height: 640 }, serviceWorkers: "block" });
+  bewegt.setDefaultTimeout(8000);
+  await bewegt.route("**/*gstatic.com/**", (route) => route.abort());
+  await bewegt.addInitScript(stimmeErsatz);
+  const bunt = await bewegt.newPage();
+  bunt.on("pageerror", (e) => fehler.push(`mit Bewegung: ${e.message}`));
+  const verdraengt = () => bunt.evaluate(() => {
+    const funde = [];
+    document.querySelectorAll("svg [transform]").forEach((n) => {
+      const css = getComputedStyle(n).transform;
+      if (!css || css === "none") return;
+      const m = n.transform?.baseVal?.consolidate?.()?.matrix;
+      const attr = m ? [m.a, m.b, m.c, m.d, m.e, m.f] : [1, 0, 0, 1, 0, 0];
+      const c = new DOMMatrix(css);
+      if ([c.a, c.b, c.c, c.d, c.e, c.f].some((v, i) => Math.abs(v - attr[i]) > 0.02)) funde.push(`${n.getAttribute("class") || n.tagName} (${n.getAttribute("transform")})`);
+    });
+    return funde;
+  });
+  // Der Los-Knopf pulsiert mit Bewegung; ein Klick der Prüfung wartete
+  // vergeblich darauf, dass er still steht.
+  const losBunt = () => bunt.evaluate(() => document.querySelector(".lese-los-knopf")?.click());
+  for (const [seite, bereit, bild] of [["postkarten.html", "window.LernappPostkarten", ".pk-vorne svg"], ["geschichtenzug.html", "window.LernappGeschichtenzug", ".gz-neben .bu-bild-svg"]]) {
+    await bunt.goto(`${BASIS}/${seite}`, { waitUntil: "domcontentloaded" });
+    await bunt.waitForFunction(bereit, null, { timeout: 10000 }).catch(() => {});
+    await bunt.waitForTimeout(300);
+    await losBunt();
+    await bunt.waitForSelector(bild, { timeout: 5000 }).catch(() => {});
+    const funde = new Set();
+    for (let mal = 0; mal < 4; mal += 1) {
+      await bunt.waitForTimeout(250);
+      (await verdraengt()).forEach((f) => funde.add(f));
+    }
+    if (funde.size) fehlt(`Mit Bewegung, ${seite}: CSS verdrängt die Lage von ${[...funde].slice(0, 3).join(", ")}`);
+  }
+  await bunt.goto(`${BASIS}/postkarten.html`, { waitUntil: "domcontentloaded" });
+  await bunt.waitForFunction("window.LernappPostkarten", null, { timeout: 10000 }).catch(() => {});
+  await bunt.waitForTimeout(300);
+  await losBunt();
+  await bunt.waitForSelector(".pk-vorne .journey-passenger-arm", { timeout: 5000 }).catch(() => {});
+  for (let mal = 0; mal < 3; mal += 1) {
+    await bunt.waitForTimeout(300);
+    const arm = await bunt.evaluate(() => {
+      const figur = document.querySelector(".pk-vorne .journey-passenger.is-waving");
+      const hand = figur?.querySelector(".journey-passenger-arm circle")?.getBoundingClientRect();
+      const koerper = figur?.querySelectorAll(":scope > rect")[2]?.getBoundingClientRect();
+      return hand && koerper ? { hand: Math.round(hand.top + hand.height / 2), oben: Math.round(koerper.top), unten: Math.round(koerper.bottom) } : null;
+    });
+    if (!arm || arm.hand > arm.oben + 4) { fehlt(`Mit Bewegung: Finos winkende Hand ist nicht oben (${JSON.stringify(arm)})`); break; }
+  }
+  for (const [seite, bereit, wahl] of [["index.html", "document.querySelector('.train-stage .train-band')", ".train-stage"], ["buchstaben.html", "document.querySelector('.app-shell')", ".app-shell"]]) {
+    await bunt.goto(`${BASIS}/${seite}`, { waitUntil: "domcontentloaded" });
+    await bunt.waitForFunction(bereit, null, { timeout: 10000 }).catch(() => {});
+    const markieren = await bunt.evaluate((w) => { const n = document.querySelector(w); return n ? getComputedStyle(n).userSelect : "fehlt"; }, wahl);
+    if (markieren !== "none") fehlt(`${seite}: Text lässt sich markieren (${wahl} ${markieren}) – auf Android öffnet ein Tipp die Google-Suche`);
+  }
+  await bewegt.close();
+
   if (fehler.length) fehlt(`Fehler auf den Seiten: ${[...new Set(fehler)].slice(0, 5).join(" | ")}`);
 } finally {
   await browser.close();
@@ -1616,4 +1724,4 @@ if (befunde.length) {
   befunde.forEach((b) => console.error(`  - ${b}`));
   process.exit(1);
 }
-console.log("Die Leseecke läuft: Lesewagen, Zimmer mit Auswahl, alle Spiele hin und zurück, eine Runde Silbenzug bis zum Tor, Laute kuppeln ohne verratenes Wort, Buchstabenhaus, der Würfel von «Stimmt das?», Reimkupplung, Anlaut-Lauscher, Wer fährt mit?, Wörter bauen, Silbenbahn, Blitzwörter, Mein Name, der Lesewurm bekommt seinen Namen, Lückensätze, Buchstabengleis, Satz kuppeln, Quatschsätze, Stolperwörter, Quatschwörter, Laut-Position, Buchstaben-Signal, Lies und tu!, Geschichtenzug, Wer bin ich?, Wortbaustelle, Steckbriefe, Detektivfälle, Postkarten, die Buchstaben der Schule, Hörbuch mit Nachsehen, Zusammen lesen, Kapitelbücher mit Überschrift und Lesezeichen, Runden auf Zeit, Wort-Hilfe und Schriftgrösse der Eltern, Spiele, die mitwachsen, Ruhe nach der Rückkehr mit Konto, der Lesewurm wächst, der Lesewagen wird gemütlich, und der Lesewurm fährt auf der Lok mit.");
+console.log("Die Leseecke läuft: Lesewagen, Zimmer mit Auswahl, alle Spiele hin und zurück, eine Runde Silbenzug bis zum Tor, Laute kuppeln ohne verratenes Wort, Buchstabenhaus, der Würfel von «Stimmt das?», Reimkupplung, Anlaut-Lauscher, Wer fährt mit?, Wörter bauen, Silbenbahn, Blitzwörter, Mein Name, der Lesewurm bekommt seinen Namen, Lückensätze, Buchstabengleis, Satz kuppeln, Quatschsätze, Stolperwörter, Quatschwörter, Laut-Position, Buchstaben-Signal, Lies und tu!, Geschichtenzug, Wer bin ich?, Wortbaustelle, Steckbriefe, Detektivfälle, Postkarten, die Buchstaben der Schule, Hörbuch mit Nachsehen, Zusammen lesen, Kapitelbücher mit Überschrift und Lesezeichen, Runden auf Zeit, Wort-Hilfe und Schriftgrösse der Eltern, Spiele, die mitwachsen, Ruhe nach der Rückkehr mit Konto, winkende Tiere mit Bewegung, der Lesewurm wächst, der Lesewagen wird gemütlich, und der Lesewurm fährt auf der Lok mit.");

@@ -64,6 +64,18 @@ html {
    :focus-visible, und die sind genauer als diese Regel. */
 :focus:not(:focus-visible) { outline: none; }
 
+/* --- Kein Markieren in den Spielen ----------------------------------------------
+   Ein Tipp auf losen Text – den Satz auf einem angekuppelten Wagen des
+   Geschichtenzugs, eine Überschrift, einen Zähler – markierte auf Android ein
+   Wort, und «Tippen zum Suchen» schob die Google-Suche über das Spiel. Ein Kind
+   tippt überall hin; markieren muss es hier nichts. Eingabefelder bleiben, wie
+   sie sind – Safari liesse sonst nicht einmal mehr hineinschreiben. */
+.cm-stage, .train-stage, .app-shell { -webkit-user-select: none; user-select: none; }
+.cm-stage input, .cm-stage textarea, .train-stage input, .train-stage textarea, .app-shell input, .app-shell textarea {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
 * { box-sizing: border-box; }
 
 body {
@@ -13697,6 +13709,7 @@ body[data-page="laute-aufnehmen"] {
 /* Eine Postkarte: links das Bild (bei der Frage die Frage), rechts der Text
    mit Briefmarke, dazwischen die gestrichelte Linie. */
 .pk-zaehler { margin: 0; padding: 2px 12px; border-radius: 10px; background: rgba(255, 255, 255, 0.85); color: #243047; font-size: clamp(0.72rem, 3.3vh, 1rem); font-weight: 800; }
+.pk-zaehler-sammlung { margin-left: 0.7em; padding-left: 0.7em; border-left: 2px solid #c9b48f; font-weight: 600; opacity: 0.8; }
 .pk-karte { display: flex; align-items: stretch; width: min(94vw, 900px); border-radius: 10px; background: #fffdf6; box-shadow: 0 10px 22px rgba(36, 48, 71, 0.22); overflow: hidden; }
 .pk-vorne { display: flex; flex: 0 0 auto; flex-direction: column; align-items: stretch; justify-content: center; gap: clamp(4px, 1.4vh, 8px); width: min(46vw, calc((100vh - 220px) * 1.58 + 16px)); padding: 8px; }
 .pk-vorne .bu-bild-svg { border-width: 2px; border-radius: 6px; box-shadow: none; }

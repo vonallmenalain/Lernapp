@@ -2870,9 +2870,14 @@
       el("rect", { x: -8, y: -27, width: 16, height: 20, rx: 6, fill: body }),
       el("rect", { x: -4, y: -23, width: 8, height: 12, rx: 3, fill: driver.inner, opacity: "0.85" }),
       el("path", { d: "M-8 -22 q-6 3 -7 9", fill: "none", stroke: body, "stroke-width": 4, "stroke-linecap": "round" }),
-      group({ class: "journey-passenger-arm", transform: "translate(8,-22)" }, [
-        el("path", { d: "M0 0 q6 -4 8 -11", fill: "none", stroke: body, "stroke-width": 4, "stroke-linecap": "round" }),
-        el("circle", { cx: 8.5, cy: -11.5, r: 2.6, fill: driver.inner }),
+      // Aussen die Schulter, innen das Winken. Am selben Teil ersetzte die
+      // CSS-Bewegung das transform-Attribut: Der Arm verlor seine Lage und
+      // lag beim Winken unten am Boden.
+      group({ transform: "translate(8,-22)" }, [
+        group({ class: "journey-passenger-arm" }, [
+          el("path", { d: "M0 0 q6 -4 8 -11", fill: "none", stroke: body, "stroke-width": 4, "stroke-linecap": "round" }),
+          el("circle", { cx: 8.5, cy: -11.5, r: 2.6, fill: driver.inner }),
+        ]),
       ]),
       group({ transform: "translate(0,-35)" }, [driverHead(driver.id, 10)]),
     ]);

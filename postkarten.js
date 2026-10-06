@@ -147,8 +147,15 @@
     state.postkarte = k;
     state.fehler = 0;
     state.phase = "lesen";
+    // Wo das Kind in der Runde steht – und daneben, wie viele Karten schon
+    // angekommen sind. Nur «4 von 14 Postkarten» sah aus wie die Nummer der
+    // Karte, blieb aber auf jeder Karte gleich.
     const da = angekommen().length;
-    el.zaehler.textContent = `📬 ${da} von ${det.POSTKARTEN.length + 1} Postkarten`;
+    el.zaehler.textContent = "";
+    el.zaehler.append(
+      shell.el("span", "pk-zaehler-runde", `📬 Postkarte ${state.nr + 1} von ${state.runde.length}`),
+      shell.el("span", "pk-zaehler-sammlung", `${da} von ${det.POSTKARTEN.length + 1} gesammelt`),
+    );
     el.vorne.innerHTML = "";
     el.vorne.append(vorderseite(k));
     el.hinten.innerHTML = "";
