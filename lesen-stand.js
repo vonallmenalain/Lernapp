@@ -465,14 +465,16 @@
     liesundtu: { page: "liesundtu.html", titel: "Lies und tu!", ort: "saetze", bild: "🖍️" },
     buecher: { page: "buecher.html", titel: "Bücherregal", ort: "buecher", bild: "📚", weiter: "buecher.html?weiter=1" },
     geschichtenzug: { page: "geschichtenzug.html", titel: "Geschichtenzug", ort: "buecher", bild: "🖼️" },
+    werbinich: { page: "werbinich.html", titel: "Wer bin ich?", ort: "detektiv", bild: "❓" },
+    wortbaustelle: { page: "wortbaustelle.html", titel: "Wortbaustelle", ort: "detektiv", bild: "🏗️" },
   };
   // Was der Lesewurm im Sessel je Lesestufe aussucht.
   const AUSWAHL = {
     hoeren: ["silbenzug", "reimkupplung", "anlautlauscher", "buecher", "buchstabenhaus", "buchstabengleis"],
     buchstaben: ["buchstabenhaus", "meinname", "buchstabengleis", "buchstabensignal", "lautposition", "anlautlauscher", "lautekuppeln", "silbenzug", "reimkupplung", "buecher"],
     woerter: ["lautekuppeln", "werfaehrtmit", "woerterbauen", "buchstabenhaus", "silbenbahn", "quatschwoerter", "buecher"],
-    saetze: ["stimmtdas", "lueckensaetze", "satzkuppeln", "quatschsaetze", "liesundtu", "geschichtenzug", "blitzwoerter", "quatschwoerter", "silbenbahn", "buecher"],
-    geschichten: ["buecher", "geschichtenzug", "stolperwoerter", "liesundtu", "quatschsaetze", "lueckensaetze", "satzkuppeln", "stimmtdas", "blitzwoerter"],
+    saetze: ["stimmtdas", "lueckensaetze", "satzkuppeln", "quatschsaetze", "liesundtu", "geschichtenzug", "werbinich", "blitzwoerter", "quatschwoerter", "wortbaustelle", "silbenbahn", "buecher"],
+    geschichten: ["buecher", "geschichtenzug", "werbinich", "wortbaustelle", "stolperwoerter", "liesundtu", "quatschsaetze", "lueckensaetze", "satzkuppeln", "stimmtdas", "blitzwoerter"],
   };
 
   function naechstes(s = stand()) {

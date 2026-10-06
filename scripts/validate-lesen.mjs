@@ -261,6 +261,47 @@ function gruppeVon(teile) {
   });
 }
 
+// --- 2d. Wer bin ich? und die Wortbaustelle (Etappe 4) --------------------------------
+// Emoji, die erst ab Unicode 12 kommen, zeigen ältere Geräte als leeres
+// Kästchen – in neuen Inhalten haben sie nichts zu suchen.
+const SPAETE_EMOJI = [[0x1fa70, 0x1faff], [0x1f7e0, 0x1f7eb], [0x1f9c3, 0x1f9ca], [0x1f9a5, 0x1f9aa], [0x1f9ae, 0x1f9af], [0x1f9ba, 0x1f9bf], [0x1f9cd, 0x1f9cf],
+  [0x1f90c, 0x1f90f], [0x1f6d5, 0x1f6d7], [0x1f6fa, 0x1f6fc], [0x1f971, 0x1f972], [0x1f977, 0x1f978]];
+const spaet = (text) => [...String(text || "")].some((z) => { const c = z.codePointAt(0); return SPAETE_EMOJI.some(([a, b]) => c >= a && c <= b); });
+{
+  const raetsel = inhalte.RAETSEL || [];
+  pruefe(raetsel.length >= 20, `Wer bin ich?: nur ${raetsel.length} Rätsel`);
+  pruefe(new Set(raetsel.map((r) => r.id)).size === raetsel.length && new Set(raetsel.map((r) => r.bild)).size === raetsel.length, "Wer bin ich?: ein Rätsel oder ein Bild kommt doppelt vor");
+  raetsel.forEach((r) => {
+    const wo = `Wer bin ich? ${r.id}`;
+    pruefe(/^(der|die|das) \S/.test(r.wer || ""), `${wo}: «wer» braucht den Artikel (${r.wer})`);
+    pruefe(Array.isArray(r.hinweise) && r.hinweise.length >= 4 && r.hinweise.length <= 5, `${wo}: ${r.hinweise?.length} Hinweise statt 4 oder 5`);
+    (r.hinweise || []).forEach((h) => {
+      pruefe(/^[A-ZÄÖÜ].*[.!]$/.test(h) && h.split(/\s+/).length <= 9, `${wo}: «${h}» ist kein kurzer Satz`);
+      const wort = (r.wer || "").split(" ").pop();
+      pruefe(!h.includes(wort), `${wo}: «${h}» verrät die Antwort`);
+    });
+    pruefe(Array.isArray(r.andere) && r.andere.length === 3 && new Set([r.bild, ...r.andere]).size === 4, `${wo}: drei andere Bilder, keines doppelt`);
+    pruefe(![r.bild, ...(r.andere || [])].some(spaet), `${wo}: ein Bild ist zu neu für ältere Geräte`);
+  });
+  const bau = inhalte.BAUSTELLE || [];
+  pruefe(bau.length >= 16, `Wortbaustelle: nur ${bau.length} Wörter`);
+  const ganze = new Set(bau.map((b) => b.wort));
+  pruefe(ganze.size === bau.length, "Wortbaustelle: ein Wort kommt doppelt vor");
+  bau.forEach((b) => {
+    const wo = `Wortbaustelle ${b.wort}`;
+    const [a, z] = b.teile || [];
+    pruefe(Boolean(a && z) && b.wort === a + z.charAt(0).toLowerCase() + z.slice(1), `${wo}: ist nicht ${a} + ${z} (ohne Fugen)`);
+    pruefe(Array.isArray(b.bilder) && b.bilder.length === 2, `${wo}: zwei Bilder für die Teile (oder null)`);
+    pruefe(Array.isArray(b.falsch) && b.falsch.length === 2, `${wo}: zwei falsche Teile`);
+    (b.falsch || []).forEach(([wort, bild]) => {
+      pruefe(wort !== z && /^[A-ZÄÖÜ][a-zäöü]+$/.test(wort), `${wo}: falscher Teil «${wort}»`);
+      pruefe(!ganze.has(a + wort.charAt(0).toLowerCase() + wort.slice(1)), `${wo}: «${a}» und «${wort}» ergeben ein Wort dieser Liste`);
+      pruefe(!spaet(bild), `${wo}: das Bild zu «${wort}» ist zu neu für ältere Geräte`);
+    });
+    pruefe(![...(b.bilder || []), b.bild].some(spaet), `${wo}: ein Bild ist zu neu für ältere Geräte`);
+  });
+}
+
 // --- 3. Bücher ------------------------------------------------------------------
 const GRATIS_SCHRANKE = (lies("entitlement.js").match(/const GRATIS_BUECHER = \[([^\]]*)\]/)?.[1] || "")
   .split(",").map((s) => s.trim().replace(/^"|"$/g, "")).filter(Boolean);
@@ -408,7 +449,7 @@ function lautgetreu(wort) {
     pruefe(Boolean(stand.SPIELE[stand.naechstes().id]), "Lesestand: naechstes() führt ins Leere");
     // Jedes Spiel steht hinter einem Ding im Zimmer, und die Schranke kennt
     // jedes – ausser dem Bücherregal, das keine Runden hat.
-    const ORTE = ["silben", "buchstaben", "woerter", "saetze", "buecher"];
+    const ORTE = ["silben", "buchstaben", "woerter", "saetze", "buecher", "detektiv"];
     const gesperrt = new Set([...(lies("entitlement.js").match(/const LESEECKE = \{[\s\S]*?\] \};/)?.[0] || "").matchAll(/page: "([a-z]+\.html)"/g)].map((m) => m[1]));
     Object.entries(stand.SPIELE).forEach(([id, spiel]) => {
       pruefe(ORTE.includes(spiel.ort), `Lesestand: ${id} steht an keinem Ort im Zimmer (${spiel.ort})`);
@@ -531,6 +572,7 @@ function lautgetreu(wort) {
     satzkuppeln: [], quatschsaetze: [], stolperwoerter: ["lesen-buecher.js"], quatschwoerter: [],
     lautposition: [], buchstabensignal: [], liesundtu: [],
     geschichtenzug: ["lesen-buecher.js", "lesen-bilder.js"],
+    werbinich: [], wortbaustelle: [],
   };
   const stand = lies("lesen-stand.js");
   for (const [seite, extra] of Object.entries(SEITEN)) {
@@ -653,7 +695,7 @@ function lautgetreu(wort) {
     "meinname.js": "mn", "lueckensaetze.js": "ls", "buchstabengleis.js": "bg",
     "satzkuppeln.js": "sk", "quatschsaetze.js": "qs", "stolperwoerter.js": "sw", "quatschwoerter.js": "qw",
     "lautposition.js": "lp", "buchstabensignal.js": "bsg", "liesundtu.js": "lt",
-    "geschichtenzug.js": "gz" };
+    "geschichtenzug.js": "gz", "werbinich.js": "wi", "wortbaustelle.js": "ws" };
   const eigene = new Set(Object.keys(KUERZEL));
   const fremde = fs.readdirSync(root).filter((name) => name.endsWith(".js") && !eigene.has(name) && !name.startsWith("lesen-") && name !== "train-leseecke.js" && name !== "laute-aufnehmen.js" && name !== "silbenzug.js");
   Object.entries(KUERZEL).forEach(([datei, kuerzel]) => {
@@ -674,6 +716,7 @@ function lautgetreu(wort) {
     "satzkuppeln.js", "satzkuppeln.html", "quatschsaetze.js", "quatschsaetze.html", "stolperwoerter.js", "stolperwoerter.html", "quatschwoerter.js", "quatschwoerter.html",
     "lautposition.js", "lautposition.html", "buchstabensignal.js", "buchstabensignal.html", "liesundtu.js", "liesundtu.html",
     "geschichtenzug.js", "geschichtenzug.html", "lesen-bilder.js",
+    "werbinich.js", "werbinich.html", "wortbaustelle.js", "wortbaustelle.html",
     "laute-aufnehmen.html", "laute-aufnehmen.js"];
   dateien.forEach((datei) => {
     if (!fs.existsSync(path.join(root, datei))) return;

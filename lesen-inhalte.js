@@ -618,6 +618,103 @@
     ü: ["M20 50 L20 86 C20 102 32 110 48 110 C64 110 78 100 80 84", "M80 50 L80 110", "M36 30 L36 32", "M64 30 L64 32"],
   };
 
+  // ---------------------------------------------------------------------------
+  // Wer bin ich? (Etappe 4)
+  // ---------------------------------------------------------------------------
+  // Ein Rätsel in Häppchen: Die Hinweise gehen vom Allgemeinen zum Genauen,
+  // und die drei anderen Bilder passen zu den ersten Hinweisen auch – wer zu
+  // früh rät, liegt leicht daneben. Jeder Hinweis ist ein kurzer Satz mit
+  // «Ich …»; erst der letzte macht die Antwort eindeutig.
+  //   wer       so stellt sich das Rätsel am Schluss vor: «Ich bin der Elefant.»
+  //   andere    drei Bilder, die zu den ersten Hinweisen auch passen
+  const RAETSEL = [
+    { id: "elefant", bild: "🐘", wer: "der Elefant", andere: ["🐭", "🦏", "🦛"],
+      hinweise: ["Ich bin ein Tier.", "Ich bin grau.", "Ich bin sehr gross und schwer.", "Ich habe grosse Ohren.", "Ich habe einen langen Rüssel."] },
+    { id: "giraffe", bild: "🦒", wer: "die Giraffe", andere: ["🐆", "🐄", "🐞"],
+      hinweise: ["Ich bin ein Tier.", "Ich habe Flecken.", "Ich fresse Blätter von hohen Bäumen.", "Ich habe einen sehr langen Hals."] },
+    { id: "pinguin", bild: "🐧", wer: "der Pinguin", andere: ["🦉", "🦢", "🦆"],
+      hinweise: ["Ich bin ein Vogel.", "Ich bin schwarz und weiss.", "Ich kann nicht fliegen.", "Ich schwimme im kalten Meer.", "Ich watschle über das Eis."] },
+    { id: "igel", bild: "🦔", wer: "der Igel", andere: ["🐿️", "🐭", "🐸"],
+      hinweise: ["Ich bin ein kleines Tier.", "Ich wohne im Garten und im Wald.", "Ich fresse gern Schnecken und Käfer.", "Im Winter schlafe ich.", "Ich habe viele Stacheln."] },
+    { id: "schnecke", bild: "🐌", wer: "die Schnecke", andere: ["🐢", "🐛", "🐞"],
+      hinweise: ["Ich bin ein kleines Tier.", "Ich bin sehr langsam.", "Ich mag Salat.", "Ich trage mein Haus auf dem Rücken.", "Auf meinen Fühlern sitzen meine Augen."] },
+    { id: "eule", bild: "🦉", wer: "die Eule", andere: ["🦇", "🐦", "🦅"],
+      hinweise: ["Ich bin ein Vogel.", "Ich schlafe am Tag.", "In der Nacht gehe ich auf die Jagd.", "Ich habe grosse, runde Augen.", "Ich rufe: Hu-hu!"] },
+    { id: "biene", bild: "🐝", wer: "die Biene", andere: ["🦋", "🐞", "🐦"],
+      hinweise: ["Ich bin ein kleines Tier.", "Ich kann fliegen.", "Ich habe gelbe und schwarze Streifen.", "Ich fliege von Blume zu Blume.", "Ich mache Honig."] },
+    { id: "frosch", bild: "🐸", wer: "der Frosch", andere: ["🐢", "🐊", "🦎"],
+      hinweise: ["Ich bin ein Tier.", "Ich bin grün.", "Ich wohne am Teich.", "Ich kann weit springen.", "Ich quake laut."] },
+    { id: "kuh", bild: "🐄", wer: "die Kuh", andere: ["🐑", "🐐", "🐖"],
+      hinweise: ["Ich bin ein grosses Tier.", "Ich wohne auf dem Bauernhof.", "Ich fresse Gras.", "Ich gebe Milch.", "Ich mache Muh."] },
+    { id: "hund", bild: "🐶", wer: "der Hund", andere: ["🐱", "🐰", "🐹"],
+      hinweise: ["Ich bin ein Tier.", "Ich wohne oft bei Menschen.", "Ich gehe gern spazieren.", "Ich wedle mit dem Schwanz.", "Ich belle: Wau, wau!"] },
+    { id: "katze", bild: "🐱", wer: "die Katze", andere: ["🐶", "🦉", "🦊"],
+      hinweise: ["Ich bin ein Tier.", "Ich wohne oft bei Menschen.", "Ich fange gern Mäuse.", "Ich schnurre, wenn ich zufrieden bin.", "Ich sage: Miau!"] },
+    { id: "hase", bild: "🐰", wer: "der Hase", andere: ["🐭", "🐿️", "🐑"],
+      hinweise: ["Ich bin ein Tier.", "Ich habe ein weiches Fell.", "Ich habe lange Ohren.", "Ich hoppele über die Wiese.", "Ich mag Rüebli."] },
+    { id: "fisch", bild: "🐟", wer: "der Fisch", andere: ["🐸", "🦆", "🐍"],
+      hinweise: ["Ich bin ein Tier.", "Ich wohne im Wasser.", "Ich habe keine Beine.", "Ich atme mit Kiemen.", "Ich habe Schuppen und Flossen."] },
+    { id: "schmetterling", bild: "🦋", wer: "der Schmetterling", andere: ["🐝", "🐞", "🐦"],
+      hinweise: ["Ich bin ein kleines Tier.", "Ich kann fliegen.", "Ich habe bunte Flügel.", "Früher war ich eine Raupe."] },
+    { id: "loewe", bild: "🦁", wer: "der Löwe", andere: ["🐘", "🦒", "🐯"],
+      hinweise: ["Ich bin ein grosses Tier.", "Ich wohne in Afrika.", "Ich jage andere Tiere.", "Ich habe eine grosse Mähne.", "Ich brülle laut."] },
+    { id: "sonne", bild: "☀️", wer: "die Sonne", andere: ["🌙", "⭐", "☁️"],
+      hinweise: ["Ich bin am Himmel.", "Ich bin rund.", "Ich bin heiss und hell.", "Am Abend gehe ich unter."] },
+    { id: "mond", bild: "🌙", wer: "der Mond", andere: ["⭐", "☀️", "☁️"],
+      hinweise: ["Ich bin am Himmel.", "Man sieht mich vor allem in der Nacht.", "Manchmal bin ich rund, manchmal schmal.", "Ich leuchte, aber ich bin nicht heiss."] },
+    { id: "stern", bild: "⭐", wer: "der Stern", andere: ["🌙", "☁️", "☀️"],
+      hinweise: ["Ich bin am Himmel.", "Man sieht mich in der Nacht.", "Ich funkle.", "Wenn man mich malt, habe ich fünf Zacken."] },
+    { id: "schneemann", bild: "⛄", wer: "der Schneemann", andere: ["🎄", "🛷", "🌲"],
+      hinweise: ["Man findet mich im Winter.", "Ich stehe draussen und bewege mich nicht.", "Ich bin weiss und kalt.", "Meine Nase ist ein Rüebli."] },
+    { id: "regenschirm", bild: "☂️", wer: "der Regenschirm", andere: ["🎒", "🧢", "👢"],
+      hinweise: ["Ich bin ein Ding.", "Man braucht mich draussen.", "Man kann mich auf- und zumachen.", "Unter mir bleibst du trocken."] },
+    { id: "apfel", bild: "🍎", wer: "der Apfel", andere: ["🍐", "🍊", "🍒"],
+      hinweise: ["Man kann mich essen.", "Ich wachse an einem Baum.", "Ich bin rund.", "Ich bin rot, gelb oder grün und knackig."] },
+    { id: "banane", bild: "🍌", wer: "die Banane", andere: ["🥕", "🍋", "🥒"],
+      hinweise: ["Man kann mich essen.", "Ich bin eine Frucht.", "Ich bin lang und krumm.", "Meine Schale ist gelb."] },
+    { id: "velo", bild: "🚲", wer: "das Velo", andere: ["🛴", "🚗", "🛹"],
+      hinweise: ["Ich bin kein Tier.", "Mit mir kommst du schnell vorwärts.", "Ich habe zwei Räder.", "Du trittst in die Pedale."] },
+    { id: "lok", bild: "🚂", wer: "die Lok", andere: ["🚋", "🚌", "🚃"],
+      hinweise: ["Ich bin kein Tier.", "Ich fahre auf Schienen.", "Ich ziehe viele Wagen.", "Ich pfeife und mache Dampf."] },
+    { id: "baum", bild: "🌳", wer: "der Baum", andere: ["🌻", "🌵", "🍄"],
+      hinweise: ["Ich bin kein Tier.", "Ich wachse draussen.", "Ich habe Wurzeln.", "Ich habe einen dicken Stamm und viele Äste."] },
+    { id: "glace", bild: "🍦", wer: "die Glace", andere: ["🍰", "🍫", "🍭"],
+      hinweise: ["Man kann mich essen.", "Ich bin süss.", "Ich bin sehr kalt.", "Im Sommer schmelze ich schnell."] },
+  ];
+
+  // ---------------------------------------------------------------------------
+  // Die Wortbaustelle (Etappe 4)
+  // ---------------------------------------------------------------------------
+  // Zusammengesetzte Wörter aus zwei Teilen, ohne Fugen-s oder -n: Der erste
+  // Teil steht genau so vorne im langen Wort (Schnee|mann). falsch sind
+  // zweite Teile, die mit dem ersten kein Wort ergeben – nie eines wie
+  // «Sanduhr» oder «Seekuh», das es doch gibt.
+  //   bilder    zu den beiden Teilen, bild zum ganzen Wort (wo es eines gibt)
+  const BAUSTELLE = [
+    { wort: "Schneemann", teile: ["Schnee", "Mann"], bilder: ["❄️", "👨"], bild: "⛄", falsch: [["Fisch", "🐟"], ["Uhr", "🕐"]] },
+    { wort: "Regenschirm", teile: ["Regen", "Schirm"], bilder: ["🌧️", "☂️"], bild: "☂️", falsch: [["Löffel", "🥄"], ["Katze", "🐱"]] },
+    { wort: "Apfelbaum", teile: ["Apfel", "Baum"], bilder: ["🍎", "🌳"], bild: null, falsch: [["Uhr", "🕐"], ["Nase", "👃"]] },
+    { wort: "Handschuh", teile: ["Hand", "Schuh"], bilder: ["✋", "👞"], bild: "🧤", falsch: [["Stern", "⭐"], ["Kuh", "🐄"]] },
+    { wort: "Fussball", teile: ["Fuss", "Ball"], bilder: ["🦶", "⚽"], bild: "⚽", falsch: [["Fisch", "🐟"], ["Kerze", "🕯️"]] },
+    { wort: "Haustür", teile: ["Haus", "Tür"], bilder: ["🏠", "🚪"], bild: null, falsch: [["Nase", "👃"], ["Stern", "⭐"]] },
+    { wort: "Velohelm", teile: ["Velo", "Helm"], bilder: ["🚲", "⛑️"], bild: null, falsch: [["Kuh", "🐄"], ["Brot", "🍞"]] },
+    { wort: "Käsebrot", teile: ["Käse", "Brot"], bilder: ["🧀", "🍞"], bild: null, falsch: [["Nase", "👃"], ["Stern", "⭐"]] },
+    { wort: "Schneeball", teile: ["Schnee", "Ball"], bilder: ["❄️", "⚽"], bild: null, falsch: [["Kerze", "🕯️"], ["Nase", "👃"]] },
+    { wort: "Sandburg", teile: ["Sand", "Burg"], bilder: ["🏖️", "🏰"], bild: null, falsch: [["Kuh", "🐄"], ["Nase", "👃"]] },
+    { wort: "Ohrring", teile: ["Ohr", "Ring"], bilder: ["👂", "💍"], bild: null, falsch: [["Fisch", "🐟"], ["Brot", "🍞"]] },
+    { wort: "Rüeblikuchen", teile: ["Rüebli", "Kuchen"], bilder: ["🥕", "🍰"], bild: null, falsch: [["Schuh", "👞"], ["Stern", "⭐"]] },
+    { wort: "Skilift", teile: ["Ski", "Lift"], bilder: ["🎿", "🚡"], bild: null, falsch: [["Katze", "🐱"], ["Brot", "🍞"]] },
+    { wort: "Teddybär", teile: ["Teddy", "Bär"], bilder: ["🧸", "🐻"], bild: "🧸", falsch: [["Uhr", "🕐"], ["Kerze", "🕯️"]] },
+    { wort: "Baumhaus", teile: ["Baum", "Haus"], bilder: ["🌳", "🏠"], bild: null, falsch: [["Nase", "👃"], ["Kuh", "🐄"]] },
+    { wort: "Vogelhaus", teile: ["Vogel", "Haus"], bilder: ["🐦", "🏠"], bild: null, falsch: [["Schuh", "👞"], ["Kerze", "🕯️"]] },
+    { wort: "Postauto", teile: ["Post", "Auto"], bilder: ["📮", "🚗"], bild: "🚌", falsch: [["Nase", "👃"], ["Katze", "🐱"]] },
+    { wort: "Kuhglocke", teile: ["Kuh", "Glocke"], bilder: ["🐄", "🔔"], bild: null, falsch: [["Uhr", "🕐"], ["Brot", "🍞"]] },
+    { wort: "Regenwurm", teile: ["Regen", "Wurm"], bilder: ["🌧️", "🐛"], bild: "🐛", falsch: [["Uhr", "🕐"], ["Kerze", "🕯️"]] },
+    { wort: "Bücherwurm", teile: ["Bücher", "Wurm"], bilder: ["📚", "🐛"], bild: null, falsch: [["Kuh", "🐄"], ["Nase", "👃"]] },
+    { wort: "Seestern", teile: ["See", "Stern"], bilder: ["🏞️", "⭐"], bild: null, falsch: [["Brot", "🍞"], ["Nase", "👃"]] },
+    { wort: "Goldfisch", teile: ["Gold", "Fisch"], bilder: [null, "🐟"], bild: null, falsch: [["Kerze", "🕯️"], ["Kuh", "🐄"]] },
+  ];
+
   window.LernappLeseInhalte = {
     steine, steineDerSilben, lautId,
     LAUTE, LAUT_BY_ID, LAUTE_JE_STUFE, GRUPPE_JE_LESESTUFE, lauteBisGruppe, fehlendeLaute, lesbare, hausLaute,
@@ -627,5 +724,6 @@
     REIME, HOER_ANLAUT, HOER_ANLAUT_WORT, AEHNLICHE_ANLAUTE, MEHRDEUTIG, anlautVon, bildWoerter,
     BLITZWOERTER, BLITZ_JE_STUFE,
     GLEISE, SINN_SAETZE, STOLPERSTEINE,
+    RAETSEL, BAUSTELLE,
   };
 })();

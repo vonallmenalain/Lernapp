@@ -16,6 +16,7 @@
  *                        Silbenbahn, Blitzwörter, Quatschwörter
  *   Spielzeugzug         Sätze: Stimmt das?, Lückensätze, Satz kuppeln, …
  *   Bücherregal          Bücher: das Regal und der Geschichtenzug
+ *   Pinnwand             Lesedetektive: Wer bin ich?, Wortbaustelle
  *   Schild am Sessel     der Name des Lesewurms: ein Tipp, und das Kind tauft
  *                        ihn (meinname.html?wurm=1)
  *
@@ -43,6 +44,7 @@
     woerter: "Wörter",
     saetze: "Sätze",
     buecher: "Bücher",
+    detektiv: "Lesedetektive",
   };
 
   // Die Spiele hinter einem Ding, in der Reihenfolge des Katalogs.
@@ -59,6 +61,7 @@
     "Tippe auf den Lesewurm im Sessel, und er sucht dir etwas aus.",
     "Die Trommel ist zum Hören, das Buchstabenhaus für Buchstaben,",
     "die Kiste für Wörter, der kleine Zug für Sätze und das Regal für Bücher.",
+    "An der Pinnwand warten Rätsel für Lesedetektive.",
     "Auf dem Schild steht der Name deines Lesewurms.",
   ].join(" ");
 
