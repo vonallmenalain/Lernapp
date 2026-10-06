@@ -20,7 +20,8 @@
  *   - ein Kind aufklappen: Zug, probierte Level, Sitzungen – die Sicht, die
  *     der Adminbereich für alle hat, hier für die eigene Familie; dazu die
  *     Leseecke mit dem Lesebericht (Wörter, Bücher, Laute, Verwechslungen,
- *     Bestwert auf Zeit), Schriftgrösse und Wort-Hilfe
+ *     Bestwert auf Zeit, was von selbst schwerer wurde), Schriftgrösse und
+ *     Wort-Hilfe
  *   - Passwort neu: Formular an der Zeile, Aufruf mit der uid des Kindes
  *   - Fortschritt zurücksetzen: Rückfrage, danach sind Level und Sitzungen weg
  *   - Konto löschen: Rückfrage, Aufruf von /api/kind-loeschen, danach weg
@@ -351,7 +352,7 @@ try {
         woerter: 340,
         laute: { m: { r: 4, f: 0, tage: ["2026-10-01", "2026-10-03"] }, a: { r: 3, f: 1, tage: ["2026-10-02", "2026-10-04"] }, b: { r: 1, f: 2, tage: ["2026-10-04"] } },
         buecher: { "hase-rueebli": { mal: 2, sterne: 3, at: 1 }, "leo-melone": { mal: 1, sterne: 2, at: 1 } },
-        spiele: { silbenzug: { runden: 5, best: 6, zuletzt: 1 }, buchstabenhaus: { runden: 2, best: 5, zuletzt: 1 }, stimmtdas: { runden: 1, best: 0, zeit: 11, zuletzt: 1 } },
+        spiele: { silbenzug: { runden: 5, best: 6, zuletzt: 1 }, buchstabenhaus: { runden: 2, best: 5, zuletzt: 1 }, stimmtdas: { runden: 1, best: 0, zeit: 11, schritt: 1, serie: 0, zuletzt: 1 } },
         blitz: {},
         verwechselt: { "b|d": 3, "m|n": 1 },
       } } };
@@ -400,6 +401,7 @@ try {
       "Oft verwechselt": "b und d (3×)",
       "Am meisten gespielt": "Silbenzug (5), Buchstabenhaus (2), Stimmt das? (1)",
       "Bestwert auf Zeit (45 Sekunden)": "Stimmt das?: 11",
+      "Von selbst angepasst": "Stimmt das? (schwerer)",
     };
     Object.entries(berichtSoll).forEach(([frage, soll]) => pruefe(bericht[frage] === soll, `Lesebericht: «${frage}» zeigt ${JSON.stringify(bericht[frage])} statt ${soll}`));
     pruefe(Object.keys(bericht).length === Object.keys(berichtSoll).length, `Lesebericht: ${Object.keys(bericht).join(", ")}`);

@@ -35,7 +35,7 @@
     "ein Tipp auf ein volles Feld nimmt den Stein wieder heraus.",
   ].join(" ");
 
-  const stufe = () => stand?.stufe?.() || "mittel";
+  const stufe = () => stand?.stufe?.(ID) || "mittel";
 
   // Nach der Stufe – oder nach den Buchstaben, die die Eltern abgehakt haben.
   // Länger als die Stufe erlaubt wird ein Wort so oder so nicht.

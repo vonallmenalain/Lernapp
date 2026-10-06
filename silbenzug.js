@@ -44,7 +44,7 @@
 
   // Wörter für die Stufe des Kindes: Die Jüngsten zählen bis drei Silben.
   function wortListe() {
-    const stufe = stand?.stufe?.() || "mittel";
+    const stufe = stand?.stufe?.(ID) || "mittel";
     const [min, max] = inhalte.SILBEN_JE_STUFE[stufe] || [1, 4];
     return inhalte.SILBEN_WOERTER.filter((w) => w.silben.length >= min && w.silben.length <= max);
   }

@@ -38,7 +38,7 @@
     "Ein Tipp auf das Bild sagt das Wort noch einmal.",
   ].join(" ");
 
-  const stufe = () => stand?.stufe?.() || "mittel";
+  const stufe = () => stand?.stufe?.(ID) || "mittel";
 
   // Wo ein Laut im Wort steht – oder null, wenn er nicht oder mehrmals
   // vorkommt. Zwei gleiche Steine nacheinander (Tasse) sind ein Laut.

@@ -40,7 +40,7 @@
     "Zerlegen: Wo fängt im langen Wort das zweite Wort an? Tippe auf diesen Buchstaben.",
   ].join(" ");
 
-  const stufe = () => stand?.stufe?.() || "mittel";
+  const stufe = () => stand?.stufe?.(ID) || "mittel";
   const zeige = (text) => stand?.zeige?.(text) ?? text;
   // So steht der zweite Teil im langen Wort: «Mann» in «Schneemann».
   const klein = (teil) => teil.charAt(0).toLowerCase() + teil.slice(1);

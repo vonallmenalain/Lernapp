@@ -59,7 +59,7 @@
     "Zum Setzen: Tippe erst ein Tier an, dann die Stelle. Zum Malen: Wähle eine Farbe, tippe an, was du anmalen willst, und dann auf den Haken.",
   ].join(" ");
 
-  const stufe = () => stand?.stufe?.() || "mittel";
+  const stufe = () => stand?.stufe?.(ID) || "mittel";
   const zufall = (liste) => liste[Math.floor(Math.random() * liste.length)];
   const zeige = (text) => stand?.zeige?.(text) ?? text;
 

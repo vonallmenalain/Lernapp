@@ -73,6 +73,12 @@ Stand: Oktober 2026 · Grundlage: das Konzept «Leseecke – Konzept & Ideensamm
 > Im Elternbereich lassen sich dazu die **Schriftgrösse der Bücher** (normal, gross, sehr
 > gross) und die **Wort-Hilfe beim Selberlesen** einstellen: Ist sie aus, sagt ein Tipp auf
 > ein Wort nichts, und der Lautsprecher fehlt – «Vorlesen» bleibt möglich.
+>
+> **Etappe 6 (Mitwachsen):** Jedes Spiel wächst in kleinen Schritten mit: Zwei Runden mit
+> drei Sternen hintereinander machen es eine Stufe schwerer, zwei schwache eine leichter –
+> ohne dass es jemand ansagt, und nie über «schwer» oder unter «leicht». Der Schritt gilt
+> je Spiel und relativ zur Stufe des Kindes; der Lesebericht zeigt, was von selbst schwerer
+> oder leichter geworden ist.
 
 ## 1. Die Idee in drei Sätzen
 
@@ -220,7 +226,12 @@ Firestore-Dokument (Grenze 1 MiB), das Eltern und Gruppe lesen können.
 ### Alter und Einstellungen
 
 Die Leseecke beginnt bei der Schwierigkeitsstufe des Kindes: «leicht» beim Hören, «mittel»
-bei den Buchstaben, «schwer» bei den Sätzen. Im Elternbereich steht je Kind die Karte
+bei den Buchstaben, «schwer» bei den Sätzen. Von dort **wächst jedes Spiel mit**
+(`lesen-stand.js`, `stufe(id)`, `mitwachsen`): Nach zwei Runden mit drei Sternen hintereinander
+spielt es eine Stufe höher, nach zwei schwachen (ein Stern) eine tiefer; zwei Sterne beginnen
+die Serie neu. Schritt und Serie stehen je Spiel im Kasten (`spiele[id].schritt`, `serie`);
+zwischen zwei Geräten gilt das, das zuletzt gespielt hat. Wo die Leseecke beginnt und was
+der Lesewurm als Nächstes vorschlägt, folgt weiter der Stufe des Kindes. Im Elternbereich steht je Kind die Karte
 **Leseecke** (`firebase.js`, `renderKindLesen`):
 
 - **Wo beginnt die Leseecke?** Nach Alter, Hören, Buchstaben, Wörter, Sätze, Geschichten.
@@ -236,8 +247,8 @@ bei den Buchstaben, «schwer» bei den Sätzen. Im Elternbereich steht je Kind d
   gelesene oder gehörte Wörter, Bücher (und wie viele mit allen Fragen richtig), Runden,
   wie weit der Lesewagen eingerichtet ist, Laute, die sitzen, Laute, die noch wackeln
   (geübt, mit Fehlern, sitzen noch nicht), oft Verwechseltes (ab zweimal), die liebsten
-  Spiele und die Bestwerte auf Zeit. Nur aus den Zählern im Kasten – kein Protokoll
-  einzelner Antworten.
+  Spiele, die Bestwerte auf Zeit und welche Spiele von selbst schwerer oder leichter
+  geworden sind. Nur aus den Zählern im Kasten – kein Protokoll einzelner Antworten.
 - **Buchstaben aus der Schule:** «Nach Reihenfolge» oder selbst abhaken (ein Knopf je Laut,
   gespeichert wird erst mit «Speichern»). Abgehakt wohnen genau diese Laute im
   Buchstabenhaus (mindestens vier), und Laute kuppeln, Wer fährt mit?, Wörter bauen und die
@@ -330,10 +341,11 @@ Zwielaute spricht die Sprachausgabe, Mitlaute bleiben stumm und werden gezeigt.
 - **Etappe 5 – für Ältere und die Eltern:** fertig – Runden auf Zeit in «Stimmt das?» und
   «Stolperwörter» (ab «schwer», mit eigenem Bestwert), Schriftgrösse der Bücher und
   Wort-Hilfe im Elternbereich.
+- **Etappe 6 – Mitwachsen:** fertig – jedes Spiel wird nach zwei Runden mit drei Sternen eine
+  Stufe schwerer, nach zwei schwachen eine leichter.
 - **Noch offen aus dem Konzept:** die Silbenhilfe (farbige Silben oder Silbenbögen in allen
-  Texten – braucht eine verlässliche Silbentrennung für jedes Wort der Bücher), das
-  Mitwachsen in kleinen Schritten innerhalb der Leseecke (heute gilt die Stufe des Kindes)
-  und weitere Bücher bis rund 40.
+  Texten – braucht eine verlässliche Silbentrennung für jedes Wort der Bücher, sonst lernt
+  ein Kind falsche Silben) und weitere Bücher bis rund 40.
 
 ## 8. Die Entscheidungen
 

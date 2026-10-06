@@ -922,6 +922,19 @@ const SZENARIEN = [
     schritte: [
       { name: "Los", tun: async () => {} },
       { name: "Wagen", tun: async (blatt) => { await tippe(blatt, ".lese-los-knopf"); await pause(blatt, 600); } },
+      // Das längste Wort: sieben Laut-Wagen – auf dem Tablet ragten sie aus
+      // dem Gleis, bevor der Zug sich einpasste.
+      { name: "Langes Wort", tun: async (blatt) => {
+        const das = await blatt.evaluate(() => {
+          const lk = window.LernappLauteKuppeln;
+          const laenge = (w) => lk.zerlege(w).length;
+          const liste = window.LernappLeseInhalte.KUPPEL_WOERTER.filter((w) => lk.wortListe().includes(w));
+          const wort = liste.sort((a, b) => laenge(b) - laenge(a))[0]?.wort;
+          return wort && lk.uebe(wort) ? wort : null;
+        });
+        if (!das) throw new Error("kein langes Wort");
+        await pause(blatt, 500);
+      } },
       { name: "Bilder", tun: async (blatt) => {
         const anzahl = await blatt.locator(".kp-wagen").count();
         for (let i = 0; i < anzahl; i += 1) {

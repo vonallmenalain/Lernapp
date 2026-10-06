@@ -11,7 +11,8 @@
  *               wurde – und die Hörspiele brauchen die Stimme vom ersten
  *               Wort an.
  *   Ergebnis    Sterne statt Bestenliste, und der Lesestand wird geschrieben:
- *               Runde gespielt, Wörter für den Lesewurm.
+ *               Runde gespielt, Wörter für den Lesewurm – und die Sterne,
+ *               von denen das Spiel in kleinen Schritten mitwächst.
  *   auf Zeit    ab Stufe «schwer» bieten «Stimmt das?» und «Stolperwörter»
  *               neben «Los» eine Runde auf Zeit an: 45 Sekunden, so viele
  *               Sätze wie möglich – das übt Tempo, ohne das Verstehen
@@ -115,11 +116,14 @@
     const s = stand();
     const glieder = s?.wurmGlieder?.() || 1;
     const bisher = Number(s?.stand?.().spiele?.[id]?.zeit) || 0;
+    const sternZahl = stars ?? sterne(punkte, von);
+    // Von den Sternen einer gewöhnlichen Runde wächst das Spiel mit
+    // (lesen-stand.js, mitwachsen). Ein Buch bringt eigene Sterne mit und hat
+    // keine Stufe; die Runde auf Zeit misst Tempo, nicht die Stufe.
     if (zeit) s?.zeitRunde?.(id, { punkte });
-    else s?.spielRunde?.(id, { punkte });
+    else s?.spielRunde?.(id, { punkte, sterne: stars === null ? sternZahl : null });
     if (woerter) s?.woerterGelesen?.(woerter);
     const neu = s?.wurmGlieder?.() || 1;
-    const sternZahl = stars ?? sterne(punkte, von);
     const wurm = neu > glieder ? " Dein Lesewurm ist gewachsen!" : "";
     // Ein neuer Bestwert auf Zeit – nicht schon beim allerersten Mal.
     const rekord = zeit && bisher > 0 && punkte > bisher ? " Neuer Rekord!" : "";

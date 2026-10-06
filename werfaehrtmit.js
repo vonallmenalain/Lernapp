@@ -35,7 +35,7 @@
     "Dann tippe auf das Bild, das dazu passt – es darf einsteigen.",
   ].join(" ");
 
-  const stufe = () => stand?.stufe?.() || "mittel";
+  const stufe = () => stand?.stufe?.(ID) || "mittel";
 
   // Nach der Stufe – oder nach den Buchstaben, die die Eltern abgehakt haben.
   function wortListe() {

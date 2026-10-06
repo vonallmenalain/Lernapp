@@ -50,7 +50,7 @@
     "Neue Karten kommen, wenn du auf der Reise einen Fahrgast nach Hause bringst.",
   ].join(" ");
 
-  const stufe = () => stand?.stufe?.() || "mittel";
+  const stufe = () => stand?.stufe?.(ID) || "mittel";
   const zeige = (text) => stand?.zeige?.(text) ?? text;
   const idVon = (k) => k.karte || "willkommen";
 

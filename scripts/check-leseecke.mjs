@@ -29,6 +29,8 @@
  *                 schweigt ein Tipp beim Selberlesen; «sehr gross» ist grösser.
  *   Auf Zeit      Auf «schwer» bieten Stimmt das? und Stolperwörter die Uhr
  *                 an: ohne Vorlesen, mit eigenem Bestwert im Lesestand.
+ *   Mitwachsen    Ein Spiel, das einen Schritt gewachsen ist, spielt eine
+ *                 Stufe höher als das Kind; eine Runde zählt für die Serie.
  *
  * Aufruf:  node scripts/check-leseecke.mjs
  * Nötig:   Playwright. Der lokale Server wird selbst gestartet und beendet.
@@ -1300,6 +1302,35 @@ try {
     if (swZeit.gesagt.length) fehlt(`Auf Zeit: Stolperwörter liest vor und kostet Zeit (${swZeit.gesagt.join(" | ")})`);
     if (eintrag?.zeit !== 3 || eintrag?.runden !== 1) fehlt(`Auf Zeit: im Lesestand von Stolperwörter steht ${JSON.stringify(eintrag)}`);
   }
+  // Mitwachsen: Ist «Stimmt das?» schon einen Schritt mitgewachsen, spielt es
+  // auf «schwer» – mit der Uhr –, während Stolperwörter auf der Stufe des
+  // Kindes bleibt. Eine Runde mit allen Sätzen richtig zählt für die Serie.
+  await stufeSetzen("mittel");
+  await leser.evaluate(() => {
+    const s = JSON.parse(localStorage.getItem("lernapp.lesen") || "{}");
+    s.spiele = { ...(s.spiele || {}), stimmtdas: { runden: 4, best: 8, zuletzt: 1, schritt: 1, serie: 0 } };
+    delete s.spiele.stolperwoerter;
+    localStorage.setItem("lernapp.lesen", JSON.stringify(s));
+  });
+  await leser.goto(`${BASIS}/stimmtdas.html`, { waitUntil: "domcontentloaded" });
+  await leser.waitForFunction("window.LernappStimmtDas", null, { timeout: 8000 }).catch(() => {});
+  await leser.waitForTimeout(300);
+  const gewachsen = await leser.evaluate(() => ({ stufe: window.LernappLeseStand.stufe("stimmtdas"), kind: window.LernappLeseStand.stufe(), uhr: Boolean(document.querySelector(".lese-zeit-knopf")) }));
+  if (gewachsen.stufe !== "schwer" || gewachsen.kind !== "mittel" || !gewachsen.uhr) fehlt(`Mitwachsen: «Stimmt das?» spielt nach einem Schritt auf ${gewachsen.stufe} (Kind ${gewachsen.kind}, Uhr ${gewachsen.uhr})`);
+  await leser.locator(".lese-los-knopf").click();
+  for (let i = 0; i < 8; i += 1) {
+    await leser.waitForSelector(".sd-daumen:not([disabled])", { timeout: 5000 }).catch(() => {});
+    const a = await leser.evaluate(() => window.LernappStimmtDas.jetzt());
+    await leser.locator(a?.stimmt ? ".sd-ja" : ".sd-nein").click();
+    await leser.waitForFunction((n) => window.LernappStimmtDas.nr() > n, i, { timeout: 6000 }).catch(() => {});
+  }
+  await leser.waitForSelector(".cm-overlay", { timeout: 8000 }).catch(() => {});
+  const serie = await leser.evaluate(() => window.LernappLeseStand.stand().spiele.stimmtdas);
+  if (serie?.serie !== 1 || serie?.schritt !== 1 || serie?.runden !== 5) fehlt(`Mitwachsen: nach einer Runde mit drei Sternen steht ${JSON.stringify(serie)}`);
+  await leser.goto(`${BASIS}/stolperwoerter.html`, { waitUntil: "domcontentloaded" });
+  await leser.waitForFunction("window.LernappStolperwoerter", null, { timeout: 8000 }).catch(() => {});
+  await leser.waitForTimeout(300);
+  if (await leser.locator(".lese-zeit-knopf").count()) fehlt("Mitwachsen: Stolperwörter ist mitgewachsen, obwohl nur «Stimmt das?» einen Schritt gemacht hat");
   await leser.evaluate(() => localStorage.removeItem("lernapp.reise"));
 
   // Die Eltern schalten die Wort-Hilfe aus und stellen die Schrift sehr gross:
@@ -1398,4 +1429,4 @@ if (befunde.length) {
   befunde.forEach((b) => console.error(`  - ${b}`));
   process.exit(1);
 }
-console.log("Die Leseecke läuft: Lesewagen, Zimmer mit Auswahl, alle Spiele hin und zurück, eine Runde Silbenzug bis zum Tor, Laute kuppeln ohne verratenes Wort, Buchstabenhaus, der Würfel von «Stimmt das?», Reimkupplung, Anlaut-Lauscher, Wer fährt mit?, Wörter bauen, Silbenbahn, Blitzwörter, Mein Name, der Lesewurm bekommt seinen Namen, Lückensätze, Buchstabengleis, Satz kuppeln, Quatschsätze, Stolperwörter, Quatschwörter, Laut-Position, Buchstaben-Signal, Lies und tu!, Geschichtenzug, Wer bin ich?, Wortbaustelle, Steckbriefe, Detektivfälle, Postkarten, die Buchstaben der Schule, Hörbuch mit Nachsehen, Zusammen lesen, Kapitelbücher mit Überschrift und Lesezeichen, Runden auf Zeit, Wort-Hilfe und Schriftgrösse der Eltern, der Lesewurm wächst, der Lesewagen wird gemütlich, und der Lesewurm fährt auf der Lok mit.");
+console.log("Die Leseecke läuft: Lesewagen, Zimmer mit Auswahl, alle Spiele hin und zurück, eine Runde Silbenzug bis zum Tor, Laute kuppeln ohne verratenes Wort, Buchstabenhaus, der Würfel von «Stimmt das?», Reimkupplung, Anlaut-Lauscher, Wer fährt mit?, Wörter bauen, Silbenbahn, Blitzwörter, Mein Name, der Lesewurm bekommt seinen Namen, Lückensätze, Buchstabengleis, Satz kuppeln, Quatschsätze, Stolperwörter, Quatschwörter, Laut-Position, Buchstaben-Signal, Lies und tu!, Geschichtenzug, Wer bin ich?, Wortbaustelle, Steckbriefe, Detektivfälle, Postkarten, die Buchstaben der Schule, Hörbuch mit Nachsehen, Zusammen lesen, Kapitelbücher mit Überschrift und Lesezeichen, Runden auf Zeit, Wort-Hilfe und Schriftgrösse der Eltern, Spiele, die mitwachsen, der Lesewurm wächst, der Lesewagen wird gemütlich, und der Lesewurm fährt auf der Lok mit.");

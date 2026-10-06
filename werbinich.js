@@ -38,7 +38,7 @@
     "Je weniger Hinweise du brauchst, desto mehr Punkte gibt es.",
   ].join(" ");
 
-  const stufe = () => stand?.stufe?.() || "mittel";
+  const stufe = () => stand?.stufe?.(ID) || "mittel";
   const zeige = (text) => stand?.zeige?.(text) ?? text;
   // Punkte für ein gelöstes Rätsel, nach der Zahl der gelesenen Hinweise.
   const punkteFuer = (hinweise) => (hinweise <= 2 ? 3 : (hinweise === 3 ? 2 : 1));

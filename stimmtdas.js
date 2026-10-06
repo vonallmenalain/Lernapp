@@ -41,7 +41,7 @@
   // Wie viele Tiere wo Platz haben, steht beim Bild (lesen-art.js, buildSzene).
   const PLAETZE = art.SZENE_PLAETZE;
 
-  function stufe() { return stand?.stufe?.() || "mittel"; }
+  function stufe() { return stand?.stufe?.(ID) || "mittel"; }
 
   // ---------------------------------------------------------------------------
   // Würfeln

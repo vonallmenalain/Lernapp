@@ -41,7 +41,7 @@
 
   const HELP_ZEIT = "Mit der Uhr spielst du auf Zeit: 45 Sekunden, so viele Sätze wie möglich.";
 
-  const stufe = () => stand?.stufe?.() || "mittel";
+  const stufe = () => stand?.stufe?.(ID) || "mittel";
 
   // Die Sätze: aus der Liste mit Sinn, auf «schwer» dazu kurze Sätze aus den
   // Büchern ohne wörtliche Rede.
