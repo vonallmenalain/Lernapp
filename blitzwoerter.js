@@ -37,7 +37,7 @@
     "Dann tippe auf das Wort, das du gesehen hast.",
   ].join(" ");
 
-  const stufe = () => stand?.stufe?.() || "mittel";
+  const stufe = () => stand?.stufe?.(ID) || "mittel";
 
   function wortListe() {
     const gruppen = inhalte.BLITZ_JE_STUFE[stufe()] || [1];

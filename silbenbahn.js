@@ -38,7 +38,7 @@
     "Ein Tipp auf das Bild sagt das Wort.",
   ].join(" ");
 
-  const stufe = () => stand?.stufe?.() || "mittel";
+  const stufe = () => stand?.stufe?.(ID) || "mittel";
 
   // Nach der Zahl der Silben, und wenn die Eltern Buchstaben abgehakt haben,
   // zuerst die Wörter, die sich damit lesen lassen.

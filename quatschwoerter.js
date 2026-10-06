@@ -44,7 +44,7 @@
     "Lies die Schilder genau und tippe auf das, auf dem sein Name steht. Ein Tipp auf das Monster, und es sagt ihn noch einmal.",
   ].join(" ");
 
-  const stufe = () => stand?.stufe?.() || "mittel";
+  const stufe = () => stand?.stufe?.(ID) || "mittel";
   const zufall = (liste) => liste[Math.floor(Math.random() * liste.length)];
   const vorne = (wort) => wort.charAt(0).toUpperCase() + wort.slice(1);
 

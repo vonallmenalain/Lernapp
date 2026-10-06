@@ -39,7 +39,7 @@
     "Ein Tipp auf das Bild oben sagt das Wort noch einmal.",
   ].join(" ");
 
-  const stufe = () => stand?.stufe?.() || "mittel";
+  const stufe = () => stand?.stufe?.(ID) || "mittel";
 
   // Die Wörter nach ihrem ersten Laut, nur Laute mit mindestens zwei Wörtern.
   function gruppen() {

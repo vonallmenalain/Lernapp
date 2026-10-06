@@ -46,7 +46,7 @@
   function wortListe() {
     const bekannt = stand?.bekannteLaute?.() || null;
     if (bekannt) return inhalte.lesbare(inhalte.KUPPEL_WOERTER, bekannt, RUNDE);
-    const stufe = stand?.stufe?.() || "mittel";
+    const stufe = stand?.stufe?.(ID) || "mittel";
     const gruppen = inhalte.KUPPELN_JE_STUFE[stufe] || [1, 2];
     return inhalte.KUPPEL_WOERTER.filter((w) => gruppen.includes(w.stufe));
   }
@@ -94,7 +94,28 @@
       knopf.addEventListener("click", () => kuppel(i));
       el.zug.append(knopf);
     });
+    einpassen();
     markiereDran();
+  }
+
+  // Ein langes Wort auf einem hohen Bild – «Roboter» auf dem Tablet: Die
+  // Wagen wachsen mit der Höhe, und sieben davon samt der Lok, die am Ende
+  // ankuppelt, ragten aus dem Gleis. Dann wird der Zug so viel niedriger,
+  // dass alles hineinpasst (scripts/check-handy.mjs misst das längste Wort).
+  function einpassen() {
+    el.zug.style.height = "";
+    const zugArt = window.LernappTrainArt;
+    // Die Lok ist 128 % so hoch wie der Zug (.kp-lok) und so breit wie ihr Bild.
+    const lokJeHoehe = 1.28 * (zugArt ? zugArt.LOCO_W / zugArt.ART_H : 1);
+    // Der Zug steht 6 % vom linken Rand des Gleises; rechts bleibt etwas Luft.
+    const platz = el.gleis.clientWidth * 0.94 - 12;
+    for (let versuch = 0; versuch < 6; versuch += 1) {
+      const hoehe = el.zug.clientHeight;
+      const breite = el.zug.scrollWidth + hoehe * lokJeHoehe;
+      if (!hoehe || breite <= platz) return;
+      const prozent = (parseFloat(el.zug.style.height) || 70) * (platz / breite);
+      el.zug.style.height = `${Math.max(30, Math.floor(prozent))}%`;
+    }
   }
 
   function markiereDran() {
@@ -241,5 +262,15 @@
   start();
 
   // Für die Prüfung (check-leseecke.mjs): das Wort, das gerade dran ist.
-  window.LernappLauteKuppeln = { RUNDE, wortListe, zerlege, wort: () => state.wort };
+  window.LernappLauteKuppeln = {
+    RUNDE, wortListe, zerlege, wort: () => state.wort,
+    // Ein bestimmtes Wort zeigen – für check-handy.mjs das längste.
+    uebe: (wort) => {
+      const eintrag = inhalte.KUPPEL_WOERTER.find((w) => w.wort === wort);
+      if (!eintrag || !el.zug) return false;
+      state.runde[state.nr] = eintrag;
+      naechstes();
+      return true;
+    },
+  };
 })();

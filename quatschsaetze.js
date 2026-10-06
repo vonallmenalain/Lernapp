@@ -35,7 +35,7 @@
     "Kann das sein? Dann tippe auf den Daumen: Der Wagen fährt weiter. Ist es Quatsch, tippe auf das Abstellgleis.",
   ].join(" ");
 
-  const stufe = () => stand?.stufe?.() || "mittel";
+  const stufe = () => stand?.stufe?.(ID) || "mittel";
   const wortZahl = (satz) => satz.split(/\s+/).length;
 
   // Eine Runde: halb Sinn, halb Quatsch, gemischt – und nie zweimal derselbe Satz.

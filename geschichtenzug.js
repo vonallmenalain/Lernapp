@@ -50,7 +50,7 @@
     "Ein Tipp auf das Buch oben sagt seinen Namen.",
   ].join(" ");
 
-  const stufe = () => stand?.stufe?.() || "mittel";
+  const stufe = () => stand?.stufe?.(ID) || "mittel";
   const lesestufe = () => stand?.lesestufe?.() || "buchstaben";
   const zeige = (text) => stand?.zeige?.(text) ?? text;
 

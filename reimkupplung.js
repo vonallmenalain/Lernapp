@@ -40,7 +40,7 @@
 
   // Auf «leicht» zwei Wagen zur Wahl, sonst drei.
   function anzahlWahl() {
-    return (stand?.stufe?.() || "mittel") === "leicht" ? 2 : 3;
+    return (stand?.stufe?.(ID) || "mittel") === "leicht" ? 2 : 3;
   }
 
   const state = { nr: 0, punkte: 0, fehler: 0, phase: "intro", aufgabe: null, runde: [] };

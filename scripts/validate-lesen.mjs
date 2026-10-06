@@ -26,7 +26,9 @@
  *   Lesestand   Zusammenführen ist das Maximum, in beide Richtungen gleich;
  *               ein Laut sitzt erst nach drei Treffern an zwei Tagen; der
  *               Lesewurm wächst je zwanzig Wörter; die Eltern-Einstellung
- *               fällt bei Unsinn auf «auto» zurück.
+ *               fällt bei Unsinn auf «auto» zurück; ein Spiel wächst nach
+ *               zwei Runden mit drei Sternen eine Stufe mit, nach zwei
+ *               schwachen zurück, und zwischen Geräten gilt der neuere Schritt.
  *   Seiten      Jedes Spiel hat seine Seite, und sie lädt, was es braucht,
  *               in der richtigen Reihenfolge. Nirgends steht ß.
  *
@@ -560,6 +562,57 @@ function lautgetreu(wort) {
       `Lesestand: der Bestwert auf Zeit wird nicht richtig zusammengeführt: ${JSON.stringify(mz.spiele)}`);
     const sortiert = (x) => (x && typeof x === "object" && !Array.isArray(x) ? Object.fromEntries(Object.keys(x).sort().map((k) => [k, sortiert(x[k])])) : x);
     pruefe(JSON.stringify(sortiert(mz)) === JSON.stringify(sortiert(stand.merge(z2, z1))), "Lesestand: mit Bestwert auf Zeit ist merge(a, b) nicht dasselbe wie merge(b, a)");
+
+    // Mitwachsen: Zwei Runden mit drei Sternen hintereinander machen ein Spiel
+    // eine Stufe schwerer, zwei schwache eine leichter, zwei Sterne beginnen
+    // die Serie neu – nie über «schwer», nie unter «leicht». In der Sandbox
+    // gibt es keine Reise: Die Stufe des Kindes ist «mittel».
+    const sb = () => stand.stufe("silbenbahn");
+    const runde = (sterne) => stand.spielRunde("silbenbahn", { punkte: 5, sterne });
+    pruefe(stand.grundstufe() === "mittel" && sb() === "mittel", `Mitwachsen: ohne Runden steht die Silbenbahn auf ${sb()}`);
+    runde(3);
+    pruefe(sb() === "mittel", "Mitwachsen: schon nach einer Runde mit drei Sternen schwerer");
+    runde(3);
+    pruefe(sb() === "schwer" && stand.stufe() === "mittel" && stand.stufe("silbenzug") === "mittel", `Mitwachsen: nach zwei Runden mit drei Sternen ${sb()}, das Kind ${stand.stufe()}`);
+    runde(3);
+    runde(3);
+    pruefe(sb() === "schwer" && stand.stand().spiele.silbenbahn.schritt === 1, `Mitwachsen: über «schwer» hinaus (${JSON.stringify(stand.stand().spiele.silbenbahn)})`);
+    runde(1);
+    runde(2);
+    runde(1);
+    pruefe(sb() === "schwer", "Mitwachsen: zwei Sterne dazwischen beginnen die Serie nicht neu");
+    runde(1);
+    pruefe(sb() === "mittel", `Mitwachsen: nach zwei schwachen Runden noch ${sb()}`);
+    runde(1);
+    runde(1);
+    runde(1);
+    runde(1);
+    pruefe(sb() === "leicht" && stand.stand().spiele.silbenbahn.schritt === -1, `Mitwachsen: unter «leicht» (${JSON.stringify(stand.stand().spiele.silbenbahn)})`);
+    stand.spielRunde("buchprobe", { punkte: 3 });
+    stand.spielRunde("buchprobe", { punkte: 3 });
+    pruefe(!("schritt" in stand.stand().spiele.buchprobe), "Mitwachsen: eine Runde ohne Sterne (ein Buch) bekommt eine Stufe");
+    // Zwischen zwei Geräten gilt der Schritt des Geräts, das zuletzt gespielt
+    // hat – auch wenn er kleiner ist.
+    const frueher = { spiele: { silbenbahn: { runden: 3, best: 8, zuletzt: 10, schritt: 1, serie: 0 } } };
+    const spaeter = { spiele: { silbenbahn: { runden: 5, best: 6, zuletzt: 20, schritt: -1, serie: -1 } } };
+    const mw = stand.merge(frueher, spaeter);
+    pruefe(mw.spiele.silbenbahn.schritt === -1 && mw.spiele.silbenbahn.serie === -1 && mw.spiele.silbenbahn.runden === 5 && mw.spiele.silbenbahn.best === 8,
+      `Mitwachsen: zusammengeführt steht ${JSON.stringify(mw.spiele.silbenbahn)}`);
+    pruefe(JSON.stringify(sortiert(mw)) === JSON.stringify(sortiert(stand.merge(spaeter, frueher))) && JSON.stringify(sortiert(stand.merge(mw, mw))) === JSON.stringify(sortiert(mw)),
+      "Mitwachsen: das Zusammenführen ist nicht in beide Richtungen gleich oder nicht stabil");
+    // Was keine Stufen kennt, wächst nicht mit – und die Liste stimmt mit der
+    // Quelle: Ein Spiel fragt nach seiner Stufe (stufe?.(ID)) genau dann,
+    // wenn es nicht ohneStufe heisst.
+    stand.spielRunde("buchstabenhaus", { punkte: 8, sterne: 3 });
+    stand.spielRunde("buchstabenhaus", { punkte: 8, sterne: 3 });
+    pruefe(!("schritt" in stand.stand().spiele.buchstabenhaus), "Mitwachsen: das Buchstabenhaus hat keine Stufen und wächst trotzdem");
+    Object.entries(stand.SPIELE).forEach(([id, spiel]) => {
+      const datei = spiel.page.replace(/\.html.*$/, ".js");
+      const fragt = fs.existsSync(path.join(root, datei)) && lies(datei).includes("stand?.stufe?.(ID)");
+      pruefe(fragt === !spiel.ohneStufe, `Mitwachsen: ${id} ${fragt ? "fragt nach seiner Stufe, heisst aber ohneStufe" : "fragt nicht nach seiner Stufe, wächst aber mit"}`);
+    });
+    const angepasst = stand.bericht({ spiele: { silbenbahn: { runden: 4, schritt: 1 }, stimmtdas: { runden: 2, schritt: -1 }, silbenzug: { runden: 1, schritt: 0 } } }).angepasst;
+    pruefe(angepasst.map((a) => `${a.titel}:${a.richtung}`).join(",") === "Silbenbahn:schwerer,Stimmt das?:leichter", `Mitwachsen: im Bericht ${JSON.stringify(angepasst)}`);
     // Was als Nächstes dran ist, gibt es auch.
     for (const [stufe, liste] of Object.entries(stand.AUSWAHL)) {
       pruefe(stand.STARTPUNKTE.includes(stufe), `Lesestand: AUSWAHL kennt die Stufe ${stufe} nicht`);

@@ -36,7 +36,7 @@
     "Kupple die Wörter so an die Lok, dass der Satz dazu stimmt: vorne das Wort mit dem grossen Anfang, hinten das mit dem Punkt.",
   ].join(" ");
 
-  const stufe = () => stand?.stufe?.() || "mittel";
+  const stufe = () => stand?.stufe?.(ID) || "mittel";
   const zufall = (liste) => liste[Math.floor(Math.random() * liste.length)];
   const zeige = (text) => stand?.zeige?.(text) ?? text;
 

@@ -3160,9 +3160,10 @@
     if (b.blitzSicher) zeilen.push(zeile("Blitzwörter auf einen Blick", escapeHtml(String(b.blitzSicher))));
     if (b.spiele.length) zeilen.push(zeile("Am meisten gespielt", b.spiele.slice(0, 3).map((s) => escapeHtml(`${s.titel} (${s.runden})`)).join(", ")));
     if (b.zeit?.length) zeilen.push(zeile("Bestwert auf Zeit (45 Sekunden)", b.zeit.map((z) => escapeHtml(`${z.titel}: ${z.best}`)).join(", ")));
+    if (b.angepasst?.length) zeilen.push(zeile("Von selbst angepasst", b.angepasst.map((a) => escapeHtml(`${a.titel} (${a.richtung})`)).join(", ")));
     return `${kopf}
         <div class="lesebericht">${zeilen.join("")}</div>
-        <p class="auth-hint">Ein Laut sitzt, wenn ${escapeHtml(name)} ihn an zwei verschiedenen Tagen dreimal richtig erkannt hat. Verwechslungen wie b und d sind am Anfang normal – sie zeigen, wo Üben lohnt.</p>`;
+        <p class="auth-hint">Ein Laut sitzt, wenn ${escapeHtml(name)} ihn an zwei verschiedenen Tagen dreimal richtig erkannt hat. Verwechslungen wie b und d sind am Anfang normal – sie zeigen, wo Üben lohnt. Nach zwei Runden mit drei Sternen hintereinander wird ein Spiel von selbst eine Stufe schwerer, nach zwei schwachen eine leichter.</p>`;
   }
 
   // Welche Buchstaben die Schule schon eingeführt hat. Zugeklappt: «Nach

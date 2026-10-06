@@ -17,8 +17,10 @@
  *     blitz:   { und: { r: 2, f: 0, tage: [...], zuletzt: … } },
  *     buecher: { "hase-rueebli": { mal: 2, sterne: 3, at: … } },
  *     spiele:  { silbenzug: { runden: 3, best: 6, zuletzt: … },
- *                stimmtdas: { runden: 5, best: 8, zeit: 14, zuletzt: … } },
- *                                   // zeit: Bestwert der Runde auf Zeit
+ *                stimmtdas: { runden: 5, best: 8, zeit: 14, schritt: 1, serie: 0, zuletzt: … } },
+ *                                   // zeit: Bestwert der Runde auf Zeit;
+ *                                   // schritt, serie: das Spiel wächst mit
+ *                                   // (siehe mitwachsen)
  *     wurm:    { name: "Moli", at: … },   // so hat das Kind ihn getauft
  *     verwechselt: { "b|d": 3 },          // wie oft b für d genommen wurde
  *   }                                     // oder d für b – für die Eltern
@@ -57,6 +59,11 @@
 
   // Verwechslungen merkt sich der Kasten nur paarweise und nur so viele.
   const VERWECHSLUNGEN_MAX = 24;
+
+  // Die Stufen, in denen ein Spiel mitwächst, und wie viele Runden
+  // hintereinander dafür nötig sind.
+  const STUFEN_REIHE = ["leicht", "mittel", "schwer"];
+  const SERIE_FUER_SCHRITT = 2;
 
   // ---------------------------------------------------------------------------
   // Zusammenführen
@@ -126,6 +133,24 @@
     return Object.fromEntries(eintraege.sort((x, y) => (x[0] < y[0] ? -1 : 1)));
   }
 
+  // Bei den Spielen kommen Schritt und Serie vom Gerät, das zuletzt gespielt
+  // hat: Ein Maximum wäre falsch, ein Spiel kann auch wieder leichter werden.
+  // Gleich alt: der grössere Wert, damit beide Richtungen dasselbe ergeben.
+  function mergeSpiele(a = {}, b = {}) {
+    const out = mergeEintraege(a, b, ["runden", "best", "zuletzt"], ["zeit"]);
+    Object.keys(out).forEach((id) => {
+      const x = (a || {})[id] || {};
+      const y = (b || {})[id] || {};
+      if (!("schritt" in x) && !("schritt" in y)) return;
+      const zx = zahl(x.zuletzt);
+      const zy = zahl(y.zuletzt);
+      const neuer = zx > zy ? x : zy > zx ? y : null;
+      out[id].schritt = neuer ? zahl(neuer.schritt) : Math.max(zahl(x.schritt), zahl(y.schritt));
+      out[id].serie = neuer ? zahl(neuer.serie) : Math.max(zahl(x.serie), zahl(y.serie));
+    });
+    return out;
+  }
+
   function merge(a = EMPTY, b = EMPTY) {
     const x = verwechseltSauber(a?.verwechselt);
     const y = verwechseltSauber(b?.verwechselt);
@@ -136,7 +161,7 @@
       laute: mergeEintraege(a.laute, b.laute, ["r", "f", "zuletzt"]),
       blitz: mergeEintraege(a.blitz, b.blitz, ["r", "f", "zuletzt"]),
       buecher: mergeEintraege(a.buecher, b.buecher, ["mal", "sterne", "at"]),
-      spiele: mergeEintraege(a.spiele, b.spiele, ["runden", "best", "zuletzt"], ["zeit"]),
+      spiele: mergeSpiele(a.spiele, b.spiele),
       wurm: neuereTaufe(a?.wurm, b?.wurm),
       verwechselt: verwechseltKuerzen(verwechselt),
     };
@@ -228,7 +253,9 @@
     });
   }
 
-  function spielRunde(id, { punkte = 0 } = {}) {
+  //   sterne  wie die Runde ausging (1 bis 3) – davon wächst das Spiel mit;
+  //           ohne Sterne (ein Buch) bleibt die Stufe, wie sie ist
+  function spielRunde(id, { punkte = 0, sterne = null } = {}) {
     if (!id) return stand();
     return box.update((alt) => {
       const s = { ...EMPTY, ...alt };
@@ -237,8 +264,31 @@
       spiele[id] = { runden: zahl(vorher.runden) + 1, best: Math.max(zahl(vorher.best), zahl(punkte)), zuletzt: Date.now() };
       // Der Bestwert auf Zeit bleibt stehen.
       if ("zeit" in vorher) spiele[id].zeit = zahl(vorher.zeit);
+      // Mit wächst nur, was Stufen hat (SPIELE, ohneStufe).
+      Object.assign(spiele[id], mitwachsen(vorher, SPIELE[id]?.ohneStufe ? null : sterne));
       return { ...s, spiele };
     });
+  }
+
+  // Mitwachsen in kleinen Schritten: Zwei Runden mit drei Sternen
+  // hintereinander machen ein Spiel eine Stufe schwerer, zwei schwache (ein
+  // Stern) eine leichter – ohne dass es jemand ansagt. Zwei Sterne beginnen
+  // die Serie neu, und jeder Schritt auch. Der Schritt gilt relativ zur Stufe
+  // des Kindes und bleibt in den drei Stufen: über «schwer» hinaus geht es
+  // nicht, unter «leicht» auch nicht.
+  function mitwachsen(vorher, sterne) {
+    if (sterne === null && !("schritt" in vorher)) return {};
+    const basis = Math.max(0, STUFEN_REIHE.indexOf(grundstufe()));
+    const unten = -basis;
+    const oben = STUFEN_REIHE.length - 1 - basis;
+    let schritt = Math.max(unten, Math.min(oben, zahl(vorher.schritt)));
+    let serie = zahl(vorher.serie);
+    if (sterne === 3) serie = Math.max(serie, 0) + 1;
+    else if (sterne === 1) serie = Math.min(serie, 0) - 1;
+    else if (sterne === 2) serie = 0;
+    if (serie >= SERIE_FUER_SCHRITT) { schritt = Math.min(oben, schritt + 1); serie = 0; }
+    if (serie <= -SERIE_FUER_SCHRITT) { schritt = Math.max(unten, schritt - 1); serie = 0; }
+    return { schritt, serie };
   }
 
   // Eine Runde auf Zeit (45 Sekunden, so viele wie möglich): Sie zählt als
@@ -322,6 +372,11 @@
       .filter(([, e]) => zahl(e?.runden) > 0)
       .map(([id, e]) => ({ id, titel: SPIELE[id]?.titel || id, runden: zahl(e.runden) }))
       .sort((x, y) => y.runden - x.runden || (x.titel < y.titel ? -1 : 1));
+    // Was von selbst schwerer oder leichter geworden ist.
+    const angepasst = Object.entries(s.spiele || {})
+      .filter(([, e]) => zahl(e?.schritt) !== 0)
+      .map(([id, e]) => ({ id, titel: SPIELE[id]?.titel || id, richtung: zahl(e.schritt) > 0 ? "schwerer" : "leichter" }))
+      .sort((x, y) => (x.titel < y.titel ? -1 : 1));
     // Die Bestwerte auf Zeit: so viele Aufgaben in 45 Sekunden.
     const zeit = Object.entries(s.spiele || {})
       .filter(([, e]) => zahl(e?.zeit) > 0)
@@ -338,6 +393,7 @@
       runden: spiele.reduce((summe, e) => summe + e.runden, 0),
       spiele,
       zeit,
+      angepasst,
       buecher: buecher.length,
       buecherGold: buecher.filter(([, e]) => zahl(e?.sterne) >= 3).length,
       buecherIds: buecher.map(([id]) => id),
@@ -436,15 +492,27 @@
   try { elternUebernehmen(window.LernappFirebase?.getGameState?.(ELTERN_KEY)); } catch { /* ohne Konto */ }
 
   // Die Stufe des Kindes (leicht, mittel, schwer) steht im Kasten der Reise.
-  function stufe() {
+  function grundstufe() {
     try { return window.LernappReise?.stufe?.() || "mittel"; } catch { return "mittel"; }
   }
 
-  // Wo die Leseecke beginnt: von den Eltern gewählt oder nach der Stufe.
+  // Die Stufe für ein Spiel: die des Kindes, verschoben um die Schritte, die
+  // das Spiel mitgewachsen ist. Ohne Spiel die des Kindes.
+  function stufe(id = null, daten = null) {
+    const grund = grundstufe();
+    if (!id) return grund;
+    const schritt = zahl((daten || stand()).spiele?.[id]?.schritt);
+    const basis = STUFEN_REIHE.indexOf(grund);
+    if (basis < 0 || !schritt) return grund;
+    return STUFEN_REIHE[Math.max(0, Math.min(STUFEN_REIHE.length - 1, basis + schritt))];
+  }
+
+  // Wo die Leseecke beginnt: von den Eltern gewählt oder nach der Stufe des
+  // Kindes – nicht nach einem Spiel, das mitgewachsen ist.
   function lesestufe() {
     const { startpunkt } = einstellungen();
     if (STARTPUNKTE.includes(startpunkt)) return startpunkt;
-    return { leicht: "hoeren", mittel: "buchstaben", schwer: "saetze" }[stufe()] || "buchstaben";
+    return { leicht: "hoeren", mittel: "buchstaben", schwer: "saetze" }[grundstufe()] || "buchstaben";
   }
 
   // Nur Grossbuchstaben? Auf "auto" für die Jüngsten ja: Im Kindergarten
@@ -488,14 +556,16 @@
   //   ort    das Ding im Lesewagen, hinter dem es steht (train-leseecke.js)
   //   bild   sein Zeichen in der Auswahl
   //   weiter wohin der Lesewurm führt, wenn er es aussucht
+  //   ohneStufe  das Spiel kennt keine Stufen – es wächst nicht mit
+  //              (validate-lesen.mjs prüft das an der Quelle des Spiels)
   const SPIELE = {
     silbenzug: { page: "silbenzug.html", titel: "Silbenzug", ort: "silben", bild: "🥁" },
     lautposition: { page: "lautposition.html", titel: "Laut-Position", ort: "silben", bild: "🔎" },
     reimkupplung: { page: "reimkupplung.html", titel: "Reimkupplung", ort: "silben", bild: "🎶" },
     anlautlauscher: { page: "anlautlauscher.html", titel: "Anlaut-Lauscher", ort: "silben", bild: "👂" },
-    buchstabenhaus: { page: "buchstabenhaus.html", titel: "Buchstabenhaus", ort: "buchstaben", bild: "🏠" },
-    meinname: { page: "meinname.html", titel: "Mein Name", ort: "buchstaben", bild: "🏷️" },
-    buchstabengleis: { page: "buchstabengleis.html", titel: "Buchstabengleis", ort: "buchstaben", bild: "🛤️" },
+    buchstabenhaus: { page: "buchstabenhaus.html", titel: "Buchstabenhaus", ort: "buchstaben", bild: "🏠", ohneStufe: true },
+    meinname: { page: "meinname.html", titel: "Mein Name", ort: "buchstaben", bild: "🏷️", ohneStufe: true },
+    buchstabengleis: { page: "buchstabengleis.html", titel: "Buchstabengleis", ort: "buchstaben", bild: "🛤️", ohneStufe: true },
     buchstabensignal: { page: "buchstabensignal.html", titel: "Buchstaben-Signal", ort: "buchstaben", bild: "🚦" },
     lautekuppeln: { page: "lautekuppeln.html", titel: "Laute kuppeln", ort: "woerter", bild: "🚃" },
     werfaehrtmit: { page: "werfaehrtmit.html", titel: "Wer fährt mit?", ort: "woerter", bild: "🎫" },
@@ -509,11 +579,11 @@
     quatschsaetze: { page: "quatschsaetze.html", titel: "Quatschsätze", ort: "saetze", bild: "🤪" },
     stolperwoerter: { page: "stolperwoerter.html", titel: "Stolperwörter", ort: "saetze", bild: "🪨" },
     liesundtu: { page: "liesundtu.html", titel: "Lies und tu!", ort: "saetze", bild: "🖍️" },
-    buecher: { page: "buecher.html", titel: "Bücherregal", ort: "buecher", bild: "📚", weiter: "buecher.html?weiter=1" },
+    buecher: { page: "buecher.html", titel: "Bücherregal", ort: "buecher", bild: "📚", weiter: "buecher.html?weiter=1", ohneStufe: true },
     geschichtenzug: { page: "geschichtenzug.html", titel: "Geschichtenzug", ort: "buecher", bild: "🖼️" },
     werbinich: { page: "werbinich.html", titel: "Wer bin ich?", ort: "detektiv", bild: "❓" },
-    detektivfaelle: { page: "detektivfaelle.html", titel: "Detektivfälle", ort: "detektiv", bild: "🕵️" },
-    steckbriefe: { page: "steckbriefe.html", titel: "Steckbriefe", ort: "detektiv", bild: "📋" },
+    detektivfaelle: { page: "detektivfaelle.html", titel: "Detektivfälle", ort: "detektiv", bild: "🕵️", ohneStufe: true },
+    steckbriefe: { page: "steckbriefe.html", titel: "Steckbriefe", ort: "detektiv", bild: "📋", ohneStufe: true },
     postkarten: { page: "postkarten.html", titel: "Postkarten", ort: "detektiv", bild: "📮" },
     wortbaustelle: { page: "wortbaustelle.html", titel: "Wortbaustelle", ort: "detektiv", bild: "🏗️" },
   };
@@ -539,12 +609,12 @@
   }
 
   window.LernappLeseStand = {
-    KEY, ELTERN_KEY, EMPTY, WOERTER_JE_GLIED, GLIEDER_MAX, SITZT_RICHTIG, SITZT_TAGE,
+    KEY, ELTERN_KEY, EMPTY, WOERTER_JE_GLIED, GLIEDER_MAX, SITZT_RICHTIG, SITZT_TAGE, STUFEN_REIHE, SERIE_FUER_SCHRITT,
     STARTPUNKTE, STARTPUNKT_INFO, SCHRIFTEN, GROESSEN, HILFEN, SPIELE, AUSWAHL,
     merge, stand, onChange: (fn) => box.onChange(fn),
     lautGeuebt, lautSitzt, sitzendeLaute, blitzGeuebt, blitzSitzt, woerterGelesen, buchGelesen, spielRunde, zeitRunde, spielGeoeffnet, wurmGlieder,
     WAGEN_SCHRITTE, lesestuecke, wagenStufe, verwechselt, bericht,
     nameSauber, wurmName, wurmTaufen,
-    einstellungen, elternSauber, bekannteLaute, schriftGroesse, wortHilfe, stufe, lesestufe, nurGross, zeige, naechstes,
+    einstellungen, elternSauber, bekannteLaute, schriftGroesse, wortHilfe, grundstufe, stufe, mitwachsen, lesestufe, nurGross, zeige, naechstes,
   };
 })();

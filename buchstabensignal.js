@@ -39,7 +39,7 @@
     "Tippe jeden Wagen an, auf dem dieser Buchstabe steht – gross oder klein. Die anderen lässt du vorbeirollen.",
   ].join(" ");
 
-  const stufe = () => stand?.stufe?.() || "mittel";
+  const stufe = () => stand?.stufe?.(ID) || "mittel";
   const zufall = (liste) => liste[Math.floor(Math.random() * liste.length)];
 
   // Ein Paar, dessen gesuchter Buchstabe im Buchstabenhaus wohnt.

@@ -58,7 +58,7 @@
     "Schau das Bild an und tippe auf das Bild, das in die Lücke passt. Ein Tipp auf den Satz sagt ihn noch einmal.",
   ].join(" ");
 
-  const stufe = () => stand?.stufe?.() || "mittel";
+  const stufe = () => stand?.stufe?.(ID) || "mittel";
   const zufall = (liste) => liste[Math.floor(Math.random() * liste.length)];
   const zeige = (text) => stand?.zeige?.(text) ?? text;
 
