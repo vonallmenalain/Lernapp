@@ -1,4 +1,4 @@
-const APP_VERSION = "2026-10-06-10";
+const APP_VERSION = "2026-10-06-11";
 const CACHE_PREFIX = "lernapp-pwa-";
 const CACHE_NAME = `${CACHE_PREFIX}${APP_VERSION}`;
 const ASSET_VERSION_QUERY = `?v=${APP_VERSION}`;
@@ -73,6 +73,9 @@ const CORE_ASSETS = [
   "./geschichtenzug.html",
   "./werbinich.html",
   "./wortbaustelle.html",
+  "./steckbriefe.html",
+  "./detektivfaelle.html",
+  "./postkarten.html",
   `./styles.css${ASSET_VERSION_QUERY}`,
   `./spatial-puzzles.js${ASSET_VERSION_QUERY}`,
   `./kids.js${ASSET_VERSION_QUERY}`,
@@ -114,6 +117,7 @@ const CORE_ASSETS = [
   `./lesen-spiel.js${ASSET_VERSION_QUERY}`,
   `./lesen-buecher.js${ASSET_VERSION_QUERY}`,
   `./lesen-bilder.js${ASSET_VERSION_QUERY}`,
+  `./lesen-detektive.js${ASSET_VERSION_QUERY}`,
   `./train-leseecke.js${ASSET_VERSION_QUERY}`,
   `./silbenzug.js${ASSET_VERSION_QUERY}`,
   `./buchstabenhaus.js${ASSET_VERSION_QUERY}`,
@@ -139,6 +143,9 @@ const CORE_ASSETS = [
   `./geschichtenzug.js${ASSET_VERSION_QUERY}`,
   `./werbinich.js${ASSET_VERSION_QUERY}`,
   `./wortbaustelle.js${ASSET_VERSION_QUERY}`,
+  `./steckbriefe.js${ASSET_VERSION_QUERY}`,
+  `./detektivfaelle.js${ASSET_VERSION_QUERY}`,
+  `./postkarten.js${ASSET_VERSION_QUERY}`,
   `./firebase.js${ASSET_VERSION_QUERY}`,
   `./admin.js${ASSET_VERSION_QUERY}`,
   `./pwa.js${ASSET_VERSION_QUERY}`,

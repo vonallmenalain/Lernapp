@@ -466,6 +466,9 @@
     buecher: { page: "buecher.html", titel: "Bücherregal", ort: "buecher", bild: "📚", weiter: "buecher.html?weiter=1" },
     geschichtenzug: { page: "geschichtenzug.html", titel: "Geschichtenzug", ort: "buecher", bild: "🖼️" },
     werbinich: { page: "werbinich.html", titel: "Wer bin ich?", ort: "detektiv", bild: "❓" },
+    detektivfaelle: { page: "detektivfaelle.html", titel: "Detektivfälle", ort: "detektiv", bild: "🕵️" },
+    steckbriefe: { page: "steckbriefe.html", titel: "Steckbriefe", ort: "detektiv", bild: "📋" },
+    postkarten: { page: "postkarten.html", titel: "Postkarten", ort: "detektiv", bild: "📮" },
     wortbaustelle: { page: "wortbaustelle.html", titel: "Wortbaustelle", ort: "detektiv", bild: "🏗️" },
   };
   // Was der Lesewurm im Sessel je Lesestufe aussucht.
@@ -473,8 +476,8 @@
     hoeren: ["silbenzug", "reimkupplung", "anlautlauscher", "buecher", "buchstabenhaus", "buchstabengleis"],
     buchstaben: ["buchstabenhaus", "meinname", "buchstabengleis", "buchstabensignal", "lautposition", "anlautlauscher", "lautekuppeln", "silbenzug", "reimkupplung", "buecher"],
     woerter: ["lautekuppeln", "werfaehrtmit", "woerterbauen", "buchstabenhaus", "silbenbahn", "quatschwoerter", "buecher"],
-    saetze: ["stimmtdas", "lueckensaetze", "satzkuppeln", "quatschsaetze", "liesundtu", "geschichtenzug", "werbinich", "blitzwoerter", "quatschwoerter", "wortbaustelle", "silbenbahn", "buecher"],
-    geschichten: ["buecher", "geschichtenzug", "werbinich", "wortbaustelle", "stolperwoerter", "liesundtu", "quatschsaetze", "lueckensaetze", "satzkuppeln", "stimmtdas", "blitzwoerter"],
+    saetze: ["stimmtdas", "lueckensaetze", "satzkuppeln", "quatschsaetze", "liesundtu", "geschichtenzug", "werbinich", "postkarten", "blitzwoerter", "quatschwoerter", "wortbaustelle", "silbenbahn", "buecher"],
+    geschichten: ["buecher", "geschichtenzug", "werbinich", "detektivfaelle", "steckbriefe", "postkarten", "wortbaustelle", "stolperwoerter", "liesundtu", "quatschsaetze", "lueckensaetze", "satzkuppeln", "stimmtdas", "blitzwoerter"],
   };
 
   function naechstes(s = stand()) {

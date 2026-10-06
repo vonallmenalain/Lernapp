@@ -820,6 +820,33 @@ const SZENARIEN = [
       { name: "Zerlegt", tun: async (blatt) => { await tippe(blatt, '.ws-buchstabe[data-nr="6"]'); await pause(blatt, 400); } },
     ],
   },
+  // Die Lesedetektive: ein Steckbrief mit leuchtender Zeile, ein Fall bei der
+  // Frage nach dem Beweis, eine Postkarte vorne und bei der Frage.
+  {
+    seite: "steckbriefe",
+    schritte: [
+      { name: "Los", tun: async () => {} },
+      { name: "Steckbrief", tun: async (blatt) => { await tippe(blatt, ".lese-los-knopf"); await pause(blatt, 500); } },
+      { name: "Frage daneben", tun: async (blatt) => { await tippe(blatt, ".stb-weiter"); await pause(blatt, 200); await tippe(blatt, ".stb-antwort:not([data-richtig])"); await pause(blatt, 300); } },
+    ],
+  },
+  {
+    seite: "detektivfaelle",
+    schritte: [
+      { name: "Los", tun: async () => {} },
+      { name: "Fall", tun: async (blatt) => { await tippe(blatt, ".lese-los-knopf"); await pause(blatt, 500); } },
+      { name: "Beweis", tun: async (blatt) => { await tippe(blatt, '.df-wer[data-taeter="1"]'); await pause(blatt, 400); } },
+    ],
+  },
+  {
+    seite: "postkarten",
+    speicher: { "lernapp.reise": JSON.stringify({ done: Object.fromEntries(Array.from({ length: 10 }, (_, i) => [String(i + 1), { stars: 3, game: "x", at: 1 }])), tries: {}, choice: {}, alt: {} }) },
+    schritte: [
+      { name: "Los", tun: async () => {} },
+      { name: "Karte", tun: async (blatt) => { await tippe(blatt, ".lese-los-knopf"); await pause(blatt, 500); } },
+      { name: "Frage", tun: async (blatt) => { await tippe(blatt, ".pk-weiter"); await pause(blatt, 300); } },
+    ],
+  },
   // Das Malen auf «schwer»: grosse und kleine Bilder nebeneinander.
   {
     seite: "liesundtu",

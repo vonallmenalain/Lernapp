@@ -140,6 +140,9 @@
     { id: "geschichtenzug", page: "geschichtenzug.html" },
     { id: "werbinich", page: "werbinich.html" },
     { id: "wortbaustelle", page: "wortbaustelle.html" },
+    { id: "detektivfaelle", page: "detektivfaelle.html" },
+    { id: "steckbriefe", page: "steckbriefe.html" },
+    { id: "postkarten", page: "postkarten.html" },
   ] };
 
   // Das Bücherregal ist kein Spiel mit Runden: Diese zwei Bücher sind frei,
