@@ -105,6 +105,11 @@ Lesewagen selbst und der Lesewurm darin.
   (Bücher und Geschichtenzug), die Pinnwand zwischen den Fenstern (Lesedetektive), und links
   vom Sessel ein Schild mit dem Namen des Lesewurms.
   Alles andere im Zimmer ist **Einrichtung** und kommt erst mit dem Lesen (siehe unten).
+  Beim Hereinkommen **hüpft reihum alles, was sich antippen lässt** – wie die Wagen auf dem
+  Startbild, einmal im Uhrzeigersinn vom Buchstabenhaus bis zum Lesewurm in der Mitte, zweimal
+  (`train-leseecke.js`, `REIHUM`; `styles.css`, `lese-ort-huepft`). Die Einrichtung hüpft nie,
+  die Schatten am Boden bleiben liegen, und frischt sich das Zimmer auf (neuer Lesestand aus der
+  Cloud), hüpft nichts noch einmal. Ohne Bewegung (Einstellung des Geräts) hüpft gar nichts.
   Stehen hinter einem Ding mehrere Spiele, kommt eine Auswahl mit Bildern; welches Spiel wo
   steht, sagt der Katalog in `lesen-stand.js` (`SPIELE`).
 - **Die Spiele** sind eigene Seiten auf `game-shell.js`. Der Pfeil zurück führt in den

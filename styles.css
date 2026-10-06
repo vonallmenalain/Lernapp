@@ -11614,6 +11614,45 @@ body[data-page="train"] .train-stage[data-view="lesen"] ~ .help-voice {
 .lese-ort:hover, .lese-ort:focus-visible { filter: brightness(1.07) drop-shadow(0 0 10px rgba(255, 217, 138, 0.9)); }
 .lese-ort:active { filter: brightness(0.94); }
 .lese-ort.is-locked { filter: saturate(0.55); }
+/* Was sich antippen lässt, hüpft beim Hereinkommen reihum durchs Zimmer – wie
+   die Wagen auf dem Startbild (wagen-winkt). Die Einrichtung hüpft nie, so
+   ist zu sehen, was ein Knopf ist und was nur dasteht. Zweimal, und nur beim
+   Hereinkommen (is-huepfen, train-leseecke.js); die Reihenfolge steht dort
+   (REIHUM, --ort-verzug).
+
+   Der Hüpfer liegt am Anfang jeder Runde, die Pause danach: So bestimmt der
+   Verzug allein, wann ein Ding dran ist. Hoch geht es langsamer werdend,
+   hinunter schneller – wie ein Ball –, und der zweite Hüpfer ist kleiner.
+   Die Werte sind Einheiten des Zimmers (1200 breit): am Laptop knapp 20 px,
+   am Handy gut 10.
+
+   translate statt transform: Die Lage jedes Dings steht im transform-
+   Attribut, und eine Animation auf transform ersetzte sie. */
+.lesezimmer-svg.is-huepfen .lese-ort {
+  animation: lese-ort-huepft 2.2s linear var(--ort-verzug, 0.55s) 2 both;
+}
+@keyframes lese-ort-huepft {
+  0% { translate: 0 0; animation-timing-function: cubic-bezier(0.25, 0.6, 0.4, 1); }
+  11% { translate: 0 -18px; animation-timing-function: cubic-bezier(0.6, 0, 0.75, 0.4); }
+  22% { translate: 0 0; animation-timing-function: cubic-bezier(0.25, 0.6, 0.4, 1); }
+  29% { translate: 0 -7px; animation-timing-function: cubic-bezier(0.6, 0, 0.75, 0.4); }
+  36%, 100% { translate: 0 0; }
+}
+/* Der Schatten am Boden hüpft nicht mit: Er geht im selben Takt genau so weit
+   hinunter, wie sein Ding hinaufgeht – bleibt also liegen – und wird kleiner,
+   solange es in der Luft ist. Dieselben Zeiten, damit sich beides aufhebt. */
+.lesezimmer-svg.is-huepfen .lese-ort .lese-schatten {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: lese-schatten-bleibt 2.2s linear var(--ort-verzug, 0.55s) 2 both;
+}
+@keyframes lese-schatten-bleibt {
+  0% { translate: 0 0; scale: 1; animation-timing-function: cubic-bezier(0.25, 0.6, 0.4, 1); }
+  11% { translate: 0 18px; scale: 0.78; animation-timing-function: cubic-bezier(0.6, 0, 0.75, 0.4); }
+  22% { translate: 0 0; scale: 1; animation-timing-function: cubic-bezier(0.25, 0.6, 0.4, 1); }
+  29% { translate: 0 7px; scale: 0.92; animation-timing-function: cubic-bezier(0.6, 0, 0.75, 0.4); }
+  36%, 100% { translate: 0 0; scale: 1; }
+}
 .lese-ort-weiter .wurm-gesicht { animation: wurm-nicken 3.2s ease-in-out infinite; transform-box: fill-box; transform-origin: 50% 90%; }
 @keyframes wurm-nicken {
   0%, 70%, 100% { transform: rotate(0deg); }
@@ -11649,7 +11688,7 @@ body[data-page="train"] .train-stage[data-view="lesen"] ~ .help-voice {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .lesewagen-rauch, .lese-ort-weiter .wurm-gesicht, .lesewurm.is-gewachsen, .wurm-auge, .leseecke, .lese-ausbau.is-neu, .lese-birne { animation: none; }
+  .lesewagen-rauch, .lese-ort-weiter .wurm-gesicht, .lesewurm.is-gewachsen, .wurm-auge, .leseecke, .lese-ausbau.is-neu, .lese-birne, .lesezimmer-svg.is-huepfen .lese-ort, .lesezimmer-svg.is-huepfen .lese-ort .lese-schatten { animation: none; }
   .train-stage[data-lesen-ein] .lesewagen-knopf { transition: none; }
 }
 
