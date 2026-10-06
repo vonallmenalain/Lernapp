@@ -96,6 +96,58 @@
       art.el("ellipse", { cx: 0, cy: 0, rx: 7, ry: 4.5, fill: "#2b2f38" }),
       art.el("circle", { cx: 6, cy: -1, r: 2.6, fill: "#b03a2e" }),
     ],
+    // Ein rotes Velo von der Seite. Boden bei (0, 0), etwa 72 breit und 44
+    // hoch; der Sattel liegt bei (-9, -38). Wer darauf fährt, steht dahinter,
+    // das Velo davor (vorne).
+    velo: () => {
+      const rad = (cx) => [
+        art.el("circle", { cx, cy: -13, r: 12.5, fill: "none", stroke: "#3a4250", "stroke-width": 3 }),
+        art.el("path", { d: `M${cx - 11} -13 H${cx + 11} M${cx} -24 V-2 M${cx - 8} -21 L${cx + 8} -5 M${cx + 8} -21 L${cx - 8} -5`, stroke: "#9aa3b0", "stroke-width": 1 }),
+        art.el("circle", { cx, cy: -13, r: 2.2, fill: "#3a4250" }),
+      ];
+      return [
+        ...rad(-22), ...rad(22),
+        art.el("path", { d: "M-22 -13 L-1 -13 L-7 -31 Z M-1 -13 L15 -31 L-7 -31 M15 -31 L22 -13", fill: "none", stroke: "#e8543f", "stroke-width": 3.4, "stroke-linejoin": "round", "stroke-linecap": "round" }),
+        art.el("path", { d: "M-7 -31 L-9 -37", stroke: "#3a4250", "stroke-width": 2.6, "stroke-linecap": "round" }),
+        art.el("path", { d: "M-16 -38 Q-9 -41 -2 -38 Q-9 -36 -16 -38 Z", fill: "#3a4250", stroke: "#3a4250", "stroke-width": 2, "stroke-linejoin": "round" }),
+        art.el("path", { d: "M15 -31 L13 -40 L20 -42", fill: "none", stroke: "#3a4250", "stroke-width": 2.6, "stroke-linecap": "round", "stroke-linejoin": "round" }),
+        art.el("circle", { cx: -1, cy: -13, r: 3, fill: "#3a4250" }),
+      ];
+    },
+    // Ein Stapel Bambusstangen, von der Seite; stangen: wie viele (1 bis 8).
+    // Boden bei (0, 0), etwa 92 breit.
+    bambus: ({ stangen = 6 }) => {
+      const teile = [];
+      for (let i = 0; i < stangen; i += 1) {
+        const y = -8 - i * 7;
+        const x = i % 2 ? -38 : -46;
+        teile.push(art.el("rect", { x, y, width: 84, height: 8, rx: 4, fill: i % 2 ? "#8bc34a" : "#7cb342", stroke: "#558b2f", "stroke-width": 1.2 }));
+        teile.push(art.el("path", { d: `M${x + 24} ${y + 1} v6 M${x + 54} ${y + 1} v6`, stroke: "#558b2f", "stroke-width": 1.5 }));
+      }
+      const oben = -8 - (stangen - 1) * 7;
+      teile.push(art.el("path", { d: `M8 ${oben} q12 -12 26 -9 q-12 3 -26 9 Z`, fill: "#66bb6a" }));
+      teile.push(art.el("path", { d: `M2 ${oben} q-8 -13 -22 -12 q10 4 22 12 Z`, fill: "#4caf50" }));
+      return teile;
+    },
+    // Ein Stein zum Draufsitzen. Boden bei (0, 0), etwa 64 breit und 28 hoch.
+    stein: () => [
+      art.el("path", { d: "M-32 0 Q-36 -20 -14 -27 Q8 -33 26 -21 Q36 -10 32 0 Z", fill: "#9aa0a8" }),
+      art.el("path", { d: "M-18 -20 Q-4 -27 12 -23", stroke: "#c2c7ce", "stroke-width": 3, fill: "none", "stroke-linecap": "round" }),
+    ],
+    // Ein Wahrzeichen der Reise (train-art.js, buildLandmark): windmill,
+    // treehouse, lighthouse, temple, hut, observatory, rocket, baobab – so
+    // spielen Bücher an Orten, die das Kind von der Reise kennt.
+    // licht: die Fenster leuchten; aus: die Lampe oben ist dunkel (der
+    // Leuchtturm ohne Licht). Boden bei (0, 0).
+    wahrzeichen: ({ id, licht = false, aus = false }) => {
+      const bau = zugArt.buildLandmark(id);
+      if (licht) bau.classList.add("is-lit");
+      if (aus) {
+        bau.querySelectorAll(".journey-lantern").forEach((lampe) => lampe.setAttribute("fill", "#5b6070"));
+        bau.querySelectorAll(".journey-beam").forEach((strahl) => strahl.remove());
+      }
+      return [bau];
+    },
   };
 
   // dreh: schief, in Grad – ein Blatt, das am Boden liegt.
@@ -166,9 +218,12 @@
     if (!b.himmel && szene?.light) svg.append(art.el("circle", { cx: 200, cy: 30, r: 15, fill: szene.light.color }));
     if (szene?.thumb) svg.append(art.group({ transform: "scale(2)" }, szene.thumb()));
     if (b.schnee) svg.append(...schnee());
-    (b.zeichnungen || []).forEach((z) => { const g = zeichnung(z); if (g) svg.append(g); });
+    // Zeichnungen und Dinge liegen hinter den Tieren, ausser sie sind vorne:
+    // das Velo, auf dem jemand fährt.
+    (b.zeichnungen || []).filter((z) => !z.vorne).forEach((z) => { const g = zeichnung(z); if (g) svg.append(g); });
     (b.dinge || []).filter((d) => !d.vorne).forEach((d) => svg.append(emoji(d.e, d.x, d.y, d.s, d.dreh)));
     (b.figuren || []).forEach((f) => svg.append(figur(f)));
+    (b.zeichnungen || []).filter((z) => z.vorne).forEach((z) => { const g = zeichnung(z); if (g) svg.append(g); });
     (b.dinge || []).filter((d) => d.vorne).forEach((d) => svg.append(emoji(d.e, d.x, d.y, d.s, d.dreh)));
     return svg;
   }

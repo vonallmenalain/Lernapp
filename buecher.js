@@ -2,8 +2,9 @@
  * buecher.js – Das Bücherregal und der Leser.
  *
  * Das Regal zeigt die Bücher aus lesen-buecher.js, nach Stufen geordnet: zum
- * Zuhören, erste Sätze, kleine Geschichten, Geschichten. Ein Tipp öffnet ein
- * Buch auf seiner Titelseite. Dort wählt das Kind, wie es lesen will:
+ * Zuhören, erste Sätze, kleine Geschichten, Geschichten, Kapitelbücher. Ein
+ * Tipp öffnet ein Buch auf seiner Titelseite. Dort wählt das Kind, wie es
+ * lesen will:
  *
  *   Vorlesen   die Stimme liest jede Seite, Satz für Satz leuchtet mit
  *   Zusammen   abwechselnd: einen Satz die Stimme, den nächsten das Kind –
@@ -13,6 +14,12 @@
  *
  * Ein Hörbuch kennt nur Vorlesen. In jeder Art sagt ein Tipp auf ein Wort
  * dieses Wort – so bleibt niemand an einem Wort hängen.
+ *
+ * Ein Kapitelbuch ist länger: Über der ersten Seite eines Kapitels steht
+ * seine Überschrift (die Stimme liest sie mit, ausser beim Selberlesen), und
+ * ein Lesezeichen merkt sich auf dem Gerät, wo das Kind aufgehört hat. Auf
+ * der Titelseite geht es dort weiter; ist das Buch zu Ende gelesen, fällt das
+ * Lesezeichen heraus.
  *
  * Nach der letzten Seite kommen Fragen zum Buch. Wer danebentippt, kann im
  * Buch nachsehen: Die Seite, auf der es steht, geht auf, und von dort geht es
@@ -49,7 +56,10 @@
   const { buchBild, umschlagBild } = window.LernappLeseBilder;
 
   // Wie schnell die Stimme liest: Für Erstleser langsamer.
-  const TEMPO = { hoerbuch: 0.9, erste: 0.78, klein: 0.85, geschichte: 0.9 };
+  const TEMPO = { hoerbuch: 0.9, erste: 0.78, klein: 0.85, geschichte: 0.9, kapitel: 0.95 };
+  // Das Lesezeichen der Kapitelbücher: { buchId: { seite, modus, at } }, nur
+  // auf dem Gerät.
+  const LESEZEICHEN_KEY = "lernapp.lesen.lesezeichen";
 
   const MODI = {
     vorlesen: { titel: "Vorlesen", bild: "👂" },
@@ -59,7 +69,7 @@
 
   const HELP_REGAL = [
     "Das Bücherregal. Tippe auf ein Buch, und es geht auf.",
-    "Oben wählst du das Fach: Bücher zum Zuhören, erste Sätze, kleine Geschichten und Geschichten.",
+    "Oben wählst du das Fach: Bücher zum Zuhören, erste Sätze, kleine Geschichten, Geschichten und Kapitelbücher.",
   ].join(" ");
   const HELP_TITEL = [
     "Wie möchtest du lesen?",
@@ -80,8 +90,8 @@
     hoeren: ["hoerbuch"],
     buchstaben: ["hoerbuch", "erste"],
     woerter: ["erste", "klein", "hoerbuch"],
-    saetze: ["klein", "erste", "geschichte"],
-    geschichten: ["geschichte", "klein"],
+    saetze: ["klein", "erste", "geschichte", "kapitel"],
+    geschichten: ["geschichte", "kapitel", "klein"],
   };
 
   const state = {
@@ -114,6 +124,54 @@
 
   function gelesen() {
     try { return stand?.stand?.().buecher || {}; } catch { return {}; }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Kapitel und Lesezeichen
+  // ---------------------------------------------------------------------------
+  // Das wievielte Kapitel auf dieser Seite läuft (ab 1); 0 in einem Buch ohne
+  // Kapitel.
+  function kapitelNr(buch, seitenNr) {
+    return buch.seiten.slice(0, seitenNr + 1).filter((s) => s.kapitel).length;
+  }
+
+  // So liest die Stimme eine Überschrift: «Kapitel 2. Der Sturm.» – eine
+  // Frage bleibt eine Frage: «Kapitel 3. Wer ist da?»
+  function kapitelSatz(buch, seitenNr) {
+    const kopf = buch.seiten[seitenNr].kapitel;
+    return `Kapitel ${kapitelNr(buch, seitenNr)}. ${kopf}${/[.!?]$/.test(kopf) ? "" : "."}`;
+  }
+
+  function lesezeichen() {
+    try { return JSON.parse(localStorage.getItem(LESEZEICHEN_KEY) || "{}") || {}; } catch { return {}; }
+  }
+
+  function lesezeichenSchreiben(alle) {
+    try { localStorage.setItem(LESEZEICHEN_KEY, JSON.stringify(alle)); } catch { /* privater Modus */ }
+  }
+
+  // Wo das Kind in einem Kapitelbuch aufgehört hat – nur mitten im Buch; auf
+  // der ersten Seite fängt es ohnehin vorne an.
+  function lesezeichenVon(buch) {
+    if (buch?.stufe !== "kapitel") return null;
+    const zeichen = lesezeichen()[buch.id];
+    const seite = Number(zeichen?.seite);
+    if (!Number.isInteger(seite) || seite < 1 || seite >= buch.seiten.length) return null;
+    return { seite, modus: MODI[zeichen.modus] ? zeichen.modus : "selbst" };
+  }
+
+  function lesezeichenSetzen(buch, seite, modus) {
+    if (buch?.stufe !== "kapitel") return;
+    const alle = lesezeichen();
+    alle[buch.id] = { seite, modus, at: Date.now() };
+    lesezeichenSchreiben(alle);
+  }
+
+  function lesezeichenWeg(buch) {
+    const alle = lesezeichen();
+    if (!alle[buch?.id]) return;
+    delete alle[buch.id];
+    lesezeichenSchreiben(alle);
   }
 
   function adresse(buchId) {
@@ -207,7 +265,7 @@
       knopf.dataset.stufe = stufe.id;
       knopf.setAttribute("role", "tab");
       knopf.setAttribute("aria-selected", offen ? "true" : "false");
-      knopf.append(shell.el("span", "bu-schild-zeichen", stufe.id === "hoerbuch" ? "👂" : "📖"), shell.el("span", "bu-reiter-text", stufe.titel));
+      knopf.append(shell.el("span", "bu-schild-zeichen", { hoerbuch: "👂", kapitel: "📚" }[stufe.id] || "📖"), shell.el("span", "bu-reiter-text", stufe.titel));
       // Ein Haken, wenn jedes Buch im Fach gelesen ist.
       if (liste.every((b) => gelesenJetzt[b.id])) knopf.append(shell.el("span", "bu-reiter-fertig", "✓"));
       knopf.addEventListener("click", () => {
@@ -321,6 +379,20 @@
       knoepfe.append(knopf);
     });
     wahl.append(knoepfe);
+    // Ein Kapitelbuch, das mittendrin liegen blieb: Das Lesezeichen führt
+    // dorthin zurück, in derselben Art zu lesen. Die Arten oben fangen vorne an.
+    const zeichen = lesezeichenVon(buch);
+    if (zeichen) {
+      const nr = kapitelNr(buch, zeichen.seite);
+      const weiter = shell.el("button", "bu-lesezeichen");
+      weiter.type = "button";
+      weiter.dataset.seite = String(zeichen.seite);
+      weiter.setAttribute("aria-label", `Weiterlesen bei Kapitel ${nr}`);
+      weiter.append(shell.el("span", "bu-lesezeichen-bild", "🔖"), shell.el("span", "bu-lesezeichen-text", stand?.zeige?.(`Weiter bei Kapitel ${nr}`) ?? `Weiter bei Kapitel ${nr}`));
+      weiter.addEventListener("click", () => beginne(zeichen.modus, zeichen.seite));
+      wahl.classList.add("hat-lesezeichen");
+      wahl.append(weiter);
+    }
     const eintrag = gelesen()[buch.id];
     if (eintrag) wahl.append(sterneZeile(Number(eintrag.sterne) || 1));
     seite.append(deckel, wahl);
@@ -329,13 +401,14 @@
     // Regal). Kommt das Kind direkt hierher, bleibt es still bis zum ersten
     // Tipp.
     window.setTimeout(() => { if (state.ansicht === "titel" && state.buch === buch) ton.sprich(buch.titel, { rate: TEMPO[buch.stufe] || 0.9 }); }, 250);
-    window.setTimeout(() => knoepfe.querySelector(".is-empfohlen")?.focus?.({ preventScroll: true }), 60);
+    window.setTimeout(() => (wahl.querySelector(".bu-lesezeichen") || knoepfe.querySelector(".is-empfohlen"))?.focus?.({ preventScroll: true }), 60);
   }
 
-  function beginne(modus) {
+  //   ab   die Seite, auf der es losgeht (das Lesezeichen); sonst vorne
+  function beginne(modus, ab = 0) {
     if (!state.buch) return;
     state.modus = modus;
-    state.seite = 0;
+    state.seite = ab;
     state.punkte = 0;
     shell.setPhase("play");
     zeigeSeite();
@@ -358,8 +431,23 @@
     return (satzAnfang(state.buch, state.seite) + nrAufSeite) % 2 === 1;
   }
 
+  // Die Überschrift über der ersten Seite eines Kapitels. Ein Tipp liest sie.
+  function kapitelKopf(buch, seitenNr) {
+    const zeige = (text) => stand?.zeige?.(text) ?? text;
+    const kopf = shell.el("button", "bu-kapitel");
+    kopf.type = "button";
+    kopf.append(shell.el("span", "bu-kapitel-nr", zeige(`Kapitel ${kapitelNr(buch, seitenNr)}`)), shell.el("span", "bu-kapitel-titel", zeige(buch.seiten[seitenNr].kapitel)));
+    kopf.addEventListener("click", () => {
+      if (Date.now() - state.gewischt < 400) return;
+      stopLesen();
+      ton.sprich(kapitelSatz(buch, seitenNr), { rate: TEMPO[buch.stufe] || 0.9 });
+    });
+    return kopf;
+  }
+
   function seitenText(seite) {
     const box = shell.el("div", "bu-text");
+    if (seite.kapitel) box.append(kapitelKopf(state.buch, state.seite));
     bib.saetze(seite.text).forEach((satz, nr) => {
       const zeile = shell.el("span", "bu-satz");
       zeile.dataset.nr = String(nr);
@@ -426,6 +514,8 @@
     blatt.append(doppel, l.unten);
     shell.play.append(blatt);
     el = { blatt, doppel, text, ...l };
+    // Das Lesezeichen wandert mit – nicht beim Nachsehen aus den Fragen.
+    if (!state.nachsehen) lesezeichenSetzen(buch, state.seite, state.modus);
 
     // Seitenpunkte: wo im Buch das Kind ist.
     buch.seiten.forEach((_, i) => el.punkte.append(shell.el("span", i === state.seite ? "bu-punkt is-hier" : i < state.seite ? "bu-punkt is-gelesen" : "bu-punkt")));
@@ -473,6 +563,7 @@
   }
 
   function markiere(nr, wer) {
+    el.text?.querySelector(".bu-kapitel")?.classList.toggle("ist-dran", wer === "kopf");
     el.text?.querySelectorAll(".bu-satz").forEach((zeile, i) => {
       zeile.classList.toggle("ist-dran", i === nr && wer === "stimme");
       zeile.classList.toggle("du-bist-dran", i === nr && wer === "kind");
@@ -514,6 +605,14 @@
     const meine = state.lauf;
     const zeilen = [...(el.text?.querySelectorAll(".bu-satz") || [])];
     state.liest = true;
+    // Eine Kapitelüberschrift kommt zuerst – beim Selberlesen nur über den
+    // Lautsprecher.
+    if (ab === 0 && el.text?.querySelector(".bu-kapitel") && (alles || state.modus !== "selbst")) {
+      markiere(-1, "kopf");
+      await ton.sprich(kapitelSatz(state.buch, state.seite), { rate: TEMPO[state.buch.stufe] || 0.9 });
+      if (meine !== state.lauf) return;
+      await ton.pause(320);
+    }
     for (let i = ab; i < zeilen.length; i += 1) {
       if (meine !== state.lauf) return;
       if (!alles && istKindSatz(i)) {
@@ -549,7 +648,7 @@
     // Spricht die Stimme gerade, hört sie auf: Das Kind will dieses Wort.
     const warZusammen = state.modus === "zusammen";
     stopLesen();
-    el.text?.querySelectorAll(".bu-satz.ist-dran").forEach((z) => z.classList.remove("ist-dran"));
+    el.text?.querySelectorAll(".bu-satz.ist-dran, .bu-kapitel.ist-dran").forEach((z) => z.classList.remove("ist-dran"));
     knopf.classList.remove("ist-getippt");
     void knopf.offsetWidth;
     knopf.classList.add("ist-getippt");
@@ -747,6 +846,8 @@
     // Stern. Drei für alles gleich richtig, zwei mit einem Fehler.
     const sterne = state.punkte >= von ? 3 : state.punkte >= von - 1 ? 2 : 1;
     stand?.buchGelesen?.(buch.id, { sterne });
+    // Ausgelesen: Das Lesezeichen fällt heraus.
+    lesezeichenWeg(buch);
     const gehoert = state.modus === "vorlesen";
     spiel.ergebnis(shell, {
       id: ID,
@@ -818,5 +919,5 @@
   schranke()?.onChange?.(regalAuffrischen);
   stand?.onChange?.(() => { if (state.ansicht === "regal") regalAuffrischen(); });
 
-  window.LernappBuecher = { buchBild, naechstesBuch, vorschlag, oeffne, zeigeRegal, state };
+  window.LernappBuecher = { buchBild, naechstesBuch, vorschlag, oeffne, zeigeRegal, kapitelNr, lesezeichenVon, LESEZEICHEN_KEY, state };
 })();

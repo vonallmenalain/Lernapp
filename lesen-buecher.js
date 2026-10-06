@@ -16,6 +16,11 @@
  *   klein       Kleine Geschichten, ab 6. Kurze Seiten, alle Buchstaben.
  *   geschichte  Geschichten, ab 7. Längere Sätze, wörtliche Rede, und eine
  *               Frage, deren Antwort nicht wörtlich dasteht.
+ *   kapitel     Kapitelbücher, ab 8. Acht bis zwölf Seiten in drei bis fünf
+ *               Kapiteln, jedes mit einer Überschrift und mindestens zwei
+ *               Seiten. Eine Seite ist eine halbe Buchseite (30 bis 65
+ *               Wörter), das Bild daneben kleiner. Vier Fragen. Ein
+ *               Lesezeichen merkt sich, wo das Kind aufgehört hat.
  *
  * Ein Buch:
  *
@@ -28,8 +33,10 @@
  *   gratis      ohne Kauf zu lesen. Die Schranke (entitlement.js,
  *               GRATIS_BUECHER) entscheidet; hier steht es für das Regal,
  *               und die Prüfung hält beides gleich.
- *   seiten      [{ text, bild }]
- *   fragen      [{ frage, antworten: [{ text, bild?, figur? }], richtig, seite }]
+ *   seiten      [{ text, bild, kapitel? }]
+ *               kapitel: die Überschrift eines Kapitels, auf seiner ersten
+ *               Seite (nur in Kapitelbüchern)
+ *   fragen     [{ frage, antworten: [{ text, bild?, figur? }], richtig, seite }]
  *               richtig: welche Antwort stimmt (ab 0); seite: wo es im Buch
  *               steht (ab 1) – dorthin führt «Im Buch nachsehen».
  *
@@ -40,12 +47,15 @@
  *             Kopf; dreh: schief, in Grad
  *   dinge     [{ e, x, y, s, vorne?, dreh? }]   ein Emoji, Mitte bei (x, y),
  *             s die Grösse; vorne: vor den Tieren statt dahinter
- *   zeichnungen [{ z, x, y, s?, … }]   was es nicht als Emoji gibt
- *             (lesen-bilder.js, ZEICHNUNGEN): fenster (ein Fenster, licht?),
- *             hoehle (eine Felshöhle), pfuetze, staffelei (eine Leinwand,
- *             das Bild darauf sind Dinge davor), seerose (ein Blatt auf dem
- *             Wasser), schneemann (augen?, nase?), fliege, blatt (ein
- *             grosses Blatt als Schirm); dreh: schief, in Grad
+ *   zeichnungen [{ z, x, y, s?, vorne?, … }]   was es nicht als Emoji
+ *             gibt (lesen-bilder.js, ZEICHNUNGEN): fenster (ein Fenster,
+ *             licht?), hoehle (eine Felshöhle), pfuetze, staffelei (eine
+ *             Leinwand, das Bild darauf sind Dinge davor), seerose (ein
+ *             Blatt auf dem Wasser), schneemann (augen?, nase?), fliege,
+ *             blatt (ein grosses Blatt als Schirm), velo (rot), bambus
+ *             (ein Stapel, stangen?), stein, wahrzeichen (id: ein
+ *             Wahrzeichen der Reise wie lighthouse oder treehouse; licht?,
+ *             aus?); dreh: schief, in Grad; vorne: vor den Tieren
  *   landschaft, himmel, schnee   für diese Seite anders als im Buch
  *
  * Geschrieben in Schweizer Rechtschreibung: ss, nie das scharfe S. Die Texte sind
@@ -59,6 +69,7 @@
     { id: "erste", titel: "Erste Sätze", ab: 5 },
     { id: "klein", titel: "Kleine Geschichten", ab: 6 },
     { id: "geschichte", titel: "Geschichten", ab: 7 },
+    { id: "kapitel", titel: "Kapitelbücher", ab: 8 },
   ];
 
   const BUECHER = [
@@ -920,6 +931,594 @@
           antworten: [{ text: "Ein Ausflug mit dem Zug." }, { text: "Ein Traum – vielleicht auch nicht." }, { text: "Ein Film im Kino." }],
           richtig: 1,
           seite: 7,
+        },
+      ],
+    },
+    // -------------------------------------------------------------------------
+    {
+      id: "hoppel-velo",
+      titel: "Hoppel lernt Velo fahren",
+      stufe: "klein",
+      figur: "rabbit",
+      landschaft: "wiese",
+      farbe: "#e8543f",
+      seiten: [
+        {
+          text: "Hoppel hat ein neues Velo. Es ist rot und glänzt in der Sonne.",
+          bild: { zeichnungen: [{ z: "velo", x: 166, y: 136, s: 1.25 }], figuren: [{ id: "rabbit", x: 70, winkt: true }], dinge: [{ e: "✨", x: 204, y: 74, s: 14 }] },
+        },
+        {
+          text: "Hoppel setzt sich auf den Sattel. Er tritt in die Pedale – und kippt um. Plumps!",
+          bild: { zeichnungen: [{ z: "velo", x: 174, y: 118, s: 1.15, dreh: -30 }], figuren: [{ id: "rabbit", x: 100, y: 134, dreh: -72 }], dinge: [{ e: "💫", x: 66, y: 94, s: 18 }] },
+        },
+        {
+          text: "Er versucht es noch einmal. Plumps! Und noch einmal. Plumps! Jetzt ist Hoppel traurig.",
+          bild: { zeichnungen: [{ z: "velo", x: 176, y: 132, s: 1.1, dreh: -14 }], figuren: [{ id: "rabbit", x: 84, blase: "😢" }] },
+        },
+        {
+          text: "Da kommt Fino, der Fuchs. «Ich halte dich hinten fest», sagt er. «Fahr einfach los!»",
+          bild: { zeichnungen: [{ z: "velo", x: 122, y: 136, s: 1.1 }], figuren: [{ id: "rabbit", x: 56, s: 1.4 }, { id: "fox", x: 190, winkt: true }] },
+        },
+        {
+          text: "Hoppel tritt in die Pedale. Fino rennt hinterher und hält den Sattel. Es geht schon viel besser!",
+          bild: { figuren: [{ id: "fox", x: 56, s: 1.4 }, { id: "rabbit", x: 134, y: 100, s: 1.15 }], zeichnungen: [{ z: "velo", x: 140, y: 136, s: 1.3, vorne: true }], dinge: [{ e: "💨", x: 92, y: 112, s: 16 }] },
+        },
+        {
+          text: "Hoppel fährt und fährt. «Halt mich gut fest, Fino!», ruft er. Aber niemand antwortet.",
+          bild: { figuren: [{ id: "rabbit", x: 154, y: 100, s: 1.15, blase: "😃" }], zeichnungen: [{ z: "velo", x: 160, y: 136, s: 1.3, vorne: true }], dinge: [{ e: "💨", x: 106, y: 112, s: 16 }] },
+        },
+        {
+          text: "Hoppel schaut zurück. Fino steht weit hinten und winkt. Hoppel fährt ganz allein!",
+          bild: { figuren: [{ id: "fox", x: 36, y: 120, s: 0.8, winkt: true }, { id: "rabbit", x: 166, y: 100, s: 1.15, blase: "😮" }], zeichnungen: [{ z: "velo", x: 172, y: 136, s: 1.3, vorne: true }] },
+        },
+        {
+          text: "Jetzt fahren die beiden jeden Tag zusammen: Hoppel auf seinem roten Velo, Fino auf seinem Trottinett.",
+          bild: { figuren: [{ id: "rabbit", x: 68, y: 100, s: 1.15 }, { id: "fox", x: 176, y: 108, s: 1.2, winkt: true }], zeichnungen: [{ z: "velo", x: 74, y: 136, s: 1.3, vorne: true }], dinge: [{ e: "🛴", x: 176, y: 118, s: 46, vorne: true }] },
+        },
+      ],
+      fragen: [
+        {
+          frage: "Welche Farbe hat Hoppels Velo?",
+          antworten: [{ text: "blau" }, { text: "rot" }, { text: "gelb" }],
+          richtig: 1,
+          seite: 1,
+        },
+        {
+          frage: "Wer hilft Hoppel?",
+          antworten: [{ figur: "owl", text: "Ella, die Eule" }, { figur: "fox", text: "Fino, der Fuchs" }, { figur: "frog", text: "Fred, der Frosch" }],
+          richtig: 1,
+          seite: 4,
+        },
+        {
+          frage: "Warum antwortet Fino nicht?",
+          antworten: [{ text: "Er schläft." }, { text: "Er hat den Sattel schon lange losgelassen." }, { text: "Er ist böse auf Hoppel." }],
+          richtig: 1,
+          seite: 7,
+        },
+      ],
+    },
+    // -------------------------------------------------------------------------
+    {
+      id: "ella-ei",
+      titel: "Ella findet ein Ei",
+      stufe: "klein",
+      figur: "owl",
+      landschaft: "wald",
+      farbe: "#8e6bbf",
+      seiten: [
+        {
+          text: "Ella, die Eule, findet im Gras ein Ei. Es ist weiss und ganz allein.",
+          bild: { figuren: [{ id: "owl", x: 76 }], dinge: [{ e: "🥚", x: 162, y: 126, s: 28 }, { e: "🌿", x: 196, y: 130, s: 18 }] },
+        },
+        {
+          text: "«Wem gehört dieses Ei?», ruft Ella. Aber niemand antwortet.",
+          bild: { figuren: [{ id: "owl", x: 86, blase: "❓" }], dinge: [{ e: "🥚", x: 162, y: 126, s: 26 }] },
+        },
+        {
+          text: "Ella nimmt das Ei mit in ihren Baum. Dort hält sie es warm, Tag und Nacht.",
+          bild: { landschaft: "nacht", figuren: [{ id: "owl", x: 120, y: 118 }], dinge: [{ e: "🍂", x: 96, y: 128, s: 18, vorne: true }, { e: "🍂", x: 144, y: 128, s: 18, vorne: true }, { e: "🥚", x: 120, y: 126, s: 18, vorne: true }, { e: "🌙", x: 46, y: 32, s: 20 }] },
+        },
+        {
+          text: "Eines Morgens knackt es. Das Ei bekommt einen Riss. Dann schaut ein kleiner Schnabel heraus!",
+          bild: { figuren: [{ id: "owl", x: 70, blase: "😮" }], dinge: [{ e: "🐣", x: 160, y: 120, s: 36 }] },
+        },
+        {
+          text: "Es ist ein Entchen. «Mama!», piepst es und kuschelt sich an Ella.",
+          bild: { figuren: [{ id: "owl", x: 100 }], dinge: [{ e: "🐥", x: 144, y: 126, s: 24 }, { e: "❤️", x: 122, y: 44, s: 16 }] },
+        },
+        {
+          text: "Ella lacht. «Ich bin doch keine Ente! Komm, wir suchen deine Mama.»",
+          bild: { figuren: [{ id: "owl", x: 80, winkt: true }], dinge: [{ e: "🐥", x: 152, y: 126, s: 24 }, { e: "❓", x: 176, y: 96, s: 16 }] },
+        },
+        {
+          text: "Am See schwimmt eine Ente. Sie sucht überall und ruft. Als sie das Entchen sieht, quakt sie vor Freude.",
+          bild: { landschaft: "see", figuren: [{ id: "owl", x: 46, s: 1.3 }], dinge: [{ e: "🐥", x: 104, y: 126, s: 22 }, { e: "🦆", x: 170, y: 112, s: 40 }, { e: "❤️", x: 140, y: 70, s: 16 }] },
+        },
+        {
+          text: "Das Entchen schwimmt mit seiner Mama davon. Aber jeden Abend besucht es Ella in ihrem Baum.",
+          bild: { landschaft: "see", figuren: [{ id: "owl", x: 56, winkt: true }], dinge: [{ e: "🦆", x: 160, y: 112, s: 36 }, { e: "🐥", x: 200, y: 118, s: 20 }] },
+        },
+      ],
+      fragen: [
+        {
+          frage: "Was findet Ella im Gras?",
+          antworten: [{ text: "eine Nuss", bild: "🌰" }, { text: "ein Ei", bild: "🥚" }, { text: "einen Pilz", bild: "🍄" }],
+          richtig: 1,
+          seite: 1,
+        },
+        {
+          frage: "Wer schlüpft aus dem Ei?",
+          antworten: [{ text: "ein Entchen", bild: "🐥" }, { text: "eine kleine Eule", figur: "owl" }, { text: "ein Frosch", figur: "frog" }],
+          richtig: 0,
+          seite: 5,
+        },
+        {
+          frage: "Warum sagt das Entchen «Mama» zu Ella?",
+          antworten: [{ text: "Ella ist auch eine Ente." }, { text: "Ella ist die Erste, die es sieht." }, { text: "Es kann nicht gut sehen." }],
+          richtig: 1,
+          seite: 5,
+        },
+      ],
+    },
+    // -------------------------------------------------------------------------
+    {
+      id: "geschenk-oma-rosa",
+      titel: "Ein Geschenk für Oma Rosa",
+      stufe: "geschichte",
+      figur: "mouse",
+      landschaft: "wiese",
+      farbe: "#e86a92",
+      seiten: [
+        {
+          text: "Morgen hat Oma Rosa Geburtstag. Mia, die Maus, möchte ihr etwas ganz Besonderes schenken. Aber ihr Kässeli ist leer.",
+          bild: { figuren: [{ id: "mouse", x: 86, s: 1.5, blase: "🎁" }], dinge: [{ e: "🐷", x: 172, y: 124, s: 28 }] },
+        },
+        {
+          text: "«Dann bastle ich eben etwas», beschliesst Mia. Sie pflückt Blumen auf der Wiese: Margriten, Tulpen und eine grosse Sonnenblume.",
+          bild: { figuren: [{ id: "mouse", x: 70, s: 1.4, winkt: true }], dinge: [{ e: "🌼", x: 126, y: 128, s: 18 }, { e: "🌷", x: 158, y: 124, s: 22 }, { e: "🌻", x: 200, y: 106, s: 40 }] },
+        },
+        {
+          text: "Doch auf dem Heimweg kommt ein Windstoss. Die Blumen fliegen davon, eine nach der anderen. Nur die Sonnenblume bleibt übrig, und auch sie lässt den Kopf hängen.",
+          bild: { figuren: [{ id: "mouse", x: 66, s: 1.4 }], dinge: [{ e: "💨", x: 118, y: 74, s: 24 }, { e: "🌼", x: 150, y: 46, s: 16, dreh: 30 }, { e: "🌷", x: 178, y: 68, s: 18, dreh: -40 }, { e: "🌻", x: 104, y: 112, s: 24, dreh: 50, vorne: true }] },
+        },
+        {
+          text: "Mia setzt sich traurig auf einen Stein. Da summt eine Biene heran. «Warum bist du so traurig?», fragt sie. Mia erzählt ihr alles.",
+          bild: { zeichnungen: [{ z: "stein", x: 84, y: 136 }], figuren: [{ id: "mouse", x: 84, y: 112, s: 1.3, blase: "😢" }], dinge: [{ e: "🐝", x: 168, y: 72, s: 22 }] },
+        },
+        {
+          text: "«Ich weiss etwas», summt die Biene. «Oma Rosa liebt doch Geschichten. Schenk ihr eine!» Mia überlegt kurz. Dann rennt sie nach Hause und holt Papier und Farbstifte.",
+          bild: { figuren: [{ id: "mouse", x: 86, s: 1.4, blase: "💡" }], dinge: [{ e: "🐝", x: 172, y: 64, s: 22 }, { e: "✏️", x: 168, y: 124, s: 22 }, { e: "📄", x: 196, y: 124, s: 22 }] },
+        },
+        {
+          text: "Die ganze Nacht malt und schreibt Mia: wie Oma Rosa dem Löwen Leo das Brüllen beibringt und wie die beiden eine Melone essen. Am Morgen ist das Buch fertig.",
+          bild: { landschaft: "nacht", zeichnungen: [{ z: "staffelei", x: 162, y: 136 }], figuren: [{ id: "mouse", x: 66, s: 1.4 }], dinge: [{ e: "🦁", x: 150, y: 76, s: 20, vorne: true }, { e: "🍉", x: 176, y: 84, s: 14, vorne: true }, { e: "🕯️", x: 24, y: 120, s: 18 }] },
+        },
+        {
+          text: "Oma Rosa blättert das Buch langsam durch. Bei jeder Seite lacht sie ein bisschen mehr. «Das schönste Geschenk, das ich je bekommen habe!», sagt sie und drückt Mia fest an sich.",
+          bild: { figuren: [{ id: "mouse", x: 78, s: 1.7 }, { id: "mouse", x: 154, s: 1.25 }], dinge: [{ e: "📖", x: 116, y: 112, s: 26, vorne: true }, { e: "❤️", x: 116, y: 44, s: 18 }, { e: "🌻", x: 214, y: 108, s: 32 }] },
+        },
+      ],
+      fragen: [
+        {
+          frage: "Warum kann Mia kein Geschenk kaufen?",
+          antworten: [{ text: "Der Laden ist zu." }, { text: "Ihr Kässeli ist leer." }, { text: "Sie hat den Geburtstag vergessen." }],
+          richtig: 1,
+          seite: 1,
+        },
+        {
+          frage: "Welche Blume bleibt übrig?",
+          antworten: [{ text: "die Sonnenblume", bild: "🌻" }, { text: "die Tulpe", bild: "🌷" }, { text: "die Margrite", bild: "🌼" }],
+          richtig: 0,
+          seite: 3,
+        },
+        {
+          frage: "Warum freut sich Oma Rosa so sehr über das Buch?",
+          antworten: [{ text: "Es hat viel Geld gekostet." }, { text: "Mia hat es selbst gemacht – mit Geschichten über Oma." }, { text: "Es ist ein Kochbuch." }],
+          richtig: 1,
+          seite: 7,
+        },
+      ],
+    },
+    // -------------------------------------------------------------------------
+    {
+      id: "bruno-schnee",
+      titel: "Bruno und der erste Schnee",
+      stufe: "geschichte",
+      figur: "bear",
+      landschaft: "wald",
+      farbe: "#5c8db8",
+      seiten: [
+        {
+          text: "Es ist Herbst. Die Blätter fallen, und die Tage werden kurz. «Bald ist es Zeit für den Winterschlaf», sagt Mama Bär zu Bruno.",
+          bild: { figuren: [{ id: "bear", x: 70, s: 1.8 }, { id: "bear", x: 166, s: 1.25 }], dinge: [{ e: "🍂", x: 40, y: 36, s: 16 }, { e: "🍁", x: 206, y: 56, s: 16 }, { e: "🍂", x: 120, y: 132, s: 14 }] },
+        },
+        {
+          text: "Aber Bruno will nicht schlafen. «Alle reden vom Schnee», brummt er. «Ich will ihn auch einmal sehen. Nur ein einziges Mal!»",
+          bild: { figuren: [{ id: "bear", x: 110, blase: "❄️" }], dinge: [{ e: "🍂", x: 186, y: 130, s: 14 }, { e: "🍁", x: 40, y: 128, s: 14 }] },
+        },
+        {
+          text: "Also bleibt Bruno wach. Er spielt mit Flitz, und er zählt Sterne mit Ella. Aber seine Augen werden jeden Tag schwerer.",
+          bild: { landschaft: "nacht", figuren: [{ id: "bear", x: 66, s: 1.4 }, { id: "squirrel", x: 136, s: 1.1 }, { id: "owl", x: 198, s: 1.1 }], dinge: [{ e: "⭐", x: 44, y: 28, s: 10 }, { e: "⭐", x: 118, y: 22, s: 8 }, { e: "⭐", x: 170, y: 36, s: 9 }] },
+        },
+        {
+          text: "Eines Abends fällt eine weisse Flocke auf seine Nase. Dann noch eine und noch eine. «Schnee!», ruft Bruno und dreht sich im Kreis.",
+          bild: { schnee: true, figuren: [{ id: "bear", x: 120, winkt: true }], dinge: [{ e: "❄️", x: 120, y: 44, s: 14 }] },
+        },
+        {
+          text: "Bruno formt einen kleinen Schneeball. Er schaut zu, wie der Wald ganz weiss wird. Dann gähnt er so laut, dass ein Ast zittert.",
+          bild: { schnee: true, figuren: [{ id: "bear", x: 92, blase: "😴" }], dinge: [{ e: "⚪", x: 150, y: 124, s: 20 }] },
+        },
+        {
+          text: "«Jetzt habe ich den Schnee gesehen», murmelt Bruno. Er tappt in seine Höhle, rollt sich zusammen und schläft sofort ein. Er schläft bis zum Frühling.",
+          bild: { schnee: true, zeichnungen: [{ z: "hoehle", x: 120, y: 136, s: 0.9 }], figuren: [{ id: "bear", x: 120, s: 1.1 }], dinge: [{ e: "💤", x: 150, y: 70, s: 18 }] },
+        },
+        {
+          text: "Als Bruno im Frühling aufwacht, scheint die Sonne. Flitz wartet schon vor der Höhle. «Endlich bist du wach!», ruft er. «Ich muss dir so viel vom Winter erzählen!»",
+          bild: { zeichnungen: [{ z: "hoehle", x: 76, y: 136, s: 0.8 }], figuren: [{ id: "bear", x: 76, s: 1.1 }, { id: "squirrel", x: 180, winkt: true }], dinge: [{ e: "🌷", x: 214, y: 128, s: 16 }, { e: "🌼", x: 140, y: 130, s: 14 }] },
+        },
+      ],
+      fragen: [
+        {
+          frage: "Warum will Bruno nicht schlafen?",
+          antworten: [{ text: "Er hat Hunger." }, { text: "Er will den Schnee sehen." }, { text: "Er hat Angst im Dunkeln." }],
+          richtig: 1,
+          seite: 2,
+        },
+        {
+          frage: "Was fällt Bruno auf die Nase?",
+          antworten: [{ text: "ein Blatt", bild: "🍂" }, { text: "eine Schneeflocke", bild: "❄️" }, { text: "ein Regentropfen", bild: "💧" }],
+          richtig: 1,
+          seite: 4,
+        },
+        {
+          frage: "Warum schläft Bruno am Ende so schnell ein?",
+          antworten: [{ text: "Er hat den Schnee gesehen und ist sehr müde." }, { text: "Mama Bär schimpft mit ihm." }, { text: "In der Höhle ist es zu heiss." }],
+          richtig: 0,
+          seite: 6,
+        },
+      ],
+    },
+    // -------------------------------------------------------------------------
+    {
+      id: "baumhaus-nacht",
+      titel: "Die Nacht im Baumhaus",
+      stufe: "kapitel",
+      figur: "squirrel",
+      landschaft: "wald",
+      farbe: "#3d7a4a",
+      seiten: [
+        {
+          kapitel: "Die Einladung",
+          text: "Flitz hat ein Baumhaus. Es sitzt hoch oben in der alten Buche, mit einem roten Dach und einem kleinen Fenster. Eine Leiter führt hinauf. Heute ist ein besonderer Tag: Flitz hat seine Freunde eingeladen. Sie dürfen zum ersten Mal im Baumhaus übernachten.",
+          bild: { zeichnungen: [{ z: "wahrzeichen", id: "treehouse", x: 160, y: 136 }], figuren: [{ id: "squirrel", x: 66, winkt: true }] },
+        },
+        {
+          text: "Am Abend kommen die Gäste. Hoppel, der Hase, bringt eine Taschenlampe und einen ganzen Sack Rüebli mit. Mia, die Maus, hat ihren Teddybären unter dem Arm. «Hast du keine Angst, so hoch oben?», fragt sie. «Ich doch nicht!», sagt Hoppel. Aber seine Ohren zittern ein bisschen.",
+          bild: { himmel: ["#f6a96b", "#fde1b8"], figuren: [{ id: "rabbit", x: 66 }, { id: "mouse", x: 168, s: 1.25 }], dinge: [{ e: "🔦", x: 100, y: 118, s: 18, vorne: true }, { e: "🥕", x: 30, y: 126, s: 18, vorne: true }, { e: "🧸", x: 196, y: 120, s: 20, vorne: true }] },
+        },
+        {
+          text: "Oben im Baumhaus ist es gemütlich. Flitz zündet eine Laterne an, und alle kuscheln sich in ihre Decken. Mia liest eine Geschichte vor, Hoppel knabbert ein Rüebli nach dem anderen. Draussen wird es dunkel, und die ersten Sterne gehen auf. «Das ist die beste Nacht der Welt», flüstert Flitz.",
+          bild: { landschaft: "nacht", zeichnungen: [{ z: "fenster", x: 120, y: 58, s: 0.85, licht: false }], figuren: [{ id: "squirrel", x: 40, s: 1.25 }, { id: "mouse", x: 120, s: 1.1 }, { id: "rabbit", x: 200, s: 1.25 }], dinge: [{ e: "🏮", x: 76, y: 120, s: 18, vorne: true }, { e: "📖", x: 146, y: 118, s: 16, vorne: true }, { e: "⭐", x: 104, y: 44, s: 9 }, { e: "⭐", x: 138, y: 52, s: 7 }] },
+        },
+        {
+          kapitel: "Geräusche in der Nacht",
+          text: "Mitten in der Nacht wacht Mia auf. Da war ein Geräusch! Unter dem Baumhaus knackt und raschelt es. Mia stupst Flitz an. «Hörst du das?», flüstert sie. Flitz hält den Atem an. Da ist es wieder: Knack! Raschel! Und dann ein tiefes, unheimliches «Huuu».",
+          bild: { landschaft: "nacht", zeichnungen: [{ z: "fenster", x: 120, y: 64, licht: false }], figuren: [{ id: "squirrel", x: 98, y: 102, s: 1.05 }, { id: "mouse", x: 142, y: 102, s: 0.95, blase: "❓" }], dinge: [{ e: "🍂", x: 34, y: 130, s: 16 }, { e: "🍂", x: 206, y: 132, s: 14 }] },
+        },
+        {
+          text: "Hoppel zieht die Decke über die Ohren. «Ein Gespenst!», piepst er. «Gespenster gibt es nicht», sagt Mia. Aber ihre Stimme klingt gar nicht so sicher. Flitz nimmt die Taschenlampe. Er ist der Gastgeber, also muss er mutig sein. Langsam kriecht er zum Fenster.",
+          bild: { landschaft: "nacht", figuren: [{ id: "rabbit", x: 66, blase: "👻" }, { id: "squirrel", x: 166 }], dinge: [{ e: "🔦", x: 192, y: 112, s: 20, vorne: true }] },
+        },
+        {
+          text: "Flitz leuchtet in die Dunkelheit hinaus. Zuerst sieht er nur Blätter und Äste. Dann blitzen zwei grosse, gelbe Augen auf. Flitz erschrickt so sehr, dass ihm die Lampe fast aus der Hand fällt. «Wer ist da?», ruft er. Seine Stimme ist ganz dünn.",
+          bild: { landschaft: "nacht", figuren: [{ id: "squirrel", x: 58 }], dinge: [{ e: "🔦", x: 88, y: 106, s: 20, vorne: true }, { e: "🍃", x: 158, y: 70, s: 20 }, { e: "🍃", x: 214, y: 62, s: 18 }, { e: "👀", x: 186, y: 54, s: 26 }] },
+        },
+        {
+          kapitel: "Wer ist da?",
+          text: "Mit einem leisen Flattern landet jemand auf dem Fensterbrett. Es ist Ella, die Eule! «Entschuldigung», sagt sie. «Ich wollte euch nicht erschrecken. Ich habe nur gesehen, dass hier noch Licht brennt.» Flitz atmet auf. Hoppel schaut unter der Decke hervor, und Mia lacht erleichtert.",
+          bild: { landschaft: "nacht", zeichnungen: [{ z: "fenster", x: 120, y: 64, licht: true }], figuren: [{ id: "owl", x: 120, y: 98, s: 1.1, winkt: true }, { id: "squirrel", x: 30, s: 1.2 }, { id: "rabbit", x: 210, s: 1.2 }] },
+        },
+        {
+          text: "«Was macht ihr denn hier oben?», fragt Ella. «Wir übernachten im Baumhaus», erklärt Flitz stolz. «Und was machst du mitten in der Nacht?» Ella blinzelt. «Für mich ist das der Tag! Eulen schlafen, wenn es hell ist. In der Nacht fliege ich herum und schaue, ob im Wald alles in Ordnung ist.»",
+          bild: { landschaft: "nacht", figuren: [{ id: "owl", x: 76, blase: "🌙" }, { id: "squirrel", x: 166 }], dinge: [{ e: "⭐", x: 30, y: 30, s: 10 }, { e: "⭐", x: 210, y: 40, s: 8 }] },
+        },
+        {
+          text: "Hoppel kriecht unter der Decke hervor. «Und das Knacken und Rascheln?» Ella zeigt nach unten. Dort tappt ein kleiner Igel durchs Laub und sucht nach Käfern. «Und das Huuu?», fragt Mia. Ella macht ein verlegenes Gesicht. «Das war ich. Ich wollte nur Hallo sagen.»",
+          bild: { landschaft: "nacht", figuren: [{ id: "owl", x: 56, s: 1.25 }, { id: "rabbit", x: 196, s: 1.25, blase: "😮" }], dinge: [{ e: "🦔", x: 126, y: 124, s: 30 }, { e: "🍂", x: 156, y: 134, s: 12, vorne: true }, { e: "🐞", x: 100, y: 134, s: 10 }] },
+        },
+        {
+          text: "Ella bleibt noch ein bisschen. Sie erzählt von ihren Flügen über den dunklen Wald, vom Mond und von den Sternen. Bald gähnt Hoppel. Dann gähnt Mia. Auch Flitz fallen langsam die Augen zu. «Jetzt habe ich gar keine Angst mehr», murmelt Hoppel. Und schon schläft er.",
+          bild: { landschaft: "nacht", figuren: [{ id: "rabbit", x: 44, s: 1.25, blase: "💤" }, { id: "mouse", x: 104, s: 1.0 }, { id: "squirrel", x: 156, s: 1.2 }, { id: "owl", x: 212, s: 1.1 }], dinge: [{ e: "🌙", x: 120, y: 30, s: 20 }] },
+        },
+        {
+          kapitel: "Der Morgen",
+          text: "Am Morgen kitzelt die Sonne Flitz an der Nase. Ella ist weg – sie schläft jetzt in ihrem Baum. Auf dem Fensterbrett liegt ein Zettel. Darauf hat Ella geschrieben: «Danke für den schönen Abend! Bis bald.» Flitz lächelt.",
+          bild: { zeichnungen: [{ z: "wahrzeichen", id: "treehouse", x: 160, y: 136 }], figuren: [{ id: "squirrel", x: 62 }], dinge: [{ e: "📝", x: 104, y: 92, s: 22 }] },
+        },
+        {
+          text: "Beim Frühstück sind sich alle einig: Das war die beste Nacht der Welt. «Nächstes Mal laden wir Ella auch ein», sagt Mia. «Und den Igel!», ruft Hoppel. Flitz lacht. «Dann brauchen wir aber ein grösseres Baumhaus.»",
+          bild: { figuren: [{ id: "rabbit", x: 46, s: 1.3 }, { id: "mouse", x: 120, s: 1.1, winkt: true }, { id: "squirrel", x: 194, s: 1.3 }], dinge: [{ e: "🥐", x: 84, y: 130, s: 16, vorne: true }, { e: "🍓", x: 152, y: 132, s: 14, vorne: true }, { e: "🥕", x: 20, y: 130, s: 14, vorne: true }] },
+        },
+      ],
+      fragen: [
+        {
+          frage: "Wo übernachten Flitz und seine Freunde?",
+          antworten: [{ text: "im Baumhaus" }, { text: "in einer Höhle" }, { text: "in einem Zelt am See" }],
+          richtig: 0,
+          seite: 1,
+        },
+        {
+          frage: "Was bringt Hoppel mit?",
+          antworten: [{ text: "einen Teddybären" }, { text: "eine Taschenlampe und Rüebli" }, { text: "ein dickes Buch" }],
+          richtig: 1,
+          seite: 2,
+        },
+        {
+          frage: "Wer hat in der Nacht «Huuu» gemacht?",
+          antworten: [{ figur: "owl", text: "Ella, die Eule" }, { bild: "🦔", text: "der Igel" }, { bild: "👻", text: "ein Gespenst" }],
+          richtig: 0,
+          seite: 9,
+        },
+        {
+          frage: "Warum ist Ella mitten in der Nacht wach?",
+          antworten: [{ text: "Sie hat Bauchweh." }, { text: "Eulen schlafen am Tag und sind in der Nacht wach." }, { text: "Sie sucht ihren Zettel." }],
+          richtig: 1,
+          seite: 8,
+        },
+      ],
+    },
+    // -------------------------------------------------------------------------
+    {
+      id: "leuchtturm-licht",
+      titel: "Das Licht im Leuchtturm",
+      stufe: "kapitel",
+      figur: "penguin",
+      landschaft: "see",
+      farbe: "#c9483a",
+      seiten: [
+        {
+          kapitel: "Ferien am See",
+          text: "Pino verbringt die Ferien bei seinem Opa Paul. Opa Paul ist Leuchtturmwärter. Sein Leuchtturm steht auf einem Felsen am See, rot und weiss gestreift. Ganz oben brennt jede Nacht ein helles Licht. «Wozu ist das Licht da?», fragt Pino.",
+          bild: { zeichnungen: [{ z: "wahrzeichen", id: "lighthouse", x: 168, y: 136, s: 0.95 }], figuren: [{ id: "penguin", x: 64, winkt: true }] },
+        },
+        {
+          text: "«Das Licht zeigt den Booten den Weg», erklärt Opa Paul. «Wenn es dunkel ist oder stürmt, sehen die Fischer das Ufer nicht. Ohne Licht würden sie an die Felsen fahren.» Pino staunt. Jeden Abend steigt Opa die neunundneunzig Stufen hinauf und schaut, ob die Lampe brennt.",
+          bild: { himmel: ["#f6a96b", "#fde1b8"], zeichnungen: [{ z: "wahrzeichen", id: "lighthouse", x: 190, y: 136, s: 0.95, licht: true }], figuren: [{ id: "penguin", x: 44, s: 1.25 }, { id: "penguin", x: 106, s: 1.7, blase: "⛵" }] },
+        },
+        {
+          text: "Am nächsten Morgen fährt Fred, der Frosch, mit seinem Fischerboot hinaus. Er winkt Pino zu. «Heute fange ich den grössten Fisch des Sommers!», ruft er. Opa Paul schaut zum Himmel. Dort ziehen dunkle Wolken auf. «Hoffentlich kommt Fred rechtzeitig zurück», brummt er.",
+          bild: { figuren: [{ id: "penguin", x: 46, s: 1.3, winkt: true }, { id: "frog", x: 166, y: 104, s: 1.0, winkt: true }], dinge: [{ e: "🛶", x: 166, y: 110, s: 52, vorne: true }, { e: "☁️", x: 196, y: 30, s: 28 }, { e: "☁️", x: 150, y: 24, s: 20 }] },
+        },
+        {
+          kapitel: "Der Sturm",
+          text: "Am Abend heult der Wind um den Leuchtturm. Regen peitscht gegen die Fenster, und die Wellen schlagen an die Felsen. Opa Paul will gerade die Treppe hinaufsteigen, da rutscht er auf einer nassen Stufe aus. «Aua, mein Fuss!» Er kann nicht mehr auftreten.",
+          bild: { himmel: ["#3a4a66", "#6b7a95"], zeichnungen: [{ z: "wahrzeichen", id: "lighthouse", x: 180, y: 136, s: 0.95, licht: true }], figuren: [{ id: "penguin", x: 72, s: 1.6, dreh: -16 }], dinge: [{ e: "🌧️", x: 40, y: 34, s: 26 }, { e: "💫", x: 104, y: 52, s: 16 }] },
+        },
+        {
+          text: "Und dann passiert es: Ein Blitz zuckt, es kracht – und oben im Turm geht das Licht aus. Alles ist dunkel. «Die Lampe!», ruft Opa Paul erschrocken. «Und Fred ist noch draussen auf dem See!» Pino schaut aus dem Fenster. Irgendwo da draussen schaukelt ein kleines Boot in der Dunkelheit.",
+          bild: { himmel: ["#1d2840", "#3a4a66"], zeichnungen: [{ z: "wahrzeichen", id: "lighthouse", x: 150, y: 136, s: 0.95, aus: true }], dinge: [{ e: "⚡", x: 92, y: 40, s: 28 }, { e: "⛈️", x: 206, y: 30, s: 30 }, { e: "🛶", x: 40, y: 104, s: 26 }, { e: "🌊", x: 214, y: 126, s: 22, vorne: true }] },
+        },
+        {
+          text: "«In der Kiste ist eine alte Laterne», sagt Opa Paul. «Aber ich komme die Treppe nicht hinauf.» Pino schluckt. Neunundneunzig Stufen, ganz allein, im Dunkeln! Dann nimmt er die Laterne. «Ich mache das», sagt er. «Fred braucht das Licht.»",
+          bild: { landschaft: "nacht", figuren: [{ id: "penguin", x: 66, s: 1.6 }, { id: "penguin", x: 158, s: 1.25, blase: "😟" }], dinge: [{ e: "📦", x: 112, y: 124, s: 26 }, { e: "🏮", x: 196, y: 116, s: 24, vorne: true }] },
+        },
+        {
+          kapitel: "Neunundneunzig Stufen",
+          text: "Pino steigt die Wendeltreppe hinauf. Draussen tobt der Sturm, und der ganze Turm brummt und pfeift. Bei Stufe dreissig zittern seine Beine. Bei Stufe sechzig möchte er am liebsten umkehren. Aber er denkt an Fred da draussen. Also zählt er weiter: einundsechzig, zweiundsechzig …",
+          bild: { himmel: ["#1d2840", "#3a4a66"], zeichnungen: [{ z: "wahrzeichen", id: "lighthouse", x: 160, y: 136, s: 0.95, aus: true }], figuren: [{ id: "penguin", x: 70, s: 1.4 }], dinge: [{ e: "🏮", x: 98, y: 98, s: 20, vorne: true }, { e: "💨", x: 214, y: 70, s: 20 }, { e: "🌧️", x: 40, y: 30, s: 22 }] },
+        },
+        {
+          text: "Endlich ist Pino oben. Durch die grossen Fenster sieht er nur Regen und schwarze Wellen. Mit klammen Flügeln zündet er die Laterne an. Ein kleines Flämmchen flackert auf. Pino stellt die Laterne vor den grossen Spiegel der Lampe. Und plötzlich strahlt das Licht weit hinaus über den See!",
+          bild: { himmel: ["#1d2840", "#3a4a66"], zeichnungen: [{ z: "wahrzeichen", id: "lighthouse", x: 100, y: 136, licht: true }], dinge: [{ e: "✨", x: 184, y: 26, s: 16 }, { e: "🌊", x: 200, y: 128, s: 22, vorne: true }] },
+        },
+        {
+          text: "Pino drückt den Schnabel an die Scheibe und wartet. Hat Fred das Licht gesehen? Lange passiert nichts. Doch dann taucht weit draussen ein kleines Licht auf. Es schaukelt auf und ab und kommt immer näher. Das ist Freds Boot! Es fährt sicher an den Felsen vorbei in den Hafen.",
+          bild: { himmel: ["#1d2840", "#3a4a66"], zeichnungen: [{ z: "wahrzeichen", id: "lighthouse", x: 62, y: 136, s: 0.95, licht: true }], figuren: [{ id: "frog", x: 182, y: 104, s: 1.0, winkt: true }], dinge: [{ e: "🛶", x: 182, y: 110, s: 52, vorne: true }, { e: "🌊", x: 136, y: 128, s: 18, vorne: true }] },
+        },
+        {
+          kapitel: "Ein neuer Leuchtturmwärter",
+          text: "Am nächsten Morgen ist der Sturm vorbei. Der See glitzert, als wäre nichts gewesen. Fred kommt mit einem grossen Korb zum Leuchtturm. «Pino, du hast mich gerettet!», ruft er. «Ohne dein Licht hätte ich den Weg nie gefunden.» Im Korb liegt der grösste Fisch des Sommers – ein Geschenk für Pino.",
+          bild: { figuren: [{ id: "frog", x: 62, s: 1.4, winkt: true }, { id: "penguin", x: 176, s: 1.35 }], dinge: [{ e: "🧺", x: 118, y: 126, s: 30, vorne: true }, { e: "🐟", x: 118, y: 108, s: 24 }] },
+        },
+        {
+          text: "Opa Paul sitzt mit dem verbundenen Fuss im Lehnstuhl und strahlt. «Ich bin so stolz auf dich», sagt er. «Ab heute bist du auch ein Leuchtturmwärter.» Er schenkt Pino eine Mütze mit einem kleinen Leuchtturm darauf. Pino setzt sie auf und strahlt fast so hell wie die Lampe.",
+          bild: { figuren: [{ id: "penguin", x: 70, s: 1.7 }, { id: "penguin", x: 166, s: 1.3 }], dinge: [{ e: "🧢", x: 166, y: 74, s: 22, vorne: true }, { e: "✨", x: 198, y: 50, s: 14 }] },
+        },
+      ],
+      fragen: [
+        {
+          frage: "Was ist Opa Paul von Beruf?",
+          antworten: [{ text: "Fischer" }, { text: "Leuchtturmwärter" }, { text: "Bäcker" }],
+          richtig: 1,
+          seite: 1,
+        },
+        {
+          frage: "Wie viele Stufen führen im Leuchtturm hinauf?",
+          antworten: [{ text: "dreissig" }, { text: "sechzig" }, { text: "neunundneunzig" }],
+          richtig: 2,
+          seite: 2,
+        },
+        {
+          frage: "Warum geht das Licht im Turm aus?",
+          antworten: [{ text: "Ein Blitz schlägt ein." }, { text: "Opa Paul schaltet es aus." }, { text: "Pino bläst es aus." }],
+          richtig: 0,
+          seite: 5,
+        },
+        {
+          frage: "Warum steigt Pino die Treppe hinauf, obwohl er Angst hat?",
+          antworten: [{ text: "Er will den Sturm von oben sehen." }, { text: "Fred braucht das Licht, um heimzufinden." }, { text: "Opa Paul hat es ihm befohlen." }],
+          richtig: 1,
+          seite: 6,
+        },
+      ],
+    },
+    // -------------------------------------------------------------------------
+    {
+      id: "bergrennen",
+      titel: "Das grosse Bergrennen",
+      stufe: "kapitel",
+      figur: "ibex",
+      landschaft: "berge",
+      farbe: "#8a6d3b",
+      seiten: [
+        {
+          kapitel: "Das Plakat",
+          text: "An der Tür der Berghütte hängt ein grosses Plakat: «Das grosse Bergrennen! Am Samstag, vom Tal bis zur Hütte. Der Sieger bekommt einen goldenen Pokal.» Sepp, der Steinbock, liest es dreimal. Sein Herz klopft vor Freude. Klettern kann er wie kein anderer!",
+          bild: { zeichnungen: [{ z: "wahrzeichen", id: "hut", x: 164, y: 136 }], figuren: [{ id: "ibex", x: 64, blase: "🏆" }], dinge: [{ e: "📜", x: 140, y: 112, s: 18, vorne: true }] },
+        },
+        {
+          text: "Jeden Tag übt Sepp. Er springt über Felsen und klettert steile Wände hinauf, bis ihm die Beine wehtun. Am Abend kommt Fino, der Fuchs, vorbei. «Gib dir keine Mühe», sagt er. «Diesmal gewinne ich. Ich kenne eine Abkürzung.» Sepp schnaubt. «Das werden wir ja sehen.»",
+          bild: { figuren: [{ id: "ibex", x: 84, y: 112, s: 1.35, dreh: -12 }, { id: "fox", x: 188, s: 1.35 }], dinge: [{ e: "💨", x: 40, y: 112, s: 18 }, { e: "💦", x: 110, y: 54, s: 14 }] },
+        },
+        {
+          kapitel: "Das Rennen beginnt",
+          text: "Am Samstag stehen alle am Start: Sepp, Fino, Hoppel, der Hase, und ganz am Rand Mia, die kleine Maus. «Du willst mitlaufen?», fragt Fino spöttisch. «Mit so kurzen Beinen?» Mia hebt das Kinn. «Ich will es wenigstens versuchen.» Dann pfeift Bruno, der Bär: Los!",
+          bild: { figuren: [{ id: "ibex", x: 30, s: 1.2 }, { id: "fox", x: 82, s: 1.2 }, { id: "rabbit", x: 132, s: 1.2 }, { id: "mouse", x: 174, s: 0.9 }], dinge: [{ e: "🏁", x: 216, y: 100, s: 32 }] },
+        },
+        {
+          text: "Sepp springt sofort los, Felsen hinauf, Felsen hinunter. Bald liegt das Tal tief unter ihm. Fino ist verschwunden – wohl auf seiner Abkürzung. Hoppel keucht weit hinten. Sepp lacht im Wind. Der goldene Pokal ist schon fast in seinen Hufen.",
+          bild: { figuren: [{ id: "rabbit", x: 40, y: 132, s: 0.8 }, { id: "ibex", x: 150, y: 96, s: 1.3, dreh: -12 }], dinge: [{ e: "💨", x: 106, y: 100, s: 20 }] },
+        },
+        {
+          text: "Da hört Sepp hinter sich ein leises Piepsen. Er bleibt stehen und schaut zurück. Weit unten, zwischen zwei Felsen, steckt Mia fest! Sie ist in eine Spalte gerutscht und kommt allein nicht mehr heraus. «Hilfe!», ruft sie. «Bitte, hilf mir!» Sepp schaut hinauf zur Hütte. Dann schaut er hinunter zu Mia.",
+          bild: { zeichnungen: [{ z: "hoehle", x: 168, y: 136, s: 0.55 }], figuren: [{ id: "ibex", x: 58, y: 110, s: 1.3, blase: "❗" }, { id: "mouse", x: 168, y: 136, s: 0.75 }], dinge: [{ e: "💬", x: 196, y: 78, s: 18 }] },
+        },
+        {
+          kapitel: "Die Entscheidung",
+          text: "Sepp denkt an den goldenen Pokal. Wenn er jetzt umkehrt, ist das Rennen verloren. Aber Mia weint, und niemand sonst ist in der Nähe. «Ich komme!», ruft Sepp. Mit grossen Sprüngen eilt er den Berg hinunter, den ganzen Weg zurück.",
+          bild: { figuren: [{ id: "ibex", x: 116, y: 108, s: 1.35, dreh: 14, blase: "🐭" }], dinge: [{ e: "💨", x: 64, y: 84, s: 20 }] },
+        },
+        {
+          text: "Vorsichtig hält Sepp ein Horn in die Spalte. «Halt dich gut fest!» Mia klammert sich daran, und Sepp zieht sie langsam heraus. Ihr Bein tut weh, laufen kann sie nicht. «Dann steig auf», sagt Sepp. Mia klettert auf seinen Rücken, und zusammen machen sie sich auf den Weg nach oben.",
+          bild: { zeichnungen: [{ z: "hoehle", x: 172, y: 136, s: 0.55 }], figuren: [{ id: "ibex", x: 92, s: 1.45 }, { id: "mouse", x: 150, y: 128, s: 0.8 }] },
+        },
+        {
+          text: "Mit Mia auf dem Rücken klettert Sepp viel langsamer. Hoppel überholt die beiden und winkt. Weit oben sehen sie Fino, der gerade bei der Hütte ankommt. «Tut mir leid», flüstert Mia. «Wegen mir verlierst du.» Sepp schüttelt den Kopf. «Freunde lässt man nicht im Stich.»",
+          bild: { zeichnungen: [{ z: "wahrzeichen", id: "hut", x: 206, y: 66, s: 0.4 }], figuren: [{ id: "ibex", x: 86, s: 1.5 }, { id: "mouse", x: 90, y: 76, s: 0.75 }, { id: "rabbit", x: 168, y: 100, s: 0.8, winkt: true }] },
+        },
+        {
+          kapitel: "Ein ganz besonderer Preis",
+          text: "Als Sepp und Mia endlich bei der Hütte ankommen, warten alle schon. Fino hält den goldenen Pokal in den Pfoten. Sepp ist als Letzter angekommen. Doch dann geschieht etwas Seltsames: Alle klatschen – und zwar für Sepp! Bruno hat nämlich alles durch sein Fernrohr gesehen.",
+          bild: { zeichnungen: [{ z: "wahrzeichen", id: "hut", x: 196, y: 136, s: 0.85 }], figuren: [{ id: "fox", x: 34, s: 1.2 }, { id: "ibex", x: 104, s: 1.3 }, { id: "mouse", x: 106, y: 70, s: 0.65 }], dinge: [{ e: "🏆", x: 58, y: 100, s: 22, vorne: true }, { e: "👏", x: 150, y: 48, s: 18 }, { e: "🔭", x: 150, y: 124, s: 22 }] },
+        },
+        {
+          text: "Bruno tritt vor und hängt Sepp eine Medaille um den Hals. Darauf steht: Für den besten Freund am Berg. «Ein Pokal ist schön», sagt Bruno. «Aber ein Freund, der hilft, ist mehr wert.» Fino schaut verlegen auf seine Pfoten. «Du hast recht», murmelt er.",
+          bild: { figuren: [{ id: "bear", x: 60, s: 1.5 }, { id: "ibex", x: 140, s: 1.35 }, { id: "fox", x: 212, s: 1.1 }], dinge: [{ e: "🏅", x: 140, y: 104, s: 22, vorne: true }] },
+        },
+        {
+          text: "Am Abend sitzen alle in der warmen Hütte und essen Kuchen. Mias Bein ist verbunden, und sie lacht schon wieder. «Nächstes Jahr», sagt sie zu Sepp, «trainiere ich mit dir. Dann laufen wir zusammen ins Ziel.» Sepp grinst. Das ist der schönste Preis von allen.",
+          bild: { landschaft: "nacht", zeichnungen: [{ z: "fenster", x: 120, y: 60, s: 0.9, licht: true }], figuren: [{ id: "mouse", x: 56, s: 1.1 }, { id: "ibex", x: 178, s: 1.35 }], dinge: [{ e: "🎂", x: 116, y: 122, s: 28, vorne: true }, { e: "🏅", x: 178, y: 108, s: 16, vorne: true }] },
+        },
+      ],
+      fragen: [
+        {
+          frage: "Was bekommt der Sieger des Bergrennens?",
+          antworten: [{ text: "eine Medaille" }, { text: "einen goldenen Pokal" }, { text: "einen Kuchen" }],
+          richtig: 1,
+          seite: 1,
+        },
+        {
+          frage: "Warum kehrt Sepp mitten im Rennen um?",
+          antworten: [{ text: "Er ist zu müde." }, { text: "Mia steckt in einer Felsspalte fest." }, { text: "Er hat den Weg vergessen." }],
+          richtig: 1,
+          seite: 5,
+        },
+        {
+          frage: "Wer kommt als Erster bei der Hütte an?",
+          antworten: [{ figur: "fox", text: "Fino" }, { figur: "ibex", text: "Sepp" }, { figur: "rabbit", text: "Hoppel" }],
+          richtig: 0,
+          seite: 8,
+        },
+        {
+          frage: "Was meint Bruno mit «Ein Freund, der hilft, ist mehr wert»?",
+          antworten: [{ text: "Pokale sind hässlich." }, { text: "Helfen ist wichtiger als gewinnen." }, { text: "Sepp soll schneller laufen." }],
+          richtig: 1,
+          seite: 10,
+        },
+      ],
+    },
+    // -------------------------------------------------------------------------
+    {
+      id: "pippa-bambus",
+      titel: "Wer klaut Pippas Bambus?",
+      stufe: "kapitel",
+      figur: "panda",
+      landschaft: "dschungel",
+      farbe: "#2f8f5b",
+      seiten: [
+        {
+          kapitel: "Der Bambus ist weg",
+          text: "Pippa, der kleine Panda, liebt Bambus über alles. Hinter ihrem Haus beim alten Tempel hat sie einen Vorrat aufgestapelt: hundert frische Stangen, grün und knackig. Jeden Abend zählt sie nach. Heute sind es genau hundert. Zufrieden legt sie sich schlafen.",
+          bild: { zeichnungen: [{ z: "wahrzeichen", id: "temple", x: 178, y: 136, s: 0.9 }, { z: "bambus", x: 110, y: 136, s: 0.62 }], figuren: [{ id: "panda", x: 44 }] },
+        },
+        {
+          text: "Am Morgen traut Pippa ihren Augen nicht. Der Stapel ist kleiner geworden! Sie zählt einmal, sie zählt zweimal: nur noch neunzig Stangen. «Zehn Stangen sind weg!», ruft sie. «Jemand hat meinen Bambus geklaut!» Komisch ist nur: Zum Frühstück hat Pippa heute gar keinen Hunger.",
+          bild: { zeichnungen: [{ z: "bambus", stangen: 5, x: 166, y: 136, s: 0.62 }], figuren: [{ id: "panda", x: 72, blase: "😮" }], dinge: [{ e: "❓", x: 204, y: 70, s: 22 }] },
+        },
+        {
+          text: "Pippa beschliesst, eine Detektivin zu werden. Sie holt ihre Lupe und untersucht den Boden. Da! Im weichen Sand sind Spuren: grosse, runde Tatzen mit fünf Zehen. «Ein grosses Tier war das», murmelt Pippa. Sie zeichnet die Spur in ihr Notizbuch.",
+          bild: { figuren: [{ id: "panda", x: 66 }], dinge: [{ e: "🔍", x: 108, y: 110, s: 24, vorne: true }, { e: "🐾", x: 166, y: 130, s: 18 }, { e: "🐾", x: 204, y: 124, s: 16 }, { e: "📓", x: 24, y: 120, s: 16, vorne: true }] },
+        },
+        {
+          kapitel: "Die Verdächtigen",
+          text: "Zuerst geht Pippa zu Leo, dem Löwen. Leo hat grosse Tatzen! «Hast du meinen Bambus genommen?», fragt sie streng. Leo rümpft die Nase. «Bambus? Igitt! Ich mag doch keine Pflanzen.» Pippa schaut Leos Spuren genau an. Sie haben nur vier Zehen. Leo war es also nicht.",
+          bild: { figuren: [{ id: "panda", x: 62, s: 1.4 }, { id: "lion", x: 170, s: 1.5, blase: "🤢" }], dinge: [{ e: "🐾", x: 118, y: 132, s: 14 }] },
+        },
+        {
+          text: "Dann fragt Pippa die Affen in den Bäumen. «Wir waren es nicht!», kreischen sie. «Wir essen Bananen, keinen Bambus.» Ihre Spuren sehen auch ganz anders aus, wie kleine Hände. Und Mia, die Maus? Ihre Pfötchen sind winzig, und zehn Bambusstangen könnte sie niemals tragen.",
+          bild: { figuren: [{ id: "panda", x: 56, s: 1.4 }, { id: "mouse", x: 200, s: 1.0 }], dinge: [{ e: "🐒", x: 130, y: 48, s: 26 }, { e: "🐒", x: 172, y: 36, s: 22 }, { e: "🍌", x: 150, y: 74, s: 16 }] },
+        },
+        {
+          text: "In der zweiten Nacht verschwinden wieder zehn Stangen. In der dritten Nacht auch. Pippa ist ratlos. Da kommt Ella, die Eule, zu Besuch. «Ich bin die ganze Nacht wach», sagt Ella. «Heute halte ich Wache und finde heraus, wer deinen Bambus nimmt.» Pippa umarmt sie dankbar.",
+          bild: { zeichnungen: [{ z: "bambus", stangen: 3, x: 30, y: 136, s: 0.45 }], figuren: [{ id: "panda", x: 82, s: 1.4 }, { id: "owl", x: 172, s: 1.3, winkt: true }], dinge: [{ e: "❤️", x: 126, y: 50, s: 16 }] },
+        },
+        {
+          kapitel: "Wache in der Nacht",
+          text: "Ella setzt sich auf das Dach des Tempels und wartet. Der Mond geht auf, und die Grillen zirpen. Lange passiert gar nichts. Doch kurz nach Mitternacht öffnet sich leise die Tür von Pippas Haus. Eine grosse, runde Gestalt tappt heraus, mitten auf den Bambusstapel zu.",
+          bild: { landschaft: "nacht", zeichnungen: [{ z: "wahrzeichen", id: "temple", x: 130, y: 136, s: 0.95, licht: true }], figuren: [{ id: "owl", x: 130, y: 44, s: 0.75 }], dinge: [{ e: "🌙", x: 36, y: 30, s: 22 }, { e: "🦗", x: 210, y: 130, s: 12 }] },
+        },
+        {
+          text: "Ella reisst die Augen auf. Die Gestalt hat ein schwarz-weisses Fell und runde Ohren. Sie setzt sich hin, nimmt eine Bambusstange und knabbert genüsslich daran. Ihre Augen sind dabei fest geschlossen. Ella muss sich den Flügel vor den Schnabel halten, um nicht laut zu lachen.",
+          bild: { landschaft: "nacht", zeichnungen: [{ z: "bambus", stangen: 4, x: 46, y: 136, s: 0.55 }, { z: "bambus", stangen: 1, x: 150, y: 112, s: 0.55, dreh: -60, vorne: true }], figuren: [{ id: "panda", x: 116, blase: "💤" }, { id: "owl", x: 210, y: 96, s: 0.9 }] },
+        },
+        {
+          text: "Nach zehn Stangen steht die Gestalt wieder auf, tappt zurück ins Haus und legt sich ins Bett. Ella fliegt zum Fenster und schaut hinein. Da liegt Pippa und schnarcht, mit einem Bambusblatt im Mundwinkel. Jetzt weiss Ella, wer der Dieb ist.",
+          bild: { landschaft: "nacht", zeichnungen: [{ z: "fenster", x: 112, y: 66, licht: true }], figuren: [{ id: "panda", x: 140, y: 90, s: 0.95, dreh: -90 }, { id: "owl", x: 206, s: 1.1 }], dinge: [{ e: "💤", x: 72, y: 46, s: 16 }] },
+        },
+        {
+          kapitel: "Die Lösung",
+          text: "Am Morgen wartet Ella schon vor der Tür. «Ich weiss, wer deinen Bambus isst», sagt sie. «Wer denn?», ruft Pippa. Ella zeigt mit dem Flügel auf sie. «Du selbst! Du schlafwandelst. Jede Nacht gehst du im Schlaf hinaus und isst zehn Stangen.» Pippa macht grosse Augen.",
+          bild: { figuren: [{ id: "panda", x: 68, s: 1.4, blase: "😮" }, { id: "owl", x: 164, s: 1.3, winkt: true }] },
+        },
+        {
+          text: "Dann muss Pippa lachen, bis ihr der Bauch wehtut. Darum hatte sie also nie Hunger zum Frühstück! Und darum waren die Spuren genau so gross wie ihre eigenen Tatzen. «Ich bin eine schlechte Detektivin», kichert sie. «Nein», sagt Ella, «nur eine sehr hungrige Schlafwandlerin.»",
+          bild: { zeichnungen: [{ z: "bambus", stangen: 4, x: 212, y: 136, s: 0.45 }], figuren: [{ id: "panda", x: 76, s: 1.5, blase: "😂" }, { id: "owl", x: 156, s: 1.3 }] },
+        },
+      ],
+      fragen: [
+        {
+          frage: "Wie viele Bambusstangen fehlen am ersten Morgen?",
+          antworten: [{ text: "zehn" }, { text: "hundert" }, { text: "neunzig" }],
+          richtig: 0,
+          seite: 2,
+        },
+        {
+          frage: "Woran sieht Pippa, dass Leo es nicht war?",
+          antworten: [{ text: "Leo war verreist." }, { text: "Leos Spuren haben nur vier Zehen." }, { text: "Leo hat keine Tatzen." }],
+          richtig: 1,
+          seite: 4,
+        },
+        {
+          frage: "Wer isst in der Nacht den Bambus?",
+          antworten: [{ bild: "🐒", text: "die Affen" }, { figur: "lion", text: "Leo" }, { figur: "panda", text: "Pippa selbst, im Schlaf" }],
+          richtig: 2,
+          seite: 10,
+        },
+        {
+          frage: "Welcher Hinweis hätte Pippa schon am ersten Morgen helfen können?",
+          antworten: [{ text: "Sie hatte keinen Hunger zum Frühstück." }, { text: "Die Affen haben gekreischt." }, { text: "Der Mond schien hell." }],
+          richtig: 0,
+          seite: 2,
         },
       ],
     },

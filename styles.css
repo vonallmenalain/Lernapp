@@ -12239,6 +12239,28 @@ button.lese-bild:active { transform: scale(0.96); }
 }
 .bu-modus.is-los svg { width: 100%; height: 100%; display: block; }
 .bu-wahl .bu-sterne { position: static; transform: none; }
+/* Ein Kapitelbuch mit Lesezeichen: Weiterlesen ist der grosse Knopf; die
+   Arten darüber fangen vorne an und pulsieren dann nicht. */
+.bu-lesezeichen {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 6px 18px;
+  border: 4px solid #3fbf74;
+  border-radius: 999px;
+  background: #c9f2d6;
+  box-shadow: 0 6px 14px rgba(36, 48, 71, 0.2);
+  color: #243047;
+  font-family: inherit;
+  font-size: clamp(0.85rem, 3vh, 1.15rem);
+  font-weight: 800;
+  cursor: pointer;
+  animation: lese-los-puls 1.6s ease-in-out infinite;
+}
+.bu-lesezeichen:active { transform: scale(0.96); }
+.bu-lesezeichen-bild { font-size: 1.35em; line-height: 1; }
+.bu-wahl.hat-lesezeichen .bu-modus.is-empfohlen { animation: none; }
 
 /* Eine Seite: links das Bild, rechts der Text, unten die Leiste. */
 .bu-buch {
@@ -12294,6 +12316,27 @@ button.lese-bild:active { transform: scale(0.96); }
 .bu-buch[data-stufe="erste"] .bu-text { font-size: clamp(1.5rem, 9vh, 3.2rem); line-height: 1.4; text-align: center; }
 .bu-buch[data-stufe="klein"] .bu-text { font-size: clamp(1.1rem, 5.6vh, 2.1rem); }
 .bu-buch[data-stufe="geschichte"] .bu-text { font-size: clamp(1rem, 4.8vh, 1.8rem); }
+/* Kapitelbücher: eine halbe Buchseite Text, das Bild daneben kleiner. */
+.bu-buch[data-stufe="kapitel"] .bu-bild { width: min(34vw, calc((85vh - 104px) * 1.58), 480px); }
+.bu-buch[data-stufe="kapitel"] .bu-text { max-width: 660px; font-size: clamp(0.95rem, 4.4vh, 1.6rem); line-height: 1.42; }
+.bu-kapitel {
+  display: block;
+  min-height: 0;
+  margin: 0 0 0.25em;
+  padding: 0 4px;
+  border: none;
+  border-radius: 8px;
+  background: none;
+  color: #c4553a;
+  font: inherit;
+  font-weight: 800;
+  line-height: 1.3;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+.bu-kapitel.ist-dran { background: #fff3c4; }
+.bu-kapitel-nr { margin-right: 0.45em; color: #8a6d5a; font-size: 0.78em; letter-spacing: 0.05em; text-transform: uppercase; }
 .bu-satz {
   padding: 0 2px;
   border-radius: 8px;
@@ -12408,8 +12451,8 @@ button.lese-bild:active { transform: scale(0.96); }
 
 @media (prefers-reduced-motion: reduce) {
   .bu-modus.is-empfohlen, .bu-weiter.pulst, .bu-buch.blaettert .bu-seite, .bu-antwort.zeigt-hin,
-  .bu-wort.ist-getippt, .bu-nachsehen.ist-neu, .bu-bild-svg .journey-passenger.is-waving .journey-passenger-arm { animation: none; }
-  .bu-umschlag-deckel, .bu-satz { transition: none; }
+  .bu-wort.ist-getippt, .bu-nachsehen.ist-neu, .bu-bild-svg .journey-passenger.is-waving .journey-passenger-arm, .bu-lesezeichen { animation: none; }
+  .bu-umschlag-deckel, .bu-satz, .bu-kapitel { transition: none; }
 }
 
 /* =============================================================================

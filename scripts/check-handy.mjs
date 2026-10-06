@@ -223,6 +223,29 @@ async function tippe(blatt, auswahl) {
   if (!ok) throw new Error(`nicht gefunden: ${auswahl}`);
 }
 
+// Ein Buch auf seiner längsten Seite einer Stufe öffnen, selbst gelesen –
+// gezählt in Zeichen, eine Kapitelüberschrift mit. Dort muss die Schrift am
+// stärksten schrumpfen, und der Kasten darf trotzdem nicht rollen.
+async function laengsteSeite(blatt, stufe) {
+  await blatt.goto(`${BASIS}/buecher.html`, { waitUntil: "load" });
+  await blatt.waitForFunction(() => window.LernappLeseBuecher && window.LernappBuecher, null, { timeout: 8000 });
+  const ziel = await blatt.evaluate((st) => {
+    let beste = null;
+    window.LernappLeseBuecher.BUECHER.filter((b) => b.stufe === st).forEach((b) => b.seiten.forEach((seite, i) => {
+      const zeichen = seite.text.length + (seite.kapitel ? seite.kapitel.length + 12 : 0);
+      if (!beste || zeichen > beste.zeichen) beste = { id: b.id, i, zeichen };
+    }));
+    return beste;
+  }, stufe);
+  if (!ziel) throw new Error(`kein Buch der Stufe ${stufe}`);
+  await blatt.goto(`${BASIS}/buecher.html?buch=${ziel.id}`, { waitUntil: "load" });
+  await blatt.waitForSelector(".bu-titelseite", { timeout: 8000 });
+  await tippe(blatt, '.bu-modus[data-modus="selbst"]');
+  for (let i = 0; i < ziel.i; i += 1) { await pause(blatt, 200); await tippe(blatt, ".bu-weiter"); }
+  await pause(blatt, 600);
+  return ziel;
+}
+
 // Wo hält der Zug?: die Lok an einen Anteil des Gleises setzen – ein Tipp auf
 // das Gleis ist schon die Antwort.
 async function zugSchieben(blatt, anteil) {
@@ -933,13 +956,27 @@ const SZENARIEN = [
       { name: "Fach Erste Sätze", tun: async (blatt) => { await tippe(blatt, '.bu-reiter[data-stufe="erste"]'); await pause(blatt, 400); } },
       { name: "Titelseite", tun: async (blatt) => { await blatt.click('.bu-umschlag[data-buch="leo-melone"]'); await pause(blatt, 500); } },
       { name: "Erste Sätze", tun: async (blatt) => { await tippe(blatt, '.bu-modus[data-modus="selbst"]'); await pause(blatt, 600); } },
-      // Die längste Seite: Sepp in der Höhle.
-      { name: "Geschichte", tun: async (blatt) => {
-        await blatt.goto(`${BASIS}/buecher.html?buch=sepp-gewitter`, { waitUntil: "load" });
-        await blatt.waitForSelector(".bu-titelseite", { timeout: 8000 });
-        await tippe(blatt, '.bu-modus[data-modus="selbst"]');
-        for (let i = 0; i < 4; i += 1) { await pause(blatt, 250); await tippe(blatt, ".bu-weiter"); }
-        await pause(blatt, 600);
+      // Die längste Seite der Geschichten.
+      { name: "Geschichte", tun: async (blatt) => { await laengsteSeite(blatt, "geschichte"); } },
+      // Kapitelbücher: das fünfte Fach (die Reiter brechen auf dem kleinen
+      // Handy um), die längste Seite mit ihrer Überschrift, dann zurück ans
+      // Regal und wieder auf – die Titelseite mit dem Lesezeichen.
+      { name: "Fach Kapitelbücher", tun: async (blatt) => {
+        await blatt.goto(`${BASIS}/buecher.html`, { waitUntil: "load" });
+        await blatt.waitForSelector(".bu-regal", { timeout: 8000 });
+        await tippe(blatt, '.bu-reiter[data-stufe="kapitel"]');
+        await pause(blatt, 400);
+      } },
+      { name: "Kapitelbuch", tun: async (blatt) => { await laengsteSeite(blatt, "kapitel"); } },
+      { name: "Lesezeichen", tun: async (blatt) => {
+        const buch = await blatt.evaluate(() => window.LernappBuecher.state.buch.id);
+        await blatt.evaluate(() => window.LernappBuecher.zeigeRegal());
+        await pause(blatt, 300);
+        await tippe(blatt, '.bu-reiter[data-stufe="kapitel"]');
+        await pause(blatt, 300);
+        await tippe(blatt, `.bu-umschlag[data-buch="${buch}"]`);
+        await blatt.waitForSelector(".bu-lesezeichen", { timeout: 8000 });
+        await pause(blatt, 500);
       } },
       { name: "Hörbuch", tun: async (blatt) => {
         await blatt.goto(`${BASIS}/buecher.html?buch=hase-rueebli`, { waitUntil: "load" });

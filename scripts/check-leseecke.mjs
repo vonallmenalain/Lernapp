@@ -22,7 +22,10 @@
  *                 die Stimme den Satz des Kindes nicht; nach den Fragen stehen
  *                 Sterne da, das Buch ist gelesen, und der Lesewurm ist
  *                 gewachsen. Ein Buch, das zum Kauf gehört, zeigt das Tor;
- *                 der Lesewurm im Sessel öffnet ein passendes Buch.
+ *                 der Lesewurm im Sessel öffnet ein passendes Buch. Ein
+ *                 Kapitelbuch zeigt und liest seine Überschriften, sein
+ *                 Lesezeichen führt zurück, wo das Kind aufgehört hat, und
+ *                 fällt heraus, wenn das Buch aus ist.
  *
  * Aufruf:  node scripts/check-leseecke.mjs
  * Nötig:   Playwright. Der lokale Server wird selbst gestartet und beendet.
@@ -68,6 +71,18 @@ function stimmeErsatz() {
     cancel() {}, pause() {}, resume() {}, addEventListener() {}, removeEventListener() {},
   };
   Object.defineProperty(window, "speechSynthesis", { value: synth, configurable: true });
+}
+
+// Die Schranke ganz offen – wie nach dem Kauf. Für die Bücher, die nicht frei
+// sind; das Tor selbst prüft check-schranke.mjs.
+function schrankeOffen() {
+  const frei = {
+    STATIONS_FREE: 10, GRATIS_RUNDEN: 1, AREAS: [],
+    reason: () => "gekauft", isFree: () => true, isLoaded: () => true, whenReady: () => Promise.resolve(true),
+    stationFree: () => true, gameFree: () => true, levelFree: () => true, targetFree: () => true, buchFree: () => true,
+    gameEntry: () => null, gameGespielt: () => false, gespielteRunden: () => 0, rundeBeendet() {}, showGate: () => () => {}, closeGate() {}, onChange: () => () => {},
+  };
+  Object.defineProperty(window, "LernappEntitlement", { get: () => frei, set() {}, configurable: true });
 }
 
 if (!(await warteAufServer())) { console.error("Server antwortet nicht."); process.exit(2); }
@@ -1067,12 +1082,12 @@ try {
     sichtbar: [...document.querySelectorAll(".bu-fach:not([hidden]) .bu-umschlag")].map((b) => b.dataset.buch),
     soll: window.LernappLeseBuecher.BUECHER.filter((b) => b.stufe === "hoerbuch").map((b) => b.id),
   }));
-  if (regal.buecher < 16) fehlt(`Bücherregal: nur ${regal.buecher} Bücher`);
+  if (regal.buecher < 24) fehlt(`Bücherregal: nur ${regal.buecher} Bücher`);
   if (regal.gesperrt.includes("hase-rueebli") || regal.gesperrt.includes("leo-melone")) fehlt("Bücherregal: ein freies Buch trägt ein Schloss");
   if (!regal.gesperrt.includes("sepp-gewitter")) fehlt("Bücherregal: ein Buch, das zum Kauf gehört, ist für den Gast offen");
   // Ein Fach je Stufe: Ohne Einstellung (Lesestufe Buchstaben) ist das Fach
   // zum Zuhören offen, und nur seine Bücher stehen da.
-  if (regal.reiter !== "hoerbuch,erste,klein,geschichte") fehlt(`Bücherregal: die Reiter sind ${regal.reiter}`);
+  if (regal.reiter !== "hoerbuch,erste,klein,geschichte,kapitel") fehlt(`Bücherregal: die Reiter sind ${regal.reiter}`);
   if (regal.offen !== "hoerbuch" || regal.sichtbar.join(",") !== regal.soll.join(",")) fehlt(`Bücherregal: offen ist ${regal.offen} mit ${regal.sichtbar.join(", ")}`);
   await page.locator('.bu-reiter[data-stufe="geschichte"]').click();
   const geschichten = await page.evaluate(() => [...document.querySelectorAll(".bu-fach:not([hidden]) .bu-umschlag")].map((b) => b.dataset.buch));
@@ -1145,6 +1160,85 @@ try {
   await page.waitForTimeout(150);
   if (!(await gesagt()).includes("Melonen")) fehlt("Bücher: ein Tipp auf ein Wort sagt es nicht");
 
+  // Kapitelbücher: eine Überschrift über der ersten Seite jedes Kapitels, die
+  // Stimme liest sie zuerst (beim Selberlesen nur auf Tipp), und ein
+  // Lesezeichen merkt sich, wo das Kind aufgehört hat – bis das Buch aus ist.
+  // Gekauft gedacht: in einem eigenen Fenster, in dem die Schranke alles
+  // offen lässt (das Tor prüft check-schranke.mjs).
+  const offen = await browser.newContext({ viewport: { width: 1024, height: 640 }, serviceWorkers: "block", reducedMotion: "reduce" });
+  offen.setDefaultTimeout(8000);
+  await offen.route("**/*gstatic.com/**", (route) => route.abort());
+  await offen.addInitScript(stimmeErsatz);
+  await offen.addInitScript(schrankeOffen);
+  const leser = await offen.newPage();
+  leser.on("pageerror", (e) => fehler.push(`${leser.url().replace(BASIS, "")}: ${e.message}`));
+  const leserGesagt = () => leser.evaluate(() => window.__gesagt || []);
+  const leserVergiss = () => leser.evaluate(() => { window.__gesagt = []; });
+  const kapitelbuch = async (id) => {
+    await leser.goto(`${BASIS}/buecher.html?buch=${id}`, { waitUntil: "domcontentloaded" });
+    await leser.waitForSelector(".bu-titelseite", { timeout: 8000 }).catch(() => {});
+    await leser.waitForTimeout(400);
+  };
+  await kapitelbuch("baumhaus-nacht");
+  if (await leser.locator(".bu-lesezeichen").count()) fehlt("Kapitelbuch: ein Lesezeichen, obwohl es noch niemand gelesen hat");
+  await leserVergiss();
+  await leser.locator('.bu-modus[data-modus="vorlesen"]').click();
+  await leser.waitForFunction(() => (window.__gesagt || []).length >= 2, null, { timeout: 5000 }).catch(() => {});
+  const kapitelEins = await leser.evaluate(() => ({ kopf: document.querySelector(".bu-text .bu-kapitel")?.textContent || "", gesagt: window.__gesagt.slice(0, 2) }));
+  if (!/^Kapitel 1\s*Die Einladung$/.test(kapitelEins.kopf)) fehlt(`Kapitelbuch: über der ersten Seite steht «${kapitelEins.kopf}»`);
+  if (kapitelEins.gesagt[0] !== "Kapitel 1. Die Einladung." || !/^Flitz hat ein Baumhaus/.test(kapitelEins.gesagt[1] || "")) fehlt(`Kapitelbuch: die Stimme liest nicht zuerst die Überschrift (${kapitelEins.gesagt.join(" | ")})`);
+  for (let i = 0; i < 3; i += 1) await leser.locator(".bu-weiter").click();
+  const kapitelZwei = await leser.evaluate(() => ({
+    seite: window.LernappBuecher.state.seite,
+    kopf: document.querySelector(".bu-text .bu-kapitel")?.textContent || "",
+    zeichen: JSON.parse(localStorage.getItem("lernapp.lesen.lesezeichen") || "{}")["baumhaus-nacht"] || null,
+  }));
+  if (kapitelZwei.seite !== 3 || !/^Kapitel 2\s*Geräusche in der Nacht$/.test(kapitelZwei.kopf)) fehlt(`Kapitelbuch: auf Seite ${kapitelZwei.seite + 1} steht «${kapitelZwei.kopf}» statt des zweiten Kapitels`);
+  if (kapitelZwei.zeichen?.seite !== 3 || kapitelZwei.zeichen?.modus !== "vorlesen") fehlt(`Kapitelbuch: das Lesezeichen steht auf ${JSON.stringify(kapitelZwei.zeichen)}`);
+  // Wieder auf: weiter bei Kapitel 2, in derselben Art zu lesen.
+  await kapitelbuch("baumhaus-nacht");
+  const zeichenKnopf = await leser.locator(".bu-lesezeichen").textContent().catch(() => "");
+  if (!/Weiter bei Kapitel 2/.test(zeichenKnopf)) fehlt(`Kapitelbuch: auf der Titelseite steckt kein Lesezeichen (${zeichenKnopf})`);
+  else {
+    await leser.locator(".bu-lesezeichen").click();
+    await leser.waitForTimeout(200);
+    const weiterBei = await leser.evaluate(() => ({ ansicht: window.LernappBuecher.state.ansicht, seite: window.LernappBuecher.state.seite, modus: window.LernappBuecher.state.modus }));
+    if (weiterBei.ansicht !== "seite" || weiterBei.seite !== 3 || weiterBei.modus !== "vorlesen") fehlt(`Kapitelbuch: das Lesezeichen führt auf ${JSON.stringify(weiterBei)}`);
+  }
+  // Selbst lesen: Die Überschrift bleibt still, bis das Kind darauf tippt.
+  await kapitelbuch("bergrennen");
+  await leser.locator('.bu-modus[data-modus="selbst"]').click();
+  await leser.waitForTimeout(300);
+  await leserVergiss();
+  await leser.waitForTimeout(400);
+  if ((await leserGesagt()).some((t) => /^Kapitel/.test(t))) fehlt("Kapitelbuch: beim Selberlesen liest die Stimme die Überschrift von selbst");
+  await leser.locator(".bu-text .bu-kapitel").click();
+  await leser.waitForTimeout(150);
+  if (!(await leserGesagt()).includes("Kapitel 1. Das Plakat.")) fehlt(`Kapitelbuch: ein Tipp auf die Überschrift liest sie nicht (${(await leserGesagt()).join(" | ")})`);
+  // Ausgelesen, alle Fragen gleich richtig: drei Sterne, und das Lesezeichen fällt heraus.
+  const seitenBerg = await leser.evaluate(() => window.LernappLeseBuecher.BY_ID.bergrennen.seiten.length);
+  for (let i = 0; i < seitenBerg; i += 1) await leser.locator(".bu-weiter").click();
+  for (let i = 0; i < 4; i += 1) {
+    await leser.waitForSelector(".bu-antwort", { timeout: 5000 }).catch(() => {});
+    const richtig = await leser.evaluate(() => { const b = window.LernappBuecher.state; return b.buch.fragen[b.frage]?.richtig ?? 0; });
+    await leser.locator(`.bu-antwort[data-nr="${richtig}"]`).click().catch(() => {});
+    await leser.waitForFunction((nr) => window.LernappBuecher.state.frage > nr || window.LernappBuecher.state.ansicht === "ende", i, { timeout: 8000 }).catch(() => {});
+  }
+  await leser.waitForSelector(".cm-overlay", { timeout: 10000 }).catch(() => {});
+  // Und ein Buch ohne Kapitel bekommt kein Lesezeichen.
+  await leser.goto(`${BASIS}/buecher.html?buch=leo-melone`, { waitUntil: "domcontentloaded" });
+  await leser.waitForSelector(".bu-titelseite", { timeout: 8000 }).catch(() => {});
+  await leser.locator('.bu-modus[data-modus="selbst"]').click().catch(() => {});
+  await leser.locator(".bu-weiter").click().catch(() => {});
+  const ausgelesen = await leser.evaluate(() => ({
+    zeichen: JSON.parse(localStorage.getItem("lernapp.lesen.lesezeichen") || "{}"),
+    buch: window.LernappLeseStand.stand().buecher.bergrennen || null,
+  }));
+  if (ausgelesen.zeichen.bergrennen) fehlt("Kapitelbuch: nach dem letzten Kapitel steckt das Lesezeichen noch");
+  if (!ausgelesen.buch || ausgelesen.buch.sterne !== 3) fehlt(`Kapitelbuch: im Lesestand steht ${JSON.stringify(ausgelesen.buch)}`);
+  if (Object.keys(ausgelesen.zeichen).join(",") !== "baumhaus-nacht") fehlt(`Kapitelbuch: Lesezeichen stecken in ${Object.keys(ausgelesen.zeichen).join(", ") || "keinem Buch"}`);
+  await offen.close();
+
   // Der Lesewurm im Sessel: ein passendes Buch, das noch nicht gelesen ist.
   await oeffne("buecher.html?weiter=1", "window.LernappBuecher");
   await page.waitForSelector(".bu-titelseite", { timeout: 5000 }).catch(() => {});
@@ -1212,4 +1306,4 @@ if (befunde.length) {
   befunde.forEach((b) => console.error(`  - ${b}`));
   process.exit(1);
 }
-console.log("Die Leseecke läuft: Lesewagen, Zimmer mit Auswahl, alle Spiele hin und zurück, eine Runde Silbenzug bis zum Tor, Laute kuppeln ohne verratenes Wort, Buchstabenhaus, der Würfel von «Stimmt das?», Reimkupplung, Anlaut-Lauscher, Wer fährt mit?, Wörter bauen, Silbenbahn, Blitzwörter, Mein Name, der Lesewurm bekommt seinen Namen, Lückensätze, Buchstabengleis, Satz kuppeln, Quatschsätze, Stolperwörter, Quatschwörter, Laut-Position, Buchstaben-Signal, Lies und tu!, Geschichtenzug, Wer bin ich?, Wortbaustelle, Steckbriefe, Detektivfälle, Postkarten, die Buchstaben der Schule, Hörbuch mit Nachsehen, Zusammen lesen, der Lesewurm wächst, der Lesewagen wird gemütlich, und der Lesewurm fährt auf der Lok mit.");
+console.log("Die Leseecke läuft: Lesewagen, Zimmer mit Auswahl, alle Spiele hin und zurück, eine Runde Silbenzug bis zum Tor, Laute kuppeln ohne verratenes Wort, Buchstabenhaus, der Würfel von «Stimmt das?», Reimkupplung, Anlaut-Lauscher, Wer fährt mit?, Wörter bauen, Silbenbahn, Blitzwörter, Mein Name, der Lesewurm bekommt seinen Namen, Lückensätze, Buchstabengleis, Satz kuppeln, Quatschsätze, Stolperwörter, Quatschwörter, Laut-Position, Buchstaben-Signal, Lies und tu!, Geschichtenzug, Wer bin ich?, Wortbaustelle, Steckbriefe, Detektivfälle, Postkarten, die Buchstaben der Schule, Hörbuch mit Nachsehen, Zusammen lesen, Kapitelbücher mit Überschrift und Lesezeichen, der Lesewurm wächst, der Lesewagen wird gemütlich, und der Lesewurm fährt auf der Lok mit.");
