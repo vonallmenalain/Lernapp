@@ -118,8 +118,14 @@
   // alle anderen: eine Runde frei.
   const LESEECKE = { id: "lesen", games: [
     { id: "silbenzug", page: "silbenzug.html" },
+    { id: "reimkupplung", page: "reimkupplung.html" },
+    { id: "anlautlauscher", page: "anlautlauscher.html" },
     { id: "buchstabenhaus", page: "buchstabenhaus.html" },
     { id: "lautekuppeln", page: "lautekuppeln.html" },
+    { id: "werfaehrtmit", page: "werfaehrtmit.html" },
+    { id: "woerterbauen", page: "woerterbauen.html" },
+    { id: "silbenbahn", page: "silbenbahn.html" },
+    { id: "blitzwoerter", page: "blitzwoerter.html" },
     { id: "stimmtdas", page: "stimmtdas.html" },
   ] };
 

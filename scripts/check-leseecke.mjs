@@ -137,28 +137,51 @@ try {
   if ((await page.evaluate(() => document.querySelector(".train-stage")?.dataset.view)) === "lesen") fehlt("Lesewagen: der Pfeil führt nicht hinaus");
 
   // --- 2. Jeder Ort führt auf seine Seite, und von dort zurück --------------------
-  const ORTE = { silben: "silbenzug.html", buchstaben: "buchstabenhaus.html", woerter: "lautekuppeln.html", saetze: "stimmtdas.html", buecher: "buecher.html" };
-  for (const [ort, seite] of Object.entries(ORTE)) {
+  // Steht hinter einem Ding nur ein Spiel, geht es gleich los; stehen mehrere
+  // dahinter, kommt die Auswahl – und jede Karte darin führt auf ihre Seite.
+  const katalog = await page.evaluate(() => Object.entries(window.LernappLeseStand.SPIELE).map(([id, s]) => ({ id, page: s.page, ort: s.ort })));
+  const ORTE = ["silben", "buchstaben", "woerter", "saetze", "buecher"];
+  const zumOrt = async (ort) => {
     await oeffne("index.html?lesen=1", "document.querySelector('.lesezimmer-svg')");
     await page.waitForFunction(() => document.querySelector(".train-stage")?.dataset.view === "lesen", null, { timeout: 8000 }).catch(() => {});
     await page.locator(`.lesezimmer-svg [data-ort="${ort}"]`).click({ force: true });
-    await page.waitForURL(`**/${seite}*`, { timeout: 8000 }).catch(() => {});
-    if (!page.url().includes(seite)) { fehlt(`Ort ${ort}: führt nicht auf ${seite}, sondern auf ${page.url()}`); continue; }
-    await page.waitForFunction(() => document.querySelector("#lese-stage .cm-play"), null, { timeout: 8000 }).catch(() => {});
-    const buehne = await page.evaluate(() => ({ spiel: Boolean(document.querySelector("#lese-stage .cm-play")), schrift: getComputedStyle(document.querySelector("#lese-stage .cm-play") || document.body).fontFamily }));
-    if (!buehne.spiel) fehlt(`${seite}: keine Bühne`);
-    if (!/Andika/.test(buehne.schrift)) fehlt(`${seite}: gelesen wird nicht in Andika (${buehne.schrift})`);
-    await page.locator(".cm-icon-back").first().click();
-    await page.waitForURL("**/index.html?lesen=1", { timeout: 8000 }).catch(() => {});
-    await page.waitForFunction(() => document.querySelector(".train-stage")?.dataset.view === "lesen", null, { timeout: 8000 }).catch(() => {});
-    if ((await page.evaluate(() => document.querySelector(".train-stage")?.dataset.view)) !== "lesen") fehlt(`${seite}: der Pfeil zurück führt nicht in den Lesewagen`);
+  };
+  for (const ort of ORTE) {
+    const spiele = katalog.filter((s) => s.ort === ort);
+    if (!spiele.length) { fehlt(`Ort ${ort}: kein Spiel im Katalog`); continue; }
+    for (const [nr, spiel] of spiele.entries()) {
+      await zumOrt(ort);
+      if (spiele.length > 1) {
+        await page.waitForSelector(".lese-wahl .lese-wahl-spiel", { timeout: 5000 }).catch(() => {});
+        const karten = await page.locator(".lese-wahl .lese-wahl-spiel").evaluateAll((k) => k.map((x) => x.dataset.spiel));
+        if (nr === 0 && karten.join(",") !== spiele.map((s) => s.id).join(",")) fehlt(`Ort ${ort}: die Auswahl zeigt ${karten.join(", ")} statt ${spiele.map((s) => s.id).join(", ")}`);
+        await page.locator(`.lese-wahl .lese-wahl-spiel[data-spiel="${spiel.id}"]`).click();
+      }
+      await page.waitForURL(`**/${spiel.page}*`, { timeout: 8000 }).catch(() => {});
+      if (!page.url().includes(spiel.page)) { fehlt(`Ort ${ort}: ${spiel.id} führt nicht auf ${spiel.page}, sondern auf ${page.url()}`); continue; }
+      await page.waitForFunction(() => document.querySelector("#lese-stage .cm-play"), null, { timeout: 8000 }).catch(() => {});
+      const buehne = await page.evaluate(() => ({ spiel: Boolean(document.querySelector("#lese-stage .cm-play")), schrift: getComputedStyle(document.querySelector("#lese-stage .cm-play") || document.body).fontFamily }));
+      if (!buehne.spiel) fehlt(`${spiel.page}: keine Bühne`);
+      if (!/Andika/.test(buehne.schrift)) fehlt(`${spiel.page}: gelesen wird nicht in Andika (${buehne.schrift})`);
+      await page.locator(".cm-icon-back").first().click();
+      await page.waitForURL("**/index.html?lesen=1", { timeout: 8000 }).catch(() => {});
+      await page.waitForFunction(() => document.querySelector(".train-stage")?.dataset.view === "lesen", null, { timeout: 8000 }).catch(() => {});
+      if ((await page.evaluate(() => document.querySelector(".train-stage")?.dataset.view)) !== "lesen") fehlt(`${spiel.page}: der Pfeil zurück führt nicht in den Lesewagen`);
+    }
   }
+  // Die Auswahl geht auch wieder zu, ohne dass etwas aufgeht.
+  await zumOrt("woerter");
+  await page.waitForSelector(".lese-wahl", { timeout: 5000 }).catch(() => {});
+  await page.locator(".lese-wahl-zu").click();
+  if (await page.locator(".lese-wahl").count()) fehlt("Auswahl im Lesewagen: das Kreuz schliesst sie nicht");
+  if (!page.url().includes("index.html")) fehlt("Auswahl im Lesewagen: das Kreuz öffnet ein Spiel");
 
   // Der Lesewurm im Sessel wählt etwas, das es gibt.
   await oeffne("index.html?lesen=1", "document.querySelector('.lesezimmer-svg')");
   await page.locator('.lesezimmer-svg [data-ort="weiter"]').click({ force: true });
-  await page.waitForURL(/(silbenzug|buchstabenhaus|lautekuppeln|stimmtdas|buecher)\.html/, { timeout: 8000 }).catch(() => {});
-  if (!/(silbenzug|buchstabenhaus|lautekuppeln|stimmtdas|buecher)\.html/.test(page.url())) fehlt(`Lesewurm im Sessel: führt nach ${page.url()}`);
+  const spielSeiten = new RegExp(`(${katalog.map((s) => s.page.replace(".html", "")).join("|")})\\.html`);
+  await page.waitForURL(spielSeiten, { timeout: 8000 }).catch(() => {});
+  if (!spielSeiten.test(page.url())) fehlt(`Lesewurm im Sessel: führt nach ${page.url()}`);
 
   // --- 3. Silbenzug: eine ganze Runde ----------------------------------------------
   await oeffne("silbenzug.html", "window.LernappSilbenzug");
@@ -256,6 +279,108 @@ try {
   await page.locator(aufgabe?.stimmt ? ".sd-ja" : ".sd-nein").click();
   await page.waitForTimeout(200);
   if ((await page.evaluate(() => document.querySelector(".cm-count-value")?.textContent)) !== "1") fehlt("Stimmt das?: die richtige Antwort zählt nicht");
+
+  // --- 6b. Die Spiele aus Etappe 2: je eine Aufgabe -------------------------------------
+  const zaehler = () => page.evaluate(() => document.querySelector(".cm-count-value")?.textContent);
+  const los = async (seite, api) => {
+    await oeffne(seite, `window.${api}`);
+    await vergiss();
+    await page.locator(".lese-los-knopf").click();
+  };
+
+  // Reimkupplung: Gefragt wird nach dem Reim auf das Wort am Zug; nur der Reim kuppelt.
+  await los("reimkupplung.html", "LernappReimkupplung");
+  await page.waitForSelector(".rk-kandidat", { timeout: 8000 }).catch(() => {});
+  await page.waitForFunction(() => (window.__gesagt || []).some((t) => /^Was reimt sich auf /.test(t)), null, { timeout: 5000 }).catch(() => {});
+  const reim = await page.evaluate(() => window.LernappReimkupplung.jetzt());
+  if (!(await gesagt()).includes(`Was reimt sich auf ${reim?.ziel?.wort}?`)) fehlt("Reimkupplung: die Frage nach dem Reim wird nicht gestellt");
+  const reimWahl = await page.evaluate(() => window.LernappReimkupplung.jetzt().wahl.map((w) => w.wort));
+  if (!reimWahl.includes(reim.reim.wort) || reimWahl.length !== 3) fehlt(`Reimkupplung: zur Wahl stehen ${reimWahl.join(", ")}`);
+  await page.locator('.rk-kandidat:not([data-reim="1"])').first().click();
+  await page.waitForTimeout(300);
+  await page.locator('.rk-kandidat[data-reim="1"]').click();
+  await page.waitForFunction(() => window.LernappReimkupplung.nr() === 1, null, { timeout: 8000 }).catch(() => {});
+  if ((await zaehler()) !== "0") fehlt("Reimkupplung: nach einem Fehlgriff zählt der Reim trotzdem");
+  if (!(await gesagt()).some((t) => t.startsWith(`${reim.ziel.wort} – ${reim.reim.wort}`))) fehlt("Reimkupplung: die Stimme sagt die beiden Reimwörter nicht");
+
+  // Anlaut-Lauscher: Das Bild mit demselben ersten Laut zählt.
+  await los("anlautlauscher.html", "LernappAnlautLauscher");
+  await page.waitForSelector(".al-bild", { timeout: 8000 }).catch(() => {});
+  const anlaut = await page.evaluate(() => {
+    const a = window.LernappAnlautLauscher.jetzt();
+    const I = window.LernappLeseInhalte;
+    return { laut: a.laut, ziel: I.anlautVon(a.ziel.wort), treffer: I.anlautVon(a.treffer.wort), andere: a.wahl.filter((w) => w !== a.treffer).map((w) => I.anlautVon(w.wort)), mehrdeutig: a.wahl.some((w) => I.MEHRDEUTIG.has(w.wort)) };
+  });
+  if (anlaut.ziel !== anlaut.laut || anlaut.treffer !== anlaut.laut || anlaut.andere.includes(anlaut.laut)) fehlt(`Anlaut-Lauscher: die Aufgabe stimmt nicht: ${JSON.stringify(anlaut)}`);
+  if (anlaut.mehrdeutig) fehlt("Anlaut-Lauscher: ein mehrdeutiges Bild steht zur Wahl");
+  await page.locator('.al-bild[data-treffer="1"]').click();
+  await page.waitForFunction(() => window.LernappAnlautLauscher.nr() === 1, null, { timeout: 8000 }).catch(() => {});
+  if ((await zaehler()) !== "1") fehlt("Anlaut-Lauscher: der richtige Anfang zählt nicht");
+
+  // Wer fährt mit?: Das Wort sagt die Stimme erst nach der Antwort.
+  await los("werfaehrtmit.html", "LernappWerFaehrtMit");
+  await page.waitForSelector(".wm-bild", { timeout: 8000 }).catch(() => {});
+  await page.waitForTimeout(400);
+  const fahrkarte = await page.evaluate(() => window.LernappWerFaehrtMit.jetzt().wort.wort);
+  if ((await gesagt()).some((t) => t === fahrkarte)) fehlt(`Wer fährt mit?: die Stimme verrät «${fahrkarte}», bevor das Kind gewählt hat`);
+  if ((await page.locator(".wm-wort").textContent()) !== fahrkarte) fehlt("Wer fährt mit?: auf der Fahrkarte steht ein anderes Wort");
+  await page.locator('.wm-bild[data-richtig="1"]').click();
+  await page.waitForFunction(() => window.LernappWerFaehrtMit.nr() === 1, null, { timeout: 8000 }).catch(() => {});
+  if ((await zaehler()) !== "1") fehlt("Wer fährt mit?: der richtige Fahrgast zählt nicht");
+  if (!(await gesagt()).includes(fahrkarte)) fehlt("Wer fährt mit?: nach der Antwort sagt die Stimme das Wort nicht");
+
+  // Wörter bauen: Was daliegt, wird vorgelesen – auch falsch. Richtige Steine bleiben liegen.
+  await los("woerterbauen.html", "LernappWoerterBauen");
+  await page.waitForSelector(".wb-stein", { timeout: 8000 }).catch(() => {});
+  const bau = await page.evaluate(() => ({ wort: window.LernappWoerterBauen.jetzt().wort, richtig: window.LernappWoerterBauen.richtig() }));
+  const legeSteine = async (reihe) => {
+    for (const text of reihe) {
+      const index = await page.locator(".wb-stein:not([hidden])").evaluateAll((alle, t) => alle.findIndex((k) => k.getAttribute("aria-label") === `Stein ${t}`), text);
+      if (index < 0) return false;
+      await page.locator(".wb-stein:not([hidden])").nth(index).click();
+    }
+    return true;
+  };
+  const verkehrt = [...bau.richtig].reverse();
+  if (verkehrt.join("") !== bau.wort) {
+    await vergiss();
+    await legeSteine(verkehrt);
+    await page.waitForFunction(() => document.querySelectorAll(".wb-feld.ist-voll").length < document.querySelectorAll(".wb-feld").length || window.LernappWoerterBauen.nr() > 0, null, { timeout: 8000 }).catch(() => {});
+    const vorgelesen = (await gesagt()).map((t) => t.toLowerCase());
+    if (!vorgelesen.includes(verkehrt.join("").toLowerCase())) fehlt(`Wörter bauen: «${verkehrt.join("")}» wird nicht vorgelesen (gesagt: ${vorgelesen.join(" | ")})`);
+    const fest = await page.locator(".wb-feld.ist-fest").count();
+    const sollFest = verkehrt.filter((t, i) => t === bau.richtig[i]).length;
+    if (fest !== sollFest) fehlt(`Wörter bauen: ${fest} Steine bleiben liegen, richtig lagen ${sollFest}`);
+    const offen = await page.locator(".wb-feld:not(.ist-fest)").evaluateAll((f) => f.map((x) => Number(x.dataset.nr)));
+    await legeSteine(offen.map((i) => bau.richtig[i]));
+  } else {
+    await legeSteine(bau.richtig);
+  }
+  await page.waitForFunction(() => window.LernappWoerterBauen.nr() === 1, null, { timeout: 8000 }).catch(() => {});
+  if ((await page.evaluate(() => window.LernappWoerterBauen.nr())) !== 1) fehlt("Wörter bauen: nach dem richtigen Wort geht es nicht weiter");
+
+  // Silbenbahn: Die Silben der Reihe nach angekuppelt ergeben das Wort.
+  await los("silbenbahn.html", "LernappSilbenbahn");
+  await page.waitForSelector(".sb-neben .sb-wagen", { timeout: 8000 }).catch(() => {});
+  const bahn = await page.evaluate(() => window.LernappSilbenbahn.jetzt());
+  for (let i = 0; i < bahn.silben.length; i += 1) {
+    await page.waitForFunction((n) => window.LernappSilbenbahn.dran() === n, i, { timeout: 8000 }).catch(() => {});
+    await page.locator(`.sb-neben .sb-wagen[data-nr="${i}"]`).click();
+  }
+  await page.waitForFunction(() => window.LernappSilbenbahn.nr() === 1, null, { timeout: 8000 }).catch(() => {});
+  if ((await zaehler()) !== "1") fehlt("Silbenbahn: das richtig gekuppelte Wort zählt nicht");
+  if (!(await gesagt()).includes(bahn.wort)) fehlt("Silbenbahn: am Schluss sagt die Stimme das Wort nicht");
+
+  // Blitzwörter: erst blitzen, dann wählen; der Treffer steht im Lesestand.
+  await los("blitzwoerter.html", "LernappBlitzwoerter");
+  await page.waitForFunction(() => window.LernappBlitzwoerter.phase() === "waehlen", null, { timeout: 10000 }).catch(() => {});
+  const blitz = await page.evaluate(() => window.LernappBlitzwoerter.jetzt().wort);
+  if ((await page.locator(".bw-knopf").count()) !== 4) fehlt("Blitzwörter: es stehen nicht vier Wörter zur Wahl");
+  if ((await page.locator(".bw-wort").textContent()) === blitz) fehlt("Blitzwörter: das Wort steht noch im Fenster, während gewählt wird");
+  await page.locator(".bw-knopf", { hasText: new RegExp(`^${blitz}$`) }).click();
+  await page.waitForFunction(() => window.LernappBlitzwoerter.nr() === 1, null, { timeout: 8000 }).catch(() => {});
+  const blitzStand = await page.evaluate((w) => window.LernappLeseStand.stand().blitz[w], blitz);
+  if ((await zaehler()) !== "1" || blitzStand?.r !== 1) fehlt(`Blitzwörter: der Treffer zählt nicht (${JSON.stringify(blitzStand)})`);
 
   // --- 7. Das Bücherregal ------------------------------------------------------------------
   await oeffne("buecher.html", "window.LernappBuecher");
@@ -363,4 +488,4 @@ if (befunde.length) {
   befunde.forEach((b) => console.error(`  - ${b}`));
   process.exit(1);
 }
-console.log("Die Leseecke läuft: Lesewagen, Zimmer, fünf Seiten hin und zurück, eine Runde Silbenzug bis zum Tor, Laute kuppeln ohne verratenes Wort, Buchstabenhaus, der Würfel von «Stimmt das?», Hörbuch mit Nachsehen, Zusammen lesen, und der Lesewurm wächst.");
+console.log("Die Leseecke läuft: Lesewagen, Zimmer mit Auswahl, alle Spiele hin und zurück, eine Runde Silbenzug bis zum Tor, Laute kuppeln ohne verratenes Wort, Buchstabenhaus, der Würfel von «Stimmt das?», Reimkupplung, Anlaut-Lauscher, Wer fährt mit?, Wörter bauen, Silbenbahn, Blitzwörter, Hörbuch mit Nachsehen, Zusammen lesen, und der Lesewurm wächst.");

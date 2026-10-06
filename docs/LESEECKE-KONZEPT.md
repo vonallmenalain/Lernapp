@@ -15,6 +15,14 @@ Stand: Oktober 2026 · Grundlage: das Konzept «Leseecke – Konzept & Ideensamm
 > `docs/LAUTE-AUFNEHMEN.md`). Noch offen aus Etappe 1: die **Aufnahmen selbst** – bis sie da
 > sind, spricht die Sprachausgabe die Selbst- und Zwielaute, die Mitlaute bleiben stumm und
 > werden nur gezeigt. Prüfskripte: `scripts/validate-lesen.mjs`, `scripts/check-leseecke.mjs`.
+>
+> **Etappe 2, erster Teil (Oktober 2026):** sechs Spiele für Laute und Wörter –
+> **Reimkupplung**, **Anlaut-Lauscher** (beide hinter der Trommel, «Hören»), **Wer fährt mit?**,
+> **Wörter bauen**, **Silbenbahn** und **Blitzwörter** (hinter der Wortkiste). Stehen hinter
+> einem Ding mehrere Spiele, öffnet es eine **Auswahl** mit Bildern. Bilder, die ein Kind hier
+> anders nennt, sind ersetzt (🧊 statt 🍦 für «Eis», 🕐 statt ⏰ für «Uhr») oder beim
+> Anlaut-Hören ausgeschlossen (⚽ «Fussball», 🐴 «Ross» …). Blitzwörter haben im Lesestand
+> einen eigenen Stand je Wort.
 
 ## 1. Die Idee in drei Sätzen
 
@@ -37,7 +45,9 @@ Lesewagen selbst und der Lesewurm darin.
   Breite, nie kleiner als 70 Pixel.
 - **Das Zimmer** (`train-leseecke.js`, gezeichnet in `lesen-art.js`): eine Ansicht der Bühne
   wie die Reise. Jedes Ding ist ein Weg: Sessel mit Lesewurm (er sucht aus, was dran ist),
-  Buchstabenhaus, Trommel (Silben), Wortkiste (Wörter), Spielzeugzug (Sätze), Bücherregal.
+  Buchstabenhaus, Trommel (Hören), Wortkiste (Wörter), Spielzeugzug (Sätze), Bücherregal.
+  Stehen hinter einem Ding mehrere Spiele, kommt eine Auswahl mit Bildern; welches Spiel wo
+  steht, sagt der Katalog in `lesen-stand.js` (`SPIELE`).
 - **Die Spiele** sind eigene Seiten auf `game-shell.js`. Der Pfeil zurück führt in den
   Lesewagen (`index.html?lesen=1`), das Haus auf das Startbild.
 
@@ -50,6 +60,12 @@ Lesewagen selbst und der Lesewurm darin.
 | Laute kuppeln | `lautekuppeln.html` | tippt Laut-Wagen von links nach rechts an, sie rollen zusammen («R», «Ro», «s», «se»); dann das passende Bild unter drei | Laute zusammenziehen |
 | Stimmt das? | `stimmtdas.html` | liest einen Satz, prüft ihn am Bild: Daumen hoch oder runter. Auf «leicht» liest die Stimme vor | genau lesen: auf, unter, neben, wie viele |
 | Bücherregal | `buecher.html` | liest ein Buch – vorlesen lassen, zusammen (abwechselnd ein Satz), selbst – und beantwortet drei Fragen | Freude am Buch, Hör- und Leseverstehen |
+| Reimkupplung | `reimkupplung.html` | «Was reimt sich auf Maus?» – nur der Wagen, der sich reimt, kuppelt an; bei jedem Tipp sagt die Stimme beide Wörter | Reime hören |
+| Anlaut-Lauscher | `anlautlauscher.html` | hört ein Wort, wählt das Bild, das gleich anfängt (nach dem Ohr: Stern und Schaf fangen gleich an) | Anlaute hören |
+| Wer fährt mit? | `werfaehrtmit.html` | liest das Wort auf der Fahrkarte und lässt den richtigen Fahrgast einsteigen; die anderen sehen ähnlich aus | Wörter genau lesen |
+| Wörter bauen | `woerterbauen.html` | legt aus Laut-Steinen das Wort zum Bild; die Stimme liest, was daliegt – auch «Sfoa» | Laute heraushören, Reihenfolge |
+| Silbenbahn | `silbenbahn.html` | kuppelt Silben-Wagen zum Wort; nach jedem dritten ein Quatschtier («Bamate») | Silben lesen |
+| Blitzwörter | `blitzwoerter.html` | ein kleines Wort blitzt im Zugfenster auf – welches war es? Je sicherer, desto kürzer | häufige Wörter auf einen Blick |
 
 Drei Regeln gelten überall:
 
@@ -138,7 +154,8 @@ Ordner im Build** – `netlify/build.mjs` bleibt unverändert –, und offline f
 | `lesen-art.js` | Lesewagen, Zimmer, Lesewurm, Trommel, Laut-Wagen, Dinge für «Stimmt das?» |
 | `lesen-spiel.js` | was alle Spiele der Leseecke teilen: Bühne, «Los», Ergebnis mit Sternen |
 | `train-leseecke.js` | das Zimmer als Ansicht der Bühne |
-| `silbenzug.*`, `buchstabenhaus.*`, `lautekuppeln.*`, `stimmtdas.*`, `buecher.*` | die Spiele |
+| `silbenzug.*`, `buchstabenhaus.*`, `lautekuppeln.*`, `stimmtdas.*`, `buecher.*` | die Spiele aus Etappe 1 |
+| `reimkupplung.*`, `anlautlauscher.*`, `werfaehrtmit.*`, `woerterbauen.*`, `silbenbahn.*`, `blitzwoerter.*` | die Spiele aus Etappe 2 |
 | `leseschrift.css` | Andika |
 | `train-home.js`, `index.html` | Lesewagen auf dem Startbild, `?lesen=1` |
 | `entitlement.js` | `LESEECKE`, `GRATIS_BUECHER`, `buchFree`, `targetFree` mit `buch=` |
@@ -167,10 +184,10 @@ Zwielaute spricht die Sprachausgabe, Mitlaute bleiben stumm und werden gezeigt.
 
 ## 7. Die nächsten Etappen
 
-- **Etappe 2 – Laute und Wörter:** Lernstand je Laut sichtbar, bekannte Buchstaben (Eltern
-  haken ab, was die Schule eingeführt hat), Reimkupplung, Anlaut-Lauscher, Mein Name,
-  Buchstabengleis, Wer fährt mit?, Wörter bauen, Silbenbahn, Blitzwörter, Lückensätze, zehn
-  weitere Bücher.
+- **Etappe 2 – Laute und Wörter:** gebaut sind Reimkupplung, Anlaut-Lauscher, Wer fährt
+  mit?, Wörter bauen, Silbenbahn und Blitzwörter. Es folgen: bekannte Buchstaben (Eltern haken
+  ab, was die Schule eingeführt hat), Mein Name und der Name des Lesewurms, Buchstabengleis,
+  Lückensätze, zehn weitere Bücher.
 - **Etappe 3 – Sätze:** Satz kuppeln, Quatschsätze, Lies und tu!, Stolperwörter,
   Laut-Position, Buchstaben-Signal, Quatschwörter, Geschichtenzug, der Lesewagen in 15
   Ausbaustufen, der Elternbericht.

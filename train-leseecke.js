@@ -9,11 +9,16 @@
  * Jedes Ding im Zimmer ist ein Weg in einen Teil der Leseecke:
  *
  *   Sessel mit Lesewurm  weiterlesen: der Wurm sucht aus, was dran ist
- *   Trommel              Silben hören (Silbenzug)
+ *   Trommel              Hören: Silbenzug, Reimkupplung, Anlaut-Lauscher
  *   Buchstabenhaus       Laute und Buchstaben
- *   Wortkiste            Laute zu Wörtern kuppeln
+ *   Wortkiste            Wörter: Laute kuppeln, Wer fährt mit?, Wörter bauen,
+ *                        Silbenbahn, Blitzwörter
  *   Spielzeugzug         Sätze (Stimmt das?)
  *   Bücherregal          Bücher
+ *
+ * Steht hinter einem Ding nur ein Spiel, geht es gleich los; stehen mehrere
+ * dahinter, kommt eine kleine Auswahl mit Bildern. Welches Spiel wo steht,
+ * sagt der Katalog in lesen-stand.js (SPIELE, ort).
  *
  * Was hier nicht geschieht: Fortschritt schreiben. Das tun die Spiele.
  */
@@ -24,19 +29,28 @@
   const stand = () => window.LernappLeseStand || null;
   const kids = () => window.LernappKids || null;
 
-  // Wohin jedes Ding führt.
-  const ZIELE = {
-    silben: "silbenzug.html",
-    buchstaben: "buchstabenhaus.html",
-    woerter: "lautekuppeln.html",
-    saetze: "stimmtdas.html",
-    buecher: "buecher.html",
+  // Die Dinge im Zimmer und wie die Auswahl dahinter heisst.
+  const ORTE = {
+    silben: "Hören",
+    buchstaben: "Buchstaben",
+    woerter: "Wörter",
+    saetze: "Sätze",
+    buecher: "Bücher",
   };
+
+  // Die Spiele hinter einem Ding, in der Reihenfolge des Katalogs.
+  function spieleAm(ort) {
+    const katalog = stand()?.SPIELE || {};
+    return Object.entries(katalog).filter(([, spiel]) => spiel.ort === ort).map(([id, spiel]) => ({ id, ...spiel }));
+  }
+
+  // Für die Prüfung und alte Aufrufer: das erste Spiel je Ding.
+  const ZIELE = new Proxy({}, { get: (_, ort) => spieleAm(String(ort))[0]?.page });
 
   const HILFE = [
     "Der Lesewagen.",
     "Tippe auf den Lesewurm im Sessel, und er sucht dir etwas aus.",
-    "Die Trommel ist für Silben, das Buchstabenhaus für Buchstaben,",
+    "Die Trommel ist zum Hören, das Buchstabenhaus für Buchstaben,",
     "die Kiste für Wörter, der kleine Zug für Sätze und das Regal für Bücher.",
   ].join(" ");
 
@@ -64,12 +78,14 @@
     document.head.append(link);
   }
 
-  // Ein Schloss an einem Ding, dessen Schnupperrunde gespielt ist – wie an den
-  // Häusern der Bereiche.
+  const gespielt = (page) => Boolean(window.LernappEntitlement?.gameGespielt?.(page));
+
+  // Ein Schloss an einem Ding, wenn die Schnupperrunde jedes Spiels dahinter
+  // gespielt ist – wie an den Häusern der Bereiche. Ist noch eines offen,
+  // trägt nur dessen Karte in der Auswahl kein Schloss.
   function schloss(svg, ort) {
-    const ziel = ZIELE[ort];
-    const schranke = window.LernappEntitlement;
-    if (!ziel || !schranke?.gameGespielt?.(ziel)) return;
+    const spiele = spieleAm(ort);
+    if (!spiele.length || !spiele.every((spiel) => gespielt(spiel.page))) return;
     const knoten = svg.querySelector(`[data-ort="${ort}"]`);
     if (!knoten) return;
     knoten.classList.add("is-locked");
@@ -81,6 +97,75 @@
       a.el("path", { d: "M-9 -4 v-6 a9 9 0 0 1 18 0 v6", fill: "none", stroke: "#5b3a29", "stroke-width": 4 }),
       a.el("rect", { x: -12, y: -5, width: 24, height: 18, rx: 4, fill: "#5b3a29" }),
     ]));
+  }
+
+  // Die Auswahl hinter einem Ding: grosse Karten mit Bild und Namen. Das Bild
+  // genügt einem Kind, das noch nicht liest; den Namen liest der Lautsprecher.
+  function zeigeWahl(host, ort, onPlay) {
+    host.querySelector(".lese-wahl")?.remove();
+    const spiele = spieleAm(ort);
+    const titel = ORTE[ort] || "";
+    const huelle = document.createElement("div");
+    huelle.className = "lese-wahl";
+    huelle.setAttribute("role", "dialog");
+    huelle.setAttribute("aria-label", titel);
+    const karte = document.createElement("div");
+    karte.className = "lese-wahl-karte";
+    const kopf = document.createElement("p");
+    kopf.className = "lese-wahl-titel";
+    kopf.textContent = titel;
+    const zu = document.createElement("button");
+    zu.type = "button";
+    zu.className = "lese-wahl-zu";
+    zu.setAttribute("aria-label", "Schliessen");
+    zu.textContent = "✕";
+    const reihe = document.createElement("div");
+    reihe.className = "lese-wahl-spiele";
+    spiele.forEach((spiel) => {
+      const knopf = document.createElement("button");
+      knopf.type = "button";
+      knopf.className = "lese-wahl-spiel";
+      knopf.dataset.spiel = spiel.id;
+      knopf.dataset.page = spiel.page;
+      const verbraucht = gespielt(spiel.page);
+      knopf.setAttribute("aria-label", `${spiel.titel}${verbraucht ? ", gesperrt" : ""}`);
+      const bild = document.createElement("span");
+      bild.className = "lese-wahl-bild";
+      bild.textContent = spiel.bild || "📖";
+      const name = document.createElement("span");
+      name.className = "lese-wahl-name";
+      name.textContent = spiel.titel;
+      knopf.append(bild, name);
+      if (verbraucht) {
+        knopf.classList.add("is-locked");
+        const s = document.createElement("span");
+        s.className = "lese-wahl-schloss";
+        s.setAttribute("aria-hidden", "true");
+        s.textContent = "🔒";
+        knopf.append(s);
+      }
+      knopf.addEventListener("click", () => onPlay?.(spiel.page));
+      reihe.append(knopf);
+    });
+    const schliessen = () => {
+      huelle.remove();
+      kids()?.setHelp?.(HILFE);
+      document.removeEventListener("keydown", taste);
+    };
+    const taste = (ereignis) => { if (ereignis.key === "Escape") schliessen(); };
+    zu.addEventListener("click", schliessen);
+    huelle.addEventListener("click", (ereignis) => { if (ereignis.target === huelle) schliessen(); });
+    document.addEventListener("keydown", taste);
+    // Titel und Kreuz in einer eigenen Zeile über den Karten: So liegt das
+    // Kreuz nie über einem Spiel.
+    const zeile = document.createElement("div");
+    zeile.className = "lese-wahl-kopf";
+    zeile.append(kopf, zu);
+    karte.append(zeile, reihe);
+    huelle.append(karte);
+    host.append(huelle);
+    kids()?.setHelp?.(`${titel}. Tippe auf ein Spiel: ${spiele.map((spiel) => spiel.titel).join(", ")}.`);
+    window.setTimeout(() => reihe.querySelector("button")?.focus?.({ preventScroll: true }), 30);
   }
 
   /*
@@ -104,10 +189,12 @@
       const los = () => {
         if (ort === "weiter") {
           const naechstes = s?.naechstes?.();
-          onPlay?.(naechstes?.page || ZIELE.buchstaben);
+          onPlay?.(naechstes?.page || "buchstabenhaus.html");
           return;
         }
-        if (ZIELE[ort]) onPlay?.(ZIELE[ort]);
+        const spiele = spieleAm(ort);
+        if (spiele.length === 1) onPlay?.(spiele[0].page);
+        else if (spiele.length > 1) zeigeWahl(host, ort, onPlay);
       };
       knoten.addEventListener("click", los);
       knoten.addEventListener("keydown", (ereignis) => {
@@ -116,7 +203,7 @@
     });
 
     // Schlösser erst nach dem Einhängen: getBBox misst nur Gezeichnetes.
-    window.requestAnimationFrame(() => Object.keys(ZIELE).forEach((ort) => schloss(svg, ort)));
+    window.requestAnimationFrame(() => Object.keys(ORTE).forEach((ort) => schloss(svg, ort)));
 
     // Ist der Wurm gewachsen, seit das Kind zuletzt hier war? Dann sagt der
     // Lautsprecher das zuerst. Der Text gehört zur Ansicht: train-home.js
@@ -131,5 +218,5 @@
     merkeGesehen(glieder);
   }
 
-  window.LernappLeseecke = { mount, ZIELE, HILFE };
+  window.LernappLeseecke = { mount, ZIELE, ORTE, HILFE, spieleAm };
 })();

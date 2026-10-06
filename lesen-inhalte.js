@@ -87,7 +87,7 @@
     { id: "e", gross: "E", klein: "e", wort: "Ente", bild: "🦆", art: "vokal", stimme: "e", gruppe: 2 },
     { id: "r", gross: "R", klein: "r", wort: "Rose", bild: "🌹", art: "dauer", gruppe: 2 },
     { id: "n", gross: "N", klein: "n", wort: "Nase", bild: "👃", art: "dauer", gruppe: 2 },
-    { id: "u", gross: "U", klein: "u", wort: "Uhr", bild: "⏰", art: "vokal", stimme: "u", gruppe: 2 },
+    { id: "u", gross: "U", klein: "u", wort: "Uhr", bild: "🕐", art: "vokal", stimme: "u", gruppe: 2 },
     { id: "f", gross: "F", klein: "f", wort: "Fisch", bild: "🐟", art: "dauer", gruppe: 2 },
     { id: "w", gross: "W", klein: "w", wort: "Wal", bild: "🐳", art: "dauer", gruppe: 2 },
     { id: "h", gross: "H", klein: "h", wort: "Hase", bild: "🐰", art: "dauer", gruppe: 3 },
@@ -97,7 +97,7 @@
     { id: "k", gross: "K", klein: "k", wort: "Katze", bild: "🐱", art: "stopp", gruppe: 3 },
     { id: "p", gross: "P", klein: "p", wort: "Pinguin", bild: "🐧", art: "stopp", gruppe: 3 },
     { id: "g", gross: "G", klein: "g", wort: "Giraffe", bild: "🦒", art: "stopp", gruppe: 3 },
-    { id: "ei", gross: "Ei", klein: "ei", wort: "Eis", bild: "🍦", art: "mehr", stimme: "ei", gruppe: 4 },
+    { id: "ei", gross: "Ei", klein: "ei", wort: "Eis", bild: "🧊", art: "mehr", stimme: "ei", gruppe: 4 },
     { id: "au", gross: "Au", klein: "au", wort: "Auto", bild: "🚗", art: "mehr", stimme: "au", gruppe: 4 },
     { id: "sch", gross: "Sch", klein: "sch", wort: "Schaf", bild: "🐑", art: "mehr", gruppe: 4 },
     { id: "eu", gross: "Eu", klein: "eu", wort: "Eule", bild: "🦉", art: "mehr", stimme: "eu", gruppe: 4 },
@@ -141,7 +141,7 @@
     { wort: "Stern", silben: ["Stern"], bild: "⭐" },
     { wort: "Mond", silben: ["Mond"], bild: "🌙" },
     { wort: "Kuh", silben: ["Kuh"], bild: "🐄" },
-    { wort: "Eis", silben: ["Eis"], bild: "🍦" },
+    { wort: "Eis", silben: ["Eis"], bild: "🧊" },
     { wort: "Buch", silben: ["Buch"], bild: "📖" },
     { wort: "Haus", silben: ["Haus"], bild: "🏠" },
     { wort: "Apfel", silben: ["Ap", "fel"], bild: "🍎" },
@@ -231,7 +231,7 @@
     { wort: "Maus", silben: ["Maus"], bild: "🐭", stufe: 3 },
     { wort: "Haus", silben: ["Haus"], bild: "🏠", stufe: 3 },
     { wort: "Baum", silben: ["Baum"], bild: "🌳", stufe: 3 },
-    { wort: "Eis", silben: ["Eis"], bild: "🍦", stufe: 3 },
+    { wort: "Eis", silben: ["Eis"], bild: "🧊", stufe: 3 },
     { wort: "Seife", silben: ["Sei", "fe"], bild: "🧼", stufe: 3 },
     { wort: "Fisch", silben: ["Fisch"], bild: "🐟", stufe: 3 },
     { wort: "Schaf", silben: ["Schaf"], bild: "🐑", stufe: 3 },
@@ -286,11 +286,125 @@
   ];
   const ZAHLWOERTER = ["", "Ein", "Zwei", "Drei"];
 
+  // ---------------------------------------------------------------------------
+  // Reime (Reimkupplung)
+  // ---------------------------------------------------------------------------
+  // Gruppen von Wörtern, die sich reimen. Gefragt wird innerhalb einer Gruppe,
+  // die falschen Wagen kommen aus anderen Gruppen – so reimt sich nie zufällig
+  // auch ein falscher. Nur Wörter mit einem Bild, das jedes Kind hier erkennt.
+  const REIME = [
+    { endung: "aus", woerter: [{ wort: "Maus", bild: "🐭" }, { wort: "Haus", bild: "🏠" }] },
+    { endung: "ase", woerter: [{ wort: "Hase", bild: "🐰" }, { wort: "Nase", bild: "👃" }, { wort: "Vase", bild: "🏺" }] },
+    { endung: "und", woerter: [{ wort: "Hund", bild: "🐶" }, { wort: "Mund", bild: "👄" }] },
+    { endung: "uh", woerter: [{ wort: "Kuh", bild: "🐄" }, { wort: "Schuh", bild: "👟" }] },
+    { endung: "ein", woerter: [{ wort: "Bein", bild: "🦵" }, { wort: "Schwein", bild: "🐷" }, { wort: "Stein", bild: "🪨" }] },
+    { endung: "atze", woerter: [{ wort: "Katze", bild: "🐱" }, { wort: "Tatze", bild: "🐾" }] },
+    { endung: "ose", woerter: [{ wort: "Rose", bild: "🌹" }, { wort: "Hose", bild: "👖" }, { wort: "Dose", bild: "🥫" }] },
+    { endung: "ocke", woerter: [{ wort: "Glocke", bild: "🔔" }, { wort: "Socke", bild: "🧦" }] },
+    { endung: "ille", woerter: [{ wort: "Brille", bild: "👓" }, { wort: "Grille", bild: "🦗" }] },
+    { endung: "ahn", woerter: [{ wort: "Zahn", bild: "🦷" }, { wort: "Hahn", bild: "🐓" }, { wort: "Kran", bild: "🏗️" }] },
+    { endung: "ei", woerter: [{ wort: "Ei", bild: "🥚" }, { wort: "Brei", bild: "🥣" }] },
+    { endung: "iene", woerter: [{ wort: "Biene", bild: "🐝" }, { wort: "Schiene", bild: "🛤️" }] },
+    { endung: "uss", woerter: [{ wort: "Nuss", bild: "🌰" }, { wort: "Bus", bild: "🚌" }] },
+    { endung: "al", woerter: [{ wort: "Wal", bild: "🐳" }, { wort: "Schal", bild: "🧣" }] },
+    { endung: "and", woerter: [{ wort: "Hand", bild: "✋" }, { wort: "Sand", bild: "🏖️" }] },
+    { endung: "or", woerter: [{ wort: "Ohr", bild: "👂" }, { wort: "Tor", bild: "🥅" }] },
+    { endung: "ot", woerter: [{ wort: "Boot", bild: "🚤" }, { wort: "Brot", bild: "🍞" }] },
+    { endung: "affe", woerter: [{ wort: "Affe", bild: "🐒" }, { wort: "Giraffe", bild: "🦒" }] },
+  ];
+
+  // ---------------------------------------------------------------------------
+  // Der erste Laut, wie man ihn hört (Anlaut-Lauscher)
+  // ---------------------------------------------------------------------------
+  // Hören ist nicht Schreiben: Stern, Spinne und Schaf fangen alle mit «sch»
+  // an, Vogel und Fisch mit «f». Für das Ohr zählt der Laut.
+  const HOER_ANLAUT = { st: "sch", sp: "sch", v: "f", ie: "i" };
+  // Wörter aus anderen Sprachen halten sich nicht an die Regel: Die Vase
+  // fängt mit «w» an, nicht mit «f».
+  const HOER_ANLAUT_WORT = { Vase: "w" };
+  function anlautVon(wort) {
+    if (HOER_ANLAUT_WORT[wort]) return HOER_ANLAUT_WORT[wort];
+    const erster = lautId(steine(wort)[0]);
+    return HOER_ANLAUT[erster] || erster;
+  }
+  // Paare, die junge Ohren leicht verwechseln: Auf «leicht» stehen sie nie
+  // zusammen zur Wahl.
+  const AEHNLICHE_ANLAUTE = [["m", "n"], ["b", "p"], ["d", "t"], ["g", "k"], ["f", "w"], ["e", "ä"], ["i", "ie"], ["ei", "ai"], ["eu", "äu"]];
+
+  // Bilder, die ein Kind hier gern anders nennt – mit einem anderen ersten
+  // Laut: ⚽ ist oft der «Fussball», 🐴 das «Ross», 🐓 der «Güggel», 🥣 das
+  // «Müesli». Wo das Wort dabeisteht oder gesagt wird, stören sie nicht; wo
+  // nur das Bild zählt (Anlaut-Lauscher), bleiben sie weg.
+  const MEHRDEUTIG = new Set(["Ball", "Pferd", "Hahn", "Jacke", "Brei", "Dose", "Schiene", "Grille", "Sand", "Tatze", "Vase", "Nuss", "Paket"]);
+
+  // Alle Wörter mit Bild, die in der Leseecke vorkommen – einmal je Wort.
+  //   eindeutig  ohne die Bilder aus MEHRDEUTIG
+  function bildWoerter({ eindeutig = false } = {}) {
+    const alle = [
+      ...LAUTE.filter((laut) => !laut.innen).map((laut) => ({ wort: laut.wort, bild: laut.bild })),
+      ...SILBEN_WOERTER, ...KUPPEL_WOERTER,
+      ...REIME.flatMap((gruppe) => gruppe.woerter),
+    ];
+    const gesehen = new Set();
+    return alle.filter((eintrag) => {
+      if (gesehen.has(eintrag.wort)) return false;
+      gesehen.add(eintrag.wort);
+      return !(eindeutig && MEHRDEUTIG.has(eintrag.wort));
+    }).map(({ wort, bild }) => ({ wort, bild }));
+  }
+
+  // ---------------------------------------------------------------------------
+  // Blitzwörter
+  // ---------------------------------------------------------------------------
+  // Die kleinen Wörter, die in jedem Satz stehen. Lautieren lohnt sich bei
+  // ihnen nicht – sie sollen auf einen Blick sitzen. Zu jedem drei, die ihm
+  // ähnlich sehen; so zählt genaues Hinsehen, nicht Raten.
+  //   stufe 1  die häufigsten (mittel)
+  //   stufe 2  dazu die übrigen (schwer)
+  const BLITZWOERTER = [
+    { wort: "und", aehnlich: ["um", "uns", "rund"], stufe: 1 },
+    { wort: "ist", aehnlich: ["isst", "im", "ich"], stufe: 1 },
+    { wort: "die", aehnlich: ["der", "das", "dir"], stufe: 1 },
+    { wort: "der", aehnlich: ["die", "dem", "den"], stufe: 1 },
+    { wort: "das", aehnlich: ["was", "die", "dass"], stufe: 1 },
+    { wort: "ein", aehnlich: ["eine", "nein", "dein"], stufe: 1 },
+    { wort: "im", aehnlich: ["in", "mit", "ihm"], stufe: 1 },
+    { wort: "mit", aehnlich: ["mir", "mich", "im"], stufe: 1 },
+    { wort: "auf", aehnlich: ["aus", "lauf", "kauf"], stufe: 1 },
+    { wort: "ich", aehnlich: ["ist", "dich", "mich"], stufe: 1 },
+    { wort: "du", aehnlich: ["zu", "da", "die"], stufe: 1 },
+    { wort: "ja", aehnlich: ["da", "je", "an"], stufe: 1 },
+    { wort: "Mama", aehnlich: ["Papa", "Oma", "Lama"], stufe: 1 },
+    { wort: "Papa", aehnlich: ["Mama", "Opa", "Panda"], stufe: 1 },
+    { wort: "Oma", aehnlich: ["Opa", "Mama", "Ofen"], stufe: 1 },
+    { wort: "Opa", aehnlich: ["Oma", "Papa", "Ufo"], stufe: 1 },
+    { wort: "eine", aehnlich: ["ein", "einen", "keine"], stufe: 2 },
+    { wort: "er", aehnlich: ["es", "der", "ihr"], stufe: 2 },
+    { wort: "sie", aehnlich: ["die", "wie", "sind"], stufe: 2 },
+    { wort: "es", aehnlich: ["er", "das", "ist"], stufe: 2 },
+    { wort: "wir", aehnlich: ["wie", "mir", "ihr"], stufe: 2 },
+    { wort: "nicht", aehnlich: ["nichts", "ich", "Licht"], stufe: 2 },
+    { wort: "nein", aehnlich: ["ein", "neun", "mein"], stufe: 2 },
+    { wort: "hat", aehnlich: ["hast", "Hut", "tat"], stufe: 2 },
+    { wort: "sind", aehnlich: ["sie", "Kind", "Wind"], stufe: 2 },
+    { wort: "wo", aehnlich: ["wie", "so", "was"], stufe: 2 },
+    { wort: "was", aehnlich: ["das", "wo", "war"], stufe: 2 },
+    { wort: "wer", aehnlich: ["der", "was", "wir"], stufe: 2 },
+    { wort: "wie", aehnlich: ["die", "wir", "sie"], stufe: 2 },
+    { wort: "da", aehnlich: ["du", "ja", "das"], stufe: 2 },
+    { wort: "zu", aehnlich: ["du", "zum", "zur"], stufe: 2 },
+    { wort: "von", aehnlich: ["vor", "vom", "an"], stufe: 2 },
+    { wort: "aus", aehnlich: ["auf", "Haus", "Maus"], stufe: 2 },
+  ];
+  const BLITZ_JE_STUFE = { leicht: [1], mittel: [1], schwer: [1, 2] };
+
   window.LernappLeseInhalte = {
     steine, steineDerSilben, lautId,
     LAUTE, LAUT_BY_ID, LAUTE_JE_STUFE, lauteBisGruppe,
     SILBEN_WOERTER, SILBEN_JE_STUFE,
     KUPPEL_WOERTER, KUPPELN_JE_STUFE,
     TIERE, DINGE, ZAHLWOERTER,
+    REIME, HOER_ANLAUT, HOER_ANLAUT_WORT, AEHNLICHE_ANLAUTE, MEHRDEUTIG, anlautVon, bildWoerter,
+    BLITZWOERTER, BLITZ_JE_STUFE,
   };
 })();

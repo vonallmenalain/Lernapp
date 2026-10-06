@@ -12447,3 +12447,258 @@ body[data-page="laute-aufnehmen"] {
   .la-knoepfe { justify-content: flex-start; flex-wrap: wrap; margin-top: 6px; }
   .la-stand { justify-self: start; }
 }
+
+/* =============================================================================
+   Leseecke, Etappe 2: Auswahl im Lesewagen und sechs Spiele
+   ============================================================================= */
+
+/* --- Die Auswahl hinter einem Ding im Lesewagen (train-leseecke.js) --- */
+.lese-wahl {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(36, 48, 71, 0.42);
+  animation: lese-wahl-ein 0.2s ease both;
+}
+@keyframes lese-wahl-ein { from { opacity: 0; } to { opacity: 1; } }
+.lese-wahl-karte {
+  position: relative;
+  max-width: min(94vw, 900px);
+  padding: clamp(12px, 3vh, 24px) clamp(14px, 3vw, 28px);
+  border-radius: 28px;
+  background: #fff6e0;
+  box-shadow: 0 18px 40px rgba(36, 48, 71, 0.35);
+}
+.lese-wahl-kopf { position: relative; display: flex; align-items: center; justify-content: center; min-height: 42px; margin-bottom: clamp(6px, 1.6vh, 12px); }
+.lese-wahl-titel {
+  margin: 0 48px;
+  color: #5b3a29;
+  font-size: clamp(1.1rem, 5vh, 1.6rem);
+  font-weight: 900;
+  text-align: center;
+}
+.lese-wahl-zu {
+  position: absolute;
+  top: 50%;
+  right: -4px;
+  transform: translateY(-50%);
+  width: 40px;
+  min-height: 40px;
+  height: 40px;
+  padding: 0;
+  border-radius: 50%;
+  background: #ffffff;
+  color: #5b3a29;
+  font-size: 1.1rem;
+  box-shadow: 0 3px 8px rgba(36, 48, 71, 0.2);
+}
+.lese-wahl-spiele { display: flex; flex-wrap: wrap; justify-content: center; gap: clamp(8px, 2vw, 18px); }
+.lese-wahl-spiel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: clamp(92px, min(15vw, 26vh), 150px);
+  min-height: 0;
+  aspect-ratio: 1;
+  padding: 6px;
+  border: 4px solid #ffffff;
+  border-radius: 24px;
+  background: #ffffff;
+  box-shadow: 0 6px 14px rgba(36, 48, 71, 0.18);
+  color: #243047;
+}
+.lese-wahl-spiel:hover, .lese-wahl-spiel:focus-visible { border-color: #ffd166; }
+.lese-wahl-spiel:active { transform: scale(0.95); }
+.lese-wahl-bild { font-size: clamp(2rem, 10vh, 3.4rem); line-height: 1; }
+.lese-wahl-name { font-size: clamp(0.7rem, 2.6vh, 0.95rem); font-weight: 850; line-height: 1.1; text-align: center; }
+.lese-wahl-spiel.is-locked { filter: saturate(0.5); }
+.lese-wahl-schloss { position: absolute; top: -10px; right: -8px; font-size: 1.4rem; }
+
+/* Gemeinsam: ein Wagen, der anstösst und zurückrollt, und einer, der zeigt,
+   wo es weitergeht. */
+@keyframes lese-stoesst {
+  0%, 100% { transform: translateX(0); }
+  30% { transform: translateX(-18px); }
+  55% { transform: translateX(6px); }
+  75% { transform: translateX(-4px); }
+}
+@keyframes lese-zeigt-hin {
+  0%, 100% { filter: drop-shadow(0 0 0 rgba(63, 191, 116, 0)); transform: translateY(0); }
+  50% { filter: drop-shadow(0 0 10px rgba(63, 191, 116, 0.95)); transform: translateY(-6px); }
+}
+.lese-buehne .stoesst { animation: lese-stoesst 0.5s ease-out; }
+
+/* --- Reimkupplung --- */
+.rk-gleis {
+  position: relative;
+  width: min(96vw, 1040px);
+  height: clamp(70px, 26vh, 160px);
+  overflow: hidden;
+}
+.rk-zug {
+  position: absolute;
+  left: 2%;
+  bottom: 8px;
+  display: flex;
+  align-items: flex-end;
+  height: 100%;
+  transition: transform 0.9s cubic-bezier(0.45, 0, 0.55, 1);
+}
+.rk-zug.faehrt-ab { transform: translateX(110vw); }
+.rk-zug .lese-lok { height: 100%; }
+.rk-wagen { display: block; flex: none; padding: 0; border: none; background: none; cursor: pointer; min-height: 0; border-radius: 12px; }
+.rk-wagen svg { display: block; height: clamp(54px, 19vh, 112px); width: auto; }
+.rk-zug .rk-wagen { margin-left: -4px; }
+.rk-wahl { display: flex; justify-content: center; gap: clamp(14px, 4vw, 48px); }
+.rk-kandidat.ist-falsch { opacity: 0.45; }
+.rk-kandidat.ist-weg { visibility: hidden; }
+.rk-kandidat.zeigt-hin { animation: lese-zeigt-hin 0.9s ease-in-out infinite; }
+.rk-angekuppelt { animation: rk-kuppelt 0.45s cubic-bezier(0.25, 1, 0.5, 1); }
+@keyframes rk-kuppelt { from { transform: translateX(40vw); opacity: 0.2; } to { transform: none; opacity: 1; } }
+
+/* --- Anlaut-Lauscher --- */
+.al-oben { display: flex; align-items: center; gap: clamp(8px, 2vw, 18px); }
+.al-ohr { font-size: clamp(1.8rem, 9vh, 3.4rem); animation: al-lauschen 2.2s ease-in-out infinite; }
+@keyframes al-lauschen { 0%, 100% { transform: rotate(0); } 50% { transform: rotate(-10deg) scale(1.08); } }
+.al-wahl { display: flex; justify-content: center; gap: clamp(14px, 4vw, 44px); }
+.al-bild { width: clamp(70px, 23vh, 150px); height: clamp(70px, 23vh, 150px); font-size: clamp(38px, 13vh, 88px); }
+.al-bild.ist-falsch { opacity: 0.45; }
+.al-bild.ist-richtig { box-shadow: 0 0 0 6px #3fbf74, 0 8px 18px rgba(36, 48, 71, 0.2); }
+.al-bild.zeigt-hin { animation: bh-zeigt-hin 0.9s ease-in-out infinite; }
+
+/* --- Wer fährt mit? --- */
+.wm-karte {
+  display: flex;
+  align-items: center;
+  gap: clamp(8px, 2vw, 18px);
+  padding: clamp(6px, 1.8vh, 14px) clamp(16px, 4vw, 34px);
+  border: 3px dashed #c8935a;
+  border-radius: 18px;
+  background: #fffaf0;
+  box-shadow: 0 6px 14px rgba(36, 48, 71, 0.16);
+}
+.wm-karte.ist-neu { animation: lese-bild-neu 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); }
+.wm-stempel { font-size: clamp(1.4rem, 7vh, 2.6rem); }
+.wm-wort { font-family: "Andika", Inter, system-ui, sans-serif; font-size: clamp(1.8rem, 12vh, 4.2rem); font-weight: 700; line-height: 1.1; }
+.wm-bahnsteig { display: flex; justify-content: center; gap: clamp(10px, 3vw, 34px); }
+.wm-bild { width: clamp(62px, 19vh, 130px); height: clamp(62px, 19vh, 130px); font-size: clamp(34px, 11vh, 76px); }
+.wm-bild.ist-falsch { opacity: 0.45; }
+.wm-bild.ist-richtig { box-shadow: 0 0 0 6px #3fbf74, 0 8px 18px rgba(36, 48, 71, 0.2); }
+.wm-bild.zeigt-hin { animation: bh-zeigt-hin 0.9s ease-in-out infinite; }
+.wm-zug { display: flex; align-items: flex-end; align-self: flex-start; margin-left: 4vw; height: clamp(42px, 13vh, 92px); transition: transform 0.9s cubic-bezier(0.45, 0, 0.55, 1); }
+.wm-zug.faehrt-ab { transform: translateX(110vw); }
+.wm-zug .lese-lok { height: 100%; }
+.wm-wagen { position: relative; height: 100%; margin-left: -4px; }
+.wm-wagen svg { height: 100%; width: auto; display: block; }
+.wm-fahrgast { position: absolute; left: 50%; top: 6%; transform: translateX(-50%); font-size: clamp(1.2rem, 6vh, 2.6rem); animation: wm-einsteigen 0.45s ease-out; }
+@keyframes wm-einsteigen { from { transform: translate(-50%, -60%); opacity: 0; } to { transform: translateX(-50%); opacity: 1; } }
+
+/* --- Wörter bauen --- */
+.wb-bild { width: clamp(64px, 20vh, 140px); height: clamp(64px, 20vh, 140px); font-size: clamp(36px, 12vh, 80px); }
+.wb-felder { display: flex; justify-content: center; gap: clamp(4px, 1.2vw, 12px); }
+.wb-feld, .wb-stein {
+  display: grid;
+  place-items: center;
+  min-width: clamp(44px, 13vh, 88px);
+  height: clamp(44px, 13vh, 88px);
+  min-height: 0;
+  padding: 0 6px;
+  border-radius: 14px;
+  font-family: "Andika", Inter, system-ui, sans-serif;
+  font-size: clamp(1.4rem, 8vh, 3rem);
+  font-weight: 700;
+  color: #243047;
+}
+.wb-feld { border: 3px dashed #9aa7b8; background: rgba(255, 255, 255, 0.75); }
+.wb-feld.ist-voll { border-style: solid; border-color: #c8935a; background: #fff6e0; }
+.wb-feld.ist-fest { border-color: #3fbf74; background: #e3f7ea; }
+.wb-felder.ist-richtig .wb-feld { border-color: #3fbf74; background: #c9f2d6; }
+.wb-steine { display: flex; flex-wrap: wrap; justify-content: center; gap: clamp(6px, 1.6vw, 14px); }
+.wb-stein { border: 3px solid #c8935a; background: #ffd98a; box-shadow: 0 5px 0 #c8935a, 0 8px 14px rgba(36, 48, 71, 0.18); }
+.wb-stein:active { transform: translateY(3px); box-shadow: 0 2px 0 #c8935a; }
+.wb-stein[hidden] { display: none; }
+
+/* --- Silbenbahn --- */
+.sb-bild { width: clamp(60px, 19vh, 130px); height: clamp(60px, 19vh, 130px); font-size: clamp(34px, 11vh, 76px); }
+.sb-gleis { position: relative; width: min(96vw, 1040px); height: clamp(58px, 20vh, 130px); overflow: hidden; }
+.sb-zug { position: absolute; left: 2%; bottom: 8px; display: flex; align-items: flex-end; height: 100%; transition: transform 0.9s cubic-bezier(0.45, 0, 0.55, 1); }
+.sb-zug.faehrt-ab { transform: translateX(110vw); }
+.sb-zug .lese-lok { height: 100%; }
+.sb-angekuppelt { display: flex; align-items: flex-end; height: 70%; }
+.sb-wagen { display: block; flex: none; padding: 0; border: none; background: none; cursor: pointer; min-height: 0; border-radius: 12px; }
+.sb-wagen svg { display: block; height: clamp(52px, 17vh, 100px); width: auto; }
+.sb-angekuppelt .sb-wagen { margin-left: -4px; animation: rk-kuppelt 0.4s cubic-bezier(0.25, 1, 0.5, 1); }
+.sb-angekuppelt .sb-wagen svg { height: 100%; }
+.sb-neben { display: flex; flex-wrap: wrap; justify-content: center; gap: clamp(8px, 2.4vw, 26px); }
+.sb-wagen.zeigt-hin { animation: lese-zeigt-hin 0.9s ease-in-out infinite; }
+.sb-quatsch {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 8px;
+  background: rgba(255, 246, 224, 0.92);
+  animation: lese-wahl-ein 0.25s ease both;
+}
+.sb-quatsch[hidden] { display: none; }
+.sb-quatsch-bild { display: flex; font-size: clamp(3rem, 22vh, 8rem); animation: sb-wackeln 0.6s ease-in-out infinite alternate; }
+.sb-quatsch-bild span + span { margin-left: -0.45em; }
+@keyframes sb-wackeln { from { transform: rotate(-6deg); } to { transform: rotate(6deg); } }
+.sb-quatsch-wort { font-family: "Andika", Inter, system-ui, sans-serif; font-size: clamp(1.6rem, 10vh, 3.4rem); font-weight: 700; color: #c4553a; }
+
+/* --- Blitzwörter --- */
+.bw-zug {
+  display: grid;
+  place-items: center;
+  width: clamp(220px, 46vw, 520px);
+  padding: clamp(10px, 3vh, 22px);
+  border-radius: 26px 26px 14px 14px;
+  background: linear-gradient(#c4553a, #a8452e);
+  box-shadow: inset 0 -10px 0 rgba(0, 0, 0, 0.18), 0 10px 20px rgba(36, 48, 71, 0.25);
+}
+.bw-zug.faehrt-ein { animation: bw-einfahren 0.5s cubic-bezier(0.25, 1, 0.5, 1); }
+@keyframes bw-einfahren { from { transform: translateX(60vw); } to { transform: none; } }
+.bw-fenster {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  min-height: clamp(64px, 22vh, 150px);
+  border: 6px solid #5b3a29;
+  border-radius: 18px;
+  background: #fffaf0;
+  transition: background-color 0.2s ease;
+}
+.bw-fenster.blitzt { background: #ffffff; box-shadow: 0 0 22px rgba(255, 217, 138, 0.95); }
+.bw-fenster.ist-richtig { background: #c9f2d6; }
+.bw-fenster.ist-falsch { background: #ffe1dc; }
+.bw-wort { font-family: "Andika", Inter, system-ui, sans-serif; font-size: clamp(2rem, 14vh, 5rem); font-weight: 700; color: #243047; letter-spacing: 0.02em; }
+.bw-wahl { display: grid; grid-template-columns: repeat(4, auto); gap: clamp(8px, 2vw, 20px); justify-content: center; }
+.bw-knopf {
+  min-width: clamp(70px, 16vw, 150px);
+  min-height: clamp(48px, 15vh, 84px);
+  padding: 0 14px;
+  border: 4px solid #ffffff;
+  border-radius: 18px;
+  background: #fff6e0;
+  box-shadow: 0 6px 14px rgba(36, 48, 71, 0.18);
+  color: #243047;
+  font-family: "Andika", Inter, system-ui, sans-serif;
+  font-size: clamp(1.3rem, 7vh, 2.4rem);
+  font-weight: 700;
+}
+.bw-knopf.ist-richtig { background: #c9f2d6; box-shadow: 0 0 0 5px #3fbf74; }
+.bw-knopf.ist-falsch { background: #ffd9d4; opacity: 0.7; }
+
+@media (prefers-reduced-motion: reduce) {
+  .lese-wahl, .rk-angekuppelt, .sb-angekuppelt .sb-wagen, .al-ohr, .wm-karte.ist-neu, .wm-fahrgast, .sb-quatsch, .sb-quatsch-bild, .bw-zug.faehrt-ein,
+  .lese-buehne .stoesst, .rk-kandidat.zeigt-hin, .sb-wagen.zeigt-hin, .al-bild.zeigt-hin, .wm-bild.zeigt-hin { animation: none; }
+  .rk-zug, .sb-zug, .wm-zug { transition: none; }
+}

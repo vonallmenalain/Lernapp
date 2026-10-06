@@ -66,7 +66,7 @@ einzelne Laute neu aufnimmt, bekommt eine Datei mit allen – den alten und den 
 | E e | 🦆 Ente | «e» wie in Ente |
 | R r | 🌹 Rose | «rrr» – so, wie du das R sprichst, kurz rollen lassen |
 | N n | 👃 Nase | «nnn» – Mund offen, durch die Nase summen |
-| U u | ⏰ Uhr | «u» wie in Uhr |
+| U u | 🕐 Uhr | «u» wie in Uhr |
 | F f | 🐟 Fisch | «fff» – Luft zwischen Zähnen und Unterlippe |
 | W w | 🐳 Wal | «www» – wie f, aber mit Stimme |
 
@@ -86,7 +86,7 @@ einzelne Laute neu aufnimmt, bekommt eine Datei mit allen – den alten und den 
 
 | Laut | Wort | So klingt er |
 | --- | --- | --- |
-| Ei ei | 🍦 Eis | «ei» wie in Eis |
+| Ei ei | 🧊 Eis | «ei» wie in Eis |
 | Au au | 🚗 Auto | «au» wie in Auto |
 | Sch sch | 🐑 Schaf | «schsch» – wie wenn du jemanden leise machst |
 | Eu eu | 🦉 Eule | «eu» wie in Eule |
