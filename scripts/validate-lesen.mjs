@@ -31,6 +31,12 @@
  *               schwachen zurück, und zwischen Geräten gilt der neuere Schritt.
  *   Seiten      Jedes Spiel hat seine Seite, und sie lädt, was es braucht,
  *               in der richtigen Reihenfolge. Nirgends steht ß.
+ *   Aufnahmen   Feste Texte mit Alains Stimme (lesen-stimme.js): jede Datei
+ *               ist da, heisst nach ihrem Text, ist eine MP3 wie vom Holen
+ *               (mono, 24 kHz, 32 kbit/s), passt in der Länge zum Text und
+ *               gehört zu einem Text, den die App noch so sagt. Die Seiten
+ *               laden das Verzeichnis, der Service Worker hat einen eigenen
+ *               Cache dafür, und der Build nimmt den Ordner mit.
  *
  * Läuft ohne Browser: die Skripte laufen in einer Sandbox. Was nur im Browser
  * geht – Bild und Ablauf –, prüft check-leseecke.mjs.
@@ -40,6 +46,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import vm from "node:vm";
+import { texte as stimmeTexte, verzeichnis as stimmeVerzeichnis, dateiFuer, sprechText, ORDNER as STIMME_ORDNER } from "./stimme-texte.mjs";
 
 const root = path.resolve(import.meta.dirname, "..");
 const fehler = [];
@@ -959,6 +966,89 @@ let gemalteBuecher = 0;
   ["lesen-inhalte.js", "lesen-laute.js", "laute-aufnehmen.js"].forEach((skript) => pruefe(seite.includes(`src="${skript}?v=`), `laute-aufnehmen.html: lädt ${skript} nicht`));
 }
 
+// --- 6a. Feste Texte mit Alains Stimme ------------------------------------------------
+// lesen-stimme.js sagt, zu welchem Text welche Datei gehört; geschrieben wird es
+// von scripts/stimme-vertonen.mjs. Hier wird jede Datei aufgemacht: Sie heisst
+// nach ihrem Text, ist eine MP3 wie vom Holen und so lang, wie der Text es
+// verlangt (rund 14 Zeichen in der Sekunde). Und sie gehört zu einem Text, den
+// die App noch genau so sagt – ändert sich ein Satz im Buch, spielte seine
+// alte Aufnahme nie mehr.
+//
+// Die Rahmen einer MP3: [{ version, rate, kbit, kanaele }], oder null, wenn
+// es keine ist (ID3 vorne wird übersprungen).
+function mp3Rahmen(daten) {
+  let stelle = 0;
+  if (daten.length >= 10 && daten.toString("latin1", 0, 3) === "ID3") {
+    stelle = 10 + (((daten[6] & 0x7f) << 21) | ((daten[7] & 0x7f) << 14) | ((daten[8] & 0x7f) << 7) | (daten[9] & 0x7f));
+  }
+  const RATEN = { 3: [44100, 48000, 32000], 2: [22050, 24000, 16000], 0: [11025, 12000, 8000] };
+  const KBIT_1 = [0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320];
+  const KBIT_2 = [0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160];
+  const rahmen = [];
+  while (stelle + 4 <= daten.length) {
+    if (daten[stelle] !== 0xff || (daten[stelle + 1] & 0xe0) !== 0xe0) return null;
+    const version = (daten[stelle + 1] >> 3) & 3;
+    const schicht = (daten[stelle + 1] >> 1) & 3;
+    const kbitNr = daten[stelle + 2] >> 4;
+    const rateNr = (daten[stelle + 2] >> 2) & 3;
+    if (schicht !== 1 || version === 1 || rateNr === 3 || kbitNr === 0 || kbitNr === 15) return null;
+    const rate = RATEN[version][rateNr];
+    const kbit = (version === 3 ? KBIT_1 : KBIT_2)[kbitNr];
+    rahmen.push({ version, rate, kbit, kanaele: (daten[stelle + 3] >> 6) === 3 ? 1 : 2 });
+    stelle += Math.floor(((version === 3 ? 144 : 72) * kbit * 1000) / rate) + ((daten[stelle + 2] >> 1) & 1);
+  }
+  return rahmen.length ? rahmen : null;
+}
+let aufnahmenFertig = 0;
+{
+  const dateien = stimmeVerzeichnis();
+  pruefe(dateien && typeof dateien === "object" && !Array.isArray(dateien), "lesen-stimme.js legt window.LernappStimmeDateien nicht an");
+  const gesagt = new Set(stimmeTexte().map((e) => e.text));
+  const belegt = new Set();
+  Object.entries(dateien || {}).forEach(([text, datei]) => {
+    const wo = `Aufnahme «${text.length > 50 ? `${text.slice(0, 50)}…` : text}»`;
+    pruefe(text === sprechText(text), `${wo}: der Text steht nicht so da, wie die App ihn nachschlägt (Leerräume)`);
+    pruefe(gesagt.has(text), `${wo}: die App sagt diesen Text nicht mehr so – neu erzeugen oder streichen (scripts/stimme-texte.mjs)`);
+    pruefe(datei === dateiFuer(text), `${wo}: die Datei heisst ${datei}, nach ihrem Text ${dateiFuer(text)}`);
+    belegt.add(datei);
+    const pfad = path.join(root, datei);
+    if (!fs.existsSync(pfad)) { pruefe(false, `${wo}: ${datei} fehlt`); return; }
+    const daten = fs.readFileSync(pfad);
+    pruefe(daten.length <= 400 * 1024, `${wo}: ${Math.round(daten.length / 1024)} KB – mehr als 400 KB für einen Text`);
+    const rahmen = mp3Rahmen(daten);
+    if (!rahmen) { pruefe(false, `${wo}: ${datei} ist keine MP3`); return; }
+    // Der erste Rahmen kann der Kopf des Encoders sein (mit eigener Bitrate).
+    const ton = rahmen.slice(1);
+    pruefe(rahmen.every((r) => r.version === 2 && r.rate === 24000 && r.kanaele === 1) && ton.every((r) => r.kbit === 32),
+      `${wo}: nicht mono, 24 kHz, 32 kbit/s wie vom Holen (${JSON.stringify(rahmen[1] || rahmen[0])})`);
+    const sekunden = (rahmen.length * 576) / 24000;
+    const jeZeichen = sekunden / text.length;
+    pruefe(sekunden >= 0.3 && jeZeichen >= 0.025 && jeZeichen <= 0.2, `${wo}: ${sekunden.toFixed(2)} s für ${text.length} Zeichen – passt nicht zum Text`);
+    aufnahmenFertig += 1;
+  });
+  const ordner = path.join(root, STIMME_ORDNER);
+  if (fs.existsSync(ordner)) {
+    fs.readdirSync(ordner).filter((name) => !name.startsWith(".")).forEach((name) => {
+      pruefe(belegt.has(`${STIMME_ORDNER}/${name}`), `${STIMME_ORDNER}/${name}: zu dieser Datei steht kein Text in lesen-stimme.js`);
+    });
+  }
+  // Wo die Aufnahmen zu hören sind, lädt die Seite das Verzeichnis – gleich
+  // nach kids.js, das sie spielt.
+  ["index.html", "buecher.html", "silbenzug.html", "buchstabenhaus.html"].forEach((datei) => {
+    const html = lies(datei);
+    const stelle = html.indexOf('src="lesen-stimme.js?v=');
+    pruefe(stelle >= 0, `${datei}: lädt lesen-stimme.js nicht`);
+    pruefe(stelle > html.indexOf('src="kids.js?v='), `${datei}: lesen-stimme.js steht vor kids.js`);
+  });
+  const sw = lies("service-worker.js");
+  pruefe(sw.includes("./lesen-stimme.js${"), "service-worker.js: lesen-stimme.js fehlt in CORE_ASSETS");
+  pruefe(/const STIMME_CACHE = "lernapp-stimme-\d+";/.test(sw), "service-worker.js: der Cache der Aufnahmen (STIMME_CACHE) fehlt");
+  pruefe(sw.includes('requestUrl.pathname.includes("/stimme/")') && sw.includes("caches.open(STIMME_CACHE)"), "service-worker.js: die Aufnahmen gehen nicht in ihren eigenen Cache");
+  pruefe(sw.includes('key.startsWith("lernapp-stimme-") && key !== STIMME_CACHE'), "service-worker.js: alte Caches der Aufnahmen bleiben liegen");
+  pruefe(/status: 206/.test(sw) && /Content-Range/.test(sw), "service-worker.js: eine Aufnahme wird nicht in Stücken beantwortet (Safari spielt sie dann nicht)");
+  pruefe(/const ORDNER = \[[^\]]*"stimme"[^\]]*\];/.test(lies("netlify/build.mjs")), "netlify/build.mjs: der Ordner stimme/ kommt nicht mit auf die Site");
+}
+
 // --- 6b. Eigene Namen für die Klassen -------------------------------------------------
 // Jedes Spiel hat ein Kürzel für seine Klassen. Benutzt ein anderes Spiel
 // dasselbe, greifen die Regeln des einen beim anderen: «Wer fährt mit?» hatte
@@ -982,7 +1072,7 @@ let gemalteBuecher = 0;
 
 // --- 7. Schweizer Rechtschreibung ----------------------------------------------------
 {
-  const dateien = ["lesen-inhalte.js", "lesen-buecher.js", "lesen-stand.js", "lesen-ton.js", "lesen-art.js", "lesen-spiel.js", "lesen-laute.js", "train-leseecke.js",
+  const dateien = ["lesen-inhalte.js", "lesen-buecher.js", "lesen-stand.js", "lesen-ton.js", "lesen-stimme.js", "lesen-art.js", "lesen-spiel.js", "lesen-laute.js", "train-leseecke.js",
     "silbenzug.js", "buchstabenhaus.js", "lautekuppeln.js", "stimmtdas.js", "buecher.js",
     "silbenzug.html", "buchstabenhaus.html", "lautekuppeln.html", "stimmtdas.html", "buecher.html",
     "reimkupplung.js", "anlautlauscher.js", "werfaehrtmit.js", "woerterbauen.js", "silbenbahn.js", "blitzwoerter.js",
@@ -1007,4 +1097,4 @@ if (fehler.length) {
   process.exit(1);
 }
 const aufgenommen = Object.keys(lade("lesen-laute.js").windowStub.LernappLauteAufnahmen || {}).length;
-console.log(`Die Leseecke stimmt: ${inhalte.LAUTE.length} Laute (${aufgenommen} aufgenommen), ${inhalte.SILBEN_WOERTER.length + inhalte.KUPPEL_WOERTER.length} Wörter, ${bib.BUECHER.length} Bücher mit ${bib.BUECHER.reduce((n, b) => n + b.fragen.length, 0)} Fragen (${gemalteBuecher} mit gemalten Bildern), der Lesestand, die Seiten und die Aufnahmeseite.`);
+console.log(`Die Leseecke stimmt: ${inhalte.LAUTE.length} Laute (${aufgenommen} aufgenommen), ${inhalte.SILBEN_WOERTER.length + inhalte.KUPPEL_WOERTER.length} Wörter, ${bib.BUECHER.length} Bücher mit ${bib.BUECHER.reduce((n, b) => n + b.fragen.length, 0)} Fragen (${gemalteBuecher} mit gemalten Bildern), der Lesestand, die Seiten, die Aufnahmeseite und ${aufnahmenFertig} von ${stimmeTexte().length} festen Texten mit Alains Stimme.`);
