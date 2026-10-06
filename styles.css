@@ -12966,3 +12966,49 @@ body[data-page="laute-aufnehmen"] {
 @media (prefers-reduced-motion: reduce) {
   .ls-wort.zeigt-hin { animation: none; }
 }
+
+/* --- Buchstabengleis --- */
+.bg-reihe { display: flex; align-items: center; justify-content: center; gap: clamp(10px, 3vw, 40px); width: min(96vw, 1100px); }
+.bg-brett { flex: 0 1 auto; min-width: 0; }
+.bg-svg {
+  display: block;
+  height: min(calc(100vh - 130px), 560px);
+  width: auto;
+  max-width: 64vw;
+  border-radius: 22px;
+  background: #fffdf6;
+  box-shadow: 0 8px 18px rgba(36, 48, 71, 0.18);
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.bg-svg.ist-fertig { box-shadow: 0 0 0 6px #3fbf74, 0 8px 18px rgba(36, 48, 71, 0.18); }
+.bg-svg.ist-fertig .bg-gefahren { stroke: #f5a623; }
+.bg-halo { fill: #ffd166; opacity: 0; transition: opacity 0.15s ease; }
+.bg-lok.ist-dran .bg-halo { opacity: 0.55; }
+.bg-lok-innen.wackelt { animation: lese-wackeln 0.42s ease-in-out; }
+.bg-tipp { animation: bg-tippen 1.2s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+@keyframes bg-tippen { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.35); opacity: 0.55; } }
+.bg-punkt.ist-fertig { fill: #3fbf74; }
+.bg-seite { display: flex; flex-direction: column; align-items: center; gap: clamp(4px, 1.6vh, 14px); }
+.bg-zeichen { margin: 0; color: #243047; font-family: "Andika", Inter, system-ui, sans-serif; font-size: clamp(2.6rem, 22vh, 9rem); font-weight: 700; line-height: 1; }
+.bg-wort { display: flex; align-items: center; gap: 8px; margin: 0; padding: 4px 12px; border-radius: 14px; background: rgba(255, 255, 255, 0.85); color: #243047; font-family: "Andika", Inter, system-ui, sans-serif; font-size: clamp(1rem, 5vh, 1.7rem); font-weight: 700; }
+.bg-bild { font-size: 1.3em; }
+.bg-zeig {
+  width: clamp(48px, 13vh, 64px);
+  height: clamp(48px, 13vh, 64px);
+  padding: 0;
+  border: 3px solid #ffffff;
+  border-radius: 50%;
+  background: #fff6e0;
+  box-shadow: 0 5px 12px rgba(36, 48, 71, 0.2);
+  font-size: clamp(1.3rem, 6vh, 1.9rem);
+}
+.bg-zeig:hover:not(:disabled) { background: #ffe9b8; }
+@media (orientation: portrait) {
+  .bg-reihe { flex-direction: column; }
+  .bg-svg { height: min(56vh, 520px); max-width: 92vw; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bg-tipp, .bg-lok-innen.wackelt { animation: none; }
+}

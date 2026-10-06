@@ -510,6 +510,53 @@ try {
   if (!(await gesagt()).includes(luecke.satz)) fehlt(`Lückensätze: der richtige Satz wird nicht vorgelesen (${luecke.satz})`);
   if ((await zaehler()) !== "0") fehlt("Lückensätze: nach einem Fehlgriff zählt die Lücke trotzdem");
 
+  // --- 6f. Buchstabengleis -------------------------------------------------------------
+  // Mit der Maus über das Gleis, Strich für Strich: Die Lok folgt nur auf dem
+  // Gleis und nur vorwärts; wer weit abkommt, entgleist. Punkte werden
+  // angetippt. Ist der Buchstabe fertig, sagt die Stimme sein Wort.
+  await oeffne("buchstabengleis.html", "window.LernappBuchstabengleis");
+  const gleisListe = await page.evaluate(() => window.LernappBuchstabengleis.buchstabenListe().map((l) => l.id).join(","));
+  if (gleisListe !== "m,a,l,i,o,s,e,r,n,u,f,w,h,d,t,b,k,p,g") fehlt(`Buchstabengleis: zur Wahl stehen ${gleisListe}`);
+  await page.locator(".lese-los-knopf").click();
+  await page.waitForSelector(".bg-svg", { timeout: 5000 }).catch(() => {});
+  const fahreStrich = async ({ weit = false } = {}) => {
+    const pts = await page.evaluate(() => window.LernappBuchstabengleis.bildschirmPunkte());
+    if (!pts.length) return;
+    await page.mouse.move(pts[0].x, pts[0].y);
+    await page.mouse.down();
+    if (weit) {
+      await page.mouse.move(pts[0].x + 150, pts[0].y + 150, { steps: 6 });
+    } else {
+      for (let i = 0; i < pts.length; i += 4) await page.mouse.move(pts[i].x + 2, pts[i].y + 2);
+      await page.mouse.move(pts[pts.length - 1].x, pts[pts.length - 1].y);
+    }
+    await page.mouse.up();
+  };
+  for (const [zeichen, striche] of [["E", 4], ["i", 2]]) {
+    await page.evaluate((z) => window.LernappBuchstabengleis.uebe(z), zeichen);
+    await vergiss();
+    // Erst daneben: Die Lok bleibt, wo sie war, und es zählt als Entgleisen.
+    if (zeichen === "E") {
+      await fahreStrich({ weit: true });
+      const nachher = await page.evaluate(() => window.LernappBuchstabengleis.jetzt());
+      if (nachher.entgleist !== 1 || nachher.strich !== 0 || nachher.pos > 20) fehlt(`Buchstabengleis: weit daneben fährt die Lok mit (${JSON.stringify(nachher)})`);
+    }
+    for (let n = 0; n < striche; n += 1) {
+      const j = await page.evaluate(() => window.LernappBuchstabengleis.jetzt());
+      if (j.phase !== "fahren") break;
+      if (j.punkt) {
+        const [p0] = await page.evaluate(() => window.LernappBuchstabengleis.bildschirmPunkte());
+        await page.mouse.click(p0.x, p0.y);
+      } else await fahreStrich();
+      await page.waitForTimeout(60);
+    }
+    const fertig = await page.evaluate(() => window.LernappBuchstabengleis.jetzt());
+    if (fertig.phase !== "fertig" && fertig.phase !== "over") fehlt(`Buchstabengleis ${zeichen}: nach ${striche} Strichen ist der Buchstabe nicht fertig (${JSON.stringify(fertig)})`);
+    await page.waitForFunction(() => window.LernappBuchstabengleis.jetzt().phase !== "fahren", null, { timeout: 3000 }).catch(() => {});
+    await page.waitForFunction((w) => (window.__gesagt || []).includes(w), zeichen === "E" ? "Ente" : "Igel", { timeout: 5000 }).catch(() => {});
+    if (!(await gesagt()).includes(zeichen === "E" ? "Ente" : "Igel")) fehlt(`Buchstabengleis ${zeichen}: die Stimme sagt das Wort nicht`);
+  }
+
   // --- 6d. Die Buchstaben der Schule --------------------------------------------------
   // Haben die Eltern abgehakt, wohnen genau diese Laute im Buchstabenhaus, und
   // Laute kuppeln nimmt nur Wörter, die sich damit lesen lassen.
@@ -644,4 +691,4 @@ if (befunde.length) {
   befunde.forEach((b) => console.error(`  - ${b}`));
   process.exit(1);
 }
-console.log("Die Leseecke läuft: Lesewagen, Zimmer mit Auswahl, alle Spiele hin und zurück, eine Runde Silbenzug bis zum Tor, Laute kuppeln ohne verratenes Wort, Buchstabenhaus, der Würfel von «Stimmt das?», Reimkupplung, Anlaut-Lauscher, Wer fährt mit?, Wörter bauen, Silbenbahn, Blitzwörter, Mein Name, der Lesewurm bekommt seinen Namen, Lückensätze, die Buchstaben der Schule, Hörbuch mit Nachsehen, Zusammen lesen, und der Lesewurm wächst.");
+console.log("Die Leseecke läuft: Lesewagen, Zimmer mit Auswahl, alle Spiele hin und zurück, eine Runde Silbenzug bis zum Tor, Laute kuppeln ohne verratenes Wort, Buchstabenhaus, der Würfel von «Stimmt das?», Reimkupplung, Anlaut-Lauscher, Wer fährt mit?, Wörter bauen, Silbenbahn, Blitzwörter, Mein Name, der Lesewurm bekommt seinen Namen, Lückensätze, Buchstabengleis, die Buchstaben der Schule, Hörbuch mit Nachsehen, Zusammen lesen, und der Lesewurm wächst.");

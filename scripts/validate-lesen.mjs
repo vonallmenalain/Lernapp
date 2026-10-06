@@ -202,6 +202,65 @@ function gruppeVon(teile) {
   }
 }
 
+// --- 2c. Wie die Buchstaben geschrieben werden (Buchstabengleis) ------------------
+{
+  // Ein Weg aus M, L, C und Q – abgetastet, wie es der Browser auch tut.
+  function abtasten(d) {
+    const teile = String(d).match(/[A-Za-z]|-?\d+(?:\.\d+)?/g) || [];
+    const punkte = [];
+    let i = 0;
+    let befehl = "";
+    let jetzt = null;
+    const zahl = () => Number(teile[i++]);
+    while (i < teile.length) {
+      if (/[A-Za-z]/.test(teile[i])) befehl = teile[i++];
+      if (!/^[MLCQ]$/.test(befehl)) return { fehler: `unbekannter Befehl ${befehl}` };
+      if (befehl === "M") { jetzt = { x: zahl(), y: zahl() }; punkte.push(jetzt); continue; }
+      if (!jetzt) return { fehler: "beginnt nicht mit M" };
+      if (befehl === "L") { jetzt = { x: zahl(), y: zahl() }; punkte.push(jetzt); continue; }
+      const kontrolle = befehl === "C" ? [{ x: zahl(), y: zahl() }, { x: zahl(), y: zahl() }] : [{ x: zahl(), y: zahl() }];
+      const ziel = { x: zahl(), y: zahl() };
+      const a = jetzt;
+      for (let t = 1; t <= 20; t += 1) {
+        const u = t / 20;
+        const v = 1 - u;
+        punkte.push(befehl === "C"
+          ? { x: v ** 3 * a.x + 3 * v * v * u * kontrolle[0].x + 3 * v * u * u * kontrolle[1].x + u ** 3 * ziel.x, y: v ** 3 * a.y + 3 * v * v * u * kontrolle[0].y + 3 * v * u * u * kontrolle[1].y + u ** 3 * ziel.y }
+          : { x: v * v * a.x + 2 * v * u * kontrolle[0].x + u * u * ziel.x, y: v * v * a.y + 2 * v * u * kontrolle[0].y + u * u * ziel.y });
+      }
+      jetzt = ziel;
+    }
+    let laenge = 0;
+    for (let k = 1; k < punkte.length; k += 1) laenge += Math.hypot(punkte[k].x - punkte[k - 1].x, punkte[k].y - punkte[k - 1].y);
+    return { punkte, laenge };
+  }
+  const MIT_PUNKT = new Set(["i", "j", "ä", "ö", "ü", "Ä", "Ö", "Ü"]);
+  inhalte.LAUTE.filter((laut) => laut.id.length === 1).forEach((laut) => {
+    [laut.gross, laut.klein].forEach((zeichen) => {
+      const striche = inhalte.GLEISE[zeichen];
+      const wo = `Buchstabengleis ${zeichen}`;
+      if (!Array.isArray(striche) || !striche.length) { fehler.push(`${wo}: kein Weg`); return; }
+      let punkte = 0;
+      striche.forEach((d, n) => {
+        const weg = abtasten(d);
+        if (weg.fehler) { fehler.push(`${wo}, Strich ${n + 1}: ${weg.fehler}`); return; }
+        weg.punkte.forEach((p) => pruefe(p.x >= -10 && p.x <= 110 && p.y >= -20 && p.y <= 145, `${wo}, Strich ${n + 1}: (${p.x}, ${p.y}) liegt ausserhalb`));
+        if (weg.laenge < 4) { punkte += 1; return; }
+        pruefe(weg.laenge >= 20, `${wo}, Strich ${n + 1}: nur ${Math.round(weg.laenge)} lang`);
+        // Ein einzelner gerader Strich geht senkrecht von oben nach unten und
+        // waagrecht von links nach rechts – so wird geschrieben.
+        const gerade = /^M\s*-?[\d.]+\s+-?[\d.]+\s+L\s*-?[\d.]+\s+-?[\d.]+$/.test(d.trim());
+        if (gerade) {
+          const [a, b] = [weg.punkte[0], weg.punkte[weg.punkte.length - 1]];
+          if (a.x === b.x) pruefe(b.y > a.y, `${wo}, Strich ${n + 1}: senkrecht von unten nach oben`);
+          if (a.y === b.y) pruefe(b.x > a.x, `${wo}, Strich ${n + 1}: waagrecht von rechts nach links`);
+        }
+      });
+      pruefe(MIT_PUNKT.has(zeichen) ? punkte >= 1 : punkte === 0, `${wo}: ${punkte} Punkte zum Antippen`);
+    });
+  });
+}
+
 // --- 3. Bücher ------------------------------------------------------------------
 const GRATIS_SCHRANKE = (lies("entitlement.js").match(/const GRATIS_BUECHER = \[([^\]]*)\]/)?.[1] || "")
   .split(",").map((s) => s.trim().replace(/^"|"$/g, "")).filter(Boolean);
@@ -431,7 +490,7 @@ function lautgetreu(wort) {
   const SEITEN = {
     silbenzug: [], buchstabenhaus: [], lautekuppeln: [], stimmtdas: [], buecher: ["lesen-buecher.js"],
     reimkupplung: [], anlautlauscher: [], werfaehrtmit: [], woerterbauen: [], silbenbahn: [], blitzwoerter: [],
-    meinname: [], lueckensaetze: [],
+    meinname: [], lueckensaetze: [], buchstabengleis: [],
   };
   const stand = lies("lesen-stand.js");
   for (const [seite, extra] of Object.entries(SEITEN)) {
@@ -551,7 +610,7 @@ function lautgetreu(wort) {
 {
   const KUERZEL = { "lesen-spiel.js": "lese", "buchstabenhaus.js": "bh", "lautekuppeln.js": "kp", "stimmtdas.js": "sd", "buecher.js": "bu",
     "reimkupplung.js": "rk", "anlautlauscher.js": "al", "werfaehrtmit.js": "wm", "woerterbauen.js": "wb", "silbenbahn.js": "sb", "blitzwoerter.js": "bw",
-    "meinname.js": "mn", "lueckensaetze.js": "ls" };
+    "meinname.js": "mn", "lueckensaetze.js": "ls", "buchstabengleis.js": "bg" };
   const eigene = new Set(Object.keys(KUERZEL));
   const fremde = fs.readdirSync(root).filter((name) => name.endsWith(".js") && !eigene.has(name) && !name.startsWith("lesen-") && name !== "train-leseecke.js" && name !== "laute-aufnehmen.js" && name !== "silbenzug.js");
   Object.entries(KUERZEL).forEach(([datei, kuerzel]) => {
@@ -568,7 +627,7 @@ function lautgetreu(wort) {
     "silbenzug.html", "buchstabenhaus.html", "lautekuppeln.html", "stimmtdas.html", "buecher.html",
     "reimkupplung.js", "anlautlauscher.js", "werfaehrtmit.js", "woerterbauen.js", "silbenbahn.js", "blitzwoerter.js",
     "reimkupplung.html", "anlautlauscher.html", "werfaehrtmit.html", "woerterbauen.html", "silbenbahn.html", "blitzwoerter.html",
-    "meinname.js", "meinname.html", "lueckensaetze.js", "lueckensaetze.html",
+    "meinname.js", "meinname.html", "lueckensaetze.js", "lueckensaetze.html", "buchstabengleis.js", "buchstabengleis.html",
     "laute-aufnehmen.html", "laute-aufnehmen.js"];
   dateien.forEach((datei) => {
     if (!fs.existsSync(path.join(root, datei))) return;

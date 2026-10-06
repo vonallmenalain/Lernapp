@@ -122,6 +122,7 @@
     { id: "anlautlauscher", page: "anlautlauscher.html" },
     { id: "buchstabenhaus", page: "buchstabenhaus.html" },
     { id: "meinname", page: "meinname.html" },
+    { id: "buchstabengleis", page: "buchstabengleis.html" },
     { id: "lautekuppeln", page: "lautekuppeln.html" },
     { id: "werfaehrtmit", page: "werfaehrtmit.html" },
     { id: "woerterbauen", page: "woerterbauen.html" },
