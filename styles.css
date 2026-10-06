@@ -2904,6 +2904,11 @@ body.puzzle-active .spatialPuzzle-board .spatial-option-graphic > svg {
 .admin-laut.is-on:hover:not(:disabled) { background: var(--primary-dark); }
 .admin-lesen .admin-laut[aria-pressed="true"] { box-shadow: none; }
 .admin-laute-liste { margin: 0; color: var(--muted); font-weight: 800; overflow-wrap: anywhere; }
+/* Der Lesebericht: links die Frage, rechts die Zahl oder die Laute. */
+.lesebericht { display: grid; gap: 4px; }
+.lesebericht-zeile { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 2px 12px; padding: 5px 0; border-bottom: 1px solid var(--line); }
+.lesebericht-zeile:last-child { border-bottom: none; }
+.lesebericht-zeile strong { text-align: right; overflow-wrap: anywhere; }
 
 .reset-card.is-confirming,
 .admin-reset.is-confirming {
@@ -11609,6 +11614,22 @@ body[data-page="train"] .train-stage[data-view="lesen"] ~ .help-voice {
   50% { filter: drop-shadow(0 0 14px #ffd166) brightness(1.1); }
 }
 .regal-buch.is-gelesen { filter: drop-shadow(0 0 6px #ffd166); }
+/* Die Einrichtung ist kein Knopf: Getippt wird durch sie hindurch. Was neu
+   ist, leuchtet ein paar Mal auf (nur ein Filter – die Lage steht im
+   transform-Attribut der Teile). */
+.lese-ausbau { pointer-events: none; }
+.lese-ausbau.is-neu { animation: lese-ausbau-neu 1.2s ease-in-out 4; }
+@keyframes lese-ausbau-neu {
+  0%, 100% { filter: none; }
+  50% { filter: drop-shadow(0 0 14px #ffd166) brightness(1.15); }
+}
+.lese-birne { animation: lese-birne 2.4s ease-in-out infinite; }
+.lese-birne-1 { animation-delay: -0.8s; }
+.lese-birne-2 { animation-delay: -1.6s; }
+@keyframes lese-birne {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
 .wurm-auge { animation: wurm-blinzeln 5s infinite; transform-box: fill-box; transform-origin: center; }
 @keyframes wurm-blinzeln {
   0%, 94%, 100% { transform: scaleY(1); }
@@ -11616,7 +11637,7 @@ body[data-page="train"] .train-stage[data-view="lesen"] ~ .help-voice {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .lesewagen-rauch, .lese-ort-weiter .wurm-gesicht, .lesewurm.is-gewachsen, .wurm-auge, .leseecke { animation: none; }
+  .lesewagen-rauch, .lese-ort-weiter .wurm-gesicht, .lesewurm.is-gewachsen, .wurm-auge, .leseecke, .lese-ausbau.is-neu, .lese-birne { animation: none; }
   .train-stage[data-lesen-ein] .lesewagen-knopf { transition: none; }
 }
 
@@ -13304,4 +13325,91 @@ body[data-page="laute-aufnehmen"] {
 
 @media (prefers-reduced-motion: reduce) {
   .lp-teil.zeigt-hin, .bsg-signal.blinkt .bsg-tafel, .lt-wartet.zeigt-hin, .lt-topf.zeigt-hin { animation: none; }
+}
+
+/* --- Geschichtenzug --- */
+/* Oben das Gleis mit der Lok (sie schaut nach links, wo die Geschichte
+   anfängt) und rechts das Buch; darunter die Wagen zum Ankuppeln. */
+.gz-oben { display: flex; align-items: flex-end; gap: clamp(8px, 2vw, 20px); width: min(96vw, 1100px); }
+.gz-gleis { position: relative; flex: 1 1 auto; min-width: 0; height: clamp(50px, 16vh, 100px); }
+.gz-zug { position: absolute; left: 0; bottom: 8px; display: flex; align-items: flex-end; height: calc(100% - 8px); }
+.gz-zug .lese-lok { height: 100%; transform: scaleX(-1); }
+/* Abfahrt und Ankunft wie bei «Satz kuppeln». */
+.gz-zug.faehrt-ab { animation: sk-faehrt-ab 0.9s cubic-bezier(0.45, 0, 0.55, 1) forwards; }
+.gz-zug.kommt-an { animation: sk-kommt-an 0.8s cubic-bezier(0.25, 1, 0.5, 1); }
+.gz-angekuppelt { display: flex; align-items: flex-end; gap: 4px; height: 84%; margin-left: 3px; }
+.gz-titel {
+  display: flex;
+  flex: 0 1 auto;
+  align-items: center;
+  gap: 8px;
+  max-width: 34vw;
+  min-height: 0;
+  padding: 4px 12px 4px 4px;
+  border: none;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 4px 10px rgba(36, 48, 71, 0.14);
+  color: #243047;
+  font-family: "Andika", Inter, system-ui, sans-serif;
+  font-size: clamp(0.85rem, 4.2vh, 1.4rem);
+  font-weight: 700;
+  line-height: 1.15;
+  text-align: left;
+}
+.gz-titel:hover:not(:disabled) { background: #ffffff; }
+.gz-deckel { display: block; flex: none; width: clamp(40px, 12vh, 84px); }
+.gz-deckel svg { display: block; width: 100%; height: auto; border-radius: 6px; }
+.gz-titel-text { display: -webkit-box; min-width: 0; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.gz-neben { display: flex; align-items: flex-end; justify-content: center; gap: clamp(8px, 1.8vw, 18px); }
+.gz-wagen {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: min(calc((92vw - 60px) / var(--gz-n, 4)), 230px, calc((100vh - 195px) * 1.58 + 12px));
+  min-height: 0;
+  margin-bottom: 9px;
+  padding: 6px 6px 12px;
+  border: none;
+  border-radius: 12px;
+  background: var(--gz-farbe, #2f6fd0);
+  box-shadow: 0 5px 0 rgba(0, 0, 0, 0.18);
+  cursor: pointer;
+}
+.gz-wagen:hover:not(:disabled) { background: var(--gz-farbe, #2f6fd0); filter: brightness(1.06); }
+.gz-bild { display: block; }
+.gz-bild .bu-bild-svg { border-width: 2px; border-radius: 8px; box-shadow: none; }
+/* Bild und Satz: Auf flachen Bildschirmen wird das Bild kleiner, damit der
+   Satz Platz hat. */
+.lese-stage[data-art="beides"] .gz-neben .gz-bild { width: min(100%, max(64px, calc((100vh - 300px) * 1.58))); margin: 0 auto; }
+.gz-satz {
+  display: block;
+  padding: 4px 6px;
+  border-radius: 8px;
+  background: #fffaf0;
+  color: #243047;
+  font-size: clamp(0.72rem, 3.6vh, 1.1rem);
+  font-weight: 700;
+  line-height: 1.22;
+  text-align: left;
+}
+.gz-raeder { position: absolute; left: 14%; right: 14%; bottom: -9px; height: 18px; }
+.gz-raeder::before, .gz-raeder::after { content: ""; position: absolute; top: 0; width: 18px; height: 18px; border-radius: 50%; background: #3a3f4a; box-shadow: inset 0 0 0 5px #3a3f4a, inset 0 0 0 9px #9aa3b2; }
+.gz-raeder::before { left: 0; }
+.gz-raeder::after { right: 0; }
+.gz-wagen.zeigt-hin { animation: lese-zeigt-hin 0.9s ease-in-out infinite; }
+/* Angekuppelt: klein, nur das Bild – ohne Bild der Anfang des Satzes. */
+.gz-dran { display: block; width: auto; height: 100%; margin: 0; padding: 3px 3px 7px; box-shadow: none; cursor: default; animation: rk-kuppelt 0.4s cubic-bezier(0.25, 1, 0.5, 1); }
+.gz-dran .gz-bild { height: 100%; }
+.gz-dran .bu-bild-svg { width: auto; height: 100%; border-width: 1.5px; border-radius: 6px; }
+.lese-stage[data-art="beides"] .gz-dran .gz-satz { display: none; }
+.lese-stage[data-art="saetze"] .gz-dran { width: clamp(60px, 11vw, 124px); }
+.lese-stage[data-art="saetze"] .gz-dran .gz-satz { display: -webkit-box; max-height: 100%; overflow: hidden; padding: 2px 4px; font-size: clamp(0.55rem, 2.2vh, 0.8rem); -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.gz-dran .gz-raeder { bottom: -6px; height: 12px; }
+.gz-dran .gz-raeder::before, .gz-dran .gz-raeder::after { width: 12px; height: 12px; box-shadow: inset 0 0 0 3px #3a3f4a, inset 0 0 0 6px #9aa3b2; }
+
+@media (prefers-reduced-motion: reduce) {
+  .gz-zug.kommt-an, .gz-dran, .gz-wagen.zeigt-hin { animation: none; }
+  .gz-zug.faehrt-ab { animation: none; opacity: 0; }
 }

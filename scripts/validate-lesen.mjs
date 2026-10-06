@@ -264,10 +264,10 @@ function gruppeVon(teile) {
 // --- 3. Bücher ------------------------------------------------------------------
 const GRATIS_SCHRANKE = (lies("entitlement.js").match(/const GRATIS_BUECHER = \[([^\]]*)\]/)?.[1] || "")
   .split(",").map((s) => s.trim().replace(/^"|"$/g, "")).filter(Boolean);
-// Was buecher.js zeichnen kann – aus der Quelle gelesen, damit kein Buch eine
+// Was lesen-bilder.js zeichnen kann – aus der Quelle gelesen, damit kein Buch eine
 // Zeichnung verlangt, die es nicht gibt.
-const ZEICHNUNGEN = [...(lies("buecher.js").match(/const ZEICHNUNGEN = \{[\s\S]*?\n {2}\};/)?.[0] || "").matchAll(/^ {4}([a-z]+): \(/gm)].map((m) => m[1]);
-pruefe(ZEICHNUNGEN.includes("fenster") && ZEICHNUNGEN.includes("schneemann"), `buecher.js: die Zeichnungen wurden nicht gefunden (${ZEICHNUNGEN.join(", ")})`);
+const ZEICHNUNGEN = [...(lies("lesen-bilder.js").match(/const ZEICHNUNGEN = \{[\s\S]*?\n {2}\};/)?.[0] || "").matchAll(/^ {4}([a-z]+): \(/gm)].map((m) => m[1]);
+pruefe(ZEICHNUNGEN.includes("fenster") && ZEICHNUNGEN.includes("schneemann"), `lesen-bilder.js: die Zeichnungen wurden nicht gefunden (${ZEICHNUNGEN.join(", ")})`);
 // Wörter, die ein Erstleser als Ganzes kennt, auch wenn ein Laut darin später
 // kommt. Heute sind alle lautgetreu – die Liste steht hier, damit eine
 // Ausnahme bewusst geschieht.
@@ -447,6 +447,43 @@ function lautgetreu(wort) {
     pruefe(stand.wurmName() === "", "Lesestand: der Lesewurm hat einen Namen, bevor ihn jemand getauft hat");
     stand.wurmTaufen("wumpi");
     pruefe(stand.wurmName() === "Wumpi" && stand.stand().wurm?.at > 0, `Lesestand: wurmTaufen tauft nicht (${stand.wurmName()})`);
+
+    // Verwechslungen: als Paar gezählt, egal in welcher Richtung; Unsinn
+    // fällt weg, und beim Zusammenführen gilt das Maximum je Paar.
+    stand.verwechselt("d", "b");
+    stand.verwechselt("b", "d");
+    stand.verwechselt("m", "m");
+    stand.verwechselt("<x>", "b");
+    pruefe(JSON.stringify(stand.stand().verwechselt) === JSON.stringify({ "b|d": 2 }), `Lesestand: verwechselt zählt nicht paarweise: ${JSON.stringify(stand.stand().verwechselt)}`);
+    const v = stand.merge({ verwechselt: { "b|d": 2, "m|n": 1, "Quatsch": 5 } }, { verwechselt: { "b|d": 3, "a|o": 1 } });
+    pruefe(JSON.stringify(v.verwechselt) === JSON.stringify(stand.merge({ verwechselt: { "b|d": 3, "a|o": 1 } }, { verwechselt: { "b|d": 2, "m|n": 1, "Quatsch": 5 } }).verwechselt)
+      && v.verwechselt["b|d"] === 3 && v.verwechselt["m|n"] === 1 && !("Quatsch" in v.verwechselt), `Lesestand: Verwechslungen werden nicht zusammengeführt: ${JSON.stringify(v.verwechselt)}`);
+    const viele = {};
+    for (let i = 0; i < 40; i += 1) viele[`a|${"bcdefghijklmnopqrstuvwxyz"[i % 25]}${i >= 25 ? "h" : ""}`] = i + 1;
+    pruefe(Object.keys(stand.merge({ verwechselt: viele }, {}).verwechselt).length <= 24, "Lesestand: die Verwechslungen wachsen ohne Grenze");
+
+    // Der Lesewagen: fünfzehn Dinge, eines je Schwelle an gelesenen Stücken
+    // (Runden und Bücher), nie mehr, nie weniger.
+    pruefe(stand.WAGEN_SCHRITTE.length === 15 && stand.WAGEN_SCHRITTE.every((x, i, a) => i === 0 || x > a[i - 1]), "Lesestand: WAGEN_SCHRITTE sind nicht fünfzehn steigende Schwellen");
+    const mit = (runden, buecher = 0) => ({ spiele: { silbenzug: { runden } }, buecher: buecher ? { x: { mal: buecher } } : {} });
+    pruefe(stand.wagenStufe(mit(0)) === 0 && stand.wagenStufe(mit(1)) === 1 && stand.wagenStufe(mit(3, 1)) === 3 && stand.wagenStufe(mit(stand.WAGEN_SCHRITTE[14] - 1)) === 14 && stand.wagenStufe(mit(500, 9)) === 15,
+      "Lesestand: wagenStufe zählt Runden und Bücher nicht nach den Schwellen");
+
+    // Der Bericht für die Eltern.
+    const br = stand.bericht({
+      woerter: 340,
+      laute: { m: { r: 4, f: 0, tage: ["2026-10-01", "2026-10-03"] }, a: { r: 3, f: 1, tage: ["2026-10-02", "2026-10-04"] }, b: { r: 1, f: 2, tage: ["2026-10-04"] }, s: { r: 1, f: 0, tage: ["2026-10-04"] } },
+      buecher: { y: { mal: 2, sterne: 3 }, z: { mal: 1, sterne: 2 } },
+      spiele: { silbenzug: { runden: 5 }, buchstabenhaus: { runden: 2 }, reimkupplung: { runden: 0 } },
+      blitz: { und: { r: 3, tage: ["2026-10-01", "2026-10-02"] } },
+      verwechselt: { "b|d": 3, "m|n": 1 },
+    });
+    pruefe(br.woerter === 340 && br.buecher === 2 && br.buecherGold === 1 && br.runden === 7 && br.wagen === 5 && br.blitzSicher === 1,
+      `Lesestand: der Bericht zählt falsch: ${JSON.stringify(br)}`);
+    pruefe(br.sicher.join(",") === "m,a" && br.wackelig.join(",") === "b", `Lesestand: sichere ${br.sicher} oder wackelige Laute ${br.wackelig} falsch (s ist nur geübt)`);
+    pruefe(br.verwechslungen.length === 1 && br.verwechslungen[0].paar.join("|") === "b|d" && br.verwechslungen[0].mal === 3, `Lesestand: Verwechslungen im Bericht: ${JSON.stringify(br.verwechslungen)}`);
+    pruefe(br.spiele.map((x) => `${x.id}:${x.runden}`).join(",") === "silbenzug:5,buchstabenhaus:2" && br.spiele[0].titel === "Silbenzug", `Lesestand: Spiele im Bericht: ${JSON.stringify(br.spiele)}`);
+    pruefe(stand.bericht({}).woerter === 0 && stand.bericht(null).sicher.length === 0, "Lesestand: ein leerer Kasten gibt keinen leeren Bericht");
   }
 }
 
@@ -488,11 +525,12 @@ function lautgetreu(wort) {
 {
   const GEMEINSAM = ["entitlement.js", "kids.js", "train-art.js", "train-scenes.js", "game-cloud.js", "lesen-inhalte.js", "lesen-stand.js", "lesen-laute.js", "lesen-ton.js", "lesen-art.js", "game-shell.js", "lesen-spiel.js"];
   const SEITEN = {
-    silbenzug: [], buchstabenhaus: [], lautekuppeln: [], stimmtdas: [], buecher: ["lesen-buecher.js"],
+    silbenzug: [], buchstabenhaus: [], lautekuppeln: [], stimmtdas: [], buecher: ["lesen-buecher.js", "lesen-bilder.js"],
     reimkupplung: [], anlautlauscher: [], werfaehrtmit: [], woerterbauen: [], silbenbahn: [], blitzwoerter: [],
     meinname: [], lueckensaetze: [], buchstabengleis: [],
     satzkuppeln: [], quatschsaetze: [], stolperwoerter: ["lesen-buecher.js"], quatschwoerter: [],
     lautposition: [], buchstabensignal: [], liesundtu: [],
+    geschichtenzug: ["lesen-buecher.js", "lesen-bilder.js"],
   };
   const stand = lies("lesen-stand.js");
   for (const [seite, extra] of Object.entries(SEITEN)) {
@@ -521,7 +559,7 @@ function lautgetreu(wort) {
   });
   const sw = lies("service-worker.js");
   [...Object.keys(SEITEN).flatMap((s) => [`./${s}.html"`, `./${s}.js\${`]), "./leseschrift.css${", "./lesen-inhalte.js${", "./lesen-stand.js${", "./lesen-laute.js${",
-    "./lesen-ton.js${", "./lesen-art.js${", "./lesen-spiel.js${", "./lesen-buecher.js${", "./train-leseecke.js${"].forEach((eintrag) => {
+    "./lesen-ton.js${", "./lesen-art.js${", "./lesen-spiel.js${", "./lesen-buecher.js${", "./lesen-bilder.js${", "./train-leseecke.js${"].forEach((eintrag) => {
     pruefe(sw.includes(eintrag), `service-worker.js: ${eintrag.replace(/["${]/g, "")} fehlt in CORE_ASSETS`);
   });
   // Die Schrift liegt in der Datei selbst: Der Build kopiert keine Ordner
@@ -614,7 +652,8 @@ function lautgetreu(wort) {
     "reimkupplung.js": "rk", "anlautlauscher.js": "al", "werfaehrtmit.js": "wm", "woerterbauen.js": "wb", "silbenbahn.js": "sb", "blitzwoerter.js": "bw",
     "meinname.js": "mn", "lueckensaetze.js": "ls", "buchstabengleis.js": "bg",
     "satzkuppeln.js": "sk", "quatschsaetze.js": "qs", "stolperwoerter.js": "sw", "quatschwoerter.js": "qw",
-    "lautposition.js": "lp", "buchstabensignal.js": "bsg", "liesundtu.js": "lt" };
+    "lautposition.js": "lp", "buchstabensignal.js": "bsg", "liesundtu.js": "lt",
+    "geschichtenzug.js": "gz" };
   const eigene = new Set(Object.keys(KUERZEL));
   const fremde = fs.readdirSync(root).filter((name) => name.endsWith(".js") && !eigene.has(name) && !name.startsWith("lesen-") && name !== "train-leseecke.js" && name !== "laute-aufnehmen.js" && name !== "silbenzug.js");
   Object.entries(KUERZEL).forEach(([datei, kuerzel]) => {
@@ -634,6 +673,7 @@ function lautgetreu(wort) {
     "meinname.js", "meinname.html", "lueckensaetze.js", "lueckensaetze.html", "buchstabengleis.js", "buchstabengleis.html",
     "satzkuppeln.js", "satzkuppeln.html", "quatschsaetze.js", "quatschsaetze.html", "stolperwoerter.js", "stolperwoerter.html", "quatschwoerter.js", "quatschwoerter.html",
     "lautposition.js", "lautposition.html", "buchstabensignal.js", "buchstabensignal.html", "liesundtu.js", "liesundtu.html",
+    "geschichtenzug.js", "geschichtenzug.html", "lesen-bilder.js",
     "laute-aufnehmen.html", "laute-aufnehmen.js"];
   dateien.forEach((datei) => {
     if (!fs.existsSync(path.join(root, datei))) return;

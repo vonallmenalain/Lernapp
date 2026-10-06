@@ -42,6 +42,12 @@ Stand: Oktober 2026 · Grundlage: das Konzept «Leseecke – Konzept & Ideensamm
 > (hinter dem Buchstabenhaus) und **Lies und tu!** (hinter dem Spielzeugzug). Wo «vorne» und
 > «hinten» zählen – Satz kuppeln, Laut-Position –, schaut die Lok nach links: Dort fängt das
 > Wort oder der Satz an.
+>
+> **Etappe 3, dritter Teil:** der **Geschichtenzug** (hinter dem Bücherregal: Seiten eines
+> Buches in die Reihenfolge der Geschichte kuppeln), der **Lesewagen in 15 Schritten** (mit
+> jedem gelesenen Stück wird er gemütlicher – von der Lampe bis zur Lichterkette; was neu ist,
+> leuchtet) und der **Lesebericht** für die Eltern (Wörter, Bücher, sichere und wackelige
+> Laute, Verwechslungen wie b und d).
 
 ## 1. Die Idee in drei Sätzen
 
@@ -64,8 +70,9 @@ Lesewagen selbst und der Lesewurm darin.
   Breite, nie kleiner als 70 Pixel.
 - **Das Zimmer** (`train-leseecke.js`, gezeichnet in `lesen-art.js`): eine Ansicht der Bühne
   wie die Reise. Jedes Ding ist ein Weg: Sessel mit Lesewurm (er sucht aus, was dran ist),
-  Buchstabenhaus, Trommel (Hören), Wortkiste (Wörter), Spielzeugzug (Sätze), Bücherregal, und
-  links vom Sessel ein Schild mit dem Namen des Lesewurms.
+  Buchstabenhaus, Trommel (Hören), Wortkiste (Wörter), Spielzeugzug (Sätze), Bücherregal
+  (Bücher und Geschichtenzug), und links vom Sessel ein Schild mit dem Namen des Lesewurms.
+  Alles andere im Zimmer ist **Einrichtung** und kommt erst mit dem Lesen (siehe unten).
   Stehen hinter einem Ding mehrere Spiele, kommt eine Auswahl mit Bildern; welches Spiel wo
   steht, sagt der Katalog in `lesen-stand.js` (`SPIELE`).
 - **Die Spiele** sind eigene Seiten auf `game-shell.js`. Der Pfeil zurück führt in den
@@ -96,6 +103,7 @@ Lesewagen selbst und der Lesewurm darin.
 | Buchstaben-Signal | `buchstabensignal.html` | Wagen mit Buchstaben rollen vorbei; das Kind hält jeden an, der den Buchstaben vom Signal trägt (m), gross oder klein – nicht den Doppelgänger (n). Auf «leicht» rollen sie langsamer | Buchstaben unterscheiden, die sich ähnlich sehen |
 | Lies und tu! | `liesundtu.html` | liest einen Auftrag und tut, was dasteht: «Setz den Fuchs auf den Tisch.» (Tier wählen, Stelle antippen) oder «Male zwei Ballone rot an.»; auf «schwer» mit gross und klein | Aufträge lesen und verstehen |
 | Lückensätze | `lueckensaetze.html` | ein Wort fehlt im Satz – auf, unter, neben, ein Tunwort, das Tier, das Ding, die Zahl; die Stimme liest den Satz mit dem gewählten Wort | Sätze genau lesen |
+| Geschichtenzug | `geschichtenzug.html` | vier Seiten aus einem Buch stehen als Wagen durcheinander – Bild und, wer liest, ein Satz; das Kind kuppelt sie so an die Lok, wie die Geschichte geht. Gelesene Bücher kommen zuerst; auf «leicht» drei Wagen nur mit Bildern, für Leser auf «schwer» nur Sätze | Handlungsfolge verstehen |
 
 Drei Regeln gelten überall:
 
@@ -124,9 +132,10 @@ aus `train-art.js` (`buildPassenger`), dazu Emoji.
 | Geschichten | ab 7 | längere Sätze, wörtliche Rede | *Sepp und das Gewitter*, *Leo lernt brüllen*, *Die Reise zum Mond* |
 
 Das Regal hat ein **Fach je Stufe** mit Reitern oben; offen ist zuerst das Fach zur
-Lesestufe des Kindes. Ein Haken am Reiter heisst: alle Bücher darin gelesen. Was es nicht
-als Emoji gibt, zeichnet `buecher.js` selbst (Fenster, Höhle, Pfütze, Staffelei, Seerose,
-Schneemann, Fliege, ein grosses Blatt als Schirm).
+Lesestufe des Kindes. Ein Haken am Reiter heisst: alle Bücher darin gelesen. Die Bilder
+zeichnet `lesen-bilder.js` – für das Regal und den Geschichtenzug gleich –, und was es nicht
+als Emoji gibt, zeichnet es selbst (Fenster, Höhle, Pfütze, Staffelei, Seerose, Schneemann,
+Fliege, ein grosses Blatt als Schirm).
 
 Nach der letzten Seite kommen drei Fragen. Wer danebentippt, kann **im Buch nachsehen**: Die
 Seite, auf der es steht, geht auf, und ein Pfeil führt zurück zur Frage. Drei Sterne gibt es,
@@ -146,6 +155,18 @@ Firestore-Dokument (Grenze 1 MiB), das Eltern und Gruppe lesen können.
   zuerst.
 - Der Wurm im Sessel wählt, was **als Nächstes dran ist**: je Lesestufe ein paar Spiele, und
   dran ist das, was am längsten nicht gespielt wurde.
+- Der **Lesewagen** wird gemütlich: Am Anfang stehen nur die Dinge zum Spielen da. Nach 1, 2,
+  4, 6, 9, 12, 15, 19, 23, 28, 33, 39, 45, 52 und 60 gelesenen Stücken (fertige Runden und
+  Bücher, `wagenStufe`) kommt je ein Ding dazu: Lampe, Teppich, Kissen, Vorhänge, Blumen am
+  Fenster, ein Bild, eine Stehlampe, ein Stapel Bücher, eine Uhr, eine Hängepflanze, eine
+  Decke, eine Wimpelkette, ein Mobile mit Sternen, eine schlafende Katze und zuletzt eine
+  Lichterkette (`lesen-art.js`, `AUSBAU`). Was seit dem letzten Besuch dazukam, leuchtet, und
+  der Lautsprecher nennt es. Von aussen sieht man Vorhänge, Blumenkästen und die
+  Lichterkette auch auf dem Startbild. Die Dinge sind keine Knöpfe – getippt wird durch sie
+  hindurch.
+- **Verwechslungen** merkt sich der Kasten paarweise (`verwechselt`, «b|d»: 3) – wenn im
+  Buchstaben-Signal oder im Buchstabenhaus ein Buchstabe für einen anderen genommen wird.
+  Höchstens 24 Paare, die häufigsten bleiben.
 - Seinen **Namen** gibt ihm das Kind selbst (`meinname.html?wurm=1`, über das Schild links vom
   Sessel – immer frei, auch ohne Kauf): Es legt ihn aus Buchstaben, die Stimme liest jedes Mal
   vor, was dasteht, ein Würfel schlägt einen vor. Der Name liegt im Lesestand (`wurm`, die
@@ -162,6 +183,11 @@ bei den Buchstaben, «schwer» bei den Sätzen. Im Elternbereich steht je Kind d
 - **Wo beginnt die Leseecke?** Nach Alter, Hören, Buchstaben, Wörter, Sätze, Geschichten.
 - **Schrift:** Automatisch (die Jüngsten sehen nur Grossbuchstaben), nur Grossbuchstaben,
   gross und klein.
+- **Lesebericht** (`renderKindLesebericht`, gerechnet in `lesen-stand.js`, `bericht`):
+  gelesene oder gehörte Wörter, Bücher (und wie viele mit allen Fragen richtig), Runden,
+  wie weit der Lesewagen eingerichtet ist, Laute, die sitzen, Laute, die noch wackeln
+  (geübt, mit Fehlern, sitzen noch nicht), oft Verwechseltes (ab zweimal) und die liebsten
+  Spiele. Nur aus den Zählern im Kasten – kein Protokoll einzelner Antworten.
 - **Buchstaben aus der Schule:** «Nach Reihenfolge» oder selbst abhaken (ein Knopf je Laut,
   gespeichert wird erst mit «Speichern»). Abgehakt wohnen genau diese Laute im
   Buchstabenhaus (mindestens vier), und Laute kuppeln, Wer fährt mit?, Wörter bauen und die
@@ -174,7 +200,7 @@ neuere Fassung und schreibt sie nie selbst. Wie die Stufe überlebt sie das Zur�
 
 ### Gratis
 
-Die Schranke (`entitlement.js`) kennt die zwanzig Spiele der Leseecke in einer eigenen Tabelle
+Die Schranke (`entitlement.js`) kennt die einundzwanzig Spiele der Leseecke in einer eigenen Tabelle
 `LESEECKE` – nicht in `AREAS`, die gleich bleiben muss wie im Zug – und gibt je Spiel eine
 Runde frei. Den Lesewurm taufen ist kein Spiel und immer frei. Das Bücherregal hat keine Runden: *Wo ist das Rüebli?* und *Leo und die Melone*
 sind immer frei (`GRATIS_BUECHER`, `buchFree`), die anderen gehören zum Kauf. «Ganze App
@@ -193,20 +219,21 @@ Ordner im Build** – `netlify/build.mjs` bleibt unverändert –, und offline f
 | --- | --- |
 | `lesen-inhalte.js` | Laute, Laut-Steine, Wörter für die Spiele, was sich mit den Buchstaben der Schule lesen lässt, Bausteine für die Sätze (Tiere, Dinge, Tunwörter), Sätze mit und ohne Sinn (`SINN_SAETZE`), Stolpersteine, wie jeder Buchstabe geschrieben wird (`GLEISE`) |
 | `lesen-buecher.js` | die Bücher: Text, Bild, Fragen |
-| `lesen-stand.js` | Lesestand, Lesewurm, Einstellungen der Eltern, was als Nächstes dran ist |
+| `lesen-bilder.js` | die Bilder der Bücher und ihre Umschläge – für Regal und Geschichtenzug |
+| `lesen-stand.js` | Lesestand, Lesewurm, Lesewagen (`wagenStufe`), Verwechslungen, der Bericht für die Eltern, Einstellungen der Eltern, was als Nächstes dran ist |
 | `lesen-ton.js` | Laute (Aufnahme oder Sprachausgabe), Wörter und Sätze, mit Mitleuchten |
 | `lesen-laute.js` | die Aufnahmen der Laute als Daten – heute noch leer |
 | `laute-aufnehmen.html`, `laute-aufnehmen.js` | die Aufnahmeseite: aufnehmen, zuschneiden, `lesen-laute.js` erzeugen |
-| `lesen-art.js` | Lesewagen, Zimmer mit Namensschild, Lesewurm, Trommel, Laut-Wagen, das Bild zu einem Satz (`buildSzene`) |
+| `lesen-art.js` | Lesewagen, Zimmer mit Namensschild und Einrichtung (`AUSBAU`), Lesewurm, Trommel, Laut-Wagen, das Bild zu einem Satz (`buildSzene`) |
 | `lesen-spiel.js` | was alle Spiele der Leseecke teilen: Bühne, «Los», Ergebnis mit Sternen |
 | `train-leseecke.js` | das Zimmer als Ansicht der Bühne |
 | `silbenzug.*`, `buchstabenhaus.*`, `lautekuppeln.*`, `stimmtdas.*`, `buecher.*` | die Spiele aus Etappe 1 |
 | `reimkupplung.*`, `anlautlauscher.*`, `werfaehrtmit.*`, `woerterbauen.*`, `silbenbahn.*`, `blitzwoerter.*`, `meinname.*`, `lueckensaetze.*`, `buchstabengleis.*` | die Spiele aus Etappe 2 |
-| `satzkuppeln.*`, `quatschsaetze.*`, `stolperwoerter.*`, `quatschwoerter.*`, `lautposition.*`, `buchstabensignal.*`, `liesundtu.*` | die Spiele aus Etappe 3 |
+| `satzkuppeln.*`, `quatschsaetze.*`, `stolperwoerter.*`, `quatschwoerter.*`, `lautposition.*`, `buchstabensignal.*`, `liesundtu.*`, `geschichtenzug.*` | die Spiele aus Etappe 3 |
 | `leseschrift.css` | Andika |
 | `train-home.js`, `index.html` | Lesewagen auf dem Startbild, `?lesen=1` |
 | `entitlement.js` | `LESEECKE`, `GRATIS_BUECHER`, `buchFree`, `targetFree` mit `buch=` |
-| `firebase.js` | Karte «Leseecke» mit den Buchstaben der Schule, `setLesenElternFor`, Zurücksetzen behält die Einstellung |
+| `firebase.js` | Karte «Leseecke» mit Lesebericht und den Buchstaben der Schule, `setLesenElternFor`, Zurücksetzen behält die Einstellung |
 | `service-worker.js` | alle neuen Dateien im Vorrat |
 
 ## 5. Texte gegenlesen
@@ -237,8 +264,8 @@ Zwielaute spricht die Sprachausgabe, Mitlaute bleiben stumm und werden gezeigt.
   Wörter bauen, Silbenbahn, Blitzwörter, die Buchstaben der Schule, Mein Name und der Name des
   Lesewurms, Lückensätze, Buchstabengleis und zehn weitere Bücher.
 - **Etappe 3 – Sätze:** gebaut sind Satz kuppeln, Quatschsätze, Stolperwörter,
-  Quatschwörter, Laut-Position, Buchstaben-Signal und Lies und tu!. Es folgen: Geschichtenzug,
-  der Lesewagen in 15 Ausbaustufen, der Elternbericht.
+  Quatschwörter, Laut-Position, Buchstaben-Signal, Lies und tu!, der Geschichtenzug, der
+  Lesewagen in 15 Schritten und der Lesebericht für die Eltern. Es folgen weitere Bücher.
 - **Etappe 4 – Lesedetektive:** Detektivfälle, Wer bin ich?, Steckbriefe, Postkarten,
   Wortbaustelle, der Lesewurm fährt auf der Lok mit.
 

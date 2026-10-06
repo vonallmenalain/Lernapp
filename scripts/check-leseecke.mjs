@@ -763,6 +763,9 @@ try {
   if (bsg.phase !== "over") fehlt(`Buchstaben-Signal: die Runde geht nicht zu Ende (${JSON.stringify(bsg)})`);
   if (bsg.erwischt !== bsg.von || bsg.verpasst !== 0) fehlt(`Buchstaben-Signal: angehaltene Wagen zählen nicht (${JSON.stringify(bsg)})`);
   if (bsgDaneben && bsg.daneben !== 1) fehlt(`Buchstaben-Signal: ein falscher Wagen zählt nicht als daneben (${JSON.stringify(bsg)})`);
+  // Für den Bericht an die Eltern: Das Paar steht als Verwechslung im Lesestand.
+  const bsgPaar = await page.evaluate(() => { const [a, b] = window.LernappBuchstabenSignal.jetzt().paar; return { paar: [a, b].sort().join("|"), liste: window.LernappLeseStand.stand().verwechselt }; });
+  if (bsgDaneben && !(bsgPaar.liste[bsgPaar.paar] >= 1)) fehlt(`Buchstaben-Signal: die Verwechslung ${bsgPaar.paar} steht nicht im Lesestand (${JSON.stringify(bsgPaar.liste)})`);
 
   // Lies und tu!: Jeder Auftrag ist ein Satz, der zur Szene passt; nur genau
   // das Verlangte zählt – das falsche Tier, die falsche Farbe oder eins zu
@@ -844,6 +847,65 @@ try {
     const malFehler = await malProbe();
     if (malFehler) fehlt(`Lies und tu!: ${malFehler}`);
   }
+
+  // --- 6i. Geschichtenzug ----------------------------------------------------------------------
+  // Die Seiten stehen in der Reihenfolge der Geschichte, die erste ist immer
+  // dabei, und jeder Satz kommt aus seiner Seite. Die Bücher kommen aus den
+  // Fächern der Lesestufe, gelesene zuerst. Gespielt: Ein Wagen, der noch
+  // nicht dran ist, stösst an, und die Geschichte zählt nicht mehr; jeder
+  // angekuppelte Wagen wird vorgelesen; die nächste ohne Fehler zählt.
+  await oeffne("geschichtenzug.html", "window.LernappGeschichtenzug");
+  const gzWuerfel = await page.evaluate(() => {
+    const d = window.LernappGeschichtenzug;
+    const fehler = [];
+    window.LernappLeseBuecher.BUECHER.forEach((b) => {
+      [3, 4].forEach((n) => {
+        const nr = d.seitenFuer(b, n);
+        if (nr.length !== n || nr[0] !== 0 || nr.some((x, i) => i > 0 && x <= nr[i - 1]) || nr[n - 1] >= b.seiten.length) fehler.push(`${b.id}: Seiten ${nr.join(",")}`);
+      });
+      b.seiten.forEach((seite, i) => {
+        const { text } = d.satzVon(seite);
+        if (!text || !seite.text.includes(text)) fehler.push(`${b.id}, Seite ${i + 1}: «${text}» steht nicht auf der Seite`);
+      });
+    });
+    const echt = window.LernappLeseStand.stand;
+    window.LernappLeseStand.stand = () => ({ ...echt(), buecher: { "pino-insel": { mal: 1, sterne: 3 } } });
+    for (const [stufe, faecher] of Object.entries(d.FAECHER)) {
+      window.LernappLeseStand.lesestufe = () => stufe;
+      const liste = d.buecherListe();
+      if (liste.length < d.RUNDE) fehler.push(`${stufe}: nur ${liste.length} Bücher`);
+      liste.forEach((b) => { if (!faecher.includes(b.stufe)) fehler.push(`${stufe}: ${b.id} aus dem Fach ${b.stufe}`); });
+      if (faecher.includes("erste") && liste[0]?.id !== "pino-insel") fehler.push(`${stufe}: das gelesene Buch kommt nicht zuerst (${liste[0]?.id})`);
+    }
+    return fehler.slice(0, 5);
+  });
+  gzWuerfel.forEach((p) => fehlt(`Geschichtenzug: ${p}`));
+  await oeffne("geschichtenzug.html", "window.LernappGeschichtenzug");
+  await vergiss();
+  await page.locator(".lese-los-knopf").click();
+  await page.waitForSelector(".gz-neben .gz-wagen", { timeout: 5000 }).catch(() => {});
+  const gz = await page.evaluate(() => { const a = window.LernappGeschichtenzug.jetzt(); return { n: a.wagen.length, text: a.text, gelesen: a.wagen.map((w) => (a.text ? w.satz : w.seite.text)) }; });
+  const gzKuppeln = async (nr) => {
+    for (let i = 0; i < 2 * gz.n; i += 1) {
+      await page.waitForFunction((n) => window.LernappGeschichtenzug.phase() === "kuppeln" || window.LernappGeschichtenzug.nr() !== n, nr, { timeout: 4000 }).catch(() => {});
+      const jetzt = await page.evaluate(() => ({ nr: window.LernappGeschichtenzug.nr(), dran: window.LernappGeschichtenzug.dran() }));
+      const wagen = page.locator(`.gz-neben .gz-wagen[data-reihe="${jetzt.dran}"]`);
+      if (jetzt.nr !== nr || !(await wagen.count())) return;
+      await wagen.click();
+    }
+  };
+  await page.locator('.gz-neben .gz-wagen[data-reihe="1"]').click();
+  await page.waitForTimeout(150);
+  if ((await page.evaluate(() => window.LernappGeschichtenzug.dran())) !== 0) fehlt("Geschichtenzug: ein Wagen kuppelt an, bevor er dran ist");
+  await gzKuppeln(0);
+  await page.waitForFunction(() => window.LernappGeschichtenzug.nr() === 1, null, { timeout: 8000 }).catch(() => {});
+  if ((await page.evaluate(() => window.LernappGeschichtenzug.nr())) !== 1) fehlt("Geschichtenzug: die ganze Geschichte fährt nicht ab");
+  if ((await zaehler()) !== "0") fehlt("Geschichtenzug: nach einem Fehlgriff zählt die Geschichte trotzdem");
+  const gzGesagt = await gesagt();
+  gz.gelesen.forEach((t) => { if (!gzGesagt.includes(t)) fehlt(`Geschichtenzug: beim Ankuppeln wird «${t.slice(0, 40)}» nicht vorgelesen`); });
+  await gzKuppeln(1);
+  await page.waitForFunction(() => window.LernappGeschichtenzug.nr() === 2, null, { timeout: 8000 }).catch(() => {});
+  if ((await zaehler()) !== "1") fehlt("Geschichtenzug: eine Geschichte ohne Fehler zählt nicht");
 
   // --- 6d. Die Buchstaben der Schule --------------------------------------------------
   // Haben die Eltern abgehakt, wohnen genau diese Laute im Buchstabenhaus, und
@@ -968,6 +1030,36 @@ try {
   if (wurm.glieder !== wurm.soll || wurm.glieder < 2) fehlt(`Lesewurm: ${wurm.glieder} Glieder gezeichnet, ${wurm.soll} im Lesestand`);
   if (!wurm.gewachsen) fehlt("Lesewurm: nach dem Buch zeigt das Zimmer nicht, dass er gewachsen ist");
 
+  // --- 9. Der Lesewagen wird gemütlich -------------------------------------------------
+  // So viele Dinge, wie der Lesestand sagt; was seit dem letzten Besuch dazukam,
+  // leuchtet, und der Lautsprecher nennt es. Keines fängt einen Tipp ab.
+  await page.evaluate(() => localStorage.setItem("lernapp.lesen.ausbau-gesehen", "1"));
+  await oeffne("index.html?lesen=1", "document.querySelector('.lesezimmer-svg')");
+  const ausbau = await page.evaluate(() => {
+    const dinge = [...document.querySelectorAll(".lesezimmer-svg .lese-ausbau")];
+    const fangen = dinge.filter((g) => {
+      const r = g.getBoundingClientRect();
+      const oben = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+      return oben && g.contains(oben);
+    }).map((g) => g.dataset.ausbau);
+    return {
+      ids: dinge.map((g) => g.dataset.ausbau),
+      neu: dinge.filter((g) => g.classList.contains("is-neu")).map((g) => g.dataset.ausbau),
+      soll: window.LernappLeseStand.wagenStufe(),
+      reihe: window.LernappLeseArt.AUSBAU.map((a) => a.id),
+      hilfe: window.LernappKids?.currentHelp?.() || "",
+      fangen,
+    };
+  });
+  if (ausbau.soll < 2 || ausbau.ids.length !== ausbau.soll) fehlt(`Lesewagen: ${ausbau.ids.length} Dinge eingerichtet, ${ausbau.soll} im Lesestand`);
+  if (ausbau.ids.slice().sort().join() !== ausbau.reihe.slice(0, ausbau.soll).sort().join()) fehlt(`Lesewagen: eingerichtet sind ${ausbau.ids.join(", ")}`);
+  if (ausbau.neu.slice().sort().join() !== ausbau.reihe.slice(1, ausbau.soll).sort().join()) fehlt(`Lesewagen: neu leuchten ${ausbau.neu.join(", ")} statt ${ausbau.reihe.slice(1, ausbau.soll).join(", ")}`);
+  if (!/Neu im Lesewagen/.test(ausbau.hilfe)) fehlt(`Lesewagen: der Lautsprecher sagt nicht, was neu ist (${ausbau.hilfe.slice(0, 80)})`);
+  if (ausbau.fangen.length) fehlt(`Lesewagen: ${ausbau.fangen.join(", ")} fängt Tipps ab`);
+  // Beim nächsten Besuch ist nichts mehr neu.
+  await oeffne("index.html?lesen=1", "document.querySelector('.lesezimmer-svg')");
+  if (await page.locator(".lese-ausbau.is-neu").count()) fehlt("Lesewagen: beim zweiten Besuch leuchtet noch etwas als neu");
+
   if (fehler.length) fehlt(`Fehler auf den Seiten: ${[...new Set(fehler)].slice(0, 5).join(" | ")}`);
 } finally {
   await browser.close();
@@ -979,4 +1071,4 @@ if (befunde.length) {
   befunde.forEach((b) => console.error(`  - ${b}`));
   process.exit(1);
 }
-console.log("Die Leseecke läuft: Lesewagen, Zimmer mit Auswahl, alle Spiele hin und zurück, eine Runde Silbenzug bis zum Tor, Laute kuppeln ohne verratenes Wort, Buchstabenhaus, der Würfel von «Stimmt das?», Reimkupplung, Anlaut-Lauscher, Wer fährt mit?, Wörter bauen, Silbenbahn, Blitzwörter, Mein Name, der Lesewurm bekommt seinen Namen, Lückensätze, Buchstabengleis, Satz kuppeln, Quatschsätze, Stolperwörter, Quatschwörter, Laut-Position, Buchstaben-Signal, Lies und tu!, die Buchstaben der Schule, Hörbuch mit Nachsehen, Zusammen lesen, und der Lesewurm wächst.");
+console.log("Die Leseecke läuft: Lesewagen, Zimmer mit Auswahl, alle Spiele hin und zurück, eine Runde Silbenzug bis zum Tor, Laute kuppeln ohne verratenes Wort, Buchstabenhaus, der Würfel von «Stimmt das?», Reimkupplung, Anlaut-Lauscher, Wer fährt mit?, Wörter bauen, Silbenbahn, Blitzwörter, Mein Name, der Lesewurm bekommt seinen Namen, Lückensätze, Buchstabengleis, Satz kuppeln, Quatschsätze, Stolperwörter, Quatschwörter, Laut-Position, Buchstaben-Signal, Lies und tu!, Geschichtenzug, die Buchstaben der Schule, Hörbuch mit Nachsehen, Zusammen lesen, der Lesewurm wächst, und der Lesewagen wird gemütlich.");

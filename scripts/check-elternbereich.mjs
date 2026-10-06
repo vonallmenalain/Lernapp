@@ -18,7 +18,8 @@
  *   - Eltern ohne Kauf: die Kaufkarte mit Preis, die Kinderkarte "0 von 4"
  *   - Kind anlegen: Formular, Aufruf mit Token und Name, danach in der Liste
  *   - ein Kind aufklappen: Zug, probierte Level, Sitzungen – die Sicht, die
- *     der Adminbereich für alle hat, hier für die eigene Familie
+ *     der Adminbereich für alle hat, hier für die eigene Familie; dazu die
+ *     Leseecke mit dem Lesebericht (Wörter, Bücher, Laute, Verwechslungen)
  *   - Passwort neu: Formular an der Zeile, Aufruf mit der uid des Kindes
  *   - Fortschritt zurücksetzen: Rückfrage, danach sind Level und Sitzungen weg
  *   - Konto löschen: Rückfrage, Aufruf von /api/kind-loeschen, danach weg
@@ -341,6 +342,20 @@ try {
     // nur für das eigene Kind – und dahinter liegen auch die Knöpfe. Zugeklappt
     // steht in der Zeile nur der Name; bei vier Kindern wäre alles andere keine
     // Übersicht mehr.
+    // Lina hat schon in der Leseecke gelesen: Ihr Kasten liegt am Konto, wie
+    // ihn das Gerät hinaufschreibt (lesen-stand.js).
+    await page.evaluate(() => {
+      const doc = window.__ersatz.lies("users/kind-1") || {};
+      doc.gameState = { ...(doc.gameState || {}), "lernapp.lesen": { updatedAt: Date.now(), data: {
+        woerter: 340,
+        laute: { m: { r: 4, f: 0, tage: ["2026-10-01", "2026-10-03"] }, a: { r: 3, f: 1, tage: ["2026-10-02", "2026-10-04"] }, b: { r: 1, f: 2, tage: ["2026-10-04"] } },
+        buecher: { "hase-rueebli": { mal: 2, sterne: 3, at: 1 }, "leo-melone": { mal: 1, sterne: 2, at: 1 } },
+        spiele: { silbenzug: { runden: 5, best: 6, zuletzt: 1 }, buchstabenhaus: { runden: 2, best: 5, zuletzt: 1 } },
+        blitz: {},
+        verwechselt: { "b|d": 3, "m|n": 1 },
+      } } };
+      window.__ersatz.setze("users/kind-1", doc);
+    });
     await page.locator("[data-kind-auf='kind-1']").click({ timeout: 5000 });
     await page.locator("[data-kind-uid='kind-1'] .kind-detail").waitFor({ timeout: 10000 }).catch(() => {});
     const detail = page.locator("[data-kind-uid='kind-1'] .kind-detail");
@@ -367,6 +382,22 @@ try {
     pruefe(await lesenKarte.locator('[data-kind-lesen^="startpunkt:"]').count() === 6 && await lesenKarte.locator('[data-kind-lesen^="schrift:"]').count() === 3,
       "Leseecke: sechs Startpunkte und drei Schriften erwartet");
     pruefe(await lesenKarte.locator('[data-kind-lesen="startpunkt:auto"][aria-pressed="true"]').count() === 1, "Leseecke: ohne Einstellung ist nicht «Nach Alter» gewählt");
+    // Der Lesebericht: Zähler aus Linas Kasten, nicht mehr. Ein Laut sitzt
+    // nach drei Treffern an zwei Tagen (M, A), wackelt mit Fehlern (B); eine
+    // einzelne Verwechslung (m und n) ist noch keine.
+    const bericht = await lesenKarte.locator(".lesebericht-zeile").evaluateAll((zeilen) => Object.fromEntries(zeilen.map((z) => [z.querySelector("span").textContent, z.querySelector("strong").textContent])));
+    const berichtSoll = {
+      "Gelesene oder gehörte Wörter": "340",
+      "Bücher gelesen": "2, davon 1 mit allen Fragen richtig",
+      "Runden in den Lesespielen": "7",
+      "Lesewagen eingerichtet": "5 von 15",
+      "Laute, die sitzen": "M · A",
+      "Laute, die noch wackeln": "B",
+      "Oft verwechselt": "b und d (3×)",
+      "Am meisten gespielt": "Silbenzug (5), Buchstabenhaus (2)",
+    };
+    Object.entries(berichtSoll).forEach(([frage, soll]) => pruefe(bericht[frage] === soll, `Lesebericht: «${frage}» zeigt ${JSON.stringify(bericht[frage])} statt ${soll}`));
+    pruefe(Object.keys(bericht).length === Object.keys(berichtSoll).length, `Lesebericht: ${Object.keys(bericht).join(", ")}`);
     await lesenKarte.locator('[data-kind-lesen="startpunkt:woerter"]').click({ timeout: 5000 });
     await page.waitForFunction(() => /Leseecke ist eingestellt/.test(document.querySelector("[data-kinder-karte] .karten-status")?.textContent || ""), null, { timeout: 10000 }).catch(() => {});
     await page.locator('[data-kind-uid="kind-1"] .admin-lesen [data-kind-lesen="schrift:gross"]').click({ timeout: 5000 });
@@ -728,4 +759,4 @@ if (befunde.length) {
   befunde.forEach((b) => console.error(`  - ${b}`));
   process.exit(1);
 }
-console.log("Der Elternbereich tut, was er soll: kaufen, Kinder anlegen, aufklappen, Passwort neu, Schwierigkeitsstufe, zurücksetzen, löschen, die Wagen der Familie, der Verkaufsbildschirm – und nichts davon trifft eine fremde Familie.");
+console.log("Der Elternbereich tut, was er soll: kaufen, Kinder anlegen, aufklappen, Passwort neu, Schwierigkeitsstufe, Leseecke mit Lesebericht, zurücksetzen, löschen, die Wagen der Familie, der Verkaufsbildschirm – und nichts davon trifft eine fremde Familie.");

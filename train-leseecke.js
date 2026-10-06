@@ -9,18 +9,23 @@
  * Jedes Ding im Zimmer ist ein Weg in einen Teil der Leseecke:
  *
  *   Sessel mit Lesewurm  weiterlesen: der Wurm sucht aus, was dran ist
- *   Trommel              Hören: Silbenzug, Reimkupplung, Anlaut-Lauscher
+ *   Trommel              Hören: Silbenzug, Laut-Position, Reimkupplung,
+ *                        Anlaut-Lauscher
  *   Buchstabenhaus       Laute und Buchstaben
  *   Wortkiste            Wörter: Laute kuppeln, Wer fährt mit?, Wörter bauen,
- *                        Silbenbahn, Blitzwörter
- *   Spielzeugzug         Sätze (Stimmt das?)
- *   Bücherregal          Bücher
+ *                        Silbenbahn, Blitzwörter, Quatschwörter
+ *   Spielzeugzug         Sätze: Stimmt das?, Lückensätze, Satz kuppeln, …
+ *   Bücherregal          Bücher: das Regal und der Geschichtenzug
  *   Schild am Sessel     der Name des Lesewurms: ein Tipp, und das Kind tauft
  *                        ihn (meinname.html?wurm=1)
  *
  * Steht hinter einem Ding nur ein Spiel, geht es gleich los; stehen mehrere
  * dahinter, kommt eine kleine Auswahl mit Bildern. Welches Spiel wo steht,
  * sagt der Katalog in lesen-stand.js (SPIELE, ort).
+ *
+ * Das Zimmer wird mit jedem gelesenen Stück gemütlicher (lesen-art.js,
+ * AUSBAU; lesen-stand.js, wagenStufe). Was seit dem letzten Besuch dazukam,
+ * leuchtet, und der Lautsprecher sagt es.
  *
  * Was hier nicht geschieht: Fortschritt schreiben. Das tun die Spiele.
  */
@@ -64,12 +69,14 @@
   // seither gewachsen, wird das gezeigt – über den Vergleich, nicht über eine
   // Nachricht der Spiele: So stimmt es auch nach einem Neuladen.
   const GESEHEN_KEY = "lernapp.lesen.gesehen";
+  // Genauso die Einrichtung: wie viele Dinge schon dastanden.
+  const AUSBAU_GESEHEN_KEY = "lernapp.lesen.ausbau-gesehen";
 
-  function gesehen() {
-    try { return Number(localStorage.getItem(GESEHEN_KEY)) || 0; } catch { return 0; }
+  function gesehen(key = GESEHEN_KEY) {
+    try { return Number(localStorage.getItem(key)) || 0; } catch { return 0; }
   }
-  function merkeGesehen(glieder) {
-    try { localStorage.setItem(GESEHEN_KEY, String(glieder)); } catch { /* privater Modus */ }
+  function merkeGesehen(wert, key = GESEHEN_KEY) {
+    try { localStorage.setItem(key, String(wert)); } catch { /* privater Modus */ }
   }
 
   // Die Leseschrift erst holen, wenn jemand in den Wagen steigt: Das Startbild
@@ -187,7 +194,13 @@
     const glieder = s ? s.wurmGlieder(jetzt) : 1;
     const gelesen = Object.keys(jetzt.buecher || {}).length;
     const wurmName = s?.wurmName?.(jetzt) || "";
-    const svg = a.buildLesezimmer({ glieder, gelesen, wurmName: s?.zeige?.(wurmName) ?? wurmName });
+    // Die Einrichtung: Was seit dem letzten Besuch dazugekommen ist, leuchtet.
+    // Beim allerersten Besuch ist nichts «neu» – es ist einfach da.
+    const ausbau = s?.wagenStufe?.(jetzt) || 0;
+    const ausbauVorher = (() => {
+      try { return localStorage.getItem(AUSBAU_GESEHEN_KEY) === null ? ausbau : gesehen(AUSBAU_GESEHEN_KEY); } catch { return ausbau; }
+    })();
+    const svg = a.buildLesezimmer({ glieder, gelesen, wurmName: s?.zeige?.(wurmName) ?? wurmName, ausbau, neuAb: ausbauVorher });
     host.innerHTML = "";
     host.append(svg);
 
@@ -218,13 +231,16 @@
     // räumt ihn beim Verlassen weg.
     const vorher = gesehen();
     const gewachsen = vorher && glieder > vorher;
-    if (gewachsen) {
-      svg.querySelector(".lesewurm")?.classList.add("is-gewachsen");
-      kids()?.playJingle?.("unlock");
-    }
+    if (gewachsen) svg.querySelector(".lesewurm")?.classList.add("is-gewachsen");
+    const neues = (a.AUSBAU || []).slice(ausbauVorher, ausbau).map((ding) => ding.name);
+    if (gewachsen || neues.length) kids()?.playJingle?.("unlock");
     const hallo = wurmName ? `Dein Lesewurm ${wurmName} sagt hallo. ` : "";
-    kids()?.setHelp?.(gewachsen ? `Dein Lesewurm ist gewachsen! Er hat jetzt ${glieder} Glieder. ${HILFE}` : `${hallo}${HILFE}`);
+    const teile = [];
+    if (gewachsen) teile.push(`Dein Lesewurm ist gewachsen! Er hat jetzt ${glieder} Glieder.`);
+    if (neues.length) teile.push(`Neu im Lesewagen: ${neues.length > 1 ? `${neues.slice(0, -1).join(", ")} und ${neues[neues.length - 1]}` : neues[0]}!`);
+    kids()?.setHelp?.(teile.length ? `${teile.join(" ")} ${HILFE}` : `${hallo}${HILFE}`);
     merkeGesehen(glieder);
+    merkeGesehen(ausbau, AUSBAU_GESEHEN_KEY);
   }
 
   window.LernappLeseecke = { mount, ZIELE, ORTE, HILFE, TAUFE, spieleAm };

@@ -137,6 +137,7 @@
     { id: "lautposition", page: "lautposition.html" },
     { id: "buchstabensignal", page: "buchstabensignal.html" },
     { id: "liesundtu", page: "liesundtu.html" },
+    { id: "geschichtenzug", page: "geschichtenzug.html" },
   ] };
 
   // Das Bücherregal ist kein Spiel mit Runden: Diese zwei Bücher sind frei,

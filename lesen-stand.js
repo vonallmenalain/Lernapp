@@ -18,7 +18,8 @@
  *     buecher: { "hase-rueebli": { mal: 2, sterne: 3, at: … } },
  *     spiele:  { silbenzug: { runden: 3, best: 6, zuletzt: … } },
  *     wurm:    { name: "Moli", at: … },   // so hat das Kind ihn getauft
- *   }
+ *     verwechselt: { "b|d": 3 },          // wie oft b für d genommen wurde
+ *   }                                     // oder d für b – für die Eltern
  *
  * Daneben die Einstellungen der Eltern (lernapp.lesen.eltern): wo die
  * Leseecke beginnt, ob nur Grossbuchstaben stehen und welche Buchstaben die
@@ -31,7 +32,7 @@
 
   const KEY = "lernapp.lesen";
   const ELTERN_KEY = "lernapp.lesen.eltern";
-  const EMPTY = { woerter: 0, laute: {}, buecher: {}, spiele: {}, blitz: {}, wurm: null };
+  const EMPTY = { woerter: 0, laute: {}, buecher: {}, spiele: {}, blitz: {}, wurm: null, verwechselt: {} };
 
   // Je so viele Wörter wächst der Lesewurm um ein Glied.
   const WOERTER_JE_GLIED = 20;
@@ -45,6 +46,14 @@
   const SITZT_RICHTIG = 3;
   const SITZT_TAGE = 2;
   const TAGE_MERKEN = 6;
+
+  // Der Lesewagen wird gemütlich: Nach so vielen gelesenen Stücken – Runden
+  // in den Spielen und Bücher – kommt je ein Ding der Einrichtung dazu
+  // (lesen-art.js, AUSBAU). Am Anfang schnell, dann gemächlicher.
+  const WAGEN_SCHRITTE = [1, 2, 4, 6, 9, 12, 15, 19, 23, 28, 33, 39, 45, 52, 60];
+
+  // Verwechslungen merkt sich der Kasten nur paarweise und nur so viele.
+  const VERWECHSLUNGEN_MAX = 24;
 
   // ---------------------------------------------------------------------------
   // Zusammenführen
@@ -93,7 +102,29 @@
     return a.name >= b.name ? a : b;
   }
 
+  // Ein Paar von Lauten, immer gleich geschrieben: «b|d», nie «d|b».
+  const PAAR = /^[a-zäöü]{1,3}\|[a-zäöü]{1,3}$/;
+  function verwechseltSauber(liste) {
+    const out = {};
+    Object.entries(liste && typeof liste === "object" ? liste : {}).forEach(([paar, mal]) => {
+      if (PAAR.test(paar) && zahl(mal) > 0) out[paar] = zahl(mal);
+    });
+    return out;
+  }
+  // Die häufigsten bleiben, wenn es zu viele werden – und die Paare stehen
+  // immer in derselben Reihenfolge, gleich aus welcher Richtung gemischt wird.
+  function verwechseltKuerzen(liste) {
+    const eintraege = Object.entries(liste)
+      .sort((x, y) => y[1] - x[1] || (x[0] < y[0] ? -1 : 1))
+      .slice(0, VERWECHSLUNGEN_MAX);
+    return Object.fromEntries(eintraege.sort((x, y) => (x[0] < y[0] ? -1 : 1)));
+  }
+
   function merge(a = EMPTY, b = EMPTY) {
+    const x = verwechseltSauber(a?.verwechselt);
+    const y = verwechseltSauber(b?.verwechselt);
+    const verwechselt = {};
+    new Set([...Object.keys(x), ...Object.keys(y)]).forEach((paar) => { verwechselt[paar] = Math.max(zahl(x[paar]), zahl(y[paar])); });
     return {
       woerter: Math.max(zahl(a.woerter), zahl(b.woerter)),
       laute: mergeEintraege(a.laute, b.laute, ["r", "f", "zuletzt"]),
@@ -101,6 +132,7 @@
       buecher: mergeEintraege(a.buecher, b.buecher, ["mal", "sterne", "at"]),
       spiele: mergeEintraege(a.spiele, b.spiele, ["runden", "best", "zuletzt"]),
       wurm: neuereTaufe(a?.wurm, b?.wurm),
+      verwechselt: verwechseltKuerzen(verwechselt),
     };
   }
 
@@ -127,7 +159,7 @@
 
   function stand() {
     const s = box.read() || EMPTY;
-    return { ...EMPTY, ...s, laute: s.laute || {}, buecher: s.buecher || {}, spiele: s.spiele || {}, blitz: s.blitz || {}, wurm: wurmSauber(s.wurm) };
+    return { ...EMPTY, ...s, laute: s.laute || {}, buecher: s.buecher || {}, spiele: s.spiele || {}, blitz: s.blitz || {}, wurm: wurmSauber(s.wurm), verwechselt: verwechseltSauber(s.verwechselt) };
   }
 
   function heute() {
@@ -216,6 +248,78 @@
 
   function wurmGlieder(s = stand()) {
     return Math.min(GLIEDER_MAX, 1 + Math.floor(zahl(s.woerter) / WOERTER_JE_GLIED));
+  }
+
+  // Ein Buchstabe wurde für einen anderen genommen: ein n, wo ein m gesucht
+  // war (Buchstaben-Signal, Buchstabenhaus). Gezählt wird das Paar, egal in
+  // welcher Richtung – für den Bericht an die Eltern.
+  function verwechselt(gesucht, genommen) {
+    const a = String(gesucht || "").toLowerCase();
+    const b = String(genommen || "").toLowerCase();
+    if (!a || !b || a === b) return stand();
+    const paar = [a, b].sort().join("|");
+    if (!PAAR.test(paar)) return stand();
+    return box.update((alt) => {
+      const s = { ...EMPTY, ...alt };
+      const liste = verwechseltSauber(s.verwechselt);
+      liste[paar] = zahl(liste[paar]) + 1;
+      return { ...s, verwechselt: verwechseltKuerzen(liste) };
+    });
+  }
+
+  // Wie viele Stücke das Kind gelesen hat: fertige Runden und Bücher.
+  function lesestuecke(s = stand()) {
+    const runden = Object.values(s.spiele || {}).reduce((summe, e) => summe + zahl(e?.runden), 0);
+    const buecher = Object.values(s.buecher || {}).reduce((summe, e) => summe + zahl(e?.mal), 0);
+    return runden + buecher;
+  }
+
+  // Wie viele Dinge der Einrichtung schon im Lesewagen stehen (0 bis 15).
+  function wagenStufe(s = stand()) {
+    const n = lesestuecke(s);
+    return WAGEN_SCHRITTE.filter((ab) => n >= ab).length;
+  }
+
+  // Der Bericht für die Eltern (firebase.js, Karte «Leseecke»): nur Zahlen
+  // und Listen, die Worte macht der Elternbereich. Laute in der Reihenfolge
+  // des Buchstabenhauses, wenn lesen-inhalte.js geladen ist.
+  function bericht(daten = stand()) {
+    const s = { ...EMPTY, ...(daten || {}) };
+    const reihe = (window.LernappLeseInhalte?.LAUTE || []).map((l) => l.id);
+    const ordne = (ids) => ids.sort((x, y) => {
+      const a = reihe.indexOf(x);
+      const b = reihe.indexOf(y);
+      return (a < 0 ? 999 : a) - (b < 0 ? 999 : b) || (x < y ? -1 : 1);
+    });
+    const laute = Object.entries(s.laute || {});
+    const sicher = ordne(laute.filter(([, e]) => sitzt(e)).map(([id]) => id));
+    // Wackelig: schon geübt, sitzt noch nicht, und es ging schon daneben.
+    const wackelig = ordne(laute.filter(([, e]) => !sitzt(e) && zahl(e?.f) > 0).map(([id]) => id));
+    const buecher = Object.entries(s.buecher || {}).filter(([, e]) => zahl(e?.mal) > 0);
+    const spiele = Object.entries(s.spiele || {})
+      .filter(([, e]) => zahl(e?.runden) > 0)
+      .map(([id, e]) => ({ id, titel: SPIELE[id]?.titel || id, runden: zahl(e.runden) }))
+      .sort((x, y) => y.runden - x.runden || (x.titel < y.titel ? -1 : 1));
+    const verwechslungen = Object.entries(verwechseltSauber(s.verwechselt))
+      .filter(([, mal]) => mal >= 2)
+      .sort((x, y) => y[1] - x[1] || (x[0] < y[0] ? -1 : 1))
+      .slice(0, 5)
+      .map(([paar, mal]) => ({ paar: paar.split("|"), mal }));
+    return {
+      woerter: zahl(s.woerter),
+      glieder: wurmGlieder(s),
+      runden: spiele.reduce((summe, e) => summe + e.runden, 0),
+      spiele,
+      buecher: buecher.length,
+      buecherGold: buecher.filter(([, e]) => zahl(e?.sterne) >= 3).length,
+      buecherIds: buecher.map(([id]) => id),
+      sicher,
+      wackelig,
+      verwechslungen,
+      blitzSicher: Object.entries(s.blitz || {}).filter(([, e]) => sitzt(e)).length,
+      wagen: wagenStufe(s),
+      wagenVon: WAGEN_SCHRITTE.length,
+    };
   }
 
   // Wie der Lesewurm heisst – leer, solange ihn niemand getauft hat.
@@ -360,14 +464,15 @@
     stolperwoerter: { page: "stolperwoerter.html", titel: "Stolperwörter", ort: "saetze", bild: "🪨" },
     liesundtu: { page: "liesundtu.html", titel: "Lies und tu!", ort: "saetze", bild: "🖍️" },
     buecher: { page: "buecher.html", titel: "Bücherregal", ort: "buecher", bild: "📚", weiter: "buecher.html?weiter=1" },
+    geschichtenzug: { page: "geschichtenzug.html", titel: "Geschichtenzug", ort: "buecher", bild: "🖼️" },
   };
   // Was der Lesewurm im Sessel je Lesestufe aussucht.
   const AUSWAHL = {
     hoeren: ["silbenzug", "reimkupplung", "anlautlauscher", "buecher", "buchstabenhaus", "buchstabengleis"],
     buchstaben: ["buchstabenhaus", "meinname", "buchstabengleis", "buchstabensignal", "lautposition", "anlautlauscher", "lautekuppeln", "silbenzug", "reimkupplung", "buecher"],
     woerter: ["lautekuppeln", "werfaehrtmit", "woerterbauen", "buchstabenhaus", "silbenbahn", "quatschwoerter", "buecher"],
-    saetze: ["stimmtdas", "lueckensaetze", "satzkuppeln", "quatschsaetze", "liesundtu", "blitzwoerter", "quatschwoerter", "silbenbahn", "buecher"],
-    geschichten: ["buecher", "stolperwoerter", "liesundtu", "quatschsaetze", "lueckensaetze", "satzkuppeln", "stimmtdas", "blitzwoerter"],
+    saetze: ["stimmtdas", "lueckensaetze", "satzkuppeln", "quatschsaetze", "liesundtu", "geschichtenzug", "blitzwoerter", "quatschwoerter", "silbenbahn", "buecher"],
+    geschichten: ["buecher", "geschichtenzug", "stolperwoerter", "liesundtu", "quatschsaetze", "lueckensaetze", "satzkuppeln", "stimmtdas", "blitzwoerter"],
   };
 
   function naechstes(s = stand()) {
@@ -387,6 +492,7 @@
     STARTPUNKTE, STARTPUNKT_INFO, SCHRIFTEN, SPIELE, AUSWAHL,
     merge, stand, onChange: (fn) => box.onChange(fn),
     lautGeuebt, lautSitzt, sitzendeLaute, blitzGeuebt, blitzSitzt, woerterGelesen, buchGelesen, spielRunde, spielGeoeffnet, wurmGlieder,
+    WAGEN_SCHRITTE, lesestuecke, wagenStufe, verwechselt, bericht,
     nameSauber, wurmName, wurmTaufen,
     einstellungen, elternSauber, bekannteLaute, stufe, lesestufe, nurGross, zeige, naechstes,
   };

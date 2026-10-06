@@ -245,7 +245,11 @@
     // Daneben: Das Fenster wackelt, nach dem zweiten Fehlgriff zeigt das
     // richtige auf sich.
     state.fehler += 1;
-    if (state.fehler === 1) stand?.lautGeuebt?.(state.ziel.id, false);
+    if (state.fehler === 1) {
+      stand?.lautGeuebt?.(state.ziel.id, false);
+      // Für den Bericht an die Eltern: welcher Laut für welchen genommen wurde.
+      stand?.verwechselt?.(state.ziel.id, laut.id);
+    }
     knopf.classList.remove("ist-falsch");
     void knopf.offsetWidth;
     knopf.classList.add("ist-falsch");

@@ -170,6 +170,8 @@
         window.setTimeout(weg, 900);
       } else {
         state.daneben += 1;
+        // Für den Bericht an die Eltern: m und n verwechselt.
+        if (state.daneben === 1) stand?.verwechselt?.(state.paar[0], state.paar[1]);
         knopf.classList.add("ist-falsch");
         kids()?.vibrate?.(30);
         ton.klopf(240);
@@ -185,6 +187,10 @@
     if (state.phase !== "fahren") return;
     state.phase = "over";
     const von = state.reihe.filter((w) => w.treffer).length;
+    // Der Laut im Lesestand: Eine Runde ohne Fehlgriff zählt als Treffer,
+    // eine mit Fehlgriff als Fehler; nur verpasst sagt nichts über das Lesen.
+    if (state.daneben > 0) stand?.lautGeuebt?.(state.paar[0], false);
+    else if (state.erwischt === von) stand?.lautGeuebt?.(state.paar[0], true);
     const punkte = Math.max(0, state.erwischt - state.daneben);
     spiel.ergebnis(shell, {
       id: ID,

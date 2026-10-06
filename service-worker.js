@@ -1,4 +1,4 @@
-const APP_VERSION = "2026-10-06-08";
+const APP_VERSION = "2026-10-06-09";
 const CACHE_PREFIX = "lernapp-pwa-";
 const CACHE_NAME = `${CACHE_PREFIX}${APP_VERSION}`;
 const ASSET_VERSION_QUERY = `?v=${APP_VERSION}`;
@@ -70,6 +70,7 @@ const CORE_ASSETS = [
   "./lautposition.html",
   "./buchstabensignal.html",
   "./liesundtu.html",
+  "./geschichtenzug.html",
   `./styles.css${ASSET_VERSION_QUERY}`,
   `./spatial-puzzles.js${ASSET_VERSION_QUERY}`,
   `./kids.js${ASSET_VERSION_QUERY}`,
@@ -110,6 +111,7 @@ const CORE_ASSETS = [
   `./lesen-art.js${ASSET_VERSION_QUERY}`,
   `./lesen-spiel.js${ASSET_VERSION_QUERY}`,
   `./lesen-buecher.js${ASSET_VERSION_QUERY}`,
+  `./lesen-bilder.js${ASSET_VERSION_QUERY}`,
   `./train-leseecke.js${ASSET_VERSION_QUERY}`,
   `./silbenzug.js${ASSET_VERSION_QUERY}`,
   `./buchstabenhaus.js${ASSET_VERSION_QUERY}`,
@@ -132,6 +134,7 @@ const CORE_ASSETS = [
   `./lautposition.js${ASSET_VERSION_QUERY}`,
   `./buchstabensignal.js${ASSET_VERSION_QUERY}`,
   `./liesundtu.js${ASSET_VERSION_QUERY}`,
+  `./geschichtenzug.js${ASSET_VERSION_QUERY}`,
   `./firebase.js${ASSET_VERSION_QUERY}`,
   `./admin.js${ASSET_VERSION_QUERY}`,
   `./pwa.js${ASSET_VERSION_QUERY}`,

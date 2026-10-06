@@ -625,6 +625,16 @@ const SZENARIEN = [
       { name: "Auswahl Wörter", tun: async (blatt) => { await tippe(blatt, '.lesezimmer-svg [data-ort="woerter"]'); await pause(blatt, 500); } },
       { name: "Auswahl Buchstaben", tun: async (blatt) => { await tippe(blatt, ".lese-wahl-zu"); await pause(blatt, 200); await tippe(blatt, '.lesezimmer-svg [data-ort="buchstaben"]'); await pause(blatt, 500); } },
       { name: "Auswahl Sätze", tun: async (blatt) => { await tippe(blatt, ".lese-wahl-zu"); await pause(blatt, 200); await tippe(blatt, '.lesezimmer-svg [data-ort="saetze"]'); await pause(blatt, 500); } },
+      { name: "Auswahl Bücher", tun: async (blatt) => { await tippe(blatt, ".lese-wahl-zu"); await pause(blatt, 200); await tippe(blatt, '.lesezimmer-svg [data-ort="buecher"]'); await pause(blatt, 500); } },
+    ],
+  },
+  // Der Lesewagen ganz eingerichtet: alle fünfzehn Dinge, und der Wurm lang.
+  {
+    seite: "index",
+    titel: "index-lesen-voll",
+    speicher: { "lernapp.lesen": JSON.stringify({ woerter: 1200, spiele: { silbenzug: { runden: 80, best: 6, zuletzt: 1 } }, buecher: {}, laute: {}, blitz: {} }) },
+    schritte: [
+      { name: "Lesewagen eingerichtet", tun: async (blatt) => { await zugHereinholen(blatt); await tippe(blatt, ".lesewagen-knopf"); await pause(blatt, 1200); } },
     ],
   },
   ...["reimkupplung", "anlautlauscher", "werfaehrtmit", "woerterbauen", "silbenbahn", "blitzwoerter"].map((seite) => ({
@@ -735,6 +745,45 @@ const SZENARIEN = [
         await tippe(blatt, `.lt-zone[data-ding="${a.ziel.ding}"][data-wo="${a.ziel.wo}"]`);
         await blatt.waitForFunction(() => window.LernappLiesUndTu.nr() === 1, null, { timeout: 15000 });
         await pause(blatt, 500);
+      } },
+    ],
+  },
+  // Geschichtenzug: die Bilder eines Hörbuchs, dann zwei angekuppelt; mit
+  // Sätzen (Lesestufe Sätze) und nur Sätze (schwer).
+  {
+    seite: "geschichtenzug",
+    schritte: [
+      { name: "Los", tun: async () => {} },
+      { name: "Bilder", tun: async (blatt) => { await tippe(blatt, ".lese-los-knopf"); await pause(blatt, 600); } },
+      { name: "Zwei angekuppelt", tun: async (blatt) => {
+        for (let i = 0; i < 2; i += 1) {
+          await blatt.waitForFunction(() => window.LernappGeschichtenzug.phase() === "kuppeln", null, { timeout: 15000 });
+          await tippe(blatt, `.gz-neben .gz-wagen[data-reihe="${i}"]`);
+        }
+        await pause(blatt, 600);
+      } },
+    ],
+  },
+  {
+    seite: "geschichtenzug",
+    titel: "geschichtenzug-saetze",
+    speicher: { "lernapp.lesen.eltern": JSON.stringify({ startpunkt: "saetze", schrift: "auto", bekannt: null, at: 1 }) },
+    schritte: [
+      { name: "Bilder und Sätze", tun: async (blatt) => { await tippe(blatt, ".lese-los-knopf"); await pause(blatt, 600); } },
+    ],
+  },
+  {
+    seite: "geschichtenzug",
+    titel: "geschichtenzug-schwer",
+    speicher: { "lernapp.reise": JSON.stringify({ stufe: "schwer", stufeAt: 1 }) },
+    schritte: [
+      { name: "Nur Sätze", tun: async (blatt) => { await tippe(blatt, ".lese-los-knopf"); await pause(blatt, 600); } },
+      { name: "Zwei angekuppelt", tun: async (blatt) => {
+        for (let i = 0; i < 2; i += 1) {
+          await blatt.waitForFunction(() => window.LernappGeschichtenzug.phase() === "kuppeln", null, { timeout: 15000 });
+          await tippe(blatt, `.gz-neben .gz-wagen[data-reihe="${i}"]`);
+        }
+        await pause(blatt, 600);
       } },
     ],
   },
