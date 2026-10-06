@@ -408,7 +408,7 @@
   const AUSBAU = [
     { id: "lampe", name: "eine Lampe" },
     { id: "teppich", name: "ein Teppich" },
-    { id: "kissen", name: "ein Kissen" },
+    { id: "teddy", name: "ein Teddybär" },
     { id: "vorhaenge", name: "Vorhänge" },
     { id: "blumen", name: "Blumen am Fenster" },
     { id: "bild", name: "ein Bild an der Wand" },
@@ -448,10 +448,31 @@
       el("ellipse", { cx: 560, cy: 600, rx: 360, ry: 50, fill: "#7c5ce6", opacity: "0.55" }),
       el("ellipse", { cx: 560, cy: 600, rx: 300, ry: 36, fill: "none", stroke: "#ffd166", "stroke-width": 6, opacity: "0.7", "stroke-dasharray": "18 14" }),
     ],
-    // Auf dem Sessel, im Ausschnitt des Sessels (train-leseecke: weiter).
-    kissen: () => [group({ transform: "translate(-98 22) rotate(-14)" }, [
-      el("rect", { x: -40, y: -30, width: 80, height: 60, rx: 18, fill: "#7c5ce6" }),
-      el("rect", { x: -29, y: -19, width: 58, height: 38, rx: 11, fill: "none", stroke: "#ffd166", "stroke-width": 3, "stroke-dasharray": "6 5" }),
+    // Ein Teddybär, der auch liest: vorne auf dem Teppich zwischen Schild und
+    // Spielzeugzug – weit weg vom Sofa, das dem Lesewurm gehört.
+    teddy: () => [group({ transform: "translate(368 606)" }, [
+      el("ellipse", { cx: 0, cy: 0, rx: 30, ry: 6, fill: "#000", opacity: "0.12" }),
+      el("ellipse", { cx: -16, cy: -9, rx: 12, ry: 9, fill: "#a8743f" }),
+      el("ellipse", { cx: 16, cy: -9, rx: 12, ry: 9, fill: "#a8743f" }),
+      el("circle", { cx: -19, cy: -8, r: 5.5, fill: "#ecd2ad" }),
+      el("circle", { cx: 19, cy: -8, r: 5.5, fill: "#ecd2ad" }),
+      el("ellipse", { cx: 0, cy: -27, rx: 20, ry: 22, fill: "#b9814a" }),
+      el("circle", { cx: -15, cy: -68, r: 8, fill: "#b9814a" }),
+      el("circle", { cx: 15, cy: -68, r: 8, fill: "#b9814a" }),
+      el("circle", { cx: -15, cy: -68, r: 4, fill: "#ecd2ad" }),
+      el("circle", { cx: 15, cy: -68, r: 4, fill: "#ecd2ad" }),
+      el("circle", { cx: 0, cy: -55, r: 18, fill: "#b9814a" }),
+      el("ellipse", { cx: 0, cy: -49, rx: 8, ry: 6, fill: "#ecd2ad" }),
+      el("ellipse", { cx: 0, cy: -52, rx: 3.2, ry: 2.4, fill: FARBE.tinte }),
+      el("circle", { cx: -7, cy: -59, r: 2.2, fill: FARBE.tinte }),
+      el("circle", { cx: 7, cy: -59, r: 2.2, fill: FARBE.tinte }),
+      el("path", { d: "M0 -38 L-9 -43 L-9 -33 Z M0 -38 L9 -43 L9 -33 Z", fill: "#e8543f" }),
+      el("circle", { cx: 0, cy: -38, r: 2.5, fill: "#c0392b" }),
+      // Ein kleines Buch in den Pfoten
+      el("path", { d: "M-15 -28 L0 -24 L15 -28 L15 -13 L0 -9 L-15 -13 Z", fill: "#ffffff", stroke: "#2f6f8f", "stroke-width": 2, "stroke-linejoin": "round" }),
+      el("path", { d: "M0 -24 L0 -9", stroke: "#2f6f8f", "stroke-width": 1.5 }),
+      el("ellipse", { cx: -17, cy: -21, rx: 6, ry: 8, fill: "#a8743f" }),
+      el("ellipse", { cx: 17, cy: -21, rx: 6, ry: 8, fill: "#a8743f" }),
     ])],
     vorhaenge: () => FENSTER.flatMap(([x, y]) => [
       el("rect", { x: x - 18, y: y - 20, width: 236, height: 8, rx: 4, fill: FARBE.holzDunkel }),
@@ -617,7 +638,7 @@
     });
     svg.append(el("ellipse", { cx: 600, cy: 360, rx: 520, ry: 330, fill: "url(#lese-licht)" }));
     // Die Einrichtung, soweit sie schon da ist: hinten an der Wand zuerst.
-    ["teppich", "vorhaenge", "blumen", "wimpel", "lampe", "mobile", "lichterkette", "bild", "uhr", "haengepflanze", "stehlampe", "stapel", "katze"]
+    ["teppich", "vorhaenge", "blumen", "wimpel", "lampe", "mobile", "lichterkette", "bild", "uhr", "haengepflanze", "stehlampe", "stapel", "teddy", "katze"]
       .forEach((id) => { const ding = da(id); if (ding) svg.append(ding); });
 
     // Die Dinge, die etwas tun. Beim Hereinkommen hüpfen sie (Stylesheet,
@@ -653,7 +674,6 @@
     }
     svg.append(ort("weiter", wurmLabel, "translate(590 400)", [
       ...sessel(),
-      da("kissen"),
       da("decke"),
       ...wurmTeile,
     ]));
