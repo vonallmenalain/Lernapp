@@ -621,7 +621,7 @@ const SZENARIEN = [
     titel: "index-lesen",
     schritte: [
       { name: "Lesewagen", tun: async (blatt) => { await zugHereinholen(blatt); await tippe(blatt, ".lesewagen-knopf"); await pause(blatt, 1200); } },
-      // Die grösste Auswahl: fünf Spiele hinter der Wortkiste.
+      // Die grössten Auswahlen: je sechs Spiele hinter der Wortkiste und dem Spielzeugzug.
       { name: "Auswahl Wörter", tun: async (blatt) => { await tippe(blatt, '.lesezimmer-svg [data-ort="woerter"]'); await pause(blatt, 500); } },
       { name: "Auswahl Buchstaben", tun: async (blatt) => { await tippe(blatt, ".lese-wahl-zu"); await pause(blatt, 200); await tippe(blatt, '.lesezimmer-svg [data-ort="buchstaben"]'); await pause(blatt, 500); } },
       { name: "Auswahl Sätze", tun: async (blatt) => { await tippe(blatt, ".lese-wahl-zu"); await pause(blatt, 200); await tippe(blatt, '.lesezimmer-svg [data-ort="saetze"]'); await pause(blatt, 500); } },
@@ -690,6 +690,71 @@ const SZENARIEN = [
       { name: "Gleis", tun: async (blatt) => { await tippe(blatt, ".lese-los-knopf"); await pause(blatt, 600); } },
       // Das breiteste Gleis: das W.
       { name: "Breiter Buchstabe", tun: async (blatt) => { await blatt.evaluate(() => window.LernappBuchstabengleis.uebe("W")); await pause(blatt, 400); } },
+    ],
+  },
+  {
+    seite: "lautposition",
+    schritte: [
+      { name: "Los", tun: async () => {} },
+      { name: "Wo im Wort", tun: async (blatt) => { await tippe(blatt, ".lese-los-knopf"); await pause(blatt, 700); } },
+    ],
+  },
+  // Buchstaben-Signal: Die Wagen rollen durchs Bild. Gemessen wird mit dem
+  // ersten Wagen, angehalten mitten auf der Strecke; wer noch wartet, steht
+  // ganz ausserhalb.
+  {
+    seite: "buchstabensignal",
+    schritte: [
+      { name: "Los", tun: async () => {} },
+      { name: "Wagen", tun: async (blatt) => {
+        await tippe(blatt, ".lese-los-knopf");
+        await blatt.waitForSelector(".bsg-wagen", { timeout: 15000 });
+        await blatt.evaluate(() => document.getAnimations().forEach((a) => {
+          if (!a.effect?.target?.classList?.contains("bsg-wagen")) return;
+          a.pause();
+          a.currentTime = a.effect.getComputedTiming().duration * 0.45;
+        }));
+        await pause(blatt, 200);
+      } },
+    ],
+  },
+  // Lies und tu!: die Szene mit zwei Dingen und drei Tieren, ein Tier
+  // gewählt (die Stellen leuchten), dann der Malauftrag.
+  {
+    seite: "liesundtu",
+    schritte: [
+      { name: "Los", tun: async () => {} },
+      { name: "Setzen", tun: async (blatt) => { await tippe(blatt, ".lese-los-knopf"); await pause(blatt, 700); } },
+      { name: "Tier gewählt", tun: async (blatt) => {
+        const a = await blatt.evaluate(() => window.LernappLiesUndTu.jetzt());
+        await tippe(blatt, `.lt-wartet[data-tier="${a.ziel.tier}"]`);
+        await pause(blatt, 300);
+      } },
+      { name: "Malen", tun: async (blatt) => {
+        const a = await blatt.evaluate(() => window.LernappLiesUndTu.jetzt());
+        await tippe(blatt, `.lt-zone[data-ding="${a.ziel.ding}"][data-wo="${a.ziel.wo}"]`);
+        await blatt.waitForFunction(() => window.LernappLiesUndTu.nr() === 1, null, { timeout: 15000 });
+        await pause(blatt, 500);
+      } },
+    ],
+  },
+  // Das Malen auf «schwer»: grosse und kleine Bilder nebeneinander.
+  {
+    seite: "liesundtu",
+    titel: "liesundtu-schwer",
+    speicher: { "lernapp.reise": JSON.stringify({ stufe: "schwer", stufeAt: 1 }) },
+    schritte: [
+      { name: "Malen gross und klein", tun: async (blatt) => {
+        await tippe(blatt, ".lese-los-knopf");
+        await pause(blatt, 500);
+        const a = await blatt.evaluate(() => window.LernappLiesUndTu.jetzt());
+        await tippe(blatt, `.lt-wartet[data-tier="${a.ziel.tier}"]`);
+        await tippe(blatt, `.lt-zone[data-ding="${a.ziel.ding}"][data-wo="${a.ziel.wo}"]`);
+        await blatt.waitForFunction(() => window.LernappLiesUndTu.nr() === 1, null, { timeout: 15000 });
+        await tippe(blatt, ".lt-topf");
+        await tippe(blatt, ".lt-stueck");
+        await pause(blatt, 500);
+      } },
     ],
   },
   {

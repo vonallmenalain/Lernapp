@@ -37,6 +37,11 @@ Stand: Oktober 2026 · Grundlage: das Konzept «Leseecke – Konzept & Ideensamm
 >
 > **Etappe 3, erster Teil:** **Satz kuppeln**, **Quatschsätze** und **Stolperwörter** (hinter
 > dem Spielzeugzug) und **Quatschwörter** (hinter der Wortkiste).
+>
+> **Etappe 3, zweiter Teil:** **Laut-Position** (hinter der Trommel), **Buchstaben-Signal**
+> (hinter dem Buchstabenhaus) und **Lies und tu!** (hinter dem Spielzeugzug). Wo «vorne» und
+> «hinten» zählen – Satz kuppeln, Laut-Position –, schaut die Lok nach links: Dort fängt das
+> Wort oder der Satz an.
 
 ## 1. Die Idee in drei Sätzen
 
@@ -87,6 +92,9 @@ Lesewagen selbst und der Lesewurm darin.
 | Quatschsätze | `quatschsaetze.html` | liest einen Satz auf einem Wagen: Kann das sein, fährt er weiter, Quatsch kommt aufs Abstellgleis | Sinn prüfen |
 | Stolperwörter | `stolperwoerter.html` | ein Wort gehört nicht in den Satz («Der Hund bellt Tasse laut.») – tippt den Stolperstein vom Gleis | sinnentnehmend und flüssig lesen |
 | Quatschwörter | `quatschwoerter.html` | ein Monster sagt seinen Namen («Lomu»), welches Schild stimmt: Lomu, Lumo, Loma? | genau lesen statt raten |
+| Laut-Position | `lautposition.html` | hört ein Wort zum Bild («Lama») und den Laut dazu (M): Ist er vorne (Lok), in der Mitte (Wagen) oder hinten (Schlusswagen)? Auf «leicht» nur vorne oder hinten | Laute im Wort heraushören |
+| Buchstaben-Signal | `buchstabensignal.html` | Wagen mit Buchstaben rollen vorbei; das Kind hält jeden an, der den Buchstaben vom Signal trägt (m), gross oder klein – nicht den Doppelgänger (n). Auf «leicht» rollen sie langsamer | Buchstaben unterscheiden, die sich ähnlich sehen |
+| Lies und tu! | `liesundtu.html` | liest einen Auftrag und tut, was dasteht: «Setz den Fuchs auf den Tisch.» (Tier wählen, Stelle antippen) oder «Male zwei Ballone rot an.»; auf «schwer» mit gross und klein | Aufträge lesen und verstehen |
 | Lückensätze | `lueckensaetze.html` | ein Wort fehlt im Satz – auf, unter, neben, ein Tunwort, das Tier, das Ding, die Zahl; die Stimme liest den Satz mit dem gewählten Wort | Sätze genau lesen |
 
 Drei Regeln gelten überall:
@@ -166,7 +174,7 @@ neuere Fassung und schreibt sie nie selbst. Wie die Stufe überlebt sie das Zur�
 
 ### Gratis
 
-Die Schranke (`entitlement.js`) kennt die siebzehn Spiele der Leseecke in einer eigenen Tabelle
+Die Schranke (`entitlement.js`) kennt die zwanzig Spiele der Leseecke in einer eigenen Tabelle
 `LESEECKE` – nicht in `AREAS`, die gleich bleiben muss wie im Zug – und gibt je Spiel eine
 Runde frei. Den Lesewurm taufen ist kein Spiel und immer frei. Das Bücherregal hat keine Runden: *Wo ist das Rüebli?* und *Leo und die Melone*
 sind immer frei (`GRATIS_BUECHER`, `buchFree`), die anderen gehören zum Kauf. «Ganze App
@@ -194,7 +202,7 @@ Ordner im Build** – `netlify/build.mjs` bleibt unverändert –, und offline f
 | `train-leseecke.js` | das Zimmer als Ansicht der Bühne |
 | `silbenzug.*`, `buchstabenhaus.*`, `lautekuppeln.*`, `stimmtdas.*`, `buecher.*` | die Spiele aus Etappe 1 |
 | `reimkupplung.*`, `anlautlauscher.*`, `werfaehrtmit.*`, `woerterbauen.*`, `silbenbahn.*`, `blitzwoerter.*`, `meinname.*`, `lueckensaetze.*`, `buchstabengleis.*` | die Spiele aus Etappe 2 |
-| `satzkuppeln.*`, `quatschsaetze.*`, `stolperwoerter.*`, `quatschwoerter.*` | die Spiele aus Etappe 3 |
+| `satzkuppeln.*`, `quatschsaetze.*`, `stolperwoerter.*`, `quatschwoerter.*`, `lautposition.*`, `buchstabensignal.*`, `liesundtu.*` | die Spiele aus Etappe 3 |
 | `leseschrift.css` | Andika |
 | `train-home.js`, `index.html` | Lesewagen auf dem Startbild, `?lesen=1` |
 | `entitlement.js` | `LESEECKE`, `GRATIS_BUECHER`, `buchFree`, `targetFree` mit `buch=` |
@@ -228,8 +236,8 @@ Zwielaute spricht die Sprachausgabe, Mitlaute bleiben stumm und werden gezeigt.
 - **Etappe 2 – Laute und Wörter:** fertig – Reimkupplung, Anlaut-Lauscher, Wer fährt mit?,
   Wörter bauen, Silbenbahn, Blitzwörter, die Buchstaben der Schule, Mein Name und der Name des
   Lesewurms, Lückensätze, Buchstabengleis und zehn weitere Bücher.
-- **Etappe 3 – Sätze:** gebaut sind Satz kuppeln, Quatschsätze, Stolperwörter und
-  Quatschwörter. Es folgen: Lies und tu!, Laut-Position, Buchstaben-Signal, Geschichtenzug,
+- **Etappe 3 – Sätze:** gebaut sind Satz kuppeln, Quatschsätze, Stolperwörter,
+  Quatschwörter, Laut-Position, Buchstaben-Signal und Lies und tu!. Es folgen: Geschichtenzug,
   der Lesewagen in 15 Ausbaustufen, der Elternbericht.
 - **Etappe 4 – Lesedetektive:** Detektivfälle, Wer bin ich?, Steckbriefe, Postkarten,
   Wortbaustelle, der Lesewurm fährt auf der Lok mit.
