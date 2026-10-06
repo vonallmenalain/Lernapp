@@ -1699,7 +1699,10 @@
   }
 
   // Im Lesewagen: das Zimmer mit Sessel, Regal und den Wegen in die Spiele.
-  // Der Zug bleibt draussen.
+  // Der Zug bleibt draussen – und wird drinnen auch nicht neu gebaut (siehe
+  // render). Was dabei liegen bleibt, holt der Weg hinaus nach.
+  let renderAfterLesen = false;
+
   function showLeseecke() {
     const lese = leseApi();
     if (!lese) { showHome(); return; }
@@ -1875,8 +1878,15 @@
       return;
     }
     if (view.name === "areas") { showHome(); return; }
-    // Aus dem Lesewagen zurück an den Zug.
-    if (view.name === "lesen") { showHome(); return; }
+    // Aus dem Lesewagen zurück an den Zug. Was drinnen an Neuzeichnen anfiel,
+    // kommt jetzt: Das Bild wechselt ohnehin, da fällt ein frisch gebauter Zug
+    // nicht auf.
+    if (view.name === "lesen") {
+      if (!renderAfterLesen) { showHome(); return; }
+      setView("home");
+      render();
+      return;
+    }
     // Von der Karte zurück an den Zug: Er kommt von links herein, wie aus
     // einem Bereich – und steht wieder gross auf dem Startbild.
     if (view.name === "reise") {
@@ -2422,6 +2432,19 @@
       maybeCelebrate(progress.allAreas());
       return;
     }
+    // Im Lesewagen genauso. Dort steht der Zug draussen, und ein Neuaufbau
+    // der Bühne baute das ganze Zimmer neu, das sich dabei jedes Mal von vorn
+    // einblendete. Nach der Rückkehr aus einem Lesespiel melden sich
+    // Anmeldung, Schranke, Einstellungen und Fortschritt nacheinander – das
+    // Zimmer flackerte drei-, viermal. Jetzt frischt sich nur das Zimmer auf,
+    // und nur, wenn sich darin etwas ändert (train-leseecke.js, auffrischen).
+    if (view.name === "lesen") {
+      renderAfterLesen = true;
+      leseApi()?.auffrischen?.();
+      maybeCelebrate(progress.allAreas());
+      return;
+    }
+    renderAfterLesen = false;
     const areas = progress.allAreas();
     if (!locoConfig) locoConfig = readLoco();
     const loco = locoConfig;

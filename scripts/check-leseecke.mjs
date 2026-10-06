@@ -31,6 +31,9 @@
  *                 an: ohne Vorlesen, mit eigenem Bestwert im Lesestand.
  *   Mitwachsen    Ein Spiel, das einen Schritt gewachsen ist, spielt eine
  *                 Stufe höher als das Kind; eine Runde zählt für die Serie.
+ *   Ruhe          Zurück aus einem Spiel, mit Konto: Das Zimmer steht einmal
+ *                 da, auch wenn sich die Cloud nacheinander meldet; was sie am
+ *                 Zimmer ändert, kommt an Ort und Stelle hinein.
  *
  * Aufruf:  node scripts/check-leseecke.mjs
  * Nötig:   Playwright. Der lokale Server wird selbst gestartet und beendet.
@@ -88,6 +91,66 @@ function schrankeOffen() {
     gameEntry: () => null, gameGespielt: () => false, gespielteRunden: () => 0, rundeBeendet() {}, showGate: () => () => {}, closeGate() {}, onChange: () => () => {},
   };
   Object.defineProperty(window, "LernappEntitlement", { get: () => frei, set() {}, configurable: true });
+}
+
+// Ein schlankes Firebase (wie in check-schranke.mjs): ein angemeldetes Kind,
+// das sich erst nach einem Moment meldet, und in seinem Kontodokument ein
+// Lesestand, der weiter ist als der auf dem Gerät – gelesen auf einem anderen.
+function firebaseMitKonto(lesen) {
+  const daten = new Map([["users/kind-leser", {
+    authEmail: "mia@lernapp.local", email: null, username: "Mia", displayName: "Mia", role: "child",
+    stats: { totalSeconds: 60, moves: 5, resets: 0, solvedLevels: 0, sessions: 1 },
+    gameState: { "lernapp.lesen": { data: lesen, updatedAt: 1700000000000 } },
+  }]]);
+  const schnapp = (pfad) => ({ exists: daten.has(pfad), id: pfad.split("/").pop(), data: () => daten.get(pfad) });
+  const docRef = (pfad) => ({
+    path: pfad, id: pfad.split("/").pop(),
+    async get() { return schnapp(pfad); },
+    async set(nutzlast, optionen) { daten.set(pfad, optionen?.merge ? { ...(daten.get(pfad) || {}), ...nutzlast } : nutzlast); },
+    async update(nutzlast) { daten.set(pfad, { ...(daten.get(pfad) || {}), ...nutzlast }); },
+    async delete() { daten.delete(pfad); },
+    onSnapshot(rueckruf) { setTimeout(() => rueckruf(schnapp(pfad)), 10); return () => {}; },
+    collection: (name) => collRef(`${pfad}/${name}`),
+  });
+  function collRef(pfad) {
+    const abfrage = {
+      orderBy: () => abfrage, limit: () => abfrage, where: () => abfrage,
+      async get() { return { docs: [], size: 0, empty: true, forEach() {} }; },
+      doc: (id) => docRef(`${pfad}/${id}`),
+    };
+    return abfrage;
+  }
+  const nutzer = { uid: "kind-leser", email: "mia@lernapp.local", emailVerified: false, displayName: "Mia", providerData: [{ providerId: "password" }], updateProfile: async () => {}, reload: async () => {}, getIdToken: async () => "token-attrappe" };
+  const auth = () => ({
+    currentUser: null,
+    setPersistence: () => Promise.resolve(),
+    onAuthStateChanged(rueckruf) { setTimeout(() => rueckruf(nutzer), 300); return () => {}; },
+    signOut: async () => {},
+  });
+  auth.Auth = { Persistence: { LOCAL: "local" } };
+  auth.GoogleAuthProvider = function GoogleAuthProvider() {};
+  const firestore = () => ({
+    collection: (name) => collRef(name),
+    batch: () => ({ set() { return this; }, update() { return this; }, delete() { return this; }, async commit() {} }),
+  });
+  firestore.FieldValue = { serverTimestamp: () => 1700000000000, increment: (um) => um, delete: () => null };
+  window.firebase = { apps: [], initializeApp: () => ({}), app: () => ({}), auth, firestore };
+}
+
+// Zählt, wie viele Lesezimmer und wie viele Zeichnungen davon ins Dokument
+// kommen – jedes Element einmal, auch wenn es mitsamt seiner Hülle kommt.
+function zimmerZaehler() {
+  window.__zimmer = { platz: 0, zeichnung: 0 };
+  const gezaehlt = new WeakSet();
+  const zaehle = (knoten, wahl, feld) => {
+    const treffer = knoten.matches(wahl) ? [knoten] : [...knoten.querySelectorAll(wahl)];
+    treffer.forEach((t) => { if (!gezaehlt.has(t)) { gezaehlt.add(t); window.__zimmer[feld] += 1; } });
+  };
+  new MutationObserver((liste) => liste.forEach((m) => m.addedNodes.forEach((n) => {
+    if (n.nodeType !== 1) return;
+    zaehle(n, ".leseecke", "platz");
+    zaehle(n, ".lesezimmer-svg", "zeichnung");
+  }))).observe(document, { childList: true, subtree: true });
 }
 
 if (!(await warteAufServer())) { console.error("Server antwortet nicht."); process.exit(2); }
@@ -1418,6 +1481,59 @@ try {
     if (Boolean(faehrt) !== soll) fehlt(`Lesewurm auf der Lok: nach ${runden} Stücken ${faehrt ? "fährt er mit" : "fährt er nicht mit"}`);
   }
 
+  // --- 11. Ruhe nach der Rückkehr, auch mit Konto -------------------------------------------
+  // Zurück aus einem Lesespiel melden sich Anmeldung, Schranke, Einstellungen
+  // und Fortschritt nacheinander. Früher baute jeder Bescheid das Zimmer neu,
+  // und es flackerte drei-, viermal. Jetzt steht es einmal da; was die Cloud
+  // am Zimmer ändert – hier ein längerer Lesewurm –, kommt an Ort und Stelle
+  // hinein. Der Zug draussen wird beim Hinausgehen neu gebaut.
+  const konto = await browser.newContext({ viewport: { width: 1024, height: 640 }, serviceWorkers: "block", reducedMotion: "reduce" });
+  konto.setDefaultTimeout(8000);
+  await konto.route("**/*gstatic.com/**", (route) => route.fulfill({ status: 200, contentType: "application/javascript", body: "" }));
+  await konto.addInitScript(firebaseMitKonto, { woerter: 400, buecher: {}, spiele: {}, laute: {}, blitz: {} });
+  await konto.addInitScript(stimmeErsatz);
+  await konto.addInitScript(zimmerZaehler);
+  // Auf dem Gerät: weniger gelesen als in der Cloud, und das Zimmer kennt es.
+  await konto.addInitScript(() => {
+    if (sessionStorage.getItem("__vorbereitet")) return;
+    sessionStorage.setItem("__vorbereitet", "1");
+    localStorage.setItem("lernapp.lesen", JSON.stringify({ woerter: 42, buecher: {}, spiele: {}, laute: {}, blitz: {} }));
+    localStorage.setItem("lernapp.lesen.gesehen", "3");
+    localStorage.setItem("lernapp.lesen.ausbau-gesehen", "0");
+  });
+  const kind = await konto.newPage();
+  kind.on("pageerror", (e) => fehler.push(`mit Konto: ${e.message}`));
+  await kind.goto(`${BASIS}/index.html?lesen=1`, { waitUntil: "domcontentloaded" });
+  await kind.waitForSelector(".leseecke .lesezimmer-svg", { timeout: 8000 }).catch(() => {});
+  await kind.waitForTimeout(2000);
+  const ruhe = await kind.evaluate(() => ({
+    ...window.__zimmer,
+    glieder: Number(document.querySelector(".leseecke .lesewurm")?.dataset.glieder),
+    soll: window.LernappLeseStand.wurmGlieder(),
+    gewachsen: Boolean(document.querySelector(".leseecke .lesewurm.is-gewachsen")),
+    hilfe: window.LernappKids?.currentHelp?.() || "",
+    angemeldet: Boolean(window.LernappFirebase?.getGameState?.("lernapp.lesen")),
+  }));
+  if (!ruhe.angemeldet) fehlt("Ruhe: das nachgebaute Konto hat sich nicht angemeldet");
+  if (ruhe.platz !== 1) fehlt(`Ruhe: nach der Rückkehr mit Konto wird das Lesezimmer ${ruhe.platz}-mal eingeblendet (erwartet einmal)`);
+  if (ruhe.zeichnung > 2) fehlt(`Ruhe: das Zimmer wird ${ruhe.zeichnung}-mal gezeichnet – nur einmal und einmal für den Wurm aus der Cloud`);
+  if (ruhe.soll !== 21 || ruhe.glieder !== ruhe.soll) fehlt(`Ruhe: der Lesewurm aus der Cloud fehlt im Zimmer (${ruhe.glieder} Glieder gezeichnet, ${ruhe.soll} im Lesestand, erwartet 21)`);
+  if (!ruhe.gewachsen || !/21 Glieder/.test(ruhe.hilfe)) fehlt(`Ruhe: dass der Wurm gewachsen ist, zeigt und sagt das Zimmer nicht (${ruhe.hilfe.slice(0, 80)})`);
+  // Hinaus an den Zug: Jetzt wird die Bühne neu gebaut, und der Text des
+  // Lesewagens geht mit.
+  await kind.evaluate(() => { document.querySelector(".train-band").dataset.alt = "1"; });
+  await kind.locator(".stage-back").click();
+  await kind.waitForTimeout(300);
+  const draussen = await kind.evaluate(() => ({
+    ansicht: document.querySelector(".train-stage")?.dataset.view,
+    neuerZug: Boolean(document.querySelector(".train-band")) && !document.querySelector(".train-band[data-alt]"),
+    hilfe: window.LernappKids?.currentHelp?.() || "",
+  }));
+  if (draussen.ansicht !== "home") fehlt(`Ruhe: der Pfeil führt aus dem Lesewagen nach «${draussen.ansicht}»`);
+  if (!draussen.neuerZug) fehlt("Ruhe: draussen steht noch der Zug von vor den Bescheiden aus der Cloud");
+  if (/Lesewagen|Lesewurm/.test(draussen.hilfe)) fehlt(`Ruhe: draussen spricht noch der Lesewagen (${draussen.hilfe.slice(0, 60)})`);
+  await konto.close();
+
   if (fehler.length) fehlt(`Fehler auf den Seiten: ${[...new Set(fehler)].slice(0, 5).join(" | ")}`);
 } finally {
   await browser.close();
@@ -1429,4 +1545,4 @@ if (befunde.length) {
   befunde.forEach((b) => console.error(`  - ${b}`));
   process.exit(1);
 }
-console.log("Die Leseecke läuft: Lesewagen, Zimmer mit Auswahl, alle Spiele hin und zurück, eine Runde Silbenzug bis zum Tor, Laute kuppeln ohne verratenes Wort, Buchstabenhaus, der Würfel von «Stimmt das?», Reimkupplung, Anlaut-Lauscher, Wer fährt mit?, Wörter bauen, Silbenbahn, Blitzwörter, Mein Name, der Lesewurm bekommt seinen Namen, Lückensätze, Buchstabengleis, Satz kuppeln, Quatschsätze, Stolperwörter, Quatschwörter, Laut-Position, Buchstaben-Signal, Lies und tu!, Geschichtenzug, Wer bin ich?, Wortbaustelle, Steckbriefe, Detektivfälle, Postkarten, die Buchstaben der Schule, Hörbuch mit Nachsehen, Zusammen lesen, Kapitelbücher mit Überschrift und Lesezeichen, Runden auf Zeit, Wort-Hilfe und Schriftgrösse der Eltern, Spiele, die mitwachsen, der Lesewurm wächst, der Lesewagen wird gemütlich, und der Lesewurm fährt auf der Lok mit.");
+console.log("Die Leseecke läuft: Lesewagen, Zimmer mit Auswahl, alle Spiele hin und zurück, eine Runde Silbenzug bis zum Tor, Laute kuppeln ohne verratenes Wort, Buchstabenhaus, der Würfel von «Stimmt das?», Reimkupplung, Anlaut-Lauscher, Wer fährt mit?, Wörter bauen, Silbenbahn, Blitzwörter, Mein Name, der Lesewurm bekommt seinen Namen, Lückensätze, Buchstabengleis, Satz kuppeln, Quatschsätze, Stolperwörter, Quatschwörter, Laut-Position, Buchstaben-Signal, Lies und tu!, Geschichtenzug, Wer bin ich?, Wortbaustelle, Steckbriefe, Detektivfälle, Postkarten, die Buchstaben der Schule, Hörbuch mit Nachsehen, Zusammen lesen, Kapitelbücher mit Überschrift und Lesezeichen, Runden auf Zeit, Wort-Hilfe und Schriftgrösse der Eltern, Spiele, die mitwachsen, Ruhe nach der Rückkehr mit Konto, der Lesewurm wächst, der Lesewagen wird gemütlich, und der Lesewurm fährt auf der Lok mit.");
