@@ -13024,9 +13024,15 @@ body[data-page="laute-aufnehmen"] {
   width: min(96vw, 1040px);
   height: min(clamp(46px, 15vh, 96px), calc(90vw / (1.2 + 1.25 * var(--sk-n, 6))));
 }
-.sk-zug { position: absolute; left: 1%; bottom: 8px; display: flex; align-items: flex-end; height: 100%; transition: transform 0.9s cubic-bezier(0.45, 0, 0.55, 1); }
-.sk-zug.faehrt-ab { transform: translateX(110vw); }
-.sk-zug .lese-lok { height: 100%; }
+.sk-zug { position: absolute; left: 1%; bottom: 8px; display: flex; align-items: flex-end; height: 100%; }
+/* Die Lok fährt vorne, nach links: Dort fängt der Satz an, hinten am
+   Schlusslicht hört er auf. Sie fährt nach links ab, und die nächste kommt
+   von rechts. */
+.sk-zug .lese-lok { height: 100%; transform: scaleX(-1); }
+.sk-zug.faehrt-ab { animation: sk-faehrt-ab 0.9s cubic-bezier(0.45, 0, 0.55, 1) forwards; }
+.sk-zug.kommt-an { animation: sk-kommt-an 0.8s cubic-bezier(0.25, 1, 0.5, 1); }
+@keyframes sk-faehrt-ab { to { transform: translateX(-110vw); } }
+@keyframes sk-kommt-an { from { transform: translateX(105vw); } }
 .sk-angekuppelt { display: flex; align-items: flex-end; height: 72%; }
 .sk-wagen { display: block; flex: none; min-height: 0; padding: 0; border: none; border-radius: 12px; background: none; cursor: pointer; }
 .sk-wagen:hover:not(:disabled) { background: none; }
@@ -13144,5 +13150,158 @@ body[data-page="laute-aufnehmen"] {
 @media (prefers-reduced-motion: reduce) {
   .sk-angekuppelt .sk-wagen, .sk-wagen.zeigt-hin, .qs-wagen.faehrt-ein, .sw-wort.zeigt-hin, .sw-wort.fliegt-weg,
   .qw-monster.kommt, .qw-monster.ist-froh, .qw-monster.schuettelt, .qw-schild.zeigt-hin { animation: none; }
-  .sk-zug, .qs-wagen { transition: none; }
+  .qs-wagen { transition: none; }
+  .sk-zug.kommt-an { animation: none; }
+  .sk-zug.faehrt-ab { animation: none; opacity: 0; }
+}
+
+/* --- Laut-Position --- */
+.lp-oben { display: flex; align-items: center; gap: clamp(10px, 3vw, 30px); }
+.lp-zeichen { margin: 0; color: #243047; font-family: "Andika", Inter, system-ui, sans-serif; font-size: clamp(2.2rem, 16vh, 6rem); font-weight: 700; line-height: 1; }
+.lp-bild { width: clamp(64px, 20vh, 140px); height: clamp(64px, 20vh, 140px); font-size: clamp(36px, 12vh, 80px); }
+.lp-frage { margin: 0; padding: 3px 14px; border-radius: 12px; background: rgba(255, 255, 255, 0.85); color: #243047; font-family: "Andika", Inter, system-ui, sans-serif; font-size: clamp(1rem, 5vh, 1.6rem); font-weight: 700; }
+.lp-zug { display: flex; align-items: flex-end; gap: clamp(6px, 2vw, 22px); }
+.lp-teil {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-height: 0;
+  padding: 6px 8px 4px;
+  border: 4px solid transparent;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.7);
+  color: #243047;
+  cursor: pointer;
+}
+.lp-teil:hover:not(:disabled) { background: rgba(255, 255, 255, 0.95); }
+.lp-teil svg { display: block; height: clamp(46px, 16vh, 110px); width: auto; }
+/* Vorne ist links: Die Lok schaut dorthin, der Schlusswagen ist rechts. */
+.lp-vorne .lese-lok { transform: scaleX(-1); }
+.lp-teil-text { font-size: clamp(0.8rem, 3.6vh, 1.1rem); font-weight: 800; }
+.lp-teil.ist-richtig { border-color: #3fbf74; background: #c9f2d6; }
+.lp-teil.ist-falsch { opacity: 0.45; }
+.lp-teil.zeigt-hin { animation: lese-zeigt-hin 0.9s ease-in-out infinite; }
+.lp-teil[hidden] { display: none; }
+
+/* --- Buchstaben-Signal --- */
+.bsg-signal { display: flex; align-items: flex-start; gap: 0; }
+.bsg-mast { width: 10px; height: clamp(54px, 16vh, 110px); margin-top: 18px; border-radius: 4px; background: #4a5160; }
+.bsg-tafel {
+  display: grid;
+  place-items: center;
+  min-width: clamp(84px, 22vh, 150px);
+  padding: 6px 14px;
+  border: 6px solid #2b2f38;
+  border-radius: 16px;
+  background: #fffaf0;
+  color: #243047;
+  font-family: "Andika", Inter, system-ui, sans-serif;
+  font-size: clamp(2rem, 12vh, 4.4rem);
+  font-weight: 700;
+  line-height: 1.05;
+  box-shadow: 0 6px 14px rgba(36, 48, 71, 0.2);
+}
+.bsg-signal.blinkt .bsg-tafel { animation: bsg-blinken 0.6s ease-in-out 2; }
+@keyframes bsg-blinken { 50% { border-color: #e8543f; background: #ffe1dc; } }
+.bsg-strecke { position: relative; width: 100vw; height: clamp(60px, 22vh, 140px); overflow: hidden; }
+.bsg-schiene { position: absolute; left: 0; right: 0; bottom: 4px; height: 7px; border-radius: 4px; background: #6b5b4a; }
+.bsg-wagen {
+  position: absolute;
+  bottom: 8px;
+  left: 100%;
+  min-height: 0;
+  padding: 0;
+  border: none;
+  border-radius: 12px;
+  background: none;
+  cursor: pointer;
+  animation: bsg-fahrt var(--bsg-dauer, 4800ms) linear forwards;
+}
+.bsg-wagen:hover:not(:disabled) { background: none; }
+.bsg-wagen svg { display: block; height: clamp(52px, 19vh, 124px); width: auto; }
+@keyframes bsg-fahrt { from { transform: translateX(0); } to { transform: translateX(calc(-100vw - 160%)); } }
+.bsg-wagen.ist-richtig { animation-play-state: paused; filter: drop-shadow(0 0 10px #3fbf74); }
+.bsg-wagen.ist-richtig svg { animation: bsg-weg 0.5s ease-in 0.3s forwards; }
+@keyframes bsg-weg { to { transform: translateY(-50%); opacity: 0; } }
+.bsg-wagen.ist-falsch { filter: drop-shadow(0 0 10px #e8543f); opacity: 0.6; }
+.bsg-stand { margin: 0; padding: 2px 12px; border-radius: 10px; background: rgba(255, 255, 255, 0.8); color: #243047; font-size: clamp(0.9rem, 4vh, 1.3rem); font-weight: 800; white-space: pre; }
+
+/* --- Lies und tu! --- */
+.lt-auftrag {
+  max-width: min(94vw, 760px);
+  min-height: 0;
+  padding: clamp(4px, 1.4vh, 12px) clamp(14px, 3vw, 28px);
+  border: none;
+  border-radius: 18px;
+  background: #ffffff;
+  box-shadow: 0 6px 14px rgba(36, 48, 71, 0.16);
+  color: #243047;
+  font-family: "Andika", Inter, system-ui, sans-serif;
+  font-size: clamp(1.1rem, 6.4vh, 2.2rem);
+  font-weight: 700;
+  line-height: 1.25;
+}
+.lt-auftrag:hover:not(:disabled) { background: #ffffff; }
+.lt-auftrag.ist-richtig { background: #c9f2d6; }
+.lt-mitte { display: flex; flex-direction: column; align-items: center; gap: clamp(10px, 2.4vh, 22px); }
+.lt-feld { display: flex; justify-content: center; }
+.lt-szene { display: block; width: min(80vw, calc((100vh - 260px) * 1.97), 820px); min-width: 0; height: auto; filter: drop-shadow(0 6px 12px rgba(36, 48, 71, 0.16)); }
+.lt-zone { fill: transparent; stroke: none; cursor: pointer; }
+.lt-szene.ist-wahl .lt-zone { fill: rgba(63, 191, 116, 0.12); stroke: #3fbf74; stroke-width: 4; stroke-dasharray: 10 8; }
+.lt-zone.zeigt-hin { fill: rgba(255, 209, 102, 0.35); stroke: #f5a623; stroke-width: 5; }
+.lt-unten { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: clamp(8px, 2vw, 20px); }
+.lt-wartet {
+  display: grid;
+  place-items: center;
+  width: clamp(52px, 15vh, 96px);
+  height: clamp(52px, 15vh, 96px);
+  min-height: 0;
+  padding: 4px;
+  border: 4px solid #ffffff;
+  border-radius: 50%;
+  background: #fff6e0;
+  box-shadow: 0 6px 12px rgba(36, 48, 71, 0.18);
+}
+.lt-wartet:hover:not(:disabled) { background: #ffeccc; }
+.lt-wartet svg { width: 100%; height: 100%; }
+.lt-wartet.ist-gewaehlt { border-color: #3fbf74; box-shadow: 0 0 0 4px #3fbf74, 0 6px 12px rgba(36, 48, 71, 0.18); }
+.lt-wartet.zeigt-hin { animation: lese-zeigt-hin 0.9s ease-in-out infinite; }
+.lt-wartet[hidden] { display: none; }
+.lt-malreihe { display: flex; align-items: flex-end; justify-content: center; gap: clamp(4px, 1.6vw, 18px); }
+.lt-stueck { min-height: 0; padding: 0; border: none; border-radius: 16px; background: none; cursor: pointer; }
+.lt-stueck:hover:not(:disabled) { background: rgba(255, 255, 255, 0.4); }
+.lt-malbild { display: block; height: clamp(58px, 21vh, 150px); width: auto; }
+.lt-farben { display: flex; gap: clamp(6px, 1.6vw, 14px); }
+.lt-topf {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-height: 0;
+  padding: 4px 8px;
+  border: 3px solid transparent;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.85);
+  color: #243047;
+}
+.lt-topf:hover:not(:disabled) { background: #ffffff; }
+.lt-topf-klecks { display: block; width: clamp(28px, 9vh, 44px); height: clamp(28px, 9vh, 44px); border-radius: 50%; background: var(--lt-farbe); box-shadow: inset 0 -4px 0 rgba(0, 0, 0, 0.15); }
+.lt-topf-name { font-size: clamp(0.75rem, 3.2vh, 1rem); font-weight: 800; }
+.lt-topf.ist-gewaehlt { border-color: #243047; }
+.lt-topf.zeigt-hin { animation: lese-zeigt-hin 0.9s ease-in-out infinite; }
+.lt-fertig { width: clamp(48px, 14vh, 66px); height: clamp(48px, 14vh, 66px); padding: 0; border-radius: 50%; background: #3fbf74; font-size: clamp(1.3rem, 6vh, 2rem); }
+.lt-fertig:hover:not(:disabled) { background: #2f9d5d; }
+
+/* Flache Bildschirme: Beim Setzen warten die Tiere neben der Szene statt
+   darunter – so bleibt die Szene gross genug, um die Stellen zu treffen. */
+@media (orientation: landscape) and (max-height: 560px) {
+  .lese-stage[data-auftrag="setzen"] .lt-mitte { flex-direction: row; }
+  .lese-stage[data-auftrag="setzen"] .lt-unten { flex-direction: column; flex-wrap: nowrap; gap: clamp(6px, 2vh, 14px); }
+  .lese-stage[data-auftrag="setzen"] .lt-szene { width: min(calc(100vw - 150px), calc((100vh - 160px) * 1.97), 820px); }
+  .lese-stage[data-auftrag="setzen"] .lt-wartet { width: clamp(44px, 14vh, 96px); height: clamp(44px, 14vh, 96px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lp-teil.zeigt-hin, .bsg-signal.blinkt .bsg-tafel, .lt-wartet.zeigt-hin, .lt-topf.zeigt-hin { animation: none; }
 }

@@ -340,11 +340,13 @@
   //   weiter wohin der Lesewurm führt, wenn er es aussucht
   const SPIELE = {
     silbenzug: { page: "silbenzug.html", titel: "Silbenzug", ort: "silben", bild: "🥁" },
+    lautposition: { page: "lautposition.html", titel: "Laut-Position", ort: "silben", bild: "🔎" },
     reimkupplung: { page: "reimkupplung.html", titel: "Reimkupplung", ort: "silben", bild: "🎶" },
     anlautlauscher: { page: "anlautlauscher.html", titel: "Anlaut-Lauscher", ort: "silben", bild: "👂" },
     buchstabenhaus: { page: "buchstabenhaus.html", titel: "Buchstabenhaus", ort: "buchstaben", bild: "🏠" },
     meinname: { page: "meinname.html", titel: "Mein Name", ort: "buchstaben", bild: "🏷️" },
     buchstabengleis: { page: "buchstabengleis.html", titel: "Buchstabengleis", ort: "buchstaben", bild: "🛤️" },
+    buchstabensignal: { page: "buchstabensignal.html", titel: "Buchstaben-Signal", ort: "buchstaben", bild: "🚦" },
     lautekuppeln: { page: "lautekuppeln.html", titel: "Laute kuppeln", ort: "woerter", bild: "🚃" },
     werfaehrtmit: { page: "werfaehrtmit.html", titel: "Wer fährt mit?", ort: "woerter", bild: "🎫" },
     woerterbauen: { page: "woerterbauen.html", titel: "Wörter bauen", ort: "woerter", bild: "🧱" },
@@ -356,15 +358,16 @@
     satzkuppeln: { page: "satzkuppeln.html", titel: "Satz kuppeln", ort: "saetze", bild: "🚃" },
     quatschsaetze: { page: "quatschsaetze.html", titel: "Quatschsätze", ort: "saetze", bild: "🤪" },
     stolperwoerter: { page: "stolperwoerter.html", titel: "Stolperwörter", ort: "saetze", bild: "🪨" },
+    liesundtu: { page: "liesundtu.html", titel: "Lies und tu!", ort: "saetze", bild: "🖍️" },
     buecher: { page: "buecher.html", titel: "Bücherregal", ort: "buecher", bild: "📚", weiter: "buecher.html?weiter=1" },
   };
   // Was der Lesewurm im Sessel je Lesestufe aussucht.
   const AUSWAHL = {
     hoeren: ["silbenzug", "reimkupplung", "anlautlauscher", "buecher", "buchstabenhaus", "buchstabengleis"],
-    buchstaben: ["buchstabenhaus", "meinname", "buchstabengleis", "anlautlauscher", "lautekuppeln", "silbenzug", "reimkupplung", "buecher"],
+    buchstaben: ["buchstabenhaus", "meinname", "buchstabengleis", "buchstabensignal", "lautposition", "anlautlauscher", "lautekuppeln", "silbenzug", "reimkupplung", "buecher"],
     woerter: ["lautekuppeln", "werfaehrtmit", "woerterbauen", "buchstabenhaus", "silbenbahn", "quatschwoerter", "buecher"],
-    saetze: ["stimmtdas", "lueckensaetze", "satzkuppeln", "quatschsaetze", "blitzwoerter", "quatschwoerter", "silbenbahn", "buecher"],
-    geschichten: ["buecher", "stolperwoerter", "quatschsaetze", "lueckensaetze", "satzkuppeln", "stimmtdas", "blitzwoerter"],
+    saetze: ["stimmtdas", "lueckensaetze", "satzkuppeln", "quatschsaetze", "liesundtu", "blitzwoerter", "quatschwoerter", "silbenbahn", "buecher"],
+    geschichten: ["buecher", "stolperwoerter", "liesundtu", "quatschsaetze", "lueckensaetze", "satzkuppeln", "stimmtdas", "blitzwoerter"],
   };
 
   function naechstes(s = stand()) {

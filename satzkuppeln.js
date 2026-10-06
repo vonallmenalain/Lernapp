@@ -127,7 +127,12 @@
     state.fehlgriffe = 0;
     state.phase = "kuppeln";
     const a = state.aufgabe;
-    el.zug.classList.remove("faehrt-ab");
+    // Die Lok vom letzten Satz ist links hinaus; die nächste kommt von rechts.
+    el.zug.classList.remove("faehrt-ab", "kommt-an");
+    if (state.nr > 0) {
+      void el.zug.offsetWidth;
+      el.zug.classList.add("kommt-an");
+    }
     el.angekuppelt.innerHTML = "";
     el.bild.innerHTML = "";
     el.bild.append(art.buildSzene(a.lage, { klasse: "sk-bild-svg" }));

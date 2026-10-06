@@ -134,6 +134,9 @@
     { id: "quatschsaetze", page: "quatschsaetze.html" },
     { id: "stolperwoerter", page: "stolperwoerter.html" },
     { id: "quatschwoerter", page: "quatschwoerter.html" },
+    { id: "lautposition", page: "lautposition.html" },
+    { id: "buchstabensignal", page: "buchstabensignal.html" },
+    { id: "liesundtu", page: "liesundtu.html" },
   ] };
 
   // Das Bücherregal ist kein Spiel mit Runden: Diese zwei Bücher sind frei,

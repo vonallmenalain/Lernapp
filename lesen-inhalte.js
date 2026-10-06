@@ -305,27 +305,29 @@
   // die auf der Reise mitfahren. Sie stehen – deshalb heisst es «steht».
   //   der    der Satz mit bestimmtem Artikel, in der Einzahl
   //   viele  die Mehrzahl, ohne Artikel
+  //   wen    wen man irgendwohin setzt (Lies und tu!): der vierte Fall
   const TIERE = [
-    { id: "fox", der: "Der Fuchs", viele: "Füchse" },
-    { id: "bear", der: "Der Bär", viele: "Bären" },
-    { id: "rabbit", der: "Der Hase", viele: "Hasen" },
-    { id: "cat", der: "Die Katze", viele: "Katzen" },
-    { id: "panda", der: "Der Panda", viele: "Pandas" },
-    { id: "frog", der: "Der Frosch", viele: "Frösche" },
-    { id: "owl", der: "Die Eule", viele: "Eulen" },
-    { id: "penguin", der: "Der Pinguin", viele: "Pinguine" },
-    { id: "lion", der: "Der Löwe", viele: "Löwen" },
-    { id: "mouse", der: "Die Maus", viele: "Mäuse" },
+    { id: "fox", der: "Der Fuchs", viele: "Füchse", wen: "den Fuchs" },
+    { id: "bear", der: "Der Bär", viele: "Bären", wen: "den Bären" },
+    { id: "rabbit", der: "Der Hase", viele: "Hasen", wen: "den Hasen" },
+    { id: "cat", der: "Die Katze", viele: "Katzen", wen: "die Katze" },
+    { id: "panda", der: "Der Panda", viele: "Pandas", wen: "den Panda" },
+    { id: "frog", der: "Der Frosch", viele: "Frösche", wen: "den Frosch" },
+    { id: "owl", der: "Die Eule", viele: "Eulen", wen: "die Eule" },
+    { id: "penguin", der: "Der Pinguin", viele: "Pinguine", wen: "den Pinguin" },
+    { id: "lion", der: "Der Löwe", viele: "Löwen", wen: "den Löwen" },
+    { id: "mouse", der: "Die Maus", viele: "Mäuse", wen: "die Maus" },
   ];
   // Die Dinge zeichnet lesen-art.js. Nicht jedes Wort passt zu jedem Ding: Wer
   // unter dem Bett steht, ist nicht zu sehen.
+  //   wohin  wohin man etwas setzt (Lies und tu!): «auf den Tisch»
   const DINGE = [
-    { id: "tisch", dativ: "dem Tisch", wo: ["auf", "unter", "neben"] },
-    { id: "stuhl", dativ: "dem Stuhl", wo: ["auf", "neben"] },
-    { id: "bett", dativ: "dem Bett", wo: ["auf", "neben"] },
-    { id: "kiste", dativ: "der Kiste", wo: ["auf", "neben"] },
-    { id: "baum", dativ: "dem Baum", wo: ["auf", "unter", "neben"] },
-    { id: "haus", dativ: "dem Haus", wo: ["auf", "neben"] },
+    { id: "tisch", dativ: "dem Tisch", wohin: "den Tisch", wo: ["auf", "unter", "neben"] },
+    { id: "stuhl", dativ: "dem Stuhl", wohin: "den Stuhl", wo: ["auf", "neben"] },
+    { id: "bett", dativ: "dem Bett", wohin: "das Bett", wo: ["auf", "neben"] },
+    { id: "kiste", dativ: "der Kiste", wohin: "die Kiste", wo: ["auf", "neben"] },
+    { id: "baum", dativ: "dem Baum", wohin: "den Baum", wo: ["auf", "unter", "neben"] },
+    { id: "haus", dativ: "dem Haus", wohin: "das Haus", wo: ["auf", "neben"] },
   ];
   const ZAHLWOERTER = ["", "Ein", "Zwei", "Drei", "Vier"];
   // Was die Tiere im Bild tun (Lückensätze), in Einzahl und Mehrzahl.

@@ -681,6 +681,170 @@ try {
   await page.waitForFunction(() => window.LernappQuatschwoerter.nr() === 1, null, { timeout: 6000 }).catch(() => {});
   if ((await zaehler()) !== "1") fehlt("Quatschwörter: das richtige Schild zählt nicht");
 
+  // --- 6h. Etappe 3: Laut-Position, Buchstaben-Signal, Lies und tu! ------------------------
+  // Laut-Position: Wo der Laut steht, rechnen die Steine aus; jede Stelle
+  // kommt in der Runde vor, auf «leicht» nie die Mitte.
+  await oeffne("lautposition.html", "window.LernappLautPosition");
+  const lpWerte = await page.evaluate(() => {
+    const d = window.LernappLautPosition;
+    return [["Mama", "m"], ["Lama", "m"], ["Tasse", "s"], ["Schaf", "sch"], ["Fisch", "sch"], ["Ofen", "f"], ["Ball", "l"], ["Sonne", "n"]].map(([w, l]) => `${w}:${l}=${d.stelleIn(w, l)}`);
+  });
+  const lpSoll = ["Mama:m=null", "Lama:m=mitte", "Tasse:s=mitte", "Schaf:sch=vorne", "Fisch:sch=hinten", "Ofen:f=mitte", "Ball:l=hinten", "Sonne:n=mitte"];
+  lpWerte.filter((w, i) => w !== lpSoll[i]).forEach((w) => fehlt(`Laut-Position: ${w}`));
+  for (const stufe of ["leicht", "mittel", "schwer"]) {
+    const r = await page.evaluate((st) => {
+      window.LernappLeseStand.stufe = () => st;
+      const d = window.LernappLautPosition;
+      const fehler = [];
+      for (let i = 0; i < 40; i += 1) {
+        const runde = d.runde();
+        const stellen = new Set(runde.map((a) => a.stelle));
+        if (runde.length !== d.RUNDE) fehler.push(`${runde.length} Aufgaben`);
+        if (st === "leicht" && stellen.has("mitte")) fehler.push("auf leicht in der Mitte");
+        if (st !== "leicht" && stellen.size !== 3) fehler.push(`nur ${[...stellen].join("/")}`);
+        runde.forEach((a) => { if (d.stelleIn(a.wort, a.laut) !== a.stelle) fehler.push(`${a.wort}: ${a.laut} nicht ${a.stelle}`); });
+      }
+      return [...new Set(fehler)].slice(0, 3);
+    }, stufe);
+    r.forEach((p) => fehlt(`Laut-Position (${stufe}): ${p}`));
+  }
+  await oeffne("lautposition.html", "window.LernappLautPosition");
+  await vergiss();
+  await page.locator(".lese-los-knopf").click();
+  await page.waitForSelector(".lp-teil", { timeout: 5000 }).catch(() => {});
+  const lp = await page.evaluate(() => window.LernappLautPosition.jetzt());
+  await page.waitForFunction((w) => (window.__gesagt || []).includes(w), lp.wort, { timeout: 4000 }).catch(() => {});
+  if (!(await gesagt()).includes(lp.wort)) fehlt("Laut-Position: die Stimme sagt das Wort nicht");
+  // Daneben: vorne oder hinten (die Mitte fehlt auf «leicht»), dann richtig.
+  const lpFalsch = ["vorne", "hinten", "mitte"].find((s) => s !== lp.stelle);
+  await page.locator(`.lp-teil[data-stelle="${lpFalsch}"]`).click();
+  await page.locator(`.lp-teil[data-stelle="${lp.stelle}"]`).click();
+  await page.waitForFunction(() => window.LernappLautPosition.nr() === 1, null, { timeout: 6000 }).catch(() => {});
+  if ((await zaehler()) !== "0") fehlt("Laut-Position: nach einem Fehlgriff zählt die Aufgabe trotzdem");
+  const lp2 = await page.evaluate(() => window.LernappLautPosition.jetzt());
+  await page.locator(`.lp-teil[data-stelle="${lp2.stelle}"]`).click();
+  await page.waitForFunction(() => window.LernappLautPosition.nr() === 2, null, { timeout: 6000 }).catch(() => {});
+  if ((await zaehler()) !== "1") fehlt("Laut-Position: die richtige Stelle zählt nicht");
+
+  // Buchstaben-Signal: Der gesuchte Buchstabe kommt vor, nie drei gleiche
+  // nacheinander; wer jeden Treffer anhält und einmal danebentippt, hat
+  // alle erwischt und einen daneben, und die Runde geht zu Ende.
+  await oeffne("buchstabensignal.html", "window.LernappBuchstabenSignal");
+  const bsgReihen = await page.evaluate(() => {
+    const d = window.LernappBuchstabenSignal;
+    const fehler = [];
+    for (let i = 0; i < 300; i += 1) {
+      const paar = d.paar();
+      const reihe = d.reihe(paar);
+      if (reihe.length !== d.WAGEN) fehler.push(`${reihe.length} Wagen`);
+      if (!reihe.some((w) => w.treffer)) fehler.push("kein Treffer");
+      if (reihe.some((w, j) => j >= 2 && w.treffer === reihe[j - 1].treffer && w.treffer === reihe[j - 2].treffer)) fehler.push("drei gleiche nacheinander");
+      if (reihe.some((w) => w.zeichen.toLowerCase() !== (w.treffer ? paar[0] : paar[1]))) fehler.push(`falscher Buchstabe in ${paar.join("/")}`);
+    }
+    return [...new Set(fehler)].slice(0, 3);
+  });
+  bsgReihen.forEach((p) => fehlt(`Buchstaben-Signal: ${p}`));
+  await page.evaluate(() => window.LernappBuchstabenSignal.tempo(0.35));
+  await page.locator(".lese-los-knopf").click();
+  await page.waitForSelector(".bsg-wagen", { timeout: 8000 }).catch(() => {});
+  let bsgDaneben = false;
+  const bsgEnde = Date.now() + 20000;
+  while (Date.now() < bsgEnde && (await page.evaluate(() => window.LernappBuchstabenSignal.jetzt().phase)) === "fahren") {
+    bsgDaneben = await page.evaluate((schon) => {
+      const imBild = (k) => { const r = k.getBoundingClientRect(); return r.left < innerWidth - 20 && r.right > 20; };
+      document.querySelectorAll('.bsg-wagen[data-treffer="1"]:not(.ist-richtig)').forEach((k) => { if (imBild(k)) k.click(); });
+      const anders = [...document.querySelectorAll(".bsg-wagen:not([data-treffer])")].find(imBild);
+      if (!schon && anders) { anders.click(); return true; }
+      return schon;
+    }, bsgDaneben);
+    await page.waitForTimeout(100);
+  }
+  const bsg = await page.evaluate(() => { const j = window.LernappBuchstabenSignal.jetzt(); return { phase: j.phase, erwischt: j.erwischt, daneben: j.daneben, verpasst: j.verpasst, von: j.reihe.filter((w) => w.treffer).length }; });
+  if (bsg.phase !== "over") fehlt(`Buchstaben-Signal: die Runde geht nicht zu Ende (${JSON.stringify(bsg)})`);
+  if (bsg.erwischt !== bsg.von || bsg.verpasst !== 0) fehlt(`Buchstaben-Signal: angehaltene Wagen zählen nicht (${JSON.stringify(bsg)})`);
+  if (bsgDaneben && bsg.daneben !== 1) fehlt(`Buchstaben-Signal: ein falscher Wagen zählt nicht als daneben (${JSON.stringify(bsg)})`);
+
+  // Lies und tu!: Jeder Auftrag ist ein Satz, der zur Szene passt; nur genau
+  // das Verlangte zählt – das falsche Tier, die falsche Farbe oder eins zu
+  // viel nicht.
+  await oeffne("liesundtu.html", "window.LernappLiesUndTu");
+  for (const stufe of ["leicht", "mittel", "schwer"]) {
+    const probleme = await page.evaluate((st) => {
+      window.LernappLeseStand.stufe = () => st;
+      const d = window.LernappLiesUndTu;
+      const inh = window.LernappLeseInhalte;
+      const fehler = [];
+      for (let i = 0; i < 200; i += 1) {
+        const s = d.setzAuftrag();
+        const tier = inh.TIERE.find((t) => t.id === s.ziel.tier);
+        const ding = inh.DINGE.find((x) => x.id === s.ziel.ding);
+        if (s.text !== `Setz ${tier.wen} ${s.ziel.wo} ${ding.wohin}.`) fehler.push(`Satz: ${s.text}`);
+        if (!ding.wo.includes(s.ziel.wo) || !s.dinge.includes(s.ziel.ding) || !s.tiere.includes(s.ziel.tier)) fehler.push(`nicht im Bild: ${s.text}`);
+        if (s.dinge.length !== (st === "leicht" ? 1 : 2) || s.tiere.length !== (st === "leicht" ? 2 : 3)) fehler.push(`${s.dinge.length} Dinge, ${s.tiere.length} Tiere`);
+        const m = d.malAuftrag();
+        const passend = m.stuecke.filter((x) => !m.ziel.groesse || x.gross === (m.ziel.groesse === "gross")).length;
+        if (passend < m.ziel.zahl) fehler.push(`zu wenig zum Anmalen: ${m.text}`);
+        if (!/^Male (einen|eine|zwei|drei) [a-zäöü ]*[A-ZÄÖÜ][a-zäöü]+ (rot|blau|gelb|grün) an\.$/.test(m.text)) fehler.push(`Satz: ${m.text}`);
+        if ((st === "schwer") !== Boolean(m.ziel.groesse)) fehler.push(`Grösse auf ${st}: ${m.text}`);
+      }
+      return [...new Set(fehler)].slice(0, 3);
+    }, stufe);
+    probleme.forEach((p) => fehlt(`Lies und tu! (${stufe}): ${p}`));
+  }
+  await oeffne("liesundtu.html", "window.LernappLiesUndTu");
+  await vergiss();
+  await page.locator(".lese-los-knopf").click();
+  await page.waitForSelector(".lt-wartet", { timeout: 5000 }).catch(() => {});
+  const lt = await page.evaluate(() => window.LernappLiesUndTu.jetzt());
+  const ltAnderes = lt.tiere.find((t) => t !== lt.ziel.tier);
+  await page.locator(`.lt-wartet[data-tier="${ltAnderes}"]`).click();
+  await page.locator(`.lt-zone[data-ding="${lt.ziel.ding}"][data-wo="${lt.ziel.wo}"]`).click();
+  await page.waitForFunction(() => window.LernappLiesUndTu.phase() === "tun", null, { timeout: 4000 }).catch(() => {});
+  await page.waitForTimeout(100);
+  if (await page.locator(".lt-tier-gesetzt").count()) fehlt("Lies und tu!: das falsche Tier bleibt stehen");
+  if (!(await gesagt()).includes(lt.text)) fehlt("Lies und tu!: nach einem Fehlgriff wird der Auftrag nicht vorgelesen");
+  const ltFalschGezaehlt = (await page.evaluate(() => window.LernappLiesUndTu.nr())) !== 0;
+  if (ltFalschGezaehlt) fehlt("Lies und tu!: das falsche Tier zählt");
+  else {
+    await page.locator(`.lt-wartet[data-tier="${lt.ziel.tier}"]`).click();
+    await page.locator(`.lt-zone[data-ding="${lt.ziel.ding}"][data-wo="${lt.ziel.wo}"]`).click();
+    await page.waitForFunction(() => window.LernappLiesUndTu.nr() === 1, null, { timeout: 6000 }).catch(() => {});
+    if ((await page.evaluate(() => window.LernappLiesUndTu.nr())) !== 1) fehlt("Lies und tu!: das richtige Tier am richtigen Ort zählt nicht");
+    if ((await zaehler()) !== "0") fehlt("Lies und tu!: nach einem Fehlgriff zählt der Auftrag trotzdem");
+  }
+  // Weiter mit dem Malen nur, wenn das Setzen gezählt hat, wie es soll.
+  const ltWeiter = !ltFalschGezaehlt && (await page.evaluate(() => window.LernappLiesUndTu.nr())) === 1;
+  const ltm = await page.evaluate(() => window.LernappLiesUndTu.jetzt());
+  if (ltWeiter && ltm.art !== "malen") fehlt(`Lies und tu!: auf das Setzen folgt ${ltm.art}`);
+  else if (ltWeiter) {
+    const passend = ltm.stuecke.filter((s) => !ltm.ziel.groesse || s.gross === (ltm.ziel.groesse === "gross")).slice(0, ltm.ziel.zahl);
+    const andereFarbe = ["rot", "blau", "gelb", "grün"].find((f) => f !== ltm.ziel.farbe);
+    const zuViel = ltm.stuecke.find((s) => !passend.includes(s));
+    const tippe = async (...wahl) => { for (const w of wahl) await page.locator(w).click(); };
+    const stueck = (s) => `.lt-stueck[data-nr="${s.nr}"]`;
+    // Gibt das Spiel fertig, ohne dass es zählen darf: Es bleibt beim Auftrag.
+    const bleibt = async () => {
+      await tippe(".lt-fertig");
+      await page.waitForFunction(() => window.LernappLiesUndTu.phase() === "tun", null, { timeout: 4000 }).catch(() => {});
+      return (await page.evaluate(() => window.LernappLiesUndTu.nr())) === 1;
+    };
+    const malProbe = async () => {
+      // Erst in einer anderen Farbe: zählt nicht.
+      await tippe(`.lt-topf[data-farbe="${andereFarbe}"]`, ...passend.map(stueck));
+      if (!(await bleibt())) return "die falsche Farbe zählt";
+      // Dieselbe Farbe noch einmal macht wieder weiss; dann richtig angemalt
+      // und eins zu viel: zählt auch nicht.
+      await tippe(...passend.map(stueck), `.lt-topf[data-farbe="${ltm.ziel.farbe}"]`, ...passend.map(stueck), stueck(zuViel));
+      if (!(await bleibt())) return "eins zu viel angemalt zählt";
+      await tippe(stueck(zuViel), ".lt-fertig");
+      await page.waitForFunction(() => window.LernappLiesUndTu.nr() === 2, null, { timeout: 6000 }).catch(() => {});
+      if ((await page.evaluate(() => window.LernappLiesUndTu.nr())) !== 2) return `richtig angemalt zählt nicht (${ltm.text})`;
+      return null;
+    };
+    const malFehler = await malProbe();
+    if (malFehler) fehlt(`Lies und tu!: ${malFehler}`);
+  }
+
   // --- 6d. Die Buchstaben der Schule --------------------------------------------------
   // Haben die Eltern abgehakt, wohnen genau diese Laute im Buchstabenhaus, und
   // Laute kuppeln nimmt nur Wörter, die sich damit lesen lassen.
@@ -762,7 +926,7 @@ try {
   if (nachher.sterne !== 2) fehlt(`Hörbuch: mit einem Fehler ${nachher.sterne} Sterne statt 2`);
   if (!nachher.buch || nachher.buch.mal !== 1 || nachher.buch.sterne !== 2) fehlt(`Hörbuch: im Lesestand steht ${JSON.stringify(nachher.buch)}`);
   if (nachher.woerter - woerterVorher !== nachher.soll) fehlt(`Hörbuch: der Lesewurm wuchs um ${nachher.woerter - woerterVorher} Wörter statt ${nachher.soll}`);
-  if (Object.keys(nachher.runden).some((k) => /buch/i.test(k))) fehlt(`Hörbuch: ein Buch verbraucht eine Schnupperrunde (${JSON.stringify(nachher.runden)})`);
+  if (Object.keys(nachher.runden).some((k) => /^(buecher|buch)\b|hase-rueebli/i.test(k))) fehlt(`Hörbuch: ein Buch verbraucht eine Schnupperrunde (${JSON.stringify(nachher.runden)})`);
   // Zurück ans Regal: Das Buch trägt jetzt Sterne.
   await page.locator(".cm-overlay .cm-icon-back").click();
   await page.waitForSelector(".bu-regal", { timeout: 5000 }).catch(() => {});
@@ -815,4 +979,4 @@ if (befunde.length) {
   befunde.forEach((b) => console.error(`  - ${b}`));
   process.exit(1);
 }
-console.log("Die Leseecke läuft: Lesewagen, Zimmer mit Auswahl, alle Spiele hin und zurück, eine Runde Silbenzug bis zum Tor, Laute kuppeln ohne verratenes Wort, Buchstabenhaus, der Würfel von «Stimmt das?», Reimkupplung, Anlaut-Lauscher, Wer fährt mit?, Wörter bauen, Silbenbahn, Blitzwörter, Mein Name, der Lesewurm bekommt seinen Namen, Lückensätze, Buchstabengleis, Satz kuppeln, Quatschsätze, Stolperwörter, Quatschwörter, die Buchstaben der Schule, Hörbuch mit Nachsehen, Zusammen lesen, und der Lesewurm wächst.");
+console.log("Die Leseecke läuft: Lesewagen, Zimmer mit Auswahl, alle Spiele hin und zurück, eine Runde Silbenzug bis zum Tor, Laute kuppeln ohne verratenes Wort, Buchstabenhaus, der Würfel von «Stimmt das?», Reimkupplung, Anlaut-Lauscher, Wer fährt mit?, Wörter bauen, Silbenbahn, Blitzwörter, Mein Name, der Lesewurm bekommt seinen Namen, Lückensätze, Buchstabengleis, Satz kuppeln, Quatschsätze, Stolperwörter, Quatschwörter, Laut-Position, Buchstaben-Signal, Lies und tu!, die Buchstaben der Schule, Hörbuch mit Nachsehen, Zusammen lesen, und der Lesewurm wächst.");
