@@ -162,6 +162,46 @@ function gruppeVon(teile) {
   });
 }
 
+// --- 2b. Reime, Anlaute, Blitzwörter (Etappe 2) ---------------------------------
+{
+  // Reime: jede Gruppe mindestens zwei Wörter mit Bild, kein Wort in zwei
+  // Gruppen – sonst reimte sich ein «falscher» Wagen doch.
+  const alleReime = inhalte.REIME.flatMap((g) => g.woerter.map((w) => w.wort));
+  pruefe(inhalte.REIME.length >= 12, `Reime: nur ${inhalte.REIME.length} Gruppen`);
+  pruefe(new Set(alleReime).size === alleReime.length, "Reime: ein Wort steht in zwei Gruppen");
+  pruefe(new Set(inhalte.REIME.map((g) => g.endung)).size === inhalte.REIME.length, "Reime: zwei Gruppen mit derselben Endung");
+  inhalte.REIME.forEach((g) => {
+    pruefe(g.woerter.length >= 2, `Reime ${g.endung}: weniger als zwei Wörter`);
+    g.woerter.forEach((w) => pruefe(w.wort && w.bild && /^[A-ZÄÖÜ]/.test(w.wort), `Reime ${g.endung}: «${w.wort}» ohne Bild oder klein geschrieben`));
+  });
+  // Anlaute: nach dem Ohr, nicht nach der Schrift.
+  pruefe(inhalte.anlautVon("Stern") === "sch" && inhalte.anlautVon("Spinne") === "sch" && inhalte.anlautVon("Vogel") === "f" && inhalte.anlautVon("Vase") === "w" && inhalte.anlautVon("Maus") === "m" && inhalte.anlautVon("Eis") === "ei",
+    "anlautVon: Stern, Spinne, Vogel, Vase, Maus oder Eis fangen falsch an");
+  const alleBildWoerter = inhalte.bildWoerter().map((w) => w.wort);
+  inhalte.MEHRDEUTIG.forEach((wort) => pruefe(alleBildWoerter.includes(wort), `MEHRDEUTIG: «${wort}» kommt in keiner Liste vor`));
+  const eindeutig = inhalte.bildWoerter({ eindeutig: true });
+  pruefe(eindeutig.every((w) => !inhalte.MEHRDEUTIG.has(w.wort)), "bildWoerter({ eindeutig }): ein mehrdeutiges Bild ist dabei");
+  const nachLaut = {};
+  eindeutig.forEach((w) => { (nachLaut[inhalte.anlautVon(w.wort)] ||= []).push(w.wort); });
+  const genug = Object.values(nachLaut).filter((liste) => liste.length >= 2).length;
+  pruefe(genug >= 10, `Anlaut-Lauscher: nur ${genug} Anfangslaute mit zwei eindeutigen Bildern – eine Runde braucht acht, und Abwechslung mehr`);
+  const bilder = eindeutig.map((w) => w.bild);
+  pruefe(new Set(bilder).size === bilder.length, `bildWoerter: ein Bild steht für zwei Wörter (${bilder.filter((b, i) => bilder.indexOf(b) !== i).join(" ")})`);
+  // Blitzwörter: drei ähnliche, alle verschieden, keines das Wort selbst.
+  const blitz = inhalte.BLITZWOERTER.map((b) => b.wort);
+  pruefe(new Set(blitz).size === blitz.length, "Blitzwörter: ein Wort steht doppelt");
+  inhalte.BLITZWOERTER.forEach((b) => {
+    const wahl = [b.wort, ...b.aehnlich];
+    pruefe(b.aehnlich.length === 3 && new Set(wahl).size === 4, `Blitzwort «${b.wort}»: nicht drei verschiedene ähnliche`);
+    pruefe(wahl.every((w) => /^[A-Za-zÄÖÜäöü]{1,6}$/.test(w)), `Blitzwort «${b.wort}»: ein Wort ist kein kurzes Wort`);
+    pruefe([1, 2].includes(b.stufe), `Blitzwort «${b.wort}»: Stufe ${b.stufe}`);
+  });
+  for (const [stufe, gruppen] of Object.entries(inhalte.BLITZ_JE_STUFE)) {
+    const anzahl = inhalte.BLITZWOERTER.filter((b) => gruppen.includes(b.stufe)).length;
+    pruefe(anzahl >= 10, `Blitzwörter ${stufe}: nur ${anzahl} – eine Runde hat zehn`);
+  }
+}
+
 // --- 3. Bücher ------------------------------------------------------------------
 const GRATIS_SCHRANKE = (lies("entitlement.js").match(/const GRATIS_BUECHER = \[([^\]]*)\]/)?.[1] || "")
   .split(",").map((s) => s.trim().replace(/^"|"$/g, "")).filter(Boolean);
@@ -304,13 +344,33 @@ function lautgetreu(wort) {
       liste.forEach((id) => pruefe(stand.SPIELE[id] && fs.existsSync(path.join(root, stand.SPIELE[id].page.split("?")[0])), `Lesestand: das Spiel ${id} hat keine Seite`));
     }
     pruefe(Boolean(stand.SPIELE[stand.naechstes().id]), "Lesestand: naechstes() führt ins Leere");
+    // Jedes Spiel steht hinter einem Ding im Zimmer, und die Schranke kennt
+    // jedes – ausser dem Bücherregal, das keine Runden hat.
+    const ORTE = ["silben", "buchstaben", "woerter", "saetze", "buecher"];
+    const gesperrt = new Set([...(lies("entitlement.js").match(/const LESEECKE = \{[\s\S]*?\] \};/)?.[0] || "").matchAll(/page: "([a-z]+\.html)"/g)].map((m) => m[1]));
+    Object.entries(stand.SPIELE).forEach(([id, spiel]) => {
+      pruefe(ORTE.includes(spiel.ort), `Lesestand: ${id} steht an keinem Ort im Zimmer (${spiel.ort})`);
+      pruefe(Boolean(spiel.bild && spiel.titel), `Lesestand: ${id} ohne Bild oder Titel`);
+      if (id !== "buecher") pruefe(gesperrt.has(spiel.page), `entitlement.js: LESEECKE kennt ${spiel.page} nicht – das Spiel wäre unbegrenzt frei`);
+    });
+    gesperrt.forEach((page) => pruefe(Object.values(stand.SPIELE).some((spiel) => spiel.page === page), `entitlement.js: ${page} steht in LESEECKE, aber nicht im Katalog`));
+    // Blitzwörter: dieselbe Regel wie bei den Lauten.
+    const b1 = stand.merge({ blitz: { und: { r: 1, f: 2, tage: ["2026-10-01"] } } }, { blitz: { und: { r: 3, f: 0, tage: ["2026-10-02"] } } });
+    pruefe(b1.blitz.und.r === 3 && b1.blitz.und.f === 2 && b1.blitz.und.tage.length === 2 && stand.blitzSitzt("und", b1), `Lesestand: Blitzwörter werden nicht zusammengeführt: ${JSON.stringify(b1.blitz)}`);
+    stand.blitzGeuebt("ist", true);
+    stand.blitzGeuebt("ist", false);
+    const ist = stand.stand().blitz.ist;
+    pruefe(ist?.r === 1 && ist?.f === 1, `Lesestand: blitzGeuebt zählt nicht: ${JSON.stringify(ist)}`);
   }
 }
 
 // --- 5. Die Seiten ------------------------------------------------------------------
 {
   const GEMEINSAM = ["entitlement.js", "kids.js", "train-art.js", "train-scenes.js", "game-cloud.js", "lesen-inhalte.js", "lesen-stand.js", "lesen-laute.js", "lesen-ton.js", "lesen-art.js", "game-shell.js", "lesen-spiel.js"];
-  const SEITEN = { silbenzug: [], buchstabenhaus: [], lautekuppeln: [], stimmtdas: [], buecher: ["lesen-buecher.js"] };
+  const SEITEN = {
+    silbenzug: [], buchstabenhaus: [], lautekuppeln: [], stimmtdas: [], buecher: ["lesen-buecher.js"],
+    reimkupplung: [], anlautlauscher: [], werfaehrtmit: [], woerterbauen: [], silbenbahn: [], blitzwoerter: [],
+  };
   const stand = lies("lesen-stand.js");
   for (const [seite, extra] of Object.entries(SEITEN)) {
     const datei = `${seite}.html`;
@@ -422,11 +482,29 @@ function lautgetreu(wort) {
   ["lesen-inhalte.js", "lesen-laute.js", "laute-aufnehmen.js"].forEach((skript) => pruefe(seite.includes(`src="${skript}?v=`), `laute-aufnehmen.html: lädt ${skript} nicht`));
 }
 
+// --- 6b. Eigene Namen für die Klassen -------------------------------------------------
+// Jedes Spiel hat ein Kürzel für seine Klassen. Benutzt ein anderes Spiel
+// dasselbe, greifen die Regeln des einen beim anderen: «Wer fährt mit?» hatte
+// einmal wf- wie «Was fehlt?», und dessen Startknopf rutschte aus dem Bild.
+{
+  const KUERZEL = { "lesen-spiel.js": "lese", "buchstabenhaus.js": "bh", "lautekuppeln.js": "kp", "stimmtdas.js": "sd", "buecher.js": "bu",
+    "reimkupplung.js": "rk", "anlautlauscher.js": "al", "werfaehrtmit.js": "wm", "woerterbauen.js": "wb", "silbenbahn.js": "sb", "blitzwoerter.js": "bw" };
+  const eigene = new Set(Object.keys(KUERZEL));
+  const fremde = fs.readdirSync(root).filter((name) => name.endsWith(".js") && !eigene.has(name) && !name.startsWith("lesen-") && name !== "train-leseecke.js" && name !== "laute-aufnehmen.js" && name !== "silbenzug.js");
+  Object.entries(KUERZEL).forEach(([datei, kuerzel]) => {
+    pruefe(new RegExp(`["' ]${kuerzel}-[a-z]`).test(lies(datei)), `${datei}: benutzt das Kürzel ${kuerzel}- nicht – stimmt die Liste?`);
+    const muster = new RegExp(`["'. ]${kuerzel}-[a-z]`);
+    fremde.forEach((fremd) => pruefe(!muster.test(lies(fremd)), `${fremd} benutzt Klassen mit ${kuerzel}- – wie ${datei}; die Regeln des einen greifen beim anderen`));
+  });
+}
+
 // --- 7. Schweizer Rechtschreibung ----------------------------------------------------
 {
   const dateien = ["lesen-inhalte.js", "lesen-buecher.js", "lesen-stand.js", "lesen-ton.js", "lesen-art.js", "lesen-spiel.js", "lesen-laute.js", "train-leseecke.js",
     "silbenzug.js", "buchstabenhaus.js", "lautekuppeln.js", "stimmtdas.js", "buecher.js",
     "silbenzug.html", "buchstabenhaus.html", "lautekuppeln.html", "stimmtdas.html", "buecher.html",
+    "reimkupplung.js", "anlautlauscher.js", "werfaehrtmit.js", "woerterbauen.js", "silbenbahn.js", "blitzwoerter.js",
+    "reimkupplung.html", "anlautlauscher.html", "werfaehrtmit.html", "woerterbauen.html", "silbenbahn.html", "blitzwoerter.html",
     "laute-aufnehmen.html", "laute-aufnehmen.js"];
   dateien.forEach((datei) => {
     if (!fs.existsSync(path.join(root, datei))) return;

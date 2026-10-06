@@ -621,8 +621,17 @@ const SZENARIEN = [
     titel: "index-lesen",
     schritte: [
       { name: "Lesewagen", tun: async (blatt) => { await zugHereinholen(blatt); await tippe(blatt, ".lesewagen-knopf"); await pause(blatt, 1200); } },
+      // Die grösste Auswahl: fünf Spiele hinter der Wortkiste.
+      { name: "Auswahl Wörter", tun: async (blatt) => { await tippe(blatt, '.lesezimmer-svg [data-ort="woerter"]'); await pause(blatt, 500); } },
     ],
   },
+  ...["reimkupplung", "anlautlauscher", "werfaehrtmit", "woerterbauen", "silbenbahn", "blitzwoerter"].map((seite) => ({
+    seite,
+    schritte: [
+      { name: "Los", tun: async () => {} },
+      { name: "Spiel", tun: async (blatt) => { await tippe(blatt, ".lese-los-knopf"); await pause(blatt, seite === "blitzwoerter" ? 3600 : 900); } },
+    ],
+  })),
   {
     seite: "silbenzug",
     schritte: [

@@ -1,4 +1,4 @@
-const APP_VERSION = "2026-10-06-03";
+const APP_VERSION = "2026-10-06-04";
 const CACHE_PREFIX = "lernapp-pwa-";
 const CACHE_NAME = `${CACHE_PREFIX}${APP_VERSION}`;
 const ASSET_VERSION_QUERY = `?v=${APP_VERSION}`;
@@ -54,6 +54,12 @@ const CORE_ASSETS = [
   "./lautekuppeln.html",
   "./stimmtdas.html",
   "./buecher.html",
+  "./reimkupplung.html",
+  "./anlautlauscher.html",
+  "./werfaehrtmit.html",
+  "./woerterbauen.html",
+  "./silbenbahn.html",
+  "./blitzwoerter.html",
   `./styles.css${ASSET_VERSION_QUERY}`,
   `./spatial-puzzles.js${ASSET_VERSION_QUERY}`,
   `./kids.js${ASSET_VERSION_QUERY}`,
@@ -100,6 +106,12 @@ const CORE_ASSETS = [
   `./lautekuppeln.js${ASSET_VERSION_QUERY}`,
   `./stimmtdas.js${ASSET_VERSION_QUERY}`,
   `./buecher.js${ASSET_VERSION_QUERY}`,
+  `./reimkupplung.js${ASSET_VERSION_QUERY}`,
+  `./anlautlauscher.js${ASSET_VERSION_QUERY}`,
+  `./werfaehrtmit.js${ASSET_VERSION_QUERY}`,
+  `./woerterbauen.js${ASSET_VERSION_QUERY}`,
+  `./silbenbahn.js${ASSET_VERSION_QUERY}`,
+  `./blitzwoerter.js${ASSET_VERSION_QUERY}`,
   `./firebase.js${ASSET_VERSION_QUERY}`,
   `./admin.js${ASSET_VERSION_QUERY}`,
   `./pwa.js${ASSET_VERSION_QUERY}`,

@@ -14,6 +14,7 @@
  *   {
  *     woerter: 240,                 // gelesen oder gehört – der Lesewurm
  *     laute:   { m: { r: 4, f: 1, tage: ["2026-10-06", …], zuletzt: … } },
+ *     blitz:   { und: { r: 2, f: 0, tage: [...], zuletzt: … } },
  *     buecher: { "hase-rueebli": { mal: 2, sterne: 3, at: … } },
  *     spiele:  { silbenzug: { runden: 3, best: 6, zuletzt: … } },
  *   }
@@ -28,7 +29,7 @@
 
   const KEY = "lernapp.lesen";
   const ELTERN_KEY = "lernapp.lesen.eltern";
-  const EMPTY = { woerter: 0, laute: {}, buecher: {}, spiele: {} };
+  const EMPTY = { woerter: 0, laute: {}, buecher: {}, spiele: {}, blitz: {} };
 
   // Je so viele Wörter wächst der Lesewurm um ein Glied.
   const WOERTER_JE_GLIED = 20;
@@ -70,6 +71,7 @@
     return {
       woerter: Math.max(zahl(a.woerter), zahl(b.woerter)),
       laute: mergeEintraege(a.laute, b.laute, ["r", "f", "zuletzt"]),
+      blitz: mergeEintraege(a.blitz, b.blitz, ["r", "f", "zuletzt"]),
       buecher: mergeEintraege(a.buecher, b.buecher, ["mal", "sterne", "at"]),
       spiele: mergeEintraege(a.spiele, b.spiele, ["runden", "best", "zuletzt"]),
     };
@@ -98,7 +100,7 @@
 
   function stand() {
     const s = box.read() || EMPTY;
-    return { ...EMPTY, ...s, laute: s.laute || {}, buecher: s.buecher || {}, spiele: s.spiele || {} };
+    return { ...EMPTY, ...s, laute: s.laute || {}, buecher: s.buecher || {}, spiele: s.spiele || {}, blitz: s.blitz || {} };
   }
 
   function heute() {
@@ -109,12 +111,15 @@
   // ---------------------------------------------------------------------------
   // Eintragen
   // ---------------------------------------------------------------------------
-  function lautGeuebt(id, richtig) {
+  // Ein Treffer oder ein Fehlgriff, bei einem Laut (laute) oder einem
+  // Blitzwort (blitz). Dieselbe Regel für beide: Gezählt wird, und für jeden
+  // Treffer der Tag.
+  function geuebt(feld, id, richtig) {
     if (!id) return stand();
     return box.update((alt) => {
       const s = { ...EMPTY, ...alt };
-      const laute = { ...(s.laute || {}) };
-      const eintrag = { r: 0, f: 0, tage: [], zuletzt: 0, ...(laute[id] || {}) };
+      const liste = { ...(s[feld] || {}) };
+      const eintrag = { r: 0, f: 0, tage: [], zuletzt: 0, ...(liste[id] || {}) };
       if (richtig) {
         eintrag.r = zahl(eintrag.r) + 1;
         eintrag.tage = [...new Set([...(eintrag.tage || []), heute()])].sort().slice(-TAGE_MERKEN);
@@ -122,16 +127,20 @@
         eintrag.f = zahl(eintrag.f) + 1;
       }
       eintrag.zuletzt = Date.now();
-      laute[id] = eintrag;
-      return { ...s, laute };
+      liste[id] = eintrag;
+      return { ...s, [feld]: liste };
     });
   }
 
-  function lautSitzt(id, s = stand()) {
-    const eintrag = s.laute?.[id];
+  function sitzt(eintrag) {
     if (!eintrag) return false;
     return zahl(eintrag.r) >= SITZT_RICHTIG && (eintrag.tage || []).length >= SITZT_TAGE;
   }
+
+  const lautGeuebt = (id, richtig) => geuebt("laute", id, richtig);
+  const blitzGeuebt = (wort, richtig) => geuebt("blitz", wort, richtig);
+  const lautSitzt = (id, s = stand()) => sitzt(s.laute?.[id]);
+  const blitzSitzt = (wort, s = stand()) => sitzt(s.blitz?.[wort]);
 
   function sitzendeLaute(s = stand()) {
     return Object.keys(s.laute || {}).filter((id) => lautSitzt(id, s));
@@ -265,19 +274,30 @@
   // Der Lesewurm im Sessel sucht etwas aus. Je Lesestufe stehen ein paar Spiele
   // zur Wahl; dran ist das, was am längsten nicht mehr gespielt wurde – so
   // wechselt es von selbst ab, ohne dass jemand einen Plan führen muss.
+  //   page   die Seite
+  //   ort    das Ding im Lesewagen, hinter dem es steht (train-leseecke.js)
+  //   bild   sein Zeichen in der Auswahl
+  //   weiter wohin der Lesewurm führt, wenn er es aussucht
   const SPIELE = {
-    silbenzug: { page: "silbenzug.html", titel: "Silbenzug" },
-    buchstabenhaus: { page: "buchstabenhaus.html", titel: "Buchstabenhaus" },
-    lautekuppeln: { page: "lautekuppeln.html", titel: "Laute kuppeln" },
-    stimmtdas: { page: "stimmtdas.html", titel: "Stimmt das?" },
-    buecher: { page: "buecher.html?weiter=1", titel: "Bücherregal" },
+    silbenzug: { page: "silbenzug.html", titel: "Silbenzug", ort: "silben", bild: "🥁" },
+    reimkupplung: { page: "reimkupplung.html", titel: "Reimkupplung", ort: "silben", bild: "🎶" },
+    anlautlauscher: { page: "anlautlauscher.html", titel: "Anlaut-Lauscher", ort: "silben", bild: "👂" },
+    buchstabenhaus: { page: "buchstabenhaus.html", titel: "Buchstabenhaus", ort: "buchstaben", bild: "🏠" },
+    lautekuppeln: { page: "lautekuppeln.html", titel: "Laute kuppeln", ort: "woerter", bild: "🚃" },
+    werfaehrtmit: { page: "werfaehrtmit.html", titel: "Wer fährt mit?", ort: "woerter", bild: "🎫" },
+    woerterbauen: { page: "woerterbauen.html", titel: "Wörter bauen", ort: "woerter", bild: "🧱" },
+    silbenbahn: { page: "silbenbahn.html", titel: "Silbenbahn", ort: "woerter", bild: "🚂" },
+    blitzwoerter: { page: "blitzwoerter.html", titel: "Blitzwörter", ort: "woerter", bild: "⚡" },
+    stimmtdas: { page: "stimmtdas.html", titel: "Stimmt das?", ort: "saetze", bild: "👍" },
+    buecher: { page: "buecher.html", titel: "Bücherregal", ort: "buecher", bild: "📚", weiter: "buecher.html?weiter=1" },
   };
+  // Was der Lesewurm im Sessel je Lesestufe aussucht.
   const AUSWAHL = {
-    hoeren: ["silbenzug", "buecher", "buchstabenhaus"],
-    buchstaben: ["buchstabenhaus", "lautekuppeln", "silbenzug", "buecher"],
-    woerter: ["lautekuppeln", "buchstabenhaus", "buecher", "stimmtdas"],
-    saetze: ["stimmtdas", "lautekuppeln", "buecher"],
-    geschichten: ["buecher", "stimmtdas", "lautekuppeln"],
+    hoeren: ["silbenzug", "reimkupplung", "anlautlauscher", "buecher", "buchstabenhaus"],
+    buchstaben: ["buchstabenhaus", "anlautlauscher", "lautekuppeln", "silbenzug", "reimkupplung", "buecher"],
+    woerter: ["lautekuppeln", "werfaehrtmit", "woerterbauen", "buchstabenhaus", "silbenbahn", "buecher"],
+    saetze: ["stimmtdas", "blitzwoerter", "silbenbahn", "werfaehrtmit", "woerterbauen", "buecher"],
+    geschichten: ["buecher", "stimmtdas", "blitzwoerter", "silbenbahn"],
   };
 
   function naechstes(s = stand()) {
@@ -288,14 +308,15 @@
       const zuletzt = zahl(s.spiele?.[id]?.zuletzt);
       if (zuletzt < alter) { alter = zuletzt; beste = id; }
     });
-    return { id: beste, ...SPIELE[beste] };
+    const spiel = SPIELE[beste];
+    return { id: beste, ...spiel, page: spiel.weiter || spiel.page };
   }
 
   window.LernappLeseStand = {
     KEY, ELTERN_KEY, EMPTY, WOERTER_JE_GLIED, GLIEDER_MAX, SITZT_RICHTIG, SITZT_TAGE,
     STARTPUNKTE, STARTPUNKT_INFO, SCHRIFTEN, SPIELE, AUSWAHL,
     merge, stand, onChange: (fn) => box.onChange(fn),
-    lautGeuebt, lautSitzt, sitzendeLaute, woerterGelesen, buchGelesen, spielRunde, spielGeoeffnet, wurmGlieder,
+    lautGeuebt, lautSitzt, sitzendeLaute, blitzGeuebt, blitzSitzt, woerterGelesen, buchGelesen, spielRunde, spielGeoeffnet, wurmGlieder,
     einstellungen, elternSauber, stufe, lesestufe, nurGross, zeige, naechstes,
   };
 })();
