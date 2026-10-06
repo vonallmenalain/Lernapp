@@ -100,18 +100,101 @@
     writeRaw(KEYS.tts, enabled ? "1" : "0");
     if (!enabled) stopHelp();
   }
+
+  // Die Stimme. Welche es gibt, entscheidet das Gerät: Windows hat in Edge
+  // natürliche Stimmen («… Online (Natural)», auch Schweizer Hochdeutsch),
+  // Chrome «Google Deutsch», Android die Stimme seiner Sprachausgabe, dazu
+  // alte Systemstimmen, die nach Computer klingen. Ohne Wahl nimmt die App
+  // die natürlichste deutsche Stimme – bei gleicher Güte eine Männerstimme wie
+  // die aufgenommenen Laute (lesen-laute.js), dann eine aus der Schweiz. Die
+  // Wahl im Profil (Karte «Stimme auf diesem Gerät», firebase.js) gilt nur
+  // auf diesem Gerät: Ein anderes hat andere Stimmen.
+  const STIMME_KEY = "lernapp.stimme";
+  const NATUERLICH = /natural|neural|online|premium|enhanced|erweitert|wavenet|studio|network/i;
+  const MAENNERSTIMME = /\b(conrad|killian|florian|ralf|bernd|christoph|kasper|klaus|stefan|jan|jonas|markus|yannick|martin|viktor|georg|hans)\b/i;
+  function stimmeRang(v) {
+    const name = `${v.name || ""} ${v.voiceURI || ""}`;
+    let rang = 0;
+    if (NATUERLICH.test(name)) rang += 100;
+    else if (/google/i.test(name)) rang += 40;
+    if (v.localService === false) rang += 10;
+    if (/compact|espeak|desktop/i.test(name)) rang -= 50;
+    if (MAENNERSTIMME.test(v.name || "")) rang += 3;
+    if (/^de[-_]ch/i.test(v.lang || "")) rang += 2;
+    return rang;
+  }
+  // Die deutschen Stimmen des Geräts, die beste zuerst.
+  function deutscheStimmen() {
+    if (!ttsSupported()) return [];
+    let alle = [];
+    try { alle = window.speechSynthesis.getVoices() || []; } catch { alle = []; }
+    return alle
+      .filter((v) => /^de([-_]|$)/i.test(v.lang || ""))
+      .map((v, nr) => ({ v, nr, rang: stimmeRang(v) }))
+      .sort((a, b) => b.rang - a.rang || a.nr - b.nr)
+      .map((eintrag) => eintrag.v);
+  }
+  function stimmeId(v) { return v ? String(v.voiceURI || v.name || "") : ""; }
+  // Wie eine Stimme in der Auswahl heisst: ohne «Microsoft» und «Online
+  // (Natural)», dafür mit Land und ob sie natürlich klingt.
+  function stimmeName(v) {
+    const roh = String(v?.name || "");
+    const kurz = roh.replace(/^Microsoft\s+/i, "").replace(/\s*Online\s*\(Natural\)/i, "").replace(/\s*-\s*German.*$/i, "").trim() || roh;
+    const lang = String(v?.lang || "");
+    const land = /^de[-_]ch/i.test(lang) ? "Schweiz" : /^de[-_]at/i.test(lang) ? "Österreich" : /^de[-_]de/i.test(lang) ? "Deutschland" : "";
+    const art = NATUERLICH.test(`${roh} ${v?.voiceURI || ""}`) ? "natürlich" : "";
+    const zusatz = [land, art].filter(Boolean).join(", ");
+    return zusatz ? `${kurz} (${zusatz})` : kurz;
+  }
+  function gewaehlteStimme() { return readRaw(STIMME_KEY) || ""; }
   let germanVoice = null;
+  function stimmeWaehlen(id) {
+    if (id) writeRaw(STIMME_KEY, String(id));
+    else { try { localStorage.removeItem(STIMME_KEY); } catch { /* privater Modus */ } }
+    germanVoice = null;
+  }
+  // Die Stimme, mit der vorgelesen wird: die gewählte, wenn es sie auf diesem
+  // Gerät gibt, sonst die beste.
   function pickGermanVoice() {
     if (!ttsSupported()) return null;
     if (germanVoice) return germanVoice;
-    const voices = window.speechSynthesis.getVoices() || [];
-    germanVoice = voices.find((v) => /de[-_]/i.test(v.lang) && /female|frau|petra|anna|marlene|google/i.test(v.name))
-      || voices.find((v) => /de[-_]/i.test(v.lang))
-      || null;
+    const stimmen = deutscheStimmen();
+    const wahl = gewaehlteStimme();
+    germanVoice = (wahl && stimmen.find((v) => stimmeId(v) === wahl)) || stimmen[0] || null;
     return germanVoice;
   }
+  // Die Stimmen kommen in vielen Browsern erst nach dem Laden (voiceschanged).
+  // Wer auf sie wartet – die Auswahl im Profil –, meldet sich hier.
+  const stimmenHoerer = new Set();
+  function onStimmen(fn) {
+    if (typeof fn !== "function") return () => {};
+    stimmenHoerer.add(fn);
+    return () => stimmenHoerer.delete(fn);
+  }
   if (ttsSupported() && typeof window.speechSynthesis.addEventListener === "function") {
-    window.speechSynthesis.addEventListener("voiceschanged", () => { germanVoice = null; pickGermanVoice(); });
+    window.speechSynthesis.addEventListener("voiceschanged", () => {
+      germanVoice = null;
+      pickGermanVoice();
+      stimmenHoerer.forEach((fn) => { try { fn(); } catch { /* egal */ } });
+    });
+  }
+  // Ein Satz zum Probehören, mit einer bestimmten Stimme (leer: der, die
+  // ohne Wahl gälte). Auf Wunsch der Eltern – deshalb auch, wenn der
+  // Lautsprecher der App sonst schweigt.
+  function stimmeProbe(id, text = "Hallo! So klinge ich, wenn ich dir vorlese.") {
+    if (!ttsSupported()) return false;
+    const stimmen = deutscheStimmen();
+    const v = (id && stimmen.find((s) => stimmeId(s) === id)) || stimmen[0] || null;
+    stopSpeaking();
+    try {
+      const utterance = new window.SpeechSynthesisUtterance(String(text));
+      utterance.lang = v?.lang || "de-DE";
+      utterance.rate = 0.95;
+      utterance.pitch = 1;
+      if (v) utterance.voice = v;
+      window.speechSynthesis.speak(utterance);
+      return true;
+    } catch { return false; }
   }
   function stopSpeaking() {
     if (ttsSupported()) { try { window.speechSynthesis.cancel(); } catch { /* ignore */ } }
@@ -123,10 +206,12 @@
     if (!options.queue) stopSpeaking();
     try {
       const utterance = new window.SpeechSynthesisUtterance(String(text));
-      utterance.lang = "de-DE";
-      utterance.rate = options.rate ?? 0.95;
-      utterance.pitch = options.pitch ?? 1.15;
       const voice = pickGermanVoice();
+      utterance.lang = voice?.lang || "de-DE";
+      utterance.rate = options.rate ?? 0.95;
+      // Keine künstlich höhere Stimme: Sie macht natürliche Stimmen hölzern
+      // und alte piepsig.
+      utterance.pitch = options.pitch ?? 1;
       if (voice) utterance.voice = voice;
       if (options.onStart) utterance.addEventListener("start", () => options.onStart());
       if (options.onEnd) {
@@ -913,6 +998,8 @@
 
     // TTS (nur auf Lautsprecher-Klick)
     ttsSupported, ttsEnabled, setTtsEnabled, speak, stopSpeaking,
+    // Die Stimme dieses Geräts
+    STIMME_KEY, deutscheStimmen, pickGermanVoice, stimmeId, stimmeName, gewaehlteStimme, stimmeWaehlen, stimmeProbe, onStimmen,
     // Hilfe-Lautsprecher
     setHelp, pushHelp, speakHelp, mountHelpButton, currentHelp,
     // Maskottchen + Effekte

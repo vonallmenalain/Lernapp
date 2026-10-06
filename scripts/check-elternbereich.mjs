@@ -93,6 +93,29 @@ const elternDoc = (children = []) => ({ authEmail: ELTERN.email, email: ELTERN.e
 const kindDoc = (name, parentUid) => ({ authEmail: `${name.toLowerCase()}@lernapp.local`, email: null, username: name, displayName: name, role: "child", ...(parentUid ? { parentUid } : {}), stats: STATS });
 const KAUF = { plan: "familie", active: true, grantedAtMs: 1700000000000, source: "stripe" };
 
+// --- Der Ersatz für die Stimmen des Geräts ---------------------------------------
+// Wie in Edge: natürliche Stimmen aus Deutschland und der Schweiz, eine alte
+// Systemstimme und eine englische. Der Ersatz merkt sich, was gesprochen würde.
+function stimmenErsatz() {
+  const stimmen = [
+    ["Microsoft Hedda - German (Germany)", "de-DE", true],
+    ["Microsoft Aria Online (Natural) - English (United States)", "en-US", false],
+    ["Microsoft Katja Online (Natural) - German (Germany)", "de-DE", false],
+    ["Microsoft Jan Online (Natural) - German (Switzerland)", "de-CH", false],
+  ].map(([name, lang, lokal]) => ({ name, lang, localService: lokal, voiceURI: name, default: false }));
+  window.__gesprochen = [];
+  const synth = {
+    speaking: false, pending: false, paused: false,
+    getVoices: () => stimmen,
+    speak(u) { window.__gesprochen.push({ text: u.text, stimme: u.voice?.name || null, pitch: u.pitch }); setTimeout(() => u.dispatchEvent(new Event("end")), 10); },
+    cancel() {}, pause() {}, resume() {}, addEventListener() {}, removeEventListener() {},
+  };
+  Object.defineProperty(window, "speechSynthesis", { value: synth, configurable: true });
+  window.SpeechSynthesisUtterance = class extends EventTarget {
+    constructor(text) { super(); this.text = text; this.voice = null; this.lang = ""; this.pitch = 1; this.rate = 1; }
+  };
+}
+
 // --- Der Ersatz für Firebase ----------------------------------------------------
 // Läuft im Browser, vor allen Skripten der Seite. addInitScript reicht genau
 // einen Wert hinein, deshalb kommen Daten und Nutzer in einem Paket.
@@ -253,6 +276,7 @@ async function starteSeite({ daten, nutzer, antworten = {}, adresse = "/index.ht
   // Das echte SDK liegt auf einem fremden Server und wird hier nicht gebraucht.
   await page.route("https://www.gstatic.com/**", (route) => route.fulfill({ status: 200, contentType: "application/javascript", body: "" }));
   await page.addInitScript(firebaseErsatz, { daten, nutzer });
+  await page.addInitScript(stimmenErsatz);
   const anfragen = serverErsatz(page, antworten);
   await page.goto(`${BASIS}${adresse}`, { waitUntil: "domcontentloaded" });
   await page.waitForFunction(() => Boolean(window.LernappFirebase), null, { timeout: 10000 });
@@ -298,6 +322,17 @@ try {
     pruefe(await kinderKarte.count() === 1, "Eltern: die Kinderkarte fehlt");
     pruefe((await text(kinderKarte.locator(".kinder-kopf"))).includes("0 von 4"), "Eltern ohne Kinder: der Kopf zählt nicht 0 von 4");
     pruefe(await page.locator(".kind-leer").count() === 1, "Eltern ohne Kinder: der Satz für die leere Liste fehlt");
+
+    // Die Stimme auf diesem Gerät: die deutschen Stimmen zur Wahl, die
+    // natürlichste vorn; gewählt ist gemerkt und gleich zu hören.
+    pruefe(await page.locator("[data-stimme-karte]").count() === 1, "Elternbereich: die Karte «Stimme auf diesem Gerät» fehlt");
+    const stimmenWahl = await page.locator("[data-stimme-wahl] option").allTextContents();
+    pruefe(stimmenWahl.length === 4 && stimmenWahl[0] === "Automatisch: Jan (Schweiz, natürlich)" && !stimmenWahl.some((s) => /Aria/.test(s)),
+      `Stimme: die Auswahl lautet ${stimmenWahl.join(" | ")}`);
+    await page.locator("[data-stimme-wahl]").selectOption({ label: "Katja (Deutschland, natürlich)" });
+    const nachWahl = await page.evaluate(() => ({ gemerkt: localStorage.getItem("lernapp.stimme"), probe: window.__gesprochen.at(-1) }));
+    pruefe(nachWahl.gemerkt === "Microsoft Katja Online (Natural) - German (Germany)" && nachWahl.probe?.stimme === nachWahl.gemerkt && nachWahl.probe?.pitch === 1,
+      `Stimme: nach der Wahl ${JSON.stringify(nachWahl)}`);
     // Ohne Kinder keine Wagenkarte: Die Wagen gelten für eine Familie, und
     // eine gibt es noch nicht. Stünde die Karte trotzdem da, setzte ein Tipp
     // darauf erst den eigenen Fortschritt zurück und liefe dann in ein
@@ -780,4 +815,4 @@ if (befunde.length) {
   befunde.forEach((b) => console.error(`  - ${b}`));
   process.exit(1);
 }
-console.log("Der Elternbereich tut, was er soll: kaufen, Kinder anlegen, aufklappen, Passwort neu, Schwierigkeitsstufe, Leseecke mit Lesebericht, zurücksetzen, löschen, die Wagen der Familie, der Verkaufsbildschirm – und nichts davon trifft eine fremde Familie.");
+console.log("Der Elternbereich tut, was er soll: kaufen, Kinder anlegen, aufklappen, Passwort neu, Schwierigkeitsstufe, Leseecke mit Lesebericht, zurücksetzen, löschen, die Wagen der Familie, die Stimme des Geräts, der Verkaufsbildschirm – und nichts davon trifft eine fremde Familie.");

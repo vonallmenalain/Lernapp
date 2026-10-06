@@ -256,6 +256,7 @@ function seedLocalProgress() {
 
 function seedLocalSettings() {
   localStorageStub.setItem("lernapp.tts", "0");
+  localStorageStub.setItem("lernapp.stimme", "Microsoft Jan Online (Natural) - German (Switzerland)");
   localStorageStub.setItem("lernapp.audioFeedback", "0");
   localStorageStub.setItem("lernapp.train.loco", '{"driver":"panda"}');
   localStorageStub.setItem("lernapp.train.scene", "wald");
@@ -323,7 +324,8 @@ for (const key of ["lernapp.solved.sudoku.S 1-1", "lernapp.solved.arukone.A 1-1"
   assert(localStorageStub.getItem(key) === null, `${key} liegt noch auf dem Gerät`);
 }
 for (const [key, value] of Object.entries({
-  "lernapp.tts": "0", "lernapp.audioFeedback": "0", "lernapp.train.loco": '{"driver":"panda"}',
+  "lernapp.tts": "0", "lernapp.stimme": "Microsoft Jan Online (Natural) - German (Switzerland)",
+  "lernapp.audioFeedback": "0", "lernapp.train.loco": '{"driver":"panda"}',
   "lernapp.train.scene": "wald", "lernapp.train.savedAt": "5",
   "lernapp.guest.id": "guest_abcdefgh", "lernapp.guest.createdAt": "1",
 })) {
@@ -365,6 +367,7 @@ assert(subDocs("kind1").length === 0,
 assert(localStorageStub.getItem("lernapp.solved.sudoku.S 1-1") === null, "der alte Stand liegt noch auf dem Gerät");
 assert(localStorageStub.getItem("lernapp.train.gesehen") === null, "die gesehenen Wagenstufen sind noch da");
 assert(localStorageStub.getItem("lernapp.tts") === "0", "die Ton-Einstellung wurde mitgelöscht");
+assert(localStorageStub.getItem("lernapp.stimme") !== null, "die gewählte Stimme des Geräts wurde mitgelöscht");
 assert(JSON.stringify(runner.read()) === '{"unlocked":1,"best":{}}', "der Spielstand wurde auf dem zweiten Gerät nicht geleert");
 assert(localStorageStub.getItem("lernapp.reset.kind1") === String(resetAt), "die Marke wurde nicht übernommen");
 
