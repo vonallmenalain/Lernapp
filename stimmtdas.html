@@ -4,23 +4,24 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <meta name="application-name" content="Gripszug" />
-    <meta name="description" content="Weichen-Wirrwarr: Stelle die Weichen, damit jeder Zug zum Haus mit seiner Farbe fährt." />
+    <meta name="description" content="Stimmt das? Lies den Satz und schau aufs Bild: Passt beides zusammen?" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Gripszug" />
-    <meta name="theme-color" content="#a8ddf0" />
-    <title>Weichen-Wirrwarr · Gripszug</title>
+    <meta name="theme-color" content="#f4e4c9" />
+    <title>Stimmt das? · Gripszug</title>
     <link rel="stylesheet" href="styles.css?v=2026-10-06-02" />
+    <link rel="stylesheet" href="leseschrift.css?v=2026-10-06-02" />
     <link rel="manifest" href="app.webmanifest?v=2026-10-06-02" />
     <link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon-180.png" />
   </head>
-  <body data-page="trackrouter">
-    <!-- Die Bühne baut weichen.js: dieselbe Landschaft wie das Startbild, darauf
-         eine weisse Tafel mit dem Streckennetz. Bewusst leer im HTML – hier
-         steht kein Wort, das ein Kind lesen müsste, ausser dem Spielnamen. -->
-    <div id="tr-stage" class="cm-stage tr-stage" aria-label="Weichen-Wirrwarr"></div>
+  <body data-page="stimmtdas">
+    <!-- Ein Spiel der Leseecke. Die Bühne baut stimmtdas.js auf game-shell.js:
+         dieselbe Landschaft wie das Startbild, der Lautsprecher oben links,
+         zurück geht es in den Lesewagen. -->
+    <div id="lese-stage" class="cm-stage lese-stage" aria-label="Stimmt das?"></div>
 
     <script defer src="https://www.gstatic.com/firebasejs/12.7.0/firebase-app-compat.js"></script>
     <script defer src="https://www.gstatic.com/firebasejs/12.7.0/firebase-auth-compat.js"></script>
@@ -33,8 +34,14 @@
     <script defer src="train-scenes.js?v=2026-10-06-02"></script>
     <script defer src="game-cloud.js?v=2026-10-06-02"></script>
     <script defer src="journey-plan.js?v=2026-10-06-02"></script>
+    <script defer src="lesen-inhalte.js?v=2026-10-06-02"></script>
+    <script defer src="lesen-stand.js?v=2026-10-06-02"></script>
+    <script defer src="lesen-laute.js?v=2026-10-06-02"></script>
+    <script defer src="lesen-ton.js?v=2026-10-06-02"></script>
+    <script defer src="lesen-art.js?v=2026-10-06-02"></script>
     <script defer src="game-shell.js?v=2026-10-06-02"></script>
-    <script defer src="weichen.js?v=2026-10-06-02"></script>
+    <script defer src="lesen-spiel.js?v=2026-10-06-02"></script>
+    <script defer src="stimmtdas.js?v=2026-10-06-02"></script>
     <script defer src="pwa.js?v=2026-10-06-02"></script>
   </body>
 </html>

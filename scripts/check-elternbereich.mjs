@@ -360,6 +360,22 @@ try {
     const stufeStand = await page.evaluate(() => window.__ersatz.lies("users/kind-1")?.gameState?.["lernapp.reise"]?.data);
     pruefe(stufeStand?.stufe === "schwer" && Number.isFinite(stufeStand?.stufeAt), `Schwierigkeitsstufe: am Konto steht ${JSON.stringify(stufeStand)} statt schwer`);
     pruefe(await page.locator('[data-kind-uid="kind-1"] [data-kind-stufe="schwer"][aria-pressed="true"]').count() === 1, "Schwierigkeitsstufe: der gewählte Knopf ist nicht als gewählt markiert");
+    // Die Leseecke: wo sie beginnt und welche Schrift sie zeigt. Ein eigener
+    // Kasten im gameState mit Zeitmarke, den das Gerät des Kindes übernimmt.
+    const lesenKarte = page.locator('[data-kind-uid="kind-1"] .admin-lesen');
+    pruefe(await lesenKarte.count() === 1, "Kind aufklappen: die Karte der Leseecke fehlt");
+    pruefe(await lesenKarte.locator('[data-kind-lesen^="startpunkt:"]').count() === 6 && await lesenKarte.locator('[data-kind-lesen^="schrift:"]').count() === 3,
+      "Leseecke: sechs Startpunkte und drei Schriften erwartet");
+    pruefe(await lesenKarte.locator('[data-kind-lesen="startpunkt:auto"][aria-pressed="true"]').count() === 1, "Leseecke: ohne Einstellung ist nicht «Nach Alter» gewählt");
+    await lesenKarte.locator('[data-kind-lesen="startpunkt:woerter"]').click({ timeout: 5000 });
+    await page.waitForFunction(() => /Leseecke ist eingestellt/.test(document.querySelector("[data-kinder-karte] .karten-status")?.textContent || ""), null, { timeout: 10000 }).catch(() => {});
+    await page.locator('[data-kind-uid="kind-1"] .admin-lesen [data-kind-lesen="schrift:gross"]').click({ timeout: 5000 });
+    await page.waitForFunction(() => document.querySelector('[data-kind-uid="kind-1"] [data-kind-lesen="schrift:gross"]')?.getAttribute("aria-pressed") === "true", null, { timeout: 10000 }).catch(() => {});
+    const lesenStand = await page.evaluate(() => window.__ersatz.lies("users/kind-1")?.gameState?.["lernapp.lesen.eltern"]);
+    pruefe(lesenStand?.data?.startpunkt === "woerter" && lesenStand?.data?.schrift === "gross" && Number.isFinite(lesenStand?.data?.at) && Number.isFinite(lesenStand?.updatedAt),
+      `Leseecke: am Konto steht ${JSON.stringify(lesenStand)} statt Wörter und Grossbuchstaben`);
+    pruefe((await page.evaluate(() => window.__ersatz.lies("users/kind-1")?.gameState?.["lernapp.reise"]?.data?.stufe)) === "schwer",
+      "Leseecke: das Einstellen hat die Schwierigkeitsstufe überschrieben");
     // Dieses Kind hat noch nichts gespielt. Früher stand deshalb ein Raster
     // aus 300 grauen Kästchen da, dazu eine Liste mit 15-mal "nie gespielt" –
     // viel Fläche für die Aussage "nichts". Jetzt steht ein Satz da.

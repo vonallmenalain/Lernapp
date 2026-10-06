@@ -370,6 +370,41 @@ const konto = ({ angemeldet = true, kauf = null, rolle = "child", eltern = null,
   pruefe(ungefunden.length === 0,
     `Über die saubere Adresse nicht erkannt und damit unbegrenzt frei: ${ungefunden.join(", ")}`);
 }
+// --- Die Leseecke ------------------------------------------------------------
+// Ihre Spiele stehen nicht in AREAS – Lesen zählt nicht für den Zug –, aber
+// die Schranke kennt sie: eine Runde frei, wie jedes Spiel, und jedes lädt die
+// Schranke vor der Bühne. Das Bücherregal hat keine Runden: Zwei Bücher sind
+// immer frei, die anderen gehören zum Kauf, und ein gelesenes Buch verbraucht
+// nichts.
+{
+  const vorlage = rechne(konto({ rolle: "child", eltern: "eltern1" }));
+  const lese = vorlage.LESEECKE?.games || [];
+  pruefe(lese.length >= 4, "entitlement.js kennt die Spiele der Leseecke nicht (LESEECKE)");
+  for (const spiel of lese) {
+    const sauber = spiel.page.replace(/\.html$/, "");
+    const e = rechne(konto({ rolle: "child", eltern: "eltern1" }));
+    pruefe(e.gameFree(sauber) && e.targetFree(spiel.page), `${spiel.page}: schon vor der Runde gesperrt`);
+    e.rundeBeendet(sauber);
+    pruefe(!e.gameFree(sauber) && !e.targetFree(spiel.page) && e.gameGespielt(spiel.page), `${spiel.page}: die Schnupperrunde zählt nicht`);
+    if (!fs.existsSync(path.join(root, spiel.page))) { fehler.push(`${spiel.page}: Seite fehlt`); continue; }
+    const html = lies(spiel.page);
+    const vor = html.indexOf('src="entitlement.js?v=');
+    const buehne = html.indexOf('src="game-shell.js?v=');
+    pruefe(vor >= 0 && buehne > vor, `${spiel.page}: entitlement.js fehlt oder steht nicht vor der Bühne`);
+  }
+  const e = rechne(konto({ rolle: "child", eltern: "eltern1" }));
+  pruefe(e.targetFree("buecher.html") && e.targetFree("buecher.html?weiter=1"), "das Bücherregal ist gesperrt");
+  pruefe((e.GRATIS_BUECHER || []).length === 2 && e.GRATIS_BUECHER.every((id) => e.buchFree(id) && e.targetFree(`buecher.html?buch=${id}`)),
+    "die zwei freien Bücher sind nicht frei");
+  pruefe(!e.buchFree("sepp-gewitter") && !e.targetFree("buecher.html?buch=sepp-gewitter"), "ein Buch, das zum Kauf gehört, ist ohne Kauf frei");
+  e.rundeBeendet("buecher.html");
+  e.rundeBeendet("buecher");
+  pruefe(e.targetFree("buecher.html") && e.buchFree("hase-rueebli") && e.gespielteRunden("buecher.html") === 0, "ein gelesenes Buch verbraucht eine Runde");
+  const k = rechne(konto({ rolle: "child", eltern: "eltern1", kauf: { active: true } }));
+  pruefe(k.buchFree("sepp-gewitter") && k.targetFree("buecher.html?buch=sepp-gewitter"), "mit Kauf ist ein Buch gesperrt");
+  const g = rechne(konto({ rolle: "child", eltern: "eltern1", appGratis: true }));
+  pruefe(g.buchFree("sepp-gewitter"), "mit der ganzen App gratis ist ein Buch gesperrt");
+}
 // Auf der Reise zählt keine Runde: Die Adresse trägt eine Station.
 {
   const e = rechne(konto({ rolle: "child", eltern: "eltern1" }), { suche: "?station=4", pfad: "/memory.html" });

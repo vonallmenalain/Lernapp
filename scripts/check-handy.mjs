@@ -615,6 +615,93 @@ const SZENARIEN = [
       } },
     ],
   },
+  // --- Die Leseecke ------------------------------------------------------------
+  {
+    seite: "index",
+    titel: "index-lesen",
+    schritte: [
+      { name: "Lesewagen", tun: async (blatt) => { await zugHereinholen(blatt); await tippe(blatt, ".lesewagen-knopf"); await pause(blatt, 1200); } },
+    ],
+  },
+  {
+    seite: "silbenzug",
+    schritte: [
+      { name: "Los", tun: async () => {} },
+      { name: "Spiel", tun: async (blatt) => { await tippe(blatt, ".lese-los-knopf"); await pause(blatt, 600); } },
+      // Fünf Wagen sind das Höchste – der längste Zug, der aufs Gleis muss.
+      { name: "Fünf Wagen", tun: async (blatt) => {
+        for (let i = 0; i < 5; i += 1) await blatt.dispatchEvent(".silben-trommel", "pointerdown");
+        await pause(blatt, 500);
+      } },
+    ],
+  },
+  {
+    seite: "buchstabenhaus",
+    schritte: [
+      { name: "Haus", tun: async () => {} },
+      { name: "Fenster", tun: async (blatt) => { await blatt.click(".bh-fenster"); await pause(blatt, 500); } },
+      { name: "Suchen", tun: async (blatt) => { await blatt.click(".bh-karte-zu"); await pause(blatt, 200); await blatt.click(".bh-lupe"); await pause(blatt, 600); } },
+    ],
+  },
+  {
+    seite: "lautekuppeln",
+    schritte: [
+      { name: "Los", tun: async () => {} },
+      { name: "Wagen", tun: async (blatt) => { await tippe(blatt, ".lese-los-knopf"); await pause(blatt, 600); } },
+      { name: "Bilder", tun: async (blatt) => {
+        const anzahl = await blatt.locator(".kp-wagen").count();
+        for (let i = 0; i < anzahl; i += 1) {
+          await blatt.waitForFunction((nr) => document.querySelectorAll(".kp-wagen")[nr]?.classList.contains("ist-dran"), i, { timeout: 8000 });
+          // Der Wagen, der dran ist, wippt – ein Mausklick wartete ewig darauf,
+          // dass er stillhält.
+          await blatt.locator(".kp-wagen").nth(i).dispatchEvent("click");
+        }
+        await blatt.waitForSelector(".kp-bilder:not([hidden])", { timeout: 15000 });
+        await pause(blatt, 400);
+      } },
+    ],
+  },
+  {
+    seite: "stimmtdas",
+    schritte: [
+      { name: "Los", tun: async () => {} },
+      { name: "Satz", tun: async (blatt) => { await tippe(blatt, ".lese-los-knopf"); await pause(blatt, 600); } },
+      // Mit der Lösung darunter ist die Spalte am vollsten.
+      { name: "Lösung", tun: async (blatt) => {
+        const stimmt = await blatt.evaluate(() => window.LernappStimmtDas.jetzt()?.stimmt);
+        await blatt.click(stimmt ? ".sd-nein" : ".sd-ja");
+        await pause(blatt, 400);
+      } },
+    ],
+  },
+  {
+    seite: "buecher",
+    schritte: [
+      { name: "Regal", tun: async (blatt) => { await pause(blatt, 300); } },
+      { name: "Titelseite", tun: async (blatt) => { await blatt.click('.bu-umschlag[data-buch="leo-melone"]'); await pause(blatt, 500); } },
+      { name: "Erste Sätze", tun: async (blatt) => { await tippe(blatt, '.bu-modus[data-modus="selbst"]'); await pause(blatt, 600); } },
+      // Die längste Seite: Sepp in der Höhle.
+      { name: "Geschichte", tun: async (blatt) => {
+        await blatt.goto(`${BASIS}/buecher.html?buch=sepp-gewitter`, { waitUntil: "load" });
+        await blatt.waitForSelector(".bu-titelseite", { timeout: 8000 });
+        await tippe(blatt, '.bu-modus[data-modus="selbst"]');
+        for (let i = 0; i < 4; i += 1) { await pause(blatt, 250); await tippe(blatt, ".bu-weiter"); }
+        await pause(blatt, 600);
+      } },
+      { name: "Hörbuch", tun: async (blatt) => {
+        await blatt.goto(`${BASIS}/buecher.html?buch=hase-rueebli`, { waitUntil: "load" });
+        await blatt.waitForSelector(".bu-titelseite", { timeout: 8000 });
+        await tippe(blatt, ".bu-modus");
+        await pause(blatt, 600);
+      } },
+      { name: "Fragen", tun: async (blatt) => {
+        for (let i = 0; i < 7; i += 1) { await tippe(blatt, ".bu-weiter"); await pause(blatt, 120); }
+        await blatt.waitForSelector(".bu-antwort", { timeout: 8000 });
+        await tippe(blatt, '.bu-antwort[data-nr="2"]');
+        await pause(blatt, 600);
+      } },
+    ],
+  },
 ].filter((szenario) => !NUR || NUR.includes(szenario.titel || szenario.seite));
 
 // --- Der Lauf ------------------------------------------------------------------

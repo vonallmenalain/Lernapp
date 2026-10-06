@@ -41,6 +41,9 @@ const SPIEL_SEITEN = [
   "backpack", "blaetter", "doppelt", "faesser", "fischteich", "freiefahrt", "kacheln",
   "kartenmerker", "memory", "schwarmfokus", "signal", "strandschatz", "tiersprung",
   "turmbau", "wasfehlt", "weichen", "zahlengleis",
+  // Die Spiele der Leseecke: Ihr Pfeil führt in den Lesewagen, das Haus auf
+  // die Startseite – dieselbe Leiste.
+  "silbenzug", "buchstabenhaus", "lautekuppeln", "stimmtdas", "buecher",
 ];
 
 // Alles, was zurückführt: das Haus auf die Startseite, der Pfeil eine Stufe

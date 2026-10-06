@@ -1,4 +1,4 @@
-const APP_VERSION = "2026-10-06-01";
+const APP_VERSION = "2026-10-06-02";
 const CACHE_PREFIX = "lernapp-pwa-";
 const CACHE_NAME = `${CACHE_PREFIX}${APP_VERSION}`;
 const ASSET_VERSION_QUERY = `?v=${APP_VERSION}`;
@@ -49,6 +49,11 @@ const CORE_ASSETS = [
   "./wasfehlt.html",
   "./faesser.html",
   "./doppelt.html",
+  "./silbenzug.html",
+  "./buchstabenhaus.html",
+  "./lautekuppeln.html",
+  "./stimmtdas.html",
+  "./buecher.html",
   `./styles.css${ASSET_VERSION_QUERY}`,
   `./spatial-puzzles.js${ASSET_VERSION_QUERY}`,
   `./kids.js${ASSET_VERSION_QUERY}`,
@@ -81,6 +86,20 @@ const CORE_ASSETS = [
   `./wasfehlt.js${ASSET_VERSION_QUERY}`,
   `./faesser.js${ASSET_VERSION_QUERY}`,
   `./doppelt.js${ASSET_VERSION_QUERY}`,
+  `./leseschrift.css${ASSET_VERSION_QUERY}`,
+  `./lesen-inhalte.js${ASSET_VERSION_QUERY}`,
+  `./lesen-stand.js${ASSET_VERSION_QUERY}`,
+  `./lesen-laute.js${ASSET_VERSION_QUERY}`,
+  `./lesen-ton.js${ASSET_VERSION_QUERY}`,
+  `./lesen-art.js${ASSET_VERSION_QUERY}`,
+  `./lesen-spiel.js${ASSET_VERSION_QUERY}`,
+  `./lesen-buecher.js${ASSET_VERSION_QUERY}`,
+  `./train-leseecke.js${ASSET_VERSION_QUERY}`,
+  `./silbenzug.js${ASSET_VERSION_QUERY}`,
+  `./buchstabenhaus.js${ASSET_VERSION_QUERY}`,
+  `./lautekuppeln.js${ASSET_VERSION_QUERY}`,
+  `./stimmtdas.js${ASSET_VERSION_QUERY}`,
+  `./buecher.js${ASSET_VERSION_QUERY}`,
   `./firebase.js${ASSET_VERSION_QUERY}`,
   `./admin.js${ASSET_VERSION_QUERY}`,
   `./pwa.js${ASSET_VERSION_QUERY}`,

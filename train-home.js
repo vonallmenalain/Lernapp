@@ -47,6 +47,11 @@
   // Streckenschild, und sonst ändert sich nichts.
   const reiseApi = () => window.LernappReise || null;
   const journeyApi = () => window.LernappJourney || null;
+  // Die Leseecke: der Lesewagen auf dem Startbild (lesen-art.js) und das
+  // Zimmer darin (train-leseecke.js). Fehlen die Dateien, steht kein Wagen da.
+  const leseApi = () => window.LernappLeseecke || null;
+  const leseArt = () => window.LernappLeseArt || null;
+  const leseStand = () => window.LernappLeseStand || null;
   // Gezeigt wird, was gewählt ist – ob die Landschaft nach dem Stand dieses
   // Geräts gerade frei wäre, spielt hier keine Rolle. Die Sperre gehört in die
   // Auswahl: dort lässt sich Gesperrtes nicht antippen. Beim Anzeigen wäre sie
@@ -452,6 +457,7 @@
     if (!rail || !band || !band.offsetHeight) {
       stage.style.removeProperty("--train-lift");
       positionStart();
+      positionLesewagen();
       layoutFriends();
       return;
     }
@@ -468,6 +474,7 @@
     const lift = rail.getBoundingClientRect().top - railLine;
     stage.style.setProperty("--train-lift", `${Math.round(lift)}px`);
     positionStart();
+    positionLesewagen();
     layoutFriends();
   }
 
@@ -1396,6 +1403,62 @@
     startButton.dataset.placed = "1";
   }
 
+  // ---------------------------------------------------------------------------
+  // Der Lesewagen
+  // ---------------------------------------------------------------------------
+  // Ein alter Wagen auf einem Abstellgleis, links oben im Bild: Dort ist auf
+  // jedem Startbild Platz. Die Mitte gehört dem Zug und – bei Kindern in einer
+  // Gruppe – den Zügen der anderen, die höchstens zwei Drittel der Breite
+  // nehmen (layoutFriends); der linke Rand darunter bleibt frei.
+  const LESE_ANTEIL = 0.16;   // so viel der Breite nimmt der Wagen höchstens
+  const LESE_MAX = 210;       // und nie mehr als so viele Pixel
+  const LESE_MIN = 70;        // kleiner wird er nicht – dann bleibt er weg
+
+  function buildLeseButton() {
+    const zeichner = leseArt();
+    if (!zeichner || !leseApi()) return null;
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "lesewagen-knopf";
+    button.dataset.placed = "0";
+    const glieder = leseStand()?.wurmGlieder?.() || 1;
+    button.setAttribute("aria-label", "Der Lesewagen: Hier wird gelesen");
+    button.append(zeichner.buildLesewagen({ glieder }));
+    button.addEventListener("click", enterLeseecke);
+    return button;
+  }
+
+  function positionLesewagen() {
+    if (!leseButton) return;
+    const zeichner = leseArt();
+    const band = stage.querySelector(".train-band");
+    const host = stage.getBoundingClientRect();
+    if (!zeichner || !band || !host.width) { leseButton.dataset.placed = "0"; return; }
+    const knopf = sceneButton && !sceneButton.hidden ? sceneButton.getBoundingClientRect() : null;
+    const oben = (knopf ? knopf.bottom - host.top : 72) + 12;
+    const links = knopf ? Math.max(8, knopf.left - host.left) : 12;
+    // Er steht knapp über dem letzten Wagen des eigenen Zugs – so wirkt er
+    // wie hinter dem Zug abgestellt, statt über den Hügeln zu schweben. Ohne
+    // Wagen gilt die Oberkante des Zugbandes ohne Überblendung (wie
+    // layoutFriends).
+    const lift = parseFloat(window.getComputedStyle(stage).getPropertyValue("--train-lift")) || 0;
+    const bandOben = band.offsetTop + lift;
+    const letzter = band.querySelector("[data-area]")?.getBoundingClientRect();
+    const boden = letzter?.height && !stage.dataset.entering
+      ? Math.max(bandOben, letzter.top - host.top - 4)
+      : bandOben;
+    const platz = boden - oben - 6;
+    const seite = zeichner.WAGEN_H / zeichner.WAGEN_W;
+    let breite = Math.min(host.width * LESE_ANTEIL, LESE_MAX);
+    if (breite * seite > platz) breite = platz / seite;
+    if (breite < LESE_MIN) { leseButton.dataset.placed = "0"; return; }
+    const hoehe = breite * seite;
+    leseButton.style.width = `${Math.round(breite)}px`;
+    leseButton.style.left = `${Math.round(links)}px`;
+    leseButton.style.top = `${Math.round(boden - hoehe - 6)}px`;
+    leseButton.dataset.placed = "1";
+  }
+
   function buildBackButton() {
     const back = document.createElement("button");
     back.type = "button";
@@ -1423,6 +1486,7 @@
   let backButton = null;
   let sceneButton = null;
   let startButton = null;
+  let leseButton = null;
   let busy = false;
 
   // Auf welchen Bühnen der Zug selbst antippbar ist. Klein unten links vor den
@@ -1437,6 +1501,8 @@
     // Der Lautsprecher spricht nur auf der Karte; wer sie verlässt, nimmt den
     // Text mit.
     if (view.name === "reise" && name !== "reise") { kids()?.setHelp?.(""); view.journeyVisit = null; }
+    // Dasselbe für den Lesewagen: Sein Lautsprecher-Text gehört zu ihm.
+    if (view.name === "lesen" && name !== "lesen") kids()?.setHelp?.("");
     if (view.name === "loco" && name !== "loco") freshParts = [];
     // Hinter dem Zug eines anderen steht dessen Landschaft: sie gehört zu
     // seinem Zug wie seine Lok, und wer sie sieht, sieht das Bild, das dieses
@@ -1453,6 +1519,7 @@
     // nur eine zweite Möglichkeit, sich zu verfahren.
     if (sceneButton) sceneButton.hidden = name !== "home";
     if (startButton) startButton.hidden = name !== "home";
+    if (leseButton) leseButton.hidden = name !== "home";
     if (areaId) remember(LAST_AREA_KEY, areaId);
   }
 
@@ -1621,6 +1688,18 @@
     });
   }
 
+  // Im Lesewagen: das Zimmer mit Sessel, Regal und den Wegen in die Spiele.
+  // Der Zug bleibt draussen.
+  function showLeseecke() {
+    const lese = leseApi();
+    if (!lese) { showHome(); return; }
+    setView("lesen");
+    const host = document.createElement("div");
+    host.className = "leseecke";
+    renderLayer(host);
+    lese.mount({ host, onPlay: (url) => enterGame(url) });
+  }
+
   function showGames(areaId) {
     const area = progress.areaProgress(areaId);
     if (!area) { showAreas(); return; }
@@ -1714,6 +1793,19 @@
     busy = false;
   }
 
+  // In den Lesewagen: Der Wagen wächst einen Moment lang auf, dann steht man
+  // drinnen. Ohne Bewegung gleich drinnen.
+  async function enterLeseecke() {
+    if (busy || view.name !== "home" || !leseApi()) return;
+    busy = true;
+    kids()?.playJingle?.("correct");
+    stage.dataset.lesenEin = "1";
+    await after(420);
+    delete stage.dataset.lesenEin;
+    showLeseecke();
+    busy = false;
+  }
+
   // Zählt die Seitenwechsel. Die Notbremse unten darf nur den Wechsel abräumen,
   // den sie selbst scharf gemacht hat: kommt die Seite aus dem Vor-Zurück-
   // Speicher, läuft ihr alter Zeitgeber weiter und riss sonst mitten in einer
@@ -1773,6 +1865,8 @@
       return;
     }
     if (view.name === "areas") { showHome(); return; }
+    // Aus dem Lesewagen zurück an den Zug.
+    if (view.name === "lesen") { showHome(); return; }
     // Von der Karte zurück an den Zug: Er kommt von links herein, wie aus
     // einem Bereich – und steht wieder gross auf dem Startbild.
     if (view.name === "reise") {
@@ -2404,12 +2498,14 @@
     backButton.hidden = true;
     sceneButton = scene ? buildSceneButton(scene) : null;
     startButton = buildStartButton();
+    leseButton = buildLeseButton();
 
     friendsHost = document.createElement("div");
     friendsHost.className = "train-friends";
     friendsHost.hidden = true;
 
     stage.append(friendsHost, band, layerHost, backButton, startButton);
+    if (leseButton) stage.append(leseButton);
     if (sceneButton) stage.append(sceneButton);
 
     renderFriends();
@@ -2421,6 +2517,7 @@
     else if (previous === "friend" && view.friendId) showFriend(view.friendId, view.friendArea);
     else if (previous === "highscore" && view.highscoreGame) showHighscore(view.highscoreGame, view.highscoreLevel);
     else if (previous === "reise") showJourney({ mode: "quiet" });
+    else if (previous === "lesen") showLeseecke();
     else showHome();
 
     // Ganz zum Schluss: hat sich seit dem letzten Mal ein Wagen weiterentwickelt,
@@ -2497,12 +2594,20 @@
     let wanted = null;
     let reiseWanted = null;
     let station = null;
+    let leseWanted = null;
     try {
       const params = new URLSearchParams(window.location.search);
       wanted = params.get("bereich");
       reiseWanted = params.get("reise");
+      leseWanted = params.get("lesen");
       station = Number(params.get("station")) || null;
     } catch { wanted = null; }
+    // Zurück aus einem Spiel der Leseecke: gleich wieder in den Lesewagen.
+    if (leseWanted && leseApi()) {
+      try { window.history.replaceState(null, "", window.location.pathname); } catch { /* ohne Verlauf */ }
+      showLeseecke();
+      return true;
+    }
     // Zurück aus einem Spiel der Reise: gleich auf die Karte, und dort wird
     // gefeiert, was neu ist.
     if (reiseWanted && journeyApi() && reiseApi()) {
@@ -2530,6 +2635,7 @@
 
   window.addEventListener("resize", () => {
     if (view.name !== "loco" && view.name !== "wagon") window.requestAnimationFrame(alignTrainToRail);
+    if (view.name === "home") window.requestAnimationFrame(positionLesewagen);
     if (view.name === "loco") {
       const svg = stage.querySelector(".loco-svg");
       const camera = stage.querySelector(".loco-camera");
