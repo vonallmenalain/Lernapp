@@ -31,20 +31,8 @@
 
   const ID = "stimmtdas";
   const RUNDE = 8;
-  const X0 = -70;          // wo das Ding steht; rechts davon ist Platz für «neben»
-  const TIER_GROESSE = 2.3;
-
-  // Wie viele Tiere an welcher Stelle Platz haben, und wo genau sie stehen
-  // (Abstand vom Ding in seinen eigenen Einheiten).
-  const PLAETZE = {
-    tisch: { auf: [[0], [-45, 45], [-75, 0, 75]], unter: [[0], [-38, 38]] },
-    stuhl: { auf: [[2]] },
-    bett: { auf: [[20], [-30, 60], [-70, 10, 90]] },
-    kiste: { auf: [[0], [-32, 32]] },
-    baum: { auf: [[-30], [-60, 50]], unter: [[-62], [-70, 70]] },
-    haus: { auf: [[0]] },
-  };
-  const NEBEN = [0, 64, 128];
+  // Wie viele Tiere wo Platz haben, steht beim Bild (lesen-art.js, buildSzene).
+  const PLAETZE = art.SZENE_PLAETZE;
 
   function stufe() { return stand?.stufe?.() || "mittel"; }
 
@@ -53,10 +41,7 @@
   // ---------------------------------------------------------------------------
   const zufall = (liste) => liste[Math.floor(Math.random() * liste.length)];
 
-  function maxAnzahl(dingId, wo) {
-    if (wo === "neben") return 3;
-    return (PLAETZE[dingId]?.[wo] || [[0]]).length;
-  }
+  const maxAnzahl = (dingId, wo) => art.platzFuer(dingId, wo);
 
   function passt(lage) {
     const ding = inhalte.DINGE.find((d) => d.id === lage.ding);
@@ -86,12 +71,8 @@
     return { ...lage, tier: inhalte.TIERE.find((t) => t.id !== lage.tier).id };
   }
 
-  function satz(lage) {
-    const tier = inhalte.TIERE.find((t) => t.id === lage.tier);
-    const ding = inhalte.DINGE.find((d) => d.id === lage.ding);
-    if (lage.anzahl > 1) return `${inhalte.ZAHLWOERTER[lage.anzahl]} ${tier.viele} stehen ${lage.wo} ${ding.dativ}.`;
-    return `${tier.der} steht ${lage.wo} ${ding.dativ}.`;
-  }
+  // Hier stehen die Tiere immer: Es geht um auf, unter, neben und wie viele.
+  const satz = (lage) => inhalte.satzZurLage({ ...lage, tun: "steht" });
 
   function aufgabe() {
     const wahr = wuerfleLage();
@@ -100,32 +81,8 @@
     return { wahr, stimmt, text: satz(gesagt), richtig: satz(wahr) };
   }
 
-  // ---------------------------------------------------------------------------
-  // Das Bild
-  // ---------------------------------------------------------------------------
-  function bild(lage) {
-    const svg = art.el("svg", { viewBox: "-300 -340 600 380", class: "sd-bild-svg", role: "img", "aria-label": "Das Bild zum Satz" });
-    svg.append(art.el("rect", { x: -296, y: -336, width: 592, height: 372, rx: 26, fill: "#eaf6fd" }));
-    svg.append(art.el("rect", { x: -296, y: 0, width: 592, height: 36, fill: "#9fd68a" }));
-    svg.append(art.el("rect", { x: -296, y: -2, width: 592, height: 6, fill: "#7fbf6a" }));
-    const dingInfo = art.DINGE[lage.ding];
-    const ding = art.buildDing(lage.ding);
-    const tiere = [];
-    const xs = lage.wo === "neben"
-      ? NEBEN.slice(0, lage.anzahl).map((x) => dingInfo.rechts + x)
-      : (PLAETZE[lage.ding]?.[lage.wo] || [[0]])[lage.anzahl - 1] || [0];
-    const y = lage.wo === "auf" ? dingInfo.oben : 0;
-    xs.forEach((x) => {
-      const figur = zugArt.buildPassenger(lage.tier);
-      tiere.push(art.group({ transform: `translate(${X0 + x} ${y}) scale(${TIER_GROESSE})` }, [figur]));
-    });
-    // Wer unter etwas steht, steht hinter dessen Vorderkante nicht – aber vor
-    // dem Baumstamm: erst das Ding, dann die Tiere, ausser beim Tisch unten.
-    const dingGruppe = art.group({ transform: `translate(${X0} 0)` }, [ding]);
-    if (lage.wo === "unter" && lage.ding === "tisch") svg.append(...tiere, dingGruppe);
-    else svg.append(dingGruppe, ...tiere);
-    return svg;
-  }
+  // Das Bild: dasselbe wie in den Lückensätzen (lesen-art.js, buildSzene).
+  const bild = (lage) => art.buildSzene(lage, { klasse: "sd-bild-svg" });
 
   // ---------------------------------------------------------------------------
   // Ablauf

@@ -44,7 +44,7 @@ const SPIEL_SEITEN = [
   // Die Spiele der Leseecke: Ihr Pfeil führt in den Lesewagen, das Haus auf
   // die Startseite – dieselbe Leiste.
   "silbenzug", "buchstabenhaus", "lautekuppeln", "stimmtdas", "buecher",
-  "reimkupplung", "anlautlauscher", "werfaehrtmit", "woerterbauen", "silbenbahn", "blitzwoerter",
+  "reimkupplung", "anlautlauscher", "werfaehrtmit", "woerterbauen", "silbenbahn", "blitzwoerter", "meinname", "lueckensaetze",
 ];
 
 // Alles, was zurückführt: das Haus auf die Startseite, der Pfeil eine Stufe

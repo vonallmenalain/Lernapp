@@ -2887,6 +2887,23 @@ body.puzzle-active .spatialPuzzle-board .spatial-option-graphic > svg {
 .admin-lesen .card-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .admin-lesen button[aria-pressed="true"] { box-shadow: inset 0 0 0 3px rgba(255, 255, 255, 0.5); }
 .admin-lesen .admin-lesen-frage { margin: 4px 0 -4px; color: var(--ink); font-weight: 900; }
+.admin-lesen .auth-hint { margin: 0; }
+/* Die Buchstaben der Schule: ein Knopf je Laut, die abgehakten gefüllt. */
+.admin-reset > .admin-laute { display: flex; flex-wrap: wrap; gap: 6px; }
+.admin-laut {
+  min-width: 44px;
+  padding: 0 10px;
+  border-radius: 12px;
+  background: #fff;
+  color: var(--primary-dark);
+  border-color: var(--line);
+  font-size: 1.05rem;
+}
+.admin-laut:hover:not(:disabled) { background: #f4f1ff; }
+.admin-laut.is-on { background: var(--primary); color: #fff; border-color: transparent; }
+.admin-laut.is-on:hover:not(:disabled) { background: var(--primary-dark); }
+.admin-lesen .admin-laut[aria-pressed="true"] { box-shadow: none; }
+.admin-laute-liste { margin: 0; color: var(--muted); font-weight: 800; overflow-wrap: anywhere; }
 
 .reset-card.is-confirming,
 .admin-reset.is-confirming {
@@ -12030,19 +12047,28 @@ button.lese-bild:active { transform: scale(0.96); }
   box-sizing: border-box;
 }
 .bu-fach { display: flex; flex-direction: column; align-items: center; gap: 8px; min-width: 0; }
-.bu-schild {
+.bu-fach[hidden] { display: none; }
+/* Die Reiter über dem Regal: ein Fach je Stufe. */
+.bu-reiter-leiste { display: flex; flex-wrap: wrap; justify-content: center; gap: clamp(6px, 1.4vw, 12px); max-width: 96vw; }
+.bu-reiter {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  margin: 0;
-  padding: 3px 12px;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 3px solid rgba(255, 255, 255, 0.9);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.82);
   box-shadow: 0 3px 8px rgba(36, 48, 71, 0.12);
   color: #243047;
-  font-size: clamp(0.78rem, 2.6vh, 1.05rem);
+  font-size: clamp(0.8rem, 2.8vh, 1.05rem);
   font-weight: 800;
 }
+.bu-reiter:hover:not(:disabled) { background: #ffffff; }
+.bu-reiter.is-offen { background: #c4553a; border-color: #ffffff; color: #ffffff; }
+.bu-reiter.is-offen:hover:not(:disabled) { background: #a8452e; }
+.bu-reiter-fertig { color: #3fbf74; font-weight: 900; }
+.bu-reiter.is-offen .bu-reiter-fertig { color: #c9f2d6; }
 .bu-schild-zeichen { font-size: 1.1em; }
 .bu-reihe { display: flex; align-items: flex-end; gap: 8px; padding: 0 6px; }
 .bu-brett {
@@ -12701,4 +12727,242 @@ body[data-page="laute-aufnehmen"] {
   .lese-wahl, .rk-angekuppelt, .sb-angekuppelt .sb-wagen, .al-ohr, .wm-karte.ist-neu, .wm-fahrgast, .sb-quatsch, .sb-quatsch-bild, .bw-zug.faehrt-ein,
   .lese-buehne .stoesst, .rk-kandidat.zeigt-hin, .sb-wagen.zeigt-hin, .al-bild.zeigt-hin, .wm-bild.zeigt-hin { animation: none; }
   .rk-zug, .sb-zug, .wm-zug { transition: none; }
+}
+
+/* ===========================================================================
+   Leseecke, Etappe 2b: Mein Name und der Name des Lesewurms
+   =========================================================================== */
+/* Der Name des Lesewurms unter dem Wurm vor jeder Runde. */
+.lese-los-wurmspalte { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.lese-los-wurmname {
+  padding: 0 12px;
+  border: 3px solid #8a5a35;
+  border-radius: 10px;
+  background: #c8935a;
+  color: #ffffff;
+  font-family: "Andika", Inter, system-ui, sans-serif;
+  font-size: clamp(0.95rem, 4.4vh, 1.4rem);
+  font-weight: 700;
+}
+
+/* --- Mein Name --- */
+.mn-intro { flex-wrap: wrap; justify-content: center; }
+.mn-intro-wurm { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.mn-wurm { width: clamp(84px, 20vh, 150px); height: auto; }
+.mn-taufe-knopf {
+  min-height: 44px;
+  padding: 0 14px;
+  border: 3px solid #8a5a35;
+  border-radius: 12px;
+  background: #c8935a;
+  color: #ffffff;
+  font-family: "Andika", Inter, system-ui, sans-serif;
+  font-size: clamp(1rem, 4.6vh, 1.5rem);
+}
+.mn-taufe-knopf:hover:not(:disabled) { background: #b07b45; }
+.mn-intro-mitte { display: flex; align-items: center; gap: clamp(6px, 1.6vw, 14px); }
+.mn-schild {
+  margin: 0;
+  padding: clamp(2px, 1vh, 10px) clamp(14px, 3vw, 28px);
+  border: 3px solid #c8935a;
+  border-radius: 14px;
+  background: #fffaf0;
+  box-shadow: 0 6px 14px rgba(36, 48, 71, 0.16);
+  color: #243047;
+  font-family: "Andika", Inter, system-ui, sans-serif;
+  font-size: clamp(1.6rem, 10vh, 3.6rem);
+  font-weight: 700;
+  line-height: 1.15;
+  white-space: nowrap;
+  transition: color 0.2s ease, background-color 0.2s ease;
+}
+.mn-schild.ist-zu { color: transparent; background: repeating-linear-gradient(-45deg, #e8d3b0 0 10px, #f3e3c6 10px 20px); }
+.mn-aendern, .mn-gucken {
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  border: 2px solid var(--line);
+  border-radius: 50%;
+  background: #ffffff;
+  font-size: 1.3rem;
+}
+.mn-aendern:hover:not(:disabled), .mn-gucken:hover:not(:disabled) { background: #f4f1ff; }
+.mn-eingabe {
+  display: grid;
+  grid-template-columns: auto auto;
+  justify-content: start;
+  align-items: end;
+  gap: 8px 10px;
+  max-width: min(92vw, 470px);
+  padding: 12px 14px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 8px 18px rgba(36, 48, 71, 0.16);
+}
+.mn-eingabe-label { display: grid; gap: 4px; color: #243047; font-family: Inter, system-ui, sans-serif; font-weight: 800; }
+.mn-eingabe input {
+  width: min(58vw, 300px);
+  min-height: 48px;
+  padding: 0 14px;
+  border: 3px solid #c8935a;
+  border-radius: 14px;
+  background: #fffaf0;
+  color: #243047;
+  font-family: "Andika", Inter, system-ui, sans-serif;
+  font-size: 1.4rem;
+}
+.mn-eingabe-ok { width: 52px; height: 52px; padding: 0; border-radius: 50%; background: #3fbf74; font-size: 1.5rem; }
+.mn-eingabe-ok:hover:not(:disabled) { background: #2f9d5d; }
+.mn-hinweis { grid-column: 1 / -1; margin: 0; color: var(--muted); font-family: Inter, system-ui, sans-serif; font-size: 0.85rem; font-weight: 700; }
+
+.mn-schild-reihe { display: flex; align-items: center; gap: clamp(6px, 1.6vw, 14px); }
+.mn-schild-reihe .mn-schild { font-size: clamp(1.4rem, 8vh, 3rem); }
+.mn-gleis {
+  position: relative;
+  width: min(96vw, 1040px);
+  height: min(clamp(56px, 26vh, 150px), calc(86vw / (1.6 + 0.62 * var(--mn-n, 4))));
+}
+.mn-zug { position: absolute; left: 2%; bottom: 8px; display: flex; align-items: flex-end; height: 100%; transition: transform 0.9s cubic-bezier(0.45, 0, 0.55, 1); }
+.mn-zug.faehrt-ab { transform: translateX(110vw); }
+.mn-zug .lese-lok { height: 100%; }
+.mn-plaetze { display: flex; align-items: flex-end; height: 70%; }
+.mn-platz { display: block; flex: none; height: 100%; margin-left: -4px; }
+.mn-platz svg { display: block; height: 100%; width: auto; }
+.mn-platz.ist-leer svg { opacity: 0.5; }
+.mn-platz.ist-zeichen { height: 60%; }
+.mn-platz.ist-voll { animation: rk-kuppelt 0.4s cubic-bezier(0.25, 1, 0.5, 1); }
+.mn-neben { display: flex; flex-wrap: wrap; justify-content: center; gap: clamp(6px, 1.6vw, 18px); max-width: 96vw; }
+.mn-wagen { display: block; flex: none; min-height: 0; padding: 0; border: none; border-radius: 12px; background: none; cursor: pointer; }
+.mn-wagen:hover:not(:disabled) { background: none; }
+.mn-wagen svg { display: block; height: clamp(44px, 15vh, 96px); width: auto; }
+.mn-wagen.zeigt-hin { animation: lese-zeigt-hin 0.9s ease-in-out infinite; }
+
+.mn-ohne-zaehler .cm-count { display: none; }
+/* Der Lesewurm bekommt einen Namen: links Wurm, Schild und drei Knöpfe,
+   rechts die Buchstaben – auf einem schmalen Bildschirm untereinander. */
+.mn-taufe { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: clamp(10px, 3vw, 40px); max-width: 96vw; }
+.mn-taufe-links { display: flex; flex-direction: column; align-items: center; gap: clamp(4px, 1.2vh, 10px); }
+.mn-taufe-wurm { width: clamp(80px, 24vh, 170px); }
+.mn-taufe-wurm.ist-getauft { animation: lese-bild-neu 0.5s cubic-bezier(0.34, 1.56, 0.64, 1); }
+.mn-wurmschild {
+  min-width: clamp(120px, 26vw, 220px);
+  margin: 0;
+  padding: clamp(2px, 0.8vh, 8px) 16px;
+  border: 4px solid #8a5a35;
+  border-radius: 12px;
+  background: #e2b07a;
+  color: #243047;
+  font-family: "Andika", Inter, system-ui, sans-serif;
+  font-size: clamp(1.4rem, 8vh, 2.8rem);
+  font-weight: 700;
+  line-height: 1.2;
+  text-align: center;
+}
+.mn-wurmschild.ist-leer { color: rgba(36, 48, 71, 0.45); }
+.mn-wurmschild.ist-getauft { box-shadow: 0 0 0 5px #ffd166, 0 0 22px rgba(255, 209, 102, 0.8); }
+.mn-taufe-leiste { display: flex; gap: clamp(6px, 1.6vw, 14px); }
+.mn-taste-aktion {
+  width: clamp(44px, 12vh, 60px);
+  height: clamp(44px, 12vh, 60px);
+  min-height: 0;
+  padding: 0;
+  border: 3px solid #ffffff;
+  border-radius: 50%;
+  background: #fff6e0;
+  box-shadow: 0 5px 12px rgba(36, 48, 71, 0.2);
+  color: #243047;
+  font-size: clamp(1.1rem, 5.5vh, 1.7rem);
+}
+.mn-taste-aktion:hover:not(:disabled) { background: #ffe9b8; }
+.mn-fertig { background: #3fbf74; color: #ffffff; }
+.mn-fertig:hover:not(:disabled) { background: #2f9d5d; }
+.mn-tasten { display: grid; gap: clamp(6px, 1.4vh, 12px); max-width: min(62vw, 560px); }
+@media (orientation: portrait) { .mn-tasten { max-width: 96vw; } }
+.mn-tasten-reihe { display: flex; flex-wrap: wrap; justify-content: center; gap: clamp(5px, 1.2vw, 10px); }
+.mn-taste {
+  min-width: clamp(44px, 11vh, 62px);
+  height: clamp(44px, 11vh, 62px);
+  min-height: 0;
+  padding: 0 8px;
+  border: 3px solid #2f6fd0;
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: 0 4px 0 #2f6fd0;
+  color: #243047;
+  font-family: "Andika", Inter, system-ui, sans-serif;
+  font-size: clamp(1.3rem, 7vh, 2.2rem);
+  font-weight: 700;
+}
+.mn-taste:hover:not(:disabled) { background: #eef4ff; }
+.mn-tasten-reihe.ist-selbstlaut .mn-taste { border-color: #e8543f; box-shadow: 0 4px 0 #e8543f; }
+.mn-tasten-reihe.ist-selbstlaut .mn-taste:hover:not(:disabled) { background: #fff0ee; }
+.mn-taste:active { transform: translateY(3px); box-shadow: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .mn-platz.ist-voll, .mn-wagen.zeigt-hin, .mn-taufe-wurm.ist-getauft { animation: none; }
+  .mn-zug { transition: none; }
+}
+
+/* --- Lückensätze --- */
+.ls-reihe {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(12px, 3vw, 40px);
+  width: min(96vw, 1120px);
+}
+.ls-bild { flex: 0 1 auto; width: min(48vw, calc((100vh - 120px) * 1.55), 600px); }
+.ls-bild svg { display: block; width: 100%; height: auto; filter: drop-shadow(0 8px 16px rgba(36, 48, 71, 0.18)); }
+.ls-bild-svg .journey-passenger-arm { transform-box: fill-box; }
+.ls-rechts { display: flex; flex-direction: column; align-items: center; gap: clamp(8px, 2.4vh, 18px); max-width: min(46vw, 480px); }
+.ls-satz {
+  margin: 0;
+  padding: 10px 18px;
+  border-radius: 18px;
+  background: #ffffff;
+  box-shadow: 0 6px 14px rgba(36, 48, 71, 0.16);
+  color: #243047;
+  font-family: "Andika", Inter, system-ui, sans-serif;
+  font-size: clamp(1.1rem, 6vh, 2.2rem);
+  font-weight: 700;
+  line-height: 1.35;
+  text-align: center;
+}
+.ls-satz.ist-hoerbar { cursor: pointer; }
+.ls-luecke {
+  display: inline-block;
+  min-width: 3.2em;
+  padding: 0 0.15em;
+  border-bottom: 4px dashed #c8935a;
+  color: #2f6fd0;
+  line-height: 1.15;
+  text-align: center;
+}
+.ls-luecke.ist-voll { border-bottom-style: solid; }
+.ls-luecke.ist-richtig { border-bottom-color: #3fbf74; color: #1f8a4c; }
+.ls-wahl { display: flex; flex-wrap: wrap; justify-content: center; gap: clamp(8px, 2vw, 16px); }
+.ls-wort {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: clamp(48px, 14vh, 76px);
+  padding: 0 16px;
+  border: 4px solid #ffffff;
+  border-radius: 18px;
+  background: #fff6e0;
+  box-shadow: 0 6px 14px rgba(36, 48, 71, 0.18);
+  color: #243047;
+  font-family: "Andika", Inter, system-ui, sans-serif;
+  font-size: clamp(1.1rem, 6vh, 2rem);
+  font-weight: 700;
+}
+.ls-wort:hover:not(:disabled) { background: #ffeccc; }
+.ls-wort:disabled { cursor: default; }
+.ls-wort.ist-richtig { background: #c9f2d6; box-shadow: 0 0 0 5px #3fbf74; }
+.ls-wort.ist-falsch { background: #ffd9d4; opacity: 0.6; }
+.ls-wort.zeigt-hin { animation: lese-zeigt-hin 0.9s ease-in-out infinite; }
+.ls-bildchen { width: auto; height: clamp(30px, 10vh, 56px); flex: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .ls-wort.zeigt-hin { animation: none; }
 }

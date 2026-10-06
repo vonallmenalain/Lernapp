@@ -114,7 +114,7 @@ try {
     }
   }
 
-  // Einsteigen: das Zimmer mit sechs Orten, der Lesewurm im Sessel.
+  // Einsteigen: das Zimmer mit sechs Orten und dem Schild, der Lesewurm im Sessel.
   await page.setViewportSize({ width: 1024, height: 640 });
   await oeffne("index.html", "document.querySelector('.lesewagen-knopf')");
   await page.waitForFunction(() => document.querySelector(".lesewagen-knopf")?.dataset.placed === "1", null, { timeout: 8000 }).catch(() => {});
@@ -128,7 +128,7 @@ try {
     zurueck: (() => { const k = document.querySelector(".stage-back"); return Boolean(k && !k.hidden && k.getBoundingClientRect().width > 20); })(),
   }));
   if (zimmer.ansicht !== "lesen") fehlt(`Lesewagen: nach dem Tipp ist die Ansicht ${zimmer.ansicht}, nicht lesen`);
-  if (zimmer.orte !== "buchstaben,buecher,saetze,silben,weiter,woerter") fehlt(`Lesewagen: die Orte sind ${zimmer.orte}`);
+  if (zimmer.orte !== "buchstaben,buecher,saetze,silben,weiter,woerter,wurmname") fehlt(`Lesewagen: die Orte sind ${zimmer.orte}`);
   if (!zimmer.wurm) fehlt("Lesewagen: der Lesewurm sitzt nicht im Sessel");
   if (!zimmer.zurueck) fehlt("Lesewagen: kein Pfeil zurück an den Zug");
   if (zimmer.hilfe && !/Lesewagen/.test(zimmer.hilfe)) fehlt(`Lesewagen: der Lautsprecher sagt etwas anderes: ${zimmer.hilfe.slice(0, 60)}`);
@@ -382,16 +382,172 @@ try {
   const blitzStand = await page.evaluate((w) => window.LernappLeseStand.stand().blitz[w], blitz);
   if ((await zaehler()) !== "1" || blitzStand?.r !== 1) fehlt(`Blitzwörter: der Treffer zählt nicht (${JSON.stringify(blitzStand)})`);
 
+  // --- 6c. Mein Name und der Name des Lesewurms ---------------------------------------
+  // Ohne Konto fragt das Spiel nach dem Namen; er bleibt auf dem Gerät und
+  // geht nicht in den Spielstand. Drei Fahrten, in der dritten zwei fremde
+  // Wagen; ein Fehlgriff kostet den Punkt dieser Fahrt.
+  await oeffne("meinname.html", "window.LernappMeinName");
+  if (!(await page.locator(".mn-eingabe input").count())) fehlt("Mein Name: ohne Konto fragt niemand nach dem Namen");
+  await page.fill(".mn-eingabe input", "  noah ");
+  await page.locator(".mn-eingabe-ok").click();
+  await page.waitForSelector(".mn-schild", { timeout: 5000 }).catch(() => {});
+  const schildText = await page.evaluate(() => document.querySelector(".mn-schild")?.textContent);
+  if (schildText !== "Noah") fehlt(`Mein Name: auf dem Schild steht «${schildText}» statt «Noah»`);
+  await vergiss();
+  await page.locator(".lese-los-knopf").click();
+  const naechsterWagen = () => page.evaluate(() => {
+    const j = window.LernappMeinName.jetzt();
+    return j.phase === "kuppeln" ? [...j.name][j.dran].toLowerCase() : null;
+  });
+  for (let fahrt = 0; fahrt < 3; fahrt += 1) {
+    await page.waitForFunction((f) => window.LernappMeinName.jetzt().fahrt === f && window.LernappMeinName.jetzt().phase === "kuppeln", fahrt, { timeout: 8000 }).catch(() => {});
+    const anzahl = await page.locator(".mn-neben .mn-wagen").count();
+    const fremde = await page.locator('.mn-neben .mn-wagen[data-fremd="1"]').count();
+    if (fahrt === 0 && (await page.locator(".mn-platz.ist-leer").count()) !== 4) fehlt("Mein Name: hinter der Lok stehen nicht vier leere Plätze für Noah");
+    if (anzahl !== 4 + (fahrt === 2 ? 2 : 0) || fremde !== (fahrt === 2 ? 2 : 0)) fehlt(`Mein Name, Fahrt ${fahrt + 1}: ${anzahl} Wagen, davon ${fremde} fremde`);
+    if (fahrt === 2 && !(await page.locator(".mn-schild.ist-zu").count())) fehlt("Mein Name: in der dritten Fahrt ist das Schild nicht zugedeckt");
+    for (let i = 0; i < 4; i += 1) {
+      await page.waitForFunction(() => window.LernappMeinName.jetzt().phase === "kuppeln", null, { timeout: 5000 }).catch(() => {});
+      const b = await naechsterWagen();
+      if (!b) break;
+      if (fahrt === 1 && i === 2) {
+        await page.locator(`.mn-neben .mn-wagen:not([data-zeichen="${b}"])`).first().click();
+        await page.waitForTimeout(150);
+      }
+      await page.locator(`.mn-neben .mn-wagen[data-zeichen="${b}"]`).first().click();
+    }
+  }
+  await page.waitForFunction(() => window.LernappMeinName.jetzt().phase === "over", null, { timeout: 8000 }).catch(() => {});
+  const nameStand = await page.evaluate(() => ({
+    j: window.LernappMeinName.jetzt(),
+    runden: window.LernappLeseStand.stand().spiele?.meinname?.runden || 0,
+    lokal: localStorage.getItem("lernapp.lesen.meinname"),
+    box: localStorage.getItem("lernapp.lesen") || "",
+  }));
+  if (nameStand.j.punkte !== 2 || nameStand.j.fahrt !== 3) fehlt(`Mein Name: nach drei Fahrten mit einem Fehlgriff ${nameStand.j.punkte} Punkte (Fahrt ${nameStand.j.fahrt})`);
+  if (nameStand.runden !== 1) fehlt("Mein Name: die Runde steht nicht im Lesestand");
+  if (nameStand.lokal !== "Noah") fehlt(`Mein Name: auf dem Gerät steht ${nameStand.lokal} statt Noah`);
+  if (/Noah/.test(nameStand.box)) fehlt("Mein Name: der eingetippte Name steht im Spielstand, der in die Cloud geht");
+  if (!(await gesagt()).includes("Noah")) fehlt("Mein Name: die Stimme sagt den fertigen Namen nicht");
+
+  // Der Lesewurm bekommt einen Namen: über das Schild im Zimmer, immer frei.
+  const frei = await page.evaluate(() => window.LernappEntitlement?.targetFree?.("meinname.html?wurm=1"));
+  if (frei !== true) fehlt("Lesewurm taufen: meinname.html?wurm=1 ist nicht frei");
+  await oeffne("index.html?lesen=1", "document.querySelector('.lesezimmer-svg')");
+  if ((await page.evaluate(() => document.querySelector('[data-ort="wurmname"] .lese-wurmname')?.textContent)) !== "?") fehlt("Lesewurm taufen: auf dem Schild steht nicht «?», solange er keinen Namen hat");
+  await page.locator('.lesezimmer-svg [data-ort="wurmname"]').click({ force: true });
+  await page.waitForURL("**/meinname.html?wurm=1", { timeout: 8000 }).catch(() => {});
+  await page.waitForFunction(() => window.LernappMeinName && document.querySelector(".mn-taste"), null, { timeout: 8000 }).catch(() => {});
+  if (!(await page.locator(".mn-taste").count())) fehlt("Lesewurm taufen: das Schild führt nicht zu den Buchstaben");
+  else {
+    await vergiss();
+    for (const b of ["b", "o", "d", "o"]) await page.locator(`.mn-taste[data-laut="${b}"]`).click();
+    const vorgelesen = await gesagt();
+    if (!vorgelesen.includes("Bodo") || vorgelesen.includes("B")) fehlt(`Lesewurm taufen: vorgelesen wird ${vorgelesen.join(" | ")}`);
+    await page.locator(".mn-weg").click();
+    if ((await page.evaluate(() => document.querySelector(".mn-wurmschild")?.textContent)) !== "Bod") fehlt("Lesewurm taufen: der Pfeil nimmt den letzten Buchstaben nicht weg");
+    await page.locator('.mn-taste[data-laut="o"]').click();
+    await page.locator(".mn-fertig").click();
+    await page.waitForURL("**/index.html*", { timeout: 8000 }).catch(() => {});
+    await page.waitForFunction(() => document.querySelector(".lesezimmer-svg"), null, { timeout: 8000 }).catch(() => {});
+    const getauft = await page.evaluate(() => ({ name: window.LernappLeseStand.wurmName(), schild: document.querySelector('[data-ort="wurmname"] .lese-wurmname')?.textContent }));
+    if (getauft.name !== "Bodo" || getauft.schild !== "Bodo") fehlt(`Lesewurm taufen: er heisst ${getauft.name}, auf dem Schild steht ${getauft.schild}`);
+  }
+  // Vor jeder Runde steht der Name unter dem Wurm.
+  await oeffne("silbenzug.html", "window.LernappLeseStand");
+  if ((await page.evaluate(() => document.querySelector(".lese-los-wurmname")?.textContent)) !== "Bodo") fehlt("Lesewurm: vor der Runde steht sein Name nicht unter ihm");
+
+  // --- 6e. Lückensätze ---------------------------------------------------------------------
+  // Der Würfel: Das richtige Wort steht zur Wahl, jedes falsche macht einen
+  // anderen Satz, das Bild passt in den Rahmen, und jede Stufe fragt nach dem,
+  // was zu ihr gehört. Dann eine Aufgabe: erst daneben, dann richtig.
+  await oeffne("lueckensaetze.html", "window.LernappLueckensaetze");
+  for (const stufe of ["leicht", "mittel", "schwer"]) {
+    const wuerfel = await page.evaluate((s) => {
+      window.LernappLeseStand.stufe = () => s;
+      const d = window.LernappLueckensaetze;
+      const inhalte = window.LernappLeseInhalte;
+      const art = window.LernappLeseArt;
+      const probleme = [];
+      const rollen = new Set();
+      for (let i = 0; i < 300; i += 1) {
+        const rolle = d.FRAGEN[s][i % d.FRAGEN[s].length];
+        const a = d.aufgabe(rolle);
+        rollen.add(a.rolle);
+        if (!art.szenePasst(a.lage)) probleme.push(`das Bild passt nicht in den Rahmen: ${a.satz}`);
+        if (a.lage.anzahl > art.platzFuer(a.lage.ding, a.lage.wo, a.lage.tun)) probleme.push(`mehr Tiere als Platz: ${a.satz}`);
+        if (!a.wahl.includes(a.richtig)) probleme.push(`das richtige Wort fehlt: ${a.satz}`);
+        if (new Set(a.wahl).size !== a.wahl.length || a.wahl.length !== (s === "leicht" ? 2 : 3)) probleme.push(`Wahl ${a.wahl.join("/")}`);
+        if (`${a.teile.map((t) => t.text).join(" ")}.` !== a.satz || a.satz !== inhalte.satzZurLage(a.lage)) probleme.push(`der Satz stimmt nicht mit dem Bild: ${a.satz}`);
+        a.wahl.filter((w) => w !== a.richtig).forEach((w) => {
+          const anders = a.teile.map((t, j) => (j === a.stelle ? w : t.text)).join(" ");
+          if (`${anders}.` === a.satz) probleme.push(`ein falsches Wort ergibt denselben Satz: ${a.satz}`);
+          if (a.rolle === "tun" && /^(steht|stehen)$/.test(w)) probleme.push(`«${w}» ist nie falsch genug: ${a.satz}`);
+        });
+        if (!/^[A-ZÄÖÜ][a-zäöü]+ [A-ZÄÖÜ][a-zäöü]+ (steht|stehen|schläft|schlafen|liest|lesen|singt|singen|hüpft|hüpfen) (auf|unter|neben) (dem|der) [A-ZÄÖÜ][a-zäöü]+\.$/.test(a.satz)) probleme.push(`seltsamer Satz: ${a.satz}`);
+        if (a.lage.tun === "schlaeft" && a.lage.anzahl !== 1) probleme.push(`mehrere schlafen: ${a.satz}`);
+      }
+      return { probleme: [...new Set(probleme)].slice(0, 4), rollen: [...rollen].sort().join(",") };
+    }, stufe);
+    wuerfel.probleme.forEach((p) => fehlt(`Lückensätze (${stufe}): ${p}`));
+    const soll = { leicht: "ding,tier", mittel: "ding,tier,tun,wo", schwer: "anzahl,ding,tier,tun,wo" }[stufe];
+    if (wuerfel.rollen !== soll) fehlt(`Lückensätze (${stufe}): gefragt wird nach ${wuerfel.rollen} statt ${soll}`);
+  }
+  await oeffne("lueckensaetze.html", "window.LernappLueckensaetze");
+  await vergiss();
+  await page.locator(".lese-los-knopf").click();
+  await page.waitForSelector(".ls-wort", { timeout: 5000 }).catch(() => {});
+  const luecke = await page.evaluate(() => { const a = window.LernappLueckensaetze.jetzt(); return { satz: a.satz, richtig: a.richtig, teile: a.teile.map((t) => t.text), stelle: a.stelle }; });
+  if (!(await page.locator(".ls-satz .ls-luecke").count())) fehlt("Lückensätze: im Satz ist keine Lücke");
+  const falschesWort = await page.locator('.ls-wort:not([data-richtig="1"])').first().getAttribute("data-wort");
+  await page.locator('.ls-wort:not([data-richtig="1"])').first().click();
+  await page.waitForFunction(() => window.LernappLueckensaetze.phase() === "waehlen", null, { timeout: 5000 }).catch(() => {});
+  const falschGesagt = `${luecke.teile.map((t, i) => (i === luecke.stelle ? falschesWort : t)).join(" ")}?`;
+  if (!(await gesagt()).includes(falschGesagt)) fehlt(`Lückensätze: der falsche Satz wird nicht vorgelesen (${falschGesagt})`);
+  if (!(await page.locator('.ls-wort[disabled]').count())) fehlt("Lückensätze: das falsche Wort lässt sich nochmals wählen");
+  await page.locator('.ls-wort[data-richtig="1"]').click();
+  await page.waitForFunction(() => window.LernappLueckensaetze.nr() === 1, null, { timeout: 5000 }).catch(() => {});
+  if (!(await gesagt()).includes(luecke.satz)) fehlt(`Lückensätze: der richtige Satz wird nicht vorgelesen (${luecke.satz})`);
+  if ((await zaehler()) !== "0") fehlt("Lückensätze: nach einem Fehlgriff zählt die Lücke trotzdem");
+
+  // --- 6d. Die Buchstaben der Schule --------------------------------------------------
+  // Haben die Eltern abgehakt, wohnen genau diese Laute im Buchstabenhaus, und
+  // Laute kuppeln nimmt nur Wörter, die sich damit lesen lassen.
+  await page.evaluate(() => localStorage.setItem("lernapp.lesen.eltern", JSON.stringify({ startpunkt: "auto", schrift: "auto", bekannt: ["m", "a", "l", "i", "o", "s", "e", "r", "n", "u"], at: Date.now() })));
+  await oeffne("buchstabenhaus.html", "window.LernappBuchstabenhaus");
+  const schulHaus = await page.evaluate(() => [...document.querySelectorAll(".bh-fenster")].map((f) => f.dataset.laut).join(","));
+  if (schulHaus !== "m,a,l,i,o,s,e,r,n,u") fehlt(`Buchstaben der Schule: im Buchstabenhaus wohnen ${schulHaus}`);
+  for (const [seite, api] of [["lautekuppeln.html", "LernappLauteKuppeln"], ["werfaehrtmit.html", "LernappWerFaehrtMit"], ["woerterbauen.html", "LernappWoerterBauen"]]) {
+    await oeffne(seite, `window.${api}`);
+    const unlesbar = await page.evaluate((name) => {
+      const bekannt = window.LernappLeseStand.bekannteLaute();
+      return window[name].wortListe().filter((w) => window.LernappLeseInhalte.fehlendeLaute(w.silben, bekannt).length).map((w) => w.wort);
+    }, api);
+    if (unlesbar.length) fehlt(`Buchstaben der Schule: ${seite} nimmt ${unlesbar.join(", ")}`);
+  }
+  await page.evaluate(() => localStorage.removeItem("lernapp.lesen.eltern"));
+
   // --- 7. Das Bücherregal ------------------------------------------------------------------
   await oeffne("buecher.html", "window.LernappBuecher");
   await page.waitForTimeout(300);
   const regal = await page.evaluate(() => ({
     buecher: document.querySelectorAll(".bu-umschlag").length,
     gesperrt: [...document.querySelectorAll(".bu-umschlag.is-locked")].map((b) => b.dataset.buch),
+    reiter: [...document.querySelectorAll(".bu-reiter")].map((r) => r.dataset.stufe).join(","),
+    offen: document.querySelector(".bu-reiter.is-offen")?.dataset.stufe,
+    sichtbar: [...document.querySelectorAll(".bu-fach:not([hidden]) .bu-umschlag")].map((b) => b.dataset.buch),
+    soll: window.LernappLeseBuecher.BUECHER.filter((b) => b.stufe === "hoerbuch").map((b) => b.id),
   }));
-  if (regal.buecher < 6) fehlt(`Bücherregal: nur ${regal.buecher} Bücher`);
+  if (regal.buecher < 16) fehlt(`Bücherregal: nur ${regal.buecher} Bücher`);
   if (regal.gesperrt.includes("hase-rueebli") || regal.gesperrt.includes("leo-melone")) fehlt("Bücherregal: ein freies Buch trägt ein Schloss");
   if (!regal.gesperrt.includes("sepp-gewitter")) fehlt("Bücherregal: ein Buch, das zum Kauf gehört, ist für den Gast offen");
+  // Ein Fach je Stufe: Ohne Einstellung (Lesestufe Buchstaben) ist das Fach
+  // zum Zuhören offen, und nur seine Bücher stehen da.
+  if (regal.reiter !== "hoerbuch,erste,klein,geschichte") fehlt(`Bücherregal: die Reiter sind ${regal.reiter}`);
+  if (regal.offen !== "hoerbuch" || regal.sichtbar.join(",") !== regal.soll.join(",")) fehlt(`Bücherregal: offen ist ${regal.offen} mit ${regal.sichtbar.join(", ")}`);
+  await page.locator('.bu-reiter[data-stufe="geschichte"]').click();
+  const geschichten = await page.evaluate(() => [...document.querySelectorAll(".bu-fach:not([hidden]) .bu-umschlag")].map((b) => b.dataset.buch));
+  if (!geschichten.includes("sepp-gewitter") || geschichten.includes("hase-rueebli")) fehlt(`Bücherregal: das Fach Geschichten zeigt ${geschichten.join(", ")}`);
   await page.locator('.bu-umschlag[data-buch="sepp-gewitter"]').click();
   await page.waitForSelector(".tor-overlay", { timeout: 5000 }).catch(() => {});
   if (!(await page.locator(".tor-overlay").count())) fehlt("Bücherregal: ein gesperrtes Buch zeigt kein Tor");
@@ -488,4 +644,4 @@ if (befunde.length) {
   befunde.forEach((b) => console.error(`  - ${b}`));
   process.exit(1);
 }
-console.log("Die Leseecke läuft: Lesewagen, Zimmer mit Auswahl, alle Spiele hin und zurück, eine Runde Silbenzug bis zum Tor, Laute kuppeln ohne verratenes Wort, Buchstabenhaus, der Würfel von «Stimmt das?», Reimkupplung, Anlaut-Lauscher, Wer fährt mit?, Wörter bauen, Silbenbahn, Blitzwörter, Hörbuch mit Nachsehen, Zusammen lesen, und der Lesewurm wächst.");
+console.log("Die Leseecke läuft: Lesewagen, Zimmer mit Auswahl, alle Spiele hin und zurück, eine Runde Silbenzug bis zum Tor, Laute kuppeln ohne verratenes Wort, Buchstabenhaus, der Würfel von «Stimmt das?», Reimkupplung, Anlaut-Lauscher, Wer fährt mit?, Wörter bauen, Silbenbahn, Blitzwörter, Mein Name, der Lesewurm bekommt seinen Namen, Lückensätze, die Buchstaben der Schule, Hörbuch mit Nachsehen, Zusammen lesen, und der Lesewurm wächst.");

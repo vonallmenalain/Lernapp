@@ -40,9 +40,12 @@
 
   const stufe = () => stand?.stufe?.() || "mittel";
 
+  // Nach der Zahl der Silben, und wenn die Eltern Buchstaben abgehakt haben,
+  // zuerst die Wörter, die sich damit lesen lassen.
   function wortListe() {
     const [min, max] = SILBEN[stufe()] || [2, 3];
-    return inhalte.SILBEN_WOERTER.filter((w) => w.silben.length >= min && w.silben.length <= max);
+    const liste = inhalte.SILBEN_WOERTER.filter((w) => w.silben.length >= min && w.silben.length <= max);
+    return inhalte.lesbare(liste, stand?.bekannteLaute?.() || null, RUNDE);
   }
 
   // Das Quatschtier: die erste Silbe des einen, der Rest des anderen.

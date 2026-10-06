@@ -63,7 +63,7 @@
 
   const HELP_REGAL = [
     "Das Bücherregal. Tippe auf ein Buch, und es geht auf.",
-    "Die ersten Bücher sind zum Zuhören, die weiteren zum Selberlesen.",
+    "Oben wählst du das Fach: Bücher zum Zuhören, erste Sätze, kleine Geschichten und Geschichten.",
   ].join(" ");
   const HELP_TITEL = [
     "Wie möchtest du lesen?",
@@ -90,6 +90,7 @@
 
   const state = {
     ansicht: "regal",   // regal, titel, seite, frage, ende
+    fach: null,         // welches Fach im Regal offen ist (eine Stufe)
     buch: null,
     modus: "vorlesen",
     seite: 0,
@@ -162,12 +163,62 @@
       art.el("path", { d: "M-86 -40 Q-60 -80 -20 -84 M40 -78 Q80 -64 92 -30", stroke: "#a3a9b3", "stroke-width": 6, fill: "none", "stroke-linecap": "round" }),
       art.el("path", { d: "M-70 0 Q-64 -66 0 -70 Q64 -66 70 0 Z", fill: "#3a3f4a" }),
     ],
+    // Eine Pfütze auf dem Boden. Mitte bei (0, 0).
+    pfuetze: () => [
+      art.el("ellipse", { cx: 0, cy: 0, rx: 46, ry: 9, fill: "#6fb7e6" }),
+      art.el("ellipse", { cx: -12, cy: -2, rx: 18, ry: 3, fill: "#c4e6f8", opacity: "0.85" }),
+      art.el("ellipse", { cx: 20, cy: 2, rx: 8, ry: 1.6, fill: "#c4e6f8", opacity: "0.7" }),
+    ],
+    // Eine Staffelei mit Leinwand. Was darauf gemalt ist, sind Dinge davor
+    // (vorne); die Leinwand liegt um (0, -57). Boden bei (0, 0).
+    staffelei: () => [
+      art.el("path", { d: "M-26 0 L-6 -98 M26 0 L6 -98 M0 -30 L0 6", stroke: "#8a5a35", "stroke-width": 5, "stroke-linecap": "round" }),
+      art.el("rect", { x: -37, y: -88, width: 74, height: 60, rx: 3, fill: "#ffffff", stroke: "#c8935a", "stroke-width": 3 }),
+      art.el("rect", { x: -42, y: -29, width: 84, height: 6, rx: 2, fill: "#8a5a35" }),
+    ],
+    // Ein Seerosenblatt auf dem Wasser, mit einer Blüte. Mitte bei (0, 0).
+    seerose: () => [
+      art.el("ellipse", { cx: 0, cy: 3, rx: 56, ry: 9, fill: "#5aa9d6", opacity: "0.55" }),
+      art.el("ellipse", { cx: 0, cy: 0, rx: 44, ry: 10, fill: "#4caf50" }),
+      art.el("path", { d: "M0 0 L44 -3 L44 4 Z", fill: "#5aa9d6" }),
+      art.el("path", { d: "M-30 -3 Q-6 -8 22 -3", stroke: "#3d9440", "stroke-width": 1.5, fill: "none" }),
+      art.el("circle", { cx: -28, cy: -6, r: 5, fill: "#f7a8c8" }),
+      art.el("circle", { cx: -23, cy: -9, r: 4, fill: "#f48fb1" }),
+      art.el("circle", { cx: -25, cy: -6, r: 2.5, fill: "#ffd166" }),
+    ],
+    // Ein Schneemann: Bauch und Kopf. Fertig hat er Augen aus Steinen und
+    // Arme aus Ästen; die Nase ist ein Rüebli – solange sie niemand isst.
+    // Boden bei (0, 0).
+    schneemann: ({ augen = false, nase = false }) => [
+      art.el("ellipse", { cx: 0, cy: 1, rx: 32, ry: 5, fill: "#000000", opacity: "0.08" }),
+      augen ? art.el("path", { d: "M-24 -42 L-46 -58 M24 -42 L46 -60 M-40 -54 L-44 -64 M40 -55 L45 -64", stroke: "#8a5a35", "stroke-width": 3, "stroke-linecap": "round" }) : null,
+      art.el("circle", { cx: 0, cy: -27, r: 28, fill: "#ffffff", stroke: "#d6e2ee", "stroke-width": 2 }),
+      art.el("circle", { cx: 0, cy: -71, r: 19, fill: "#ffffff", stroke: "#d6e2ee", "stroke-width": 2 }),
+      augen ? art.el("circle", { cx: -7, cy: -75, r: 3, fill: "#4a5060" }) : null,
+      augen ? art.el("circle", { cx: 7, cy: -75, r: 3, fill: "#4a5060" }) : null,
+      nase ? art.el("path", { d: "M0 -70 L19 -66 L0 -63 Z", fill: "#f28c28" }) : null,
+    ].filter(Boolean),
+    // Ein grosses Blatt, über den Kopf gehalten ein Schirm. Mitte des Bogens
+    // bei (0, 0), der Stiel zeigt nach unten bis zur Hand.
+    blatt: () => [
+      art.el("path", { d: "M0 -2 L3 34", stroke: "#3d8b40", "stroke-width": 3, "stroke-linecap": "round" }),
+      art.el("path", { d: "M-42 8 Q-38 -26 0 -30 Q38 -26 42 8 Q21 0 0 8 Q-21 0 -42 8 Z", fill: "#4caf50" }),
+      art.el("path", { d: "M0 -28 L0 6 M0 -16 L-24 -6 M0 -16 L24 -6 M0 -4 L-32 4 M0 -4 L32 4", stroke: "#2e7d32", "stroke-width": 1.6, fill: "none", "stroke-linecap": "round" }),
+    ],
+    // Eine Fliege mit durchsichtigen Flügeln. Mitte bei (0, 0).
+    fliege: () => [
+      art.el("ellipse", { cx: -5, cy: -6, rx: 6, ry: 4, fill: "#e3f3fc", stroke: "#9cc4dc", "stroke-width": 0.8, opacity: "0.95" }),
+      art.el("ellipse", { cx: 5, cy: -6, rx: 6, ry: 4, fill: "#e3f3fc", stroke: "#9cc4dc", "stroke-width": 0.8, opacity: "0.95" }),
+      art.el("ellipse", { cx: 0, cy: 0, rx: 7, ry: 4.5, fill: "#2b2f38" }),
+      art.el("circle", { cx: 6, cy: -1, r: 2.6, fill: "#b03a2e" }),
+    ],
   };
 
+  // dreh: schief, in Grad – ein Blatt, das am Boden liegt.
   function zeichnung(z) {
     const teile = ZEICHNUNGEN[z.z]?.(z);
     if (!teile) return null;
-    return art.group({ transform: `translate(${z.x} ${z.y}) scale(${z.s || 1})` }, teile);
+    return art.group({ transform: `translate(${z.x} ${z.y})${z.dreh ? ` rotate(${z.dreh})` : ""} scale(${z.s || 1})` }, teile);
   }
 
   // Ein Tier aus dem Zug, auf dem Boden oder wo y sagt. Mit Denkblase, wenn es
@@ -285,6 +336,12 @@
     return knopf;
   }
 
+  // Welches Fach aufgeht, wenn das Kind noch keines gewählt hat: das zu
+  // seiner Lesestufe.
+  const FACH_JE_LESESTUFE = { hoeren: "hoerbuch", buchstaben: "hoerbuch", woerter: "erste", saetze: "klein", geschichten: "geschichte" };
+
+  // Das Regal hat ein Fach je Stufe; oben die Reiter, offen ist eines. So
+  // bleiben die Bücher gross genug zum Antippen, auch wenn es viele sind.
   function zeigeRegal() {
     stopLesen();
     state.ansicht = "regal";
@@ -297,38 +354,59 @@
     shell.setPhase("intro");
     shell.clear();
     host.dataset.ansicht = "regal";
+    const stufen = bib.STUFEN.filter((stufe) => bib.BUECHER.some((b) => b.stufe === stufe.id));
+    if (!stufen.some((stufe) => stufe.id === state.fach)) {
+      const passend = FACH_JE_LESESTUFE[stand?.lesestufe?.() || ""];
+      state.fach = stufen.some((stufe) => stufe.id === passend) ? passend : stufen[0]?.id;
+    }
+    const reiter = shell.el("div", "bu-reiter-leiste");
+    reiter.setAttribute("role", "tablist");
+    reiter.setAttribute("aria-label", "Fächer im Regal");
     const regal = shell.el("div", "bu-regal");
-    bib.STUFEN.forEach((stufe) => {
+    const gelesenJetzt = gelesen();
+    stufen.forEach((stufe) => {
       const liste = bib.BUECHER.filter((b) => b.stufe === stufe.id);
-      if (!liste.length) return;
+      const offen = stufe.id === state.fach;
+      const knopf = shell.el("button", `bu-reiter${offen ? " is-offen" : ""}`);
+      knopf.type = "button";
+      knopf.dataset.stufe = stufe.id;
+      knopf.setAttribute("role", "tab");
+      knopf.setAttribute("aria-selected", offen ? "true" : "false");
+      knopf.append(shell.el("span", "bu-schild-zeichen", stufe.id === "hoerbuch" ? "👂" : "📖"), shell.el("span", "bu-reiter-text", stufe.titel));
+      // Ein Haken, wenn jedes Buch im Fach gelesen ist.
+      if (liste.every((b) => gelesenJetzt[b.id])) knopf.append(shell.el("span", "bu-reiter-fertig", "✓"));
+      knopf.addEventListener("click", () => {
+        if (state.fach === stufe.id) return;
+        state.fach = stufe.id;
+        zeigeRegal();
+      });
+      reiter.append(knopf);
       const fach = shell.el("section", "bu-fach");
       fach.dataset.stufe = stufe.id;
-      const schild = shell.el("p", "bu-schild");
-      schild.append(shell.el("span", "bu-schild-zeichen", stufe.id === "hoerbuch" ? "👂" : "📖"), document.createTextNode(stufe.titel));
+      fach.setAttribute("role", "tabpanel");
+      fach.setAttribute("aria-label", stufe.titel);
+      fach.hidden = !offen;
       const reihe = shell.el("div", "bu-reihe");
       liste.forEach((buch) => reihe.append(umschlag(buch)));
-      fach.append(schild, reihe, shell.el("div", "bu-brett"));
+      fach.append(reihe, shell.el("div", "bu-brett"));
       regal.append(fach);
     });
-    shell.play.append(regal);
+    shell.play.append(reiter, regal);
     regalEinpassen();
   }
 
-  // Alle Bücher in einer Reihe, so gross, wie es Breite und Höhe erlauben:
-  // Auf dem Handy rollt nichts (scripts/check-handy.mjs). Kommen später mehr
-  // Bücher dazu, als in eine Reihe passen, braucht das Regal Seiten zum
-  // Blättern.
-  //   Abstände wie im Stylesheet: Regal 12 px Rand, 14 px zwischen den
-  //   Fächern, je Fach 2 × 6 px, 8 px zwischen zwei Büchern.
+  // Die Bücher des offenen Fachs in einer Reihe, so gross, wie es Breite und
+  // Höhe erlauben: Auf dem Handy rollt nichts (scripts/check-handy.mjs).
+  //   Abstände wie im Stylesheet: Regal 12 px Rand, Fach 2 × 6 px, 8 px
+  //   zwischen zwei Büchern.
   function regalEinpassen() {
     const regal = shell.play.querySelector(".bu-regal");
     if (!regal) return;
-    const faecher = regal.querySelectorAll(".bu-fach").length || 1;
-    const buecher = regal.querySelectorAll(".bu-umschlag").length || 1;
-    const breite = shell.play.clientWidth - 24 - (faecher - 1) * 14 - faecher * 12 - (buecher - faecher) * 8;
-    // In der Höhe: Schild, Brett, Sterne und Rand brauchen rund 80 px; ein
+    const buecher = regal.querySelectorAll(".bu-fach:not([hidden]) .bu-umschlag").length || 1;
+    const breite = shell.play.clientWidth - 24 - 12 - (buecher - 1) * 8;
+    // In der Höhe: Reiter, Brett, Sterne und Rand brauchen rund 130 px; ein
     // Umschlag ist 4 : 3 hoch.
-    const hoehe = (shell.play.clientHeight - 80) * 0.75;
+    const hoehe = (shell.play.clientHeight - 130) * 0.75;
     const w = Math.max(56, Math.min(168, breite / buecher, hoehe));
     regal.style.setProperty("--bu-w", `${Math.floor(w)}px`);
   }

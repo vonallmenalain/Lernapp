@@ -121,12 +121,14 @@
     { id: "reimkupplung", page: "reimkupplung.html" },
     { id: "anlautlauscher", page: "anlautlauscher.html" },
     { id: "buchstabenhaus", page: "buchstabenhaus.html" },
+    { id: "meinname", page: "meinname.html" },
     { id: "lautekuppeln", page: "lautekuppeln.html" },
     { id: "werfaehrtmit", page: "werfaehrtmit.html" },
     { id: "woerterbauen", page: "woerterbauen.html" },
     { id: "silbenbahn", page: "silbenbahn.html" },
     { id: "blitzwoerter", page: "blitzwoerter.html" },
     { id: "stimmtdas", page: "stimmtdas.html" },
+    { id: "lueckensaetze", page: "lueckensaetze.html" },
   ] };
 
   // Das Bücherregal ist kein Spiel mit Runden: Diese zwei Bücher sind frei,
@@ -350,18 +352,22 @@
   // Ein Ziel, wie enterGame es bekommt: "memory.html" oder
   // "arukone.html?station=15". Mit Station entscheidet die Station allein –
   // auf der Reise spielt ein Kind jedes Spiel, das die Station verlangt. Mit
-  // Buch ("buecher.html?buch=leo-melone") entscheidet das Buch.
+  // Buch ("buecher.html?buch=leo-melone") entscheidet das Buch. Den Lesewurm
+  // taufen ("meinname.html?wurm=1") ist kein Spiel und immer frei.
   function targetFree(url) {
     const text = String(url || "");
     let station = 0;
     let buch = "";
+    let wurm = false;
     try {
       const params = new URLSearchParams(text.split("?")[1] || "");
       station = Number(params.get("station")) || 0;
       buch = params.get("buch") || "";
-    } catch { station = 0; buch = ""; }
+      wurm = params.get("wurm") === "1";
+    } catch { station = 0; buch = ""; wurm = false; }
     if (station) return stationFree(station);
     if (buch) return buchFree(buch);
+    if (wurm && text.split("?")[0].split("/").pop() === "meinname.html") return true;
     return gameFree(text);
   }
 

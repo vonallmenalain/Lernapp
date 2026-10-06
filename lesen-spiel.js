@@ -59,7 +59,13 @@
     const wurm = art()?.el("svg", { viewBox: "-70 -95 140 130", class: "lese-los-wurm", "aria-hidden": "true" });
     if (wurm) {
       wurm.append(art().buildLesewurm(3, { r: 16, buch: false, winkt: true }));
-      karte.append(wurm);
+      // Hat das Kind ihn getauft (Mein Name), steht sein Name darunter.
+      const name = stand()?.wurmName?.() || "";
+      if (name) {
+        const spalte = shell.el("div", "lese-los-wurmspalte");
+        spalte.append(wurm, shell.el("span", "lese-los-wurmname", stand()?.zeige?.(name) ?? name));
+        karte.append(spalte);
+      } else karte.append(wurm);
     }
     const knopf = shell.el("button", "lese-los-knopf");
     knopf.type = "button";

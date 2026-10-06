@@ -37,7 +37,10 @@
 
   const stufe = () => stand?.stufe?.() || "mittel";
 
+  // Nach der Stufe – oder nach den Buchstaben, die die Eltern abgehakt haben.
   function wortListe() {
+    const bekannt = stand?.bekannteLaute?.() || null;
+    if (bekannt) return inhalte.lesbare(inhalte.KUPPEL_WOERTER, bekannt, RUNDE);
     const gruppen = inhalte.KUPPELN_JE_STUFE[stufe()] || [1, 2];
     return inhalte.KUPPEL_WOERTER.filter((w) => gruppen.includes(w.stufe));
   }

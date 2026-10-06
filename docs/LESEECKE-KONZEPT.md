@@ -23,6 +23,14 @@ Stand: Oktober 2026 · Grundlage: das Konzept «Leseecke – Konzept & Ideensamm
 > anders nennt, sind ersetzt (🧊 statt 🍦 für «Eis», 🕐 statt ⏰ für «Uhr») oder beim
 > Anlaut-Hören ausgeschlossen (⚽ «Fussball», 🐴 «Ross» …). Blitzwörter haben im Lesestand
 > einen eigenen Stand je Wort.
+>
+> **Etappe 2, zweiter Teil (Oktober 2026):** Eltern haken im Elternbereich die
+> **Buchstaben der Schule** ab – das Buchstabenhaus zeigt dann genau diese, und die Wortspiele
+> nehmen Wörter, die sich damit lesen lassen. **Mein Name** (das Kind kuppelt seinen Namen
+> aus Buchstaben-Wagen) und der **Name des Lesewurms** (das Kind legt ihn selbst; er steht
+> auf einem Schild im Lesewagen und unter dem Wurm vor jeder Runde). **Lückensätze** mit
+> Tunwörtern – im Bild schlafen, lesen, singen und hüpfen die Tiere. **Zehn weitere Bücher**
+> (16 im Ganzen), das Regal hat jetzt ein Fach je Stufe.
 
 ## 1. Die Idee in drei Sätzen
 
@@ -45,7 +53,8 @@ Lesewagen selbst und der Lesewurm darin.
   Breite, nie kleiner als 70 Pixel.
 - **Das Zimmer** (`train-leseecke.js`, gezeichnet in `lesen-art.js`): eine Ansicht der Bühne
   wie die Reise. Jedes Ding ist ein Weg: Sessel mit Lesewurm (er sucht aus, was dran ist),
-  Buchstabenhaus, Trommel (Hören), Wortkiste (Wörter), Spielzeugzug (Sätze), Bücherregal.
+  Buchstabenhaus, Trommel (Hören), Wortkiste (Wörter), Spielzeugzug (Sätze), Bücherregal, und
+  links vom Sessel ein Schild mit dem Namen des Lesewurms.
   Stehen hinter einem Ding mehrere Spiele, kommt eine Auswahl mit Bildern; welches Spiel wo
   steht, sagt der Katalog in `lesen-stand.js` (`SPIELE`).
 - **Die Spiele** sind eigene Seiten auf `game-shell.js`. Der Pfeil zurück führt in den
@@ -66,6 +75,8 @@ Lesewagen selbst und der Lesewurm darin.
 | Wörter bauen | `woerterbauen.html` | legt aus Laut-Steinen das Wort zum Bild; die Stimme liest, was daliegt – auch «Sfoa» | Laute heraushören, Reihenfolge |
 | Silbenbahn | `silbenbahn.html` | kuppelt Silben-Wagen zum Wort; nach jedem dritten ein Quatschtier («Bamate») | Silben lesen |
 | Blitzwörter | `blitzwoerter.html` | ein kleines Wort blitzt im Zugfenster auf – welches war es? Je sicherer, desto kürzer | häufige Wörter auf einen Blick |
+| Mein Name | `meinname.html` | kuppelt seinen Namen Buchstabe für Buchstabe an die Lok, in drei Fahrten immer selbständiger (Vorlage, Schild, zugedecktes Schild mit fremden Wagen); gibt dem Lesewurm einen Namen | die eigenen Buchstaben |
+| Lückensätze | `lueckensaetze.html` | ein Wort fehlt im Satz – auf, unter, neben, ein Tunwort, das Tier, das Ding, die Zahl; die Stimme liest den Satz mit dem gewählten Wort | Sätze genau lesen |
 
 Drei Regeln gelten überall:
 
@@ -88,10 +99,15 @@ aus `train-art.js` (`buildPassenger`), dazu Emoji.
 
 | Stufe | Alter | Regeln (geprüft von `validate-lesen.mjs`) | Bücher |
 | --- | --- | --- | --- |
-| Zum Zuhören | ab 3 | die Stimme liest alles; Fragen nur mit Bildern; die Antwort steht wörtlich auf der Seite | *Wo ist das Rüebli?* (frei), *Eule Ella hört zu* |
-| Erste Sätze | ab 5 | höchstens zwei Sätze je Seite, je höchstens sieben Wörter, nur Laute der Gruppen 1–4 | *Leo und die Melone* (frei), *Pino will auf die Insel* |
-| Kleine Geschichten | ab 6 | kurze Seiten, Fragen dürfen zum Nachdenken sein | *Flitz und die vergessene Nuss* |
-| Geschichten | ab 7 | längere Sätze, wörtliche Rede | *Sepp und das Gewitter* |
+| Zum Zuhören | ab 3 | die Stimme liest alles; Fragen nur mit Bildern; die Antwort steht wörtlich auf der Seite | *Wo ist das Rüebli?* (frei), *Eule Ella hört zu*, *Pippa und der Regen*, *Bruno zählt Sterne*, *Fino und der rote Schal* |
+| Erste Sätze | ab 5 | höchstens zwei Sätze je Seite, je höchstens sieben Wörter, nur Laute der Gruppen 1–4 | *Leo und die Melone* (frei), *Pino will auf die Insel*, *Mia und der Ball*, *Kater Tim malt*, *Fred, der Frosch* |
+| Kleine Geschichten | ab 6 | kurze Seiten, Fragen dürfen zum Nachdenken sein | *Flitz und die vergessene Nuss*, *Pino baut einen Schneemann*, *Ein Geheimnis im Wald* |
+| Geschichten | ab 7 | längere Sätze, wörtliche Rede | *Sepp und das Gewitter*, *Leo lernt brüllen*, *Die Reise zum Mond* |
+
+Das Regal hat ein **Fach je Stufe** mit Reitern oben; offen ist zuerst das Fach zur
+Lesestufe des Kindes. Ein Haken am Reiter heisst: alle Bücher darin gelesen. Was es nicht
+als Emoji gibt, zeichnet `buecher.js` selbst (Fenster, Höhle, Pfütze, Staffelei, Seerose,
+Schneemann, Fliege, ein grosses Blatt als Schirm).
 
 Nach der letzten Seite kommen drei Fragen. Wer danebentippt, kann **im Buch nachsehen**: Die
 Seite, auf der es steht, geht auf, und ein Pfeil führt zurück zur Frage. Drei Sterne gibt es,
@@ -111,6 +127,12 @@ Firestore-Dokument (Grenze 1 MiB), das Eltern und Gruppe lesen können.
   zuerst.
 - Der Wurm im Sessel wählt, was **als Nächstes dran ist**: je Lesestufe ein paar Spiele, und
   dran ist das, was am längsten nicht gespielt wurde.
+- Seinen **Namen** gibt ihm das Kind selbst (`meinname.html?wurm=1`, über das Schild links vom
+  Sessel – immer frei, auch ohne Kauf): Es legt ihn aus Buchstaben, die Stimme liest jedes Mal
+  vor, was dasteht, ein Würfel schlägt einen vor. Der Name liegt im Lesestand (`wurm`, die
+  neuere Taufe gilt). Der **eigene Name** für «Mein Name» kommt aus dem Kinderkonto; tippt ihn
+  ein Erwachsener ein, bleibt er nur auf dem Gerät – ein echter Name gehört nicht in den
+  Spielstand.
 
 ### Alter und Einstellungen
 
@@ -121,6 +143,11 @@ bei den Buchstaben, «schwer» bei den Sätzen. Im Elternbereich steht je Kind d
 - **Wo beginnt die Leseecke?** Nach Alter, Hören, Buchstaben, Wörter, Sätze, Geschichten.
 - **Schrift:** Automatisch (die Jüngsten sehen nur Grossbuchstaben), nur Grossbuchstaben,
   gross und klein.
+- **Buchstaben aus der Schule:** «Nach Reihenfolge» oder selbst abhaken (ein Knopf je Laut,
+  gespeichert wird erst mit «Speichern»). Abgehakt wohnen genau diese Laute im
+  Buchstabenhaus (mindestens vier), und Laute kuppeln, Wer fährt mit?, Wörter bauen und die
+  Silbenbahn nehmen Wörter, die sich damit lesen lassen – sind es zu wenige für eine Runde,
+  kommen die dazu, denen am wenigsten fehlt (`lesen-inhalte.js`, `lesbare`, `hausLaute`).
 
 Die Einstellung liegt als eigener Kasten `lernapp.lesen.eltern` mit Zeitmarke im gameState –
 die Regeln erlauben Eltern das schon (`isProgressReset`). Das Gerät des Kindes nimmt die
@@ -128,9 +155,9 @@ neuere Fassung und schreibt sie nie selbst. Wie die Stufe überlebt sie das Zur�
 
 ### Gratis
 
-Die Schranke (`entitlement.js`) kennt die vier Spiele der Leseecke in einer eigenen Tabelle
+Die Schranke (`entitlement.js`) kennt die zwölf Spiele der Leseecke in einer eigenen Tabelle
 `LESEECKE` – nicht in `AREAS`, die gleich bleiben muss wie im Zug – und gibt je Spiel eine
-Runde frei. Das Bücherregal hat keine Runden: *Wo ist das Rüebli?* und *Leo und die Melone*
+Runde frei. Den Lesewurm taufen ist kein Spiel und immer frei. Das Bücherregal hat keine Runden: *Wo ist das Rüebli?* und *Leo und die Melone*
 sind immer frei (`GRATIS_BUECHER`, `buchFree`), die anderen gehören zum Kauf. «Ganze App
 gratis» öffnet alles.
 
@@ -145,21 +172,21 @@ Ordner im Build** – `netlify/build.mjs` bleibt unverändert –, und offline f
 
 | Datei | Was |
 | --- | --- |
-| `lesen-inhalte.js` | Laute, Laut-Steine, Wörter für Silbenzug und Laute kuppeln, Bausteine für «Stimmt das?» |
+| `lesen-inhalte.js` | Laute, Laut-Steine, Wörter für die Spiele, was sich mit den Buchstaben der Schule lesen lässt, Bausteine für die Sätze (Tiere, Dinge, Tunwörter) |
 | `lesen-buecher.js` | die Bücher: Text, Bild, Fragen |
 | `lesen-stand.js` | Lesestand, Lesewurm, Einstellungen der Eltern, was als Nächstes dran ist |
 | `lesen-ton.js` | Laute (Aufnahme oder Sprachausgabe), Wörter und Sätze, mit Mitleuchten |
 | `lesen-laute.js` | die Aufnahmen der Laute als Daten – heute noch leer |
 | `laute-aufnehmen.html`, `laute-aufnehmen.js` | die Aufnahmeseite: aufnehmen, zuschneiden, `lesen-laute.js` erzeugen |
-| `lesen-art.js` | Lesewagen, Zimmer, Lesewurm, Trommel, Laut-Wagen, Dinge für «Stimmt das?» |
+| `lesen-art.js` | Lesewagen, Zimmer mit Namensschild, Lesewurm, Trommel, Laut-Wagen, das Bild zu einem Satz (`buildSzene`) |
 | `lesen-spiel.js` | was alle Spiele der Leseecke teilen: Bühne, «Los», Ergebnis mit Sternen |
 | `train-leseecke.js` | das Zimmer als Ansicht der Bühne |
 | `silbenzug.*`, `buchstabenhaus.*`, `lautekuppeln.*`, `stimmtdas.*`, `buecher.*` | die Spiele aus Etappe 1 |
-| `reimkupplung.*`, `anlautlauscher.*`, `werfaehrtmit.*`, `woerterbauen.*`, `silbenbahn.*`, `blitzwoerter.*` | die Spiele aus Etappe 2 |
+| `reimkupplung.*`, `anlautlauscher.*`, `werfaehrtmit.*`, `woerterbauen.*`, `silbenbahn.*`, `blitzwoerter.*`, `meinname.*`, `lueckensaetze.*` | die Spiele aus Etappe 2 |
 | `leseschrift.css` | Andika |
 | `train-home.js`, `index.html` | Lesewagen auf dem Startbild, `?lesen=1` |
 | `entitlement.js` | `LESEECKE`, `GRATIS_BUECHER`, `buchFree`, `targetFree` mit `buch=` |
-| `firebase.js` | Karte «Leseecke», `setLesenElternFor`, Zurücksetzen behält die Einstellung |
+| `firebase.js` | Karte «Leseecke» mit den Buchstaben der Schule, `setLesenElternFor`, Zurücksetzen behält die Einstellung |
 | `service-worker.js` | alle neuen Dateien im Vorrat |
 
 ## 5. Texte gegenlesen
@@ -168,7 +195,8 @@ Wörter, Sätze und Bücher sind Entwürfe nach den Regeln je Stufe – bitte ge
 
 - `lesen-inhalte.js`: `LAUTE` (Anlautwörter und Bilder), `SILBEN_WOERTER`,
   `KUPPEL_WOERTER`, `TIERE` und `DINGE`.
-- `lesen-buecher.js`: die sechs Bücher, je mit Seiten und Fragen.
+- `lesen-buecher.js`: die sechzehn Bücher, je mit Seiten und Fragen.
+- `lueckensaetze.js` und `lesen-inhalte.js` (`TUN`): die Tunwörter der Lückensätze.
 
 Schweizer Wörter, die Kinder hier sagen (Rüebli, Velo, fein), keine Bilder, die hier anders
 heissen (ein Keks ist ein Guetzli), und nirgends das scharfe S. `validate-lesen.mjs` prüft
@@ -185,9 +213,9 @@ Zwielaute spricht die Sprachausgabe, Mitlaute bleiben stumm und werden gezeigt.
 ## 7. Die nächsten Etappen
 
 - **Etappe 2 – Laute und Wörter:** gebaut sind Reimkupplung, Anlaut-Lauscher, Wer fährt
-  mit?, Wörter bauen, Silbenbahn und Blitzwörter. Es folgen: bekannte Buchstaben (Eltern haken
-  ab, was die Schule eingeführt hat), Mein Name und der Name des Lesewurms, Buchstabengleis,
-  Lückensätze, zehn weitere Bücher.
+  mit?, Wörter bauen, Silbenbahn, Blitzwörter, die Buchstaben der Schule, Mein Name und der
+  Name des Lesewurms, Lückensätze und zehn weitere Bücher. Es fehlt noch das Buchstabengleis
+  (Buchstaben mit dem Finger nachfahren).
 - **Etappe 3 – Sätze:** Satz kuppeln, Quatschsätze, Lies und tu!, Stolperwörter,
   Laut-Position, Buchstaben-Signal, Quatschwörter, Geschichtenzug, der Lesewagen in 15
   Ausbaustufen, der Elternbericht.

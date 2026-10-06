@@ -309,8 +309,32 @@
     ];
   }
 
-  //   stand     aus lesen-stand.js: glieder (Lesewurm), gelesen (Bücher)
-  function buildLesezimmer({ glieder = 1, gelesen = 0 } = {}) {
+  // Das Namensschild des Lesewurms: ein Brett auf einem Pfosten links vom
+  // Sessel. Ohne Namen steht ein Fragezeichen darauf – ein Tipp, und das
+  // Kind tauft ihn (meinname.html?wurm=1). Lange Namen werden schmaler
+  // geschrieben, das Brett bleibt gleich breit.
+  function namensschild(name = "") {
+    const text = String(name || "") || "?";
+    const breite = 150;
+    const schrift = el("text", {
+      x: 0, y: -6, "text-anchor": "middle", "font-size": 32, "font-weight": 700,
+      "font-family": "Andika, Inter, system-ui, sans-serif", fill: FARBE.tinte, class: "lese-wurmname",
+      ...(text.length > 6 ? { textLength: breite - 34, lengthAdjust: "spacingAndGlyphs" } : {}),
+    });
+    schrift.textContent = text;
+    return [
+      el("ellipse", { cx: 0, cy: 120, rx: 34, ry: 8, fill: "#000", opacity: "0.15" }),
+      el("rect", { x: -7, y: 12, width: 14, height: 110, rx: 4, fill: FARBE.holzDunkel }),
+      el("rect", { x: -breite / 2, y: -48, width: breite, height: 62, rx: 12, fill: shade(FARBE.holz, 0.08), stroke: FARBE.holzDunkel, "stroke-width": 5 }),
+      el("circle", { cx: -breite / 2 + 13, cy: -35, r: 3.5, fill: FARBE.holzDunkel }),
+      el("circle", { cx: breite / 2 - 13, cy: -35, r: 3.5, fill: FARBE.holzDunkel }),
+      schrift,
+    ];
+  }
+
+  //   stand     aus lesen-stand.js: glieder (Lesewurm), gelesen (Bücher),
+  //             wurmName (wie das Kind ihn getauft hat)
+  function buildLesezimmer({ glieder = 1, gelesen = 0, wurmName = "" } = {}) {
     const svg = el("svg", { viewBox: `0 0 ${ZIMMER_W} ${ZIMMER_H}`, class: "lesezimmer-svg", role: "img", "aria-label": "Im Lesewagen" });
     const defs = el("defs", {}, [
       el("radialGradient", { id: "lese-licht", cx: "50%", cy: "30%", r: "60%" }, [
@@ -349,6 +373,7 @@
       ...sessel(),
       group({ transform: "translate(-10 70)" }, [buildLesewurm(glieder, { r: 24, buch: true })]),
     ]));
+    svg.append(ort("wurmname", wurmName ? `Das Schild: Der Lesewurm heisst ${wurmName}` : "Das Schild: Hier bekommt der Lesewurm seinen Namen", "translate(322 470)", namensschild(wurmName)));
     svg.append(ort("silben", "Die Silbentrommel", "translate(150 540)", trommel()));
     svg.append(ort("woerter", "Die Wortkiste", "translate(1010 560)", wortkiste()));
     svg.append(ort("saetze", "Der Satzzug", "translate(560 590) scale(0.8)", spielzeugzug()));
@@ -457,9 +482,110 @@
     return group({ class: `lese-ding lese-ding-${id}`, "data-ding": id }, ding.teile());
   }
 
+  // ---------------------------------------------------------------------------
+  // Das Bild zu einem Satz (Stimmt das?, Lückensätze)
+  // ---------------------------------------------------------------------------
+  // Ein Ding, Tiere darauf, darunter oder daneben, und was sie tun. Gezeichnet
+  // wird immer die Wahrheit; der Satz dazu steht in lesen-inhalte.js
+  // (satzTeile).
+  //   lage  { tier, ding, wo, anzahl, tun }   ohne tun stehen die Tiere
+  const SZENE_X0 = -70;          // wo das Ding steht; rechts davon ist Platz für «neben»
+  const TIER_GROESSE = 2.3;
+  // Wie viele Tiere an welcher Stelle Platz haben, und wo genau sie stehen
+  // (Abstand vom Ding in seinen eigenen Einheiten).
+  const PLAETZE = {
+    tisch: { auf: [[0], [-45, 45], [-75, 0, 75]], unter: [[0], [-38, 38]] },
+    stuhl: { auf: [[2]] },
+    bett: { auf: [[20], [-30, 60], [-70, 10, 90]] },
+    kiste: { auf: [[0], [-32, 32]] },
+    baum: { auf: [[-30], [-60, 50]], unter: [[-62], [-70, 70]] },
+    haus: { auf: [[0]] },
+  };
+  const NEBEN = [0, 64, 128];
+
+  // Wie viele Tiere dort Platz haben. Wer schläft, liegt – und liegt allein.
+  function platzFuer(dingId, wo, tun = "steht") {
+    if (tun === "schlaeft") return 1;
+    if (wo === "neben") return NEBEN.length;
+    return (PLAETZE[dingId]?.[wo] || [[0]]).length;
+  }
+
+  // Wie hoch ein Tier mit dem, was es tut, ins Bild ragt (Einheiten der Figur).
+  const TUN_HOEHE = { steht: 50, liest: 50, singt: 68, huepft: 84, schlaeft: 30 };
+  // Passt das ins Bild? Wer auf dem Dach singt oder auf dem Baum hüpft, stösst
+  // oben an den Rand; wer unter dem Tisch hüpft, an die Tischplatte.
+  function szenePasst(lage) {
+    const ding = DINGE[lage.ding];
+    if (!ding) return false;
+    const tun = lage.tun || "steht";
+    if (lage.wo === "unter" && lage.ding === "tisch" && tun === "huepft") return false;
+    const boden = lage.wo === "auf" ? ding.oben : 0;
+    return boden - (TUN_HOEHE[tun] || 50) * TIER_GROESSE >= -345;
+  }
+
+  // Eine Note, in den Einheiten der Figur.
+  function note(x, y, s = 1) {
+    return group({ transform: `translate(${x} ${y}) scale(${s})` }, [
+      el("ellipse", { cx: 0, cy: 0, rx: 3.6, ry: 2.7, fill: "#7c5ce6", transform: "rotate(-20)" }),
+      el("rect", { x: 2.3, y: -13, width: 1.6, height: 13, fill: "#7c5ce6" }),
+      el("path", { d: "M3.9 -13 q5 2 6 7", stroke: "#7c5ce6", "stroke-width": 1.6, fill: "none", "stroke-linecap": "round" }),
+    ]);
+  }
+
+  // Ein Tier und was es tut – in den Einheiten der Figur aus train-art.js:
+  // Füsse auf 0, der Kopf um -35, gut 45 hoch.
+  function szenenTier(tierId, tun = "steht") {
+    const zug = window.LernappTrainArt;
+    const figur = zug ? zug.buildPassenger(tierId) : group({}, []);
+    const teile = [];
+    if (tun === "schlaeft") {
+      // Hingelegt, der Kopf links; darüber «z z Z».
+      const zzz = el("text", { x: -36, y: -24, "font-size": 12, "font-weight": 700, "font-family": "Andika, Inter, system-ui, sans-serif", fill: "#2f6fd0" });
+      zzz.textContent = "z z Z";
+      teile.push(group({ transform: "translate(22 -15) rotate(-90)" }, [figur]), zzz);
+    } else if (tun === "huepft") {
+      // Hoch in der Luft: darunter Striche, wie er abgesprungen ist, und sein
+      // Schatten am Boden.
+      teile.push(el("ellipse", { cx: 0, cy: 1, rx: 10, ry: 2.4, fill: "#000000", opacity: "0.14" }));
+      teile.push(el("path", { d: "M-7 -7 L-7 -21 M0 -5 L0 -24 M7 -7 L7 -21", stroke: "#7a889c", "stroke-width": 1.8, fill: "none", "stroke-linecap": "round" }));
+      teile.push(group({ transform: "translate(0 -30)" }, [figur]));
+    } else {
+      teile.push(figur);
+      if (tun === "liest") {
+        // Ein offenes Buch vor dem Bauch.
+        teile.push(el("path", { d: "M-12 -24 Q-6 -27 0 -23 Q6 -27 12 -24 L12 -12 Q6 -15 0 -11 Q-6 -15 -12 -12 Z", fill: "#ffffff", stroke: "#2f6fd0", "stroke-width": 1.4 }));
+        teile.push(el("path", { d: "M0 -23 L0 -11 M-8 -21 L-3 -20 M-8 -17 L-3 -16 M3 -20 L8 -21 M3 -16 L8 -17", stroke: "#2f6fd0", "stroke-width": 0.9 }));
+      }
+      if (tun === "singt") teile.push(note(15, -46), note(25, -57, 0.8));
+    }
+    return group({ class: "szene-tier", "data-tier": tierId, "data-tun": tun }, teile);
+  }
+
+  function buildSzene(lage, { klasse = "szene-svg", label = "Das Bild zum Satz" } = {}) {
+    const svg = el("svg", { viewBox: "-300 -340 600 380", class: klasse, role: "img", "aria-label": label });
+    svg.append(el("rect", { x: -296, y: -336, width: 592, height: 372, rx: 26, fill: "#eaf6fd" }));
+    svg.append(el("rect", { x: -296, y: 0, width: 592, height: 36, fill: "#9fd68a" }));
+    svg.append(el("rect", { x: -296, y: -2, width: 592, height: 6, fill: "#7fbf6a" }));
+    const dingInfo = DINGE[lage.ding];
+    if (!dingInfo) return svg;
+    const anzahl = Math.max(1, Math.min(Number(lage.anzahl) || 1, platzFuer(lage.ding, lage.wo, lage.tun)));
+    const xs = lage.wo === "neben"
+      ? NEBEN.slice(0, anzahl).map((x) => dingInfo.rechts + x)
+      : (PLAETZE[lage.ding]?.[lage.wo] || [[0]])[anzahl - 1] || [0];
+    const y = lage.wo === "auf" ? dingInfo.oben : 0;
+    const tiere = xs.map((x) => group({ transform: `translate(${SZENE_X0 + x} ${y}) scale(${TIER_GROESSE})` }, [szenenTier(lage.tier, lage.tun || "steht")]));
+    // Wer unter dem Tisch steht, steht hinter dessen Platte: erst die Tiere,
+    // dann der Tisch. Sonst erst das Ding, dann die Tiere.
+    const dingGruppe = group({ transform: `translate(${SZENE_X0} 0)` }, [buildDing(lage.ding)]);
+    if (lage.wo === "unter" && lage.ding === "tisch") svg.append(...tiere, dingGruppe);
+    else svg.append(dingGruppe, ...tiere);
+    return svg;
+  }
+
   window.LernappLeseArt = {
     FARBE, BUCHFARBEN, WAGEN_W, WAGEN_H, ZIMMER_W, ZIMMER_H, DINGE,
     el, group, shade,
     buildLesewurm, buildLesewagen, buildLesezimmer, buildTrommel, buildLautWagen, buildDing,
+    SZENE_PLAETZE: PLAETZE, SZENE_NEBEN: NEBEN, platzFuer, szenePasst, buildSzene,
   };
 })();

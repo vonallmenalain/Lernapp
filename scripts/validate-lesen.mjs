@@ -205,7 +205,10 @@ function gruppeVon(teile) {
 // --- 3. Bücher ------------------------------------------------------------------
 const GRATIS_SCHRANKE = (lies("entitlement.js").match(/const GRATIS_BUECHER = \[([^\]]*)\]/)?.[1] || "")
   .split(",").map((s) => s.trim().replace(/^"|"$/g, "")).filter(Boolean);
-const ZEICHNUNGEN = ["fenster", "hoehle"];
+// Was buecher.js zeichnen kann – aus der Quelle gelesen, damit kein Buch eine
+// Zeichnung verlangt, die es nicht gibt.
+const ZEICHNUNGEN = [...(lies("buecher.js").match(/const ZEICHNUNGEN = \{[\s\S]*?\n {2}\};/)?.[0] || "").matchAll(/^ {4}([a-z]+): \(/gm)].map((m) => m[1]);
+pruefe(ZEICHNUNGEN.includes("fenster") && ZEICHNUNGEN.includes("schneemann"), `buecher.js: die Zeichnungen wurden nicht gefunden (${ZEICHNUNGEN.join(", ")})`);
 // Wörter, die ein Erstleser als Ganzes kennt, auch wenn ein Laut darin später
 // kommt. Heute sind alle lautgetreu – die Liste steht hier, damit eine
 // Ausnahme bewusst geschieht.
@@ -361,7 +364,65 @@ function lautgetreu(wort) {
     stand.blitzGeuebt("ist", false);
     const ist = stand.stand().blitz.ist;
     pruefe(ist?.r === 1 && ist?.f === 1, `Lesestand: blitzGeuebt zählt nicht: ${JSON.stringify(ist)}`);
+
+    // Die Buchstaben der Schule: aufgeräumt, leer heisst «nichts abgehakt».
+    const schule = stand.elternSauber({ bekannt: ["M", "a", "a", "sch", "x1", "", 7, "<b>"] });
+    pruefe(JSON.stringify(schule.bekannt) === JSON.stringify(["m", "a", "sch"]), `Lesestand: elternSauber räumt die Buchstaben nicht auf: ${JSON.stringify(schule.bekannt)}`);
+    pruefe(stand.elternSauber({ bekannt: [] }).bekannt === null && stand.elternSauber({}).bekannt === null && stand.elternSauber({ bekannt: "m" }).bekannt === null,
+      "Lesestand: eine leere oder kaputte Liste der Buchstaben gilt nicht als «nichts abgehakt»");
+    pruefe(stand.bekannteLaute() === null, "Lesestand: ohne Haken kennt das Kind trotzdem Buchstaben");
+    store.set(stand.ELTERN_KEY, JSON.stringify({ startpunkt: "auto", schrift: "auto", bekannt: ["m", "a", "l"], at: 7 }));
+    const bekannt = stand.bekannteLaute();
+    pruefe(typeof bekannt?.has === "function" && bekannt.has("l") && bekannt.size === 3, "Lesestand: bekannteLaute() gibt die abgehakten Laute nicht zurück");
+
+    // Der Name des Lesewurms: aufgeräumt, die neuere Taufe gilt, in beide
+    // Richtungen gleich.
+    pruefe(stand.nameSauber("  anna-lena ") === "Anna-Lena" && stand.nameSauber("mia3") === "Mia" && stand.nameSauber("123") === "" && stand.nameSauber("x".repeat(30)).length === 16,
+      `Lesestand: nameSauber räumt nicht auf (${stand.nameSauber("  anna-lena ")}, ${stand.nameSauber("mia3")})`);
+    const t1 = { wurm: { name: "Moli", at: 5 } };
+    const t2 = { wurm: { name: "Tika", at: 9 } };
+    pruefe(stand.merge(t1, t2).wurm?.name === "Tika" && stand.merge(t2, t1).wurm?.name === "Tika", "Lesestand: beim Zusammenführen gilt nicht die neuere Taufe");
+    const gleichzeitig = [{ wurm: { name: "Moli", at: 5 } }, { wurm: { name: "Bodo", at: 5 } }];
+    pruefe(JSON.stringify(stand.merge(...gleichzeitig).wurm) === JSON.stringify(stand.merge(...gleichzeitig.reverse()).wurm), "Lesestand: zwei Taufen zur selben Zeit ergeben je nach Richtung einen anderen Namen");
+    pruefe(stand.merge({ wurm: { name: "<>", at: 99 } }, t1).wurm?.name === "Moli", "Lesestand: ein Name ohne Buchstaben verdrängt den richtigen");
+    pruefe(stand.wurmName() === "", "Lesestand: der Lesewurm hat einen Namen, bevor ihn jemand getauft hat");
+    stand.wurmTaufen("wumpi");
+    pruefe(stand.wurmName() === "Wumpi" && stand.stand().wurm?.at > 0, `Lesestand: wurmTaufen tauft nicht (${stand.wurmName()})`);
   }
+}
+
+// --- 4b. Was ein Kind mit den Buchstaben der Schule lesen kann ---------------------
+{
+  // Der Elternbereich führt eine Kopie der Reihenfolge (firebase.js): Sie
+  // muss dieselbe sein wie LAUTE, sonst fehlt ein Haken oder einer zielt ins
+  // Leere.
+  const kopie = lies("firebase.js").match(/const LESEN_LAUTE = \[([\s\S]*?)\];/)?.[1] || "";
+  const ids = [...kopie.matchAll(/"([^"]+)"/g)].map((m) => m[1]);
+  pruefe(JSON.stringify(ids) === JSON.stringify(inhalte.LAUTE.map((l) => l.id)),
+    `firebase.js: LESEN_LAUTE ist nicht dieselbe Reihenfolge wie LAUTE (${ids.join(" ")})`);
+
+  const menge = (...liste) => new Set(liste);
+  // Was alle Laute lesen kann, liest jedes Wort; ohne Haken bleibt die Liste.
+  const alle = menge(...inhalte.LAUTE.map((l) => l.id));
+  pruefe(inhalte.lesbare(inhalte.KUPPEL_WOERTER, alle, 6).length === inhalte.KUPPEL_WOERTER.length, "lesbare: mit allen Lauten fehlen Kuppel-Wörter");
+  pruefe(inhalte.lesbare(inhalte.KUPPEL_WOERTER, null, 6) === inhalte.KUPPEL_WOERTER, "lesbare: ohne Haken ändert sich die Liste");
+  // Die ersten zehn der Reihe: nur Wörter aus diesen Lauten.
+  const zehn = menge(...inhalte.LAUTE.slice(0, 10).map((l) => l.id));
+  const lesbar = inhalte.lesbare(inhalte.KUPPEL_WOERTER, zehn, 5);
+  pruefe(lesbar.length >= 5, `lesbare: mit den ersten zehn Lauten nur ${lesbar.length} Kuppel-Wörter`);
+  lesbar.forEach((w) => pruefe(inhalte.fehlendeLaute(w.silben, zehn).length === 0, `lesbare: «${w.wort}» braucht ${inhalte.fehlendeLaute(w.silben, zehn).join(", ")}`));
+  // Zu wenig bekannt: aufgefüllt mit denen, denen am wenigsten fehlt.
+  const zwei = inhalte.lesbare(inhalte.KUPPEL_WOERTER, menge("m", "a"), 6);
+  pruefe(zwei.length === 6, `lesbare: mit M und A ist die Runde nicht aufgefüllt (${zwei.length} Wörter)`);
+  const fehlen = zwei.map((w) => inhalte.fehlendeLaute(w.silben, menge("m", "a")).length);
+  pruefe(fehlen.every((n, i) => i === 0 || n >= fehlen[i - 1]), `lesbare: aufgefüllt wird nicht mit den nächstliegenden Wörtern (${fehlen.join(", ")})`);
+  // Das Buchstabenhaus: genau die bekannten, in der festen Reihenfolge, aber
+  // mindestens vier.
+  const haus = inhalte.hausLaute(menge("s", "m", "ei", "o", "r"), 3).map((l) => l.id);
+  pruefe(JSON.stringify(haus) === JSON.stringify(["m", "o", "s", "r", "ei"]), `hausLaute: ${haus.join(" ")} statt m o s r ei`);
+  const wenig = inhalte.hausLaute(menge("sch"), 3).map((l) => l.id);
+  pruefe(wenig.length === 4 && wenig.includes("sch") && wenig[0] === "m", `hausLaute: mit nur Sch wohnen ${wenig.join(" ")} im Haus`);
+  pruefe(inhalte.hausLaute(null, 3).length === inhalte.lauteBisGruppe(3).length, "hausLaute: ohne Haken gilt die Reihenfolge nach der Stufe nicht");
 }
 
 // --- 5. Die Seiten ------------------------------------------------------------------
@@ -370,6 +431,7 @@ function lautgetreu(wort) {
   const SEITEN = {
     silbenzug: [], buchstabenhaus: [], lautekuppeln: [], stimmtdas: [], buecher: ["lesen-buecher.js"],
     reimkupplung: [], anlautlauscher: [], werfaehrtmit: [], woerterbauen: [], silbenbahn: [], blitzwoerter: [],
+    meinname: [], lueckensaetze: [],
   };
   const stand = lies("lesen-stand.js");
   for (const [seite, extra] of Object.entries(SEITEN)) {
@@ -488,7 +550,8 @@ function lautgetreu(wort) {
 // einmal wf- wie «Was fehlt?», und dessen Startknopf rutschte aus dem Bild.
 {
   const KUERZEL = { "lesen-spiel.js": "lese", "buchstabenhaus.js": "bh", "lautekuppeln.js": "kp", "stimmtdas.js": "sd", "buecher.js": "bu",
-    "reimkupplung.js": "rk", "anlautlauscher.js": "al", "werfaehrtmit.js": "wm", "woerterbauen.js": "wb", "silbenbahn.js": "sb", "blitzwoerter.js": "bw" };
+    "reimkupplung.js": "rk", "anlautlauscher.js": "al", "werfaehrtmit.js": "wm", "woerterbauen.js": "wb", "silbenbahn.js": "sb", "blitzwoerter.js": "bw",
+    "meinname.js": "mn", "lueckensaetze.js": "ls" };
   const eigene = new Set(Object.keys(KUERZEL));
   const fremde = fs.readdirSync(root).filter((name) => name.endsWith(".js") && !eigene.has(name) && !name.startsWith("lesen-") && name !== "train-leseecke.js" && name !== "laute-aufnehmen.js" && name !== "silbenzug.js");
   Object.entries(KUERZEL).forEach(([datei, kuerzel]) => {
@@ -505,6 +568,7 @@ function lautgetreu(wort) {
     "silbenzug.html", "buchstabenhaus.html", "lautekuppeln.html", "stimmtdas.html", "buecher.html",
     "reimkupplung.js", "anlautlauscher.js", "werfaehrtmit.js", "woerterbauen.js", "silbenbahn.js", "blitzwoerter.js",
     "reimkupplung.html", "anlautlauscher.html", "werfaehrtmit.html", "woerterbauen.html", "silbenbahn.html", "blitzwoerter.html",
+    "meinname.js", "meinname.html", "lueckensaetze.js", "lueckensaetze.html",
     "laute-aufnehmen.html", "laute-aufnehmen.js"];
   dateien.forEach((datei) => {
     if (!fs.existsSync(path.join(root, datei))) return;

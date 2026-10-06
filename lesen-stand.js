@@ -17,10 +17,12 @@
  *     blitz:   { und: { r: 2, f: 0, tage: [...], zuletzt: … } },
  *     buecher: { "hase-rueebli": { mal: 2, sterne: 3, at: … } },
  *     spiele:  { silbenzug: { runden: 3, best: 6, zuletzt: … } },
+ *     wurm:    { name: "Moli", at: … },   // so hat das Kind ihn getauft
  *   }
  *
  * Daneben die Einstellungen der Eltern (lernapp.lesen.eltern): wo die
- * Leseecke beginnt und ob nur Grossbuchstaben stehen. Die schreibt nur der
+ * Leseecke beginnt, ob nur Grossbuchstaben stehen und welche Buchstaben die
+ * Schule schon eingeführt hat. Die schreibt nur der
  * Elternbereich (firebase.js); hier werden sie gelesen. Sie sind kein
  * Fortschritt und überleben deshalb jedes Zurücksetzen – wie die Stufe.
  */
@@ -29,7 +31,7 @@
 
   const KEY = "lernapp.lesen";
   const ELTERN_KEY = "lernapp.lesen.eltern";
-  const EMPTY = { woerter: 0, laute: {}, buecher: {}, spiele: {}, blitz: {} };
+  const EMPTY = { woerter: 0, laute: {}, buecher: {}, spiele: {}, blitz: {}, wurm: null };
 
   // Je so viele Wörter wächst der Lesewurm um ein Glied.
   const WOERTER_JE_GLIED = 20;
@@ -67,6 +69,30 @@
     return out;
   }
 
+  // Ein Name: Buchstaben, dazu Bindestrich, Apostroph und Leerschlag,
+  // höchstens sechzehn Zeichen, jedes Wort vorne gross. Was sonst darin
+  // steht, fällt weg; bleibt kein Buchstabe übrig, ist es kein Name.
+  function nameSauber(text) {
+    const rein = String(text || "").normalize("NFC").replace(/[^\p{L}\-' ]/gu, "").replace(/\s+/g, " ").trim().slice(0, 16).trim();
+    if (!/\p{L}/u.test(rein)) return "";
+    return rein.replace(/(^|[\s-])(\p{L})/gu, (_, vor, buchstabe) => vor + buchstabe.toUpperCase());
+  }
+
+  // Der Name des Lesewurms mit seiner Zeitmarke. Gilt die neuere Taufe; bei
+  // gleicher Zeit der Name, der im Alphabet hinten steht – damit beide
+  // Richtungen dasselbe ergeben.
+  function wurmSauber(wurm) {
+    const name = nameSauber(wurm?.name);
+    return name ? { name, at: zahl(wurm?.at) } : null;
+  }
+  function neuereTaufe(x, y) {
+    const a = wurmSauber(x);
+    const b = wurmSauber(y);
+    if (!a || !b) return a || b;
+    if (a.at !== b.at) return a.at > b.at ? a : b;
+    return a.name >= b.name ? a : b;
+  }
+
   function merge(a = EMPTY, b = EMPTY) {
     return {
       woerter: Math.max(zahl(a.woerter), zahl(b.woerter)),
@@ -74,6 +100,7 @@
       blitz: mergeEintraege(a.blitz, b.blitz, ["r", "f", "zuletzt"]),
       buecher: mergeEintraege(a.buecher, b.buecher, ["mal", "sterne", "at"]),
       spiele: mergeEintraege(a.spiele, b.spiele, ["runden", "best", "zuletzt"]),
+      wurm: neuereTaufe(a?.wurm, b?.wurm),
     };
   }
 
@@ -100,7 +127,7 @@
 
   function stand() {
     const s = box.read() || EMPTY;
-    return { ...EMPTY, ...s, laute: s.laute || {}, buecher: s.buecher || {}, spiele: s.spiele || {}, blitz: s.blitz || {} };
+    return { ...EMPTY, ...s, laute: s.laute || {}, buecher: s.buecher || {}, spiele: s.spiele || {}, blitz: s.blitz || {}, wurm: wurmSauber(s.wurm) };
   }
 
   function heute() {
@@ -191,11 +218,27 @@
     return Math.min(GLIEDER_MAX, 1 + Math.floor(zahl(s.woerter) / WOERTER_JE_GLIED));
   }
 
+  // Wie der Lesewurm heisst – leer, solange ihn niemand getauft hat.
+  function wurmName(s = stand()) {
+    return wurmSauber(s.wurm)?.name || "";
+  }
+
+  // Das Kind gibt ihm einen Namen (meinname.js). Kein Fortschritt, aber ein
+  // Teil des Kastens: So heisst er auf jedem Gerät gleich.
+  function wurmTaufen(name) {
+    const sauber = nameSauber(name);
+    if (!sauber) return stand();
+    return box.update((alt) => ({ ...EMPTY, ...alt, wurm: { name: sauber, at: Date.now() } }));
+  }
+
   // ---------------------------------------------------------------------------
   // Die Einstellungen der Eltern
   // ---------------------------------------------------------------------------
   //   startpunkt  "auto" (nach der Stufe des Kindes) oder eine Lesestufe
   //   schrift     "auto", "gross" (nur Grossbuchstaben) oder "gemischt"
+  //   bekannt     die Laute, die das Kind aus der Schule kennt – von den
+  //               Eltern abgehakt –, oder null: dann gilt die feste
+  //               Reihenfolge nach der Stufe (lesen-inhalte.js)
   const STARTPUNKTE = ["hoeren", "buchstaben", "woerter", "saetze", "geschichten"];
   const STARTPUNKT_INFO = {
     auto: { label: "Nach Alter" },
@@ -206,13 +249,23 @@
     geschichten: { label: "Geschichten" },
   };
   const SCHRIFTEN = ["auto", "gross", "gemischt"];
-  const ELTERN_LEER = { startpunkt: "auto", schrift: "auto", at: 0 };
+  const ELTERN_LEER = { startpunkt: "auto", schrift: "auto", bekannt: null, at: 0 };
+
+  // Ein Laut ist ein bis drei kleine Buchstaben (m, ei, sch). Eine leere Liste
+  // heisst dasselbe wie keine: nichts abgehakt, die feste Reihenfolge gilt.
+  const LAUT_ID = /^[a-zäöü]{1,3}$/;
+  function bekanntSauber(liste) {
+    if (!Array.isArray(liste)) return null;
+    const ids = [...new Set(liste.map((id) => String(id || "").toLowerCase()).filter((id) => LAUT_ID.test(id)))].slice(0, 60);
+    return ids.length ? ids : null;
+  }
 
   function elternSauber(daten) {
     const d = daten && typeof daten === "object" ? daten : {};
     return {
       startpunkt: d.startpunkt === "auto" || STARTPUNKTE.includes(d.startpunkt) ? d.startpunkt : "auto",
       schrift: SCHRIFTEN.includes(d.schrift) ? d.schrift : "auto",
+      bekannt: bekanntSauber(d.bekannt),
       at: zahl(d.at),
     };
   }
@@ -263,6 +316,13 @@
     return lesestufe() === "hoeren";
   }
 
+  // Die Laute, die das Kind aus der Schule kennt, als Menge – oder null, wenn
+  // die Eltern nichts abgehakt haben.
+  function bekannteLaute() {
+    const { bekannt } = einstellungen();
+    return bekannt ? new Set(bekannt) : null;
+  }
+
   // Ein Wort so, wie es dieses Kind sehen soll.
   function zeige(text) {
     return nurGross() ? String(text || "").toUpperCase() : String(text || "");
@@ -283,21 +343,23 @@
     reimkupplung: { page: "reimkupplung.html", titel: "Reimkupplung", ort: "silben", bild: "🎶" },
     anlautlauscher: { page: "anlautlauscher.html", titel: "Anlaut-Lauscher", ort: "silben", bild: "👂" },
     buchstabenhaus: { page: "buchstabenhaus.html", titel: "Buchstabenhaus", ort: "buchstaben", bild: "🏠" },
+    meinname: { page: "meinname.html", titel: "Mein Name", ort: "buchstaben", bild: "🏷️" },
     lautekuppeln: { page: "lautekuppeln.html", titel: "Laute kuppeln", ort: "woerter", bild: "🚃" },
     werfaehrtmit: { page: "werfaehrtmit.html", titel: "Wer fährt mit?", ort: "woerter", bild: "🎫" },
     woerterbauen: { page: "woerterbauen.html", titel: "Wörter bauen", ort: "woerter", bild: "🧱" },
     silbenbahn: { page: "silbenbahn.html", titel: "Silbenbahn", ort: "woerter", bild: "🚂" },
     blitzwoerter: { page: "blitzwoerter.html", titel: "Blitzwörter", ort: "woerter", bild: "⚡" },
     stimmtdas: { page: "stimmtdas.html", titel: "Stimmt das?", ort: "saetze", bild: "👍" },
+    lueckensaetze: { page: "lueckensaetze.html", titel: "Lückensätze", ort: "saetze", bild: "🧩" },
     buecher: { page: "buecher.html", titel: "Bücherregal", ort: "buecher", bild: "📚", weiter: "buecher.html?weiter=1" },
   };
   // Was der Lesewurm im Sessel je Lesestufe aussucht.
   const AUSWAHL = {
     hoeren: ["silbenzug", "reimkupplung", "anlautlauscher", "buecher", "buchstabenhaus"],
-    buchstaben: ["buchstabenhaus", "anlautlauscher", "lautekuppeln", "silbenzug", "reimkupplung", "buecher"],
+    buchstaben: ["buchstabenhaus", "meinname", "anlautlauscher", "lautekuppeln", "silbenzug", "reimkupplung", "buecher"],
     woerter: ["lautekuppeln", "werfaehrtmit", "woerterbauen", "buchstabenhaus", "silbenbahn", "buecher"],
-    saetze: ["stimmtdas", "blitzwoerter", "silbenbahn", "werfaehrtmit", "woerterbauen", "buecher"],
-    geschichten: ["buecher", "stimmtdas", "blitzwoerter", "silbenbahn"],
+    saetze: ["stimmtdas", "lueckensaetze", "blitzwoerter", "silbenbahn", "werfaehrtmit", "woerterbauen", "buecher"],
+    geschichten: ["buecher", "lueckensaetze", "stimmtdas", "blitzwoerter", "silbenbahn"],
   };
 
   function naechstes(s = stand()) {
@@ -317,6 +379,7 @@
     STARTPUNKTE, STARTPUNKT_INFO, SCHRIFTEN, SPIELE, AUSWAHL,
     merge, stand, onChange: (fn) => box.onChange(fn),
     lautGeuebt, lautSitzt, sitzendeLaute, blitzGeuebt, blitzSitzt, woerterGelesen, buchGelesen, spielRunde, spielGeoeffnet, wurmGlieder,
-    einstellungen, elternSauber, stufe, lesestufe, nurGross, zeige, naechstes,
+    nameSauber, wurmName, wurmTaufen,
+    einstellungen, elternSauber, bekannteLaute, stufe, lesestufe, nurGross, zeige, naechstes,
   };
 })();
