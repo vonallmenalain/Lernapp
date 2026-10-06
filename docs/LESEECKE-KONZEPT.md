@@ -12,9 +12,9 @@ Stand: Oktober 2026 · Grundlage: das Konzept «Leseecke – Konzept & Ideensamm
 > sechs Büchern und drei Arten zu lesen, der Lesestand mit dem Lesewurm, die Leseschrift
 > Andika, die Karte «Leseecke» im Elternbereich und die Schranke (je Spiel eine Runde, zwei
 > Bücher frei). Dazu die **Aufnahmeseite für die Laute** (`laute-aufnehmen.html`,
-> `docs/LAUTE-AUFNEHMEN.md`). Noch offen aus Etappe 1: die **Aufnahmen selbst** – bis sie da
-> sind, spricht die Sprachausgabe die Selbst- und Zwielaute, die Mitlaute bleiben stumm und
-> werden nur gezeigt. Prüfskripte: `scripts/validate-lesen.mjs`, `scripts/check-leseecke.mjs`.
+> `docs/LAUTE-AUFNEHMEN.md`). Die **Aufnahmen selbst** sind seit dem 6. Oktober 2026 da: alle
+> 36 Laute in `lesen-laute.js`. Fehlt einmal einer, spricht die Sprachausgabe die Selbst- und
+> Zwielaute, die Mitlaute bleiben stumm und werden nur gezeigt. Prüfskripte: `scripts/validate-lesen.mjs`, `scripts/check-leseecke.mjs`.
 >
 > **Etappe 2, erster Teil (Oktober 2026):** sechs Spiele für Laute und Wörter –
 > **Reimkupplung**, **Anlaut-Lauscher** (beide hinter der Trommel, «Hören»), **Wer fährt mit?**,
@@ -284,7 +284,7 @@ Ordner im Build** – `netlify/build.mjs` bleibt unverändert –, und offline f
 | `lesen-detektive.js` | Steckbriefe, Detektivfälle und Postkarten (nur Inhalt) |
 | `lesen-stand.js` | Lesestand, Lesewurm, Lesewagen (`wagenStufe`), Verwechslungen, der Bericht für die Eltern, Einstellungen der Eltern, was als Nächstes dran ist |
 | `lesen-ton.js` | Laute (Aufnahme oder Sprachausgabe), Wörter und Sätze, mit Mitleuchten |
-| `lesen-laute.js` | die Aufnahmen der Laute als Daten – heute noch leer |
+| `lesen-laute.js` | die Aufnahmen der Laute als Daten: alle 36, zusammen gut 500 KB |
 | `laute-aufnehmen.html`, `laute-aufnehmen.js` | die Aufnahmeseite: aufnehmen, zuschneiden, `lesen-laute.js` erzeugen |
 | `lesen-art.js` | Lesewagen, Zimmer mit Namensschild, Pinnwand und Einrichtung (`AUSBAU`), Lesewurm, Trommel, Laut-Wagen, das Bild zu einem Satz (`buildSzene`) |
 | `lesen-spiel.js` | was alle Spiele der Leseecke teilen: Bühne, «Los», Ergebnis mit Sternen |
@@ -323,8 +323,9 @@ die Regeln, nicht den Ton – der ist Sache des Gegenlesens.
 36 kurze Aufnahmen einer ruhigen, vertrauten Stimme. Die Seite `laute-aufnehmen.html` (für
 Erwachsene, verlinkt im Adminbereich) nimmt mit dem Handy auf, schneidet die Stille weg,
 gleicht die Lautstärke an und erzeugt daraus `lesen-laute.js`. Liste, Aussprache und der Weg
-ins Repo stehen in `docs/LAUTE-AUFNEHMEN.md`. Bis die Datei da ist, gilt: Selbst- und
-Zwielaute spricht die Sprachausgabe, Mitlaute bleiben stumm und werden gezeigt.
+ins Repo stehen in `docs/LAUTE-AUFNEHMEN.md`. Die Datei ist da, mit allen 36 Lauten vom
+6. Oktober 2026. Fehlt einmal ein Laut, gilt: Selbst- und Zwielaute spricht die
+Sprachausgabe, Mitlaute bleiben stumm und werden gezeigt.
 
 ## 7. Die nächsten Etappen
 

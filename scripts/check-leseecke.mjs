@@ -3,11 +3,13 @@
  * ---------------------------------------------------------------------------
  * Was validate-lesen.mjs an den Listen nachrechnet, zeigt sich hier am
  * Bildschirm. Geprüft wird als Gast (Firebase ist umgeleitet) und mit einer
- * Sprachausgabe, die sich merkt, was gesagt wird, und sofort fertig ist:
+ * Sprachausgabe, die sich merkt, was gesagt wird, und sofort fertig ist –
+ * ebenso die Aufnahmen der Laute (lesen-laute.js):
  *
  *   Startbild     Der Lesewagen steht auf jedem Bildschirm im Bild, gross
  *                 genug zum Antippen, und deckt keinen anderen Knopf zu.
- *                 Ein Tipp öffnet das Zimmer mit seinen sieben Orten.
+ *                 Ein Tipp öffnet das Zimmer mit seinen sieben Orten; durch
+ *                 seine zwei Fenster scheint eine Sonne, nicht zwei.
  *   Die Orte      Jeder führt auf seine Seite; dort steht die Bühne, der Pfeil
  *                 zurück führt in den Lesewagen (index.html?lesen=1).
  *   Silbenzug     Eine ganze Runde, für jede Silbe ein Schlag: sechs von
@@ -17,7 +19,7 @@
  *   Buchstabenhaus Entdecken öffnet ein Fenster, das Suchspiel zählt Treffer
  *                 im Lesestand. Offen sind nur so viele Fenster, wie die Stufe
  *                 sagt, nie zwei, die gleich klingen; ein Laut kommt mit
- *                 seinem Wort («a – wie Affe»).
+ *                 seinem Wort («a – wie Affe»), der Laut aus der Aufnahme.
  *   Stimmt das?   Der Würfel: Ein Satz, der stimmen soll, beschreibt das Bild;
  *                 einer, der nicht stimmen soll, weicht ab – auf jeder Stufe.
  *   Bücher        Das Hörbuch liest von selbst vor; im Zusammen-Modus liest
@@ -71,9 +73,16 @@ const befunde = [];
 const fehlt = (was) => befunde.push(was);
 
 // Eine Sprachausgabe, die sofort fertig ist und sich merkt, was sie sagen
-// sollte. Läuft vor jedem Skript der Seite.
+// sollte. Ebenso die Aufnahmen: Sie sind gleich zu Ende, und gemerkt wird,
+// welche lief. Läuft vor jedem Skript der Seite.
 function stimmeErsatz() {
   window.__gesagt = [];
+  window.__gespielt = [];
+  HTMLMediaElement.prototype.play = function play() {
+    window.__gespielt.push(String(this.src));
+    setTimeout(() => this.dispatchEvent(new Event("ended")), 10);
+    return Promise.resolve();
+  };
   const synth = {
     speaking: false, pending: false, paused: false,
     getVoices: () => [],
@@ -214,8 +223,20 @@ try {
     wurm: Boolean(document.querySelector(".lese-ort-weiter .lesewurm")),
     hilfe: window.LernappKids?.currentHelp?.() || "",
     zurueck: (() => { const k = document.querySelector(".stage-back"); return Boolean(k && !k.hidden && k.getBoundingClientRect().width > 20); })(),
+    // Durch beide Fenster sieht man dieselbe Landschaft: eine Sonne, und die
+    // steht in einem Fenster.
+    sonnen: document.querySelectorAll(".lesezimmer-svg .lesezimmer-sonne, .lesezimmer-svg .lesezimmer-fenster circle").length,
+    sonneImFenster: (() => {
+      const sonne = document.querySelector(".lesezimmer-svg .lesezimmer-sonne")?.getBoundingClientRect();
+      if (!sonne) return false;
+      return [...document.querySelectorAll(".lesezimmer-svg .lesezimmer-fenster > rect:first-child")].some((f) => {
+        const r = f.getBoundingClientRect();
+        return sonne.left >= r.left && sonne.right <= r.right && sonne.top >= r.top && sonne.bottom <= r.bottom;
+      });
+    })(),
   }));
   if (zimmer.ansicht !== "lesen") fehlt(`Lesewagen: nach dem Tipp ist die Ansicht ${zimmer.ansicht}, nicht lesen`);
+  if (zimmer.sonnen !== 1 || !zimmer.sonneImFenster) fehlt(`Lesewagen: ${zimmer.sonnen} Sonnen in den Fenstern${zimmer.sonneImFenster ? "" : ", und keine steht in einem Fenster"}`);
   if (zimmer.orte !== "buchstaben,buecher,detektiv,saetze,silben,weiter,woerter,wurmname") fehlt(`Lesewagen: die Orte sind ${zimmer.orte}`);
   if (!zimmer.wurm) fehlt("Lesewagen: der Lesewurm sitzt nicht im Sessel");
   if (!zimmer.zurueck) fehlt("Lesewagen: kein Pfeil zurück an den Zug");
@@ -349,12 +370,18 @@ try {
   const treffer = Object.values(laute || {}).reduce((n, e) => n + (Number(e.r) || 0), 0);
   if (treffer !== 3) fehlt(`Buchstabenhaus: nach drei Treffern stehen ${treffer} im Lesestand`);
   // Ein hörbarer Laut kommt mit seinem Wort: «a – wie Affe». Ein Laut allein
-  // aus der Sprachausgabe war oft zu undeutlich.
+  // aus der Sprachausgabe war oft zu undeutlich. Das «a» kommt aus der
+  // Aufnahme, solange es eine gibt, sonst aus der Sprachausgabe.
   await vergiss();
-  await page.evaluate(() => window.LernappBuchstabenhaus.uebe("a"));
+  await page.evaluate(() => { window.__gespielt = []; window.LernappBuchstabenhaus.uebe("a"); });
   await page.waitForFunction(() => (window.__gesagt || []).includes("wie Affe"), null, { timeout: 5000 }).catch(() => {});
   const zumA = await gesagt();
-  if (!zumA.includes("a") || !zumA.includes("wie Affe")) fehlt(`Buchstabenhaus: zum Laut a sagt die Stimme nicht «a – wie Affe» (${zumA.join(" | ")})`);
+  const aufnahmeA = await page.evaluate(() => {
+    const quelle = window.LernappLauteAufnahmen?.a || null;
+    return { da: Boolean(quelle), lief: Boolean(quelle) && (window.__gespielt || []).includes(quelle) };
+  });
+  const lautA = aufnahmeA.da ? aufnahmeA.lief : zumA.includes("a");
+  if (!lautA || !zumA.includes("wie Affe")) fehlt(`Buchstabenhaus: zum Laut a kommt nicht «a – wie Affe» (${aufnahmeA.da ? (aufnahmeA.lief ? "Aufnahme lief" : "Aufnahme lief nicht") : "ohne Aufnahme"}; gesagt: ${zumA.join(" | ")})`);
   // Die Wahl auf jeder Stufe, im vollen Haus mit allen Lauten: so viele
   // Fenster, wie die Stufe sagt; nie zwei, die gleich klingen oder ineinander
   // stecken (i und ie, S und Sch); auf «leicht» keine, die junge Ohren leicht
