@@ -163,6 +163,9 @@ function messen() {
       if (a.el.contains(b.el) || b.el.contains(a.el)) continue;
       // Die Fische im Teich kreuzen sich absichtlich – das ist die Aufgabe.
       if (a.el.classList.contains("ft-fisch") && b.el.classList.contains("ft-fisch")) continue;
+      // Ein Knopf, der dasselbe tut wie ein anderer (data-wie, etwa die Karte
+      // über dem Lesewurm): Wo sie sich überlappen, trifft ein Tipp so oder so.
+      if ((a.el.dataset?.wie && a.el.dataset.wie === b.el.dataset?.ort) || (b.el.dataset?.wie && b.el.dataset.wie === a.el.dataset?.ort)) continue;
       const x = Math.min(a.r.right, b.r.right) - Math.max(a.r.left, b.r.left);
       const y = Math.min(a.r.bottom, b.r.bottom) - Math.max(a.r.top, b.r.top);
       if (x > 4 && y > 4) ueberlappt.push(`${beschreibe(a.el)} × ${beschreibe(b.el)} (${Math.round(x)}×${Math.round(y)})`);

@@ -8,7 +8,10 @@
  *
  * Jedes Ding im Zimmer ist ein Weg in einen Teil der Leseecke:
  *
- *   Sessel mit Lesewurm  weiterlesen: der Wurm sucht aus, was dran ist
+ *   Sofa mit Lesewurm    die Hauptmission: Über ihm steht auf einer Karte,
+ *                        was er als Nächstes vorschlägt – ein Tipp auf ihn
+ *   Missionskarte        oder auf die Karte (ein eigener Knopf, der dasselbe
+ *                        tut: mission wie weiter) startet es
  *   Trommel              Hören: Silbenzug, Laut-Position, Reimkupplung,
  *                        Anlaut-Lauscher
  *   Buchstabenhaus       Laute und Buchstaben
@@ -32,6 +35,13 @@
  * Beim Hereinkommen hüpft reihum alles, was sich antippen lässt – wie die
  * Wagen auf dem Startbild (REIHUM). Die Einrichtung hüpft nie: So sieht ein
  * Kind, was ein Knopf ist und was nur dasteht.
+ *
+ * Der Lesewurm wächst von den Runden (lesen-stand.js, wurmStand; gezeichnet in
+ * lesen-wurm.js): Jede ist ein Buchstabe in seiner Leiste, die Runde, die er
+ * vorschlägt, zwei. Ist die Leiste voll, verwandelt er sich – gezeigt wird das
+ * beim nächsten Besuch: Das Geschenk geht auf, er verschwindet und erscheint
+ * in der neuen Stufe. Nach drei Leben (Lesefalter, Lesewurm-Express,
+ * Lesezauberer) ist er fertig; die fertigen stehen oben auf dem Regal.
  *
  * Was hier nicht geschieht: Fortschritt schreiben. Das tun die Spiele.
  */
@@ -63,7 +73,8 @@
 
   const HILFE = [
     "Der Lesewagen.",
-    "Tippe auf den Lesewurm im Sessel, und er sucht dir etwas aus.",
+    "Auf dem Sofa zeigt dir der Lesewurm, was als Nächstes dran ist: Tippe auf ihn oder auf den grünen Knopf.",
+    "Für jede Runde bekommt er einen Buchstaben, für seine Runde zwei, und ist seine Leiste voll, gibt es eine Überraschung.",
     "Die Trommel ist zum Hören, das Buchstabenhaus für Buchstaben,",
     "die Kiste für Wörter, der kleine Zug für Sätze und das Regal für Bücher.",
     "An der Pinnwand warten Rätsel für Lesedetektive.",
@@ -75,27 +86,46 @@
 
   // In dieser Reihenfolge hüpfen die Dinge beim Hereinkommen: einmal im
   // Uhrzeigersinn durchs Zimmer, oben links beim Buchstabenhaus los, und
-  // zuletzt der Lesewurm in der Mitte. Eine Welle liest sich als «all das
-  // kannst du antippen», ein gemeinsamer Hüpfer als Ruckeln.
-  const REIHUM = ["buchstaben", "detektiv", "buecher", "woerter", "saetze", "silben", "wurmname", "weiter"];
+  // zuletzt der Lesewurm in der Mitte und seine Karte. Eine Welle liest sich
+  // als «all das kannst du antippen», ein gemeinsamer Hüpfer als Ruckeln.
+  const REIHUM = ["buchstaben", "detektiv", "buecher", "woerter", "saetze", "silben", "wurmname", "weiter", "mission"];
   // Wann das erste Ding hüpft und wie viel später jedes nächste: erst, wenn
   // das Zimmer eingeblendet ist (leseecke-ein im Stylesheet).
   const HUEPF_START = 0.55;
   const HUEPF_ABSTAND = 0.13;
 
-  // Wie lang der Wurm war, als das Kind ihn zuletzt gesehen hat. Ist er
-  // seither gewachsen, wird das gezeigt – über den Vergleich, nicht über eine
-  // Nachricht der Spiele: So stimmt es auch nach einem Neuladen.
-  const GESEHEN_KEY = "lernapp.lesen.gesehen";
+  // Wo der Lesewurm stand, als das Kind ihn zuletzt gesehen hat: welche Stufe
+  // (nr, 1 bis 45) und wie viele Buchstaben er hatte. Hat er sich seither
+  // verwandelt, zeigt das Zimmer die Verwandlung; sind nur Buchstaben
+  // dazugekommen, springen sie in die Leiste. Über den Vergleich, nicht über
+  // eine Nachricht der Spiele: So stimmt es auch nach einem Neuladen.
+  const WURM_GESEHEN_KEY = "lernapp.lesen.wurm-gesehen";
   // Genauso die Einrichtung: wie viele Dinge schon dastanden.
   const AUSBAU_GESEHEN_KEY = "lernapp.lesen.ausbau-gesehen";
 
-  function gesehen(key = GESEHEN_KEY) {
+  function gesehen(key) {
     try { return Number(localStorage.getItem(key)) || 0; } catch { return 0; }
   }
-  function merkeGesehen(wert, key = GESEHEN_KEY) {
+  function merkeGesehen(wert, key) {
     try { localStorage.setItem(key, String(wert)); } catch { /* privater Modus */ }
   }
+  function wurmGesehen() {
+    try {
+      const w = JSON.parse(localStorage.getItem(WURM_GESEHEN_KEY) || "null");
+      return w && Number(w.nr) > 0 ? { nr: Number(w.nr), buchstaben: Number(w.buchstaben) || 0 } : null;
+    } catch { return null; }
+  }
+  function merkeWurm(wurm, buchstaben) {
+    try { localStorage.setItem(WURM_GESEHEN_KEY, JSON.stringify({ nr: wurm.nr, buchstaben })); } catch { /* privater Modus */ }
+  }
+
+  // So lange dauern die Schritte der Verwandlung: die letzten Buchstaben
+  // springen in die Leiste (je Feld), das Geschenk geht auf, der Wurm
+  // verschwindet – dann erscheint er neu.
+  const FELD_MS = 180;
+  const GESCHENK_MS = 700;
+  const WEG_MS = 450;
+  const reduziert = () => Boolean(window.matchMedia?.("(prefers-reduced-motion: reduce)").matches);
 
   // Die Leseschrift erst holen, wenn jemand in den Wagen steigt: Das Startbild
   // braucht sie nicht.
@@ -124,7 +154,8 @@
     const knoten = svg.querySelector(`[data-ort="${ort}"]`);
     if (!knoten) return;
     knoten.classList.add("is-locked");
-    const box = knoten.getBBox?.();
+    // Am Regal zählt das Regal selbst, nicht die Würmer obendrauf.
+    const box = (knoten.querySelector(":scope > .lese-ort-bild") || knoten).getBBox?.();
     if (!box) return;
     const a = art();
     knoten.append(a.group({ class: "lese-ort-schloss", transform: `translate(${box.x + box.width - 26} ${box.y + 10})` }, [
@@ -203,21 +234,59 @@
     window.setTimeout(() => reihe.querySelector("button")?.focus?.({ preventScroll: true }), 30);
   }
 
+  // Was der Wurm als Nächstes vorschlägt, für die Missionskarte: Bild, Name,
+  // wohin ein Tipp führt und ob die Schnupperrunde schon verbraucht ist. Bei
+  // den Büchern sucht das Regal das Buch aus (buecher.html?weiter=1).
+  function mission() {
+    const n = stand()?.naechstes?.();
+    if (!n) return null;
+    const buch = n.id === "buecher";
+    return { id: n.id, page: n.page, bild: buch ? "📖" : n.bild || "📖", name: buch ? "Ein Buch" : n.titel, sagt: buch ? "ein Buch" : n.titel, zu: gespielt(n.page) };
+  }
+
+  // Der Name des Lesewurms, wie er im Zimmer steht – leer ohne Taufe.
+  function wurmName(s, jetzt) {
+    const name = s?.wurmName?.(jetzt) || "";
+    return name ? (s?.zeige?.(name) ?? name) : "";
+  }
+
+  // Was der Lautsprecher zur Mission sagt.
+  function missionSatz(m, wurm, name) {
+    if (!m) return "";
+    const wer = name || "Dein Lesewurm";
+    let satz = `${wer} hat eine Idee: ${m.sagt}! Tippe auf ihn, und es geht los.`;
+    if (wurm?.braucht > 0) {
+      const rest = Math.max(1, wurm.braucht - wurm.hat);
+      satz += ` Noch ${rest} ${rest === 1 ? "Buchstabe" : "Buchstaben"} bis zur nächsten Überraschung.`;
+    }
+    return satz;
+  }
+
+  // Aus der Stufe nr (1 bis 45) Leben und Stufe darin.
+  function lebenUndStufe(nr) {
+    const n = Math.max(1, Math.round(nr) || 1);
+    return { leben: Math.min(2, Math.floor((n - 1) / 15)), stufe: ((n - 1) % 15) + 1 };
+  }
+
   // Das Zimmer, das gerade steht: sein Platz auf der Bühne, wohin ein Tipp
-  // führt, und was es zeigt (zustand).
+  // führt, und was es zeigt (zustand). laeuft: Eine Verwandlung spielt
+  // gerade; Bescheide aus der Cloud warten, bis sie fertig ist.
   let offen = null;
 
-  // Was das Zimmer zeigt: der Lesewurm mit seinen Gliedern und seinem Namen,
-  // die gelesenen Bücher, die Einrichtung und die Schlösser an den Dingen.
-  // Den Zug draussen, die Lok und die Landschaft sieht hier niemand.
+  // Was das Zimmer zeigt: der Lesewurm in seiner Stufe, seine Leiste und sein
+  // Name, was er vorschlägt, die gelesenen Bücher, die Einrichtung und die
+  // Schlösser an den Dingen. Den Zug draussen, die Lok und die Landschaft
+  // sieht hier niemand.
   function zustand() {
     const s = stand();
     const jetzt = s ? s.stand() : { woerter: 0, buecher: {} };
-    const wurmName = s?.wurmName?.(jetzt) || "";
+    const wurm = s?.wurmStand?.(jetzt) || null;
+    const m = mission();
     return JSON.stringify([
-      s ? s.wurmGlieder(jetzt) : 1,
+      wurm ? [wurm.nr, wurm.hat, wurm.braucht] : 0,
+      m ? [m.id, m.zu] : null,
       Object.keys(jetzt.buecher || {}).length,
-      s?.zeige?.(wurmName) ?? wurmName,
+      wurmName(s, jetzt),
       s?.wagenStufe?.(jetzt) || 0,
       Object.keys(ORTE).filter(zu),
     ]);
@@ -230,7 +299,7 @@
   function mount({ host, onPlay }) {
     if (!art() || !host) return;
     schriftLaden();
-    offen = { host, onPlay, zustand: "" };
+    offen = { host, onPlay, zustand: "", laeuft: false, ausbauVorher: 0 };
     zeichne();
   }
 
@@ -241,32 +310,37 @@
   // und neu gezeichnet wird nur, wenn sich am Zimmer etwas ändert – an Ort und
   // Stelle, ohne Einblenden, und eine offene Auswahl bleibt offen.
   function auffrischen() {
-    if (!offen?.host.isConnected || zustand() === offen.zustand) return false;
+    if (!offen?.host.isConnected || offen.laeuft || zustand() === offen.zustand) return false;
     zeichne();
     return true;
   }
 
-  function zeichne() {
+  // Baut das Zimmer einmal und hängt es ein: an die Stelle des alten, oder
+  // neu, dann hüpft es (nur beim Hereinkommen, und nicht, wenn gleich eine
+  // Verwandlung kommt – dann ist die das Ereignis).
+  //   wurm, mission  was buildLesezimmer zeichnet (siehe dort)
+  function baue({ wurm, mission: karte, huepfen = true }) {
     const { host, onPlay } = offen;
     const a = art();
     const s = stand();
     const jetzt = s ? s.stand() : { woerter: 0, buecher: {} };
-    const glieder = s ? s.wurmGlieder(jetzt) : 1;
     const gelesen = Object.keys(jetzt.buecher || {}).length;
-    const wurmName = s?.wurmName?.(jetzt) || "";
-    // Die Einrichtung: Was seit dem letzten Besuch dazugekommen ist, leuchtet.
-    // Beim allerersten Besuch ist nichts «neu» – es ist einfach da.
     const ausbau = s?.wagenStufe?.(jetzt) || 0;
-    const ausbauVorher = (() => {
-      try { return localStorage.getItem(AUSBAU_GESEHEN_KEY) === null ? ausbau : gesehen(AUSBAU_GESEHEN_KEY); } catch { return ausbau; }
-    })();
-    const svg = a.buildLesezimmer({ glieder, gelesen, wurmName: s?.zeige?.(wurmName) ?? wurmName, ausbau, neuAb: ausbauVorher });
+    const svg = a.buildLesezimmer({
+      glieder: s ? s.wurmGlieder(jetzt) : 1,
+      gelesen,
+      wurmName: wurmName(s, jetzt),
+      ausbau,
+      neuAb: offen.ausbauVorher,
+      wurm,
+      mission: karte,
+    });
     // Beim Auffrischen weicht nur die Zeichnung: Der Platz bleibt, also blendet
     // sich nichts neu ein, und die Auswahl darüber bleibt stehen.
     const alt = host.querySelector(":scope > .lesezimmer-svg");
     // Gehüpft wird nur beim Hereinkommen. Bringt die Cloud danach etwas Neues
     // und das Zimmer frischt sich auf, hüpft nichts ein zweites Mal.
-    if (!alt) svg.classList.add("is-huepfen");
+    if (!alt && huepfen) svg.classList.add("is-huepfen");
     if (alt) alt.replaceWith(svg);
     else host.append(svg);
 
@@ -275,9 +349,13 @@
       const reihe = REIHUM.indexOf(ort);
       knoten.style.setProperty("--ort-verzug", `${(HUEPF_START + Math.max(0, reihe) * HUEPF_ABSTAND).toFixed(2)}s`);
       const los = () => {
-        if (ort === "weiter") {
-          const naechstes = s?.naechstes?.();
-          onPlay?.(naechstes?.page || "buchstabenhaus.html");
+        if (ort === "weiter" || ort === "mission") {
+          // Die Hauptmission – der Wurm oder seine Karte: Wird dieses Spiel
+          // jetzt fertig gespielt, gibt es für den Wurm einen Buchstaben mehr
+          // (lesen-stand.js, missionErfuellt).
+          const m = mission();
+          if (m) s?.missionStarten?.(m.id);
+          onPlay?.(m?.page || "buchstabenhaus.html");
           return;
         }
         if (ort === "wurmname") { onPlay?.(TAUFE); return; }
@@ -293,26 +371,97 @@
 
     // Schlösser erst nach dem Einhängen: getBBox misst nur Gezeichnetes.
     window.requestAnimationFrame(() => Object.keys(ORTE).forEach((ort) => schloss(svg, ort)));
+    return svg;
+  }
 
-    // Ist der Wurm gewachsen, seit das Kind zuletzt hier war? Dann sagt der
-    // Lautsprecher das zuerst. Der Text gehört zur Ansicht: train-home.js
+  const warte = (ms) => new Promise((fertig) => window.setTimeout(fertig, ms));
+
+  async function zeichne() {
+    const a = art();
+    const s = stand();
+    const anfang = zustand();
+    // Das Zimmer, für das diese Verwandlung spielt. Geht das Kind hinaus und
+    // gleich wieder hinein, gehört die Bühne dem neuen Besuch: Die alte
+    // Verwandlung hört dann auf, statt dazwischenzuzeichnen.
+    const meins = offen;
+    const vorbei = () => offen !== meins || !meins.host.isConnected;
+    const jetzt = s ? s.stand() : { woerter: 0, buecher: {} };
+    const name = wurmName(s, jetzt);
+    const wurm = s?.wurmStand?.(jetzt) || null;
+    const buchstaben = s?.buchstaben?.(jetzt) || 0;
+    const m = mission();
+    // Die Einrichtung: Was seit dem letzten Besuch dazugekommen ist, leuchtet.
+    // Beim allerersten Besuch ist nichts «neu» – es ist einfach da.
+    const ausbau = s?.wagenStufe?.(jetzt) || 0;
+    offen.ausbauVorher = (() => {
+      try { return localStorage.getItem(AUSBAU_GESEHEN_KEY) === null ? ausbau : gesehen(AUSBAU_GESEHEN_KEY); } catch { return ausbau; }
+    })();
+    const neues = (a.AUSBAU || []).slice(offen.ausbauVorher, ausbau).map((ding) => ding.name);
+
+    // Der Wurm: Hat er sich seit dem letzten Besuch verwandelt, oder sind nur
+    // Buchstaben dazugekommen? Beim allerersten Besuch steht er einfach da.
+    const vorher = wurmGesehen() || (wurm ? { nr: wurm.nr, buchstaben } : null);
+    const verwandelt = Boolean(wurm && vorher && wurm.nr > vorher.nr);
+    const karte = (stufe, extra = {}) => (m ? { bild: m.bild, name: m.name, zu: m.zu, hat: stufe?.hat || 0, braucht: stufe?.braucht || 0, ...extra } : null);
+    const wurmBild = (stufe, extra = {}) => (wurm ? { leben: stufe.leben, stufe: stufe.stufe, regal: stufe.regal, ...extra } : null);
+
+    if (verwandelt && !reduziert()) {
+      // Zuerst der Wurm, wie er war: Die letzten Buchstaben springen in die
+      // Leiste, das Geschenk geht auf, er verschwindet. Der Lautsprecher
+      // bleibt dabei da; was er sagt, kommt am Schluss.
+      offen.laeuft = true;
+      kids()?.setHelp?.(HILFE);
+      const alt = s.wurmAus(vorher.buchstaben);
+      const ort = lebenUndStufe(vorher.nr);
+      const altStufe = { ...alt, leben: ort.leben, stufe: ort.stufe, regal: ort.leben, braucht: alt.nr === vorher.nr ? alt.braucht : (ort.stufe < 15 ? s.WURM_BEDARF[ort.stufe - 1] : s.WURM_WECHSEL) };
+      const altHat = alt.nr === vorher.nr ? alt.hat : 0;
+      baue({ wurm: wurmBild(altStufe), mission: karte(altStufe, { hat: altStufe.braucht, neuAb: altHat }), huepfen: false });
+      await warte(300 + Math.max(0, altStufe.braucht - altHat) * FELD_MS);
+      if (vorbei()) return;
+      baue({ wurm: wurmBild(altStufe), mission: karte(altStufe, { hat: altStufe.braucht, geschenkAuf: true }), huepfen: false });
+      await warte(GESCHENK_MS);
+      if (vorbei()) return;
+      baue({ wurm: wurmBild(altStufe, { weg: true }), mission: karte(altStufe, { hat: altStufe.braucht, geschenkAuf: true }), huepfen: false });
+      await warte(WEG_MS);
+      if (vorbei()) return;
+    }
+    // Der Wurm, wie er jetzt ist. Nach einer Verwandlung erscheint er mit
+    // Sternen; ist dabei ein fertiger aufs Regal gezogen, funkelt der dort.
+    const regalNeu = verwandelt && vorher && wurm && wurm.leben > lebenUndStufe(vorher.nr).leben;
+    const neuAb = verwandelt ? 0 : wurm && vorher && wurm.nr === vorher.nr ? Math.max(0, wurm.hat - (buchstaben - vorher.buchstaben)) : Infinity;
+    const svg = baue({
+      // Ohne Bewegung kein Knall: Seine Sterne stünden sonst still um den Wurm.
+      wurm: wurmBild(wurm || {}, { neu: verwandelt, knall: verwandelt && !reduziert(), regalNeu }),
+      mission: karte(wurm, { neuAb }),
+      huepfen: !verwandelt,
+    });
+    offen.laeuft = false;
+
+    // Was der Lautsprecher sagt. Der Text gehört zur Ansicht: train-home.js
     // räumt ihn beim Verlassen weg.
-    const vorher = gesehen();
-    const gewachsen = vorher && glieder > vorher;
-    if (gewachsen) svg.querySelector(".lesewurm")?.classList.add("is-gewachsen");
-    const neues = (a.AUSBAU || []).slice(ausbauVorher, ausbau).map((ding) => ding.name);
-    if (gewachsen || neues.length) kids()?.playJingle?.("unlock");
-    const hallo = wurmName ? `Dein Lesewurm ${wurmName} sagt hallo. ` : "";
     const teile = [];
-    if (gewachsen) teile.push(`Dein Lesewurm ist gewachsen! Er hat jetzt ${glieder} Glieder.`);
+    if (verwandelt) {
+      kids()?.playJingle?.("unlock");
+      const W = window.LernappLeseWurm;
+      teile.push(regalNeu ? W?.LEBEN?.[wurm.leben - 1]?.wechsel || "" : `Überraschung! ${W?.sagt?.(wurm.leben, wurm.stufe, name) || ""}`);
+    } else if (neues.length) {
+      kids()?.playJingle?.("unlock");
+    }
+    if (!verwandelt && wurm && vorher && buchstaben > vorher.buchstaben && wurm.braucht > 0) {
+      const dazu = buchstaben - vorher.buchstaben;
+      teile.push(`${dazu === 1 ? "Ein neuer Buchstabe" : `${dazu} neue Buchstaben`} für ${name || "deinen Lesewurm"}!`);
+    }
     if (neues.length) teile.push(`Neu im Lesewagen: ${neues.length > 1 ? `${neues.slice(0, -1).join(", ")} und ${neues[neues.length - 1]}` : neues[0]}!`);
+    const satz = missionSatz(m, wurm, name);
     // Steht die Auswahl offen, gehört der Lautsprecher ihr – ausser es gibt
     // etwas Neues zu sagen.
-    if (teile.length) kids()?.setHelp?.(`${teile.join(" ")} ${HILFE}`);
-    else if (!host.querySelector(".lese-wahl")) kids()?.setHelp?.(`${hallo}${HILFE}`);
-    merkeGesehen(glieder);
+    if (teile.length) kids()?.setHelp?.(`${teile.join(" ")} ${satz} ${HILFE}`);
+    else if (!offen.host.querySelector(".lese-wahl")) kids()?.setHelp?.(`${satz} ${HILFE}`);
+    if (wurm) merkeWurm(wurm, buchstaben);
     merkeGesehen(ausbau, AUSBAU_GESEHEN_KEY);
-    offen.zustand = zustand();
+    offen.zustand = anfang;
+    // Kam während der Verwandlung etwas aus der Cloud, jetzt nachholen.
+    if (svg) auffrischen();
   }
 
   // Bringt die Cloud einen neueren Lesestand – gelesen auf einem anderen

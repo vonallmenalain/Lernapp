@@ -396,6 +396,8 @@ try {
       "Bücher gelesen": "2, davon 1 mit allen Fragen richtig",
       "Runden in den Lesespielen": "8",
       "Lesewagen eingerichtet": "5 von 15",
+      // 8 Runden sind 8 Buchstaben: Stufe 5 des ersten Lebens (1 + 2 + 2 + 3).
+      "Lesewurm": "Lesefalter, Stufe 5 von 15",
       "Laute, die sitzen": "M · A",
       "Laute, die noch wackeln": "B",
       "Oft verwechselt": "b und d (3×)",
@@ -437,7 +439,12 @@ try {
       "Buchstaben der Schule: schon ein Haken wird geschrieben, nicht erst «Speichern»");
     await page.waitForTimeout(300);
     await knips(page, "3a-buchstaben-abhaken");
-    await lauteKarte().locator("[data-kind-laute-speichern]").click({ timeout: 5000 });
+    // Die Karte ist lang: Je nach Höhe des Leseberichts darüber sprang der
+    // Dialog zwischen Zielen und Tippen der Maus weiter, und der Klick traf
+    // einen anderen Knopf («Gross und klein»). Mit der Tastatur – Knopf
+    // fokussieren, Enter – wirkt «Speichern» genauso, ohne Mausweg. Ginge
+    // nichts in die Cloud, meldete es die Prüfung unten.
+    await lauteKarte().locator("[data-kind-laute-speichern]").press("Enter", { timeout: 5000 });
     await page.waitForFunction(() => /Buchstaben abgehakt/.test(document.querySelector("[data-kinder-karte] .karten-status")?.textContent || ""), null, { timeout: 10000 }).catch(() => {});
     const schule = await page.evaluate(() => window.__ersatz.lies("users/kind-1")?.gameState?.["lernapp.lesen.eltern"]?.data);
     pruefe(JSON.stringify(schule?.bekannt) === JSON.stringify(["m", "a", "l", "i", "o", "e", "sch"]) && schule?.startpunkt === "woerter" && schule?.schrift === "gross"
