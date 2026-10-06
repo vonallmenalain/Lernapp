@@ -49,6 +49,13 @@ Stand: Oktober 2026 · Grundlage: das Konzept «Leseecke – Konzept & Ideensamm
 > leuchtet) und der **Lesebericht** für die Eltern (Wörter, Bücher, sichere und wackelige
 > Laute, Verwechslungen wie b und d).
 >
+> **Etappe 3, vierter Teil:** Das Regal bekommt ein fünftes Fach, die **Kapitelbücher** (ab 8):
+> acht bis zwölf Seiten in Kapiteln mit Überschrift, eine halbe Buchseite je Seite, das Bild
+> daneben kleiner, und ein **Lesezeichen** merkt sich, wo das Kind aufgehört hat. Vier
+> Kapitelbücher und vier weitere Bücher – **24 im Ganzen**. Die Bilder können jetzt die
+> Wahrzeichen der Reise zeigen (Baumhaus, Leuchtturm, Hütte, Tempel …), dazu ein rotes Velo,
+> einen Bambusstapel und einen Stein. Damit ist Etappe 3 fertig.
+>
 > **Etappe 4, erster Teil (Lesedetektive):** Zwischen den Fenstern hängt eine **Pinnwand** –
 > der neue Ort für die Lesedetektive. Dahinter **Wer bin ich?** (ein Rätsel in Häppchen) und
 > die **Wortbaustelle** (lange Wörter bauen und zerlegen). Ist der Lesewagen ganz
@@ -98,7 +105,7 @@ Lesewagen selbst und der Lesewurm darin.
 | Buchstabenhaus | `buchstabenhaus.html` | Entdecken: jedes Fenster zeigt Laut, Bild und Wort (M wie **M**aus). Suchen: «Wo wohnt dieser Laut?» | Laut und Buchstabe verbinden |
 | Laute kuppeln | `lautekuppeln.html` | tippt Laut-Wagen von links nach rechts an, sie rollen zusammen («R», «Ro», «s», «se»); dann das passende Bild unter drei | Laute zusammenziehen |
 | Stimmt das? | `stimmtdas.html` | liest einen Satz, prüft ihn am Bild: Daumen hoch oder runter. Auf «leicht» liest die Stimme vor | genau lesen: auf, unter, neben, wie viele |
-| Bücherregal | `buecher.html` | liest ein Buch – vorlesen lassen, zusammen (abwechselnd ein Satz), selbst – und beantwortet drei Fragen | Freude am Buch, Hör- und Leseverstehen |
+| Bücherregal | `buecher.html` | liest ein Buch – vorlesen lassen, zusammen (abwechselnd ein Satz), selbst – und beantwortet drei Fragen (Kapitelbücher: vier; ein Lesezeichen merkt sich die Seite) | Freude am Buch, Hör- und Leseverstehen |
 | Reimkupplung | `reimkupplung.html` | «Was reimt sich auf Maus?» – nur der Wagen, der sich reimt, kuppelt an; bei jedem Tipp sagt die Stimme beide Wörter | Reime hören |
 | Anlaut-Lauscher | `anlautlauscher.html` | hört ein Wort, wählt das Bild, das gleich anfängt (nach dem Ohr: Stern und Schaf fangen gleich an) | Anlaute hören |
 | Wer fährt mit? | `werfaehrtmit.html` | liest das Wort auf der Fahrkarte und lässt den richtigen Fahrgast einsteigen; die anderen sehen ähnlich aus | Wörter genau lesen |
@@ -145,14 +152,23 @@ aus `train-art.js` (`buildPassenger`), dazu Emoji.
 | --- | --- | --- | --- |
 | Zum Zuhören | ab 3 | die Stimme liest alles; Fragen nur mit Bildern; die Antwort steht wörtlich auf der Seite | *Wo ist das Rüebli?* (frei), *Eule Ella hört zu*, *Pippa und der Regen*, *Bruno zählt Sterne*, *Fino und der rote Schal* |
 | Erste Sätze | ab 5 | höchstens zwei Sätze je Seite, je höchstens sieben Wörter, nur Laute der Gruppen 1–4 | *Leo und die Melone* (frei), *Pino will auf die Insel*, *Mia und der Ball*, *Kater Tim malt*, *Fred, der Frosch* |
-| Kleine Geschichten | ab 6 | kurze Seiten, Fragen dürfen zum Nachdenken sein | *Flitz und die vergessene Nuss*, *Pino baut einen Schneemann*, *Ein Geheimnis im Wald* |
-| Geschichten | ab 7 | längere Sätze, wörtliche Rede | *Sepp und das Gewitter*, *Leo lernt brüllen*, *Die Reise zum Mond* |
+| Kleine Geschichten | ab 6 | kurze Seiten, Fragen dürfen zum Nachdenken sein | *Flitz und die vergessene Nuss*, *Pino baut einen Schneemann*, *Ein Geheimnis im Wald*, *Hoppel lernt Velo fahren*, *Ella findet ein Ei* |
+| Geschichten | ab 7 | längere Sätze, wörtliche Rede | *Sepp und das Gewitter*, *Leo lernt brüllen*, *Die Reise zum Mond*, *Ein Geschenk für Oma Rosa*, *Bruno und der erste Schnee* |
+| Kapitelbücher | ab 8 | acht bis zwölf Seiten in drei bis fünf Kapiteln (jedes mit Überschrift und mindestens zwei Seiten), 30 bis 65 Wörter je Seite, vier Fragen | *Die Nacht im Baumhaus*, *Das Licht im Leuchtturm*, *Das grosse Bergrennen*, *Wer klaut Pippas Bambus?* |
 
 Das Regal hat ein **Fach je Stufe** mit Reitern oben; offen ist zuerst das Fach zur
 Lesestufe des Kindes. Ein Haken am Reiter heisst: alle Bücher darin gelesen. Die Bilder
 zeichnet `lesen-bilder.js` – für das Regal und den Geschichtenzug gleich –, und was es nicht
 als Emoji gibt, zeichnet es selbst (Fenster, Höhle, Pfütze, Staffelei, Seerose, Schneemann,
-Fliege, ein grosses Blatt als Schirm).
+Fliege, ein grosses Blatt als Schirm, ein rotes Velo – das Emoji hat je nach Gerät eine
+andere Farbe –, ein Bambusstapel, ein Stein und die Wahrzeichen der Reise).
+
+**Kapitelbücher** sind länger: Über der ersten Seite eines Kapitels steht seine Überschrift
+(«Kapitel 2 · Geräusche in der Nacht»); die Stimme liest sie mit, beim Selberlesen nur auf
+Tipp. Das Bild ist kleiner, der Text darf mehr Platz nehmen. Ein **Lesezeichen** merkt sich
+auf dem Gerät Seite und Art zu lesen; auf der Titelseite steht dann «Weiter bei Kapitel 3».
+Ist das Buch aus, fällt es heraus. Der Lesewurm im Sessel schlägt Kapitelbücher vor, wenn
+die anderen Bücher der Lesestufe gelesen sind.
 
 Nach der letzten Seite kommen drei Fragen. Wer danebentippt, kann **im Buch nachsehen**: Die
 Seite, auf der es steht, geht auf, und ein Pfeil führt zurück zur Frage. Drei Sterne gibt es,
@@ -264,7 +280,9 @@ Wörter, Sätze und Bücher sind Entwürfe nach den Regeln je Stufe – bitte ge
 
 - `lesen-inhalte.js`: `LAUTE` (Anlautwörter und Bilder), `SILBEN_WOERTER`,
   `KUPPEL_WOERTER`, `TIERE` und `DINGE`.
-- `lesen-buecher.js`: die sechzehn Bücher, je mit Seiten und Fragen.
+- `lesen-buecher.js`: die vierundzwanzig Bücher, je mit Seiten und Fragen – neu die vier
+  Kapitelbücher, *Hoppel lernt Velo fahren*, *Ella findet ein Ei*, *Ein Geschenk für Oma
+  Rosa* und *Bruno und der erste Schnee*.
 - `lueckensaetze.js` und `lesen-inhalte.js` (`TUN`): die Tunwörter der Lückensätze.
 - `lesen-inhalte.js` (`SINN_SAETZE`, `STOLPERSTEINE`): Sätze mit Sinn und Quatsch, die Stolpersteine.
 - `lesen-inhalte.js` (`RAETSEL`, `BAUSTELLE`): die Rätsel von «Wer bin ich?» und die Wörter der Wortbaustelle.
@@ -288,9 +306,10 @@ Zwielaute spricht die Sprachausgabe, Mitlaute bleiben stumm und werden gezeigt.
 - **Etappe 2 – Laute und Wörter:** fertig – Reimkupplung, Anlaut-Lauscher, Wer fährt mit?,
   Wörter bauen, Silbenbahn, Blitzwörter, die Buchstaben der Schule, Mein Name und der Name des
   Lesewurms, Lückensätze, Buchstabengleis und zehn weitere Bücher.
-- **Etappe 3 – Sätze:** gebaut sind Satz kuppeln, Quatschsätze, Stolperwörter,
-  Quatschwörter, Laut-Position, Buchstaben-Signal, Lies und tu!, der Geschichtenzug, der
-  Lesewagen in 15 Schritten und der Lesebericht für die Eltern. Es folgen weitere Bücher.
+- **Etappe 3 – Sätze:** fertig – Satz kuppeln, Quatschsätze, Stolperwörter, Quatschwörter,
+  Laut-Position, Buchstaben-Signal, Lies und tu!, der Geschichtenzug, der Lesewagen in 15
+  Schritten, der Lesebericht für die Eltern, das Fach Kapitelbücher mit Lesezeichen und acht
+  weitere Bücher (24 im Ganzen).
 - **Etappe 4 – Lesedetektive:** fertig – die Pinnwand, Wer bin ich?, die Wortbaustelle, der
   Lesewurm auf der Lok, Detektivfälle, Steckbriefe und Postkarten. Ein Vorlese-Studio mit
   Mikrofon bleibt vorerst weg (Entscheid 9).

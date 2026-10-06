@@ -19,7 +19,10 @@
  *               Seite; jede Frage hat eine richtige Antwort, die auf der
  *               genannten Seite steht (bei Hörbüchern und ersten Sätzen
  *               wörtlich); Hörbücher fragen nur mit Bildern; die freien Bücher
- *               sind dieselben wie in der Schranke.
+ *               sind dieselben wie in der Schranke. Kapitelbücher haben drei
+ *               bis fünf Kapitel mit Überschrift, jedes mindestens zwei
+ *               Seiten lang, und eine halbe Buchseite (30 bis 65 Wörter) je
+ *               Seite; ein Wahrzeichen im Bild gibt es auf der Reise.
  *   Lesestand   Zusammenführen ist das Maximum, in beide Richtungen gleich;
  *               ein Laut sitzt erst nach drei Treffern an zwei Tagen; der
  *               Lesewurm wächst je zwanzig Wörter; die Eltern-Einstellung
@@ -363,6 +366,13 @@ const GRATIS_SCHRANKE = (lies("entitlement.js").match(/const GRATIS_BUECHER = \[
 // Zeichnung verlangt, die es nicht gibt.
 const ZEICHNUNGEN = [...(lies("lesen-bilder.js").match(/const ZEICHNUNGEN = \{[\s\S]*?\n {2}\};/)?.[0] || "").matchAll(/^ {4}([a-z]+): \(/gm)].map((m) => m[1]);
 pruefe(ZEICHNUNGEN.includes("fenster") && ZEICHNUNGEN.includes("schneemann"), `lesen-bilder.js: die Zeichnungen wurden nicht gefunden (${ZEICHNUNGEN.join(", ")})`);
+// Die Wahrzeichen der Reise, die ein Bild zeigen kann (train-art.js, LANDMARKS).
+const WAHRZEICHEN = (() => {
+  const quelle = lies("train-art.js");
+  const block = quelle.match(/const LANDMARKS = \{[\s\S]*?\n {2}\};/)?.[0] || "";
+  return [...block.matchAll(/^ {4}([a-z]+)\(\) \{/gm), ...quelle.matchAll(/LANDMARKS\.([a-z]+) = /g)].map((m) => m[1]);
+})();
+pruefe(WAHRZEICHEN.includes("lighthouse") && WAHRZEICHEN.includes("baobab"), `train-art.js: die Wahrzeichen wurden nicht gefunden (${WAHRZEICHEN.join(", ")})`);
 // Wörter, die ein Erstleser als Ganzes kennt, auch wenn ein Laut darin später
 // kommt. Heute sind alle lautgetreu – die Liste steht hier, damit eine
 // Ausnahme bewusst geschieht.
@@ -416,6 +426,13 @@ function lautgetreu(wort) {
       if (buch.stufe === "hoerbuch" || buch.stufe === "klein") {
         saetze.forEach((satz) => pruefe(bib.woerter(satz).length <= 18, `${wo}: «${satz.slice(0, 40)}…» ist für diese Stufe zu lang`));
       }
+      // Kapitelbücher: eine halbe Buchseite – genug, um zu lesen, und auf dem
+      // Handy noch lesbar gross (scripts/check-handy.mjs misst die längste).
+      if (buch.stufe === "kapitel") {
+        const zahl = bib.woerter(seite.text).filter((t) => bib.nurWort(t)).length;
+        pruefe(zahl >= 30 && zahl <= 65, `${wo}: ${zahl} Wörter – eine Seite im Kapitelbuch hat 30 bis 65`);
+        saetze.forEach((satz) => pruefe(bib.woerter(satz).length <= 22, `${wo}: «${satz.slice(0, 40)}…» ist zu lang`));
+      }
       const bild = seite.bild || {};
       pruefe((bild.figuren || []).length + (bild.dinge || []).length + (bild.zeichnungen || []).length > 0 || bild.landschaft, `${wo}: das Bild ist leer`);
       (bild.figuren || []).forEach((f) => {
@@ -423,9 +440,34 @@ function lautgetreu(wort) {
         pruefe(f.x >= 0 && f.x <= 240 && (f.y === undefined || (f.y > 0 && f.y <= 152)), `${wo}: ${f.id} steht ausserhalb des Bildes`);
       });
       (bild.dinge || []).forEach((d) => pruefe(d.e && d.x >= 0 && d.x <= 240 && d.y >= 0 && d.y <= 152 && d.s > 4, `${wo}: ein Ding (${d.e}) liegt ausserhalb oder hat keine Grösse`));
-      (bild.zeichnungen || []).forEach((z) => pruefe(ZEICHNUNGEN.includes(z.z), `${wo}: unbekannte Zeichnung ${z.z}`));
+      (bild.zeichnungen || []).forEach((z) => {
+        pruefe(ZEICHNUNGEN.includes(z.z), `${wo}: unbekannte Zeichnung ${z.z}`);
+        if (z.z === "wahrzeichen") pruefe(WAHRZEICHEN.includes(z.id), `${wo}: das Wahrzeichen ${z.id} gibt es nicht`);
+      });
       if (bild.landschaft) pruefe(LANDSCHAFTEN.has(bild.landschaft), `${wo}: die Landschaft ${bild.landschaft} gibt es nicht`);
     });
+
+    // Kapitel: Ein Kapitelbuch beginnt mit einer Überschrift, hat drei bis
+    // fünf Kapitel zu mindestens zwei Seiten und vier Fragen; andere Bücher
+    // haben keine Kapitel.
+    const anfaenge = buch.seiten.map((seite, i) => (seite.kapitel !== undefined ? i : -1)).filter((i) => i >= 0);
+    if (buch.stufe === "kapitel") {
+      pruefe(buch.seiten.length >= 8, `${name}: ${buch.seiten.length} Seiten – ein Kapitelbuch hat mindestens acht`);
+      pruefe(anfaenge[0] === 0, `${name}: die erste Seite hat keine Kapitelüberschrift`);
+      pruefe(anfaenge.length >= 3 && anfaenge.length <= 5, `${name}: ${anfaenge.length} Kapitel statt drei bis fünf`);
+      anfaenge.forEach((anfang, k) => {
+        const laenge = (anfaenge[k + 1] ?? buch.seiten.length) - anfang;
+        pruefe(laenge >= 2, `${name}: das Kapitel «${buch.seiten[anfang].kapitel}» hat nur ${laenge} Seite`);
+      });
+      const koepfe = anfaenge.map((i) => buch.seiten[i].kapitel);
+      pruefe(new Set(koepfe).size === koepfe.length, `${name}: eine Kapitelüberschrift steht doppelt`);
+      koepfe.forEach((kopf) => pruefe(typeof kopf === "string" && kopf.length >= 3 && kopf.length <= 30 && !/[.,;:–]$/.test(kopf),
+        `${name}: die Überschrift «${kopf}» ist zu kurz, zu lang oder endet mit einem Satzzeichen`));
+      pruefe(bib.wortZahl(buch) >= 350, `${name}: nur ${bib.wortZahl(buch)} Wörter – zu kurz für ein Kapitelbuch`);
+      pruefe(buch.fragen.length === 4, `${name}: ${buch.fragen.length} Fragen – ein Kapitelbuch hat vier`);
+    } else {
+      pruefe(anfaenge.length === 0, `${name}: Kapitelüberschriften gibt es nur in Kapitelbüchern`);
+    }
 
     pruefe(buch.fragen.length >= 2 && buch.fragen.length <= 4, `${name}: ${buch.fragen.length} Fragen`);
     buch.fragen.forEach((frage, i) => {
