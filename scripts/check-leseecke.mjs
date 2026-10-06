@@ -15,7 +15,9 @@
  *   Laute kuppeln Die Stimme sagt Laute und halbe Silben, aber nie das ganze
  *                 Wort, bevor das Kind das Bild gewählt hat.
  *   Buchstabenhaus Entdecken öffnet ein Fenster, das Suchspiel zählt Treffer
- *                 im Lesestand.
+ *                 im Lesestand. Offen sind nur so viele Fenster, wie die Stufe
+ *                 sagt, nie zwei, die gleich klingen; ein Laut kommt mit
+ *                 seinem Wort («a – wie Affe»).
  *   Stimmt das?   Der Würfel: Ein Satz, der stimmen soll, beschreibt das Bild;
  *                 einer, der nicht stimmen soll, weicht ab – auf jeder Stufe.
  *   Bücher        Das Hörbuch liest von selbst vor; im Zusammen-Modus liest
@@ -323,9 +325,19 @@ try {
   if (!(await page.locator(".bh-karte mark").count())) fehlt("Buchstabenhaus: das Fenster zeigt den Laut im Wort nicht hervorgehoben");
   await page.locator(".bh-karte-zu").click();
   await page.locator(".bh-lupe").click();
+  // Im Suchspiel sind nur ein paar Fenster offen – auf «mittel» vier, der
+  // gesuchte immer dabei –, und die Blase zeigt das Bild zum Laut.
   for (let i = 0; i < 3; i += 1) {
     await page.waitForFunction(() => window.LernappBuchstabenhaus.ziel(), null, { timeout: 8000 }).catch(() => {});
-    const ziel = await page.evaluate(() => window.LernappBuchstabenhaus.ziel());
+    const frage = await page.evaluate(() => ({
+      ziel: window.LernappBuchstabenhaus.ziel(),
+      wahl: window.LernappBuchstabenhaus.wahl(),
+      offen: [...document.querySelectorAll(".bh-fenster")].filter((f) => !f.hidden && f.getBoundingClientRect().width > 0).map((f) => f.dataset.laut),
+      bild: Boolean(document.querySelector(".bh-blase .bh-blase-bild")),
+    }));
+    const ziel = frage.ziel;
+    if (frage.offen.length !== 4 || !frage.offen.includes(ziel) || frage.offen.slice().sort().join() !== frage.wahl.slice().sort().join()) fehlt(`Buchstabenhaus: im Suchspiel sind ${frage.offen.join(", ")} offen (gesucht ${ziel}, zur Wahl ${frage.wahl.join(", ")})`);
+    if (!frage.bild) fehlt(`Buchstabenhaus: die Frage nach ${ziel} zeigt kein Bild`);
     await page.locator(`.bh-fenster[data-laut="${ziel}"]`).click();
     // Die nächste Frage kommt, wenn die Stimme den Laut gesagt hat.
     await page.waitForFunction((nr) => window.LernappBuchstabenhaus.nr() > nr, i, { timeout: 8000 }).catch(() => {});
@@ -333,6 +345,49 @@ try {
   const laute = await page.evaluate(() => window.LernappLeseStand.stand().laute);
   const treffer = Object.values(laute || {}).reduce((n, e) => n + (Number(e.r) || 0), 0);
   if (treffer !== 3) fehlt(`Buchstabenhaus: nach drei Treffern stehen ${treffer} im Lesestand`);
+  // Ein hörbarer Laut kommt mit seinem Wort: «a – wie Affe». Ein Laut allein
+  // aus der Sprachausgabe war oft zu undeutlich.
+  await vergiss();
+  await page.evaluate(() => window.LernappBuchstabenhaus.uebe("a"));
+  await page.waitForFunction(() => (window.__gesagt || []).includes("wie Affe"), null, { timeout: 5000 }).catch(() => {});
+  const zumA = await gesagt();
+  if (!zumA.includes("a") || !zumA.includes("wie Affe")) fehlt(`Buchstabenhaus: zum Laut a sagt die Stimme nicht «a – wie Affe» (${zumA.join(" | ")})`);
+  // Die Wahl auf jeder Stufe, im vollen Haus mit allen Lauten: so viele
+  // Fenster, wie die Stufe sagt; nie zwei, die gleich klingen oder ineinander
+  // stecken (i und ie, S und Sch); auf «leicht» keine, die junge Ohren leicht
+  // verwechseln (m und n), auf «schwer» immer eine davon, wenn es eine gibt.
+  const wahlBefunde = await page.evaluate(() => {
+    const bh = window.LernappBuchstabenhaus;
+    const S = window.LernappLeseStand;
+    const aehnlich = (a, b) => window.LernappLeseInhalte.AEHNLICHE_ANLAUTE.some(([x, y]) => (x === a && y === b) || (x === b && y === a));
+    // Hier nachgerechnet, nicht beim Spiel nachgefragt: Einer steckt im
+    // anderen, oder sie klingen gleich.
+    const gleich = [["i", "ie"], ["e", "ä"], ["f", "v"], ["w", "v"], ["k", "ck"]];
+    const verwechselbar = (a, b) => a.startsWith(b) || b.startsWith(a) || gleich.some(([x, y]) => (x === a && y === b) || (x === b && y === a));
+    const alt = { stufe: S.stufe, lesestufe: S.lesestufe };
+    const befunde = [];
+    try {
+      S.lesestufe = () => "saetze";
+      for (const stufe of ["leicht", "mittel", "schwer"]) {
+        S.stufe = () => stufe;
+        const haus = bh.bewohner();
+        if (haus.length !== 36) befunde.push(`im vollen Haus wohnen ${haus.length}`);
+        for (const ziel of haus) {
+          const partner = haus.some((l) => l.id !== ziel.id && aehnlich(ziel.id, l.id) && !verwechselbar(ziel.id, l.id));
+          for (let n = 0; n < 12; n += 1) {
+            const wahl = bh.kandidaten(ziel).map((l) => l.id);
+            const andere = wahl.filter((id) => id !== ziel.id);
+            if (wahl.length !== bh.WAHL_JE_STUFE[stufe] || andere.length !== wahl.length - 1 || new Set(wahl).size !== wahl.length) befunde.push(`${stufe}, ${ziel.id}: ${wahl.join(" ")}`);
+            if (andere.some((id) => verwechselbar(ziel.id, id))) befunde.push(`${stufe}, ${ziel.id}: verwechselbar ${wahl.join(" ")}`);
+            if (stufe === "leicht" && andere.some((id) => aehnlich(ziel.id, id))) befunde.push(`leicht, ${ziel.id}: ähnlich ${wahl.join(" ")}`);
+            if (stufe === "schwer" && partner && !andere.some((id) => aehnlich(ziel.id, id))) befunde.push(`schwer, ${ziel.id}: ohne kniffligen ${wahl.join(" ")}`);
+          }
+        }
+      }
+    } finally { Object.assign(S, alt); }
+    return [...new Set(befunde)];
+  });
+  if (wahlBefunde.length) fehlt(`Buchstabenhaus: die Wahl im Suchspiel stimmt nicht – ${wahlBefunde.slice(0, 4).join(" | ")}`);
 
   // --- 6. Stimmt das?: der Würfel ------------------------------------------------------
   await oeffne("stimmtdas.html", "window.LernappStimmtDas");
@@ -602,6 +657,22 @@ try {
   if (gleisListe !== "m,a,l,i,o,s,e,r,n,u,f,w,h,d,t,b,k,p,g") fehlt(`Buchstabengleis: zur Wahl stehen ${gleisListe}`);
   await page.locator(".lese-los-knopf").click();
   await page.waitForSelector(".bg-svg", { timeout: 5000 }).catch(() => {});
+  // Die Lok bleibt klein neben dem Buchstaben – auch in Safari, das die
+  // CSS-Grösse einer Zeichnung in einer Zeichnung nicht kennt: Dort zog sie
+  // sich über die ganze Tafel und verdeckte das W. Nachgestellt, indem an der
+  // Lok alles CSS wegfällt (Klasse und style); es zählen nur ihre Attribute.
+  for (const zeichen of ["W", "e"]) {
+    await page.evaluate((z) => window.LernappBuchstabengleis.uebe(z), zeichen);
+    const lok = await page.evaluate(() => {
+      const innen = document.querySelector(".bg-lok svg");
+      const buchstabe = document.querySelector(".bg-svg > g");
+      if (!innen || !buchstabe) return null;
+      innen.removeAttribute("class");
+      innen.removeAttribute("style");
+      return { lok: innen.getBoundingClientRect().height, buchstabe: buchstabe.getBoundingClientRect().height };
+    });
+    if (!lok || lok.lok > lok.buchstabe * 0.4) fehlt(`Buchstabengleis ${zeichen}: ohne CSS ist die Lok ${Math.round(lok?.lok)} px hoch, der Buchstabe ${Math.round(lok?.buchstabe)} px – sie verdeckt ihn`);
+  }
   const fahreStrich = async ({ weit = false } = {}) => {
     const pts = await page.evaluate(() => window.LernappBuchstabengleis.bildschirmPunkte());
     if (!pts.length) return;

@@ -6,9 +6,11 @@
  *   Entdecken   Jedes Fenster lässt sich öffnen: gross der Buchstabe, dazu
  *               das Bild und das Wort (M wie Maus), und der Laut ist zu hören.
  *   Suchen      Eine Runde mit acht Fragen: «Wo wohnt dieser Laut?» Die Stimme
- *               spielt den Laut – oder, wo es noch keine Aufnahme gibt, nennt
- *               sie das Wort und fragt nach seinem Anfang. In den Fenstern
- *               stehen dann nur die Buchstaben, keine Bilder: sonst fände man
+ *               spielt den Laut und sagt sein Wort dazu («a – wie Affe»), das
+ *               Bild steht in der Blase. Wo es noch keine Aufnahme gibt, nennt
+ *               sie das Wort und fragt nach seinem Anfang. Offen sind nur ein
+ *               paar Fenster – drei, vier oder sechs, je nach Stufe –, und in
+ *               ihnen stehen nur die Buchstaben, keine Bilder: sonst fände man
  *               die Maus, ohne das M zu kennen.
  *
  * Was richtig erkannt wird, zählt im Lesestand für diesen Laut. Sitzt er
@@ -31,6 +33,11 @@
 
   const ID = "buchstabenhaus";
   const RUNDE = 8;
+  // Wie viele Fenster im Suchspiel offen sind. Alle sechsunddreissig auf einmal
+  // waren zu viele: Ein Kind suchte länger, als es hörte.
+  const WAHL_JE_STUFE = { leicht: 3, mittel: 4, schwer: 6 };
+  // Laute, die gleich klingen: Stehen beide zur Wahl, wären beide richtig.
+  const GLEICHER_KLANG = [["i", "ie"], ["e", "ä"], ["f", "v"], ["w", "v"], ["k", "ck"]];
 
   const HELP_HAUS = [
     "Das Buchstabenhaus. Hinter jedem Fenster wohnt ein Laut.",
@@ -53,7 +60,30 @@
     return stand?.nurGross?.() ? laut.gross : `${laut.gross} ${laut.klein}`;
   }
 
-  const state = { modus: "haus", nr: 0, punkte: 0, ziel: null, fehler: 0, runde: [], gesperrt: false };
+  const paar = (liste, a, b) => liste.some(([x, y]) => (x === a && y === b) || (x === b && y === a));
+
+  // Zwei Laute, die nicht zusammen zur Wahl stehen dürfen: Einer steckt im
+  // anderen (S und Sch, P und Pf, E und Ei – wer nach dem Anfang von Schaf
+  // fragt, hat beide gemeint), oder sie klingen gleich (i und ie).
+  function verwechselbar(a, b) {
+    return a.startsWith(b) || b.startsWith(a) || paar(GLEICHER_KLANG, a, b);
+  }
+
+  // Wer bei einer Frage zur Wahl steht: der gesuchte Laut und ein paar andere
+  // aus dem Haus. Auf «leicht» keine, die junge Ohren leicht verwechseln (m und
+  // n); auf «schwer» ist einer davon dabei, wenn das Haus einen hat.
+  function kandidaten(ziel) {
+    const stufe = stand?.stufe?.(ID) || "mittel";
+    const anzahl = WAHL_JE_STUFE[stufe] || WAHL_JE_STUFE.mittel;
+    const aehnlich = (laut) => paar(inhalte.AEHNLICHE_ANLAUTE, ziel.id, laut.id);
+    const andere = bewohner().filter((laut) => laut.id !== ziel.id && !verwechselbar(ziel.id, laut.id)
+      && (stufe !== "leicht" || !aehnlich(laut)));
+    const knifflig = stufe === "schwer" ? spiel.ziehe(andere.filter(aehnlich), 1) : [];
+    const dazu = [...knifflig, ...spiel.mische(andere.filter((laut) => !knifflig.includes(laut)))];
+    return spiel.mische([ziel, ...dazu.slice(0, anzahl - 1)]);
+  }
+
+  const state = { modus: "haus", nr: 0, punkte: 0, ziel: null, wahl: [], fehler: 0, runde: [], gesperrt: false };
   let shell = null;
   let el = {};
 
@@ -81,6 +111,9 @@
       knopf.dataset.laut = laut.id;
       knopf.setAttribute("aria-label", `${laut.gross} wie ${laut.wort}`);
       if (s && stand.lautSitzt(laut.id, s)) knopf.classList.add("sitzt");
+      // Die Schrift richtet sich nach der Länge: «Sch sch» passt sonst nicht
+      // ins Fenster.
+      knopf.style.setProperty("--bh-laenge", zeichen(laut).length);
       knopf.append(shell.el("span", "bh-zeichen", zeichen(laut)));
       knopf.append(shell.el("span", "bh-bildchen", laut.bild));
       knopf.addEventListener("click", () => tippe(laut, knopf));
@@ -94,12 +127,25 @@
     lupe.type = "button";
     lupe.setAttribute("aria-label", "Suchspiel beginnen");
     lupe.innerHTML = `<svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="22" fill="#2f6fd0"/><circle cx="21" cy="21" r="9" fill="none" stroke="#fff" stroke-width="4"/><path d="M28 28 L36 36" stroke="#fff" stroke-width="5" stroke-linecap="round"/></svg>`;
-    lupe.addEventListener("click", startSuchen);
+    lupe.addEventListener("click", () => startSuchen());
     leiste.append(lupe);
 
     shell.play.append(blase, haus, leiste);
-    el = { blase, haus, fassade, fenster, lupe, leiste };
+    el = { blase, haus, fassade, fenster, lupe, leiste, raster: { reihen, spalten } };
     zeigeHaus();
+  }
+
+  // Im Haus sind alle Fenster zu sehen, im Suchspiel nur die zur Wahl – in
+  // einer Reihe, bei sechs in zweien, und so viel grösser.
+  function zeigeFenster(laute = null) {
+    const drin = laute ? laute.map((laut) => laut.id) : null;
+    Object.entries(el.fenster).forEach(([id, knopf]) => {
+      knopf.hidden = Boolean(drin) && !drin.includes(id);
+      knopf.style.order = drin ? String(drin.indexOf(id)) : "";
+    });
+    const reihen = drin ? (drin.length <= 4 ? 1 : 2) : el.raster.reihen;
+    el.fassade.style.setProperty("--bh-reihen", reihen);
+    el.fassade.style.setProperty("--bh-spalten", drin ? Math.ceil(drin.length / reihen) : el.raster.spalten);
   }
 
   function zeigeHaus() {
@@ -108,6 +154,7 @@
     host.dataset.modus = "haus";
     el.blase.hidden = true;
     el.leiste.hidden = false;
+    zeigeFenster();
     kids()?.setHelp?.(HELP_HAUS);
   }
 
@@ -144,12 +191,20 @@
     await sageLaut(laut);
   }
 
-  // Der Laut, dann das Wort. Ohne Aufnahme (und kein Selbstlaut) nur das Wort:
-  // Die Sprachausgabe sagte sonst «Em» statt «mmm».
+  // Was gerade gesprochen wird, in mehreren Stücken. Beginnt etwas Neues – ein
+  // Tipp auf den Lautsprecher, eine schnelle Antwort –, hört das Alte auf,
+  // statt hinterher noch seinen Rest zu sagen.
+  let sprechNr = 0;
+
+  // Der Laut, dann sein Wort: «a – wie Affe». Ohne Aufnahme (und kein
+  // Selbstlaut) nur das Wort: Die Sprachausgabe sagte sonst «Em» statt «mmm».
   async function sageLaut(laut) {
+    const meine = ++sprechNr;
     const gehoert = await ton.laut(laut.id);
+    if (meine !== sprechNr) return;
     if (gehoert) await ton.pause(350);
-    await ton.sprich(laut.wort, { rate: 0.85 });
+    if (meine !== sprechNr) return;
+    await ton.sprich(gehoert ? `wie ${laut.wort}` : laut.wort, { rate: 0.85 });
   }
 
   function tippe(laut, knopf) {
@@ -177,12 +232,12 @@
     return spiel.mische(auswahl);
   }
 
-  function startSuchen() {
+  function startSuchen(runde = frageListe()) {
     state.modus = "suchen";
     host.dataset.modus = "suchen";
     state.nr = 0;
     state.punkte = 0;
-    state.runde = frageListe();
+    state.runde = runde;
     shell.setPhase("play");
     shell.setCount(0);
     el.leiste.hidden = true;
@@ -197,6 +252,8 @@
     state.gesperrt = false;
     Object.values(el.fenster).forEach((f) => f.classList.remove("ist-richtig", "ist-falsch", "zeigt-hin"));
     const laut = state.ziel;
+    state.wahl = kandidaten(laut);
+    zeigeFenster(state.wahl);
     const hoerbar = ton.lautHoerbar(laut.id);
     el.blase.hidden = false;
     el.blase.innerHTML = "";
@@ -206,18 +263,31 @@
     nochmal.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4V5z" fill="currentColor"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.3 5.7a9 9 0 0 1 0 12.6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`;
     nochmal.addEventListener("click", () => sageFrage(laut, hoerbar));
     el.blase.append(nochmal);
-    if (!hoerbar) el.blase.append(shell.el("span", "bh-blase-bild", laut.bild));
+    // Das Bild immer dazu: Ein Laut allein, aus der Sprachausgabe, war oft zu
+    // undeutlich, um zu hören, welcher gemeint ist.
+    el.blase.append(shell.el("span", "bh-blase-bild", laut.bild));
     el.blase.append(shell.el("span", "bh-blase-text", hoerbar ? "Wo wohnt dieser Laut?" : `Wo wohnt der Anfang von ${laut.wort}?`));
     await sageFrage(laut, hoerbar);
   }
 
+  // Hörbar: erst der Laut, dann sein Wort – «a – wie Affe». Sonst das Wort,
+  // langsam, und die Frage nach seinem Anfang.
   async function sageFrage(laut, hoerbar) {
-    if (hoerbar) {
-      await ton.sprich("Wo wohnt dieser Laut?", { rate: 0.95 });
-      await ton.pause(200);
-      await ton.laut(laut.id);
-    } else {
-      await ton.sprich(`Wo wohnt der Anfang von ${laut.wort}?`, { rate: 0.9 });
+    const meine = ++sprechNr;
+    if (!hoerbar) {
+      await ton.sprich(`Wo wohnt der Anfang von ${laut.wort}?`, { rate: 0.85 });
+      return;
+    }
+    const stuecke = [
+      () => ton.sprich("Wo wohnt dieser Laut?", { rate: 0.95 }),
+      () => ton.pause(250),
+      () => ton.laut(laut.id),
+      () => ton.pause(400),
+      () => ton.sprich(`wie ${laut.wort}`, { rate: 0.8 }),
+    ];
+    for (const stueck of stuecke) {
+      if (meine !== sprechNr) return;
+      await stueck();
     }
   }
 
@@ -281,6 +351,16 @@
   shell = spiel.mount({ host, id: ID, title: "Buchstabenhaus", help: HELP_HAUS, onRestart: () => { start(); startSuchen(); } });
   start();
 
-  // Für die Prüfung (check-leseecke.mjs): wonach gerade gefragt wird.
-  window.LernappBuchstabenhaus = { RUNDE, bewohner, frageListe, ziel: () => state.ziel?.id || null, nr: () => state.nr };
+  // Für die Prüfung (check-leseecke.mjs): wonach gerade gefragt wird, und ein
+  // bestimmter Laut gleich als Frage.
+  function uebe(id) {
+    const laut = inhalte.LAUT_BY_ID?.[id];
+    if (!laut || !el.fenster?.[id]) return false;
+    startSuchen([laut]);
+    return true;
+  }
+  window.LernappBuchstabenhaus = {
+    RUNDE, WAHL_JE_STUFE, bewohner, frageListe, kandidaten, verwechselbar, uebe,
+    ziel: () => state.ziel?.id || null, wahl: () => state.wahl.map((laut) => laut.id), nr: () => state.nr,
+  };
 })();

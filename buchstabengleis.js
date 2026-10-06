@@ -154,20 +154,26 @@
     svg.append(art.el("line", { x1: x0, y1: 50, x2: x0 + breite, y2: 50, stroke: "#dbe3ec", "stroke-width": 1.2, "stroke-dasharray": "4 4" }));
     const ebene = art.group({}, []);
     const marken = art.group({ class: "bg-marken" }, []);
-    // Die eigene Lok, 30 hoch. Aussen die Stelle auf dem Gleis, innen das
-    // Wackeln – eine CSS-Bewegung am äusseren Teil würde die Stelle
-    // überschreiben.
-    const innen = art.group({ class: "bg-lok-innen" }, [art.el("circle", { cx: 0, cy: 0, r: 24, class: "bg-halo" })]);
+    // Die eigene Lok: knapp ein Drittel so hoch wie der Buchstabe, höchstens
+    // 30 – bei einem kleinen e deckte sie sonst die Hälfte zu. Aussen die
+    // Stelle auf dem Gleis, innen das Wackeln – eine CSS-Bewegung am äusseren
+    // Teil würde die Stelle überschreiben.
+    const h = Math.round(Math.min(30, Math.max(20, (Math.max(...ys) - Math.min(...ys)) * 0.3)));
+    const innen = art.group({ class: "bg-lok-innen" }, [art.el("circle", { cx: 0, cy: 0, r: Math.round(h * 0.8), class: "bg-halo" })]);
     const lok = art.group({ class: "bg-lok" }, [innen]);
     const eigene = spiel.eigeneLok();
     const zug = window.LernappTrainArt;
     if (eigene && zug) {
-      const h = 30;
       const w = h * zug.LOCO_W / zug.ART_H;
+      // Lage und Grösse als Attribute, nicht als CSS: Safari kennt die
+      // CSS-Grösse einer Zeichnung in einer Zeichnung nicht, nahm die ganze
+      // Tafel – und die Lok verdeckte den Buchstaben. Ohne die Klasse
+      // lese-lok greift auch deren Höhe aus dem Stylesheet nicht.
+      eigene.classList.remove("lese-lok");
       eigene.setAttribute("x", String(-w / 2));
       eigene.setAttribute("y", String(-h / 2 - 4));
-      eigene.style.width = `${w}px`;
-      eigene.style.height = `${h}px`;
+      eigene.setAttribute("width", String(w));
+      eigene.setAttribute("height", String(h));
       innen.append(eigene);
     } else {
       innen.append(art.el("circle", { cx: 0, cy: 0, r: 12, fill: "#c4553a", stroke: "#fff", "stroke-width": 3 }));

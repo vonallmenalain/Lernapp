@@ -603,9 +603,9 @@ function lautgetreu(wort) {
     // Was keine Stufen kennt, wächst nicht mit – und die Liste stimmt mit der
     // Quelle: Ein Spiel fragt nach seiner Stufe (stufe?.(ID)) genau dann,
     // wenn es nicht ohneStufe heisst.
-    stand.spielRunde("buchstabenhaus", { punkte: 8, sterne: 3 });
-    stand.spielRunde("buchstabenhaus", { punkte: 8, sterne: 3 });
-    pruefe(!("schritt" in stand.stand().spiele.buchstabenhaus), "Mitwachsen: das Buchstabenhaus hat keine Stufen und wächst trotzdem");
+    stand.spielRunde("buchstabengleis", { punkte: 6, sterne: 3 });
+    stand.spielRunde("buchstabengleis", { punkte: 6, sterne: 3 });
+    pruefe(!("schritt" in stand.stand().spiele.buchstabengleis), "Mitwachsen: das Buchstabengleis hat keine Stufen und wächst trotzdem");
     Object.entries(stand.SPIELE).forEach(([id, spiel]) => {
       const datei = spiel.page.replace(/\.html.*$/, ".js");
       const fragt = fs.existsSync(path.join(root, datei)) && lies(datei).includes("stand?.stufe?.(ID)");
