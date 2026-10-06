@@ -770,6 +770,51 @@ const READING_SENTENCE_ITEMS = [
 ];
 
 function titleCaseWord(word) { return word.charAt(0) + word.slice(1).toLowerCase(); }
+// Laut-Steine: Was beim Lesen ein Laut ist, auch wenn es zwei oder drei
+// Buchstaben braucht. «Fisch» sind drei Laute – F, I, SCH –, nicht fünf
+// Buchstaben. Gesucht wird von links, das längste Stück zuerst. Eine Lücke oder
+// eine Frage nach dem Anfang oder Ende darf nie mitten in einen solchen Stein
+// fallen: In SCHUH fehlt nie das C, und Fisch endet nicht auf H.
+const LAUT_STEINE = ["SCH", "CH", "CK", "EI", "AI", "AU", "ÄU", "EU", "IE", "PF", "QU", "NG"];
+function lautSteine(word) {
+  const upper = word.toUpperCase();
+  const steine = [];
+  for (let index = 0; index < upper.length;) {
+    const text = LAUT_STEINE.find((stein) => upper.startsWith(stein, index)) || upper[index];
+    steine.push({ text, start: index });
+    index += text.length;
+  }
+  return steine;
+}
+// Das h nach einem Selbstlaut hört man nicht, wenn danach nichts oder ein
+// Mitlaut kommt (Kuh, Schuh) – beim Uhu schon.
+function stummesH(steine, nr) {
+  if (steine[nr]?.text !== "H") return false;
+  const vorher = steine[nr - 1]?.text || "";
+  const nachher = steine[nr + 1]?.text || "";
+  return /[AEIOUÄÖÜ]$/.test(vorher) && !/^[AEIOUÄÖÜ]/.test(nachher);
+}
+// Wo ein einzelner Buchstabe für einen ganzen, hörbaren Laut steht.
+function einzelLautIndexe(word) {
+  const steine = lautSteine(word);
+  return steine
+    .filter((stein, nr) => stein.text.length === 1 && !stummesH(steine, nr))
+    .map((stein) => stein.start);
+}
+// «Womit beginnt …?» geht nur, wenn der erste Laut ein Buchstabe ist: Auto
+// beginnt mit «au», Stern mit «scht».
+function anfangHoerbar(word) {
+  const upper = word.toUpperCase();
+  return lautSteine(upper)[0].text.length === 1 && !/^S[TP]/.test(upper);
+}
+// «Womit endet …?» fragt nach dem Laut am Schluss. Bei Hund und Mond hört man
+// ein t, bei Kuh gar nichts, bei Fisch ein sch, und das r am Schluss klingt
+// wie ein a (Tiger). Solche Wörter fragen nicht nach dem Ende.
+function endeHoerbar(word) {
+  const steine = lautSteine(word);
+  const letzter = steine.at(-1);
+  return letzter.text.length === 1 && !["B", "D", "G", "R"].includes(letzter.text) && !stummesH(steine, steine.length - 1);
+}
 // Auf "schwer" dürfen schon auf der Wiese die Wörter des Waldes vorkommen.
 function wordsForReadingDifficulty(difficulty, stufe = "mittel") {
   const rank = (READING_DIFFICULTY_RANK[difficulty] || 1) + (stufe === "schwer" ? 1 : 0);
@@ -793,17 +838,18 @@ function readingOptionCount(difficulty, stufe = "mittel") {
   if (stufe === "mittel") return difficulty === "easy" ? 3 : 4;
   return difficulty === "easy" || difficulty === "medium" ? 3 : 4;
 }
+// Nur Buchstaben, die allein einen Laut tragen (einzelLautIndexe).
 function missingLetterIndexes(item, difficulty, stufe = "mittel") {
-  const letters = [...item.word];
-  const indexes = letters.map((_, index) => index);
+  const indexes = einzelLautIndexe(item.word);
   if (stufe === "schwer") return indexes;
-  if (difficulty === "easy") return indexes.filter((index) => index > 0 && index < letters.length - 1);
+  if (difficulty === "easy") return indexes.filter((index) => index > 0 && index < item.word.length - 1);
   return indexes.filter((index) => index > 0);
 }
 function generateMissingLetterTask(difficulty, stufe = "mittel") {
   const pool = wordsForReadingDifficulty(difficulty, stufe)
     .filter((item) => item.allowedTaskTypes.includes("missingLetter"))
-    .filter((item) => difficulty !== "easy" || stufe === "schwer" || item.word.length <= 5);
+    .filter((item) => difficulty !== "easy" || stufe === "schwer" || item.word.length <= 5)
+    .filter((item) => missingLetterIndexes(item, difficulty, stufe).length > 0);
   const item = pickRandom(pool);
   const letters = [...item.word];
   const missingIndex = pickRandom(missingLetterIndexes(item, difficulty, stufe));
@@ -1000,14 +1046,18 @@ function generateUniquePracticeTask(taskFactory, difficulty, usedKeys = []) {
 }
 
 // --- Buchstaben-Jagd (letterPuzzle) ---
+// Jedes Bild muss das Wort sagen, das ein Kind hier dazu sagt: zum Schweinchen
+// sagt keines «Ferkel», zum Keks sagt man in der Schweiz «Guetzli», und
+// «Ballon» klingt am Schluss nach «ng». Welche Frage zu welchem Wort passt,
+// entscheiden die Laut-Steine (anfangHoerbar, endeHoerbar, letterGapIndexes).
 const LETTER_ITEMS = [
   { emoji: "🍌", word: "Banane" }, { emoji: "🍎", word: "Apfel" }, { emoji: "🐶", word: "Hund" },
   { emoji: "🐱", word: "Katze" }, { emoji: "🚗", word: "Auto" }, { emoji: "🌳", word: "Baum" },
   { emoji: "🏠", word: "Haus" }, { emoji: "🐟", word: "Fisch" }, { emoji: "🌙", word: "Mond" },
   { emoji: "☀️", word: "Sonne" }, { emoji: "🌼", word: "Blume" }, { emoji: "🐭", word: "Maus" },
   { emoji: "🍅", word: "Tomate" }, { emoji: "🚀", word: "Rakete" }, { emoji: "🐰", word: "Hase" },
-  { emoji: "🎈", word: "Ballon" }, { emoji: "🐷", word: "Ferkel" }, { emoji: "🍄", word: "Pilz" },
-  { emoji: "🦆", word: "Ente" }, { emoji: "🐝", word: "Biene" }, { emoji: "🍪", word: "Keks" },
+  { emoji: "🦔", word: "Igel" }, { emoji: "🦊", word: "Fuchs" }, { emoji: "🍄", word: "Pilz" },
+  { emoji: "🦆", word: "Ente" }, { emoji: "🐝", word: "Biene" }, { emoji: "👑", word: "Krone" },
   { emoji: "🌈", word: "Regenbogen" }, { emoji: "🦁", word: "Löwe" }, { emoji: "🐮", word: "Kuh" },
 ];
 const LETTER_ALPHABET = "ABCDEFGHIJKLMNOPRSTUWZ".split("");
@@ -1036,10 +1086,21 @@ function letterModesFor(difficulty, stufe) {
   return table[difficulty] || table.easy;
 }
 const lastLetterOf = (word) => word.toUpperCase().at(-1);
+// Die Lücke liegt mitten im Wort und nur auf einem Buchstaben, der allein
+// einen Laut trägt: Fu_hs mit C wäre keine Aufgabe, sondern eine Falle.
+function letterGapIndexes(word) {
+  return einzelLautIndexe(word).filter((index) => index > 0 && index < word.length - 1);
+}
+function letterItemFits(item, mode) {
+  if (mode === "start" || mode === "wordStart") return anfangHoerbar(item.word);
+  if (mode === "end" || mode === "wordEnd") return endeHoerbar(item.word);
+  if (mode === "gap") return letterGapIndexes(item.word).length > 0;
+  return true;
+}
 function generateLetterTask(difficulty, stufe = currentStufe(), wantedMode = null) {
   const modes = letterModesFor(difficulty, stufe);
   const mode = modes.includes(wantedMode) || ["start", "end", "gap", "wordStart", "wordEnd"].includes(wantedMode) ? wantedMode : pickRandom(modes);
-  const item = pickRandom(LETTER_ITEMS);
+  const item = pickRandom(LETTER_ITEMS.filter((candidate) => letterItemFits(candidate, mode)));
   const word = item.word.toUpperCase();
   const optionCount = letterOptionCount(difficulty, stufe);
   if (mode === "wordStart" || mode === "wordEnd") {
@@ -1055,7 +1116,7 @@ function generateLetterTask(difficulty, stufe = currentStufe(), wantedMode = nul
       correctAnswer: item.word, questionText: question, speakText: question,
     };
   }
-  const gapIndex = mode === "gap" ? randomInt(1, word.length - 2) : mode === "end" ? word.length - 1 : 0;
+  const gapIndex = mode === "gap" ? pickRandom(letterGapIndexes(word)) : mode === "end" ? word.length - 1 : 0;
   const correct = word[gapIndex];
   const distractors = shuffleOptions(LETTER_ALPHABET.filter((letter) => letter !== correct)).slice(0, optionCount + 2);
   const options = ensureUniqueTextOptions(correct, distractors, optionCount);
@@ -1439,9 +1500,11 @@ if (typeof window !== "undefined") {
     generateReadingTask,
     generateLetterTask,
     validateReadingTask,
+    spokenTaskText,
     validateSpatialTasks,
     readingTaskTypes: READING_TASK_TYPES,
     letterModes: LETTER_MODES,
+    letterItems: LETTER_ITEMS,
     ensureUniqueOptions,
     shuffleOptions,
     readingWords: READING_WORD_ITEMS,
@@ -2420,13 +2483,26 @@ function answerPracticeTask(answer, taskFactory, messages, nextStatus = "Neue Au
   render();
   playJingle("retry");
 }
+// Der Wortdetektiv ist ein Lesespiel: Der Lautsprecher liest die Frage, nie
+// die Lösung. Läse er das gesuchte Wort oder den richtigen Satz vor, wäre aus
+// dem Lesen ein Zuhören geworden. Nur wo ein Buchstabe oder eine Silbe fehlt,
+// darf er das Wort nennen – das Bild verrät es ohnehin, und herauszuhören, was
+// fehlt, ist dann die Aufgabe. Gross geschriebene Wörter gehen in kleiner
+// Schrift an die Stimme, damit sie sie nicht buchstabiert.
+function readingSpokenText(task) {
+  const prompt = task.prompt || "Lies genau.";
+  if ((task.taskType === "missingLetter" || task.taskType === "missingSyllable") && task.fullText) {
+    return `${prompt} Das Wort heisst ${titleCaseWord(task.fullText)}.`;
+  }
+  return prompt;
+}
 function spokenTaskText(task) {
   if (!task) return "";
   switch (task.puzzleType) {
     case "letterPuzzle":
       return task.speakText || "Mit welchem Buchstaben beginnt das Wort?";
     case "readingPuzzle":
-      return task.fullText || task.prompt || task.displayText || "Lies genau.";
+      return readingSpokenText(task);
     default:
       return task.speakText || task.questionText || "";
   }

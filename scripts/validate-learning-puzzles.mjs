@@ -49,6 +49,47 @@ function optionIsUnique(task) {
   return new Set(task.options).size === task.options.length;
 }
 
+// Laut-Steine, hier noch einmal unabhängig von app.js gerechnet: Was zwei oder
+// drei Buchstaben braucht, ist trotzdem ein Laut. Eine Frage nach Anfang, Ende
+// oder Lücke darf nie mitten in einen solchen Stein fallen.
+const STEINE = ["SCH", "CH", "CK", "EI", "AI", "AU", "ÄU", "EU", "IE", "PF", "QU", "NG"];
+function steineVon(word) {
+  const upper = word.toUpperCase();
+  const steine = [];
+  let index = 0;
+  while (index < upper.length) {
+    const text = STEINE.find((stein) => upper.startsWith(stein, index)) || upper[index];
+    steine.push({ text, start: index });
+    index += text.length;
+  }
+  return steine;
+}
+const SELBSTLAUT_ENDE = /[AEIOUÄÖÜ]$/;
+// Steht an dieser Stelle ein einzelner Buchstabe, den man auch hört?
+function einzelnerLautAn(word, index) {
+  const steine = steineVon(word);
+  const nr = steine.findIndex((stein) => stein.start === index);
+  if (nr < 0 || steine[nr].text.length !== 1) return false;
+  if (steine[nr].text !== "H") return true;
+  const vorher = steine[nr - 1]?.text || "";
+  const nachher = steine[nr + 1]?.text || "";
+  return !(SELBSTLAUT_ENDE.test(vorher) && !/^[AEIOUÄÖÜ]/.test(nachher));
+}
+function anfangHoerbar(word) {
+  return einzelnerLautAn(word, 0) && !/^S[TP]/i.test(word);
+}
+function endeHoerbar(word) {
+  const letzter = steineVon(word).at(-1);
+  return einzelnerLautAn(word, letzter.start) && !["B", "D", "G", "R"].includes(letzter.text);
+}
+
+function validateSteine() {
+  assert(steineVon("Fisch").map((stein) => stein.text).join("|") === "F|I|SCH", "Fisch should be three sounds");
+  assert(steineVon("Auto").map((stein) => stein.text).join("|") === "AU|T|O", "Auto should start with au");
+  assert(!endeHoerbar("Fisch") && !endeHoerbar("Kuh") && !endeHoerbar("Hund") && !endeHoerbar("Mond") && endeHoerbar("Fuchs"), "the end rule is off");
+  assert(!anfangHoerbar("Auto") && !anfangHoerbar("Stern") && anfangHoerbar("Apfel"), "the start rule is off");
+}
+
 function validateReadingTask(task, label) {
   assert(api.validateReadingTask(task), `${label} failed validator`);
   assert(task.imageKey, `${label} has no imageKey`);
@@ -85,6 +126,20 @@ function validateReading() {
           if (taskType === "missingLetter" || taskType === "missingSyllable") {
             assert(task.displayText.split(" ").filter((part) => part === "_").length === 1, `${taskType} should have exactly one gap`);
           }
+          if (taskType === "missingLetter") {
+            assert(einzelnerLautAn(task.fullText, task.missingIndex), `reading ${stufe} ${difficulty}: the gap in ${task.displayText} splits a sound`);
+          }
+          // Der Lautsprecher liest die Frage, nie die Lösung – ausser wo ein
+          // Buchstabe oder eine Silbe fehlt: dort nennt er das Wort, klein
+          // geschrieben, damit die Stimme es nicht buchstabiert.
+          const spoken = api.spokenTaskText(task);
+          assert(spoken, `reading ${stufe} ${difficulty} ${taskType} says nothing`);
+          if (taskType === "missingLetter" || taskType === "missingSyllable") {
+            assert(spoken.includes(task.fullText.charAt(0) + task.fullText.slice(1).toLowerCase()) && !spoken.includes(task.fullText), `${taskType}: the speaker should name the word in small letters`);
+          } else {
+            assert(!spoken.toLowerCase().includes(task.correctAnswer.toLowerCase()), `${taskType}: the speaker gives away "${task.correctAnswer}"`);
+            if (task.fullText) assert(!spoken.toLowerCase().includes(task.fullText.toLowerCase()), `${taskType}: the speaker reads the solution`);
+          }
           if (taskType === "sentenceMatch") {
             assert(task.options.every((option) => option.endsWith(".")), "sentenceMatch options should be sentences");
           }
@@ -104,6 +159,11 @@ function validateReading() {
 
 // Die Buchstaben-Jagd: jede Frageart je Welt und Stufe.
 function validateLetters() {
+  // Bilder, zu denen ein Kind hier ein anderes Wort sagt: Schweinchen statt
+  // Ferkel, Guetzli statt Keks – und «Ballon» endet hörbar auf «ng».
+  const words = api.letterItems.map((item) => item.word);
+  ["Ferkel", "Keks", "Ballon"].forEach((word) => assert(!words.includes(word), `letter hunt should not ask for ${word}`));
+  assert(new Set(words).size === words.length, "letter hunt has a word twice");
   const modes = api.letterModes;
   const known = ["start", "end", "gap", "wordStart", "wordEnd"];
   assert(modes && stufen.every((stufe) => difficulties.every((difficulty) => modes[stufe][difficulty]?.length)), "every stufe/world needs letter modes");
@@ -125,16 +185,24 @@ function validateLetters() {
           assert(task.options.length >= 3 && task.options.length <= 4, `${label} has ${task.options.length} options`);
           assert(task.questionText && task.speakText, `${label} has no question`);
           const word = task.word;
-          if (mode === "start") assert(task.correctAnswer === word[0] && task.gapIndex === 0, `${label}: wrong answer`);
-          if (mode === "end") assert(task.correctAnswer === word.at(-1) && task.gapIndex === word.length - 1, `${label}: wrong answer`);
+          if (mode === "start") {
+            assert(task.correctAnswer === word[0] && task.gapIndex === 0, `${label}: wrong answer`);
+            assert(anfangHoerbar(word), `${label}: ${task.item.word} does not start with a single sound`);
+          }
+          if (mode === "end") {
+            assert(task.correctAnswer === word.at(-1) && task.gapIndex === word.length - 1, `${label}: wrong answer`);
+            assert(endeHoerbar(word), `${label}: at the end of ${task.item.word} one hears something else than ${task.correctAnswer}`);
+          }
           if (mode === "gap") {
             assert(task.gapIndex > 0 && task.gapIndex < word.length - 1 && task.correctAnswer === word[task.gapIndex], `${label}: gap outside the word`);
+            assert(einzelnerLautAn(word, task.gapIndex), `${label}: the gap in ${task.item.word} splits a sound`);
             assert(!task.questionText.includes(task.item.word), `${label}: the question gives the word away`);
           }
           if (mode === "wordStart" || mode === "wordEnd") {
             const pick = (option) => (mode === "wordStart" ? option[0] : option.at(-1)).toUpperCase();
             assert(task.correctAnswer === task.item.word && pick(task.correctAnswer) === task.letter, `${label}: wrong answer`);
             assert(task.options.filter((option) => pick(option) === task.letter).length === 1, `${label}: two words fit the letter`);
+            assert(mode === "wordStart" ? anfangHoerbar(task.item.word) : endeHoerbar(task.item.word), `${label}: ${task.item.word} does not fit the letter by its sound`);
           }
         }
       }
@@ -202,6 +270,7 @@ function validateCatalog() {
   }
 }
 
+validateSteine();
 validateReading();
 validateLetters();
 validateSpatial();
