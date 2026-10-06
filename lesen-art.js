@@ -581,12 +581,20 @@
     svg.append(el("rect", { x: -400, y: 520, width: 2000, height: 400, fill: FARBE.boden }));
     for (let x = -400; x < 1600; x += 90) svg.append(el("rect", { x, y: 520, width: 3, height: 400, fill: shade(FARBE.boden, -0.15) }));
     svg.append(el("rect", { x: -400, y: 512, width: 2000, height: 14, fill: FARBE.holzDunkel }));
-    // Fenster mit Himmel und Hügeln
+    // Fenster mit Himmel und Hügeln. Durch beide sieht man dieselbe Landschaft,
+    // als ein Bild hinter der Wand – darum steht die Sonne nur im rechten.
+    // (Zwei Sonnen, eine je Fenster, fielen einem Kind sofort auf.)
+    const [links, rechts] = FENSTER;
+    defs.append(el("clipPath", { id: "lese-ausblick" }, FENSTER.map(([x, y]) => el("rect", { x, y, width: 200, height: 150, rx: 18 }))));
+    const unten = links[1] + 150;
+    svg.append(group({ class: "lesezimmer-ausblick", "clip-path": "url(#lese-ausblick)" }, [
+      el("rect", { x: links[0], y: links[1], width: rechts[0] + 200 - links[0], height: 150, fill: "#a8ddf0" }),
+      el("path", { d: `M${links[0]} ${unten - 30} Q${links[0] + 60} ${unten - 74} ${links[0] + 130} ${unten - 40} T${links[0] + 330} ${unten - 46} T${links[0] + 470} ${unten - 38} T${rechts[0] + 200} ${unten - 54} L${rechts[0] + 200} ${unten} L${links[0]} ${unten} Z`, fill: "#8fcf7a" }),
+      el("circle", { class: "lesezimmer-sonne", cx: rechts[0] + 150, cy: rechts[1] + 42, r: 16, fill: "#ffd166" }),
+    ]));
     FENSTER.forEach(([x, y]) => {
       svg.append(group({ class: "lesezimmer-fenster" }, [
-        el("rect", { x, y, width: 200, height: 150, rx: 18, fill: "#a8ddf0", stroke: FARBE.holzDunkel, "stroke-width": 10 }),
-        el("path", { d: `M${x + 6} ${y + 120} Q${x + 60} ${y + 80} ${x + 110} ${y + 112} T${x + 194} ${y + 100} L${x + 194} ${y + 144} L${x + 6} ${y + 144} Z`, fill: "#8fcf7a" }),
-        el("circle", { cx: x + 150, cy: y + 42, r: 16, fill: "#ffd166" }),
+        el("rect", { x, y, width: 200, height: 150, rx: 18, fill: "none", stroke: FARBE.holzDunkel, "stroke-width": 10 }),
         el("rect", { x: x + 96, y, width: 8, height: 150, fill: FARBE.holzDunkel }),
       ]));
     });

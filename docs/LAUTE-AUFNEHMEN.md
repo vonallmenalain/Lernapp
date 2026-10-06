@@ -7,8 +7,9 @@ lassen sich Laute zu Wörtern zusammenziehen – «mmm» und «aaa» werden «Ma
 kann das nicht: Bei einem einzelnen Buchstaben sagt sie seinen Namen. Darum braucht es
 Aufnahmen einer echten Stimme, am besten einer ruhigen, vertrauten.
 
-Bis die Aufnahmen da sind, spricht die App die Selbst- und Zwielaute (a, e, i, o, u, ä, ö, ü,
-ei, au, eu, ie) mit der Sprachausgabe; alle anderen Laute bleiben stumm und werden nur gezeigt.
+Seit dem 6. Oktober 2026 sind alle 36 Laute aufgenommen (`lesen-laute.js`, zusammen gut 500 KB).
+Fehlt einmal ein Laut, spricht die App die Selbst- und Zwielaute (a, e, i, o, u, ä, ö, ü, ei,
+au, eu, ie) mit der Sprachausgabe; alle anderen Laute bleiben stumm und werden nur gezeigt.
 
 ## So geht es
 
