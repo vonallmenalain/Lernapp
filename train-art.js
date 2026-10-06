@@ -410,6 +410,26 @@
       ]),
     ]);
 
+    // --- Der Lesewurm fährt mit ---
+    // Ist der Lesewagen in der Leseecke ganz eingerichtet, schaut der
+    // Lesewurm neben dem Chauffeur aus dem Fenster: klein, unten links, hinter
+    // dem Rahmen wie das Tier. Kein Knopf – die Werkstatt bleibt, wo sie ist.
+    const lesewurm = c.lesewurm
+      ? group({ "data-part": "lesewurm", "clip-path": `url(#${clipId})`, "pointer-events": "none", "aria-hidden": "true" }, [
+        group({ transform: "translate(27 109)" }, [
+          el("circle", { cx: 0, cy: 10, r: 7, fill: "#4f9a35" }),
+          el("circle", { cx: 0, cy: 0, r: 8, fill: "#7ac74f" }),
+          el("path", { d: "M2 -7 q4 -8 9 -6", stroke: "#4f9a35", "stroke-width": 1.6, fill: "none", "stroke-linecap": "round" }),
+          el("circle", { cx: 11, cy: -13, r: 1.8, fill: "#ef6fa8" }),
+          el("circle", { cx: -2.6, cy: -1, r: 2.6, fill: "#ffffff" }),
+          el("circle", { cx: 3.4, cy: -1, r: 2.6, fill: "#ffffff" }),
+          el("circle", { cx: -2, cy: -0.6, r: 1.2, fill: "#243047" }),
+          el("circle", { cx: 4, cy: -0.6, r: 1.2, fill: "#243047" }),
+          el("path", { d: "M-2 4 q2.5 2.5 5 0", stroke: "#243047", "stroke-width": 1.2, fill: "none", "stroke-linecap": "round" }),
+        ]),
+      ])
+      : null;
+
     // Der Fensterrahmen kommt über den Chauffeur: so sitzt das Tier sichtbar
     // hinter dem Fenster und nicht davor aufgeklebt.
     const windowFrame = group({ "data-part": "window", "aria-hidden": "true" }, [
@@ -565,7 +585,7 @@
     // sehen ist kein Unterschied: Die Wolken werden erst über dem Kamin
     // sichtbar.
     return group({ class: "train-loco", "data-loco": "true" },
-      [defs, flag, frame, cab, driver, windowFrame, boiler, whistle, chimney, lamp, wheels, plough, steam, sparkle].filter(Boolean));
+      [defs, flag, frame, cab, driver, lesewurm, windowFrame, boiler, whistle, chimney, lamp, wheels, plough, steam, sparkle].filter(Boolean));
   }
 
   // ---------------------------------------------------------------------------
@@ -1592,8 +1612,8 @@
       svg.append(wagon);
     });
 
-    const loco = buildLoco(options.journeyStars || options.journeyGold || options.sparkle
-      ? { ...config, journeyStars: options.journeyStars || 0, journeyGold: options.journeyGold || 0, sparkle: Boolean(options.sparkle) }
+    const loco = buildLoco(options.journeyStars || options.journeyGold || options.sparkle || options.lesewurm
+      ? { ...config, journeyStars: options.journeyStars || 0, journeyGold: options.journeyGold || 0, sparkle: Boolean(options.sparkle), lesewurm: Boolean(options.lesewurm) }
       : config);
     loco.setAttribute("transform", `translate(${pad + areas.length * (WAGON_W + gap)},0)`);
     svg.append(loco);

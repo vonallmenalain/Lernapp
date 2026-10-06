@@ -626,6 +626,7 @@ const SZENARIEN = [
       { name: "Auswahl Buchstaben", tun: async (blatt) => { await tippe(blatt, ".lese-wahl-zu"); await pause(blatt, 200); await tippe(blatt, '.lesezimmer-svg [data-ort="buchstaben"]'); await pause(blatt, 500); } },
       { name: "Auswahl Sätze", tun: async (blatt) => { await tippe(blatt, ".lese-wahl-zu"); await pause(blatt, 200); await tippe(blatt, '.lesezimmer-svg [data-ort="saetze"]'); await pause(blatt, 500); } },
       { name: "Auswahl Bücher", tun: async (blatt) => { await tippe(blatt, ".lese-wahl-zu"); await pause(blatt, 200); await tippe(blatt, '.lesezimmer-svg [data-ort="buecher"]'); await pause(blatt, 500); } },
+      { name: "Auswahl Lesedetektive", tun: async (blatt) => { await tippe(blatt, ".lese-wahl-zu"); await pause(blatt, 200); await tippe(blatt, '.lesezimmer-svg [data-ort="detektiv"]'); await pause(blatt, 500); } },
     ],
   },
   // Der Lesewagen ganz eingerichtet: alle fünfzehn Dinge, und der Wurm lang.
@@ -785,6 +786,38 @@ const SZENARIEN = [
         }
         await pause(blatt, 600);
       } },
+    ],
+  },
+  // Wer bin ich?: der Zettel mit allen fünf Hinweisen und ein durchgestrichenes
+  // Bild; auf «leicht» drei Bilder.
+  {
+    seite: "werbinich",
+    schritte: [
+      { name: "Los", tun: async () => {} },
+      { name: "Erster Hinweis", tun: async (blatt) => { await tippe(blatt, ".lese-los-knopf"); await pause(blatt, 500); } },
+      { name: "Alle Hinweise", tun: async (blatt) => {
+        await blatt.evaluate(() => { for (let i = 0; i < 4; i += 1) document.querySelector(".wi-mehr")?.click(); });
+        await tippe(blatt, ".wi-bild:not([data-richtig])");
+        await pause(blatt, 400);
+      } },
+    ],
+  },
+  {
+    seite: "werbinich",
+    titel: "werbinich-leicht",
+    speicher: { "lernapp.reise": JSON.stringify({ stufe: "leicht", stufeAt: 1 }) },
+    schritte: [
+      { name: "Drei Bilder", tun: async (blatt) => { await tippe(blatt, ".lese-los-knopf"); await pause(blatt, 500); } },
+    ],
+  },
+  // Wortbaustelle: bauen, dann das längste Wort zum Zerlegen und auseinander.
+  {
+    seite: "wortbaustelle",
+    schritte: [
+      { name: "Los", tun: async () => {} },
+      { name: "Bauen", tun: async (blatt) => { await tippe(blatt, ".lese-los-knopf"); await pause(blatt, 500); } },
+      { name: "Langes Wort", tun: async (blatt) => { await blatt.evaluate(() => window.LernappWortbaustelle.uebe("Rüeblikuchen")); await pause(blatt, 400); } },
+      { name: "Zerlegt", tun: async (blatt) => { await tippe(blatt, '.ws-buchstabe[data-nr="6"]'); await pause(blatt, 400); } },
     ],
   },
   // Das Malen auf «schwer»: grosse und kleine Bilder nebeneinander.

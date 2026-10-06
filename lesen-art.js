@@ -325,6 +325,42 @@
     ];
   }
 
+  // Die Pinnwand der Lesedetektive zwischen den Fenstern: Kork, darauf ein
+  // Steckbrief, eine Postkarte und ein Zettel mit Fragezeichen, davor eine
+  // Lupe. Ausschnitt um die Mitte oben (0, 0), 164 breit, 140 hoch – darunter
+  // bleibt Platz für den Kopf des Lesewurms, auch wenn er ganz gross ist.
+  function pinnwand() {
+    const nadel = (x, y, farbe) => el("circle", { cx: x, cy: y, r: 4.5, fill: farbe, stroke: shade(farbe, -0.3), "stroke-width": 1.5 });
+    const frage = el("text", { x: 0, y: 11, "text-anchor": "middle", "font-size": 30, "font-weight": 700, "font-family": "Andika, Inter, system-ui, sans-serif", fill: FARBE.tinte });
+    frage.textContent = "?";
+    return [
+      el("rect", { x: -82, y: 0, width: 164, height: 140, rx: 10, fill: FARBE.holzDunkel }),
+      el("rect", { x: -72, y: 10, width: 144, height: 120, rx: 6, fill: "#d2a56b" }),
+      ...[[-52, 24], [-14, 120], [28, 18], [60, 76], [-62, 100], [10, 62], [62, 120]].map(([x, y]) => el("circle", { cx: x, cy: y, r: 2, fill: "#b8864f" })),
+      group({ transform: "translate(-34 68) rotate(-6)" }, [
+        el("rect", { x: -27, y: -40, width: 54, height: 72, rx: 3, fill: "#fffaf0" }),
+        el("rect", { x: -19, y: -32, width: 38, height: 28, rx: 3, fill: "#a8ddf0" }),
+        el("circle", { cx: 0, cy: -19, r: 8, fill: "#f5a623" }),
+        el("path", { d: "M-19 6 h38 M-19 14 h30 M-19 22 h34", stroke: "#7c8a99", "stroke-width": 3, "stroke-linecap": "round" }),
+      ]),
+      group({ transform: "translate(36 48) rotate(5)" }, [
+        el("rect", { x: -32, y: -22, width: 64, height: 44, rx: 3, fill: "#ffffff" }),
+        el("rect", { x: 12, y: -16, width: 14, height: 16, rx: 2, fill: "#e8543f" }),
+        el("path", { d: "M-26 -10 h30 M-26 0 h26 M-26 10 h32", stroke: "#2f6f8f", "stroke-width": 2.5, "stroke-linecap": "round" }),
+      ]),
+      group({ transform: "translate(40 100) rotate(-4)" }, [
+        el("rect", { x: -18, y: -18, width: 36, height: 36, rx: 2, fill: "#ffd166" }),
+        frage,
+      ]),
+      nadel(-34, 30, "#e8543f"), nadel(36, 28, "#3fa34d"), nadel(40, 84, "#2f6fd0"),
+      group({ transform: "translate(-52 106) rotate(-30)" }, [
+        el("rect", { x: -4, y: 11, width: 8, height: 22, rx: 4, fill: FARBE.holzDunkel }),
+        el("circle", { cx: 0, cy: 0, r: 15, fill: "#d8f1fb", stroke: FARBE.tinte, "stroke-width": 5 }),
+        el("path", { d: "M-7 -6 q5 -6 12 -4", stroke: "#ffffff", "stroke-width": 3, fill: "none", "stroke-linecap": "round" }),
+      ]),
+    ];
+  }
+
   // Die Lampe von der Decke – ihr Licht fällt auf den Sessel.
   function lampe() {
     return [
@@ -563,6 +599,7 @@
 
     svg.append(ort("buchstaben", "Das Buchstabenhaus", "translate(48 150)", buchstabenhausWand()));
     svg.append(ort("buecher", "Das Bücherregal", "translate(940 172)", buecherregal(gelesen)));
+    svg.append(ort("detektiv", "Die Pinnwand der Lesedetektive", "translate(595 148)", pinnwand()));
     svg.append(ort("weiter", "Der Lesewurm im Sessel: Er sucht dir etwas aus", "translate(590 400)", [
       ...sessel(),
       da("kissen"),

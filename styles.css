@@ -13413,3 +13413,121 @@ body[data-page="laute-aufnehmen"] {
   .gz-zug.kommt-an, .gz-dran, .gz-wagen.zeigt-hin { animation: none; }
   .gz-zug.faehrt-ab { animation: none; opacity: 0; }
 }
+
+/* --- Wer bin ich? --- */
+/* Links der Zettel mit den Hinweisen, rechts die Bilder zum Raten. */
+.wi-mitte { display: flex; align-items: center; justify-content: center; gap: clamp(12px, 4vw, 48px); width: min(96vw, 1100px); }
+.wi-zettel {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  max-width: 480px;
+  padding: clamp(8px, 2.6vh, 16px) clamp(10px, 2vw, 18px);
+  border-radius: 6px 18px 6px 18px;
+  background: #fffaf0;
+  box-shadow: 0 8px 18px rgba(36, 48, 71, 0.18);
+}
+.wi-hinweise {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding-left: 1.5em;
+  color: #243047;
+  font-family: "Andika", Inter, system-ui, sans-serif;
+  font-size: clamp(0.9rem, 4.6vh, 1.45rem);
+  font-weight: 700;
+}
+.wi-hinweis { min-height: 0; padding: 1px 6px; border: none; border-radius: 8px; background: none; color: inherit; font: inherit; line-height: 1.22; text-align: left; }
+.wi-hinweis:hover:not(:disabled) { background: #fff1c2; }
+.wi-hinweis.ist-neu { background: #fff1c2; }
+.wi-mehr {
+  display: inline-flex;
+  align-self: flex-start;
+  align-items: center;
+  gap: 6px;
+  min-height: 0;
+  padding: 5px 14px;
+  border-radius: 999px;
+  background: #2f6fd0;
+  color: #ffffff;
+  font-size: clamp(0.8rem, 3.6vh, 1.1rem);
+  font-weight: 800;
+}
+.wi-mehr:disabled { opacity: 0.4; }
+.wi-mehr-bild { font-size: 1.2em; line-height: 1; }
+.wi-bilder { display: grid; flex: none; grid-template-columns: repeat(2, auto); gap: clamp(8px, 2vh, 16px); }
+.wi-bilder[data-anzahl="3"] { grid-template-columns: repeat(3, auto); }
+.wi-bild {
+  position: relative;
+  width: clamp(64px, 22vh, 150px);
+  height: clamp(64px, 22vh, 150px);
+  min-height: 0;
+  padding: 0;
+  border: 4px solid #ffffff;
+  border-radius: 24px;
+  background: #ffffff;
+  box-shadow: 0 6px 14px rgba(36, 48, 71, 0.18);
+  font-size: clamp(2.2rem, 13vh, 5.4rem);
+  line-height: 1;
+}
+.wi-bild:hover:not(:disabled) { background: #ffffff; border-color: #ffd166; }
+.wi-bild.ist-falsch { opacity: 0.4; }
+.wi-bild.ist-falsch::after { content: ""; position: absolute; inset: 14%; background: linear-gradient(45deg, transparent 46%, #e8543f 46%, #e8543f 54%, transparent 54%), linear-gradient(-45deg, transparent 46%, #e8543f 46%, #e8543f 54%, transparent 54%); }
+.wi-bild.ist-richtig { border-color: #3fbf74; background: #c9f2d6; }
+.wi-bild.ist-weg { opacity: 0.25; }
+
+/* --- Wortbaustelle --- */
+/* Oben der Kran mit der Last, darunter die Frage und die Teile. */
+.ws-oben { display: flex; align-items: flex-start; justify-content: center; }
+.ws-kran { flex: none; width: clamp(56px, 17vh, 116px); height: auto; }
+.ws-last { display: flex; align-items: center; gap: 10px; margin-top: clamp(16px, 6vh, 44px); min-height: clamp(64px, 22vh, 150px); }
+.ws-teil {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-width: clamp(76px, 22vh, 150px);
+  min-height: 0;
+  padding: 6px 12px;
+  border: 4px solid #ffffff;
+  border-radius: 16px;
+  background: #ffffff;
+  box-shadow: 0 6px 12px rgba(36, 48, 71, 0.16);
+  color: #243047;
+}
+.ws-wahl:hover:not(:disabled) { background: #ffffff; border-color: #ffd166; }
+.ws-erster { border-color: #f5a623; }
+.ws-last.ist-fertig .ws-teil { border-color: #3fbf74; }
+.ws-bild { font-size: clamp(1.5rem, 8.5vh, 3.2rem); line-height: 1; }
+.ws-wort { font-family: "Andika", Inter, system-ui, sans-serif; font-size: clamp(1rem, 5vh, 1.7rem); font-weight: 700; }
+.ws-frage { margin: 0; padding: 2px 14px; border-radius: 12px; background: rgba(255, 255, 255, 0.85); color: #243047; font-family: "Andika", Inter, system-ui, sans-serif; font-size: clamp(0.95rem, 4.4vh, 1.4rem); font-weight: 700; }
+.ws-unten { display: flex; align-items: center; justify-content: center; gap: clamp(8px, 2vw, 20px); min-height: clamp(64px, 22vh, 150px); }
+.ws-wahl.ist-falsch { opacity: 0.45; }
+.ws-wahl.ist-richtig { border-color: #3fbf74; background: #c9f2d6; }
+.ws-wahl.zeigt-hin, .ws-buchstabe.zeigt-hin { animation: lese-zeigt-hin 0.9s ease-in-out infinite; }
+.ws-langwort { display: flex; gap: 3px; padding: 8px 10px; border-radius: 14px; background: #f5a623; box-shadow: 0 6px 12px rgba(36, 48, 71, 0.18); }
+.ws-buchstabe {
+  width: clamp(26px, 5.8vw, 54px);
+  height: clamp(44px, 15vh, 76px);
+  min-height: 0;
+  padding: 0;
+  border: none;
+  border-radius: 10px;
+  background: #fffaf0;
+  color: #243047;
+  font-family: "Andika", Inter, system-ui, sans-serif;
+  font-size: clamp(1.25rem, 8vh, 2.6rem);
+  font-weight: 700;
+}
+.ws-buchstabe:hover:not(:disabled) { background: #ffffff; }
+.ws-buchstabe:disabled { opacity: 1; cursor: default; }
+.ws-buchstabe.ist-falsch { background: #ffe1dc; animation: lese-stoesst 0.5s ease-out; }
+.ws-ganz { display: flex; align-items: center; gap: 10px; margin: 0; padding: 6px 18px; border-radius: 16px; background: #c9f2d6; color: #243047; }
+
+@media (prefers-reduced-motion: reduce) {
+  .ws-wahl.zeigt-hin, .ws-buchstabe.zeigt-hin, .ws-buchstabe.ist-falsch { animation: none; }
+}

@@ -7,7 +7,7 @@
  *
  *   Startbild     Der Lesewagen steht auf jedem Bildschirm im Bild, gross
  *                 genug zum Antippen, und deckt keinen anderen Knopf zu.
- *                 Ein Tipp öffnet das Zimmer mit seinen sechs Orten.
+ *                 Ein Tipp öffnet das Zimmer mit seinen sieben Orten.
  *   Die Orte      Jeder führt auf seine Seite; dort steht die Bühne, der Pfeil
  *                 zurück führt in den Lesewagen (index.html?lesen=1).
  *   Silbenzug     Eine ganze Runde, für jede Silbe ein Schlag: sechs von
@@ -114,7 +114,7 @@ try {
     }
   }
 
-  // Einsteigen: das Zimmer mit sechs Orten und dem Schild, der Lesewurm im Sessel.
+  // Einsteigen: das Zimmer mit sieben Orten und dem Schild, der Lesewurm im Sessel.
   await page.setViewportSize({ width: 1024, height: 640 });
   await oeffne("index.html", "document.querySelector('.lesewagen-knopf')");
   await page.waitForFunction(() => document.querySelector(".lesewagen-knopf")?.dataset.placed === "1", null, { timeout: 8000 }).catch(() => {});
@@ -128,7 +128,7 @@ try {
     zurueck: (() => { const k = document.querySelector(".stage-back"); return Boolean(k && !k.hidden && k.getBoundingClientRect().width > 20); })(),
   }));
   if (zimmer.ansicht !== "lesen") fehlt(`Lesewagen: nach dem Tipp ist die Ansicht ${zimmer.ansicht}, nicht lesen`);
-  if (zimmer.orte !== "buchstaben,buecher,saetze,silben,weiter,woerter,wurmname") fehlt(`Lesewagen: die Orte sind ${zimmer.orte}`);
+  if (zimmer.orte !== "buchstaben,buecher,detektiv,saetze,silben,weiter,woerter,wurmname") fehlt(`Lesewagen: die Orte sind ${zimmer.orte}`);
   if (!zimmer.wurm) fehlt("Lesewagen: der Lesewurm sitzt nicht im Sessel");
   if (!zimmer.zurueck) fehlt("Lesewagen: kein Pfeil zurück an den Zug");
   if (zimmer.hilfe && !/Lesewagen/.test(zimmer.hilfe)) fehlt(`Lesewagen: der Lautsprecher sagt etwas anderes: ${zimmer.hilfe.slice(0, 60)}`);
@@ -140,7 +140,7 @@ try {
   // Steht hinter einem Ding nur ein Spiel, geht es gleich los; stehen mehrere
   // dahinter, kommt die Auswahl – und jede Karte darin führt auf ihre Seite.
   const katalog = await page.evaluate(() => Object.entries(window.LernappLeseStand.SPIELE).map(([id, s]) => ({ id, page: s.page, ort: s.ort })));
-  const ORTE = ["silben", "buchstaben", "woerter", "saetze", "buecher"];
+  const ORTE = ["silben", "buchstaben", "woerter", "saetze", "buecher", "detektiv"];
   const zumOrt = async (ort) => {
     await oeffne("index.html?lesen=1", "document.querySelector('.lesezimmer-svg')");
     await page.waitForFunction(() => document.querySelector(".train-stage")?.dataset.view === "lesen", null, { timeout: 8000 }).catch(() => {});
@@ -907,6 +907,72 @@ try {
   await page.waitForFunction(() => window.LernappGeschichtenzug.nr() === 2, null, { timeout: 8000 }).catch(() => {});
   if ((await zaehler()) !== "1") fehlt("Geschichtenzug: eine Geschichte ohne Fehler zählt nicht");
 
+  // --- 6j. Etappe 4: Wer bin ich? und die Wortbaustelle -----------------------------------
+  // Wer bin ich?: Punkte nach der Zahl der Hinweise; ein falsches Bild kostet
+  // einen Hinweis. Am Schluss stellt sich das Rätsel vor.
+  await oeffne("werbinich.html", "window.LernappWerBinIch");
+  const wiRegel = await page.evaluate(() => { const d = window.LernappWerBinIch; return { punkte: [1, 2, 3, 4, 5].map(d.punkteFuer).join(","), runde: d.runde().length, eindeutig: new Set(d.runde().map((r) => r.id)).size }; });
+  if (wiRegel.punkte !== "3,3,2,1,1" || wiRegel.runde !== 6 || wiRegel.eindeutig !== 6) fehlt(`Wer bin ich?: ${JSON.stringify(wiRegel)}`);
+  await vergiss();
+  await page.locator(".lese-los-knopf").click();
+  await page.waitForSelector(".wi-bild", { timeout: 5000 }).catch(() => {});
+  const wi = await page.evaluate(() => ({ id: window.LernappWerBinIch.jetzt().id, wer: window.LernappWerBinIch.jetzt().wer, gezeigt: window.LernappWerBinIch.gezeigt(), zeilen: document.querySelectorAll(".wi-hinweis").length }));
+  if (wi.gezeigt !== 1 || wi.zeilen !== 1) fehlt(`Wer bin ich?: zu Beginn ${wi.zeilen} Hinweise statt einem`);
+  await page.locator(".wi-mehr").click();
+  await page.locator(".wi-bild:not([data-richtig])").first().click();
+  await page.waitForTimeout(150);
+  const wiNach = await page.evaluate(() => ({ gezeigt: window.LernappWerBinIch.gezeigt(), durch: document.querySelectorAll(".wi-bild.ist-falsch").length }));
+  if (wiNach.gezeigt !== 3 || wiNach.durch !== 1) fehlt(`Wer bin ich?: nach Lupe und falschem Bild ${JSON.stringify(wiNach)}`);
+  await page.locator('.wi-bild[data-richtig="1"]').click();
+  await page.waitForFunction(() => window.LernappWerBinIch.nr() === 1, null, { timeout: 6000 }).catch(() => {});
+  if ((await zaehler()) !== "2") fehlt(`Wer bin ich?: nach drei Hinweisen ${await zaehler()} Punkte statt 2`);
+  if (!(await gesagt()).some((t) => t.includes(`Ich bin ${wi.wer}.`))) fehlt("Wer bin ich?: das Rätsel stellt sich nicht vor");
+
+  // Wortbaustelle: je Stufe die richtigen Aufgaben; beim Bauen genau ein
+  // passender Teil, beim Zerlegen der Schnitt nach dem ersten Wort. Gespielt:
+  // ein falscher Teil wird vorgelesen und zählt nicht, ein Schnitt sitzt.
+  await oeffne("wortbaustelle.html", "window.LernappWortbaustelle");
+  for (const stufe of ["leicht", "mittel", "schwer"]) {
+    const probleme = await page.evaluate((st) => {
+      window.LernappLeseStand.stufe = () => st;
+      const fehler = [];
+      for (let i = 0; i < 20; i += 1) {
+        window.LernappWortbaustelle.aufgaben().forEach((a, nr) => {
+          const soll = st === "leicht" ? "bauen" : st === "schwer" ? "zerlegen" : (nr % 2 ? "zerlegen" : "bauen");
+          if (a.art !== soll) fehler.push(`${nr}: ${a.art} statt ${soll}`);
+          if (a.art === "bauen" && (a.wahl.length !== 3 || a.wahl.filter((t) => t.richtig).length !== 1 || a.wahl.find((t) => t.richtig).wort !== a.teile[1])) fehler.push(`${a.wort}: Wahl ${JSON.stringify(a.wahl)}`);
+          if (a.wort.slice(0, a.schnitt) !== a.teile[0]) fehler.push(`${a.wort}: Schnitt bei ${a.schnitt}`);
+        });
+      }
+      return [...new Set(fehler)].slice(0, 3);
+    }, stufe);
+    probleme.forEach((p) => fehlt(`Wortbaustelle (${stufe}): ${p}`));
+  }
+  await oeffne("wortbaustelle.html", "window.LernappWortbaustelle");
+  await vergiss();
+  await page.locator(".lese-los-knopf").click();
+  await page.waitForSelector(".ws-wahl", { timeout: 5000 }).catch(() => {});
+  const ws = await page.evaluate(() => window.LernappWortbaustelle.jetzt());
+  const wsFalsch = ws.wahl?.find((t) => !t.richtig);
+  if (!wsFalsch) fehlt(`Wortbaustelle: die erste Aufgabe auf «mittel» ist ${ws.art}, nicht bauen`);
+  else {
+    await page.locator(".ws-wahl:not([data-richtig])").first().click();
+    await page.waitForTimeout(150);
+    const unsinn = await gesagt();
+    if (!unsinn.some((t) => t.endsWith("Das gibt es nicht.") && t.startsWith(ws.teile[0]))) fehlt(`Wortbaustelle: der falsche Teil wird nicht vorgelesen (${unsinn.slice(-2).join(" | ")})`);
+    await page.locator('.ws-wahl[data-richtig="1"]').click();
+    await page.waitForFunction(() => window.LernappWortbaustelle.nr() === 1, null, { timeout: 6000 }).catch(() => {});
+    if (!(await gesagt()).includes(`${ws.teile[0]} und ${ws.teile[1]}: ${ws.wort}.`)) fehlt("Wortbaustelle: das fertige Wort wird nicht vorgelesen");
+    if ((await zaehler()) !== "0") fehlt("Wortbaustelle: nach einem falschen Teil zählt das Wort trotzdem");
+    const wz = await page.evaluate(() => window.LernappWortbaustelle.jetzt());
+    if (wz.art !== "zerlegen") fehlt(`Wortbaustelle: die zweite Aufgabe auf «mittel» ist ${wz.art}`);
+    else {
+      await page.locator(`.ws-buchstabe[data-nr="${wz.schnitt}"]`).click();
+      await page.waitForFunction(() => window.LernappWortbaustelle.nr() === 2, null, { timeout: 6000 }).catch(() => {});
+      if ((await zaehler()) !== "1") fehlt("Wortbaustelle: der richtige Schnitt zählt nicht");
+    }
+  }
+
   // --- 6d. Die Buchstaben der Schule --------------------------------------------------
   // Haben die Eltern abgehakt, wohnen genau diese Laute im Buchstabenhaus, und
   // Laute kuppeln nimmt nur Wörter, die sich damit lesen lassen.
@@ -1060,6 +1126,15 @@ try {
   await oeffne("index.html?lesen=1", "document.querySelector('.lesezimmer-svg')");
   if (await page.locator(".lese-ausbau.is-neu").count()) fehlt("Lesewagen: beim zweiten Besuch leuchtet noch etwas als neu");
 
+  // --- 10. Der Lesewurm fährt auf der Lok mit ----------------------------------------------
+  // Erst wenn der Lesewagen ganz eingerichtet ist (60 gelesene Stücke).
+  for (const [runden, soll] of [[59, false], [60, true]]) {
+    await page.evaluate((n) => localStorage.setItem("lernapp.lesen", JSON.stringify({ woerter: 500, spiele: { silbenzug: { runden: n, best: 6, zuletzt: 1 } }, buecher: {}, laute: {}, blitz: {} })), runden);
+    await oeffne("index.html", "document.querySelector('.train-band svg')");
+    const faehrt = await page.locator('.train-band [data-part="lesewurm"]').count();
+    if (Boolean(faehrt) !== soll) fehlt(`Lesewurm auf der Lok: nach ${runden} Stücken ${faehrt ? "fährt er mit" : "fährt er nicht mit"}`);
+  }
+
   if (fehler.length) fehlt(`Fehler auf den Seiten: ${[...new Set(fehler)].slice(0, 5).join(" | ")}`);
 } finally {
   await browser.close();
@@ -1071,4 +1146,4 @@ if (befunde.length) {
   befunde.forEach((b) => console.error(`  - ${b}`));
   process.exit(1);
 }
-console.log("Die Leseecke läuft: Lesewagen, Zimmer mit Auswahl, alle Spiele hin und zurück, eine Runde Silbenzug bis zum Tor, Laute kuppeln ohne verratenes Wort, Buchstabenhaus, der Würfel von «Stimmt das?», Reimkupplung, Anlaut-Lauscher, Wer fährt mit?, Wörter bauen, Silbenbahn, Blitzwörter, Mein Name, der Lesewurm bekommt seinen Namen, Lückensätze, Buchstabengleis, Satz kuppeln, Quatschsätze, Stolperwörter, Quatschwörter, Laut-Position, Buchstaben-Signal, Lies und tu!, Geschichtenzug, die Buchstaben der Schule, Hörbuch mit Nachsehen, Zusammen lesen, der Lesewurm wächst, und der Lesewagen wird gemütlich.");
+console.log("Die Leseecke läuft: Lesewagen, Zimmer mit Auswahl, alle Spiele hin und zurück, eine Runde Silbenzug bis zum Tor, Laute kuppeln ohne verratenes Wort, Buchstabenhaus, der Würfel von «Stimmt das?», Reimkupplung, Anlaut-Lauscher, Wer fährt mit?, Wörter bauen, Silbenbahn, Blitzwörter, Mein Name, der Lesewurm bekommt seinen Namen, Lückensätze, Buchstabengleis, Satz kuppeln, Quatschsätze, Stolperwörter, Quatschwörter, Laut-Position, Buchstaben-Signal, Lies und tu!, Geschichtenzug, Wer bin ich?, Wortbaustelle, die Buchstaben der Schule, Hörbuch mit Nachsehen, Zusammen lesen, der Lesewurm wächst, der Lesewagen wird gemütlich, und der Lesewurm fährt auf der Lok mit.");

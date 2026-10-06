@@ -850,7 +850,15 @@
   function journeyOf(account) {
     const reise = reiseApi();
     const fahrt = reise?.progressFor?.(account.gameState?.[reise.KEY]?.data) || null;
-    return { journeyStars: fahrt?.stars || 0, journeyGold: fahrt?.goldStars || 0, journeyStation: fahrt?.station || null };
+    return { journeyStars: fahrt?.stars || 0, journeyGold: fahrt?.goldStars || 0, journeyStation: fahrt?.station || null, lesewurm: lesewurmFaehrtMit(account.gameState?.[leseStand()?.KEY || "lernapp.lesen"]?.data) };
+  }
+
+  // Ist der Lesewagen ganz eingerichtet, fährt der Lesewurm auf der Lok mit –
+  // am eigenen Zug und an denen der Geschwister (lesen-stand.js, wagenStufe).
+  function lesewurmFaehrtMit(daten) {
+    const lese = leseStand();
+    if (!lese?.wagenStufe) return false;
+    return lese.wagenStufe(daten || lese.stand()) >= (lese.WAGEN_SCHRITTE?.length || 15);
   }
 
   async function loadFriends() {
@@ -926,7 +934,7 @@
     // Mit eigenem Gleis: gezeichnet im selben Koordinatensystem wie der Zug,
     // also immer genau unter den Rädern. Ein Strich im CSS müsste dafür auf
     // Prozentwerte vertrauen, die bei jedem Seitenverhältnis anders liegen.
-    const svg = art.buildTrain(friend.areas, friend.loco, { pad: 4, gap: 4, withTrack: true, journeyStars: friend.journeyStars || 0, journeyGold: friend.journeyGold || 0 });
+    const svg = art.buildTrain(friend.areas, friend.loco, { pad: 4, gap: 4, withTrack: true, journeyStars: friend.journeyStars || 0, journeyGold: friend.journeyGold || 0, lesewurm: Boolean(friend.lesewurm) });
     svg.setAttribute("class", "train-svg friend-svg");
     svg.setAttribute("aria-hidden", "true");
     svg.removeAttribute("role");
@@ -1024,6 +1032,7 @@
       pad: 4, gap: 4, withTrack: true,
       journeyStars: friend.journeyStars || 0,
       journeyGold: friend.journeyGold || 0,
+      lesewurm: Boolean(friend.lesewurm),
     });
     // Als Gruppe, nicht als Bild: in einem Bild gelten alle Kinder als
     // Dekoration, und die Wagen sind hier die Auswahl. Ein Bildschirmleser
@@ -2460,7 +2469,7 @@
     // Wartet in der Werkstatt etwas Neues, funkelt es an der Lok: sonst müsste
     // ein Kind von sich aus nachsehen gehen.
     const neu = (reiseApi()?.newParts?.() || []).filter((entry) => art.LOCO_PARTS.some((spec) => spec.id === entry.part));
-    const svg = art.buildTrain(areas, loco, { pad: 4, gap: 4, trailing: 160, withTrack: false, journeyStars: plate.stars, journeyGold: plate.gold, sparkle: neu.length > 0 });
+    const svg = art.buildTrain(areas, loco, { pad: 4, gap: 4, trailing: 160, withTrack: false, journeyStars: plate.stars, journeyGold: plate.gold, sparkle: neu.length > 0, lesewurm: lesewurmFaehrtMit(null) });
     svg.setAttribute("aria-label", `${describeTrain(areas)}${neu.length ? ` Neu in der Werkstatt: ${neu.map((entry) => entry.label).join(" und ")}.` : ""}`);
 
     svg.querySelectorAll("[data-area]").forEach((node) => {
