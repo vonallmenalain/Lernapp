@@ -11,9 +11,10 @@ Stand: Oktober 2026 · Grundlage: das Konzept «Leseecke – Konzept & Ideensamm
 > vier Spiele (Silbenzug, Buchstabenhaus, Laute kuppeln, Stimmt das?), das Bücherregal mit
 > sechs Büchern und drei Arten zu lesen, der Lesestand mit dem Lesewurm, die Leseschrift
 > Andika, die Karte «Leseecke» im Elternbereich und die Schranke (je Spiel eine Runde, zwei
-> Bücher frei). Noch offen aus Etappe 1: die **Aufnahmen der Laute** – bis sie da sind,
-> spricht die Sprachausgabe die Selbst- und Zwielaute, die Mitlaute bleiben stumm und werden
-> nur gezeigt. Prüfskripte: `scripts/validate-lesen.mjs`, `scripts/check-leseecke.mjs`.
+> Bücher frei). Dazu die **Aufnahmeseite für die Laute** (`laute-aufnehmen.html`,
+> `docs/LAUTE-AUFNEHMEN.md`). Noch offen aus Etappe 1: die **Aufnahmen selbst** – bis sie da
+> sind, spricht die Sprachausgabe die Selbst- und Zwielaute, die Mitlaute bleiben stumm und
+> werden nur gezeigt. Prüfskripte: `scripts/validate-lesen.mjs`, `scripts/check-leseecke.mjs`.
 
 ## 1. Die Idee in drei Sätzen
 
@@ -133,6 +134,7 @@ Ordner im Build** – `netlify/build.mjs` bleibt unverändert –, und offline f
 | `lesen-stand.js` | Lesestand, Lesewurm, Einstellungen der Eltern, was als Nächstes dran ist |
 | `lesen-ton.js` | Laute (Aufnahme oder Sprachausgabe), Wörter und Sätze, mit Mitleuchten |
 | `lesen-laute.js` | die Aufnahmen der Laute als Daten – heute noch leer |
+| `laute-aufnehmen.html`, `laute-aufnehmen.js` | die Aufnahmeseite: aufnehmen, zuschneiden, `lesen-laute.js` erzeugen |
 | `lesen-art.js` | Lesewagen, Zimmer, Lesewurm, Trommel, Laut-Wagen, Dinge für «Stimmt das?» |
 | `lesen-spiel.js` | was alle Spiele der Leseecke teilen: Bühne, «Los», Ergebnis mit Sternen |
 | `train-leseecke.js` | das Zimmer als Ansicht der Bühne |
@@ -155,11 +157,12 @@ Schweizer Wörter, die Kinder hier sagen (Rüebli, Velo, fein), keine Bilder, di
 heissen (ein Keks ist ein Guetzli), und nirgends das scharfe S. `validate-lesen.mjs` prüft
 die Regeln, nicht den Ton – der ist Sache des Gegenlesens.
 
-## 6. Die Laute aufnehmen (folgt)
+## 6. Die Laute aufnehmen
 
-Rund 40 kurze Aufnahmen einer ruhigen, vertrauten Stimme. Eine Aufnahmeseite, die mit dem
-Handy aufnimmt, schneidet und `lesen-laute.js` erzeugt, dazu die Liste mit Anleitung
-(`docs/LAUTE-AUFNEHMEN.md`), kommen im nächsten Schritt. Bis dahin gilt: Selbst- und
+36 kurze Aufnahmen einer ruhigen, vertrauten Stimme. Die Seite `laute-aufnehmen.html` (für
+Erwachsene, verlinkt im Adminbereich) nimmt mit dem Handy auf, schneidet die Stille weg,
+gleicht die Lautstärke an und erzeugt daraus `lesen-laute.js`. Liste, Aussprache und der Weg
+ins Repo stehen in `docs/LAUTE-AUFNEHMEN.md`. Bis die Datei da ist, gilt: Selbst- und
 Zwielaute spricht die Sprachausgabe, Mitlaute bleiben stumm und werden gezeigt.
 
 ## 7. Die nächsten Etappen
