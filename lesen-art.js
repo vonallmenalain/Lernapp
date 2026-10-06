@@ -263,7 +263,7 @@
 
   function trommel() {
     return [
-      el("ellipse", { cx: 0, cy: 70, rx: 78, ry: 14, fill: "#000", opacity: "0.15" }),
+      el("ellipse", { cx: 0, cy: 70, rx: 78, ry: 14, fill: "#000", opacity: "0.15", class: "lese-schatten" }),
       el("rect", { x: -70, y: 0, width: 140, height: 70, fill: "#e8543f" }),
       ...[-50, -15, 20, 55].map((x, i) => el("path", { d: `M${x} 6 L${x + 18} 64 M${x + 18} 6 L${x} 64`, stroke: "#ffd98a", "stroke-width": 4, opacity: i % 2 ? "0.9" : "0.7" })),
       el("ellipse", { cx: 0, cy: 70, rx: 70, ry: 14, fill: shade("#e8543f", -0.25) }),
@@ -279,7 +279,7 @@
       Object.assign(el("text", { x: 0, y: 12, "text-anchor": "middle", "font-size": 32, "font-weight": 700, "font-family": "Andika, Inter, system-ui, sans-serif", fill: "#ffffff" }), { textContent: buchstabe }),
     ]);
     return [
-      el("ellipse", { cx: 0, cy: 96, rx: 112, ry: 12, fill: "#000", opacity: "0.15" }),
+      el("ellipse", { cx: 0, cy: 96, rx: 112, ry: 12, fill: "#000", opacity: "0.15", class: "lese-schatten" }),
       klotz(-46, -8, "W", "#3fa34d", -12),
       klotz(4, -20, "O", "#f5a623", 6),
       klotz(52, -6, "R", "#7c5ce6", 14),
@@ -315,7 +315,7 @@
 
   function sessel() {
     return [
-      el("ellipse", { cx: 0, cy: 150, rx: 190, ry: 20, fill: "#000", opacity: "0.15" }),
+      el("ellipse", { cx: 0, cy: 150, rx: 190, ry: 20, fill: "#000", opacity: "0.15", class: "lese-schatten" }),
       el("rect", { x: -150, y: -60, width: 300, height: 150, rx: 50, fill: shade(FARBE.sessel, -0.12) }),
       el("rect", { x: -175, y: 10, width: 70, height: 130, rx: 30, fill: FARBE.sessel }),
       el("rect", { x: 105, y: 10, width: 70, height: 130, rx: 30, fill: FARBE.sessel }),
@@ -385,7 +385,7 @@
     });
     schrift.textContent = text;
     return [
-      el("ellipse", { cx: 0, cy: 120, rx: 34, ry: 8, fill: "#000", opacity: "0.15" }),
+      el("ellipse", { cx: 0, cy: 120, rx: 34, ry: 8, fill: "#000", opacity: "0.15", class: "lese-schatten" }),
       el("rect", { x: -7, y: 12, width: 14, height: 110, rx: 4, fill: FARBE.holzDunkel }),
       el("rect", { x: -breite / 2, y: -48, width: breite, height: 62, rx: 12, fill: shade(FARBE.holz, 0.08), stroke: FARBE.holzDunkel, "stroke-width": 5 }),
       el("circle", { cx: -breite / 2 + 13, cy: -35, r: 3.5, fill: FARBE.holzDunkel }),
@@ -603,6 +603,8 @@
     ["teppich", "vorhaenge", "blumen", "wimpel", "lampe", "mobile", "lichterkette", "bild", "uhr", "haengepflanze", "stehlampe", "stapel", "katze"]
       .forEach((id) => { const ding = da(id); if (ding) svg.append(ding); });
 
+    // Die Dinge, die etwas tun. Beim Hereinkommen hüpfen sie (Stylesheet,
+    // lese-ort-huepft); ihr Schatten am Boden (lese-schatten) bleibt liegen.
     const ort = (id, label, transform, kinder) => group({ class: `lese-ort lese-ort-${id}`, "data-ort": id, transform, role: "button", tabindex: "0", "aria-label": label }, kinder);
 
     svg.append(ort("buchstaben", "Das Buchstabenhaus", "translate(48 150)", buchstabenhausWand()));

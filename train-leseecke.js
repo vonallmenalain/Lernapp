@@ -29,6 +29,10 @@
  * AUSBAU; lesen-stand.js, wagenStufe). Was seit dem letzten Besuch dazukam,
  * leuchtet, und der Lautsprecher sagt es.
  *
+ * Beim Hereinkommen hüpft reihum alles, was sich antippen lässt – wie die
+ * Wagen auf dem Startbild (REIHUM). Die Einrichtung hüpft nie: So sieht ein
+ * Kind, was ein Knopf ist und was nur dasteht.
+ *
  * Was hier nicht geschieht: Fortschritt schreiben. Das tun die Spiele.
  */
 (() => {
@@ -68,6 +72,16 @@
 
   // Wohin das Schild am Sessel führt: Dort bekommt der Lesewurm seinen Namen.
   const TAUFE = "meinname.html?wurm=1";
+
+  // In dieser Reihenfolge hüpfen die Dinge beim Hereinkommen: einmal im
+  // Uhrzeigersinn durchs Zimmer, oben links beim Buchstabenhaus los, und
+  // zuletzt der Lesewurm in der Mitte. Eine Welle liest sich als «all das
+  // kannst du antippen», ein gemeinsamer Hüpfer als Ruckeln.
+  const REIHUM = ["buchstaben", "detektiv", "buecher", "woerter", "saetze", "silben", "wurmname", "weiter"];
+  // Wann das erste Ding hüpft und wie viel später jedes nächste: erst, wenn
+  // das Zimmer eingeblendet ist (leseecke-ein im Stylesheet).
+  const HUEPF_START = 0.55;
+  const HUEPF_ABSTAND = 0.13;
 
   // Wie lang der Wurm war, als das Kind ihn zuletzt gesehen hat. Ist er
   // seither gewachsen, wird das gezeigt – über den Vergleich, nicht über eine
@@ -250,11 +264,16 @@
     // Beim Auffrischen weicht nur die Zeichnung: Der Platz bleibt, also blendet
     // sich nichts neu ein, und die Auswahl darüber bleibt stehen.
     const alt = host.querySelector(":scope > .lesezimmer-svg");
+    // Gehüpft wird nur beim Hereinkommen. Bringt die Cloud danach etwas Neues
+    // und das Zimmer frischt sich auf, hüpft nichts ein zweites Mal.
+    if (!alt) svg.classList.add("is-huepfen");
     if (alt) alt.replaceWith(svg);
     else host.append(svg);
 
     svg.querySelectorAll("[data-ort]").forEach((knoten) => {
       const ort = knoten.getAttribute("data-ort");
+      const reihe = REIHUM.indexOf(ort);
+      knoten.style.setProperty("--ort-verzug", `${(HUEPF_START + Math.max(0, reihe) * HUEPF_ABSTAND).toFixed(2)}s`);
       const los = () => {
         if (ort === "weiter") {
           const naechstes = s?.naechstes?.();
@@ -300,5 +319,5 @@
   // Gerät –, frischt sich das Zimmer selbst auf.
   stand()?.onChange?.(() => auffrischen());
 
-  window.LernappLeseecke = { mount, auffrischen, ZIELE, ORTE, HILFE, TAUFE, spieleAm };
+  window.LernappLeseecke = { mount, auffrischen, ZIELE, ORTE, HILFE, TAUFE, REIHUM, spieleAm };
 })();

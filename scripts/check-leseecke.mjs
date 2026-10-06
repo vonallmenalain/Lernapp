@@ -45,6 +45,10 @@
  *   Bewegung      Mit Animationen: Kein Teil einer Zeichnung verliert seine
  *                 Lage an CSS, der winkende Arm ist oben; Text in den Spielen
  *                 lässt sich nicht markieren (Android: «Tippen zum Suchen»).
+ *                 Im Zimmer hüpft beim Hereinkommen reihum, was sich antippen
+ *                 lässt, zuletzt der Lesewurm – die Einrichtung nie, die
+ *                 Schatten bleiben am Boden, und beim Auffrischen hüpft nichts
+ *                 noch einmal. Ohne Bewegung hüpft gar nichts.
  *
  * Aufruf:  node scripts/check-leseecke.mjs
  * Nötig:   Playwright. Der lokale Server wird selbst gestartet und beendet.
@@ -230,6 +234,8 @@ try {
     // Durch beide Fenster sieht man dieselbe Landschaft: eine Sonne, und die
     // steht in einem Fenster.
     sonnen: document.querySelectorAll(".lesezimmer-svg .lesezimmer-sonne, .lesezimmer-svg .lesezimmer-fenster circle").length,
+    // Ohne Bewegung hüpft nichts.
+    huepft: [...document.querySelectorAll(".lesezimmer-svg [data-ort], .lesezimmer-svg .lese-schatten")].some((n) => getComputedStyle(n).animationName !== "none"),
     sonneImFenster: (() => {
       const sonne = document.querySelector(".lesezimmer-svg .lesezimmer-sonne")?.getBoundingClientRect();
       if (!sonne) return false;
@@ -243,6 +249,7 @@ try {
   if (zimmer.sonnen !== 1 || !zimmer.sonneImFenster) fehlt(`Lesewagen: ${zimmer.sonnen} Sonnen in den Fenstern${zimmer.sonneImFenster ? "" : ", und keine steht in einem Fenster"}`);
   if (zimmer.orte !== "buchstaben,buecher,detektiv,saetze,silben,weiter,woerter,wurmname") fehlt(`Lesewagen: die Orte sind ${zimmer.orte}`);
   if (!zimmer.wurm) fehlt("Lesewagen: der Lesewurm sitzt nicht im Sessel");
+  if (zimmer.huepft) fehlt("Lesewagen ohne Bewegung: die Dinge im Zimmer hüpfen trotzdem");
   if (!zimmer.zurueck) fehlt("Lesewagen: kein Pfeil zurück an den Zug");
   if (zimmer.hilfe && !/Lesewagen/.test(zimmer.hilfe)) fehlt(`Lesewagen: der Lautsprecher sagt etwas anderes: ${zimmer.hilfe.slice(0, 60)}`);
   await page.locator(".stage-back").click();
@@ -1820,6 +1827,69 @@ try {
     });
     if (!arm || arm.hand > arm.oben + 4) { fehlt(`Mit Bewegung: Finos winkende Hand ist nicht oben (${JSON.stringify(arm)})`); break; }
   }
+  // Das Zimmer mit Bewegung: Was sich antippen lässt, hüpft beim Hereinkommen
+  // reihum, zuletzt der Lesewurm; die Einrichtung hüpft nie, und die Schatten
+  // bleiben am Boden liegen. Keines verliert dabei seine Lage an CSS. Frischt
+  // sich das Zimmer auf, weil neuer Lesestand kommt, hüpft nichts noch einmal.
+  await bunt.evaluate(() => localStorage.setItem("lernapp.lesen", JSON.stringify({ woerter: 400, spiele: { silbenzug: { runden: 12, best: 6, zuletzt: 1 } }, buecher: {}, laute: {}, blitz: {} })));
+  await bunt.goto(`${BASIS}/index.html?lesen=1`, { waitUntil: "domcontentloaded" });
+  await bunt.waitForFunction(() => document.querySelector(".lesezimmer-svg [data-ort]"), null, { timeout: 10000 }).catch(() => {});
+  // Erst wenn das Zimmer eingeblendet ist: Das Einblenden zoomt ein wenig und
+  // sähe beim Messen selbst wie ein Hüpfer aus.
+  await bunt.waitForTimeout(500);
+  const huepfen = await bunt.evaluate(() => {
+    const svg = document.querySelector(".lesezimmer-svg");
+    const orte = [...(svg?.querySelectorAll("[data-ort]") || [])];
+    const name = (n) => getComputedStyle(n).animationName;
+    const verzug = (n) => parseFloat(getComputedStyle(n).animationDelay) || 0;
+    return {
+      klasse: Boolean(svg?.classList.contains("is-huepfen")),
+      still: orte.filter((n) => name(n) !== "lese-ort-huepft").map((n) => n.dataset.ort),
+      einrichtung: [...(svg?.querySelectorAll(".lese-ausbau, .lese-ausbau *") || [])].filter((n) => name(n) === "lese-ort-huepft").length,
+      reihe: orte.slice().sort((a, b) => verzug(a) - verzug(b)).map((n) => n.dataset.ort).join(","),
+      soll: (window.LernappLeseecke?.REIHUM || []).join(","),
+      verzuege: new Set(orte.map(verzug)).size,
+      schatten: [...(svg?.querySelectorAll(".lese-ort .lese-schatten") || [])].map((n) => name(n)),
+    };
+  });
+  if (!huepfen.klasse || huepfen.still.length) fehlt(`Zimmer mit Bewegung: es hüpft nicht alles, was sich antippen lässt (still: ${huepfen.still.join(", ") || "alles"})`);
+  if (huepfen.einrichtung) fehlt(`Zimmer mit Bewegung: ${huepfen.einrichtung} Teile der Einrichtung hüpfen mit`);
+  if (huepfen.reihe !== huepfen.soll || huepfen.verzuege < 8 || !huepfen.reihe.endsWith("weiter")) fehlt(`Zimmer mit Bewegung: die Dinge hüpfen nicht reihum (${huepfen.reihe})`);
+  if (huepfen.schatten.length < 4 || huepfen.schatten.some((n) => n !== "lese-schatten-bleibt")) fehlt(`Zimmer mit Bewegung: die Schatten hüpfen mit (${huepfen.schatten.join(", ")})`);
+  // Ein paar Bilder lang hinsehen: Jedes Ding geht wirklich hoch, sein Schatten
+  // bleibt liegen, und keine Lage geht an CSS verloren.
+  const hoch = {};
+  const boden = {};
+  const lageWeg = new Set();
+  for (let mal = 0; mal < 30; mal += 1) {
+    const jetzt = await bunt.evaluate(() => ({
+      orte: Object.fromEntries([...document.querySelectorAll(".lesezimmer-svg [data-ort]")].map((n) => [n.dataset.ort, n.getBoundingClientRect().top])),
+      schatten: Object.fromEntries([...document.querySelectorAll(".lesezimmer-svg .lese-ort .lese-schatten")].map((n) => { const r = n.getBoundingClientRect(); return [n.closest("[data-ort]").dataset.ort, (r.top + r.bottom) / 2]; })),
+    }));
+    Object.entries(jetzt.orte).forEach(([ort, y]) => { (hoch[ort] ||= []).push(y); });
+    Object.entries(jetzt.schatten).forEach(([ort, y]) => { (boden[ort] ||= []).push(y); });
+    if (mal % 6 === 0) (await verdraengt()).forEach((f) => lageWeg.add(f));
+    await bunt.waitForTimeout(90);
+  }
+  const hub = (werte) => Math.max(...werte) - Math.min(...werte);
+  const kaumBewegt = Object.entries(hoch).filter(([, werte]) => hub(werte) < 6).map(([ort]) => ort);
+  const schattenWandert = Object.entries(boden).filter(([, werte]) => hub(werte) > 1).map(([ort, werte]) => `${ort} ${Math.round(hub(werte))} px`);
+  if (kaumBewegt.length) fehlt(`Zimmer mit Bewegung: ${kaumBewegt.join(", ")} hüpft nicht sichtbar`);
+  if (schattenWandert.length) fehlt(`Zimmer mit Bewegung: Schatten heben vom Boden ab (${schattenWandert.join(", ")})`);
+  if (lageWeg.size) fehlt(`Zimmer mit Bewegung: CSS verdrängt die Lage von ${[...lageWeg].slice(0, 3).join(", ")}`);
+  await bunt.evaluate(() => window.LernappLeseStand.woerterGelesen(200));
+  await bunt.waitForTimeout(150);
+  const aufgefrischt = await bunt.evaluate(() => {
+    const svg = document.querySelector(".lesezimmer-svg");
+    return {
+      glieder: Number(svg?.querySelector(".lesewurm")?.dataset.glieder || 0),
+      klasse: Boolean(svg?.classList.contains("is-huepfen")),
+      huepfen: [...(svg?.querySelectorAll("[data-ort]") || [])].filter((n) => getComputedStyle(n).animationName === "lese-ort-huepft").length,
+    };
+  });
+  if (aufgefrischt.glieder !== 31) fehlt(`Zimmer mit Bewegung: nach neuem Lesestand frischt sich das Zimmer nicht auf (${aufgefrischt.glieder} Glieder)`);
+  else if (aufgefrischt.klasse || aufgefrischt.huepfen) fehlt("Zimmer mit Bewegung: beim Auffrischen hüpft alles noch einmal");
+
   for (const [seite, bereit, wahl] of [["index.html", "document.querySelector('.train-stage .train-band')", ".train-stage"], ["buchstaben.html", "document.querySelector('.app-shell')", ".app-shell"]]) {
     await bunt.goto(`${BASIS}/${seite}`, { waitUntil: "domcontentloaded" });
     await bunt.waitForFunction(bereit, null, { timeout: 10000 }).catch(() => {});
