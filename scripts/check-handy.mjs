@@ -623,6 +623,7 @@ const SZENARIEN = [
       { name: "Lesewagen", tun: async (blatt) => { await zugHereinholen(blatt); await tippe(blatt, ".lesewagen-knopf"); await pause(blatt, 1200); } },
       // Die grösste Auswahl: fünf Spiele hinter der Wortkiste.
       { name: "Auswahl Wörter", tun: async (blatt) => { await tippe(blatt, '.lesezimmer-svg [data-ort="woerter"]'); await pause(blatt, 500); } },
+      { name: "Auswahl Buchstaben", tun: async (blatt) => { await tippe(blatt, ".lese-wahl-zu"); await pause(blatt, 200); await tippe(blatt, '.lesezimmer-svg [data-ort="buchstaben"]'); await pause(blatt, 500); } },
     ],
   },
   ...["reimkupplung", "anlautlauscher", "werfaehrtmit", "woerterbauen", "silbenbahn", "blitzwoerter"].map((seite) => ({
@@ -632,6 +633,47 @@ const SZENARIEN = [
       { name: "Spiel", tun: async (blatt) => { await tippe(blatt, ".lese-los-knopf"); await pause(blatt, seite === "blitzwoerter" ? 3600 : 900); } },
     ],
   })),
+  // Mein Name: ein langer Name, damit der Zug am längsten wird, und die
+  // dritte Fahrt mit zwei fremden Wagen. Dann der Lesewurm bekommt einen Namen.
+  {
+    seite: "meinname",
+    schritte: [
+      { name: "Wie heisst du", tun: async () => {} },
+      { name: "Schild", tun: async (blatt) => {
+        await blatt.fill(".mn-eingabe input", "Maximiliane");
+        await tippe(blatt, ".mn-eingabe-ok");
+        await pause(blatt, 400);
+      } },
+      { name: "Erste Fahrt", tun: async (blatt) => { await tippe(blatt, ".lese-los-knopf"); await pause(blatt, 500); } },
+      { name: "Dritte Fahrt", tun: async (blatt) => {
+        for (let fahrt = 0; fahrt < 2; fahrt += 1) {
+          for (let i = 0; i < 20; i += 1) {
+            const j = await blatt.evaluate(() => window.LernappMeinName.jetzt());
+            if (j.fahrt > fahrt) break;
+            if (j.phase !== "kuppeln") { await pause(blatt, 120); continue; }
+            await tippe(blatt, `.mn-wagen[data-zeichen="${[...j.name][j.dran].toLowerCase()}"]`);
+            await pause(blatt, 60);
+          }
+          await blatt.waitForFunction((f) => window.LernappMeinName.jetzt().fahrt > f, fahrt, { timeout: 10000 });
+        }
+        await pause(blatt, 400);
+      } },
+      { name: "Lesewurm taufen", tun: async (blatt) => {
+        await blatt.goto(`${BASIS}/meinname.html?wurm=1`, { waitUntil: "load" });
+        await pause(blatt, 900);
+        for (const b of ["w", "u", "m", "p", "i", "l", "o", "s"]) await tippe(blatt, `.mn-taste[data-laut="${b}"]`);
+        await pause(blatt, 300);
+      } },
+    ],
+  },
+  {
+    seite: "lueckensaetze",
+    schritte: [
+      { name: "Los", tun: async () => {} },
+      { name: "Lücke", tun: async (blatt) => { await tippe(blatt, ".lese-los-knopf"); await pause(blatt, 600); } },
+      { name: "Daneben", tun: async (blatt) => { await tippe(blatt, '.ls-wort:not([data-richtig="1"])'); await pause(blatt, 700); } },
+    ],
+  },
   {
     seite: "silbenzug",
     schritte: [
@@ -687,6 +729,8 @@ const SZENARIEN = [
     seite: "buecher",
     schritte: [
       { name: "Regal", tun: async (blatt) => { await pause(blatt, 300); } },
+      // Das Fach mit den meisten Büchern.
+      { name: "Fach Erste Sätze", tun: async (blatt) => { await tippe(blatt, '.bu-reiter[data-stufe="erste"]'); await pause(blatt, 400); } },
       { name: "Titelseite", tun: async (blatt) => { await blatt.click('.bu-umschlag[data-buch="leo-melone"]'); await pause(blatt, 500); } },
       { name: "Erste Sätze", tun: async (blatt) => { await tippe(blatt, '.bu-modus[data-modus="selbst"]'); await pause(blatt, 600); } },
       // Die längste Seite: Sepp in der Höhle.

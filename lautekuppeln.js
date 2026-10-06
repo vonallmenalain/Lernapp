@@ -40,8 +40,12 @@
     "Wenn alle gekuppelt sind, tippe auf das Bild, das zum Wort passt.",
   ].join(" ");
 
-  // Welche Wörter: nach der Stufe des Kindes (lesen-inhalte.js).
+  // Welche Wörter: nach der Stufe des Kindes (lesen-inhalte.js) – oder, wenn
+  // die Eltern die Buchstaben der Schule abgehakt haben, alle, die sich damit
+  // lesen lassen.
   function wortListe() {
+    const bekannt = stand?.bekannteLaute?.() || null;
+    if (bekannt) return inhalte.lesbare(inhalte.KUPPEL_WOERTER, bekannt, RUNDE);
     const stufe = stand?.stufe?.() || "mittel";
     const gruppen = inhalte.KUPPELN_JE_STUFE[stufe] || [1, 2];
     return inhalte.KUPPEL_WOERTER.filter((w) => gruppen.includes(w.stufe));

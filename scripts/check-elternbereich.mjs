@@ -376,6 +376,34 @@ try {
       `Leseecke: am Konto steht ${JSON.stringify(lesenStand)} statt Wörter und Grossbuchstaben`);
     pruefe((await page.evaluate(() => window.__ersatz.lies("users/kind-1")?.gameState?.["lernapp.reise"]?.data?.stufe)) === "schwer",
       "Leseecke: das Einstellen hat die Schwierigkeitsstufe überschrieben");
+    // Die Buchstaben der Schule: abhaken ist noch kein Schreiben, erst
+    // «Speichern» – und «Nach Reihenfolge» nimmt die Haken wieder weg.
+    const lauteKarte = () => page.locator('[data-kind-uid="kind-1"] .admin-lesen');
+    pruefe(await lauteKarte().locator('[data-kind-laute="reihe"][aria-pressed="true"]').count() === 1, "Buchstaben der Schule: ohne Haken ist nicht «Nach Reihenfolge» gewählt");
+    await lauteKarte().locator('[data-kind-laute="abhaken"]').click({ timeout: 5000 });
+    const chips = lauteKarte().locator("[data-kind-laut]");
+    pruefe(await chips.count() === 36, `Buchstaben der Schule: ${await chips.count()} Knöpfe statt 36`);
+    pruefe(await lauteKarte().locator('[data-kind-laut][aria-pressed="true"]').count() === 6, "Buchstaben der Schule: vorgeschlagen sind nicht die ersten sechs");
+    await lauteKarte().locator('[data-kind-laut="s"]').click({ timeout: 5000 });
+    await lauteKarte().locator('[data-kind-laut="e"]').click({ timeout: 5000 });
+    await lauteKarte().locator('[data-kind-laut="sch"]').click({ timeout: 5000 });
+    pruefe(await lauteKarte().locator('[data-kind-laut="sch"][aria-pressed="true"]').count() === 1 && await lauteKarte().locator('[data-kind-laut="s"][aria-pressed="false"]').count() === 1,
+      "Buchstaben der Schule: ein Tipp hakt nicht ab oder nicht aus");
+    pruefe(!(await page.evaluate(() => window.__ersatz.lies("users/kind-1")?.gameState?.["lernapp.lesen.eltern"]?.data?.bekannt)),
+      "Buchstaben der Schule: schon ein Haken wird geschrieben, nicht erst «Speichern»");
+    await page.waitForTimeout(300);
+    await knips(page, "3a-buchstaben-abhaken");
+    await lauteKarte().locator("[data-kind-laute-speichern]").click({ timeout: 5000 });
+    await page.waitForFunction(() => /Buchstaben abgehakt/.test(document.querySelector("[data-kinder-karte] .karten-status")?.textContent || ""), null, { timeout: 10000 }).catch(() => {});
+    const schule = await page.evaluate(() => window.__ersatz.lies("users/kind-1")?.gameState?.["lernapp.lesen.eltern"]?.data);
+    pruefe(JSON.stringify(schule?.bekannt) === JSON.stringify(["m", "a", "l", "i", "o", "e", "sch"]) && schule?.startpunkt === "woerter" && schule?.schrift === "gross",
+      `Buchstaben der Schule: am Konto steht ${JSON.stringify(schule)} statt M A L I O E Sch (und Wörter, Grossbuchstaben)`);
+    pruefe(/Abgehakt: M · A · L · I · O · E · Sch/.test(await text(lauteKarte())), "Buchstaben der Schule: die abgehakten stehen nicht auf der Karte");
+    await knips(page, "3a-buchstaben-der-schule");
+    await lauteKarte().locator('[data-kind-laute="reihe"]').click({ timeout: 5000 });
+    await page.waitForFunction(() => /festen Reihenfolge/.test(document.querySelector("[data-kinder-karte] .karten-status")?.textContent || ""), null, { timeout: 10000 }).catch(() => {});
+    const reihe = await page.evaluate(() => window.__ersatz.lies("users/kind-1")?.gameState?.["lernapp.lesen.eltern"]?.data);
+    pruefe(reihe && reihe.bekannt === null && reihe.startpunkt === "woerter", `Buchstaben der Schule: «Nach Reihenfolge» lässt ${JSON.stringify(reihe)} stehen`);
     // Dieses Kind hat noch nichts gespielt. Früher stand deshalb ein Raster
     // aus 300 grauen Kästchen da, dazu eine Liste mit 15-mal "nie gespielt" –
     // viel Fläche für die Aussage "nichts". Jetzt steht ein Satz da.

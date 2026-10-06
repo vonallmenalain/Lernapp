@@ -2906,6 +2906,8 @@
     kindMeldung: null,
     // Zurücksetzen und Löschen fragen nach: {art: "reset"|"weg", uid}
     kindFrage: null,
+    // Die Buchstaben der Schule, während sie abgehakt werden: {uid, ids}
+    lauteEntwurf: null,
     wagenFrage: null,
     wagenLaeuft: "",
     wagenFehler: "",
@@ -2919,6 +2921,7 @@
     eltern.kindForm = null;
     eltern.kindMeldung = null;
     eltern.kindFrage = null;
+    eltern.lauteEntwurf = null;
     eltern.wagenFrage = null;
     eltern.wagenLaeuft = "";
     eltern.wagenFehler = "";
@@ -3117,7 +3120,59 @@
         <div class="card-actions">${LESEN_STARTPUNKTE.map((eintrag) => knopf("startpunkt", eintrag)).join("")}</div>
         <p class="admin-lesen-frage">Schrift</p>
         <div class="card-actions">${LESEN_SCHRIFTEN.map((eintrag) => knopf("schrift", eintrag)).join("")}</div>
+        ${renderKindLaute(kind, jetzt, busy)}
       </div>`;
+  }
+
+  // Welche Buchstaben die Schule schon eingeführt hat. Zugeklappt: «Nach
+  // Reihenfolge» oder die abgehakten Laute. Beim Abhaken ein Knopf je Laut;
+  // gespeichert wird erst mit «Speichern» – ein Haken ist kein Schreiben.
+  function renderKindLaute(kind, jetzt, busy) {
+    const entwurf = eltern.lauteEntwurf?.uid === kind.uid ? eltern.lauteEntwurf.ids : null;
+    const gewaehlt = jetzt.bekannt;
+    const kopf = `
+        <p class="admin-lesen-frage">Buchstaben aus der Schule</p>
+        <p class="auth-hint">${LESEN_LAUTE_ERKLAERUNG}</p>`;
+    if (entwurf) {
+      const chips = LESEN_LAUTE.map((id) => {
+        const an = entwurf.has(id);
+        return `<button type="button" class="admin-laut${an ? " is-on" : ""}" data-kind-laut="${escapeHtml(id)}" aria-pressed="${an ? "true" : "false"}" ${busy ? "disabled" : ""}>${escapeHtml(lautZeichen(id))}</button>`;
+      }).join("");
+      return `${kopf}
+        <div class="admin-laute" role="group" aria-label="Buchstaben, die dein Kind kennt">${chips}</div>
+        <div class="card-actions">
+          <button type="button" class="secondary-action" data-kind-laute-ab ${busy ? "disabled" : ""}>Abbrechen</button>
+          <button type="button" data-kind-laute-speichern ${busy ? "disabled" : ""}>Speichern</button>
+        </div>`;
+    }
+    const liste = gewaehlt ? `<p class="admin-laute-liste">Abgehakt: ${gewaehlt.map((id) => escapeHtml(lautZeichen(id))).join(" · ")}</p>` : "";
+    return `${kopf}
+        <div class="card-actions">
+          <button type="button" class="${gewaehlt ? "secondary-action" : ""}" data-kind-laute="reihe" aria-pressed="${gewaehlt ? "false" : "true"}" ${busy ? "disabled" : ""}>Nach Reihenfolge${gewaehlt ? "" : " ✓"}</button>
+          <button type="button" class="${gewaehlt ? "" : "secondary-action"}" data-kind-laute="abhaken" aria-pressed="${gewaehlt ? "true" : "false"}" ${busy ? "disabled" : ""}>${gewaehlt ? "Abgehakt ✓ – ändern" : "Selbst abhaken"}</button>
+        </div>${liste}`;
+  }
+
+  async function kindLauteSetzen(uid, ids) {
+    if (!uid) return;
+    const jetzt = lesenEinstellungIn(eltern.kindDetails.get(uid)?.userData?.gameState);
+    const bekannt = ids ? LESEN_LAUTE.filter((id) => ids.has(id)) : null;
+    eltern.kindLaeuft = uid;
+    eltern.kindMeldung = { ok: false, text: "Die Leseecke wird eingestellt..." };
+    zeichneKinderKarte();
+    try {
+      await setLesenElternFor(uid, { ...jetzt, bekannt: bekannt?.length ? bekannt : null });
+      eltern.lauteEntwurf = null;
+      eltern.kindDetails.delete(uid);
+      await kindNachladen(uid);
+      eltern.kindMeldung = { ok: true, text: bekannt?.length
+        ? `${bekannt.length} Buchstaben abgehakt. Die Lesespiele nehmen jetzt Wörter mit diesen Buchstaben.`
+        : "Die Leseecke folgt wieder der festen Reihenfolge." };
+    } catch (error) {
+      eltern.kindMeldung = { ok: false, text: authErrorMessage(error) };
+    }
+    eltern.kindLaeuft = null;
+    zeichneKinderKarte();
   }
 
   async function kindLesenSetzen(uid, feld, wert) {
@@ -3206,6 +3261,37 @@
     karte.querySelectorAll("[data-kind-lesen]").forEach((knopf) => {
       const [feld, wert] = String(knopf.dataset.kindLesen || "").split(":");
       knopf.addEventListener("click", () => kindLesenSetzen(eltern.offenesKind, feld, wert));
+    });
+    karte.querySelector('[data-kind-laute="reihe"]')?.addEventListener("click", () => {
+      eltern.lauteEntwurf = null;
+      kindLauteSetzen(eltern.offenesKind, null);
+    });
+    karte.querySelector('[data-kind-laute="abhaken"]')?.addEventListener("click", () => {
+      const uid = eltern.offenesKind;
+      const jetzt = lesenEinstellungIn(eltern.kindDetails.get(uid)?.userData?.gameState);
+      // Noch nichts abgehakt: vorgeschlagen sind die ersten sechs der Reihe.
+      eltern.lauteEntwurf = { uid, ids: new Set(jetzt.bekannt || LESEN_LAUTE.slice(0, 6)) };
+      eltern.kindMeldung = null;
+      zeichneKinderKarte();
+      modalContent.querySelector("[data-kinder-karte] [data-kind-laut]")?.focus();
+    });
+    // Ein Haken ändert nur den Knopf; die Karte bleibt stehen, der Fokus auch.
+    karte.querySelectorAll("[data-kind-laut]").forEach((knopf) => {
+      knopf.addEventListener("click", () => {
+        const ids = eltern.lauteEntwurf?.ids;
+        if (!ids) return;
+        const id = knopf.dataset.kindLaut;
+        if (ids.has(id)) ids.delete(id); else ids.add(id);
+        knopf.classList.toggle("is-on", ids.has(id));
+        knopf.setAttribute("aria-pressed", ids.has(id) ? "true" : "false");
+      });
+    });
+    karte.querySelector("[data-kind-laute-ab]")?.addEventListener("click", () => {
+      eltern.lauteEntwurf = null;
+      zeichneKinderKarte();
+    });
+    karte.querySelector("[data-kind-laute-speichern]")?.addEventListener("click", () => {
+      kindLauteSetzen(eltern.offenesKind, eltern.lauteEntwurf?.ids || null);
     });
 
     karte.querySelector("[data-kind-neu-form]")?.addEventListener("submit", async (event) => {
@@ -3819,13 +3905,23 @@
     ["gross", "Nur Grossbuchstaben"],
     ["gemischt", "Gross und klein"],
   ];
+  // Die Laute der Leseecke in ihrer festen Reihenfolge (lesen-inhalte.js,
+  // LAUTE – validate-lesen.mjs prüft, dass beide Listen gleich sind). Hier
+  // eine Kopie, weil der Elternbereich auf jeder Seite aufgehen kann, auch wo
+  // die Leseecke nicht geladen ist.
+  const LESEN_LAUTE = ["m", "a", "l", "i", "o", "s", "e", "r", "n", "u", "f", "w", "h", "d", "t", "b", "k", "p", "g",
+    "ei", "au", "sch", "eu", "ie", "ch", "z", "j", "v", "st", "sp", "pf", "ä", "ö", "ü", "ck", "ng"];
+  const lautZeichen = (id) => id.charAt(0).toUpperCase() + id.slice(1);
+  const LESEN_LAUTE_ERKLAERUNG = "Lernt dein Kind in der Schule schon lesen? Hake ab, welche Buchstaben die Klasse eingeführt hat: Das Buchstabenhaus zeigt dann genau diese, und Laute kuppeln, Wer fährt mit?, Wörter bauen und die Silbenbahn nehmen Wörter, die sich damit lesen lassen. «Nach Reihenfolge» führt die Buchstaben selbst ein, die leicht hörbaren zuerst.";
   const LESEN_ERKLAERUNG = "Der Lesewagen auf dem Startbild. «Nach Alter» beginnt mit der Schwierigkeitsstufe: «Leicht» beim Hören von Silben und Lauten, «Mittel» bei den Buchstaben, «Schwer» bei den Sätzen. Kann dein Kind schon mehr – oder braucht es noch Zeit –, wähle selbst. «Automatisch» zeigt den Jüngsten nur Grossbuchstaben, wie im Kindergarten, allen anderen gross und klein.";
 
   function lesenEinstellungIn(gameState) {
     const daten = (gameState || {})[LESEN_ELTERN_KEY]?.data || {};
+    const bekannt = Array.isArray(daten.bekannt) ? LESEN_LAUTE.filter((id) => daten.bekannt.includes(id)) : [];
     return {
       startpunkt: LESEN_STARTPUNKTE.some(([wert]) => wert === daten.startpunkt) ? daten.startpunkt : "auto",
       schrift: LESEN_SCHRIFTEN.some(([wert]) => wert === daten.schrift) ? daten.schrift : "auto",
+      bekannt: bekannt.length ? bekannt : null,
     };
   }
 

@@ -37,12 +37,15 @@
 
   const stufe = () => stand?.stufe?.() || "mittel";
 
+  // Nach der Stufe – oder nach den Buchstaben, die die Eltern abgehakt haben.
+  // Länger als die Stufe erlaubt wird ein Wort so oder so nicht.
   function wortListe() {
-    const gruppen = inhalte.KUPPELN_JE_STUFE[stufe()] || [1, 2];
     const max = MAX_STEINE[stufe()] || 5;
-    return inhalte.KUPPEL_WOERTER
-      .filter((w) => gruppen.includes(w.stufe))
-      .filter((w) => inhalte.steineDerSilben(w.silben).flat().length <= max);
+    const kurz = inhalte.KUPPEL_WOERTER.filter((w) => inhalte.steineDerSilben(w.silben).flat().length <= max);
+    const bekannt = stand?.bekannteLaute?.() || null;
+    if (bekannt) return inhalte.lesbare(kurz, bekannt, RUNDE);
+    const gruppen = inhalte.KUPPELN_JE_STUFE[stufe()] || [1, 2];
+    return kurz.filter((w) => gruppen.includes(w.stufe));
   }
 
   // Die Steine eines Wortes, gemischt – aber nie schon in der richtigen

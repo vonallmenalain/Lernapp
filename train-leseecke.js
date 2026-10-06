@@ -15,6 +15,8 @@
  *                        Silbenbahn, Blitzwörter
  *   Spielzeugzug         Sätze (Stimmt das?)
  *   Bücherregal          Bücher
+ *   Schild am Sessel     der Name des Lesewurms: ein Tipp, und das Kind tauft
+ *                        ihn (meinname.html?wurm=1)
  *
  * Steht hinter einem Ding nur ein Spiel, geht es gleich los; stehen mehrere
  * dahinter, kommt eine kleine Auswahl mit Bildern. Welches Spiel wo steht,
@@ -52,7 +54,11 @@
     "Tippe auf den Lesewurm im Sessel, und er sucht dir etwas aus.",
     "Die Trommel ist zum Hören, das Buchstabenhaus für Buchstaben,",
     "die Kiste für Wörter, der kleine Zug für Sätze und das Regal für Bücher.",
+    "Auf dem Schild steht der Name deines Lesewurms.",
   ].join(" ");
+
+  // Wohin das Schild am Sessel führt: Dort bekommt der Lesewurm seinen Namen.
+  const TAUFE = "meinname.html?wurm=1";
 
   // Wie lang der Wurm war, als das Kind ihn zuletzt gesehen hat. Ist er
   // seither gewachsen, wird das gezeigt – über den Vergleich, nicht über eine
@@ -180,7 +186,8 @@
     const jetzt = s ? s.stand() : { woerter: 0, buecher: {} };
     const glieder = s ? s.wurmGlieder(jetzt) : 1;
     const gelesen = Object.keys(jetzt.buecher || {}).length;
-    const svg = a.buildLesezimmer({ glieder, gelesen });
+    const wurmName = s?.wurmName?.(jetzt) || "";
+    const svg = a.buildLesezimmer({ glieder, gelesen, wurmName: s?.zeige?.(wurmName) ?? wurmName });
     host.innerHTML = "";
     host.append(svg);
 
@@ -192,6 +199,7 @@
           onPlay?.(naechstes?.page || "buchstabenhaus.html");
           return;
         }
+        if (ort === "wurmname") { onPlay?.(TAUFE); return; }
         const spiele = spieleAm(ort);
         if (spiele.length === 1) onPlay?.(spiele[0].page);
         else if (spiele.length > 1) zeigeWahl(host, ort, onPlay);
@@ -214,9 +222,10 @@
       svg.querySelector(".lesewurm")?.classList.add("is-gewachsen");
       kids()?.playJingle?.("unlock");
     }
-    kids()?.setHelp?.(gewachsen ? `Dein Lesewurm ist gewachsen! Er hat jetzt ${glieder} Glieder. ${HILFE}` : HILFE);
+    const hallo = wurmName ? `Dein Lesewurm ${wurmName} sagt hallo. ` : "";
+    kids()?.setHelp?.(gewachsen ? `Dein Lesewurm ist gewachsen! Er hat jetzt ${glieder} Glieder. ${HILFE}` : `${hallo}${HILFE}`);
     merkeGesehen(glieder);
   }
 
-  window.LernappLeseecke = { mount, ZIELE, ORTE, HILFE, spieleAm };
+  window.LernappLeseecke = { mount, ZIELE, ORTE, HILFE, TAUFE, spieleAm };
 })();

@@ -42,12 +42,11 @@
     "Tippe auf sein Fenster. Ein Tipp auf den Lautsprecher in der Blase sagt es noch einmal.",
   ].join(" ");
 
-  // Wie viele Laute im Haus wohnen, hängt an der Lesestufe.
-  const GRUPPE_JE_LESESTUFE = { hoeren: 1, buchstaben: 3, woerter: 4, saetze: 6, geschichten: 6 };
-
+  // Wie viele Laute im Haus wohnen, hängt an der Lesestufe – oder an dem, was
+  // die Eltern abgehakt haben: dann wohnen die Laute der Schule darin.
   function bewohner() {
-    const gruppe = GRUPPE_JE_LESESTUFE[stand?.lesestufe?.() || "buchstaben"] || 3;
-    return inhalte.lauteBisGruppe(gruppe);
+    const gruppe = inhalte.GRUPPE_JE_LESESTUFE[stand?.lesestufe?.() || "buchstaben"] || 3;
+    return inhalte.hausLaute(stand?.bekannteLaute?.() || null, gruppe);
   }
 
   function zeichen(laut) {

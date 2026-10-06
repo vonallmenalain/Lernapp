@@ -121,9 +121,52 @@
   // anderes sagen: leicht kennt die ersten sechs, mittel die Dauerlaute und
   // die Selbstlaute, schwer alle.
   const LAUTE_JE_STUFE = { leicht: 1, mittel: 3, schwer: 6 };
+  // Und je Lesestufe (lesen-stand.js): bis zu welcher Gruppe die Laute im
+  // Buchstabenhaus wohnen.
+  const GRUPPE_JE_LESESTUFE = { hoeren: 1, buchstaben: 3, woerter: 4, saetze: 6, geschichten: 6 };
 
   function lauteBisGruppe(gruppe) {
     return LAUTE.filter((laut) => laut.gruppe <= gruppe);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Was ein Kind schon lesen kann
+  // ---------------------------------------------------------------------------
+  // Haben die Eltern abgehakt, welche Laute die Schule eingeführt hat
+  // (lesen-stand.js, bekannteLaute), wohnen im Buchstabenhaus genau diese,
+  // und die Lesespiele nehmen Wörter, die sich mit ihnen lesen lassen. Ohne
+  // Haken gilt die feste Reihenfolge nach der Stufe.
+  //   bekannt  eine Menge von Laut-Kennungen (m, ei, sch) oder null
+
+  // Die Laute eines Wortes, die das Kind noch nicht kennt – jeder einmal.
+  function fehlendeLaute(silben, bekannt) {
+    const laute = [...new Set(steineDerSilben(silben).flat().map(lautId))];
+    return bekannt ? laute.filter((id) => !bekannt.has(id)) : [];
+  }
+
+  // Die Wörter einer Liste, die sich ganz mit bekannten Lauten lesen lassen.
+  // Sind es zu wenige für eine Runde, kommen die dazu, denen am wenigsten
+  // fehlt: Leer bleibt eine Runde nie.
+  function lesbare(liste, bekannt, mindestens = 6) {
+    if (!bekannt || !bekannt.size) return liste;
+    const bewertet = liste.map((eintrag) => ({ eintrag, fehlt: fehlendeLaute(eintrag.silben, bekannt).length }));
+    const ganz = bewertet.filter((x) => x.fehlt === 0).map((x) => x.eintrag);
+    if (ganz.length >= mindestens) return ganz;
+    const rest = bewertet.filter((x) => x.fehlt > 0).sort((a, b) => a.fehlt - b.fehlt).map((x) => x.eintrag);
+    return [...ganz, ...rest.slice(0, mindestens - ganz.length)];
+  }
+
+  // Wer im Buchstabenhaus wohnt: die bekannten Laute in der festen
+  // Reihenfolge, aber nie weniger als vier – sonst gäbe es nichts zu suchen.
+  // Fehlen welche, ziehen die nächsten der Reihe ein.
+  function hausLaute(bekannt, gruppe, mindestens = 4) {
+    if (!bekannt || !bekannt.size) return lauteBisGruppe(gruppe);
+    const drin = new Set(LAUTE.filter((laut) => bekannt.has(laut.id)).map((laut) => laut.id));
+    for (const laut of LAUTE) {
+      if (drin.size >= mindestens) break;
+      drin.add(laut.id);
+    }
+    return LAUTE.filter((laut) => drin.has(laut.id));
   }
 
   // ---------------------------------------------------------------------------
@@ -284,7 +327,41 @@
     { id: "baum", dativ: "dem Baum", wo: ["auf", "unter", "neben"] },
     { id: "haus", dativ: "dem Haus", wo: ["auf", "neben"] },
   ];
-  const ZAHLWOERTER = ["", "Ein", "Zwei", "Drei"];
+  const ZAHLWOERTER = ["", "Ein", "Zwei", "Drei", "Vier"];
+  // Was die Tiere im Bild tun (Lückensätze), in Einzahl und Mehrzahl.
+  // Jedes sieht man: wer schläft, liegt da, und über ihm steht «z z Z»; wer
+  // liest, hält ein Buch; wer singt, hat Noten über dem Kopf; wer hüpft, ist
+  // in der Luft (lesen-art.js, buildSzene). Winken fehlt mit Absicht: Die
+  // Tiere der App heben schon im Stehen einen Arm.
+  const TUN = [
+    { id: "steht", einzahl: "steht", mehrzahl: "stehen" },
+    { id: "schlaeft", einzahl: "schläft", mehrzahl: "schlafen" },
+    { id: "liest", einzahl: "liest", mehrzahl: "lesen" },
+    { id: "singt", einzahl: "singt", mehrzahl: "singen" },
+    { id: "huepft", einzahl: "hüpft", mehrzahl: "hüpfen" },
+  ];
+  const TUN_BY_ID = Object.fromEntries(TUN.map((t) => [t.id, t]));
+
+  // Der Satz zum Bild, in Teilen mit ihrer Rolle – so kann ein Spiel eine
+  // Lücke an jede Stelle setzen (Lückensätze) oder den ganzen Satz zeigen
+  // (Stimmt das?).
+  //   lage  { tier, ding, wo, anzahl, tun }
+  //   «Der Fuchs steht auf dem Tisch.»  artikel tier tun wo ding
+  //   «Zwei Füchse stehen auf dem Tisch.»  anzahl tier tun wo ding
+  function satzTeile(lage) {
+    const tier = TIERE.find((t) => t.id === lage.tier) || TIERE[0];
+    const ding = DINGE.find((d) => d.id === lage.ding) || DINGE[0];
+    const tun = TUN_BY_ID[lage.tun] || TUN_BY_ID.steht;
+    const anzahl = Number(lage.anzahl) || 1;
+    const vorne = anzahl > 1
+      ? [{ text: ZAHLWOERTER[anzahl], rolle: "anzahl" }, { text: tier.viele, rolle: "tier" }]
+      : [{ text: tier.der.split(" ")[0], rolle: "artikel" }, { text: tier.der.split(" ").slice(1).join(" "), rolle: "tier" }];
+    return [...vorne, { text: anzahl > 1 ? tun.mehrzahl : tun.einzahl, rolle: "tun" }, { text: lage.wo, rolle: "wo" }, { text: ding.dativ, rolle: "ding" }];
+  }
+
+  function satzZurLage(lage) {
+    return `${satzTeile(lage).map((teil) => teil.text).join(" ")}.`;
+  }
 
   // ---------------------------------------------------------------------------
   // Reime (Reimkupplung)
@@ -400,10 +477,10 @@
 
   window.LernappLeseInhalte = {
     steine, steineDerSilben, lautId,
-    LAUTE, LAUT_BY_ID, LAUTE_JE_STUFE, lauteBisGruppe,
+    LAUTE, LAUT_BY_ID, LAUTE_JE_STUFE, GRUPPE_JE_LESESTUFE, lauteBisGruppe, fehlendeLaute, lesbare, hausLaute,
     SILBEN_WOERTER, SILBEN_JE_STUFE,
     KUPPEL_WOERTER, KUPPELN_JE_STUFE,
-    TIERE, DINGE, ZAHLWOERTER,
+    TIERE, DINGE, ZAHLWOERTER, TUN, TUN_BY_ID, satzTeile, satzZurLage,
     REIME, HOER_ANLAUT, HOER_ANLAUT_WORT, AEHNLICHE_ANLAUTE, MEHRDEUTIG, anlautVon, bildWoerter,
     BLITZWOERTER, BLITZ_JE_STUFE,
   };
