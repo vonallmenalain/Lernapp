@@ -327,6 +327,16 @@ Die Einstellung liegt als eigener Kasten `lernapp.lesen.eltern` mit Zeitmarke im
 die Regeln erlauben Eltern das schon (`isProgressReset`). Das Gerät des Kindes nimmt die
 neuere Fassung und schreibt sie nie selbst. Wie die Stufe überlebt sie das Zurücksetzen.
 
+**Die Stimme** (`kids.js`, `pickGermanVoice`; die Leseecke nimmt dieselbe): Gesprochen wird
+mit der natürlichsten deutschen Stimme, die das Gerät hat – in Edge die Stimmen mit «Natural»
+(auch Schweizer Hochdeutsch), in Chrome «Google Deutsch», auf Android die der Sprachausgabe.
+Bei gleicher Güte nimmt sie eine Männerstimme wie die aufgenommenen Laute, dann eine aus der
+Schweiz, und nie mehr künstlich höher. Im Profil steht – für jedes Konto und ohne Anmeldung –
+die Karte **Stimme auf diesem Gerät** (`firebase.js`, `renderStimmeKarte`): alle deutschen
+Stimmen des Geräts zur Wahl, dazu «Probe hören» und ein Tipp für Edge und Android. Die Wahl
+liegt nur auf dem Gerät (`lernapp.stimme`), denn ein anderes hat andere Stimmen, und sie
+überlebt das Zurücksetzen. Prüfung: `scripts/validate-stimme.mjs`.
+
 ### Gratis
 
 Die Schranke (`entitlement.js`) kennt die sechsundzwanzig Spiele der Leseecke in einer eigenen Tabelle

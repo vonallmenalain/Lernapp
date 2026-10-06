@@ -2321,6 +2321,12 @@ body.puzzle-active .spatialPuzzle-board .spatial-option-graphic > svg {
   width: min(1120px, 100%);
 }
 
+/* Kein Verankern beim Scrollen: Das Fenster zeichnet seinen Inhalt nach
+   jeder Aktion neu (Zurücksetzen, Speichern), und danach liess Chromium es
+   bei der nächsten Mausbewegung um Hunderte Pixel springen – der Klick traf
+   dann etwas ganz anderes. Was hier die Lage hält, ist das Neuzeichnen. */
+.account-panel { overflow-anchor: none; }
+
 .account-close {
   position: absolute;
   top: 14px;
@@ -2936,6 +2942,13 @@ body.puzzle-active .spatialPuzzle-board .spatial-option-graphic > svg {
   font-weight: 700;
   line-height: 1.45;
 }
+
+/* Die Stimme auf diesem Gerät: der Satz, dann Auswahl und «Probe hören»,
+   darunter der Tipp für Edge und Android. Lange Namen von Stimmen dürfen die
+   Karte auf dem Handy nicht sprengen. */
+.stimme-karte { flex-direction: column; align-items: stretch; }
+.stimme-wahl select { flex: 1 1 220px; min-width: 0; max-width: 100%; text-overflow: ellipsis; }
+.stimme-tipp { color: var(--muted); line-height: 1.4; }
 
 /* --- Das Wagen-Set ---
    Zwei Karten, je ein Zug: das gültige Set ist markiert, das andere lässt

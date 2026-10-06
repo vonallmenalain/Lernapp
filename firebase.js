@@ -93,6 +93,7 @@
     LOCAL_WAGON_SET_KEY,       // welches Wagen-Set gilt
     LOCAL_APP_GRATIS_KEY,      // ob die ganze App gratis ist
     "lernapp.lesen.eltern",    // wie die Eltern die Leseecke eingestellt haben
+    "lernapp.stimme",          // welche Stimme auf diesem Gerät vorliest
     LOCAL_GUEST_ID_KEY,
     LOCAL_GUEST_CREATED_KEY,
     LOCAL_GUEST_PING_KEY,
@@ -2394,10 +2395,12 @@
         <button type="button" class="google-action" data-auth-google>Mit Google anmelden</button>
       </form>
       <p class="auth-status" role="status" aria-live="polite">${state.firebaseReady ? "" : "Firebase SDK ist noch nicht geladen."}</p>
+      ${renderStimmeKarte()}
       <p class="auth-rechtliches"><a href="willkommen.html">Was ist Gripszug?</a> · <a href="kontakt.html">Kontakt</a> · <a href="impressum.html">Impressum</a> · <a href="datenschutz.html">Datenschutz</a> · <a href="agb.html">AGB</a></p>
     `;
 
     const status = modalContent.querySelector(".auth-status");
+    bindStimmeKarte();
     // art: "fehler" (Vorgabe), "ok" oder "laeuft". true bleibt erlaubt und
     // heisst "ok" – so lesen sich die Aufrufe von früher weiter richtig.
     const setStatus = (text, art = "fehler") => zeigeMeldung(status, text, art === true ? "ok" : art);
@@ -2541,6 +2544,7 @@
       <div class="kauf-platz" data-kauf-platz>${renderKaufKarte()}</div>
       ${isParentAccount() ? renderKinderKarte() : ""}
       ${isParentAccount() ? `<div data-wagen-platz>${renderFamilienWagenKarte()}</div>` : ""}
+      ${renderStimmeKarte()}
       ${renderResetProgressCard()}
       <div class="stat-strip" aria-label="Gesamtstatistik">
         <div><strong>${stats.totalSolved}</strong><span>gelöst</span></div>
@@ -2574,6 +2578,69 @@
       bindFamilienWagenKarte();
     }
     bindResetProgressCard();
+    bindStimmeKarte();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Die Stimme auf diesem Gerät
+  // ---------------------------------------------------------------------------
+  // Welche Stimmen es gibt, entscheidet das Gerät (kids.js, deutscheStimmen):
+  // Edge auf Windows hat natürliche, Android die seiner Sprachausgabe. Darum
+  // gilt die Wahl nur hier, und die Karte steht für jedes Konto und ohne
+  // Anmeldung im Profil – die Stimme des Tablets stellt man am Tablet ein.
+  // Ohne Wahl nimmt die App die natürlichste (Automatisch).
+  function renderStimmeKarte() {
+    const kids = window.LernappKids;
+    if (!kids?.ttsSupported?.() || !kids.deutscheStimmen) return "";
+    const stimmen = kids.deutscheStimmen();
+    const wahl = kids.gewaehlteStimme?.() || "";
+    const auto = stimmen[0];
+    const optionen = [
+      `<option value="">Automatisch${auto ? `: ${escapeHtml(kids.stimmeName(auto))}` : ""}</option>`,
+      ...stimmen.map((v) => {
+        const id = kids.stimmeId(v);
+        return `<option value="${escapeHtml(id)}" ${id === wahl ? "selected" : ""}>${escapeHtml(kids.stimmeName(v))}</option>`;
+      }),
+    ].join("");
+    const leer = !stimmen.length;
+    return `
+      <div class="unlock-mode-card stimme-karte" data-stimme-karte>
+        <div>
+          <strong>Stimme auf diesem Gerät</strong>
+          <span>${leer ? "Auf diesem Gerät gibt es (noch) keine deutsche Stimme zum Vorlesen." : "So liest die App vor. Welche Stimmen es gibt, hängt vom Gerät ab; die Wahl gilt nur hier."}</span>
+        </div>
+        <div class="card-actions stimme-wahl">
+          <select data-stimme-wahl aria-label="Stimme zum Vorlesen" ${leer ? "disabled" : ""}>${optionen}</select>
+          <button type="button" class="secondary-action" data-stimme-probe ${leer ? "disabled" : ""}>Probe hören</button>
+        </div>
+        <small class="stimme-tipp">Am natürlichsten klingt es auf Windows in Microsoft Edge: Stimmen mit «natürlich», auch aus der Schweiz. Auf Android in den Einstellungen unter «Sprachausgabe» die Sprachausgabe von Google wählen und die deutsche Stimme in hoher Qualität laden.</small>
+      </div>
+    `;
+  }
+
+  let stimmenHoererDa = false;
+  function bindStimmeKarte() {
+    const kids = window.LernappKids;
+    const karte = modalContent.querySelector("[data-stimme-karte]");
+    if (!karte || !kids) return;
+    const wahl = karte.querySelector("[data-stimme-wahl]");
+    // Gewählt ist gewählt – und gleich zu hören.
+    wahl?.addEventListener("change", () => {
+      kids.stimmeWaehlen?.(wahl.value);
+      kids.stimmeProbe?.(wahl.value);
+    });
+    karte.querySelector("[data-stimme-probe]")?.addEventListener("click", () => kids.stimmeProbe?.(wahl?.value || ""));
+    // Viele Browser kennen ihre Stimmen erst nach einem Moment: Dann wird die
+    // Karte neu gezeichnet, wo sie gerade steht.
+    if (!stimmenHoererDa && kids.onStimmen) {
+      stimmenHoererDa = true;
+      kids.onStimmen(() => {
+        const alt = modalContent.querySelector("[data-stimme-karte]");
+        if (!alt || alt.contains(document.activeElement)) return;
+        alt.outerHTML = renderStimmeKarte();
+        bindStimmeKarte();
+      });
+    }
   }
 
   // ---------------------------------------------------------------------------

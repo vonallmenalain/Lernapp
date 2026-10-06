@@ -42,20 +42,15 @@
     return typeof window !== "undefined" && "speechSynthesis" in window && typeof window.SpeechSynthesisUtterance === "function";
   }
 
-  // Eine deutsche Stimme, möglichst dieselbe, die der Lautsprecher der App
-  // nimmt (kids.js): weiblich, sonst irgendeine deutsche.
-  let stimme = null;
+  // Dieselbe Stimme wie der Lautsprecher der App (kids.js, pickGermanVoice):
+  // die im Profil gewählte oder die natürlichste deutsche des Geräts. Nur
+  // ohne kids.js sucht die Leseecke selbst eine deutsche.
   function deutscheStimme() {
     if (!sprachausgabe()) return null;
-    if (stimme) return stimme;
+    const k = kids();
+    if (k?.pickGermanVoice) return k.pickGermanVoice();
     const alle = window.speechSynthesis.getVoices() || [];
-    stimme = alle.find((v) => /de[-_]/i.test(v.lang) && /female|frau|petra|anna|marlene|google/i.test(v.name))
-      || alle.find((v) => /de[-_]/i.test(v.lang))
-      || null;
-    return stimme;
-  }
-  if (sprachausgabe() && typeof window.speechSynthesis.addEventListener === "function") {
-    window.speechSynthesis.addEventListener("voiceschanged", () => { stimme = null; deutscheStimme(); });
+    return alle.find((v) => /^de([-_]|$)/i.test(v.lang || "")) || null;
   }
 
   // ---------------------------------------------------------------------------
@@ -101,17 +96,19 @@
   //   onWord  (index) => …, für das Mitleuchten der Wörter. Nur wo der Browser
   //           Wortgrenzen meldet; Chrome auf Android tut das nicht – dann
   //           leuchtet der ganze Satz (siehe lesebuch: satzweise sprechen).
-  function sprich(text, { rate = 0.9, pitch = 1.1, onWord = null, warteschlange = false } = {}) {
+  //   pitch   1: keine künstlich höhere Stimme – sie macht natürliche Stimmen
+  //           hölzern
+  function sprich(text, { rate = 0.9, pitch = 1, onWord = null, warteschlange = false } = {}) {
     return new Promise((fertig) => {
       if (!text || !sprachausgabe() || !stimmeAn()) { fertig(false); return; }
       if (!warteschlange) stop();
       const meine = folge;
       try {
         const u = new window.SpeechSynthesisUtterance(String(text));
-        u.lang = "de-DE";
+        const v = deutscheStimme();
+        u.lang = v?.lang || "de-DE";
         u.rate = rate;
         u.pitch = pitch;
-        const v = deutscheStimme();
         if (v) u.voice = v;
         if (onWord) {
           // Aus der Zeichenstelle wird die Nummer des Wortes: gezählt werden
