@@ -41,7 +41,7 @@
  *   dinge     [{ e, x, y, s, vorne?, dreh? }]   ein Emoji, Mitte bei (x, y),
  *             s die Grösse; vorne: vor den Tieren statt dahinter
  *   zeichnungen [{ z, x, y, s?, … }]   was es nicht als Emoji gibt
- *             (buecher.js, ZEICHNUNGEN): fenster (ein Fenster, licht?),
+ *             (lesen-bilder.js, ZEICHNUNGEN): fenster (ein Fenster, licht?),
  *             hoehle (eine Felshöhle), pfuetze, staffelei (eine Leinwand,
  *             das Bild darauf sind Dinge davor), seerose (ein Blatt auf dem
  *             Wasser), schneemann (augen?, nase?), fliege, blatt (ein

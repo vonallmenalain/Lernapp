@@ -136,7 +136,31 @@
   // wird gelesen. Ausschnitt 0 0 220 150, das Gleis liegt bei y = 132.
   const WAGEN_W = 220;
   const WAGEN_H = 150;
-  function buildLesewagen({ glieder = 1 } = {}) {
+  //   ausbau  so viele Dinge der Einrichtung sind drin (AUSBAU): Ab den
+  //           Vorhängen sieht man sie in den Fenstern, ab den Blumen hängen
+  //           Kästen darunter, und ist alles da, leuchtet die Lichterkette.
+  function buildLesewagen({ glieder = 1, ausbau = 0 } = {}) {
+    const hat = (id) => AUSBAU.findIndex((a) => a.id === id) < ausbau;
+    const vorhang = (x) => (hat("vorhaenge") ? [
+      el("path", { d: `M${x + 1} 63 L${x + 11} 63 Q${x + 6} 74 ${x + 2} 86 L${x + 1} 86 Z`, fill: "#e8543f" }),
+      el("path", { d: `M${x + 29} 63 L${x + 19} 63 Q${x + 24} 74 ${x + 28} 86 L${x + 29} 86 Z`, fill: "#e8543f" }),
+    ] : []);
+    const kasten = (x) => (hat("blumen") ? [
+      el("rect", { x: x - 1, y: 89, width: 32, height: 6, rx: 2, fill: "#8a5a35" }),
+      el("circle", { cx: x + 7, cy: 87, r: 3, fill: "#ef6fa8" }),
+      el("circle", { cx: x + 15, cy: 86, r: 3, fill: "#ffd166" }),
+      el("circle", { cx: x + 23, cy: 87, r: 3, fill: "#ef6fa8" }),
+    ] : []);
+    const lichter = [];
+    if (hat("lichterkette")) {
+      const farben = ["#ffd166", "#ef6fa8", "#4fc3f7", "#8bd36b"];
+      for (let i = 0; i <= 10; i += 1) {
+        const t = i / 10;
+        const x = 32 + 176 * t;
+        const y = 48 * (1 - t) * (1 - t) + 2 * 18 * t * (1 - t) + 48 * t * t + 5;
+        lichter.push(el("circle", { cx: x, cy: y, r: 2.6, fill: farben[i % farben.length], class: `lese-birne lese-birne-${i % 3}` }));
+      }
+    }
     const schiene = [];
     for (let x = 6; x < 214; x += 16) schiene.push(el("rect", { x, y: 130, width: 9, height: 10, rx: 2, fill: "#8d6e52" }));
     const rad = (cx) => group({ transform: `translate(${cx} 124)` }, [
@@ -165,6 +189,7 @@
       el("circle", { class: "lesewagen-rauch", cx: 171, cy: 18, r: 6, fill: "#e8edf3", opacity: "0.85" }),
       el("circle", { class: "lesewagen-rauch lesewagen-rauch-2", cx: 178, cy: 9, r: 4.5, fill: "#e8edf3", opacity: "0.6" }),
       fenster(52), fenster(105), fenster(158),
+      ...vorhang(52), ...vorhang(158), ...kasten(52), ...kasten(158),
       // Der Wurm schaut aus dem mittleren Fenster
       group({ transform: "translate(120 82) scale(0.62)" }, [buildLesewurm(1, { r: 14, buch: false })]),
       el("rect", { x: 103, y: 87, width: 34, height: 4, rx: 2, fill: shade(FARBE.wagen, -0.35) }),
@@ -176,6 +201,7 @@
       // Blumen am Gleis
       el("circle", { cx: 26, cy: 126, r: 3.5, fill: "#ef6fa8" }),
       el("circle", { cx: 212, cy: 125, r: 3, fill: "#f5a623" }),
+      ...lichter,
     ]);
   }
 
@@ -332,9 +358,178 @@
     ];
   }
 
+  // ---------------------------------------------------------------------------
+  // Die Einrichtung: Der Lesewagen wird gemütlich
+  // ---------------------------------------------------------------------------
+  // Am Anfang ist der Wagen kahl: Sessel, Regal, Haus, Trommel, Kiste und Zug –
+  // was zum Spielen nötig ist. Mit jedem gelesenen Stück (lesen-stand.js,
+  // wagenStufe) kommt ein Ding dazu, fünfzehn im Ganzen; was neu ist, leuchtet,
+  // bis das Kind es gesehen hat (train-leseecke.js). Keines ist ein Knopf:
+  // Getippt wird durch sie hindurch auf das, was darunter liegt.
+  const AUSBAU = [
+    { id: "lampe", name: "eine Lampe" },
+    { id: "teppich", name: "ein Teppich" },
+    { id: "kissen", name: "ein Kissen" },
+    { id: "vorhaenge", name: "Vorhänge" },
+    { id: "blumen", name: "Blumen am Fenster" },
+    { id: "bild", name: "ein Bild an der Wand" },
+    { id: "stehlampe", name: "eine Stehlampe" },
+    { id: "stapel", name: "ein Stapel Bücher" },
+    { id: "uhr", name: "eine Uhr" },
+    { id: "haengepflanze", name: "eine Hängepflanze" },
+    { id: "decke", name: "eine Decke" },
+    { id: "wimpel", name: "eine Wimpelkette" },
+    { id: "mobile", name: "ein Mobile mit Sternen" },
+    { id: "katze", name: "eine schlafende Katze" },
+    { id: "lichterkette", name: "eine Lichterkette" },
+  ];
+  const FENSTER = [[300, 120], [690, 120]];
+
+  // Die Unterkante des Dachs (ein Bogen, siehe buildLesezimmer) – dort hängen
+  // Pflanze, Mobile und Lichterkette.
+  function dachUnterkante(x) {
+    const t = (x + 400) / 2000;
+    return 60 * (1 - t) * (1 - t) - 80 * t * (1 - t) + 60 * t * t;
+  }
+
+  // Ein Stern mit fünf Zacken um (0, 0).
+  function stern(r, attrs = {}) {
+    const punkte = [];
+    for (let i = 0; i < 10; i += 1) {
+      const w = (Math.PI / 5) * i - Math.PI / 2;
+      const rr = i % 2 ? r * 0.45 : r;
+      punkte.push(`${(Math.cos(w) * rr).toFixed(1)},${(Math.sin(w) * rr).toFixed(1)}`);
+    }
+    return el("polygon", { points: punkte.join(" "), ...attrs });
+  }
+
+  const EINRICHTUNG = {
+    lampe: () => [group({ transform: "translate(600 0)" }, lampe())],
+    teppich: () => [
+      el("ellipse", { cx: 560, cy: 600, rx: 360, ry: 50, fill: "#7c5ce6", opacity: "0.55" }),
+      el("ellipse", { cx: 560, cy: 600, rx: 300, ry: 36, fill: "none", stroke: "#ffd166", "stroke-width": 6, opacity: "0.7", "stroke-dasharray": "18 14" }),
+    ],
+    // Auf dem Sessel, im Ausschnitt des Sessels (train-leseecke: weiter).
+    kissen: () => [group({ transform: "translate(-98 22) rotate(-14)" }, [
+      el("rect", { x: -40, y: -30, width: 80, height: 60, rx: 18, fill: "#7c5ce6" }),
+      el("rect", { x: -29, y: -19, width: 58, height: 38, rx: 11, fill: "none", stroke: "#ffd166", "stroke-width": 3, "stroke-dasharray": "6 5" }),
+    ])],
+    vorhaenge: () => FENSTER.flatMap(([x, y]) => [
+      el("rect", { x: x - 18, y: y - 20, width: 236, height: 8, rx: 4, fill: FARBE.holzDunkel }),
+      el("path", { d: `M${x - 12} ${y - 14} L${x + 44} ${y - 14} Q${x + 34} ${y + 50} ${x + 16} ${y + 86} Q${x + 24} ${y + 128} ${x + 30} ${y + 166} L${x - 12} ${y + 166} Z`, fill: "#e8543f" }),
+      el("path", { d: `M${x + 212} ${y - 14} L${x + 156} ${y - 14} Q${x + 166} ${y + 50} ${x + 184} ${y + 86} Q${x + 176} ${y + 128} ${x + 170} ${y + 166} L${x + 212} ${y + 166} Z`, fill: "#e8543f" }),
+      el("rect", { x: x + 6, y: y + 80, width: 18, height: 10, rx: 4, fill: "#ffd166" }),
+      el("rect", { x: x + 176, y: y + 80, width: 18, height: 10, rx: 4, fill: "#ffd166" }),
+    ]),
+    blumen: () => FENSTER.flatMap(([x, y]) => [
+      el("rect", { x: x - 8, y: y + 148, width: 216, height: 10, rx: 4, fill: FARBE.holz }),
+      ...[[x + 44, "#ef6fa8"], [x + 156, "#ffd166"]].flatMap(([cx, farbe]) => [
+        el("path", { d: `M${cx} ${y + 126} L${cx} ${y + 140} M${cx - 9} ${y + 128} L${cx - 3} ${y + 140} M${cx + 9} ${y + 128} L${cx + 3} ${y + 140}`, stroke: "#3d9440", "stroke-width": 3, "stroke-linecap": "round" }),
+        el("circle", { cx, cy: y + 122, r: 7, fill: farbe }),
+        el("circle", { cx: cx - 11, cy: y + 126, r: 5.5, fill: farbe }),
+        el("circle", { cx: cx + 11, cy: y + 126, r: 5.5, fill: farbe }),
+        el("path", { d: `M${cx - 14} ${y + 138} L${cx + 14} ${y + 138} L${cx + 10} ${y + 150} L${cx - 10} ${y + 150} Z`, fill: "#c8935a" }),
+      ]),
+    ]),
+    bild: () => [group({ transform: "translate(355 332)" }, [
+      el("rect", { x: -50, y: -40, width: 100, height: 80, rx: 6, fill: FARBE.holzDunkel }),
+      el("rect", { x: -42, y: -32, width: 84, height: 64, rx: 3, fill: "#a8ddf0" }),
+      el("path", { d: "M-42 32 L-14 -6 L4 16 L20 0 L42 24 L42 32 Z", fill: "#7c8a99" }),
+      el("path", { d: "M-14 -6 L-7 3 L-21 3 Z M20 0 L26 7 L14 7 Z", fill: "#ffffff" }),
+      el("circle", { cx: 27, cy: -16, r: 8, fill: "#ffd166" }),
+    ])],
+    stehlampe: () => [group({ transform: "translate(812 0)" }, [
+      el("ellipse", { cx: 0, cy: 380, rx: 64, ry: 56, fill: "url(#lese-licht)", opacity: "0.7" }),
+      el("ellipse", { cx: 0, cy: 522, rx: 28, ry: 7, fill: FARBE.tinte }),
+      el("rect", { x: -3, y: 332, width: 6, height: 190, fill: FARBE.tinte }),
+      el("path", { d: "M-34 338 L-22 288 L22 288 L34 338 Z", fill: "#00a5b5" }),
+      el("ellipse", { cx: 0, cy: 338, rx: 34, ry: 6, fill: shade("#00a5b5", -0.2) }),
+    ])],
+    stapel: () => [group({ transform: "translate(876 0)" }, [
+      el("rect", { x: -32, y: 507, width: 64, height: 13, rx: 3, fill: "#2f6f8f" }),
+      el("rect", { x: -29, y: 494, width: 58, height: 13, rx: 3, fill: "#e8543f", transform: "rotate(-3 0 500)" }),
+      el("rect", { x: -30, y: 481, width: 60, height: 13, rx: 3, fill: "#f5a623", transform: "rotate(2 0 487)" }),
+      el("rect", { x: -26, y: 468, width: 52, height: 13, rx: 3, fill: "#3fa34d", transform: "rotate(-4 0 474)" }),
+      ...[507, 494, 481, 468].map((y) => el("rect", { x: 14, y: y + 3, width: 10, height: 7, rx: 2, fill: "#ffffff", opacity: "0.6" })),
+    ])],
+    uhr: () => [group({ transform: "translate(1100 112)" }, [
+      el("circle", { cx: 0, cy: 0, r: 36, fill: "#fff6e0", stroke: FARBE.holzDunkel, "stroke-width": 7 }),
+      ...[0, 90, 180, 270].map((w) => el("rect", { x: -2, y: -29, width: 4, height: 8, rx: 2, fill: FARBE.tinte, transform: `rotate(${w})` })),
+      el("path", { d: "M0 0 L0 -20 M0 0 L14 6", stroke: FARBE.tinte, "stroke-width": 4, "stroke-linecap": "round" }),
+      el("circle", { cx: 0, cy: 0, r: 3.5, fill: "#e8543f" }),
+    ])],
+    haengepflanze: () => {
+      const oben = dachUnterkante(925);
+      return [group({ transform: "translate(925 0)" }, [
+        el("path", { d: `M0 ${oben} L-14 100 M0 ${oben} L14 100`, stroke: "#c8935a", "stroke-width": 2 }),
+        el("path", { d: "M-20 100 L20 100 L15 128 L-15 128 Z", fill: "#e8543f" }),
+        el("path", { d: "M-12 104 Q-34 130 -24 164 M-2 108 Q-12 140 -6 168 M8 106 Q24 134 18 160 M14 102 Q38 120 34 146", stroke: "#3d9440", "stroke-width": 3, fill: "none", "stroke-linecap": "round" }),
+        ...[[-30, 128], [-24, 150], [-10, 140], [-6, 162], [20, 130], [22, 152], [34, 136]].map(([x, y]) => el("ellipse", { cx: x, cy: y, rx: 7, ry: 4.5, fill: "#4caf50", transform: `rotate(${x < 0 ? -35 : 35} ${x} ${y})` })),
+      ])];
+    },
+    // Über die rechte Armlehne des Sessels (im Ausschnitt des Sessels).
+    decke: () => [group({ transform: "translate(140 54) rotate(6)" }, [
+      el("path", { d: "M-44 -46 Q0 -60 44 -46 L50 70 Q0 82 -50 70 Z", fill: "#3fa34d" }),
+      ...[-28, -8, 12, 32].map((x) => el("path", { d: `M${x} -52 L${x + 4} 76`, stroke: "#ffd166", "stroke-width": 5, opacity: "0.8" })),
+      el("path", { d: "M-44 -14 Q0 -26 44 -14 M-48 30 Q0 20 48 30", stroke: "#2e7d32", "stroke-width": 5, fill: "none", opacity: "0.7" }),
+    ])],
+    wimpel: () => {
+      const farben = ["#e8543f", "#f5a623", "#3fa34d", "#00a5b5", "#7c5ce6", "#ef6fa8", "#ffd166"];
+      return [
+        el("path", { d: "M506 58 Q598 84 690 58", stroke: FARBE.tinte, "stroke-width": 2.5, fill: "none" }),
+        ...farben.map((farbe, i) => {
+          const x = 522 + i * 26;
+          const t = (x - 506) / 184;
+          const y = 58 + 2 * t * (1 - t) * 26;
+          return el("path", { d: `M${x - 10} ${y} L${x + 10} ${y} L${x} ${y + 22} Z`, fill: farbe });
+        }),
+      ];
+    },
+    mobile: () => {
+      const oben = dachUnterkante(168);
+      return [group({ transform: "translate(168 0)" }, [
+        el("path", { d: `M0 ${oben} L0 62 M-46 62 L46 62 M-46 62 L-46 96 M0 62 L0 112 M46 62 L46 90`, stroke: FARBE.tinte, "stroke-width": 2 }),
+        group({ transform: "translate(-46 106)" }, [stern(13, { fill: "#ffd166", stroke: "#e8a700", "stroke-width": 1.5 })]),
+        group({ transform: "translate(0 124)" }, [el("path", { d: "M8 -14 A15 15 0 1 0 8 14 A11 11 0 1 1 8 -14 Z", fill: "#ffe9a8", stroke: "#e8a700", "stroke-width": 1.5 })]),
+        group({ transform: "translate(46 100)" }, [stern(11, { fill: "#ffd166", stroke: "#e8a700", "stroke-width": 1.5 })]),
+      ])];
+    },
+    katze: () => [group({ transform: "translate(822 604)" }, [
+      el("ellipse", { cx: 0, cy: 12, rx: 54, ry: 8, fill: "#000", opacity: "0.12" }),
+      el("path", { d: "M42 4 Q72 0 64 -22 Q60 -31 53 -25 Q61 -9 40 -5 Z", fill: "#8d8d95" }),
+      el("ellipse", { cx: 4, cy: -6, rx: 46, ry: 19, fill: "#a3a3ab" }),
+      el("circle", { cx: -38, cy: -10, r: 17, fill: "#a3a3ab" }),
+      el("path", { d: "M-51 -19 L-49 -37 L-38 -25 Z M-30 -25 L-23 -39 L-20 -22 Z", fill: "#a3a3ab" }),
+      el("path", { d: "M-47 -9 q4 3 8 0 M-35 -9 q4 3 8 0", stroke: FARBE.tinte, "stroke-width": 2, fill: "none", "stroke-linecap": "round" }),
+      el("path", { d: "M-6 -22 q12 -6 26 0 M8 -24 q10 -5 22 1", stroke: "#8d8d95", "stroke-width": 3, fill: "none", "stroke-linecap": "round" }),
+      el("path", { d: "M-22 -44 h9 l-9 10 h9 M-6 -58 h12 l-12 13 h12", stroke: "#7c8a99", "stroke-width": 2.5, fill: "none", "stroke-linecap": "round", "stroke-linejoin": "round" }),
+    ])],
+    lichterkette: () => {
+      const farben = ["#ffd166", "#ef6fa8", "#4fc3f7", "#8bd36b", "#ff9f43"];
+      const punkte = [];
+      for (let x = -10; x <= 1210; x += 10) punkte.push(`${x},${(dachUnterkante(x) + 14 + 5 * Math.sin(x / 70 * Math.PI)).toFixed(1)}`);
+      const birnen = [];
+      for (let i = 0, x = 35; x < 1200; i += 1, x += 70) {
+        const y = dachUnterkante(x) + 14 + 5 * Math.sin(x / 70 * Math.PI) + 4;
+        birnen.push(el("ellipse", { cx: x, cy: y + 6, rx: 6, ry: 9, fill: farben[i % farben.length], class: `lese-birne lese-birne-${i % 3}` }));
+      }
+      return [el("polyline", { points: punkte.join(" "), stroke: FARBE.tinte, "stroke-width": 2, fill: "none" }), ...birnen];
+    },
+  };
+
+  // Ein Ding der Einrichtung, wenn es schon da ist – mit seinem Namen und,
+  // wenn es neu ist, mit Schein.
+  function einrichtung(id, { ausbau, neuAb }) {
+    const nr = AUSBAU.findIndex((a) => a.id === id);
+    if (nr < 0 || nr >= ausbau) return null;
+    return group({ class: `lese-ausbau${nr >= neuAb ? " is-neu" : ""}`, "data-ausbau": id }, EINRICHTUNG[id]());
+  }
+
   //   stand     aus lesen-stand.js: glieder (Lesewurm), gelesen (Bücher),
-  //             wurmName (wie das Kind ihn getauft hat)
-  function buildLesezimmer({ glieder = 1, gelesen = 0, wurmName = "" } = {}) {
+  //             wurmName (wie das Kind ihn getauft hat), ausbau (so viele
+  //             Dinge der Einrichtung sind da), neuAb (ab diesem leuchten sie)
+  function buildLesezimmer({ glieder = 1, gelesen = 0, wurmName = "", ausbau = 0, neuAb = Infinity } = {}) {
+    const da = (id) => einrichtung(id, { ausbau, neuAb });
     const svg = el("svg", { viewBox: `0 0 ${ZIMMER_W} ${ZIMMER_H}`, class: "lesezimmer-svg", role: "img", "aria-label": "Im Lesewagen" });
     const defs = el("defs", {}, [
       el("radialGradient", { id: "lese-licht", cx: "50%", cy: "30%", r: "60%" }, [
@@ -351,7 +546,7 @@
     for (let x = -400; x < 1600; x += 90) svg.append(el("rect", { x, y: 520, width: 3, height: 400, fill: shade(FARBE.boden, -0.15) }));
     svg.append(el("rect", { x: -400, y: 512, width: 2000, height: 14, fill: FARBE.holzDunkel }));
     // Fenster mit Himmel und Hügeln
-    [[300, 120], [690, 120]].forEach(([x, y]) => {
+    FENSTER.forEach(([x, y]) => {
       svg.append(group({ class: "lesezimmer-fenster" }, [
         el("rect", { x, y, width: 200, height: 150, rx: 18, fill: "#a8ddf0", stroke: FARBE.holzDunkel, "stroke-width": 10 }),
         el("path", { d: `M${x + 6} ${y + 120} Q${x + 60} ${y + 80} ${x + 110} ${y + 112} T${x + 194} ${y + 100} L${x + 194} ${y + 144} L${x + 6} ${y + 144} Z`, fill: "#8fcf7a" }),
@@ -360,17 +555,18 @@
       ]));
     });
     svg.append(el("ellipse", { cx: 600, cy: 360, rx: 520, ry: 330, fill: "url(#lese-licht)" }));
-    // Teppich
-    svg.append(el("ellipse", { cx: 560, cy: 600, rx: 360, ry: 50, fill: "#7c5ce6", opacity: "0.55" }));
-    svg.append(el("ellipse", { cx: 560, cy: 600, rx: 300, ry: 36, fill: "none", stroke: "#ffd166", "stroke-width": 6, opacity: "0.7", "stroke-dasharray": "18 14" }));
+    // Die Einrichtung, soweit sie schon da ist: hinten an der Wand zuerst.
+    ["teppich", "vorhaenge", "blumen", "wimpel", "lampe", "mobile", "lichterkette", "bild", "uhr", "haengepflanze", "stehlampe", "stapel", "katze"]
+      .forEach((id) => { const ding = da(id); if (ding) svg.append(ding); });
 
     const ort = (id, label, transform, kinder) => group({ class: `lese-ort lese-ort-${id}`, "data-ort": id, transform, role: "button", tabindex: "0", "aria-label": label }, kinder);
 
-    svg.append(group({ transform: "translate(600 0)" }, lampe()));
     svg.append(ort("buchstaben", "Das Buchstabenhaus", "translate(48 150)", buchstabenhausWand()));
     svg.append(ort("buecher", "Das Bücherregal", "translate(940 172)", buecherregal(gelesen)));
     svg.append(ort("weiter", "Der Lesewurm im Sessel: Er sucht dir etwas aus", "translate(590 400)", [
       ...sessel(),
+      da("kissen"),
+      da("decke"),
       group({ transform: "translate(-10 70)" }, [buildLesewurm(glieder, { r: 24, buch: true })]),
     ]));
     svg.append(ort("wurmname", wurmName ? `Das Schild: Der Lesewurm heisst ${wurmName}` : "Das Schild: Hier bekommt der Lesewurm seinen Namen", "translate(322 470)", namensschild(wurmName)));
@@ -583,7 +779,7 @@
   }
 
   window.LernappLeseArt = {
-    FARBE, BUCHFARBEN, WAGEN_W, WAGEN_H, ZIMMER_W, ZIMMER_H, DINGE,
+    FARBE, BUCHFARBEN, WAGEN_W, WAGEN_H, ZIMMER_W, ZIMMER_H, DINGE, AUSBAU,
     el, group, shade,
     buildLesewurm, buildLesewagen, buildLesezimmer, buildTrommel, buildLautWagen, buildDing,
     SZENE_PLAETZE: PLAETZE, SZENE_NEBEN: NEBEN, platzFuer, szenePasst, buildSzene,

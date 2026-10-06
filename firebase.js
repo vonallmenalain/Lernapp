@@ -3116,12 +3116,47 @@
           <strong>Leseecke</strong>
           <span>${LESEN_ERKLAERUNG}</span>
         </div>
+        ${renderKindLesebericht(kind, detail)}
         <p class="admin-lesen-frage">Wo beginnt die Leseecke?</p>
         <div class="card-actions">${LESEN_STARTPUNKTE.map((eintrag) => knopf("startpunkt", eintrag)).join("")}</div>
         <p class="admin-lesen-frage">Schrift</p>
         <div class="card-actions">${LESEN_SCHRIFTEN.map((eintrag) => knopf("schrift", eintrag)).join("")}</div>
         ${renderKindLaute(kind, jetzt, busy)}
       </div>`;
+  }
+
+  // Der Lesebericht: was das Kind in der Leseecke liest. Gerechnet wird in
+  // lesen-stand.js (bericht) aus dem Kasten des Kindes – Zähler, kein
+  // Protokoll einzelner Antworten. Wo die Leseecke nicht geladen ist (ein
+  // Spiel ausserhalb), steht nur, wo es den Bericht gibt.
+  function renderKindLesebericht(kind, detail) {
+    const lese = window.LernappLeseStand;
+    const name = kind.name || "Dein Kind";
+    const kopf = `<p class="admin-lesen-frage">Lesebericht</p>`;
+    if (!lese?.bericht) return `${kopf}<p class="auth-hint">Den Lesebericht zeigt der Elternbereich auf der Startseite.</p>`;
+    const daten = (detail?.userData?.gameState || {})[lese.KEY]?.data;
+    const b = daten ? lese.bericht(daten) : null;
+    if (!b || (!b.woerter && !b.runden && !b.buecher)) {
+      return `${kopf}<p class="auth-hint">${escapeHtml(name)} hat in der Leseecke noch nichts gelesen. Der Lesewagen steht auf dem Startbild links über dem Zug.</p>`;
+    }
+    const laute = (ids) => (ids.length ? ids.map((id) => escapeHtml(lautZeichen(id))).join(" · ") : "–");
+    const zeile = (titel, wert) => `<div class="lesebericht-zeile"><span>${escapeHtml(titel)}</span><strong>${wert}</strong></div>`;
+    const zeilen = [
+      zeile("Gelesene oder gehörte Wörter", escapeHtml(String(b.woerter))),
+      zeile("Bücher gelesen", escapeHtml(b.buecherGold ? `${b.buecher}, davon ${b.buecherGold} mit allen Fragen richtig` : String(b.buecher))),
+      zeile("Runden in den Lesespielen", escapeHtml(String(b.runden))),
+      zeile("Lesewagen eingerichtet", escapeHtml(`${b.wagen} von ${b.wagenVon}`)),
+      zeile("Laute, die sitzen", laute(b.sicher)),
+      zeile("Laute, die noch wackeln", laute(b.wackelig)),
+    ];
+    if (b.verwechslungen.length) {
+      zeilen.push(zeile("Oft verwechselt", b.verwechslungen.map((v) => escapeHtml(`${v.paar.join(" und ")} (${v.mal}×)`)).join(", ")));
+    }
+    if (b.blitzSicher) zeilen.push(zeile("Blitzwörter auf einen Blick", escapeHtml(String(b.blitzSicher))));
+    if (b.spiele.length) zeilen.push(zeile("Am meisten gespielt", b.spiele.slice(0, 3).map((s) => escapeHtml(`${s.titel} (${s.runden})`)).join(", ")));
+    return `${kopf}
+        <div class="lesebericht">${zeilen.join("")}</div>
+        <p class="auth-hint">Ein Laut sitzt, wenn ${escapeHtml(name)} ihn an zwei verschiedenen Tagen dreimal richtig erkannt hat. Verwechslungen wie b und d sind am Anfang normal – sie zeigen, wo Üben lohnt.</p>`;
   }
 
   // Welche Buchstaben die Schule schon eingeführt hat. Zugeklappt: «Nach

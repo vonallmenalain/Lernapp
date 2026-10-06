@@ -1422,8 +1422,9 @@
     button.className = "lesewagen-knopf";
     button.dataset.placed = "0";
     const glieder = leseStand()?.wurmGlieder?.() || 1;
+    const ausbau = leseStand()?.wagenStufe?.() || 0;
     button.setAttribute("aria-label", "Der Lesewagen: Hier wird gelesen");
-    button.append(zeichner.buildLesewagen({ glieder }));
+    button.append(zeichner.buildLesewagen({ glieder, ausbau }));
     button.addEventListener("click", enterLeseecke);
     return button;
   }
