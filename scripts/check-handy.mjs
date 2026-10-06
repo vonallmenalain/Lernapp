@@ -948,6 +948,22 @@ const SZENARIEN = [
       } },
     ],
   },
+  // Auf «schwer»: neben «Los» die Uhr; in der Runde auf Zeit der Zeitbalken
+  // und bei «Stimmt das?» die Lösung nach einem Fehlgriff.
+  ...["stimmtdas", "stolperwoerter"].map((seite) => ({
+    seite,
+    titel: `${seite}-zeit`,
+    speicher: { "lernapp.reise": JSON.stringify({ stufe: "schwer", stufeAt: 1 }) },
+    schritte: [
+      { name: "Los mit Uhr", tun: async (blatt) => { await pause(blatt, 300); } },
+      { name: "Auf Zeit", tun: async (blatt) => { await tippe(blatt, ".lese-zeit-knopf"); await pause(blatt, 700); } },
+      ...(seite === "stimmtdas" ? [{ name: "Lösung auf Zeit", tun: async (blatt) => {
+        const stimmt = await blatt.evaluate(() => window.LernappStimmtDas.jetzt()?.stimmt);
+        await tippe(blatt, stimmt ? ".sd-nein" : ".sd-ja");
+        await pause(blatt, 300);
+      } }] : []),
+    ],
+  })),
   {
     seite: "buecher",
     schritte: [
@@ -990,6 +1006,23 @@ const SZENARIEN = [
         await tippe(blatt, '.bu-antwort[data-nr="2"]');
         await pause(blatt, 600);
       } },
+    ],
+  },
+  // Die Eltern wählen «sehr gross» und schalten die Wort-Hilfe aus: Die
+  // Schrift wird kleiner, wo der Platz nicht reicht, und nichts rollt.
+  {
+    seite: "buecher",
+    titel: "buecher-sehr-gross",
+    speicher: { "lernapp.lesen.eltern": JSON.stringify({ startpunkt: "auto", schrift: "auto", bekannt: null, groesse: "sehr-gross", hilfe: "aus", at: 1 }) },
+    schritte: [
+      { name: "Erste Sätze gross", tun: async (blatt) => {
+        await blatt.goto(`${BASIS}/buecher.html?buch=leo-melone`, { waitUntil: "load" });
+        await blatt.waitForSelector(".bu-titelseite", { timeout: 8000 });
+        await tippe(blatt, '.bu-modus[data-modus="selbst"]');
+        await pause(blatt, 600);
+      } },
+      { name: "Geschichte gross", tun: async (blatt) => { await laengsteSeite(blatt, "geschichte"); } },
+      { name: "Kapitelbuch gross", tun: async (blatt) => { await laengsteSeite(blatt, "kapitel"); } },
     ],
   },
 ].filter((szenario) => !NUR || NUR.includes(szenario.titel || szenario.seite));

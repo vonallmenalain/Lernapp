@@ -13,7 +13,10 @@
  *              Lautsprecher unten liest die Seite
  *
  * Ein Hörbuch kennt nur Vorlesen. In jeder Art sagt ein Tipp auf ein Wort
- * dieses Wort – so bleibt niemand an einem Wort hängen.
+ * dieses Wort – so bleibt niemand an einem Wort hängen. Für Ältere können
+ * die Eltern diese Wort-Hilfe abschalten (lesen-stand.js, wortHilfe): Dann
+ * schweigt beim Selber- und Zusammenlesen ein Tipp auf ein Wort, und der
+ * Lautsprecher unten fehlt. Wie gross die Schrift steht, wählen sie auch.
  *
  * Ein Kapitelbuch ist länger: Über der ersten Seite eines Kapitels steht
  * seine Überschrift (die Stimme liest sie mit, ausser beim Selberlesen), und
@@ -83,6 +86,11 @@
     zusammen: "Ihr lest abwechselnd. Leuchtet ein Satz grün, bist du dran: Lies ihn, dann tippe auf den Pfeil rechts. Tippe auf ein Wort, und du hörst es.",
     selbst: "Lies die Seite. Tippe auf ein Wort, und du hörst es. Der Lautsprecher unten liest die ganze Seite vor, der Pfeil rechts blättert um.",
   };
+  // Ohne Wort-Hilfe (von den Eltern abgeschaltet).
+  const HELP_SEITE_OHNE = {
+    zusammen: "Ihr lest abwechselnd. Leuchtet ein Satz grün, bist du dran: Lies ihn, dann tippe auf den Pfeil rechts.",
+    selbst: "Lies die Seite. Der Pfeil rechts blättert um.",
+  };
   const HELP_FRAGE = "Fragen zum Buch. Tippe auf die richtige Antwort. Weisst du es nicht mehr? Dann tippe auf das Buch und schau nach.";
 
   // Was zu welcher Lesestufe passt, für den Lesewurm im Sessel.
@@ -115,6 +123,12 @@
   // ---------------------------------------------------------------------------
   // Frei oder gekauft?
   // ---------------------------------------------------------------------------
+  // Sagt ein Tipp auf ein Wort es vor? Beim Vorlesen immer, sonst nur, wenn
+  // die Eltern die Wort-Hilfe nicht abgeschaltet haben.
+  function wortHilfe() {
+    return state.modus === "vorlesen" || stand?.wortHilfe?.() !== false;
+  }
+
   function frei(buch) {
     const s = schranke();
     if (!s) return true;
@@ -438,7 +452,7 @@
     kopf.type = "button";
     kopf.append(shell.el("span", "bu-kapitel-nr", zeige(`Kapitel ${kapitelNr(buch, seitenNr)}`)), shell.el("span", "bu-kapitel-titel", zeige(buch.seiten[seitenNr].kapitel)));
     kopf.addEventListener("click", () => {
-      if (Date.now() - state.gewischt < 400) return;
+      if (Date.now() - state.gewischt < 400 || !wortHilfe()) return;
       stopLesen();
       ton.sprich(kapitelSatz(buch, seitenNr), { rate: TEMPO[buch.stufe] || 0.9 });
     });
@@ -500,11 +514,14 @@
     host.dataset.ansicht = "seite";
     shell.closeOverlay();
     shell.clear();
-    kids()?.setHelp?.(state.nachsehen ? `Hier steht es. ${HELP_SEITE[state.modus]} Der Pfeil führt zurück zur Frage.` : HELP_SEITE[state.modus]);
+    const hilfe = wortHilfe() ? HELP_SEITE[state.modus] : HELP_SEITE_OHNE[state.modus] || HELP_SEITE[state.modus];
+    kids()?.setHelp?.(state.nachsehen ? `Hier steht es. ${hilfe} Der Pfeil führt zurück zur Frage.` : hilfe);
 
     const blatt = shell.el("div", "bu-buch");
     blatt.dataset.stufe = buch.stufe;
     blatt.dataset.modus = state.modus;
+    blatt.dataset.groesse = stand?.schriftGroesse?.() || "normal";
+    if (!wortHilfe()) blatt.dataset.hilfe = "aus";
     const doppel = shell.el("div", "bu-seite");
     const bild = shell.el("div", "bu-bild");
     bild.append(buchBild(buch, seite));
@@ -521,6 +538,8 @@
     buch.seiten.forEach((_, i) => el.punkte.append(shell.el("span", i === state.seite ? "bu-punkt is-hier" : i < state.seite ? "bu-punkt is-gelesen" : "bu-punkt")));
     el.zurueck.hidden = state.nachsehen;
     el.punkte.hidden = state.nachsehen;
+    // Ohne Wort-Hilfe liest auch der Lautsprecher die Seite nicht vor.
+    el.vorlesen.hidden = !wortHilfe();
     el.weiter.innerHTML = state.nachsehen ? PFEIL_FRAGE : PFEIL_WEITER;
     el.weiter.setAttribute("aria-label", state.nachsehen ? "Zurück zur Frage" : state.seite === buch.seiten.length - 1 ? "Zu den Fragen" : "Umblättern");
 
@@ -639,12 +658,13 @@
   }
 
   function seiteVorlesen() {
-    if (state.ansicht !== "seite") return;
+    if (state.ansicht !== "seite" || !wortHilfe()) return;
     lies({ alles: true });
   }
 
   function wortAntippen(knopf) {
     if (Date.now() - state.gewischt < 400) return;
+    if (!wortHilfe()) return;
     // Spricht die Stimme gerade, hört sie auf: Das Kind will dieses Wort.
     const warZusammen = state.modus === "zusammen";
     stopLesen();
@@ -749,6 +769,8 @@
     hoeren.setAttribute("aria-label", "Die Frage vorlesen");
     hoeren.innerHTML = `<svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="22" fill="#ffffff"/><path d="M12 20 h6 l8 -7 v22 l-8 -7 h-6 z" fill="#243047"/><path d="M30 18 q4 6 0 12 M33 14 q8 10 0 20" fill="none" stroke="#243047" stroke-width="3" stroke-linecap="round"/></svg>`;
     hoeren.addEventListener("click", () => frageSprechen(frage));
+    // Ohne Wort-Hilfe liest das Kind auch die Frage selbst.
+    hoeren.hidden = !wortHilfe();
     const text = shell.el("p", "bu-frage", stand?.zeige?.(frage.frage) ?? frage.frage);
     kopf.append(hoeren, text);
 

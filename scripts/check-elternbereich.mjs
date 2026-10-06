@@ -19,7 +19,8 @@
  *   - Kind anlegen: Formular, Aufruf mit Token und Name, danach in der Liste
  *   - ein Kind aufklappen: Zug, probierte Level, Sitzungen – die Sicht, die
  *     der Adminbereich für alle hat, hier für die eigene Familie; dazu die
- *     Leseecke mit dem Lesebericht (Wörter, Bücher, Laute, Verwechslungen)
+ *     Leseecke mit dem Lesebericht (Wörter, Bücher, Laute, Verwechslungen,
+ *     Bestwert auf Zeit), Schriftgrösse und Wort-Hilfe
  *   - Passwort neu: Formular an der Zeile, Aufruf mit der uid des Kindes
  *   - Fortschritt zurücksetzen: Rückfrage, danach sind Level und Sitzungen weg
  *   - Konto löschen: Rückfrage, Aufruf von /api/kind-loeschen, danach weg
@@ -350,7 +351,7 @@ try {
         woerter: 340,
         laute: { m: { r: 4, f: 0, tage: ["2026-10-01", "2026-10-03"] }, a: { r: 3, f: 1, tage: ["2026-10-02", "2026-10-04"] }, b: { r: 1, f: 2, tage: ["2026-10-04"] } },
         buecher: { "hase-rueebli": { mal: 2, sterne: 3, at: 1 }, "leo-melone": { mal: 1, sterne: 2, at: 1 } },
-        spiele: { silbenzug: { runden: 5, best: 6, zuletzt: 1 }, buchstabenhaus: { runden: 2, best: 5, zuletzt: 1 } },
+        spiele: { silbenzug: { runden: 5, best: 6, zuletzt: 1 }, buchstabenhaus: { runden: 2, best: 5, zuletzt: 1 }, stimmtdas: { runden: 1, best: 0, zeit: 11, zuletzt: 1 } },
         blitz: {},
         verwechselt: { "b|d": 3, "m|n": 1 },
       } } };
@@ -379,9 +380,12 @@ try {
     // Kasten im gameState mit Zeitmarke, den das Gerät des Kindes übernimmt.
     const lesenKarte = page.locator('[data-kind-uid="kind-1"] .admin-lesen');
     pruefe(await lesenKarte.count() === 1, "Kind aufklappen: die Karte der Leseecke fehlt");
-    pruefe(await lesenKarte.locator('[data-kind-lesen^="startpunkt:"]').count() === 6 && await lesenKarte.locator('[data-kind-lesen^="schrift:"]').count() === 3,
-      "Leseecke: sechs Startpunkte und drei Schriften erwartet");
+    pruefe(await lesenKarte.locator('[data-kind-lesen^="startpunkt:"]').count() === 6 && await lesenKarte.locator('[data-kind-lesen^="schrift:"]').count() === 3
+      && await lesenKarte.locator('[data-kind-lesen^="groesse:"]').count() === 3 && await lesenKarte.locator('[data-kind-lesen^="hilfe:"]').count() === 2,
+      "Leseecke: sechs Startpunkte, drei Schriften, drei Schriftgrössen und zwei Arten Wort-Hilfe erwartet");
     pruefe(await lesenKarte.locator('[data-kind-lesen="startpunkt:auto"][aria-pressed="true"]').count() === 1, "Leseecke: ohne Einstellung ist nicht «Nach Alter» gewählt");
+    pruefe(await lesenKarte.locator('[data-kind-lesen="groesse:normal"][aria-pressed="true"]').count() === 1 && await lesenKarte.locator('[data-kind-lesen="hilfe:an"][aria-pressed="true"]').count() === 1,
+      "Leseecke: ohne Einstellung ist nicht die normale Schrift mit Wort-Hilfe gewählt");
     // Der Lesebericht: Zähler aus Linas Kasten, nicht mehr. Ein Laut sitzt
     // nach drei Treffern an zwei Tagen (M, A), wackelt mit Fehlern (B); eine
     // einzelne Verwechslung (m und n) ist noch keine.
@@ -389,12 +393,13 @@ try {
     const berichtSoll = {
       "Gelesene oder gehörte Wörter": "340",
       "Bücher gelesen": "2, davon 1 mit allen Fragen richtig",
-      "Runden in den Lesespielen": "7",
+      "Runden in den Lesespielen": "8",
       "Lesewagen eingerichtet": "5 von 15",
       "Laute, die sitzen": "M · A",
       "Laute, die noch wackeln": "B",
       "Oft verwechselt": "b und d (3×)",
-      "Am meisten gespielt": "Silbenzug (5), Buchstabenhaus (2)",
+      "Am meisten gespielt": "Silbenzug (5), Buchstabenhaus (2), Stimmt das? (1)",
+      "Bestwert auf Zeit (45 Sekunden)": "Stimmt das?: 11",
     };
     Object.entries(berichtSoll).forEach(([frage, soll]) => pruefe(bericht[frage] === soll, `Lesebericht: «${frage}» zeigt ${JSON.stringify(bericht[frage])} statt ${soll}`));
     pruefe(Object.keys(bericht).length === Object.keys(berichtSoll).length, `Lesebericht: ${Object.keys(bericht).join(", ")}`);
@@ -402,9 +407,15 @@ try {
     await page.waitForFunction(() => /Leseecke ist eingestellt/.test(document.querySelector("[data-kinder-karte] .karten-status")?.textContent || ""), null, { timeout: 10000 }).catch(() => {});
     await page.locator('[data-kind-uid="kind-1"] .admin-lesen [data-kind-lesen="schrift:gross"]').click({ timeout: 5000 });
     await page.waitForFunction(() => document.querySelector('[data-kind-uid="kind-1"] [data-kind-lesen="schrift:gross"]')?.getAttribute("aria-pressed") === "true", null, { timeout: 10000 }).catch(() => {});
+    // Die Schrift in den Büchern und die Wort-Hilfe: dieselbe Art Knopf, derselbe Kasten.
+    await page.locator('[data-kind-uid="kind-1"] .admin-lesen [data-kind-lesen="groesse:gross"]').click({ timeout: 5000 });
+    await page.waitForFunction(() => document.querySelector('[data-kind-uid="kind-1"] [data-kind-lesen="groesse:gross"]')?.getAttribute("aria-pressed") === "true", null, { timeout: 10000 }).catch(() => {});
+    await page.locator('[data-kind-uid="kind-1"] .admin-lesen [data-kind-lesen="hilfe:aus"]').click({ timeout: 5000 });
+    await page.waitForFunction(() => document.querySelector('[data-kind-uid="kind-1"] [data-kind-lesen="hilfe:aus"]')?.getAttribute("aria-pressed") === "true", null, { timeout: 10000 }).catch(() => {});
     const lesenStand = await page.evaluate(() => window.__ersatz.lies("users/kind-1")?.gameState?.["lernapp.lesen.eltern"]);
-    pruefe(lesenStand?.data?.startpunkt === "woerter" && lesenStand?.data?.schrift === "gross" && Number.isFinite(lesenStand?.data?.at) && Number.isFinite(lesenStand?.updatedAt),
-      `Leseecke: am Konto steht ${JSON.stringify(lesenStand)} statt Wörter und Grossbuchstaben`);
+    pruefe(lesenStand?.data?.startpunkt === "woerter" && lesenStand?.data?.schrift === "gross" && lesenStand?.data?.groesse === "gross" && lesenStand?.data?.hilfe === "aus"
+      && Number.isFinite(lesenStand?.data?.at) && Number.isFinite(lesenStand?.updatedAt),
+      `Leseecke: am Konto steht ${JSON.stringify(lesenStand)} statt Wörter, Grossbuchstaben, grosse Schrift und keine Wort-Hilfe`);
     pruefe((await page.evaluate(() => window.__ersatz.lies("users/kind-1")?.gameState?.["lernapp.reise"]?.data?.stufe)) === "schwer",
       "Leseecke: das Einstellen hat die Schwierigkeitsstufe überschrieben");
     // Die Buchstaben der Schule: abhaken ist noch kein Schreiben, erst
@@ -427,8 +438,9 @@ try {
     await lauteKarte().locator("[data-kind-laute-speichern]").click({ timeout: 5000 });
     await page.waitForFunction(() => /Buchstaben abgehakt/.test(document.querySelector("[data-kinder-karte] .karten-status")?.textContent || ""), null, { timeout: 10000 }).catch(() => {});
     const schule = await page.evaluate(() => window.__ersatz.lies("users/kind-1")?.gameState?.["lernapp.lesen.eltern"]?.data);
-    pruefe(JSON.stringify(schule?.bekannt) === JSON.stringify(["m", "a", "l", "i", "o", "e", "sch"]) && schule?.startpunkt === "woerter" && schule?.schrift === "gross",
-      `Buchstaben der Schule: am Konto steht ${JSON.stringify(schule)} statt M A L I O E Sch (und Wörter, Grossbuchstaben)`);
+    pruefe(JSON.stringify(schule?.bekannt) === JSON.stringify(["m", "a", "l", "i", "o", "e", "sch"]) && schule?.startpunkt === "woerter" && schule?.schrift === "gross"
+      && schule?.groesse === "gross" && schule?.hilfe === "aus",
+      `Buchstaben der Schule: am Konto steht ${JSON.stringify(schule)} statt M A L I O E Sch (und Wörter, Grossbuchstaben, grosse Schrift, ohne Wort-Hilfe)`);
     pruefe(/Abgehakt: M · A · L · I · O · E · Sch/.test(await text(lauteKarte())), "Buchstaben der Schule: die abgehakten stehen nicht auf der Karte");
     await knips(page, "3a-buchstaben-der-schule");
     await lauteKarte().locator('[data-kind-laute="reihe"]').click({ timeout: 5000 });

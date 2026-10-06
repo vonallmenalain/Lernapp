@@ -66,6 +66,13 @@ Stand: Oktober 2026 · Grundlage: das Konzept «Leseecke – Konzept & Ideensamm
 > beweist es?), **Steckbriefe** (Sachtexte über die zwölf Tiere der App mit einer Zahl zum
 > Staunen) und **Postkarten von der Reise** (bringt das Kind einen Fahrgast nach Hause,
 > schreibt er; Fino erklärt mit der ersten Karte, wie die Post kommt).
+>
+> **Etappe 5 (für Ältere und die Eltern):** Auf «schwer» bieten «Stimmt das?» und
+> «Stolperwörter» neben «Los» eine **Runde auf Zeit** an: 45 Sekunden, so viele Sätze wie
+> möglich, ohne Vorlesen. Ihr Ergebnis ist ein eigener Bestwert und steht im Lesebericht.
+> Im Elternbereich lassen sich dazu die **Schriftgrösse der Bücher** (normal, gross, sehr
+> gross) und die **Wort-Hilfe beim Selberlesen** einstellen: Ist sie aus, sagt ein Tipp auf
+> ein Wort nichts, und der Lautsprecher fehlt – «Vorlesen» bleibt möglich.
 
 ## 1. Die Idee in drei Sätzen
 
@@ -219,11 +226,18 @@ bei den Buchstaben, «schwer» bei den Sätzen. Im Elternbereich steht je Kind d
 - **Wo beginnt die Leseecke?** Nach Alter, Hören, Buchstaben, Wörter, Sätze, Geschichten.
 - **Schrift:** Automatisch (die Jüngsten sehen nur Grossbuchstaben), nur Grossbuchstaben,
   gross und klein.
+- **Schriftgrösse in den Büchern:** normal, gross (×1,15), sehr gross (×1,3). Wo der Platz
+  nicht reicht – auf dem kleinen Handy –, macht der Leser die Schrift wieder kleiner, nie
+  unter 13 px.
+- **Wort-Hilfe beim Selberlesen:** «Ein Tipp liest vor» oder «Aus». Aus heisst: Beim Selber-
+  und Zusammenlesen sagt ein Tipp auf ein Wort, eine Kapitelüberschrift oder eine Frage
+  nichts, und der Lautsprecher unten fehlt. «Vorlesen» bleibt immer möglich.
 - **Lesebericht** (`renderKindLesebericht`, gerechnet in `lesen-stand.js`, `bericht`):
   gelesene oder gehörte Wörter, Bücher (und wie viele mit allen Fragen richtig), Runden,
   wie weit der Lesewagen eingerichtet ist, Laute, die sitzen, Laute, die noch wackeln
-  (geübt, mit Fehlern, sitzen noch nicht), oft Verwechseltes (ab zweimal) und die liebsten
-  Spiele. Nur aus den Zählern im Kasten – kein Protokoll einzelner Antworten.
+  (geübt, mit Fehlern, sitzen noch nicht), oft Verwechseltes (ab zweimal), die liebsten
+  Spiele und die Bestwerte auf Zeit. Nur aus den Zählern im Kasten – kein Protokoll
+  einzelner Antworten.
 - **Buchstaben aus der Schule:** «Nach Reihenfolge» oder selbst abhaken (ein Knopf je Laut,
   gespeichert wird erst mit «Speichern»). Abgehakt wohnen genau diese Laute im
   Buchstabenhaus (mindestens vier), und Laute kuppeln, Wer fährt mit?, Wörter bauen und die
@@ -313,6 +327,13 @@ Zwielaute spricht die Sprachausgabe, Mitlaute bleiben stumm und werden gezeigt.
 - **Etappe 4 – Lesedetektive:** fertig – die Pinnwand, Wer bin ich?, die Wortbaustelle, der
   Lesewurm auf der Lok, Detektivfälle, Steckbriefe und Postkarten. Ein Vorlese-Studio mit
   Mikrofon bleibt vorerst weg (Entscheid 9).
+- **Etappe 5 – für Ältere und die Eltern:** fertig – Runden auf Zeit in «Stimmt das?» und
+  «Stolperwörter» (ab «schwer», mit eigenem Bestwert), Schriftgrösse der Bücher und
+  Wort-Hilfe im Elternbereich.
+- **Noch offen aus dem Konzept:** die Silbenhilfe (farbige Silben oder Silbenbögen in allen
+  Texten – braucht eine verlässliche Silbentrennung für jedes Wort der Bücher), das
+  Mitwachsen in kleinen Schritten innerhalb der Leseecke (heute gilt die Stufe des Kindes)
+  und weitere Bücher bis rund 40.
 
 ## 8. Die Entscheidungen
 

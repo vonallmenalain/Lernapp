@@ -10,6 +10,10 @@
  * «schwer» auch aus den Büchern (lesen-buecher.js); die Stolpersteine sind
  * Dinge, die in keinen davon gehören (STOLPERSTEINE). Der Stein liegt nie
  * am Anfang und nie am Ende: Der Satz fängt richtig an und hört richtig auf.
+ *
+ * Auf «schwer» gibt es neben «Los» die Runde auf Zeit: 45 Sekunden, so viele
+ * Sätze wie möglich. Die Stimme schweigt dann, und jeder gefundene Stein
+ * zählt – ein Fehlgriff kostet nur Zeit. Zehn sind drei Sterne.
  */
 (() => {
   "use strict";
@@ -27,11 +31,15 @@
 
   const ID = "stolperwoerter";
   const RUNDE = 8;
+  // Auf Zeit: so viele gefundene Steine sind drei Sterne.
+  const ZEIT_ZIEL = 10;
 
   const HELP = [
     "Stolperwörter. Auf dem Gleis liegt ein Wort, das nicht in den Satz gehört.",
     "Lies den Satz und tippe den Stolperstein an, dann fährt er vom Gleis.",
   ].join(" ");
+
+  const HELP_ZEIT = "Mit der Uhr spielst du auf Zeit: 45 Sekunden, so viele Sätze wie möglich.";
 
   const stufe = () => stand?.stufe?.() || "mittel";
 
@@ -61,7 +69,7 @@
     return { satz, stein, stelle, woerter: mit };
   }
 
-  const state = { nr: 0, punkte: 0, fehler: 0, woerter: 0, phase: "intro", runde: [], aufgabe: null };
+  const state = { nr: 0, punkte: 0, fehler: 0, woerter: 0, phase: "intro", runde: [], aufgabe: null, zeit: false };
   let shell = null;
   let el = {};
 
@@ -79,19 +87,42 @@
     state.nr = 0;
     state.punkte = 0;
     state.woerter = 0;
+    state.zeit = false;
+    state.phase = "intro";
+    delete host.dataset.zeit;
+    shell.stopClock?.();
     state.runde = spiel.ziehe(saetze(), RUNDE).map(aufgabe);
     shell.setCount(0);
     shell.closeOverlay();
+    kids()?.setHelp?.(stufe() === "schwer" ? `${HELP} ${HELP_ZEIT}` : HELP);
     spiel.losKnopf(shell, {
-      onLos: () => {
-        shell.setPhase("play");
-        buehne();
-        naechster();
-      },
+      onLos: () => los(false),
+      zeit: stufe() === "schwer" ? { onLos: () => los(true) } : null,
     });
   }
 
+  //   zeit  die Runde auf Zeit: alle Sätze gemischt, bis die Uhr abläuft
+  function los(zeit) {
+    state.zeit = zeit;
+    if (zeit) {
+      host.dataset.zeit = "1";
+      state.runde = spiel.mische(saetze()).map(aufgabe);
+    }
+    shell.setPhase("play");
+    buehne();
+    if (zeit) shell.startClock(spiel.ZEIT_MS, zeitUm);
+    naechster();
+  }
+
+  function zeitUm() {
+    if (state.phase === "over") return;
+    fertig();
+  }
+
   function naechster() {
+    if (state.phase === "over") return;
+    // Auf Zeit gehen die Sätze nicht aus: Sind alle durch, kommen sie neu gemischt.
+    if (state.zeit && state.nr >= state.runde.length) state.runde.push(...spiel.mische(saetze()).map(aufgabe));
     if (state.nr >= state.runde.length) { fertig(); return; }
     state.aufgabe = state.runde[state.nr];
     state.fehler = 0;
@@ -123,7 +154,7 @@
       return;
     }
     state.phase = "frei";
-    if (state.fehler === 0) {
+    if (state.fehler === 0 || state.zeit) {
       state.punkte += 1;
       shell.setCount(state.punkte);
     }
@@ -131,6 +162,14 @@
     knopf.classList.add("fliegt-weg");
     el.reihe.classList.add("ist-frei");
     kids()?.playJingle?.("correct");
+    // Auf Zeit: kein Vorlesen, gleich der nächste Satz.
+    if (state.zeit) {
+      await ton.pause(380);
+      if (state.phase === "over") return;
+      state.nr += 1;
+      naechster();
+      return;
+    }
     await ton.pause(450);
     knopf.remove();
     await ton.sprich(a.satz, { rate: 0.9 });
@@ -141,6 +180,21 @@
 
   function fertig() {
     state.phase = "over";
+    if (state.zeit) {
+      shell.stopClock?.();
+      const bisher = spiel.zeitBest(ID);
+      spiel.ergebnis(shell, {
+        id: ID,
+        punkte: state.punkte,
+        von: ZEIT_ZIEL,
+        woerter: state.woerter,
+        zeit: true,
+        label: "Stolperwörter – auf Zeit",
+        detail: `${state.punkte} Stolpersteine in ${spiel.ZEIT_MS / 1000} Sekunden gefunden${bisher ? ` · Bestwert bisher ${bisher}` : ""}`,
+        speech: `Die Zeit ist um. Du hast ${state.punkte} Stolpersteine gefunden.`,
+      });
+      return;
+    }
     const von = state.runde.length;
     spiel.ergebnis(shell, {
       id: ID,
@@ -155,9 +209,14 @@
     });
   }
 
-  shell = spiel.mount({ host, id: ID, title: "Stolperwörter", help: HELP, onRestart: start });
+  shell = spiel.mount({ host, id: ID, title: "Stolperwörter", help: HELP, onRestart: start, clock: true });
   start();
 
   // Für die Prüfung (check-leseecke.mjs).
-  window.LernappStolperwoerter = { RUNDE, saetze, aufgabe, jetzt: () => state.aufgabe, nr: () => state.nr, phase: () => state.phase };
+  window.LernappStolperwoerter = {
+    RUNDE, ZEIT_ZIEL, saetze, aufgabe,
+    jetzt: () => state.aufgabe, nr: () => state.nr, phase: () => state.phase, punkte: () => state.punkte, zeit: () => state.zeit,
+    // Die Uhr vorstellen, damit die Prüfung nicht 45 Sekunden wartet.
+    zeitUm,
+  };
 })();

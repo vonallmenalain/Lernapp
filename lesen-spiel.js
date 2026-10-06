@@ -12,6 +12,10 @@
  *               Wort an.
  *   Ergebnis    Sterne statt Bestenliste, und der Lesestand wird geschrieben:
  *               Runde gespielt, Wörter für den Lesewurm.
+ *   auf Zeit    ab Stufe «schwer» bieten «Stimmt das?» und «Stolperwörter»
+ *               neben «Los» eine Runde auf Zeit an: 45 Sekunden, so viele
+ *               Sätze wie möglich – das übt Tempo, ohne das Verstehen
+ *               auszulassen. Ihr Ergebnis ist ein eigener Bestwert.
  */
 (() => {
   "use strict";
@@ -22,6 +26,8 @@
   const kids = () => window.LernappKids || null;
 
   const LESEWAGEN = "index.html?lesen=1";
+  // Eine Runde auf Zeit dauert so lange.
+  const ZEIT_MS = 45000;
   const FARBE = "#c4553a";
   const FARBE_DUNKEL = "#8f3a26";
 
@@ -52,7 +58,8 @@
   }
 
   // Der grosse Knopf vor jeder Runde, mit dem Lesewurm daneben.
-  function losKnopf(shell, { text = "Los geht's!", onLos }) {
+  //   zeit  { onLos }: daneben der Knopf für die Runde auf Zeit
+  function losKnopf(shell, { text = "Los geht's!", onLos, zeit = null }) {
     shell.clear();
     shell.setPhase("intro");
     const karte = shell.el("div", "lese-los");
@@ -71,8 +78,19 @@
     knopf.type = "button";
     knopf.setAttribute("aria-label", text);
     knopf.innerHTML = `<svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="22" fill="#3fbf74"/><polygon points="19,14 35,24 19,34" fill="#fff"/></svg>`;
-    knopf.addEventListener("click", () => { knopf.disabled = true; onLos?.(); }, { once: true });
     karte.append(knopf);
+    let uhr = null;
+    if (zeit) {
+      uhr = shell.el("button", "lese-zeit-knopf");
+      uhr.type = "button";
+      uhr.setAttribute("aria-label", `Auf Zeit: ${ZEIT_MS / 1000} Sekunden`);
+      uhr.append(shell.el("span", "lese-zeit-bild", "⏱️"), shell.el("span", "lese-zeit-text", stand()?.zeige?.(`${ZEIT_MS / 1000} Sekunden`) ?? `${ZEIT_MS / 1000} Sekunden`));
+      karte.append(uhr);
+    }
+    // Ein Tipp entscheidet: Danach nimmt keiner der beiden Knöpfe mehr etwas an.
+    const zu = () => { knopf.disabled = true; if (uhr) uhr.disabled = true; };
+    knopf.addEventListener("click", () => { if (knopf.disabled) return; zu(); onLos?.(); });
+    uhr?.addEventListener("click", () => { if (uhr.disabled) return; zu(); zeit.onLos?.(); });
     shell.play.append(karte);
     window.setTimeout(() => knopf.focus?.({ preventScroll: true }), 50);
     return karte;
@@ -91,24 +109,36 @@
   //            gehört – davon wächst der Lesewurm
   //   stars    wenn die Sterne anders gerechnet werden (ein Buch)
   //   onBack   wohin der Zurück-Knopf der Tafel führt; sonst in den Lesewagen
-  function ergebnis(shell, { id, punkte, von, woerter = 0, detail, speech, label = "Geschafft!", stars = null, onBack = null }) {
+  //   zeit     eine Runde auf Zeit: von ist dann das Ziel für drei Sterne,
+  //            und das Ergebnis zählt als Bestwert auf Zeit
+  function ergebnis(shell, { id, punkte, von, woerter = 0, detail, speech, label = "Geschafft!", stars = null, onBack = null, zeit = false }) {
     const s = stand();
     const glieder = s?.wurmGlieder?.() || 1;
-    s?.spielRunde?.(id, { punkte });
+    const bisher = Number(s?.stand?.().spiele?.[id]?.zeit) || 0;
+    if (zeit) s?.zeitRunde?.(id, { punkte });
+    else s?.spielRunde?.(id, { punkte });
     if (woerter) s?.woerterGelesen?.(woerter);
     const neu = s?.wurmGlieder?.() || 1;
     const sternZahl = stars ?? sterne(punkte, von);
     const wurm = neu > glieder ? " Dein Lesewurm ist gewachsen!" : "";
-    kids()?.playJingle?.(sternZahl === 3 ? "win" : "correct");
+    // Ein neuer Bestwert auf Zeit – nicht schon beim allerersten Mal.
+    const rekord = zeit && bisher > 0 && punkte > bisher ? " Neuer Rekord!" : "";
+    const notiz = [rekord.trim(), wurm.trim()].filter(Boolean).join(" ");
+    kids()?.playJingle?.(sternZahl === 3 || rekord ? "win" : "correct");
     shell.showResult({
       label,
       stars: sternZahl,
       detail: detail || `${punkte} von ${von} richtig`,
       scores: null,
-      note: wurm ? { text: "Dein Lesewurm ist gewachsen!", done: true } : null,
-      speech: `${speech || `${punkte} von ${von} richtig.`}${wurm}`,
+      note: notiz ? { text: notiz, done: true } : null,
+      speech: `${speech || `${punkte} von ${von} richtig.`}${rekord}${wurm}`,
       onBack: onBack || zurueck,
     });
+  }
+
+  // Wie viele das Kind auf Zeit bisher höchstens geschafft hat (0: noch nie).
+  function zeitBest(id) {
+    return Number(stand()?.stand?.().spiele?.[id]?.zeit) || 0;
   }
 
   // Ein Bild aus einem Emoji, gross und rund gerahmt.
@@ -148,5 +178,5 @@
     return svg;
   }
 
-  window.LernappLeseSpiel = { LESEWAGEN, FARBE, mount, zurueck, losKnopf, sterne, ergebnis, bildKarte, mische, ziehe, eigeneLok };
+  window.LernappLeseSpiel = { LESEWAGEN, FARBE, ZEIT_MS, mount, zurueck, losKnopf, sterne, ergebnis, zeitBest, bildKarte, mische, ziehe, eigeneLok };
 })();
