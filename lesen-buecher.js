@@ -89,6 +89,7 @@
       landschaft: "wiese",
       farbe: "#f5a623",
       gratis: true,
+      bilder: "bilder/buecher/hase-rueebli",
       seiten: [
         {
           text: "Das ist Hoppel. Hoppel ist ein kleiner Hase, und er hat grossen Hunger.",
@@ -148,6 +149,7 @@
       figur: "owl",
       landschaft: "nacht",
       farbe: "#2f6f8f",
+      bilder: "bilder/buecher/eule-ella",
       seiten: [
         {
           text: "Das ist Ella. Ella ist eine Eule. Am Tag schläft sie, und in der Nacht ist sie wach.",
@@ -215,6 +217,7 @@
       landschaft: "savanne",
       farbe: "#e8543f",
       gratis: true,
+      bilder: "bilder/buecher/leo-melone",
       seiten: [
         { text: "Das ist Leo.", bild: { figuren: [{ id: "lion", x: 120 }] } },
         { text: "Leo mag Melonen.", bild: { figuren: [{ id: "lion", x: 100, blase: "🍉" }] } },
@@ -253,6 +256,7 @@
       figur: "penguin",
       landschaft: "see",
       farbe: "#00a5b5",
+      bilder: "bilder/buecher/pino-insel",
       seiten: [
         { text: "Das ist Pino.", bild: { figuren: [{ id: "penguin", x: 120 }] } },
         { text: "Pino will auf die Insel.", bild: { figuren: [{ id: "penguin", x: 64, blase: "🏝️" }], dinge: [{ e: "🏝️", x: 186, y: 104, s: 46 }] } },
@@ -424,6 +428,7 @@
       figur: "panda",
       landschaft: "dschungel",
       farbe: "#3fa34d",
+      bilder: "bilder/buecher/pippa-regen",
       seiten: [
         {
           text: "Das ist Pippa. Sie ist ein kleiner Panda und will draussen spielen.",
@@ -483,6 +488,7 @@
       figur: "bear",
       landschaft: "nacht",
       farbe: "#7c5ce6",
+      bilder: "bilder/buecher/bruno-sterne",
       seiten: [
         {
           text: "Das ist Bruno, der kleine Bär. Es ist Nacht, und Bruno soll schlafen.",
@@ -542,6 +548,7 @@
       figur: "fox",
       landschaft: "wald",
       farbe: "#e8763a",
+      bilder: "bilder/buecher/fino-schal",
       seiten: [
         {
           text: "Das ist Fino, der Fuchs. Fino hat einen roten Schal. Den hat ihm seine Oma gestrickt.",
@@ -601,6 +608,7 @@
       figur: "mouse",
       landschaft: "wiese",
       farbe: "#ef6fa8",
+      bilder: "bilder/buecher/mia-ball",
       seiten: [
         { text: "Das ist Mia.", bild: { figuren: [{ id: "mouse", x: 120 }] } },
         { text: "Mia hat einen Ball.", bild: { figuren: [{ id: "mouse", x: 100 }], dinge: [{ e: "🔴", x: 146, y: 126, s: 22 }] } },
@@ -639,6 +647,7 @@
       figur: "cat",
       landschaft: "wiese",
       farbe: "#f5a623",
+      bilder: "bilder/buecher/tim-malt",
       seiten: [
         { text: "Das ist Tim.", bild: { figuren: [{ id: "cat", x: 120 }] } },
         { text: "Tim ist ein Kater.", bild: { figuren: [{ id: "cat", x: 120 }], dinge: [{ e: "🐾", x: 60, y: 134, s: 14 }, { e: "🐾", x: 82, y: 128, s: 14 }] } },
@@ -677,6 +686,7 @@
       figur: "frog",
       landschaft: "see",
       farbe: "#5cb85c",
+      bilder: "bilder/buecher/fred-frosch",
       seiten: [
         { text: "Das ist Fred.", bild: { figuren: [{ id: "frog", x: 120 }] } },
         { text: "Fred ist ein Frosch.", bild: { figuren: [{ id: "frog", x: 120 }], dinge: [{ e: "💧", x: 150, y: 70, s: 10 }] } },
