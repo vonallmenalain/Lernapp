@@ -13,6 +13,9 @@
  * oder zwei mit einem Mitlaut am Schluss. Haben die Eltern die Buchstaben
  * der Schule abgehakt, nur aus diesen. Ein Name, den es als Wort gibt
  * (Lama, Sofa …), wird neu gewürfelt.
+ *
+ * Das Monster ist gemalt (bilder/monster/, eines je Farbe); darunter liegt
+ * seine Zeichnung, die zum Vorschein kommt, wenn das Bild nicht lädt.
  */
 (() => {
   "use strict";
@@ -142,8 +145,28 @@
     // Mund mit Zähnchen
     svg.append(art.el("path", { d: "M-16 -14 Q0 2 16 -14 Z", fill: "#5b2333" }));
     svg.append(art.el("path", { d: "M-9 -13 L-6 -8 L-3 -12 M3 -12 L6 -8 L9 -13", stroke: "#ffffff", "stroke-width": 2, fill: "none" }));
+    // Darüber das gemalte Monster seiner Farbe (bilder/monster/, freigestellt).
+    // Ist es da, tritt die Zeichnung zurück – nur der Schatten bleibt; lädt es
+    // nicht, bleibt sie (data-foto: laedt, da, fehlt).
+    const foto = art.el("image", { href: monsterBild(a.farbe), x: -70, y: -90, width: 140, height: 120, preserveAspectRatio: "xMidYMax meet", class: "qw-foto" });
+    svg.dataset.foto = "laedt";
+    foto.addEventListener("load", () => { svg.dataset.foto = "da"; });
+    foto.addEventListener("error", () => {
+      svg.dataset.foto = "fehlt";
+      foto.remove();
+    });
+    svg.append(foto);
     return svg;
   }
+
+  // Je Farbe ein gemaltes Monster: monster-1.webp … monster-6.webp, in der
+  // Reihenfolge von FARBEN. Gleich beim Laden geholt, damit jedes sofort dasteht.
+  const monsterBild = (farbe) => `bilder/monster/monster-${FARBEN.indexOf(farbe) + 1}.webp`;
+  FARBEN.forEach((farbe) => {
+    const bild = new Image();
+    bild.decoding = "async";
+    bild.src = monsterBild(farbe);
+  });
 
   // ---------------------------------------------------------------------------
   // Ablauf

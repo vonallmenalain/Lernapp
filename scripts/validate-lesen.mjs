@@ -560,13 +560,15 @@ let gemalteBuecher = 0;
   pruefe(!sw.includes('startsWith("lernapp-buchbilder-") && key !== CACHE_NAME'), "service-worker.js: ein Update würde die Buchbilder löschen");
 }
 
-// --- 3c. Die gemalten Postkarten und Steckbriefe --------------------------------------
+// --- 3c. Die gemalten Postkarten, Steckbriefe und Monster ------------------------------
 // Jede Postkarte (lesen-detektive.js, POSTKARTEN, und Finos Karte zum
 // Willkommen) hat ein gemaltes Bild so gross wie eine Buchseite, jeder
-// Steckbrief ein Bild hochkant (520 × 600, wie die Figur 52 × 60). Sie liegen
-// mit den Buchbildern im selben Cache.
+// Steckbrief ein Bild hochkant (520 × 600, wie die Figur 52 × 60), jede Farbe
+// der Quatschwörter ein freigestelltes Monster (560 × 480, wie das Monster
+// 140 × 120). Sie liegen mit den Buchbildern im selben Cache.
 let gemalteKarten = 0;
 let gemalteSteckbriefe = 0;
+let gemalteMonster = 0;
 {
   const { windowStub: d } = lade("lesen-detektive.js");
   const det = d.LernappLeseDetektive || {};
@@ -590,8 +592,20 @@ let gemalteSteckbriefe = 0;
   };
   gemalteKarten = ordnerPruefen("bilder/postkarten", [...(det.POSTKARTEN || []).map((k) => k.karte), "willkommen"], { breite: 1200, hoehe: 760, kb: 160 }, "Postkarte");
   gemalteSteckbriefe = ordnerPruefen("bilder/steckbriefe", (det.STECKBRIEFE || []).map((b) => b.id), { breite: 520, hoehe: 600, kb: 60 }, "Steckbrief");
+  // Die Monster der Quatschwörter: eines je Farbe, freigestellt (mit Alpha).
+  const farben = (lies("quatschwoerter.js").match(/const FARBEN = \[([^\]]*)\]/)?.[1] || "").split(",").filter((f) => f.trim());
+  pruefe(farben.length === 6, `quatschwoerter.js: ${farben.length} Farben statt 6`);
+  gemalteMonster = ordnerPruefen("bilder/monster", farben.map((_, i) => `monster-${i + 1}`), { breite: 560, hoehe: 480, kb: 60 }, "Farbe der Quatschwörter");
+  farben.forEach((_, i) => {
+    const datei = path.join(root, "bilder/monster", `monster-${i + 1}.webp`);
+    if (!fs.existsSync(datei)) return;
+    const daten = fs.readFileSync(datei);
+    const art = daten.toString("ascii", 12, 16);
+    // Alpha hat ein WebP mit VP8L oder mit VP8X und gesetztem Alpha-Bit.
+    pruefe(art === "VP8L" || (art === "VP8X" && (daten[20] & 0x10)), `bilder/monster/monster-${i + 1}.webp ist nicht freigestellt`);
+  });
   const sw = lies("service-worker.js");
-  ["/bilder/postkarten/", "/bilder/steckbriefe/"].forEach((ordner) => pruefe(sw.includes(`requestUrl.pathname.includes("${ordner}")`), `service-worker.js: ${ordner} geht nicht in den Cache der Buchbilder`));
+  ["/bilder/postkarten/", "/bilder/steckbriefe/", "/bilder/monster/"].forEach((ordner) => pruefe(sw.includes(`requestUrl.pathname.includes("${ordner}")`), `service-worker.js: ${ordner} geht nicht in den Cache der Buchbilder`));
   pruefe(lies("postkarten.js").includes("bilder/postkarten/${idVon(k)}.webp"), "postkarten.js: die Vorderseite legt ihr gemaltes Bild nicht über die Zeichnung");
   pruefe(lies("steckbriefe.js").includes("bilder/steckbriefe/${b.id}.webp"), "steckbriefe.js: der Steckbrief legt sein gemaltes Bild nicht über die Figur");
 }
@@ -1133,4 +1147,4 @@ if (fehler.length) {
   process.exit(1);
 }
 const aufgenommen = Object.keys(lade("lesen-laute.js").windowStub.LernappLauteAufnahmen || {}).length;
-console.log(`Die Leseecke stimmt: ${inhalte.LAUTE.length} Laute (${aufgenommen} aufgenommen), ${inhalte.SILBEN_WOERTER.length + inhalte.KUPPEL_WOERTER.length} Wörter, ${bib.BUECHER.length} Bücher mit ${bib.BUECHER.reduce((n, b) => n + b.fragen.length, 0)} Fragen (${gemalteBuecher} mit gemalten Bildern), ${gemalteKarten} gemalte Postkarten, ${gemalteSteckbriefe} gemalte Steckbriefe, der Lesestand, die Seiten, die Aufnahmeseite und ${aufnahmenFertig} von ${stimmeTexte().length} festen Texten mit Alains Stimme.`);
+console.log(`Die Leseecke stimmt: ${inhalte.LAUTE.length} Laute (${aufgenommen} aufgenommen), ${inhalte.SILBEN_WOERTER.length + inhalte.KUPPEL_WOERTER.length} Wörter, ${bib.BUECHER.length} Bücher mit ${bib.BUECHER.reduce((n, b) => n + b.fragen.length, 0)} Fragen (${gemalteBuecher} mit gemalten Bildern), ${gemalteKarten} gemalte Postkarten, ${gemalteSteckbriefe} gemalte Steckbriefe, ${gemalteMonster} gemalte Monster, der Lesestand, die Seiten, die Aufnahmeseite und ${aufnahmenFertig} von ${stimmeTexte().length} festen Texten mit Alains Stimme.`);

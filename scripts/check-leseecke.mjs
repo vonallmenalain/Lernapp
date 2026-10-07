@@ -979,9 +979,33 @@ try {
   const qwName = qw.wort.charAt(0).toUpperCase() + qw.wort.slice(1);
   await page.waitForFunction((n) => (window.__gesagt || []).includes(`Ich heisse ${n}.`), qwName, { timeout: 4000 }).catch(() => {});
   if (!(await gesagt()).includes(`Ich heisse ${qwName}.`)) fehlt("Quatschwörter: das Monster stellt sich nicht vor");
+  // Das Monster ist gemalt, eines je Farbe; ist das Bild da, tritt die
+  // Zeichnung zurück, nur der Schatten bleibt.
+  await page.waitForFunction(() => ["da", "fehlt"].includes(document.querySelector(".qw-monster-svg")?.dataset.foto), null, { timeout: 8000 }).catch(() => {});
+  const qwBild = await page.evaluate(() => {
+    const svg = document.querySelector(".qw-monster-svg");
+    const sichtbar = [...(svg?.children || [])].filter((n) => getComputedStyle(n).display !== "none").map((n) => n.tagName.toLowerCase());
+    return { stand: svg?.dataset.foto || null, pfad: svg?.querySelector("image.qw-foto")?.getAttribute("href") || null, sichtbar: sichtbar.join(",") };
+  });
+  const qwSoll = `bilder/monster/monster-${await page.evaluate(() => ["#7c5ce6", "#3fa34d", "#00a5b5", "#ef6fa8", "#f5a623", "#e8543f"].indexOf(window.LernappQuatschwoerter.jetzt().farbe) + 1)}.webp`;
+  if (qwBild.stand !== "da" || qwBild.pfad !== qwSoll || qwBild.sichtbar !== "ellipse,image") fehlt(`Quatschwörter: das Monster ist nicht gemalt (${JSON.stringify(qwBild)}, erwartet ${qwSoll})`);
   await page.locator('.qw-schild[data-richtig="1"]').click();
   await page.waitForFunction(() => window.LernappQuatschwoerter.nr() === 1, null, { timeout: 6000 }).catch(() => {});
   if ((await zaehler()) !== "1") fehlt("Quatschwörter: das richtige Schild zählt nicht");
+  // Lädt das gemalte Monster nicht, steht die Zeichnung da.
+  const qwOhne = await page.context().newPage();
+  qwOhne.on("pageerror", (e) => fehler.push(`${qwOhne.url().replace(BASIS, "")}: ${e.message}`));
+  await qwOhne.route("**/bilder/monster/**", (route) => route.abort());
+  await qwOhne.goto(`${BASIS}/quatschwoerter.html`, { waitUntil: "domcontentloaded" });
+  await qwOhne.waitForFunction("window.LernappQuatschwoerter", null, { timeout: 8000 }).catch(() => {});
+  await qwOhne.locator(".lese-los-knopf").click({ force: true }).catch(() => {});
+  await qwOhne.waitForFunction(() => document.querySelector(".qw-monster-svg")?.dataset.foto === "fehlt", null, { timeout: 8000 }).catch(() => {});
+  const qwZeichnung = await qwOhne.evaluate(() => {
+    const svg = document.querySelector(".qw-monster-svg");
+    return { stand: svg?.dataset.foto || null, bild: Boolean(svg?.querySelector("image")), sichtbar: [...(svg?.children || [])].filter((n) => getComputedStyle(n).display !== "none").length };
+  });
+  if (qwZeichnung.stand !== "fehlt" || qwZeichnung.bild || qwZeichnung.sichtbar < 8) fehlt(`Quatschwörter: ohne Bild zeigt das Monster nicht seine Zeichnung (${JSON.stringify(qwZeichnung)})`);
+  await qwOhne.close();
 
   // --- 6h. Etappe 3: Laut-Position, Buchstaben-Signal, Lies und tu! ------------------------
   // Laut-Position: Wo der Laut steht, rechnen die Steine aus; jede Stelle

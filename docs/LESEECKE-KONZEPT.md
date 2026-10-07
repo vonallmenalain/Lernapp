@@ -212,7 +212,9 @@ Zeichnet das Modell eine Pfote mit vier Zehen, bekommt sie von Hand die fünfte 
 fürs Regal, zusammen 0,4 bis 1 MB je Buch. Auch die **Postkarten** (`bilder/postkarten/<karte>.webp`,
 1200 × 760, Finos Karte `willkommen.webp`) und die **Steckbriefe** (`bilder/steckbriefe/<id>.webp`,
 520 × 600: das echte Tier in seinem Lebensraum) haben gemalte Bilder; sie liegen auf dieselbe
-Art über ihrer Zeichnung (`lesen-bilder.js`, `mitFoto`):
+Art über ihrer Zeichnung (`lesen-bilder.js`, `mitFoto`). Das Monster der **Quatschwörter** ist
+je Farbe gemalt (`bilder/monster/monster-1.webp` … `-6`, 560 × 480, freigestellt, mit GPT
+Image 2.5); ist es da, tritt seine Zeichnung zurück, nur der Schatten bleibt:
 - **Über der Zeichnung:** Das gemalte Bild liegt über der Zeichnung, die trotzdem entsteht.
   Lädt ein Bild nicht (ohne Netz, bevor das Buch je offen war), zeigt die Seite ihre
   Zeichnung. Solange es lädt, deckt eine ruhige Fläche sie ab.
@@ -223,7 +225,7 @@ Art über ihrer Zeichnung (`lesen-bilder.js`, `mitFoto`):
 - **Prüfungen:** `validate-lesen.mjs` prüft Ordner, Masse und Grösse, auch die der
   Postkarten und Steckbriefe. `check-leseecke.mjs` prüft Regal und Titelseite aller Bücher,
   die Seiten, das Vorladen, den Rückfall auf die Zeichnung und ein Buch ohne Bilder, dazu
-  Finos Postkarte und einen Steckbrief mit und ohne Bild.
+  Finos Postkarte, einen Steckbrief und das Monster der Quatschwörter, je mit und ohne Bild.
 
 **Kapitelbücher** sind länger: Über der ersten Seite eines Kapitels steht seine Überschrift
 («Kapitel 2 · Geräusche in der Nacht»); die Stimme liest sie mit, beim Selberlesen nur auf
@@ -413,7 +415,7 @@ Ordner im Build** – `netlify/build.mjs` bleibt unverändert –, und offline f
 | `lesen-buecher.js` | die Bücher: Text, Bild, Fragen |
 | `lesen-bilder.js` | die Bilder der Bücher und ihre Umschläge – für Regal, Geschichtenzug und Postkarten; gemalte Bilder über der Zeichnung, mit Rückfall (auch für Postkarten und Steckbriefe) |
 | `bilder/buecher/<buch>/` | die gemalten Bilder eines Buches (WebP), für alle 24 Bücher |
-| `bilder/postkarten/`, `bilder/steckbriefe/` | die gemalten Vorderseiten der Postkarten und die Bilder der Steckbriefe (WebP) |
+| `bilder/postkarten/`, `bilder/steckbriefe/`, `bilder/monster/` | die gemalten Vorderseiten der Postkarten, die Bilder der Steckbriefe und die Monster der Quatschwörter (WebP) |
 | `lesen-detektive.js` | Steckbriefe, Detektivfälle und Postkarten (nur Inhalt) |
 | `lesen-stand.js` | Lesestand, Lesewurm (Buchstaben, Leben und Stufe, die Marke für seine Runde), Lesewagen (`wagenStufe`), Verwechslungen, der Bericht für die Eltern, Einstellungen der Eltern, was als Nächstes dran ist |
 | `lesen-ton.js` | Laute (Aufnahme oder Sprachausgabe), Wörter und Sätze, mit Mitleuchten |
