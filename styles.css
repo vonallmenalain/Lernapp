@@ -13407,6 +13407,9 @@ body[data-page="laute-aufnehmen"] {
 .qw-monster { width: clamp(110px, 34vh, 230px); padding: 0; border: none; background: none; cursor: pointer; }
 .qw-monster:hover:not(:disabled) { background: none; }
 .qw-monster svg { display: block; width: 100%; height: auto; }
+/* Ist das gemalte Monster da (quatschwoerter.js), tritt die Zeichnung zurück;
+   nur ihr Schatten (das erste Element) bleibt unter den Füssen. */
+.qw-monster-svg[data-foto="da"] > :not(.qw-foto):not(:first-child) { display: none; }
 .qw-monster.kommt { animation: lese-bild-neu 0.45s cubic-bezier(0.34, 1.56, 0.64, 1); }
 .qw-monster.ist-froh { animation: qw-hopsen 0.5s ease-in-out 2; }
 @keyframes qw-hopsen { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-16%); } }
