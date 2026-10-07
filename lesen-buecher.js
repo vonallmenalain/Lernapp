@@ -292,6 +292,7 @@
       figur: "squirrel",
       landschaft: "wald",
       farbe: "#c9743a",
+      bilder: "bilder/buecher/flitz-nuss",
       seiten: [
         {
           text: "Es ist Herbst. Die Blätter sind gelb und rot. Flitz, das Eichhörnchen, hat viel zu tun.",
@@ -714,6 +715,7 @@
       figur: "penguin",
       landschaft: "berge",
       farbe: "#00a5b5",
+      bilder: "bilder/buecher/pino-schneemann",
       seiten: [
         {
           text: "Es hat geschneit. Alles ist weiss. Pino will einen Schneemann bauen.",
@@ -773,6 +775,7 @@
       figur: "squirrel",
       landschaft: "wald",
       farbe: "#c9743a",
+      bilder: "bilder/buecher/flitz-geheimnis",
       seiten: [
         {
           text: "Flitz wacht auf. Heute hat er Geburtstag! Aber niemand ist da.",
@@ -952,6 +955,7 @@
       figur: "rabbit",
       landschaft: "wiese",
       farbe: "#e8543f",
+      bilder: "bilder/buecher/hoppel-velo",
       seiten: [
         {
           text: "Hoppel hat ein neues Velo. Es ist rot und glänzt in der Sonne.",
@@ -1015,6 +1019,7 @@
       figur: "owl",
       landschaft: "wald",
       farbe: "#8e6bbf",
+      bilder: "bilder/buecher/ella-ei",
       seiten: [
         {
           text: "Ella, die Eule, findet im Gras ein Ei. Es ist weiss und ganz allein.",
