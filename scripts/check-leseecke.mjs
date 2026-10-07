@@ -44,7 +44,10 @@
  *                 Repo, spielt die kürzeste wirklich, und der Service Worker
  *                 legt sie in ihren Cache und beantwortet Anfragen in
  *                 Stücken (Range), wie Safari sie stellt.
- *   Auf Zeit      Auf «schwer» bieten Stimmt das? und Stolperwörter die Uhr
+ *   Stolperwörter Der Lautsprecher über den Wörtern liest den Satz mit dem
+ *                 Stein: auf «leicht» auch von selbst, auf «mittel» erst auf
+ *                 einen Tipp. Auf Zeit fehlt er.
+ *   Auf Zeit     Auf «schwer» bieten Stimmt das? und Stolperwörter die Uhr
  *                 an: ohne Vorlesen, mit eigenem Bestwert im Lesestand.
  *   Mitwachsen    Ein Spiel, das einen Schritt gewachsen ist, spielt eine
  *                 Stufe höher als das Kind; eine Runde zählt für die Serie.
@@ -898,7 +901,9 @@ try {
   if ((await zaehler()) !== "1") fehlt("Quatschsätze: die richtige Antwort zählt nicht");
 
   // Stolperwörter: Der Stein liegt nie am Anfang oder am Ende und steht nicht
-  // schon im Satz; vom Gleis getippt, liest die Stimme den Satz ohne ihn.
+  // schon im Satz; vom Gleis getippt, liest die Stimme den Satz ohne ihn. Der
+  // Lautsprecher über den Wörtern liest ihn mit dem Stein – auf «leicht» tut
+  // die Stimme das auch von selbst, auf «mittel» erst auf den Tipp.
   await oeffne("stolperwoerter.html", "window.LernappStolperwoerter");
   const sw = await page.evaluate(() => {
     window.LernappLeseStand.stufe = () => "schwer";
@@ -916,10 +921,29 @@ try {
   sw.fehler.forEach((p) => fehlt(`Stolperwörter: ${p}`));
   if (sw.anzahl < 40) fehlt(`Stolperwörter: auf schwer nur ${sw.anzahl} Sätze`);
   await oeffne("stolperwoerter.html", "window.LernappStolperwoerter");
+  await page.evaluate(() => { window.LernappLeseStand.stufe = () => "leicht"; });
+  await vergiss();
+  await page.locator(".lese-los-knopf").click();
+  await page.waitForSelector(".sw-wort", { timeout: 5000 }).catch(() => {});
+  const swLeicht = await page.evaluate(() => window.LernappStolperwoerter.jetzt().woerter.join(" "));
+  await page.waitForFunction((s) => (window.__gesagt || []).includes(s), swLeicht, { timeout: 3000 }).catch(() => {});
+  if (!(await gesagt()).includes(swLeicht)) fehlt(`Stolperwörter auf leicht: der Satz wird nicht von selbst vorgelesen (${swLeicht})`);
+  await vergiss();
+  await page.locator(".sw-vorlesen").click();
+  await page.waitForFunction((s) => (window.__gesagt || []).includes(s), swLeicht, { timeout: 3000 }).catch(() => {});
+  if (!(await gesagt()).includes(swLeicht)) fehlt(`Stolperwörter auf leicht: der Lautsprecher sagt den Satz nicht noch einmal (${swLeicht})`);
+  await oeffne("stolperwoerter.html", "window.LernappStolperwoerter");
+  await page.evaluate(() => { window.LernappLeseStand.stufe = () => "mittel"; });
   await vergiss();
   await page.locator(".lese-los-knopf").click();
   await page.waitForSelector(".sw-wort", { timeout: 5000 }).catch(() => {});
   const swa = await page.evaluate(() => window.LernappStolperwoerter.jetzt());
+  const swMitStein = swa.woerter.join(" ");
+  await page.waitForTimeout(150);
+  if ((await gesagt()).includes(swMitStein)) fehlt(`Stolperwörter auf mittel: der Satz wird ungefragt vorgelesen (${swMitStein})`);
+  await page.locator(".sw-vorlesen").click();
+  await page.waitForFunction((s) => (window.__gesagt || []).includes(s), swMitStein, { timeout: 3000 }).catch(() => {});
+  if (!(await gesagt()).includes(swMitStein)) fehlt(`Stolperwörter: der Lautsprecher liest den Satz mit dem Stein nicht vor (${swMitStein})`);
   await page.locator('.sw-wort[data-stein="1"]').click();
   await page.waitForFunction(() => window.LernappStolperwoerter.nr() === 1, null, { timeout: 6000 }).catch(() => {});
   if (!(await gesagt()).includes(swa.satz)) fehlt(`Stolperwörter: der Satz ohne Stein wird nicht vorgelesen (${swa.satz})`);
@@ -1791,8 +1815,10 @@ try {
     if (eintrag?.zeit !== 3 || eintrag?.best !== 0 || eintrag?.runden !== 1) fehlt(`Auf Zeit: im Lesestand steht ${JSON.stringify(eintrag)}`);
     if (!/3 Sätze in 45 Sekunden/.test(sdZeit.ende)) fehlt(`Auf Zeit: das Ergebnis von «Stimmt das?» sagt «${sdZeit.ende.slice(0, 90)}»`);
   }
-  // Stolperwörter: drei Steine, gleich der nächste Satz, nichts vorgelesen.
+  // Stolperwörter: drei Steine, gleich der nächste Satz, nichts vorgelesen –
+  // und kein Lautsprecher, der etwas verspräche.
   const swZeit = await zeitRunde("stolperwoerter.html", "LernappStolperwoerter", async () => {
+    if (await leser.locator(".sw-vorlesen").count()) fehlt("Auf Zeit: Stolperwörter zeigt den Lautsprecher, obwohl die Stimme schweigt");
     for (let i = 0; i < 3; i += 1) {
       await leser.locator('.sw-wort[data-stein="1"]').click();
       await leser.waitForFunction((n) => window.LernappStolperwoerter.nr() > n, i, { timeout: 5000 }).catch(() => {});

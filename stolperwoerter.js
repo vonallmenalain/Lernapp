@@ -6,14 +6,20 @@
  * den Stolperstein und tippt ihn vom Gleis – dann liest die Stimme den Satz,
  * wie er sein soll. Wer flüssig und mit Sinn liest, stolpert sofort.
  *
+ * Der Lautsprecher über den Wörtern liest den Satz vor, so wie er daliegt –
+ * mit dem Stolperstein. Auf «leicht» tut die Stimme das bei jedem Satz von
+ * selbst, und der Lautsprecher sagt ihn noch einmal; auf «mittel» und
+ * «schwer» liest sie nur, wenn das Kind darauf tippt.
+ *
  * Die Sätze kommen aus lesen-inhalte.js (SINN_SAETZE, nur die mit Sinn), auf
  * «schwer» auch aus den Büchern (lesen-buecher.js); die Stolpersteine sind
  * Dinge, die in keinen davon gehören (STOLPERSTEINE). Der Stein liegt nie
  * am Anfang und nie am Ende: Der Satz fängt richtig an und hört richtig auf.
  *
  * Auf «schwer» gibt es neben «Los» die Runde auf Zeit: 45 Sekunden, so viele
- * Sätze wie möglich. Die Stimme schweigt dann, und jeder gefundene Stein
- * zählt – ein Fehlgriff kostet nur Zeit. Zehn sind drei Sterne.
+ * Sätze wie möglich. Die Stimme schweigt dann, der Lautsprecher fehlt, und
+ * jeder gefundene Stein zählt – ein Fehlgriff kostet nur Zeit. Zehn sind
+ * drei Sterne.
  */
 (() => {
   "use strict";
@@ -39,7 +45,12 @@
     "Lies den Satz und tippe den Stolperstein an, dann fährt er vom Gleis.",
   ].join(" ");
 
+  const HELP_VORLESEN = "Der Lautsprecher über den Wörtern liest dir den Satz vor.";
   const HELP_ZEIT = "Mit der Uhr spielst du auf Zeit: 45 Sekunden, so viele Sätze wie möglich.";
+
+  // Gezeichnet wie der Lautsprecher im Bücherregal (buecher.js), die beiden
+  // Schallwellen einzeln: Solange er vorliest, wandern sie.
+  const LAUTSPRECHER = `<svg viewBox="0 0 48 48" aria-hidden="true"><circle class="sw-vorlesen-rund" cx="24" cy="24" r="22" fill="#ffffff"/><path d="M12 20 h6 l8 -7 v22 l-8 -7 h-6 z" fill="#243047"/><path class="sw-welle" d="M30 18 q4 6 0 12" fill="none" stroke="#243047" stroke-width="3" stroke-linecap="round"/><path class="sw-welle sw-welle-weit" d="M33 14 q8 10 0 20" fill="none" stroke="#243047" stroke-width="3" stroke-linecap="round"/></svg>`;
 
   const stufe = () => stand?.stufe?.(ID) || "mittel";
 
@@ -72,15 +83,41 @@
   const state = { nr: 0, punkte: 0, fehler: 0, woerter: 0, phase: "intro", runde: [], aufgabe: null, zeit: false };
   let shell = null;
   let el = {};
+  // Jedes Vorlesen bekommt eine Nummer: Nur das jüngste macht den
+  // Lautsprecher wieder still, wenn es fertig ist.
+  let vorgelesen = 0;
 
   function buehne() {
     shell.clear();
     const gleis = shell.el("div", "sw-gleis");
     const reihe = shell.el("div", "sw-reihe");
     gleis.append(reihe, shell.el("div", "silben-schiene"));
+    const oben = shell.el("div", "sw-oben");
     const hinweis = shell.el("p", "sw-hinweis", "Welches Wort gehört nicht hinein?");
-    shell.play.append(hinweis, gleis);
-    el = { reihe, hinweis };
+    // Auf Zeit schweigt die Stimme: dann ohne Lautsprecher.
+    let vorlesen = null;
+    if (!state.zeit) {
+      vorlesen = shell.el("button", "sw-vorlesen");
+      vorlesen.type = "button";
+      vorlesen.setAttribute("aria-label", "Den Satz vorlesen");
+      vorlesen.innerHTML = LAUTSPRECHER;
+      vorlesen.addEventListener("click", lesVor);
+      oben.append(vorlesen);
+    }
+    oben.append(hinweis);
+    shell.play.append(oben, gleis);
+    el = { reihe, hinweis, vorlesen };
+  }
+
+  // Der Satz, wie er auf dem Gleis liegt – mit dem Stolperstein. Nur solange
+  // gesucht wird: Danach liest die Stimme ihn ohne den Stein.
+  async function lesVor() {
+    if (state.phase !== "suchen" || state.zeit) return;
+    const nr = ++vorgelesen;
+    const knopf = el.vorlesen;
+    knopf?.classList.add("spricht");
+    await ton.sprich(state.aufgabe.woerter.join(" "), { rate: 0.85 });
+    if (nr === vorgelesen) knopf?.classList.remove("spricht");
   }
 
   function start() {
@@ -94,7 +131,7 @@
     state.runde = spiel.ziehe(saetze(), RUNDE).map(aufgabe);
     shell.setCount(0);
     shell.closeOverlay();
-    kids()?.setHelp?.(stufe() === "schwer" ? `${HELP} ${HELP_ZEIT}` : HELP);
+    kids()?.setHelp?.(stufe() === "schwer" ? `${HELP} ${HELP_VORLESEN} ${HELP_ZEIT}` : `${HELP} ${HELP_VORLESEN}`);
     spiel.losKnopf(shell, {
       onLos: () => los(false),
       zeit: stufe() === "schwer" ? { onLos: () => los(true) } : null,
@@ -107,6 +144,8 @@
     if (zeit) {
       host.dataset.zeit = "1";
       state.runde = spiel.mische(saetze()).map(aufgabe);
+      // Auf Zeit gibt es keinen Lautsprecher – die Hilfe verspricht keinen.
+      kids()?.setHelp?.(`${HELP} ${HELP_ZEIT}`);
     }
     shell.setPhase("play");
     buehne();
@@ -138,7 +177,7 @@
       knopf.addEventListener("click", () => tippe(i, knopf));
       el.reihe.append(knopf);
     });
-    if (stufe() === "leicht") ton.sprich(a.woerter.join(" "), { rate: 0.85 });
+    if (stufe() === "leicht") lesVor();
   }
 
   async function tippe(i, knopf) {
