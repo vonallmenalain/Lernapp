@@ -13360,6 +13360,26 @@ body[data-page="laute-aufnehmen"] {
 .qs-knopf.ist-falsch { background: #ffd9d4; }
 
 /* --- Stolperwörter --- */
+/* Über den Wörtern: der Lautsprecher, der den Satz vorliest, und die Frage. */
+.sw-oben { display: flex; align-items: center; justify-content: center; gap: clamp(8px, 1.6vw, 14px); }
+.sw-vorlesen {
+  flex: none;
+  width: clamp(44px, 12vh, 64px);
+  height: clamp(44px, 12vh, 64px);
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: none;
+  filter: drop-shadow(0 4px 8px rgba(36, 48, 71, 0.25));
+  cursor: pointer;
+}
+.sw-vorlesen svg { width: 100%; height: 100%; display: block; }
+.sw-vorlesen:active { transform: scale(0.94); }
+/* Während er vorliest, wird er grün und die Schallwellen wandern – wie beim
+   Lautsprecher oben links. */
+.sw-vorlesen.spricht .sw-vorlesen-rund { fill: #c9f2d6; }
+.sw-vorlesen.spricht .sw-welle { animation: help-wave 1.1s ease-in-out infinite; }
+.sw-vorlesen.spricht .sw-welle-weit { animation-delay: 0.18s; }
 .sw-hinweis { margin: 0; padding: 4px 14px; border-radius: 12px; background: rgba(255, 255, 255, 0.85); color: #243047; font-size: clamp(0.9rem, 4vh, 1.3rem); font-weight: 800; }
 .sw-gleis { display: flex; flex-direction: column; align-items: center; width: min(96vw, 1040px); }
 .sw-reihe { display: flex; flex-wrap: wrap; justify-content: center; align-items: flex-end; gap: clamp(5px, 1.2vw, 12px); padding: 0 8px 4px; }
@@ -13417,6 +13437,7 @@ body[data-page="laute-aufnehmen"] {
   .qs-wagen { transition: none; }
   .sk-zug.kommt-an { animation: none; }
   .sk-zug.faehrt-ab { animation: none; opacity: 0; }
+  .sw-vorlesen.spricht .sw-welle { animation: none; }
 }
 
 /* --- Laut-Position --- */
