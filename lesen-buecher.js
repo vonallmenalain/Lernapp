@@ -351,6 +351,7 @@
       figur: "ibex",
       landschaft: "berge",
       farbe: "#7c5ce6",
+      bilder: "bilder/buecher/sepp-gewitter",
       seiten: [
         {
           text: "Hoch oben in den Bergen wohnt Sepp, der Steinbock. Er springt über die Felsen, als wäre es eine Treppe.",
@@ -831,6 +832,7 @@
       figur: "lion",
       landschaft: "savanne",
       farbe: "#e0a53c",
+      bilder: "bilder/buecher/leo-bruellt",
       seiten: [
         {
           text: "Leo ist ein junger Löwe. Alle Löwen können brüllen – nur Leo nicht. Wenn er es versucht, kommt bloss ein leises «Miau» heraus.",
@@ -890,6 +892,7 @@
       figur: "owl",
       landschaft: "weltraum",
       farbe: "#2f6f8f",
+      bilder: "bilder/buecher/reise-mond",
       seiten: [
         {
           text: "Ella, die Eule, schaut jede Nacht zum Mond hinauf. «Wie es dort oben wohl aussieht?», fragt sie sich.",
@@ -1075,6 +1078,7 @@
       figur: "mouse",
       landschaft: "wiese",
       farbe: "#e86a92",
+      bilder: "bilder/buecher/geschenk-oma-rosa",
       seiten: [
         {
           text: "Morgen hat Oma Rosa Geburtstag. Mia, die Maus, möchte ihr etwas ganz Besonderes schenken. Aber ihr Kässeli ist leer.",
@@ -1134,6 +1138,7 @@
       figur: "bear",
       landschaft: "wald",
       farbe: "#5c8db8",
+      bilder: "bilder/buecher/bruno-schnee",
       seiten: [
         {
           text: "Es ist Herbst. Die Blätter fallen, und die Tage werden kurz. «Bald ist es Zeit für den Winterschlaf», sagt Mama Bär zu Bruno.",
