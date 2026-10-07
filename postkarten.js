@@ -13,7 +13,9 @@
  * Gerät. Am Schluss steht, von wem die nächste Karte kommt.
  *
  * Die Texte stehen in lesen-detektive.js (POSTKARTEN), die Bilder zeichnen
- * lesen-bilder.js (Landschaft, Tier) und train-art.js (Wahrzeichen).
+ * lesen-bilder.js (Landschaft, Tier) und train-art.js (Wahrzeichen). Darüber
+ * liegt das gemalte Bild der Karte, bilder/postkarten/<karte>.webp
+ * (willkommen.webp für Finos Karte), so gross wie eine Buchseite.
  */
 (() => {
   "use strict";
@@ -106,6 +108,9 @@
       wahrzeichen.classList.add("is-lit");
       svg.append(art.group({ transform: "translate(176 136) scale(0.95)" }, [wahrzeichen]));
     }
+    // Darüber das gemalte Bild der Karte (bilder/postkarten/); lädt es nicht,
+    // bleibt die Zeichnung.
+    bilder.mitFoto(svg, `bilder/postkarten/${idVon(k)}.webp`);
     return svg;
   }
 

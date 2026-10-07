@@ -1,4 +1,4 @@
-const APP_VERSION = "2026-10-06-25";
+const APP_VERSION = "2026-10-07-01";
 const CACHE_PREFIX = "lernapp-pwa-";
 const CACHE_NAME = `${CACHE_PREFIX}${APP_VERSION}`;
 const ASSET_VERSION_QUERY = `?v=${APP_VERSION}`;
@@ -15,7 +15,9 @@ const NETWORK_TIMEOUT_MS = 3500;
 // nicht leert: Ein Buch, das einmal offen war, hat seine Bilder auch nach
 // einem Update ohne Netz. Wird ein Bild ersetzt, braucht der Name hier eine
 // neue Nummer – dann holt jedes Gerät die Bilder neu. Ein Bild darf länger
-// laden als eine Seite: Fehlt es, zeigt das Buch seine Zeichnung.
+// laden als eine Seite: Fehlt es, zeigt das Buch seine Zeichnung. Die
+// gemalten Postkarten (bilder/postkarten/…) und Steckbriefe
+// (bilder/steckbriefe/…) liegen im selben Cache.
 const BUCHBILDER_CACHE = "lernapp-buchbilder-1";
 const BUCHBILDER_TIMEOUT_MS = 20000;
 
@@ -354,7 +356,7 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  if (requestUrl.pathname.includes("/bilder/buecher/")) {
+  if (requestUrl.pathname.includes("/bilder/buecher/") || requestUrl.pathname.includes("/bilder/postkarten/") || requestUrl.pathname.includes("/bilder/steckbriefe/")) {
     event.respondWith(cacheFirst(event, BUCHBILDER_CACHE, BUCHBILDER_TIMEOUT_MS));
     return;
   }

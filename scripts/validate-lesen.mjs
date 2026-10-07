@@ -560,6 +560,42 @@ let gemalteBuecher = 0;
   pruefe(!sw.includes('startsWith("lernapp-buchbilder-") && key !== CACHE_NAME'), "service-worker.js: ein Update würde die Buchbilder löschen");
 }
 
+// --- 3c. Die gemalten Postkarten und Steckbriefe --------------------------------------
+// Jede Postkarte (lesen-detektive.js, POSTKARTEN, und Finos Karte zum
+// Willkommen) hat ein gemaltes Bild so gross wie eine Buchseite, jeder
+// Steckbrief ein Bild hochkant (520 × 600, wie die Figur 52 × 60). Sie liegen
+// mit den Buchbildern im selben Cache.
+let gemalteKarten = 0;
+let gemalteSteckbriefe = 0;
+{
+  const { windowStub: d } = lade("lesen-detektive.js");
+  const det = d.LernappLeseDetektive || {};
+  const ordnerPruefen = (ordner, namen, mass, wer) => {
+    const voll = path.join(root, ordner);
+    if (!fs.existsSync(voll)) { pruefe(false, `${ordner} fehlt`); return 0; }
+    const soll = new Set(namen.map((n) => `${n}.webp`));
+    fs.readdirSync(voll).filter((name) => !soll.has(name)).forEach((name) => pruefe(false, `${ordner}/${name} gehört zu keiner ${wer}`));
+    let da = 0;
+    soll.forEach((name) => {
+      const datei = path.join(voll, name);
+      if (!fs.existsSync(datei)) { pruefe(false, `${ordner}/${name} fehlt`); return; }
+      const daten = fs.readFileSync(datei);
+      const masse = webpMasse(daten);
+      pruefe(masse, `${ordner}/${name} ist kein WebP`);
+      if (masse) pruefe(masse.breite === mass.breite && masse.hoehe === mass.hoehe, `${ordner}/${name} ist ${masse.breite} × ${masse.hoehe} statt ${mass.breite} × ${mass.hoehe}`);
+      pruefe(daten.length <= mass.kb * 1024, `${ordner}/${name} hat ${Math.round(daten.length / 1024)} KB, erlaubt sind ${mass.kb}`);
+      da += 1;
+    });
+    return da;
+  };
+  gemalteKarten = ordnerPruefen("bilder/postkarten", [...(det.POSTKARTEN || []).map((k) => k.karte), "willkommen"], { breite: 1200, hoehe: 760, kb: 160 }, "Postkarte");
+  gemalteSteckbriefe = ordnerPruefen("bilder/steckbriefe", (det.STECKBRIEFE || []).map((b) => b.id), { breite: 520, hoehe: 600, kb: 60 }, "Steckbrief");
+  const sw = lies("service-worker.js");
+  ["/bilder/postkarten/", "/bilder/steckbriefe/"].forEach((ordner) => pruefe(sw.includes(`requestUrl.pathname.includes("${ordner}")`), `service-worker.js: ${ordner} geht nicht in den Cache der Buchbilder`));
+  pruefe(lies("postkarten.js").includes("bilder/postkarten/${idVon(k)}.webp"), "postkarten.js: die Vorderseite legt ihr gemaltes Bild nicht über die Zeichnung");
+  pruefe(lies("steckbriefe.js").includes("bilder/steckbriefe/${b.id}.webp"), "steckbriefe.js: der Steckbrief legt sein gemaltes Bild nicht über die Figur");
+}
+
 // --- 4. Der Lesestand -------------------------------------------------------------
 {
   const { windowStub: s, store } = lade("lesen-inhalte.js", "lesen-stand.js");
@@ -851,7 +887,7 @@ let gemalteBuecher = 0;
     lautposition: [], buchstabensignal: [], liesundtu: [],
     geschichtenzug: ["lesen-buecher.js", "lesen-bilder.js"],
     werbinich: [], wortbaustelle: [],
-    steckbriefe: ["lesen-detektive.js"], detektivfaelle: ["lesen-detektive.js"], postkarten: ["lesen-detektive.js", "lesen-bilder.js"],
+    steckbriefe: ["lesen-detektive.js", "lesen-bilder.js"], detektivfaelle: ["lesen-detektive.js"], postkarten: ["lesen-detektive.js", "lesen-bilder.js"],
   };
   const stand = lies("lesen-stand.js");
   for (const [seite, extra] of Object.entries(SEITEN)) {
@@ -1097,4 +1133,4 @@ if (fehler.length) {
   process.exit(1);
 }
 const aufgenommen = Object.keys(lade("lesen-laute.js").windowStub.LernappLauteAufnahmen || {}).length;
-console.log(`Die Leseecke stimmt: ${inhalte.LAUTE.length} Laute (${aufgenommen} aufgenommen), ${inhalte.SILBEN_WOERTER.length + inhalte.KUPPEL_WOERTER.length} Wörter, ${bib.BUECHER.length} Bücher mit ${bib.BUECHER.reduce((n, b) => n + b.fragen.length, 0)} Fragen (${gemalteBuecher} mit gemalten Bildern), der Lesestand, die Seiten, die Aufnahmeseite und ${aufnahmenFertig} von ${stimmeTexte().length} festen Texten mit Alains Stimme.`);
+console.log(`Die Leseecke stimmt: ${inhalte.LAUTE.length} Laute (${aufgenommen} aufgenommen), ${inhalte.SILBEN_WOERTER.length + inhalte.KUPPEL_WOERTER.length} Wörter, ${bib.BUECHER.length} Bücher mit ${bib.BUECHER.reduce((n, b) => n + b.fragen.length, 0)} Fragen (${gemalteBuecher} mit gemalten Bildern), ${gemalteKarten} gemalte Postkarten, ${gemalteSteckbriefe} gemalte Steckbriefe, der Lesestand, die Seiten, die Aufnahmeseite und ${aufnahmenFertig} von ${stimmeTexte().length} festen Texten mit Alains Stimme.`);

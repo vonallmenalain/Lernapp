@@ -15,7 +15,9 @@
  * Bild über der Zeichnung. Die Zeichnung entsteht trotzdem: Lädt das Bild
  * nicht – ohne Netz, bevor das Buch je offen war –, kommt sie zum Vorschein.
  * Solange es lädt, deckt eine ruhige Fläche sie ab; sonst blitzte sie auf.
- * Am SVG steht, wie es steht: data-foto="laedt", "da" oder "fehlt".
+ * Am SVG steht, wie es steht: data-foto="laedt", "da" oder "fehlt". Die
+ * Postkarten (postkarten.js) und Steckbriefe (steckbriefe.js) legen ihre
+ * gemalten Bilder auf dieselbe Art über ihre Zeichnung (mitFoto).
  */
 (() => {
   "use strict";
@@ -208,9 +210,13 @@
   }
 
   // Das gemalte Bild über die Zeichnung legen. Fehlt es, bleibt die Zeichnung.
-  function mitFoto(svg, pfad) {
-    const grund = art.el("rect", { x: 0, y: 0, width: W, height: H, fill: "#ece4d3", class: "bu-foto-grund" });
-    const foto = art.el("image", { href: pfad, x: 0, y: 0, width: W, height: H, preserveAspectRatio: "xMidYMid slice", class: "bu-foto" });
+  //   rahmen  wo das Bild liegt, in den Massen des SVG; sonst das ganze Bild.
+  //           Die Postkarten nehmen es wie es ist, der Steckbrief gibt
+  //           seinen Ausschnitt an (steckbriefe.js).
+  function mitFoto(svg, pfad, rahmen = { x: 0, y: 0, w: W, h: H }) {
+    const { x, y, w, h } = rahmen;
+    const grund = art.el("rect", { x, y, width: w, height: h, fill: "#ece4d3", class: "bu-foto-grund" });
+    const foto = art.el("image", { href: pfad, x, y, width: w, height: h, preserveAspectRatio: "xMidYMid slice", class: "bu-foto" });
     svg.dataset.foto = "laedt";
     foto.addEventListener("load", () => {
       svg.dataset.foto = "da";
@@ -291,5 +297,5 @@
     return svg;
   }
 
-  window.LernappLeseBilder = { W, H, BODEN, ZEICHNUNGEN, emoji, zeichnung, figur, buchBild, umschlagBild, seitenFoto, umschlagFoto, vorladen };
+  window.LernappLeseBilder = { W, H, BODEN, ZEICHNUNGEN, emoji, zeichnung, figur, buchBild, umschlagBild, seitenFoto, umschlagFoto, vorladen, mitFoto };
 })();

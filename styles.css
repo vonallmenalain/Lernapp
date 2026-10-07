@@ -13801,6 +13801,9 @@ body[data-page="laute-aufnehmen"] {
 .stb-seite { display: flex; flex: 1 1 0; flex-direction: column; align-items: center; gap: clamp(6px, 2vh, 14px); min-width: 0; max-width: 420px; }
 .stb-bild { width: clamp(70px, 32vh, 210px); }
 .stb-figur { display: block; width: 100%; height: auto; }
+/* Mit dem gemalten Bild (steckbriefe.js) ist die Figur ein Bild mit Rahmen,
+   wie eine Seite im Buch. Lädt es nicht, steht das Tier frei wie bisher. */
+.stb-figur[data-foto="laedt"], .stb-figur[data-foto="da"] { border: 3px solid #ffffff; border-radius: 14px; background: #ffffff; box-shadow: 0 6px 14px rgba(36, 48, 71, 0.2); box-sizing: border-box; }
 .stb-weiter, .pk-weiter { display: inline-flex; align-items: center; gap: 8px; min-height: 0; padding: 8px 18px; border-radius: 999px; background: #3fbf74; color: #ffffff; font-size: clamp(0.9rem, 4vh, 1.2rem); font-weight: 800; }
 .stb-weiter:hover:not(:disabled), .pk-weiter:hover:not(:disabled) { background: #2f9d5d; }
 .stb-frage, .pk-frage { min-height: 0; padding: 4px 12px; border: none; border-radius: 12px; background: rgba(255, 255, 255, 0.92); color: #243047; font-family: "Andika", Inter, system-ui, sans-serif; font-size: clamp(0.9rem, 4.4vh, 1.4rem); font-weight: 700; line-height: 1.2; text-align: center; }
