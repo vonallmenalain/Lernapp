@@ -21,6 +21,7 @@
   const ton = window.LernappLeseTon;
   const art = window.LernappLeseArt;
   const zugArt = window.LernappTrainArt;
+  const bilder = window.LernappLeseBilder;
   const stand = window.LernappLeseStand;
   if (!host || !spiel || !det || !ton || !art || !zugArt) return;
 
@@ -45,8 +46,13 @@
   let shell = null;
   let el = {};
 
-  function figur(tier) {
-    return art.el("svg", { viewBox: "-26 -56 52 60", class: "stb-figur", "aria-hidden": "true" }, [zugArt.buildPassenger(tier)]);
+  // Das Tier aus dem Zug – und darüber das gemalte Bild des echten Tieres
+  // (bilder/steckbriefe/<id>.webp, 520 × 600). Lädt es nicht, bleibt die
+  // Zeichnung.
+  function figur(b) {
+    const svg = art.el("svg", { viewBox: "-26 -56 52 60", class: "stb-figur", "aria-hidden": "true" }, [zugArt.buildPassenger(b.tier)]);
+    bilder?.mitFoto(svg, `bilder/steckbriefe/${b.id}.webp`, { x: -26, y: -56, w: 52, h: 60 });
+    return svg;
   }
 
   function buehne() {
@@ -110,7 +116,7 @@
     zeigeBrief(b);
     el.seite.innerHTML = "";
     const bild = shell.el("div", "stb-bild");
-    bild.append(figur(b.tier));
+    bild.append(figur(b));
     const weiter = shell.el("button", "stb-weiter");
     weiter.type = "button";
     weiter.append(shell.el("span", "stb-weiter-bild", "❓"), shell.el("span", "stb-weiter-text", "Zu den Fragen"));

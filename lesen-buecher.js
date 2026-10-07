@@ -89,6 +89,7 @@
       landschaft: "wiese",
       farbe: "#f5a623",
       gratis: true,
+      bilder: "bilder/buecher/hase-rueebli",
       seiten: [
         {
           text: "Das ist Hoppel. Hoppel ist ein kleiner Hase, und er hat grossen Hunger.",
@@ -148,6 +149,7 @@
       figur: "owl",
       landschaft: "nacht",
       farbe: "#2f6f8f",
+      bilder: "bilder/buecher/eule-ella",
       seiten: [
         {
           text: "Das ist Ella. Ella ist eine Eule. Am Tag schläft sie, und in der Nacht ist sie wach.",
@@ -215,6 +217,7 @@
       landschaft: "savanne",
       farbe: "#e8543f",
       gratis: true,
+      bilder: "bilder/buecher/leo-melone",
       seiten: [
         { text: "Das ist Leo.", bild: { figuren: [{ id: "lion", x: 120 }] } },
         { text: "Leo mag Melonen.", bild: { figuren: [{ id: "lion", x: 100, blase: "🍉" }] } },
@@ -253,6 +256,7 @@
       figur: "penguin",
       landschaft: "see",
       farbe: "#00a5b5",
+      bilder: "bilder/buecher/pino-insel",
       seiten: [
         { text: "Das ist Pino.", bild: { figuren: [{ id: "penguin", x: 120 }] } },
         { text: "Pino will auf die Insel.", bild: { figuren: [{ id: "penguin", x: 64, blase: "🏝️" }], dinge: [{ e: "🏝️", x: 186, y: 104, s: 46 }] } },
@@ -292,6 +296,7 @@
       figur: "squirrel",
       landschaft: "wald",
       farbe: "#c9743a",
+      bilder: "bilder/buecher/flitz-nuss",
       seiten: [
         {
           text: "Es ist Herbst. Die Blätter sind gelb und rot. Flitz, das Eichhörnchen, hat viel zu tun.",
@@ -351,6 +356,7 @@
       figur: "ibex",
       landschaft: "berge",
       farbe: "#7c5ce6",
+      bilder: "bilder/buecher/sepp-gewitter",
       seiten: [
         {
           text: "Hoch oben in den Bergen wohnt Sepp, der Steinbock. Er springt über die Felsen, als wäre es eine Treppe.",
@@ -422,6 +428,7 @@
       figur: "panda",
       landschaft: "dschungel",
       farbe: "#3fa34d",
+      bilder: "bilder/buecher/pippa-regen",
       seiten: [
         {
           text: "Das ist Pippa. Sie ist ein kleiner Panda und will draussen spielen.",
@@ -481,6 +488,7 @@
       figur: "bear",
       landschaft: "nacht",
       farbe: "#7c5ce6",
+      bilder: "bilder/buecher/bruno-sterne",
       seiten: [
         {
           text: "Das ist Bruno, der kleine Bär. Es ist Nacht, und Bruno soll schlafen.",
@@ -540,6 +548,7 @@
       figur: "fox",
       landschaft: "wald",
       farbe: "#e8763a",
+      bilder: "bilder/buecher/fino-schal",
       seiten: [
         {
           text: "Das ist Fino, der Fuchs. Fino hat einen roten Schal. Den hat ihm seine Oma gestrickt.",
@@ -599,6 +608,7 @@
       figur: "mouse",
       landschaft: "wiese",
       farbe: "#ef6fa8",
+      bilder: "bilder/buecher/mia-ball",
       seiten: [
         { text: "Das ist Mia.", bild: { figuren: [{ id: "mouse", x: 120 }] } },
         { text: "Mia hat einen Ball.", bild: { figuren: [{ id: "mouse", x: 100 }], dinge: [{ e: "🔴", x: 146, y: 126, s: 22 }] } },
@@ -637,6 +647,7 @@
       figur: "cat",
       landschaft: "wiese",
       farbe: "#f5a623",
+      bilder: "bilder/buecher/tim-malt",
       seiten: [
         { text: "Das ist Tim.", bild: { figuren: [{ id: "cat", x: 120 }] } },
         { text: "Tim ist ein Kater.", bild: { figuren: [{ id: "cat", x: 120 }], dinge: [{ e: "🐾", x: 60, y: 134, s: 14 }, { e: "🐾", x: 82, y: 128, s: 14 }] } },
@@ -675,6 +686,7 @@
       figur: "frog",
       landschaft: "see",
       farbe: "#5cb85c",
+      bilder: "bilder/buecher/fred-frosch",
       seiten: [
         { text: "Das ist Fred.", bild: { figuren: [{ id: "frog", x: 120 }] } },
         { text: "Fred ist ein Frosch.", bild: { figuren: [{ id: "frog", x: 120 }], dinge: [{ e: "💧", x: 150, y: 70, s: 10 }] } },
@@ -713,6 +725,7 @@
       figur: "penguin",
       landschaft: "berge",
       farbe: "#00a5b5",
+      bilder: "bilder/buecher/pino-schneemann",
       seiten: [
         {
           text: "Es hat geschneit. Alles ist weiss. Pino will einen Schneemann bauen.",
@@ -772,6 +785,7 @@
       figur: "squirrel",
       landschaft: "wald",
       farbe: "#c9743a",
+      bilder: "bilder/buecher/flitz-geheimnis",
       seiten: [
         {
           text: "Flitz wacht auf. Heute hat er Geburtstag! Aber niemand ist da.",
@@ -831,6 +845,7 @@
       figur: "lion",
       landschaft: "savanne",
       farbe: "#e0a53c",
+      bilder: "bilder/buecher/leo-bruellt",
       seiten: [
         {
           text: "Leo ist ein junger Löwe. Alle Löwen können brüllen – nur Leo nicht. Wenn er es versucht, kommt bloss ein leises «Miau» heraus.",
@@ -890,6 +905,7 @@
       figur: "owl",
       landschaft: "weltraum",
       farbe: "#2f6f8f",
+      bilder: "bilder/buecher/reise-mond",
       seiten: [
         {
           text: "Ella, die Eule, schaut jede Nacht zum Mond hinauf. «Wie es dort oben wohl aussieht?», fragt sie sich.",
@@ -949,6 +965,7 @@
       figur: "rabbit",
       landschaft: "wiese",
       farbe: "#e8543f",
+      bilder: "bilder/buecher/hoppel-velo",
       seiten: [
         {
           text: "Hoppel hat ein neues Velo. Es ist rot und glänzt in der Sonne.",
@@ -1012,6 +1029,7 @@
       figur: "owl",
       landschaft: "wald",
       farbe: "#8e6bbf",
+      bilder: "bilder/buecher/ella-ei",
       seiten: [
         {
           text: "Ella, die Eule, findet im Gras ein Ei. Es ist weiss und ganz allein.",
@@ -1075,6 +1093,7 @@
       figur: "mouse",
       landschaft: "wiese",
       farbe: "#e86a92",
+      bilder: "bilder/buecher/geschenk-oma-rosa",
       seiten: [
         {
           text: "Morgen hat Oma Rosa Geburtstag. Mia, die Maus, möchte ihr etwas ganz Besonderes schenken. Aber ihr Kässeli ist leer.",
@@ -1134,6 +1153,7 @@
       figur: "bear",
       landschaft: "wald",
       farbe: "#5c8db8",
+      bilder: "bilder/buecher/bruno-schnee",
       seiten: [
         {
           text: "Es ist Herbst. Die Blätter fallen, und die Tage werden kurz. «Bald ist es Zeit für den Winterschlaf», sagt Mama Bär zu Bruno.",

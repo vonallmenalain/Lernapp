@@ -31,10 +31,11 @@
  *                 Lesezeichen führt zurück, wo das Kind aufgehört hat, und
  *                 fällt heraus, wenn das Buch aus ist. Ohne Wort-Hilfe
  *                 schweigt ein Tipp beim Selberlesen; «sehr gross» ist grösser.
- *                 Die vier Kapitelbücher haben gemalte Bilder: im Regal, auf
- *                 der Titelseite und auf jeder Seite, alle gleich beim
- *                 Aufgehen geladen; fehlt eines, zeigt die Seite ihre
- *                 Zeichnung.
+ *                 Alle Bücher haben gemalte Bilder: im Regal, auf der
+ *                 Titelseite und auf jeder Seite, alle gleich beim Aufgehen
+ *                 geladen; fehlt eines, zeigt die Seite ihre Zeichnung, und
+ *                 ein Buch ohne Bilder zeichnet wie bisher. Postkarte und
+ *                 Steckbrief zeigen ihr gemaltes Bild ebenso.
  *   Aufnahmen     Gibt es einen festen Text als Aufnahme (lesen-stimme.js),
  *                 spielt sie statt der Sprachausgabe: der Titel und ein Satz
  *                 des Hörbuchs, die Hilfe im Silbenzug – ein zweiter Tipp hält
@@ -1685,16 +1686,22 @@ try {
   if (!ausgelesen.buch || ausgelesen.buch.sterne !== 3) fehlt(`Kapitelbuch: im Lesestand steht ${JSON.stringify(ausgelesen.buch)}`);
   if (Object.keys(ausgelesen.zeichen).join(",") !== "baumhaus-nacht") fehlt(`Kapitelbuch: Lesezeichen stecken in ${Object.keys(ausgelesen.zeichen).join(", ") || "keinem Buch"}`);
 
-  // Gemalte Bilder: Die vier Kapitelbücher haben sie – klein auf dem Umschlag
+  // Gemalte Bilder: Alle Bücher im Regal haben sie – klein auf dem Umschlag
   // im Regal, gross auf der Titelseite, und eines auf jeder Seite, über der
   // Zeichnung. Geht ein Buch auf, kommen gleich alle seine Bilder. Lädt ein Bild
   // nicht (hier ist Seite 2 im Baumhaus gesperrt), zeigt die Seite ihre
   // Zeichnung; ein Buch ohne Bilder zeichnet wie bisher.
-  const gemalteBuecher = ["baumhaus-nacht", "leuchtturm-licht", "bergrennen", "pippa-bambus"];
+  const gemalteBuecher = {
+    hoerbuch: ["hase-rueebli", "eule-ella", "pippa-regen", "bruno-sterne", "fino-schal"],
+    erste: ["leo-melone", "pino-insel", "mia-ball", "tim-malt", "fred-frosch"],
+    klein: ["flitz-nuss", "pino-schneemann", "flitz-geheimnis", "hoppel-velo", "ella-ei"],
+    geschichte: ["sepp-gewitter", "leo-bruellt", "reise-mond", "geschenk-oma-rosa", "bruno-schnee"],
+    kapitel: ["baumhaus-nacht", "leuchtturm-licht", "bergrennen", "pippa-bambus"],
+  };
   const gemalt = await offen.newPage();
   gemalt.on("pageerror", (e) => fehler.push(`${gemalt.url().replace(BASIS, "")}: ${e.message}`));
   await gemalt.route("**/bilder/buecher/baumhaus-nacht/seite-02.webp", (route) => route.abort());
-  const fotoVon = (wahl) => gemalt.evaluate((w) => {
+  const fotoVon = (seite, wahl) => seite.evaluate((w) => {
     const svg = document.querySelector(w);
     const foto = svg?.querySelector("image.bu-foto");
     return {
@@ -1707,24 +1714,23 @@ try {
       abgedeckt: Boolean(svg?.querySelector(".bu-foto-grund")),
     };
   }, wahl);
-  const fotoFertig = (wahl) => gemalt.waitForFunction((w) => ["da", "fehlt"].includes(document.querySelector(w)?.dataset.foto), wahl, { timeout: 8000 }).catch(() => {});
+  const fotoFertig = (seite, wahl) => seite.waitForFunction((w) => ["da", "fehlt"].includes(document.querySelector(w)?.dataset.foto), wahl, { timeout: 8000 }).catch(() => {});
   await gemalt.goto(`${BASIS}/buecher.html`, { waitUntil: "domcontentloaded" });
   await gemalt.waitForSelector(".bu-reiter", { timeout: 8000 }).catch(() => {});
-  await gemalt.locator('.bu-reiter[data-stufe="kapitel"]').click().catch(() => {});
-  for (const id of gemalteBuecher) {
-    const imRegal = `.bu-umschlag[data-buch="${id}"] svg.bu-umschlag-svg`;
-    await fotoFertig(imRegal);
-    const regalFoto = await fotoVon(imRegal);
-    if (regalFoto.stand !== "da" || regalFoto.pfad !== `bilder/buecher/${id}/umschlag-klein.webp`) fehlt(`Gemalte Bilder: im Regal zeigt ${id} nicht seinen kleinen Umschlag (${JSON.stringify(regalFoto)})`);
+  for (const [fach, ids] of Object.entries(gemalteBuecher)) {
+    await gemalt.locator(`.bu-reiter[data-stufe="${fach}"]`).click().catch(() => {});
+    for (const id of ids) {
+      const imRegal = `.bu-umschlag[data-buch="${id}"] svg.bu-umschlag-svg`;
+      await fotoFertig(gemalt, imRegal);
+      const regalFoto = await fotoVon(gemalt, imRegal);
+      if (regalFoto.stand !== "da" || regalFoto.pfad !== `bilder/buecher/${id}/umschlag-klein.webp`) fehlt(`Gemalte Bilder: im Regal zeigt ${id} nicht seinen kleinen Umschlag (${JSON.stringify(regalFoto)})`);
+    }
   }
-  // Sepp im Gewitter steht in einem anderen Fach und hat keine Bilder.
-  const ohneBilder = await fotoVon('.bu-umschlag[data-buch="sepp-gewitter"] svg.bu-umschlag-svg');
-  if (!ohneBilder.da || ohneBilder.stand || ohneBilder.pfad) fehlt(`Gemalte Bilder: ein Buch ohne Bilder lädt eines (${JSON.stringify(ohneBilder)})`);
   await gemalt.goto(`${BASIS}/buecher.html?buch=baumhaus-nacht`, { waitUntil: "domcontentloaded" });
   await gemalt.waitForSelector(".bu-titelseite", { timeout: 8000 }).catch(() => {});
   const aufDemTitel = ".bu-titel-deckel svg.bu-umschlag-svg";
-  await fotoFertig(aufDemTitel);
-  const titelFoto = await fotoVon(aufDemTitel);
+  await fotoFertig(gemalt, aufDemTitel);
+  const titelFoto = await fotoVon(gemalt, aufDemTitel);
   if (titelFoto.stand !== "da" || !/baumhaus-nacht\/umschlag\.webp$/.test(titelFoto.pfad || "")) fehlt(`Gemalte Bilder: die Titelseite zeigt nicht den grossen Umschlag (${JSON.stringify(titelFoto)})`);
   // Gleich beim Aufgehen geladen: der Umschlag und alle zwölf Seiten.
   await gemalt.waitForFunction(() => performance.getEntriesByType("resource").filter((e) => e.name.includes("/bilder/buecher/baumhaus-nacht/seite-")).length >= 11, null, { timeout: 8000 }).catch(() => {});
@@ -1732,27 +1738,27 @@ try {
   if (vorgeladen.length < 11) fehlt(`Gemalte Bilder: beim Aufgehen sind erst ${vorgeladen.length} Seiten geladen (${vorgeladen.join(", ")})`);
   await gemalt.locator('.bu-modus[data-modus="selbst"]').click().catch(() => {});
   const seitenBild = ".bu-bild svg.bu-bild-svg";
-  await fotoFertig(seitenBild);
-  const ersteSeite = await fotoVon(seitenBild);
+  await fotoFertig(gemalt, seitenBild);
+  const ersteSeite = await fotoVon(gemalt, seitenBild);
   if (ersteSeite.stand !== "da" || !/baumhaus-nacht\/seite-01\.webp$/.test(ersteSeite.pfad || "") || ersteSeite.abgedeckt) fehlt(`Gemalte Bilder: Seite 1 zeigt ihr Bild nicht (${JSON.stringify(ersteSeite)})`);
   if (ersteSeite.breite < ersteSeite.svgBreite - 2) fehlt(`Gemalte Bilder: das Bild auf Seite 1 füllt seinen Rahmen nicht (${ersteSeite.breite} von ${ersteSeite.svgBreite} px)`);
   await gemalt.locator(".bu-weiter").click().catch(() => {});
   await gemalt.waitForFunction(() => window.LernappBuecher.state.seite === 1, null, { timeout: 4000 }).catch(() => {});
-  await fotoFertig(seitenBild);
-  const gesperrt = await fotoVon(seitenBild);
+  await fotoFertig(gemalt, seitenBild);
+  const gesperrt = await fotoVon(gemalt, seitenBild);
   if (gesperrt.stand !== "fehlt" || gesperrt.pfad || gesperrt.abgedeckt || gesperrt.zeichnung < 1) fehlt(`Gemalte Bilder: ohne Bild zeigt Seite 2 nicht ihre Zeichnung (${JSON.stringify(gesperrt)})`);
   await gemalt.locator(".bu-weiter").click().catch(() => {});
   await gemalt.waitForFunction(() => window.LernappBuecher.state.seite === 2, null, { timeout: 4000 }).catch(() => {});
-  await fotoFertig(seitenBild);
-  const dritteSeite = await fotoVon(seitenBild);
+  await fotoFertig(gemalt, seitenBild);
+  const dritteSeite = await fotoVon(gemalt, seitenBild);
   if (dritteSeite.stand !== "da" || !/baumhaus-nacht\/seite-03\.webp$/.test(dritteSeite.pfad || "")) fehlt(`Gemalte Bilder: Seite 3 zeigt ihr Bild nicht (${JSON.stringify(dritteSeite)})`);
-  // Die anderen drei: der grosse Umschlag auf der Titelseite, und beim
-  // Aufgehen kommt jede Seite an – keine fehlt im Ordner.
-  for (const id of gemalteBuecher.slice(1)) {
+  // Alle anderen: der grosse Umschlag auf der Titelseite, und beim Aufgehen
+  // kommt jede Seite an – keine fehlt im Ordner.
+  for (const id of Object.values(gemalteBuecher).flat().filter((i) => i !== "baumhaus-nacht")) {
     await gemalt.goto(`${BASIS}/buecher.html?buch=${id}`, { waitUntil: "domcontentloaded" });
     await gemalt.waitForSelector(".bu-titelseite", { timeout: 8000 }).catch(() => {});
-    await fotoFertig(aufDemTitel);
-    const titel = await fotoVon(aufDemTitel);
+    await fotoFertig(gemalt, aufDemTitel);
+    const titel = await fotoVon(gemalt, aufDemTitel);
     if (titel.stand !== "da" || titel.pfad !== `bilder/buecher/${id}/umschlag.webp`) fehlt(`Gemalte Bilder: die Titelseite von ${id} zeigt nicht den grossen Umschlag (${JSON.stringify(titel)})`);
     const ordner = `/bilder/buecher/${id}/seite-`;
     const anzahl = await gemalt.evaluate((i) => window.LernappLeseBuecher.BY_ID[i].seiten.length, id);
@@ -1761,13 +1767,63 @@ try {
     const soll = Array.from({ length: anzahl }, (_, nr) => `seite-${String(nr + 1).padStart(2, "0")}.webp`);
     if (angekommen.join(",") !== soll.join(",")) fehlt(`Gemalte Bilder: von ${id} kommen beim Aufgehen nur ${angekommen.length} von ${anzahl} Seiten an (${angekommen.join(", ")})`);
   }
-  await gemalt.goto(`${BASIS}/buecher.html?buch=leo-melone`, { waitUntil: "domcontentloaded" });
-  await gemalt.waitForSelector(".bu-titelseite", { timeout: 8000 }).catch(() => {});
-  await gemalt.locator('.bu-modus[data-modus="selbst"]').click().catch(() => {});
-  await gemalt.waitForSelector(seitenBild, { timeout: 4000 }).catch(() => {});
-  const gezeichnet = await fotoVon(seitenBild);
-  if (gezeichnet.stand || gezeichnet.pfad || gezeichnet.zeichnung < 1) fehlt(`Gemalte Bilder: ein Buch ohne Bilder zeigt nicht seine Zeichnung (${JSON.stringify(gezeichnet)})`);
   await gemalt.close();
+  // Ein Buch ohne Bilder: Hier verliert «Leo und die Melone» seine Bilder,
+  // bevor das Regal steht. Im Regal und auf der Seite zeichnet es wie bisher
+  // und lädt kein Bild.
+  const ungemalt = await offen.newPage();
+  ungemalt.on("pageerror", (e) => fehler.push(`${ungemalt.url().replace(BASIS, "")}: ${e.message}`));
+  await ungemalt.addInitScript(() => {
+    let bib;
+    Object.defineProperty(window, "LernappLeseBuecher", {
+      configurable: true,
+      get: () => bib,
+      set: (wert) => { if (wert?.BY_ID?.["leo-melone"]) delete wert.BY_ID["leo-melone"].bilder; bib = wert; },
+    });
+  });
+  await ungemalt.goto(`${BASIS}/buecher.html`, { waitUntil: "domcontentloaded" });
+  await ungemalt.waitForSelector(".bu-reiter", { timeout: 8000 }).catch(() => {});
+  await ungemalt.locator('.bu-reiter[data-stufe="erste"]').click().catch(() => {});
+  const ohneBilder = await fotoVon(ungemalt, '.bu-umschlag[data-buch="leo-melone"] svg.bu-umschlag-svg');
+  if (!ohneBilder.da || ohneBilder.stand || ohneBilder.pfad || ohneBilder.zeichnung < 1) fehlt(`Gemalte Bilder: ein Buch ohne Bilder lädt im Regal eines (${JSON.stringify(ohneBilder)})`);
+  await ungemalt.goto(`${BASIS}/buecher.html?buch=leo-melone`, { waitUntil: "domcontentloaded" });
+  await ungemalt.waitForSelector(".bu-titelseite", { timeout: 8000 }).catch(() => {});
+  await ungemalt.locator('.bu-modus[data-modus="selbst"]').click().catch(() => {});
+  await ungemalt.waitForSelector(seitenBild, { timeout: 4000 }).catch(() => {});
+  const gezeichnet = await fotoVon(ungemalt, seitenBild);
+  if (gezeichnet.stand || gezeichnet.pfad || gezeichnet.zeichnung < 1) fehlt(`Gemalte Bilder: ein Buch ohne Bilder zeigt nicht seine Zeichnung (${JSON.stringify(gezeichnet)})`);
+  const geladen = await ungemalt.evaluate(() => performance.getEntriesByType("resource").filter((e) => e.name.includes("/bilder/buecher/leo-melone/")).length);
+  if (geladen) fehlt(`Gemalte Bilder: ein Buch ohne Bilder lädt trotzdem ${geladen} Bilder`);
+  await ungemalt.close();
+  // Postkarten und Steckbriefe legen ihr gemaltes Bild genauso über die
+  // Zeichnung: Finos Karte zeigt willkommen.webp, ein Steckbrief das Bild
+  // seines Tieres. Fehlt es, steht die Zeichnung da.
+  const karten = await offen.newPage();
+  karten.on("pageerror", (e) => fehler.push(`${karten.url().replace(BASIS, "")}: ${e.message}`));
+  await karten.goto(`${BASIS}/postkarten.html`, { waitUntil: "domcontentloaded" });
+  await karten.waitForFunction("window.LernappPostkarten", null, { timeout: 8000 }).catch(() => {});
+  await karten.locator(".lese-los-knopf").click().catch(() => {});
+  await karten.waitForSelector(".pk-vorne svg", { timeout: 5000 }).catch(() => {});
+  await fotoFertig(karten, ".pk-vorne svg");
+  const kartenFoto = await fotoVon(karten, ".pk-vorne svg");
+  if (kartenFoto.stand !== "da" || kartenFoto.pfad !== "bilder/postkarten/willkommen.webp" || kartenFoto.zeichnung < 1) fehlt(`Gemalte Bilder: Finos Postkarte zeigt ihr Bild nicht (${JSON.stringify(kartenFoto)})`);
+  await karten.goto(`${BASIS}/steckbriefe.html`, { waitUntil: "domcontentloaded" });
+  await karten.waitForFunction("window.LernappSteckbriefe", null, { timeout: 8000 }).catch(() => {});
+  await karten.locator(".lese-los-knopf").click().catch(() => {});
+  await karten.waitForSelector(".stb-figur", { timeout: 5000 }).catch(() => {});
+  await fotoFertig(karten, ".stb-figur");
+  const briefId = await karten.evaluate(() => window.LernappSteckbriefe.jetzt()?.id || null);
+  const briefFoto = await fotoVon(karten, ".stb-figur");
+  if (briefFoto.stand !== "da" || briefFoto.pfad !== `bilder/steckbriefe/${briefId}.webp` || briefFoto.breite < briefFoto.svgBreite - 2) fehlt(`Gemalte Bilder: der Steckbrief ${briefId} zeigt sein Bild nicht (${JSON.stringify(briefFoto)})`);
+  await karten.route("**/bilder/steckbriefe/**", (route) => route.abort());
+  await karten.goto(`${BASIS}/steckbriefe.html`, { waitUntil: "domcontentloaded" });
+  await karten.waitForFunction("window.LernappSteckbriefe", null, { timeout: 8000 }).catch(() => {});
+  await karten.locator(".lese-los-knopf").click().catch(() => {});
+  await karten.waitForSelector(".stb-figur", { timeout: 5000 }).catch(() => {});
+  await fotoFertig(karten, ".stb-figur");
+  const ohneBrief = await fotoVon(karten, ".stb-figur");
+  if (ohneBrief.stand !== "fehlt" || ohneBrief.pfad || ohneBrief.zeichnung < 1) fehlt(`Gemalte Bilder: ohne Bild zeigt der Steckbrief nicht seine Figur (${JSON.stringify(ohneBrief)})`);
+  await karten.close();
 
   // Auf Zeit (ab Stufe «schwer»): neben «Los» die Uhr, 45 Sekunden ohne
   // Vorlesen, und das Ergebnis ist ein eigener Bestwert. Auf «mittel» gibt es

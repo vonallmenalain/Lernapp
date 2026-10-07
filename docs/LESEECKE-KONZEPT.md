@@ -157,7 +157,7 @@ Lesewagen selbst und der Lesewurm darin.
 | Wortbaustelle | `wortbaustelle.html` | bauen: an den Kranteil «Schnee» passt «Mann», nicht «Fisch» – auch der Unsinn wird vorgelesen; zerlegen: im langen Wort den Buchstaben antippen, mit dem das zweite Wort anfängt (Regen\|wurm). «leicht» baut, «mittel» abwechselnd, «schwer» zerlegt | lange Wörter zerlegen |
 | Detektivfälle | `detektivfaelle.html` | ein kurzer Krimi in Sätzen («Wer hat den Kuchen gegessen?»): erst den Täter unter drei Verdächtigen wählen, dann den Satz antippen, der es beweist («Auf dem Fenstersims liegt ein rotes Haar.»); je ein Punkt beim ersten Versuch | Schlussfolgern, Belege im Text finden |
 | Steckbriefe | `steckbriefe.html` | ein Steckbrief über ein Tier der App – wohnt, frisst, Grösse, Besonderes, eine Zahl zum Staunen –, dann drei Fragen; wer danebentippt, sieht die Zeile leuchten, in der die Antwort steht | Sachtexte lesen |
-| Postkarten | `postkarten.html` | ist eine Karte der Reise ganz gefahren, schreibt der Fahrgast eine Postkarte (vorne Landschaft, Wahrzeichen, Tier; hinten ein paar Sätze), dazu eine Frage. Ungelesene zuerst; am Schluss steht, wer als Nächstes schreibt | persönliche Texte lesen |
+| Postkarten | `postkarten.html` | ist eine Karte der Reise ganz gefahren, schreibt der Fahrgast eine Postkarte (vorne ein gemaltes Bild zur Karte; hinten ein paar Sätze), dazu eine Frage. Ungelesene zuerst; am Schluss steht, wer als Nächstes schreibt | persönliche Texte lesen |
 | Geschichtenzug | `geschichtenzug.html` | vier Seiten aus einem Buch stehen als Wagen durcheinander – Bild und, wer liest, ein Satz; das Kind kuppelt sie so an die Lok, wie die Geschichte geht. Gelesene Bücher kommen zuerst; auf «leicht» drei Wagen nur mit Bildern, für Leser auf «schwer» nur Sätze | Handlungsfolge verstehen |
 
 Drei Regeln gelten überall:
@@ -195,25 +195,35 @@ Fliege, ein grosses Blatt als Schirm, ein rotes Velo – das Emoji hat je nach G
 andere Farbe –, ein Bambusstapel, ein Stein und die Wahrzeichen der Reise).
 
 **Gemalte Bilder.** Ein Buch kann statt der Zeichnungen gemalte Bilder haben
-(`lesen-buecher.js`, `bilder`: der Ordner). Die vier Kapitelbücher haben sie, jedes in seinem
-Ordner unter `bilder/buecher/` (`baumhaus-nacht/`, `leuchtturm-licht/`, `bergrennen/`,
-`pippa-bambus/`). Gemalt sind sie mit Higgsfield, nach einem Figurenblatt je Buch, damit die
+(`lesen-buecher.js`, `bilder`: der Ordner). Alle 24 Bücher haben sie, jedes in seinem Ordner
+unter `bilder/buecher/<id>/`. Gemalt sind sie mit Higgsfield, nach Figurenblättern, damit die
 Figuren auf jeder Seite gleich aussehen; wer in mehreren Büchern vorkommt (Hoppel, Mia,
-Ella), sieht überall gleich aus, denn alle spielen in derselben Welt. Zeichnet das Modell
-eine Pfote mit vier Zehen, bekommt sie von Hand die fünfte (Pippa, Seite 3). Im Ordner liegen
-`seite-01.webp` … (eines je Seite, 1200 × 760, wie die Zeichnung 240 × 152, nur feiner),
-`umschlag.webp` für die Titelseite und `umschlag-klein.webp` (480 × 304) fürs Regal, zusammen
-rund 1 MB je Buch:
+Ella, Flitz, Sepp, Bruno …), sieht überall gleich aus, denn alle spielen in derselben Welt.
+Die Kapitelbücher sind mit Nano Banana 2 in 2K gemalt, die Geschichten und Kleinen
+Geschichten in 1K (1,5 Credits je Bild), Erste Sätze und Zum Zuhören mit Nano Banana 2 Lite
+(1 Credit) – in der kleinen Grösse der App sieht man keinen Unterschied. Neue Figuren haben
+eigene Figurenblätter (Oma Rosa, die Mäusefamilie, Bruno als Junges und Mama Bär; Kater Tim,
+Finos Oma, Fridolin). Jedes Bild ist gegen den Text seiner Seite geprüft; was nicht stimmte,
+ist gezielt nachgebessert (Beispiele: eine Dose zu viel, Schrift auf einer Kiste, eine
+Sonnenblume mit Gesicht, ein Rüebli am falschen Ort, ein Schneemann mit drei Kugeln).
+Zeichnet das Modell eine Pfote mit vier Zehen, bekommt sie von Hand die fünfte (Pippa, Seite
+3). Im Ordner liegen `seite-01.webp` … (eines je Seite, 1200 × 760, wie die Zeichnung 240 ×
+152, nur feiner), `umschlag.webp` für die Titelseite und `umschlag-klein.webp` (480 × 304)
+fürs Regal, zusammen 0,4 bis 1 MB je Buch. Auch die **Postkarten** (`bilder/postkarten/<karte>.webp`,
+1200 × 760, Finos Karte `willkommen.webp`) und die **Steckbriefe** (`bilder/steckbriefe/<id>.webp`,
+520 × 600: das echte Tier in seinem Lebensraum) haben gemalte Bilder; sie liegen auf dieselbe
+Art über ihrer Zeichnung (`lesen-bilder.js`, `mitFoto`):
 - **Über der Zeichnung:** Das gemalte Bild liegt über der Zeichnung, die trotzdem entsteht.
   Lädt ein Bild nicht (ohne Netz, bevor das Buch je offen war), zeigt die Seite ihre
   Zeichnung. Solange es lädt, deckt eine ruhige Fläche sie ab.
 - **Vorladen:** Geht ein Buch auf, holt die Titelseite gleich alle seine Bilder.
-- **Offline:** Der Service Worker legt sie in einen eigenen Cache (`BUCHBILDER_CACHE`), den
-  ein Update der App nicht leert. Wird ein Bild ersetzt, braucht dieser Cache eine neue
-  Nummer.
-- **Prüfungen:** `validate-lesen.mjs` prüft Ordner, Masse und Grösse.
-  `check-leseecke.mjs` prüft Regal und Titelseite aller vier Bücher, die Seiten, das
-  Vorladen und den Rückfall auf die Zeichnung.
+- **Offline:** Der Service Worker legt sie – Bücher, Postkarten und Steckbriefe – in einen
+  eigenen Cache (`BUCHBILDER_CACHE`), den ein Update der App nicht leert. Wird ein Bild
+  ersetzt, braucht dieser Cache eine neue Nummer.
+- **Prüfungen:** `validate-lesen.mjs` prüft Ordner, Masse und Grösse, auch die der
+  Postkarten und Steckbriefe. `check-leseecke.mjs` prüft Regal und Titelseite aller Bücher,
+  die Seiten, das Vorladen, den Rückfall auf die Zeichnung und ein Buch ohne Bilder, dazu
+  Finos Postkarte und einen Steckbrief mit und ohne Bild.
 
 **Kapitelbücher** sind länger: Über der ersten Seite eines Kapitels steht seine Überschrift
 («Kapitel 2 · Geräusche in der Nacht»); die Stimme liest sie mit, beim Selberlesen nur auf
@@ -401,8 +411,9 @@ Ordner im Build** – `netlify/build.mjs` bleibt unverändert –, und offline f
 | --- | --- |
 | `lesen-inhalte.js` | Laute, Laut-Steine, Wörter für die Spiele, was sich mit den Buchstaben der Schule lesen lässt, Bausteine für die Sätze (Tiere, Dinge, Tunwörter), Sätze mit und ohne Sinn (`SINN_SAETZE`), Stolpersteine, wie jeder Buchstabe geschrieben wird (`GLEISE`), Rätsel (`RAETSEL`), zusammengesetzte Wörter (`BAUSTELLE`) |
 | `lesen-buecher.js` | die Bücher: Text, Bild, Fragen |
-| `lesen-bilder.js` | die Bilder der Bücher und ihre Umschläge – für Regal, Geschichtenzug und Postkarten; gemalte Bilder über der Zeichnung, mit Rückfall |
-| `bilder/buecher/<buch>/` | die gemalten Bilder eines Buches (WebP), heute für die vier Kapitelbücher |
+| `lesen-bilder.js` | die Bilder der Bücher und ihre Umschläge – für Regal, Geschichtenzug und Postkarten; gemalte Bilder über der Zeichnung, mit Rückfall (auch für Postkarten und Steckbriefe) |
+| `bilder/buecher/<buch>/` | die gemalten Bilder eines Buches (WebP), für alle 24 Bücher |
+| `bilder/postkarten/`, `bilder/steckbriefe/` | die gemalten Vorderseiten der Postkarten und die Bilder der Steckbriefe (WebP) |
 | `lesen-detektive.js` | Steckbriefe, Detektivfälle und Postkarten (nur Inhalt) |
 | `lesen-stand.js` | Lesestand, Lesewurm (Buchstaben, Leben und Stufe, die Marke für seine Runde), Lesewagen (`wagenStufe`), Verwechslungen, der Bericht für die Eltern, Einstellungen der Eltern, was als Nächstes dran ist |
 | `lesen-ton.js` | Laute (Aufnahme oder Sprachausgabe), Wörter und Sätze, mit Mitleuchten |
