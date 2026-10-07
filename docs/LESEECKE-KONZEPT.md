@@ -337,6 +337,49 @@ Stimmen des Geräts zur Wahl, dazu «Probe hören» und ein Tipp für Edge und A
 liegt nur auf dem Gerät (`lernapp.stimme`), denn ein anderes hat andere Stimmen, und sie
 überlebt das Zurücksetzen. Prüfung: `scripts/validate-stimme.mjs`.
 
+**Alains Stimme für feste Texte** (Probelauf, Oktober 2026): Die Laute kommen von Alain, alles
+andere von der Gerätestimme – das klingt uneinheitlich. Deshalb können feste Texte als
+Aufnahme mit Alains Stimme vorliegen, erzeugt aus dem geschriebenen Text mit seinem
+Stimmprofil auf Higgsfield (Voice-Element «Alain», `text2speech_v2`, `elevenlabs`). Im
+Probelauf sind es *Wo ist das Rüebli?* (Titel, jeder Satz, die Fragen, die richtigen
+Antworten und «Nicht ganz. Schau doch im Buch nach!») und der Lautsprecher in Lesewagen,
+Silbenzug und Buchstabenhaus – dreissig Texte, gut 1700 Zeichen
+(`node scripts/stimme-vertonen.mjs texte` zeigt sie).
+
+- **Verzeichnis:** `lesen-stimme.js` (`window.LernappStimmeDateien`, Text → Datei), die
+  Dateien in `stimme/alain/` (MP3, mono, 24 kHz, 32 kbit/s, ein Satz wenige Kilobyte). Eine
+  Datei heisst nach dem Anfang des SHA-256 ihres Textes. Die Seiten mit Aufnahmen laden das
+  Verzeichnis gleich nach `kids.js`.
+- **Abspielen:** `kids.js` `speak()` (Lautsprecher) und `lesen-ton.js` `sprich()` (Leseecke)
+  schauen zuerst im Verzeichnis nach (`aufnahmeStuecke`, `aufnahmeFolge`). Gibt es den Text,
+  spielt die Aufnahme – mit demselben Verhalten wie die Sprachausgabe: Der Lautsprecher-Knopf
+  leuchtet, solange sie spielt, ein zweiter Tipp hält sie an, und der Ton-Schalter wirkt wie
+  bisher. Wo das Buch sonst Wort für Wort mitleuchtet, leuchtet bei einer Aufnahme der ganze
+  Satz. Besteht ein Text aus festen und wechselnden Teilen – im Lesewagen sagt der
+  Lautsprecher zuerst, was der Lesewurm vorschlägt, mit seinem Namen –, wird er Satz für Satz
+  zusammengesetzt: Den Vorschlag sagt die Gerätestimme, die Hilfe die Aufnahme. Ohne
+  Aufnahme, oder wenn eine nicht lädt, spricht die Gerätestimme wie bisher. Alle Aufnahmen
+  laufen über ein einziges Audio-Element, und der erste Tipp auf der Seite gibt es frei:
+  Safari auf iPhone und iPad spielt sonst den zweiten Satz nicht, weil er ohne Tipp kommt.
+- **Offline:** Der Service Worker legt die Aufnahmen wie die Buchbilder in einen eigenen
+  Cache (`STIMME_CACHE`), den ein Update nicht leert, und beantwortet Anfragen nach einem
+  Stück (Range), wie Safari sie für Audio stellt. Wird ein Text neu gesprochen, behält seine
+  Datei den Namen – dann braucht `STIMME_CACHE` eine neue Nummer.
+- **Build:** `netlify/build.mjs` nimmt den Ordner `stimme/` mit.
+- **Erzeugen:** Vor jeder Erzeugung die Kosten mit `get_cost: true` abfragen (rund
+  0,45 Credits für 120 Zeichen), mehrere Texte mit `generate_audio_batch`, dann `jobs_wait`.
+  Die `result_url` je Text kommen in eine Liste `[{ "text": …, "url": … }]`, und
+  `node scripts/stimme-vertonen.mjs holen <liste.json>` lädt sie, bringt sie auf mono und
+  32 kbit/s, kürzt die Stille vorn und hinten, prüft die Länge und schreibt `lesen-stimme.js`.
+  Nötig sind curl und ffmpeg.
+- **Prüfungen:** `scripts/validate-lesen.mjs` macht jede Aufnahme auf: Sie ist da, heisst nach
+  ihrem Text, ist eine MP3 wie vom Holen, passt in der Länge zum Text, und die App sagt
+  diesen Text noch genau so (ändert sich ein Satz, gehört seine Aufnahme neu erzeugt).
+  `scripts/check-leseecke.mjs` prüft im Browser, dass eine Aufnahme statt der Sprachausgabe
+  spielt (Hörbuch, Silbenzug, Lesewagen), ein zweiter Tipp sie anhält und ohne Datei die
+  Gerätestimme einspringt; liegen echte Aufnahmen im Repo, spielt die kürzeste wirklich,
+  über den Service Worker.
+
 ### Gratis
 
 Die Schranke (`entitlement.js`) kennt die sechsundzwanzig Spiele der Leseecke in einer eigenen Tabelle
@@ -364,6 +407,8 @@ Ordner im Build** – `netlify/build.mjs` bleibt unverändert –, und offline f
 | `lesen-stand.js` | Lesestand, Lesewurm (Buchstaben, Leben und Stufe, die Marke für seine Runde), Lesewagen (`wagenStufe`), Verwechslungen, der Bericht für die Eltern, Einstellungen der Eltern, was als Nächstes dran ist |
 | `lesen-ton.js` | Laute (Aufnahme oder Sprachausgabe), Wörter und Sätze, mit Mitleuchten |
 | `lesen-laute.js` | die Aufnahmen der Laute als Daten: alle 36, zusammen gut 500 KB |
+| `lesen-stimme.js`, `stimme/alain/` | feste Texte als Aufnahme mit Alains Stimme: das Verzeichnis (Text → Datei) und die MP3-Dateien |
+| `scripts/stimme-texte.mjs`, `scripts/stimme-vertonen.mjs` | welche Texte eine Aufnahme bekommen; die erzeugten Aufnahmen holen und `lesen-stimme.js` schreiben |
 | `laute-aufnehmen.html`, `laute-aufnehmen.js` | die Aufnahmeseite: aufnehmen, zuschneiden, `lesen-laute.js` erzeugen |
 | `lesen-art.js` | Lesewagen, Zimmer mit Namensschild, Pinnwand und Einrichtung (`AUSBAU`), der kleine Lesewurm vor jeder Runde, Trommel, Laut-Wagen, das Bild zu einem Satz (`buildSzene`) |
 | `lesen-wurm.js` | der Lesewurm im Zimmer: drei Leben zu je 15 Stufen, was er bei jeder Stufe sagt, die Missionskarte, die fertigen Leben auf dem Regal |
@@ -377,7 +422,7 @@ Ordner im Build** – `netlify/build.mjs` bleibt unverändert –, und offline f
 | `train-home.js`, `index.html` | Lesewagen auf dem Startbild, `?lesen=1` |
 | `entitlement.js` | `LESEECKE`, `GRATIS_BUECHER`, `buchFree`, `targetFree` mit `buch=` |
 | `firebase.js` | Karte «Leseecke» mit Lesebericht und den Buchstaben der Schule, `setLesenElternFor`, Zurücksetzen behält die Einstellung |
-| `service-worker.js` | alle neuen Dateien im Vorrat |
+| `service-worker.js` | alle neuen Dateien im Vorrat; die Buchbilder und die Aufnahmen je in einem eigenen Cache |
 
 ## 5. Texte gegenlesen
 

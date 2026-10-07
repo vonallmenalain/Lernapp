@@ -35,10 +35,19 @@
  *                 der Titelseite und auf jeder Seite, alle gleich beim
  *                 Aufgehen geladen; fehlt eines, zeigt die Seite ihre
  *                 Zeichnung.
+ *   Aufnahmen     Gibt es einen festen Text als Aufnahme (lesen-stimme.js),
+ *                 spielt sie statt der Sprachausgabe: der Titel und ein Satz
+ *                 des Hörbuchs, die Hilfe im Silbenzug – ein zweiter Tipp hält
+ *                 sie an, und lädt sie nicht, spricht die Gerätestimme. Im
+ *                 Lesewagen sagt die Gerätestimme den Vorschlag des
+ *                 Lesewurms, die Aufnahme den Rest. Liegen echte Aufnahmen im
+ *                 Repo, spielt die kürzeste wirklich, und der Service Worker
+ *                 legt sie in ihren Cache und beantwortet Anfragen in
+ *                 Stücken (Range), wie Safari sie stellt.
  *   Stolperwörter Der Lautsprecher über den Wörtern liest den Satz mit dem
  *                 Stein: auf «leicht» auch von selbst, auf «mittel» erst auf
  *                 einen Tipp. Auf Zeit fehlt er.
- *   Auf Zeit      Auf «schwer» bieten Stimmt das? und Stolperwörter die Uhr
+ *   Auf Zeit     Auf «schwer» bieten Stimmt das? und Stolperwörter die Uhr
  *                 an: ohne Vorlesen, mit eigenem Bestwert im Lesestand.
  *   Mitwachsen    Ein Spiel, das einen Schritt gewachsen ist, spielt eine
  *                 Stufe höher als das Kind; eine Runde zählt für die Serie.
@@ -64,9 +73,11 @@
  */
 
 import { spawn } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
 import path from "node:path";
+import { texte as stimmeTexte, verzeichnis as stimmeVerzeichnis } from "./stimme-texte.mjs";
 
 const HIER = path.dirname(fileURLToPath(import.meta.url));
 const WURZEL = path.resolve(HIER, "..");
@@ -92,24 +103,54 @@ const fehlt = (was) => befunde.push(was);
 // Eine Sprachausgabe, die sofort fertig ist und sich merkt, was sie sagen
 // sollte. Ebenso die Aufnahmen: Sie sind gleich zu Ende, und gemerkt wird,
 // welche lief. Läuft vor jedem Skript der Seite.
-function stimmeErsatz() {
+//
+//   __gesagt          was zu hören war – aus der Sprachausgabe oder als
+//                     Aufnahme eines festen Textes (lesen-stimme.js)
+//   __sprachausgabe   nur, was die Sprachausgabe sagte
+//   __gespielt        die Quellen der Audio-Elemente
+//
+// __aufnahmeKaputt: eine Aufnahme lädt nicht. __aufnahmeHaengt: sie spielt,
+// bis jemand sie anhält. { echtesAudio: true }: Audio-Elemente spielen
+// wirklich.
+function stimmeErsatz(wie = {}) {
   window.__gesagt = [];
+  window.__sprachausgabe = [];
   window.__gespielt = [];
-  HTMLMediaElement.prototype.play = function play() {
-    window.__gespielt.push(String(this.src));
-    setTimeout(() => this.dispatchEvent(new Event("ended")), 10);
-    return Promise.resolve();
-  };
+  if (!wie?.echtesAudio) {
+    HTMLMediaElement.prototype.play = function play() {
+      const quelle = String(this.src);
+      window.__gespielt.push(quelle);
+      if (window.__aufnahmeKaputt) return Promise.reject(new DOMException("lädt nicht", "NotSupportedError"));
+      const dateien = window.LernappStimmeDateien || {};
+      const text = Object.keys(dateien).find((t) => quelle.endsWith(`/${dateien[t]}`));
+      if (text) window.__gesagt.push(text);
+      // Zu Ende ist sie nur, wenn das Element nicht inzwischen etwas anderes spielt.
+      if (!window.__aufnahmeHaengt) setTimeout(() => { if (String(this.src) === quelle) this.dispatchEvent(new Event("ended")); }, 10);
+      return Promise.resolve();
+    };
+  }
   const synth = {
     speaking: false, pending: false, paused: false,
     getVoices: () => [],
     speak(aeusserung) {
       window.__gesagt.push(String(aeusserung.text));
+      window.__sprachausgabe.push(String(aeusserung.text));
       setTimeout(() => aeusserung.dispatchEvent(new Event("end")), 10);
     },
     cancel() {}, pause() {}, resume() {}, addEventListener() {}, removeEventListener() {},
   };
   Object.defineProperty(window, "speechSynthesis", { value: synth, configurable: true });
+}
+
+// Ein Augenblick Stille als WAV (8 kHz, 8 Bit, mono).
+function stilleWav(sekunden) {
+  const n = Math.round(8000 * sekunden);
+  const b = Buffer.alloc(44 + n, 0x80);
+  b.write("RIFF", 0, "latin1"); b.writeUInt32LE(36 + n, 4); b.write("WAVE", 8, "latin1");
+  b.write("fmt ", 12, "latin1"); b.writeUInt32LE(16, 16); b.writeUInt16LE(1, 20); b.writeUInt16LE(1, 22);
+  b.writeUInt32LE(8000, 24); b.writeUInt32LE(8000, 28); b.writeUInt16LE(1, 32); b.writeUInt16LE(8, 34);
+  b.write("data", 36, "latin1"); b.writeUInt32LE(n, 40);
+  return b;
 }
 
 // Die Schranke ganz offen – wie nach dem Kauf. Für die Bücher, die nicht frei
@@ -1400,6 +1441,153 @@ try {
   await page.waitForSelector(".bu-regal", { timeout: 5000 }).catch(() => {});
   if (!(await page.locator('.bu-umschlag[data-buch="hase-rueebli"] .bu-stern.is-on').count())) fehlt("Bücherregal: das gelesene Buch trägt keine Sterne");
 
+  // --- 7a. Aufnahmen fester Texte (lesen-stimme.js) ------------------------------------
+  // Mit einem Verzeichnis zum Ausprobieren: Titel und erster Satz des Hörbuchs,
+  // die Hilfe des Silbenzugs und die des Lesewagens als Aufnahme. Abspielen
+  // tut das ersetzte Audio-Element nicht, es merkt sich nur, was es spielen
+  // sollte; laden tut es aber – deshalb bekommt jede Probe-Datei einen
+  // Augenblick Stille, sonst meldete es «lädt nicht».
+  {
+    const liste = stimmeTexte();
+    const textVon = (wo) => liste.find((e) => e.wo === wo)?.text || "";
+    const SILBENZUG = textVon("Silbenzug: Lautsprecher");
+    const LESEWAGEN = textVon("Lesewagen: Lautsprecher");
+    const PROBE = {
+      "Wo ist das Rüebli?": "stimme/probe/titel.mp3",
+      "Das ist Hoppel.": "stimme/probe/seite-1.mp3",
+      [SILBENZUG]: "stimme/probe/silbenzug.mp3",
+      [LESEWAGEN]: "stimme/probe/lesewagen.mp3",
+    };
+    if (!SILBENZUG || !LESEWAGEN) fehlt("Aufnahmen: scripts/stimme-texte.mjs kennt die Hilfe von Silbenzug oder Lesewagen nicht");
+    const probe = await browser.newContext({ viewport: { width: 1024, height: 640 }, serviceWorkers: "block", reducedMotion: "reduce" });
+    probe.setDefaultTimeout(8000);
+    await probe.route("**/*gstatic.com/**", (route) => route.abort());
+    await probe.route("**/lesen-stimme.js*", (route) => route.fulfill({ contentType: "text/javascript; charset=utf-8", body: `window.LernappStimmeDateien = ${JSON.stringify(PROBE)};` }));
+    await probe.route("**/stimme/probe/*.mp3", (route) => route.fulfill({ contentType: "audio/wav", body: stilleWav(0.2) }));
+    await probe.addInitScript(stimmeErsatz);
+    const seite = await probe.newPage();
+    seite.on("pageerror", (e) => fehler.push(`Aufnahmen ${seite.url().replace(BASIS, "")}: ${e.message}`));
+    const protokoll = () => seite.evaluate(() => ({ gesagt: window.__gesagt, sprach: window.__sprachausgabe, gespielt: window.__gespielt }));
+    const leeren = () => seite.evaluate(() => { window.__gesagt = []; window.__sprachausgabe = []; window.__gespielt = []; });
+    const gespielt = (p, datei) => p.gespielt.some((q) => q.endsWith(`/${datei}`));
+
+    // Das Hörbuch: Der Titel kommt aus seiner Aufnahme, ebenso der erste Satz;
+    // der zweite hat keine und kommt von der Gerätestimme – in dieser Reihe.
+    await seite.goto(`${BASIS}/buecher.html?buch=hase-rueebli`, { waitUntil: "domcontentloaded" });
+    await seite.waitForSelector(".bu-titelseite", { timeout: 10000 });
+    await seite.waitForTimeout(400);
+    await leeren();
+    await seite.locator(".bu-titel-deckel").click();
+    await seite.waitForTimeout(200);
+    let p = await protokoll();
+    if (!gespielt(p, PROBE["Wo ist das Rüebli?"]) || p.sprach.includes("Wo ist das Rüebli?")) fehlt(`Aufnahmen: der Titel kommt nicht aus seiner Aufnahme (${JSON.stringify(p)})`);
+    await leeren();
+    await seite.locator(".bu-modus").first().click();
+    await seite.waitForTimeout(700);
+    p = await protokoll();
+    const zweiter = "Hoppel ist ein kleiner Hase, und er hat grossen Hunger.";
+    if (!gespielt(p, PROBE["Das ist Hoppel."]) || p.sprach.includes("Das ist Hoppel.")) fehlt(`Aufnahmen: der erste Satz kommt nicht aus seiner Aufnahme (${JSON.stringify(p)})`);
+    if (!p.sprach.includes(zweiter)) fehlt(`Aufnahmen: der Satz ohne Aufnahme bleibt stumm (${JSON.stringify(p.sprach)})`);
+    if (!(p.gesagt.indexOf("Das ist Hoppel.") >= 0 && p.gesagt.indexOf("Das ist Hoppel.") < p.gesagt.indexOf(zweiter))) fehlt(`Aufnahmen: das Hörbuch liest nicht der Reihe nach (${JSON.stringify(p.gesagt.slice(0, 3))})`);
+
+    // Der Lautsprecher im Silbenzug: die Aufnahme statt der Sprachausgabe.
+    await seite.goto(`${BASIS}/silbenzug.html`, { waitUntil: "domcontentloaded" });
+    await seite.waitForFunction(() => window.LernappKids?.currentHelp?.(), null, { timeout: 10000 });
+    await seite.waitForTimeout(300);
+    const hilfe = await seite.evaluate(() => window.LernappKids.currentHelp());
+    if (hilfe !== SILBENZUG) fehlt(`Aufnahmen: der Silbenzug meldet eine andere Hilfe an als die aufgenommene (${hilfe.slice(0, 60)})`);
+    await leeren();
+    await seite.locator(".help-voice-button").click();
+    await seite.waitForTimeout(200);
+    p = await protokoll();
+    if (!gespielt(p, PROBE[SILBENZUG]) || p.sprach.length) fehlt(`Aufnahmen: der Lautsprecher im Silbenzug spielt nicht die Aufnahme (${JSON.stringify(p)})`);
+    // Spielt sie noch, hält ein zweiter Tipp sie an, und der Knopf ist wieder
+    // bereit.
+    await seite.evaluate(() => { window.__aufnahmeHaengt = true; });
+    await seite.locator(".help-voice-button").click();
+    await seite.waitForTimeout(150);
+    const laeuft = await seite.evaluate(() => ({ spricht: window.LernappKids.sprichtGerade(), knopf: document.querySelector(".help-voice-button").classList.contains("speaking") }));
+    await seite.locator(".help-voice-button").click();
+    await seite.waitForTimeout(150);
+    const angehalten = await seite.evaluate(() => ({ spricht: window.LernappKids.sprichtGerade(), knopf: document.querySelector(".help-voice-button").classList.contains("speaking") }));
+    if (!laeuft.spricht || !laeuft.knopf) fehlt(`Aufnahmen: während die Aufnahme spielt, gilt der Lautsprecher nicht als sprechend (${JSON.stringify(laeuft)})`);
+    if (angehalten.spricht || angehalten.knopf) fehlt(`Aufnahmen: ein zweiter Tipp hält die Aufnahme nicht an (${JSON.stringify(angehalten)})`);
+    // Lädt die Aufnahme nicht, spricht die Gerätestimme.
+    await seite.evaluate(() => { window.__aufnahmeHaengt = false; window.__aufnahmeKaputt = true; });
+    await leeren();
+    await seite.locator(".help-voice-button").click();
+    await seite.waitForTimeout(250);
+    p = await protokoll();
+    if (!p.sprach.includes(SILBENZUG)) fehlt(`Aufnahmen: lädt die Aufnahme nicht, schweigt der Lautsprecher (${JSON.stringify(p)})`);
+
+    // Im Lesewagen: Was der Lesewurm vorschlägt, sagt die Gerätestimme, den
+    // festen Rest die Aufnahme – erst das eine, dann das andere.
+    await seite.goto(`${BASIS}/index.html?lesen=1`, { waitUntil: "domcontentloaded" });
+    await seite.waitForFunction(() => document.querySelector(".lesezimmer-svg") && window.LernappKids?.currentHelp?.(), null, { timeout: 10000 });
+    await seite.waitForTimeout(400);
+    const ansage = await seite.evaluate(() => window.LernappKids.currentHelp());
+    await leeren();
+    await seite.locator(".help-voice-button").click();
+    await seite.waitForTimeout(300);
+    p = await protokoll();
+    const vorne = ansage.endsWith(LESEWAGEN) ? ansage.slice(0, -LESEWAGEN.length).trim() : null;
+    if (vorne === null) fehlt(`Aufnahmen: die Ansage im Lesewagen endet nicht mit seiner Hilfe (${ansage.slice(0, 80)})`);
+    else if (!gespielt(p, PROBE[LESEWAGEN]) || p.sprach.some((t) => t.includes("Der Lesewagen.")) || (vorne && JSON.stringify(p.gesagt) !== JSON.stringify([vorne, LESEWAGEN]))) {
+      fehlt(`Aufnahmen: im Lesewagen kommen Vorschlag und Hilfe nicht aus Gerätestimme und Aufnahme (${JSON.stringify(p)})`);
+    }
+    await probe.close();
+  }
+
+  // --- 7b. Echte Aufnahmen ----------------------------------------------------------------
+  // Liegen welche im Repo, spielt die kürzeste wirklich – ohne Ersatz für das
+  // Audio-Element, über den Service Worker. Er legt sie in ihren eigenen
+  // Cache und beantwortet eine Anfrage nach einem Stück (Range: bytes=…), wie
+  // Safari sie stellt, mit genau diesem Stück.
+  {
+    const echte = Object.entries(stimmeVerzeichnis() || {}).sort((a, b) => a[0].length - b[0].length);
+    const STIMME_CACHE = /const STIMME_CACHE = "([^"]+)"/.exec(readFileSync(path.join(WURZEL, "service-worker.js"), "utf8"))?.[1];
+    if (echte.length) {
+      const [text, datei] = echte[0];
+      const echt = await browser.newContext({ viewport: { width: 1024, height: 640 }, serviceWorkers: "allow", reducedMotion: "reduce" });
+      echt.setDefaultTimeout(15000);
+      await echt.route("**/*gstatic.com/**", (route) => route.abort());
+      await echt.addInitScript(stimmeErsatz, { echtesAudio: true });
+      const seite = await echt.newPage();
+      seite.on("pageerror", (e) => fehler.push(`Echte Aufnahme ${seite.url().replace(BASIS, "")}: ${e.message}`));
+      await seite.goto(`${BASIS}/buecher.html`, { waitUntil: "load" });
+      await seite.waitForFunction(() => navigator.serviceWorker?.controller, null, { timeout: 20000 }).catch(() => {});
+      const sw = await seite.evaluate(async ([pfad, cache]) => {
+        if (!navigator.serviceWorker?.controller) return { ohne: true };
+        const ganz = await fetch(pfad);
+        const groesse = (await ganz.arrayBuffer()).byteLength;
+        const stueck = await fetch(pfad, { headers: { Range: "bytes=2-9" } });
+        const imCache = Boolean(await (await caches.open(cache)).match(new URL(pfad, location.href).href));
+        return { ganz: ganz.status, groesse, stueck: stueck.status, bereich: stueck.headers.get("Content-Range"), laenge: (await stueck.arrayBuffer()).byteLength, imCache };
+      }, [datei, STIMME_CACHE]);
+      if (sw.ohne) fehlt("Echte Aufnahme: der Service Worker übernimmt die Seite nicht");
+      else if (sw.ganz !== 200 || !sw.imCache || sw.stueck !== 206 || sw.bereich !== `bytes 2-9/${sw.groesse}` || sw.laenge !== 8) fehlt(`Echte Aufnahme: der Service Worker beantwortet sie nicht richtig (${JSON.stringify(sw)})`);
+      // Eine Taste gibt das Audio frei (wie ein Tipp); dann spielt die Aufnahme
+      // ganz, ohne dass die Gerätestimme einspringt.
+      await seite.keyboard.press("x");
+      const lauf = await seite.evaluate(async (t) => {
+        const kids = window.LernappKids;
+        const start = performance.now();
+        const ersatz = [];
+        const ok = await kids.aufnahmeFolge(kids.aufnahmeStuecke(t), { geraet: async (teil) => { ersatz.push(teil); } });
+        return { ok, ersatz, ms: Math.round(performance.now() - start) };
+      }, text);
+      if (!lauf.ok || lauf.ersatz.length || lauf.ms < 250) fehlt(`Echte Aufnahme: «${text}» spielt nicht (${JSON.stringify(lauf)})`);
+      // Fehlt eine Datei, springt die Gerätestimme ein.
+      const fehltDatei = await seite.evaluate(async () => {
+        const ersatz = [];
+        const ok = await window.LernappKids.aufnahmeFolge([{ text: "Gibt es nicht.", datei: "stimme/alain/000000000000.mp3" }], { geraet: async (teil) => { ersatz.push(teil); } });
+        return { ok, ersatz };
+      });
+      if (!fehltDatei.ok || fehltDatei.ersatz.join() !== "Gibt es nicht.") fehlt(`Echte Aufnahme: für eine fehlende Datei springt die Gerätestimme nicht ein (${JSON.stringify(fehltDatei)})`);
+      await echt.close();
+    }
+  }
+
   // Zusammen lesen: Den Satz des Kindes liest die Stimme nicht.
   await oeffne("buecher.html?buch=leo-melone", "document.querySelector('.bu-titelseite')");
   await page.locator('.bu-modus[data-modus="zusammen"]').click();
@@ -2135,4 +2323,4 @@ if (befunde.length) {
   befunde.forEach((b) => console.error(`  - ${b}`));
   process.exit(1);
 }
-console.log("Die Leseecke läuft: Lesewagen, Zimmer mit Auswahl, alle Spiele hin und zurück, eine Runde Silbenzug bis zum Tor, Laute kuppeln ohne verratenes Wort, Buchstabenhaus, der Würfel von «Stimmt das?», Reimkupplung, Anlaut-Lauscher, Wer fährt mit?, Wörter bauen, Silbenbahn, Blitzwörter, Mein Name, der Lesewurm bekommt seinen Namen, Lückensätze, Buchstabengleis, Satz kuppeln, Quatschsätze, Stolperwörter, Quatschwörter, Laut-Position, Buchstaben-Signal, Lies und tu!, Geschichtenzug, Wer bin ich?, Wortbaustelle, Steckbriefe, Detektivfälle, Postkarten, die Buchstaben der Schule, Hörbuch mit Nachsehen, Zusammen lesen, Kapitelbücher mit Überschrift, Lesezeichen und gemalten Bildern, Runden auf Zeit, Wort-Hilfe und Schriftgrösse der Eltern, Spiele, die mitwachsen, Ruhe nach der Rückkehr mit Konto, winkende Tiere mit Bewegung, die Missionskarte des Lesewurms mit zwei Buchstaben für seine Runde, seine drei Leben mit Verwandlung (auch mit Bewegung) und den Fertigen auf dem Regal, der Lesewagen wird gemütlich, und der Lesewurm fährt auf der Lok mit.");
+console.log("Die Leseecke läuft: Lesewagen, Zimmer mit Auswahl, alle Spiele hin und zurück, eine Runde Silbenzug bis zum Tor, Laute kuppeln ohne verratenes Wort, Buchstabenhaus, der Würfel von «Stimmt das?», Reimkupplung, Anlaut-Lauscher, Wer fährt mit?, Wörter bauen, Silbenbahn, Blitzwörter, Mein Name, der Lesewurm bekommt seinen Namen, Lückensätze, Buchstabengleis, Satz kuppeln, Quatschsätze, Stolperwörter, Quatschwörter, Laut-Position, Buchstaben-Signal, Lies und tu!, Geschichtenzug, Wer bin ich?, Wortbaustelle, Steckbriefe, Detektivfälle, Postkarten, die Buchstaben der Schule, Hörbuch mit Nachsehen, Aufnahmen fester Texte statt der Gerätestimme (auch im Lesewagen, mit Rückfall und Anhalten), Zusammen lesen, Kapitelbücher mit Überschrift, Lesezeichen und gemalten Bildern, Runden auf Zeit, Wort-Hilfe und Schriftgrösse der Eltern, Spiele, die mitwachsen, Ruhe nach der Rückkehr mit Konto, winkende Tiere mit Bewegung, die Missionskarte des Lesewurms mit zwei Buchstaben für seine Runde, seine drei Leben mit Verwandlung (auch mit Bewegung) und den Fertigen auf dem Regal, der Lesewagen wird gemütlich, und der Lesewurm fährt auf der Lok mit.");

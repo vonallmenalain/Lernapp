@@ -10,6 +10,12 @@
  *   Sprachausgabe   Alles andere: Wörter, Silben, Sätze, Bücher. Das kann sie
  *                   gut, und es braucht nichts herunterzuladen.
  *
+ * Feste Texte – die Sätze eines Buches, seine Fragen – können ausserdem als
+ * Aufnahme mit derselben Stimme wie die Laute vorliegen (lesen-stimme.js).
+ * Dann spielt sprich() die Aufnahme statt der Sprachausgabe; wie, steht in
+ * kids.js (aufnahmeStuecke, aufnahmeFolge). Ein Wort leuchtet dabei nicht
+ * einzeln mit – es leuchtet der ganze Satz.
+ *
  * Fehlt die Aufnahme eines Lautes, spricht die Sprachausgabe ihn nur, wenn sie
  * es richtig kann (Selbstlaute, Zwielaute: «a», «ei»). Sonst bleibt er stumm,
  * und laut() meldet das zurück – das Spiel zeigt ihn dann, statt ihn falsch zu
@@ -72,6 +78,7 @@
   function stop() {
     folge += 1;
     if (laufend) { try { laufend.pause(); } catch { /* egal */ } laufend = null; }
+    kids()?.aufnahmeStopp?.();
     if (sprachausgabe()) { try { window.speechSynthesis.cancel(); } catch { /* egal */ } }
   }
 
@@ -98,7 +105,24 @@
   //           leuchtet der ganze Satz (siehe lesebuch: satzweise sprechen).
   //   pitch   1: keine künstlich höhere Stimme – sie macht natürliche Stimmen
   //           hölzern
+  // Gibt es den Text als Aufnahme (lesen-stimme.js), spielt sie; rate, pitch
+  // und onWord gelten dann nur für Teile, die die Sprachausgabe spricht.
   function sprich(text, { rate = 0.9, pitch = 1, onWord = null, warteschlange = false } = {}) {
+    if (!text || !stimmeAn()) return Promise.resolve(false);
+    const k = kids();
+    const stuecke = k?.aufnahmeStuecke ? k.aufnahmeStuecke(text) : [];
+    if (!stuecke.some((stueck) => stueck.datei)) return sprichGeraet(text, { rate, pitch, onWord, warteschlange });
+    if (!warteschlange) stop();
+    const meine = folge;
+    return k.aufnahmeFolge(stuecke, {
+      geraet: (teil, versatz) => sprichGeraet(teil, {
+        rate, pitch, warteschlange: true, onWord: onWord ? (nr) => onWord(nr + versatz) : null,
+      }),
+    }).then((ok) => ok && meine === folge);
+  }
+
+  // Die Sprachausgabe des Geräts.
+  function sprichGeraet(text, { rate = 0.9, pitch = 1, onWord = null, warteschlange = false } = {}) {
     return new Promise((fertig) => {
       if (!text || !sprachausgabe() || !stimmeAn()) { fertig(false); return; }
       if (!warteschlange) stop();

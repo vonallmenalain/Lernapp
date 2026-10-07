@@ -19,6 +19,15 @@ const NETWORK_TIMEOUT_MS = 3500;
 const BUCHBILDER_CACHE = "lernapp-buchbilder-1";
 const BUCHBILDER_TIMEOUT_MS = 20000;
 
+// Die Aufnahmen fester Texte mit Alains Stimme (stimme/…, lesen-stimme.js)
+// halten es wie die Buchbilder: ein eigener Cache, den ein Versionswechsel
+// nicht leert – ein Satz, der einmal zu hören war, ist es auch ohne Netz. Eine
+// Datei heisst nach ihrem Text; wird derselbe Text neu gesprochen, braucht der
+// Name hier eine neue Nummer. Lädt eine Aufnahme nicht, spricht die
+// Gerätestimme (kids.js).
+const STIMME_CACHE = "lernapp-stimme-1";
+const STIMME_TIMEOUT_MS = 8000;
+
 // Das Firebase-SDK liegt auf einem fremden Server. Ohne eigene Kopie hängen
 // die drei Zeilen im <head>-losen Seitenfuss am Netz: sie stehen vor allen
 // eigenen Skripten, und solange sie nicht antworten, baut keine Seite ihre
@@ -121,6 +130,7 @@ const CORE_ASSETS = [
   `./lesen-inhalte.js${ASSET_VERSION_QUERY}`,
   `./lesen-stand.js${ASSET_VERSION_QUERY}`,
   `./lesen-laute.js${ASSET_VERSION_QUERY}`,
+  `./lesen-stimme.js${ASSET_VERSION_QUERY}`,
   `./lesen-ton.js${ASSET_VERSION_QUERY}`,
   `./lesen-art.js${ASSET_VERSION_QUERY}`,
   `./lesen-wurm.js${ASSET_VERSION_QUERY}`,
@@ -197,7 +207,8 @@ self.addEventListener("activate", (event) => {
       .then((keys) => {
         const staleKeys = keys.filter((key) => key.startsWith(CACHE_PREFIX) && key !== CACHE_NAME);
         const alteBilder = keys.filter((key) => key.startsWith("lernapp-buchbilder-") && key !== BUCHBILDER_CACHE);
-        return Promise.all([...staleKeys, ...alteBilder].map((key) => caches.delete(key))).then(() => staleKeys.length > 0);
+        const alteStimmen = keys.filter((key) => key.startsWith("lernapp-stimme-") && key !== STIMME_CACHE);
+        return Promise.all([...staleKeys, ...alteBilder, ...alteStimmen].map((key) => caches.delete(key))).then(() => staleKeys.length > 0);
       })
       .then((wasUpdated) => self.clients.claim().then(() => wasUpdated))
       .then((wasUpdated) => {
@@ -243,6 +254,52 @@ async function staleWhileRevalidate(event) {
 
   event.waitUntil(fetchAndStore(cache, event.request).catch(() => {}));
   return cached;
+}
+
+// Eine Aufnahme. Ein Audio-Element fragt in Stücken (Range: bytes=…), und
+// Safari spielt nur, was so beantwortet wird – mit 206 und dem Stück. Im Cache
+// liegt die ganze Datei, geholt ohne Range; das verlangte Stück wird daraus
+// geschnitten.
+async function aufnahme(event) {
+  const cache = await caches.open(STIMME_CACHE);
+  const adresse = event.request.url;
+  let ganz = await cache.match(adresse);
+  if (!ganz) {
+    const response = await fetchWithTimeout(adresse, STIMME_TIMEOUT_MS);
+    if (response.status !== 200) return response;
+    cache.put(adresse, response.clone()).catch(() => {});
+    ganz = response;
+  }
+  const bereich = event.request.headers.get("range");
+  return bereich ? stueckAus(ganz, bereich) : ganz;
+}
+
+async function stueckAus(response, bereich) {
+  const daten = await response.arrayBuffer();
+  const groesse = daten.byteLength;
+  const treffer = /^bytes=(\d*)-(\d*)$/.exec(bereich.trim());
+  let von = NaN;
+  let bis = groesse - 1;
+  if (treffer && treffer[1] !== "") {
+    von = Number(treffer[1]);
+    if (treffer[2] !== "") bis = Math.min(Number(treffer[2]), groesse - 1);
+  } else if (treffer && treffer[2] !== "") {
+    // bytes=-500: die letzten 500
+    von = Math.max(0, groesse - Number(treffer[2]));
+  }
+  if (!(von >= 0) || von >= groesse || bis < von) {
+    return new Response(null, { status: 416, headers: { "Content-Range": `bytes */${groesse}` } });
+  }
+  return new Response(daten.slice(von, bis + 1), {
+    status: 206,
+    statusText: "Partial Content",
+    headers: {
+      "Content-Type": response.headers.get("Content-Type") || "audio/mpeg",
+      "Content-Length": String(bis - von + 1),
+      "Content-Range": `bytes ${von}-${bis}/${groesse}`,
+      "Accept-Ranges": "bytes"
+    }
+  });
 }
 
 // Der Start der installierten App. Erst der Cache, dann im Hintergrund
@@ -299,6 +356,11 @@ self.addEventListener("fetch", (event) => {
 
   if (requestUrl.pathname.includes("/bilder/buecher/")) {
     event.respondWith(cacheFirst(event, BUCHBILDER_CACHE, BUCHBILDER_TIMEOUT_MS));
+    return;
+  }
+
+  if (requestUrl.pathname.includes("/stimme/")) {
+    event.respondWith(aufnahme(event));
     return;
   }
 
