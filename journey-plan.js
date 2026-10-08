@@ -556,14 +556,18 @@
   // Memorys und Rätseln drei Sterne für den Stempel (needStars; das
   // Ausweichgleis begnügt sich mit zweien). Die Spiele lesen needStars, wenn
   // sie stempeln (game-shell.js, app.js).
-  function buildTask(station, spec, { easier = false } = {}) {
+  //
+  // Ein Rätsel für die Bauecke (bau) rechnet wie die Station, nur ohne die
+  // Strenge der Stufe "schwer": Die Hürde für ein Stockwerk soll niedrig sein,
+  // gelöst ist gelöst.
+  function buildTask(station, spec, { easier = false, bau = false } = {}) {
     const game = GAMES[spec.game];
     if (!game) return null;
     const map = station.map;
     const tier = station.mapIndex;
     const stufe = stufeIn(read());
     const slow = stufe === "leicht";
-    const strict = stufe === "schwer";
+    const strict = stufe === "schwer" && !bau;
     const shifted = shiftSpec(game, spec, { boost: Boolean(map.boost), slow, starter: tier < 2 });
     const task = {
       nr: station.nr, mapIndex: station.mapIndex, index: station.index, mapNr: map.nr, mapName: map.name, lap: map.lap || 1,
@@ -571,6 +575,7 @@
       game: spec.game, title: game.title, page: game.page, kind: game.kind, goal: station.goal,
       needStars: 1,
     };
+    if (bau) task.bau = true;
     if (game.kind === "score") {
       const base = strict ? 1 : slow ? previousFactor(station.mapIndex) : map.factor;
       const factor = Math.max(0.2, base - (easier ? 0.1 : 0));
@@ -968,11 +973,20 @@
   // Der Auftrag, mit dem diese Spielseite geöffnet wurde – oder null. Geprüft
   // wird, dass die Station wirklich zu dieser Seite gehört: ein verirrter
   // Parameter darf kein fremdes Spiel in die Reise ziehen.
+  //
+  // Mit bau=1 ist es ein Rätsel aus der Bauecke: dasselbe Spiel mit demselben
+  // Auftrag wie an der Station, aber ohne Stempel (bauTaskFor).
   function fromLocation() {
     let nr = 0;
-    try { nr = Number(new URLSearchParams(window.location.search).get("station")); } catch { nr = 0; }
+    let params = null;
+    try {
+      params = new URLSearchParams(window.location.search);
+      nr = Number(params.get("station"));
+    } catch { nr = 0; }
     if (!Number.isInteger(nr) || nr < 1 || nr > STATION_COUNT) return null;
-    const task = taskFor(nr);
+    const task = params?.get("bau") === "1"
+      ? bauTaskFor(nr, params.get("spiel"), params.get("alt") === "1")
+      : taskFor(nr);
     if (!task || task.choice) return null;
     let page = "";
     try { page = window.location.pathname.split("/").pop() || "index.html"; } catch { page = ""; }
@@ -983,7 +997,186 @@
   // Der Satz für den Lautsprecher, wenn ein Spiel mit Auftrag öffnet.
   function describe(task) {
     if (!task) return "";
+    if (task.bau) return `Ein Rätsel für die Bauecke: ${task.title}. ${task.speech}`;
     return `Reise${(task.lap || lapOf(task.nr).nr) === 2 ? " 2" : ""}, Station ${task.nr}: ${task.title}. ${task.speech}`;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Rätsel für die Bauecke
+  // ---------------------------------------------------------------------------
+  // Der Knopf in der Bauecke (train-bau.js) öffnet ein zufälliges Rätsel. Es
+  // ist ein Auftrag wie auf der Reise – dasselbe Spiel, dasselbe Level,
+  // dieselbe Schwierigkeitsstufe –, nur stempelt er nichts: Wer ihn schafft,
+  // bekommt eine Palette Ziegel, und eine Palette reicht für ein Stockwerk.
+  //
+  // Gewählt wird aus der Karte, auf der das Kind gerade fährt, und aus der
+  // davor. So passt das Rätsel zu dem, was es in der übrigen App kann, und
+  // ohne Kauf kommen nur Stationen, die ohnehin frei sind (stationFree). Auf
+  // der Stufe "leicht" bleiben die Spiele weg, die lesen verlangen.
+  //
+  // Die Spielseite erkennt das Rätsel an ?station=…&bau=1&spiel=… und führt
+  // danach in die Bauecke zurück (bauUrl) statt auf die Karte.
+  const BAU_LIEFERUNG_KEY = "lernapp.bau.lieferung";
+  const BAU_GERAET_KEY = "lernapp.bau.geraet";
+  const BAU_ZULETZT_KEY = "lernapp.bau.zuletzt";
+  const BAU_ZULETZT_MAX = 8;
+  const BAU_LESEN = new Set(["letterPuzzle", "readingPuzzle", "kakuro"]);
+
+  // Die verdienten Paletten zählt jedes Gerät für sich ({ geraete: { id: n } }).
+  // Zusammengeführt wird je Gerät das Maximum: Dieselbe Zahl kommt vom Gerät
+  // in die Cloud und zurück, und sie darf dabei nicht doppelt werden. Die
+  // Summe über alle Geräte ist, was das Kind verdient hat.
+  const LIEFERUNG_LEER = { geraete: {} };
+  function mergeLieferung(a, b) {
+    const geraete = {};
+    [obj(a?.geraete), obj(b?.geraete)].forEach((quelle) => {
+      Object.keys(quelle).forEach((id) => {
+        const n = Math.max(0, Math.floor(Number(quelle[id]) || 0));
+        geraete[id] = Math.max(Number(geraete[id]) || 0, n);
+      });
+    });
+    return { geraete };
+  }
+
+  // Bleibt beim Zurücksetzen stehen (Entscheid 10: die Ziegel gehen nicht
+  // verloren) – game-cloud.js lässt den Kasten dann in Ruhe.
+  const lieferung = cloudGames
+    ? cloudGames.register({ key: BAU_LIEFERUNG_KEY, empty: clone(LIEFERUNG_LEER), merge: mergeLieferung, keepOnReset: true })
+    : {
+      read() {
+        try { return mergeLieferung(JSON.parse(localStorage.getItem(BAU_LIEFERUNG_KEY) || "null"), LIEFERUNG_LEER); } catch { return clone(LIEFERUNG_LEER); }
+      },
+      update(fn) {
+        const next = fn(this.read());
+        try { localStorage.setItem(BAU_LIEFERUNG_KEY, JSON.stringify(next)); } catch { /* privater Modus */ }
+        return next;
+      },
+      onChange() { return () => {}; },
+    };
+
+  // Eine Kennung für dieses Gerät, nur für den Zähler oben.
+  function bauGeraet() {
+    try {
+      let id = localStorage.getItem(BAU_GERAET_KEY);
+      if (!id) {
+        id = `g${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+        localStorage.setItem(BAU_GERAET_KEY, id);
+      }
+      return id;
+    } catch { return "ohne-speicher"; }
+  }
+
+  // Alle verdienten Paletten, über alle Geräte.
+  function bauPaletten() {
+    const geraete = mergeLieferung(obj(lieferung.read()), LIEFERUNG_LEER).geraete;
+    return Object.values(geraete).reduce((summe, n) => summe + (Number(n) || 0), 0);
+  }
+
+  // Woran zwei Rätsel als dasselbe gelten: Spiel und Auftrag.
+  function bauSchluessel(task) {
+    if (!task) return "";
+    return [task.game, task.level, task.size, task.world, task.pos, task.target]
+      .filter((wert) => wert !== undefined && wert !== null && wert !== "")
+      .join(".");
+  }
+
+  // Die Rätsel, die zuletzt kamen – damit nicht zweimal hintereinander
+  // dasselbe kommt. Nur auf diesem Gerät, das reicht dafür.
+  function bauZuletzt() {
+    try {
+      const liste = JSON.parse(localStorage.getItem(BAU_ZULETZT_KEY) || "[]");
+      return Array.isArray(liste) ? liste.map(String) : [];
+    } catch { return []; }
+  }
+  function bauMerken(task) {
+    const liste = [bauSchluessel(task), ...bauZuletzt().filter((key) => key !== bauSchluessel(task))].slice(0, BAU_ZULETZT_MAX);
+    try { localStorage.setItem(BAU_ZULETZT_KEY, JSON.stringify(liste)); } catch { /* privater Modus */ }
+  }
+
+  // Ein Rätsel der Bauecke aus der Adresse: die Station, das Spiel (an einer
+  // Wahlstation) und ob es das Ausweichgleis ist.
+  function bauTaskFor(nr, spiel = null, alt = false) {
+    const station = stationAt(nr);
+    if (!station) return null;
+    let spec = null;
+    if (alt) spec = station.alt && (!spiel || station.alt.game === spiel) ? station.alt : null;
+    else if (station.choice) spec = station.choice.find((entry) => entry.game === spiel) || null;
+    else if (!spiel || station.spec.game === spiel) spec = station.spec;
+    if (!spec) return null;
+    const task = buildTask(station, spec, { easier: alt, bau: true });
+    if (task) task.viaAlt = alt;
+    return task;
+  }
+
+  // Alle Rätsel, die gerade in Frage kommen – je Spiel und Auftrag eines.
+  function bauKandidaten() {
+    const state = read();
+    const stufe = stufeIn(state);
+    const jetzt = Math.min(currentIn(state), STATION_COUNT);
+    const karte = mapIndexOf(jetzt);
+    const schranke = window.LernappEntitlement;
+    const frei = (nr) => !schranke?.stationFree || schranke.stationFree(nr);
+    const gesehen = new Set();
+    const liste = [];
+    [karte, karte - 1].filter((index) => index >= 0).forEach((mapIndex) => {
+      for (let i = 1; i <= STATIONS_PER_MAP; i += 1) {
+        const nr = mapIndex * STATIONS_PER_MAP + i;
+        if (!frei(nr)) continue;
+        const station = stationAt(nr);
+        if (!station) continue;
+        const varianten = (station.choice || [station.spec]).map((spec) => ({ spec, alt: false }));
+        if (station.alt) varianten.push({ spec: station.alt, alt: true });
+        varianten.forEach(({ spec, alt }) => {
+          if (stufe === "leicht" && BAU_LESEN.has(spec.game)) return;
+          const task = buildTask(station, spec, { easier: alt, bau: true });
+          if (!task) return;
+          const key = bauSchluessel(task);
+          if (gesehen.has(key)) return;
+          gesehen.add(key);
+          task.viaAlt = alt;
+          liste.push(task);
+        });
+      }
+    });
+    return liste;
+  }
+
+  // Ein zufälliges Rätsel – nicht eines der letzten, nicht das, das eben nicht
+  // geklappt hat (ausser), und wenn es geht ein anderes Spiel als zuletzt.
+  function bauRaetsel({ ausser = null } = {}) {
+    const alle = bauKandidaten();
+    if (!alle.length) return null;
+    const weg = new Set([...bauZuletzt(), bauSchluessel(ausser)]);
+    let pool = alle.filter((task) => !weg.has(bauSchluessel(task)));
+    if (!pool.length) pool = alle.filter((task) => bauSchluessel(task) !== bauSchluessel(ausser));
+    if (!pool.length) pool = alle;
+    const letztesSpiel = ausser?.game || String(bauZuletzt()[0] || "").split(".")[0];
+    const anderesSpiel = pool.filter((task) => task.game !== letztesSpiel);
+    if (anderesSpiel.length) pool = anderesSpiel;
+    const task = pool[Math.floor(Math.random() * pool.length)];
+    bauMerken(task);
+    return task;
+  }
+
+  function bauUrlFor(task) {
+    const alt = task.viaAlt ? "&alt=1" : "";
+    return `${task.page}?station=${encodeURIComponent(task.nr)}&bau=1&spiel=${encodeURIComponent(task.game)}${alt}`;
+  }
+  function bauUrl() { return "index.html?bau=1"; }
+
+  // Geschafft: eine Palette für dieses Gerät. Je Seitenaufruf nur einmal – wer
+  // dasselbe Rätsel gleich noch einmal löst, bekommt nicht zweimal Ziegel.
+  let bauGutgeschrieben = false;
+  function bauGeschafft() {
+    if (bauGutgeschrieben) return { neu: false, paletten: bauPaletten() };
+    bauGutgeschrieben = true;
+    const id = bauGeraet();
+    lieferung.update((alt) => {
+      const stand = mergeLieferung(obj(alt), LIEFERUNG_LEER);
+      stand.geraete[id] = (Number(stand.geraete[id]) || 0) + 1;
+      return stand;
+    });
+    return { neu: true, paletten: bauPaletten() };
   }
 
   window.LernappReise = {
@@ -997,5 +1190,9 @@
     unlockedParts, newParts, markPartsSeen, PARTS_KEY,
     readSeen, writeSeen, urlFor, mapUrl, fromLocation, describe,
     onChange: (fn) => store.onChange(fn),
+    // Die Bauecke
+    BAU_LIEFERUNG_KEY, BAU_GERAET_KEY, BAU_ZULETZT_KEY, mergeLieferung,
+    bauKandidaten, bauRaetsel, bauTaskFor, bauUrlFor, bauUrl, bauGeschafft, bauPaletten, bauSchluessel,
+    onBauLieferung: (fn) => lieferung.onChange(fn),
   };
 })();

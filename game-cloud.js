@@ -49,10 +49,12 @@
    *   empty    Was ein leerer Stand ist.
    *   merge    (a, b) => zusammengeführter Stand. Muss beide Richtungen gleich
    *            behandeln: dieselbe Zusammenführung läuft auf jedem Gerät.
+   *   keepOnReset  true: "Fortschritt zurücksetzen" lässt diesen Stand stehen.
+   *            So die Bauecke: Häuser und Ziegel gehen nicht verloren.
    *
    * Zurück kommt ein kleines Konto mit read(), write() und onChange().
    */
-  function register({ key, empty = {}, merge = (local) => local }) {
+  function register({ key, empty = {}, merge = (local) => local, keepOnReset = false }) {
     let current = readLocal(key, empty);
     const listeners = [];
 
@@ -92,7 +94,10 @@
       // Zurück auf leer. Geschrieben wird nur auf das Gerät: den Stand in der
       // Cloud räumt firebase.js in einem Zug weg, und ein Schreibvorgang je
       // Spiel legte ihn gleich wieder an.
-      reset() { apply(clone(empty), { save: false }); return current; },
+      reset() {
+        if (!keepOnReset) apply(clone(empty), { save: false });
+        return current;
+      },
       onChange(fn) { listeners.push(fn); return () => {
         const i = listeners.indexOf(fn);
         if (i >= 0) listeners.splice(i, 1);

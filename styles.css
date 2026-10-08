@@ -2210,6 +2210,16 @@ body.puzzle-active .spatialPuzzle-board .spatial-option-graphic > svg {
   z-index: 91;
 }
 
+/* Der Vorlesen-Schalter (kids.js) steht neben dem Ton, nur auf dem
+   Startbild. Er trägt beide Klassen: alles andere teilt er mit dem Ton. */
+.sound-toggle.tts-toggle {
+  right: calc(var(--safe-right) + 138px);
+}
+.tts-toggle .tts-blase {
+  fill: none;
+  stroke: currentColor;
+}
+
 .sound-toggle svg {
   width: 24px;
   height: 24px;
@@ -3692,6 +3702,10 @@ body.puzzle-active .spatialPuzzle-board .spatial-option-graphic > svg {
 
   .sound-toggle {
     right: calc(var(--safe-right) + 64px);
+  }
+
+  .sound-toggle.tts-toggle {
+    right: calc(var(--safe-right) + 118px);
   }
 
   .account-panel {

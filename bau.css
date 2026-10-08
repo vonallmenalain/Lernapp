@@ -1,0 +1,817 @@
+/* =====================================================================
+   bau.css – Die Bauecke (train-bau.js)
+   ---------------------------------------------------------------------
+   Eine eigene Datei, weil die Bauecke viele eigene Teile hat. Sie folgt
+   den Regeln von styles.css: grosse Ziele für Kinderfinger (mindestens
+   44 px), keine Endlos-Animationen an SVG-Teilen (sie machten auf dem
+   Xiaomi Pad aus jedem Teil eine Ebene), und alles Bewegte läuft über
+   transform und opacity.
+   ===================================================================== */
+
+/* --- Einbau in die Bühne (train-home.js, Ansicht "bau") --- */
+.train-stage[data-view="bau"] .train-band { opacity: 0; pointer-events: none; }
+.train-stage[data-view="bau"] .stage-layer { z-index: 4; }
+.train-stage[data-view="bau"] .scene { visibility: hidden; }
+.train-stage[data-view="bau"] .scene-bird { animation-play-state: paused; }
+.train-stage[data-view="bau"] .train-band * { animation: none; }
+/* Der Lautsprecher spricht in der Bauecke, neben dem Zurück-Knopf. */
+body[data-page="train"] .train-stage[data-view="bau"] ~ .help-voice {
+  display: flex;
+  left: calc(var(--safe-left) + 86px);
+}
+
+/* --- Der Bauplatz auf dem Startbild --- */
+.bauplatz-knopf {
+  position: absolute;
+  z-index: 3;
+  width: clamp(80px, 16vw, 210px);
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  filter: drop-shadow(0 6px 10px rgba(36, 48, 71, 0.22));
+  transform-origin: 50% 80%;
+  transition: opacity 0.4s ease, transform 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.bauplatz-knopf[hidden] { display: none; }
+.bauplatz-knopf[data-placed="0"] { opacity: 0; pointer-events: none; }
+.bauplatz-knopf:active { transform: scale(0.95); }
+.bauplatz-knopf:focus-visible { outline: 3px solid #6c5ce7; outline-offset: 4px; border-radius: 12px; }
+.bauplatz-knopf svg { display: block; width: 100%; height: auto; }
+.train-stage[data-entering] .bauplatz-knopf { opacity: 0; pointer-events: none; }
+.train-stage[data-bau-ein] .bauplatz-knopf { transform: scale(1.3); opacity: 0; transition: transform 0.42s ease-in, opacity 0.42s ease-in; }
+
+/* --- Die Bauecke --- */
+.bauecke {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: auto;
+  background: linear-gradient(180deg, #a8dcf5 0%, #d7f0fb 62%, #e9f7ff 100%);
+  font-family: "Baloo 2", Nunito, system-ui, sans-serif;
+  color: #243047;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  animation: bau-ein 0.4s ease backwards;
+}
+@keyframes bau-ein {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.bauecke.is-nacht { background: linear-gradient(180deg, #141d44 0%, #27336a 62%, #34417c 100%); }
+.bauecke button { font-family: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.bauecke button:focus-visible { outline: 3px solid #243047; outline-offset: 3px; }
+
+.bau-himmel { position: absolute; inset: 0; pointer-events: none; }
+.bau-sonne {
+  position: absolute;
+  right: 26%;
+  top: 9%;
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #ffe08a 0 55%, #ffd166 56%);
+  box-shadow: 0 0 46px rgba(255, 209, 102, 0.65);
+}
+.bau-mond {
+  display: none;
+  position: absolute;
+  right: 26%;
+  top: 9%;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  box-shadow: inset -16px -6px 0 0 #fff6c2;
+}
+.bau-wolke {
+  position: absolute;
+  height: 34px;
+  border-radius: 999px;
+  background: #ffffff;
+  opacity: 0.85;
+}
+.bau-wolke::before, .bau-wolke::after { content: ""; position: absolute; background: #ffffff; border-radius: 50%; }
+.bau-wolke::before { width: 46px; height: 46px; left: 18px; top: -22px; }
+.bau-wolke::after { width: 34px; height: 34px; left: 54px; top: -14px; }
+.bau-wolke.w1 { width: 120px; left: 12%; top: 16%; }
+.bau-wolke.w2 { width: 96px; left: 64%; top: 26%; opacity: 0.7; }
+.is-nacht .bau-sonne, .is-nacht .bau-wolke { display: none; }
+.is-nacht .bau-mond { display: block; }
+.is-nacht .bau-himmel {
+  background-image:
+    radial-gradient(2px 2px at 12% 18%, #fff 50%, transparent 51%),
+    radial-gradient(2px 2px at 34% 9%, #fff 50%, transparent 51%),
+    radial-gradient(1.5px 1.5px at 58% 21%, #fff 50%, transparent 51%),
+    radial-gradient(2px 2px at 82% 12%, #fff 50%, transparent 51%),
+    radial-gradient(1.5px 1.5px at 91% 33%, #fff 50%, transparent 51%),
+    radial-gradient(1.5px 1.5px at 6% 38%, #fff 50%, transparent 51%);
+}
+
+/* Die Welt mit dem Haus: eine Ebene, die als Ganzes verschoben wird. */
+.bau-welt {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform-origin: 0 0;
+  will-change: transform;
+  touch-action: none;
+}
+.bau-welt svg { display: block; overflow: visible; }
+.bau-stock, .bau-tier, .bau-tafelknopf, .bau-naechster, .bau-schild { cursor: pointer; }
+.bau-stock.is-rohbau .bau-rohbau-plus circle { fill: #ffffff; }
+.bau-naechster .bau-plus circle { fill: #9aa5b1; }
+.bau-naechster.is-bereit .bau-plus circle { fill: #3fbf74; }
+.bau-naechster.is-bereit > rect { stroke: #3fbf74; opacity: 0.6; }
+
+/* Nacht: Fenster dunkel, Laternen an. */
+.is-nacht .bau-fensterglas { fill: #2b3a67; }
+.is-nacht .bau-laternenlicht { fill: #fff3a0; }
+.bau-laternenlicht { fill: #e2e8f0; }
+
+/* Kurzes Anstupsen: Hier schauen! (einmal, keine Schleife) */
+.is-stups { animation: bau-stups 0.8s ease; }
+svg .is-stups { transform-box: fill-box; transform-origin: center; }
+@keyframes bau-stups {
+  0%, 100% { transform: scale(1); }
+  30% { transform: scale(1.16); }
+  60% { transform: scale(0.96); }
+}
+
+/* --- Oben: die vier Häuser --- */
+.bau-umschalter {
+  position: absolute;
+  top: calc(var(--safe-top, 0px) + 14px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 5;
+  display: flex;
+  gap: 8px;
+  padding: 5px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.55);
+  box-shadow: 0 6px 16px rgba(36, 48, 71, 0.16);
+}
+.bau-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 50px;
+  padding: 0 14px 0 8px;
+  border-radius: 999px;
+  border: 3px solid transparent;
+  background: #ffffff;
+  color: #243047;
+  font-weight: 800;
+  font-size: 1rem;
+  white-space: nowrap;
+}
+.bau-tab.is-aktiv { background: #3fbf74; color: #ffffff; border-color: #ffffff; box-shadow: 0 4px 10px rgba(47, 158, 92, 0.35); }
+.bau-tab-zeichen { width: 30px; height: 30px; flex: 0 0 auto; }
+.bau-tab-sterne { font-size: 0.82rem; color: #b7791f; }
+.bau-tab.is-aktiv .bau-tab-sterne { color: #fff6c2; }
+
+/* Die Nachbarhäuser am Rand – ein Tipp, und man ist drüben. */
+.bau-nachbar {
+  position: absolute;
+  bottom: 14px;
+  z-index: 3;
+  width: 64px;
+  padding: 6px 4px 4px;
+  border: 3px solid #ffffff;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.7);
+  box-shadow: 0 6px 14px rgba(36, 48, 71, 0.2);
+}
+.bau-nachbar.is-links { left: calc(var(--safe-left, 0px) + 12px); }
+.bau-nachbar.is-rechts { right: calc(var(--safe-right, 0px) + 12px); }
+.bau-nachbar svg { display: block; width: 100%; height: auto; max-height: 110px; }
+.bau-nachbar:active { transform: scale(0.94); }
+
+/* --- Rechts: Ziegel, Rätsel, Tag und Nacht, Fassade --- */
+.bau-hud {
+  position: absolute;
+  top: calc(var(--safe-top, 0px) + 84px);
+  right: calc(var(--safe-right, 0px) + 14px);
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+.bau-ziegel {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-height: 56px;
+  padding: 2px 14px 2px 6px;
+  border-radius: 18px;
+  background: #ffffff;
+  box-shadow: 0 6px 14px rgba(36, 48, 71, 0.18);
+  font-size: 1.8rem;
+  font-weight: 800;
+  color: #8a5734;
+  cursor: pointer;
+}
+.bau-ziegel.is-leer { color: #a0aec0; }
+.bau-ziegel-bild { width: 54px; height: 48px; }
+.bau-raetsel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  min-width: 96px;
+  padding: 8px 12px 6px;
+  border: 3px solid #ffffff;
+  border-radius: 22px;
+  background: linear-gradient(180deg, #4cd28a, #2ea866);
+  color: #ffffff;
+  font-weight: 800;
+  font-size: 1.1rem;
+  box-shadow: 0 8px 18px rgba(47, 158, 92, 0.4);
+}
+.bau-raetsel:active { transform: scale(0.95); }
+.bau-raetsel-bild { width: 40px; height: 40px; }
+.bau-rund {
+  width: 52px;
+  height: 52px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 3px solid #ffffff;
+  border-radius: 50%;
+  background: #ffffff;
+  color: #243047;
+  box-shadow: 0 6px 14px rgba(36, 48, 71, 0.18);
+}
+.bau-rund svg { width: 28px; height: 28px; }
+.bau-rund:disabled { opacity: 0.4; }
+.bau-rund.is-an { background: #fff6c2; }
+.bau-rund:active { transform: scale(0.93); }
+
+/* --- Das Zimmer --- */
+.bauecke.ist-zimmer .bau-umschalter,
+.bauecke.ist-zimmer .bau-hud,
+.bauecke.ist-zimmer .bau-nachbar { display: none; }
+.bau-zimmeransicht {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  background: rgba(24, 34, 58, 0.32);
+}
+.bau-zimmeransicht[hidden] { display: none; }
+.bau-zimmerbuehne { position: absolute; inset: 0; touch-action: none; }
+.bau-zimmer-svg {
+  position: absolute;
+  display: block;
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.28);
+}
+.bau-ding { cursor: grab; }
+.bau-kopfzeile {
+  position: absolute;
+  top: calc(var(--safe-top, 0px) + 14px);
+  left: calc(var(--safe-left, 0px) + 172px);
+  right: calc(var(--safe-right, 0px) + 206px);
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  pointer-events: none;
+}
+.bau-kopfzeile > * { pointer-events: auto; }
+.bau-zimmerkopf, .bau-werkzeug { display: flex; align-items: center; gap: 8px; }
+.bau-zimmername, .bau-zimmertier {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 52px;
+  padding: 0 14px;
+  border: 3px solid #ffffff;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #243047;
+  font-weight: 800;
+  font-size: 1.15rem;
+  box-shadow: 0 6px 14px rgba(36, 48, 71, 0.18);
+  white-space: nowrap;
+}
+.bau-lautsprecher { width: 22px; height: 22px; color: #6c5ce7; }
+.bau-zimmertier { padding: 0 12px 0 2px; }
+.bau-zimmertier-bild { width: 44px; height: 48px; }
+.bau-laune { font-size: 1.4rem; }
+.bau-sternzahl { display: none; align-items: center; gap: 3px; font-size: 1rem; }
+
+/* Sterne: gelb fürs Zimmer, grün fürs Haus, blau für die anderen Häuser. */
+.bau-sternreihe { display: inline-flex; align-items: center; gap: 1px; }
+.bau-stern {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  background: currentColor;
+  opacity: 0.25;
+  clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
+}
+.bau-stern.is-voll { opacity: 1; }
+.bau-stern.is-gelb { color: #ffb703; }
+.bau-stern.is-gruen { color: #2fb35c; }
+.bau-stern.is-blau { color: #3a7bec; }
+
+/* --- Die Schublade --- */
+.bau-schublade {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 6;
+  height: 178px;
+  display: flex;
+  flex-direction: column;
+  padding-bottom: var(--safe-bottom, 0px);
+  border-top: 4px solid #e8c48f;
+  border-radius: 24px 24px 0 0;
+  background: #fff6e8;
+  box-shadow: 0 -8px 22px rgba(36, 48, 71, 0.18);
+}
+.bau-reiter {
+  display: flex;
+  gap: 6px;
+  padding: 8px 12px 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  flex: 0 0 auto;
+}
+.bau-reiter::-webkit-scrollbar, .bau-inhalt::-webkit-scrollbar, .bau-farbreihe::-webkit-scrollbar, .bau-musterreihe::-webkit-scrollbar { display: none; }
+.bau-reiter-knopf {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  min-width: 54px;
+  height: 46px;
+  padding: 0 8px;
+  border: 2px solid #f0dcc0;
+  border-radius: 14px;
+  background: #ffffff;
+}
+.bau-reiter-knopf svg { width: 30px; height: 30px; }
+.bau-reiter-emoji { font-size: 1.5rem; line-height: 1; }
+.bau-reiter-knopf.is-aktiv { background: #ffd166; border-color: #e8b94f; }
+.bau-inhalt {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 12px 10px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  touch-action: pan-x;
+}
+.bau-ding-knopf {
+  position: relative;
+  flex: 0 0 auto;
+  width: 104px;
+  height: 104px;
+  padding: 6px;
+  border: 3px solid #f0e2cc;
+  border-radius: 18px;
+  background: #ffffff;
+  touch-action: pan-x;
+}
+.bau-ding-knopf svg { width: 100%; height: 100%; pointer-events: none; }
+.bau-ding-knopf:active { transform: scale(0.95); }
+.bau-ding-knopf.is-gewuenscht { border-color: #ffc93c; box-shadow: 0 0 0 3px rgba(255, 201, 60, 0.35); }
+.bau-wunschmarke {
+  position: absolute;
+  top: -8px;
+  right: -6px;
+  color: #ffb703;
+  font-size: 1.5rem;
+  line-height: 1;
+  text-shadow: 0 1px 0 #ffffff, 0 0 4px #ffffff;
+}
+.bau-inhalt.is-farben {
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: center;
+  gap: 8px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  touch-action: pan-y;
+}
+.bau-farbreihe, .bau-musterreihe {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding: 3px;
+  flex: 0 0 auto;
+  touch-action: pan-x;
+}
+.bau-farbe {
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 3px solid #ffffff;
+  border-radius: 50%;
+  background: var(--farbe, #cccccc);
+  box-shadow: 0 0 0 2px #d9e2ec;
+}
+.bau-farbe.is-aktiv { box-shadow: 0 0 0 4px #243047; }
+.bau-farbe.is-grund { background: conic-gradient(var(--farbe) 0 75%, #ffffff 75%); }
+.bau-muster {
+  flex: 0 0 auto;
+  width: 58px;
+  height: 58px;
+  padding: 0;
+  overflow: hidden;
+  border: 3px solid #ffffff;
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 0 0 2px #d9e2ec;
+}
+.bau-muster svg { width: 100%; height: 100%; display: block; }
+.bau-muster.is-aktiv { box-shadow: 0 0 0 4px #243047; }
+
+/* --- Das Menü am gewählten Ding --- */
+.bau-bearbeiten {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 8;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: min(96vw, 520px);
+  padding: 8px;
+  border-radius: 18px;
+  background: #ffffff;
+  box-shadow: 0 10px 26px rgba(36, 48, 71, 0.26);
+}
+.bau-bearbeiten[hidden] { display: none; }
+.bau-bearbeiten-farben { display: flex; flex-wrap: wrap; gap: 5px; }
+.bau-bearbeiten .bau-farbe { width: 34px; height: 34px; border-width: 2px; }
+.bau-bearbeiten-zeile { display: flex; gap: 6px; }
+.bau-aktion {
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: none;
+  border-radius: 14px;
+  background: #eef2f7;
+  color: #243047;
+}
+.bau-aktion svg { width: 26px; height: 26px; }
+.bau-aktion.is-weg { background: #ffe4ea; color: #c53030; }
+.bau-aktion:active { transform: scale(0.92); }
+
+.bau-muell {
+  position: absolute;
+  right: calc(var(--safe-right, 0px) + 18px);
+  bottom: 196px;
+  z-index: 7;
+  width: 76px;
+  height: 76px;
+  display: grid;
+  place-items: center;
+  border: 4px solid #ffffff;
+  border-radius: 50%;
+  background: #ef5350;
+  box-shadow: 0 8px 18px rgba(197, 48, 48, 0.4);
+  transition: transform 0.15s ease;
+  pointer-events: none;
+}
+.bau-muell[hidden] { display: none; }
+.bau-muell svg { width: 38px; height: 38px; }
+.bau-muell.is-ueber { transform: scale(1.22); background: #c53030; }
+
+/* Was gezogen wird und was fliegt: eine Ebene ohne Fläche. */
+.bau-flug { position: fixed; left: 0; top: 0; width: 0; height: 0; z-index: 60; pointer-events: none; }
+.bau-geist { position: absolute; left: 0; top: 0; pointer-events: none; filter: drop-shadow(0 10px 10px rgba(0, 0, 0, 0.25)); }
+.bau-geist svg { width: 100%; height: 100%; display: block; overflow: visible; }
+.bau-geist.is-draussen { opacity: 0.55; }
+.bau-flieger { position: absolute; left: 0; top: 0; width: 56px; height: 48px; }
+.bau-flieger svg { width: 100%; height: 100%; }
+
+/* --- Die Tier-Tafel --- */
+.bau-tafel {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  /* Oben Platz für Zurück, Lautsprecher und die festen Knöpfe. */
+  padding: calc(var(--safe-top, 0px) + 76px) 14px 14px;
+  background: rgba(24, 34, 58, 0.5);
+}
+.bau-tafel[hidden] { display: none; }
+.bau-tafel-karte {
+  position: relative;
+  width: min(760px, 96vw);
+  max-height: calc(100% - 8px);
+  overflow-y: auto;
+  padding: 16px 18px 18px;
+  border-radius: 26px;
+  background: #fffdf8;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.3);
+  animation: bau-karte-ein 0.25s ease backwards;
+}
+@keyframes bau-karte-ein {
+  from { opacity: 0; transform: translateY(14px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+.bau-tafel-zu {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 50px;
+  height: 50px;
+  display: grid;
+  place-items: center;
+  border: none;
+  border-radius: 50%;
+  background: #eef2f7;
+  color: #243047;
+}
+.bau-tafel-zu svg { width: 24px; height: 24px; }
+.bau-tafel-kopf { display: flex; align-items: center; gap: 14px; padding-right: 50px; }
+.bau-tafel-tier { width: 86px; height: 108px; flex: 0 0 auto; }
+.bau-tafel-wer h2 { margin: 0; font-size: 1.9rem; line-height: 1.1; }
+.bau-tafel-wer p { margin: 2px 0; color: #4a5568; font-weight: 600; }
+.bau-tafel-laune { font-size: 1.1rem; color: #243047 !important; }
+.bau-tafel-zahl { display: flex; align-items: center; gap: 8px; }
+.bau-tafel-unterwegs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 8px 12px;
+  border-radius: 14px;
+  background: #fff3d6;
+  font-weight: 700;
+}
+.bau-wunschliste {
+  list-style: none;
+  margin: 12px 0 6px;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.bau-wunsch {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px;
+  border: 2px solid #f0e2cc;
+  border-radius: 16px;
+  background: #ffffff;
+}
+.bau-wunsch.is-gruen { border-color: #c6f0d2; }
+.bau-wunsch.is-blau { border-color: #cfe0fb; }
+.bau-wunsch.is-erfuellt { background: #f1fbf4; }
+.bau-wunsch-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 48px;
+  padding: 0 4px;
+  border: none;
+  background: none;
+  text-align: left;
+  font-weight: 700;
+  font-size: 1rem;
+  color: #243047;
+}
+.bau-wunsch-text span { overflow: hidden; text-overflow: ellipsis; }
+.bau-wunsch-text em { flex: 0 0 auto; padding: 0 6px; border-radius: 8px; background: #ffd166; font-style: normal; font-size: 0.8rem; }
+.bau-wunsch-text .bau-stern { width: 22px; height: 22px; flex: 0 0 auto; }
+.bau-wunsch-bild { width: 40px; height: 40px; flex: 0 0 auto; }
+.bau-zeig {
+  flex: 0 0 auto;
+  width: 46px;
+  height: 46px;
+  border: none;
+  border-radius: 13px;
+  background: #3fbf74;
+  color: #ffffff;
+  font-weight: 800;
+  font-size: 1.4rem;
+}
+.bau-haken { flex: 0 0 auto; padding: 0 10px; color: #2f9e5c; font-weight: 800; font-size: 1.5rem; }
+.bau-legende { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 4px 2px; color: #4a5568; font-size: 0.9rem; font-weight: 600; }
+.bau-plaudern { margin-top: 8px; padding: 10px; border-radius: 18px; background: #f2f7ff; }
+.bau-verlauf { display: flex; flex-direction: column; gap: 6px; max-height: 160px; overflow-y: auto; }
+.bau-verlauf:empty { display: none; }
+.bau-sagt { max-width: 82%; margin: 0; padding: 8px 12px; border-radius: 16px; font-weight: 600; line-height: 1.3; }
+.bau-sagt.is-kind { align-self: flex-end; background: #d6ecff; }
+.bau-sagt.is-tier { align-self: flex-start; border: 2px solid #e2e8f0; background: #ffffff; }
+.bau-fragen { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.bau-frage {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 46px;
+  padding: 0 12px;
+  border: 2px solid #cfe0f5;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #243047;
+  font-weight: 700;
+  font-size: 0.98rem;
+}
+.bau-frage span:first-child { font-size: 1.35rem; }
+.bau-hinaus {
+  margin-top: 12px;
+  padding: 8px 16px;
+  border: 2px dashed #cbd5e0;
+  border-radius: 999px;
+  background: none;
+  color: #718096;
+  font-weight: 700;
+}
+.bau-frage-auszug {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 10px;
+  border: 2px solid #f6c56b;
+  border-radius: 16px;
+  background: #fff7e6;
+}
+.bau-frage-auszug p { flex: 1 1 100%; margin: 0; font-weight: 700; }
+.bau-knopf-klein {
+  height: 46px;
+  padding: 0 18px;
+  border: none;
+  border-radius: 999px;
+  background: #3fbf74;
+  color: #ffffff;
+  font-weight: 800;
+  font-size: 1rem;
+}
+.bau-knopf-klein.is-ja { background: #ef5350; }
+
+/* --- Wählen: das erste Haus, die Zimmerart, die Farben --- */
+.bau-wahl {
+  position: absolute;
+  inset: 0;
+  z-index: 25;
+  display: grid;
+  place-items: center;
+  padding: calc(var(--safe-top, 0px) + 76px) 12px 12px;
+  background: rgba(24, 34, 58, 0.5);
+}
+.bau-wahl-karte {
+  width: min(900px, 96vw);
+  max-height: calc(100% - 8px);
+  overflow-y: auto;
+  padding: 14px 16px 16px;
+  border-radius: 26px;
+  background: #fffdf8;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.3);
+  animation: bau-karte-ein 0.25s ease backwards;
+}
+.bau-wahl-kopf h2 { margin: 2px 4px 10px; font-size: 1.5rem; }
+.bau-wahl-raster { display: grid; grid-template-columns: repeat(auto-fill, minmax(116px, 1fr)); gap: 10px; }
+.is-hauswahl .bau-wahl-raster { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.bau-wahl-feld {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 6px;
+  border: 3px solid #f0e2cc;
+  border-radius: 18px;
+  background: #ffffff;
+  color: #243047;
+  font-weight: 800;
+  font-size: 0.98rem;
+  line-height: 1.15;
+  text-align: center;
+}
+.bau-wahl-feld.is-aktiv { border-color: #3fbf74; background: #f0fff4; box-shadow: 0 0 0 4px rgba(63, 191, 116, 0.25); }
+.bau-wahl-bild { width: 70px; height: 70px; }
+.is-hauswahl .bau-wahl-bild { width: 100%; height: 150px; }
+.is-hauswahl .bau-wahl-feld { font-size: 1.2rem; }
+.bau-schon { position: absolute; top: 4px; right: 8px; color: #2f9e5c; font-style: normal; font-weight: 800; }
+.bau-wahl-text { min-height: 2.6em; margin: 10px 4px; color: #2d3748; font-size: 1.05rem; font-weight: 600; }
+.bau-wahl-unten { display: flex; justify-content: space-between; gap: 10px; }
+.bau-ok {
+  height: 56px;
+  margin-top: 6px;
+  padding: 0 24px;
+  border: 3px solid #ffffff;
+  border-radius: 999px;
+  background: #3fbf74;
+  color: #ffffff;
+  font-weight: 800;
+  font-size: 1.2rem;
+  box-shadow: 0 8px 16px rgba(47, 158, 92, 0.35);
+}
+.is-hauswahl .bau-ok, .is-fassade .bau-ok { display: block; margin: 14px auto 0; }
+.bau-ok:disabled { opacity: 0.45; box-shadow: none; }
+.bau-abbrechen { height: 56px; margin-top: 6px; padding: 0 18px; border: none; border-radius: 999px; background: #edf2f7; color: #4a5568; font-weight: 800; }
+.bau-fassade-zeile h3 { margin: 6px 4px; font-size: 1.15rem; }
+.bau-fassade-zeile .bau-farbreihe { flex-wrap: wrap; }
+
+/* --- Ein anderes Gerät ist schon eine Fassung weiter (bau-stand.js, FORMAT) --- */
+.bau-neuer {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: min(460px, calc(100% - 32px));
+  padding: 20px 22px 22px;
+  border-radius: 26px;
+  background: #fffdf8;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.25);
+  text-align: center;
+}
+.bau-neuer p { margin: 0 0 14px; font-size: 1.35rem; font-weight: 800; line-height: 1.25; }
+.bau-neuer-knopf {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  height: 56px;
+  padding: 0 24px;
+  border: 3px solid #ffffff;
+  border-radius: 999px;
+  background: #3fbf74;
+  color: #ffffff;
+  font: inherit;
+  font-weight: 800;
+  font-size: 1.2rem;
+  box-shadow: 0 8px 16px rgba(47, 158, 92, 0.35);
+}
+.bau-neuer-knopf svg { width: 26px; height: 26px; }
+
+/* --- Handy im Querformat: alles etwas kleiner --- */
+@media (max-height: 520px) {
+  .bau-tab { height: 44px; padding: 0 8px 0 6px; }
+  .bau-tab-name { display: none; }
+  .bau-tab-zeichen { width: 26px; height: 26px; }
+  .bau-hud { top: calc(var(--safe-top, 0px) + 66px); gap: 6px; }
+  .bau-ziegel { min-height: 44px; font-size: 1.4rem; padding: 0 10px 0 2px; }
+  .bau-ziegel-bild { width: 40px; height: 36px; }
+  .bau-raetsel { min-width: 72px; padding: 4px 8px; font-size: 0.95rem; }
+  .bau-raetsel-bild { width: 28px; height: 28px; }
+  .bau-rund { width: 44px; height: 44px; }
+  .bau-rund svg { width: 24px; height: 24px; }
+  .bau-nachbar { width: 50px; }
+  .bau-nachbar svg { max-height: 70px; }
+  .bau-kopfzeile { top: calc(var(--safe-top, 0px) + 10px); left: calc(var(--safe-left, 0px) + 168px); right: calc(var(--safe-right, 0px) + 202px); gap: 6px; }
+  .bau-zimmerkopf, .bau-werkzeug { gap: 5px; min-width: 0; }
+  .bau-zimmerkopf { flex: 1 1 auto; }
+  .bau-zimmername, .bau-zimmertier { height: 44px; font-size: 1rem; padding: 0 10px; min-width: 0; }
+  .bau-zimmername span { max-width: 7.5em; overflow: hidden; text-overflow: ellipsis; }
+  .bau-zimmertier .bau-sternreihe { display: none; }
+  .bau-zimmertier .bau-sternzahl { display: inline-flex; }
+  .bau-zimmertier .bau-stern { width: 16px; height: 16px; }
+  .bau-zimmertier-bild { width: 34px; height: 38px; }
+  .bau-werkzeug .bau-rund { width: 44px; height: 44px; }
+  .bau-tafel, .bau-wahl { padding-top: calc(var(--safe-top, 0px) + 62px); }
+  .bau-bearbeiten { padding: 6px; gap: 4px; max-width: min(96vw, 300px); }
+  .bau-bearbeiten .bau-farbe { width: 30px; height: 30px; }
+  .bau-aktion { width: 42px; height: 42px; }
+  .bau-schublade { height: 104px; border-radius: 18px 18px 0 0; }
+  .bau-reiter { padding: 4px 8px 2px; }
+  .bau-reiter-knopf { min-width: 44px; height: 38px; }
+  .bau-reiter-knopf svg { width: 24px; height: 24px; }
+  .bau-reiter-emoji { font-size: 1.2rem; }
+  .bau-inhalt { gap: 6px; padding: 2px 8px 6px; }
+  .bau-ding-knopf { width: 56px; height: 56px; padding: 3px; border-radius: 12px; }
+  .bau-farbe { width: 36px; height: 36px; }
+  .bau-muster { width: 44px; height: 44px; }
+  /* Farben und Muster in einer einzigen Zeile: Für zwei ist zu wenig Platz. */
+  .bau-inhalt.is-farben { flex-direction: row; align-items: center; justify-content: flex-start; overflow-x: auto; overflow-y: hidden; touch-action: pan-x; }
+  .bau-inhalt.is-farben > .bau-farbreihe,
+  .bau-inhalt.is-farben > .bau-musterreihe { display: contents; }
+  .bau-muell { bottom: 114px; width: 60px; height: 60px; }
+  .bau-wunschliste { grid-template-columns: minmax(0, 1fr); }
+  .bau-tafel-kopf { gap: 8px; }
+  .bau-tafel-tier { width: 60px; height: 76px; }
+  .bau-tafel-wer h2 { font-size: 1.4rem; }
+  .is-hauswahl .bau-wahl-bild { height: 96px; }
+}
+
+@media (max-width: 900px) and (min-height: 521px) {
+  .bau-tab-name { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bauecke, .bau-tafel-karte, .bau-wahl-karte { animation: none; }
+  .is-stups { animation: none; }
+}

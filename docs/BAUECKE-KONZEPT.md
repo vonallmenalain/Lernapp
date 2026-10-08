@@ -6,17 +6,199 @@ Stand: Oktober 2026 · Grundlage: `train-home.js`, `game-cloud.js`, `entitlement
 eine Recherche zu Toca Boca World (früher Toca Life World), Sago Mini World, Avatar World,
 Pepi, Miga Town, den einzelnen Toca-Apps und weiteren Bauspielen (Abschnitt 3)
 
-> **Stand:** Konzept, nichts davon ist in der App gebaut. Zum Konzept gehört eine klickbare
-> **Stilprobe** (Artefakt «Gripszug Bauecke»; dieselbe Seite liegt als
-> `docs/bauecke-stilprobe.html` im Repo und geht nicht auf die Site): ein Haus im Querschnitt,
-> der Zug bringt Ziegel, ein Stockwerk wächst, Zimmer lassen sich wählen, malen und
-> einrichten, drei Tiere wohnen darin und haben Wünsche, dazu Lift, Tag und Nacht. Sie zeigt
-> Grafikstil und Bewegung, nicht die fertige Spielmechanik – ihr Code (Zeichnungen, Kamera,
-> Ziehen, Bildschleife) taugt aber als Vorlage für Etappe 1.
+> **Stand:** Etappe 1 ist gebaut – nach den Rückmeldungen vom 8. Oktober 2026, die das
+> Konzept an mehreren Stellen geändert haben: vier Häuser statt einem, ein Zimmer je
+> Stockwerk mit Zoom, Ziegel aus einem Rätsel-Knopf, ein festes Tier je Stockwerk mit
+> gelben, grünen und blauen Sternen. **Was gilt, steht im Abschnitt 0** gleich hier unten;
+> die Abschnitte 1, 2, 5 und 6 beschreiben das ursprüngliche Konzept und sind dort, wo
+> Abschnitt 0 etwas anderes sagt, überholt. Die Recherche (Abschnitt 3) und Grafik und
+> Bewegung (Abschnitt 7) gelten weiter.
+>
+> Zum Konzept gehört eine klickbare **Stilprobe** (Artefakt «Gripszug Bauecke»; dieselbe
+> Seite liegt als `docs/bauecke-stilprobe.html` im Repo und geht nicht auf die Site). Ihr
+> Code (Zeichnungen, Kamera, Ziehen, Bildschleife) war die Vorlage für die Umsetzung.
 > Gemessen wie die Reisekarte (Chromium, 1600 × 1068, doppelte Auflösung):
 > 10 Ebenen, davon 8 zeichnend, 18 Megapixel Ebenenfläche, 770 SVG-Knoten, 60 Bilder je
 > Sekunde, während die Tiere laufen. Die Reisekarte kam nach ihrer Kur auf 9 Ebenen und 16
 > Megapixel.
+
+---
+
+## 0. Die Umsetzung (Etappe 1)
+
+### 0.1 Was sich gegenüber dem Konzept geändert hat
+
+| Thema | Konzept | Umgesetzt (Rückmeldung vom 8. Oktober 2026) |
+| --- | --- | --- |
+| Häuser | ein Haus | **vier Häuser** an einer Strasse: Wohnhaus, Spital, Dorfzentrum (das öffentliche Gebäude) und Bürohaus. Beim ersten Besuch wählt das Kind, wo es anfängt; oben wechselt ein Umschalter jederzeit, ein Wischen zur Seite auch. |
+| Zimmer | zwei je Stockwerk | **eines je Stockwerk**. Ein Tipp zoomt es bildschirmfüllend heran, so gross wie möglich – zum genauen Einrichten. |
+| Anfang | Erdgeschoss und erster Stock fertig, Hase wohnt | jedes Haus hat sein Fundament und **ein leeres Stockwerk** (Rohbau); die Zimmerart wählt das Kind. |
+| Ziegel | einer je fertiger Runde, zehn je Stockwerk | ein **Rätsel-Knopf** öffnet ein zufälliges Rätsel; gelöst bringt es **eine Palette – genug für ein Stockwerk**. Nicht geschafft: ein anderes Rätsel. Zurück in der Bauecke bringt der Zug die Palette. |
+| Bewohner | ziehen nach Angebot ein, ein Wunsch je Tier, Herzen | **ein festes Tier je Stockwerk**, zieht mit der Zimmerart ein; wechselt nur, wenn das Kind es hinausschickt – dann kommt bald ein neues. **Sterne statt Herzen:** fünf gelbe (Zimmer), zwei grüne (eigenes Haus), ein blauer (anderes Haus). |
+| Wünsche | fest | ändern sich frühestens **am nächsten Kalendertag**, und nur, wenn alle gelben erfüllt sind: einer fällt weg, ein neuer kommt. |
+| Vorlesen | Lautsprecher-Knopf | alles, was man auswählt, wird vorgelesen (Haus, Zimmerart mit Erklärung, Ding, Farbe, Muster, Antworten der Tiere). Ein **Vorlesen-Schalter** neben dem Ton-Knopf schaltet die Stimme ganz ab. |
+| Zurücksetzen | Haus bleibt, Ziegelzählung neu | **Häuser und Ziegel bleiben** – auf dem Gerät und in der Cloud. |
+
+### 0.2 Die vier Häuser und ihre Zimmer
+
+Jede Zimmerart hat einen Satz, der erklärt, was dort geschieht; ein Tipp auf die Karte liest
+ihn vor. Im Spital lernt ein Kind so ganz nebenbei, was eine Radiologie oder eine
+Physiotherapie ist.
+
+| Haus | Zimmerarten |
+| --- | --- |
+| **Wohnhaus** (11) | Eingang, Wohnzimmer, Küche, Esszimmer, Schlafzimmer, Kinderzimmer, Badezimmer, Waschzimmer, Bastelzimmer, Terrasse, Keller |
+| **Spital** (14) | Empfang, Notfall, Kinderabteilung (Pädiatrie), Radiologie, Innere Medizin, Operationssaal, Geburtsabteilung, Labor, Physiotherapie, Bettenstation, Apotheke, Augenabteilung, Intensivstation, Cafeteria |
+| **Dorfzentrum** (20) | Eingangshalle, Lebensmittelladen, Bäckerei, Spielwarenladen, Kleiderladen, Blumenladen, Coiffeur, Bibliothek, Restaurant, Café, Spielplatz, Hallenbad, Turnhalle, Kino, Schulzimmer, Kita, Post, Musikzimmer, Toiletten, Velowerkstatt |
+| **Bürohaus** (11) | Empfang, Grossraumbüro, Einzelbüro, Sitzungszimmer, Druckerraum, WC, Cafeteria, Archiv, Computerraum, Atelier, Fitnessraum |
+
+Das Spital trägt ein weisses H auf Blau, nicht das rote Kreuz – das ist in der Schweiz
+geschützt. Auf seinem Dach landet ein Rettungshelikopter; das Dorfzentrum hat einen
+Uhrturm, das Bürohaus Sonnenkollektoren und eine Antenne, das Wohnhaus ein Satteldach mit
+Kamin.
+
+### 0.3 Gestalten
+
+- **207 Dinge in zehn Schubladen:** Sitzen und Liegen, Tische und Schränke, Küche, Bad und
+  Wäsche, Spital, Laden und Restaurant, Spielen und Sport, Büro und Lernen, Deko und Licht,
+  Leckereien. Davor die Schublade «Passt hierher» mit dem, was zur Zimmerart gehört, und
+  dem, was sich das Tier wünscht (mit Stern markiert).
+- **Hinein:** antippen stellt ein Ding an die freieste Stelle, es fällt von oben herein;
+  nach oben aus der Schublade ziehen stellt es dorthin, wo man loslässt. Waagrecht wischen
+  blättert durch die Schublade.
+- **Stapeln:** Kleine Dinge (Vase, Laptop, Tischlampe, Kuchen, Mikroskop …) landen auf der
+  Fläche darunter – Tisch, Kommode, Theke, Klavier. Wird der Tisch verschoben, wandert, was
+  darauf steht, mit. Was weiter unten im Bild steht, steht weiter vorn.
+- **Bearbeiten:** Ein Tipp auf ein Ding öffnet ein kleines Menü: zwölf Farben (wo es
+  sich umfärben lässt), umdrehen, kleiner, grösser, nach vorne, nach hinten, wegräumen.
+  Wegräumen geht auch per Ziehen in den roten Kübel. **Rückgängig** nimmt jeden Schritt
+  zurück.
+- **Wand und Boden:** 24 Farben, elf Wandmuster (Streifen, Punkte, Karos, Sterne, Herzen,
+  Blumen, Wellen, Backstein, Holz, Kacheln), sieben Böden (Parkett, Holzdielen, Plättli,
+  Teppichboden, Steinboden, Linoleum, Rasen) in jeder Farbe; Licht an und aus.
+- **Haus:** Fassade und Dach in jeder Farbe; Tag und Nacht (nachts schlafen die Tiere, die
+  Eule nicht, und die Lampen leuchten).
+
+### 0.4 Tiere und Sterne
+
+- **16 Tierarten:** die zwölf der App (Fuchs, Bär, Hase, Katze, Panda, Frosch, Eule,
+  Pinguin, Löwe, Maus, Eichhörnchen, Steinbock) und vier neue (Hund, Igel, Kuh, Elefant).
+  Jedes Tier hat einen Namen; Leo, Pino, Mia, Tim und Fred kennen die Kinder aus den Büchern
+  der Leseecke.
+- **Wer wo wohnt:** Mit der Zimmerart zieht ein Tier ein – möglichst eine Art, die im Haus
+  noch fehlt. Im Wohnhaus «wohnt» es, in den anderen Häusern «arbeitet» es. Es bleibt, bis
+  das Kind es hinausschickt («Ausziehen lassen» auf der Tafel, mit Rückfrage); nach gut
+  einer halben Minute kommt eine andere Art.
+- **Die Wünsche – acht Sterne je Stockwerk:**
+  - **gelb (5)** fürs eigene Zimmer, aus einer Liste je Zimmerart (im Schlafzimmer Bett,
+    Nachttisch, Schrank, Lampe, Vorhang …). Einer davon ist immer das, was die Tierart
+    besonders mag – ihr Lieblingsding (Panda: Bambus, Hase: Rüebli, Bär: Honig, Löwe:
+    Melone, Katze: Kratzbaum, Igel: Laubhaufen …) oder ihre Lieblingsfarbe («Ich mag Orange.
+    Malst du die Wand orange an?»).
+  - **grün (2)** fürs eigene Haus: ein Zimmer, das das Haus haben sollte («Im Wohnhaus
+    wünsche ich mir ein Badezimmer», «Im Spital wünsche ich mir eine Radiologie»); die
+    wichtigeren kommen öfter.
+  - **blau (1)** für ein anderes Haus, mit Begründung: «Im Dorfzentrum wünsche ich mir
+    einen Spielplatz. Dort spiele ich am Nachmittag.» So brauchen die vier Häuser einander.
+  - Ob ein Wunsch erfüllt ist, wird jedes Mal aus dem Haus ausgerechnet: Was weggeräumt
+    wird, ist auch nicht mehr erfüllt. Wünsche dürfen offen bleiben – es gibt keine Strafe,
+    nur weniger Sterne. Ein Tier ist nie traurig, höchstens «findet es noch ein bisschen
+    leer».
+- **Wo man die Sterne sieht:** an jedem Stockwerk eine Sterntafel am Lift, im Zimmer oben
+  neben dem Tier, im Umschalter die Summe je Haus, auf dem Startbild die Summe aller Häuser.
+- **Die Tier-Tafel** (Tipp auf Tier oder Sterne): wer es ist, wo es wohnt oder arbeitet,
+  wie zufrieden es ist, die acht Wünsche mit Bild und «Zeig mir» (öffnet die Schublade beim
+  passenden Ding, die Wandfarben oder das Haus, in dem das Zimmer fehlt), und ein kleines
+  Gespräch: elf Fragen mit Bild («Wie geht es dir?», «Was isst du gern?», «Erzähl mir von
+  dir!», «Erzähl einen Witz!» …). Die Antworten hängen von Laune, Wünschen, Tageszeit und dem
+  Steckbrief der Art ab.
+- **Unterwegs:** Tiere aus dem Wohnhaus sind etwa ein Drittel der Zeit bei der Arbeit oder
+  auf einem Ausflug – in einem Zimmer der anderen Häuser, am liebsten in dem, das sie sich
+  selbst gewünscht haben. Ihre Wohnung zeigt dann «Bin weg!», die Tafel sagt wo, und
+  «Hingehen» führt hin; dort steht das Tier als Besuch. Gerechnet wird in Viertelstunden,
+  für alle Geräte gleich.
+- **Zeit:** Ein neuer gelber Wunsch frühestens am nächsten Kalendertag und nur, wenn alle
+  gelben erfüllt sind; das Lieblingsding bleibt.
+
+### 0.5 Rätsel und Ziegel
+
+- **Der Rätsel-Knopf** zieht ein zufälliges Rätsel aus der Karte, auf der das Kind auf der
+  Reise gerade fährt, und aus der davor – mit denselben Aufträgen und derselben
+  Schwierigkeitsstufe wie dort (Entscheid 11). Nur die Strenge der Stufe «schwer» (drei
+  Sterne) gilt nicht: gelöst ist gelöst. Auf «leicht» kommen keine Spiele, die lesen
+  verlangen. Nicht zweimal dasselbe hintereinander, und wenn es geht ein anderes Spiel.
+- **Auf der Spielseite** heisst die Adresse `…?station=N&bau=1&spiel=…`. Alle 25 Spiele
+  verstehen sie über die Bühne (`game-shell.js`), die Rätselseiten (`app.js`) und
+  Tier-Sprung: Der Weg zurück führt in die Bauecke, statt «Noch einmal» gibt es den Würfel
+  «Anderes Rätsel», und es wird weder gestempelt noch ein Fehlversuch der Reise gezählt.
+  Eine Schnupperrunde verbraucht ein solches Rätsel nicht.
+- **Ziegel zählen:** Verdiente Paletten zählt jedes Gerät für sich
+  (`lernapp.bau.lieferung`, beim Zusammenführen je Gerät das Maximum); verbaut ist jedes
+  Stockwerk über dem ersten. Was übrig ist, ist die Differenz. Je Seitenaufruf gibt ein
+  Rätsel höchstens eine Palette.
+- **Die Lieferung:** Zurück in der Bauecke fährt der Zug mit einem Flachwagen vor, die
+  Paletten fliegen zum Ziegelzähler, dann fährt die Kamera zum grünen Plus über dem Dach.
+  Ein Tipp darauf: das Dach hebt sich, die Mauern wachsen, und die Zimmerwahl kommt.
+- **Die Schranke:** Ohne Kauf wächst jedes Haus bis zum **vierten Stockwerk**; dann steht
+  am Plus dieselbe Schranke wie vor den Spielen (`showGate`). Gestalten, Tiere und Wünsche
+  bleiben frei, «ganze App gratis» öffnet auch hier alles. Ohne Kauf kommen nur Rätsel von
+  Stationen, die ohnehin frei sind. **Bitte bestätigen** – das war die Empfehlung des
+  Konzepts, die Rückmeldung hat die Frage offen gelassen.
+
+### 0.6 Speichern
+
+- Der Kasten `lernapp.bau` (game-cloud.js): zuerst auf dem Gerät, angemeldet in der Cloud.
+  Gespeichert wird gebündelt (nach gut einer Sekunde Ruhe und beim Verlassen), damit ein
+  Sofa, das zehnmal hin- und hergeschoben wird, nicht zehnmal in die Cloud geht. Höchstens
+  20 Stockwerke je Haus und 40 Dinge je Zimmer: Selbst wenn alle vier Häuser bis oben voll
+  stehen, bleibt der Kasten bei gut 300 Kilobyte (validate-bau.mjs rechnet das nach) – im
+  Alltag sind es wenige Kilobyte.
+- **Zusammenführen** (zwei Geräte, oder ein Gast, der sich danach anmeldet): Jedes
+  Stockwerk hat eine eigene Kennung, und jedes, das eine Seite kennt, bleibt – so geht nie
+  ein eingerichtetes Zimmer verloren, auch wenn auf beiden Seiten im selben Stockwerk gebaut
+  wurde; dann steht eben eines mehr da. Dasselbe Stockwerk nimmt, was zuletzt geändert
+  wurde. Der unberührte Rohbau vom Anfang verdoppelt sich nicht, und Ziegel kommen dabei
+  keine dazu (übrig bleiben höchstens null). Wie überall in der App fliesst, was auf dem
+  Gerät steht, bei der nächsten Anmeldung ins Konto – auch das eines Geschwisters am selben
+  Tablet.
+- **Neuere Fassungen der App:** Der Kasten trägt eine Fassungsnummer (`FORMAT` in
+  bau-stand.js). Bringt ein Update neue Dinge, Zimmer, Tiere oder Farben, zählt es sie hoch
+  (validate-bau.mjs merkt, wenn der Katalog sich ändert, und erinnert daran). Ein Gerät, das
+  noch die ältere Fassung laufen hat, räumt einen neueren Kasten nicht auf – es würde
+  löschen, was es nicht kennt, und das in die Cloud schreiben. Es lässt ihn stehen, zeigt
+  «Die Bauecke wird gerade erneuert» und lädt gleich die neue Fassung.
+- **Zurücksetzen** lässt beide Kästen stehen (`keepOnReset` in game-cloud.js,
+  `BAU_KEEP_KEYS` in firebase.js) – auch in der Cloud.
+- Keine Regel in `firestore.rules` ist neu: Die Bauecke liegt im Spielstand des Kindes wie
+  alles andere.
+
+### 0.7 Dateien und Prüfungen
+
+| Datei | Was |
+| --- | --- |
+| `bau-moebel.js` *(neu)* | die 207 Dinge als SVG-Zeichnungen, mit Art, Fläche, Farbe und Wunsch-Tags |
+| `bau-katalog.js` *(neu)* | Häuser, 56 Zimmerarten mit Erklärung, Farben, Muster, Böden, Tiere mit Steckbrief, Wunschlisten, Fragen und Witze |
+| `bau-stand.js` *(neu)* | der Kasten, Zusammenführen, Ziegel, Bauen, Tiere, Wünsche und Sterne, Tageswechsel, unterwegs, Antworten |
+| `bau-art.js` *(neu)* | Haus, Zimmerhülle, Muster, Böden, Dächer, Lift mit Sterntafel, Tiere, Strasse, Lieferzug, Mini-Häuser |
+| `train-bau.js` *(neu)* | die Ansicht: Umschalter, Hausansicht mit Kamera, Zoom, Schublade, Ziehen, Menü, Tier-Tafel, Wahl-Fenster, Lieferung, Bauen |
+| `bau.css` *(neu)* | das Aussehen, für Tablet und Handy im Querformat |
+| `train-home.js` | Bauplatz rechts oben mit den vier Häusern, Ansicht `bau`, `?bau=1` |
+| `journey-plan.js` | Rätsel für die Bauecke (`bauRaetsel`, `bauUrlFor`, `bauGeschafft`), Kasten `lernapp.bau.lieferung` |
+| `game-shell.js`, `app.js`, `tiersprung.js` | Rätsel mit `bau=1`: Ziegel statt Stempel, Würfel, Rückweg |
+| `game-cloud.js`, `firebase.js` | `keepOnReset`; Bauecke beim Zurücksetzen behalten |
+| `kids.js`, `styles.css` | Vorlesen-Schalter neben dem Ton (nur auf dem Startbild: Die Spielseiten halten oben rechts genau Platz für zwei feste Knöpfe) |
+| `scripts/validate-bau.mjs` *(neu)* | ohne Browser: Katalog, Erfüllbarkeit aller Wünsche für jede Tierart in jedem Zimmer, Sterne, Schranke, Tageswechsel, Auszug und Einzug, unterwegs, Zusammenführen (auch zwei Geräte im selben Stockwerk), Speichern ohne neuen Stand, neuere Fassung, Fingerabdruck des Katalogs, Rätselauswahl je Stufe, Adressen, Einbau |
+| `scripts/check-bau.mjs` *(neu)* | im Browser auf Tablet und Handy: Bauplatz, Hauswahl, Zimmerwahl mit Vorlesen, Ziehen, Stapeln (auch mit Speichern mitten im Ziehen), Rückgängig, Malen, Menü, Tafel, Rätsel-Knopf, Lieferung, Bauen, Neuladen, Vorlesen aus, zweiter Besuch, neuere Fassung |
+
+### 0.8 Was als Nächstes kommen kann
+
+- **Häuser der Geschwister ansehen** (Entscheid 12: nur ansehen) – über die Gruppe, wie die
+  Züge der anderen.
+- **Mehr Leben:** der Lift fährt Besuch hinauf, Tiere setzen sich aufs Sofa und legen sich
+  ins Bett, Kinder spielen auf dem Spielplatz, der Briefkasten bringt Post.
+- **Mehr Dinge und Zimmer**, wo Kinder sie vermissen; eine Uhr, die die echte Zeit zeigt.
+- **Auf echten Geräten messen** (Xiaomi Pad 7, ein älteres Handy): Bildrate beim Ziehen und
+  beim Zoom, Ebenen wie bei der Reisekarte.
 
 ---
 
@@ -29,6 +211,8 @@ spielen, wünschen sich Dinge und freuen sich, wenn das Haus zu ihnen passt; die
 neue Stockwerke bringt der Zug, wenn das Kind übt.
 
 ## 2. Auf einen Blick
+
+> Ursprüngliches Konzept – wo Abschnitt 0 etwas anderes sagt, gilt Abschnitt 0.
 
 Die Schleife hat fünf Schritte:
 
@@ -282,6 +466,9 @@ Bild.
 
 ## 5. Die Bauecke selbst
 
+> Ursprüngliches Konzept (zwei Zimmer je Stockwerk, Herzen, ein Wunsch je Tier) – umgesetzt
+> ist, was Abschnitt 0 beschreibt.
+
 ### 5.1 Das Haus im Querschnitt
 
 Die Puppenhaus-Ansicht, die Toca Boca für jeden Ort benutzt und die der Lesewagen schon hat:
@@ -454,6 +641,9 @@ davor: Keine Frage muss beantwortet werden, um etwas zu bauen.
 ---
 
 ## 6. Fortschritt und Speichern
+
+> Ursprüngliches Konzept (Ziegel aus jeder Runde) – umgesetzt sind Paletten aus dem
+> Rätsel-Knopf, siehe Abschnitt 0.5 und 0.6.
 
 ### Woher die Ziegel kommen
 
@@ -630,6 +820,8 @@ fliegende Ziegel und Herzen hat keine eigene Fläche.
 
 ## 8. Technik und Umsetzung
 
+> Der Plan vor der Umsetzung. Was tatsächlich dazugekommen ist, steht in Abschnitt 0.7.
+
 ### Was dazukommt
 
 | Datei | Was |
@@ -677,21 +869,21 @@ technische Weg bestätigt.
 
 ---
 
-## 9. Offene Entscheidungen
+## 9. Entscheidungen
 
-Mit meiner Empfehlung, damit die Umsetzung nicht daran hängen bleibt:
+Die Fragen des Konzepts, mit der Antwort aus der Rückmeldung vom 8. Oktober 2026:
 
-| # | Frage | Empfehlung |
+| # | Frage | Entschieden |
 | --- | --- | --- |
-| 1 | Name | «Bauecke» – wie die Bauecke im Kindergarten, neben der Leseecke. Im Code `bau` (`lernapp.bau`, `train-bau.js`, Ansicht `bau`); gesprochen «dein Haus». Andere Möglichkeiten: «Das Haus am Gleis», «Gripshaus». |
-| 2 | Ort | Bauplatz rechts auf dem Startbild, gegenüber dem Lesewagen. |
-| 3 | Woher die Ziegel kommen | aus allen fertigen Runden: Zug, Leseecke und Reise. Ein Ziegel je Runde, egal wie gut – keine Ziegel für Tempo oder Sterne (3.4). |
-| 4 | Was ein Stockwerk kostet | immer zehn Ziegel – eine volle Palette. Steigende Preise sind für Vierjährige nicht zu durchschauen. |
-| 5 | Startgeschenk | Erdgeschoss und erster Stock fertig, der Hase wohnt darin, zehn Ziegel liegen bereit. |
-| 6 | Gestalten frei? | ja, alles im gebauten Haus, so oft das Kind will. |
-| 7 | Ziehen Tiere aus? | nein, nie. |
-| 8 | Wer wohnt im Haus? | die Tiere der App, keine Menschen-Avatare. |
-| 9 | Schranke | ohne Kauf wächst das Haus bis zum vierten Stock, dann steht am Kran die Schranke. Gestalten, Einziehen und Wünsche bleiben frei. (Ohne Grenze gäbe die beliebig oft spielbare erste Reisekarte unbegrenzt Ziegel.) |
-| 10 | Zurücksetzen | das Haus bleibt, die Ziegelzählung beginnt neu. |
-| 11 | Elterneinstellung? | erst einmal keine. Beobachten, ob Kinder in der Bauecke hängen bleiben; dann wäre «Bauecke erst nach einer Runde Üben» eine kleine Ergänzung im Elternbereich. |
-| 12 | Häuser der Geschwister | ansehen ja (Etappe 3), ändern oder beschenken nein. |
+| 1 | Name | «Bauecke». Im Code `bau` (`lernapp.bau`, `train-bau.js`, Ansicht `bau`). |
+| 2 | Ort | rechts oben auf dem Startbild, gegenüber dem Lesewagen; die vier Häuser sind dort zu sehen, mit ihrem Fortschritt. |
+| 3 | Woher die Ziegel kommen | aus dem Rätsel-Knopf: ein gelöstes Rätsel, eine Palette. |
+| 4 | Was ein Stockwerk kostet | eine Palette, also ein Rätsel – die Hürde soll niedrig sein. |
+| 5 | Startgeschenk | alle vier Häuser mit Fundament und je einem leeren Stockwerk, dessen Zimmerart das Kind wählt. Weitere Stockwerke brauchen Ziegel. |
+| 6 | Gestalten frei? | ja, ganz frei. Wünsche dürfen offen bleiben – keine Folgen, nur weniger Sterne. |
+| 7 | Ziehen Tiere aus? | nie von selbst. Nur, wenn das Kind ein Tier hinausschickt; dann kommt bald ein neues. |
+| 8 | Wer wohnt im Haus? | die Tiere der App, dazu neue (Hund, Igel, Kuh, Elefant). |
+| 9 | Schranke | in der Rückmeldung offen geblieben. Umgesetzt ist die Empfehlung: ohne Kauf bis zum vierten Stockwerk je Haus, dann die Schranke; Gestalten, Tiere und Wünsche frei. **Noch zu bestätigen.** |
+| 10 | Zurücksetzen | Häuser und Ziegel bleiben, nichts geht verloren. |
+| 11 | Elterneinstellung? | erst einmal keine. Die Rätsel richten sich nach der Schwierigkeit des Kindes in der übrigen App. |
+| 12 | Häuser der Geschwister | nur ansehen (nächste Etappe). |

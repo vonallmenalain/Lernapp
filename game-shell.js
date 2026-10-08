@@ -71,6 +71,19 @@
       art().el("rect", { x: 4, y: 3, width: 3, height: 18, rx: 1.2, fill: "currentColor" }),
       art().el("path", { d: "M7 4h11l-3 4 3 4H7z", fill: "currentColor", opacity: "0.85" }),
     ],
+    // Das Haus mit Ziegeln: der Weg zurück in die Bauecke.
+    bau: () => [
+      art().el("path", { d: "M3.5 11.5 12 4.5l8.5 7", fill: "none", stroke: "currentColor", "stroke-width": 2.4, "stroke-linecap": "round", "stroke-linejoin": "round" }),
+      art().el("path", { d: "M6 10.5V20h12v-9.5", fill: "none", stroke: "currentColor", "stroke-width": 2.2, "stroke-linejoin": "round" }),
+      art().el("path", { d: "M6 14.5h12M6 17.5h12M10 14.5v3M14 11.5v3M12 17.5v2.5", fill: "none", stroke: "currentColor", "stroke-width": 1.5 }),
+    ],
+    // Ein Würfel: ein anderes Rätsel.
+    dice: () => [
+      art().el("rect", { x: 4, y: 4, width: 16, height: 16, rx: 4, fill: "none", stroke: "currentColor", "stroke-width": 2.2 }),
+      art().el("circle", { cx: 8.5, cy: 8.5, r: 1.6, fill: "currentColor" }),
+      art().el("circle", { cx: 12, cy: 12, r: 1.6, fill: "currentColor" }),
+      art().el("circle", { cx: 15.5, cy: 15.5, r: 1.6, fill: "currentColor" }),
+    ],
     // Die Karte: das Zeichen der Reise, für den Weg zurück.
     map: () => [
       art().el("path", { d: "M4 17 C8 17 8 7 12 7 S16 17 20 17", fill: "none", stroke: "currentColor", "stroke-width": 2.4, "stroke-linecap": "round" }),
@@ -113,7 +126,11 @@
     // gehört. Dann führt jeder Weg zurück auf die Karte.
     const journey = reise()?.fromLocation?.() || null;
     if (journey) host.dataset.journey = String(journey.nr);
-    const mapHref = journey ? reise().mapUrl(journey.nr) : null;
+    // Ein Rätsel aus der Bauecke: kein Stempel, sondern Ziegel – und der Weg
+    // zurück führt in die Bauecke statt auf die Karte.
+    const bau = Boolean(journey?.bau);
+    if (bau) host.dataset.bau = "1";
+    const mapHref = journey ? (bau ? reise().bauUrl() : reise().mapUrl(journey.nr)) : null;
     // Noch eine Runde? Ohne Kauf ist nach der ersten Schluss – dann steht hier
     // das Tor statt eines neuen Spiels. Wer auf der Reise ist, spielt weiter:
     // Dort entscheidet die Station, nicht das Spiel.
@@ -150,6 +167,14 @@
       window.location.href = mapHref;
     }
 
+    // Nicht geschafft? In der Bauecke heisst noch einmal versuchen: ein
+    // anderes Rätsel, nicht dasselbe noch einmal.
+    function anderesRaetsel() {
+      stopClock();
+      const naechstes = reise()?.bauRaetsel?.({ ausser: journey });
+      window.location.href = naechstes ? reise().bauUrlFor(naechstes) : mapHref;
+    }
+
     // --- Hintergrund: die Landschaft der Startseite --------------------------
     if (scenes()) host.append(scenes().buildScene(scenes().savedScene()));
 
@@ -172,13 +197,19 @@
     // einem Spiel mit Levelwahl erst dorthin, sonst gleich in die Spielauswahl
     // des Bereichs. onBack meldet mit true, dass es die Stufe selbst genommen
     // hat.
-    left.append(iconButton(journey ? "map" : "back", journey ? "Zurück zur Karte" : "Zurück zur Auswahl", journey ? ICONS.map() : ICONS.back(), () => {
+    const zurueck = bau
+      ? { name: "bau", label: "Zurück zur Bauecke", icon: ICONS.bau() }
+      : journey
+        ? { name: "map", label: "Zurück zur Karte", icon: ICONS.map() }
+        : { name: "back", label: "Zurück zur Auswahl", icon: ICONS.back() };
+    left.append(iconButton(zurueck.name, zurueck.label, zurueck.icon, () => {
       stopClock();
       if (journey) { toMap(); return; }
       if (onBack?.()) return;
       window.location.href = `index.html?bereich=${encodeURIComponent(area)}`;
     }));
-    left.append(iconButton("again", "Neu starten", ICONS.again(), () => { stopClock(); nochEinmal(); }));
+    if (bau) left.append(iconButton("dice", "Ein anderes Rätsel", ICONS.dice(), anderesRaetsel));
+    else left.append(iconButton("again", "Neu starten", ICONS.again(), () => { stopClock(); nochEinmal(); }));
     bar.append(left, el("h1", "cm-title", title));
 
     // Dezent oben rechts: wie viel bisher geschafft ist. Beim Karten-Merker ist
@@ -340,7 +371,26 @@
         const need = Math.max(1, Math.min(3, Number(journey.needStars) || 1));
         const got = Number(stars) || 0;
         const won = journey.kind === "score" ? scored && points >= journey.target : got >= need;
-        if (won) {
+        if (bau) {
+          // Die Bauecke: geschafft heisst eine Palette Ziegel, und der Zug
+          // bringt sie, sobald das Kind zurück ist. Nicht geschafft kostet
+          // nichts – es kommt einfach ein anderes Rätsel.
+          if (won) {
+            reise().bauGeschafft?.(journey);
+            journeyNote = {
+              done: true,
+              text: "Geschafft! Der Zug bringt dir Ziegel für ein neues Stockwerk.",
+              speech: "Geschafft! Der Zug bringt dir Ziegel für ein neues Stockwerk. Tippe auf das Haus, und es geht zurück in die Bauecke.",
+            };
+            kids()?.playJingle?.("unlock");
+          } else {
+            journeyNote = {
+              done: false,
+              text: `Rätsel: ${journey.label} – diesmal noch nicht. Probier ein anderes!`,
+              speech: "Diesmal hat es noch nicht gereicht. Tippe auf den Würfel, dann kommt ein anderes Rätsel.",
+            };
+          }
+        } else if (won) {
           const runStars = journey.kind === "score"
             ? (points >= journey.gut ? 3 : points >= journey.gut / 2 ? 2 : 1)
             : Math.max(1, Math.min(3, Number(stars) || 1));
@@ -428,17 +478,24 @@
       if (note) parts.push(el("p", `cm-runs${note.done ? " is-done" : ""}`, note.text));
 
       const actions = el("div", "cm-actions");
-      actions.append(iconButton("again", "Noch einmal", ICONS.again(), () => { closeOverlay(); nochEinmal(); }, "big"));
-      if (journey) {
-        // Zurück auf die Karte – der Stempel wartet dort. Bei geschafftem
-        // Auftrag ist das der Knopf, der pulst.
-        actions.append(iconButton("map", "Zurück zur Karte", ICONS.map(), toMap, `big${journeyNote?.done ? " is-primary" : ""}`));
+      if (bau) {
+        // Geschafft: nur noch zurück in die Bauecke, dort wartet der Zug.
+        // Nicht geschafft: ein anderes Rätsel – oder zurück.
+        if (!journeyNote?.done) actions.append(iconButton("dice", "Ein anderes Rätsel", ICONS.dice(), anderesRaetsel, "big is-primary"));
+        actions.append(iconButton("bau", "Zurück zur Bauecke", ICONS.bau(), toMap, `big${journeyNote?.done ? " is-primary" : ""}`));
       } else {
-        actions.append(iconButton("back", "Zurück zur Auswahl", ICONS.back(), () => {
-          stopClock();
-          if (onBack) { closeOverlay(); onBack(); return; }
-          window.location.href = `index.html?bereich=${encodeURIComponent(area)}`;
-        }, "big"));
+        actions.append(iconButton("again", "Noch einmal", ICONS.again(), () => { closeOverlay(); nochEinmal(); }, "big"));
+        if (journey) {
+          // Zurück auf die Karte – der Stempel wartet dort. Bei geschafftem
+          // Auftrag ist das der Knopf, der pulst.
+          actions.append(iconButton("map", "Zurück zur Karte", ICONS.map(), toMap, `big${journeyNote?.done ? " is-primary" : ""}`));
+        } else {
+          actions.append(iconButton("back", "Zurück zur Auswahl", ICONS.back(), () => {
+            stopClock();
+            if (onBack) { closeOverlay(); onBack(); return; }
+            window.location.href = `index.html?bereich=${encodeURIComponent(area)}`;
+          }, "big"));
+        }
       }
       parts.push(actions);
       panel(parts);
