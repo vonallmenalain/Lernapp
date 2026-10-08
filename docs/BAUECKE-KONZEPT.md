@@ -7,7 +7,8 @@ eine Recherche zu Toca Boca World (früher Toca Life World), Sago Mini World, Av
 Pepi, Miga Town, den einzelnen Toca-Apps und weiteren Bauspielen (Abschnitt 3)
 
 > **Stand:** Etappe 2 ist gebaut – nach der zweiten Rückmeldung vom 8. Oktober 2026:
-> Wohnungen mit bis zu drei Tieren, zwei Zimmer auf jedem anderen Stockwerk, eigene Dinge
+> Wohnungen mit bis zu drei Tieren, zwei Zimmer auf den übrigen Stockwerken des Wohnhauses
+> (Spital, Dorf und Büro behalten eines je Stockwerk), eigene Dinge
 > für jedes Zimmer, Traumjobs, ein Einzug mit Lift und Feuerwerk, Stockwerke umstellen, die
 > Bauecke je Konto. **Was gilt, steht im Abschnitt 0** (Etappe 2) und, wo der nichts
 > anderes sagt, im Abschnitt 0E1 (Etappe 1); die Abschnitte 1, 2, 5 und 6 beschreiben das
@@ -33,7 +34,7 @@ Pepi, Miga Town, den einzelnen Toca-Apps und weiteren Bauspielen (Abschnitt 3)
 | Namen | Dorfzentrum, Bürohaus | **Dorf** und **Büro** |
 | Speichern | ein Kasten auf dem Gerät, bei der Anmeldung ins Konto | **je Konto ein eigener Stand** – auf dem Gerät und in der Cloud. Abmelden und mit einem anderen Konto anmelden lädt dessen Stand, nichts vom vorigen. Die Ziegel ebenso. |
 | Wohnen | ein Tier je Stockwerk, in jedem Zimmer | gewohnt wird nur in **Wohnungen** (Schlafzimmer oder Kinderzimmer), mit **bis zu drei Tieren**. Das Wohnhaus beginnt mit **drei leeren Wohnungen**; ein Tipp fragt nur noch: Schlafzimmer oder Kinderzimmer? |
-| Stockwerke | ein Zimmer je Stockwerk | alle anderen Stockwerke haben **zwei Zimmer** nebeneinander. Ein neues Stockwerk im Wohnhaus fragt zuerst: Wohnung oder zwei Zimmer? Die anderen Häuser haben immer zwei. |
+| Stockwerke | ein Zimmer je Stockwerk | im **Wohnhaus** ist ein Stockwerk eine Wohnung oder hat **zwei Zimmer** nebeneinander, in denen niemand wohnt (Küche, Bad …); ein neues Stockwerk fragt zuerst: Wohnung oder zwei Zimmer? **Spital, Dorf und Büro** behalten ein Zimmer je Stockwerk. |
 | Reihenfolge | fest | **Stockwerke umstellen**: der Pfeil-Knopf zeigt an jedem Stockwerk Pfeile nach oben und unten – so kommt der Eingang nach unten. |
 | Dinge | 207 Dinge in zehn Schubladen, für alle Zimmer gleich | **832 Dinge**; **jedes Zimmer hat seine eigenen** (mindestens zehn, die es nur dort gibt, im Schnitt 13). Im Eingang steht kein Bett, im Schlafzimmer kein WC. Überall gibt es nur Deckenlampe, Stehlampe, Bild, Fenster, Pflanze, Uhr und Teppich – und das **Bild zeigt in jedem Zimmer sein eigenes Motiv** (Bäckerei eine Brezel, Radiologie ein Röntgenbild, Kinderzimmer einen Teddy …). |
 | Wünsche | 5 gelbe, 2 grüne, 1 blauer je Tier | **2 gelbe, 1 grüner, 2 blaue** je Tier – je Wohnung also höchstens 6 gelbe, 3 grüne und 6 blaue Sterne. |
@@ -71,18 +72,19 @@ Pepi, Miga Town, den einzelnen Toca-Apps und weiteren Bauspielen (Abschnitt 3)
 
 ### 0.3 Häuser, Stockwerke, Zimmer
 
-| Haus | Wohnungen | Zimmer für zwei |
+| Haus | Stockwerke | Zimmerarten |
 | --- | --- | --- |
-| **Wohnhaus** | Schlafzimmer, Kinderzimmer | Eingang, Wohnzimmer, Küche, Esszimmer, Badezimmer, Waschzimmer, Bastelzimmer, Terrasse, Keller |
-| **Spital** | – | die 14 Abteilungen aus Etappe 1 |
-| **Dorf** | – | die 20 Zimmer aus Etappe 1 |
-| **Büro** | – | die 11 Zimmer aus Etappe 1 |
+| **Wohnhaus** | Wohnung (ein Zimmer, bis drei Tiere) oder zwei Zimmer nebeneinander | Wohnungen: Schlafzimmer, Kinderzimmer. Zimmer für zwei: Eingang, Wohnzimmer, Küche, Esszimmer, Badezimmer, Waschzimmer, Bastelzimmer, Terrasse, Keller |
+| **Spital** | ein Zimmer je Stockwerk | die 14 Abteilungen aus Etappe 1 |
+| **Dorf** | ein Zimmer je Stockwerk | die 20 Zimmer aus Etappe 1 |
+| **Büro** | ein Zimmer je Stockwerk | die 11 Zimmer aus Etappe 1 |
 
-- **Anfang:** das Wohnhaus mit drei leeren Wohnungen, die anderen Häuser mit einem
-  Stockwerk für zwei Zimmer. Die Stockwerke vom Anfang kosten keine Ziegel; die Schranke
-  (ohne Kauf) steht weiter beim vierten Stockwerk – im Wohnhaus also nach einem gebauten.
-- **Zimmer für zwei** sind halb so breit (280 statt 560 Zimmer-Einheiten), passen 20 Dinge
-  (die Wohnung 40) und zoomen genauso bildschirmfüllend.
+- **Anfang:** das Wohnhaus mit drei leeren Wohnungen, die anderen Häuser mit einem leeren
+  Zimmer. Die Stockwerke vom Anfang kosten keine Ziegel; die Schranke (ohne Kauf) steht
+  weiter beim vierten Stockwerk – im Wohnhaus also nach einem gebauten.
+- **Zimmer für zwei** (nur im Wohnhaus) sind halb so breit (280 statt 560
+  Zimmer-Einheiten), passen 20 Dinge (ein ganzes Zimmer 40) und zoomen genauso
+  bildschirmfüllend.
 - **Die Dinge** stehen je Zimmerart in neun Dateien `bau-moebel-<gruppe>.js` (wohnen, haus,
   spital, station, laeden, dienste, freizeit, buero, arbeit); jede meldet ihre Dinge, die
   Zimmerlisten und die Bildmotive bei `bau-moebel.js` an (`dazu()`). Die Schublade hat die
@@ -105,8 +107,9 @@ Pepi, Miga Town, den einzelnen Toca-Apps und weiteren Bauspielen (Abschnitt 3)
   (`lernapp.bau.getrennt`), und kein weiteres Konto bekommt etwas davon.
 - **Fassung 2** (`FORMAT` in bau-stand.js): Ein Stand der Etappe 1 wird beim Laden
   übertragen – Schlaf- und Kinderzimmer werden Wohnungen mit ihrem Tier (es bekommt die
-  neuen Wünsche und einen Traumjob), alle anderen Zimmer stehen links auf einem Stockwerk
-  für zwei (die Dinge rücken zusammen, mehr als 20 passen nicht); Tiere in anderen Zimmern
+  neuen Wünsche und einen Traumjob), die anderen Zimmer des Wohnhauses stehen links auf
+  einem Stockwerk für zwei (die Dinge rücken zusammen, mehr als 20 passen nicht); in
+  Spital, Dorf und Büro bleibt jedes Zimmer, wie es war. Tiere ausserhalb der Wohnungen
   ziehen aus. Eine App der Etappe 1 räumt einen Stand der Fassung 2 nicht auf, sondern
   wartet auf die neue Fassung.
 - Selbst wenn alle vier Häuser bis oben voll stehen, bleibt der Kasten unter 400 Kilobyte
@@ -119,7 +122,7 @@ Pepi, Miga Town, den einzelnen Toca-Apps und weiteren Bauspielen (Abschnitt 3)
 | `bau-moebel-*.js` *(neu, 9)* | 624 neue Dinge, die Zimmerlisten und die Bildmotive |
 | `bau-moebel.js` | `dazu()`, `UEBERALL`, `RAUM_DINGE`, `MOTIVE`; das Bild zeigt das Motiv des Zimmers |
 | `bau-katalog.js` | Dorf und Büro, Wohnungen (`WOHNEN`), Jobs (`JOBS`), Lieblingsdinge, `dingeFuer`; ohne Gespräch |
-| `bau-stand.js` | Fassung 2: Wohnungen und Stockwerke für zwei, bis drei Tiere, Wünsche 2/1/2, Traumjob und Jobs, Aufenthalt, Einzug mit der Zeit, Umstellen, je Konto, Übertragung von Fassung 1 |
+| `bau-stand.js` | Fassung 2: Wohnungen und Stockwerke für zwei (Wohnhaus), ein Zimmer je Stockwerk (sonst), bis drei Tiere, Wünsche 2/1/2, Traumjob und Jobs, Aufenthalt, Einzug mit der Zeit, Umstellen, je Konto, Übertragung von Fassung 1 |
 | `bau-art.js`, `train-bau.js`, `bau.css` | Zimmer halb und ganz, Sterntafel je Tier, Lift-Kabine, Einzug mit Feuerwerk, Umstellen, Stift, Tafel mit Mitbewohnern und Hingehen, Vorlesen per Tipp |
 | `game-cloud.js`, `journey-plan.js`, `firebase.js` | `registerProKonto`; Ziegel je Konto; die neuen Fächer überstehen das Zurücksetzen |
 | `scripts/validate-bau.mjs` | eigene Dinge je Zimmer, Motive, Erfüllbarkeit, Wohnungen und Einzug, Sterne 6/3/6, Jobs, Aufenthalt, Umstellen, Konten, Übertragung, Grösse, Fingerabdruck |

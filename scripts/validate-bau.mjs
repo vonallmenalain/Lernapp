@@ -20,8 +20,9 @@
  *                mit dem, was in der Schublade liegt. Je Wohnung höchstens
  *                sechs gelbe, drei grüne und sechs blaue Sterne.
  *   Stockwerke   Im Wohnhaus wählt das Kind beim Bauen: Wohnung oder zwei
- *                Zimmer; die anderen Häuser haben immer zwei. Die Reihenfolge
- *                lässt sich ändern und übersteht das Zusammenführen.
+ *                Zimmer; Spital, Dorf und Büro haben ein Zimmer je Stockwerk.
+ *                Die Reihenfolge lässt sich ändern und übersteht das
+ *                Zusammenführen.
  *   Arbeit       Jedes Tier hat einen Traumjob. Gibt es das Zimmer und ist
  *                dort Platz, arbeitet es dort, sonst irgendwo; höchstens drei
  *                Tiere im selben Zimmer.
@@ -288,7 +289,7 @@ function erfuelleGelbe(S, hausId, index) {
   pruefe(wh.length === 3 && wh.every((s) => s.art === "wohnung" && s.zimmer.length === 1 && !s.zimmer[0].raum && !s.tiere.length), "das Wohnhaus beginnt nicht mit drei leeren Wohnungen");
   for (const id of ["spital", "zentrum", "buero"]) {
     const st = leer.haeuser[id].stock;
-    pruefe(st.length === 1 && st[0].art === "zwei" && st[0].zimmer.length === 2 && st[0].zimmer.every((z) => !z.raum), `${id} beginnt nicht mit einem Stockwerk für zwei Zimmer`);
+    pruefe(st.length === 1 && st[0].art === "eins" && st[0].zimmer.length === 1 && !st[0].zimmer[0].raum, `${id} beginnt nicht mit einem leeren Zimmer`);
   }
   pruefe(S.paletten() === 0 && !S.kannBauen("wohnhaus").ok && S.kannBauen("wohnhaus").grund === "ziegel", "ohne Ziegel lässt sich bauen");
   pruefe(S.verbaut() === 0, "die Stockwerke vom Anfang kosten Ziegel");
@@ -355,13 +356,14 @@ function erfuelleGelbe(S, hausId, index) {
   pruefe(S.waehleRaum("wohnhaus", i, 1, gruen.raum) === true, `${gruen.raum} lässt sich nicht wählen`);
   pruefe(S.stock("wohnhaus", i).tiere.length === 0, "in ein Zimmer für zwei zieht ein Tier ein");
   pruefe(S.sterne(tier.seed).gruen.every(Boolean), "der grüne Wunsch geht mit dem Zimmer nicht in Erfüllung");
-  // Blau: die Zimmer in den anderen Häusern (dort sind die Plätze vom Anfang frei).
-  const belegt = {};
+  // Blau: die Zimmer in den anderen Häusern – im leeren Stockwerk vom Anfang,
+  // sonst in einem neuen.
+  let gebaut = 0;
   for (const w of S.wuensche(tier.seed).filter((x) => x.stern === "blau")) {
-    const slot = belegt[w.haus] || 0;
-    belegt[w.haus] = slot + 1;
-    if (slot < 2) S.waehleRaum(w.haus, 0, slot, w.raum);
-    else { const j = S.baueStockwerk(w.haus); S.waehleRaum(w.haus, j, 0, w.raum); }
+    const frei = S.haus(w.haus).stock.findIndex((x) => !x.zimmer[0].raum);
+    const j = frei >= 0 ? frei : S.baueStockwerk(w.haus);
+    if (frei < 0) gebaut += 1;
+    pruefe(S.stock(w.haus, j).art === "eins" && S.waehleRaum(w.haus, j, 0, w.raum) === true, `${w.raum}: im ${w.haus} lässt sich kein Zimmer einrichten`);
   }
   const st = S.sterne(tier.seed);
   pruefe(st.anzahl === 5 && st.total === 5, `alle Wünsche erfüllt, aber ${st.anzahl} von ${st.total} Sternen`);
@@ -370,7 +372,7 @@ function erfuelleGelbe(S, hausId, index) {
   S.aendereZimmer("wohnhaus", 0, 0, (z) => { z.dinge = []; z.wand = "creme"; });
   pruefe(S.sterne(tier.seed).anzahl < 5, "weggeräumt, aber der Stern bleibt");
   pruefe(S.laune(tier.seed).text, "ohne Sterne keine Laune");
-  pruefe(S.verbaut() === 1, `Ziegel: ${S.verbaut()} verbaut statt 1`);
+  pruefe(S.verbaut() === 1 + gebaut, `Ziegel: ${S.verbaut()} verbaut statt ${1 + gebaut}`);
 }
 
 // Die Schranke: ohne Kauf bis zum vierten Stockwerk, mit Kauf bis zwanzig.
@@ -380,6 +382,9 @@ function erfuelleGelbe(S, hausId, index) {
   pruefe(S.haus("spital").stock.length === S.STOCK_OHNE_KAUF && S.kannBauen("spital").grund === "schranke", `ohne Kauf: ${S.haus("spital").stock.length} Stockwerke im Spital, Grund ${S.kannBauen("spital").grund}`);
   S.baueStockwerk("wohnhaus");
   pruefe(S.haus("wohnhaus").stock.length === S.STOCK_OHNE_KAUF && !S.kannBauen("wohnhaus").ok, "ohne Kauf wächst das Wohnhaus über das vierte Stockwerk");
+  pruefe(S.haus("spital").stock.every((x) => x.art === "eins" && x.zimmer.length === 1), "im Spital hat ein neues Stockwerk nicht ein Zimmer");
+  pruefe(!S.waehleArt("spital", 1, "zwei"), "im Spital lässt sich ein Stockwerk für zwei Zimmer wählen");
+  pruefe(S.waehleRaum("spital", 1, 1, "labor") === null && S.waehleRaum("spital", 1, 0, "labor") === true, "im Spital gibt es einen zweiten Platz im Stockwerk");
   const mitKauf = standUmgebung({ paletten: 40, frei: true }).S;
   while (mitKauf.kannBauen("buero").ok) mitKauf.baueStockwerk("buero");
   pruefe(mitKauf.haus("buero").stock.length === mitKauf.STOCK_MAX && mitKauf.kannBauen("buero").grund === "voll", "mit Kauf: das Haus wächst nicht bis zur Höchstzahl");
@@ -447,7 +452,7 @@ function erfuelleGelbe(S, hausId, index) {
   // Alle wünschen sich die Arbeit in der Bibliothek.
   for (let i = 0; i < 3; i += 1) S.aendereStock("wohnhaus", i, (st) => st.tiere.forEach((t) => { t.traum = "zentrum:bibliothek"; }));
   S.waehleRaum("zentrum", 0, 0, "bibliothek");
-  S.waehleRaum("zentrum", 0, 1, "baeckerei");
+  S.waehleRaum("zentrum", S.baueStockwerk("zentrum"), 0, "baeckerei");
   const jobs = alle.map((e) => S.jobVon(e.tier.seed));
   const traum = jobs.filter((j) => j?.traum);
   pruefe(traum.length === 3 && traum.every((j) => j.raum === "bibliothek"), `${traum.length} statt drei Tiere im Traumjob`);
@@ -507,6 +512,7 @@ function erfuelleGelbe(S, hausId, index) {
   const tiere = S.alleTiere().length;
   pruefe(tiere >= 20, `der volle Stand hat nur ${tiere} Tiere`);
   const bytes = JSON.stringify(S.lesen()).length;
+  if (process.env.GROESSE) console.log(`voller Stand: ${Math.round(bytes / 1000)} KB`);
   pruefe(bytes < 400000, `der volle Spielstand ist ${Math.round(bytes / 1000)} KB gross – zu viel fürs Kontodokument`);
 }
 
@@ -518,7 +524,7 @@ function erfuelleGelbe(S, hausId, index) {
   // Beide richten im Spital im Stockwerk vom Anfang ein Zimmer ein.
   A.waehleRaum("spital", 0, 0, "notfall");
   A.aendereZimmer("spital", 0, 0, (z) => z.dinge.push({ k: "x1", i: K.dingeFuer("notfall")[0], x: 100, y: 230 }));
-  B.waehleRaum("spital", 0, 1, "labor");
+  B.waehleRaum("spital", 0, 0, "labor");
   B.waehleRaum("wohnhaus", 1, 0, "kinderzimmer");
   const ab = A.merge(A.lesen(), B.lesen());
   const ba = A.merge(B.lesen(), A.lesen());
@@ -530,20 +536,25 @@ function erfuelleGelbe(S, hausId, index) {
   pruefe(ab.haeuser.wohnhaus.stock.find((s) => s.zimmer[0].raum)?.tiere.length === 1, "beim Zusammenführen geht das Tier verloren");
   pruefe(ab.haeuser.buero.stock.length === 1 && ab.haeuser.zentrum.stock.length === 1, "unberührte Stockwerke vom Anfang verdoppeln sich");
   pruefe(JSON.stringify(A.merge(ab, ab)) === JSON.stringify(ab), "Zusammenführen mit sich selbst ändert etwas");
-  // Dasselbe Stockwerk auf zwei Geräten: jedes Zimmer für sich.
+  // Dasselbe Stockwerk für zwei Zimmer auf zwei Geräten: jedes Zimmer für sich.
   const C = geraet();
-  C.waehleRaum("zentrum", 0, 0, "bibliothek");
+  const ci = C.baueStockwerk("wohnhaus");
+  C.waehleArt("wohnhaus", ci, "zwei");
+  C.waehleRaum("wohnhaus", ci, 0, "kueche");
   const geteilt = JSON.parse(JSON.stringify(C.lesen()));
-  const spaeter = geteilt.haeuser.zentrum.stock[0].at + 1000;
+  const sid = geteilt.haeuser.wohnhaus.stock[ci].id;
+  const spaeter = geteilt.haeuser.wohnhaus.stock[ci].at + 1000;
   const links = C.merge(geteilt, {});
-  links.haeuser.zentrum.stock[0].zimmer[0].dinge.push({ k: "b1", i: K.dingeFuer("bibliothek")[0], x: 90, y: 230 });
-  links.haeuser.zentrum.stock[0].zimmer[0].at = spaeter;
+  const lst = links.haeuser.wohnhaus.stock.find((s) => s.id === sid);
+  lst.zimmer[0].dinge.push({ k: "b1", i: K.dingeFuer("kueche")[0], x: 90, y: 230 });
+  lst.zimmer[0].at = spaeter;
   const rechts = C.merge(geteilt, {});
-  rechts.haeuser.zentrum.stock[0].zimmer[1] = { ...rechts.haeuser.zentrum.stock[0].zimmer[1], raum: "cafe", at: spaeter + 1000 };
-  rechts.haeuser.zentrum.stock[0].at = spaeter + 1000;
+  const rst = rechts.haeuser.wohnhaus.stock.find((s) => s.id === sid);
+  rst.zimmer[1] = { ...rst.zimmer[1], raum: "bad", at: spaeter + 1000 };
+  rst.at = spaeter + 1000;
   const lr = C.merge(links, rechts);
-  const z0 = lr.haeuser.zentrum.stock.find((s) => s.id === geteilt.haeuser.zentrum.stock[0].id);
-  pruefe(z0 && z0.zimmer[0].dinge.length === 1 && z0.zimmer[1].raum === "cafe", "dasselbe Stockwerk auf zwei Geräten: ein Zimmer überschreibt das andere");
+  const z0 = lr.haeuser.wohnhaus.stock.find((s) => s.id === sid);
+  pruefe(z0 && z0.zimmer[0].dinge.length === 1 && z0.zimmer[1].raum === "bad", "dasselbe Stockwerk auf zwei Geräten: ein Zimmer überschreibt das andere");
   pruefe(JSON.stringify(lr) === JSON.stringify(C.merge(rechts, links)), "dasselbe Stockwerk: Zusammenführen ist nicht in beide Richtungen gleich");
   // Ein neues Gerät (alles leer) bringt nichts dazu und nimmt nichts weg.
   const frisch = A.merge(A.normalize(null), ab);
@@ -552,9 +563,11 @@ function erfuelleGelbe(S, hausId, index) {
   const muell = A.normalize({ v: 2, haeuser: { wohnhaus: { stock: [{ art: "wohnung", zimmer: [{ raum: "notfall", dinge: [{ i: "gibtsnicht" }, { i: "bett", x: 99999, y: -5 }], wand: "lila" }], tiere: [{ a: "drache" }] }] }, spital: { stock: [{ art: "wohnung", zimmer: [{ raum: "schlafzimmer" }] }] } } });
   const w0 = muell.haeuser.wohnhaus.stock[0];
   pruefe(w0.zimmer[0].raum === "" && w0.zimmer[0].dinge.length === 1 && w0.zimmer[0].dinge[0].x <= S_GEO_W() && K.FARBE[w0.zimmer[0].wand] && !w0.tiere.length, "ein kaputter Stand wird nicht aufgeräumt");
-  pruefe(muell.haeuser.spital.stock[0].art === "zwei" && !muell.haeuser.spital.stock[0].zimmer[0].raum, "eine Wohnung im Spital wird nicht aufgeräumt");
-  const voll = A.normalize({ v: 2, haeuser: { spital: { stock: [{ art: "zwei", zimmer: [{ raum: "notfall", dinge: Array.from({ length: 60 }, (_, n) => ({ k: `v${n}`, i: "bett", x: 50, y: 230 })) }, {}] }] } } });
-  pruefe(voll.haeuser.spital.stock[0].zimmer[0].dinge.length === A.DINGE_MAX_HALB, "ein halbes Zimmer nimmt mehr Dinge auf als erlaubt");
+  pruefe(muell.haeuser.spital.stock[0].art === "eins" && !muell.haeuser.spital.stock[0].zimmer[0].raum, "eine Wohnung im Spital wird nicht aufgeräumt");
+  const viele = () => Array.from({ length: 60 }, (_, n) => ({ k: `v${n}`, i: "bett", x: 50, y: 230 }));
+  const voll = A.normalize({ v: 2, haeuser: { wohnhaus: { stock: [{ art: "zwei", zimmer: [{ raum: "kueche", dinge: viele() }, {}] }] }, spital: { stock: [{ art: "zwei", zimmer: [{ raum: "notfall", dinge: viele() }, { raum: "labor" }] }] } } });
+  pruefe(voll.haeuser.wohnhaus.stock[0].zimmer[0].dinge.length === A.DINGE_MAX_HALB, "ein halbes Zimmer nimmt mehr Dinge auf als erlaubt");
+  pruefe(voll.haeuser.spital.stock[0].zimmer.length === 1 && voll.haeuser.spital.stock[0].zimmer[0].dinge.length === A.DINGE_MAX, "im Spital wird ein Stockwerk für zwei nicht zu einem Zimmer");
 }
 function S_GEO_W() { return 560; }
 
@@ -597,7 +610,7 @@ function S_GEO_W() { return 560; }
         { id: "a1", seit: 0, raum: "kueche", wand: "mint", dinge: [{ k: "d1", i: "kochherd", x: 400, y: 230 }], tier: { a: "cat", n: "Mia", seed: "t1" }, at: 5 },
         { id: "a2", seit: 10, raum: "schlafzimmer", wand: "flieder", dinge: [{ k: "d2", i: "bett", x: 200, y: 230 }], tier: { a: "fox", n: "Fino", seed: "t2", w: ["ding:bett"] }, at: 6 },
       ] },
-      spital: { stock: [{ id: "spital-0", seit: 0, raum: "notfall", dinge: [], at: 7 }] },
+      spital: { stock: [{ id: "spital-0", seit: 0, raum: "notfall", dinge: [{ k: "d3", i: "herzmonitor", x: 400, y: 230 }], tier: { a: "owl", n: "Uli", seed: "t3" }, at: 7 }] },
     },
   };
   const s2 = S.normalize(v1);
@@ -606,7 +619,8 @@ function S_GEO_W() { return 560; }
   pruefe(wh[0].tiere.length === 1 && wh[0].tiere[0].n === "Fino" && wh[0].tiere[0].w.length === 2 && wh[0].tiere[0].g.length === 1 && wh[0].tiere[0].b.length === 2 && wh[0].tiere[0].traum, "Fassung 1: das Tier zieht nicht mit oder hat nicht die neuen Wünsche");
   pruefe(wh[1].art === "wohnung" && !wh[1].zimmer[0].raum && wh[2].art === "wohnung", "Fassung 1: die leeren Wohnungen vom Anfang fehlen");
   pruefe(wh[3].art === "zwei" && wh[3].zimmer[0].raum === "kueche" && wh[3].zimmer[0].dinge[0].x === 200 && !wh[3].tiere.length, "Fassung 1: die Küche steht nicht links auf einem Stockwerk für zwei");
-  pruefe(s2.haeuser.spital.stock.length === 1 && s2.haeuser.spital.stock[0].zimmer[0].raum === "notfall", "Fassung 1: der Notfall fehlt");
+  const sp = s2.haeuser.spital.stock;
+  pruefe(sp.length === 1 && sp[0].art === "eins" && sp[0].zimmer[0].raum === "notfall" && sp[0].zimmer[0].dinge[0]?.x === 400 && !sp[0].tiere.length, "Fassung 1: der Notfall bleibt nicht, wie er war (ein Zimmer, ohne Tier)");
   pruefe(JSON.stringify(S.normalize(s2)) === JSON.stringify(s2), "Fassung 1: zweimal aufräumen ändert etwas");
 }
 

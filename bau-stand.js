@@ -14,8 +14,9 @@
  *         fassade: "pfirsich", dach: "rot", at,
  *         stock: [                         // von unten nach oben (nach pos)
  *           { id, seit, pos,               // Kennung, wann gebaut, Platz im Haus
- *             art: "wohnung",              // "wohnung" (nur Wohnhaus), "zwei", "" (Rohbau)
- *             zimmer: [                    // wohnung: eines; zwei: zwei; Rohbau: keines
+ *             art: "wohnung",              // Wohnhaus: "wohnung", "zwei" oder "" (Rohbau);
+ *                                          // Spital, Dorf, Büro: "eins"
+ *             zimmer: [                    // wohnung, eins: eines; zwei: zwei; Rohbau: keines
  *               { raum: "schlafzimmer",    // "" ist noch nicht gewählt
  *                 wand, muster, boden, bodenFarbe, licht,
  *                 dinge: [{ k, i: "bett", x, y, c: "", f: 0, s: 1 }],
@@ -35,8 +36,10 @@
  *
  * Gewohnt wird im Wohnhaus, in den Wohnungen: Es beginnt mit drei leeren
  * Schlafzimmern; mit der Wahl (Schlafzimmer oder Kinderzimmer) zieht das
- * erste Tier ein, mit der Zeit kommen bis zu zwei weitere. Alle anderen
- * Stockwerke haben zwei Zimmer. Jedes Tier hat fünf Wünsche – zwei gelbe für
+ * erste Tier ein, mit der Zeit kommen bis zu zwei weitere. Die übrigen
+ * Stockwerke des Wohnhauses haben zwei Zimmer nebeneinander, in denen niemand
+ * wohnt; Spital, Dorf und Büro ein Zimmer je Stockwerk. Jedes Tier hat fünf
+ * Wünsche – zwei gelbe für
  * seine Wohnung, einen grünen für das Wohnhaus, zwei blaue für die anderen
  * Häuser – und einen Traumjob in einem Zimmer der anderen Häuser. Ob ein
  * Wunsch erfüllt ist und wo ein Tier gerade arbeitet, wird jedes Mal aus den
@@ -67,8 +70,9 @@
   const FORMAT = 2;
 
   // --- Ein Zimmer, in Zimmer-Einheiten --------------------------------------
-  // Eine Wohnung ist so breit wie das Stockwerk (W), die Zimmer der anderen
-  // Stockwerke halb so breit (HALB). Die Wand reicht bis WAND_UNTEN, darunter
+  // Eine Wohnung und ein Zimmer in Spital, Dorf und Büro sind so breit wie das
+  // Stockwerk (W), die zwei Zimmer eines Stockwerks im Wohnhaus halb so breit
+  // (HALB). Die Wand reicht bis WAND_UNTEN, darunter
   // liegt der Boden; was steht, steht zwischen STAND_HINTEN und STAND_VORNE
   // (weiter vorn heisst weiter unten im Bild und davor gezeichnet).
   const GEO = {
@@ -83,8 +87,8 @@
 
   const STOCK_MAX = 20;              // so hoch wird ein Haus höchstens
   const STOCK_OHNE_KAUF = 4;         // ohne Kauf: bis zum vierten Stockwerk
-  const DINGE_MAX = 40;              // so viele Dinge passen in eine Wohnung
-  const DINGE_MAX_HALB = 20;         // und in ein Zimmer, halb so breit
+  const DINGE_MAX = 40;              // so viele Dinge passen in ein ganzes Zimmer
+  const DINGE_MAX_HALB = 20;         // und in eines, halb so breit
   const TIERE_MAX = 3;               // so viele Tiere wohnen in einer Wohnung
   const ARBEIT_MAX = 3;              // so viele Tiere arbeiten im selben Zimmer
   const ZUZUG_MS = 10 * 60 * 1000;   // so lange, bis in eine Wohnung das nächste Tier zieht
@@ -92,8 +96,8 @@
   const SLOT_MS = 15 * 60 * 1000;    // in Viertelstunden: wo ein Tier gerade ist
   const HAUS_IDS = ["wohnhaus", "spital", "zentrum", "buero"];
   const ARBEITS_HAEUSER = ["spital", "zentrum", "buero"];
-  // Womit ein Haus beginnt: das Wohnhaus mit drei leeren Schlafzimmern, die
-  // anderen mit einem Stockwerk für zwei Zimmer.
+  // Womit ein Haus beginnt: das Wohnhaus mit drei leeren Wohnungen, die
+  // anderen mit einem leeren Zimmer.
   const START = { wohnhaus: 3, spital: 1, zentrum: 1, buero: 1 };
 
   // ---------------------------------------------------------------------------
@@ -181,12 +185,12 @@
   }
 
   function neuesStockwerk(art, { id = kennung("s"), seit = 0, pos = 0, at = 0 } = {}) {
-    const zimmer = art === "wohnung" ? [leeresZimmer("", at)] : art === "zwei" ? [leeresZimmer("", at), leeresZimmer("", at)] : [];
+    const zimmer = art === "zwei" ? [leeresZimmer("", at), leeresZimmer("", at)] : art ? [leeresZimmer("", at)] : [];
     return { id, seit, pos, art, zimmer, tiere: [], zuzug: 0, tierWegArt: "", at };
   }
 
   function startStockwerke(hausId) {
-    const art = hausId === "wohnhaus" ? "wohnung" : "zwei";
+    const art = hausId === "wohnhaus" ? "wohnung" : "eins";
     return Array.from({ length: START[hausId] || 1 }, (_, i) => neuesStockwerk(art, { id: startId(hausId, i), pos: i }));
   }
 
@@ -200,7 +204,7 @@
   }
 
   const zuNeu = (roh) => Number(obj(roh).v) > FORMAT;
-  const breiteVon = (s) => (s?.art === "wohnung" ? GEO.W : GEO.HALB);
+  const breiteVon = (s) => (s?.art === "zwei" ? GEO.HALB : GEO.W);
   // Wie viele Dinge in ein Zimmer dieser Breite passen. Die Grenze hält auch
   // den Kasten klein: Er liegt im Kontodokument neben allen Spielen.
   const dingeMax = (breite) => (breite >= GEO.W ? DINGE_MAX : DINGE_MAX_HALB);
@@ -266,13 +270,14 @@
 
   function sauberesStockwerk(roh, hausId, index) {
     const s = obj(roh);
-    let art = s.art === "wohnung" || s.art === "zwei" ? s.art : "";
-    if (art === "wohnung" && hausId !== "wohnhaus") art = "zwei";
-    if (art === "" && hausId !== "wohnhaus") art = "zwei";
+    // Im Wohnhaus: Wohnung, zwei Zimmer oder Rohbau; sonst ein Zimmer.
+    let art = ["wohnung", "zwei", "eins"].includes(s.art) ? s.art : "";
+    if (hausId !== "wohnhaus") art = "eins";
+    else if (art === "eins") art = "zwei";
     const roheZimmer = Array.isArray(s.zimmer) ? s.zimmer : [];
-    const breite = art === "wohnung" ? GEO.W : GEO.HALB;
+    const breite = art === "zwei" ? GEO.HALB : GEO.W;
     const passt = (raum) => raum.haus === hausId && (art === "wohnung" ? Boolean(raum.wohnen) : !raum.wohnen);
-    const anzahl = art === "wohnung" ? 1 : art === "zwei" ? 2 : 0;
+    const anzahl = art === "zwei" ? 2 : art ? 1 : 0;
     const zimmer = Array.from({ length: anzahl }, (_, i) => sauberesZimmer(roheZimmer[i], breite, passt));
     const tiere = art === "wohnung" && zimmer[0].raum
       ? (Array.isArray(s.tiere) ? s.tiere : []).map(sauberesTier).filter(Boolean).slice(0, TIERE_MAX)
@@ -294,8 +299,9 @@
 
   // Fassung 1: ein Zimmer je Stockwerk, ein Tier darin. Schlaf- und
   // Kinderzimmer werden Wohnungen (das Tier bleibt und bekommt die Wünsche
-  // der neuen Fassung), alle anderen Zimmer stehen links auf einem Stockwerk
-  // für zwei – halb so breit, also rücken die Dinge zusammen.
+  // der neuen Fassung); die anderen Zimmer des Wohnhauses stehen links auf
+  // einem Stockwerk für zwei – halb so breit, also rücken die Dinge zusammen.
+  // In Spital, Dorf und Büro bleibt alles, wie es war (ohne Tier).
   function ausFassung1(roh) {
     const r = obj(roh);
     const out = { v: FORMAT, gewaehlt: r.gewaehlt, haeuser: {} };
@@ -311,12 +317,14 @@
         if (raum?.wohnen && hausId === "wohnhaus") {
           const tiere = K()?.TIERE?.[s.tier?.a] ? [{ ...s.tier, ...wuenscheFuer(s.tier, s.raum, []), traum: traumAus(String(s.tier.seed)) }] : [];
           wohnungen.push({ id: s.id, seit: s.seit, art: "wohnung", zimmer: [zimmer], tiere, at: s.at });
-        } else if (raum && raum.haus === hausId) {
+        } else if (raum && raum.haus === hausId && hausId === "wohnhaus") {
           const halb = { ...zimmer, dinge: (Array.isArray(s.dinge) ? s.dinge : []).map((d) => ({ ...d, x: (Number(d?.x) || 0) / 2 })) };
           andere.push({ id: s.id, seit: s.seit, art: "zwei", zimmer: [halb, {}], at: s.at });
+        } else if (raum && raum.haus === hausId) {
+          andere.push({ id: s.id, seit: s.seit, art: "eins", zimmer: [zimmer], at: s.at });
         } else if (s.seit) {
           // Ein gebautes, noch leeres Stockwerk: Es hat einen Ziegel gekostet.
-          andere.push({ id: s.id, seit: s.seit, art: hausId === "wohnhaus" ? "" : "zwei", zimmer: [], at: s.at });
+          andere.push({ id: s.id, seit: s.seit, art: hausId === "wohnhaus" ? "" : "eins", zimmer: [], at: s.at });
         }
       });
       const start = startStockwerke(hausId);
@@ -596,13 +604,13 @@
   }
 
   // Ein neues Stockwerk obendrauf. Im Wohnhaus wählt das Kind danach, ob
-  // dort jemand wohnt (waehleArt); sonst hat es gleich zwei leere Zimmer.
+  // dort jemand wohnt (waehleArt); sonst hat es gleich ein leeres Zimmer.
   function baueStockwerk(hausId) {
     if (!kannBauen(hausId).ok) return -1;
     const h = haus(hausId);
     const jetzt = Date.now();
     const pos = h.stock.reduce((m, s) => Math.max(m, s.pos), -1) + 1;
-    h.stock.push(neuesStockwerk(hausId === "wohnhaus" ? "" : "zwei", { seit: jetzt, pos, at: jetzt }));
+    h.stock.push(neuesStockwerk(hausId === "wohnhaus" ? "" : "eins", { seit: jetzt, pos, at: jetzt }));
     h.at = jetzt;
     speichern(true);
     melde("gebaut");

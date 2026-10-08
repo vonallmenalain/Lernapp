@@ -26,7 +26,8 @@
  *   Ziegel        Der Rätsel-Knopf öffnet ein Rätsel mit bau=1; ein gelöstes
  *                 Rätsel bringt eine Palette, der Zug liefert sie. Das Plus
  *                 baut ein Stockwerk, im Wohnhaus mit der Frage "Wohnung oder
- *                 zwei Zimmer?". Nach dem Neuladen ist alles da.
+ *                 zwei Zimmer?" (Spital, Dorf und Büro haben ein Zimmer je
+ *                 Stockwerk). Nach dem Neuladen ist alles da.
  *   Vorlesen aus  Mit ausgeschaltetem Vorlesen bleibt die Bauecke still.
  *   Unterwegs     Später zieht ein zweites Tier ein – mit Feuerwerk. Ein Tier
  *                 bei der Arbeit: "Hingehen" führt ins richtige Haus.
@@ -196,6 +197,10 @@ async function pruefeGeraet(browser, name, viewport) {
     pruefe(/zieht ein/.test(gesagt) && /Willkommen/.test(gesagt), `${name}: der Einzug wird nicht angesagt`);
 
     // --- Das Zimmer -----------------------------------------------------------
+    // Die Tiere laufen im Zimmer herum. Steht eines gerade vor dem Ding, das
+    // angetippt oder gezogen wird, nähme es den Tipp – für die Prüfung der
+    // Dinge lassen sie ihn durch.
+    await page.addStyleTag({ content: ".bau-zimmeransicht .bau-tier { pointer-events: none !important; }" });
     const svg = await page.locator(".bau-zimmer-svg").boundingBox();
     pruefe(svg && svg.width >= viewport.width * 0.55, `${name}: das Zimmer ist nicht gross (${Math.round(svg?.width || 0)} px breit)`);
     for (const fest of [".sound-toggle:not(.tts-toggle)", ".tts-toggle", ".account-button"]) {
@@ -379,6 +384,7 @@ async function pruefeGeraet(browser, name, viewport) {
     const stillVorher = await page.evaluate(() => window.__gesagt.length);
     await page.locator('.bau-tab[data-haus="spital"]').click();
     await page.waitForTimeout(900);
+    pruefe(await page.locator('.bau-raum[data-stock="0"]').count() === 1, `${name}: im Spital hat ein Stockwerk nicht genau ein Zimmer`);
     await tippe(page, '.bau-raum[data-stock="0"][data-slot="0"]');
     await page.waitForTimeout(400);
     await page.locator(".bau-wahl-feld", { hasText: "Radiologie" }).first().click();
@@ -407,7 +413,7 @@ async function pruefeSonderfaelle(browser, name, viewport) {
       S.setzeGewaehlt("wohnhaus");
       S.waehleRaum("wohnhaus", 0, 0, "schlafzimmer");
       S.waehleRaum("zentrum", 0, 0, "bibliothek");
-      S.waehleRaum("spital", 0, 1, "radiologie");
+      S.waehleRaum("spital", 0, 0, "radiologie");
       S.speichern(true);
     });
     // --- Später zieht ein zweites Tier ein: mit Lift und Feuerwerk ------------

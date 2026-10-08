@@ -710,6 +710,13 @@
       if (!z.raum) return feld(0, art.ZW, "wohnungwahl", art.rohbauSchale(art.ZW, "bett"), "Eine leere Wohnung: Schlafzimmer oder Kinderzimmer?");
       return feld(0, art.ZW, "zimmer", zimmerInhalt(ui.haus, i, 0, { klein: true }), K().RAEUME[z.raum]?.name || "Zimmer");
     }
+    // Spital, Dorf, Büro: ein Zimmer über das ganze Stockwerk.
+    if (st.art === "eins") {
+      const z = st.zimmer[0];
+      if (!z.raum) return feld(0, art.ZW, "leer", art.rohbauSchale(art.ZW, "plus"), "Ein leeres Stockwerk: Was soll hier hinein?");
+      return feld(0, art.ZW, "zimmer", zimmerInhalt(ui.haus, i, 0, { klein: true }), K().RAEUME[z.raum]?.name || "Zimmer");
+    }
+    // Wohnhaus: zwei Zimmer nebeneinander.
     return st.zimmer.map((z, slot) => (z.raum
       ? feld(slot, HALB, "zimmer", zimmerInhalt(ui.haus, i, slot, { klein: true }), K().RAEUME[z.raum]?.name || "Zimmer")
       : feld(slot, HALB, "leer", art.rohbauSchale(HALB, "plus"), "Ein leeres Zimmer: Was soll es werden?"))).join("");
@@ -974,10 +981,7 @@
     ui.besetzt = false;
     await warte(250);
     if (ui.haus === "wohnhaus") zeigeArtwahl(index);
-    else {
-      sag("Zwei Zimmer haben hier Platz. Tippe auf eines und wähle, was es werden soll.");
-      stupse(els.welt.querySelector(`.bau-raum[data-stock="${index}"][data-slot="0"]`));
-    }
+    else zeigeRaumwahl(index, 0);
   }
 
   // Ein paar Staubwolken an einer Stelle der Hausansicht.
@@ -2583,7 +2587,7 @@
     const raum = K().RAEUME[raumId];
     const stock = aktHaus().stock;
     let leer = null;
-    stock.forEach((s, i) => { if (!leer && s.art === "zwei") { const slot = s.zimmer.findIndex((z) => !z.raum); if (slot >= 0) leer = { i, slot }; } });
+    stock.forEach((s, i) => { if (!leer && (s.art === "zwei" || s.art === "eins")) { const slot = s.zimmer.findIndex((z) => !z.raum); if (slot >= 0) leer = { i, slot }; } });
     const roh = stock.findIndex((s) => s.art === "");
     if (leer) {
       kameraAuf(leer.i);
