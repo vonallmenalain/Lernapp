@@ -14,8 +14,13 @@
  *   Eine Wohnung füllt das Stockwerk; sonst stehen zwei Zimmer zu je 280
  *   nebeneinander, getrennt von einer Zwischenwand (trennwand).
  *
- *   Stockwerk i: Boden bei unten(i) = -FUSS - i * STOCK, darüber das Zimmer
- *   (240 hoch) und die Decke (16). Ganz oben das Dach.
+ *   Stockwerk i: Boden bei unten(i), darüber das Zimmer (ZH = 160 hoch, die
+ *   zwei Stockwerke eines KiddyDome ZH_HOCH = 240) und die Decke (16). Wie
+ *   hoch jedes Stockwerk ist, sagt die Ansicht mit hoehenVon(). Ganz oben das
+ *   Dach.
+ *
+ *   Im Zimmer selbst (Zimmer-Einheiten) liegt der Boden bei BODEN_Y = 240; die
+ *   Wand beginnt bei OBEN_Y = 80 – im KiddyDome bei -256.
  *
  * Nur Zeichnen, kein Verhalten: Wer was antippt, regelt train-bau.js.
  */
@@ -29,19 +34,33 @@
 
   // --- Masse ----------------------------------------------------------------
   const ZW = 560;          // Zimmer breit
-  const ZH = 240;          // Zimmer hoch
+  const ZH = 160;          // Zimmer hoch (seit Fassung 4 – vorher 240)
+  const ZH_HOCH = 240;     // ein Stockwerk des KiddyDome: so hoch wie früher
+  const BODEN_Y = 240;     // wo im Zimmer der Boden liegt (Zimmer-Einheiten)
+  const OBEN_Y = BODEN_Y - ZH;                 // wo die Wand beginnt: 80
   const WAND = 14;
   const LIFT = 76;
   const DECKE = 16;
   const STOCK = ZH + DECKE;
+  const STOCK_HOCH = ZH_HOCH + DECKE;
   const FUSS = 14;         // Fundament über der Strasse
   const HB = WAND + ZW + WAND + LIFT + WAND;   // 678
   const ZX = WAND;          // wo das Zimmer beginnt
   const LX = WAND + ZW + WAND;                 // wo der Lift beginnt
   const DACH_H = { giebel: 130, heli: 96, turm: 200, flach: 120 };
 
-  function unten(i) { return -FUSS - i * STOCK; }
-  function oben(i) { return unten(i) - ZH; }
+  // Wie hoch die Stockwerke des Hauses sind, das gerade zu sehen ist: Die
+  // Ansicht gibt eine Quelle (train-bau.js, hoehenVon); ohne sind alle ZH.
+  let hoehenQuelle = () => [];
+  function hoehenVon(quelle) { hoehenQuelle = typeof quelle === "function" ? quelle : () => []; }
+  function hoehe(i, liste = hoehenQuelle()) { return liste[i] || ZH; }
+  function unten(i) {
+    const liste = hoehenQuelle();
+    let y = -FUSS;
+    for (let j = 0; j < i; j += 1) y -= hoehe(j, liste) + DECKE;
+    return y;
+  }
+  function oben(i) { return unten(i) - hoehe(i); }
 
   // ---------------------------------------------------------------------------
   // Wandmuster und Böden
@@ -95,8 +114,8 @@
 
   // Die leere Hülle eines Zimmers: Wand mit Muster, Boden, Fussleiste.
   // breite: eine Wohnung ist so breit wie das Stockwerk, sonst halb so breit.
-  // oben: wo die Wand endet – im KiddyDome ein Stockwerk höher (-STOCK).
-  function zimmerSchale(z, musterId, breite = ZW, oben = 0) {
+  // oben: wo die Wand endet – OBEN_Y, im KiddyDome ein altes Stockwerk höher.
+  function zimmerSchale(z, musterId, breite = ZW, oben = OBEN_Y) {
     const wand = farbeHex(z.wand, "#f6ead2");
     const bodenArt = K()?.BODEN?.[z.boden] || K()?.BODEN?.parkett;
     const bodenHex = z.bodenFarbe ? farbeHex(z.bodenFarbe) : (bodenArt?.farbe || "#c88c5c");
@@ -106,7 +125,7 @@
       `<rect class="bau-wand" x="0" y="${oben}" width="${breite}" height="${wy - oben}" fill="${wand}"/>` +
       (def ? `<rect x="0" y="${oben}" width="${breite}" height="${wy - oben}" fill="url(#${musterId})"/>` : "") +
       `<rect x="0" y="${oben}" width="${breite}" height="10" fill="#000000" opacity="0.06"/>` +
-      `<g class="bau-boden">${boden(bodenArt?.id || "parkett", bodenHex, wy, ZH - wy, breite)}</g>` +
+      `<g class="bau-boden">${boden(bodenArt?.id || "parkett", bodenHex, wy, BODEN_Y - wy, breite)}</g>` +
       `<rect x="0" y="${wy - 5}" width="${breite}" height="5" fill="${shade(wand, -0.25)}" opacity="0.7"/>`;
   }
 
@@ -116,20 +135,22 @@
   //   frage  Wohnung oder zwei Zimmer?
   //   bett   Schlafzimmer oder Kinderzimmer?
   function rohbauSchale(breite = ZW, zeichen = "plus") {
-    let s = `<rect x="0" y="0" width="${breite}" height="${ZH}" fill="#d9b38c"/>`;
-    for (let y = 0, r = 0; y < 216; y += 18, r += 1) {
+    let s = `<rect x="0" y="${OBEN_Y}" width="${breite}" height="${ZH}" fill="#d9b38c"/>`;
+    for (let y = OBEN_Y, r = 0; y < 216; y += 18, r += 1) {
       for (let x = r % 2 ? -18 : 0; x < breite; x += 36) s += `<rect x="${x + 1}" y="${y + 1}" width="34" height="16" rx="2" fill="${(x + y) % 3 ? "#c98d5c" : "#d39a68"}"/>`;
     }
     s += `<rect x="0" y="216" width="${breite}" height="24" fill="#9a8c7c"/><path d="M0 228h${breite}" stroke="#867868" stroke-width="2"/>`;
     s += `<rect x="${breite * 0.07}" y="196" width="${Math.min(120, breite * 0.3)}" height="8" rx="2" fill="#c88c5c"/>`;
     const cx = breite / 2;
-    let mitte = `<path d="M${cx - 22} 108h44M${cx} 86v44" stroke="#3fbf74" stroke-width="12" stroke-linecap="round"/>`;
-    if (zeichen === "frage") mitte = `<text x="${cx}" y="130" text-anchor="middle" font-size="64" font-weight="800" font-family="'Baloo 2', Nunito, sans-serif" fill="#3fbf74">?</text>`;
+    // Das Zeichen in der Mitte der Wand.
+    const my = (OBEN_Y + 216) / 2;
+    let mitte = `<path d="M${cx - 22} ${my}h44M${cx} ${my - 22}v44" stroke="#3fbf74" stroke-width="12" stroke-linecap="round"/>`;
+    if (zeichen === "frage") mitte = `<text x="${cx}" y="${my + 22}" text-anchor="middle" font-size="64" font-weight="800" font-family="'Baloo 2', Nunito, sans-serif" fill="#3fbf74">?</text>`;
     if (zeichen === "bett") {
-      mitte = `<g transform="translate(${cx} 128) scale(0.42)">${M().zeichne("bett")}</g>` +
-        `<circle cx="${cx + 30}" cy="80" r="15" fill="#3fbf74"/><path d="M${cx + 22} 80h16M${cx + 30} 72v16" stroke="#ffffff" stroke-width="5" stroke-linecap="round"/>`;
+      mitte = `<g transform="translate(${cx} ${my + 20}) scale(0.42)">${M().zeichne("bett")}</g>` +
+        `<circle cx="${cx + 30}" cy="${my - 28}" r="15" fill="#3fbf74"/><path d="M${cx + 22} ${my - 28}h16M${cx + 30} ${my - 36}v16" stroke="#ffffff" stroke-width="5" stroke-linecap="round"/>`;
     }
-    s += `<g class="bau-rohbau-plus"><circle cx="${cx}" cy="108" r="46" fill="#ffffff" opacity="0.92"/>${mitte}</g>`;
+    s += `<g class="bau-rohbau-plus"><circle cx="${cx}" cy="${my}" r="46" fill="#ffffff" opacity="0.92"/>${mitte}</g>`;
     return s;
   }
 
@@ -137,7 +158,7 @@
   function trennwand(i, fassadeId) {
     const f = farbeHex(fassadeId, "#ffd3b5");
     const x = ZX + ZW / 2;
-    return `<rect x="${x - 5}" y="${oben(i)}" width="10" height="${ZH}" fill="${f}"/><rect x="${x + 2}" y="${oben(i)}" width="3" height="${ZH}" fill="${shade(f, -0.2)}" opacity="0.6"/>`;
+    return `<rect x="${x - 5}" y="${oben(i)}" width="10" height="${hoehe(i)}" fill="${f}"/><rect x="${x + 2}" y="${oben(i)}" width="3" height="${hoehe(i)}" fill="${shade(f, -0.2)}" opacity="0.6"/>`;
   }
 
   // ---------------------------------------------------------------------------
@@ -248,15 +269,19 @@
 
   // Der Liftschacht eines Stockwerks: Tür, Nummer, darüber die Sterntafel
   // (die zeichnet train-bau.js hinein, sie ändert sich oft).
+  // Die Tür steht unten; darüber die Nummer, oben Platz für die Sterntafel.
   function liftStock(i) {
     const y = oben(i);
-    return `<rect x="${LX}" y="${y}" width="${LIFT}" height="${ZH}" fill="#e2e7ee"/>` +
-      `<rect x="${LX}" y="${y}" width="${LIFT}" height="${ZH}" fill="url(#bau-lift-schatten)"/>` +
-      `<rect x="${LX + 12}" y="${y + 116}" width="${LIFT - 24}" height="${ZH - 116}" rx="3" fill="#b8c2cf"/>` +
-      `<rect x="${LX + 14}" y="${y + 119}" width="${(LIFT - 28) / 2 - 1}" height="${ZH - 119}" fill="#cfd7e2"/>` +
-      `<rect x="${LX + LIFT / 2 + 1}" y="${y + 119}" width="${(LIFT - 28) / 2 - 1}" height="${ZH - 119}" fill="#cfd7e2"/>` +
-      `<circle cx="${LX + LIFT / 2}" cy="${y + 104}" r="9" fill="#243047"/>` +
-      `<text x="${LX + LIFT / 2}" y="${y + 108}" text-anchor="middle" font-size="12" font-weight="800" font-family="'Baloo 2', Nunito, sans-serif" fill="#ffd166">${i === 0 ? "E" : i}</text>`;
+    const h = hoehe(i);
+    const tuer = Math.min(124, h - 86);
+    const t = y + h - tuer;
+    return `<rect x="${LX}" y="${y}" width="${LIFT}" height="${h}" fill="#e2e7ee"/>` +
+      `<rect x="${LX}" y="${y}" width="${LIFT}" height="${h}" fill="url(#bau-lift-schatten)"/>` +
+      `<rect x="${LX + 12}" y="${t}" width="${LIFT - 24}" height="${tuer}" rx="3" fill="#b8c2cf"/>` +
+      `<rect x="${LX + 14}" y="${t + 3}" width="${(LIFT - 28) / 2 - 1}" height="${tuer - 3}" fill="#cfd7e2"/>` +
+      `<rect x="${LX + LIFT / 2 + 1}" y="${t + 3}" width="${(LIFT - 28) / 2 - 1}" height="${tuer - 3}" fill="#cfd7e2"/>` +
+      `<circle cx="${LX + LIFT / 2}" cy="${t - 13}" r="9" fill="#243047"/>` +
+      `<text x="${LX + LIFT / 2}" y="${t - 9}" text-anchor="middle" font-size="12" font-weight="800" font-family="'Baloo 2', Nunito, sans-serif" fill="#ffd166">${i === 0 ? "E" : i}</text>`;
   }
 
   // Die Sterntafel einer Wohnung: je Tier eine Reihe – zwei gelbe, ein
@@ -309,11 +334,12 @@
     const stufe = Math.max(0, Math.min(3, n));
     if (!stufe) return "";
     const y = oben(i);
+    const h = hoehe(i);
     const breite = [0, 5, 8, 12][stufe];
     const farbe = ["", "#ffd166", "#ffbf3c", "#f5a300"][stufe];
     let s = "";
-    if (stufe === 3) s += `<rect class="bau-traumglanz" x="${ZX + 12}" y="${y + 12}" width="${ZW - 24}" height="${ZH - 24}" rx="10" fill="none" stroke="#fff3a0" stroke-width="22" opacity="0.6"/>`;
-    s += `<rect x="${ZX + breite / 2 + 1}" y="${y + breite / 2 + 1}" width="${ZW - breite - 2}" height="${ZH - breite - 2}" rx="8" fill="none" stroke="${farbe}" stroke-width="${breite}"/>`;
+    if (stufe === 3) s += `<rect class="bau-traumglanz" x="${ZX + 12}" y="${y + 12}" width="${ZW - 24}" height="${h - 24}" rx="10" fill="none" stroke="#fff3a0" stroke-width="22" opacity="0.6"/>`;
+    s += `<rect x="${ZX + breite / 2 + 1}" y="${y + breite / 2 + 1}" width="${ZW - breite - 2}" height="${h - breite - 2}" rx="8" fill="none" stroke="${farbe}" stroke-width="${breite}"/>`;
     return s;
   }
   function traumSchild(i, n) {
@@ -473,10 +499,237 @@
     return `<path d="M2 11 12 3l10 8" fill="#ef5350"/><rect x="5" y="10" width="14" height="11" fill="#ffd3b5"/><rect x="10" y="14" width="4" height="7" fill="#8a5734"/><rect x="6.5" y="12" width="3" height="3" fill="#cfeaff"/><rect x="14.5" y="12" width="3" height="3" fill="#cfeaff"/>`;
   }
 
+  // ---------------------------------------------------------------------------
+  // Überraschungen: der Blitzzug und der Glücksstern
+  // ---------------------------------------------------------------------------
+  // Ein Stern mit fünf Zacken um (cx, cy), als Pfad.
+  function sternPfad(cx, cy, r, innen = 0.45) {
+    let d = "";
+    for (let i = 0; i < 10; i += 1) {
+      const a = -Math.PI / 2 + (i * Math.PI) / 5;
+      const rr = i % 2 ? r * innen : r;
+      d += `${i ? "L" : "M"}${(cx + Math.cos(a) * rr).toFixed(1)} ${(cy + Math.sin(a) * rr).toFixed(1)}`;
+    }
+    return `${d}Z`;
+  }
+  // Ein Funkeln mit vier Spitzen um (x, y).
+  function funkeln(x, y, r, farbe = "#fff3a0") {
+    const k = r * 0.28;
+    return `<path d="M${x} ${y - r}L${x + k} ${y - k}L${x + r} ${y}L${x + k} ${y + k}L${x} ${y + r}L${x - k} ${y + k}L${x - r} ${y}L${x - k} ${y - k}Z" fill="${farbe}"/>`;
+  }
+
+  // Der Blitzzug: ein schneller, weisser Zug mit rotem Streifen und gelbem
+  // Blitz, hinten ein Flachwagen mit einer Palette, die golden funkelt.
+  // Fährt nach rechts; (0, 0) ist die Schiene unter der Spitze der Lok.
+  // Die unsichtbare Fläche (bau-blitz-griff) macht ihn leicht zu treffen.
+  function blitzzug() {
+    const rad = (x, r = 9) => `<circle cx="${x}" cy="-7" r="${r}" fill="#2d3748"/><circle cx="${x}" cy="-7" r="${r * 0.38}" fill="#cbd5e0"/>`;
+    return `<g class="bau-blitzzug">` +
+      `<rect class="bau-blitz-griff" x="-300" y="-150" width="520" height="175" fill="transparent"/>` +
+      // Fahrtwind hinter dem Zug
+      `<g class="bau-blitz-linien" opacity="0.85"><path d="M-178 -66h-70M-186 -44h-104M-176 -22h-56" stroke="#ffffff" stroke-width="6" stroke-linecap="round"/></g>` +
+      // Flachwagen mit der Palette
+      `<rect x="-160" y="-32" width="138" height="14" rx="4" fill="#4f6d8f"/><rect x="-160" y="-32" width="138" height="4" rx="2" fill="#7fa6d9"/>` +
+      rad(-138, 10) + rad(-44, 10) +
+      `<g class="bau-blitz-ladung"><circle cx="-91" cy="-56" r="40" fill="#fff3a0" opacity="0.55"/>` +
+      `<g class="bau-palette" transform="translate(-91 -44)">${palette()}</g>` +
+      `<g class="bau-glitzer-a">${funkeln(-128, -86, 9)}${funkeln(-52, -70, 7)}</g>` +
+      `<g class="bau-glitzer-b">${funkeln(-60, -100, 8)}${funkeln(-134, -48, 6)}</g></g>` +
+      `<rect x="-24" y="-28" width="16" height="8" rx="3" fill="#4a5568"/>` +
+      // Die Lok mit langer, flacher Nase
+      `<path d="M-10 -16V-80q0-8 8-8H118q34 0 62 34q12 15 12 28q0 10-10 10H-10z" fill="#ffffff" stroke="#c3cfdc" stroke-width="2"/>` +
+      `<path d="M-10 -30H186q4 6 4 10H-10z" fill="#d9e2ec"/>` +
+      `<path d="M-10 -46H160q14 0 26 12H-10z" fill="#e53935"/>` +
+      `<path d="M-2 -76H110q10 0 10 8v4q0 6-6 6H-2z" fill="#243a5e"/>` +
+      `<path d="M128 -80q26 2 46 26q2 4-2 5h-36q-8 0-8-8z" fill="#243a5e"/><path d="M134 -74q16 3 28 16" fill="none" stroke="#7fa6d9" stroke-width="3" stroke-linecap="round"/>` +
+      `<path d="M58 -58l-14 22h12l-8 20 24-28h-13l9-14z" fill="#ffd34d" stroke="#e09b00" stroke-width="2" stroke-linejoin="round"/>` +
+      `<circle cx="184" cy="-26" r="4.5" fill="#fff6c2"/>` +
+      `<path d="M62 -88l12-14 12 14M74 -102h-18" fill="none" stroke="#4a5568" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>` +
+      rad(16) + rad(44) + rad(124) + rad(152) +
+      `</g>`;
+  }
+
+  // Der Glücksstern: ein lachender, goldener Stern mit Schein. Um (0, 0),
+  // gut 30 breit; der Schein und das Funkeln glitzern (bau-glitzer-a/b).
+  function gluecksstern() {
+    return `<circle r="27" fill="#fff3a0" opacity="0.5"/><circle r="19" fill="#fff8cf" opacity="0.7"/>` +
+      `<path d="${sternPfad(0, 1, 17, 0.5)}" fill="#ffc93c" stroke="#d68f00" stroke-width="2.2" stroke-linejoin="round"/>` +
+      `<path d="${sternPfad(-1.5, -0.5, 10, 0.5)}" fill="#ffe27a"/>` +
+      `<circle cx="-4.2" cy="0" r="1.9" fill="#5b3a00"/><circle cx="4.2" cy="0" r="1.9" fill="#5b3a00"/>` +
+      `<path d="M-4 4.4q4 3.6 8 0" fill="none" stroke="#5b3a00" stroke-width="1.6" stroke-linecap="round"/>` +
+      `<circle cx="-7.4" cy="3.6" r="1.8" fill="#ff8fab" opacity="0.7"/><circle cx="7.4" cy="3.6" r="1.8" fill="#ff8fab" opacity="0.7"/>` +
+      `<g class="bau-glitzer-a">${funkeln(-21, -15, 6)}${funkeln(18, 15, 5)}</g>` +
+      `<g class="bau-glitzer-b">${funkeln(20, -16, 5)}${funkeln(-17, 17, 4.5)}</g>`;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Alle Sterne: Krone und goldener Rahmen
+  // ---------------------------------------------------------------------------
+  // Eine kleine Krone, unten Mitte bei (0, 0), 18 breit.
+  function krone() {
+    return `<path d="M-9 0L-10 -10L-5 -5L0 -12L5 -5L10 -10L9 0z" fill="#ffc93c" stroke="#a86b00" stroke-width="1.5" stroke-linejoin="round"/>` +
+      `<rect x="-9.5" y="-2.6" width="19" height="3.6" rx="1.2" fill="#f5a300" stroke="#a86b00" stroke-width="1"/>` +
+      `<circle cx="-10" cy="-10.6" r="1.6" fill="#ff7aa2"/><circle cx="0" cy="-12.8" r="1.8" fill="#4f8ef7"/><circle cx="10" cy="-10.6" r="1.6" fill="#4cc46b"/>`;
+  }
+
+  // Ein goldener, glitzernder Rahmen um die Wohnung im Stockwerk i: Alle, die
+  // hier wohnen, haben alle Sterne. Er liegt auf Wänden und Decken, mit
+  // Sternen, die abwechselnd aufleuchten (bau-glitzer-a/b).
+  function sternRahmen(i) {
+    const x0 = WAND / 2;
+    const x1 = WAND + ZW + WAND / 2;
+    const y0 = oben(i) - DECKE / 2;
+    const y1 = unten(i) + Math.min(DECKE, FUSS) / 2;
+    const w = x1 - x0;
+    const h = y1 - y0;
+    let s = `<rect x="${x0}" y="${y0}" width="${w}" height="${h}" rx="12" fill="none" stroke="#fff3a0" stroke-width="28" opacity="0.55"/>` +
+      `<rect x="${x0}" y="${y0}" width="${w}" height="${h}" rx="12" fill="none" stroke="#e09b00" stroke-width="15"/>` +
+      `<rect x="${x0}" y="${y0}" width="${w}" height="${h}" rx="12" fill="none" stroke="#ffc93c" stroke-width="11"/>` +
+      `<rect x="${x0}" y="${y0 - 2.5}" width="${w}" height="${h}" rx="12" fill="none" stroke="#fff3a0" stroke-width="3" opacity="0.9"/>`;
+    // Sterne: gross in den Ecken, kleinere entlang der Kanten.
+    const sterne = [[x0, y0, 20], [x1, y0, 20], [x0, y1, 20], [x1, y1, 20]];
+    const n = 5;
+    for (let k = 1; k < n; k += 1) { const x = x0 + (w * k) / n; sterne.push([x, y0, 13], [x, y1, 13]); }
+    const seiten = Math.max(1, Math.round(h / 110));
+    for (let k = 1; k <= seiten; k += 1) { const y = y0 + (h * k) / (seiten + 1); sterne.push([x0, y, 13], [x1, y, 13]); }
+    const stern = ([x, y, r]) => `<path d="${sternPfad(x, y, r)}" fill="#ffe27a" stroke="#c98500" stroke-width="2" stroke-linejoin="round"/>`;
+    const a = sterne.filter((_, k) => k % 2 === 0);
+    const b = sterne.filter((_, k) => k % 2 === 1);
+    s += `<g class="bau-glitzer-a">${a.map(stern).join("")}${a.slice(0, 4).map(([x, y]) => funkeln(x + 20, y - 20, 9, "#ffffff")).join("")}</g>`;
+    s += `<g class="bau-glitzer-b">${b.map(stern).join("")}${b.slice(0, 4).map(([x, y]) => funkeln(x - 18, y + 18, 8, "#ffffff")).join("")}</g>`;
+    return s;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Die Sternenleiter: was das Dorf für seine Sterne bekommt
+  // ---------------------------------------------------------------------------
+  // Jede Zeichnung steht mit der Mitte bei x = 0 auf dem Boden (y = 0); der
+  // Regenbogen ist ein Bogen um (0, 0), der Dachstern ein Stern um (0, 0).
+  const BLUETEN = ["#ff7aa2", "#ffd166", "#b28dff", "#ff8a65", "#4fc3f7", "#ffffff"];
+  function blumen(breite = 120) {
+    const anzahl = Math.max(2, Math.round(breite / 24));
+    let s = `<ellipse cx="0" cy="-1" rx="${breite / 2 + 8}" ry="7" fill="#6aa84f"/>`;
+    for (let k = 0; k < anzahl; k += 1) {
+      const x = -breite / 2 + (breite * (k + 0.5)) / anzahl;
+      const h = 14 + ((k * 7) % 9);
+      const c = BLUETEN[k % BLUETEN.length];
+      s += `<path d="M${x} 0v${-h}" stroke="#3f8f3a" stroke-width="2.4"/><path d="M${x} ${-h * 0.45}q-7-2-8-8q6 0 8 6z" fill="#5cb85c"/>`;
+      s += [0, 72, 144, 216, 288].map((g) => { const r = (g * Math.PI) / 180; return `<circle cx="${(x + Math.cos(r) * 4.2).toFixed(1)}" cy="${(-h + Math.sin(r) * 4.2).toFixed(1)}" r="3.6" fill="${c}"/>`; }).join("");
+      s += `<circle cx="${x}" cy="${-h}" r="2.6" fill="#ffb703"/>`;
+    }
+    return s;
+  }
+  // Eine Wimpelkette von (0, 0) nach (laenge, dy), in der Mitte durchhängend.
+  function wimpel(laenge = 200, dy = 0) {
+    const durch = 22;
+    const y = (t) => dy * t + 4 * durch * t * (1 - t);
+    let s = `<path d="M0 0Q${laenge / 2} ${dy / 2 + 2 * durch} ${laenge} ${dy}" fill="none" stroke="#6b7280" stroke-width="2"/>`;
+    const farben = ["#ef5350", "#ffd166", "#4cc46b", "#4f8ef7", "#b28dff", "#ff8a65"];
+    const anzahl = Math.max(3, Math.round(laenge / 30));
+    for (let k = 0; k < anzahl; k += 1) {
+      const t = (k + 0.5) / anzahl;
+      const x = laenge * t;
+      const yy = y(t);
+      s += `<path d="M${(x - 9).toFixed(1)} ${(yy - 1).toFixed(1)}L${(x + 9).toFixed(1)} ${(yy + 1).toFixed(1)}L${x.toFixed(1)} ${(yy + 22).toFixed(1)}z" fill="${farben[k % farben.length]}"/>`;
+    }
+    return s;
+  }
+  function brunnen() {
+    return `<path d="M-38 0v-22q0-6 6-6h64q6 0 6 6V0z" fill="#b8c2cf"/><rect x="-40" y="-30" width="80" height="7" rx="3.5" fill="#9aa5b1"/>` +
+      `<rect x="-33" y="-24" width="66" height="6" rx="3" fill="#7fc8f8"/>` +
+      `<rect x="-6" y="-58" width="12" height="32" rx="3" fill="#9aa5b1"/>` +
+      `<path d="M-22 -58h44q-4 12-22 12t-22-12z" fill="#b8c2cf"/><rect x="-24" y="-61" width="48" height="5" rx="2.5" fill="#9aa5b1"/>` +
+      `<path d="M0 -62V-86M0 -86Q-15 -88 -19 -62M0 -86Q15 -88 19 -62M-24 -57Q-35 -55 -33 -31M24 -57Q35 -55 33 -31" fill="none" stroke="#7fc8f8" stroke-width="3.2" stroke-linecap="round"/>` +
+      `<circle cx="-33" cy="-31" r="2.4" fill="#cfeaff"/><circle cx="33" cy="-31" r="2.4" fill="#cfeaff"/><circle cx="0" cy="-90" r="3" fill="#cfeaff"/>`;
+  }
+  function ballon() {
+    const streifen = ["#ef5350", "#ffd166", "#4cc46b", "#4f8ef7", "#ef5350"];
+    let s = `<path d="M-15 -26l-12-30M15 -26l12-30M-5 -26l-4-30M5 -26l4-30" stroke="#8a5734" stroke-width="1.6"/>` +
+      `<rect x="-16" y="-26" width="32" height="24" rx="4" fill="#c88c5c" stroke="#8a5734" stroke-width="2"/><path d="M-16 -18h32" stroke="#8a5734" stroke-width="1.6"/>`;
+    // Die Hülle: fünf Streifen, oben rund, unten schmal.
+    const hoehe = 120;
+    const breite = 92;
+    const unten = -58;
+    const mitte = unten - hoehe * 0.6;
+    streifen.forEach((c, k) => {
+      const a = -breite / 2 + (breite * k) / streifen.length;
+      const b = a + breite / streifen.length;
+      const ua = -12 + (24 * k) / streifen.length;
+      const ub = ua + 24 / streifen.length;
+      s += `<path d="M${ua.toFixed(1)} ${unten}C${(a * 1.25).toFixed(1)} ${mitte + 22} ${(a * 1.05).toFixed(1)} ${unten - hoehe} 0 ${unten - hoehe}C${(b * 1.05).toFixed(1)} ${unten - hoehe} ${(b * 1.25).toFixed(1)} ${mitte + 22} ${ub.toFixed(1)} ${unten}z" fill="${c}"/>`;
+    });
+    s += `<path d="M-12 ${unten}C${-breite * 0.62} ${mitte + 22} ${-breite * 0.52} ${unten - hoehe} 0 ${unten - hoehe}C${breite * 0.52} ${unten - hoehe} ${breite * 0.62} ${mitte + 22} 12 ${unten}z" fill="none" stroke="#ffffff" stroke-width="2" opacity="0.6"/>`;
+    s += `<rect x="-13" y="${unten - 2}" width="26" height="6" rx="3" fill="#8a5734"/>`;
+    return s;
+  }
+  function regenbogen(r = 300) {
+    const farben = ["#ef5350", "#ff9f43", "#ffd166", "#4cc46b", "#4f8ef7", "#9b6bd8"];
+    const dicke = r * 0.06;
+    return farben.map((c, k) => {
+      const rr = r - k * dicke;
+      return `<path d="M${-rr} 0A${rr} ${rr} 0 0 1 ${rr} 0" fill="none" stroke="${c}" stroke-width="${dicke + 0.5}"/>`;
+    }).join("");
+  }
+  function karussell() {
+    const pferd = (x, c) => `<g transform="translate(${x} -40)"><path d="M0 -44v30" stroke="#d4af37" stroke-width="2.5"/>` +
+      `<path d="M-12 -14q0-9 10-9h8q4-8 10-6l2 5q-4 1-5 6v4q0 6-7 6h-12q-6 0-6-6z" fill="${c}" stroke="#8a5734" stroke-width="1.4"/>` +
+      `<path d="M-9 -8v8M7 -8v8" stroke="#8a5734" stroke-width="2.4" stroke-linecap="round"/></g>`;
+    let s = `<ellipse cx="0" cy="-6" rx="64" ry="10" fill="#c88c5c"/><rect x="-64" y="-14" width="128" height="9" fill="#e0a96d"/>` +
+      `<rect x="-4" y="-110" width="8" height="98" fill="#d4af37"/>` +
+      pferd(-34, "#ffffff") + pferd(34, "#ffd6e7") + `<g transform="scale(0.8)">${pferd(0, "#cfeaff")}</g>`;
+    // Das Dach: rot-weiss gestreift, mit Bogenkante.
+    const farben = ["#ef5350", "#ffffff"];
+    for (let k = 0; k < 8; k += 1) {
+      const a = -70 + k * 17.5;
+      s += `<path d="M0 -150L${a} -104h17.5z" fill="${farben[k % 2]}" stroke="#d0d7e0" stroke-width="0.6"/>`;
+    }
+    for (let k = 0; k < 8; k += 1) s += `<path d="M${-70 + k * 17.5} -104a8.75 8.75 0 0 0 17.5 0z" fill="${farben[(k + 1) % 2]}"/>`;
+    s += `<circle cx="0" cy="-154" r="6" fill="#ffd166" stroke="#d68f00" stroke-width="1.5"/>`;
+    return s;
+  }
+  function statue() {
+    return `<rect x="-26" y="-14" width="52" height="14" rx="2" fill="#9aa5b1"/><rect x="-20" y="-58" width="40" height="46" rx="2" fill="#b8c2cf"/>` +
+      `<rect x="-24" y="-62" width="48" height="7" rx="2" fill="#9aa5b1"/><rect x="-13" y="-46" width="26" height="14" rx="2" fill="#e8c45a"/><path d="M-7 -39h14" stroke="#a86b00" stroke-width="2"/>` +
+      `<path d="${sternPfad(0, -92, 30, 0.48)}" fill="#ffc93c" stroke="#a86b00" stroke-width="3" stroke-linejoin="round"/>` +
+      `<path d="${sternPfad(-3, -95, 16, 0.48)}" fill="#ffe27a"/>` +
+      `<circle cx="-6" cy="-92" r="2.6" fill="#7a4d00"/><circle cx="6" cy="-92" r="2.6" fill="#7a4d00"/><path d="M-6 -85q6 5 12 0" fill="none" stroke="#7a4d00" stroke-width="2.2" stroke-linecap="round"/>` +
+      `<g class="bau-glitzer-a">${funkeln(-30, -118, 8)}${funkeln(28, -74, 6)}</g><g class="bau-glitzer-b">${funkeln(30, -122, 7)}${funkeln(-30, -70, 6)}</g>`;
+  }
+  function dachstern() {
+    return `<circle r="30" fill="#fff3a0" opacity="0.45"/>` +
+      `<path d="${sternPfad(0, 0, 21, 0.47)}" fill="#ffc93c" stroke="#a86b00" stroke-width="2.6" stroke-linejoin="round"/>` +
+      `<path d="${sternPfad(-2, -2, 11, 0.47)}" fill="#ffe27a"/>` +
+      `<g class="bau-glitzer-a">${funkeln(-24, -18, 7)}${funkeln(22, 16, 5)}</g><g class="bau-glitzer-b">${funkeln(24, -20, 6)}${funkeln(-22, 18, 5)}</g>`;
+  }
+  // Wo der Dachstern auf welchem Dach sitzt (x, y über der obersten Decke).
+  function dachsternOrt(form, y) {
+    if (form === "giebel") return [HB / 2, y - 120 - 22];
+    if (form === "heli") return [HB * 0.8 + 29, y - 70 - 22];
+    if (form === "turm") return [HB * 0.5, y - 190 - 22];
+    return [HB - 80, y - 128];
+  }
+  // Ein Bild je Stufe für die Leiter: Markup und viewBox.
+  const LEITER_BILD = {
+    blumen: [() => blumen(96), "-60 -34 120 42"],
+    fahnen: [() => `<g transform="translate(-100 -40)">${wimpel(200, 0)}</g>`, "-108 -46 216 70"],
+    brunnen: [brunnen, "-48 -96 96 100"],
+    ballon: [ballon, "-58 -186 116 190"],
+    regenbogen: [() => regenbogen(100), "-108 -108 216 112"],
+    karussell: [karussell, "-74 -166 148 170"],
+    statue: [statue, "-42 -134 84 138"],
+    dachstern: [dachstern, "-34 -34 68 68"],
+  };
+  function leiterBild(id) {
+    const eintrag = LEITER_BILD[id];
+    return eintrag ? { markup: eintrag[0](), viewBox: eintrag[1] } : { markup: "", viewBox: "0 0 10 10" };
+  }
+
   window.LernappBauArt = {
-    ZW, ZH, WAND, LIFT, DECKE, STOCK, FUSS, HB, ZX, LX, DACH_H,
-    unten, oben, musterDef, boden, zimmerSchale, rohbauSchale, trennwand, tier, koffer,
+    ZW, ZH, ZH_HOCH, BODEN_Y, OBEN_Y, WAND, LIFT, DECKE, STOCK, STOCK_HOCH, FUSS, HB, ZX, LX, DACH_H,
+    hoehenVon, hoehe, unten, oben, musterDef, boden, zimmerSchale, rohbauSchale, trennwand, tier, koffer,
     hausRahmen, liftStock, sternTafel, sternTafelHoehe, traumAbzeichen, traumRahmen, traumSchild, liftKabine, dach, naechsterStock, strasse, baum, laterne,
     lieferzug, palette, minihaus, minihausHoehe, hausZeichen,
+    sternPfad, funkeln, blitzzug, gluecksstern, krone, sternRahmen,
+    blumen, wimpel, brunnen, ballon, regenbogen, karussell, statue, dachstern, dachsternOrt, leiterBild,
   };
 })();

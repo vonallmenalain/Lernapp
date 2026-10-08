@@ -21,6 +21,13 @@
  *                 sein Traumjob und seine Arbeit.
  *   Einzug        ein neues Tier kommt die Strasse entlang, fährt mit dem Lift
  *                 in seine Wohnung – und es gibt ein Feuerwerk.
+ *   Überraschung  etwa jede halbe Stunde braust ein Blitzzug über das Gleis,
+ *                 und ein Glücksstern versteckt sich in einem Zimmer: Wer sie
+ *                 antippt, bekommt je eine Palette.
+ *   Sterne        links zählt die Sternenleiter alle Sterne des Dorfs; jede
+ *                 Stufe bringt dem Dorf etwas ins Bild. Wer alle Sterne hat,
+ *                 trägt eine Krone; eine Wohnung voller Sterne hat einen
+ *                 goldenen, glitzernden Rahmen.
  *
  * Ist das Vorlesen an, liest ein Tipp auf einen Text ihn vor.
  *
@@ -149,6 +156,10 @@
     tafel: null,           // offene Tier-Tafel { seed }
     overlay: null,         // offene Wahl (Haus, Stockwerk, Zimmerart, Fassade)
     ordnen: false,         // Stockwerke umstellen
+    leiter: false,         // die Sternenleiter ist offen
+    blitz: null,           // ein Blitzzug, der gerade vorbeibraust
+    stern: null,           // wo sich der Glücksstern versteckt
+    leiterBekannt: 0,      // wie viele Stufen der Sternenleiter schon gefeiert sind
     besetzt: false,        // eine Animation, die keinen Tipp verträgt
     kommt: "",             // ein Tier, das gerade einzieht (noch nicht im Zimmer)
     letzterEinzug: 0,
@@ -169,6 +180,14 @@
   // KiddyDome reicht ein Stockwerk höher).
   function zimmerHoehe() { return S().hoeheVon(aktStock()); }
   function zimmerOben() { return S().obenVon(aktStock()); }
+  // Wie hoch jedes Stockwerk des Hauses im Bild ist: die zwei eines KiddyDome
+  // so hoch wie früher (ZH_HOCH), alle anderen ZH (bau-art.js).
+  function stockHoehen() {
+    return (aktHaus()?.stock || []).map((st) => (st.art === "oben" || S().istDoppel(st) ? A().ZH_HOCH : A().ZH));
+  }
+  // Wo ein Zimmer-Inhalt im Haus liegt: Sein Boden (Zimmer-Einheiten
+  // BODEN_Y) auf dem Boden des Stockwerks.
+  function inhaltY(index) { return A().unten(index) - A().BODEN_Y; }
 
   // ---------------------------------------------------------------------------
   // Einbau in die Bühne
@@ -182,16 +201,20 @@
     ui.slot = 0;
     ui.tafel = null;
     ui.uebersicht = false;
+    ui.leiter = false;
     ui.overlay = null;
     ui.ordnen = false;
     ui.besetzt = false;
     ui.kommt = "";
+    ui.blitz = null;
+    ui.stern = null;
     try { ui.nacht = localStorage.getItem("lernapp.bau.nacht") === "1"; } catch { ui.nacht = false; }
     const gewaehlt = stand().gewaehlt;
     ui.haus = S().HAUS_IDS.includes(gewaehlt) ? gewaehlt : (zuletztHaus() || "wohnhaus");
 
     host.classList.add("bauecke");
     host.classList.toggle("is-nacht", ui.nacht);
+    A().hoehenVon(stockHoehen);
     host.innerHTML = "";
     if (S().neuereFassung?.()) { zeigeNeuereFassung(); return; }
 
@@ -206,15 +229,19 @@
     els.hud = el("div", "bau-hud");
     // Links: alle Bewohner auf einen Blick – im Haus und beim Einrichten.
     els.bewohner = knopf("bau-bewohnerknopf", "Alle Bewohner", "", () => oeffneUebersicht());
+    // Darunter: alle Sterne des Dorfs und die Sternenleiter.
+    els.leiterKnopf = knopf("bau-leiterknopf", "Sternenleiter", "", () => oeffneLeiter());
     els.zimmer = el("div", "bau-zimmeransicht");
     els.zimmer.hidden = true;
     els.flug = el("div", "bau-flug");
-    host.append(els.himmel, els.welt, els.nachbarL, els.nachbarR, els.umschalter, els.hud, els.bewohner, els.zimmer, els.flug);
+    host.append(els.himmel, els.welt, els.nachbarL, els.nachbarR, els.umschalter, els.hud, els.bewohner, els.leiterKnopf, els.zimmer, els.flug);
     // Die Verläufe der Tiere (bau-tiere.js): einmal für alle Bilder der Bauecke.
     const tierDefs = window.LernappBauTiere?.defs?.() || "";
     if (tierDefs) host.append(el("div", "bau-tierdefs", { "aria-hidden": "true", html: `<svg xmlns="${NS}" width="0" height="0" focusable="false"><defs>${tierDefs}</defs></svg>` }));
     els.tafel = null;
     els.uebersicht = null;
+    els.leiter = null;
+    ui.leiterBekannt = S().sternenleiter().erreicht;
 
     baueUmschalter();
     baueHud();
@@ -229,7 +256,7 @@
     ui.abmelden = S().onChange((grund) => {
       if (!ui.host?.isConnected) return;
       if (grund === "neuer" || grund === "konto") { mount({ host: ui.host, stage: ui.stage, onPlay: ui.onPlay }); return; }
-      if (grund !== "ziegel") pruefeAlleSterne();
+      if (grund !== "ziegel") { pruefeAlleSterne(); pruefeLeiter(); }
       if (grund !== "zimmer" && grund !== "ziegel") pruefeTraumjobs();
       if (grund === "zimmer") { aktualisiereSterne(); return; }
       if (grund === "ziegel") { aktualisiereHud(); pruefeLieferung(); return; }
@@ -238,6 +265,7 @@
     window.addEventListener("resize", beiGroesse);
     planeLifte();
     ui.tickUhr = window.setInterval(zeitTick, 4000);
+    glitzerUhr = window.setInterval(glitzern, 480);
     zeitTick();
     hilfeHaus();
 
@@ -264,6 +292,9 @@
     window.clearTimeout(traumUhr);
     window.clearTimeout(alleUhr);
     window.clearTimeout(liftUhr);
+    window.clearTimeout(leiterUhr);
+    window.clearInterval(glitzerUhr);
+    glitzerUhr = 0;
     if (ui.tickUhr) window.clearInterval(ui.tickUhr);
     ui.tickUhr = 0;
     ui.abmelden?.();
@@ -279,6 +310,7 @@
     // mehr an (die Bewegungen sind eben gelöscht) – die nächste darf trotzdem.
     liefert = false;
     ui.kommt = "";
+    ui.blitz = null;
     if (ui.host) ui.host.classList.remove("bauecke", "is-nacht", "ist-zimmer", "ist-ordnen", "kann-lesen");
     ui.host = null;
   }
@@ -294,6 +326,7 @@
     if (ui.overlay) { schliesseOverlay(); return true; }
     if (ui.tafel) { schliesseTafel({ zurueck: true }); return true; }
     if (ui.uebersicht) { schliesseUebersicht(); return true; }
+    if (ui.leiter) { schliesseLeiter(); return true; }
     if (ui.zimmer >= 0) { schliesseZimmer(); return true; }
     if (ui.ordnen) { schalteOrdnen(false); return true; }
     S().speichern(true);
@@ -369,6 +402,8 @@
       if (e.typ === "neuerWunsch") blaseAnSeed(e.seed, "Ich habe einen neuen Wunsch! ⭐", 3600);
     });
     pruefeZuzug();
+    pruefeBlitzzug();
+    pruefeGluecksstern();
   }
 
   // Ein neues Tier zieht ein – aber nur, wenn das Kind es sieht: im Wohnhaus,
@@ -379,7 +414,7 @@
     const tab = els.umschalter?.querySelector(`.bau-tab[data-haus="wohnhaus"]`);
     tab?.classList.toggle("hat-neues", Boolean(fall) && ui.haus !== "wohnhaus");
     if (!fall) return;
-    if (ui.haus !== "wohnhaus" || ui.zimmer >= 0 || ui.overlay || ui.tafel || ui.uebersicht || ui.besetzt || ui.ordnen || liefert) return;
+    if (ui.haus !== "wohnhaus" || ui.zimmer >= 0 || ui.overlay || ui.tafel || ui.uebersicht || ui.leiter || ui.besetzt || ui.ordnen || liefert || ui.blitz) return;
     if (performance.now() - ui.letzterEinzug < 30000 && ui.letzterEinzug) return;
     const tier = S().ziehtEin(fall.hausId, fall.index);
     if (tier) zeigeEinzug(fall.index, tier);
@@ -415,7 +450,7 @@
     else if (svg && job && job.haus === ui.haus) {
       const st = S().stock(job.haus, job.index);
       const breite = S().breiteVon(st);
-      feuerwerk(svg, A().ZX + job.slot * HALB + breite / 2, A().oben(job.index) + S().obenVon(st) / 2 + 50, breite);
+      feuerwerk(svg, A().ZX + job.slot * HALB + breite / 2, inhaltY(job.index) + S().obenVon(st) + 50, breite);
     }
     seeds.forEach((seed) => window.setTimeout(() => blaseAnSeed(seed, "Mein Traumjob! 🌟", 3400), 700));
     // Haben jetzt alle drei einer Wohnung ihren Traumjob, sagt die Bauecke es.
@@ -444,6 +479,10 @@
       const jetzt = alleStand();
       ui.alleBekannt = jetzt;
       const neu = [...jetzt].filter(([seed, hat]) => hat && vorher.has(seed) && !vorher.get(seed)).map(([seed]) => seed);
+      const anders = [...jetzt].some(([seed, hat]) => vorher.get(seed) !== hat);
+      aktualisiereKronen();
+      if (anders && ui.zimmer < 0 && !ui.besetzt && !zieht) zeichneHaus({ behalteKamera: true });
+      if (anders && ui.zimmer >= 0) passeGoldAn();
       if (neu.length) feiereAlleSterne(neu);
     }, 80);
   }
@@ -469,7 +508,7 @@
       else if (ref.hausId === ui.haus) {
         const svg = els.welt?.querySelector("svg");
         const st = S().stock(ref.hausId, ref.index);
-        if (svg && st) feuerwerk(svg, A().ZX + S().breiteVon(st) / 2, A().oben(ref.index) + 50, S().breiteVon(st));
+        if (svg && st) feuerwerk(svg, A().ZX + S().breiteVon(st) / 2, inhaltY(ref.index) + S().obenVon(st) + 50, S().breiteVon(st));
       }
       for (const t of tiere.values()) if (seeds.includes(t.tier.seed)) { t.huepf = 1; wecke(); }
       sag(`Juhui! ${tier.n} hat alle Sterne! ${tier.n} ist überglücklich.`);
@@ -504,6 +543,7 @@
       b.dataset.haus = id;
       els.umschalter.append(b);
     });
+    zeigeSternTipp();
     // Die Nachbarn am Rand: ein Stück vom Haus links und rechts.
     const ids = S().HAUS_IDS;
     const i = ids.indexOf(ui.haus);
@@ -530,6 +570,7 @@
     if (ui.zimmer >= 0) await schliesseZimmer(true);
     if (ui.tafel) schliesseTafel();
     if (ui.uebersicht) schliesseUebersicht({ weiter: true });
+    if (ui.leiter) { ui.leiter = false; if (els.leiter) els.leiter.hidden = true; }
     if (ui.ordnen) schalteOrdnen(false, { stumm: true });
     besetze();
     const weg = richtung >= 0 ? -1 : 1;
@@ -586,6 +627,7 @@
     const plus = els.welt?.querySelector("[data-ziel='plus']");
     if (plus) plus.classList.toggle("is-bereit", S().kannBauen(ui.haus).ok);
     aktualisiereBewohnerKnopf();
+    aktualisiereLeiterKnopf();
   }
 
   // Der Bewohner-Knopf zeigt, wie viele Tiere im Wohnhaus wohnen.
@@ -635,6 +677,7 @@
   async function verschiebeStock(index, richtung) {
     if (ui.besetzt) return;
     const vorher = aktHaus().stock.map((s) => s.id);
+    const untenVorher = vorher.map((_, i) => A().unten(i));
     const j = S().verschiebe(ui.haus, index, richtung);
     if (j === index) return;
     klang("correct");
@@ -646,7 +689,7 @@
       await Promise.all(wege.map(({ neu, alt }) => {
         const node = els.welt.querySelector(`.bau-stockreihe[data-stock="${neu}"]`);
         if (!node) return null;
-        const dy = A().oben(alt) - A().oben(neu);
+        const dy = untenVorher[alt] - A().unten(neu);
         node.setAttribute("transform", `translate(0 ${dy})`);
         return tweenP(320, (p) => node.setAttribute("transform", `translate(0 ${dy * (1 - p)})`), { e: ease.out }).then(() => node.removeAttribute("transform"));
       }));
@@ -695,14 +738,15 @@
 
   function kameraTransform(tx, ty) { return `translate3d(${Math.round(tx)}px, ${Math.round(ty)}px, 0)`; }
 
-  // Wie gross das Haus steht: auf dem Tablet gut zweieinhalb Stockwerke im
-  // Bild, auf dem Handy knapp zwei.
+  // Wie gross das Haus steht: gemessen an den alten, hohen Stockwerken
+  // (STOCK_HOCH) – so bleiben Dinge und Tiere gleich gross, und seit die
+  // Stockwerke niedriger sind, passt mehr vom Haus ins Bild.
   function messeWelt() {
     const w = ui.host.clientWidth || 800;
     const h = ui.host.clientHeight || 500;
     // Auf dem Tablet passen die drei Wohnungen vom Anfang samt Strasse ins Bild.
     const sichtbar = h < 520 ? 1.75 : 3.6;
-    const skala = clamp(Math.min((w * 0.6) / A().HB, (h - 70) / (sichtbar * A().STOCK)), 0.3, 1.6);
+    const skala = clamp(Math.min((w * 0.6) / A().HB, (h - 70) / (sichtbar * A().STOCK_HOCH)), 0.3, 1.6);
     ui.kamera.skala = skala;
     const anzahl = aktHaus().stock.length;
     const y0 = weltOben(anzahl);
@@ -730,7 +774,7 @@
     const k = ui.kamera;
     const st = S().stock(ui.haus, index);
     const breite = S().breiteVon(st);
-    const y = (A().oben(index) + S().obenVon(st) - k.y0) * k.skala + k.ty;
+    const y = (inhaltY(index) + S().obenVon(st) - k.y0) * k.skala + k.ty;
     const x = (A().ZX + slot * HALB - WX0) * k.skala + k.tx;
     return { x, y, w: breite * k.skala, h: S().hoeheVon(st) * k.skala };
   }
@@ -782,7 +826,7 @@
     const st = S().stock(ui.haus, index);
     const unten = st?.art === "oben" ? index - 1 : index;
     const doppel = S().istDoppel(S().stock(ui.haus, unten));
-    const ziel = kameraZiel(doppel ? A().oben(unten) - A().DECKE / 2 : A().oben(index) + A().ZH / 2);
+    const ziel = kameraZiel(doppel ? A().oben(unten) - A().DECKE / 2 : A().oben(index) + A().hoehe(index) / 2);
     if (!sanft) { k.ty = ziel; setzeKamera(); return; }
     const start = k.ty;
     tween(420, (p) => { k.ty = start + (ziel - start) * p; setzeKamera(); }, { e: ease.inOut });
@@ -799,12 +843,15 @@
     const katalog = K();
     const hausInfo = katalog.HAUS[ui.haus];
     let s = `<defs><linearGradient id="bau-lift-schatten" x1="0" x2="1"><stop offset="0" stop-color="#000" stop-opacity="0.12"/><stop offset="0.3" stop-color="#000" stop-opacity="0"/></linearGradient>` +
-      `<clipPath id="bau-clip-voll"><rect x="0" y="0" width="${art.ZW}" height="${art.ZH}"/></clipPath>` +
-      `<clipPath id="bau-clip-halb"><rect x="0" y="0" width="${HALB}" height="${art.ZH}"/></clipPath>` +
-      `<clipPath id="bau-clip-doppel"><rect x="0" y="${-art.STOCK}" width="${art.ZW}" height="${art.ZH + art.STOCK}"/></clipPath>` +
+      `<clipPath id="bau-clip-voll"><rect x="0" y="${art.OBEN_Y}" width="${art.ZW}" height="${art.ZH}"/></clipPath>` +
+      `<clipPath id="bau-clip-halb"><rect x="0" y="${art.OBEN_Y}" width="${HALB}" height="${art.ZH}"/></clipPath>` +
+      `<clipPath id="bau-clip-doppel"><rect x="0" y="${-S().GEO.STOCK}" width="${art.ZW}" height="${S().GEO.H + S().GEO.STOCK}"/></clipPath>` +
       `<radialGradient id="bau-glanz"><stop offset="0" stop-color="#fff6c2" stop-opacity="0.75"/><stop offset="1" stop-color="#fff6c2" stop-opacity="0"/></radialGradient></defs>`;
+    const stufen = S().sternenleiter().erreicht;
     s += `<g class="bau-hintergrund">`;
+    s += schmuckMarkup("hinten", stufen);
     s += art.baum(-260, 1.15) + art.baum(-120, 0.9) + art.laterne(-40) + art.baum(art.HB + 110, 1) + art.laterne(art.HB + 40) + art.baum(art.HB + 260, 1.2);
+    s += schmuckMarkup("strasse", stufen);
     s += `</g>`;
     s += art.strasse(WX0, WX1);
     // Die Stockwerke: je eine Reihe (die beim Umstellen wandert).
@@ -814,16 +861,19 @@
       const st = haus.stock[i];
       zimmerTeil += `<g class="bau-stockreihe" data-stock="${i}">${stockMarkup(st, i)}${traumMarkup(st, i)}</g>`;
       liftTeil += `<g class="bau-lift" data-stock="${i}">${art.liftStock(i)}</g>`;
-      if (st.tiere.length) liftTeil += `<g class="bau-tafelknopf" data-ziel="tafel" data-stock="${i}" role="button" tabindex="0" aria-label="Wer hier wohnt">${art.sternTafel(S().sterneStock(ui.haus, i), art.LX + art.LIFT / 2, art.oben(i) + 10)}</g>`;
+      if (st.tiere.length) liftTeil += `<g class="bau-tafelknopf" data-ziel="tafel" data-stock="${i}" role="button" tabindex="0" aria-label="Wer hier wohnt">${art.sternTafel(S().sterneStock(ui.haus, i), art.LX + art.LIFT / 2, art.oben(i) + 6)}</g>`;
     }
     s += zimmerTeil;
     // Über dem unteren Stockwerk eines KiddyDome geht keine Decke durch.
     const offen = haus.stock.map((st, i) => (S().istDoppel(st) ? i : -1)).filter((i) => i >= 0);
     s += `<g class="bau-rahmen">${art.hausRahmen(haus, anzahl, offen)}</g>`;
     for (let i = 0; i < anzahl; i += 1) if (haus.stock[i].art === "zwei") s += art.trennwand(i, haus.fassade);
+    // Alle in einer Wohnung haben alle Sterne: ein goldener Rahmen, der glitzert.
+    for (let i = 0; i < anzahl; i += 1) if (wohnungStrahlt(haus.stock[i])) s += `<g class="bau-sternrahmen" data-stock="${i}" pointer-events="none">${art.sternRahmen(i)}</g>`;
     s += liftTeil;
     const dachY = art.oben(anzahl - 1) - art.DECKE;
     s += `<g class="bau-dach">${art.dach(hausInfo.dachForm, haus.dach, haus.fassade, dachY)}</g>`;
+    s += schmuckMarkup("dach", stufen, hausInfo.dachForm, dachY);
     // Die Stelle für das nächste Stockwerk, über dem Dach – nur, wenn Ziegel
     // da sind. Ohne Ziegel wäre sie ein Knopf, der nichts tut; dann zeigt der
     // Rätsel-Knopf den Weg.
@@ -835,6 +885,8 @@
     s += `<g class="bau-zuglage"></g><g class="bau-einzuglage" pointer-events="none"></g>`;
     const svg = `<svg xmlns="${NS}" class="bau-haus-svg${ui.nacht ? " is-nacht" : ""}" viewBox="${WX0} ${y0} ${WX1 - WX0} ${GRUND - y0}" width="${Math.round((WX1 - WX0) * ui.kamera.skala)}" height="${Math.round((GRUND - y0) * ui.kamera.skala)}" role="img" aria-label="${hausInfo.name} mit ${anzahl} ${anzahl === 1 ? "Stockwerk" : "Stockwerken"}">${s}</svg>`;
     els.welt.innerHTML = svg;
+    // Ein Blitzzug mitten in der Fahrt fährt im neuen Bild weiter.
+    if (ui.blitz && !ui.blitz.fertig) els.welt.querySelector(".bau-zuglage")?.append(ui.blitz.g);
     ui.gezeichnet = zeichenStand();
     ui.kamera.anzahl = anzahl;
     ui.kamera.hausGezeichnet = ui.haus;
@@ -848,7 +900,7 @@
   // Rohbau – jedes Zimmer ein eigenes Ziel zum Antippen.
   function stockMarkup(st, i) {
     const art = A();
-    const y = art.oben(i);
+    const y = inhaltY(i);
     const feld = (slot, breite, ziel, inhalt, label, clip = breite === HALB ? "bau-clip-halb" : "bau-clip-voll") =>
       `<g class="bau-raum${ziel !== "zimmer" ? " is-rohbau" : ""}" data-ziel="${ziel}" data-stock="${i}" data-slot="${slot}" role="button" tabindex="0" aria-label="${textSicher(label)}" transform="translate(${art.ZX + slot * HALB} ${y})" clip-path="url(#${clip})">${inhalt}</g>`;
     if (st.art === "") return feld(0, art.ZW, "rohbau", art.rohbauSchale(art.ZW, "frage"), "Ein neues Stockwerk: Was soll es werden?");
@@ -896,7 +948,7 @@
     for (let i = 0; i < anzahl; i += 1) {
       const doppel = S().istDoppel(stock[i]) && stock[i + 1]?.art === "oben";
       const top = doppel ? art.oben(i + 1) : art.oben(i);
-      const hoehe = art.oben(i) + art.ZH - top;
+      const hoehe = art.unten(i) - top;
       const y = top + hoehe / 2;
       const letzter = i + (doppel ? 1 : 0);
       s += `<rect x="${art.ZX - 4}" y="${top - 4}" width="${art.ZW + 8}" height="${hoehe + 8}" rx="8" fill="none" stroke="#3fbf74" stroke-width="5" stroke-dasharray="14 10" pointer-events="none"/>`;
@@ -920,6 +972,7 @@
     s += dingeMarkup(z, z.raum);
     s += `<g class="bau-tierlage" data-tierlage="${index}:${slot}"></g>`;
     if (ui.nacht) s += nachtMarkup(z, breite, oben);
+    if (sternHier(hausId, index, slot)) s += sternMarkup();
     return s;
   }
 
@@ -979,8 +1032,8 @@
 
   // Die Nacht im Zimmer: ohne Licht dunkel, mit Licht ein warmer Schein um
   // jede Lampe.
-  function nachtMarkup(z, breite, oben = 0) {
-    const h = A().ZH - oben;
+  function nachtMarkup(z, breite, oben = S().GEO.OBEN) {
+    const h = S().GEO.H - oben;
     if (!z.licht) return `<rect x="0" y="${oben}" width="${breite}" height="${h}" fill="#0b1530" opacity="0.62" pointer-events="none"/>`;
     let s = `<rect x="0" y="${oben}" width="${breite}" height="${h}" fill="#1b2350" opacity="0.18" pointer-events="none"/>`;
     z.dinge.forEach((d) => {
@@ -1020,7 +1073,9 @@
   // --- Sterne nachführen, ohne das ganze Haus neu zu bauen ------------------
   function aktualisiereSterne() {
     baueUmschalter();
-    if (ui.zimmer >= 0) zeichneZimmerKopf();
+    aktualisiereKronen();
+    aktualisiereLeiterKnopf();
+    if (ui.zimmer >= 0) { zeichneZimmerKopf(); passeGoldAn(); }
     if (ui.tafel) fuelleTafel();
     if (ui.uebersicht) fuelleUebersicht();
   }
@@ -1095,6 +1150,7 @@
     const art = ziel.getAttribute("data-ziel");
     const index = Number(ziel.getAttribute("data-stock"));
     const slot = Number(ziel.getAttribute("data-slot")) || 0;
+    if (art === "gluecksstern") { findeGluecksstern(ziel); return; }
     if (art === "hoch" || art === "runter") { verschiebeStock(index, art === "hoch" ? 1 : -1); return; }
     if (ui.ordnen) { sag(stockName(S().stock(ui.haus, index), index)); return; }
     if (art === "plus") { neuesStockwerk(); return; }
@@ -1137,12 +1193,12 @@
     const unten = A().unten(index);
     if (plusEl) plusEl.style.opacity = "0";
     if (stockEl && !reduced()) {
-      const y = A().oben(index);
-      const wachse = (p) => `translate(0 ${y + A().ZH}) scale(1 ${Math.max(0.001, p)}) translate(0 ${-(y + A().ZH)})`;
+      const wachse = (p) => `translate(0 ${unten}) scale(1 ${Math.max(0.001, p)}) translate(0 ${-unten})`;
+      const hub = A().hoehe(index) + A().DECKE;
       stockEl.setAttribute("transform", wachse(0));
-      if (dachEl) dachEl.setAttribute("transform", `translate(0 ${A().STOCK})`);
+      if (dachEl) dachEl.setAttribute("transform", `translate(0 ${hub})`);
       await tweenP(650, (p) => {
-        if (dachEl) dachEl.setAttribute("transform", `translate(0 ${A().STOCK * (1 - p)})`);
+        if (dachEl) dachEl.setAttribute("transform", `translate(0 ${hub * (1 - p)})`);
       }, { e: ease.out });
       staub(svg, A().ZX + A().ZW / 2, unten);
       await tweenP(700, (p) => stockEl.setAttribute("transform", wachse(p)), { e: ease.out });
@@ -1242,7 +1298,7 @@
     const art = A();
     const g = document.createElementNS(NS, "g");
     g.setAttribute("pointer-events", "none");
-    g.innerHTML = `<rect x="${art.ZX + 6}" y="${art.oben(index) + 6}" width="${art.ZW - 12}" height="${art.ZH - 12}" rx="10" fill="none" stroke="#ffd166" stroke-width="12"/>` +
+    g.innerHTML = `<rect x="${art.ZX + 6}" y="${art.oben(index) + 6}" width="${art.ZW - 12}" height="${art.hoehe(index) - 12}" rx="10" fill="none" stroke="#ffd166" stroke-width="12"/>` +
       `<circle cx="${tierX}" cy="${tierY}" r="40" fill="none" stroke="#fff3a0" stroke-width="10"/>`;
     svg.append(g);
     const [rahmen, ring] = g.children;
@@ -1285,7 +1341,7 @@
   // ---------------------------------------------------------------------------
   let liefert = false;
   async function pruefeLieferung() {
-    if (liefert || !ui.host?.isConnected || ui.zimmer >= 0 || ui.overlay || !els.welt) return;
+    if (liefert || ui.blitz || !ui.host?.isConnected || ui.zimmer >= 0 || ui.overlay || !els.welt) return;
     const neu = S().neueLieferung();
     if (neu < 1) return;
     liefert = true;
@@ -1359,6 +1415,393 @@
   }
 
   // ---------------------------------------------------------------------------
+  // Was golden glitzert – der Sternenrahmen, der Glücksstern, die Ladung des
+  // Blitzzugs, Statue und Dachstern: zwei Gruppen leuchten abwechselnd auf.
+  // Ein Zeitgeber setzt nur die Deckkraft, ohne CSS-Animation an SVG-Teilen
+  // (siehe oben) und ohne die Bild-Schleife wach zu halten.
+  // ---------------------------------------------------------------------------
+  let glitzerUhr = 0;
+  let glitzerTakt = false;
+  function glitzern() {
+    if (!ui.host?.isConnected || document.hidden || reduced()) return;
+    glitzerTakt = !glitzerTakt;
+    const wo = ui.zimmer >= 0 ? els.zimmerBuehne : els.welt;
+    wo?.querySelectorAll(".bau-glitzer-a").forEach((n) => n.setAttribute("opacity", glitzerTakt ? "1" : "0.2"));
+    wo?.querySelectorAll(".bau-glitzer-b").forEach((n) => n.setAttribute("opacity", glitzerTakt ? "0.2" : "1"));
+  }
+
+  // ---------------------------------------------------------------------------
+  // Der Blitzzug: Etwa jede halbe Stunde braust ein schneller Zug mit einer
+  // Palette über das Gleis. Wer ihn antippt, bevor er weg ist, bekommt sie –
+  // verpasst, kommt er nach ein paar Minuten wieder (bau-stand.js).
+  // ---------------------------------------------------------------------------
+  const BLITZ_MS = 3800;       // so lange braucht er durchs Bild
+  const GLEIS_Y = 62;          // wo die Züge fahren (Haus-Einheiten)
+
+  // Er kommt nur, wenn das Kind ihn sehen kann: in der Hausansicht, mit dem
+  // Gleis im Bild und nichts anderem offen.
+  function gleisImBild() {
+    const k = ui.kamera;
+    const h = ui.host?.clientHeight || 500;
+    const y = (GLEIS_Y - k.y0) * k.skala + k.ty;
+    return y > 60 && y < h - 10;
+  }
+  function pruefeBlitzzug() {
+    // Zuerst fragen: Beim ersten Besuch stellt das die Uhr.
+    if (!S().blitzzugFaellig()) return;
+    if (ui.blitz || liefert || ui.besetzt || ui.zimmer >= 0 || ui.overlay || ui.tafel || ui.uebersicht || ui.leiter || ui.ordnen || zieht) return;
+    if (!els.welt?.querySelector(".bau-zuglage") || !gleisImBild()) return;
+    starteBlitzzug();
+  }
+
+  function starteBlitzzug() {
+    const lage = els.welt?.querySelector(".bau-zuglage");
+    if (!lage || ui.blitz) return false;
+    const k = ui.kamera;
+    const w = ui.host.clientWidth || 800;
+    // Von links ausserhalb des Bildes bis rechts hinaus.
+    const links = -k.tx / k.skala + WX0;
+    const rechts = (w - k.tx) / k.skala + WX0;
+    const g = document.createElementNS(NS, "g");
+    g.setAttribute("class", "bau-blitz");
+    g.setAttribute("role", "button");
+    g.setAttribute("tabindex", "0");
+    g.setAttribute("aria-label", "Der Blitzzug mit einer Palette Ziegel – schnell antippen!");
+    g.innerHTML = A().blitzzug();
+    const blitz = { g, gefangen: false, fertig: false };
+    ui.blitz = blitz;
+    // Gleich beim Berühren, nicht erst beim Loslassen: Er ist schnell.
+    const fang = (e) => { e.stopPropagation(); e.preventDefault(); fangeBlitzzug(blitz); };
+    g.addEventListener("pointerdown", fang);
+    g.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") fang(e); });
+    kids()?.playWhistle?.("doppelt");
+    sag("Achtung, der Blitzzug! Schnell, tippe ihn an!");
+    lage.append(g);
+    if (reduced()) {
+      // Ohne Bewegung hält er eine Weile mitten im Bild.
+      g.setAttribute("transform", `translate(${((links + rechts) / 2).toFixed(1)} ${GLEIS_Y})`);
+      window.setTimeout(() => blitzzugVorbei(blitz), 9000);
+      return true;
+    }
+    const x0 = links - 230;
+    const x1 = rechts + 330;
+    g.setAttribute("transform", `translate(${x0.toFixed(1)} ${GLEIS_Y})`);
+    tween(BLITZ_MS, (p) => g.setAttribute("transform", `translate(${(x0 + (x1 - x0) * p).toFixed(1)} ${GLEIS_Y})`), { e: ease.lin, delay: 500, done: () => blitzzugVorbei(blitz) });
+    return true;
+  }
+
+  async function fangeBlitzzug(blitz) {
+    if (blitz.gefangen || blitz.fertig || ui.blitz !== blitz) return;
+    blitz.gefangen = true;
+    S().blitzzugVorbei(true);
+    const ladung = blitz.g.querySelector(".bau-blitz-ladung");
+    const von = ladung?.querySelector(".bau-palette")?.getBoundingClientRect();
+    ladung?.setAttribute("opacity", "0");
+    S().bonusPalette();
+    klang("win");
+    sag("Gefangen! Der Blitzzug schenkt dir eine Palette Ziegel.");
+    await paletteZumZaehler(von);
+  }
+
+  function blitzzugVorbei(blitz) {
+    if (blitz.fertig) return;
+    blitz.fertig = true;
+    blitz.g.remove();
+    if (ui.blitz === blitz) ui.blitz = null;
+    if (!ui.host?.isConnected) return;
+    if (!blitz.gefangen) {
+      S().blitzzugVorbei(false);
+      if (ui.zimmer < 0) sag("Schade, der Blitzzug war zu schnell. Bald kommt er wieder!");
+    }
+    // Was während der Fahrt warten musste.
+    pruefeLieferung();
+  }
+
+  // Eine geschenkte Palette fliegt zum Ziegelzähler – im Zimmer, wo er nicht
+  // zu sehen ist, nach oben rechts. Danach steht das Plus bereit.
+  async function paletteZumZaehler(von) {
+    const sichtbar = els.ziegel?.offsetParent;
+    const w = ui.host?.clientWidth || 800;
+    const ziel = sichtbar ? els.ziegel.getBoundingClientRect() : { left: w - 90, top: 20, width: 60, height: 50 };
+    if (von && von.width) await fliege(von, ziel);
+    if (!ui.host?.isConnected) return;
+    aktualisiereHud();
+    if (sichtbar) stupse(els.ziegel);
+    klang("correct");
+    if (ui.zimmer < 0 && !ui.besetzt && zeichenStand() !== ui.gezeichnet) zeichneHaus({ behalteKamera: true });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Der Glücksstern: Etwa jede halbe Stunde versteckt sich ein lachender
+  // Stern in einem Zimmer des Dorfs. Wer ihn findet und antippt, bekommt eine
+  // Palette Ziegel. Nach einer Minute zeigt der Umschalter, in welchem Haus.
+  // ---------------------------------------------------------------------------
+  const STERN_TIPP_MS = 60 * 1000;
+  const STERN_MASS = 0.75;
+
+  function sternIndex(stern = ui.stern) {
+    if (!stern) return -1;
+    const index = S().indexVon(stern.haus, stern.stockId);
+    return index >= 0 && S().zimmer(stern.haus, index, stern.slot)?.raum ? index : -1;
+  }
+  function pruefeGluecksstern() {
+    // Sein Zimmer gibt es nicht mehr (umgebaut, aus der Cloud): neu verstecken.
+    if (ui.stern && sternIndex() < 0) ui.stern = null;
+    if (ui.stern) { zeigeSternTipp(); return; }
+    if (!S().sternFaellig()) return;
+    versteckeStern();
+  }
+
+  // ort: { haus, index, slot, x, y } für die Prüfskripte; sonst zufällig.
+  function versteckeStern(ort = null) {
+    const verstecke = S().sternVerstecke();
+    const v = ort || verstecke[Math.floor(Math.random() * verstecke.length)];
+    if (!v) return null;
+    const st = S().stock(v.haus, v.index);
+    if (!st?.zimmer?.[v.slot || 0]?.raum) return null;
+    const breite = S().breiteVon(st);
+    const oben = S().obenVon(st);
+    const x = ort?.x ?? 34 + Math.random() * (breite - 68);
+    const y = ort?.y ?? oben + 26 + Math.random() * (196 - oben - 26);
+    ui.stern = { haus: v.haus, stockId: st.id, slot: v.slot || 0, x: Math.round(x), y: Math.round(y), seit: Date.now() };
+    zeigeSternJetzt();
+    if (!ui.besetzt) sag("Psst! Irgendwo im Dorf hat sich ein Glücksstern versteckt. Findest du ihn?");
+    return { ...ui.stern, index: v.index };
+  }
+
+  function sternMarkup() {
+    const s = ui.stern;
+    return `<g class="bau-gluecksstern" data-ziel="gluecksstern" role="button" tabindex="0" aria-label="Der Glücksstern!" transform="translate(${s.x} ${s.y}) scale(${STERN_MASS})">` +
+      `<circle r="34" fill="transparent"/>${A().gluecksstern()}</g>`;
+  }
+  function sternHier(hausId, index, slot) {
+    const s = ui.stern;
+    return Boolean(s) && s.haus === hausId && s.slot === slot && S().stock(hausId, index)?.id === s.stockId;
+  }
+
+  // Taucht er auf, während das Kind schaut, kommt er gleich ins Bild – ohne
+  // alles neu zu zeichnen (vielleicht zieht es gerade ein Ding).
+  function zeigeSternJetzt() {
+    const s = ui.stern;
+    const index = sternIndex();
+    if (!s || index < 0 || s.haus !== ui.haus) return;
+    if (ui.zimmer < 0) {
+      const raum = els.welt?.querySelector(`.bau-raum[data-stock="${index}"][data-slot="${s.slot}"]`);
+      if (raum && !raum.querySelector(".bau-gluecksstern")) raum.insertAdjacentHTML("beforeend", sternMarkup());
+    } else if (ui.zimmer === index && ui.slot === s.slot) {
+      const svg = els.zimmerBuehne?.querySelector("svg");
+      const rahmen = svg?.querySelector(".bau-auswahlrahmen");
+      if (svg && !svg.querySelector(".bau-gluecksstern")) {
+        if (rahmen) rahmen.insertAdjacentHTML("beforebegin", sternMarkup());
+        else svg.insertAdjacentHTML("beforeend", sternMarkup());
+      }
+    }
+  }
+
+  // Nach einer Minute funkelt das Haus im Umschalter, in dem er steckt.
+  function zeigeSternTipp() {
+    const s = ui.stern;
+    els.umschalter?.querySelectorAll(".bau-tab").forEach((tab) => {
+      tab.classList.toggle("hat-stern", Boolean(s) && tab.dataset.haus === s.haus && Date.now() - s.seit > STERN_TIPP_MS);
+    });
+  }
+
+  async function findeGluecksstern(node) {
+    const s = ui.stern;
+    if (!s || s.gefunden) return;
+    s.gefunden = true;
+    ui.stern = null;
+    zeigeSternTipp();
+    S().sternGefunden();
+    S().bonusPalette();
+    klang("win");
+    sag("Du hast den Glücksstern gefunden! Er schenkt dir eine Palette Ziegel.");
+    const von = node?.getBoundingClientRect?.();
+    document.querySelectorAll(".bau-gluecksstern").forEach((n) => { if (n !== node) n.remove(); });
+    if (node && !reduced()) {
+      const basis = node.getAttribute("transform") || "";
+      await tweenP(380, (p) => node.setAttribute("transform", `${basis} scale(${(1 + p * 0.8).toFixed(3)})`), { e: ease.out });
+    }
+    node?.remove();
+    await paletteZumZaehler(von);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Die Sternenleiter: alle Sterne des Dorfs – links der Zähler, ein Tipp
+  // zeigt die Stufen. Jede neue Stufe bringt dem Dorf etwas (bau-katalog.js,
+  // LEITER; gezeichnet in bau-art.js).
+  // ---------------------------------------------------------------------------
+  function leiterSatz(l = S().sternenleiter()) {
+    const naechste = K().LEITER[l.erreicht];
+    const wieviel = l.jetzt === 1 ? "einen Stern" : `${l.jetzt} Sterne`;
+    if (!naechste) return `Alle Tiere zusammen haben ${wieviel}. Die ganze Sternenleiter ist geschafft – das Dorf funkelt!`;
+    const fehlt = Math.max(1, naechste.sterne - l.jetzt);
+    return `Alle Tiere zusammen haben ${wieviel}. Noch ${fehlt === 1 ? "ein Stern" : `${fehlt} Sterne`} bis zur nächsten Stufe: ${naechste.name}.`;
+  }
+
+  function aktualisiereLeiterKnopf(l = S().sternenleiter()) {
+    if (!els.leiterKnopf) return;
+    const naechste = K().LEITER[l.erreicht];
+    const vorher = K().LEITER[l.erreicht - 1]?.sterne || 0;
+    const anteil = naechste ? clamp((l.jetzt - vorher) / Math.max(1, naechste.sterne - vorher), 0, 1) : 1;
+    els.leiterKnopf.innerHTML = `<span class="bau-leiterknopf-zahl"><i class="bau-stern is-gelb is-voll" aria-hidden="true"></i>${l.jetzt}</span>` +
+      `<span class="bau-leiterknopf-balken" aria-hidden="true"><i style="width:${Math.round(anteil * 100)}%"></i></span>` +
+      `<span class="bau-leiterknopf-text">${naechste ? `bis ${naechste.sterne}` : "geschafft!"}</span>`;
+    els.leiterKnopf.classList.toggle("is-fertig", !naechste);
+    const label = `Sternenleiter: ${leiterSatz(l)}`;
+    els.leiterKnopf.setAttribute("aria-label", label);
+    els.leiterKnopf.title = label;
+  }
+
+  function oeffneLeiter({ stumm = false } = {}) {
+    if (!ui.host?.isConnected || ui.besetzt || ui.overlay || ui.ordnen) return false;
+    if (ui.tafel) schliesseTafel();
+    if (ui.uebersicht) schliesseUebersicht({ weiter: true });
+    ui.leiter = true;
+    if (!els.leiter?.isConnected) {
+      els.leiter = el("div", "bau-uebersicht bau-leiter", { role: "dialog", "aria-modal": "true", "aria-label": "Die Sternenleiter des Dorfs" });
+      els.leiter.addEventListener("click", (e) => { if (e.target === els.leiter) schliesseLeiter(); });
+      ui.host.append(els.leiter);
+    }
+    els.leiter.hidden = false;
+    fuelleLeiter();
+    if (!stumm) sag(leiterSatz());
+    hilfe("Jeder Stern, den ein Tier bekommt, zählt für das ganze Dorf. Auf jeder Stufe der Sternenleiter bekommt das Dorf etwas Neues. Erfülle die Wünsche der Tiere, dann steigst du höher!");
+    return true;
+  }
+
+  function schliesseLeiter() {
+    ui.leiter = false;
+    if (els.leiter) els.leiter.hidden = true;
+    if (ui.zimmer >= 0) hilfeZimmer(); else hilfeHaus();
+    pruefeZuzug();
+  }
+
+  function fuelleLeiter() {
+    if (!ui.leiter || !els.leiter) return;
+    const l = S().sternenleiter();
+    const karte = el("div", "bau-uebersicht-karte bau-leiter-karte");
+    karte.append(knopf("bau-uebersicht-zu", "Schliessen", svgVon(KREUZ, "0 0 24 24"), () => schliesseLeiter()));
+    const kopf = el("div", "bau-uebersicht-kopf");
+    kopf.append(el("h2", "", { text: "Sternenleiter des Dorfs" }), el("p", "bau-lies", { text: leiterSatz(l) }));
+    karte.append(kopf);
+    const liste = el("ol", "bau-leiter-liste");
+    // Wie eine Leiter: die höchste Stufe oben.
+    [...K().LEITER].map((stufe, n) => ({ stufe, n })).reverse().forEach(({ stufe, n }) => {
+      const erreicht = n < l.erreicht;
+      const naechste = n === l.erreicht;
+      const zustand = erreicht ? "is-erreicht" : naechste ? "is-naechste" : "is-spaeter";
+      const bild = A().leiterBild(stufe.id);
+      const fehlt = Math.max(0, stufe.sterne - l.jetzt);
+      const rechts = erreicht ? `<span class="bau-leiter-haken" aria-hidden="true">✓</span>`
+        : naechste ? `<span class="bau-leiter-fehlt">noch <b>${fehlt}</b> <i class="bau-stern is-gelb is-voll"></i></span>`
+          : `<span class="bau-leiter-schloss" aria-hidden="true">🔒</span>`;
+      const satz = `${stufe.sterne} Sterne: ${stufe.name}. ${stufe.text} ${erreicht ? "Geschafft!" : naechste ? `Noch ${fehlt === 1 ? "ein Stern" : `${fehlt} Sterne`}.` : ""}`;
+      const zeile = el("li", `bau-leiter-stufe bau-lies ${zustand}`, { "data-lies": satz.trim() });
+      zeile.innerHTML = `<span class="bau-leiter-marke"><i class="bau-stern is-gelb is-voll" aria-hidden="true"></i>${stufe.sterne}</span>` +
+        `<span class="bau-leiter-bild">${svgVon(bild.markup, bild.viewBox)}</span>` +
+        `<span class="bau-leiter-text"><b>${textSicher(stufe.name)}</b><span>${textSicher(stufe.text)}</span></span>${rechts}`;
+      liste.append(zeile);
+    });
+    karte.append(liste);
+    els.leiter.innerHTML = "";
+    els.leiter.append(karte);
+    // Die nächste Stufe ins Bild – nur die Karte rollt, nicht die Seite.
+    window.requestAnimationFrame(() => {
+      const naechste = karte.querySelector(".is-naechste");
+      if (naechste) karte.scrollTop = Math.max(0, naechste.offsetTop - karte.clientHeight / 2 + naechste.offsetHeight / 2);
+    });
+  }
+
+  // Ist eine neue Stufe erreicht, feiert die Bauecke – nach einer Feier für
+  // alle Sterne, damit sich die Bänder nicht überdecken.
+  let leiterUhr = 0;
+  function pruefeLeiter() {
+    window.clearTimeout(leiterUhr);
+    leiterUhr = window.setTimeout(() => {
+      if (!ui.host?.isConnected) return;
+      const l = S().sternenleiter();
+      aktualisiereLeiterKnopf(l);
+      if (ui.leiter) fuelleLeiter();
+      if (l.erreicht <= ui.leiterBekannt) { ui.leiterBekannt = Math.max(ui.leiterBekannt, l.erreicht); return; }
+      const neu = K().LEITER[l.erreicht - 1];
+      ui.leiterBekannt = l.erreicht;
+      feiereLeiter(neu, l, 0);
+    }, 140);
+  }
+
+  function feiereLeiter(stufe, l, versuch) {
+    if (!ui.host?.isConnected || !stufe) return;
+    // Läuft noch ein Band (alle Sterne), danach.
+    if ((ui.host.querySelector(".bau-sternband, .bau-leiterband") || ui.besetzt) && versuch < 12) {
+      window.setTimeout(() => feiereLeiter(stufe, l, versuch + 1), 600);
+      return;
+    }
+    window.setTimeout(() => {
+      if (!ui.host?.isConnected) return;
+      klang("wagon");
+      const bild = A().leiterBild(stufe.id);
+      ui.host.querySelector(".bau-leiterband")?.remove();
+      const band = el("div", "bau-leiterband", { role: "status" });
+      band.innerHTML = `<span class="bau-sternband-bild">${svgVon(bild.markup, bild.viewBox)}</span>` +
+        `<span class="bau-sternband-text"><b>${textSicher(stufe.name)}!</b><span>${stufe.sterne} Sterne im Dorf – neue Stufe der Sternenleiter.</span></span>`;
+      ui.host.append(band);
+      window.setTimeout(() => band.classList.add("is-weg"), 4200);
+      window.setTimeout(() => band.remove(), 4800);
+      if (ui.zimmer >= 0) kids()?.burstConfetti?.(els.zimmer, 40);
+      else {
+        zeichneHaus({ behalteKamera: true });
+        const svg = els.welt?.querySelector("svg");
+        if (svg) feuerwerk(svg, A().HB / 2, -260, A().HB);
+      }
+      sag(`Juhui! Das Dorf hat ${stufe.sterne} Sterne. ${stufe.text}`);
+    }, versuch ? 300 : (ui.zimmer >= 0 ? 1500 : 400));
+  }
+
+  // Was das Dorf schon hat (die Stufen der Leiter), in der Hausansicht.
+  // teil: "hinten" (Regenbogen, Ballon), "strasse" (an der Strasse), "dach";
+  // erreicht: wie viele Stufen (sternenleiter()).
+  function schmuckMarkup(teil, erreicht, dachForm = "", dachY = 0) {
+    const art = A();
+    const hat = new Set(K().LEITER.slice(0, erreicht).map((s) => s.id));
+    if (!hat.size) return "";
+    let s = "";
+    if (teil === "hinten") {
+      if (hat.has("regenbogen")) s += `<g class="bau-schmuck" opacity="0.55" transform="translate(${art.HB / 2} 0)">${art.regenbogen(760)}</g>`;
+      if (hat.has("ballon")) s += `<g class="bau-schmuck" transform="translate(${art.HB + 150} -330)">${art.ballon()}</g>`;
+    }
+    if (teil === "strasse") {
+      if (hat.has("fahnen")) s += `<g class="bau-schmuck" transform="translate(-430 -132)">${art.wimpel(387, 20)}</g><g class="bau-schmuck" transform="translate(${art.HB + 43} -112)">${art.wimpel(387, -20)}</g>`;
+      if (hat.has("statue")) s += `<g class="bau-schmuck" transform="translate(-372 0)">${art.statue()}</g>`;
+      if (hat.has("brunnen")) s += `<g class="bau-schmuck" transform="translate(-190 0)">${art.brunnen()}</g>`;
+      if (hat.has("karussell")) s += `<g class="bau-schmuck" transform="translate(${art.HB + 186} 0) scale(0.85)">${art.karussell()}</g>`;
+      if (hat.has("blumen")) s += `<g class="bau-schmuck" transform="translate(-250 0)">${art.blumen(150)}</g><g class="bau-schmuck" transform="translate(-75 0)">${art.blumen(56)}</g><g class="bau-schmuck" transform="translate(${art.HB + 80} 0)">${art.blumen(56)}</g><g class="bau-schmuck" transform="translate(${art.HB + 330} 0)">${art.blumen(120)}</g>`;
+    }
+    if (teil === "dach" && hat.has("dachstern")) {
+      const [x, y] = art.dachsternOrt(dachForm, dachY);
+      s += `<g class="bau-schmuck" transform="translate(${x} ${y})">${art.dachstern()}</g>`;
+    }
+    return s ? `<g pointer-events="none">${s}</g>` : "";
+  }
+
+  // Haben alle, die in einer Wohnung wohnen, alle Sterne? Dann glitzert ein
+  // goldener Rahmen um sie.
+  function wohnungStrahlt(st) {
+    if (st?.art !== "wohnung" || !st.tiere.length) return false;
+    return st.tiere.every((t) => { const z = S().sterne(t.seed); return z.total > 0 && z.anzahl === z.total; });
+  }
+
+  // Die Krone über einem Tier mit allen Sternen: im Haus und im Zimmer.
+  function aktualisiereKronen() {
+    tiere.forEach((t) => {
+      const krone = t.g.querySelector(".bau-krone");
+      if (!krone) return;
+      const z = S().sterne(t.tier.seed);
+      krone.style.display = z.total > 0 && z.anzahl === z.total ? "" : "none";
+    });
+  }
+
+  // ---------------------------------------------------------------------------
   // Der Einzug: die Strasse entlang, mit dem Lift hinauf, ins Zimmer
   // ---------------------------------------------------------------------------
   async function zeigeEinzug(index, tier) {
@@ -1375,7 +1818,7 @@
     const figur = S().figurVon(tier);
     const kommt = figur ? `${tier.n} aus dem Buch «${figur.buecher[0].titel}» zieht ein!` : `${tier.n}, ${K().TIERE[tier.a]?.der || ""}, zieht ein.`;
     const zielX = art.ZX + 120 + (S().hash(tier.seed) % 300);
-    const zielY = art.oben(index) + S().GEO.STAND + 2;
+    const zielY = inhaltY(index) + S().GEO.STAND + 2;
     if (!lage || reduced()) {
       ui.kommt = "";
       ui.besetzt = false;
@@ -1525,7 +1968,12 @@
     const abzeichen = traum
       ? `<g transform="translate(-16 ${ob}) scale(${lesbar.toFixed(3)})"><circle r="13" fill="#fff3c4" stroke="#f5a300" stroke-width="2.5"/>${A().traumAbzeichen(true)}</g>`
       : grund === "arbeit" ? `<g transform="translate(-16 ${ob}) scale(${lesbar.toFixed(3)})"><circle r="11" fill="#ffffff" stroke="#8a5734" stroke-width="2"/><text y="5" text-anchor="middle" font-size="13">💼</text></g>` : "";
-    g.innerHTML = `<g class="bau-tier-dreh">${tierSvg(tier)}</g>${abzeichen}<g class="bau-zzz" style="display:none"><g transform="translate(12 -110) scale(${lesbar.toFixed(3)})"><text x="0" y="0" font-size="18" font-weight="800" font-family="'Baloo 2', Nunito, sans-serif" fill="#ffffff">z</text><text x="12" y="-14" font-size="14" font-weight="800" font-family="'Baloo 2', Nunito, sans-serif" fill="#ffffff">z</text></g></g>`;
+    // Hat es alle Sterne, trägt es eine kleine Krone (aktualisiereKronen).
+    const sterne = S().sterne(tier.seed);
+    const alle = sterne.total > 0 && sterne.anzahl === sterne.total;
+    const kroneMass = (0.84 / k).toFixed(3);
+    const krone = `<g class="bau-krone" transform="translate(${abzeichen ? 12 : 0} -92) scale(${kroneMass})"${alle ? "" : ` style="display:none"`}>${A().krone()}</g>`;
+    g.innerHTML = `<g class="bau-tier-dreh">${tierSvg(tier)}</g>${krone}${abzeichen}<g class="bau-zzz" style="display:none"><g transform="translate(12 -110) scale(${lesbar.toFixed(3)})"><text x="0" y="0" font-size="18" font-weight="800" font-family="'Baloo 2', Nunito, sans-serif" fill="#ffffff">z</text><text x="12" y="-14" font-size="14" font-weight="800" font-family="'Baloo 2', Nunito, sans-serif" fill="#ffffff">z</text></g></g>`;
     lage.append(g);
     const ort = tierOrte.get(tier.seed);
     // Mindestens RAND vom Rand weg: Der Schwanz ragt gut 25 Einheiten hinaus.
@@ -1657,9 +2105,10 @@
     t.g.querySelector(".bau-blase")?.remove();
     const b = document.createElementNS(NS, "g");
     b.setAttribute("class", "bau-blase");
-    // So gross wie vor der Halbierung der Tiere (MASS 1.2), gleich über dem Kopf.
-    const lesbar = 1.2 / t.k;
-    b.setAttribute("transform", `translate(14 ${(-108 - 12 * lesbar).toFixed(1)}) scale(${lesbar.toFixed(3)})`);
+    // Halb so gross wie vor der Halbierung der Tiere (dort MASS 1.2): Die
+    // Blase schrumpft mit dem Tier. Gleich über dem Kopf.
+    const groesse = 0.6 / t.k;
+    b.setAttribute("transform", `translate(14 ${(-108 - 12 * groesse).toFixed(1)}) scale(${groesse.toFixed(3)})`);
     const w = halb * 2;
     b.innerHTML = `<path d="M${-halb} -46h${w}a12 12 0 0 1 12 12v28a12 12 0 0 1-12 12h${-(w - 16)}l-10 12l0-12h-6a12 12 0 0 1-12-12v-28a12 12 0 0 1 12-12z" fill="#ffffff" stroke="#e2e8f0" stroke-width="2"/><g transform="translate(0 -20)">${inhalt}</g>`;
     t.g.append(b);
@@ -1848,6 +2297,12 @@
     return { x: (w - zw) / 2, y: oben + (ph - zh) / 2 + 4, w: zw, h: zh, k };
   }
 
+  // Wohnen hier nur Tiere mit allen Sternen, glänzt das Zimmer golden.
+  function passeGoldAn() {
+    const svg = els.zimmerBuehne?.querySelector("svg");
+    if (svg) svg.classList.toggle("is-strahlt", ui.zimmer >= 0 && wohnungStrahlt(aktStock()));
+  }
+
   function passeZimmerEin() {
     const r = zimmerRechteck();
     const svg = els.zimmerBuehne.querySelector("svg");
@@ -1877,6 +2332,7 @@
       `</svg>`;
     ui.gezeichnet = zeichenStand();
     passeZimmerEin();
+    passeGoldAn();
     zeichneZimmerKopf();
     zeichneWerkzeug();
     zeichneSchublade();
@@ -2403,6 +2859,8 @@
     let griff = null;
     els.zimmerBuehne.addEventListener("pointerdown", (e) => {
       if (ui.besetzt || e.button > 0) return;
+      const glueck = e.target.closest?.(".bau-gluecksstern");
+      if (glueck) { griff = null; e.preventDefault(); findeGluecksstern(glueck); return; }
       const schild = e.target.closest?.(".bau-schild");
       if (schild) { griff = null; oeffneTafelStock(ui.haus, ui.zimmer); return; }
       const tierEl = e.target.closest?.(".bau-tier");
@@ -3365,7 +3823,7 @@
     if (!ergebnis) { sag("Ein neues Stockwerk!"); return; }
     const svg = els.welt.querySelector("svg");
     staub(svg, A().ZX + A().ZW / 2, A().unten(index));
-    feuerwerk(svg, A().ZX + A().ZW / 2, A().oben(index) - A().STOCK / 2 + 50);
+    feuerwerk(svg, A().ZX + A().ZW / 2, A().oben(index) - A().STOCK_HOCH / 2 + 50);
     sag(satz);
     await warte(1200);
     if (ui.zimmer < 0 && !ui.overlay && !ui.tafel) oeffneZimmer(index, 0);
@@ -3396,5 +3854,11 @@
     sag("Welche Farbe bekommt das Haus? Oben die Hauswand, unten das Dach.");
   }
 
-  window.LernappBau = { mount, unmount, zurueck, auffrischen, pruefeLieferung };
+  // blitzzug() und gluecksstern(ort) lassen die Überraschungen sofort kommen –
+  // für die Prüfskripte (scripts/check-bau.mjs).
+  window.LernappBau = {
+    mount, unmount, zurueck, auffrischen, pruefeLieferung,
+    blitzzug: () => (ui.zimmer < 0 && !ui.blitz ? starteBlitzzug() : false),
+    gluecksstern: (ort = null) => versteckeStern(ort),
+  };
 })();

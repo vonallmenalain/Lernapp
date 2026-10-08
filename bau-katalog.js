@@ -700,10 +700,27 @@
       { traum: "zentrum:restaurant" }),
   ];
 
+  // ---------------------------------------------------------------------------
+  // Die Sternenleiter des Dorfs: Alle Sterne aller Tiere zusammen bringen dem
+  // Dorf Stufe um Stufe etwas Neues (gezeichnet in bau-art.js). Ohne Kauf hat
+  // das Wohnhaus bis zu vier Wohnungen, also höchstens 60 Sterne – die letzte
+  // Stufe ist ein langes, aber erreichbares Ziel.
+  // ---------------------------------------------------------------------------
+  const LEITER = [
+    { sterne: 5, id: "blumen", name: "Blumenbeete", text: "Bunte Blumen blühen an der Strasse." },
+    { sterne: 10, id: "fahnen", name: "Wimpelketten", text: "Bunte Wimpel flattern zwischen den Bäumen." },
+    { sterne: 15, id: "brunnen", name: "Ein Brunnen", text: "Neben dem Haus plätschert ein Brunnen." },
+    { sterne: 20, id: "ballon", name: "Ein Heissluftballon", text: "Ein Heissluftballon schwebt über dem Dorf." },
+    { sterne: 30, id: "regenbogen", name: "Ein Regenbogen", text: "Ein Regenbogen leuchtet über den Häusern." },
+    { sterne: 40, id: "karussell", name: "Ein Karussell", text: "Ein Karussell steht für die Tiere bereit." },
+    { sterne: 50, id: "statue", name: "Die Sternenstatue", text: "Eine goldene Sternenstatue zeigt: Hier sind alle glücklich." },
+    { sterne: 60, id: "dachstern", name: "Goldene Dachsterne", text: "Auf jedem Dach funkelt ein goldener Stern." },
+  ];
+
   window.LernappBauKatalog = {
     FARBEN, FARBE, FAMILIEN, MUSTER, BOEDEN, BODEN,
     HAEUSER, HAUS, RAEUME, RAEUME_LISTE, WOHNEN, JOBS, LIEBLINGS, dingeFuer,
     DING_WUENSCHE, HAUS_WUENSCHE, FREMD_WUENSCHE,
-    TIERE, TIER_IDS, FIGUREN,
+    TIERE, TIER_IDS, FIGUREN, LEITER,
   };
 })();

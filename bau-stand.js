@@ -7,7 +7,7 @@
  * eigener Gast-Stand. "Fortschritt zurücksetzen" lässt ihn stehen.
  *
  *   {
- *     v: 2,                               // FORMAT – siehe unten
+ *     v: 4,                               // FORMAT – siehe unten
  *     gewaehlt: "spital",                 // mit welchem Haus das Kind begonnen hat
  *     haeuser: {
  *       wohnhaus: {
@@ -74,19 +74,25 @@
   // Fassung 1 (ein Zimmer je Stockwerk, ein Tier) wird beim Lesen übertragen.
   // Fassung 3 bringt den KiddyDome (ein Zimmer über zwei Stockwerke, die Art
   // "oben") und seine Dinge; ein Kasten der Fassung 2 gilt unverändert.
-  const FORMAT = 3;
+  // Fassung 4 macht die Zimmer niedriger (siehe GEO): Was an der Wand hängt,
+  // rückt beim Lesen eines älteren Kastens anteilig auf die kürzere Wand.
+  const FORMAT = 4;
 
   // --- Ein Zimmer, in Zimmer-Einheiten --------------------------------------
   // Eine Wohnung und ein Zimmer in Spital, Dorf und Büro sind so breit wie das
   // Stockwerk (W), die zwei Zimmer eines Stockwerks im Wohnhaus halb so breit
   // (HALB). Die Wand reicht bis WAND_UNTEN, darunter
   // liegt der Boden; was steht, steht zwischen STAND_HINTEN und STAND_VORNE
-  // (weiter vorn heisst weiter unten im Bild und davor gezeichnet). Oben ist
-  // y = 0 – im KiddyDome y = -STOCK: Er reicht ein Stockwerk samt Decke höher.
+  // (weiter vorn heisst weiter unten im Bild und davor gezeichnet). Der Boden
+  // liegt bei H. Oben ist y = OBEN: Seit Fassung 4 ist ein Zimmer 160 hoch
+  // statt 240 – die Wand beginnt tiefer, der Boden bleibt, wo er war. Der
+  // KiddyDome behält seine Höhe: oben y = -STOCK, ein altes Stockwerk samt
+  // Decke höher.
   const GEO = {
     W: 560,
     HALB: 280,
     H: 240,
+    OBEN: 80,
     STOCK: 256,
     WAND_UNTEN: 216,
     STAND_HINTEN: 224,
@@ -222,34 +228,48 @@
   const istDoppelRaum = (raumId) => Boolean(K()?.RAEUME?.[raumId]?.doppel);
   const istDoppel = (s) => s?.art === "eins" && istDoppelRaum(s.zimmer?.[0]?.raum);
   // Wo die Wand eines Zimmers oben endet (Zimmer-Einheiten) und wie hoch es ist.
-  const obenVon = (s) => (istDoppel(s) ? -GEO.STOCK : 0);
+  const obenVon = (s) => (istDoppel(s) ? -GEO.STOCK : GEO.OBEN);
   const hoeheVon = (s) => GEO.H - obenVon(s);
 
   // ---------------------------------------------------------------------------
   // Aufräumen: was aus dem Speicher oder der Cloud kommt, in sichere Form
   // ---------------------------------------------------------------------------
-  // oben: wo die Wand endet – 0, im KiddyDome -GEO.STOCK.
-  function sauberesDing(roh, breite, oben = 0) {
+  // oben: wo die Wand endet – GEO.OBEN, im KiddyDome -GEO.STOCK.
+  // umrechnen: ein Zimmer aus einer Fassung vor 4 (240 hoch, oben y = 0) –
+  // was an der Wand hängt, rückt anteilig auf die kürzere Wand, damit es
+  // dort hängt, wo das Kind es hingehängt hat.
+  function sauberesDing(roh, breite, oben = GEO.OBEN, umrechnen = false) {
     const d = obj(roh);
     const ding = M()?.DINGE?.[d.i];
     if (!ding) return null;
     const farbe = typeof d.c === "string" && K()?.FARBE?.[d.c] ? d.c : "";
     const s = zahl(d.s, 0.6, 1.6, 1);
     let x = zahl(d.x, 0, breite, breite / 2);
-    let y = zahl(d.y, oben, GEO.H, GEO.STAND);
+    let roheY = Number(d.y);
+    if (umrechnen && ding.art === "wand" && oben === GEO.OBEN && Number.isFinite(roheY)) {
+      roheY = GEO.OBEN + roheY * ((GEO.WAND_UNTEN - GEO.OBEN) / GEO.WAND_UNTEN);
+    }
+    let y = zahl(roheY, oben, GEO.H, GEO.STAND);
     if (ding.art === "decke") y = oben;
     if (ding.art === "flach") y = zahl(d.y, GEO.STAND_HINTEN, GEO.STAND_VORNE, GEO.STAND);
+    // Was an der Wand hängt, hängt ganz an der Wand (wie beim Ziehen).
+    if (ding.art === "wand" && M()?.umriss) {
+      const u = M().umriss(d.i, s);
+      const lo = oben - u.y0 + 4;
+      const hi = GEO.WAND_UNTEN - u.y1 - 2;
+      y = hi >= lo ? Math.min(hi, Math.max(lo, y)) : (lo + hi) / 2;
+    }
     x = Math.round(x * 10) / 10;
     y = Math.round(y * 10) / 10;
     return { k: text(d.k, 16, kennung("d")), i: d.i, x, y, c: farbe, f: d.f ? 1 : 0, s: Math.round(s * 100) / 100 };
   }
 
-  function sauberesZimmer(roh, breite, passt, oben = 0) {
+  function sauberesZimmer(roh, breite, passt, oben = GEO.OBEN, umrechnen = false) {
     const z = obj(roh);
     const raum = K()?.RAEUME?.[z.raum];
     const gilt = Boolean(raum) && passt(raum);
     const farben = K()?.FARBE || {};
-    const dinge = (Array.isArray(z.dinge) ? z.dinge : []).map((d) => sauberesDing(d, breite, oben)).filter(Boolean).slice(0, dingeMax(breite));
+    const dinge = (Array.isArray(z.dinge) ? z.dinge : []).map((d) => sauberesDing(d, breite, oben, umrechnen)).filter(Boolean).slice(0, dingeMax(breite));
     // Eine Kennung je Ding, auch nach dem Zusammenführen zweier Stände.
     const gesehen = new Set();
     dinge.forEach((ding) => { if (gesehen.has(ding.k)) ding.k = kennung("d"); gesehen.add(ding.k); });
@@ -312,7 +332,7 @@
     };
   }
 
-  function sauberesStockwerk(roh, hausId, index) {
+  function sauberesStockwerk(roh, hausId, index, umrechnen = false) {
     const s = obj(roh);
     // Im Wohnhaus: Wohnung, zwei Zimmer oder Rohbau; sonst ein Zimmer – oder
     // das obere Stockwerk eines KiddyDome.
@@ -325,8 +345,8 @@
     const passt = (raum) => raum.haus === hausId && (art === "wohnung" ? Boolean(raum.wohnen) : !raum.wohnen) && (art === "eins" || !raum.doppel);
     const anzahl = art === "zwei" ? 2 : art === "wohnung" || art === "eins" ? 1 : 0;
     const raum0 = K()?.RAEUME?.[obj(roheZimmer[0]).raum];
-    const oben = art === "eins" && raum0?.doppel && passt(raum0) ? -GEO.STOCK : 0;
-    const zimmer = Array.from({ length: anzahl }, (_, i) => sauberesZimmer(roheZimmer[i], breite, passt, i === 0 ? oben : 0));
+    const oben = art === "eins" && raum0?.doppel && passt(raum0) ? -GEO.STOCK : GEO.OBEN;
+    const zimmer = Array.from({ length: anzahl }, (_, i) => sauberesZimmer(roheZimmer[i], breite, passt, i === 0 ? oben : GEO.OBEN, umrechnen));
     const tiere = art === "wohnung" && zimmer[0].raum
       ? (Array.isArray(s.tiere) ? s.tiere : []).map(sauberesTier).filter(Boolean).slice(0, TIERE_MAX)
       : [];
@@ -425,13 +445,15 @@
 
   function normalize(roh) {
     let r = obj(roh);
+    // Vor Fassung 4 waren die Zimmer 240 hoch: Wanddinge rechnen um.
+    const umrechnen = (Number(r.v) || 0) < 4;
     if (Number(r.v) === 1) r = ausFassung1(r);
     const leer = leererStand();
     const out = { v: FORMAT, gewaehlt: HAUS_IDS.includes(r.gewaehlt) ? r.gewaehlt : "", haeuser: {} };
     HAUS_IDS.forEach((id) => {
       const h = obj(obj(r.haeuser)[id]);
       const farben = K()?.FARBE || {};
-      let stock = (Array.isArray(h.stock) ? h.stock : []).slice(0, STOCK_MAX * 2).map((s, i) => sauberesStockwerk(s, id, i));
+      let stock = (Array.isArray(h.stock) ? h.stock : []).slice(0, STOCK_MAX * 2).map((s, i) => sauberesStockwerk(s, id, i, umrechnen));
       // Eine Kennung je Stockwerk – das Zusammenführen hält sich an sie.
       const gesehen = new Set();
       stock.forEach((s) => {
@@ -672,6 +694,77 @@
   function neueLieferung() { return Math.max(0, verdient() - gezeigt()); }
 
   // ---------------------------------------------------------------------------
+  // Überraschungen: der Blitzzug und der Glücksstern
+  // ---------------------------------------------------------------------------
+  // Etwa alle halbe Stunde rast ein Blitzzug mit einer Palette vorbei, und ein
+  // Glücksstern versteckt sich im Dorf; wer sie antippt, bekommt die Palette.
+  // Wann die nächsten kommen, merkt sich jedes Gerät für jedes Kind – wie das
+  // Gezeigte der Lieferung, nicht im Kasten (keine neue Fassung). Die Palette
+  // selbst geht wie ein gelöstes Rätsel an journey-plan.js (bauBonus) und
+  // reist so mit dem Konto auf die anderen Geräte.
+  const UEBERRASCHUNG_KEY = "lernapp.bau.ueberraschung";
+  const UEBERRASCHUNG_MS = 30 * 60 * 1000;   // so oft ein Blitzzug, so oft ein Glücksstern
+  const NOCHMAL_MS = 5 * 60 * 1000;          // ein verpasster Blitzzug kommt so bald wieder
+  const ERSTER_ZUG_MS = 2 * 60 * 1000;       // beim ersten Besuch: bald der erste Zug …
+  const ERSTER_STERN_MS = 4 * 60 * 1000;     // … und bald der erste Glücksstern
+  function ueberraschungKarte() {
+    try { return obj(JSON.parse(localStorage.getItem(UEBERRASCHUNG_KEY) || "{}")); } catch { return {}; }
+  }
+  function ueberraschung() { return obj(ueberraschungKarte()[besitzer]); }
+  function merkeUeberraschung(teil) {
+    const karte = ueberraschungKarte();
+    karte[besitzer] = { ...obj(karte[besitzer]), ...teil };
+    try { localStorage.setItem(UEBERRASCHUNG_KEY, JSON.stringify(karte)); } catch { /* privater Modus */ }
+  }
+  // Ist es Zeit? Beim allerersten Mal wird die Uhr erst gestellt.
+  function faellig(was, erstes, jetzt) {
+    const wann = Number(ueberraschung()[was]);
+    if (!Number.isFinite(wann) || wann <= 0) { merkeUeberraschung({ [was]: jetzt + erstes }); return false; }
+    return jetzt >= wann;
+  }
+  function blitzzugFaellig(jetzt = Date.now()) { return !neuere && faellig("zug", ERSTER_ZUG_MS, jetzt); }
+  function blitzzugVorbei(gefangen, jetzt = Date.now()) { merkeUeberraschung({ zug: jetzt + (gefangen ? UEBERRASCHUNG_MS : NOCHMAL_MS) }); }
+  function sternFaellig(jetzt = Date.now()) { return !neuere && faellig("stern", ERSTER_STERN_MS, jetzt); }
+  function sternGefunden(jetzt = Date.now()) { merkeUeberraschung({ stern: jetzt + UEBERRASCHUNG_MS }); }
+
+  // Eine Palette als Lohn. Die Lieferung soll sie nicht noch einmal bringen:
+  // Sie gilt gleich als gezeigt (eine noch offene Lieferung bleibt offen).
+  function bonusPalette() {
+    if (neuere || typeof reise()?.bauBonus !== "function") return false;
+    merkeGezeigt(gezeigt() + 1);
+    reise().bauBonus();
+    return true;
+  }
+
+  // Wo sich ein Glücksstern verstecken kann: in jedem Zimmer, das schon
+  // etwas ist (beim KiddyDome im unteren Stockwerk).
+  function sternVerstecke() {
+    const liste = [];
+    HAUS_IDS.forEach((hausId) => stand.haeuser[hausId].stock.forEach((s, index) => {
+      if (s.art === "oben") return;
+      s.zimmer.forEach((z, slot) => { if (z.raum) liste.push({ haus: hausId, index, slot, stockId: s.id }); });
+    }));
+    return liste;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Die Sternenleiter des Dorfs
+  // ---------------------------------------------------------------------------
+  // Alle Sterne aller Tiere zusammen. Auf der Leiter zählt der höchste Stand,
+  // den das Dorf je hatte (je Gerät und Kind gemerkt): Was einmal erreicht
+  // ist – der Brunnen, der Ballon … –, bleibt, auch wenn ein Wunsch wechselt.
+  function dorfSterne() { return alleTiere().reduce((n, e) => n + sterne(e.tier.seed).anzahl, 0); }
+  function sternenleiter() {
+    const stufen = (K()?.LEITER || []).map((stufe) => stufe.sterne);
+    const jetzt = dorfSterne();
+    const gemerkt = Math.max(0, Math.floor(Number(ueberraschung().rekord) || 0));
+    if (jetzt > gemerkt && !neuere) merkeUeberraschung({ rekord: jetzt });
+    const rekord = Math.max(jetzt, gemerkt);
+    const erreicht = stufen.filter((n) => n <= rekord).length;
+    return { jetzt, rekord, erreicht, naechste: stufen[erreicht] ?? null, stufen };
+  }
+
+  // ---------------------------------------------------------------------------
   // Bauen
   // ---------------------------------------------------------------------------
   function frei() { return Boolean(schranke()?.isFree?.()) || !schranke(); }
@@ -831,7 +924,7 @@
       o.at = jetzt;
     }
     const z = u.zimmer[0];
-    z.dinge = z.dinge.map((d) => sauberesDing(d, GEO.W, 0)).filter(Boolean);
+    z.dinge = z.dinge.map((d) => sauberesDing(d, GEO.W, GEO.OBEN)).filter(Boolean);
   }
 
   // Ein Stockwerk eins nach oben (+1) oder unten (-1): Es tauscht den Platz
@@ -1345,6 +1438,8 @@
     normalize, merge, leererStand, neuereFassung: () => neuere, besitzer: () => besitzer, breiteVon, istDoppel, obenVon, hoeheVon,
     lesen, haus, stock, zimmer, raumVon, indexVon,
     verdient, verbaut, paletten, gezeigt, merkeGezeigt, neueLieferung,
+    UEBERRASCHUNG_KEY, UEBERRASCHUNG_MS, NOCHMAL_MS, ueberraschung, blitzzugFaellig, blitzzugVorbei, sternFaellig, sternGefunden, bonusPalette, sternVerstecke,
+    dorfSterne, sternenleiter,
     kannBauen, baueStockwerk, doppelPlatz, waehleArt, waehleRaum, verschiebe, setzeGewaehlt,
     aendereStock, aendereZimmer, aendereHaus, speichern,
     alleTiere, findeTier, figurVon, magVon, neuesTier, wuenscheFuer, zuzugFaellig, ziehtEin, hinausschicken,
