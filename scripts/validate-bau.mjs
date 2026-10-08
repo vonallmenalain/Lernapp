@@ -881,6 +881,39 @@ function S_GEO_W() { return 560; }
   pruefe(S.zimmer("zentrum", 0, 0) === z && S.zimmer("zentrum", 0, 0).dinge[0] === tisch, "Speichern ersetzt den Stand – ein gezogener Stapel verliert, was darauf steht");
 }
 
+// Halb so gross (Oktober 2026): Tiere und Dinge stehen mit MASS 0.6. Die
+// grossen Geräte im KiddyDome behalten ihre Grösse und reichen weiter über
+// beide Stockwerke. Was früher auf einem Tisch stand, setzt sich beim Laden
+// auf die tiefere Fläche; was über keiner Fläche schwebt, auf den Boden.
+{
+  pruefe(M.MASS === 0.6 && M.massVon("bett") === 0.6, `Dinge und Tiere stehen nicht halb so gross (MASS ${M.MASS})`);
+  const hoch = Object.entries(M.DINGE).filter(([, d]) => d.mass === 2).map(([id]) => id);
+  pruefe(hoch.length === 11 && hoch.every((id) => id.startsWith("k_")), `nur die grossen Geräte im KiddyDome haben einen eigenen Massstab (${hoch.join(", ")})`);
+  const { S } = standUmgebung();
+  const GEO = S.GEO;
+  hoch.forEach((id) => {
+    const u = M.umriss(id);
+    pruefe(u.y1 - u.y0 > GEO.STOCK, `${id} reicht nicht mehr über zwei Stockwerke (${Math.round(u.y1 - u.y0)})`);
+  });
+  const tisch = M.DINGE.tisch;
+  const alt = 230 + tisch.flaeche * 1.2;
+  const neu = 230 + tisch.flaeche * M.massVon("tisch");
+  const roh = (dinge) => ({ v: S.FORMAT, haeuser: { zentrum: { stock: [{ id: "c", art: "eins", zimmer: [{ raum: "cafe", dinge }] }] } } });
+  const nachher = (dinge) => S.normalize(roh(dinge)).haeuser.zentrum.stock[0].zimmer[0].dinge;
+  const auf = nachher([
+    { k: "t", i: "tisch", x: 200, y: 230, s: 1 },
+    { k: "auf", i: "kaffeetasse", x: 200, y: alt, s: 1 },
+    { k: "frei", i: "kaffeetasse", x: 450, y: alt, s: 1 },
+    { k: "schon", i: "kaffeetasse", x: 210, y: neu, s: 1 },
+  ]);
+  const y = (k) => auf.find((d) => d.k === k)?.y;
+  pruefe(Math.abs(y("auf") - neu) < 0.11, `ein Ding vom früheren Tisch setzt sich nicht auf die tiefere Fläche (${y("auf")} statt ${neu})`);
+  pruefe(y("frei") === GEO.STAND, `ein schwebendes Ding ohne Fläche darunter fällt nicht auf den Boden (${y("frei")})`);
+  pruefe(Math.abs(y("schon") - neu) < 0.11, `ein Ding, das schon auf der Fläche steht, wird verschoben (${y("schon")})`);
+  const zweimal = S.normalize(S.normalize(roh(auf))).haeuser.zentrum.stock[0].zimmer[0].dinge.map((d) => `${d.k}:${d.y}`).join();
+  pruefe(zweimal === auf.map((d) => `${d.k}:${d.y}`).join(), `zweimal aufräumen verschiebt die Dinge auf dem Tisch (${zweimal})`);
+}
+
 // Der Katalog dieser Fassung. Ändert sich eine Kennung (ein neues Ding, ein
 // neues Zimmer, ein neues Tier …) oder ein Feld des Kastens, muss FORMAT in
 // bau-stand.js hoch – sonst löscht eine ältere App, die den neuen Kasten

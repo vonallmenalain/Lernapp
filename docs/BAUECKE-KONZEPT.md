@@ -12,11 +12,12 @@ Pepi, Miga Town, den einzelnen Toca-Apps und weiteren Bauspielen (Abschnitt 3)
 > für jedes Zimmer, Traumjobs, ein Einzug mit Lift und Feuerwerk, Stockwerke umstellen, die
 > Bauecke je Konto. Dazu kamen (Nachtrag 0K) der **KiddyDome** über zwei Stockwerke, die
 > **Tiere im Stil der Bilderbücher**, die **Figuren aus den Büchern**, die zuerst
-> einziehen, **alle Bewohner auf einen Blick** und **Sterne, die ins Auge stechen**. **Was
-> gilt, steht in den Abschnitten 0K und 0** (Etappe 2) und, wo diese nichts anderes sagen,
-> im Abschnitt 0E1 (Etappe 1); die Abschnitte 1, 2, 5 und 6 beschreiben das ursprüngliche
-> Konzept und sind dort, wo Abschnitt 0 etwas anderes sagt, überholt. Die Recherche
-> (Abschnitt 3) und Grafik und Bewegung (Abschnitt 7) gelten weiter.
+> einziehen, **alle Bewohner auf einen Blick**, **Sterne, die ins Auge stechen**, und
+> **Tiere und Dinge halb so gross**. **Was gilt, steht in den Abschnitten 0K und 0** (Etappe
+> 2) und, wo diese nichts anderes sagen, im Abschnitt 0E1 (Etappe 1); die Abschnitte 1, 2,
+> 5 und 6 beschreiben das ursprüngliche Konzept und sind dort, wo Abschnitt 0 etwas anderes
+> sagt, überholt. Die Recherche (Abschnitt 3) und Grafik und Bewegung (Abschnitt 7) gelten
+> weiter.
 >
 > Zum Konzept gehört eine klickbare **Stilprobe** (Artefakt «Gripszug Bauecke»; dieselbe
 > Seite liegt als `docs/bauecke-stilprobe.html` im Repo und geht nicht auf die Site). Ihr
@@ -143,17 +144,35 @@ zusätzlich zu Abschnitt 0.
   mit dem Tier und seinen Sternen (ein paar Sekunden), Feuerwerk über der Wohnung oder
   Konfetti im Zimmer, und die Bauecke sagt «Juhui! Leo hat alle Sterne!».
 
-### 0K.7 Dateien und Prüfungen
+### 0K.7 Tiere und Dinge halb so gross
+
+- **Mehr Platz zum Einrichten:** Tiere und Dinge stehen halb so gross wie bisher (`MASS`
+  0.6 statt 1.2, im Haus wie im Zimmer). Die Zimmer bleiben so breit wie bisher.
+- **Lesbar bleibt, was Text oder Zeichen trägt:** Sprech- und Wunschblasen, die Aktentasche
+  bei der Arbeit und das Schlaf-z sind so gross wie vorher.
+- **Der KiddyDome bleibt hoch:** Seine grossen Geräte (Mini-Lift, Kletterturm, beide
+  Rutschen, Feuerwehrstange, Kletternetz, Kletterwand, Hangelringe, Hangelleiter,
+  Kletterseil, Schaukel) haben einen eigenen Massstab (`mass: 2`) und reichen weiter über
+  beide Stockwerke. Sprungschloss, Trampolin, Bällebad und das Übrige sind halb so gross.
+- **Was auf einem Tisch stand,** setzt sich beim Laden auf die tiefere Fläche (Regal, Theke
+  …); was über keiner Fläche mehr schwebt, kommt auf den Boden (`setzeAufFlaechen` in
+  bau-stand.js). Steht ein Ding schon richtig, bleibt es, wo es ist.
+- **Die Höhe der Stockwerke bleibt vorerst** (240): Wo ein Bild an der Wand hängt und wo
+  etwas auf dem Boden steht, ist in dieser Höhe gespeichert. Niedrigere Stockwerke
+  hiessen, alle Zimmer umzurechnen (eine neue Fassung des Kastens) – das wäre ein eigener
+  Schritt.
+
+### 0K.8 Dateien und Prüfungen
 
 | Datei | Was |
 | --- | --- |
-| `bau-moebel-dome.js` *(neu)* | die 18 Geräte des KiddyDome (bis 240 × 380 gross), seine Zimmerliste und sein Bildmotiv |
+| `bau-moebel-dome.js` *(neu)* | die 18 Geräte des KiddyDome (bis 240 × 380 gross; die hohen mit `mass: 2`), seine Zimmerliste und sein Bildmotiv |
 | `bau-tiere.js` *(neu)* | die 16 Tierarten und die 16 Buchfiguren im Stil der Bilderbücher (`tier`, `defs`, `box`, `FIGUREN`) |
 | `bau-katalog.js` | der KiddyDome (`doppel`, `kinder`, Job, blauer Wunsch), `FIGUREN`, Ball, Farben, Schal und Fernrohr bei den Lieblingsdingen |
-| `bau-moebel.js` | Schal (Fino) und Fernrohr (Bruno) |
-| `bau-stand.js` | Fassung 3: KiddyDome über zwei Stockwerke, Paare beim Laden und Zusammenführen, Umstellen als Block, Dazubauen gleich darüber; Buchfiguren zuerst, mit Wunsch und Traumjob; Kinderzimmer-Tiere oft im KiddyDome |
+| `bau-moebel.js` | Schal (Fino) und Fernrohr (Bruno); `MASS` 0.6 (halb so gross) und `massVon()` |
+| `bau-stand.js` | Fassung 3: KiddyDome über zwei Stockwerke, Paare beim Laden und Zusammenführen, Umstellen als Block, Dazubauen gleich darüber; Buchfiguren zuerst, mit Wunsch und Traumjob; Kinderzimmer-Tiere oft im KiddyDome; kleine Dinge auf tiefere Flächen setzen (`setzeAufFlaechen`) |
 | `bau-art.js`, `train-bau.js`, `bau.css` | doppelt hohes Zimmer ohne Decke dazwischen, Hinweis und «Stockwerk dazubauen» in der Zimmerwahl, Mini-Lift, hohe Sprünge; die Tiere aus `bau-tiere.js` mit Blinzeln; der Bewohner-Knopf und die Übersicht aller Bewohner; Sterne-Kachel, hohle und gefüllte Sterne, «Alle Sterne» golden und gefeiert, das Buch unten auf der Tafel; Anstupsen ohne CSS-Animation auf SVG |
-| `scripts/validate-bau.mjs` | KiddyDome (zwei Stockwerke, Umstellen, Zusammenführen, Flicken, Ändern, Dazubauen, Besuche), Buchfiguren (Bücher, Vorlieben, Wünsche, Traumjobs, zuerst einziehen), Fingerabdruck der Fassung 3 |
+| `scripts/validate-bau.mjs` | KiddyDome (zwei Stockwerke, Umstellen, Zusammenführen, Flicken, Ändern, Dazubauen, Besuche), Buchfiguren (Bücher, Vorlieben, Wünsche, Traumjobs, zuerst einziehen), halb so gross (hohe Dome-Geräte, Dinge auf dem Tisch), Fingerabdruck der Fassung 3 |
 | `scripts/check-bau.mjs` | der KiddyDome im Browser, auf Tablet und Handy; «Nach vorne/hinten» bei verschieden tiefen und bei sehr hohen Dingen; alle Bewohner (Knopf im Haus und im Zimmer, Wohnungen, Sterne, Traumjob, Wünsche, Tafel und zurück); Sterne (hohl und gefüllt, Kachel, golden bei allen, am Lift, Feier beim letzten Stern, Buch unten) |
 
 ---

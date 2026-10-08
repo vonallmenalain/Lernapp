@@ -129,7 +129,7 @@
 
   const DINGE = {
     // --- Die grossen Geräte über zwei Stockwerke ------------------------------
-    k_minilift: { name: "Mini-Lift", der: "der Mini-Lift", w: 112, h: 378, farbe: ROT, tags: ["spielen", "lift"], d: (c) => {
+    k_minilift: { name: "Mini-Lift", der: "der Mini-Lift", w: 112, h: 378, mass: 2, farbe: ROT, tags: ["spielen", "lift"], d: (c) => {
       // Der Schacht: Glaswand mit Fachwerk, das Seil, zwei Pfosten, oben das Schild.
       let fachwerk = "";
       for (let y = -6; y > -366; y -= 72) fachwerk += `M-24 ${y}L24 ${y - 72}M24 ${y}L-24 ${y - 72}`;
@@ -151,7 +151,7 @@
         R(-26, -12, 52, 6, shade(c, -0.25), 3) + stern(0, -71, 3, GELB) + `</g>`;
       return schacht + oben + deck(-56, 56, -6, ORANGE, 6) + knopf + kabine;
     } },
-    k_kletterturm: { name: "Kletterturm", der: "der Kletterturm", w: 156, h: 360, tags: ["spielen", "klettern"], flaeche: OBEN, fx: [-66, 66], d: () => {
+    k_kletterturm: { name: "Kletterturm", der: "der Kletterturm", w: 156, h: 360, mass: 2, tags: ["spielen", "klettern"], flaeche: OBEN, fx: [-66, 66], d: () => {
       const wand = R(6, MITTE + 9, 58, -MITTE - 9, GRUEN, 4) +
         [[20, -120, ROT], [46, -98, GELB], [22, -74, BLAU], [48, -52, ORANGE], [24, -30, PINK]].map(([x, y, f], i) => griff(x, y, f, i % 2, 7)).join("");
       return sprossen(-66, -4, 0, MITTE) + wand + rautennetz(-66, -4, MITTE, OBEN + 9, 31, 34) + sprossen(4, 66, MITTE, OBEN) +
@@ -161,7 +161,7 @@
         gelaender(-66, -4, OBEN, 30) + gelaender(4, 66, OBEN, 30) +
         kappe(-71, -352) + kappe(71, -352) + kappe(0, OBEN - 32, GELB, 5);
     } },
-    k_spiralrutsche: { name: "Spiralrutsche", der: "die Spiralrutsche", w: 150, h: 360, farbe: GELB, tags: ["spielen", "rutsche"], d: (c) => {
+    k_spiralrutsche: { name: "Spiralrutsche", der: "die Spiralrutsche", w: 150, h: 360, mass: 2, farbe: GELB, tags: ["spielen", "rutsche"], d: (c) => {
       // Die Bahn dreht sich dreimal um den Turm: vorn (sichtbar) und hinten.
       const r = 50;
       const halb = 42;
@@ -184,7 +184,7 @@
         deck(-56, 56, OBEN) + gelaender(-24, 50, OBEN, 32) + wimpel(-50, 50, -344, 8) +
         pfosten(-50, OBEN + 3, -350, 6) + pfosten(50, OBEN + 3, -350, 6) + kappe(-50, -352) + kappe(50, -352);
     } },
-    k_roehrenrutsche: { name: "Röhrenrutsche", der: "die Röhrenrutsche", w: 240, h: 360, farbe: GRUEN, tags: ["spielen", "rutsche"], d: (c) => {
+    k_roehrenrutsche: { name: "Röhrenrutsche", der: "die Röhrenrutsche", w: 240, h: 360, mass: 2, farbe: GRUEN, tags: ["spielen", "rutsche"], d: (c) => {
       const stuecke = [
         [-60, -275, 20, -275, 88, -262, 88, -222],
         [88, -222, 88, -180, -30, -196, -30, -146],
@@ -203,19 +203,19 @@
         wimpel(-112, -64, -344, 5) + pfosten(-112, 0, -350) + pfosten(-64, 0, -350) + polster(-112, -20) + polster(-64, -20) +
         gelaender(-120, -70, OBEN, 30) + kappe(-112, -352) + kappe(-64, -352);
     } },
-    k_feuerwehrstange: { name: "Feuerwehrstange", der: "die Feuerwehrstange", w: 126, h: 378, tags: ["spielen", "klettern"], d: () =>
+    k_feuerwehrstange: { name: "Feuerwehrstange", der: "die Feuerwehrstange", w: 126, h: 378, mass: 2, tags: ["spielen", "klettern"], d: () =>
       sprossen(-47, 1, 0, OBEN, 20) + deck(-60, 16, OBEN, GELB) +
       pfosten(-52, 0, -334, 10, ROT) + pfosten(6, 0, -376, 10, ROT) + gelaender(-60, -16, OBEN, 30, ROT) +
       R(1, -376, 49, 8, shade(ROT, -0.25), 4) + S("M27 -368v5", DUNKEL, 1.4) + P("M20 -351q0-12 7-12t7 12l2 3h-18z", GOLD) + C(27, -347, 2, shade(GOLD, -0.3)) +
       E(42, -6, 18, 6, shade(ROT, -0.25)) + E(42, -9, 18, 6, ROT) + E(42, -9.5, 7, 2.4, shade(ROT, -0.4)) +
       R(38, -372, 8, 363, METALL, 4) + R(39.6, -368, 2.2, 356, WEISS, 1.1) + R(43.4, -368, 1.6, 356, METALL_D, 0.8) + C(42, -372, 4.4, METALL_D) +
       C(-52, -344, 11, shade(ROT, -0.25)) + C(-52, -344, 9, WEISS) + T(-52, -340.6, "118", 8.5, ROT) },
-    k_kletternetz: { name: "Grosses Kletternetz", der: "das grosse Kletternetz", w: 200, h: 336, tags: ["spielen", "klettern"], d: () =>
+    k_kletternetz: { name: "Grosses Kletternetz", der: "das grosse Kletternetz", w: 200, h: 336, mass: 2, tags: ["spielen", "klettern"], d: () =>
       rautennetz(-90, 90, -12, -326, 45, 52) +
       pfosten(-95, 0, -326) + pfosten(95, 0, -326) + R(-100, -336, 200, 12, BLAU, 5) + R(-96, -334, 192, 3, shade(BLAU, 0.4), 1.5) +
       polster(-95, -20) + polster(95, -20) + polster(-95, -322) + polster(95, -322) +
       R(-100, -10, 200, 10, MATTE, 4) + R(-96, -9, 192, 2.6, shade(MATTE, 0.4), 1.3) },
-    k_kletterwand: { name: "Grosse Kletterwand", der: "die grosse Kletterwand", w: 140, h: 340, farbe: VIOLETT, tags: ["spielen", "klettern"], d: (c) => {
+    k_kletterwand: { name: "Grosse Kletterwand", der: "die grosse Kletterwand", w: 140, h: 340, mass: 2, farbe: VIOLETT, tags: ["spielen", "klettern"], d: (c) => {
       const griffe = [[-30, -34], [26, -52], [-6, -76], [38, -98], [-38, -118], [10, -138], [-20, -162], [36, -182], [-42, -204], [2, -222], [38, -246], [-26, -266], [16, -286]];
       const farben = [GELB, ROT, GRUEN, ORANGE, TUERKIS, PINK, WEISS];
       let loecher = "";
@@ -289,11 +289,11 @@
       R(5, -32, 12, 14, GRUEN, 3) + E(11, -32, 6, 2, shade(GRUEN, 0.35)) },
 
     // --- An der Decke: Seile, Ringe, Schaukel -----------------------------------
-    k_hangelringe: { name: "Hangelringe", der: "die Hangelringe", art: "decke", w: 220, h: 296, tags: ["spielen", "hangeln"], d: () =>
+    k_hangelringe: { name: "Hangelringe", der: "die Hangelringe", art: "decke", w: 220, h: 296, mass: 2, tags: ["spielen", "hangeln"], d: () =>
       R(-110, 0, 220, 8, BLAU, 4) + R(-106, 1.5, 212, 2.4, shade(BLAU, 0.4), 1.2) +
       [-88, -44, 0, 44, 88].map((x, i) => S(`M${x} 6V262`, SEIL, 2.8) + R(x - 3, 256, 6, 12, DUNKEL, 2) +
         C(x, 280, 11, "none", `stroke="${[ROT, GELB, GRUEN, ORANGE, PINK][i]}" stroke-width="5"`)).join("") },
-    k_hangelleiter: { name: "Hangelleiter", der: "die Hangelleiter", art: "decke", w: 220, h: 266, tags: ["spielen", "hangeln"], d: () => {
+    k_hangelleiter: { name: "Hangelleiter", der: "die Hangelleiter", art: "decke", w: 220, h: 266, mass: 2, tags: ["spielen", "hangeln"], d: () => {
       let sprosse = "";
       for (let i = -4; i <= 4; i += 1) sprosse += `M${n(i * 21)} 228L${n(i * 22.5)} 256`;
       return R(-110, 0, 20, 5, DUNKEL, 2) + R(90, 0, 20, 5, DUNKEL, 2) +
@@ -301,7 +301,7 @@
         R(-100, 222, 200, 7, shade(BLAU, -0.25), 3.5) + S(sprosse, GELB, 5.4) + S(sprosse, shade(GELB, 0.4), 1.4, `transform="translate(-1.2 0)"`) +
         R(-108, 254, 216, 9, BLAU, 4.5) + R(-104, 255.5, 208, 2.6, shade(BLAU, 0.4), 1.3);
     } },
-    k_kletterseil: { name: "Kletterseil", der: "das Kletterseil", art: "decke", w: 30, h: 360, tags: ["spielen", "klettern"], d: () => {
+    k_kletterseil: { name: "Kletterseil", der: "das Kletterseil", art: "decke", w: 30, h: 360, mass: 2, tags: ["spielen", "klettern"], d: () => {
       let dreh = "";
       for (let y = 22; y < 326; y += 8) dreh += `M-4.5 ${y + 4}l9 -5.5`;
       return R(-14, 0, 28, 6, DUNKEL, 2) + C(0, 12, 5, "none", `stroke="${METALL_D}" stroke-width="3"`) +
@@ -309,7 +309,7 @@
         [70, 120, 170, 220, 270].map((y) => E(0, y, 12, 9, SEIL_D) + E(0, y - 0.6, 10.6, 7.8, shade(SEIL, -0.05)) + S(`M-8 ${y - 2}q8 6 16 0`, SEIL_D, 1.6) + E(-4.5, y - 4, 3.4, 1.7, shade(SEIL, 0.45))).join("") +
         R(-7.5, 322, 15, 9, ROT, 3) + S("M-4.5 333l-3.4 23M0 333v25M4.5 333l3.4 23", SEIL, 3.4);
     } },
-    k_schaukel: { name: "Schaukel", der: "die Schaukel", art: "decke", w: 84, h: 368, farbe: ORANGE, tags: ["spielen", "schaukel"], d: (c) =>
+    k_schaukel: { name: "Schaukel", der: "die Schaukel", art: "decke", w: 84, h: 368, mass: 2, farbe: ORANGE, tags: ["spielen", "schaukel"], d: (c) =>
       R(-40, 0, 16, 5, DUNKEL, 2) + R(24, 0, 16, 5, DUNKEL, 2) + C(-32, 9, 4, "none", `stroke="${METALL_D}" stroke-width="2.4"`) + C(32, 9, 4, "none", `stroke="${METALL_D}" stroke-width="2.4"`) +
       S("M-32 13V354M32 13V354", SEIL, 3.4) +
       R(-42, 354, 84, 13, c, 6.5) + R(-37, 355.5, 74, 3, shade(c, 0.4), 1.5) + C(-32, 356, 3.6, SEIL_D) + C(32, 356, 3.6, SEIL_D) + stern(0, 361.5, 4.6, shade(c, -0.3)) },

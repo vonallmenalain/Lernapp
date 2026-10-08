@@ -4,7 +4,8 @@
  * Jedes Ding ist eine kleine SVG-Zeichnung im Stil der Stilprobe
  * (docs/bauecke-stilprobe.html): flache Farben, runde Ecken, ein Hauch
  * Schatten über shade(). Gezeichnet wird in "Zeichen-Einheiten"; im Zimmer
- * wird alles mit MASS vergrössert, damit Tiere und Möbel zueinander passen.
+ * steht alles mit MASS – Tiere und Möbel gleich, damit sie zueinander passen.
+ * Ein Ding mit eigenem Massstab (mass) steht entsprechend grösser.
  *
  * Wo der Nullpunkt liegt, sagt die Art:
  *   boden   steht auf dem Boden – Nullpunkt unten in der Mitte, nach oben
@@ -27,8 +28,10 @@
 (() => {
   "use strict";
 
-  // Wie viel grösser die Dinge im Zimmer stehen als gezeichnet.
-  const MASS = 1.2;
+  // Wie gross die Dinge (und die Tiere) im Zimmer stehen, gemessen an der
+  // Zeichnung. Bis Oktober 2026 waren es 1.2 – halb so gross lässt viel mehr
+  // Platz zum Einrichten. Die Breite der Zimmer bleibt.
+  const MASS = 0.6;
 
   function shade(hex, amount) {
     const h = String(hex || "#888888").replace("#", "");
@@ -803,10 +806,14 @@
 
   // Wie viel Platz ein Ding im Zimmer braucht (in Zimmer-Einheiten, mit MASS
   // und der Grösse des Kindes s): links, oben, rechts, unten um den Nullpunkt.
+  // Der Massstab eines Dings: MASS, ausser es hat einen eigenen (mass) – die
+  // grossen Geräte im KiddyDome reichen so weiter über beide Stockwerke.
+  function massVon(id) { return MASS * (DINGE[id]?.mass || 1); }
+
   function umriss(id, s = 1) {
     const ding = DINGE[id];
     if (!ding) return { x0: 0, y0: 0, x1: 0, y1: 0 };
-    const k = MASS * s;
+    const k = massVon(id) * s;
     const w = (ding.w * k) / 2;
     if (ding.art === "wand") return { x0: -w, y0: (-ding.h * k) / 2, x1: w, y1: (ding.h * k) / 2 };
     if (ding.art === "decke") return { x0: -w, y0: 0, x1: w, y1: ding.h * k };
@@ -817,5 +824,5 @@
   // selben Stil gezeichnet sind.
   const hilfe = { R, C, E, P, S, T, leg, stern, topf, buecherReihe, shade, HOLZ, HOLZ_D, HOLZ_DD, METALL, METALL_D, DUNKEL, WEISS, RAND, TINTE, BUNT };
 
-  window.LernappBauMoebel = { MASS, DINGE, KATEGORIEN, UEBERALL, RAUM_DINGE, MOTIVE, doppelt, dazu, zeichne, umriss, shade, stern, hilfe };
+  window.LernappBauMoebel = { MASS, DINGE, KATEGORIEN, UEBERALL, RAUM_DINGE, MOTIVE, doppelt, dazu, zeichne, umriss, massVon, shade, stern, hilfe };
 })();

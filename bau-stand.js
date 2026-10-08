@@ -253,6 +253,7 @@
     // Eine Kennung je Ding, auch nach dem Zusammenführen zweier Stände.
     const gesehen = new Set();
     dinge.forEach((ding) => { if (gesehen.has(ding.k)) ding.k = kennung("d"); gesehen.add(ding.k); });
+    setzeAufFlaechen(dinge);
     return {
       raum: gilt ? z.raum : "",
       wand: farben[z.wand] ? z.wand : (gilt ? raum.wand : "creme"),
@@ -263,6 +264,32 @@
       dinge,
       at: Number(z.at) || 0,
     };
+  }
+
+  // Ein kleines Ding steht auf dem Boden oder auf einer Fläche (Tisch,
+  // Regal, Theke). Seit die Dinge halb so gross sind (Oktober 2026), liegen die
+  // Flächen tiefer – ein Ding von früher schwebte darüber. Es setzt sich auf
+  // die nächste Fläche darunter, sonst auf den Boden. Steht es schon auf
+  // einer, bleibt es, wo es ist: Zweimal aufräumen ändert nichts mehr.
+  function setzeAufFlaechen(dinge) {
+    const moebel = M();
+    if (!moebel?.DINGE || !moebel.massVon) return;
+    const flaechen = dinge.map((u) => {
+      const ding = moebel.DINGE[u.i];
+      if (!ding || ding.art !== "boden" || typeof ding.flaeche !== "number") return null;
+      const k = moebel.massVon(u.i) * (u.s || 1);
+      let [a, b] = ding.fx || [-ding.w / 2, ding.w / 2];
+      if (u.f) [a, b] = [-b, -a];
+      return { k: u.k, y: u.y + ding.flaeche * k, x0: u.x + a * k - 2, x1: u.x + b * k + 2 };
+    }).filter(Boolean);
+    dinge.forEach((d) => {
+      const ding = moebel.DINGE[d.i];
+      if (!ding?.klein || ding.art !== "boden" || d.y >= GEO.STAND_HINTEN - 2) return;
+      const drunter = flaechen.filter((f) => f.k !== d.k && d.x >= f.x0 && d.x <= f.x1 && f.y >= d.y - 2.5);
+      if (drunter.some((f) => Math.abs(f.y - d.y) < 2.5)) return;
+      drunter.sort((p, q) => p.y - q.y);
+      d.y = Math.round((drunter.length ? drunter[0].y : GEO.STAND) * 10) / 10;
+    });
   }
 
   function sauberesTier(roh) {

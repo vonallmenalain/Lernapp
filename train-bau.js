@@ -956,7 +956,7 @@
   }
 
   function dingTransform(d) {
-    const k = M().MASS * (d.s || 1);
+    const k = M().massVon(d.i) * (d.s || 1);
     return `translate(${d.x} ${d.y}) scale(${d.f ? -k : k} ${k})`;
   }
 
@@ -1011,7 +1011,7 @@
   function flaecheVon(u) {
     const ding = M().DINGE[u.i];
     if (!ding || typeof ding.flaeche !== "number" || ding.art !== "boden") return null;
-    const k = M().MASS * (u.s || 1);
+    const k = M().massVon(u.i) * (u.s || 1);
     let [a, b] = ding.fx;
     if (u.f) [a, b] = [-b, -a];
     return { y: u.y + ding.flaeche * k, x0: u.x + a * k, x1: u.x + b * k };
@@ -1429,7 +1429,7 @@
     zeichneHaus({ behalteKamera: true });
     baueUmschalter();
     feuerwerk(els.welt.querySelector("svg"), art.ZX + art.ZW / 2, art.oben(index) + 50);
-    leuchte(els.welt.querySelector("svg"), index, zielX, zielY - 60);
+    leuchte(els.welt.querySelector("svg"), index, zielX, zielY - 30);
     klang("win");
     for (const t of tiere.values()) if (t.tier.seed === tier.seed) { t.huepf = 1; wecke(); }
     sag(`Willkommen, ${tier.n}! ${tier.n} wohnt jetzt hier.${S().hatTraumjob(tier.seed) ? ` Und ${tier.n} hat schon den Traumjob!` : ""}`);
@@ -1505,7 +1505,7 @@
     return svgVon(`<g transform="translate(${x.toFixed(1)} ${h - 2}) scale(${k.toFixed(3)})">${tierSvg(tier)}</g>`, `0 0 ${w} ${h}`, cls);
   }
 
-  const RAND = 56;
+  const RAND = 28;
   // dome: im KiddyDome – dort wird gehüpft, und zwar hoch.
   function setzeTier(lage, { tier, wohnt, grund = "", breite = A().ZW, x = null, dome = false }) {
     const g = document.createElementNS(NS, "g");
@@ -1516,15 +1516,19 @@
     g.setAttribute("tabindex", "0");
     g.setAttribute("aria-label", `${tier.n}, ${K().TIERE[tier.a]?.der || ""}`);
     const k = M().MASS;
+    // Abzeichen und Schlaf-z bleiben so gross wie vor der Halbierung der
+    // Tiere (MASS 1.2) – sonst wären sie kaum zu sehen.
+    const lesbar = 1.2 / k;
     // Bei der Arbeit: die Aktentasche – golden, wenn es der Traumjob ist.
     const traum = grund === "arbeit" && S().hatTraumjob(tier.seed);
+    const ob = (-100 - 14 * lesbar).toFixed(1);
     const abzeichen = traum
-      ? `<g transform="translate(-16 -114)"><circle r="13" fill="#fff3c4" stroke="#f5a300" stroke-width="2.5"/>${A().traumAbzeichen(true)}</g>`
-      : grund === "arbeit" ? `<g transform="translate(-16 -112)"><circle r="11" fill="#ffffff" stroke="#8a5734" stroke-width="2"/><text y="5" text-anchor="middle" font-size="13">💼</text></g>` : "";
-    g.innerHTML = `<g class="bau-tier-dreh">${tierSvg(tier)}</g>${abzeichen}<g class="bau-zzz" style="display:none"><text x="12" y="-110" font-size="18" font-weight="800" font-family="'Baloo 2', Nunito, sans-serif" fill="#ffffff">z</text><text x="24" y="-124" font-size="14" font-weight="800" font-family="'Baloo 2', Nunito, sans-serif" fill="#ffffff">z</text></g>`;
+      ? `<g transform="translate(-16 ${ob}) scale(${lesbar.toFixed(3)})"><circle r="13" fill="#fff3c4" stroke="#f5a300" stroke-width="2.5"/>${A().traumAbzeichen(true)}</g>`
+      : grund === "arbeit" ? `<g transform="translate(-16 ${ob}) scale(${lesbar.toFixed(3)})"><circle r="11" fill="#ffffff" stroke="#8a5734" stroke-width="2"/><text y="5" text-anchor="middle" font-size="13">💼</text></g>` : "";
+    g.innerHTML = `<g class="bau-tier-dreh">${tierSvg(tier)}</g>${abzeichen}<g class="bau-zzz" style="display:none"><g transform="translate(12 -110) scale(${lesbar.toFixed(3)})"><text x="0" y="0" font-size="18" font-weight="800" font-family="'Baloo 2', Nunito, sans-serif" fill="#ffffff">z</text><text x="12" y="-14" font-size="14" font-weight="800" font-family="'Baloo 2', Nunito, sans-serif" fill="#ffffff">z</text></g></g>`;
     lage.append(g);
     const ort = tierOrte.get(tier.seed);
-    // Mindestens RAND vom Rand weg: Der Schwanz ragt gut 50 Einheiten hinaus.
+    // Mindestens RAND vom Rand weg: Der Schwanz ragt gut 25 Einheiten hinaus.
     const startX = clamp(ort?.x ?? x ?? (60 + ((S().hash(tier.seed) % Math.max(40, breite - 120)))), RAND, breite - RAND);
     const t = {
       g, dreh: g.querySelector(".bau-tier-dreh"), bob: g.querySelector(".bob"), legL: g.querySelector(".legL"), legR: g.querySelector(".legR"), zzz: g.querySelector(".bau-zzz"), lid: g.querySelector(".bt-lid"),
@@ -1551,7 +1555,7 @@
       t.phase += dt * 2;
       bob = schlaeft ? 0 : Math.sin(t.phase) * 0.6;
     }
-    const sprung = t.huepf > 0 ? -Math.sin(Math.PI * (1 - t.huepf)) * (t.dome ? 46 : 22) : 0;
+    const sprung = t.huepf > 0 ? -Math.sin(Math.PI * (1 - t.huepf)) * (t.dome ? 23 : 11) : 0;
     t.g.setAttribute("transform", `translate(${t.x.toFixed(1)} ${(t.y + sprung).toFixed(1)}) scale(${t.k})`);
     t.dreh.setAttribute("transform", t.richtung < 0 ? "scale(-1 1)" : "");
     t.bob?.setAttribute("transform", `translate(0 ${bob.toFixed(2)})`);
@@ -1653,7 +1657,9 @@
     t.g.querySelector(".bau-blase")?.remove();
     const b = document.createElementNS(NS, "g");
     b.setAttribute("class", "bau-blase");
-    b.setAttribute("transform", "translate(14 -120)");
+    // So gross wie vor der Halbierung der Tiere (MASS 1.2), gleich über dem Kopf.
+    const lesbar = 1.2 / t.k;
+    b.setAttribute("transform", `translate(14 ${(-108 - 12 * lesbar).toFixed(1)}) scale(${lesbar.toFixed(3)})`);
     const w = halb * 2;
     b.innerHTML = `<path d="M${-halb} -46h${w}a12 12 0 0 1 12 12v28a12 12 0 0 1-12 12h${-(w - 16)}l-10 12l0-12h-6a12 12 0 0 1-12-12v-28a12 12 0 0 1 12-12z" fill="#ffffff" stroke="#e2e8f0" stroke-width="2"/><g transform="translate(0 -20)">${inhalt}</g>`;
     t.g.append(b);
@@ -2255,7 +2261,7 @@
     const node = dingKnoten(d.k);
     if (!node || reduced()) return;
     const zielY = d.y;
-    const k = M().MASS * (d.s || 1);
+    const k = M().massVon(d.i) * (d.s || 1);
     tween(420, (p) => {
       const y = vonY + (zielY - vonY) * p;
       node.setAttribute("transform", `translate(${d.x} ${y}) scale(${d.f ? -k : k} ${k})`);
@@ -2342,8 +2348,8 @@
           geist = el("div", "bau-geist");
           const ding = M().DINGE[id];
           const r = zimmerRechteck();
-          const w = ding.w * M().MASS * r.k;
-          const h = ding.h * M().MASS * r.k;
+          const w = ding.w * M().massVon(id) * r.k;
+          const h = ding.h * M().massVon(id) * r.k;
           geist.style.width = `${w}px`;
           geist.style.height = `${h}px`;
           const y0 = ding.art === "wand" ? -ding.h / 2 : ding.art === "decke" ? 0 : -ding.h;
