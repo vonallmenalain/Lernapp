@@ -1606,6 +1606,10 @@ function progressKey(game, levelId) { return `${LOCAL_SOLVED_PREFIX}${game}.${le
 // direkt, ohne Levelwahl und ohne die Freischaltkette, und jeder Weg zurück
 // führt auf die Streckenkarte. Gelöst heisst Stempel.
 const journeyTask = window.LernappReise?.fromLocation?.() || null;
+// Ein Rätsel aus der Bauecke (journey-plan.js, bau=1): dasselbe Level wie an
+// der Station, aber gelöst heisst Ziegel statt Stempel, und der Weg zurück
+// führt in die Bauecke.
+const journeyBau = Boolean(journeyTask?.bau);
 let journeySolved = false;
 function journeyLevel() {
   if (!journeyTask || !currentGame || !LEVELS_BY_GAME[currentGame]) return null;
@@ -1615,7 +1619,16 @@ function isJourneyLevel(level) {
   const wanted = journeyLevel();
   return Boolean(wanted && level && levelId(wanted) === levelId(level));
 }
-function journeyMapUrl() { return window.LernappReise?.mapUrl?.(journeyTask?.nr) || "index.html?reise=1"; }
+function journeyMapUrl() {
+  if (journeyBau) return window.LernappReise?.bauUrl?.() || "index.html?bau=1";
+  return window.LernappReise?.mapUrl?.(journeyTask?.nr) || "index.html?reise=1";
+}
+// Nicht geschafft? In der Bauecke heisst noch einmal: ein anderes Rätsel.
+function goToOtherBauPuzzle() {
+  const reise = window.LernappReise;
+  const next = reise?.bauRaetsel?.({ ausser: journeyTask });
+  window.location.href = next ? reise.bauUrlFor(next) : journeyMapUrl();
+}
 function goToJourneyMap() { window.location.href = journeyMapUrl(); }
 function cloudProgress() { return window.LernappFirebase || null; }
 function isSignedIn() { return Boolean(cloudProgress()?.isSignedIn?.()); }
@@ -2202,6 +2215,12 @@ function undo() {
 function nextLevel() { if (journeyTask) { goToJourneyMap(); return; } const next = nextPlayableLevel(currentLevel()); if (next) startLevel(LEVELS_BY_GAME[currentGame].indexOf(next)); else showLevelSelect(); }
 function updateNextPuzzleButton() {
   if (!nextPuzzleButton || !currentGame) return;
+  if (journeyBau) {
+    nextPuzzleButton.textContent = "Zur Bauecke \u2713";
+    nextPuzzleButton.title = "Zurück zur Bauecke";
+    nextPuzzleButton.setAttribute("aria-label", "Zurück zur Bauecke");
+    return;
+  }
   if (journeyTask) {
     nextPuzzleButton.textContent = "Zur Karte \u2713";
     nextPuzzleButton.title = "Zurück zur Karte";
@@ -2262,7 +2281,12 @@ function showSuccess() {
   // journey-plan.js): gelöst mit weniger ist dann kein Stempel, sondern die
   // Bitte, es noch einmal zu spielen – und ein Fehlversuch wie jeder andere.
   let journeyStamp = null;
-  if (journeyTask && isJourneyLevel(level)) {
+  if (journeyBau && isJourneyLevel(level)) {
+    // Gelöst ist gelöst: eine Palette Ziegel, einmal je Rätsel.
+    journeySolved = true;
+    window.LernappReise?.bauGeschafft?.(journeyTask);
+    journeyStamp = { bau: true };
+  } else if (journeyTask && isJourneyLevel(level)) {
     const need = Math.max(1, Math.min(3, Number(journeyTask.needStars) || 1));
     if (stars >= need) {
       journeySolved = true;
@@ -2281,7 +2305,9 @@ function showSuccess() {
   revealSuccessContent();
   releaseSuccessHelp?.();
   const next = nextPlayableLevel(level);
-  releaseSuccessHelp = kids()?.pushHelp?.(journeyStamp
+  releaseSuccessHelp = kids()?.pushHelp?.(journeyStamp?.bau
+    ? `Geschafft! Du hast ${stars} von 3 Sternen. Der Zug bringt dir Ziegel für ein neues Stockwerk. Tippe auf Zur Bauecke.`
+    : journeyStamp
     ? (journeyStamp.missing
       ? `Geschafft! Du hast ${stars} von 3 Sternen. Für den Stempel brauchst du aber ${journeyStamp.need === 3 ? "drei" : "zwei"}. Tippe auf Nochmal und versuch es gleich noch einmal – oder auf Zur Karte.`
       : `Geschafft! Du hast ${stars} von 3 Sternen. ${journeyStamp.gold ? "Ein goldener Stempel!" : "Der Stempel wartet auf der Karte."} Tippe auf Zur Karte, und der Zug fährt weiter – oder auf Nochmal, um dieses Level noch einmal zu spielen.`)
@@ -2321,7 +2347,12 @@ function updateSuccessContent() {
   note.textContent = (celebration.stars || 1) >= 3 ? "Perfekt! Alle drei Sterne! 🌟" : "Spiel nochmal für mehr Sterne!";
   successContent.append(note);
 
-  if (celebration.journeyStamp) {
+  if (celebration.journeyStamp?.bau) {
+    const stamp = document.createElement("p");
+    stamp.className = "success-summary success-journey";
+    stamp.textContent = "Der Zug bringt dir Ziegel für ein neues Stockwerk! 🧱";
+    successContent.append(stamp);
+  } else if (celebration.journeyStamp) {
     const stamp = document.createElement("p");
     stamp.className = `success-summary success-journey${celebration.journeyStamp.missing ? " is-missing" : ""}`;
     stamp.textContent = celebration.journeyStamp.missing
@@ -2362,6 +2393,9 @@ function setupSuccessOverlay() {
   successContent = overlay.querySelector("#success-content");
   successRestartButton.addEventListener("click", resetGame);
   nextPuzzleButton.addEventListener("click", nextLevel);
+  // In der Bauecke gibt es die Ziegel einmal je Rätsel: nach dem Lösen geht
+  // es zurück, nicht noch einmal ins selbe Level.
+  if (journeyBau) successRestartButton.hidden = true;
 }
 
 // Vor dem ersten Level stand einmal ein Erklaerbild mit den Regeln. Es ist
@@ -3533,7 +3567,23 @@ if (undoButton) undoButton.addEventListener("click", undo);
 if (resetButton) resetButton.addEventListener("click", resetGame);
 // Auf der Reise führt der Pfeil zurück auf die Karte, nicht in die Levelwahl.
 if (backButton) backButton.addEventListener("click", journeyTask ? goToJourneyMap : showLevelSelect);
-if (backButton && journeyTask) { backButton.setAttribute("aria-label", "Zurück zur Karte"); backButton.title = "Zurück zur Karte"; }
+if (backButton && journeyTask) {
+  const ziel = journeyBau ? "Zurück zur Bauecke" : "Zurück zur Karte";
+  backButton.setAttribute("aria-label", ziel);
+  backButton.title = ziel;
+}
+// Ein Rätsel der Bauecke, das nicht klappen will: Der Würfel holt ein anderes.
+if (journeyBau && resetButton) {
+  const anders = document.createElement("button");
+  anders.type = "button";
+  anders.id = "bau-anders-button";
+  anders.className = resetButton.className;
+  anders.textContent = "\u{1F3B2}";
+  anders.setAttribute("aria-label", "Ein anderes Rätsel");
+  anders.title = "Ein anderes Rätsel";
+  anders.addEventListener("click", goToOtherBauPuzzle);
+  resetButton.after(anders);
+}
 setupSuccessOverlay();
 setupAudioFeedback();
 mountScene();
@@ -3553,8 +3603,10 @@ if (journeyTask) {
   const schranke = window.LernappEntitlement;
   if (typeof schranke?.whenReady === "function") schranke.whenReady().then(starteStation);
   else starteStation();
+  // Ein Rätsel der Bauecke zählt keine Fehlversuche: Es gehört zu keiner
+  // Station der Karte.
   window.addEventListener("pagehide", () => {
-    if (!journeySolved) window.LernappReise?.recordTry?.(journeyTask.nr);
+    if (!journeySolved && !journeyBau) window.LernappReise?.recordTry?.(journeyTask.nr);
   });
 }
 

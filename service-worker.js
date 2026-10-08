@@ -1,4 +1,4 @@
-const APP_VERSION = "2026-10-06-28";
+const APP_VERSION = "2026-10-06-29";
 const CACHE_PREFIX = "lernapp-pwa-";
 const CACHE_NAME = `${CACHE_PREFIX}${APP_VERSION}`;
 const ASSET_VERSION_QUERY = `?v=${APP_VERSION}`;
@@ -142,6 +142,12 @@ const CORE_ASSETS = [
   `./lesen-bilder.js${ASSET_VERSION_QUERY}`,
   `./lesen-detektive.js${ASSET_VERSION_QUERY}`,
   `./train-leseecke.js${ASSET_VERSION_QUERY}`,
+  `./bau.css${ASSET_VERSION_QUERY}`,
+  `./bau-moebel.js${ASSET_VERSION_QUERY}`,
+  `./bau-katalog.js${ASSET_VERSION_QUERY}`,
+  `./bau-stand.js${ASSET_VERSION_QUERY}`,
+  `./bau-art.js${ASSET_VERSION_QUERY}`,
+  `./train-bau.js${ASSET_VERSION_QUERY}`,
   `./silbenzug.js${ASSET_VERSION_QUERY}`,
   `./buchstabenhaus.js${ASSET_VERSION_QUERY}`,
   `./lautekuppeln.js${ASSET_VERSION_QUERY}`,

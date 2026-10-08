@@ -84,6 +84,9 @@
   // Gerät es zuletzt gelesen hat. Wie das Wagen-Set eine Kopie aus der Cloud,
   // kein Fortschritt – siehe watchFreieSpiele, wozu es sie braucht.
   const LOCAL_APP_GRATIS_KEY = "lernapp.app.gratis";
+  // Die Kästen der Bauecke (train-bau.js, journey-plan.js): Sie überleben das
+  // Zurücksetzen auf dem Gerät und in der Cloud.
+  const BAU_KEEP_KEYS = ["lernapp.bau", "lernapp.bau.lieferung"];
   const LOCAL_KEEP_KEYS = new Set([
     "lernapp.tts",             // Vorlesen an/aus
     "lernapp.audioFeedback",   // Töne an/aus
@@ -94,6 +97,12 @@
     LOCAL_APP_GRATIS_KEY,      // ob die ganze App gratis ist
     "lernapp.lesen.eltern",    // wie die Eltern die Leseecke eingestellt haben
     "lernapp.stimme",          // welche Stimme auf diesem Gerät vorliest
+    // Die Bauecke bleibt beim Zurücksetzen stehen: Häuser, Tiere und Ziegel
+    // gehen nicht verloren (BAUECKE-KONZEPT.md, Entscheid 10).
+    ...BAU_KEEP_KEYS,
+    "lernapp.bau.geraet",      // Kennung dieses Geräts für den Ziegelzähler
+    "lernapp.bau.gezeigt",     // welche Lieferungen der Zug schon gebracht hat
+    "lernapp.bau.zuletzt",     // welche Rätsel zuletzt kamen
     LOCAL_GUEST_ID_KEY,
     LOCAL_GUEST_CREATED_KEY,
     LOCAL_GUEST_PING_KEY,
@@ -1929,14 +1938,17 @@
     // gameState, spielte ein Dreijähriges danach auf "mittel".
     // Dasselbe gilt für die Einstellung der Leseecke: wo sie beginnt und
     // welche Schrift sie zeigt, haben die Eltern gewählt.
+    // Und die Bauecke: Häuser und Ziegel bleiben, wie sie sind.
     const reise = window.LernappReise;
     let stufe = null;
     let lesen = null;
+    const bau = {};
     try {
       const alles = (await ref.get()).data()?.gameState || {};
       const kasten = alles[reise?.KEY]?.data;
       if (reise && kasten && (kasten.stufe || kasten.tempo)) stufe = reise.stufeIn(kasten);
       if (alles[LESEN_ELTERN_KEY]?.data) lesen = lesenEinstellungIn(alles);
+      BAU_KEEP_KEYS.forEach((key) => { if (alles[key]?.data) bau[key] = alles[key]; });
     } catch { stufe = null; lesen = null; }
 
     await deleteAllDocs(ref.collection("levelProgress"));
@@ -1954,8 +1966,8 @@
       },
       updatedAt: serverTimestamp(),
     }, { merge: true });
-    if (stufe || lesen) {
-      const behalten = {};
+    if (stufe || lesen || Object.keys(bau).length) {
+      const behalten = { ...bau };
       if (stufe) behalten[reise.KEY] = { data: { stufe, stufeAt: resetAtMs }, updatedAt: resetAtMs };
       if (lesen) behalten[LESEN_ELTERN_KEY] = { data: { ...lesen, at: resetAtMs }, updatedAt: resetAtMs };
       await ref.set({ gameState: behalten, updatedAt: serverTimestamp() }, { merge: true });

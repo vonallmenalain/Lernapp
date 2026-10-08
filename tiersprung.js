@@ -1605,14 +1605,16 @@
     game.paused = true;
     game.holding = false;
     releaseWakeLock();
-    setStageHelp("Pause. Tippe auf Weiter spielen, um dranzubleiben, auf Nochmal für einen neuen Versuch oder auf Zur Karte, um das Level zu verlassen.");
+    // Aus der Bauecke heisst der Weg hinaus "Zur Bauecke".
+    const hinaus = shell?.journey?.bau ? "Zur Bauecke" : "Zur Karte";
+    setStageHelp(`Pause. Tippe auf Weiter spielen, um dranzubleiben, auf Nochmal für einen neuen Versuch oder auf ${hinaus}, um das Level zu verlassen.`);
     showOverlay(`
       <h2>Pause</h2>
       <p class="runner-dialog-sub">${game.level.label}</p>
       <div class="runner-dialog-actions">
         <button type="button" class="runner-primary" data-action="resume">Weiter spielen ▶</button>
         <button type="button" class="runner-secondary" data-action="restart">Nochmal ↻</button>
-        <button type="button" class="runner-secondary" data-action="map">Zur Karte</button>
+        <button type="button" class="runner-secondary" data-action="map">${hinaus}</button>
       </div>`, wireDialog);
   }
 
@@ -1634,6 +1636,7 @@
         if (action === "resume") resumeGame();
         else if (action === "restart") startLevel(game.level.id);
         else if (action === "map") { if (shell?.journey) shell.toMap(); else leaveStage(); }
+        else if (action === "anders") anderesRaetsel();
         else if (action === "next") startLevel(Math.min(LEVEL_COUNT, game.level.id + 1));
       });
     });
@@ -1650,6 +1653,13 @@
     return clamp(stars, 1, 3);
   }
 
+  // Ein anderes Rätsel für die Bauecke (journey-plan.js).
+  function anderesRaetsel() {
+    const reise = window.LernappReise;
+    const naechstes = reise?.bauRaetsel?.({ ausser: shell?.journey });
+    window.location.href = naechstes ? reise.bauUrlFor(naechstes) : (reise?.bauUrl?.() || "index.html");
+  }
+
   function finishRun(success) {
     // Tier-Sprung beendet seine Runden selbst, nicht über die Bühne – deshalb
     // meldet es die Schnupperrunde hier, geschafft oder nicht.
@@ -1662,9 +1672,27 @@
     // Der Auftrag der Reise: geschafft heisst Stempel, sonst zählt der
     // Fehlversuch für das Ausweichgleis.
     const reise = window.LernappReise;
-    const tries = shell?.journey && reise && !success ? reise.recordTry(shell.journey.nr) : 0;
+    // Ein Rätsel aus der Bauecke stempelt nichts und zählt keine Fehlversuche:
+    // geschafft gibt Ziegel, nicht geschafft ein anderes Rätsel.
+    const bau = Boolean(shell?.journey?.bau);
+    const tries = shell?.journey && reise && !success && !bau ? reise.recordTry(shell.journey.nr) : 0;
     // Nach fünf Fehlversuchen wartet auf der Karte die Schiebelok.
     const pushHint = reise && tries >= reise.TRIES_FOR_PUSH ? " Auf der Karte kommt jetzt die Schiebelok und schiebt deinen Zug zur nächsten Station." : "";
+
+    if (!success && bau) {
+      soundFail();
+      kids.vibrate([90, 60, 90]);
+      setStageHelp(`Diesmal hat es nicht gereicht. Tippe auf Anderes Rätsel, dann kommt ein neues – oder auf Zur Bauecke.`);
+      showOverlay(`
+        <div class="runner-mascot sad">${kids.mascotSVG("sad")}</div>
+        <h2>Fast geschafft!</h2>
+        <p class="runner-dialog-sub">Du hast ${game.treats} ${game.level.treatName} gesammelt. Probier ein anderes Rätsel!</p>
+        <div class="runner-dialog-actions">
+          <button type="button" class="runner-primary" data-action="anders">Anderes Rätsel 🎲</button>
+          <button type="button" class="runner-secondary" data-action="map">Zur Bauecke</button>
+        </div>`, wireDialog);
+      return;
+    }
 
     if (!success) {
       soundFail();
@@ -1694,7 +1722,7 @@
     if (unlockedNext) progress.unlocked = level.id + 1;
     saveProgress(progress);
     const journeyDone = shell?.journey && reise && shell.journey.level === level.id
-      ? reise.markDone(shell.journey.nr, { stars, game: "tiersprung" })
+      ? (bau ? { bau: true, ...reise.bauGeschafft?.(shell.journey) } : reise.markDone(shell.journey.nr, { stars, game: "tiersprung" }))
       : null;
 
     soundFinish();
@@ -1712,17 +1740,20 @@
       ${starRow(stars)}
       <p class="runner-dialog-sub">${game.treats} von ${game.treatTotal} ${level.treatName} ${level.treat}</p>
       ${growLine}
-      ${journeyDone ? `<p class="runner-grow runner-journey">${journeyDone.gold ? "Auftrag geschafft – ein goldener Stempel!" : "Auftrag geschafft – Stempel für die Karte!"}</p>` : ""}
+      ${journeyDone?.bau ? `<p class="runner-grow runner-journey">Der Zug bringt dir Ziegel für ein neues Stockwerk! 🧱</p>` : ""}
+      ${journeyDone && !journeyDone.bau ? `<p class="runner-grow runner-journey">${journeyDone.gold ? "Auftrag geschafft – ein goldener Stempel!" : "Auftrag geschafft – Stempel für die Karte!"}</p>` : ""}
       <div class="runner-dialog-actions">
         ${nextLevel && !journeyDone ? `<button type="button" class="runner-primary" data-action="next">Weiter zu ${nextAnimal.name} ${nextAnimal.emoji}</button>` : ""}
-        ${journeyDone ? `<button type="button" class="runner-primary" data-action="map">Zur Karte ✓</button>` : ""}
-        <button type="button" class="runner-secondary" data-action="restart">Nochmal ↻</button>
+        ${journeyDone?.bau ? `<button type="button" class="runner-primary" data-action="map">Zur Bauecke ✓</button>` : ""}
+        ${journeyDone && !journeyDone.bau ? `<button type="button" class="runner-primary" data-action="map">Zur Karte ✓</button>` : ""}
+        ${journeyDone?.bau ? "" : `<button type="button" class="runner-secondary" data-action="restart">Nochmal ↻</button>`}
         ${journeyDone ? "" : `<button type="button" class="runner-secondary" data-action="map">Zur Karte</button>`}
       </div>`, wireDialog);
 
     const dialog = hud.overlay?.querySelector(".runner-dialog");
     if (dialog) kids.burstConfetti(dialog, stars >= 3 ? 60 : 38);
-    setStageHelp(`Level ${level.id} geschafft! Du hast ${stars} von 3 Sternen und ${game.treats} ${level.treatName} gesammelt. ${nextLevel ? `Tippe auf Weiter, um mit dem ${nextAnimal.name} weiterzuspielen.` : "Du hast alle Tiere geschafft."} Mit Nochmal spielst du dieses Level erneut, mit Zur Karte kommst du zurück zur Übersicht.`);
+    if (journeyDone?.bau) setStageHelp(`Level ${level.id} geschafft! Du hast ${stars} von 3 Sternen. Der Zug bringt dir Ziegel für ein neues Stockwerk. Tippe auf Zur Bauecke.`);
+    else setStageHelp(`Level ${level.id} geschafft! Du hast ${stars} von 3 Sternen und ${game.treats} ${level.treatName} gesammelt. ${nextLevel ? `Tippe auf Weiter, um mit dem ${nextAnimal.name} weiterzuspielen.` : "Du hast alle Tiere geschafft."} Mit Nochmal spielst du dieses Level erneut, mit Zur Karte kommst du zurück zur Übersicht.`);
   }
 
   // ---------------------------------------------------------------------------

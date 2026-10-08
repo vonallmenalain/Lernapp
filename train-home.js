@@ -52,6 +52,11 @@
   const leseApi = () => window.LernappLeseecke || null;
   const leseArt = () => window.LernappLeseArt || null;
   const leseStand = () => window.LernappLeseStand || null;
+  // Die Bauecke: der Bauplatz mit den vier Häusern auf dem Startbild und die
+  // Häuser selbst (train-bau.js). Fehlen die Dateien, steht kein Bauplatz da.
+  const bauApi = () => window.LernappBau || null;
+  const bauArt = () => window.LernappBauArt || null;
+  const bauStand = () => window.LernappBauStand || null;
   // Gezeigt wird, was gewählt ist – ob die Landschaft nach dem Stand dieses
   // Geräts gerade frei wäre, spielt hier keine Rolle. Die Sperre gehört in die
   // Auswahl: dort lässt sich Gesperrtes nicht antippen. Beim Anzeigen wäre sie
@@ -458,6 +463,7 @@
       stage.style.removeProperty("--train-lift");
       positionStart();
       positionLesewagen();
+      positionBauplatz();
       layoutFriends();
       return;
     }
@@ -475,6 +481,7 @@
     stage.style.setProperty("--train-lift", `${Math.round(lift)}px`);
     positionStart();
     positionLesewagen();
+    positionBauplatz();
     layoutFriends();
   }
 
@@ -1469,6 +1476,70 @@
     leseButton.dataset.placed = "1";
   }
 
+  // ---------------------------------------------------------------------------
+  // Der Bauplatz
+  // ---------------------------------------------------------------------------
+  // Die vier Häuser der Bauecke, klein, rechts oben – gegenüber dem
+  // Lesewagen. So hoch, wie sie gebaut sind, mit Licht in jedem
+  // eingerichteten Stockwerk: Das Kind sieht schon auf dem Startbild, wie
+  // weit seine Häuser sind.
+  const BAU_ANTEIL = 0.2;
+  const BAU_MAX = 270;
+  const BAU_MIN = 76;
+
+  function buildBauButton() {
+    const zeichner = bauArt();
+    const stand = bauStand();
+    if (!zeichner || !stand || !bauApi()) return null;
+    const fort = stand.fortschritt();
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "bauplatz-knopf";
+    button.dataset.placed = "0";
+    const sterne = fort.reduce((summe, f) => summe + f.sterne, 0);
+    const stockwerke = fort.reduce((summe, f) => summe + f.stockwerke, 0);
+    button.setAttribute("aria-label", `Die Bauecke: vier Häuser mit ${stockwerke} Stockwerken und ${sterne} Sternen`);
+    const breite = 52;
+    const abstand = 10;
+    const hoehe = Math.max(...fort.map((f) => zeichner.minihausHoehe(f)));
+    const w = fort.length * breite + (fort.length + 1) * abstand;
+    const h = hoehe + 26;
+    let inhalt = `<rect x="0" y="${h - 18}" width="${w}" height="18" rx="9" fill="#7cc05e"/><rect x="0" y="${h - 14}" width="${w}" height="5" fill="#b8c0cb"/>`;
+    fort.forEach((f, i) => {
+      inhalt += `<g transform="translate(${abstand + i * (breite + abstand)} ${h - 14})">${zeichner.minihaus(f.id, f, { breite })}</g>`;
+    });
+    if (sterne > 0) inhalt += `<g transform="translate(${w - 34} 16)"><rect x="-30" y="-14" width="62" height="28" rx="14" fill="#ffffff" stroke="#ffc93c" stroke-width="3"/><text x="0" y="7" text-anchor="middle" font-size="17" font-weight="800" font-family="'Baloo 2', Nunito, sans-serif" fill="#b7791f">★ ${sterne}</text></g>`;
+    button.innerHTML = `<svg viewBox="0 0 ${w} ${h}" aria-hidden="true" focusable="false">${inhalt}</svg>`;
+    button.dataset.seite = String(h / w);
+    button.addEventListener("click", enterBauecke);
+    return button;
+  }
+
+  // Rechts oben, unter den festen Knöpfen (Konto, Ton, Vorlesen) und über
+  // der Lok. Wie der Lesewagen: lieber kleiner als im Weg, und unter einer
+  // Mindestgrösse gar nicht.
+  function positionBauplatz() {
+    if (!bauButton) return;
+    const band = stage.querySelector(".train-band");
+    const host = stage.getBoundingClientRect();
+    if (!band || !host.width) { bauButton.dataset.placed = "0"; return; }
+    const oben = host.height < 520 ? 66 : 80;
+    const rechts = 12;
+    const lift = parseFloat(window.getComputedStyle(stage).getPropertyValue("--train-lift")) || 0;
+    const bandOben = band.offsetTop + lift;
+    const lok = stage.querySelector("[data-loco]")?.getBoundingClientRect();
+    const boden = lok?.height && !stage.dataset.entering ? Math.max(bandOben, lok.top - host.top - 4) : bandOben;
+    const platz = boden - oben - 6;
+    const seite = Number(bauButton.dataset.seite) || 0.8;
+    let breite = Math.min(host.width * BAU_ANTEIL, BAU_MAX);
+    if (breite * seite > platz) breite = platz / seite;
+    if (breite < BAU_MIN) { bauButton.dataset.placed = "0"; return; }
+    bauButton.style.width = `${Math.round(breite)}px`;
+    bauButton.style.left = `${Math.round(host.width - rechts - breite)}px`;
+    bauButton.style.top = `${Math.round(oben)}px`;
+    bauButton.dataset.placed = "1";
+  }
+
   function buildBackButton() {
     const back = document.createElement("button");
     back.type = "button";
@@ -1497,6 +1568,7 @@
   let sceneButton = null;
   let startButton = null;
   let leseButton = null;
+  let bauButton = null;
   let busy = false;
 
   // Auf welchen Bühnen der Zug selbst antippbar ist. Klein unten links vor den
@@ -1513,6 +1585,8 @@
     if (view.name === "reise" && name !== "reise") { kids()?.setHelp?.(""); view.journeyVisit = null; }
     // Dasselbe für den Lesewagen: Sein Lautsprecher-Text gehört zu ihm.
     if (view.name === "lesen" && name !== "lesen") kids()?.setHelp?.("");
+    // Und für die Bauecke, die dazu ihre Uhren und Zuhörer abräumt.
+    if (view.name === "bau" && name !== "bau") { kids()?.setHelp?.(""); bauApi()?.unmount?.(); }
     if (view.name === "loco" && name !== "loco") freshParts = [];
     // Hinter dem Zug eines anderen steht dessen Landschaft: sie gehört zu
     // seinem Zug wie seine Lok, und wer sie sieht, sieht das Bild, das dieses
@@ -1530,6 +1604,7 @@
     if (sceneButton) sceneButton.hidden = name !== "home";
     if (startButton) startButton.hidden = name !== "home";
     if (leseButton) leseButton.hidden = name !== "home";
+    if (bauButton) bauButton.hidden = name !== "home";
     if (areaId) remember(LAST_AREA_KEY, areaId);
   }
 
@@ -1713,6 +1788,20 @@
     lese.mount({ host, onPlay: (url) => enterGame(url) });
   }
 
+  // In der Bauecke: die vier Häuser (train-bau.js). Wie im Lesewagen bleibt
+  // der Zug draussen und wird drinnen nicht neu gebaut (siehe render).
+  let renderAfterBau = false;
+
+  function showBauecke() {
+    const bau = bauApi();
+    if (!bau) { showHome(); return; }
+    setView("bau");
+    const host = document.createElement("div");
+    host.className = "bauecke";
+    renderLayer(host);
+    bau.mount({ host, stage, onPlay: (url) => enterGame(url) });
+  }
+
   function showGames(areaId) {
     const area = progress.areaProgress(areaId);
     if (!area) { showAreas(); return; }
@@ -1819,6 +1908,18 @@
     busy = false;
   }
 
+  // Auf den Bauplatz: Die Häuser wachsen kurz auf, dann steht man davor.
+  async function enterBauecke() {
+    if (busy || view.name !== "home" || !bauApi()) return;
+    busy = true;
+    kids()?.playJingle?.("correct");
+    stage.dataset.bauEin = "1";
+    await after(420);
+    delete stage.dataset.bauEin;
+    showBauecke();
+    busy = false;
+  }
+
   // Zählt die Seitenwechsel. Die Notbremse unten darf nur den Wechsel abräumen,
   // den sie selbst scharf gemacht hat: kommt die Seite aus dem Vor-Zurück-
   // Speicher, läuft ihr alter Zeitgeber weiter und riss sonst mitten in einer
@@ -1883,6 +1984,16 @@
     // nicht auf.
     if (view.name === "lesen") {
       if (!renderAfterLesen) { showHome(); return; }
+      setView("home");
+      render();
+      return;
+    }
+    // Aus der Bauecke: Zuerst schliesst sie selbst, was offen ist – ein
+    // Zimmer, eine Tafel –, erst dann geht es an den Zug. Der Bauplatz
+    // zeichnet sich dabei neu: Er zeigt, was eben gebaut wurde.
+    if (view.name === "bau") {
+      if (bauApi()?.zurueck?.()) return;
+      renderAfterBau = false;
       setView("home");
       render();
       return;
@@ -2444,6 +2555,14 @@
       maybeCelebrate(progress.allAreas());
       return;
     }
+    // In der Bauecke genauso: Sie frischt sich selbst auf, nur wenn sich an
+    // ihren Häusern etwas geändert hat.
+    if (view.name === "bau") {
+      renderAfterBau = true;
+      bauApi()?.auffrischen?.();
+      maybeCelebrate(progress.allAreas());
+      return;
+    }
     renderAfterLesen = false;
     const areas = progress.allAreas();
     if (!locoConfig) locoConfig = readLoco();
@@ -2532,6 +2651,7 @@
     sceneButton = scene ? buildSceneButton(scene) : null;
     startButton = buildStartButton();
     leseButton = buildLeseButton();
+    bauButton = buildBauButton();
 
     friendsHost = document.createElement("div");
     friendsHost.className = "train-friends";
@@ -2539,6 +2659,7 @@
 
     stage.append(friendsHost, band, layerHost, backButton, startButton);
     if (leseButton) stage.append(leseButton);
+    if (bauButton) stage.append(bauButton);
     if (sceneButton) stage.append(sceneButton);
 
     renderFriends();
@@ -2551,6 +2672,7 @@
     else if (previous === "highscore" && view.highscoreGame) showHighscore(view.highscoreGame, view.highscoreLevel);
     else if (previous === "reise") showJourney({ mode: "quiet" });
     else if (previous === "lesen") showLeseecke();
+    else if (previous === "bau") showBauecke();
     else showHome();
 
     // Ganz zum Schluss: hat sich seit dem letzten Mal ein Wagen weiterentwickelt,
@@ -2564,7 +2686,7 @@
   // Für pwa.js: solange die Karte im Bild ist, eine Feier läuft oder die Bühne
   // gerade wechselt, darf eine neue Fassung die Seite nicht neu laden. Sie
   // wartet, bis das Kind ohnehin die Seite wechselt.
-  window.LernappBusy = () => view.name === "reise" || busy || Boolean(stage.querySelector(".wagon-reward"));
+  window.LernappBusy = () => view.name === "reise" || view.name === "bau" || busy || Boolean(stage.querySelector(".wagon-reward"));
 
   // Das Gleis der Reise vermessen, solange nichts anderes zu tun ist. Es hängt
   // allein am Streckenverlauf, ist also für jede Karte dasselbe – und wenn das
@@ -2628,13 +2750,22 @@
     let reiseWanted = null;
     let station = null;
     let leseWanted = null;
+    let bauWanted = null;
     try {
       const params = new URLSearchParams(window.location.search);
       wanted = params.get("bereich");
       reiseWanted = params.get("reise");
       leseWanted = params.get("lesen");
+      bauWanted = params.get("bau");
       station = Number(params.get("station")) || null;
     } catch { wanted = null; }
+    // Zurück aus einem Rätsel der Bauecke: gleich wieder dorthin – der
+    // Lieferzug wartet schon.
+    if (bauWanted && bauApi()) {
+      try { window.history.replaceState(null, "", window.location.pathname); } catch { /* ohne Verlauf */ }
+      showBauecke();
+      return true;
+    }
     // Zurück aus einem Spiel der Leseecke: gleich wieder in den Lesewagen.
     if (leseWanted && leseApi()) {
       try { window.history.replaceState(null, "", window.location.pathname); } catch { /* ohne Verlauf */ }
@@ -2668,7 +2799,7 @@
 
   window.addEventListener("resize", () => {
     if (view.name !== "loco" && view.name !== "wagon") window.requestAnimationFrame(alignTrainToRail);
-    if (view.name === "home") window.requestAnimationFrame(positionLesewagen);
+    if (view.name === "home") window.requestAnimationFrame(() => { positionLesewagen(); positionBauplatz(); });
     if (view.name === "loco") {
       const svg = stage.querySelector(".loco-svg");
       const camera = stage.querySelector(".loco-camera");

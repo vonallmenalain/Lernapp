@@ -814,6 +814,47 @@
     return audioToggle;
   }
 
+  // ---------------------------------------------------------------------------
+  // Vorlesen-Schalter (oben rechts, neben dem Ton)
+  // ---------------------------------------------------------------------------
+  // Schaltet die Stimme ganz ab: Hilfe-Lautsprecher, die Bauecke, die vorliest,
+  // was man antippt, und die Leseecke. Dieselbe Einstellung wie bisher
+  // (lernapp.tts) – nur hat sie jetzt einen Knopf. Er steht auf dem Startbild
+  // und damit auch in Lesewagen und Bauecke; die Spielseiten halten oben
+  // rechts genau Platz für zwei feste Knöpfe frei (Ton und Konto).
+  let ttsToggle = null;
+  function updateTtsToggle() {
+    if (!ttsToggle) return;
+    const aus = !ttsEnabled();
+    ttsToggle.classList.toggle("muted", aus);
+    ttsToggle.setAttribute("aria-pressed", aus ? "true" : "false");
+    ttsToggle.setAttribute("aria-label", aus ? "Vorlesen einschalten" : "Vorlesen ausschalten");
+    ttsToggle.title = aus ? "Vorlesen einschalten" : "Vorlesen ausschalten";
+  }
+  function mountTtsToggle() {
+    if (ttsToggle || document.querySelector(".tts-toggle")) return null;
+    if (document.body?.dataset?.page !== "train") return null;
+    ttsToggle = document.createElement("button");
+    ttsToggle.type = "button";
+    ttsToggle.className = "sound-toggle tts-toggle";
+    ttsToggle.dataset.ttsToggle = "true";
+    ttsToggle.innerHTML = `
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path class="tts-blase" d="M4 4.5h16a1.5 1.5 0 0 1 1.5 1.5v9a1.5 1.5 0 0 1-1.5 1.5H10l-4.5 3.5V16.5H4A1.5 1.5 0 0 1 2.5 15V6A1.5 1.5 0 0 1 4 4.5z"/>
+        <path class="sound-wave" d="M7 9h10M7 12.5h6"/>
+        <path class="sound-off-line" d="M4 4l16 16"/>
+      </svg>`;
+    ttsToggle.addEventListener("click", () => {
+      const an = !ttsEnabled();
+      setTtsEnabled(an);
+      updateTtsToggle();
+      if (an) speak("Vorlesen ist an.");
+    });
+    document.body.append(ttsToggle);
+    updateTtsToggle();
+    return ttsToggle;
+  }
+
   // Baut den Hilfe-Knopf. Die Startseite meldet keinen Text an – dort erklären
   // sich die Kacheln selbst und der Knopf bleibt verborgen.
   function mountHelpButton() {
@@ -1220,6 +1261,8 @@
     mascotSVG, burstConfetti, playJingle, playChime, playStarSound, vibrate, prefersReducedMotion,
     // Ton-Schalter
     audioEnabled, setAudioEnabled, updateAudioToggle,
+    // Vorlesen-Schalter
+    updateTtsToggle,
     // Lok-Pfeife
     WHISTLE_NAMES, playWhistle,
     // Dampfhorn, Auspuffschläge und das Rattern der Zahnradstrecke
@@ -1316,6 +1359,7 @@
   function mountFixedButtons() {
     mountHelpButton();
     mountAudioToggle();
+    mountTtsToggle();
     mountRotateHint();
     blockZoom();
     document.addEventListener("pointerdown", lockLandscape, { once: true });
