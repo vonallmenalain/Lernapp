@@ -14,16 +14,26 @@
  * Ansicht es mit scale(-1 1).
  *
  * Aufbau, an dem train-bau.js wackelt:
- *   <g>                                äusserstes g (scale, wenn gross ≠ 1)
+ *   <g>                                äusserstes g (scale, wenn gross ≠ 1;
+ *                                      dazu Strichbreite und runde Ecken,
+ *                                      die alle Teile erben)
  *     <ellipse/>                       Schatten am Boden
  *     <g class="legL">…</g>            linkes Bein
  *     <g class="legR">…</g>            rechtes Bein
  *     <g class="bob">…                 alles andere, zuletzt:
  *       <g class="bt-lid" opacity="0">…</g>   geschlossene Augen
  *
+ * Was es gibt (window.LernappBauTiere):
+ *   tier(art, { gross, variante, figur })  das Tier als SVG-Text
+ *   defs()       die Verläufe (ids bt-…), einmal ins Dokument, nicht in ein
+ *                SVG mit display:none, sonst fehlt der Glanz
+ *   box(art, { figur })  der Kasten um die Zeichnung, für kleine Bildchen
+ *   ARTEN, FIGUREN
+ *
  * Figuren: Mit { figur: "fino" } zeichnet tier() die Figur genau so, wie sie
- * im Buch aussieht. Ohne figur ist es ein gewöhnliches Tier der Art, mit
- * einem schlichteren Kleidungsstück, dessen Farbe variante % 4 wählt.
+ * im Buch aussieht (FIGUREN: Kennung → Art; die Figur bestimmt die Art).
+ * Ohne figur ist es ein gewöhnliches Tier der Art, mit einem schlichteren
+ * Kleidungsstück, dessen Farbe variante % 4 wählt.
  *
  * Nur Zeichnen, kein Verhalten.
  */
@@ -73,6 +83,7 @@
   // ---------------------------------------------------------------------------
   // Bausteine
   // ---------------------------------------------------------------------------
+  const hat = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
   const r = (n) => Math.round(n * 10) / 10;
   // Text mit Zahlen: jede eingesetzte Zahl auf eine Nachkommastelle
   const s = (teile, ...werte) => teile.reduce((a, t, i) => a + (typeof werte[i - 1] === "number" ? r(werte[i - 1]) : werte[i - 1]) + t);
@@ -116,7 +127,7 @@
       pfad(s`M${x - rx - 0.2} ${y + 0.4}q${rx + 0.2} ${rx * 0.85} ${2 * rx + 0.4} 0`, strich(linie, 1.4));
   }
 
-  const backe = (x, y, rx = 3.6) => oval(x, y, rx, rx * 0.62, ` fill="${WANGE}" opacity=".38"`);
+  const backe = (x, y, rx = 3.6, deck = ".38", farbe = WANGE) => oval(x, y, rx, rx * 0.62, ` fill="${farbe}" opacity="${deck}"`);
 
   // Ein Bein mit Fuss; x ist die linke Kante, der Fuss zeigt nach rechts.
   function bein(x, fell, k, fuss = fell, b = 7.5) {
@@ -255,12 +266,12 @@
   // --- Fuchs (Fino: roter Strickschal mit Fransen) ---------------------------
   function fuchs(o) {
     const F = "#e8793a", K = "#b4531f", W = "#fff6ea", KW = "#ecd6c0", D = "#4a3129", KD = "#2e1d17", IN = "#fde3cf";
-    const [links, rechts] = beine(D, KD);
+    const [links, rechts] = beine(D, KD, D, 6.8);
     const bob =
       pfad("M-9 -15C-24 -12 -38 -22 -38 -38C-38 -46 -36 -52 -33 -55C-30 -50 -26 -42 -19 -36C-15 -32 -11 -30 -8 -29Z", fl(F, K)) +
       pfad("M-38.1 -40.5C-38.2 -46.5 -36.2 -51.8 -33 -55C-31 -51.5 -29 -47.6 -27.2 -44.6C-29.6 -43 -31.6 -44.4 -33.4 -42.4C-35 -43.6 -36.6 -42 -38.1 -40.5Z", fl(W, KW)) +
       armHinten(fl(F, K)) + kreis(...HAND_H, 3.3, fl(D, KD)) +
-      rumpfMit(14.5, F, K, oval(3, -30, 7.5, 12.5, fl(W))) +
+      rumpfMit(13, F, K, oval(2.5, -30, 6.5, 12.5, fl(W))) +
       armVorne(fl(F, K)) + kreis(...HAND_V, 3.4, fl(D, KD)) +
       (o.figur === "fino" ? strickschal("#d8443a", -4) : halstuch(o.farbe)) +
       pfad("M-18 -72L-14.5 -98L-3 -81Z", fl(F, K)) + pfad("M-15.2 -78L-14.2 -91.5L-7.6 -82.2Z", fl(IN)) + pfad("M-15.7 -89.5L-14.5 -98L-10.7 -92.6Z", fl(D, KD)) +
@@ -269,7 +280,7 @@
       pfad("M7 -62.5C13.5 -62 20 -60 24.6 -57.4C26.6 -56.2 26.4 -53.6 24.4 -52.8C20 -51.2 13 -50.8 7 -51.5", fl(F, K)) +
       pfad("M-20.6 -59.2C-16.5 -58 -12.5 -58 -9 -59.2C-6 -60.2 -2 -58.4 1 -56.2C4 -54 8 -53.6 12.5 -54.2C17 -54.8 21.5 -54.8 25.4 -54.2C25 -52.2 23.5 -51.4 21 -51C15 -50 9.5 -47.6 4 -45.8C-2 -44 -8 -44.4 -12.5 -46.6L-17.8 -46.4L-16.4 -49.8L-21.8 -51.4L-19.2 -54.4Z", fl(W)) +
       oval(24.8, -56.8, 2.6, 2.1, fl(DUNKEL)) + oval(24.1, -57.5, 0.9, 0.5, ' fill="#ffffff" opacity=".6"') +
-      pfad("M24 -53.4Q21 -50.6 16 -51.2", strich(K, 1.2)) +
+      pfad("M24.2 -53.6Q20.6 -49.4 14.6 -50.6", strich(K, 1.3)) +
       auge(-3.5, -64.5, 3.4) + auge(10.5, -64.5, 3.1) +
       backe(-10.5, -56.3, 3.3) + backe(14, -58.6, 2.6);
     return { links, rechts, bob, lid: lid(-3.5, -64.5, 3.4, F) + lid(10.5, -64.5, 3.1, F) };
@@ -460,7 +471,7 @@
       auge(-6.5, augeY, 4.8, fri ? "#d9eeb0" : "#f2e28c", DUNKEL) + auge(11, augeY, 4.5, fri ? "#d9eeb0" : "#f2e28c", DUNKEL) +
       kreis(4.2, -61, 0.8, fl(K)) + kreis(7, -61, 0.8, fl(K)) +
       pfad("M-7 -54.5Q4 -46.5 15 -54.5", strich(K, 1.5)) +
-      backe(-11, -56.5) + backe(18.5, -57, 3.2) + nachKopf;
+      backe(-11, -56.5, 3.6, ".75", "#ff8ea6") + backe(18.5, -57, 3.2, ".75", "#ff8ea6") + nachKopf;
     return { links, rechts, bob, lid: lid(-6.5, augeY, 4.8, G) + lid(11, augeY, 4.5, G) };
   }
 
@@ -506,8 +517,8 @@
         pfad("M-6 -40V-19M1 -39V-16.5M8 -39.5V-17M14 -41V-18.5M-12.5 -41.5V-19.5", ` fill="none" stroke="${kp}" stroke-width="1" stroke-linecap="butt" stroke-dasharray="2 1.6"`) +
         pfad("M-18 -44Q1 -38 19.8 -44L19.6 -38.5Q1 -32.5 -17.9 -38.5Z", fl(ton(p, 0.08), kp)) + pfad("M-12 -42V-37M-6 -40.8V-35.6M0 -40.3V-35M6 -40.6V-35.4M12 -41.6V-36.4", strich(kp, 0.9));
       nachKopf =
-        pfad("M-17.6 -67.4C-21.2 -68.6 -24 -66 -22.4 -63.2C-25 -62 -24.6 -58.2 -21.8 -58.2C-22.8 -55.4 -19.6 -54 -17.6 -56Z", fl("#ffffff", "#c3c8d2", 1)) +
-        pfad("M20 -67.6C23.4 -68.2 25.2 -65.4 23.6 -62.8C25.6 -61.4 24.6 -58 21.8 -58.4Z", fl("#ffffff", "#c3c8d2", 1)) +
+        pfad("M-17 -68.5C-20 -69.5 -22.6 -68 -23.2 -65.6L-25.6 -64.4L-23 -62.6L-25.4 -60.2L-22.2 -59.6L-23.6 -56.6L-19.8 -57.6L-17.2 -56Z", fl("#ffffff", "#c3c8d2", 1)) +
+        pfad("M19.6 -68.6C22.4 -69 24.4 -67.4 24.6 -65.2L26.6 -63.6L24.4 -62.2L26.2 -59.6L22.6 -59.4L20.6 -57.2Z", fl("#ffffff", "#c3c8d2", 1)) +
         pfad("M-7.5 -69.6Q-4 -72 -0.5 -70M6.4 -70Q9.6 -72.2 13 -69.8", strich("#ffffff", 2)) +
         pfad("M-15 -77.5C-15 -86 -8 -90.5 1.5 -90.5C11 -90.5 17.5 -86 17.5 -77.5Z", fl("#3b4a6b", "#232b40")) +
         pfad("M-15.5 -78Q1 -82 18 -78L18 -75.4Q1 -79.2 -15.5 -75.4Z", fl("#2a3249", "#1b2132", 1)) +
@@ -536,15 +547,16 @@
   function loewe(o) {
     const Y = "#f3c266", K = "#c8913c", M = "#e0772f", KM = "#b5561c", MI = "#c9601f", C = "#fde8bf", N = "#5a3929", IN = "#f2a68f";
     const [links, rechts] = beine(Y, K);
+    // Mähne: zottige Büschel rundherum, unten länger (bis auf die Brust)
     let maehne = "";
-    const n = 14;
+    const n = 15, weite = (w) => 22 + 4 * Math.max(0, Math.sin(w));
     for (let i = 0; i <= n; i++) {
       const w = (i / n) * Math.PI * 2 - Math.PI / 2;
-      const p = [1 + Math.cos(w) * 22.5, -62 + Math.sin(w) * 22.5];
+      const p = [1 + Math.cos(w) * weite(w), -62 + Math.sin(w) * weite(w)];
       if (i === 0) maehne += s`M${p[0]} ${p[1]}`;
       else {
         const wm = w - Math.PI / n + 0.13;
-        maehne += s`Q${1 + Math.cos(wm) * 30.5} ${-62 + Math.sin(wm) * 30.5} ${p[0]} ${p[1]}`;
+        maehne += s`Q${1 + Math.cos(wm) * (weite(wm) + 7.5)} ${-62 + Math.sin(wm) * (weite(wm) + 7.5)} ${p[0]} ${p[1]}`;
       }
     }
     maehne += "Z";
@@ -645,7 +657,7 @@
 
   // --- Steinbock (Sepp: rotes Halstuch mit Knoten, Kinnbärtchen) ---------------
   function steinbock(o) {
-    const F = "#9c8e80", K = "#6c6056", C = "#eee6da", KC = "#cfc3b2", H = "#8f765d", KH = "#65513f", BD = "#71655a", HO = "#4b4139", IN = "#e6aaa4";
+    const F = "#9c8e80", K = "#6c6056", C = "#eee6da", KC = "#cfc3b2", H = "#8f765d", KH = "#65513f", BD = "#857868", HO = "#4b4139", IN = "#e6aaa4";
     const huf = (x) => s`<rect x="${x + 0.5}" y="-20" width="6.5" height="17" rx="3"${fl(F, K)}/><rect x="${x}" y="-6" width="7.5" height="6" rx="2"${fl(HO, "#2f2823")}/>`;
     const [links, rechts] = [huf(-10.5), huf(0.5)];
     let zier;
@@ -680,7 +692,7 @@
       oval(18, -72.5, 7, 3.1, fl(F, K), -14) + oval(17.8, -72.3, 4.2, 1.6, fl(IN), -14) +
       oval(2, -63, 16.5, 18.5, fl(F, K), -8) + oval(2, -63, 16.5, 18.5, LICHT, -8) +
       oval(7.6, -50.6, 8.2, 6.2, fl(C, KC, 1), -8) +
-      pfad("M5.8 -45Q6 -40 8.2 -38.2Q9.9 -41.2 10.2 -45.4Z", fl("#857868", "#5f554b", 1)) +
+      pfad("M5.8 -45Q6 -40 8.2 -38.2Q9.9 -41.2 10.2 -45.4Z", fl(BD, ton(BD, -0.28), 1)) +
       oval(5.4, -52.2, 1, 0.75, fl(K)) + oval(10.2, -52.9, 1, 0.75, fl(K)) +
       pfad("M5 -48.6Q7.8 -46.7 10.8 -48.9", strich(K, 1.1)) +
       auge(-4, -65, 3.5) + auge(9.5, -65.5, 3.2) +
@@ -810,9 +822,10 @@
   // Ein Tier als SVG-Text (ein <g>). art: eine der ARTEN (sonst Fuchs);
   // figur: Kennung einer Buchfigur (bestimmt dann auch die Art); variante:
   // Farbe des Kleidungsstücks eines gewöhnlichen Tiers (beliebig gross, % 4).
-  function tier(art, { gross = 1, variante = 0, figur = "" } = {}) {
-    const fig = Object.prototype.hasOwnProperty.call(FIGUREN, figur) ? figur : "";
-    const a = fig ? FIGUREN[fig] : (ZEICHNER[art] ? art : "fox");
+  function tier(art, optionen) {
+    const { gross = 1, variante = 0, figur = "" } = optionen || {};
+    const fig = hat(FIGUREN, figur) ? figur : "";
+    const a = fig ? FIGUREN[fig] : (hat(ZEICHNER, art) ? art : "fox");
     const v = (((Math.trunc(Number(variante)) || 0) % 4) + 4) % 4;
     const t = ZEICHNER[a]({ figur: fig, farbe: ZIER[a][v] });
     const k = Number(gross);
@@ -833,7 +846,9 @@
   }
 
   // Der Kasten um die Zeichnung (gross = 1, ohne Schatten am Boden).
-  // gemessen mit getBBox (ohne Schatten), mit 1 Einheit Rand für die Kontur
+  // gemessen mit getBBox (ohne Schatten), mit 1 Einheit Rand für die Kontur:
+  // BOX passt für jedes Aussehen der Art, BOX_GEWOEHNLICH für das gewöhnliche
+  // Tier (alle Varianten), BOX_FIGUR für die Buchfigur.
   const BOX = {
     fox: { x0: -40, y0: -99, x1: 29, y1: 1 },
     bear: { x0: -25, y0: -97, x1: 27, y1: 1 },
@@ -842,8 +857,26 @@
     panda: { x0: -23, y0: -91, x1: 24, y1: 1 },
     frog: { x0: -22, y0: -93, x1: 25, y1: 1 },
     owl: { x0: -22, y0: -89, x1: 24, y1: 1 },
-    penguin: { x0: -28, y0: -101, x1: 29, y1: 1 },
-    lion: { x0: -37, y0: -89, x1: 29, y1: 1 },
+    penguin: { x0: -30, y0: -101, x1: 31, y1: 1 },
+    lion: { x0: -37, y0: -89, x1: 28, y1: 1 },
+    mouse: { x0: -34, y0: -90, x1: 28, y1: 1 },
+    squirrel: { x0: -41, y0: -101, x1: 23, y1: 1 },
+    ibex: { x0: -29, y0: -111, x1: 27, y1: 1 },
+    dog: { x0: -25, y0: -83, x1: 26, y1: 1 },
+    hedgehog: { x0: -27, y0: -87, x1: 31, y1: 1 },
+    cow: { x0: -31, y0: -90, x1: 30, y1: 1 },
+    elephant: { x0: -30, y0: -97, x1: 30, y1: 1 },
+  };
+  const BOX_GEWOEHNLICH = {
+    fox: { x0: -40, y0: -99, x1: 29, y1: 1 },
+    bear: { x0: -23, y0: -89, x1: 25, y1: 1 },
+    rabbit: { x0: -23, y0: -112, x1: 24, y1: 1 },
+    cat: { x0: -33, y0: -96, x1: 26, y1: 1 },
+    panda: { x0: -23, y0: -89, x1: 24, y1: 1 },
+    frog: { x0: -22, y0: -82, x1: 25, y1: 1 },
+    owl: { x0: -22, y0: -89, x1: 24, y1: 1 },
+    penguin: { x0: -24, y0: -91, x1: 26, y1: 1 },
+    lion: { x0: -37, y0: -89, x1: 28, y1: 1 },
     mouse: { x0: -34, y0: -90, x1: 28, y1: 1 },
     squirrel: { x0: -41, y0: -101, x1: 23, y1: 1 },
     ibex: { x0: -29, y0: -111, x1: 27, y1: 1 },
@@ -863,17 +896,22 @@
     fridolin: { x0: -22, y0: -82, x1: 25, y1: 1 },
     ella: { x0: -22, y0: -89, x1: 24, y1: 1 },
     pino: { x0: -24, y0: -91, x1: 26, y1: 1 },
-    paul: { x0: -28, y0: -101, x1: 29, y1: 1 },
-    leo: { x0: -37, y0: -89, x1: 29, y1: 1 },
+    paul: { x0: -30, y0: -101, x1: 31, y1: 1 },
+    leo: { x0: -37, y0: -89, x1: 28, y1: 1 },
     mia: { x0: -34, y0: -90, x1: 28, y1: 1 },
     rosa: { x0: -34, y0: -90, x1: 28, y1: 1 },
     flitz: { x0: -41, y0: -101, x1: 23, y1: 1 },
     sepp: { x0: -29, y0: -111, x1: 27, y1: 1 },
   };
   // box(art): passt für jedes Aussehen der Art (gewöhnlich und Figuren);
-  // box(art, { figur }): genau für diese Figur.
-  function box(art, { figur = "" } = {}) {
-    const b = BOX_FIGUR[figur] || BOX[ZEICHNER[art] ? art : "fox"];
+  // box(art, { figur }): genau für dieses Aussehen – figur "" (oder eine
+  // unbekannte Kennung) ist das gewöhnliche Tier, wie bei tier().
+  function box(art, optionen) {
+    const a = hat(ZEICHNER, art) ? art : "fox";
+    let b = BOX[a];
+    if (optionen && typeof optionen === "object" && "figur" in optionen) {
+      b = hat(BOX_FIGUR, optionen.figur) ? BOX_FIGUR[optionen.figur] : BOX_GEWOEHNLICH[a];
+    }
     return { x0: b.x0, y0: b.y0, x1: b.x1, y1: b.y1 };
   }
 

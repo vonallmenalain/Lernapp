@@ -1408,6 +1408,7 @@
     return svgVon(`<g transform="translate(${x.toFixed(1)} ${h - 2}) scale(${k.toFixed(3)})">${tierSvg(tier)}</g>`, `0 0 ${w} ${h}`, cls);
   }
 
+  const RAND = 56;
   // dome: im KiddyDome – dort wird gehüpft, und zwar hoch.
   function setzeTier(lage, { tier, wohnt, grund = "", breite = A().ZW, x = null, dome = false }) {
     const g = document.createElementNS(NS, "g");
@@ -1426,13 +1427,14 @@
     g.innerHTML = `<g class="bau-tier-dreh">${tierSvg(tier)}</g>${abzeichen}<g class="bau-zzz" style="display:none"><text x="12" y="-110" font-size="18" font-weight="800" font-family="'Baloo 2', Nunito, sans-serif" fill="#ffffff">z</text><text x="24" y="-124" font-size="14" font-weight="800" font-family="'Baloo 2', Nunito, sans-serif" fill="#ffffff">z</text></g>`;
     lage.append(g);
     const ort = tierOrte.get(tier.seed);
-    const startX = clamp(ort?.x ?? x ?? (60 + ((S().hash(tier.seed) % Math.max(40, breite - 120)))), 40, breite - 40);
+    // Mindestens RAND vom Rand weg: Der Schwanz ragt gut 50 Einheiten hinaus.
+    const startX = clamp(ort?.x ?? x ?? (60 + ((S().hash(tier.seed) % Math.max(40, breite - 120)))), RAND, breite - RAND);
     const t = {
       g, dreh: g.querySelector(".bau-tier-dreh"), bob: g.querySelector(".bob"), legL: g.querySelector(".legL"), legR: g.querySelector(".legR"), zzz: g.querySelector(".bau-zzz"), lid: g.querySelector(".bt-lid"),
       x: startX, y: S().GEO.STAND + 2, ziel: startX, richtung: 1, modus: "steht", bis: performance.now() + 800 + Math.random() * 2500,
       phase: Math.random() * 6, k, wohnt, tier, breite, huepf: 0, dome,
     };
-    if (ort) { t.ziel = clamp(ort.ziel ?? t.x, 40, breite - 40); t.modus = ort.modus || "steht"; t.richtung = ort.richtung || 1; }
+    if (ort) { t.ziel = clamp(ort.ziel ?? t.x, RAND, breite - RAND); t.modus = ort.modus || "steht"; t.richtung = ort.richtung || 1; }
     stelleTier(t, 0);
     tiere.set(g, t);
   }
@@ -1507,7 +1509,7 @@
           t.bis = jetzt + 1200 + Math.random() * 2600;
           bald = Math.min(bald, t.bis - jetzt);
         } else if (jetzt >= t.bis) {
-          t.ziel = clamp(t.x + (Math.random() - 0.5) * Math.min(260, t.breite * 0.6), 40, t.breite - 40);
+          t.ziel = clamp(t.x + (Math.random() - 0.5) * Math.min(260, t.breite * 0.6), RAND, t.breite - RAND);
           t.modus = "geht";
           if (Math.random() < 0.25) zeigeWunschBlase(t);
         } else bald = Math.min(bald, t.bis - jetzt);
