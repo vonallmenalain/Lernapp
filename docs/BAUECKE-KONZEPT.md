@@ -128,13 +128,15 @@ Pepi, Miga Town, den einzelnen Toca-Apps und weiteren Bauspielen (Abschnitt 3)
 | `scripts/validate-bau.mjs` | eigene Dinge je Zimmer, Motive, Erfüllbarkeit, Wohnungen und Einzug, Sterne 6/3/6, Jobs, Aufenthalt, Umstellen, Konten, Übertragung, Grösse, Fingerabdruck |
 | `scripts/check-bau.mjs` | im Browser: Einzug mit Feuerwerk, Schubladen je Zimmer, Stift, Tafel mit Hingehen und Vorlesen per Tipp, Umstellen, Bauen mit «Wohnung oder zwei Zimmer?», zweiter Einzug, Tier bei der Arbeit besuchen |
 
-### 0.6 Annahmen – bitte bestätigen
+### 0.6 Entscheide (bestätigt am 8. Oktober 2026)
 
 - Neue Tiere kommen nur, **solange die Bauecke offen ist** (alle zehn Minuten eines je
   Wohnung mit Platz) – so sieht das Kind jeden Einzug. Wer die Bauecke eine Woche nicht
   öffnet, findet keine fertig bevölkerten Wohnungen vor.
 - **Nachts** (20 bis 7 Uhr, Uhr des Geräts) sind alle daheim.
 - Ein Gast-Stand geht nur in ein Konto ohne Bauecke über; die Ziegel des Gasts nicht.
+- Die Schranke ohne Kauf steht weiter beim vierten Stockwerk – im Wohnhaus also nach
+  einem gebauten zu den drei Wohnungen vom Anfang.
 
 ---
 
@@ -256,8 +258,8 @@ Kamin.
 - **Die Schranke:** Ohne Kauf wächst jedes Haus bis zum **vierten Stockwerk**; dann steht
   am Plus dieselbe Schranke wie vor den Spielen (`showGate`). Gestalten, Tiere und Wünsche
   bleiben frei, «ganze App gratis» öffnet auch hier alles. Ohne Kauf kommen nur Rätsel von
-  Stationen, die ohnehin frei sind. **Bitte bestätigen** – das war die Empfehlung des
-  Konzepts, die Rückmeldung hat die Frage offen gelassen.
+  Stationen, die ohnehin frei sind. So bestätigt mit der zweiten Rückmeldung vom
+  8. Oktober 2026.
 
 ### 0E1.6 Speichern
 
