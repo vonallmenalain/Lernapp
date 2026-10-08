@@ -1038,16 +1038,18 @@
     return { geraete };
   }
 
-  // Bleibt beim Zurücksetzen stehen (Entscheid 10: die Ziegel gehen nicht
-  // verloren) – game-cloud.js lässt den Kasten dann in Ruhe.
-  const lieferung = cloudGames
-    ? cloudGames.register({ key: BAU_LIEFERUNG_KEY, empty: clone(LIEFERUNG_LEER), merge: mergeLieferung, keepOnReset: true })
+  // Die Ziegel gehören dem Kind, das sie verdient hat: je Konto, wie die
+  // Häuser (registerProKonto in game-cloud.js). Ein anderes Kind am selben
+  // Gerät sieht sie nicht, und ein Gast behält seine eigenen – übernommen
+  // werden sie bei der Anmeldung nicht. Das Zurücksetzen lässt sie stehen
+  // (Entscheid 10: die Ziegel gehen nicht verloren).
+  const lieferung = cloudGames?.registerProKonto
+    ? cloudGames.registerProKonto({ key: BAU_LIEFERUNG_KEY, empty: clone(LIEFERUNG_LEER), merge: mergeLieferung })
     : {
       read() {
         try { return mergeLieferung(JSON.parse(localStorage.getItem(BAU_LIEFERUNG_KEY) || "null"), LIEFERUNG_LEER); } catch { return clone(LIEFERUNG_LEER); }
       },
-      update(fn) {
-        const next = fn(this.read());
+      write(next) {
         try { localStorage.setItem(BAU_LIEFERUNG_KEY, JSON.stringify(next)); } catch { /* privater Modus */ }
         return next;
       },
@@ -1171,11 +1173,9 @@
     if (bauGutgeschrieben) return { neu: false, paletten: bauPaletten() };
     bauGutgeschrieben = true;
     const id = bauGeraet();
-    lieferung.update((alt) => {
-      const stand = mergeLieferung(obj(alt), LIEFERUNG_LEER);
-      stand.geraete[id] = (Number(stand.geraete[id]) || 0) + 1;
-      return stand;
-    });
+    const stand = mergeLieferung(obj(lieferung.read()), LIEFERUNG_LEER);
+    stand.geraete[id] = (Number(stand.geraete[id]) || 0) + 1;
+    lieferung.write(stand);
     return { neu: true, paletten: bauPaletten() };
   }
 

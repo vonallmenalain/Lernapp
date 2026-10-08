@@ -7,13 +7,22 @@
  *   Hausansicht   ein Haus im Querschnitt, darüber der Umschalter für die vier
  *                 Häuser, rechts die Ziegel und der Rätsel-Knopf. Ziehen
  *                 schiebt das Haus hinauf und hinunter, Wischen zur Seite
- *                 wechselt das Haus. Ein Tipp auf ein Stockwerk zoomt hinein.
- *   Zimmer        das Stockwerk bildschirmfüllend, unten die Schublade mit den
- *                 Dingen, die Wand- und Bodenfarben. Dinge werden gezogen,
- *                 fallen auf den Boden oder auf einen Tisch, lassen sich
- *                 anmalen, umdrehen, vergrössern und wegräumen.
- *   Tier-Tafel    wer hier wohnt, was es sich wünscht (gelbe, grüne, blaue
- *                 Sterne), wie zufrieden es ist – und ein kleines Gespräch.
+ *                 wechselt das Haus. Im Wohnhaus sind die Wohnungen (ein
+ *                 Zimmer, bis zu drei Tiere, die Sterntafel am Lift); alle
+ *                 anderen Stockwerke haben zwei Zimmer. Ein Tipp auf ein
+ *                 Zimmer zoomt hinein; im Ordnen-Modus wandern die Stockwerke.
+ *   Zimmer        das Zimmer bildschirmfüllend, unten die Schublade mit den
+ *                 Dingen dieses Zimmers, den Dingen für überall, Wand und
+ *                 Boden. Dinge werden gezogen, fallen auf den Boden oder auf
+ *                 einen Tisch, lassen sich anmalen, umdrehen, vergrössern und
+ *                 wegräumen.
+ *   Tier-Tafel    die Bewohner einer Wohnung: wo jedes gerade ist (mit Weg
+ *                 dorthin), was es sich wünscht (gelbe, grüne, blaue Sterne),
+ *                 sein Traumjob und seine Arbeit.
+ *   Einzug        ein neues Tier kommt die Strasse entlang, fährt mit dem Lift
+ *                 in seine Wohnung – und es gibt ein Feuerwerk.
+ *
+ * Ist das Vorlesen an, liest ein Tipp auf einen Text ihn vor.
  *
  * Die Ziegel kommen aus Rätseln: Der Knopf öffnet ein zufälliges Rätsel
  * (journey-plan.js, bauRaetsel), und wer es löst, bekommt eine Palette – genug
@@ -24,7 +33,7 @@
  * machten die aus jedem Teil eine eigene Ebene (siehe Konzept 7.3). Die
  * Schleife schläft, wenn nichts mehr läuft.
  *
- * Wird nach bau-moebel.js, bau-katalog.js, bau-stand.js und bau-art.js
+ * Wird nach bau-moebel*.js, bau-katalog.js, bau-stand.js und bau-art.js
  * geladen; train-home.js ruft mount() auf, wenn das Kind den Bauplatz antippt.
  */
 (() => {
@@ -65,6 +74,8 @@
   }
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
   const farbeHex = (id, fallback = "#cccccc") => K()?.FARBE?.[id]?.hex || fallback;
+  const gross = (wort) => (wort ? wort.charAt(0).toUpperCase() + wort.slice(1) : "");
+  const textSicher = (t) => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;");
 
   // Sprechen: jedes Antippen von etwas, das man wählt, wird vorgelesen – so
   // hat es sich der Auftraggeber gewünscht. Ist das Vorlesen ausgeschaltet
@@ -127,24 +138,33 @@
     stage: null,
     onPlay: null,
     haus: "wohnhaus",
-    zimmer: -1,            // gezoomtes Stockwerk, -1 = Hausansicht
+    zimmer: -1,            // Stockwerk des gezoomten Zimmers, -1 = Hausansicht
+    slot: 0,               // welches Zimmer des Stockwerks (0 links, 1 rechts)
+    zimmerId: "",          // Kennung dieses Stockwerks – es kann wandern
     nacht: false,
     kamera: { ty: 0, tx: 0, vy: 0, min: 0, max: 0, skala: 1, welt: null },
     auswahl: null,         // Kennung des gewählten Dings im Zimmer
-    schublade: "passt",
+    schublade: "zimmer",
     rueck: [],             // Rückgängig-Schritte im Zimmer
-    tafel: null,           // offene Tier-Tafel { hausId, index }
-    overlay: null,         // offene Wahl (Haus, Zimmerart, Fassade)
+    tafel: null,           // offene Tier-Tafel { seed }
+    overlay: null,         // offene Wahl (Haus, Stockwerk, Zimmerart, Fassade)
+    ordnen: false,         // Stockwerke umstellen
     besetzt: false,        // eine Animation, die keinen Tipp verträgt
+    kommt: "",             // ein Tier, das gerade einzieht (noch nicht im Zimmer)
+    letzterEinzug: 0,
     tickUhr: 0,
     abmelden: null,
   };
   const els = {};
   // Seit wann eine Bewegung keinen Tipp verträgt (siehe zurueck()).
   let besetztSeit = 0;
+  function besetze() { ui.besetzt = true; besetztSeit = performance.now(); }
 
   function stand() { return S().lesen(); }
   function aktHaus() { return S().haus(ui.haus); }
+  function aktStock() { return S().stock(ui.haus, ui.zimmer); }
+  function aktZimmer() { return S().zimmer(ui.haus, ui.zimmer, ui.slot); }
+  function zimmerBreite() { return S().breiteVon(aktStock()); }
 
   // ---------------------------------------------------------------------------
   // Einbau in die Bühne
@@ -155,9 +175,12 @@
     ui.stage = stage;
     ui.onPlay = onPlay;
     ui.zimmer = -1;
+    ui.slot = 0;
     ui.tafel = null;
     ui.overlay = null;
+    ui.ordnen = false;
     ui.besetzt = false;
+    ui.kommt = "";
     try { ui.nacht = localStorage.getItem("lernapp.bau.nacht") === "1"; } catch { ui.nacht = false; }
     const gewaehlt = stand().gewaehlt;
     ui.haus = S().HAUS_IDS.includes(gewaehlt) ? gewaehlt : (zuletztHaus() || "wohnhaus");
@@ -180,17 +203,19 @@
     els.zimmer.hidden = true;
     els.flug = el("div", "bau-flug");
     host.append(els.himmel, els.welt, els.nachbarL, els.nachbarR, els.umschalter, els.hud, els.zimmer, els.flug);
+    els.tafel = null;
 
     baueUmschalter();
     baueHud();
     baueZimmerRahmen();
     zeichneHaus();
     weltEreignisse();
+    host.addEventListener("click", liesText);
 
     // Wer sich ändert, zeichnet nach: die Cloud, neue Ziegel, ein Tier.
     ui.abmelden = S().onChange((grund) => {
       if (!ui.host?.isConnected) return;
-      if (grund === "neuer") { mount({ host: ui.host, stage: ui.stage, onPlay: ui.onPlay }); return; }
+      if (grund === "neuer" || grund === "konto") { mount({ host: ui.host, stage: ui.stage, onPlay: ui.onPlay }); return; }
       if (grund === "zimmer") { aktualisiereSterne(); return; }
       if (grund === "ziegel") { aktualisiereHud(); pruefeLieferung(); return; }
       if (grund === "cloud" || grund === "tier" || grund === "wunsch") { auffrischen(); }
@@ -225,15 +250,17 @@
     ui.abmelden?.();
     ui.abmelden = null;
     window.removeEventListener("resize", beiGroesse);
+    ui.host?.removeEventListener("click", liesText);
     tweens.clear();
     jedesBild.clear();
     tiere.clear();
     if (tierUhr) window.clearTimeout(tierUhr);
     tierUhr = 0;
-    // Eine Lieferung, die mitten im Flug verlassen wurde, kommt nicht mehr an
-    // (ihre Bewegungen sind eben gelöscht) – die nächste darf trotzdem fahren.
+    // Eine Lieferung oder ein Einzug, mitten im Flug verlassen, kommt nicht
+    // mehr an (die Bewegungen sind eben gelöscht) – die nächste darf trotzdem.
     liefert = false;
-    if (ui.host) ui.host.classList.remove("bauecke", "is-nacht", "ist-zimmer");
+    ui.kommt = "";
+    if (ui.host) ui.host.classList.remove("bauecke", "is-nacht", "ist-zimmer", "ist-ordnen", "kann-lesen");
     ui.host = null;
   }
 
@@ -248,6 +275,7 @@
     if (ui.overlay) { schliesseOverlay(); return true; }
     if (ui.tafel) { schliesseTafel(); return true; }
     if (ui.zimmer >= 0) { schliesseZimmer(); return true; }
+    if (ui.ordnen) { schalteOrdnen(false); return true; }
     S().speichern(true);
     return false;
   }
@@ -256,37 +284,30 @@
   // wenn sich am Haus wirklich etwas geändert hat, und nie mitten in einer
   // Bewegung: Die Bühne ruft das nach dem Laden mehrmals auf.
   function auffrischen() {
-    if (!ui.host?.isConnected) return;
-    folgeStockwerken();
+    if (!ui.host?.isConnected || !els.umschalter) return;
+    folgeStockwerk();
     aktualisiereHud();
     baueUmschalter();
     if (ui.besetzt || zieht) return;
     const jetzt = zeichenStand();
     if (jetzt === ui.gezeichnet) { if (ui.tafel) fuelleTafel(); return; }
     if (ui.zimmer >= 0) {
-      if (!S().stock(ui.haus, ui.zimmer)?.raum) { schliesseZimmer(true); return; }
+      if (!aktZimmer()?.raum) { schliesseZimmer(true); return; }
       zeichneZimmer();
     } else zeichneHaus({ behalteKamera: true });
     if (ui.tafel) fuelleTafel();
   }
   let zieht = false;
-  // Kommt aus der Cloud ein Stockwerk dazu, kann sich die Reihenfolge
-  // verschieben (bau-stand.js, mergeStock): Das offene Zimmer und die Tafel
-  // folgen ihrem Stockwerk, statt plötzlich ein anderes zu zeigen.
-  function folgeStockwerken() {
-    const finde = (hausId, id) => (S().haus(hausId)?.stock || []).findIndex((s) => s.id === id);
-    if (ui.zimmer >= 0 && ui.zimmerId) {
-      const i = finde(ui.haus, ui.zimmerId);
-      if (i >= 0) ui.zimmer = i;
-    }
-    if (ui.tafel?.id) {
-      const i = finde(ui.tafel.hausId, ui.tafel.id);
-      if (i >= 0) ui.tafel.index = i;
-    }
+  // Kommt aus der Cloud ein Stockwerk dazu oder stellt das Kind sie um, kann
+  // sich die Reihenfolge verschieben: Das offene Zimmer folgt seinem Stockwerk.
+  function folgeStockwerk() {
+    if (ui.zimmer < 0 || !ui.zimmerId) return;
+    const i = S().indexVon(ui.haus, ui.zimmerId);
+    if (i >= 0) ui.zimmer = i;
   }
   // Was ein Neuzeichnen nötig macht: das Haus selbst, und ob das Plus gerade
   // baut oder vor der Schranke steht (ein Kauf, frische Ziegel).
-  function zeichenStand() { return `${JSON.stringify(aktHaus())}|${S().kannBauen(ui.haus).grund}`; }
+  function zeichenStand() { return `${JSON.stringify(aktHaus())}|${S().kannBauen(ui.haus).grund}|${ui.ordnen}`; }
 
   let groesseUhr = 0;
   function beiGroesse() {
@@ -303,19 +324,44 @@
   }
   function merkeHaus(id) { try { localStorage.setItem("lernapp.bau.haus", id); } catch { /* privater Modus */ } }
 
+  // Vorlesen per Tipp: Ist das Vorlesen an, liest ein Tipp auf einen Text ihn
+  // vor – auf der Tafel, in den Wahl-Fenstern, im Zimmerkopf. Knöpfe sprechen
+  // selbst, die bleiben hier aussen vor.
+  function liesText(e) {
+    if (!kannLesen()) return;
+    const ziel = e.target.closest?.(".bau-lies, .bau-tafel p, .bau-tafel h2, .bau-tafel h3, .bau-wahl h2, .bau-wahl p, .bau-wahl h3");
+    if (!ziel || e.target.closest("button")) return;
+    sag(ziel.dataset.lies || ziel.textContent.trim());
+    // Kurz hervorheben, was gerade vorgelesen wird.
+    ziel.classList.add("is-liest");
+    window.setTimeout(() => ziel.classList.remove("is-liest"), 1400);
+  }
+  function kannLesen() { return Boolean(kids()?.ttsEnabled?.()); }
+
   // ---------------------------------------------------------------------------
-  // Was die Zeit tut
+  // Was die Zeit tut: Wünsche wechseln, Tiere ziehen ein
   // ---------------------------------------------------------------------------
   function zeitTick() {
     if (!ui.host?.isConnected) return;
-    const ereignisse = S().tick();
-    ereignisse.forEach((e) => {
-      if (e.typ === "eingezogen" && e.hausId === ui.haus) {
-        const st = S().stock(e.hausId, e.index);
-        if (st?.tier) zeigeBlase(e.hausId, e.index, `${st.tier.n} zieht ein! 🧳`, 3200);
-      }
-      if (e.typ === "neuerWunsch" && e.hausId === ui.haus) zeigeBlase(e.hausId, e.index, "Ich habe einen neuen Wunsch! ⭐", 3600);
+    ui.host.classList.toggle("kann-lesen", kannLesen());
+    S().tick().forEach((e) => {
+      if (e.typ === "neuerWunsch") blaseAnSeed(e.seed, "Ich habe einen neuen Wunsch! ⭐", 3600);
     });
+    pruefeZuzug();
+  }
+
+  // Ein neues Tier zieht ein – aber nur, wenn das Kind es sieht: im Wohnhaus,
+  // in der Hausansicht, mit nichts anderem offen. Sonst zeigt der Umschalter,
+  // dass im Wohnhaus jemand wartet.
+  function pruefeZuzug() {
+    const fall = S().zuzugFaellig();
+    const tab = els.umschalter?.querySelector(`.bau-tab[data-haus="wohnhaus"]`);
+    tab?.classList.toggle("hat-neues", Boolean(fall) && ui.haus !== "wohnhaus");
+    if (!fall) return;
+    if (ui.haus !== "wohnhaus" || ui.zimmer >= 0 || ui.overlay || ui.tafel || ui.besetzt || ui.ordnen || liefert) return;
+    if (performance.now() - ui.letzterEinzug < 30000 && ui.letzterEinzug) return;
+    const tier = S().ziehtEin(fall.hausId, fall.index);
+    if (tier) zeigeEinzug(fall.index, tier);
   }
 
   // ---------------------------------------------------------------------------
@@ -323,16 +369,18 @@
   // ---------------------------------------------------------------------------
   function hilfeHaus() {
     const haus = K().HAUS[ui.haus];
-    hilfe(`Das ist ${haus.der}. Tippe auf ein Stockwerk, um es einzurichten. Für ein neues Stockwerk brauchst du Ziegel: Tippe auf den Rätsel-Knopf. Wenn du das Rätsel löst, bringt der Zug die Ziegel. Oben wechselst du zwischen den vier Häusern.`);
+    const wohnen = ui.haus === "wohnhaus" ? " In den Wohnungen wohnen die Tiere; tippe auf die Sterne am Lift, und du siehst, was sie sich wünschen." : "";
+    hilfe(`Das ist ${haus.der}. Tippe auf ein Zimmer, um es einzurichten.${wohnen} Für ein neues Stockwerk brauchst du Ziegel: Tippe auf den Rätsel-Knopf. Mit dem Pfeil-Knopf stellst du die Stockwerke um. Oben wechselst du zwischen den vier Häusern.`);
   }
   function hilfeZimmer() {
-    hilfe("Zieh Dinge aus der Schublade ins Zimmer, oder tippe sie an. Tippe auf ein Ding im Zimmer, um es anzumalen, umzudrehen, grösser oder kleiner zu machen. Mit dem Pinsel malst du die Wand an, mit dem Boden-Knopf den Boden. Auf das Tier tippen zeigt, was es sich wünscht.");
+    hilfe("Zieh Dinge aus der Schublade ins Zimmer, oder tippe sie an. Tippe auf ein Ding im Zimmer, um es anzumalen, umzudrehen, grösser oder kleiner zu machen. Mit dem Pinsel malst du die Wand an, mit dem Boden-Knopf den Boden. Mit dem Stift änderst du, was für ein Zimmer es ist.");
   }
 
   // ---------------------------------------------------------------------------
   // Der Umschalter: vier Häuser, immer erreichbar
   // ---------------------------------------------------------------------------
   function baueUmschalter() {
+    if (!els.umschalter) return;
     const fort = S().fortschritt();
     els.umschalter.innerHTML = "";
     S().HAUS_IDS.forEach((id) => {
@@ -369,7 +417,8 @@
     if (ui.besetzt || !K().HAUS[id]) return;
     if (ui.zimmer >= 0) await schliesseZimmer(true);
     if (ui.tafel) schliesseTafel();
-    ui.besetzt = true; besetztSeit = performance.now();
+    if (ui.ordnen) schalteOrdnen(false, { stumm: true });
+    besetze();
     const weg = richtung >= 0 ? -1 : 1;
     const breite = ui.host.clientWidth || 800;
     await tweenP(220, (p) => { els.welt.style.transform = kameraTransform(ui.kamera.tx + weg * breite * 0.6 * p, ui.kamera.ty); els.welt.style.opacity = String(1 - p); }, { e: ease.in });
@@ -385,10 +434,11 @@
     ui.besetzt = false;
     hilfeHaus();
     if (!ohneSprache) sag(`${K().HAUS[id].der}.`);
+    pruefeZuzug();
   }
 
   // ---------------------------------------------------------------------------
-  // Rechts: Ziegel, Rätsel, Tag und Nacht, Fassade
+  // Rechts: Ziegel, Rätsel, Ordnen, Tag und Nacht, Fassade
   // ---------------------------------------------------------------------------
   function baueHud() {
     els.hud.innerHTML = "";
@@ -401,9 +451,10 @@
     els.raetsel = knopf("bau-raetsel", "Ein Rätsel lösen und Ziegel bekommen",
       `${svgVon(`<path d="M10 6h8a2 2 0 0 1 2 2v3a2.5 2.5 0 1 1 0 5v3a2 2 0 0 1-2 2h-3a2.5 2.5 0 1 0-5 0H7a2 2 0 0 1-2-2v-3a2.5 2.5 0 1 0 0-5V8a2 2 0 0 1 2-2h3a2.5 2.5 0 1 1 5 0z" fill="#ffffff"/>`, "0 0 26 26", "bau-raetsel-bild")}<span>Rätsel</span>`,
       starteRaetsel);
+    els.ordnenKnopf = knopf("bau-rund bau-ordnenknopf", "Stockwerke umstellen", svgVon(`<path d="M8 4v16M8 4 4.5 7.5M8 4l3.5 3.5M16 20V4M16 20l-3.5-3.5M16 20l3.5-3.5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>`, "0 0 24 24"), () => schalteOrdnen(!ui.ordnen));
     els.nachtKnopf = knopf("bau-rund bau-nachtknopf", "Tag oder Nacht", "", schalteNacht);
     els.fassade = knopf("bau-rund bau-fassadeknopf", "Das Haus anmalen", svgVon(`<rect x="4" y="3" width="14" height="7" rx="2" fill="#ff7aa2"/><path d="M18 6h2v6h-9v3" fill="none" stroke="#4a5568" stroke-width="2"/><rect x="9" y="15" width="4" height="7" rx="1.5" fill="#4a5568"/>`, "0 0 24 24"), zeigeFassadenwahl);
-    els.hud.append(els.ziegel, els.raetsel, els.nachtKnopf, els.fassade);
+    els.hud.append(els.ziegel, els.raetsel, els.ordnenKnopf, els.nachtKnopf, els.fassade);
     aktualisiereHud();
   }
 
@@ -417,6 +468,8 @@
       ? svgVon(`<circle cx="12" cy="12" r="5" fill="#ffd166"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M5 19l2-2" stroke="#ffd166" stroke-width="2" stroke-linecap="round"/>`, "0 0 24 24")
       : svgVon(`<path d="M16 3a9 9 0 1 0 5 15a7 7 0 0 1-5-15z" fill="#34508f"/><circle cx="18" cy="6" r="1.2" fill="#34508f"/>`, "0 0 24 24");
     els.nachtKnopf.setAttribute("aria-label", ui.nacht ? "Tag machen" : "Nacht machen");
+    els.ordnenKnopf.classList.toggle("is-an", ui.ordnen);
+    els.ordnenKnopf.setAttribute("aria-label", ui.ordnen ? "Fertig umgestellt" : "Stockwerke umstellen");
     const plus = els.welt?.querySelector("[data-ziel='plus']");
     if (plus) plus.classList.toggle("is-bereit", S().kannBauen(ui.haus).ok);
   }
@@ -428,6 +481,49 @@
     aktualisiereHud();
     sag(ui.nacht ? "Es ist Nacht. Gute Nacht!" : "Es ist Tag. Guten Morgen!");
     if (ui.zimmer >= 0) zeichneZimmer(); else zeichneHaus({ behalteKamera: true });
+  }
+
+  // Stockwerke umstellen: An jedem Stockwerk erscheinen Pfeile nach oben und
+  // unten – so kommt der Eingang nach unten.
+  function schalteOrdnen(an, { stumm = false } = {}) {
+    if (ui.zimmer >= 0 && an) return;
+    ui.ordnen = an;
+    ui.host.classList.toggle("ist-ordnen", an);
+    aktualisiereHud();
+    zeichneHaus({ behalteKamera: true });
+    if (stumm) return;
+    if (an) {
+      sag("Mit den Pfeilen stellst du die Stockwerke um. Fertig? Dann tippe noch einmal auf den Pfeil-Knopf.");
+      hilfe("Tippe auf einen Pfeil, und das Stockwerk tauscht den Platz mit dem darüber oder darunter. Fertig? Tippe noch einmal auf den Pfeil-Knopf.");
+    } else {
+      sag("Fertig umgestellt.");
+      hilfeHaus();
+    }
+  }
+
+  async function verschiebeStock(index, richtung) {
+    if (ui.besetzt) return;
+    const j = S().verschiebe(ui.haus, index, richtung);
+    if (j === index) return;
+    klang("correct");
+    zeichneHaus({ behalteKamera: true });
+    const node = els.welt.querySelector(`.bau-stockreihe[data-stock="${j}"]`);
+    if (node && !reduced()) {
+      const dy = (A().oben(index) - A().oben(j));
+      node.setAttribute("transform", `translate(0 ${dy})`);
+      await tweenP(320, (p) => node.setAttribute("transform", `translate(0 ${dy * (1 - p)})`), { e: ease.out });
+      node.removeAttribute("transform");
+    }
+    const st = S().stock(ui.haus, j);
+    sag(stockName(st, j));
+  }
+
+  // Wie ein Stockwerk heisst: "das Erdgeschoss mit der Küche und dem Bad".
+  function stockName(st, index) {
+    const wo = index === 0 ? "Das Erdgeschoss" : `Der ${index}. Stock`;
+    const namen = (st?.zimmer || []).map((z) => K().RAEUME[z.raum]?.der).filter(Boolean);
+    if (!namen.length) return `${wo}.`;
+    return `${wo}: ${namen.join(" und ")}.`;
   }
 
   // Der Rätsel-Knopf: ein zufälliges Rätsel aus der Reise, passend zum Kind.
@@ -453,6 +549,7 @@
   const WX0 = -440;
   const WX1 = 678 + 440;
   const GRUND = 190;          // so weit reicht die Welt unter die Strasse
+  const HALB = 280;           // ein Zimmer auf einem Stockwerk mit zwei Zimmern
 
   function weltOben(anzahl) { return A().oben(anzahl - 1) - A().DECKE - A().ZH - 300; }
 
@@ -463,7 +560,8 @@
   function messeWelt() {
     const w = ui.host.clientWidth || 800;
     const h = ui.host.clientHeight || 500;
-    const sichtbar = h < 520 ? 1.75 : 2.6;
+    // Auf dem Tablet passen die drei Wohnungen vom Anfang samt Strasse ins Bild.
+    const sichtbar = h < 520 ? 1.75 : 3.6;
     const skala = clamp(Math.min((w * 0.6) / A().HB, (h - 70) / (sichtbar * A().STOCK)), 0.3, 1.6);
     ui.kamera.skala = skala;
     const anzahl = aktHaus().stock.length;
@@ -487,12 +585,14 @@
     els.welt.style.transform = kameraTransform(ui.kamera.tx, ui.kamera.ty);
   }
 
-  // Wo ein Stockwerk auf dem Bildschirm steht (für die Kamera und den Zoom).
-  function stockAufSchirm(index) {
+  // Wo ein Zimmer auf dem Bildschirm steht (für die Kamera und den Zoom).
+  function zimmerAufSchirm(index, slot = 0) {
     const k = ui.kamera;
+    const st = S().stock(ui.haus, index);
+    const breite = S().breiteVon(st);
     const y = (A().oben(index) - k.y0) * k.skala + k.ty;
-    const x = (A().ZX - WX0) * k.skala + k.tx;
-    return { x, y, w: A().ZW * k.skala, h: A().ZH * k.skala };
+    const x = (A().ZX + slot * HALB - WX0) * k.skala + k.tx;
+    return { x, y, w: breite * k.skala, h: A().ZH * k.skala };
   }
 
   // Der erste Blick auf ein Haus: Passt es ganz ins Bild – samt dem Plus für
@@ -529,12 +629,16 @@
     tween(700, (p) => { k.ty = start + (ziel - start) * p; setzeKamera(); }, { e: ease.inOut });
   }
 
-  // Die Kamera so, dass dieses Stockwerk gut im Bild ist.
-  function kameraAuf(index, sanft = true) {
+  // Die Kamera so, dass dieses Stockwerk gut im Bild ist (y in Haus-Einheiten
+  // statt eines Stockwerks: dorthin).
+  function kameraZiel(yHaus) {
     const h = ui.host.clientHeight || 500;
     const k = ui.kamera;
-    const yWelt = (A().oben(index) + A().ZH / 2 - k.y0) * k.skala;
-    const ziel = clamp(h * 0.55 - yWelt, k.min, k.max);
+    return clamp(h * 0.55 - (yHaus - k.y0) * k.skala, k.min, k.max);
+  }
+  function kameraAuf(index, sanft = true) {
+    const k = ui.kamera;
+    const ziel = kameraZiel(A().oben(index) + A().ZH / 2);
     if (!sanft) { k.ty = ziel; setzeKamera(); return; }
     const start = k.ty;
     tween(420, (p) => { k.ty = start + (ziel - start) * p; setzeKamera(); }, { e: ease.inOut });
@@ -551,31 +655,37 @@
     const katalog = K();
     const hausInfo = katalog.HAUS[ui.haus];
     let s = `<defs><linearGradient id="bau-lift-schatten" x1="0" x2="1"><stop offset="0" stop-color="#000" stop-opacity="0.12"/><stop offset="0.3" stop-color="#000" stop-opacity="0"/></linearGradient>` +
-      `<clipPath id="bau-zimmerclip"><rect x="0" y="0" width="${art.ZW}" height="${art.ZH}"/></clipPath>` +
+      `<clipPath id="bau-clip-voll"><rect x="0" y="0" width="${art.ZW}" height="${art.ZH}"/></clipPath>` +
+      `<clipPath id="bau-clip-halb"><rect x="0" y="0" width="${HALB}" height="${art.ZH}"/></clipPath>` +
       `<radialGradient id="bau-glanz"><stop offset="0" stop-color="#fff6c2" stop-opacity="0.75"/><stop offset="1" stop-color="#fff6c2" stop-opacity="0"/></radialGradient></defs>`;
     s += `<g class="bau-hintergrund">`;
     s += art.baum(-260, 1.15) + art.baum(-120, 0.9) + art.laterne(-40) + art.baum(art.HB + 110, 1) + art.laterne(art.HB + 40) + art.baum(art.HB + 260, 1.2);
     s += `</g>`;
     s += art.strasse(WX0, WX1);
-    // Die Zimmer
+    // Die Stockwerke: je eine Reihe (die beim Umstellen wandert).
+    let zimmerTeil = "";
+    let liftTeil = "";
     for (let i = 0; i < anzahl; i += 1) {
-      s += `<g class="bau-stock${haus.stock[i].raum ? "" : " is-rohbau"}" data-ziel="stock" data-stock="${i}" transform="translate(${art.ZX} ${art.oben(i)})" clip-path="url(#bau-zimmerclip)">${zimmerInhalt(ui.haus, i, { klein: true })}</g>`;
+      const st = haus.stock[i];
+      zimmerTeil += `<g class="bau-stockreihe" data-stock="${i}">${stockMarkup(st, i)}</g>`;
+      liftTeil += `<g class="bau-lift" data-stock="${i}">${art.liftStock(i)}</g>`;
+      if (st.tiere.length) liftTeil += `<g class="bau-tafelknopf" data-ziel="tafel" data-stock="${i}" role="button" tabindex="0" aria-label="Wer hier wohnt">${art.sternTafel(S().sterneStock(ui.haus, i), art.LX + art.LIFT / 2, art.oben(i) + 10)}</g>`;
     }
+    s += zimmerTeil;
     s += `<g class="bau-rahmen">${art.hausRahmen(haus, anzahl)}</g>`;
-    for (let i = 0; i < anzahl; i += 1) {
-      s += `<g class="bau-lift" data-stock="${i}">${art.liftStock(i)}</g>`;
-      if (haus.stock[i].tier) s += `<g class="bau-tafelknopf" data-ziel="tafel" data-stock="${i}" role="button" tabindex="0">${art.sternTafel(S().sterne(ui.haus, i), art.LX + art.LIFT / 2, art.oben(i) + 52)}</g>`;
-    }
+    for (let i = 0; i < anzahl; i += 1) if (haus.stock[i].art === "zwei") s += art.trennwand(i, haus.fassade);
+    s += liftTeil;
     const dachY = art.oben(anzahl - 1) - art.DECKE;
     s += `<g class="bau-dach">${art.dach(hausInfo.dachForm, haus.dach, haus.fassade, dachY)}</g>`;
     // Die Stelle für das nächste Stockwerk, über dem Dach – nur, wenn Ziegel
     // da sind. Ohne Ziegel wäre sie ein Knopf, der nichts tut; dann zeigt der
     // Rätsel-Knopf den Weg.
     const kann = S().kannBauen(ui.haus);
-    if (kann.ok || kann.grund === "schranke") {
+    if (!ui.ordnen && (kann.ok || kann.grund === "schranke")) {
       s += `<g class="bau-naechster${kann.ok ? " is-bereit" : ""}" data-ziel="plus" role="button" tabindex="0" aria-label="Ein neues Stockwerk bauen">${art.naechsterStock(plusY())}</g>`;
     }
-    s += `<g class="bau-zuglage"></g>`;
+    if (ui.ordnen) s += ordnenMarkup(anzahl);
+    s += `<g class="bau-zuglage"></g><g class="bau-einzuglage" pointer-events="none"></g>`;
     const svg = `<svg xmlns="${NS}" class="bau-haus-svg${ui.nacht ? " is-nacht" : ""}" viewBox="${WX0} ${y0} ${WX1 - WX0} ${GRUND - y0}" width="${Math.round((WX1 - WX0) * ui.kamera.skala)}" height="${Math.round((GRUND - y0) * ui.kamera.skala)}" role="img" aria-label="${hausInfo.name} mit ${anzahl} ${anzahl === 1 ? "Stockwerk" : "Stockwerken"}">${s}</svg>`;
     els.welt.innerHTML = svg;
     ui.gezeichnet = zeichenStand();
@@ -587,28 +697,63 @@
     starteTiereHaus();
   }
 
+  // Ein Stockwerk in der Hausansicht: eine Wohnung, zwei Zimmer oder der
+  // Rohbau – jedes Zimmer ein eigenes Ziel zum Antippen.
+  function stockMarkup(st, i) {
+    const art = A();
+    const y = art.oben(i);
+    const feld = (slot, breite, ziel, inhalt, label) =>
+      `<g class="bau-raum${ziel !== "zimmer" ? " is-rohbau" : ""}" data-ziel="${ziel}" data-stock="${i}" data-slot="${slot}" role="button" tabindex="0" aria-label="${textSicher(label)}" transform="translate(${art.ZX + slot * HALB} ${y})" clip-path="url(#${breite === HALB ? "bau-clip-halb" : "bau-clip-voll"})">${inhalt}</g>`;
+    if (st.art === "") return feld(0, art.ZW, "rohbau", art.rohbauSchale(art.ZW, "frage"), "Ein neues Stockwerk: Was soll es werden?");
+    if (st.art === "wohnung") {
+      const z = st.zimmer[0];
+      if (!z.raum) return feld(0, art.ZW, "wohnungwahl", art.rohbauSchale(art.ZW, "bett"), "Eine leere Wohnung: Schlafzimmer oder Kinderzimmer?");
+      return feld(0, art.ZW, "zimmer", zimmerInhalt(ui.haus, i, 0, { klein: true }), K().RAEUME[z.raum]?.name || "Zimmer");
+    }
+    return st.zimmer.map((z, slot) => (z.raum
+      ? feld(slot, HALB, "zimmer", zimmerInhalt(ui.haus, i, slot, { klein: true }), K().RAEUME[z.raum]?.name || "Zimmer")
+      : feld(slot, HALB, "leer", art.rohbauSchale(HALB, "plus"), "Ein leeres Zimmer: Was soll es werden?"))).join("");
+  }
+
+  // Die Pfeile zum Umstellen, rechts am Haus.
+  function ordnenMarkup(anzahl) {
+    const art = A();
+    const x = art.HB + 46;
+    let s = "";
+    for (let i = 0; i < anzahl; i += 1) {
+      const y = art.oben(i) + art.ZH / 2;
+      s += `<rect x="${art.ZX - 4}" y="${art.oben(i) - 4}" width="${art.ZW + 8}" height="${art.ZH + 8}" rx="8" fill="none" stroke="#3fbf74" stroke-width="5" stroke-dasharray="14 10" pointer-events="none"/>`;
+      const pfeil = (ziel, dy, d, label) => `<g class="bau-ordnenpfeil" data-ziel="${ziel}" data-stock="${i}" role="button" tabindex="0" aria-label="${label}"><circle cx="${x}" cy="${y + dy}" r="34" fill="#3fbf74" stroke="#ffffff" stroke-width="5"/><path d="${d}" fill="none" stroke="#ffffff" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/></g>`;
+      if (i < anzahl - 1) s += pfeil("hoch", -42, `M${x - 14} ${y - 36}l14-14l14 14`, "Nach oben");
+      if (i > 0) s += pfeil("runter", 42, `M${x - 14} ${y + 36}l14 14l14-14`, "Nach unten");
+    }
+    return s;
+  }
+
   // Ein Zimmer als SVG-Text: in der Hausansicht (klein) wie im Zoom.
-  function zimmerInhalt(hausId, index, { klein = false } = {}) {
+  function zimmerInhalt(hausId, index, slot, { klein = false } = {}) {
     const st = S().stock(hausId, index);
-    if (!st) return "";
-    if (!st.raum) return A().rohbauSchale();
-    let s = A().zimmerSchale(st, `bau-muster-${hausId}-${index}${klein ? "-k" : ""}`);
-    s += dingeMarkup(st);
-    s += `<g class="bau-tierlage" data-tierlage="${index}"></g>`;
-    if (ui.nacht) s += nachtMarkup(st);
+    const z = st?.zimmer?.[slot];
+    if (!z) return "";
+    const breite = S().breiteVon(st);
+    if (!z.raum) return A().rohbauSchale(breite, st.art === "wohnung" ? "bett" : "plus");
+    let s = A().zimmerSchale(z, `bau-muster-${hausId}-${index}-${slot}${klein ? "-k" : ""}`, breite);
+    s += dingeMarkup(z, z.raum);
+    s += `<g class="bau-tierlage" data-tierlage="${index}:${slot}"></g>`;
+    if (ui.nacht) s += nachtMarkup(z, breite);
     return s;
   }
 
   // Die Dinge in Zeichenreihenfolge: was an der Wand hängt, zuerst; dann
   // Teppiche; dann was steht, von hinten nach vorn – und was auf einem Tisch
   // steht, gleich nach seinem Tisch.
-  function reihenfolge(st) {
+  function reihenfolge(z) {
     const dinge = M().DINGE;
     const tiefe = new Map();
-    const stehend = st.dinge.filter((d) => dinge[d.i]?.art === "boden");
+    const stehend = z.dinge.filter((d) => dinge[d.i]?.art === "boden");
     stehend.forEach((d) => tiefe.set(d.k, d.y));
     stehend.forEach((d) => {
-      const traeger = traegerVon(st, d);
+      const traeger = traegerVon(z, d);
       if (traeger) tiefe.set(d.k, (tiefe.get(traeger.k) ?? traeger.y) + 0.01);
     });
     const rang = (d) => {
@@ -618,7 +763,7 @@
       if (art === "flach") return 2;
       return 3;
     };
-    return st.dinge.map((d, i) => ({ d, i })).sort((a, b) => {
+    return z.dinge.map((d, i) => ({ d, i })).sort((a, b) => {
       const ra = rang(a.d);
       const rb = rang(b.d);
       if (ra !== rb) return ra - rb;
@@ -636,10 +781,10 @@
     return `translate(${d.x} ${d.y}) scale(${d.f ? -k : k} ${k})`;
   }
 
-  function dingeMarkup(st) {
-    return reihenfolge(st).map((d) => {
+  function dingeMarkup(z, raumId) {
+    return reihenfolge(z).map((d) => {
       const farbe = d.c ? farbeHex(d.c) : null;
-      return `<g class="bau-ding" data-k="${d.k}" data-i="${d.i}" transform="${dingTransform(d)}">${griffFlaeche(d.i)}${M().zeichne(d.i, farbe)}</g>`;
+      return `<g class="bau-ding" data-k="${d.k}" data-i="${d.i}" transform="${dingTransform(d)}">${griffFlaeche(d.i)}${M().zeichne(d.i, farbe, raumId)}</g>`;
     }).join("");
   }
 
@@ -655,11 +800,11 @@
 
   // Die Nacht im Zimmer: ohne Licht dunkel, mit Licht ein warmer Schein um
   // jede Lampe.
-  function nachtMarkup(st) {
+  function nachtMarkup(z, breite) {
     const art = A();
-    if (!st.licht) return `<rect x="0" y="0" width="${art.ZW}" height="${art.ZH}" fill="#0b1530" opacity="0.62" pointer-events="none"/>`;
-    let s = `<rect x="0" y="0" width="${art.ZW}" height="${art.ZH}" fill="#1b2350" opacity="0.18" pointer-events="none"/>`;
-    st.dinge.forEach((d) => {
+    if (!z.licht) return `<rect x="0" y="0" width="${breite}" height="${art.ZH}" fill="#0b1530" opacity="0.62" pointer-events="none"/>`;
+    let s = `<rect x="0" y="0" width="${breite}" height="${art.ZH}" fill="#1b2350" opacity="0.18" pointer-events="none"/>`;
+    z.dinge.forEach((d) => {
       const ding = M().DINGE[d.i];
       if (!ding?.licht) return;
       const u = M().umriss(d.i, d.s);
@@ -670,11 +815,11 @@
   }
 
   // Worauf ein kleines Ding steht – auf der Fläche eines anderen, oder null.
-  function traegerVon(st, d) {
+  function traegerVon(z, d) {
     const ding = M().DINGE[d.i];
     if (!ding?.klein) return null;
     let bester = null;
-    st.dinge.forEach((u) => {
+    z.dinge.forEach((u) => {
       if (u.k === d.k) return;
       const fl = flaecheVon(u);
       if (!fl) return;
@@ -769,15 +914,16 @@
     if (!ziel) return;
     const art = ziel.getAttribute("data-ziel");
     const index = Number(ziel.getAttribute("data-stock"));
+    const slot = Number(ziel.getAttribute("data-slot")) || 0;
+    if (art === "hoch" || art === "runter") { verschiebeStock(index, art === "hoch" ? 1 : -1); return; }
+    if (ui.ordnen) { sag(stockName(S().stock(ui.haus, index), index)); return; }
     if (art === "plus") { neuesStockwerk(); return; }
-    if (art === "tafel") { oeffneTafel(ui.haus, index); return; }
-    if (art === "tier") { oeffneTafel(ziel.getAttribute("data-haus") || ui.haus, Number(ziel.getAttribute("data-index"))); return; }
-    if (art === "stock") {
-      const st = S().stock(ui.haus, index);
-      if (!st) return;
-      if (!st.raum) { zeigeRaumwahl(index); return; }
-      oeffneZimmer(index);
-    }
+    if (art === "tafel") { oeffneTafelStock(ui.haus, index); return; }
+    if (art === "tier") { oeffneTafel(ziel.getAttribute("data-seed")); return; }
+    if (art === "rohbau") { zeigeArtwahl(index); return; }
+    if (art === "wohnungwahl") { zeigeWohnungswahl(index); return; }
+    if (art === "leer") { zeigeRaumwahl(index, slot); return; }
+    if (art === "zimmer") oeffneZimmer(index, slot);
   }
 
   // ---------------------------------------------------------------------------
@@ -796,7 +942,7 @@
       } else if (kann.grund === "voll") sag("Dieses Haus ist fertig gebaut. So hoch geht es nicht weiter!");
       return;
     }
-    ui.besetzt = true; besetztSeit = performance.now();
+    besetze();
     const index = S().baueStockwerk(ui.haus);
     if (index < 0) { ui.besetzt = false; return; }
     klang("unlock");
@@ -807,28 +953,31 @@
     const svg = els.welt.querySelector("svg");
     const dachEl = svg?.querySelector(".bau-dach");
     const plusEl = svg?.querySelector(".bau-naechster");
-    const stockEl = svg?.querySelector(`.bau-stock[data-stock="${index}"]`);
+    const stockEl = svg?.querySelector(`.bau-stockreihe[data-stock="${index}"]`);
     const unten = A().unten(index);
     if (plusEl) plusEl.style.opacity = "0";
     if (stockEl && !reduced()) {
-      const basis = stockEl.getAttribute("transform");
-      stockEl.setAttribute("transform", `${basis} translate(0 ${A().ZH}) scale(1 0.001) translate(0 ${-A().ZH})`);
+      const y = A().oben(index);
+      const wachse = (p) => `translate(0 ${y + A().ZH}) scale(1 ${Math.max(0.001, p)}) translate(0 ${-(y + A().ZH)})`;
+      stockEl.setAttribute("transform", wachse(0));
       if (dachEl) dachEl.setAttribute("transform", `translate(0 ${A().STOCK})`);
       await tweenP(650, (p) => {
         if (dachEl) dachEl.setAttribute("transform", `translate(0 ${A().STOCK * (1 - p)})`);
       }, { e: ease.out });
       staub(svg, A().ZX + A().ZW / 2, unten);
-      await tweenP(700, (p) => {
-        stockEl.setAttribute("transform", `${basis} translate(0 ${A().ZH}) scale(1 ${Math.max(0.001, p)}) translate(0 ${-A().ZH})`);
-      }, { e: ease.out });
-      stockEl.setAttribute("transform", basis);
+      await tweenP(700, (p) => stockEl.setAttribute("transform", wachse(p)), { e: ease.out });
+      stockEl.removeAttribute("transform");
       dachEl?.removeAttribute("transform");
     }
     if (plusEl) tween(300, (p) => { plusEl.style.opacity = String(p); });
     baueUmschalter();
     ui.besetzt = false;
     await warte(250);
-    zeigeRaumwahl(index);
+    if (ui.haus === "wohnhaus") zeigeArtwahl(index);
+    else {
+      sag("Zwei Zimmer haben hier Platz. Tippe auf eines und wähle, was es werden soll.");
+      stupse(els.welt.querySelector(`.bau-raum[data-stock="${index}"][data-slot="0"]`));
+    }
   }
 
   // Ein paar Staubwolken an einer Stelle der Hausansicht.
@@ -853,10 +1002,84 @@
     }, { done: () => g.remove() });
   }
 
+  // Ein Feuerwerk über einer Stelle der Hausansicht: drei Sterne, die
+  // nacheinander aufgehen und in bunten Funken zerstieben.
+  // Ein Feuerwerk über dem Zimmer: Raketen steigen auf, platzen in zwei
+  // Ringen mit einem hellen Blitz – gut zu sehen, nach zwei Sekunden vorbei.
+  function feuerwerk(svg, x, y, breite = A().ZW) {
+    if (!svg) return;
+    if (reduced()) { kids()?.burstConfetti?.(svg, 30); return; }
+    const farben = [["#ffd166", "#ff9f43"], ["#ff7aa2", "#a78bfa"], ["#6cc3d5", "#7cc05e"], ["#ffe066", "#ff6b6b"], ["#b197fc", "#63e6be"]];
+    const abstand = breite / (farben.length + 1);
+    farben.forEach(([a, b], n) => {
+      const g = document.createElementNS(NS, "g");
+      g.setAttribute("class", "bau-feuerwerk");
+      g.setAttribute("pointer-events", "none");
+      const cx = x - breite / 2 + abstand * (n + 1);
+      const cy = y + [10, -30, 30, -20, 0][n];
+      const startY = y + 190;
+      const spur = document.createElementNS(NS, "path");
+      spur.setAttribute("stroke", a);
+      spur.setAttribute("stroke-width", "6");
+      spur.setAttribute("stroke-linecap", "round");
+      const blitz = document.createElementNS(NS, "circle");
+      blitz.setAttribute("fill", "#fffbe6");
+      blitz.setAttribute("cx", String(cx));
+      blitz.setAttribute("cy", String(cy));
+      blitz.setAttribute("r", "0");
+      g.append(spur, blitz);
+      const funken = Array.from({ length: 24 }, (_, i) => {
+        const c = document.createElementNS(NS, "circle");
+        c.setAttribute("fill", i % 2 ? a : b);
+        c.setAttribute("r", "0");
+        g.append(c);
+        return { c, w: (i / 24) * Math.PI * 2 + n * 0.4, v: (i % 2 ? 80 : 130) + (i % 3) * 14 };
+      });
+      svg.append(g);
+      tween(1800, (p) => {
+        if (p < 0.24) {
+          const q = ease.out(p / 0.24);
+          const kopf = startY + (cy - startY) * q;
+          spur.setAttribute("d", `M${cx} ${Math.min(startY, kopf + 46).toFixed(1)}L${cx} ${kopf.toFixed(1)}`);
+          return;
+        }
+        spur.setAttribute("d", "");
+        const q = (p - 0.24) / 0.76;
+        blitz.setAttribute("r", String(26 + 40 * q));
+        blitz.setAttribute("opacity", String(Math.max(0, 0.95 - q * 2.4)));
+        funken.forEach((f) => {
+          const r = f.v * Math.sqrt(q);
+          f.c.setAttribute("cx", String(cx + Math.cos(f.w) * r));
+          f.c.setAttribute("cy", String(cy + Math.sin(f.w) * r + q * q * 50));
+          f.c.setAttribute("r", String(8 * (1 - q) + 1.5));
+          f.c.setAttribute("opacity", String(1 - q ** 1.5));
+        });
+      }, { delay: n * 230, e: ease.lin, done: () => g.remove() });
+    });
+  }
+
+  // Das neue Zuhause leuchtet kurz auf: ein goldener Rahmen um das Zimmer
+  // und ein Glanz um das Tier.
+  function leuchte(svg, index, tierX, tierY) {
+    if (!svg || reduced()) return;
+    const art = A();
+    const g = document.createElementNS(NS, "g");
+    g.setAttribute("pointer-events", "none");
+    g.innerHTML = `<rect x="${art.ZX + 6}" y="${art.oben(index) + 6}" width="${art.ZW - 12}" height="${art.ZH - 12}" rx="10" fill="none" stroke="#ffd166" stroke-width="12"/>` +
+      `<circle cx="${tierX}" cy="${tierY}" r="40" fill="none" stroke="#fff3a0" stroke-width="10"/>`;
+    svg.append(g);
+    const [rahmen, ring] = g.children;
+    tween(2200, (p) => {
+      rahmen.setAttribute("opacity", String(0.95 * Math.abs(Math.sin(p * Math.PI * 3)) * (1 - p * 0.6)));
+      ring.setAttribute("r", String(40 + 110 * p));
+      ring.setAttribute("opacity", String(Math.max(0, 1 - p * 1.3)));
+    }, { e: ease.lin, done: () => g.remove() });
+  }
+
   function stupse(node) {
     if (!node) return;
     node.classList.remove("is-stups");
-    void node.offsetWidth;
+    void node.getBoundingClientRect();
     node.classList.add("is-stups");
     window.setTimeout(() => node.classList.remove("is-stups"), 900);
   }
@@ -866,7 +1089,7 @@
   // ---------------------------------------------------------------------------
   let liefert = false;
   async function pruefeLieferung() {
-    if (liefert || !ui.host?.isConnected || ui.zimmer >= 0 || ui.overlay) return;
+    if (liefert || !ui.host?.isConnected || ui.zimmer >= 0 || ui.overlay || !els.welt) return;
     const neu = S().neueLieferung();
     if (neu < 1) return;
     liefert = true;
@@ -884,7 +1107,7 @@
       sag(anzahl === 1 ? "Der Zug hat eine Palette Ziegel gebracht. Tippe auf das Plus, und ein neues Stockwerk entsteht!" : `Der Zug hat ${anzahl} Paletten Ziegel gebracht!`);
       return;
     }
-    ui.besetzt = true; besetztSeit = performance.now();
+    besetze();
     // Der Zug fährt unten auf dem Gleis: dorthin schauen.
     if (ui.kamera.ty > ui.kamera.min + 2) {
       const start = ui.kamera.ty;
@@ -940,15 +1163,90 @@
   }
 
   // ---------------------------------------------------------------------------
-  // Tiere: wohnen, laufen, winken
+  // Der Einzug: die Strasse entlang, mit dem Lift hinauf, ins Zimmer
+  // ---------------------------------------------------------------------------
+  async function zeigeEinzug(index, tier) {
+    if (!ui.host?.isConnected || !tier) return;
+    ui.letzterEinzug = performance.now();
+    const art = A();
+    const k = M().MASS;
+    ui.kommt = tier.seed;
+    besetze();
+    zeichneHaus({ behalteKamera: true });
+    const svg = els.welt.querySelector("svg");
+    const lage = svg?.querySelector(".bau-einzuglage");
+    const name = `${tier.n}, ${K().TIERE[tier.a]?.der || ""}`;
+    const zielX = art.ZX + 120 + (S().hash(tier.seed) % 300);
+    const zielY = art.oben(index) + S().GEO.STAND + 2;
+    if (!lage || reduced()) {
+      ui.kommt = "";
+      ui.besetzt = false;
+      tierOrte.set(tier.seed, { x: zielX - art.ZX, ziel: zielX - art.ZX, modus: "steht", richtung: -1 });
+      zeichneHaus({ stockwerk: index });
+      feuerwerk(els.welt.querySelector("svg"), art.ZX + art.ZW / 2, art.oben(index) + 50);
+      klang("win");
+      sag(`${name}, zieht ein!`);
+      return;
+    }
+    klang("unlock");
+    sag(`Da kommt jemand! ${name}, zieht ein.`);
+    // Unten an der Strasse anfangen.
+    const kam = ui.kamera;
+    const start = kam.ty;
+    await tweenP(450, (p) => { kam.ty = start + (kam.min - start) * p; setzeKamera(); }, { e: ease.inOut });
+    const g = document.createElementNS(NS, "g");
+    g.innerHTML = `<g class="bau-tier-dreh">${art.tier(tier.a)}${art.koffer()}</g>`;
+    lage.append(g);
+    const kabine = document.createElementNS(NS, "g");
+    kabine.innerHTML = art.liftKabine();
+    const liftX = art.LX + art.LIFT / 2;
+    const setze = (node, x, y, flip = 1) => node.setAttribute("transform", `translate(${x.toFixed(1)} ${y.toFixed(1)}) scale(${(flip * k).toFixed(3)} ${k})`);
+    // 1. Die Strasse entlang bis zum Lift.
+    const x0 = WX0 + 80;
+    await tweenP(1700, (p) => setze(g, x0 + (liftX - x0) * p, 28 - Math.abs(Math.sin(p * 18)) * 3), { e: ease.lin });
+    // 2. In die Kabine, die unten wartet.
+    lage.insertBefore(kabine, g);
+    const unten0 = art.unten(0);
+    kabine.setAttribute("transform", `translate(${liftX} ${unten0})`);
+    await tweenP(300, (p) => setze(g, liftX, 28 + (unten0 - 2 - 28) * p), { e: ease.out });
+    // 3. Hinauf – die Kamera fährt mit.
+    const zielUnten = art.unten(index);
+    const dauer = Math.min(2600, 500 + index * 380);
+    const kamStart = kam.ty;
+    const kamZiel = kameraZiel(zielUnten - 80);
+    await tweenP(dauer, (p) => {
+      const y = unten0 + (zielUnten - unten0) * p;
+      kabine.setAttribute("transform", `translate(${liftX} ${y})`);
+      setze(g, liftX, y - 2);
+      kam.ty = kamStart + (kamZiel - kamStart) * p;
+      setzeKamera();
+    }, { e: ease.inOut });
+    // 4. Aus dem Lift ins Zimmer.
+    await tweenP(Math.max(500, (liftX - zielX) * 3.2), (p) => setze(g, liftX + (zielX - liftX) * p, zielUnten - (zielUnten - zielY) * Math.min(1, p * 3) - Math.abs(Math.sin(p * 14)) * 3, -1), { e: ease.lin });
+    kabine.remove();
+    g.remove();
+    ui.kommt = "";
+    tierOrte.set(tier.seed, { x: zielX - art.ZX, ziel: zielX - art.ZX, modus: "steht", richtung: -1 });
+    ui.besetzt = false;
+    zeichneHaus({ behalteKamera: true });
+    baueUmschalter();
+    feuerwerk(els.welt.querySelector("svg"), art.ZX + art.ZW / 2, art.oben(index) + 50);
+    leuchte(els.welt.querySelector("svg"), index, zielX, zielY - 60);
+    klang("win");
+    for (const t of tiere.values()) if (t.tier.seed === tier.seed) { t.huepf = 1; wecke(); }
+    sag(`Willkommen, ${tier.n}! ${tier.n} wohnt jetzt hier.`);
+    window.setTimeout(() => blaseAnSeed(tier.seed, "Hallo! Ich wohne jetzt hier! 🎉", 3200), 900);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Tiere: wohnen, arbeiten, besuchen, laufen
   // ---------------------------------------------------------------------------
   // Je sichtbares Tier ein kleiner Zustand. Sie laufen ab und zu ein Stück,
   // halten an, zeigen manchmal einen Wunsch – und schlafen nachts.
   const tiere = new Map();
-  // Wo jedes Tier zuletzt stand – damit es beim Neuzeichnen des Zimmers nicht
-  // an den Anfang springt.
+  // Wo jedes Tier zuletzt stand – damit es beim Neuzeichnen nicht an den
+  // Anfang springt.
   const tierOrte = new Map();
-  const tierSchluessel = (hausId, index, tier) => `${hausId}:${index}:${tier.seed}`;
 
   function starteTiereHaus() {
     tiere.clear();
@@ -956,49 +1254,63 @@
     if (!svg) return;
     const jetzt = Date.now();
     aktHaus().stock.forEach((st, index) => {
-      const lage = svg.querySelector(`[data-tierlage="${index}"]`);
-      if (!lage) return;
-      lage.innerHTML = "";
-      const zuHause = st.tier && !S().aufenthalt(ui.haus, index, jetzt);
-      if (st.tier && zuHause) setzeTier(lage, { hausId: ui.haus, index, tier: st.tier, wohnt: true });
-      else if (st.tier) lage.insertAdjacentHTML("beforeend", tuerSchild(st, index));
-      S().besucher(ui.haus, index, jetzt).forEach((b, n) => setzeTier(lage, { hausId: b.haus, index: b.index, tier: b.tier, wohnt: false, x: 380 + n * 60 }));
+      st.zimmer.forEach((z, slot) => {
+        const lage = svg.querySelector(`[data-tierlage="${index}:${slot}"]`);
+        if (!lage) return;
+        bevoelkere(lage, index, slot, st, jetzt);
+      });
     });
     planeTiere();
   }
 
-  function tuerSchild(st, index) {
-    return `<g class="bau-schild" data-ziel="tafel" data-stock="${index}" transform="translate(70 120)"><rect x="-44" y="-26" width="88" height="40" rx="8" fill="#ffffff" stroke="#e8b94f" stroke-width="3"/><text x="0" y="-2" text-anchor="middle" font-size="15" font-weight="800" font-family="'Baloo 2', Nunito, sans-serif" fill="#8a5734">Bin weg!</text><text x="0" y="12" text-anchor="middle" font-size="12" font-family="'Baloo 2', Nunito, sans-serif" fill="#8a5734">🚶 ${st.tier.n}</text></g>`;
+  // Wer in diesem Zimmer ist: die Bewohner, die zu Hause sind, und wer zu
+  // Besuch ist oder hier arbeitet. Wer aus der Wohnung unterwegs ist, steht
+  // auf dem Schild an der Tür.
+  function bevoelkere(lage, index, slot, st, jetzt) {
+    lage.innerHTML = "";
+    const breite = S().breiteVon(st);
+    const weg = [];
+    if (st.art === "wohnung" && slot === 0) {
+      st.tiere.forEach((tier) => {
+        if (tier.seed === ui.kommt) return;
+        const wo = S().aufenthalt(tier.seed, jetzt);
+        if (!wo || wo.wo === "daheim") setzeTier(lage, { tier, wohnt: true, breite });
+        else weg.push(tier);
+      });
+      if (weg.length) lage.insertAdjacentHTML("beforeend", tuerSchild(weg, index));
+    }
+    S().besucher(ui.haus, index, slot, jetzt).forEach((b, n) => {
+      if (b.tier.seed === ui.kommt) return;
+      setzeTier(lage, { tier: b.tier, wohnt: false, grund: b.grund, breite, x: breite * 0.65 - n * 50 });
+    });
   }
 
-  function setzeTier(lage, { hausId, index, tier, wohnt, x = null }) {
+  function tuerSchild(weg, index) {
+    const namen = weg.map((t) => t.n).join(", ");
+    const breite = Math.max(88, namen.length * 8 + 30);
+    return `<g class="bau-schild" data-ziel="tafel" data-stock="${index}" transform="translate(${breite / 2 + 12} 120)"><rect x="${-breite / 2}" y="-26" width="${breite}" height="40" rx="8" fill="#ffffff" stroke="#e8b94f" stroke-width="3"/><text x="0" y="-6" text-anchor="middle" font-size="13" font-weight="800" font-family="'Baloo 2', Nunito, sans-serif" fill="#8a5734">Unterwegs:</text><text x="0" y="9" text-anchor="middle" font-size="12" font-family="'Baloo 2', Nunito, sans-serif" fill="#8a5734">🚶 ${textSicher(namen)}</text></g>`;
+  }
+
+  function setzeTier(lage, { tier, wohnt, grund = "", breite = A().ZW, x = null }) {
     const g = document.createElementNS(NS, "g");
     g.setAttribute("class", "bau-tier");
     g.setAttribute("data-ziel", "tier");
-    g.setAttribute("data-haus", hausId);
-    g.setAttribute("data-index", String(index));
+    g.setAttribute("data-seed", tier.seed);
     g.setAttribute("role", "button");
     g.setAttribute("tabindex", "0");
     g.setAttribute("aria-label", `${tier.n}, ${K().TIERE[tier.a]?.der || ""}`);
     const k = M().MASS;
-    g.innerHTML = `<g class="bau-tier-dreh">${A().tier(tier.a)}</g><g class="bau-zzz" style="display:none"><text x="12" y="-110" font-size="18" font-weight="800" font-family="'Baloo 2', Nunito, sans-serif" fill="#ffffff">z</text><text x="24" y="-124" font-size="14" font-weight="800" font-family="'Baloo 2', Nunito, sans-serif" fill="#ffffff">z</text></g>`;
+    const abzeichen = grund === "arbeit" ? `<g transform="translate(-16 -112)"><circle r="11" fill="#ffffff" stroke="#8a5734" stroke-width="2"/><text y="5" text-anchor="middle" font-size="13">💼</text></g>` : "";
+    g.innerHTML = `<g class="bau-tier-dreh">${A().tier(tier.a)}</g>${abzeichen}<g class="bau-zzz" style="display:none"><text x="12" y="-110" font-size="18" font-weight="800" font-family="'Baloo 2', Nunito, sans-serif" fill="#ffffff">z</text><text x="24" y="-124" font-size="14" font-weight="800" font-family="'Baloo 2', Nunito, sans-serif" fill="#ffffff">z</text></g>`;
     lage.append(g);
-    const ort = tierOrte.get(tierSchluessel(hausId, index, tier));
-    const startX = ort?.x ?? x ?? (90 + ((S().hash(tier.seed) % 300)));
+    const ort = tierOrte.get(tier.seed);
+    const startX = clamp(ort?.x ?? x ?? (60 + ((S().hash(tier.seed) % Math.max(40, breite - 120)))), 40, breite - 40);
     const t = {
       g, dreh: g.querySelector(".bau-tier-dreh"), bob: g.querySelector(".bob"), legL: g.querySelector(".legL"), legR: g.querySelector(".legR"), zzz: g.querySelector(".bau-zzz"),
       x: startX, y: S().GEO.STAND + 2, ziel: startX, richtung: 1, modus: "steht", bis: performance.now() + 800 + Math.random() * 2500,
-      phase: Math.random() * 6, k, hausId, index, wohnt, tier, huepf: 0,
+      phase: Math.random() * 6, k, wohnt, tier, breite, huepf: 0,
     };
-    if (ort) { t.ziel = ort.ziel ?? t.x; t.modus = ort.modus || "steht"; t.richtung = ort.richtung || 1; }
-    // Neu eingezogen? Dann kommt es mit dem Koffer von links.
-    if (!ort && wohnt && Date.now() - (tier.seit || 0) < 6000) {
-      t.x = -40;
-      t.ziel = startX;
-      t.modus = "geht";
-      g.querySelector(".bau-tier-dreh").insertAdjacentHTML("beforeend", A().koffer());
-      t.koffer = true;
-    }
+    if (ort) { t.ziel = clamp(ort.ziel ?? t.x, 40, breite - 40); t.modus = ort.modus || "steht"; t.richtung = ort.richtung || 1; }
     stelleTier(t, 0);
     tiere.set(g, t);
   }
@@ -1034,18 +1346,16 @@
       if (t.huepf > 0) { t.huepf = Math.max(0, t.huepf - dt * 2.4); laeuft = true; }
       if (t.modus === "geht") {
         const d = t.ziel - t.x;
-        // Mit dem Koffer kommt es zügig herein, sonst schlendert es.
-        const schritt = (t.koffer ? 130 : 52) * dt;
+        const schritt = 52 * dt;
         t.richtung = d < 0 ? -1 : 1;
         if (Math.abs(d) <= schritt) {
           t.x = t.ziel;
           t.modus = "steht";
           t.bis = jetzt + 1800 + Math.random() * 4200;
-          if (t.koffer) { t.g.querySelector(".bau-koffer")?.remove(); t.koffer = false; t.huepf = 1; }
         } else { t.x += Math.sign(d) * schritt; laeuft = true; }
       }
       stelleTier(t, dt);
-      tierOrte.set(tierSchluessel(t.hausId, t.index, t.tier), { x: t.x, ziel: t.ziel, modus: t.modus === "geht" && !t.koffer ? "geht" : "steht", richtung: t.richtung });
+      tierOrte.set(t.tier.seed, { x: t.x, ziel: t.ziel, modus: t.modus, richtung: t.richtung });
     });
     return laeuft;
   }
@@ -1063,8 +1373,7 @@
         if (t.modus !== "steht") return;
         if (ui.nacht && t.tier.a !== "owl") return;
         if (jetzt >= t.bis) {
-          const breite = A().ZW;
-          t.ziel = clamp(t.x + (Math.random() - 0.5) * 260, 40, breite - 40);
+          t.ziel = clamp(t.x + (Math.random() - 0.5) * Math.min(260, t.breite * 0.6), 40, t.breite - 40);
           t.modus = "geht";
           if (Math.random() < 0.25) zeigeWunschBlase(t);
         } else bald = Math.min(bald, t.bis - jetzt);
@@ -1078,7 +1387,7 @@
   // Ab und zu zeigt ein Tier, was es sich wünscht – als Bild in einer Blase.
   function zeigeWunschBlase(t) {
     if (!t.wohnt) return;
-    const offen = S().wuensche(t.hausId, t.index).filter((w) => !w.erfuellt);
+    const offen = S().wuensche(t.tier.seed).filter((w) => !w.erfuellt);
     if (!offen.length) return;
     const w = offen[Math.floor(Math.random() * offen.length)];
     blaseAnTier(t, wunschBild(w, 34), 3800);
@@ -1096,12 +1405,12 @@
     window.setTimeout(() => b.remove(), dauer);
   }
 
-  // Eine Blase über einem Stockwerk der Hausansicht (Einzug, neuer Wunsch).
-  function zeigeBlase(hausId, index, text, dauer = 3000) {
+  // Eine Blase mit Text an einem bestimmten Tier.
+  function blaseAnSeed(seed, text, dauer = 3000) {
     for (const t of tiere.values()) {
-      if (t.hausId === hausId && t.index === index && t.wohnt) {
+      if (t.tier.seed === seed) {
         const halb = Math.max(30, text.length * 3.6 + 4);
-        blaseAnTier(t, `<text x="0" y="6" text-anchor="middle" font-size="13" font-weight="800" font-family="'Baloo 2', Nunito, sans-serif" fill="#243047">${text.replace(/&/g, "&amp;").replace(/</g, "&lt;")}</text>`, dauer, halb);
+        blaseAnTier(t, `<text x="0" y="6" text-anchor="middle" font-size="13" font-weight="800" font-family="'Baloo 2', Nunito, sans-serif" fill="#243047">${textSicher(text)}</text>`, dauer, halb);
         return;
       }
     }
@@ -1140,7 +1449,7 @@
     els.muell = el("div", "bau-muell", { "aria-hidden": "true" });
     els.muell.innerHTML = svgVon(`<path d="M7 7h10l-1 13H8z" fill="#ffffff"/><rect x="5" y="4.5" width="14" height="2.5" rx="1" fill="#ffffff"/><rect x="10" y="2.5" width="4" height="2.5" rx="1" fill="#ffffff"/>`, "0 0 24 24");
     els.muell.hidden = true;
-    // Oben in einer Zeile: Name und Tier, daneben die Werkzeuge – zwischen
+    // Oben in einer Zeile: Name und Tiere, daneben die Werkzeuge – zwischen
     // Zurück-Knopf und Lautsprecher links und den festen Knöpfen rechts.
     els.kopfzeile = el("div", "bau-kopfzeile");
     els.kopfzeile.append(els.zimmerKopf, els.werkzeug);
@@ -1148,22 +1457,24 @@
     zimmerEreignisse();
   }
 
-  async function oeffneZimmer(index) {
+  async function oeffneZimmer(index, slot = 0) {
     if (ui.besetzt) return;
     const st = S().stock(ui.haus, index);
-    if (!st?.raum) return;
-    ui.besetzt = true; besetztSeit = performance.now();
+    const z = st?.zimmer?.[slot];
+    if (!z?.raum) return;
+    besetze();
     ui.zimmer = index;
+    ui.slot = slot;
     ui.zimmerId = st.id;
     merkeErfuellt();
     ui.auswahl = null;
     ui.rueck = [];
-    ui.schublade = "passt";
-    const raum = K().RAEUME[st.raum];
-    sag(st.tier ? `${raum.der}. ${S().aufenthalt(ui.haus, index) ? `${st.tier.n} ist gerade unterwegs.` : `Hier ${ui.haus === "wohnhaus" ? "wohnt" : "arbeitet"} ${st.tier.n}.`}` : `${raum.der}.`);
-    // Der Zoom: Die Hausansicht wächst vom Stockwerk aus auf den Platz des
-    // Zimmers (unscharf, aber schnell), dann steht das scharfe Zimmer da.
-    const von = stockAufSchirm(index);
+    ui.schublade = "zimmer";
+    const raum = K().RAEUME[z.raum];
+    sag(`${raum.der}. ${zimmerSatz(st, slot)}`);
+    // Der Zoom: Die Hausansicht wächst vom Zimmer aus auf den Platz des
+    // Zimmers im Zoom (unscharf, aber schnell), dann steht das scharfe Zimmer da.
+    const von = zimmerAufSchirm(index, slot);
     zeichneZimmer();
     const nach = zimmerRechteck();
     els.zimmer.hidden = false;
@@ -1192,20 +1503,34 @@
     starteTiereZimmer();
   }
 
+  // Wer hier wohnt oder arbeitet – ein Satz zum Zimmer.
+  function zimmerSatz(st, slot) {
+    if (st.art === "wohnung") {
+      const namen = st.tiere.map((t) => t.n);
+      if (!namen.length) return "";
+      return `Hier ${namen.length === 1 ? "wohnt" : "wohnen"} ${namen.join(" und ")}.`;
+    }
+    const raum = K().RAEUME[st.zimmer[slot]?.raum];
+    const arbeiter = S().alleTiere().filter((e) => { const j = S().jobVon(e.tier.seed); return j && j.haus === ui.haus && j.stockId === st.id && j.slot === slot; }).map((e) => e.tier.n);
+    if (arbeiter.length) return `Hier ${arbeiter.length === 1 ? "arbeitet" : "arbeiten"} ${arbeiter.join(" und ")}.`;
+    return raum?.job ? "Hier arbeitet noch niemand." : "";
+  }
+
   async function schliesseZimmer(sofort = false) {
     if (ui.zimmer < 0) return;
     const index = ui.zimmer;
+    const slot = ui.slot;
     waehleAus(null);
     S().speichern(true);
     ui.zimmer = -1;
     ui.zimmerId = "";
-    ui.besetzt = true; besetztSeit = performance.now();
+    besetze();
     zeichneHaus({ behalteKamera: true });
     kameraAuf(index, false);
     els.welt.style.visibility = "";
     if (!sofort && !reduced()) {
-      const von = zimmerRechteck();
-      const nach = stockAufSchirm(index);
+      const von = zimmerRechteck(S().breiteVon(S().stock(ui.haus, index)));
+      const nach = zimmerAufSchirm(index, slot);
       const k = von.w / nach.w;
       els.welt.style.transformOrigin = `${nach.x - ui.kamera.tx}px ${nach.y - ui.kamera.ty}px`;
       await tweenP(380, (p) => {
@@ -1226,11 +1551,12 @@
     hilfeHaus();
     baueUmschalter();
     pruefeLieferung();
+    pruefeZuzug();
   }
 
   // Wo das Zimmer im Zoom steht: so gross wie möglich zwischen Kopfzeile und
-  // Schublade.
-  function zimmerRechteck() {
+  // Schublade. Ein halbes Zimmer ist schmaler – und dafür höher im Bild.
+  function zimmerRechteck(breite = zimmerBreite()) {
     const w = ui.host.clientWidth || 800;
     const h = ui.host.clientHeight || 500;
     const klein = h < 520;
@@ -1239,10 +1565,9 @@
     const rand = 10;
     const pw = w - rand * 2;
     const ph = h - oben - unten - 8;
-    const art = A();
-    const k = Math.min(pw / art.ZW, ph / art.ZH);
-    const zw = art.ZW * k;
-    const zh = art.ZH * k;
+    const k = Math.min(pw / breite, ph / A().ZH);
+    const zw = breite * k;
+    const zh = A().ZH * k;
     return { x: (w - zw) / 2, y: oben + (ph - zh) / 2 + 4, w: zw, h: zh, k };
   }
 
@@ -1258,23 +1583,25 @@
   }
 
   function zeichneZimmer() {
-    const st = S().stock(ui.haus, ui.zimmer);
-    if (!st) return;
+    const st = aktStock();
+    const z = aktZimmer();
+    if (!st || !z) return;
     ui.zimmerId = st.id;
-    const art = A();
-    const raum = K().RAEUME[st.raum];
-    els.zimmerBuehne.innerHTML = `<svg xmlns="${NS}" class="bau-zimmer-svg${ui.nacht ? " is-nacht" : ""}" viewBox="0 0 ${art.ZW} ${art.ZH}" role="img" aria-label="${raum?.name || "Zimmer"}">` +
+    const breite = zimmerBreite();
+    const raum = K().RAEUME[z.raum];
+    const zh = A().ZH;
+    els.zimmerBuehne.innerHTML = `<svg xmlns="${NS}" class="bau-zimmer-svg${ui.nacht ? " is-nacht" : ""}" viewBox="0 0 ${breite} ${zh}" role="img" aria-label="${raum?.name || "Zimmer"}">` +
       `<defs><radialGradient id="bau-glanz-z"><stop offset="0" stop-color="#fff6c2" stop-opacity="0.75"/><stop offset="1" stop-color="#fff6c2" stop-opacity="0"/></radialGradient></defs>` +
-      `${zimmerInhalt(ui.haus, ui.zimmer).replace(/url\(#bau-glanz\)/g, "url(#bau-glanz-z)")}` +
+      `${zimmerInhalt(ui.haus, ui.zimmer, ui.slot).replace(/url\(#bau-glanz\)/g, "url(#bau-glanz-z)")}` +
       `<rect class="bau-auswahlrahmen" x="0" y="0" width="0" height="0" rx="8" fill="none" stroke="#3fbf74" stroke-width="3" stroke-dasharray="10 7" visibility="hidden" pointer-events="none"/>` +
-      `${st.dinge.length ? "" : `<g class="bau-leerhinweis" pointer-events="none"><text x="${art.ZW / 2}" y="${art.ZH / 2 - 12}" text-anchor="middle" font-size="22" font-weight="800" font-family="'Baloo 2', Nunito, sans-serif" fill="#243047" opacity="0.45">Zieh Dinge aus der Schublade hierher</text><path d="M${art.ZW / 2} ${art.ZH / 2 + 4}v34m-12-12l12 12l12-12" fill="none" stroke="#243047" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" opacity="0.35"/></g>`}` +
+      `${z.dinge.length ? "" : `<g class="bau-leerhinweis" pointer-events="none"><text x="${breite / 2}" y="${zh / 2 - 12}" text-anchor="middle" font-size="${breite < 400 ? 15 : 22}" font-weight="800" font-family="'Baloo 2', Nunito, sans-serif" fill="#243047" opacity="0.45">Zieh Dinge aus der Schublade hierher</text><path d="M${breite / 2} ${zh / 2 + 4}v34m-12-12l12 12l12-12" fill="none" stroke="#243047" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" opacity="0.35"/></g>`}` +
       `</svg>`;
     ui.gezeichnet = zeichenStand();
     passeZimmerEin();
     zeichneZimmerKopf();
     zeichneWerkzeug();
     zeichneSchublade();
-    if (ui.auswahl && !st.dinge.some((d) => d.k === ui.auswahl)) waehleAus(null);
+    if (ui.auswahl && !z.dinge.some((d) => d.k === ui.auswahl)) waehleAus(null);
     else if (ui.auswahl) zeigeAuswahl();
     if (ui.zimmer >= 0 && !els.zimmer.hidden) starteTiereZimmer();
   }
@@ -1284,33 +1611,32 @@
     const svg = els.zimmerBuehne.querySelector("svg");
     const lage = svg?.querySelector(".bau-tierlage");
     if (!lage) return;
-    lage.innerHTML = "";
-    const st = S().stock(ui.haus, ui.zimmer);
-    const jetzt = Date.now();
-    if (st?.tier && !S().aufenthalt(ui.haus, ui.zimmer, jetzt)) setzeTier(lage, { hausId: ui.haus, index: ui.zimmer, tier: st.tier, wohnt: true });
-    else if (st?.tier) lage.insertAdjacentHTML("beforeend", tuerSchild(st, ui.zimmer));
-    S().besucher(ui.haus, ui.zimmer, jetzt).forEach((b, n) => setzeTier(lage, { hausId: b.haus, index: b.index, tier: b.tier, wohnt: false, x: 360 + n * 70 }));
+    bevoelkere(lage, ui.zimmer, ui.slot, aktStock(), Date.now());
     planeTiere();
   }
 
-  // Oben im Zimmer: Name, wer hier wohnt, die Sterne.
+  // Oben im Zimmer: Name, wer hier wohnt (oder arbeitet), die Sterne.
   function zeichneZimmerKopf() {
     if (ui.zimmer < 0) return;
-    const st = S().stock(ui.haus, ui.zimmer);
-    if (!st) return;
-    const raum = K().RAEUME[st.raum];
+    const st = aktStock();
+    const z = aktZimmer();
+    if (!st || !z) return;
+    const raum = K().RAEUME[z.raum];
     els.zimmerKopf.innerHTML = "";
     const name = knopf("bau-zimmername", `${raum.name}: vorlesen`, `<span>${raum.name}</span>${svgVon(`<path d="M11 5 6 9H3v6h3l5 4V5z" fill="currentColor"/><path d="M15.5 8.5a5 5 0 0 1 0 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>`, "0 0 24 24", "bau-lautsprecher")}`,
-      () => sag(`${raum.der}. ${raum.text}`));
+      () => sag(`${raum.der}. ${raum.text}${raum.job ? ` Hier kann man ${raum.job}.` : ""}`));
     els.zimmerKopf.append(name);
-    if (st.tier) {
-      const st8 = S().sterne(ui.haus, ui.zimmer);
-      const laune = S().laune(ui.haus, ui.zimmer);
-      const t = knopf("bau-zimmertier", `${st.tier.n}: ${st8.anzahl} von ${st8.total} Sternen. Antippen für die Wünsche.`,
-        `${svgVon(`<g transform="translate(24 50) scale(0.62)">${A().tier(st.tier.a)}</g>`, "0 0 48 52", "bau-zimmertier-bild")}<span class="bau-sternreihe">${sternReiheHtml(st8)}</span><span class="bau-sternzahl"><i class="bau-stern is-gelb is-voll"></i>${st8.anzahl}/${st8.total}</span><span class="bau-laune" aria-hidden="true">${laune.emoji}</span>`,
-        () => oeffneTafel(ui.haus, ui.zimmer));
+    const leute = st.art === "wohnung"
+      ? st.tiere.map((t) => ({ tier: t, wohnt: true }))
+      : S().alleTiere().filter((e) => { const j = S().jobVon(e.tier.seed); return j && j.haus === ui.haus && j.stockId === st.id && j.slot === ui.slot; }).map((e) => ({ tier: e.tier, wohnt: false }));
+    leute.forEach(({ tier, wohnt }) => {
+      const st5 = S().sterne(tier.seed);
+      const laune = S().laune(tier.seed);
+      const t = knopf(`bau-zimmertier${wohnt ? "" : " is-arbeit"}`, `${tier.n}: ${st5.anzahl} von ${st5.total} Sternen. Antippen für mehr.`,
+        `${svgVon(`<g transform="translate(24 50) scale(0.62)">${A().tier(tier.a)}</g>`, "0 0 48 52", "bau-zimmertier-bild")}<span class="bau-sternreihe">${sternReiheHtml(st5)}</span><span class="bau-sternzahl"><i class="bau-stern is-gelb is-voll"></i>${st5.anzahl}/${st5.total}</span>${wohnt ? `<span class="bau-laune" aria-hidden="true">${laune.emoji}</span>` : `<span class="bau-laune" aria-hidden="true">💼</span>`}`,
+        () => oeffneTafel(tier.seed));
       els.zimmerKopf.append(t);
-    }
+    });
   }
 
   function sternReiheHtml(st) {
@@ -1318,72 +1644,105 @@
     return st.gelb.map((v) => s(v, "gelb")).join("") + st.gruen.map((v) => s(v, "gruen")).join("") + st.blau.map((v) => s(v, "blau")).join("");
   }
 
-  // Die Werkzeuge rechts oben im Zimmer: Rückgängig, Licht, Zimmerart.
+  // Die Werkzeuge rechts oben im Zimmer: Rückgängig, Licht, Zimmerart (Stift).
   function zeichneWerkzeug() {
     if (ui.zimmer < 0) return;
-    const st = S().stock(ui.haus, ui.zimmer);
+    const z = aktZimmer();
     els.werkzeug.innerHTML = "";
     const rueck = knopf("bau-rund", "Rückgängig", svgVon(`<path d="M9 7 4 12l5 5" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 12h9a5 5 0 0 1 0 10h-2" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/>`, "0 0 24 24"), rueckgaengig);
     rueck.disabled = ui.rueck.length === 0;
-    const licht = knopf(`bau-rund${st?.licht ? " is-an" : ""}`, st?.licht ? "Licht ausschalten" : "Licht einschalten",
-      svgVon(`<path d="M12 3a6 6 0 0 0-3.5 10.9V17h7v-3.1A6 6 0 0 0 12 3z" fill="${st?.licht ? "#ffd166" : "none"}" stroke="currentColor" stroke-width="2"/><path d="M9.5 20h5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>`, "0 0 24 24"),
+    const licht = knopf(`bau-rund${z?.licht ? " is-an" : ""}`, z?.licht ? "Licht ausschalten" : "Licht einschalten",
+      svgVon(`<path d="M12 3a6 6 0 0 0-3.5 10.9V17h7v-3.1A6 6 0 0 0 12 3z" fill="${z?.licht ? "#ffd166" : "none"}" stroke="currentColor" stroke-width="2"/><path d="M9.5 20h5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>`, "0 0 24 24"),
       () => {
         merkeRueck();
-        S().aendereStock(ui.haus, ui.zimmer, (s) => { s.licht = s.licht ? 0 : 1; });
-        sag(S().stock(ui.haus, ui.zimmer).licht ? "Licht an." : "Licht aus.");
+        S().aendereZimmer(ui.haus, ui.zimmer, ui.slot, (zz) => { zz.licht = zz.licht ? 0 : 1; });
+        sag(aktZimmer().licht ? "Licht an." : "Licht aus.");
         zeichneZimmer();
       });
-    const raumArt = knopf("bau-rund", "Zimmerart ändern", svgVon(`<path d="M4 20V9l8-5 8 5v11h-5v-6H9v6z" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/>`, "0 0 24 24"), () => zeigeRaumwahl(ui.zimmer));
-    els.werkzeug.append(rueck, licht, raumArt);
+    const stift = knopf("bau-rund bau-stiftknopf", "Zimmerart ändern", svgVon(`<path d="M4 20l1.2-4.6L15.8 4.8a2.1 2.1 0 0 1 3 0l.4.4a2.1 2.1 0 0 1 0 3L8.6 18.8z" fill="#ffd166" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M14 6.6l3.4 3.4" stroke="currentColor" stroke-width="1.8"/><path d="M4 20l1.2-4.6 3.4 3.4z" fill="#f2c9a6" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>`, "0 0 24 24"),
+      () => (aktStock()?.art === "wohnung" ? zeigeWohnungswahl(ui.zimmer) : zeigeRaumwahl(ui.zimmer, ui.slot)));
+    els.werkzeug.append(rueck, licht, stift);
   }
 
   // ---------------------------------------------------------------------------
   // Die Schublade
   // ---------------------------------------------------------------------------
+  // Jedes Zimmer hat seine eigenen Dinge; dazu ein paar, die überall passen
+  // (Licht, ein Bild, eine Pflanze …), in Wohnungen die Lieblingsdinge der
+  // Tiere – und Wand und Boden.
   function zeichneSchublade() {
     if (ui.zimmer < 0) return;
-    const st = S().stock(ui.haus, ui.zimmer);
-    const raum = K().RAEUME[st.raum];
+    const st = aktStock();
+    const z = aktZimmer();
+    const raum = K().RAEUME[z.raum];
     els.schublade.innerHTML = "";
     const reiter = el("div", "bau-reiter", { role: "tablist" });
+    const wohnung = st.art === "wohnung";
     const tabs = [
+      { id: "zimmer", name: `Dinge für ${raum.der.replace(/^der /, "den ")}`, icon: svgVon(dingBild(raum.icon, 20), "-12 -12 24 24") },
+      ...(wohnung ? [{ id: "tiere", name: "Was Tiere mögen", icon: `<span class="bau-reiter-emoji">🐾</span>` }] : []),
+      { id: "ueberall", name: "Licht, Bilder, Pflanzen", icon: `<span class="bau-reiter-emoji">💡</span>` },
       { id: "wand", name: "Wand anmalen", icon: svgVon(`<rect x="3" y="4" width="13" height="7" rx="2" fill="#ff7aa2"/><path d="M16 7h3v6h-8v3" fill="none" stroke="#4a5568" stroke-width="2"/><rect x="9" y="16" width="4" height="6" rx="1.5" fill="#4a5568"/>`, "0 0 24 24") },
       { id: "boden", name: "Boden", icon: svgVon(`<path d="M2 15h20v6H2z" fill="#c88c5c"/><path d="M2 18h20M8 15v3M15 18v3" stroke="#8a5734" stroke-width="1.4"/><rect x="2" y="3" width="20" height="12" fill="#cfeaff"/>`, "0 0 24 24") },
-      { id: "passt", name: `Passt in ${raum.der.replace(/^der /, "den ")}`, icon: `<span class="bau-reiter-emoji">⭐</span>` },
-      ...M().KATEGORIEN.map((kat) => ({ id: kat.id, name: kat.name, icon: `<span class="bau-reiter-emoji">${kat.icon}</span>` })),
     ];
+    if (!tabs.some((t) => t.id === ui.schublade)) ui.schublade = "zimmer";
     tabs.forEach((tab) => {
       const b = knopf(`bau-reiter-knopf${ui.schublade === tab.id ? " is-aktiv" : ""}`, tab.name, tab.icon, () => {
         ui.schublade = tab.id;
         waehleAus(null);
-        sag(tab.id === "passt" ? "Das passt hierher." : tab.name);
+        sag(tab.name);
         zeichneSchublade();
       });
       b.setAttribute("role", "tab");
       b.setAttribute("aria-selected", ui.schublade === tab.id ? "true" : "false");
+      b.dataset.reiter = tab.id;
       reiter.append(b);
     });
     const inhalt = el("div", "bau-inhalt");
-    if (ui.schublade === "wand") fuelleWand(inhalt, st);
-    else if (ui.schublade === "boden") fuelleBoden(inhalt, st);
-    else fuelleDinge(inhalt, ui.schublade === "passt" ? passendFuer(st) : Object.values(M().DINGE).filter((d) => d.kat === ui.schublade).map((d) => d.id));
+    if (ui.schublade === "wand") fuelleWand(inhalt, z);
+    else if (ui.schublade === "boden") fuelleBoden(inhalt, z);
+    else fuelleDinge(inhalt, schubladeDinge(ui.schublade, z.raum));
     els.schublade.append(reiter, inhalt);
     reiter.querySelector(".is-aktiv")?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
   }
 
-  // "Passt hierher": was zur Zimmerart gehört, und was sich das Tier wünscht.
-  function passendFuer(st) {
-    const raum = K().RAEUME[st.raum];
-    const ids = [...(raum?.passend || [])];
-    if (st.tier) {
-      S().wuensche(ui.haus, ui.zimmer).forEach((w) => { if (w.typ === "ding" && w.zeige && !ids.includes(w.zeige)) ids.unshift(w.zeige); });
+  // Was in einer Schublade liegt. In der Wohnung kommt zuerst, was sich die
+  // Tiere wünschen.
+  function schubladeDinge(id, raumId) {
+    const M0 = M();
+    if (id === "ueberall") return M0.UEBERALL.filter((x) => M0.DINGE[x]);
+    if (id === "tiere") return K().LIEBLINGS.filter((x) => M0.DINGE[x]);
+    const eigene = K().dingeFuer(raumId).filter((x) => !K().LIEBLINGS.includes(x) || !aktStock()?.tiere?.length);
+    const gewuenscht = gewuenschteDinge();
+    return [...eigene.filter((x) => gewuenscht.has(x)), ...eigene.filter((x) => !gewuenscht.has(x))];
+  }
+
+  // Wo ein gewünschtes Ding in der Schublade liegt: zuerst das vorgeschlagene,
+  // sonst eines mit derselben Eigenschaft – bei den Dingen des Zimmers, den
+  // Lieblingsdingen der Tiere oder dem, was es überall gibt.
+  function findeInSchublade(tag, zeige) {
+    const raumId = aktZimmer()?.raum || "";
+    const passt = (id) => M().DINGE[id]?.tags?.includes(tag);
+    for (const reiter of ["zimmer", "tiere", "ueberall"]) {
+      if (reiter === "tiere" && aktStock()?.art !== "wohnung") continue;
+      const liste = schubladeDinge(reiter, raumId);
+      const id = liste.includes(zeige) ? zeige : liste.find(passt);
+      if (id) return { reiter, id };
     }
-    return ids.filter((id) => M().DINGE[id]);
+    return null;
+  }
+
+  // Die Dinge, die sich die Bewohner noch wünschen (ein Stern im Knopf).
+  function gewuenschteDinge() {
+    const st = aktStock();
+    if (st?.art !== "wohnung") return new Set();
+    const tags = st.tiere.flatMap((t) => S().wuensche(t.seed).filter((w) => w.typ === "ding" && !w.erfuellt).map((w) => w.tag));
+    return new Set(Object.values(M().DINGE).filter((d) => tags.some((tag) => d.tags.includes(tag))).map((d) => d.id));
   }
 
   function fuelleDinge(inhalt, ids) {
-    const st = S().stock(ui.haus, ui.zimmer);
-    const gewuenscht = new Set(st?.tier ? S().wuensche(ui.haus, ui.zimmer).filter((w) => w.typ === "ding" && !w.erfuellt).flatMap((w) => Object.values(M().DINGE).filter((d) => d.tags.includes(w.tag)).map((d) => d.id)) : []);
+    const gewuenscht = gewuenschteDinge();
+    const raumId = aktZimmer()?.raum || "";
     ids.forEach((id) => {
       const ding = M().DINGE[id];
       const b = el("button", `bau-ding-knopf${gewuenscht.has(id) ? " is-gewuenscht" : ""}`, { type: "button", "aria-label": ding.name, title: ding.name });
@@ -1391,7 +1750,7 @@
       const box = Math.max(ding.w, ding.h);
       const pad = box * 0.12;
       const y0 = ding.art === "wand" ? -ding.h / 2 : ding.art === "decke" ? 0 : -ding.h;
-      b.innerHTML = svgVon(M().zeichne(id), `${-box / 2 - pad} ${y0 + ding.h / 2 - box / 2 - pad} ${box + pad * 2} ${box + pad * 2}`) + (gewuenscht.has(id) ? `<span class="bau-wunschmarke" aria-hidden="true">★</span>` : "");
+      b.innerHTML = svgVon(M().zeichne(id, null, raumId), `${-box / 2 - pad} ${y0 + ding.h / 2 - box / 2 - pad} ${box + pad * 2} ${box + pad * 2}`) + (gewuenscht.has(id) ? `<span class="bau-wunschmarke" aria-hidden="true">★</span>` : "");
       b.addEventListener("pointerdown", (e) => schubladeGriff(e, id));
       b.addEventListener("click", (e) => {
         if (b.dataset.gezogen === "1") { b.dataset.gezogen = ""; e.preventDefault(); return; }
@@ -1409,25 +1768,25 @@
     return b;
   }
 
-  function fuelleWand(inhalt, st) {
+  function fuelleWand(inhalt, z) {
     const farben = el("div", "bau-farbreihe");
     K().FARBEN.forEach((farbe) => {
-      farben.append(farbKnopf(farbe, st.wand === farbe.id, () => {
+      farben.append(farbKnopf(farbe, z.wand === farbe.id, () => {
         merkeRueck();
-        S().aendereStock(ui.haus, ui.zimmer, (s) => { s.wand = farbe.id; });
+        S().aendereZimmer(ui.haus, ui.zimmer, ui.slot, (zz) => { zz.wand = farbe.id; });
         sag(farbe.name);
         rolleFarbe();
       }));
     });
     const muster = el("div", "bau-musterreihe");
     K().MUSTER.forEach((m) => {
-      const b = el("button", `bau-muster${st.muster === m.id ? " is-aktiv" : ""}`, { type: "button", "aria-label": m.name, title: m.name });
+      const b = el("button", `bau-muster${z.muster === m.id ? " is-aktiv" : ""}`, { type: "button", "aria-label": m.name, title: m.name });
       const id = `bau-muster-vorschau-${m.id}`;
-      const hex = farbeHex(st.wand);
+      const hex = farbeHex(z.wand);
       b.innerHTML = svgVon(`<defs>${A().musterDef(id, m.id, hex)}</defs><rect width="60" height="60" fill="${hex}"/>${m.id === "keine" ? "" : `<rect width="60" height="60" fill="url(#${id})"/>`}`, "0 0 60 60");
       b.addEventListener("click", () => {
         merkeRueck();
-        S().aendereStock(ui.haus, ui.zimmer, (s) => { s.muster = m.id; });
+        S().aendereZimmer(ui.haus, ui.zimmer, ui.slot, (zz) => { zz.muster = m.id; });
         sag(m.name);
         rolleFarbe();
       });
@@ -1437,15 +1796,15 @@
     inhalt.classList.add("is-farben");
   }
 
-  function fuelleBoden(inhalt, st) {
+  function fuelleBoden(inhalt, z) {
     const arten = el("div", "bau-musterreihe");
     K().BOEDEN.forEach((b0) => {
-      const b = el("button", `bau-muster${st.boden === b0.id ? " is-aktiv" : ""}`, { type: "button", "aria-label": b0.name, title: b0.name });
-      const hex = st.bodenFarbe ? farbeHex(st.bodenFarbe) : b0.farbe;
-      b.innerHTML = svgVon(`<g transform="scale(0.5) translate(0 0)">${A().boden(b0.id, b0.id === st.boden ? hex : b0.farbe, 0, 120, 120)}</g>`, "0 0 60 60");
+      const b = el("button", `bau-muster${z.boden === b0.id ? " is-aktiv" : ""}`, { type: "button", "aria-label": b0.name, title: b0.name });
+      const hex = z.bodenFarbe ? farbeHex(z.bodenFarbe) : b0.farbe;
+      b.innerHTML = svgVon(`<g transform="scale(0.5) translate(0 0)">${A().boden(b0.id, b0.id === z.boden ? hex : b0.farbe, 0, 120, 120)}</g>`, "0 0 60 60");
       b.addEventListener("click", () => {
         merkeRueck();
-        S().aendereStock(ui.haus, ui.zimmer, (s) => { s.boden = b0.id; s.bodenFarbe = ""; });
+        S().aendereZimmer(ui.haus, ui.zimmer, ui.slot, (zz) => { zz.boden = b0.id; zz.bodenFarbe = ""; });
         sag(b0.name);
         zeichneZimmer();
       });
@@ -1453,9 +1812,9 @@
     });
     const farben = el("div", "bau-farbreihe");
     K().FARBEN.forEach((farbe) => {
-      farben.append(farbKnopf(farbe, st.bodenFarbe === farbe.id, () => {
+      farben.append(farbKnopf(farbe, z.bodenFarbe === farbe.id, () => {
         merkeRueck();
-        S().aendereStock(ui.haus, ui.zimmer, (s) => { s.bodenFarbe = farbe.id; });
+        S().aendereZimmer(ui.haus, ui.zimmer, ui.slot, (zz) => { zz.bodenFarbe = farbe.id; });
         sag(`Boden ${farbe.name}`);
         zeichneZimmer();
       }, `Boden ${farbe.name}`));
@@ -1471,7 +1830,8 @@
     const alt = svg?.querySelector(".bau-wand")?.getAttribute("fill");
     zeichneZimmer();
     const neu = els.zimmerBuehne.querySelector("svg");
-    if (!neu || reduced() || !alt) return;
+    if (!neu || reduced() || !alt) { pruefeDank(); return; }
+    const breite = zimmerBreite();
     const deck = document.createElementNS(NS, "rect");
     deck.setAttribute("y", "0");
     deck.setAttribute("height", "216");
@@ -1480,8 +1840,8 @@
     const wand = neu.querySelector(".bau-boden");
     wand?.parentNode?.insertBefore(deck, wand);
     tween(520, (p) => {
-      deck.setAttribute("x", String(A().ZW * p));
-      deck.setAttribute("width", String(A().ZW * (1 - p)));
+      deck.setAttribute("x", String(breite * p));
+      deck.setAttribute("width", String(breite * (1 - p)));
     }, { e: ease.inOut, done: () => deck.remove() });
     pruefeDank();
   }
@@ -1490,9 +1850,9 @@
   // Dinge stellen, ziehen, bearbeiten
   // ---------------------------------------------------------------------------
   function merkeRueck() {
-    const st = S().stock(ui.haus, ui.zimmer);
-    if (!st) return;
-    ui.rueck.push(JSON.stringify({ wand: st.wand, muster: st.muster, boden: st.boden, bodenFarbe: st.bodenFarbe, licht: st.licht, dinge: st.dinge }));
+    const z = aktZimmer();
+    if (!z) return;
+    ui.rueck.push(JSON.stringify({ wand: z.wand, muster: z.muster, boden: z.boden, bodenFarbe: z.bodenFarbe, licht: z.licht, dinge: z.dinge }));
     if (ui.rueck.length > 40) ui.rueck.shift();
   }
 
@@ -1500,7 +1860,7 @@
     const schritt = ui.rueck.pop();
     if (!schritt) return;
     const alt = JSON.parse(schritt);
-    S().aendereStock(ui.haus, ui.zimmer, (s) => { Object.assign(s, alt); });
+    S().aendereZimmer(ui.haus, ui.zimmer, ui.slot, (z) => { Object.assign(z, alt); });
     waehleAus(null);
     sag("Rückgängig.");
     zeichneZimmer();
@@ -1509,21 +1869,21 @@
   // Ein Ding per Antippen ins Zimmer: an die freieste Stelle, und es fällt von
   // oben hinein.
   function stelleDing(id, { x = null, y = null } = {}) {
-    const st = S().stock(ui.haus, ui.zimmer);
-    if (!st) return null;
-    if (st.dinge.length >= S().DINGE_MAX) { sag("Das Zimmer ist voll. Räum zuerst etwas weg."); return null; }
+    const z = aktZimmer();
+    if (!z) return null;
+    if (z.dinge.length >= S().dingeMax(zimmerBreite())) { sag("Das Zimmer ist voll. Räum zuerst etwas weg."); return null; }
     const ding = M().DINGE[id];
     const geo = S().GEO;
-    const ort = x === null ? freieStelle(st, id) : { x, y };
+    const ort = x === null ? freieStelle(z, id) : { x, y };
     const d = { k: S().kennung("d"), i: id, x: ort.x, y: ort.y, c: "", f: 0, s: 1 };
     if (ding.art === "boden" || ding.art === "flach") {
-      const lande = landeplatz(st, d, ort.y ?? geo.STAND);
+      const lande = landeplatz(z, d, ort.y ?? geo.STAND);
       d.y = lande.y;
     } else if (ding.art === "decke") d.y = 0;
     begrenze(d);
     merkeRueck();
     const fallVon = ding.art === "boden" ? d.y - 140 : null;
-    S().aendereStock(ui.haus, ui.zimmer, (s) => { s.dinge.push(d); });
+    S().aendereZimmer(ui.haus, ui.zimmer, ui.slot, (zz) => { zz.dinge.push(d); });
     zeichneZimmer();
     waehleAus(d.k, { stumm: true });
     if (fallVon !== null) falle(d, fallVon);
@@ -1533,15 +1893,16 @@
   }
 
   // Wo ist am meisten Platz? Von der Mitte aus nach links und rechts suchen.
-  function freieStelle(st, id) {
+  function freieStelle(z, id) {
     const ding = M().DINGE[id];
     const geo = S().GEO;
+    const breite = zimmerBreite();
     const u = M().umriss(id, 1);
     const halb = (u.x1 - u.x0) / 2;
-    let bester = { x: geo.W / 2, wert: Infinity };
-    for (let x = halb + 6; x <= geo.W - halb - 6; x += 14) {
+    let bester = { x: breite / 2, wert: Infinity };
+    for (let x = halb + 6; x <= breite - halb - 6; x += 10) {
       let ueber = 0;
-      st.dinge.forEach((d) => {
+      z.dinge.forEach((d) => {
         const andere = M().DINGE[d.i];
         if (!andere || andere.art !== ding.art) return;
         const v = M().umriss(d.i, d.s);
@@ -1551,7 +1912,7 @@
         const b1 = d.x + v.x1;
         ueber += Math.max(0, Math.min(a1, b1) - Math.max(a0, b0));
       });
-      const wert = ueber + Math.abs(x - geo.W / 2) * 0.05;
+      const wert = ueber + Math.abs(x - breite / 2) * 0.05;
       if (wert < bester.wert) bester = { x, wert };
     }
     if (ding.art === "wand") return { x: bester.x, y: 92 };
@@ -1563,24 +1924,25 @@
   function begrenze(d) {
     const ding = M().DINGE[d.i];
     const geo = S().GEO;
+    const breite = zimmerBreite();
     const u = M().umriss(d.i, d.s);
-    d.x = clamp(d.x, -u.x0 + 2, geo.W - u.x1 - 2);
-    if (ding.art === "wand") d.y = clamp(d.y, -u.y0 + 4, geo.WAND_UNTEN - u.y1 - 2);
-    else if (ding.art === "decke") d.y = 0;
-    else if (ding.art === "flach") d.y = clamp(d.y, geo.STAND_HINTEN, geo.STAND_VORNE);
+    d.x = clamp(d.x, Math.min(-u.x0 + 2, breite / 2), Math.max(breite - u.x1 - 2, breite / 2));
+    if (ding?.art === "wand") d.y = clamp(d.y, -u.y0 + 4, geo.WAND_UNTEN - u.y1 - 2);
+    else if (ding?.art === "decke") d.y = 0;
+    else if (ding?.art === "flach") d.y = clamp(d.y, geo.STAND_HINTEN, geo.STAND_VORNE);
     else d.y = clamp(d.y, Math.max(-u.y0 + 2, 0), geo.STAND_VORNE);
   }
 
   // Wohin ein losgelassenes Ding fällt: auf die höchste Fläche darunter (nur
   // kleine Dinge), sonst auf den Boden – weiter vorn, wenn es tief losgelassen
   // wurde.
-  function landeplatz(st, d, yLos) {
+  function landeplatz(z, d, yLos) {
     const geo = S().GEO;
     const ding = M().DINGE[d.i];
     if (ding.art === "flach") return { y: clamp(yLos, geo.STAND_HINTEN, geo.STAND_VORNE) };
     if (ding.klein) {
       let beste = null;
-      st.dinge.forEach((u) => {
+      z.dinge.forEach((u) => {
         if (u.k === d.k) return;
         const fl = flaecheVon(u);
         if (!fl || d.x < fl.x0 || d.x > fl.x1) return;
@@ -1638,7 +2000,7 @@
   }
 
   function dingKnoten(k) { return els.zimmerBuehne.querySelector(`.bau-ding[data-k="${k}"]`); }
-  function dingDaten(k) { return S().stock(ui.haus, ui.zimmer)?.dinge.find((d) => d.k === k) || null; }
+  function dingDaten(k) { return aktZimmer()?.dinge.find((d) => d.k === k) || null; }
 
   // Bildschirm → Zimmer-Einheiten.
   function zimmerPunkt(clientX, clientY) {
@@ -1690,7 +2052,7 @@
           geist.style.width = `${w}px`;
           geist.style.height = `${h}px`;
           const y0 = ding.art === "wand" ? -ding.h / 2 : ding.art === "decke" ? 0 : -ding.h;
-          geist.innerHTML = svgVon(M().zeichne(id), `${-ding.w / 2} ${y0} ${ding.w} ${ding.h}`);
+          geist.innerHTML = svgVon(M().zeichne(id, null, aktZimmer()?.raum || ""), `${-ding.w / 2} ${y0} ${ding.w} ${ding.h}`);
           geist.dataset.art = ding.art;
           els.flug.append(geist);
           els.muell.hidden = true;
@@ -1741,7 +2103,7 @@
     els.zimmerBuehne.addEventListener("pointerdown", (e) => {
       if (ui.besetzt || e.button > 0) return;
       const schild = e.target.closest?.(".bau-schild");
-      if (schild) { griff = null; oeffneTafel(ui.haus, ui.zimmer); return; }
+      if (schild) { griff = null; oeffneTafelStock(ui.haus, ui.zimmer); return; }
       const tierEl = e.target.closest?.(".bau-tier");
       if (tierEl) {
         griff = { typ: "tier", id: e.pointerId, el: tierEl, x0: e.clientX, y0: e.clientY };
@@ -1753,11 +2115,11 @@
       const d = dingDaten(k);
       if (!d) return;
       const p = zimmerPunkt(e.clientX, e.clientY);
-      const st = S().stock(ui.haus, ui.zimmer);
+      const z = aktZimmer();
       // Was auf diesem Ding steht, wandert mit – gemerkt über die Kennung,
       // nachgeschlagen bei jeder Bewegung, wie das gezogene Ding selbst.
-      const mit = st.dinge.filter((u) => u.k !== d.k && traegerVon(st, u)?.k === d.k).map((u) => ({ k: u.k, dx: u.x - d.x, dy: u.y - d.y }));
-      griff = { typ: "ding", id: e.pointerId, k, x0: e.clientX, y0: e.clientY, dx: d.x - p.x, dy: d.y - p.y, bewegt: false, mit, vorher: JSON.stringify(st.dinge) };
+      const mit = z.dinge.filter((u) => u.k !== d.k && traegerVon(z, u)?.k === d.k).map((u) => ({ k: u.k, dx: u.x - d.x, dy: u.y - d.y }));
+      griff = { typ: "ding", id: e.pointerId, k, x0: e.clientX, y0: e.clientY, dx: d.x - p.x, dy: d.y - p.y, bewegt: false, mit, vorher: JSON.stringify(z.dinge) };
       try { els.zimmerBuehne.setPointerCapture(e.pointerId); } catch { /* egal */ }
       e.preventDefault();
     });
@@ -1798,7 +2160,7 @@
       zieht = false;
       els.muell.classList.remove("is-ueber");
       if (g.typ === "tier") {
-        if (Math.hypot(e.clientX - g.x0, e.clientY - g.y0) < 10) oeffneTafel(g.el.getAttribute("data-haus"), Number(g.el.getAttribute("data-index")));
+        if (Math.hypot(e.clientX - g.x0, e.clientY - g.y0) < 10) oeffneTafel(g.el.getAttribute("data-seed"));
         return;
       }
       if (g.typ === "leer") { if (Math.hypot(e.clientX - g.x0, e.clientY - g.y0) < 10) waehleAus(null); return; }
@@ -1810,16 +2172,16 @@
       }
       const imKorb = imMuell(e.clientX, e.clientY);
       els.muell.hidden = true;
-      const st = S().stock(ui.haus, ui.zimmer);
+      const z = aktZimmer();
       const d = dingDaten(g.k);
       // Der alte Stand für Rückgängig: so, wie es vor dem Ziehen war.
-      ui.rueck.push(JSON.stringify({ wand: st.wand, muster: st.muster, boden: st.boden, bodenFarbe: st.bodenFarbe, licht: st.licht, dinge: JSON.parse(g.vorher) }));
+      ui.rueck.push(JSON.stringify({ wand: z.wand, muster: z.muster, boden: z.boden, bodenFarbe: z.bodenFarbe, licht: z.licht, dinge: JSON.parse(g.vorher) }));
       if (imKorb && d) { entferne(d.k, { schonGemerkt: true }); return; }
       if (d) {
         const ding = M().DINGE[d.i];
         if (ding.art === "boden" || ding.art === "flach") {
           const vonY = d.y;
-          const lande = landeplatz(st, d, d.y);
+          const lande = landeplatz(z, d, d.y);
           d.y = lande.y;
           begrenze(d);
           const dy = d.y - vonY;
@@ -1827,7 +2189,7 @@
           if (Math.abs(dy) > 4) falle(d, vonY);
         } else begrenze(d);
       }
-      S().aendereStock(ui.haus, ui.zimmer, () => {});
+      S().aendereZimmer(ui.haus, ui.zimmer, ui.slot, () => {});
       zeichneZimmer();
       waehleAus(g.k, { stumm: true });
       pruefeDank();
@@ -1840,8 +2202,9 @@
   // regelt erst das Loslassen.
   function begrenzeLocker(d) {
     const geo = S().GEO;
+    const breite = zimmerBreite();
     const u = M().umriss(d.i, d.s);
-    d.x = clamp(d.x, -u.x0 - 20, geo.W - u.x1 + 20);
+    d.x = clamp(d.x, -u.x0 - 20, breite - u.x1 + 20);
     d.y = clamp(d.y, -u.y0 - 20, geo.H + 20);
   }
 
@@ -1851,7 +2214,7 @@
     if (!schonGemerkt) merkeRueck();
     poof(d, "#f1f5f9");
     const ding = M().DINGE[d.i];
-    S().aendereStock(ui.haus, ui.zimmer, (s) => { s.dinge = s.dinge.filter((u) => u.k !== k); });
+    S().aendereZimmer(ui.haus, ui.zimmer, ui.slot, (z) => { z.dinge = z.dinge.filter((u) => u.k !== k); });
     waehleAus(null);
     zeichneZimmer();
     sag(`${ding?.der || "Das Ding"} ist weg.`);
@@ -1899,7 +2262,7 @@
         const farbe = id ? K().FARBE[id] : { id: "", name: "Wie am Anfang", hex: ding.farbe };
         const b = farbKnopf(farbe, d.c === id, () => {
           merkeRueck();
-          S().aendereStock(ui.haus, ui.zimmer, (s) => { const u = s.dinge.find((x) => x.k === d.k); if (u) u.c = id; });
+          S().aendereZimmer(ui.haus, ui.zimmer, ui.slot, (z) => { const u = z.dinge.find((x) => x.k === d.k); if (u) u.c = id; });
           sag(farbe.name);
           zeichneZimmer();
           waehleAus(d.k, { stumm: true });
@@ -1914,8 +2277,8 @@
     aktion("", "Umdrehen", `<path d="M12 3v18" stroke="currentColor" stroke-width="2" stroke-dasharray="3 3"/><path d="M9 7 3 12l6 5zM15 7l6 5-6 5z" fill="currentColor"/>`, () => aendereDing(d.k, (u) => { u.f = u.f ? 0 : 1; }, "Umgedreht."));
     aktion("", "Kleiner", `<circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M7.5 12h9" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/>`, () => aendereDing(d.k, (u) => { u.s = GROESSEN[Math.max(0, GROESSEN.indexOf(naechsteGroesse(u.s)) - 1)]; }, "Kleiner."));
     aktion("", "Grösser", `<circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M7.5 12h9M12 7.5v9" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/>`, () => aendereDing(d.k, (u) => { u.s = GROESSEN[Math.min(GROESSEN.length - 1, GROESSEN.indexOf(naechsteGroesse(u.s)) + 1)]; }, "Grösser."));
-    aktion("", "Nach vorne", `<rect x="3" y="9" width="11" height="11" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><rect x="9" y="4" width="11" height="11" rx="2" fill="currentColor"/>`, () => aendereDing(d.k, (u, s) => { s.dinge = s.dinge.filter((x) => x.k !== u.k).concat([u]); }, "Nach vorne."));
-    aktion("", "Nach hinten", `<rect x="9" y="4" width="11" height="11" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><rect x="3" y="9" width="11" height="11" rx="2" fill="currentColor"/>`, () => aendereDing(d.k, (u, s) => { s.dinge = [u].concat(s.dinge.filter((x) => x.k !== u.k)); }, "Nach hinten."));
+    aktion("", "Nach vorne", `<rect x="3" y="9" width="11" height="11" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><rect x="9" y="4" width="11" height="11" rx="2" fill="currentColor"/>`, () => aendereDing(d.k, (u, z) => { z.dinge = z.dinge.filter((x) => x.k !== u.k).concat([u]); }, "Nach vorne."));
+    aktion("", "Nach hinten", `<rect x="9" y="4" width="11" height="11" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><rect x="3" y="9" width="11" height="11" rx="2" fill="currentColor"/>`, () => aendereDing(d.k, (u, z) => { z.dinge = [u].concat(z.dinge.filter((x) => x.k !== u.k)); }, "Nach hinten."));
     aktion("is-weg", "Wegräumen", `<path d="M7 7h10l-1 13H8z" fill="currentColor"/><rect x="5" y="4.5" width="14" height="2.5" rx="1" fill="currentColor"/>`, () => entferne(d.k));
     els.bearbeiten.append(zeile);
     els.bearbeiten.hidden = false;
@@ -1929,12 +2292,12 @@
 
   function aendereDing(k, fn, sprich) {
     merkeRueck();
-    S().aendereStock(ui.haus, ui.zimmer, (s) => {
-      const u = s.dinge.find((x) => x.k === k);
+    S().aendereZimmer(ui.haus, ui.zimmer, ui.slot, (z) => {
+      const u = z.dinge.find((x) => x.k === k);
       if (!u) return;
-      const traegt = s.dinge.filter((x) => x.k !== k && traegerVon(s, x)?.k === k);
+      const traegt = z.dinge.filter((x) => x.k !== k && traegerVon(z, x)?.k === k);
       const yAlt = flaecheVon(u)?.y;
-      fn(u, s);
+      fn(u, z);
       begrenze(u);
       // Was obendrauf steht, bleibt obendrauf.
       const yNeu = flaecheVon(u)?.y;
@@ -1993,52 +2356,63 @@
   // Dank: ein Wunsch ist eben in Erfüllung gegangen
   // ---------------------------------------------------------------------------
   const erfuelltVorher = new Map();
-  // Was jetzt schon erfüllt ist – damit nur Neues bedankt wird.
+  // Was die Bewohner dieser Wohnung jetzt schon erfüllt haben – damit nur
+  // Neues bedankt wird.
   function merkeErfuellt() {
-    if (ui.zimmer < 0) return;
-    erfuelltVorher.set(`${ui.haus}:${ui.zimmer}`, S().wuensche(ui.haus, ui.zimmer).filter((w) => w.erfuellt).map((w) => w.id));
+    const st = S().stock(ui.haus, ui.zimmer);
+    (st?.tiere || []).forEach((t) => erfuelltVorher.set(t.seed, S().wuensche(t.seed).filter((w) => w.erfuellt).map((w) => w.id)));
   }
   function pruefeDank() {
-    if (ui.zimmer < 0) return;
-    const schluessel = `${ui.haus}:${ui.zimmer}`;
-    const jetzt = S().wuensche(ui.haus, ui.zimmer).filter((w) => w.erfuellt).map((w) => w.id);
-    const vorher = erfuelltVorher.get(schluessel);
-    erfuelltVorher.set(schluessel, jetzt);
-    if (!vorher) return;
-    const neu = jetzt.filter((id) => !vorher.includes(id));
-    if (!neu.length) return;
-    const w = S().wuensche(ui.haus, ui.zimmer).find((x) => x.id === neu[0]);
-    const st = S().stock(ui.haus, ui.zimmer);
-    for (const t of tiere.values()) {
-      if (t.wohnt && t.index === ui.zimmer && t.hausId === ui.haus) {
-        t.huepf = 1;
-        blaseAnTier(t, `<text x="0" y="8" text-anchor="middle" font-size="26">💛</text>`, 2200);
-        wecke();
+    const st = aktStock();
+    if (st?.art !== "wohnung") return;
+    let gedankt = false;
+    st.tiere.forEach((tier) => {
+      const jetzt = S().wuensche(tier.seed).filter((w) => w.erfuellt).map((w) => w.id);
+      const vorher = erfuelltVorher.get(tier.seed);
+      erfuelltVorher.set(tier.seed, jetzt);
+      if (!vorher || gedankt) return;
+      const neu = jetzt.filter((id) => !vorher.includes(id));
+      if (!neu.length) return;
+      gedankt = true;
+      const w = S().wuensche(tier.seed).find((x) => x.id === neu[0]);
+      for (const t of tiere.values()) {
+        if (t.tier.seed === tier.seed) {
+          t.huepf = 1;
+          blaseAnTier(t, `<text x="0" y="8" text-anchor="middle" font-size="26">💛</text>`, 2200);
+          wecke();
+        }
       }
-    }
-    klang("correct");
-    const dank = w?.typ === "ding" ? `Juhu, ${K().DING_WUENSCHE[w.tag]?.ein || "danke"}! Danke!` : w?.typ === "farbe" ? "Juhu, meine Lieblingsfarbe! Danke!" : "Danke!";
-    sag(`${st?.tier?.n ? `${st.tier.n}: ` : ""}${dank}`);
-    const alle = S().sterne(ui.haus, ui.zimmer);
-    if (alle.total && alle.anzahl === alle.total) {
-      window.setTimeout(() => {
-        klang("unlock");
-        const svg = els.zimmerBuehne.querySelector("svg");
-        if (svg) kids()?.burstConfetti?.(svg, 40);
-        sag(`${st.tier.n} ist überglücklich! Alle Sterne!`);
-      }, 1400);
-    }
-    zeichneZimmerKopf();
+      klang("correct");
+      const dank = w?.typ === "ding" ? `Juhu, ${K().DING_WUENSCHE[w.tag]?.ein || "danke"}! Danke!` : w?.typ === "farbe" ? "Juhu, meine Lieblingsfarbe! Danke!" : "Danke!";
+      sag(`${tier.n}: ${dank}`);
+      const alle = S().sterne(tier.seed);
+      if (alle.total && alle.anzahl === alle.total) {
+        window.setTimeout(() => {
+          klang("unlock");
+          const svg = els.zimmerBuehne.querySelector("svg");
+          if (svg) kids()?.burstConfetti?.(svg, 40);
+          sag(`${tier.n} ist überglücklich! Alle Sterne!`);
+        }, 1400);
+      }
+    });
+    if (gedankt) zeichneZimmerKopf();
   }
 
   // ---------------------------------------------------------------------------
-  // Die Tier-Tafel
+  // Die Tier-Tafel: wer hier wohnt, wo es gerade ist, was es sich wünscht
   // ---------------------------------------------------------------------------
-  function oeffneTafel(hausId, index) {
+  function oeffneTafelStock(hausId, index) {
     const st = S().stock(hausId, index);
-    if (!st?.tier) return;
-    // Mit Kennung: Kommt ein Stockwerk aus der Cloud dazu, folgt ihm die Tafel.
-    ui.tafel = { hausId, index, id: st.id, gespraech: [] };
+    if (st?.tiere?.length) { oeffneTafel(st.tiere[0].seed); return; }
+    // Ein Zimmer der anderen Häuser: wer hier arbeitet.
+    const arbeiter = S().alleTiere().find((e) => { const j = S().jobVon(e.tier.seed); return j && j.haus === hausId && j.index === index; });
+    if (arbeiter) oeffneTafel(arbeiter.tier.seed);
+  }
+
+  function oeffneTafel(seed) {
+    const ref = S().findeTier(seed);
+    if (!ref) return;
+    ui.tafel = { seed };
     // Nach dem Verlassen der Bauecke hängt die alte Tafel nicht mehr im Bild
     // (mount leert die Bühne) – dann eine neue.
     if (!els.tafel?.isConnected) {
@@ -2048,94 +2422,116 @@
     }
     els.tafel.hidden = false;
     fuelleTafel();
-    const laune = S().laune(hausId, index);
-    sag(`${st.tier.n}, ${K().TIERE[st.tier.a].der}. ${laune.text}`);
-    hilfe(`Hier siehst du, was sich ${st.tier.n} wünscht. Gelbe Sterne sind Wünsche für das Zimmer, grüne für das Haus, blaue für ein anderes Haus. Tippe auf einen Wunsch, und er wird vorgelesen. Unten kannst du mit ${st.tier.n} plaudern.`);
+    const laune = S().laune(seed);
+    sag(`${ref.tier.n}, ${K().TIERE[ref.tier.a].der}. ${laune.text}`);
+    hilfe(`Hier siehst du, was sich ${ref.tier.n} wünscht: Gelbe Sterne sind Wünsche für die Wohnung, grüne für das Wohnhaus, blaue für die anderen Häuser. Dazu den Traumjob und wo ${ref.tier.n} gerade ist. Oben wechselst du zu den Mitbewohnern. Ist das Vorlesen an, liest ein Tipp auf einen Text ihn vor.`);
   }
 
   function schliesseTafel() {
     ui.tafel = null;
     if (els.tafel) els.tafel.hidden = true;
     if (ui.zimmer >= 0) hilfeZimmer(); else hilfeHaus();
+    pruefeZuzug();
   }
 
   function fuelleTafel() {
     if (!ui.tafel || !els.tafel) return;
-    const { hausId, index } = ui.tafel;
-    const st = S().stock(hausId, index);
-    if (!st?.tier) { schliesseTafel(); return; }
+    const ref = S().findeTier(ui.tafel.seed);
+    if (!ref) { schliesseTafel(); return; }
+    const { tier, stock: st } = ref;
     const katalog = K();
-    const art = katalog.TIERE[st.tier.a];
-    const raum = katalog.RAEUME[st.raum];
-    const laune = S().laune(hausId, index);
-    const sterne = S().sterne(hausId, index);
-    const wo = S().aufenthalt(hausId, index);
+    const art = katalog.TIERE[tier.a];
+    const raum = katalog.RAEUME[st.zimmer[0]?.raum];
+    const laune = S().laune(tier.seed);
+    const sterne = S().sterne(tier.seed);
     const karte = el("div", "bau-tafel-karte");
     const zu = knopf("bau-tafel-zu", "Schliessen", svgVon(`<path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>`, "0 0 24 24"), schliesseTafel);
+    karte.append(zu);
+    // Die Mitbewohner: ein Bild je Tier zum Wechseln.
+    if (st.tiere.length > 1) {
+      const leiste = el("div", "bau-tafel-leiste", { role: "tablist", "aria-label": "Wer hier wohnt" });
+      st.tiere.forEach((t) => {
+        const b = knopf(`bau-tafel-wechsel${t.seed === tier.seed ? " is-aktiv" : ""}`, `${t.n}, ${katalog.TIERE[t.a].der}`, `${svgVon(`<g transform="translate(24 50) scale(0.62)">${A().tier(t.a)}</g>`, "0 0 48 52")}<span>${textSicher(t.n)}</span>`, () => {
+          ui.tafel = { seed: t.seed };
+          fuelleTafel();
+          sag(`${t.n}. ${S().laune(t.seed).text}`);
+        });
+        b.setAttribute("role", "tab");
+        leiste.append(b);
+      });
+      karte.append(leiste);
+    }
     const kopf = el("div", "bau-tafel-kopf");
-    kopf.innerHTML = `${svgVon(`<g transform="translate(40 92) scale(1.05)">${A().tier(st.tier.a)}</g>`, "0 0 80 100", "bau-tafel-tier")}` +
-      `<div class="bau-tafel-wer"><h2>${st.tier.n}</h2><p>${art.der.replace(/^\w/, (c) => c.toUpperCase())} · ${hausId === "wohnhaus" ? "wohnt" : "arbeitet"} ${S().imRaum(st.raum)}</p>` +
+    kopf.innerHTML = `${svgVon(`<g transform="translate(40 92) scale(1.05)">${A().tier(tier.a)}</g>`, "0 0 80 100", "bau-tafel-tier")}` +
+      `<div class="bau-tafel-wer"><h2>${textSicher(tier.n)}</h2><p>${gross(art.der)} · wohnt ${S().imRaum(raum?.id)} ${katalog.HAUS.wohnhaus.im}</p>` +
       `<p class="bau-tafel-laune"><span aria-hidden="true">${laune.emoji}</span> ${laune.text}</p>` +
       `<p class="bau-tafel-zahl"><span class="bau-sternreihe">${sternReiheHtml(sterne)}</span> ${sterne.anzahl} von ${sterne.total}</p></div>`;
-    karte.append(zu, kopf);
-    if (wo) {
-      const ziel = S().stock(wo.haus, wo.index);
-      const zeile = el("div", "bau-tafel-unterwegs");
-      zeile.innerHTML = `<span>🚶 ${st.tier.n} ist gerade ${wo.grund === "arbeit" ? "bei der Arbeit" : "unterwegs"} – ${S().imRaum(ziel.raum)} ${katalog.HAUS[wo.haus].im}.</span>`;
-      zeile.append(knopf("bau-knopf-klein", `Zu ${st.tier.n} gehen`, `Hingehen →`, () => { schliesseTafel(); geheZu(wo.haus, wo.index); }));
-      karte.append(zeile);
-    }
+    karte.append(kopf);
+    // Wo es gerade ist – mit dem Weg dorthin.
+    const wo = S().aufenthalt(tier.seed);
+    const woZeile = el("div", `bau-tafel-wo${wo?.wo === "daheim" ? " is-daheim" : ""}`);
+    const woText = `${tier.n} ${S().woText(tier.seed)}.`;
+    woZeile.append(el("p", "bau-lies", { html: `<span aria-hidden="true">${wo?.wo === "arbeit" ? "💼" : wo?.wo === "besuch" ? "🚶" : "🏠"}</span> ${textSicher(woText)}`, "data-lies": woText }));
+    if (wo) woZeile.append(knopf("bau-knopf-klein bau-hingehen", `Zu ${tier.n} gehen`, `Hingehen →`, () => { schliesseTafel(); geheZu(wo.haus, wo.index, wo.slot, tier.seed); }));
+    karte.append(woZeile);
+    // Die Wünsche.
     const liste = el("ul", "bau-wunschliste");
-    S().wuensche(hausId, index).forEach((w) => {
+    S().wuensche(tier.seed).forEach((w) => {
       const li = el("li", `bau-wunsch is-${w.stern}${w.erfuellt ? " is-erfuellt" : ""}${w.neu ? " is-neu" : ""}`);
-      const b = knopf("bau-wunsch-text", w.text, `<i class="bau-stern is-${w.stern}${w.erfuellt ? " is-voll" : ""}"></i>${svgVon(wunschBild(w, 40), "-24 -24 48 48", "bau-wunsch-bild")}<span>${w.kurz}</span>${w.neu ? `<em>neu</em>` : ""}`, () => sag(w.erfuellt ? `${w.text} Das hast du schon erfüllt!` : w.text));
+      const b = knopf("bau-wunsch-text", w.text, `<i class="bau-stern is-${w.stern}${w.erfuellt ? " is-voll" : ""}"></i>${svgVon(wunschBild(w, 40), "-24 -24 48 48", "bau-wunsch-bild")}<span>${textSicher(w.kurz)}</span>${w.neu ? `<em>neu</em>` : ""}`, () => sag(w.erfuellt ? `${w.text} Das hast du schon erfüllt!` : w.text));
       li.append(b);
-      if (!w.erfuellt) li.append(knopf("bau-zeig", "Zeig mir, wie", "→", () => zeigeWunsch(hausId, index, w)));
+      if (!w.erfuellt) li.append(knopf("bau-zeig", "Zeig mir, wie", "→", () => zeigeWunsch(tier.seed, w)));
       else li.append(el("span", "bau-haken", { "aria-hidden": "true", text: "✓" }));
       liste.append(li);
     });
-    const legende = el("p", "bau-legende");
-    legende.innerHTML = `<i class="bau-stern is-gelb is-voll"></i> Zimmer <i class="bau-stern is-gruen is-voll"></i> ${katalog.HAUS[hausId].name} <i class="bau-stern is-blau is-voll"></i> andere Häuser`;
-    const plaudern = el("div", "bau-plaudern");
-    const verlauf = el("div", "bau-verlauf", { "aria-live": "polite" });
-    (ui.tafel.gespraech || []).slice(-4).forEach((z) => {
-      verlauf.append(el("p", "bau-sagt is-kind", { text: z.frage }));
-      verlauf.append(el("p", "bau-sagt is-tier", { text: z.antwort }));
-    });
-    const fragen = el("div", "bau-fragen");
-    katalog.PLAUDERN.forEach((f) => {
-      fragen.append(knopf("bau-frage", f.text, `<span aria-hidden="true">${f.emoji}</span><span class="bau-frage-text">${f.text}</span>`, () => frage(f)));
-    });
-    plaudern.append(verlauf, fragen);
-    const weg = knopf("bau-hinaus", `${st.tier.n} ausziehen lassen`, `🧳 Ausziehen lassen`, () => frageAuszug(st.tier));
-    karte.append(liste, legende, plaudern, weg);
+    const legende = el("p", "bau-legende bau-lies", { "data-lies": "Gelbe Sterne: Wünsche für die Wohnung. Grüne: für das Wohnhaus. Blaue: für die anderen Häuser." });
+    legende.innerHTML = `<i class="bau-stern is-gelb is-voll"></i> Wohnung <i class="bau-stern is-gruen is-voll"></i> Wohnhaus <i class="bau-stern is-blau is-voll"></i> andere Häuser`;
+    karte.append(liste, legende);
+    // Traumjob und Arbeit.
+    karte.append(arbeitTeil(tier));
+    const weg = knopf("bau-hinaus", `${tier.n} ausziehen lassen`, `🧳 Ausziehen lassen`, () => frageAuszug(tier));
+    karte.append(weg);
     els.tafel.innerHTML = "";
     els.tafel.append(karte);
-    verlauf.scrollTop = verlauf.scrollHeight;
   }
 
-  function frage(f) {
-    if (!ui.tafel) return;
-    const { hausId, index } = ui.tafel;
-    const antwort = S().antwort(hausId, index, f.id);
-    ui.tafel.gespraech.push({ frage: `${f.emoji} ${f.text}`, antwort });
-    fuelleTafel();
-    sag(antwort);
-    if (f.id === "lied") klang("win");
-    for (const t of tiere.values()) {
-      if (t.hausId === hausId && t.index === index) { t.huepf = 1; wecke(); }
+  // Der Traumjob und die Arbeit, die ein Tier gerade hat.
+  function arbeitTeil(tier) {
+    const box = el("div", "bau-tafel-arbeit");
+    const [traumHaus, traumRaum] = String(tier.traum || "").split(":");
+    const job = S().jobVon(tier.seed);
+    const traumText = traumRaum ? S().jobText(traumRaum, traumHaus) : "";
+    if (traumText) {
+      const erfuellt = job?.traum;
+      const satz = erfuellt
+        ? `Traumjob: ${traumText}. ${tier.n} arbeitet schon dort!`
+        : `Traumjob: ${traumText}. ${zimmerFehlt(traumHaus, traumRaum) ? `Dafür braucht es ${K().RAEUME[traumRaum]?.ein || "dieses Zimmer"} ${K().HAUS[traumHaus]?.im || ""}.` : "Dort ist gerade kein Platz frei."}`;
+      const zeile = el("div", `bau-traum${erfuellt ? " is-erfuellt" : ""}`);
+      zeile.append(el("p", "bau-lies", { html: `<span aria-hidden="true">${erfuellt ? "🌟" : "⭐"}</span> <b>Traumjob:</b> ${textSicher(traumText)}${erfuellt ? " ✓" : ""}`, "data-lies": satz }));
+      if (!erfuellt && zimmerFehlt(traumHaus, traumRaum)) zeile.append(knopf("bau-zeig", "Zeig mir, wo", "→", () => zeigeZimmerBauen(traumHaus, traumRaum)));
+      box.append(zeile);
     }
+    let arbeitSatz;
+    if (job) {
+      const z = S().zimmer(job.haus, job.index, job.slot);
+      arbeitSatz = `Arbeit: ${S().jobText(z?.raum, job.haus)}.`;
+    } else arbeitSatz = "Sucht noch Arbeit. Richte im Spital, im Dorf oder im Büro ein Zimmer ein!";
+    box.append(el("p", "bau-arbeit bau-lies", { html: `<span aria-hidden="true">💼</span> ${textSicher(arbeitSatz)}`, "data-lies": `${tier.n}: ${arbeitSatz}` }));
+    return box;
+  }
+
+  function zimmerFehlt(hausId, raumId) {
+    return !(S().haus(hausId)?.stock || []).some((s) => s.zimmer.some((z) => z.raum === raumId));
   }
 
   function frageAuszug(tier) {
     if (!ui.tafel) return;
-    const { hausId, index } = ui.tafel;
     const karte = els.tafel.querySelector(".bau-tafel-karte");
     const frageEl = el("div", "bau-frage-auszug", { role: "alertdialog" });
-    frageEl.innerHTML = `<p>Soll ${tier.n} wirklich ausziehen? Dann kommt bald ein neues Tier.</p>`;
+    frageEl.innerHTML = `<p>Soll ${textSicher(tier.n)} wirklich ausziehen? Dann kommt bald ein neues Tier.</p>`;
     const ja = knopf("bau-knopf-klein is-ja", "Ja, ausziehen", "Ja", () => {
       const name = tier.n;
-      S().hinausschicken(hausId, index);
+      S().hinausschicken(tier.seed);
       sag(`Tschüss, ${name}! Bald zieht jemand Neues ein.`);
       schliesseTafel();
       if (ui.zimmer >= 0) zeichneZimmer(); else zeichneHaus({ behalteKamera: true });
@@ -2148,14 +2544,16 @@
 
   // "Zeig mir": zum Ding in der Schublade, zur Wandfarbe oder zum Haus, in
   // dem das gewünschte Zimmer fehlt.
-  async function zeigeWunsch(hausId, index, w) {
+  async function zeigeWunsch(seed, w) {
+    const ref = S().findeTier(seed);
+    if (!ref) return;
     schliesseTafel();
     sag(w.text);
     if (w.typ === "ding" || w.typ === "farbe") {
-      if (ui.haus !== hausId) await zeigeHaus(hausId, 1, { stockwerk: index, ohneSprache: true });
-      if (ui.zimmer !== index) {
+      if (ui.haus !== ref.hausId) await zeigeHaus(ref.hausId, 1, { stockwerk: ref.index, ohneSprache: true });
+      if (ui.zimmer !== ref.index || ui.slot !== 0) {
         if (ui.zimmer >= 0) await schliesseZimmer(true);
-        await oeffneZimmer(index);
+        await oeffneZimmer(ref.index, 0);
       }
       if (w.typ === "farbe") {
         ui.schublade = "wand";
@@ -2165,42 +2563,57 @@
         stupse(knopfEl);
         return;
       }
-      ui.schublade = M().DINGE[w.zeige]?.kat || "passt";
+      const fund = findeInSchublade(w.tag, w.zeige);
+      ui.schublade = fund?.reiter || "zimmer";
       zeichneSchublade();
-      const knopfEl = els.schublade.querySelector(`[data-ding="${w.zeige}"]`);
+      const knopfEl = fund ? els.schublade.querySelector(`[data-ding="${fund.id}"]`) : null;
       knopfEl?.scrollIntoView?.({ block: "nearest", inline: "center" });
       stupse(knopfEl);
       return;
     }
-    // Ein Zimmer im eigenen oder in einem anderen Haus.
-    const ziel = w.haus;
+    zeigeZimmerBauen(w.haus, w.raum);
+  }
+
+  // Wo ein neues Zimmer hinkann: ein leerer Platz in einem Stockwerk, ein
+  // Rohbau, sonst das Plus (oder der Rätsel-Knopf für Ziegel).
+  async function zeigeZimmerBauen(hausId, raumId) {
+    if (ui.tafel) schliesseTafel();
     if (ui.zimmer >= 0) await schliesseZimmer(true);
-    if (ui.haus !== ziel) await zeigeHaus(ziel, 1, { ohneSprache: true });
-    const roh = aktHaus().stock.findIndex((s) => !s.raum);
-    if (roh >= 0) {
+    if (ui.haus !== hausId) await zeigeHaus(hausId, 1, { ohneSprache: true });
+    const raum = K().RAEUME[raumId];
+    const stock = aktHaus().stock;
+    let leer = null;
+    stock.forEach((s, i) => { if (!leer && s.art === "zwei") { const slot = s.zimmer.findIndex((z) => !z.raum); if (slot >= 0) leer = { i, slot }; } });
+    const roh = stock.findIndex((s) => s.art === "");
+    if (leer) {
+      kameraAuf(leer.i);
+      sag(`Hier ist noch Platz. Tippe auf das Plus und wähle ${raum?.der || "das Zimmer"}.`);
+      stupse(els.welt.querySelector(`.bau-raum[data-stock="${leer.i}"][data-slot="${leer.slot}"]`));
+    } else if (roh >= 0) {
       kameraAuf(roh);
-      const raum = K().RAEUME[w.raum];
-      sag(`Hier ist noch Platz. Tippe auf das Plus im Stockwerk und wähle ${raum?.der || "das Zimmer"}.`);
-      stupse(els.welt.querySelector(`.bau-stock[data-stock="${roh}"]`));
+      sag(`Hier ist noch ein leeres Stockwerk. Tippe darauf, wähle zwei Zimmer und dann ${raum?.der || "das Zimmer"}.`);
+      stupse(els.welt.querySelector(`.bau-raum[data-stock="${roh}"]`));
     } else {
-      const kann = S().kannBauen(ziel);
-      kameraAuf(aktHaus().stock.length - 1);
+      const kann = S().kannBauen(hausId);
+      kameraAuf(stock.length - 1);
       sag(kann.ok ? "Tippe auf das grüne Plus, dann baust du ein neues Stockwerk dafür." : "Dafür brauchst du ein neues Stockwerk. Löse ein Rätsel, dann bringt der Zug die Ziegel!");
       stupse(kann.ok ? els.welt.querySelector("[data-ziel='plus']") : els.raetsel);
     }
   }
 
-  // Zu einem Tier, das unterwegs ist: ins andere Haus, zum Stockwerk.
-  async function geheZu(hausId, index) {
+  // Zu einem Tier: ins richtige Haus, zum Stockwerk – und es hüpft.
+  async function geheZu(hausId, index, slot, seed) {
     if (ui.zimmer >= 0) await schliesseZimmer(true);
     if (ui.haus !== hausId) await zeigeHaus(hausId, 1, { stockwerk: index, ohneSprache: true });
     else kameraAuf(index);
-    const raum = K().RAEUME[S().stock(hausId, index)?.raum];
+    const raum = K().RAEUME[S().zimmer(hausId, index, slot)?.raum];
     if (raum) sag(`${raum.der} ${K().HAUS[hausId].im}.`);
+    await warte(500);
+    for (const t of tiere.values()) if (t.tier.seed === seed) { t.huepf = 1; wecke(); stupse(t.g); }
   }
 
   // ---------------------------------------------------------------------------
-  // Wählen: das erste Haus, die Zimmerart, die Fassade
+  // Wählen: das erste Haus, was ein Stockwerk wird, die Zimmerart, die Fassade
   // ---------------------------------------------------------------------------
   function oeffneOverlay(cls, titel) {
     schliesseOverlay();
@@ -2241,7 +2654,7 @@
       S().setzeGewaehlt(gewaehlt);
       schliesseOverlay();
       if (gewaehlt !== ui.haus) zeigeHaus(gewaehlt, 1);
-      else { sag(`${K().HAUS[gewaehlt].der}! Tippe auf das Stockwerk und wähle, was es werden soll.`); }
+      else { sag(`${K().HAUS[gewaehlt].der}! Tippe auf ein Stockwerk und wähle, was es werden soll.`); }
       window.setTimeout(pruefeLieferung, 700);
     });
     ok.disabled = true;
@@ -2249,57 +2662,121 @@
     sag("Willkommen in der Bauecke! Welches Haus baust du zuerst? Tippe auf ein Haus.");
   }
 
-  // Die Zimmerart: Karten mit Bild und Namen; ein Tipp liest vor, was dort
-  // geschieht, der Haken wählt.
-  function zeigeRaumwahl(index) {
-    const st = S().stock(ui.haus, index);
-    if (!st) return;
-    const haus = K().HAUS[ui.haus];
-    const { karte } = oeffneOverlay("is-raumwahl", st.raum ? "Was soll dieses Zimmer werden?" : `Was wird das neue Stockwerk ${haus.im}?`);
-    let gewaehlt = st.raum || "";
+  // Eine Wahl mit grossen Karten: Bild, Name, ein Satz; ein Tipp liest vor,
+  // der Haken wählt.
+  function kartenWahl({ cls, titel, frage, karten, aktiv = "", okText = "Das nehme ich! ✓", weiter }) {
+    const { karte } = oeffneOverlay(cls, titel);
+    let gewaehlt = aktiv;
     const raster = el("div", "bau-wahl-raster is-zimmer");
-    const vorhanden = new Set(aktHaus().stock.map((s) => s.raum).filter(Boolean));
-    haus.raeume.forEach((raumId) => {
-      const raum = K().RAEUME[raumId];
-      const b = knopf(`bau-wahl-feld${gewaehlt === raumId ? " is-aktiv" : ""}`, raum.name,
-        `${svgVon(dingBild(raum.icon, 56), "-34 -34 68 68", "bau-wahl-bild")}<span>${raum.name}</span>${vorhanden.has(raumId) ? `<i class="bau-schon" title="gibt es schon">✓</i>` : ""}`, () => {
-          gewaehlt = raumId;
+    karten.forEach((k) => {
+      const b = knopf(`bau-wahl-feld${gewaehlt === k.id ? " is-aktiv" : ""}`, k.name,
+        `${svgVon(k.bild, "-34 -34 68 68", "bau-wahl-bild")}<span>${k.name}</span>${k.schon ? `<i class="bau-schon" title="gibt es schon">✓</i>` : ""}`, () => {
+          gewaehlt = k.id;
           raster.querySelectorAll(".bau-wahl-feld").forEach((x) => x.classList.toggle("is-aktiv", x === b));
           ok.disabled = false;
-          beschrieb.textContent = raum.text;
-          sag(`${raum.der}. ${raum.text}`);
+          beschrieb.textContent = k.text;
+          sag(`${k.der || k.name}. ${k.text}`);
         });
       raster.append(b);
     });
-    const beschrieb = el("p", "bau-wahl-text", { text: gewaehlt ? K().RAEUME[gewaehlt].text : "Tippe auf ein Zimmer, dann hörst du, was dort geschieht." });
-    const ok = knopf("bau-ok", "Das nehme ich", "Das nehme ich! ✓", async () => {
-      if (!gewaehlt) return;
-      const neu = !st.raum;
-      const gleich = st.raum === gewaehlt;
-      schliesseOverlay();
-      if (!gleich) S().waehleRaum(ui.haus, index, gewaehlt);
-      const raum = K().RAEUME[gewaehlt];
-      if (ui.zimmer === index) {
-        merkeErfuellt();
-        zeichneZimmer();
-        sag(`Das ist jetzt ${raum.der}.`);
-        return;
-      }
-      zeichneHaus({ stockwerk: index });
-      klang("correct");
-      if (neu) {
-        const tier = S().stock(ui.haus, index)?.tier;
-        sag(`${raum.der}! ${tier ? `${tier.n}, ${K().TIERE[tier.a].der}, zieht ein.` : ""}`);
-      }
-      await warte(500);
-      oeffneZimmer(index);
-    });
+    const beschrieb = el("p", "bau-wahl-text", { text: karten.find((k) => k.id === gewaehlt)?.text || frage });
+    const ok = knopf("bau-ok", okText.replace(/ ✓$/, ""), okText, () => { if (gewaehlt) { schliesseOverlay(); weiter(gewaehlt); } });
     ok.disabled = !gewaehlt;
     const ab = knopf("bau-abbrechen", "Abbrechen", "Abbrechen", () => { schliesseOverlay(); sag("Abgebrochen."); });
     const unten = el("div", "bau-wahl-unten");
     unten.append(ab, ok);
     karte.append(raster, beschrieb, unten);
-    sag(st.raum ? "Was soll dieses Zimmer werden?" : `Was wird das neue Stockwerk? Tippe auf ein Zimmer.`);
+    sag(frage);
+  }
+
+  // Ein neues Stockwerk im Wohnhaus: Wohnt hier jemand, oder kommen zwei
+  // Zimmer hin?
+  function zeigeArtwahl(index) {
+    const st = S().stock(ui.haus, index);
+    if (!st || st.art) return;
+    kartenWahl({
+      cls: "is-artwahl",
+      titel: "Was wird das neue Stockwerk?",
+      frage: "Was wird das neue Stockwerk? Eine Wohnung, in der Tiere wohnen, oder zwei Zimmer wie Küche und Bad?",
+      karten: [
+        { id: "wohnung", name: "Wohnung", text: "Eine Wohnung: Hier wohnen bis zu drei Tiere – in einem Schlafzimmer oder einem Kinderzimmer.", bild: dingBild("bett", 56) },
+        { id: "zwei", name: "Zwei Zimmer", text: "Zwei Zimmer nebeneinander: zum Beispiel Küche und Bad, Wohnzimmer oder Waschküche.", bild: `<g transform="translate(-16 0)">${dingBild("kochherd", 30)}</g><g transform="translate(17 0)">${dingBild("wanne", 30)}</g>` },
+      ],
+      okText: "Das wird es! ✓",
+      weiter: async (art) => {
+        S().waehleArt(ui.haus, index, art);
+        zeichneHaus({ stockwerk: index });
+        klang("correct");
+        if (art === "wohnung") { await warte(350); zeigeWohnungswahl(index); return; }
+        sag("Zwei Zimmer! Tippe auf eines und wähle, was es werden soll.");
+        stupse(els.welt.querySelector(`.bau-raum[data-stock="${index}"][data-slot="0"]`));
+      },
+    });
+  }
+
+  // Eine Wohnung: Schlafzimmer oder Kinderzimmer? Beim ersten Mal zieht
+  // gleich ein Tier ein.
+  function zeigeWohnungswahl(index) {
+    const st = S().stock(ui.haus, index);
+    if (st?.art !== "wohnung") return;
+    const z = st.zimmer[0];
+    kartenWahl({
+      cls: "is-raumwahl",
+      titel: z.raum ? "Was soll diese Wohnung sein?" : "Eine leere Wohnung!",
+      frage: z.raum ? "Was soll diese Wohnung sein?" : "Eine leere Wohnung! Wird sie ein Schlafzimmer oder ein Kinderzimmer? Dann zieht gleich jemand ein.",
+      aktiv: z.raum,
+      karten: K().WOHNEN.map((id) => { const r = K().RAEUME[id]; return { id, name: r.name, der: r.der, text: r.text, bild: dingBild(r.icon, 56) }; }),
+      weiter: async (raumId) => {
+        if (raumId === z.raum) return;
+        const ergebnis = S().waehleRaum(ui.haus, index, 0, raumId);
+        const raum = K().RAEUME[raumId];
+        if (ui.zimmer === index) {
+          merkeErfuellt();
+          zeichneZimmer();
+          sag(`Das ist jetzt ${raum.der}.`);
+          return;
+        }
+        if (ergebnis && typeof ergebnis === "object") {
+          sag(`${raum.der}!`);
+          await zeigeEinzug(index, ergebnis);
+          await warte(1600);
+          if (ui.zimmer < 0 && !ui.overlay && !ui.tafel) oeffneZimmer(index, 0);
+          return;
+        }
+        zeichneHaus({ stockwerk: index });
+      },
+    });
+  }
+
+  // Ein Zimmer auf einem Stockwerk mit zwei Zimmern: welche Art?
+  function zeigeRaumwahl(index, slot) {
+    const st = S().stock(ui.haus, index);
+    const z = st?.zimmer?.[slot];
+    if (!z || st.art === "wohnung") return;
+    const haus = K().HAUS[ui.haus];
+    const vorhanden = new Set(aktHaus().stock.flatMap((s) => s.zimmer.map((x) => x.raum)).filter(Boolean));
+    kartenWahl({
+      cls: "is-raumwahl",
+      titel: z.raum ? "Was soll dieses Zimmer werden?" : `Ein neues Zimmer ${haus.im}`,
+      frage: z.raum ? "Was soll dieses Zimmer werden?" : "Was wird das neue Zimmer? Tippe auf ein Zimmer, dann hörst du, was dort geschieht.",
+      aktiv: z.raum,
+      karten: haus.raeume.filter((id) => !K().RAEUME[id].wohnen).map((id) => { const r = K().RAEUME[id]; return { id, name: r.name, der: r.der, text: r.job ? `${r.text} Hier kann man ${r.job}.` : r.text, bild: dingBild(r.icon, 56), schon: vorhanden.has(id) }; }),
+      weiter: async (raumId) => {
+        if (raumId === z.raum) return;
+        S().waehleRaum(ui.haus, index, slot, raumId);
+        const raum = K().RAEUME[raumId];
+        if (ui.zimmer === index && ui.slot === slot) {
+          zeichneZimmer();
+          sag(`Das ist jetzt ${raum.der}.`);
+          return;
+        }
+        zeichneHaus({ stockwerk: index });
+        klang("correct");
+        sag(`${raum.der}!`);
+        await warte(450);
+        oeffneZimmer(index, slot);
+      },
+    });
   }
 
   // Das Haus anmalen: Fassade und Dach.

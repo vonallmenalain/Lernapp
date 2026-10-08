@@ -1,4 +1,4 @@
-const APP_VERSION = "2026-10-06-29";
+const APP_VERSION = "2026-10-06-30";
 const CACHE_PREFIX = "lernapp-pwa-";
 const CACHE_NAME = `${CACHE_PREFIX}${APP_VERSION}`;
 const ASSET_VERSION_QUERY = `?v=${APP_VERSION}`;
@@ -144,6 +144,15 @@ const CORE_ASSETS = [
   `./train-leseecke.js${ASSET_VERSION_QUERY}`,
   `./bau.css${ASSET_VERSION_QUERY}`,
   `./bau-moebel.js${ASSET_VERSION_QUERY}`,
+  `./bau-moebel-wohnen.js${ASSET_VERSION_QUERY}`,
+  `./bau-moebel-haus.js${ASSET_VERSION_QUERY}`,
+  `./bau-moebel-spital.js${ASSET_VERSION_QUERY}`,
+  `./bau-moebel-station.js${ASSET_VERSION_QUERY}`,
+  `./bau-moebel-laeden.js${ASSET_VERSION_QUERY}`,
+  `./bau-moebel-dienste.js${ASSET_VERSION_QUERY}`,
+  `./bau-moebel-freizeit.js${ASSET_VERSION_QUERY}`,
+  `./bau-moebel-buero.js${ASSET_VERSION_QUERY}`,
+  `./bau-moebel-arbeit.js${ASSET_VERSION_QUERY}`,
   `./bau-katalog.js${ASSET_VERSION_QUERY}`,
   `./bau-stand.js${ASSET_VERSION_QUERY}`,
   `./bau-art.js${ASSET_VERSION_QUERY}`,

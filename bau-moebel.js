@@ -674,6 +674,11 @@
     kratzbaum: { name: "Kratzbaum", der: "der Kratzbaum", kat: "deko", w: 50, h: 110, farbe: "#a78bfa", tags: ["kratzbaum"], d: (c) =>
       R(-24, -8, 48, 8, c, 3) + R(-6, -100, 12, 92, "#e2c9a6", 3) + S("M-6 -86h12M-6 -70h12M-6 -54h12M-6 -38h12M-6 -22h12", "#c4a57e", 1.5) +
       R(-20, -64, 40, 7, c, 3) + R(-16, -106, 32, 10, c, 4) + C(12, -52, 5, "#ffd166") + S("M12 -57v-5", "#9aa5b1", 1) },
+    kletterfelsen: { name: "Kletterfelsen", der: "der Kletterfelsen", kat: "deko", w: 84, h: 70, farbe: "#a99a86", tags: ["klettern"], d: (c) =>
+      P("M-42 0L-34 -38L-14 -60L8 -70L28 -52L42 -20L40 0Z", c) + P("M-34 -38L-14 -60L8 -70L2 -44L-20 -30Z", shade(c, 0.18)) +
+      P("M8 -70L28 -52L42 -20L22 -28L2 -44Z", shade(c, -0.12)) + P("M-20 -30L2 -44L22 -28L18 0H-26Z", shade(c, 0.06)) +
+      [[-24, -18, "#ffd166"], [-6, -34, "#ef5350"], [14, -16, "#6cc3d5"], [22, -42, "#7cc05e"], [-2, -56, "#ff9f43"]].map(([x, y, f]) => E(x, y, 4, 3, f)).join("") +
+      P("M-14 -60l4-6l6 4l-4 6z", "#ffffff", `opacity="0.8"`) + P("M8 -70l4-5l5 4l-4 5z", "#ffffff", `opacity="0.8"`) },
     vogelhaus: { name: "Vogelhäuschen", der: "das Vogelhäuschen", kat: "deko", art: "wand", w: 40, h: 46, tags: ["deko"], d: () =>
       P("M-20 -6l20-18l20 18z", "#ef5350") + R(-16, -6, 32, 28, "#ffd166", 2) + C(0, 4, 6, "#5b3a29") + R(-10, 22, 20, 3, HOLZ_D, 1.5) + C(14, 18, 4, "#6cc3d5") + P("M17 17l4 1-4 2z", "#ff9f43") },
 
@@ -726,20 +731,61 @@
     { id: "essen", name: "Leckereien", icon: "🥕" },
   ];
 
+  // ---------------------------------------------------------------------------
+  // Dinge je Zimmer
+  // ---------------------------------------------------------------------------
+  // Jede Zimmerart hat ihre eigenen Dinge – im Eingang steht kein Bett, im
+  // Schlafzimmer keine Dusche. Welche, steht in RAUM_DINGE (gefüllt von den
+  // Dateien bau-moebel-<haus>.js über dazu()). Nur wenige Dinge gibt es
+  // überall: Licht, ein Bild, eine Pflanze, ein Fenster, eine Uhr, ein Teppich.
+  // Das Bild zeigt, was zum Zimmer passt (MOTIVE): im Spital ein Herz, in der
+  // Bibliothek ein Buch.
+  const UEBERALL = ["deckenlampe", "stehlampe", "bild", "fenster", "pflanze", "uhr", "teppich"];
+  const RAUM_DINGE = {};
+  const MOTIVE = {};
+
+  // Das Bild an der Wand: ein Rahmen, darin das Motiv des Zimmers. Ein Motiv
+  // zeichnet in den Bereich -23..23 mal -17..17 (die Mitte ist 0, 0).
+  const MOTIV_STANDARD = () => R(-23, -17, 46, 34, "#bfe6f5", 2) + P("M-23 17L-9 1L1 9L11 -3L23 9V17Z", "#7cc05e") + C(11, -8, 4.5, "#ffd166");
+  DINGE.bild.d = (c, raum) => {
+    let motiv = "";
+    try { motiv = (MOTIVE[raum] || MOTIV_STANDARD)(c); } catch { motiv = MOTIV_STANDARD(); }
+    return R(-28, -22, 56, 44, HOLZ, 4) + R(-23, -17, 46, 34, "#fffaf0", 2) + motiv + R(-23, -17, 46, 34, "none", 2, `stroke="${HOLZ_D}" stroke-width="1"`);
+  };
+
   // Ergänzt, was jede Zeichnung braucht, an einer Stelle: die Art (boden ist
   // der Normalfall), den Bereich der Fläche und den Namen mit Artikel.
-  Object.entries(DINGE).forEach(([id, ding]) => {
+  function ergaenze(id, ding) {
     ding.id = id;
     ding.art = ding.art || "boden";
     ding.tags = ding.tags || [];
     if (typeof ding.flaeche === "number" && !ding.fx) ding.fx = [-ding.w / 2 + 4, ding.w / 2 - 4];
-  });
+    return ding;
+  }
+  Object.entries(DINGE).forEach(([id, ding]) => ergaenze(id, ding));
 
-  // Die Zeichnung eines Dings, mit seiner Farbe (oder der Grundfarbe).
-  function zeichne(id, farbe = null) {
+  // Weitere Dinge, die Zimmerlisten und die Bildmotive aus bau-moebel-<haus>.js.
+  // Eine Kennung gibt es nur einmal: Wer eine schon vergebene noch einmal
+  // bringt, wird übergangen (und validate-bau.mjs meldet es).
+  const doppelt = [];
+  function dazu({ dinge = {}, raeume = {}, motive = {} } = {}) {
+    Object.entries(dinge).forEach(([id, ding]) => {
+      if (DINGE[id]) { doppelt.push(id); return; }
+      DINGE[id] = ergaenze(id, ding);
+    });
+    Object.entries(raeume).forEach(([raum, ids]) => {
+      const liste = RAUM_DINGE[raum] || (RAUM_DINGE[raum] = []);
+      ids.forEach((id) => { if (!liste.includes(id)) liste.push(id); });
+    });
+    Object.assign(MOTIVE, motive);
+  }
+
+  // Die Zeichnung eines Dings, mit seiner Farbe (oder der Grundfarbe). Das
+  // Zimmer braucht nur das Bild – für sein Motiv.
+  function zeichne(id, farbe = null, raum = "") {
     const ding = DINGE[id];
     if (!ding) return "";
-    try { return ding.d(farbe || ding.farbe || "#7c5ce6"); } catch { return ""; }
+    try { return ding.d(farbe || ding.farbe || "#7c5ce6", raum); } catch { return ""; }
   }
 
   // Wie viel Platz ein Ding im Zimmer braucht (in Zimmer-Einheiten, mit MASS
@@ -754,5 +800,9 @@
     return { x0: -w, y0: -ding.h * k, x1: w, y1: 0 };
   }
 
-  window.LernappBauMoebel = { MASS, DINGE, KATEGORIEN, zeichne, umriss, shade, stern };
+  // Die Bausteine für die Dateien bau-moebel-<haus>.js – damit alle Dinge im
+  // selben Stil gezeichnet sind.
+  const hilfe = { R, C, E, P, S, T, leg, stern, topf, buecherReihe, shade, HOLZ, HOLZ_D, HOLZ_DD, METALL, METALL_D, DUNKEL, WEISS, RAND, TINTE, BUNT };
+
+  window.LernappBauMoebel = { MASS, DINGE, KATEGORIEN, UEBERALL, RAUM_DINGE, MOTIVE, doppelt, dazu, zeichne, umriss, shade, stern, hilfe };
 })();

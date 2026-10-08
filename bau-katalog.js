@@ -3,21 +3,29 @@
  * und ihre Wünsche.
  * ---------------------------------------------------------------------------
  * Vier Häuser stehen nebeneinander an der Strasse: das Wohnhaus, das Spital,
- * das Dorfzentrum und das Bürohaus. Jedes wächst Stockwerk um Stockwerk, und
- * jedes Stockwerk ist ein Zimmer, dessen Art das Kind wählt. Zu jeder Art
- * gehört ein kurzer Satz, der erklärt, was dort geschieht – im Spital lernt
- * ein Kind so ganz nebenbei, was eine Radiologie ist.
+ * das Dorf und das Büro. Jedes wächst Stockwerk um Stockwerk. Zu jeder
+ * Zimmerart gehört ein kurzer Satz, der erklärt, was dort geschieht – im
+ * Spital lernt ein Kind so ganz nebenbei, was eine Radiologie ist.
  *
- * In jedem Stockwerk wohnt (oder arbeitet) ein Tier. Es hat Wünsche:
- *   gelb   fünf für sein eigenes Zimmer – ein Bett, eine Lampe, eine Farbe
- *   grün   zwei für sein Haus – "Im Wohnhaus wünsche ich mir ein Badezimmer"
- *   blau   einen für ein anderes Haus – "Im Dorfzentrum wünsche ich mir einen
+ * Gewohnt wird nur im Wohnhaus, in den Wohnungen (wohnen: Schlafzimmer oder
+ * Kinderzimmer, ein Zimmer je Stockwerk, bis zu drei Tiere). Alle anderen
+ * Zimmer stehen zu zweit auf einem Stockwerk; in denen der anderen Häuser
+ * arbeiten die Tiere (job: was man dort tut – auch der Traumjob eines Tiers).
+ *
+ * Jedes Tier hat fünf Wünsche:
+ *   gelb   zwei für seine Wohnung – ein Bett, eine Lampe, eine Farbe
+ *   grün   einen für das Wohnhaus – "Im Wohnhaus wünsche ich mir ein Bad"
+ *   blau   zwei für die anderen Häuser – "Im Dorf wünsche ich mir einen
  *          Spielplatz"; so brauchen die vier Häuser einander
  * Wer welche Wünsche hat, rechnet bau-stand.js aus diesen Listen aus.
  *
+ * Welche Dinge in welches Zimmer gehören, steht bei den Dingen selbst
+ * (bau-moebel.js und bau-moebel-<gruppe>.js, RAUM_DINGE); dingeFuer() fügt
+ * für die Wohnungen die Lieblingsdinge der Tierarten an.
+ *
  * Nur Daten, keine Logik: Die Prüfung scripts/validate-bau.mjs liest diese
- * Datei ohne Browser und hält sie mit bau-moebel.js stimmig – jeder Wunsch
- * muss sich mit einem Ding erfüllen lassen, jedes Zimmer genug Wünsche haben.
+ * Datei ohne Browser und hält sie mit den Dingen stimmig – jeder Wunsch muss
+ * sich in seinem Zimmer erfüllen lassen.
  */
 (() => {
   "use strict";
@@ -103,13 +111,13 @@
   // im: "im Wohnhaus" – für die Wünsche. dach: wie das Dach aussieht.
   const HAEUSER = [
     { id: "wohnhaus", name: "Wohnhaus", der: "das Wohnhaus", im: "im Wohnhaus", fassade: "pfirsich", dach: "rot", dachForm: "giebel",
-      text: "Im Wohnhaus wohnen die Tiere: mit Schlafzimmer, Küche, Badezimmer und allem, was man zum Wohnen braucht." },
+      text: "Im Wohnhaus wohnen die Tiere: in Schlaf- und Kinderzimmern, dazu Küche, Bad und alles, was man zum Wohnen braucht." },
     { id: "spital", name: "Spital", der: "das Spital", im: "im Spital", fassade: "weiss", dach: "blau", dachForm: "heli",
       text: "Im Spital wird geholfen, wenn jemand krank ist oder sich verletzt hat. Jede Abteilung hat ihre eigene Aufgabe." },
-    { id: "zentrum", name: "Dorfzentrum", der: "das Dorfzentrum", im: "im Dorfzentrum", fassade: "hellgelb", dach: "gruen", dachForm: "turm",
-      text: "Im Dorfzentrum trifft man sich: zum Einkaufen, Lesen, Essen, Spielen und Schwimmen." },
-    { id: "buero", name: "Bürohaus", der: "das Bürohaus", im: "im Bürohaus", fassade: "hellblau", dach: "grau", dachForm: "flach",
-      text: "Im Bürohaus wird gearbeitet: an Schreibtischen, in Sitzungen und am Computer." },
+    { id: "zentrum", name: "Dorf", der: "das Dorf", im: "im Dorf", fassade: "hellgelb", dach: "gruen", dachForm: "turm",
+      text: "Im Dorf trifft man sich: zum Einkaufen, Lesen, Essen, Spielen und Schwimmen." },
+    { id: "buero", name: "Büro", der: "das Büro", im: "im Büro", fassade: "hellblau", dach: "grau", dachForm: "flach",
+      text: "Im Büro wird gearbeitet: an Schreibtischen, in Sitzungen und am Computer." },
   ];
   const HAUS = Object.fromEntries(HAEUSER.map((haus) => [haus.id, haus]));
 
@@ -121,303 +129,239 @@
   //           Zimmerart antippt
   // wand/muster/boden: wie das Zimmer am Anfang aussieht
   // icon:     ein Ding, das für das Zimmer steht (Karten, Wünsche)
-  // passend:  was in der ersten Schublade ("Passt hier") liegt
-  // wuensche: woraus die gelben Wünsche des Tiers gezogen werden (tags)
-  // arbeit:   hier arbeiten Tiere aus dem Wohnhaus manchmal
-  // ausflug:  hierhin gehen Tiere aus dem Wohnhaus in der Freizeit
+  // wuensche: nur in den Wohnungen – woraus die gelben Wünsche der Tiere
+  //           gezogen werden (tags)
+  // ausflug:  hierhin gehen die Tiere in der Freizeit besonders gern
+  // Was in der Schublade eines Zimmers liegt, steht bei den Möbeln
+  // (bau-moebel-<gruppe>.js, RAUM_DINGE); was man hier arbeitet, in JOBS.
   const R = (id, haus, name, der, ein, text, opts) => ({ id, haus, name, der, ein, text, muster: "keine", boden: "parkett", ...opts });
 
   const RAEUME_LISTE = [
     // --- Wohnhaus -------------------------------------------------------------
     R("eingang", "wohnhaus", "Eingang", "der Eingang", "einen Eingang",
       "Beim Eingang kommt man ins Haus. Hier hängen die Jacken, und die Schuhe stehen im Regal.",
-      { wand: "creme", boden: "plaettli", icon: "garderobe",
-        passend: ["garderobe", "schuhregal", "bank", "spiegel", "briefkasten", "pflanze", "laeufer", "deckenlampe", "bild", "uhr", "kommode"],
-        wuensche: ["garderobe", "schuhe", "spiegel", "sitz", "lampe", "pflanze", "teppich", "bild", "uhr"] }),
+      { wand: "creme", boden: "plaettli", icon: "garderobe" }),
     R("wohnzimmer", "wohnhaus", "Wohnzimmer", "das Wohnzimmer", "ein Wohnzimmer",
       "Im Wohnzimmer sitzt die Familie zusammen: zum Spielen, Lesen und Plaudern.",
-      { wand: "hellgelb", icon: "sofa",
-        passend: ["sofa", "ecksofa", "sessel", "couchtisch", "fernseher", "sideboard", "buecherregal", "stehlampe", "teppich", "pflanze", "bild", "kamin", "uhr", "kissen", "aquarium", "radio"],
-        wuensche: ["sofa", "tisch", "lampe", "teppich", "bild", "pflanze", "fernseher", "buecher", "kissen", "uhr", "fenster", "kamin"] }),
+      { wand: "hellgelb", icon: "sofa" }),
     R("kueche", "wohnhaus", "Küche", "die Küche", "eine Küche",
       "In der Küche wird gekocht. Hier gibt es einen Kochherd, einen Kühlschrank und ein Spülbecken.",
-      { wand: "mint", muster: "kacheln", boden: "plaettli", icon: "kochherd",
-        passend: ["kochherd", "kuehlschrank", "spuele", "kuechenschrank", "haengeschrank", "dunstabzug", "gewuerzregal", "topf", "pfanne", "mikrowelle", "kaffeemaschine", "toaster", "wasserkocher", "obstschale", "brotkorb", "tisch", "stuhl", "uhr"],
-        wuensche: ["herd", "kuehlschrank", "spuele", "geschirr", "kuechenschrank", "tisch", "stuhl", "uhr", "lampe", "fruechte", "brot"] }),
+      { wand: "mint", muster: "kacheln", boden: "plaettli", icon: "kochherd" }),
     R("esszimmer", "wohnhaus", "Esszimmer", "das Esszimmer", "ein Esszimmer",
       "Im Esszimmer essen alle zusammen am grossen Tisch.",
-      { wand: "pfirsich", icon: "esstisch",
-        passend: ["esstisch", "stuhl", "sideboard", "kronleuchter", "deckenlampe", "teller", "geschirr", "blumenvase", "obstschale", "zopf", "kaffeetasse", "bild", "pflanze", "teppich", "uhr"],
-        wuensche: ["tisch", "stuhl", "lampe", "geschirr", "essen", "blumen", "bild", "teppich", "pflanze"] }),
+      { wand: "pfirsich", icon: "esstisch" }),
     R("schlafzimmer", "wohnhaus", "Schlafzimmer", "das Schlafzimmer", "ein Schlafzimmer",
       "Im Schlafzimmer schläft man. Hier stehen das Bett, der Nachttisch und der Kleiderschrank.",
       { wand: "flieder", icon: "bett",
-        passend: ["bett", "doppelbett", "nachttisch", "kleiderschrank", "kommode", "tischlampe", "wecker", "teppich", "vorhangfenster", "bild", "spiegel", "pflanze", "kissen", "stehlampe", "deckenlampe"],
         wuensche: ["bett", "nachttisch", "schrank", "lampe", "teppich", "vorhang", "bild", "spiegel", "uhr", "pflanze", "kissen"] }),
     R("kinderzimmer", "wohnhaus", "Kinderzimmer", "das Kinderzimmer", "ein Kinderzimmer",
       "Das Kinderzimmer gehört den Kindern: zum Spielen, Malen und Schlafen.",
       { wand: "hellblau", muster: "sterne", boden: "teppichboden", icon: "kinderbett",
-        passend: ["kinderbett", "hochbett", "spielkiste", "kloetze", "ball", "kuscheltier", "schaukelpferd", "puppenhaus", "tisch", "stuhl", "sitzsack", "regal", "poster", "teppich", "deckenlampe", "lichterkette", "girlande", "staffelei"],
         wuensche: ["bett", "spielzeug", "kuscheltier", "ball", "tisch", "stuhl", "lampe", "teppich", "bild", "regal", "malen"] }),
     R("bad", "wohnhaus", "Badezimmer", "das Badezimmer", "ein Badezimmer",
       "Im Badezimmer wäscht man sich, putzt die Zähne und badet.",
-      { wand: "hellblau", muster: "kacheln", boden: "plaettli", icon: "wanne",
-        passend: ["wanne", "dusche", "wc", "lavabo", "spiegel", "handtuch", "zahnputzbecher", "badteppich", "waeschekorb", "pflanze", "deckenlampe", "rundfenster"],
-        wuensche: ["wanne", "wc", "lavabo", "spiegel", "handtuch", "zahnbuerste", "teppich", "lampe", "pflanze"] }),
+      { wand: "hellblau", muster: "kacheln", boden: "plaettli", icon: "wanne" }),
     R("waschzimmer", "wohnhaus", "Waschzimmer", "das Waschzimmer", "ein Waschzimmer",
       "Im Waschzimmer werden die Kleider gewaschen und getrocknet.",
-      { wand: "hellgrau", boden: "stein", icon: "waschmaschine",
-        passend: ["waschmaschine", "tumbler", "waeschekorb", "waeschestaender", "buegelbrett", "regal", "lavabo", "deckenlampe", "handtuch", "uhr", "radio"],
-        wuensche: ["waschmaschine", "tumbler", "waesche", "buegeln", "regal", "lampe", "lavabo", "uhr"] }),
+      { wand: "hellgrau", boden: "stein", icon: "waschmaschine" }),
     R("bastelzimmer", "wohnhaus", "Bastelzimmer", "das Bastelzimmer", "ein Bastelzimmer",
       "Im Bastelzimmer wird gemalt, geklebt und gebaut.",
-      { wand: "hellgelb", muster: "punkte", boden: "dielen", icon: "staffelei",
-        passend: ["staffelei", "farbtoepfe", "tisch", "stuhl", "hocker", "regal", "poster", "bild", "kloetze", "werkzeugwand", "stehlampe", "pinnwand", "teppich"],
-        wuensche: ["malen", "tisch", "stuhl", "regal", "lampe", "bild", "werkzeug", "pinnwand"] }),
+      { wand: "hellgelb", muster: "punkte", boden: "dielen", icon: "staffelei" }),
     R("terrasse", "wohnhaus", "Terrasse", "die Terrasse", "eine Terrasse",
       "Auf der Terrasse ist man draussen: mit Pflanzen, Liegestuhl und viel frischer Luft.",
-      { wand: "hellblau", boden: "dielen", icon: "liegestuhl",
-        passend: ["liegestuhl", "pflanze", "grosspflanze", "blumeneimer", "bank", "tisch", "stuhl", "lichterkette", "vogelhaus", "ball", "sandkasten", "laeufer"],
-        wuensche: ["liegestuhl", "pflanze", "blumen", "tisch", "sitz", "lampe", "ball"] }),
+      { wand: "hellblau", boden: "dielen", icon: "liegestuhl" }),
     R("keller", "wohnhaus", "Keller", "der Keller", "einen Keller",
       "Im Keller hat es Platz für Vorräte, Velos und alles, was man gerade nicht braucht.",
-      { wand: "beige", muster: "ziegel", boden: "stein", icon: "velo",
-        passend: ["velo", "regal", "pakete", "werkzeugwand", "deckenlampe", "waeschekorb", "kuehlschrank", "honig", "aepfel", "milch", "hantel"],
-        wuensche: ["velo", "regal", "werkzeug", "lampe", "pakete", "essen"] }),
+      { wand: "beige", muster: "ziegel", boden: "stein", icon: "velo" }),
 
     // --- Spital ---------------------------------------------------------------
     R("empfang", "spital", "Empfang", "der Empfang", "einen Empfang",
       "Am Empfang meldet man sich an. Hier erfährt man, wohin man gehen muss.",
-      { wand: "hellblau", boden: "linoleum", icon: "empfangstheke", arbeit: true,
-        passend: ["empfangstheke", "computer", "telefon", "bank", "stuhl", "pflanze", "uhr", "wasserspender", "bild", "zeitungsstaender", "erstehilfe", "rollstuhl"],
-        wuensche: ["empfang", "computer", "telefon", "sitz", "uhr", "pflanze", "trinken", "zeitung", "lampe"] }),
+      { wand: "hellblau", boden: "linoleum", icon: "empfangstheke" }),
     R("notfall", "spital", "Notfall", "der Notfall", "einen Notfall",
       "In den Notfall kommt, wer plötzlich krank ist oder sich verletzt hat. Hier wird sofort geholfen – Tag und Nacht.",
-      { wand: "weiss", boden: "linoleum", icon: "spitalbett", arbeit: true,
-        passend: ["spitalbett", "herzmonitor", "infusion", "rollstuhl", "paravent", "erstehilfe", "medikamente", "arztkoffer", "stethoskop", "kruecken", "liege", "uhr", "deckenlampe"],
-        wuensche: ["spitalbett", "monitor", "infusion", "rollstuhl", "erstehilfe", "arztkoffer", "paravent", "uhr", "lampe"] }),
+      { wand: "weiss", boden: "linoleum", icon: "spitalbett" }),
     R("paediatrie", "spital", "Kinderabteilung", "die Kinderabteilung", "eine Kinderabteilung",
       "Die Kinderabteilung heisst auch Pädiatrie. Hier arbeiten Kinderärztinnen und Kinderärzte – sie kennen sich mit Kindern besonders gut aus.",
-      { wand: "hellgelb", muster: "sterne", boden: "linoleum", icon: "kuscheltier", arbeit: true,
-        passend: ["spitalbett", "kinderbett", "kuscheltier", "spielkiste", "kloetze", "waage", "stethoskop", "poster", "lichterkette", "liege", "buecherstapel", "teppich", "sitzsack"],
-        wuensche: ["spitalbett", "spielzeug", "kuscheltier", "waage", "arztkoffer", "bild", "buecher", "liege", "lampe"] }),
+      { wand: "hellgelb", muster: "sterne", boden: "linoleum", icon: "kuscheltier" }),
     R("radiologie", "spital", "Radiologie", "die Radiologie", "eine Radiologie",
       "In der Radiologie macht man Bilder vom Inneren des Körpers – zum Beispiel vom Knochen. So sieht man, ob etwas gebrochen ist.",
-      { wand: "hellgrau", boden: "linoleum", icon: "roentgen", arbeit: true,
-        passend: ["roentgen", "roentgenbild", "ultraschall", "liege", "computer", "paravent", "stuhl", "deckenlampe", "kruecken"],
-        wuensche: ["roentgen", "roentgenbild", "ultraschall", "liege", "computer", "paravent", "sitz", "lampe"] }),
+      { wand: "hellgrau", boden: "linoleum", icon: "roentgen" }),
     R("innere", "spital", "Innere Medizin", "die Innere Medizin", "eine Innere Medizin",
       "In der Inneren Medizin kümmert man sich um Herz, Lunge und Bauch. Man hört ab, misst den Blutdruck und findet heraus, was fehlt.",
-      { wand: "mint", boden: "linoleum", icon: "herzmonitor", arbeit: true,
-        passend: ["spitalbett", "herzmonitor", "liege", "stethoskop", "medikamente", "computer", "schreibtisch", "stuhl", "infusion", "waage", "paravent"],
-        wuensche: ["spitalbett", "monitor", "liege", "arztkoffer", "medikamente", "computer", "waage", "infusion"] }),
+      { wand: "mint", boden: "linoleum", icon: "herzmonitor" }),
     R("chirurgie", "spital", "Operationssaal", "der Operationssaal", "einen Operationssaal",
       "Im Operationssaal wird operiert. Alle tragen Masken und Handschuhe, damit alles ganz sauber bleibt. Wer operiert wird, schläft tief und spürt nichts.",
-      { wand: "mint", muster: "kacheln", boden: "plaettli", icon: "operationstisch", arbeit: true,
-        passend: ["operationstisch", "oplampe", "herzmonitor", "infusion", "medikamente", "lavabo", "uhr", "paravent"],
-        wuensche: ["operation", "oplampe", "monitor", "infusion", "lavabo", "uhr", "medikamente"] }),
+      { wand: "mint", muster: "kacheln", boden: "plaettli", icon: "operationstisch" }),
     R("geburt", "spital", "Geburtsabteilung", "die Geburtsabteilung", "eine Geburtsabteilung",
       "In der Geburtsabteilung kommen Babys auf die Welt. Hebammen helfen den Müttern und den Neugeborenen.",
-      { wand: "rosa", boden: "linoleum", icon: "wiege", arbeit: true,
-        passend: ["spitalbett", "wiege", "brutkasten", "waage", "kuscheltier", "sessel", "blumenvase", "herzmonitor", "vorhangfenster", "deckenlampe", "teppich"],
-        wuensche: ["spitalbett", "babybett", "waage", "kuscheltier", "sitz", "blumen", "vorhang", "lampe"] }),
+      { wand: "rosa", boden: "linoleum", icon: "wiege" }),
     R("labor", "spital", "Labor", "das Labor", "ein Labor",
       "Im Labor untersucht man Blut und andere Proben – mit Maschinen und dem Mikroskop.",
-      { wand: "weiss", boden: "linoleum", icon: "mikroskop", arbeit: true,
-        passend: ["mikroskop", "reagenzglaeser", "zentrifuge", "tisch", "schreibtisch", "hocker", "computer", "kuehlschrank", "medikamentenschrank", "lavabo", "deckenlampe"],
-        wuensche: ["mikroskop", "labor", "tisch", "computer", "kuehlschrank", "lavabo", "sitz", "lampe"] }),
+      { wand: "weiss", boden: "linoleum", icon: "mikroskop" }),
     R("physio", "spital", "Physiotherapie", "die Physiotherapie", "eine Physiotherapie",
       "In der Physiotherapie übt man, sich wieder gut zu bewegen – zum Beispiel nach einem Beinbruch.",
-      { wand: "hellgruen", boden: "dielen", icon: "barren", arbeit: true,
-        passend: ["barren", "gymnastikball", "turnmatte", "sprossenwand", "liege", "hantel", "hometrainer", "kruecken", "spiegel", "uhr", "radio"],
-        wuensche: ["physio", "ball", "matte", "klettern", "liege", "fitness", "spiegel", "musik"] }),
+      { wand: "hellgruen", boden: "dielen", icon: "barren" }),
     R("bettenstation", "spital", "Bettenstation", "die Bettenstation", "eine Bettenstation",
       "Auf der Bettenstation schlafen die Kranken, bis sie wieder gesund sind. Pflegefachleute schauen oft nach ihnen.",
-      { wand: "creme", boden: "linoleum", icon: "spitalbett", arbeit: true,
-        passend: ["spitalbett", "nachttisch", "infusion", "paravent", "fernseher", "blumenvase", "tischlampe", "stuhl", "vorhangfenster", "bild", "uhr", "kissen"],
-        wuensche: ["spitalbett", "nachttisch", "infusion", "paravent", "fernseher", "blumen", "lampe", "fenster", "bild"] }),
+      { wand: "creme", boden: "linoleum", icon: "spitalbett" }),
     R("apotheke", "spital", "Apotheke", "die Apotheke", "eine Apotheke",
       "In der Spitalapotheke liegen die Medikamente. Hier bekommt man, was die Ärztin oder der Arzt aufgeschrieben hat.",
-      { wand: "mint", boden: "plaettli", icon: "medikamentenschrank", arbeit: true,
-        passend: ["medikamentenschrank", "ladentheke", "kasse", "medikamente", "computer", "regal", "waage", "stuhl", "pflanze"],
-        wuensche: ["medikamente", "theke", "kasse", "computer", "regal", "lampe"] }),
+      { wand: "mint", boden: "plaettli", icon: "medikamentenschrank" }),
     R("augen", "spital", "Augenabteilung", "die Augenabteilung", "eine Augenabteilung",
       "In der Augenabteilung untersucht man die Augen: Wie gut siehst du? Braucht jemand eine Brille?",
-      { wand: "hellblau", boden: "linoleum", icon: "sehtest", arbeit: true,
-        passend: ["sehtest", "stuhl", "schreibtisch", "computer", "spiegel", "deckenlampe", "stehlampe", "liege"],
-        wuensche: ["sehtest", "sitz", "computer", "spiegel", "lampe", "tisch"] }),
+      { wand: "hellblau", boden: "linoleum", icon: "sehtest" }),
     R("intensiv", "spital", "Intensivstation", "die Intensivstation", "eine Intensivstation",
       "Wer sehr krank ist, wird auf der Intensivstation Tag und Nacht genau beobachtet – von Maschinen und von Menschen.",
-      { wand: "hellgrau", boden: "linoleum", icon: "herzmonitor", arbeit: true,
-        passend: ["spitalbett", "herzmonitor", "infusion", "ultraschall", "paravent", "medikamente", "uhr", "deckenlampe"],
-        wuensche: ["spitalbett", "monitor", "infusion", "ultraschall", "paravent", "uhr"] }),
+      { wand: "hellgrau", boden: "linoleum", icon: "herzmonitor" }),
     R("spitalcafeteria", "spital", "Cafeteria", "die Cafeteria", "eine Cafeteria",
       "In der Cafeteria essen und trinken alle: der Besuch, die Kranken und die Leute, die im Spital arbeiten.",
-      { wand: "pfirsich", boden: "plaettli", icon: "kaffeemaschine", arbeit: true, ausflug: true,
-        passend: ["restauranttisch", "tisch", "stuhl", "kuchenvitrine", "kaffeeautomat", "ladentheke", "kasse", "kaffeetasse", "kuchen", "gipfeli", "pflanze", "menuetafel"],
-        wuensche: ["tisch", "stuhl", "kaffee", "kuchen", "theke", "essen", "pflanze"] }),
+      { wand: "pfirsich", boden: "plaettli", icon: "kaffeemaschine", ausflug: true }),
 
-    // --- Dorfzentrum ------------------------------------------------------------
+    // --- Dorf ----------------------------------------------------------------------
     R("eingangshalle", "zentrum", "Eingangshalle", "die Eingangshalle", "eine Eingangshalle",
       "In der Eingangshalle kommt man an. Hier gibt es Bänke, einen Plan und Platz für alle.",
-      { wand: "creme", boden: "stein", icon: "bank",
-        passend: ["bank", "grosspflanze", "pflanze", "uhr", "weltkarte", "briefkasten", "wasserspender", "laeufer", "kronleuchter", "bild", "pinnwand"],
-        wuensche: ["sitz", "pflanze", "uhr", "lampe", "bild", "pinnwand", "trinken"] }),
+      { wand: "creme", boden: "stein", icon: "bank" }),
     R("lebensmittel", "zentrum", "Lebensmittelladen", "der Lebensmittelladen", "einen Lebensmittelladen",
       "Im Lebensmittelladen kauft man Brot, Milch, Früchte und Gemüse.",
-      { wand: "hellgruen", boden: "plaettli", icon: "obstkiste", arbeit: true, ausflug: true,
-        passend: ["ladentheke", "kasse", "warenregal", "obstkiste", "gemuesekiste", "kuehltheke", "einkaufswagen", "brotregal", "milch", "kaese", "aepfel"],
-        wuensche: ["theke", "kasse", "waren", "fruechte", "gemuese", "kuehlschrank", "einkaufswagen", "brot"] }),
+      { wand: "hellgruen", boden: "plaettli", icon: "obstkiste", ausflug: true }),
     R("baeckerei", "zentrum", "Bäckerei", "die Bäckerei", "eine Bäckerei",
       "In der Bäckerei duftet es nach frischem Brot, Gipfeli und Zopf.",
-      { wand: "pfirsich", boden: "dielen", icon: "brotregal", arbeit: true, ausflug: true,
-        passend: ["brotregal", "ladentheke", "kasse", "kuchenvitrine", "gipfeli", "zopf", "kuchen", "brotkorb", "tisch", "stuhl", "kaffeemaschine"],
-        wuensche: ["brot", "theke", "kasse", "kuchen", "tisch", "kaffee"] }),
+      { wand: "pfirsich", boden: "dielen", icon: "brotregal", ausflug: true }),
     R("spielwaren", "zentrum", "Spielwarenladen", "der Spielwarenladen", "einen Spielwarenladen",
       "Im Spielwarenladen gibt es Puppen, Bälle, Bauklötze und Spiele.",
-      { wand: "hellblau", muster: "punkte", icon: "schaukelpferd", arbeit: true, ausflug: true,
-        passend: ["ladentheke", "kasse", "regal", "spielkiste", "kloetze", "ball", "kuscheltier", "schaukelpferd", "puppenhaus", "trommel", "poster"],
-        wuensche: ["theke", "kasse", "regal", "spielzeug", "ball", "kuscheltier", "trommel"] }),
+      { wand: "hellblau", muster: "punkte", icon: "schaukelpferd", ausflug: true }),
     R("kleider", "zentrum", "Kleiderladen", "der Kleiderladen", "einen Kleiderladen",
       "Im Kleiderladen probiert man Hosen, Jacken und Schuhe an.",
-      { wand: "rosa", icon: "kleiderstaender", arbeit: true, ausflug: true,
-        passend: ["kleiderstaender", "schaufensterpuppe", "spiegel", "ladentheke", "kasse", "schuhregal", "hocker", "paravent", "regal"],
-        wuensche: ["kleider", "spiegel", "theke", "kasse", "schuhe", "sitz"] }),
+      { wand: "rosa", icon: "kleiderstaender", ausflug: true }),
     R("blumen", "zentrum", "Blumenladen", "der Blumenladen", "einen Blumenladen",
       "Im Blumenladen gibt es Blumen und Pflanzen – für den Garten oder als Geschenk.",
-      { wand: "mint", boden: "stein", icon: "blumeneimer", arbeit: true, ausflug: true,
-        passend: ["blumeneimer", "blumenvase", "blumenstrauss", "pflanze", "grosspflanze", "kaktus", "bambus", "haengepflanze", "ladentheke", "kasse", "regal"],
-        wuensche: ["blumen", "pflanze", "theke", "kasse", "regal", "lampe"] }),
+      { wand: "mint", boden: "stein", icon: "blumeneimer", ausflug: true }),
     R("coiffeur", "zentrum", "Coiffeur", "der Coiffeur", "einen Coiffeur",
       "Beim Coiffeur werden die Haare gewaschen, geschnitten und frisiert.",
-      { wand: "flieder", boden: "plaettli", icon: "coiffeurstuhl", arbeit: true, ausflug: true,
-        passend: ["coiffeurstuhl", "coiffeurspiegel", "trockenhaube", "lavabo", "handtuch", "ladentheke", "kasse", "zeitungsstaender", "bank", "pflanze"],
-        wuensche: ["coiffeur", "spiegel", "lavabo", "handtuch", "kasse", "zeitung", "sitz"] }),
+      { wand: "flieder", boden: "plaettli", icon: "coiffeurstuhl", ausflug: true }),
     R("bibliothek", "zentrum", "Bibliothek", "die Bibliothek", "eine Bibliothek",
       "In der Bibliothek kann man Bücher ausleihen und in Ruhe lesen. Danach bringt man sie zurück.",
-      { wand: "creme", muster: "holz", icon: "buecherregal", arbeit: true, ausflug: true,
-        passend: ["buecherregal", "buecherwagen", "lesekissen", "sessel", "tisch", "stuhl", "stehlampe", "globus", "weltkarte", "buecherstapel", "computer", "teppich", "zeitungsstaender"],
-        wuensche: ["buecher", "lesen", "sitz", "tisch", "lampe", "globus", "karte", "teppich", "computer"] }),
+      { wand: "creme", muster: "holz", icon: "buecherregal", ausflug: true }),
     R("restaurant", "zentrum", "Restaurant", "das Restaurant", "ein Restaurant",
       "Im Restaurant bestellt man etwas zu essen. In der Küche wird gekocht, und das Essen kommt an den Tisch.",
-      { wand: "pfirsich", muster: "streifen", icon: "restauranttisch", arbeit: true, ausflug: true,
-        passend: ["restauranttisch", "stuhl", "barhocker", "pizzaofen", "menuetafel", "teller", "pizza", "kaffeetasse", "blumenvase", "kochherd", "ladentheke", "kronleuchter", "pflanze"],
-        wuensche: ["restaurant", "stuhl", "ofen", "menue", "essen", "blumen", "lampe", "herd"] }),
+      { wand: "pfirsich", muster: "streifen", icon: "restauranttisch", ausflug: true }),
     R("cafe", "zentrum", "Café", "das Café", "ein Café",
       "Im Café gibt es Kuchen, Glace und etwas Feines zu trinken.",
-      { wand: "rosa", muster: "streifen", boden: "dielen", icon: "kuchenvitrine", arbeit: true, ausflug: true,
-        passend: ["kuchenvitrine", "glacetheke", "restauranttisch", "stuhl", "kaffeemaschine", "kaffeetasse", "kuchen", "glace", "gipfeli", "menuetafel", "blumenvase", "lichterkette"],
-        wuensche: ["kuchen", "glace", "tisch", "stuhl", "kaffee", "menue", "blumen"] }),
+      { wand: "rosa", muster: "streifen", boden: "dielen", icon: "kuchenvitrine", ausflug: true }),
     R("spielplatz", "zentrum", "Spielplatz", "der Spielplatz", "einen Spielplatz",
       "Auf dem Spielplatz wird gerutscht, geschaukelt, geklettert und im Sand gebuddelt.",
-      { wand: "hellblau", boden: "rasen", icon: "rutsche", ausflug: true,
-        passend: ["rutsche", "schaukel", "sandkasten", "trampolin", "klettergeruest", "ball", "bank", "grosspflanze", "liegestuhl", "vogelhaus"],
-        wuensche: ["rutsche", "schaukel", "sand", "klettern", "trampolin", "ball", "sitz", "pflanze"] }),
+      { wand: "hellblau", boden: "rasen", icon: "rutsche", ausflug: true }),
     R("hallenbad", "zentrum", "Hallenbad", "das Hallenbad", "ein Hallenbad",
       "Im Hallenbad kann man schwimmen, auch wenn es draussen kalt ist.",
-      { wand: "hellblau", muster: "kacheln", boden: "plaettli", icon: "schwimmbecken", arbeit: true, ausflug: true,
-        passend: ["schwimmbecken", "sprungbrett", "rettungsring", "liegestuhl", "ball", "dusche", "handtuch", "bank", "grosspflanze", "uhr"],
-        wuensche: ["becken", "sprungbrett", "rettungsring", "liegestuhl", "dusche", "handtuch", "ball"] }),
+      { wand: "hellblau", muster: "kacheln", boden: "plaettli", icon: "schwimmbecken", ausflug: true }),
     R("turnhalle", "zentrum", "Turnhalle", "die Turnhalle", "eine Turnhalle",
       "In der Turnhalle rennt, springt und klettert man. Hier gibt es Matten, Bälle und Sprossenwände.",
-      { wand: "pfirsich", boden: "dielen", icon: "sprossenwand", arbeit: true, ausflug: true,
-        passend: ["sprossenwand", "kletterwand", "turnmatte", "basketballkorb", "ball", "gymnastikball", "trampolin", "bank", "hantel", "uhr"],
-        wuensche: ["klettern", "matte", "basketball", "ball", "sitz", "trampolin", "uhr"] }),
+      { wand: "pfirsich", boden: "dielen", icon: "sprossenwand", ausflug: true }),
     R("kino", "zentrum", "Kino", "das Kino", "ein Kino",
       "Im Kino schaut man Filme auf einer riesigen Leinwand – mit Popcorn!",
-      { wand: "dunkelblau", boden: "teppichboden", icon: "leinwand", arbeit: true, ausflug: true,
-        passend: ["leinwand", "kinosessel", "popcorn", "glacetheke", "ladentheke", "kasse", "deckenlampe", "poster", "lichterkette"],
-        wuensche: ["kino", "kinosessel", "popcorn", "glace", "bild", "kasse"] }),
+      { wand: "dunkelblau", boden: "teppichboden", icon: "leinwand", ausflug: true }),
     R("schule", "zentrum", "Schulzimmer", "das Schulzimmer", "ein Schulzimmer",
       "Im Schulzimmer lernen die Kinder lesen, schreiben und rechnen.",
-      { wand: "hellgelb", boden: "linoleum", icon: "wandtafel", arbeit: true,
-        passend: ["wandtafel", "schulpult", "stuhl", "globus", "weltkarte", "buecherregal", "uhr", "pflanze", "computer", "pinnwand", "staffelei"],
-        wuensche: ["tafel", "pult", "stuhl", "globus", "karte", "buecher", "uhr", "pflanze"] }),
+      { wand: "hellgelb", boden: "linoleum", icon: "wandtafel" }),
     R("kita", "zentrum", "Kita", "die Kita", "eine Kita",
       "In der Kita spielen kleine Kinder zusammen, während ihre Eltern arbeiten.",
-      { wand: "rosa", muster: "herzen", boden: "teppichboden", icon: "spielkiste", arbeit: true,
-        passend: ["spielkiste", "kloetze", "ball", "kuscheltier", "schaukelpferd", "puppenhaus", "kinderbett", "rutsche", "tisch", "stuhl", "sitzsack", "teppich", "poster", "girlande"],
-        wuensche: ["spielzeug", "kuscheltier", "bett", "ball", "tisch", "stuhl", "teppich", "bild", "rutsche"] }),
+      { wand: "rosa", muster: "herzen", boden: "teppichboden", icon: "spielkiste" }),
     R("post", "zentrum", "Post", "die Post", "eine Post",
       "Auf der Post gibt man Briefe und Pakete auf. Die Pöstlerin oder der Pöstler bringt sie dann nach Hause.",
-      { wand: "hellgelb", boden: "plaettli", icon: "briefkasten", arbeit: true, ausflug: true,
-        passend: ["briefkasten", "pakete", "ladentheke", "kasse", "waage", "regal", "computer", "stuhl", "uhr"],
-        wuensche: ["post", "pakete", "theke", "kasse", "waage", "regal", "uhr"] }),
+      { wand: "hellgelb", boden: "plaettli", icon: "briefkasten", ausflug: true }),
     R("musik", "zentrum", "Musikzimmer", "das Musikzimmer", "ein Musikzimmer",
       "Im Musikzimmer wird gesungen und musiziert – mit Klavier, Trommel und Gitarre.",
-      { wand: "flieder", muster: "wellen", icon: "klavier", arbeit: true, ausflug: true,
-        passend: ["klavier", "trommel", "gitarre", "radio", "hocker", "stuhl", "poster", "teppich", "stehlampe", "buecherregal"],
-        wuensche: ["klavier", "trommel", "gitarre", "sitz", "teppich", "lampe", "bild"] }),
+      { wand: "flieder", muster: "wellen", icon: "klavier", ausflug: true }),
     R("toiletten", "zentrum", "Toiletten", "die Toiletten", "Toiletten",
       "Toiletten braucht jedes Haus, in dem viele Leute sind – mit einem Lavabo zum Händewaschen.",
-      { wand: "hellblau", muster: "kacheln", boden: "plaettli", icon: "wc",
-        passend: ["wc", "lavabo", "spiegel", "handtuch", "pflanze", "deckenlampe"],
-        wuensche: ["wc", "lavabo", "spiegel", "handtuch", "pflanze", "lampe"] }),
+      { wand: "hellblau", muster: "kacheln", boden: "plaettli", icon: "wc" }),
     R("velowerkstatt", "zentrum", "Velowerkstatt", "die Velowerkstatt", "eine Velowerkstatt",
       "In der Velowerkstatt werden Velos geflickt: Pneus pumpen, Ketten ölen, Bremsen einstellen.",
-      { wand: "hellgrau", muster: "ziegel", boden: "stein", icon: "velo", arbeit: true,
-        passend: ["velo", "werkzeugwand", "regal", "ladentheke", "kasse", "hocker", "pakete", "deckenlampe"],
-        wuensche: ["velo", "werkzeug", "regal", "kasse", "theke", "lampe"] }),
+      { wand: "hellgrau", muster: "ziegel", boden: "stein", icon: "velo" }),
 
-    // --- Bürohaus ---------------------------------------------------------------
+    // --- Büro ----------------------------------------------------------------------
     R("bueroempfang", "buero", "Empfang", "der Empfang", "einen Empfang",
       "Am Empfang begrüsst man die Gäste und zeigt ihnen den Weg.",
-      { wand: "creme", boden: "stein", icon: "empfangstheke", arbeit: true,
-        passend: ["empfangstheke", "computer", "telefon", "sessel", "sofa", "couchtisch", "grosspflanze", "uhr", "wasserspender", "bild", "kronleuchter"],
-        wuensche: ["empfang", "computer", "telefon", "sitz", "pflanze", "uhr", "trinken"] }),
+      { wand: "creme", boden: "stein", icon: "empfangstheke" }),
     R("grossraum", "buero", "Grossraumbüro", "das Grossraumbüro", "ein Grossraumbüro",
       "Im Grossraumbüro arbeiten viele zusammen an Schreibtischen und Computern.",
-      { wand: "hellgrau", boden: "teppichboden", icon: "computer", arbeit: true,
-        passend: ["schreibtisch", "buerostuhl", "computer", "laptop", "telefon", "aktenschrank", "pinnwand", "drucker", "grosspflanze", "tischlampe", "uhr", "whiteboard"],
-        wuensche: ["schreibtisch", "buerostuhl", "computer", "telefon", "akten", "pinnwand", "pflanze", "lampe"] }),
+      { wand: "hellgrau", boden: "teppichboden", icon: "computer" }),
     R("einzelbuero", "buero", "Einzelbüro", "das Einzelbüro", "ein Einzelbüro",
       "Ein Büro für eine Person: Hier ist es ruhig zum Nachdenken und Telefonieren.",
-      { wand: "mint", icon: "buerostuhl", arbeit: true,
-        passend: ["schreibtisch", "buerostuhl", "computer", "laptop", "telefon", "sessel", "buecherregal", "pflanze", "bild", "tischlampe", "teppich", "kaffeemaschine"],
-        wuensche: ["schreibtisch", "buerostuhl", "computer", "telefon", "buecher", "bild", "pflanze", "lampe", "teppich"] }),
+      { wand: "mint", icon: "buerostuhl" }),
     R("sitzung", "buero", "Sitzungszimmer", "das Sitzungszimmer", "ein Sitzungszimmer",
       "Im Sitzungszimmer trifft man sich und bespricht, was zu tun ist.",
-      { wand: "hellblau", boden: "teppichboden", icon: "sitzungstisch", arbeit: true,
-        passend: ["sitzungstisch", "buerostuhl", "whiteboard", "leinwand", "laptop", "wasserspender", "kaffeetasse", "pflanze", "uhr"],
-        wuensche: ["tisch", "buerostuhl", "tafel", "computer", "trinken", "uhr", "pflanze"] }),
+      { wand: "hellblau", boden: "teppichboden", icon: "sitzungstisch" }),
     R("drucker", "buero", "Druckerraum", "der Druckerraum", "einen Druckerraum",
       "Im Druckerraum stehen Drucker und Kopierer. Hier kommt das Papier heraus.",
-      { wand: "hellgrau", boden: "linoleum", icon: "kopierer", arbeit: true,
-        passend: ["kopierer", "drucker", "tisch", "regal", "aktenschrank", "ordnerregal", "pakete", "deckenlampe"],
-        wuensche: ["kopierer", "drucker", "tisch", "regal", "akten", "lampe"] }),
+      { wand: "hellgrau", boden: "linoleum", icon: "kopierer" }),
     R("buerowc", "buero", "WC", "das WC", "ein WC",
       "Auch im Büro braucht man ein WC – und ein Lavabo zum Händewaschen.",
-      { wand: "hellblau", muster: "kacheln", boden: "plaettli", icon: "wc",
-        passend: ["wc", "lavabo", "spiegel", "handtuch", "pflanze", "deckenlampe"],
-        wuensche: ["wc", "lavabo", "spiegel", "handtuch", "lampe", "pflanze"] }),
+      { wand: "hellblau", muster: "kacheln", boden: "plaettli", icon: "wc" }),
     R("cafeteria", "buero", "Cafeteria", "die Cafeteria", "eine Cafeteria",
       "In der Cafeteria macht man Pause – mit Kaffee, Tee und einem Znüni.",
-      { wand: "pfirsich", boden: "plaettli", icon: "kaffeeautomat", arbeit: true,
-        passend: ["kaffeeautomat", "tisch", "stuhl", "kuehlschrank", "spuele", "mikrowelle", "wasserkocher", "kaffeetasse", "obstschale", "gipfeli", "sofa", "pflanze", "toeggelikasten"],
-        wuensche: ["kaffee", "tisch", "stuhl", "kuehlschrank", "fruechte", "sofa", "spiel"] }),
+      { wand: "pfirsich", boden: "plaettli", icon: "kaffeeautomat" }),
     R("archiv", "buero", "Archiv", "das Archiv", "ein Archiv",
       "Im Archiv werden wichtige Papiere in Ordnern und Kisten aufbewahrt.",
-      { wand: "beige", boden: "linoleum", icon: "ordnerregal", arbeit: true,
-        passend: ["ordnerregal", "aktenschrank", "pakete", "regal", "tisch", "stuhl", "deckenlampe", "uhr"],
-        wuensche: ["akten", "regal", "pakete", "tisch", "lampe", "uhr"] }),
+      { wand: "beige", boden: "linoleum", icon: "ordnerregal" }),
     R("computerraum", "buero", "Computerraum", "der Computerraum", "einen Computerraum",
       "Im Computerraum stehen grosse Computer, die Tag und Nacht arbeiten. Man nennt sie Server.",
-      { wand: "dunkelblau", boden: "linoleum", icon: "serverschrank", arbeit: true,
-        passend: ["serverschrank", "computer", "schreibtisch", "buerostuhl", "laptop", "telefon", "kopierer", "deckenlampe", "uhr"],
-        wuensche: ["server", "computer", "schreibtisch", "buerostuhl", "telefon", "lampe", "uhr"] }),
+      { wand: "dunkelblau", boden: "linoleum", icon: "serverschrank" }),
     R("atelier", "buero", "Atelier", "das Atelier", "ein Atelier",
       "Im Atelier wird gezeichnet, entworfen und gebastelt – zum Beispiel neue Spielsachen.",
-      { wand: "weiss", boden: "dielen", icon: "staffelei", arbeit: true,
-        passend: ["staffelei", "farbtoepfe", "tisch", "hocker", "regal", "pinnwand", "poster", "kloetze", "computer", "stehlampe", "werkzeugwand"],
-        wuensche: ["malen", "tisch", "sitz", "regal", "pinnwand", "lampe", "bild"] }),
+      { wand: "weiss", boden: "dielen", icon: "staffelei" }),
     R("fitness", "buero", "Fitnessraum", "der Fitnessraum", "einen Fitnessraum",
       "Im Fitnessraum bewegen sich alle in der Pause – auf dem Laufband, mit Hanteln und auf der Matte.",
-      { wand: "hellgruen", boden: "linoleum", icon: "laufband", arbeit: true,
-        passend: ["laufband", "hometrainer", "hantel", "turnmatte", "gymnastikball", "sprossenwand", "spiegel", "wasserspender", "radio", "uhr"],
-        wuensche: ["fitness", "matte", "ball", "spiegel", "trinken", "musik"] }),
+      { wand: "hellgruen", boden: "linoleum", icon: "laufband" }),
   ];
   const RAEUME = Object.fromEntries(RAEUME_LISTE.map((raum) => [raum.id, raum]));
   HAEUSER.forEach((haus) => { haus.raeume = RAEUME_LISTE.filter((raum) => raum.haus === haus.id).map((raum) => raum.id); });
+
+  // Die Wohnungen: nur hier zieht jemand ein. Ein Stockwerk, ein Zimmer, bis
+  // zu drei Tiere.
+  const WOHNEN = ["schlafzimmer", "kinderzimmer"];
+  WOHNEN.forEach((id) => { RAEUME[id].wohnen = true; });
+
+  // Was man in einem Zimmer der anderen Häuser arbeitet – so steht es beim
+  // Traumjob: "Traumjob: Brot backen in der Bäckerei". Höchstens drei Tiere
+  // haben dieselbe Arbeit im selben Zimmer.
+  const JOBS = {
+    // Spital
+    empfang: "die Kranken begrüssen", notfall: "Verletzte verarzten", paediatrie: "kranke Kinder pflegen",
+    radiologie: "Röntgenbilder machen", innere: "Kranke untersuchen", chirurgie: "operieren",
+    geburt: "Babys auf die Welt helfen", labor: "Blut untersuchen", physio: "Turnübungen zeigen",
+    bettenstation: "Kranke pflegen", apotheke: "Medikamente verkaufen", augen: "Augen testen",
+    intensiv: "Schwerkranke betreuen", spitalcafeteria: "Kaffee kochen",
+    // Dorf
+    eingangshalle: "Auskunft geben", lebensmittel: "Gemüse verkaufen", baeckerei: "Brot backen",
+    spielwaren: "Spielsachen verkaufen", kleider: "Kleider verkaufen", blumen: "Blumensträusse binden",
+    coiffeur: "Haare schneiden", bibliothek: "Bücher ausleihen", restaurant: "Essen kochen",
+    cafe: "Kuchen servieren", spielplatz: "auf die Kinder aufpassen", hallenbad: "auf die Schwimmer aufpassen",
+    turnhalle: "Turnstunden geben", kino: "Filme zeigen", schule: "Kinder unterrichten", kita: "Kinder hüten",
+    post: "Pakete verteilen", musik: "Musik unterrichten", toiletten: "die Toiletten putzen", velowerkstatt: "Velos flicken",
+    // Büro
+    bueroempfang: "Besuch empfangen", grossraum: "am Computer arbeiten", einzelbuero: "die Firma leiten",
+    sitzung: "Sitzungen leiten", drucker: "Briefe drucken", buerowc: "das WC putzen", cafeteria: "Kaffee ausschenken",
+    archiv: "Akten ordnen", computerraum: "Computer reparieren", atelier: "Plakate gestalten", fitness: "Fitnessstunden geben",
+  };
+  Object.entries(JOBS).forEach(([id, job]) => { if (RAEUME[id]) RAEUME[id].job = job; });
+
+  // Die Lieblingsdinge der Tierarten (TIERE.mag.ding) gibt es in jeder
+  // Wohnung – wer einen Panda hat, braucht Bambus.
+  const LIEBLINGS = ["beeren", "honig", "rueebli", "kratzbaum", "bambus", "aquarium", "buecherregal", "fisch", "melone", "kaese", "nuesse", "kletterfelsen", "hundekorb", "laubhaufen", "heuballen", "aepfel"];
+
+  // Was in der Schublade eines Zimmers liegt: seine eigenen Dinge (aus den
+  // Dateien bau-moebel-<gruppe>.js), in Wohnungen dazu die Lieblingsdinge.
+  // Was es überall gibt (UEBERALL in bau-moebel.js), zeigt train-bau.js extra.
+  function dingeFuer(raumId) {
+    const moebel = window.LernappBauMoebel;
+    const raum = RAEUME[raumId];
+    if (!raum) return [];
+    const eigene = moebel?.RAUM_DINGE?.[raumId] || [];
+    const liste = [...eigene, ...(raum.wohnen ? LIEBLINGS : [])];
+    return liste.filter((id, i) => moebel?.DINGE?.[id] && liste.indexOf(id) === i && !moebel.UEBERALL?.includes(id));
+  }
 
   // ---------------------------------------------------------------------------
   // Wünsche für das eigene Zimmer (gelb)
@@ -524,7 +468,7 @@
     rutsche: { ein: "eine Rutschbahn", zeige: "rutsche" },
     schaukel: { ein: "eine Schaukel", zeige: "schaukel" },
     sand: { ein: "einen Sandkasten", zeige: "sandkasten" },
-    klettern: { ein: "etwas zum Klettern", zeige: "kletterwand" },
+    klettern: { ein: "einen Kletterfelsen", zeige: "kletterfelsen" },
     trampolin: { ein: "ein Trampolin", zeige: "trampolin" },
     becken: { ein: "ein Schwimmbecken", zeige: "schwimmbecken" },
     sprungbrett: { ein: "ein Sprungbrett", zeige: "sprungbrett" },
@@ -569,13 +513,10 @@
   // ---------------------------------------------------------------------------
   // Wünsche für das Haus (grün) und für die anderen Häuser (blau)
   // ---------------------------------------------------------------------------
-  // Grün: welche Zimmer ein Haus haben sollte – die vorderen sind wichtiger
-  // und werden öfter gewünscht.
+  // Grün: welche Zimmer das Wohnhaus haben sollte – die vorderen sind
+  // wichtiger und werden öfter gewünscht.
   const HAUS_WUENSCHE = {
-    wohnhaus: ["bad", "kueche", "wohnzimmer", "waschzimmer", "eingang", "esszimmer", "kinderzimmer", "schlafzimmer", "terrasse"],
-    spital: ["empfang", "notfall", "radiologie", "labor", "apotheke", "bettenstation", "spitalcafeteria"],
-    zentrum: ["eingangshalle", "toiletten", "restaurant", "lebensmittel", "cafe", "spielplatz", "bibliothek"],
-    buero: ["bueroempfang", "buerowc", "cafeteria", "drucker", "sitzung", "archiv"],
+    wohnhaus: ["bad", "kueche", "wohnzimmer", "esszimmer", "waschzimmer", "eingang", "terrasse", "bastelzimmer", "keller"],
   };
 
   // Blau: was ein Tier in einem anderen Haus braucht. warum ist der Satz
@@ -588,37 +529,21 @@
       { haus: "zentrum", raum: "baeckerei", warum: "Dort hole ich frisches Brot." },
       { haus: "zentrum", raum: "hallenbad", warum: "Ich gehe so gern schwimmen." },
       { haus: "zentrum", raum: "schule", warum: "Dort lerne ich lesen und rechnen." },
+      { haus: "zentrum", raum: "cafe", warum: "Dort esse ich gern ein Stück Kuchen." },
+      { haus: "zentrum", raum: "kino", warum: "Ich schaue so gern Filme." },
+      { haus: "zentrum", raum: "post", warum: "Dort schicke ich meiner Grossmutter einen Brief." },
+      { haus: "zentrum", raum: "coiffeur", warum: "Meine Haare sind schon ganz lang." },
+      { haus: "zentrum", raum: "turnhalle", warum: "Dort turne ich mit meinen Freunden." },
       { haus: "spital", raum: "notfall", warum: "Falls ich mich einmal verletze." },
       { haus: "spital", raum: "paediatrie", warum: "Dort hilft man kranken Kindern." },
-      { haus: "buero", raum: "grossraum", warum: "Dort möchte ich arbeiten." },
-      { haus: "buero", raum: "einzelbuero", warum: "Dort möchte ich arbeiten." },
-    ],
-    spital: [
-      { haus: "wohnhaus", raum: "schlafzimmer", warum: "Nach der Arbeit muss ich gut schlafen." },
-      { haus: "wohnhaus", raum: "kueche", warum: "Nach der Arbeit koche ich gern." },
-      { haus: "zentrum", raum: "restaurant", warum: "In der Pause esse ich gern auswärts." },
-      { haus: "zentrum", raum: "blumen", warum: "Blumen freuen die Kranken." },
-      { haus: "zentrum", raum: "cafe", warum: "Nach der Arbeit gönne ich mir ein Stück Kuchen." },
-      { haus: "buero", raum: "grossraum", warum: "Dort wird für das Spital geplant." },
-    ],
-    zentrum: [
-      { haus: "wohnhaus", raum: "schlafzimmer", warum: "Dort wohne ich nach der Arbeit." },
-      { haus: "wohnhaus", raum: "kueche", warum: "Dort koche ich am Abend." },
-      { haus: "wohnhaus", raum: "wohnzimmer", warum: "Dort ruhe ich mich am Abend aus." },
-      { haus: "spital", raum: "notfall", warum: "Falls sich jemand verletzt." },
-      { haus: "buero", raum: "grossraum", warum: "Von dort kommen viele Gäste." },
+      { haus: "spital", raum: "apotheke", warum: "Dort gibt es Hustensirup." },
+      { haus: "spital", raum: "augen", warum: "Ich möchte meine Augen testen lassen." },
       { haus: "buero", raum: "cafeteria", warum: "Dort trinke ich mit Freunden Kaffee." },
-    ],
-    buero: [
-      { haus: "wohnhaus", raum: "schlafzimmer", warum: "Nach der Arbeit gehe ich nach Hause." },
-      { haus: "zentrum", raum: "restaurant", warum: "Dort esse ich am Mittag." },
-      { haus: "zentrum", raum: "cafe", warum: "Dort hole ich mir einen Kuchen." },
-      { haus: "zentrum", raum: "turnhalle", warum: "Dort turne ich nach der Arbeit." },
-      { haus: "zentrum", raum: "post", warum: "Dort schicke ich die Briefe ab." },
-      { haus: "zentrum", raum: "kita", warum: "Dort spielen meine Kinder, wenn ich arbeite." },
-      { haus: "spital", raum: "notfall", warum: "Falls sich jemand verletzt." },
+      { haus: "buero", raum: "fitness", warum: "Dort halte ich mich fit." },
+      { haus: "buero", raum: "grossraum", warum: "Dort möchte ich arbeiten." },
     ],
   };
+
 
   // ---------------------------------------------------------------------------
   // Die Tiere
@@ -691,50 +616,16 @@
       isst: "Gras und Heu – und ich kaue alles zweimal.",
       fakt: "Ich gebe Milch. Daraus macht man Käse – in der Schweiz ganz viele Sorten!" },
     elephant: { name: "Elefant", der: "der Elefant", coat: "#a5adba", inner: "#d9dee6", ear: "elefant", namen: ["Emil", "Erna", "Tembo", "Mala"],
-      mag: { ding: "dusche", farbe: "violett" },
-      isst: "Gras, Blätter und Früchte – ganz, ganz viel davon!",
+      mag: { ding: "aepfel", farbe: "violett" },
+      isst: "Gras, Blätter und Äpfel – ganz, ganz viel davon!",
       fakt: "Mit meinem Rüssel kann ich trinken, duschen und sogar Hallo winken." },
   };
   const TIER_IDS = Object.keys(TIERE);
 
-  // ---------------------------------------------------------------------------
-  // Plaudern
-  // ---------------------------------------------------------------------------
-  // Was das Kind sagen kann: ein Bild und ein kurzer Satz. Was das Tier
-  // antwortet, rechnet bau-stand.js aus Laune, Wünschen und Steckbrief aus.
-  const PLAUDERN = [
-    { id: "hallo", emoji: "👋", text: "Hallo!" },
-    { id: "geht", emoji: "😊", text: "Wie geht es dir?" },
-    { id: "wunsch", emoji: "🎁", text: "Was wünschst du dir?" },
-    { id: "zimmer", emoji: "🏠", text: "Gefällt dir dein Zimmer?" },
-    { id: "hunger", emoji: "🍎", text: "Was isst du gern?" },
-    { id: "erzaehl", emoji: "📖", text: "Erzähl mir von dir!" },
-    { id: "arbeit", emoji: "💼", text: "Was machst du hier?" },
-    { id: "muede", emoji: "💤", text: "Bist du müde?" },
-    { id: "witz", emoji: "😂", text: "Erzähl einen Witz!" },
-    { id: "lied", emoji: "🎵", text: "Sing ein Lied!" },
-    { id: "gern", emoji: "❤️", text: "Ich hab dich gern!" },
-  ];
-
-  const WITZE = [
-    "Was ist grün und klopft an die Tür? Ein Klopfsalat!",
-    "Was sagt der grosse Stift zum kleinen Stift? Wachs mal, Stift!",
-    "Was ist orange und wandert durch den Wald? Eine Wanderine!",
-    "Was ist braun, klebrig und läuft durch die Wüste? Ein Karamel!",
-    "Was ist gelb und kann nicht schwimmen? Ein Bagger. Er hat nur einen Arm!",
-    "Wie nennt man einen Bumerang, der nicht zurückkommt? Einen Stock!",
-  ];
-
-  const LIEDER = [
-    "La la laaa! Ich wohne in einem schönen Haus! 🎵",
-    "Tra-la-la, tra-la-li, heute bau ich mit dir! 🎶",
-    "Dum di dum, die Ziegel kommen mit dem Zug! 🎵",
-  ];
-
   window.LernappBauKatalog = {
     FARBEN, FARBE, FAMILIEN, MUSTER, BOEDEN, BODEN,
-    HAEUSER, HAUS, RAEUME, RAEUME_LISTE,
+    HAEUSER, HAUS, RAEUME, RAEUME_LISTE, WOHNEN, JOBS, LIEBLINGS, dingeFuer,
     DING_WUENSCHE, HAUS_WUENSCHE, FREMD_WUENSCHE,
-    TIERE, TIER_IDS, PLAUDERN, WITZE, LIEDER,
+    TIERE, TIER_IDS,
   };
 })();

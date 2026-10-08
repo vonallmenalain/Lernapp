@@ -6,13 +6,13 @@ Stand: Oktober 2026 · Grundlage: `train-home.js`, `game-cloud.js`, `entitlement
 eine Recherche zu Toca Boca World (früher Toca Life World), Sago Mini World, Avatar World,
 Pepi, Miga Town, den einzelnen Toca-Apps und weiteren Bauspielen (Abschnitt 3)
 
-> **Stand:** Etappe 1 ist gebaut – nach den Rückmeldungen vom 8. Oktober 2026, die das
-> Konzept an mehreren Stellen geändert haben: vier Häuser statt einem, ein Zimmer je
-> Stockwerk mit Zoom, Ziegel aus einem Rätsel-Knopf, ein festes Tier je Stockwerk mit
-> gelben, grünen und blauen Sternen. **Was gilt, steht im Abschnitt 0** gleich hier unten;
-> die Abschnitte 1, 2, 5 und 6 beschreiben das ursprüngliche Konzept und sind dort, wo
-> Abschnitt 0 etwas anderes sagt, überholt. Die Recherche (Abschnitt 3) und Grafik und
-> Bewegung (Abschnitt 7) gelten weiter.
+> **Stand:** Etappe 2 ist gebaut – nach der zweiten Rückmeldung vom 8. Oktober 2026:
+> Wohnungen mit bis zu drei Tieren, zwei Zimmer auf jedem anderen Stockwerk, eigene Dinge
+> für jedes Zimmer, Traumjobs, ein Einzug mit Lift und Feuerwerk, Stockwerke umstellen, die
+> Bauecke je Konto. **Was gilt, steht im Abschnitt 0** (Etappe 2) und, wo der nichts
+> anderes sagt, im Abschnitt 0E1 (Etappe 1); die Abschnitte 1, 2, 5 und 6 beschreiben das
+> ursprüngliche Konzept und sind dort, wo Abschnitt 0 etwas anderes sagt, überholt. Die
+> Recherche (Abschnitt 3) und Grafik und Bewegung (Abschnitt 7) gelten weiter.
 >
 > Zum Konzept gehört eine klickbare **Stilprobe** (Artefakt «Gripszug Bauecke»; dieselbe
 > Seite liegt als `docs/bauecke-stilprobe.html` im Repo und geht nicht auf die Site). Ihr
@@ -24,9 +24,120 @@ Pepi, Miga Town, den einzelnen Toca-Apps und weiteren Bauspielen (Abschnitt 3)
 
 ---
 
-## 0. Die Umsetzung (Etappe 1)
+## 0. Die Umsetzung (Etappe 2)
 
-### 0.1 Was sich gegenüber dem Konzept geändert hat
+### 0.1 Was sich gegenüber Etappe 1 geändert hat
+
+| Thema | Etappe 1 | Etappe 2 (zweite Rückmeldung vom 8. Oktober 2026) |
+| --- | --- | --- |
+| Namen | Dorfzentrum, Bürohaus | **Dorf** und **Büro** |
+| Speichern | ein Kasten auf dem Gerät, bei der Anmeldung ins Konto | **je Konto ein eigener Stand** – auf dem Gerät und in der Cloud. Abmelden und mit einem anderen Konto anmelden lädt dessen Stand, nichts vom vorigen. Die Ziegel ebenso. |
+| Wohnen | ein Tier je Stockwerk, in jedem Zimmer | gewohnt wird nur in **Wohnungen** (Schlafzimmer oder Kinderzimmer), mit **bis zu drei Tieren**. Das Wohnhaus beginnt mit **drei leeren Wohnungen**; ein Tipp fragt nur noch: Schlafzimmer oder Kinderzimmer? |
+| Stockwerke | ein Zimmer je Stockwerk | alle anderen Stockwerke haben **zwei Zimmer** nebeneinander. Ein neues Stockwerk im Wohnhaus fragt zuerst: Wohnung oder zwei Zimmer? Die anderen Häuser haben immer zwei. |
+| Reihenfolge | fest | **Stockwerke umstellen**: der Pfeil-Knopf zeigt an jedem Stockwerk Pfeile nach oben und unten – so kommt der Eingang nach unten. |
+| Dinge | 207 Dinge in zehn Schubladen, für alle Zimmer gleich | **832 Dinge**; **jedes Zimmer hat seine eigenen** (mindestens zehn, die es nur dort gibt, im Schnitt 13). Im Eingang steht kein Bett, im Schlafzimmer kein WC. Überall gibt es nur Deckenlampe, Stehlampe, Bild, Fenster, Pflanze, Uhr und Teppich – und das **Bild zeigt in jedem Zimmer sein eigenes Motiv** (Bäckerei eine Brezel, Radiologie ein Röntgenbild, Kinderzimmer einen Teddy …). |
+| Wünsche | 5 gelbe, 2 grüne, 1 blauer je Tier | **2 gelbe, 1 grüner, 2 blaue** je Tier – je Wohnung also höchstens 6 gelbe, 3 grüne und 6 blaue Sterne. |
+| Arbeit | Tiere in den anderen Häusern «arbeiten» dort | jedes Tier hat einen **Traumjob** (z. B. «Bücher ausleihen in der Bibliothek», «das WC putzen im Büro»). Gibt es das Zimmer, arbeitet es dort; sonst nimmt es irgendeinen Job. **Höchstens drei** Tiere im selben Zimmer. |
+| Unterwegs | etwa ein Drittel der Zeit bei der Arbeit oder auf Ausflug | meist daheim, manchmal bei der Arbeit, ab und zu zu **Besuch in einem anderen Haus**; nachts alle daheim. Die Tafel sagt, wo ein Tier ist; «Hingehen →» führt hin. |
+| Einzug | sofort mit der Zimmerart | das erste Tier kommt mit der Wahl der Wohnung; die weiteren **mit der Zeit** (alle zehn Minuten, solange die Bauecke offen ist): Es kommt die Strasse entlang, nimmt den **Lift**, und ein **Feuerwerk** begrüsst es. |
+| Tier-Tafel | mit Gespräch (elf Fragen) | **ohne Gespräch**. Dafür die Mitbewohner zum Wechseln, wo das Tier gerade ist, der Traumjob und die Arbeit. |
+| Zimmerart ändern | Knopf mit Haus-Symbol | ein **Stift** |
+| Vorlesen | was man auswählt | dazu: **ist das Vorlesen an, liest ein Tipp auf einen Text ihn vor** (Tafel, Wahl-Fenster). |
+
+### 0.2 Wohnungen und Tiere
+
+- **Die Wohnung:** ein Stockwerk, ein Zimmer – Schlafzimmer oder Kinderzimmer –, so breit
+  wie das Stockwerk. Mit der Wahl zieht das erste Tier ein; nach zehn Minuten (solange die
+  Bauecke offen ist und das Kind das Wohnhaus sieht) das zweite, dann das dritte. Ist das
+  Kind gerade anderswo, zeigt ein Punkt am Umschalter des Wohnhauses, dass jemand wartet.
+  Die Zimmerart lässt sich später mit dem Stift ändern; die Tiere bleiben und bekommen
+  Wünsche, die zur neuen Art passen.
+- **Wünsche:** zwei gelbe für die Wohnung (einer ist das Lieblingsding oder die
+  Lieblingsfarbe der Tierart, der andere passt zur Zimmerart; Mitbewohner wünschen sich
+  nicht dasselbe), ein grüner für ein Zimmer im Wohnhaus («Im Wohnhaus wünsche ich mir eine
+  Küche»), zwei blaue für Zimmer in den anderen Häusern. Die Lieblingsdinge aller Tierarten
+  liegen in jeder Wohnung in der Schublade «Was Tiere mögen».
+- **Traumjob:** ein Zimmer in Spital, Dorf oder Büro, je Tier verschieden, solange es
+  geht. Wer zuerst eingezogen ist, bekommt zuerst seinen Traumjob; wer ihn nicht bekommt
+  (das Zimmer fehlt oder ist mit drei Tieren voll), nimmt irgendeinen Job, wo Platz ist.
+  Gibt es noch gar keinen Arbeitsplatz, «sucht es noch Arbeit». Auf der Tafel führt «Zeig
+  mir, wo» zum Haus, in dem das Zimmer gebaut werden kann.
+- **Wo ein Tier ist:** gerechnet in Viertelstunden, auf jedem Gerät gleich – etwa die
+  Hälfte der Zeit daheim, ein Viertel bei der Arbeit (wenn es eine hat), sonst zu Besuch in
+  einem Zimmer der anderen Häuser, am liebsten in einem, das es sich gewünscht hat. Von
+  20 bis 7 Uhr sind alle daheim. Wer eben eingezogen ist, packt zuerst eine Viertelstunde
+  aus. In der Hausansicht steht, wer zu Besuch ist oder arbeitet, im Zimmer (mit 💼), und an
+  der Tür der Wohnung, wer gerade weg ist.
+
+### 0.3 Häuser, Stockwerke, Zimmer
+
+| Haus | Wohnungen | Zimmer für zwei |
+| --- | --- | --- |
+| **Wohnhaus** | Schlafzimmer, Kinderzimmer | Eingang, Wohnzimmer, Küche, Esszimmer, Badezimmer, Waschzimmer, Bastelzimmer, Terrasse, Keller |
+| **Spital** | – | die 14 Abteilungen aus Etappe 1 |
+| **Dorf** | – | die 20 Zimmer aus Etappe 1 |
+| **Büro** | – | die 11 Zimmer aus Etappe 1 |
+
+- **Anfang:** das Wohnhaus mit drei leeren Wohnungen, die anderen Häuser mit einem
+  Stockwerk für zwei Zimmer. Die Stockwerke vom Anfang kosten keine Ziegel; die Schranke
+  (ohne Kauf) steht weiter beim vierten Stockwerk – im Wohnhaus also nach einem gebauten.
+- **Zimmer für zwei** sind halb so breit (280 statt 560 Zimmer-Einheiten), passen 20 Dinge
+  (die Wohnung 40) und zoomen genauso bildschirmfüllend.
+- **Die Dinge** stehen je Zimmerart in neun Dateien `bau-moebel-<gruppe>.js` (wohnen, haus,
+  spital, station, laeden, dienste, freizeit, buero, arbeit); jede meldet ihre Dinge, die
+  Zimmerlisten und die Bildmotive bei `bau-moebel.js` an (`dazu()`). Die Schublade hat die
+  Reiter: Dinge des Zimmers, «Was Tiere mögen» (nur in Wohnungen), Licht/Bilder/Pflanzen,
+  Wand, Boden.
+
+### 0.4 Speichern je Konto
+
+- `game-cloud.js` hat dafür `registerProKonto`: auf dem Gerät ein Fach je Konto
+  (`lernapp.bau.konten`) und eines für den Gast (`lernapp.bau`), in der Cloud wie bisher
+  der Kasten im Spielstand des Kontos. Beim Wechsel des Kontos geht, was noch aufs
+  Speichern wartete, an das bisherige Kind; dann gilt der Stand des neuen – ganz, ohne
+  etwas vom vorigen.
+- **Ein Gast-Stand** geht bei der Anmeldung nur in ein Konto über, das noch keine Bauecke
+  hat (in der Cloud und auf dem Gerät); danach ist das Gast-Fach leer. Die Ziegel des Gasts
+  bleiben beim Gast.
+- **Ein Stand aus Etappe 1** (damals gehörte der Kasten allen am Gerät und wuchs mit dem
+  angemeldeten Konto) geht einmal an das erste Konto, das sich nach dem Update anmeldet –
+  zusammen mit dem, was dieses Konto schon in der Cloud hat. Danach ist das Gerät getrennt
+  (`lernapp.bau.getrennt`), und kein weiteres Konto bekommt etwas davon.
+- **Fassung 2** (`FORMAT` in bau-stand.js): Ein Stand der Etappe 1 wird beim Laden
+  übertragen – Schlaf- und Kinderzimmer werden Wohnungen mit ihrem Tier (es bekommt die
+  neuen Wünsche und einen Traumjob), alle anderen Zimmer stehen links auf einem Stockwerk
+  für zwei (die Dinge rücken zusammen, mehr als 20 passen nicht); Tiere in anderen Zimmern
+  ziehen aus. Eine App der Etappe 1 räumt einen Stand der Fassung 2 nicht auf, sondern
+  wartet auf die neue Fassung.
+- Selbst wenn alle vier Häuser bis oben voll stehen, bleibt der Kasten unter 400 Kilobyte
+  (validate-bau.mjs rechnet das nach).
+
+### 0.5 Dateien und Prüfungen (Etappe 2)
+
+| Datei | Was |
+| --- | --- |
+| `bau-moebel-*.js` *(neu, 9)* | 624 neue Dinge, die Zimmerlisten und die Bildmotive |
+| `bau-moebel.js` | `dazu()`, `UEBERALL`, `RAUM_DINGE`, `MOTIVE`; das Bild zeigt das Motiv des Zimmers |
+| `bau-katalog.js` | Dorf und Büro, Wohnungen (`WOHNEN`), Jobs (`JOBS`), Lieblingsdinge, `dingeFuer`; ohne Gespräch |
+| `bau-stand.js` | Fassung 2: Wohnungen und Stockwerke für zwei, bis drei Tiere, Wünsche 2/1/2, Traumjob und Jobs, Aufenthalt, Einzug mit der Zeit, Umstellen, je Konto, Übertragung von Fassung 1 |
+| `bau-art.js`, `train-bau.js`, `bau.css` | Zimmer halb und ganz, Sterntafel je Tier, Lift-Kabine, Einzug mit Feuerwerk, Umstellen, Stift, Tafel mit Mitbewohnern und Hingehen, Vorlesen per Tipp |
+| `game-cloud.js`, `journey-plan.js`, `firebase.js` | `registerProKonto`; Ziegel je Konto; die neuen Fächer überstehen das Zurücksetzen |
+| `scripts/validate-bau.mjs` | eigene Dinge je Zimmer, Motive, Erfüllbarkeit, Wohnungen und Einzug, Sterne 6/3/6, Jobs, Aufenthalt, Umstellen, Konten, Übertragung, Grösse, Fingerabdruck |
+| `scripts/check-bau.mjs` | im Browser: Einzug mit Feuerwerk, Schubladen je Zimmer, Stift, Tafel mit Hingehen und Vorlesen per Tipp, Umstellen, Bauen mit «Wohnung oder zwei Zimmer?», zweiter Einzug, Tier bei der Arbeit besuchen |
+
+### 0.6 Annahmen – bitte bestätigen
+
+- Neue Tiere kommen nur, **solange die Bauecke offen ist** (alle zehn Minuten eines je
+  Wohnung mit Platz) – so sieht das Kind jeden Einzug. Wer die Bauecke eine Woche nicht
+  öffnet, findet keine fertig bevölkerten Wohnungen vor.
+- **Nachts** (20 bis 7 Uhr, Uhr des Geräts) sind alle daheim.
+- Ein Gast-Stand geht nur in ein Konto ohne Bauecke über; die Ziegel des Gasts nicht.
+
+---
+
+## 0E1. Die Umsetzung (Etappe 1)
+
+### 0E1.1 Was sich gegenüber dem Konzept geändert hat
 
 | Thema | Konzept | Umgesetzt (Rückmeldung vom 8. Oktober 2026) |
 | --- | --- | --- |
@@ -39,7 +150,7 @@ Pepi, Miga Town, den einzelnen Toca-Apps und weiteren Bauspielen (Abschnitt 3)
 | Vorlesen | Lautsprecher-Knopf | alles, was man auswählt, wird vorgelesen (Haus, Zimmerart mit Erklärung, Ding, Farbe, Muster, Antworten der Tiere). Ein **Vorlesen-Schalter** neben dem Ton-Knopf schaltet die Stimme ganz ab. |
 | Zurücksetzen | Haus bleibt, Ziegelzählung neu | **Häuser und Ziegel bleiben** – auf dem Gerät und in der Cloud. |
 
-### 0.2 Die vier Häuser und ihre Zimmer
+### 0E1.2 Die vier Häuser und ihre Zimmer
 
 Jede Zimmerart hat einen Satz, der erklärt, was dort geschieht; ein Tipp auf die Karte liest
 ihn vor. Im Spital lernt ein Kind so ganz nebenbei, was eine Radiologie oder eine
@@ -57,7 +168,7 @@ geschützt. Auf seinem Dach landet ein Rettungshelikopter; das Dorfzentrum hat e
 Uhrturm, das Bürohaus Sonnenkollektoren und eine Antenne, das Wohnhaus ein Satteldach mit
 Kamin.
 
-### 0.3 Gestalten
+### 0E1.3 Gestalten
 
 - **207 Dinge in zehn Schubladen:** Sitzen und Liegen, Tische und Schränke, Küche, Bad und
   Wäsche, Spital, Laden und Restaurant, Spielen und Sport, Büro und Lernen, Deko und Licht,
@@ -79,7 +190,7 @@ Kamin.
 - **Haus:** Fassade und Dach in jeder Farbe; Tag und Nacht (nachts schlafen die Tiere, die
   Eule nicht, und die Lampen leuchten).
 
-### 0.4 Tiere und Sterne
+### 0E1.4 Tiere und Sterne
 
 - **16 Tierarten:** die zwölf der App (Fuchs, Bär, Hase, Katze, Panda, Frosch, Eule,
   Pinguin, Löwe, Maus, Eichhörnchen, Steinbock) und vier neue (Hund, Igel, Kuh, Elefant).
@@ -120,7 +231,7 @@ Kamin.
 - **Zeit:** Ein neuer gelber Wunsch frühestens am nächsten Kalendertag und nur, wenn alle
   gelben erfüllt sind; das Lieblingsding bleibt.
 
-### 0.5 Rätsel und Ziegel
+### 0E1.5 Rätsel und Ziegel
 
 - **Der Rätsel-Knopf** zieht ein zufälliges Rätsel aus der Karte, auf der das Kind auf der
   Reise gerade fährt, und aus der davor – mit denselben Aufträgen und derselben
@@ -145,7 +256,7 @@ Kamin.
   Stationen, die ohnehin frei sind. **Bitte bestätigen** – das war die Empfehlung des
   Konzepts, die Rückmeldung hat die Frage offen gelassen.
 
-### 0.6 Speichern
+### 0E1.6 Speichern
 
 - Der Kasten `lernapp.bau` (game-cloud.js): zuerst auf dem Gerät, angemeldet in der Cloud.
   Gespeichert wird gebündelt (nach gut einer Sekunde Ruhe und beim Verlassen), damit ein
@@ -172,7 +283,7 @@ Kamin.
 - Keine Regel in `firestore.rules` ist neu: Die Bauecke liegt im Spielstand des Kindes wie
   alles andere.
 
-### 0.7 Dateien und Prüfungen
+### 0E1.7 Dateien und Prüfungen
 
 | Datei | Was |
 | --- | --- |
@@ -190,7 +301,7 @@ Kamin.
 | `scripts/validate-bau.mjs` *(neu)* | ohne Browser: Katalog, Erfüllbarkeit aller Wünsche für jede Tierart in jedem Zimmer, Sterne, Schranke, Tageswechsel, Auszug und Einzug, unterwegs, Zusammenführen (auch zwei Geräte im selben Stockwerk), Speichern ohne neuen Stand, neuere Fassung, Fingerabdruck des Katalogs, Rätselauswahl je Stufe, Adressen, Einbau |
 | `scripts/check-bau.mjs` *(neu)* | im Browser auf Tablet und Handy: Bauplatz, Hauswahl, Zimmerwahl mit Vorlesen, Ziehen, Stapeln (auch mit Speichern mitten im Ziehen), Rückgängig, Malen, Menü, Tafel, Rätsel-Knopf, Lieferung, Bauen, Neuladen, Vorlesen aus, zweiter Besuch, neuere Fassung |
 
-### 0.8 Was als Nächstes kommen kann
+### 0E1.8 Was als Nächstes kommen kann
 
 - **Häuser der Geschwister ansehen** (Entscheid 12: nur ansehen) – über die Gruppe, wie die
   Züge der anderen.
