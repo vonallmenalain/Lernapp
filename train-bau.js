@@ -2495,8 +2495,22 @@
       if (u.y <= vorn) u.y = Math.min(vorn + 0.5, geo.STAND_VORNE);
     } else {
       const hinten = Math.min(...ueberdeckt.map((x) => x.y));
-      if (u.y >= hinten) u.y = Math.max(hinten - 0.5, geo.STAND_HINTEN);
+      if (u.y >= hinten) {
+        u.y = Math.max(hinten - 0.5, geo.STAND_HINTEN);
+        begrenze(u);
+      }
+      // Ein Ding, das höher ist als das Zimmer, darf nicht weiter nach hinten
+      // (sonst ragte es oben hinaus) – dann rücken die anderen ein wenig vor.
+      ueberdeckt.forEach((x) => { if (x.y < u.y) rueckeAuf(z, x, u.y); });
     }
+  }
+
+  // Ein Ding auf die Tiefe y stellen; was obendrauf steht, kommt mit.
+  function rueckeAuf(z, x, y) {
+    const obendrauf = z.dinge.filter((w) => w.k !== x.k && traegerVon(z, w)?.k === x.k);
+    x.y = y;
+    const fl = flaecheVon(x);
+    if (fl) obendrauf.forEach((w) => { w.y = fl.y; });
   }
 
   function naechsteGroesse(s) {

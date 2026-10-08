@@ -103,6 +103,9 @@ zusätzlich zu Abschnitt 0.
   Kletterturm vor dem Bällebad, egal was man drückte. Jetzt rückt das Ding vor oder hinter
   alles, was es überdeckt (einen Hauch weiter vorn oder hinten auf dem Boden); steht es
   schon ganz vorn oder ganz hinten, entscheidet die Liste. Was darauf steht, wandert mit.
+- Ein Ding, das höher ist als das Zimmer (etwa ein vergrösserter Kletterturm), darf nicht
+  weiter nach hinten, sonst ragte es oben hinaus. Bei «Nach hinten» rücken dann die Dinge,
+  die es überdeckt, ein wenig nach vorn – samt dem, was auf ihnen steht.
 
 ### 0K.5 Dateien und Prüfungen
 

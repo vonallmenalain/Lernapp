@@ -36,7 +36,7 @@
  *                 Arbeitszimmer stehen nur, wer dort den Traumjob hat oder
  *                 sich das Zimmer wünscht – ohne die Sterne der Wohnung.
  *   Nach vorne    «Nach vorne» und «Nach hinten» wirken auch, wenn zwei Dinge
- *                 verschieden tief stehen.
+ *                 verschieden tief stehen oder eines höher ist als das Zimmer.
  *   KiddyDome     Mit nur einem freien Stockwerk sagt die Wahl, dass er zwei
  *                 braucht, und bietet an, eines dazuzubauen; dann steht er über
  *                 zwei Stockwerke (ohne Decke dazwischen), im Zoom doppelt so
@@ -621,6 +621,13 @@ async function pruefeKiddyDome(browser, name, viewport) {
     await page.locator('.bau-bearbeiten [aria-label="Nach vorne"]').click();
     await page.waitForTimeout(400);
     pruefe(await reihe() === "bad<turm", `${name}: «Nach vorne» bringt den Kletterturm nicht wieder vor das Bällebad (${await reihe()})`);
+    // Vergrössert ist der Kletterturm höher als das Zimmer und darf nicht
+    // weiter nach hinten – dann rückt das Bällebad ein wenig vor.
+    await page.locator('.bau-bearbeiten [aria-label="Grösser"]').click();
+    await page.waitForTimeout(400);
+    await page.locator('.bau-bearbeiten [aria-label="Nach hinten"]').click();
+    await page.waitForTimeout(400);
+    pruefe(await reihe() === "turm<bad", `${name}: «Nach hinten» bringt den grossen Kletterturm nicht hinter das Bällebad (${await reihe()})`);
     await page.locator(".stage-back").click();
     await page.waitForTimeout(1200);
     const haus = await page.evaluate(() => ({
