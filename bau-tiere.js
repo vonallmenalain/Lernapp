@@ -191,13 +191,13 @@
   }
 
   // Halsband mit Marke (Hund) oder Glöckchen (Katze)
-  function halsband(c, glocke = false, x = 3) {
+  function halsband(c, glocke = false, x = 3, y = -47) {
     const k = ton(c, -0.3);
-    const gold = "#f3c24f", kg = "#b98a22";
+    const gold = "#f3c24f", kg = "#b98a22", m = y + 12.4;
     const anh = glocke
-      ? kreis(x, -34.6, 2.9, fl(gold, kg, 1)) + pfad(s`M${x - 2.6} -34.4H${x + 2.6}M${x} -34.4V-32.2`, strich(kg, 0.8)) + kreis(x - 1, -35.6, 0.8, ' fill="#ffffff" opacity=".8"')
-      : kreis(x, -34.3, 2.7, fl(gold, kg, 1)) + kreis(x - 0.8, -35.1, 0.8, ' fill="#ffffff" opacity=".8"');
-    return band(c, k, 4) + anh;
+      ? kreis(x, m, 2.9, fl(gold, kg, 1)) + pfad(s`M${x - 2.6} ${m + 0.2}H${x + 2.6}M${x} ${m + 0.2}V${m + 2.4}`, strich(kg, 0.8)) + kreis(x - 1, m - 1, 0.8, ' fill="#ffffff" opacity=".8"')
+      : kreis(x, m + 0.3, 2.9, fl(gold, kg, 1)) + kreis(x - 0.8, m - 0.5, 0.8, ' fill="#ffffff" opacity=".8"');
+    return band(c, k, 4.4, 2, y) + anh;
   }
 
   // Fliege: nach dem Kopf zeichnen, sie sitzt unter dem Kinn.
@@ -698,7 +698,7 @@
       armHinten(fl(D, K)) + kreis(...HAND_H, 3.2, fl(C, KC)) +
       rumpfMit(14.5, D, K, oval(3, -27, 8, 12, fl(C))) +
       armVorne(fl(D, K)) + kreis(...HAND_V, 3.3, fl(C, KC)) +
-      halsband(o.farbe) +
+      halsband(o.farbe, false, 3, -45) +
       kopfMit(1, -61, 21, D, K) +
       pfad("M3 -81.5C1 -73 1 -65 2 -58.5H10C9 -65 8 -73 6 -81.5Z", fl(C)) +
       oval(6, -53, 10, 7.5, fl(C, KC, 1)) +
