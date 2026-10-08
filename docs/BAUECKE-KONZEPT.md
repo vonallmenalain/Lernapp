@@ -3,8 +3,8 @@
 Stand: Oktober 2026 · Grundlage: `train-home.js`, `game-cloud.js`, `entitlement.js`, `game-shell.js`,
 `app.js`, `train-art.js`, `lesen-art.js`, `train-leseecke.js`, `kids.js`, `firestore.rules`,
 `docs/ABENTEUERREISE-KONZEPT.md`, `docs/LESEECKE-KONZEPT.md`, `docs/UX-REVIEW-KINDER-4-8.md` und
-eine Recherche zu Toca Life World, Sago Mini World, Avatar World, Pepi, Miga Town, den
-einzelnen Toca-Apps und weiteren Bauspielen (Abschnitt 3)
+eine Recherche zu Toca Boca World (früher Toca Life World), Sago Mini World, Avatar World,
+Pepi, Miga Town, den einzelnen Toca-Apps und weiteren Bauspielen (Abschnitt 3)
 
 > **Stand:** Konzept, nichts davon ist in der App gebaut. Zum Konzept gehört eine klickbare
 > **Stilprobe** (Artefakt «Gripszug Bauecke»; dieselbe Seite liegt als
@@ -62,7 +62,147 @@ Sechs Leitplanken gelten überall:
 
 ## 3. Was die Vorbilder können – und was wir übernehmen
 
-*(Abschnitt folgt mit der Recherche.)*
+Grundlage: Store-Seiten (App Store, Google Play), die Seiten der Hersteller, Common Sense
+Media, der australische Kinder-Medien-Rat ACCM, Fan-Wikis und Testberichte, gesucht im
+Oktober 2026. Was nur eine Quelle sagt oder wo sich die Quellen widersprechen, ist markiert.
+Preise, Abos und Inhalte dieser Apps ändern sich oft – vor einer Kaufempfehlung im Store
+nachsehen.
+
+### 3.1 Die Apps aus der Liste
+
+**Toca Boca World** – so heisst Toca Life World inzwischen (Toca Boca, gehört zu Spin
+Master; erschienen 2018). Ein offenes digitales Puppenhaus: laut Toca Boca über 90 Orte und
+500 Figuren, keine Ziele, keine Punkte, kein Verlieren.
+
+- *Bedienung:* Figuren und Dinge mit dem Finger ziehen, fast alles lässt sich antippen.
+  Figuren halten Dinge, setzen sich, legen sich hin. Die Orte sind Querschnitte, mehrstöckige
+  Gebäude haben einen Lift (belegt für das Spital der früheren Einzel-App «Toca Life:
+  Hospital», fünf Stockwerke).
+- *Gestalten:* **Home Designer** (seit Juni 2020, laut Fan-Wiki): Häuser einrichten, Wände,
+  Böden, Möbel. Dazu Character Creator (Gesicht, Haare, Accessoires) und seit 2024 ein
+  Outfit Designer.
+- *Wiederkommen:* Jeden **Freitag** liegen im Postamt Geschenke – Möbel, Kleider, Deko,
+  Haustiere. Eine Einladung, keine Strafe fürs Fernbleiben.
+- *Tag und Nacht:* die Sonne antippen, und es wird Nacht; den Mond, und es wird Tag.
+- *Geheimnisse:* versteckte Dinge und Kombinationen, die man durch Antippen und Ausprobieren
+  findet (laut inoffiziellen Ratgebern «Hunderte»).
+- *Geld:* Gratis zum Herunterladen, mit ein paar Orten zum Anfangen (ein Familienhaus, eine
+  erste Wohnung in Bop City); die meisten Orte und viele Möbel kosten extra. Keine Werbung
+  von Dritten – Toca Boca wirbt aber für die eigenen Apps.
+
+**Sago Mini World** (Sago Sago, ebenfalls Spin Master): ein Abo für 2- bis 5-Jährige mit
+vielen kleinen Spielen; nach sieben Tagen Probezeit monatlich oder jährlich, für Abonnenten
+ohne Werbung und ohne Käufe. Seit 2023 steckt es auch im Sammel-Abo **Piknik** (mit Toca
+Boca Jr, Hair Salon 4 u. a.; je nach Seite 11.99 oder 14.99 US-Dollar im Monat).
+
+- *Haltung:* offenes Spiel ohne richtige Antworten, ohne Uhr, oft ohne ein einziges Wort;
+  die Firma sagt selbst, ihre Spiele hätten keine künstlichen Anreize und keine festen Regeln.
+- *Bauen:* **Neighborhood Blocks** – das Kind baut aus Blöcken eine Stadt, und **was es baut,
+  lockt neue Bewohner an**; jeder hat einen Beruf, ein Malwerkzeug färbt die Teile um.
+  **Village** – wer eine Tür oder ein Fenster setzt, bekommt einen neuen Wichtel als Bewohner;
+  Wichtel lassen sich herumtragen und besuchen einander (ob Village noch zu Sago Mini World
+  gehört, ist unklar). Dazu Trucks & Diggers (graben, bauen) und Toolbox (Werkzeuge).
+
+**Avatar World** (Pazu Games): gratis mit In-App-Käufen, ab 4, über 100 Millionen Downloads,
+bei Google Play «Teacher Approved». Ein Avatar-Editor (Kleider, Frisuren), der **House
+Maker** zum Einrichten jedes Zimmers – mit Haustypen über mehrere Stockwerke und Zimmern für
+einen Zweck (Büro, Fitness, Musik) –, ein «City Maker» für leere Grundstücke, eine Stadt mit
+vielen Orten, Haustiere. Möbel- und Hauspakete kosten. Elternratgeber kritisieren
+Kaufaufforderungen und Abo-Hinweise; ob die Gratisversion Werbung zeigt, sagen die Quellen
+verschieden. Der ACCM rät (2023) für Kinder bis vier Jahre zu Begleitung, wegen Käufen und
+Werbung.
+
+**«Pepi World»**: Eine App mit genau diesem Namen gibt es nicht; gemeint ist wohl **Pepi
+Wonder World: Magic Isles** (Pepi Play, 2019) – Inseln mit Drachen, Wichteln und anderen
+Fantasiefiguren, ein digitales Puppenhaus, gratis mit Käufen (alle Inseln zusammen rund 16
+US-Dollar), dazu das werbefreie Abo «Pepi Pass». Für die Bauecke spannender ist **Pepi
+House**: ein Haus mit **vier Stockwerken** (Küche, Waschküche, Schlafzimmer, Garage, Garten)
+und einem **Lift, der Dinge und Figuren zwischen den Stockwerken trägt**; Hunderte Dinge,
+manche lassen sich kombinieren. Eine Bewertung beklagt, dass Inseln, die man früher mit
+Werbung freischalten konnte, jetzt gesperrt sind (nur eine Quelle).
+
+**Miga Town: My World** (XiHe Digital / XFUN): ein Rollenspiel-Sandkasten ohne Aufgaben,
+Punkte oder Geschichte. Drei Orte sind gratis (Restaurant, Kleiderladen, Wohnung), die Dinge
+reagieren (der Kühlschrank geht auf, der Ofen kocht). Weitere Orte einzeln oder im Paket,
+dazu ein monatlicher «VIP»-Pass und Möbelpakete. Kritik: viel hinter Käufen, oft als
+Toca-Kopie bezeichnet, keine Möglichkeit, Geschichten aufzunehmen (Common Sense Media).
+
+**Toca Boca Jr und die einzelnen Toca-Apps.** Toca Boca Jr (2023, im Piknik-Abo) bündelt die
+alten Einzel-Apps für Jüngere: Toca Kitchen 2, Toca Nature, Toca Lab, Toca Builders, Toca Pet
+Doctor. Seit Ende 2025 gibt es «Toca Boca Jr Classics» mit neun dieser Spiele, ohne Werbung
+und ohne Käufe (laut Store-Tracker).
+
+- **Toca Kitchen 2:** Das Kind kocht für einen von drei Gästen, und **die Gäste reagieren
+  deutlich** – begeistert, niesend, Dampf aus den Ohren bei zu heissem Essen, Zunge raus,
+  wenn es nicht schmeckt. Der Lohn ist die Reaktion, nicht ein Punkt.
+- **Toca Hair Salon 4:** schneiden, färben, waschen, dann in die **Fotokabine** mit
+  Hintergrund – das fertige Werk wird ein Bild. Grundversion gratis, Schminkecke und
+  Accessoires kosten.
+
+### 3.2 Weitere Vorbilder fürs Bauen und Wohnen
+
+- **Toca Nature** (Toca Boca): Das Kind formt eine Landschaft, und **die Tiere kommen je
+  nachdem, was es geformt hat** – Berge holen Wölfe, ein See Biber und Fische, jede Baumart
+  ihr eigenes Tier (sieben Tiere im Ganzen). Das ist die Regel hinter der Einzugstabelle in 5.4.
+- **Toca Builders** (2013): sechs Baufiguren, jede mit einer Fähigkeit (Blöcke setzen,
+  anmalen, entfernen …). Ein Werkzeug, eine Figur – so verstehen es auch Vierjährige.
+- **Toca Blocks:** Blöcke mit Eigenschaften (klebrig, federnd); zwei Blöcke verschmelzen zu
+  einem neuen Ding. Keine Levels.
+- **Tiny Tower** (NimbleBit, 2011): ein Hochhaus Stockwerk für Stockwerk im Querschnitt,
+  Wohnstockwerke und Läden. Jeder Bewohner hat einen **Traumjob**; im falschen Job zeigt er
+  ein trauriges Gesicht – die einzige «Strafe». Wer im Erdgeschoss in den Lift steigt, **sagt
+  in einer Sprechblase, in welches Stockwerk er will**, und man fährt ihn hin. Aber: Jedes
+  Stockwerk braucht eine halbe Stunde länger zum Bauen als das vorige, und eine Premiumwährung
+  kürzt das ab.
+- **SimTower / Yoot Tower** und **Project Highrise:** Sterne nach Bewohnerzahl, Mieter mit
+  Stress, wenn sie am Lift warten, Lärm stört Nachbarn, Unzufriedene ziehen aus. Für 4- bis
+  8-Jährige zu viel – übrig bleibt die Idee, dass Nachbarschaft zählt.
+- **Animal Crossing: Happy Home Designer** und **Happy Home Paradise** (Nintendo): Kundinnen
+  kommen mit einem Thema («ein Ferienhaus voller Körbe») und drei, vier Wunschmöbeln; alles
+  andere entscheidet man selbst. Beim Einrichten zeigen sie über dem Kopf ein **Herz** oder ein
+  Ausrufezeichen. Das Budget ist unbegrenzt, man kann kaum etwas falsch machen, und neue
+  Techniken (Trennwände, Säulen, Licht) kommen nach und nach.
+- **Townscaper** (Oskar Stålberg): nur Klötze setzen und wegnehmen; das Spiel macht daraus
+  von selbst Häuser, Treppen und Gärten. Kein Ziel – und man kann es kaum hässlich machen.
+- **The Sims:** Was eine Figur will, steht als Bild in einer Gedankenblase – ohne Text.
+
+### 3.3 Was die Bauecke davon nimmt
+
+| Idee | Vorbild | In der Bauecke |
+| --- | --- | --- |
+| Querschnitt, jedes Zimmer eine Bühne | Toca Boca World, Pepi House, Tiny Tower | das Haus (5.1) |
+| alles anfassen, Figuren tragen | Toca, Miga Town, Pepi | Möbel ziehen, Tiere tragen (5.3, 5.4) |
+| was man baut, lockt Bewohner an | Sago Mini Neighborhood Blocks und Village, Toca Nature | Einzug nach Angebot (5.4) |
+| Wünsche mit Herz | Happy Home Paradise, Toca Kitchen 2 | ein Wunsch je Tier, Herz in die Anzeige (5.4) |
+| Lieblingsort, Traumjob | Tiny Tower | Pinguin im Hallenbad, Eule in der Bibliothek |
+| Lift mit Zahl in der Sprechblase | Tiny Tower, Pepi House | Lift-Knöpfe 0, 1, 2 … (5.1, 5.5) |
+| Tag und Nacht per Sonne und Mond | Toca Boca World | Sonne-Mond-Knopf (5.4) |
+| malen und umfärben | Sago Mini Neighborhood Blocks, Toca Home Designer | Schublade «Farbe» (5.3) |
+| eine kleine Überraschung beim Wiederkommen | Toca-Freitagsgeschenk | Lieferzug, Brief im Briefkasten (6) |
+| nach und nach Neues | Happy Home Paradise | Herzen schalten frei (5.4) |
+| das fertige Werk als Bild | Toca Hair Salon 4 | Postkarte vom Haus (Etappe 3) |
+| Verstecktes entdecken | Toca Boca World | z. B. eine Maus hinter dem Bild (Etappe 2) |
+| ohne Text, ohne Uhr, ohne Fehler | Sago Mini, Toca | die Leitplanken (2) |
+
+### 3.4 Was die Bauecke bewusst nicht übernimmt
+
+- **Läden, Pakete, Abos, VIP-Pässe im Spiel** (Toca Boca World, Avatar World, Miga Town,
+  Pepi). Gripszug ist ein Einmalkauf; die Schranke am Kran ist für Eltern, nicht fürs Kind.
+- **Werbung**, auch nicht als «Belohnung» zum Freischalten.
+- **Wartezeiten und eine Währung zum Abkürzen** (Tiny Tower): Ein Stockwerk steht sofort.
+- **Stress, Sterne, Auszug** (SimTower, Project Highrise): Kein Tier ist «unzufrieden».
+- **Druck durch Figuren, künstliche Eile, Lockangebote, gesperrte Wege.** Radesky und andere
+  (JAMA Network Open, 2022) fanden solche Muster in rund 80 % der Apps, die 160 Kinder von
+  drei bis fünf Jahren nutzten – Lockangebote und gesperrte Wege am häufigsten, Druck durch
+  Lieblingsfiguren («Komm zurück!») in etwa jeder fünften App.
+- **Serien, die verloren gehen, und Push-Nachrichten.** Die Leitlinien der EU-Kommission zum
+  Schutz Minderjähriger (Art. 28 DSA, Juli 2025) erwarten, dass beides für Kinder
+  standardmässig aus ist. Die Bauecke hat keines von beiden.
+- **Eine Belohnung, die das Üben ersetzt.** Lepper, Greene und Nisbett (1973): Kinder, die für
+  das Malen eine Belohnung erwarteten, malten danach in der freien Zeit weniger. Deshalb gibt
+  es **einen Ziegel je fertige Runde, egal wie gut** – keine Ziegel für Tempo oder Sterne,
+  kein «Spiel noch drei Runden, dann darfst du bauen». Die Bauecke ist ein Spiegel des Übens,
+  nicht sein Preis; das Kind sieht ihn erst, wenn es auf den Bauplatz geht.
 
 ---
 
@@ -308,7 +448,8 @@ davor: Keine Frage muss beantwortet werden, um etwas zu bauen.
 - **Problemlösen:** Wünsche, die sich reiben – die Eule will Ruhe, die Kinder wollen den
   Spielplatz –, sind kleine Rätsel ohne falsche Lösung.
 - **Bauaufträge** (Etappe 3, für Leser): ein Zettel am Kran, «Stell zwei Stühle in die
-  Küche», wie «Lies und tu!». Er bringt zwei Ziegel extra – eine Belohnung, keine Pflicht.
+  Küche», wie «Lies und tu!». Ein erledigter Auftrag zählt wie eine Runde – ein Ziegel, keine
+  Pflicht.
 
 ---
 
@@ -316,9 +457,10 @@ davor: Keine Frage muss beantwortet werden, um etwas zu bauen.
 
 ### Woher die Ziegel kommen
 
-Ein **Ziegel je fertige Runde**, einer mehr für drei Sterne oder einen Stempel der Reise. Bei
-vier bis sechs Runden am Tag wächst das Haus etwa alle zwei Tage um ein Stockwerk – schnell
-genug, dass es sich lohnt, langsam genug, dass ein Stockwerk etwas wert ist.
+Ein **Ziegel je fertige Runde**, egal wie gut sie war – gleich viel für eine Runde auf der
+Wiese wie für ein Kakuro (warum, steht in 3.4). Bei vier bis sechs Runden am Tag wächst das
+Haus etwa alle zwei Tage um ein Stockwerk – schnell genug, dass es sich lohnt, langsam genug,
+dass ein Stockwerk etwas wert ist.
 
 Gezählt wird **je Gerät**: Jedes Gerät führt seine eigene Zahl, die Cloud hält alle, und
 zusammengeführt wird je Gerät mit dem grösseren Wert; die Ziegel sind die Summe. So geht auf
@@ -543,7 +685,7 @@ Mit meiner Empfehlung, damit die Umsetzung nicht daran hängen bleibt:
 | --- | --- | --- |
 | 1 | Name | «Bauecke» – wie die Bauecke im Kindergarten, neben der Leseecke. Im Code `bau` (`lernapp.bau`, `train-bau.js`, Ansicht `bau`); gesprochen «dein Haus». Andere Möglichkeiten: «Das Haus am Gleis», «Gripshaus». |
 | 2 | Ort | Bauplatz rechts auf dem Startbild, gegenüber dem Lesewagen. |
-| 3 | Woher die Ziegel kommen | aus allen fertigen Runden: Zug, Leseecke und Reise. Ein Ziegel je Runde, einer mehr für drei Sterne oder einen Stempel. |
+| 3 | Woher die Ziegel kommen | aus allen fertigen Runden: Zug, Leseecke und Reise. Ein Ziegel je Runde, egal wie gut – keine Ziegel für Tempo oder Sterne (3.4). |
 | 4 | Was ein Stockwerk kostet | immer zehn Ziegel – eine volle Palette. Steigende Preise sind für Vierjährige nicht zu durchschauen. |
 | 5 | Startgeschenk | Erdgeschoss und erster Stock fertig, der Hase wohnt darin, zehn Ziegel liegen bereit. |
 | 6 | Gestalten frei? | ja, alles im gebauten Haus, so oft das Kind will. |
