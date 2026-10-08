@@ -504,6 +504,9 @@ async function pruefeSonderfaelle(browser, name, viewport) {
     await page.waitForTimeout(1500);
     await page.locator('.bau-tab[data-haus="wohnhaus"]').click();
     await page.waitForTimeout(900);
+    // Die Tiere laufen in der Wohnung herum; steht eines gerade in der Mitte,
+    // nähme es den Tipp (und öffnete seine Tafel statt des Zimmers).
+    await page.addStyleTag({ content: ".bau-welt .bau-tier { pointer-events: none !important; }" });
     const tafelAuf = async () => {
       await tippe(page, '.bau-raum[data-stock="0"]');
       await page.waitForTimeout(1600);

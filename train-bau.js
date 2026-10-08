@@ -1203,6 +1203,25 @@
 
   function stupse(node) {
     if (!node) return;
+    // Ein Teil der Hausansicht steht mit seinem transform-Attribut an seinem
+    // Platz. Eine CSS-Animation auf transform ersetzt dieses – das Zimmer
+    // spränge für die Dauer aus dem Bild. Darum wippt es über die
+    // Bildschleife, um seine eigene Mitte.
+    if (node instanceof SVGElement) {
+      if (reduced() || node.dataset.stups) return;
+      let box;
+      try { box = node.getBBox(); } catch { return; }
+      const basis = node.getAttribute("transform") || "";
+      const cx = (box.x + box.width / 2).toFixed(1);
+      const cy = (box.y + box.height / 2).toFixed(1);
+      const um = (s) => `${basis} translate(${cx} ${cy}) scale(${s.toFixed(3)}) translate(${-cx} ${-cy})`;
+      node.dataset.stups = "1";
+      tween(800, (p) => node.setAttribute("transform", um(p < 0.3 ? 1 + 0.16 * (p / 0.3) : p < 0.6 ? 1.16 - 0.2 * ((p - 0.3) / 0.3) : 0.96 + 0.04 * ((p - 0.6) / 0.4))), {
+        e: ease.lin,
+        done: () => { delete node.dataset.stups; if (basis) node.setAttribute("transform", basis); else node.removeAttribute("transform"); },
+      });
+      return;
+    }
     node.classList.remove("is-stups");
     void node.getBoundingClientRect();
     node.classList.add("is-stups");
@@ -3029,7 +3048,9 @@
     const raum = K().RAEUME[S().zimmer(hausId, index, slot)?.raum];
     if (raum) sag(`${raum.der} ${K().HAUS[hausId].im}.`);
     await warte(500);
-    for (const t of tiere.values()) if (t.tier.seed === seed) { t.huepf = 1; wecke(); stupse(t.g); }
+    // Das Tier hüpft – angestupst wird es nicht: Seine Lage schreibt die
+    // Bildschleife in jedem Bild neu.
+    for (const t of tiere.values()) if (t.tier.seed === seed) { t.huepf = 1; wecke(); }
   }
 
   // ---------------------------------------------------------------------------
