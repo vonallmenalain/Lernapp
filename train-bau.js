@@ -1276,7 +1276,7 @@
     const lage = svg?.querySelector(".bau-einzuglage");
     // Eine Figur aus den Büchern kennen die Kinder: Sie wird mit ihrem Buch angesagt.
     const figur = S().figurVon(tier);
-    const kommt = figur ? `Das ist ja ${tier.n} aus dem Buch «${figur.buecher[0].titel}»!` : `${tier.n}, ${K().TIERE[tier.a]?.der || ""}, zieht ein.`;
+    const kommt = figur ? `${tier.n} aus dem Buch «${figur.buecher[0].titel}» zieht ein!` : `${tier.n}, ${K().TIERE[tier.a]?.der || ""}, zieht ein.`;
     const zielX = art.ZX + 120 + (S().hash(tier.seed) % 300);
     const zielY = art.oben(index) + S().GEO.STAND + 2;
     if (!lage || reduced()) {

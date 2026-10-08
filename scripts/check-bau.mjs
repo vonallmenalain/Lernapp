@@ -205,6 +205,8 @@ async function pruefeGeraet(browser, name, viewport) {
     pruefe(await page.evaluate(() => window.__feuerwerk) >= 3, `${name}: kein Feuerwerk beim Einzug`);
     const gesagt = await page.evaluate(() => window.__gesagt.join(" | "));
     pruefe(/zieht ein/.test(gesagt) && /Willkommen/.test(gesagt), `${name}: der Einzug wird nicht angesagt`);
+    // Zuerst kommen die Figuren aus den Büchern – mit ihrem Buch angesagt.
+    pruefe(/aus dem Buch «/.test(gesagt), `${name}: das erste Tier ist keine Figur aus den Büchern, oder ihr Buch wird nicht genannt`);
 
     // --- Das Zimmer -----------------------------------------------------------
     // Die Tiere laufen im Zimmer herum. Steht eines gerade vor dem Ding, das

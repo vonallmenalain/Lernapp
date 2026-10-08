@@ -833,10 +833,48 @@
   }
 
   // Der Kasten um die Zeichnung (gross = 1, ohne Schatten am Boden).
-  const BOX = {};
+  // gemessen mit getBBox (ohne Schatten), mit 1 Einheit Rand für die Kontur
+  const BOX = {
+    fox: { x0: -40, y0: -99, x1: 29, y1: 1 },
+    bear: { x0: -25, y0: -97, x1: 27, y1: 1 },
+    rabbit: { x0: -23, y0: -112, x1: 24, y1: 1 },
+    cat: { x0: -33, y0: -96, x1: 26, y1: 1 },
+    panda: { x0: -23, y0: -91, x1: 24, y1: 1 },
+    frog: { x0: -22, y0: -93, x1: 25, y1: 1 },
+    owl: { x0: -22, y0: -89, x1: 24, y1: 1 },
+    penguin: { x0: -28, y0: -101, x1: 29, y1: 1 },
+    lion: { x0: -37, y0: -89, x1: 29, y1: 1 },
+    mouse: { x0: -34, y0: -90, x1: 28, y1: 1 },
+    squirrel: { x0: -41, y0: -101, x1: 23, y1: 1 },
+    ibex: { x0: -29, y0: -111, x1: 27, y1: 1 },
+    dog: { x0: -25, y0: -83, x1: 26, y1: 1 },
+    hedgehog: { x0: -27, y0: -87, x1: 31, y1: 1 },
+    cow: { x0: -31, y0: -90, x1: 30, y1: 1 },
+    elephant: { x0: -30, y0: -97, x1: 30, y1: 1 },
+  };
+  const BOX_FIGUR = {
+    fino: { x0: -40, y0: -99, x1: 29, y1: 1 },
+    bruno: { x0: -23, y0: -89, x1: 25, y1: 1 },
+    mamabaer: { x0: -25, y0: -97, x1: 27, y1: 1 },
+    hoppel: { x0: -23, y0: -112, x1: 24, y1: 1 },
+    tim: { x0: -33, y0: -96, x1: 26, y1: 1 },
+    pippa: { x0: -23, y0: -91, x1: 24, y1: 1 },
+    fred: { x0: -22, y0: -93, x1: 25, y1: 1 },
+    fridolin: { x0: -22, y0: -82, x1: 25, y1: 1 },
+    ella: { x0: -22, y0: -89, x1: 24, y1: 1 },
+    pino: { x0: -24, y0: -91, x1: 26, y1: 1 },
+    paul: { x0: -28, y0: -101, x1: 29, y1: 1 },
+    leo: { x0: -37, y0: -89, x1: 29, y1: 1 },
+    mia: { x0: -34, y0: -90, x1: 28, y1: 1 },
+    rosa: { x0: -34, y0: -90, x1: 28, y1: 1 },
+    flitz: { x0: -41, y0: -101, x1: 23, y1: 1 },
+    sepp: { x0: -29, y0: -111, x1: 27, y1: 1 },
+  };
+  // box(art): passt für jedes Aussehen der Art (gewöhnlich und Figuren);
+  // box(art, { figur }): genau für diese Figur.
   function box(art, { figur = "" } = {}) {
-    const b = BOX[ZEICHNER[art] ? art : "fox"] || { x0: -40, y0: -112, x1: 32, y1: 1 };
-    return { ...b };
+    const b = BOX_FIGUR[figur] || BOX[ZEICHNER[art] ? art : "fox"];
+    return { x0: b.x0, y0: b.y0, x1: b.x1, y1: b.y1 };
   }
 
   window.LernappBauTiere = { ARTEN, FIGUREN, tier, defs, box };

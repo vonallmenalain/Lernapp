@@ -90,7 +90,7 @@ zusätzlich zu Abschnitt 0.
   jeder Wohnung), wünschen sich ein Zimmer aus ihrer Geschichte («Dort pumpe ich die Pneus
   von meinem roten Velo.») und träumen von einem passenden Job (Ella hilft Babys auf die
   Welt, Fridolin prüft die Rutschbahnen im KiddyDome).
-- **Beim Einzug** sagt die Bauecke «Das ist ja Leo aus dem Buch ‹Leo und die Melone›!»; die
+- **Beim Einzug** sagt die Bauecke «Leo aus dem Buch ‹Leo und die Melone› zieht ein!»; die
   Tafel zeigt den Umschlag des Buchs und was die Figur von sich erzählt.
 - **Erkannt** wird eine Figur an Art und Name – auch ein Leo, der schon früher eingezogen
   ist, ist Leo aus dem Buch. Ihre Namen fehlen darum bei den gewöhnlichen Tieren.
