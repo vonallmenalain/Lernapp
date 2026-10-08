@@ -409,9 +409,9 @@
       let blatt = "";
       for (let i = 0; i < 5; i++) {
         const w = (i * 72 - 90) * Math.PI / 180;
-        blatt += kreis(-8 + Math.cos(w) * 3.4, -81 + Math.sin(w) * 3.4, 3.3, fl(c, k, 1));
+        blatt += kreis(9 + Math.cos(w) * 3.4, -82.5 + Math.sin(w) * 3.4, 3.3, fl(c, k, 1));
       }
-      nachKopf = blatt + kreis(-8, -81, 2.1, fl("#f6d04d", "#d6a72a", 0.8));
+      nachKopf = blatt + kreis(9, -82.5, 2.1, fl("#f6d04d", "#d6a72a", 0.8));
     } else {
       vorKopf = halstuch(o.farbe);
     }
@@ -470,15 +470,15 @@
     const fuss = (x) => s`<rect x="${x + 1}" y="-14" width="5" height="12" rx="2.5"${fl(BE, KBE)}/>` +
       oval(x + 1.5, -1.8, 2.2, 1.7, fl(BE, KBE, 1)) + oval(x + 4.2, -1.6, 2.2, 1.8, fl(BE, KBE, 1)) + oval(x + 7, -1.8, 2.2, 1.7, fl(BE, KBE, 1));
     const [links, rechts] = [fuss(-10), fuss(0.5)];
-    let winkel = "";
-    [[-1.5, -31], [4, -32], [9.5, -30.5], [1.5, -25.5], [7, -25], [-2, -20.5], [4.5, -19.5], [10, -21]].forEach(([x, y]) => {
-      winkel += s`M${x - 1.5} ${y}l1.5 1.4l1.5 -1.4`;
+    let tupfen = "";
+    [[-2, -31], [3.5, -32.5], [9, -31], [0.5, -26], [6, -26.5], [11, -25], [-3, -21], [3, -20.5], [8.5, -19.5], [5, -15]].forEach(([x, y]) => {
+      tupfen += oval(x, y, 0.9, 1.3, fl(V));
     });
     const zier = o.figur === "ella" ? "" : schal(o.farbe, -4);
     const leib = "M1 -46C12 -46 18 -36 18 -25C18 -14 11 -7.5 1 -7.5C-9 -7.5 -16 -14 -16 -25C-16 -36 -10 -46 1 -46Z";
     const bob =
       pfad("M13 -42C20 -38 22.5 -28 21 -18C20.5 -15 19 -13 17.5 -11.5C15.5 -16 13.5 -24 12.5 -32Z", fl(ton(F, -0.06), K)) +
-      pfad(leib, fl(F, K)) + oval(3, -24.5, 11, 14, fl(C, KC, 1)) + pfad(winkel, strich(V, 1.2)) + pfad(leib, LICHT) +
+      pfad(leib, fl(F, K)) + oval(3, -24.5, 11, 14, fl(C, KC, 1)) + tupfen + pfad(leib, LICHT) +
       pfad("M-10 -43C-18 -41 -21 -31 -20 -21C-19.5 -16 -18 -13 -16 -11C-13 -16 -10 -24 -8.5 -32C-8 -36 -8.5 -40 -10 -43Z", fl(ton(F, -0.06), K)) +
       pfad("M-17.5 -24Q-15.5 -20 -13 -19M-18.6 -30Q-16 -26 -12.5 -25.5", strich(K, 0.9)) +
       zier +
@@ -540,11 +540,11 @@
     const n = 14;
     for (let i = 0; i <= n; i++) {
       const w = (i / n) * Math.PI * 2 - Math.PI / 2;
-      const p = [1 + Math.cos(w) * 23.5, -62 + Math.sin(w) * 23.5];
+      const p = [1 + Math.cos(w) * 22.5, -62 + Math.sin(w) * 22.5];
       if (i === 0) maehne += s`M${p[0]} ${p[1]}`;
       else {
-        const wm = w - Math.PI / n + 0.06;
-        maehne += s`Q${1 + Math.cos(wm) * 29} ${-62 + Math.sin(wm) * 29} ${p[0]} ${p[1]}`;
+        const wm = w - Math.PI / n + 0.13;
+        maehne += s`Q${1 + Math.cos(wm) * 30.5} ${-62 + Math.sin(wm) * 30.5} ${p[0]} ${p[1]}`;
       }
     }
     maehne += "Z";
