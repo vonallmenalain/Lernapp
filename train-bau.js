@@ -165,6 +165,10 @@
   function aktStock() { return S().stock(ui.haus, ui.zimmer); }
   function aktZimmer() { return S().zimmer(ui.haus, ui.zimmer, ui.slot); }
   function zimmerBreite() { return S().breiteVon(aktStock()); }
+  // Wie hoch das offene Zimmer ist und wo seine Wand oben endet (der
+  // KiddyDome reicht ein Stockwerk höher).
+  function zimmerHoehe() { return S().hoeheVon(aktStock()); }
+  function zimmerOben() { return S().obenVon(aktStock()); }
 
   // ---------------------------------------------------------------------------
   // Einbau in die Bühne
@@ -177,6 +181,7 @@
     ui.zimmer = -1;
     ui.slot = 0;
     ui.tafel = null;
+    ui.uebersicht = false;
     ui.overlay = null;
     ui.ordnen = false;
     ui.besetzt = false;
@@ -199,11 +204,17 @@
     els.nachbarR.addEventListener("click", () => wechsleHaus(1));
     els.umschalter = el("nav", "bau-umschalter", { "aria-label": "Die vier Häuser" });
     els.hud = el("div", "bau-hud");
+    // Links: alle Bewohner auf einen Blick – im Haus und beim Einrichten.
+    els.bewohner = knopf("bau-bewohnerknopf", "Alle Bewohner", "", () => oeffneUebersicht());
     els.zimmer = el("div", "bau-zimmeransicht");
     els.zimmer.hidden = true;
     els.flug = el("div", "bau-flug");
-    host.append(els.himmel, els.welt, els.nachbarL, els.nachbarR, els.umschalter, els.hud, els.zimmer, els.flug);
+    host.append(els.himmel, els.welt, els.nachbarL, els.nachbarR, els.umschalter, els.hud, els.bewohner, els.zimmer, els.flug);
+    // Die Verläufe der Tiere (bau-tiere.js): einmal für alle Bilder der Bauecke.
+    const tierDefs = window.LernappBauTiere?.defs?.() || "";
+    if (tierDefs) host.append(el("div", "bau-tierdefs", { "aria-hidden": "true", html: `<svg xmlns="${NS}" width="0" height="0" focusable="false"><defs>${tierDefs}</defs></svg>` }));
     els.tafel = null;
+    els.uebersicht = null;
 
     baueUmschalter();
     baueHud();
@@ -214,15 +225,18 @@
 
     // Wer sich ändert, zeichnet nach: die Cloud, neue Ziegel, ein Tier.
     ui.traumBekannt = traumStand();
+    ui.alleBekannt = alleStand();
     ui.abmelden = S().onChange((grund) => {
       if (!ui.host?.isConnected) return;
       if (grund === "neuer" || grund === "konto") { mount({ host: ui.host, stage: ui.stage, onPlay: ui.onPlay }); return; }
+      if (grund !== "ziegel") pruefeAlleSterne();
       if (grund !== "zimmer" && grund !== "ziegel") pruefeTraumjobs();
       if (grund === "zimmer") { aktualisiereSterne(); return; }
       if (grund === "ziegel") { aktualisiereHud(); pruefeLieferung(); return; }
       if (grund === "cloud" || grund === "tier" || grund === "wunsch") { auffrischen(); }
     });
     window.addEventListener("resize", beiGroesse);
+    planeLifte();
     ui.tickUhr = window.setInterval(zeitTick, 4000);
     zeitTick();
     hilfeHaus();
@@ -248,6 +262,8 @@
 
   function unmount() {
     window.clearTimeout(traumUhr);
+    window.clearTimeout(alleUhr);
+    window.clearTimeout(liftUhr);
     if (ui.tickUhr) window.clearInterval(ui.tickUhr);
     ui.tickUhr = 0;
     ui.abmelden?.();
@@ -276,7 +292,8 @@
     if (ui.besetzt && performance.now() - besetztSeit < 4000) return true;
     ui.besetzt = false;
     if (ui.overlay) { schliesseOverlay(); return true; }
-    if (ui.tafel) { schliesseTafel(); return true; }
+    if (ui.tafel) { schliesseTafel({ zurueck: true }); return true; }
+    if (ui.uebersicht) { schliesseUebersicht(); return true; }
     if (ui.zimmer >= 0) { schliesseZimmer(); return true; }
     if (ui.ordnen) { schalteOrdnen(false); return true; }
     S().speichern(true);
@@ -293,12 +310,13 @@
     baueUmschalter();
     if (ui.besetzt || zieht) return;
     const jetzt = zeichenStand();
-    if (jetzt === ui.gezeichnet) { if (ui.tafel) fuelleTafel(); return; }
+    if (jetzt === ui.gezeichnet) { if (ui.tafel) fuelleTafel(); if (ui.uebersicht) fuelleUebersicht(); return; }
     if (ui.zimmer >= 0) {
       if (!aktZimmer()?.raum) { schliesseZimmer(true); return; }
       zeichneZimmer();
     } else zeichneHaus({ behalteKamera: true });
     if (ui.tafel) fuelleTafel();
+    if (ui.uebersicht) fuelleUebersicht();
   }
   let zieht = false;
   // Kommt aus der Cloud ein Stockwerk dazu oder stellt das Kind sie um, kann
@@ -332,7 +350,7 @@
   // selbst, die bleiben hier aussen vor.
   function liesText(e) {
     if (!kannLesen()) return;
-    const ziel = e.target.closest?.(".bau-lies, .bau-tafel p, .bau-tafel h2, .bau-tafel h3, .bau-wahl h2, .bau-wahl p, .bau-wahl h3");
+    const ziel = e.target.closest?.(".bau-lies, .bau-tafel p, .bau-tafel h2, .bau-tafel h3, .bau-uebersicht h2, .bau-uebersicht h3, .bau-uebersicht p, .bau-wahl h2, .bau-wahl p, .bau-wahl h3");
     if (!ziel || e.target.closest("button")) return;
     sag(ziel.dataset.lies || ziel.textContent.trim());
     // Kurz hervorheben, was gerade vorgelesen wird.
@@ -361,7 +379,7 @@
     const tab = els.umschalter?.querySelector(`.bau-tab[data-haus="wohnhaus"]`);
     tab?.classList.toggle("hat-neues", Boolean(fall) && ui.haus !== "wohnhaus");
     if (!fall) return;
-    if (ui.haus !== "wohnhaus" || ui.zimmer >= 0 || ui.overlay || ui.tafel || ui.besetzt || ui.ordnen || liefert) return;
+    if (ui.haus !== "wohnhaus" || ui.zimmer >= 0 || ui.overlay || ui.tafel || ui.uebersicht || ui.besetzt || ui.ordnen || liefert) return;
     if (performance.now() - ui.letzterEinzug < 30000 && ui.letzterEinzug) return;
     const tier = S().ziehtEin(fall.hausId, fall.index);
     if (tier) zeigeEinzug(fall.index, tier);
@@ -395,8 +413,9 @@
     const svg = els.welt?.querySelector("svg");
     if (ui.zimmer >= 0) kids()?.burstConfetti?.(els.zimmer, 40);
     else if (svg && job && job.haus === ui.haus) {
-      const breite = S().breiteVon(S().stock(job.haus, job.index));
-      feuerwerk(svg, A().ZX + job.slot * HALB + breite / 2, A().oben(job.index) + 50, breite);
+      const st = S().stock(job.haus, job.index);
+      const breite = S().breiteVon(st);
+      feuerwerk(svg, A().ZX + job.slot * HALB + breite / 2, A().oben(job.index) + S().obenVon(st) / 2 + 50, breite);
     }
     seeds.forEach((seed) => window.setTimeout(() => blaseAnSeed(seed, "Mein Traumjob! 🌟", 3400), 700));
     // Haben jetzt alle drei einer Wohnung ihren Traumjob, sagt die Bauecke es.
@@ -408,16 +427,65 @@
     }
   }
 
+  // Wer alle Sterne hat (je Tier: ja oder nein).
+  function alleStand() {
+    return new Map(S().alleTiere().map((e) => { const st = S().sterne(e.tier.seed); return [e.tier.seed, st.total > 0 && st.anzahl === st.total]; }));
+  }
+
+  // Bekommt ein Tier seinen letzten Stern – gleich wo der Wunsch erfüllt
+  // wurde –, wird gefeiert: ein goldenes Band mit dem Tier, Konfetti oder
+  // Feuerwerk, und die Bauecke sagt es. Wer eben einzieht, zählt nicht.
+  let alleUhr = 0;
+  function pruefeAlleSterne() {
+    window.clearTimeout(alleUhr);
+    alleUhr = window.setTimeout(() => {
+      if (!ui.host?.isConnected) return;
+      const vorher = ui.alleBekannt || new Map();
+      const jetzt = alleStand();
+      ui.alleBekannt = jetzt;
+      const neu = [...jetzt].filter(([seed, hat]) => hat && vorher.has(seed) && !vorher.get(seed)).map(([seed]) => seed);
+      if (neu.length) feiereAlleSterne(neu);
+    }, 80);
+  }
+
+  function feiereAlleSterne(seeds) {
+    const ref = S().findeTier(seeds[0]);
+    if (!ref) return;
+    const { tier } = ref;
+    // Erst das Danke für den Wunsch, dann die Feier.
+    window.setTimeout(() => {
+      if (!ui.host?.isConnected) return;
+      klang("win");
+      const total = S().sterne(tier.seed).total;
+      ui.host.querySelector(".bau-sternband")?.remove();
+      const band = el("div", "bau-sternband", { role: "status" });
+      band.innerHTML = `${tierBildchen(tier, 64, 76, "bau-sternband-tier")}` +
+        `<span class="bau-sternband-text"><b>Alle Sterne!</b><span>${textSicher(tier.n)} ist überglücklich.</span></span>` +
+        `<span class="bau-sternband-sterne" aria-hidden="true">${Array.from({ length: total }, (_, i) => `<i class="bau-stern bau-stern-gross bau-stern-weiss" style="animation-delay:${(0.2 + i * 0.12).toFixed(2)}s"></i>`).join("")}</span>`;
+      ui.host.append(band);
+      window.setTimeout(() => band.classList.add("is-weg"), 3800);
+      window.setTimeout(() => band.remove(), 4400);
+      if (ui.zimmer >= 0) kids()?.burstConfetti?.(els.zimmer, 60);
+      else if (ref.hausId === ui.haus) {
+        const svg = els.welt?.querySelector("svg");
+        const st = S().stock(ref.hausId, ref.index);
+        if (svg && st) feuerwerk(svg, A().ZX + S().breiteVon(st) / 2, A().oben(ref.index) + 50, S().breiteVon(st));
+      }
+      for (const t of tiere.values()) if (seeds.includes(t.tier.seed)) { t.huepf = 1; wecke(); }
+      sag(`Juhui! ${tier.n} hat alle Sterne! ${tier.n} ist überglücklich.`);
+    }, ui.zimmer >= 0 ? 1300 : 300);
+  }
+
   // ---------------------------------------------------------------------------
   // Hilfe-Texte
   // ---------------------------------------------------------------------------
   function hilfeHaus() {
     const haus = K().HAUS[ui.haus];
     const wohnen = ui.haus === "wohnhaus" ? " In den Wohnungen wohnen die Tiere; tippe auf die Sterne am Lift, und du siehst, was sie sich wünschen." : "";
-    hilfe(`Das ist ${haus.der}. Tippe auf ein Zimmer, um es einzurichten.${wohnen} Für ein neues Stockwerk brauchst du Ziegel: Tippe auf den Rätsel-Knopf. Mit dem Pfeil-Knopf stellst du die Stockwerke um. Oben wechselst du zwischen den vier Häusern.`);
+    hilfe(`Das ist ${haus.der}. Tippe auf ein Zimmer, um es einzurichten.${wohnen} Für ein neues Stockwerk brauchst du Ziegel: Tippe auf den Rätsel-Knopf. Mit dem Pfeil-Knopf stellst du die Stockwerke um. Oben wechselst du zwischen den vier Häusern. Der Bewohner-Knopf links zeigt dir alle Tiere auf einen Blick.`);
   }
   function hilfeZimmer() {
-    hilfe("Zieh Dinge aus der Schublade ins Zimmer, oder tippe sie an. Tippe auf ein Ding im Zimmer, um es anzumalen, umzudrehen, grösser oder kleiner zu machen. Mit dem Pinsel malst du die Wand an, mit dem Boden-Knopf den Boden. Mit dem Stift änderst du, was für ein Zimmer es ist.");
+    hilfe("Zieh Dinge aus der Schublade ins Zimmer, oder tippe sie an. Tippe auf ein Ding im Zimmer, um es anzumalen, umzudrehen, grösser oder kleiner zu machen. Mit dem Pinsel malst du die Wand an, mit dem Boden-Knopf den Boden. Mit dem Stift änderst du, was für ein Zimmer es ist. Der Bewohner-Knopf links zeigt dir alle Tiere und was ihnen noch fehlt.");
   }
 
   // ---------------------------------------------------------------------------
@@ -461,6 +529,7 @@
     if (ui.besetzt || !K().HAUS[id]) return;
     if (ui.zimmer >= 0) await schliesseZimmer(true);
     if (ui.tafel) schliesseTafel();
+    if (ui.uebersicht) schliesseUebersicht({ weiter: true });
     if (ui.ordnen) schalteOrdnen(false, { stumm: true });
     besetze();
     const weg = richtung >= 0 ? -1 : 1;
@@ -516,7 +585,25 @@
     els.ordnenKnopf.setAttribute("aria-label", ui.ordnen ? "Fertig umgestellt" : "Stockwerke umstellen");
     const plus = els.welt?.querySelector("[data-ziel='plus']");
     if (plus) plus.classList.toggle("is-bereit", S().kannBauen(ui.haus).ok);
+    aktualisiereBewohnerKnopf();
   }
+
+  // Der Bewohner-Knopf zeigt, wie viele Tiere im Wohnhaus wohnen.
+  function aktualisiereBewohnerKnopf() {
+    if (!els.bewohner) return;
+    const n = S().alleTiere().length;
+    const label = n ? `Alle Bewohner: ${n === 1 ? "ein Tier" : `${n} Tiere`}` : "Alle Bewohner";
+    els.bewohner.innerHTML = `${svgVon(PFOTE, "0 0 32 32", "bau-bewohnerknopf-bild")}<span>Bewohner</span>${n ? `<b class="bau-bewohnerknopf-zahl">${n}</b>` : ""}`;
+    els.bewohner.setAttribute("aria-label", label);
+    els.bewohner.title = label;
+  }
+  const KREUZ = `<path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>`;
+  const PFEIL_ZURUECK = `<path d="M15 5 8 12l7 7" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>`;
+  const PFOTE = `<ellipse cx="16" cy="21.6" rx="7.6" ry="6.4" fill="#ffffff"/>` +
+    `<ellipse cx="7.4" cy="13.4" rx="3" ry="3.8" transform="rotate(-22 7.4 13.4)" fill="#ffffff"/>` +
+    `<ellipse cx="12.6" cy="8.2" rx="3" ry="3.9" transform="rotate(-7 12.6 8.2)" fill="#ffffff"/>` +
+    `<ellipse cx="19.4" cy="8.2" rx="3" ry="3.9" transform="rotate(7 19.4 8.2)" fill="#ffffff"/>` +
+    `<ellipse cx="24.6" cy="13.4" rx="3" ry="3.8" transform="rotate(22 24.6 13.4)" fill="#ffffff"/>`;
 
   function schalteNacht() {
     ui.nacht = !ui.nacht;
@@ -547,24 +634,33 @@
 
   async function verschiebeStock(index, richtung) {
     if (ui.besetzt) return;
+    const vorher = aktHaus().stock.map((s) => s.id);
     const j = S().verschiebe(ui.haus, index, richtung);
     if (j === index) return;
     klang("correct");
     zeichneHaus({ behalteKamera: true });
-    const node = els.welt.querySelector(`.bau-stockreihe[data-stock="${j}"]`);
-    if (node && !reduced()) {
-      const dy = (A().oben(index) - A().oben(j));
-      node.setAttribute("transform", `translate(0 ${dy})`);
-      await tweenP(320, (p) => node.setAttribute("transform", `translate(0 ${dy * (1 - p)})`), { e: ease.out });
-      node.removeAttribute("transform");
+    // Jedes Stockwerk, das den Platz gewechselt hat, gleitet an seinen neuen
+    // (bei einem KiddyDome sind es mehrere).
+    if (!reduced()) {
+      const wege = aktHaus().stock.map((s, neu) => ({ neu, alt: vorher.indexOf(s.id) })).filter((w) => w.alt >= 0 && w.alt !== w.neu);
+      await Promise.all(wege.map(({ neu, alt }) => {
+        const node = els.welt.querySelector(`.bau-stockreihe[data-stock="${neu}"]`);
+        if (!node) return null;
+        const dy = A().oben(alt) - A().oben(neu);
+        node.setAttribute("transform", `translate(0 ${dy})`);
+        return tweenP(320, (p) => node.setAttribute("transform", `translate(0 ${dy * (1 - p)})`), { e: ease.out }).then(() => node.removeAttribute("transform"));
+      }));
     }
     const st = S().stock(ui.haus, j);
     sag(stockName(st, j));
   }
 
   // Wie ein Stockwerk heisst: "das Erdgeschoss mit der Küche und dem Bad".
+  // Ein KiddyDome nennt beide Stockwerke.
   function stockName(st, index) {
-    const wo = index === 0 ? "Das Erdgeschoss" : `Der ${index}. Stock`;
+    const nummer = (i) => (i === 0 ? "das Erdgeschoss" : `der ${i}. Stock`);
+    if (st?.art === "oben") return stockName(S().stock(ui.haus, index - 1), index - 1);
+    const wo = S().istDoppel(st) ? `${gross(nummer(index))} und ${nummer(index + 1)}` : gross(nummer(index));
     const namen = (st?.zimmer || []).map((z) => K().RAEUME[z.raum]?.der).filter(Boolean);
     if (!namen.length) return `${wo}.`;
     return `${wo}: ${namen.join(" und ")}.`;
@@ -634,9 +730,9 @@
     const k = ui.kamera;
     const st = S().stock(ui.haus, index);
     const breite = S().breiteVon(st);
-    const y = (A().oben(index) - k.y0) * k.skala + k.ty;
+    const y = (A().oben(index) + S().obenVon(st) - k.y0) * k.skala + k.ty;
     const x = (A().ZX + slot * HALB - WX0) * k.skala + k.tx;
-    return { x, y, w: breite * k.skala, h: A().ZH * k.skala };
+    return { x, y, w: breite * k.skala, h: S().hoeheVon(st) * k.skala };
   }
 
   // Der erste Blick auf ein Haus: Passt es ganz ins Bild – samt dem Plus für
@@ -682,7 +778,11 @@
   }
   function kameraAuf(index, sanft = true) {
     const k = ui.kamera;
-    const ziel = kameraZiel(A().oben(index) + A().ZH / 2);
+    // Ein KiddyDome: auf seine Mitte, auch vom oberen Stockwerk aus.
+    const st = S().stock(ui.haus, index);
+    const unten = st?.art === "oben" ? index - 1 : index;
+    const doppel = S().istDoppel(S().stock(ui.haus, unten));
+    const ziel = kameraZiel(doppel ? A().oben(unten) - A().DECKE / 2 : A().oben(index) + A().ZH / 2);
     if (!sanft) { k.ty = ziel; setzeKamera(); return; }
     const start = k.ty;
     tween(420, (p) => { k.ty = start + (ziel - start) * p; setzeKamera(); }, { e: ease.inOut });
@@ -701,6 +801,7 @@
     let s = `<defs><linearGradient id="bau-lift-schatten" x1="0" x2="1"><stop offset="0" stop-color="#000" stop-opacity="0.12"/><stop offset="0.3" stop-color="#000" stop-opacity="0"/></linearGradient>` +
       `<clipPath id="bau-clip-voll"><rect x="0" y="0" width="${art.ZW}" height="${art.ZH}"/></clipPath>` +
       `<clipPath id="bau-clip-halb"><rect x="0" y="0" width="${HALB}" height="${art.ZH}"/></clipPath>` +
+      `<clipPath id="bau-clip-doppel"><rect x="0" y="${-art.STOCK}" width="${art.ZW}" height="${art.ZH + art.STOCK}"/></clipPath>` +
       `<radialGradient id="bau-glanz"><stop offset="0" stop-color="#fff6c2" stop-opacity="0.75"/><stop offset="1" stop-color="#fff6c2" stop-opacity="0"/></radialGradient></defs>`;
     s += `<g class="bau-hintergrund">`;
     s += art.baum(-260, 1.15) + art.baum(-120, 0.9) + art.laterne(-40) + art.baum(art.HB + 110, 1) + art.laterne(art.HB + 40) + art.baum(art.HB + 260, 1.2);
@@ -716,7 +817,9 @@
       if (st.tiere.length) liftTeil += `<g class="bau-tafelknopf" data-ziel="tafel" data-stock="${i}" role="button" tabindex="0" aria-label="Wer hier wohnt">${art.sternTafel(S().sterneStock(ui.haus, i), art.LX + art.LIFT / 2, art.oben(i) + 10)}</g>`;
     }
     s += zimmerTeil;
-    s += `<g class="bau-rahmen">${art.hausRahmen(haus, anzahl)}</g>`;
+    // Über dem unteren Stockwerk eines KiddyDome geht keine Decke durch.
+    const offen = haus.stock.map((st, i) => (S().istDoppel(st) ? i : -1)).filter((i) => i >= 0);
+    s += `<g class="bau-rahmen">${art.hausRahmen(haus, anzahl, offen)}</g>`;
     for (let i = 0; i < anzahl; i += 1) if (haus.stock[i].art === "zwei") s += art.trennwand(i, haus.fassade);
     s += liftTeil;
     const dachY = art.oben(anzahl - 1) - art.DECKE;
@@ -746,9 +849,12 @@
   function stockMarkup(st, i) {
     const art = A();
     const y = art.oben(i);
-    const feld = (slot, breite, ziel, inhalt, label) =>
-      `<g class="bau-raum${ziel !== "zimmer" ? " is-rohbau" : ""}" data-ziel="${ziel}" data-stock="${i}" data-slot="${slot}" role="button" tabindex="0" aria-label="${textSicher(label)}" transform="translate(${art.ZX + slot * HALB} ${y})" clip-path="url(#${breite === HALB ? "bau-clip-halb" : "bau-clip-voll"})">${inhalt}</g>`;
+    const feld = (slot, breite, ziel, inhalt, label, clip = breite === HALB ? "bau-clip-halb" : "bau-clip-voll") =>
+      `<g class="bau-raum${ziel !== "zimmer" ? " is-rohbau" : ""}" data-ziel="${ziel}" data-stock="${i}" data-slot="${slot}" role="button" tabindex="0" aria-label="${textSicher(label)}" transform="translate(${art.ZX + slot * HALB} ${y})" clip-path="url(#${clip})">${inhalt}</g>`;
     if (st.art === "") return feld(0, art.ZW, "rohbau", art.rohbauSchale(art.ZW, "frage"), "Ein neues Stockwerk: Was soll es werden?");
+    // Das obere Stockwerk eines KiddyDome: Den zeichnet das untere, über beide.
+    if (st.art === "oben") return "";
+    if (S().istDoppel(st)) return feld(0, art.ZW, "zimmer", zimmerInhalt(ui.haus, i, 0, { klein: true }), K().RAEUME[st.zimmer[0].raum]?.name || "Zimmer", "bau-clip-doppel");
     if (st.art === "wohnung") {
       const z = st.zimmer[0];
       if (!z.raum) return feld(0, art.ZW, "wohnungwahl", art.rohbauSchale(art.ZW, "bett"), "Eine leere Wohnung: Schlafzimmer oder Kinderzimmer?");
@@ -780,17 +886,24 @@
       `<g class="bau-traummarke${n >= 3 ? " is-gold" : ""}" data-ziel="tafel" data-stock="${i}" data-stufe="${n}" role="button" tabindex="0" aria-label="${satz}">${art.traumSchild(i, n)}</g>`;
   }
 
-  // Die Pfeile zum Umstellen, rechts am Haus.
+  // Die Pfeile zum Umstellen, rechts am Haus. Ein KiddyDome wandert als
+  // Ganzes: ein Rahmen und ein Paar Pfeile für beide Stockwerke.
   function ordnenMarkup(anzahl) {
     const art = A();
+    const stock = aktHaus().stock;
     const x = art.HB + 46;
     let s = "";
     for (let i = 0; i < anzahl; i += 1) {
-      const y = art.oben(i) + art.ZH / 2;
-      s += `<rect x="${art.ZX - 4}" y="${art.oben(i) - 4}" width="${art.ZW + 8}" height="${art.ZH + 8}" rx="8" fill="none" stroke="#3fbf74" stroke-width="5" stroke-dasharray="14 10" pointer-events="none"/>`;
+      const doppel = S().istDoppel(stock[i]) && stock[i + 1]?.art === "oben";
+      const top = doppel ? art.oben(i + 1) : art.oben(i);
+      const hoehe = art.oben(i) + art.ZH - top;
+      const y = top + hoehe / 2;
+      const letzter = i + (doppel ? 1 : 0);
+      s += `<rect x="${art.ZX - 4}" y="${top - 4}" width="${art.ZW + 8}" height="${hoehe + 8}" rx="8" fill="none" stroke="#3fbf74" stroke-width="5" stroke-dasharray="14 10" pointer-events="none"/>`;
       const pfeil = (ziel, dy, d, label) => `<g class="bau-ordnenpfeil" data-ziel="${ziel}" data-stock="${i}" role="button" tabindex="0" aria-label="${label}"><circle cx="${x}" cy="${y + dy}" r="34" fill="#3fbf74" stroke="#ffffff" stroke-width="5"/><path d="${d}" fill="none" stroke="#ffffff" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/></g>`;
-      if (i < anzahl - 1) s += pfeil("hoch", -42, `M${x - 14} ${y - 36}l14-14l14 14`, "Nach oben");
+      if (letzter < anzahl - 1) s += pfeil("hoch", -42, `M${x - 14} ${y - 36}l14-14l14 14`, "Nach oben");
       if (i > 0) s += pfeil("runter", 42, `M${x - 14} ${y + 36}l14 14l14-14`, "Nach unten");
+      i = letzter;
     }
     return s;
   }
@@ -802,10 +915,11 @@
     if (!z) return "";
     const breite = S().breiteVon(st);
     if (!z.raum) return A().rohbauSchale(breite, st.art === "wohnung" ? "bett" : "plus");
-    let s = A().zimmerSchale(z, `bau-muster-${hausId}-${index}-${slot}${klein ? "-k" : ""}`, breite);
+    const oben = S().obenVon(st);
+    let s = A().zimmerSchale(z, `bau-muster-${hausId}-${index}-${slot}${klein ? "-k" : ""}`, breite, oben);
     s += dingeMarkup(z, z.raum);
     s += `<g class="bau-tierlage" data-tierlage="${index}:${slot}"></g>`;
-    if (ui.nacht) s += nachtMarkup(z, breite);
+    if (ui.nacht) s += nachtMarkup(z, breite, oben);
     return s;
   }
 
@@ -842,7 +956,7 @@
   }
 
   function dingTransform(d) {
-    const k = M().MASS * (d.s || 1);
+    const k = M().massVon(d.i) * (d.s || 1);
     return `translate(${d.x} ${d.y}) scale(${d.f ? -k : k} ${k})`;
   }
 
@@ -865,10 +979,10 @@
 
   // Die Nacht im Zimmer: ohne Licht dunkel, mit Licht ein warmer Schein um
   // jede Lampe.
-  function nachtMarkup(z, breite) {
-    const art = A();
-    if (!z.licht) return `<rect x="0" y="0" width="${breite}" height="${art.ZH}" fill="#0b1530" opacity="0.62" pointer-events="none"/>`;
-    let s = `<rect x="0" y="0" width="${breite}" height="${art.ZH}" fill="#1b2350" opacity="0.18" pointer-events="none"/>`;
+  function nachtMarkup(z, breite, oben = 0) {
+    const h = A().ZH - oben;
+    if (!z.licht) return `<rect x="0" y="${oben}" width="${breite}" height="${h}" fill="#0b1530" opacity="0.62" pointer-events="none"/>`;
+    let s = `<rect x="0" y="${oben}" width="${breite}" height="${h}" fill="#1b2350" opacity="0.18" pointer-events="none"/>`;
     z.dinge.forEach((d) => {
       const ding = M().DINGE[d.i];
       if (!ding?.licht) return;
@@ -897,7 +1011,7 @@
   function flaecheVon(u) {
     const ding = M().DINGE[u.i];
     if (!ding || typeof ding.flaeche !== "number" || ding.art !== "boden") return null;
-    const k = M().MASS * (u.s || 1);
+    const k = M().massVon(u.i) * (u.s || 1);
     let [a, b] = ding.fx;
     if (u.f) [a, b] = [-b, -a];
     return { y: u.y + ding.flaeche * k, x0: u.x + a * k, x1: u.x + b * k };
@@ -908,6 +1022,7 @@
     baueUmschalter();
     if (ui.zimmer >= 0) zeichneZimmerKopf();
     if (ui.tafel) fuelleTafel();
+    if (ui.uebersicht) fuelleUebersicht();
   }
 
   // --- Antippen und Ziehen in der Hausansicht ------------------------------
@@ -1140,6 +1255,25 @@
 
   function stupse(node) {
     if (!node) return;
+    // Ein Teil der Hausansicht steht mit seinem transform-Attribut an seinem
+    // Platz. Eine CSS-Animation auf transform ersetzt dieses – das Zimmer
+    // spränge für die Dauer aus dem Bild. Darum wippt es über die
+    // Bildschleife, um seine eigene Mitte.
+    if (node instanceof SVGElement) {
+      if (reduced() || node.dataset.stups) return;
+      let box;
+      try { box = node.getBBox(); } catch { return; }
+      const basis = node.getAttribute("transform") || "";
+      const cx = (box.x + box.width / 2).toFixed(1);
+      const cy = (box.y + box.height / 2).toFixed(1);
+      const um = (s) => `${basis} translate(${cx} ${cy}) scale(${s.toFixed(3)}) translate(${-cx} ${-cy})`;
+      node.dataset.stups = "1";
+      tween(800, (p) => node.setAttribute("transform", um(p < 0.3 ? 1 + 0.16 * (p / 0.3) : p < 0.6 ? 1.16 - 0.2 * ((p - 0.3) / 0.3) : 0.96 + 0.04 * ((p - 0.6) / 0.4))), {
+        e: ease.lin,
+        done: () => { delete node.dataset.stups; if (basis) node.setAttribute("transform", basis); else node.removeAttribute("transform"); },
+      });
+      return;
+    }
     node.classList.remove("is-stups");
     void node.getBoundingClientRect();
     node.classList.add("is-stups");
@@ -1237,7 +1371,9 @@
     zeichneHaus({ behalteKamera: true });
     const svg = els.welt.querySelector("svg");
     const lage = svg?.querySelector(".bau-einzuglage");
-    const name = `${tier.n}, ${K().TIERE[tier.a]?.der || ""}`;
+    // Eine Figur aus den Büchern kennen die Kinder: Sie wird mit ihrem Buch angesagt.
+    const figur = S().figurVon(tier);
+    const kommt = figur ? `${tier.n} aus dem Buch «${figur.buecher[0].titel}» zieht ein!` : `${tier.n}, ${K().TIERE[tier.a]?.der || ""}, zieht ein.`;
     const zielX = art.ZX + 120 + (S().hash(tier.seed) % 300);
     const zielY = art.oben(index) + S().GEO.STAND + 2;
     if (!lage || reduced()) {
@@ -1247,17 +1383,17 @@
       zeichneHaus({ stockwerk: index });
       feuerwerk(els.welt.querySelector("svg"), art.ZX + art.ZW / 2, art.oben(index) + 50);
       klang("win");
-      sag(`${name}, zieht ein!`);
+      sag(kommt);
       return;
     }
     klang("unlock");
-    sag(`Da kommt jemand! ${name}, zieht ein.`);
+    sag(`Da kommt jemand! ${kommt}`);
     // Unten an der Strasse anfangen.
     const kam = ui.kamera;
     const start = kam.ty;
     await tweenP(450, (p) => { kam.ty = start + (kam.min - start) * p; setzeKamera(); }, { e: ease.inOut });
     const g = document.createElementNS(NS, "g");
-    g.innerHTML = `<g class="bau-tier-dreh">${art.tier(tier.a)}${art.koffer()}</g>`;
+    g.innerHTML = `<g class="bau-tier-dreh">${tierSvg(tier)}${art.koffer()}</g>`;
     lage.append(g);
     const kabine = document.createElementNS(NS, "g");
     kabine.innerHTML = art.liftKabine();
@@ -1293,7 +1429,7 @@
     zeichneHaus({ behalteKamera: true });
     baueUmschalter();
     feuerwerk(els.welt.querySelector("svg"), art.ZX + art.ZW / 2, art.oben(index) + 50);
-    leuchte(els.welt.querySelector("svg"), index, zielX, zielY - 60);
+    leuchte(els.welt.querySelector("svg"), index, zielX, zielY - 30);
     klang("win");
     for (const t of tiere.values()) if (t.tier.seed === tier.seed) { t.huepf = 1; wecke(); }
     sag(`Willkommen, ${tier.n}! ${tier.n} wohnt jetzt hier.${S().hatTraumjob(tier.seed) ? ` Und ${tier.n} hat schon den Traumjob!` : ""}`);
@@ -1331,6 +1467,7 @@
   function bevoelkere(lage, index, slot, st, jetzt) {
     lage.innerHTML = "";
     const breite = S().breiteVon(st);
+    const dome = S().istDoppel(st);
     const weg = [];
     if (st.art === "wohnung" && slot === 0) {
       st.tiere.forEach((tier) => {
@@ -1343,7 +1480,7 @@
     }
     S().besucher(ui.haus, index, slot, jetzt).forEach((b, n) => {
       if (b.tier.seed === ui.kommt) return;
-      setzeTier(lage, { tier: b.tier, wohnt: false, grund: b.grund, breite, x: breite * 0.65 - n * 50 });
+      setzeTier(lage, { tier: b.tier, wohnt: false, grund: b.grund, breite, x: breite * 0.65 - n * 50, dome });
     });
   }
 
@@ -1353,7 +1490,24 @@
     return `<g class="bau-schild" data-ziel="tafel" data-stock="${index}" transform="translate(${breite / 2 + 12} 120)"><rect x="${-breite / 2}" y="-26" width="${breite}" height="40" rx="8" fill="#ffffff" stroke="#e8b94f" stroke-width="3"/><text x="0" y="-6" text-anchor="middle" font-size="13" font-weight="800" font-family="'Baloo 2', Nunito, sans-serif" fill="#8a5734">Unterwegs:</text><text x="0" y="9" text-anchor="middle" font-size="12" font-family="'Baloo 2', Nunito, sans-serif" fill="#8a5734">🚶 ${textSicher(namen)}</text></g>`;
   }
 
-  function setzeTier(lage, { tier, wohnt, grund = "", breite = A().ZW, x = null }) {
+  // Ein Tier, wie bau-tiere.js es zeichnet: eine Buchfigur wie in ihrem Buch,
+  // die anderen einer Art je nach Kennung ein wenig verschieden angezogen.
+  function tierSvg(tier, opts = {}) {
+    return A().tier(tier.a, { figur: S().figurVon(tier)?.id || "", variante: S().hash(tier.seed) % 4, ...opts });
+  }
+  // Ein Tier als Bildchen (Zimmerkopf, Tafel): ganz zu sehen, so gross es in
+  // w × h passt, mit den Füssen unten.
+  function tierBildchen(tier, w, h, cls = "") {
+    const figur = S().figurVon(tier)?.id || "";
+    const box = window.LernappBauTiere?.box?.(tier.a, { figur }) || { x0: -30, y0: -106, x1: 34, y1: 0 };
+    const k = Math.min((w - 2) / (box.x1 - box.x0), (h - 3) / (box.y1 - box.y0));
+    const x = w / 2 - ((box.x0 + box.x1) / 2) * k;
+    return svgVon(`<g transform="translate(${x.toFixed(1)} ${h - 2}) scale(${k.toFixed(3)})">${tierSvg(tier)}</g>`, `0 0 ${w} ${h}`, cls);
+  }
+
+  const RAND = 28;
+  // dome: im KiddyDome – dort wird gehüpft, und zwar hoch.
+  function setzeTier(lage, { tier, wohnt, grund = "", breite = A().ZW, x = null, dome = false }) {
     const g = document.createElementNS(NS, "g");
     g.setAttribute("class", "bau-tier");
     g.setAttribute("data-ziel", "tier");
@@ -1362,21 +1516,26 @@
     g.setAttribute("tabindex", "0");
     g.setAttribute("aria-label", `${tier.n}, ${K().TIERE[tier.a]?.der || ""}`);
     const k = M().MASS;
+    // Abzeichen und Schlaf-z bleiben so gross wie vor der Halbierung der
+    // Tiere (MASS 1.2) – sonst wären sie kaum zu sehen.
+    const lesbar = 1.2 / k;
     // Bei der Arbeit: die Aktentasche – golden, wenn es der Traumjob ist.
     const traum = grund === "arbeit" && S().hatTraumjob(tier.seed);
+    const ob = (-100 - 14 * lesbar).toFixed(1);
     const abzeichen = traum
-      ? `<g transform="translate(-16 -114)"><circle r="13" fill="#fff3c4" stroke="#f5a300" stroke-width="2.5"/>${A().traumAbzeichen(true)}</g>`
-      : grund === "arbeit" ? `<g transform="translate(-16 -112)"><circle r="11" fill="#ffffff" stroke="#8a5734" stroke-width="2"/><text y="5" text-anchor="middle" font-size="13">💼</text></g>` : "";
-    g.innerHTML = `<g class="bau-tier-dreh">${A().tier(tier.a)}</g>${abzeichen}<g class="bau-zzz" style="display:none"><text x="12" y="-110" font-size="18" font-weight="800" font-family="'Baloo 2', Nunito, sans-serif" fill="#ffffff">z</text><text x="24" y="-124" font-size="14" font-weight="800" font-family="'Baloo 2', Nunito, sans-serif" fill="#ffffff">z</text></g>`;
+      ? `<g transform="translate(-16 ${ob}) scale(${lesbar.toFixed(3)})"><circle r="13" fill="#fff3c4" stroke="#f5a300" stroke-width="2.5"/>${A().traumAbzeichen(true)}</g>`
+      : grund === "arbeit" ? `<g transform="translate(-16 ${ob}) scale(${lesbar.toFixed(3)})"><circle r="11" fill="#ffffff" stroke="#8a5734" stroke-width="2"/><text y="5" text-anchor="middle" font-size="13">💼</text></g>` : "";
+    g.innerHTML = `<g class="bau-tier-dreh">${tierSvg(tier)}</g>${abzeichen}<g class="bau-zzz" style="display:none"><g transform="translate(12 -110) scale(${lesbar.toFixed(3)})"><text x="0" y="0" font-size="18" font-weight="800" font-family="'Baloo 2', Nunito, sans-serif" fill="#ffffff">z</text><text x="12" y="-14" font-size="14" font-weight="800" font-family="'Baloo 2', Nunito, sans-serif" fill="#ffffff">z</text></g></g>`;
     lage.append(g);
     const ort = tierOrte.get(tier.seed);
-    const startX = clamp(ort?.x ?? x ?? (60 + ((S().hash(tier.seed) % Math.max(40, breite - 120)))), 40, breite - 40);
+    // Mindestens RAND vom Rand weg: Der Schwanz ragt gut 25 Einheiten hinaus.
+    const startX = clamp(ort?.x ?? x ?? (60 + ((S().hash(tier.seed) % Math.max(40, breite - 120)))), RAND, breite - RAND);
     const t = {
-      g, dreh: g.querySelector(".bau-tier-dreh"), bob: g.querySelector(".bob"), legL: g.querySelector(".legL"), legR: g.querySelector(".legR"), zzz: g.querySelector(".bau-zzz"),
+      g, dreh: g.querySelector(".bau-tier-dreh"), bob: g.querySelector(".bob"), legL: g.querySelector(".legL"), legR: g.querySelector(".legR"), zzz: g.querySelector(".bau-zzz"), lid: g.querySelector(".bt-lid"),
       x: startX, y: S().GEO.STAND + 2, ziel: startX, richtung: 1, modus: "steht", bis: performance.now() + 800 + Math.random() * 2500,
-      phase: Math.random() * 6, k, wohnt, tier, breite, huepf: 0,
+      phase: Math.random() * 6, k, wohnt, tier, breite, huepf: 0, dome,
     };
-    if (ort) { t.ziel = clamp(ort.ziel ?? t.x, 40, breite - 40); t.modus = ort.modus || "steht"; t.richtung = ort.richtung || 1; }
+    if (ort) { t.ziel = clamp(ort.ziel ?? t.x, RAND, breite - RAND); t.modus = ort.modus || "steht"; t.richtung = ort.richtung || 1; }
     stelleTier(t, 0);
     tiere.set(g, t);
   }
@@ -1384,6 +1543,8 @@
   function stelleTier(t, dt) {
     const schlaeft = ui.nacht && t.tier.a !== "owl" && t.modus !== "geht";
     t.zzz.style.display = schlaeft ? "" : "none";
+    // Wer schläft, hat die Augen zu (die Lider zeichnet bau-tiere.js).
+    if (t.schlaeft !== schlaeft) { t.schlaeft = schlaeft; t.lid?.setAttribute("opacity", schlaeft ? "1" : "0"); }
     let bob = 0;
     let bein = 0;
     if (t.modus === "geht" && !schlaeft) {
@@ -1394,7 +1555,7 @@
       t.phase += dt * 2;
       bob = schlaeft ? 0 : Math.sin(t.phase) * 0.6;
     }
-    const sprung = t.huepf > 0 ? -Math.sin(Math.PI * (1 - t.huepf)) * 22 : 0;
+    const sprung = t.huepf > 0 ? -Math.sin(Math.PI * (1 - t.huepf)) * (t.dome ? 23 : 11) : 0;
     t.g.setAttribute("transform", `translate(${t.x.toFixed(1)} ${(t.y + sprung).toFixed(1)}) scale(${t.k})`);
     t.dreh.setAttribute("transform", t.richtung < 0 ? "scale(-1 1)" : "");
     t.bob?.setAttribute("transform", `translate(0 ${bob.toFixed(2)})`);
@@ -1436,10 +1597,20 @@
       const jetzt = performance.now();
       let bald = Infinity;
       tiere.forEach((t) => {
+        // Ab und zu blinzeln.
+        if (t.lid && !t.schlaeft && Math.random() < 0.2) {
+          t.lid.setAttribute("opacity", "1");
+          window.setTimeout(() => { if (!t.schlaeft) t.lid.setAttribute("opacity", "0"); }, 160);
+        }
         if (t.modus !== "steht") return;
         if (ui.nacht && t.tier.a !== "owl") return;
-        if (jetzt >= t.bis) {
-          t.ziel = clamp(t.x + (Math.random() - 0.5) * Math.min(260, t.breite * 0.6), 40, t.breite - 40);
+        if (jetzt >= t.bis && t.dome && Math.random() < 0.45) {
+          // Im KiddyDome: hüpfen, wo man gerade ist.
+          t.huepf = 1;
+          t.bis = jetzt + 1200 + Math.random() * 2600;
+          bald = Math.min(bald, t.bis - jetzt);
+        } else if (jetzt >= t.bis) {
+          t.ziel = clamp(t.x + (Math.random() - 0.5) * Math.min(260, t.breite * 0.6), RAND, t.breite - RAND);
           t.modus = "geht";
           if (Math.random() < 0.25) zeigeWunschBlase(t);
         } else bald = Math.min(bald, t.bis - jetzt);
@@ -1448,6 +1619,28 @@
       tierUhr = window.setTimeout(naechstes, Number.isFinite(bald) ? Math.max(400, bald) : 3000);
     };
     tierUhr = window.setTimeout(naechstes, 900);
+  }
+
+  // Der Mini-Lift im KiddyDome fährt ab und zu hinauf, wartet und fährt
+  // wieder hinunter – über die eine Schleife, nicht als CSS-Animation. Der
+  // Hub ist so gross, wie bau-moebel-dome.js die Kabine zeichnet.
+  const LIFT_HUB = 280;
+  let liftUhr = 0;
+  function planeLifte() {
+    window.clearTimeout(liftUhr);
+    liftUhr = window.setTimeout(() => {
+      if (!ui.host?.isConnected) return;
+      fahreLifte();
+      planeLifte();
+    }, 6500 + Math.random() * 4000);
+  }
+  function fahreLifte() {
+    if (reduced() || ui.besetzt) return;
+    const wo = ui.zimmer >= 0 ? els.zimmerBuehne : els.welt;
+    wo?.querySelectorAll(".bau-minilift-kabine").forEach((kabine, n) => {
+      const stelle = (p) => kabine.setAttribute("transform", `translate(0 ${(-LIFT_HUB * p).toFixed(1)})`);
+      tween(1900, stelle, { e: ease.inOut, delay: n * 500, done: () => tween(1900, (p) => stelle(1 - p), { e: ease.inOut, delay: 1600 }) });
+    });
   }
 
   // Ab und zu zeigt ein Tier, was es sich wünscht – als Bild in einer Blase.
@@ -1464,7 +1657,9 @@
     t.g.querySelector(".bau-blase")?.remove();
     const b = document.createElementNS(NS, "g");
     b.setAttribute("class", "bau-blase");
-    b.setAttribute("transform", "translate(14 -120)");
+    // So gross wie vor der Halbierung der Tiere (MASS 1.2), gleich über dem Kopf.
+    const lesbar = 1.2 / t.k;
+    b.setAttribute("transform", `translate(14 ${(-108 - 12 * lesbar).toFixed(1)}) scale(${lesbar.toFixed(3)})`);
     const w = halb * 2;
     b.innerHTML = `<path d="M${-halb} -46h${w}a12 12 0 0 1 12 12v28a12 12 0 0 1-12 12h${-(w - 16)}l-10 12l0-12h-6a12 12 0 0 1-12-12v-28a12 12 0 0 1 12-12z" fill="#ffffff" stroke="#e2e8f0" stroke-width="2"/><g transform="translate(0 -20)">${inhalt}</g>`;
     t.g.append(b);
@@ -1601,7 +1796,8 @@
     kameraAuf(index, false);
     els.welt.style.visibility = "";
     if (!sofort && !reduced()) {
-      const von = zimmerRechteck(S().breiteVon(S().stock(ui.haus, index)));
+      const st = S().stock(ui.haus, index);
+      const von = zimmerRechteck(S().breiteVon(st), S().hoeheVon(st));
       const nach = zimmerAufSchirm(index, slot);
       const k = von.w / nach.w;
       els.welt.style.transformOrigin = `${nach.x - ui.kamera.tx}px ${nach.y - ui.kamera.ty}px`;
@@ -1627,19 +1823,28 @@
   }
 
   // Wo das Zimmer im Zoom steht: so gross wie möglich zwischen Kopfzeile und
-  // Schublade. Ein halbes Zimmer ist schmaler – und dafür höher im Bild.
-  function zimmerRechteck(breite = zimmerBreite()) {
+  // Schublade. Ein halbes Zimmer ist schmaler – und dafür höher im Bild; der
+  // KiddyDome doppelt so hoch.
+  function zimmerRechteck(breite = zimmerBreite(), hoehe = zimmerHoehe()) {
     const w = ui.host.clientWidth || 800;
     const h = ui.host.clientHeight || 500;
     const klein = h < 520;
     const oben = klein ? 50 : 78;
     const unten = klein ? 104 : 178;
     const rand = 10;
-    const pw = w - rand * 2;
+    let pw = w - rand * 2;
     const ph = h - oben - unten - 8;
-    const k = Math.min(pw / breite, ph / A().ZH);
+    let k = Math.min(pw / breite, ph / hoehe);
+    // Links steht der Bewohner-Knopf: Reichte das Zimmer sonst bis an den
+    // Rand, rückt es ihm aus dem Weg.
+    const frei = els.bewohner?.isConnected ? els.bewohner.offsetLeft + els.bewohner.offsetWidth + 8 : 0;
+    if ((w - breite * k) / 2 < frei) {
+      pw = w - frei - rand;
+      k = Math.min(pw / breite, ph / hoehe);
+      return { x: frei + (pw - breite * k) / 2, y: oben + (ph - hoehe * k) / 2 + 4, w: breite * k, h: hoehe * k, k };
+    }
     const zw = breite * k;
-    const zh = A().ZH * k;
+    const zh = hoehe * k;
     return { x: (w - zw) / 2, y: oben + (ph - zh) / 2 + 4, w: zw, h: zh, k };
   }
 
@@ -1661,12 +1866,14 @@
     ui.zimmerId = st.id;
     const breite = zimmerBreite();
     const raum = K().RAEUME[z.raum];
-    const zh = A().ZH;
-    els.zimmerBuehne.innerHTML = `<svg xmlns="${NS}" class="bau-zimmer-svg${ui.nacht ? " is-nacht" : ""}" viewBox="0 0 ${breite} ${zh}" role="img" aria-label="${raum?.name || "Zimmer"}">` +
+    const oben = zimmerOben();
+    const zh = zimmerHoehe();
+    const mitte = oben + zh / 2;
+    els.zimmerBuehne.innerHTML = `<svg xmlns="${NS}" class="bau-zimmer-svg${ui.nacht ? " is-nacht" : ""}" viewBox="0 ${oben} ${breite} ${zh}" role="img" aria-label="${raum?.name || "Zimmer"}">` +
       `<defs><radialGradient id="bau-glanz-z"><stop offset="0" stop-color="#fff6c2" stop-opacity="0.75"/><stop offset="1" stop-color="#fff6c2" stop-opacity="0"/></radialGradient></defs>` +
       `${zimmerInhalt(ui.haus, ui.zimmer, ui.slot).replace(/url\(#bau-glanz\)/g, "url(#bau-glanz-z)")}` +
       `<rect class="bau-auswahlrahmen" x="0" y="0" width="0" height="0" rx="8" fill="none" stroke="#3fbf74" stroke-width="3" stroke-dasharray="10 7" visibility="hidden" pointer-events="none"/>` +
-      `${z.dinge.length ? "" : `<g class="bau-leerhinweis" pointer-events="none"><text x="${breite / 2}" y="${zh / 2 - 12}" text-anchor="middle" font-size="${breite < 400 ? 15 : 22}" font-weight="800" font-family="'Baloo 2', Nunito, sans-serif" fill="#243047" opacity="0.45">Zieh Dinge aus der Schublade hierher</text><path d="M${breite / 2} ${zh / 2 + 4}v34m-12-12l12 12l12-12" fill="none" stroke="#243047" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" opacity="0.35"/></g>`}` +
+      `${z.dinge.length ? "" : `<g class="bau-leerhinweis" pointer-events="none"><text x="${breite / 2}" y="${mitte - 12}" text-anchor="middle" font-size="${breite < 400 ? 15 : 22}" font-weight="800" font-family="'Baloo 2', Nunito, sans-serif" fill="#243047" opacity="0.45">Zieh Dinge aus der Schublade hierher</text><path d="M${breite / 2} ${mitte + 4}v34m-12-12l12 12l12-12" fill="none" stroke="#243047" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" opacity="0.35"/></g>`}` +
       `</svg>`;
     ui.gezeichnet = zeichenStand();
     passeZimmerEin();
@@ -1698,7 +1905,7 @@
     const name = knopf("bau-zimmername", `${raum.name}: vorlesen`, `<span>${raum.name}</span>${svgVon(`<path d="M11 5 6 9H3v6h3l5 4V5z" fill="currentColor"/><path d="M15.5 8.5a5 5 0 0 1 0 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>`, "0 0 24 24", "bau-lautsprecher")}`,
       () => sag(`${raum.der}. ${raum.text}${raum.job ? ` Hier kann man ${raum.job}.` : ""}`));
     els.zimmerKopf.append(name);
-    const bild = (tier) => svgVon(`<g transform="translate(24 50) scale(0.62)">${A().tier(tier.a)}</g>`, "0 0 48 52", "bau-zimmertier-bild");
+    const bild = (tier) => tierBildchen(tier, 48, 52, "bau-zimmertier-bild");
     const abzeichen = svgVon(`<g transform="translate(13 14)">${A().traumAbzeichen(true)}</g>`, "0 0 28 26", "bau-traumzeichen");
     if (st.art === "wohnung") {
       // Die Bewohner mit ihren Sternen; wer den Traumjob hat, trägt das Abzeichen.
@@ -1706,8 +1913,9 @@
         const st5 = S().sterne(tier.seed);
         const laune = S().laune(tier.seed);
         const traum = S().hatTraumjob(tier.seed);
-        const t = knopf(`bau-zimmertier${traum ? " is-traum" : ""}`, `${tier.n}: ${st5.anzahl} von ${st5.total} Sternen${traum ? ", hat den Traumjob" : ""}. Antippen für mehr.`,
-          `${bild(tier)}<span class="bau-sternreihe">${sternReiheHtml(st5)}</span><span class="bau-sternzahl"><i class="bau-stern is-gelb is-voll"></i>${st5.anzahl}/${st5.total}</span>${traum ? abzeichen : ""}<span class="bau-laune" aria-hidden="true">${laune.emoji}</span>`,
+        const voll = st5.total > 0 && st5.anzahl === st5.total;
+        const t = knopf(`bau-zimmertier${traum ? " is-traum" : ""}${voll ? " is-alle" : ""}`, `${tier.n}: ${voll ? "alle Sterne" : `${st5.anzahl} von ${st5.total} Sternen`}${traum ? ", hat den Traumjob" : ""}. Antippen für mehr.`,
+          `${bild(tier)}<span class="bau-sternreihe">${sternReiheHtml(st5)}</span><span class="bau-sternzahl"><i class="bau-stern is-gelb is-voll"></i>${st5.anzahl}/${st5.total}</span>${voll ? `<span class="bau-zimmertier-pokal" aria-hidden="true">🏆</span>` : ""}${traum ? abzeichen : ""}<span class="bau-laune" aria-hidden="true">${laune.emoji}</span>`,
           () => oeffneTafel(tier.seed));
         els.zimmerKopf.append(t);
       });
@@ -1919,9 +2127,10 @@
     const neu = els.zimmerBuehne.querySelector("svg");
     if (!neu || reduced() || !alt) { pruefeDank(); return; }
     const breite = zimmerBreite();
+    const oben = zimmerOben();
     const deck = document.createElementNS(NS, "rect");
-    deck.setAttribute("y", "0");
-    deck.setAttribute("height", "216");
+    deck.setAttribute("y", String(oben));
+    deck.setAttribute("height", String(S().GEO.WAND_UNTEN - oben));
     deck.setAttribute("fill", alt);
     deck.setAttribute("pointer-events", "none");
     const wand = neu.querySelector(".bau-boden");
@@ -1966,7 +2175,7 @@
     if (ding.art === "boden" || ding.art === "flach") {
       const lande = landeplatz(z, d, ort.y ?? geo.STAND);
       d.y = lande.y;
-    } else if (ding.art === "decke") d.y = 0;
+    } else if (ding.art === "decke") d.y = zimmerOben();
     begrenze(d);
     merkeRueck();
     const fallVon = ding.art === "boden" ? d.y - 140 : null;
@@ -2002,22 +2211,27 @@
       const wert = ueber + Math.abs(x - breite / 2) * 0.05;
       if (wert < bester.wert) bester = { x, wert };
     }
-    if (ding.art === "wand") return { x: bester.x, y: 92 };
-    if (ding.art === "decke") return { x: bester.x, y: 0 };
+    // An die Wand: gut zwei Fünftel hinunter (im KiddyDome entsprechend höher).
+    const oben = zimmerOben();
+    if (ding.art === "wand") return { x: bester.x, y: Math.round(oben + (geo.WAND_UNTEN - oben) * 0.43) };
+    if (ding.art === "decke") return { x: bester.x, y: oben };
     return { x: bester.x, y: geo.STAND };
   }
 
   // Ein Ding im Zimmer halten – nichts ragt aus der Wand oder unter den Boden.
+  // Was höher ist als das Zimmer (ein Gerät aus dem KiddyDome, nachdem er ein
+  // anderes Zimmer wurde), steht trotzdem auf dem Boden.
   function begrenze(d) {
     const ding = M().DINGE[d.i];
     const geo = S().GEO;
     const breite = zimmerBreite();
+    const oben = zimmerOben();
     const u = M().umriss(d.i, d.s);
     d.x = clamp(d.x, Math.min(-u.x0 + 2, breite / 2), Math.max(breite - u.x1 - 2, breite / 2));
-    if (ding?.art === "wand") d.y = clamp(d.y, -u.y0 + 4, geo.WAND_UNTEN - u.y1 - 2);
-    else if (ding?.art === "decke") d.y = 0;
+    if (ding?.art === "wand") d.y = clamp(d.y, oben - u.y0 + 4, geo.WAND_UNTEN - u.y1 - 2);
+    else if (ding?.art === "decke") d.y = oben;
     else if (ding?.art === "flach") d.y = clamp(d.y, geo.STAND_HINTEN, geo.STAND_VORNE);
-    else d.y = clamp(d.y, Math.max(-u.y0 + 2, 0), geo.STAND_VORNE);
+    else d.y = clamp(d.y, Math.min(Math.max(oben - u.y0 + 2, oben), geo.STAND), geo.STAND_VORNE);
   }
 
   // Wohin ein losgelassenes Ding fällt: auf die höchste Fläche darunter (nur
@@ -2047,7 +2261,7 @@
     const node = dingKnoten(d.k);
     if (!node || reduced()) return;
     const zielY = d.y;
-    const k = M().MASS * (d.s || 1);
+    const k = M().massVon(d.i) * (d.s || 1);
     tween(420, (p) => {
       const y = vonY + (zielY - vonY) * p;
       node.setAttribute("transform", `translate(${d.x} ${y}) scale(${d.f ? -k : k} ${k})`);
@@ -2134,8 +2348,8 @@
           geist = el("div", "bau-geist");
           const ding = M().DINGE[id];
           const r = zimmerRechteck();
-          const w = ding.w * M().MASS * r.k;
-          const h = ding.h * M().MASS * r.k;
+          const w = ding.w * M().massVon(id) * r.k;
+          const h = ding.h * M().massVon(id) * r.k;
           geist.style.width = `${w}px`;
           geist.style.height = `${h}px`;
           const y0 = ding.art === "wand" ? -ding.h / 2 : ding.art === "decke" ? 0 : -ding.h;
@@ -2164,7 +2378,7 @@
         if (imZimmer(ev.clientX, ev.clientY)) {
           const r = zimmerRechteck();
           const p = zimmerPunkt(ev.clientX, ev.clientY);
-          const yBasis = art === "wand" ? p.y : art === "decke" ? 0 : p.y + (h * 0.15) / r.k;
+          const yBasis = art === "wand" ? p.y : art === "decke" ? zimmerOben() : p.y + (h * 0.15) / r.k;
           const d = stelleDing(id, { x: p.x, y: yBasis });
           if (d) poof(d);
         }
@@ -2227,7 +2441,7 @@
       d.x = p.x + griff.dx;
       d.y = p.y + griff.dy;
       const ding = M().DINGE[d.i];
-      if (ding.art === "decke") d.y = 0;
+      if (ding.art === "decke") d.y = zimmerOben();
       begrenzeLocker(d);
       dingKnoten(d.k)?.setAttribute("transform", dingTransform(d));
       griff.mit.forEach(({ k, dx, dy }) => {
@@ -2292,7 +2506,7 @@
     const breite = zimmerBreite();
     const u = M().umriss(d.i, d.s);
     d.x = clamp(d.x, -u.x0 - 20, breite - u.x1 + 20);
-    d.y = clamp(d.y, -u.y0 - 20, geo.H + 20);
+    d.y = clamp(d.y, Math.min(zimmerOben() - u.y0 - 20, geo.H), geo.H + 20);
   }
 
   function entferne(k, { schonGemerkt = false } = {}) {
@@ -2364,11 +2578,51 @@
     aktion("", "Umdrehen", `<path d="M12 3v18" stroke="currentColor" stroke-width="2" stroke-dasharray="3 3"/><path d="M9 7 3 12l6 5zM15 7l6 5-6 5z" fill="currentColor"/>`, () => aendereDing(d.k, (u) => { u.f = u.f ? 0 : 1; }, "Umgedreht."));
     aktion("", "Kleiner", `<circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M7.5 12h9" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/>`, () => aendereDing(d.k, (u) => { u.s = GROESSEN[Math.max(0, GROESSEN.indexOf(naechsteGroesse(u.s)) - 1)]; }, "Kleiner."));
     aktion("", "Grösser", `<circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M7.5 12h9M12 7.5v9" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/>`, () => aendereDing(d.k, (u) => { u.s = GROESSEN[Math.min(GROESSEN.length - 1, GROESSEN.indexOf(naechsteGroesse(u.s)) + 1)]; }, "Grösser."));
-    aktion("", "Nach vorne", `<rect x="3" y="9" width="11" height="11" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><rect x="9" y="4" width="11" height="11" rx="2" fill="currentColor"/>`, () => aendereDing(d.k, (u, z) => { z.dinge = z.dinge.filter((x) => x.k !== u.k).concat([u]); }, "Nach vorne."));
-    aktion("", "Nach hinten", `<rect x="9" y="4" width="11" height="11" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><rect x="3" y="9" width="11" height="11" rx="2" fill="currentColor"/>`, () => aendereDing(d.k, (u, z) => { z.dinge = [u].concat(z.dinge.filter((x) => x.k !== u.k)); }, "Nach hinten."));
+    aktion("", "Nach vorne", `<rect x="3" y="9" width="11" height="11" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><rect x="9" y="4" width="11" height="11" rx="2" fill="currentColor"/>`, () => aendereDing(d.k, (u, z) => stapleUm(u, z, 1), "Nach vorne."));
+    aktion("", "Nach hinten", `<rect x="9" y="4" width="11" height="11" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><rect x="3" y="9" width="11" height="11" rx="2" fill="currentColor"/>`, () => aendereDing(d.k, (u, z) => stapleUm(u, z, -1), "Nach hinten."));
     aktion("is-weg", "Wegräumen", `<path d="M7 7h10l-1 13H8z" fill="currentColor"/><rect x="5" y="4.5" width="14" height="2.5" rx="1" fill="currentColor"/>`, () => entferne(d.k));
     els.bearbeiten.append(zeile);
     els.bearbeiten.hidden = false;
+  }
+
+  // Nach vorne (+1) oder nach hinten (-1). Was auf dem Boden steht, ordnet
+  // seine Tiefe – weiter vorn heisst weiter unten im Bild (y), siehe
+  // reihenfolge(). Die Reihenfolge der Liste zählt nur bei gleicher Tiefe.
+  // Darum rückt das Ding vor oder hinter alles, was es überdeckt; ganz vorn
+  // oder ganz hinten auf dem Boden entscheidet dann die Liste.
+  function stapleUm(u, z, richtung) {
+    z.dinge = richtung > 0 ? z.dinge.filter((x) => x.k !== u.k).concat([u]) : [u].concat(z.dinge.filter((x) => x.k !== u.k));
+    const art = M().DINGE[u.i]?.art;
+    if ((art !== "boden" && art !== "flach") || traegerVon(z, u)) return;
+    const geo = S().GEO;
+    const a = M().umriss(u.i, u.s);
+    const ueberdeckt = z.dinge.filter((x) => {
+      if (x.k === u.k || M().DINGE[x.i]?.art !== art || traegerVon(z, x)) return false;
+      const b = M().umriss(x.i, x.s);
+      return u.x + a.x0 < x.x + b.x1 && x.x + b.x0 < u.x + a.x1;
+    });
+    if (!ueberdeckt.length) return;
+    if (richtung > 0) {
+      const vorn = Math.max(...ueberdeckt.map((x) => x.y));
+      if (u.y <= vorn) u.y = Math.min(vorn + 0.5, geo.STAND_VORNE);
+    } else {
+      const hinten = Math.min(...ueberdeckt.map((x) => x.y));
+      if (u.y >= hinten) {
+        u.y = Math.max(hinten - 0.5, geo.STAND_HINTEN);
+        begrenze(u);
+      }
+      // Ein Ding, das höher ist als das Zimmer, darf nicht weiter nach hinten
+      // (sonst ragte es oben hinaus) – dann rücken die anderen ein wenig vor.
+      ueberdeckt.forEach((x) => { if (x.y < u.y) rueckeAuf(z, x, u.y); });
+    }
+  }
+
+  // Ein Ding auf die Tiefe y stellen; was obendrauf steht, kommt mit.
+  function rueckeAuf(z, x, y) {
+    const obendrauf = z.dinge.filter((w) => w.k !== x.k && traegerVon(z, w)?.k === x.k);
+    x.y = y;
+    const fl = flaecheVon(x);
+    if (fl) obendrauf.forEach((w) => { w.y = fl.y; });
   }
 
   function naechsteGroesse(s) {
@@ -2472,17 +2726,134 @@
       klang("correct");
       const dank = w?.typ === "ding" ? `Juhu, ${K().DING_WUENSCHE[w.tag]?.ein || "danke"}! Danke!` : w?.typ === "farbe" ? "Juhu, meine Lieblingsfarbe! Danke!" : "Danke!";
       sag(`${tier.n}: ${dank}`);
-      const alle = S().sterne(tier.seed);
-      if (alle.total && alle.anzahl === alle.total) {
-        window.setTimeout(() => {
-          klang("unlock");
-          const svg = els.zimmerBuehne.querySelector("svg");
-          if (svg) kids()?.burstConfetti?.(svg, 40);
-          sag(`${tier.n} ist überglücklich! Alle Sterne!`);
-        }, 1400);
-      }
+      // Waren das alle Sterne, feiert feiereAlleSterne() – gleich danach.
     });
     if (gedankt) zeichneZimmerKopf();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Alle Bewohner: je Wohnung die Tiere mit Sternen, Traumjob und Wünschen
+  // ---------------------------------------------------------------------------
+  // Der Knopf links öffnet sie, im Haus wie beim Einrichten. Ein Tipp auf ein
+  // Tier öffnet seine Tafel; wer sie schliesst, ist wieder hier.
+  function oeffneUebersicht({ stumm = false } = {}) {
+    if (!ui.host?.isConnected || ui.besetzt || ui.overlay || ui.ordnen) return false;
+    if (ui.tafel) schliesseTafel();
+    ui.uebersicht = true;
+    if (!els.uebersicht?.isConnected) {
+      els.uebersicht = el("div", "bau-uebersicht", { role: "dialog", "aria-modal": "true", "aria-label": "Alle Bewohner" });
+      els.uebersicht.addEventListener("click", (e) => { if (e.target === els.uebersicht) schliesseUebersicht(); });
+      ui.host.append(els.uebersicht);
+    }
+    els.uebersicht.hidden = false;
+    fuelleUebersicht();
+    if (!stumm) sag(uebersichtSatz());
+    hilfe("Hier siehst du alle Tiere aus dem Wohnhaus: wie viele Sterne sie haben, ihren Traumjob und ihre Wünsche. Was noch fehlt, ist bunt; was erfüllt ist, hat einen Haken. Tippe auf ein Tier, dann siehst du alles über es.");
+    return true;
+  }
+
+  // weiter: gleich geht die Tafel eines Tiers auf – kein Einzug dazwischen.
+  function schliesseUebersicht({ weiter = false } = {}) {
+    ui.uebersicht = false;
+    if (els.uebersicht) els.uebersicht.hidden = true;
+    if (weiter) return;
+    if (ui.zimmer >= 0) hilfeZimmer(); else hilfeHaus();
+    pruefeZuzug();
+  }
+
+  function uebersichtSatz(alle = S().alleTiere()) {
+    if (!alle.length) return "Noch wohnt niemand im Wohnhaus. Richte dort eine Wohnung ein – dann zieht bald jemand ein!";
+    const sterne = alle.map((e) => S().sterne(e.tier.seed));
+    const anzahl = sterne.reduce((n, s) => n + s.anzahl, 0);
+    const total = sterne.reduce((n, s) => n + s.total, 0);
+    const traum = alle.filter((e) => S().hatTraumjob(e.tier.seed)).length;
+    const voll = sterne.filter((s) => s.total > 0 && s.anzahl === s.total).length;
+    const wer = alle.length === 1 ? "Ein Tier wohnt" : `${alle.length} Tiere wohnen`;
+    const vollSatz = voll === 0 ? "" : voll === 1 ? " Eines hat schon alle Sterne." : ` ${voll} haben schon alle Sterne.`;
+    const traumSatz = traum === 0 ? "Noch keines hat seinen Traumjob." : traum === 1 ? "Eines hat seinen Traumjob." : `${traum} haben ihren Traumjob.`;
+    return `${wer} im Wohnhaus. Zusammen haben sie ${anzahl} von ${total} Sternen.${vollSatz} ${traumSatz}`;
+  }
+
+  function fuelleUebersicht() {
+    if (!ui.uebersicht || !els.uebersicht) return;
+    const katalog = K();
+    const alle = S().alleTiere();
+    const karte = el("div", "bau-uebersicht-karte");
+    karte.append(knopf("bau-uebersicht-zu", "Schliessen", svgVon(KREUZ, "0 0 24 24"), () => schliesseUebersicht()));
+    const satz = uebersichtSatz(alle);
+    const kopf = el("div", "bau-uebersicht-kopf");
+    kopf.append(el("h2", "", { text: "Alle Bewohner" }), el("p", "bau-lies", { text: satz }));
+    karte.append(kopf);
+    if (!alle.length) {
+      if (ui.haus !== "wohnhaus" || ui.zimmer >= 0) {
+        karte.append(knopf("bau-knopf-klein bau-uebersicht-hin", "Zum Wohnhaus", "Zum Wohnhaus →", async () => {
+          schliesseUebersicht({ weiter: true });
+          if (ui.zimmer >= 0) await schliesseZimmer(true);
+          await zeigeHaus("wohnhaus", 1);
+        }));
+      }
+      els.uebersicht.innerHTML = "";
+      els.uebersicht.append(karte);
+      return;
+    }
+    // Je Wohnung eine Gruppe, unten im Haus zuerst – wie am Lift: E, 1, 2 …
+    const wohnungen = new Map();
+    alle.forEach((e) => {
+      if (!wohnungen.has(e.stock.id)) wohnungen.set(e.stock.id, { index: e.index, hausId: e.hausId, stock: e.stock, tiere: [] });
+      wohnungen.get(e.stock.id).tiere.push(e.tier);
+    });
+    [...wohnungen.values()].sort((a, b) => a.index - b.index).forEach((w) => {
+      const gruppe = el("section", "bau-uebersicht-wohnung");
+      const raum = katalog.RAEUME[w.stock.zimmer[0]?.raum];
+      const stockwerk = w.index === 0 ? "Erdgeschoss" : `${w.index}. Stock`;
+      const titel = `${stockwerk}${raum ? ` · ${raum.name}` : ""}`;
+      const h = el("h3", "bau-uebersicht-stock bau-lies", { "data-lies": `${stockwerk}${raum ? `: ${raum.der}` : ""}.` });
+      h.innerHTML = `<span class="bau-stockmarke" aria-hidden="true">${w.index === 0 ? "E" : w.index}</span>${textSicher(titel)}`;
+      const liste = el("div", "bau-uebersicht-liste");
+      w.tiere.forEach((tier) => liste.append(bewohnerKarte(tier)));
+      gruppe.append(h, liste);
+      karte.append(gruppe);
+    });
+    const legende = el("p", "bau-legende bau-lies", { "data-lies": "Bunte Bilder: Das wünscht sich das Tier noch. Mit Haken: schon erfüllt. Gelb für die Wohnung, grün für das Wohnhaus, blau für die anderen Häuser." });
+    legende.innerHTML = `<i class="bau-stern is-gelb is-voll"></i> Wohnung <i class="bau-stern is-gruen is-voll"></i> Wohnhaus <i class="bau-stern is-blau is-voll"></i> andere Häuser · <span class="bau-legende-haken" aria-hidden="true">✓</span> schon erfüllt`;
+    karte.append(legende);
+    const scroll = els.uebersicht.querySelector(".bau-uebersicht-karte")?.scrollTop || 0;
+    els.uebersicht.innerHTML = "";
+    els.uebersicht.append(karte);
+    karte.scrollTop = scroll;
+  }
+
+  // Ein Tier in der Übersicht: Bild, Name, Sterne, Traumjob und die Wünsche –
+  // was noch fehlt zuerst und bunt, Erfülltes blass mit Haken.
+  function bewohnerKarte(tier) {
+    const katalog = K();
+    const art = katalog.TIERE[tier.a];
+    const sterne = S().sterne(tier.seed);
+    const alleSterne = sterne.total > 0 && sterne.anzahl === sterne.total;
+    const laune = S().laune(tier.seed);
+    const hatTraum = S().hatTraumjob(tier.seed);
+    const traumRaum = katalog.RAEUME[String(tier.traum || "").split(":")[1]];
+    const wuensche = S().wuensche(tier.seed);
+    const offen = wuensche.filter((w) => !w.erfuellt);
+    const figur = S().figurVon(tier);
+    const wunschSatz = offen.length === 0 ? "Alle Wünsche sind erfüllt." : offen.length === 1 ? "Ein Wunsch fehlt noch." : `${offen.length} Wünsche fehlen noch.`;
+    const traumSatz = traumRaum ? ` Traumjob: ${traumRaum.name}${hatTraum ? " – geschafft!" : "."}` : "";
+    const label = `${tier.n}, ${art?.der || ""}. ${alleSterne ? "Alle Sterne!" : `${sterne.anzahl} von ${sterne.total} Sternen.`}${traumSatz} ${wunschSatz}`;
+    const bilder = [...offen, ...wuensche.filter((w) => w.erfuellt)].map((w) =>
+      `<span class="bau-bewohner-wunsch is-${w.stern}${w.erfuellt ? " is-erfuellt" : ""}">${svgVon(wunschBild(w, 32), "-19 -19 38 38")}</span>`).join("");
+    return knopf(`bau-bewohner${hatTraum ? " is-traum" : ""}${alleSterne ? " is-alle" : ""}`, label,
+      `<span class="bau-bewohner-bild">${tierBildchen(tier, 66, 80)}${figur ? `<span class="bau-bewohner-buch" aria-hidden="true">📖</span>` : ""}</span>` +
+      `<span class="bau-bewohner-text">` +
+      `<span class="bau-bewohner-name"><b>${textSicher(tier.n)}</b> <span class="bau-bewohner-laune" aria-hidden="true">${laune.emoji}</span></span>` +
+      `<span class="bau-bewohner-art">${textSicher(art?.name || "")}</span>` +
+      `<span class="bau-bewohner-sterne"><span class="bau-sternreihe">${sternReiheHtml(sterne)}</span>${alleSterne ? `<span class="bau-bewohner-alle">🏆 Alle Sterne!</span>` : `<span>${sterne.anzahl}/${sterne.total}</span>`}</span>` +
+      (traumRaum ? `<span class="bau-bewohner-traum${hatTraum ? " is-erfuellt" : ""}">${traumZeichen("", hatTraum)}<span><small>Traumjob:</small> ${textSicher(traumRaum.name)}</span>${hatTraum ? `<span class="bau-bewohner-haken" aria-hidden="true">✓</span>` : ""}</span>` : "") +
+      `<span class="bau-bewohner-wuensche">${bilder}</span>` +
+      `</span>`,
+      () => {
+        schliesseUebersicht({ weiter: true });
+        oeffneTafel(tier.seed, { ausUebersicht: true });
+      });
   }
 
   // ---------------------------------------------------------------------------
@@ -2496,15 +2867,17 @@
     if (arbeiter) oeffneTafel(arbeiter.tier.seed);
   }
 
-  function oeffneTafel(seed) {
+  // ausUebersicht: aus «Alle Bewohner» geöffnet – Schliessen führt dorthin
+  // zurück.
+  function oeffneTafel(seed, { ausUebersicht = false } = {}) {
     const ref = S().findeTier(seed);
     if (!ref) return;
-    ui.tafel = { seed };
+    ui.tafel = { seed, ausUebersicht };
     // Nach dem Verlassen der Bauecke hängt die alte Tafel nicht mehr im Bild
     // (mount leert die Bühne) – dann eine neue.
     if (!els.tafel?.isConnected) {
       els.tafel = el("div", "bau-tafel", { role: "dialog", "aria-modal": "true" });
-      els.tafel.addEventListener("click", (e) => { if (e.target === els.tafel) schliesseTafel(); });
+      els.tafel.addEventListener("click", (e) => { if (e.target === els.tafel) schliesseTafel({ zurueck: true }); });
       ui.host.append(els.tafel);
     }
     els.tafel.hidden = false;
@@ -2514,9 +2887,14 @@
     hilfe(`Hier siehst du, was sich ${ref.tier.n} wünscht: Gelbe Sterne sind Wünsche für die Wohnung, grüne für das Wohnhaus, blaue für die anderen Häuser. Dazu den Traumjob und wo ${ref.tier.n} gerade ist. Oben wechselst du zu den Mitbewohnern. Ist das Vorlesen an, liest ein Tipp auf einen Text ihn vor.`);
   }
 
-  function schliesseTafel() {
+  // zurueck: das Kind schliesst die Tafel nur (Kreuz, daneben tippen, Zurück).
+  // Kam es aus «Alle Bewohner», ist es wieder dort. Wer hingeht oder einen
+  // Wunsch gezeigt bekommt, schliesst ohne.
+  function schliesseTafel({ zurueck = false } = {}) {
+    const zurUebersicht = zurueck && Boolean(ui.tafel?.ausUebersicht);
     ui.tafel = null;
     if (els.tafel) els.tafel.hidden = true;
+    if (zurUebersicht && oeffneUebersicht({ stumm: true })) return;
     if (ui.zimmer >= 0) hilfeZimmer(); else hilfeHaus();
     pruefeZuzug();
   }
@@ -2532,15 +2910,17 @@
     const laune = S().laune(tier.seed);
     const sterne = S().sterne(tier.seed);
     const karte = el("div", "bau-tafel-karte");
-    const zu = knopf("bau-tafel-zu", "Schliessen", svgVon(`<path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>`, "0 0 24 24"), schliesseTafel);
+    const zu = ui.tafel.ausUebersicht
+      ? knopf("bau-tafel-zu", "Zurück zu allen Bewohnern", svgVon(PFEIL_ZURUECK, "0 0 24 24"), () => schliesseTafel({ zurueck: true }))
+      : knopf("bau-tafel-zu", "Schliessen", svgVon(KREUZ, "0 0 24 24"), () => schliesseTafel({ zurueck: true }));
     karte.append(zu);
     // Die Mitbewohner: ein Bild je Tier zum Wechseln.
     if (st.tiere.length > 1) {
       const leiste = el("div", "bau-tafel-leiste", { role: "tablist", "aria-label": "Wer hier wohnt" });
       st.tiere.forEach((t) => {
         const traum = S().hatTraumjob(t.seed);
-        const b = knopf(`bau-tafel-wechsel${t.seed === tier.seed ? " is-aktiv" : ""}${traum ? " is-traum" : ""}`, `${t.n}, ${katalog.TIERE[t.a].der}${traum ? ", hat den Traumjob" : ""}`, `${svgVon(`<g transform="translate(24 50) scale(0.62)">${A().tier(t.a)}</g>`, "0 0 48 52")}<span>${textSicher(t.n)}</span>${traum ? traumZeichen() : ""}`, () => {
-          ui.tafel = { seed: t.seed };
+        const b = knopf(`bau-tafel-wechsel${t.seed === tier.seed ? " is-aktiv" : ""}${traum ? " is-traum" : ""}`, `${t.n}, ${katalog.TIERE[t.a].der}${traum ? ", hat den Traumjob" : ""}`, `${tierBildchen(t, 48, 52)}<span>${textSicher(t.n)}</span>${traum ? traumZeichen() : ""}`, () => {
+          ui.tafel = { ...ui.tafel, seed: t.seed };
           fuelleTafel();
           sag(`${t.n}. ${S().laune(t.seed).text}`);
         });
@@ -2550,11 +2930,11 @@
       karte.append(leiste);
     }
     const kopf = el("div", "bau-tafel-kopf");
-    kopf.innerHTML = `${svgVon(`<g transform="translate(40 92) scale(1.05)">${A().tier(tier.a)}</g>`, "0 0 80 100", "bau-tafel-tier")}` +
+    kopf.innerHTML = `${tierBildchen(tier, 80, 100, "bau-tafel-tier")}` +
       `<div class="bau-tafel-wer"><h2>${textSicher(tier.n)}${S().hatTraumjob(tier.seed) ? ` ${traumZeichen("hat den Traumjob")}` : ""}</h2><p>${gross(art.der)} · wohnt ${S().imRaum(raum?.id)} ${katalog.HAUS.wohnhaus.im}</p>` +
-      `<p class="bau-tafel-laune"><span aria-hidden="true">${laune.emoji}</span> ${laune.text}</p>` +
-      `<p class="bau-tafel-zahl"><span class="bau-sternreihe">${sternReiheHtml(sterne)}</span> ${sterne.anzahl} von ${sterne.total}</p></div>`;
-    karte.append(kopf);
+      `<p class="bau-tafel-laune"><span aria-hidden="true">${laune.emoji}</span> ${laune.text}</p></div>`;
+    // Gleich darunter, gross: die Sterne.
+    karte.append(kopf, sternKachel(tier, sterne));
     // Wo es gerade ist – mit dem Weg dorthin.
     const wo = S().aufenthalt(tier.seed);
     const woZeile = el("div", `bau-tafel-wo${wo?.wo === "daheim" ? " is-daheim" : ""}`);
@@ -2577,10 +2957,41 @@
     karte.append(liste, legende);
     // Traumjob und Arbeit.
     karte.append(arbeitTeil(tier));
-    const weg = knopf("bau-hinaus", `${tier.n} ausziehen lassen`, `🧳 Ausziehen lassen`, () => frageAuszug(tier));
-    karte.append(weg);
+    // Ganz unten: aus welchem Buch der Leseecke die Figur kommt (klein, mit
+    // dem Umschlag) und das Ausziehen.
+    const fuss = el("div", "bau-tafel-fuss");
+    const figur = S().figurVon(tier);
+    const buch = figur?.buecher?.[0];
+    if (buch) {
+      const satz = `${figur.ich} Aus dem Buch «${buch.titel}».`;
+      const box = el("div", "bau-tafel-buch bau-lies", { "data-lies": satz });
+      box.innerHTML = `<img src="bilder/buecher/${buch.id}/umschlag-klein.webp" alt="" loading="lazy" decoding="async">` +
+        `<p><b>Aus dem Buch «${textSicher(buch.titel)}»</b><span>${textSicher(figur.ich)}</span></p>`;
+      fuss.append(box);
+    }
+    fuss.append(knopf("bau-hinaus", `${tier.n} ausziehen lassen`, `🧳 Ausziehen lassen`, () => frageAuszug(tier)));
+    karte.append(fuss);
     els.tafel.innerHTML = "";
     els.tafel.append(karte);
+  }
+
+  // Die Sterne eines Tiers als Kachel: gross, geholte gefüllt, offene hohl.
+  // Hat es alle, wird die Kachel golden – mit Pokal.
+  function sternKachel(tier, sterne) {
+    const alle = sterne.total > 0 && sterne.anzahl === sterne.total;
+    const fehlt = sterne.total - sterne.anzahl;
+    const noch = fehlt === 1 ? "Noch ein Wunsch" : `Noch ${fehlt} Wünsche`;
+    const satz = alle
+      ? `${tier.n} hat alle ${sterne.total} Sterne! ${tier.n} ist überglücklich.`
+      : `${tier.n} hat ${sterne.anzahl} von ${sterne.total} Sternen. ${noch} – unten steht, welche.`;
+    const box = el("div", `bau-sternkachel bau-lies${alle ? " is-alle" : ""}`, { "data-lies": satz });
+    const reihe = [...sterne.gelb.map((v) => [v, "gelb"]), ...sterne.gruen.map((v) => [v, "gruen"]), ...sterne.blau.map((v) => [v, "blau"])];
+    box.innerHTML = `<span class="bau-sternkachel-sterne" aria-hidden="true">${reihe.map(([v, f]) => `<i class="bau-stern bau-stern-gross is-${f}${v ? " is-voll" : ""}"></i>`).join("")}</span>` +
+      `<span class="bau-sternkachel-text">${alle
+        ? `<b>Alle Sterne!</b><span>${textSicher(tier.n)} ist überglücklich.</span>`
+        : `<b>${sterne.anzahl} von ${sterne.total} Sternen</b><span>${noch} – unten steht, welche.</span>`}</span>` +
+      (alle ? `<span class="bau-sternkachel-pokal" aria-hidden="true">🏆</span>` : "");
+    return box;
   }
 
   // Der Traumjob und die Arbeit, die ein Tier gerade hat.
@@ -2677,16 +3088,23 @@
     if (ui.haus !== hausId) await zeigeHaus(hausId, 1, { ohneSprache: true });
     const raum = K().RAEUME[raumId];
     const stock = aktHaus().stock;
+    const wen = (raum?.der || "das Zimmer").replace(/^der /, "den ");
     let leer = null;
     stock.forEach((s, i) => { if (!leer && (s.art === "zwei" || s.art === "eins")) { const slot = s.zimmer.findIndex((z) => !z.raum); if (slot >= 0) leer = { i, slot }; } });
+    // Der KiddyDome: am liebsten ein leeres Stockwerk mit einem freien daneben.
+    if (raum?.doppel) {
+      const paar = stock.findIndex((s, i) => s.art === "eins" && !s.zimmer[0]?.raum && S().doppelPlatz(hausId, i));
+      if (paar >= 0) leer = { i: paar, slot: 0 };
+    }
     const roh = stock.findIndex((s) => s.art === "");
     if (leer) {
       kameraAuf(leer.i);
-      sag(`Hier ist noch Platz. Tippe auf das Plus und wähle ${raum?.der || "das Zimmer"}.`);
+      const zwei = raum?.doppel && !S().doppelPlatz(hausId, leer.i) ? ` ${gross(raum.der)} braucht zwei Stockwerke – im Fenster kannst du gleich noch eines dazubauen.` : "";
+      sag(`Hier ist noch Platz. Tippe auf das Plus und wähle ${wen}.${zwei}`);
       stupse(els.welt.querySelector(`.bau-raum[data-stock="${leer.i}"][data-slot="${leer.slot}"]`));
     } else if (roh >= 0) {
       kameraAuf(roh);
-      sag(`Hier ist noch ein leeres Stockwerk. Tippe darauf, wähle zwei Zimmer und dann ${raum?.der || "das Zimmer"}.`);
+      sag(`Hier ist noch ein leeres Stockwerk. Tippe darauf, wähle zwei Zimmer und dann ${wen}.`);
       stupse(els.welt.querySelector(`.bau-raum[data-stock="${roh}"]`));
     } else {
       const kann = S().kannBauen(hausId);
@@ -2704,7 +3122,9 @@
     const raum = K().RAEUME[S().zimmer(hausId, index, slot)?.raum];
     if (raum) sag(`${raum.der} ${K().HAUS[hausId].im}.`);
     await warte(500);
-    for (const t of tiere.values()) if (t.tier.seed === seed) { t.huepf = 1; wecke(); stupse(t.g); }
+    // Das Tier hüpft – angestupst wird es nicht: Seine Lage schreibt die
+    // Bildschleife in jedem Bild neu.
+    for (const t of tiere.values()) if (t.tier.seed === seed) { t.huepf = 1; wecke(); }
   }
 
   // ---------------------------------------------------------------------------
@@ -2759,27 +3179,50 @@
 
   // Eine Wahl mit grossen Karten: Bild, Name, ein Satz; ein Tipp liest vor,
   // der Haken wählt.
+  // Eine Karte kann prüfen, ob sie hier geht (pruefe → { ok, text, knopf }):
+  // Der KiddyDome braucht zwei Stockwerke. Geht es nicht, steht der Hinweis
+  // da, der Haken bleibt aus – und vielleicht hilft ein Knopf.
   function kartenWahl({ cls, titel, frage, karten, aktiv = "", okText = "Das nehme ich! ✓", weiter }) {
     const { karte } = oeffneOverlay(cls, titel);
     let gewaehlt = aktiv;
     const raster = el("div", "bau-wahl-raster is-zimmer");
+    const zeige = (k) => {
+      const p = k?.pruefe?.() || null;
+      beschrieb.textContent = k?.text || frage;
+      hinweis.textContent = p?.text || "";
+      hinweis.hidden = !p?.text;
+      hinweis.classList.toggle("is-warnung", Boolean(p && !p.ok));
+      ok.disabled = !k || Boolean(p && !p.ok);
+      ok.hidden = Boolean(p?.knopf);
+      extra.hidden = !p?.knopf;
+      if (p?.knopf) {
+        extra.textContent = p.knopf.text;
+        extra.setAttribute("aria-label", p.knopf.text);
+        extra.title = p.knopf.text;
+        extra.onclick = () => { schliesseOverlay(); p.knopf.fn(); };
+      }
+      return p;
+    };
     karten.forEach((k) => {
       const b = knopf(`bau-wahl-feld${gewaehlt === k.id ? " is-aktiv" : ""}`, k.name,
         `${svgVon(k.bild, "-34 -34 68 68", "bau-wahl-bild")}<span>${k.name}</span>${k.schon ? `<i class="bau-schon" title="gibt es schon">✓</i>` : ""}`, () => {
           gewaehlt = k.id;
           raster.querySelectorAll(".bau-wahl-feld").forEach((x) => x.classList.toggle("is-aktiv", x === b));
-          ok.disabled = false;
-          beschrieb.textContent = k.text;
-          sag(`${k.der || k.name}. ${k.text}`);
+          const p = zeige(k);
+          sag(p && !p.ok ? `${k.der || k.name}. ${p.text}` : `${k.der || k.name}. ${k.text}${p?.text ? ` ${p.text}` : ""}`);
         });
       raster.append(b);
     });
-    const beschrieb = el("p", "bau-wahl-text", { text: karten.find((k) => k.id === gewaehlt)?.text || frage });
-    const ok = knopf("bau-ok", okText.replace(/ ✓$/, ""), okText, () => { if (gewaehlt) { schliesseOverlay(); weiter(gewaehlt); } });
-    ok.disabled = !gewaehlt;
+    const beschrieb = el("p", "bau-wahl-text");
+    const hinweis = el("p", "bau-wahl-hinweis");
+    const ok = knopf("bau-ok", okText.replace(/ ✓$/, ""), okText, () => { if (gewaehlt && !ok.disabled) { schliesseOverlay(); weiter(gewaehlt); } });
+    const extra = knopf("bau-dazu", "", "", null);
     const ab = knopf("bau-abbrechen", "Abbrechen", "Abbrechen", () => { schliesseOverlay(); sag("Abgebrochen."); });
+    zeige(karten.find((k) => k.id === gewaehlt));
+    // Der Hinweis steht unten bei den Knöpfen – dort bleibt er sichtbar,
+    // auch wenn die Karten rollen.
     const unten = el("div", "bau-wahl-unten");
-    unten.append(ab, ok);
+    unten.append(hinweis, ab, extra, ok);
     karte.append(raster, beschrieb, unten);
     sag(frage);
   }
@@ -2855,23 +3298,77 @@
       titel: z.raum ? "Was soll dieses Zimmer werden?" : `Ein neues Zimmer ${haus.im}`,
       frage: z.raum ? "Was soll dieses Zimmer werden?" : "Was wird das neue Zimmer? Tippe auf ein Zimmer, dann hörst du, was dort geschieht.",
       aktiv: z.raum,
-      karten: haus.raeume.filter((id) => !K().RAEUME[id].wohnen).map((id) => { const r = K().RAEUME[id]; return { id, name: r.name, der: r.der, text: r.job ? `${r.text} Hier kann man ${r.job}.` : r.text, bild: dingBild(r.icon, 56), schon: vorhanden.has(id) }; }),
+      karten: haus.raeume.filter((id) => !K().RAEUME[id].wohnen).map((id) => {
+        const r = K().RAEUME[id];
+        return { id, name: r.name, der: r.der, text: r.job ? `${r.text} Hier kann man ${r.job}.` : r.text, bild: dingBild(r.icon, 56), schon: vorhanden.has(id),
+          pruefe: r.doppel ? () => doppelHinweis(index, id) : null };
+      }),
       weiter: async (raumId) => {
         if (raumId === z.raum) return;
-        S().waehleRaum(ui.haus, index, slot, raumId);
         const raum = K().RAEUME[raumId];
+        const ergebnis = S().waehleRaum(ui.haus, index, slot, raumId);
+        if (!ergebnis) { sag(doppelHinweis(index, raumId).text); return; }
+        // Der KiddyDome steht auf dem unteren der beiden Stockwerke.
+        const ziel = typeof ergebnis === "object" && Number.isInteger(ergebnis.unten) ? ergebnis.unten : index;
         if (ui.zimmer === index && ui.slot === slot) {
           zeichneZimmer();
           sag(`Das ist jetzt ${raum.der}.`);
           return;
         }
-        zeichneHaus({ stockwerk: index });
+        zeichneHaus({ stockwerk: ziel });
         klang("correct");
-        sag(`${raum.der}!`);
+        sag(raum.doppel ? `${raum.der}! ${pronomen(raum.der)} ist zwei Stockwerke hoch.` : `${raum.der}!`);
         await warte(450);
-        oeffneZimmer(index, slot);
+        oeffneZimmer(ziel, slot);
       },
     });
+  }
+
+  // Der KiddyDome braucht zwei Stockwerke übereinander: Geht es hier? Sonst
+  // ein Hinweis – und, wenn Ziegel da sind, ein Knopf, der gleich darüber ein
+  // Stockwerk dazubaut.
+  function doppelHinweis(index, raumId) {
+    const raum = K().RAEUME[raumId];
+    const name = gross(raum.der);
+    const platz = S().doppelPlatz(ui.haus, index);
+    if (platz) {
+      const wo = platz.unten === index ? "dieses Stockwerk und das darüber" : "dieses Stockwerk und das darunter";
+      return { ok: true, text: `${name} ist so hoch wie zwei Stockwerke: ${pronomen(raum.der)} braucht ${wo}.` };
+    }
+    const satz = `${name} braucht zwei Stockwerke übereinander – hier ist nur eines frei.`;
+    const kann = S().kannBauen(ui.haus);
+    if (kann.ok) return { ok: false, text: `${satz} Baue gleich darüber noch eines dazu!`, knopf: { text: "Stockwerk dazubauen", fn: () => baueDazuFuer(index, raumId) } };
+    if (kann.grund === "ziegel") return { ok: false, text: `${satz} Löse ein Rätsel für Ziegel, dann kannst du noch ein Stockwerk dazubauen.` };
+    if (kann.grund === "schranke") return { ok: false, text: `${satz} Für mehr Stockwerke müssen deine Eltern die Schranke öffnen.` };
+    return { ok: false, text: `${satz} Dieses Haus ist schon ganz hoch – wähle ein anderes Zimmer.` };
+  }
+  const pronomen = (der) => ({ der: "Er", die: "Sie", das: "Es" })[String(der).split(" ")[0]] || "Es";
+
+  // Ein Stockwerk gleich über diesem bauen – und darin den KiddyDome.
+  async function baueDazuFuer(index, raumId) {
+    if (ui.besetzt) return;
+    const raum = K().RAEUME[raumId];
+    const neu = S().baueStockwerk(ui.haus, { ueber: index });
+    if (neu < 0) { neuesStockwerk(); return; }
+    klang("unlock");
+    aktualisiereHud();
+    baueUmschalter();
+    const ergebnis = S().waehleRaum(ui.haus, index, 0, raumId);
+    const satz = `Ein neues Stockwerk! ${gross(raum.der)} ist jetzt zwei Stockwerke hoch.`;
+    if (ui.zimmer >= 0) {
+      zeichneZimmer();
+      kids()?.burstConfetti?.(els.zimmer, 30);
+      sag(ergebnis ? satz : "Ein neues Stockwerk!");
+      return;
+    }
+    zeichneHaus({ stockwerk: index });
+    if (!ergebnis) { sag("Ein neues Stockwerk!"); return; }
+    const svg = els.welt.querySelector("svg");
+    staub(svg, A().ZX + A().ZW / 2, A().unten(index));
+    feuerwerk(svg, A().ZX + A().ZW / 2, A().oben(index) - A().STOCK / 2 + 50);
+    sag(satz);
+    await warte(1200);
+    if (ui.zimmer < 0 && !ui.overlay && !ui.tafel) oeffneZimmer(index, 0);
   }
 
   // Das Haus anmalen: Fassade und Dach.

@@ -95,16 +95,17 @@
 
   // Die leere Hülle eines Zimmers: Wand mit Muster, Boden, Fussleiste.
   // breite: eine Wohnung ist so breit wie das Stockwerk, sonst halb so breit.
-  function zimmerSchale(z, musterId, breite = ZW) {
+  // oben: wo die Wand endet – im KiddyDome ein Stockwerk höher (-STOCK).
+  function zimmerSchale(z, musterId, breite = ZW, oben = 0) {
     const wand = farbeHex(z.wand, "#f6ead2");
     const bodenArt = K()?.BODEN?.[z.boden] || K()?.BODEN?.parkett;
     const bodenHex = z.bodenFarbe ? farbeHex(z.bodenFarbe) : (bodenArt?.farbe || "#c88c5c");
     const wy = 216;
     const def = z.muster && z.muster !== "keine" ? musterDef(musterId, z.muster, wand) : "";
     return `${def ? `<defs>${def}</defs>` : ""}` +
-      `<rect class="bau-wand" x="0" y="0" width="${breite}" height="${wy}" fill="${wand}"/>` +
-      (def ? `<rect x="0" y="0" width="${breite}" height="${wy}" fill="url(#${musterId})"/>` : "") +
-      `<rect x="0" y="0" width="${breite}" height="10" fill="#000000" opacity="0.06"/>` +
+      `<rect class="bau-wand" x="0" y="${oben}" width="${breite}" height="${wy - oben}" fill="${wand}"/>` +
+      (def ? `<rect x="0" y="${oben}" width="${breite}" height="${wy - oben}" fill="url(#${musterId})"/>` : "") +
+      `<rect x="0" y="${oben}" width="${breite}" height="10" fill="#000000" opacity="0.06"/>` +
       `<g class="bau-boden">${boden(bodenArt?.id || "parkett", bodenHex, wy, ZH - wy, breite)}</g>` +
       `<rect x="0" y="${wy - 5}" width="${breite}" height="5" fill="${shade(wand, -0.25)}" opacity="0.7"/>`;
   }
@@ -142,10 +143,15 @@
   // ---------------------------------------------------------------------------
   // Die Tiere
   // ---------------------------------------------------------------------------
-  // Ein Tier mit Körper, wie in der Stilprobe, um (0, 0) als Fusspunkt. Die
-  // Teile tragen Klassen, an denen train-bau.js wackelt: Beine, Wippen, Arm,
-  // Augen.
-  function tier(art, { gross = 1 } = {}) {
+  // Ein Tier um (0, 0) als Fusspunkt. Gezeichnet wird es in bau-tiere.js, im
+  // Stil der Bilderbücher der Leseecke – figur ist eine Buchfigur (Leo, Pippa
+  // …), variante unterscheidet die gewöhnlichen Tiere einer Art. Die Teile
+  // tragen Klassen, an denen train-bau.js wackelt: Beine, Wippen, Lider.
+  // Fehlt bau-tiere.js, steht hier das einfache Tier vom Anfang.
+  function tier(art, opts = {}) {
+    const zeichner = window.LernappBauTiere;
+    if (zeichner?.tier) return zeichner.tier(art, opts);
+    const { gross = 1 } = opts;
     const a = K()?.TIERE?.[art] || K()?.TIERE?.fox;
     const c = a.coat;
     const inn = a.inner;
@@ -213,8 +219,10 @@
   // ---------------------------------------------------------------------------
   // Die Teile, die zwischen und um die Zimmer liegen: Aussenwände, Decken,
   // der Liftschacht mit Tür und Stockwerkschild, das Fundament. Gezeichnet
-  // über die Zimmer, damit nichts über den Rand ragt.
-  function hausRahmen(haus, anzahl) {
+  // über die Zimmer, damit nichts über den Rand ragt. offen: die Stockwerke,
+  // über denen keine Decke durch das Zimmer geht (ein KiddyDome ist zwei
+  // Stockwerke hoch) – dort trägt sie nur Wände und Lift.
+  function hausRahmen(haus, anzahl, offen = []) {
     const fassade = farbeHex(haus.fassade, "#ffd3b5");
     const dunkel = shade(fassade, -0.18);
     const top = oben(anzahl - 1) - DECKE;
@@ -228,7 +236,10 @@
     // Decken über jedem Stockwerk, durchgehend bis über den Lift.
     for (let i = 0; i < anzahl; i += 1) {
       const y = oben(i) - DECKE;
-      s += `<rect x="0" y="${y}" width="${HB}" height="${DECKE}" fill="${fassade}"/><rect x="0" y="${y + DECKE - 3}" width="${HB}" height="3" fill="${dunkel}" opacity="0.6"/>`;
+      const stuecke = offen.includes(i) ? [[0, WAND], [WAND + ZW, HB - WAND - ZW]] : [[0, HB]];
+      stuecke.forEach(([x, w]) => {
+        s += `<rect x="${x}" y="${y}" width="${w}" height="${DECKE}" fill="${fassade}"/><rect x="${x}" y="${y + DECKE - 3}" width="${w}" height="3" fill="${dunkel}" opacity="0.6"/>`;
+      });
     }
     // Fundament.
     s += `<rect x="-6" y="${-FUSS}" width="${HB + 12}" height="${FUSS}" fill="#9aa5b1"/><rect x="-6" y="${-FUSS}" width="${HB + 12}" height="3" fill="#7c8796"/>`;
@@ -255,9 +266,13 @@
     const reihen = st?.tiere || [];
     if (!reihen.length) return "";
     const farbe = { gelb: "#ffc93c", gruen: "#4cc46b", blau: "#4f8ef7" };
+    // Geholt: gefüllt, dunkler umrandet. Offen: hohl und gestrichelt.
+    const rand = { gelb: "#b97f00", gruen: "#1d8445", blau: "#2457bf" };
     const stern = (x, yy, voll, f) => {
       const pfad = M().stern(x, yy, 5.4, voll ? farbe[f] : "#ffffff");
-      return voll ? pfad : pfad.replace("/>", ` stroke="${farbe[f]}" stroke-width="1.5" opacity="0.9"/>`);
+      return voll
+        ? pfad.replace("/>", ` stroke="${rand[f]}" stroke-width="0.9" stroke-linejoin="round"/>`)
+        : pfad.replace("/>", ` stroke="${farbe[f]}" stroke-width="1.3" stroke-dasharray="2 1.3" stroke-linejoin="round"/>`);
     };
     // Alle Wünsche erfüllt: Die Tafel wird golden.
     const gold = st.total > 0 && st.anzahl === st.total;
@@ -265,6 +280,8 @@
     let s = `<rect x="${cx - 34}" y="${y}" width="68" height="${h}" rx="9" fill="${gold ? "#fff3c4" : "#ffffff"}" opacity="0.96" stroke="${gold ? "#ffb703" : "#d3e3ec"}" stroke-width="${gold ? 4 : 2}"/>`;
     reihen.forEach((r, n) => {
       const ry = y + 12.5 + n * 15;
+      // Ein Tier mit allen Sternen: seine Reihe liegt auf Gold.
+      if (r.total > 0 && r.anzahl === r.total) s += `<rect class="bau-sternzeile-gold" x="${cx - 32}" y="${ry - 7}" width="64" height="14" rx="7" fill="#ffd34d" stroke="#e09b00" stroke-width="1"/>`;
       const zeile = [...(r.gelb || []).map((v) => [v, "gelb"]), ...(r.gruen || []).map((v) => [v, "gruen"]), ...(r.blau || []).map((v) => [v, "blau"])];
       zeile.forEach(([voll, f], i) => { s += stern(cx - 25 + i * 12.5, ry, voll, f); });
     });

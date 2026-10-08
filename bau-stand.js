@@ -15,8 +15,11 @@
  *         stock: [                         // von unten nach oben (nach pos)
  *           { id, seit, pos,               // Kennung, wann gebaut, Platz im Haus
  *             art: "wohnung",              // Wohnhaus: "wohnung", "zwei" oder "" (Rohbau);
- *                                          // Spital, Dorf, Büro: "eins"
- *             zimmer: [                    // wohnung, eins: eines; zwei: zwei; Rohbau: keines
+ *                                          // Spital, Dorf, Büro: "eins" – oder "oben": das
+ *                                          // obere Stockwerk eines Zimmers über zwei
+ *                                          // Stockwerke (der KiddyDome), dann mit
+ *             zu,                          // der Kennung des Stockwerks darunter
+ *             zimmer: [                    // wohnung, eins: eines; zwei: zwei; Rohbau, oben: keines
  *               { raum: "schlafzimmer",    // "" ist noch nicht gewählt
  *                 wand, muster, boden, bodenFarbe, licht,
  *                 dinge: [{ k, i: "bett", x, y, c: "", f: 0, s: 1 }],
@@ -38,7 +41,9 @@
  * Schlafzimmern; mit der Wahl (Schlafzimmer oder Kinderzimmer) zieht das
  * erste Tier ein, mit der Zeit kommen bis zu zwei weitere. Die übrigen
  * Stockwerke des Wohnhauses haben zwei Zimmer nebeneinander, in denen niemand
- * wohnt; Spital, Dorf und Büro ein Zimmer je Stockwerk. Jedes Tier hat fünf
+ * wohnt; Spital, Dorf und Büro ein Zimmer je Stockwerk – nur der KiddyDome im
+ * Dorf ist so hoch wie zwei: Er gehört dem unteren Stockwerk, im Zimmer reicht
+ * die Wand bis -GEO.STOCK hinauf, und das obere Stockwerk ist frei. Jedes Tier hat fünf
  * Wünsche – zwei gelbe für
  * seine Wohnung, einen grünen für das Wohnhaus, zwei blaue für die anderen
  * Häuser – und einen Traumjob in einem Zimmer der anderen Häuser. Ob ein
@@ -67,18 +72,22 @@
   // die Cloud schreiben. Sie lässt ihn stehen und zeigt die Bauecke erst
   // wieder, wenn sie sich selbst erneuert hat (pwa.js lädt die neue Fassung).
   // Fassung 1 (ein Zimmer je Stockwerk, ein Tier) wird beim Lesen übertragen.
-  const FORMAT = 2;
+  // Fassung 3 bringt den KiddyDome (ein Zimmer über zwei Stockwerke, die Art
+  // "oben") und seine Dinge; ein Kasten der Fassung 2 gilt unverändert.
+  const FORMAT = 3;
 
   // --- Ein Zimmer, in Zimmer-Einheiten --------------------------------------
   // Eine Wohnung und ein Zimmer in Spital, Dorf und Büro sind so breit wie das
   // Stockwerk (W), die zwei Zimmer eines Stockwerks im Wohnhaus halb so breit
   // (HALB). Die Wand reicht bis WAND_UNTEN, darunter
   // liegt der Boden; was steht, steht zwischen STAND_HINTEN und STAND_VORNE
-  // (weiter vorn heisst weiter unten im Bild und davor gezeichnet).
+  // (weiter vorn heisst weiter unten im Bild und davor gezeichnet). Oben ist
+  // y = 0 – im KiddyDome y = -STOCK: Er reicht ein Stockwerk samt Decke höher.
   const GEO = {
     W: 560,
     HALB: 280,
     H: 240,
+    STOCK: 256,
     WAND_UNTEN: 216,
     STAND_HINTEN: 224,
     STAND_VORNE: 236,
@@ -208,34 +217,43 @@
   // Wie viele Dinge in ein Zimmer dieser Breite passen. Die Grenze hält auch
   // den Kasten klein: Er liegt im Kontodokument neben allen Spielen.
   const dingeMax = (breite) => (breite >= GEO.W ? DINGE_MAX : DINGE_MAX_HALB);
+  // Ein Zimmer über zwei Stockwerke (der KiddyDome) gehört dem unteren
+  // Stockwerk; das obere hat die Art "oben" und zeigt mit zu auf das untere.
+  const istDoppelRaum = (raumId) => Boolean(K()?.RAEUME?.[raumId]?.doppel);
+  const istDoppel = (s) => s?.art === "eins" && istDoppelRaum(s.zimmer?.[0]?.raum);
+  // Wo die Wand eines Zimmers oben endet (Zimmer-Einheiten) und wie hoch es ist.
+  const obenVon = (s) => (istDoppel(s) ? -GEO.STOCK : 0);
+  const hoeheVon = (s) => GEO.H - obenVon(s);
 
   // ---------------------------------------------------------------------------
   // Aufräumen: was aus dem Speicher oder der Cloud kommt, in sichere Form
   // ---------------------------------------------------------------------------
-  function sauberesDing(roh, breite) {
+  // oben: wo die Wand endet – 0, im KiddyDome -GEO.STOCK.
+  function sauberesDing(roh, breite, oben = 0) {
     const d = obj(roh);
     const ding = M()?.DINGE?.[d.i];
     if (!ding) return null;
     const farbe = typeof d.c === "string" && K()?.FARBE?.[d.c] ? d.c : "";
     const s = zahl(d.s, 0.6, 1.6, 1);
     let x = zahl(d.x, 0, breite, breite / 2);
-    let y = zahl(d.y, 0, GEO.H, GEO.STAND);
-    if (ding.art === "decke") y = 0;
+    let y = zahl(d.y, oben, GEO.H, GEO.STAND);
+    if (ding.art === "decke") y = oben;
     if (ding.art === "flach") y = zahl(d.y, GEO.STAND_HINTEN, GEO.STAND_VORNE, GEO.STAND);
     x = Math.round(x * 10) / 10;
     y = Math.round(y * 10) / 10;
     return { k: text(d.k, 16, kennung("d")), i: d.i, x, y, c: farbe, f: d.f ? 1 : 0, s: Math.round(s * 100) / 100 };
   }
 
-  function sauberesZimmer(roh, breite, passt) {
+  function sauberesZimmer(roh, breite, passt, oben = 0) {
     const z = obj(roh);
     const raum = K()?.RAEUME?.[z.raum];
     const gilt = Boolean(raum) && passt(raum);
     const farben = K()?.FARBE || {};
-    const dinge = (Array.isArray(z.dinge) ? z.dinge : []).map((d) => sauberesDing(d, breite)).filter(Boolean).slice(0, dingeMax(breite));
+    const dinge = (Array.isArray(z.dinge) ? z.dinge : []).map((d) => sauberesDing(d, breite, oben)).filter(Boolean).slice(0, dingeMax(breite));
     // Eine Kennung je Ding, auch nach dem Zusammenführen zweier Stände.
     const gesehen = new Set();
     dinge.forEach((ding) => { if (gesehen.has(ding.k)) ding.k = kennung("d"); gesehen.add(ding.k); });
+    setzeAufFlaechen(dinge);
     return {
       raum: gilt ? z.raum : "",
       wand: farben[z.wand] ? z.wand : (gilt ? raum.wand : "creme"),
@@ -246,6 +264,32 @@
       dinge,
       at: Number(z.at) || 0,
     };
+  }
+
+  // Ein kleines Ding steht auf dem Boden oder auf einer Fläche (Tisch,
+  // Regal, Theke). Seit die Dinge halb so gross sind (Oktober 2026), liegen die
+  // Flächen tiefer – ein Ding von früher schwebte darüber. Es setzt sich auf
+  // die nächste Fläche darunter, sonst auf den Boden. Steht es schon auf
+  // einer, bleibt es, wo es ist: Zweimal aufräumen ändert nichts mehr.
+  function setzeAufFlaechen(dinge) {
+    const moebel = M();
+    if (!moebel?.DINGE || !moebel.massVon) return;
+    const flaechen = dinge.map((u) => {
+      const ding = moebel.DINGE[u.i];
+      if (!ding || ding.art !== "boden" || typeof ding.flaeche !== "number") return null;
+      const k = moebel.massVon(u.i) * (u.s || 1);
+      let [a, b] = ding.fx || [-ding.w / 2, ding.w / 2];
+      if (u.f) [a, b] = [-b, -a];
+      return { k: u.k, y: u.y + ding.flaeche * k, x0: u.x + a * k - 2, x1: u.x + b * k + 2 };
+    }).filter(Boolean);
+    dinge.forEach((d) => {
+      const ding = moebel.DINGE[d.i];
+      if (!ding?.klein || ding.art !== "boden" || d.y >= GEO.STAND_HINTEN - 2) return;
+      const drunter = flaechen.filter((f) => f.k !== d.k && d.x >= f.x0 && d.x <= f.x1 && f.y >= d.y - 2.5);
+      if (drunter.some((f) => Math.abs(f.y - d.y) < 2.5)) return;
+      drunter.sort((p, q) => p.y - q.y);
+      d.y = Math.round((drunter.length ? drunter[0].y : GEO.STAND) * 10) / 10;
+    });
   }
 
   function sauberesTier(roh) {
@@ -270,21 +314,25 @@
 
   function sauberesStockwerk(roh, hausId, index) {
     const s = obj(roh);
-    // Im Wohnhaus: Wohnung, zwei Zimmer oder Rohbau; sonst ein Zimmer.
-    let art = ["wohnung", "zwei", "eins"].includes(s.art) ? s.art : "";
-    if (hausId !== "wohnhaus") art = "eins";
-    else if (art === "eins") art = "zwei";
+    // Im Wohnhaus: Wohnung, zwei Zimmer oder Rohbau; sonst ein Zimmer – oder
+    // das obere Stockwerk eines KiddyDome.
+    let art = ["wohnung", "zwei", "eins", "oben"].includes(s.art) ? s.art : "";
+    if (hausId !== "wohnhaus") art = art === "oben" ? "oben" : "eins";
+    else if (art === "eins" || art === "oben") art = "zwei";
     const roheZimmer = Array.isArray(s.zimmer) ? s.zimmer : [];
     const breite = art === "zwei" ? GEO.HALB : GEO.W;
-    const passt = (raum) => raum.haus === hausId && (art === "wohnung" ? Boolean(raum.wohnen) : !raum.wohnen);
-    const anzahl = art === "zwei" ? 2 : art ? 1 : 0;
-    const zimmer = Array.from({ length: anzahl }, (_, i) => sauberesZimmer(roheZimmer[i], breite, passt));
+    // Ein Zimmer über zwei Stockwerke nur, wo das Stockwerk ein ganzes Zimmer hat.
+    const passt = (raum) => raum.haus === hausId && (art === "wohnung" ? Boolean(raum.wohnen) : !raum.wohnen) && (art === "eins" || !raum.doppel);
+    const anzahl = art === "zwei" ? 2 : art === "wohnung" || art === "eins" ? 1 : 0;
+    const raum0 = K()?.RAEUME?.[obj(roheZimmer[0]).raum];
+    const oben = art === "eins" && raum0?.doppel && passt(raum0) ? -GEO.STOCK : 0;
+    const zimmer = Array.from({ length: anzahl }, (_, i) => sauberesZimmer(roheZimmer[i], breite, passt, i === 0 ? oben : 0));
     const tiere = art === "wohnung" && zimmer[0].raum
       ? (Array.isArray(s.tiere) ? s.tiere : []).map(sauberesTier).filter(Boolean).slice(0, TIERE_MAX)
       : [];
     const seeds = new Set();
     tiere.forEach((t) => { if (seeds.has(t.seed)) t.seed = kennung("t"); seeds.add(t.seed); });
-    return {
+    const out = {
       id: text(s.id, 24, startId(hausId, index)),
       seit: Number(s.seit) || 0,
       pos: Number.isFinite(Number(s.pos)) ? Number(s.pos) : index,
@@ -295,6 +343,42 @@
       tierWegArt: K()?.TIERE?.[s.tierWegArt] ? s.tierWegArt : "",
       at: Number(s.at) || 0,
     };
+    if (art === "oben") out.zu = text(s.zu, 24, "");
+    return out;
+  }
+
+  // Ein Zimmer über zwei Stockwerke hält zusammen: Gleich über dem unteren
+  // Stockwerk steht das obere. Ein oberes ohne sein unteres wird wieder ein
+  // leeres Stockwerk. Fehlt einem unteren das obere (zwei Geräte haben
+  // gleichzeitig verschieden gebaut), kommt eines dazu – mit einer Kennung,
+  // die auf jedem Gerät dieselbe ist. Die Reihenfolge sonst bleibt.
+  function paare(stock) {
+    const unten = new Set(stock.filter(istDoppel).map((s) => s.id));
+    const partner = new Map();
+    const rest = [];
+    stock.forEach((s) => {
+      if (s.art !== "oben") { rest.push(s); return; }
+      if (unten.has(s.zu) && !partner.has(s.zu)) { partner.set(s.zu, s); return; }
+      const { zu: _zu, ...frei } = s;
+      rest.push({ ...frei, art: "eins", zimmer: [leeresZimmer("", s.at)] });
+    });
+    const out = [];
+    rest.forEach((s) => {
+      out.push(s);
+      if (!istDoppel(s)) return;
+      // Die Kennung bleibt kurz genug, dass sie das Aufräumen übersteht (24 Zeichen).
+      out.push(partner.get(s.id) || { id: `${s.id.slice(0, 23)}^`, seit: s.seit, pos: s.pos, art: "oben", zimmer: [], tiere: [], zuzug: 0, tierWegArt: "", at: s.at, zu: s.id });
+    });
+    stock.splice(0, stock.length, ...out);
+    return stock;
+  }
+
+  // Höchstens STOCK_MAX Stockwerke – ein KiddyDome ganz oben wird dabei nicht
+  // halbiert (dann ist es eines mehr).
+  function kappe(stock) {
+    let n = Math.min(stock.length, STOCK_MAX);
+    if (n > 0 && istDoppel(stock[n - 1]) && stock[n]?.art === "oben") n += 1;
+    return stock.slice(0, n);
   }
 
   // Fassung 1: ein Zimmer je Stockwerk, ein Tier darin. Schlaf- und
@@ -347,7 +431,7 @@
     HAUS_IDS.forEach((id) => {
       const h = obj(obj(r.haeuser)[id]);
       const farben = K()?.FARBE || {};
-      let stock = (Array.isArray(h.stock) ? h.stock : []).slice(0, STOCK_MAX).map((s, i) => sauberesStockwerk(s, id, i));
+      let stock = (Array.isArray(h.stock) ? h.stock : []).slice(0, STOCK_MAX * 2).map((s, i) => sauberesStockwerk(s, id, i));
       // Eine Kennung je Stockwerk – das Zusammenführen hält sich an sie.
       const gesehen = new Set();
       stock.forEach((s) => {
@@ -357,7 +441,7 @@
         gesehen.add(s.id);
       });
       if (!stock.length) stock = leer.haeuser[id].stock;
-      ordne(stock);
+      stock = kappe(paare(ordne(stock)));
       out.haeuser[id] = {
         fassade: farben[h.fassade] ? h.fassade : leer.haeuser[id].fassade,
         dach: farben[h.dach] ? h.dach : leer.haeuser[id].dach,
@@ -397,7 +481,7 @@
     return kopf;
   }
 
-  const hatInhalt = (s) => s.zimmer.some((z) => z.raum || z.dinge.length) || s.tiere.length > 0;
+  const hatInhalt = (s) => s.art === "oben" || s.zimmer.some((z) => z.raum || z.dinge.length) || s.tiere.length > 0;
 
   // Die Stockwerke zweier Stände: Jedes, das eine Seite kennt, bleibt – so
   // geht nie ein eingerichtetes Zimmer verloren, auch wenn zwei Geräte (oder
@@ -418,7 +502,7 @@
       platz.set(id, Math.min(a ? a.i : Infinity, b ? b.i : Infinity));
       alle.push(s);
     });
-    return ordne(alle, platz).slice(0, STOCK_MAX);
+    return kappe(paare(ordne(alle, platz)));
   }
 
   function merge(a, b) {
@@ -605,16 +689,40 @@
 
   // Ein neues Stockwerk obendrauf. Im Wohnhaus wählt das Kind danach, ob
   // dort jemand wohnt (waehleArt); sonst hat es gleich ein leeres Zimmer.
-  function baueStockwerk(hausId) {
+  // ueber: gleich über diesem Stockwerk statt obendrauf (für den KiddyDome,
+  // der zwei übereinander braucht) – die darüber rücken eins hinauf.
+  function baueStockwerk(hausId, { ueber = -1 } = {}) {
     if (!kannBauen(hausId).ok) return -1;
     const h = haus(hausId);
     const jetzt = Date.now();
     const pos = h.stock.reduce((m, s) => Math.max(m, s.pos), -1) + 1;
-    h.stock.push(neuesStockwerk(hausId === "wohnhaus" ? "" : "eins", { seit: jetzt, pos, at: jetzt }));
+    const neu = neuesStockwerk(hausId === "wohnhaus" ? "" : "eins", { seit: jetzt, pos, at: jetzt });
+    let index = h.stock.length;
+    if (ueber >= 0 && ueber < h.stock.length - 1) {
+      // Über einem KiddyDome hinein ginge nicht: Er bleibt beisammen.
+      index = istDoppel(h.stock[ueber]) ? ueber + 2 : ueber + 1;
+      h.stock.splice(index, 0, neu);
+      h.stock.forEach((s, i) => { if (s.pos !== i) { s.pos = i; s.at = jetzt; } });
+    } else h.stock.push(neu);
     h.at = jetzt;
     speichern(true);
     melde("gebaut");
-    return h.stock.length - 1;
+    return index;
+  }
+
+  // Wo ein Zimmer über zwei Stockwerke hinkann, wenn das Kind es für dieses
+  // Stockwerk wählt: Es braucht ein freies Stockwerk gleich darüber – oder,
+  // ist dieses noch ganz leer, eines gleich darunter. Zurück kommen die
+  // beiden Stockwerke ({ unten, oben }) oder null.
+  function doppelPlatz(hausId, index) {
+    const h = haus(hausId);
+    const s = h?.stock?.[index];
+    if (!s || s.art !== "eins" || hausId === "wohnhaus") return null;
+    if (istDoppel(s)) return { unten: index, oben: index + 1 };
+    const frei = (x) => x?.art === "eins" && !x.zimmer[0]?.raum && !x.zimmer[0]?.dinge?.length;
+    if (frei(h.stock[index + 1])) return { unten: index, oben: index + 1 };
+    if (frei(s) && frei(h.stock[index - 1])) return { unten: index - 1, oben: index };
+    return null;
   }
 
   // Im Wohnhaus: wohnt hier jemand ("wohnung") oder kommen zwei Zimmer hin ("zwei")?
@@ -639,6 +747,10 @@
     const raum = K()?.RAEUME?.[raumId];
     if (!s || !raum || raum.haus !== hausId || !s.zimmer[slot]) return null;
     if (s.art === "wohnung" ? !raum.wohnen : raum.wohnen) return null;
+    if (raum.doppel) return waehleDoppel(hausId, index, raumId);
+    // Aus einem KiddyDome wird ein gewöhnliches Zimmer: Das obere Stockwerk
+    // ist wieder frei, und was oben hing, kommt herunter.
+    if (istDoppel(s)) gibObenFrei(hausId, index);
     let eingezogen = null;
     const jetzt = Date.now();
     aendereStock(hausId, index, (st) => {
@@ -670,24 +782,83 @@
     return eingezogen || true;
   }
 
+  // Der KiddyDome: Das untere Stockwerk bekommt das Zimmer, das obere wird
+  // "oben". Geht es nicht (kein freies Stockwerk daneben), kommt null zurück
+  // – die Ansicht sagt dann, dass es zwei Stockwerke braucht.
+  function waehleDoppel(hausId, index, raumId) {
+    const platz = doppelPlatz(hausId, index);
+    if (!platz) return null;
+    const raum = K().RAEUME[raumId];
+    const h = haus(hausId);
+    const u = h.stock[platz.unten];
+    const o = h.stock[platz.oben];
+    const jetzt = Date.now();
+    // Stockwerke vom Anfang bekommen eine eigene Kennung (siehe mergeStock).
+    if (istStartId(hausId, u.id)) u.id = kennung("s");
+    if (istStartId(hausId, o.id)) o.id = kennung("s");
+    const z = u.zimmer[0];
+    if (!z.raum) {
+      z.wand = raum.wand;
+      z.muster = raum.muster || "keine";
+      z.boden = raum.boden || "parkett";
+      z.bodenFarbe = "";
+    }
+    z.raum = raumId;
+    z.at = jetzt;
+    u.at = jetzt;
+    o.art = "oben";
+    o.zu = u.id;
+    o.zimmer = [];
+    o.tiere = [];
+    o.at = jetzt;
+    paare(h.stock);
+    speichern();
+    melde("raum");
+    return { unten: platz.unten, oben: platz.oben };
+  }
+
+  // Ein KiddyDome wird ein anderes Zimmer: Das obere Stockwerk ist wieder ein
+  // leeres; was über der Decke des unteren stand oder hing, kommt herunter.
+  function gibObenFrei(hausId, index) {
+    const h = haus(hausId);
+    const u = h.stock[index];
+    const o = h.stock[index + 1];
+    const jetzt = Date.now();
+    if (o?.art === "oben" && o.zu === u.id) {
+      delete o.zu;
+      o.art = "eins";
+      o.zimmer = [leeresZimmer("", jetzt)];
+      o.at = jetzt;
+    }
+    const z = u.zimmer[0];
+    z.dinge = z.dinge.map((d) => sauberesDing(d, GEO.W, 0)).filter(Boolean);
+  }
+
   // Ein Stockwerk eins nach oben (+1) oder unten (-1): Es tauscht den Platz
-  // mit dem Nachbarn – so kommt der Eingang nach unten.
+  // mit dem Nachbarn – so kommt der Eingang nach unten. Ein KiddyDome wandert
+  // mit beiden Stockwerken, und wer an ihm vorbeiwandert, springt über beide.
+  // Zurück kommt, wo das Stockwerk jetzt steht.
   function verschiebe(hausId, index, richtung) {
     const h = haus(hausId);
-    const j = index + (richtung > 0 ? 1 : -1);
-    if (!h || !h.stock[index] || !h.stock[j]) return index;
+    if (!h || !h.stock[index]) return index;
+    const bloecke = [];
+    for (let i = 0; i < h.stock.length; i += 1) {
+      if (istDoppel(h.stock[i]) && h.stock[i + 1]?.art === "oben") { bloecke.push([h.stock[i], h.stock[i + 1]]); i += 1; }
+      else bloecke.push([h.stock[i]]);
+    }
+    const wer = h.stock[index];
+    const b = bloecke.findIndex((block) => block.includes(wer));
+    const c = b + (richtung > 0 ? 1 : -1);
+    if (b < 0 || c < 0 || c >= bloecke.length) return index;
+    [bloecke[b], bloecke[c]] = [bloecke[c], bloecke[b]];
     const jetzt = Date.now();
-    // Erst ein Platz je Stockwerk (nach dem Zusammenführen können zwei denselben haben).
+    h.stock.splice(0, h.stock.length, ...bloecke.flat());
+    // Ein Platz je Stockwerk, wie es jetzt steht (nach dem Zusammenführen
+    // können zwei denselben gehabt haben).
     h.stock.forEach((s, i) => { if (s.pos !== i) { s.pos = i; s.at = jetzt; } });
-    const a = h.stock[index];
-    const b = h.stock[j];
-    [a.pos, b.pos] = [b.pos, a.pos];
-    a.at = jetzt;
-    b.at = jetzt;
-    ordne(h.stock);
     speichern();
     melde("ordnen");
-    return j;
+    return h.stock.indexOf(wer);
   }
 
   function setzeGewaehlt(hausId) {
@@ -710,8 +881,21 @@
   }
   function findeTier(seed) { return alleTiere().find((eintrag) => eintrag.tier.seed === seed) || null; }
 
-  // Ein neues Tier: möglichst eine Art, die in der Wohnung und im Haus noch
-  // fehlt (und nicht die eben hinausgeschickte), und ein Name, den noch keines trägt.
+  // Die Figuren aus den Büchern der Leseecke (bau-katalog.js, FIGUREN): Ein
+  // Tier ist eine, wenn Art und Name stimmen – so ist auch ein Leo, der schon
+  // früher eingezogen ist, Leo aus dem Buch.
+  function figurVon(tier) {
+    if (!tier) return null;
+    return (K()?.FIGUREN || []).find((f) => f.a === tier.a && (f.n === tier.n || (f.auch || []).includes(tier.n))) || null;
+  }
+  // Was ein Tier besonders mag: eine Buchfigur, was sie im Buch mag, sonst
+  // das ihrer Tierart.
+  function magVon(tier) { return figurVon(tier)?.mag || K()?.TIERE?.[tier?.a]?.mag || { ding: "", farbe: "" }; }
+
+  // Ein neues Tier. Zuerst ziehen die Figuren aus den Büchern ein, die noch
+  // nirgends wohnen – die kennen die Kinder. Sonst eines, dessen Art in der
+  // Wohnung und im Haus noch fehlt (und nicht die eben hinausgeschickte), mit
+  // einem Namen, den noch keines trägt.
   function neuesTier(hausId, index, { im = null } = {}) {
     const katalog = K();
     const s = im || stock(hausId, index);
@@ -720,14 +904,34 @@
     const imHaus = new Set(alle.filter((e) => e.hausId === hausId).map((e) => e.tier.a));
     const namen = new Set(alle.map((e) => e.tier.n));
     const ausser = s.tierWegArt ? [s.tierWegArt] : [];
-    let arten = katalog.TIER_IDS.filter((a) => !inWohnung.has(a) && !ausser.includes(a));
-    const ganzNeu = arten.filter((a) => !imHaus.has(a));
-    if (ganzNeu.length) arten = ganzNeu;
-    if (!arten.length) arten = katalog.TIER_IDS.slice();
-    const art = arten[Math.floor(Math.random() * arten.length)];
-    const freieNamen = katalog.TIERE[art].namen.filter((n) => !namen.has(n));
-    const auswahl = freieNamen.length ? freieNamen : katalog.TIERE[art].namen;
-    const tier = { a: art, n: auswahl[Math.floor(Math.random() * auswahl.length)], seed: kennung("t"), seit: Date.now(), w: [], g: [], b: [], traum: traumFuer(), wAt: Date.now(), neu: -1 };
+    // Am liebsten eine Art, die es in der Wohnung und im Haus noch nicht gibt.
+    const besteArten = (liste) => {
+      const neu = liste.filter((a) => !inWohnung.has(a));
+      const ganzNeu = neu.filter((a) => !imHaus.has(a));
+      return ganzNeu.length ? ganzNeu : neu.length ? neu : liste;
+    };
+    const wohnen = new Set(alle.map((e) => figurVon(e.tier)?.id).filter(Boolean));
+    const figuren = (katalog.FIGUREN || []).filter((f) => katalog.TIERE[f.a] && !wohnen.has(f.id) && !namen.has(f.n) && !ausser.includes(f.a));
+    let art;
+    let name;
+    if (figuren.length) {
+      const arten = besteArten([...new Set(figuren.map((f) => f.a))]);
+      const passend = figuren.filter((f) => arten.includes(f.a));
+      const figur = passend[Math.floor(Math.random() * passend.length)];
+      art = figur.a;
+      name = figur.n;
+    } else {
+      let arten = besteArten(katalog.TIER_IDS.filter((a) => !ausser.includes(a)));
+      if (!arten.length) arten = katalog.TIER_IDS.slice();
+      art = arten[Math.floor(Math.random() * arten.length)];
+      const freieNamen = katalog.TIERE[art].namen.filter((n) => !namen.has(n));
+      const auswahl = freieNamen.length ? freieNamen : katalog.TIERE[art].namen;
+      name = auswahl[Math.floor(Math.random() * auswahl.length)];
+    }
+    // Eine Buchfigur träumt vom Job aus ihrer Geschichte.
+    const figurTraum = figurVon({ a: art, n: name })?.traum;
+    const traum = figurTraum && alleJobs().includes(figurTraum) ? figurTraum : traumFuer();
+    const tier = { a: art, n: name, seed: kennung("t"), seit: Date.now(), w: [], g: [], b: [], traum, wAt: Date.now(), neu: -1 };
     Object.assign(tier, wuenscheFuer(tier, s.zimmer[0]?.raum, s.tiere));
     return tier;
   }
@@ -747,18 +951,19 @@
     return alle.length ? alle[hash(`${seed}:traum`) % alle.length] : "";
   }
 
-  // Die gelben Wünsche für die Wohnung: eines ist das, was die Tierart besonders
-  // mag (ein Ding oder die Wandfarbe), das andere passt zur Zimmerart. Was ein
-  // Mitbewohner schon wünscht, kommt nicht noch einmal.
+  // Die gelben Wünsche für die Wohnung: eines ist das, was das Tier besonders
+  // mag (ein Ding oder die Wandfarbe – eine Buchfigur, was sie im Buch mag),
+  // das andere passt zur Zimmerart. Was ein Mitbewohner schon wünscht, kommt
+  // nicht noch einmal.
   function gelbeWuensche(tier, raumId, mitbewohner = []) {
     const katalog = K();
     const raum = katalog.RAEUME[raumId];
     if (!raum) return { w: [] };
     const rnd = zufall(`${tier.seed}:${raumId}`);
     const schon = new Set(mitbewohner.flatMap((t) => t.w || []));
-    const art = katalog.TIERE[tier.a];
-    const ding = `ding:${art.mag.ding}`;
-    const farbe = `farbe:${art.mag.farbe}`;
+    const mag = magVon(tier);
+    const ding = `ding:${mag.ding}`;
+    const farbe = `farbe:${mag.farbe}`;
     let lieblings = rnd() < 0.5 ? ding : farbe;
     if (schon.has(lieblings)) lieblings = lieblings === ding ? farbe : ding;
     const gelb = [lieblings];
@@ -768,13 +973,22 @@
   }
 
   // Alle Wünsche eines Tiers: zwei gelbe (Wohnung), ein grüner (Wohnhaus),
-  // zwei blaue (die anderen Häuser).
+  // zwei blaue (die anderen Häuser). Eine Buchfigur wünscht sich zuerst das
+  // Zimmer aus ihrer Geschichte.
   function wuenscheFuer(tier, raumId, mitbewohner = []) {
     const katalog = K();
     const rnd = zufall(`${tier.seed}:haus`);
     const gruen = ziehe(katalog.HAUS_WUENSCHE.wohnhaus || [], 1, rnd).map((r) => `raum:${r}`);
-    const blau = ziehe(katalog.FREMD_WUENSCHE.wohnhaus || [], 2, rnd).map((f) => `fremd:${f.haus}:${f.raum}`);
+    const eigen = eigenerWunsch(tier);
+    const blau = eigen ? [eigen] : [];
+    const rest = (katalog.FREMD_WUENSCHE.wohnhaus || []).map((f) => `fremd:${f.haus}:${f.raum}`).filter((w) => w !== eigen);
+    blau.push(...ziehe(rest, 2 - blau.length, rnd));
     return { ...gelbeWuensche(tier, raumId, mitbewohner), g: gruen, b: blau };
+  }
+  // Der blaue Wunsch einer Buchfigur, wenn es ihr Zimmer gibt.
+  function eigenerWunsch(tier) {
+    const w = figurVon(tier)?.wunsch;
+    return w && K()?.RAEUME?.[w.raum]?.haus === w.haus && w.haus !== "wohnhaus" ? `fremd:${w.haus}:${w.raum}` : "";
   }
 
   // Wer zieht als Nächstes ein? Eine Wohnung mit Platz, deren Wartezeit um ist.
@@ -835,7 +1049,7 @@
   }
 
   // Wie ein Wunsch heisst, und was "Zeig mir" tun soll.
-  function beschreibe(wunsch) {
+  function beschreibe(wunsch, tier = null) {
     const katalog = K();
     const [typ, a, b] = String(wunsch).split(":");
     if (typ === "ding") {
@@ -852,7 +1066,9 @@
     }
     if (typ === "fremd") {
       const raum = katalog.RAEUME[b];
-      const warum = (katalog.FREMD_WUENSCHE.wohnhaus || []).find((f) => f.haus === a && f.raum === b)?.warum || "";
+      // Warum: eine Buchfigur sagt es mit ihrer Geschichte.
+      const eigen = figurVon(tier)?.wunsch;
+      const warum = (eigen?.haus === a && eigen.raum === b ? eigen.warum : "") || (katalog.FREMD_WUENSCHE.wohnhaus || []).find((f) => f.haus === a && f.raum === b)?.warum || "";
       return { typ, text: `${gross(katalog.HAUS[a]?.im || "")} wünsche ich mir ${raum?.ein || b}. ${warum}`.trim(), kurz: `${raum?.name || b} (${katalog.HAUS[a]?.name || a})`, haus: a, raum: b, icon: raum?.icon };
     }
     return { typ: "", text: "", kurz: "" };
@@ -864,9 +1080,9 @@
     if (!ref) return [];
     const t = ref.tier;
     const liste = [];
-    t.w.forEach((w, i) => liste.push({ id: w, stern: "gelb", neu: t.neu === i, ...beschreibe(w), erfuellt: erfuellt(seed, w) }));
-    t.g.forEach((w) => liste.push({ id: w, stern: "gruen", ...beschreibe(w), erfuellt: erfuellt(seed, w) }));
-    t.b.forEach((w) => liste.push({ id: w, stern: "blau", ...beschreibe(w), erfuellt: erfuellt(seed, w) }));
+    t.w.forEach((w, i) => liste.push({ id: w, stern: "gelb", neu: t.neu === i, ...beschreibe(w, t), erfuellt: erfuellt(seed, w) }));
+    t.g.forEach((w) => liste.push({ id: w, stern: "gruen", ...beschreibe(w, t), erfuellt: erfuellt(seed, w) }));
+    t.b.forEach((w) => liste.push({ id: w, stern: "blau", ...beschreibe(w, t), erfuellt: erfuellt(seed, w) }));
     return liste;
   }
 
@@ -1017,6 +1233,16 @@
     return liste;
   }
 
+  // Wohin die Tiere aus den Kinderzimmern am liebsten gehen: in jeden
+  // KiddyDome (die Zimmer mit kinder im Katalog).
+  function kinderZiele() {
+    const liste = [];
+    ARBEITS_HAEUSER.forEach((hausId) => stand.haeuser[hausId].stock.forEach((s, index) => {
+      s.zimmer.forEach((z, slot) => { if (K()?.RAEUME?.[z.raum]?.kinder) liste.push({ haus: hausId, index, slot }); });
+    }));
+    return liste;
+  }
+
   function aufenthalt(seed, jetzt = Date.now()) {
     const ref = findeTier(seed);
     if (!ref) return null;
@@ -1027,10 +1253,20 @@
     if (jetzt - (ref.tier.seit || 0) < SLOT_MS) return daheim;
     const nr = Math.floor(jetzt / SLOT_MS);
     const wurf = hash(`${seed}:${nr}`) % 100;
-    if (wurf < 55) return daheim;
-    if (wurf < 80) {
-      const job = jobVon(seed);
-      return job ? { wo: "arbeit", haus: job.haus, index: job.index, slot: job.slot } : daheim;
+    const job = () => {
+      const j = jobVon(seed);
+      return j ? { wo: "arbeit", haus: j.haus, index: j.index, slot: j.slot } : daheim;
+    };
+    // Wer im Kinderzimmer wohnt, geht sehr oft in den KiddyDome – ganz
+    // gleich, was es sich wünscht: gut jede dritte Viertelstunde am Tag.
+    const dome = ref.stock.zimmer[0]?.raum === "kinderzimmer" ? kinderZiele() : [];
+    if (dome.length) {
+      if (wurf < 40) return daheim;
+      if (wurf < 55) return job();
+      if (wurf < 92) return { wo: "besuch", ...dome[hash(`${seed}:${nr}:dome`) % dome.length] };
+    } else {
+      if (wurf < 55) return daheim;
+      if (wurf < 80) return job();
     }
     const ziele = besuchsziele(ref.tier);
     if (!ziele.length) return daheim;
@@ -1106,12 +1342,12 @@
 
   window.LernappBauStand = {
     KEY, FORMAT, GEO, STOCK_MAX, STOCK_OHNE_KAUF, DINGE_MAX, DINGE_MAX_HALB, dingeMax, TIERE_MAX, ARBEIT_MAX, ZUZUG_MS, TIER_KOMMT_MS, HAUS_IDS, START,
-    normalize, merge, leererStand, neuereFassung: () => neuere, besitzer: () => besitzer, breiteVon,
+    normalize, merge, leererStand, neuereFassung: () => neuere, besitzer: () => besitzer, breiteVon, istDoppel, obenVon, hoeheVon,
     lesen, haus, stock, zimmer, raumVon, indexVon,
     verdient, verbaut, paletten, gezeigt, merkeGezeigt, neueLieferung,
-    kannBauen, baueStockwerk, waehleArt, waehleRaum, verschiebe, setzeGewaehlt,
+    kannBauen, baueStockwerk, doppelPlatz, waehleArt, waehleRaum, verschiebe, setzeGewaehlt,
     aendereStock, aendereZimmer, aendereHaus, speichern,
-    alleTiere, findeTier, neuesTier, wuenscheFuer, zuzugFaellig, ziehtEin, hinausschicken,
+    alleTiere, findeTier, figurVon, magVon, neuesTier, wuenscheFuer, zuzugFaellig, ziehtEin, hinausschicken,
     erfuellt, wuensche, sterne, sterneStock, laune, fortschritt, beschreibe,
     arbeitsplaetze, jobVon, hatTraumjob, traumjobsStock, zimmerTiere, jobText, aufenthalt, besucher, imRaum, woText,
     tick, onChange, kennung, hash,

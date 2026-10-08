@@ -10,10 +10,14 @@ Pepi, Miga Town, den einzelnen Toca-Apps und weiteren Bauspielen (Abschnitt 3)
 > Wohnungen mit bis zu drei Tieren, zwei Zimmer auf den übrigen Stockwerken des Wohnhauses
 > (Spital, Dorf und Büro behalten eines je Stockwerk), eigene Dinge
 > für jedes Zimmer, Traumjobs, ein Einzug mit Lift und Feuerwerk, Stockwerke umstellen, die
-> Bauecke je Konto. **Was gilt, steht im Abschnitt 0** (Etappe 2) und, wo der nichts
-> anderes sagt, im Abschnitt 0E1 (Etappe 1); die Abschnitte 1, 2, 5 und 6 beschreiben das
-> ursprüngliche Konzept und sind dort, wo Abschnitt 0 etwas anderes sagt, überholt. Die
-> Recherche (Abschnitt 3) und Grafik und Bewegung (Abschnitt 7) gelten weiter.
+> Bauecke je Konto. Dazu kamen (Nachtrag 0K) der **KiddyDome** über zwei Stockwerke, die
+> **Tiere im Stil der Bilderbücher**, die **Figuren aus den Büchern**, die zuerst
+> einziehen, **alle Bewohner auf einen Blick**, **Sterne, die ins Auge stechen**, und
+> **Tiere und Dinge halb so gross**. **Was gilt, steht in den Abschnitten 0K und 0** (Etappe
+> 2) und, wo diese nichts anderes sagen, im Abschnitt 0E1 (Etappe 1); die Abschnitte 1, 2,
+> 5 und 6 beschreiben das ursprüngliche Konzept und sind dort, wo Abschnitt 0 etwas anderes
+> sagt, überholt. Die Recherche (Abschnitt 3) und Grafik und Bewegung (Abschnitt 7) gelten
+> weiter.
 >
 > Zum Konzept gehört eine klickbare **Stilprobe** (Artefakt «Gripszug Bauecke»; dieselbe
 > Seite liegt als `docs/bauecke-stilprobe.html` im Repo und geht nicht auf die Site). Ihr
@@ -22,6 +26,154 @@ Pepi, Miga Town, den einzelnen Toca-Apps und weiteren Bauspielen (Abschnitt 3)
 > 10 Ebenen, davon 8 zeichnend, 18 Megapixel Ebenenfläche, 770 SVG-Knoten, 60 Bilder je
 > Sekunde, während die Tiere laufen. Die Reisekarte kam nach ihrer Kur auf 9 Ebenen und 16
 > Megapixel.
+
+---
+
+## 0K. Der KiddyDome, Tiere wie im Bilderbuch, Figuren aus den Büchern, alle Bewohner
+
+Nachtrag zu Etappe 2 (Wünsche vom 8. Oktober 2026, vierte Runde). Was hier steht, gilt
+zusätzlich zu Abschnitt 0.
+
+### 0K.1 Der KiddyDome – ein Zimmer über zwei Stockwerke
+
+- **Was er ist:** eine Spielhalle im **Dorf**, so hoch wie zwei Stockwerke, ohne Decke
+  dazwischen – mit Rutschbahnen, Klettertürmen, einem Sprungschloss, Trampolinen, Seilen
+  zum Hangeln und einem **Mini-Lift**, der ab und zu hinauf- und wieder hinunterfährt. Die
+  grossen Geräte reichen über beide Stockwerke (`bau-moebel-dome.js`, Kennungen `k_…`).
+- **Er braucht zwei Stockwerke übereinander:** Wählt das Kind ihn für ein Stockwerk, nimmt
+  er dieses und das freie gleich darüber – oder, ist dieses noch ganz leer, das freie gleich
+  darunter. Gibt es keines, lässt sich die Karte trotzdem antippen: Dann steht (und hört
+  man) **«Der KiddyDome braucht zwei Stockwerke übereinander – hier ist nur eines frei.»**,
+  der Haken bleibt aus, und sind Ziegel da, baut der Knopf **«Stockwerk dazubauen»** gleich
+  darüber ein Stockwerk und stellt den KiddyDome hinein. Ohne Ziegel sagt der Hinweis, dass
+  ein Rätsel Ziegel bringt (oder dass die Schranke wartet).
+- **Im Haus** steht er über beiden Stockwerken; der Lift hält an beiden. Ein Tipp irgendwo
+  auf ihn zoomt hinein – das Zimmer ist dann doppelt so hoch (560 × 496 statt 560 × 240).
+  Was an der Decke hängt, hängt ganz oben; was an der Wand hängt, darf bis unters Dach.
+- **Umstellen:** Er wandert als Ganzes (ein Rahmen, ein Paar Pfeile); wer an ihm vorbei
+  wandert, springt über beide Stockwerke.
+- **Zimmerart ändern** (Stift): Wird aus dem KiddyDome ein anderes Zimmer, ist das obere
+  Stockwerk wieder ein leeres, und was oben hing, kommt herunter. Umgekehrt wird ein
+  Zimmer zum KiddyDome, wenn das Stockwerk darüber frei ist (sonst wieder der Hinweis).
+- **Die Tiere aus den Kinderzimmern** gehen sehr oft hin, ganz gleich, was sie sich
+  wünschen: gut jede dritte Viertelstunde am Tag (sonst daheim, bei der Arbeit oder ab und
+  zu anderswo zu Besuch). Im KiddyDome hüpfen alle Tiere oft und hoch.
+- **Arbeit und Wünsche:** Wer dort den Traumjob hat, «prüft die Rutschbahnen»; ein blauer
+  Wunsch kann ihn nennen («Dort rutsche, klettere und hüpfe ich.»).
+- **Gespeichert** (Fassung 3): Der KiddyDome gehört dem unteren Stockwerk (Art `eins`,
+  Zimmer `kiddydome`, Dinge mit y bis −256); das obere hat die Art `oben` und zeigt mit `zu`
+  auf das untere. Beim Laden und Zusammenführen bleibt das Paar beisammen: Ein `oben`, das
+  weggerutscht ist, kommt gleich über sein unteres; eines ohne unteres wird wieder ein
+  leeres Stockwerk; fehlt einem KiddyDome das obere (zwei Geräte haben gleichzeitig
+  verschieden gebaut), kommt eines dazu – mit einer Kennung, die auf jedem Gerät dieselbe
+  ist. Eine App der Fassung 2 räumt einen Kasten der Fassung 3 nicht auf, sondern wartet auf
+  die neue Fassung.
+
+### 0K.2 Die Tiere wie im Bilderbuch
+
+- **Neu gezeichnet** im Stil der Bücher der Leseecke (`bau-tiere.js`): grosser runder Kopf,
+  grosse glänzende Augen, rosige Wangen, weiche Schatten, weiche Umrisse statt schwarzer
+  Linien, Kleidung wie in den Geschichten. Von Hand als SVG, ohne Bildgenerator – so laufen
+  die Tiere weiter (Beine, Wippen), blinzeln ab und zu und schlafen nachts mit
+  geschlossenen Augen. Die Verläufe für Glanz und Schatten stehen einmal im Dokument.
+- Gewöhnliche Tiere einer Art tragen je nach Kennung ein anderes Kleidungsstück (vier
+  Varianten) – zwei Füchse in derselben Wohnung lassen sich unterscheiden.
+- Fehlt `bau-tiere.js`, zeichnet `bau-art.js` das einfache Tier vom Anfang.
+
+### 0K.3 Die Figuren aus den Büchern ziehen ein
+
+- **16 Figuren** aus den Büchern der Leseecke (`FIGUREN` in bau-katalog.js): Leo, Oma Rosa,
+  Mia, Hoppel, Ella, Pino, Opa Paul, Flitz, Sepp, Pippa, Fridolin, Bruno, Mama Bär, Fino,
+  Tim und Fred. Sie **ziehen zuerst ein** (jede nur einmal); erst wenn alle wohnen, kommen
+  gewöhnliche Tiere.
+- **Wie im Buch:** Sie sehen aus wie in ihrer Geschichte (Mias rotes Kleid, Finos roter
+  Schal, Oma Rosas Brille …), mögen, was sie dort mögen (Leo Melonen, Mia ihren roten Ball,
+  Bruno sein Fernrohr, Fino seinen Schal – Ball, Farben, Schal und Fernrohr liegen dafür in
+  jeder Wohnung), wünschen sich ein Zimmer aus ihrer Geschichte («Dort pumpe ich die Pneus
+  von meinem roten Velo.») und träumen von einem passenden Job (Ella hilft Babys auf die
+  Welt, Fridolin prüft die Rutschbahnen im KiddyDome).
+- **Beim Einzug** sagt die Bauecke «Leo aus dem Buch ‹Leo und die Melone› zieht ein!»; die
+  Tafel zeigt den Umschlag des Buchs und was die Figur von sich erzählt.
+- **Erkannt** wird eine Figur an Art und Name – auch ein Leo, der schon früher eingezogen
+  ist, ist Leo aus dem Buch. Ihre Namen fehlen darum bei den gewöhnlichen Tieren.
+
+### 0K.4 Korrektur: Nach vorne, nach hinten
+
+- Was auf dem Boden steht, zeichnet die Bauecke nach seiner Tiefe: Weiter vorn heisst
+  weiter unten im Bild. «Nach vorne» und «Nach hinten» änderten bisher nur die Reihenfolge
+  der Liste – die zählt aber nur bei gleicher Tiefe, und so blieb zum Beispiel ein
+  Kletterturm vor dem Bällebad, egal was man drückte. Jetzt rückt das Ding vor oder hinter
+  alles, was es überdeckt (einen Hauch weiter vorn oder hinten auf dem Boden); steht es
+  schon ganz vorn oder ganz hinten, entscheidet die Liste. Was darauf steht, wandert mit.
+- Ein Ding, das höher ist als das Zimmer (etwa ein vergrösserter Kletterturm), darf nicht
+  weiter nach hinten, sonst ragte es oben hinaus. Bei «Nach hinten» rücken dann die Dinge,
+  die es überdeckt, ein wenig nach vorn – samt dem, was auf ihnen steht.
+
+### 0K.5 Alle Bewohner auf einen Blick
+
+- **Der Knopf «Bewohner»** (orange, mit Pfote und der Zahl der Tiere) steht am **linken
+  Rand** – im Haus und beim Einrichten eines Zimmers. Reichte das Zimmer sonst bis an den
+  Rand, rückt es ihm aus dem Weg. Beim Umstellen der Stockwerke ist er weg (dort zählen nur
+  die Pfeile).
+- **Die Übersicht** zeigt je Wohnung (Erdgeschoss zuerst, wie am Lift: E, 1, 2 …) alle Tiere
+  mit Bild, Name, Laune, Art, den **Sternen** (gelb, grün, blau, mit «2/5»), dem
+  **Traumjob** (golden umrandet und mit Haken, wenn geschafft) und den **Wünschen** als
+  Bildchen: was noch fehlt, zuerst und bunt; was erfüllt ist, blass mit grünem Haken. Ein
+  📖 zeigt die Figuren aus den Büchern. Oben steht (und hört man), wie viele Tiere wohnen,
+  wie viele Sterne sie zusammen haben und wie viele ihren Traumjob.
+- **Ein Tipp auf ein Tier** öffnet die gewohnte **Tafel** – dieselbe wie beim Antippen im
+  Haus. Ihr Knopf oben rechts ist dann ein Pfeil zurück: Schliessen (auch daneben tippen
+  oder Zurück) führt wieder in die Übersicht. «Hingehen», «Zeig mir» und «Ausziehen
+  lassen» gehen wie gewohnt weiter, ohne Umweg.
+- Solange die Übersicht offen ist, zieht niemand ein (wie bei der Tafel).
+
+### 0K.6 Sterne, die ins Auge stechen
+
+- **Geholt oder offen:** Ein geholter Stern ist gefüllt und kräftig umrandet, ein offener
+  hohl und gestrichelt – überall gleich (Tafel, Übersicht, Zimmerkopf, Wünsche, am Lift).
+- **Die Tafel** zeigt die Sterne gleich unter dem Namen als grosse **Kachel**: «3 von 5
+  Sternen – noch 2 Wünsche». Hat ein Tier **alle Sterne**, wird die Kachel golden, mit
+  Pokal: «Alle Sterne! Leo ist überglücklich.»
+- **Aus welchem Buch** eine Figur kommt, steht jetzt klein ganz unten, neben «Ausziehen
+  lassen».
+- **Alle Sterne auch anderswo:** In «Alle Bewohner» ist die Karte golden, mit «🏆 Alle
+  Sterne!», und oben steht, wie viele schon alle haben. Im Zimmerkopf ist das Tier golden,
+  mit Pokal (auf dem Handy nur golden – dort ist es eng). Am Lift liegt seine Sternreihe
+  auf Gold; haben alle in der Wohnung alle Sterne, wird die ganze Tafel golden.
+- **Der letzte Stern wird gefeiert,** gleich wo der Wunsch erfüllt wurde: ein goldenes Band
+  mit dem Tier und seinen Sternen (ein paar Sekunden), Feuerwerk über der Wohnung oder
+  Konfetti im Zimmer, und die Bauecke sagt «Juhui! Leo hat alle Sterne!».
+
+### 0K.7 Tiere und Dinge halb so gross
+
+- **Mehr Platz zum Einrichten:** Tiere und Dinge stehen halb so gross wie bisher (`MASS`
+  0.6 statt 1.2, im Haus wie im Zimmer). Die Zimmer bleiben so breit wie bisher.
+- **Lesbar bleibt, was Text oder Zeichen trägt:** Sprech- und Wunschblasen, die Aktentasche
+  bei der Arbeit und das Schlaf-z sind so gross wie vorher.
+- **Der KiddyDome bleibt hoch:** Seine grossen Geräte (Mini-Lift, Kletterturm, beide
+  Rutschen, Feuerwehrstange, Kletternetz, Kletterwand, Hangelringe, Hangelleiter,
+  Kletterseil, Schaukel) haben einen eigenen Massstab (`mass: 2`) und reichen weiter über
+  beide Stockwerke. Sprungschloss, Trampolin, Bällebad und das Übrige sind halb so gross.
+- **Was auf einem Tisch stand,** setzt sich beim Laden auf die tiefere Fläche (Regal, Theke
+  …); was über keiner Fläche mehr schwebt, kommt auf den Boden (`setzeAufFlaechen` in
+  bau-stand.js). Steht ein Ding schon richtig, bleibt es, wo es ist.
+- **Die Höhe der Stockwerke bleibt vorerst** (240): Wo ein Bild an der Wand hängt und wo
+  etwas auf dem Boden steht, ist in dieser Höhe gespeichert. Niedrigere Stockwerke
+  hiessen, alle Zimmer umzurechnen (eine neue Fassung des Kastens) – das wäre ein eigener
+  Schritt.
+
+### 0K.8 Dateien und Prüfungen
+
+| Datei | Was |
+| --- | --- |
+| `bau-moebel-dome.js` *(neu)* | die 18 Geräte des KiddyDome (bis 240 × 380 gross; die hohen mit `mass: 2`), seine Zimmerliste und sein Bildmotiv |
+| `bau-tiere.js` *(neu)* | die 16 Tierarten und die 16 Buchfiguren im Stil der Bilderbücher (`tier`, `defs`, `box`, `FIGUREN`) |
+| `bau-katalog.js` | der KiddyDome (`doppel`, `kinder`, Job, blauer Wunsch), `FIGUREN`, Ball, Farben, Schal und Fernrohr bei den Lieblingsdingen |
+| `bau-moebel.js` | Schal (Fino) und Fernrohr (Bruno); `MASS` 0.6 (halb so gross) und `massVon()` |
+| `bau-stand.js` | Fassung 3: KiddyDome über zwei Stockwerke, Paare beim Laden und Zusammenführen, Umstellen als Block, Dazubauen gleich darüber; Buchfiguren zuerst, mit Wunsch und Traumjob; Kinderzimmer-Tiere oft im KiddyDome; kleine Dinge auf tiefere Flächen setzen (`setzeAufFlaechen`) |
+| `bau-art.js`, `train-bau.js`, `bau.css` | doppelt hohes Zimmer ohne Decke dazwischen, Hinweis und «Stockwerk dazubauen» in der Zimmerwahl, Mini-Lift, hohe Sprünge; die Tiere aus `bau-tiere.js` mit Blinzeln; der Bewohner-Knopf und die Übersicht aller Bewohner; Sterne-Kachel, hohle und gefüllte Sterne, «Alle Sterne» golden und gefeiert, das Buch unten auf der Tafel; Anstupsen ohne CSS-Animation auf SVG |
+| `scripts/validate-bau.mjs` | KiddyDome (zwei Stockwerke, Umstellen, Zusammenführen, Flicken, Ändern, Dazubauen, Besuche), Buchfiguren (Bücher, Vorlieben, Wünsche, Traumjobs, zuerst einziehen), halb so gross (hohe Dome-Geräte, Dinge auf dem Tisch), Fingerabdruck der Fassung 3 |
+| `scripts/check-bau.mjs` | der KiddyDome im Browser, auf Tablet und Handy; «Nach vorne/hinten» bei verschieden tiefen und bei sehr hohen Dingen; alle Bewohner (Knopf im Haus und im Zimmer, Wohnungen, Sterne, Traumjob, Wünsche, Tafel und zurück); Sterne (hohl und gefüllt, Kachel, golden bei allen, am Lift, Feier beim letzten Stern, Buch unten) |
 
 ---
 

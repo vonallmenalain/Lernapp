@@ -4,7 +4,8 @@
  * Jedes Ding ist eine kleine SVG-Zeichnung im Stil der Stilprobe
  * (docs/bauecke-stilprobe.html): flache Farben, runde Ecken, ein Hauch
  * Schatten über shade(). Gezeichnet wird in "Zeichen-Einheiten"; im Zimmer
- * wird alles mit MASS vergrössert, damit Tiere und Möbel zueinander passen.
+ * steht alles mit MASS – Tiere und Möbel gleich, damit sie zueinander passen.
+ * Ein Ding mit eigenem Massstab (mass) steht entsprechend grösser.
  *
  * Wo der Nullpunkt liegt, sagt die Art:
  *   boden   steht auf dem Boden – Nullpunkt unten in der Mitte, nach oben
@@ -27,8 +28,10 @@
 (() => {
   "use strict";
 
-  // Wie viel grösser die Dinge im Zimmer stehen als gezeichnet.
-  const MASS = 1.2;
+  // Wie gross die Dinge (und die Tiere) im Zimmer stehen, gemessen an der
+  // Zeichnung. Bis Oktober 2026 waren es 1.2 – halb so gross lässt viel mehr
+  // Platz zum Einrichten. Die Breite der Zimmer bleibt.
+  const MASS = 0.6;
 
   function shade(hex, amount) {
     const h = String(hex || "#888888").replace("#", "");
@@ -679,6 +682,19 @@
       P("M8 -70L28 -52L42 -20L22 -28L2 -44Z", shade(c, -0.12)) + P("M-20 -30L2 -44L22 -28L18 0H-26Z", shade(c, 0.06)) +
       [[-24, -18, "#ffd166"], [-6, -34, "#ef5350"], [14, -16, "#6cc3d5"], [22, -42, "#7cc05e"], [-2, -56, "#ff9f43"]].map(([x, y, f]) => E(x, y, 4, 3, f)).join("") +
       P("M-14 -60l4-6l6 4l-4 6z", "#ffffff", `opacity="0.8"`) + P("M8 -70l4-5l5 4l-4 5z", "#ffffff", `opacity="0.8"`) },
+    // Was zwei Figuren aus den Büchern der Leseecke besonders mögen: Finos
+    // roter Schal (von seiner Oma gestrickt) und Brunos Fernrohr zum Sternezählen.
+    schal: { name: "Schal", der: "der Schal", kat: "deko", art: "wand", w: 40, h: 58, farbe: "#ef5350", tags: ["schal"], d: (c) =>
+      R(-15, -29, 30, 6, HOLZ_D, 3) + C(0, -23, 3.2, HOLZ_DD) +
+      P("M-3 -24q-9 3-11 20l-1 18h10l1-16q1-13 4-20z", c) +
+      P("M3 -24q9 4 10 22l-1 18h-10l1-17q0-14-3-21z", shade(c, -0.14)) +
+      S("M-14 -6h10M-14 4h10M3 -4h9M3 7h9", shade(c, 0.4), 2.6) +
+      S("M-14 15v6M-11 15v7M-8 15v6M-5 15v6M3 17v6M6 17v7M9 17v6M12 17v6", shade(c, -0.28), 1.6) +
+      P("M-5 -25q5-4 10 0q-5 4-10 0z", shade(c, 0.18)) },
+    fernrohr: { name: "Fernrohr", der: "das Fernrohr", kat: "deko", w: 58, h: 76, farbe: "#3a86ff", tags: ["fernrohr"], d: (c) =>
+      S("M0 -38L-17 0M0 -38L17 0M0 -38V-2", METALL_D, 3) + C(0, -38, 4, DUNKEL) +
+      `<g transform="rotate(-32 0 -44)">${R(-22, -50, 42, 12, c, 5)}${R(17, -52, 8, 16, shade(c, -0.25), 3)}${R(-27, -48, 6, 8, shade(c, -0.3), 2)}${R(-9, -50, 3, 12, shade(c, 0.35))}</g>` +
+      stern(23, -70, 5, "#ffd166") + stern(-18, -66, 3, "#ffd166") },
     vogelhaus: { name: "Vogelhäuschen", der: "das Vogelhäuschen", kat: "deko", art: "wand", w: 40, h: 46, tags: ["deko"], d: () =>
       P("M-20 -6l20-18l20 18z", "#ef5350") + R(-16, -6, 32, 28, "#ffd166", 2) + C(0, 4, 6, "#5b3a29") + R(-10, 22, 20, 3, HOLZ_D, 1.5) + C(14, 18, 4, "#6cc3d5") + P("M17 17l4 1-4 2z", "#ff9f43") },
 
@@ -790,10 +806,14 @@
 
   // Wie viel Platz ein Ding im Zimmer braucht (in Zimmer-Einheiten, mit MASS
   // und der Grösse des Kindes s): links, oben, rechts, unten um den Nullpunkt.
+  // Der Massstab eines Dings: MASS, ausser es hat einen eigenen (mass) – die
+  // grossen Geräte im KiddyDome reichen so weiter über beide Stockwerke.
+  function massVon(id) { return MASS * (DINGE[id]?.mass || 1); }
+
   function umriss(id, s = 1) {
     const ding = DINGE[id];
     if (!ding) return { x0: 0, y0: 0, x1: 0, y1: 0 };
-    const k = MASS * s;
+    const k = massVon(id) * s;
     const w = (ding.w * k) / 2;
     if (ding.art === "wand") return { x0: -w, y0: (-ding.h * k) / 2, x1: w, y1: (ding.h * k) / 2 };
     if (ding.art === "decke") return { x0: -w, y0: 0, x1: w, y1: ding.h * k };
@@ -804,5 +824,5 @@
   // selben Stil gezeichnet sind.
   const hilfe = { R, C, E, P, S, T, leg, stern, topf, buecherReihe, shade, HOLZ, HOLZ_D, HOLZ_DD, METALL, METALL_D, DUNKEL, WEISS, RAND, TINTE, BUNT };
 
-  window.LernappBauMoebel = { MASS, DINGE, KATEGORIEN, UEBERALL, RAUM_DINGE, MOTIVE, doppelt, dazu, zeichne, umriss, shade, stern, hilfe };
+  window.LernappBauMoebel = { MASS, DINGE, KATEGORIEN, UEBERALL, RAUM_DINGE, MOTIVE, doppelt, dazu, zeichne, umriss, massVon, shade, stern, hilfe };
 })();

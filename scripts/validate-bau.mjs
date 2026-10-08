@@ -23,6 +23,10 @@
  *                Zimmer; Spital, Dorf und Büro haben ein Zimmer je Stockwerk.
  *                Die Reihenfolge lässt sich ändern und übersteht das
  *                Zusammenführen.
+ *   KiddyDome    Braucht zwei Stockwerke übereinander (mit einem geht er
+ *                nicht), bleibt beim Umstellen und Zusammenführen beisammen,
+ *                gibt beim Ändern der Zimmerart das obere frei; die Tiere aus
+ *                den Kinderzimmern gehen oft hin.
  *   Arbeit       Jedes Tier hat einen Traumjob. Gibt es das Zimmer und ist
  *                dort Platz, arbeitet es dort, sonst irgendwo; höchstens drei
  *                Tiere im selben Zimmer. Oben in einem Arbeitszimmer stehen
@@ -60,7 +64,7 @@ const fehler = [];
 function pruefe(bedingung, text) { if (!bedingung) fehler.push(text); }
 
 // Die Möbel der Zimmer, in der Reihenfolge, in der index.html sie lädt.
-const GRUPPEN = ["wohnen", "haus", "spital", "station", "laeden", "dienste", "freizeit", "buero", "arbeit"];
+const GRUPPEN = ["wohnen", "haus", "spital", "station", "laeden", "dienste", "freizeit", "buero", "arbeit", "dome"];
 const MOEBEL = ["bau-moebel.js", ...GRUPPEN.map((g) => `bau-moebel-${g}.js`)];
 
 // Eine Umgebung wie im Browser, so weit die Dateien sie brauchen. jetzt: die
@@ -121,7 +125,9 @@ for (const ding of dinge) {
   pruefe(ding.name && ding.der && /^(der|die|das) /.test(ding.der), `${ding.id}: Name oder Artikel fehlt`);
   pruefe(/^[a-z][a-z0-9_]*$/.test(ding.id), `${ding.id}: Kennung mit Umlaut oder Grossbuchstaben`);
   pruefe(["boden", "wand", "decke", "flach"].includes(ding.art), `${ding.id}: unbekannte Art ${ding.art}`);
-  pruefe(ding.w > 0 && ding.h > 0 && ding.w <= 200 && ding.h <= 170, `${ding.id}: Grösse ${ding.w} × ${ding.h} ausserhalb 200 × 170`);
+  // Die Spielgeräte des KiddyDome (k_) dürfen über zwei Stockwerke reichen.
+  const [wMax, hMax] = ding.id.startsWith("k_") ? [240, 380] : [200, 170];
+  pruefe(ding.w > 0 && ding.h > 0 && ding.w <= wMax && ding.h <= hMax, `${ding.id}: Grösse ${ding.w} × ${ding.h} ausserhalb ${wMax} × ${hMax}`);
   if (typeof ding.flaeche === "number") {
     pruefe(ding.art === "boden" && ding.flaeche < 0 && ding.flaeche >= -ding.h - 1, `${ding.id}: Fläche liegt nicht auf dem Ding`);
     pruefe(Array.isArray(ding.fx) && ding.fx[0] < ding.fx[1], `${ding.id}: Flächenbereich fehlt`);
@@ -243,8 +249,29 @@ for (const [id, tier] of Object.entries(K.TIERE)) {
 }
 for (const fam of Object.keys(K.FAMILIEN)) pruefe(K.FARBEN.some((f) => f.familie === fam), `Farbfamilie ${fam} ohne Farbe in der Palette`);
 
+// Die Figuren aus den Büchern der Leseecke: Art, Buch mit Umschlag, was sie
+// mag (in jeder Wohnung zu haben), Wunsch und Traumjob aus ihrer Geschichte.
+{
+  const buecherJs = lies("lesen-buecher.js");
+  const ids = new Set();
+  const generisch = new Set(Object.values(K.TIERE).flatMap((t) => t.namen));
+  pruefe(K.FIGUREN.length >= 12, `nur ${K.FIGUREN.length} Figuren aus den Büchern`);
+  for (const f of K.FIGUREN) {
+    pruefe(!ids.has(f.id) && /^[a-z]+$/.test(f.id), `Figur ${f.id}: Kennung doppelt oder ungültig`);
+    ids.add(f.id);
+    pruefe(K.TIERE[f.a] && f.n && f.ich && /[.!?]$/.test(f.ich) && !f.ich.includes("ß"), `Figur ${f.id}: Art, Name oder Satz fehlt`);
+    pruefe(f.buecher.length >= 1 && f.buecher.every((b) => buecherJs.includes(`id: "${b.id}"`) && fs.existsSync(path.join(root, "bilder/buecher", b.id, "umschlag-klein.webp")) && b.titel), `Figur ${f.id}: ein Buch fehlt in der Leseecke`);
+    pruefe(K.DING_WUENSCHE[f.mag.ding] && K.FAMILIEN[f.mag.farbe], `Figur ${f.id}: Lieblingsding oder -farbe unbekannt`);
+    pruefe([...K.LIEBLINGS, ...M.UEBERALL].some((d) => M.DINGE[d]?.tags.includes(f.mag.ding)), `Figur ${f.id}: was sie mag, liegt in keiner Wohnung`);
+    if (f.wunsch) pruefe(K.RAEUME[f.wunsch.raum]?.haus === f.wunsch.haus && f.wunsch.haus !== "wohnhaus" && /[.!]$/.test(f.wunsch.warum), `Figur ${f.id}: Wunsch ${f.wunsch.raum} stimmt nicht`);
+    if (f.traum) { const [h, r] = f.traum.split(":"); pruefe(K.RAEUME[r]?.haus === h && K.RAEUME[r].job, `Figur ${f.id}: Traumjob ${f.traum} gibt es nicht`); }
+    for (const n of [f.n, ...(f.auch || [])]) pruefe(!generisch.has(n), `Figur ${f.id}: ${n} heisst auch ein gewöhnliches Tier`);
+  }
+  pruefe(ids.has("leo") && K.FIGUREN.find((f) => f.id === "leo").mag.ding === "melone", "Leo mag keine Melonen");
+}
+
 // Schweizer Rechtschreibung: kein ß in allem, was die Kinder hören oder sehen.
-for (const datei of [...MOEBEL, "bau-katalog.js", "bau-stand.js", "bau-art.js", "train-bau.js", "bau.css"]) {
+for (const datei of [...MOEBEL, "bau-katalog.js", "bau-stand.js", "bau-tiere.js", "bau-art.js", "train-bau.js", "bau.css"]) {
   pruefe(!lies(datei).includes("ß"), `${datei}: enthält ein ß`);
 }
 
@@ -285,7 +312,7 @@ function erfuelleGelbe(S, hausId, index) {
 {
   const { S } = standUmgebung();
   const leer = S.lesen();
-  pruefe(S.FORMAT === 2 && leer.v === 2, "der Kasten ist nicht Fassung 2");
+  pruefe(S.FORMAT === 3 && leer.v === 3, "der Kasten ist nicht Fassung 3");
   pruefe(Object.keys(leer.haeuser).join() === "wohnhaus,spital,zentrum,buero", "leerer Stand: nicht vier Häuser");
   const wh = leer.haeuser.wohnhaus.stock;
   pruefe(wh.length === 3 && wh.every((s) => s.art === "wohnung" && s.zimmer.length === 1 && !s.zimmer[0].raum && !s.tiere.length), "das Wohnhaus beginnt nicht mit drei leeren Wohnungen");
@@ -310,8 +337,8 @@ function erfuelleGelbe(S, hausId, index) {
   pruefe(st.zimmer[0].wand === K.RAEUME.schlafzimmer.wand, "die neue Wohnung hat nicht die Farbe ihrer Art");
   pruefe(st.id !== "wohnhaus-0", "die Wohnung behält mit der Wahl die gemeinsame Kennung vom Anfang");
   pruefe(erstes.w.length === 2 && erstes.g.length === 1 && erstes.b.length === 2, `das Tier hat ${erstes.w.length}/${erstes.g.length}/${erstes.b.length} statt 2/1/2 Wünsche`);
-  const mag = K.TIERE[erstes.a].mag;
-  pruefe(erstes.w[0] === `ding:${mag.ding}` || erstes.w[0] === `farbe:${mag.farbe}`, "unter den gelben Wünschen fehlt, was die Tierart besonders mag");
+  const mag = S.magVon(erstes);
+  pruefe(erstes.w[0] === `ding:${mag.ding}` || erstes.w[0] === `farbe:${mag.farbe}`, "unter den gelben Wünschen fehlt, was das Tier besonders mag");
   const [th, tr] = erstes.traum.split(":");
   pruefe(K.RAEUME[tr]?.haus === th && K.RAEUME[tr].job, `Traumjob ${erstes.traum} gibt es nicht`);
   for (const w of S.wuensche(erstes.seed)) {
@@ -337,7 +364,7 @@ function erfuelleGelbe(S, hausId, index) {
   // Die Art der Wohnung ändern: alles bleibt, die Wünsche passen sich an.
   pruefe(S.waehleRaum("wohnhaus", 0, 0, "kinderzimmer") === true && S.stock("wohnhaus", 0).tiere.length === 3, "beim Wechsel zum Kinderzimmer ziehen die Tiere aus");
   for (const t of S.stock("wohnhaus", 0).tiere) {
-    pruefe(t.w.every((w) => w.startsWith("farbe:") || w === `ding:${K.TIERE[t.a].mag.ding}` || K.RAEUME.kinderzimmer.wuensche.includes(w.split(":")[1])), `${t.n}: Wünsche passen nicht zum Kinderzimmer`);
+    pruefe(t.w.every((w) => w.startsWith("farbe:") || w === `ding:${S.magVon(t).ding}` || K.RAEUME.kinderzimmer.wuensche.includes(w.split(":")[1])), `${t.n}: Wünsche passen nicht zum Kinderzimmer`);
   }
 }
 
@@ -502,6 +529,115 @@ function erfuelleGelbe(S, hausId, index) {
   pruefe(anteil(zahl.arbeit) >= 12 && anteil(zahl.besuch) >= 8, `bei der Arbeit ${anteil(zahl.arbeit)} %, zu Besuch ${anteil(zahl.besuch)} %`);
   for (const stunde of [21, 23, 3, 6]) pruefe(S.aufenthalt(seed, tag0 + 86400000 + stunde * 3600000).wo === "daheim", `um ${stunde} Uhr ist ein Tier nicht daheim`);
   pruefe(S.woText(seed, tag0 + 86400000 + 22 * 3600000) === "ist zu Hause", "nachts steht nicht \"ist zu Hause\"");
+}
+
+// Die Figuren aus den Büchern ziehen zuerst ein – jede nur einmal, mit
+// ihrem Wunsch und ihrem Traumjob; ein Leo von früher ist Leo aus dem Buch.
+{
+  const jetzt = morgen10();
+  const { S } = standUmgebung({ paletten: 9, frei: true, jetzt });
+  const eingezogen = [];
+  for (let i = 0; i < 3; i += 1) {
+    eingezogen.push(S.waehleRaum("wohnhaus", i, 0, i === 1 ? "kinderzimmer" : "schlafzimmer"));
+    for (let k = 0; k < 2; k += 1) { jetzt.wert += S.ZUZUG_MS + 1000; eingezogen.push(S.ziehtEin("wohnhaus", i)); }
+  }
+  const figuren = eingezogen.map((t) => S.figurVon(t));
+  pruefe(figuren.every(Boolean), `nicht zuerst die Figuren aus den Büchern: ${eingezogen.map((t) => t.n).join(", ")}`);
+  pruefe(new Set(figuren.map((f) => f?.id)).size === figuren.length, "eine Figur aus den Büchern zieht zweimal ein");
+  for (const [n, t] of eingezogen.entries()) {
+    const f = figuren[n];
+    if (!f) continue;
+    if (f.wunsch) pruefe(t.b[0] === `fremd:${f.wunsch.haus}:${f.wunsch.raum}` && S.wuensche(t.seed).find((w) => w.id === t.b[0])?.text.includes(f.wunsch.warum), `${f.n}: der blaue Wunsch kommt nicht aus der Geschichte`);
+    if (f.traum) pruefe(t.traum === f.traum, `${f.n}: der Traumjob kommt nicht aus der Geschichte`);
+    pruefe(t.w[0] === `ding:${f.mag.ding}` || t.w[0] === `farbe:${f.mag.farbe}`, `${f.n}: der gelbe Wunsch ist nicht, was sie im Buch mag`);
+  }
+  // Ein Leo, der schon früher eingezogen ist.
+  const leo = S.normalize({ v: S.FORMAT, haeuser: { wohnhaus: { stock: [{ art: "wohnung", zimmer: [{ raum: "schlafzimmer" }], tiere: [{ a: "lion", n: "Leo", seed: "alt1" }] }] } } }).haeuser.wohnhaus.stock[0].tiere[0];
+  pruefe(S.figurVon(leo)?.id === "leo" && S.magVon(leo).ding === "melone", "ein früher eingezogener Leo ist nicht Leo aus dem Buch");
+  pruefe(S.figurVon({ a: "mouse", n: "Rosa" })?.id === "rosa" && !S.figurVon({ a: "fox", n: "Leo" }), "Figuren werden falsch erkannt");
+  // Sind alle Figuren da, kommen gewöhnliche Tiere – mit Namen, die keine Figur trägt.
+  const { S: V } = standUmgebung({ paletten: 99, frei: true, jetzt });
+  const namen = new Set(K.FIGUREN.flatMap((f) => [f.n, ...(f.auch || [])]));
+  let gewoehnlich = null;
+  for (let i = 0; i < 12 && !gewoehnlich; i += 1) {
+    const idx = i < 3 ? i : V.baueStockwerk("wohnhaus");
+    if (i >= 3) V.waehleArt("wohnhaus", idx, "wohnung");
+    const t = V.waehleRaum("wohnhaus", idx, 0, "schlafzimmer");
+    for (const x of [t, ...[0, 1].map(() => { jetzt.wert += V.ZUZUG_MS + 1000; return V.ziehtEin("wohnhaus", idx); })]) if (x && !V.figurVon(x)) { gewoehnlich = x; break; }
+  }
+  pruefe(gewoehnlich && !namen.has(gewoehnlich.n), `nach allen Figuren kommt kein gewöhnliches Tier, oder es trägt den Namen einer Figur (${gewoehnlich?.n})`);
+}
+
+// Der KiddyDome: ein Zimmer über zwei Stockwerke.
+{
+  const jetzt = morgen10();
+  const { S } = standUmgebung({ paletten: 6, frei: true, jetzt });
+  const arten = () => S.haus("zentrum").stock.map((s) => `${s.art}${s.zimmer[0]?.raum ? `:${s.zimmer[0].raum}` : ""}`).join(" | ");
+  pruefe(K.RAEUME.kiddydome?.doppel && K.RAEUME.kiddydome.haus === "zentrum" && K.RAEUME.kiddydome.kinder, "der KiddyDome fehlt im Dorf");
+  // Mit nur einem Stockwerk geht er nicht – und nichts ändert sich.
+  pruefe(S.doppelPlatz("zentrum", 0) === null && S.waehleRaum("zentrum", 0, 0, "kiddydome") === null, "der KiddyDome geht mit einem einzigen Stockwerk");
+  pruefe(S.zimmer("zentrum", 0, 0).raum === "" && S.haus("zentrum").stock.length === 1, "die abgelehnte Wahl ändert das Stockwerk");
+  // Mit einem zweiten, leeren Stockwerk geht er – auch vom oberen aus.
+  S.baueStockwerk("zentrum");
+  const wahl = S.waehleRaum("zentrum", 1, 0, "kiddydome");
+  const st = S.haus("zentrum").stock;
+  pruefe(wahl?.unten === 0 && wahl.oben === 1 && S.istDoppel(st[0]) && st[1].art === "oben" && st[1].zu === st[0].id && !st[1].zimmer.length, `der KiddyDome liegt nicht auf zwei Stockwerken: ${arten()}`);
+  pruefe(st[0].id !== "zentrum-0" && S.obenVon(st[0]) === -S.GEO.STOCK && S.hoeheVon(st[0]) === S.GEO.H + S.GEO.STOCK, "der KiddyDome ist nicht doppelt so hoch oder behält die Kennung vom Anfang");
+  pruefe(S.verbaut() === 1, "der KiddyDome kostet mehr Ziegel als das eine gebaute Stockwerk");
+  // Was oben hängt, bleibt oben; normalize ändert nichts mehr.
+  S.aendereZimmer("zentrum", 0, 0, (z) => z.dinge.push({ k: "o1", i: "bild", x: 200, y: -180, c: "", f: 0, s: 1 }, { k: "o2", i: "deckenlampe", x: 90, y: -256, c: "", f: 0, s: 1 }));
+  const n1 = S.normalize(S.lesen());
+  const dd = n1.haeuser.zentrum.stock[0].zimmer[0].dinge;
+  pruefe(dd.find((d) => d.k === "o1")?.y === -180 && dd.find((d) => d.k === "o2")?.y === -256, "im KiddyDome rutscht beim Aufräumen, was oben hängt");
+  pruefe(JSON.stringify(S.normalize(n1)) === JSON.stringify(n1), "normalize ist beim KiddyDome nicht stabil");
+  // Umstellen: der KiddyDome wandert als Ganzes, andere springen über ihn.
+  S.waehleRaum("zentrum", S.baueStockwerk("zentrum"), 0, "bibliothek");
+  pruefe(S.verschiebe("zentrum", 0, 1) === 1 && arten() === "eins:bibliothek | eins:kiddydome | oben", `der KiddyDome wandert nicht als Ganzes: ${arten()}`);
+  pruefe(S.verschiebe("zentrum", 0, 1) === 2 && arten() === "eins:kiddydome | oben | eins:bibliothek", `die Bibliothek springt nicht über den KiddyDome: ${arten()}`);
+  pruefe(S.verschiebe("zentrum", 1, 1) === 2 && arten() === "eins:bibliothek | eins:kiddydome | oben", `vom oberen Stockwerk aus wandert der KiddyDome nicht: ${arten()}`);
+  // Zusammenführen mit einem anderen Gerät: beisammen, in beide Richtungen gleich.
+  const anderes = standUmgebung({ paletten: 6, frei: true }).S;
+  anderes.baueStockwerk("zentrum");
+  const ab = S.merge(S.lesen(), anderes.lesen());
+  pruefe(JSON.stringify(ab) === JSON.stringify(S.merge(anderes.lesen(), S.lesen())), "KiddyDome: Zusammenführen ist nicht in beide Richtungen gleich");
+  const zs = ab.haeuser.zentrum.stock;
+  const di = zs.findIndex((s) => s.zimmer[0]?.raum === "kiddydome");
+  pruefe(di >= 0 && zs[di + 1]?.art === "oben" && zs[di + 1].zu === zs[di].id, "beim Zusammenführen fällt der KiddyDome auseinander");
+  // Ein oberes ohne sein unteres wird ein leeres Stockwerk; fehlt das obere, kommt es dazu.
+  const kaputt = S.normalize({ v: 3, haeuser: { zentrum: { stock: [
+    { id: "a", pos: 0, art: "eins", zimmer: [{ raum: "kiddydome" }] },
+    { id: "b", pos: 1, art: "eins", zimmer: [{ raum: "post" }] },
+    { id: "c", pos: 2, art: "oben", zu: "weg", zimmer: [] },
+  ] } } }).haeuser.zentrum.stock.map((s) => `${s.id}:${s.art}`).join();
+  pruefe(kaputt === "a:eins,a^:oben,b:eins,c:eins", `ein zerrissener KiddyDome wird nicht geflickt: ${kaputt}`);
+  // Zimmerart ändern: das obere wird frei, nichts hängt mehr über der Decke.
+  const unten = S.haus("zentrum").stock.findIndex((s) => S.istDoppel(s));
+  S.waehleRaum("zentrum", unten, 0, "kino");
+  const nach = S.haus("zentrum").stock;
+  pruefe(nach[unten].zimmer[0].raum === "kino" && nach[unten + 1].art === "eins" && !nach[unten + 1].zimmer[0].raum && !("zu" in nach[unten + 1]), `aus dem KiddyDome wird kein gewöhnliches Zimmer: ${arten()}`);
+  pruefe(nach[unten].zimmer[0].dinge.every((d) => d.y >= 0), "nach dem KiddyDome hängt etwas über der Decke");
+  // Dazubauen gleich darüber, mitten im Haus.
+  const { S: D } = standUmgebung({ paletten: 6, frei: true, jetzt });
+  D.waehleRaum("zentrum", 0, 0, "post");
+  D.waehleRaum("zentrum", D.baueStockwerk("zentrum"), 0, "kino");
+  pruefe(D.doppelPlatz("zentrum", 0) === null, "über der Post ist das Kino, und trotzdem hat der KiddyDome Platz");
+  pruefe(D.baueStockwerk("zentrum", { ueber: 0 }) === 1 && D.waehleRaum("zentrum", 0, 0, "kiddydome")?.unten === 0, "gleich darüber dazubauen gibt keinen KiddyDome");
+  pruefe(D.haus("zentrum").stock.map((s) => s.art).join() === "eins,oben,eins" && D.zimmer("zentrum", 2, 0).raum === "kino", "das Kino ist beim Dazubauen nicht eins hinaufgerückt");
+  // Die Tiere aus dem Kinderzimmer gehen oft in den KiddyDome, die anderen seltener.
+  const kind = D.waehleRaum("wohnhaus", 0, 0, "kinderzimmer");
+  const schlaf = D.waehleRaum("wohnhaus", 1, 0, "schlafzimmer");
+  const imKiddy = (seed, zeit) => { const a = D.aufenthalt(seed, zeit); return a.wo === "besuch" && a.haus === "zentrum" && D.zimmer("zentrum", a.index, a.slot)?.raum === "kiddydome"; };
+  let tage = 0;
+  const imDome = { kind: 0, schlaf: 0 };
+  for (let k = 0; k < 600; k += 1) {
+    const zeit = jetzt.wert + 20 * 60 * 1000 + k * 15 * 60 * 1000;
+    if (new Date(zeit).getHours() >= 20 || new Date(zeit).getHours() < 7) continue;
+    tage += 1;
+    if (imKiddy(kind.seed, zeit)) imDome.kind += 1;
+    if (imKiddy(schlaf.seed, zeit)) imDome.schlaf += 1;
+  }
+  pruefe(imDome.kind / tage > 0.3, `ein Tier aus dem Kinderzimmer ist nur ${Math.round((imDome.kind / tage) * 100)} % des Tages im KiddyDome`);
+  pruefe(imDome.schlaf < imDome.kind, "ein Tier aus dem Schlafzimmer ist öfter im KiddyDome als eines aus dem Kinderzimmer");
 }
 
 // Der schlimmste Spielstand: alle Häuser bis oben, jedes Zimmer voll, drei
@@ -745,18 +881,53 @@ function S_GEO_W() { return 560; }
   pruefe(S.zimmer("zentrum", 0, 0) === z && S.zimmer("zentrum", 0, 0).dinge[0] === tisch, "Speichern ersetzt den Stand – ein gezogener Stapel verliert, was darauf steht");
 }
 
+// Halb so gross (Oktober 2026): Tiere und Dinge stehen mit MASS 0.6. Die
+// grossen Geräte im KiddyDome behalten ihre Grösse und reichen weiter über
+// beide Stockwerke. Was früher auf einem Tisch stand, setzt sich beim Laden
+// auf die tiefere Fläche; was über keiner Fläche schwebt, auf den Boden.
+{
+  pruefe(M.MASS === 0.6 && M.massVon("bett") === 0.6, `Dinge und Tiere stehen nicht halb so gross (MASS ${M.MASS})`);
+  const hoch = Object.entries(M.DINGE).filter(([, d]) => d.mass === 2).map(([id]) => id);
+  pruefe(hoch.length === 11 && hoch.every((id) => id.startsWith("k_")), `nur die grossen Geräte im KiddyDome haben einen eigenen Massstab (${hoch.join(", ")})`);
+  const { S } = standUmgebung();
+  const GEO = S.GEO;
+  hoch.forEach((id) => {
+    const u = M.umriss(id);
+    pruefe(u.y1 - u.y0 > GEO.STOCK, `${id} reicht nicht mehr über zwei Stockwerke (${Math.round(u.y1 - u.y0)})`);
+  });
+  const tisch = M.DINGE.tisch;
+  const alt = 230 + tisch.flaeche * 1.2;
+  const neu = 230 + tisch.flaeche * M.massVon("tisch");
+  const roh = (dinge) => ({ v: S.FORMAT, haeuser: { zentrum: { stock: [{ id: "c", art: "eins", zimmer: [{ raum: "cafe", dinge }] }] } } });
+  const nachher = (dinge) => S.normalize(roh(dinge)).haeuser.zentrum.stock[0].zimmer[0].dinge;
+  const auf = nachher([
+    { k: "t", i: "tisch", x: 200, y: 230, s: 1 },
+    { k: "auf", i: "kaffeetasse", x: 200, y: alt, s: 1 },
+    { k: "frei", i: "kaffeetasse", x: 450, y: alt, s: 1 },
+    { k: "schon", i: "kaffeetasse", x: 210, y: neu, s: 1 },
+  ]);
+  const y = (k) => auf.find((d) => d.k === k)?.y;
+  pruefe(Math.abs(y("auf") - neu) < 0.11, `ein Ding vom früheren Tisch setzt sich nicht auf die tiefere Fläche (${y("auf")} statt ${neu})`);
+  pruefe(y("frei") === GEO.STAND, `ein schwebendes Ding ohne Fläche darunter fällt nicht auf den Boden (${y("frei")})`);
+  pruefe(Math.abs(y("schon") - neu) < 0.11, `ein Ding, das schon auf der Fläche steht, wird verschoben (${y("schon")})`);
+  const zweimal = S.normalize(S.normalize(roh(auf))).haeuser.zentrum.stock[0].zimmer[0].dinge.map((d) => `${d.k}:${d.y}`).join();
+  pruefe(zweimal === auf.map((d) => `${d.k}:${d.y}`).join(), `zweimal aufräumen verschiebt die Dinge auf dem Tisch (${zweimal})`);
+}
+
 // Der Katalog dieser Fassung. Ändert sich eine Kennung (ein neues Ding, ein
 // neues Zimmer, ein neues Tier …) oder ein Feld des Kastens, muss FORMAT in
 // bau-stand.js hoch – sonst löscht eine ältere App, die den neuen Kasten
 // sieht, was sie nicht kennt. Danach hier den neuen Fingerabdruck eintragen.
 {
-  const FINGERABDRUCK = { 2: "0de7a8d925917fa6" };
+  const FINGERABDRUCK = { 2: "0de7a8d925917fa6", 3: "7159476bf27e3fdb" };
   const { S } = standUmgebung();
   S.waehleRaum("wohnhaus", 0, 0, "schlafzimmer");
   S.aendereZimmer("wohnhaus", 0, 0, (z) => z.dinge.push({ k: "x", i: "bett", x: 100, y: 230 }));
   const stand = S.normalize(S.lesen());
   const st = stand.haeuser.wohnhaus.stock[0];
-  const felder = [stand, stand.haeuser.wohnhaus, st, st.zimmer[0], st.zimmer[0].dinge[0], st.tiere[0]].map((o) => Object.keys(o).sort().join(","));
+  // Dazu das obere Stockwerk eines KiddyDome (Fassung 3).
+  const oben = S.normalize({ v: S.FORMAT, haeuser: { zentrum: { stock: [{ id: "a", art: "eins", zimmer: [{ raum: "kiddydome" }] }, { id: "b", art: "oben", zu: "a", zimmer: [] }] } } }).haeuser.zentrum.stock[1];
+  const felder = [stand, stand.haeuser.wohnhaus, st, st.zimmer[0], st.zimmer[0].dinge[0], st.tiere[0], oben].map((o) => Object.keys(o).sort().join(","));
   const kennungen = [
     ...Object.keys(M.DINGE).map((id) => `ding:${id}`),
     ...Object.keys(K.RAEUME).map((id) => `raum:${id}`),
@@ -864,12 +1035,12 @@ for (const stufe of ["leicht", "mittel", "schwer"]) {
 
   // Startbild: Stylesheet und Skripte, in der richtigen Reihenfolge.
   const index = lies("index.html");
-  const reihe = ["game-cloud.js", "journey-plan.js", ...MOEBEL, "bau-katalog.js", "bau-stand.js", "bau-art.js", "train-bau.js", "train-home.js"];
+  const reihe = ["game-cloud.js", "journey-plan.js", ...MOEBEL, "bau-katalog.js", "bau-stand.js", "bau-tiere.js", "bau-art.js", "train-bau.js", "train-home.js"];
   const stellen = reihe.map((datei) => index.indexOf(`src="${datei}?`));
   pruefe(stellen.every((x) => x > 0) && stellen.every((x, i) => i === 0 || x > stellen[i - 1]), "index.html lädt die Bauecke nicht vollständig oder nicht in der richtigen Reihenfolge");
   pruefe(/href="bau\.css\?v=/.test(index), "index.html lädt bau.css nicht");
   const sw = lies("service-worker.js");
-  for (const datei of ["bau.css", ...MOEBEL, "bau-katalog.js", "bau-stand.js", "bau-art.js", "train-bau.js"]) {
+  for (const datei of ["bau.css", ...MOEBEL, "bau-katalog.js", "bau-stand.js", "bau-tiere.js", "bau-art.js", "train-bau.js"]) {
     pruefe(sw.includes(`./${datei}\${ASSET_VERSION_QUERY}`), `service-worker.js legt ${datei} nicht in den Cache`);
   }
   // Die Spielseiten kennen das Rätsel aus der Bauecke.

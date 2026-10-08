@@ -129,9 +129,9 @@ body[data-page="train"] .train-stage[data-view="bau"] ~ .help-voice {
 .is-nacht .bau-laternenlicht { fill: #fff3a0; }
 .bau-laternenlicht { fill: #e2e8f0; }
 
-/* Kurzes Anstupsen: Hier schauen! (einmal, keine Schleife) */
+/* Kurzes Anstupsen: Hier schauen! (einmal, keine Schleife). Teile der
+   Hausansicht (SVG) wippen über die Bildschleife, siehe stupse(). */
 .is-stups { animation: bau-stups 0.8s ease; }
-svg .is-stups { transform-box: fill-box; transform-origin: center; }
 @keyframes bau-stups {
   0%, 100% { transform: scale(1); }
   30% { transform: scale(1.16); }
@@ -274,6 +274,47 @@ svg .is-stups { transform-box: fill-box; transform-origin: center; }
 .bau-ordnenpfeil:focus-visible circle { stroke: #243047; }
 .bau-rund:active { transform: scale(0.93); }
 
+/* --- Links: alle Bewohner – im Haus und beim Einrichten --- */
+.bau-bewohnerknopf {
+  position: absolute;
+  top: calc(var(--safe-top, 0px) + 84px);
+  left: calc(var(--safe-left, 0px) + 14px);
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  width: 92px;
+  padding: 8px 2px 6px;
+  border: 3px solid #ffffff;
+  border-radius: 22px;
+  background: linear-gradient(180deg, #ffae45, #f07f2c);
+  color: #ffffff;
+  font-weight: 800;
+  font-size: 0.95rem;
+  line-height: 1.1;
+  box-shadow: 0 8px 18px rgba(214, 112, 30, 0.38);
+}
+.bau-bewohnerknopf:active { transform: scale(0.95); }
+.bau-bewohnerknopf-bild { width: 36px; height: 36px; }
+.bau-bewohnerknopf-zahl {
+  position: absolute;
+  top: -9px;
+  right: -9px;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 5px;
+  display: grid;
+  place-items: center;
+  border: 2px solid #f07f2c;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #c75f12;
+  font-size: 0.95rem;
+  box-shadow: 0 3px 8px rgba(36, 48, 71, 0.2);
+}
+.bauecke.ist-ordnen .bau-bewohnerknopf { visibility: hidden; }
+
 /* --- Das Zimmer --- */
 .bauecke.ist-zimmer .bau-umschalter,
 .bauecke.ist-zimmer .bau-hud,
@@ -329,6 +370,9 @@ svg .is-stups { transform-box: fill-box; transform-origin: center; }
 .bau-zimmertier.is-traum { border-color: #ffc93c; background: #fff8dc; }
 .bau-zimmertier-name { font-size: 1rem; }
 .bau-zimmertier.is-mehr { padding: 0 14px; color: #4a5568; }
+/* Alle Sterne: golden, mit Pokal. */
+.bau-zimmertier.is-alle { border-color: #ffb703; background: linear-gradient(180deg, #fff6c9, #ffd766); }
+.bau-zimmertier-pokal { font-size: 1.3rem; line-height: 1; }
 .bau-traumzeichen { width: 30px; height: 28px; flex: 0 0 auto; }
 .bau-traumzeichen-klein { display: inline-flex; vertical-align: -5px; }
 .bau-traumzeichen-klein svg { width: 26px; height: 24px; }
@@ -341,20 +385,23 @@ svg .is-stups { transform-box: fill-box; transform-origin: center; }
 .bau-laune { font-size: 1.4rem; }
 .bau-sternzahl { display: none; align-items: center; gap: 3px; font-size: 1rem; }
 
-/* Sterne: gelb fürs Zimmer, grün fürs Haus, blau für die anderen Häuser. */
+/* Sterne: gelb fürs Zimmer, grün fürs Haus, blau für die anderen Häuser.
+   Geholt: gefüllt und kräftig umrandet. Noch offen: hohl und gestrichelt –
+   so ist auf einen Blick klar, was schon geschafft ist. */
 .bau-sternreihe { display: inline-flex; align-items: center; gap: 1px; }
 .bau-stern {
   display: inline-block;
+  flex: 0 0 auto;
   width: 18px;
   height: 18px;
-  background: currentColor;
-  opacity: 0.25;
-  clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
+  background: center / contain no-repeat;
 }
-.bau-stern.is-voll { opacity: 1; }
-.bau-stern.is-gelb { color: #ffb703; }
-.bau-stern.is-gruen { color: #2fb35c; }
-.bau-stern.is-blau { color: #3a7bec; }
+.bau-stern.is-gelb { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 2.1L14.76 9.1L22.27 9.56L16.47 14.35L18.35 21.64L12 17.6L5.65 21.64L7.53 14.35L1.73 9.56L9.24 9.1Z' fill='%23fffdf4' stroke='%23e2b448' stroke-width='1.6' stroke-linejoin='round' stroke-dasharray='2.6 1.7'/%3E%3C/svg%3E"); }
+.bau-stern.is-gruen { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 2.1L14.76 9.1L22.27 9.56L16.47 14.35L18.35 21.64L12 17.6L5.65 21.64L7.53 14.35L1.73 9.56L9.24 9.1Z' fill='%23f6fcf8' stroke='%2378c991' stroke-width='1.6' stroke-linejoin='round' stroke-dasharray='2.6 1.7'/%3E%3C/svg%3E"); }
+.bau-stern.is-blau { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 2.1L14.76 9.1L22.27 9.56L16.47 14.35L18.35 21.64L12 17.6L5.65 21.64L7.53 14.35L1.73 9.56L9.24 9.1Z' fill='%23f5f8ff' stroke='%2388a9e8' stroke-width='1.6' stroke-linejoin='round' stroke-dasharray='2.6 1.7'/%3E%3C/svg%3E"); }
+.bau-stern.is-gelb.is-voll { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 2.1L14.76 9.1L22.27 9.56L16.47 14.35L18.35 21.64L12 17.6L5.65 21.64L7.53 14.35L1.73 9.56L9.24 9.1Z' fill='%23ffc23a' stroke='%23b97f00' stroke-width='1.7' stroke-linejoin='round'/%3E%3C/svg%3E"); }
+.bau-stern.is-gruen.is-voll { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 2.1L14.76 9.1L22.27 9.56L16.47 14.35L18.35 21.64L12 17.6L5.65 21.64L7.53 14.35L1.73 9.56L9.24 9.1Z' fill='%233fc068' stroke='%231d8445' stroke-width='1.7' stroke-linejoin='round'/%3E%3C/svg%3E"); }
+.bau-stern.is-blau.is-voll { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 2.1L14.76 9.1L22.27 9.56L16.47 14.35L18.35 21.64L12 17.6L5.65 21.64L7.53 14.35L1.73 9.56L9.24 9.1Z' fill='%234f8ef7' stroke='%232457bf' stroke-width='1.7' stroke-linejoin='round'/%3E%3C/svg%3E"); }
 
 /* --- Die Schublade --- */
 .bau-schublade {
@@ -537,7 +584,7 @@ svg .is-stups { transform-box: fill-box; transform-origin: center; }
 .bau-flieger svg { width: 100%; height: 100%; }
 
 /* --- Die Tier-Tafel --- */
-.bau-tafel {
+.bau-tafel, .bau-uebersicht {
   position: absolute;
   inset: 0;
   z-index: 20;
@@ -547,8 +594,8 @@ svg .is-stups { transform-box: fill-box; transform-origin: center; }
   padding: calc(var(--safe-top, 0px) + 76px) 14px 14px;
   background: rgba(24, 34, 58, 0.5);
 }
-.bau-tafel[hidden] { display: none; }
-.bau-tafel-karte {
+.bau-tafel[hidden], .bau-uebersicht[hidden] { display: none; }
+.bau-tafel-karte, .bau-uebersicht-karte {
   position: relative;
   width: min(760px, 96vw);
   max-height: calc(100% - 8px);
@@ -563,7 +610,7 @@ svg .is-stups { transform-box: fill-box; transform-origin: center; }
   from { opacity: 0; transform: translateY(14px) scale(0.98); }
   to { opacity: 1; transform: none; }
 }
-.bau-tafel-zu {
+.bau-tafel-zu, .bau-uebersicht-zu {
   position: absolute;
   top: 10px;
   right: 10px;
@@ -576,13 +623,46 @@ svg .is-stups { transform-box: fill-box; transform-origin: center; }
   background: #eef2f7;
   color: #243047;
 }
-.bau-tafel-zu svg { width: 24px; height: 24px; }
+.bau-tafel-zu svg, .bau-uebersicht-zu svg { width: 24px; height: 24px; }
 .bau-tafel-kopf { display: flex; align-items: center; gap: 14px; padding-right: 50px; }
 .bau-tafel-tier { width: 86px; height: 108px; flex: 0 0 auto; }
 .bau-tafel-wer h2 { margin: 0; font-size: 1.9rem; line-height: 1.1; }
 .bau-tafel-wer p { margin: 2px 0; color: #4a5568; font-weight: 600; }
 .bau-tafel-laune { font-size: 1.1rem; color: #243047 !important; }
-.bau-tafel-zahl { display: flex; align-items: center; gap: 8px; }
+/* Die Sterne eines Tiers, gross: geholte gefüllt, offene hohl. Hat es alle,
+   wird die Kachel golden, mit Pokal – das soll ins Auge stechen. */
+.bau-sternkachel {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  margin-top: 12px;
+  padding: 10px 14px;
+  border: 3px solid #f3dfa8;
+  border-radius: 20px;
+  background: #fffaf0;
+}
+.bau-sternkachel-sterne { display: flex; flex-wrap: wrap; gap: 4px; }
+.bau-stern.bau-stern-gross { width: 44px; height: 44px; }
+.bau-sternkachel-text { display: flex; flex-direction: column; line-height: 1.15; }
+.bau-sternkachel-text b { color: #243047; font-size: 1.5rem; }
+.bau-sternkachel-text span { color: #4a5568; font-weight: 700; }
+.bau-sternkachel.is-alle {
+  border-color: #ffb703;
+  background: linear-gradient(135deg, #fff7cf 0%, #ffd766 55%, #ffc23a 100%);
+  box-shadow: 0 0 0 4px rgba(255, 183, 3, 0.28), 0 10px 22px rgba(214, 140, 0, 0.3);
+}
+.bau-sternkachel.is-alle .bau-sternkachel-text b { color: #6b4100; font-size: 1.75rem; }
+.bau-sternkachel.is-alle .bau-sternkachel-text span { color: #6b4100; }
+.bau-sternkachel.is-alle .bau-stern-gross { filter: drop-shadow(0 2px 3px rgba(150, 90, 0, 0.35)); }
+.bau-sternkachel-pokal { margin-left: auto; font-size: 2.7rem; line-height: 1; animation: bau-pokal 1.4s ease-in-out 3; }
+@keyframes bau-pokal {
+  0%, 100% { transform: rotate(0) scale(1); }
+  50% { transform: rotate(-8deg) scale(1.15); }
+}
+/* Ganz unten: das Buch der Figur (klein) und das Ausziehen. */
+.bau-tafel-fuss { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 12px; }
+.bau-tafel-fuss .bau-hinaus { margin: 0 0 0 auto; }
 .bau-tafel-leiste { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 56px 10px 0; }
 .bau-tafel-wechsel {
   display: flex;
@@ -621,8 +701,10 @@ svg .is-stups { transform-box: fill-box; transform-origin: center; }
 .bau-lies { cursor: default; }
 .bauecke.kann-lesen .bau-lies,
 .bauecke.kann-lesen .bau-tafel p,
+.bauecke.kann-lesen .bau-uebersicht p,
+.bauecke.kann-lesen .bau-uebersicht h3,
 .bauecke.kann-lesen .bau-wahl-text { cursor: pointer; }
-.bau-lies.is-liest, .bau-tafel p.is-liest, .bau-wahl .is-liest { border-radius: 8px; background: #fff6c2; box-shadow: 0 0 0 4px #fff6c2; }
+.bau-lies.is-liest, .bau-tafel p.is-liest, .bau-uebersicht .is-liest, .bau-wahl .is-liest { border-radius: 8px; background: #fff6c2; box-shadow: 0 0 0 4px #fff6c2; }
 .bau-wunschliste {
   list-style: none;
   margin: 12px 0 6px;
@@ -707,6 +789,157 @@ svg .is-stups { transform-box: fill-box; transform-origin: center; }
   font-size: 1rem;
 }
 .bau-knopf-klein.is-ja { background: #ef5350; }
+
+/* --- Alle Bewohner: je Wohnung die Tiere, mit Sternen, Traumjob, Wünschen --- */
+.bau-uebersicht-karte { width: min(1000px, 96vw); }
+.bau-uebersicht-kopf { padding-right: 56px; }
+.bau-uebersicht-kopf h2 { margin: 0; font-size: 1.8rem; line-height: 1.1; }
+.bau-uebersicht-kopf p { margin: 4px 0 0; color: #4a5568; font-weight: 700; }
+.bau-uebersicht-hin { margin-top: 12px; }
+.bau-uebersicht-wohnung { margin-top: 14px; }
+.bau-uebersicht-stock { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; font-size: 1.15rem; }
+.bau-stockmarke {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: #34508f;
+  color: #ffd166;
+  font-size: 0.95rem;
+  font-weight: 800;
+}
+.bau-uebersicht-liste { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 10px; }
+.bau-bewohner {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+  padding: 8px 10px 8px 6px;
+  border: 3px solid #e2e8f0;
+  border-radius: 20px;
+  background: #ffffff;
+  color: #243047;
+  font: inherit;
+  text-align: left;
+  box-shadow: 0 4px 10px rgba(36, 48, 71, 0.08);
+}
+.bau-bewohner:active { transform: scale(0.98); }
+.bau-bewohner.is-traum { border-color: #ffc93c; background: #fffbea; }
+.bau-bewohner-bild { position: relative; flex: 0 0 auto; width: 66px; height: 80px; }
+.bau-bewohner-bild svg { display: block; width: 66px; height: 80px; }
+.bau-bewohner-buch {
+  position: absolute;
+  left: -4px;
+  bottom: -4px;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 2px 6px rgba(36, 48, 71, 0.22);
+  font-size: 0.9rem;
+}
+.bau-bewohner-text { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.bau-bewohner-name { display: flex; align-items: center; gap: 6px; min-width: 0; font-size: 1.25rem; line-height: 1.1; }
+.bau-bewohner-name b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bau-bewohner-laune { font-size: 1.1rem; }
+.bau-bewohner-art { color: #718096; font-weight: 700; font-size: 0.9rem; line-height: 1; }
+.bau-bewohner-sterne { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 6px; color: #4a5568; font-weight: 800; font-size: 0.95rem; }
+.bau-bewohner-sterne .bau-stern { width: 17px; height: 17px; }
+.bau-bewohner-traum { display: flex; align-items: center; gap: 4px; min-width: 0; color: #5b3fb3; font-weight: 700; font-size: 0.95rem; }
+.bau-bewohner-traum > span:not(.bau-traumzeichen-klein) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bau-bewohner-traum small { color: #718096; font-size: 0.85rem; font-weight: 700; }
+.bau-bewohner-traum.is-erfuellt { color: #8a5a00; }
+.bau-bewohner-traum .bau-traumzeichen-klein svg { width: 22px; height: 20px; }
+.bau-bewohner-haken { flex: 0 0 auto; color: #2f9e5c; font-weight: 800; }
+.bau-bewohner-wuensche { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 3px; }
+.bau-bewohner-wunsch {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 2px solid #ffcf5c;
+  border-radius: 11px;
+  background: #ffffff;
+}
+.bau-bewohner-wunsch.is-gruen { border-color: #7ad99a; }
+.bau-bewohner-wunsch.is-blau { border-color: #8fb6f5; }
+.bau-bewohner-wunsch svg { width: 30px; height: 30px; }
+/* Erfüllt: blass, mit einem grünen Haken. */
+.bau-bewohner-wunsch.is-erfuellt { border-style: dashed; background: #f4faf6; }
+.bau-bewohner-wunsch.is-erfuellt svg { opacity: 0.38; }
+.bau-bewohner-wunsch.is-erfuellt::after,
+.bau-legende-haken {
+  content: "✓";
+  display: inline-grid;
+  place-items: center;
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  background: #2f9e5c;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+}
+.bau-bewohner-wunsch.is-erfuellt::after { position: absolute; right: -6px; bottom: -6px; }
+/* Alle Sterne: die ganze Karte golden, mit Pokal. */
+.bau-bewohner.is-alle {
+  border-color: #ffb703;
+  background: linear-gradient(180deg, #fffcef 0%, #ffefb8 100%);
+  box-shadow: 0 0 0 3px rgba(255, 183, 3, 0.3), 0 6px 14px rgba(214, 140, 0, 0.2);
+}
+.bau-bewohner-alle {
+  padding: 1px 9px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #ffd766, #ffb703);
+  color: #5c3700;
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+/* --- Alle Sterne geholt: ein goldenes Band, ein paar Sekunden --- */
+.bau-sternband {
+  position: absolute;
+  top: calc(var(--safe-top, 0px) + 84px);
+  left: 50%;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: calc(100% - 24px);
+  padding: 8px 18px 8px 10px;
+  border: 4px solid #ffffff;
+  border-radius: 26px;
+  background: linear-gradient(135deg, #fff3b0 0%, #ffd766 50%, #ffb703 100%);
+  box-shadow: 0 14px 34px rgba(150, 90, 0, 0.4);
+  color: #5c3700;
+  pointer-events: none;
+  transform: translateX(-50%);
+  animation: bau-band-ein 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
+  transition: opacity 0.5s ease, transform 0.5s ease;
+}
+.bau-sternband.is-weg { opacity: 0; transform: translate(-50%, -16px); }
+@keyframes bau-band-ein {
+  from { opacity: 0; transform: translate(-50%, -24px) scale(0.85); }
+  to { opacity: 1; transform: translateX(-50%); }
+}
+.bau-sternband-tier { flex: 0 0 auto; width: 64px; height: 76px; }
+.bau-sternband-text { display: flex; flex-direction: column; line-height: 1.1; }
+.bau-sternband-text b { font-size: 1.9rem; }
+.bau-sternband-text span { font-weight: 800; font-size: 1.05rem; }
+.bau-sternband-sterne { display: flex; gap: 2px; }
+/* Weisse Sterne: auf dem Gold gut zu sehen. */
+.bau-stern.bau-stern-weiss { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 2.1L14.76 9.1L22.27 9.56L16.47 14.35L18.35 21.64L12 17.6L5.65 21.64L7.53 14.35L1.73 9.56L9.24 9.1Z' fill='%23ffffff' stroke='%23a86b00' stroke-width='1.7' stroke-linejoin='round'/%3E%3C/svg%3E"); }
+.bau-sternband .bau-stern { animation: bau-stern-pop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) backwards; }
+@keyframes bau-stern-pop {
+  from { opacity: 0; transform: scale(0.2) rotate(-40deg); }
+  to { opacity: 1; transform: none; }
+}
 
 /* --- Wählen: das erste Haus, die Zimmerart, die Farben --- */
 .bau-wahl {
@@ -836,7 +1069,7 @@ svg .is-stups { transform-box: fill-box; transform-origin: center; }
   .bau-zimmertier .bau-stern { width: 16px; height: 16px; }
   .bau-zimmertier-bild { width: 34px; height: 38px; }
   .bau-werkzeug .bau-rund { width: 44px; height: 44px; }
-  .bau-tafel, .bau-wahl { padding-top: calc(var(--safe-top, 0px) + 62px); }
+  .bau-tafel, .bau-uebersicht, .bau-wahl { padding-top: calc(var(--safe-top, 0px) + 62px); }
   .bau-bearbeiten { padding: 6px; gap: 4px; max-width: min(96vw, 300px); }
   .bau-bearbeiten .bau-farbe { width: 30px; height: 30px; }
   .bau-aktion { width: 42px; height: 42px; }
@@ -858,7 +1091,38 @@ svg .is-stups { transform-box: fill-box; transform-origin: center; }
   .bau-tafel-kopf { gap: 8px; }
   .bau-tafel-tier { width: 60px; height: 76px; }
   .bau-tafel-wer h2 { font-size: 1.4rem; }
+  .bau-sternkachel { margin-top: 8px; padding: 6px 10px; gap: 4px 10px; border-radius: 16px; }
+  .bau-stern.bau-stern-gross { width: 32px; height: 32px; }
+  .bau-sternkachel-text b { font-size: 1.2rem; }
+  .bau-sternkachel.is-alle .bau-sternkachel-text b { font-size: 1.3rem; }
+  .bau-sternkachel-pokal { font-size: 2rem; }
+  .bau-sternband { top: calc(var(--safe-top, 0px) + 66px); gap: 8px; padding: 4px 12px 4px 6px; border-width: 3px; }
+  .bau-sternband-tier { width: 44px; height: 52px; }
+  .bau-sternband-text b { font-size: 1.35rem; }
+  .bau-sternband-text span { font-size: 0.9rem; }
+  .bau-sternband .bau-stern-gross { width: 26px; height: 26px; }
+  /* Im Zimmerkopf ist es eng: Gold zeigt die Sterne, die Laune und der Pokal
+     bleiben weg, damit die Knöpfe daneben frei sind. */
+  .bau-zimmertier .bau-laune, .bau-zimmertier-pokal { display: none; }
   .is-hauswahl .bau-wahl-bild { height: 96px; }
+  .bau-bewohnerknopf { top: calc(var(--safe-top, 0px) + 80px); width: 78px; padding: 5px 2px 4px; border-radius: 18px; font-size: 0.8rem; }
+  .bau-bewohnerknopf-bild { width: 26px; height: 26px; }
+  .bau-bewohnerknopf-zahl { top: -7px; right: -7px; min-width: 24px; height: 24px; font-size: 0.85rem; }
+  .bau-uebersicht-kopf h2 { font-size: 1.35rem; }
+  .bau-uebersicht-kopf p { margin-top: 2px; font-size: 0.85rem; line-height: 1.25; }
+  .bau-uebersicht-wohnung { margin-top: 10px; }
+  .bau-uebersicht-stock { font-size: 1rem; margin-bottom: 6px; }
+  .bau-uebersicht-liste { grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 8px; }
+  .bau-bewohner { gap: 6px; padding: 5px 8px 6px 4px; border-radius: 16px; }
+  .bau-bewohner-bild, .bau-bewohner-bild svg { width: 50px; height: 62px; }
+  .bau-bewohner-text { gap: 2px; }
+  .bau-bewohner-name { font-size: 1.05rem; }
+  /* Die Art zeigt schon das Bild – auf dem Handy zählt jede Zeile. */
+  .bau-bewohner-art { display: none; }
+  .bau-bewohner-sterne, .bau-bewohner-traum { font-size: 0.88rem; }
+  .bau-bewohner-sterne .bau-stern { width: 15px; height: 15px; }
+  .bau-bewohner-wunsch { width: 31px; height: 31px; border-radius: 9px; }
+  .bau-bewohner-wunsch svg { width: 25px; height: 25px; }
 }
 
 @media (max-width: 900px) and (min-height: 521px) {
@@ -866,6 +1130,64 @@ svg .is-stups { transform-box: fill-box; transform-origin: center; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .bauecke, .bau-tafel-karte, .bau-wahl-karte { animation: none; }
-  .is-stups, .bau-traumglanz { animation: none; }
+  .bauecke, .bau-tafel-karte, .bau-uebersicht-karte, .bau-wahl-karte { animation: none; }
+  .is-stups, .bau-traumglanz, .bau-sternkachel-pokal, .bau-sternband, .bau-sternband .bau-stern { animation: none; }
 }
+
+/* --- KiddyDome: Hinweis in der Zimmerwahl, Knopf zum Dazubauen --- */
+.bau-wahl-unten { flex-wrap: wrap; }
+.bau-wahl-hinweis {
+  flex: 1 1 100%;
+  margin: 6px 2px 0;
+  padding: 8px 12px;
+  border-radius: 14px;
+  background: #eef8ff;
+  color: #1f4f7a;
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.3;
+}
+.bau-wahl-hinweis[hidden] { display: none; }
+.bau-wahl-hinweis.is-warnung { background: #fff4d6; color: #7a4b00; border: 2px solid #ffc93c; }
+.bau-dazu {
+  height: 56px;
+  margin-top: 6px;
+  padding: 0 24px;
+  border: 3px solid #ffffff;
+  border-radius: 999px;
+  background: #e8763a;
+  color: #ffffff;
+  font-weight: 800;
+  font-size: 1.2rem;
+  box-shadow: 0 8px 16px rgba(232, 118, 58, 0.35);
+}
+.bau-ok[hidden], .bau-dazu[hidden] { display: none; }
+.bauecke.kann-lesen .bau-wahl-hinweis { cursor: pointer; }
+
+/* --- Eine Figur aus den Büchern: ihr Buch, klein, unten auf der Tafel --- */
+.bau-tafel-buch {
+  flex: 1 1 300px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 6px 10px 6px 6px;
+  border: 1px solid #eadfc8;
+  border-radius: 14px;
+  background: #fbf7ee;
+}
+.bau-tafel-buch img {
+  flex: 0 0 auto;
+  width: 56px;
+  height: 36px;
+  object-fit: cover;
+  border-radius: 6px;
+  box-shadow: 0 2px 5px rgba(36, 48, 71, 0.18);
+}
+.bau-tafel-buch p { margin: 0; color: #5f5340; font-size: 0.85rem; line-height: 1.25; }
+.bau-tafel-buch b { display: block; color: #8a5734; }
+.bauecke.kann-lesen .bau-tafel-buch { cursor: pointer; }
+
+/* Die Verläufe der Tiere: unsichtbar, aber im Dokument (nicht display:none,
+   sonst zeichnet nicht jeder Browser die Verläufe). */
+.bau-tierdefs { position: absolute; width: 0; height: 0; overflow: hidden; pointer-events: none; }
