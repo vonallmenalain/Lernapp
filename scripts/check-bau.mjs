@@ -47,6 +47,10 @@
  *                 öffnet alle Bewohner: je Wohnung die Tiere mit Sternen,
  *                 Traumjob (golden, wenn geschafft) und Wünschen. Ein Tipp
  *                 öffnet die gewohnte Tafel, die zurück zur Übersicht führt.
+ *   Sterne        Offene Sterne sind hohl; wer alle hat, ist in der Übersicht
+ *                 golden, hat auf der Tafel eine grosse goldene Kachel und am
+ *                 Lift eine goldene Reihe. Das Buch steht unten. Kommt der
+ *                 letzte Stern, erscheint ein goldenes Band und wieder weg.
  *   Wieder hinein Hinaus und wieder hinein: Zimmer und Tier-Tafel gehen auch
  *                 beim zweiten Besuch auf derselben Seite auf.
  *   Neuer Kasten  Hat ein anderes Gerät die Bauecke schon mit einer neueren
@@ -571,14 +575,22 @@ async function pruefeBewohner(browser, name, viewport) {
       // Das erste Tier bekommt seinen Traumjob: in der Bibliothek im Dorf.
       S.aendereStock("wohnhaus", 0, (st) => { st.tiere[0].traum = "zentrum:bibliothek"; });
       S.waehleRaum("zentrum", 0, 0, "bibliothek");
+      // Das zweite Tier hat alle Sterne; dem ersten fehlt nur noch ein Ball.
+      const fam = window.LernappBauKatalog.FARBE[S.zimmer("wohnhaus", 0, 0).wand].familie;
+      S.aendereStock("wohnhaus", 0, (st) => {
+        st.tiere.forEach((t) => { t.wAt = Date.now(); });
+        Object.assign(st.tiere[0], { w: [`farbe:${fam}`, "ding:ball"], g: ["raum:kinderzimmer"], b: ["fremd:zentrum:bibliothek"] });
+        Object.assign(st.tiere[1], { w: [`farbe:${fam}`], g: ["raum:kinderzimmer"], b: ["fremd:zentrum:bibliothek"] });
+      });
       S.speichern(true);
       const alle = S.alleTiere();
       return {
-        n: alle.length, hatTraum: S.hatTraumjob(alle[0].tier.seed), traumjobs: alle.filter((e) => S.hatTraumjob(e.tier.seed)).length, zweites: alle[1].tier.n,
+        n: alle.length, hatTraum: S.hatTraumjob(alle[0].tier.seed), traumjobs: alle.filter((e) => S.hatTraumjob(e.tier.seed)).length, erstes: alle[0].tier.n, zweites: alle[1].tier.n,
+        sterne: alle.slice(0, 2).map((e) => `${S.sterne(e.tier.seed).anzahl}/${S.sterne(e.tier.seed).total}`).join(" "), zweitesWuensche: S.wuensche(alle[1].tier.seed).length,
         erfuellt: alle.reduce((n, e) => n + S.sterne(e.tier.seed).anzahl, 0), wuensche: alle.reduce((n, e) => n + S.wuensche(e.tier.seed).length, 0),
       };
     });
-    pruefe(erwartet.n === 5 && erwartet.hatTraum, `${name}: Bewohner: der Test hat nicht fünf Tiere mit einem Traumjob (${erwartet.n})`);
+    pruefe(erwartet.n === 5 && erwartet.hatTraum && erwartet.sterne === "3/4 3/3", `${name}: Bewohner: der Test hat nicht fünf Tiere mit einem Traumjob und den Sternen 3/4 und 3/3 (${erwartet.n}, ${erwartet.sterne})`);
     await page.goto(`${BASIS}/index.html?bau=1`, { waitUntil: "load" });
     await page.waitForTimeout(1600);
     // Der Knopf: links, ganz im Bild, neben den anderen, mit der Zahl.
@@ -605,6 +617,8 @@ async function pruefeBewohner(browser, name, viewport) {
         wuensche: document.querySelectorAll(".bau-uebersicht .bau-bewohner-wunsch").length,
         erfuellt: document.querySelectorAll(".bau-uebersicht .bau-bewohner-wunsch.is-erfuellt").length,
         goldig: document.querySelectorAll(".bau-uebersicht .bau-bewohner.is-traum").length,
+        alle: karten.map((k, i) => (k.classList.contains("is-alle") && /Alle Sterne/.test(k.querySelector(".bau-bewohner-alle")?.textContent || "") ? i : -1)).filter((i) => i >= 0),
+        hohl: karten[0]?.querySelectorAll(".bau-stern:not(.is-voll)").length,
       };
     });
     pruefe(inhalt.karten === 5, `${name}: Bewohner: die Übersicht zeigt ${inhalt.karten} statt 5 Tiere`);
@@ -612,13 +626,28 @@ async function pruefeBewohner(browser, name, viewport) {
     pruefe(inhalt.sterne && inhalt.traum, `${name}: Bewohner: bei einem Tier fehlen die Sterne oder der Traumjob`);
     pruefe(inhalt.wuensche === erwartet.wuensche && inhalt.erfuellt === erwartet.erfuellt, `${name}: Bewohner: die Wünsche stimmen nicht (${inhalt.wuensche}/${inhalt.erfuellt} statt ${erwartet.wuensche}/${erwartet.erfuellt})`);
     pruefe(inhalt.goldig === erwartet.traumjobs, `${name}: Bewohner: ${inhalt.goldig} statt ${erwartet.traumjobs} Traumjobs golden markiert`);
+    pruefe(inhalt.alle.join() === "1" && inhalt.hohl === 1, `${name}: Bewohner: «Alle Sterne» ist nicht beim zweiten Tier, oder der offene Stern ist nicht hohl (${inhalt.alle.join()}, ${inhalt.hohl})`);
     // Ein Tipp aufs zweite Tier: seine Tafel, mit dem Weg zurück.
     await page.locator(".bau-uebersicht .bau-bewohner").nth(1).click();
     await page.waitForTimeout(500);
     pruefe(await page.locator(".bau-uebersicht:not([hidden])").count() === 0 && await page.locator(".bau-tafel:not([hidden])").count() === 1, `${name}: Bewohner: ein Tipp aufs Tier öffnet seine Tafel nicht`);
     pruefe((await page.locator(".bau-tafel-wer h2").textContent().catch(() => "")).trim().startsWith(erwartet.zweites), `${name}: Bewohner: die Tafel zeigt nicht ${erwartet.zweites}`);
-    pruefe(await page.locator(".bau-tafel .bau-wunsch").count() === 5, `${name}: Bewohner: die Tafel aus der Übersicht ist nicht die gewohnte`);
+    pruefe(await page.locator(".bau-tafel .bau-wunsch").count() === erwartet.zweitesWuensche, `${name}: Bewohner: die Tafel aus der Übersicht ist nicht die gewohnte`);
     pruefe(await page.locator('.bau-tafel-zu[aria-label="Zurück zu allen Bewohnern"]').count() === 1, `${name}: Bewohner: die Tafel führt nicht zurück zur Übersicht`);
+    // Die Sterne als grosse Kachel – golden bei allen Sternen; das Buch ganz unten.
+    const kachel = await page.evaluate(() => {
+      const k = document.querySelector(".bau-tafel:not([hidden]) .bau-sternkachel");
+      const karte = document.querySelector(".bau-tafel:not([hidden]) .bau-tafel-karte");
+      const r = k?.getBoundingClientRect();
+      return {
+        alle: Boolean(k?.classList.contains("is-alle")), voll: k?.querySelectorAll(".bau-stern-gross.is-voll").length || 0, text: k?.textContent || "",
+        gross: r ? Math.round(r.height) : 0,
+        unten: karte?.lastElementChild?.classList.contains("bau-tafel-fuss") && Boolean(karte.lastElementChild.querySelector(".bau-hinaus")),
+        buchOben: karte ? karte.querySelectorAll(":scope > .bau-tafel-buch").length : -1,
+      };
+    });
+    pruefe(kachel.alle && kachel.voll === 3 && /Alle Sterne!/.test(kachel.text) && kachel.gross >= 40, `${name}: Bewohner: die Sterne-Kachel zeigt «Alle Sterne» nicht gross und golden (${JSON.stringify(kachel)})`);
+    pruefe(kachel.unten && kachel.buchOben === 0, `${name}: Bewohner: das Buch und «Ausziehen lassen» stehen nicht ganz unten`);
     await page.locator(".bau-tafel-zu").click();
     await page.waitForTimeout(400);
     pruefe(await page.locator(".bau-uebersicht:not([hidden])").count() === 1 && await page.locator(".bau-tafel:not([hidden])").count() === 0, `${name}: Bewohner: nach der Tafel ist die Übersicht nicht wieder da`);
@@ -632,6 +661,13 @@ async function pruefeBewohner(browser, name, viewport) {
     await page.locator(".bau-tafel-zu").click();
     await page.waitForTimeout(300);
     pruefe(await page.locator(".bau-tafel:not([hidden]), .bau-uebersicht:not([hidden])").count() === 0, `${name}: Bewohner: das Kreuz der Tafel öffnet die Übersicht`);
+    // Am Lift liegt die Reihe des Tiers mit allen Sternen auf Gold.
+    pruefe(await page.locator('.bau-tafelknopf[data-stock="0"] .bau-sternzeile-gold').count() === 1, `${name}: Bewohner: am Lift ist die Reihe mit allen Sternen nicht golden`);
+    // Der letzte Stern (ein Ball fürs erste Tier): ein goldenes Band, und die Bauecke sagt es.
+    await page.evaluate(() => window.LernappBauStand.aendereZimmer("wohnhaus", 0, 0, (z) => { z.dinge.push({ k: "ballfest", i: "ball", x: 300, y: 234, c: "", f: 0, s: 1 }); }));
+    pruefe(await bis(page, (n) => (document.querySelector(".bau-sternband")?.textContent || "").includes(n), erwartet.erstes, 4000), `${name}: Bewohner: beim letzten Stern kommt kein goldenes Band`);
+    pruefe((await page.evaluate(() => window.__gesagt.join(" | "))).includes(`${erwartet.erstes} hat alle Sterne`), `${name}: Bewohner: die Bauecke sagt nicht, dass ${erwartet.erstes} alle Sterne hat`);
+    pruefe(await bis(page, () => !document.querySelector(".bau-sternband"), null, 7000), `${name}: Bewohner: das goldene Band geht nicht wieder weg`);
     // Beim Einrichten: der Knopf ist da, und das Zimmer lässt ihm Platz.
     await page.addStyleTag({ content: ".bau-welt .bau-tier { pointer-events: none !important; }" });
     await tippe(page, '.bau-raum[data-stock="0"]');

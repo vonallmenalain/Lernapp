@@ -12,11 +12,11 @@ Pepi, Miga Town, den einzelnen Toca-Apps und weiteren Bauspielen (Abschnitt 3)
 > für jedes Zimmer, Traumjobs, ein Einzug mit Lift und Feuerwerk, Stockwerke umstellen, die
 > Bauecke je Konto. Dazu kamen (Nachtrag 0K) der **KiddyDome** über zwei Stockwerke, die
 > **Tiere im Stil der Bilderbücher**, die **Figuren aus den Büchern**, die zuerst
-> einziehen, und **alle Bewohner auf einen Blick**. **Was gilt, steht in den Abschnitten
-> 0K und 0** (Etappe 2) und, wo diese nichts anderes sagen, im Abschnitt 0E1 (Etappe 1);
-> die Abschnitte 1, 2, 5 und 6 beschreiben das ursprüngliche Konzept und sind dort, wo
-> Abschnitt 0 etwas anderes sagt, überholt. Die Recherche (Abschnitt 3) und Grafik und
-> Bewegung (Abschnitt 7) gelten weiter.
+> einziehen, **alle Bewohner auf einen Blick** und **Sterne, die ins Auge stechen**. **Was
+> gilt, steht in den Abschnitten 0K und 0** (Etappe 2) und, wo diese nichts anderes sagen,
+> im Abschnitt 0E1 (Etappe 1); die Abschnitte 1, 2, 5 und 6 beschreiben das ursprüngliche
+> Konzept und sind dort, wo Abschnitt 0 etwas anderes sagt, überholt. Die Recherche
+> (Abschnitt 3) und Grafik und Bewegung (Abschnitt 7) gelten weiter.
 >
 > Zum Konzept gehört eine klickbare **Stilprobe** (Artefakt «Gripszug Bauecke»; dieselbe
 > Seite liegt als `docs/bauecke-stilprobe.html` im Repo und geht nicht auf die Site). Ihr
@@ -126,7 +126,24 @@ zusätzlich zu Abschnitt 0.
   lassen» gehen wie gewohnt weiter, ohne Umweg.
 - Solange die Übersicht offen ist, zieht niemand ein (wie bei der Tafel).
 
-### 0K.6 Dateien und Prüfungen
+### 0K.6 Sterne, die ins Auge stechen
+
+- **Geholt oder offen:** Ein geholter Stern ist gefüllt und kräftig umrandet, ein offener
+  hohl und gestrichelt – überall gleich (Tafel, Übersicht, Zimmerkopf, Wünsche, am Lift).
+- **Die Tafel** zeigt die Sterne gleich unter dem Namen als grosse **Kachel**: «3 von 5
+  Sternen – noch 2 Wünsche». Hat ein Tier **alle Sterne**, wird die Kachel golden, mit
+  Pokal: «Alle Sterne! Leo ist überglücklich.»
+- **Aus welchem Buch** eine Figur kommt, steht jetzt klein ganz unten, neben «Ausziehen
+  lassen».
+- **Alle Sterne auch anderswo:** In «Alle Bewohner» ist die Karte golden, mit «🏆 Alle
+  Sterne!», und oben steht, wie viele schon alle haben. Im Zimmerkopf ist das Tier golden,
+  mit Pokal (auf dem Handy nur golden – dort ist es eng). Am Lift liegt seine Sternreihe
+  auf Gold; haben alle in der Wohnung alle Sterne, wird die ganze Tafel golden.
+- **Der letzte Stern wird gefeiert,** gleich wo der Wunsch erfüllt wurde: ein goldenes Band
+  mit dem Tier und seinen Sternen (ein paar Sekunden), Feuerwerk über der Wohnung oder
+  Konfetti im Zimmer, und die Bauecke sagt «Juhui! Leo hat alle Sterne!».
+
+### 0K.7 Dateien und Prüfungen
 
 | Datei | Was |
 | --- | --- |
@@ -135,9 +152,9 @@ zusätzlich zu Abschnitt 0.
 | `bau-katalog.js` | der KiddyDome (`doppel`, `kinder`, Job, blauer Wunsch), `FIGUREN`, Ball, Farben, Schal und Fernrohr bei den Lieblingsdingen |
 | `bau-moebel.js` | Schal (Fino) und Fernrohr (Bruno) |
 | `bau-stand.js` | Fassung 3: KiddyDome über zwei Stockwerke, Paare beim Laden und Zusammenführen, Umstellen als Block, Dazubauen gleich darüber; Buchfiguren zuerst, mit Wunsch und Traumjob; Kinderzimmer-Tiere oft im KiddyDome |
-| `bau-art.js`, `train-bau.js`, `bau.css` | doppelt hohes Zimmer ohne Decke dazwischen, Hinweis und «Stockwerk dazubauen» in der Zimmerwahl, Mini-Lift, hohe Sprünge; die Tiere aus `bau-tiere.js` mit Blinzeln; das Buch auf der Tafel; der Bewohner-Knopf und die Übersicht aller Bewohner |
+| `bau-art.js`, `train-bau.js`, `bau.css` | doppelt hohes Zimmer ohne Decke dazwischen, Hinweis und «Stockwerk dazubauen» in der Zimmerwahl, Mini-Lift, hohe Sprünge; die Tiere aus `bau-tiere.js` mit Blinzeln; der Bewohner-Knopf und die Übersicht aller Bewohner; Sterne-Kachel, hohle und gefüllte Sterne, «Alle Sterne» golden und gefeiert, das Buch unten auf der Tafel; Anstupsen ohne CSS-Animation auf SVG |
 | `scripts/validate-bau.mjs` | KiddyDome (zwei Stockwerke, Umstellen, Zusammenführen, Flicken, Ändern, Dazubauen, Besuche), Buchfiguren (Bücher, Vorlieben, Wünsche, Traumjobs, zuerst einziehen), Fingerabdruck der Fassung 3 |
-| `scripts/check-bau.mjs` | der KiddyDome im Browser, auf Tablet und Handy; «Nach vorne/hinten» bei verschieden tiefen und bei sehr hohen Dingen; alle Bewohner (Knopf im Haus und im Zimmer, Wohnungen, Sterne, Traumjob, Wünsche, Tafel und zurück) |
+| `scripts/check-bau.mjs` | der KiddyDome im Browser, auf Tablet und Handy; «Nach vorne/hinten» bei verschieden tiefen und bei sehr hohen Dingen; alle Bewohner (Knopf im Haus und im Zimmer, Wohnungen, Sterne, Traumjob, Wünsche, Tafel und zurück); Sterne (hohl und gefüllt, Kachel, golden bei allen, am Lift, Feier beim letzten Stern, Buch unten) |
 
 ---
 

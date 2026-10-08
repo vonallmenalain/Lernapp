@@ -266,9 +266,13 @@
     const reihen = st?.tiere || [];
     if (!reihen.length) return "";
     const farbe = { gelb: "#ffc93c", gruen: "#4cc46b", blau: "#4f8ef7" };
+    // Geholt: gefüllt, dunkler umrandet. Offen: hohl und gestrichelt.
+    const rand = { gelb: "#b97f00", gruen: "#1d8445", blau: "#2457bf" };
     const stern = (x, yy, voll, f) => {
       const pfad = M().stern(x, yy, 5.4, voll ? farbe[f] : "#ffffff");
-      return voll ? pfad : pfad.replace("/>", ` stroke="${farbe[f]}" stroke-width="1.5" opacity="0.9"/>`);
+      return voll
+        ? pfad.replace("/>", ` stroke="${rand[f]}" stroke-width="0.9" stroke-linejoin="round"/>`)
+        : pfad.replace("/>", ` stroke="${farbe[f]}" stroke-width="1.3" stroke-dasharray="2 1.3" stroke-linejoin="round"/>`);
     };
     // Alle Wünsche erfüllt: Die Tafel wird golden.
     const gold = st.total > 0 && st.anzahl === st.total;
@@ -276,6 +280,8 @@
     let s = `<rect x="${cx - 34}" y="${y}" width="68" height="${h}" rx="9" fill="${gold ? "#fff3c4" : "#ffffff"}" opacity="0.96" stroke="${gold ? "#ffb703" : "#d3e3ec"}" stroke-width="${gold ? 4 : 2}"/>`;
     reihen.forEach((r, n) => {
       const ry = y + 12.5 + n * 15;
+      // Ein Tier mit allen Sternen: seine Reihe liegt auf Gold.
+      if (r.total > 0 && r.anzahl === r.total) s += `<rect class="bau-sternzeile-gold" x="${cx - 32}" y="${ry - 7}" width="64" height="14" rx="7" fill="#ffd34d" stroke="#e09b00" stroke-width="1"/>`;
       const zeile = [...(r.gelb || []).map((v) => [v, "gelb"]), ...(r.gruen || []).map((v) => [v, "gruen"]), ...(r.blau || []).map((v) => [v, "blau"])];
       zeile.forEach(([voll, f], i) => { s += stern(cx - 25 + i * 12.5, ry, voll, f); });
     });

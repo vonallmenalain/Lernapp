@@ -225,9 +225,11 @@
 
     // Wer sich ändert, zeichnet nach: die Cloud, neue Ziegel, ein Tier.
     ui.traumBekannt = traumStand();
+    ui.alleBekannt = alleStand();
     ui.abmelden = S().onChange((grund) => {
       if (!ui.host?.isConnected) return;
       if (grund === "neuer" || grund === "konto") { mount({ host: ui.host, stage: ui.stage, onPlay: ui.onPlay }); return; }
+      if (grund !== "ziegel") pruefeAlleSterne();
       if (grund !== "zimmer" && grund !== "ziegel") pruefeTraumjobs();
       if (grund === "zimmer") { aktualisiereSterne(); return; }
       if (grund === "ziegel") { aktualisiereHud(); pruefeLieferung(); return; }
@@ -260,6 +262,7 @@
 
   function unmount() {
     window.clearTimeout(traumUhr);
+    window.clearTimeout(alleUhr);
     window.clearTimeout(liftUhr);
     if (ui.tickUhr) window.clearInterval(ui.tickUhr);
     ui.tickUhr = 0;
@@ -422,6 +425,55 @@
       const namen = S().stock("wohnhaus", voll[0]).tiere.map((t) => t.n);
       window.setTimeout(() => sag(`Juhui! ${namenListe(namen)} haben alle ihren Traumjob. Schau dir ihre Wohnung im Wohnhaus an!`), 4200);
     }
+  }
+
+  // Wer alle Sterne hat (je Tier: ja oder nein).
+  function alleStand() {
+    return new Map(S().alleTiere().map((e) => { const st = S().sterne(e.tier.seed); return [e.tier.seed, st.total > 0 && st.anzahl === st.total]; }));
+  }
+
+  // Bekommt ein Tier seinen letzten Stern – gleich wo der Wunsch erfüllt
+  // wurde –, wird gefeiert: ein goldenes Band mit dem Tier, Konfetti oder
+  // Feuerwerk, und die Bauecke sagt es. Wer eben einzieht, zählt nicht.
+  let alleUhr = 0;
+  function pruefeAlleSterne() {
+    window.clearTimeout(alleUhr);
+    alleUhr = window.setTimeout(() => {
+      if (!ui.host?.isConnected) return;
+      const vorher = ui.alleBekannt || new Map();
+      const jetzt = alleStand();
+      ui.alleBekannt = jetzt;
+      const neu = [...jetzt].filter(([seed, hat]) => hat && vorher.has(seed) && !vorher.get(seed)).map(([seed]) => seed);
+      if (neu.length) feiereAlleSterne(neu);
+    }, 80);
+  }
+
+  function feiereAlleSterne(seeds) {
+    const ref = S().findeTier(seeds[0]);
+    if (!ref) return;
+    const { tier } = ref;
+    // Erst das Danke für den Wunsch, dann die Feier.
+    window.setTimeout(() => {
+      if (!ui.host?.isConnected) return;
+      klang("win");
+      const total = S().sterne(tier.seed).total;
+      ui.host.querySelector(".bau-sternband")?.remove();
+      const band = el("div", "bau-sternband", { role: "status" });
+      band.innerHTML = `${tierBildchen(tier, 64, 76, "bau-sternband-tier")}` +
+        `<span class="bau-sternband-text"><b>Alle Sterne!</b><span>${textSicher(tier.n)} ist überglücklich.</span></span>` +
+        `<span class="bau-sternband-sterne" aria-hidden="true">${Array.from({ length: total }, (_, i) => `<i class="bau-stern bau-stern-gross bau-stern-weiss" style="animation-delay:${(0.2 + i * 0.12).toFixed(2)}s"></i>`).join("")}</span>`;
+      ui.host.append(band);
+      window.setTimeout(() => band.classList.add("is-weg"), 3800);
+      window.setTimeout(() => band.remove(), 4400);
+      if (ui.zimmer >= 0) kids()?.burstConfetti?.(els.zimmer, 60);
+      else if (ref.hausId === ui.haus) {
+        const svg = els.welt?.querySelector("svg");
+        const st = S().stock(ref.hausId, ref.index);
+        if (svg && st) feuerwerk(svg, A().ZX + S().breiteVon(st) / 2, A().oben(ref.index) + 50, S().breiteVon(st));
+      }
+      for (const t of tiere.values()) if (seeds.includes(t.tier.seed)) { t.huepf = 1; wecke(); }
+      sag(`Juhui! ${tier.n} hat alle Sterne! ${tier.n} ist überglücklich.`);
+    }, ui.zimmer >= 0 ? 1300 : 300);
   }
 
   // ---------------------------------------------------------------------------
@@ -1855,8 +1907,9 @@
         const st5 = S().sterne(tier.seed);
         const laune = S().laune(tier.seed);
         const traum = S().hatTraumjob(tier.seed);
-        const t = knopf(`bau-zimmertier${traum ? " is-traum" : ""}`, `${tier.n}: ${st5.anzahl} von ${st5.total} Sternen${traum ? ", hat den Traumjob" : ""}. Antippen für mehr.`,
-          `${bild(tier)}<span class="bau-sternreihe">${sternReiheHtml(st5)}</span><span class="bau-sternzahl"><i class="bau-stern is-gelb is-voll"></i>${st5.anzahl}/${st5.total}</span>${traum ? abzeichen : ""}<span class="bau-laune" aria-hidden="true">${laune.emoji}</span>`,
+        const voll = st5.total > 0 && st5.anzahl === st5.total;
+        const t = knopf(`bau-zimmertier${traum ? " is-traum" : ""}${voll ? " is-alle" : ""}`, `${tier.n}: ${voll ? "alle Sterne" : `${st5.anzahl} von ${st5.total} Sternen`}${traum ? ", hat den Traumjob" : ""}. Antippen für mehr.`,
+          `${bild(tier)}<span class="bau-sternreihe">${sternReiheHtml(st5)}</span><span class="bau-sternzahl"><i class="bau-stern is-gelb is-voll"></i>${st5.anzahl}/${st5.total}</span>${voll ? `<span class="bau-zimmertier-pokal" aria-hidden="true">🏆</span>` : ""}${traum ? abzeichen : ""}<span class="bau-laune" aria-hidden="true">${laune.emoji}</span>`,
           () => oeffneTafel(tier.seed));
         els.zimmerKopf.append(t);
       });
@@ -2667,15 +2720,7 @@
       klang("correct");
       const dank = w?.typ === "ding" ? `Juhu, ${K().DING_WUENSCHE[w.tag]?.ein || "danke"}! Danke!` : w?.typ === "farbe" ? "Juhu, meine Lieblingsfarbe! Danke!" : "Danke!";
       sag(`${tier.n}: ${dank}`);
-      const alle = S().sterne(tier.seed);
-      if (alle.total && alle.anzahl === alle.total) {
-        window.setTimeout(() => {
-          klang("unlock");
-          const svg = els.zimmerBuehne.querySelector("svg");
-          if (svg) kids()?.burstConfetti?.(svg, 40);
-          sag(`${tier.n} ist überglücklich! Alle Sterne!`);
-        }, 1400);
-      }
+      // Waren das alle Sterne, feiert feiereAlleSterne() – gleich danach.
     });
     if (gedankt) zeichneZimmerKopf();
   }
@@ -2716,9 +2761,11 @@
     const anzahl = sterne.reduce((n, s) => n + s.anzahl, 0);
     const total = sterne.reduce((n, s) => n + s.total, 0);
     const traum = alle.filter((e) => S().hatTraumjob(e.tier.seed)).length;
+    const voll = sterne.filter((s) => s.total > 0 && s.anzahl === s.total).length;
     const wer = alle.length === 1 ? "Ein Tier wohnt" : `${alle.length} Tiere wohnen`;
+    const vollSatz = voll === 0 ? "" : voll === 1 ? " Eines hat schon alle Sterne." : ` ${voll} haben schon alle Sterne.`;
     const traumSatz = traum === 0 ? "Noch keines hat seinen Traumjob." : traum === 1 ? "Eines hat seinen Traumjob." : `${traum} haben ihren Traumjob.`;
-    return `${wer} im Wohnhaus. Zusammen haben sie ${anzahl} von ${total} Sternen. ${traumSatz}`;
+    return `${wer} im Wohnhaus. Zusammen haben sie ${anzahl} von ${total} Sternen.${vollSatz} ${traumSatz}`;
   }
 
   function fuelleUebersicht() {
@@ -2776,6 +2823,7 @@
     const katalog = K();
     const art = katalog.TIERE[tier.a];
     const sterne = S().sterne(tier.seed);
+    const alleSterne = sterne.total > 0 && sterne.anzahl === sterne.total;
     const laune = S().laune(tier.seed);
     const hatTraum = S().hatTraumjob(tier.seed);
     const traumRaum = katalog.RAEUME[String(tier.traum || "").split(":")[1]];
@@ -2784,15 +2832,15 @@
     const figur = S().figurVon(tier);
     const wunschSatz = offen.length === 0 ? "Alle Wünsche sind erfüllt." : offen.length === 1 ? "Ein Wunsch fehlt noch." : `${offen.length} Wünsche fehlen noch.`;
     const traumSatz = traumRaum ? ` Traumjob: ${traumRaum.name}${hatTraum ? " – geschafft!" : "."}` : "";
-    const label = `${tier.n}, ${art?.der || ""}. ${sterne.anzahl} von ${sterne.total} Sternen.${traumSatz} ${wunschSatz}`;
+    const label = `${tier.n}, ${art?.der || ""}. ${alleSterne ? "Alle Sterne!" : `${sterne.anzahl} von ${sterne.total} Sternen.`}${traumSatz} ${wunschSatz}`;
     const bilder = [...offen, ...wuensche.filter((w) => w.erfuellt)].map((w) =>
       `<span class="bau-bewohner-wunsch is-${w.stern}${w.erfuellt ? " is-erfuellt" : ""}">${svgVon(wunschBild(w, 32), "-19 -19 38 38")}</span>`).join("");
-    return knopf(`bau-bewohner${hatTraum ? " is-traum" : ""}`, label,
+    return knopf(`bau-bewohner${hatTraum ? " is-traum" : ""}${alleSterne ? " is-alle" : ""}`, label,
       `<span class="bau-bewohner-bild">${tierBildchen(tier, 66, 80)}${figur ? `<span class="bau-bewohner-buch" aria-hidden="true">📖</span>` : ""}</span>` +
       `<span class="bau-bewohner-text">` +
       `<span class="bau-bewohner-name"><b>${textSicher(tier.n)}</b> <span class="bau-bewohner-laune" aria-hidden="true">${laune.emoji}</span></span>` +
       `<span class="bau-bewohner-art">${textSicher(art?.name || "")}</span>` +
-      `<span class="bau-bewohner-sterne"><span class="bau-sternreihe">${sternReiheHtml(sterne)}</span><span>${sterne.anzahl}/${sterne.total}</span></span>` +
+      `<span class="bau-bewohner-sterne"><span class="bau-sternreihe">${sternReiheHtml(sterne)}</span>${alleSterne ? `<span class="bau-bewohner-alle">🏆 Alle Sterne!</span>` : `<span>${sterne.anzahl}/${sterne.total}</span>`}</span>` +
       (traumRaum ? `<span class="bau-bewohner-traum${hatTraum ? " is-erfuellt" : ""}">${traumZeichen("", hatTraum)}<span><small>Traumjob:</small> ${textSicher(traumRaum.name)}</span>${hatTraum ? `<span class="bau-bewohner-haken" aria-hidden="true">✓</span>` : ""}</span>` : "") +
       `<span class="bau-bewohner-wuensche">${bilder}</span>` +
       `</span>`,
@@ -2878,20 +2926,9 @@
     const kopf = el("div", "bau-tafel-kopf");
     kopf.innerHTML = `${tierBildchen(tier, 80, 100, "bau-tafel-tier")}` +
       `<div class="bau-tafel-wer"><h2>${textSicher(tier.n)}${S().hatTraumjob(tier.seed) ? ` ${traumZeichen("hat den Traumjob")}` : ""}</h2><p>${gross(art.der)} · wohnt ${S().imRaum(raum?.id)} ${katalog.HAUS.wohnhaus.im}</p>` +
-      `<p class="bau-tafel-laune"><span aria-hidden="true">${laune.emoji}</span> ${laune.text}</p>` +
-      `<p class="bau-tafel-zahl"><span class="bau-sternreihe">${sternReiheHtml(sterne)}</span> ${sterne.anzahl} von ${sterne.total}</p></div>`;
-    karte.append(kopf);
-    // Eine Figur aus den Büchern der Leseecke: ihr Buch, mit dem Umschlag, und
-    // was sie von sich erzählt.
-    const figur = S().figurVon(tier);
-    const buch = figur?.buecher?.[0];
-    if (buch) {
-      const satz = `${figur.ich} Aus dem Buch «${buch.titel}».`;
-      const box = el("div", "bau-tafel-buch bau-lies", { "data-lies": satz });
-      box.innerHTML = `<img src="bilder/buecher/${buch.id}/umschlag-klein.webp" alt="" loading="lazy" decoding="async">` +
-        `<p><b>Aus dem Buch «${textSicher(buch.titel)}»</b><span>${textSicher(figur.ich)}</span></p>`;
-      karte.append(box);
-    }
+      `<p class="bau-tafel-laune"><span aria-hidden="true">${laune.emoji}</span> ${laune.text}</p></div>`;
+    // Gleich darunter, gross: die Sterne.
+    karte.append(kopf, sternKachel(tier, sterne));
     // Wo es gerade ist – mit dem Weg dorthin.
     const wo = S().aufenthalt(tier.seed);
     const woZeile = el("div", `bau-tafel-wo${wo?.wo === "daheim" ? " is-daheim" : ""}`);
@@ -2914,10 +2951,41 @@
     karte.append(liste, legende);
     // Traumjob und Arbeit.
     karte.append(arbeitTeil(tier));
-    const weg = knopf("bau-hinaus", `${tier.n} ausziehen lassen`, `🧳 Ausziehen lassen`, () => frageAuszug(tier));
-    karte.append(weg);
+    // Ganz unten: aus welchem Buch der Leseecke die Figur kommt (klein, mit
+    // dem Umschlag) und das Ausziehen.
+    const fuss = el("div", "bau-tafel-fuss");
+    const figur = S().figurVon(tier);
+    const buch = figur?.buecher?.[0];
+    if (buch) {
+      const satz = `${figur.ich} Aus dem Buch «${buch.titel}».`;
+      const box = el("div", "bau-tafel-buch bau-lies", { "data-lies": satz });
+      box.innerHTML = `<img src="bilder/buecher/${buch.id}/umschlag-klein.webp" alt="" loading="lazy" decoding="async">` +
+        `<p><b>Aus dem Buch «${textSicher(buch.titel)}»</b><span>${textSicher(figur.ich)}</span></p>`;
+      fuss.append(box);
+    }
+    fuss.append(knopf("bau-hinaus", `${tier.n} ausziehen lassen`, `🧳 Ausziehen lassen`, () => frageAuszug(tier)));
+    karte.append(fuss);
     els.tafel.innerHTML = "";
     els.tafel.append(karte);
+  }
+
+  // Die Sterne eines Tiers als Kachel: gross, geholte gefüllt, offene hohl.
+  // Hat es alle, wird die Kachel golden – mit Pokal.
+  function sternKachel(tier, sterne) {
+    const alle = sterne.total > 0 && sterne.anzahl === sterne.total;
+    const fehlt = sterne.total - sterne.anzahl;
+    const noch = fehlt === 1 ? "Noch ein Wunsch" : `Noch ${fehlt} Wünsche`;
+    const satz = alle
+      ? `${tier.n} hat alle ${sterne.total} Sterne! ${tier.n} ist überglücklich.`
+      : `${tier.n} hat ${sterne.anzahl} von ${sterne.total} Sternen. ${noch} – unten steht, welche.`;
+    const box = el("div", `bau-sternkachel bau-lies${alle ? " is-alle" : ""}`, { "data-lies": satz });
+    const reihe = [...sterne.gelb.map((v) => [v, "gelb"]), ...sterne.gruen.map((v) => [v, "gruen"]), ...sterne.blau.map((v) => [v, "blau"])];
+    box.innerHTML = `<span class="bau-sternkachel-sterne" aria-hidden="true">${reihe.map(([v, f]) => `<i class="bau-stern bau-stern-gross is-${f}${v ? " is-voll" : ""}"></i>`).join("")}</span>` +
+      `<span class="bau-sternkachel-text">${alle
+        ? `<b>Alle Sterne!</b><span>${textSicher(tier.n)} ist überglücklich.</span>`
+        : `<b>${sterne.anzahl} von ${sterne.total} Sternen</b><span>${noch} – unten steht, welche.</span>`}</span>` +
+      (alle ? `<span class="bau-sternkachel-pokal" aria-hidden="true">🏆</span>` : "");
+    return box;
   }
 
   // Der Traumjob und die Arbeit, die ein Tier gerade hat.
