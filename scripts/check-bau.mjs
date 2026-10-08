@@ -31,6 +31,10 @@
  *   Vorlesen aus  Mit ausgeschaltetem Vorlesen bleibt die Bauecke still.
  *   Unterwegs     Später zieht ein zweites Tier ein – mit Feuerwerk. Ein Tier
  *                 bei der Arbeit: "Hingehen" führt ins richtige Haus.
+ *   Traumjob      Hat ein Bewohner seinen Traumjob, zeigt die Wohnung es von
+ *                 aussen (Rahmen und Schild, Stufe 1 bis 3). Oben in einem
+ *                 Arbeitszimmer stehen nur, wer dort den Traumjob hat oder
+ *                 sich das Zimmer wünscht – ohne die Sterne der Wohnung.
  *   Wieder hinein Hinaus und wieder hinein: Zimmer und Tier-Tafel gehen auch
  *                 beim zweiten Besuch auf derselben Seite auf.
  *   Neuer Kasten  Hat ein anderes Gerät die Bauecke schon mit einer neueren
@@ -458,6 +462,29 @@ async function pruefeSonderfaelle(browser, name, viewport) {
       pruefe(await page.locator(`.bau-tier[data-seed="${arbeit.seed}"]`).count() === 1, `${name}: das Tier ist an seinem Arbeitsplatz nicht zu sehen`);
     }
 
+    // --- Traumjob: von aussen am Stockwerk, oben im Zimmer ---------------------
+    await page.goto(`${BASIS}/index.html?bau=1`, { waitUntil: "load" });
+    await page.waitForTimeout(1200);
+    await page.evaluate(() => {
+      const S = window.LernappBauStand;
+      S.aendereStock("wohnhaus", 0, (st) => st.tiere.forEach((t, k) => { t.traum = k === 0 ? "zentrum:bibliothek" : "spital:augen"; t.b = ["fremd:spital:augen", "fremd:zentrum:bibliothek"]; }));
+      S.speichern(true);
+    });
+    await page.goto(`${BASIS}/index.html?bau=1`, { waitUntil: "load" });
+    await page.waitForTimeout(1500);
+    await page.locator('.bau-tab[data-haus="wohnhaus"]').click();
+    await page.waitForTimeout(900);
+    pruefe(await page.locator('.bau-traummarke[data-stock="0"][data-stufe="1"]').count() === 1, `${name}: die Wohnung zeigt von aussen nicht, dass eines den Traumjob hat`);
+    await page.locator('.bau-tab[data-haus="zentrum"]').click();
+    await page.waitForTimeout(900);
+    await tippe(page, '.bau-raum[data-stock="0"]');
+    await page.waitForTimeout(1600);
+    const kopf = await page.locator(".bau-zimmertier").evaluateAll((b) => b.map((x) => ({ traum: x.classList.contains("is-traum"), stern: Boolean(x.querySelector(".bau-stern.is-blau")), reihe: Boolean(x.querySelector(".bau-sternreihe")) })));
+    pruefe(kopf.length === 2 && kopf[0].traum && !kopf[1].traum && kopf[1].stern && !kopf.some((k) => k.reihe), `${name}: oben in der Bibliothek stehen nicht nur, wer dort den Traumjob hat oder sie sich wünscht (${JSON.stringify(kopf)})`);
+    pruefe((await page.evaluate(() => window.__gesagt.at(-1) || "")).includes("hier den Traumjob"), `${name}: das Zimmer sagt nicht, wer hier den Traumjob hat`);
+    await page.locator(".stage-back").click();
+    await page.waitForTimeout(1000);
+
     // --- Wieder hinein: Zimmer und Tafel gehen auch beim zweiten Mal auf -------
     await page.goto(`${BASIS}/index.html?bau=1`, { waitUntil: "load" });
     await page.waitForTimeout(1500);
@@ -518,4 +545,4 @@ if (befunde.length) {
   befunde.forEach((b) => console.error(`  - ${b}`));
   process.exit(1);
 }
-console.log("Die Bauecke läuft: Bauplatz, Hauswahl, Einzug mit Feuerwerk, Zimmer mit eigenen Dingen, Tier-Tafel mit Hingehen, Umstellen, Rätsel, Lieferung, Bauen, Vorlesen per Tipp – auf Tablet und Handy.");
+console.log("Die Bauecke läuft: Bauplatz, Hauswahl, Einzug mit Feuerwerk, Zimmer mit eigenen Dingen, Tier-Tafel mit Hingehen, Traumjob von aussen und im Zimmer, Umstellen, Rätsel, Lieferung, Bauen, Vorlesen per Tipp – auf Tablet und Handy.");

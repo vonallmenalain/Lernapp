@@ -272,6 +272,53 @@
   }
   function sternTafelHoehe(st) { return (st?.tiere?.length || 0) ? 10 + st.tiere.length * 15 : 0; }
 
+  // Der Traumjob: eine goldene Aktentasche mit einem Funkeln – unabhängig von
+  // den Sternen der Wünsche. Leer ist es ein gestrichelter Platz. Um (0, 0),
+  // gut 20 breit.
+  function traumAbzeichen(voll = true) {
+    if (!voll) return `<rect x="-9" y="-6" width="18" height="13" rx="3" fill="#ffffff" stroke="#cbd5e0" stroke-width="1.8" stroke-dasharray="3 2"/>`;
+    return `<path d="M-3.5 -6v-2.4a1.8 1.8 0 0 1 1.8-1.8h3.4a1.8 1.8 0 0 1 1.8 1.8V-6" fill="none" stroke="#a86b00" stroke-width="2"/>` +
+      `<rect x="-9" y="-6" width="18" height="13" rx="3" fill="#ffc93c" stroke="#a86b00" stroke-width="1.8"/>` +
+      `<path d="M-9 -0.5h18" stroke="#a86b00" stroke-width="1.4"/><rect x="-2" y="-2.2" width="4" height="3.4" rx="0.8" fill="#a86b00"/>` +
+      `<path d="M10 -12l1.3 2.8 2.8 1.3-2.8 1.3L10 -3.8 8.7 -6.6 5.9 -7.9 8.7 -9.2z" fill="#fff3a0" stroke="#e0a400" stroke-width="0.8"/>`;
+  }
+
+  // Wie viele Bewohner einer Wohnung ihren Traumjob haben, von aussen – in
+  // drei Stufen: Ein goldener Rahmen um die Wohnung wird mit jedem Traumjob
+  // kräftiger, und links am Haus hängt ein Schild mit drei Plätzen. Haben
+  // alle drei ihren Traumjob, leuchtet die Wohnung, und das Schild trägt eine
+  // Krone.
+  function traumRahmen(i, n) {
+    const stufe = Math.max(0, Math.min(3, n));
+    if (!stufe) return "";
+    const y = oben(i);
+    const breite = [0, 5, 8, 12][stufe];
+    const farbe = ["", "#ffd166", "#ffbf3c", "#f5a300"][stufe];
+    let s = "";
+    if (stufe === 3) s += `<rect class="bau-traumglanz" x="${ZX + 12}" y="${y + 12}" width="${ZW - 24}" height="${ZH - 24}" rx="10" fill="none" stroke="#fff3a0" stroke-width="22" opacity="0.6"/>`;
+    s += `<rect x="${ZX + breite / 2 + 1}" y="${y + breite / 2 + 1}" width="${ZW - breite - 2}" height="${ZH - breite - 2}" rx="8" fill="none" stroke="${farbe}" stroke-width="${breite}"/>`;
+    return s;
+  }
+  function traumSchild(i, n) {
+    const stufe = Math.max(0, Math.min(3, n));
+    if (!stufe) return "";
+    const y = oben(i) + 34;
+    const x0 = -92;
+    const gold = stufe === 3;
+    let s = `<path d="M${x0 + 78} ${y + 18}h14" stroke="#a0aec0" stroke-width="5" stroke-linecap="round"/>` +
+      `<rect x="${x0}" y="${y}" width="80" height="36" rx="11" fill="${gold ? "#fff3c4" : "#fffaf0"}" stroke="${gold ? "#f5a300" : "#e8c45a"}" stroke-width="${gold ? 4 : 3}"/>`;
+    for (let k = 0; k < 3; k += 1) s += `<g transform="translate(${x0 + 17 + k * 23} ${y + 21})">${traumAbzeichen(k < stufe)}</g>`;
+    if (gold) {
+      const cx = x0 + 40;
+      s += `<path d="M${cx - 17} ${y - 1}l-4 -19 10 9 11 -14 11 14 10 -9 -4 19z" fill="#ffc93c" stroke="#a86b00" stroke-width="2" stroke-linejoin="round"/>` +
+        `<circle cx="${cx - 21}" cy="${y - 20}" r="3" fill="#ff7aa2"/><circle cx="${cx}" cy="${y - 23}" r="3.4" fill="#4f8ef7"/><circle cx="${cx + 21}" cy="${y - 20}" r="3" fill="#4cc46b"/>`;
+      [[x0 - 8, y - 6, 1], [x0 + 88, y - 10, 0.8], [x0 + 6, y + 46, 0.7]].forEach(([fx, fy, k]) => {
+        s += `<path d="M${fx} ${fy - 9 * k}l${2.2 * k} ${6.8 * k} ${6.8 * k} ${2.2 * k}-${6.8 * k} ${2.2 * k}L${fx} ${fy + 9 * k}l-${2.2 * k}-${6.8 * k}-${6.8 * k}-${2.2 * k} ${6.8 * k}-${2.2 * k}z" fill="#fff3a0" stroke="#e0a400" stroke-width="1"/>`;
+      });
+    }
+    return s;
+  }
+
   // Die Liftkabine für den Einzug: um (0, 0) als Boden der Kabine.
   function liftKabine() {
     const w = LIFT - 18;
@@ -412,7 +459,7 @@
   window.LernappBauArt = {
     ZW, ZH, WAND, LIFT, DECKE, STOCK, FUSS, HB, ZX, LX, DACH_H,
     unten, oben, musterDef, boden, zimmerSchale, rohbauSchale, trennwand, tier, koffer,
-    hausRahmen, liftStock, sternTafel, sternTafelHoehe, liftKabine, dach, naechsterStock, strasse, baum, laterne,
+    hausRahmen, liftStock, sternTafel, sternTafelHoehe, traumAbzeichen, traumRahmen, traumSchild, liftKabine, dach, naechsterStock, strasse, baum, laterne,
     lieferzug, palette, minihaus, minihausHoehe, hausZeichen,
   };
 })();

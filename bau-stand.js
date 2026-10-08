@@ -961,6 +961,32 @@
     return karte;
   }
   function jobVon(seed) { return jobs().get(seed) || null; }
+  function hatTraumjob(seed) { return Boolean(jobVon(seed)?.traum); }
+
+  // Wie viele Bewohner einer Wohnung ihren Traumjob haben (0 bis 3) – das
+  // Stockwerk zeigt es von aussen, in drei Stufen.
+  function traumjobsStock(hausId, index) {
+    const st = stock(hausId, index);
+    return (st?.tiere || []).filter((t) => hatTraumjob(t.seed)).length;
+  }
+
+  // Wer zu einem Zimmer in Spital, Dorf oder Büro gehört: wer hier seinen
+  // Traumjob hat, und wer sich dieses Zimmer wünscht (ein blauer Wunsch). Wer
+  // hier nur irgendeine Arbeit hat, gehört nicht dazu.
+  function zimmerTiere(hausId, index, slot = 0) {
+    const st = stock(hausId, index);
+    const raumId = st?.zimmer?.[slot]?.raum;
+    if (!raumId || !ARBEITS_HAEUSER.includes(hausId)) return [];
+    const liste = [];
+    alleTiere().forEach(({ tier }) => {
+      const job = jobVon(tier.seed);
+      const traumHier = Boolean(job?.traum && job.haus === hausId && job.stockId === st.id && job.slot === slot);
+      const wunsch = tier.b.includes(`fremd:${hausId}:${raumId}`);
+      if (traumHier || wunsch) liste.push({ tier, traumHier, wunsch });
+    });
+    // Die mit dem Traumjob zuerst, dann wer zuerst eingezogen ist.
+    return liste.sort((a, b) => (Number(b.traumHier) - Number(a.traumHier)) || (a.tier.seit - b.tier.seit) || (a.tier.seed < b.tier.seed ? -1 : 1));
+  }
 
   // Wie ein Job heisst: "Brot backen in der Bäckerei (Dorf)".
   function jobText(raumId, hausId) {
@@ -1087,7 +1113,7 @@
     aendereStock, aendereZimmer, aendereHaus, speichern,
     alleTiere, findeTier, neuesTier, wuenscheFuer, zuzugFaellig, ziehtEin, hinausschicken,
     erfuellt, wuensche, sterne, sterneStock, laune, fortschritt, beschreibe,
-    arbeitsplaetze, jobVon, jobText, aufenthalt, besucher, imRaum, woText,
+    arbeitsplaetze, jobVon, hatTraumjob, traumjobsStock, zimmerTiere, jobText, aufenthalt, besucher, imRaum, woText,
     tick, onChange, kennung, hash,
   };
 })();

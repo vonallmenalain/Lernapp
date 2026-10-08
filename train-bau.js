@@ -213,9 +213,11 @@
     host.addEventListener("click", liesText);
 
     // Wer sich ändert, zeichnet nach: die Cloud, neue Ziegel, ein Tier.
+    ui.traumBekannt = traumStand();
     ui.abmelden = S().onChange((grund) => {
       if (!ui.host?.isConnected) return;
       if (grund === "neuer" || grund === "konto") { mount({ host: ui.host, stage: ui.stage, onPlay: ui.onPlay }); return; }
+      if (grund !== "zimmer" && grund !== "ziegel") pruefeTraumjobs();
       if (grund === "zimmer") { aktualisiereSterne(); return; }
       if (grund === "ziegel") { aktualisiereHud(); pruefeLieferung(); return; }
       if (grund === "cloud" || grund === "tier" || grund === "wunsch") { auffrischen(); }
@@ -245,6 +247,7 @@
   }
 
   function unmount() {
+    window.clearTimeout(traumUhr);
     if (ui.tickUhr) window.clearInterval(ui.tickUhr);
     ui.tickUhr = 0;
     ui.abmelden?.();
@@ -362,6 +365,47 @@
     if (performance.now() - ui.letzterEinzug < 30000 && ui.letzterEinzug) return;
     const tier = S().ziehtEin(fall.hausId, fall.index);
     if (tier) zeigeEinzug(fall.index, tier);
+  }
+
+  // Wer gerade seinen Traumjob hat (je Tier: ja oder nein).
+  function traumStand() {
+    return new Map(S().alleTiere().map((e) => [e.tier.seed, S().hatTraumjob(e.tier.seed)]));
+  }
+
+  // Bekommt ein Tier seinen Traumjob (weil das Zimmer jetzt gebaut ist oder
+  // dort Platz wurde), wird gefeiert: ein Klang, Konfetti oder Feuerwerk,
+  // und das Tier sagt es. Wer eben erst einzieht, zählt nicht – den Einzug
+  // sagt die Ansicht selbst an.
+  let traumUhr = 0;
+  function pruefeTraumjobs() {
+    window.clearTimeout(traumUhr);
+    traumUhr = window.setTimeout(() => {
+      if (!ui.host?.isConnected) return;
+      const vorher = ui.traumBekannt || new Map();
+      const jetzt = traumStand();
+      ui.traumBekannt = jetzt;
+      const neu = [...jetzt].filter(([seed, hat]) => hat && vorher.has(seed) && !vorher.get(seed)).map(([seed]) => seed);
+      if (neu.length) feiereTraumjob(neu);
+    }, 60);
+  }
+
+  function feiereTraumjob(seeds) {
+    klang("win");
+    const job = S().jobVon(seeds[0]);
+    const svg = els.welt?.querySelector("svg");
+    if (ui.zimmer >= 0) kids()?.burstConfetti?.(els.zimmer, 40);
+    else if (svg && job && job.haus === ui.haus) {
+      const breite = S().breiteVon(S().stock(job.haus, job.index));
+      feuerwerk(svg, A().ZX + job.slot * HALB + breite / 2, A().oben(job.index) + 50, breite);
+    }
+    seeds.forEach((seed) => window.setTimeout(() => blaseAnSeed(seed, "Mein Traumjob! 🌟", 3400), 700));
+    // Haben jetzt alle drei einer Wohnung ihren Traumjob, sagt die Bauecke es.
+    const voll = [...new Set(seeds.map((seed) => S().findeTier(seed)).filter(Boolean).map((r) => r.index))]
+      .filter((index) => { const st = S().stock("wohnhaus", index); return st?.tiere.length === 3 && S().traumjobsStock("wohnhaus", index) === 3; });
+    if (voll.length) {
+      const namen = S().stock("wohnhaus", voll[0]).tiere.map((t) => t.n);
+      window.setTimeout(() => sag(`Juhui! ${namenListe(namen)} haben alle ihren Traumjob. Schau dir ihre Wohnung im Wohnhaus an!`), 4200);
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -667,7 +711,7 @@
     let liftTeil = "";
     for (let i = 0; i < anzahl; i += 1) {
       const st = haus.stock[i];
-      zimmerTeil += `<g class="bau-stockreihe" data-stock="${i}">${stockMarkup(st, i)}</g>`;
+      zimmerTeil += `<g class="bau-stockreihe" data-stock="${i}">${stockMarkup(st, i)}${traumMarkup(st, i)}</g>`;
       liftTeil += `<g class="bau-lift" data-stock="${i}">${art.liftStock(i)}</g>`;
       if (st.tiere.length) liftTeil += `<g class="bau-tafelknopf" data-ziel="tafel" data-stock="${i}" role="button" tabindex="0" aria-label="Wer hier wohnt">${art.sternTafel(S().sterneStock(ui.haus, i), art.LX + art.LIFT / 2, art.oben(i) + 10)}</g>`;
     }
@@ -720,6 +764,20 @@
     return st.zimmer.map((z, slot) => (z.raum
       ? feld(slot, HALB, "zimmer", zimmerInhalt(ui.haus, i, slot, { klein: true }), K().RAEUME[z.raum]?.name || "Zimmer")
       : feld(slot, HALB, "leer", art.rohbauSchale(HALB, "plus"), "Ein leeres Zimmer: Was soll es werden?"))).join("");
+  }
+
+  // Wie viele hier ihren Traumjob haben: von aussen zu sehen, in drei Stufen
+  // (bau-art.js). Ein Tipp aufs Schild öffnet die Tafel der Wohnung.
+  function traumMarkup(st, i) {
+    if (st.art !== "wohnung" || !st.tiere.length) return "";
+    const n = S().traumjobsStock(ui.haus, i);
+    if (!n) return "";
+    const art = A();
+    const satz = n === st.tiere.length
+      ? (n === 1 ? "Wer hier wohnt, hat den Traumjob" : `Alle ${n} hier haben ihren Traumjob`)
+      : `${n} von ${st.tiere.length} hier ${n === 1 ? "hat den" : "haben ihren"} Traumjob`;
+    return `<g pointer-events="none">${art.traumRahmen(i, n)}</g>` +
+      `<g class="bau-traummarke${n >= 3 ? " is-gold" : ""}" data-ziel="tafel" data-stock="${i}" data-stufe="${n}" role="button" tabindex="0" aria-label="${satz}">${art.traumSchild(i, n)}</g>`;
   }
 
   // Die Pfeile zum Umstellen, rechts am Haus.
@@ -1238,7 +1296,7 @@
     leuchte(els.welt.querySelector("svg"), index, zielX, zielY - 60);
     klang("win");
     for (const t of tiere.values()) if (t.tier.seed === tier.seed) { t.huepf = 1; wecke(); }
-    sag(`Willkommen, ${tier.n}! ${tier.n} wohnt jetzt hier.`);
+    sag(`Willkommen, ${tier.n}! ${tier.n} wohnt jetzt hier.${S().hatTraumjob(tier.seed) ? ` Und ${tier.n} hat schon den Traumjob!` : ""}`);
     window.setTimeout(() => blaseAnSeed(tier.seed, "Hallo! Ich wohne jetzt hier! 🎉", 3200), 900);
   }
 
@@ -1304,7 +1362,11 @@
     g.setAttribute("tabindex", "0");
     g.setAttribute("aria-label", `${tier.n}, ${K().TIERE[tier.a]?.der || ""}`);
     const k = M().MASS;
-    const abzeichen = grund === "arbeit" ? `<g transform="translate(-16 -112)"><circle r="11" fill="#ffffff" stroke="#8a5734" stroke-width="2"/><text y="5" text-anchor="middle" font-size="13">💼</text></g>` : "";
+    // Bei der Arbeit: die Aktentasche – golden, wenn es der Traumjob ist.
+    const traum = grund === "arbeit" && S().hatTraumjob(tier.seed);
+    const abzeichen = traum
+      ? `<g transform="translate(-16 -114)"><circle r="13" fill="#fff3c4" stroke="#f5a300" stroke-width="2.5"/>${A().traumAbzeichen(true)}</g>`
+      : grund === "arbeit" ? `<g transform="translate(-16 -112)"><circle r="11" fill="#ffffff" stroke="#8a5734" stroke-width="2"/><text y="5" text-anchor="middle" font-size="13">💼</text></g>` : "";
     g.innerHTML = `<g class="bau-tier-dreh">${A().tier(tier.a)}</g>${abzeichen}<g class="bau-zzz" style="display:none"><text x="12" y="-110" font-size="18" font-weight="800" font-family="'Baloo 2', Nunito, sans-serif" fill="#ffffff">z</text><text x="24" y="-124" font-size="14" font-weight="800" font-family="'Baloo 2', Nunito, sans-serif" fill="#ffffff">z</text></g>`;
     lage.append(g);
     const ort = tierOrte.get(tier.seed);
@@ -1514,10 +1576,16 @@
       if (!namen.length) return "";
       return `Hier ${namen.length === 1 ? "wohnt" : "wohnen"} ${namen.join(" und ")}.`;
     }
-    const raum = K().RAEUME[st.zimmer[slot]?.raum];
-    const arbeiter = S().alleTiere().filter((e) => { const j = S().jobVon(e.tier.seed); return j && j.haus === ui.haus && j.stockId === st.id && j.slot === slot; }).map((e) => e.tier.n);
-    if (arbeiter.length) return `Hier ${arbeiter.length === 1 ? "arbeitet" : "arbeiten"} ${arbeiter.join(" und ")}.`;
-    return raum?.job ? "Hier arbeitet noch niemand." : "";
+    const leute = S().zimmerTiere(ui.haus, ui.zimmer >= 0 ? ui.zimmer : S().indexVon(ui.haus, st.id), slot);
+    const traum = leute.filter((l) => l.traumHier).map((l) => l.tier.n);
+    const wunsch = leute.filter((l) => l.wunsch && !l.traumHier).map((l) => l.tier.n);
+    const teile = [];
+    if (traum.length) teile.push(`${namenListe(traum)} ${traum.length === 1 ? "hat" : "haben"} hier den Traumjob!`);
+    if (wunsch.length) teile.push(`${namenListe(wunsch)} ${wunsch.length === 1 ? "hat" : "haben"} sich dieses Zimmer gewünscht.`);
+    return teile.join(" ");
+  }
+  function namenListe(namen) {
+    return namen.length > 1 ? `${namen.slice(0, -1).join(", ")} und ${namen.at(-1)}` : (namen[0] || "");
   }
 
   async function schliesseZimmer(sofort = false) {
@@ -1630,17 +1698,32 @@
     const name = knopf("bau-zimmername", `${raum.name}: vorlesen`, `<span>${raum.name}</span>${svgVon(`<path d="M11 5 6 9H3v6h3l5 4V5z" fill="currentColor"/><path d="M15.5 8.5a5 5 0 0 1 0 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>`, "0 0 24 24", "bau-lautsprecher")}`,
       () => sag(`${raum.der}. ${raum.text}${raum.job ? ` Hier kann man ${raum.job}.` : ""}`));
     els.zimmerKopf.append(name);
-    const leute = st.art === "wohnung"
-      ? st.tiere.map((t) => ({ tier: t, wohnt: true }))
-      : S().alleTiere().filter((e) => { const j = S().jobVon(e.tier.seed); return j && j.haus === ui.haus && j.stockId === st.id && j.slot === ui.slot; }).map((e) => ({ tier: e.tier, wohnt: false }));
-    leute.forEach(({ tier, wohnt }) => {
-      const st5 = S().sterne(tier.seed);
-      const laune = S().laune(tier.seed);
-      const t = knopf(`bau-zimmertier${wohnt ? "" : " is-arbeit"}`, `${tier.n}: ${st5.anzahl} von ${st5.total} Sternen. Antippen für mehr.`,
-        `${svgVon(`<g transform="translate(24 50) scale(0.62)">${A().tier(tier.a)}</g>`, "0 0 48 52", "bau-zimmertier-bild")}<span class="bau-sternreihe">${sternReiheHtml(st5)}</span><span class="bau-sternzahl"><i class="bau-stern is-gelb is-voll"></i>${st5.anzahl}/${st5.total}</span>${wohnt ? `<span class="bau-laune" aria-hidden="true">${laune.emoji}</span>` : `<span class="bau-laune" aria-hidden="true">💼</span>`}`,
-        () => oeffneTafel(tier.seed));
+    const bild = (tier) => svgVon(`<g transform="translate(24 50) scale(0.62)">${A().tier(tier.a)}</g>`, "0 0 48 52", "bau-zimmertier-bild");
+    const abzeichen = svgVon(`<g transform="translate(13 14)">${A().traumAbzeichen(true)}</g>`, "0 0 28 26", "bau-traumzeichen");
+    if (st.art === "wohnung") {
+      // Die Bewohner mit ihren Sternen; wer den Traumjob hat, trägt das Abzeichen.
+      st.tiere.forEach((tier) => {
+        const st5 = S().sterne(tier.seed);
+        const laune = S().laune(tier.seed);
+        const traum = S().hatTraumjob(tier.seed);
+        const t = knopf(`bau-zimmertier${traum ? " is-traum" : ""}`, `${tier.n}: ${st5.anzahl} von ${st5.total} Sternen${traum ? ", hat den Traumjob" : ""}. Antippen für mehr.`,
+          `${bild(tier)}<span class="bau-sternreihe">${sternReiheHtml(st5)}</span><span class="bau-sternzahl"><i class="bau-stern is-gelb is-voll"></i>${st5.anzahl}/${st5.total}</span>${traum ? abzeichen : ""}<span class="bau-laune" aria-hidden="true">${laune.emoji}</span>`,
+          () => oeffneTafel(tier.seed));
+        els.zimmerKopf.append(t);
+      });
+      return;
+    }
+    // Ein Zimmer in Spital, Dorf oder Büro: nur, wer hier den Traumjob hat
+    // oder sich dieses Zimmer wünscht – ohne die Sterne der Wohnung.
+    const leute = S().zimmerTiere(ui.haus, ui.zimmer, ui.slot);
+    leute.slice(0, 4).forEach(({ tier, traumHier, wunsch }) => {
+      const warum = traumHier ? "hat hier den Traumjob" : "hat sich dieses Zimmer gewünscht";
+      const t = knopf(`bau-zimmertier is-arbeit${traumHier ? " is-traum" : ""}`, `${tier.n} ${warum}. Antippen für mehr.`,
+        `${bild(tier)}<span class="bau-zimmertier-name">${textSicher(tier.n)}</span>${traumHier ? abzeichen : ""}${wunsch ? `<i class="bau-stern is-blau is-voll" aria-hidden="true"></i>` : ""}`,
+        () => { sag(`${tier.n} ${warum}.`); oeffneTafel(tier.seed); });
       els.zimmerKopf.append(t);
     });
+    if (leute.length > 4) els.zimmerKopf.append(el("span", "bau-zimmertier is-mehr", { text: `+${leute.length - 4}`, "aria-label": `und ${leute.length - 4} weitere` }));
   }
 
   function sternReiheHtml(st) {
@@ -2455,7 +2538,8 @@
     if (st.tiere.length > 1) {
       const leiste = el("div", "bau-tafel-leiste", { role: "tablist", "aria-label": "Wer hier wohnt" });
       st.tiere.forEach((t) => {
-        const b = knopf(`bau-tafel-wechsel${t.seed === tier.seed ? " is-aktiv" : ""}`, `${t.n}, ${katalog.TIERE[t.a].der}`, `${svgVon(`<g transform="translate(24 50) scale(0.62)">${A().tier(t.a)}</g>`, "0 0 48 52")}<span>${textSicher(t.n)}</span>`, () => {
+        const traum = S().hatTraumjob(t.seed);
+        const b = knopf(`bau-tafel-wechsel${t.seed === tier.seed ? " is-aktiv" : ""}${traum ? " is-traum" : ""}`, `${t.n}, ${katalog.TIERE[t.a].der}${traum ? ", hat den Traumjob" : ""}`, `${svgVon(`<g transform="translate(24 50) scale(0.62)">${A().tier(t.a)}</g>`, "0 0 48 52")}<span>${textSicher(t.n)}</span>${traum ? traumZeichen() : ""}`, () => {
           ui.tafel = { seed: t.seed };
           fuelleTafel();
           sag(`${t.n}. ${S().laune(t.seed).text}`);
@@ -2467,7 +2551,7 @@
     }
     const kopf = el("div", "bau-tafel-kopf");
     kopf.innerHTML = `${svgVon(`<g transform="translate(40 92) scale(1.05)">${A().tier(tier.a)}</g>`, "0 0 80 100", "bau-tafel-tier")}` +
-      `<div class="bau-tafel-wer"><h2>${textSicher(tier.n)}</h2><p>${gross(art.der)} · wohnt ${S().imRaum(raum?.id)} ${katalog.HAUS.wohnhaus.im}</p>` +
+      `<div class="bau-tafel-wer"><h2>${textSicher(tier.n)}${S().hatTraumjob(tier.seed) ? ` ${traumZeichen("hat den Traumjob")}` : ""}</h2><p>${gross(art.der)} · wohnt ${S().imRaum(raum?.id)} ${katalog.HAUS.wohnhaus.im}</p>` +
       `<p class="bau-tafel-laune"><span aria-hidden="true">${laune.emoji}</span> ${laune.text}</p>` +
       `<p class="bau-tafel-zahl"><span class="bau-sternreihe">${sternReiheHtml(sterne)}</span> ${sterne.anzahl} von ${sterne.total}</p></div>`;
     karte.append(kopf);
@@ -2511,10 +2595,12 @@
         ? `Traumjob: ${traumText}. ${tier.n} arbeitet schon dort!`
         : `Traumjob: ${traumText}. ${zimmerFehlt(traumHaus, traumRaum) ? `Dafür braucht es ${K().RAEUME[traumRaum]?.ein || "dieses Zimmer"} ${K().HAUS[traumHaus]?.im || ""}.` : "Dort ist gerade kein Platz frei."}`;
       const zeile = el("div", `bau-traum${erfuellt ? " is-erfuellt" : ""}`);
-      zeile.append(el("p", "bau-lies", { html: `<span aria-hidden="true">${erfuellt ? "🌟" : "⭐"}</span> <b>Traumjob:</b> ${textSicher(traumText)}${erfuellt ? " ✓" : ""}`, "data-lies": satz }));
+      zeile.append(el("p", "bau-lies", { html: `${traumZeichen("", erfuellt)} <b>Traumjob:</b> ${textSicher(traumText)}${erfuellt ? " – geschafft!" : ""}`, "data-lies": satz }));
       if (!erfuellt && zimmerFehlt(traumHaus, traumRaum)) zeile.append(knopf("bau-zeig", "Zeig mir, wo", "→", () => zeigeZimmerBauen(traumHaus, traumRaum)));
       box.append(zeile);
     }
+    // Die Arbeit – nur, wenn es nicht schon der Traumjob ist.
+    if (job?.traum) return box;
     let arbeitSatz;
     if (job) {
       const z = S().zimmer(job.haus, job.index, job.slot);
@@ -2522,6 +2608,11 @@
     } else arbeitSatz = "Sucht noch Arbeit. Richte im Spital, im Dorf oder im Büro ein Zimmer ein!";
     box.append(el("p", "bau-arbeit bau-lies", { html: `<span aria-hidden="true">💼</span> ${textSicher(arbeitSatz)}`, "data-lies": `${tier.n}: ${arbeitSatz}` }));
     return box;
+  }
+
+  // Das Abzeichen des Traumjobs als kleines Bild (leer: noch nicht).
+  function traumZeichen(titel = "", voll = true) {
+    return `<span class="bau-traumzeichen-klein"${titel ? ` title="${titel}"` : ` aria-hidden="true"`}>${svgVon(`<g transform="translate(13 14)">${A().traumAbzeichen(voll)}</g>`, "0 0 28 26")}</span>`;
   }
 
   function zimmerFehlt(hausId, raumId) {

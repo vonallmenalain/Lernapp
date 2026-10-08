@@ -25,7 +25,9 @@
  *                Zusammenführen.
  *   Arbeit       Jedes Tier hat einen Traumjob. Gibt es das Zimmer und ist
  *                dort Platz, arbeitet es dort, sonst irgendwo; höchstens drei
- *                Tiere im selben Zimmer.
+ *                Tiere im selben Zimmer. Oben in einem Arbeitszimmer stehen
+ *                nur, wer dort den Traumjob hat oder sich das Zimmer wünscht;
+ *                jede Wohnung zählt, wie viele ihren Traumjob haben.
  *   Unterwegs    Meist daheim, manchmal bei der Arbeit oder zu Besuch, nachts
  *                alle daheim; eine Viertelstunde lang am selben Ort.
  *   Zeit         Ein neuer Wunsch frühestens am nächsten Kalendertag, nur wenn
@@ -449,8 +451,9 @@ function erfuelleGelbe(S, hausId, index) {
   const alle = S.alleTiere();
   pruefe(alle.length === 9, `${alle.length} statt neun Tiere in drei Wohnungen`);
   pruefe(alle.every((e) => !S.jobVon(e.tier.seed)), "ohne Arbeitsplatz hat ein Tier einen Job");
-  // Alle wünschen sich die Arbeit in der Bibliothek.
-  for (let i = 0; i < 3; i += 1) S.aendereStock("wohnhaus", i, (st) => st.tiere.forEach((t) => { t.traum = "zentrum:bibliothek"; }));
+  // Alle wünschen sich die Arbeit in der Bibliothek (und als blaue Wünsche
+  // zwei Abteilungen des Spitals, die es nicht gibt).
+  for (let i = 0; i < 3; i += 1) S.aendereStock("wohnhaus", i, (st) => st.tiere.forEach((t) => { t.traum = "zentrum:bibliothek"; t.b = ["fremd:spital:augen", "fremd:spital:apotheke"]; }));
   S.waehleRaum("zentrum", 0, 0, "bibliothek");
   S.waehleRaum("zentrum", S.baueStockwerk("zentrum"), 0, "baeckerei");
   const jobs = alle.map((e) => S.jobVon(e.tier.seed));
@@ -461,6 +464,21 @@ function erfuelleGelbe(S, hausId, index) {
   jobs.filter(Boolean).forEach((j) => { const k = `${j.haus}:${j.index}:${j.slot}`; proZimmer.set(k, (proZimmer.get(k) || 0) + 1); });
   pruefe([...proZimmer.values()].every((n) => n <= S.ARBEIT_MAX), "mehr als drei Tiere im selben Zimmer bei der Arbeit");
   pruefe(/^Bücher ausleihen in der Bibliothek \(Dorf\)$/.test(S.jobText("bibliothek", "zentrum")), `Job heisst "${S.jobText("bibliothek", "zentrum")}"`);
+  // Oben im Zimmer stehen nur, wer hier den Traumjob hat oder sich das
+  // Zimmer wünscht – nicht, wer hier nur irgendeine Arbeit hat.
+  const bib = S.zimmerTiere("zentrum", 0, 0);
+  pruefe(bib.length === 3 && bib.every((e) => e.traumHier), `oben in der Bibliothek: ${bib.length} Tiere, ${bib.filter((e) => e.traumHier).length} mit Traumjob`);
+  const baeckerei = S.haus("zentrum").stock.findIndex((x) => x.zimmer[0].raum === "baeckerei");
+  pruefe(S.zimmerTiere("zentrum", baeckerei, 0).length === 0, "oben in der Bäckerei stehen Tiere, die dort nur irgendeine Arbeit haben");
+  const wuenscher = alle.find((e) => !S.jobVon(e.tier.seed)).tier;
+  S.aendereStock("wohnhaus", S.findeTier(wuenscher.seed).index, (st) => { st.tiere.find((t) => t.seed === wuenscher.seed).b[0] = "fremd:zentrum:baeckerei"; });
+  const nachWunsch = S.zimmerTiere("zentrum", baeckerei, 0);
+  pruefe(nachWunsch.length === 1 && nachWunsch[0].tier.seed === wuenscher.seed && nachWunsch[0].wunsch && !nachWunsch[0].traumHier, "wer sich die Bäckerei wünscht, steht oben in der Bäckerei nicht");
+  pruefe(S.zimmerTiere("wohnhaus", 0, 0).length === 0, "in einer Wohnung zählt zimmerTiere Arbeitende");
+  // Die Wohnung zeigt von aussen, wie viele ihren Traumjob haben.
+  const stufen = [0, 1, 2].map((i) => S.traumjobsStock("wohnhaus", i));
+  pruefe(stufen.reduce((a, b) => a + b, 0) === 3 && stufen.every((n) => n >= 0 && n <= 3), `Traumjobs je Wohnung: ${stufen.join("/")}`);
+  pruefe(alle.filter((e) => S.hatTraumjob(e.tier.seed)).length === 3, "hatTraumjob stimmt nicht mit den Jobs überein");
   // Unterwegs: meist daheim, manchmal bei der Arbeit oder zu Besuch.
   const seed = alle.find((e) => S.jobVon(e.tier.seed)).tier.seed;
   const tag0 = new Date(2026, 9, 12, 0, 0, 0).getTime();

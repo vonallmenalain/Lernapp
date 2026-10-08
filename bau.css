@@ -325,6 +325,19 @@ svg .is-stups { transform-box: fill-box; transform-origin: center; }
 .bau-lautsprecher { width: 22px; height: 22px; color: #6c5ce7; }
 .bau-zimmertier { padding: 0 12px 0 2px; }
 .bau-zimmertier-bild { width: 44px; height: 48px; }
+/* Der Traumjob: golden umrandet, mit der goldenen Aktentasche. */
+.bau-zimmertier.is-traum { border-color: #ffc93c; background: #fff8dc; }
+.bau-zimmertier-name { font-size: 1rem; }
+.bau-zimmertier.is-mehr { padding: 0 14px; color: #4a5568; }
+.bau-traumzeichen { width: 30px; height: 28px; flex: 0 0 auto; }
+.bau-traumzeichen-klein { display: inline-flex; vertical-align: -5px; }
+.bau-traumzeichen-klein svg { width: 26px; height: 24px; }
+.bau-traummarke { cursor: pointer; }
+.bau-traumglanz { animation: bau-traumglanz 2.4s ease-in-out infinite alternate; }
+@keyframes bau-traumglanz {
+  from { opacity: 0.3; }
+  to { opacity: 0.8; }
+}
 .bau-laune { font-size: 1.4rem; }
 .bau-sternzahl { display: none; align-items: center; gap: 3px; font-size: 1rem; }
 
@@ -602,7 +615,9 @@ svg .is-stups { transform-box: fill-box; transform-origin: center; }
 .bau-tafel-arbeit { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; padding: 10px 12px; border-radius: 16px; background: #f4f0ff; }
 .bau-traum { display: flex; align-items: center; gap: 10px; }
 .bau-traum p, .bau-arbeit { flex: 1 1 auto; margin: 0; font-weight: 700; color: #243047; }
-.bau-traum.is-erfuellt p { color: #2f9e5c; }
+.bau-traum.is-erfuellt { margin: -4px -6px; padding: 6px 8px; border: 2px solid #ffc93c; border-radius: 12px; background: #fff8dc; }
+.bau-traum.is-erfuellt p { color: #8a5a00; }
+.bau-tafel-wechsel.is-traum { border-color: #ffc93c; }
 .bau-lies { cursor: default; }
 .bauecke.kann-lesen .bau-lies,
 .bauecke.kann-lesen .bau-tafel p,
@@ -816,7 +831,7 @@ svg .is-stups { transform-box: fill-box; transform-origin: center; }
   .bau-zimmerkopf { flex: 1 1 auto; }
   .bau-zimmername, .bau-zimmertier { height: 44px; font-size: 1rem; padding: 0 10px; min-width: 0; }
   .bau-zimmername span { max-width: 7.5em; overflow: hidden; text-overflow: ellipsis; }
-  .bau-zimmertier .bau-sternreihe { display: none; }
+  .bau-zimmertier .bau-sternreihe, .bau-zimmertier-name { display: none; }
   .bau-zimmertier .bau-sternzahl { display: inline-flex; }
   .bau-zimmertier .bau-stern { width: 16px; height: 16px; }
   .bau-zimmertier-bild { width: 34px; height: 38px; }
@@ -852,5 +867,5 @@ svg .is-stups { transform-box: fill-box; transform-origin: center; }
 
 @media (prefers-reduced-motion: reduce) {
   .bauecke, .bau-tafel-karte, .bau-wahl-karte { animation: none; }
-  .is-stups { animation: none; }
+  .is-stups, .bau-traumglanz { animation: none; }
 }
