@@ -181,6 +181,7 @@
     ui.zimmer = -1;
     ui.slot = 0;
     ui.tafel = null;
+    ui.uebersicht = false;
     ui.overlay = null;
     ui.ordnen = false;
     ui.besetzt = false;
@@ -203,14 +204,17 @@
     els.nachbarR.addEventListener("click", () => wechsleHaus(1));
     els.umschalter = el("nav", "bau-umschalter", { "aria-label": "Die vier Häuser" });
     els.hud = el("div", "bau-hud");
+    // Links: alle Bewohner auf einen Blick – im Haus und beim Einrichten.
+    els.bewohner = knopf("bau-bewohnerknopf", "Alle Bewohner", "", () => oeffneUebersicht());
     els.zimmer = el("div", "bau-zimmeransicht");
     els.zimmer.hidden = true;
     els.flug = el("div", "bau-flug");
-    host.append(els.himmel, els.welt, els.nachbarL, els.nachbarR, els.umschalter, els.hud, els.zimmer, els.flug);
+    host.append(els.himmel, els.welt, els.nachbarL, els.nachbarR, els.umschalter, els.hud, els.bewohner, els.zimmer, els.flug);
     // Die Verläufe der Tiere (bau-tiere.js): einmal für alle Bilder der Bauecke.
     const tierDefs = window.LernappBauTiere?.defs?.() || "";
     if (tierDefs) host.append(el("div", "bau-tierdefs", { "aria-hidden": "true", html: `<svg xmlns="${NS}" width="0" height="0" focusable="false"><defs>${tierDefs}</defs></svg>` }));
     els.tafel = null;
+    els.uebersicht = null;
 
     baueUmschalter();
     baueHud();
@@ -285,7 +289,8 @@
     if (ui.besetzt && performance.now() - besetztSeit < 4000) return true;
     ui.besetzt = false;
     if (ui.overlay) { schliesseOverlay(); return true; }
-    if (ui.tafel) { schliesseTafel(); return true; }
+    if (ui.tafel) { schliesseTafel({ zurueck: true }); return true; }
+    if (ui.uebersicht) { schliesseUebersicht(); return true; }
     if (ui.zimmer >= 0) { schliesseZimmer(); return true; }
     if (ui.ordnen) { schalteOrdnen(false); return true; }
     S().speichern(true);
@@ -302,12 +307,13 @@
     baueUmschalter();
     if (ui.besetzt || zieht) return;
     const jetzt = zeichenStand();
-    if (jetzt === ui.gezeichnet) { if (ui.tafel) fuelleTafel(); return; }
+    if (jetzt === ui.gezeichnet) { if (ui.tafel) fuelleTafel(); if (ui.uebersicht) fuelleUebersicht(); return; }
     if (ui.zimmer >= 0) {
       if (!aktZimmer()?.raum) { schliesseZimmer(true); return; }
       zeichneZimmer();
     } else zeichneHaus({ behalteKamera: true });
     if (ui.tafel) fuelleTafel();
+    if (ui.uebersicht) fuelleUebersicht();
   }
   let zieht = false;
   // Kommt aus der Cloud ein Stockwerk dazu oder stellt das Kind sie um, kann
@@ -341,7 +347,7 @@
   // selbst, die bleiben hier aussen vor.
   function liesText(e) {
     if (!kannLesen()) return;
-    const ziel = e.target.closest?.(".bau-lies, .bau-tafel p, .bau-tafel h2, .bau-tafel h3, .bau-wahl h2, .bau-wahl p, .bau-wahl h3");
+    const ziel = e.target.closest?.(".bau-lies, .bau-tafel p, .bau-tafel h2, .bau-tafel h3, .bau-uebersicht h2, .bau-uebersicht h3, .bau-uebersicht p, .bau-wahl h2, .bau-wahl p, .bau-wahl h3");
     if (!ziel || e.target.closest("button")) return;
     sag(ziel.dataset.lies || ziel.textContent.trim());
     // Kurz hervorheben, was gerade vorgelesen wird.
@@ -370,7 +376,7 @@
     const tab = els.umschalter?.querySelector(`.bau-tab[data-haus="wohnhaus"]`);
     tab?.classList.toggle("hat-neues", Boolean(fall) && ui.haus !== "wohnhaus");
     if (!fall) return;
-    if (ui.haus !== "wohnhaus" || ui.zimmer >= 0 || ui.overlay || ui.tafel || ui.besetzt || ui.ordnen || liefert) return;
+    if (ui.haus !== "wohnhaus" || ui.zimmer >= 0 || ui.overlay || ui.tafel || ui.uebersicht || ui.besetzt || ui.ordnen || liefert) return;
     if (performance.now() - ui.letzterEinzug < 30000 && ui.letzterEinzug) return;
     const tier = S().ziehtEin(fall.hausId, fall.index);
     if (tier) zeigeEinzug(fall.index, tier);
@@ -424,10 +430,10 @@
   function hilfeHaus() {
     const haus = K().HAUS[ui.haus];
     const wohnen = ui.haus === "wohnhaus" ? " In den Wohnungen wohnen die Tiere; tippe auf die Sterne am Lift, und du siehst, was sie sich wünschen." : "";
-    hilfe(`Das ist ${haus.der}. Tippe auf ein Zimmer, um es einzurichten.${wohnen} Für ein neues Stockwerk brauchst du Ziegel: Tippe auf den Rätsel-Knopf. Mit dem Pfeil-Knopf stellst du die Stockwerke um. Oben wechselst du zwischen den vier Häusern.`);
+    hilfe(`Das ist ${haus.der}. Tippe auf ein Zimmer, um es einzurichten.${wohnen} Für ein neues Stockwerk brauchst du Ziegel: Tippe auf den Rätsel-Knopf. Mit dem Pfeil-Knopf stellst du die Stockwerke um. Oben wechselst du zwischen den vier Häusern. Der Bewohner-Knopf links zeigt dir alle Tiere auf einen Blick.`);
   }
   function hilfeZimmer() {
-    hilfe("Zieh Dinge aus der Schublade ins Zimmer, oder tippe sie an. Tippe auf ein Ding im Zimmer, um es anzumalen, umzudrehen, grösser oder kleiner zu machen. Mit dem Pinsel malst du die Wand an, mit dem Boden-Knopf den Boden. Mit dem Stift änderst du, was für ein Zimmer es ist.");
+    hilfe("Zieh Dinge aus der Schublade ins Zimmer, oder tippe sie an. Tippe auf ein Ding im Zimmer, um es anzumalen, umzudrehen, grösser oder kleiner zu machen. Mit dem Pinsel malst du die Wand an, mit dem Boden-Knopf den Boden. Mit dem Stift änderst du, was für ein Zimmer es ist. Der Bewohner-Knopf links zeigt dir alle Tiere und was ihnen noch fehlt.");
   }
 
   // ---------------------------------------------------------------------------
@@ -471,6 +477,7 @@
     if (ui.besetzt || !K().HAUS[id]) return;
     if (ui.zimmer >= 0) await schliesseZimmer(true);
     if (ui.tafel) schliesseTafel();
+    if (ui.uebersicht) schliesseUebersicht({ weiter: true });
     if (ui.ordnen) schalteOrdnen(false, { stumm: true });
     besetze();
     const weg = richtung >= 0 ? -1 : 1;
@@ -526,7 +533,25 @@
     els.ordnenKnopf.setAttribute("aria-label", ui.ordnen ? "Fertig umgestellt" : "Stockwerke umstellen");
     const plus = els.welt?.querySelector("[data-ziel='plus']");
     if (plus) plus.classList.toggle("is-bereit", S().kannBauen(ui.haus).ok);
+    aktualisiereBewohnerKnopf();
   }
+
+  // Der Bewohner-Knopf zeigt, wie viele Tiere im Wohnhaus wohnen.
+  function aktualisiereBewohnerKnopf() {
+    if (!els.bewohner) return;
+    const n = S().alleTiere().length;
+    const label = n ? `Alle Bewohner: ${n === 1 ? "ein Tier" : `${n} Tiere`}` : "Alle Bewohner";
+    els.bewohner.innerHTML = `${svgVon(PFOTE, "0 0 32 32", "bau-bewohnerknopf-bild")}<span>Bewohner</span>${n ? `<b class="bau-bewohnerknopf-zahl">${n}</b>` : ""}`;
+    els.bewohner.setAttribute("aria-label", label);
+    els.bewohner.title = label;
+  }
+  const KREUZ = `<path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>`;
+  const PFEIL_ZURUECK = `<path d="M15 5 8 12l7 7" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>`;
+  const PFOTE = `<ellipse cx="16" cy="21.6" rx="7.6" ry="6.4" fill="#ffffff"/>` +
+    `<ellipse cx="7.4" cy="13.4" rx="3" ry="3.8" transform="rotate(-22 7.4 13.4)" fill="#ffffff"/>` +
+    `<ellipse cx="12.6" cy="8.2" rx="3" ry="3.9" transform="rotate(-7 12.6 8.2)" fill="#ffffff"/>` +
+    `<ellipse cx="19.4" cy="8.2" rx="3" ry="3.9" transform="rotate(7 19.4 8.2)" fill="#ffffff"/>` +
+    `<ellipse cx="24.6" cy="13.4" rx="3" ry="3.8" transform="rotate(22 24.6 13.4)" fill="#ffffff"/>`;
 
   function schalteNacht() {
     ui.nacht = !ui.nacht;
@@ -945,6 +970,7 @@
     baueUmschalter();
     if (ui.zimmer >= 0) zeichneZimmerKopf();
     if (ui.tafel) fuelleTafel();
+    if (ui.uebersicht) fuelleUebersicht();
   }
 
   // --- Antippen und Ziehen in der Hausansicht ------------------------------
@@ -1729,9 +1755,17 @@
     const oben = klein ? 50 : 78;
     const unten = klein ? 104 : 178;
     const rand = 10;
-    const pw = w - rand * 2;
+    let pw = w - rand * 2;
     const ph = h - oben - unten - 8;
-    const k = Math.min(pw / breite, ph / hoehe);
+    let k = Math.min(pw / breite, ph / hoehe);
+    // Links steht der Bewohner-Knopf: Reichte das Zimmer sonst bis an den
+    // Rand, rückt es ihm aus dem Weg.
+    const frei = els.bewohner?.isConnected ? els.bewohner.offsetLeft + els.bewohner.offsetWidth + 8 : 0;
+    if ((w - breite * k) / 2 < frei) {
+      pw = w - frei - rand;
+      k = Math.min(pw / breite, ph / hoehe);
+      return { x: frei + (pw - breite * k) / 2, y: oben + (ph - hoehe * k) / 2 + 4, w: breite * k, h: hoehe * k, k };
+    }
     const zw = breite * k;
     const zh = hoehe * k;
     return { x: (w - zw) / 2, y: oben + (ph - zh) / 2 + 4, w: zw, h: zh, k };
@@ -2628,6 +2662,128 @@
   }
 
   // ---------------------------------------------------------------------------
+  // Alle Bewohner: je Wohnung die Tiere mit Sternen, Traumjob und Wünschen
+  // ---------------------------------------------------------------------------
+  // Der Knopf links öffnet sie, im Haus wie beim Einrichten. Ein Tipp auf ein
+  // Tier öffnet seine Tafel; wer sie schliesst, ist wieder hier.
+  function oeffneUebersicht({ stumm = false } = {}) {
+    if (!ui.host?.isConnected || ui.besetzt || ui.overlay || ui.ordnen) return false;
+    if (ui.tafel) schliesseTafel();
+    ui.uebersicht = true;
+    if (!els.uebersicht?.isConnected) {
+      els.uebersicht = el("div", "bau-uebersicht", { role: "dialog", "aria-modal": "true", "aria-label": "Alle Bewohner" });
+      els.uebersicht.addEventListener("click", (e) => { if (e.target === els.uebersicht) schliesseUebersicht(); });
+      ui.host.append(els.uebersicht);
+    }
+    els.uebersicht.hidden = false;
+    fuelleUebersicht();
+    if (!stumm) sag(uebersichtSatz());
+    hilfe("Hier siehst du alle Tiere aus dem Wohnhaus: wie viele Sterne sie haben, ihren Traumjob und ihre Wünsche. Was noch fehlt, ist bunt; was erfüllt ist, hat einen Haken. Tippe auf ein Tier, dann siehst du alles über es.");
+    return true;
+  }
+
+  // weiter: gleich geht die Tafel eines Tiers auf – kein Einzug dazwischen.
+  function schliesseUebersicht({ weiter = false } = {}) {
+    ui.uebersicht = false;
+    if (els.uebersicht) els.uebersicht.hidden = true;
+    if (weiter) return;
+    if (ui.zimmer >= 0) hilfeZimmer(); else hilfeHaus();
+    pruefeZuzug();
+  }
+
+  function uebersichtSatz(alle = S().alleTiere()) {
+    if (!alle.length) return "Noch wohnt niemand im Wohnhaus. Richte dort eine Wohnung ein – dann zieht bald jemand ein!";
+    const sterne = alle.map((e) => S().sterne(e.tier.seed));
+    const anzahl = sterne.reduce((n, s) => n + s.anzahl, 0);
+    const total = sterne.reduce((n, s) => n + s.total, 0);
+    const traum = alle.filter((e) => S().hatTraumjob(e.tier.seed)).length;
+    const wer = alle.length === 1 ? "Ein Tier wohnt" : `${alle.length} Tiere wohnen`;
+    const traumSatz = traum === 0 ? "Noch keines hat seinen Traumjob." : traum === 1 ? "Eines hat seinen Traumjob." : `${traum} haben ihren Traumjob.`;
+    return `${wer} im Wohnhaus. Zusammen haben sie ${anzahl} von ${total} Sternen. ${traumSatz}`;
+  }
+
+  function fuelleUebersicht() {
+    if (!ui.uebersicht || !els.uebersicht) return;
+    const katalog = K();
+    const alle = S().alleTiere();
+    const karte = el("div", "bau-uebersicht-karte");
+    karte.append(knopf("bau-uebersicht-zu", "Schliessen", svgVon(KREUZ, "0 0 24 24"), () => schliesseUebersicht()));
+    const satz = uebersichtSatz(alle);
+    const kopf = el("div", "bau-uebersicht-kopf");
+    kopf.append(el("h2", "", { text: "Alle Bewohner" }), el("p", "bau-lies", { text: satz }));
+    karte.append(kopf);
+    if (!alle.length) {
+      if (ui.haus !== "wohnhaus" || ui.zimmer >= 0) {
+        karte.append(knopf("bau-knopf-klein bau-uebersicht-hin", "Zum Wohnhaus", "Zum Wohnhaus →", async () => {
+          schliesseUebersicht({ weiter: true });
+          if (ui.zimmer >= 0) await schliesseZimmer(true);
+          await zeigeHaus("wohnhaus", 1);
+        }));
+      }
+      els.uebersicht.innerHTML = "";
+      els.uebersicht.append(karte);
+      return;
+    }
+    // Je Wohnung eine Gruppe, unten im Haus zuerst – wie am Lift: E, 1, 2 …
+    const wohnungen = new Map();
+    alle.forEach((e) => {
+      if (!wohnungen.has(e.stock.id)) wohnungen.set(e.stock.id, { index: e.index, hausId: e.hausId, stock: e.stock, tiere: [] });
+      wohnungen.get(e.stock.id).tiere.push(e.tier);
+    });
+    [...wohnungen.values()].sort((a, b) => a.index - b.index).forEach((w) => {
+      const gruppe = el("section", "bau-uebersicht-wohnung");
+      const raum = katalog.RAEUME[w.stock.zimmer[0]?.raum];
+      const stockwerk = w.index === 0 ? "Erdgeschoss" : `${w.index}. Stock`;
+      const titel = `${stockwerk}${raum ? ` · ${raum.name}` : ""}`;
+      const h = el("h3", "bau-uebersicht-stock bau-lies", { "data-lies": `${stockwerk}${raum ? `: ${raum.der}` : ""}.` });
+      h.innerHTML = `<span class="bau-stockmarke" aria-hidden="true">${w.index === 0 ? "E" : w.index}</span>${textSicher(titel)}`;
+      const liste = el("div", "bau-uebersicht-liste");
+      w.tiere.forEach((tier) => liste.append(bewohnerKarte(tier)));
+      gruppe.append(h, liste);
+      karte.append(gruppe);
+    });
+    const legende = el("p", "bau-legende bau-lies", { "data-lies": "Bunte Bilder: Das wünscht sich das Tier noch. Mit Haken: schon erfüllt. Gelb für die Wohnung, grün für das Wohnhaus, blau für die anderen Häuser." });
+    legende.innerHTML = `<i class="bau-stern is-gelb is-voll"></i> Wohnung <i class="bau-stern is-gruen is-voll"></i> Wohnhaus <i class="bau-stern is-blau is-voll"></i> andere Häuser · <span class="bau-legende-haken" aria-hidden="true">✓</span> schon erfüllt`;
+    karte.append(legende);
+    const scroll = els.uebersicht.querySelector(".bau-uebersicht-karte")?.scrollTop || 0;
+    els.uebersicht.innerHTML = "";
+    els.uebersicht.append(karte);
+    karte.scrollTop = scroll;
+  }
+
+  // Ein Tier in der Übersicht: Bild, Name, Sterne, Traumjob und die Wünsche –
+  // was noch fehlt zuerst und bunt, Erfülltes blass mit Haken.
+  function bewohnerKarte(tier) {
+    const katalog = K();
+    const art = katalog.TIERE[tier.a];
+    const sterne = S().sterne(tier.seed);
+    const laune = S().laune(tier.seed);
+    const hatTraum = S().hatTraumjob(tier.seed);
+    const traumRaum = katalog.RAEUME[String(tier.traum || "").split(":")[1]];
+    const wuensche = S().wuensche(tier.seed);
+    const offen = wuensche.filter((w) => !w.erfuellt);
+    const figur = S().figurVon(tier);
+    const wunschSatz = offen.length === 0 ? "Alle Wünsche sind erfüllt." : offen.length === 1 ? "Ein Wunsch fehlt noch." : `${offen.length} Wünsche fehlen noch.`;
+    const traumSatz = traumRaum ? ` Traumjob: ${traumRaum.name}${hatTraum ? " – geschafft!" : "."}` : "";
+    const label = `${tier.n}, ${art?.der || ""}. ${sterne.anzahl} von ${sterne.total} Sternen.${traumSatz} ${wunschSatz}`;
+    const bilder = [...offen, ...wuensche.filter((w) => w.erfuellt)].map((w) =>
+      `<span class="bau-bewohner-wunsch is-${w.stern}${w.erfuellt ? " is-erfuellt" : ""}">${svgVon(wunschBild(w, 32), "-19 -19 38 38")}</span>`).join("");
+    return knopf(`bau-bewohner${hatTraum ? " is-traum" : ""}`, label,
+      `<span class="bau-bewohner-bild">${tierBildchen(tier, 66, 80)}${figur ? `<span class="bau-bewohner-buch" aria-hidden="true">📖</span>` : ""}</span>` +
+      `<span class="bau-bewohner-text">` +
+      `<span class="bau-bewohner-name"><b>${textSicher(tier.n)}</b> <span class="bau-bewohner-laune" aria-hidden="true">${laune.emoji}</span></span>` +
+      `<span class="bau-bewohner-art">${textSicher(art?.name || "")}</span>` +
+      `<span class="bau-bewohner-sterne"><span class="bau-sternreihe">${sternReiheHtml(sterne)}</span><span>${sterne.anzahl}/${sterne.total}</span></span>` +
+      (traumRaum ? `<span class="bau-bewohner-traum${hatTraum ? " is-erfuellt" : ""}">${traumZeichen("", hatTraum)}<span><small>Traumjob:</small> ${textSicher(traumRaum.name)}</span>${hatTraum ? `<span class="bau-bewohner-haken" aria-hidden="true">✓</span>` : ""}</span>` : "") +
+      `<span class="bau-bewohner-wuensche">${bilder}</span>` +
+      `</span>`,
+      () => {
+        schliesseUebersicht({ weiter: true });
+        oeffneTafel(tier.seed, { ausUebersicht: true });
+      });
+  }
+
+  // ---------------------------------------------------------------------------
   // Die Tier-Tafel: wer hier wohnt, wo es gerade ist, was es sich wünscht
   // ---------------------------------------------------------------------------
   function oeffneTafelStock(hausId, index) {
@@ -2638,15 +2794,17 @@
     if (arbeiter) oeffneTafel(arbeiter.tier.seed);
   }
 
-  function oeffneTafel(seed) {
+  // ausUebersicht: aus «Alle Bewohner» geöffnet – Schliessen führt dorthin
+  // zurück.
+  function oeffneTafel(seed, { ausUebersicht = false } = {}) {
     const ref = S().findeTier(seed);
     if (!ref) return;
-    ui.tafel = { seed };
+    ui.tafel = { seed, ausUebersicht };
     // Nach dem Verlassen der Bauecke hängt die alte Tafel nicht mehr im Bild
     // (mount leert die Bühne) – dann eine neue.
     if (!els.tafel?.isConnected) {
       els.tafel = el("div", "bau-tafel", { role: "dialog", "aria-modal": "true" });
-      els.tafel.addEventListener("click", (e) => { if (e.target === els.tafel) schliesseTafel(); });
+      els.tafel.addEventListener("click", (e) => { if (e.target === els.tafel) schliesseTafel({ zurueck: true }); });
       ui.host.append(els.tafel);
     }
     els.tafel.hidden = false;
@@ -2656,9 +2814,14 @@
     hilfe(`Hier siehst du, was sich ${ref.tier.n} wünscht: Gelbe Sterne sind Wünsche für die Wohnung, grüne für das Wohnhaus, blaue für die anderen Häuser. Dazu den Traumjob und wo ${ref.tier.n} gerade ist. Oben wechselst du zu den Mitbewohnern. Ist das Vorlesen an, liest ein Tipp auf einen Text ihn vor.`);
   }
 
-  function schliesseTafel() {
+  // zurueck: das Kind schliesst die Tafel nur (Kreuz, daneben tippen, Zurück).
+  // Kam es aus «Alle Bewohner», ist es wieder dort. Wer hingeht oder einen
+  // Wunsch gezeigt bekommt, schliesst ohne.
+  function schliesseTafel({ zurueck = false } = {}) {
+    const zurUebersicht = zurueck && Boolean(ui.tafel?.ausUebersicht);
     ui.tafel = null;
     if (els.tafel) els.tafel.hidden = true;
+    if (zurUebersicht && oeffneUebersicht({ stumm: true })) return;
     if (ui.zimmer >= 0) hilfeZimmer(); else hilfeHaus();
     pruefeZuzug();
   }
@@ -2674,7 +2837,9 @@
     const laune = S().laune(tier.seed);
     const sterne = S().sterne(tier.seed);
     const karte = el("div", "bau-tafel-karte");
-    const zu = knopf("bau-tafel-zu", "Schliessen", svgVon(`<path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>`, "0 0 24 24"), schliesseTafel);
+    const zu = ui.tafel.ausUebersicht
+      ? knopf("bau-tafel-zu", "Zurück zu allen Bewohnern", svgVon(PFEIL_ZURUECK, "0 0 24 24"), () => schliesseTafel({ zurueck: true }))
+      : knopf("bau-tafel-zu", "Schliessen", svgVon(KREUZ, "0 0 24 24"), () => schliesseTafel({ zurueck: true }));
     karte.append(zu);
     // Die Mitbewohner: ein Bild je Tier zum Wechseln.
     if (st.tiere.length > 1) {
@@ -2682,7 +2847,7 @@
       st.tiere.forEach((t) => {
         const traum = S().hatTraumjob(t.seed);
         const b = knopf(`bau-tafel-wechsel${t.seed === tier.seed ? " is-aktiv" : ""}${traum ? " is-traum" : ""}`, `${t.n}, ${katalog.TIERE[t.a].der}${traum ? ", hat den Traumjob" : ""}`, `${tierBildchen(t, 48, 52)}<span>${textSicher(t.n)}</span>${traum ? traumZeichen() : ""}`, () => {
-          ui.tafel = { seed: t.seed };
+          ui.tafel = { ...ui.tafel, seed: t.seed };
           fuelleTafel();
           sag(`${t.n}. ${S().laune(t.seed).text}`);
         });

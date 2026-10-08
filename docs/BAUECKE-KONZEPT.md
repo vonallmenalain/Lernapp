@@ -11,11 +11,12 @@ Pepi, Miga Town, den einzelnen Toca-Apps und weiteren Bauspielen (Abschnitt 3)
 > (Spital, Dorf und Büro behalten eines je Stockwerk), eigene Dinge
 > für jedes Zimmer, Traumjobs, ein Einzug mit Lift und Feuerwerk, Stockwerke umstellen, die
 > Bauecke je Konto. Dazu kamen (Nachtrag 0K) der **KiddyDome** über zwei Stockwerke, die
-> **Tiere im Stil der Bilderbücher** und die **Figuren aus den Büchern**, die zuerst
-> einziehen. **Was gilt, steht in den Abschnitten 0K und 0** (Etappe 2) und, wo diese nichts
-> anderes sagen, im Abschnitt 0E1 (Etappe 1); die Abschnitte 1, 2, 5 und 6 beschreiben das
-> ursprüngliche Konzept und sind dort, wo Abschnitt 0 etwas anderes sagt, überholt. Die
-> Recherche (Abschnitt 3) und Grafik und Bewegung (Abschnitt 7) gelten weiter.
+> **Tiere im Stil der Bilderbücher**, die **Figuren aus den Büchern**, die zuerst
+> einziehen, und **alle Bewohner auf einen Blick**. **Was gilt, steht in den Abschnitten
+> 0K und 0** (Etappe 2) und, wo diese nichts anderes sagen, im Abschnitt 0E1 (Etappe 1);
+> die Abschnitte 1, 2, 5 und 6 beschreiben das ursprüngliche Konzept und sind dort, wo
+> Abschnitt 0 etwas anderes sagt, überholt. Die Recherche (Abschnitt 3) und Grafik und
+> Bewegung (Abschnitt 7) gelten weiter.
 >
 > Zum Konzept gehört eine klickbare **Stilprobe** (Artefakt «Gripszug Bauecke»; dieselbe
 > Seite liegt als `docs/bauecke-stilprobe.html` im Repo und geht nicht auf die Site). Ihr
@@ -27,7 +28,7 @@ Pepi, Miga Town, den einzelnen Toca-Apps und weiteren Bauspielen (Abschnitt 3)
 
 ---
 
-## 0K. Der KiddyDome, Tiere wie im Bilderbuch, Figuren aus den Büchern
+## 0K. Der KiddyDome, Tiere wie im Bilderbuch, Figuren aus den Büchern, alle Bewohner
 
 Nachtrag zu Etappe 2 (Wünsche vom 8. Oktober 2026, vierte Runde). Was hier steht, gilt
 zusätzlich zu Abschnitt 0.
@@ -107,7 +108,25 @@ zusätzlich zu Abschnitt 0.
   weiter nach hinten, sonst ragte es oben hinaus. Bei «Nach hinten» rücken dann die Dinge,
   die es überdeckt, ein wenig nach vorn – samt dem, was auf ihnen steht.
 
-### 0K.5 Dateien und Prüfungen
+### 0K.5 Alle Bewohner auf einen Blick
+
+- **Der Knopf «Bewohner»** (orange, mit Pfote und der Zahl der Tiere) steht am **linken
+  Rand** – im Haus und beim Einrichten eines Zimmers. Reichte das Zimmer sonst bis an den
+  Rand, rückt es ihm aus dem Weg. Beim Umstellen der Stockwerke ist er weg (dort zählen nur
+  die Pfeile).
+- **Die Übersicht** zeigt je Wohnung (Erdgeschoss zuerst, wie am Lift: E, 1, 2 …) alle Tiere
+  mit Bild, Name, Laune, Art, den **Sternen** (gelb, grün, blau, mit «2/5»), dem
+  **Traumjob** (golden umrandet und mit Haken, wenn geschafft) und den **Wünschen** als
+  Bildchen: was noch fehlt, zuerst und bunt; was erfüllt ist, blass mit grünem Haken. Ein
+  📖 zeigt die Figuren aus den Büchern. Oben steht (und hört man), wie viele Tiere wohnen,
+  wie viele Sterne sie zusammen haben und wie viele ihren Traumjob.
+- **Ein Tipp auf ein Tier** öffnet die gewohnte **Tafel** – dieselbe wie beim Antippen im
+  Haus. Ihr Knopf oben rechts ist dann ein Pfeil zurück: Schliessen (auch daneben tippen
+  oder Zurück) führt wieder in die Übersicht. «Hingehen», «Zeig mir» und «Ausziehen
+  lassen» gehen wie gewohnt weiter, ohne Umweg.
+- Solange die Übersicht offen ist, zieht niemand ein (wie bei der Tafel).
+
+### 0K.6 Dateien und Prüfungen
 
 | Datei | Was |
 | --- | --- |
@@ -116,9 +135,9 @@ zusätzlich zu Abschnitt 0.
 | `bau-katalog.js` | der KiddyDome (`doppel`, `kinder`, Job, blauer Wunsch), `FIGUREN`, Ball, Farben, Schal und Fernrohr bei den Lieblingsdingen |
 | `bau-moebel.js` | Schal (Fino) und Fernrohr (Bruno) |
 | `bau-stand.js` | Fassung 3: KiddyDome über zwei Stockwerke, Paare beim Laden und Zusammenführen, Umstellen als Block, Dazubauen gleich darüber; Buchfiguren zuerst, mit Wunsch und Traumjob; Kinderzimmer-Tiere oft im KiddyDome |
-| `bau-art.js`, `train-bau.js`, `bau.css` | doppelt hohes Zimmer ohne Decke dazwischen, Hinweis und «Stockwerk dazubauen» in der Zimmerwahl, Mini-Lift, hohe Sprünge; die Tiere aus `bau-tiere.js` mit Blinzeln; das Buch auf der Tafel |
+| `bau-art.js`, `train-bau.js`, `bau.css` | doppelt hohes Zimmer ohne Decke dazwischen, Hinweis und «Stockwerk dazubauen» in der Zimmerwahl, Mini-Lift, hohe Sprünge; die Tiere aus `bau-tiere.js` mit Blinzeln; das Buch auf der Tafel; der Bewohner-Knopf und die Übersicht aller Bewohner |
 | `scripts/validate-bau.mjs` | KiddyDome (zwei Stockwerke, Umstellen, Zusammenführen, Flicken, Ändern, Dazubauen, Besuche), Buchfiguren (Bücher, Vorlieben, Wünsche, Traumjobs, zuerst einziehen), Fingerabdruck der Fassung 3 |
-| `scripts/check-bau.mjs` | der KiddyDome im Browser, auf Tablet und Handy; «Nach vorne/hinten» bei verschieden tiefen Dingen |
+| `scripts/check-bau.mjs` | der KiddyDome im Browser, auf Tablet und Handy; «Nach vorne/hinten» bei verschieden tiefen und bei sehr hohen Dingen; alle Bewohner (Knopf im Haus und im Zimmer, Wohnungen, Sterne, Traumjob, Wünsche, Tafel und zurück) |
 
 ---
 

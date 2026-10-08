@@ -1,4 +1,4 @@
-const APP_VERSION = "2026-10-06-32";
+const APP_VERSION = "2026-10-06-33";
 const CACHE_PREFIX = "lernapp-pwa-";
 const CACHE_NAME = `${CACHE_PREFIX}${APP_VERSION}`;
 const ASSET_VERSION_QUERY = `?v=${APP_VERSION}`;
