@@ -10,8 +10,10 @@ Pepi, Miga Town, den einzelnen Toca-Apps und weiteren Bauspielen (Abschnitt 3)
 > Wohnungen mit bis zu drei Tieren, zwei Zimmer auf den übrigen Stockwerken des Wohnhauses
 > (Spital, Dorf und Büro behalten eines je Stockwerk), eigene Dinge
 > für jedes Zimmer, Traumjobs, ein Einzug mit Lift und Feuerwerk, Stockwerke umstellen, die
-> Bauecke je Konto. **Was gilt, steht im Abschnitt 0** (Etappe 2) und, wo der nichts
-> anderes sagt, im Abschnitt 0E1 (Etappe 1); die Abschnitte 1, 2, 5 und 6 beschreiben das
+> Bauecke je Konto. Dazu kamen (Nachtrag 0K) der **KiddyDome** über zwei Stockwerke, die
+> **Tiere im Stil der Bilderbücher** und die **Figuren aus den Büchern**, die zuerst
+> einziehen. **Was gilt, steht in den Abschnitten 0K und 0** (Etappe 2) und, wo diese nichts
+> anderes sagen, im Abschnitt 0E1 (Etappe 1); die Abschnitte 1, 2, 5 und 6 beschreiben das
 > ursprüngliche Konzept und sind dort, wo Abschnitt 0 etwas anderes sagt, überholt. Die
 > Recherche (Abschnitt 3) und Grafik und Bewegung (Abschnitt 7) gelten weiter.
 >
@@ -22,6 +24,89 @@ Pepi, Miga Town, den einzelnen Toca-Apps und weiteren Bauspielen (Abschnitt 3)
 > 10 Ebenen, davon 8 zeichnend, 18 Megapixel Ebenenfläche, 770 SVG-Knoten, 60 Bilder je
 > Sekunde, während die Tiere laufen. Die Reisekarte kam nach ihrer Kur auf 9 Ebenen und 16
 > Megapixel.
+
+---
+
+## 0K. Der KiddyDome, Tiere wie im Bilderbuch, Figuren aus den Büchern
+
+Nachtrag zu Etappe 2 (Wünsche vom 8. Oktober 2026, vierte Runde). Was hier steht, gilt
+zusätzlich zu Abschnitt 0.
+
+### 0K.1 Der KiddyDome – ein Zimmer über zwei Stockwerke
+
+- **Was er ist:** eine Spielhalle im **Dorf**, so hoch wie zwei Stockwerke, ohne Decke
+  dazwischen – mit Rutschbahnen, Klettertürmen, einem Sprungschloss, Trampolinen, Seilen
+  zum Hangeln und einem **Mini-Lift**, der ab und zu hinauf- und wieder hinunterfährt. Die
+  grossen Geräte reichen über beide Stockwerke (`bau-moebel-dome.js`, Kennungen `k_…`).
+- **Er braucht zwei Stockwerke übereinander:** Wählt das Kind ihn für ein Stockwerk, nimmt
+  er dieses und das freie gleich darüber – oder, ist dieses noch ganz leer, das freie gleich
+  darunter. Gibt es keines, lässt sich die Karte trotzdem antippen: Dann steht (und hört
+  man) **«Der KiddyDome braucht zwei Stockwerke übereinander – hier ist nur eines frei.»**,
+  der Haken bleibt aus, und sind Ziegel da, baut der Knopf **«Stockwerk dazubauen»** gleich
+  darüber ein Stockwerk und stellt den KiddyDome hinein. Ohne Ziegel sagt der Hinweis, dass
+  ein Rätsel Ziegel bringt (oder dass die Schranke wartet).
+- **Im Haus** steht er über beiden Stockwerken; der Lift hält an beiden. Ein Tipp irgendwo
+  auf ihn zoomt hinein – das Zimmer ist dann doppelt so hoch (560 × 496 statt 560 × 240).
+  Was an der Decke hängt, hängt ganz oben; was an der Wand hängt, darf bis unters Dach.
+- **Umstellen:** Er wandert als Ganzes (ein Rahmen, ein Paar Pfeile); wer an ihm vorbei
+  wandert, springt über beide Stockwerke.
+- **Zimmerart ändern** (Stift): Wird aus dem KiddyDome ein anderes Zimmer, ist das obere
+  Stockwerk wieder ein leeres, und was oben hing, kommt herunter. Umgekehrt wird ein
+  Zimmer zum KiddyDome, wenn das Stockwerk darüber frei ist (sonst wieder der Hinweis).
+- **Die Tiere aus den Kinderzimmern** gehen sehr oft hin, ganz gleich, was sie sich
+  wünschen: gut jede dritte Viertelstunde am Tag (sonst daheim, bei der Arbeit oder ab und
+  zu anderswo zu Besuch). Im KiddyDome hüpfen alle Tiere oft und hoch.
+- **Arbeit und Wünsche:** Wer dort den Traumjob hat, «prüft die Rutschbahnen»; ein blauer
+  Wunsch kann ihn nennen («Dort rutsche, klettere und hüpfe ich.»).
+- **Gespeichert** (Fassung 3): Der KiddyDome gehört dem unteren Stockwerk (Art `eins`,
+  Zimmer `kiddydome`, Dinge mit y bis −256); das obere hat die Art `oben` und zeigt mit `zu`
+  auf das untere. Beim Laden und Zusammenführen bleibt das Paar beisammen: Ein `oben`, das
+  weggerutscht ist, kommt gleich über sein unteres; eines ohne unteres wird wieder ein
+  leeres Stockwerk; fehlt einem KiddyDome das obere (zwei Geräte haben gleichzeitig
+  verschieden gebaut), kommt eines dazu – mit einer Kennung, die auf jedem Gerät dieselbe
+  ist. Eine App der Fassung 2 räumt einen Kasten der Fassung 3 nicht auf, sondern wartet auf
+  die neue Fassung.
+
+### 0K.2 Die Tiere wie im Bilderbuch
+
+- **Neu gezeichnet** im Stil der Bücher der Leseecke (`bau-tiere.js`): grosser runder Kopf,
+  grosse glänzende Augen, rosige Wangen, weiche Schatten, weiche Umrisse statt schwarzer
+  Linien, Kleidung wie in den Geschichten. Von Hand als SVG, ohne Bildgenerator – so laufen
+  die Tiere weiter (Beine, Wippen), blinzeln ab und zu und schlafen nachts mit
+  geschlossenen Augen. Die Verläufe für Glanz und Schatten stehen einmal im Dokument.
+- Gewöhnliche Tiere einer Art tragen je nach Kennung ein anderes Kleidungsstück (vier
+  Varianten) – zwei Füchse in derselben Wohnung lassen sich unterscheiden.
+- Fehlt `bau-tiere.js`, zeichnet `bau-art.js` das einfache Tier vom Anfang.
+
+### 0K.3 Die Figuren aus den Büchern ziehen ein
+
+- **16 Figuren** aus den Büchern der Leseecke (`FIGUREN` in bau-katalog.js): Leo, Oma Rosa,
+  Mia, Hoppel, Ella, Pino, Opa Paul, Flitz, Sepp, Pippa, Fridolin, Bruno, Mama Bär, Fino,
+  Tim und Fred. Sie **ziehen zuerst ein** (jede nur einmal); erst wenn alle wohnen, kommen
+  gewöhnliche Tiere.
+- **Wie im Buch:** Sie sehen aus wie in ihrer Geschichte (Mias rotes Kleid, Finos roter
+  Schal, Oma Rosas Brille …), mögen, was sie dort mögen (Leo Melonen, Mia ihren roten Ball,
+  Bruno sein Fernrohr, Fino seinen Schal – Ball, Farben, Schal und Fernrohr liegen dafür in
+  jeder Wohnung), wünschen sich ein Zimmer aus ihrer Geschichte («Dort pumpe ich die Pneus
+  von meinem roten Velo.») und träumen von einem passenden Job (Ella hilft Babys auf die
+  Welt, Fridolin prüft die Rutschbahnen im KiddyDome).
+- **Beim Einzug** sagt die Bauecke «Das ist ja Leo aus dem Buch ‹Leo und die Melone›!»; die
+  Tafel zeigt den Umschlag des Buchs und was die Figur von sich erzählt.
+- **Erkannt** wird eine Figur an Art und Name – auch ein Leo, der schon früher eingezogen
+  ist, ist Leo aus dem Buch. Ihre Namen fehlen darum bei den gewöhnlichen Tieren.
+
+### 0K.4 Dateien und Prüfungen
+
+| Datei | Was |
+| --- | --- |
+| `bau-moebel-dome.js` *(neu)* | die 18 Geräte des KiddyDome (bis 240 × 380 gross), seine Zimmerliste und sein Bildmotiv |
+| `bau-tiere.js` *(neu)* | die 16 Tierarten und die 16 Buchfiguren im Stil der Bilderbücher (`tier`, `defs`, `box`, `FIGUREN`) |
+| `bau-katalog.js` | der KiddyDome (`doppel`, `kinder`, Job, blauer Wunsch), `FIGUREN`, Ball, Farben, Schal und Fernrohr bei den Lieblingsdingen |
+| `bau-moebel.js` | Schal (Fino) und Fernrohr (Bruno) |
+| `bau-stand.js` | Fassung 3: KiddyDome über zwei Stockwerke, Paare beim Laden und Zusammenführen, Umstellen als Block, Dazubauen gleich darüber; Buchfiguren zuerst, mit Wunsch und Traumjob; Kinderzimmer-Tiere oft im KiddyDome |
+| `bau-art.js`, `train-bau.js`, `bau.css` | doppelt hohes Zimmer ohne Decke dazwischen, Hinweis und «Stockwerk dazubauen» in der Zimmerwahl, Mini-Lift, hohe Sprünge; die Tiere aus `bau-tiere.js` mit Blinzeln; das Buch auf der Tafel |
+| `scripts/validate-bau.mjs` | KiddyDome (zwei Stockwerke, Umstellen, Zusammenführen, Flicken, Ändern, Dazubauen, Besuche), Buchfiguren (Bücher, Vorlieben, Wünsche, Traumjobs, zuerst einziehen), Fingerabdruck der Fassung 3 |
+| `scripts/check-bau.mjs` | der KiddyDome im Browser, auf Tablet und Handy |
 
 ---
 

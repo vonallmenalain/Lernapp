@@ -35,6 +35,12 @@
  *                 aussen (Rahmen und Schild, Stufe 1 bis 3). Oben in einem
  *                 Arbeitszimmer stehen nur, wer dort den Traumjob hat oder
  *                 sich das Zimmer wünscht – ohne die Sterne der Wohnung.
+ *   KiddyDome     Mit nur einem freien Stockwerk sagt die Wahl, dass er zwei
+ *                 braucht, und bietet an, eines dazuzubauen; dann steht er über
+ *                 zwei Stockwerke (ohne Decke dazwischen), im Zoom doppelt so
+ *                 hoch, was an der Decke hängt, hängt ganz oben. Er wandert
+ *                 beim Umstellen als Ganzes, und ein Tier aus dem Kinderzimmer
+ *                 ist dort zu Besuch.
  *   Wieder hinein Hinaus und wieder hinein: Zimmer und Tier-Tafel gehen auch
  *                 beim zweiten Besuch auf derselben Seite auf.
  *   Neuer Kasten  Hat ein anderes Gerät die Bauecke schon mit einer neueren
@@ -532,11 +538,121 @@ async function pruefeSonderfaelle(browser, name, viewport) {
   await context.close();
 }
 
+// Der KiddyDome: braucht zwei Stockwerke, steht über beide, wandert als Ganzes.
+async function pruefeKiddyDome(browser, name, viewport) {
+  const { context, page, ausnahmen } = await neueSeite(browser, viewport);
+  try {
+    await page.addInitScript(() => { try { if (!localStorage.getItem("lernapp.bau.lieferung")) localStorage.setItem("lernapp.bau.lieferung", JSON.stringify({ geraete: { pruefung: 4 } })); } catch { /* egal */ } });
+    await page.goto(`${BASIS}/index.html`, { waitUntil: "load" });
+    await page.evaluate(() => {
+      const S = window.LernappBauStand;
+      S.setzeGewaehlt("zentrum");
+      S.waehleRaum("zentrum", 0, 0, "bibliothek");
+      S.waehleRaum("wohnhaus", 0, 0, "kinderzimmer");
+      S.merkeGezeigt();
+      S.speichern(true);
+    });
+    await page.goto(`${BASIS}/index.html?bau=1`, { waitUntil: "load" });
+    await page.waitForTimeout(1600);
+    pruefe(await page.evaluate(() => window.LernappBauStand.paletten()) >= 2, `${name}: KiddyDome: keine Ziegel für den Test`);
+    // Das Plus über dem Dach ins Bild holen (auf dem Handy liegt es oberhalb).
+    for (let n = 0; n < 8; n += 1) {
+      const r = await page.locator(".bau-naechster .bau-plus").boundingBox();
+      if (r && r.y > 60 && r.y + r.height < viewport.height - 10) break;
+      await ziehe(page, { x: viewport.width * 0.2, y: viewport.height * 0.35 }, { x: viewport.width * 0.2, y: viewport.height * 0.75 }, 6);
+      await page.waitForTimeout(700);
+    }
+    await tippe(page, ".bau-naechster .bau-plus");
+    pruefe(await bis(page, () => document.querySelector(".bau-wahl.is-raumwahl"), null, 6000), `${name}: KiddyDome: nach dem Bauen kommt keine Zimmerwahl`);
+    const karte = page.locator('.bau-wahl-feld[aria-label="KiddyDome"]');
+    await karte.scrollIntoViewIfNeeded();
+    await karte.click();
+    await page.waitForTimeout(300);
+    const wahl = await page.evaluate(() => {
+      const h = document.querySelector(".bau-wahl-hinweis");
+      const dazu = document.querySelector(".bau-dazu");
+      const r = h?.getBoundingClientRect();
+      return {
+        text: h?.textContent || "", warnung: h?.classList.contains("is-warnung"), sichtbar: Boolean(r && r.height > 0 && r.bottom <= window.innerHeight && r.top >= 0),
+        haken: [...document.querySelectorAll(".bau-wahl .bau-ok")].every((b) => b.hidden || b.disabled), dazu: Boolean(dazu && !dazu.hidden),
+        gesagt: window.__gesagt.at(-1) || "",
+      };
+    });
+    pruefe(/zwei Stockwerke/.test(wahl.text) && wahl.warnung && wahl.sichtbar, `${name}: KiddyDome: die Wahl sagt nicht sichtbar, dass er zwei Stockwerke braucht (${JSON.stringify(wahl)})`);
+    pruefe(wahl.haken && wahl.dazu, `${name}: KiddyDome mit einem Stockwerk: der Haken ist an oder "Stockwerk dazubauen" fehlt`);
+    pruefe(/zwei Stockwerke/.test(wahl.gesagt), `${name}: KiddyDome: der Hinweis wird nicht vorgelesen`);
+    await page.locator(".bau-dazu").click();
+    pruefe(await bis(page, () => document.querySelector(".bau-zimmer-svg")?.getAttribute("viewBox")?.startsWith("0 -256"), null, 9000), `${name}: KiddyDome: nach dem Dazubauen geht kein doppelt hohes Zimmer auf`);
+    const stock = await page.evaluate(() => window.LernappBauStand.haus("zentrum").stock.map((s) => `${s.art}:${s.zimmer[0]?.raum || ""}`).join("|"));
+    pruefe(stock === "eins:bibliothek|eins:kiddydome|oben:", `${name}: KiddyDome: die Stockwerke stimmen nicht (${stock})`);
+    // Was an der Decke hängt, hängt ganz oben.
+    const decke = await page.evaluate(() => window.LernappBauKatalog.dingeFuer("kiddydome").find((id) => window.LernappBauMoebel.DINGE[id]?.art === "decke"));
+    if (decke) {
+      const knopfEl = page.locator(`.bau-schublade [data-ding="${decke}"]`);
+      await knopfEl.scrollIntoViewIfNeeded();
+      await knopfEl.click();
+      await page.waitForTimeout(600);
+      const y = await page.evaluate(() => window.LernappBauStand.zimmer("zentrum", 1, 0).dinge.at(-1)?.y);
+      pruefe(y === -256, `${name}: KiddyDome: ${decke} hängt nicht an der Decke ganz oben (y ${y})`);
+    } else fehlt(`${name}: KiddyDome: in der Schublade hängt nichts an der Decke`);
+    await page.locator(".stage-back").click();
+    await page.waitForTimeout(1200);
+    const haus = await page.evaluate(() => ({
+      clip: document.querySelector('.bau-raum[data-stock="1"]')?.getAttribute("clip-path") || "",
+      oben: document.querySelectorAll('.bau-raum[data-stock="2"]').length,
+    }));
+    pruefe(haus.clip.includes("bau-clip-doppel") && haus.oben === 0, `${name}: KiddyDome: im Haus nicht über zwei Stockwerke gezeichnet (${JSON.stringify(haus)})`);
+    // Umstellen: ein Rahmen und ein Pfeil für beide Stockwerke.
+    await page.locator(".bau-ordnenknopf").click();
+    await page.waitForTimeout(500);
+    const pfeile = await page.evaluate(() => [...document.querySelectorAll(".bau-ordnenpfeil")].map((p) => `${p.dataset.ziel}${p.dataset.stock}`).sort().join());
+    pruefe(pfeile === "hoch0,runter1", `${name}: KiddyDome: die Pfeile zum Umstellen stimmen nicht (${pfeile})`);
+    await tippe(page, '.bau-ordnenpfeil[data-ziel="runter"][data-stock="1"]');
+    await page.waitForTimeout(800);
+    const umgestellt = await page.evaluate(() => window.LernappBauStand.haus("zentrum").stock.map((s) => `${s.art}:${s.zimmer[0]?.raum || ""}`).join("|"));
+    pruefe(umgestellt === "eins:kiddydome|oben:|eins:bibliothek", `${name}: KiddyDome wandert nicht als Ganzes (${umgestellt})`);
+    await page.locator(".bau-ordnenknopf").click();
+    await page.waitForTimeout(400);
+    // Ein Tier aus dem Kinderzimmer ist im KiddyDome zu Besuch.
+    const besuch = await page.evaluate(() => {
+      const S = window.LernappBauStand;
+      const tier = S.stock("wohnhaus", 0).tiere[0];
+      for (let t = Date.now() + 3600000; t < Date.now() + 10 * 86400000; t += 15 * 60000) {
+        const wo = S.aufenthalt(tier.seed, t);
+        if (wo.wo === "besuch" && wo.haus === "zentrum" && S.zimmer("zentrum", wo.index, wo.slot)?.raum === "kiddydome") {
+          const echt = Date.now;
+          const versatz = t - echt();
+          Date.now = () => echt() + versatz;
+          return tier.seed;
+        }
+      }
+      return "";
+    });
+    pruefe(besuch, `${name}: KiddyDome: das Tier aus dem Kinderzimmer geht nie hin`);
+    if (besuch) {
+      // Neu zeichnen – über das Spital, denn im Wohnhaus zöge gleich jemand ein.
+      await page.locator('.bau-tab[data-haus="spital"]').click();
+      await page.waitForTimeout(900);
+      await page.locator('.bau-tab[data-haus="zentrum"]').click();
+      await page.waitForTimeout(1200);
+      pruefe(await page.locator(`.bau-raum[data-stock="0"] .bau-tier[data-seed="${besuch}"]`).count() === 1, `${name}: KiddyDome: das Tier aus dem Kinderzimmer ist dort nicht zu sehen`);
+    }
+  } catch (fehler) {
+    const zeilen = fehler.message.split("\n");
+    const wo = zeilen.find((z) => /waiting for/.test(z))?.trim() || "";
+    fehlt(`${name}: ${zeilen[0]}${wo ? ` (${wo})` : ""}`);
+  }
+  ausnahmen.forEach((a) => fehlt(`${name}: Ausnahme im Browser: ${a}`));
+  await context.close();
+}
+
 if (!(await warteAufServer())) { console.error("Der Testserver startet nicht."); process.exit(2); }
 const browser = await playwright.chromium.launch();
 await pruefeGeraet(browser, "Tablet", { width: 1600, height: 1000 });
 await pruefeGeraet(browser, "Handy", { width: 812, height: 375 });
 await pruefeSonderfaelle(browser, "Tablet", { width: 1600, height: 1000 });
+await pruefeKiddyDome(browser, "Tablet", { width: 1600, height: 1000 });
+await pruefeKiddyDome(browser, "Handy", { width: 812, height: 375 });
 await browser.close();
 halt();
 
@@ -545,4 +661,4 @@ if (befunde.length) {
   befunde.forEach((b) => console.error(`  - ${b}`));
   process.exit(1);
 }
-console.log("Die Bauecke läuft: Bauplatz, Hauswahl, Einzug mit Feuerwerk, Zimmer mit eigenen Dingen, Tier-Tafel mit Hingehen, Traumjob von aussen und im Zimmer, Umstellen, Rätsel, Lieferung, Bauen, Vorlesen per Tipp – auf Tablet und Handy.");
+console.log("Die Bauecke läuft: Bauplatz, Hauswahl, Einzug mit Feuerwerk, Zimmer mit eigenen Dingen, Tier-Tafel mit Hingehen, Traumjob von aussen und im Zimmer, KiddyDome über zwei Stockwerke, Umstellen, Rätsel, Lieferung, Bauen, Vorlesen per Tipp – auf Tablet und Handy.");

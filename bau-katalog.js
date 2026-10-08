@@ -132,6 +132,10 @@
   // wuensche: nur in den Wohnungen – woraus die gelben Wünsche der Tiere
   //           gezogen werden (tags)
   // ausflug:  hierhin gehen die Tiere in der Freizeit besonders gern
+  // doppel:   so hoch wie zwei Stockwerke (der KiddyDome) – es braucht ein
+  //           freies Stockwerk gleich darüber (oder darunter)
+  // kinder:   hierhin gehen die Tiere aus den Kinderzimmern sehr oft, ganz
+  //           gleich, was sie sich wünschen (bau-stand.js, aufenthalt)
   // Was in der Schublade eines Zimmers liegt, steht bei den Möbeln
   // (bau-moebel-<gruppe>.js, RAUM_DINGE); was man hier arbeitet, in JOBS.
   const R = (id, haus, name, der, ein, text, opts) => ({ id, haus, name, der, ein, text, muster: "keine", boden: "parkett", ...opts });
@@ -252,6 +256,9 @@
     R("spielplatz", "zentrum", "Spielplatz", "der Spielplatz", "einen Spielplatz",
       "Auf dem Spielplatz wird gerutscht, geschaukelt, geklettert und im Sand gebuddelt.",
       { wand: "hellblau", boden: "rasen", icon: "rutsche", ausflug: true }),
+    R("kiddydome", "zentrum", "KiddyDome", "der KiddyDome", "einen KiddyDome",
+      "Der KiddyDome ist eine Spielhalle, so hoch wie zwei Stockwerke: mit Rutschbahnen, Klettertürmen, einem Sprungschloss, Trampolinen und Seilen zum Hangeln. Ein Mini-Lift fährt hinauf und hinunter.",
+      { wand: "hellblau", muster: "punkte", boden: "linoleum", icon: "k_sprungschloss", ausflug: true, doppel: true, kinder: true }),
     R("hallenbad", "zentrum", "Hallenbad", "das Hallenbad", "ein Hallenbad",
       "Im Hallenbad kann man schwimmen, auch wenn es draussen kalt ist.",
       { wand: "hellblau", muster: "kacheln", boden: "plaettli", icon: "schwimmbecken", ausflug: true }),
@@ -337,7 +344,7 @@
     eingangshalle: "Auskunft geben", lebensmittel: "Gemüse verkaufen", baeckerei: "Brot backen",
     spielwaren: "Spielsachen verkaufen", kleider: "Kleider verkaufen", blumen: "Blumensträusse binden",
     coiffeur: "Haare schneiden", bibliothek: "Bücher ausleihen", restaurant: "Essen kochen",
-    cafe: "Kuchen servieren", spielplatz: "auf die Kinder aufpassen", hallenbad: "auf die Schwimmer aufpassen",
+    cafe: "Kuchen servieren", spielplatz: "auf die Kinder aufpassen", kiddydome: "die Rutschbahnen prüfen", hallenbad: "auf die Schwimmer aufpassen",
     turnhalle: "Turnstunden geben", kino: "Filme zeigen", schule: "Kinder unterrichten", kita: "Kinder hüten",
     post: "Pakete verteilen", musik: "Musik unterrichten", toiletten: "die Toiletten putzen", velowerkstatt: "Velos flicken",
     // Büro
@@ -347,9 +354,11 @@
   };
   Object.entries(JOBS).forEach(([id, job]) => { if (RAEUME[id]) RAEUME[id].job = job; });
 
-  // Die Lieblingsdinge der Tierarten (TIERE.mag.ding) gibt es in jeder
-  // Wohnung – wer einen Panda hat, braucht Bambus.
-  const LIEBLINGS = ["beeren", "honig", "rueebli", "kratzbaum", "bambus", "aquarium", "buecherregal", "fisch", "melone", "kaese", "nuesse", "kletterfelsen", "hundekorb", "laubhaufen", "heuballen", "aepfel"];
+  // Die Lieblingsdinge der Tierarten (TIERE.mag.ding) und der Figuren aus den
+  // Büchern (FIGUREN.mag.ding) gibt es in jeder Wohnung – wer einen Panda hat,
+  // braucht Bambus, und Mia ihren Ball.
+  const LIEBLINGS = ["beeren", "honig", "rueebli", "kratzbaum", "bambus", "aquarium", "buecherregal", "fisch", "melone", "kaese", "nuesse", "kletterfelsen", "hundekorb", "laubhaufen", "heuballen", "aepfel",
+    "ball", "farbtoepfe", "schal", "fernrohr"];
 
   // Was in der Schublade eines Zimmers liegt: seine eigenen Dinge (aus den
   // Dateien bau-moebel-<gruppe>.js), in Wohnungen dazu die Lieblingsdinge.
@@ -506,6 +515,8 @@
     laub: { ein: "einen Laubhaufen", zeige: "laubhaufen" },
     heu: { ein: "Heu", zeige: "heuballen" },
     koerbchen: { ein: "ein Körbchen", zeige: "hundekorb" },
+    schal: { ein: "einen Schal", zeige: "schal" },
+    fernrohr: { ein: "ein Fernrohr", zeige: "fernrohr" },
     milch: { ein: "Milch", zeige: "milch" },
     aepfel: { ein: "Äpfel", zeige: "aepfel" },
   };
@@ -534,6 +545,7 @@
       { haus: "zentrum", raum: "post", warum: "Dort schicke ich meiner Grossmutter einen Brief." },
       { haus: "zentrum", raum: "coiffeur", warum: "Meine Haare sind schon ganz lang." },
       { haus: "zentrum", raum: "turnhalle", warum: "Dort turne ich mit meinen Freunden." },
+      { haus: "zentrum", raum: "kiddydome", warum: "Dort rutsche, klettere und hüpfe ich." },
       { haus: "spital", raum: "notfall", warum: "Falls ich mich einmal verletze." },
       { haus: "spital", raum: "paediatrie", warum: "Dort hilft man kranken Kindern." },
       { haus: "spital", raum: "apotheke", warum: "Dort gibt es Hustensirup." },
@@ -555,19 +567,19 @@
   //           kennen die Kinder aus den Büchern)
   //   mag     ein Lieblingsding (tag) und eine Lieblingsfarbe (Familie)
   const TIERE = {
-    fox: { name: "Fuchs", der: "der Fuchs", coat: "#e8763a", inner: "#ffd9b8", ear: "point", namen: ["Fino", "Flora", "Felix", "Fanny"],
+    fox: { name: "Fuchs", der: "der Fuchs", coat: "#e8763a", inner: "#ffd9b8", ear: "point", namen: ["Flora", "Felix", "Fanny", "Fritzi"],
       mag: { ding: "beeren", farbe: "orange" },
       isst: "Beeren, Käfer und Würmer – ich bin nicht wählerisch.",
       fakt: "Ich höre eine Maus sogar unter dem Schnee. Dann springe ich hoch und tauche mit der Nase voran hinein." },
-    bear: { name: "Bär", der: "der Bär", coat: "#9a6b46", inner: "#d8b48f", ear: "round", namen: ["Bruno", "Berta", "Benno", "Bella"],
+    bear: { name: "Bär", der: "der Bär", coat: "#9a6b46", inner: "#d8b48f", ear: "round", namen: ["Berta", "Benno", "Bella", "Bodo"],
       mag: { ding: "honig", farbe: "gelb" },
       isst: "Honig! Und Beeren und Fisch.",
       fakt: "Im Winter halte ich in meiner Höhle eine lange Winterruhe." },
-    rabbit: { name: "Hase", der: "der Hase", coat: "#f0ece6", inner: "#f7b8c4", ear: "long", namen: ["Hoppel", "Lilli", "Hannes", "Hanna"],
+    rabbit: { name: "Hase", der: "der Hase", coat: "#f0ece6", inner: "#f7b8c4", ear: "long", namen: ["Lilli", "Hannes", "Hanna", "Mümmel"],
       mag: { ding: "rueebli", farbe: "rosa" },
       isst: "Rüebli, Gras und Kräuter. Im Winter knabbere ich auch Rinde.",
       fakt: "Ich wohne auf Feldern und Wiesen. Ich grabe keinen Bau – ich ruhe in einer kleinen Mulde, der Sasse." },
-    cat: { name: "Katze", der: "die Katze", coat: "#8d8f9c", inner: "#e6e2ee", ear: "point", namen: ["Tim", "Mimi", "Minka", "Kasimir"],
+    cat: { name: "Katze", der: "die Katze", coat: "#8d8f9c", inner: "#e6e2ee", ear: "point", namen: ["Mimi", "Minka", "Kasimir", "Mauzi"],
       mag: { ding: "kratzbaum", farbe: "violett" },
       isst: "Fisch! Mmh, Fisch.",
       fakt: "Im Dunkeln sehe ich viel besser als du. Und ich schlafe gern – bis zu 15 Stunden am Tag." },
@@ -575,23 +587,23 @@
       mag: { ding: "bambus", farbe: "gruen" },
       isst: "Bambus! Ich kaue bis zu 14 Stunden am Tag Bambus.",
       fakt: "Ich wohne in den Bambuswäldern in China. An den Vorderpfoten habe ich einen Extra-Knochen – damit halte ich den Bambus wie mit einem Daumen." },
-    frog: { name: "Frosch", der: "der Frosch", coat: "#5cb85c", inner: "#c9ea9a", ear: "eyes", namen: ["Fred", "Frida", "Quaki", "Franz"],
+    frog: { name: "Frosch", der: "der Frosch", coat: "#5cb85c", inner: "#c9ea9a", ear: "eyes", namen: ["Frida", "Quaki", "Franz", "Hupf"],
       mag: { ding: "aquarium", farbe: "gruen" },
       isst: "Fliegen und Mücken – die fange ich mit meiner langen Zunge.",
       fakt: "Ich habe mein Leben als Kaulquappe im Wasser begonnen. Und ich trinke durch meine Haut!" },
-    owl: { name: "Eule", der: "die Eule", coat: "#a9814f", inner: "#f3e2c0", ear: "tuft", namen: ["Ella", "Olli", "Uli", "Eulalia"],
+    owl: { name: "Eule", der: "die Eule", coat: "#a9814f", inner: "#f3e2c0", ear: "tuft", namen: ["Olli", "Uli", "Eulalia", "Hedi"],
       mag: { ding: "buecher", farbe: "blau" },
       isst: "Käfer und anderes Krabbelzeug.",
       fakt: "Ich jage in der Nacht und fliege fast ohne ein Geräusch." },
-    penguin: { name: "Pinguin", der: "der Pinguin", coat: "#3a4250", inner: "#ffffff", ear: "none", namen: ["Pino", "Pia", "Paul", "Pinga"],
+    penguin: { name: "Pinguin", der: "der Pinguin", coat: "#3a4250", inner: "#ffffff", ear: "none", namen: ["Pia", "Pinga", "Pablo", "Peppi"],
       mag: { ding: "fisch", farbe: "blau" },
       isst: "Fische, Krill und Tintenfische – mmh!",
       fakt: "Ich komme aus der Antarktis, rund um den Südpol. Bei uns wärmt der Papa das Ei auf seinen Füssen." },
-    lion: { name: "Löwe", der: "der Löwe", coat: "#e0a53c", inner: "#f6dda3", ear: "mane", namen: ["Leo", "Lea", "Luna", "Lino"],
+    lion: { name: "Löwe", der: "der Löwe", coat: "#e0a53c", inner: "#f6dda3", ear: "mane", namen: ["Lea", "Luna", "Lino", "Lola"],
       mag: { ding: "melone", farbe: "gelb" },
       isst: "Am liebsten Melone! Das weisst du doch aus dem Buch.",
       fakt: "Löwen leben in einer Familie, dem Rudel. Und ich döse sehr gern – bis zu 20 Stunden am Tag!" },
-    mouse: { name: "Maus", der: "die Maus", coat: "#b0b3bd", inner: "#f7c9d4", ear: "big", namen: ["Mia", "Rosa", "Max", "Mo"],
+    mouse: { name: "Maus", der: "die Maus", coat: "#b0b3bd", inner: "#f7c9d4", ear: "big", namen: ["Max", "Mo", "Fipsi", "Lina"],
       mag: { ding: "kaese", farbe: "rosa" },
       isst: "Körner und Samen – und ein Stückchen Käse.",
       fakt: "Meine Vorderzähne wachsen ein Leben lang nach. Darum nage ich so viel." },
@@ -622,10 +634,76 @@
   };
   const TIER_IDS = Object.keys(TIERE);
 
+  // ---------------------------------------------------------------------------
+  // Die Figuren aus den Büchern der Leseecke
+  // ---------------------------------------------------------------------------
+  // Die Kinder kennen sie aus den Geschichten – darum ziehen sie zuerst ein
+  // (bau-stand.js, neuesTier), sehen aus wie im Buch (bau-tiere.js, figur) und
+  // mögen, was sie dort mögen. Ein Tier ist eine Figur, wenn Art und Name
+  // stimmen (auch: ein früherer Name), so ist auch ein Leo, der schon vorher
+  // eingezogen ist, Leo aus dem Buch. Ihre Namen fehlen darum bei TIERE.namen.
+  //   buecher  in welchen Büchern sie vorkommt, ihr eigenes zuerst
+  //            (bilder/buecher/<id>/ hat den Umschlag)
+  //   mag      Lieblingsding (tag, liegt in jeder Wohnung) und -farbe
+  //   wunsch   ein Zimmer in einem anderen Haus, das zu ihrer Geschichte passt
+  //   traum    der Traumjob (Zimmer), auch aus der Geschichte
+  //   ich      was sie von sich erzählt – erinnert an das Buch, verrät das Ende nicht
+  const F = (id, a, n, buecher, mag, farbe, ich, extra = {}) => ({ id, a, n, buecher: buecher.map(([b, titel]) => ({ id: b, titel })), mag: { ding: mag, farbe }, ich, ...extra });
+  const FIGUREN = [
+    F("leo", "lion", "Leo", [["leo-melone", "Leo und die Melone"], ["leo-bruellt", "Leo lernt brüllen"]], "melone", "gelb",
+      "Ich bin Leo. Ich mag Melonen – einmal ist mir eine davongerollt!",
+      { wunsch: { haus: "zentrum", raum: "lebensmittel", warum: "Dort gibt es Melonen – die mag ich am liebsten." }, traum: "zentrum:musik" }),
+    F("rosa", "mouse", "Oma Rosa", [["geschenk-oma-rosa", "Ein Geschenk für Oma Rosa"], ["leo-melone", "Leo und die Melone"], ["leo-bruellt", "Leo lernt brüllen"]], "buecher", "violett",
+      "Ich bin Oma Rosa. Ich liebe Geschichten – und ich weiss: Ein richtiges Brüllen kommt aus dem Bauch!",
+      { auch: ["Rosa"], wunsch: { haus: "zentrum", raum: "bibliothek", warum: "Ich liebe Geschichten." }, traum: "zentrum:schule" }),
+    F("mia", "mouse", "Mia", [["mia-ball", "Mia und der Ball"], ["geschenk-oma-rosa", "Ein Geschenk für Oma Rosa"]], "ball", "rot",
+      "Ich bin Mia. Ich spiele gern mit meinem roten Ball – und aus einer alten Kiste baue ich auch mal eine Rakete!",
+      { wunsch: { haus: "zentrum", raum: "spielplatz", warum: "Dort werfe ich meinen roten Ball hoch." }, traum: "zentrum:bibliothek" }),
+    F("hoppel", "rabbit", "Hoppel", [["hase-rueebli", "Wo ist das Rüebli?"], ["hoppel-velo", "Hoppel lernt Velo fahren"]], "rueebli", "blau",
+      "Ich bin Hoppel. Ich habe immer Lust auf ein knackiges Rüebli – und mein rotes Velo glänzt in der Sonne!",
+      { wunsch: { haus: "zentrum", raum: "velowerkstatt", warum: "Dort pumpe ich die Pneus von meinem roten Velo." }, traum: "zentrum:lebensmittel" }),
+    F("ella", "owl", "Ella", [["eule-ella", "Eule Ella hört zu"], ["ella-ei", "Ella findet ein Ei"], ["reise-mond", "Die Reise zum Mond"]], "buecher", "blau",
+      "Ich bin Ella. Am Tag schlafe ich, und in der Nacht höre ich am liebsten Geschichten zu.",
+      { wunsch: { haus: "zentrum", raum: "bibliothek", warum: "Dort gibt es Geschichten – zuhören mag ich am liebsten." }, traum: "spital:geburt" }),
+    F("pino", "penguin", "Pino", [["pino-insel", "Pino will auf die Insel"], ["pino-schneemann", "Pino baut einen Schneemann"], ["leuchtturm-licht", "Das Licht im Leuchtturm"]], "fisch", "blau",
+      "Ich bin Pino. Ich fahre gern mit dem Boot – und in den Ferien bin ich bei Opa Paul im Leuchtturm.",
+      { wunsch: { haus: "zentrum", raum: "post", warum: "Dort schicke ich Opa Paul eine Karte." }, traum: "zentrum:hallenbad" }),
+    F("paul", "penguin", "Opa Paul", [["leuchtturm-licht", "Das Licht im Leuchtturm"]], "lampe", "blau",
+      "Ich bin Opa Paul, der Leuchtturmwärter. Jeden Abend steige ich neunundneunzig Stufen hinauf, damit mein Licht den Booten den Weg zeigt.",
+      { auch: ["Paul"], wunsch: { haus: "spital", raum: "physio", warum: "Dort übe ich, bis mein Fuss wieder ganz gesund ist." }, traum: "zentrum:eingangshalle" }),
+    F("flitz", "squirrel", "Flitz", [["flitz-nuss", "Flitz und die vergessene Nuss"], ["flitz-geheimnis", "Ein Geheimnis im Wald"], ["baumhaus-nacht", "Die Nacht im Baumhaus"]], "nuesse", "gruen",
+      "Ich bin Flitz. Ich sammle Nüsse – und in meinem Baumhaus übernachten manchmal alle meine Freunde!",
+      { wunsch: { haus: "zentrum", raum: "cafe", warum: "Dort esse ich gern ein Stück Kuchen – am liebsten einen mit Nüssen." }, traum: "buero:bueroempfang" }),
+    F("sepp", "ibex", "Sepp", [["sepp-gewitter", "Sepp und das Gewitter"], ["bergrennen", "Das grosse Bergrennen"]], "klettern", "rot",
+      "Ich bin Sepp. Ich springe über die Felsen, als wäre es eine Treppe – nur der Donner macht mir ein bisschen Angst.",
+      { wunsch: { haus: "zentrum", raum: "turnhalle", warum: "Dort trainiere ich jeden Tag für das Bergrennen." }, traum: "spital:notfall" }),
+    F("pippa", "panda", "Pippa", [["pippa-bambus", "Wer klaut Pippas Bambus?"], ["pippa-regen", "Pippa und der Regen"]], "bambus", "rot",
+      "Ich bin Pippa. Ich liebe Bambus über alles – und mit meiner Lupe bin ich eine echte Detektivin!",
+      { wunsch: { haus: "zentrum", raum: "lebensmittel", warum: "Dort kaufe ich frischen Bambus – grün und knackig!" }, traum: "spital:labor" }),
+    F("fridolin", "frog", "Fridolin", [["pippa-regen", "Pippa und der Regen"]], "aquarium", "gruen",
+      "Ich bin Fridolin. Regen ist das Schönste! Komm, wir springen in die Pfützen!",
+      { wunsch: { haus: "zentrum", raum: "hallenbad", warum: "Nass ist das Schönste – da springe ich hinein!" }, traum: "zentrum:kiddydome" }),
+    F("bruno", "bear", "Bruno", [["bruno-sterne", "Bruno zählt Sterne"], ["bruno-schnee", "Bruno und der erste Schnee"]], "fernrohr", "gruen",
+      "Ich bin Bruno. Ich zähle so gern Sterne: eins, zwei, drei … wie weit komme ich wohl?",
+      { wunsch: { haus: "zentrum", raum: "schule", warum: "Dort lerne ich zählen – vielleicht schaffe ich dann alle Sterne!" }, traum: "zentrum:turnhalle" }),
+    F("mamabaer", "bear", "Mama Bär", [["bruno-schnee", "Bruno und der erste Schnee"]], "honig", "rot",
+      "Ich bin Mama Bär. Wenn die Blätter fallen, sage ich: Bald ist es Zeit für den Winterschlaf!",
+      { traum: "zentrum:kita" }),
+    F("fino", "fox", "Fino", [["fino-schal", "Fino und der rote Schal"]], "schal", "rot",
+      "Ich bin Fino. Meine Oma hat mir einen roten Schal gestrickt – einmal hat ihn der Wind fortgetragen. Huiii!",
+      { wunsch: { haus: "zentrum", raum: "kleider", warum: "Dort gibt es warme Schals – wie den, den mir der Wind fortgetragen hat." }, traum: "zentrum:post" }),
+    F("tim", "cat", "Tim", [["tim-malt", "Kater Tim malt"]], "malen", "violett",
+      "Ich bin Tim, der Kater. Ich male so gern – auch wenn danach manchmal Farbe an meinem Bauch klebt!",
+      { wunsch: { haus: "buero", raum: "atelier", warum: "Dort wird gemalt und gezeichnet – genau wie bei mir!" }, traum: "buero:atelier" }),
+    F("fred", "frog", "Fred", [["fred-frosch", "Fred, der Frosch"], ["leuchtturm-licht", "Das Licht im Leuchtturm"]], "fisch", "gelb",
+      "Ich bin Fred. Ich sitze gern auf meinem Seerosenblatt – und mit meinem Fischerboot fahre ich auf den See hinaus.",
+      { traum: "zentrum:restaurant" }),
+  ];
+
   window.LernappBauKatalog = {
     FARBEN, FARBE, FAMILIEN, MUSTER, BOEDEN, BODEN,
     HAEUSER, HAUS, RAEUME, RAEUME_LISTE, WOHNEN, JOBS, LIEBLINGS, dingeFuer,
     DING_WUENSCHE, HAUS_WUENSCHE, FREMD_WUENSCHE,
-    TIERE, TIER_IDS,
+    TIERE, TIER_IDS, FIGUREN,
   };
 })();
