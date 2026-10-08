@@ -42,6 +42,7 @@ Pepi, Miga Town, den einzelnen Toca-Apps und weiteren Bauspielen (Abschnitt 3)
 | Unterwegs | etwa ein Drittel der Zeit bei der Arbeit oder auf Ausflug | meist daheim, manchmal bei der Arbeit, ab und zu zu **Besuch in einem anderen Haus**; nachts alle daheim. Die Tafel sagt, wo ein Tier ist; «Hingehen →» führt hin. |
 | Einzug | sofort mit der Zimmerart | das erste Tier kommt mit der Wahl der Wohnung; die weiteren **mit der Zeit** (alle zehn Minuten, solange die Bauecke offen ist): Es kommt die Strasse entlang, nimmt den **Lift**, und ein **Feuerwerk** begrüsst es. |
 | Tier-Tafel | mit Gespräch (elf Fragen) | **ohne Gespräch**. Dafür die Mitbewohner zum Wechseln, wo das Tier gerade ist, der Traumjob und die Arbeit. |
+| Traumjob sichtbar | – | eine **goldene Aktentasche**; die Wohnung zeigt von aussen **in drei Stufen**, wie viele Bewohner ihren Traumjob haben (bei allen dreien mit Krone und Leuchten). Oben in einem Arbeitszimmer stehen nur, wer dort den Traumjob hat oder sich das Zimmer wünscht. |
 | Zimmerart ändern | Knopf mit Haus-Symbol | ein **Stift** |
 | Vorlesen | was man auswählt | dazu: **ist das Vorlesen an, liest ein Tipp auf einen Text ihn vor** (Tafel, Wahl-Fenster). |
 
@@ -63,6 +64,23 @@ Pepi, Miga Town, den einzelnen Toca-Apps und weiteren Bauspielen (Abschnitt 3)
   (das Zimmer fehlt oder ist mit drei Tieren voll), nimmt irgendeinen Job, wo Platz ist.
   Gibt es noch gar keinen Arbeitsplatz, «sucht es noch Arbeit». Auf der Tafel führt «Zeig
   mir, wo» zum Haus, in dem das Zimmer gebaut werden kann.
+- **Der Traumjob ist zu sehen** (Rückmeldung vom 8. Oktober 2026, dritte Runde) – getrennt
+  von den Sternen der Wünsche, die davon unabhängig bleiben. Sein Zeichen ist eine goldene
+  Aktentasche:
+  - **Von aussen an der Wohnung, in drei Stufen:** Hat ein Bewohner seinen Traumjob, trägt
+    die Wohnung einen goldenen Rahmen, und links am Haus hängt ein Schild mit drei Plätzen.
+    Mit jedem weiteren Traumjob wird der Rahmen kräftiger und ein Platz mehr golden. Haben
+    alle drei ihren Traumjob, leuchtet die Wohnung, und das Schild trägt eine Krone. Ein Tipp
+    aufs Schild öffnet die Tafel.
+  - **Oben im Zimmer von Spital, Dorf und Büro** stehen nur, wer hier den Traumjob hat
+    (golden umrandet, mit der Aktentasche) oder sich dieses Zimmer wünscht (blauer Stern) –
+    ohne die Sterne der Wohnung. Wer hier bloss irgendeine Arbeit hat, steht nicht oben; im
+    Zimmer selbst trägt ein Tier bei der Arbeit die Aktentasche, golden im Traumjob.
+  - **Auf der Tafel:** die Aktentasche beim Namen und bei den Mitbewohnern, die Zeile
+    «Traumjob … – geschafft!» golden.
+  - **Wenn es passiert:** Bekommt ein Tier seinen Traumjob (das Zimmer wird gebaut, oder dort
+    wird ein Platz frei), gibt es Konfetti oder ein Feuerwerk, und das Tier ruft «Mein
+    Traumjob!». Haben damit alle drei einer Wohnung ihren Traumjob, sagt die Bauecke es an.
 - **Wo ein Tier ist:** gerechnet in Viertelstunden, auf jedem Gerät gleich – etwa die
   Hälfte der Zeit daheim, ein Viertel bei der Arbeit (wenn es eine hat), sonst zu Besuch in
   einem Zimmer der anderen Häuser, am liebsten in einem, das es sich gewünscht hat. Von
