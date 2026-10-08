@@ -1179,6 +1179,17 @@
     return { neu: true, paletten: bauPaletten() };
   }
 
+  // Eine Palette aus der Bauecke selbst – der Blitzzug, ein Glücksstern: für
+  // dieses Gerät, wie ein gelöstes Rätsel, nur ohne Rätsel. Wie oft, regelt
+  // die Bauecke (bau-stand.js).
+  function bauBonus() {
+    const id = bauGeraet();
+    const stand = mergeLieferung(obj(lieferung.read()), LIEFERUNG_LEER);
+    stand.geraete[id] = (Number(stand.geraete[id]) || 0) + 1;
+    lieferung.write(stand);
+    return bauPaletten();
+  }
+
   window.LernappReise = {
     KEY, SEEN_KEY, MAPS, LAPS, GAMES, AREAS, WORLDS, LOCKS, BONUSES, STATION_COUNT, STATIONS_PER_MAP,
     TRIES_FOR_ALT, TRIES_FOR_PUSH, TRIES_FOR_PUSH_LAST, LEVEL_MAX, MEMORY_SIZES, CATALOG_PER_WORLD, STARTER_WORLD, STARTER_LEVELS,
@@ -1192,7 +1203,7 @@
     onChange: (fn) => store.onChange(fn),
     // Die Bauecke
     BAU_LIEFERUNG_KEY, BAU_GERAET_KEY, BAU_ZULETZT_KEY, mergeLieferung,
-    bauKandidaten, bauRaetsel, bauTaskFor, bauUrlFor, bauUrl, bauGeschafft, bauPaletten, bauSchluessel,
+    bauKandidaten, bauRaetsel, bauTaskFor, bauUrlFor, bauUrl, bauGeschafft, bauBonus, bauPaletten, bauSchluessel,
     onBauLieferung: (fn) => lieferung.onChange(fn),
   };
 })();

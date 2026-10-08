@@ -312,7 +312,7 @@ function erfuelleGelbe(S, hausId, index) {
 {
   const { S } = standUmgebung();
   const leer = S.lesen();
-  pruefe(S.FORMAT === 3 && leer.v === 3, "der Kasten ist nicht Fassung 3");
+  pruefe(S.FORMAT === 4 && leer.v === 4, "der Kasten ist nicht Fassung 4");
   pruefe(Object.keys(leer.haeuser).join() === "wohnhaus,spital,zentrum,buero", "leerer Stand: nicht vier Häuser");
   const wh = leer.haeuser.wohnhaus.stock;
   pruefe(wh.length === 3 && wh.every((s) => s.art === "wohnung" && s.zimmer.length === 1 && !s.zimmer[0].raum && !s.tiere.length), "das Wohnhaus beginnt nicht mit drei leeren Wohnungen");
@@ -389,10 +389,13 @@ function erfuelleGelbe(S, hausId, index) {
   // sonst in einem neuen.
   let gebaut = 0;
   for (const w of S.wuensche(tier.seed).filter((x) => x.stern === "blau")) {
-    const frei = S.haus(w.haus).stock.findIndex((x) => !x.zimmer[0].raum);
+    const frei = S.haus(w.haus).stock.findIndex((x) => x.art === "eins" && !x.zimmer[0]?.raum);
     const j = frei >= 0 ? frei : S.baueStockwerk(w.haus);
     if (frei < 0) gebaut += 1;
-    pruefe(S.stock(w.haus, j).art === "eins" && S.waehleRaum(w.haus, j, 0, w.raum) === true, `${w.raum}: im ${w.haus} lässt sich kein Zimmer einrichten`);
+    // Der KiddyDome braucht ein freies Stockwerk gleich darüber.
+    if (K.RAEUME[w.raum]?.doppel && !S.doppelPlatz(w.haus, j)) { S.baueStockwerk(w.haus, { ueber: j }); gebaut += 1; }
+    // waehleRaum gibt true (beim KiddyDome die beiden Stockwerke) oder null.
+    pruefe(S.stock(w.haus, j).art === "eins" && Boolean(S.waehleRaum(w.haus, j, 0, w.raum)), `${w.raum}: im ${w.haus} lässt sich kein Zimmer einrichten`);
   }
   const st = S.sterne(tier.seed);
   pruefe(st.anzahl === 5 && st.total === 5, `alle Wünsche erfüllt, aber ${st.anzahl} von ${st.total} Sternen`);
@@ -914,12 +917,44 @@ function S_GEO_W() { return 560; }
   pruefe(zweimal === auf.map((d) => `${d.k}:${d.y}`).join(), `zweimal aufräumen verschiebt die Dinge auf dem Tisch (${zweimal})`);
 }
 
+// Fassung 4: Ein Zimmer ist 160 hoch statt 240 – oben y = 80, der Boden
+// bleibt bei 240. Der KiddyDome behält seine Höhe. Was in einem Kasten vor
+// Fassung 4 an der Wand hing, rückt anteilig auf die kürzere Wand; was an der
+// Decke hängt, hängt an der neuen Decke; was steht, steht, wo es stand.
+{
+  const { S } = standUmgebung();
+  const GEO = S.GEO;
+  const normal = S.normalize({ v: S.FORMAT, haeuser: { spital: { stock: [{ id: "s", art: "eins", zimmer: [{ raum: "radiologie" }] }] } } }).haeuser.spital.stock[0];
+  pruefe(GEO.OBEN === 80 && S.obenVon(normal) === 80 && S.hoeheVon(normal) === 160, `ein Zimmer ist nicht 160 hoch (oben ${S.obenVon(normal)}, hoch ${S.hoeheVon(normal)})`);
+  const dome = S.normalize({ v: S.FORMAT, haeuser: { zentrum: { stock: [{ id: "a", art: "eins", zimmer: [{ raum: "kiddydome" }] }, { id: "b", art: "oben", zu: "a", zimmer: [] }] } } }).haeuser.zentrum.stock[0];
+  pruefe(S.obenVon(dome) === -256 && S.hoeheVon(dome) === 496, "der KiddyDome ist nicht mehr so hoch wie vorher");
+  const alt = (v) => ({ v, haeuser: { spital: { stock: [{ id: "s", art: "eins", zimmer: [{ raum: "radiologie", dinge: [
+    { k: "w1", i: "bild", x: 200, y: 108, s: 1 },
+    { k: "w2", i: "bild", x: 300, y: 20, s: 1 },
+    { k: "d1", i: "deckenlampe", x: 100, y: 0, s: 1 },
+    { k: "b1", i: "bett", x: 400, y: 230, s: 1 },
+  ] }] }] } } });
+  const dinge = (roh) => S.normalize(roh).haeuser.spital.stock[0].zimmer[0].dinge;
+  const vorher = dinge(alt(3));
+  const y = (liste, k) => liste.find((d) => d.k === k)?.y;
+  const erwartet = 80 + 108 * (136 / 216);
+  pruefe(Math.abs(y(vorher, "w1") - erwartet) < 0.11, `ein Bild aus Fassung 3 rückt nicht anteilig auf die kürzere Wand (${y(vorher, "w1")} statt ${erwartet.toFixed(1)})`);
+  const bild = M.umriss("bild");
+  pruefe(y(vorher, "w2") >= 80 - bild.y0 + 4 - 0.11, `ein Bild oben an der Wand ragt nach dem Umrechnen über die Decke (${y(vorher, "w2")})`);
+  pruefe(y(vorher, "d1") === 80 && y(vorher, "b1") === 230, `Deckenlampe oder Bett sind nach dem Umrechnen nicht an der neuen Decke bzw. am alten Platz (${y(vorher, "d1")}, ${y(vorher, "b1")})`);
+  const zweimal = dinge(S.normalize(alt(3)));
+  pruefe(vorher.map((d) => `${d.k}:${d.y}`).join() === zweimal.map((d) => `${d.k}:${d.y}`).join(), "ein Kasten der Fassung 4 rechnet die Wand noch einmal um");
+  pruefe(Math.abs(y(dinge(alt(4)), "w1") - 108) < 0.11, `ein Bild der Fassung 4 wird verschoben (${y(dinge(alt(4)), "w1")})`);
+  pruefe(Math.abs(y(dinge(alt(2)), "w1") - erwartet) < 0.11, "ein Kasten der Fassung 2 rechnet die Wand nicht um");
+}
+
 // Der Katalog dieser Fassung. Ändert sich eine Kennung (ein neues Ding, ein
 // neues Zimmer, ein neues Tier …) oder ein Feld des Kastens, muss FORMAT in
 // bau-stand.js hoch – sonst löscht eine ältere App, die den neuen Kasten
 // sieht, was sie nicht kennt. Danach hier den neuen Fingerabdruck eintragen.
 {
-  const FINGERABDRUCK = { 2: "0de7a8d925917fa6", 3: "7159476bf27e3fdb" };
+  // Fassung 4 hat dieselben Felder wie 3 – neu ist nur, wie hoch ein Zimmer ist.
+  const FINGERABDRUCK = { 2: "0de7a8d925917fa6", 3: "7159476bf27e3fdb", 4: "7159476bf27e3fdb" };
   const { S } = standUmgebung();
   S.waehleRaum("wohnhaus", 0, 0, "schlafzimmer");
   S.aendereZimmer("wohnhaus", 0, 0, (z) => z.dinge.push({ k: "x", i: "bett", x: 100, y: 230 }));
@@ -1008,6 +1043,92 @@ for (const stufe of ["leicht", "mittel", "schwer"]) {
   const b = { geraete: { g1: 2, g3: 4 } };
   pruefe(JSON.stringify(R.mergeLieferung(a, b)) === JSON.stringify({ geraete: { g1: 3, g2: 1, g3: 4 } }), "Ziegel zweier Geräte werden falsch zusammengeführt");
   pruefe(JSON.stringify(R.mergeLieferung(a, a)) === JSON.stringify(R.mergeLieferung(a, {})), "Ziegel verdoppeln sich beim Zusammenführen mit sich selbst");
+}
+
+// --- Überraschungen und die Sternenleiter ---------------------------------------
+{
+  // Blitzzug und Glücksstern: Beim ersten Besuch stellt die Frage die Uhr;
+  // dann etwa jede halbe Stunde, ein verpasster Blitzzug nach fünf Minuten.
+  const jetzt = morgen10();
+  const reise = (u) => u.speicher.set("lernapp.reise", JSON.stringify({ done: {}, tries: {}, choice: {}, alt: {}, stufe: "mittel", stufeAt: 1 }));
+  const { S, R, u } = standUmgebung({ mitReise: true, frei: true, jetzt, vorher: reise });
+  const t0 = jetzt.wert;
+  const min = 60000;
+  pruefe(!S.blitzzugFaellig(t0) && !S.sternFaellig(t0), "beim ersten Besuch kommt gleich eine Überraschung");
+  pruefe(!S.blitzzugFaellig(t0 + min) && S.blitzzugFaellig(t0 + 2 * min), "der erste Blitzzug kommt nicht nach zwei Minuten");
+  pruefe(!S.sternFaellig(t0 + 3 * min) && S.sternFaellig(t0 + 4 * min), "der erste Glücksstern kommt nicht nach vier Minuten");
+  S.blitzzugVorbei(true, t0 + 2 * min);
+  pruefe(!S.blitzzugFaellig(t0 + 31 * min) && S.blitzzugFaellig(t0 + 32 * min), "gefangen kommt der nächste Blitzzug nicht nach einer halben Stunde");
+  S.blitzzugVorbei(false, t0 + 32 * min);
+  pruefe(!S.blitzzugFaellig(t0 + 36 * min) && S.blitzzugFaellig(t0 + 37 * min), "verpasst kommt der Blitzzug nicht nach fünf Minuten wieder");
+  S.sternGefunden(t0 + 5 * min);
+  pruefe(!S.sternFaellig(t0 + 34 * min) && S.sternFaellig(t0 + 35 * min), "nach dem Glücksstern kommt der nächste nicht nach einer halben Stunde");
+  // Die Palette als Lohn: gleich da, und der Lieferzug bringt sie nicht noch einmal.
+  pruefe(S.gezeigt() === 0 && S.paletten() === 0, "ohne Rätsel schon Ziegel");
+  R.bauGeschafft();
+  pruefe(S.neueLieferung() === 1 && S.paletten() === 1, "ein gelöstes Rätsel wartet nicht auf den Lieferzug");
+  pruefe(S.bonusPalette() && S.paletten() === 2 && S.neueLieferung() === 1, `die geschenkte Palette fehlt oder kommt mit dem Zug noch einmal (${S.paletten()}, ${S.neueLieferung()})`);
+  S.merkeGezeigt();
+  pruefe(S.neueLieferung() === 0 && S.paletten() === 2, "nach der Lieferung stimmen die Ziegel nicht");
+  // Je Kind: Ein anderes Konto auf diesem Gerät hat seine eigene Uhr.
+  const karte = JSON.parse(u.speicher.get(S.UEBERRASCHUNG_KEY) || "{}");
+  pruefe(karte[""] && typeof karte[""].zug === "number", "die Uhr der Überraschungen ist nicht je Kind gemerkt");
+  // Verstecke: nur Zimmer, die schon etwas sind; ein KiddyDome einmal (unten).
+  pruefe(S.sternVerstecke().length === 0, "der Glücksstern versteckt sich in einem leeren Rohbau");
+  S.waehleRaum("wohnhaus", 0, 0, "kinderzimmer");
+  S.waehleRaum("zentrum", 0, 0, "bibliothek");
+  S.baueStockwerk("zentrum");
+  S.baueStockwerk("zentrum");
+  S.waehleRaum("zentrum", 1, 0, "kiddydome");
+  const verstecke = S.sternVerstecke();
+  pruefe(S.istDoppel(S.stock("zentrum", 1)) && verstecke.length === 3 && verstecke.some((v) => v.haus === "zentrum" && v.index === 1) && !verstecke.some((v) => v.haus === "zentrum" && v.index === 2),
+    `der Glücksstern versteckt sich nicht in jedem fertigen Zimmer genau einmal (${JSON.stringify(verstecke)})`);
+}
+{
+  // Die Sternenleiter: Stufen der Reihe nach, ohne Kauf ganz erreichbar; der
+  // höchste Stand bleibt, auch wenn ein Wunsch wechselt.
+  const stufen = K.LEITER;
+  pruefe(stufen.length === 8 && stufen.every((s, i) => s.id && s.name && s.text && (i === 0 || s.sterne > stufen[i - 1].sterne)), "die Stufen der Sternenleiter steigen nicht oder es fehlt ein Name");
+  pruefe(stufen[stufen.length - 1].sterne <= 4 * 3 * 5, "die letzte Stufe ist ohne Kauf (vier Wohnungen, je drei Tiere mit fünf Sternen) nicht erreichbar");
+  const jetzt = morgen10();
+  const { S } = standUmgebung({ paletten: 3, frei: true, jetzt });
+  S.waehleRaum("wohnhaus", 0, 0, "kinderzimmer");
+  S.waehleRaum("zentrum", 0, 0, "bibliothek");
+  const fam = K.FARBE[S.zimmer("wohnhaus", 0, 0).wand].familie;
+  // Ein Tier mit fünf erfüllten Wünschen: die erste Stufe.
+  S.aendereStock("wohnhaus", 0, (st) => Object.assign(st.tiere[0], { w: [`farbe:${fam}`, `farbe:${fam}`], g: ["raum:kinderzimmer", "raum:kinderzimmer"], b: ["fremd:zentrum:bibliothek"] }));
+  let l = S.sternenleiter();
+  pruefe(l.jetzt === 5 && l.rekord === 5 && l.erreicht === 1 && l.naechste === stufen[1].sterne, `fünf Sterne geben nicht die erste Stufe (${JSON.stringify(l)})`);
+  // Ein Wunsch wechselt: weniger Sterne, die Stufe bleibt.
+  S.aendereStock("wohnhaus", 0, (st) => { st.tiere[0].w = ["ding:ball", `farbe:${fam}`]; });
+  l = S.sternenleiter();
+  pruefe(l.jetzt === 4 && l.rekord === 5 && l.erreicht === 1, `die erreichte Stufe geht verloren, wenn ein Wunsch wechselt (${JSON.stringify(l)})`);
+  // Jede Stufe hat ihr Bild, und der Dachstern sitzt auf jedem Dach.
+  const art = umgebung();
+  MOEBEL.forEach((datei) => art.lade(datei));
+  art.lade("bau-katalog.js");
+  art.lade("bau-art.js");
+  const A = art.windowStub.LernappBauArt;
+  for (const s of stufen) {
+    const bild = A.leiterBild(s.id);
+    pruefe(bild.markup.length > 200 && /^-?\d+ -?\d+ \d+ \d+$/.test(bild.viewBox), `Sternenleiter: ${s.id} hat kein Bild`);
+  }
+  for (const form of ["giebel", "heli", "turm", "flach"]) {
+    const [x, y] = A.dachsternOrt(form, -500);
+    // Über dem Dach; wo das Plus fürs nächste Stockwerk darüber steht, unter ihm.
+    const unterPlus = x + 30 < A.WAND || x - 30 > A.WAND + A.ZW || y - 30 >= -500 - A.DACH_H[form] - 40 - 4;
+    pruefe(x > 0 && x < A.HB && y < -500 - 60 && unterPlus, `Dachstern: sitzt auf dem Dach «${form}» nicht zwischen Dach und Plus (${x}, ${y})`);
+  }
+  for (const teil of [A.blitzzug(), A.gluecksstern(), A.krone(), A.sternRahmen(0)]) pruefe(teil.length > 200 && !teil.includes("NaN") && !teil.includes("undefined"), "eine Zeichnung der Überraschungen ist leer oder kaputt");
+  pruefe(A.blitzzug().includes("bau-blitz-griff") && A.blitzzug().includes("bau-palette"), "der Blitzzug hat keine Palette oder keine Fläche zum Antippen");
+  // Die Stockwerke: 160 hoch, die zwei des KiddyDome 240 – darin das Zimmer
+  // mit dem Boden auf dem Boden und der Decke unter der nächsten Decke.
+  A.hoehenVon(() => [160, 240, 240, 160]);
+  pruefe(A.ZH === 160 && A.ZH_HOCH === 240 && A.OBEN_Y === 80 && A.BODEN_Y === 240, "die Masse der Stockwerke stimmen nicht");
+  pruefe(A.unten(1) === -14 - 176 && A.oben(1) === A.unten(1) - 240 && A.unten(2) === A.oben(1) - 16 && A.unten(3) === A.oben(2) - 16 && A.oben(3) === A.unten(3) - 160, "unten() und oben() folgen den Höhen der Stockwerke nicht");
+  pruefe(A.unten(1) - A.BODEN_Y + (-256) === A.oben(2), "der KiddyDome reicht nicht genau bis unter die Decke seines oberen Stockwerks");
+  A.hoehenVon(null);
+  pruefe(A.oben(2) === -14 - 2 * 176 - 160, "ohne Höhen sind nicht alle Stockwerke 160 hoch");
 }
 
 // --- Der Einbau ----------------------------------------------------------------

@@ -51,6 +51,17 @@
  *                 golden, hat auf der Tafel eine grosse goldene Kachel und am
  *                 Lift eine goldene Reihe. Das Buch steht unten. Kommt der
  *                 letzte Stern, erscheint ein goldenes Band und wieder weg.
+ *   Leiter        Links unter den Bewohnern zählt die Sternenleiter alle Sterne
+ *                 des Dorfs; ihre Stufen zeigen, was schon da ist und was als
+ *                 Nächstes kommt. Eine neue Stufe bringt ein Band, eine Ansage
+ *                 und Neues ins Bild. Um eine Wohnung, in der alle alle Sterne
+ *                 haben, glitzert ein goldener Rahmen (im Zoom glänzt das
+ *                 Zimmer), und über jedem Tier mit allen Sternen eine Krone.
+ *   Blitzzug      Angetippt bringt er eine Palette, und der nächste kommt in
+ *                 einer halben Stunde; verpasst kommt er nach ein paar Minuten.
+ *   Glücksstern   Im Haus wie im Zimmer: angetippt eine Palette, dann erst in
+ *                 einer halben Stunde wieder.
+ *   Blasen        Eine Sprechblase ist niedriger als ihr Tier (halb so gross).
  *   Wieder hinein Hinaus und wieder hinein: Zimmer und Tier-Tafel gehen auch
  *                 beim zweiten Besuch auf derselben Seite auf.
  *   Neuer Kasten  Hat ein anderes Gerät die Bauecke schon mit einer neueren
@@ -107,6 +118,14 @@ async function neueSeite(browser, viewport) {
   await context.route("**/*gstatic.com/**", (route) => route.abort());
   await context.route("**/fonts.googleapis.com/**", (route) => route.abort());
   await context.addInitScript(stimmeErsatz);
+  // Blitzzug und Glücksstern kommen nur, wenn ein Test sie ruft; die
+  // Sternenleiter ist schon ganz oben, damit keine Feier dazwischenkommt.
+  // Ein Test, der sie braucht, setzt den Schlüssel selbst.
+  await context.addInitScript(() => {
+    try {
+      if (!localStorage.getItem("lernapp.bau.ueberraschung")) localStorage.setItem("lernapp.bau.ueberraschung", JSON.stringify({ "": { zug: Date.now() + 864e5, stern: Date.now() + 864e5, rekord: 999 } }));
+    } catch { /* privater Modus */ }
+  });
   const page = await context.newPage();
   const ausnahmen = [];
   page.on("pageerror", (e) => ausnahmen.push(e.message));
@@ -695,6 +714,176 @@ async function pruefeBewohner(browser, name, viewport) {
   await context.close();
 }
 
+// Blitzzug, Glücksstern, Sternenleiter, Krone und Sternenrahmen; dazu die
+// halb so grossen Sprechblasen.
+async function pruefeUeberraschungen(browser, name, viewport) {
+  const { context, page, ausnahmen } = await neueSeite(browser, viewport);
+  try {
+    await page.goto(`${BASIS}/index.html`, { waitUntil: "load" });
+    const vorher = await page.evaluate(() => {
+      const S = window.LernappBauStand;
+      S.setzeGewaehlt("wohnhaus");
+      S.merkeGezeigt();
+      S.waehleRaum("wohnhaus", 0, 0, "kinderzimmer");
+      S.waehleRaum("wohnhaus", 1, 0, "schlafzimmer");
+      [[0, 2], [1, 1]].forEach(([i, n]) => {
+        for (let k = 0; k < n; k += 1) { S.aendereStock("wohnhaus", i, (st) => { st.zuzug = 0; }); S.ziehtEin("wohnhaus", i); }
+        // Eben eingezogen: Die erste Viertelstunde sind alle daheim (bau-stand.js, aufenthalt).
+        S.aendereStock("wohnhaus", i, (st) => { st.tiere.forEach((t) => { t.seit = Date.now(); t.wAt = Date.now(); }); st.zuzug = Date.now() + 86400000; });
+      });
+      S.waehleRaum("zentrum", 0, 0, "bibliothek");
+      // Im Erdgeschoss haben alle drei alle Sterne (je drei), im 1. Stock
+      // wünschen sich beide einen Ball und ein Bett: zusammen 9 Sterne.
+      const fam = window.LernappBauKatalog.FARBE[S.zimmer("wohnhaus", 0, 0).wand].familie;
+      S.aendereStock("wohnhaus", 0, (st) => st.tiere.forEach((t) => Object.assign(t, { w: [`farbe:${fam}`], g: ["raum:kinderzimmer"], b: ["fremd:zentrum:bibliothek"] })));
+      S.aendereStock("wohnhaus", 1, (st) => st.tiere.forEach((t) => Object.assign(t, { w: ["ding:ball", "ding:bett"], g: [], b: [] })));
+      S.speichern(true);
+      // Überraschungen erst auf Abruf; noch keine Stufe gefeiert.
+      localStorage.setItem("lernapp.bau.ueberraschung", JSON.stringify({ [S.besitzer()]: { zug: Date.now() + 3600000, stern: Date.now() + 3600000, rekord: 0 } }));
+      return { sterne: S.sternenleiter().jetzt, erste: S.stock("wohnhaus", 0).tiere.map((t) => t.seed), zweite: S.stock("wohnhaus", 1).tiere.map((t) => t.seed) };
+    });
+    pruefe(vorher.sterne === 9, `${name}: Überraschungen: der Test beginnt nicht mit 9 Sternen im Dorf (${vorher.sterne})`);
+    await page.goto(`${BASIS}/index.html?bau=1`, { waitUntil: "load" });
+    await page.waitForTimeout(1600);
+    // Der Sternenzähler: links unter den Bewohnern, mit Zahl und Ziel.
+    const knopf = await page.locator(".bau-leiterknopf").boundingBox();
+    const bewohner = await page.locator(".bau-bewohnerknopf").boundingBox();
+    pruefe(knopf && bewohner && knopf.x < 40 && knopf.y >= bewohner.y + bewohner.height && knopf.y + knopf.height <= viewport.height, `${name}: Sternenleiter: der Zähler steht nicht links unter den Bewohnern`);
+    for (const andere of [".stage-back", ".bau-nachbar.is-links", ".bau-umschalter", ".bau-bewohnerknopf"]) {
+      const box = await page.locator(andere).first().boundingBox().catch(() => null);
+      pruefe(!ueberlappen(knopf, box), `${name}: Sternenleiter: der Zähler deckt ${andere} zu`);
+    }
+    const zaehler = await page.locator(".bau-leiterknopf").textContent();
+    pruefe(/9/.test(zaehler) && /bis 10/.test(zaehler), `${name}: Sternenleiter: der Zähler zeigt nicht 9 Sterne bis 10 (${zaehler})`);
+    // Das Dorf hat die erste Stufe (5 Sterne): Blumen an der Strasse.
+    pruefe(await page.locator(".bau-haus-svg .bau-schmuck").count() >= 1, `${name}: Sternenleiter: die Blumen der ersten Stufe fehlen`);
+    // Alle im Erdgeschoss haben alle Sterne: der goldene Rahmen, nur dort.
+    pruefe(await page.locator('.bau-sternrahmen[data-stock="0"]').count() === 1 && await page.locator('.bau-sternrahmen[data-stock="1"]').count() === 0, `${name}: Sternenrahmen: der goldene Rahmen ist nicht (nur) um die Wohnung mit allen Sternen`);
+    // Er glitzert: die Sterne leuchten abwechselnd (gut zwei Sekunden lang beobachtet).
+    const glanz = await page.evaluate(async () => {
+      const gesehen = new Set();
+      for (let n = 0; n < 22; n += 1) {
+        gesehen.add(document.querySelector(".bau-sternrahmen .bau-glitzer-a")?.getAttribute("opacity") || "");
+        await new Promise((ok) => setTimeout(ok, 100));
+      }
+      return [...gesehen];
+    });
+    pruefe(glanz.filter(Boolean).length >= 2, `${name}: Sternenrahmen: die Sterne glitzern nicht (${glanz.join(", ")})`);
+    // Die Krone: über jedem Tier mit allen Sternen, bei den anderen nicht.
+    const kronen = await page.evaluate(({ erste, zweite }) => [...document.querySelectorAll(".bau-haus-svg .bau-tier")].map((g) => ({
+      seed: g.getAttribute("data-seed"), sichtbar: g.querySelector(".bau-krone")?.style.display !== "none",
+    })).map((t) => ({ ...t, soll: erste.includes(t.seed) ? true : zweite.includes(t.seed) ? false : null })), vorher);
+    pruefe(kronen.some((t) => t.soll === true) && kronen.every((t) => t.soll === null || t.sichtbar === t.soll), `${name}: Krone: nicht genau die Tiere mit allen Sternen tragen eine Krone (${JSON.stringify(kronen)})`);
+    // Die Leiter: acht Stufen, die erste geschafft, die zweite als nächste.
+    await tippe(page, ".bau-leiterknopf");
+    await page.waitForTimeout(600);
+    const leiter = await page.evaluate(() => ({
+      offen: Boolean(document.querySelector(".bau-leiter:not([hidden])")),
+      stufen: document.querySelectorAll(".bau-leiter .bau-leiter-stufe").length,
+      erreicht: document.querySelectorAll(".bau-leiter .bau-leiter-stufe.is-erreicht").length,
+      naechste: document.querySelector(".bau-leiter .bau-leiter-stufe.is-naechste .bau-leiter-text b")?.textContent || "",
+      bilder: [...document.querySelectorAll(".bau-leiter .bau-leiter-bild svg")].filter((s) => s.innerHTML.length > 50).length,
+    }));
+    pruefe(leiter.offen && leiter.stufen === 8 && leiter.erreicht === 1 && leiter.naechste === "Wimpelketten" && leiter.bilder === 8, `${name}: Sternenleiter: die Stufen stimmen nicht (${JSON.stringify(leiter)})`);
+    const karte = await page.locator(".bau-leiter .bau-uebersicht-karte").boundingBox();
+    pruefe(karte && karte.y >= 50 && karte.y + karte.height <= viewport.height, `${name}: Sternenleiter: die Leiter liegt nicht ganz im Bild`);
+    pruefe((await page.evaluate(() => window.__gesagt.join(" | "))).includes("Alle Tiere zusammen haben 9 Sterne. Noch ein Stern bis zur nächsten Stufe: Wimpelketten."), `${name}: Sternenleiter: die Bauecke sagt nicht, wie viele Sterne noch fehlen`);
+    await page.locator(".bau-leiter .bau-uebersicht-zu").click();
+    await page.waitForTimeout(300);
+    pruefe(await page.locator(".bau-leiter:not([hidden])").count() === 0, `${name}: Sternenleiter: das Kreuz schliesst die Leiter nicht`);
+    // Ein Ball im 1. Stock: zwei Sterne mehr, die zweite Stufe – ein Band, die Ansage, die Wimpel.
+    const schmuckVorher = await page.locator(".bau-haus-svg .bau-schmuck").count();
+    await page.evaluate(() => window.LernappBauStand.aendereZimmer("wohnhaus", 1, 0, (z) => { z.dinge.push({ k: "ballfest", i: "ball", x: 300, y: 234, c: "", f: 0, s: 1 }); }));
+    pruefe(await bis(page, () => /Wimpelketten/.test(document.querySelector(".bau-leiterband")?.textContent || ""), null, 9000), `${name}: Sternenleiter: bei der neuen Stufe kommt kein Band`);
+    pruefe((await page.evaluate(() => window.__gesagt.join(" | "))).includes("Das Dorf hat 10 Sterne"), `${name}: Sternenleiter: die Bauecke sagt die neue Stufe nicht an`);
+    pruefe(await page.locator(".bau-haus-svg .bau-schmuck").count() > schmuckVorher, `${name}: Sternenleiter: die Wimpel der neuen Stufe fehlen im Bild`);
+    pruefe(/11/.test(await page.locator(".bau-leiterknopf").textContent()), `${name}: Sternenleiter: der Zähler zählt die neuen Sterne nicht`);
+    pruefe(await bis(page, () => !document.querySelector(".bau-leiterband"), null, 8000), `${name}: Sternenleiter: das Band geht nicht wieder weg`);
+
+    // Der Blitzzug: gefangen gibt er eine Palette.
+    const paletten = () => page.evaluate(() => window.LernappBauStand.paletten());
+    const p0 = await paletten();
+    pruefe(await page.evaluate(() => window.LernappBau.blitzzug()) === true, `${name}: Blitzzug: er fährt nicht los`);
+    pruefe(await bis(page, () => document.querySelector(".bau-blitz"), null, 2000), `${name}: Blitzzug: er ist nicht zu sehen`);
+    pruefe((await page.evaluate(() => window.__gesagt.join(" | "))).includes("Achtung, der Blitzzug!"), `${name}: Blitzzug: die Bauecke kündigt ihn nicht an`);
+    await page.waitForTimeout(1500);
+    const zug = await page.locator(".bau-blitz .bau-blitz-griff").boundingBox();
+    pruefe(zug && zug.x + zug.width > 0 && zug.x < viewport.width, `${name}: Blitzzug: er fährt nicht durchs Bild (${JSON.stringify(zug)})`);
+    if (zug) {
+      const x = Math.max(8, Math.min(viewport.width - 8, zug.x + zug.width / 2));
+      await page.mouse.click(x, zug.y + zug.height * 0.6);
+    }
+    pruefe(await bis(page, (n) => window.LernappBauStand.paletten() === n + 1, p0, 3000), `${name}: Blitzzug: angetippt gibt er keine Palette`);
+    pruefe((await page.evaluate(() => window.__gesagt.join(" | "))).includes("Gefangen!"), `${name}: Blitzzug: die Bauecke freut sich nicht`);
+    const naechsterZug = await page.evaluate(() => window.LernappBauStand.ueberraschung().zug - Date.now());
+    pruefe(naechsterZug > 25 * 60000 && naechsterZug <= 30 * 60000, `${name}: Blitzzug: der nächste kommt nicht in einer halben Stunde (${Math.round(naechsterZug / 60000)} min)`);
+    pruefe(await bis(page, () => !document.querySelector(".bau-blitz"), null, 7000), `${name}: Blitzzug: er fährt nicht weiter`);
+    // Verpasst: keine Palette, und er kommt bald wieder.
+    await page.evaluate(() => window.LernappBau.blitzzug());
+    pruefe(await bis(page, () => !document.querySelector(".bau-blitz"), null, 8000), `${name}: Blitzzug: verpasst fährt er nicht weg`);
+    pruefe(await paletten() === p0 + 1, `${name}: Blitzzug: verpasst gibt er trotzdem eine Palette`);
+    pruefe((await page.evaluate(() => window.__gesagt.join(" | "))).includes("Schade, der Blitzzug war zu schnell"), `${name}: Blitzzug: die Bauecke sagt nicht, dass er weg ist`);
+    const baldWieder = await page.evaluate(() => window.LernappBauStand.ueberraschung().zug - Date.now());
+    pruefe(baldWieder > 3 * 60000 && baldWieder <= 5 * 60000, `${name}: Blitzzug: verpasst kommt er nicht nach ein paar Minuten wieder (${Math.round(baldWieder / 60000)} min)`);
+
+    // Der Glücksstern im Haus: angetippt gibt er eine Palette.
+    await page.evaluate(() => window.LernappBau.gluecksstern({ haus: "wohnhaus", index: 0, slot: 0, x: 150, y: 150 }));
+    pruefe(await bis(page, () => document.querySelector(".bau-haus-svg .bau-gluecksstern"), null, 2000), `${name}: Glücksstern: er ist im Haus nicht zu sehen`);
+    pruefe((await page.evaluate(() => window.__gesagt.join(" | "))).includes("Glücksstern versteckt"), `${name}: Glücksstern: die Bauecke verrät nicht, dass er sich versteckt hat`);
+    const stern = await page.locator(".bau-haus-svg .bau-gluecksstern").boundingBox();
+    pruefe(stern && stern.width >= 14 && stern.y > 0 && stern.y + stern.height < viewport.height, `${name}: Glücksstern: er ist nicht im Bild oder zu klein (${JSON.stringify(stern)})`);
+    if (stern) await page.mouse.click(stern.x + stern.width / 2, stern.y + stern.height / 2);
+    pruefe(await bis(page, (n) => window.LernappBauStand.paletten() === n + 2, p0, 3000), `${name}: Glücksstern: gefunden gibt er keine Palette`);
+    pruefe((await page.evaluate(() => window.__gesagt.join(" | "))).includes("Du hast den Glücksstern gefunden!"), `${name}: Glücksstern: die Bauecke freut sich nicht`);
+    pruefe(await bis(page, () => !document.querySelector(".bau-gluecksstern"), null, 3000), `${name}: Glücksstern: er bleibt nach dem Finden da`);
+    const naechsterStern = await page.evaluate(() => window.LernappBauStand.ueberraschung().stern - Date.now());
+    pruefe(naechsterStern > 25 * 60000 && naechsterStern <= 30 * 60000, `${name}: Glücksstern: der nächste kommt nicht in einer halben Stunde`);
+
+    // Im Zimmer: der Glücksstern auch hier, und eine Wohnung voller Sterne glänzt golden.
+    await page.addStyleTag({ content: ".bau-welt .bau-tier { pointer-events: none !important; }" });
+    await tippe(page, '.bau-raum[data-stock="0"]');
+    pruefe(await bis(page, () => document.querySelector(".bauecke.ist-zimmer .bau-zimmer-svg"), null, 5000), `${name}: Glücksstern: das Zimmer geht nicht auf`);
+    await page.waitForTimeout(900);
+    pruefe(await page.locator(".bau-zimmer-svg.is-strahlt").count() === 1, `${name}: Sternenrahmen: das Zimmer mit allen Sternen glänzt nicht golden`);
+    pruefe(await page.locator(".bau-zimmerbuehne .bau-krone").evaluateAll((k) => k.filter((n) => n.style.display !== "none").length) >= 1, `${name}: Krone: im Zimmer trägt niemand eine Krone`);
+    await page.evaluate(() => window.LernappBau.gluecksstern({ haus: "wohnhaus", index: 0, slot: 0, x: 300, y: 130 }));
+    pruefe(await bis(page, () => document.querySelector(".bau-zimmerbuehne .bau-gluecksstern"), null, 2000), `${name}: Glücksstern: er ist im Zimmer nicht zu sehen`);
+    await tippe(page, ".bau-zimmerbuehne .bau-gluecksstern");
+    pruefe(await bis(page, (n) => window.LernappBauStand.paletten() === n + 3, p0, 3000), `${name}: Glücksstern: im Zimmer gefunden gibt er keine Palette`);
+    pruefe(await page.locator(".bau-zimmerbuehne .bau-gluecksstern").count() === 0 || await bis(page, () => !document.querySelector(".bau-zimmerbuehne .bau-gluecksstern"), null, 2000), `${name}: Glücksstern: er bleibt im Zimmer da`);
+    // Die Sprechblasen sind halb so gross wie früher: niedriger als das Tier.
+    await page.evaluate(() => window.LernappBau.zurueck());
+    await page.waitForTimeout(1200);
+    await tippe(page, '.bau-raum[data-stock="1"]');
+    pruefe(await bis(page, () => document.querySelector(".bauecke.ist-zimmer .bau-zimmer-svg"), null, 5000), `${name}: Sprechblasen: das Zimmer geht nicht auf`);
+    await page.waitForTimeout(900);
+    // Der Dank für einen erfüllten Wunsch (das Bett aus der Schublade) kommt als Blase.
+    const bett = page.locator(".bau-schublade .bau-ding-knopf.is-gewuenscht").first();
+    await bett.scrollIntoViewIfNeeded();
+    await bett.click();
+    const blase = await page.evaluate(async () => {
+      const warte = (ms) => new Promise((ok) => setTimeout(ok, ms));
+      for (let n = 0; n < 30; n += 1) {
+        const b = document.querySelector(".bau-zimmerbuehne .bau-blase");
+        if (b) {
+          const r = b.getBoundingClientRect();
+          const t = b.closest(".bau-tier")?.querySelector(".bau-tier-dreh")?.getBoundingClientRect();
+          return { blase: r.height, tier: t?.height || 0 };
+        }
+        await warte(100);
+      }
+      return null;
+    });
+    pruefe(blase && blase.tier > 0 && blase.blase < blase.tier, `${name}: Sprechblasen: eine Blase ist höher als ihr Tier (${JSON.stringify(blase)})`);
+  } catch (fehler) {
+    const zeilen = fehler.message.split("\n");
+    const wo = zeilen.find((z) => /waiting for/.test(z))?.trim() || "";
+    fehlt(`${name}: ${zeilen[0]}${wo ? ` (${wo})` : ""}`);
+  }
+  ausnahmen.forEach((a) => fehlt(`${name}: Ausnahme im Browser: ${a}`));
+  await context.close();
+}
+
 // Der KiddyDome: braucht zwei Stockwerke, steht über beide, wandert als Ganzes.
 async function pruefeKiddyDome(browser, name, viewport) {
   const { context, page, ausnahmen } = await neueSeite(browser, viewport);
@@ -841,6 +1030,8 @@ await pruefeKiddyDome(browser, "Tablet", { width: 1600, height: 1000 });
 await pruefeKiddyDome(browser, "Handy", { width: 812, height: 375 });
 await pruefeBewohner(browser, "Tablet", { width: 1600, height: 1000 });
 await pruefeBewohner(browser, "Handy", { width: 812, height: 375 });
+await pruefeUeberraschungen(browser, "Tablet", { width: 1600, height: 1000 });
+await pruefeUeberraschungen(browser, "Handy", { width: 812, height: 375 });
 await browser.close();
 halt();
 
@@ -849,4 +1040,4 @@ if (befunde.length) {
   befunde.forEach((b) => console.error(`  - ${b}`));
   process.exit(1);
 }
-console.log("Die Bauecke läuft: Bauplatz, Hauswahl, Einzug mit Feuerwerk, Zimmer mit eigenen Dingen, Tier-Tafel mit Hingehen, Traumjob von aussen und im Zimmer, KiddyDome über zwei Stockwerke, alle Bewohner auf einen Blick, Umstellen, Rätsel, Lieferung, Bauen, Vorlesen per Tipp – auf Tablet und Handy.");
+console.log("Die Bauecke läuft: Bauplatz, Hauswahl, Einzug mit Feuerwerk, Zimmer mit eigenen Dingen, Tier-Tafel mit Hingehen, Traumjob von aussen und im Zimmer, KiddyDome über zwei Stockwerke, alle Bewohner auf einen Blick, Sternenleiter mit Krone und goldenem Rahmen, Blitzzug, Glücksstern, Umstellen, Rätsel, Lieferung, Bauen, Vorlesen per Tipp – auf Tablet und Handy.");

@@ -315,6 +315,122 @@ body[data-page="train"] .train-stage[data-view="bau"] ~ .help-voice {
 }
 .bauecke.ist-ordnen .bau-bewohnerknopf { visibility: hidden; }
 
+/* --- Darunter: alle Sterne des Dorfs und die Sternenleiter --- */
+.bau-leiterknopf {
+  position: absolute;
+  top: calc(var(--safe-top, 0px) + 172px);
+  left: calc(var(--safe-left, 0px) + 14px);
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 92px;
+  padding: 7px 8px 6px;
+  border: 3px solid #ffffff;
+  border-radius: 22px;
+  background: linear-gradient(180deg, #ffe27a, #ffb703);
+  color: #5c3700;
+  font-weight: 800;
+  line-height: 1;
+  box-shadow: 0 8px 18px rgba(176, 112, 0, 0.38);
+}
+.bau-leiterknopf:active { transform: scale(0.95); }
+.bau-leiterknopf-zahl { display: flex; align-items: center; gap: 3px; font-size: 1.45rem; }
+.bau-leiterknopf-zahl .bau-stern { width: 24px; height: 24px; }
+.bau-leiterknopf-balken {
+  display: block;
+  width: 100%;
+  height: 9px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.7);
+  box-shadow: inset 0 1px 2px rgba(92, 55, 0, 0.25);
+}
+.bau-leiterknopf-balken i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #ff9f1c, #e85d04); }
+.bau-leiterknopf-text { font-size: 0.74rem; color: #7a4d00; }
+.bau-leiterknopf.is-fertig { background: linear-gradient(180deg, #fff3b0, #ffc93c); }
+.bauecke.ist-ordnen .bau-leiterknopf { visibility: hidden; }
+
+/* Die Sternenleiter: die Stufen, die höchste oben. */
+.bau-leiter .bau-uebersicht-karte { width: min(660px, 96vw); }
+.bau-leiter-liste { display: flex; flex-direction: column; gap: 8px; margin: 12px 0 0; padding: 0; list-style: none; }
+.bau-leiter-stufe {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 7px 14px 7px 8px;
+  border: 3px solid #e2e8f0;
+  border-radius: 20px;
+  background: #f7f9fc;
+}
+.bau-leiter-stufe.is-erreicht { border-color: #f5b400; background: linear-gradient(135deg, #fff8d6, #ffe08a); }
+.bau-leiter-stufe.is-naechste { border-color: #3fbf74; background: #ffffff; box-shadow: 0 6px 16px rgba(47, 158, 92, 0.25); }
+.bau-leiter-stufe.is-spaeter { opacity: 0.62; }
+.bau-leiter-stufe.is-spaeter .bau-leiter-bild { filter: grayscale(0.85); }
+.bau-leiter-marke {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: #34508f;
+  color: #ffd166;
+  font-size: 1.05rem;
+  font-weight: 800;
+  line-height: 1;
+}
+.bau-leiter-marke .bau-stern { width: 18px; height: 18px; }
+.bau-leiter-bild { display: grid; flex: 0 0 auto; place-items: center; width: 84px; height: 62px; }
+.bau-leiter-bild svg { width: 100%; height: 100%; }
+.bau-leiter-text { display: flex; flex: 1 1 auto; flex-direction: column; gap: 2px; min-width: 0; }
+.bau-leiter-text b { font-size: 1.15rem; }
+.bau-leiter-text span { color: #4a5568; font-weight: 700; font-size: 0.92rem; }
+.bau-leiter-haken {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: #3fbf74;
+  color: #ffffff;
+  font-size: 1.3rem;
+  font-weight: 800;
+}
+.bau-leiter-fehlt {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 3px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #e8f8ee;
+  color: #1d7a45;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.bau-leiter-fehlt b { font-size: 1.15rem; }
+.bau-leiter-schloss { flex: 0 0 auto; font-size: 1.4rem; }
+
+/* Der Glücksstern steckt in diesem Haus: Am Umschalter funkelt ein Stern. */
+.bau-tab.hat-stern::before {
+  content: "";
+  position: absolute;
+  top: -15px;
+  left: -10px;
+  width: 30px;
+  height: 30px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 2.1L14.76 9.1L22.27 9.56L16.47 14.35L18.35 21.64L12 17.6L5.65 21.64L7.53 14.35L1.73 9.56L9.24 9.1Z' fill='%23ffc23a' stroke='%23b97f00' stroke-width='1.7' stroke-linejoin='round'/%3E%3Ccircle cx='10' cy='12.4' r='0.9' fill='%235b3a00'/%3E%3Ccircle cx='14' cy='12.4' r='0.9' fill='%235b3a00'/%3E%3C/svg%3E") center / contain no-repeat;
+  filter: drop-shadow(0 2px 4px rgba(176, 112, 0, 0.55));
+  animation: bau-puls 1.2s ease-in-out infinite;
+}
+.bau-gluecksstern { cursor: pointer; }
+.bau-blitz { cursor: pointer; }
+
 /* --- Das Zimmer --- */
 .bauecke.ist-zimmer .bau-umschalter,
 .bauecke.ist-zimmer .bau-hud,
@@ -333,6 +449,10 @@ body[data-page="train"] .train-stage[data-view="bau"] ~ .help-voice {
   border-radius: 12px;
   background: #ffffff;
   box-shadow: 0 12px 34px rgba(0, 0, 0, 0.28);
+}
+/* Alle, die hier wohnen, haben alle Sterne: Das Zimmer glänzt golden. */
+.bau-zimmer-svg.is-strahlt {
+  box-shadow: 0 0 0 6px #ffc93c, 0 0 0 10px #e09b00, 0 0 36px 12px rgba(255, 201, 60, 0.85), 0 12px 34px rgba(0, 0, 0, 0.28);
 }
 .bau-ding { cursor: grab; }
 .bau-kopfzeile {
@@ -903,7 +1023,7 @@ body[data-page="train"] .train-stage[data-view="bau"] ~ .help-voice {
 }
 
 /* --- Alle Sterne geholt: ein goldenes Band, ein paar Sekunden --- */
-.bau-sternband {
+.bau-sternband, .bau-leiterband {
   position: absolute;
   top: calc(var(--safe-top, 0px) + 84px);
   left: 50%;
@@ -923,12 +1043,14 @@ body[data-page="train"] .train-stage[data-view="bau"] ~ .help-voice {
   animation: bau-band-ein 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
   transition: opacity 0.5s ease, transform 0.5s ease;
 }
-.bau-sternband.is-weg { opacity: 0; transform: translate(-50%, -16px); }
+.bau-sternband.is-weg, .bau-leiterband.is-weg { opacity: 0; transform: translate(-50%, -16px); }
 @keyframes bau-band-ein {
   from { opacity: 0; transform: translate(-50%, -24px) scale(0.85); }
   to { opacity: 1; transform: translateX(-50%); }
 }
 .bau-sternband-tier { flex: 0 0 auto; width: 64px; height: 76px; }
+.bau-sternband-bild { flex: 0 0 auto; width: 84px; height: 70px; }
+.bau-sternband-bild svg { width: 100%; height: 100%; }
 .bau-sternband-text { display: flex; flex-direction: column; line-height: 1.1; }
 .bau-sternband-text b { font-size: 1.9rem; }
 .bau-sternband-text span { font-weight: 800; font-size: 1.05rem; }
@@ -1096,7 +1218,7 @@ body[data-page="train"] .train-stage[data-view="bau"] ~ .help-voice {
   .bau-sternkachel-text b { font-size: 1.2rem; }
   .bau-sternkachel.is-alle .bau-sternkachel-text b { font-size: 1.3rem; }
   .bau-sternkachel-pokal { font-size: 2rem; }
-  .bau-sternband { top: calc(var(--safe-top, 0px) + 66px); gap: 8px; padding: 4px 12px 4px 6px; border-width: 3px; }
+  .bau-sternband, .bau-leiterband { top: calc(var(--safe-top, 0px) + 66px); gap: 8px; padding: 4px 12px 4px 6px; border-width: 3px; }
   .bau-sternband-tier { width: 44px; height: 52px; }
   .bau-sternband-text b { font-size: 1.35rem; }
   .bau-sternband-text span { font-size: 0.9rem; }
@@ -1108,6 +1230,17 @@ body[data-page="train"] .train-stage[data-view="bau"] ~ .help-voice {
   .bau-bewohnerknopf { top: calc(var(--safe-top, 0px) + 80px); width: 78px; padding: 5px 2px 4px; border-radius: 18px; font-size: 0.8rem; }
   .bau-bewohnerknopf-bild { width: 26px; height: 26px; }
   .bau-bewohnerknopf-zahl { top: -7px; right: -7px; min-width: 24px; height: 24px; font-size: 0.85rem; }
+  .bau-leiterknopf { top: calc(var(--safe-top, 0px) + 142px); width: 78px; padding: 4px 6px 4px; gap: 3px; border-radius: 18px; }
+  .bau-leiterknopf-zahl { font-size: 1.15rem; }
+  .bau-leiterknopf-zahl .bau-stern { width: 19px; height: 19px; }
+  .bau-leiterknopf-balken { height: 7px; }
+  .bau-leiterknopf-text { font-size: 0.66rem; }
+  .bau-leiter-stufe { gap: 8px; padding: 4px 10px 4px 5px; border-radius: 16px; }
+  .bau-leiter-marke { width: 42px; height: 42px; font-size: 0.92rem; }
+  .bau-leiter-bild { width: 62px; height: 46px; }
+  .bau-leiter-text b { font-size: 1rem; }
+  .bau-leiter-text span { font-size: 0.8rem; line-height: 1.2; }
+  .bau-sternband-bild { width: 58px; height: 48px; }
   .bau-uebersicht-kopf h2 { font-size: 1.35rem; }
   .bau-uebersicht-kopf p { margin-top: 2px; font-size: 0.85rem; line-height: 1.25; }
   .bau-uebersicht-wohnung { margin-top: 10px; }
@@ -1131,7 +1264,7 @@ body[data-page="train"] .train-stage[data-view="bau"] ~ .help-voice {
 
 @media (prefers-reduced-motion: reduce) {
   .bauecke, .bau-tafel-karte, .bau-uebersicht-karte, .bau-wahl-karte { animation: none; }
-  .is-stups, .bau-traumglanz, .bau-sternkachel-pokal, .bau-sternband, .bau-sternband .bau-stern { animation: none; }
+  .is-stups, .bau-traumglanz, .bau-sternkachel-pokal, .bau-sternband, .bau-leiterband, .bau-sternband .bau-stern, .bau-tab.hat-stern::before { animation: none; }
 }
 
 /* --- KiddyDome: Hinweis in der Zimmerwahl, Knopf zum Dazubauen --- */

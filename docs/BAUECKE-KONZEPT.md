@@ -13,7 +13,10 @@ Pepi, Miga Town, den einzelnen Toca-Apps und weiteren Bauspielen (Abschnitt 3)
 > Bauecke je Konto. Dazu kamen (Nachtrag 0K) der **KiddyDome** über zwei Stockwerke, die
 > **Tiere im Stil der Bilderbücher**, die **Figuren aus den Büchern**, die zuerst
 > einziehen, **alle Bewohner auf einen Blick**, **Sterne, die ins Auge stechen**, und
-> **Tiere und Dinge halb so gross**. **Was gilt, steht in den Abschnitten 0K und 0** (Etappe
+> **Tiere und Dinge halb so gross**; danach (Nachtrag 0L) **niedrigere Stockwerke**, der
+> **Blitzzug**, der **Glücksstern**, die **Sternenleiter** mit allen Sternen des Dorfs,
+> **Kronen** und ein **goldener Rahmen** für alle Sterne. **Was gilt, steht in den
+> Abschnitten 0L, 0K und 0** (Etappe
 > 2) und, wo diese nichts anderes sagen, im Abschnitt 0E1 (Etappe 1); die Abschnitte 1, 2,
 > 5 und 6 beschreiben das ursprüngliche Konzept und sind dort, wo Abschnitt 0 etwas anderes
 > sagt, überholt. Die Recherche (Abschnitt 3) und Grafik und Bewegung (Abschnitt 7) gelten
@@ -26,6 +29,111 @@ Pepi, Miga Town, den einzelnen Toca-Apps und weiteren Bauspielen (Abschnitt 3)
 > 10 Ebenen, davon 8 zeichnend, 18 Megapixel Ebenenfläche, 770 SVG-Knoten, 60 Bilder je
 > Sekunde, während die Tiere laufen. Die Reisekarte kam nach ihrer Kur auf 9 Ebenen und 16
 > Megapixel.
+
+---
+
+## 0L. Niedrigere Stockwerke, Blitzzug, Glücksstern, Sternenleiter
+
+Nachtrag zu Etappe 2 (Wünsche vom 8. Oktober 2026, fünfte Runde). Was hier steht, gilt
+zusätzlich zu 0K und 0. Nicht gewünscht und deshalb nicht gebaut: Geburtstage, ein
+Herzenswunsch des Tages, Bauaufträge am Bahnhof.
+
+### 0L.1 Stockwerke zwei Drittel so hoch (Fassung 4)
+
+- **Ein Zimmer ist 160 hoch statt 240** (`ZH` in bau-art.js), gleich breit wie bisher. Der
+  **KiddyDome bleibt hoch:** Seine zwei Stockwerke sind je 240 hoch (`ZH_HOCH`), seine
+  Geräte so gross wie bisher.
+- **In Zimmer-Einheiten** liegt der Boden weiter bei y = 240; die Wand beginnt bei 80
+  (`GEO.OBEN` in bau-stand.js) statt bei 0, im KiddyDome weiter bei −256. Was am Boden
+  steht, bleibt also, wo es war.
+- **Fassung 4 des Kastens:** Lädt ein Gerät einen Kasten der Fassung 3 (oder älter), rückt,
+  was an der Wand hängt, anteilig auf die kürzere Wand (y′ = 80 + y · 136 / 216), was an
+  der Decke hängt, an die neue Decke. Zweimal umrechnen ändert nichts; ein Kasten der
+  Fassung 4 wird nicht umgerechnet. Ein Gerät mit der alten App hält einen Kasten der
+  Fassung 4 für neuer und wartet auf das Update, statt ihn aufzuräumen (wie bei Fassung 3).
+- **Im Haus sind die Stockwerke verschieden hoch:** Die Ansicht gibt bau-art.js die Höhen
+  (`hoehenVon`), `unten(i)` und `oben(i)` zählen sie zusammen. Der Massstab des Hauses
+  bleibt der der hohen Stockwerke (`STOCK_HOCH`): Tiere und Dinge sind im Haus gleich
+  gross wie bisher, dafür passt mehr vom Haus ins Bild. Im Zoom füllt das niedrigere Zimmer
+  den Bildschirm besser; auf dem Handy wird es dadurch grösser.
+
+### 0L.2 Der Blitzzug
+
+- **Etwa jede halbe Stunde** (beim ersten Besuch nach zwei Minuten) pfeift es, und ein
+  schneller, weisser Zug mit rotem Streifen und gelbem Blitz braust über das Gleis. Hinten
+  auf dem Flachwagen liegt eine Palette, die golden funkelt. Er braucht knapp vier
+  Sekunden durchs Bild.
+- **Wer ihn antippt,** bekommt die Palette – schon beim Berühren, und die Fläche zum Antippen
+  ist grosszügig. Sie fliegt zum Ziegelzähler: «Gefangen! Der Blitzzug schenkt dir eine
+  Palette Ziegel.» Der nächste kommt in einer halben Stunde. **Verpasst:** «Schade, der
+  Blitzzug war zu schnell. Bald kommt er wieder!» – nach fünf Minuten.
+- **Er kommt nur, wenn das Kind ihn sehen kann:** in der Hausansicht, mit dem Gleis im Bild,
+  ohne offenes Fenster, nicht während einer Lieferung oder eines Einzugs. Ist «weniger
+  Bewegung» eingestellt, steht er neun Sekunden lang mitten im Bild.
+
+### 0L.3 Der Glücksstern
+
+- **Etwa jede halbe Stunde** (beim ersten Besuch nach vier Minuten) versteckt sich ein
+  lachender, goldener Stern in einem eingerichteten Zimmer irgendwo im Dorf (im KiddyDome
+  einmal). Die Bauecke flüstert: «Psst! Irgendwo im Dorf hat sich ein Glücksstern
+  versteckt. Findest du ihn?»
+- Er ist **im Haus und im Zoom** zu sehen und funkelt. Nach einer Minute funkelt am
+  Umschalter ein Stern beim Haus, in dem er steckt.
+- **Angetippt** gibt er eine Palette (sie fliegt zum Ziegelzähler); der nächste kommt in
+  einer halben Stunde. Gibt es sein Zimmer nicht mehr, versteckt er sich neu.
+
+### 0L.4 Die Palette als Lohn
+
+- Blitzzug und Glücksstern schreiben die Palette diesem Gerät gut wie ein gelöstes Rätsel
+  (`bauBonus` in journey-plan.js, `lernapp.bau.lieferung` je Konto) und zählen sie gleich
+  als gezeigt: Der Lieferzug bringt sie nicht noch einmal. Auf einem anderen Gerät bringt
+  sie der Zug wie jede andere Palette.
+- **Wann Blitzzug und Glücksstern wieder kommen** und den höchsten Stand der Sternenleiter
+  merkt sich jedes Gerät für jedes Kind (`lernapp.bau.ueberraschung`) – nicht im Kasten,
+  also ohne neue Fassung und ohne Cloud.
+
+### 0L.5 Die Sternenleiter: alle Sterne des Dorfs
+
+- **Links unter dem Bewohner-Knopf** zählt ein goldener Knopf alle Sterne aller Tiere, mit
+  einem Balken bis zur nächsten Stufe. Ein Tipp öffnet die Leiter: acht Stufen, die höchste
+  oben. Geschafft ist golden mit Haken, die nächste sagt, wie viele Sterne noch fehlen, die
+  übrigen sind blass, mit Schloss.
+- **Die Stufen** (`LEITER` in bau-katalog.js): 5 Blumenbeete, 10 Wimpelketten, 15 ein
+  Brunnen, 20 ein Heissluftballon, 30 ein Regenbogen, 40 ein Karussell, 50 die
+  Sternenstatue, 60 goldene Dachsterne. Ohne Kauf hat das Wohnhaus bis zu vier Wohnungen,
+  also höchstens 60 Sterne: Die letzte Stufe ist ein langes, aber erreichbares Ziel.
+- **Was erreicht ist, steht im Bild,** bei jedem Haus: Blumen, Wimpel, Brunnen, Karussell und
+  Statue an der Strasse, Ballon und Regenbogen am Himmel, ein Stern auf dem Dach.
+- **Es zählt der höchste Stand,** den das Dorf je hatte: Wechselt ein Wunsch und fehlt
+  deshalb ein Stern, bleibt die Stufe.
+- **Eine neue Stufe wird gefeiert:** ein Band mit ihrem Bild, Feuerwerk über dem Haus oder
+  Konfetti im Zimmer und «Juhui! Das Dorf hat 20 Sterne. Ein Heissluftballon schwebt über
+  dem Dorf.» Läuft gerade die Feier für alle Sterne eines Tiers, kommt die Stufe danach.
+
+### 0L.6 Krone, goldener Rahmen, kleinere Sprechblasen
+
+- **Krone:** Ein Tier mit allen Sternen trägt im Haus und im Zimmer eine kleine goldene Krone.
+- **Goldener Rahmen:** Haben alle, die in einer Wohnung wohnen, alle Sterne, liegt ein
+  goldener Rahmen auf Wänden und Decken um die Wohnung, mit Sternen, die abwechselnd
+  aufleuchten. Ein Zeitgeber setzt dafür nur die Deckkraft (keine CSS-Animation an
+  SVG-Teilen, siehe 7.3); so glitzern auch der Glücksstern, die Ladung des Blitzzugs, die
+  Statue und der Dachstern. Im Zoom glänzt das Zimmer golden.
+- **Sprechblasen halb so gross:** Sprech- und Wunschblasen wachsen nicht mehr gegen die
+  halbe Grösse der Tiere an (0K.7), sie sind jetzt halb so gross wie vorher. Im Zoom sind
+  sie gut zu lesen; in der Hausansicht ist Text in einer Blase klein, Bilder in den Blasen
+  bleiben gut zu erkennen. Aktentasche und Schlaf-z bleiben so gross wie bisher.
+
+### 0L.7 Dateien und Prüfungen
+
+| Datei | Was |
+| --- | --- |
+| `bau-stand.js` | Fassung 4 (Wand ab `GEO.OBEN`, Umrechnen der Wand-Dinge); wann Blitzzug und Glücksstern kommen, die Palette als Lohn (`bonusPalette`), Verstecke, die Sterne des Dorfs und die Sternenleiter (`sternenleiter`) |
+| `journey-plan.js` | `bauBonus`: eine Palette für dieses Gerät |
+| `bau-katalog.js` | `LEITER`: die acht Stufen der Sternenleiter |
+| `bau-art.js` | verschieden hohe Stockwerke (`hoehenVon`, `hoehe`, `ZH` 160, `ZH_HOCH` 240); Blitzzug, Glücksstern, Krone, Sternenrahmen; Blumen, Wimpel, Brunnen, Ballon, Regenbogen, Karussell, Statue, Dachstern |
+| `train-bau.js`, `bau.css` | das Haus mit den neuen Höhen; Blitzzug, Glücksstern, Sternenzähler und Leiter, Feier einer neuen Stufe, Krone, glitzernder Rahmen, goldenes Zimmer; halb so grosse Sprechblasen |
+| `scripts/validate-bau.mjs` | Fassung 4 (Umrechnen, Fingerabdruck), die Uhr der Überraschungen, die Palette als Lohn, Verstecke, die Sternenleiter (Stufen, höchster Stand, Bilder), Höhen der Stockwerke; ein Wunsch nach dem KiddyDome im Test der blauen Sterne |
+| `scripts/check-bau.mjs` | im Browser, auf Tablet und Handy: Sternenzähler und Leiter, neue Stufe mit Band, Krone, Rahmen, goldenes Zimmer, Blitzzug (gefangen und verpasst), Glücksstern im Haus und im Zimmer, Sprechblasen kleiner als ihr Tier. Die übrigen Prüfungen laufen ohne Überraschungen dazwischen |
 
 ---
 
@@ -149,7 +257,8 @@ zusätzlich zu Abschnitt 0.
 - **Mehr Platz zum Einrichten:** Tiere und Dinge stehen halb so gross wie bisher (`MASS`
   0.6 statt 1.2, im Haus wie im Zimmer). Die Zimmer bleiben so breit wie bisher.
 - **Lesbar bleibt, was Text oder Zeichen trägt:** Sprech- und Wunschblasen, die Aktentasche
-  bei der Arbeit und das Schlaf-z sind so gross wie vorher.
+  bei der Arbeit und das Schlaf-z sind so gross wie vorher. (Die Blasen sind seit 0L.6
+  halb so gross.)
 - **Der KiddyDome bleibt hoch:** Seine grossen Geräte (Mini-Lift, Kletterturm, beide
   Rutschen, Feuerwehrstange, Kletternetz, Kletterwand, Hangelringe, Hangelleiter,
   Kletterseil, Schaukel) haben einen eigenen Massstab (`mass: 2`) und reichen weiter über
@@ -157,10 +266,9 @@ zusätzlich zu Abschnitt 0.
 - **Was auf einem Tisch stand,** setzt sich beim Laden auf die tiefere Fläche (Regal, Theke
   …); was über keiner Fläche mehr schwebt, kommt auf den Boden (`setzeAufFlaechen` in
   bau-stand.js). Steht ein Ding schon richtig, bleibt es, wo es ist.
-- **Die Höhe der Stockwerke bleibt vorerst** (240): Wo ein Bild an der Wand hängt und wo
+- **Die Höhe der Stockwerke blieb zunächst** (240): Wo ein Bild an der Wand hängt und wo
   etwas auf dem Boden steht, ist in dieser Höhe gespeichert. Niedrigere Stockwerke
-  hiessen, alle Zimmer umzurechnen (eine neue Fassung des Kastens) – das wäre ein eigener
-  Schritt.
+  hiessen, alle Zimmer umzurechnen – das kam als eigener Schritt mit Fassung 4 (0L.1).
 
 ### 0K.8 Dateien und Prüfungen
 
