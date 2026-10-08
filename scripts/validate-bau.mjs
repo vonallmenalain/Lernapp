@@ -28,6 +28,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import vm from "node:vm";
+import crypto from "node:crypto";
 
 const root = path.resolve(import.meta.dirname, "..");
 const lies = (datei) => fs.readFileSync(path.join(root, datei), "utf8");
@@ -163,11 +164,15 @@ for (const datei of ["bau-moebel.js", "bau-katalog.js", "bau-stand.js", "bau-art
 }
 
 // --- Der Stand ---------------------------------------------------------------
-function standUmgebung({ paletten = 0, frei = false, jetzt = null } = {}) {
+// mitCloud: der Kasten läuft über game-cloud.js wie in der App, firebase steht
+// für die Cloud (getGameState, saveGameState).
+function standUmgebung({ paletten = 0, frei = false, jetzt = null, mitCloud = false, firebase = null } = {}) {
   const u = umgebung({ jetzt });
   let verdient = paletten;
   u.windowStub.LernappReise = { bauPaletten: () => verdient, onBauLieferung() {} };
   u.windowStub.LernappEntitlement = { isFree: () => frei };
+  if (firebase) u.windowStub.LernappFirebase = firebase;
+  if (mitCloud) u.lade("game-cloud.js");
   u.lade("bau-moebel.js");
   u.lade("bau-katalog.js");
   u.lade("bau-stand.js");
@@ -350,6 +355,103 @@ function standUmgebung({ paletten = 0, frei = false, jetzt = null } = {}) {
   const muell = S.normalize({ haeuser: { wohnhaus: { stock: [{ raum: "notfall", dinge: [{ i: "gibtsnicht" }, { i: "bett", x: 99999, y: -5 }], wand: "lila" }] } } });
   const s0 = muell.haeuser.wohnhaus.stock[0];
   pruefe(s0.raum === "" && s0.dinge.length === 1 && s0.dinge[0].x <= S.GEO.W && K.FARBE[s0.wand], "ein kaputter Stand wird nicht aufgeräumt");
+}
+
+// Zwei Geräte – oder ein Gast vor der Anmeldung – bauen am selben Ort: Kein
+// eingerichtetes Zimmer geht verloren, der Rohbau vom Anfang verdoppelt sich
+// nicht, und es kommen keine Ziegel dazu.
+{
+  const geraet = () => standUmgebung({ paletten: 1, frei: true }).S;
+  const A = geraet();
+  A.waehleRaum("wohnhaus", 0, "kueche");
+  A.aendereStock("wohnhaus", 0, (s) => s.dinge.push({ k: "herd", i: "kochherd", x: 120, y: 230, c: "", f: 0, s: 1 }));
+  pruefe(A.stock("wohnhaus", 0).id !== "wohnhaus-0", "das erste Stockwerk behält mit der Zimmerwahl die gemeinsame Kennung");
+  A.baueStockwerk("wohnhaus");
+  A.waehleRaum("wohnhaus", 1, "schlafzimmer");
+  const B = geraet();
+  B.waehleRaum("wohnhaus", 0, "bad");
+  const ab = A.merge(A.lesen(), B.lesen());
+  const ba = A.merge(B.lesen(), A.lesen());
+  pruefe(JSON.stringify(ab) === JSON.stringify(ba), "zwei Geräte am selben Ort: Zusammenführen ist nicht in beide Richtungen gleich");
+  const raeume = ab.haeuser.wohnhaus.stock.map((s) => s.raum).sort().join();
+  pruefe(raeume === "bad,kueche,schlafzimmer", `zwei Geräte am selben Ort: es bleiben ${raeume || "keine Zimmer"}`);
+  pruefe(ab.haeuser.wohnhaus.stock.find((s) => s.raum === "kueche")?.dinge.length === 1, "zwei Geräte am selben Ort: der Herd in der Küche ist weg");
+  pruefe(ab.haeuser.wohnhaus.stock.at(-1).raum === "schlafzimmer", "das zuletzt gebaute Stockwerk steht nicht zuoberst");
+  pruefe(ab.haeuser.spital.stock.length === 1 && !ab.haeuser.spital.stock[0].raum, "der unberührte Rohbau verdoppelt sich beim Zusammenführen");
+  pruefe(JSON.stringify(A.merge(ab, ab)) === JSON.stringify(ab), "Zusammenführen mit sich selbst ändert etwas");
+  // Ein neues Gerät (alles Rohbau) bringt nichts dazu und nimmt nichts weg.
+  const frisch = A.merge(A.normalize(null), A.lesen());
+  pruefe(frisch.haeuser.wohnhaus.stock.map((s) => s.raum).join() === "kueche,schlafzimmer", "ein neues Gerät verändert das Haus beim Zusammenführen");
+  // Mehr Stockwerke als Paletten: übrig bleibt null, nicht weniger.
+  const C = standUmgebung({ paletten: 0, frei: true });
+  C.u.speicher.set("lernapp.bau", JSON.stringify(ab));
+  C.u.lade("bau-stand.js");
+  const S2 = C.u.windowStub.LernappBauStand;
+  pruefe(S2.haus("wohnhaus").stock.length === 3 && S2.paletten() === 0 && !S2.kannBauen("wohnhaus").ok, `mehr Stockwerke als Paletten: ${S2.paletten()} übrig`);
+}
+
+// Speichern lässt den Stand, wie er ist: Wer gerade einen Tisch mit einer
+// Tasse zieht, hält beide noch in der Hand, wenn der Kasten gespeichert wird.
+{
+  const gespeichert = [];
+  const { S } = standUmgebung({ mitCloud: true, firebase: { getGameState: () => null, saveGameState: (key, data) => gespeichert.push(key) } });
+  S.waehleRaum("wohnhaus", 0, "kueche");
+  S.aendereStock("wohnhaus", 0, (s) => s.dinge.push({ k: "tisch", i: "tisch", x: 200, y: 230, c: "", f: 0, s: 1 }));
+  const st = S.stock("wohnhaus", 0);
+  const tisch = st.dinge[0];
+  S.speichern(true);
+  pruefe(gespeichert.includes("lernapp.bau"), "der Kasten geht nicht in die Cloud");
+  pruefe(S.stock("wohnhaus", 0) === st && S.stock("wohnhaus", 0).dinge[0] === tisch, "Speichern ersetzt den Stand – ein gezogener Stapel verliert, was darauf steht");
+}
+
+// Ein Kasten aus einer neueren Fassung der App (neue Dinge, Zimmer, Tiere …)
+// bleibt unberührt: nichts wird aufgeräumt, nichts in die Cloud geschrieben.
+{
+  const { S: alt } = standUmgebung();
+  const neuer = {
+    v: alt.FORMAT + 1,
+    gewaehlt: "wohnhaus",
+    haeuser: {
+      wohnhaus: { fassade: "regenbogen", dach: "rot", at: 5, stock: [{ id: "s1", seit: 0, raum: "sternwarte", dinge: [{ k: "d1", i: "teleskop", x: 100, y: 230, r: 45 }], tier: { a: "drache", n: "Fauchi" }, at: 5 }] },
+      garage: { stock: [{ id: "g1", raum: "werkstatt" }] },
+    },
+  };
+  const m1 = alt.merge(alt.lesen(), neuer);
+  const m2 = alt.merge(neuer, alt.lesen());
+  pruefe(JSON.stringify(m1) === JSON.stringify(neuer) && JSON.stringify(m2) === JSON.stringify(neuer), "ein Kasten einer neueren Fassung wird beim Zusammenführen verändert");
+  const gespeichert = [];
+  const { S, u } = standUmgebung({ mitCloud: true, firebase: { getGameState: (key) => (key === "lernapp.bau" ? { data: neuer } : null), saveGameState: (key) => gespeichert.push(key) } });
+  pruefe(S.neuereFassung?.(), "der Kasten einer neueren Fassung wird nicht erkannt");
+  S.waehleRaum("wohnhaus", 0, "kueche");
+  S.tick(Date.now() + 9e7);
+  S.speichern(true);
+  pruefe(!gespeichert.includes("lernapp.bau"), "die ältere Fassung schreibt in die Cloud, was sie nicht kennt");
+  pruefe(u.speicher.get("lernapp.bau") === JSON.stringify(neuer), "die ältere Fassung verändert den neueren Kasten auf dem Gerät");
+}
+
+// Der Katalog dieser Fassung. Ändert sich eine Kennung (ein neues Ding, ein
+// neues Zimmer, ein neues Tier …) oder ein Feld des Kastens, muss FORMAT in
+// bau-stand.js hoch – sonst löscht eine ältere App, die den neuen Kasten
+// sieht, was sie nicht kennt. Danach hier den neuen Fingerabdruck eintragen.
+{
+  const FINGERABDRUCK = { 1: "ed99c8af13ceffa4" };
+  const { S } = standUmgebung();
+  S.waehleRaum("wohnhaus", 0, "kueche");
+  S.aendereStock("wohnhaus", 0, (s) => s.dinge.push({ k: "x", i: "kochherd", x: 100, y: 230 }));
+  const stand = S.normalize(S.lesen());
+  const st = stand.haeuser.wohnhaus.stock[0];
+  const felder = [stand, stand.haeuser.wohnhaus, st, st.dinge[0], st.tier].map((o) => Object.keys(o).sort().join(","));
+  const kennungen = [
+    ...Object.keys(M.DINGE).map((id) => `ding:${id}`),
+    ...Object.keys(K.RAEUME).map((id) => `raum:${id}`),
+    ...Object.keys(K.TIERE).map((id) => `tier:${id}`),
+    ...Object.keys(K.FARBE).map((id) => `farbe:${id}`),
+    ...K.MUSTER.map((m) => `muster:${m.id}`),
+    ...Object.keys(K.BODEN).map((id) => `boden:${id}`),
+    ...Object.keys(K.HAUS).map((id) => `haus:${id}`),
+  ].sort();
+  const abdruck = crypto.createHash("sha256").update([...felder, ...kennungen].join("|")).digest("hex").slice(0, 16);
+  pruefe(FINGERABDRUCK[S.FORMAT] === abdruck, `Katalog oder Felder des Kastens haben sich geändert (Fingerabdruck ${abdruck}): FORMAT in bau-stand.js hochzählen und den Fingerabdruck in validate-bau.mjs eintragen`);
 }
 
 // --- Rätsel für die Bauecke (journey-plan.js) ---------------------------------

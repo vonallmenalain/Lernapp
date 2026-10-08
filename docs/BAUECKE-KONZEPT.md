@@ -148,12 +148,25 @@ Kamin.
 ### 0.6 Speichern
 
 - Der Kasten `lernapp.bau` (game-cloud.js): zuerst auf dem Gerät, angemeldet in der Cloud.
-  Je Stockwerk gewinnt beim Zusammenführen, was zuletzt geändert wurde; ein Haus ist so hoch
-  wie das höhere. Gespeichert wird gebündelt (nach gut einer Sekunde Ruhe und beim
-  Verlassen), damit ein Sofa, das zehnmal hin- und hergeschoben wird, nicht zehnmal in die
-  Cloud geht. Höchstens 20 Stockwerke je Haus und 40 Dinge je Zimmer: Selbst wenn alle vier
-  Häuser bis oben voll stehen, bleibt der Kasten bei gut 300 Kilobyte (validate-bau.mjs
-  rechnet das nach) – im Alltag sind es wenige Kilobyte.
+  Gespeichert wird gebündelt (nach gut einer Sekunde Ruhe und beim Verlassen), damit ein
+  Sofa, das zehnmal hin- und hergeschoben wird, nicht zehnmal in die Cloud geht. Höchstens
+  20 Stockwerke je Haus und 40 Dinge je Zimmer: Selbst wenn alle vier Häuser bis oben voll
+  stehen, bleibt der Kasten bei gut 300 Kilobyte (validate-bau.mjs rechnet das nach) – im
+  Alltag sind es wenige Kilobyte.
+- **Zusammenführen** (zwei Geräte, oder ein Gast, der sich danach anmeldet): Jedes
+  Stockwerk hat eine eigene Kennung, und jedes, das eine Seite kennt, bleibt – so geht nie
+  ein eingerichtetes Zimmer verloren, auch wenn auf beiden Seiten im selben Stockwerk gebaut
+  wurde; dann steht eben eines mehr da. Dasselbe Stockwerk nimmt, was zuletzt geändert
+  wurde. Der unberührte Rohbau vom Anfang verdoppelt sich nicht, und Ziegel kommen dabei
+  keine dazu (übrig bleiben höchstens null). Wie überall in der App fliesst, was auf dem
+  Gerät steht, bei der nächsten Anmeldung ins Konto – auch das eines Geschwisters am selben
+  Tablet.
+- **Neuere Fassungen der App:** Der Kasten trägt eine Fassungsnummer (`FORMAT` in
+  bau-stand.js). Bringt ein Update neue Dinge, Zimmer, Tiere oder Farben, zählt es sie hoch
+  (validate-bau.mjs merkt, wenn der Katalog sich ändert, und erinnert daran). Ein Gerät, das
+  noch die ältere Fassung laufen hat, räumt einen neueren Kasten nicht auf – es würde
+  löschen, was es nicht kennt, und das in die Cloud schreiben. Es lässt ihn stehen, zeigt
+  «Die Bauecke wird gerade erneuert» und lädt gleich die neue Fassung.
 - **Zurücksetzen** lässt beide Kästen stehen (`keepOnReset` in game-cloud.js,
   `BAU_KEEP_KEYS` in firebase.js) – auch in der Cloud.
 - Keine Regel in `firestore.rules` ist neu: Die Bauecke liegt im Spielstand des Kindes wie
@@ -174,8 +187,8 @@ Kamin.
 | `game-shell.js`, `app.js`, `tiersprung.js` | Rätsel mit `bau=1`: Ziegel statt Stempel, Würfel, Rückweg |
 | `game-cloud.js`, `firebase.js` | `keepOnReset`; Bauecke beim Zurücksetzen behalten |
 | `kids.js`, `styles.css` | Vorlesen-Schalter neben dem Ton (nur auf dem Startbild: Die Spielseiten halten oben rechts genau Platz für zwei feste Knöpfe) |
-| `scripts/validate-bau.mjs` *(neu)* | ohne Browser: Katalog, Erfüllbarkeit aller Wünsche für jede Tierart in jedem Zimmer, Sterne, Schranke, Tageswechsel, Auszug und Einzug, unterwegs, Zusammenführen, Rätselauswahl je Stufe, Adressen, Einbau |
-| `scripts/check-bau.mjs` *(neu)* | im Browser auf Tablet und Handy: Bauplatz, Hauswahl, Zimmerwahl mit Vorlesen, Ziehen, Stapeln, Rückgängig, Malen, Menü, Tafel, Rätsel-Knopf, Lieferung, Bauen, Neuladen, Vorlesen aus |
+| `scripts/validate-bau.mjs` *(neu)* | ohne Browser: Katalog, Erfüllbarkeit aller Wünsche für jede Tierart in jedem Zimmer, Sterne, Schranke, Tageswechsel, Auszug und Einzug, unterwegs, Zusammenführen (auch zwei Geräte im selben Stockwerk), Speichern ohne neuen Stand, neuere Fassung, Fingerabdruck des Katalogs, Rätselauswahl je Stufe, Adressen, Einbau |
+| `scripts/check-bau.mjs` *(neu)* | im Browser auf Tablet und Handy: Bauplatz, Hauswahl, Zimmerwahl mit Vorlesen, Ziehen, Stapeln (auch mit Speichern mitten im Ziehen), Rückgängig, Malen, Menü, Tafel, Rätsel-Knopf, Lieferung, Bauen, Neuladen, Vorlesen aus, zweiter Besuch, neuere Fassung |
 
 ### 0.8 Was als Nächstes kommen kann
 

@@ -1520,6 +1520,9 @@
   // Mindestgrösse gar nicht.
   function positionBauplatz() {
     if (!bauButton) return;
+    // Wartet die Bauecke auf die neue Fassung der App, zeigt der Bauplatz
+    // nichts – sonst stünden dort kurz leere Häuser.
+    if (bauStand()?.neuereFassung?.()) { bauButton.dataset.placed = "0"; return; }
     const band = stage.querySelector(".train-band");
     const host = stage.getBoundingClientRect();
     if (!band || !host.width) { bauButton.dataset.placed = "0"; return; }
@@ -2686,7 +2689,10 @@
   // Für pwa.js: solange die Karte im Bild ist, eine Feier läuft oder die Bühne
   // gerade wechselt, darf eine neue Fassung die Seite nicht neu laden. Sie
   // wartet, bis das Kind ohnehin die Seite wechselt.
-  window.LernappBusy = () => view.name === "reise" || view.name === "bau" || busy || Boolean(stage.querySelector(".wagon-reward"));
+  // Die Bauecke hält ein Neuladen auf – ausser sie wartet gerade selbst auf
+  // die neue Fassung der App (bau-stand.js, FORMAT).
+  const bauWartet = () => Boolean(bauStand()?.neuereFassung?.());
+  window.LernappBusy = () => view.name === "reise" || (view.name === "bau" && !bauWartet()) || busy || Boolean(stage.querySelector(".wagon-reward"));
 
   // Das Gleis der Reise vermessen, solange nichts anderes zu tun ist. Es hängt
   // allein am Streckenverlauf, ist also für jede Karte dasselbe – und wenn das

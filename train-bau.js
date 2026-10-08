@@ -165,6 +165,7 @@
     host.classList.add("bauecke");
     host.classList.toggle("is-nacht", ui.nacht);
     host.innerHTML = "";
+    if (S().neuereFassung?.()) { zeigeNeuereFassung(); return; }
 
     els.himmel = el("div", "bau-himmel");
     els.himmel.innerHTML = `<div class="bau-sonne"></div><div class="bau-mond"></div><div class="bau-wolke w1"></div><div class="bau-wolke w2"></div>`;
@@ -189,6 +190,7 @@
     // Wer sich ändert, zeichnet nach: die Cloud, neue Ziegel, ein Tier.
     ui.abmelden = S().onChange((grund) => {
       if (!ui.host?.isConnected) return;
+      if (grund === "neuer") { mount({ host: ui.host, stage: ui.stage, onPlay: ui.onPlay }); return; }
       if (grund === "zimmer") { aktualisiereSterne(); return; }
       if (grund === "ziegel") { aktualisiereHud(); pruefeLieferung(); return; }
       if (grund === "cloud" || grund === "tier" || grund === "wunsch") { auffrischen(); }
@@ -202,6 +204,21 @@
     else pruefeLieferung();
   }
 
+  // Ein anderes Gerät hat die Bauecke schon mit einer neueren Fassung der App
+  // gespeichert. Diese hier zeigt dann nichts an, statt zu löschen, was sie
+  // nicht kennt (bau-stand.js, FORMAT) – bis die neue Fassung geladen ist.
+  // Das tut pwa.js gleich von selbst; der Knopf ist für den, der nicht warten mag.
+  function zeigeNeuereFassung() {
+    const box = el("div", "bau-neuer", { role: "status" });
+    box.append(
+      el("p", "", { text: "Die Bauecke wird gerade erneuert. Einen Moment!" }),
+      knopf("bau-neuer-knopf", "Neu laden", `${svgVon(`<path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v5h-5" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>`, "0 0 24 24")}<span>Neu laden</span>`, () => window.location.reload()),
+    );
+    ui.host.append(box);
+    hilfe("");
+    sag("Die Bauecke wird gerade erneuert. Einen Moment!");
+  }
+
   function unmount() {
     if (ui.tickUhr) window.clearInterval(ui.tickUhr);
     ui.tickUhr = 0;
@@ -213,6 +230,9 @@
     tiere.clear();
     if (tierUhr) window.clearTimeout(tierUhr);
     tierUhr = 0;
+    // Eine Lieferung, die mitten im Flug verlassen wurde, kommt nicht mehr an
+    // (ihre Bewegungen sind eben gelöscht) – die nächste darf trotzdem fahren.
+    liefert = false;
     if (ui.host) ui.host.classList.remove("bauecke", "is-nacht", "ist-zimmer");
     ui.host = null;
   }
@@ -237,6 +257,7 @@
   // Bewegung: Die Bühne ruft das nach dem Laden mehrmals auf.
   function auffrischen() {
     if (!ui.host?.isConnected) return;
+    folgeStockwerken();
     aktualisiereHud();
     baueUmschalter();
     if (ui.besetzt || zieht) return;
@@ -249,6 +270,20 @@
     if (ui.tafel) fuelleTafel();
   }
   let zieht = false;
+  // Kommt aus der Cloud ein Stockwerk dazu, kann sich die Reihenfolge
+  // verschieben (bau-stand.js, mergeStock): Das offene Zimmer und die Tafel
+  // folgen ihrem Stockwerk, statt plötzlich ein anderes zu zeigen.
+  function folgeStockwerken() {
+    const finde = (hausId, id) => (S().haus(hausId)?.stock || []).findIndex((s) => s.id === id);
+    if (ui.zimmer >= 0 && ui.zimmerId) {
+      const i = finde(ui.haus, ui.zimmerId);
+      if (i >= 0) ui.zimmer = i;
+    }
+    if (ui.tafel?.id) {
+      const i = finde(ui.tafel.hausId, ui.tafel.id);
+      if (i >= 0) ui.tafel.index = i;
+    }
+  }
   // Was ein Neuzeichnen nötig macht: das Haus selbst, und ob das Plus gerade
   // baut oder vor der Schranke steht (ein Kauf, frische Ziegel).
   function zeichenStand() { return `${JSON.stringify(aktHaus())}|${S().kannBauen(ui.haus).grund}`; }
@@ -1119,6 +1154,7 @@
     if (!st?.raum) return;
     ui.besetzt = true; besetztSeit = performance.now();
     ui.zimmer = index;
+    ui.zimmerId = st.id;
     merkeErfuellt();
     ui.auswahl = null;
     ui.rueck = [];
@@ -1162,6 +1198,7 @@
     waehleAus(null);
     S().speichern(true);
     ui.zimmer = -1;
+    ui.zimmerId = "";
     ui.besetzt = true; besetztSeit = performance.now();
     zeichneHaus({ behalteKamera: true });
     kameraAuf(index, false);
@@ -1223,6 +1260,7 @@
   function zeichneZimmer() {
     const st = S().stock(ui.haus, ui.zimmer);
     if (!st) return;
+    ui.zimmerId = st.id;
     const art = A();
     const raum = K().RAEUME[st.raum];
     els.zimmerBuehne.innerHTML = `<svg xmlns="${NS}" class="bau-zimmer-svg${ui.nacht ? " is-nacht" : ""}" viewBox="0 0 ${art.ZW} ${art.ZH}" role="img" aria-label="${raum?.name || "Zimmer"}">` +
@@ -1716,8 +1754,9 @@
       if (!d) return;
       const p = zimmerPunkt(e.clientX, e.clientY);
       const st = S().stock(ui.haus, ui.zimmer);
-      // Was auf diesem Ding steht, wandert mit.
-      const mit = st.dinge.filter((u) => u.k !== d.k && traegerVon(st, u)?.k === d.k).map((u) => ({ u, dx: u.x - d.x, dy: u.y - d.y }));
+      // Was auf diesem Ding steht, wandert mit – gemerkt über die Kennung,
+      // nachgeschlagen bei jeder Bewegung, wie das gezogene Ding selbst.
+      const mit = st.dinge.filter((u) => u.k !== d.k && traegerVon(st, u)?.k === d.k).map((u) => ({ k: u.k, dx: u.x - d.x, dy: u.y - d.y }));
       griff = { typ: "ding", id: e.pointerId, k, x0: e.clientX, y0: e.clientY, dx: d.x - p.x, dy: d.y - p.y, bewegt: false, mit, vorher: JSON.stringify(st.dinge) };
       try { els.zimmerBuehne.setPointerCapture(e.pointerId); } catch { /* egal */ }
       e.preventDefault();
@@ -1731,7 +1770,7 @@
         els.bearbeiten.hidden = true;
         els.muell.hidden = false;
         dingKnoten(griff.k)?.parentNode?.append(dingKnoten(griff.k));
-        griff.mit.forEach(({ u }) => { const n = dingKnoten(u.k); n?.parentNode?.append(n); });
+        griff.mit.forEach(({ k }) => { const n = dingKnoten(k); n?.parentNode?.append(n); });
       }
       const d = dingDaten(griff.k);
       const p = zimmerPunkt(e.clientX, e.clientY);
@@ -1742,7 +1781,13 @@
       if (ding.art === "decke") d.y = 0;
       begrenzeLocker(d);
       dingKnoten(d.k)?.setAttribute("transform", dingTransform(d));
-      griff.mit.forEach(({ u, dx, dy }) => { u.x = d.x + dx; u.y = d.y + dy; dingKnoten(u.k)?.setAttribute("transform", dingTransform(u)); });
+      griff.mit.forEach(({ k, dx, dy }) => {
+        const u = dingDaten(k);
+        if (!u) return;
+        u.x = d.x + dx;
+        u.y = d.y + dy;
+        dingKnoten(k)?.setAttribute("transform", dingTransform(u));
+      });
       zeigeAuswahl();
       els.muell.classList.toggle("is-ueber", imMuell(e.clientX, e.clientY));
     });
@@ -1778,7 +1823,7 @@
           d.y = lande.y;
           begrenze(d);
           const dy = d.y - vonY;
-          g.mit.forEach(({ u }) => { u.y += dy; begrenze(u); });
+          g.mit.forEach(({ k }) => { const u = dingDaten(k); if (u) { u.y += dy; begrenze(u); } });
           if (Math.abs(dy) > 4) falle(d, vonY);
         } else begrenze(d);
       }
@@ -1925,14 +1970,17 @@
     const raum = zimmerRechteck();
     const kopf = hoch < 520 ? 56 : 74;
     const mitte = (links + rechts) / 2;
-    // Zuerst über dem Ding, dann darunter (aber nie über die Schublade), sonst
-    // daneben – auf der Seite mit mehr Platz.
+    const lade = els.schublade?.getBoundingClientRect();
+    const schublade = lade?.height ? lade.top - host.top : hoch;
+    // Zuerst über dem Ding, dann darunter, sonst daneben – auf der Seite mit
+    // mehr Platz. Nie über die Schublade: Aus der will das Kind weiter wählen,
+    // während das Menü offen bleibt.
     let x = mitte - w / 2;
     let y = a.y - h - 12;
     if (y < kopf) {
       y = b.y + 12;
       if (y + h > raum.y + raum.h + 4) {
-        y = clamp((a.y + b.y) / 2 - h / 2, kopf, hoch - h - 8);
+        y = clamp((a.y + b.y) / 2 - h / 2, kopf, Math.max(kopf, schublade - h - 6));
         x = mitte < breite / 2 ? rechts + 12 : links - w - 12;
       }
     }
@@ -1989,8 +2037,11 @@
   function oeffneTafel(hausId, index) {
     const st = S().stock(hausId, index);
     if (!st?.tier) return;
-    ui.tafel = { hausId, index, gespraech: [] };
-    if (!els.tafel) {
+    // Mit Kennung: Kommt ein Stockwerk aus der Cloud dazu, folgt ihm die Tafel.
+    ui.tafel = { hausId, index, id: st.id, gespraech: [] };
+    // Nach dem Verlassen der Bauecke hängt die alte Tafel nicht mehr im Bild
+    // (mount leert die Bühne) – dann eine neue.
+    if (!els.tafel?.isConnected) {
       els.tafel = el("div", "bau-tafel", { role: "dialog", "aria-modal": "true" });
       els.tafel.addEventListener("click", (e) => { if (e.target === els.tafel) schliesseTafel(); });
       ui.host.append(els.tafel);

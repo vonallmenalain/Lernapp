@@ -6,13 +6,14 @@
  * Häuser und Ziegel gehen nicht verloren.
  *
  *   {
- *     v: 1,
+ *     v: 1,                          // FORMAT – siehe unten
  *     gewaehlt: "spital",            // mit welchem Haus das Kind begonnen hat
  *     haeuser: {
  *       wohnhaus: {
  *         fassade: "pfirsich", dach: "rot", at,
  *         stock: [                    // von unten nach oben, [0] ist das Erdgeschoss
- *           { id, raum: "kueche",     // "" ist der Rohbau: noch keine Zimmerart
+ *           { id, seit,               // Kennung und wann gebaut (0: das erste Stockwerk)
+ *             raum: "kueche",         // "" ist der Rohbau: noch keine Zimmerart
  *             wand: "mint", muster: "kacheln", boden: "plaettli", bodenFarbe: "",
  *             licht: 1,
  *             dinge: [{ k, i: "kochherd", x, y, c: "", f: 0, s: 1 }],
@@ -57,6 +58,15 @@
     STAND_VORNE: 236,
     STAND: 230,
   };
+
+  // Welche Fassung des Kastens diese App versteht. Bringt eine neuere Fassung
+  // neue Dinge, Zimmer, Tiere, Farben, Muster, Böden, Häuser oder Felder,
+  // zählt sie FORMAT hoch (validate-bau.mjs erinnert daran, sobald sich der
+  // Katalog ändert). Eine ältere App, die so einen Kasten sieht, räumt ihn
+  // nicht auf – sie würde löschen, was sie nicht kennt, und das Gelöschte in
+  // die Cloud schreiben. Sie lässt ihn stehen und zeigt die Bauecke erst
+  // wieder, wenn sie sich selbst erneuert hat (pwa.js lädt die neue Fassung).
+  const FORMAT = 1;
 
   const STOCK_MAX = 20;             // so hoch wird ein Haus höchstens
   const STOCK_OHNE_KAUF = 4;        // ohne Kauf: bis zum vierten Stockwerk
@@ -131,17 +141,24 @@
   // Leerer Stand und Aufräumen
   // ---------------------------------------------------------------------------
   function rohbau(at = 0) {
-    return { id: kennung("s"), raum: "", wand: "creme", muster: "keine", boden: "parkett", bodenFarbe: "", licht: 1, dinge: [], tier: null, tierWeg: 0, tierWegArt: "", at };
+    return { id: kennung("s"), seit: at, raum: "", wand: "creme", muster: "keine", boden: "parkett", bodenFarbe: "", licht: 1, dinge: [], tier: null, tierWeg: 0, tierWegArt: "", at };
   }
+
+  // Das erste Stockwerk trägt auf jedem Gerät dieselbe Kennung, solange es ein
+  // Rohbau ist. Mit der Zimmerwahl bekommt es eine eigene (waehleRaum) – so
+  // bleiben beim Zusammenführen beide, wenn zwei Geräte dort gebaut haben.
+  const startId = (hausId) => `${hausId}-0`;
 
   function leererStand() {
     const haeuser = {};
     HAUS_IDS.forEach((id) => {
       const haus = K()?.HAUS?.[id] || {};
-      haeuser[id] = { fassade: haus.fassade || "weiss", dach: haus.dach || "rot", at: 0, stock: [{ ...rohbau(0), id: `${id}-0` }] };
+      haeuser[id] = { fassade: haus.fassade || "weiss", dach: haus.dach || "rot", at: 0, stock: [{ ...rohbau(0), id: startId(id) }] };
     });
-    return { v: 1, gewaehlt: "", haeuser };
+    return { v: FORMAT, gewaehlt: "", haeuser };
   }
+
+  const zuNeu = (roh) => Number(obj(roh).v) > FORMAT;
 
   function sauberesDing(roh) {
     const d = obj(roh);
@@ -186,6 +203,7 @@
     dinge.forEach((ding) => { if (gesehen.has(ding.k)) ding.k = kennung("d"); gesehen.add(ding.k); });
     return {
       id: typeof s.id === "string" && s.id ? s.id.slice(0, 24) : `${hausId}-${index}`,
+      seit: Number(s.seit) || 0,
       raum: passt ? s.raum : "",
       wand: farben[s.wand] ? s.wand : (passt ? raum.wand : "creme"),
       muster: K()?.MUSTER?.some((m) => m.id === s.muster) ? s.muster : (passt ? raum.muster : "keine"),
@@ -203,11 +221,19 @@
   function normalize(roh) {
     const leer = leererStand();
     const r = obj(roh);
-    const out = { v: 1, gewaehlt: HAUS_IDS.includes(r.gewaehlt) ? r.gewaehlt : "", haeuser: {} };
+    const out = { v: FORMAT, gewaehlt: HAUS_IDS.includes(r.gewaehlt) ? r.gewaehlt : "", haeuser: {} };
     HAUS_IDS.forEach((id) => {
       const h = obj(obj(r.haeuser)[id]);
       const farben = K()?.FARBE || {};
       const stock = (Array.isArray(h.stock) ? h.stock : []).slice(0, STOCK_MAX).map((s, i) => sauberesStockwerk(s, id, i));
+      // Eine Kennung je Stockwerk – das Zusammenführen hält sich an sie.
+      const gesehen = new Set();
+      stock.forEach((s) => {
+        let n = 2;
+        const basis = s.id;
+        while (gesehen.has(s.id)) { s.id = `${basis}~${n}`; n += 1; }
+        gesehen.add(s.id);
+      });
       out.haeuser[id] = {
         fassade: farben[h.fassade] ? h.fassade : leer.haeuser[id].fassade,
         dach: farben[h.dach] ? h.dach : leer.haeuser[id].dach,
@@ -221,9 +247,8 @@
   // ---------------------------------------------------------------------------
   // Zusammenführen
   // ---------------------------------------------------------------------------
-  // Je Stockwerk gewinnt, was zuletzt geändert wurde; bei gleicher Zeit
-  // entscheidet der Text, damit beide Richtungen dasselbe ergeben. Ein Haus ist
-  // so hoch wie das höhere der beiden.
+  // Bei gleicher Zeit entscheidet der Text, damit beide Richtungen dasselbe
+  // ergeben.
   function neuer(a, b) {
     const ta = Number(a?.at) || 0;
     const tb = Number(b?.at) || 0;
@@ -231,23 +256,46 @@
     return JSON.stringify(a) >= JSON.stringify(b) ? a : b;
   }
 
+  // Die Stockwerke zweier Stände: Jedes, das eine Seite kennt, bleibt – so
+  // geht nie ein eingerichtetes Zimmer verloren, auch wenn zwei Geräte (oder
+  // ein Gast vor der Anmeldung) am selben Ort gebaut haben. Dasselbe
+  // Stockwerk (gleiche Kennung) nimmt, was zuletzt geändert wurde. Nur der
+  // unberührte Rohbau vom Anfang fällt weg, wo die andere Seite ihn schon
+  // ausgebaut hat. Von unten nach oben in der Reihenfolge, in der gebaut
+  // wurde. Abreissen gibt es nicht; käme es, bräuchte es hier eine Spur.
+  function mergeStock(hausId, sa, sb) {
+    const ma = new Map(sa.map((s, i) => [s.id, { s, i }]));
+    const mb = new Map(sb.map((s, i) => [s.id, { s, i }]));
+    const alle = [];
+    new Set([...ma.keys(), ...mb.keys()]).forEach((id) => {
+      const a = ma.get(id);
+      const b = mb.get(id);
+      const s = a && b ? neuer(a.s, b.s) : (a || b).s;
+      if (!(a && b) && id === startId(hausId) && !s.raum && !s.dinge.length) return;
+      // Gleich alt (etwa ohne Bauzeit): Es bleibt, wie es auf den Seiten stand.
+      alle.push({ s, platz: Math.min(a ? a.i : Infinity, b ? b.i : Infinity) });
+    });
+    alle.sort((x, y) => (x.s.seit - y.s.seit) || (x.platz - y.platz) || (x.s.id < y.s.id ? -1 : x.s.id > y.s.id ? 1 : 0));
+    return alle.slice(0, STOCK_MAX).map((eintrag) => clone(eintrag.s));
+  }
+
   function merge(a, b) {
+    // Ein Kasten aus einer neueren Fassung bleibt, wie er ist (siehe FORMAT).
+    if (zuNeu(a) || zuNeu(b)) {
+      const va = Number(obj(a).v) || 0;
+      const vb = Number(obj(b).v) || 0;
+      if (va !== vb) return clone(va > vb ? a : b);
+      return clone(JSON.stringify(a) >= JSON.stringify(b) ? a : b);
+    }
     const A = normalize(a);
     const B = normalize(b);
-    const out = { v: 1, gewaehlt: A.gewaehlt || B.gewaehlt, haeuser: {} };
+    const out = { v: FORMAT, gewaehlt: A.gewaehlt || B.gewaehlt, haeuser: {} };
     if (A.gewaehlt && B.gewaehlt && A.gewaehlt !== B.gewaehlt) out.gewaehlt = A.gewaehlt < B.gewaehlt ? A.gewaehlt : B.gewaehlt;
     HAUS_IDS.forEach((id) => {
       const ha = A.haeuser[id];
       const hb = B.haeuser[id];
       const kopf = neuer({ at: ha.at, fassade: ha.fassade, dach: ha.dach }, { at: hb.at, fassade: hb.fassade, dach: hb.dach });
-      const laenge = Math.max(ha.stock.length, hb.stock.length);
-      const stock = [];
-      for (let i = 0; i < laenge; i += 1) {
-        const sa = ha.stock[i];
-        const sb = hb.stock[i];
-        stock.push(clone(sa && sb ? neuer(sa, sb) : sa || sb));
-      }
-      out.haeuser[id] = { fassade: kopf.fassade, dach: kopf.dach, at: kopf.at, stock };
+      out.haeuser[id] = { fassade: kopf.fassade, dach: kopf.dach, at: kopf.at, stock: mergeStock(id, ha.stock, hb.stock) };
     });
     return out;
   }
@@ -264,14 +312,26 @@
       onChange() { return () => {}; },
     };
 
-  let stand = normalize(store.read());
+  // Liegt schon ein Kasten einer neueren Fassung da, bleibt er unberührt
+  // (siehe FORMAT): Der Stand hier ist dann nur ein leerer Platzhalter, und
+  // gespeichert wird nichts.
+  let neuere = zuNeu(store.read());
+  let stand = neuere ? leererStand() : normalize(store.read());
   const zuhoerer = new Set();
   function melde(grund) { zuhoerer.forEach((fn) => { try { fn(grund); } catch { /* ein Zuhörer hält die anderen nicht auf */ } }); }
 
   // Was aus der Cloud kommt, wird mit dem eigenen Stand zusammengeführt – nicht
   // übernommen: Eine Änderung, die hier noch auf das Speichern wartet, ist
-  // neuer und gewinnt.
+  // neuer und gewinnt. Das eigene Speichern meldet sich hier auch; dann bleibt
+  // der Stand, wie er ist – dieselben Objekte. Ein Kind, das gerade einen Tisch
+  // mit Tasse zieht, hält sie fest (train-bau.js).
+  let schreibtSelbst = false;
   store.onChange((neu) => {
+    if (schreibtSelbst) return;
+    if (zuNeu(neu)) {
+      if (!neuere) { neuere = true; melde("neuer"); }
+      return;
+    }
     const vorher = JSON.stringify(stand);
     stand = merge(stand, neu);
     if (JSON.stringify(stand) !== vorher) melde("cloud");
@@ -284,7 +344,13 @@
   let speicherUhr = 0;
   function speichern(sofort = false) {
     if (speicherUhr) { window.clearTimeout(speicherUhr); speicherUhr = 0; }
-    const jetzt = () => { speicherUhr = 0; store.write(clone(stand)); };
+    if (neuere) return;
+    const jetzt = () => {
+      speicherUhr = 0;
+      if (neuere) return;
+      schreibtSelbst = true;
+      try { store.write(clone(stand)); } finally { schreibtSelbst = false; }
+    };
     if (sofort) jetzt();
     else speicherUhr = window.setTimeout(jetzt, 1200);
   }
@@ -375,6 +441,9 @@
     aendereStock(hausId, index, (s) => {
       const warRohbau = !s.raum;
       s.raum = raumId;
+      // Das erste Stockwerk wird hier zu diesem Zimmer – mit eigener Kennung
+      // (siehe startId und mergeStock).
+      if (s.id === startId(hausId)) s.id = kennung("s");
       if (warRohbau) {
         s.wand = raum.wand;
         s.muster = raum.muster || "keine";
@@ -621,6 +690,7 @@
   // passiert ist, damit die Ansicht es zeigen kann.
   function tick(jetzt = Date.now()) {
     const ereignisse = [];
+    if (neuere) return ereignisse;
     HAUS_IDS.forEach((hausId) => stand.haeuser[hausId].stock.forEach((s, index) => {
       if (!s.raum) return;
       // Ein neues Tier, wenn das alte hinausgeschickt wurde – bald danach.
@@ -723,8 +793,8 @@
   function onChange(fn) { zuhoerer.add(fn); return () => zuhoerer.delete(fn); }
 
   window.LernappBauStand = {
-    KEY, GEO, STOCK_MAX, STOCK_OHNE_KAUF, DINGE_MAX, TIER_KOMMT_MS, HAUS_IDS,
-    normalize, merge, leererStand,
+    KEY, FORMAT, GEO, STOCK_MAX, STOCK_OHNE_KAUF, DINGE_MAX, TIER_KOMMT_MS, HAUS_IDS,
+    normalize, merge, leererStand, neuereFassung: () => neuere,
     lesen, haus, stock, raumVon,
     verdient, verbaut, paletten, gezeigt, merkeGezeigt, neueLieferung,
     kannBauen, baueStockwerk, waehleRaum, setzeGewaehlt,

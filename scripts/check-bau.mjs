@@ -24,6 +24,11 @@
  *                 Rätsel bringt eine Palette, der Zug liefert sie, und das
  *                 Plus baut ein Stockwerk. Nach dem Neuladen ist alles da.
  *   Vorlesen aus  Mit ausgeschaltetem Vorlesen bleibt die Bauecke still.
+ *   Wieder hinein Hinaus und wieder hinein: Zimmer und Tier-Tafel gehen auch
+ *                 beim zweiten Besuch auf derselben Seite auf.
+ *   Neuer Kasten  Hat ein anderes Gerät die Bauecke schon mit einer neueren
+ *                 Fassung gespeichert, bleibt der Kasten unberührt, und die
+ *                 Bauecke wartet auf die neue Fassung, statt zu löschen.
  *   Fehler        Keine einzige Ausnahme im Browser.
  */
 import { spawn } from "node:child_process";
@@ -177,6 +182,10 @@ async function pruefeGeraet(browser, name, viewport) {
     await page.waitForTimeout(800);
     const tisch = await page.evaluate(() => window.LernappBauStand.stock("spital", 0).dinge.find((d) => d.i === "tisch"));
     pruefe(tisch && Math.abs(tisch.x - 0.75 * 560) < 40, `${name}: das gezogene Ding steht nicht dort, wo es losgelassen wurde (${tisch ? Math.round(tisch.x) : "fehlt"})`);
+    // Das Menü am Ding bleibt offen, deckt aber die Schublade nicht zu.
+    const menueAmTisch = await page.locator(".bau-bearbeiten:not([hidden])").boundingBox().catch(() => null);
+    const lade = await page.locator(".bau-schublade").boundingBox().catch(() => null);
+    pruefe(!ueberlappen(menueAmTisch, lade), `${name}: das Menü am Ding deckt die Schublade zu`);
     // Ein kleines Ding auf den Tisch
     await page.locator('.bau-reiter-knopf[aria-label="Spital"]').click();
     await page.waitForTimeout(250);
@@ -198,9 +207,19 @@ async function pruefeGeraet(browser, name, viewport) {
       return { t, m, flaeche: window.LernappBauMoebel.DINGE.tisch.flaeche * window.LernappBauMoebel.MASS };
     });
     pruefe(lage.m && Math.abs(lage.m.y - (lage.t.y + lage.flaeche)) < 1.5, `${name}: das Mikroskop steht nicht auf dem Tisch`);
-    // Den Tisch verschieben: das Mikroskop wandert mit.
+    // Den Tisch verschieben: das Mikroskop wandert mit – auch wenn mitten im
+    // Ziehen gespeichert wird (das tut die App gut eine Sekunde nach jeder
+    // Änderung von selbst).
     const tischKnoten = await page.locator(`.bau-ding[data-k="${lage.t.k}"]`).boundingBox();
-    await ziehe(page, { x: tischKnoten.x + tischKnoten.width / 2, y: tischKnoten.y + tischKnoten.height * 0.8 }, { x: tischKnoten.x + tischKnoten.width / 2 - svg.width * 0.2, y: tischKnoten.y + tischKnoten.height * 0.8 }, 8);
+    const tischVon = { x: tischKnoten.x + tischKnoten.width / 2, y: tischKnoten.y + tischKnoten.height * 0.8 };
+    const tischNach = { x: tischVon.x - svg.width * 0.2, y: tischVon.y };
+    await page.mouse.move(tischVon.x, tischVon.y);
+    await page.mouse.down();
+    await page.mouse.move(tischVon.x, tischVon.y - 30, { steps: 3 });
+    await page.mouse.move((tischVon.x + tischNach.x) / 2, tischNach.y, { steps: 4 });
+    await page.evaluate(() => window.LernappBauStand.speichern(true));
+    await page.mouse.move(tischNach.x, tischNach.y, { steps: 4 });
+    await page.mouse.up();
     await page.waitForTimeout(700);
     const danach = await page.evaluate(() => {
       const dinge = window.LernappBauStand.stock("spital", 0).dinge;
@@ -302,7 +321,66 @@ async function pruefeGeraet(browser, name, viewport) {
     await page.waitForTimeout(200);
     pruefe(await page.evaluate((n) => window.__gesagt.length === n, stillVorher), `${name}: mit ausgeschaltetem Vorlesen wird trotzdem gesprochen`);
   } catch (fehler) {
-    fehlt(`${name}: ${fehler.message.split("\n")[0]}`);
+    const zeilen = fehler.message.split("\n");
+    const wo = zeilen.find((z) => /waiting for/.test(z))?.trim() || "";
+    fehlt(`${name}: ${zeilen[0]}${wo ? ` (${wo})` : ""}`);
+  }
+  ausnahmen.forEach((a) => fehlt(`${name}: Ausnahme im Browser: ${a}`));
+  await context.close();
+}
+
+// Zwei Fälle neben dem Weg: der zweite Besuch auf derselben Seite, und ein
+// Kasten, den ein anderes Gerät schon mit einer neueren Fassung gespeichert hat.
+async function pruefeSonderfaelle(browser, name, viewport) {
+  const { context, page, ausnahmen } = await neueSeite(browser, viewport);
+  try {
+    // --- Wieder hinein: Zimmer und Tafel gehen auch beim zweiten Mal auf -------
+    await page.goto(`${BASIS}/index.html`, { waitUntil: "load" });
+    await page.evaluate(() => {
+      const S = window.LernappBauStand;
+      S.setzeGewaehlt("wohnhaus");
+      S.waehleRaum("wohnhaus", 0, "kueche");
+      S.speichern(true);
+    });
+    await page.goto(`${BASIS}/index.html?bau=1`, { waitUntil: "load" });
+    await page.waitForTimeout(1500);
+    const tafelAuf = async () => {
+      await tippe(page, '.bau-stock[data-stock="0"]');
+      await page.waitForTimeout(1600);
+      await page.locator(".bau-zimmertier").click();
+      await page.waitForTimeout(500);
+      const karte = await page.locator(".bau-tafel-karte").boundingBox().catch(() => null);
+      return Boolean(karte && karte.width > 100) && await page.locator(".bau-tafel:not([hidden]) .bau-wunsch").count() === 8;
+    };
+    pruefe(await tafelAuf(), `${name}: beim ersten Besuch geht die Tier-Tafel nicht auf`);
+    await page.locator(".bau-tafel-zu").click();
+    await page.waitForTimeout(300);
+    await page.locator(".stage-back").click();
+    await page.waitForTimeout(1200);
+    await page.locator(".stage-back").click();
+    await page.waitForTimeout(1500);
+    pruefe(await page.locator(".bauecke").count() === 0, `${name}: Zurück führt nicht aus der Bauecke`);
+    await tippe(page, ".bauplatz-knopf");
+    await page.waitForTimeout(1500);
+    pruefe(await tafelAuf(), `${name}: beim zweiten Besuch geht die Tier-Tafel nicht auf`);
+
+    // --- Ein Kasten aus einer neueren Fassung bleibt unberührt -----------------
+    const neuer = JSON.stringify({ v: 99, gewaehlt: "wohnhaus", haeuser: { wohnhaus: { stock: [{ id: "s1", raum: "sternwarte", dinge: [{ k: "d1", i: "teleskop", x: 100, y: 230 }] }] } } });
+    await page.evaluate((kasten) => localStorage.setItem("lernapp.bau", kasten), neuer);
+    await page.goto(`${BASIS}/index.html`, { waitUntil: "load" });
+    await page.waitForTimeout(400);
+    await page.mouse.click(5, 300);
+    await page.waitForTimeout(2200);
+    pruefe(await page.locator(".bauplatz-knopf").getAttribute("data-placed") === "0", `${name}: neuere Fassung: der Bauplatz zeigt leere Häuser`);
+    await page.goto(`${BASIS}/index.html?bau=1`, { waitUntil: "load" });
+    await page.waitForTimeout(1500);
+    pruefe(await page.locator(".bau-neuer").isVisible().catch(() => false), `${name}: neuere Fassung: die Bauecke sagt nicht, dass sie sich erneuert`);
+    pruefe(await page.evaluate(() => !window.LernappBusy()), `${name}: neuere Fassung: die Bauecke hält das Neuladen auf`);
+    pruefe(await page.evaluate(() => localStorage.getItem("lernapp.bau")) === neuer, `${name}: neuere Fassung: der Kasten wird verändert`);
+  } catch (fehler) {
+    const zeilen = fehler.message.split("\n");
+    const wo = zeilen.find((z) => /waiting for/.test(z))?.trim() || "";
+    fehlt(`${name}: ${zeilen[0]}${wo ? ` (${wo})` : ""}`);
   }
   ausnahmen.forEach((a) => fehlt(`${name}: Ausnahme im Browser: ${a}`));
   await context.close();
@@ -312,6 +390,7 @@ if (!(await warteAufServer())) { console.error("Der Testserver startet nicht.");
 const browser = await playwright.chromium.launch();
 await pruefeGeraet(browser, "Tablet", { width: 1600, height: 1000 });
 await pruefeGeraet(browser, "Handy", { width: 812, height: 375 });
+await pruefeSonderfaelle(browser, "Tablet", { width: 1600, height: 1000 });
 await browser.close();
 halt();
 
