@@ -99,9 +99,15 @@
     "lernapp.stimme",          // welche Stimme auf diesem Gerät vorliest
     // Die Bauecke bleibt beim Zurücksetzen stehen: Häuser, Tiere und Ziegel
     // gehen nicht verloren (BAUECKE-KONZEPT.md, Entscheid 10).
-    ...BAU_KEEP_KEYS,
+    ...BAU_KEEP_KEYS,          // der Gast-Stand (je Konto: die zwei nächsten)
+    "lernapp.bau.konten",      // die Häuser je Konto (game-cloud.js, registerProKonto)
+    "lernapp.bau.wer",         // wem die Bauecke auf diesem Gerät zuletzt gehörte
+    "lernapp.bau.lieferung.konten",
+    "lernapp.bau.lieferung.wer",
+    "lernapp.bau.getrennt",    // ob der Kasten von früher schon einem Konto gehört
+    "lernapp.bau.lieferung.getrennt",
     "lernapp.bau.geraet",      // Kennung dieses Geräts für den Ziegelzähler
-    "lernapp.bau.gezeigt",     // welche Lieferungen der Zug schon gebracht hat
+    "lernapp.bau.gezeigt",     // welche Lieferungen der Zug schon gebracht hat (je Konto)
     "lernapp.bau.zuletzt",     // welche Rätsel zuletzt kamen
     LOCAL_GUEST_ID_KEY,
     LOCAL_GUEST_CREATED_KEY,

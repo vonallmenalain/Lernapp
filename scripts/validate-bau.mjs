@@ -1,24 +1,45 @@
 /*
  * validate-bau.mjs – Rechnet die Bauecke ohne Browser nach.
  * ---------------------------------------------------------------------------
- * Was train-bau.js zeigt, hängt an drei Listen und einer Rechnung. Hier wird
- * geprüft, dass sie zusammenpassen und tun, was das Konzept verspricht
+ * Was train-bau.js zeigt, hängt an Listen und Rechnungen. Hier wird geprüft,
+ * dass sie zusammenpassen und tun, was das Konzept verspricht
  * (docs/BAUECKE-KONZEPT.md):
  *
- *   Katalog      Vier Häuser, jedes mit seinen Zimmern; jedes Zimmer hat
- *                Beschreibung, Farben, Bild, passende Dinge und mindestens
- *                sechs Wünsche. Jeder Wunsch lässt sich mit einem Ding aus
- *                bau-moebel.js erfüllen, jedes Ding zeichnet sich.
- *   Tiere        Jede Tierart bekommt in jedem Zimmer fünf gelbe, zwei grüne
- *                und einen blauen Wunsch – alle erfüllbar, alle mit Satz.
- *                Erfüllt ist, was im Haus steht: Ding, Wandfarbe, Zimmer.
- *   Zeit         Ein neuer Wunsch frühestens am nächsten Kalendertag und nur,
- *                wenn alle gelben erfüllt sind. Ein hinausgeschicktes Tier
- *                wird bald ersetzt, durch eine andere Art.
+ *   Dinge        Jedes Ding zeichnet sich, auch umgefärbt; keine Kennung
+ *                doppelt; das Bild an der Wand zeigt in jedem Zimmer sein
+ *                eigenes Motiv.
+ *   Zimmer       Vier Häuser: Wohnhaus, Spital, Dorf, Büro. Jedes Zimmer hat
+ *                Beschreibung, Farben, Bild und mindestens zehn Dinge, die es
+ *                nur dort gibt – im Eingang steht kein Bett, im Schlafzimmer
+ *                kein WC. Gewohnt wird nur in Schlaf- und Kinderzimmern; jedes
+ *                Zimmer der anderen Häuser ist ein Arbeitsplatz mit Job.
+ *   Wohnungen    Das Wohnhaus beginnt mit drei leeren Wohnungen. Mit der Wahl
+ *                zieht ein Tier ein, mit der Zeit bis zu drei. Jedes Tier hat
+ *                zwei gelbe Wünsche (einer ist das Lieblingsding oder die
+ *                Lieblingsfarbe), einen grünen und zwei blaue – alle erfüllbar
+ *                mit dem, was in der Schublade liegt. Je Wohnung höchstens
+ *                sechs gelbe, drei grüne und sechs blaue Sterne.
+ *   Stockwerke   Im Wohnhaus wählt das Kind beim Bauen: Wohnung oder zwei
+ *                Zimmer; Spital, Dorf und Büro haben ein Zimmer je Stockwerk.
+ *                Die Reihenfolge lässt sich ändern und übersteht das
+ *                Zusammenführen.
+ *   Arbeit       Jedes Tier hat einen Traumjob. Gibt es das Zimmer und ist
+ *                dort Platz, arbeitet es dort, sonst irgendwo; höchstens drei
+ *                Tiere im selben Zimmer.
+ *   Unterwegs    Meist daheim, manchmal bei der Arbeit oder zu Besuch, nachts
+ *                alle daheim; eine Viertelstunde lang am selben Ort.
+ *   Zeit         Ein neuer Wunsch frühestens am nächsten Kalendertag, nur wenn
+ *                beide gelben erfüllt sind. Ein hinausgeschicktes Tier wird
+ *                bald ersetzt, durch eine andere Art.
  *   Ziegel       Eine Palette je gelöstem Rätsel, ein Stockwerk je Palette;
  *                ohne Kauf bis zum vierten Stockwerk, mit Kauf bis zwanzig.
+ *   Konten       Je Konto ein eigener Stand, auf dem Gerät und in der Cloud.
+ *                Abmelden und mit einem anderen Konto anmelden zeigt nichts
+ *                vom vorigen; ein Gast-Stand geht nur in ein Konto über, das
+ *                noch keine Bauecke hat. Die Ziegel ebenso.
  *   Cloud        Zusammenführen ist in beide Richtungen gleich und verliert
- *                kein Stockwerk; Häuser und Ziegel überleben das Zurücksetzen.
+ *                kein Stockwerk und kein Zimmer; ein Kasten einer neueren
+ *                Fassung bleibt unberührt; die erste Fassung wird übertragen.
  *   Rätsel       Der Rätsel-Knopf zieht aus der aktuellen Karte und der davor,
  *                passend zur Stufe, ohne Kauf nur Freies, und die Adresse des
  *                Rätsels führt zum selben Auftrag zurück.
@@ -36,9 +57,15 @@ const lies = (datei) => fs.readFileSync(path.join(root, datei), "utf8");
 const fehler = [];
 function pruefe(bedingung, text) { if (!bedingung) fehler.push(text); }
 
-// Eine Umgebung wie im Browser, so weit die Dateien sie brauchen.
+// Die Möbel der Zimmer, in der Reihenfolge, in der index.html sie lädt.
+const GRUPPEN = ["wohnen", "haus", "spital", "station", "laeden", "dienste", "freizeit", "buero", "arbeit"];
+const MOEBEL = ["bau-moebel.js", ...GRUPPEN.map((g) => `bau-moebel-${g}.js`)];
+
+// Eine Umgebung wie im Browser, so weit die Dateien sie brauchen. jetzt: die
+// Uhr ({ wert }), feuer(): ein Ereignis an document (die Anmeldung).
 function umgebung({ extra = {}, suche = "", pfad = "/index.html", jetzt = null } = {}) {
   const speicher = new Map();
+  const lauscher = new Map();
   const windowStub = {
     ...extra,
     location: { search: suche, pathname: pfad, href: `http://localhost${pfad}${suche}` },
@@ -50,6 +77,12 @@ function umgebung({ extra = {}, suche = "", pfad = "/index.html", jetzt = null }
     constructor(...args) { if (args.length) super(...args); else super(jetzt.wert); }
     static now() { return jetzt.wert; }
   };
+  const document = {
+    addEventListener(typ, fn) { if (!lauscher.has(typ)) lauscher.set(typ, []); lauscher.get(typ).push(fn); },
+    dispatchEvent(e) { (lauscher.get(e.type) || []).forEach((fn) => fn(e)); },
+    createElementNS: () => ({ setAttribute() {}, append() {} }),
+    hidden: false,
+  };
   const context = vm.createContext({
     window: windowStub,
     localStorage: {
@@ -57,7 +90,7 @@ function umgebung({ extra = {}, suche = "", pfad = "/index.html", jetzt = null }
       setItem: (key, value) => speicher.set(key, String(value)),
       removeItem: (key) => speicher.delete(key),
     },
-    document: { addEventListener() {}, dispatchEvent() {}, createElementNS: () => ({ setAttribute() {}, append() {} }), hidden: false },
+    document,
     CustomEvent: class { constructor(type, init) { this.type = type; this.detail = init?.detail; } },
     URLSearchParams,
     Date: DateKlasse,
@@ -66,26 +99,27 @@ function umgebung({ extra = {}, suche = "", pfad = "/index.html", jetzt = null }
     console,
   });
   const lade = (datei) => vm.runInContext(lies(datei), context, { filename: datei });
-  return { windowStub, context, lade, speicher };
+  const feuer = (typ, detail) => document.dispatchEvent({ type: typ, detail });
+  return { windowStub, context, lade, speicher, feuer };
 }
 
-// --- Katalog und Dinge --------------------------------------------------------
+// --- Dinge -------------------------------------------------------------------
 const basis = umgebung();
-basis.lade("bau-moebel.js");
+MOEBEL.forEach((datei) => basis.lade(datei));
 basis.lade("bau-katalog.js");
 const M = basis.windowStub.LernappBauMoebel;
 const K = basis.windowStub.LernappBauKatalog;
 pruefe(M && K, "bau-moebel.js oder bau-katalog.js setzen ihr window-Objekt nicht");
 
 const dinge = Object.values(M.DINGE);
-pruefe(dinge.length >= 150, `nur ${dinge.length} Dinge – für eine Bauecke, die vom Einrichten lebt, zu wenige`);
-const kategorien = new Set(M.KATEGORIEN.map((k) => k.id));
+pruefe(dinge.length >= 600, `nur ${dinge.length} Dinge – jedes Zimmer braucht seine eigenen`);
+pruefe(M.doppelt.length === 0, `Kennungen doppelt vergeben: ${M.doppelt.join(", ")}`);
 const tagDinge = new Map();
 for (const ding of dinge) {
   pruefe(ding.name && ding.der && /^(der|die|das) /.test(ding.der), `${ding.id}: Name oder Artikel fehlt`);
-  pruefe(kategorien.has(ding.kat), `${ding.id}: unbekannte Schublade ${ding.kat}`);
+  pruefe(/^[a-z][a-z0-9_]*$/.test(ding.id), `${ding.id}: Kennung mit Umlaut oder Grossbuchstaben`);
   pruefe(["boden", "wand", "decke", "flach"].includes(ding.art), `${ding.id}: unbekannte Art ${ding.art}`);
-  pruefe(ding.w > 0 && ding.h > 0, `${ding.id}: ohne Grösse`);
+  pruefe(ding.w > 0 && ding.h > 0 && ding.w <= 200 && ding.h <= 170, `${ding.id}: Grösse ${ding.w} × ${ding.h} ausserhalb 200 × 170`);
   if (typeof ding.flaeche === "number") {
     pruefe(ding.art === "boden" && ding.flaeche < 0 && ding.flaeche >= -ding.h - 1, `${ding.id}: Fläche liegt nicht auf dem Ding`);
     pruefe(Array.isArray(ding.fx) && ding.fx[0] < ding.fx[1], `${ding.id}: Flächenbereich fehlt`);
@@ -99,11 +133,26 @@ for (const ding of dinge) {
     const zu = (svg.match(/<\/g>/g) || []).length;
     pruefe(offen === zu, `${ding.id}: <g> nicht geschlossen (${offen}/${zu})`);
     pruefe((svg.match(/"/g) || []).length % 2 === 0, `${ding.id}: ungerade Zahl Anführungszeichen`);
+    pruefe(!/<defs|id=|url\(|<script|on[a-z]+=/i.test(svg), `${ding.id}: Zeichnung mit defs, id, url() oder Skript`);
   }
   if (ding.farbe) pruefe(M.zeichne(ding.id, "#123456").includes("#123456"), `${ding.id}: lässt sich umfärben, nimmt die Farbe aber nicht an`);
   for (const tag of ding.tags) {
     if (!tagDinge.has(tag)) tagDinge.set(tag, []);
     tagDinge.get(tag).push(ding.id);
+  }
+}
+// Gleich auf jedem Gerät: keine Zufallszahlen in den Zeichnungen.
+for (const ding of dinge) pruefe(M.zeichne(ding.id) === M.zeichne(ding.id), `${ding.id}: zeichnet sich jedes Mal anders`);
+
+// Das Bild an der Wand: in jedem Zimmer sein eigenes Motiv.
+{
+  const motive = new Map();
+  for (const raum of K.RAEUME_LISTE) {
+    pruefe(typeof M.MOTIVE[raum.id] === "function", `${raum.id}: kein Bild-Motiv`);
+    const bild = M.zeichne("bild", null, raum.id);
+    pruefe(bild.length > 120 && !/undefined|NaN/.test(bild), `${raum.id}: das Bild an der Wand zeichnet sich nicht`);
+    if (motive.has(bild)) fehler.push(`${raum.id}: dasselbe Bild an der Wand wie ${motive.get(bild)}`);
+    motive.set(bild, raum.id);
   }
 }
 
@@ -114,13 +163,27 @@ for (const [tag, wunsch] of Object.entries(K.DING_WUENSCHE)) {
   pruefe(/^(ein|eine|einen) |^[A-ZÄÖÜ]|^etwas /.test(wunsch.ein), `Wunsch "${tag}": "${wunsch.ein}" passt nicht in "Ich hätte gerne …"`);
 }
 
-// Häuser und Zimmer
+// --- Häuser und Zimmer ----------------------------------------------------------
 pruefe(K.HAEUSER.map((h) => h.id).join() === "wohnhaus,spital,zentrum,buero", "die vier Häuser stimmen nicht");
+pruefe(K.HAUS.zentrum.name === "Dorf" && K.HAUS.buero.name === "Büro", `die Häuser heissen ${K.HAUS.zentrum.name} und ${K.HAUS.buero.name} statt Dorf und Büro`);
+pruefe(!("PLAUDERN" in K) && !/plaudern|bau-fragen/i.test(lies("train-bau.js")), "das Plaudern mit dem Tier ist noch da");
+pruefe(K.WOHNEN.join() === "schlafzimmer,kinderzimmer", "gewohnt wird nicht in Schlaf- und Kinderzimmern");
 const gesehen = new Set();
 for (const haus of K.HAEUSER) {
   pruefe(haus.raeume.length >= 8, `${haus.id}: nur ${haus.raeume.length} Zimmerarten`);
   pruefe(K.FARBE[haus.fassade] && K.FARBE[haus.dach], `${haus.id}: Fassade oder Dach ohne Farbe`);
   pruefe(/^im /.test(haus.im) && haus.text.length > 20, `${haus.id}: "im …" oder Beschreibung fehlt`);
+}
+// Wo ein Ding vorkommt – nur so viele Zimmer, wie es in ihren Listen steht.
+const vorkommen = new Map();
+for (const [raumId, ids] of Object.entries(M.RAUM_DINGE)) {
+  pruefe(K.RAEUME[raumId], `RAUM_DINGE: unbekanntes Zimmer ${raumId}`);
+  for (const id of ids) {
+    pruefe(M.DINGE[id], `${raumId}: unbekanntes Ding ${id}`);
+    pruefe(!M.UEBERALL.includes(id), `${raumId}: ${id} gibt es überall, es gehört nicht in die Liste`);
+    if (!vorkommen.has(id)) vorkommen.set(id, new Set());
+    vorkommen.get(id).add(raumId);
+  }
 }
 for (const raum of K.RAEUME_LISTE) {
   pruefe(!gesehen.has(raum.id), `Zimmer ${raum.id} doppelt`);
@@ -130,20 +193,40 @@ for (const raum of K.RAEUME_LISTE) {
   pruefe(raum.text.length >= 40 && /[.!?]$/.test(raum.text), `${raum.id}: Beschreibung zu kurz oder ohne Satzende`);
   pruefe(K.FARBE[raum.wand] && K.BODEN[raum.boden] && K.MUSTER.some((m) => m.id === raum.muster), `${raum.id}: Wand, Boden oder Muster unbekannt`);
   pruefe(M.DINGE[raum.icon], `${raum.id}: Bild ${raum.icon} fehlt`);
-  pruefe(raum.passend.length >= 6 && raum.passend.every((id) => M.DINGE[id]), `${raum.id}: zu wenig oder unbekannte passende Dinge`);
-  pruefe(raum.wuensche.length >= 6 && raum.wuensche.every((t) => K.DING_WUENSCHE[t]), `${raum.id}: zu wenig oder unbekannte Wünsche`);
-  // Was sich ein Tier hier wünschen kann, liegt auch in "Passt hierher" oder
-  // lässt sich dort über "Zeig mir" finden.
-  for (const tag of raum.wuensche) pruefe(tagDinge.get(tag)?.length, `${raum.id}: Wunsch ${tag} ohne Ding`);
+  const eigene = M.RAUM_DINGE[raum.id] || [];
+  const nurHier = eigene.filter((id) => vorkommen.get(id)?.size === 1);
+  pruefe(eigene.length >= 12, `${raum.id}: nur ${eigene.length} Dinge in der Schublade`);
+  pruefe(nurHier.length >= 10, `${raum.id}: nur ${nurHier.length} Dinge, die es nur hier gibt – das Zimmer ist nicht zu erkennen`);
+  // Gewohnt wird nur in den Wohnungen; gearbeitet in den Zimmern der anderen Häuser.
+  if (raum.haus === "wohnhaus") pruefe(!raum.job, `${raum.id}: ein Job im Wohnhaus`);
+  else pruefe(raum.job && !raum.wohnen && !/[.!?]$/.test(raum.job), `${raum.id}: ohne Job`);
 }
-for (const [hausId, liste] of Object.entries(K.HAUS_WUENSCHE)) {
-  for (const r of liste) pruefe(K.RAEUME[r]?.haus === hausId, `grüner Wunsch ${hausId}→${r}: Zimmer gehört nicht in dieses Haus`);
-}
-for (const [hausId, liste] of Object.entries(K.FREMD_WUENSCHE)) {
-  for (const w of liste) {
-    pruefe(w.haus !== hausId && K.RAEUME[w.raum]?.haus === w.haus, `blauer Wunsch ${hausId}→${w.haus}/${w.raum} stimmt nicht`);
-    pruefe(w.warum && /[.!]$/.test(w.warum), `blauer Wunsch ${hausId}→${w.raum}: ohne Begründung`);
+// Was nur in bestimmte Zimmer gehört: kein Bett im Eingang, kein WC im Schlafzimmer.
+{
+  const NUR = {
+    bett: ["schlafzimmer"], doppelbett: ["schlafzimmer"], kinderbett: ["kinderzimmer"], hochbett: ["kinderzimmer"],
+    wc: ["bad", "toiletten", "buerowc"], wanne: ["bad"], dusche: ["bad", "hallenbad", "turnhalle", "fitness", "toiletten", "buerowc"],
+    kochherd: ["kueche", "restaurant", "cafe", "cafeteria", "spitalcafeteria", "kita", "schule"],
+    waschmaschine: ["waschzimmer"], tumbler: ["waschzimmer"],
+  };
+  for (const [id, erlaubt] of Object.entries(NUR)) {
+    for (const raumId of vorkommen.get(id) || []) pruefe(erlaubt.includes(raumId), `${id} gehört nicht in ${K.RAEUME[raumId]?.der || raumId}`);
   }
+}
+// Die Wohnungen: Jeder gelbe Wunsch lässt sich mit dem erfüllen, was in der
+// Schublade liegt – den Dingen des Zimmers, den Lieblingsdingen, dem, was es
+// überall gibt.
+for (const raumId of K.WOHNEN) {
+  const raum = K.RAEUME[raumId];
+  const schublade = new Set([...K.dingeFuer(raumId), ...M.UEBERALL]);
+  pruefe(raum.wuensche.length >= 6 && raum.wuensche.every((t) => K.DING_WUENSCHE[t]), `${raumId}: zu wenig oder unbekannte Wünsche`);
+  for (const tag of raum.wuensche) pruefe([...schublade].some((id) => M.DINGE[id].tags.includes(tag)), `${raumId}: Wunsch "${tag}" – nichts in der Schublade erfüllt ihn`);
+  for (const id of K.LIEBLINGS) pruefe(K.dingeFuer(raumId).includes(id), `${raumId}: das Lieblingsding ${id} fehlt in der Schublade`);
+}
+for (const r of K.HAUS_WUENSCHE.wohnhaus) pruefe(K.RAEUME[r]?.haus === "wohnhaus" && !K.RAEUME[r].wohnen, `grüner Wunsch ${r}: kein Zimmer des Wohnhauses für zwei`);
+for (const w of K.FREMD_WUENSCHE.wohnhaus) {
+  pruefe(w.haus !== "wohnhaus" && K.RAEUME[w.raum]?.haus === w.haus, `blauer Wunsch ${w.haus}/${w.raum} stimmt nicht`);
+  pruefe(w.warum && /[.!]$/.test(w.warum), `blauer Wunsch ${w.raum}: ohne Begründung`);
 }
 
 // Tiere
@@ -152,257 +235,341 @@ const alleNamen = new Set();
 for (const [id, tier] of Object.entries(K.TIERE)) {
   pruefe(/^(der|die|das) /.test(tier.der) && tier.coat && tier.inner && tier.ear, `${id}: Name, Farben oder Ohren fehlen`);
   pruefe(K.DING_WUENSCHE[tier.mag.ding] && K.FAMILIEN[tier.mag.farbe], `${id}: Lieblingsding oder -farbe unbekannt`);
+  pruefe(K.LIEBLINGS.some((d) => M.DINGE[d]?.tags.includes(tier.mag.ding)), `${id}: das Lieblingsding liegt in keiner Wohnung`);
   pruefe(tier.namen.length >= 4, `${id}: zu wenig Namen`);
   for (const n of tier.namen) { pruefe(!alleNamen.has(n), `Name ${n} doppelt`); alleNamen.add(n); }
-  pruefe(tier.isst.length > 10 && tier.fakt.length > 20, `${id}: Steckbrief fehlt`);
 }
 for (const fam of Object.keys(K.FAMILIEN)) pruefe(K.FARBEN.some((f) => f.familie === fam), `Farbfamilie ${fam} ohne Farbe in der Palette`);
 
 // Schweizer Rechtschreibung: kein ß in allem, was die Kinder hören oder sehen.
-for (const datei of ["bau-moebel.js", "bau-katalog.js", "bau-stand.js", "bau-art.js", "train-bau.js", "bau.css"]) {
+for (const datei of [...MOEBEL, "bau-katalog.js", "bau-stand.js", "bau-art.js", "train-bau.js", "bau.css"]) {
   pruefe(!lies(datei).includes("ß"), `${datei}: enthält ein ß`);
 }
 
 // --- Der Stand ---------------------------------------------------------------
 // mitCloud: der Kasten läuft über game-cloud.js wie in der App, firebase steht
-// für die Cloud (getGameState, saveGameState).
-function standUmgebung({ paletten = 0, frei = false, jetzt = null, mitCloud = false, firebase = null } = {}) {
+// für die Cloud (getUser, getGameState, saveGameState). mitReise: die Ziegel
+// kommen aus journey-plan.js statt aus einer festen Zahl.
+function standUmgebung({ paletten = 0, frei = false, jetzt = null, mitCloud = false, firebase = null, mitReise = false, vorher = null } = {}) {
   const u = umgebung({ jetzt });
   let verdient = paletten;
-  u.windowStub.LernappReise = { bauPaletten: () => verdient, onBauLieferung() {} };
-  u.windowStub.LernappEntitlement = { isFree: () => frei };
+  u.windowStub.LernappEntitlement = { isFree: () => frei, stationFree: () => frei };
   if (firebase) u.windowStub.LernappFirebase = firebase;
+  if (vorher) vorher(u);
   if (mitCloud) u.lade("game-cloud.js");
-  u.lade("bau-moebel.js");
+  if (mitReise) u.lade("journey-plan.js");
+  else u.windowStub.LernappReise = { bauPaletten: () => verdient, onBauLieferung() {} };
+  MOEBEL.forEach((datei) => u.lade(datei));
   u.lade("bau-katalog.js");
   u.lade("bau-stand.js");
-  return { S: u.windowStub.LernappBauStand, setzeVerdient: (n) => { verdient = n; }, u };
+  return { S: u.windowStub.LernappBauStand, R: u.windowStub.LernappReise, setzeVerdient: (n) => { verdient = n; }, u };
+}
+const morgen10 = () => ({ wert: new Date(2026, 9, 8, 10, 0, 0).getTime() });
+// Ein Ding mit dieser Eigenschaft, das in der Schublade dieses Zimmers liegt.
+function dingMit(raumId, tag) {
+  return [...K.dingeFuer(raumId), ...M.UEBERALL].find((id) => M.DINGE[id].tags.includes(tag));
+}
+// Alle gelben Wünsche einer Wohnung erfüllen.
+function erfuelleGelbe(S, hausId, index) {
+  const st = S.stock(hausId, index);
+  for (const tier of st.tiere) {
+    for (const w of S.wuensche(tier.seed).filter((x) => x.stern === "gelb" && !x.erfuellt)) {
+      if (w.typ === "ding") S.aendereZimmer(hausId, index, 0, (z) => z.dinge.push({ k: `g${z.dinge.length}`, i: dingMit(st.zimmer[0].raum, w.tag), x: 100, y: 230, c: "", f: 0, s: 1 }));
+      if (w.typ === "farbe") S.aendereZimmer(hausId, index, 0, (z) => { z.wand = K.FARBEN.find((f) => f.familie === w.familie).id; });
+    }
+  }
 }
 
 {
   const { S } = standUmgebung();
   const leer = S.lesen();
+  pruefe(S.FORMAT === 2 && leer.v === 2, "der Kasten ist nicht Fassung 2");
   pruefe(Object.keys(leer.haeuser).join() === "wohnhaus,spital,zentrum,buero", "leerer Stand: nicht vier Häuser");
-  for (const h of Object.values(leer.haeuser)) pruefe(h.stock.length === 1 && !h.stock[0].raum, "leerer Stand: jedes Haus beginnt mit einem leeren Stockwerk");
-  pruefe(S.paletten() === 0 && !S.kannBauen("wohnhaus").ok && S.kannBauen("wohnhaus").grund === "ziegel", "ohne Ziegel lässt sich bauen");
-}
-
-// Jede Tierart in jedem Zimmer: fünf, zwei, eins – erfüllbar, mit Satz.
-{
-  const { S } = standUmgebung();
-  for (const raum of K.RAEUME_LISTE) {
-    for (const art of K.TIER_IDS) {
-      const tier = { a: art, seed: `${art}-${raum.id}` };
-      const w = S.wuenscheFuer(tier, raum.haus, raum.id);
-      pruefe(w.w.length === 5 && new Set(w.w).size === 5, `${art} in ${raum.id}: nicht fünf verschiedene gelbe Wünsche`);
-      pruefe(w.g.length === 2 && new Set(w.g).size === 2 && !w.g.includes(`raum:${raum.id}`), `${art} in ${raum.id}: grüne Wünsche stimmen nicht`);
-      pruefe(w.b.length === 1, `${art} in ${raum.id}: kein blauer Wunsch`);
-      const mag = K.TIERE[art].mag;
-      pruefe(w.w[0] === `ding:${mag.ding}` || w.w[0] === `farbe:${mag.farbe}`, `${art} in ${raum.id}: das Lieblingsding der Art fehlt`);
-      for (const wunsch of [...w.w, ...w.g, ...w.b]) {
-        const b = S.beschreibe(raum.haus, wunsch);
-        pruefe(b.text && !/undefined/.test(b.text) && b.kurz, `${art} in ${raum.id}: Wunsch ${wunsch} ohne Satz`);
-      }
-    }
+  const wh = leer.haeuser.wohnhaus.stock;
+  pruefe(wh.length === 3 && wh.every((s) => s.art === "wohnung" && s.zimmer.length === 1 && !s.zimmer[0].raum && !s.tiere.length), "das Wohnhaus beginnt nicht mit drei leeren Wohnungen");
+  for (const id of ["spital", "zentrum", "buero"]) {
+    const st = leer.haeuser[id].stock;
+    pruefe(st.length === 1 && st[0].art === "eins" && st[0].zimmer.length === 1 && !st[0].zimmer[0].raum, `${id} beginnt nicht mit einem leeren Zimmer`);
   }
+  pruefe(S.paletten() === 0 && !S.kannBauen("wohnhaus").ok && S.kannBauen("wohnhaus").grund === "ziegel", "ohne Ziegel lässt sich bauen");
+  pruefe(S.verbaut() === 0, "die Stockwerke vom Anfang kosten Ziegel");
 }
 
-// Erfüllt ist, was im Haus steht.
+// Die Wohnung: Schlafzimmer oder Kinderzimmer, und gleich zieht jemand ein.
 {
-  const { S } = standUmgebung({ paletten: 3 });
-  pruefe(S.waehleRaum("wohnhaus", 0, "schlafzimmer"), "Schlafzimmer lässt sich nicht wählen");
+  const jetzt = morgen10();
+  const { S } = standUmgebung({ paletten: 3, frei: true, jetzt });
+  pruefe(S.waehleRaum("wohnhaus", 0, 0, "kueche") === null, "in einer Wohnung lässt sich eine Küche wählen");
+  pruefe(S.waehleRaum("spital", 0, 0, "schlafzimmer") === null, "im Spital lässt sich ein Schlafzimmer wählen");
+  pruefe(S.waehleRaum("spital", 0, 0, "kueche") === null, "im Spital lässt sich eine Küche des Wohnhauses wählen");
+  const erstes = S.waehleRaum("wohnhaus", 0, 0, "schlafzimmer");
+  pruefe(erstes && typeof erstes === "object" && K.TIERE[erstes.a], "mit der Wahl der Wohnung zieht kein Tier ein");
   const st = S.stock("wohnhaus", 0);
-  pruefe(st.tier && K.TIERE[st.tier.a], "nach der Zimmerwahl zieht kein Tier ein");
-  pruefe(st.wand === K.RAEUME.schlafzimmer.wand, "das neue Zimmer hat nicht die Farbe seiner Art");
-  for (const w of S.wuensche("wohnhaus", 0)) {
+  pruefe(st.zimmer[0].wand === K.RAEUME.schlafzimmer.wand, "die neue Wohnung hat nicht die Farbe ihrer Art");
+  pruefe(st.id !== "wohnhaus-0", "die Wohnung behält mit der Wahl die gemeinsame Kennung vom Anfang");
+  pruefe(erstes.w.length === 2 && erstes.g.length === 1 && erstes.b.length === 2, `das Tier hat ${erstes.w.length}/${erstes.g.length}/${erstes.b.length} statt 2/1/2 Wünsche`);
+  const mag = K.TIERE[erstes.a].mag;
+  pruefe(erstes.w[0] === `ding:${mag.ding}` || erstes.w[0] === `farbe:${mag.farbe}`, "unter den gelben Wünschen fehlt, was die Tierart besonders mag");
+  const [th, tr] = erstes.traum.split(":");
+  pruefe(K.RAEUME[tr]?.haus === th && K.RAEUME[tr].job, `Traumjob ${erstes.traum} gibt es nicht`);
+  for (const w of S.wuensche(erstes.seed)) {
+    pruefe(w.text && !/undefined/.test(w.text) && w.kurz, `Wunsch ${w.id} ohne Satz`);
     pruefe(!w.erfuellt || w.typ === "farbe", `Wunsch ${w.id} ist ohne Zutun erfüllt`);
   }
-  // Gelb: Dinge und Farbe
-  for (const w of S.wuensche("wohnhaus", 0).filter((x) => x.stern === "gelb")) {
-    if (w.typ === "ding") S.aendereStock("wohnhaus", 0, (s) => s.dinge.push({ k: `z${s.dinge.length}`, i: w.zeige, x: 100, y: 230, c: "", f: 0, s: 1 }));
-    if (w.typ === "farbe") S.aendereStock("wohnhaus", 0, (s) => { s.wand = K.FARBEN.find((f) => f.familie === w.familie).id; });
+  // Mit der Zeit kommen zwei weitere – nicht sofort, und nie mehr als drei.
+  pruefe(!S.zuzugFaellig(jetzt.wert + 60000), "gleich nach dem ersten zieht schon das nächste Tier ein");
+  jetzt.wert += S.ZUZUG_MS + 1000;
+  pruefe(S.zuzugFaellig(jetzt.wert)?.index === 0, "nach der Wartezeit zieht niemand ein");
+  const zweites = S.ziehtEin("wohnhaus", 0);
+  pruefe(zweites && zweites.a !== erstes.a, "das zweite Tier fehlt oder ist dieselbe Art wie das erste");
+  pruefe(!zweites.w.some((w) => erstes.w.includes(w)), "Mitbewohner wünschen sich dasselbe");
+  pruefe(!S.zuzugFaellig(jetzt.wert + 1000), "gleich nach dem zweiten zieht schon das dritte ein");
+  jetzt.wert += S.ZUZUG_MS + 1000;
+  pruefe(S.ziehtEin("wohnhaus", 0), "das dritte Tier zieht nicht ein");
+  jetzt.wert += S.ZUZUG_MS + 1000;
+  pruefe(!S.zuzugFaellig(jetzt.wert) && !S.ziehtEin("wohnhaus", 0), "in eine Wohnung ziehen mehr als drei Tiere");
+  pruefe(!S.zuzugFaellig(jetzt.wert + 1e9), "in eine leere Wohnung (ohne Zimmerart) zieht jemand ein");
+  const sterne = S.sterneStock("wohnhaus", 0);
+  const zaehle = (farbe) => sterne.tiere.reduce((n, t) => n + t[farbe].length, 0);
+  pruefe(zaehle("gelb") === 6 && zaehle("gruen") === 3 && zaehle("blau") === 6 && sterne.total === 15, `drei Tiere: ${zaehle("gelb")} gelbe, ${zaehle("gruen")} grüne, ${zaehle("blau")} blaue Sterne`);
+  // Die Art der Wohnung ändern: alles bleibt, die Wünsche passen sich an.
+  pruefe(S.waehleRaum("wohnhaus", 0, 0, "kinderzimmer") === true && S.stock("wohnhaus", 0).tiere.length === 3, "beim Wechsel zum Kinderzimmer ziehen die Tiere aus");
+  for (const t of S.stock("wohnhaus", 0).tiere) {
+    pruefe(t.w.every((w) => w.startsWith("farbe:") || w === `ding:${K.TIERE[t.a].mag.ding}` || K.RAEUME.kinderzimmer.wuensche.includes(w.split(":")[1])), `${t.n}: Wünsche passen nicht zum Kinderzimmer`);
   }
-  pruefe(S.sterne("wohnhaus", 0).gelb.every(Boolean), "alle gelben Wünsche erfüllt, aber nicht alle Sterne");
-  // Grün: die gewünschten Zimmer im eigenen Haus
-  for (const w of S.wuensche("wohnhaus", 0).filter((x) => x.stern === "gruen")) {
-    const i = S.baueStockwerk("wohnhaus");
-    pruefe(i > 0, "mit Ziegeln lässt sich kein Stockwerk bauen");
-    S.waehleRaum("wohnhaus", i, w.raum);
+}
+
+// Erfüllt ist, was im Haus steht – gelb in der Wohnung, grün im Wohnhaus,
+// blau in den anderen Häusern.
+{
+  const { S } = standUmgebung({ paletten: 3, frei: true });
+  const tier = S.waehleRaum("wohnhaus", 0, 0, "schlafzimmer");
+  erfuelleGelbe(S, "wohnhaus", 0);
+  pruefe(S.sterne(tier.seed).gelb.every(Boolean), "alle gelben Wünsche erfüllt, aber nicht alle Sterne");
+  // Grün: ein Stockwerk für zwei Zimmer im Wohnhaus.
+  const gruen = S.wuensche(tier.seed).find((w) => w.stern === "gruen");
+  const i = S.baueStockwerk("wohnhaus");
+  pruefe(i === 3 && S.stock("wohnhaus", i).art === "", "ein neues Stockwerk im Wohnhaus ist nicht zuerst ein Rohbau");
+  pruefe(S.waehleArt("wohnhaus", i, "zwei") && S.stock("wohnhaus", i).zimmer.length === 2, "ein Stockwerk für zwei Zimmer hat nicht zwei Plätze");
+  pruefe(!S.waehleArt("wohnhaus", i, "wohnung"), "die Art eines Stockwerks lässt sich zweimal wählen");
+  pruefe(S.waehleRaum("wohnhaus", i, 0, "schlafzimmer") === null, "auf einem Stockwerk für zwei lässt sich eine Wohnung wählen");
+  pruefe(S.waehleRaum("wohnhaus", i, 1, gruen.raum) === true, `${gruen.raum} lässt sich nicht wählen`);
+  pruefe(S.stock("wohnhaus", i).tiere.length === 0, "in ein Zimmer für zwei zieht ein Tier ein");
+  pruefe(S.sterne(tier.seed).gruen.every(Boolean), "der grüne Wunsch geht mit dem Zimmer nicht in Erfüllung");
+  // Blau: die Zimmer in den anderen Häusern – im leeren Stockwerk vom Anfang,
+  // sonst in einem neuen.
+  let gebaut = 0;
+  for (const w of S.wuensche(tier.seed).filter((x) => x.stern === "blau")) {
+    const frei = S.haus(w.haus).stock.findIndex((x) => !x.zimmer[0].raum);
+    const j = frei >= 0 ? frei : S.baueStockwerk(w.haus);
+    if (frei < 0) gebaut += 1;
+    pruefe(S.stock(w.haus, j).art === "eins" && S.waehleRaum(w.haus, j, 0, w.raum) === true, `${w.raum}: im ${w.haus} lässt sich kein Zimmer einrichten`);
   }
-  pruefe(S.sterne("wohnhaus", 0).gruen.every(Boolean), "die grünen Wünsche gehen mit den Zimmern nicht in Erfüllung");
-  // Blau: das Zimmer im anderen Haus (dort ist das Erdgeschoss noch frei)
-  const blau = S.wuensche("wohnhaus", 0).find((x) => x.stern === "blau");
-  S.waehleRaum(blau.haus, 0, blau.raum);
-  const st8 = S.sterne("wohnhaus", 0);
-  pruefe(st8.anzahl === 8 && st8.total === 8, `alle Wünsche erfüllt, aber ${st8.anzahl} von ${st8.total} Sternen`);
-  pruefe(S.laune("wohnhaus", 0).stufe === 3, "alle Sterne, aber das Tier ist nicht überglücklich");
+  const st = S.sterne(tier.seed);
+  pruefe(st.anzahl === 5 && st.total === 5, `alle Wünsche erfüllt, aber ${st.anzahl} von ${st.total} Sternen`);
+  pruefe(S.laune(tier.seed).stufe === 3, "alle Sterne, aber das Tier ist nicht überglücklich");
   // Wegräumen nimmt den Stern wieder weg.
-  S.aendereStock("wohnhaus", 0, (s) => { s.dinge = []; });
-  pruefe(S.sterne("wohnhaus", 0).anzahl < 8, "weggeräumt, aber der Stern bleibt");
-  pruefe(S.laune("wohnhaus", 0).stufe >= 0 && S.laune("wohnhaus", 0).text, "ohne Sterne keine Laune");
-  // Plaudern
-  for (const f of K.PLAUDERN) {
-    const a = S.antwort("wohnhaus", 0, f.id);
-    pruefe(a && !/undefined|null/.test(a), `Plaudern "${f.id}": keine Antwort`);
-  }
-  // Ziegel: drei verdient, drei verbaut (zwei grüne, und keiner für den blauen)
-  pruefe(S.verbaut() === 2 && S.paletten() === 1, `Ziegel: verbaut ${S.verbaut()}, übrig ${S.paletten()}`);
+  S.aendereZimmer("wohnhaus", 0, 0, (z) => { z.dinge = []; z.wand = "creme"; });
+  pruefe(S.sterne(tier.seed).anzahl < 5, "weggeräumt, aber der Stern bleibt");
+  pruefe(S.laune(tier.seed).text, "ohne Sterne keine Laune");
+  pruefe(S.verbaut() === 1 + gebaut, `Ziegel: ${S.verbaut()} verbaut statt ${1 + gebaut}`);
 }
 
 // Die Schranke: ohne Kauf bis zum vierten Stockwerk, mit Kauf bis zwanzig.
 {
   const { S } = standUmgebung({ paletten: 40, frei: false });
-  let gebaut = 0;
-  while (S.kannBauen("spital").ok) { S.baueStockwerk("spital"); gebaut += 1; }
-  pruefe(S.haus("spital").stock.length === S.STOCK_OHNE_KAUF && S.kannBauen("spital").grund === "schranke", `ohne Kauf: ${S.haus("spital").stock.length} Stockwerke, Grund ${S.kannBauen("spital").grund}`);
-  pruefe(gebaut === S.STOCK_OHNE_KAUF - 1, "ohne Kauf: falsche Zahl gebauter Stockwerke");
+  while (S.kannBauen("spital").ok) S.baueStockwerk("spital");
+  pruefe(S.haus("spital").stock.length === S.STOCK_OHNE_KAUF && S.kannBauen("spital").grund === "schranke", `ohne Kauf: ${S.haus("spital").stock.length} Stockwerke im Spital, Grund ${S.kannBauen("spital").grund}`);
+  S.baueStockwerk("wohnhaus");
+  pruefe(S.haus("wohnhaus").stock.length === S.STOCK_OHNE_KAUF && !S.kannBauen("wohnhaus").ok, "ohne Kauf wächst das Wohnhaus über das vierte Stockwerk");
+  pruefe(S.haus("spital").stock.every((x) => x.art === "eins" && x.zimmer.length === 1), "im Spital hat ein neues Stockwerk nicht ein Zimmer");
+  pruefe(!S.waehleArt("spital", 1, "zwei"), "im Spital lässt sich ein Stockwerk für zwei Zimmer wählen");
+  pruefe(S.waehleRaum("spital", 1, 1, "labor") === null && S.waehleRaum("spital", 1, 0, "labor") === true, "im Spital gibt es einen zweiten Platz im Stockwerk");
   const mitKauf = standUmgebung({ paletten: 40, frei: true }).S;
   while (mitKauf.kannBauen("buero").ok) mitKauf.baueStockwerk("buero");
   pruefe(mitKauf.haus("buero").stock.length === mitKauf.STOCK_MAX && mitKauf.kannBauen("buero").grund === "voll", "mit Kauf: das Haus wächst nicht bis zur Höchstzahl");
 }
 
-// Die Zeit: neuer Wunsch frühestens am nächsten Tag, nur wenn alle gelben erfüllt sind.
+// Die Reihenfolge: Ein Stockwerk tauscht mit dem Nachbarn, und so bleibt es –
+// auch nach dem Zusammenführen mit einem Gerät, das noch die alte kennt.
 {
-  const jetzt = { wert: new Date(2026, 9, 8, 10, 0, 0).getTime() };
+  const jetzt = morgen10();
+  const { S } = standUmgebung({ paletten: 5, frei: true, jetzt });
+  S.baueStockwerk("spital");
+  S.baueStockwerk("spital");
+  S.waehleRaum("spital", 2, 0, "notfall");
+  const vorher = JSON.parse(JSON.stringify(S.lesen()));
+  jetzt.wert += 60000;
+  const ids = S.haus("spital").stock.map((s) => s.id);
+  pruefe(S.verschiebe("spital", 2, -1) === 1 && S.verschiebe("spital", 1, -1) === 0, "ein Stockwerk lässt sich nicht nach unten stellen");
+  const neu = S.haus("spital").stock.map((s) => s.id);
+  pruefe(neu.join() === [ids[2], ids[0], ids[1]].join(), `nach dem Umstellen: ${neu.join()} statt ${[ids[2], ids[0], ids[1]].join()}`);
+  pruefe(S.verschiebe("spital", 0, -1) === 0 && S.verschiebe("spital", 2, 1) === 2, "das unterste lässt sich nach unten oder das oberste nach oben stellen");
+  pruefe(S.normalize(S.lesen()).haeuser.spital.stock.map((s) => s.id).join() === neu.join(), "die Reihenfolge übersteht das Aufräumen nicht");
+  const ab = S.merge(S.lesen(), vorher);
+  pruefe(ab.haeuser.spital.stock.map((s) => s.id).join() === neu.join(), "die neue Reihenfolge geht beim Zusammenführen mit einem älteren Stand verloren");
+  pruefe(JSON.stringify(ab) === JSON.stringify(S.merge(vorher, S.lesen())), "Zusammenführen nach dem Umstellen ist nicht in beide Richtungen gleich");
+}
+
+// Die Zeit: neuer Wunsch frühestens am nächsten Tag, nur wenn beide gelben erfüllt sind.
+{
+  const jetzt = morgen10();
   const { S } = standUmgebung({ jetzt });
-  S.waehleRaum("wohnhaus", 0, "kueche");
-  const vorher = [...S.stock("wohnhaus", 0).tier.w];
+  const tier = S.waehleRaum("wohnhaus", 0, 0, "kinderzimmer");
+  const vorher = [...tier.w];
   jetzt.wert += 26 * 3600 * 1000;
   pruefe(!S.tick(jetzt.wert).some((e) => e.typ === "neuerWunsch"), "neuer Wunsch, obwohl die gelben nicht erfüllt sind");
-  for (const w of S.wuensche("wohnhaus", 0).filter((x) => x.stern === "gelb")) {
-    if (w.typ === "ding") S.aendereStock("wohnhaus", 0, (s) => s.dinge.push({ k: `t${s.dinge.length}`, i: w.zeige, x: 100, y: 230, c: "", f: 0, s: 1 }));
-    else S.aendereStock("wohnhaus", 0, (s) => { s.wand = K.FARBEN.find((f) => f.familie === w.familie).id; });
-  }
-  S.stock("wohnhaus", 0).tier.wAt = jetzt.wert;
+  erfuelleGelbe(S, "wohnhaus", 0);
+  S.stock("wohnhaus", 0).tiere[0].wAt = jetzt.wert;
   pruefe(!S.tick(jetzt.wert + 3600 * 1000).some((e) => e.typ === "neuerWunsch"), "neuer Wunsch noch am selben Tag");
   const e = S.tick(jetzt.wert + 24 * 3600 * 1000);
-  const nachher = S.stock("wohnhaus", 0).tier.w;
-  pruefe(e.some((x) => x.typ === "neuerWunsch"), "am nächsten Tag mit allen gelben Sternen kommt kein neuer Wunsch");
-  pruefe(nachher[0] === vorher[0] && nachher.filter((w, i) => w !== vorher[i]).length === 1, "beim Wechsel ändert sich nicht genau ein Wunsch, oder das Lieblingsding fällt weg");
-  const neu = nachher.find((w, i) => w !== vorher[i]);
-  pruefe(K.RAEUME.kueche.wuensche.includes(neu.split(":")[1]), "der neue Wunsch passt nicht ins Zimmer");
+  const nachher = S.stock("wohnhaus", 0).tiere[0].w;
+  pruefe(e.some((x) => x.typ === "neuerWunsch" && x.seed === tier.seed), "am nächsten Tag mit beiden gelben Sternen kommt kein neuer Wunsch");
+  pruefe(nachher[0] === vorher[0] && nachher[1] !== vorher[1], "beim Wechsel fällt das Lieblingsding weg, oder der zweite Wunsch bleibt");
+  pruefe(K.RAEUME.kinderzimmer.wuensche.includes(nachher[1].split(":")[1]), "der neue Wunsch passt nicht ins Zimmer");
   // Hinausschicken: bald kommt ein neues Tier, eine andere Art.
-  const alt = S.stock("wohnhaus", 0).tier.a;
-  S.hinausschicken("wohnhaus", 0);
-  pruefe(!S.stock("wohnhaus", 0).tier, "hinausgeschickt, aber das Tier ist noch da");
-  pruefe(!S.tick(jetzt.wert + 1000).some((x) => x.typ === "eingezogen"), "das neue Tier kommt sofort");
-  jetzt.wert = Date.now();
-  S.aendereStock("wohnhaus", 0, (s) => { s.tierWeg = jetzt.wert - S.TIER_KOMMT_MS - 1; });
-  pruefe(S.tick(jetzt.wert).some((x) => x.typ === "eingezogen"), "nach der Wartezeit zieht kein neues Tier ein");
-  pruefe(S.stock("wohnhaus", 0).tier && S.stock("wohnhaus", 0).tier.a !== alt, "das neue Tier ist dieselbe Art wie das hinausgeschickte");
+  const alt = tier.a;
+  S.hinausschicken(tier.seed);
+  pruefe(S.stock("wohnhaus", 0).tiere.length === 0, "hinausgeschickt, aber das Tier ist noch da");
+  pruefe(!S.zuzugFaellig(jetzt.wert + 1000), "das neue Tier kommt sofort");
+  jetzt.wert += S.TIER_KOMMT_MS + 1000;
+  const fall = S.zuzugFaellig(jetzt.wert);
+  const neu = fall && S.ziehtEin(fall.hausId, fall.index);
+  pruefe(neu && neu.a !== alt, "nach der Wartezeit zieht kein neues Tier ein, oder dieselbe Art");
 }
 
-// Unterwegs: nur Tiere aus dem Wohnhaus, etwa ein Drittel der Zeit, an gültige Orte.
+// Arbeit: Traumjob zuerst, sonst irgendein Job – höchstens drei im selben Zimmer.
 {
-  const { S } = standUmgebung({ paletten: 5, frei: true });
-  S.waehleRaum("wohnhaus", 0, "schlafzimmer");
-  S.waehleRaum("zentrum", 0, "bibliothek");
-  S.waehleRaum("buero", 0, "grossraum");
-  S.waehleRaum("spital", 0, "notfall");
-  let weg = 0;
-  const slots = 400;
-  for (let i = 0; i < slots; i += 1) {
-    const wo = S.aufenthalt("wohnhaus", 0, i * 15 * 60 * 1000);
-    if (!wo) continue;
-    weg += 1;
-    const raum = K.RAEUME[S.stock(wo.haus, wo.index)?.raum];
-    pruefe(wo.haus !== "wohnhaus" && raum && (raum.arbeit || raum.ausflug), `unterwegs an einen ungültigen Ort: ${JSON.stringify(wo)}`);
+  const jetzt = morgen10();
+  const { S } = standUmgebung({ paletten: 9, frei: true, jetzt });
+  for (let i = 0; i < 3; i += 1) {
+    S.waehleRaum("wohnhaus", i, 0, i % 2 ? "kinderzimmer" : "schlafzimmer");
+    for (let n = 0; n < 2; n += 1) { jetzt.wert += S.ZUZUG_MS + 1000; S.ziehtEin("wohnhaus", i); }
   }
-  pruefe(weg > slots * 0.18 && weg < slots * 0.42, `unterwegs ${Math.round((weg / slots) * 100)} % der Zeit – erwartet etwa 30 %`);
-  pruefe(S.aufenthalt("spital", 0, 0) === null, "Tiere im Spital gehen auf Ausflug");
-  const t = 7 * 15 * 60 * 1000;
-  pruefe(JSON.stringify(S.aufenthalt("wohnhaus", 0, t)) === JSON.stringify(S.aufenthalt("wohnhaus", 0, t + 1000)), "innerhalb derselben Viertelstunde wechselt der Ort");
+  const alle = S.alleTiere();
+  pruefe(alle.length === 9, `${alle.length} statt neun Tiere in drei Wohnungen`);
+  pruefe(alle.every((e) => !S.jobVon(e.tier.seed)), "ohne Arbeitsplatz hat ein Tier einen Job");
+  // Alle wünschen sich die Arbeit in der Bibliothek.
+  for (let i = 0; i < 3; i += 1) S.aendereStock("wohnhaus", i, (st) => st.tiere.forEach((t) => { t.traum = "zentrum:bibliothek"; }));
+  S.waehleRaum("zentrum", 0, 0, "bibliothek");
+  S.waehleRaum("zentrum", S.baueStockwerk("zentrum"), 0, "baeckerei");
+  const jobs = alle.map((e) => S.jobVon(e.tier.seed));
+  const traum = jobs.filter((j) => j?.traum);
+  pruefe(traum.length === 3 && traum.every((j) => j.raum === "bibliothek"), `${traum.length} statt drei Tiere im Traumjob`);
+  pruefe(jobs.filter((j) => j && !j.traum).length === 3 && jobs.filter((j) => !j).length === 3, "die übrigen nehmen nicht irgendeinen Job, wo Platz ist");
+  const proZimmer = new Map();
+  jobs.filter(Boolean).forEach((j) => { const k = `${j.haus}:${j.index}:${j.slot}`; proZimmer.set(k, (proZimmer.get(k) || 0) + 1); });
+  pruefe([...proZimmer.values()].every((n) => n <= S.ARBEIT_MAX), "mehr als drei Tiere im selben Zimmer bei der Arbeit");
+  pruefe(/^Bücher ausleihen in der Bibliothek \(Dorf\)$/.test(S.jobText("bibliothek", "zentrum")), `Job heisst "${S.jobText("bibliothek", "zentrum")}"`);
+  // Unterwegs: meist daheim, manchmal bei der Arbeit oder zu Besuch.
+  const seed = alle.find((e) => S.jobVon(e.tier.seed)).tier.seed;
+  const tag0 = new Date(2026, 9, 12, 0, 0, 0).getTime();
+  const zahl = { daheim: 0, arbeit: 0, besuch: 0 };
+  let proben = 0;
+  for (let d = 0; d < 12; d += 1) {
+    for (let q = 28; q < 80; q += 1) {
+      const t = tag0 + d * 86400000 + q * 15 * 60000;
+      const wo = S.aufenthalt(seed, t);
+      zahl[wo.wo] += 1;
+      proben += 1;
+      if (wo.wo !== "daheim") {
+        pruefe(wo.haus !== "wohnhaus" && S.zimmer(wo.haus, wo.index, wo.slot)?.raum, `unterwegs an einem Ort ohne Zimmer: ${JSON.stringify(wo)}`);
+        pruefe(S.besucher(wo.haus, wo.index, wo.slot, t).some((b) => b.tier.seed === seed), "wer unterwegs ist, steht nicht in der Liste des Zimmers");
+      }
+      pruefe(JSON.stringify(S.aufenthalt(seed, t + 60000)) === JSON.stringify(wo), "innerhalb derselben Viertelstunde wechselt der Ort");
+    }
+  }
+  const anteil = (n) => Math.round((n / proben) * 100);
+  pruefe(anteil(zahl.daheim) >= 40 && anteil(zahl.daheim) <= 70, `daheim ${anteil(zahl.daheim)} % der Zeit – erwartet etwa 55 %`);
+  pruefe(anteil(zahl.arbeit) >= 12 && anteil(zahl.besuch) >= 8, `bei der Arbeit ${anteil(zahl.arbeit)} %, zu Besuch ${anteil(zahl.besuch)} %`);
+  for (const stunde of [21, 23, 3, 6]) pruefe(S.aufenthalt(seed, tag0 + 86400000 + stunde * 3600000).wo === "daheim", `um ${stunde} Uhr ist ein Tier nicht daheim`);
+  pruefe(S.woText(seed, tag0 + 86400000 + 22 * 3600000) === "ist zu Hause", "nachts steht nicht \"ist zu Hause\"");
 }
 
-// Der schlimmste Spielstand: alle Häuser bis oben, jedes Zimmer voll, die
-// längsten Namen. Er muss bequem in das Kontodokument passen (1 MiB für alles).
+// Der schlimmste Spielstand: alle Häuser bis oben, jedes Zimmer voll, drei
+// Tiere je Wohnung, die längsten Kennungen. Er muss bequem in das
+// Kontodokument passen (1 MiB für alles).
 {
-  const { S } = standUmgebung({ paletten: 999, frei: true });
+  const jetzt = morgen10();
+  const { S } = standUmgebung({ paletten: 999, frei: true, jetzt });
   const lang = Object.keys(M.DINGE).sort((a, b) => b.length - a.length);
   for (const hausId of S.HAUS_IDS) {
     while (S.kannBauen(hausId).ok) S.baueStockwerk(hausId);
-    const raeume = K.HAUS[hausId].raeume;
-    S.haus(hausId).stock.forEach((_, i) => {
-      S.waehleRaum(hausId, i, raeume[i % raeume.length]);
-      S.aendereStock(hausId, i, (s) => {
-        for (let n = 0; n < S.DINGE_MAX; n += 1) s.dinge.push({ k: S.kennung("d"), i: lang[n % 5], x: 123.4, y: 229.6, c: "dunkelgruen", f: 1, s: 1.2 });
-        s.bodenFarbe = "dunkelblau";
+    const raeume = K.HAUS[hausId].raeume.filter((r) => !K.RAEUME[r].wohnen);
+    S.haus(hausId).stock.forEach((s, i) => {
+      if (!s.art) S.waehleArt(hausId, i, i % 3 ? "zwei" : "wohnung");
+      const st = S.stock(hausId, i);
+      st.zimmer.forEach((_, slot) => {
+        S.waehleRaum(hausId, i, slot, st.art === "wohnung" ? K.WOHNEN[i % 2] : raeume[(i * 2 + slot) % raeume.length]);
+        S.aendereZimmer(hausId, i, slot, (z) => {
+          for (let n = z.dinge.length; n < S.dingeMax(S.breiteVon(st)); n += 1) z.dinge.push({ k: S.kennung("d"), i: lang[n % 5], x: 123.4, y: 229.6, c: "dunkelgruen", f: 1, s: 1.2 });
+          z.bodenFarbe = "dunkelblau";
+        });
       });
+      if (st.art === "wohnung") for (let n = 0; n < 2; n += 1) { jetzt.wert += S.ZUZUG_MS + 1000; S.ziehtEin(hausId, i); }
     });
   }
+  const tiere = S.alleTiere().length;
+  pruefe(tiere >= 20, `der volle Stand hat nur ${tiere} Tiere`);
   const bytes = JSON.stringify(S.lesen()).length;
+  if (process.env.GROESSE) console.log(`voller Stand: ${Math.round(bytes / 1000)} KB`);
   pruefe(bytes < 400000, `der volle Spielstand ist ${Math.round(bytes / 1000)} KB gross – zu viel fürs Kontodokument`);
 }
 
 // Zusammenführen: in beide Richtungen gleich, nichts geht verloren.
 {
-  const { S } = standUmgebung({ paletten: 9, frei: true });
-  const a = S.normalize(null);
-  const b = S.normalize(null);
-  a.haeuser.wohnhaus.stock[0] = { ...a.haeuser.wohnhaus.stock[0], raum: "kueche", at: 100 };
-  a.haeuser.wohnhaus.stock.push({ id: "a1", raum: "bad", dinge: [{ k: "x", i: "wanne", x: 100, y: 230 }], at: 120 });
-  b.haeuser.wohnhaus.stock[0] = { ...b.haeuser.wohnhaus.stock[0], raum: "wohnzimmer", at: 200 };
-  b.haeuser.spital.stock.push({ id: "b1", raum: "labor", at: 50 }, { id: "b2", raum: "", at: 60 });
-  b.gewaehlt = "spital";
-  const ab = S.merge(a, b);
-  const ba = S.merge(b, a);
-  pruefe(JSON.stringify(ab) === JSON.stringify(ba), "Zusammenführen ist nicht in beide Richtungen gleich");
-  pruefe(ab.haeuser.wohnhaus.stock[0].raum === "wohnzimmer", "beim Zusammenführen gewinnt nicht das neuere Stockwerk");
-  pruefe(ab.haeuser.wohnhaus.stock.length === 2 && ab.haeuser.spital.stock.length === 3, "beim Zusammenführen geht ein Stockwerk verloren");
-  pruefe(JSON.stringify(S.merge(ab, ab)) === JSON.stringify(ab), "Zusammenführen mit sich selbst ändert etwas");
-  pruefe(ab.gewaehlt === "spital", "die Wahl des ersten Hauses geht verloren");
-  // Müll wird aufgeräumt statt übernommen.
-  const muell = S.normalize({ haeuser: { wohnhaus: { stock: [{ raum: "notfall", dinge: [{ i: "gibtsnicht" }, { i: "bett", x: 99999, y: -5 }], wand: "lila" }] } } });
-  const s0 = muell.haeuser.wohnhaus.stock[0];
-  pruefe(s0.raum === "" && s0.dinge.length === 1 && s0.dinge[0].x <= S.GEO.W && K.FARBE[s0.wand], "ein kaputter Stand wird nicht aufgeräumt");
-}
-
-// Zwei Geräte – oder ein Gast vor der Anmeldung – bauen am selben Ort: Kein
-// eingerichtetes Zimmer geht verloren, der Rohbau vom Anfang verdoppelt sich
-// nicht, und es kommen keine Ziegel dazu.
-{
-  const geraet = () => standUmgebung({ paletten: 1, frei: true }).S;
+  const geraet = () => standUmgebung({ paletten: 3, frei: true }).S;
   const A = geraet();
-  A.waehleRaum("wohnhaus", 0, "kueche");
-  A.aendereStock("wohnhaus", 0, (s) => s.dinge.push({ k: "herd", i: "kochherd", x: 120, y: 230, c: "", f: 0, s: 1 }));
-  pruefe(A.stock("wohnhaus", 0).id !== "wohnhaus-0", "das erste Stockwerk behält mit der Zimmerwahl die gemeinsame Kennung");
-  A.baueStockwerk("wohnhaus");
-  A.waehleRaum("wohnhaus", 1, "schlafzimmer");
   const B = geraet();
-  B.waehleRaum("wohnhaus", 0, "bad");
+  // Beide richten im Spital im Stockwerk vom Anfang ein Zimmer ein.
+  A.waehleRaum("spital", 0, 0, "notfall");
+  A.aendereZimmer("spital", 0, 0, (z) => z.dinge.push({ k: "x1", i: K.dingeFuer("notfall")[0], x: 100, y: 230 }));
+  B.waehleRaum("spital", 0, 0, "labor");
+  B.waehleRaum("wohnhaus", 1, 0, "kinderzimmer");
   const ab = A.merge(A.lesen(), B.lesen());
   const ba = A.merge(B.lesen(), A.lesen());
-  pruefe(JSON.stringify(ab) === JSON.stringify(ba), "zwei Geräte am selben Ort: Zusammenführen ist nicht in beide Richtungen gleich");
-  const raeume = ab.haeuser.wohnhaus.stock.map((s) => s.raum).sort().join();
-  pruefe(raeume === "bad,kueche,schlafzimmer", `zwei Geräte am selben Ort: es bleiben ${raeume || "keine Zimmer"}`);
-  pruefe(ab.haeuser.wohnhaus.stock.find((s) => s.raum === "kueche")?.dinge.length === 1, "zwei Geräte am selben Ort: der Herd in der Küche ist weg");
-  pruefe(ab.haeuser.wohnhaus.stock.at(-1).raum === "schlafzimmer", "das zuletzt gebaute Stockwerk steht nicht zuoberst");
-  pruefe(ab.haeuser.spital.stock.length === 1 && !ab.haeuser.spital.stock[0].raum, "der unberührte Rohbau verdoppelt sich beim Zusammenführen");
+  pruefe(JSON.stringify(ab) === JSON.stringify(ba), "Zusammenführen ist nicht in beide Richtungen gleich");
+  const spital = ab.haeuser.spital.stock.flatMap((s) => s.zimmer.map((z) => z.raum)).filter(Boolean).sort().join();
+  pruefe(spital === "labor,notfall", `zwei Geräte im selben Stockwerk: es bleiben ${spital || "keine Zimmer"}`);
+  pruefe(ab.haeuser.spital.stock.find((s) => s.zimmer[0].raum === "notfall")?.zimmer[0].dinge.length === 1, "zwei Geräte: das Ding im Notfall ist weg");
+  pruefe(ab.haeuser.wohnhaus.stock.length === 3 && ab.haeuser.wohnhaus.stock.filter((s) => s.zimmer[0].raum).length === 1, "die Wohnungen vom Anfang verdoppeln sich oder gehen verloren");
+  pruefe(ab.haeuser.wohnhaus.stock.find((s) => s.zimmer[0].raum)?.tiere.length === 1, "beim Zusammenführen geht das Tier verloren");
+  pruefe(ab.haeuser.buero.stock.length === 1 && ab.haeuser.zentrum.stock.length === 1, "unberührte Stockwerke vom Anfang verdoppeln sich");
   pruefe(JSON.stringify(A.merge(ab, ab)) === JSON.stringify(ab), "Zusammenführen mit sich selbst ändert etwas");
-  // Ein neues Gerät (alles Rohbau) bringt nichts dazu und nimmt nichts weg.
-  const frisch = A.merge(A.normalize(null), A.lesen());
-  pruefe(frisch.haeuser.wohnhaus.stock.map((s) => s.raum).join() === "kueche,schlafzimmer", "ein neues Gerät verändert das Haus beim Zusammenführen");
-  // Mehr Stockwerke als Paletten: übrig bleibt null, nicht weniger.
-  const C = standUmgebung({ paletten: 0, frei: true });
-  C.u.speicher.set("lernapp.bau", JSON.stringify(ab));
-  C.u.lade("bau-stand.js");
-  const S2 = C.u.windowStub.LernappBauStand;
-  pruefe(S2.haus("wohnhaus").stock.length === 3 && S2.paletten() === 0 && !S2.kannBauen("wohnhaus").ok, `mehr Stockwerke als Paletten: ${S2.paletten()} übrig`);
+  // Dasselbe Stockwerk für zwei Zimmer auf zwei Geräten: jedes Zimmer für sich.
+  const C = geraet();
+  const ci = C.baueStockwerk("wohnhaus");
+  C.waehleArt("wohnhaus", ci, "zwei");
+  C.waehleRaum("wohnhaus", ci, 0, "kueche");
+  const geteilt = JSON.parse(JSON.stringify(C.lesen()));
+  const sid = geteilt.haeuser.wohnhaus.stock[ci].id;
+  const spaeter = geteilt.haeuser.wohnhaus.stock[ci].at + 1000;
+  const links = C.merge(geteilt, {});
+  const lst = links.haeuser.wohnhaus.stock.find((s) => s.id === sid);
+  lst.zimmer[0].dinge.push({ k: "b1", i: K.dingeFuer("kueche")[0], x: 90, y: 230 });
+  lst.zimmer[0].at = spaeter;
+  const rechts = C.merge(geteilt, {});
+  const rst = rechts.haeuser.wohnhaus.stock.find((s) => s.id === sid);
+  rst.zimmer[1] = { ...rst.zimmer[1], raum: "bad", at: spaeter + 1000 };
+  rst.at = spaeter + 1000;
+  const lr = C.merge(links, rechts);
+  const z0 = lr.haeuser.wohnhaus.stock.find((s) => s.id === sid);
+  pruefe(z0 && z0.zimmer[0].dinge.length === 1 && z0.zimmer[1].raum === "bad", "dasselbe Stockwerk auf zwei Geräten: ein Zimmer überschreibt das andere");
+  pruefe(JSON.stringify(lr) === JSON.stringify(C.merge(rechts, links)), "dasselbe Stockwerk: Zusammenführen ist nicht in beide Richtungen gleich");
+  // Ein neues Gerät (alles leer) bringt nichts dazu und nimmt nichts weg.
+  const frisch = A.merge(A.normalize(null), ab);
+  pruefe(JSON.stringify(frisch) === JSON.stringify(A.merge(ab, A.normalize(null))) && frisch.haeuser.spital.stock.length === ab.haeuser.spital.stock.length, "ein neues Gerät verändert das Haus beim Zusammenführen");
+  // Müll wird aufgeräumt statt übernommen.
+  const muell = A.normalize({ v: 2, haeuser: { wohnhaus: { stock: [{ art: "wohnung", zimmer: [{ raum: "notfall", dinge: [{ i: "gibtsnicht" }, { i: "bett", x: 99999, y: -5 }], wand: "lila" }], tiere: [{ a: "drache" }] }] }, spital: { stock: [{ art: "wohnung", zimmer: [{ raum: "schlafzimmer" }] }] } } });
+  const w0 = muell.haeuser.wohnhaus.stock[0];
+  pruefe(w0.zimmer[0].raum === "" && w0.zimmer[0].dinge.length === 1 && w0.zimmer[0].dinge[0].x <= S_GEO_W() && K.FARBE[w0.zimmer[0].wand] && !w0.tiere.length, "ein kaputter Stand wird nicht aufgeräumt");
+  pruefe(muell.haeuser.spital.stock[0].art === "eins" && !muell.haeuser.spital.stock[0].zimmer[0].raum, "eine Wohnung im Spital wird nicht aufgeräumt");
+  const viele = () => Array.from({ length: 60 }, (_, n) => ({ k: `v${n}`, i: "bett", x: 50, y: 230 }));
+  const voll = A.normalize({ v: 2, haeuser: { wohnhaus: { stock: [{ art: "zwei", zimmer: [{ raum: "kueche", dinge: viele() }, {}] }] }, spital: { stock: [{ art: "zwei", zimmer: [{ raum: "notfall", dinge: viele() }, { raum: "labor" }] }] } } });
+  pruefe(voll.haeuser.wohnhaus.stock[0].zimmer[0].dinge.length === A.DINGE_MAX_HALB, "ein halbes Zimmer nimmt mehr Dinge auf als erlaubt");
+  pruefe(voll.haeuser.spital.stock[0].zimmer.length === 1 && voll.haeuser.spital.stock[0].zimmer[0].dinge.length === A.DINGE_MAX, "im Spital wird ein Stockwerk für zwei nicht zu einem Zimmer");
 }
-
-// Speichern lässt den Stand, wie er ist: Wer gerade einen Tisch mit einer
-// Tasse zieht, hält beide noch in der Hand, wenn der Kasten gespeichert wird.
-{
-  const gespeichert = [];
-  const { S } = standUmgebung({ mitCloud: true, firebase: { getGameState: () => null, saveGameState: (key, data) => gespeichert.push(key) } });
-  S.waehleRaum("wohnhaus", 0, "kueche");
-  S.aendereStock("wohnhaus", 0, (s) => s.dinge.push({ k: "tisch", i: "tisch", x: 200, y: 230, c: "", f: 0, s: 1 }));
-  const st = S.stock("wohnhaus", 0);
-  const tisch = st.dinge[0];
-  S.speichern(true);
-  pruefe(gespeichert.includes("lernapp.bau"), "der Kasten geht nicht in die Cloud");
-  pruefe(S.stock("wohnhaus", 0) === st && S.stock("wohnhaus", 0).dinge[0] === tisch, "Speichern ersetzt den Stand – ein gezogener Stapel verliert, was darauf steht");
-}
+function S_GEO_W() { return 560; }
 
 // Ein Kasten aus einer neueren Fassung der App (neue Dinge, Zimmer, Tiere …)
 // bleibt unberührt: nichts wird aufgeräumt, nichts in die Cloud geschrieben.
@@ -412,21 +579,152 @@ function standUmgebung({ paletten = 0, frei = false, jetzt = null, mitCloud = fa
     v: alt.FORMAT + 1,
     gewaehlt: "wohnhaus",
     haeuser: {
-      wohnhaus: { fassade: "regenbogen", dach: "rot", at: 5, stock: [{ id: "s1", seit: 0, raum: "sternwarte", dinge: [{ k: "d1", i: "teleskop", x: 100, y: 230, r: 45 }], tier: { a: "drache", n: "Fauchi" }, at: 5 }] },
-      garage: { stock: [{ id: "g1", raum: "werkstatt" }] },
+      wohnhaus: { fassade: "regenbogen", dach: "rot", at: 5, stock: [{ id: "s1", art: "turm", zimmer: [{ raum: "sternwarte", dinge: [{ k: "d1", i: "teleskop", x: 100, y: 230, r: 45 }] }], tiere: [{ a: "drache", n: "Fauchi" }], at: 5 }] },
+      garage: { stock: [{ id: "g1", art: "zwei", zimmer: [{ raum: "werkstatt" }, {}] }] },
     },
   };
   const m1 = alt.merge(alt.lesen(), neuer);
   const m2 = alt.merge(neuer, alt.lesen());
   pruefe(JSON.stringify(m1) === JSON.stringify(neuer) && JSON.stringify(m2) === JSON.stringify(neuer), "ein Kasten einer neueren Fassung wird beim Zusammenführen verändert");
   const gespeichert = [];
-  const { S, u } = standUmgebung({ mitCloud: true, firebase: { getGameState: (key) => (key === "lernapp.bau" ? { data: neuer } : null), saveGameState: (key) => gespeichert.push(key) } });
+  const firebase = { getUser: () => ({ uid: "kind" }), isAccountReady: () => true, getGameState: () => ({ "lernapp.bau": { data: neuer } }), saveGameState: (key) => gespeichert.push(key) };
+  const { S, u } = standUmgebung({ mitCloud: true, firebase });
   pruefe(S.neuereFassung?.(), "der Kasten einer neueren Fassung wird nicht erkannt");
-  S.waehleRaum("wohnhaus", 0, "kueche");
+  S.waehleRaum("wohnhaus", 0, 0, "schlafzimmer");
   S.tick(Date.now() + 9e7);
   S.speichern(true);
   pruefe(!gespeichert.includes("lernapp.bau"), "die ältere Fassung schreibt in die Cloud, was sie nicht kennt");
-  pruefe(u.speicher.get("lernapp.bau") === JSON.stringify(neuer), "die ältere Fassung verändert den neueren Kasten auf dem Gerät");
+  pruefe(JSON.parse(u.speicher.get("lernapp.bau.konten") || "{}").kind?.v === neuer.v, "die ältere Fassung verändert den neueren Kasten auf dem Gerät");
+}
+
+// Fassung 1 (ein Zimmer je Stockwerk, ein Tier darin) wird übertragen:
+// Schlaf- und Kinderzimmer werden Wohnungen mit ihrem Tier, die anderen
+// Zimmer stehen links auf einem Stockwerk für zwei.
+{
+  const { S } = standUmgebung();
+  const v1 = {
+    v: 1,
+    gewaehlt: "wohnhaus",
+    haeuser: {
+      wohnhaus: { fassade: "pfirsich", dach: "rot", at: 5, stock: [
+        { id: "a1", seit: 0, raum: "kueche", wand: "mint", dinge: [{ k: "d1", i: "kochherd", x: 400, y: 230 }], tier: { a: "cat", n: "Mia", seed: "t1" }, at: 5 },
+        { id: "a2", seit: 10, raum: "schlafzimmer", wand: "flieder", dinge: [{ k: "d2", i: "bett", x: 200, y: 230 }], tier: { a: "fox", n: "Fino", seed: "t2", w: ["ding:bett"] }, at: 6 },
+      ] },
+      spital: { stock: [{ id: "spital-0", seit: 0, raum: "notfall", dinge: [{ k: "d3", i: "herzmonitor", x: 400, y: 230 }], tier: { a: "owl", n: "Uli", seed: "t3" }, at: 7 }] },
+    },
+  };
+  const s2 = S.normalize(v1);
+  const wh = s2.haeuser.wohnhaus.stock;
+  pruefe(wh.length === 4 && wh[0].art === "wohnung" && wh[0].zimmer[0].raum === "schlafzimmer" && wh[0].zimmer[0].dinge.length === 1, "Fassung 1: das Schlafzimmer wird keine Wohnung");
+  pruefe(wh[0].tiere.length === 1 && wh[0].tiere[0].n === "Fino" && wh[0].tiere[0].w.length === 2 && wh[0].tiere[0].g.length === 1 && wh[0].tiere[0].b.length === 2 && wh[0].tiere[0].traum, "Fassung 1: das Tier zieht nicht mit oder hat nicht die neuen Wünsche");
+  pruefe(wh[1].art === "wohnung" && !wh[1].zimmer[0].raum && wh[2].art === "wohnung", "Fassung 1: die leeren Wohnungen vom Anfang fehlen");
+  pruefe(wh[3].art === "zwei" && wh[3].zimmer[0].raum === "kueche" && wh[3].zimmer[0].dinge[0].x === 200 && !wh[3].tiere.length, "Fassung 1: die Küche steht nicht links auf einem Stockwerk für zwei");
+  const sp = s2.haeuser.spital.stock;
+  pruefe(sp.length === 1 && sp[0].art === "eins" && sp[0].zimmer[0].raum === "notfall" && sp[0].zimmer[0].dinge[0]?.x === 400 && !sp[0].tiere.length, "Fassung 1: der Notfall bleibt nicht, wie er war (ein Zimmer, ohne Tier)");
+  pruefe(JSON.stringify(S.normalize(s2)) === JSON.stringify(s2), "Fassung 1: zweimal aufräumen ändert etwas");
+}
+
+// Je Konto ein Stand: Wer sich abmeldet und mit einem anderen Konto anmeldet,
+// sieht nichts vom vorigen. Ein Gast-Stand geht nur in ein Konto über, das
+// noch keine Bauecke hat. Die Ziegel gehören ebenso dem Konto.
+{
+  let user = null;
+  const wolke = { A: {}, B: {} };
+  const firebase = {
+    getUser: () => user,
+    isAccountReady: () => true,
+    getGameState: () => (user ? wolke[user.uid] : null),
+    saveGameState: (key, data) => { if (user) wolke[user.uid][key] = { data: JSON.parse(JSON.stringify(data)) }; },
+  };
+  const reise = (u) => u.speicher.set("lernapp.reise", JSON.stringify({ done: {}, tries: {}, choice: {}, alt: {}, stufe: "mittel", stufeAt: 1 }));
+  const { S, R, u } = standUmgebung({ mitCloud: true, mitReise: true, firebase, frei: true, vorher: reise });
+  const melde = () => u.feuer("lernapp:game-state", user ? wolke[user.uid] : null);
+  const raeume = () => S.lesen().haeuser.wohnhaus.stock.map((s) => s.zimmer[0]?.raum || "-").join();
+  // Als Gast: ein Schlafzimmer und ein gelöstes Rätsel.
+  S.waehleRaum("wohnhaus", 0, 0, "schlafzimmer");
+  R.bauGeschafft();
+  S.speichern(true);
+  pruefe(S.besitzer() === "" && R.bauPaletten() === 1, "als Gast: kein eigener Stand oder keine Palette");
+  // Anmelden als A (noch ohne Bauecke): Der Gast-Stand geht über, die Ziegel nicht.
+  user = { uid: "A" };
+  melde();
+  pruefe(S.besitzer() === "A" && raeume() === "schlafzimmer,-,-", `A übernimmt das Gast-Haus nicht (${raeume()})`);
+  pruefe(wolke.A["lernapp.bau"]?.data?.haeuser?.wohnhaus, "das übernommene Haus geht nicht in die Cloud von A");
+  pruefe(R.bauPaletten() === 0, "A bekommt die Ziegel des Gasts");
+  S.waehleRaum("wohnhaus", 1, 0, "kinderzimmer");
+  S.speichern(true);
+  pruefe(wolke.A["lernapp.bau"].data.haeuser.wohnhaus.stock.filter((s) => s.zimmer[0].raum).length === 2, "A speichert nicht in die eigene Cloud");
+  // Abmelden: der Gast-Stand ist leer (er ging an A), nichts von A bleibt.
+  user = null;
+  melde();
+  pruefe(S.besitzer() === "" && raeume() === "-,-,-", `nach dem Abmelden ist noch etwas von A da (${raeume()})`);
+  pruefe(R.bauPaletten() === 1, "nach dem Abmelden fehlen die Ziegel des Gasts");
+  // B meldet sich an: nichts von A, nichts vom Gast.
+  user = { uid: "B" };
+  melde();
+  pruefe(S.besitzer() === "B" && raeume() === "-,-,-", `B sieht das Haus von jemand anderem (${raeume()})`);
+  pruefe(R.bauPaletten() === 0, "B sieht fremde Ziegel");
+  pruefe(!wolke.B["lernapp.bau"], "ein leeres Konto bekommt ungefragt einen Stand in die Cloud");
+  S.waehleRaum("wohnhaus", 2, 0, "schlafzimmer");
+  S.speichern(true);
+  // A wieder: genau das Haus von A.
+  user = { uid: "A" };
+  melde();
+  pruefe(raeume() === "schlafzimmer,kinderzimmer,-", `A bekommt nicht das eigene Haus zurück (${raeume()})`);
+  // Was beim Wechsel noch aufs Speichern wartete, landet beim richtigen Kind.
+  pruefe(wolke.B["lernapp.bau"].data.haeuser.wohnhaus.stock[2].zimmer[0].raum === "schlafzimmer", "das Haus von B kommt nicht in die Cloud von B");
+  // A auf einem zweiten Gerät: Der Stand kommt aus der Cloud.
+  const zweites = standUmgebung({ mitCloud: true, firebase, frei: true, vorher: reise });
+  pruefe(zweites.S.lesen().haeuser.wohnhaus.stock.map((s) => s.zimmer[0]?.raum || "-").join() === "schlafzimmer,kinderzimmer,-", "auf einem zweiten Gerät fehlt das Haus von A");
+}
+
+// Ein Gerät mit einem Stand von früher (als der Kasten allen am Gerät gehörte):
+// Er geht einmal an das erste Konto, das sich anmeldet – zusammen mit dem, was
+// dieses Konto schon in der Cloud hat –, und danach an niemanden mehr.
+{
+  let user = null;
+  const wolke = { A: {}, B: {} };
+  const firebase = {
+    getUser: () => user,
+    isAccountReady: () => true,
+    getGameState: () => (user ? wolke[user.uid] : null),
+    saveGameState: (key, data) => { if (user) wolke[user.uid][key] = { data: JSON.parse(JSON.stringify(data)) }; },
+  };
+  const vorlage = standUmgebung().S;
+  const frueher = vorlage.normalize(null);
+  frueher.haeuser.wohnhaus.stock[2].zimmer[0].raum = "schlafzimmer";
+  frueher.haeuser.wohnhaus.stock[2].id = "alt1";
+  const cloudA = vorlage.normalize(null);
+  cloudA.haeuser.spital.stock[0].zimmer[0].raum = "notfall";
+  cloudA.haeuser.spital.stock[0].id = "alt2";
+  wolke.A["lernapp.bau"] = { data: cloudA };
+  const { S, u } = standUmgebung({ mitCloud: true, firebase, vorher: (env) => env.speicher.set("lernapp.bau", JSON.stringify(frueher)) });
+  const melde = () => u.feuer("lernapp:game-state", user ? wolke[user.uid] : null);
+  user = { uid: "A" };
+  melde();
+  pruefe(S.zimmer("wohnhaus", 2, 0)?.raum === "schlafzimmer" && S.zimmer("spital", 0, 0)?.raum === "notfall", "der Stand von früher geht nicht an das erste Konto, oder dessen Cloud-Stand fehlt");
+  user = null;
+  melde();
+  pruefe(!S.lesen().haeuser.wohnhaus.stock.some((s) => s.zimmer[0]?.raum), "nach dem Abmelden bleibt der Stand von früher beim Gast");
+  user = { uid: "B" };
+  melde();
+  pruefe(!S.lesen().haeuser.wohnhaus.stock.some((s) => s.zimmer[0]?.raum) && !S.zimmer("spital", 0, 0)?.raum, "ein zweites Konto bekommt den Stand von früher");
+  pruefe(u.speicher.get("lernapp.bau.getrennt") === "1", "das Gerät merkt sich nicht, dass der Stand von früher vergeben ist");
+}
+
+// Speichern lässt den Stand, wie er ist: Wer gerade einen Tisch mit einer
+// Tasse zieht, hält beide noch in der Hand, wenn der Kasten gespeichert wird.
+{
+  const gespeichert = [];
+  const firebase = { getUser: () => ({ uid: "kind" }), isAccountReady: () => true, getGameState: () => ({}), saveGameState: (key) => gespeichert.push(key) };
+  const { S } = standUmgebung({ mitCloud: true, firebase });
+  S.waehleRaum("zentrum", 0, 0, "cafe");
+  S.aendereZimmer("zentrum", 0, 0, (z) => z.dinge.push({ k: "tisch", i: K.dingeFuer("cafe")[0], x: 120, y: 230, c: "", f: 0, s: 1 }));
+  const z = S.zimmer("zentrum", 0, 0);
+  const tisch = z.dinge[0];
+  S.speichern(true);
+  pruefe(gespeichert.includes("lernapp.bau"), "der Kasten geht nicht in die Cloud");
+  pruefe(S.zimmer("zentrum", 0, 0) === z && S.zimmer("zentrum", 0, 0).dinge[0] === tisch, "Speichern ersetzt den Stand – ein gezogener Stapel verliert, was darauf steht");
 }
 
 // Der Katalog dieser Fassung. Ändert sich eine Kennung (ein neues Ding, ein
@@ -434,13 +732,13 @@ function standUmgebung({ paletten = 0, frei = false, jetzt = null, mitCloud = fa
 // bau-stand.js hoch – sonst löscht eine ältere App, die den neuen Kasten
 // sieht, was sie nicht kennt. Danach hier den neuen Fingerabdruck eintragen.
 {
-  const FINGERABDRUCK = { 1: "ed99c8af13ceffa4" };
+  const FINGERABDRUCK = { 2: "0de7a8d925917fa6" };
   const { S } = standUmgebung();
-  S.waehleRaum("wohnhaus", 0, "kueche");
-  S.aendereStock("wohnhaus", 0, (s) => s.dinge.push({ k: "x", i: "kochherd", x: 100, y: 230 }));
+  S.waehleRaum("wohnhaus", 0, 0, "schlafzimmer");
+  S.aendereZimmer("wohnhaus", 0, 0, (z) => z.dinge.push({ k: "x", i: "bett", x: 100, y: 230 }));
   const stand = S.normalize(S.lesen());
   const st = stand.haeuser.wohnhaus.stock[0];
-  const felder = [stand, stand.haeuser.wohnhaus, st, st.dinge[0], st.tier].map((o) => Object.keys(o).sort().join(","));
+  const felder = [stand, stand.haeuser.wohnhaus, st, st.zimmer[0], st.zimmer[0].dinge[0], st.tiere[0]].map((o) => Object.keys(o).sort().join(","));
   const kennungen = [
     ...Object.keys(M.DINGE).map((id) => `ding:${id}`),
     ...Object.keys(K.RAEUME).map((id) => `raum:${id}`),
@@ -529,25 +827,31 @@ for (const stufe of ["leicht", "mittel", "schwer"]) {
   const firebase = lies("firebase.js");
   pruefe(/BAU_KEEP_KEYS = \["lernapp\.bau", "lernapp\.bau\.lieferung"\]/.test(firebase), "firebase.js kennt die Kästen der Bauecke nicht");
   pruefe(/\.\.\.BAU_KEEP_KEYS/.test(firebase) && /BAU_KEEP_KEYS\.forEach/.test(firebase), "firebase.js behält die Bauecke beim Zurücksetzen nicht");
+  for (const key of ["lernapp.bau.konten", "lernapp.bau.wer", "lernapp.bau.getrennt", "lernapp.bau.lieferung.konten", "lernapp.bau.lieferung.wer", "lernapp.bau.lieferung.getrennt", "lernapp.bau.gezeigt"]) {
+    pruefe(firebase.includes(`"${key}"`), `firebase.js lässt ${key} beim Zurücksetzen nicht stehen`);
+  }
   const cloud = umgebung();
   cloud.lade("game-cloud.js");
   const gc = cloud.windowStub.LernappGameCloud;
+  pruefe(typeof gc.registerProKonto === "function", "game-cloud.js kennt keinen Kasten je Konto");
   const bleibt = gc.register({ key: "test.bleibt", empty: { n: 0 }, keepOnReset: true });
   const geht = gc.register({ key: "test.geht", empty: { n: 0 } });
+  const konto = gc.registerProKonto({ key: "test.konto", empty: { n: 0 } });
   bleibt.write({ n: 5 });
   geht.write({ n: 5 });
+  konto.write({ n: 5 });
   gc.resetAll();
-  pruefe(bleibt.read().n === 5 && geht.read().n === 0, "game-cloud.js: keepOnReset wirkt nicht");
-  pruefe(/keepOnReset: true/.test(lies("bau-stand.js")) && /keepOnReset: true/.test(lies("journey-plan.js")), "die Bauecke meldet ihre Kästen nicht mit keepOnReset an");
+  pruefe(bleibt.read().n === 5 && geht.read().n === 0 && konto.read().n === 5, "game-cloud.js: Zurücksetzen trifft die falschen Kästen");
+  pruefe(/registerProKonto\(\{ key: KEY/.test(lies("bau-stand.js")) && /registerProKonto\(\{ key: BAU_LIEFERUNG_KEY/.test(lies("journey-plan.js")), "die Bauecke meldet ihre Kästen nicht je Konto an");
 
   // Startbild: Stylesheet und Skripte, in der richtigen Reihenfolge.
   const index = lies("index.html");
-  const reihe = ["game-cloud.js", "journey-plan.js", "bau-moebel.js", "bau-katalog.js", "bau-stand.js", "bau-art.js", "train-bau.js", "train-home.js"];
-  const stellen = reihe.map((datei) => index.indexOf(`src="${datei}`));
-  pruefe(stellen.every((x) => x > 0) && stellen.every((x, i) => i === 0 || x > stellen[i - 1]), "index.html lädt die Bauecke nicht in der richtigen Reihenfolge");
+  const reihe = ["game-cloud.js", "journey-plan.js", ...MOEBEL, "bau-katalog.js", "bau-stand.js", "bau-art.js", "train-bau.js", "train-home.js"];
+  const stellen = reihe.map((datei) => index.indexOf(`src="${datei}?`));
+  pruefe(stellen.every((x) => x > 0) && stellen.every((x, i) => i === 0 || x > stellen[i - 1]), "index.html lädt die Bauecke nicht vollständig oder nicht in der richtigen Reihenfolge");
   pruefe(/href="bau\.css\?v=/.test(index), "index.html lädt bau.css nicht");
   const sw = lies("service-worker.js");
-  for (const datei of ["bau.css", "bau-moebel.js", "bau-katalog.js", "bau-stand.js", "bau-art.js", "train-bau.js"]) {
+  for (const datei of ["bau.css", ...MOEBEL, "bau-katalog.js", "bau-stand.js", "bau-art.js", "train-bau.js"]) {
     pruefe(sw.includes(`./${datei}\${ASSET_VERSION_QUERY}`), `service-worker.js legt ${datei} nicht in den Cache`);
   }
   // Die Spielseiten kennen das Rätsel aus der Bauecke.
@@ -559,14 +863,15 @@ for (const stufe of ["leicht", "mittel", "schwer"]) {
   const home = lies("train-home.js");
   pruefe(/function buildBauButton/.test(home) && /function showBauecke/.test(home) && /bauWanted/.test(home), "train-home.js bindet die Bauecke nicht ein");
   pruefe(/view\.name === "bau"[\s\S]{0,80}zurueck/.test(home), "train-home.js fragt beim Zurück die Bauecke nicht zuerst");
-  // Der Vorlesen-Schalter.
+  // Der Vorlesen-Schalter, und ein Tipp auf einen Text liest ihn vor.
   const kidsJs = lies("kids.js");
   pruefe(/function mountTtsToggle/.test(kidsJs) && /mountTtsToggle\(\);/.test(kidsJs), "kids.js hat keinen Vorlesen-Schalter");
+  pruefe(/function liesText/.test(lies("train-bau.js")) && /ttsEnabled/.test(lies("train-bau.js")), "train-bau.js liest angetippte Texte nicht vor");
 }
 
 if (fehler.length) {
   console.error(`Die Bauecke stimmt nicht (${fehler.length}):`);
-  fehler.slice(0, 60).forEach((f) => console.error(`  - ${f}`));
+  fehler.slice(0, 80).forEach((f) => console.error(`  - ${f}`));
   process.exit(1);
 }
-console.log(`Die Bauecke stimmt: ${dinge.length} Dinge, ${K.RAEUME_LISTE.length} Zimmer in 4 Häusern, ${K.TIER_IDS.length} Tierarten, alle Wünsche erfüllbar.`);
+console.log(`Die Bauecke stimmt: ${dinge.length} Dinge, ${K.RAEUME_LISTE.length} Zimmer in 4 Häusern (je mindestens 10 eigene Dinge), ${K.TIER_IDS.length} Tierarten, alle Wünsche erfüllbar.`);

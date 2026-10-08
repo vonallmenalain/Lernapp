@@ -108,6 +108,131 @@
     return account;
   }
 
+  /*
+   * Ein Stand je Konto – für das, was einem Kind gehört und sich mit keinem
+   * anderen mischen darf: die Häuser der Bauecke und ihre Ziegel.
+   *
+   * register() oben führt einen Stand je Gerät und vereinigt ihn mit jedem
+   * Konto, das sich anmeldet. Für eine Bestenliste ist das recht, für ein
+   * Haus nicht: Meldet sich am selben Tablet das Geschwister an, kämen dessen
+   * Zimmer dazu. Deshalb hier:
+   *   - angemeldet: der Stand des Kontos – auf dem Gerät je Konto gemerkt und
+   *     in der Cloud (gameState.<key>);
+   *   - abgemeldet: ein eigener Gast-Stand, nur auf dem Gerät;
+   *   - ein Konto, das hier noch nie etwas hatte, übernimmt einmal den
+   *     Gast-Stand, wenn uebernehmen(gast) es erlaubt (wer als Gast gebaut hat
+   *     und sich dann anmeldet, verliert nichts); der Gast beginnt danach leer.
+   *
+   *   key, empty, merge    wie register()
+   *   uebernehmen(data)    darf ein leeres Konto diesen Gast-Stand übernehmen?
+   *
+   * Zurück: read(), write(data, wer), besitzer() ("" ist der Gast) und
+   * onChange(fn(data, grund)) – grund "konto": ein anderes Kind ist jetzt dran;
+   * "cloud": mit dem Stand aus der Cloud zusammengeführt. Das eigene write()
+   * meldet sich nicht: Wer schreibt, weiss es schon.
+   * "Fortschritt zurücksetzen" erreicht diese Stände nicht (resetAll kennt sie
+   * nicht, firebase.js behält sie).
+   */
+  function registerProKonto({ key, empty = {}, merge = (local) => local, uebernehmen = () => false }) {
+    const KONTEN = `${key}.konten`;
+    const WER = `${key}.wer`;
+    const GETRENNT = `${key}.getrennt`;
+    const listeners = [];
+    // Ein Stand von früher, als der Kasten noch allen am Gerät gehörte: Er ist
+    // mit dem Konto gewachsen, das damals angemeldet war, und geht einmal an
+    // das erste Konto, das sich jetzt anmeldet – nicht an den Gast und nicht
+    // an jedes weitere Konto. Ein neues Gerät hat keinen und ist gleich getrennt.
+    let altlast = false;
+    try {
+      altlast = localStorage.getItem(GETRENNT) !== "1" && localStorage.getItem(key) !== null;
+      if (!altlast) localStorage.setItem(GETRENNT, "1");
+    } catch { altlast = false; }
+    const konten = () => readLocal(KONTEN, {});
+    function lies(wer) {
+      if (!wer) return readLocal(key, clone(empty));
+      const stand = konten()[wer];
+      return stand && typeof stand === "object" ? stand : clone(empty);
+    }
+    function merkeLokal(wer, data) {
+      if (!wer) { writeLocal(key, data); return; }
+      const alle = konten();
+      alle[wer] = data;
+      writeLocal(KONTEN, alle);
+    }
+    // Bis die Anmeldung feststeht, gilt, wer hier zuletzt war – so steht der
+    // eigene Stand gleich da, statt erst nach einer Sekunde.
+    let besitzer = "";
+    try { besitzer = localStorage.getItem(WER) || ""; } catch { besitzer = ""; }
+    let current = lies(besitzer);
+    function melde(grund) { listeners.forEach((fn) => { try { fn(current, grund); } catch { /* egal */ } }); }
+
+    function abgleich(alle) {
+      const user = cloud()?.getUser?.() || null;
+      // Steht noch nicht fest, wer angemeldet ist, kommt das Ereignis später.
+      if (!user && cloud() && !cloud().isAccountReady?.()) return;
+      const wer = user?.uid || "";
+      const wechsel = wer !== besitzer;
+      if (wechsel) {
+        besitzer = wer;
+        try { localStorage.setItem(WER, wer); } catch { /* privater Modus */ }
+        current = lies(wer);
+      }
+      if (wer && alle && typeof alle === "object") {
+        const entry = alle[key];
+        let lokal = konten()[wer];
+        if (altlast) {
+          const frueher = readLocal(key, null);
+          if (frueher) {
+            lokal = lokal !== undefined ? merge(lokal, frueher) : frueher;
+            writeLocal(key, clone(empty));
+          }
+          altlast = false;
+          try { localStorage.setItem(GETRENNT, "1"); } catch { /* privater Modus */ }
+        }
+        if (!entry?.data && lokal === undefined) {
+          const gast = readLocal(key, null);
+          if (gast && uebernehmen(gast)) {
+            lokal = gast;
+            writeLocal(key, clone(empty));
+          }
+        }
+        let next;
+        if (entry?.data) next = lokal !== undefined ? merge(lokal, entry.data) : clone(entry.data);
+        else next = lokal !== undefined ? lokal : clone(empty);
+        current = next;
+        merkeLokal(wer, next);
+        const neuInDerCloud = JSON.stringify(next) !== JSON.stringify(entry?.data ?? null);
+        if (neuInDerCloud && (entry?.data || lokal !== undefined)) cloud()?.saveGameState?.(key, next);
+      }
+      melde(wechsel ? "konto" : "cloud");
+    }
+    document.addEventListener("lernapp:game-state", (event) => abgleich(event.detail));
+    // Falls die Anmeldung schon durch war, bevor diese Datei zuhörte.
+    if (cloud()?.getUser?.() || cloud()?.isAccountReady?.()) abgleich(cloud()?.getGameState?.() ?? null);
+
+    return {
+      read() { return current; },
+      // wer: wem dieser Stand gehört. Wartet beim Wechsel des Kontos noch
+      // etwas aufs Speichern, landet es so beim richtigen Kind – nur auf dem
+      // Gerät; in die Cloud kommt es, wenn sich dieses Kind wieder anmeldet.
+      write(data, wer = besitzer) {
+        if (wer !== besitzer) { merkeLokal(wer, data); return current; }
+        current = data;
+        merkeLokal(besitzer, data);
+        // Angemeldet in die Cloud; als Gast geht eine Kopie für den
+        // Adminbereich mit (saveGameState kennt den Unterschied).
+        const user = cloud()?.getUser?.() || null;
+        if ((user?.uid || "") === besitzer) cloud()?.saveGameState?.(key, data);
+        return current;
+      },
+      besitzer() { return besitzer; },
+      onChange(fn) { listeners.push(fn); return () => {
+        const i = listeners.indexOf(fn);
+        if (i >= 0) listeners.splice(i, 1);
+      }; },
+    };
+  }
+
   // Alles auf leer – für "Fortschritt zurücksetzen" im Profil und für ein
   // Konto, das anderswo zurückgesetzt wurde. Jedes Spiel meldet sich danach
   // bei seinen Zuhörern, der Zug zeichnet sich also von selbst neu.
@@ -183,5 +308,5 @@
     return merged;
   }
 
-  window.LernappGameCloud = { register, resetAll, mergeScores, mergeLevels };
+  window.LernappGameCloud = { register, registerProKonto, resetAll, mergeScores, mergeLevels };
 })();

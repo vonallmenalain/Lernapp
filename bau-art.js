@@ -11,6 +11,9 @@
  *   |Wand|          Zimmer (560)          |Wand| Lift |Wand|
  *    14                                     14   76    14      = 678 breit
  *
+ *   Eine Wohnung füllt das Stockwerk; sonst stehen zwei Zimmer zu je 280
+ *   nebeneinander, getrennt von einer Zwischenwand (trennwand).
+ *
  *   Stockwerk i: Boden bei unten(i) = -FUSS - i * STOCK, darüber das Zimmer
  *   (240 hoch) und die Decke (16). Ganz oben das Dach.
  *
@@ -91,31 +94,49 @@
   }
 
   // Die leere Hülle eines Zimmers: Wand mit Muster, Boden, Fussleiste.
-  function zimmerSchale(st, musterId) {
-    const wand = farbeHex(st.wand, "#f6ead2");
-    const bodenArt = K()?.BODEN?.[st.boden] || K()?.BODEN?.parkett;
-    const bodenHex = st.bodenFarbe ? farbeHex(st.bodenFarbe) : (bodenArt?.farbe || "#c88c5c");
+  // breite: eine Wohnung ist so breit wie das Stockwerk, sonst halb so breit.
+  function zimmerSchale(z, musterId, breite = ZW) {
+    const wand = farbeHex(z.wand, "#f6ead2");
+    const bodenArt = K()?.BODEN?.[z.boden] || K()?.BODEN?.parkett;
+    const bodenHex = z.bodenFarbe ? farbeHex(z.bodenFarbe) : (bodenArt?.farbe || "#c88c5c");
     const wy = 216;
-    const def = st.muster && st.muster !== "keine" ? musterDef(musterId, st.muster, wand) : "";
+    const def = z.muster && z.muster !== "keine" ? musterDef(musterId, z.muster, wand) : "";
     return `${def ? `<defs>${def}</defs>` : ""}` +
-      `<rect class="bau-wand" x="0" y="0" width="${ZW}" height="${wy}" fill="${wand}"/>` +
-      (def ? `<rect x="0" y="0" width="${ZW}" height="${wy}" fill="url(#${musterId})"/>` : "") +
-      `<rect x="0" y="0" width="${ZW}" height="10" fill="#000000" opacity="0.06"/>` +
-      `<g class="bau-boden">${boden(bodenArt?.id || "parkett", bodenHex, wy, ZH - wy)}</g>` +
-      `<rect x="0" y="${wy - 5}" width="${ZW}" height="5" fill="${shade(wand, -0.25)}" opacity="0.7"/>`;
+      `<rect class="bau-wand" x="0" y="0" width="${breite}" height="${wy}" fill="${wand}"/>` +
+      (def ? `<rect x="0" y="0" width="${breite}" height="${wy}" fill="url(#${musterId})"/>` : "") +
+      `<rect x="0" y="0" width="${breite}" height="10" fill="#000000" opacity="0.06"/>` +
+      `<g class="bau-boden">${boden(bodenArt?.id || "parkett", bodenHex, wy, ZH - wy, breite)}</g>` +
+      `<rect x="0" y="${wy - 5}" width="${breite}" height="5" fill="${shade(wand, -0.25)}" opacity="0.7"/>`;
   }
 
-  // Der Rohbau: Backsteinwand, Gerüstbretter, ein Plus. So sieht ein Kind,
-  // dass hier noch etwas werden will.
-  function rohbauSchale() {
-    let s = `<rect x="0" y="0" width="${ZW}" height="${ZH}" fill="#d9b38c"/>`;
+  // Der Rohbau: Backsteinwand, Gerüstbretter und ein Zeichen in der Mitte.
+  // So sieht ein Kind, dass hier noch etwas werden will:
+  //   plus   ein Zimmer wählen
+  //   frage  Wohnung oder zwei Zimmer?
+  //   bett   Schlafzimmer oder Kinderzimmer?
+  function rohbauSchale(breite = ZW, zeichen = "plus") {
+    let s = `<rect x="0" y="0" width="${breite}" height="${ZH}" fill="#d9b38c"/>`;
     for (let y = 0, r = 0; y < 216; y += 18, r += 1) {
-      for (let x = r % 2 ? -18 : 0; x < ZW; x += 36) s += `<rect x="${x + 1}" y="${y + 1}" width="34" height="16" rx="2" fill="${(x + y) % 3 ? "#c98d5c" : "#d39a68"}"/>`;
+      for (let x = r % 2 ? -18 : 0; x < breite; x += 36) s += `<rect x="${x + 1}" y="${y + 1}" width="34" height="16" rx="2" fill="${(x + y) % 3 ? "#c98d5c" : "#d39a68"}"/>`;
     }
-    s += `<rect x="0" y="216" width="${ZW}" height="24" fill="#9a8c7c"/><path d="M0 228h${ZW}" stroke="#867868" stroke-width="2"/>`;
-    s += `<rect x="40" y="196" width="120" height="8" rx="2" fill="#c88c5c"/><rect x="420" y="190" width="100" height="8" rx="2" fill="#c88c5c" transform="rotate(-4 470 194)"/>`;
-    s += `<g class="bau-rohbau-plus"><circle cx="${ZW / 2}" cy="108" r="46" fill="#ffffff" opacity="0.92"/><path d="M${ZW / 2 - 22} 108h44M${ZW / 2} 86v44" stroke="#3fbf74" stroke-width="12" stroke-linecap="round"/></g>`;
+    s += `<rect x="0" y="216" width="${breite}" height="24" fill="#9a8c7c"/><path d="M0 228h${breite}" stroke="#867868" stroke-width="2"/>`;
+    s += `<rect x="${breite * 0.07}" y="196" width="${Math.min(120, breite * 0.3)}" height="8" rx="2" fill="#c88c5c"/>`;
+    const cx = breite / 2;
+    let mitte = `<path d="M${cx - 22} 108h44M${cx} 86v44" stroke="#3fbf74" stroke-width="12" stroke-linecap="round"/>`;
+    if (zeichen === "frage") mitte = `<text x="${cx}" y="130" text-anchor="middle" font-size="64" font-weight="800" font-family="'Baloo 2', Nunito, sans-serif" fill="#3fbf74">?</text>`;
+    if (zeichen === "bett") {
+      mitte = `<g transform="translate(${cx} 128) scale(0.42)">${M().zeichne("bett")}</g>` +
+        `<circle cx="${cx + 30}" cy="80" r="15" fill="#3fbf74"/><path d="M${cx + 22} 80h16M${cx + 30} 72v16" stroke="#ffffff" stroke-width="5" stroke-linecap="round"/>`;
+    }
+    s += `<g class="bau-rohbau-plus"><circle cx="${cx}" cy="108" r="46" fill="#ffffff" opacity="0.92"/>${mitte}</g>`;
     return s;
+  }
+
+  // Die Zwischenwand eines Stockwerks mit zwei Zimmern (Haus-Einheiten).
+  function trennwand(i, fassadeId) {
+    const f = farbeHex(fassadeId, "#ffd3b5");
+    const x = ZX + ZW / 2;
+    return `<rect x="${x - 5}" y="${oben(i)}" width="10" height="${ZH}" fill="${f}"/><rect x="${x + 2}" y="${oben(i)}" width="3" height="${ZH}" fill="${shade(f, -0.2)}" opacity="0.6"/>`;
   }
 
   // ---------------------------------------------------------------------------
@@ -227,22 +248,36 @@
       `<text x="${LX + LIFT / 2}" y="${y + 108}" text-anchor="middle" font-size="12" font-weight="800" font-family="'Baloo 2', Nunito, sans-serif" fill="#ffd166">${i === 0 ? "E" : i}</text>`;
   }
 
-  // Die Sterntafel: fünf gelbe, zwei grüne, ein blauer Stern – gefüllt, was
-  // erfüllt ist. Um (cx, cy).
-  function sternTafel(st, cx, cy) {
+  // Die Sterntafel einer Wohnung: je Tier eine Reihe – zwei gelbe, ein
+  // grüner, zwei blaue Sterne, gefüllt, was erfüllt ist. Oben (cx, y).
+  // st: sterneStock() aus bau-stand.js.
+  function sternTafel(st, cx, y) {
+    const reihen = st?.tiere || [];
+    if (!reihen.length) return "";
     const farbe = { gelb: "#ffc93c", gruen: "#4cc46b", blau: "#4f8ef7" };
-    const stern = (x, y, voll, f) => {
-      const pfad = M().stern(x, y, 6.2, voll ? farbe[f] : "#ffffff");
-      return voll ? pfad : pfad.replace("/>", ` stroke="${farbe[f]}" stroke-width="1.6" opacity="0.9"/>`);
+    const stern = (x, yy, voll, f) => {
+      const pfad = M().stern(x, yy, 5.4, voll ? farbe[f] : "#ffffff");
+      return voll ? pfad : pfad.replace("/>", ` stroke="${farbe[f]}" stroke-width="1.5" opacity="0.9"/>`);
     };
     // Alle Wünsche erfüllt: Die Tafel wird golden.
-    const alle = [...(st.gelb || []), ...(st.gruen || []), ...(st.blau || [])];
-    const gold = alle.length > 0 && alle.every(Boolean);
-    let s = `<rect x="${cx - 32}" y="${cy - 36}" width="64" height="72" rx="10" fill="${gold ? "#fff3c4" : "#ffffff"}" opacity="0.95" stroke="${gold ? "#ffb703" : "#d3e3ec"}" stroke-width="${gold ? 4 : 2}"/>`;
-    (st.gelb || []).forEach((voll, i) => { s += stern(cx - 18 + (i % 3) * 18, cy - 22 + Math.floor(i / 3) * 16, voll, "gelb"); });
-    (st.gruen || []).forEach((voll, i) => { s += stern(cx - 18 + i * 18, cy + 12 + 2, voll, "gruen"); });
-    (st.blau || []).forEach((voll, i) => { s += stern(cx + 18 + i * 18, cy + 14, voll, "blau"); });
+    const gold = st.total > 0 && st.anzahl === st.total;
+    const h = 10 + reihen.length * 15;
+    let s = `<rect x="${cx - 34}" y="${y}" width="68" height="${h}" rx="9" fill="${gold ? "#fff3c4" : "#ffffff"}" opacity="0.96" stroke="${gold ? "#ffb703" : "#d3e3ec"}" stroke-width="${gold ? 4 : 2}"/>`;
+    reihen.forEach((r, n) => {
+      const ry = y + 12.5 + n * 15;
+      const zeile = [...(r.gelb || []).map((v) => [v, "gelb"]), ...(r.gruen || []).map((v) => [v, "gruen"]), ...(r.blau || []).map((v) => [v, "blau"])];
+      zeile.forEach(([voll, f], i) => { s += stern(cx - 25 + i * 12.5, ry, voll, f); });
+    });
     return s;
+  }
+  function sternTafelHoehe(st) { return (st?.tiere?.length || 0) ? 10 + st.tiere.length * 15 : 0; }
+
+  // Die Liftkabine für den Einzug: um (0, 0) als Boden der Kabine.
+  function liftKabine() {
+    const w = LIFT - 18;
+    return `<rect x="${-w / 2}" y="-118" width="${w}" height="118" rx="5" fill="#f6d365" stroke="#c99a2e" stroke-width="3"/>` +
+      `<rect x="${-w / 2 + 6}" y="-108" width="${w - 12}" height="34" rx="4" fill="#fff6d6"/>` +
+      `<path d="M0 -118v-26" stroke="#4a5568" stroke-width="3"/><circle cx="0" cy="-148" r="5" fill="#4a5568"/>`;
   }
 
   // Das Dach, je nach Haus. x von 0 bis HB, y = oberkante der obersten Decke.
@@ -270,7 +305,7 @@
         `<path d="M${tx} ${y - 160}v-30" stroke="#4a5568" stroke-width="3"/><path d="M${tx} ${y - 190}h26l-6 7l6 7h-26z" fill="#ef5350"/>` +
         `<rect x="40" y="${y - 50}" width="120" height="30" rx="6" fill="${shade(f, -0.1)}"/><rect x="${HB - 160}" y="${y - 50}" width="120" height="30" rx="6" fill="${shade(f, -0.1)}"/>`;
     }
-    // flach: Bürohaus mit Antenne und Sonnenkollektoren
+    // flach: das Büro mit Antenne und Sonnenkollektoren
     return `<rect x="-10" y="${y - 20}" width="${HB + 20}" height="20" fill="${c}"/><rect x="-10" y="${y - 20}" width="${HB + 20}" height="4" fill="${d}"/>` +
       [70, 200, 330].map((x) => `<g transform="translate(${x} ${y - 20})"><path d="M0 0l12-46h86l12 46z" fill="#2f4f7a"/><path d="M28 0l6-46M56 0v-46M84 0l-6-46M4 -16h102M8 -32h94" stroke="#7fa6d9" stroke-width="2"/></g>`).join("") +
       `<path d="M${HB - 80} ${y - 20}v-90M${HB - 96} ${y - 80}h32M${HB - 92} ${y - 96}h24" stroke="#4a5568" stroke-width="4" stroke-linecap="round"/><circle cx="${HB - 80}" cy="${y - 112}" r="5" fill="#ef5350" class="bau-antenne"/>`;
@@ -376,8 +411,8 @@
 
   window.LernappBauArt = {
     ZW, ZH, WAND, LIFT, DECKE, STOCK, FUSS, HB, ZX, LX, DACH_H,
-    unten, oben, musterDef, boden, zimmerSchale, rohbauSchale, tier, koffer,
-    hausRahmen, liftStock, sternTafel, dach, naechsterStock, strasse, baum, laterne,
+    unten, oben, musterDef, boden, zimmerSchale, rohbauSchale, trennwand, tier, koffer,
+    hausRahmen, liftStock, sternTafel, sternTafelHoehe, liftKabine, dach, naechsterStock, strasse, baum, laterne,
     lieferzug, palette, minihaus, minihausHoehe, hausZeichen,
   };
 })();
