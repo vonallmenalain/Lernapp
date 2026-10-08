@@ -95,7 +95,16 @@ zusätzlich zu Abschnitt 0.
 - **Erkannt** wird eine Figur an Art und Name – auch ein Leo, der schon früher eingezogen
   ist, ist Leo aus dem Buch. Ihre Namen fehlen darum bei den gewöhnlichen Tieren.
 
-### 0K.4 Dateien und Prüfungen
+### 0K.4 Korrektur: Nach vorne, nach hinten
+
+- Was auf dem Boden steht, zeichnet die Bauecke nach seiner Tiefe: Weiter vorn heisst
+  weiter unten im Bild. «Nach vorne» und «Nach hinten» änderten bisher nur die Reihenfolge
+  der Liste – die zählt aber nur bei gleicher Tiefe, und so blieb zum Beispiel ein
+  Kletterturm vor dem Bällebad, egal was man drückte. Jetzt rückt das Ding vor oder hinter
+  alles, was es überdeckt (einen Hauch weiter vorn oder hinten auf dem Boden); steht es
+  schon ganz vorn oder ganz hinten, entscheidet die Liste. Was darauf steht, wandert mit.
+
+### 0K.5 Dateien und Prüfungen
 
 | Datei | Was |
 | --- | --- |
@@ -106,7 +115,7 @@ zusätzlich zu Abschnitt 0.
 | `bau-stand.js` | Fassung 3: KiddyDome über zwei Stockwerke, Paare beim Laden und Zusammenführen, Umstellen als Block, Dazubauen gleich darüber; Buchfiguren zuerst, mit Wunsch und Traumjob; Kinderzimmer-Tiere oft im KiddyDome |
 | `bau-art.js`, `train-bau.js`, `bau.css` | doppelt hohes Zimmer ohne Decke dazwischen, Hinweis und «Stockwerk dazubauen» in der Zimmerwahl, Mini-Lift, hohe Sprünge; die Tiere aus `bau-tiere.js` mit Blinzeln; das Buch auf der Tafel |
 | `scripts/validate-bau.mjs` | KiddyDome (zwei Stockwerke, Umstellen, Zusammenführen, Flicken, Ändern, Dazubauen, Besuche), Buchfiguren (Bücher, Vorlieben, Wünsche, Traumjobs, zuerst einziehen), Fingerabdruck der Fassung 3 |
-| `scripts/check-bau.mjs` | der KiddyDome im Browser, auf Tablet und Handy |
+| `scripts/check-bau.mjs` | der KiddyDome im Browser, auf Tablet und Handy; «Nach vorne/hinten» bei verschieden tiefen Dingen |
 
 ---
 

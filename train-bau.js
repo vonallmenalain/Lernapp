@@ -2466,11 +2466,37 @@
     aktion("", "Umdrehen", `<path d="M12 3v18" stroke="currentColor" stroke-width="2" stroke-dasharray="3 3"/><path d="M9 7 3 12l6 5zM15 7l6 5-6 5z" fill="currentColor"/>`, () => aendereDing(d.k, (u) => { u.f = u.f ? 0 : 1; }, "Umgedreht."));
     aktion("", "Kleiner", `<circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M7.5 12h9" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/>`, () => aendereDing(d.k, (u) => { u.s = GROESSEN[Math.max(0, GROESSEN.indexOf(naechsteGroesse(u.s)) - 1)]; }, "Kleiner."));
     aktion("", "Grösser", `<circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M7.5 12h9M12 7.5v9" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/>`, () => aendereDing(d.k, (u) => { u.s = GROESSEN[Math.min(GROESSEN.length - 1, GROESSEN.indexOf(naechsteGroesse(u.s)) + 1)]; }, "Grösser."));
-    aktion("", "Nach vorne", `<rect x="3" y="9" width="11" height="11" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><rect x="9" y="4" width="11" height="11" rx="2" fill="currentColor"/>`, () => aendereDing(d.k, (u, z) => { z.dinge = z.dinge.filter((x) => x.k !== u.k).concat([u]); }, "Nach vorne."));
-    aktion("", "Nach hinten", `<rect x="9" y="4" width="11" height="11" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><rect x="3" y="9" width="11" height="11" rx="2" fill="currentColor"/>`, () => aendereDing(d.k, (u, z) => { z.dinge = [u].concat(z.dinge.filter((x) => x.k !== u.k)); }, "Nach hinten."));
+    aktion("", "Nach vorne", `<rect x="3" y="9" width="11" height="11" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><rect x="9" y="4" width="11" height="11" rx="2" fill="currentColor"/>`, () => aendereDing(d.k, (u, z) => stapleUm(u, z, 1), "Nach vorne."));
+    aktion("", "Nach hinten", `<rect x="9" y="4" width="11" height="11" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><rect x="3" y="9" width="11" height="11" rx="2" fill="currentColor"/>`, () => aendereDing(d.k, (u, z) => stapleUm(u, z, -1), "Nach hinten."));
     aktion("is-weg", "Wegräumen", `<path d="M7 7h10l-1 13H8z" fill="currentColor"/><rect x="5" y="4.5" width="14" height="2.5" rx="1" fill="currentColor"/>`, () => entferne(d.k));
     els.bearbeiten.append(zeile);
     els.bearbeiten.hidden = false;
+  }
+
+  // Nach vorne (+1) oder nach hinten (-1). Was auf dem Boden steht, ordnet
+  // seine Tiefe – weiter vorn heisst weiter unten im Bild (y), siehe
+  // reihenfolge(). Die Reihenfolge der Liste zählt nur bei gleicher Tiefe.
+  // Darum rückt das Ding vor oder hinter alles, was es überdeckt; ganz vorn
+  // oder ganz hinten auf dem Boden entscheidet dann die Liste.
+  function stapleUm(u, z, richtung) {
+    z.dinge = richtung > 0 ? z.dinge.filter((x) => x.k !== u.k).concat([u]) : [u].concat(z.dinge.filter((x) => x.k !== u.k));
+    const art = M().DINGE[u.i]?.art;
+    if ((art !== "boden" && art !== "flach") || traegerVon(z, u)) return;
+    const geo = S().GEO;
+    const a = M().umriss(u.i, u.s);
+    const ueberdeckt = z.dinge.filter((x) => {
+      if (x.k === u.k || M().DINGE[x.i]?.art !== art || traegerVon(z, x)) return false;
+      const b = M().umriss(x.i, x.s);
+      return u.x + a.x0 < x.x + b.x1 && x.x + b.x0 < u.x + a.x1;
+    });
+    if (!ueberdeckt.length) return;
+    if (richtung > 0) {
+      const vorn = Math.max(...ueberdeckt.map((x) => x.y));
+      if (u.y <= vorn) u.y = Math.min(vorn + 0.5, geo.STAND_VORNE);
+    } else {
+      const hinten = Math.min(...ueberdeckt.map((x) => x.y));
+      if (u.y >= hinten) u.y = Math.max(hinten - 0.5, geo.STAND_HINTEN);
+    }
   }
 
   function naechsteGroesse(s) {

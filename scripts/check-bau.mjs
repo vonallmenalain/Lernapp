@@ -35,6 +35,8 @@
  *                 aussen (Rahmen und Schild, Stufe 1 bis 3). Oben in einem
  *                 Arbeitszimmer stehen nur, wer dort den Traumjob hat oder
  *                 sich das Zimmer wünscht – ohne die Sterne der Wohnung.
+ *   Nach vorne    «Nach vorne» und «Nach hinten» wirken auch, wenn zwei Dinge
+ *                 verschieden tief stehen.
  *   KiddyDome     Mit nur einem freien Stockwerk sagt die Wahl, dass er zwei
  *                 braucht, und bietet an, eines dazuzubauen; dann steht er über
  *                 zwei Stockwerke (ohne Decke dazwischen), im Zoom doppelt so
@@ -597,6 +599,28 @@ async function pruefeKiddyDome(browser, name, viewport) {
       const y = await page.evaluate(() => window.LernappBauStand.zimmer("zentrum", 1, 0).dinge.at(-1)?.y);
       pruefe(y === -256, `${name}: KiddyDome: ${decke} hängt nicht an der Decke ganz oben (y ${y})`);
     } else fehlt(`${name}: KiddyDome: in der Schublade hängt nichts an der Decke`);
+    // Nach vorne und nach hinten – auch wenn die Dinge verschieden tief stehen
+    // (der Kletterturm vorn, das Bällebad dahinter).
+    await page.evaluate(() => {
+      window.LernappBauStand.aendereZimmer("zentrum", 1, 0, (z) => { z.dinge.push({ k: "turm", i: "k_kletterturm", x: 160, y: 234, c: "", f: 0, s: 1 }, { k: "bad", i: "k_baellebad", x: 230, y: 228, c: "", f: 0, s: 1 }); });
+      window.LernappBau.auffrischen();
+    });
+    await page.waitForTimeout(400);
+    const reihe = () => page.evaluate(() => [...document.querySelectorAll(".bau-zimmer-svg .bau-ding")].map((g) => g.dataset.k).filter((k) => k === "turm" || k === "bad").join("<"));
+    const waehleDing = async (k) => {
+      const r = await page.locator(`.bau-zimmer-svg .bau-ding[data-k="${k}"] .bau-griff`).boundingBox();
+      await page.mouse.click(r.x + r.width / 2, r.y + r.height - Math.min(14, r.height * 0.06));
+      await page.waitForTimeout(300);
+    };
+    pruefe(await reihe() === "bad<turm", `${name}: Nach vorne/hinten: der Anfang stimmt nicht (${await reihe()})`);
+    await waehleDing("turm");
+    await page.locator('.bau-bearbeiten [aria-label="Nach hinten"]').click();
+    await page.waitForTimeout(400);
+    pruefe(await reihe() === "turm<bad", `${name}: «Nach hinten» bringt den Kletterturm nicht hinter das Bällebad (${await reihe()})`);
+    // Der Kletterturm bleibt gewählt – gleich wieder nach vorne.
+    await page.locator('.bau-bearbeiten [aria-label="Nach vorne"]').click();
+    await page.waitForTimeout(400);
+    pruefe(await reihe() === "bad<turm", `${name}: «Nach vorne» bringt den Kletterturm nicht wieder vor das Bällebad (${await reihe()})`);
     await page.locator(".stage-back").click();
     await page.waitForTimeout(1200);
     const haus = await page.evaluate(() => ({
