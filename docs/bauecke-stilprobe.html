@@ -1,0 +1,2102 @@
+<!doctype html>
+<!--
+  Stilprobe zur Bauecke (docs/BAUECKE-KONZEPT.md). Keine Seite der App: Sie liegt
+  unter docs/ und geht deshalb nicht auf die Site (netlify/build.mjs). Zum Ansehen
+  die Datei im Browser öffnen. Dieselbe Seite ist das Artefakt «Gripszug Bauecke».
+-->
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Gripszug Bauecke</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&family=Nunito:wght@600;700;800&display=swap">
+<style>
+/* Ein Bildschirm wie die Bühne von Gripszug: Himmel und Hügel stehen still,
+   das Haus fährt mit der Kamera. Eine helle Welt mit eigenem Tag und eigener
+   Nacht – deshalb kein Dunkelmodus des Geräts. */
+:root {
+  --sky-top: #a8ddf0;
+  --sky-bottom: #dff1f7;
+  --night-top: #141f45;
+  --night-bottom: #34477c;
+  --ink: #243047;
+  --muted: #5d6882;
+  --primary: #6c5ce7;
+  --primary-dark: #5141c9;
+  --primary-soft: #efecff;
+  --go: #3fbf74;
+  --go-dark: #2f9a5b;
+  --heart: #ff5c7a;
+  --brick: #e07a4f;
+  --brick-light: #f2a37f;
+  --card: #ffffff;
+  --off: #b8bfd0;
+  --font-display: "Baloo 2", "Nunito", ui-rounded, system-ui, sans-serif;
+  --font-body: "Nunito", ui-rounded, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --shadow: 0 6px 16px rgba(36, 48, 71, 0.24);
+  color-scheme: light;
+}
+html, body { height: 100%; }
+body { margin: 0; background: var(--sky-bottom); color: var(--ink); font-family: var(--font-body); overflow: hidden; }
+button { font-family: inherit; color: inherit; }
+
+/* absolute statt fixed: So malt die Bühne in die Ebene des Dokuments und
+   braucht keine eigene, bildschirmgrosse. */
+.stage {
+  position: absolute; inset: 0; overflow: hidden;
+  touch-action: none; -webkit-user-select: none; user-select: none;
+  -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none;
+}
+.sky { position: absolute; inset: 0; background: linear-gradient(180deg, var(--sky-top), var(--sky-bottom) 72%); }
+.sky-night { background: linear-gradient(180deg, var(--night-top), var(--night-bottom) 78%); opacity: 0; transition: opacity 0.7s ease; }
+.is-night .sky-night { opacity: 1; }
+.sky-art { position: absolute; inset: 0; width: 100%; height: 100%; }
+.sky-art .sun, .sky-art .clouds { transition: opacity 0.7s ease; }
+.sky-art .moon, .sky-art .stars { opacity: 0; transition: opacity 0.7s ease; }
+.is-night .sky-art .sun, .is-night .sky-art .clouds { opacity: 0; }
+.is-night .sky-art .moon, .is-night .sky-art .stars { opacity: 1; }
+.hills { position: absolute; left: 0; right: 0; bottom: 0; height: 58%; will-change: transform; }
+.hills svg { width: 100%; height: 100%; display: block; }
+.hills-night { position: absolute; inset: 0; background: #0d1838; opacity: 0; transition: opacity 0.7s ease; }
+.is-night .hills-night { opacity: 0.5; }
+.world { position: absolute; left: 0; top: 0; width: 100%; will-change: transform; }
+.world svg { display: block; overflow: visible; }
+
+/* Nacht im Haus: Wände und Boden dunkler, Zimmer mit Lampe warm. Umgeschaltet
+   wird nur beim Wechsel – im Stand läuft hier nichts. */
+.fac-wall { fill: #f1dfc2; transition: fill 0.7s ease; }
+.fac-slab { fill: #e6d2b0; transition: fill 0.7s ease; }
+.fac-door { fill: #dcc6a2; transition: fill 0.7s ease; }
+.is-night .fac-wall { fill: #a59ab0; }
+.is-night .fac-slab { fill: #958aa3; }
+.is-night .fac-door { fill: #857b95; }
+.shaft { fill: #dfe5ee; transition: fill 0.7s ease; }
+.is-night .shaft { fill: #77789a; }
+.night-ov, .gnd-night, .roof-night { opacity: 0; transition: opacity 0.7s ease; pointer-events: none; }
+.is-night .night-ov { opacity: 1; }
+.is-night .gnd-night { opacity: 0.5; }
+.is-night .roof-night { opacity: 0.38; }
+.win-sky { fill: #bfe6f5; transition: fill 0.7s ease; }
+.is-night .win-sky { fill: #263769; }
+.win-night { opacity: 0; transition: opacity 0.7s ease; }
+.is-night .win-night { opacity: 1; }
+.is-night .win-day { opacity: 0; }
+.win-day { transition: opacity 0.7s ease; }
+[data-item], [data-res], [data-roof], [data-liftbtn], [data-room] { cursor: pointer; }
+#fronts, #sel, #hot, #fx { pointer-events: none; }
+
+/* --- Knöpfe am Rand, wie auf der Bühne der App --- */
+.hud { position: absolute; display: flex; gap: 10px; align-items: center; z-index: 10; }
+.hud-tl { top: calc(env(safe-area-inset-top, 0px) + 14px); left: calc(env(safe-area-inset-left, 0px) + 14px); }
+.hud-tr { top: calc(env(safe-area-inset-top, 0px) + 14px); right: calc(env(safe-area-inset-right, 0px) + 14px); }
+.hud-btn {
+  width: 56px; height: 56px; border-radius: 50%; border: 3px solid #fff; padding: 0;
+  background: var(--primary); color: #fff; box-shadow: var(--shadow);
+  display: grid; place-items: center; cursor: pointer; transition: transform 0.15s ease, background-color 0.2s ease;
+}
+.hud-btn svg { width: 28px; height: 28px; }
+.hud-btn:active { transform: scale(0.93); }
+.hud-btn:disabled { background: var(--off); cursor: default; }
+.hud-btn:focus-visible, .tab:focus-visible, .card:focus-visible, .demo:focus-visible, .build-btn:focus-visible, .done:focus-visible, .info button:focus-visible {
+  outline: 3px solid var(--ink); outline-offset: 3px;
+}
+.hearts {
+  height: 56px; padding: 0 18px 0 12px; border-radius: 999px; background: #fff; box-shadow: var(--shadow);
+  display: flex; align-items: center; gap: 8px; font: 800 24px/1 var(--font-display); color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.hearts svg { width: 30px; height: 30px; }
+
+.demo {
+  position: absolute; z-index: 10; left: calc(env(safe-area-inset-left, 0px) + 14px); bottom: calc(env(safe-area-inset-bottom, 0px) + 14px);
+  display: flex; align-items: center; gap: 10px; padding: 8px 18px 8px 8px; border: 3px solid #fff; border-radius: 999px;
+  background: var(--go); color: #fff; box-shadow: var(--shadow); cursor: pointer; text-align: left;
+  transition: transform 0.15s ease;
+}
+.demo:active { transform: scale(0.96); }
+.demo .demo-ico { width: 44px; height: 44px; border-radius: 50%; background: #fff; display: grid; place-items: center; flex: none; }
+.demo .demo-ico svg { width: 34px; height: 34px; }
+.demo b { display: block; font: 800 17px/1.1 var(--font-body); }
+.demo small { display: block; font: 700 12.5px/1.2 var(--font-body); opacity: 0.92; }
+
+.build {
+  position: absolute; z-index: 10; right: calc(env(safe-area-inset-right, 0px) + 14px); bottom: calc(env(safe-area-inset-bottom, 0px) + 14px);
+  display: flex; align-items: center; gap: 12px; padding: 10px 10px 10px 14px; background: #fff; border-radius: 24px; box-shadow: var(--shadow);
+}
+.pallet { display: grid; grid-template-columns: repeat(5, 22px); grid-auto-rows: 14px; gap: 4px 4px; position: relative; }
+.pallet i { display: block; border-radius: 4px; border: 2px dashed #ecc7b3; }
+.pallet i.full { border: 0; background: linear-gradient(180deg, var(--brick-light) 0 22%, var(--brick) 22%); box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.14); }
+.pallet-more { position: absolute; right: -10px; top: -12px; background: var(--brick); color: #fff; font: 800 12px/1 var(--font-body); padding: 4px 6px; border-radius: 999px; }
+.build-btn {
+  width: 62px; height: 62px; border-radius: 50%; border: 3px solid #fff; padding: 0; cursor: pointer;
+  background: var(--off); color: #fff; box-shadow: 0 4px 10px rgba(36, 48, 71, 0.2); display: grid; place-items: center;
+  transition: background-color 0.25s ease, transform 0.15s ease;
+}
+.build-btn svg { width: 36px; height: 36px; }
+.build-btn.is-ready { background: var(--go); }
+.build-btn:active { transform: scale(0.93); }
+
+.trash {
+  position: absolute; z-index: 30; left: 50%; bottom: calc(env(safe-area-inset-bottom, 0px) + 22px); width: 84px; height: 84px; margin-left: -42px;
+  border-radius: 50%; background: #ff6b6b; border: 4px solid #fff; box-shadow: var(--shadow); display: grid; place-items: center;
+  transform: scale(0); transition: transform 0.2s cubic-bezier(0.2, 0.9, 0.3, 1.3), background-color 0.15s ease; pointer-events: none;
+}
+.trash svg { width: 40px; height: 40px; }
+.trash.is-shown { transform: scale(1); }
+.trash.is-hot { transform: scale(1.18); background: #e94b4b; }
+
+/* --- Die Schublade: Zimmer, Farbe, Möbel --- */
+.drawer {
+  position: absolute; z-index: 20; left: 50%; bottom: 0; width: min(780px, calc(100% - 24px));
+  transform: translate(-50%, 115%); visibility: hidden;
+  /* Zu ist sie unsichtbar und malt nichts – sonst hielte Chrome für sie eine
+     Ebene so gross wie die Bühne bereit. */
+  transition: transform 0.32s cubic-bezier(0.2, 0.8, 0.2, 1), visibility 0s linear 0.32s;
+  background: #fff; border-radius: 26px 26px 0 0; box-shadow: 0 -10px 30px rgba(36, 48, 71, 0.18);
+  padding: 12px 14px calc(env(safe-area-inset-bottom, 0px) + 12px);
+}
+.drawer.is-open { transform: translate(-50%, 0); visibility: visible; transition: transform 0.32s cubic-bezier(0.2, 0.8, 0.2, 1), visibility 0s; }
+.drawer-head { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.tabs { display: flex; gap: 6px; flex: none; }
+.tab {
+  height: 46px; padding: 0 14px 0 10px; border-radius: 999px; border: 0; cursor: pointer;
+  background: var(--primary-soft); color: var(--primary-dark); font: 800 15px/1 var(--font-body);
+  display: flex; align-items: center; gap: 6px;
+}
+.tab svg { width: 24px; height: 24px; flex: none; }
+.tab[aria-selected="true"] { background: var(--primary); color: #fff; }
+.drawer-title { flex: 1; min-width: 0; text-align: right; font: 700 14px/1.2 var(--font-body); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.done { width: 46px; height: 46px; border-radius: 50%; border: 0; background: var(--go); color: #fff; display: grid; place-items: center; cursor: pointer; flex: none; }
+.done svg { width: 26px; height: 26px; }
+.cards { display: flex; gap: 10px; overflow-x: auto; padding: 12px 2px 4px; touch-action: pan-x; scrollbar-width: thin; }
+.card {
+  flex: 0 0 auto; width: 92px; height: 108px; border-radius: 20px; border: 3px solid transparent; padding: 4px;
+  background: #f6f4ff; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  font: 700 13px/1.1 var(--font-body); color: var(--ink); cursor: pointer; touch-action: pan-x; text-align: center;
+}
+.card svg { width: 76px; height: 70px; flex: none; }
+.card.is-on { border-color: var(--primary); background: #ebe6ff; }
+.card .swatch { width: 62px; height: 62px; border-radius: 50%; box-shadow: inset 0 0 0 3px rgba(36, 48, 71, 0.08); }
+.card.is-swatch { width: 78px; }
+.card-sep { flex: 0 0 2px; align-self: stretch; margin: 10px 4px; background: #ece9f8; border-radius: 2px; }
+
+/* --- Erklärung --- */
+.info {
+  position: absolute; z-index: 40; top: calc(env(safe-area-inset-top, 0px) + 84px); left: calc(env(safe-area-inset-left, 0px) + 14px);
+  width: min(400px, calc(100% - 28px)); max-height: calc(100% - 110px); overflow-y: auto; touch-action: pan-y;
+  background: #fff; border-radius: 24px; box-shadow: 0 16px 40px rgba(36, 48, 71, 0.28); padding: 18px 20px 16px;
+  font-size: 15px; line-height: 1.45;
+}
+.info h1 { margin: 0 0 4px; font: 800 26px/1.1 var(--font-display); color: var(--primary-dark); text-wrap: balance; }
+.info p { margin: 0 0 10px; color: var(--muted); }
+.info ol { margin: 0 0 12px; padding-left: 22px; display: grid; gap: 6px; }
+.info li::marker { font-weight: 800; color: var(--primary); }
+.info .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 6px; }
+.info button { height: 44px; padding: 0 16px; border-radius: 999px; border: 0; cursor: pointer; font: 800 15px/1 var(--font-body); }
+.info .go { background: var(--primary); color: #fff; }
+.info .ghost-btn { background: var(--primary-soft); color: var(--primary-dark); }
+.info .warn-btn { background: #ffe3e3; color: #b42323; }
+.info label { display: flex; gap: 8px; align-items: center; font-weight: 700; color: var(--ink); }
+.info input[type="checkbox"] { width: 22px; height: 22px; accent-color: var(--primary); }
+.info .note { font-size: 13px; color: var(--muted); margin: 10px 0 0; }
+
+.fps {
+  position: absolute; z-index: 45; top: calc(env(safe-area-inset-top, 0px) + 82px); left: 50%; transform: translateX(-50%);
+  background: rgba(36, 48, 71, 0.82); color: #fff; padding: 6px 12px; border-radius: 12px;
+  font: 700 13px/1.2 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-variant-numeric: tabular-nums; pointer-events: none;
+}
+/* Ohne eigene Fläche: Ein leeres Element über der ganzen Bühne zöge sonst die
+   Ebene der Knöpfe auf Bildschirmgrösse auf. Was fliegt, liegt darin. */
+.fly-layer { position: absolute; left: 0; top: 0; width: 0; height: 0; overflow: visible; z-index: 35; pointer-events: none; }
+.fly, .ghost { position: absolute; left: 0; top: 0; will-change: transform; pointer-events: none; }
+.ghost { z-index: 36; }
+
+@media (max-width: 560px) {
+  .tab span { display: none; }
+  .tab { padding: 0 11px; }
+  .demo small { display: none; }
+  .demo { padding-right: 14px; }
+  .demo b { font-size: 14px; max-width: 66px; }
+  .hearts { padding: 0 14px 0 10px; }
+  .build { gap: 8px; padding: 8px 8px 8px 10px; }
+  .pallet { grid-template-columns: repeat(5, 16px); grid-auto-rows: 11px; gap: 3px; }
+  .build-btn { width: 52px; height: 52px; }
+}
+@media (max-height: 430px) {
+  .hud-btn { width: 50px; height: 50px; }
+  .hearts { height: 50px; }
+  .build-btn { width: 54px; height: 54px; }
+  .card { height: 96px; width: 84px; }
+  .card svg { height: 60px; }
+  .info { top: calc(env(safe-area-inset-top, 0px) + 74px); max-height: calc(100% - 90px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .drawer, .sky-night, .hills-night, .trash, .hud-btn, .build-btn, .fac-wall, .fac-slab, .fac-door, .shaft, .night-ov, .win-sky, .win-night, .win-day { transition: none; }
+}
+</style>
+<style>[hidden]{display:none!important}</style>
+</head>
+<body>
+<div class="stage" id="stage">
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+    <defs>
+      <pattern id="pat-streifen" width="26" height="26" patternUnits="userSpaceOnUse"><rect width="13" height="26" fill="#ffffff" opacity="0.38"/></pattern>
+      <pattern id="pat-punkte" width="26" height="26" patternUnits="userSpaceOnUse"><circle cx="7" cy="7" r="4" fill="#ffffff" opacity="0.55"/><circle cx="20" cy="20" r="4" fill="#ffffff" opacity="0.55"/></pattern>
+      <pattern id="pat-karo" width="32" height="32" patternUnits="userSpaceOnUse"><rect width="16" height="16" fill="#243047" opacity="0.07"/><rect x="16" y="16" width="16" height="16" fill="#243047" opacity="0.07"/></pattern>
+      <pattern id="pat-sterne" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M10 3l2 5 5 .4-4 3.2 1.4 5-4.4-2.8-4.4 2.8 1.4-5-4-3.2 5-.4z" fill="#ffffff" opacity="0.6"/><circle cx="30" cy="28" r="2.4" fill="#ffffff" opacity="0.6"/></pattern>
+      <pattern id="pat-fliesen" width="24" height="24" patternUnits="userSpaceOnUse"><path d="M24 0V24H0" fill="none" stroke="#ffffff" stroke-width="2" opacity="0.65"/></pattern>
+      <pattern id="pat-ziegel" width="40" height="20" patternUnits="userSpaceOnUse"><path d="M0 0.5H40M0 10.5H40M10 0V10M30 10V20" fill="none" stroke="#b9b4ab" stroke-width="1.5"/></pattern>
+      <pattern id="pat-holz" width="44" height="22" patternUnits="userSpaceOnUse"><path d="M0 11H44M22 0V11M0 11V22" fill="none" stroke="#b7804c" stroke-width="1.6"/></pattern>
+      <pattern id="pat-boden-fliesen" width="26" height="11" patternUnits="userSpaceOnUse"><path d="M0 0.5H26M0.5 0V11" fill="none" stroke="#c9d6df" stroke-width="1.5"/></pattern>
+      <pattern id="pat-gitter" width="14" height="14" patternUnits="userSpaceOnUse"><path d="M0 0L14 14M14 0L0 14" stroke="#c98f12" stroke-width="2"/></pattern>
+      <pattern id="pat-schwellen" width="22" height="12" patternUnits="userSpaceOnUse"><rect x="3" y="0" width="12" height="12" rx="2" fill="#8a6a4a"/></pattern>
+      <pattern id="pat-band" width="20" height="20" patternUnits="userSpaceOnUse" patternTransform="rotate(35)"><rect width="10" height="20" fill="#243047"/><rect x="10" width="10" height="20" fill="#ffd166"/></pattern>
+      <radialGradient id="glow"><stop offset="0" stop-color="#ffd36b" stop-opacity="0.75"/><stop offset="0.55" stop-color="#ffcf6b" stop-opacity="0.28"/><stop offset="1" stop-color="#ffcf6b" stop-opacity="0"/></radialGradient>
+      <clipPath id="roof-clip"><path d="M-24 -16 L319 -136 L662 -16 Z"/></clipPath>
+      <clipPath id="pool-clip"><rect x="96" y="100" width="204" height="52"/></clipPath>
+    </defs>
+  </svg>
+
+  <div class="sky" aria-hidden="true"></div>
+  <div class="sky sky-night" aria-hidden="true"></div>
+  <svg class="sky-art" aria-hidden="true" viewBox="0 0 1000 600" preserveAspectRatio="xMidYMin slice">
+    <g class="sun"><circle cx="840" cy="120" r="74" fill="#fff6c9" opacity="0.6"/><circle cx="840" cy="120" r="46" fill="#ffd166"/></g>
+    <g class="clouds" fill="#ffffff">
+      <ellipse cx="150" cy="110" rx="88" ry="28"/><ellipse cx="210" cy="96" rx="64" ry="26"/>
+      <ellipse cx="560" cy="80" rx="70" ry="22" opacity="0.85"/><ellipse cx="612" cy="70" rx="48" ry="20" opacity="0.85"/>
+    </g>
+    <g class="moon"><circle cx="840" cy="120" r="64" fill="#fff3c4" opacity="0.18"/><circle cx="840" cy="120" r="40" fill="#fff3c4"/><circle cx="826" cy="110" r="7" fill="#efe1a8"/><circle cx="852" cy="132" r="5" fill="#efe1a8"/></g>
+    <g class="stars" fill="#ffffff">
+      <circle cx="90" cy="70" r="2.2"/><circle cx="220" cy="150" r="1.6"/><circle cx="330" cy="60" r="2"/><circle cx="430" cy="130" r="1.4"/>
+      <circle cx="520" cy="40" r="2.4"/><circle cx="640" cy="110" r="1.6"/><circle cx="720" cy="56" r="2"/><circle cx="960" cy="60" r="1.8"/>
+      <circle cx="40" cy="190" r="1.4"/><circle cx="600" cy="200" r="1.4"/><circle cx="930" cy="210" r="1.6"/><circle cx="380" cy="220" r="1.2"/>
+    </g>
+  </svg>
+  <div class="hills" id="hills" aria-hidden="true">
+    <svg viewBox="0 0 1200 420" preserveAspectRatio="xMidYMax slice">
+      <path d="M0 210C150 140 300 150 450 196C600 242 750 156 900 166C1020 174 1120 206 1200 196V420H0Z" fill="#9fc9a6"/>
+      <path d="M0 262C160 214 320 226 480 254C640 282 820 226 980 236C1080 242 1150 258 1200 254V420H0Z" fill="#86b98f"/>
+      <g><rect x="132" y="236" width="10" height="34" rx="3" fill="#7b5c3a"/><circle cx="137" cy="226" r="26" fill="#4f9350"/><circle cx="156" cy="234" r="18" fill="#57a058"/></g>
+      <g><rect x="1012" y="226" width="10" height="34" rx="3" fill="#7b5c3a"/><circle cx="1017" cy="216" r="24" fill="#57a058"/><circle cx="998" cy="226" r="16" fill="#4f9350"/></g>
+      <path d="M0 318C200 292 420 300 640 314C860 328 1040 304 1200 310V420H0Z" fill="#6faa6b"/>
+    </svg>
+    <div class="hills-night"></div>
+  </div>
+
+  <div class="world" id="world"><svg id="wsvg" role="img" aria-label="Dein Haus im Querschnitt"></svg></div>
+
+  <div class="hud hud-tl">
+    <button class="hud-btn" id="btn-info" type="button" aria-label="Erklärung und Einstellungen">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="6.4" r="1.9" fill="currentColor"/><path d="M12 10.6v8" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>
+    </button>
+    <button class="hud-btn" id="btn-undo" type="button" aria-label="Rückgängig" disabled>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 7 4.5 11.5 9 16" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 11.5h8.5a5.5 5.5 0 0 1 0 11H11" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></svg>
+    </button>
+  </div>
+  <div class="hud hud-tr">
+    <div class="hearts" id="hearts" role="status" aria-label="Herzen">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7.5-4.6-9.6-9.2C.9 8.4 3 4.5 6.7 4.5c2.1 0 3.6 1.2 5.3 3.1 1.7-1.9 3.2-3.1 5.3-3.1 3.7 0 5.8 3.9 4.3 7.3C19.5 16.4 12 21 12 21z" fill="#ff5c7a"/></svg>
+      <span id="hearts-n">0</span>
+    </div>
+    <button class="hud-btn" id="btn-night" type="button" aria-label="Nacht"></button>
+    <button class="hud-btn" id="btn-sound" type="button" aria-label="Ton ausschalten"></button>
+  </div>
+
+  <button class="demo" id="btn-demo" type="button">
+    <span class="demo-ico" aria-hidden="true">
+      <svg viewBox="0 0 48 48"><rect x="6" y="20" width="16" height="14" rx="3" fill="#2f6f9f"/><rect x="20" y="24" width="20" height="10" rx="5" fill="#d9584a"/><rect x="33" y="16" width="5" height="9" fill="#9e3b2e"/><circle cx="13" cy="37" r="4" fill="#f5b82e"/><circle cx="30" cy="37" r="4" fill="#f5b82e"/><rect x="9" y="23" width="9" height="6" rx="1.5" fill="#bfe6f5"/></svg>
+    </span>
+    <span><b>Runde gespielt</b><small>Demo: Der Zug bringt Ziegel</small></span>
+  </button>
+  <div class="build" id="build">
+    <div class="pallet" id="pallet" role="img" aria-label="Ziegel auf der Palette"></div>
+    <button class="build-btn" id="btn-build" type="button" aria-label="Stockwerk bauen">
+      <svg viewBox="0 0 40 40" aria-hidden="true"><path d="M8 34V10h4v24M12 12h22M30 12v6" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><rect x="24" y="20" width="12" height="9" rx="2" fill="#fff"/><path d="M5 34h30" stroke="#fff" stroke-width="3" stroke-linecap="round"/></svg>
+    </button>
+  </div>
+  <div class="trash" id="trash" aria-hidden="true">
+    <svg viewBox="0 0 24 24"><path d="M5 7h14M10 4h4M7 7l1 13h8l1-13" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+  </div>
+
+  <section class="drawer" id="drawer" aria-label="Zimmer gestalten">
+    <div class="drawer-head">
+      <div class="tabs" role="tablist" aria-label="Was möchtest du tun?">
+        <button class="tab" id="tab-zimmer" type="button" role="tab" data-tab="zimmer" aria-selected="false">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 11 12 4l8.5 7M6 9.5V20h12V9.5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/><rect x="10" y="13.5" width="4" height="6.5" fill="currentColor"/></svg><span>Zimmer</span>
+        </button>
+        <button class="tab" id="tab-farbe" type="button" role="tab" data-tab="farbe" aria-selected="false">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="14" height="6" rx="2" fill="currentColor"/><path d="M17 7h2.5v5H11v3" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/><rect x="9.2" y="15" width="3.6" height="6" rx="1.2" fill="currentColor"/></svg><span>Farbe</span>
+        </button>
+        <button class="tab" id="tab-moebel" type="button" role="tab" data-tab="moebel" aria-selected="false">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="8" width="14" height="7" rx="2.5" fill="currentColor"/><rect x="2.5" y="11" width="4" height="7" rx="2" fill="currentColor"/><rect x="17.5" y="11" width="4" height="7" rx="2" fill="currentColor"/><rect x="5" y="14" width="14" height="4" fill="currentColor"/><path d="M5 18v2M19 18v2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span>Möbel</span>
+        </button>
+      </div>
+      <div class="drawer-title" id="drawer-title"></div>
+      <button class="done" id="btn-done" type="button" aria-label="Fertig">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5 10 17.5 19 7" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+    </div>
+    <div class="cards" id="cards" role="tabpanel"></div>
+  </section>
+
+  <aside class="info" id="info" hidden aria-labelledby="info-title">
+    <h1 id="info-title">Stilprobe Bauecke</h1>
+    <p>So könnte der Bau-Bereich im Gripszug aussehen und sich anfühlen. Alles ist mit Code gezeichnet, wie die übrige App, und läuft über eine einzige Bildschleife.</p>
+    <ol>
+      <li><b>Runde gespielt</b> (unten links): Der Zug bringt Ziegel – so käme der Lohn fürs Üben an.</li>
+      <li>Sind zehn Ziegel auf der Palette, baust du rechts unten ein Stockwerk.</li>
+      <li>Tippe ein Zimmer an: Zimmerart, Farbe, Möbel. Möbel antippen oder ins Zimmer ziehen; zum Wegräumen in den Eimer ziehen.</li>
+      <li>Tippe ein Tier an: Es sagt, was es sich wünscht. Erfüllte Wünsche geben Herzen. Tiere lassen sich auch tragen – zum Beispiel ins Wasser.</li>
+      <li>Lift-Knöpfe, Dach, Tag und Nacht antippen.</li>
+    </ol>
+    <div class="row">
+      <label for="opt-fps"><input type="checkbox" id="opt-fps"> Bildrate anzeigen</label>
+    </div>
+    <div class="row" id="reset-row">
+      <button class="warn-btn" id="btn-reset" type="button">Neu anfangen</button>
+    </div>
+    <div class="row">
+      <button class="go" id="btn-info-close" type="button">Los geht's</button>
+    </div>
+    <p class="note">Dein Haus bleibt in diesem Browser gespeichert. Mit der Einstellung «Bewegung reduzieren» des Geräts steht alles still.</p>
+  </aside>
+
+  <div class="fps" id="fps" hidden></div>
+  <div class="fly-layer" id="fly"></div>
+</div>
+
+<script>
+(() => {
+  "use strict";
+
+  // ===========================================================================
+  // Hilfen
+  // ===========================================================================
+  const NS = "http://www.w3.org/2000/svg";
+  const $ = (s) => document.querySelector(s);
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const lerp = (a, b, t) => a + (b - a) * t;
+  const motionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+  const reduced = () => motionQuery.matches;
+  const r1 = (n) => Math.round(n * 10) / 10;
+
+  function shade(hex, amt) {
+    const n = parseInt(hex.slice(1), 16);
+    const t = amt < 0 ? 0 : 255;
+    const p = Math.abs(amt);
+    const ch = (v) => Math.round(v + (t - v) * p);
+    const r = ch(n >> 16), g = ch((n >> 8) & 255), b = ch(n & 255);
+    return "#" + ((1 << 24) | (r << 16) | (g << 8) | b).toString(16).slice(1);
+  }
+  function recall(k) { try { return localStorage.getItem(k); } catch { return null; } }
+  function remember(k, v) { try { localStorage.setItem(k, v); } catch { /* privater Modus */ } }
+
+  // ===========================================================================
+  // Masse – Einheiten im Haus. (0,0) ist links unten am Haus, auf dem Boden.
+  // ===========================================================================
+  const HALF = 300;                 // ein Zimmer
+  const DIV = 10;                   // Wand zwischen den beiden Zimmern
+  const WALL = 14;                  // Aussenwand
+  const INNER = HALF * 2 + DIV;     // 610
+  const BW = INNER + WALL * 2;      // 638: das Haus ohne Lift
+  const LIFT = 86;
+  const STORY = 168, SLAB = 16, ROOM = STORY - SLAB, STAND = ROOM - 8;
+  const ROOF = 120, CLEAR = 200, GROUND = 104;
+  const ESSENTIAL_W = BW + LIFT + 64;
+  const BASIN = 100;                // Hallenbad: ab hier ist Wasser
+  const LIFT_IN = BW + LIFT / 2 - WALL;   // Liftmitte in Innenmass
+  const DOOR_R = INNER + 6;               // vor der Lifttür
+  const OUTSIDE = LIFT_IN + 74;           // draussen neben dem Lift (Erdgeschoss)
+  const roomX = (h) => WALL + h * (HALF + DIV);
+  const storyTop = (f) => -(f + 1) * STORY;
+  const standY = (f) => -f * STORY - 24;
+
+  // ===========================================================================
+  // Katalog
+  // ===========================================================================
+  const ROOM_TYPES = {
+    rohbau: { name: "Rohbau", wall: "#d6d3cd", floor: "beton" },
+    wohnung: { name: "Wohnung", wall: "#ffe3c4", floor: "holz", icon: "bett", starter: [["teppich", 150], ["bett", 78], ["lampe", 172], ["tisch", 238]] },
+    bad: { name: "Bad", wall: "#cdeef5", floor: "fliesen", icon: "wanne", starter: [["wanne", 86], ["lavabo", 184], ["wc", 254]] },
+    laden: { name: "Laden", wall: "#fff1b8", floor: "fliesen", icon: "regal", starter: [["regal", 64], ["obst", 150], ["kasse", 234]] },
+    spielplatz: { name: "Spielplatz", wall: "#d8f2c4", floor: "matte", icon: "rutsche", starter: [["rutsche", 82], ["ball", 172], ["trampolin", 240]] },
+    hallenbad: { name: "Hallenbad", wall: "#c7e3ff", floor: "fliesen", icon: null, starter: [["sprungbrett", 58], ["pflanze", 22]] },
+    schule: { name: "Schule", wall: "#e7e0ff", floor: "holz", icon: "tafel", starter: [["tafel", 124], ["pult", 82], ["pult", 216], ["globus", 270]] },
+    kita: { name: "Kita", wall: "#ffd6e4", floor: "matte", icon: "schaukelpferd", starter: [["schaukelpferd", 74], ["kloetze", 164], ["kiste", 240]] },
+    bibliothek: { name: "Bibliothek", wall: "#f1e2cc", floor: "holz", icon: "buecherregal", starter: [["buecherregal", 70], ["sessel", 176], ["lampe", 250]] },
+  };
+  const TYPE_ORDER = ["wohnung", "bad", "laden", "spielplatz", "hallenbad", "schule", "kita", "bibliothek"];
+  const SWATCHES = ["#ffffff", "#fff1a6", "#ffe3c4", "#ff9f6b", "#ff8080", "#ffb3cf", "#d6c2ff", "#a9c8ff", "#a8e6e2", "#c8ec9a", "#d9c2a3", "#8e9bb5"];
+  const PATTERNS = ["none", "streifen", "punkte", "karo", "sterne"];
+  const PATTERN_NAMES = { none: "Ohne", streifen: "Streifen", punkte: "Punkte", karo: "Karo", sterne: "Sterne" };
+  const ORANGE = "#ff9f6b";
+
+  const leg = (x, h, c) => `<rect x="${x}" y="${-h}" width="6" height="${h}" rx="2" fill="${c}"/>`;
+  // Jedes Ding steht mit seiner Mitte unten bei (0,0); Wandbilder hängen mit
+  // ihrer Mitte bei (0,0). w und h sind die Masse fürs Greifen und Platzieren.
+  const ITEMS = {
+    bett: { name: "Bett", w: 124, h: 66, rooms: ["wohnung"], c: "#7c5ce6", d: (c) =>
+      `<rect x="-62" y="-66" width="14" height="66" rx="6" fill="#a46c43"/><rect x="48" y="-46" width="14" height="46" rx="6" fill="#a46c43"/>` +
+      `<rect x="-50" y="-30" width="100" height="18" rx="4" fill="#c88c5c"/>${leg(-46, 12, "#8a5734")}${leg(40, 12, "#8a5734")}` +
+      `<rect x="-50" y="-44" width="100" height="16" rx="7" fill="#fbf8f2"/><rect x="-47" y="-56" width="30" height="14" rx="7" fill="#ffffff"/>` +
+      `<path d="M-16 -46h56a8 8 0 0 1 8 8v12h-64z" fill="${c}"/><path d="M-16 -46h56a8 8 0 0 1 8 8v2h-64z" fill="${shade(c, 0.25)}"/>` },
+    sofa: { name: "Sofa", w: 116, h: 48, rooms: ["wohnung", "bibliothek"], c: "#ff8a65", d: (c) =>
+      `<rect x="-52" y="-48" width="104" height="28" rx="11" fill="${shade(c, -0.14)}"/><rect x="-52" y="-26" width="104" height="18" rx="6" fill="${c}"/>` +
+      `<rect x="-45" y="-35" width="43" height="13" rx="6" fill="${shade(c, 0.14)}"/><rect x="2" y="-35" width="43" height="13" rx="6" fill="${shade(c, 0.14)}"/>` +
+      `<rect x="-58" y="-38" width="15" height="30" rx="7" fill="${shade(c, -0.05)}"/><rect x="43" y="-38" width="15" height="30" rx="7" fill="${shade(c, -0.05)}"/>` +
+      `${leg(-46, 8, "#6b4a33")}${leg(40, 8, "#6b4a33")}` },
+    tisch: { name: "Tisch", w: 72, h: 72, rooms: ["wohnung", "kita", "bibliothek", "schule"], d: () =>
+      `<rect x="-36" y="-46" width="72" height="8" rx="3" fill="#c88c5c"/>${leg(-30, 38, "#a46c43")}${leg(24, 38, "#a46c43")}` +
+      `<path d="M-6 -46q-5-10 2-17h8q7 7 2 17z" fill="#6cc3d5"/><circle cx="0" cy="-68" r="6" fill="#ff7aa2"/><circle cx="-7" cy="-63" r="5" fill="#ffd166"/><circle cx="7" cy="-62" r="5" fill="#ff9f6b"/>` },
+    stuhl: { name: "Stuhl", w: 36, h: 62, rooms: ["wohnung", "schule", "kita", "bibliothek"], d: () =>
+      `<rect x="-15" y="-62" width="7" height="62" rx="3" fill="#a46c43"/><rect x="-15" y="-31" width="31" height="7" rx="3" fill="#c88c5c"/>${leg(9, 24, "#a46c43")}<rect x="-15" y="-60" width="7" height="24" rx="3" fill="#c88c5c"/>` },
+    lampe: { name: "Lampe", w: 36, h: 112, all: true, light: true, d: () =>
+      `<ellipse cx="0" cy="-3" rx="14" ry="4" fill="#4a5568"/><rect x="-2.5" y="-88" width="5" height="86" fill="#4a5568"/>` +
+      `<path d="M-17 -86L-10 -112H10L17 -86Z" fill="#ffd166"/><rect x="-17" y="-88" width="34" height="4" rx="2" fill="#e8b94f"/>` },
+    pflanze: { name: "Pflanze", w: 40, h: 82, all: true, d: () =>
+      `<path d="M-14 -27h28l-4 27h-20z" fill="#d9734e"/><rect x="-16" y="-31" width="32" height="7" rx="3" fill="#c2603d"/>` +
+      `<path d="M0 -31C-4 -51 -22 -57 -27 -49C-22 -41 -8 -37 0 -31Z" fill="#5cb85c"/><path d="M0 -31C4 -55 22 -63 27 -55C22 -45 8 -39 0 -31Z" fill="#4aa34a"/>` +
+      `<path d="M0 -31C-2 -59 6 -75 2 -82C-8 -71 -8 -47 0 -31Z" fill="#6cc76a"/>` },
+    bild: { name: "Bild", w: 56, h: 44, wall: 86, all: true, d: () =>
+      `<rect x="-28" y="-22" width="56" height="44" rx="4" fill="#c88c5c"/><rect x="-23" y="-17" width="46" height="34" rx="2" fill="#bfe6f5"/>` +
+      `<path d="M-23 17L-9 1L1 9L11 -3L23 9V17Z" fill="#7cc05e"/><circle cx="11" cy="-8" r="4.5" fill="#ffd166"/>` },
+    teppich: { name: "Teppich", w: 128, h: 14, flat: true, all: true, c: "#ff9fb5", d: (c) =>
+      `<ellipse cx="0" cy="-2" rx="64" ry="9" fill="${c}"/><ellipse cx="0" cy="-2" rx="50" ry="5.5" fill="none" stroke="#ffffff" stroke-width="2" stroke-dasharray="6 5" opacity="0.7"/>` },
+    wanne: { name: "Badewanne", w: 118, h: 64, rooms: ["bad"], d: () =>
+      `<rect x="-42" y="-11" width="8" height="11" rx="3" fill="#ffd166"/><rect x="34" y="-11" width="8" height="11" rx="3" fill="#ffd166"/>` +
+      `<rect x="-56" y="-46" width="112" height="37" rx="16" fill="#ffffff" stroke="#d3e3ec" stroke-width="2"/>` +
+      `<path d="M47 -46v-14h-11" fill="none" stroke="#9aa5b1" stroke-width="5" stroke-linecap="round"/>` +
+      `<circle cx="-22" cy="-50" r="8" fill="#ffffff"/><circle cx="-9" cy="-54" r="10" fill="#ffffff"/><circle cx="6" cy="-50" r="7" fill="#ffffff"/>` +
+      `<circle cx="24" cy="-53" r="5.5" fill="#ffd166"/><path d="M28.5 -54l6 1-6 2.4z" fill="#f5a623"/><circle cx="25.5" cy="-55" r="1.1" fill="#243047"/>` },
+    wc: { name: "WC", w: 48, h: 64, rooms: ["bad"], d: () =>
+      `<rect x="4" y="-64" width="17" height="30" rx="4" fill="#ffffff" stroke="#d3e3ec" stroke-width="2"/>` +
+      `<path d="M-20 -36h37v6q0 18-16 22h-6v8h-9v-10q-6-6-6-20z" fill="#ffffff" stroke="#d3e3ec" stroke-width="2"/>` +
+      `<rect x="-22" y="-41" width="41" height="6" rx="3" fill="#a8ddf0"/>` },
+    lavabo: { name: "Lavabo", w: 56, h: 114, rooms: ["bad"], d: () =>
+      `<rect x="-18" y="-114" width="36" height="40" rx="13" fill="#e6f6fc" stroke="#c9d9e3" stroke-width="3"/><path d="M-8 -104l8 -6" stroke="#ffffff" stroke-width="3" stroke-linecap="round"/>` +
+      `<rect x="-6" y="-42" width="12" height="42" rx="4" fill="#ffffff" stroke="#d3e3ec" stroke-width="2"/>` +
+      `<path d="M-27 -60h54q-2 18-21 20h-12q-19-2-21-20z" fill="#ffffff" stroke="#d3e3ec" stroke-width="2"/><path d="M0 -60v-8h8" stroke="#9aa5b1" stroke-width="4" fill="none" stroke-linecap="round"/>` },
+    regal: { name: "Regal", w: 94, h: 106, rooms: ["laden"], d: () =>
+      `<rect x="-47" y="-106" width="94" height="106" rx="4" fill="#b07a4f"/><rect x="-41" y="-100" width="82" height="94" fill="#f6e7d0"/>` +
+      `<rect x="-41" y="-73" width="82" height="5" fill="#b07a4f"/><rect x="-41" y="-42" width="82" height="5" fill="#b07a4f"/>` +
+      `<rect x="-37" y="-95" width="14" height="22" rx="3" fill="#ff7a7a"/><rect x="-19" y="-91" width="14" height="18" rx="3" fill="#6cc3d5"/><circle cx="7" cy="-82" r="9" fill="#ffd166"/><rect x="21" y="-97" width="15" height="24" rx="3" fill="#7cc05e"/>` +
+      `<ellipse cx="-24" cy="-50" rx="13" ry="7.5" fill="#d9a066"/><ellipse cx="1" cy="-50" rx="13" ry="7.5" fill="#c98d55"/><ellipse cx="26" cy="-50" rx="12" ry="7.5" fill="#d9a066"/>` +
+      `<rect x="-37" y="-31" width="20" height="25" rx="3" fill="#a78bfa"/><rect x="-13" y="-29" width="20" height="23" rx="3" fill="#ff9f6b"/><rect x="11" y="-33" width="24" height="27" rx="3" fill="#6cc3d5"/>` },
+    kasse: { name: "Kasse", w: 94, h: 88, rooms: ["laden"], d: () =>
+      `<rect x="-47" y="-52" width="94" height="52" rx="6" fill="#6c5ce7"/><rect x="-47" y="-58" width="94" height="10" rx="4" fill="#5141c9"/><rect x="-47" y="-31" width="94" height="6" fill="#8a7cf0"/>` +
+      `<rect x="6" y="-80" width="33" height="23" rx="4" fill="#4a5568"/><rect x="10" y="-76" width="17" height="8" rx="2" fill="#a8f0c6"/><rect x="29" y="-88" width="8" height="10" rx="2" fill="#4a5568"/>` +
+      `<path d="M-35 -58l4-17h19l4 17z" fill="#ffd166"/><path d="M-27 -75q5-8 10 0" fill="none" stroke="#e8b94f" stroke-width="2.4"/>` },
+    obst: { name: "Obstkiste", w: 58, h: 52, rooms: ["laden"], d: () =>
+      `<rect x="-29" y="-31" width="58" height="31" rx="4" fill="#c88c5c"/><rect x="-29" y="-19" width="58" height="4" fill="#a46c43"/>` +
+      `<circle cx="-16" cy="-35" r="8" fill="#ff5c5c"/><circle cx="0" cy="-37" r="8" fill="#7cc05e"/><circle cx="16" cy="-35" r="8" fill="#ffb347"/><circle cx="-8" cy="-44" r="7" fill="#ff7a7a"/><circle cx="9" cy="-45" r="7" fill="#ffd166"/>` },
+    rutsche: { name: "Rutsche", w: 120, h: 104, rooms: ["spielplatz", "kita"], d: () =>
+      `<rect x="-56" y="-98" width="6" height="98" fill="#4a5568"/><rect x="-36" y="-98" width="6" height="98" fill="#4a5568"/>` +
+      [-80, -60, -40, -20].map((y) => `<rect x="-56" y="${y}" width="26" height="5" rx="2" fill="#6b7280"/>`).join("") +
+      `<rect x="-60" y="-104" width="36" height="9" rx="3" fill="#ffd166"/>` +
+      `<path d="M-26 -96C8 -94 16 -28 56 -9" fill="none" stroke="#ff7a59" stroke-width="13" stroke-linecap="round"/>` +
+      `<path d="M-26 -100C8 -98 16 -32 56 -13" fill="none" stroke="#ffa284" stroke-width="3" stroke-linecap="round"/>` },
+    ball: { name: "Ball", w: 30, h: 30, rooms: ["spielplatz", "kita", "hallenbad"], d: () =>
+      `<circle cx="0" cy="-15" r="15" fill="#ff5c7a"/><path d="M-15 -15a15 15 0 0 0 30 0z" fill="#ffd166"/><path d="M-5 -15a5 15 0 0 0 10 0z" fill="#ffffff"/><circle cx="-5" cy="-22" r="3.4" fill="#ffffff" opacity="0.7"/>` },
+    trampolin: { name: "Trampolin", w: 88, h: 36, rooms: ["spielplatz"], d: () =>
+      `<rect x="-38" y="-26" width="6" height="26" fill="#4a5568"/><rect x="32" y="-26" width="6" height="26" fill="#4a5568"/>` +
+      `<ellipse cx="0" cy="-27" rx="44" ry="9" fill="#3a86ff"/><ellipse cx="0" cy="-28" rx="34" ry="5.5" fill="#243047"/>` },
+    sprungbrett: { name: "Sprungbrett", w: 92, h: 46, rooms: ["hallenbad"], d: () =>
+      `<rect x="-46" y="-36" width="26" height="36" rx="4" fill="#9aa5b1"/><rect x="-44" y="-30" width="22" height="4" fill="#7c8796"/><rect x="-44" y="-18" width="22" height="4" fill="#7c8796"/>` +
+      `<rect x="-46" y="-45" width="92" height="9" rx="4.5" fill="#3a86ff"/>` },
+    liege: { name: "Liegestuhl", w: 80, h: 48, rooms: ["hallenbad", "spielplatz"], d: () =>
+      `${leg(-34, 15, "#a46c43")}${leg(24, 15, "#a46c43")}<path d="M-36 -17H25L37 -44" fill="none" stroke="#ff9f6b" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>` +
+      `<path d="M-36 -17H25L37 -44" fill="none" stroke="#ffffff" stroke-width="3" stroke-dasharray="8 8" stroke-linecap="round" stroke-linejoin="round"/>` },
+    tafel: { name: "Wandtafel", w: 126, h: 76, wall: 88, rooms: ["schule"], d: () =>
+      `<rect x="-63" y="-38" width="126" height="76" rx="6" fill="#a46c43"/><rect x="-57" y="-32" width="114" height="62" rx="3" fill="#2f5d50"/>` +
+      `<text x="0" y="8" text-anchor="middle" font-size="24" font-weight="800" font-family="'Baloo 2', Nunito, sans-serif" fill="#f4f1ea" opacity="0.92">2 + 3 = 5</text>` +
+      `<rect x="-48" y="34" width="96" height="5" rx="2" fill="#8a5734"/><rect x="24" y="30" width="12" height="4" rx="2" fill="#ffffff"/>` },
+    pult: { name: "Pult", w: 64, h: 56, rooms: ["schule"], d: () =>
+      `<rect x="-32" y="-45" width="64" height="7" rx="2" fill="#c88c5c"/>${leg(-27, 38, "#6b7280")}${leg(21, 38, "#6b7280")}` +
+      `<rect x="-14" y="-52" width="22" height="7" rx="1.5" fill="#ff7a7a"/><rect x="10" y="-50" width="12" height="5" rx="1.5" fill="#6cc3d5"/>` },
+    globus: { name: "Globus", w: 38, h: 54, rooms: ["schule", "bibliothek"], d: () =>
+      `<rect x="-12" y="-6" width="24" height="6" rx="2" fill="#a46c43"/><rect x="-2" y="-22" width="4" height="16" fill="#a46c43"/>` +
+      `<circle cx="0" cy="-37" r="16" fill="#6cc3d5"/><path d="M-11 -45q6-2 9 4q-2 6-9 6q-4-4 0-10z" fill="#7cc05e"/><path d="M4 -35q6-2 8 4q-4 6-8 2z" fill="#7cc05e"/>` +
+      `<path d="M-17 -37a17 17 0 0 0 34 0" fill="none" stroke="#a46c43" stroke-width="2.4"/>` },
+    schaukelpferd: { name: "Schaukelpferd", w: 72, h: 70, rooms: ["kita"], d: () =>
+      `<path d="M-33 -6Q0 7 33 -6" fill="none" stroke="#a46c43" stroke-width="6" stroke-linecap="round"/>${leg(-21, 26, "#a46c43")}${leg(14, 26, "#a46c43")}` +
+      `<rect x="-25" y="-46" width="46" height="21" rx="10" fill="#ffd166"/><path d="M13 -45l8-23h13l-2 15-10 10z" fill="#ffd166"/>` +
+      `<path d="M20 -68q-7 10-4 21" stroke="#ff7a59" stroke-width="5" fill="none" stroke-linecap="round"/><circle cx="27" cy="-61" r="2.2" fill="#243047"/>` +
+      `<rect x="-8" y="-50" width="17" height="8" rx="3" fill="#ff5c7a"/><path d="M-25 -40q-10 4-8 16" stroke="#ff7a59" stroke-width="5" fill="none" stroke-linecap="round"/>` },
+    kloetze: { name: "Bauklötze", w: 56, h: 44, rooms: ["kita"], d: () => {
+      const b = (x, y, c, l) => `<rect x="${x}" y="${y}" width="21" height="21" rx="3" fill="${c}"/><text x="${x + 10.5}" y="${y + 15.5}" text-anchor="middle" font-size="14" font-weight="800" font-family="'Baloo 2', Nunito, sans-serif" fill="#ffffff">${l}</text>`;
+      return b(-27, -21, "#ff7a7a", "A") + b(-4, -21, "#6cc3d5", "B") + b(-16, -43, "#7c5ce6", "C");
+    } },
+    kiste: { name: "Spielkiste", w: 66, h: 60, rooms: ["kita"], d: () =>
+      `<circle cx="-14" cy="-44" r="8" fill="#ff5c7a"/><rect x="2" y="-58" width="7" height="20" rx="3" fill="#ffd166"/><circle cx="18" cy="-42" r="6" fill="#7cc05e"/>` +
+      `<rect x="-33" y="-35" width="66" height="35" rx="5" fill="#3a86ff"/><rect x="-35" y="-41" width="70" height="10" rx="5" fill="#2a6fd6"/>` +
+      `<path d="M0 -26l2.6 5.4 6 .8-4.4 4 1.1 6-5.3-2.9-5.3 2.9 1.1-6-4.4-4 6-.8z" fill="#ffd166"/>` },
+    buecherregal: { name: "Bücherregal", w: 94, h: 108, rooms: ["bibliothek", "wohnung", "schule"], d: () => {
+      let s = `<rect x="-47" y="-108" width="94" height="108" rx="4" fill="#9a6640"/><rect x="-41" y="-102" width="82" height="96" fill="#f3e6d2"/>` +
+        `<rect x="-41" y="-72" width="82" height="5" fill="#9a6640"/><rect x="-41" y="-39" width="82" height="5" fill="#9a6640"/>`;
+      const cols = ["#ff7a7a", "#6cc3d5", "#ffd166", "#7c5ce6", "#7cc05e", "#ff9f6b", "#a78bfa", "#3a86ff"];
+      [[-102, -72], [-67, -39], [-34, -6]].forEach(([top, bot], row) => {
+        let x = -39;
+        for (let i = 0; i < 7 && x < 34; i += 1) {
+          const w = 8 + ((i * 7 + row * 3) % 5), hh = (bot - top) - 4 - ((i * 5 + row) % 3) * 4;
+          s += `<rect x="${x}" y="${bot - hh}" width="${w}" height="${hh}" rx="1.5" fill="${cols[(i + row * 3) % cols.length]}"/>`;
+          x += w + 2;
+        }
+      });
+      return s;
+    } },
+    sessel: { name: "Sessel", w: 76, h: 54, rooms: ["bibliothek", "wohnung"], c: "#5bb39a", d: (c) =>
+      `<rect x="-30" y="-54" width="60" height="32" rx="12" fill="${shade(c, -0.14)}"/><rect x="-30" y="-28" width="60" height="20" rx="6" fill="${c}"/>` +
+      `<rect x="-24" y="-36" width="48" height="12" rx="6" fill="${shade(c, 0.16)}"/><rect x="-38" y="-40" width="15" height="32" rx="7" fill="${shade(c, -0.05)}"/><rect x="23" y="-40" width="15" height="32" rx="7" fill="${shade(c, -0.05)}"/>` +
+      `${leg(-28, 8, "#6b4a33")}${leg(22, 8, "#6b4a33")}` },
+  };
+  const ITEM_ORDER = Object.keys(ITEMS);
+  const zOf = (id) => (ITEMS[id].flat ? 0 : ITEMS[id].wall ? 1 : 2);
+  function itemsFor(type) {
+    const own = ITEM_ORDER.filter((id) => (ITEMS[id].rooms || []).includes(type));
+    const all = ITEM_ORDER.filter((id) => ITEMS[id].all && !own.includes(id));
+    return own.concat(all);
+  }
+  function drawItem(id, c) { const it = ITEMS[id]; return it.d(c || it.c || "#7c5ce6"); }
+
+  // Die Tiere – Farben wie die Chauffeure der Lok.
+  const SPECIES = {
+    hase: { name: "Hase", der: "der Hase", coat: "#f0ece6", inner: "#f7b8c4", ear: "long" },
+    pinguin: { name: "Pinguin", der: "der Pinguin", coat: "#3a4250", inner: "#ffffff", ear: "none" },
+    eule: { name: "Eule", der: "die Eule", coat: "#a9814f", inner: "#f3e2c0", ear: "tuft" },
+    fuchs: { name: "Fuchs", der: "der Fuchs", coat: "#e8763a", inner: "#ffd9b8", ear: "point" },
+    baer: { name: "Bär", der: "der Bär", coat: "#9a6b46", inner: "#d8b48f", ear: "round" },
+    maus: { name: "Maus", der: "die Maus", coat: "#b0b3bd", inner: "#f7c9d4", ear: "big" },
+    panda: { name: "Panda", der: "der Panda", coat: "#f4f1ec", inner: "#2f3138", ear: "round" },
+  };
+  // Je Tier ein Wunsch. Erfüllt heisst: ein Herz, einmal.
+  const WISHES = {
+    hase: { type: "item", item: "pflanze", say: "Ich wünsche mir eine Pflanze in meiner Wohnung.", thanks: "Juhu, eine Pflanze!" },
+    eule: { type: "item", item: "buecherregal", say: "Ich lese so gern. Ich wünsche mir ein Bücherregal.", thanks: "Danke! Jetzt kann ich lesen." },
+    pinguin: { type: "room", room: "hallenbad", say: "Ich wünsche mir ein Hallenbad im Haus.", thanks: "Ein Hallenbad! Ich gehe schwimmen." },
+    fuchs: { type: "color", color: ORANGE, say: "Ich mag Orange. Malst du meine Wand orange an?", thanks: "Orange! Wunderschön." },
+    baer: { type: "item", item: "sofa", say: "Ich wünsche mir ein gemütliches Sofa.", thanks: "Ah, ist das gemütlich!" },
+    maus: { type: "room", room: "kita", say: "Ich wünsche mir eine Kita für meine Kinder.", thanks: "Eine Kita! Danke schön!" },
+    panda: { type: "item", item: "pflanze", say: "Ich wünsche mir etwas Grünes.", thanks: "Mmh, grün!" },
+    kinder: { type: "room", room: "spielplatz", say: "Wir wollen einen Spielplatz!", thanks: "Juhu, spielen!" },
+  };
+
+  // ===========================================================================
+  // Stand
+  // ===========================================================================
+  const KEY = "gz-bauecke-stilprobe-1";
+  const room = (type, items) => ({ type, wall: ROOM_TYPES[type].wall, pattern: "none", items: items.map(([k, x]) => ({ k, x })) });
+  function exampleState() {
+    return {
+      v: 1, bricks: 8, hearts: 1, roof: "#d9584a", night: false,
+      floors: [
+        { rooms: [room("laden", [["regal", 64], ["obst", 150], ["kasse", 234]]), room("wohnung", [["bett", 78], ["lampe", 166], ["tisch", 238]])] },
+        { rooms: [room("wohnung", [["teppich", 150], ["bett", 76], ["sofa", 218], ["bild", 150]]), room("bad", [["wanne", 86], ["lavabo", 184], ["wc", 254]])] },
+        { rooms: [room("wohnung", [["bett", 76], ["lampe", 160], ["sessel", 228]]), room("spielplatz", [["rutsche", 82], ["ball", 172], ["trampolin", 240]])] },
+      ],
+      residents: [
+        { id: "pinguin", sp: "pinguin", home: [0, 1] },
+        { id: "hase", sp: "hase", home: [1, 0] },
+        { id: "eule", sp: "eule", home: [2, 0] },
+        { id: "kind1", sp: "hase", kid: true, home: [2, 1] },
+        { id: "kind2", sp: "hase", kid: true, home: [2, 1] },
+      ],
+      queue: ["fuchs", "baer", "maus", "panda"],
+      met: { kinder: true },
+    };
+  }
+  function valid(s) {
+    return s && s.v === 1 && Array.isArray(s.floors) && s.floors.length >= 1 && s.floors.length <= 40 &&
+      s.floors.every((f) => Array.isArray(f.rooms) && f.rooms.length === 2 && f.rooms.every((r) => ROOM_TYPES[r.type] && Array.isArray(r.items))) &&
+      Array.isArray(s.residents) && Array.isArray(s.queue) && typeof s.met === "object";
+  }
+  function load() { try { const s = JSON.parse(recall(KEY) || "null"); return valid(s) ? s : null; } catch { return null; } }
+  let S = load() || exampleState();
+  function save() { remember(KEY, JSON.stringify(S)); }
+
+  const undoStack = [];
+  function snapshot() { undoStack.push(JSON.stringify(S)); if (undoStack.length > 30) undoStack.shift(); updateUndo(); }
+
+  const wishKey = (r) => (r.kid ? "kinder" : r.id);
+  const roomAt = (f, h) => S.floors[f] && S.floors[f].rooms[h];
+
+  // ===========================================================================
+  // Ton und Stimme
+  // ===========================================================================
+  let soundOn = recall("gz-bau-ton") !== "0";
+  let actx = null;
+  function ac() {
+    if (!soundOn) return null;
+    try {
+      actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+      if (actx.state === "suspended") actx.resume();
+      return actx;
+    } catch { return null; }
+  }
+  function tone(f0, f1, dur, type = "sine", vol = 0.06, delay = 0) {
+    const c = ac(); if (!c) return;
+    const t = c.currentTime + delay;
+    const o = c.createOscillator(), g = c.createGain();
+    o.type = type; o.frequency.setValueAtTime(f0, t);
+    if (f1 !== f0) o.frequency.exponentialRampToValueAtTime(f1, t + dur);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.012); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g).connect(c.destination); o.start(t); o.stop(t + dur + 0.03);
+  }
+  let noiseBuf = null;
+  function noise(dur, vol = 0.05, freq = 900, delay = 0) {
+    const c = ac(); if (!c) return;
+    if (!noiseBuf) { noiseBuf = c.createBuffer(1, c.sampleRate, c.sampleRate); const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i += 1) d[i] = Math.random() * 2 - 1; }
+    const t = c.currentTime + delay;
+    const s = c.createBufferSource(), f = c.createBiquadFilter(), g = c.createGain();
+    s.buffer = noiseBuf; f.type = "bandpass"; f.frequency.value = freq; f.Q.value = 0.9;
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.03); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    s.connect(f).connect(g).connect(c.destination); s.start(t); s.stop(t + dur + 0.05);
+  }
+  const sfx = {
+    plopp: () => tone(620, 240, 0.13, "sine", 0.08),
+    pop: () => tone(520, 900, 0.09, "sine", 0.05),
+    klonk: () => { tone(210, 150, 0.15, "triangle", 0.1); tone(420, 330, 0.08, "sine", 0.04); },
+    ding: () => { tone(988, 988, 0.5, "sine", 0.045); tone(1319, 1319, 0.6, "sine", 0.035, 0.13); },
+    herz: () => [660, 880, 1175].forEach((f, i) => tone(f, f, 0.24, "sine", 0.05, i * 0.08)),
+    wusch: () => noise(0.3, 0.05, 700),
+    pinsel: () => noise(0.42, 0.035, 2400),
+    klack: () => { tone(170, 90, 0.18, "square", 0.04); noise(0.14, 0.06, 420); },
+    nein: () => { tone(330, 300, 0.12, "sine", 0.05); tone(262, 240, 0.16, "sine", 0.05, 0.13); },
+    pfiff: () => { tone(880, 900, 0.26, "sine", 0.04); tone(1100, 1120, 0.3, "sine", 0.03, 0.05); },
+    tschu: () => noise(0.12, 0.03, 600),
+    hoch: () => [392, 523, 659, 784].forEach((f, i) => tone(f, f, 0.2, "triangle", 0.035, i * 0.09)),
+  };
+  function say(text) {
+    if (!soundOn || !text || !("speechSynthesis" in window)) return;
+    try {
+      window.speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(text);
+      const voices = window.speechSynthesis.getVoices().filter((v) => /^de/i.test(v.lang));
+      const v = voices.find((x) => /natural/i.test(x.name)) || voices.find((x) => /CH/i.test(x.lang)) || voices.find((x) => /google/i.test(x.name)) || voices[0];
+      if (v) { u.voice = v; u.lang = v.lang; } else u.lang = "de-DE";
+      u.rate = 0.96;
+      window.speechSynthesis.speak(u);
+    } catch { /* keine Stimme */ }
+  }
+
+  // ===========================================================================
+  // Takt: eine Schleife für alles, was sich bewegt
+  // ===========================================================================
+  const ease = {
+    out: (t) => 1 - Math.pow(1 - t, 3),
+    inOut: (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2),
+    in: (t) => t * t * t,
+    in2: (t) => t * t,
+    back: (t) => { const c1 = 1.5, c3 = c1 + 1; return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2); },
+    lin: (t) => t,
+  };
+  const tweens = new Set();
+  function tween(dur, fn, opts = {}) {
+    const e = opts.e || ease.out;
+    if (reduced() || dur <= 0) { fn(1); if (opts.done) opts.done(); return { cancel() {} }; }
+    const tw = { t0: performance.now() + (opts.delay || 0), dur, fn, e, done: opts.done, cancel() { tweens.delete(tw); } };
+    tweens.add(tw); wake();
+    return tw;
+  }
+  const tweenP = (dur, fn, opts = {}) => new Promise((res) => tween(dur, fn, { ...opts, done: () => { if (opts.done) opts.done(); res(); } }));
+  const wait = (ms) => new Promise((res) => setTimeout(res, reduced() ? 0 : ms));
+
+  let rafId = 0, last = 0;
+  function wake() { if (!rafId && document.visibilityState !== "hidden") { last = performance.now(); rafId = requestAnimationFrame(frame); } }
+  function frame(now) {
+    rafId = 0;
+    const dt = Math.min(0.05, Math.max(0, (now - last) / 1000)); last = now;
+    for (const tw of [...tweens]) {
+      if (now < tw.t0) continue;
+      const p = clamp((now - tw.t0) / tw.dur, 0, 1);
+      tw.fn(tw.e(p));
+      if (p >= 1) { tweens.delete(tw); if (tw.done) tw.done(); }
+    }
+    tickMomentum(dt);
+    tickLife(now / 1000, dt);
+    tickFps(now);
+    // Ohne Bewegung (Einstellung des Geräts) schläft die Schleife, sobald nichts
+    // mehr zu tun ist; ein Tipp weckt sie für ein Bild.
+    if (tweens.size || momentum || (life.length && !reduced()) || !fpsEl.hidden) rafId = requestAnimationFrame(frame);
+  }
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") wake(); });
+
+  // ===========================================================================
+  // Bühne und Kamera
+  // ===========================================================================
+  const stage = $("#stage"), world = $("#world"), wsvg = $("#wsvg"), hillsEl = $("#hills"), flyLayer = $("#fly"), fpsEl = $("#fps");
+  let vw = 0, vh = 0, scale = 1, vbW = 0, vbH = 0, bx = 0, groundY = 0, groundBand = GROUND;
+  let cam = 0;           // wo der Boden auf dem Bildschirm steht (px von oben)
+  let drawerOpen = false;
+  let busy = false;
+
+  function measure() {
+    vw = stage.clientWidth; vh = stage.clientHeight;
+    // Auf dem Tablet stehen drei Stockwerke samt Dach ganz im Bild; auf dem
+    // Handy wird ein Stockwerk nie kleiner als gut 100 Pixel – dann wischt man.
+    const widthFit = (vw - 16) / ESSENTIAL_W;
+    const heightFit = (vh - 80) / (3 * STORY + SLAB + ROOF + GROUND);
+    scale = clamp(Math.max(Math.min(widthFit, heightFit), Math.min(widthFit, 0.62)), 0.3, 1.05);
+    groundBand = Math.max(GROUND, 96 / scale);
+    vbW = vw / scale;
+    groundY = CLEAR + SLAB + ROOF + S.floors.length * STORY;
+    vbH = groundY + groundBand;
+    bx = (vbW - (BW + LIFT + 40)) / 2;
+  }
+  const camDefault = () => vh - groundBand * scale;
+  function camRange() {
+    const lo = camDefault() - (drawerOpen ? drawerHeight() : 0);
+    const hi = Math.max(camDefault(), groundY * scale);
+    return [lo, hi];
+  }
+  function drawerHeight() { const d = $("#drawer"); return d ? d.offsetHeight : 0; }
+  function applyCam() {
+    const top = cam - groundY * scale;
+    world.style.transform = `translate3d(0,${top.toFixed(1)}px,0)`;
+    hillsEl.style.transform = `translate3d(0,${((cam - camDefault()) * 0.25).toFixed(1)}px,0)`;
+  }
+  function camTo(target, dur = 450) {
+    const [lo, hi] = camRange();
+    const to = clamp(target, lo, hi), from = cam;
+    momentum = 0;
+    if (Math.abs(to - from) < 1) { cam = to; applyCam(); return Promise.resolve(); }
+    return tweenP(dur, (p) => { cam = lerp(from, to, p); applyCam(); }, { e: ease.inOut });
+  }
+  // Schwung nach dem Wischen, mit weichem Rand
+  let momentum = 0;
+  function tickMomentum(dt) {
+    if (!momentum || panning) return;
+    const [lo, hi] = camRange();
+    cam += momentum * dt;
+    momentum *= Math.exp(-dt * 4.2);
+    if (cam < lo || cam > hi) { momentum *= Math.exp(-dt * 14); }
+    if (Math.abs(momentum) < 18) { momentum = 0; settleCam(); }
+    applyCam();
+  }
+  function settleCam() {
+    const [lo, hi] = camRange();
+    if (cam < lo) camTo(lo, 320); else if (cam > hi) camTo(hi, 320);
+  }
+  function screenOf(x, y) {
+    const m = bld && bld.getScreenCTM(); if (!m) return { x: 0, y: 0 };
+    const pt = wsvg.createSVGPoint(); pt.x = x; pt.y = y;
+    const p = pt.matrixTransform(m);
+    const s = stage.getBoundingClientRect();
+    return { x: p.x - s.left, y: p.y - s.top };
+  }
+  function buildingOf(clientX, clientY) {
+    const m = bld && bld.getScreenCTM(); if (!m) return null;
+    const pt = wsvg.createSVGPoint(); pt.x = clientX; pt.y = clientY;
+    const p = pt.matrixTransform(m.inverse());
+    return { x: p.x, y: p.y };
+  }
+  function hitRoom(p) {
+    if (!p) return null;
+    const f = Math.floor(-p.y / STORY);
+    if (f < 0 || f >= S.floors.length) return null;
+    const ix = p.x - WALL;
+    if (ix < -4 || ix > INNER + 4) return null;
+    const h = ix < HALF + DIV / 2 ? 0 : 1;
+    return { f, h, x: clamp(ix - h * (HALF + DIV), 0, HALF) };
+  }
+
+  // ===========================================================================
+  // Zeichnen: das Haus
+  // ===========================================================================
+  let bld = null, gResidents = null, gFx = null, gSel = null, cabinBack = null, cabinFront = null, doorL = null, doorR = null, train = null, hook = null, rope = null;
+  let waves = [];
+  const hookBase = () => -S.floors.length * STORY - SLAB - ROOF - 6;
+
+  function floorBand(kind) {
+    if (kind === "holz") return `<rect x="0" y="130" width="${HALF}" height="22" fill="#d9a066"/><rect x="0" y="130" width="${HALF}" height="22" fill="url(#pat-holz)"/>`;
+    if (kind === "fliesen") return `<rect x="0" y="130" width="${HALF}" height="22" fill="#e9eff3"/><rect x="0" y="130" width="${HALF}" height="22" fill="url(#pat-boden-fliesen)"/>`;
+    if (kind === "matte") return `<rect x="0" y="130" width="${HALF}" height="22" fill="#8fd16f"/><path d="M0 141H${HALF}" stroke="#7fc160" stroke-width="3"/>`;
+    return `<rect x="0" y="130" width="${HALF}" height="22" fill="#c4c0b8"/>`;
+  }
+  function windowSvg(curtain) {
+    let s = `<g><rect x="204" y="20" width="72" height="66" rx="8" fill="#ffffff"/><rect x="209" y="25" width="62" height="56" rx="5" class="win-sky"/>` +
+      `<g class="win-day"><ellipse cx="250" cy="44" rx="11" ry="6" fill="#ffffff"/><ellipse cx="240" cy="47" rx="8" ry="5" fill="#ffffff"/></g>` +
+      `<g class="win-night"><circle cx="228" cy="42" r="7" fill="#fff3c4"/><circle cx="258" cy="62" r="1.6" fill="#ffffff"/><circle cx="246" cy="34" r="1.3" fill="#ffffff"/></g>` +
+      `<rect x="238" y="25" width="4" height="56" fill="#ffffff"/><rect x="209" y="51" width="62" height="4" fill="#ffffff"/><rect x="200" y="84" width="80" height="7" rx="3.5" fill="#ffffff"/></g>`;
+    if (curtain) s += `<path d="M196 14h18q-6 36 2 74h-20z" fill="${curtain}"/><path d="M284 14h-18q6 36-2 74h20z" fill="${curtain}"/><rect x="192" y="10" width="96" height="6" rx="3" fill="#a46c43"/>`;
+    return s;
+  }
+  const DECOR = {
+    wohnung: () => windowSvg("#ff9fb5"),
+    bad: () => `<rect x="0" y="62" width="${HALF}" height="70" fill="url(#pat-fliesen)"/>` + windowSvg(),
+    laden: () => windowSvg() + Array.from({ length: 10 }, (_, i) => `<path d="M${i * 30} 0h30v13a15 8 0 0 1-30 0z" fill="${i % 2 ? "#ffffff" : "#ff6b6b"}"/>`).join(""),
+    spielplatz: () => `<circle cx="64" cy="44" r="22" fill="#ffd166" opacity="0.8"/><ellipse cx="128" cy="34" rx="26" ry="10" fill="#ffffff" opacity="0.7"/><ellipse cx="150" cy="28" rx="18" ry="9" fill="#ffffff" opacity="0.7"/>` + windowSvg(),
+    hallenbad: () => `<rect x="0" y="0" width="${HALF}" height="132" fill="url(#pat-fliesen)"/>` + windowSvg(),
+    schule: () => windowSvg() + `<g transform="translate(40 34)"><circle r="17" fill="#ffffff" stroke="#6c5ce7" stroke-width="3"/><path d="M0 0V-11M0 0L-9 5" stroke="#243047" stroke-width="2.6" stroke-linecap="round"/><circle r="2" fill="#243047"/></g>`,
+    kita: () => windowSvg() + `<path d="M8 12Q150 34 292 12" fill="none" stroke="#a46c43" stroke-width="2"/>` +
+      Array.from({ length: 8 }, (_, i) => { const x = 22 + i * 36, y = 14 + Math.sin((i + 0.5) / 8 * Math.PI) * 9; return `<path d="M${x - 9} ${y}h18l-9 15z" fill="${["#ff7a7a", "#ffd166", "#6cc3d5", "#7cc05e"][i % 4]}"/>`; }).join(""),
+    bibliothek: () => windowSvg("#7c9a6b"),
+    rohbau: () => `<rect x="0" y="0" width="${HALF}" height="132" fill="url(#pat-ziegel)"/><rect x="204" y="20" width="72" height="66" rx="3" fill="#b9b5ae"/><rect x="209" y="25" width="62" height="56" class="win-sky"/>` +
+      `<rect x="0" y="70" width="${HALF}" height="11" fill="url(#pat-band)" opacity="0.9"/>` +
+      `<g transform="translate(150 66)"><circle r="25" fill="#ffffff" stroke="#6c5ce7" stroke-width="4"/><path d="M0 -12V12M-12 0H12" stroke="#6c5ce7" stroke-width="5" stroke-linecap="round"/></g>`,
+  };
+  // Was auf dem Boden steht, kommt nach dem Boden
+  const FLOOR_DECOR = {
+    hallenbad: () => `<rect x="${BASIN - 4}" y="112" width="${HALF - BASIN + 4}" height="40" rx="4" fill="#9fd5f5"/><rect x="${BASIN}" y="118" width="${HALF - BASIN}" height="34" fill="#5bb8ea"/>` +
+      `<path d="M${BASIN + 8} 96v26M${BASIN + 20} 96v26M${BASIN + 8} 104h12M${BASIN + 8} 113h12" stroke="#9aa5b1" stroke-width="3" fill="none" stroke-linecap="round"/>`,
+    rohbau: () => `<path d="M44 144l12-36h8l12 36z" fill="#ff8a3d"/><rect x="50" y="122" width="20" height="5" fill="#ffffff"/><rect x="40" y="141" width="40" height="6" rx="2" fill="#e5702a"/>` +
+      `<path d="M226 143a16 13 0 0 1 32 0z" fill="#ffd166"/><rect x="222" y="141" width="40" height="5" rx="2.5" fill="#f5b82e"/>`,
+  };
+  function roomBg(r) {
+    const T = ROOM_TYPES[r.type];
+    let s = `<rect x="0" y="0" width="${HALF}" height="132" fill="${r.wall}"/>`;
+    if (r.pattern && r.pattern !== "none") s += `<rect x="0" y="0" width="${HALF}" height="132" fill="url(#pat-${r.pattern})"/>`;
+    s += (DECOR[r.type] || (() => ""))(r);
+    s += floorBand(T.floor);
+    s += `<rect x="0" y="128" width="${HALF}" height="4" fill="${shade(r.type === "rohbau" ? "#d6d3cd" : r.wall, -0.2)}"/>`;
+    s += (FLOOR_DECOR[r.type] || (() => ""))(r);
+    return s;
+  }
+  function itemY(id) { const it = ITEMS[id]; return it.wall ? STAND - 8 - it.wall : it.flat ? STAND + 2 : STAND; }
+  function itemsSvg(r) {
+    return r.items.map((it, i) => ({ it, i })).sort((a, b) => zOf(a.it.k) - zOf(b.it.k) || a.i - b.i)
+      .map(({ it, i }) => `<g data-item="${i}" transform="translate(${r1(it.x)} ${itemY(it.k)})"><g class="drop">${drawItem(it.k, it.c)}</g></g>`).join("");
+  }
+  function frontSvg(r) {
+    if (r.type !== "hallenbad") return "";
+    // Das Wasser vor den Schwimmern; die Welle läuft im Takt, beschnitten aufs Becken.
+    return `<g clip-path="url(#pool-clip)"><rect x="${BASIN - 4}" y="118" width="${HALF - BASIN + 4}" height="34" fill="#46a7e2" opacity="0.9"/>` +
+      `<g class="wave"><path d="M${BASIN - 28} 118` + Array.from({ length: 10 }, () => "q6-4 12 0t12 0").join("") + `V122H${BASIN - 28}Z" fill="#8fd3f7"/></g></g>` +
+      `<rect x="${BASIN - 6}" y="114" width="8" height="38" rx="3" fill="#e9f3f8"/>`;
+  }
+  function nightSvg(r) {
+    const lights = r.items.filter((it) => ITEMS[it.k].light);
+    let s = `<rect x="0" y="0" width="${HALF}" height="${ROOM}" fill="#0d1838" opacity="${lights.length ? 0.26 : 0.46}"/>`;
+    lights.forEach((it) => { s += `<circle cx="${r1(it.x)}" cy="${STAND - 100}" r="92" fill="url(#glow)"/>`; });
+    return s;
+  }
+  function storySvg(f) {
+    const top = storyTop(f), fl = -f * STORY - SLAB;
+    let s = `<g class="story" data-story="${f}">`;
+    // Liftschacht – das Stück dieses Stockwerks
+    s += `<rect x="${BW - 2}" y="${top}" width="${LIFT}" height="${STORY}" class="shaft"/><rect x="${BW + 8}" y="${top}" width="4" height="${STORY}" fill="#c3ccd8"/><rect x="${BW + LIFT - 16}" y="${top}" width="4" height="${STORY}" fill="#c3ccd8"/>`;
+    s += `<rect x="${BW - 2}" y="${fl}" width="${LIFT}" height="${SLAB}" class="fac-slab"/>`;
+    // Die Aussenwand des Schachts – im Erdgeschoss mit Tür nach draussen
+    s += f === 0
+      ? `<rect x="${BW + LIFT - 8}" y="${top}" width="8" height="${STORY - 104}" class="fac-wall"/><rect x="${BW + LIFT - 8}" y="${top + STORY - 104}" width="8" height="${104 - SLAB}" class="fac-door"/>`
+      : `<rect x="${BW + LIFT - 8}" y="${top}" width="8" height="${STORY}" class="fac-wall"/>`;
+    // Zimmer
+    S.floors[f].rooms.forEach((r, h) => {
+      s += `<g class="room" data-room="${f}-${h}" transform="translate(${roomX(h)} ${top})"><g class="rbg">${roomBg(r)}</g><g class="ritems">${itemsSvg(r)}</g></g>`;
+    });
+    // Aussenwände, Trennwand mit Durchgang, Decke
+    s += `<rect x="0" y="${top}" width="${WALL}" height="${STORY}" class="fac-wall"/><rect x="0" y="${top}" width="3" height="${STORY}" fill="#d9c29c" opacity="0.6"/>`;
+    s += `<rect x="${WALL + HALF}" y="${top}" width="${DIV}" height="52" class="fac-wall"/><rect x="${WALL + HALF}" y="${top + 52}" width="${DIV}" height="${ROOM - 52}" class="fac-door"/>`;
+    s += `<rect x="${WALL + INNER}" y="${top}" width="${WALL}" height="44" class="fac-wall"/><rect x="${WALL + INNER}" y="${top + 44}" width="${WALL}" height="${ROOM - 44}" class="fac-door"/>`;
+    s += `<rect x="-6" y="${fl}" width="${BW + 8}" height="${SLAB}" class="fac-slab"/><rect x="-6" y="${fl}" width="${BW + 8}" height="3" fill="#fbf1df" opacity="0.7"/>`;
+    // Liftknopf mit der Nummer des Stockwerks
+    s += `<g data-liftbtn="${f}" transform="translate(${BW + LIFT + 20} ${fl - 64})"><circle r="17" fill="#ffffff" stroke="#6c5ce7" stroke-width="3.5"/>` +
+      `<text y="6.5" text-anchor="middle" font-size="19" font-weight="800" font-family="'Baloo 2', Nunito, sans-serif" fill="#5141c9">${f}</text></g>`;
+    s += `</g>`;
+    return s;
+  }
+  function roofSvg() {
+    const c = S.roof, peak = -SLAB - ROOF, n = S.floors.length;
+    const base = -n * STORY;
+    let s = `<g id="roof" data-roof="1" transform="translate(0 ${base})">`;
+    s += `<rect x="${BW + 4}" y="${-SLAB - 34}" width="${LIFT - 14}" height="36" rx="4" class="fac-wall"/><rect x="${BW + 16}" y="${-SLAB - 26}" width="22" height="14" rx="3" fill="#bfe6f5"/>`;
+    s += `<rect x="${BW * 0.7}" y="${peak + 26}" width="30" height="58" fill="#b5533f"/><rect x="${BW * 0.7 - 4}" y="${peak + 20}" width="38" height="9" rx="3" fill="#8f3e2e"/>`;
+    s += `<path d="M-24 ${-SLAB} L${BW / 2} ${peak} L${BW + 24} ${-SLAB} Z" fill="${c}"/>`;
+    s += `<g clip-path="url(#roof-clip)">` + [0, 1, 2, 3].map((i) => `<path d="M-30 ${-SLAB - 22 - i * 26}H${BW + 30}" stroke="${shade(c, -0.14)}" stroke-width="5"/>`).join("") + `</g>`;
+    s += `<path d="M-24 ${-SLAB} L${BW / 2} ${peak} L${BW + 24} ${-SLAB} Z" class="roof-night" fill="#0d1838"/>`;
+    s += `<rect x="-30" y="${-SLAB - 8}" width="${BW + 60}" height="10" rx="5" fill="${shade(c, -0.22)}"/>`;
+    s += `<circle cx="${BW / 2}" cy="${peak + 64}" r="20" fill="#ffffff"/><circle cx="${BW / 2}" cy="${peak + 64}" r="14.5" class="win-sky"/><rect x="${BW / 2 - 1.5}" y="${peak + 50}" width="3" height="28" fill="#ffffff"/>`;
+    s += `<rect x="-10" y="${-SLAB}" width="${BW + 20}" height="${SLAB}" rx="3" class="fac-slab"/>`;
+    s += `</g>`;
+    return s;
+  }
+  function craneSvg() {
+    const n = S.floors.length, jib = -n * STORY - SLAB - ROOF - 52, mx = -116;
+    const trolley = BW * 0.3;
+    let s = `<g id="crane">`;
+    s += `<rect x="${mx}" y="${jib}" width="22" height="${STORY - jib}" fill="#f5b82e"/><rect x="${mx}" y="${jib}" width="22" height="${STORY - jib}" fill="url(#pat-gitter)"/>`;
+    s += `<path d="M${mx + 11} ${jib - 40}L${mx - 70} ${jib - 8}M${mx + 11} ${jib - 40}L${trolley + 60} ${jib - 8}" stroke="#7c8796" stroke-width="2"/>`;
+    s += `<path d="M${mx + 1} ${jib - 8}L${mx + 11} ${jib - 44}L${mx + 21} ${jib - 8}Z" fill="#f5b82e"/>`;
+    s += `<rect x="${mx - 74}" y="${jib - 10}" width="${trolley + 60 - mx + 74}" height="12" fill="#f5b82e"/><rect x="${mx - 74}" y="${jib - 10}" width="${trolley + 60 - mx + 74}" height="12" fill="url(#pat-gitter)"/>`;
+    s += `<rect x="${mx - 70}" y="${jib + 2}" width="34" height="22" rx="2" fill="#6b7280"/><rect x="${mx - 6}" y="${jib + 2}" width="34" height="26" rx="4" fill="#f5b82e"/><rect x="${mx}" y="${jib + 7}" width="16" height="11" rx="2" fill="#bfe6f5"/>`;
+    s += `<rect x="${trolley - 11}" y="${jib}" width="22" height="8" rx="2" fill="#4a5568"/>`;
+    s += `<line id="rope" x1="${trolley}" y1="${jib + 8}" x2="${trolley}" y2="${hookBase()}" stroke="#4a5568" stroke-width="2"/>`;
+    s += `<g id="hook" transform="translate(${trolley} ${hookBase()})"><rect x="-9" y="0" width="18" height="11" rx="3" fill="#4a5568"/><path d="M0 11v8a6 6 0 1 1-6 6" stroke="#4a5568" stroke-width="3.2" fill="none" stroke-linecap="round"/></g>`;
+    s += `</g>`;
+    return s;
+  }
+  function groundBack() {
+    const L = -bx - 20, W = vbW + 40;
+    return `<rect x="${L}" y="0" width="${W}" height="${groundBand}" fill="#8fc45e"/><rect x="${L}" y="0" width="${W}" height="5" fill="#a3d374"/>` +
+      `<rect x="${BW + LIFT - 6}" y="8" width="${vbW - bx - BW - LIFT + 30}" height="14" rx="7" fill="#efe2c4"/>` +
+      `<path d="M${BW + LIFT - 10} -16h16l26 24h-42z" fill="#d9c6a5"/><path d="M${BW + LIFT - 10} -16h16l26 24" fill="none" stroke="#c4ad87" stroke-width="2"/>` +
+      `<g transform="translate(${BW + LIFT + 54} 0)"><rect x="-3" y="-44" width="6" height="44" fill="#6b7280"/><rect x="-14" y="-62" width="28" height="20" rx="5" fill="#ff7a59"/><rect x="-9" y="-54" width="18" height="3" rx="1.5" fill="#243047"/></g>`;
+  }
+  function trainSvg() {
+    const wheel = (x, r) => `<g class="wheel" data-x="${x}" data-r="${r}" transform="translate(${x} ${-r})"><circle r="${r}" fill="#f5b82e"/><circle r="${r * 0.32}" fill="#a87a14"/><path d="M${-r} 0H${r}M0 ${-r}V${r}" stroke="#a87a14" stroke-width="2"/></g>`;
+    const brick = (x, i) => `<g class="wbrick" data-i="${i}" transform="translate(${x} -40)"><rect x="-13" y="-13" width="26" height="13" rx="2" fill="#e07a4f"/><rect x="-13" y="-13" width="26" height="3.5" rx="1.5" fill="#f2a37f"/></g>`;
+    return `<g id="train" transform="translate(-2000 46)" style="display:none">` +
+      `<rect x="0" y="-38" width="112" height="16" rx="4" fill="#7c5ce6"/><rect x="4" y="-22" width="104" height="6" fill="#5d45c9"/>` +
+      brick(24, 0) + brick(56, 1) + brick(88, 2) + wheel(22, 9) + wheel(90, 9) +
+      `<rect x="104" y="-26" width="16" height="5" rx="2" fill="#4a5568"/>` +
+      `<rect x="118" y="-76" width="48" height="54" rx="5" fill="#2f6f9f"/><rect x="113" y="-82" width="58" height="10" rx="4" fill="#24577d"/><rect x="126" y="-68" width="32" height="26" rx="4" fill="#bfe6f5"/>` +
+      `<g transform="translate(142 -50)"><path d="M-9 -4L-8 -16L-2 -9ZM9 -4L8 -16L2 -9Z" fill="#e8763a"/><circle r="9" fill="#e8763a"/><ellipse cx="0" cy="3" rx="5" ry="3.6" fill="#ffd9b8"/><circle cx="-3.4" cy="-2" r="1.3" fill="#243047"/><circle cx="3.4" cy="-2" r="1.3" fill="#243047"/><circle cx="0" cy="1.6" r="1.4" fill="#243047"/></g>` +
+      `<rect x="164" y="-60" width="68" height="38" rx="17" fill="#d9584a"/><rect x="204" y="-82" width="15" height="24" fill="#9e3b2e"/><rect x="199" y="-87" width="25" height="7" rx="3" fill="#7f2f25"/>` +
+      `<circle cx="232" cy="-44" r="7" fill="#fff3c4"/><path d="M230 -20l16 14h-16z" fill="#24577d"/><rect x="116" y="-24" width="122" height="9" rx="3" fill="#5a2a22"/>` +
+      wheel(144, 13) + wheel(204, 9) + wheel(226, 9) + `</g>`;
+  }
+  function groundFront() {
+    const L = -bx - 20, W = vbW + 40;
+    let s = `<rect x="${L}" y="36" width="${W}" height="20" fill="#b7a58a"/><rect x="${L}" y="40" width="${W}" height="12" fill="url(#pat-schwellen)"/>` +
+      `<rect x="${L}" y="42" width="${W}" height="4" fill="#8a94a6"/>`;
+    s += trainSvg();
+    s += `<rect x="${L}" y="56" width="${W}" height="${groundBand - 56}" fill="#7ab455"/><rect x="${L}" y="56" width="${W}" height="6" fill="#88c063"/>`;
+    const fl = ["#ffd166", "#ff8fa3", "#ffffff", "#c9a7f5"];
+    for (let x = L + 40, i = 0; x < L + W; x += 118, i += 1) {
+      const y = 76 + (i % 3) * 7;
+      s += `<path d="M${x} ${y}q1-10 0-16" stroke="#4f8a3c" stroke-width="2" fill="none"/><circle cx="${x}" cy="${y - 17}" r="4" fill="${fl[i % 4]}"/><circle cx="${x}" cy="${y - 17}" r="1.6" fill="#ffd166"/>`;
+    }
+    s += `<rect x="${L}" y="0" width="${W}" height="${groundBand}" class="gnd-night" fill="#0d1838"/>`;
+    return s;
+  }
+  function cabinSvg() {
+    return [
+      `<g id="cabinBack"><rect x="0" y="-110" width="64" height="110" rx="6" fill="#b9c3d3"/><rect x="4" y="-106" width="56" height="102" rx="4" fill="#eef2f7"/><rect x="4" y="-6" width="56" height="6" fill="#9aa5b1"/></g>`,
+      `<g id="cabinFront"><rect class="door-l" x="4" y="-106" width="28" height="102" fill="#c7d0dd"/><rect class="door-r" x="32" y="-106" width="28" height="102" fill="#c7d0dd"/>` +
+      `<rect x="0" y="-112" width="64" height="9" rx="4" fill="#8f9bb0"/><circle cx="32" cy="-107.5" r="2.6" fill="#ffd166"/></g>`,
+    ];
+  }
+
+  function renderAll() {
+    measure();
+    const n = S.floors.length;
+    wsvg.setAttribute("viewBox", `0 0 ${r1(vbW)} ${r1(vbH)}`);
+    wsvg.setAttribute("width", String(vw));
+    wsvg.setAttribute("height", String(Math.round(vbH * scale)));
+    const [cb, cf] = cabinSvg();
+    let s = `<g id="bld" transform="translate(${r1(bx)} ${groundY})">`;
+    s += groundBack() + craneSvg();
+    for (let f = 0; f < n; f += 1) s += storySvg(f);
+    s += cb + `<g id="residents"></g>` + cf;
+    s += `<g id="fronts">` + S.floors.map((fl, f) => fl.rooms.map((r, h) => `<g data-front="${f}-${h}" transform="translate(${roomX(h)} ${storyTop(f)})">${frontSvg(r)}</g>`).join("")).join("") + `</g>`;
+    s += `<g id="nights">` + S.floors.map((fl, f) => fl.rooms.map((r, h) => `<g class="night-ov" data-night="${f}-${h}" transform="translate(${roomX(h)} ${storyTop(f)})">${nightSvg(r)}</g>`).join("")).join("") + `</g>`;
+    s += roofSvg() + groundFront() + `<g id="sel"></g><g id="fx"></g></g>`;
+    wsvg.innerHTML = s;
+    bld = wsvg.querySelector("#bld");
+    gResidents = wsvg.querySelector("#residents"); gFx = wsvg.querySelector("#fx"); gSel = wsvg.querySelector("#sel");
+    cabinBack = wsvg.querySelector("#cabinBack"); cabinFront = wsvg.querySelector("#cabinFront");
+    doorL = cabinFront.querySelector(".door-l"); doorR = cabinFront.querySelector(".door-r");
+    train = wsvg.querySelector("#train"); hook = wsvg.querySelector("#hook"); rope = wsvg.querySelector("#rope");
+    waves = [...wsvg.querySelectorAll(".wave")];
+    life.forEach(mountResident);
+    placeCabin(); setDoors(lift.doors);
+    drawSelection(false);
+    const [lo, hi] = camRange();
+    cam = clamp(cam || camDefault(), lo, hi);
+    applyCam();
+  }
+  function renderRoom(f, h) {
+    const r = roomAt(f, h); if (!r) return;
+    const g = wsvg.querySelector(`[data-room="${f}-${h}"]`);
+    if (g) { g.querySelector(".rbg").innerHTML = roomBg(r); g.querySelector(".ritems").innerHTML = itemsSvg(r); }
+    const fr = wsvg.querySelector(`[data-front="${f}-${h}"]`); if (fr) fr.innerHTML = frontSvg(r);
+    const nt = wsvg.querySelector(`[data-night="${f}-${h}"]`); if (nt) nt.innerHTML = nightSvg(r);
+    waves = [...wsvg.querySelectorAll(".wave")];
+  }
+
+  // ===========================================================================
+  // Lift
+  // ===========================================================================
+  const lift = { pos: 0, doors: 0, moving: false };
+  function placeCabin() {
+    const y = -lift.pos * STORY - SLAB;
+    const t = `translate(${BW + 9} ${r1(y)})`;
+    if (cabinBack) cabinBack.setAttribute("transform", t);
+    if (cabinFront) cabinFront.setAttribute("transform", t);
+  }
+  function setDoors(o) {
+    lift.doors = o;
+    const s = 1 - o * 0.9;
+    if (doorL) doorL.setAttribute("transform", `translate(4 0) scale(${r1(s * 100) / 100} 1) translate(-4 0)`);
+    if (doorR) doorR.setAttribute("transform", `translate(60 0) scale(${r1(s * 100) / 100} 1) translate(-60 0)`);
+  }
+  const doorsTo = (o) => tweenP(220, (p) => setDoors(lerp(lift.doors, o, p)), { e: ease.inOut });
+  async function cabinTo(f) {
+    if (Math.abs(lift.pos - f) < 0.01) { lift.pos = f; placeCabin(); return; }
+    if (lift.doors > 0) await doorsTo(0);
+    const from = lift.pos;
+    lift.moving = true;
+    await tweenP(380 + 360 * Math.abs(f - from), (p) => { lift.pos = lerp(from, f, p); placeCabin(); riders.forEach((r) => { r.f = lift.pos; }); }, { e: ease.inOut });
+    lift.moving = false; lift.pos = f; placeCabin();
+    sfx.ding();
+  }
+  const riders = new Set();
+  const liftJobs = [];
+  let liftRunning = false;
+  function liftTrip(r, toF, toX) { return new Promise((done) => { liftJobs.push({ r, toF, toX, done }); runLift(); }); }
+  async function runLift() {
+    if (liftRunning) return;
+    liftRunning = true;
+    while (liftJobs.length) {
+      const { r, toF, toX, done } = liftJobs.shift();
+      const fromOutside = r.x > LIFT_IN + 10;
+      if (!fromOutside) await walkTo(r, DOOR_R);
+      await cabinTo(r.f);
+      await doorsTo(1);
+      await walkTo(r, LIFT_IN);
+      riders.add(r); r.mode = "ride";
+      await doorsTo(0);
+      await cabinTo(toF);
+      riders.delete(r); r.f = toF;
+      await doorsTo(1);
+      await walkTo(r, toX);
+      doorsTo(0);
+      r.mode = "idle"; r.waitUntil = performance.now() / 1000 + 1.2;
+      done();
+    }
+    liftRunning = false;
+  }
+  // Nach Rückgängig oder Neuanfang: laufende Fahrten vergessen. Wer noch
+  // unterwegs war, gehört zum alten Stand und wird nicht mehr gezeichnet.
+  function resetMotion() {
+    liftJobs.length = 0; riders.clear(); goals.clear();
+    liftRunning = false; lift.moving = false; moving = false;
+  }
+  async function callLift(f) {
+    if (lift.moving || liftRunning) { sfx.nein(); return; }
+    sfx.pop();
+    await cabinTo(f);
+    await doorsTo(1);
+    await wait(900);
+    if (!liftRunning) await doorsTo(0);
+  }
+
+  // ===========================================================================
+  // Bewohner
+  // ===========================================================================
+  let life = [];
+  function animalSvg(sp) {
+    const a = SPECIES[sp], c = a.coat, inn = a.inner, dark = shade(c, -0.42), body = sp === "pinguin" ? c : shade(c, -0.12);
+    let ears = "";
+    if (a.ear === "long") ears = `<ellipse cx="-6" cy="-86" rx="5.5" ry="17" fill="${c}" transform="rotate(-10 -6 -86)"/><ellipse cx="-6" cy="-86" rx="2.6" ry="12" fill="${inn}" transform="rotate(-10 -6 -86)"/><ellipse cx="7" cy="-86" rx="5.5" ry="17" fill="${c}" transform="rotate(12 7 -86)"/><ellipse cx="7" cy="-86" rx="2.6" ry="12" fill="${inn}" transform="rotate(12 7 -86)"/>`;
+    else if (a.ear === "point") ears = `<path d="M-13 -66L-11 -84L-2 -73Z" fill="${c}"/><path d="M13 -66L11 -84L2 -73Z" fill="${c}"/><path d="M-11 -70L-10 -80L-5 -74Z" fill="${dark}"/><path d="M11 -70L10 -80L5 -74Z" fill="${dark}"/>`;
+    else if (a.ear === "round") ears = `<circle cx="-11" cy="-72" r="6.5" fill="${sp === "panda" ? inn : c}"/><circle cx="11" cy="-72" r="6.5" fill="${sp === "panda" ? inn : c}"/>`;
+    else if (a.ear === "big") ears = `<circle cx="-13" cy="-71" r="9.5" fill="${c}"/><circle cx="-13" cy="-71" r="5.5" fill="${inn}"/><circle cx="13" cy="-71" r="9.5" fill="${c}"/><circle cx="13" cy="-71" r="5.5" fill="${inn}"/>`;
+    else if (a.ear === "tuft") ears = `<path d="M-14 -68L-13 -80L-5 -73Z" fill="${dark}"/><path d="M14 -68L13 -80L5 -73Z" fill="${dark}"/>`;
+    let face = "";
+    if (sp === "eule") face = `<circle cx="-6" cy="-61" r="7" fill="${inn}"/><circle cx="6" cy="-61" r="7" fill="${inn}"/>`;
+    else if (sp === "pinguin") face = `<path d="M-11 -58c0-9 5-12 11-7c6-5 11-2 11 7c0 9-6 12-11 12s-11-3-11-12z" fill="${inn}"/>`;
+    else if (sp === "panda") face = `<ellipse cx="-6" cy="-61" rx="5" ry="6" fill="${inn}" transform="rotate(-20 -6 -61)"/><ellipse cx="6" cy="-61" rx="5" ry="6" fill="${inn}" transform="rotate(20 6 -61)"/><ellipse cx="0" cy="-54" rx="7" ry="5" fill="#ffffff"/>`;
+    else face = `<ellipse cx="0" cy="-54" rx="8" ry="6" fill="${inn}"/>`;
+    const eyeR = sp === "eule" ? 3.2 : 2.3;
+    const eyeFill = sp === "panda" ? "#ffffff" : "#243047";
+    const nose = sp === "pinguin" ? `<path d="M-4 -56h8l-4 5z" fill="#f5a623"/>` : sp === "eule" ? `<path d="M-2.5 -57h5l-2.5 5z" fill="#f5a623"/>` : `<ellipse cx="0" cy="-56" rx="2.6" ry="2" fill="#243047"/>`;
+    const feet = sp === "pinguin" || sp === "eule" ? `<ellipse cx="-6" cy="-1.5" rx="6" ry="3" fill="#f5a623"/><ellipse cx="6" cy="-1.5" rx="6" ry="3" fill="#f5a623"/>` : "";
+    return `<ellipse cx="0" cy="0" rx="15" ry="3.6" fill="#000000" opacity="0.13"/>` +
+      `<g class="legL"><rect x="-8" y="-21" width="6.5" height="21" rx="3" fill="${dark}"/></g><g class="legR"><rect x="1.5" y="-21" width="6.5" height="21" rx="3" fill="${dark}"/></g>${feet}` +
+      `<g class="bob"><rect x="-12" y="-46" width="24" height="29" rx="10" fill="${body}"/><rect x="-6.5" y="-41" width="13" height="19" rx="6" fill="${sp === "panda" ? "#ffffff" : inn}" opacity="0.9"/>` +
+      `<path d="M-11 -40q-7 5-7 13" fill="none" stroke="${body}" stroke-width="5" stroke-linecap="round"/>` +
+      `<g class="arm"><path d="M11 -40q7 5 7 13" fill="none" stroke="${body}" stroke-width="5" stroke-linecap="round"/></g>` +
+      ears + `<circle cx="0" cy="-61" r="15" fill="${c}"/>` + face +
+      `<g class="eyes"><circle cx="-5.6" cy="-62" r="${eyeR}" fill="${eyeFill}"/><circle cx="5.6" cy="-62" r="${eyeR}" fill="${eyeFill}"/>` +
+      (sp === "panda" ? `<circle cx="-5.6" cy="-62" r="1.3" fill="#243047"/><circle cx="5.6" cy="-62" r="1.3" fill="#243047"/>` : "") + `</g>` +
+      nose + `<circle cx="-10" cy="-54" r="2.6" fill="#ff8fa3" opacity="0.45"/><circle cx="10" cy="-54" r="2.6" fill="#ff8fa3" opacity="0.45"/></g>`;
+  }
+  function makeResident(data) {
+    const [hf, hh] = data.home;
+    return {
+      id: data.id, sp: data.sp, kid: !!data.kid, home: [hf, hh], f: hf, x: hh * (HALF + DIV) + 70 + Math.random() * 160,
+      dir: Math.random() < 0.5 ? -1 : 1, mode: "idle", tx: 0, waitUntil: 0, blinkAt: 2 + Math.random() * 4, seed: Math.random() * 10,
+      hopY: 0, el: null, flip: null, bob: null, legL: null, legR: null, eyes: null, zzz: null, bubble: null, eyesClosed: false, zShown: false,
+    };
+  }
+  function mountResident(r) {
+    const g = document.createElementNS(NS, "g");
+    g.setAttribute("data-res", r.id);
+    g.innerHTML = `<g class="flip">${animalSvg(r.sp)}</g><g class="zzz" style="display:none"><text font-size="16" font-weight="800" font-family="'Baloo 2', Nunito, sans-serif" fill="#ffffff">z</text><text x="9" y="-11" font-size="12" font-weight="800" font-family="'Baloo 2', Nunito, sans-serif" fill="#ffffff">z</text></g>`;
+    gResidents.append(g);
+    r.el = g; r.flip = g.querySelector(".flip"); r.bob = g.querySelector(".bob"); r.legL = g.querySelector(".legL"); r.legR = g.querySelector(".legR");
+    r.eyes = g.querySelector(".eyes"); r.zzz = g.querySelector(".zzz"); r.eyesClosed = false; r.zShown = false; r.bubble = null;
+  }
+  function rebuildLife() {
+    life = S.residents.map(makeResident);
+    placeFavorites();
+  }
+  const sideOf = (x) => (x < HALF + DIV / 2 ? 0 : 1);
+  const roomOfRes = (r) => (r.x <= INNER ? roomAt(Math.round(r.f), sideOf(r.x)) : null);
+  function inWater(r) {
+    if (r.mode === "ride" || r.mode === "drag" || r.x > INNER) return false;
+    const rm = roomOfRes(r);
+    const local = r.x - sideOf(r.x) * (HALF + DIV);
+    return !!rm && rm.type === "hallenbad" && local > BASIN + 8;
+  }
+  function rangeOf(r) {
+    const h = sideOf(r.x), o = h * (HALF + DIV), rm = roomOfRes(r);
+    if (rm && rm.type === "hallenbad") return inWater(r) ? [o + BASIN + 26, o + HALF - 22] : [o + 22, o + BASIN - 14];
+    return [o + 34, o + HALF - 34];
+  }
+  const goals = new Map();
+  function walkTo(r, x) {
+    return new Promise((done) => {
+      if (reduced()) { r.x = x; r.mode = "idle"; done(); return; }
+      r.tx = x; r.mode = "goto"; goals.set(r, done); wake();
+    });
+  }
+  function stepResident(r, t, dt) {
+    if (r.mode === "drag" || r.mode === "ride") return;
+    const sleeps = S.night && r.sp !== "eule";
+    if (r.mode !== "goto") {
+      if (sleeps) { r.mode = "sleep"; return; }
+      if (r.mode === "sleep") { r.mode = "idle"; r.waitUntil = t + Math.random() * 2; }
+    }
+    if (r.mode === "walk" || r.mode === "goto") {
+      const d = r.tx - r.x, step = (r.kid ? 48 : r.mode === "goto" ? 66 : 30) * dt;
+      if (Math.abs(d) <= step) {
+        r.x = r.tx;
+        if (r.mode === "goto") { const done = goals.get(r); goals.delete(r); r.mode = "idle"; if (done) done(); }
+        else r.mode = "idle";
+        r.waitUntil = t + 1 + Math.random() * 3.2;
+      } else { r.x += Math.sign(d) * step; r.dir = Math.sign(d); }
+    } else if (r.mode === "idle" && t > r.waitUntil) {
+      const [a, b] = rangeOf(r);
+      r.tx = lerp(a, b, Math.random()); r.mode = "walk";
+      if (r.kid && Math.random() < 0.55) hop(r);
+    }
+  }
+  function hop(r, height = 26) {
+    tween(440, (p) => { r.hopY = -4 * height * p * (1 - p); }, { e: ease.lin, done: () => { r.hopY = 0; } });
+  }
+  function drawResident(r, t) {
+    if (!r.el) return;
+    let X, Y;
+    if (r.mode === "drag") { X = r.dragX; Y = r.dragY; }
+    else {
+      X = WALL + r.x; Y = standY(r.f);
+      // Draussen vor dem Lift: über die Rampe hinunter auf den Weg
+      if (r.mode !== "ride" && Math.round(r.f) === 0 && r.x > LIFT_IN + 26) Y = lerp(standY(0), 12, clamp((r.x - LIFT_IN - 26) / 34, 0, 1));
+    }
+    let bob = 0, legA = 0;
+    const swim = inWater(r);
+    if (!reduced()) {
+      if (r.mode === "walk" || r.mode === "goto") { const ph = t * (r.kid ? 13 : 10); bob = -Math.abs(Math.sin(ph)) * 2.4; legA = Math.sin(ph) * 20; }
+      else if (r.mode === "drag") { legA = Math.sin(t * 7) * 12; }
+      else if (r.mode === "sleep") { bob = Math.sin(t * 1.6 + r.seed) * 0.9; }
+      else bob = Math.sin(t * 2.2 + r.seed) * 0.7;
+      if (swim) bob = Math.sin(t * 2.1 + r.seed) * 2;
+    }
+    if (swim) Y += 6;
+    Y += r.hopY || 0;
+    const s = r.kid ? 0.7 : 1;
+    r.el.setAttribute("transform", `translate(${r1(X)} ${r1(Y)})`);
+    r.flip.setAttribute("transform", `scale(${r.dir < 0 ? -s : s} ${s})`);
+    r.bob.setAttribute("transform", `translate(0 ${bob.toFixed(2)})`);
+    r.legL.setAttribute("transform", `rotate(${legA.toFixed(1)} -4.7 -20)`);
+    r.legR.setAttribute("transform", `rotate(${(-legA).toFixed(1)} 4.7 -20)`);
+    if (t > r.blinkAt + 0.13) r.blinkAt = t + 2.4 + Math.random() * 3.6;
+    const closed = r.mode === "sleep" || (t > r.blinkAt && t < r.blinkAt + 0.13);
+    if (closed !== r.eyesClosed) { r.eyesClosed = closed; r.eyes.setAttribute("transform", closed ? "translate(0 -62) scale(1 0.12) translate(0 62)" : ""); }
+    const z = r.mode === "sleep";
+    if (z !== r.zShown) { r.zShown = z; r.zzz.style.display = z ? "" : "none"; }
+    if (z) {
+      const p = reduced() ? 0.3 : (t * 0.55 + r.seed) % 1;
+      r.zzz.setAttribute("transform", `translate(${r1((8 + p * 8) * s)} ${r1((-80 - p * 20) * s)})`);
+      r.zzz.setAttribute("opacity", (1 - p * 0.9).toFixed(2));
+    }
+    if (r.bubble) r.bubble.setAttribute("transform", `translate(${r1(X)} ${r1(Y - (r.kid ? 84 : 116))})`);
+  }
+  function tickLife(t, dt) {
+    for (const r of life) { if (!reduced()) stepResident(r, t, dt); drawResident(r, t); }
+    if (hook && rope) {
+      const y = hookBase() + (S.bricks >= 10 && !reduced() ? Math.sin(t * 2.6) * 6 : 0);
+      hook.setAttribute("transform", `translate(${r1(BW * 0.3)} ${r1(y)})`);
+      rope.setAttribute("y2", r1(y));
+    }
+    if (!reduced()) { const off = r1(((t * 14) % 24) - 24); waves.forEach((w) => w.setAttribute("transform", `translate(${off} 0)`)); }
+  }
+
+  // Die Lieblingsorte: Der Pinguin schwimmt, sobald es ein Hallenbad gibt.
+  function poolRoom() {
+    for (let f = 0; f < S.floors.length; f += 1) for (let h = 0; h < 2; h += 1) if (roomAt(f, h).type === "hallenbad") return { f, h };
+    return null;
+  }
+  function placeFavorites() {
+    const pool = poolRoom();
+    const p = life.find((r) => r.sp === "pinguin");
+    if (pool && p) { p.f = pool.f; p.x = pool.h * (HALF + DIV) + BASIN + 40 + Math.random() * 120; }
+  }
+  async function goSwim() {
+    const pool = poolRoom(), p = life.find((r) => r.sp === "pinguin");
+    if (!pool || !p || p.trip || p.mode === "ride" || p.mode === "drag" || p.mode === "goto" || inWater(p)) return;
+    const x = pool.h * (HALF + DIV) + BASIN + 70;
+    p.trip = true;
+    if (Math.round(p.f) === pool.f) await walkTo(p, x);
+    else await liftTrip(p, pool.f, x);
+    p.trip = false;
+  }
+
+  // ===========================================================================
+  // Wünsche und Herzen
+  // ===========================================================================
+  const hasItem = (rm, id) => !!rm && rm.items.some((it) => it.k === id);
+  const anyRoom = (type) => S.floors.some((f) => f.rooms.some((r) => r.type === type));
+  function wishOf(r) { return WISHES[r.kid ? "kinder" : r.sp]; }
+  function needsBed(r) { if (r.kid) return false; const home = roomAt(r.home[0], r.home[1]); return !home || home.type !== "wohnung" || !hasItem(home, "bett"); }
+  function wishMet(r) {
+    const w = wishOf(r); if (!w) return true;
+    const home = roomAt(r.home[0], r.home[1]);
+    if (w.type === "item") return hasItem(home, w.item);
+    if (w.type === "room") return anyRoom(w.room);
+    if (w.type === "color") return !!home && home.wall === w.color;
+    return false;
+  }
+  function checkWishes() {
+    const seen = new Set();
+    life.forEach((r) => {
+      const k = wishKey(r);
+      if (seen.has(k)) return; seen.add(k);
+      if (!S.met[k] && wishMet(r)) {
+        S.met[k] = true; S.hearts += 1; save();
+        celebrate(r, wishOf(r).thanks);
+      }
+    });
+  }
+  function celebrate(r, text) {
+    sfx.herz(); say(text);
+    hop(r, 22);
+    const s0 = screenOf(WALL + r.x, standY(r.f) - (r.kid ? 70 : 96));
+    const heart = document.createElementNS(NS, "g");
+    heart.innerHTML = `<path d="M0 10s-11-6.8-14-13.5C-16.2-8.4-13-14-7.6-14c3 0 5.3 1.7 7.6 4.5C2.3-12.3 4.6-14 7.6-14 13-14 16.2-8.4 14-3.5 11 3.2 0 10 0 10z" fill="#ff5c7a"/>`;
+    gFx.append(heart);
+    const hx = WALL + r.x, hy = standY(r.f) - (r.kid ? 70 : 96);
+    tween(620, (p) => { heart.setAttribute("transform", `translate(${r1(hx)} ${r1(hy - p * 34)}) scale(${(0.6 + ease.back(Math.min(1, p * 1.6)) * 0.6).toFixed(2)})`); }, {
+      done: () => { heart.remove(); flyTo(s0.x, s0.y - 34 * scale, $("#hearts"), heartFlyHtml(), () => { updateHud(true); }); },
+    });
+    if (reduced()) { heart.remove(); updateHud(true); }
+  }
+  const heartFlyHtml = () => `<svg width="34" height="34" viewBox="0 0 24 24"><path d="M12 21s-7.5-4.6-9.6-9.2C.9 8.4 3 4.5 6.7 4.5c2.1 0 3.6 1.2 5.3 3.1 1.7-1.9 3.2-3.1 5.3-3.1 3.7 0 5.8 3.9 4.3 7.3C19.5 16.4 12 21 12 21z" fill="#ff5c7a"/></svg>`;
+  function flyTo(x0, y0, target, html, done, dur = 620) {
+    if (reduced()) { if (done) done(); return; }
+    const el = document.createElement("div");
+    el.className = "fly"; el.innerHTML = html; flyLayer.append(el);
+    const s = stage.getBoundingClientRect(), t = target.getBoundingClientRect();
+    const x1 = t.left - s.left + t.width / 2, y1 = t.top - s.top + t.height / 2;
+    const w = el.offsetWidth / 2, hgt = el.offsetHeight / 2;
+    tween(dur, (p) => {
+      const x = lerp(x0, x1, p), y = lerp(y0, y1, p) - Math.sin(p * Math.PI) * 70;
+      el.style.transform = `translate3d(${(x - w).toFixed(1)}px,${(y - hgt).toFixed(1)}px,0) scale(${(1 - p * 0.25).toFixed(2)})`;
+    }, { e: ease.inOut, done: () => { el.remove(); if (done) done(); } });
+  }
+  const BUBBLE_W = 78, BUBBLE_H = 66;
+  function showBubble(r, iconSvg, text) {
+    if (r.bubble) r.bubble.remove();
+    const g = document.createElementNS(NS, "g");
+    g.innerHTML = `<g class="pop"><path d="M${-BUBBLE_W / 2} ${-BUBBLE_H}h${BUBBLE_W}a14 14 0 0 1 14 14v${BUBBLE_H - 28}a14 14 0 0 1-14 14h-${BUBBLE_W / 2 - 8}l-8 12-8-12h-${BUBBLE_W / 2 - 8}a14 14 0 0 1-14-14v-${BUBBLE_H - 28}a14 14 0 0 1 14-14z" fill="#ffffff" stroke="#e3defa" stroke-width="2.5"/>` +
+      `<g transform="translate(0 ${-BUBBLE_H / 2})">${iconSvg}</g></g>`;
+    gFx.append(g); r.bubble = g;
+    const pop = g.querySelector(".pop");
+    tween(320, (p) => pop.setAttribute("transform", `scale(${ease.back(p).toFixed(3)})`), { e: ease.lin });
+    say(text);
+    const mine = g;
+    setTimeout(() => {
+      if (r.bubble !== mine) return;
+      tween(200, (p) => pop.setAttribute("transform", `scale(${(1 - p).toFixed(3)})`), { done: () => { mine.remove(); if (r.bubble === mine) r.bubble = null; } });
+    }, reduced() ? 3500 : 3300);
+  }
+  function miniItem(id, size = 56) {
+    const it = ITEMS[id], h = it.h, w = it.w, sc = size / Math.max(w, h);
+    const oy = it.wall ? 0 : h / 2;
+    return `<g transform="scale(${sc.toFixed(3)}) translate(0 ${oy})">${drawItem(id)}</g>`;
+  }
+  function miniRoom(type) {
+    if (type === "hallenbad") return `<rect x="-24" y="-12" width="48" height="26" rx="5" fill="#5bb8ea"/><path d="M-24 -6q6-4 12 0t12 0t12 0t12 0" stroke="#e8f7ff" stroke-width="3" fill="none"/><path d="M-18 -22v12M-10 -22v12M-18 -16h8" stroke="#9aa5b1" stroke-width="2.4" fill="none"/>`;
+    return miniItem(ROOM_TYPES[type].icon, 50);
+  }
+  function wishIcon(r) {
+    if (needsBed(r)) return miniItem("bett");
+    const w = wishOf(r);
+    if (wishMet(r)) return `<path transform="scale(1.6)" d="M0 10s-11-6.8-14-13.5C-16.2-8.4-13-14-7.6-14c3 0 5.3 1.7 7.6 4.5C2.3-12.3 4.6-14 7.6-14 13-14 16.2-8.4 14-3.5 11 3.2 0 10 0 10z" fill="#ff5c7a"/>`;
+    if (w.type === "item") return miniItem(w.item);
+    if (w.type === "room") return miniRoom(w.room);
+    return `<circle r="20" fill="${w.color}" stroke="#ffffff" stroke-width="3"/><path d="M-6 6l12-12" stroke="#ffffff" stroke-width="3" stroke-linecap="round" opacity="0.7"/>`;
+  }
+  function wishText(r) {
+    if (needsBed(r)) return "Wo ist mein Bett?";
+    const w = wishOf(r);
+    return wishMet(r) ? (r.kid ? "Hier ist es toll!" : "Ich wohne gern hier!") : w.say;
+  }
+  function tapResident(r) {
+    sfx.pop(); hop(r, 16);
+    showBubble(r, wishIcon(r), wishText(r));
+  }
+
+  // ===========================================================================
+  // Einzug
+  // ===========================================================================
+  let moving = false;
+  function freeFlat() {
+    for (let f = 0; f < S.floors.length; f += 1) for (let h = 0; h < 2; h += 1) {
+      const rm = roomAt(f, h);
+      if (rm.type === "wohnung" && hasItem(rm, "bett") && !S.residents.some((x) => !x.kid && x.home[0] === f && x.home[1] === h)) return { f, h };
+    }
+    return null;
+  }
+  async function maybeMoveIn() {
+    if (moving || !S.queue.length) return;
+    const flat = freeFlat(); if (!flat) return;
+    moving = true;
+    await wait(900);
+    const flat2 = freeFlat();
+    if (!flat2 || !S.queue.length) { moving = false; return; }
+    const sp = S.queue[0];
+    const data = { id: sp, sp, home: [flat2.f, flat2.h] };
+    S.queue.shift(); S.residents.push(data); save();
+    const r = makeResident(data);
+    r.f = 0; r.x = OUTSIDE + 40; r.dir = -1;
+    life.push(r); mountResident(r);
+    say(`Schau, da kommt ${SPECIES[sp].der}!`);
+    await walkTo(r, OUTSIDE);
+    await liftTrip(r, flat2.f, flat2.h * (HALF + DIV) + HALF / 2);
+    showBubble(r, wishIcon(r), `Hallo! ${wishText(r)}`);
+    moving = false;
+    checkWishes();
+    maybeMoveIn();
+  }
+
+  // ===========================================================================
+  // Auswahl und Schublade
+  // ===========================================================================
+  let selected = null;   // { f, h }
+  let tab = "moebel";
+  function drawSelection(animate = true) {
+    if (!gSel) return;
+    if (!selected || !roomAt(selected.f, selected.h)) { gSel.innerHTML = ""; return; }
+    const x = roomX(selected.h), y = storyTop(selected.f);
+    gSel.innerHTML = `<g class="selbox" transform="translate(${x + HALF / 2} ${y + ROOM / 2})"><rect x="${-HALF / 2 - 4}" y="${-ROOM / 2 - 4}" width="${HALF + 8}" height="${ROOM + 8}" rx="12" fill="none" stroke="#ffffff" stroke-width="9"/>` +
+      `<rect x="${-HALF / 2 - 4}" y="${-ROOM / 2 - 4}" width="${HALF + 8}" height="${ROOM + 8}" rx="12" fill="none" stroke="#6c5ce7" stroke-width="4.5" stroke-dasharray="16 9"/></g>`;
+    if (animate) {
+      const box = gSel.querySelector(".selbox"), base = box.getAttribute("transform");
+      tween(260, (p) => { box.setAttribute("transform", `${base} scale(${(0.96 + 0.04 * p).toFixed(3)})`); box.setAttribute("opacity", p.toFixed(2)); });
+    }
+  }
+  function selectRoom(f, h) {
+    selected = { f, h };
+    const rm = roomAt(f, h);
+    tab = rm.type === "rohbau" ? "zimmer" : "moebel";
+    drawSelection(true);
+    openDrawer();
+    sfx.pop();
+  }
+  function roomTitle(f, h) {
+    const rm = roomAt(f, h);
+    const who = S.residents.find((x) => !x.kid && x.home[0] === f && x.home[1] === h);
+    const wo = f === 0 ? "Erdgeschoss" : `${f}. Stock`;
+    if (rm.type === "wohnung" && who) return `Wohnung: ${SPECIES[who.sp].name} · ${wo}`;
+    return `${ROOM_TYPES[rm.type].name} · ${wo}`;
+  }
+  function openDrawer() {
+    const d = $("#drawer");
+    renderTabs(); renderCards();
+    drawerOpen = true; d.classList.add("is-open");
+    $("#btn-demo").hidden = true; $("#build").hidden = true;
+    requestAnimationFrame(() => ensureVisible());
+  }
+  function closeDrawer() {
+    drawerOpen = false; selected = null;
+    $("#drawer").classList.remove("is-open");
+    $("#btn-demo").hidden = false; $("#build").hidden = false;
+    drawSelection(false); settleCam();
+  }
+  function ensureVisible() {
+    if (!selected) return;
+    const top = screenOf(roomX(selected.h), storyTop(selected.f)).y;
+    const bottom = top + ROOM * scale;
+    const availTop = 80, availBottom = vh - drawerHeight() - 12;
+    let delta = 0;
+    if (bottom > availBottom) delta = availBottom - bottom;
+    if (top + delta < availTop) delta = availTop - top;
+    if (Math.abs(delta) > 2) camTo(cam + delta, 380);
+  }
+  function renderTabs() {
+    document.querySelectorAll(".tab").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.tab === tab)));
+    const rohbau = selected && roomAt(selected.f, selected.h).type === "rohbau";
+    $("#tab-farbe").hidden = rohbau; $("#tab-moebel").hidden = rohbau;
+    $("#drawer-title").textContent = selected ? roomTitle(selected.f, selected.h) : "";
+  }
+  function iconSvg(inner, vb) { return `<svg viewBox="${vb}" aria-hidden="true">${inner}</svg>`; }
+  function itemIconSvg(id, bg) {
+    const it = ITEMS[id], pad = 10;
+    const vb = it.wall ? `${-it.w / 2 - pad} ${-it.h / 2 - pad} ${it.w + pad * 2} ${it.h + pad * 2}` : `${-it.w / 2 - pad} ${-it.h - pad} ${it.w + pad * 2} ${it.h + pad * 2}`;
+    const back = bg ? `<rect x="-200" y="-200" width="400" height="400" fill="${bg}"/>` : "";
+    return iconSvg(back + drawItem(id), vb);
+  }
+  function typeIconSvg(type) {
+    const T = ROOM_TYPES[type];
+    if (type === "hallenbad") return iconSvg(`<rect x="-60" y="-60" width="120" height="120" fill="${T.wall}"/><rect x="-46" y="-6" width="92" height="40" rx="8" fill="#5bb8ea"/><path d="M-46 4q8-6 15 0t15 0t15 0t15 0t15 0t15 0" stroke="#e8f7ff" stroke-width="4" fill="none"/><path d="M-36 -32v30M-22 -32v30M-36 -22h14M-36 -12h14" stroke="#9aa5b1" stroke-width="4" fill="none" stroke-linecap="round"/>`, "-56 -50 112 100");
+    return itemIconSvg(T.icon, T.wall);
+  }
+  function renderCards() {
+    const cards = $("#cards");
+    cards.innerHTML = "";
+    if (!selected) return;
+    const rm = roomAt(selected.f, selected.h);
+    const add = (html, attrs, on) => {
+      const b = document.createElement("button");
+      b.type = "button"; b.className = "card" + (on ? " is-on" : "");
+      Object.entries(attrs).forEach(([k, v]) => b.setAttribute(k, v));
+      b.innerHTML = html; cards.append(b);
+      return b;
+    };
+    if (tab === "zimmer") {
+      TYPE_ORDER.forEach((type) => add(`${typeIconSvg(type)}<span>${ROOM_TYPES[type].name}</span>`, { "data-type": type, "aria-label": ROOM_TYPES[type].name }, rm.type === type));
+    } else if (tab === "farbe") {
+      SWATCHES.forEach((c) => { const b = add(`<span class="swatch" style="background:${c}"></span>`, { "data-color": c, "aria-label": `Wandfarbe ${c}` }, rm.wall === c); b.classList.add("is-swatch"); });
+      const sep = document.createElement("span"); sep.className = "card-sep"; cards.append(sep);
+      PATTERNS.forEach((p) => add(iconSvg(`<rect width="60" height="60" rx="12" fill="${rm.wall}"/>${p === "none" ? "" : `<rect width="60" height="60" rx="12" fill="url(#pat-${p})"/>`}<rect x="1.5" y="1.5" width="57" height="57" rx="11" fill="none" stroke="#d9d6ee" stroke-width="3"/>`, "-6 -6 72 72") + `<span>${PATTERN_NAMES[p]}</span>`, { "data-pattern": p, "aria-label": `Muster ${PATTERN_NAMES[p]}` }, (rm.pattern || "none") === p));
+    } else {
+      itemsFor(rm.type).forEach((id) => add(`${itemIconSvg(id)}<span>${ITEMS[id].name}</span>`, { "data-add": id, "aria-label": `${ITEMS[id].name} hinstellen` }));
+    }
+    cards.scrollLeft = 0;
+  }
+
+  // ===========================================================================
+  // Bauen, Malen, Einrichten
+  // ===========================================================================
+  function afterChange() { save(); checkWishes(); maybeMoveIn(); if (!S.night) goSwim(); wake(); }
+
+  function poof(cx, cy, n = 7, spread = 46, color = "#ffffff") {
+    if (reduced()) return;
+    for (let i = 0; i < n; i += 1) {
+      const c = document.createElementNS(NS, "circle");
+      const a = (i / n) * Math.PI * 2 + Math.random() * 0.6, d = spread * (0.6 + Math.random() * 0.5);
+      c.setAttribute("r", "12"); c.setAttribute("fill", color);
+      gFx.append(c);
+      tween(520, (p) => {
+        c.setAttribute("cx", r1(cx + Math.cos(a) * d * p)); c.setAttribute("cy", r1(cy + Math.sin(a) * d * p * 0.7));
+        c.setAttribute("r", r1(8 + p * 10)); c.setAttribute("opacity", (0.9 * (1 - p)).toFixed(2));
+      }, { done: () => c.remove() });
+    }
+  }
+  function popItems(f, h, indices) {
+    const g = wsvg.querySelector(`[data-room="${f}-${h}"] .ritems`); if (!g) return;
+    indices.forEach((i, k) => {
+      const d = g.querySelector(`[data-item="${i}"] .drop`); if (!d) return;
+      d.setAttribute("transform", "scale(0)");
+      tween(340, (p) => d.setAttribute("transform", `scale(${ease.back(p).toFixed(3)})`), { e: ease.lin, delay: 80 + k * 70, done: () => d.removeAttribute("transform") });
+      setTimeout(() => sfx.pop(), reduced() ? 0 : 80 + k * 70);
+    });
+  }
+  function setRoomType(type) {
+    if (!selected || busy) return;
+    const { f, h } = selected, rm = roomAt(f, h);
+    if (rm.type === type) return;
+    snapshot();
+    const T = ROOM_TYPES[type];
+    rm.type = type; rm.wall = T.wall; rm.pattern = "none";
+    rm.items = (T.starter || []).map(([k, x]) => ({ k, x }));
+    sfx.wusch();
+    poof(roomX(h) + HALF / 2, storyTop(f) + ROOM / 2, 9, 70);
+    renderRoom(f, h);
+    popItems(f, h, rm.items.map((_, i) => i));
+    tab = "moebel"; renderTabs(); renderCards();
+    say(T.name);
+    afterChange();
+  }
+  function paintWall(color) {
+    if (!selected) return;
+    const { f, h } = selected, rm = roomAt(f, h);
+    if (rm.wall === color) return;
+    snapshot();
+    const old = rm.wall, oldPattern = rm.pattern;
+    rm.wall = color;
+    renderRoom(f, h);
+    renderCards();
+    sfx.pinsel();
+    if (!reduced()) {
+      const g = wsvg.querySelector(`[data-room="${f}-${h}"] .rbg`);
+      const cover = document.createElementNS(NS, "g");
+      cover.innerHTML = `<rect class="c1" x="0" y="0" width="${HALF}" height="128" fill="${old}"/>` + (oldPattern && oldPattern !== "none" ? `<rect class="c2" x="0" y="0" width="${HALF}" height="128" fill="url(#pat-${oldPattern})"/>` : "") +
+        `<g class="roller"><rect x="-7" y="-2" width="14" height="132" rx="7" fill="${color}" stroke="#ffffff" stroke-width="3"/></g>`;
+      // Gleich über die neue Wand (und ihr Muster), unter Fenster und Dekor
+      const after = rm.pattern && rm.pattern !== "none" ? 2 : 1;
+      g.insertBefore(cover, g.children[after] || null);
+      const rects = cover.querySelectorAll("rect.c1, rect.c2"), roller = cover.querySelector(".roller");
+      tween(520, (p) => {
+        const x = p * HALF;
+        rects.forEach((rc) => { rc.setAttribute("x", r1(x)); rc.setAttribute("width", r1(HALF - x)); });
+        roller.setAttribute("transform", `translate(${r1(x)} 0)`);
+      }, { e: ease.inOut, done: () => cover.remove() });
+    }
+    afterChange();
+  }
+  function setPattern(p) {
+    if (!selected) return;
+    const rm = roomAt(selected.f, selected.h);
+    if ((rm.pattern || "none") === p) return;
+    snapshot(); rm.pattern = p; renderRoom(selected.f, selected.h); renderCards(); sfx.pinsel(); afterChange();
+  }
+  function freeSpot(rm, id) {
+    const w = ITEMS[id].w;
+    const lo = w / 2 + 6, hi = HALF - w / 2 - 6;
+    const others = rm.items.filter((it) => !ITEMS[it.k].flat && !ITEMS[it.k].wall).map((it) => it.x);
+    let best = HALF / 2, bestD = -1;
+    for (let x = lo; x <= hi; x += 8) {
+      const d = others.length ? Math.min(...others.map((o) => Math.abs(o - x))) : 999;
+      if (d > bestD) { bestD = d; best = x; }
+    }
+    if (rm.type === "hallenbad" && !ITEMS[id].wall) best = Math.min(best, BASIN - w / 2);
+    return clamp(best, lo, Math.max(lo, hi));
+  }
+  function addItem(f, h, id, x, fromLocalY = null) {
+    const rm = roomAt(f, h); if (!rm) return;
+    snapshot();
+    const it = ITEMS[id];
+    const nx = clamp(x, it.w / 2 + 4, HALF - it.w / 2 - 4);
+    rm.items.push({ k: id, x: nx });
+    renderRoom(f, h);
+    const i = rm.items.length - 1;
+    dropAnim(f, h, i, fromLocalY == null ? 22 : fromLocalY);
+    afterChange();
+  }
+  function dropAnim(f, h, i, fromLocalY) {
+    const g = wsvg.querySelector(`[data-room="${f}-${h}"] [data-item="${i}"] .drop`); if (!g) return;
+    const id = roomAt(f, h).items[i].k;
+    const endY = itemY(id);
+    const dy = Math.min(0, fromLocalY - endY);
+    if (reduced() || Math.abs(dy) < 2) { sfx.plopp(); return; }
+    const fall = clamp(Math.sqrt(Math.abs(dy)) * 34, 180, 460);
+    g.setAttribute("transform", `translate(0 ${r1(dy)})`);
+    tween(fall, (p) => g.setAttribute("transform", `translate(0 ${r1(dy * (1 - p))})`), {
+      e: ease.in2,
+      done: () => {
+        sfx.plopp(); vibrate(8);
+        if (!ITEMS[id].wall) poof(roomX(h) + roomAt(f, h).items[i].x, storyTop(f) + STAND - 2, 4, 30, "#f3eadb");
+        tween(200, (p) => {
+          const sq = Math.sin(p * Math.PI) * (1 - p);
+          g.setAttribute("transform", `scale(${(1 + sq * 0.18).toFixed(3)} ${(1 - sq * 0.22).toFixed(3)})`);
+        }, { e: ease.lin, done: () => g.removeAttribute("transform") });
+      },
+    });
+  }
+  function vibrate(ms) { try { if (navigator.vibrate) navigator.vibrate(ms); } catch { /* egal */ } }
+
+  // --- Stockwerk bauen ---
+  async function buildStory() {
+    if (busy) return;
+    if (S.bricks < 10) {
+      sfx.nein(); say(`Dafür brauchst du zehn Ziegel. Du hast ${S.bricks}.`);
+      const b = $("#build");
+      tween(420, (p) => { b.style.transform = `translateX(${(Math.sin(p * Math.PI * 5) * 7 * (1 - p)).toFixed(1)}px)`; }, { e: ease.lin, done: () => { b.style.transform = ""; } });
+      return;
+    }
+    busy = true;
+    snapshot();
+    if (drawerOpen) closeDrawer();
+    const n = S.floors.length;
+    // Das Dach knapp unter die Knöpfe oben: Es bleibt beim Wachsen stehen,
+    // während die Kamera mit dem neuen Stockwerk mitfährt.
+    await camTo(90 + (n * STORY + SLAB + ROOF) * scale, 500);
+    // Die zehn Ziegel fliegen von der Palette aufs Dach
+    const slots = [...document.querySelectorAll("#pallet i.full")].slice(0, 10).reverse();
+    const roofPt = screenOf(BW / 2, -n * STORY - SLAB - 20);
+    const stageBox = stage.getBoundingClientRect();
+    await Promise.all(slots.map((slot, i) => new Promise((done) => {
+      const b = slot.getBoundingClientRect();
+      setTimeout(() => {
+        slot.classList.remove("full");
+        flyToPoint(b.left - stageBox.left + b.width / 2, b.top - stageBox.top + b.height / 2, roofPt.x + (i - 4.5) * 9, roofPt.y, brickHtml(), done, 520);
+      }, reduced() ? 0 : i * 45);
+    })));
+    S.bricks -= 10;
+    S.floors.push({ rooms: [room("rohbau", []), room("rohbau", [])] });
+    save();
+    const camBefore = cam;
+    renderAll();
+    cam = camBefore; applyCam();
+    // Das Haus wächst um ein Stockwerk: das neue wächst aus dem alten Dach, das Dach fährt mit
+    const story = wsvg.querySelector(`[data-story="${n}"]`), roofG = wsvg.querySelector("#roof"), crane = wsvg.querySelector("#crane");
+    const nights = [0, 1].map((h) => wsvg.querySelector(`[data-night="${n}-${h}"]`));
+    const nightBase = nights.map((g) => g && g.getAttribute("transform"));
+    const roofBase = roofG.getAttribute("transform");
+    const anchor = -n * STORY;
+    const setGrow = (s) => {
+      const tr = `translate(0 ${anchor}) scale(1 ${Math.max(0.001, s).toFixed(4)}) translate(0 ${-anchor})`;
+      story.setAttribute("transform", tr);
+      nights.forEach((g, i) => g && g.setAttribute("transform", `${tr} ${nightBase[i]}`));
+      roofG.setAttribute("transform", `${roofBase} translate(0 ${r1((1 - s) * STORY)})`);
+      crane.setAttribute("transform", `translate(0 ${r1((1 - s) * STORY)})`);
+    };
+    setGrow(0);
+    sfx.hoch();
+    const [, hi2] = camRange();
+    const camFrom = cam, camTarget = Math.min(hi2, cam + STORY * scale);
+    await tweenP(820, (p) => { setGrow(p); cam = lerp(camFrom, camTarget, Math.min(1, p)); applyCam(); }, { e: ease.back });
+    setGrow(1); story.removeAttribute("transform"); crane.removeAttribute("transform"); roofG.setAttribute("transform", roofBase);
+    nights.forEach((g, i) => g && g.setAttribute("transform", nightBase[i]));
+    sfx.klack(); vibrate(20);
+    poof(-4, -n * STORY - SLAB, 5, 40, "#efe6d6"); poof(BW + 4, -n * STORY - SLAB, 5, 40, "#efe6d6");
+    updateHud();
+    say("Ein neues Stockwerk! Was soll hier hinein?");
+    busy = false;
+    await wait(250);
+    selectRoom(n, 0);
+  }
+  const brickHtml = () => `<svg width="26" height="15" viewBox="0 0 26 15"><rect width="26" height="15" rx="2.5" fill="#e07a4f"/><rect width="26" height="4" rx="2" fill="#f2a37f"/></svg>`;
+  function flyToPoint(x0, y0, x1, y1, html, done, dur = 560) {
+    if (reduced()) { if (done) done(); return; }
+    const el = document.createElement("div");
+    el.className = "fly"; el.innerHTML = html; flyLayer.append(el);
+    const w = el.offsetWidth / 2, hgt = el.offsetHeight / 2;
+    tween(dur, (p) => {
+      const x = lerp(x0, x1, p), y = lerp(y0, y1, p) - Math.sin(p * Math.PI) * 90;
+      el.style.transform = `translate3d(${(x - w).toFixed(1)}px,${(y - hgt).toFixed(1)}px,0) rotate(${(p * 220).toFixed(0)}deg)`;
+    }, { e: ease.inOut, done: () => { el.remove(); if (done) done(); } });
+  }
+
+  // --- Der Zug bringt Ziegel (Demo) ---
+  function setTrain(x, rolled) {
+    train.setAttribute("transform", `translate(${r1(x)} 46)`);
+    train.querySelectorAll(".wheel").forEach((w) => {
+      const r = +w.dataset.r, wx = +w.dataset.x;
+      w.setAttribute("transform", `translate(${wx} ${-r}) rotate(${((rolled / r) * 57.3 % 360).toFixed(1)})`);
+    });
+  }
+  let lastPuff = 0;
+  function puff(x) {
+    const now = performance.now();
+    if (reduced() || now - lastPuff < 170) return;
+    lastPuff = now;
+    const c = document.createElementNS(NS, "circle");
+    c.setAttribute("fill", "#ffffff"); gFx.append(c);
+    const cx = x + 211, cy = 46 - 92;
+    tween(760, (p) => { c.setAttribute("cx", r1(cx - p * 24)); c.setAttribute("cy", r1(cy - p * 46)); c.setAttribute("r", r1(7 + p * 12)); c.setAttribute("opacity", (0.85 * (1 - p)).toFixed(2)); }, { done: () => c.remove() });
+    sfx.tschu();
+  }
+  async function demoRound() {
+    if (busy) return;
+    busy = true;
+    if (drawerOpen) closeDrawer();
+    await camTo(camDefault(), 450);
+    // Er hält mitten vor dem Haus: An den Ecken unten liegen die Knöpfe.
+    const startX = -bx - 280, stopX = BW / 2 - 124, endX = vbW - bx + 40;
+    train.style.display = "";
+    train.querySelectorAll(".wbrick").forEach((b) => { b.style.display = ""; b.setAttribute("opacity", "1"); });
+    sfx.pfiff();
+    await tweenP(1500, (p) => { const x = lerp(startX, stopX, p); setTrain(x, x - startX); puff(x); }, { e: ease.out });
+    const bricks = [...train.querySelectorAll(".wbrick")].reverse();
+    for (const b of bricks) {
+      const bxw = +b.getAttribute("transform").match(/translate\(([-\d.]+)/)[1];
+      const p0 = screenOf(stopX + bxw, 46 - 46);
+      const base = b.getAttribute("transform");
+      await tweenP(200, (p) => { b.setAttribute("transform", `${base} translate(0 ${r1(-p * 22)})`); b.setAttribute("opacity", (1 - p).toFixed(2)); });
+      b.style.display = "none"; b.setAttribute("transform", base);
+      const slotIndex = Math.min(S.bricks, 9);
+      const target = $("#pallet").children[slotIndex];
+      await new Promise((done) => {
+        const s = stage.getBoundingClientRect(), t = target.getBoundingClientRect();
+        flyToPoint(p0.x, p0.y, t.left - s.left + t.width / 2, t.top - s.top + t.height / 2, brickHtml(), done, 520);
+      });
+      S.bricks += 1; save(); renderPallet(true); sfx.klonk(); vibrate(6);
+    }
+    if (S.bricks >= 10) { say("Die Palette ist voll. Du kannst ein Stockwerk bauen!"); sfx.herz(); }
+    else say(`${S.bricks} Ziegel. Noch ${10 - S.bricks} bis zum nächsten Stockwerk.`);
+    await tweenP(1300, (p) => { const x = lerp(stopX, endX, p); setTrain(x, x - startX); puff(x); }, { e: ease.in2 });
+    train.style.display = "none";
+    busy = false;
+  }
+
+  // ===========================================================================
+  // Anzeigen
+  // ===========================================================================
+  function renderPallet(popLast = false) {
+    const p = $("#pallet");
+    if (!p.children.length) for (let i = 0; i < 10; i += 1) p.append(document.createElement("i"));
+    [...p.children].forEach((slot, i) => { if (slot.tagName === "I") slot.classList.toggle("full", i < S.bricks); });
+    let more = p.querySelector(".pallet-more");
+    if (S.bricks > 10) { if (!more) { more = document.createElement("span"); more.className = "pallet-more"; p.append(more); } more.textContent = `+${S.bricks - 10}`; }
+    else if (more) more.remove();
+    p.setAttribute("aria-label", `${S.bricks} von 10 Ziegeln auf der Palette`);
+    const btn = $("#btn-build");
+    btn.classList.toggle("is-ready", S.bricks >= 10);
+    if (popLast && S.bricks <= 10) {
+      const slot = p.children[S.bricks - 1];
+      if (slot) tween(300, (q) => { slot.style.transform = `scale(${ease.back(q).toFixed(3)})`; }, { e: ease.lin, done: () => { slot.style.transform = ""; } });
+      if (S.bricks === 10) tween(420, (q) => { btn.style.transform = `scale(${(1 + Math.sin(q * Math.PI) * 0.18).toFixed(3)})`; }, { e: ease.lin, done: () => { btn.style.transform = ""; } });
+    }
+  }
+  function updateHud(bump = false) {
+    $("#hearts-n").textContent = String(S.hearts);
+    $("#hearts").setAttribute("aria-label", `${S.hearts} Herzen`);
+    if (bump) { const h = $("#hearts"); tween(360, (p) => { h.style.transform = `scale(${(1 + Math.sin(p * Math.PI) * 0.16).toFixed(3)})`; }, { e: ease.lin, done: () => { h.style.transform = ""; } }); }
+    renderPallet();
+    const night = $("#btn-night");
+    night.innerHTML = S.night
+      ? `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.6" fill="#ffd166"/><g stroke="#ffd166" stroke-width="2.2" stroke-linecap="round"><path d="M12 2.5v2.4M12 19.1v2.4M2.5 12h2.4M19.1 12h2.4M5.3 5.3l1.7 1.7M17 17l1.7 1.7M5.3 18.7 7 17M17 7l1.7-1.7"/></g></svg>`
+      : `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15.5 3.5a8.5 8.5 0 1 0 5 15.4A9 9 0 0 1 15.5 3.5z" fill="#fff3c4"/></svg>`;
+    night.setAttribute("aria-label", S.night ? "Tag" : "Nacht");
+    const snd = $("#btn-sound");
+    snd.innerHTML = soundOn
+      ? `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9.5h3.6L12 5.5v13l-4.4-4H4z" fill="currentColor"/><path d="M15.5 8.6a4.8 4.8 0 0 1 0 6.8M18 6.2a8.2 8.2 0 0 1 0 11.6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>`
+      : `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9.5h3.6L12 5.5v13l-4.4-4H4z" fill="currentColor"/><path d="M16 9.5l5 5M21 9.5l-5 5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>`;
+    snd.setAttribute("aria-label", soundOn ? "Ton ausschalten" : "Ton einschalten");
+    stage.classList.toggle("is-night", !!S.night);
+  }
+  function updateUndo() { $("#btn-undo").disabled = !undoStack.length || busy; }
+
+  // ===========================================================================
+  // Finger: Tippen, Wischen, Tragen
+  // ===========================================================================
+  let gesture = null, panning = false, drag = null;
+  const trash = $("#trash");
+  function onDown(e) {
+    if (e.button > 0) return;
+    if (e.target.closest(".hud, .drawer, .demo, .build, .info")) return;
+    if (gesture || drag) return;
+    const t = e.target;
+    const itemEl = t.closest("[data-item]"), resEl = t.closest("[data-res]"), btn = t.closest("[data-liftbtn]"), roof = t.closest("[data-roof]"), roomEl = t.closest("[data-room]");
+    gesture = { id: e.pointerId, x0: e.clientX, y0: e.clientY, x: e.clientX, y: e.clientY, cam0: cam, moved: false, samples: [{ t: performance.now(), y: e.clientY }], itemEl, resEl, btn, roof, roomEl };
+    momentum = 0;
+    try { stage.setPointerCapture(e.pointerId); } catch { /* egal */ }
+    wake();
+  }
+  function onMove(e) {
+    if (drag && e.pointerId === drag.pid) { moveDrag(e.clientX, e.clientY); return; }
+    if (!gesture || e.pointerId !== gesture.id) return;
+    gesture.x = e.clientX; gesture.y = e.clientY;
+    const dx = e.clientX - gesture.x0, dy = e.clientY - gesture.y0;
+    if (!gesture.moved && Math.hypot(dx, dy) > 9) {
+      gesture.moved = true;
+      if (!busy && gesture.itemEl) { startItemDragFromRoom(gesture, e); gesture = null; return; }
+      if (!busy && gesture.resEl) { startResDrag(gesture, e); gesture = null; return; }
+      panning = true;
+    }
+    if (panning) {
+      const [lo, hi] = camRange();
+      let c = gesture.cam0 + dy;
+      if (c < lo) c = lo - (lo - c) * 0.35;
+      if (c > hi) c = hi + (c - hi) * 0.35;
+      cam = c; applyCam();
+      gesture.samples.push({ t: performance.now(), y: e.clientY });
+      if (gesture.samples.length > 6) gesture.samples.shift();
+    }
+  }
+  function onUp(e) {
+    if (drag && e.pointerId === drag.pid) { endDrag(e.clientX, e.clientY, e.type === "pointercancel"); return; }
+    if (!gesture || e.pointerId !== gesture.id) return;
+    const g = gesture; gesture = null;
+    if (panning) {
+      panning = false;
+      const s = g.samples, a = s[0], b = s[s.length - 1];
+      const dt = (b.t - a.t) / 1000;
+      momentum = dt > 0.01 ? clamp((b.y - a.y) / dt, -2600, 2600) : 0;
+      if (!momentum) settleCam();
+      wake();
+      return;
+    }
+    if (g.moved || busy) return;
+    // Tippen
+    if (g.resEl) { const r = life.find((x) => x.id === g.resEl.getAttribute("data-res")); if (r) tapResident(r); return; }
+    if (g.btn) { callLift(+g.btn.getAttribute("data-liftbtn")); return; }
+    if (g.roof) { cycleRoof(); return; }
+    if (g.roomEl || g.itemEl) {
+      const [f, h] = (g.roomEl || g.itemEl.closest("[data-room]")).getAttribute("data-room").split("-").map(Number);
+      if (g.itemEl && selected && selected.f === f && selected.h === h) { wiggleItem(f, h, +g.itemEl.getAttribute("data-item")); return; }
+      selectRoom(f, h); return;
+    }
+    if (drawerOpen) closeDrawer();
+  }
+  function wiggleItem(f, h, i) {
+    const d = wsvg.querySelector(`[data-room="${f}-${h}"] [data-item="${i}"] .drop`); if (!d) return;
+    sfx.pop();
+    tween(380, (p) => d.setAttribute("transform", `rotate(${(Math.sin(p * Math.PI * 4) * 6 * (1 - p)).toFixed(2)})`), { e: ease.lin, done: () => d.removeAttribute("transform") });
+  }
+  const ROOF_COLORS = ["#d9584a", "#3a86ff", "#7c5ce6", "#3fa34d", "#f5a623", "#5a6478"];
+  function cycleRoof() {
+    snapshot();
+    const i = ROOF_COLORS.indexOf(S.roof);
+    S.roof = ROOF_COLORS[(i + 1) % ROOF_COLORS.length];
+    const roofG = wsvg.querySelector("#roof"), base = roofG.getAttribute("transform");
+    const tmp = document.createElementNS(NS, "g");
+    tmp.innerHTML = roofSvg();
+    const nr = tmp.firstElementChild;
+    roofG.replaceWith(nr);
+    sfx.pinsel(); save();
+    tween(300, (p) => nr.setAttribute("transform", `${base} translate(0 ${r1(-Math.sin(p * Math.PI) * 10)})`), { e: ease.lin, done: () => nr.setAttribute("transform", base) });
+  }
+
+  // --- Tragen: Dinge und Tiere ---
+  function ghostFor(id, c) {
+    const it = ITEMS[id], pad = 10;
+    const w = it.w + pad * 2, hh = it.h + pad * 2;
+    const el = document.createElementNS(NS, "svg");
+    el.setAttribute("class", "ghost");
+    el.setAttribute("width", r1(w * scale)); el.setAttribute("height", r1(hh * scale));
+    el.setAttribute("viewBox", it.wall ? `${-w / 2} ${-hh / 2} ${w} ${hh}` : `${-w / 2} ${-hh + pad} ${w} ${hh}`);
+    el.innerHTML = drawItem(id, c);
+    flyLayer.append(el);
+    // Der Punkt, an dem das Ding hängt, in Bildschirm-Pixeln relativ zur Ecke
+    const ax = (w / 2) * scale, ay = it.wall ? (hh / 2) * scale : (hh - pad) * scale;
+    return { el, ax, ay };
+  }
+  const LIFT_PX = 26;   // das Ding schwebt etwas über dem Finger
+  function startItemDragFromRoom(g, e) {
+    const [f, h] = g.itemEl.closest("[data-room]").getAttribute("data-room").split("-").map(Number);
+    const i = +g.itemEl.getAttribute("data-item");
+    const rm = roomAt(f, h), it = rm.items[i];
+    snapshot();
+    rm.items.splice(i, 1);
+    renderRoom(f, h);
+    beginDrag({ kind: "item", id: it.k, c: it.c, from: { f, h, x: it.x } }, e);
+    trash.classList.add("is-shown");
+    if (drawerOpen) $("#drawer").style.visibility = "hidden";
+  }
+  function startItemDragFromCard(id, e) {
+    beginDrag({ kind: "item", id, fromCard: true }, e);
+  }
+  function beginDrag(d, e) {
+    drag = { ...d, pid: e.pointerId, ghost: ghostFor(d.id, d.c) };
+    try { stage.setPointerCapture(e.pointerId); } catch { /* egal */ }
+    sfx.pop(); vibrate(6);
+    moveDrag(e.clientX, e.clientY, true);
+  }
+  function moveDrag(cx, cy, first = false) {
+    if (!drag) return;
+    const s = stage.getBoundingClientRect();
+    if (drag.kind === "item") {
+      const g = drag.ghost;
+      const x = cx - s.left - g.ax, y = cy - s.top - LIFT_PX - g.ay;
+      const tilt = first ? 0 : clamp((cx - (drag.lastX || cx)) * 0.6, -7, 7);
+      drag.lastX = cx;
+      g.el.style.transform = `translate3d(${x.toFixed(1)}px,${y.toFixed(1)}px,0) rotate(${tilt.toFixed(1)}deg) scale(1.06)`;
+      const hit = hitRoom(buildingOf(cx, cy - LIFT_PX));
+      hotRoom(overTrash(cx, cy) ? null : hit);
+      trash.classList.toggle("is-hot", overTrash(cx, cy));
+    } else if (drag.kind === "res") {
+      const p = buildingOf(cx, cy); if (!p) return;
+      const r = drag.r;
+      r.dragX = p.x; r.dragY = p.y + 34;
+      hotRoom(hitRoom({ x: p.x, y: p.y + 20 }));
+    }
+    edgeScroll(cy);
+  }
+  let edgeTimer = 0;
+  function edgeScroll(cy) {
+    const s = stage.getBoundingClientRect();
+    const y = cy - s.top, zone = 70;
+    let v = 0;
+    if (y < zone) v = (zone - y) * 9; else if (y > vh - zone && !(drag && drag.kind === "item")) v = -(y - (vh - zone)) * 9;
+    momentum = 0;
+    if (v) { if (!edgeTimer) { const step = () => { if (!drag) { edgeTimer = 0; return; } const [lo, hi] = camRange(); cam = clamp(cam + v / 60, lo, hi); applyCam(); edgeTimer = requestAnimationFrame(step); }; edgeTimer = requestAnimationFrame(step); } }
+    else if (edgeTimer) { cancelAnimationFrame(edgeTimer); edgeTimer = 0; }
+  }
+  function overTrash(cx, cy) {
+    if (!trash.classList.contains("is-shown")) return false;
+    const b = trash.getBoundingClientRect();
+    return Math.hypot(cx - (b.left + b.width / 2), cy - (b.top + b.height / 2)) < 64;
+  }
+  let hotKey = null;
+  function hotRoom(hit) {
+    const key = hit ? `${hit.f}-${hit.h}` : null;
+    if (key === hotKey) return;
+    hotKey = key;
+    let g = wsvg.querySelector("#hot");
+    if (!g) { g = document.createElementNS(NS, "g"); g.id = "hot"; gSel.after(g); }
+    g.innerHTML = hit ? `<rect x="${roomX(hit.h) + 4}" y="${storyTop(hit.f) + 4}" width="${HALF - 8}" height="${ROOM - 8}" rx="10" fill="#ffffff" fill-opacity="0.24" stroke="#ffffff" stroke-width="7"/>` +
+      `<rect x="${roomX(hit.h) + 4}" y="${storyTop(hit.f) + 4}" width="${HALF - 8}" height="${ROOM - 8}" rx="10" fill="none" stroke="#6c5ce7" stroke-opacity="0.55" stroke-width="3"/>` : "";
+  }
+  function endDrag(cx, cy, cancelled) {
+    const d = drag; drag = null;
+    if (edgeTimer) { cancelAnimationFrame(edgeTimer); edgeTimer = 0; }
+    const inTrash = !cancelled && overTrash(cx, cy);
+    hotRoom(null);
+    trash.classList.remove("is-shown", "is-hot");
+    $("#drawer").style.visibility = "";
+    if (d.kind === "item") {
+      const g = d.ghost;
+      const target = cancelled ? null : hitRoom(buildingOf(cx, cy - LIFT_PX));
+      if (inTrash) {
+        const base = g.el.style.transform;
+        tween(240, (p) => { g.el.style.opacity = String(1 - p); g.el.style.transform = `${base} scale(${(1 - p * 0.6).toFixed(2)})`; }, { done: () => g.el.remove() });
+        sfx.wusch(); vibrate(10);
+        afterChange();
+        return;
+      }
+      if (target) {
+        g.el.remove();
+        const it = ITEMS[d.id];
+        const anchorY = buildingOf(cx, cy - LIFT_PX).y - storyTop(target.f);
+        if (d.fromCard) { addItem(target.f, target.h, d.id, target.x, anchorY); }
+        else {
+          const rm = roomAt(target.f, target.h);
+          rm.items.push({ k: d.id, x: clamp(target.x, it.w / 2 + 4, HALF - it.w / 2 - 4), c: d.c });
+          renderRoom(target.f, target.h);
+          dropAnim(target.f, target.h, rm.items.length - 1, anchorY);
+          afterChange();
+        }
+        if (selected && (selected.f !== target.f || selected.h !== target.h)) { selected = { f: target.f, h: target.h }; drawSelection(false); renderTabs(); renderCards(); }
+        return;
+      }
+      // Kein Platz: zurück, wo es herkam
+      if (d.from) {
+        const rm = roomAt(d.from.f, d.from.h);
+        const back = screenOf(roomX(d.from.h) + d.from.x, storyTop(d.from.f) + itemY(d.id));
+        const s = stage.getBoundingClientRect();
+        const start = g.el.getBoundingClientRect();
+        const x0 = start.left - s.left, y0 = start.top - s.top, x1 = back.x - g.ax, y1 = back.y - g.ay;
+        tween(260, (p) => { g.el.style.transform = `translate3d(${lerp(x0, x1, p).toFixed(1)}px,${lerp(y0, y1, p).toFixed(1)}px,0)`; }, {
+          done: () => { g.el.remove(); rm.items.push({ k: d.id, x: d.from.x, c: d.c }); renderRoom(d.from.f, d.from.h); save(); },
+        });
+        undoStack.pop(); updateUndo();
+      } else {
+        tween(200, (p) => { g.el.style.opacity = String(1 - p); }, { done: () => g.el.remove() });
+      }
+      return;
+    }
+    if (d.kind === "res") {
+      const r = d.r;
+      const p = buildingOf(cx, cy);
+      const hit = cancelled || !p ? null : hitRoom({ x: p.x, y: p.y + 20 });
+      if (hit) {
+        r.f = hit.f; r.x = clamp(hit.h * (HALF + DIV) + hit.x, hit.h * (HALF + DIV) + 22, hit.h * (HALF + DIV) + HALF - 22);
+        const fromY = r.dragY, toY = standY(hit.f);
+        r.mode = "idle"; r.waitUntil = performance.now() / 1000 + 1.5;
+        r.hopY = Math.min(0, fromY - toY);
+        tween(260, (q) => { r.hopY = (fromY - toY) * (1 - q); }, { e: ease.in2, done: () => { r.hopY = 0; sfx.plopp(); if (inWater(r)) poof(WALL + r.x, standY(r.f) - 26, 6, 34, "#d5f0ff"); } });
+      } else {
+        r.mode = "idle"; r.f = d.from.f; r.x = d.from.x;
+      }
+      wake();
+    }
+  }
+  function startResDrag(g, e) {
+    const r = life.find((x) => x.id === g.resEl.getAttribute("data-res"));
+    if (!r || r.mode === "ride" || r.mode === "goto") { gesture = null; return; }
+    if (r.bubble) { r.bubble.remove(); r.bubble = null; }
+    drag = { kind: "res", r, pid: e.pointerId, from: { f: r.f, x: r.x } };
+    r.mode = "drag";
+    gResidents.append(r.el);
+    try { stage.setPointerCapture(e.pointerId); } catch { /* egal */ }
+    sfx.pop(); say(SPECIES[r.sp].name);
+    moveDrag(e.clientX, e.clientY);
+  }
+
+  // --- Karten in der Schublade: antippen oder herausziehen ---
+  let cardGesture = null;
+  $("#cards").addEventListener("pointerdown", (e) => {
+    const b = e.target.closest(".card"); if (!b || busy) return;
+    cardGesture = { b, id: e.pointerId, x0: e.clientX, y0: e.clientY, started: false };
+  });
+  $("#cards").addEventListener("pointermove", (e) => {
+    const g = cardGesture; if (!g || g.id !== e.pointerId || g.started) return;
+    const dx = e.clientX - g.x0, dy = e.clientY - g.y0;
+    if (dy < -12 && Math.abs(dy) > Math.abs(dx) && g.b.dataset.add) {
+      g.started = true; cardGesture = null;
+      startItemDragFromCard(g.b.dataset.add, e);
+    } else if (Math.abs(dx) > 12) cardGesture = null;
+  });
+  $("#cards").addEventListener("pointercancel", () => { cardGesture = null; });
+  $("#cards").addEventListener("click", (e) => {
+    const b = e.target.closest(".card"); if (!b || busy || !selected) return;
+    if (b.dataset.type) setRoomType(b.dataset.type);
+    else if (b.dataset.color) paintWall(b.dataset.color);
+    else if (b.dataset.pattern) setPattern(b.dataset.pattern);
+    else if (b.dataset.add) { const rm = roomAt(selected.f, selected.h); addItem(selected.f, selected.h, b.dataset.add, freeSpot(rm, b.dataset.add)); }
+  });
+
+  // ===========================================================================
+  // Knöpfe
+  // ===========================================================================
+  document.querySelectorAll(".tab").forEach((b) => b.addEventListener("click", () => { tab = b.dataset.tab; renderTabs(); renderCards(); sfx.pop(); }));
+  $("#btn-done").addEventListener("click", () => { closeDrawer(); sfx.pop(); });
+  $("#btn-build").addEventListener("click", () => { ac(); buildStory(); });
+  $("#btn-demo").addEventListener("click", () => { ac(); demoRound(); });
+  // Rückgängig nimmt nur, was das Kind gebaut hat: Ziegel, die der Zug
+  // gebracht hat, und Herzen bleiben. Wird ein Stockwerk zurückgenommen,
+  // kommen seine zehn Ziegel auf die Palette zurück.
+  $("#btn-undo").addEventListener("click", () => {
+    if (busy || !undoStack.length) return;
+    const prev = JSON.parse(undoStack.pop());
+    prev.bricks = S.bricks + Math.max(0, S.floors.length - prev.floors.length) * 10;
+    prev.hearts = S.hearts; prev.met = S.met; prev.night = S.night;
+    resetMotion();
+    if (drawerOpen) closeDrawer();
+    S = prev;
+    rebuildLife(); renderAll(); updateHud(); updateUndo(); sfx.wusch(); save();
+    maybeMoveIn();
+  });
+  $("#btn-night").addEventListener("click", () => {
+    S.night = !S.night; save(); updateHud(); sfx.pop(); wake();
+    say(S.night ? "Gute Nacht! Nur die Eule ist noch wach." : "Guten Morgen!");
+    if (!S.night) setTimeout(goSwim, 600);
+  });
+  $("#btn-sound").addEventListener("click", () => {
+    soundOn = !soundOn; remember("gz-bau-ton", soundOn ? "1" : "0");
+    if (!soundOn) { try { window.speechSynthesis.cancel(); } catch { /* egal */ } }
+    updateHud(); sfx.pop();
+  });
+  const info = $("#info");
+  $("#btn-info").addEventListener("click", () => { info.hidden = !info.hidden; sfx.pop(); });
+  $("#btn-info-close").addEventListener("click", () => { info.hidden = true; remember("gz-bau-info", "1"); sfx.pop(); });
+  $("#opt-fps").addEventListener("change", (e) => { $("#fps").hidden = !e.target.checked; remember("gz-bau-fps", e.target.checked ? "1" : "0"); wake(); });
+  $("#btn-reset").addEventListener("click", function confirmReset() {
+    const row = $("#reset-row");
+    row.innerHTML = `<span style="font-weight:700">Alles auf den Anfang?</span><button class="warn-btn" id="reset-yes" type="button">Ja, neu anfangen</button><button class="ghost-btn" id="reset-no" type="button">Nein</button>`;
+    $("#reset-yes").addEventListener("click", () => {
+      resetMotion(); if (drawerOpen) closeDrawer();
+      S = exampleState(); save(); undoStack.length = 0; rebuildLife(); cam = 0; renderAll(); updateHud(); updateUndo();
+      setTimeout(maybeMoveIn, 600);
+      row.innerHTML = `<button class="warn-btn" id="btn-reset" type="button">Neu anfangen</button>`; $("#btn-reset").addEventListener("click", confirmReset);
+      info.hidden = true;
+    });
+    $("#reset-no").addEventListener("click", () => { row.innerHTML = `<button class="warn-btn" id="btn-reset" type="button">Neu anfangen</button>`; $("#btn-reset").addEventListener("click", confirmReset); });
+  });
+
+  stage.addEventListener("pointerdown", onDown);
+  stage.addEventListener("pointermove", onMove);
+  stage.addEventListener("pointerup", onUp);
+  stage.addEventListener("pointercancel", onUp);
+  stage.addEventListener("wheel", (e) => {
+    if (e.target.closest(".drawer, .info")) return;
+    e.preventDefault();
+    const [lo, hi] = camRange();
+    cam = clamp(cam - e.deltaY * 0.7, lo, hi); applyCam();
+  }, { passive: false });
+  window.addEventListener("keydown", (e) => {
+    if (e.key === "ArrowUp" || e.key === "ArrowDown") { const [lo, hi] = camRange(); camTo(clamp(cam + (e.key === "ArrowUp" ? 1 : -1) * STORY * scale, lo, hi), 300); }
+    if (e.key === "Escape" && drawerOpen) closeDrawer();
+  });
+  let resizeRaf = 0;
+  window.addEventListener("resize", () => {
+    cancelAnimationFrame(resizeRaf);
+    resizeRaf = requestAnimationFrame(() => { const off = cam - camDefault(); measure(); cam = camDefault() + off; renderAll(); if (selected) drawSelection(false); });
+  });
+
+  // --- Bildrate ---
+  let fpsT0 = 0, fpsN = 0, fpsWorst = 0, fpsLast = 0;
+  function tickFps(now) {
+    const el = $("#fps"); if (el.hidden) { fpsLast = now; return; }
+    if (fpsLast) fpsWorst = Math.max(fpsWorst, now - fpsLast);
+    fpsLast = now; fpsN += 1;
+    if (!fpsT0) fpsT0 = now;
+    if (now - fpsT0 >= 500) {
+      el.textContent = `${Math.round((fpsN * 1000) / (now - fpsT0))} Bilder/s · längstes ${fpsWorst.toFixed(0)} ms`;
+      fpsT0 = now; fpsN = 0; fpsWorst = 0;
+    }
+  }
+
+  // ===========================================================================
+  // Start
+  // ===========================================================================
+  rebuildLife();
+  measure(); cam = camDefault();
+  renderAll();
+  updateHud(); updateUndo();
+  if (recall("gz-bau-info") !== "1") info.hidden = false;
+  if (recall("gz-bau-fps") === "1") { $("#opt-fps").checked = true; $("#fps").hidden = false; }
+  if (window.speechSynthesis) { try { window.speechSynthesis.getVoices(); } catch { /* egal */ } }
+  wake();
+  setTimeout(() => { maybeMoveIn(); }, 1200);
+})();
+</script>
+</body>
+</html>
