@@ -135,7 +135,8 @@
       void knopf.offsetWidth;
       knopf.classList.add("stoesst", "ist-falsch");
       kids()?.playJingle?.("retry");
-      await ton.sprich(`${a.ziel.wort} – ${eintrag.wort}`, { rate: 0.85 });
+      // Zwei Wörter nacheinander – jedes hat seine Aufnahme (app-stimme.js).
+      await ton.sprichFolge([a.ziel.wort, eintrag.wort], { abstand: 350, rate: 0.85 });
       if (state.fehler >= 2) el.wahl.querySelector('[data-reim="1"]')?.classList.add("zeigt-hin");
       state.phase = "waehlen";
       return;

@@ -373,7 +373,7 @@
       label: "Mein Name",
       detail: `${state.punkte} von ${FAHRTEN} Fahrten ohne Fehlgriff`,
       speech: state.punkte === FAHRTEN
-        ? `Dreimal ohne Fehlgriff. Dein Name ist ${state.name}!`
+        ? `Dreimal ohne Fehlgriff. So heisst du: ${state.name}!`
         : `Dein Name ist dreimal gefahren. ${state.name}!`,
     });
   }

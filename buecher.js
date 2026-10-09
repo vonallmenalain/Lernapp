@@ -880,7 +880,7 @@
       stars: sterne,
       label: buch.titel,
       detail: `${state.punkte} von ${von} Fragen gleich richtig`,
-      speech: `${gehoert ? "Du hast das Buch angehört" : "Du hast das Buch gelesen"}: ${buch.titel}. ${state.punkte === von ? "Und jede Frage gleich richtig beantwortet!" : `${state.punkte} von ${von} Fragen waren gleich richtig.`}`,
+      speech: `${gehoert ? "Du hast das Buch angehört" : "Du hast das Buch gelesen"}: ${buch.titel}${/[.!?…]$/.test(buch.titel) ? "" : "."} ${state.punkte === von ? "Und jede Frage gleich richtig beantwortet!" : `${state.punkte} von ${von} Fragen waren gleich richtig.`}`,
       onBack: zeigeRegal,
     });
   }

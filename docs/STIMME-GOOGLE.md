@@ -1,4 +1,7 @@
-# Die Bauecke mit einer Stimme von Google (Chirp 3 HD)
+# Die App mit einer Stimme von Google (Chirp 3 HD)
+
+Zuerst für die Bauecke gebaut (Abschnitte 1 bis 3), seit Oktober 2026 für die
+ganze App (Abschnitt 4).
 
 Die Bauecke spricht bei jedem Tipp. Bisher macht das die Sprachausgabe des
 Geräts – auf manchen Tablets mechanisch oder mit Verzögerung. Neu sollen die
@@ -134,7 +137,9 @@ Gut zu wissen:
 - kids.js teilt jeden Text in Sätze und spielt je Satz die längste passende
   Aufnahme; was fehlt, spricht die Gerätestimme. Deshalb sind die Aufnahmen
   satzweise.
-- Die Leseecke behält Alains Stimme (`lesen-stimme.js`, `stimme/alain/`).
+- Die Laute (lesen-laute.js) bleiben Alains Aufnahmen. Seine vertonten Texte
+  (`lesen-stimme.js`, `stimme/alain/`) liegen noch da, aber app-stimme.js kommt
+  danach und spricht dieselben Sätze mit Sulafat (Abschnitt 4).
 - **Je Satz höchstens ein Wechselndes.** Zwei Namen oder zwei Zahlen in einem
   Satz («Hier wohnen Flora und Benno.», «8 von 22 Sternen») gäbe es
   hunderttausendfach. Die Bauecke sagt so etwas deshalb in Sätzen mit je einem
@@ -159,3 +164,69 @@ Gut zu wissen:
   die Dateien gleich wie vorher (nach ihrem Text). Dann braucht STIMME_CACHE
   in `service-worker.js` eine neue Nummer, sonst spielen Geräte, die einen Satz
   schon gehört haben, weiter die alte Stimme.
+
+## 4. Die ganze App
+
+Seit Oktober 2026 spricht nicht nur die Bauecke mit Sulafat, sondern die ganze
+App: die Hilfe jedes Spiels, Aufgaben, Wörter, Bücher, Ergebnisse, die Reise,
+der Lesewagen. Zwei Bereiche, ein Ordner:
+
+| Bereich | Sätze aus | Verzeichnis | geladen auf |
+| --- | --- | --- | --- |
+| `bau` | `scripts/stimme-bau-texte.mjs` | `bau-stimme.js` | index.html |
+| `app` | `scripts/stimme-app-texte.mjs` | `app-stimme.js` | jeder Seite mit kids.js |
+
+Die Aufnahmen liegen beide in `stimme/google/` (eine Datei je Text – ein Satz,
+den beide Bereiche sagen, hat eine Datei). `app-stimme.js` steht auf jeder
+Seite **nach** `lesen-stimme.js` (das sein Verzeichnis neu anlegt).
+
+Woher die Sätze kommen (`stimme-app-texte.mjs`):
+
+- **fest:** jede Zeichenkette im Code der Spiele, die wie ein gesprochener
+  Satz aussieht – herausgelesen von `scripts/stimme-quelltext.mjs` (kennt
+  Kommentare, Vorlagen, reguläre Ausdrücke und `[…].join(" ")`). Etwas mehr
+  als nötig, aber kein Satz fehlt, weil ihn niemand eingetragen hat.
+- **Regeln** in `scripts/stimme-app/`: je Gruppe von Spielen eine Datei
+  (`leseecke-a.mjs`, `leseecke-b.mjs`, `spiele.mjs`, `zug.mjs`). Sie rechnen
+  die Sätze mit Wechselndem aus den Daten aus («Hör gut: Apfel.», «Du hast 5
+  von 8 Wörtern …», jede Station der Reise). Sie lesen Konstanten und kleine
+  Funktionen direkt aus dem Code der Spiele; ändert sich dort eine Vorlage,
+  bricht die Regel mit einer Meldung ab, statt still Falsches aufzunehmen.
+  `NICHT` in einer Regel-Datei sagt, was sich nicht vorher aufnehmen lässt.
+
+Damit alles aufnehmbar ist, sprechen ein paar Spiele seit Oktober 2026 etwas
+anders:
+
+- **Je Satz höchstens ein Wechselndes** gilt auch hier. Ein falsches Paar im
+  Anlaut-Lauscher und in der Reimkupplung kommt als zwei Wörter nacheinander,
+  der Fahrplan sagt «12 von 60 Stationen gestempelt. 3 Stempel sind golden.»,
+  Neues an der Lok und im Lesewagen kommt Satz für Satz.
+- **Kein Satz endet mit «Zahl.», wenn danach etwas Neues kommt:** kids.js teilt
+  dort nicht («der 3. Stock»). Darum heisst es «Schaff Level 3!» und «Tippe auf
+  die 5 im grünen Kreis.».
+- **Quatschwörter:** je Stufe 60 feste Monsternamen statt jedes Mal neu
+  ausgewürfelter, die ähnlichen Schilder je Name immer dieselben.
+- **Stolperwörter:** je Satz drei feste Fassungen mit Stolperstein.
+- **Laute kuppeln:** Ein Stück ohne Selbstlaut («br») liest keine Stimme
+  richtig vor – dort klingt der neue Laut aus seiner Aufnahme.
+- **Der Lesewurm** heisst beim Sprechen immer «Dein Lesewurm»; den Namen, den
+  das Kind ihm gibt, zeigen Tafel und Lesewagen.
+
+Was die Gerätestimme behält (lässt sich nicht vorher aufnehmen): der Name des
+Kindes und der Name, den es seinem Lesewurm gibt, während es ihn in «Mein
+Name» legt; die Stimmprobe im Elternbereich (dort geht es gerade um die
+Stimmen des Geräts). Die vollständige Liste: `NICHT` in den Regel-Dateien.
+
+Ablauf:
+
+1. `node scripts/stimme-google.mjs texte --bereich app` – wie viele Sätze und
+   Zeichen, wie viele schon aufgenommen sind.
+2. `node scripts/stimme-google.mjs vertonen --bereich app` – nimmt auf, was
+   fehlt (Sätze, die die Bauecke schon hat, ohne Anfrage), schreibt
+   `app-stimme.js`. Danach APP_VERSION und alle `?v=` neu.
+3. `node scripts/validate-app-stimme.mjs` – jeder Satz hat eine Aufnahme,
+   jede Aufnahme gehört zu einem Satz, jede Seite lädt das Verzeichnis.
+4. `node scripts/check-app-stimme.mjs` – ein Rundgang durch alle Seiten mit
+   zufälligen Tipps; er meldet jeden Satz, der noch mit der Gerätestimme kommt.
+5. Ändert sich ein Satz im Code, gehört er wieder vertont (Schritt 2) und die
+   alte Aufnahme weg: `node scripts/stimme-google.mjs aufraeumen --bereich app`.

@@ -129,17 +129,23 @@
     // nicht wie: Das zeigt der Lesewagen.
     const mission = Boolean(s?.missionErfuellt?.(id));
     const nachher = s?.wurmStand?.() || null;
+    // Gesagt wird «Dein Lesewurm», auch wenn er einen Namen hat: Den Namen,
+    // den das Kind ausgedacht hat, gibt es nicht als Aufnahme. Auf der Tafel
+    // steht er.
     const getauft = s?.wurmName?.() || "";
     const name = getauft ? (s?.zeige?.(getauft) ?? getauft) : "";
     let wurm = "";
+    let wurmTafel = "";
     if (vorher && nachher && !vorher.fertig) {
-      wurm = nachher.nr > vorher.nr
-        ? ` ${name || "Dein Lesewurm"} hat eine Überraschung für dich – schau im Lesewagen nach!`
-        : ` ${mission ? "Zwei Buchstaben" : "Ein Buchstabe"} für ${name || "deinen Lesewurm"}!`;
+      const satz = (wer, wen) => (nachher.nr > vorher.nr
+        ? ` ${wer} hat eine Überraschung für dich – schau im Lesewagen nach!`
+        : ` ${mission ? "Zwei Buchstaben" : "Ein Buchstabe"} für ${wen}!`);
+      wurm = satz("Dein Lesewurm", "deinen Lesewurm");
+      wurmTafel = name ? satz(name, name) : wurm;
     }
     // Ein neuer Bestwert auf Zeit – nicht schon beim allerersten Mal.
     const rekord = zeit && bisher > 0 && punkte > bisher ? " Neuer Rekord!" : "";
-    const notiz = [rekord.trim(), wurm.trim()].filter(Boolean).join(" ");
+    const notiz = [rekord.trim(), wurmTafel.trim()].filter(Boolean).join(" ");
     kids()?.playJingle?.(sternZahl === 3 || rekord ? "win" : "correct");
     shell.showResult({
       label,

@@ -239,7 +239,7 @@
         zeit: true,
         label: "Stimmt das? – auf Zeit",
         detail: `${state.punkte} Sätze in ${spiel.ZEIT_MS / 1000} Sekunden richtig geprüft${bisher ? ` · Bestwert bisher ${bisher}` : ""}`,
-        speech: `Die Zeit ist um. Du hast ${state.punkte} Sätze richtig geprüft.`,
+        speech: `Die Zeit ist um. Du hast ${state.punkte} ${state.punkte === 1 ? "Satz" : "Sätze"} richtig geprüft.`,
       });
       return;
     }

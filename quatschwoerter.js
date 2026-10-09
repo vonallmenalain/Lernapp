@@ -67,25 +67,54 @@
     return schule.length >= 3 ? schule : liste;
   }
 
-  // Ein Name aus Silben: Mitlaut und Selbstlaut, auf «schwer» drei Silben
-  // oder ein Mitlaut am Schluss.
-  function name() {
-    const m = mitlaute();
-    for (let versuch = 0; versuch < 50; versuch += 1) {
-      const silben = stufe() === "schwer" && Math.random() < 0.5 ? 3 : 2;
+  // Die Namen: je Stufe eine feste Auswahl von NAMEN_JE_STUFE Namen aus
+  // Silben – Mitlaut und Selbstlaut, auf «schwer» drei Silben oder ein Mitlaut
+  // am Schluss. Fest, nicht jedes Mal neu ausgewürfelt: So liegt jeder Name,
+  // den das Monster sagt, als Aufnahme bereit (scripts/stimme-app/leseecke-b.mjs).
+  const NAMEN_JE_STUFE = 60;
+  function zahlVon(text) {
+    let h = 2166136261;
+    for (const z of text) h = Math.imul(h ^ z.codePointAt(0), 16777619) >>> 0;
+    return h;
+  }
+  const NAMEN = {};
+  function namen(stufe) {
+    if (NAMEN[stufe]) return NAMEN[stufe];
+    const m = MITLAUTE[stufe] || MITLAUTE.mittel;
+    let saat = zahlVon(stufe);
+    const naechste = () => { saat = (Math.imul(saat, 1664525) + 1013904223) >>> 0; return saat / 4294967296; };
+    const nimm = (liste) => liste[Math.floor(naechste() * liste.length)];
+    const liste = [];
+    for (let versuch = 0; liste.length < NAMEN_JE_STUFE && versuch < 5000; versuch += 1) {
+      const silben = stufe === "schwer" && naechste() < 0.5 ? 3 : 2;
       let wort = "";
-      for (let i = 0; i < silben; i += 1) wort += zufall(m) + zufall(SELBSTLAUTE);
-      if (stufe() === "schwer" && silben === 2) wort += zufall(m);
-      if (!ECHTE.has(wort) && !/(.)\1/.test(wort)) return wort;
+      for (let i = 0; i < silben; i += 1) wort += nimm(m) + nimm(SELBSTLAUTE);
+      if (stufe === "schwer" && silben === 2) wort += nimm(m);
+      if (!ECHTE.has(wort) && !/(.)\1/.test(wort) && !liste.includes(wort)) liste.push(wort);
     }
-    return "lomu";
+    NAMEN[stufe] = liste;
+    return liste;
+  }
+
+  // Passt ein Wort zu den Buchstaben, die das Kind schon kennt?
+  function bekannt(wort) {
+    const m = mitlaute();
+    return wort.split("").every((b) => SELBSTLAUTE.includes(b) || m.includes(b));
+  }
+
+  // Ein Name der Stufe – wenn möglich nur aus Buchstaben, die das Kind kennt.
+  function name() {
+    const alle = namen(stufe());
+    const passend = alle.filter(bekannt);
+    return zufall(passend.length >= 6 ? passend : alle);
   }
 
   // Schilder, die fast gleich aussehen: die Selbstlaute getauscht (Lomu –
   // Lumo), ein Selbstlaut anders (Loma), die Mitlaute getauscht (Molu), ein
-  // Mitlaut anders (Lonu).
+  // Mitlaut anders (Lonu). Je Name immer dieselben – gewählt nach dem Namen.
   function aehnliche(wort) {
     const buchstaben = wort.split("");
+    const h = zahlVon(wort);
     const selbst = buchstaben.map((b, i) => (SELBSTLAUTE.includes(b) ? i : -1)).filter((i) => i >= 0);
     const mit = buchstaben.map((b, i) => (!SELBSTLAUTE.includes(b) ? i : -1)).filter((i) => i >= 0);
     const tausche = (stellen) => {
@@ -96,15 +125,15 @@
       [neu[a], neu[b]] = [neu[b], neu[a]];
       return neu.join("");
     };
-    const ersetze = (stellen, vorrat) => {
-      const i = zufall(stellen);
+    const ersetze = (stellen, vorrat, salz) => {
+      const i = stellen[(h >>> salz) % stellen.length];
       const andere = vorrat.filter((x) => x !== buchstaben[i]);
       const neu = [...buchstaben];
-      neu[i] = zufall(andere);
+      neu[i] = andere[(h >>> (salz + 4)) % andere.length];
       return neu.join("");
     };
-    const kandidaten = [tausche(selbst), ersetze(selbst, SELBSTLAUTE), tausche(mit), ersetze(mit, mitlaute())]
-      .filter((w) => w && w !== wort && !ECHTE.has(w));
+    const kandidaten = [tausche(selbst), ersetze(selbst, SELBSTLAUTE, 1), tausche(mit), ersetze(mit, MITLAUTE[stufe()] || MITLAUTE.mittel, 9)]
+      .filter((w) => w && w !== wort && !ECHTE.has(w) && bekannt(w));
     return [...new Set(kandidaten)];
   }
 
