@@ -26,13 +26,29 @@
 import fs from "node:fs";
 import path from "node:path";
 import vm from "node:vm";
-import { WURZEL, sprechText, dateiFuer as dateiIn } from "./stimme-texte.mjs";
+import { WURZEL, sprechText, mp3Rahmen, dateiFuer as dateiIn } from "./stimme-texte.mjs";
 
 export const ORDNER = "stimme/google";
 export const VERZEICHNIS = "bau-stimme.js";
 export const dateiFuer = (text) => dateiIn(text, ORDNER);
 
 const lies = (name) => fs.readFileSync(path.join(WURZEL, name), "utf8");
+
+// Ob eine Aufnahme so lang ist, wie ihr Satz es verlangt: rund 14 Zeichen in
+// der Sekunde; ein einzelnes Wort darf etwas länger sein. Beim Vertonen
+// (stimme-google.mjs) und in der Prüfung (validate-bau.mjs).
+export function passtZumText(sekunden, text) {
+  if (!(sekunden >= 0.25)) return false;
+  if (sekunden > Math.max(1.6, text.length * 0.2)) return false;
+  return text.length < 15 || sekunden >= text.length * 0.025;
+}
+
+// Wie lang eine MP3 spielt, gezählt in ihren Rahmen – ohne den ersten, den
+// Kopf des Encoders. Beim Vertonen und in der Prüfung gleich gemessen.
+export function sekundenVon(daten) {
+  const rahmen = mp3Rahmen(daten);
+  return rahmen ? rahmen.slice(1).reduce((summe, r) => summe + (r.version === 3 ? 1152 : 576) / r.rate, 0) : 0;
+}
 
 // Wie kids.js (saetzeVon): geteilt hinter . ! ? … (und einem schliessenden
 // Anführungszeichen), wo ein Leerzeichen folgt.

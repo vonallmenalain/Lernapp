@@ -106,20 +106,15 @@ Ablauf:
 3. `node scripts/stimme-google.mjs vertonen --stimme <Wahl> [--tempo 0.9] --teil kern --limit 300`,
    dann ohne `--limit`, dann ohne `--teil`. Die Liste «Nicht übernommen»
    ansehen; ein zweiter Lauf versucht diese Sätze neu.
-4. In die App einbauen (noch nicht gemacht, weil es ohne Aufnahmen nichts zu
-   laden gibt):
-   - `index.html`: `<script defer src="bau-stimme.js?v=…"></script>` direkt
-     **nach** `lesen-stimme.js` (bau-stimme.js ergänzt dessen Verzeichnis,
-     lesen-stimme.js setzt es neu).
-   - `service-worker.js`: `./bau-stimme.js${ASSET_VERSION_QUERY}` in die
-     CORE_ASSETS. Die Aufnahmen selbst gehen schon in den Cache STIMME_CACHE
-     (alles unter `/stimme/`), und `netlify/build.mjs` nimmt `stimme/` schon
-     mit.
-   - APP_VERSION und alle `?v=` wie bei jeder Änderung neu.
-   - Prüfung in `scripts/validate-bau.mjs`: jeder Eintrag in bau-stimme.js
-     ist ein Satz aus `bauTexte()`, die Datei heisst `dateiFuer(text)`, ist
-     eine MP3 mono/24 kHz/32 kbit/s (wie `mp3Rahmen` in validate-lesen.mjs)
-     und jede Datei in `stimme/google/` steht im Verzeichnis.
+4. Eingebaut ist schon alles: `index.html` lädt `bau-stimme.js` direkt
+   **nach** `lesen-stimme.js` (bau-stimme.js ergänzt dessen Verzeichnis,
+   lesen-stimme.js setzt es neu), `service-worker.js` hat es in den
+   CORE_ASSETS, die Aufnahmen gehen in den Cache STIMME_CACHE (alles unter
+   `/stimme/`), und `netlify/build.mjs` nimmt `stimme/` mit.
+   `scripts/validate-bau.mjs` prüft jede Aufnahme: ein Satz aus `bauTexte()`,
+   Datei `dateiFuer(text)`, MP3 mono/24 kHz/32 kbit/s, Länge passend
+   (`passtZumText`), keine Datei ohne Satz, kein Satz mit Alains Stimme.
+   Bei neuen Aufnahmen APP_VERSION und alle `?v=` neu.
 5. Alle `scripts/validate-*.mjs` laufen lassen, Pull Request.
 
 Gut zu wissen:
@@ -128,3 +123,7 @@ Gut zu wissen:
   Aufnahme; was fehlt, spricht die Gerätestimme. Deshalb sind die Aufnahmen
   satzweise.
 - Die Leseecke behält Alains Stimme (`lesen-stimme.js`, `stimme/alain/`).
+- Wird mit einer anderen Stimme alles neu gesprochen (`--alle-neu`), heissen
+  die Dateien gleich wie vorher (nach ihrem Text). Dann braucht STIMME_CACHE
+  in `service-worker.js` eine neue Nummer, sonst spielen Geräte, die einen Satz
+  schon gehört haben, weiter die alte Stimme.
