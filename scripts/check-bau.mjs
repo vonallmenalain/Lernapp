@@ -62,6 +62,12 @@
  *   Glücksstern   Im Haus wie im Zimmer: angetippt eine Palette, dann erst in
  *                 einer halben Stunde wieder.
  *   Blasen        Eine Sprechblase ist niedriger als ihr Tier (halb so gross).
+ *   Ansicht       Oben Sterne nur beim Wohnhaus. Unten links statt der
+ *                 Nachbar-Häuser der Ansicht-Knopf: ein hohes Haus ganz auf
+ *                 einem Bildschirm (Zimmer öffnen geht auch so) und zurück.
+ *                 Zwei Finger zoomen bis zum ganzen Haus und zurück; danach
+ *                 zieht ein Finger wieder. Der Lieferzug fährt auf einer
+ *                 eigenen Ebene, und das Haus wird dabei nicht neu gezeichnet.
  *   Wieder hinein Hinaus und wieder hinein: Zimmer und Tier-Tafel gehen auch
  *                 beim zweiten Besuch auf derselben Seite auf.
  *   Neuer Kasten  Hat ein anderes Gerät die Bauecke schon mit einer neueren
@@ -615,7 +621,7 @@ async function pruefeBewohner(browser, name, viewport) {
     // Der Knopf: links, ganz im Bild, neben den anderen, mit der Zahl.
     const knopf = await page.locator(".bau-bewohnerknopf").boundingBox();
     pruefe(knopf && knopf.x < 40 && knopf.y >= 0 && knopf.y + knopf.height <= viewport.height && knopf.width >= 60, `${name}: Bewohner: der Knopf steht nicht links im Bild`);
-    for (const andere of [".stage-back", ".bau-nachbar.is-links", ".bau-umschalter", ".tts-toggle"]) {
+    for (const andere of [".stage-back", ".bau-ansichtknopf", ".bau-umschalter", ".tts-toggle"]) {
       const box = await page.locator(andere).first().boundingBox().catch(() => null);
       pruefe(!ueberlappen(knopf, box), `${name}: Bewohner: der Knopf deckt ${andere} zu`);
     }
@@ -749,7 +755,7 @@ async function pruefeUeberraschungen(browser, name, viewport) {
     const knopf = await page.locator(".bau-leiterknopf").boundingBox();
     const bewohner = await page.locator(".bau-bewohnerknopf").boundingBox();
     pruefe(knopf && bewohner && knopf.x < 40 && knopf.y >= bewohner.y + bewohner.height && knopf.y + knopf.height <= viewport.height, `${name}: Sternenleiter: der Zähler steht nicht links unter den Bewohnern`);
-    for (const andere of [".stage-back", ".bau-nachbar.is-links", ".bau-umschalter", ".bau-bewohnerknopf"]) {
+    for (const andere of [".stage-back", ".bau-ansichtknopf", ".bau-umschalter", ".bau-bewohnerknopf"]) {
       const box = await page.locator(andere).first().boundingBox().catch(() => null);
       pruefe(!ueberlappen(knopf, box), `${name}: Sternenleiter: der Zähler deckt ${andere} zu`);
     }
@@ -875,6 +881,128 @@ async function pruefeUeberraschungen(browser, name, viewport) {
       return null;
     });
     pruefe(blase && blase.tier > 0 && blase.blase < blase.tier, `${name}: Sprechblasen: eine Blase ist höher als ihr Tier (${JSON.stringify(blase)})`);
+  } catch (fehler) {
+    const zeilen = fehler.message.split("\n");
+    const wo = zeilen.find((z) => /waiting for/.test(z))?.trim() || "";
+    fehlt(`${name}: ${zeilen[0]}${wo ? ` (${wo})` : ""}`);
+  }
+  ausnahmen.forEach((a) => fehlt(`${name}: Ausnahme im Browser: ${a}`));
+  await context.close();
+}
+
+// Oben die Sterne nur beim Wohnhaus; unten links statt der Nachbarn der
+// Ansicht-Knopf (gross – ganzes Haus); zwei Finger zoomen; der Lieferzug fährt
+// auf seiner eigenen Ebene, ohne dass das Haus neu gezeichnet wird.
+async function pruefeAnsicht(browser, name, viewport) {
+  const { context, page, ausnahmen } = await neueSeite(browser, viewport);
+  try {
+    await page.goto(`${BASIS}/index.html`, { waitUntil: "load" });
+    // Ein Wohnhaus mit acht Stockwerken (mit offener Schranke gebaut), das auf
+    // keinen Bildschirm ganz passt; eine Palette wartet auf den Lieferzug.
+    await page.evaluate(() => {
+      const S = window.LernappBauStand;
+      window.LernappEntitlement.isFree = () => true;
+      for (let n = 0; n < 6; n += 1) window.LernappReise.bauBonus();
+      S.setzeGewaehlt("wohnhaus");
+      S.waehleRaum("wohnhaus", 0, 0, "kinderzimmer");
+      S.waehleRaum("wohnhaus", 1, 0, "schlafzimmer");
+      S.waehleRaum("wohnhaus", 2, 0, "kinderzimmer");
+      for (let i = 3; i < 8; i += 1) { S.baueStockwerk("wohnhaus"); S.waehleArt("wohnhaus", i, "wohnung"); S.waehleRaum("wohnhaus", i, 0, i % 2 ? "schlafzimmer" : "kinderzimmer"); }
+      S.haus("wohnhaus").stock.forEach((_, i) => S.aendereStock("wohnhaus", i, (st) => { st.tiere.forEach((t) => { t.seit = Date.now(); }); st.zuzug = Date.now() + 86400000; }));
+      S.speichern(true);
+      localStorage.setItem("lernapp.bau.gezeigt", JSON.stringify({ [S.besitzer()]: S.verdient() - 1 }));
+    });
+    // Was während der Lieferung geschieht: ob der Zug eine eigene Ebene hat
+    // und ob das Haus-SVG dabei ersetzt wird.
+    // Die Änderungen der Reihe nach: Kommt ein neues Haus-SVG, während ein Zug
+    // auf seiner Ebene fährt?
+    await context.addInitScript(() => {
+      window.__lieferung = { ebene: 0, hausNeu: 0, faehrt: false };
+      new MutationObserver((liste) => {
+        for (const m of liste) {
+          m.removedNodes.forEach((n) => { if (n.nodeType === 1 && n.classList.contains("bau-zugebene")) window.__lieferung.faehrt = false; });
+          m.addedNodes.forEach((n) => {
+            if (n.nodeType !== 1) return;
+            if (n.classList.contains("bau-zugebene")) { window.__lieferung.ebene += 1; window.__lieferung.faehrt = true; }
+            if (n.classList.contains("bau-haus-svg") && window.__lieferung.faehrt) window.__lieferung.hausNeu += 1;
+          });
+        }
+      }).observe(document, { childList: true, subtree: true });
+    });
+    await page.goto(`${BASIS}/index.html?bau=1`, { waitUntil: "load" });
+    pruefe(await bis(page, () => window.__lieferung.ebene > 0, null, 6000), `${name}: Lieferzug: er fährt nicht auf einer eigenen Ebene`);
+    pruefe(await bis(page, () => !document.querySelector(".bau-zugebene") && document.querySelector(".bau-naechster"), null, 9000), `${name}: Lieferzug: nach der Lieferung fehlt das Plus`);
+    const lieferung = await page.evaluate(() => window.__lieferung);
+    pruefe(lieferung.hausNeu === 0, `${name}: Lieferzug: während der Fahrt wurde das ganze Haus neu gezeichnet (${lieferung.hausNeu})`);
+    await page.waitForTimeout(1200);
+
+    // Oben: Sterne nur beim Wohnhaus.
+    const tabs = await page.evaluate(() => [...document.querySelectorAll(".bau-tab")].map((t) => ({ haus: t.dataset.haus, sterne: Boolean(t.querySelector(".bau-tab-sterne")), label: t.getAttribute("aria-label") })));
+    pruefe(tabs.length === 4 && tabs.every((t) => t.sterne === (t.haus === "wohnhaus")) && tabs.every((t) => /Sterne/.test(t.label) === (t.haus === "wohnhaus")), `${name}: Umschalter: Sterne nicht nur beim Wohnhaus (${JSON.stringify(tabs)})`);
+    // Unten links der Ansicht-Knopf, keine Nachbar-Häuser mehr.
+    pruefe(await page.locator(".bau-nachbar").count() === 0, `${name}: Ansicht: unten stehen noch die Nachbar-Häuser`);
+    const knopf = await page.locator(".bau-ansichtknopf").boundingBox();
+    pruefe(knopf && knopf.x < 40 && knopf.y + knopf.height > viewport.height - 40 && knopf.width >= 44, `${name}: Ansicht: der Knopf steht nicht unten links (${JSON.stringify(knopf)})`);
+    for (const andere of [".bau-bewohnerknopf", ".bau-leiterknopf", ".stage-back"]) {
+      const box = await page.locator(andere).first().boundingBox().catch(() => null);
+      pruefe(!ueberlappen(knopf, box), `${name}: Ansicht: der Knopf deckt ${andere} zu`);
+    }
+    const kopf = viewport.height < 520 ? 64 : 84;
+    const lage = () => page.evaluate(() => {
+      const r = (sel) => document.querySelector(sel)?.getBoundingClientRect();
+      const svg = r(".bau-haus-svg");
+      return { svgH: Math.round(svg.height), dach: Math.round(r(".bau-dach").top), plus: Math.round(r(".bau-naechster")?.top ?? -1), erdgeschoss: Math.round(r('.bau-raum[data-stock="0"]').bottom), weit: document.querySelector(".bau-ansichtknopf").classList.contains("is-weit") };
+    });
+    const standard = await lage();
+    pruefe(await page.evaluate(() => window.LernappBauStand.haus("wohnhaus").stock.length) === 8, `${name}: Ansicht: der Test hat kein Haus mit acht Stockwerken`);
+    pruefe((standard.dach < kopf || standard.erdgeschoss > viewport.height) && !standard.weit, `${name}: Ansicht: das Haus mit acht Stockwerken passt schon gross ganz ins Bild (${JSON.stringify(standard)})`);
+    // Ganzes Haus: vom Plus bis zum Erdgeschoss im Bild, unter der Kopfzeile.
+    await tippe(page, ".bau-ansichtknopf");
+    await page.waitForTimeout(900);
+    const ganz = await lage();
+    pruefe(ganz.weit && ganz.svgH < standard.svgH && ganz.plus >= kopf - 2 && ganz.dach >= kopf && ganz.erdgeschoss <= viewport.height, `${name}: Ansicht: das ganze Haus ist nicht auf einem Bildschirm (${JSON.stringify(ganz)})`);
+    pruefe((await page.evaluate(() => window.__gesagt.join(" | "))).includes("Das ganze Haus."), `${name}: Ansicht: die Bauecke sagt die Ansicht nicht an`);
+    // Auch klein lässt sich ein Zimmer öffnen; zurück bleibt das ganze Haus.
+    await page.addStyleTag({ content: ".bau-welt .bau-tier { pointer-events: none !important; }" });
+    {
+      const r = await page.locator('.bau-raum[data-stock="2"]').boundingBox();
+      await page.mouse.click(r.x + 12, r.y + 6);
+    }
+    pruefe(await bis(page, () => document.querySelector(".bauecke.ist-zimmer .bau-zimmer-svg"), null, 5000), `${name}: Ansicht: im ganzen Haus geht kein Zimmer auf`);
+    await page.waitForTimeout(700);
+    await page.evaluate(() => window.LernappBau.zurueck());
+    await page.waitForTimeout(1400);
+    pruefe((await lage()).weit, `${name}: Ansicht: nach dem Zimmer ist das ganze Haus wieder gross`);
+    // Zurück zur grossen Ansicht.
+    await tippe(page, ".bau-ansichtknopf");
+    await page.waitForTimeout(900);
+    const wieder = await lage();
+    pruefe(!wieder.weit && Math.abs(wieder.svgH - standard.svgH) <= 2, `${name}: Ansicht: der Knopf führt nicht zurück zur grossen Ansicht (${JSON.stringify(wieder)})`);
+    // Zwei Finger: zusammen weiter weg (bis zum ganzen Haus), auseinander näher heran.
+    const finger = (von, nach) => page.evaluate(([v, n, vp]) => {
+      const welt = document.querySelector(".bau-welt");
+      const cx = vp.width / 2;
+      const cy = vp.height / 2;
+      const ev = (typ, id, x, y) => welt.dispatchEvent(new PointerEvent(typ, { pointerId: id, pointerType: "touch", isPrimary: id === 21, clientX: x, clientY: y, bubbles: true, cancelable: true, button: 0, buttons: typ === "pointerup" ? 0 : 1 }));
+      ev("pointerdown", 21, cx, cy - v);
+      ev("pointerdown", 22, cx, cy + v);
+      for (let i = 1; i <= 12; i += 1) { const d = v + ((n - v) * i) / 12; ev("pointermove", 21, cx, cy - d); ev("pointermove", 22, cx, cy + d); }
+      ev("pointerup", 21, cx, cy - n);
+      ev("pointerup", 22, cx, cy + n);
+    }, [von, nach, viewport]);
+    await finger(Math.min(150, viewport.height * 0.35), 30);
+    await page.waitForTimeout(700);
+    const weg = await lage();
+    pruefe(weg.weit && weg.svgH < standard.svgH && Math.abs(weg.svgH - ganz.svgH) <= 3, `${name}: Zwei Finger: zusammen zoomt nicht bis zum ganzen Haus (${JSON.stringify(weg)}, ganz ${ganz.svgH})`);
+    await finger(30, Math.min(170, viewport.height * 0.42));
+    await page.waitForTimeout(700);
+    const nah = await lage();
+    pruefe(nah.svgH > weg.svgH && nah.svgH <= standard.svgH + 2, `${name}: Zwei Finger: auseinander zoomt nicht näher heran (${JSON.stringify(nah)})`);
+    // Ein Finger zieht das Haus weiterhin hinauf und hinunter.
+    const vorher = await page.evaluate(() => document.querySelector(".bau-welt").style.transform);
+    await ziehe(page, { x: viewport.width * 0.3, y: viewport.height * 0.3 }, { x: viewport.width * 0.3, y: viewport.height * 0.7 });
+    await page.waitForTimeout(900);
+    pruefe(await page.evaluate(() => document.querySelector(".bau-welt").style.transform) !== vorher, `${name}: Zwei Finger: danach lässt sich das Haus nicht mehr ziehen`);
   } catch (fehler) {
     const zeilen = fehler.message.split("\n");
     const wo = zeilen.find((z) => /waiting for/.test(z))?.trim() || "";
@@ -1032,6 +1160,8 @@ await pruefeBewohner(browser, "Tablet", { width: 1600, height: 1000 });
 await pruefeBewohner(browser, "Handy", { width: 812, height: 375 });
 await pruefeUeberraschungen(browser, "Tablet", { width: 1600, height: 1000 });
 await pruefeUeberraschungen(browser, "Handy", { width: 812, height: 375 });
+await pruefeAnsicht(browser, "Tablet", { width: 1600, height: 1000 });
+await pruefeAnsicht(browser, "Handy", { width: 812, height: 375 });
 await browser.close();
 halt();
 
@@ -1040,4 +1170,4 @@ if (befunde.length) {
   befunde.forEach((b) => console.error(`  - ${b}`));
   process.exit(1);
 }
-console.log("Die Bauecke läuft: Bauplatz, Hauswahl, Einzug mit Feuerwerk, Zimmer mit eigenen Dingen, Tier-Tafel mit Hingehen, Traumjob von aussen und im Zimmer, KiddyDome über zwei Stockwerke, alle Bewohner auf einen Blick, Sternenleiter mit Krone und goldenem Rahmen, Blitzzug, Glücksstern, Umstellen, Rätsel, Lieferung, Bauen, Vorlesen per Tipp – auf Tablet und Handy.");
+console.log("Die Bauecke läuft: Bauplatz, Hauswahl, Einzug mit Feuerwerk, Zimmer mit eigenen Dingen, Tier-Tafel mit Hingehen, Traumjob von aussen und im Zimmer, KiddyDome über zwei Stockwerke, alle Bewohner auf einen Blick, Sternenleiter mit Krone und goldenem Rahmen, Blitzzug, Glücksstern, ganzes Haus und Zoom, Umstellen, Rätsel, Lieferung, Bauen, Vorlesen per Tipp – auf Tablet und Handy.");

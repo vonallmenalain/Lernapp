@@ -7,7 +7,8 @@
  *   Hausansicht   ein Haus im Querschnitt, darüber der Umschalter für die vier
  *                 Häuser, rechts die Ziegel und der Rätsel-Knopf. Ziehen
  *                 schiebt das Haus hinauf und hinunter, Wischen zur Seite
- *                 wechselt das Haus. Im Wohnhaus sind die Wohnungen (ein
+ *                 wechselt das Haus, zwei Finger zoomen bis zum ganzen Haus
+ *                 (wie der Ansicht-Knopf unten links). Im Wohnhaus sind die Wohnungen (ein
  *                 Zimmer, bis zu drei Tiere, die Sterntafel am Lift); alle
  *                 anderen Stockwerke haben zwei Zimmer. Ein Tipp auf ein
  *                 Zimmer zoomt hinein; im Ordnen-Modus wandern die Stockwerke.
@@ -149,7 +150,7 @@
     slot: 0,               // welches Zimmer des Stockwerks (0 links, 1 rechts)
     zimmerId: "",          // Kennung dieses Stockwerks – es kann wandern
     nacht: false,
-    kamera: { ty: 0, tx: 0, vy: 0, min: 0, max: 0, skala: 1, welt: null },
+    kamera: { ty: 0, tx: 0, vy: 0, min: 0, max: 0, skala: 1, welt: null, stufe: 0, basis: 1, ganz: 1 },
     auswahl: null,         // Kennung des gewählten Dings im Zimmer
     schublade: "zimmer",
     rueck: [],             // Rückgängig-Schritte im Zimmer
@@ -208,6 +209,8 @@
     ui.kommt = "";
     ui.blitz = null;
     ui.stern = null;
+    ui.kamera.stufe = 0;
+    pinch = null;
     try { ui.nacht = localStorage.getItem("lernapp.bau.nacht") === "1"; } catch { ui.nacht = false; }
     const gewaehlt = stand().gewaehlt;
     ui.haus = S().HAUS_IDS.includes(gewaehlt) ? gewaehlt : (zuletztHaus() || "wohnhaus");
@@ -221,10 +224,8 @@
     els.himmel = el("div", "bau-himmel");
     els.himmel.innerHTML = `<div class="bau-sonne"></div><div class="bau-mond"></div><div class="bau-wolke w1"></div><div class="bau-wolke w2"></div>`;
     els.welt = el("div", "bau-welt");
-    els.nachbarL = el("button", "bau-nachbar is-links", { type: "button" });
-    els.nachbarR = el("button", "bau-nachbar is-rechts", { type: "button" });
-    els.nachbarL.addEventListener("click", () => wechsleHaus(-1));
-    els.nachbarR.addEventListener("click", () => wechsleHaus(1));
+    // Unten links: das Haus gross oder ganz auf einem Bildschirm.
+    els.ansicht = knopf("bau-ansichtknopf", "Das ganze Haus zeigen", "", () => wechsleAnsicht());
     els.umschalter = el("nav", "bau-umschalter", { "aria-label": "Die vier Häuser" });
     els.hud = el("div", "bau-hud");
     // Links: alle Bewohner auf einen Blick – im Haus und beim Einrichten.
@@ -234,7 +235,7 @@
     els.zimmer = el("div", "bau-zimmeransicht");
     els.zimmer.hidden = true;
     els.flug = el("div", "bau-flug");
-    host.append(els.himmel, els.welt, els.nachbarL, els.nachbarR, els.umschalter, els.hud, els.bewohner, els.leiterKnopf, els.zimmer, els.flug);
+    host.append(els.himmel, els.welt, els.ansicht, els.umschalter, els.hud, els.bewohner, els.leiterKnopf, els.zimmer, els.flug);
     // Die Verläufe der Tiere (bau-tiere.js): einmal für alle Bilder der Bauecke.
     const tierDefs = window.LernappBauTiere?.defs?.() || "";
     if (tierDefs) host.append(el("div", "bau-tierdefs", { "aria-hidden": "true", html: `<svg xmlns="${NS}" width="0" height="0" focusable="false"><defs>${tierDefs}</defs></svg>` }));
@@ -311,6 +312,9 @@
     liefert = false;
     ui.kommt = "";
     ui.blitz = null;
+    pinch = null;
+    zugEbenen.forEach((zug) => zug.ebene.remove());
+    zugEbenen.clear();
     if (ui.host) ui.host.classList.remove("bauecke", "is-nacht", "ist-zimmer", "ist-ordnen", "kann-lesen");
     ui.host = null;
   }
@@ -341,7 +345,7 @@
     folgeStockwerk();
     aktualisiereHud();
     baueUmschalter();
-    if (ui.besetzt || zieht) return;
+    if (ui.besetzt || zieht || pinch) return;
     const jetzt = zeichenStand();
     if (jetzt === ui.gezeichnet) { if (ui.tafel) fuelleTafel(); if (ui.uebersicht) fuelleUebersicht(); return; }
     if (ui.zimmer >= 0) {
@@ -414,7 +418,7 @@
     const tab = els.umschalter?.querySelector(`.bau-tab[data-haus="wohnhaus"]`);
     tab?.classList.toggle("hat-neues", Boolean(fall) && ui.haus !== "wohnhaus");
     if (!fall) return;
-    if (ui.haus !== "wohnhaus" || ui.zimmer >= 0 || ui.overlay || ui.tafel || ui.uebersicht || ui.leiter || ui.besetzt || ui.ordnen || liefert || ui.blitz) return;
+    if (ui.haus !== "wohnhaus" || ui.zimmer >= 0 || ui.overlay || ui.tafel || ui.uebersicht || ui.leiter || ui.besetzt || ui.ordnen || liefert || ui.blitz || pinch) return;
     if (performance.now() - ui.letzterEinzug < 30000 && ui.letzterEinzug) return;
     const tier = S().ziehtEin(fall.hausId, fall.index);
     if (tier) zeigeEinzug(fall.index, tier);
@@ -537,25 +541,16 @@
     S().HAUS_IDS.forEach((id) => {
       const haus = K().HAUS[id];
       const f = fort.find((eintrag) => eintrag.id === id);
-      const b = knopf(`bau-tab${id === ui.haus ? " is-aktiv" : ""}`, `${haus.name}: ${f.stockwerke} ${f.stockwerke === 1 ? "Stockwerk" : "Stockwerke"}, ${f.sterne} Sterne`,
-        `${svgVon(A().hausZeichen(id), "0 0 24 24", "bau-tab-zeichen")}<span class="bau-tab-name">${haus.name}</span><span class="bau-tab-sterne">★ ${f.sterne}</span>`,
+      // Sterne gibt es nur, wo jemand wohnt: im Wohnhaus. Bei Spital, Dorf
+      // und Büro stünde immer eine 0.
+      const mitSternen = id === "wohnhaus";
+      const b = knopf(`bau-tab${id === ui.haus ? " is-aktiv" : ""}`, `${haus.name}: ${f.stockwerke} ${f.stockwerke === 1 ? "Stockwerk" : "Stockwerke"}${mitSternen ? `, ${f.sterne} Sterne` : ""}`,
+        `${svgVon(A().hausZeichen(id), "0 0 24 24", "bau-tab-zeichen")}<span class="bau-tab-name">${haus.name}</span>${mitSternen ? `<span class="bau-tab-sterne">★ ${f.sterne}</span>` : ""}`,
         () => { if (id !== ui.haus) zeigeHaus(id, id > ui.haus ? 1 : -1); else sag(haus.der); });
       b.dataset.haus = id;
       els.umschalter.append(b);
     });
     zeigeSternTipp();
-    // Die Nachbarn am Rand: ein Stück vom Haus links und rechts.
-    const ids = S().HAUS_IDS;
-    const i = ids.indexOf(ui.haus);
-    const links = ids[(i + ids.length - 1) % ids.length];
-    const rechts = ids[(i + 1) % ids.length];
-    [[els.nachbarL, links], [els.nachbarR, rechts]].forEach(([b, id]) => {
-      const f = fort.find((eintrag) => eintrag.id === id);
-      const h = A().minihausHoehe(f);
-      b.innerHTML = svgVon(`<g transform="translate(6 ${h - 4})">${A().minihaus(id, f, { breite: 60 })}</g>`, `0 0 72 ${h}`);
-      b.setAttribute("aria-label", `Zum ${K().HAUS[id].name}`);
-      b.title = K().HAUS[id].name;
-    });
   }
 
   function wechsleHaus(richtung) {
@@ -732,41 +727,93 @@
   const WX0 = -440;
   const WX1 = 678 + 440;
   const GRUND = 190;          // so weit reicht die Welt unter die Strasse
+  const WELT_RAND = 4000;     // so weit gehen Strasse und Wiese seitlich und unten darüber hinaus
   const HALB = 280;           // ein Zimmer auf einem Stockwerk mit zwei Zimmern
 
   function weltOben(anzahl) { return A().oben(anzahl - 1) - A().DECKE - A().ZH - 300; }
 
   function kameraTransform(tx, ty) { return `translate3d(${Math.round(tx)}px, ${Math.round(ty)}px, 0)`; }
 
-  // Wie gross das Haus steht: gemessen an den alten, hohen Stockwerken
-  // (STOCK_HOCH) – so bleiben Dinge und Tiere gleich gross, und seit die
-  // Stockwerke niedriger sind, passt mehr vom Haus ins Bild.
+  // Wie gross das Haus steht. Am grössten (basis) gemessen an den alten,
+  // hohen Stockwerken (STOCK_HOCH) – so bleiben Dinge und Tiere gleich gross,
+  // und seit die Stockwerke niedriger sind, passt mehr vom Haus ins Bild. Am
+  // kleinsten (ganz) steht das ganze Haus auf einem Bildschirm, vom Plus (oder
+  // Dach) bis unter das Gleis. Dazwischen liegt der Zoom: ui.kamera.stufe, 0
+  // ist basis, 1 ist ganz. Zwei Finger und der Ansicht-Knopf unten links
+  // ändern ihn; er bleibt beim Neuzeichnen und beim Wechsel des Hauses.
+  const UNTER_GLEIS = 110;     // hier endet die Strasse samt Gleis (Haus-Einheiten)
   function messeWelt() {
+    const k = ui.kamera;
     const w = ui.host.clientWidth || 800;
     const h = ui.host.clientHeight || 500;
     // Auf dem Tablet passen die drei Wohnungen vom Anfang samt Strasse ins Bild.
     const sichtbar = h < 520 ? 1.75 : 3.6;
-    const skala = clamp(Math.min((w * 0.6) / A().HB, (h - 70) / (sichtbar * A().STOCK_HOCH)), 0.3, 1.6);
-    ui.kamera.skala = skala;
+    const basis = clamp(Math.min((w * 0.6) / A().HB, (h - 70) / (sichtbar * A().STOCK_HOCH)), 0.3, 1.6);
+    const ganz = clamp(Math.min((h - kopfHoehe() - 14) / (UNTER_GLEIS - hausOben()), (w * 0.94) / (A().HB + 180)), 0.04, basis);
+    k.basis = basis;
+    k.ganz = ganz;
+    const skala = skalaVon(k.stufe);
+    k.skala = skala;
     const anzahl = aktHaus().stock.length;
     const y0 = weltOben(anzahl);
     const weltH = (GRUND - y0) * skala;
-    ui.kamera.y0 = y0;
-    ui.kamera.tx = w / 2 - (A().HB / 2 - WX0) * skala;
-    // Unten: die Strasse am unteren Rand. Oben: der Himmel über dem Dach am
-    // oberen Rand. Ist die Welt niedriger als das Bild, steht sie unten.
-    ui.kamera.min = h - weltH;
-    ui.kamera.max = Math.max(ui.kamera.min, 0);
-    const svg = els.welt.querySelector("svg");
+    k.y0 = y0;
+    k.tx = w / 2 - (A().HB / 2 - WX0) * skala;
+    const grenzen = grenzenBei(skala);
+    k.min = grenzen.min;
+    k.max = grenzen.max;
+    const svg = hausSvg();
     if (svg) {
       svg.setAttribute("width", String(Math.round((WX1 - WX0) * skala)));
       svg.setAttribute("height", String(Math.round(weltH)));
     }
+    zugEbenen.forEach(passeZugEbene);
+    zeigeAnsichtKnopf();
+  }
+  const kopfHoehe = () => ((ui.host?.clientHeight || 500) < 520 ? 64 : 84);
+  const hausSvg = () => els.welt?.querySelector(".bau-haus-svg") || null;
+  // Der Zoom als Massstab und zurück – in gleichen Schritten (geometrisch).
+  function skalaVon(stufe) {
+    const k = ui.kamera;
+    return k.basis * (k.ganz / k.basis) ** clamp(Number(stufe) || 0, 0, 1);
+  }
+  function stufeVon(skala) {
+    const k = ui.kamera;
+    if (k.ganz >= k.basis * 0.999) return 0;
+    return clamp(Math.log(skala / k.basis) / Math.log(k.ganz / k.basis), 0, 1);
+  }
+  // Wie weit die Kamera hinauf und hinunter darf, bei diesem Massstab. Unten:
+  // der Boden der Welt am unteren Rand. Oben: das Plus (oder das Dach) knapp
+  // unter der Kopfzeile – darüber ist nur Himmel. Ist die Welt niedriger als
+  // das Bild, steht sie unten.
+  function grenzenBei(skala) {
+    const h = ui.host.clientHeight || 500;
+    const k = ui.kamera;
+    const min = h - (GRUND - k.y0) * skala;
+    return { min, max: Math.max(min, kopfHoehe() + 10 - (hausOben() - k.y0) * skala) };
   }
 
   function setzeKamera() {
     ui.kamera.ty = clamp(ui.kamera.ty, ui.kamera.min, ui.kamera.max);
     els.welt.style.transform = kameraTransform(ui.kamera.tx, ui.kamera.ty);
+  }
+
+  // Während zwei Finger zoomen oder der Ansicht-Knopf gleitet, wird die Welt
+  // nur verkleinert (eine Ebene, schnell); erst am Ende zeichnet sie im neuen
+  // Massstab (zoomUebernehmen) – wieder scharf. Das Haus bleibt waagrecht in
+  // der Mitte.
+  function zoomZeigen(skala, ty) {
+    const k = ui.kamera;
+    const w = ui.host.clientWidth || 800;
+    const tx = w / 2 - (A().HB / 2 - WX0) * skala;
+    els.welt.style.transform = `translate3d(${Math.round(tx)}px, ${Math.round(ty)}px, 0) scale(${(skala / k.skala).toFixed(4)})`;
+  }
+  function zoomUebernehmen(skala, ty) {
+    const k = ui.kamera;
+    k.stufe = stufeVon(skala);
+    messeWelt();
+    k.ty = ty;
+    setzeKamera();
   }
 
   // Wo ein Zimmer auf dem Bildschirm steht (für die Kamera und den Zoom).
@@ -784,15 +831,48 @@
   // Stockwerke und die Strasse.
   function kameraStart() {
     const k = ui.kamera;
+    k.ty = startTy(k.skala);
+    setzeKamera();
+  }
+  // Wo die Kamera bei diesem Massstab für den ersten Blick steht.
+  function startTy(skala) {
     const h = ui.host.clientHeight || 500;
-    const kopf = h < 520 ? 64 : 84;
-    const plusOben = plusY() - A().ZH - 20;
-    const dachOben = A().oben(aktHaus().stock.length - 1) - A().DECKE - (A().DACH_H[K().HAUS[ui.haus].dachForm] || 120) - 20;
-    const ganzOben = els.welt.querySelector("[data-ziel='plus']") ? plusOben : dachOben;
-    const hoehe = (110 - ganzOben) * k.skala;
-    // Passt alles samt Gleis ins Bild, steht es ganz da; sonst unten.
-    if (hoehe <= h - kopf) k.ty = kopf - (ganzOben - k.y0) * k.skala;
-    else k.ty = k.min;
+    const hoehe = (UNTER_GLEIS - hausOben()) * skala;
+    // Passt alles samt Gleis ins Bild, steht es ganz da (oben knapp unter der
+    // Kopfzeile); sonst sieht man die unteren Stockwerke und die Strasse.
+    const { min, max } = grenzenBei(skala);
+    return hoehe <= h - kopfHoehe() - 10 ? max : min;
+  }
+  // Das Oberste am Haus: das Plus fürs nächste Stockwerk, sonst das Dach.
+  function hausOben() {
+    if (hatPlus()) return plusY() - A().ZH - 20;
+    return A().oben(aktHaus().stock.length - 1) - A().DECKE - (A().DACH_H[K().HAUS[ui.haus].dachForm] || 120) - 20;
+  }
+  // Ob über dem Dach das Plus steht: nur, wenn Ziegel da sind (oder die
+  // Schranke wartet). Ohne Ziegel wäre es ein Knopf, der nichts tut; dann
+  // zeigt der Rätsel-Knopf den Weg.
+  function hatPlus() {
+    const kann = S().kannBauen(ui.haus);
+    return !ui.ordnen && (kann.ok || kann.grund === "schranke");
+  }
+  function plusMarkup() {
+    if (!hatPlus()) return "";
+    const kann = S().kannBauen(ui.haus);
+    return `<g class="bau-naechster${kann.ok ? " is-bereit" : ""}" data-ziel="plus" role="button" tabindex="0" aria-label="Ein neues Stockwerk bauen">${A().naechsterStock(plusY())}</g>`;
+  }
+  // Das Plus neu, ohne das ganze Haus neu zu zeichnen (nach einer Lieferung):
+  // Ein neues Bild des ganzen Hauses kostete auf dem Tablet ein Flackern.
+  function erneuerePlus() {
+    const svg = hausSvg();
+    if (!svg) return;
+    svg.querySelector(".bau-naechster")?.remove();
+    const markup = plusMarkup();
+    if (markup) svg.querySelector(".bau-zuglage")?.insertAdjacentHTML("beforebegin", markup);
+    ui.gezeichnet = zeichenStand();
+    // Das Plus gehört zum ganzen Haus: Der kleinste Zoom rechnet neu.
+    const vorher = ui.kamera.ty;
+    messeWelt();
+    ui.kamera.ty = vorher;
     setzeKamera();
   }
 
@@ -805,9 +885,7 @@
   // Die Kamera zum Plus: nach einer Lieferung ist es der nächste Schritt.
   function kameraAufPlus(sanft = true) {
     const k = ui.kamera;
-    const h = ui.host.clientHeight || 500;
-    const kopf = h < 520 ? 64 : 84;
-    const ziel = clamp(kopf + 10 - (plusY() - A().ZH - 20 - k.y0) * k.skala, k.min, k.max);
+    const ziel = clamp(kopfHoehe() + 10 - (plusY() - A().ZH - 20 - k.y0) * k.skala, k.min, k.max);
     if (!sanft) { k.ty = ziel; setzeKamera(); return; }
     const start = k.ty;
     tween(700, (p) => { k.ty = start + (ziel - start) * p; setzeKamera(); }, { e: ease.inOut });
@@ -853,7 +931,11 @@
     s += art.baum(-260, 1.15) + art.baum(-120, 0.9) + art.laterne(-40) + art.baum(art.HB + 110, 1) + art.laterne(art.HB + 40) + art.baum(art.HB + 260, 1.2);
     s += schmuckMarkup("strasse", stufen);
     s += `</g>`;
-    s += art.strasse(WX0, WX1);
+    // Strasse, Gleis und Wiese reichen weit über die Welt hinaus (das SVG
+    // zeigt, was überragt): Ganz herausgezoomt ist neben und unter dem Haus
+    // kein leerer Himmel.
+    s += art.strasse(WX0 - WELT_RAND, WX1 + WELT_RAND);
+    s += `<rect x="${WX0 - WELT_RAND}" y="${GRUND}" width="${WX1 - WX0 + 2 * WELT_RAND}" height="${WELT_RAND}" fill="#7cc05e"/>`;
     // Die Stockwerke: je eine Reihe (die beim Umstellen wandert).
     let zimmerTeil = "";
     let liftTeil = "";
@@ -874,19 +956,18 @@
     const dachY = art.oben(anzahl - 1) - art.DECKE;
     s += `<g class="bau-dach">${art.dach(hausInfo.dachForm, haus.dach, haus.fassade, dachY)}</g>`;
     s += schmuckMarkup("dach", stufen, hausInfo.dachForm, dachY);
-    // Die Stelle für das nächste Stockwerk, über dem Dach – nur, wenn Ziegel
-    // da sind. Ohne Ziegel wäre sie ein Knopf, der nichts tut; dann zeigt der
-    // Rätsel-Knopf den Weg.
-    const kann = S().kannBauen(ui.haus);
-    if (!ui.ordnen && (kann.ok || kann.grund === "schranke")) {
-      s += `<g class="bau-naechster${kann.ok ? " is-bereit" : ""}" data-ziel="plus" role="button" tabindex="0" aria-label="Ein neues Stockwerk bauen">${art.naechsterStock(plusY())}</g>`;
-    }
+    // Die Stelle für das nächste Stockwerk, über dem Dach (hatPlus).
+    s += plusMarkup();
     if (ui.ordnen) s += ordnenMarkup(anzahl);
     s += `<g class="bau-zuglage"></g><g class="bau-einzuglage" pointer-events="none"></g>`;
     const svg = `<svg xmlns="${NS}" class="bau-haus-svg${ui.nacht ? " is-nacht" : ""}" viewBox="${WX0} ${y0} ${WX1 - WX0} ${GRUND - y0}" width="${Math.round((WX1 - WX0) * ui.kamera.skala)}" height="${Math.round((GRUND - y0) * ui.kamera.skala)}" role="img" aria-label="${hausInfo.name} mit ${anzahl} ${anzahl === 1 ? "Stockwerk" : "Stockwerken"}">${s}</svg>`;
-    els.welt.innerHTML = svg;
-    // Ein Blitzzug mitten in der Fahrt fährt im neuen Bild weiter.
-    if (ui.blitz && !ui.blitz.fertig) els.welt.querySelector(".bau-zuglage")?.append(ui.blitz.g);
+    // Nur das Haus-SVG wird ersetzt: Ein Zug, der gerade auf seiner eigenen
+    // Ebene fährt (zugEbene), fährt weiter.
+    const vorlage = document.createElement("template");
+    vorlage.innerHTML = svg;
+    const altesSvg = hausSvg();
+    if (altesSvg) altesSvg.replaceWith(vorlage.content.firstElementChild);
+    else els.welt.prepend(vorlage.content.firstElementChild);
     ui.gezeichnet = zeichenStand();
     ui.kamera.anzahl = anzahl;
     ui.kamera.hausGezeichnet = ui.haus;
@@ -1081,15 +1162,51 @@
   }
 
   // --- Antippen und Ziehen in der Hausansicht ------------------------------
+  // Zwei Finger auf dem Haus zoomen: auseinander näher heran (bis zum
+  // grössten Zoom), zusammen weiter weg (bis zum ganzen Haus). Der Punkt
+  // zwischen den Fingern bleibt unter den Fingern.
+  let pinch = null;   // { d0, s0, wy, s, ty, my }
   function weltEreignisse() {
     let zug = null;
+    const finger = new Map();   // pointerId → { x, y }
+    let nachPinch = false;      // nach dem Zoomen zählt der übrige Finger nicht
+    const zwei = () => [...finger.values()].slice(0, 2);
+    const abstand = () => { const [a, b] = zwei(); return Math.hypot(a.x - b.x, a.y - b.y); };
+    const mitte = () => { const [a, b] = zwei(); return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }; };
     els.welt.addEventListener("pointerdown", (e) => {
-      if (ui.besetzt || ui.zimmer >= 0 || e.button > 0) return;
+      if (ui.zimmer >= 0 || e.button > 0) return;
+      finger.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      try { els.welt.setPointerCapture(e.pointerId); } catch { /* egal */ }
+      if (finger.size === 2 && !ui.besetzt && !pinch) {
+        // Der zweite Finger: kein Tipp und kein Ziehen mehr, sondern Zoom.
+        const k = ui.kamera;
+        const m = mitte();
+        zug = null;
+        jedesBild.delete(schwung);
+        k.vy = 0;
+        pinch = { d0: Math.max(24, abstand()), s0: k.skala, wy: (m.y - k.ty) / k.skala + k.y0, s: k.skala, ty: k.ty, my: m.y };
+        zoomZeigen(k.skala, k.ty);
+        return;
+      }
+      if (finger.size > 1 || nachPinch || ui.besetzt) return;
       zug = { id: e.pointerId, x0: e.clientX, y0: e.clientY, ty0: ui.kamera.ty, t0: performance.now(), bewegt: false, ziel: e.target.closest?.("[data-ziel]") || null, verlauf: [] };
       ui.kamera.vy = 0;
-      try { els.welt.setPointerCapture(e.pointerId); } catch { /* egal */ }
     });
     els.welt.addEventListener("pointermove", (e) => {
+      if (finger.has(e.pointerId)) finger.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (pinch && finger.size >= 2) {
+        const k = ui.kamera;
+        const m = mitte();
+        let s = (pinch.s0 * abstand()) / pinch.d0;
+        // Über die Grenzen hinaus nur zäh, wie ein Gummiband.
+        if (s < k.ganz) s = k.ganz * (s / k.ganz) ** 0.3;
+        if (s > k.basis) s = k.basis * (s / k.basis) ** 0.3;
+        pinch.s = s;
+        pinch.my = m.y;
+        pinch.ty = m.y - (pinch.wy - k.y0) * s;
+        zoomZeigen(s, pinch.ty);
+        return;
+      }
       if (!zug || e.pointerId !== zug.id) return;
       const dx = e.clientX - zug.x0;
       const dy = e.clientY - zug.y0;
@@ -1106,6 +1223,13 @@
       if (zug.verlauf.length > 6) zug.verlauf.shift();
     });
     const ende = (e) => {
+      finger.delete(e.pointerId);
+      if (pinch) {
+        if (finger.size < 2) beendePinch();
+        nachPinch = finger.size > 0;
+        return;
+      }
+      if (finger.size === 0) nachPinch = false;
       if (!zug || e.pointerId !== zug.id) return;
       const z = zug;
       zug = null;
@@ -1131,6 +1255,68 @@
       if (ziel) { e.preventDefault(); tippeWelt(ziel); }
     });
   }
+
+  // Die Finger sind weg: Der Zoom bleibt, wo er ist – oder federt in die
+  // Grenzen zurück –, und das Haus zeichnet sich scharf im neuen Massstab.
+  function beendePinch() {
+    const p = pinch;
+    pinch = null;
+    if (!p) return;
+    const k = ui.kamera;
+    const s1 = clamp(p.s, k.ganz, k.basis);
+    const { min, max } = grenzenBei(s1);
+    const ty1 = clamp(p.my - (p.wy - k.y0) * s1, min, max);
+    if (Math.abs(s1 - p.s) < 1e-4 && Math.abs(ty1 - p.ty) < 0.5) { zoomUebernehmen(s1, ty1); return; }
+    zoomGleiten(p.s, p.ty, s1, ty1, 220);
+  }
+
+  // Der Ansicht-Knopf unten links: das Haus gross (wie bisher) oder ganz auf
+  // einem Bildschirm – und wieder zurück.
+  function wechsleAnsicht() {
+    if (ui.besetzt || ui.zimmer >= 0 || pinch) return;
+    const k = ui.kamera;
+    if (k.ganz >= k.basis * 0.98) { sag("Das ganze Haus ist schon im Bild."); return; }
+    const h = ui.host.clientHeight || 500;
+    const zuGanz = k.stufe <= 0.02;
+    const s1 = zuGanz ? k.ganz : k.basis;
+    let ty1;
+    if (zuGanz) ty1 = startTy(s1);
+    else {
+      // Näher heran: Was in der Mitte des Bildes steht, bleibt dort.
+      const wy = (h / 2 - k.ty) / k.skala + k.y0;
+      const { min, max } = grenzenBei(s1);
+      ty1 = clamp(h / 2 - (wy - k.y0) * s1, min, max);
+    }
+    sag(zuGanz ? "Das ganze Haus." : "Wieder näher heran.");
+    zoomGleiten(k.skala, k.ty, s1, ty1, 480);
+  }
+  // Von einem Zoom zum anderen gleiten: nur die Ebene verkleinert, am Ende
+  // scharf im neuen Massstab.
+  function zoomGleiten(s0, ty0, s1, ty1, dauer) {
+    jedesBild.delete(schwung);
+    besetze();
+    tween(dauer, (p) => zoomZeigen(s0 * (s1 / s0) ** p, ty0 + (ty1 - ty0) * p), { e: ease.inOut, done: () => { zoomUebernehmen(s1, ty1); ui.besetzt = false; } });
+  }
+  function zeigeAnsichtKnopf() {
+    const b = els.ansicht;
+    if (!b) return;
+    const k = ui.kamera;
+    const weit = k.stufe > 0.02;
+    const label = weit ? "Wieder näher heran" : "Das ganze Haus zeigen";
+    if (b.dataset.weit === String(weit)) return;
+    b.dataset.weit = String(weit);
+    b.classList.toggle("is-weit", weit);
+    b.innerHTML = svgVon(weit ? LUPE_PLUS : GANZES_HAUS, "0 0 32 32");
+    b.setAttribute("aria-label", label);
+    b.title = label;
+  }
+  const GANZES_HAUS = `<path d="M4 10V4h6M28 10V4h-6M4 22v6h6M28 22v6h-6" fill="none" stroke="#3fbf74" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>` +
+    `<path d="M10.5 16.5v7.5h11v-7.5" fill="#ffd3b5" stroke="#243047" stroke-width="2" stroke-linejoin="round"/>` +
+    `<path d="M8.5 17.5 16 11l7.5 6.5" fill="none" stroke="#ef5350" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>` +
+    `<rect x="14.2" y="19" width="3.6" height="5" rx="0.8" fill="#8a5734"/>`;
+  const LUPE_PLUS = `<circle cx="14" cy="14" r="8.5" fill="#ffffff" stroke="#243047" stroke-width="2.8"/>` +
+    `<path d="M20.4 20.4 27 27" stroke="#243047" stroke-width="3.6" stroke-linecap="round"/>` +
+    `<path d="M14 10v8M10 14h8" stroke="#3fbf74" stroke-width="3" stroke-linecap="round"/>`;
 
   // Nach dem Loslassen gleitet das Haus aus und federt an den Enden zurück.
   function schwung() {
@@ -1341,7 +1527,7 @@
   // ---------------------------------------------------------------------------
   let liefert = false;
   async function pruefeLieferung() {
-    if (liefert || ui.blitz || !ui.host?.isConnected || ui.zimmer >= 0 || ui.overlay || !els.welt) return;
+    if (liefert || ui.blitz || pinch || !ui.host?.isConnected || ui.zimmer >= 0 || ui.overlay || !els.welt) return;
     const neu = S().neueLieferung();
     if (neu < 1) return;
     liefert = true;
@@ -1349,10 +1535,8 @@
   }
 
   async function liefere(anzahl) {
-    const svg = els.welt.querySelector("svg");
-    const lage = svg?.querySelector(".bau-zuglage");
     S().merkeGezeigt();
-    if (!lage || reduced()) {
+    if (!hausSvg() || reduced()) {
       aktualisiereHud();
       zeichneHaus({ behalteKamera: true });
       kameraAufPlus(false);
@@ -1365,21 +1549,19 @@
       const start = ui.kamera.ty;
       await tweenP(450, (p) => { ui.kamera.ty = start + (ui.kamera.min - start) * p; setzeKamera(); }, { e: ease.inOut });
     }
-    lage.innerHTML = A().lieferzug(anzahl);
-    const zug = lage.querySelector(".bau-zug");
-    const yGleis = 62;
+    const zug = neueZugEbene(A().lieferzug(anzahl), LIEFERZUG_BOX);
     const xStart = WX0 - 220;
     const xHalt = A().HB / 2 - 40;
-    zug.setAttribute("transform", `translate(${xStart} ${yGleis})`);
+    setzeZugEbene(zug, xStart);
     kids()?.playHorn?.();
     sag("Tuut! Der Zug bringt Ziegel!");
-    await tweenP(1500, (p) => zug.setAttribute("transform", `translate(${xStart + (xHalt - xStart) * p} ${yGleis})`), { e: ease.out });
+    await tweenP(1500, (p) => setzeZugEbene(zug, xStart + (xHalt - xStart) * p), { e: ease.out });
     // Die Paletten fliegen zum Ziegelzähler oben rechts.
     const ziel = els.ziegel.getBoundingClientRect();
-    const paletten = [...lage.querySelectorAll(".bau-palette")];
+    const paletten = [...zug.ebene.querySelectorAll(".bau-palette")];
     for (const p of paletten) {
       const von = p.getBoundingClientRect();
-      p.style.opacity = "0";
+      p.setAttribute("opacity", "0");
       await fliege(von, ziel);
       const zahl = els.ziegel.querySelector(".bau-ziegel-zahl");
       zahl.textContent = String(Math.min(S().paletten(), Number(zahl.textContent) + 1));
@@ -1387,15 +1569,56 @@
       klang("correct");
     }
     aktualisiereHud();
-    await tweenP(1100, (p) => zug.setAttribute("transform", `translate(${xHalt + (WX1 + 300 - xHalt) * p} ${yGleis})`), { e: ease.in });
-    lage.innerHTML = "";
+    await tweenP(1100, (p) => setzeZugEbene(zug, xHalt + (WX1 + 300 - xHalt) * p), { e: ease.in });
+    entferneZugEbene(zug);
     ui.besetzt = false;
-    zeichneHaus({ behalteKamera: true });
+    // Nur das Plus kommt dazu – nicht das ganze Haus neu.
+    erneuerePlus();
     kameraAufPlus();
     await warte(750);
     const plus = els.welt.querySelector("[data-ziel='plus']");
     if (plus) stupse(plus);
     sag(anzahl === 1 ? "Die Ziegel sind da! Tippe auf das grüne Plus, und ein neues Stockwerk entsteht." : `${anzahl} Paletten Ziegel sind da! Jede reicht für ein Stockwerk.`);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Was über das Gleis fährt (Lieferzug, Blitzzug), fährt auf einer eigenen
+  // Ebene: ein kleines SVG in einem div über dem Haus, das nur verschoben wird
+  // (transform). Fuhr der Zug im grossen Haus-SVG, malte der Browser in jedem
+  // Bild die Stelle neu, über die er fuhr – auf dem Tablet ruckelte und
+  // flackerte es. So malt er den Zug einmal und schiebt ihn nur noch.
+  // ---------------------------------------------------------------------------
+  // Was jede Zeichnung um ihren Nullpunkt braucht: [x0, y0, x1, y1].
+  const LIEFERZUG_BOX = [-180, -160, 145, 10];
+  const BLITZZUG_BOX = [-305, -155, 225, 30];
+  const zugEbenen = new Set();
+  function neueZugEbene(markup, box, { antippbar = false } = {}) {
+    const ebene = el("div", `bau-zugebene${antippbar ? " is-antippbar" : ""}`);
+    ebene.innerHTML = `<svg xmlns="${NS}" viewBox="${box[0]} ${box[1]} ${box[2] - box[0]} ${box[3] - box[1]}" aria-hidden="true">${markup}</svg>`;
+    const zug = { ebene, box, x: 0, y: GLEIS_Y };
+    els.welt.append(ebene);
+    zugEbenen.add(zug);
+    passeZugEbene(zug);
+    return zug;
+  }
+  // Grösse und Lage im aktuellen Massstab (auch nach einem Zoom).
+  function passeZugEbene(zug) {
+    const k = ui.kamera;
+    const svg = zug.ebene.firstElementChild;
+    svg.setAttribute("width", ((zug.box[2] - zug.box[0]) * k.skala).toFixed(1));
+    svg.setAttribute("height", ((zug.box[3] - zug.box[1]) * k.skala).toFixed(1));
+    setzeZugEbene(zug, zug.x, zug.y);
+  }
+  // x, y: wo der Nullpunkt der Zeichnung in der Welt steht.
+  function setzeZugEbene(zug, x, y = zug.y) {
+    const k = ui.kamera;
+    zug.x = x;
+    zug.y = y;
+    zug.ebene.style.transform = `translate3d(${((x + zug.box[0] - WX0) * k.skala).toFixed(1)}px, ${((y + zug.box[1] - k.y0) * k.skala).toFixed(1)}px, 0)`;
+  }
+  function entferneZugEbene(zug) {
+    zug.ebene.remove();
+    zugEbenen.delete(zug);
   }
 
   // Eine Palette fliegt im Bogen von a nach b (Bildschirm-Rechtecke).
@@ -1428,6 +1651,9 @@
     const wo = ui.zimmer >= 0 ? els.zimmerBuehne : els.welt;
     wo?.querySelectorAll(".bau-glitzer-a").forEach((n) => n.setAttribute("opacity", glitzerTakt ? "1" : "0.2"));
     wo?.querySelectorAll(".bau-glitzer-b").forEach((n) => n.setAttribute("opacity", glitzerTakt ? "0.2" : "1"));
+    // Der Glanz um eine Wohnung mit drei Traumjobs pulsiert langsam mit
+    // (früher eine CSS-Animation, die das Haus in jedem Bild neu malte).
+    wo?.querySelectorAll(".bau-traumglanz").forEach((n) => n.setAttribute("opacity", glitzerTakt ? "0.75" : "0.4"));
   }
 
   // ---------------------------------------------------------------------------
@@ -1449,26 +1675,25 @@
   function pruefeBlitzzug() {
     // Zuerst fragen: Beim ersten Besuch stellt das die Uhr.
     if (!S().blitzzugFaellig()) return;
-    if (ui.blitz || liefert || ui.besetzt || ui.zimmer >= 0 || ui.overlay || ui.tafel || ui.uebersicht || ui.leiter || ui.ordnen || zieht) return;
-    if (!els.welt?.querySelector(".bau-zuglage") || !gleisImBild()) return;
+    if (ui.blitz || liefert || ui.besetzt || ui.zimmer >= 0 || ui.overlay || ui.tafel || ui.uebersicht || ui.leiter || ui.ordnen || zieht || pinch) return;
+    if (!hausSvg() || !gleisImBild()) return;
     starteBlitzzug();
   }
 
   function starteBlitzzug() {
-    const lage = els.welt?.querySelector(".bau-zuglage");
-    if (!lage || ui.blitz) return false;
+    if (!hausSvg() || ui.blitz) return false;
     const k = ui.kamera;
     const w = ui.host.clientWidth || 800;
     // Von links ausserhalb des Bildes bis rechts hinaus.
     const links = -k.tx / k.skala + WX0;
     const rechts = (w - k.tx) / k.skala + WX0;
-    const g = document.createElementNS(NS, "g");
-    g.setAttribute("class", "bau-blitz");
+    const zug = neueZugEbene(A().blitzzug(), BLITZZUG_BOX, { antippbar: true });
+    const g = zug.ebene;
+    g.classList.add("bau-blitz");
     g.setAttribute("role", "button");
     g.setAttribute("tabindex", "0");
     g.setAttribute("aria-label", "Der Blitzzug mit einer Palette Ziegel – schnell antippen!");
-    g.innerHTML = A().blitzzug();
-    const blitz = { g, gefangen: false, fertig: false };
+    const blitz = { g, zug, gefangen: false, fertig: false };
     ui.blitz = blitz;
     // Gleich beim Berühren, nicht erst beim Loslassen: Er ist schnell.
     const fang = (e) => { e.stopPropagation(); e.preventDefault(); fangeBlitzzug(blitz); };
@@ -1476,17 +1701,16 @@
     g.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") fang(e); });
     kids()?.playWhistle?.("doppelt");
     sag("Achtung, der Blitzzug! Schnell, tippe ihn an!");
-    lage.append(g);
     if (reduced()) {
       // Ohne Bewegung hält er eine Weile mitten im Bild.
-      g.setAttribute("transform", `translate(${((links + rechts) / 2).toFixed(1)} ${GLEIS_Y})`);
+      setzeZugEbene(zug, (links + rechts) / 2);
       window.setTimeout(() => blitzzugVorbei(blitz), 9000);
       return true;
     }
     const x0 = links - 230;
     const x1 = rechts + 330;
-    g.setAttribute("transform", `translate(${x0.toFixed(1)} ${GLEIS_Y})`);
-    tween(BLITZ_MS, (p) => g.setAttribute("transform", `translate(${(x0 + (x1 - x0) * p).toFixed(1)} ${GLEIS_Y})`), { e: ease.lin, delay: 500, done: () => blitzzugVorbei(blitz) });
+    setzeZugEbene(zug, x0);
+    tween(BLITZ_MS, (p) => setzeZugEbene(zug, x0 + (x1 - x0) * p), { e: ease.lin, delay: 500, done: () => blitzzugVorbei(blitz) });
     return true;
   }
 
@@ -1506,7 +1730,7 @@
   function blitzzugVorbei(blitz) {
     if (blitz.fertig) return;
     blitz.fertig = true;
-    blitz.g.remove();
+    entferneZugEbene(blitz.zug);
     if (ui.blitz === blitz) ui.blitz = null;
     if (!ui.host?.isConnected) return;
     if (!blitz.gefangen) {

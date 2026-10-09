@@ -1582,14 +1582,24 @@
   // Werkstatt und in der Wagen-Grossansicht ist er ausgeblendet.
   const TRAIN_TAPPABLE = new Set(["home", "games"]);
 
+  // Das Gleis der Reise vermessen, wenn die App gerade nichts zu tun hat –
+  // nicht in der Bauecke (siehe unten bei render()). Einmal vermessen, ist es
+  // gemerkt; ein zweiter Aufruf kostet nichts.
+  function gleisImLeerlauf() {
+    (window.requestIdleCallback || ((fn) => window.setTimeout(fn, 400)))(() => {
+      if (view.name !== "bau") journeyApi()?.warmUp?.();
+    });
+  }
+
   function setView(name, areaId = null) {
     // Der Lautsprecher spricht nur auf der Karte; wer sie verlässt, nimmt den
     // Text mit.
     if (view.name === "reise" && name !== "reise") { kids()?.setHelp?.(""); view.journeyVisit = null; }
     // Dasselbe für den Lesewagen: Sein Lautsprecher-Text gehört zu ihm.
     if (view.name === "lesen" && name !== "lesen") kids()?.setHelp?.("");
-    // Und für die Bauecke, die dazu ihre Uhren und Zuhörer abräumt.
-    if (view.name === "bau" && name !== "bau") { kids()?.setHelp?.(""); bauApi()?.unmount?.(); }
+    // Und für die Bauecke, die dazu ihre Uhren und Zuhörer abräumt. Was sie
+    // warten liess, darf jetzt: das Gleis der Reise vermessen.
+    if (view.name === "bau" && name !== "bau") { kids()?.setHelp?.(""); bauApi()?.unmount?.(); gleisImLeerlauf(); }
     if (view.name === "loco" && name !== "loco") freshParts = [];
     // Hinter dem Zug eines anderen steht dessen Landschaft: sie gehört zu
     // seinem Zug wie seine Lok, und wer sie sieht, sieht das Bild, das dieses
@@ -2697,8 +2707,11 @@
   // Das Gleis der Reise vermessen, solange nichts anderes zu tun ist. Es hängt
   // allein am Streckenverlauf, ist also für jede Karte dasselbe – und wenn das
   // Kind das Streckenschild antippt, steht das Ergebnis schon bereit, statt die
-  // Karte um Sekunden zu verzögern.
-  (window.requestIdleCallback || ((fn) => window.setTimeout(fn, 400)))(() => journeyApi()?.warmUp?.());
+  // Karte um Sekunden zu verzögern. In der Bauecke wartet es, bis das Kind sie
+  // verlässt (setView): Dort fährt nach einem Rätsel gleich der Lieferzug ein,
+  // und die Messung – auf dem Tablet ein paar hundert Millisekunden am Stück –
+  // liess ihn ruckeln.
+  gleisImLeerlauf();
 
   // Die Einfahrt. Zuerst stehen nur Landschaft und Gleis da, dann kommt der Zug
   // von links herein und meldet sich mit dem Horn. Ohne Bewegung entfällt das:

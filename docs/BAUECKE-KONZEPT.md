@@ -15,8 +15,9 @@ Pepi, Miga Town, den einzelnen Toca-Apps und weiteren Bauspielen (Abschnitt 3)
 > einziehen, **alle Bewohner auf einen Blick**, **Sterne, die ins Auge stechen**, und
 > **Tiere und Dinge halb so gross**; danach (Nachtrag 0L) **niedrigere Stockwerke**, der
 > **Blitzzug**, der **Glücksstern**, die **Sternenleiter** mit allen Sternen des Dorfs,
-> **Kronen** und ein **goldener Rahmen** für alle Sterne. **Was gilt, steht in den
-> Abschnitten 0L, 0K und 0** (Etappe
+> **Kronen** und ein **goldener Rahmen** für alle Sterne; zuletzt (Nachtrag 0M) das **ganze
+> Haus auf einem Bildschirm**, **Zoom mit zwei Fingern** und ein **flüssiger Lieferzug**.
+> **Was gilt, steht in den Abschnitten 0M, 0L, 0K und 0** (Etappe
 > 2) und, wo diese nichts anderes sagen, im Abschnitt 0E1 (Etappe 1); die Abschnitte 1, 2,
 > 5 und 6 beschreiben das ursprüngliche Konzept und sind dort, wo Abschnitt 0 etwas anderes
 > sagt, überholt. Die Recherche (Abschnitt 3) und Grafik und Bewegung (Abschnitt 7) gelten
@@ -29,6 +30,68 @@ Pepi, Miga Town, den einzelnen Toca-Apps und weiteren Bauspielen (Abschnitt 3)
 > 10 Ebenen, davon 8 zeichnend, 18 Megapixel Ebenenfläche, 770 SVG-Knoten, 60 Bilder je
 > Sekunde, während die Tiere laufen. Die Reisekarte kam nach ihrer Kur auf 9 Ebenen und 16
 > Megapixel.
+
+---
+
+## 0M. Das ganze Haus, Zoom mit zwei Fingern, ein flüssiger Lieferzug
+
+Nachtrag zu Etappe 2 (Wünsche vom 9. Oktober 2026, sechste Runde). Was hier steht, gilt
+zusätzlich zu 0L, 0K und 0.
+
+### 0M.1 Umschalter und Ansicht
+
+- **Sterne nur beim Wohnhaus:** Oben im Umschalter stehen Sterne nur noch beim Wohnhaus. In
+  Spital, Dorf und Büro wohnt niemand, dort stünde immer eine 0.
+- **Unten keine Nachbar-Häuser mehr:** Die kleinen Häuser unten links und rechts sind weg.
+  Gewechselt wird oben im Umschalter oder mit einem Wisch zur Seite.
+- **Unten links der Ansicht-Knopf:** Er wechselt zwischen der gewohnten, grossen Ansicht
+  (dem grössten Zoom) und dem **ganzen Haus auf einem Bildschirm** – vom Plus (oder Dach) bis
+  zum Gleis, knapp unter der Kopfzeile. Das Haus gleitet in einer halben Sekunde hin. In der
+  grossen Ansicht zeigt der Knopf ein Haus im Rahmen, herausgezoomt eine Lupe mit Plus.
+  Passt das Haus schon gross ganz ins Bild, sagt die Bauecke das.
+- **Zwei Finger zoomen:** Zusammen geht es weiter weg bis zum ganzen Haus, auseinander
+  wieder näher bis zur grossen Ansicht. Der Punkt zwischen den Fingern bleibt unter den
+  Fingern; über die Grenzen hinaus geht es nur zäh und federt zurück. Ein Finger zieht wie
+  bisher, ein Tipp öffnet ein Zimmer – auch herausgezoomt.
+- **Der Zoom bleibt** beim Wechsel des Hauses und nach dem Zimmer; beim nächsten Besuch der
+  Bauecke beginnt sie gross. Strasse, Gleis und Wiese reichen über die Welt hinaus, damit
+  herausgezoomt neben und unter dem Haus kein leerer Himmel steht.
+- **Technik:** Während die Finger zoomen oder der Knopf gleitet, wird nur die Ebene der
+  Welt verkleinert (transform, schnell); am Ende zeichnet das Haus-SVG sich im neuen
+  Massstab (wieder scharf). `ui.kamera.stufe` (0 = gross, 1 = ganz) bleibt beim Neuzeichnen;
+  der Massstab dazwischen ist geometrisch.
+
+### 0M.2 Der Lieferzug ohne Ruckeln und Flackern
+
+Gemessen mit sechsfach gedrosselter CPU (wie ein langsames Tablet), sechs Stockwerke:
+
+| | vorher | nachher |
+| --- | --- | --- |
+| längstes Bild während der Lieferung | 350 ms – über 1 s, wenn gerade das Gleis der Reise vermessen wurde | 67 ms |
+| Bilder über 100 ms | 1–2 | 0 |
+| Bilder über 50 ms | 17 | 8 |
+
+- **Der Zug fährt auf einer eigenen Ebene:** ein kleines SVG in einem div über dem Haus, das
+  nur verschoben wird (`zugEbene`, transform). Vorher fuhr er im grossen Haus-SVG, und der
+  Browser malte in jedem Bild die Stelle neu, über die er fuhr. Der Blitzzug fährt genauso.
+- **Nach der Lieferung kommt nur das Plus dazu** (`erneuerePlus`), statt das ganze Haus neu
+  zu zeichnen. Auch sonst ersetzt das Neuzeichnen nur das Haus-SVG, nicht die Züge.
+- **Das Gleis der Reisekarte wird nicht mehr in der Bauecke vermessen:** Nach einem Rätsel
+  lädt die Seite neu, und die App vermass im Leerlauf das Gleis der Reise – auf dem Tablet
+  ein paar hundert Millisekunden am Stück, genau während der Lieferzug einfuhr. Das wartet
+  jetzt, bis das Kind die Bauecke verlässt (`train-home.js`, `gleisImLeerlauf`).
+- **Der Glanz um eine Wohnung mit drei Traumjobs** pulsierte als CSS-Animation und liess das
+  Haus in jedem Bild neu malen; er pulsiert jetzt langsam mit dem Glitzern (zweimal je
+  Sekunde statt sechzigmal).
+
+### 0M.3 Dateien und Prüfungen
+
+| Datei | Was |
+| --- | --- |
+| `train-bau.js` | Sterne am Umschalter nur beim Wohnhaus; Ansicht-Knopf statt der Nachbarn; Zoom (`messeWelt` mit `basis`, `ganz`, `stufe`; `zoomZeigen`, `zoomUebernehmen`, `zoomGleiten`, zwei Finger, `wechsleAnsicht`); Grenzen der Kamera bis knapp unter die Kopfzeile; Strasse und Wiese über die Welt hinaus; Züge auf eigener Ebene; `erneuerePlus`; nur das Haus-SVG wird ersetzt |
+| `train-home.js` | das Gleis der Reise erst vermessen, wenn die Bauecke zu ist |
+| `bau.css` | Ansicht-Knopf, Zug-Ebene; ohne Nachbar-Häuser; Traumglanz ohne CSS-Animation |
+| `scripts/check-bau.mjs` | `pruefeAnsicht` auf Tablet und Handy: Lieferzug auf eigener Ebene ohne neues Haus-SVG, Sterne nur beim Wohnhaus, keine Nachbarn, Knopf unten links, ganzes Haus (auch mit Zimmer dazwischen) und zurück, zwei Finger weg und nah, danach ziehen |
 
 ---
 
