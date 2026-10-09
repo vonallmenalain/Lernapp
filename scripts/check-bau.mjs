@@ -266,7 +266,7 @@ async function pruefeGeraet(browser, name, viewport) {
     pruefe(namen.join("|") === "Wohnhaus|Spital|Dorf|Büro", `${name}: die Häuser heissen ${namen.join(", ")}`);
     await page.locator(".bau-wahl-feld").nth(0).click();
     await page.waitForTimeout(150);
-    pruefe((await page.evaluate(() => window.__gesagt.join(" | "))).includes("Im Wohnhaus wohnen die Tiere"), `${name}: die Hauswahl liest das Wohnhaus nicht vor`);
+    pruefe(await bis(page, () => window.__gesagt.join(" | ").includes("Im Wohnhaus wohnen die Tiere"), null, 2000), `${name}: die Hauswahl liest das Wohnhaus nicht vor`);
     pruefe(await page.evaluate(() => window.__gespielt.some((q) => q.includes("/stimme/google/"))), `${name}: die Hauswahl spielt keine Aufnahme mit der Google-Stimme (bau-stimme.js)`);
     await page.locator(".bau-ok").click();
     await page.waitForTimeout(1000);
@@ -435,7 +435,7 @@ async function pruefeGeraet(browser, name, viewport) {
     await page.waitForTimeout(6200);
     pruefe(await page.locator(".bauecke").count() === 1, `${name}: zurück aus dem Rätsel steht man nicht in der Bauecke`);
     pruefe(await page.locator(".bau-ziegel-zahl").textContent() === "1", `${name}: der Zug hat keine Palette gebracht`);
-    pruefe((await page.evaluate(() => window.__gesagt.join(" | "))).includes("Zug bringt Ziegel"), `${name}: die Lieferung wird nicht angesagt`);
+    pruefe(await bis(page, () => window.__gesagt.join(" | ").includes("Zug bringt Ziegel"), null, 2000), `${name}: die Lieferung wird nicht angesagt`);
 
     // --- Bauen: Wohnung oder zwei Zimmer? -----------------------------------------
     const plus = await page.locator(".bau-naechster").boundingBox();
@@ -684,7 +684,7 @@ async function pruefeBewohner(browser, name, viewport) {
     pruefe(await page.locator(".bau-uebersicht:not([hidden])").count() === 1, `${name}: Bewohner: die Übersicht geht nicht auf`);
     const karte = await page.locator(".bau-uebersicht-karte").boundingBox();
     pruefe(karte && karte.y >= 50 && karte.y + karte.height <= viewport.height, `${name}: Bewohner: die Übersicht liegt nicht ganz im Bild`);
-    pruefe((await page.evaluate(() => window.__gesagt.join(" | "))).includes("5 Tiere wohnen im Wohnhaus"), `${name}: Bewohner: die Übersicht sagt nicht, wie viele hier wohnen`);
+    pruefe(await bis(page, () => window.__gesagt.join(" | ").includes("5 Tiere wohnen im Wohnhaus"), null, 2000), `${name}: Bewohner: die Übersicht sagt nicht, wie viele hier wohnen`);
     const inhalt = await page.evaluate(() => {
       const karten = [...document.querySelectorAll(".bau-uebersicht .bau-bewohner")];
       return {
@@ -744,7 +744,7 @@ async function pruefeBewohner(browser, name, viewport) {
     // Der letzte Stern (ein Ball fürs erste Tier): ein goldenes Band, und die Bauecke sagt es.
     await page.evaluate(() => window.LernappBauStand.aendereZimmer("wohnhaus", 0, 0, (z) => { z.dinge.push({ k: "ballfest", i: "ball", x: 300, y: 234, c: "", f: 0, s: 1 }); }));
     pruefe(await bis(page, (n) => (document.querySelector(".bau-sternband")?.textContent || "").includes(n), erwartet.erstes, 4000), `${name}: Bewohner: beim letzten Stern kommt kein goldenes Band`);
-    pruefe((await page.evaluate(() => window.__gesagt.join(" | "))).includes(`${erwartet.erstes} hat alle Sterne`), `${name}: Bewohner: die Bauecke sagt nicht, dass ${erwartet.erstes} alle Sterne hat`);
+    pruefe(await bis(page, (n) => window.__gesagt.join(" | ").includes(`${n} hat alle Sterne`), erwartet.erstes, 2000), `${name}: Bewohner: die Bauecke sagt nicht, dass ${erwartet.erstes} alle Sterne hat`);
     pruefe(await bis(page, () => !document.querySelector(".bau-sternband"), null, 7000), `${name}: Bewohner: das goldene Band geht nicht wieder weg`);
     // Beim Einrichten: der Knopf ist da, und das Zimmer lässt ihm Platz.
     await page.addStyleTag({ content: ".bau-welt .bau-tier { pointer-events: none !important; }" });
@@ -854,7 +854,7 @@ async function pruefeUeberraschungen(browser, name, viewport) {
     const schmuckVorher = await page.locator(".bau-haus-svg .bau-schmuck").count();
     await page.evaluate(() => window.LernappBauStand.aendereZimmer("wohnhaus", 1, 0, (z) => { z.dinge.push({ k: "ballfest", i: "ball", x: 300, y: 234, c: "", f: 0, s: 1 }); }));
     pruefe(await bis(page, () => /Wimpelketten/.test(document.querySelector(".bau-leiterband")?.textContent || ""), null, 9000), `${name}: Sternenleiter: bei der neuen Stufe kommt kein Band`);
-    pruefe((await page.evaluate(() => window.__gesagt.join(" | "))).includes("Das Dorf hat 10 Sterne"), `${name}: Sternenleiter: die Bauecke sagt die neue Stufe nicht an`);
+    pruefe(await bis(page, () => window.__gesagt.join(" | ").includes("Das Dorf hat 10 Sterne"), null, 2000), `${name}: Sternenleiter: die Bauecke sagt die neue Stufe nicht an`);
     pruefe(await page.locator(".bau-haus-svg .bau-schmuck").count() > schmuckVorher, `${name}: Sternenleiter: die Wimpel der neuen Stufe fehlen im Bild`);
     pruefe(/11/.test(await page.locator(".bau-leiterknopf").textContent()), `${name}: Sternenleiter: der Zähler zählt die neuen Sterne nicht`);
     pruefe(await bis(page, () => !document.querySelector(".bau-leiterband"), null, 8000), `${name}: Sternenleiter: das Band geht nicht wieder weg`);
@@ -881,7 +881,7 @@ async function pruefeUeberraschungen(browser, name, viewport) {
     await page.evaluate(() => window.LernappBau.blitzzug());
     pruefe(await bis(page, () => !document.querySelector(".bau-blitz"), null, 8000), `${name}: Blitzzug: verpasst fährt er nicht weg`);
     pruefe(await paletten() === p0 + 1, `${name}: Blitzzug: verpasst gibt er trotzdem eine Palette`);
-    pruefe((await page.evaluate(() => window.__gesagt.join(" | "))).includes("Schade, der Blitzzug war zu schnell"), `${name}: Blitzzug: die Bauecke sagt nicht, dass er weg ist`);
+    pruefe(await bis(page, () => window.__gesagt.join(" | ").includes("Schade, der Blitzzug war zu schnell"), null, 2000), `${name}: Blitzzug: die Bauecke sagt nicht, dass er weg ist`);
     const baldWieder = await page.evaluate(() => window.LernappBauStand.ueberraschung().zug - Date.now());
     pruefe(baldWieder > 3 * 60000 && baldWieder <= 5 * 60000, `${name}: Blitzzug: verpasst kommt er nicht nach ein paar Minuten wieder (${Math.round(baldWieder / 60000)} min)`);
 
