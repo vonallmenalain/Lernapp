@@ -112,6 +112,7 @@ export default function texte(d) {
         const SELBSTLAUTE = ${JSON.stringify(konstante(d, f, "SELBSTLAUTE"))};
         const MITLAUTE = ${JSON.stringify(konstante(d, f, "MITLAUTE"))};
         const NAMEN_JE_STUFE = ${konstante(d, f, "NAMEN_JE_STUFE")};
+        const NAMEN_FRUEH = ${konstante(d, f, "NAMEN_FRUEH")};
         const NAMEN = {};
         const mitlaute = () => MITLAUTE[stufe()] || MITLAUTE.mittel;
         ${stueck(/\n {2}const ECHTE = new Set\(\[[\s\S]*?\]\);\n/, "ECHTE")}

@@ -71,7 +71,11 @@
   // Silben – Mitlaut und Selbstlaut, auf «schwer» drei Silben oder ein Mitlaut
   // am Schluss. Fest, nicht jedes Mal neu ausgewürfelt: So liegt jeder Name,
   // den das Monster sagt, als Aufnahme bereit (scripts/stimme-app/leseecke-b.mjs).
+  // Die ersten NAMEN_FRUEH sind nur aus den Mitlauten von «leicht», den
+  // ersten, die ein Kind lernt: Wer erst wenige Buchstaben kennt, findet so
+  // auch auf «mittel» und «schwer» genug Namen.
   const NAMEN_JE_STUFE = 60;
+  const NAMEN_FRUEH = 20;
   function zahlVon(text) {
     let h = 2166136261;
     for (const z of text) h = Math.imul(h ^ z.codePointAt(0), 16777619) >>> 0;
@@ -80,12 +84,13 @@
   const NAMEN = {};
   function namen(stufe) {
     if (NAMEN[stufe]) return NAMEN[stufe];
-    const m = MITLAUTE[stufe] || MITLAUTE.mittel;
+    const alle = MITLAUTE[stufe] || MITLAUTE.mittel;
     let saat = zahlVon(stufe);
     const naechste = () => { saat = (Math.imul(saat, 1664525) + 1013904223) >>> 0; return saat / 4294967296; };
     const nimm = (liste) => liste[Math.floor(naechste() * liste.length)];
     const liste = [];
     for (let versuch = 0; liste.length < NAMEN_JE_STUFE && versuch < 5000; versuch += 1) {
+      const m = liste.length < NAMEN_FRUEH ? MITLAUTE.leicht : alle;
       const silben = stufe === "schwer" && naechste() < 0.5 ? 3 : 2;
       let wort = "";
       for (let i = 0; i < silben; i += 1) wort += nimm(m) + nimm(SELBSTLAUTE);
@@ -106,7 +111,7 @@
   function name() {
     const alle = namen(stufe());
     const passend = alle.filter(bekannt);
-    return zufall(passend.length >= 6 ? passend : alle);
+    return zufall(passend.length ? passend : alle);
   }
 
   // Schilder, die fast gleich aussehen: die Selbstlaute getauscht (Lomu –
