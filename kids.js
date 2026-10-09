@@ -202,12 +202,12 @@
   }
 
   // ---------------------------------------------------------------------------
-  // Aufnahmen fester Texte (lesen-stimme.js)
+  // Aufnahmen fester Texte (app-stimme.js, bau-stimme.js, lesen-stimme.js)
   // ---------------------------------------------------------------------------
-  // Feste Texte – die Sätze eines Buches, die Hilfe eines Spiels – können als
-  // Aufnahme vorliegen: mit Alains Stimme, wie die Laute (lesen-laute.js), statt
-  // mit der Stimme des Geräts. lesen-stimme.js trägt sie als
-  //   window.LernappStimmeDateien = { "<Text>": "stimme/alain/<hash>.mp3", … }
+  // Die Sätze der App liegen als Aufnahme vor – mit der Stimme Sulafat von
+  // Google (docs/STIMME-GOOGLE.md), statt mit der Stimme des Geräts. Die
+  // Verzeichnisse tragen sie als
+  //   window.LernappStimmeDateien = { "<Text>": "stimme/google/<hash>.mp3", … }
   // Gibt es zu einem Text eine Aufnahme, spielt sie; sonst spricht die
   // Gerätestimme wie bisher. Besteht ein Text aus festen und wechselnden Teilen
   // – der Lesewurm sagt seinen Namen, dann kommt die Hilfe des Lesewagens –,

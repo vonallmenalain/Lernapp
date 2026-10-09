@@ -123,7 +123,7 @@ Ablauf:
    `/stimme/`), und `netlify/build.mjs` nimmt `stimme/` mit.
    `scripts/validate-bau.mjs` prüft jede Aufnahme: ein Satz aus `bauTexte()`,
    Datei `dateiFuer(text)`, MP3 mono/24 kHz/32 kbit/s, Länge passend
-   (`passtZumText`), keine Datei ohne Satz, kein Satz mit Alains Stimme.
+   (`passtZumText`), keine Datei ohne Satz (in bau-stimme.js oder app-stimme.js).
    Bei neuen Aufnahmen APP_VERSION und alle `?v=` neu.
 5. Alle `scripts/validate-*.mjs` laufen lassen, dazu `scripts/check-bau.mjs`
    und `scripts/check-bau-stimme.mjs` (Playwright: `npm i --no-save playwright`),

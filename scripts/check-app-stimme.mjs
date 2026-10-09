@@ -6,7 +6,11 @@
  * wird jeder Satz, den die Seite dabei mit der Gerätestimme sagt statt als
  * Aufnahme (app-stimme.js, bau-stimme.js, lesen-stimme.js) – und wo.
  *
- *   node scripts/check-app-stimme.mjs [--seiten memory,silbenzug] [--sekunden 25] [--aus datei.json]
+ *   node scripts/check-app-stimme.mjs [--seiten memory,silbenzug] [--sekunden 25] [--aus datei.json] [--liste]
+ *
+ * Mit --liste gilt jeder Satz als aufgenommen, der in der Liste steht
+ * (scripts/stimme-app-texte.mjs) – so zeigt der Rundgang schon vor dem
+ * Vertonen, welche Sätze in der Liste fehlen.
  *
  * Zufällig heisst: Nicht jeder Satz kommt in jedem Lauf vor. Ein Satz, der
  * hier auftaucht, gehört in scripts/stimme-app-texte.mjs (oder eine Regel in
@@ -21,6 +25,7 @@ import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
 import path from "node:path";
+import { appTexte } from "./stimme-app-texte.mjs";
 
 const HIER = path.dirname(fileURLToPath(import.meta.url));
 const WURZEL = path.resolve(HIER, "..");
@@ -32,6 +37,10 @@ const argument = (name, fallback = null) => {
 };
 const SEKUNDEN = Number(argument("sekunden", 25));
 const GLEICHZEITIG = Number(argument("gleichzeitig", 4));
+const NUR_LISTE = process.argv.includes("--liste");
+const listenVerzeichnis = NUR_LISTE
+  ? `window.LernappStimmeDateien = Object.assign(window.LernappStimmeDateien || {}, ${JSON.stringify(Object.fromEntries((await appTexte()).map((t) => [t.text, "stimme/google/liste.mp3"])))});`
+  : null;
 
 let playwright;
 try { playwright = createRequire(import.meta.url)("playwright"); }
@@ -126,6 +135,7 @@ async function rundgang(browser, seite) {
     geraet.get(text).add(wo || seite);
   });
   await context.addInitScript(stimmeErsatz);
+  if (listenVerzeichnis) await context.route("**/app-stimme.js*", (route) => route.fulfill({ contentType: "text/javascript; charset=utf-8", body: listenVerzeichnis }));
   const page = await context.newPage();
   page.on("pageerror", (e) => fehler.push(`${seite}: ${e.message}`));
   page.on("dialog", (d) => d.dismiss().catch(() => {}));
