@@ -29,9 +29,11 @@ export function sprechText(text) {
   return String(text ?? "").replace(/\s+/g, " ").trim();
 }
 
-export function dateiFuer(text) {
+// ordner: wessen Stimme – stimme/alain, oder stimme/google für die Bauecke
+// (scripts/stimme-bau-texte.mjs).
+export function dateiFuer(text, ordner = ORDNER) {
   const hash = crypto.createHash("sha256").update(sprechText(text), "utf8").digest("hex").slice(0, 12);
-  return `${ORDNER}/${hash}.mp3`;
+  return `${ordner}/${hash}.mp3`;
 }
 
 // Ein fester Text aus einer Quelle: const NAME = "…"; oder
