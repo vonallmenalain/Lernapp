@@ -61,8 +61,9 @@ import fs from "node:fs";
 import path from "node:path";
 import vm from "node:vm";
 import crypto from "node:crypto";
-import { sprechText, mp3Rahmen, verzeichnis as alainsVerzeichnis } from "./stimme-texte.mjs";
+import { sprechText, mp3Rahmen } from "./stimme-texte.mjs";
 import { ORDNER as STIMME_ORDNER, bauTexte, dateiFuer, passtZumText, sekundenVon, verzeichnis as stimmeVerzeichnis } from "./stimme-bau-texte.mjs";
+import { verzeichnis as appVerzeichnis } from "./stimme-app-texte.mjs";
 
 const root = path.resolve(import.meta.dirname, "..");
 const lies = (datei) => fs.readFileSync(path.join(root, datei), "utf8");
@@ -1199,13 +1200,13 @@ let aufnahmen = 0;
   const dateien = stimmeVerzeichnis();
   pruefe(dateien && typeof dateien === "object" && !Array.isArray(dateien), "bau-stimme.js fehlt oder legt kein Verzeichnis an");
   const gesagt = new Set(bauTexte().map((t) => t.text));
-  const alain = alainsVerzeichnis() || {};
-  const belegt = new Set();
+  // Im selben Ordner liegen die Aufnahmen der übrigen App (app-stimme.js,
+  // geprüft von validate-app-stimme.mjs).
+  const belegt = new Set(Object.values(appVerzeichnis() || {}));
   Object.entries(dateien || {}).forEach(([text, datei]) => {
     const wo = `Aufnahme «${text.length > 50 ? `${text.slice(0, 50)}…` : text}»`;
     pruefe(text === sprechText(text), `${wo}: der Text steht nicht so da, wie die App ihn nachschlägt (Leerräume)`);
     pruefe(gesagt.has(text), `${wo}: die Bauecke sagt diesen Satz nicht mehr so – node scripts/stimme-google.mjs aufraeumen`);
-    pruefe(!alain[text], `${wo}: hat schon Alains Stimme (lesen-stimme.js) – die Leseecke behält sie`);
     pruefe(datei === dateiFuer(text), `${wo}: die Datei heisst ${datei}, nach ihrem Text ${dateiFuer(text)}`);
     belegt.add(datei);
     const pfad = path.join(root, datei);
@@ -1224,7 +1225,7 @@ let aufnahmen = 0;
   const ordner = path.join(root, STIMME_ORDNER);
   if (fs.existsSync(ordner)) {
     fs.readdirSync(ordner).filter((name) => !name.startsWith(".")).forEach((name) => {
-      pruefe(belegt.has(`${STIMME_ORDNER}/${name}`), `${STIMME_ORDNER}/${name}: zu dieser Datei steht kein Satz in bau-stimme.js`);
+      pruefe(belegt.has(`${STIMME_ORDNER}/${name}`), `${STIMME_ORDNER}/${name}: zu dieser Datei steht kein Satz in bau-stimme.js oder app-stimme.js`);
     });
   }
   // Das Startbild lädt das Verzeichnis nach lesen-stimme.js: Das setzt es

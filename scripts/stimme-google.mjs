@@ -1,10 +1,16 @@
 /*
- * Die Bauecke mit einer Stimme von Google (Cloud Text-to-Speech, Chirp 3 HD):
+ * Die App mit einer Stimme von Google (Cloud Text-to-Speech, Chirp 3 HD):
  * Stimmen anhören, Sätze vertonen, ins Repo legen.
  * ---------------------------------------------------------------------------
- *   node scripts/stimme-google.mjs texte [--teil kern|zahlen|namen] [--fehlend]
- *       Die Sätze der Bauecke (scripts/stimme-bau-texte.mjs): wie viele, wie
- *       viele Zeichen, wie viele schon eine Aufnahme haben.
+ * Zwei Bereiche mit je eigener Liste und eigenem Verzeichnis, die Aufnahmen
+ * im selben Ordner (stimme/google/, eine Datei je Text):
+ *   --bereich bau   die Bauecke: scripts/stimme-bau-texte.mjs → bau-stimme.js
+ *                   (ohne --bereich gilt bau)
+ *   --bereich app   alles andere: scripts/stimme-app-texte.mjs → app-stimme.js
+ *
+ *   node scripts/stimme-google.mjs texte [--bereich app] [--teil kern|zahlen|namen] [--fehlend]
+ *       Die Sätze des Bereichs: wie viele, wie viele Zeichen, wie viele
+ *       schon eine Aufnahme haben.
  *
  *   node scripts/stimme-google.mjs stimmen
  *       Die deutschen Chirp-3-HD-Stimmen, die Google anbietet.
@@ -14,16 +20,19 @@
  *       --stimmen alle. Landet ausserhalb des Repos (Standard: im
  *       Temp-Ordner, lernapp-stimmprobe/).
  *
- *   node scripts/stimme-google.mjs vertonen --stimme <name> [--tempo 0.95] [--teil kern] [--limit 200] [--trocken]
+ *   node scripts/stimme-google.mjs vertonen [--bereich app] --stimme <name> [--tempo 0.95] [--teil kern] [--limit 200] [--trocken]
  *       Vertont, was noch fehlt: je Satz eine MP3 in stimme/google/ (mono,
  *       24 kHz, 32 kbit/s, Stille vorne und hinten gekürzt – wie
- *       stimme-vertonen.mjs), dann schreibt es bau-stimme.js neu. Die Stimme
- *       steht danach in scripts/stimme-google.json; ein späterer Lauf nimmt
- *       dieselbe. Eine andere Stimme gibt es nur mit --alle-neu (dann wird
- *       alles neu gesprochen). --trocken zählt nur.
+ *       stimme-vertonen.mjs), dann schreibt es das Verzeichnis des Bereichs
+ *       neu. Liegt die Datei eines Satzes schon da (der andere Bereich sagt
+ *       ihn auch), kommt sie ohne Anfrage dazu. Die Stimme steht danach in
+ *       scripts/stimme-google.json; ein späterer Lauf nimmt dieselbe. Eine
+ *       andere Stimme gibt es nur mit --alle-neu (dann wird alles neu
+ *       gesprochen). --trocken zählt nur.
  *
- *   node scripts/stimme-google.mjs aufraeumen
- *       Löscht Aufnahmen von Sätzen, die die Bauecke nicht mehr sagt.
+ *   node scripts/stimme-google.mjs aufraeumen [--bereich app]
+ *       Löscht Aufnahmen von Sätzen, die der Bereich nicht mehr sagt, und
+ *       Dateien, die keines der beiden Verzeichnisse kennt.
  *
  *   node scripts/stimme-google.mjs verbrauch
  *       Wie viele Zeichen in welchem Monat an Google gingen.
@@ -45,7 +54,9 @@ import os from "node:os";
 import path from "node:path";
 import { spawn, execFileSync } from "node:child_process";
 import { WURZEL } from "./stimme-texte.mjs";
-import { ORDNER, bauTexte, dateiFuer, passtZumText, sekundenVon, verzeichnis, schreibeVerzeichnis } from "./stimme-bau-texte.mjs";
+import * as bau from "./stimme-bau-texte.mjs";
+import * as app from "./stimme-app-texte.mjs";
+const { ORDNER, dateiFuer, passtZumText, sekundenVon } = bau;
 
 const API = "https://texttospeech.googleapis.com/v1";
 const EINSTELLUNG = path.join(WURZEL, "scripts", "stimme-google.json");
@@ -63,6 +74,16 @@ const wert = (name, fallback = null) => {
   const i = rest.indexOf(`--${name}`);
   return i >= 0 && rest[i + 1] && !rest[i + 1].startsWith("--") ? rest[i + 1] : fallback;
 };
+
+// Welcher Bereich: seine Sätze und sein Verzeichnis.
+const BEREICHE = {
+  bau: { name: "die Bauecke", texte: async () => bau.bauTexte(), verzeichnis: bau.verzeichnis, schreibe: bau.schreibeVerzeichnis, datei: bau.VERZEICHNIS },
+  app: { name: "die App", texte: app.appTexte, verzeichnis: app.verzeichnis, schreibe: app.schreibeVerzeichnis, datei: app.VERZEICHNIS },
+};
+const bereichName = wert("bereich", "bau");
+const B = BEREICHE[bereichName];
+if (!B) { console.error(`Unbekannter Bereich: ${bereichName} (bau oder app)`); process.exit(2); }
+const anderer = BEREICHE[bereichName === "bau" ? "app" : "bau"];
 
 // --- Einstellung und Verbrauch ----------------------------------------------
 function einstellung() {
@@ -181,10 +202,10 @@ function zuMp3(wav, ziel) {
 }
 
 // --- Befehle -------------------------------------------------------------------
-function zeigeTexte() {
-  const da = verzeichnis() || {};
+async function zeigeTexte() {
+  const da = B.verzeichnis() || {};
   const teil = wert("teil");
-  let liste = bauTexte().filter((e) => !teil || e.teil === teil);
+  let liste = (await B.texte()).filter((e) => !teil || e.teil === teil);
   if (flag("fehlend")) liste = liste.filter((e) => !da[e.text]);
   const je = {};
   liste.forEach((e) => {
@@ -193,7 +214,7 @@ function zeigeTexte() {
     je[e.teil].zeichen += e.text.length;
     if (da[e.text]) je[e.teil].aufgenommen += 1;
   });
-  Object.entries(je).forEach(([t, s]) => console.log(`${t.padEnd(7)} ${String(s.saetze).padStart(5)} Sätze  ${String(s.zeichen).padStart(7)} Zeichen  ${s.aufgenommen} mit Aufnahme`));
+  Object.entries(je).forEach(([t, s]) => console.log(`${t.padEnd(8)} ${String(s.saetze).padStart(5)} Sätze  ${String(s.zeichen).padStart(7)} Zeichen  ${s.aufgenommen} mit Aufnahme`));
   const zeichen = liste.reduce((n, e) => n + e.text.length, 0);
   console.log(`\nZusammen ${liste.length} Sätze, ${zeichen} Zeichen. Diesen Monat an Google geschickt: ${verbrauchtDiesenMonat()} von ${GRENZE_MONAT}.`);
 }
@@ -236,23 +257,36 @@ async function vertonen() {
   const gewuenscht = wert("stimme") ? stimmeName(wert("stimme")) : e.stimme;
   if (!gewuenscht) throw new Error("Welche Stimme? --stimme Charon (die Namen: node scripts/stimme-google.mjs stimmen)");
   const tempo = Number(wert("tempo", e.tempo || 1));
-  let da = verzeichnis() || {};
+  let da = B.verzeichnis() || {};
   const wechsel = e.stimme && Object.keys(da).length && (e.stimme !== gewuenscht || Number(e.tempo || 1) !== tempo);
   if (wechsel && !flag("alle-neu")) {
-    throw new Error(`Die Bauecke spricht schon mit ${e.stimme} (Tempo ${e.tempo || 1}). Für ${gewuenscht} (Tempo ${tempo}) alles neu: --alle-neu`);
+    throw new Error(`${B.name[0].toUpperCase()}${B.name.slice(1)} spricht schon mit ${e.stimme} (Tempo ${e.tempo || 1}). Für ${gewuenscht} (Tempo ${tempo}) alles neu: --alle-neu (danach auch den anderen Bereich)`);
   }
   if (wechsel && !flag("trocken")) {
     Object.values(da).forEach((datei) => fs.rmSync(path.join(WURZEL, datei), { force: true }));
     da = {};
   }
   const teil = wert("teil");
-  const alle = bauTexte();
+  const alle = await B.texte();
   let offen = alle.filter((t) => (!teil || t.teil === teil) && !da[t.text]);
+  // Was schon als Datei daliegt (der andere Bereich sagt denselben Satz),
+  // kommt ohne Anfrage dazu.
+  const schonDa = offen.filter((t) => {
+    const datei = path.join(WURZEL, dateiFuer(t.text));
+    return !wechsel && fs.existsSync(datei) && passtZumText(sekundenVon(fs.readFileSync(datei)), t.text);
+  });
+  schonDa.forEach((t) => { da[t.text] = dateiFuer(t.text); });
+  if (schonDa.length) console.log(`${schonDa.length} Sätze haben schon eine Datei (vom anderen Bereich).`);
+  offen = offen.filter((t) => !da[t.text]);
   const limit = Number(wert("limit", 0));
   if (limit > 0) offen = offen.slice(0, limit);
   const zeichen = offen.reduce((n, t) => n + t.text.length, 0);
   console.log(`${offen.length} Sätze ohne Aufnahme, ${zeichen} Zeichen, Stimme ${gewuenscht}, Tempo ${tempo}. Diesen Monat schon geschickt: ${verbrauchtDiesenMonat()}.`);
-  if (flag("trocken") || !offen.length) return;
+  if (flag("trocken")) return;
+  if (!offen.length) {
+    if (schonDa.length) B.schreibe(Object.fromEntries(alle.filter((t) => da[t.text]).map((t) => [t.text, da[t.text]])), { stimme: `${gewuenscht}${tempo !== 1 ? `, Tempo ${tempo}` : ""}` });
+    return;
+  }
   if (!flag("kosten-ok") && verbrauchtDiesenMonat() + zeichen > GRENZE_MONAT) {
     throw new Error(`Das ginge über ${GRENZE_MONAT} Zeichen in diesem Monat – das Gratis-Kontingent ist 1 Million. Mit --limit weniger auf einmal, nächsten Monat weiter, oder --kosten-ok.`);
   }
@@ -262,7 +296,7 @@ async function vertonen() {
   const reihenfolge = new Map(alle.map((t, i) => [t.text, i]));
   const schreibe = () => {
     const geordnet = Object.fromEntries(Object.entries(da).sort(([a], [b]) => (reihenfolge.get(a) ?? 1e9) - (reihenfolge.get(b) ?? 1e9)));
-    schreibeVerzeichnis(geordnet, { stimme: `${gewuenscht}${tempo !== 1 ? `, Tempo ${tempo}` : ""}` });
+    B.schreibe(geordnet, { stimme: `${gewuenscht}${tempo !== 1 ? `, Tempo ${tempo}` : ""}` });
   };
   const gleichzeitig = Math.max(1, Math.min(8, Number(wert("gleichzeitig", 4))));
   const unpassend = [];
@@ -294,24 +328,26 @@ async function vertonen() {
   }
   await Promise.all(Array.from({ length: gleichzeitig }, arbeiter));
   schreibe();
-  console.log(`\n${fertig} Aufnahmen neu; bau-stimme.js kennt jetzt ${Object.keys(da).length}. Diesen Monat an Google geschickt: ${verbrauchtDiesenMonat()}.`);
+  console.log(`\n${fertig} Aufnahmen neu; ${B.datei} kennt jetzt ${Object.keys(da).length}. Diesen Monat an Google geschickt: ${verbrauchtDiesenMonat()}.`);
   if (unpassend.length) console.log(`\nNicht übernommen (${unpassend.length}) – beim nächsten Lauf neu versucht:\n${unpassend.slice(0, 30).join("\n")}`);
   if (abbruch) throw abbruch;
 }
 
-function aufraeumen() {
-  const da = verzeichnis();
-  if (!da) { console.log("Noch keine Aufnahmen (bau-stimme.js fehlt)."); return; }
-  const gesagt = new Set(bauTexte().map((t) => t.text));
+async function aufraeumen() {
+  const da = B.verzeichnis();
+  if (!da) { console.log(`Noch keine Aufnahmen (${B.datei} fehlt).`); return; }
+  const gesagt = new Set((await B.texte()).map((t) => t.text));
   const weg = Object.keys(da).filter((text) => !gesagt.has(text));
-  weg.forEach((text) => { fs.rmSync(path.join(WURZEL, da[text]), { force: true }); delete da[text]; });
-  const belegt = new Set(Object.values(da));
+  // Eine Datei, die der andere Bereich auch braucht, bleibt liegen.
+  const dort = new Set(Object.values(anderer.verzeichnis() || {}));
+  weg.forEach((text) => { if (!dort.has(da[text])) fs.rmSync(path.join(WURZEL, da[text]), { force: true }); delete da[text]; });
+  const belegt = new Set([...Object.values(da), ...dort]);
   const ordner = path.join(WURZEL, ORDNER);
   const lose = fs.existsSync(ordner) ? fs.readdirSync(ordner).filter((n) => !belegt.has(`${ORDNER}/${n}`)) : [];
   lose.forEach((n) => fs.rmSync(path.join(ordner, n), { force: true }));
   const e = einstellung();
-  schreibeVerzeichnis(da, { stimme: `${e.stimme}${Number(e.tempo || 1) !== 1 ? `, Tempo ${e.tempo}` : ""}` });
-  console.log(`${weg.length} Aufnahmen alter Sätze und ${lose.length} lose Dateien gelöscht; bau-stimme.js kennt ${Object.keys(da).length}.`);
+  B.schreibe(da, { stimme: `${e.stimme}${Number(e.tempo || 1) !== 1 ? `, Tempo ${e.tempo}` : ""}` });
+  console.log(`${weg.length} Aufnahmen alter Sätze und ${lose.length} lose Dateien gelöscht; ${B.datei} kennt ${Object.keys(da).length}.`);
 }
 
 function zeigeVerbrauch() {
@@ -319,7 +355,7 @@ function zeigeVerbrauch() {
   const v = e.verbrauch || {};
   if (!Object.keys(v).length) console.log("Noch nichts an Google geschickt.");
   Object.entries(v).forEach(([m, n]) => console.log(`${m}  ${String(n).padStart(9)} Zeichen${m === monat() ? `  (Grenze ${GRENZE_MONAT})` : ""}`));
-  if (e.stimme) console.log(`\nStimme der Bauecke: ${e.stimme}, Tempo ${e.tempo || 1}`);
+  if (e.stimme) console.log(`\nStimme: ${e.stimme}, Tempo ${e.tempo || 1}`);
 }
 
 const BEFEHLE = { texte: zeigeTexte, stimmen: zeigeStimmen, probe, vertonen, aufraeumen, verbrauch: zeigeVerbrauch };
