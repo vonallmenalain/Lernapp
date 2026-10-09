@@ -135,6 +135,8 @@ function stimmeErsatz() {
       setTimeout(() => {
         if (meins !== abbruch) return;
         window.__gesagt.push(String(aeusserung.text));
+        // Spricht die Bauecke selbst mit der Gerätestimme, fehlt eine Aufnahme.
+        if (document.querySelector('.train-stage[data-view="bau"]')) window.__geraetSagt?.(String(aeusserung.text));
         aeusserung.dispatchEvent(new Event("end"));
       }, 5);
     },
@@ -147,10 +149,14 @@ function ueberlappen(a, b) {
   return a && b && a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
 }
 
+// Was die Bauecke mit der Gerätestimme sagte statt als Aufnahme.
+const geraetSaetze = new Map();
+
 async function neueSeite(browser, viewport) {
   const context = await browser.newContext({ viewport, deviceScaleFactor: 1, hasTouch: viewport.width < 900 });
   await context.route("**/*gstatic.com/**", (route) => route.abort());
   await context.route("**/fonts.googleapis.com/**", (route) => route.abort());
+  await context.exposeBinding("__geraetSagt", (_quelle, text) => { if (!geraetSaetze.has(text)) geraetSaetze.set(text, viewport.width); });
   await context.addInitScript(stimmeErsatz);
   // Blitzzug und Glücksstern kommen nur, wenn ein Test sie ruft; die
   // Sternenleiter ist schon ganz oben, damit keine Feier dazwischenkommt.
@@ -1195,6 +1201,9 @@ await pruefeAnsicht(browser, "Tablet", { width: 1600, height: 1000 });
 await pruefeAnsicht(browser, "Handy", { width: 812, height: 375 });
 await browser.close();
 halt();
+// Alles, was die Bauecke sagt, kommt als Aufnahme (bau-stimme.js) – nie
+// zwischendurch die Gerätestimme (docs/STIMME-GOOGLE.md).
+geraetSaetze.forEach((breite, satz) => fehlt(`${breite < 900 ? "Handy" : "Tablet"}: mit der Gerätestimme statt als Aufnahme: «${satz}»`));
 
 if (befunde.length) {
   console.error(`Die Bauecke hat ${befunde.length} Befunde:`);

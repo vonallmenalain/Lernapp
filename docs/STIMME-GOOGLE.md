@@ -12,15 +12,15 @@ offline, sobald sie einmal geladen ist.
   30 US$ je Million. Die ganze Bauecke braucht also weniger als ein Fünftel
   des Gratis-Kontingents. Das Skript zählt mit und hört bei 900'000 Zeichen im
   Monat von selbst auf.
-- **Was fehlt, bleibt wie bisher:** Sätze ohne Aufnahme spricht weiter die
-  Gerätestimme (z. B. «Hier wohnen Flora und Benno.»).
+- **Alles mit derselben Stimme:** Jeder Satz der Bauecke soll als Aufnahme
+  kommen, nie zwischendurch mit der Stimme des Geräts. `scripts/check-bau-stimme.mjs`
+  prüft das im Browser, `scripts/check-bau.mjs` ebenfalls.
 
 **Stand (Oktober 2026):** Die Bauecke spricht mit **Sulafat**
 (`de-DE-Chirp3-HD-Sulafat`, normales Tempo) – gewählt aus Hörproben aller 30
-deutschen Stimmen. 6'722 Sätze sind aufgenommen (`stimme/google/`, rund 67 MB;
-`bau-stimme.js` rund 450 KB, gepackt 100 KB). Ohne Aufnahme bleibt nur «Tim»
-als einzelnes Wort: Google liefert dafür Stille. Schweizerdeutsch gibt es bei
-Google nicht; die deutschen Stimmen, die Mundart lesen, klangen schlecht.
+deutschen Stimmen. Schweizerdeutsch gibt es bei Google nicht; die deutschen
+Stimmen, die Mundart lesen, klangen schlecht. Wie viele Sätze aufgenommen
+sind: `node scripts/stimme-google.mjs texte`.
 
 ## 1. Google Cloud einrichten (einmal, etwa 15 Minuten)
 
@@ -122,7 +122,12 @@ Ablauf:
    Datei `dateiFuer(text)`, MP3 mono/24 kHz/32 kbit/s, Länge passend
    (`passtZumText`), keine Datei ohne Satz, kein Satz mit Alains Stimme.
    Bei neuen Aufnahmen APP_VERSION und alle `?v=` neu.
-5. Alle `scripts/validate-*.mjs` laufen lassen, Pull Request.
+5. Alle `scripts/validate-*.mjs` laufen lassen, dazu `scripts/check-bau.mjs`
+   und `scripts/check-bau-stimme.mjs` (Playwright: `npm i --no-save playwright`),
+   Pull Request.
+6. Ändert sich bau-stimme.js, braucht es eine neue App-Version (APP_VERSION
+   und alle `?v=`): Sonst behält ein Gerät das alte Verzeichnis im Cache des
+   Service Workers und spricht neue Sätze mit der Gerätestimme.
 
 Gut zu wissen:
 
@@ -130,6 +135,15 @@ Gut zu wissen:
   Aufnahme; was fehlt, spricht die Gerätestimme. Deshalb sind die Aufnahmen
   satzweise.
 - Die Leseecke behält Alains Stimme (`lesen-stimme.js`, `stimme/alain/`).
+- **Je Satz höchstens ein Wechselndes.** Zwei Namen oder zwei Zahlen in einem
+  Satz («Hier wohnen Flora und Benno.», «8 von 22 Sternen») gäbe es
+  hunderttausendfach. Die Bauecke sagt so etwas deshalb in Sätzen mit je einem
+  Namen oder einer Zahl («Hier wohnt Flora. Benno wohnt auch hier.»,
+  «Zusammen haben sie 8 Sterne. 14 fehlen noch.»). kids.js teilt ausserdem
+  hinter einem Doppelpunkt («Flora:» und «Juhu, ein Bett!») und nicht hinter
+  einer Zahl («Der 3. Stock» bleibt beisammen). Wer in train-bau.js einen neuen
+  Satz baut, hält sich daran und trägt ihn in `stimme-bau-texte.mjs` ein;
+  `check-bau-stimme.mjs` findet, was fehlt.
 - Ein Text aus mehreren Sätzen spielt Stück für Stück. Darum darf ein Wechsel
   der Hilfe eine Ansage nicht abbrechen: train-bau.js setzt die Hilfe mit
   `setHelp(text, { ansageBleibt: true })` (kids.js). `check-bau.mjs` zählt

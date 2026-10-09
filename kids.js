@@ -239,14 +239,17 @@
     return typeof datei === "string" && datei ? datei : null;
   }
   // Die Sätze eines Textes: geteilt hinter . ! ? … (und einem schliessenden
-  // Anführungszeichen), wo ein Leerzeichen folgt. Mit je einem Leerzeichen
-  // aneinandergehängt, ergeben sie wieder den Text.
+  // Anführungszeichen), wo ein Leerzeichen folgt – nicht hinter einer Zahl
+  // («der 3. Stock») –, und hinter einem Doppelpunkt: «Flora: Danke!» spielt
+  // als «Flora:» und «Danke!», wenn es den ganzen Satz nicht gibt. Mit je
+  // einem Leerzeichen aneinandergehängt, ergeben sie wieder den Text.
   function saetzeVon(text) {
     const teile = [];
-    const muster = /[.!?…]+[»"]?(?=\s)/g;
+    const muster = /(?:[.!?…]+[»"]?|:)(?=\s)/g;
     let anfang = 0;
     let treffer;
     while ((treffer = muster.exec(text))) {
+      if (treffer[0] === "." && /\d$/.test(text.slice(anfang, treffer.index))) continue;
       const ende = treffer.index + treffer[0].length;
       teile.push(text.slice(anfang, ende).trim());
       anfang = ende;
