@@ -148,6 +148,7 @@ export function bauTexte() {
     "Noch ein Wunsch – unten steht, welche.", ...[2, 3, 4, 5].map((n) => `Noch ${n} Wünsche – unten steht, welche.`),
     "Wohnung.", "Zwei Zimmer.", "Hauswand", "Dach", "Juhu, danke!", "Schau dir ihre Wohnung im Wohnhaus an!",
     "Ein Stern fehlt noch.", "Mehr gibt es gerade nicht.",
+    "Alle vier Häuser.", "Tippe auf ein Haus, dann bist du dort.",
   ].forEach((s) => dazu(s, "kern", "train-bau.js"));
 
   // Die Häuser (hilfeHaus, Hauswahl, Reiter)
@@ -294,6 +295,8 @@ export function bauTexte() {
       // je Satz, wo mehrere wohnen oder arbeiten (train-bau.js, zimmerSatz).
       `${n}:`, `${n} wohnt auch hier.`, `${n} hat hier auch den Traumjob!`, `${n} hat es sich auch gewünscht.`,
       `In der Wohnung von ${n} haben jetzt alle drei ihren Traumjob.`,
+      // Die Karten der Zimmerwahl (werSatz).
+      `${n} hätte hier den Traumjob!`, `${n} wünscht sich dieses Zimmer.`,
     ].forEach((s) => dazu(s, "namen", "Tiername"));
   });
 

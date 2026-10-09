@@ -411,13 +411,30 @@
   // ---------------------------------------------------------------------------
   // Strasse, Bäume, der Lieferzug
   // ---------------------------------------------------------------------------
+  // Strasse und Gleis als SVG, von x0 bis x1 – für das Bild aller vier Häuser,
+  // das nie breiter ist als der Bildschirm.
   function strasse(x0, x1) {
     return `<rect x="${x0}" y="0" width="${x1 - x0}" height="40" fill="#d6dbe2"/><rect x="${x0}" y="0" width="${x1 - x0}" height="4" fill="#b8c0cb"/>` +
       `<rect x="${x0}" y="40" width="${x1 - x0}" height="70" fill="#7d8796"/>` +
       `<rect x="${x0}" y="64" width="${x1 - x0}" height="6" fill="#8a6a4f"/><rect x="${x0}" y="84" width="${x1 - x0}" height="6" fill="#8a6a4f"/>` +
       Array.from({ length: Math.ceil((x1 - x0) / 34) }, (_, i) => `<rect x="${x0 + i * 34}" y="60" width="16" height="34" rx="2" fill="#6b5442"/>`).join("") +
-      `<rect x="${x0}" y="62" width="${x1 - x0}" height="5" fill="#b8c0cb"/><rect x="${x0}" y="86" width="${x1 - x0}" height="5" fill="#b8c0cb"/>` +
-      `<rect x="${x0}" y="110" width="${x1 - x0}" height="200" fill="#7cc05e"/>`;
+      `<rect x="${x0}" y="62" width="${x1 - x0}" height="5" fill="#b8c0cb"/><rect x="${x0}" y="86" width="${x1 - x0}" height="5" fill="#b8c0cb"/>`;
+  }
+
+  // Strasse, Gleis und Wiese als Hintergrund eines flachen Bandes (CSS) unter
+  // dem Haus: u Bildpunkte je Einheit, die Oberkante ist die Strasse (y = 0),
+  // phase: wo die erste Schwelle beginnt (Bildpunkte). Gehsteig, Gleisbett,
+  // Schwellen alle 34 Einheiten, zwei Schienen, darunter Wiese. Im Haus-SVG
+  // reichte die Strasse früher weit über das Haus hinaus – die Ebene wurde
+  // riesig (train-bau.js, zeigeWelt).
+  function bodenStil(u, phase = 0) {
+    const p = (n) => `${(n * u).toFixed(2)}px`;
+    return [
+      `linear-gradient(to bottom, transparent ${p(62)}, #b8c0cb ${p(62)} ${p(67)}, transparent ${p(67)} ${p(86)}, #b8c0cb ${p(86)} ${p(91)}, transparent ${p(91)})`,
+      `repeating-linear-gradient(to right, #6b5442 0 ${p(16)}, transparent ${p(16)} ${p(34)}) ${phase.toFixed(2)}px ${p(60)} / ${p(34)} ${p(34)} repeat-x`,
+      `linear-gradient(to bottom, transparent ${p(64)}, #8a6a4f ${p(64)} ${p(70)}, transparent ${p(70)} ${p(84)}, #8a6a4f ${p(84)} ${p(90)}, transparent ${p(90)})`,
+      `linear-gradient(to bottom, #b8c0cb 0 ${p(4)}, #d6dbe2 ${p(4)} ${p(40)}, #7d8796 ${p(40)} ${p(110)}, #7cc05e ${p(110)})`,
+    ].join(", ");
   }
 
   function baum(x, gross = 1) {
@@ -701,6 +718,82 @@
       `<path d="${sternPfad(-2, -2, 11, 0.47)}" fill="#ffe27a"/>` +
       `<g class="bau-glitzer-a">${funkeln(-24, -18, 7)}${funkeln(22, 16, 5)}</g><g class="bau-glitzer-b">${funkeln(24, -20, 6)}${funkeln(-22, 18, 5)}</g>`;
   }
+  // Ab 75 Sternen: was danach kommt (die Sternenleiter geht bis 200).
+  function riesenrad() {
+    const r = 130;
+    const cy = -168;
+    const farben = ["#ef5350", "#ffd166", "#4cc46b", "#b28dff", "#ff8a65", "#4fc3f7", "#ff7aa2", "#ffffff"];
+    let s = `<path d="M-74 0L0 ${cy}L74 0" fill="none" stroke="#6b7280" stroke-width="8" stroke-linejoin="round"/><rect x="-86" y="-7" width="172" height="9" rx="4.5" fill="#6b7280"/>` +
+      `<circle cx="0" cy="${cy}" r="${r}" fill="none" stroke="#4f8ef7" stroke-width="7"/><circle cx="0" cy="${cy}" r="${r - 16}" fill="none" stroke="#9cc3ff" stroke-width="3"/>`;
+    for (let k = 0; k < 8; k += 1) {
+      const a = (k * Math.PI) / 4;
+      const x = (Math.cos(a) * r).toFixed(1);
+      const y = (cy + Math.sin(a) * r).toFixed(1);
+      s += `<path d="M0 ${cy}L${x} ${y}" stroke="#4f8ef7" stroke-width="3"/>`;
+      s += `<g transform="translate(${x} ${y})"><path d="M0 0v10" stroke="#6b7280" stroke-width="2.4"/><rect x="-14" y="9" width="28" height="22" rx="6" fill="${farben[k]}" stroke="#6b7280" stroke-width="1.6"/><rect x="-10" y="13" width="20" height="8" rx="2" fill="#e6f4ff"/></g>`;
+    }
+    return `${s}<circle cx="0" cy="${cy}" r="12" fill="#ffd166" stroke="#d68f00" stroke-width="2.4"/>`;
+  }
+  // Ein Teich auf der Wiese, unter dem Gleis (y 110 bis 190), mit zwei Enten.
+  function teich() {
+    const ente = (x, y, k = 1) => `<g transform="translate(${x} ${y}) scale(${k})"><ellipse cx="0" cy="0" rx="14" ry="8" fill="#ffffff"/><circle cx="11" cy="-9" r="6.5" fill="#ffffff"/>` +
+      `<path d="M16.5 -9.5l8 2-8 2.2z" fill="#ff9f43"/><circle cx="12.5" cy="-10.5" r="1.4" fill="#243047"/><path d="M-13 -3q-6-6-2-10" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round"/></g>`;
+    return `<ellipse cx="0" cy="150" rx="98" ry="27" fill="#4f9fd8"/><ellipse cx="-6" cy="146" rx="82" ry="19" fill="#7fc8f8"/>` +
+      `<path d="M-62 150q20-6 40 0M12 156q20-6 40 0" stroke="#cfeaff" stroke-width="2.6" fill="none" stroke-linecap="round"/>` +
+      `<path d="M-104 162v-36M-97 162v-28M-90 162v-32M94 160v-30M101 160v-22" stroke="#3f8f3a" stroke-width="3" stroke-linecap="round"/>` +
+      `<ellipse cx="-104" cy="125" rx="3.2" ry="9" fill="#8a5734"/><ellipse cx="94" cy="128" rx="3.2" ry="9" fill="#8a5734"/>` +
+      ente(-26, 149) + ente(32, 153, 0.8);
+  }
+  // Ein Drachen mit Schwanz und Schnur, die Spitze oben.
+  function drachen(farbe = "#ef5350", hell = "#ffd166") {
+    return `<path d="M0 -42L30 0L0 52L-30 0z" fill="${farbe}"/><path d="M0 -42L30 0H0z" fill="${hell}"/><path d="M0 -42L0 52M-30 0L30 0" stroke="#ffffff" stroke-width="2.2"/>` +
+      `<path d="M0 52q15 22 0 44t0 44" fill="none" stroke="#6b7280" stroke-width="1.8"/>` +
+      [74, 100, 126].map((y, k) => `<path d="M-8 ${y}l8-6 8 6-8 6z" fill="${["#4f8ef7", "#4cc46b", "#b28dff"][k]}"/>`).join("") +
+      `<path d="M0 52Q-30 170 -70 330" fill="none" stroke="#9aa5b1" stroke-width="1.2" stroke-dasharray="5 5"/>`;
+  }
+  function windmuehle() {
+    const fluegel = [0, 90, 180, 270].map((g) => `<g transform="rotate(${g + 20})"><rect x="-5" y="-108" width="10" height="100" rx="3" fill="#8a5734"/><rect x="5" y="-104" width="24" height="76" rx="3" fill="#fffdf4" stroke="#c9b28f" stroke-width="2"/></g>`).join("");
+    return `<path d="M-46 0L-28 -170h56L46 0z" fill="#f3e3c3" stroke="#c9b28f" stroke-width="3"/><path d="M-36 -176L0 -214L36 -176z" fill="#ef5350"/>` +
+      `<rect x="-12" y="-40" width="24" height="40" rx="12" fill="#8a5734"/><circle cx="0" cy="-110" r="9" fill="#cfeaff" stroke="#8a5734" stroke-width="2.5"/>` +
+      `<g transform="translate(0 -176)">${fluegel}<circle r="9" fill="#6b7280"/></g>`;
+  }
+  // Ein Gemüsegarten auf der Wiese: zwei Beete mit Rüebli, Salat und Kürbissen.
+  function garten() {
+    const beet = (x) => `<rect x="${x}" y="124" width="84" height="44" rx="8" fill="#8a5734"/><rect x="${x + 4}" y="128" width="76" height="36" rx="6" fill="#a0693f"/>`;
+    let s = `<path d="M-110 118h220" stroke="#c9b28f" stroke-width="4" stroke-dasharray="2 10" stroke-linecap="round"/>` + beet(-100) + beet(16);
+    for (let k = 0; k < 4; k += 1) s += `<g transform="translate(${-88 + k * 20} 140)"><path d="M0 0l-4-12M0 0l4-12M0 0v-14" stroke="#4cc46b" stroke-width="2.6" stroke-linecap="round"/><path d="M-4 0h8l-4 14z" fill="#ff8a1f"/></g>`;
+    for (let k = 0; k < 3; k += 1) s += `<g transform="translate(${-80 + k * 26} 160)"><circle r="7" fill="#7ccf6a"/><circle r="4" fill="#a8e28e"/></g>`;
+    s += `<g transform="translate(40 148)"><ellipse rx="15" ry="11" fill="#ff9f43"/><path d="M-6 -10v20M6 -10v20" stroke="#e8822a" stroke-width="2"/><path d="M0 -11q2-7 6-8" stroke="#3f8f3a" stroke-width="3" fill="none"/></g>`;
+    s += `<g transform="translate(72 154) scale(0.8)"><ellipse rx="15" ry="11" fill="#ff9f43"/><path d="M-6 -10v20M6 -10v20" stroke="#e8822a" stroke-width="2"/><path d="M0 -11q2-7 6-8" stroke="#3f8f3a" stroke-width="3" fill="none"/></g>`;
+    return s;
+  }
+  function zeppelin() {
+    return `<ellipse cx="0" cy="0" rx="120" ry="38" fill="#cfd8e3" stroke="#8a9bb0" stroke-width="3"/>` +
+      `<path d="M-90 -24q90-14 180 0M-100 0h200M-90 24q90 14 180 0" fill="none" stroke="#8a9bb0" stroke-width="2"/>` +
+      `<path d="M96 -10l34-26v28zM96 10l34 26v-28z" fill="#ef5350"/>` +
+      `<rect x="-30" y="34" width="60" height="18" rx="7" fill="#ffd166" stroke="#d68f00" stroke-width="2"/>` +
+      `<rect x="-22" y="38" width="10" height="8" rx="2" fill="#e6f4ff"/><rect x="-5" y="38" width="10" height="8" rx="2" fill="#e6f4ff"/><rect x="12" y="38" width="10" height="8" rx="2" fill="#e6f4ff"/>`;
+  }
+  // Ein Schloss auf einem Hügel: der Hügel steht auf dem Boden (y = 0), das
+  // Schloss obendrauf.
+  function schloss() {
+    const turm = (x, h) => `<rect x="${x - 18}" y="${-h}" width="36" height="${h}" fill="#e2d6f3" stroke="#9b85c4" stroke-width="2.5"/>` +
+      `<path d="M${x - 22} ${-h}L${x} ${-h - 46}L${x + 22} ${-h}z" fill="#8f6bd8"/><path d="M${x} ${-h - 46}v-22" stroke="#6b7280" stroke-width="2.4"/><path d="M${x} ${-h - 68}l18 6-18 6z" fill="#ef5350"/>` +
+      `<rect x="${x - 6}" y="${-h + 18}" width="12" height="16" rx="6" fill="#4a5568"/>`;
+    return `<path d="M-200 0Q-130 -104 0 -108Q130 -104 200 0z" fill="#8fd17a"/><path d="M-150 -40Q-60 -86 40 -92" fill="none" stroke="#a8de95" stroke-width="10" stroke-linecap="round"/>` +
+      `<g transform="translate(0 -104)"><rect x="-70" y="-80" width="140" height="80" fill="#efe6fa" stroke="#9b85c4" stroke-width="2.5"/>` +
+      [-60, -36, -12, 12, 36, 60].map((x) => `<rect x="${x - 7}" y="-92" width="14" height="14" fill="#efe6fa" stroke="#9b85c4" stroke-width="2"/>`).join("") +
+      `<path d="M-16 0v-34a16 16 0 0 1 32 0v34z" fill="#8a5734"/>` + turm(-78, 128) + turm(78, 128) + turm(0, 150) + `</g>`;
+  }
+  // Ein Feuerwerk als Bild (für die Leiter); im Dorf zündet train-bau.js es.
+  function feuerwerkBild() {
+    const bluete = (x, y, r, c) => [0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330].map((g) => {
+      const a = (g * Math.PI) / 180;
+      return `<path d="M${(x + Math.cos(a) * r * 0.35).toFixed(1)} ${(y + Math.sin(a) * r * 0.35).toFixed(1)}L${(x + Math.cos(a) * r).toFixed(1)} ${(y + Math.sin(a) * r).toFixed(1)}" stroke="${c}" stroke-width="4" stroke-linecap="round"/>`;
+    }).join("") + `<circle cx="${x}" cy="${y}" r="${r * 0.18}" fill="${c}"/>`;
+    return bluete(-30, -70, 34, "#ff7aa2") + bluete(32, -92, 28, "#ffd166") + bluete(8, -40, 22, "#4fc3f7");
+  }
+
   // Wo der Dachstern auf welchem Dach sitzt (x, y über der obersten Decke).
   function dachsternOrt(form, y) {
     if (form === "giebel") return [HB / 2, y - 120 - 22];
@@ -718,6 +811,14 @@
     karussell: [karussell, "-74 -166 148 170"],
     statue: [statue, "-42 -134 84 138"],
     dachstern: [dachstern, "-34 -34 68 68"],
+    riesenrad: [riesenrad, "-150 -334 300 340"],
+    teich: [() => `<g transform="translate(0 -150)">${teich()}</g>`, "-112 -46 224 76"],
+    drachen: [() => drachen(), "-40 -50 110 190"],
+    windmuehle: [windmuehle, "-120 -300 240 304"],
+    garten: [() => `<g transform="translate(0 -140)">${garten()}</g>`, "-116 -36 232 72"],
+    zeppelin: [zeppelin, "-126 -44 262 100"],
+    schloss: [schloss, "-204 -330 408 334"],
+    feuerwerk: [feuerwerkBild, "-72 -128 144 116"],
   };
   function leiterBild(id) {
     const eintrag = LEITER_BILD[id];
@@ -727,9 +828,10 @@
   window.LernappBauArt = {
     ZW, ZH, ZH_HOCH, BODEN_Y, OBEN_Y, WAND, LIFT, DECKE, STOCK, STOCK_HOCH, FUSS, HB, ZX, LX, DACH_H,
     hoehenVon, hoehe, unten, oben, musterDef, boden, zimmerSchale, rohbauSchale, trennwand, tier, koffer,
-    hausRahmen, liftStock, sternTafel, sternTafelHoehe, traumAbzeichen, traumRahmen, traumSchild, liftKabine, dach, naechsterStock, strasse, baum, laterne,
+    hausRahmen, liftStock, sternTafel, sternTafelHoehe, traumAbzeichen, traumRahmen, traumSchild, liftKabine, dach, naechsterStock, strasse, bodenStil, baum, laterne,
     lieferzug, palette, minihaus, minihausHoehe, hausZeichen,
     sternPfad, funkeln, blitzzug, gluecksstern, krone, sternRahmen,
     blumen, wimpel, brunnen, ballon, regenbogen, karussell, statue, dachstern, dachsternOrt, leiterBild,
+    riesenrad, teich, drachen, windmuehle, garten, zeppelin, schloss, feuerwerkBild,
   };
 })();

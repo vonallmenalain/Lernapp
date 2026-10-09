@@ -159,6 +159,7 @@
     tafel: null,           // offene Tier-Tafel { seed }
     overlay: null,         // offene Wahl (Haus, Stockwerk, Zimmerart, Fassade)
     ordnen: false,         // Stockwerke umstellen
+    dorf: false,           // alle vier Häuser auf einen Blick (dritte Stufe der Ansicht)
     leiter: false,         // die Sternenleiter ist offen
     blitz: null,           // ein Blitzzug, der gerade vorbeibraust
     stern: null,           // wo sich der Glücksstern versteckt
@@ -207,6 +208,7 @@
     ui.leiter = false;
     ui.overlay = null;
     ui.ordnen = false;
+    ui.dorf = false;
     ui.besetzt = false;
     ui.kommt = "";
     ui.blitz = null;
@@ -225,7 +227,19 @@
 
     els.himmel = el("div", "bau-himmel");
     els.himmel.innerHTML = `<div class="bau-sonne"></div><div class="bau-mond"></div><div class="bau-wolke w1"></div><div class="bau-wolke w2"></div>`;
+    // Strasse, Gleis und Wiese über die ganze Breite: ein flaches Band hinter
+    // dem Haus, das mit ihm wandert (zeigeWelt).
+    els.boden = el("div", "bau-gelaende");
+    els.bodenBand = el("div", "bau-gelaende-band");
+    els.boden.append(els.bodenBand);
     els.welt = el("div", "bau-welt");
+    // Alle vier Häuser nebeneinander: ein Bild so gross wie der Bildschirm.
+    els.dorf = el("div", "bau-dorf");
+    els.dorf.hidden = true;
+    els.dorf.addEventListener("click", (e) => {
+      const haus = e.target.closest?.("[data-dorf-haus]")?.getAttribute("data-dorf-haus");
+      if (haus) verlasseDorf({ zu: haus });
+    });
     // Unten links: das Haus gross oder ganz auf einem Bildschirm.
     els.ansicht = knopf("bau-ansichtknopf", "Das ganze Haus zeigen", "", () => wechsleAnsicht());
     els.umschalter = el("nav", "bau-umschalter", { "aria-label": "Die vier Häuser" });
@@ -237,7 +251,7 @@
     els.zimmer = el("div", "bau-zimmeransicht");
     els.zimmer.hidden = true;
     els.flug = el("div", "bau-flug");
-    host.append(els.himmel, els.welt, els.ansicht, els.umschalter, els.hud, els.bewohner, els.leiterKnopf, els.zimmer, els.flug);
+    host.append(els.himmel, els.boden, els.welt, els.dorf, els.ansicht, els.umschalter, els.hud, els.bewohner, els.leiterKnopf, els.zimmer, els.flug);
     // Die Verläufe der Tiere (bau-tiere.js): einmal für alle Bilder der Bauecke.
     const tierDefs = window.LernappBauTiere?.defs?.() || "";
     if (tierDefs) host.append(el("div", "bau-tierdefs", { "aria-hidden": "true", html: `<svg xmlns="${NS}" width="0" height="0" focusable="false"><defs>${tierDefs}</defs></svg>` }));
@@ -376,6 +390,7 @@
       if (!ui.host?.isConnected) return;
       if (ui.zimmer >= 0) passeZimmerEin();
       else { messeWelt(); setzeKamera(); }
+      if (ui.dorf) els.dorf.innerHTML = dorfSvg();
     }, 120);
   }
 
@@ -419,6 +434,25 @@
     pruefeZuzug();
     pruefeBlitzzug();
     pruefeGluecksstern();
+    pruefeFeuerwerk();
+  }
+
+  // Die letzte Stufe der Sternenleiter: Etwa alle drei Minuten steigt über
+  // dem Haus ein Feuerwerk – nur in der Hausansicht und wenn sonst nichts läuft.
+  let naechstesFeuerwerk = 0;
+  function pruefeFeuerwerk() {
+    if (!K().LEITER.slice(0, S().sternenleiter().erreicht).some((x) => x.id === "feuerwerk")) return;
+    const jetzt = performance.now();
+    if (!naechstesFeuerwerk) { naechstesFeuerwerk = jetzt + 60000; return; }
+    if (jetzt < naechstesFeuerwerk) return;
+    if (ui.zimmer >= 0 || ui.overlay || ui.tafel || ui.uebersicht || ui.leiter || ui.besetzt || ui.dorf || pinch || liefert || ui.blitz) return;
+    naechstesFeuerwerk = jetzt + 150000 + Math.random() * 90000;
+    const svg = hausSvg();
+    const k = ui.kamera;
+    // Oben im sichtbaren Teil des Hauses.
+    const sichtOben = (kopfHoehe() - k.ty) / k.skala + k.y0;
+    feuerwerk(svg, A().HB / 2, Math.max(hausOben() + 60, sichtOben + 160), A().HB);
+    klang("win");
   }
 
   // Ein neues Tier zieht ein – aber nur, wenn das Kind es sieht: im Wohnhaus,
@@ -429,7 +463,7 @@
     const tab = els.umschalter?.querySelector(`.bau-tab[data-haus="wohnhaus"]`);
     tab?.classList.toggle("hat-neues", Boolean(fall) && ui.haus !== "wohnhaus");
     if (!fall) return;
-    if (ui.haus !== "wohnhaus" || ui.zimmer >= 0 || ui.overlay || ui.tafel || ui.uebersicht || ui.leiter || ui.besetzt || ui.ordnen || liefert || ui.blitz || pinch) return;
+    if (ui.haus !== "wohnhaus" || ui.zimmer >= 0 || ui.overlay || ui.tafel || ui.uebersicht || ui.leiter || ui.besetzt || ui.ordnen || liefert || ui.blitz || pinch || ui.dorf) return;
     if (performance.now() - ui.letzterEinzug < 30000 && ui.letzterEinzug) return;
     const tier = S().ziehtEin(fall.hausId, fall.index);
     if (tier) zeigeEinzug(fall.index, tier);
@@ -573,6 +607,14 @@
   // Ein anderes Haus: das alte gleitet hinaus, das neue herein.
   async function zeigeHaus(id, richtung = 1, { stockwerk = -1, ohneSprache = false } = {}) {
     if (ui.besetzt || !K().HAUS[id]) return;
+    if (ui.dorf) {
+      ui.dorf = false;
+      els.dorf.hidden = true;
+      els.dorf.innerHTML = "";
+      els.welt.style.visibility = "";
+      els.boden.style.visibility = "";
+      zeigeAnsichtKnopf();
+    }
     if (ui.zimmer >= 0) await schliesseZimmer(true);
     if (ui.tafel) schliesseTafel();
     if (ui.uebersicht) schliesseUebersicht({ weiter: true });
@@ -581,14 +623,14 @@
     besetze();
     const weg = richtung >= 0 ? -1 : 1;
     const breite = ui.host.clientWidth || 800;
-    await tweenP(220, (p) => { els.welt.style.transform = kameraTransform(ui.kamera.tx + weg * breite * 0.6 * p, ui.kamera.ty); els.welt.style.opacity = String(1 - p); }, { e: ease.in });
+    await tweenP(220, (p) => { zeigeWeltRund(ui.kamera.tx + weg * breite * 0.6 * p, ui.kamera.ty, { bodenTx: Math.round(ui.kamera.tx) }); els.welt.style.opacity = String(1 - p); }, { e: ease.in });
     ui.haus = id;
     merkeHaus(id);
     baueUmschalter();
     zeichneHaus({ stockwerk });
     const ziel = ui.kamera.tx;
-    els.welt.style.transform = kameraTransform(ziel - weg * breite * 0.6, ui.kamera.ty);
-    await tweenP(260, (p) => { els.welt.style.transform = kameraTransform(ziel - weg * breite * 0.6 * (1 - p), ui.kamera.ty); els.welt.style.opacity = String(p); });
+    zeigeWeltRund(ziel - weg * breite * 0.6, ui.kamera.ty, { bodenTx: Math.round(ziel) });
+    await tweenP(260, (p) => { zeigeWeltRund(ziel - weg * breite * 0.6 * (1 - p), ui.kamera.ty, { bodenTx: Math.round(ziel) }); els.welt.style.opacity = String(p); });
     els.welt.style.opacity = "";
     setzeKamera();
     ui.besetzt = false;
@@ -738,12 +780,39 @@
   const WX0 = -440;
   const WX1 = 678 + 440;
   const GRUND = 190;          // so weit reicht die Welt unter die Strasse
-  const WELT_RAND = 4000;     // so weit gehen Strasse und Wiese seitlich und unten darüber hinaus
   const HALB = 280;           // ein Zimmer auf einem Stockwerk mit zwei Zimmern
 
   function weltOben(anzahl) { return A().oben(anzahl - 1) - A().DECKE - A().ZH - 300; }
 
-  function kameraTransform(tx, ty) { return `translate3d(${Math.round(tx)}px, ${Math.round(ty)}px, 0)`; }
+  // Die Welt (das Haus-SVG, eine eigene Ebene) und der Boden darunter
+  // (Strasse, Gleis und Wiese über die ganze Breite) bewegen sich zusammen.
+  // Der Boden ist keine eigene Ebene: Er malt nur, was zu sehen ist. Früher
+  // reichten Strasse und Wiese im Haus-SVG 4000 Einheiten über das Haus
+  // hinaus – die Ebene wurde rund 9500 × 4000 Bildpunkte gross, und auf dem
+  // Tablet ging beim Zoomen der Grafikspeicher aus: Das Bild flackerte oder
+  // zerfiel, bis die App neu startete.
+  // bodenTx: wo der Boden steht, wenn er nicht mit dem Haus wandert (beim
+  // Wechsel des Hauses gleitet nur das Haus hinaus).
+  function zeigeWelt(tx, ty, { s = 1, origin = null, bodenTx = tx } = {}) {
+    const zoom = s !== 1 ? ` scale(${s})` : "";
+    els.welt.style.transform = `translate3d(${tx}px, ${ty}px, 0)${zoom}`;
+    if (origin !== null) els.welt.style.transformOrigin = origin;
+    if (!els.boden) return;
+    els.boden.style.transform = `translate(${bodenTx}px, ${ty}px)${zoom}`;
+    if (origin !== null) els.boden.style.transformOrigin = origin;
+  }
+  function zeigeWeltRund(tx, ty, opts) { zeigeWelt(Math.round(tx), Math.round(ty), opts); }
+  // Der Boden im aktuellen Massstab: Seine Oberkante ist die Strasse.
+  function passeBoden() {
+    if (!els.bodenBand) return;
+    const k = ui.kamera;
+    const u = k.skala;
+    // Das Band beginnt 20000 Bildpunkte links vom Haus; die Schwellen liegen
+    // alle 34 Einheiten, die erste bei x = 14 (wie früher im Haus-SVG).
+    const phase = (((14 - WX0) * u + 20000) % (34 * u) + 34 * u) % (34 * u);
+    els.bodenBand.style.top = `${((0 - k.y0) * u).toFixed(1)}px`;
+    els.bodenBand.style.background = A().bodenStil(u, phase);
+  }
 
   // Wie gross das Haus steht. Am grössten (basis) gemessen an den alten,
   // hohen Stockwerken (STOCK_HOCH) – so bleiben Dinge und Tiere gleich gross,
@@ -779,6 +848,7 @@
       svg.setAttribute("height", String(Math.round(weltH)));
     }
     zugEbenen.forEach(passeZugEbene);
+    passeBoden();
     zeigeAnsichtKnopf();
   }
   const kopfHoehe = () => ((ui.host?.clientHeight || 500) < 520 ? 64 : 84);
@@ -806,7 +876,7 @@
 
   function setzeKamera() {
     ui.kamera.ty = clamp(ui.kamera.ty, ui.kamera.min, ui.kamera.max);
-    els.welt.style.transform = kameraTransform(ui.kamera.tx, ui.kamera.ty);
+    zeigeWeltRund(ui.kamera.tx, ui.kamera.ty);
   }
 
   // Während zwei Finger zoomen oder der Ansicht-Knopf gleitet, wird die Welt
@@ -817,7 +887,7 @@
     const k = ui.kamera;
     const w = ui.host.clientWidth || 800;
     const tx = w / 2 - (A().HB / 2 - WX0) * skala;
-    els.welt.style.transform = `translate3d(${Math.round(tx)}px, ${Math.round(ty)}px, 0) scale(${(skala / k.skala).toFixed(4)})`;
+    zeigeWeltRund(tx, ty, { s: Number((skala / k.skala).toFixed(4)) });
   }
   function zoomUebernehmen(skala, ty) {
     const k = ui.kamera;
@@ -931,22 +1001,51 @@
     const y0 = ui.kamera.y0;
     const katalog = K();
     const hausInfo = katalog.HAUS[ui.haus];
-    let s = `<defs><linearGradient id="bau-lift-schatten" x1="0" x2="1"><stop offset="0" stop-color="#000" stop-opacity="0.12"/><stop offset="0.3" stop-color="#000" stop-opacity="0"/></linearGradient>` +
+    let s = hausDefs();
+    s += hausInhalt();
+    s += `<g class="bau-zuglage"></g><g class="bau-einzuglage" pointer-events="none"></g>`;
+    const svg = `<svg xmlns="${NS}" class="bau-haus-svg${ui.nacht ? " is-nacht" : ""}" viewBox="${WX0} ${y0} ${WX1 - WX0} ${GRUND - y0}" width="${Math.round((WX1 - WX0) * ui.kamera.skala)}" height="${Math.round((GRUND - y0) * ui.kamera.skala)}" role="img" aria-label="${hausInfo.name} mit ${anzahl} ${anzahl === 1 ? "Stockwerk" : "Stockwerken"}">${s}</svg>`;
+    // Nur das Haus-SVG wird ersetzt: Ein Zug, der gerade auf seiner eigenen
+    // Ebene fährt (zugEbene), fährt weiter.
+    const vorlage = document.createElement("template");
+    vorlage.innerHTML = svg;
+    const altesSvg = hausSvg();
+    if (altesSvg) altesSvg.replaceWith(vorlage.content.firstElementChild);
+    else els.welt.prepend(vorlage.content.firstElementChild);
+    ui.gezeichnet = zeichenStand();
+    ui.kamera.anzahl = anzahl;
+    ui.kamera.hausGezeichnet = ui.haus;
+    if (stockwerk >= 0) kameraAuf(stockwerk, false);
+    else if (behalteKamera || warAlt) { ui.kamera.ty = vorher; setzeKamera(); }
+    else kameraStart();
+    starteTiereHaus();
+  }
+
+  // Was jedes Haus-Bild braucht: Schatten, die Umrisse der Zimmer, Glanz.
+  function hausDefs() {
+    const art = A();
+    return `<defs><linearGradient id="bau-lift-schatten" x1="0" x2="1"><stop offset="0" stop-color="#000" stop-opacity="0.12"/><stop offset="0.3" stop-color="#000" stop-opacity="0"/></linearGradient>` +
       `<clipPath id="bau-clip-voll"><rect x="0" y="${art.OBEN_Y}" width="${art.ZW}" height="${art.ZH}"/></clipPath>` +
       `<clipPath id="bau-clip-halb"><rect x="0" y="${art.OBEN_Y}" width="${HALB}" height="${art.ZH}"/></clipPath>` +
       `<clipPath id="bau-clip-doppel"><rect x="0" y="${-S().GEO.STOCK}" width="${art.ZW}" height="${S().GEO.H + S().GEO.STOCK}"/></clipPath>` +
       `<radialGradient id="bau-glanz"><stop offset="0" stop-color="#fff6c2" stop-opacity="0.75"/><stop offset="1" stop-color="#fff6c2" stop-opacity="0"/></radialGradient></defs>`;
+  }
+
+  // Das Haus ui.haus als SVG-Inhalt: Bäume, Stockwerke, Rahmen, Lift, Dach.
+  // Für das Dorf (alle vier Häuser) ohne den Schmuck der Sternenleiter, der
+  // nur einmal dasteht, und ohne Plus und Umstellen.
+  function hausInhalt({ schmuck = true, knoepfe = true } = {}) {
+    const art = A();
+    const haus = aktHaus();
+    const anzahl = haus.stock.length;
+    const hausInfo = K().HAUS[ui.haus];
     const stufen = S().sternenleiter().erreicht;
-    s += `<g class="bau-hintergrund">`;
-    s += schmuckMarkup("hinten", stufen);
+    let s = `<g class="bau-hintergrund">`;
+    if (schmuck) s += schmuckMarkup("hinten", stufen);
     s += art.baum(-260, 1.15) + art.baum(-120, 0.9) + art.laterne(-40) + art.baum(art.HB + 110, 1) + art.laterne(art.HB + 40) + art.baum(art.HB + 260, 1.2);
-    s += schmuckMarkup("strasse", stufen);
+    if (schmuck) s += schmuckMarkup("strasse", stufen);
     s += `</g>`;
-    // Strasse, Gleis und Wiese reichen weit über die Welt hinaus (das SVG
-    // zeigt, was überragt): Ganz herausgezoomt ist neben und unter dem Haus
-    // kein leerer Himmel.
-    s += art.strasse(WX0 - WELT_RAND, WX1 + WELT_RAND);
-    s += `<rect x="${WX0 - WELT_RAND}" y="${GRUND}" width="${WX1 - WX0 + 2 * WELT_RAND}" height="${WELT_RAND}" fill="#7cc05e"/>`;
+    // Strasse, Gleis und Wiese zeichnet der Boden hinter dem Haus (zeigeWelt).
     // Die Stockwerke: je eine Reihe (die beim Umstellen wandert).
     let zimmerTeil = "";
     let liftTeil = "";
@@ -967,25 +1066,11 @@
     const dachY = art.oben(anzahl - 1) - art.DECKE;
     s += `<g class="bau-dach">${art.dach(hausInfo.dachForm, haus.dach, haus.fassade, dachY)}</g>`;
     s += schmuckMarkup("dach", stufen, hausInfo.dachForm, dachY);
+    if (!knoepfe) return s;
     // Die Stelle für das nächste Stockwerk, über dem Dach (hatPlus).
     s += plusMarkup();
     if (ui.ordnen) s += ordnenMarkup(anzahl);
-    s += `<g class="bau-zuglage"></g><g class="bau-einzuglage" pointer-events="none"></g>`;
-    const svg = `<svg xmlns="${NS}" class="bau-haus-svg${ui.nacht ? " is-nacht" : ""}" viewBox="${WX0} ${y0} ${WX1 - WX0} ${GRUND - y0}" width="${Math.round((WX1 - WX0) * ui.kamera.skala)}" height="${Math.round((GRUND - y0) * ui.kamera.skala)}" role="img" aria-label="${hausInfo.name} mit ${anzahl} ${anzahl === 1 ? "Stockwerk" : "Stockwerken"}">${s}</svg>`;
-    // Nur das Haus-SVG wird ersetzt: Ein Zug, der gerade auf seiner eigenen
-    // Ebene fährt (zugEbene), fährt weiter.
-    const vorlage = document.createElement("template");
-    vorlage.innerHTML = svg;
-    const altesSvg = hausSvg();
-    if (altesSvg) altesSvg.replaceWith(vorlage.content.firstElementChild);
-    else els.welt.prepend(vorlage.content.firstElementChild);
-    ui.gezeichnet = zeichenStand();
-    ui.kamera.anzahl = anzahl;
-    ui.kamera.hausGezeichnet = ui.haus;
-    if (stockwerk >= 0) kameraAuf(stockwerk, false);
-    else if (behalteKamera || warAlt) { ui.kamera.ty = vorher; setzeKamera(); }
-    else kameraStart();
-    starteTiereHaus();
+    return s;
   }
 
   // Ein Stockwerk in der Hausansicht: eine Wohnung, zwei Zimmer oder der
@@ -1184,8 +1269,18 @@
     const zwei = () => [...finger.values()].slice(0, 2);
     const abstand = () => { const [a, b] = zwei(); return Math.hypot(a.x - b.x, a.y - b.y); };
     const mitte = () => { const [a, b] = zwei(); return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }; };
-    els.welt.addEventListener("pointerdown", (e) => {
+    // Auch auf dem Boden neben dem Haus lässt es sich ziehen und zoomen.
+    const runter = (e) => {
       if (ui.zimmer >= 0 || e.button > 0) return;
+      // Der erste Finger einer neuen Berührung: Was noch als «unten» galt, ist
+      // längst weg (ein Loslassen, das nie ankam). Sonst hielte die Bauecke
+      // jeden Tipp für den zweiten Finger eines Zooms – bis zum Neustart.
+      if (e.isPrimary && finger.size) {
+        finger.clear();
+        zug = null;
+        nachPinch = false;
+        if (pinch) beendePinch();
+      }
       finger.set(e.pointerId, { x: e.clientX, y: e.clientY });
       try { els.welt.setPointerCapture(e.pointerId); } catch { /* egal */ }
       if (finger.size === 2 && !ui.besetzt && !pinch) {
@@ -1200,10 +1295,10 @@
         return;
       }
       if (finger.size > 1 || nachPinch || ui.besetzt) return;
-      zug = { id: e.pointerId, x0: e.clientX, y0: e.clientY, ty0: ui.kamera.ty, t0: performance.now(), bewegt: false, ziel: e.target.closest?.("[data-ziel]") || null, verlauf: [] };
+      zug = { id: e.pointerId, x0: e.clientX, y0: e.clientY, ty0: ui.kamera.ty, t0: performance.now(), bewegt: false, ziel: zielBei(e), verlauf: [] };
       ui.kamera.vy = 0;
-    });
-    els.welt.addEventListener("pointermove", (e) => {
+    };
+    const zieht = (e) => {
       if (finger.has(e.pointerId)) finger.set(e.pointerId, { x: e.clientX, y: e.clientY });
       if (pinch && finger.size >= 2) {
         const k = ui.kamera;
@@ -1221,7 +1316,8 @@
       if (!zug || e.pointerId !== zug.id) return;
       const dx = e.clientX - zug.x0;
       const dy = e.clientY - zug.y0;
-      if (!zug.bewegt && Math.hypot(dx, dy) > 9) zug.bewegt = true;
+      // Ein Kinderfinger wackelt beim Tippen: erst ab 14 Bildpunkten ist es Ziehen.
+      if (!zug.bewegt && Math.hypot(dx, dy) > 14) zug.bewegt = true;
       if (!zug.bewegt) return;
       const k = ui.kamera;
       let ty = zug.ty0 + dy;
@@ -1229,10 +1325,10 @@
       if (ty > k.max) ty = k.max + (ty - k.max) * 0.35;
       if (ty < k.min) ty = k.min + (ty - k.min) * 0.35;
       k.ty = ty;
-      els.welt.style.transform = kameraTransform(k.tx + (Math.abs(dx) > Math.abs(dy) * 1.4 ? dx * 0.35 : 0), k.ty);
+      zeigeWeltRund(k.tx + (Math.abs(dx) > Math.abs(dy) * 1.4 ? dx * 0.35 : 0), k.ty);
       zug.verlauf.push({ t: performance.now(), y: e.clientY });
       if (zug.verlauf.length > 6) zug.verlauf.shift();
-    });
+    };
     const ende = (e) => {
       finger.delete(e.pointerId);
       if (pinch) {
@@ -1258,8 +1354,15 @@
       jedesBild.add(schwung);
       wecke();
     };
-    els.welt.addEventListener("pointerup", ende);
-    els.welt.addEventListener("pointercancel", ende);
+    [els.welt, els.bodenBand].forEach((ziel) => {
+      ziel.addEventListener("pointerdown", runter);
+      ziel.addEventListener("pointermove", zieht);
+      ziel.addEventListener("pointerup", ende);
+      ziel.addEventListener("pointercancel", ende);
+    });
+    // Geht der Finger verloren (das Haus wird neu gezeichnet, ein Fenster geht
+    // auf), kommt sein Loslassen nicht mehr hier an.
+    els.welt.addEventListener("lostpointercapture", (e) => { if (finger.has(e.pointerId)) ende(e); });
     els.welt.addEventListener("keydown", (e) => {
       if (e.key !== "Enter" && e.key !== " ") return;
       const ziel = e.target.closest?.("[data-ziel]");
@@ -1286,7 +1389,10 @@
   function wechsleAnsicht() {
     if (ui.besetzt || ui.zimmer >= 0 || pinch) return;
     const k = ui.kamera;
-    if (k.ganz >= k.basis * 0.98) { sag("Das ganze Haus ist schon im Bild."); return; }
+    // Drei Stufen: das Haus gross, das ganze Haus, alle vier Häuser.
+    if (ui.dorf) { verlasseDorf({ naeher: true }); return; }
+    const schonGanz = k.ganz >= k.basis * 0.98 || k.stufe > 0.02;
+    if (schonGanz) { zeigeDorf(); return; }
     const h = ui.host.clientHeight || 500;
     const zuGanz = k.stufe <= 0.02;
     const s1 = zuGanz ? k.ganz : k.basis;
@@ -1312,12 +1418,13 @@
     const b = els.ansicht;
     if (!b) return;
     const k = ui.kamera;
-    const weit = k.stufe > 0.02;
-    const label = weit ? "Wieder näher heran" : "Das ganze Haus zeigen";
-    if (b.dataset.weit === String(weit)) return;
-    b.dataset.weit = String(weit);
-    b.classList.toggle("is-weit", weit);
-    b.innerHTML = svgVon(weit ? LUPE_PLUS : GANZES_HAUS, "0 0 32 32");
+    // Was der nächste Tipp zeigt: das ganze Haus, alle vier Häuser, wieder nah.
+    const stufe = ui.dorf ? "nah" : (k.stufe > 0.02 || k.ganz >= k.basis * 0.98) ? "dorf" : "ganz";
+    const label = { ganz: "Das ganze Haus zeigen", dorf: "Alle vier Häuser zeigen", nah: "Wieder näher heran" }[stufe];
+    if (b.dataset.stufe === stufe) return;
+    b.dataset.stufe = stufe;
+    b.classList.toggle("is-weit", stufe !== "ganz");
+    b.innerHTML = svgVon({ ganz: GANZES_HAUS, dorf: ALLE_HAEUSER, nah: LUPE_PLUS }[stufe], "0 0 32 32");
     b.setAttribute("aria-label", label);
     b.title = label;
   }
@@ -1325,9 +1432,82 @@
     `<path d="M10.5 16.5v7.5h11v-7.5" fill="#ffd3b5" stroke="#243047" stroke-width="2" stroke-linejoin="round"/>` +
     `<path d="M8.5 17.5 16 11l7.5 6.5" fill="none" stroke="#ef5350" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>` +
     `<rect x="14.2" y="19" width="3.6" height="5" rx="0.8" fill="#8a5734"/>`;
+  const ALLE_HAEUSER = `<path d="M4 10V4h6M28 10V4h-6M4 22v6h6M28 22v6h-6" fill="none" stroke="#3fbf74" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>` +
+    [7, 13, 19, 25].map((x, i) => `<rect x="${x - 2.4}" y="${[14, 11, 15, 12][i]}" width="4.8" height="${[10, 13, 9, 12][i]}" rx="0.8" fill="${["#ffd3b5", "#cfe8ff", "#ffe9a8", "#d9f2e3"][i]}" stroke="#243047" stroke-width="1.4"/>`).join("");
   const LUPE_PLUS = `<circle cx="14" cy="14" r="8.5" fill="#ffffff" stroke="#243047" stroke-width="2.8"/>` +
     `<path d="M20.4 20.4 27 27" stroke="#243047" stroke-width="3.6" stroke-linecap="round"/>` +
     `<path d="M14 10v8M10 14h8" stroke="#3fbf74" stroke-width="3" stroke-linecap="round"/>`;
+
+  // ---------------------------------------------------------------------------
+  // Alle vier Häuser auf einen Blick: die dritte Stufe des Ansicht-Knopfs.
+  // Ein eigenes Bild, so gross wie der Bildschirm (nie grösser – siehe
+  // zeigeWelt): die vier Häuser nebeneinander an der Strasse, der Schmuck der
+  // Sternenleiter einmal in der Mitte. Ein Tipp auf ein Haus führt hin.
+  // ---------------------------------------------------------------------------
+  const DORF_LUECKE = 300;
+  function dorfSvg() {
+    const art = A();
+    const w = ui.host.clientWidth || 800;
+    const h = ui.host.clientHeight || 500;
+    const alt = ui.haus;
+    const breite = S().HAUS_IDS.length * art.HB + (S().HAUS_IDS.length - 1) * DORF_LUECKE;
+    let haeuser = "";
+    let oben = 0;
+    try {
+      S().HAUS_IDS.forEach((id, i) => {
+        ui.haus = id;
+        const dx = i * (art.HB + DORF_LUECKE);
+        const anzahl = aktHaus().stock.length;
+        const dachY = art.oben(anzahl - 1) - art.DECKE - (art.DACH_H[K().HAUS[id].dachForm] || 120);
+        const name = K().HAUS[id].name;
+        const schild = `<g transform="translate(${art.HB / 2} ${dachY - 70})"><rect x="${-name.length * 17 - 34}" y="-44" width="${name.length * 34 + 68}" height="72" rx="36" fill="#ffffff" stroke="${id === alt ? "#3fbf74" : "#e2e8f0"}" stroke-width="8"/><text x="0" y="12" text-anchor="middle" font-size="46" font-weight="800" font-family="'Baloo 2', Nunito, sans-serif" fill="#243047">${textSicher(name)}</text></g>`;
+        haeuser += `<g class="bau-dorf-haus" data-dorf-haus="${id}" transform="translate(${dx} 0)" role="button" tabindex="0" aria-label="${textSicher(name)}">` +
+          `<rect x="-120" y="${dachY - 130}" width="${art.HB + 240}" height="${-dachY + 250}" fill="transparent"/>${hausInhalt({ schmuck: false, knoepfe: false })}${schild}</g>`;
+        oben = Math.min(oben, dachY - 130);
+      });
+    } finally { ui.haus = alt; }
+    // So gross, dass alle vier ins Bild passen; unten die Strasse.
+    const kopf = kopfHoehe() + 16;
+    const skala = Math.min((w * 0.94) / breite, (h - kopf - 8) / (GRUND - oben));
+    const vbW = w / skala;
+    const vbH = h / skala;
+    const x0 = breite / 2 - vbW / 2;
+    const y0 = GRUND - vbH;
+    const stufen = S().sternenleiter().erreicht;
+    const schmuck = `<g transform="translate(${breite / 2 - art.HB / 2} 0)">${schmuckMarkup("hinten", stufen)}${schmuckMarkup("strasse", stufen)}</g>`;
+    // Eigene Kennungen: Das gewählte Haus steht (versteckt) auch in der
+    // Hausansicht – mit denselben Mustern; der Browser nähme sonst die dort.
+    const inhalt = `${hausDefs()}${art.strasse(x0, x0 + vbW)}<rect x="${x0}" y="110" width="${vbW}" height="${GRUND + 400}" fill="#7cc05e"/>${schmuck}${haeuser}`
+      .replace(/ id="/g, ' id="dorf-').replace(/url\(#/g, "url(#dorf-").replace(/href="#/g, 'href="#dorf-');
+    return `<svg xmlns="${NS}" class="bau-dorf-svg${ui.nacht ? " is-nacht" : ""}" viewBox="${x0.toFixed(1)} ${y0.toFixed(1)} ${vbW.toFixed(1)} ${vbH.toFixed(1)}" width="${w}" height="${h}" role="img" aria-label="Alle vier Häuser">${inhalt}</svg>`;
+  }
+  function zeigeDorf() {
+    if (!els.dorf) return;
+    ui.dorf = true;
+    els.dorf.innerHTML = dorfSvg();
+    els.dorf.hidden = false;
+    els.welt.style.visibility = "hidden";
+    els.boden.style.visibility = "hidden";
+    tiere.clear();
+    zeigeAnsichtKnopf();
+    sag("Alle vier Häuser. Tippe auf ein Haus, dann bist du dort.");
+  }
+  // Zurück zu einem Haus: zu einem angetippten (ganz im Bild) oder mit dem
+  // Knopf zum gewählten (wieder nah).
+  function verlasseDorf({ zu = ui.haus, naeher = false } = {}) {
+    if (!ui.dorf) return;
+    ui.dorf = false;
+    els.dorf.hidden = true;
+    els.dorf.innerHTML = "";
+    els.welt.style.visibility = "";
+    els.boden.style.visibility = "";
+    ui.kamera.stufe = naeher ? 0 : 1;
+    if (zu !== ui.haus) { zeigeHaus(zu, S().HAUS_IDS.indexOf(zu) > S().HAUS_IDS.indexOf(ui.haus) ? 1 : -1); return; }
+    // Die Kamera fängt neu an (der alte Platz gehörte zum alten Massstab).
+    ui.kamera.anzahl = -1;
+    zeichneHaus();
+    sag(naeher ? "Wieder näher heran." : `${K().HAUS[zu].der}.`);
+  }
 
   // Nach dem Loslassen gleitet das Haus aus und federt an den Enden zurück.
   function schwung() {
@@ -1336,10 +1516,26 @@
     k.vy *= 0.92;
     if (k.ty > k.max) { k.ty += (k.max - k.ty) * 0.2; k.vy *= 0.5; }
     if (k.ty < k.min) { k.ty += (k.min - k.ty) * 0.2; k.vy *= 0.5; }
-    els.welt.style.transform = kameraTransform(k.tx, k.ty);
+    zeigeWeltRund(k.tx, k.ty);
     const ruhig = Math.abs(k.vy) < 0.3 && k.ty <= k.max + 0.5 && k.ty >= k.min - 0.5;
     if (ruhig) { jedesBild.delete(schwung); setzeKamera(); return false; }
     return true;
+  }
+
+  // Was ein Tipp trifft. Stehen zwei Tiere nah beieinander, decken sich ihre
+  // Tippflächen (setzeTier): Es gilt das Tier, dessen Mitte näher ist.
+  function zielBei(e) {
+    const ziel = e.target.closest?.("[data-ziel]") || null;
+    if (ziel?.getAttribute("data-ziel") !== "tier") return ziel;
+    let bestes = ziel;
+    let abstand = Infinity;
+    new Set((document.elementsFromPoint?.(e.clientX, e.clientY) || []).map((n) => n.closest?.(".bau-tier")).filter(Boolean)).forEach((t) => {
+      const r = t.querySelector(".bau-tier-dreh")?.getBoundingClientRect();
+      if (!r) return;
+      const d = Math.hypot(r.left + r.width / 2 - e.clientX, r.top + r.height / 2 - e.clientY);
+      if (d < abstand) { abstand = d; bestes = t; }
+    });
+    return bestes;
   }
 
   function tippeWelt(ziel) {
@@ -1538,7 +1734,7 @@
   // ---------------------------------------------------------------------------
   let liefert = false;
   async function pruefeLieferung() {
-    if (liefert || ui.blitz || pinch || !ui.host?.isConnected || ui.zimmer >= 0 || ui.overlay || !els.welt) return;
+    if (liefert || ui.blitz || pinch || ui.dorf || !ui.host?.isConnected || ui.zimmer >= 0 || ui.overlay || !els.welt) return;
     const neu = S().neueLieferung();
     if (neu < 1) return;
     liefert = true;
@@ -1686,7 +1882,7 @@
   function pruefeBlitzzug() {
     // Zuerst fragen: Beim ersten Besuch stellt das die Uhr.
     if (!S().blitzzugFaellig()) return;
-    if (ui.blitz || liefert || ui.besetzt || ui.zimmer >= 0 || ui.overlay || ui.tafel || ui.uebersicht || ui.leiter || ui.ordnen || zieht || pinch) return;
+    if (ui.blitz || liefert || ui.besetzt || ui.zimmer >= 0 || ui.overlay || ui.tafel || ui.uebersicht || ui.leiter || ui.ordnen || zieht || pinch || ui.dorf) return;
     if (!hausSvg() || !gleisImBild()) return;
     starteBlitzzug();
   }
@@ -1780,6 +1976,7 @@
     return index >= 0 && S().zimmer(stern.haus, index, stern.slot)?.raum ? index : -1;
   }
   function pruefeGluecksstern() {
+    if (ui.dorf) return;
     // Sein Zimmer gibt es nicht mehr (umgebaut, aus der Cloud): neu verstecken.
     if (ui.stern && sternIndex() < 0) ui.stern = null;
     if (ui.stern) { zeigeSternTipp(); return; }
@@ -2002,7 +2199,12 @@
     if (!hat.size) return "";
     let s = "";
     if (teil === "hinten") {
+      if (hat.has("schloss")) s += `<g class="bau-schmuck" transform="translate(-230 0) scale(0.9)">${art.schloss()}</g>`;
+      if (hat.has("zeppelin")) s += `<g class="bau-schmuck" transform="translate(-200 -860) scale(0.85)">${art.zeppelin()}</g>`;
+      if (hat.has("drachen")) s += `<g class="bau-schmuck" transform="translate(-150 -600)">${art.drachen()}</g><g class="bau-schmuck" transform="translate(${art.HB + 210} -700) scale(0.85)">${art.drachen("#4f8ef7", "#9cc3ff")}</g>`;
       if (hat.has("regenbogen")) s += `<g class="bau-schmuck" opacity="0.55" transform="translate(${art.HB / 2} 0)">${art.regenbogen(760)}</g>`;
+      if (hat.has("windmuehle")) s += `<g class="bau-schmuck" transform="translate(-330 0)">${art.windmuehle()}</g>`;
+      if (hat.has("riesenrad")) s += `<g class="bau-schmuck" transform="translate(${art.HB + 330} 0)">${art.riesenrad()}</g>`;
       if (hat.has("ballon")) s += `<g class="bau-schmuck" transform="translate(${art.HB + 150} -330)">${art.ballon()}</g>`;
     }
     if (teil === "strasse") {
@@ -2010,6 +2212,8 @@
       if (hat.has("statue")) s += `<g class="bau-schmuck" transform="translate(-372 0)">${art.statue()}</g>`;
       if (hat.has("brunnen")) s += `<g class="bau-schmuck" transform="translate(-190 0)">${art.brunnen()}</g>`;
       if (hat.has("karussell")) s += `<g class="bau-schmuck" transform="translate(${art.HB + 186} 0) scale(0.85)">${art.karussell()}</g>`;
+      if (hat.has("teich")) s += `<g class="bau-schmuck" transform="translate(-230 0)">${art.teich()}</g>`;
+      if (hat.has("garten")) s += `<g class="bau-schmuck" transform="translate(${art.HB + 240} 0)">${art.garten()}</g>`;
       if (hat.has("blumen")) s += `<g class="bau-schmuck" transform="translate(-250 0)">${art.blumen(150)}</g><g class="bau-schmuck" transform="translate(-75 0)">${art.blumen(56)}</g><g class="bau-schmuck" transform="translate(${art.HB + 80} 0)">${art.blumen(56)}</g><g class="bau-schmuck" transform="translate(${art.HB + 330} 0)">${art.blumen(120)}</g>`;
     }
     if (teil === "dach" && hat.has("dachstern")) {
@@ -2208,7 +2412,11 @@
     const alle = sterne.total > 0 && sterne.anzahl === sterne.total;
     const kroneMass = (0.84 / k).toFixed(3);
     const krone = `<g class="bau-krone" transform="translate(${abzeichen ? 12 : 0} -92) scale(${kroneMass})"${alle ? "" : ` style="display:none"`}>${A().krone()}</g>`;
-    g.innerHTML = `<g class="bau-tier-dreh">${tierSvg(tier)}</g>${krone}${abzeichen}<g class="bau-zzz" style="display:none"><g transform="translate(12 -110) scale(${lesbar.toFixed(3)})"><text x="0" y="0" font-size="18" font-weight="800" font-family="'Baloo 2', Nunito, sans-serif" fill="#ffffff">z</text><text x="12" y="-14" font-size="14" font-weight="800" font-family="'Baloo 2', Nunito, sans-serif" fill="#ffffff">z</text></g></g>`;
+    // Im Haus sind die Tiere klein (auf dem Tablet etwa 25 × 50 Bildpunkte),
+    // und zwischen Beinen, Ohren und Schwanz ging ein Tipp ins Zimmer dahinter.
+    // Eine unsichtbare Fläche rundherum macht jedes Tier gut antippbar.
+    const treffer = lage.closest?.(".bau-welt") ? `<rect class="bau-tier-treffer" x="-62" y="-150" width="124" height="162" rx="34"/>` : "";
+    g.innerHTML = `${treffer}<g class="bau-tier-dreh">${tierSvg(tier)}</g>${krone}${abzeichen}<g class="bau-zzz" style="display:none"><g transform="translate(12 -110) scale(${lesbar.toFixed(3)})"><text x="0" y="0" font-size="18" font-weight="800" font-family="'Baloo 2', Nunito, sans-serif" fill="#ffffff">z</text><text x="12" y="-14" font-size="14" font-weight="800" font-family="'Baloo 2', Nunito, sans-serif" fill="#ffffff">z</text></g></g>`;
     lage.append(g);
     const ort = tierOrte.get(tier.seed);
     // Mindestens RAND vom Rand weg: Der Schwanz ragt gut 25 Einheiten hinaus.
@@ -2429,19 +2637,20 @@
       const ox = von.x;
       const oy = von.y;
       els.zimmer.classList.add("is-einblenden");
-      els.welt.style.transformOrigin = `${ox - ui.kamera.tx}px ${oy - ui.kamera.ty}px`;
+      const origin = `${ox - ui.kamera.tx}px ${oy - ui.kamera.ty}px`;
       await tweenP(420, (p) => {
         const s = 1 + (k - 1) * p;
         const tx = ui.kamera.tx + (nach.x - ox) * p;
         const ty = ui.kamera.ty + (nach.y - oy) * p;
-        els.welt.style.transform = `translate3d(${tx}px, ${ty}px, 0) scale(${s})`;
+        zeigeWelt(tx, ty, { s, origin });
         els.zimmer.style.opacity = String(clamp((p - 0.55) / 0.45, 0, 1));
       }, { e: ease.inOut });
       els.zimmer.classList.remove("is-einblenden");
       els.zimmer.style.opacity = "";
     }
     els.welt.style.visibility = "hidden";
-    els.welt.style.transformOrigin = "";
+    els.boden.style.visibility = "hidden";
+    zeigeWelt(ui.kamera.tx, ui.kamera.ty, { origin: "" });
     setzeKamera();
     ui.besetzt = false;
     hilfeZimmer();
@@ -2475,21 +2684,22 @@
     zeichneHaus({ behalteKamera: true });
     kameraAuf(index, false);
     els.welt.style.visibility = "";
+    els.boden.style.visibility = "";
     if (!sofort && !reduced()) {
       const st = S().stock(ui.haus, index);
       const von = zimmerRechteck(S().breiteVon(st), S().hoeheVon(st));
       const nach = zimmerAufSchirm(index, slot);
       const k = von.w / nach.w;
-      els.welt.style.transformOrigin = `${nach.x - ui.kamera.tx}px ${nach.y - ui.kamera.ty}px`;
+      const origin = `${nach.x - ui.kamera.tx}px ${nach.y - ui.kamera.ty}px`;
       await tweenP(380, (p) => {
         const q = 1 - p;
         const s = 1 + (k - 1) * q;
         const tx = ui.kamera.tx + (von.x - nach.x) * q;
         const ty = ui.kamera.ty + (von.y - nach.y) * q;
-        els.welt.style.transform = `translate3d(${tx}px, ${ty}px, 0) scale(${s})`;
+        zeigeWelt(tx, ty, { s, origin });
         els.zimmer.style.opacity = String(clamp(1 - p / 0.4, 0, 1));
       }, { e: ease.inOut });
-      els.welt.style.transformOrigin = "";
+      zeigeWelt(ui.kamera.tx, ui.kamera.ty, { origin: "" });
     }
     els.zimmer.hidden = true;
     els.zimmer.style.opacity = "";
@@ -3717,6 +3927,34 @@
     return `<span class="bau-traumzeichen-klein"${titel ? ` title="${titel}"` : ` aria-hidden="true"`}>${svgVon(`<g transform="translate(13 14)">${A().traumAbzeichen(voll)}</g>`, "0 0 28 26")}</span>`;
   }
 
+  // Wer sich ein Zimmer wünscht oder dort den Traumjob hätte – für die Karten
+  // der Zimmerwahl: So sieht man beim Bauen, was die Tiere froh macht.
+  function werWillDas(hausId, raumId) {
+    const traum = [];
+    const wunsch = [];
+    S().alleTiere().forEach(({ tier }) => {
+      if (tier.traum === `${hausId}:${raumId}` && !S().hatTraumjob(tier.seed)) traum.push(tier);
+      const w = S().wuensche(tier.seed).find((x) => !x.erfuellt && (x.typ === "raum" || x.typ === "fremd") && x.haus === hausId && x.raum === raumId);
+      if (w) wunsch.push({ tier, stern: w.stern });
+    });
+    return { traum, wunsch };
+  }
+  // Oben links auf der Karte: das goldene Traumjob-Zeichen und ein Stern in
+  // der Farbe des Wunsches, mit der Zahl, wenn es mehrere sind.
+  function wunschMarken(wer) {
+    if (!wer || (!wer.traum.length && !wer.wunsch.length)) return "";
+    const zahl = (n) => (n > 1 ? `<b>${n}</b>` : "");
+    const titel = [...wer.traum.map((t) => `Traumjob von ${t.n}`), ...wer.wunsch.map((w) => `Wunsch von ${w.tier.n}`)].join(", ");
+    const traum = wer.traum.length ? `<span class="bau-wahl-marke is-traum">${traumZeichen("")}${zahl(wer.traum.length)}</span>` : "";
+    const farbe = wer.wunsch.some((w) => w.stern === "blau") ? "blau" : "gruen";
+    const wunsch = wer.wunsch.length ? `<span class="bau-wahl-marke is-wunsch"><i class="bau-stern is-${farbe} is-voll" aria-hidden="true"></i>${zahl(wer.wunsch.length)}</span>` : "";
+    return `<span class="bau-wahl-marken" title="${textSicher(titel)}">${traum}${wunsch}</span>`;
+  }
+  function werSatz(wer) {
+    if (!wer) return "";
+    return [...wer.traum.map((t) => ` ${t.n} hätte hier den Traumjob!`), ...wer.wunsch.map((w) => ` ${w.tier.n} wünscht sich dieses Zimmer.`)].join("");
+  }
+
   function zimmerFehlt(hausId, raumId) {
     return !(S().haus(hausId)?.stock || []).some((s) => s.zimmer.some((z) => z.raum === raumId));
   }
@@ -3895,12 +4133,13 @@
       return p;
     };
     karten.forEach((k) => {
-      const b = knopf(`bau-wahl-feld${gewaehlt === k.id ? " is-aktiv" : ""}`, k.name,
-        `${svgVon(k.bild, "-34 -34 68 68", "bau-wahl-bild")}<span>${k.name}</span>${k.schon ? `<i class="bau-schon" title="gibt es schon">✓</i>` : ""}`, () => {
+      const froh = k.wer?.traum.length ? " hat-traum" : k.wer?.wunsch.length ? ` hat-wunsch is-${k.wer.wunsch.some((w) => w.stern === "blau") ? "blau" : "gruen"}` : "";
+      const b = knopf(`bau-wahl-feld${froh}${gewaehlt === k.id ? " is-aktiv" : ""}`, k.name,
+        `${svgVon(k.bild, "-34 -34 68 68", "bau-wahl-bild")}<span>${k.name}</span>${k.schon ? `<i class="bau-schon" title="gibt es schon">✓</i>` : ""}${wunschMarken(k.wer)}`, () => {
           gewaehlt = k.id;
           raster.querySelectorAll(".bau-wahl-feld").forEach((x) => x.classList.toggle("is-aktiv", x === b));
           const p = zeige(k);
-          sag(p && !p.ok ? `${k.der || k.name}. ${p.text}` : `${k.der || k.name}. ${k.text}${p?.text ? ` ${p.text}` : ""}`);
+          sag(p && !p.ok ? `${k.der || k.name}. ${p.text}` : `${k.der || k.name}. ${k.text}${p?.text ? ` ${p.text}` : ""}${werSatz(k.wer)}`);
         });
       raster.append(b);
     });
@@ -3954,7 +4193,7 @@
       titel: z.raum ? "Was soll diese Wohnung sein?" : "Eine leere Wohnung!",
       frage: z.raum ? "Was soll diese Wohnung sein?" : "Eine leere Wohnung! Wird sie ein Schlafzimmer oder ein Kinderzimmer? Dann zieht gleich jemand ein.",
       aktiv: z.raum,
-      karten: K().WOHNEN.map((id) => { const r = K().RAEUME[id]; return { id, name: r.name, der: r.der, text: r.text, bild: dingBild(r.icon, 56) }; }),
+      karten: K().WOHNEN.map((id) => { const r = K().RAEUME[id]; return { id, name: r.name, der: r.der, text: r.text, bild: dingBild(r.icon, 56), wer: werWillDas(ui.haus, id) }; }),
       weiter: async (raumId) => {
         if (raumId === z.raum) return;
         const ergebnis = S().waehleRaum(ui.haus, index, 0, raumId);
@@ -3992,7 +4231,7 @@
       karten: haus.raeume.filter((id) => !K().RAEUME[id].wohnen).map((id) => {
         const r = K().RAEUME[id];
         return { id, name: r.name, der: r.der, text: r.job ? `${r.text} Hier kann man ${r.job}.` : r.text, bild: dingBild(r.icon, 56), schon: vorhanden.has(id),
-          pruefe: r.doppel ? () => doppelHinweis(index, id) : null };
+          wer: werWillDas(ui.haus, id), pruefe: r.doppel ? () => doppelHinweis(index, id) : null };
       }),
       weiter: async (raumId) => {
         if (raumId === z.raum) return;

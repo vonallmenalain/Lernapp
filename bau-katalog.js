@@ -715,6 +715,16 @@
     { sterne: 40, id: "karussell", name: "Ein Karussell", text: "Ein Karussell steht für die Tiere bereit." },
     { sterne: 50, id: "statue", name: "Die Sternenstatue", text: "Eine goldene Sternenstatue zeigt: Hier sind alle glücklich." },
     { sterne: 60, id: "dachstern", name: "Goldene Dachsterne", text: "Auf jedem Dach funkelt ein goldener Stern." },
+    // Mit mehr als vier Wohnungen (nach dem Kauf) gibt es mehr Sterne – bis
+    // 300 bei 60 Tieren. Die Leiter geht darum weiter.
+    { sterne: 75, id: "riesenrad", name: "Ein Riesenrad", text: "Neben dem Haus dreht sich ein Riesenrad." },
+    { sterne: 90, id: "teich", name: "Ein Ententeich", text: "Im Teich auf der Wiese schwimmen Enten." },
+    { sterne: 105, id: "drachen", name: "Bunte Drachen", text: "Bunte Drachen tanzen am Himmel." },
+    { sterne: 120, id: "windmuehle", name: "Eine Windmühle", text: "Eine Windmühle dreht sich neben dem Dorf." },
+    { sterne: 140, id: "garten", name: "Ein Gemüsegarten", text: "Im Garten wachsen Rüebli, Salat und Kürbisse." },
+    { sterne: 160, id: "zeppelin", name: "Ein Zeppelin", text: "Ein Zeppelin fliegt über das Dorf." },
+    { sterne: 180, id: "schloss", name: "Ein Schloss", text: "Auf dem Hügel steht ein Schloss mit Fahnen." },
+    { sterne: 200, id: "feuerwerk", name: "Ein Feuerwerk", text: "Ab und zu gibt es ein Feuerwerk über dem Dorf." },
   ];
 
   window.LernappBauKatalog = {

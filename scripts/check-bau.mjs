@@ -172,6 +172,22 @@ async function neueSeite(browser, viewport) {
   return { context, page, ausnahmen };
 }
 
+// Die grösste Ebene, die der Browser malt, gemessen in Bildschirmen. Reichten
+// Strasse und Wiese weit über das Haus hinaus, wurde sie rund 40 Bildschirme
+// gross – auf dem Tablet ging beim Zoomen der Grafikspeicher aus, das Bild
+// flackerte oder zerfiel (docs/BAUECKE-KONZEPT.md, 0N.1).
+async function groessteEbene(page, viewport) {
+  const cdp = await page.context().newCDPSession(page);
+  let ebenen = [];
+  cdp.on("LayerTree.layerTreeDidChange", (e) => { if (e.layers) ebenen = e.layers; });
+  await cdp.send("LayerTree.enable");
+  await page.waitForTimeout(700);
+  await cdp.send("LayerTree.disable").catch(() => {});
+  await cdp.detach().catch(() => {});
+  const flaeche = Math.max(0, ...ebenen.filter((l) => l.drawsContent).map((l) => l.width * l.height));
+  return flaeche / (viewport.width * viewport.height);
+}
+
 // Mitte eines Elements antippen (Maus genügt, die Bühne hört auf Pointer).
 async function tippe(page, selektor) {
   const box = await page.locator(selektor).first().boundingBox();
@@ -817,7 +833,7 @@ async function pruefeUeberraschungen(browser, name, viewport) {
       seed: g.getAttribute("data-seed"), sichtbar: g.querySelector(".bau-krone")?.style.display !== "none",
     })).map((t) => ({ ...t, soll: erste.includes(t.seed) ? true : zweite.includes(t.seed) ? false : null })), vorher);
     pruefe(kronen.some((t) => t.soll === true) && kronen.every((t) => t.soll === null || t.sichtbar === t.soll), `${name}: Krone: nicht genau die Tiere mit allen Sternen tragen eine Krone (${JSON.stringify(kronen)})`);
-    // Die Leiter: acht Stufen, die erste geschafft, die zweite als nächste.
+    // Die Leiter: sechzehn Stufen, die erste geschafft, die zweite als nächste.
     await tippe(page, ".bau-leiterknopf");
     await page.waitForTimeout(600);
     const leiter = await page.evaluate(() => ({
@@ -827,7 +843,7 @@ async function pruefeUeberraschungen(browser, name, viewport) {
       naechste: document.querySelector(".bau-leiter .bau-leiter-stufe.is-naechste .bau-leiter-text b")?.textContent || "",
       bilder: [...document.querySelectorAll(".bau-leiter .bau-leiter-bild svg")].filter((s) => s.innerHTML.length > 50).length,
     }));
-    pruefe(leiter.offen && leiter.stufen === 8 && leiter.erreicht === 1 && leiter.naechste === "Wimpelketten" && leiter.bilder === 8, `${name}: Sternenleiter: die Stufen stimmen nicht (${JSON.stringify(leiter)})`);
+    pruefe(leiter.offen && leiter.stufen === 16 && leiter.erreicht === 1 && leiter.naechste === "Wimpelketten" && leiter.bilder === 16, `${name}: Sternenleiter: die Stufen stimmen nicht (${JSON.stringify(leiter)})`);
     const karte = await page.locator(".bau-leiter .bau-uebersicht-karte").boundingBox();
     pruefe(karte && karte.y >= 50 && karte.y + karte.height <= viewport.height, `${name}: Sternenleiter: die Leiter liegt nicht ganz im Bild`);
     pruefe(await bis(page, () => window.__gesagt.join(" ").includes("Alle Tiere zusammen haben 9 Sterne. Noch ein Stern bis zur nächsten Stufe: Wimpelketten."), null, 2000), `${name}: Sternenleiter: die Bauecke sagt nicht, wie viele Sterne noch fehlen`);
@@ -848,7 +864,7 @@ async function pruefeUeberraschungen(browser, name, viewport) {
     const p0 = await paletten();
     pruefe(await page.evaluate(() => window.LernappBau.blitzzug()) === true, `${name}: Blitzzug: er fährt nicht los`);
     pruefe(await bis(page, () => document.querySelector(".bau-blitz"), null, 2000), `${name}: Blitzzug: er ist nicht zu sehen`);
-    pruefe((await page.evaluate(() => window.__gesagt.join(" | "))).includes("Achtung, der Blitzzug!"), `${name}: Blitzzug: die Bauecke kündigt ihn nicht an`);
+    pruefe(await bis(page, () => window.__gesagt.join(" | ").includes("Achtung, der Blitzzug!"), null, 2000), `${name}: Blitzzug: die Bauecke kündigt ihn nicht an`);
     await page.waitForTimeout(1500);
     const zug = await page.locator(".bau-blitz .bau-blitz-griff").boundingBox();
     pruefe(zug && zug.x + zug.width > 0 && zug.x < viewport.width, `${name}: Blitzzug: er fährt nicht durchs Bild (${JSON.stringify(zug)})`);
@@ -991,6 +1007,8 @@ async function pruefeAnsicht(browser, name, viewport) {
       return { svgH: Math.round(svg.height), dach: Math.round(r(".bau-dach").top), plus: Math.round(r(".bau-naechster")?.top ?? -1), erdgeschoss: Math.round(r('.bau-raum[data-stock="0"]').bottom), weit: document.querySelector(".bau-ansichtknopf").classList.contains("is-weit") };
     });
     const standard = await lage();
+    const ebeneGross = await groessteEbene(page, viewport);
+    pruefe(ebeneGross < 10, `${name}: Ansicht: eine Ebene ist ${ebeneGross.toFixed(1)} Bildschirme gross – zu viel für das Tablet`);
     pruefe(await page.evaluate(() => window.LernappBauStand.haus("wohnhaus").stock.length) === 8, `${name}: Ansicht: der Test hat kein Haus mit acht Stockwerken`);
     pruefe((standard.dach < kopf || standard.erdgeschoss > viewport.height) && !standard.weit, `${name}: Ansicht: das Haus mit acht Stockwerken passt schon gross ganz ins Bild (${JSON.stringify(standard)})`);
     // Ganzes Haus: vom Plus bis zum Erdgeschoss im Bild, unter der Kopfzeile.
@@ -998,7 +1016,9 @@ async function pruefeAnsicht(browser, name, viewport) {
     await page.waitForTimeout(900);
     const ganz = await lage();
     pruefe(ganz.weit && ganz.svgH < standard.svgH && ganz.plus >= kopf - 2 && ganz.dach >= kopf && ganz.erdgeschoss <= viewport.height, `${name}: Ansicht: das ganze Haus ist nicht auf einem Bildschirm (${JSON.stringify(ganz)})`);
-    pruefe((await page.evaluate(() => window.__gesagt.join(" | "))).includes("Das ganze Haus."), `${name}: Ansicht: die Bauecke sagt die Ansicht nicht an`);
+    pruefe(await bis(page, () => window.__gesagt.join(" | ").includes("Das ganze Haus."), null, 2000), `${name}: Ansicht: die Bauecke sagt die Ansicht nicht an`);
+    const ebeneGanz = await groessteEbene(page, viewport);
+    pruefe(ebeneGanz < 10, `${name}: Ansicht: im ganzen Haus ist eine Ebene ${ebeneGanz.toFixed(1)} Bildschirme gross`);
     // Auch klein lässt sich ein Zimmer öffnen; zurück bleibt das ganze Haus.
     await page.addStyleTag({ content: ".bau-welt .bau-tier { pointer-events: none !important; }" });
     {
@@ -1010,6 +1030,16 @@ async function pruefeAnsicht(browser, name, viewport) {
     await page.evaluate(() => window.LernappBau.zurueck());
     await page.waitForTimeout(1400);
     pruefe((await lage()).weit, `${name}: Ansicht: nach dem Zimmer ist das ganze Haus wieder gross`);
+    // Die dritte Stufe: alle vier Häuser auf einen Blick, so gross wie der Bildschirm.
+    await tippe(page, ".bau-ansichtknopf");
+    await page.waitForTimeout(900);
+    const dorf = await page.evaluate(() => {
+      const svg = document.querySelector(".bau-dorf:not([hidden]) .bau-dorf-svg");
+      const r = svg?.getBoundingClientRect();
+      return { da: Boolean(svg), haeuser: document.querySelectorAll(".bau-dorf [data-dorf-haus]").length, w: Math.round(r?.width || 0), h: Math.round(r?.height || 0), welt: getComputedStyle(document.querySelector(".bau-welt")).visibility };
+    });
+    pruefe(dorf.da && dorf.haeuser === 4 && dorf.w <= viewport.width && dorf.h <= viewport.height && dorf.welt === "hidden", `${name}: Ansicht: alle vier Häuser stehen nicht auf einem Bildschirm (${JSON.stringify(dorf)})`);
+    pruefe(await bis(page, () => window.__gesagt.join(" | ").includes("Alle vier Häuser."), null, 2000), `${name}: Ansicht: die Bauecke sagt nicht, dass alle vier Häuser zu sehen sind`);
     // Zurück zur grossen Ansicht.
     await tippe(page, ".bau-ansichtknopf");
     await page.waitForTimeout(900);

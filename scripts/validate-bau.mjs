@@ -1095,8 +1095,12 @@ for (const stufe of ["leicht", "mittel", "schwer"]) {
   // Die Sternenleiter: Stufen der Reihe nach, ohne Kauf ganz erreichbar; der
   // höchste Stand bleibt, auch wenn ein Wunsch wechselt.
   const stufen = K.LEITER;
-  pruefe(stufen.length === 8 && stufen.every((s, i) => s.id && s.name && s.text && (i === 0 || s.sterne > stufen[i - 1].sterne)), "die Stufen der Sternenleiter steigen nicht oder es fehlt ein Name");
-  pruefe(stufen[stufen.length - 1].sterne <= 4 * 3 * 5, "die letzte Stufe ist ohne Kauf (vier Wohnungen, je drei Tiere mit fünf Sternen) nicht erreichbar");
+  pruefe(stufen.length === 16 && stufen.at(-1).sterne === 200 && stufen.every((s, i) => s.id && s.name && s.text && (i === 0 || s.sterne > stufen[i - 1].sterne)), "die Stufen der Sternenleiter steigen nicht oder es fehlt ein Name");
+  // Ohne Kauf (vier Wohnungen, je drei Tiere mit fünf Sternen) bis 60 – die
+  // ersten acht Stufen; mit Kauf (20 Stockwerke) bis 300, also alle.
+  pruefe(stufen.filter((s) => s.sterne <= 4 * 3 * 5).length === 8, "ohne Kauf sind nicht genau die ersten acht Stufen erreichbar");
+  pruefe(stufen[stufen.length - 1].sterne <= 20 * 3 * 5, "die letzte Stufe ist auch mit Kauf (20 Stockwerke, je drei Tiere mit fünf Sternen) nicht erreichbar");
+  for (const id of ["riesenrad", "teich", "drachen", "windmuehle", "garten", "zeppelin", "schloss", "feuerwerk"]) pruefe(stufen.some((s) => s.id === id), `die Sternenleiter hat kein ${id}`);
   const jetzt = morgen10();
   const { S } = standUmgebung({ paletten: 3, frei: true, jetzt });
   S.waehleRaum("wohnhaus", 0, 0, "kinderzimmer");
