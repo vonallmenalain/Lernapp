@@ -15,6 +15,13 @@ offline, sobald sie einmal geladen ist.
 - **Was fehlt, bleibt wie bisher:** Sätze ohne Aufnahme spricht weiter die
   Gerätestimme (z. B. «Hier wohnen Flora und Benno.»).
 
+**Stand (Oktober 2026):** Die Bauecke spricht mit **Sulafat**
+(`de-DE-Chirp3-HD-Sulafat`, normales Tempo) – gewählt aus Hörproben aller 30
+deutschen Stimmen. 6'722 Sätze sind aufgenommen (`stimme/google/`, rund 67 MB;
+`bau-stimme.js` rund 450 KB, gepackt 100 KB). Ohne Aufnahme bleibt nur «Tim»
+als einzelnes Wort: Google liefert dafür Stille. Schweizerdeutsch gibt es bei
+Google nicht; die deutschen Stimmen, die Mundart lesen, klangen schlecht.
+
 ## 1. Google Cloud einrichten (einmal, etwa 15 Minuten)
 
 Am Computer im Browser, mit deinem Google-Konto. Die Menüs heissen je nach
@@ -123,6 +130,10 @@ Gut zu wissen:
   Aufnahme; was fehlt, spricht die Gerätestimme. Deshalb sind die Aufnahmen
   satzweise.
 - Die Leseecke behält Alains Stimme (`lesen-stimme.js`, `stimme/alain/`).
+- Ein Text aus mehreren Sätzen spielt Stück für Stück. Darum darf ein Wechsel
+  der Hilfe eine Ansage nicht abbrechen: train-bau.js setzt die Hilfe mit
+  `setHelp(text, { ansageBleibt: true })` (kids.js). `check-bau.mjs` zählt
+  einen Satz erst, wenn er zu Ende gesprochen oder gespielt ist.
 - Wird mit einer anderen Stimme alles neu gesprochen (`--alle-neu`), heissen
   die Dateien gleich wie vorher (nach ihrem Text). Dann braucht STIMME_CACHE
   in `service-worker.js` eine neue Nummer, sonst spielen Geräte, die einen Satz
