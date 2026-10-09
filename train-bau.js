@@ -92,7 +92,9 @@
     if (!text) return;
     kids()?.speak?.(text);
   }
-  function hilfe(text) { kids()?.setHelp?.(text || ""); }
+  // Die Hilfe wechselt oft gleich nach einer Ansage (sag, dann hilfe); die
+  // Ansage soll trotzdem zu Ende kommen.
+  function hilfe(text) { kids()?.setHelp?.(text || "", { ansageBleibt: true }); }
   function klang(name) { kids()?.playJingle?.(name); }
 
   // --- Bewegung -------------------------------------------------------------
@@ -387,14 +389,23 @@
   // selbst, die bleiben hier aussen vor.
   function liesText(e) {
     if (!kannLesen()) return;
-    const ziel = e.target.closest?.(".bau-lies, .bau-tafel p, .bau-tafel h2, .bau-tafel h3, .bau-uebersicht h2, .bau-uebersicht h3, .bau-uebersicht p, .bau-wahl h2, .bau-wahl p, .bau-wahl h3");
+    // Ein Kasten, der sagt, wie er gelesen wird (data-lies), geht vor – auch
+    // wenn der Tipp auf einen Absatz darin fiel.
+    const ziel = e.target.closest?.(".bau-lies[data-lies]") || e.target.closest?.(".bau-lies, .bau-tafel p, .bau-tafel h2, .bau-tafel h3, .bau-uebersicht h2, .bau-uebersicht h3, .bau-uebersicht p, .bau-wahl h2, .bau-wahl p, .bau-wahl h3");
     if (!ziel || e.target.closest("button")) return;
-    sag(ziel.dataset.lies || ziel.textContent.trim());
+    sag(ziel.dataset.lies || lesbarerText(ziel));
     // Kurz hervorheben, was gerade vorgelesen wird.
     ziel.classList.add("is-liest");
     window.setTimeout(() => ziel.classList.remove("is-liest"), 1400);
   }
   function kannLesen() { return Boolean(kids()?.ttsEnabled?.()); }
+  // Der Text eines Elements ohne das, was nur Schmuck ist (aria-hidden: ein
+  // Smiley vor der Laune, ein Abzeichen).
+  function lesbarerText(ziel) {
+    const kopie = ziel.cloneNode(true);
+    kopie.querySelectorAll('[aria-hidden="true"]').forEach((x) => x.remove());
+    return kopie.textContent.replace(/\s+/g, " ").trim();
+  }
 
   // ---------------------------------------------------------------------------
   // Was die Zeit tut: Wünsche wechseln, Tiere ziehen ein
@@ -461,8 +472,8 @@
     const voll = [...new Set(seeds.map((seed) => S().findeTier(seed)).filter(Boolean).map((r) => r.index))]
       .filter((index) => { const st = S().stock("wohnhaus", index); return st?.tiere.length === 3 && S().traumjobsStock("wohnhaus", index) === 3; });
     if (voll.length) {
-      const namen = S().stock("wohnhaus", voll[0]).tiere.map((t) => t.n);
-      window.setTimeout(() => sag(`Juhui! ${namenListe(namen)} haben alle ihren Traumjob. Schau dir ihre Wohnung im Wohnhaus an!`), 4200);
+      const erstes = S().stock("wohnhaus", voll[0]).tiere[0]?.n;
+      window.setTimeout(() => sag(`Juhui! In der Wohnung von ${erstes} haben jetzt alle drei ihren Traumjob. Schau dir ihre Wohnung im Wohnhaus an!`), 4200);
     }
   }
 
@@ -2437,23 +2448,19 @@
     starteTiereZimmer();
   }
 
-  // Wer hier wohnt oder arbeitet – ein Satz zum Zimmer.
+  // Wer hier wohnt oder arbeitet – zum Zimmer. Je Satz ein Name: So gibt es
+  // jeden Satz als Aufnahme (bau-stimme.js), auch wenn die Tiere wechseln.
   function zimmerSatz(st, slot) {
     if (st.art === "wohnung") {
-      const namen = st.tiere.map((t) => t.n);
-      if (!namen.length) return "";
-      return `Hier ${namen.length === 1 ? "wohnt" : "wohnen"} ${namen.join(" und ")}.`;
+      return st.tiere.map((t, i) => (i === 0 ? `Hier wohnt ${t.n}.` : `${t.n} wohnt auch hier.`)).join(" ");
     }
     const leute = S().zimmerTiere(ui.haus, ui.zimmer >= 0 ? ui.zimmer : S().indexVon(ui.haus, st.id), slot);
     const traum = leute.filter((l) => l.traumHier).map((l) => l.tier.n);
     const wunsch = leute.filter((l) => l.wunsch && !l.traumHier).map((l) => l.tier.n);
-    const teile = [];
-    if (traum.length) teile.push(`${namenListe(traum)} ${traum.length === 1 ? "hat" : "haben"} hier den Traumjob!`);
-    if (wunsch.length) teile.push(`${namenListe(wunsch)} ${wunsch.length === 1 ? "hat" : "haben"} sich dieses Zimmer gewünscht.`);
-    return teile.join(" ");
-  }
-  function namenListe(namen) {
-    return namen.length > 1 ? `${namen.slice(0, -1).join(", ")} und ${namen.at(-1)}` : (namen[0] || "");
+    return [
+      ...traum.map((n, i) => (i === 0 ? `${n} hat hier den Traumjob!` : `${n} hat hier auch den Traumjob!`)),
+      ...wunsch.map((n, i) => (i === 0 ? `${n} hat sich dieses Zimmer gewünscht.` : `${n} hat es sich auch gewünscht.`)),
+    ].join(" ");
   }
 
   async function schliesseZimmer(sofort = false) {
@@ -3453,7 +3460,9 @@
     const wer = alle.length === 1 ? "Ein Tier wohnt" : `${alle.length} Tiere wohnen`;
     const vollSatz = voll === 0 ? "" : voll === 1 ? " Eines hat schon alle Sterne." : ` ${voll} haben schon alle Sterne.`;
     const traumSatz = traum === 0 ? "Noch keines hat seinen Traumjob." : traum === 1 ? "Eines hat seinen Traumjob." : `${traum} haben ihren Traumjob.`;
-    return `${wer} im Wohnhaus. Zusammen haben sie ${anzahl} von ${total} Sternen.${vollSatz} ${traumSatz}`;
+    const fehlt = total - anzahl;
+    const fehltSatz = fehlt <= 0 ? "Mehr gibt es gerade nicht." : fehlt === 1 ? "Ein Stern fehlt noch." : `${fehlt} fehlen noch.`;
+    return `${wer} im Wohnhaus. Zusammen haben sie ${anzahl === 1 ? "einen Stern" : `${anzahl} Sterne`}. ${fehltSatz}${vollSatz} ${traumSatz}`;
   }
 
   function fuelleUebersicht() {

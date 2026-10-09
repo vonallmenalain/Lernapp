@@ -38,14 +38,14 @@
  * schickt (scripts/stimme-google.json, verbrauch), und hört bei 900'000 im
  * Monat auf – es sei denn, man erlaubt es mit --kosten-ok.
  *
- * Nötig: curl, ffmpeg und ffprobe.
+ * Nötig: curl und ffmpeg.
  */
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { spawn, execFileSync } from "node:child_process";
 import { WURZEL } from "./stimme-texte.mjs";
-import { ORDNER, bauTexte, dateiFuer, verzeichnis, schreibeVerzeichnis } from "./stimme-bau-texte.mjs";
+import { ORDNER, bauTexte, dateiFuer, passtZumText, sekundenVon, verzeichnis, schreibeVerzeichnis } from "./stimme-bau-texte.mjs";
 
 const API = "https://texttospeech.googleapis.com/v1";
 const EINSTELLUNG = path.join(WURZEL, "scripts", "stimme-google.json");
@@ -176,14 +176,7 @@ function zuMp3(wav, ziel) {
   } finally {
     fs.rmSync(arbeit, { recursive: true, force: true });
   }
-  return Number(execFileSync("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", ziel], { encoding: "utf8" }).trim());
-}
-
-// Rund 14 Zeichen in der Sekunde; ein einzelnes Wort darf etwas länger sein.
-function passtZumText(sekunden, text) {
-  if (!(sekunden >= 0.25)) return false;
-  if (sekunden > Math.max(1.6, text.length * 0.2)) return false;
-  return text.length < 15 || sekunden >= text.length * 0.025;
+  return sekundenVon(fs.readFileSync(ziel));
 }
 
 // --- Befehle -------------------------------------------------------------------

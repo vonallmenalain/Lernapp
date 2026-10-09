@@ -51,11 +51,18 @@
  *                Rätsels führt zum selben Auftrag zurück.
  *   Einbau       Startbild, Service Worker, Spielseiten und Zurücksetzen
  *                kennen die Bauecke.
+ *   Stimme       Jede Aufnahme in bau-stimme.js gehört zu einem Satz, den die
+ *                Bauecke sagt, heisst nach ihm, ist eine MP3 wie die anderen
+ *                (mono, 24 kHz, 32 kbit/s) und so lang, wie der Satz es
+ *                verlangt; keine Datei liegt ohne Satz herum, und die
+ *                Leseecke behält Alains Stimme (docs/STIMME-GOOGLE.md).
  */
 import fs from "node:fs";
 import path from "node:path";
 import vm from "node:vm";
 import crypto from "node:crypto";
+import { sprechText, mp3Rahmen, verzeichnis as alainsVerzeichnis } from "./stimme-texte.mjs";
+import { ORDNER as STIMME_ORDNER, bauTexte, dateiFuer, passtZumText, sekundenVon, verzeichnis as stimmeVerzeichnis } from "./stimme-bau-texte.mjs";
 
 const root = path.resolve(import.meta.dirname, "..");
 const lies = (datei) => fs.readFileSync(path.join(root, datei), "utf8");
@@ -1179,9 +1186,55 @@ for (const stufe of ["leicht", "mittel", "schwer"]) {
   pruefe(/function liesText/.test(lies("train-bau.js")) && /ttsEnabled/.test(lies("train-bau.js")), "train-bau.js liest angetippte Texte nicht vor");
 }
 
+// --- Stimme: was die Bauecke als Aufnahme sagt (bau-stimme.js) --------------
+// Geschrieben von scripts/stimme-google.mjs. Ändert sich ein Satz in
+// train-bau.js oder im Katalog, spielte seine alte Aufnahme nie mehr – dann
+// meldet sich das hier (node scripts/stimme-google.mjs aufraeumen, vertonen).
+let aufnahmen = 0;
+{
+  const dateien = stimmeVerzeichnis();
+  pruefe(dateien && typeof dateien === "object" && !Array.isArray(dateien), "bau-stimme.js fehlt oder legt kein Verzeichnis an");
+  const gesagt = new Set(bauTexte().map((t) => t.text));
+  const alain = alainsVerzeichnis() || {};
+  const belegt = new Set();
+  Object.entries(dateien || {}).forEach(([text, datei]) => {
+    const wo = `Aufnahme «${text.length > 50 ? `${text.slice(0, 50)}…` : text}»`;
+    pruefe(text === sprechText(text), `${wo}: der Text steht nicht so da, wie die App ihn nachschlägt (Leerräume)`);
+    pruefe(gesagt.has(text), `${wo}: die Bauecke sagt diesen Satz nicht mehr so – node scripts/stimme-google.mjs aufraeumen`);
+    pruefe(!alain[text], `${wo}: hat schon Alains Stimme (lesen-stimme.js) – die Leseecke behält sie`);
+    pruefe(datei === dateiFuer(text), `${wo}: die Datei heisst ${datei}, nach ihrem Text ${dateiFuer(text)}`);
+    belegt.add(datei);
+    const pfad = path.join(root, datei);
+    if (!fs.existsSync(pfad)) { pruefe(false, `${wo}: ${datei} fehlt`); return; }
+    const daten = fs.readFileSync(pfad);
+    pruefe(daten.length <= 100 * 1024, `${wo}: ${Math.round(daten.length / 1024)} KB – mehr als 100 KB für einen Satz`);
+    const rahmen = mp3Rahmen(daten);
+    if (!rahmen) { pruefe(false, `${wo}: ${datei} ist keine MP3`); return; }
+    // Der erste Rahmen kann der Kopf des Encoders sein (mit eigener Bitrate).
+    pruefe(rahmen.every((r) => r.version === 2 && r.rate === 24000 && r.kanaele === 1) && rahmen.slice(1).every((r) => r.kbit === 32),
+      `${wo}: nicht mono, 24 kHz, 32 kbit/s (${JSON.stringify(rahmen[1] || rahmen[0])})`);
+    const sekunden = sekundenVon(daten);
+    pruefe(passtZumText(sekunden, text), `${wo}: ${sekunden.toFixed(2)} s für ${text.length} Zeichen – passt nicht zum Satz`);
+    aufnahmen += 1;
+  });
+  const ordner = path.join(root, STIMME_ORDNER);
+  if (fs.existsSync(ordner)) {
+    fs.readdirSync(ordner).filter((name) => !name.startsWith(".")).forEach((name) => {
+      pruefe(belegt.has(`${STIMME_ORDNER}/${name}`), `${STIMME_ORDNER}/${name}: zu dieser Datei steht kein Satz in bau-stimme.js`);
+    });
+  }
+  // Das Startbild lädt das Verzeichnis nach lesen-stimme.js: Das setzt es
+  // neu, bau-stimme.js ergänzt es.
+  const index = lies("index.html");
+  const stelle = index.indexOf('src="bau-stimme.js?v=');
+  pruefe(stelle >= 0, "index.html lädt bau-stimme.js nicht");
+  pruefe(stelle < 0 || stelle > index.indexOf('src="lesen-stimme.js?v='), "index.html: bau-stimme.js steht vor lesen-stimme.js");
+  pruefe(lies("service-worker.js").includes("./bau-stimme.js${ASSET_VERSION_QUERY}"), "service-worker.js legt bau-stimme.js nicht in den Cache");
+}
+
 if (fehler.length) {
   console.error(`Die Bauecke stimmt nicht (${fehler.length}):`);
   fehler.slice(0, 80).forEach((f) => console.error(`  - ${f}`));
   process.exit(1);
 }
-console.log(`Die Bauecke stimmt: ${dinge.length} Dinge, ${K.RAEUME_LISTE.length} Zimmer in 4 Häusern (je mindestens 10 eigene Dinge), ${K.TIER_IDS.length} Tierarten, alle Wünsche erfüllbar.`);
+console.log(`Die Bauecke stimmt: ${dinge.length} Dinge, ${K.RAEUME_LISTE.length} Zimmer in 4 Häusern (je mindestens 10 eigene Dinge), ${K.TIER_IDS.length} Tierarten, alle Wünsche erfüllbar, ${aufnahmen} Sätze mit der Google-Stimme.`);

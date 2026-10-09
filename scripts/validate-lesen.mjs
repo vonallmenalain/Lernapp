@@ -46,7 +46,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import vm from "node:vm";
-import { texte as stimmeTexte, verzeichnis as stimmeVerzeichnis, dateiFuer, sprechText, ORDNER as STIMME_ORDNER } from "./stimme-texte.mjs";
+import { texte as stimmeTexte, verzeichnis as stimmeVerzeichnis, dateiFuer, sprechText, mp3Rahmen, ORDNER as STIMME_ORDNER } from "./stimme-texte.mjs";
 
 const root = path.resolve(import.meta.dirname, "..");
 const fehler = [];
@@ -1023,32 +1023,6 @@ let gemalteMonster = 0;
 // verlangt (rund 14 Zeichen in der Sekunde). Und sie gehört zu einem Text, den
 // die App noch genau so sagt – ändert sich ein Satz im Buch, spielte seine
 // alte Aufnahme nie mehr.
-//
-// Die Rahmen einer MP3: [{ version, rate, kbit, kanaele }], oder null, wenn
-// es keine ist (ID3 vorne wird übersprungen).
-function mp3Rahmen(daten) {
-  let stelle = 0;
-  if (daten.length >= 10 && daten.toString("latin1", 0, 3) === "ID3") {
-    stelle = 10 + (((daten[6] & 0x7f) << 21) | ((daten[7] & 0x7f) << 14) | ((daten[8] & 0x7f) << 7) | (daten[9] & 0x7f));
-  }
-  const RATEN = { 3: [44100, 48000, 32000], 2: [22050, 24000, 16000], 0: [11025, 12000, 8000] };
-  const KBIT_1 = [0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320];
-  const KBIT_2 = [0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160];
-  const rahmen = [];
-  while (stelle + 4 <= daten.length) {
-    if (daten[stelle] !== 0xff || (daten[stelle + 1] & 0xe0) !== 0xe0) return null;
-    const version = (daten[stelle + 1] >> 3) & 3;
-    const schicht = (daten[stelle + 1] >> 1) & 3;
-    const kbitNr = daten[stelle + 2] >> 4;
-    const rateNr = (daten[stelle + 2] >> 2) & 3;
-    if (schicht !== 1 || version === 1 || rateNr === 3 || kbitNr === 0 || kbitNr === 15) return null;
-    const rate = RATEN[version][rateNr];
-    const kbit = (version === 3 ? KBIT_1 : KBIT_2)[kbitNr];
-    rahmen.push({ version, rate, kbit, kanaele: (daten[stelle + 3] >> 6) === 3 ? 1 : 2 });
-    stelle += Math.floor(((version === 3 ? 144 : 72) * kbit * 1000) / rate) + ((daten[stelle + 2] >> 1) & 1);
-  }
-  return rahmen.length ? rahmen : null;
-}
 let aufnahmenFertig = 0;
 {
   const dateien = stimmeVerzeichnis();

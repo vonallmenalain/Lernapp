@@ -18,15 +18,19 @@
  *   kern    feste Sätze und der Katalog: Dinge, Zimmer, Farben, Wünsche, Hilfe
  *   namen   Sätze mit genau einem Tiernamen («Willkommen, Flora!»)
  *   zahlen  Sätze mit einer Zahl (Ziegel, Sterne, Stockwerke)
- * Nicht dabei sind Sätze, die zwei Wechselndes verbinden («Hier wohnen Flora
- * und Benno.», «Flora: Arbeit: Brot backen …») – davon gibt es Hunderttausende.
+ * Zwei Wechselnde in einem Satz («Flora und Benno», «8 von 22 Sternen») gäbe
+ * es Hunderttausende Male. Darum sagt die Bauecke so etwas in Stücken mit je
+ * einem Wechselnden («Hier wohnt Flora. Benno wohnt auch hier.»), und kids.js
+ * teilt auch hinter einem Doppelpunkt («Flora:» und «Juhu, ein Bett!»). Ob die
+ * Bauecke wirklich überall eine Aufnahme hat, prüft
+ * scripts/check-bau-stimme.mjs im Browser.
  *
  * Ändert sich ein Satzmuster in train-bau.js, gehört es auch hier geändert.
  */
 import fs from "node:fs";
 import path from "node:path";
 import vm from "node:vm";
-import { WURZEL, sprechText, dateiFuer as dateiIn } from "./stimme-texte.mjs";
+import { WURZEL, sprechText, mp3Rahmen, dateiFuer as dateiIn } from "./stimme-texte.mjs";
 
 export const ORDNER = "stimme/google";
 export const VERZEICHNIS = "bau-stimme.js";
@@ -34,14 +38,34 @@ export const dateiFuer = (text) => dateiIn(text, ORDNER);
 
 const lies = (name) => fs.readFileSync(path.join(WURZEL, name), "utf8");
 
+// Ob eine Aufnahme so lang ist, wie ihr Satz es verlangt: rund 14 Zeichen in
+// der Sekunde; ein einzelnes Wort darf etwas länger sein. Beim Vertonen
+// (stimme-google.mjs) und in der Prüfung (validate-bau.mjs).
+export function passtZumText(sekunden, text) {
+  if (!(sekunden >= 0.25)) return false;
+  if (sekunden > Math.max(1.6, text.length * 0.2)) return false;
+  return text.length < 15 || sekunden >= text.length * 0.025;
+}
+
+// Wie lang eine MP3 spielt, gezählt in ihren Rahmen – ohne den ersten, den
+// Kopf des Encoders. Beim Vertonen und in der Prüfung gleich gemessen.
+export function sekundenVon(daten) {
+  const rahmen = mp3Rahmen(daten);
+  return rahmen ? rahmen.slice(1).reduce((summe, r) => summe + (r.version === 3 ? 1152 : 576) / r.rate, 0) : 0;
+}
+
 // Wie kids.js (saetzeVon): geteilt hinter . ! ? … (und einem schliessenden
-// Anführungszeichen), wo ein Leerzeichen folgt.
+// Anführungszeichen), wo ein Leerzeichen folgt – nicht hinter einer Zahl
+// («der 3. Stock»). Hinter einem Doppelpunkt teilt kids.js auch; aufgenommen
+// werden hier aber ganze Sätze, und wo vorne ein Name steht («Flora:»), steht
+// dieses Stück eigens in der Liste.
 export function saetzeVon(text) {
   const teile = [];
   const muster = /[.!?…]+[»"]?(?=\s)/g;
   let anfang = 0;
   let treffer;
   while ((treffer = muster.exec(text))) {
+    if (/\d$/.test(text.slice(anfang, treffer.index)) && treffer[0] === ".") continue;
     const ende = treffer.index + treffer[0].length;
     teile.push(text.slice(anfang, ende).trim());
     anfang = ende;
@@ -122,6 +146,8 @@ export function bauTexte() {
     "Gelbe Sterne: Wünsche für die Wohnung. Grüne: für das Wohnhaus. Blaue: für die anderen Häuser.",
     "Was Tiere mögen", "Licht, Bilder, Pflanzen", "Wand anmalen", "Boden", "Was wird das neue Stockwerk?",
     "Noch ein Wunsch – unten steht, welche.", ...[2, 3, 4, 5].map((n) => `Noch ${n} Wünsche – unten steht, welche.`),
+    "Wohnung.", "Zwei Zimmer.", "Hauswand", "Dach", "Juhu, danke!", "Schau dir ihre Wohnung im Wohnhaus an!",
+    "Ein Stern fehlt noch.", "Mehr gibt es gerade nicht.",
   ].forEach((s) => dazu(s, "kern", "train-bau.js"));
 
   // Die Häuser (hilfeHaus, Hauswahl, Reiter)
@@ -132,7 +158,12 @@ export function bauTexte() {
     dazu(`${haus.der}. ${haus.text}`, "kern", "Hauswahl");
     dazu(`${haus.der}! Tippe auf ein Stockwerk und wähle, was es werden soll.`, "kern", "Hauswahl");
     dazu(`Ein neues Zimmer ${haus.im}`, "kern", "Zimmerwahl");
+    dazu(`${haus.name} anmalen`, "kern", "Fassade");
   });
+  // Zwei Zimmer auf einem Stockwerk des Wohnhauses (stockName): «Der 3.
+  // Stock:» und dann beide Zimmer.
+  const zweiZimmer = K.HAUS.wohnhaus.raeume.filter((id) => !K.RAEUME[id].wohnen).map((id) => K.RAEUME[id]);
+  zweiZimmer.forEach((a) => zweiZimmer.forEach((b) => { if (a !== b) dazu(`${a.der} und ${b.der}.`, "kern", "Stockwerk"); }));
 
   // Die Zimmer
   K.RAEUME_LISTE.forEach((raum) => {
@@ -202,18 +233,22 @@ export function bauTexte() {
   [...lies("journey-plan.js").matchAll(/^\s+\w+: \{ title: "([^"]+)"/gm)].forEach((m) => dazu(`Ein Rätsel für Ziegel: ${m[1]}!`, "kern", "Rätsel-Knopf"));
 
   // --- Zahlen
-  for (let n = 2; n <= 40; n += 1) {
+  for (let n = 2; n <= 99; n += 1) {
     dazu(`Du hast ${n} Paletten Ziegel.`, "zahlen", "Ziegel");
     dazu(`Der Zug hat ${n} Paletten Ziegel gebracht!`, "zahlen", "Ziegel");
     dazu(`${n} Paletten Ziegel sind da!`, "zahlen", "Ziegel");
   }
-  for (let n = 0; n <= 100; n += 1) dazu(`Alle Tiere zusammen haben ${sterneWort(n)}.`, "zahlen", "Sternenleiter");
+  // Höchstens 60 Tiere (20 Stockwerke mit je drei), jedes mit 5 Sternen.
+  for (let n = 0; n <= 300; n += 1) {
+    dazu(`Alle Tiere zusammen haben ${sterneWort(n)}.`, "zahlen", "Sternenleiter");
+    dazu(`Zusammen haben sie ${sterneWort(n)}.`, "zahlen", "Alle Bewohner");
+    if (n >= 2) dazu(`${n} fehlen noch.`, "zahlen", "Alle Bewohner");
+  }
   for (let n = 2; n <= 60; n += 1) {
     dazu(`${n} Tiere wohnen im Wohnhaus.`, "zahlen", "Alle Bewohner");
     dazu(`${n} haben schon alle Sterne.`, "zahlen", "Alle Bewohner");
     dazu(`${n} haben ihren Traumjob.`, "zahlen", "Alle Bewohner");
   }
-  for (let total = 5; total <= 60; total += 5) for (let n = 0; n <= total; n += 1) dazu(`Zusammen haben sie ${n} von ${total} Sternen.`, "zahlen", "Alle Bewohner");
   K.LEITER.forEach((stufe, i) => {
     const vorher = K.LEITER[i - 1]?.sterne || 0;
     dazu(`${stufe.sterne} Sterne: ${stufe.name}. ${stufe.text}`, "zahlen", "Sternenleiter");
@@ -226,6 +261,8 @@ export function bauTexte() {
   const stock = (i) => (i === 0 ? "das Erdgeschoss" : `der ${i}. Stock`);
   for (let i = 0; i < 20; i += 1) {
     dazu(`${gross(stock(i))}.`, "zahlen", "Stockwerk");
+    dazu(`${gross(stock(i))}:`, "zahlen", "Stockwerk");
+    if (i < 19) dazu(`${gross(stock(i))} und ${stock(i + 1)}:`, "zahlen", "Stockwerk");
     K.RAEUME_LISTE.forEach((raum) => {
       if (raum.doppel) { if (i < 19) dazu(`${gross(stock(i))} und ${stock(i + 1)}: ${raum.der}.`, "zahlen", "Stockwerk"); return; }
       dazu(`${gross(stock(i))}: ${raum.der}.`, "zahlen", "Stockwerk");
@@ -253,6 +290,10 @@ export function bauTexte() {
       `Dazu den Traumjob und wo ${n} gerade ist.`,
       `${n} ist zu Hause.`, `${n} ist unterwegs.`, `${n} arbeitet schon dort!`, `${n}: Sucht noch Arbeit.`,
       `${n}: Danke!`, `${n}: Juhu, meine Lieblingsfarbe!`,
+      // Stücke, die kids.js zusammensetzt: «Flora:» vor dem Dank, je ein Name
+      // je Satz, wo mehrere wohnen oder arbeiten (train-bau.js, zimmerSatz).
+      `${n}:`, `${n} wohnt auch hier.`, `${n} hat hier auch den Traumjob!`, `${n} hat es sich auch gewünscht.`,
+      `In der Wohnung von ${n} haben jetzt alle drei ihren Traumjob.`,
     ].forEach((s) => dazu(s, "namen", "Tiername"));
   });
 

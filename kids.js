@@ -239,14 +239,17 @@
     return typeof datei === "string" && datei ? datei : null;
   }
   // Die Sätze eines Textes: geteilt hinter . ! ? … (und einem schliessenden
-  // Anführungszeichen), wo ein Leerzeichen folgt. Mit je einem Leerzeichen
-  // aneinandergehängt, ergeben sie wieder den Text.
+  // Anführungszeichen), wo ein Leerzeichen folgt – nicht hinter einer Zahl
+  // («der 3. Stock») –, und hinter einem Doppelpunkt: «Flora: Danke!» spielt
+  // als «Flora:» und «Danke!», wenn es den ganzen Satz nicht gibt. Mit je
+  // einem Leerzeichen aneinandergehängt, ergeben sie wieder den Text.
   function saetzeVon(text) {
     const teile = [];
-    const muster = /[.!?…]+[»"]?(?=\s)/g;
+    const muster = /(?:[.!?…]+[»"]?|:)(?=\s)/g;
     let anfang = 0;
     let treffer;
     while ((treffer = muster.exec(text))) {
+      if (treffer[0] === "." && /\d$/.test(text.slice(anfang, treffer.index))) continue;
       const ende = treffer.index + treffer[0].length;
       teile.push(text.slice(anfang, ende).trim());
       anfang = ende;
@@ -676,17 +679,20 @@
   }
   // Wechselt der Text, der oben liegt, ist ein anderer Bildschirm da: was
   // dazu noch vorgelesen wurde, gehört zum alten und hört auf.
-  function helpChanged(before) {
-    if (currentHelp() !== before) stopHelp();
+  // ansageBleibt: Die Bauecke sagt bei jedem Tipp etwas und setzt gleich
+  // danach die Hilfe der neuen Ansicht – diese Ansage spricht weiter, nur
+  // eine vorgelesene Hilfe hört auf.
+  function helpChanged(before, { ansageBleibt = false } = {}) {
+    if (currentHelp() !== before && (!ansageBleibt || helpSpeaking)) stopHelp();
     refreshHelpButton();
   }
   // Setzt den Hilfetext der Grundebene (die aktuelle Seite/Ansicht).
-  function setHelp(text) {
+  function setHelp(text, { ansageBleibt = false } = {}) {
     const before = currentHelp();
     const clean = String(text || "").replace(/\s+/g, " ").trim();
     if (helpStack.length && helpStack[0].base) helpStack[0].text = clean;
     else helpStack.unshift({ text: clean, base: true, id: "base" });
-    helpChanged(before);
+    helpChanged(before, { ansageBleibt });
   }
   // Legt einen Hilfetext obendrauf (Dialoge, Overlays). Gibt eine Funktion zum
   // Entfernen zurück.

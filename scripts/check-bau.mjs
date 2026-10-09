@@ -4,7 +4,8 @@
  * Was validate-bau.mjs an den Listen nachrechnet, zeigt sich hier am
  * Bildschirm – auf dem Tablet (1600 × 1000) und dem Handy im Querformat
  * (812 × 375). Geprüft wird als Gast (Firebase ist umgeleitet) und mit einer
- * Sprachausgabe, die sich merkt, was gesagt wird:
+ * Sprachausgabe, die sich merkt, was gesagt wird – von der Gerätestimme oder
+ * als Aufnahme mit der Google-Stimme:
  *
  *   Startbild     Der Bauplatz steht rechts oben, gross genug zum Antippen,
  *                 und deckt keinen anderen Knopf zu. Neben dem Ton-Knopf
@@ -102,15 +103,44 @@ const befunde = [];
 const fehlt = (was) => befunde.push(was);
 const pruefe = (bedingung, was) => { if (!bedingung) fehlt(was); };
 
-// Eine Sprachausgabe, die sofort fertig ist und sich merkt, was gesagt wurde.
+// Eine Sprachausgabe, die gleich fertig ist und sich merkt, was zu hören war:
+// ein Satz zählt erst, wenn er zu Ende gesprochen ist – was vorher abgebrochen
+// wird (cancel), war nicht zu hören. Ebenso die Aufnahmen mit der
+// Google-Stimme (bau-stimme.js): Ihr Satz zählt, wenn sie zu Ende gespielt
+// hat, nicht wenn sie vorher angehalten wurde; __gespielt merkt sich die
+// Dateien, die angefangen haben.
 function stimmeErsatz() {
   window.__gesagt = [];
-  HTMLMediaElement.prototype.play = function play() { setTimeout(() => this.dispatchEvent(new Event("ended")), 5); return Promise.resolve(); };
+  window.__gespielt = [];
+  HTMLMediaElement.prototype.play = function play() {
+    const quelle = String(this.src);
+    const dateien = window.LernappStimmeDateien || {};
+    const text = Object.keys(dateien).find((t) => quelle.endsWith(`/${dateien[t]}`));
+    if (text) window.__gespielt.push(quelle);
+    const lauf = (this.__lauf = (this.__lauf || 0) + 1);
+    setTimeout(() => {
+      if (this.__lauf !== lauf || String(this.src) !== quelle) return;
+      if (text) window.__gesagt.push(text);
+      this.dispatchEvent(new Event("ended"));
+    }, 5);
+    return Promise.resolve();
+  };
+  HTMLMediaElement.prototype.pause = function pause() { this.__lauf = (this.__lauf || 0) + 1; };
+  let abbruch = 0;
   const synth = {
     speaking: false, pending: false, paused: false,
     getVoices: () => [],
-    speak(aeusserung) { window.__gesagt.push(String(aeusserung.text)); setTimeout(() => aeusserung.dispatchEvent(new Event("end")), 5); },
-    cancel() {}, pause() {}, resume() {}, addEventListener() {}, removeEventListener() {},
+    speak(aeusserung) {
+      const meins = abbruch;
+      setTimeout(() => {
+        if (meins !== abbruch) return;
+        window.__gesagt.push(String(aeusserung.text));
+        // Spricht die Bauecke selbst mit der Gerätestimme, fehlt eine Aufnahme.
+        if (document.querySelector('.train-stage[data-view="bau"]')) window.__geraetSagt?.(String(aeusserung.text));
+        aeusserung.dispatchEvent(new Event("end"));
+      }, 5);
+    },
+    cancel() { abbruch += 1; }, pause() {}, resume() {}, addEventListener() {}, removeEventListener() {},
   };
   Object.defineProperty(window, "speechSynthesis", { value: synth, configurable: true });
 }
@@ -119,10 +149,14 @@ function ueberlappen(a, b) {
   return a && b && a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
 }
 
+// Was die Bauecke mit der Gerätestimme sagte statt als Aufnahme.
+const geraetSaetze = new Map();
+
 async function neueSeite(browser, viewport) {
   const context = await browser.newContext({ viewport, deviceScaleFactor: 1, hasTouch: viewport.width < 900 });
   await context.route("**/*gstatic.com/**", (route) => route.abort());
   await context.route("**/fonts.googleapis.com/**", (route) => route.abort());
+  await context.exposeBinding("__geraetSagt", (_quelle, text) => { if (!geraetSaetze.has(text)) geraetSaetze.set(text, viewport.width); });
   await context.addInitScript(stimmeErsatz);
   // Blitzzug und Glücksstern kommen nur, wenn ein Test sie ruft; die
   // Sternenleiter ist schon ganz oben, damit keine Feier dazwischenkommt.
@@ -217,6 +251,7 @@ async function pruefeGeraet(browser, name, viewport) {
     await page.locator(".bau-wahl-feld").nth(0).click();
     await page.waitForTimeout(150);
     pruefe((await page.evaluate(() => window.__gesagt.join(" | "))).includes("Im Wohnhaus wohnen die Tiere"), `${name}: die Hauswahl liest das Wohnhaus nicht vor`);
+    pruefe(await page.evaluate(() => window.__gespielt.some((q) => q.includes("/stimme/google/"))), `${name}: die Hauswahl spielt keine Aufnahme mit der Google-Stimme (bau-stimme.js)`);
     await page.locator(".bau-ok").click();
     await page.waitForTimeout(1000);
     pruefe(await page.locator(".bau-tab").count() === 4 && await page.locator(".bau-tab.is-aktiv[data-haus='wohnhaus']").count() === 1, `${name}: der Umschalter zeigt nicht das Wohnhaus`);
@@ -400,9 +435,10 @@ async function pruefeGeraet(browser, name, viewport) {
     await page.waitForTimeout(500);
     const raeume = await page.locator(".bau-wahl.is-raumwahl .bau-wahl-feld").allTextContents();
     pruefe(raeume.length >= 8 && !raeume.some((r) => /Schlafzimmer|Kinderzimmer/.test(r)) && raeume.some((r) => /Küche/.test(r)), `${name}: die Zimmerwahl im Wohnhaus zeigt ${raeume.join(", ")}`);
+    // Die Erklärung kann in Stücken kommen: Sätze mit Aufnahme, dazwischen die Gerätestimme.
+    const vorKueche = await page.evaluate(() => window.__gesagt.length);
     await page.locator(".bau-wahl .bau-wahl-feld", { hasText: "Küche" }).first().click();
-    await page.waitForTimeout(150);
-    pruefe((await page.evaluate(() => window.__gesagt.at(-1) || "")).includes("In der Küche wird gekocht"), `${name}: die Küche wird nicht erklärt`);
+    pruefe(await bis(page, (n) => window.__gesagt.slice(n).join(" ").includes("In der Küche wird gekocht"), vorKueche, 2000), `${name}: die Küche wird nicht erklärt`);
     await waehle(page, "Küche");
     pruefe(await bis(page, () => document.querySelector(".bau-zimmeransicht:not([hidden])")), `${name}: die Küche öffnet nicht`);
     await page.waitForTimeout(900);
@@ -520,11 +556,12 @@ async function pruefeSonderfaelle(browser, name, viewport) {
     pruefe(await page.locator('.bau-traummarke[data-stock="0"][data-stufe="1"]').count() === 1, `${name}: die Wohnung zeigt von aussen nicht, dass eines den Traumjob hat`);
     await page.locator('.bau-tab[data-haus="zentrum"]').click();
     await page.waitForTimeout(900);
+    const vorZimmer = await page.evaluate(() => window.__gesagt.length);
     await tippe(page, '.bau-raum[data-stock="0"]');
     await page.waitForTimeout(1600);
     const kopf = await page.locator(".bau-zimmertier").evaluateAll((b) => b.map((x) => ({ traum: x.classList.contains("is-traum"), stern: Boolean(x.querySelector(".bau-stern.is-blau")), reihe: Boolean(x.querySelector(".bau-sternreihe")) })));
     pruefe(kopf.length === 2 && kopf[0].traum && !kopf[1].traum && kopf[1].stern && !kopf.some((k) => k.reihe), `${name}: oben in der Bibliothek stehen nicht nur, wer dort den Traumjob hat oder sie sich wünscht (${JSON.stringify(kopf)})`);
-    pruefe((await page.evaluate(() => window.__gesagt.at(-1) || "")).includes("hier den Traumjob"), `${name}: das Zimmer sagt nicht, wer hier den Traumjob hat`);
+    pruefe(await bis(page, (n) => window.__gesagt.slice(n).join(" ").includes("hier den Traumjob"), vorZimmer, 2000), `${name}: das Zimmer sagt nicht, wer hier den Traumjob hat`);
     await page.locator(".stage-back").click();
     await page.waitForTimeout(1000);
 
@@ -793,7 +830,7 @@ async function pruefeUeberraschungen(browser, name, viewport) {
     pruefe(leiter.offen && leiter.stufen === 8 && leiter.erreicht === 1 && leiter.naechste === "Wimpelketten" && leiter.bilder === 8, `${name}: Sternenleiter: die Stufen stimmen nicht (${JSON.stringify(leiter)})`);
     const karte = await page.locator(".bau-leiter .bau-uebersicht-karte").boundingBox();
     pruefe(karte && karte.y >= 50 && karte.y + karte.height <= viewport.height, `${name}: Sternenleiter: die Leiter liegt nicht ganz im Bild`);
-    pruefe((await page.evaluate(() => window.__gesagt.join(" | "))).includes("Alle Tiere zusammen haben 9 Sterne. Noch ein Stern bis zur nächsten Stufe: Wimpelketten."), `${name}: Sternenleiter: die Bauecke sagt nicht, wie viele Sterne noch fehlen`);
+    pruefe(await bis(page, () => window.__gesagt.join(" ").includes("Alle Tiere zusammen haben 9 Sterne. Noch ein Stern bis zur nächsten Stufe: Wimpelketten."), null, 2000), `${name}: Sternenleiter: die Bauecke sagt nicht, wie viele Sterne noch fehlen`);
     await page.locator(".bau-leiter .bau-uebersicht-zu").click();
     await page.waitForTimeout(300);
     pruefe(await page.locator(".bau-leiter:not([hidden])").count() === 0, `${name}: Sternenleiter: das Kreuz schliesst die Leiter nicht`);
@@ -820,7 +857,7 @@ async function pruefeUeberraschungen(browser, name, viewport) {
       await page.mouse.click(x, zug.y + zug.height * 0.6);
     }
     pruefe(await bis(page, (n) => window.LernappBauStand.paletten() === n + 1, p0, 3000), `${name}: Blitzzug: angetippt gibt er keine Palette`);
-    pruefe((await page.evaluate(() => window.__gesagt.join(" | "))).includes("Gefangen!"), `${name}: Blitzzug: die Bauecke freut sich nicht`);
+    pruefe(await bis(page, () => window.__gesagt.join(" | ").includes("Gefangen!"), null, 2000), `${name}: Blitzzug: die Bauecke freut sich nicht`);
     const naechsterZug = await page.evaluate(() => window.LernappBauStand.ueberraschung().zug - Date.now());
     pruefe(naechsterZug > 25 * 60000 && naechsterZug <= 30 * 60000, `${name}: Blitzzug: der nächste kommt nicht in einer halben Stunde (${Math.round(naechsterZug / 60000)} min)`);
     pruefe(await bis(page, () => !document.querySelector(".bau-blitz"), null, 7000), `${name}: Blitzzug: er fährt nicht weiter`);
@@ -835,12 +872,12 @@ async function pruefeUeberraschungen(browser, name, viewport) {
     // Der Glücksstern im Haus: angetippt gibt er eine Palette.
     await page.evaluate(() => window.LernappBau.gluecksstern({ haus: "wohnhaus", index: 0, slot: 0, x: 150, y: 150 }));
     pruefe(await bis(page, () => document.querySelector(".bau-haus-svg .bau-gluecksstern"), null, 2000), `${name}: Glücksstern: er ist im Haus nicht zu sehen`);
-    pruefe((await page.evaluate(() => window.__gesagt.join(" | "))).includes("Glücksstern versteckt"), `${name}: Glücksstern: die Bauecke verrät nicht, dass er sich versteckt hat`);
+    pruefe(await bis(page, () => window.__gesagt.join(" | ").includes("Glücksstern versteckt"), null, 2000), `${name}: Glücksstern: die Bauecke verrät nicht, dass er sich versteckt hat`);
     const stern = await page.locator(".bau-haus-svg .bau-gluecksstern").boundingBox();
     pruefe(stern && stern.width >= 14 && stern.y > 0 && stern.y + stern.height < viewport.height, `${name}: Glücksstern: er ist nicht im Bild oder zu klein (${JSON.stringify(stern)})`);
     if (stern) await page.mouse.click(stern.x + stern.width / 2, stern.y + stern.height / 2);
     pruefe(await bis(page, (n) => window.LernappBauStand.paletten() === n + 2, p0, 3000), `${name}: Glücksstern: gefunden gibt er keine Palette`);
-    pruefe((await page.evaluate(() => window.__gesagt.join(" | "))).includes("Du hast den Glücksstern gefunden!"), `${name}: Glücksstern: die Bauecke freut sich nicht`);
+    pruefe(await bis(page, () => window.__gesagt.join(" | ").includes("Du hast den Glücksstern gefunden!"), null, 2000), `${name}: Glücksstern: die Bauecke freut sich nicht`);
     pruefe(await bis(page, () => !document.querySelector(".bau-gluecksstern"), null, 3000), `${name}: Glücksstern: er bleibt nach dem Finden da`);
     const naechsterStern = await page.evaluate(() => window.LernappBauStand.ueberraschung().stern - Date.now());
     pruefe(naechsterStern > 25 * 60000 && naechsterStern <= 30 * 60000, `${name}: Glücksstern: der nächste kommt nicht in einer halben Stunde`);
@@ -1040,6 +1077,7 @@ async function pruefeKiddyDome(browser, name, viewport) {
     pruefe(await bis(page, () => document.querySelector(".bau-wahl.is-raumwahl"), null, 6000), `${name}: KiddyDome: nach dem Bauen kommt keine Zimmerwahl`);
     const karte = page.locator('.bau-wahl-feld[aria-label="KiddyDome"]');
     await karte.scrollIntoViewIfNeeded();
+    const vorDome = await page.evaluate(() => window.__gesagt.length);
     await karte.click();
     await page.waitForTimeout(300);
     const wahl = await page.evaluate(() => {
@@ -1049,12 +1087,11 @@ async function pruefeKiddyDome(browser, name, viewport) {
       return {
         text: h?.textContent || "", warnung: h?.classList.contains("is-warnung"), sichtbar: Boolean(r && r.height > 0 && r.bottom <= window.innerHeight && r.top >= 0),
         haken: [...document.querySelectorAll(".bau-wahl .bau-ok")].every((b) => b.hidden || b.disabled), dazu: Boolean(dazu && !dazu.hidden),
-        gesagt: window.__gesagt.at(-1) || "",
       };
     });
     pruefe(/zwei Stockwerke/.test(wahl.text) && wahl.warnung && wahl.sichtbar, `${name}: KiddyDome: die Wahl sagt nicht sichtbar, dass er zwei Stockwerke braucht (${JSON.stringify(wahl)})`);
     pruefe(wahl.haken && wahl.dazu, `${name}: KiddyDome mit einem Stockwerk: der Haken ist an oder "Stockwerk dazubauen" fehlt`);
-    pruefe(/zwei Stockwerke/.test(wahl.gesagt), `${name}: KiddyDome: der Hinweis wird nicht vorgelesen`);
+    pruefe(await bis(page, (n) => /zwei Stockwerke/.test(window.__gesagt.slice(n).join(" ")), vorDome, 2000), `${name}: KiddyDome: der Hinweis wird nicht vorgelesen`);
     await page.locator(".bau-dazu").click();
     pruefe(await bis(page, () => document.querySelector(".bau-zimmer-svg")?.getAttribute("viewBox")?.startsWith("0 -256"), null, 9000), `${name}: KiddyDome: nach dem Dazubauen geht kein doppelt hohes Zimmer auf`);
     const stock = await page.evaluate(() => window.LernappBauStand.haus("zentrum").stock.map((s) => `${s.art}:${s.zimmer[0]?.raum || ""}`).join("|"));
@@ -1164,6 +1201,9 @@ await pruefeAnsicht(browser, "Tablet", { width: 1600, height: 1000 });
 await pruefeAnsicht(browser, "Handy", { width: 812, height: 375 });
 await browser.close();
 halt();
+// Alles, was die Bauecke sagt, kommt als Aufnahme (bau-stimme.js) – nie
+// zwischendurch die Gerätestimme (docs/STIMME-GOOGLE.md).
+geraetSaetze.forEach((breite, satz) => fehlt(`${breite < 900 ? "Handy" : "Tablet"}: mit der Gerätestimme statt als Aufnahme: «${satz}»`));
 
 if (befunde.length) {
   console.error(`Die Bauecke hat ${befunde.length} Befunde:`);
