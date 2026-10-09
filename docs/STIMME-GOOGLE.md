@@ -144,6 +144,13 @@ Gut zu wissen:
   einer Zahl («Der 3. Stock» bleibt beisammen). Wer in train-bau.js einen neuen
   Satz baut, hält sich daran und trägt ihn in `stimme-bau-texte.mjs` ein;
   `check-bau-stimme.mjs` findet, was fehlt.
+- **Kein Knacken:** Neue Aufnahmen werden 12 ms ein- und 25 ms ausgeblendet
+  (`stimme-google.mjs`, `zuMp3`). Beim Abspielen blendet kids.js jede Aufnahme
+  15 ms ein, und eine, die ein neuer Tipp abbricht, klingt in 40 ms aus, statt
+  mitten in der Welle abzureissen – die nächste wartet so lange. (Auf iPhone und
+  iPad lässt sich die Lautstärke nicht ändern; dort bleibt der harte Wechsel.)
+  Die ersten 8810 Aufnahmen bleiben ohne Blende: Neu kodiert verlören sie an
+  Klang.
 - Ein Text aus mehreren Sätzen spielt Stück für Stück. Darum darf ein Wechsel
   der Hilfe eine Ansage nicht abbrechen: train-bau.js setzt die Hilfe mit
   `setHelp(text, { ansageBleibt: true })` (kids.js). `check-bau.mjs` zählt

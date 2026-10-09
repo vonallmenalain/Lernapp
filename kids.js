@@ -305,6 +305,29 @@
     });
     return aufnahmeEl;
   }
+  // Kein Knacken: Wird eine Aufnahme mitten drin abgebrochen (ein neuer Tipp),
+  // klingt sie in AUSBLENDEN_MS aus, statt mitten in der Welle abzubrechen,
+  // und die nächste wartet so lange. Jede fängt mit einem Hauch Einblenden
+  // an. Wo das Gerät die Lautstärke nicht ändern lässt (iPhone, iPad), bleibt
+  // es beim harten Wechsel.
+  const AUSBLENDEN_MS = 40;
+  const EINBLENDEN_MS = 15;
+  let blende = 0;
+  let leiseBis = 0;
+  function blendeLautstaerke(el, von, nach, ms, fertig = null) {
+    window.clearInterval(blende);
+    const start = performance.now();
+    const stelle = (v) => { try { el.volume = Math.min(1, Math.max(0, v)); } catch { /* fest */ } };
+    stelle(von);
+    blende = window.setInterval(() => {
+      const p = Math.min(1, (performance.now() - start) / ms);
+      stelle(von + (nach - von) * p);
+      if (p < 1) return;
+      window.clearInterval(blende);
+      blende = 0;
+      fertig?.();
+    }, 8);
+  }
   // Spielt eine Aufnahme. Wie es ausging: "fertig" (zu Ende gehört),
   // "fehler" (lädt nicht oder darf nicht spielen – dann spricht die
   // Gerätestimme) oder "abbruch" (angehalten).
@@ -314,17 +337,22 @@
     aufnahmeJetzt?.ende("abbruch");
     return new Promise((fertig) => {
       let uhr = 0;
+      let eingeblendet = false;
       const jetzt = {
         ende(ausgang) {
           if (aufnahmeJetzt !== jetzt) return;
           aufnahmeJetzt = null;
           window.clearTimeout(uhr);
-          if (ausgang !== "fertig") { try { el.pause(); } catch { /* egal */ } }
+          if (ausgang === "abbruch" && !el.paused) {
+            leiseBis = performance.now() + AUSBLENDEN_MS;
+            blendeLautstaerke(el, el.volume, 0, AUSBLENDEN_MS, () => { if (!aufnahmeJetzt) { try { el.pause(); } catch { /* egal */ } } });
+          } else if (ausgang !== "fertig") { try { el.pause(); } catch { /* egal */ } }
           fertig(ausgang);
         },
         laeuft() {
           if (aufnahmeJetzt !== jetzt) return;
           window.clearTimeout(uhr);
+          if (!eingeblendet) { eingeblendet = true; blendeLautstaerke(el, 0, 1, EINBLENDEN_MS); }
           onLaeuft?.();
         },
       };
@@ -332,11 +360,20 @@
       // Kommt sie nicht bald in Gang – ein zähes Netz –, spricht die
       // Gerätestimme.
       uhr = window.setTimeout(() => jetzt.ende("fehler"), AUFNAHME_LADEFRIST_MS);
-      try {
-        el.src = datei;
-        const versuch = el.play();
-        if (versuch?.then) versuch.then(() => jetzt.laeuft(), () => jetzt.ende("fehler"));
-      } catch { jetzt.ende("fehler"); }
+      const los = () => {
+        if (aufnahmeJetzt !== jetzt) return;
+        try {
+          window.clearInterval(blende);
+          try { el.volume = 0; } catch { /* fest */ }
+          el.src = datei;
+          const versuch = el.play();
+          if (versuch?.then) versuch.then(() => jetzt.laeuft(), () => jetzt.ende("fehler"));
+        } catch { jetzt.ende("fehler"); }
+      };
+      // Die vorige klingt noch aus.
+      const warten = leiseBis - performance.now();
+      if (warten > 0) window.setTimeout(los, warten);
+      else los();
     });
   }
   function aufnahmeStopp() {

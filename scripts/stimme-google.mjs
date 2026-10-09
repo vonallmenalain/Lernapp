@@ -164,14 +164,15 @@ async function sprich(text, { stimme, tempo }, versuch = 1) {
 }
 
 // WAV → MP3 wie stimme-vertonen.mjs: mono, 24 kHz, 32 kbit/s, Stille vorne
-// und hinten bis auf 80 ms gekürzt.
+// und hinten bis auf 80 ms gekürzt, dann 12 ms ein- und 25 ms ausgeblendet –
+// so knackt es nicht, wo die Sprache gleich am Anfang beginnt.
 function zuMp3(wav, ziel) {
   const arbeit = fs.mkdtempSync(path.join(os.tmpdir(), "lernapp-wav-"));
   const roh = path.join(arbeit, "roh.wav");
   fs.writeFileSync(roh, wav);
   const stille = "silenceremove=start_periods=1:start_threshold=-45dB:start_silence=0.08";
   try {
-    execFileSync("ffmpeg", ["-v", "error", "-y", "-i", roh, "-af", `${stille},areverse,${stille},areverse`,
+    execFileSync("ffmpeg", ["-v", "error", "-y", "-i", roh, "-af", `${stille},areverse,${stille},afade=t=in:d=0.025,areverse,afade=t=in:d=0.012`,
       "-ac", "1", "-ar", String(RATE), "-codec:a", "libmp3lame", "-b:a", "32k", "-map_metadata", "-1", "-id3v2_version", "0", ziel]);
   } finally {
     fs.rmSync(arbeit, { recursive: true, force: true });
