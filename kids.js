@@ -676,17 +676,20 @@
   }
   // Wechselt der Text, der oben liegt, ist ein anderer Bildschirm da: was
   // dazu noch vorgelesen wurde, gehört zum alten und hört auf.
-  function helpChanged(before) {
-    if (currentHelp() !== before) stopHelp();
+  // ansageBleibt: Die Bauecke sagt bei jedem Tipp etwas und setzt gleich
+  // danach die Hilfe der neuen Ansicht – diese Ansage spricht weiter, nur
+  // eine vorgelesene Hilfe hört auf.
+  function helpChanged(before, { ansageBleibt = false } = {}) {
+    if (currentHelp() !== before && (!ansageBleibt || helpSpeaking)) stopHelp();
     refreshHelpButton();
   }
   // Setzt den Hilfetext der Grundebene (die aktuelle Seite/Ansicht).
-  function setHelp(text) {
+  function setHelp(text, { ansageBleibt = false } = {}) {
     const before = currentHelp();
     const clean = String(text || "").replace(/\s+/g, " ").trim();
     if (helpStack.length && helpStack[0].base) helpStack[0].text = clean;
     else helpStack.unshift({ text: clean, base: true, id: "base" });
-    helpChanged(before);
+    helpChanged(before, { ansageBleibt });
   }
   // Legt einen Hilfetext obendrauf (Dialoge, Overlays). Gibt eine Funktion zum
   // Entfernen zurück.

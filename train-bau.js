@@ -92,7 +92,9 @@
     if (!text) return;
     kids()?.speak?.(text);
   }
-  function hilfe(text) { kids()?.setHelp?.(text || ""); }
+  // Die Hilfe wechselt oft gleich nach einer Ansage (sag, dann hilfe); die
+  // Ansage soll trotzdem zu Ende kommen.
+  function hilfe(text) { kids()?.setHelp?.(text || "", { ansageBleibt: true }); }
   function klang(name) { kids()?.playJingle?.(name); }
 
   // --- Bewegung -------------------------------------------------------------
