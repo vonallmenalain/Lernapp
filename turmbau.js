@@ -1067,7 +1067,7 @@
     const warum = punkte === 0 ? "" : "Der letzte Block ist daneben gefallen.";
     const marke = rekord
       ? "Das ist dein neuer Rekord!"
-      : best ? `Dein bester Turm hat ${best} Blöcke.` : "";
+      : best === 1 ? "Dein bester Turm hat einen Block." : best ? `Dein bester Turm hat ${best} Blöcke.` : "";
     return `${turm} ${warum} ${marke} ${runsText(runs)}`;
   }
 

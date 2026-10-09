@@ -97,6 +97,11 @@
       trunk: true, nose: "#5d6577", headR: 0.26,
     },
   };
+  // «Tippe auf Weiter, um mit dem Bären weiterzuspielen.»
+  const MIT = {
+    mouse: "der Maus", frog: "dem Frosch", chick: "dem Küken", rabbit: "dem Hasen", fox: "dem Fuchs",
+    penguin: "dem Pinguin", panda: "dem Panda", bear: "dem Bären", lion: "dem Löwen", elephant: "dem Elefanten",
+  };
 
   // ---------------------------------------------------------------------------
   // Landschaften – Farbpaletten pro Level
@@ -1753,7 +1758,7 @@
     const dialog = hud.overlay?.querySelector(".runner-dialog");
     if (dialog) kids.burstConfetti(dialog, stars >= 3 ? 60 : 38);
     if (journeyDone?.bau) setStageHelp(`Level ${level.id} geschafft! Du hast ${stars} von 3 Sternen. Der Zug bringt dir Ziegel für ein neues Stockwerk. Tippe auf Zur Bauecke.`);
-    else setStageHelp(`Level ${level.id} geschafft! Du hast ${stars} von 3 Sternen und ${game.treats} ${level.treatName} gesammelt. ${nextLevel ? `Tippe auf Weiter, um mit dem ${nextAnimal.name} weiterzuspielen.` : "Du hast alle Tiere geschafft."} Mit Nochmal spielst du dieses Level erneut, mit Zur Karte kommst du zurück zur Übersicht.`);
+    else setStageHelp(`Level ${level.id} geschafft! Du hast ${stars} von 3 Sternen. Du hast ${game.treats} ${level.treatName} gesammelt. ${nextLevel ? `Tippe auf Weiter, um mit ${MIT[nextLevel.animal] || `dem ${nextAnimal.name}`} weiterzuspielen.` : "Du hast alle Tiere geschafft."} Mit Nochmal spielst du dieses Level erneut, mit Zur Karte kommst du zurück zur Übersicht.`);
   }
 
   // ---------------------------------------------------------------------------

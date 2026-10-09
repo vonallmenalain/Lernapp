@@ -389,8 +389,10 @@
     // sie. Die Spielregeln bleiben darunter liegen und kommen zurück, sobald
     // die Runde vorbei ist.
     releaseHelp?.();
+    // Je Satz eine Zahl, und die Zahl in einer Frage: Hinter «37.» teilt
+    // kids.js nicht («der 3. Stock») – so liegt jeder Satz als Aufnahme bereit.
     releaseHelp = kids()?.pushHelp?.(
-      `Die Zahl ist ${state.zahl}. Das Gleis geht von null bis ${bis}. Schieb die Lok dorthin, wo die ${state.zahl} liegt, und lass los.`,
+      `Wo liegt die ${state.zahl}? Das Gleis geht von null bis ${bis}. Schieb die Lok dorthin und lass los.`,
     ) || null;
   }
 
@@ -441,8 +443,8 @@
   }
 
   function resultSpeech(punkte, runs) {
-    const treffer = state.genau === 0 ? "keine Zahl" : state.genau === 1 ? "eine Zahl" : `${state.genau} Zahlen`;
-    return `Stufe ${state.stufe.nr}, Zahlen bis ${state.stufe.bis}: Du hast ${punkte} von ${ZAHLEN_JE_RUNDE * PUNKTE_JE_ZAHL} Punkten und ${treffer} genau getroffen. ${runsText(runs)}`;
+    const treffer = state.genau === 0 ? "Keine Zahl" : state.genau === 1 ? "Eine Zahl" : `${state.genau} Zahlen`;
+    return `Stufe ${state.stufe.nr}, Zahlen bis ${state.stufe.bis}: Du hast ${punkte} von ${ZAHLEN_JE_RUNDE * PUNKTE_JE_ZAHL} Punkten. ${treffer} hast du genau getroffen. ${runsText(runs)}`;
   }
 
   function finish() {

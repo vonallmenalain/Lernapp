@@ -414,7 +414,7 @@
           const sterne = need === 3 ? "drei Sterne" : "zwei Sterne";
           const weiter = push
             ? "Auf der Karte kommt jetzt die Schiebelok und schiebt deinen Zug zur nächsten Station."
-            : `Probier es noch einmal${alt ? `, oder nimm auf der Karte das Ausweichgleis: ${alt.title}` : ""}.`;
+            : alt ? `Probier es noch einmal, oder nimm auf der Karte das Ausweichgleis: ${reise().satz?.(alt.title) ?? `${alt.title}.`}` : "Probier es noch einmal.";
           journeyNote = {
             done: false,
             text: knapp

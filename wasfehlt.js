@@ -302,7 +302,7 @@
 
   function resultSpeech(punkte, runs) {
     const fehlte = strand.BY_ID[state.fehlt]?.name;
-    const zuletzt = state.phase === "over" && fehlte ? ` Zuletzt hat ${fehlte} gefehlt.` : "";
+    const zuletzt = state.phase === "over" && fehlte ? ` Zuletzt fehlte: ${fehlte}.` : "";
     return `${wagenText(punkte)}${zuletzt} ${runsText(runs)}`;
   }
 

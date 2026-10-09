@@ -291,13 +291,13 @@ export default function texte(d) {
     if (task.choice) {
       text += `Wahlstation: ${task.choice.map((c) => c.title).join(" oder ")}. Tippe eines an.`;
     } else {
-      text += `Als Nächstes: ${task.title}. ${task.speech} Tippe auf die ${i + 1} im grünen Kreis.`;
-      if (altTask) text += ` Oder nimm das Ausweichgleis: ${altTask.title}.`;
+      text += `Als Nächstes: ${R.satz(task.title)} ${task.speech} Tippe auf die ${i + 1} im grünen Kreis.`;
+      if (altTask) text += ` Oder nimm das Ausweichgleis: ${R.satz(altTask.title)}`;
     }
     if (zweite) {
       text += zweite.choice
         ? ` Du kannst sie auch überspringen und Station ${j} spielen: ${zweite.choice.map((c) => c.title).join(" oder ")}.`
-        : ` Du kannst sie auch überspringen und Station ${j} spielen: ${zweite.title || ""}. ${zweite.speech || ""}`;
+        : ` Du kannst sie auch überspringen und Station ${j} spielen: ${R.satz(zweite.title)} ${zweite.speech || ""}`;
     }
     const left = N - i;
     text += ` Am Ziel wartet: ${map.reward.label}${left > 1 ? `, noch ${left} Stationen` : ", die nächste Station"}.`;

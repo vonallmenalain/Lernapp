@@ -357,7 +357,10 @@
     const rot = state.beiRot === 0
       ? "Bei Rot hast du nie getippt – super gewartet."
       : state.beiRot === 1 ? "Einmal hast du bei Rot getippt." : `${state.beiRot}-mal hast du bei Rot getippt.`;
-    return `Du hast ${punkte} Punkte: ${state.durch} grüne Züge durchgelassen und bei ${state.gewartet} roten gewartet. ${rot} ${runsText(runs)}`;
+    // Je Satz eine Zahl – so liegt jeder als Aufnahme bereit (app-stimme.js).
+    const durch = state.durch === 1 ? "Einen grünen Zug" : `${state.durch} grüne Züge`;
+    const gewartet = state.gewartet === 1 ? "Bei einem roten" : `Bei ${state.gewartet} roten`;
+    return `Du hast ${punkte} ${punkte === 1 ? "Punkt" : "Punkte"}. ${durch} hast du durchgelassen. ${gewartet} hast du gewartet. ${rot} ${runsText(runs)}`;
   }
 
   function finish() {

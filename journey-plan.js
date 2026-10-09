@@ -994,11 +994,18 @@
     return task;
   }
 
+  // Ein Titel als Satz: mit Punkt – ausser er hat schon ein Satzzeichen
+  // («Was fehlt?»).
+  function satz(titel) {
+    const text = String(titel || "");
+    return /[.!?…]$/.test(text) ? text : `${text}.`;
+  }
+
   // Der Satz für den Lautsprecher, wenn ein Spiel mit Auftrag öffnet.
   function describe(task) {
     if (!task) return "";
-    if (task.bau) return `Ein Rätsel für die Bauecke: ${task.title}. ${task.speech}`;
-    return `Reise${(task.lap || lapOf(task.nr).nr) === 2 ? " 2" : ""}, Station ${task.nr}: ${task.title}. ${task.speech}`;
+    if (task.bau) return `Ein Rätsel für die Bauecke: ${satz(task.title)} ${task.speech}`;
+    return `Reise${(task.lap || lapOf(task.nr).nr) === 2 ? " 2" : ""}, Station ${task.nr}: ${satz(task.title)} ${task.speech}`;
   }
 
   // ---------------------------------------------------------------------------
@@ -1196,7 +1203,7 @@
     STUFEN, STUFE_DEFAULT, STUFE_INFO,
     stationAt, taskFor, altTaskFor, mapIndexOf, lapOf, openOn, isOpen, OPEN_AT_ONCE, lastGap, triesForPush,
     read, current, isDone, doneInfo, triesFor, markDone, recordTry, choose, useAlt, needsPush, pushThrough,
-    stufe, setStufe, stufeIn, plateStars,
+    stufe, setStufe, stufeIn, plateStars, satz,
     hasReward, lockFor, finishedMaps, mapFinished, goldenMaps, mapGolden, goldenStations, progressFor, merge,
     unlockedParts, newParts, markPartsSeen, PARTS_KEY,
     readSeen, writeSeen, urlFor, mapUrl, fromLocation, describe,

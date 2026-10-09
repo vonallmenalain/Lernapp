@@ -558,7 +558,8 @@ try {
   const reimWahl = await page.evaluate(() => window.LernappReimkupplung.jetzt().wahl.map((w) => w.wort));
   if (!reimWahl.includes(reim.reim.wort) || reimWahl.length !== 3) fehlt(`Reimkupplung: zur Wahl stehen ${reimWahl.join(", ")}`);
   await page.locator('.rk-kandidat:not([data-reim="1"])').first().click();
-  await page.waitForTimeout(300);
+  // Der falsche Wagen: beide Wörter nacheinander, mit einer Pause dazwischen.
+  await page.waitForTimeout(1200);
   await page.locator('.rk-kandidat[data-reim="1"]').click();
   await page.waitForFunction(() => window.LernappReimkupplung.nr() === 1, null, { timeout: 8000 }).catch(() => {});
   if ((await zaehler()) !== "0") fehlt("Reimkupplung: nach einem Fehlgriff zählt der Reim trotzdem");
@@ -1236,8 +1237,9 @@ try {
   await page.waitForFunction(() => window.LernappGeschichtenzug.nr() === 1, null, { timeout: 8000 }).catch(() => {});
   if ((await page.evaluate(() => window.LernappGeschichtenzug.nr())) !== 1) fehlt("Geschichtenzug: die ganze Geschichte fährt nicht ab");
   if ((await zaehler()) !== "0") fehlt("Geschichtenzug: nach einem Fehlgriff zählt die Geschichte trotzdem");
-  const gzGesagt = await gesagt();
-  gz.gelesen.forEach((t) => { if (!gzGesagt.includes(t)) fehlt(`Geschichtenzug: beim Ankuppeln wird «${t.slice(0, 40)}» nicht vorgelesen`); });
+  // Satz für Satz aus den Aufnahmen: zusammengesetzt muss es dastehen.
+  const gzGesagt = (await gesagt()).join(" ");
+  gz.gelesen.forEach((t) => { if (!gzGesagt.includes(t.replace(/\s+/g, " ").trim())) fehlt(`Geschichtenzug: beim Ankuppeln wird «${t.slice(0, 40)}» nicht vorgelesen`); });
   await gzKuppeln(1);
   await page.waitForFunction(() => window.LernappGeschichtenzug.nr() === 2, null, { timeout: 8000 }).catch(() => {});
   if ((await zaehler()) !== "1") fehlt("Geschichtenzug: eine Geschichte ohne Fehler zählt nicht");
