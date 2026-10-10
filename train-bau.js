@@ -829,7 +829,9 @@
     // Auf dem Tablet passen die drei Wohnungen vom Anfang samt Strasse ins Bild.
     const sichtbar = h < 520 ? 1.75 : 3.6;
     const basis = clamp(Math.min((w * 0.6) / A().HB, (h - 70) / (sichtbar * A().STOCK_HOCH)), 0.3, 1.6);
-    const ganz = clamp(Math.min((h - kopfHoehe() - 14) / (UNTER_GLEIS - hausOben()), (w * 0.94) / (A().HB + 180)), 0.04, basis);
+    // Bis 0.02: Auch vierzig Stockwerke voller KiddyDomes passen so noch auf
+    // ein Handy quer.
+    const ganz = clamp(Math.min((h - kopfHoehe() - 14) / (UNTER_GLEIS - hausOben()), (w * 0.94) / (A().HB + 180)), 0.02, basis);
     k.basis = basis;
     k.ganz = ganz;
     const skala = skalaVon(k.stufe);

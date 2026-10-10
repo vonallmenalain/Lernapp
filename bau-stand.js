@@ -7,7 +7,7 @@
  * eigener Gast-Stand. "Fortschritt zurücksetzen" lässt ihn stehen.
  *
  *   {
- *     v: 4,                               // FORMAT – siehe unten
+ *     v: 5,                               // FORMAT – siehe unten
  *     gewaehlt: "spital",                 // mit welchem Haus das Kind begonnen hat
  *     haeuser: {
  *       wohnhaus: {
@@ -76,7 +76,10 @@
   // "oben") und seine Dinge; ein Kasten der Fassung 2 gilt unverändert.
   // Fassung 4 macht die Zimmer niedriger (siehe GEO): Was an der Wand hängt,
   // rückt beim Lesen eines älteren Kastens anteilig auf die kürzere Wand.
-  const FORMAT = 4;
+  // Fassung 5 erlaubt vierzig Stockwerke statt zwanzig (STOCK_MAX): Eine
+  // ältere App schnitte die oberen beim Aufräumen ab. Ein Kasten der Fassung 4
+  // gilt unverändert.
+  const FORMAT = 5;
 
   // --- Ein Zimmer, in Zimmer-Einheiten --------------------------------------
   // Eine Wohnung und ein Zimmer in Spital, Dorf und Büro sind so breit wie das
@@ -100,7 +103,11 @@
     STAND: 230,
   };
 
-  const STOCK_MAX = 20;              // so hoch wird ein Haus höchstens
+  // So hoch wird ein Haus höchstens. Seit Oktober 2026 vierzig statt zwanzig
+  // (Rückmeldung: Im Dorf ging es nicht mehr weiter). Ganz ohne Grenze geht es
+  // nicht: Der Kasten liegt im Kontodokument (1 MiB für alles) neben allen
+  // Spielen – validate-bau.mjs rechnet nach, dass er auch voll hineinpasst.
+  const STOCK_MAX = 40;
   const STOCK_OHNE_KAUF = 4;         // ohne Kauf: bis zum vierten Stockwerk
   const DINGE_MAX = 40;              // so viele Dinge passen in ein ganzes Zimmer
   const DINGE_MAX_HALB = 20;         // und in eines, halb so breit
