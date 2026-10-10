@@ -558,7 +558,8 @@ try {
   const reimWahl = await page.evaluate(() => window.LernappReimkupplung.jetzt().wahl.map((w) => w.wort));
   if (!reimWahl.includes(reim.reim.wort) || reimWahl.length !== 3) fehlt(`Reimkupplung: zur Wahl stehen ${reimWahl.join(", ")}`);
   await page.locator('.rk-kandidat:not([data-reim="1"])').first().click();
-  await page.waitForTimeout(300);
+  // Der falsche Wagen: beide Wörter nacheinander, mit einer Pause dazwischen.
+  await page.waitForTimeout(1200);
   await page.locator('.rk-kandidat[data-reim="1"]').click();
   await page.waitForFunction(() => window.LernappReimkupplung.nr() === 1, null, { timeout: 8000 }).catch(() => {});
   if ((await zaehler()) !== "0") fehlt("Reimkupplung: nach einem Fehlgriff zählt der Reim trotzdem");
@@ -895,7 +896,8 @@ try {
   await page.locator(qs.sinn ? ".qs-nein" : ".qs-ja").click();
   await page.waitForFunction(() => window.LernappQuatschsaetze.nr() === 1, null, { timeout: 6000 }).catch(() => {});
   if ((await zaehler()) !== "0") fehlt("Quatschsätze: eine falsche Antwort zählt");
-  if (!(await gesagt()).some((t) => t.startsWith(qs.satz) && t.includes(qs.sinn ? "Das kann sein" : "Quatsch"))) fehlt("Quatschsätze: nach der Antwort sagt niemand, wohin der Satz gehört");
+  // Satz für Satz aus den Aufnahmen: zusammengesetzt muss es dastehen.
+  if (!(await gesagt()).join(" ").includes(`${qs.satz} ${qs.sinn ? "Das kann sein." : "Das ist Quatsch!"}`)) fehlt("Quatschsätze: nach der Antwort sagt niemand, wohin der Satz gehört");
   const qs2 = await page.evaluate(() => window.LernappQuatschsaetze.jetzt());
   await page.locator(qs2.sinn ? ".qs-ja" : ".qs-nein").click();
   await page.waitForFunction(() => window.LernappQuatschsaetze.nr() === 2, null, { timeout: 6000 }).catch(() => {});
@@ -1236,8 +1238,9 @@ try {
   await page.waitForFunction(() => window.LernappGeschichtenzug.nr() === 1, null, { timeout: 8000 }).catch(() => {});
   if ((await page.evaluate(() => window.LernappGeschichtenzug.nr())) !== 1) fehlt("Geschichtenzug: die ganze Geschichte fährt nicht ab");
   if ((await zaehler()) !== "0") fehlt("Geschichtenzug: nach einem Fehlgriff zählt die Geschichte trotzdem");
-  const gzGesagt = await gesagt();
-  gz.gelesen.forEach((t) => { if (!gzGesagt.includes(t)) fehlt(`Geschichtenzug: beim Ankuppeln wird «${t.slice(0, 40)}» nicht vorgelesen`); });
+  // Satz für Satz aus den Aufnahmen: zusammengesetzt muss es dastehen.
+  const gzGesagt = (await gesagt()).join(" ");
+  gz.gelesen.forEach((t) => { if (!gzGesagt.includes(t.replace(/\s+/g, " ").trim())) fehlt(`Geschichtenzug: beim Ankuppeln wird «${t.slice(0, 40)}» nicht vorgelesen`); });
   await gzKuppeln(1);
   await page.waitForFunction(() => window.LernappGeschichtenzug.nr() === 2, null, { timeout: 8000 }).catch(() => {});
   if ((await zaehler()) !== "1") fehlt("Geschichtenzug: eine Geschichte ohne Fehler zählt nicht");
@@ -1294,7 +1297,8 @@ try {
     await page.locator(".ws-wahl:not([data-richtig])").first().click();
     await page.waitForTimeout(150);
     const unsinn = await gesagt();
-    if (!unsinn.some((t) => t.endsWith("Das gibt es nicht.") && t.startsWith(ws.teile[0]))) fehlt(`Wortbaustelle: der falsche Teil wird nicht vorgelesen (${unsinn.slice(-2).join(" | ")})`);
+    const unsinnText = unsinn.join(" ");
+    if (!(unsinnText.includes("? Das gibt es nicht.") && unsinnText.includes(ws.teile[0]))) fehlt(`Wortbaustelle: der falsche Teil wird nicht vorgelesen (${unsinn.slice(-2).join(" | ")})`);
     await page.locator('.ws-wahl[data-richtig="1"]').click();
     await page.waitForFunction(() => window.LernappWortbaustelle.nr() === 1, null, { timeout: 6000 }).catch(() => {});
     if (!(await gesagt()).includes(`${ws.teile[0]} und ${ws.teile[1]}: ${ws.wort}.`)) fehlt("Wortbaustelle: das fertige Wort wird nicht vorgelesen");
@@ -1342,7 +1346,7 @@ try {
   if ((await page.evaluate(() => window.LernappDetektivfaelle.nr())) !== 0) fehlt("Detektivfälle: ein falscher Satz gilt als Beweis");
   await page.locator('.df-satz[data-beweis="1"]').click();
   await page.waitForFunction(() => window.LernappDetektivfaelle.nr() === 1, null, { timeout: 6000 }).catch(() => {});
-  if (!(await gesagt()).includes(df.aufloesung)) fehlt("Detektivfälle: die Auflösung wird nicht vorgelesen");
+  if (!(await gesagt()).join(" ").includes(df.aufloesung.replace(/\s+/g, " ").trim())) fehlt("Detektivfälle: die Auflösung wird nicht vorgelesen");
   if ((await zaehler()) !== "0") fehlt(`Detektivfälle: nach zwei Fehlgriffen ${await zaehler()} Punkte statt 0`);
   await page.locator('.df-wer[data-taeter="1"]').click();
   await page.waitForFunction(() => window.LernappDetektivfaelle.phase() === "beweis", null, { timeout: 4000 }).catch(() => {});
@@ -1488,6 +1492,9 @@ try {
     probe.setDefaultTimeout(8000);
     await probe.route("**/*gstatic.com/**", (route) => route.abort());
     await probe.route("**/lesen-stimme.js*", (route) => route.fulfill({ contentType: "text/javascript; charset=utf-8", body: `window.LernappStimmeDateien = ${JSON.stringify(PROBE)};` }));
+    // Die Probe prüft, wie kids.js mit einem Verzeichnis umgeht – die Sätze der
+    // Google-Stimme (app-stimme.js, bau-stimme.js) bleiben dafür draussen.
+    await probe.route(/\/(app|bau)-stimme\.js/, (route) => route.fulfill({ contentType: "text/javascript; charset=utf-8", body: "" }));
     await probe.route("**/stimme/probe/*.mp3", (route) => route.fulfill({ contentType: "audio/wav", body: stilleWav(0.2) }));
     await probe.addInitScript(stimmeErsatz);
     const seite = await probe.newPage();

@@ -61,8 +61,9 @@ import fs from "node:fs";
 import path from "node:path";
 import vm from "node:vm";
 import crypto from "node:crypto";
-import { sprechText, mp3Rahmen, verzeichnis as alainsVerzeichnis } from "./stimme-texte.mjs";
+import { sprechText, mp3Rahmen } from "./stimme-texte.mjs";
 import { ORDNER as STIMME_ORDNER, bauTexte, dateiFuer, passtZumText, sekundenVon, verzeichnis as stimmeVerzeichnis } from "./stimme-bau-texte.mjs";
+import { verzeichnis as appVerzeichnis } from "./stimme-app-texte.mjs";
 
 const root = path.resolve(import.meta.dirname, "..");
 const lies = (datei) => fs.readFileSync(path.join(root, datei), "utf8");
@@ -312,7 +313,12 @@ function erfuelleGelbe(S, hausId, index) {
     for (const w of S.wuensche(tier.seed).filter((x) => x.stern === "gelb" && !x.erfuellt)) {
       if (w.typ === "ding") S.aendereZimmer(hausId, index, 0, (z) => z.dinge.push({ k: `g${z.dinge.length}`, i: dingMit(st.zimmer[0].raum, w.tag), x: 100, y: 230, c: "", f: 0, s: 1 }));
       if (w.typ === "farbe") S.aendereZimmer(hausId, index, 0, (z) => { z.wand = K.FARBEN.find((f) => f.familie === w.familie).id; });
+      if (w.typ === "boden") S.aendereZimmer(hausId, index, 0, (z) => { z.bodenFarbe = K.FARBEN.find((f) => f.familie === w.familie).id; });
     }
+  }
+  // Alle zugleich: Zwei Farbwünsche für dieselbe Wand gibt es nicht mehr.
+  for (const tier of st.tiere) {
+    pruefe(S.wuensche(tier.seed).filter((x) => x.stern === "gelb").every((x) => x.erfuellt), `${tier.n}: in der Wohnung lassen sich nicht alle gelben Wünsche zugleich erfüllen`);
   }
 }
 
@@ -371,7 +377,7 @@ function erfuelleGelbe(S, hausId, index) {
   // Die Art der Wohnung ändern: alles bleibt, die Wünsche passen sich an.
   pruefe(S.waehleRaum("wohnhaus", 0, 0, "kinderzimmer") === true && S.stock("wohnhaus", 0).tiere.length === 3, "beim Wechsel zum Kinderzimmer ziehen die Tiere aus");
   for (const t of S.stock("wohnhaus", 0).tiere) {
-    pruefe(t.w.every((w) => w.startsWith("farbe:") || w === `ding:${S.magVon(t).ding}` || K.RAEUME.kinderzimmer.wuensche.includes(w.split(":")[1])), `${t.n}: Wünsche passen nicht zum Kinderzimmer`);
+    pruefe(t.w.every((w) => w.startsWith("farbe:") || w.startsWith("boden:") || w === `ding:${S.magVon(t).ding}` || K.RAEUME.kinderzimmer.wuensche.includes(w.split(":")[1])), `${t.n}: Wünsche passen nicht zum Kinderzimmer`);
   }
 }
 
@@ -559,7 +565,27 @@ function erfuelleGelbe(S, hausId, index) {
     if (!f) continue;
     if (f.wunsch) pruefe(t.b[0] === `fremd:${f.wunsch.haus}:${f.wunsch.raum}` && S.wuensche(t.seed).find((w) => w.id === t.b[0])?.text.includes(f.wunsch.warum), `${f.n}: der blaue Wunsch kommt nicht aus der Geschichte`);
     if (f.traum) pruefe(t.traum === f.traum, `${f.n}: der Traumjob kommt nicht aus der Geschichte`);
-    pruefe(t.w[0] === `ding:${f.mag.ding}` || t.w[0] === `farbe:${f.mag.farbe}`, `${f.n}: der gelbe Wunsch ist nicht, was sie im Buch mag`);
+    pruefe([`ding:${f.mag.ding}`, `farbe:${f.mag.farbe}`, `boden:${f.mag.farbe}`].includes(t.w[0]), `${f.n}: der gelbe Wunsch ist nicht, was sie im Buch mag`);
+  }
+  // Je Wohnung höchstens ein Wunsch nach einer Wandfarbe und einer nach
+  // einer Bodenfarbe – zwei verschiedene liessen sich nie zugleich erfüllen.
+  for (let i = 0; i < 3; i += 1) {
+    const w = S.stock("wohnhaus", i).tiere.flatMap((t) => t.w);
+    pruefe(w.filter((x) => x.startsWith("farbe:")).length <= 1 && w.filter((x) => x.startsWith("boden:")).length <= 1, `Wohnung ${i}: mehr als ein Farbwunsch für Wand oder Boden (${w.join(", ")})`);
+  }
+  // Ein älterer Stand mit zwei verschiedenen Wandfarben wird beim Lesen
+  // geheilt: Wessen Farbe schon an der Wand ist, behält den Wunsch, das
+  // andere Tier wünscht sich seine Farbe für den Boden.
+  {
+    const wand = K.FARBEN.find((f) => f.familie === "blau").id;
+    const geheilt = S.normalize({ v: S.FORMAT, haeuser: { wohnhaus: { stock: [{ art: "wohnung", zimmer: [{ raum: "schlafzimmer", wand }], tiere: [
+      { a: "fox", n: "Fino", seed: "h1", w: ["farbe:rot", "ding:ball"] },
+      { a: "cat", n: "Mimi", seed: "h2", w: ["farbe:blau", "ding:buch"] },
+      { a: "bear", n: "Bruno", seed: "h3", w: ["farbe:gruen", "ding:lampe"] },
+    ] }] } } }).haeuser.wohnhaus.stock[0].tiere;
+    const ww = geheilt.map((t) => t.w);
+    pruefe(ww[1][0] === "farbe:blau" && ww[0][0] === "boden:rot" && !ww.flat().some((x) => x === "farbe:rot" || x === "farbe:gruen"), `zwei Wandfarben in einer Wohnung werden nicht geheilt (${JSON.stringify(ww)})`);
+    pruefe(ww.flat().filter((x) => x.startsWith("boden:")).length === 1, `nach dem Heilen wünschen sich zwei Tiere eine Bodenfarbe (${JSON.stringify(ww)})`);
   }
   // Ein Leo, der schon früher eingezogen ist.
   const leo = S.normalize({ v: S.FORMAT, haeuser: { wohnhaus: { stock: [{ art: "wohnung", zimmer: [{ raum: "schlafzimmer" }], tiere: [{ a: "lion", n: "Leo", seed: "alt1" }] }] } } }).haeuser.wohnhaus.stock[0].tiere[0];
@@ -1095,8 +1121,12 @@ for (const stufe of ["leicht", "mittel", "schwer"]) {
   // Die Sternenleiter: Stufen der Reihe nach, ohne Kauf ganz erreichbar; der
   // höchste Stand bleibt, auch wenn ein Wunsch wechselt.
   const stufen = K.LEITER;
-  pruefe(stufen.length === 8 && stufen.every((s, i) => s.id && s.name && s.text && (i === 0 || s.sterne > stufen[i - 1].sterne)), "die Stufen der Sternenleiter steigen nicht oder es fehlt ein Name");
-  pruefe(stufen[stufen.length - 1].sterne <= 4 * 3 * 5, "die letzte Stufe ist ohne Kauf (vier Wohnungen, je drei Tiere mit fünf Sternen) nicht erreichbar");
+  pruefe(stufen.length === 16 && stufen.at(-1).sterne === 200 && stufen.every((s, i) => s.id && s.name && s.text && (i === 0 || s.sterne > stufen[i - 1].sterne)), "die Stufen der Sternenleiter steigen nicht oder es fehlt ein Name");
+  // Ohne Kauf (vier Wohnungen, je drei Tiere mit fünf Sternen) bis 60 – die
+  // ersten acht Stufen; mit Kauf (20 Stockwerke) bis 300, also alle.
+  pruefe(stufen.filter((s) => s.sterne <= 4 * 3 * 5).length === 8, "ohne Kauf sind nicht genau die ersten acht Stufen erreichbar");
+  pruefe(stufen[stufen.length - 1].sterne <= 20 * 3 * 5, "die letzte Stufe ist auch mit Kauf (20 Stockwerke, je drei Tiere mit fünf Sternen) nicht erreichbar");
+  for (const id of ["riesenrad", "teich", "drachen", "windmuehle", "garten", "zeppelin", "schloss", "feuerwerk"]) pruefe(stufen.some((s) => s.id === id), `die Sternenleiter hat kein ${id}`);
   const jetzt = morgen10();
   const { S } = standUmgebung({ paletten: 3, frei: true, jetzt });
   S.waehleRaum("wohnhaus", 0, 0, "kinderzimmer");
@@ -1195,13 +1225,13 @@ let aufnahmen = 0;
   const dateien = stimmeVerzeichnis();
   pruefe(dateien && typeof dateien === "object" && !Array.isArray(dateien), "bau-stimme.js fehlt oder legt kein Verzeichnis an");
   const gesagt = new Set(bauTexte().map((t) => t.text));
-  const alain = alainsVerzeichnis() || {};
-  const belegt = new Set();
+  // Im selben Ordner liegen die Aufnahmen der übrigen App (app-stimme.js,
+  // geprüft von validate-app-stimme.mjs).
+  const belegt = new Set(Object.values(appVerzeichnis() || {}));
   Object.entries(dateien || {}).forEach(([text, datei]) => {
     const wo = `Aufnahme «${text.length > 50 ? `${text.slice(0, 50)}…` : text}»`;
     pruefe(text === sprechText(text), `${wo}: der Text steht nicht so da, wie die App ihn nachschlägt (Leerräume)`);
     pruefe(gesagt.has(text), `${wo}: die Bauecke sagt diesen Satz nicht mehr so – node scripts/stimme-google.mjs aufraeumen`);
-    pruefe(!alain[text], `${wo}: hat schon Alains Stimme (lesen-stimme.js) – die Leseecke behält sie`);
     pruefe(datei === dateiFuer(text), `${wo}: die Datei heisst ${datei}, nach ihrem Text ${dateiFuer(text)}`);
     belegt.add(datei);
     const pfad = path.join(root, datei);
@@ -1220,7 +1250,7 @@ let aufnahmen = 0;
   const ordner = path.join(root, STIMME_ORDNER);
   if (fs.existsSync(ordner)) {
     fs.readdirSync(ordner).filter((name) => !name.startsWith(".")).forEach((name) => {
-      pruefe(belegt.has(`${STIMME_ORDNER}/${name}`), `${STIMME_ORDNER}/${name}: zu dieser Datei steht kein Satz in bau-stimme.js`);
+      pruefe(belegt.has(`${STIMME_ORDNER}/${name}`), `${STIMME_ORDNER}/${name}: zu dieser Datei steht kein Satz in bau-stimme.js oder app-stimme.js`);
     });
   }
   // Das Startbild lädt das Verzeichnis nach lesen-stimme.js: Das setzt es

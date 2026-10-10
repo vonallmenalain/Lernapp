@@ -332,6 +332,31 @@
     };
   }
 
+  // Wünschen sich zwei Tiere einer Wohnung verschiedene Wandfarben, lässt
+  // sich nie beides erfüllen (bis Oktober 2026 kam das vor). Dann behält eines
+  // den Wunsch – das, dessen Farbe schon an der Wand ist, sonst das erste –,
+  // die anderen wünschen sich ihre Farbe für den Boden; und wo auch dort zwei
+  // verschiedene stünden, ihr Lieblingsding. Gleich auf jedem Gerät.
+  function eineFarbeJeWohnung(tiere, z) {
+    const familie = (id) => K()?.FARBE?.[id]?.familie || "";
+    for (const [typ, feld] of [["farbe", "wand"], ["boden", "bodenFarbe"]]) {
+      const mit = tiere.filter((t) => t.w.some((w) => w.startsWith(`${typ}:`)));
+      const farben = new Set(mit.map((t) => t.w.find((w) => w.startsWith(`${typ}:`))));
+      if (farben.size < 2) continue;
+      const da = `${typ}:${familie(z?.[feld])}`;
+      const bleibt = mit.find((t) => t.w.includes(da)) || mit[0];
+      const behalten = bleibt.w.find((w) => w.startsWith(`${typ}:`));
+      mit.forEach((t) => {
+        const alt = t.w.find((w) => w.startsWith(`${typ}:`));
+        if (alt === behalten) return;
+        const fam = alt.split(":")[1];
+        const ding = `ding:${magVon(t).ding}`;
+        const neu = typ === "farbe" ? `boden:${fam}` : ding;
+        t.w = t.w.map((w) => (w === alt ? (t.w.includes(neu) || !neu.split(":")[1] ? "" : neu) : w)).filter(Boolean);
+      });
+    }
+  }
+
   function sauberesStockwerk(roh, hausId, index, umrechnen = false) {
     const s = obj(roh);
     // Im Wohnhaus: Wohnung, zwei Zimmer oder Rohbau; sonst ein Zimmer – oder
@@ -352,6 +377,7 @@
       : [];
     const seeds = new Set();
     tiere.forEach((t) => { if (seeds.has(t.seed)) t.seed = kennung("t"); seeds.add(t.seed); });
+    if (tiere.length > 1) eineFarbeJeWohnung(tiere, zimmer[0]);
     const out = {
       id: text(s.id, 24, startId(hausId, index)),
       seit: Number(s.seit) || 0,
@@ -1047,7 +1073,10 @@
   // Die gelben Wünsche für die Wohnung: eines ist das, was das Tier besonders
   // mag (ein Ding oder die Wandfarbe – eine Buchfigur, was sie im Buch mag),
   // das andere passt zur Zimmerart. Was ein Mitbewohner schon wünscht, kommt
-  // nicht noch einmal.
+  // nicht noch einmal. Höchstens ein Tier je Wohnung wünscht sich eine
+  // Wandfarbe und höchstens eines eine Bodenfarbe: Zwei verschiedene liessen
+  // sich nie zugleich erfüllen. Wer danach kommt, wünscht sich seine Farbe
+  // für den Boden – oder sein Lieblingsding.
   function gelbeWuensche(tier, raumId, mitbewohner = []) {
     const katalog = K();
     const raum = katalog.RAEUME[raumId];
@@ -1057,8 +1086,11 @@
     const mag = magVon(tier);
     const ding = `ding:${mag.ding}`;
     const farbe = `farbe:${mag.farbe}`;
+    const boden = `boden:${mag.farbe}`;
+    const vergeben = (typ) => [...schon].some((w) => w.startsWith(`${typ}:`));
     let lieblings = rnd() < 0.5 ? ding : farbe;
-    if (schon.has(lieblings)) lieblings = lieblings === ding ? farbe : ding;
+    if (lieblings === farbe && vergeben("farbe")) lieblings = vergeben("boden") ? ding : boden;
+    if (schon.has(lieblings) && lieblings === ding) lieblings = !vergeben("farbe") ? farbe : !vergeben("boden") ? boden : ding;
     const gelb = [lieblings];
     const kandidaten = mische(raum.wuensche || [], rnd).map((t) => `ding:${t}`).filter((w) => w !== lieblings);
     gelb.push(kandidaten.find((w) => !schon.has(w)) || kandidaten[0]);
@@ -1136,6 +1168,7 @@
     const [typ, a, b] = String(wunsch).split(":");
     if (typ === "ding") return hatDing(z, a);
     if (typ === "farbe") return K()?.FARBE?.[z?.wand]?.familie === a;
+    if (typ === "boden") return K()?.FARBE?.[z?.bodenFarbe]?.familie === a;
     if (typ === "raum") return zimmerIn("wohnhaus", a);
     if (typ === "fremd") return zimmerIn(a, b);
     return false;
@@ -1152,6 +1185,10 @@
     if (typ === "farbe") {
       const fam = katalog.FAMILIEN[a] || { name: a, wort: a, zeige: a };
       return { typ, text: `Ich mag ${fam.name}. Malst du die Wand ${fam.wort} an?`, kurz: `Wand ${fam.wort}`, farbe: fam.zeige, familie: a };
+    }
+    if (typ === "boden") {
+      const fam = katalog.FAMILIEN[a] || { name: a, wort: a, zeige: a };
+      return { typ, text: `Ich mag ${fam.name}. Malst du den Boden ${fam.wort} an?`, kurz: `Boden ${fam.wort}`, farbe: fam.zeige, familie: a };
     }
     if (typ === "raum") {
       const raum = katalog.RAEUME[a];

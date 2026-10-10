@@ -863,7 +863,7 @@
     const sterne = stars === 1 ? "einen Stern" : `${stars} Sterne`;
     const zuege = run.zuege === state.level.zuege
       ? "Das war der kürzeste Weg."
-      : `Du hast ${run.zuege} Züge gebraucht, am kürzesten geht es in ${state.level.zuege}.`;
+      : `Du hast ${run.zuege} Züge gebraucht. Am kürzesten geht es in ${state.level.zuege} Zügen.`;
     return `Die Lok ist draussen. Du hast ${sterne}. ${zuege} ${levelsText(fertig)}`;
   }
 

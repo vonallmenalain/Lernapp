@@ -42,7 +42,8 @@ const lies = (name) => fs.readFileSync(path.join(WURZEL, name), "utf8");
 // der Sekunde; ein einzelnes Wort darf etwas länger sein. Beim Vertonen
 // (stimme-google.mjs) und in der Prüfung (validate-bau.mjs).
 export function passtZumText(sekunden, text) {
-  if (!(sekunden >= 0.25)) return false;
+  // Eine Silbe («Ha», «he») darf kürzer sein als ein Satz.
+  if (!(sekunden >= (text.length <= 3 ? 0.15 : 0.25))) return false;
   if (sekunden > Math.max(1.6, text.length * 0.2)) return false;
   return text.length < 15 || sekunden >= text.length * 0.025;
 }
@@ -148,6 +149,7 @@ export function bauTexte() {
     "Noch ein Wunsch – unten steht, welche.", ...[2, 3, 4, 5].map((n) => `Noch ${n} Wünsche – unten steht, welche.`),
     "Wohnung.", "Zwei Zimmer.", "Hauswand", "Dach", "Juhu, danke!", "Schau dir ihre Wohnung im Wohnhaus an!",
     "Ein Stern fehlt noch.", "Mehr gibt es gerade nicht.",
+    "Alle vier Häuser.", "Tippe auf ein Haus, dann bist du dort.",
   ].forEach((s) => dazu(s, "kern", "train-bau.js"));
 
   // Die Häuser (hilfeHaus, Hauswahl, Reiter)
@@ -215,6 +217,7 @@ export function bauTexte() {
     dazu(`Juhu, ${info.ein}!`, "kern", "Dank");
   });
   Object.values(K.FAMILIEN).forEach((fam) => dazu(`Ich mag ${fam.name}. Malst du die Wand ${fam.wort} an?`, "kern", "Wunsch"));
+  Object.values(K.FAMILIEN).forEach((fam) => dazu(`Ich mag ${fam.name}. Malst du den Boden ${fam.wort} an?`, "kern", "Wunsch"));
   K.HAUS_WUENSCHE.wohnhaus.forEach((id) => dazu(`${gross(K.HAUS.wohnhaus.im)} wünsche ich mir ${K.RAEUME[id]?.ein || id}.`, "kern", "Wunsch"));
   [...K.FREMD_WUENSCHE.wohnhaus, ...K.FIGUREN.filter((f) => f.wunsch).map((f) => f.wunsch)]
     .forEach((w) => dazu(`${gross(K.HAUS[w.haus].im)} wünsche ich mir ${K.RAEUME[w.raum]?.ein || w.raum}. ${w.warum}`, "kern", "Wunsch"));
@@ -294,6 +297,8 @@ export function bauTexte() {
       // je Satz, wo mehrere wohnen oder arbeiten (train-bau.js, zimmerSatz).
       `${n}:`, `${n} wohnt auch hier.`, `${n} hat hier auch den Traumjob!`, `${n} hat es sich auch gewünscht.`,
       `In der Wohnung von ${n} haben jetzt alle drei ihren Traumjob.`,
+      // Die Karten der Zimmerwahl (werSatz).
+      `${n} hätte hier den Traumjob!`, `${n} wünscht sich dieses Zimmer.`,
     ].forEach((s) => dazu(s, "namen", "Tiername"));
   });
 

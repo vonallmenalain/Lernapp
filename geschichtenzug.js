@@ -214,7 +214,7 @@
       knopf.addEventListener("click", () => kuppeln(w, knopf));
       el.neben.append(knopf);
     });
-    if (stufe() === "leicht") ton.sprich(`${buch.titel}. Was kommt zuerst?`, { rate: 0.9 });
+    if (stufe() === "leicht") ton.sprich(`${buch.titel}${/[.!?…]$/.test(buch.titel) ? "" : "."} Was kommt zuerst?`, { rate: 0.9 });
   }
 
   async function kuppeln(w, knopf) {

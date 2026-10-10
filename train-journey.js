@@ -1159,10 +1159,10 @@
       if (task.choice) {
         text += `Wahlstation: ${task.choice.map((c) => c.title).join(" oder ")}. Tippe eines an.`;
       } else {
-        text += `Als Nächstes: ${task.title}. ${task.speech} Tippe auf den grünen Kreis mit der ${i + 1}.`;
+        text += `Als Nächstes: ${reise.satz(task.title)} ${task.speech} Tippe auf die ${i + 1} im grünen Kreis.`;
         if (!task.viaAlt && reise.triesFor(erste) >= reise.TRIES_FOR_ALT) {
           const alt = reise.altTaskFor(erste);
-          if (alt) text += ` Oder nimm das Ausweichgleis: ${alt.title}.`;
+          if (alt) text += ` Oder nimm das Ausweichgleis: ${reise.satz(alt.title)}`;
         }
       }
       // Es stehen immer zwei Stationen offen: wer mit der einen nicht
@@ -1173,7 +1173,7 @@
         const j = zweite - nrOf(0) + 1;
         text += auch?.choice
           ? ` Du kannst sie auch überspringen und Station ${j} spielen: ${auch.choice.map((c) => c.title).join(" oder ")}.`
-          : ` Du kannst sie auch überspringen und Station ${j} spielen: ${auch?.title || ""}. ${auch?.speech || ""}`;
+          : ` Du kannst sie auch überspringen und Station ${j} spielen: ${reise.satz(auch?.title)} ${auch?.speech || ""}`;
       }
       const left = reise.STATIONS_PER_MAP - i;
       text += ` Am Ziel wartet: ${map.reward.label}${left > 1 ? `, noch ${left} Stationen` : ", die nächste Station"}.`;
@@ -1646,7 +1646,10 @@
       overlay.append(...rows, foot, closeButton);
       overlay.addEventListener("click", (event) => { if (event.target === overlay) close(); });
       stage.append(overlay);
-      const release = kids()?.pushHelp?.(`Der Fahrplan${lap2Open ? ": Reise 1 und Reise 2" : ": sechs Karten"}. ${said.join(" ")} ${stand.textContent}. Tippe auf eine fertige Karte, um sie noch einmal zu fahren.`) || null;
+      // Gesagt wird der Stand in Sätzen mit je einer Zahl – so liegt jeder
+      // als Aufnahme bereit (app-stimme.js).
+      const standSatz = `${lapNow.nr === 2 ? "Reise 2: " : ""}${doneLap} von ${lapNow.total} Stationen gestempelt. ${goldLap === 1 ? "Ein Stempel ist golden." : `${goldLap} Stempel sind golden.`}`;
+      const release = kids()?.pushHelp?.(`Der Fahrplan${lap2Open ? ": Reise 1 und Reise 2" : ": sechs Karten"}. ${said.join(" ")} ${standSatz} Tippe auf eine fertige Karte, um sie noch einmal zu fahren.`) || null;
       function close() {
         release?.();
         overlay.remove();

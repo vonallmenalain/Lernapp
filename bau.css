@@ -109,6 +109,31 @@ body[data-page="train"] .train-stage[data-view="bau"] ~ .help-voice {
     radial-gradient(1.5px 1.5px at 6% 38%, #fff 50%, transparent 51%);
 }
 
+/* Strasse, Gleis und Wiese über die ganze Breite, hinter dem Haus: keine
+   eigene Ebene (kein 3D-Transform, kein will-change), damit nur gemalt wird,
+   was zu sehen ist. train-bau.js (zeigeWelt) verschiebt ihn mit dem Haus. */
+.bau-gelaende {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  transform-origin: 0 0;
+}
+.bau-gelaende-band {
+  position: absolute;
+  left: -20000px;
+  width: 40000px;
+  height: 20000px;
+  touch-action: none;
+}
+
+/* Alle vier Häuser auf einen Blick: ein Bild so gross wie der Bildschirm. */
+.bau-dorf { position: absolute; inset: 0; }
+.bau-dorf[hidden] { display: none; }
+.bau-dorf svg { display: block; }
+.bau-dorf-haus { cursor: pointer; }
+
 /* Die Welt mit dem Haus: eine Ebene, die als Ganzes verschoben wird. */
 .bau-welt {
   position: absolute;
@@ -120,6 +145,9 @@ body[data-page="train"] .train-stage[data-view="bau"] ~ .help-voice {
 }
 .bau-welt svg { display: block; overflow: visible; }
 .bau-raum, .bau-tier, .bau-tafelknopf, .bau-naechster, .bau-schild, .bau-ordnenpfeil { cursor: pointer; }
+/* Unsichtbar, aber antippbar (train-bau.js, setzeTier): fill transparent zählt
+   als gemalt. */
+.bau-tier-treffer { fill: transparent; }
 .bau-naechster .bau-plus circle { fill: #9aa5b1; }
 .bau-naechster.is-bereit .bau-plus circle { fill: #3fbf74; }
 .bau-naechster.is-bereit > rect { stroke: #3fbf74; opacity: 0.6; }
@@ -1112,11 +1140,34 @@ body[data-page="train"] .train-stage[data-view="bau"] ~ .help-voice {
   line-height: 1.15;
   text-align: center;
 }
+/* Hier hätte ein Tier den Traumjob (golden) oder es wünscht es sich (in der
+   Farbe des Sterns). Die Wahl selbst bleibt grün. */
+.bau-wahl-feld.hat-traum { border-color: #f5b400; background: #fffaeb; }
+.bau-wahl-feld.hat-wunsch.is-blau { border-color: #7fa9ee; background: #f4f8ff; }
+.bau-wahl-feld.hat-wunsch.is-gruen { border-color: #78c991; background: #f3fbf5; }
 .bau-wahl-feld.is-aktiv { border-color: #3fbf74; background: #f0fff4; box-shadow: 0 0 0 4px rgba(63, 191, 116, 0.25); }
 .bau-wahl-bild { width: 70px; height: 70px; }
 .is-hauswahl .bau-wahl-bild { width: 100%; height: 150px; }
 .is-hauswahl .bau-wahl-feld { font-size: 1.2rem; }
 .bau-schon { position: absolute; top: 4px; right: 8px; color: #2f9e5c; font-style: normal; font-weight: 800; }
+/* Oben links: Hier hätte ein Tier den Traumjob (golden) oder es wünscht sich
+   das Zimmer (Stern in der Farbe des Wunsches). */
+.bau-wahl-marken { position: absolute; top: 3px; left: 5px; display: flex; gap: 3px; pointer-events: none; }
+.bau-wahl-marke {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  padding: 1px 5px 1px 3px;
+  border-radius: 999px;
+  background: #fff8e1;
+  box-shadow: 0 1px 3px rgba(36, 48, 71, 0.18);
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: #8a5734;
+}
+.bau-wahl-marke.is-wunsch { background: #eef6ff; color: #2b6cb0; }
+.bau-wahl-marke .bau-traumzeichen-klein svg { width: 22px; height: 20px; }
+.bau-wahl-marke .bau-stern { width: 18px; height: 18px; }
 .bau-wahl-text { min-height: 2.6em; margin: 10px 4px; color: #2d3748; font-size: 1.05rem; font-weight: 600; }
 .bau-wahl-unten { display: flex; justify-content: space-between; gap: 10px; }
 /* Viele Zimmer (Handy): Die Knöpfe bleiben unten sichtbar, die Karten rollen. */

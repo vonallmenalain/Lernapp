@@ -156,9 +156,17 @@
   async function pruefe() {
     state.phase = "lesen";
     const gelegt = state.felder.map((stein) => stein.text).join("");
-    // Was daliegt, wird vorgelesen – so, wie es dasteht.
+    // Was daliegt, wird vorgelesen – so, wie es dasteht. Lässt es sich nicht
+    // aussprechen («Mlaa»: dafür gibt es keine Aufnahme, eine Stimme
+    // buchstabierte es), klingt es Laut für Laut.
     const vorlesen = gelegt.charAt(0).toUpperCase() + gelegt.slice(1).toLowerCase();
-    await ton.sprich(vorlesen, { rate: 0.8 });
+    if (gelegt === state.wort.wort || kids()?.hatAufnahme?.(vorlesen)) await ton.sprich(vorlesen, { rate: 0.8 });
+    else {
+      for (const stein of state.felder) {
+        if (!(await ton.laut(inhalte.lautId(stein.text)))) ton.klopf(420);
+        await ton.pause(160);
+      }
+    }
     if (gelegt === state.wort.wort) {
       if (state.fehler === 0) {
         state.punkte += 1;

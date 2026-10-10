@@ -250,11 +250,12 @@
     return name ? (s?.zeige?.(name) ?? name) : "";
   }
 
-  // Was der Lautsprecher zur Mission sagt.
-  function missionSatz(m, wurm, name) {
+  // Was der Lautsprecher zur Mission sagt. Gesagt wird «Dein Lesewurm», auch
+  // wenn er einen Namen hat: Den Namen, den das Kind ausgedacht hat, gibt es
+  // nicht als Aufnahme – nur er spräche mit der Stimme des Geräts.
+  function missionSatz(m, wurm) {
     if (!m) return "";
-    const wer = name || "Dein Lesewurm";
-    let satz = `${wer} hat eine Idee: ${m.sagt}! Tippe auf ihn, und es geht los.`;
+    let satz = `Dein Lesewurm hat eine Idee: ${m.sagt}! Tippe auf ihn, und es geht los.`;
     if (wurm?.braucht > 0) {
       const rest = Math.max(1, wurm.braucht - wurm.hat);
       satz += ` Noch ${rest} ${rest === 1 ? "Buchstabe" : "Buchstaben"} bis zur nächsten Überraschung.`;
@@ -386,7 +387,6 @@
     const meins = offen;
     const vorbei = () => offen !== meins || !meins.host.isConnected;
     const jetzt = s ? s.stand() : { woerter: 0, buecher: {} };
-    const name = wurmName(s, jetzt);
     const wurm = s?.wurmStand?.(jetzt) || null;
     const buchstaben = s?.buchstaben?.(jetzt) || 0;
     const m = mission();
@@ -438,21 +438,23 @@
     offen.laeuft = false;
 
     // Was der Lautsprecher sagt. Der Text gehört zur Ansicht: train-home.js
-    // räumt ihn beim Verlassen weg.
+    // räumt ihn beim Verlassen weg. Jedes Stück liegt als Aufnahme bereit
+    // (app-stimme.js): der Wurm heisst hier «Dein Lesewurm», und Neues kommt
+    // Satz für Satz.
     const teile = [];
     if (verwandelt) {
       kids()?.playJingle?.("unlock");
       const W = window.LernappLeseWurm;
-      teile.push(regalNeu ? W?.LEBEN?.[wurm.leben - 1]?.wechsel || "" : `Überraschung! ${W?.sagt?.(wurm.leben, wurm.stufe, name) || ""}`);
+      teile.push(regalNeu ? W?.LEBEN?.[wurm.leben - 1]?.wechsel || "" : `Überraschung! ${W?.sagt?.(wurm.leben, wurm.stufe) || ""}`);
     } else if (neues.length) {
       kids()?.playJingle?.("unlock");
     }
     if (!verwandelt && wurm && vorher && buchstaben > vorher.buchstaben && wurm.braucht > 0) {
       const dazu = buchstaben - vorher.buchstaben;
-      teile.push(`${dazu === 1 ? "Ein neuer Buchstabe" : `${dazu} neue Buchstaben`} für ${name || "deinen Lesewurm"}!`);
+      teile.push(`${dazu === 1 ? "Ein neuer Buchstabe" : `${dazu} neue Buchstaben`} für deinen Lesewurm!`);
     }
-    if (neues.length) teile.push(`Neu im Lesewagen: ${neues.length > 1 ? `${neues.slice(0, -1).join(", ")} und ${neues[neues.length - 1]}` : neues[0]}!`);
-    const satz = missionSatz(m, wurm, name);
+    if (neues.length) teile.push(`Neu im Lesewagen: ${neues.map((ding) => `${ding.charAt(0).toUpperCase()}${ding.slice(1)}!`).join(" ")}`);
+    const satz = missionSatz(m, wurm);
     // Steht die Auswahl offen, gehört der Lautsprecher ihr – ausser es gibt
     // etwas Neues zu sagen.
     if (teile.length) kids()?.setHelp?.(`${teile.join(" ")} ${satz} ${HILFE}`);

@@ -71,11 +71,22 @@
   }
 
   // Ein Stolperstein an einer Stelle zwischen dem ersten und dem letzten Wort.
-  function aufgabe(satz) {
+  // Je Satz gibt es VARIANTEN feste Fassungen, gewählt nach dem Satz selbst –
+  // so liegt jeder Satz, den der Lautsprecher mit dem Stein vorliest, als
+  // Aufnahme bereit (scripts/stimme-app/leseecke-b.mjs).
+  const VARIANTEN = 3;
+  function zahlVon(text) {
+    let h = 2166136261;
+    for (const z of text) h = Math.imul(h ^ z.codePointAt(0), 16777619) >>> 0;
+    return h;
+  }
+  function aufgabe(satz, variante = Math.floor(Math.random() * VARIANTEN)) {
     const woerter = satz.split(/\s+/);
     const drin = new Set(woerter.map((w) => w.replace(/[.,!?]/g, "").toLowerCase()));
-    const stein = spiel.mische(inhalte.STOLPERSTEINE).find((w) => !drin.has(w.toLowerCase()));
-    const stelle = 1 + Math.floor(Math.random() * (woerter.length - 1));
+    const steine = inhalte.STOLPERSTEINE.filter((w) => !drin.has(w.toLowerCase()));
+    const h = zahlVon(`${satz}|${variante}`);
+    const stein = steine[h % steine.length];
+    const stelle = 1 + (Math.floor(h / steine.length) % (woerter.length - 1));
     const mit = [...woerter.slice(0, stelle), stein, ...woerter.slice(stelle)];
     return { satz, stein, stelle, woerter: mit };
   }
@@ -128,7 +139,7 @@
     state.phase = "intro";
     delete host.dataset.zeit;
     shell.stopClock?.();
-    state.runde = spiel.ziehe(saetze(), RUNDE).map(aufgabe);
+    state.runde = spiel.ziehe(saetze(), RUNDE).map((satz) => aufgabe(satz));
     shell.setCount(0);
     shell.closeOverlay();
     kids()?.setHelp?.(stufe() === "schwer" ? `${HELP} ${HELP_VORLESEN} ${HELP_ZEIT}` : `${HELP} ${HELP_VORLESEN}`);
@@ -143,7 +154,7 @@
     state.zeit = zeit;
     if (zeit) {
       host.dataset.zeit = "1";
-      state.runde = spiel.mische(saetze()).map(aufgabe);
+      state.runde = spiel.mische(saetze()).map((satz) => aufgabe(satz));
       // Auf Zeit gibt es keinen Lautsprecher – die Hilfe verspricht keinen.
       kids()?.setHelp?.(`${HELP} ${HELP_ZEIT}`);
     }
@@ -230,7 +241,7 @@
         zeit: true,
         label: "Stolperwörter – auf Zeit",
         detail: `${state.punkte} Stolpersteine in ${spiel.ZEIT_MS / 1000} Sekunden gefunden${bisher ? ` · Bestwert bisher ${bisher}` : ""}`,
-        speech: `Die Zeit ist um. Du hast ${state.punkte} Stolpersteine gefunden.`,
+        speech: `Die Zeit ist um. Du hast ${state.punkte} ${state.punkte === 1 ? "Stolperstein" : "Stolpersteine"} gefunden.`,
       });
       return;
     }

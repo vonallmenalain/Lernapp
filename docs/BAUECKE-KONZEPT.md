@@ -16,8 +16,11 @@ Pepi, Miga Town, den einzelnen Toca-Apps und weiteren Bauspielen (Abschnitt 3)
 > **Tiere und Dinge halb so gross**; danach (Nachtrag 0L) **niedrigere Stockwerke**, der
 > **Blitzzug**, der **Glücksstern**, die **Sternenleiter** mit allen Sternen des Dorfs,
 > **Kronen** und ein **goldener Rahmen** für alle Sterne; zuletzt (Nachtrag 0M) das **ganze
-> Haus auf einem Bildschirm**, **Zoom mit zwei Fingern** und ein **flüssiger Lieferzug**.
-> **Was gilt, steht in den Abschnitten 0M, 0L, 0K und 0** (Etappe
+> Haus auf einem Bildschirm**, **Zoom mit zwei Fingern** und ein **flüssiger Lieferzug**;
+> dann (Nachtrag 0N) **alle vier Häuser auf einen Blick**, eine **längere Sternenleiter**
+> bis 200 Sterne, **Traumjobs und Wünsche in der Zimmerwahl**, **Tiere, die sich gut
+> antippen lassen**, und ein **ruhiges Bild** ohne Flackern.
+> **Was gilt, steht in den Abschnitten 0N, 0M, 0L, 0K und 0** (Etappe
 > 2) und, wo diese nichts anderes sagen, im Abschnitt 0E1 (Etappe 1); die Abschnitte 1, 2,
 > 5 und 6 beschreiben das ursprüngliche Konzept und sind dort, wo Abschnitt 0 etwas anderes
 > sagt, überholt. Die Recherche (Abschnitt 3) und Grafik und Bewegung (Abschnitt 7) gelten
@@ -32,6 +35,89 @@ Pepi, Miga Town, den einzelnen Toca-Apps und weiteren Bauspielen (Abschnitt 3)
 > Megapixel.
 
 ---
+
+## 0N. Alle vier Häuser, längere Sternenleiter, ruhiges Bild
+
+Nach der Rückmeldung vom 9. Oktober 2026: Das Bild flackerte manchmal oder zerfiel, bis die
+App neu startete; die Tiere im Haus brauchten oft mehrere Tipps; die 60 Sterne waren schnell
+geholt.
+
+### 0N.1 Ein ruhiges Bild: Strasse und Wiese ohne Riesenebene
+
+- **Die Ursache:** Seit 0M reichten Strasse, Gleis und Wiese im Haus-SVG 4000 Einheiten über
+  das Haus hinaus (damit ganz herausgezoomt kein Himmel neben dem Haus steht). In der
+  normalen Ansicht ist eine Einheit etwa ein Bildpunkt: Der Browser legte dafür eine eigene
+  Ebene von rund 9500 × 4200 Bildpunkten an – auf dem Tablet mit doppelter Auflösung 160
+  Megapixel. Beim Zoomen mit zwei Fingern oder im ganzen Haus musste er davon viel mehr
+  malen; ging der Grafikspeicher aus, warf er Kacheln weg – das Bild flackerte oder zerfiel,
+  bis zum Neustart.
+- **Jetzt** zeichnet das Haus-SVG keine Strasse mehr. Strasse, Gleis und Wiese sind ein
+  flaches Band hinter dem Haus (`.bau-gelaende`, CSS-Verläufe aus `bodenStil` in
+  bau-art.js), ohne eigene Ebene: Es malt nur, was zu sehen ist. `zeigeWelt` verschiebt und
+  zoomt Haus und Band immer zusammen; auf dem Band lässt sich ziehen und zoomen wie auf dem
+  Haus. Die grösste Ebene ist jetzt das Haus selbst (Tablet: 1352 × 2199).
+
+### 0N.2 Tiere antippen
+
+- Im Haus sind die Tiere klein (Tablet: etwa 25 × 50 Bildpunkte), und ein Tipp zwischen
+  Beine, Ohren und Schwanz öffnete das Zimmer dahinter (nur 74 % der Tipps auf ein Tier
+  trafen es). **Jedes Tier hat jetzt eine unsichtbare Tippfläche** (rund 60 × 77
+  Bildpunkte, `bau-tier-treffer`); decken sich zwei, gilt das Tier, dessen Mitte näher ist
+  (`zielBei`). Jetzt trifft jeder Tipp auf ein Tier dieses Tier.
+- **Ein Tipp darf wackeln:** erst ab 14 Bildpunkten ist es Ziehen (vorher 9).
+- **Kein verlorener Finger mehr:** Kam ein Loslassen nie an, hielt die Bauecke jeden
+  weiteren Tipp für den zweiten Finger eines Zooms – bis zum Neustart. Ein neuer erster
+  Finger räumt jetzt auf; ein verlorener Finger (`lostpointercapture`) zählt als losgelassen.
+
+### 0N.3 Alle vier Häuser auf einen Blick
+
+- **Der Knopf unten links hat drei Stufen:** das Haus gross → das ganze Haus → alle vier
+  Häuser → wieder gross. Zwei Finger zoomen weiter zwischen gross und ganzem Haus.
+- **Alle vier Häuser** stehen nebeneinander an der Strasse, jedes mit seinem Namen (das
+  gewählte grün umrandet), der Schmuck der Sternenleiter einmal in der Mitte. Ein eigenes
+  Bild, so gross wie der Bildschirm. Ein Tipp auf ein Haus führt hin (ganz im Bild), der
+  Umschalter oben ebenso. Lieferzug, Blitzzug, Glücksstern und Einzug warten, bis wieder ein
+  Haus zu sehen ist.
+
+### 0N.4 Die Zimmerwahl zeigt, was die Tiere froh macht
+
+- Hätte ein Tier in einem Zimmer seinen **Traumjob**, hat die Karte einen goldenen Rand und
+  oben links das goldene Zeichen (mit der Zahl, wenn es mehrere sind). **Wünscht** sich ein
+  Tier das Zimmer, ist der Rand blau oder grün wie sein Stern, oben links der Stern. Das
+  grüne Häkchen für Zimmer, die es schon gibt, bleibt.
+- Ein Tipp auf die Karte sagt es auch: «Fridolin hätte hier den Traumjob!», «Mia wünscht
+  sich dieses Zimmer.» – je Satz ein Name (docs/STIMME-GOOGLE.md).
+
+### 0N.5 Die Sternenleiter geht bis 200
+
+Mit mehr als vier Wohnungen (nach dem Kauf) gibt es mehr Sterne, bis 300 bei 60 Tieren.
+Nach den goldenen Dachsternen (60) kommen: 75 ein Riesenrad, 90 ein Ententeich, 105 bunte
+Drachen, 120 eine Windmühle, 140 ein Gemüsegarten, 160 ein Zeppelin, 180 ein Schloss auf
+dem Hügel, 200 ein Feuerwerk, das etwa alle drei Minuten über dem Haus steigt. Ohne Kauf
+bleiben die ersten acht Stufen erreichbar.
+
+### 0N.6 Höchstens ein Farbwunsch je Wohnung
+
+- Wünschten sich zwei Tiere einer Wohnung verschiedene Wandfarben, liessen sich nie alle Sterne
+  holen – ausser ein Tier zog aus. **Jetzt wünscht sich je Wohnung höchstens ein Tier eine
+  Wandfarbe und höchstens eines eine Bodenfarbe.** Wer danach einzieht und eine Farbe am
+  liebsten hat, wünscht sich sie für den Boden («Ich mag Grün. Malst du den Boden grün an?»),
+  und wo auch das schon vergeben ist, sein Lieblingsding (`gelbeWuensche` in bau-stand.js).
+- **Ältere Stände heilen beim Lesen** (`eineFarbeJeWohnung`): Den Wandwunsch behält das Tier,
+  dessen Farbe schon an der Wand ist, sonst das erste; die anderen wünschen sich ihre Farbe für
+  den Boden. Erfüllt ist ein Bodenwunsch, wenn die Bodenfarbe (Schublade «Boden») zur Familie
+  passt; «Zeig mir» öffnet dort die Farbe.
+
+### 0N.7 Dateien und Prüfungen
+
+| Datei | Was |
+| --- | --- |
+| `train-bau.js` | `zeigeWelt` und das Geländeband; Tippflächen und `zielBei`; die Dorfansicht (`dorfSvg`, `zeigeDorf`, `verlasseDorf`, `hausInhalt`); `werWillDas` in der Zimmerwahl; `pruefeFeuerwerk` |
+| `bau-art.js` | `bodenStil`; Riesenrad, Teich, Drachen, Windmühle, Garten, Zeppelin, Schloss, Feuerwerk (auch als Bild der Leiter) |
+| `bau-katalog.js` | `LEITER` mit sechzehn Stufen |
+| `bau-stand.js` | `gelbeWuensche` und `eineFarbeJeWohnung`: höchstens ein Wand- und ein Bodenfarbwunsch je Wohnung; Wunschart `boden:` |
+| `scripts/validate-bau.mjs` | sechzehn Stufen, die ersten acht ohne Kauf erreichbar; je Wohnung ein Farbwunsch, ältere Stände heilen |
+| `scripts/check-bau.mjs` | die Leiter mit sechzehn Stufen; keine Ebene grösser als zehn Bildschirme (gemessen über die Chrome-Ebenen); die dritte Stufe des Knopfs mit allen vier Häusern |
 
 ## 0M. Das ganze Haus, Zoom mit zwei Fingern, ein flüssiger Lieferzug
 

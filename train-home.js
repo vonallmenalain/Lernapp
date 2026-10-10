@@ -1649,9 +1649,12 @@
     const frisch = part === "whole" ? freshParts : freshParts.filter((entry) => entry.part === part);
     const teil = art.LOCO_PARTS.find((e) => e.id === part)?.label;
     if (frisch.length) {
+      // Je neues Teil ein Satz – so liegt jeder als Aufnahme bereit
+      // (app-stimme.js); dieselbe Belohnung nur einmal.
+      const neu = [...new Set(frisch.map((entry) => entry.label))].map((label) => `${label}.`).join(" ");
       kids()?.setHelp?.(part === "whole"
-        ? `Neu an deiner Lok: ${frisch.map((entry) => entry.label).join(" und ")}. Tippe auf den goldenen Stern, um es anzuschauen.`
-        : `${teil} ändern. Neu und golden umrandet: ${frisch.map((entry) => entry.label).join(" und ")}. Tippe darauf, um es an deine Lok zu bauen.`);
+        ? `Neu an deiner Lok: ${neu} Tippe auf den goldenen Stern, um es anzuschauen.`
+        : `${teil} ändern. Neu und golden umrandet: ${neu} Tippe darauf, um es an deine Lok zu bauen.`);
     } else {
       kids()?.setHelp?.(part === "whole"
         ? "Deine Lokomotive. Tippe auf einen Punkt, um ein Teil zu ändern."

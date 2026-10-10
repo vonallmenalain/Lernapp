@@ -58,7 +58,7 @@
     missingItem: { title: "Was fehlt?", area: "gedaechtnis", page: "wasfehlt.html", kind: "score", gut: 8, einheit: "Wagen", auftrag: (n) => `Kontrolliere ${n} Wagen richtig.` },
     // Konzentration
     flanker: { title: "Schwarm-Fokus", area: "konzentration", page: "schwarmfokus.html", kind: "score", gut: 30, einheit: "Punkte", auftrag: (n) => `Hol ${n} Punkte.` },
-    trackRouter: { title: "Weichen-Wirrwarr", area: "konzentration", page: "weichen.html", kind: "level", auftrag: (n) => `Schaff Level ${n}.` },
+    trackRouter: { title: "Weichen-Wirrwarr", area: "konzentration", page: "weichen.html", kind: "level", auftrag: (n) => `Schaff Level ${n}!` },
     fishPond: { title: "Fischteich", area: "konzentration", page: "fischteich.html", kind: "score", gut: 14, einheit: "Fische", auftrag: (n) => `Fang ${n} Fische.` },
     gridlock: { title: "Freie Fahrt", area: "konzentration", page: "freiefahrt.html", kind: "level", auftrag: (n) => `Räum Bahnhof ${n} frei.`, klein: (n) => `Räum den kleinen Bahnhof ${n} frei.` },
     goSignal: { title: "Halt am Signal", area: "konzentration", page: "signal.html", kind: "score", gut: 22, einheit: "Punkte", auftrag: (n) => `Hol ${n} Punkte.` },
@@ -69,16 +69,16 @@
     towerStack: { title: "Turmbau", area: "geschwindigkeit", page: "turmbau.html", kind: "score", gut: 14, einheit: "Blöcke", auftrag: (n) => `Bau ${n} Blöcke hoch.` },
     twinSpot: { title: "Doppelt gleich", area: "geschwindigkeit", page: "doppelt.html", kind: "score", gut: 20, einheit: "Paare", auftrag: (n) => `Finde ${n} Paare.` },
     // Problemlösen
-    spatialPuzzle: { title: "Raumdetektiv", area: "problemloesen", page: "raumdetektiv.html", kind: "catalog", auftrag: (w) => `Löse die Aufgaben der Welt ${w}.` },
-    arukone: { title: "Arukone", area: "problemloesen", page: "arukone.html", kind: "catalog", auftrag: (w) => `Löse Rätsel ${w}.` },
-    bimaru: { title: "Battleships", area: "problemloesen", page: "bimaru.html", kind: "catalog", auftrag: (w) => `Finde die Schiffe in Rätsel ${w}.` },
-    shikaku: { title: "Tiergehege", area: "problemloesen", page: "shikaku.html", kind: "catalog", auftrag: (w) => `Baue die Gehege in Rätsel ${w}.` },
-    craneStack: { title: "Fässer stapeln", area: "problemloesen", page: "faesser.html", kind: "level", auftrag: (n) => `Schaff Level ${n}.` },
+    spatialPuzzle: { title: "Raumdetektiv", area: "problemloesen", page: "raumdetektiv.html", kind: "catalog", auftrag: (w) => `Löse die Aufgaben der Welt ${w}!` },
+    arukone: { title: "Arukone", area: "problemloesen", page: "arukone.html", kind: "catalog", auftrag: (w) => `Löse Rätsel ${w}!` },
+    bimaru: { title: "Battleships", area: "problemloesen", page: "bimaru.html", kind: "catalog", auftrag: (w) => `Finde die Schiffe in Rätsel ${w}!` },
+    shikaku: { title: "Tiergehege", area: "problemloesen", page: "shikaku.html", kind: "catalog", auftrag: (w) => `Baue die Gehege in Rätsel ${w}!` },
+    craneStack: { title: "Fässer stapeln", area: "problemloesen", page: "faesser.html", kind: "level", auftrag: (n) => `Schaff Level ${n}!` },
     // Zahl und Buchstabe
-    letterPuzzle: { title: "Buchstabenjagd", area: "zahlbuchstabe", page: "buchstaben.html", kind: "catalog", auftrag: (w) => `Finde die Buchstaben in Level ${w}.` },
-    readingPuzzle: { title: "Wortdetektiv", area: "zahlbuchstabe", page: "wortdetektiv.html", kind: "catalog", auftrag: (w) => `Lies die Wörter in Level ${w}.` },
-    kakuro: { title: "Kakuro", area: "zahlbuchstabe", page: "kakuro.html", kind: "catalog", auftrag: (w) => `Löse Rätsel ${w}.` },
-    hidoku: { title: "Hidoku", area: "zahlbuchstabe", page: "hidoku.html", kind: "catalog", auftrag: (w) => `Finde die Zahlenkette in Rätsel ${w}.` },
+    letterPuzzle: { title: "Buchstabenjagd", area: "zahlbuchstabe", page: "buchstaben.html", kind: "catalog", auftrag: (w) => `Finde die Buchstaben in Level ${w}!` },
+    readingPuzzle: { title: "Wortdetektiv", area: "zahlbuchstabe", page: "wortdetektiv.html", kind: "catalog", auftrag: (w) => `Lies die Wörter in Level ${w}!` },
+    kakuro: { title: "Kakuro", area: "zahlbuchstabe", page: "kakuro.html", kind: "catalog", auftrag: (w) => `Löse Rätsel ${w}!` },
+    hidoku: { title: "Hidoku", area: "zahlbuchstabe", page: "hidoku.html", kind: "catalog", auftrag: (w) => `Finde die Zahlenkette in Rätsel ${w}!` },
     numberLine: { title: "Wo hält der Zug?", area: "zahlbuchstabe", page: "zahlengleis.html", kind: "score", gut: 42, einheit: "Punkte", auftrag: (n) => `Hol ${n} Punkte.` },
   };
 
@@ -994,11 +994,18 @@
     return task;
   }
 
+  // Ein Titel als Satz: mit Punkt – ausser er hat schon ein Satzzeichen
+  // («Was fehlt?»).
+  function satz(titel) {
+    const text = String(titel || "");
+    return /[.!?…]$/.test(text) ? text : `${text}.`;
+  }
+
   // Der Satz für den Lautsprecher, wenn ein Spiel mit Auftrag öffnet.
   function describe(task) {
     if (!task) return "";
-    if (task.bau) return `Ein Rätsel für die Bauecke: ${task.title}. ${task.speech}`;
-    return `Reise${(task.lap || lapOf(task.nr).nr) === 2 ? " 2" : ""}, Station ${task.nr}: ${task.title}. ${task.speech}`;
+    if (task.bau) return `Ein Rätsel für die Bauecke: ${satz(task.title)} ${task.speech}`;
+    return `Reise${(task.lap || lapOf(task.nr).nr) === 2 ? " 2" : ""}, Station ${task.nr}: ${satz(task.title)} ${task.speech}`;
   }
 
   // ---------------------------------------------------------------------------
@@ -1196,7 +1203,7 @@
     STUFEN, STUFE_DEFAULT, STUFE_INFO,
     stationAt, taskFor, altTaskFor, mapIndexOf, lapOf, openOn, isOpen, OPEN_AT_ONCE, lastGap, triesForPush,
     read, current, isDone, doneInfo, triesFor, markDone, recordTry, choose, useAlt, needsPush, pushThrough,
-    stufe, setStufe, stufeIn, plateStars,
+    stufe, setStufe, stufeIn, plateStars, satz,
     hasReward, lockFor, finishedMaps, mapFinished, goldenMaps, mapGolden, goldenStations, progressFor, merge,
     unlockedParts, newParts, markPartsSeen, PARTS_KEY,
     readSeen, writeSeen, urlFor, mapUrl, fromLocation, describe,

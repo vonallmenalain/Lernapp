@@ -372,8 +372,10 @@
     const dauer = ruhig ? 1 : Math.max(700, strich.laenge * 9);
     const anfang = performance.now();
     const schritt = (jetzt) => {
-      const anteil = Math.min(1, (jetzt - anfang) / dauer);
+      // Das erste Bild kann einen Hauch vor «anfang» liegen: nie unter null.
+      const anteil = Math.min(1, Math.max(0, (jetzt - anfang) / dauer));
       const p = strich.punkte[Math.round(anteil * (strich.punkte.length - 1))];
+      if (!p) { el.geist.setAttribute("opacity", "0"); state.zeigt = false; return; }
       el.geist.setAttribute("cx", String(p.x));
       el.geist.setAttribute("cy", String(p.y));
       el.geist.setAttribute("opacity", anteil < 1 ? "0.95" : "0");

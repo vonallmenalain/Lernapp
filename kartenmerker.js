@@ -156,12 +156,11 @@
   // Kind, das die Zahlen auf der Tafel nicht liest, soll hier alles hören –
   // die Punkte, die Karten, und wie weit es noch bis zum Wagen hat.
   function resultSpeech(points, runs) {
-    const many = (count, one, more) =>
-      count === 0 ? `keine ${one}` : count === 1 ? `eine ${one}` : `${count} ${more}`;
+    // Je Satz eine Zahl – so liegt jeder als Aufnahme bereit (app-stimme.js).
     const punkte = points === 1 ? "einen Punkt" : `${points} Punkte`;
-    const richtig = many(state.right, "Karte richtig", "Karten richtig");
-    const falsch = many(state.wrong, "falsche", "falsche");
-    return `Du hast ${punkte}. ${richtig}, ${falsch}. ${runsText(runs)}`;
+    const richtig = state.right === 0 ? "Keine Karte war richtig." : state.right === 1 ? "Eine Karte war richtig." : `${state.right} Karten waren richtig.`;
+    const falsch = state.wrong === 0 ? "Keine war falsch." : state.wrong === 1 ? "Eine war falsch." : `${state.wrong} waren falsch.`;
+    return `Du hast ${punkte}. ${richtig} ${falsch} ${runsText(runs)}`;
   }
 
   function beginRound() {

@@ -182,7 +182,12 @@
       const silbe = state.teile.filter((t) => t.silbe === teil.silbe && t.stelle <= teil.stelle).map((t) => t.text).join("");
       const istGanzesWort = ganzesWort && state.wort.silben.length === 1;
       if (istGanzesWort) ton.klopf(520);
-      else await ton.sprich(silbe.toLowerCase(), { rate: 0.75 });
+      else if (!/[aeiouäöüy]/i.test(silbe)) {
+        // Noch ohne Selbstlaut («br», «schn»): Das liest keine Stimme richtig
+        // vor, sie buchstabierte es. Dann klingt der neue Laut allein.
+        const gehoert = await ton.laut(inhalte.lautId(teil.text));
+        if (!gehoert) ton.klopf(420);
+      } else await ton.sprich(silbe.toLowerCase(), { rate: 0.75 });
     }
     if (ganzesWort) { await ton.pause(250); zeigeBilder(); return; }
     state.phase = "kuppeln";
