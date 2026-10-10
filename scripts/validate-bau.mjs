@@ -313,7 +313,12 @@ function erfuelleGelbe(S, hausId, index) {
     for (const w of S.wuensche(tier.seed).filter((x) => x.stern === "gelb" && !x.erfuellt)) {
       if (w.typ === "ding") S.aendereZimmer(hausId, index, 0, (z) => z.dinge.push({ k: `g${z.dinge.length}`, i: dingMit(st.zimmer[0].raum, w.tag), x: 100, y: 230, c: "", f: 0, s: 1 }));
       if (w.typ === "farbe") S.aendereZimmer(hausId, index, 0, (z) => { z.wand = K.FARBEN.find((f) => f.familie === w.familie).id; });
+      if (w.typ === "boden") S.aendereZimmer(hausId, index, 0, (z) => { z.bodenFarbe = K.FARBEN.find((f) => f.familie === w.familie).id; });
     }
+  }
+  // Alle zugleich: Zwei Farbwünsche für dieselbe Wand gibt es nicht mehr.
+  for (const tier of st.tiere) {
+    pruefe(S.wuensche(tier.seed).filter((x) => x.stern === "gelb").every((x) => x.erfuellt), `${tier.n}: in der Wohnung lassen sich nicht alle gelben Wünsche zugleich erfüllen`);
   }
 }
 
@@ -372,7 +377,7 @@ function erfuelleGelbe(S, hausId, index) {
   // Die Art der Wohnung ändern: alles bleibt, die Wünsche passen sich an.
   pruefe(S.waehleRaum("wohnhaus", 0, 0, "kinderzimmer") === true && S.stock("wohnhaus", 0).tiere.length === 3, "beim Wechsel zum Kinderzimmer ziehen die Tiere aus");
   for (const t of S.stock("wohnhaus", 0).tiere) {
-    pruefe(t.w.every((w) => w.startsWith("farbe:") || w === `ding:${S.magVon(t).ding}` || K.RAEUME.kinderzimmer.wuensche.includes(w.split(":")[1])), `${t.n}: Wünsche passen nicht zum Kinderzimmer`);
+    pruefe(t.w.every((w) => w.startsWith("farbe:") || w.startsWith("boden:") || w === `ding:${S.magVon(t).ding}` || K.RAEUME.kinderzimmer.wuensche.includes(w.split(":")[1])), `${t.n}: Wünsche passen nicht zum Kinderzimmer`);
   }
 }
 

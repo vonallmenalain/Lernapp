@@ -68,7 +68,7 @@ export default function texte(d) {
   const art = leseArt(d);
   // Jeder Text einmal, mit der ersten Stelle, die ihn sagt.
   const aus = new Map();
-  const sag = (text, wo) => { if (!aus.has(text)) aus.set(text, { text, wo }); };
+  const sag = (text, wo, optional = false) => { if (!aus.has(text)) aus.set(text, { text, wo, optional }); else if (!optional) aus.get(text).optional = false; };
   // «Du hast 3 von 8 …» für jede Punktzahl unter dem Ganzen (alles richtig
   // hat einen eigenen festen Satz).
   const ergebnis = (vonListe, satz, wo, ab = 0) => {
@@ -359,7 +359,8 @@ export default function texte(d) {
       sag(w.wort, zeile(d, f, "ton.sprich(state.wort.wort"));
       sag(vorlesen(steine(w).join("")), zeile(d, f, "await ton.sprich(vorlesen"));
       // Jede Anordnung der Steine («Sfoa»): bis 6 Steine gut 3800 kurze Wörter.
-      for (const gelegt of anordnungen(steine(w))) sag(vorlesen(gelegt), zeile(d, f, "await ton.sprich(vorlesen"));
+      // Optional: Was die Stimme nicht aussprechen kann, klingt Laut für Laut.
+      for (const gelegt of anordnungen(steine(w))) sag(vorlesen(gelegt), zeile(d, f, "await ton.sprich(vorlesen"), true);
     }
     ergebnis(rundeVon(RUNDE, ...laengen), (p, von) => `Du hast ${p} von ${von} Wörtern gleich richtig gelegt.`, zeile(d, f, "Wörtern gleich richtig gelegt.`"));
   }

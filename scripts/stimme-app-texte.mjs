@@ -25,6 +25,8 @@
  *
  * Eine Regel-Datei in scripts/stimme-app/ sieht so aus:
  *   export default function texte(d) { return ["…", { text: "…", wo: "x.js" }]; }
+ * { optional: true } heisst: Fehlt die Aufnahme, weiss sich der Code selbst
+ * zu helfen – etwa wenn die Stimme ein Stück nicht aussprechen kann.
  *   export const NICHT = [{ wo: "x.js:12", warum: "der Name, den das Kind tippt" }];
  * d: die Daten der App (d.inhalte, d.buecher, d.detektive, d.wurm,
  * d.stand, d.reise, d.train), d.quelle(datei) für den Quelltext und
@@ -120,11 +122,15 @@ export async function appTexte() {
   const d = appDaten();
   const liste = new Map();
   const RANG = { fest: 0, daten: 1, vorlagen: 2 };
-  const dazu = (text, teil, wo) => {
+  // optional: Der Code weiss sich ohne Aufnahme zu helfen («Wörter bauen»
+  // spielt dann die Laute) – gilt nur, wenn jede Stelle es so sagt.
+  const dazu = (text, teil, wo, optional = false) => {
     for (const satz of saetzeVon(sprechText(text))) {
       if (!satz || satz.includes(LUECKE)) continue;
       const alt = liste.get(satz);
-      if (!alt || RANG[teil] < RANG[alt.teil]) liste.set(satz, { text: satz, wo, teil });
+      const eintrag = !alt || RANG[teil] < RANG[alt.teil] ? { text: satz, wo, teil } : alt;
+      eintrag.optional = optional && (!alt || alt.optional === true);
+      liste.set(satz, eintrag);
     }
   };
   for (const datei of sprechDateien()) {
@@ -138,7 +144,7 @@ export async function appTexte() {
       const text = typeof eintrag === "string" ? eintrag : eintrag?.text;
       if (!text) continue;
       const teil = typeof eintrag === "object" && eintrag.teil in RANG ? eintrag.teil : "vorlagen";
-      dazu(text, teil, eintrag?.wo || datei);
+      dazu(text, teil, eintrag?.wo || datei, eintrag?.optional === true);
     }
   }
   return [...liste.values()];

@@ -47,7 +47,8 @@ Object.entries(dateien || {}).forEach(([text, datei]) => {
   aufnahmen += 1;
 });
 
-const ohne = texte.filter((t) => !dateien?.[t.text]);
+// Optionale Stücke (der Code weiss sich ohne Aufnahme zu helfen) dürfen fehlen.
+const ohne = texte.filter((t) => !dateien?.[t.text] && !t.optional);
 pruefe(!ohne.length, `${ohne.length} Sätze ohne Aufnahme, z. B. «${ohne.slice(0, 3).map((t) => t.text).join("», «")}» – node scripts/stimme-google.mjs vertonen --bereich app`);
 
 // Jede Seite mit kids.js lädt das Verzeichnis, nach lesen-stimme.js.

@@ -42,7 +42,8 @@ const lies = (name) => fs.readFileSync(path.join(WURZEL, name), "utf8");
 // der Sekunde; ein einzelnes Wort darf etwas länger sein. Beim Vertonen
 // (stimme-google.mjs) und in der Prüfung (validate-bau.mjs).
 export function passtZumText(sekunden, text) {
-  if (!(sekunden >= 0.25)) return false;
+  // Eine Silbe («Ha», «he») darf kürzer sein als ein Satz.
+  if (!(sekunden >= (text.length <= 3 ? 0.15 : 0.25))) return false;
   if (sekunden > Math.max(1.6, text.length * 0.2)) return false;
   return text.length < 15 || sekunden >= text.length * 0.025;
 }

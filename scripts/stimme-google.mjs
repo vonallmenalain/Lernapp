@@ -161,7 +161,18 @@ function stimmeName(kurz) {
   return /Chirp3-HD/.test(kurz) ? kurz : `de-DE-Chirp3-HD-${kurz}`;
 }
 
-const auszusprechen = (text) => Object.entries(AUSSPRACHE).reduce((t, [wort, so]) => t.replaceAll(wort, so), text);
+const auszusprechen = (text) => AUSSPRACHE_GANZ[text] || Object.entries(AUSSPRACHE).reduce((t, [wort, so]) => t.replaceAll(wort, so), text);
+
+// Ein ganzes, kurzes Stück, das die Stimme sonst stumm oder buchstabiert
+// sagt: so in der Anfrage (Text und Dateiname bleiben).
+const AUSSPRACHE_GANZ = {
+  "Pssst!": "Psst!",
+  ROOOAAAR: "Roooaaar!",
+};
+// Eine Silbe oder ein kurzes Wort ohne Satzzeichen («ge», «Ja») kommt von
+// Chirp manchmal stumm zurück. Ein zweiter Versuch fragt nach «Ge.» – gross
+// und mit Punkt klingt es gleich, nur vollständig.
+const kurzVariante = (text) => (text.length <= 5 && !/[.!?…]$/.test(text) ? `${text.charAt(0).toUpperCase()}${text.slice(1)}.` : null);
 
 // Ein Text als WAV (LINEAR16, 24 kHz) – erst danach wird daraus eine MP3,
 // so geht nichts zweimal durch einen Encoder.
@@ -311,7 +322,13 @@ async function vertonen() {
         const wav = await sprich(t.text, { stimme: gewuenscht, tempo });
         buche(t.text.length);
         const ziel = dateiFuer(t.text);
-        const sekunden = zuMp3(wav, path.join(WURZEL, ziel));
+        let sekunden = zuMp3(wav, path.join(WURZEL, ziel));
+        const variante = !AUSSPRACHE_GANZ[t.text] && kurzVariante(t.text);
+        if (!passtZumText(sekunden, t.text) && variante) {
+          const zweiter = await sprich(variante, { stimme: gewuenscht, tempo });
+          buche(variante.length);
+          sekunden = zuMp3(zweiter, path.join(WURZEL, ziel));
+        }
         if (!passtZumText(sekunden, t.text)) {
           fs.rmSync(path.join(WURZEL, ziel), { force: true });
           unpassend.push(`${sekunden.toFixed(2)} s für ${t.text.length} Zeichen: ${t.text}`);
