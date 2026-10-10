@@ -19,8 +19,9 @@ Pepi, Miga Town, den einzelnen Toca-Apps und weiteren Bauspielen (Abschnitt 3)
 > Haus auf einem Bildschirm**, **Zoom mit zwei Fingern** und ein **flüssiger Lieferzug**;
 > dann (Nachtrag 0N) **alle vier Häuser auf einen Blick**, eine **längere Sternenleiter**
 > bis 200 Sterne, **Traumjobs und Wünsche in der Zimmerwahl**, **Tiere, die sich gut
-> antippen lassen**, und ein **ruhiges Bild** ohne Flackern.
-> **Was gilt, steht in den Abschnitten 0N, 0M, 0L, 0K und 0** (Etappe
+> antippen lassen**, und ein **ruhiges Bild** ohne Flackern; zuletzt (Nachtrag 0O) **Häuser bis
+> vierzig Stockwerke** statt zwanzig.
+> **Was gilt, steht in den Abschnitten 0O, 0N, 0M, 0L, 0K und 0** (Etappe
 > 2) und, wo diese nichts anderes sagen, im Abschnitt 0E1 (Etappe 1); die Abschnitte 1, 2,
 > 5 und 6 beschreiben das ursprüngliche Konzept und sind dort, wo Abschnitt 0 etwas anderes
 > sagt, überholt. Die Recherche (Abschnitt 3) und Grafik und Bewegung (Abschnitt 7) gelten
@@ -35,6 +36,38 @@ Pepi, Miga Town, den einzelnen Toca-Apps und weiteren Bauspielen (Abschnitt 3)
 > Megapixel.
 
 ---
+
+## 0O. Häuser bis vierzig Stockwerke
+
+Nach der Rückmeldung vom 10. Oktober 2026: Im Dorf ging es nicht mehr weiter – bei zwanzig
+Stockwerken war jedes Haus fertig. Gewünscht war keine Grenze, sonst mindestens eine doppelt
+so hohe.
+
+- **Jetzt wächst jedes Haus bis zum vierzigsten Stockwerk** (`STOCK_MAX` in bau-stand.js).
+  Ohne Kauf bleibt es beim vierten (`STOCK_OHNE_KAUF`). Ist ein Haus oben, sagt das Plus wie
+  bisher «Dieses Haus ist fertig gebaut».
+- **Fassung 5:** Der Kasten zählt seine Fassung hoch (`FORMAT` 5, sonst gleich wie 4). Eine
+  ältere App kennt nur zwanzig Stockwerke und schnitte beim Aufräumen die oberen ab – so lässt
+  sie den Kasten stehen, bis sie sich erneuert hat.
+- **Warum nicht ganz ohne Grenze:** Die Bauecke liegt im Kontodokument neben allen Spielen,
+  und Firestore nimmt höchstens 1 MiB je Dokument. Wird es grösser, speichert die Cloud für
+  dieses Kind gar nichts mehr – auch die anderen Spiele nicht. Der schlimmste Stand (alle vier
+  Häuser vierzig Stockwerke hoch, jedes Zimmer voll, drei Tiere je Wohnung) ist knapp 700 KB
+  JSON, Firestore zählt gut 600 KB; es bleiben rund 400 KB für den Rest. Im Alltag sind es
+  wenige Kilobyte. Mehr als vierzig ginge nur, wenn die Bauecke ein eigenes Dokument bekäme
+  (neue Regeln in `firestore.rules`, Umzug der bestehenden Stände).
+- **Das ganze Haus auf einem Bildschirm** darf dafür kleiner werden (Massstab bis 0.02 statt
+  0.04): Auch vierzig Stockwerke voller KiddyDomes passen so auf ein Handy quer.
+- **Die grösste Ebene** ist in der nahen Ansicht das Haus selbst: Mit vierzig Stockwerken
+  (Tablet 1600 × 1000) rund 8 Bildschirme, mit lauter KiddyDomes rund 12 – weniger als ein
+  Drittel der Riesenebene aus 0N.1. Flackert ein sehr hohes Haus auf einem Tablet doch,
+  hilft nur, bloss die sichtbaren Stockwerke zu zeichnen.
+
+| Datei | Was |
+| --- | --- |
+| `bau-stand.js` | `STOCK_MAX` 40, `FORMAT` 5 |
+| `train-bau.js` | `messeWelt`: das ganze Haus bis Massstab 0.02 |
+| `scripts/validate-bau.mjs` | mit Kauf mindestens vierzig Stockwerke; ein Haus mit dreissig Stockwerken übersteht Aufräumen und Zusammenführen; Fassung 5; der volle Stand unter 750 KB; die Sternenleiter mit vierzig Wohnungen |
 
 ## 0N. Alle vier Häuser, längere Sternenleiter, ruhiges Bild
 
@@ -693,9 +726,9 @@ Kamin.
 - Der Kasten `lernapp.bau` (game-cloud.js): zuerst auf dem Gerät, angemeldet in der Cloud.
   Gespeichert wird gebündelt (nach gut einer Sekunde Ruhe und beim Verlassen), damit ein
   Sofa, das zehnmal hin- und hergeschoben wird, nicht zehnmal in die Cloud geht. Höchstens
-  20 Stockwerke je Haus und 40 Dinge je Zimmer: Selbst wenn alle vier Häuser bis oben voll
-  stehen, bleibt der Kasten bei gut 300 Kilobyte (validate-bau.mjs rechnet das nach) – im
-  Alltag sind es wenige Kilobyte.
+  40 Stockwerke je Haus (bis 0O: 20) und 40 Dinge je Zimmer: Selbst wenn alle vier Häuser
+  bis oben voll stehen, bleibt der Kasten unter 700 Kilobyte (validate-bau.mjs rechnet das
+  nach) – im Alltag sind es wenige Kilobyte.
 - **Zusammenführen** (zwei Geräte, oder ein Gast, der sich danach anmeldet): Jedes
   Stockwerk hat eine eigene Kennung, und jedes, das eine Seite kennt, bleibt – so geht nie
   ein eingerichtetes Zimmer verloren, auch wenn auf beiden Seiten im selben Stockwerk gebaut

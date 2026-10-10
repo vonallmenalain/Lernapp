@@ -38,7 +38,7 @@
  *                beide gelben erfüllt sind. Ein hinausgeschicktes Tier wird
  *                bald ersetzt, durch eine andere Art.
  *   Ziegel       Eine Palette je gelöstem Rätsel, ein Stockwerk je Palette;
- *                ohne Kauf bis zum vierten Stockwerk, mit Kauf bis zwanzig.
+ *                ohne Kauf bis zum vierten Stockwerk, mit Kauf bis vierzig.
  *   Konten       Je Konto ein eigener Stand, auf dem Gerät und in der Cloud.
  *                Abmelden und mit einem anderen Konto anmelden zeigt nichts
  *                vom vorigen; ein Gast-Stand geht nur in ein Konto über, das
@@ -325,7 +325,7 @@ function erfuelleGelbe(S, hausId, index) {
 {
   const { S } = standUmgebung();
   const leer = S.lesen();
-  pruefe(S.FORMAT === 4 && leer.v === 4, "der Kasten ist nicht Fassung 4");
+  pruefe(S.FORMAT === 5 && leer.v === 5, "der Kasten ist nicht Fassung 5");
   pruefe(Object.keys(leer.haeuser).join() === "wohnhaus,spital,zentrum,buero", "leerer Stand: nicht vier Häuser");
   const wh = leer.haeuser.wohnhaus.stock;
   pruefe(wh.length === 3 && wh.every((s) => s.art === "wohnung" && s.zimmer.length === 1 && !s.zimmer[0].raum && !s.tiere.length), "das Wohnhaus beginnt nicht mit drei leeren Wohnungen");
@@ -420,7 +420,7 @@ function erfuelleGelbe(S, hausId, index) {
   pruefe(S.verbaut() === 1 + gebaut, `Ziegel: ${S.verbaut()} verbaut statt ${1 + gebaut}`);
 }
 
-// Die Schranke: ohne Kauf bis zum vierten Stockwerk, mit Kauf bis zwanzig.
+// Die Schranke: ohne Kauf bis zum vierten Stockwerk, mit Kauf bis vierzig.
 {
   const { S } = standUmgebung({ paletten: 40, frei: false });
   while (S.kannBauen("spital").ok) S.baueStockwerk("spital");
@@ -430,9 +430,24 @@ function erfuelleGelbe(S, hausId, index) {
   pruefe(S.haus("spital").stock.every((x) => x.art === "eins" && x.zimmer.length === 1), "im Spital hat ein neues Stockwerk nicht ein Zimmer");
   pruefe(!S.waehleArt("spital", 1, "zwei"), "im Spital lässt sich ein Stockwerk für zwei Zimmer wählen");
   pruefe(S.waehleRaum("spital", 1, 1, "labor") === null && S.waehleRaum("spital", 1, 0, "labor") === true, "im Spital gibt es einen zweiten Platz im Stockwerk");
-  const mitKauf = standUmgebung({ paletten: 40, frei: true }).S;
+  const mitKauf = standUmgebung({ paletten: 99, frei: true }).S;
   while (mitKauf.kannBauen("buero").ok) mitKauf.baueStockwerk("buero");
+  pruefe(mitKauf.STOCK_MAX >= 40, `mit Kauf nur ${mitKauf.STOCK_MAX} Stockwerke – versprochen sind mindestens vierzig`);
   pruefe(mitKauf.haus("buero").stock.length === mitKauf.STOCK_MAX && mitKauf.kannBauen("buero").grund === "voll", "mit Kauf: das Haus wächst nicht bis zur Höchstzahl");
+}
+
+// Ein Haus mit mehr als zwanzig Stockwerken übersteht das Aufräumen und das
+// Zusammenführen – und ist Fassung 5: Eine App der Fassung 4 (höchstens
+// zwanzig) liesse es stehen, statt die oberen abzuschneiden.
+{
+  const { S } = standUmgebung({ paletten: 99, frei: true });
+  while (S.haus("zentrum").stock.length < 30 && S.kannBauen("zentrum").ok) S.baueStockwerk("zentrum");
+  S.waehleRaum("zentrum", S.haus("zentrum").stock.length - 1, 0, "bibliothek");
+  const stand = S.lesen();
+  const zentrum = (x) => x.haeuser.zentrum.stock;
+  pruefe(stand.v > 4 && zentrum(S.normalize(stand)).length === 30 && zentrum(S.merge(stand, S.normalize({ v: 4 }))).length === 30,
+    `ein Haus mit dreissig Stockwerken verliert beim Aufräumen oder Zusammenführen welche (Fassung ${stand.v})`);
+  pruefe(zentrum(S.normalize(stand))[29]?.zimmer[0].raum === "bibliothek", "im dreissigsten Stockwerk ist das Zimmer weg");
 }
 
 // Die Reihenfolge: Ein Stockwerk tauscht mit dem Nachbarn, und so bleibt es –
@@ -678,7 +693,9 @@ function erfuelleGelbe(S, hausId, index) {
 
 // Der schlimmste Spielstand: alle Häuser bis oben, jedes Zimmer voll, drei
 // Tiere je Wohnung, die längsten Kennungen. Er muss bequem in das
-// Kontodokument passen (1 MiB für alles).
+// Kontodokument passen (1 MiB für alles): Mit vierzig Stockwerken je Haus
+// sind es knapp 700 KB als JSON, Firestore zählt gut 600 KB – es bleiben
+// rund 400 KB für alle anderen Spiele.
 {
   const jetzt = morgen10();
   const { S } = standUmgebung({ paletten: 999, frei: true, jetzt });
@@ -703,7 +720,7 @@ function erfuelleGelbe(S, hausId, index) {
   pruefe(tiere >= 20, `der volle Stand hat nur ${tiere} Tiere`);
   const bytes = JSON.stringify(S.lesen()).length;
   if (process.env.GROESSE) console.log(`voller Stand: ${Math.round(bytes / 1000)} KB`);
-  pruefe(bytes < 400000, `der volle Spielstand ist ${Math.round(bytes / 1000)} KB gross – zu viel fürs Kontodokument`);
+  pruefe(bytes < 750000, `der volle Spielstand ist ${Math.round(bytes / 1000)} KB gross – zu viel fürs Kontodokument`);
 }
 
 // Zusammenführen: in beide Richtungen gleich, nichts geht verloren.
@@ -986,8 +1003,9 @@ function S_GEO_W() { return 560; }
 // bau-stand.js hoch – sonst löscht eine ältere App, die den neuen Kasten
 // sieht, was sie nicht kennt. Danach hier den neuen Fingerabdruck eintragen.
 {
-  // Fassung 4 hat dieselben Felder wie 3 – neu ist nur, wie hoch ein Zimmer ist.
-  const FINGERABDRUCK = { 2: "0de7a8d925917fa6", 3: "7159476bf27e3fdb", 4: "7159476bf27e3fdb" };
+  // Fassung 4 hat dieselben Felder wie 3 – neu ist nur, wie hoch ein Zimmer ist;
+  // Fassung 5 dieselben wie 4 – neu ist nur, wie hoch ein Haus wird.
+  const FINGERABDRUCK = { 2: "0de7a8d925917fa6", 3: "7159476bf27e3fdb", 4: "7159476bf27e3fdb", 5: "7159476bf27e3fdb" };
   const { S } = standUmgebung();
   S.waehleRaum("wohnhaus", 0, 0, "schlafzimmer");
   S.aendereZimmer("wohnhaus", 0, 0, (z) => z.dinge.push({ k: "x", i: "bett", x: 100, y: 230 }));
@@ -1123,9 +1141,9 @@ for (const stufe of ["leicht", "mittel", "schwer"]) {
   const stufen = K.LEITER;
   pruefe(stufen.length === 16 && stufen.at(-1).sterne === 200 && stufen.every((s, i) => s.id && s.name && s.text && (i === 0 || s.sterne > stufen[i - 1].sterne)), "die Stufen der Sternenleiter steigen nicht oder es fehlt ein Name");
   // Ohne Kauf (vier Wohnungen, je drei Tiere mit fünf Sternen) bis 60 – die
-  // ersten acht Stufen; mit Kauf (20 Stockwerke) bis 300, also alle.
+  // ersten acht Stufen; mit Kauf (40 Stockwerke) bis 600, also alle.
   pruefe(stufen.filter((s) => s.sterne <= 4 * 3 * 5).length === 8, "ohne Kauf sind nicht genau die ersten acht Stufen erreichbar");
-  pruefe(stufen[stufen.length - 1].sterne <= 20 * 3 * 5, "die letzte Stufe ist auch mit Kauf (20 Stockwerke, je drei Tiere mit fünf Sternen) nicht erreichbar");
+  pruefe(stufen[stufen.length - 1].sterne <= 40 * 3 * 5, "die letzte Stufe ist auch mit Kauf (40 Stockwerke, je drei Tiere mit fünf Sternen) nicht erreichbar");
   for (const id of ["riesenrad", "teich", "drachen", "windmuehle", "garten", "zeppelin", "schloss", "feuerwerk"]) pruefe(stufen.some((s) => s.id === id), `die Sternenleiter hat kein ${id}`);
   const jetzt = morgen10();
   const { S } = standUmgebung({ paletten: 3, frei: true, jetzt });
