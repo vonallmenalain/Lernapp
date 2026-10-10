@@ -137,7 +137,7 @@ async function rundgang(browser, seite) {
   await context.addInitScript(stimmeErsatz);
   if (listenVerzeichnis) await context.route("**/app-stimme.js*", (route) => route.fulfill({ contentType: "text/javascript; charset=utf-8", body: listenVerzeichnis }));
   const page = await context.newPage();
-  page.on("pageerror", (e) => fehler.push(`${seite}: ${e.message}`));
+  page.on("pageerror", (e) => fehler.push(`${seite}: ${e.message}${process.env.STAPEL ? ` @ ${(e.stack || "").split("\n").slice(1, 4).join(" / ")}` : ""}`));
   page.on("dialog", (d) => d.dismiss().catch(() => {}));
   const start = `${BASIS}/${seite}`;
   try {
