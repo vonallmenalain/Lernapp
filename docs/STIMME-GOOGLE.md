@@ -169,7 +169,10 @@ Gut zu wissen:
 
 Seit Oktober 2026 spricht nicht nur die Bauecke mit Sulafat, sondern die ganze
 App: die Hilfe jedes Spiels, Aufgaben, Wörter, Bücher, Ergebnisse, die Reise,
-der Lesewagen. Zwei Bereiche, ein Ordner:
+der Lesewagen. **Stand 10. Oktober 2026:** 18'920 Sätze der App und 9'154 der
+Bauecke als Aufnahme; im Oktober gut 730'000 der 1 Million Gratis-Zeichen
+verbraucht (`node scripts/stimme-google.mjs verbrauch`). Zwei Bereiche, ein
+Ordner:
 
 | Bereich | Sätze aus | Verzeichnis | geladen auf |
 | --- | --- | --- | --- |
@@ -211,6 +214,13 @@ anders:
   richtig vor – dort klingt der neue Laut aus seiner Aufnahme.
 - **Der Lesewurm** heisst beim Sprechen immer «Dein Lesewurm»; den Namen, den
   das Kind ihm gibt, zeigen Tafel und Lesewagen.
+- **Wörter bauen:** Legt das Kind Steine, die sich nicht aussprechen lassen
+  («Mlaa» – Chirp buchstabiert so etwas), klingen sie Laut für Laut aus Alains
+  Aufnahmen. In der Liste sind diese Stücke `optional`.
+- **Kurze Silben** («ge», «Ja») kommen von Chirp manchmal stumm zurück;
+  `vertonen` fragt dann ein zweites Mal nach «Ge.» (gleicher Klang). Was eine
+  Stimme gar nicht richtig sagt, bekommt in `AUSSPRACHE_GANZ` eine andere
+  Schreibweise nur für die Anfrage («Pssst!» → «Psst!»).
 
 Was die Gerätestimme behält (lässt sich nicht vorher aufnehmen): der Name des
 Kindes und der Name, den es seinem Lesewurm gibt, während es ihn in «Mein
