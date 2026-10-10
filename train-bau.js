@@ -2569,12 +2569,17 @@
     }
   }
 
-  // Das Bild zu einem Wunsch: das Ding, die Farbe oder das Zimmer.
+  // Das Bild zu einem Wunsch: das Ding, die Farbe (Wand: ein Pinselstrich,
+  // Boden: Dielen) oder das Zimmer.
   function wunschBild(w, groesse = 30) {
     if (w.typ === "ding") return dingBild(w.zeige, groesse);
-    if (w.typ === "farbe") {
+    if (w.typ === "farbe" || w.typ === "boden") {
       const hex = farbeHex(w.farbe);
-      return `<rect x="${-groesse / 2}" y="${-groesse / 2}" width="${groesse}" height="${groesse}" rx="6" fill="${hex}" stroke="#ffffff" stroke-width="2"/><path d="M${-groesse / 4} ${groesse / 6}l${groesse / 2} ${-groesse / 2}" stroke="#ffffff" stroke-width="3" stroke-linecap="round"/>`;
+      const h = groesse / 2;
+      const zeichen = w.typ === "boden"
+        ? `<path d="M${-h + 4} ${-h / 3}h${groesse - 8}M${-h + 4} ${h / 3}h${groesse - 8}" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round"/>`
+        : `<path d="M${-groesse / 4} ${groesse / 6}l${groesse / 2} ${-groesse / 2}" stroke="#ffffff" stroke-width="3" stroke-linecap="round"/>`;
+      return `<rect x="${-h}" y="${-h}" width="${groesse}" height="${groesse}" rx="6" fill="${hex}" stroke="#ffffff" stroke-width="2"/>${zeichen}`;
     }
     return dingBild(w.icon, groesse);
   }
@@ -3623,7 +3628,7 @@
         }
       }
       klang("correct");
-      const dank = w?.typ === "ding" ? `Juhu, ${K().DING_WUENSCHE[w.tag]?.ein || "danke"}! Danke!` : w?.typ === "farbe" ? "Juhu, meine Lieblingsfarbe! Danke!" : "Danke!";
+      const dank = w?.typ === "ding" ? `Juhu, ${K().DING_WUENSCHE[w.tag]?.ein || "danke"}! Danke!` : w?.typ === "farbe" || w?.typ === "boden" ? "Juhu, meine Lieblingsfarbe! Danke!" : "Danke!";
       sag(`${tier.n}: ${dank}`);
       // Waren das alle Sterne, feiert feiereAlleSterne() – gleich danach.
     });
@@ -3977,23 +3982,24 @@
     sag(`Soll ${tier.n} wirklich ausziehen? Dann kommt bald ein neues Tier.`);
   }
 
-  // "Zeig mir": zum Ding in der Schublade, zur Wandfarbe oder zum Haus, in
-  // dem das gewünschte Zimmer fehlt.
+  // "Zeig mir": zum Ding in der Schublade, zur Wand- oder Bodenfarbe oder
+  // zum Haus, in dem das gewünschte Zimmer fehlt.
   async function zeigeWunsch(seed, w) {
     const ref = S().findeTier(seed);
     if (!ref) return;
     schliesseTafel();
     sag(w.text);
-    if (w.typ === "ding" || w.typ === "farbe") {
+    if (w.typ === "ding" || w.typ === "farbe" || w.typ === "boden") {
       if (ui.haus !== ref.hausId) await zeigeHaus(ref.hausId, 1, { stockwerk: ref.index, ohneSprache: true });
       if (ui.zimmer !== ref.index || ui.slot !== 0) {
         if (ui.zimmer >= 0) await schliesseZimmer(true);
         await oeffneZimmer(ref.index, 0);
       }
-      if (w.typ === "farbe") {
-        ui.schublade = "wand";
+      if (w.typ === "farbe" || w.typ === "boden") {
+        ui.schublade = w.typ === "boden" ? "boden" : "wand";
         zeichneSchublade();
-        const knopfEl = els.schublade.querySelector(`.bau-farbe[aria-label="${K().FARBE[w.farbe]?.name}"]`);
+        const name = K().FARBE[w.farbe]?.name;
+        const knopfEl = els.schublade.querySelector(`.bau-farbe[aria-label="${w.typ === "boden" ? `Boden ${name}` : name}"]`);
         knopfEl?.scrollIntoView?.({ block: "nearest", inline: "center" });
         stupse(knopfEl);
         return;

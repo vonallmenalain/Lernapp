@@ -216,6 +216,7 @@ export function bauTexte() {
     dazu(`Juhu, ${info.ein}!`, "kern", "Dank");
   });
   Object.values(K.FAMILIEN).forEach((fam) => dazu(`Ich mag ${fam.name}. Malst du die Wand ${fam.wort} an?`, "kern", "Wunsch"));
+  Object.values(K.FAMILIEN).forEach((fam) => dazu(`Ich mag ${fam.name}. Malst du den Boden ${fam.wort} an?`, "kern", "Wunsch"));
   K.HAUS_WUENSCHE.wohnhaus.forEach((id) => dazu(`${gross(K.HAUS.wohnhaus.im)} wünsche ich mir ${K.RAEUME[id]?.ein || id}.`, "kern", "Wunsch"));
   [...K.FREMD_WUENSCHE.wohnhaus, ...K.FIGUREN.filter((f) => f.wunsch).map((f) => f.wunsch)]
     .forEach((w) => dazu(`${gross(K.HAUS[w.haus].im)} wünsche ich mir ${K.RAEUME[w.raum]?.ein || w.raum}. ${w.warum}`, "kern", "Wunsch"));

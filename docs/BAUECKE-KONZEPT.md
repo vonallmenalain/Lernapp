@@ -96,14 +96,27 @@ Drachen, 120 eine Windmühle, 140 ein Gemüsegarten, 160 ein Zeppelin, 180 ein S
 dem Hügel, 200 ein Feuerwerk, das etwa alle drei Minuten über dem Haus steigt. Ohne Kauf
 bleiben die ersten acht Stufen erreichbar.
 
-### 0N.6 Dateien und Prüfungen
+### 0N.6 Höchstens ein Farbwunsch je Wohnung
+
+- Wünschten sich zwei Tiere einer Wohnung verschiedene Wandfarben, liessen sich nie alle Sterne
+  holen – ausser ein Tier zog aus. **Jetzt wünscht sich je Wohnung höchstens ein Tier eine
+  Wandfarbe und höchstens eines eine Bodenfarbe.** Wer danach einzieht und eine Farbe am
+  liebsten hat, wünscht sich sie für den Boden («Ich mag Grün. Malst du den Boden grün an?»),
+  und wo auch das schon vergeben ist, sein Lieblingsding (`gelbeWuensche` in bau-stand.js).
+- **Ältere Stände heilen beim Lesen** (`eineFarbeJeWohnung`): Den Wandwunsch behält das Tier,
+  dessen Farbe schon an der Wand ist, sonst das erste; die anderen wünschen sich ihre Farbe für
+  den Boden. Erfüllt ist ein Bodenwunsch, wenn die Bodenfarbe (Schublade «Boden») zur Familie
+  passt; «Zeig mir» öffnet dort die Farbe.
+
+### 0N.7 Dateien und Prüfungen
 
 | Datei | Was |
 | --- | --- |
 | `train-bau.js` | `zeigeWelt` und das Geländeband; Tippflächen und `zielBei`; die Dorfansicht (`dorfSvg`, `zeigeDorf`, `verlasseDorf`, `hausInhalt`); `werWillDas` in der Zimmerwahl; `pruefeFeuerwerk` |
 | `bau-art.js` | `bodenStil`; Riesenrad, Teich, Drachen, Windmühle, Garten, Zeppelin, Schloss, Feuerwerk (auch als Bild der Leiter) |
 | `bau-katalog.js` | `LEITER` mit sechzehn Stufen |
-| `scripts/validate-bau.mjs` | sechzehn Stufen, die ersten acht ohne Kauf erreichbar |
+| `bau-stand.js` | `gelbeWuensche` und `eineFarbeJeWohnung`: höchstens ein Wand- und ein Bodenfarbwunsch je Wohnung; Wunschart `boden:` |
+| `scripts/validate-bau.mjs` | sechzehn Stufen, die ersten acht ohne Kauf erreichbar; je Wohnung ein Farbwunsch, ältere Stände heilen |
 | `scripts/check-bau.mjs` | die Leiter mit sechzehn Stufen; keine Ebene grösser als zehn Bildschirme (gemessen über die Chrome-Ebenen); die dritte Stufe des Knopfs mit allen vier Häusern |
 
 ## 0M. Das ganze Haus, Zoom mit zwei Fingern, ein flüssiger Lieferzug

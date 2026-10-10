@@ -560,7 +560,27 @@ function erfuelleGelbe(S, hausId, index) {
     if (!f) continue;
     if (f.wunsch) pruefe(t.b[0] === `fremd:${f.wunsch.haus}:${f.wunsch.raum}` && S.wuensche(t.seed).find((w) => w.id === t.b[0])?.text.includes(f.wunsch.warum), `${f.n}: der blaue Wunsch kommt nicht aus der Geschichte`);
     if (f.traum) pruefe(t.traum === f.traum, `${f.n}: der Traumjob kommt nicht aus der Geschichte`);
-    pruefe(t.w[0] === `ding:${f.mag.ding}` || t.w[0] === `farbe:${f.mag.farbe}`, `${f.n}: der gelbe Wunsch ist nicht, was sie im Buch mag`);
+    pruefe([`ding:${f.mag.ding}`, `farbe:${f.mag.farbe}`, `boden:${f.mag.farbe}`].includes(t.w[0]), `${f.n}: der gelbe Wunsch ist nicht, was sie im Buch mag`);
+  }
+  // Je Wohnung höchstens ein Wunsch nach einer Wandfarbe und einer nach
+  // einer Bodenfarbe – zwei verschiedene liessen sich nie zugleich erfüllen.
+  for (let i = 0; i < 3; i += 1) {
+    const w = S.stock("wohnhaus", i).tiere.flatMap((t) => t.w);
+    pruefe(w.filter((x) => x.startsWith("farbe:")).length <= 1 && w.filter((x) => x.startsWith("boden:")).length <= 1, `Wohnung ${i}: mehr als ein Farbwunsch für Wand oder Boden (${w.join(", ")})`);
+  }
+  // Ein älterer Stand mit zwei verschiedenen Wandfarben wird beim Lesen
+  // geheilt: Wessen Farbe schon an der Wand ist, behält den Wunsch, das
+  // andere Tier wünscht sich seine Farbe für den Boden.
+  {
+    const wand = K.FARBEN.find((f) => f.familie === "blau").id;
+    const geheilt = S.normalize({ v: S.FORMAT, haeuser: { wohnhaus: { stock: [{ art: "wohnung", zimmer: [{ raum: "schlafzimmer", wand }], tiere: [
+      { a: "fox", n: "Fino", seed: "h1", w: ["farbe:rot", "ding:ball"] },
+      { a: "cat", n: "Mimi", seed: "h2", w: ["farbe:blau", "ding:buch"] },
+      { a: "bear", n: "Bruno", seed: "h3", w: ["farbe:gruen", "ding:lampe"] },
+    ] }] } } }).haeuser.wohnhaus.stock[0].tiere;
+    const ww = geheilt.map((t) => t.w);
+    pruefe(ww[1][0] === "farbe:blau" && ww[0][0] === "boden:rot" && !ww.flat().some((x) => x === "farbe:rot" || x === "farbe:gruen"), `zwei Wandfarben in einer Wohnung werden nicht geheilt (${JSON.stringify(ww)})`);
+    pruefe(ww.flat().filter((x) => x.startsWith("boden:")).length === 1, `nach dem Heilen wünschen sich zwei Tiere eine Bodenfarbe (${JSON.stringify(ww)})`);
   }
   // Ein Leo, der schon früher eingezogen ist.
   const leo = S.normalize({ v: S.FORMAT, haeuser: { wohnhaus: { stock: [{ art: "wohnung", zimmer: [{ raum: "schlafzimmer" }], tiere: [{ a: "lion", n: "Leo", seed: "alt1" }] }] } } }).haeuser.wohnhaus.stock[0].tiere[0];
