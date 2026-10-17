@@ -9,12 +9,15 @@ Sätze als fertige Aufnahmen kommen, gesprochen von einer natürlichen Stimme vo
 Google Cloud Text-to-Speech (**Chirp 3 HD**). Eine Aufnahme spielt sofort, auch
 offline, sobald sie einmal geladen ist.
 
-- **Was:** rund 6'700 Sätze der Bauecke, zusammen gut 180'000 Zeichen
-  (`node scripts/stimme-google.mjs texte`).
+- **Was:** rund 16'400 Sätze der Bauecke, zusammen gut 450'000 Zeichen
+  (`node scripts/stimme-google.mjs texte`) – seit der grossen Erweiterung vom
+  Oktober 2026 (Stufen, Spital, Hotel, Menschen, Neustart, Album, Spiele, Wetter;
+  docs/BAUECKE-KONZEPT.md, 0P) gut doppelt so viele wie vorher.
 - **Kosten:** Chirp 3 HD ist bis **1 Million Zeichen im Monat gratis**, darüber
-  30 US$ je Million. Die ganze Bauecke braucht also weniger als ein Fünftel
-  des Gratis-Kontingents. Das Skript zählt mit und hört bei 900'000 Zeichen im
-  Monat von selbst auf.
+  30 US$ je Million. Das Skript zählt mit und hört bei 900'000 Zeichen im
+  Monat von selbst auf. **Ausnahme Oktober 2026:** Für die Erweiterung hat der
+  Auftraggeber bis 1,5 Millionen Zeichen erlaubt (höchstens etwa 15 US$ über dem
+  Gratis-Kontingent); `GRENZE_MONAT` in stimme-google.mjs gilt nur in diesem Monat so.
 - **Alles mit derselben Stimme:** Jeder Satz der Bauecke soll als Aufnahme
   kommen, nie zwischendurch mit der Stimme des Geräts. `scripts/check-bau-stimme.mjs`
   prüft das im Browser, `scripts/check-bau.mjs` ebenfalls.

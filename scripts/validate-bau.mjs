@@ -72,7 +72,7 @@ const fehler = [];
 function pruefe(bedingung, text) { if (!bedingung) fehler.push(text); }
 
 // Die Möbel der Zimmer, in der Reihenfolge, in der index.html sie lädt.
-const GRUPPEN = ["wohnen", "haus", "spital", "station", "laeden", "dienste", "freizeit", "buero", "arbeit", "dome"];
+const GRUPPEN = ["wohnen", "haus", "spital", "station", "laeden", "dienste", "freizeit", "buero", "arbeit", "dome", "hotel", "extra"];
 const MOEBEL = ["bau-moebel.js", ...GRUPPEN.map((g) => `bau-moebel-${g}.js`)];
 
 // Eine Umgebung wie im Browser, so weit die Dateien sie brauchen. jetzt: die
@@ -180,7 +180,8 @@ for (const [tag, wunsch] of Object.entries(K.DING_WUENSCHE)) {
 }
 
 // --- Häuser und Zimmer ----------------------------------------------------------
-pruefe(K.HAEUSER.map((h) => h.id).join() === "wohnhaus,spital,zentrum,buero", "die vier Häuser stimmen nicht");
+pruefe(K.HAEUSER.map((h) => h.id).join() === "wohnhaus,spital,zentrum,buero,hotel", "die fünf Häuser stimmen nicht");
+pruefe(K.HAUS.hotel?.name === "Hotel" && K.HAUS.hotel.raeume.filter((id) => K.RAEUME[id].gast).length >= 3, "das Hotel hat keine drei Gästezimmer");
 pruefe(K.HAUS.zentrum.name === "Dorf" && K.HAUS.buero.name === "Büro", `die Häuser heissen ${K.HAUS.zentrum.name} und ${K.HAUS.buero.name} statt Dorf und Büro`);
 pruefe(!("PLAUDERN" in K) && !/plaudern|bau-fragen/i.test(lies("train-bau.js")), "das Plaudern mit dem Tier ist noch da");
 pruefe(K.WOHNEN.join() === "schlafzimmer,kinderzimmer", "gewohnt wird nicht in Schlaf- und Kinderzimmern");
@@ -248,13 +249,27 @@ for (const w of K.FREMD_WUENSCHE.wohnhaus) {
 // Tiere
 pruefe(K.TIER_IDS.length >= 16, "weniger als 16 Tierarten");
 const alleNamen = new Set();
+const menschenNamen = new Set();
 for (const [id, tier] of Object.entries(K.TIERE)) {
-  pruefe(/^(der|die|das) /.test(tier.der) && tier.coat && tier.inner && tier.ear, `${id}: Name, Farben oder Ohren fehlen`);
+  pruefe(tier.namen.length >= 4, `${id}: zu wenig Namen`);
+  // Eindeutig je Volk: Tiere und Menschen wohnen nie im selben Dorf.
+  const namen = tier.mensch ? menschenNamen : alleNamen;
+  for (const n of tier.namen) { pruefe(!namen.has(n), `Name ${n} doppelt`); namen.add(n); }
+  pruefe(/^(der|die|das) /.test(tier.der), `${id}: Artikel fehlt`);
+  // Menschen (seit Oktober 2026): Was sie mögen, wählt bau-stand.js aus
+  // magListe – alles muss in jeder Wohnung zu haben sein.
+  if (tier.mensch) {
+    pruefe(id.startsWith("m_") && ["kind", "gross", "alt"].includes(tier.alter), `${id}: Mensch ohne m_ oder Alter`);
+    pruefe(tier.magListe?.length >= 3 && tier.magListe.every((t) => K.DING_WUENSCHE[t] && [...K.lieblingeMenschen(), ...M.UEBERALL].some((d) => M.DINGE[d]?.tags.includes(t))), `${id}: was er mag, liegt in keiner Wohnung`);
+    continue;
+  }
+  if (!tier.selten) pruefe(tier.coat && tier.inner && tier.ear, `${id}: Farben oder Ohren fehlen`);
   pruefe(K.DING_WUENSCHE[tier.mag.ding] && K.FAMILIEN[tier.mag.farbe], `${id}: Lieblingsding oder -farbe unbekannt`);
   pruefe(K.LIEBLINGS.some((d) => M.DINGE[d]?.tags.includes(tier.mag.ding)), `${id}: das Lieblingsding liegt in keiner Wohnung`);
-  pruefe(tier.namen.length >= 4, `${id}: zu wenig Namen`);
-  for (const n of tier.namen) { pruefe(!alleNamen.has(n), `Name ${n} doppelt`); alleNamen.add(n); }
+  // Seltene Tiere: das Album sagt, was sie anlockt.
+  if (tier.selten) pruefe(K.SELTEN_IDS.includes(id) && /[.!]$/.test(tier.lockt || ""), `${id}: seltenes Tier ohne Hinweis, was es anlockt`);
 }
+pruefe(K.SELTEN_IDS.length >= 5 && K.MENSCH_IDS.length === 6, `seltene Tiere ${K.SELTEN_IDS.length}, Menschen ${K.MENSCH_IDS.length}`);
 for (const fam of Object.keys(K.FAMILIEN)) pruefe(K.FARBEN.some((f) => f.familie === fam), `Farbfamilie ${fam} ohne Farbe in der Palette`);
 
 // Die Figuren aus den Büchern der Leseecke: Art, Buch mit Umschlag, was sie
@@ -262,7 +277,7 @@ for (const fam of Object.keys(K.FAMILIEN)) pruefe(K.FARBEN.some((f) => f.familie
 {
   const buecherJs = lies("lesen-buecher.js");
   const ids = new Set();
-  const generisch = new Set(Object.values(K.TIERE).flatMap((t) => t.namen));
+  const generisch = new Set(Object.values(K.TIERE).filter((t) => !t.mensch).flatMap((t) => t.namen));
   pruefe(K.FIGUREN.length >= 12, `nur ${K.FIGUREN.length} Figuren aus den Büchern`);
   for (const f of K.FIGUREN) {
     pruefe(!ids.has(f.id) && /^[a-z]+$/.test(f.id), `Figur ${f.id}: Kennung doppelt oder ungültig`);
@@ -279,7 +294,7 @@ for (const fam of Object.keys(K.FAMILIEN)) pruefe(K.FARBEN.some((f) => f.familie
 }
 
 // Schweizer Rechtschreibung: kein ß in allem, was die Kinder hören oder sehen.
-for (const datei of [...MOEBEL, "bau-katalog.js", "bau-stand.js", "bau-tiere.js", "bau-art.js", "train-bau.js", "bau.css"]) {
+for (const datei of [...MOEBEL, "bau-katalog.js", "bau-stand.js", "bau-tiere.js", "bau-menschen.js", "bau-art.js", "bau-schmuck.js", "bau-leiter.js", "bau-wetter.js", "bau-spiele.js", "train-bau.js", "bau.css", "bau-wetter.css", "bau-spiele.css"]) {
   pruefe(!lies(datei).includes("ß"), `${datei}: enthält ein ß`);
 }
 
@@ -312,6 +327,11 @@ function erfuelleGelbe(S, hausId, index) {
   for (const tier of st.tiere) {
     for (const w of S.wuensche(tier.seed).filter((x) => x.stern === "gelb" && !x.erfuellt)) {
       if (w.typ === "ding") S.aendereZimmer(hausId, index, 0, (z) => z.dinge.push({ k: `g${z.dinge.length}`, i: dingMit(st.zimmer[0].raum, w.tag), x: 100, y: 230, c: "", f: 0, s: 1 }));
+      // Ein Ding in einer bestimmten Farbe (seit Oktober 2026): angemalt.
+      if (w.typ === "farbig") {
+        const id = [...K.dingeFuer(st.zimmer[0].raum), ...M.UEBERALL].find((x) => M.DINGE[x].tags.includes(w.tag) && M.DINGE[x].farbe);
+        S.aendereZimmer(hausId, index, 0, (z) => z.dinge.push({ k: `g${z.dinge.length}`, i: id, x: 100, y: 230, c: K.FARBEN.find((f) => f.familie === w.familie).id, f: 0, s: 1 }));
+      }
       if (w.typ === "farbe") S.aendereZimmer(hausId, index, 0, (z) => { z.wand = K.FARBEN.find((f) => f.familie === w.familie).id; });
       if (w.typ === "boden") S.aendereZimmer(hausId, index, 0, (z) => { z.bodenFarbe = K.FARBEN.find((f) => f.familie === w.familie).id; });
     }
@@ -325,11 +345,12 @@ function erfuelleGelbe(S, hausId, index) {
 {
   const { S } = standUmgebung();
   const leer = S.lesen();
-  pruefe(S.FORMAT === 5 && leer.v === 5, "der Kasten ist nicht Fassung 5");
-  pruefe(Object.keys(leer.haeuser).join() === "wohnhaus,spital,zentrum,buero", "leerer Stand: nicht vier Häuser");
+  pruefe(S.FORMAT === 6 && leer.v === 6, "der Kasten ist nicht Fassung 6");
+  pruefe(Object.keys(leer.haeuser).join() === "wohnhaus,spital,zentrum,buero,hotel", "leerer Stand: nicht fünf Häuser");
+  pruefe(leer.volk === "tiere" && leer.runde === 1 && Array.isArray(leer.ruhm) && !leer.ruhm.length && leer.album && leer.bonus === 0, "leerer Stand: Volk, Runde, Ruhmeshalle, Album oder Bonus fehlen");
   const wh = leer.haeuser.wohnhaus.stock;
   pruefe(wh.length === 3 && wh.every((s) => s.art === "wohnung" && s.zimmer.length === 1 && !s.zimmer[0].raum && !s.tiere.length), "das Wohnhaus beginnt nicht mit drei leeren Wohnungen");
-  for (const id of ["spital", "zentrum", "buero"]) {
+  for (const id of ["spital", "zentrum", "buero", "hotel"]) {
     const st = leer.haeuser[id].stock;
     pruefe(st.length === 1 && st[0].art === "eins" && st[0].zimmer.length === 1 && !st[0].zimmer[0].raum, `${id} beginnt nicht mit einem leeren Zimmer`);
   }
@@ -373,7 +394,8 @@ function erfuelleGelbe(S, hausId, index) {
   pruefe(!S.zuzugFaellig(jetzt.wert + 1e9), "in eine leere Wohnung (ohne Zimmerart) zieht jemand ein");
   const sterne = S.sterneStock("wohnhaus", 0);
   const zaehle = (farbe) => sterne.tiere.reduce((n, t) => n + t[farbe].length, 0);
-  pruefe(zaehle("gelb") === 6 && zaehle("gruen") === 3 && zaehle("blau") === 6 && sterne.total === 15, `drei Tiere: ${zaehle("gelb")} gelbe, ${zaehle("gruen")} grüne, ${zaehle("blau")} blaue Sterne`);
+  pruefe(zaehle("gelb") === 6 && zaehle("gruen") === 3 && zaehle("blau") === 6 && zaehle("gold") === 3 && sterne.total === 48 && sterne.tiere.every((t) => t.stufe === 1 && t.stufeTotal === 6),
+    `drei Tiere auf Bronze: ${zaehle("gelb")} gelbe, ${zaehle("gruen")} grüne, ${zaehle("blau")} blaue, ${zaehle("gold")} goldene Sterne, zusammen ${sterne.total}`);
   // Die Art der Wohnung ändern: alles bleibt, die Wünsche passen sich an.
   pruefe(S.waehleRaum("wohnhaus", 0, 0, "kinderzimmer") === true && S.stock("wohnhaus", 0).tiere.length === 3, "beim Wechsel zum Kinderzimmer ziehen die Tiere aus");
   for (const t of S.stock("wohnhaus", 0).tiere) {
@@ -382,9 +404,18 @@ function erfuelleGelbe(S, hausId, index) {
 }
 
 // Erfüllt ist, was im Haus steht – gelb in der Wohnung, grün im Wohnhaus,
-// blau in den anderen Häusern.
+// blau in den anderen Häusern. Ein Zimmer gibt erst Plätze, wenn passende
+// Dinge darin stehen (je verschiedenes Ding einen, höchstens zwölf); der
+// goldene Stern ist der Traumjob. Sind alle sechs Sterne von Bronze da,
+// kommt Silber – mit neuen, genaueren Wünschen.
+function stelleEigenes(S, hausId, index, slot, anzahl = 1) {
+  const z = S.zimmer(hausId, index, slot);
+  const ids = (M.RAUM_DINGE[z.raum] || []).slice(0, anzahl);
+  S.aendereZimmer(hausId, index, slot, (zz) => ids.forEach((id, n) => zz.dinge.push({ k: `p${zz.dinge.length}${n}`, i: id, x: 80 + n * 40, y: 230, c: "", f: 0, s: 1 })));
+}
 {
-  const { S } = standUmgebung({ paletten: 3, frei: true });
+  const jetzt = morgen10();
+  const { S } = standUmgebung({ paletten: 9, frei: true, jetzt });
   const tier = S.waehleRaum("wohnhaus", 0, 0, "schlafzimmer");
   erfuelleGelbe(S, "wohnhaus", 0);
   pruefe(S.sterne(tier.seed).gelb.every(Boolean), "alle gelben Wünsche erfüllt, aber nicht alle Sterne");
@@ -397,26 +428,49 @@ function erfuelleGelbe(S, hausId, index) {
   pruefe(S.waehleRaum("wohnhaus", i, 0, "schlafzimmer") === null, "auf einem Stockwerk für zwei lässt sich eine Wohnung wählen");
   pruefe(S.waehleRaum("wohnhaus", i, 1, gruen.raum) === true, `${gruen.raum} lässt sich nicht wählen`);
   pruefe(S.stock("wohnhaus", i).tiere.length === 0, "in ein Zimmer für zwei zieht ein Tier ein");
-  pruefe(S.sterne(tier.seed).gruen.every(Boolean), "der grüne Wunsch geht mit dem Zimmer nicht in Erfüllung");
+  pruefe(!S.sterne(tier.seed).gruen.every(Boolean) && S.platzZimmer("wohnhaus", i, 1)?.platz === 0, "ein leeres Zimmer erfüllt schon einen Wunsch");
+  stelleEigenes(S, "wohnhaus", i, 1, 2);
+  pruefe(S.platzZimmer("wohnhaus", i, 1)?.platz === 2 && S.platzZimmer("wohnhaus", i, 1)?.belegt === 1, `zwei passende Dinge geben nicht zwei Plätze (${JSON.stringify(S.platzZimmer("wohnhaus", i, 1))})`);
+  pruefe(S.sterne(tier.seed).gruen.every(Boolean), "der grüne Wunsch geht mit dem eingerichteten Zimmer nicht in Erfüllung");
   // Blau: die Zimmer in den anderen Häusern – im leeren Stockwerk vom Anfang,
-  // sonst in einem neuen.
+  // sonst in einem neuen; dazu der Traumjob.
   let gebaut = 0;
-  for (const w of S.wuensche(tier.seed).filter((x) => x.stern === "blau")) {
-    const frei = S.haus(w.haus).stock.findIndex((x) => x.art === "eins" && !x.zimmer[0]?.raum);
-    const j = frei >= 0 ? frei : S.baueStockwerk(w.haus);
+  const baue = (haus, raum) => {
+    const frei = S.haus(haus).stock.findIndex((x) => x.art === "eins" && !x.zimmer[0]?.raum);
+    const j = frei >= 0 ? frei : S.baueStockwerk(haus);
     if (frei < 0) gebaut += 1;
-    // Der KiddyDome braucht ein freies Stockwerk gleich darüber.
-    if (K.RAEUME[w.raum]?.doppel && !S.doppelPlatz(w.haus, j)) { S.baueStockwerk(w.haus, { ueber: j }); gebaut += 1; }
-    // waehleRaum gibt true (beim KiddyDome die beiden Stockwerke) oder null.
-    pruefe(S.stock(w.haus, j).art === "eins" && Boolean(S.waehleRaum(w.haus, j, 0, w.raum)), `${w.raum}: im ${w.haus} lässt sich kein Zimmer einrichten`);
-  }
-  const st = S.sterne(tier.seed);
-  pruefe(st.anzahl === 5 && st.total === 5, `alle Wünsche erfüllt, aber ${st.anzahl} von ${st.total} Sternen`);
-  pruefe(S.laune(tier.seed).stufe === 3, "alle Sterne, aber das Tier ist nicht überglücklich");
-  // Wegräumen nimmt den Stern wieder weg.
+    if (K.RAEUME[raum]?.doppel && !S.doppelPlatz(haus, j)) { S.baueStockwerk(haus, { ueber: j }); gebaut += 1; }
+    pruefe(S.stock(haus, j).art === "eins" && Boolean(S.waehleRaum(haus, j, 0, raum)), `${raum}: im ${haus} lässt sich kein Zimmer einrichten`);
+    stelleEigenes(S, haus, j, 0, 2);
+  };
+  for (const w of S.wuensche(tier.seed).filter((x) => x.stern === "blau")) baue(w.haus, w.raum);
+  let st = S.sterne(tier.seed);
+  // Der Traumjob kann schon da sein, wenn er in einem der blauen Zimmer liegt.
+  const schonTraum = S.hatTraumjob(tier.seed);
+  pruefe(st.stufeAnzahl === (schonTraum ? 6 : 5) && st.stufeTotal === 6 && st.total === 16 && st.gold.length === 1 && st.gold[0] === schonTraum, `alle Wünsche erfüllt, aber ${st.stufeAnzahl} von ${st.stufeTotal} Sternen`);
+  const [th, tr] = tier.traum.split(":");
+  if (!S.haus(th).stock.some((x) => x.zimmer.some((z) => z.raum === tr))) baue(th, tr);
+  st = S.sterne(tier.seed);
+  pruefe(S.hatTraumjob(tier.seed) && st.stufeAnzahl === 6 && st.anzahl === 6, `mit dem Traumjob nicht alle sechs Sterne von Bronze (${st.stufeAnzahl}/${st.stufeTotal})`);
+  // Wegräumen nimmt den Stern wieder weg – solange die Stufe nicht geschafft ist.
+  const wand = S.zimmer("wohnhaus", 0, 0).wand;
+  const dinge = JSON.parse(JSON.stringify(S.zimmer("wohnhaus", 0, 0).dinge));
   S.aendereZimmer("wohnhaus", 0, 0, (z) => { z.dinge = []; z.wand = "creme"; });
-  pruefe(S.sterne(tier.seed).anzahl < 5, "weggeräumt, aber der Stern bleibt");
+  pruefe(S.sterne(tier.seed).stufeAnzahl < 6, "weggeräumt, aber der Stern bleibt");
   pruefe(S.laune(tier.seed).text, "ohne Sterne keine Laune");
+  S.aendereZimmer("wohnhaus", 0, 0, (z) => { z.dinge = dinge; z.wand = wand; });
+  // Der nächste Takt: Bronze ist geschafft, es kommt Silber.
+  const e = S.tick(jetzt.wert);
+  const t2 = S.findeTier(tier.seed).tier;
+  pruefe(e.some((x) => x.typ === "stufe" && x.seed === tier.seed && x.stufe === 2 && !x.fertig) && t2.stufe === 2, "alle Sterne von Bronze, aber keine Stufe Silber");
+  st = S.sterne(tier.seed);
+  // Was schon da ist (ein Zimmer im Spital), zählt gleich: mindestens die 6 von Bronze.
+  pruefe(st.stufe === 2 && st.anzahl >= 6 && st.anzahl === 6 + st.stufeAnzahl && st.stufeTotal === 5 && st.lila.length === 1 && !st.gold.length, `Silber: ${st.stufeTotal} Sterne, ${st.lila.length} lila, schon ${st.anzahl} (statt 5, 1 und mindestens 6)`);
+  pruefe(t2.w.length === 2 && t2.w.every((w) => /^(ort|farbig|anzahl|zeit):/.test(w)), `Silber: die gelben Wünsche sind nicht genau (${t2.w.join(", ")})`);
+  pruefe(t2.b.length === 1 && t2.b[0].startsWith("fremd:spital:"), `Silber: der blaue Wunsch ist nicht im Spital (${t2.b.join()})`);
+  for (const w of S.wuensche(tier.seed)) pruefe(w.text && !/undefined|null/.test(w.text) && w.kurz, `Silber: Wunsch ${w.id} ohne Satz`);
+  pruefe(S.laune(tier.seed).stufe >= 1, "auf Silber ist das Tier nicht wenigstens zufrieden");
+  pruefe(!S.tick(jetzt.wert + 1000).some((x) => x.typ === "stufe"), "ohne erfüllte Wünsche kommt gleich die nächste Stufe");
   pruefe(S.verbaut() === 1 + gebaut, `Ziegel: ${S.verbaut()} verbaut statt ${1 + gebaut}`);
 }
 
@@ -471,22 +525,24 @@ function erfuelleGelbe(S, hausId, index) {
   pruefe(JSON.stringify(ab) === JSON.stringify(S.merge(vorher, S.lesen())), "Zusammenführen nach dem Umstellen ist nicht in beide Richtungen gleich");
 }
 
-// Die Zeit: neuer Wunsch frühestens am nächsten Tag, nur wenn beide gelben erfüllt sind.
+// Die Zeit: Wünsche wechseln nicht mehr am nächsten Tag (seit Oktober 2026
+// gibt es dafür die Stufen) – nur ein Wunsch nach einem Ding der Jahreszeit
+// geht mit der Jahreszeit, und einer nach einem Freund, der ausgezogen ist.
 {
   const jetzt = morgen10();
   const { S } = standUmgebung({ jetzt });
   const tier = S.waehleRaum("wohnhaus", 0, 0, "kinderzimmer");
-  const vorher = [...tier.w];
-  jetzt.wert += 26 * 3600 * 1000;
-  pruefe(!S.tick(jetzt.wert).some((e) => e.typ === "neuerWunsch"), "neuer Wunsch, obwohl die gelben nicht erfüllt sind");
+  const vorher = JSON.stringify([tier.w, tier.g, tier.b]);
   erfuelleGelbe(S, "wohnhaus", 0);
-  S.stock("wohnhaus", 0).tiere[0].wAt = jetzt.wert;
-  pruefe(!S.tick(jetzt.wert + 3600 * 1000).some((e) => e.typ === "neuerWunsch"), "neuer Wunsch noch am selben Tag");
-  const e = S.tick(jetzt.wert + 24 * 3600 * 1000);
-  const nachher = S.stock("wohnhaus", 0).tiere[0].w;
-  pruefe(e.some((x) => x.typ === "neuerWunsch" && x.seed === tier.seed), "am nächsten Tag mit beiden gelben Sternen kommt kein neuer Wunsch");
-  pruefe(nachher[0] === vorher[0] && nachher[1] !== vorher[1], "beim Wechsel fällt das Lieblingsding weg, oder der zweite Wunsch bleibt");
-  pruefe(K.RAEUME.kinderzimmer.wuensche.includes(nachher[1].split(":")[1]), "der neue Wunsch passt nicht ins Zimmer");
+  jetzt.wert += 3 * 24 * 3600 * 1000;
+  S.tick(jetzt.wert);
+  const t = S.findeTier(tier.seed).tier;
+  pruefe(JSON.stringify([t.w, t.g, t.b]) === vorher && t.stufe === 1, "nach drei Tagen haben sich die Wünsche von selbst geändert");
+  // Ein Wunsch der Jahreszeit, die vorbei ist, wird ersetzt.
+  S.aendereStock("wohnhaus", 0, (st) => { st.tiere[0].w = [st.tiere[0].w[0], "zeit:kuerbis:fruehling"]; });
+  S.tick(jetzt.wert + 1000);
+  const w = S.findeTier(tier.seed).tier.w;
+  pruefe(w.length === 2 && !w.includes("zeit:kuerbis:fruehling"), `ein Wunsch der falschen Jahreszeit bleibt (${w.join()})`);
   // Hinausschicken: bald kommt ein neues Tier, eine andere Art.
   const alt = tier.a;
   S.hinausschicken(tier.seed);
@@ -692,10 +748,11 @@ function erfuelleGelbe(S, hausId, index) {
 }
 
 // Der schlimmste Spielstand: alle Häuser bis oben, jedes Zimmer voll, drei
-// Tiere je Wohnung, die längsten Kennungen. Er muss bequem in das
-// Kontodokument passen (1 MiB für alles): Mit vierzig Stockwerken je Haus
-// sind es knapp 700 KB als JSON, Firestore zählt gut 600 KB – es bleiben
-// rund 400 KB für alle anderen Spiele.
+// Tiere je Wohnung, die längsten Kennungen. Er muss in das Kontodokument
+// passen (1 MiB für alles): Mit fünf Häusern zu je vierzig Stockwerken sind
+// es gut 860 KB als JSON, Firestore zählt rund 750 KB – es bleiben gut
+// 250 KB für alle anderen Spiele. (200 Stockwerke voller Dinge baut kaum
+// ein Kind; die Grenze ist für den schlimmsten denkbaren Fall.)
 {
   const jetzt = morgen10();
   const { S } = standUmgebung({ paletten: 999, frei: true, jetzt });
@@ -720,7 +777,7 @@ function erfuelleGelbe(S, hausId, index) {
   pruefe(tiere >= 20, `der volle Stand hat nur ${tiere} Tiere`);
   const bytes = JSON.stringify(S.lesen()).length;
   if (process.env.GROESSE) console.log(`voller Stand: ${Math.round(bytes / 1000)} KB`);
-  pruefe(bytes < 750000, `der volle Spielstand ist ${Math.round(bytes / 1000)} KB gross – zu viel fürs Kontodokument`);
+  pruefe(bytes < 900000, `der volle Spielstand ist ${Math.round(bytes / 1000)} KB gross – zu viel fürs Kontodokument`);
 }
 
 // Zusammenführen: in beide Richtungen gleich, nichts geht verloren.
@@ -1005,7 +1062,7 @@ function S_GEO_W() { return 560; }
 {
   // Fassung 4 hat dieselben Felder wie 3 – neu ist nur, wie hoch ein Zimmer ist;
   // Fassung 5 dieselben wie 4 – neu ist nur, wie hoch ein Haus wird.
-  const FINGERABDRUCK = { 2: "0de7a8d925917fa6", 3: "7159476bf27e3fdb", 4: "7159476bf27e3fdb", 5: "7159476bf27e3fdb" };
+  const FINGERABDRUCK = { 2: "0de7a8d925917fa6", 3: "7159476bf27e3fdb", 4: "7159476bf27e3fdb", 5: "7159476bf27e3fdb", 6: "4e20af7024e2dcdc" };
   const { S } = standUmgebung();
   S.waehleRaum("wohnhaus", 0, 0, "schlafzimmer");
   S.aendereZimmer("wohnhaus", 0, 0, (z) => z.dinge.push({ k: "x", i: "bett", x: 100, y: 230 }));
@@ -1025,6 +1082,213 @@ function S_GEO_W() { return 560; }
   ].sort();
   const abdruck = crypto.createHash("sha256").update([...felder, ...kennungen].join("|")).digest("hex").slice(0, 16);
   pruefe(FINGERABDRUCK[S.FORMAT] === abdruck, `Katalog oder Felder des Kastens haben sich geändert (Fingerabdruck ${abdruck}): FORMAT in bau-stand.js hochzählen und den Fingerabdruck in validate-bau.mjs eintragen`);
+}
+
+// --- Seit Oktober 2026: Spital, Hotel, Lage, Plätze, Neustart, Album --------
+// Ein Dorf mit drei Bewohnern, die schon eine Weile da sind.
+function dorfMitBewohnern(jetzt, { paletten = 30 } = {}) {
+  const umg = standUmgebung({ paletten, frei: true, jetzt });
+  const { S } = umg;
+  S.waehleRaum("wohnhaus", 0, 0, "schlafzimmer");
+  S.waehleRaum("wohnhaus", 1, 0, "kinderzimmer");
+  S.waehleRaum("wohnhaus", 2, 0, "schlafzimmer");
+  jetzt.wert += 20 * 60 * 1000;
+  return umg;
+}
+const raumBauen = (S, haus, raum, anzahl = 1) => {
+  let j = S.haus(haus).stock.findIndex((x) => x.art === "eins" && !x.zimmer[0]?.raum);
+  if (j < 0) j = S.baueStockwerk(haus);
+  S.waehleRaum(haus, j, 0, raum);
+  if (anzahl) stelleEigenes(S, haus, j, 0, anzahl);
+  return j;
+};
+
+// Das Spital: Babys (nur mit Geburtsabteilung), Wehwehchen (die richtige
+// Abteilung hilft), der Helikopter (landet beim Notfall). Jedes bringt dem
+// Dorf einen Stern.
+{
+  const jetzt = morgen10();
+  const { S } = dorfMitBewohnern(jetzt);
+  pruefe(S.babyFaellig(jetzt.wert) === null, "das erste Baby kommt schon beim ersten Blick");
+  jetzt.wert += 9 * 60 * 1000;
+  pruefe(S.babyFaellig(jetzt.wert)?.fehlt === "geburt", "ohne Geburtsabteilung kommt ein Baby, oder es fehlt der Hinweis");
+  raumBauen(S, "spital", "geburt", 1);
+  jetzt.wert += 41 * 60 * 1000;
+  const fall = S.babyFaellig(jetzt.wert);
+  pruefe(fall?.seed && fall.hausId === "wohnhaus", "mit Geburtsabteilung kommt kein Baby");
+  const leiterVorher = S.dorfSterne();
+  const baby = fall && S.bekommtBaby(fall.seed, jetzt.wert);
+  pruefe(baby && K.BABY_NAMEN.tiere.includes(baby.n) && S.findeTier(fall.seed).tier.baby, "das Baby ist nicht da oder hat keinen Babynamen");
+  pruefe(S.dorfSterne() === leiterVorher + 1 && S.lesen().album.babys === 1, "ein Baby bringt dem Dorf keinen Stern");
+  const bw = S.babyWuensche(fall.seed);
+  pruefe(bw.length === 3 && bw.every((w) => w.stern === "rosa" && w.text), "das Baby wünscht sich nicht drei Dinge (rosa)");
+  // Nach zwei Tagen ist es gross und wartet auf eine eigene Wohnung.
+  const e = S.tick(jetzt.wert + 2 * 24 * 3600 * 1000 + 1000);
+  pruefe(e.some((x) => x.typ === "gross" && x.n === baby.n) && !S.findeTier(fall.seed).tier.baby && S.lesen().warteliste.some((w) => w.n === baby.n), "das Baby wird nicht gross oder wartet nicht auf eine Wohnung");
+  // Wehwehchen
+  const t = S.alleTiere()[1].tier;
+  S.aendereStock("wohnhaus", 1, (st) => { st.tiere.find((x) => x.seed === t.seed).weh = { art: "gips", seit: jetzt.wert }; });
+  pruefe(S.heile(t.seed, "apotheke") === "falsch", "die falsche Abteilung hilft beim Gips");
+  pruefe(S.heile(t.seed, "radiologie") === "fehlt", "ohne Radiologie hilft die Radiologie");
+  raumBauen(S, "spital", "radiologie", 1);
+  const vorHeilung = S.dorfSterne();
+  pruefe(S.heile(t.seed, "radiologie") === "geheilt" && !S.findeTier(t.seed).tier.weh, "die Radiologie hilft nicht beim Gips");
+  pruefe(S.dorfSterne() === vorHeilung + 1 && S.lesen().album.geheilt === 1 && S.lesen().album.weh.includes("gips"), "Helfen bringt keinen Stern oder fehlt im Album");
+  for (const [art, w] of Object.entries(K.WEH)) pruefe(K.RAEUME[w.raum]?.haus === "spital" && w.ich && w.richtig && w.kurz, `Wehwehchen ${art}: Abteilung oder Sätze fehlen`);
+  // Ein Wehwehchen vergeht nach einem Tag von selbst.
+  S.aendereStock("wohnhaus", 2, (st) => { st.tiere[0].weh = { art: "schnupfen", seit: jetzt.wert }; });
+  S.tick(jetzt.wert + 25 * 3600 * 1000);
+  pruefe(!S.stock("wohnhaus", 2).tiere[0].weh, "ein Wehwehchen vergeht nicht von selbst");
+  // Der Helikopter
+  pruefe(S.heliVorbei(true, jetzt.wert).gerettet === false, "der Helikopter landet ohne Notfall");
+  raumBauen(S, "spital", "notfall", 1);
+  const vorHeli = S.dorfSterne();
+  pruefe(S.heliVorbei(true, jetzt.wert).gerettet === true && S.dorfSterne() === vorHeli + 1, "der Helikopter landet beim Notfall nicht, oder es gibt keinen Stern");
+}
+
+// Das Hotel: Ein Feriengast kommt nur mit Rezeption und einem Bett im
+// Gästezimmer, wünscht sich sechs Dinge und gibt beim Abreisen Sterne.
+{
+  const jetzt = morgen10();
+  const { S } = dorfMitBewohnern(jetzt);
+  const g = raumBauen(S, "hotel", "gaestezimmer", 0);
+  S.aendereZimmer("hotel", g, 0, (z) => z.dinge.push({ k: "bett1", i: "o_hotelbett", x: 200, y: 230, c: "", f: 0, s: 1 }));
+  pruefe(S.gastFaellig(jetzt.wert) === null, "der erste Gast kommt schon beim ersten Blick");
+  jetzt.wert += 3 * 60 * 1000;
+  pruefe(S.gastFaellig(jetzt.wert)?.fehlt === "rezeption", "ohne Rezeption kommt ein Gast, oder es fehlt der Hinweis");
+  raumBauen(S, "hotel", "rezeption", 2);
+  jetzt.wert += 13 * 60 * 1000;
+  const fall = S.gastFaellig(jetzt.wert);
+  pruefe(fall?.index === g, "mit Rezeption und Bett kommt kein Gast");
+  const gast = fall && S.gastKommt(fall.index, jetzt.wert);
+  pruefe(gast && gast.w.length === 6 && new Set(gast.w).size === 6, `der Gast hat nicht sechs verschiedene Wünsche (${gast?.w?.join(", ")})`);
+  const liste = S.gastWunschListe(g);
+  pruefe(liste.every((w) => w.text && !/undefined|null/.test(w.text)) && liste.some((w) => w.stern === "blau"), "die Wünsche des Gasts haben keinen Satz oder keinen blauen");
+  pruefe(S.findeGast(gast.seed)?.index === g, "der Gast ist nicht zu finden");
+  // Reist er ab, ohne dass etwas erfüllt ist: wenig Sterne, kein Stern fürs Dorf.
+  const vorher = S.dorfSterne();
+  const e = S.tick(jetzt.wert + 21 * 3600 * 1000);
+  const ab = e.find((x) => x.typ === "abreise");
+  pruefe(ab && ab.sterne >= 1 && ab.sterne < 5 && !S.stock("hotel", g).gast, "der Gast reist nicht ab oder gibt fünf Sterne für nichts");
+  pruefe(S.dorfSterne() === vorher && S.hotelRuf() === ab?.sterne && S.lesen().album.gaeste.includes(gast.a), "ein unzufriedener Gast bringt einen Stern, oder fehlt im Ruf oder Album");
+}
+
+// Plätze: Wer zuerst einzieht, bekommt zuerst einen Platz; mehr als zwölf
+// Plätze hat kein Zimmer.
+{
+  const jetzt = morgen10();
+  const { S } = dorfMitBewohnern(jetzt);
+  const j = raumBauen(S, "zentrum", "bibliothek", 0);
+  const ids = M.RAUM_DINGE.bibliothek;
+  S.aendereZimmer("zentrum", j, 0, (z) => { for (let n = 0; n < Math.min(ids.length, 16); n += 1) z.dinge.push({ k: `b${n}`, i: ids[n], x: 40 + n * 20, y: 230, c: "", f: 0, s: 1 }); });
+  pruefe(S.platzZimmer("zentrum", j, 0)?.platz === Math.min(12, ids.length, 16), `die Bibliothek hat ${S.platzZimmer("zentrum", j, 0)?.platz} Plätze statt höchstens zwölf`);
+  S.aendereZimmer("zentrum", j, 0, (z) => { z.dinge = z.dinge.slice(0, 1); });
+  const alle = S.alleTiere().map((x) => x.tier).sort((a, b) => a.seit - b.seit);
+  S.aendereStock("wohnhaus", 0, (st) => { st.tiere.forEach((t) => { t.b = ["fremd:zentrum:bibliothek"]; }); });
+  S.aendereStock("wohnhaus", 1, (st) => { st.tiere.forEach((t) => { t.b = ["fremd:zentrum:bibliothek"]; }); });
+  S.aendereStock("wohnhaus", 2, (st) => { st.tiere.forEach((t) => { t.b = []; }); });
+  const erster = [alle.find((t) => S.findeTier(t.seed).index === 0), alle.find((t) => S.findeTier(t.seed).index === 1)].sort((a, b) => a.seit - b.seit || (a.seed < b.seed ? -1 : 1));
+  pruefe(S.hatPlatz(erster[0].seed, "fremd:zentrum:bibliothek") && !S.hatPlatz(erster[1].seed, "fremd:zentrum:bibliothek"), "mit einem Platz bekommt nicht der zuerst Eingezogene ihn");
+}
+
+// Die Lage (lila): ganz oben, unten, ruhig, neben einem Zimmer, neben einem Freund.
+{
+  const jetzt = morgen10();
+  const { S } = dorfMitBewohnern(jetzt);
+  const unten = S.stock("wohnhaus", 0).tiere[0];
+  S.aendereStock("wohnhaus", 0, (st) => { st.tiere[0].l = ["stock:unten"]; });
+  pruefe(S.wuensche(unten.seed).find((w) => w.stern === "lila")?.erfuellt, "im Erdgeschoss ist der Wunsch «unten wohnen» nicht erfüllt");
+  S.aendereStock("wohnhaus", 0, (st) => { st.tiere[0].l = ["stock:oben"]; });
+  pruefe(S.wuensche(unten.seed).find((w) => w.stern === "lila")?.erfuellt, "in einem Haus mit drei Stockwerken ist das Erdgeschoss nicht unter den obersten drei");
+  for (let n = 0; n < 4; n += 1) S.baueStockwerk("wohnhaus");
+  pruefe(!S.wuensche(unten.seed).find((w) => w.stern === "lila")?.erfuellt, "mit sieben Stockwerken gilt das Erdgeschoss als ganz oben");
+  const nachbar = S.stock("wohnhaus", 1).tiere[0];
+  S.aendereStock("wohnhaus", 0, (st) => { st.tiere[0].l = [`freund:${nachbar.seed}`]; });
+  pruefe(S.wuensche(unten.seed).find((w) => w.stern === "lila")?.erfuellt, "der Freund wohnt gleich darüber, aber der Wunsch ist nicht erfüllt");
+  S.verschiebe("wohnhaus", 1, 1);
+  pruefe(!S.wuensche(unten.seed).find((w) => w.stern === "lila")?.erfuellt, "der Freund wohnt zwei Stockwerke weiter, und der Wunsch ist erfüllt");
+}
+
+// Fassung 5: Wer damals alle fünf Wünsche erfüllt hatte, beginnt auf Silber;
+// alle anderen auf Bronze mit ihren Wünschen. Auf jedem Gerät gleich.
+{
+  const jetzt = morgen10();
+  const { S } = dorfMitBewohnern(jetzt);
+  const alt = S.lesen();
+  const t0 = alt.haeuser.wohnhaus.stock[0].tiere[0];
+  const fam = K.FARBE[alt.haeuser.wohnhaus.stock[0].zimmer[0].wand].familie;
+  const v5 = JSON.parse(JSON.stringify(alt));
+  v5.v = 5;
+  v5.haeuser.wohnhaus.stock.forEach((st) => st.tiere.forEach((t) => { delete t.stufe; delete t.l; delete t.fertig; }));
+  Object.assign(v5.haeuser.wohnhaus.stock[0].tiere[0], { w: [`farbe:${fam}`, `farbe:${fam}`], g: [], b: [] });
+  const s6 = S.normalize(v5);
+  pruefe(s6.haeuser.wohnhaus.stock[0].tiere[0].stufe === 0, "ein Tier aus Fassung 5 hat beim Aufräumen schon eine Stufe");
+  const { S: S2 } = standUmgebung({ jetzt });
+  S2.aendereHaus("wohnhaus", (h) => { h.stock = s6.haeuser.wohnhaus.stock; });
+  S2.tick(jetzt.wert);
+  const neu = S2.findeTier(t0.seed)?.tier;
+  pruefe(neu?.stufe === 2 && neu.l.length === 1, `wer in Fassung 5 alles erfüllt hatte, ist nicht auf Silber (Stufe ${neu?.stufe})`);
+  pruefe(S2.alleTiere().filter((e) => e.tier.seed !== t0.seed).every((e) => e.tier.stufe === 1), "wer in Fassung 5 nicht alles erfüllt hatte, ist nicht auf Bronze");
+}
+
+// Neustart: Das Dorf kommt in die Ruhmeshalle, der Pokal hängt an den Sternen,
+// die unverbauten Ziegel und das Geschenk kommen mit, das Album bleibt, und
+// es wohnen Menschen, wenn das Kind das wählt. Zusammenführen: Die höhere
+// Runde gilt – ganz, mit allen Einträgen der Ruhmeshalle.
+{
+  const jetzt = morgen10();
+  const { S, setzeVerdient } = dorfMitBewohnern(jetzt, { paletten: 10 });
+  setzeVerdient(10);
+  S.baueStockwerk("spital");
+  S.sammle();
+  const alt = JSON.parse(JSON.stringify(S.lesen()));
+  pruefe(alt.album.arten.length === 3, "das Album kennt die drei Bewohner nicht");
+  S.lesen().rekord = 210;
+  const v = S.neustartVorschau();
+  pruefe(v.pokal?.id === "silber" && v.uebrig === 9 && v.bewohner === 3, `Vorschau: Pokal ${v.pokal?.id}, ${v.uebrig} Paletten, ${v.bewohner} Bewohner`);
+  const erg = S.neustart({ volk: "menschen" });
+  const neu = S.lesen();
+  pruefe(erg?.pokal?.id === "silber" && neu.runde === 2 && neu.volk === "menschen" && neu.ruhm.length === 1 && neu.ruhm[0].pokal === "silber" && neu.ruhm[0].sterne === 210, "die Ruhmeshalle hat das alte Dorf nicht mit seinem Pokal");
+  pruefe(S.alleTiere().length === 0 && neu.haeuser.wohnhaus.stock.length === 3 && neu.haeuser.spital.stock.length === 1, "das neue Dorf beginnt nicht leer");
+  pruefe(S.paletten() === 9 + 3, `im neuen Dorf ${S.paletten()} Paletten statt 9 + 3 als Geschenk`);
+  pruefe(neu.album.arten.length === 3 && S.schaetzeFrei() && !S.denkmal(), "Album, goldene Möbel oder Denkmal stimmen nach dem Silberpokal nicht");
+  pruefe(S.sternenleiter().jetzt === 0 && S.sternenleiter().erreicht === 0, "die Sternenleiter beginnt nicht wieder bei null");
+  const mensch = S.waehleRaum("wohnhaus", 0, 0, "kinderzimmer");
+  pruefe(mensch && K.TIERE[mensch.a]?.mensch, `im Dorf mit Menschen zieht ein ${mensch?.a} ein`);
+  pruefe(S.wuensche(mensch.seed).every((w) => w.text && !/undefined|null/.test(w.text)), "die Wünsche eines Menschen haben keinen Satz");
+  const zusammen = S.merge(alt, S.lesen());
+  pruefe(zusammen.runde === 2 && zusammen.volk === "menschen" && zusammen.ruhm.length === 1 && JSON.stringify(zusammen) === JSON.stringify(S.merge(S.lesen(), alt)), "beim Zusammenführen kommt das alte Dorf zurück, oder es ist nicht in beide Richtungen gleich");
+  pruefe(S.pokalFuer(99) === null && S.pokalFuer(100)?.id === "bronze" && S.pokalFuer(300)?.id === "gold", "die Pokale hängen nicht an 100, 200, 300 Sternen");
+}
+
+// Tragen: ein Bewohner bleibt eine Weile im Zimmer, in das ihn das Kind trägt.
+{
+  const jetzt = morgen10();
+  const { S } = dorfMitBewohnern(jetzt);
+  const j = raumBauen(S, "zentrum", "bibliothek", 1);
+  const t = S.alleTiere()[0].tier;
+  pruefe(S.trage(t.seed, "zentrum", j, 0, jetzt.wert) && S.aufenthalt(t.seed, jetzt.wert + 1000)?.haus === "zentrum", "ein getragener Bewohner ist nicht dort, wo das Kind ihn hinträgt");
+  pruefe(!S.getragen(t.seed, jetzt.wert + 11 * 60 * 1000), "ein getragener Bewohner bleibt länger als zehn Minuten");
+}
+
+// Die neuen Teile zeichnen sich: Menschen, Schmuck, Leiter, Wetter.
+{
+  const art = umgebung();
+  MOEBEL.forEach((datei) => art.lade(datei));
+  art.lade("bau-katalog.js");
+  for (const datei of ["bau-tiere.js", "bau-menschen.js", "bau-art.js", "bau-schmuck.js", "bau-leiter.js", "bau-wetter.js"]) art.lade(datei);
+  const w = art.windowStub;
+  for (const id of K.MENSCH_IDS) {
+    const svg = w.LernappBauArt.tier(id, { variante: 17 });
+    pruefe(svg.length > 500 && !/undefined|NaN/.test(svg) && svg.includes("legL") && svg.includes("bt-lid"), `${id}: der Mensch zeichnet sich nicht`);
+  }
+  for (const id of K.SELTEN_IDS) pruefe(w.LernappBauArt.tier(id, {}).length > 500, `${id}: das seltene Tier zeichnet sich nicht`);
+  const sch = w.LernappBauSchmuck;
+  for (const svg of [sch.pokal("bronze"), sch.pokal("gold"), sch.medaille(2), sch.denkmal(), sch.storch(), sch.helikopter(), sch.hotelSchild(3), sch.ruhmeshalle(), ...Object.keys(K.WEH).map((a) => sch.weh(a))]) {
+    pruefe(svg.length > 100 && !/undefined|NaN/.test(svg), "bau-schmuck.js: eine Zeichnung ist leer oder kaputt");
+  }
+  const z = w.LernappBauWetter.heute(new Date(2026, 9, 17, 10));
+  pruefe(z.jahreszeit === "herbst" && w.LernappBauWetter.saetze().includes(z.text.split(". ")[0] + "."), "das Wetter vom 17. Oktober ist nicht Herbst, oder sein Satz fehlt in der Liste");
 }
 
 // --- Rätsel für die Bauecke (journey-plan.js) ---------------------------------
@@ -1139,19 +1403,21 @@ for (const stufe of ["leicht", "mittel", "schwer"]) {
   // Die Sternenleiter: Stufen der Reihe nach, ohne Kauf ganz erreichbar; der
   // höchste Stand bleibt, auch wenn ein Wunsch wechselt.
   const stufen = K.LEITER;
-  pruefe(stufen.length === 16 && stufen.at(-1).sterne === 200 && stufen.every((s, i) => s.id && s.name && s.text && (i === 0 || s.sterne > stufen[i - 1].sterne)), "die Stufen der Sternenleiter steigen nicht oder es fehlt ein Name");
-  // Ohne Kauf (vier Wohnungen, je drei Tiere mit fünf Sternen) bis 60 – die
-  // ersten acht Stufen; mit Kauf (40 Stockwerke) bis 600, also alle.
-  pruefe(stufen.filter((s) => s.sterne <= 4 * 3 * 5).length === 8, "ohne Kauf sind nicht genau die ersten acht Stufen erreichbar");
-  pruefe(stufen[stufen.length - 1].sterne <= 40 * 3 * 5, "die letzte Stufe ist auch mit Kauf (40 Stockwerke, je drei Tiere mit fünf Sternen) nicht erreichbar");
-  for (const id of ["riesenrad", "teich", "drachen", "windmuehle", "garten", "zeppelin", "schloss", "feuerwerk"]) pruefe(stufen.some((s) => s.id === id), `die Sternenleiter hat kein ${id}`);
+  pruefe(stufen.length === 26 && stufen.at(-1).sterne === 1000 && stufen.every((s, i) => s.id && s.name && s.text && (i === 0 || s.sterne > stufen[i - 1].sterne)), "die Stufen der Sternenleiter steigen nicht oder es fehlt ein Name");
+  // Seit Oktober 2026 hat jeder Bewohner 16 Sterne (drei Stufen). Ohne Kauf
+  // (vier Wohnungen, je drei Bewohner) sind es 192 – bis zum Schloss; mit
+  // Kauf (40 Stockwerke) reicht es weit über 1000.
+  pruefe(stufen.filter((s) => s.sterne <= 4 * 3 * 16).length === 15, "ohne Kauf sind nicht genau die ersten fünfzehn Stufen erreichbar");
+  pruefe(stufen[stufen.length - 1].sterne <= 40 * 3 * 16, "die letzte Stufe ist auch mit Kauf (40 Stockwerke, je drei Bewohner mit 16 Sternen) nicht erreichbar");
+  for (const id of ["riesenrad", "teich", "drachen", "windmuehle", "garten", "zeppelin", "schloss", "feuerwerk", "leuchtturm", "seilbahn", "sternwarte", "zirkus", "wasserfall", "ballonfest", "regenbogenbruecke", "rakete", "polarlicht", "dorfkrone"]) pruefe(stufen.some((s) => s.id === id), `die Sternenleiter hat kein ${id}`);
   const jetzt = morgen10();
   const { S } = standUmgebung({ paletten: 3, frei: true, jetzt });
   S.waehleRaum("wohnhaus", 0, 0, "kinderzimmer");
   S.waehleRaum("zentrum", 0, 0, "bibliothek");
   const fam = K.FARBE[S.zimmer("wohnhaus", 0, 0).wand].familie;
-  // Ein Tier mit fünf erfüllten Wünschen: die erste Stufe.
-  S.aendereStock("wohnhaus", 0, (st) => Object.assign(st.tiere[0], { w: [`farbe:${fam}`, `farbe:${fam}`], g: ["raum:kinderzimmer", "raum:kinderzimmer"], b: ["fremd:zentrum:bibliothek"] }));
+  // Zwei erfüllte Wünsche und drei Sterne aus dem Spital: die erste Stufe.
+  S.aendereStock("wohnhaus", 0, (st) => Object.assign(st.tiere[0], { w: [`farbe:${fam}`, `farbe:${fam}`], g: [], b: [], l: [], traum: "" }));
+  S.lesen().bonus = 3;
   let l = S.sternenleiter();
   pruefe(l.jetzt === 5 && l.rekord === 5 && l.erreicht === 1 && l.naechste === stufen[1].sterne, `fünf Sterne geben nicht die erste Stufe (${JSON.stringify(l)})`);
   // Ein Wunsch wechselt: weniger Sterne, die Stufe bleibt.
@@ -1163,6 +1429,7 @@ for (const stufe of ["leicht", "mittel", "schwer"]) {
   MOEBEL.forEach((datei) => art.lade(datei));
   art.lade("bau-katalog.js");
   art.lade("bau-art.js");
+  art.lade("bau-leiter.js");
   const A = art.windowStub.LernappBauArt;
   for (const s of stufen) {
     const bild = A.leiterBild(s.id);

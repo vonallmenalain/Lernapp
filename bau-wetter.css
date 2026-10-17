@@ -1,0 +1,182 @@
+/*
+ * bau-wetter.css – Jahreszeiten und Wetter am Himmel der Bauecke
+ * (bau-wetter.js). Nach bau.css laden.
+ *
+ * Die Klassen an der Bauecke (klasse(): is-fruehling … is-winter, is-sonne …
+ * is-wind) tönen den Himmel; mit .is-nacht wird er dunkel getönt. Im Himmel
+ * (.bau-himmel) liegen Wolken und Regenbogen (.bau-wetter-hinten); was
+ * fällt und weht, liegt nach dem Boden und vor dem Haus (.bau-wetter-vorne).
+ *
+ * Bewegt wird nur der Behälter der Schicht (transform, eine einzige Ebene);
+ * die Teilchen darin stehen still, liegen ganz in ihr und sind nicht
+ * gedreht – sonst legt Chromium jedes auf eine eigene Ebene (gemessen).
+ */
+
+/* --- Der Himmel je Jahreszeit und Wetter (am Tag) --- */
+.bauecke.is-fruehling:not(.is-nacht) { background: linear-gradient(180deg, #a3daf5 0%, #d9f2fb 62%, #ecf9f1 100%); }
+.bauecke.is-sommer:not(.is-nacht) { background: linear-gradient(180deg, #8ccff3 0%, #c6eafb 62%, #e4f6ff 100%); }
+.bauecke.is-herbst:not(.is-nacht) { background: linear-gradient(180deg, #a2d2ec 0%, #dcebef 62%, #f7eedc 100%); }
+.bauecke.is-winter:not(.is-nacht) { background: linear-gradient(180deg, #b6daee 0%, #e2f0f8 62%, #f4f9fc 100%); }
+.bauecke.is-wolken:not(.is-nacht) { background: linear-gradient(180deg, #a6c3d8 0%, #d3e2ec 62%, #e9f0f5 100%); }
+.bauecke.is-regen:not(.is-nacht) { background: linear-gradient(180deg, #8e9dae 0%, #b8c3ce 62%, #d2d9e1 100%); }
+.bauecke.is-schnee:not(.is-nacht) { background: linear-gradient(180deg, #b4c0cd 0%, #d9e1e9 62%, #edf1f5 100%); }
+
+/* ... und in der Nacht */
+.bauecke.is-nacht.is-wolken { background: linear-gradient(180deg, #1a2241 0%, #2b355e 62%, #394370 100%); }
+.bauecke.is-nacht.is-regen { background: linear-gradient(180deg, #151b2c 0%, #242d45 62%, #313b57 100%); }
+.bauecke.is-nacht.is-schnee { background: linear-gradient(180deg, #1f2742 0%, #333d61 62%, #485278 100%); }
+.bauecke.is-nacht.is-regen .bau-himmel,
+.bauecke.is-nacht.is-schnee .bau-himmel { background-image: none; }
+.bauecke.is-nacht.is-regen .bau-mond,
+.bauecke.is-nacht.is-schnee .bau-mond { display: none; }
+
+/* Die Sonne: im Winter blass, bei Regen und Schnee hinter den Wolken. */
+.bauecke.is-winter .bau-sonne { background: radial-gradient(circle, #fff7da 0 55%, #ffe9a6 56%); box-shadow: 0 0 34px rgba(255, 236, 170, 0.55); }
+.bauecke.is-sommer .bau-sonne { box-shadow: 0 0 60px rgba(255, 209, 102, 0.8); }
+.bauecke.is-regen .bau-sonne,
+.bauecke.is-schnee .bau-sonne { display: none; }
+/* Die zwei Wolken von bau.css werden grau. */
+.bauecke.is-regen .bau-wolke,
+.bauecke.is-regen .bau-wolke::before,
+.bauecke.is-regen .bau-wolke::after { background: #c1c9d2; }
+.bauecke.is-schnee .bau-wolke,
+.bauecke.is-schnee .bau-wolke::before,
+.bauecke.is-schnee .bau-wolke::after { background: #e4e9ee; }
+
+/* --- Die Ebenen: .bau-wetter-hinten im Himmel, .bau-wetter-vorne nach dem Boden --- */
+.bau-wetter { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+
+/* Mehr Wolken, wie die von bau.css */
+.bau-wetter-wolkenfeld { --wolke: #ffffff; }
+.bau-wetter-wolkenfeld.hell { --wolke: #f4f7fa; }
+.bau-wetter-wolkenfeld.grau { --wolke: #dfe5eb; }
+.bau-wetter-wolkenfeld.dunkel { --wolke: #a9b3be; }
+.is-nacht .bau-wetter-wolkenfeld { --wolke: #3c4771; }
+.is-nacht .bau-wetter-wolkenfeld.grau { --wolke: #4d5779; }
+.is-nacht .bau-wetter-wolkenfeld.dunkel { --wolke: #2d3550; }
+.bau-wetter-wolke {
+  position: absolute;
+  height: 38px;
+  border-radius: 999px;
+  background: var(--wolke);
+  opacity: 0.95;
+}
+.bau-wetter-wolke::before, .bau-wetter-wolke::after { content: ""; position: absolute; border-radius: 50%; background: var(--wolke); }
+.bau-wetter-wolke::before { width: 54px; height: 54px; left: 16%; top: -27px; }
+.bau-wetter-wolke::after { width: 40px; height: 40px; left: 50%; top: -17px; }
+.bau-wetter-wolke.k1 { width: 150px; left: 3%; top: 9%; }
+.bau-wetter-wolke.k2 { width: 118px; left: 36%; top: 5%; opacity: 0.88; }
+/* k3 schiebt sich vor die Sonne (bau.css: rechts 26 %, oben 9 %). */
+.bau-wetter-wolke.k3 { width: 132px; right: 21%; top: calc(9% + 44px); }
+.bau-wetter-wolke.k4 { width: 104px; right: 2%; top: 19%; opacity: 0.85; }
+.dunkel .bau-wetter-wolke.k3 { width: 170px; right: 18%; top: calc(9% + 30px); }
+
+/* Der Regenbogen nach dem Regen: nur am Tag, hinter Sonne und Wolken
+   (z-index -1 im eigenen Stapel des Himmels). */
+.bauecke .bau-himmel { isolation: isolate; }
+.bau-wetter-regenbogen {
+  position: absolute;
+  z-index: -1;
+  left: -14%;
+  top: 14%;
+  width: min(78%, 900px);
+  aspect-ratio: 2 / 1;
+  background: radial-gradient(circle at 50% 100%, transparent 0 55%,
+    #9b6bd8 55% 57.5%, #4f8ef7 57.5% 60%, #4cc46b 60% 62.5%,
+    #ffd166 62.5% 65%, #ff9f43 65% 67.5%, #ef5350 67.5% 70%, transparent 70%);
+  opacity: 0.5;
+}
+.is-nacht .bau-wetter-regenbogen { display: none; }
+
+/* --- Was fällt und weht: eine bewegte Ebene ---
+   Liegt nach dem Boden (.bau-gelaende) und vor dem Haus (.bau-welt), siehe
+   bau-wetter.js (himmel). Die Schicht ist um eine Kachel grösser als der
+   Himmel und wandert in einer Runde um diese Kachel (ein Drittel ihrer
+   Grösse); die Teilchen stehen dreimal darin. */
+.bau-wetter-schicht {
+  position: absolute;
+  will-change: transform;
+  animation: 1s linear infinite;
+}
+.bau-wetter-schicht i { position: absolute; display: block; }
+.bau-wetter-fall { left: 0; top: -50%; width: 100%; height: 150%; }
+.bau-wetter-quer { left: -50%; top: 0; width: 150%; height: 100%; }
+
+.bau-wetter-fall.regen { animation-name: bau-wetter-regen; animation-duration: 0.6s; }
+.bau-wetter-fall.schnee { animation-name: bau-wetter-schnee; animation-duration: 6s; }
+.bau-wetter-quer { animation-name: bau-wetter-wehen; animation-duration: 5s; }
+.bau-wetter-quer.sanft { animation-name: bau-wetter-segeln; animation-duration: 14s; }
+
+@keyframes bau-wetter-regen {
+  from { transform: translate3d(0, 0, 0); }
+  to { transform: translate3d(0, 33.333%, 0); }
+}
+@keyframes bau-wetter-schnee {
+  0% { transform: translate3d(0, 0, 0); }
+  25% { transform: translate3d(1.2%, 8.333%, 0); }
+  50% { transform: translate3d(0, 16.667%, 0); }
+  75% { transform: translate3d(-1.2%, 25%, 0); }
+  100% { transform: translate3d(0, 33.333%, 0); }
+}
+/* Beim Wehen sinkt die Schicht am Ende um SINKT (bau-wetter.js): 10 % im
+   Wind, 24 % bei den Blättern ohne Wind (sanft). */
+@keyframes bau-wetter-wehen {
+  0% { transform: translate3d(0, 0, 0); }
+  25% { transform: translate3d(8.333%, 4%, 0); }
+  50% { transform: translate3d(16.667%, 3%, 0); }
+  75% { transform: translate3d(25%, 8%, 0); }
+  100% { transform: translate3d(33.333%, 10%, 0); }
+}
+@keyframes bau-wetter-segeln {
+  0% { transform: translate3d(0, 0, 0); }
+  25% { transform: translate3d(8.333%, 7%, 0); }
+  50% { transform: translate3d(16.667%, 11%, 0); }
+  75% { transform: translate3d(25%, 18%, 0); }
+  100% { transform: translate3d(33.333%, 24%, 0); }
+}
+
+/* Ein Kästchen Regen oder Schnee malt drei Tropfen oder Flocken als
+   Hintergrund und ragt nicht über sich hinaus (die Grösse in Prozent der
+   Schicht steht auch in bau-wetter.js, GROESSE). */
+.bau-wetter-fall .tropfen, .bau-wetter-fall .flocke { width: 8%; height: 12%; }
+.bau-wetter-quer .flocke { width: 5%; height: 14%; }
+
+/* Regen */
+.bau-wetter-schicht .tropfen { color: rgba(244, 249, 255, 0.92); }
+.bau-wetter-schicht .tropfen.a { background: radial-gradient(1.6px 9px at 14% 12%, currentColor 80%, transparent), radial-gradient(1.4px 7.5px at 70% 46%, currentColor 80%, transparent), radial-gradient(1.1px 6px at 36% 86%, currentColor 75%, transparent); }
+.bau-wetter-schicht .tropfen.b { background: radial-gradient(1.4px 7.5px at 58% 10%, currentColor 80%, transparent), radial-gradient(1.6px 9px at 20% 52%, currentColor 80%, transparent), radial-gradient(1.1px 6px at 86% 80%, currentColor 75%, transparent); }
+.bau-wetter-schicht .tropfen.c { background: radial-gradient(1.1px 6px at 30% 20%, currentColor 75%, transparent), radial-gradient(1.6px 9px at 82% 36%, currentColor 80%, transparent), radial-gradient(1.4px 7.5px at 48% 90%, currentColor 80%, transparent); }
+.is-nacht .bau-wetter-schicht .tropfen { color: rgba(176, 196, 230, 0.75); }
+
+/* Schnee */
+.bau-wetter-schicht .flocke.a { background: radial-gradient(circle 4.5px at 18% 14%, #ffffff 80%, transparent), radial-gradient(circle 3.5px at 74% 50%, #ffffff 80%, transparent), radial-gradient(circle 2.6px at 34% 88%, rgba(255, 255, 255, 0.8) 75%, transparent); }
+.bau-wetter-schicht .flocke.b { background: radial-gradient(circle 3.5px at 62% 12%, #ffffff 80%, transparent), radial-gradient(circle 2.6px at 16% 56%, rgba(255, 255, 255, 0.8) 75%, transparent), radial-gradient(circle 4.5px at 84% 84%, #ffffff 80%, transparent); }
+.bau-wetter-schicht .flocke.c { background: radial-gradient(circle 2.6px at 30% 22%, rgba(255, 255, 255, 0.8) 75%, transparent), radial-gradient(circle 4.5px at 80% 40%, #ffffff 80%, transparent), radial-gradient(circle 3.5px at 46% 90%, #ffffff 80%, transparent); }
+
+/* Im Wind: Striche, Blätter, Blüten (je ein Teilchen, die Richtung zeigt
+   border-radius – gedreht würde jedes zur eigenen Ebene) */
+.bau-wetter-schicht .strich {
+  width: 96px;
+  height: 18px;
+  border-top: 3px solid rgba(255, 255, 255, 0.75);
+  border-radius: 50%;
+}
+.bau-wetter-schicht .strich.b { width: 70px; }
+.bau-wetter-schicht .strich.c { width: 120px; border-top-color: rgba(255, 255, 255, 0.55); }
+.bau-wetter-schicht .blatt.a { width: 15px; height: 9px; border-radius: 0 100% 0 100%; background: #e8763a; }
+.bau-wetter-schicht .blatt.b { width: 9px; height: 15px; border-radius: 100% 0 100% 0; background: #f7c84a; }
+.bau-wetter-schicht .blatt.c { width: 13px; height: 8px; border-radius: 100% 0 100% 0; background: #c8452f; }
+.bau-wetter-sommer .bau-wetter-schicht .blatt.a { background: #5cb85c; }
+.bau-wetter-sommer .bau-wetter-schicht .blatt.b { background: #7dcc6a; }
+.bau-wetter-sommer .bau-wetter-schicht .blatt.c { background: #4aa34a; }
+.bau-wetter-schicht .bluete.a { width: 9px; height: 7px; border-radius: 50% 0 50% 0; background: #ffb6cf; }
+.bau-wetter-schicht .bluete.b { width: 7px; height: 9px; border-radius: 0 50% 0 50%; background: #ffffff; }
+.bau-wetter-schicht .bluete.c { width: 8px; height: 6px; border-radius: 0 50% 0 50%; background: #ff9dbd; }
+.is-nacht .bau-wetter-schicht .blatt, .is-nacht .bau-wetter-schicht .bluete { opacity: 0.7; }
+
+/* Ruhig: Was fällt, bleibt stehen – ohne eigene Ebene. Im Zimmer pausiert es. */
+.bauecke.ist-zimmer .bau-wetter-schicht { animation-play-state: paused; }
+.ist-ruhig .bau-wetter-schicht { animation: none !important; will-change: auto; }
+@media (prefers-reduced-motion: reduce) {
+  .bau-wetter-schicht { animation: none !important; will-change: auto; }
+}

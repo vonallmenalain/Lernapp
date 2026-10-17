@@ -47,7 +47,7 @@
   const HB = WAND + ZW + WAND + LIFT + WAND;   // 678
   const ZX = WAND;          // wo das Zimmer beginnt
   const LX = WAND + ZW + WAND;                 // wo der Lift beginnt
-  const DACH_H = { giebel: 130, heli: 96, turm: 200, flach: 120 };
+  const DACH_H = { giebel: 130, heli: 96, turm: 200, flach: 120, hotel: 150 };
 
   // Wie hoch die Stockwerke des Hauses sind, das gerade zu sehen ist: Die
   // Ansicht gibt eine Quelle (train-bau.js, hoehenVon); ohne sind alle ZH.
@@ -170,6 +170,8 @@
   // tragen Klassen, an denen train-bau.js wackelt: Beine, Wippen, Lider.
   // Fehlt bau-tiere.js, steht hier das einfache Tier vom Anfang.
   function tier(art, opts = {}) {
+    // Menschen (Kennung m_…) zeichnet bau-menschen.js.
+    if (String(art).startsWith("m_") && window.LernappBauMenschen?.tier) return window.LernappBauMenschen.tier(art, opts);
     const zeichner = window.LernappBauTiere;
     if (zeichner?.tier) return zeichner.tier(art, opts);
     const { gross = 1 } = opts;
@@ -284,31 +286,38 @@
       `<text x="${LX + LIFT / 2}" y="${t - 9}" text-anchor="middle" font-size="12" font-weight="800" font-family="'Baloo 2', Nunito, sans-serif" fill="#ffd166">${i === 0 ? "E" : i}</text>`;
   }
 
-  // Die Sterntafel einer Wohnung: je Tier eine Reihe – zwei gelbe, ein
-  // grüner, zwei blaue Sterne, gefüllt, was erfüllt ist. Oben (cx, y).
+  // Die Sterntafel einer Wohnung: je Tier eine Reihe mit den Sternen seiner
+  // Stufe – gelb (Wohnung), grün (Wohnhaus), blau (andere Häuser), lila (die
+  // Lage), gold (der Traumjob) –, gefüllt, was erfüllt ist. Die Reihe trägt
+  // die Farbe der Stufe: Bronze, Silber, Gold. Oben (cx, y).
   // st: sterneStock() aus bau-stand.js.
+  const STERN_FARBE = { gelb: "#ffc93c", gruen: "#4cc46b", blau: "#4f8ef7", lila: "#a46be0", gold: "#f5a300", rosa: "#ff7aa2" };
+  const STERN_RAND = { gelb: "#b97f00", gruen: "#1d8445", blau: "#2457bf", lila: "#6c3fb0", gold: "#9a5f00", rosa: "#c2416d" };
+  const STUFE_FARBE = ["", "#f6dcc0", "#e6ebf2", "#fff0b3"];
+  const STUFE_RAND = ["", "#c98a4b", "#9aa5b4", "#e0a400"];
   function sternTafel(st, cx, y) {
     const reihen = st?.tiere || [];
     if (!reihen.length) return "";
-    const farbe = { gelb: "#ffc93c", gruen: "#4cc46b", blau: "#4f8ef7" };
-    // Geholt: gefüllt, dunkler umrandet. Offen: hohl und gestrichelt.
-    const rand = { gelb: "#b97f00", gruen: "#1d8445", blau: "#2457bf" };
-    const stern = (x, yy, voll, f) => {
-      const pfad = M().stern(x, yy, 5.4, voll ? farbe[f] : "#ffffff");
+    const stern = (x, yy, voll, f, r = 5.4) => {
+      const pfad = M().stern(x, yy, r, voll ? STERN_FARBE[f] : "#ffffff");
       return voll
-        ? pfad.replace("/>", ` stroke="${rand[f]}" stroke-width="0.9" stroke-linejoin="round"/>`)
-        : pfad.replace("/>", ` stroke="${farbe[f]}" stroke-width="1.3" stroke-dasharray="2 1.3" stroke-linejoin="round"/>`);
+        ? pfad.replace("/>", ` stroke="${STERN_RAND[f]}" stroke-width="0.9" stroke-linejoin="round"/>`)
+        : pfad.replace("/>", ` stroke="${STERN_FARBE[f]}" stroke-width="1.3" stroke-dasharray="2 1.3" stroke-linejoin="round"/>`);
     };
-    // Alle Wünsche erfüllt: Die Tafel wird golden.
+    // Alle Stufen geschafft: Die Tafel wird golden.
     const gold = st.total > 0 && st.anzahl === st.total;
     const h = 10 + reihen.length * 15;
     let s = `<rect x="${cx - 34}" y="${y}" width="68" height="${h}" rx="9" fill="${gold ? "#fff3c4" : "#ffffff"}" opacity="0.96" stroke="${gold ? "#ffb703" : "#d3e3ec"}" stroke-width="${gold ? 4 : 2}"/>`;
     reihen.forEach((r, n) => {
       const ry = y + 12.5 + n * 15;
-      // Ein Tier mit allen Sternen: seine Reihe liegt auf Gold.
+      // Ein Tier mit allen Sternen: seine Reihe liegt auf Gold; sonst trägt
+      // sie die Farbe seiner Stufe.
       if (r.total > 0 && r.anzahl === r.total) s += `<rect class="bau-sternzeile-gold" x="${cx - 32}" y="${ry - 7}" width="64" height="14" rx="7" fill="#ffd34d" stroke="#e09b00" stroke-width="1"/>`;
-      const zeile = [...(r.gelb || []).map((v) => [v, "gelb"]), ...(r.gruen || []).map((v) => [v, "gruen"]), ...(r.blau || []).map((v) => [v, "blau"])];
-      zeile.forEach(([voll, f], i) => { s += stern(cx - 25 + i * 12.5, ry, voll, f); });
+      else if (r.stufe > 1) s += `<rect class="bau-sternzeile-stufe" x="${cx - 32}" y="${ry - 7}" width="64" height="14" rx="7" fill="${STUFE_FARBE[r.stufe]}" stroke="${STUFE_RAND[r.stufe]}" stroke-width="1"/>`;
+      const zeile = [...(r.gelb || []).map((v) => [v, "gelb"]), ...(r.gruen || []).map((v) => [v, "gruen"]), ...(r.blau || []).map((v) => [v, "blau"]), ...(r.lila || []).map((v) => [v, "lila"]), ...(r.gold || []).map((v) => [v, "gold"])];
+      const schritt = Math.min(12.5, 60 / Math.max(1, zeile.length));
+      const x0 = cx - (schritt * (zeile.length - 1)) / 2;
+      zeile.forEach(([voll, f], i) => { s += stern(x0 + i * schritt, ry, voll, f, zeile.length > 5 ? 5 : 5.4); });
     });
     return s;
   }
@@ -371,7 +380,7 @@
   }
 
   // Das Dach, je nach Haus. x von 0 bis HB, y = oberkante der obersten Decke.
-  function dach(form, farbeId, fassadeId, y) {
+  function dach(form, farbeId, fassadeId, y, opts = {}) {
     const c = farbeHex(farbeId, "#ef5350");
     const f = farbeHex(fassadeId, "#ffd3b5");
     const d = shade(c, -0.2);
@@ -394,6 +403,15 @@
         `<circle cx="${tx}" cy="${y - 66}" r="28" fill="#ffffff" stroke="${d}" stroke-width="4"/><path d="M${tx} ${y - 66}v-18M${tx} ${y - 66}l12 8" stroke="#243047" stroke-width="4" stroke-linecap="round"/>` +
         `<path d="M${tx} ${y - 160}v-30" stroke="#4a5568" stroke-width="3"/><path d="M${tx} ${y - 190}h26l-6 7l6 7h-26z" fill="#ef5350"/>` +
         `<rect x="40" y="${y - 50}" width="120" height="30" rx="6" fill="${shade(f, -0.1)}"/><rect x="${HB - 160}" y="${y - 50}" width="120" height="30" rx="6" fill="${shade(f, -0.1)}"/>`;
+    }
+    // hotel: ein flaches Dach mit einem grossen Schild (die Sterne des Hotels)
+    // und zwei Fahnen.
+    if (form === "hotel") {
+      const schild = window.LernappBauSchmuck?.hotelSchild?.(Math.max(0, Math.min(5, Number(opts.sterne) || 0)))
+        || `<rect x="-80" y="-80" width="160" height="62" rx="12" fill="#ffffff" stroke="${d}" stroke-width="4"/>`;
+      const fahne = (x, f) => `<path d="M${x} ${y - 20}v-110" stroke="#6b7280" stroke-width="4"/><path d="M${x} ${y - 128}h46l-10 12l10 12h-46z" fill="${f}"/>`;
+      return `<rect x="-10" y="${y - 20}" width="${HB + 20}" height="20" fill="${c}"/><rect x="-10" y="${y - 20}" width="${HB + 20}" height="4" fill="${d}"/>` +
+        fahne(70, "#ff7aa2") + fahne(HB - 120, "#4f8ef7") + `<g transform="translate(${HB / 2} ${y - 20})">${schild}</g>`;
     }
     // flach: das Büro mit Antenne und Sonnenkollektoren
     return `<rect x="-10" y="${y - 20}" width="${HB + 20}" height="20" fill="${c}"/><rect x="-10" y="${y - 20}" width="${HB + 20}" height="4" fill="${d}"/>` +
@@ -498,6 +516,7 @@
     if (form === "giebel") s += `<path d="M-4 ${-h}L${w / 2} ${-h - 18}L${w + 4} ${-h}Z" fill="${c}"/>`;
     else if (form === "heli") s += `<rect x="-2" y="${-h - 5}" width="${w + 4}" height="5" fill="${c}"/><rect x="${w / 2 - 8}" y="${-h - 17}" width="16" height="12" rx="2" fill="#2f6fd6"/><text x="${w / 2}" y="${-h - 7.5}" text-anchor="middle" font-size="10" font-weight="800" font-family="'Baloo 2', Nunito, sans-serif" fill="#ffffff">H</text>`;
     else if (form === "turm") s += `<rect x="-2" y="${-h - 5}" width="${w + 4}" height="5" fill="${c}"/><rect x="${w / 2 - 9}" y="${-h - 18}" width="18" height="13" fill="${f}" stroke="${shade(f, -0.25)}" stroke-width="1"/><path d="M${w / 2 - 12} ${-h - 18}L${w / 2} ${-h - 28}L${w / 2 + 12} ${-h - 18}Z" fill="${c}"/><circle cx="${w / 2}" cy="${-h - 11.5}" r="4" fill="#ffffff"/>`;
+    else if (form === "hotel") s += `<rect x="-2" y="${-h - 5}" width="${w + 4}" height="5" fill="${c}"/><rect x="${w / 2 - 16}" y="${-h - 18}" width="32" height="12" rx="3" fill="#ffffff" stroke="${c}" stroke-width="1.5"/><path d="M${w / 2 - 9} ${-h - 12}h18" stroke="#ffc93c" stroke-width="3" stroke-dasharray="3 2"/>`;
     else s += `<rect x="-2" y="${-h - 5}" width="${w + 4}" height="5" fill="${c}"/><path d="M${w - 10} ${-h - 5}v-14" stroke="#4a5568" stroke-width="2"/><circle cx="${w - 10}" cy="${-h - 20}" r="2.4" fill="#ef5350"/>`;
     return s;
   }
@@ -513,6 +532,7 @@
     if (hausId === "spital") return `<rect x="3" y="3" width="18" height="18" rx="4" fill="#2f6fd6"/><text x="12" y="17.5" text-anchor="middle" font-size="14" font-weight="800" font-family="'Baloo 2', Nunito, sans-serif" fill="#ffffff">H</text>`;
     if (hausId === "zentrum") return `<path d="M3 21V10l9-6 9 6v11z" fill="#ffd166"/><circle cx="12" cy="12" r="4" fill="#ffffff"/><path d="M12 12v-2.5M12 12l2 1" stroke="#243047" stroke-width="1.4" stroke-linecap="round"/><rect x="9" y="16" width="6" height="5" fill="#8a5734"/>`;
     if (hausId === "buero") return `<rect x="5" y="3" width="14" height="18" rx="1.5" fill="#4f8ef7"/><path d="M8 6h3M13 6h3M8 10h3M13 10h3M8 14h3M13 14h3" stroke="#cfeaff" stroke-width="2"/><rect x="10" y="17" width="4" height="4" fill="#243047"/>`;
+    if (hausId === "hotel") return `<rect x="4" y="6" width="16" height="15" rx="1.5" fill="#c9b6f2"/><rect x="3" y="3" width="18" height="5" rx="2" fill="#8f6bd8"/><path d="M8 5.5h8" stroke="#ffd166" stroke-width="1.6" stroke-dasharray="1.6 1.2"/><path d="M7 11h3M14 11h3M7 15h3M14 15h3" stroke="#ffffff" stroke-width="2"/><rect x="10" y="17" width="4" height="4" fill="#243047"/>`;
     return `<path d="M2 11 12 3l10 8" fill="#ef5350"/><rect x="5" y="10" width="14" height="11" fill="#ffd3b5"/><rect x="10" y="14" width="4" height="7" fill="#8a5734"/><rect x="6.5" y="12" width="3" height="3" fill="#cfeaff"/><rect x="14.5" y="12" width="3" height="3" fill="#cfeaff"/>`;
   }
 
@@ -799,6 +819,7 @@
     if (form === "giebel") return [HB / 2, y - 120 - 22];
     if (form === "heli") return [HB * 0.8 + 29, y - 70 - 22];
     if (form === "turm") return [HB * 0.5, y - 190 - 22];
+    if (form === "hotel") return [HB * 0.5, y - 128];
     return [HB - 80, y - 128];
   }
   // Ein Bild je Stufe für die Leiter: Markup und viewBox.
@@ -822,13 +843,16 @@
   };
   function leiterBild(id) {
     const eintrag = LEITER_BILD[id];
-    return eintrag ? { markup: eintrag[0](), viewBox: eintrag[1] } : { markup: "", viewBox: "0 0 10 10" };
+    if (eintrag) return { markup: eintrag[0](), viewBox: eintrag[1] };
+    // Die Stufen ab 240 Sternen zeichnet bau-leiter.js.
+    const neu = window.LernappBauLeiter?.BILDER?.[id];
+    return neu ? { markup: (neu.bild || neu.zeichne)(), viewBox: neu.viewBox } : { markup: "", viewBox: "0 0 10 10" };
   }
 
   window.LernappBauArt = {
     ZW, ZH, ZH_HOCH, BODEN_Y, OBEN_Y, WAND, LIFT, DECKE, STOCK, STOCK_HOCH, FUSS, HB, ZX, LX, DACH_H,
     hoehenVon, hoehe, unten, oben, musterDef, boden, zimmerSchale, rohbauSchale, trennwand, tier, koffer,
-    hausRahmen, liftStock, sternTafel, sternTafelHoehe, traumAbzeichen, traumRahmen, traumSchild, liftKabine, dach, naechsterStock, strasse, bodenStil, baum, laterne,
+    STERN_FARBE, hausRahmen, liftStock, sternTafel, sternTafelHoehe, traumAbzeichen, traumRahmen, traumSchild, liftKabine, dach, naechsterStock, strasse, bodenStil, baum, laterne,
     lieferzug, palette, minihaus, minihausHoehe, hausZeichen,
     sternPfad, funkeln, blitzzug, gluecksstern, krone, sternRahmen,
     blumen, wimpel, brunnen, ballon, regenbogen, karussell, statue, dachstern, dachsternOrt, leiterBild,

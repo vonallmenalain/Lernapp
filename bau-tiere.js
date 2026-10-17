@@ -8,10 +8,11 @@
  * wird (defs(), einmal im Dokument).
  *
  * Masse (gross = 1): der Nullpunkt liegt zwischen den Füssen am Boden, nach
- * oben negativ. Der Kopf reicht bis etwa y = -85, Ohren und Hörner bis -112;
- * Körper und Kopf bleiben innerhalb x = ±27, der Schwanz geht bis x = -40.
- * Das Tier schaut leicht nach rechts; läuft es nach links, spiegelt die
- * Ansicht es mit scale(-1 1).
+ * oben negativ. Der Kopf reicht bis etwa y = -85, Ohren und Hörner bis -112,
+ * nur die Giraffe mit ihrem langen Hals bis -146 (höchstens -150); Körper und
+ * Kopf bleiben innerhalb x = ±27 (Ohren, Schnauze und Schnabel bis ±30), der
+ * Schwanz geht bis x = -40. Das Tier schaut leicht nach rechts; läuft es nach
+ * links, spiegelt die Ansicht es mit scale(-1 1).
  *
  * Aufbau, an dem train-bau.js wackelt:
  *   <g>                                äusserstes g (scale, wenn gross ≠ 1;
@@ -28,7 +29,10 @@
  *   defs()       die Verläufe (ids bt-…), einmal ins Dokument, nicht in ein
  *                SVG mit display:none, sonst fehlt der Glanz
  *   box(art, { figur })  der Kasten um die Zeichnung, für kleine Bildchen
- *   ARTEN, FIGUREN
+ *   ARTEN        die 21 Arten; die letzten fünf (Giraffe, Flamingo,
+ *                Fledermaus, Papagei, Koala) sind seltene Bewohner und
+ *                Hotelgäste, ohne Buchfigur
+ *   FIGUREN
  *
  * Figuren: Mit { figur: "fino" } zeichnet tier() die Figur genau so, wie sie
  * im Buch aussieht (FIGUREN: Kennung → Art; die Figur bestimmt die Art).
@@ -43,7 +47,8 @@
   // ---------------------------------------------------------------------------
   // Arten, Figuren, Farben
   // ---------------------------------------------------------------------------
-  const ARTEN = ["fox", "bear", "rabbit", "cat", "panda", "frog", "owl", "penguin", "lion", "mouse", "squirrel", "ibex", "dog", "hedgehog", "cow", "elephant"];
+  // Die letzten fünf sind seltene Bewohner und Hotelgäste (keine Buchfiguren).
+  const ARTEN = ["fox", "bear", "rabbit", "cat", "panda", "frog", "owl", "penguin", "lion", "mouse", "squirrel", "ibex", "dog", "hedgehog", "cow", "elephant", "giraffe", "flamingo", "bat", "parrot", "koala"];
 
   // Die Figuren aus den Büchern der Leseecke: Kennung → Art.
   const FIGUREN = {
@@ -75,6 +80,11 @@
     hedgehog: [ROT, BLAU, GRUEN, GELB],      // Schal
     cow: [ROT, BLAU, GRUEN, VIOLETT],        // Riemen der Glocke
     elephant: [ROT, BLAU, GELB, VIOLETT],    // Mütze
+    giraffe: [ROT, BLAU, GRUEN, VIOLETT],    // Schal um den langen Hals
+    flamingo: [BLAU, GRUEN, GELB, TUERKIS],  // Schleife auf dem Kopf
+    bat: [ROT, GELB, GRUEN, TUERKIS],        // Fliege
+    parrot: [BLAU, GRUEN, VIOLETT, TUERKIS], // Halstuch
+    koala: [ROT, BLAU, GRUEN, GELB],         // Käppi
   };
 
   const DUNKEL = "#2b201d";     // Augen, Nasen
@@ -811,9 +821,209 @@
     return { links, rechts, bob, lid: lid(-4, -65, 3.3, E) + lid(11.5, -65, 3, E) };
   }
 
+  // --- Giraffe (langer Hals mit Mähne, Hörnchen, Flecken, Schal um den Hals) ---
+  function giraffe(o) {
+    const F = "#f3c565", K = "#c08a3a", P = "#cf7f3e", C = "#fbe8c4", KC = "#dcc092", M = "#a8602f", KM = "#7c4320", HO = "#5b4636", IN = "#eeaa8f", N = "#6a4128";
+    const huf = (x) => s`<rect x="${x + 0.5}" y="-22" width="6.5" height="19" rx="3"${fl(F, K)}/>` + oval(x + 3.8, -14, 1.9, 2.6, fl(P)) +
+      s`<rect x="${x}" y="-6" width="7.5" height="6" rx="2"${fl(HO, "#3a2c22")}/>`;
+    const [links, rechts] = [huf(-10.5), huf(0.5)];
+    // Ein Fleck: ein rundliches Fünfeck um (x, y)
+    const fleck = (x, y, rr, d = 0) => {
+      const p = [1, 0.78, 1.08, 0.84, 0.96].map((k, i) => {
+        const w = (i * 72 + d) * Math.PI / 180;
+        return [x + Math.cos(w) * rr * k * 1.12, y + Math.sin(w) * rr * k];
+      });
+      const m = (a, b) => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+      const a = m(p[4], p[0]);
+      return p.reduce((t, q, i) => { const e = m(q, p[(i + 1) % 5]); return t + s`Q${q[0]} ${q[1]} ${e[0]} ${e[1]}`; }, s`M${a[0]} ${a[1]}`) + "Z";
+    };
+    // Der Hals: hinten und vorne eine Kurve vom Rumpf bis unter den Kopf
+    const hinten = [[-8.6, -44.4], [-7.6, -64], [-6.2, -84], [-5.4, -104]];
+    const vorne = [[10.3, -42.5], [10.6, -64], [10.2, -84], [9.6, -104]];
+    const kante = (p) => s`M${p[0][0]} ${p[0][1]}C${p[1][0]} ${p[1][1]} ${p[2][0]} ${p[2][1]} ${p[3][0]} ${p[3][1]}`;
+    // Das Licht darüber reicht (mit einem winzigen Viereck unten) bis zum Boden
+    // des Rumpfs – sonst wird der Hals am Ansatz dunkel.
+    const hals = s`${kante(hinten)}L${vorne[3][0]} ${vorne[3][1]}C${vorne[2][0]} ${vorne[2][1]} ${vorne[1][0]} ${vorne[1][1]} ${vorne[0][0]} ${vorne[0][1]}Q1 -38 ${hinten[0][0]} ${hinten[0][1]}Z`;
+    // Mähne: Büschel hinten am Hals; den inneren Teil deckt der Hals zu
+    let maehne = "", zurueck = "";
+    const n = 11;
+    for (let i = 0; i <= n; i++) {
+      const t = 0.14 + 0.86 * i / n, p = kubisch(hinten, t);
+      if (i === 0) maehne += s`M${p[0]} ${p[1]}`;
+      else {
+        const q = kubisch(hinten, t - 0.43 / n);
+        maehne += s`Q${q[0] - 3.6} ${q[1] + 0.4} ${p[0]} ${p[1]}`;
+      }
+      zurueck = s`L${p[0] + 2.5} ${p[1]}` + zurueck;
+    }
+    maehne += zurueck + "Z";
+    const c = o.farbe, kc = ton(c, -0.3);
+    const schal = pfad("M-7.4 -84Q1.5 -79 11.6 -84.6L11.8 -77.2Q1.5 -71.6 -7.4 -76.6Z", fl(c, kc)) +
+      pfad("M-6 -80.6Q1.5 -75.8 10.6 -81.2", strich(ton(c, 0.3), 1)) +
+      pfad("M4 -77.5L2 -63.5L8.6 -63L9.4 -77.8Z", fl(c, kc)) + pfad("M2.6 -67.6L8.7 -67.2", strich(kc, 0.9)) +
+      pfad("M3.2 -63.3V-60.4M5.3 -63.2V-60.3M7.4 -63V-60.2", strich(c, 1.4)) +
+      oval(6.6, -78.3, 2.7, 2.5, fl(ton(c, -0.08), kc));
+    const bob =
+      pfad("M-12 -24C-18 -22 -20 -17 -20 -12", strich(K, 3.4)) + pfad("M-12 -24C-18 -22 -20 -17 -20 -12", strich(F, 1.8)) +
+      pfad("M-20 -14C-23 -12 -23.2 -7 -20.4 -4.6C-17.4 -6.6 -17.2 -11.6 -20 -14Z", fl(M, KM, 1)) +
+      armHinten(fl(F, K)) + s`<rect x="15.2" y="-25.6" width="5" height="4.6" rx="1.6" transform="rotate(-20 17.7 -23.3)"${fl(HO)}/>` +
+      rumpfMit(14, F, K, oval(3, -24, 8, 11, fl(C)) + pfad(fleck(-9.6, -20, 2.5, 10) + fleck(11.6, -27, 1.9, 40) + fleck(-9.8, -39.5, 2.2, 70), fl(P))) +
+      armVorne(fl(F, K)) + s`<rect x="-19.4" y="-25.6" width="5" height="4.6" rx="1.6" transform="rotate(20 -16.9 -23.3)"${fl(HO)}/>` +
+      pfad(maehne, fl(M, KM, 1)) +
+      pfad(hals, fl(F)) +
+      pfad(fleck(4.5, -51, 3, 20) + fleck(-2.8, -57, 2.4, 50) + fleck(-1.4, -68.5, 2.6, 0) + fleck(1.2, -89, 2.4, 30) + fleck(-3, -48, 1.6, 10), fl(P)) +
+      pfad(hals + "M1 -11.2h.1v.1h-.1Z", LICHT) + pfad(kante(hinten) + kante(vorne), strich(K, 1.3)) +
+      schal +
+      pfad("M-6.4 -125L-8.2 -138.6", strich(K, 4.8)) + pfad("M-6.4 -125L-8.2 -138.6", strich(F, 3)) + kreis(-8.4, -140, 3.3, fl(M, KM, 1)) +
+      pfad("M8.6 -126L10.2 -139.6", strich(K, 4.6)) + pfad("M8.6 -126L10.2 -139.6", strich(F, 2.8)) + kreis(10.4, -140.8, 3.1, fl(M, KM, 1)) +
+      oval(-17.5, -119, 8, 3.6, fl(F, K), 14) + oval(-17.3, -118.8, 4.8, 1.9, fl(IN), 14) +
+      oval(21.5, -120, 7, 3.2, fl(F, K), -14) + oval(21.3, -119.8, 4.2, 1.7, fl(IN), -14) +
+      kreis(2, -113, 19, fl(F, K)) + pfad(fleck(-9, -124.5, 2.2, 15) + fleck(-13.2, -113.5, 1.7, 45), fl(P)) + kreis(2, -113, 19, LICHT) +
+      oval(8.5, -101.5, 11.5, 8.5, fl(C, KC, 1)) +
+      oval(5, -104, 1.3, 0.9, fl(N), -20) + oval(12.4, -104.4, 1.2, 0.85, fl(N), 20) +
+      pfad("M4.5 -99Q8.6 -96 13 -99.4", strich(N, 1.1)) +
+      auge(-4, -116, 3.4) + auge(11.5, -116.5, 3.1) +
+      pfad("M-7 -118.6l-1.9 -1.2M-7.4 -116.8l-2.1 -0.3M14.3 -118.8l1.7 -1.2M14.7 -117l1.9 -0.3", strich(N, 0.9)) +
+      backe(-10.5, -107.5, 3) + backe(18, -109.5, 2.4);
+    return { links, rechts, bob, lid: lid(-4, -116, 3.4, F) + lid(11.5, -116.5, 3.1, F) };
+  }
+
+  // --- Flamingo (rosa, lange Beine, gebogener Hals, Schleife auf dem Kopf) -----
+  function flamingo(o) {
+    const P = "#f7a3b6", K = "#d0657f", PD = "#ee86a0", KD = "#c4566f", B = "#3a2a2e", BH = "#f8e6da", KB = "#d4b4a2", LG = "#ef8ea4", KL = "#c25c76";
+    // Lange dünne Beine mit Knie, unten ein Schwimmfuss nach rechts
+    const fuss = (x) => pfad(s`M${x} -44V-4`, strich(KL, 4.4)) + pfad(s`M${x} -44V-4`, strich(LG, 2.6)) +
+      kreis(x, -21, 2.5, fl(LG, KL, 1)) +
+      pfad(s`M${x - 2.6} -0.6C${x - 2.6} -3.6 ${x - 0.4} -4.8 ${x + 1.6} -4.8C${x + 4} -4.6 ${x + 7.6} -2.8 ${x + 8.8} -1.4C${x + 9.2} -0.5 ${x + 8.4} 0 ${x + 7.4} 0H${x - 1.8}C${x - 2.3} 0 ${x - 2.6} -0.2 ${x - 2.6} -0.6Z`, fl(LG, KL));
+    const [links, rechts] = [fuss(-6), fuss(3.5)];
+    const hals = "M7.5 -55C13.6 -60 13.6 -65 8.6 -67.8C4.2 -70.2 2.6 -72.8 3.4 -76.6";
+    const leib = "M13 -53C13 -44 6 -38 -3 -38C-11 -38 -17 -41.5 -21 -46L-29.4 -49.8L-26.6 -52.8L-31.6 -55.6L-24.4 -57.4C-22.6 -57.8 -21 -58 -19.5 -58.4C-14 -62.4 -6 -63.4 1.5 -62.4C8.5 -61.4 13 -58.6 13 -53Z";
+    const fluegel = "M8 -55.5C4 -60.6 -9 -60.8 -17.5 -56.4C-21.6 -54.4 -24.6 -51.8 -26.6 -49.6C-24 -48.6 -21.6 -47.6 -19.6 -45.8C-18 -47.6 -15 -47.4 -13.6 -45.2C-11 -47.4 -8 -47 -6.6 -44.6C-4 -46.8 0 -46.8 1.4 -45C5.4 -47.4 8.6 -51 8 -55.5Z";
+    const bob =
+      pfad(hals, strich(K, 10.4)) + pfad(hals, strich(P, 8)) +
+      pfad(leib, fl(P, K)) + pfad(leib, LICHT) +
+      pfad("M-24.6 -50.4L-30.4 -51.2L-26 -48.6L-28.8 -47.4L-21.6 -46.6Z", fl(B, "#22181b", 1)) +
+      pfad(fluegel, fl(PD, KD)) + pfad("M-17.6 -50.6Q-11 -53.4 -3.4 -52.4M-12.4 -55.4Q-5 -57.6 3.4 -55.6", strich(ton(PD, 0.3), 1)) +
+      pfad("M2.6 -100.6Q0.2 -106.4 4.8 -108.2Q3.2 -104.6 6 -101.2", fl(P, K, 1)) +
+      kopfMit(3, -85, 17, P, K) +
+      backe(-7.6, -79.6, 3) + backe(12.6, -80.4, 2.4) +
+      pfad("M14 -85.6C18.8 -87.6 24.8 -86.6 27.4 -82.8C29 -80.2 28.4 -76 26.2 -73.4C25.8 -75.8 24.4 -77.8 21.8 -78.8C19.6 -79.6 16.6 -79.6 13.8 -79Z", fl(BH, KB)) +
+      pfad("M23.4 -86.6C25 -85.8 26.6 -84.4 27.4 -82.8C29 -80.2 28.4 -76 26.2 -73.4C25.8 -75.8 24.6 -77.6 22.4 -78.6C23.6 -81 24 -84 23.4 -86.6Z", fl(B)) +
+      pfad("M14.4 -82.4C17.8 -83 21 -82.6 23.4 -81.6", strich(KB, 1)) +
+      auge(-2, -88, 3.4) + auge(10.2, -88.4, 3.1) +
+      fliege(o.farbe, -6.5, -98);
+    return { links, rechts, bob, lid: lid(-2, -88, 3.4, P) + lid(10.2, -88.4, 3.1, P) };
+  }
+
+  // --- Fledermaus (grosse Ohren, Flügel wie ein Umhang, Fliege) ----------------
+  function fledermaus(o) {
+    const F = "#7d6b95", K = "#54456c", C = "#e5d4e1", KC = "#c1abbf", W = "#5f4f7a", KW = "#3f3357", WI = "#9886b0", IN = "#f0a8bf", N = "#46374b";
+    const [links, rechts] = beine(F, K, W);
+    // Der Umhang: hinten die helle Innenseite, vorne die beiden Flügel
+    const umhang = "M-11 -47C-18 -44 -23 -36 -24.5 -24C-25 -19 -25 -15 -24 -12Q-21 -15 -17.5 -13Q-15 -16.5 -11 -13.5L13 -13.5Q17 -16.5 19.5 -13Q23 -15 26 -12C27 -15 27 -19 26.5 -24C25 -36 20 -44 13 -47Z";
+    const vorneL = "M-9 -46.5C-12.6 -40 -13.6 -28 -11.4 -14.4Q-15 -16.6 -17.6 -13.2Q-20.2 -16.6 -24 -12.2C-25 -15 -25 -19 -24.5 -24C-23 -36 -18 -44 -11 -47Z";
+    const vorneR = "M11.4 -46.6C14 -40 15 -28 13.4 -14.2Q17 -16.4 19.4 -13.2Q22.8 -15.2 26 -12.2C27 -15 27 -19 26.5 -24C25 -36 20 -44 13.4 -47.2Z";
+    const bob =
+      pfad(umhang, fl(WI, KW)) +
+      rumpfMit(13.5, F, K, oval(2.5, -27, 7.5, 11.5, fl(C))) +
+      pfad(vorneR, fl(W, KW)) + pfad("M14.6 -43L16.6 -14.6M18.6 -41L21.8 -13.8", strich(ton(W, 0.25), 1)) +
+      pfad(vorneL, fl(W, KW)) + pfad("M-12.4 -43L-14.6 -15M-16.4 -41L-20.6 -13.6", strich(ton(W, 0.25), 1)) +
+      pfad("M-13.6 -46.4Q-15.4 -49.6 -13 -51Q-12.4 -48.6 -11.2 -47.2Z", fl(W, KW, 1)) + pfad("M15.8 -46.6Q17.6 -49.8 15.2 -51.2Q14.6 -48.8 13.4 -47.4Z", fl(W, KW, 1)) +
+      pfad("M-18.6 -68C-22.6 -79 -22.4 -91 -17 -100.6C-10.6 -94.4 -5 -86.6 -3 -80Z", fl(F, K)) + pfad("M-16.6 -73.4C-19.2 -81.4 -19 -89.4 -16.4 -95.4C-12.4 -90.6 -8.6 -85.4 -7 -80.6Z", fl(IN)) +
+      pfad("M4.6 -81.4C8.6 -88.6 14.6 -95.4 21.4 -99.6C24.6 -91.4 24.4 -80 20.6 -68.8Z", fl(F, K)) + pfad("M8.6 -80.6C11.6 -86.2 15.6 -90.8 19.8 -94C21.6 -87.4 21.4 -80.4 19 -73.4Z", fl(IN)) +
+      kopfMit(1, -63, 20.5, F, K) +
+      pfad("M-3 -82.6C-2 -86.6 0.6 -87.2 1.6 -84.2C2.6 -87.2 5.6 -87.2 6.2 -82.8Z", fl(F, K)) +
+      oval(5.6, -55.6, 9, 6.6, fl(C, KC, 1)) +
+      pfad("M3.4 -59.6Q6 -61.2 8.6 -59.6Q8.1 -57.4 6 -56.8Q3.9 -57.4 3.4 -59.6Z", fl(N)) + oval(4.9, -59.6, 1.1, 0.6, ' fill="#ffffff" opacity=".45"') +
+      pfad("M2.4 -53.8Q6 -50.6 9.6 -53.8", strich(N, 1.1)) +
+      pfad("M4.2 -52.6L4.9 -50.6L5.6 -52.2ZM6.6 -52.2L7.3 -50.6L8 -52.6Z", fl("#ffffff", KC, 0.6)) +
+      auge(-3.5, -64.5, 3.7) + auge(13, -64.5, 3.4) +
+      backe(-9.5, -56.5) + backe(18, -57, 3) +
+      fliege(o.farbe, 3, -40.5);
+    return { links, rechts, bob, lid: lid(-3.5, -64.5, 3.7, F) + lid(13, -64.5, 3.4, F) };
+  }
+
+  // --- Papagei (Ara: rot, gelb und blau, Hakenschnabel, Halstuch) --------------
+  function papagei(o) {
+    const R = "#e2463a", K = "#a92f26", Y = "#f6c234", KY = "#c9931b", BL = "#2f7fd0", KBL = "#1f5a99", W = "#fbf7f2", KW = "#ddd2c8", SN = "#f3ece2", KSN = "#c6b6a2", SD = "#3b3436", FU = "#8c8790", KFU = "#615c66";
+    const fuss = (x) => s`<rect x="${x + 1}" y="-14" width="5" height="12" rx="2.5"${fl(FU, KFU)}/>` +
+      oval(x + 1.5, -1.8, 2.2, 1.7, fl(FU, KFU, 1)) + oval(x + 4.2, -1.6, 2.2, 1.8, fl(FU, KFU, 1)) + oval(x + 7, -1.8, 2.2, 1.7, fl(FU, KFU, 1));
+    const [links, rechts] = [fuss(-10), fuss(0.5)];
+    // Ein Flügel aus drei Lagen: blaue Schwungfedern, gelbe und rote
+    // Deckfedern. v = 1 vorne (links im Bild), v = -1 hinten (gespiegelt).
+    const fluegel = (v) => {
+      const x = (n) => n * v;
+      return pfad(s`M${x(-6)} -44C${x(-15)} -43 ${x(-20.5)} -34 ${x(-20)} -22C${x(-19.8)} -16 ${x(-18)} -11 ${x(-15)} -7.5C${x(-12)} -12 ${x(-8.6)} -20 ${x(-6.4)} -29C${x(-5.4)} -34 ${x(-5.2)} -40 ${x(-6)} -44Z`, fl(BL, KBL)) +
+        pfad(s`M${x(-16.6)} -11L${x(-15.8)} -21M${x(-13.2)} -14.6L${x(-12.2)} -23.4M${x(-9.8)} -19L${x(-9)} -25.6`, strich(KBL, 0.9)) +
+        pfad(s`M${x(-6)} -44C${x(-15)} -43 ${x(-20.5)} -34 ${x(-20.2)} -25.6Q${x(-18)} -23 ${x(-16)} -25.6Q${x(-13.6)} -22.8 ${x(-11.4)} -25.6Q${x(-9)} -23.4 ${x(-6.6)} -26.4C${x(-5.6)} -32 ${x(-5.2)} -40 ${x(-6)} -44Z`, fl(Y, KY)) +
+        pfad(s`M${x(-6)} -44.4C${x(-12)} -44 ${x(-16.6)} -41.4 ${x(-18.6)} -36Q${x(-16.4)} -33.6 ${x(-14.4)} -36Q${x(-12)} -33.4 ${x(-9.8)} -36Q${x(-7.6)} -33.8 ${x(-5.6)} -36.6C${x(-5.2)} -39.6 ${x(-5.4)} -42.4 ${x(-6)} -44.4Z`, fl(R, K));
+    };
+    const bob =
+      pfad("M-8 -26C-14 -20 -22 -13 -31 -8.6C-30 -6.6 -27.6 -6 -25.6 -7C-18 -11 -11 -16 -5 -21Z", fl(BL, KBL)) +
+      pfad("M-6 -23C-11 -16 -17.6 -9 -25.4 -3.6C-23.8 -1.8 -21.4 -1.6 -19.8 -2.8C-13.6 -8 -8.4 -14 -3.4 -19Z", fl(R, K)) +
+      pfad("M-21.4 -6.6C-22.6 -5.6 -24 -4.6 -25.4 -3.6C-23.8 -1.8 -21.4 -1.6 -19.8 -2.8C-19.2 -3.4 -18.6 -3.9 -18 -4.5Z", fl(BL, KBL, 1)) +
+      pfad("M-9 -18.4L-21 -6M-11 -20.6L-27 -8.6", strich(K, 0.8)) +
+      fluegel(-1) +
+      rumpfMit(14.5, R, K, oval(3, -25, 8.5, 12, fl(ton(R, 0.1))) + pfad("M-0.6 -31.4q2 1.4 4 0M4.4 -27q2 1.4 4 0M-1.4 -22.6q2 1.4 4 0M3.6 -18.4q2 1.4 4 0", strich(ton(R, -0.12), 1))) +
+      fluegel(1) +
+      halstuch(o.farbe) +
+      kopfMit(1, -63, 20.5, R, K) +
+      pfad("M-4 -83.4C-3 -87.4 0 -87.9 1 -84.9C2 -87.9 5.5 -87.9 6 -83.4Z", fl(R, K)) +
+      kreis(-4, -65.2, 5.8, fl(W)) + kreis(11.6, -65, 5.4, fl(W)) + oval(8.6, -58.4, 5.6, 4.6, fl(W)) +
+      pfad("M-8.2 -59.8l1.6 -0.6M-6.6 -58l1.6 -0.6M-4.8 -59.4l1.6 -0.6M15.2 -59.6l1.4 -0.6M16 -61.6l1.4 -0.6", strich("#e98a80", 0.8)) +
+      pfad("M7 -52.8C10 -54 13.5 -53.8 15.8 -52C16.8 -49.6 15.4 -47 12.6 -46.4C9.6 -45.8 7.4 -47.4 7 -50Z", fl(SD)) +
+      pfad("M6 -58.5C10 -62 17.5 -62 20.5 -57C22.5 -53.5 21.8 -48.8 19.2 -46.2C19 -48.8 17.8 -51 15.8 -52C12.8 -53.6 9 -53.4 6.4 -52.4C5.2 -54.2 5 -56.6 6 -58.5Z", fl(SN, KSN)) +
+      pfad("M18.4 -48.6C19.8 -50.4 20.4 -52.6 20.2 -54.6C21.6 -52.6 21.6 -48.6 19.2 -46.2Z", fl(SD)) +
+      oval(9.4, -58.2, 0.9, 0.7, fl(KSN)) +
+      auge(-4, -65.5, 3.4) + auge(11.6, -65.5, 3.1) +
+      backe(-10.6, -56.6, 3) + backe(19, -64.8, 2.2);
+    return { links, rechts, bob, lid: lid(-4, -65.5, 3.4, W, "#8a7d72") + lid(11.6, -65.5, 3.1, W, "#8a7d72") };
+  }
+
+  // --- Koala (grau, grosse flauschige Ohren, grosse dunkle Nase, Käppi) --------
+  function koala(o) {
+    const G = "#a4a8b0", K = "#70747d", W = "#f6f3ef", KW = "#d6d1ca", N = "#3a3437", KN = "#231f21", IN = "#e9e4dd";
+    const [links, rechts] = beine(G, K);
+    // Ein flauschiger Kreis: Büschel rundherum
+    const flausch = (x, y, rr, n, tief) => {
+      let d = "";
+      for (let i = 0; i <= n; i++) {
+        const w = (i / n) * Math.PI * 2;
+        const p = [x + Math.cos(w) * rr, y + Math.sin(w) * rr];
+        if (i === 0) d += s`M${p[0]} ${p[1]}`;
+        else {
+          const wm = w - Math.PI / n;
+          d += s`Q${x + Math.cos(wm) * (rr + tief)} ${y + Math.sin(wm) * (rr + tief)} ${p[0]} ${p[1]}`;
+        }
+      }
+      return d + "Z";
+    };
+    const c = o.farbe, kc = ton(c, -0.3);
+    const kaeppi = pfad("M7 -79Q18 -81 25 -76.2Q18.6 -73.4 6.4 -75.4Z", fl(ton(c, -0.12), kc)) +
+      pfad("M-11 -76.4C-10 -86 -4 -89.6 2.5 -89.6C9 -89.6 14 -86 15 -77Q2 -80 -11 -76.4Z", fl(c, kc)) +
+      pfad("M2.5 -89.4Q1 -83.6 1.6 -78.2M-5.4 -87.2Q-7.6 -82.6 -7.4 -77.6", strich(kc, 0.9)) +
+      pfad("M-6 -84.6Q-3.6 -87.6 0.2 -88.4", strich(ton(c, 0.35), 1.3)) +
+      kreis(2.5, -89.6, 1.7, fl(ton(c, -0.08), kc, 1));
+    const bob =
+      armHinten(fl(G, K)) + kreis(...HAND_H, 3.2, fl(ton(G, -0.18), K)) +
+      rumpfMit(15.5, G, K, oval(3, -25, 9, 12.5, fl(W))) +
+      armVorne(fl(G, K)) + kreis(...HAND_V, 3.3, fl(ton(G, -0.18), K)) +
+      pfad(flausch(-18, -75, 9.6, 13, 2.2), fl(G, K)) + pfad(flausch(-18.4, -74.6, 6, 10, 1.6), fl(IN)) +
+      pfad(flausch(20, -75.5, 8.8, 13, 2), fl(G, K)) + pfad(flausch(20.3, -75.1, 5.4, 10, 1.5), fl(IN)) +
+      kopfMit(1, -62, 21, G, K) +
+      pfad("M6.5 -65C10.6 -65 12 -60.6 11.8 -56.6C11.6 -52.6 9.2 -50.8 6.5 -50.8C3.8 -50.8 1.4 -52.6 1.2 -56.6C1 -60.6 2.4 -65 6.5 -65Z", fl(N, KN)) +
+      oval(4.6, -61.2, 1.6, 2.2, ' fill="#ffffff" opacity=".4"', 14) +
+      pfad("M3.6 -47.8Q6.5 -45.6 9.4 -47.8", strich(K, 1.1)) +
+      auge(-4.6, -64.5, 3.3) + auge(16, -64.5, 3) +
+      backe(-11, -56) + backe(19.4, -56.4, 2.8) +
+      kaeppi;
+    return { links, rechts, bob, lid: lid(-4.6, -64.5, 3.3, G) + lid(16, -64.5, 3, G) };
+  }
+
   const ZEICHNER = {
     fox: fuchs, bear: baer, rabbit: hase, cat: katze, panda, frog: frosch, owl: eule, penguin: pinguin,
     lion: loewe, mouse: maus, squirrel: eichhoernchen, ibex: steinbock, dog: hund, hedgehog: igel, cow: kuh, elephant: elefant,
+    giraffe, flamingo, bat: fledermaus, parrot: papagei, koala,
   };
 
   // ---------------------------------------------------------------------------
@@ -866,6 +1076,11 @@
     hedgehog: { x0: -27, y0: -87, x1: 31, y1: 1 },
     cow: { x0: -31, y0: -90, x1: 30, y1: 1 },
     elephant: { x0: -30, y0: -97, x1: 30, y1: 1 },
+    giraffe: { x0: -28, y0: -145, x1: 31, y1: 1 },
+    flamingo: { x0: -33, y0: -110, x1: 30, y1: 1 },
+    bat: { x0: -26, y0: -102, x1: 28, y1: 1 },
+    parrot: { x0: -32, y0: -88, x1: 23, y1: 1 },
+    koala: { x0: -30, y0: -93, x1: 31, y1: 1 },
   };
   const BOX_GEWOEHNLICH = {
     fox: { x0: -40, y0: -99, x1: 29, y1: 1 },
@@ -884,6 +1099,11 @@
     hedgehog: { x0: -27, y0: -87, x1: 31, y1: 1 },
     cow: { x0: -31, y0: -90, x1: 30, y1: 1 },
     elephant: { x0: -30, y0: -97, x1: 30, y1: 1 },
+    giraffe: { x0: -28, y0: -145, x1: 31, y1: 1 },
+    flamingo: { x0: -33, y0: -110, x1: 30, y1: 1 },
+    bat: { x0: -26, y0: -102, x1: 28, y1: 1 },
+    parrot: { x0: -32, y0: -88, x1: 23, y1: 1 },
+    koala: { x0: -30, y0: -93, x1: 31, y1: 1 },
   };
   const BOX_FIGUR = {
     fino: { x0: -40, y0: -99, x1: 29, y1: 1 },

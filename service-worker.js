@@ -1,4 +1,4 @@
-const APP_VERSION = "2026-10-06-42";
+const APP_VERSION = "2026-10-17-43";
 const CACHE_PREFIX = "lernapp-pwa-";
 const CACHE_NAME = `${CACHE_PREFIX}${APP_VERSION}`;
 const ASSET_VERSION_QUERY = `?v=${APP_VERSION}`;
@@ -146,6 +146,8 @@ const CORE_ASSETS = [
   `./lesen-detektive.js${ASSET_VERSION_QUERY}`,
   `./train-leseecke.js${ASSET_VERSION_QUERY}`,
   `./bau.css${ASSET_VERSION_QUERY}`,
+  `./bau-wetter.css${ASSET_VERSION_QUERY}`,
+  `./bau-spiele.css${ASSET_VERSION_QUERY}`,
   `./bau-moebel.js${ASSET_VERSION_QUERY}`,
   `./bau-moebel-wohnen.js${ASSET_VERSION_QUERY}`,
   `./bau-moebel-haus.js${ASSET_VERSION_QUERY}`,
@@ -157,10 +159,17 @@ const CORE_ASSETS = [
   `./bau-moebel-buero.js${ASSET_VERSION_QUERY}`,
   `./bau-moebel-arbeit.js${ASSET_VERSION_QUERY}`,
   `./bau-moebel-dome.js${ASSET_VERSION_QUERY}`,
+  `./bau-moebel-hotel.js${ASSET_VERSION_QUERY}`,
+  `./bau-moebel-extra.js${ASSET_VERSION_QUERY}`,
   `./bau-katalog.js${ASSET_VERSION_QUERY}`,
   `./bau-stand.js${ASSET_VERSION_QUERY}`,
   `./bau-tiere.js${ASSET_VERSION_QUERY}`,
+  `./bau-menschen.js${ASSET_VERSION_QUERY}`,
   `./bau-art.js${ASSET_VERSION_QUERY}`,
+  `./bau-schmuck.js${ASSET_VERSION_QUERY}`,
+  `./bau-leiter.js${ASSET_VERSION_QUERY}`,
+  `./bau-wetter.js${ASSET_VERSION_QUERY}`,
+  `./bau-spiele.js${ASSET_VERSION_QUERY}`,
   `./train-bau.js${ASSET_VERSION_QUERY}`,
   `./silbenzug.js${ASSET_VERSION_QUERY}`,
   `./buchstabenhaus.js${ASSET_VERSION_QUERY}`,
