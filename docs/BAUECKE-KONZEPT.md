@@ -176,6 +176,18 @@ jüngere Tochter dabei an Grenzen kommt, ist ausdrücklich in Kauf genommen. Das
 - **Prüfungen:** `validate-bau.mjs` rechnet Stufen, Plätze, Lage, Spital, Hotel, Neustart,
   Zusammenführen, Fassung 5 → 6, Tragen und die neuen Zeichnungen nach; `check-bau.mjs`
   prüft im Browser.
+- **Zimmerkopf (Rückmeldung vom 18. Oktober 2026):** Drei Bewohner mit allen Sternen waren
+  selbst auf dem Tablet zu breit, die Werkzeuge rutschten unter die festen Knöpfe oben rechts.
+  Jetzt misst `passeKopfzeile` (train-bau.js) nach jedem Zeichnen, bei jeder neuen Grösse und
+  wenn die Schrift nachkommt, und macht den Kopf Stufe um Stufe knapper, bis er zwischen die
+  Knöpfe passt (bau.css, `.is-eng1` … `.is-eng8`): Sterne in zwei Reihen, ohne Laune, der Name
+  nur als Lautsprecher, alles etwas kleiner, statt der Sterne die Medaille (Arbeitende nur als
+  Bild mit goldenem Rand), nur zwei Leute und «+N», ohne den Namen – und erst zuletzt zwei
+  Zeilen; dann rückt das Zimmer darunter. Nichts im Kopf schrumpft von selbst. Ergebnis
+  (drei Bewohner): 1600 px volle Reihe, 1366 und 1280 zwei Reihen, 1180 ohne Laune, 1024 und
+  915 kleiner, 812 × 375 Medaillen; erst ab 740 px zwei Zeilen. `check-bau.mjs`
+  (`pruefeZimmerkopf`) prüft sechs Grössen von 1366 × 1024 bis 667 × 375 mit drei Bewohnern
+  und mit einer Bäckerei voller Leute.
 
 | Datei | Was |
 | --- | --- |

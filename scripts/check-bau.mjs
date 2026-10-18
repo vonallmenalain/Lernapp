@@ -1363,6 +1363,94 @@ async function pruefeErweiterung(browser, name, viewport) {
   await context.close();
 }
 
+// Der Zimmerkopf: drei Bewohner mit allen Sternen oder ein Arbeitszimmer mit
+// neun Leuten, Plätzen und Würfel – auf schmalen Tablets und kleinen Handys
+// liegt nie ein Knopf unter einem anderen (passeKopfzeile wird knapper, zuletzt
+// zweizeilig), und das Zimmer beginnt unter dem Kopf.
+async function pruefeZimmerkopf(browser) {
+  const groessen = [[1366, 1024], [1180, 820], [1024, 768], [915, 412], [812, 375], [667, 375]];
+  for (const [width, height] of groessen) {
+    const name = `Zimmerkopf ${width}×${height}`;
+    const { context, page, ausnahmen } = await neueSeite(browser, { width, height });
+    try {
+      await page.goto(`${BASIS}/index.html`, { waitUntil: "load" });
+      await page.evaluate(() => {
+        const S = window.LernappBauStand;
+        window.LernappEntitlement.isFree = () => true;
+        S.setzeGewaehlt("wohnhaus");
+        S.merkeGezeigt();
+        for (let i = 0; i < 3; i += 1) S.baueStockwerk("wohnhaus");
+        [0, 1, 2].forEach((i) => {
+          S.waehleArt("wohnhaus", i, "wohnung");
+          S.waehleRaum("wohnhaus", i, 0, i === 1 ? "kinderzimmer" : "schlafzimmer");
+          for (let k = 0; k < 2; k += 1) { S.aendereStock("wohnhaus", i, (st) => { st.zuzug = 0; }); S.ziehtEin("wohnhaus", i); }
+          S.aendereStock("wohnhaus", i, (st) => {
+            st.zuzug = Date.now() + 864e5;
+            st.tiere.forEach((t, n) => {
+              t.seit = Date.now() - 864e5;
+              t.b = ["fremd:zentrum:baeckerei"];
+              if (n === 0) t.traum = "zentrum:baeckerei";
+              if (n === 1) t.weh = { art: "gips", seit: Date.now() };
+            });
+          });
+        });
+        for (let i = 0; i < 2; i += 1) S.baueStockwerk("zentrum");
+        S.waehleRaum("zentrum", 0, 0, "baeckerei");
+        S.speichern(true);
+      });
+      await page.goto(`${BASIS}/index.html?bau=1`, { waitUntil: "load" });
+      await page.waitForTimeout(1500);
+      await page.addStyleTag({ content: ".bau-welt .bau-tier { pointer-events: none !important; }" });
+      const pruefeKopf = async (wo) => {
+        const lage = await page.evaluate(() => {
+          const r = (e) => e.getBoundingClientRect();
+          const sichtbar = (e) => { const b = r(e); return b.width > 0 && b.height > 0 && getComputedStyle(e).visibility !== "hidden"; };
+          const kopf = document.querySelector(".bau-kopfzeile");
+          const innen = [...kopf.querySelectorAll(".bau-zimmerkopf > *, .bau-werkzeug > *")].filter(sichtbar);
+          const aussen = [...document.querySelectorAll("button")].filter((e) => !kopf.contains(e) && sichtbar(e) && r(e).top < r(kopf).bottom);
+          const ueber = (a, b) => { const x = r(a), y = r(b); return x.left < y.right - 1 && x.right > y.left + 1 && x.top < y.bottom - 1 && x.bottom > y.top + 1; };
+          const name = (e) => e.getAttribute("aria-label") || e.className;
+          const treffer = [];
+          innen.forEach((a, i) => {
+            aussen.forEach((b) => { if (ueber(a, b)) treffer.push(`${name(a)} unter ${name(b)}`); });
+            innen.slice(i + 1).forEach((b) => { if (ueber(a, b)) treffer.push(`${name(a)} über ${name(b)}`); });
+          });
+          const svg = document.querySelector(".bau-zimmer-svg");
+          return { treffer, zuBreit: kopf.scrollWidth > kopf.clientWidth + 1, zimmerOben: svg ? r(svg).top : 0, kopfUnten: r(kopf).bottom, werkzeug: kopf.querySelectorAll(".bau-werkzeug .bau-rund").length };
+        });
+        pruefe(lage.werkzeug >= 3, `${name}: ${wo}: im Kopf fehlen Werkzeuge`);
+        pruefe(!lage.treffer.length, `${name}: ${wo}: im Kopf liegt ein Knopf unter einem anderen (${lage.treffer.slice(0, 3).join("; ")})`);
+        pruefe(!lage.zuBreit, `${name}: ${wo}: der Kopf ist breiter als der Platz zwischen den Knöpfen`);
+        pruefe(lage.zimmerOben >= lage.kopfUnten - 2, `${name}: ${wo}: das Zimmer beginnt unter dem Kopf (Zimmer ${Math.round(lage.zimmerOben)}, Kopf bis ${Math.round(lage.kopfUnten)})`);
+      };
+      await tippe(page, '.bau-raum[data-stock="0"]');
+      pruefe(await bis(page, () => document.querySelector(".bauecke.ist-zimmer .bau-zimmer-svg"), null, 5000), `${name}: das Schlafzimmer geht nicht auf`);
+      await page.waitForTimeout(900);
+      pruefe(await page.locator(".bau-zimmerkopf .bau-zimmertier").count() === 3, `${name}: im Schlafzimmer stehen nicht drei Bewohner im Kopf`);
+      await pruefeKopf("Schlafzimmer mit drei Bewohnern");
+      // Kleiner und wieder grösser: Der Kopf passt sich an.
+      await page.setViewportSize({ width: Math.round(width * 0.8), height });
+      await page.waitForTimeout(600);
+      await pruefeKopf("Schlafzimmer, Fenster schmaler");
+      await page.setViewportSize({ width, height });
+      await page.waitForTimeout(600);
+      await page.evaluate(() => window.LernappBau.zurueck());
+      await bis(page, () => !document.querySelector(".bauecke.ist-zimmer"), null, 5000);
+      await page.waitForTimeout(800);
+      await page.locator('.bau-tab[data-haus="zentrum"]').first().click({ force: true });
+      await page.waitForTimeout(1300);
+      await tippe(page, '.bau-raum[data-stock="0"]');
+      pruefe(await bis(page, () => document.querySelector(".bauecke.ist-zimmer .bau-spielknopf"), null, 5000), `${name}: die Bäckerei geht nicht auf`);
+      await page.waitForTimeout(900);
+      await pruefeKopf("Bäckerei mit neun Leuten");
+    } catch (fehler) {
+      fehlt(`${name}: ${fehler.message.split("\n")[0]}`);
+    }
+    ausnahmen.forEach((a) => fehlt(`${name}: Ausnahme im Browser: ${a}`));
+    await context.close();
+  }
+}
+
 if (!(await warteAufServer())) { console.error("Der Testserver startet nicht."); process.exit(2); }
 const browser = await playwright.chromium.launch();
 await pruefeGeraet(browser, "Tablet", { width: 1600, height: 1000 });
@@ -1378,6 +1466,7 @@ await pruefeAnsicht(browser, "Tablet", { width: 1600, height: 1000 });
 await pruefeAnsicht(browser, "Handy", { width: 812, height: 375 });
 await pruefeErweiterung(browser, "Tablet", { width: 1600, height: 1000 });
 await pruefeErweiterung(browser, "Handy", { width: 812, height: 375 });
+await pruefeZimmerkopf(browser);
 await browser.close();
 halt();
 // Alles, was die Bauecke sagt, kommt als Aufnahme (bau-stimme.js) – nie
@@ -1389,4 +1478,4 @@ if (befunde.length) {
   befunde.forEach((b) => console.error(`  - ${b}`));
   process.exit(1);
 }
-console.log("Die Bauecke läuft: Bauplatz, Hauswahl mit fünf Häusern, Einzug mit Feuerwerk, Zimmer mit eigenen Dingen, Tafel mit Stufen und Hingehen, Traumjob von aussen und im Zimmer, KiddyDome über zwei Stockwerke, alle Bewohner auf einen Blick, Sternenleiter bis 1000 mit Krone und goldenem Rahmen, Blitzzug, Glücksstern, Helikopter, Wehwehchen, Feriengast, Spiele, Tragen, Album, Ruhmeshalle und Neustart, ganzes Haus und Zoom, Umstellen, Rätsel, Lieferung, Bauen, Vorlesen per Tipp – auf Tablet und Handy.");
+console.log("Die Bauecke läuft: Bauplatz, Hauswahl mit fünf Häusern, Einzug mit Feuerwerk, Zimmer mit eigenen Dingen, Tafel mit Stufen und Hingehen, Traumjob von aussen und im Zimmer, KiddyDome über zwei Stockwerke, alle Bewohner auf einen Blick, Sternenleiter bis 1000 mit Krone und goldenem Rahmen, Blitzzug, Glücksstern, Helikopter, Wehwehchen, Feriengast, Spiele, Tragen, Album, Ruhmeshalle und Neustart, Zimmerkopf ohne verdeckte Knöpfe, ganzes Haus und Zoom, Umstellen, Rätsel, Lieferung, Bauen, Vorlesen per Tipp – auf Tablet und Handy.");
