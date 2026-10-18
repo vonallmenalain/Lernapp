@@ -783,8 +783,17 @@
   // Weitere Dinge, die Zimmerlisten und die Bildmotive aus bau-moebel-<haus>.js.
   // Eine Kennung gibt es nur einmal: Wer eine schon vergebene noch einmal
   // bringt, wird übergangen (und validate-bau.mjs meldet es).
+  // Dazu, seit Oktober 2026: wie ein neuer Wunsch heisst (wuensche: tag →
+  // { ein, zeige }, bau-katalog.js übernimmt sie in DING_WUENSCHE), die
+  // Dinge je Jahreszeit (saison), die goldenen Möbel als Lohn für einen Pokal
+  // (schaetze) und die Lieblingsdinge der Menschen (menschen) – die drei
+  // Listen sind eigene Schubladen in train-bau.js.
   const doppelt = [];
-  function dazu({ dinge = {}, raeume = {}, motive = {} } = {}) {
+  const WUENSCHE = {};
+  const SAISON = { fruehling: [], sommer: [], herbst: [], winter: [] };
+  const SCHAETZE = [];
+  const MENSCHEN = [];
+  function dazu({ dinge = {}, raeume = {}, motive = {}, wuensche = {}, saison = {}, schaetze = [], menschen = [] } = {}) {
     Object.entries(dinge).forEach(([id, ding]) => {
       if (DINGE[id]) { doppelt.push(id); return; }
       DINGE[id] = ergaenze(id, ding);
@@ -794,6 +803,10 @@
       ids.forEach((id) => { if (!liste.includes(id)) liste.push(id); });
     });
     Object.assign(MOTIVE, motive);
+    Object.entries(wuensche).forEach(([tag, info]) => { if (!WUENSCHE[tag]) WUENSCHE[tag] = info; });
+    Object.entries(saison).forEach(([zeit, ids]) => { if (SAISON[zeit]) ids.forEach((id) => { if (!SAISON[zeit].includes(id)) SAISON[zeit].push(id); }); });
+    schaetze.forEach((id) => { if (!SCHAETZE.includes(id)) SCHAETZE.push(id); });
+    menschen.forEach((id) => { if (!MENSCHEN.includes(id)) MENSCHEN.push(id); });
   }
 
   // Die Zeichnung eines Dings, mit seiner Farbe (oder der Grundfarbe). Das
@@ -824,5 +837,5 @@
   // selben Stil gezeichnet sind.
   const hilfe = { R, C, E, P, S, T, leg, stern, topf, buecherReihe, shade, HOLZ, HOLZ_D, HOLZ_DD, METALL, METALL_D, DUNKEL, WEISS, RAND, TINTE, BUNT };
 
-  window.LernappBauMoebel = { MASS, DINGE, KATEGORIEN, UEBERALL, RAUM_DINGE, MOTIVE, doppelt, dazu, zeichne, umriss, massVon, shade, stern, hilfe };
+  window.LernappBauMoebel = { MASS, DINGE, KATEGORIEN, UEBERALL, RAUM_DINGE, MOTIVE, WUENSCHE, SAISON, SCHAETZE, MENSCHEN, doppelt, dazu, zeichne, umriss, massVon, shade, stern, hilfe };
 })();

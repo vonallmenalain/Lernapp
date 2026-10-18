@@ -110,6 +110,12 @@ function vollerStand() {
     let i = 0;
     raeume.forEach((r) => { S.waehleRaum(h, i, 0, r); i += r === "kiddydome" ? 2 : 1; });
   });
+  // Das Hotel: Rezeption und ein Gästezimmer mit Bett – darin ein Feriengast.
+  for (let i = 0; i < 3; i += 1) S.baueStockwerk("hotel");
+  S.waehleRaum("hotel", 0, 0, "rezeption");
+  S.waehleRaum("hotel", 1, 0, "gaestezimmer");
+  S.aendereZimmer("hotel", 1, 0, (z) => ["o_hotelbett", "o_minibar"].forEach((id, k) => z.dinge.push({ k: `gast${k}`, i: id, x: 120 + k * 110, y: 230, c: "", f: 0, s: 1 })));
+  S.gastKommt(1);
   // Traumjobs und Wünsche: einige haben ihn, mehrere wünschen sich dasselbe Zimmer.
   const orte = ["spital:notfall", "spital:augen", "zentrum:bibliothek", "zentrum:baeckerei", "buero:grossraum", "buero:atelier"];
   let n = 0;
@@ -136,7 +142,11 @@ async function neueSeite(browser) {
   await context.addInitScript(stimmeErsatz);
   await context.addInitScript(() => {
     try {
-      if (!localStorage.getItem("lernapp.bau.ueberraschung")) localStorage.setItem("lernapp.bau.ueberraschung", JSON.stringify({ "": { zug: Date.now() + 864e5, stern: Date.now() + 864e5, rekord: 999 } }));
+      if (!localStorage.getItem("lernapp.bau.ueberraschung")) {
+        // Keine Überraschung mitten im Rundgang: Sie führte in ein anderes Haus.
+        const spaeter = Date.now() + 864e5;
+        localStorage.setItem("lernapp.bau.ueberraschung", JSON.stringify({ "": { zug: spaeter, stern: spaeter, heli: spaeter, weh: spaeter, baby: spaeter, gast: spaeter, rekord: 999 } }));
+      }
     } catch { /* privater Modus */ }
   });
   const page = await context.newPage();
@@ -280,6 +290,13 @@ async function hausRunde(page, hausId) {
   await hilfe(page);
   const raeume = await page.locator(".bau-welt .bau-raum").count();
   for (let i = 0; i < raeume; i += 1) {
+    // Hat ein Tipp in ein anderes Haus geführt (ein Wunsch, «Zeig mir»): zurück.
+    if (!(await page.locator(`.bau-tab.is-aktiv[data-haus="${hausId}"]`).count())) {
+      await page.locator(`.bau-tab[data-haus="${hausId}"]`).first().click({ force: true }).catch(() => {});
+      await pause(page, 1300);
+      await schliesseOverlays(page);
+    }
+    if (await page.locator(".bau-welt .bau-raum").count() <= i) break;
     const r = page.locator(".bau-welt .bau-raum").nth(i);
     const wo = `${hausId} ${await r.getAttribute("data-stock")}/${await r.getAttribute("data-slot")}`;
     schritt = `Haus ${hausId}: Stockwerk ${wo}`;
@@ -356,7 +373,7 @@ try {
   await page.mouse.click(5, 300);
   await pause(page, 300);
   await schliesseOverlays(page);
-  for (const hausId of ["wohnhaus", "spital", "zentrum", "buero"]) await hausRunde(page, hausId);
+  for (const hausId of ["wohnhaus", "spital", "zentrum", "buero", "hotel"]) await hausRunde(page, hausId);
   // Alle Bewohner: die Texte, jedes Tier mit seiner Tafel.
   schritt = "Alle Bewohner";
   await page.locator('.bau-tab[data-haus="wohnhaus"]').first().click({ force: true }).catch(() => {});

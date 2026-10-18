@@ -60,7 +60,11 @@ const { ORDNER, dateiFuer, passtZumText, sekundenVon } = bau;
 
 const API = "https://texttospeech.googleapis.com/v1";
 const EINSTELLUNG = path.join(WURZEL, "scripts", "stimme-google.json");
-const GRENZE_MONAT = 900_000;
+// Sonst bleibt das Skript unter dem Gratis-Kontingent (1 Million Zeichen im
+// Monat). Im Oktober 2026 kam die grosse Erweiterung der Bauecke dazu; der
+// Auftraggeber hat bis 1,5 Millionen Zeichen erlaubt (höchstens etwa 15
+// US-Dollar über dem Gratis-Kontingent).
+const GRENZE_MONAT = new Date().toISOString().slice(0, 7) === "2026-10" ? 1_500_000 : 900_000;
 const RATE = 24000;
 
 // Wo eine Stimme ein Wort falsch sagt, bekommt sie es hier anders

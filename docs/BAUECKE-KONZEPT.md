@@ -19,9 +19,13 @@ Pepi, Miga Town, den einzelnen Toca-Apps und weiteren Bauspielen (Abschnitt 3)
 > Haus auf einem Bildschirm**, **Zoom mit zwei Fingern** und ein **flüssiger Lieferzug**;
 > dann (Nachtrag 0N) **alle vier Häuser auf einen Blick**, eine **längere Sternenleiter**
 > bis 200 Sterne, **Traumjobs und Wünsche in der Zimmerwahl**, **Tiere, die sich gut
-> antippen lassen**, und ein **ruhiges Bild** ohne Flackern; zuletzt (Nachtrag 0O) **Häuser bis
-> vierzig Stockwerke** statt zwanzig.
-> **Was gilt, steht in den Abschnitten 0O, 0N, 0M, 0L, 0K und 0** (Etappe
+> antippen lassen**, und ein **ruhiges Bild** ohne Flackern; dann (Nachtrag 0O) **Häuser bis
+> vierzig Stockwerke** statt zwanzig; zuletzt (Nachtrag 0P) die **grosse Erweiterung vom
+> Oktober 2026**: drei Stufen je Bewohner und genaue Wünsche, ein wichtigeres Spital (Babys,
+> Wehwehchen, Rettungshelikopter), das Hotel als fünftes Haus, Menschen als Bewohner, ein
+> Neustart mit Pokal und Ruhmeshalle, Sammelalbum, Spiele in Zimmern, Jahreszeiten und
+> Wetter, Bewohner tragen – alles mit der Google-Stimme vertont.
+> **Was gilt, steht in den Abschnitten 0P, 0O, 0N, 0M, 0L, 0K und 0** (Etappe
 > 2) und, wo diese nichts anderes sagen, im Abschnitt 0E1 (Etappe 1); die Abschnitte 1, 2,
 > 5 und 6 beschreiben das ursprüngliche Konzept und sind dort, wo Abschnitt 0 etwas anderes
 > sagt, überholt. Die Recherche (Abschnitt 3) und Grafik und Bewegung (Abschnitt 7) gelten
@@ -36,6 +40,172 @@ Pepi, Miga Town, den einzelnen Toca-Apps und weiteren Bauspielen (Abschnitt 3)
 > Megapixel.
 
 ---
+
+## 0P. Die grosse Erweiterung (Oktober 2026)
+
+Nach der Rückmeldung vom 17. Oktober 2026: Die Kinder lieben die Bauecke, aber sie war viel
+zu einfach – ein neuer Bewohner hatte nach Sekunden alle fünf Sterne. Die ältere Tochter
+hatte rund 280 Sterne und 70 Bewohner. Gewünscht waren: deutlich anspruchsvollere Bewohner
+(A), ein Spital, das zählt (B), ein Neustart mit Belohnung und der Wahl zwischen Tieren und
+Menschen (C, D), dazu ein fünftes Haus, mehr zum Tun und ein Sammelalbum (E). Dass die
+jüngere Tochter dabei an Grenzen kommt, ist ausdrücklich in Kauf genommen. Das Spiel ist
+**von Anfang an** schwerer, nicht erst nach einem Neustart.
+
+### 0P.1 Drei Stufen je Bewohner (A)
+
+- **Bronze, Silber, Gold** (`STUFEN` in bau-katalog.js): Sind alle Wünsche einer Stufe
+  erfüllt, ist sie geschafft – das bleibt so –, und es kommen neue, schwierigere. Wer alle
+  drei hat, trägt die Krone und wünscht sich nichts mehr. Zusammen **16 Sterne** statt 5.
+  - **Bronze (6):** zwei gelbe (das Lieblingsding oder die Lieblingsfarbe; das zweite Ding
+    oft in einer bestimmten Farbe), ein grüner, zwei blaue und der **goldene Stern für den
+    Traumjob**.
+  - **Silber (5):** zwei **genaue gelbe** – ein Ding an einem bestimmten Ort («Am liebsten
+    neben dem Bett», «auf dem Nachttisch», «über dem Bett») und eines in einer Farbe oder in
+    einer Anzahl («Ich brauche 3 davon», nur kleine Dinge) –, ein anderer grüner, ein blauer
+    im Spital und ein **lila Wunsch an die Lage** der Wohnung.
+  - **Gold (5):** zwei genaue gelbe (manchmal ein Ding der Jahreszeit: «Es ist Herbst. Ich
+    hätte gerne einen Kürbis.»), ein blauer im Hotel, einer im Dorf und ein lila: gleich neben
+    einem Freund wohnen (oder eine andere Lage).
+- **Lage (lila):** ganz oben (eines der drei obersten Stockwerke), unten (Erdgeschoss bis
+  2. Stock), ruhig (kein Kinderzimmer darüber oder darunter), ein bestimmtes Zimmer gleich
+  darüber oder darunter, ein Freund gleich darüber oder darunter. Erfüllt wird das mit dem
+  Pfeil-Knopf (Stockwerke umstellen); «Zeig mir» schaltet ihn ein.
+- **Plätze statt «das Zimmer gibt es»:** Ein Zimmer hat so viele Plätze, wie verschiedene
+  passende Dinge darin stehen (die eigenen Dinge der Zimmerart, `RAUM_DINGE`), höchstens
+  zwölf. Ein grüner oder blauer Wunsch (und ein Baby-Wunsch) ist erst erfüllt, wenn der
+  Bewohner dort einen Platz hat; wer zuerst eingezogen ist, bekommt zuerst einen – auf
+  jedem Gerät gleich. Der Zimmerkopf zeigt «belegt/Plätze». «Zeig mir» führt in ein Zimmer,
+  das noch Plätze bekommen kann, und zeigt ein fehlendes Ding; ist es ganz voll (zwölf), heisst
+  es: noch eines bauen.
+- **Keine Wünsche mehr, die von selbst wechseln:** Der tägliche Wechsel des zweiten gelben
+  Wunsches entfällt (dafür gibt es die Stufen). Nur ein Wunsch der vergangenen Jahreszeit und
+  einer nach einem ausgezogenen Freund werden ersetzt.
+- **Blaue Wünsche** verteilen sich neu (`FREMD_GEWICHT`): Spital und Dorf je 35 %, Büro und
+  Hotel je 15 % – das Spital war vorher selten gefragt.
+- **Seltene Bewohner** (`SELTEN_IDS`): Giraffe (Wohnhaus mit mindestens zehn Stockwerken),
+  Flamingo (Hallenbad), Fledermaus (Keller), Papagei (Musikzimmer), Koala (Wellness im
+  Hotel). Was sie anlockt, steht im Sammelalbum.
+- **Bisherige Bewohner (Fassung 5):** Wer alle fünf Wünsche von damals erfüllt hatte, beginnt
+  auf Silber (`hebeAn`, auf jedem Gerät gleich); alle anderen auf Bronze mit ihren Wünschen.
+  Niemand verliert etwas.
+- Die **Sternenleiter** geht bis **1000 Sterne** (26 Stufen; zehn neue Bilder in
+  `bau-leiter.js`: Leuchtturm, Seilbahn auf den Berg, Sternwarte, Zirkus, Wasserfall,
+  Ballonfest, Regenbogenbrücke, Rakete, Polarlicht, Krone des Dorfs). Es zählen die Sterne
+  der Bewohner, die rosa Sterne der Babys und die Bonus-Sterne aus Spital, Hotel und Spielen.
+  Der höchste Stand steht jetzt im Kasten (`rekord`) und gilt auf allen Geräten.
+
+### 0P.2 Das Spital zählt (B)
+
+- **Babys:** Ab und zu bringt der Storch einem Bewohner des Wohnhauses ein Baby – wenn das
+  Spital eine **Geburtsabteilung** mit Platz hat (sonst ein Hinweis). Das Baby wohnt beim
+  Elternteil, wünscht sich ein Babybettchen, die Kinderabteilung und die Kita (rosa Sterne,
+  je einer für das Dorf) und zieht nach zwei Tagen gross in eine eigene Wohnung.
+- **Wehwehchen** (`WEH`): Gips, Kratzer, Schnupfen, Augen, Bauchweh, Müdigkeit, Muskelkater.
+  Höchstens zwei zugleich, nach einem Tag vorbei – nie schlimm. Wer den Bewohner in die
+  **richtige Abteilung** bringt (Knopf «Ins Spital bringen» auf der Tafel oder mit dem Finger
+  tragen), hilft ihm: ein Stern für das Dorf und ein Satz, was dort geschieht. Die falsche
+  Abteilung sagt freundlich «Versuch es mit einer anderen»; fehlt die richtige, zeigt die
+  Bauecke, wo sie hinkann.
+- **Rettungshelikopter:** Etwa jede halbe Stunde fliegt er über das Bild. Wer ihn antippt und
+  einen **Notfall** hat, hilft ihm landen – ein Stern.
+- Im Album zählt das Spital Babys, Heilungen und Landungen.
+
+### 0P.3 Neustart: ein neues Dorf (C, D)
+
+- In der **Ruhmeshalle** (Knopf links, und als Gebäude vor dem Wohnhaus, sobald es frühere
+  Dörfer gibt) gründet das Kind ein neues Dorf. Keine Elternschranke, aber drei Schritte:
+  1. **Genaue Erklärung**, was passiert (Wortlaut in `neustartErklaerung`, train-bau.js):
+     Das Dorf kommt mit allen Häusern in die Ruhmeshalle; für die Sterne gibt es einen Pokal
+     (ab 100 Bronze, ab 200 Silber, ab 300 Gold); das neue Dorf beginnt ganz von vorne (jedes
+     Haus mit seinem ersten Stockwerk); die Sternenleiter beginnt bei null, die Wünsche sind
+     so anspruchsvoll wie jetzt; unverbaute Ziegel kommen mit, dazu das Geschenk des Pokals
+     (2, 3 oder 4 Paletten); ab Silber goldene Möbel, mit Gold ein Denkmal vor dem Wohnhaus;
+     Album und Ruhmeshalle bleiben; es lässt sich nicht rückgängig machen.
+  2. **Tiere oder Menschen** wählen.
+  3. **«Bist du ganz sicher?»** – dann geht es los, mit Konfetti und dem Pokal.
+- **Menschen** (`bau-menschen.js`): Mädchen, Bub, Frau, Mann, Grossmutter, Grossvater, 256
+  Varianten je Art (Haut, Haare, Kleider), Babys. Ins Kinderzimmer ziehen vor allem Kinder.
+  Was sie mögen (`magListe`), liegt in jeder Wohnung (Reiter «Was Menschen mögen»).
+- **Zusammenführen:** Hat ein Gerät schon ein neues Dorf gegründet, gilt die höhere Runde
+  ganz – das alte Dorf kommt nicht zurück; Album und Ruhmeshalle vereinen sich.
+- Nicht umgesetzt (gewünscht so): Tiere ins neue Dorf mitnehmen; pro Neustart schwerer.
+
+### 0P.4 Das Hotel, Tragen, Spiele, Jahreszeiten, Album (E)
+
+- **Das Hotel** ist das fünfte Haus (flieder, flaches Dach mit Hotelschild und den Sternen
+  seines Rufs): Rezeption, Gästezimmer, Familienzimmer, Suite, Frühstückssaal, Wellness,
+  Kinderclub, Hotelküche – mit 112 eigenen Dingen (`bau-moebel-hotel.js`). Mit einer
+  **Rezeption** und einem **Bett** im Gästezimmer kommen **Feriengäste** (oft seltene Tiere).
+  Jeder hat sechs genaue Wünsche an sein Zimmer und das Hotel; sind alle erfüllt, reist er
+  bald zufrieden ab, sonst nach knapp einem Tag – mit ein bis fünf Sternen für das Hotel.
+  Fünf Sterne bringen dem Dorf einen Stern. Ein Tipp auf den Gast öffnet seine Tafel.
+- **Bewohner tragen:** Einen Bewohner im Haus einen Moment festhalten, dann hängt er am
+  Finger: über ein Zimmer ziehen und loslassen – dort bleibt er zehn Minuten (je Gerät, nicht
+  im Kasten). Über einem Haus im Umschalter kurz warten wechselt das Haus. Ins Spital
+  getragen hilft die richtige Abteilung beim Wehwehchen. Im Zimmer lässt sich ein Bewohner an
+  eine andere Stelle ziehen.
+- **Spiele in Zimmern** (`bau-spiele.js`, Würfel-Knopf oben im Zimmer): Brot backen
+  (Bäckerei), Haare schneiden (Coiffeur), Röntgenbild (Radiologie), Einkaufen mit Franken
+  (Lebensmittel), Sehtest (Augen), Blumenstrauss (Blumenladen), Melodie nachspielen
+  (Musikzimmer), Zimmerschlüssel (Rezeption), Pflaster kleben (Notfall). Keine Zeitnot,
+  kein Verlieren; das erste Mal ein Stern.
+- **Jahreszeiten und Wetter** (`bau-wetter.js`): Himmel, Bäume, Schnee auf Dach und Strasse,
+  Regen, Schnee, Blätter, Regenbogen nach dem Regen; Feste (Ostern, 1. August, Halloween,
+  Räbeliechtli, Samichlaus, Weihnachten) mit Schmuck an der Strasse. Das Wetter wechselt alle
+  drei Stunden und ist auf allen Geräten gleich (aus dem Datum gerechnet). Einmal am Tag sagt
+  die Bauecke, was draussen ist. Dazu 24 Dinge der Jahreszeit (Reiter in der Schublade) und
+  Wünsche danach.
+- **Goldene Möbel** (`SCHAETZE`, ab dem Silberpokal) im Reiter «Goldene Schätze».
+- **Das Sammelalbum** (Knopf links): Bewohner (Tiere, seltene Tiere mit Tipp, Menschen,
+  Figuren aus den Büchern), Traumjobs, Zimmer je Haus, Dinge, Feriengäste, Spiele, Spital.
+  Was noch fehlt, ist grau. Es bleibt über alle Dörfer.
+
+### 0P.5 Kasten, Stimme, Prüfungen
+
+- **Fassung 6** (`FORMAT`): neue Felder `volk`, `runde`, `ruhm`, `album`, `rekord`, `bonus`,
+  `warteliste`, `bewertungen`; je Bewohner `l` (lila), `stufe`, `fertig`, `baby`, `weh`; je
+  Stockwerk im Hotel `gast`. Eine ältere App lässt den Kasten stehen.
+- **Grösse:** Der schlimmste Stand (fünf Häuser zu je vierzig Stockwerken, alles voll) ist gut
+  860 KB JSON – noch unter 1 MiB, aber es bleibt weniger für die anderen Spiele (0O). Im
+  Alltag sind es wenige Kilobyte.
+- **Stimme:** Alle neuen Sätze stehen in `scripts/stimme-bau-texte.mjs` (mit den Sätzen der
+  Spiele und des Wetters) und sind mit der Google-Stimme (Chirp 3 HD, Sulafat) aufgenommen.
+  Sätze haben höchstens ein Wechselndes; wo nötig teilt kids.js hinter dem Doppelpunkt. Für
+  Oktober 2026 hat der Auftraggeber bis 1,5 Millionen Zeichen erlaubt
+  (`GRENZE_MONAT` in stimme-google.mjs, sonst 900 000).
+- **Prüfungen:** `validate-bau.mjs` rechnet Stufen, Plätze, Lage, Spital, Hotel, Neustart,
+  Zusammenführen, Fassung 5 → 6, Tragen und die neuen Zeichnungen nach; `check-bau.mjs`
+  prüft im Browser.
+
+| Datei | Was |
+| --- | --- |
+| `bau-stand.js` | Stufen, Plätze, Lage, Babys, Wehwehchen, Helikopter, Gäste, Tragen, Album, Neustart, Fassung 6 |
+| `bau-katalog.js` | Hotel, `STUFEN`, `LAGE`, `ORT_WUENSCHE`, `JAHRESZEITEN`, `WEH`, `POKALE`, `VOLK`, seltene Tiere, Menschen, Leiter bis 1000 |
+| `train-bau.js` | Tafel mit Stufen, Gast-Tafel, Storch, Helikopter, Wehwehchen, Spital-Wahl, Album, Ruhmeshalle, Neustart, Tragen, Spiele, neue Reiter |
+| `bau-menschen.js` | die Menschen |
+| `bau-moebel-hotel.js`, `bau-moebel-extra.js` | Hotel; Jahreszeit, goldene Möbel, Dinge für Menschen |
+| `bau-schmuck.js` | Pokal, Medaille, Denkmal, Storch, Helikopter, Wehwehchen, Hotelschild, Ruhmeshalle |
+| `bau-leiter.js` | zehn neue Bilder der Sternenleiter |
+| `bau-wetter.js`, `bau-wetter.css` | Jahreszeiten, Wetter, Feste |
+| `bau-spiele.js`, `bau-spiele.css` | neun Spiele |
+| `bau-tiere.js` | Giraffe, Flamingo, Fledermaus, Papagei, Koala |
+
+### 0P.6 Ideen für später (bewusst noch nicht umgesetzt)
+
+Besprochen am 17. Oktober 2026 und auf später verschoben:
+
+- **Feuerwehr** als weiteres Haus (mit Einsätzen wie dem Helikopter).
+- **Bauernhof** (Tiere füttern, ernten, Gemüse in die Läden liefern).
+- **Bahnhof** (der Zug der Abenteuerreise hält im Dorf, Gäste reisen an).
+- **Briefe und Postkarten** von Bewohnern und früheren Gästen.
+- **Das Dorf der Schwester besuchen** (gegenseitig anschauen, Geschenke).
+- **Tiere beim Neustart mitnehmen** (ausdrücklich nicht gewünscht).
+- **Pro Neustart schwerer** (ausdrücklich nicht gewünscht: das Spiel ist von Anfang an
+  schwerer).
+- Bei Regen und Schnee bleiben die Bewohner lieber in Zimmern drinnen (`heute().drinnen`
+  ist vorbereitet, die Besuche richten sich noch nicht danach).
+- Ein eigenes Firestore-Dokument für die Bauecke, falls Häuser einmal höher als vierzig
+  Stockwerke werden sollen (0O).
 
 ## 0O. Häuser bis vierzig Stockwerke
 

@@ -11,7 +11,7 @@
  *                 und deckt keinen anderen Knopf zu. Neben dem Ton-Knopf
  *                 steht der Vorlesen-Schalter.
  *   Hauswahl      Beim ersten Mal fragt die Bauecke, welches Haus zuerst; oben
- *                 sind Wohnhaus, Spital, Dorf und Büro immer erreichbar.
+ *                 sind Wohnhaus, Spital, Dorf, Büro und Hotel immer erreichbar.
  *   Einzug        Das Wohnhaus hat drei leere Wohnungen. Ein Tipp fragt nur:
  *                 Schlafzimmer oder Kinderzimmer? Dann kommt ein Tier die
  *                 Strasse entlang, fährt mit dem Lift hinauf, und ein
@@ -74,6 +74,12 @@
  *   Neuer Kasten  Hat ein anderes Gerät die Bauecke schon mit einer neueren
  *                 Fassung gespeichert, bleibt der Kasten unberührt, und die
  *                 Bauecke wartet auf die neue Fassung, statt zu löschen.
+ *   Erweiterung   (Oktober 2026) Das Sammelalbum mit sieben Seiten; ein
+ *                 Wehwehchen von der Tafel ins Spital (die Radiologie hilft
+ *                 beim Gips, ein Stern); der Helikopter (angetippt ein Stern);
+ *                 einen Bewohner festhalten und tragen; ein Feriengast mit
+ *                 sechs Wünschen; ein Spiel in der Bäckerei; die Ruhmeshalle
+ *                 und ein neues Dorf mit Menschen.
  *   Fehler        Keine einzige Ausnahme im Browser.
  */
 import { spawn } from "node:child_process";
@@ -158,12 +164,16 @@ async function neueSeite(browser, viewport) {
   await context.route("**/fonts.googleapis.com/**", (route) => route.abort());
   await context.exposeBinding("__geraetSagt", (_quelle, text) => { if (!geraetSaetze.has(text)) geraetSaetze.set(text, viewport.width); });
   await context.addInitScript(stimmeErsatz);
-  // Blitzzug und Glücksstern kommen nur, wenn ein Test sie ruft; die
+  // Blitzzug, Glücksstern, Helikopter, Storch, Wehwehchen und Feriengäste
+  // kommen nur, wenn ein Test sie ruft; die
   // Sternenleiter ist schon ganz oben, damit keine Feier dazwischenkommt.
   // Ein Test, der sie braucht, setzt den Schlüssel selbst.
   await context.addInitScript(() => {
     try {
-      if (!localStorage.getItem("lernapp.bau.ueberraschung")) localStorage.setItem("lernapp.bau.ueberraschung", JSON.stringify({ "": { zug: Date.now() + 864e5, stern: Date.now() + 864e5, rekord: 999 } }));
+      if (!localStorage.getItem("lernapp.bau.ueberraschung")) {
+        const spaeter = Date.now() + 864e5;
+        localStorage.setItem("lernapp.bau.ueberraschung", JSON.stringify({ "": { zug: spaeter, stern: spaeter, heli: spaeter, weh: spaeter, baby: spaeter, gast: spaeter, rekord: 999 } }));
+      }
     } catch { /* privater Modus */ }
   });
   const page = await context.newPage();
@@ -261,16 +271,16 @@ async function pruefeGeraet(browser, name, viewport) {
     await tippe(page, ".bauplatz-knopf");
     await page.waitForTimeout(900);
     pruefe(await page.locator(".bau-wahl.is-hauswahl").count() === 1, `${name}: beim ersten Mal fehlt die Hauswahl`);
-    pruefe(await page.locator(".bau-wahl-feld").count() === 4, `${name}: die Hauswahl zeigt nicht vier Häuser`);
+    pruefe(await page.locator(".bau-wahl-feld").count() === 5, `${name}: die Hauswahl zeigt nicht fünf Häuser`);
     const namen = await page.locator(".bau-wahl-feld > span").allTextContents();
-    pruefe(namen.join("|") === "Wohnhaus|Spital|Dorf|Büro", `${name}: die Häuser heissen ${namen.join(", ")}`);
+    pruefe(namen.join("|") === "Wohnhaus|Spital|Dorf|Büro|Hotel", `${name}: die Häuser heissen ${namen.join(", ")}`);
     await page.locator(".bau-wahl-feld").nth(0).click();
     await page.waitForTimeout(150);
     pruefe(await bis(page, () => window.__gesagt.join(" | ").includes("Im Wohnhaus wohnen die Tiere"), null, 2000), `${name}: die Hauswahl liest das Wohnhaus nicht vor`);
     pruefe(await page.evaluate(() => window.__gespielt.some((q) => q.includes("/stimme/google/"))), `${name}: die Hauswahl spielt keine Aufnahme mit der Google-Stimme (bau-stimme.js)`);
     await page.locator(".bau-ok").click();
     await page.waitForTimeout(1000);
-    pruefe(await page.locator(".bau-tab").count() === 4 && await page.locator(".bau-tab.is-aktiv[data-haus='wohnhaus']").count() === 1, `${name}: der Umschalter zeigt nicht das Wohnhaus`);
+    pruefe(await page.locator(".bau-tab").count() === 5 && await page.locator(".bau-tab.is-aktiv[data-haus='wohnhaus']").count() === 1, `${name}: der Umschalter zeigt nicht das Wohnhaus`);
     for (const teil of [".bau-tab", ".bau-raetsel", ".bau-ziegel", ".bau-ordnenknopf"]) {
       const box = await page.locator(teil).first().boundingBox();
       pruefe(box && box.y >= 0 && box.y + box.height <= viewport.height && box.height >= 40, `${name}: ${teil} ist nicht ganz im Bild oder zu klein`);
@@ -307,7 +317,7 @@ async function pruefeGeraet(browser, name, viewport) {
       }
     }
     const reiter = await page.locator(".bau-reiter-knopf").evaluateAll((b) => b.map((x) => x.dataset.reiter));
-    pruefe(reiter.join() === "zimmer,tiere,ueberall,wand,boden", `${name}: die Schubladen der Wohnung sind ${reiter.join(", ")}`);
+    pruefe(reiter.join() === "zimmer,tiere,saison,ueberall,wand,boden", `${name}: die Schubladen der Wohnung sind ${reiter.join(", ")}`);
     const schublade = await page.locator(".bau-schublade [data-ding]").evaluateAll((b) => b.map((x) => x.dataset.ding));
     pruefe(schublade.includes("w_spielzelt") && !schublade.some((id) => ["wc", "dusche", "kochherd", "doppelbett"].includes(id)), `${name}: in der Schublade des Kinderzimmers liegt Fremdes oder fehlt das Eigene`);
     pruefe(await page.locator(".bau-stiftknopf[aria-label='Zimmerart ändern']").count() === 1, `${name}: kein Stift zum Ändern der Zimmerart`);
@@ -653,22 +663,26 @@ async function pruefeBewohner(browser, name, viewport) {
       // Das erste Tier bekommt seinen Traumjob: in der Bibliothek im Dorf.
       S.aendereStock("wohnhaus", 0, (st) => { st.tiere[0].traum = "zentrum:bibliothek"; });
       S.waehleRaum("zentrum", 0, 0, "bibliothek");
-      // Das zweite Tier hat alle Sterne; dem ersten fehlt nur noch ein Ball.
+      // Plätze in der Bibliothek: drei ihrer eigenen Dinge.
+      const eigene = window.LernappBauMoebel.RAUM_DINGE.bibliothek.slice(0, 3);
+      S.aendereZimmer("zentrum", 0, 0, (z) => eigene.forEach((id, n) => z.dinge.push({ k: `bib${n}`, i: id, x: 100 + n * 90, y: 230, c: "", f: 0, s: 1 })));
+      // Das zweite Tier hat alle drei Stufen geschafft; dem ersten fehlt auf
+      // Gold nur noch ein Ball.
       const fam = window.LernappBauKatalog.FARBE[S.zimmer("wohnhaus", 0, 0).wand].familie;
       S.aendereStock("wohnhaus", 0, (st) => {
         st.tiere.forEach((t) => { t.wAt = Date.now(); });
-        Object.assign(st.tiere[0], { w: [`farbe:${fam}`, "ding:ball"], g: ["raum:kinderzimmer"], b: ["fremd:zentrum:bibliothek"] });
-        Object.assign(st.tiere[1], { w: [`farbe:${fam}`], g: ["raum:kinderzimmer"], b: ["fremd:zentrum:bibliothek"] });
+        Object.assign(st.tiere[0], { stufe: 3, w: [`farbe:${fam}`, "ding:ball"], g: [], b: ["fremd:zentrum:bibliothek"], l: [] });
+        Object.assign(st.tiere[1], { stufe: 3, fertig: 1 });
       });
       S.speichern(true);
       const alle = S.alleTiere();
       return {
         n: alle.length, hatTraum: S.hatTraumjob(alle[0].tier.seed), traumjobs: alle.filter((e) => S.hatTraumjob(e.tier.seed)).length, erstes: alle[0].tier.n, zweites: alle[1].tier.n,
         sterne: alle.slice(0, 2).map((e) => `${S.sterne(e.tier.seed).anzahl}/${S.sterne(e.tier.seed).total}`).join(" "), zweitesWuensche: S.wuensche(alle[1].tier.seed).length,
-        erfuellt: alle.reduce((n, e) => n + S.sterne(e.tier.seed).anzahl, 0), wuensche: alle.reduce((n, e) => n + S.wuensche(e.tier.seed).length, 0),
+        erfuellt: alle.reduce((n, e) => n + S.wuensche(e.tier.seed).filter((w) => w.erfuellt).length, 0), wuensche: alle.reduce((n, e) => n + S.wuensche(e.tier.seed).length, 0),
       };
     });
-    pruefe(erwartet.n === 5 && erwartet.hatTraum && erwartet.sterne === "3/4 3/3", `${name}: Bewohner: der Test hat nicht fünf Tiere mit einem Traumjob und den Sternen 3/4 und 3/3 (${erwartet.n}, ${erwartet.sterne})`);
+    pruefe(erwartet.n === 5 && erwartet.hatTraum && erwartet.sterne === "13/16 16/16", `${name}: Bewohner: der Test hat nicht fünf Tiere mit einem Traumjob und den Sternen 13/16 und 16/16 (${erwartet.n}, ${erwartet.sterne})`);
     await page.goto(`${BASIS}/index.html?bau=1`, { waitUntil: "load" });
     await page.waitForTimeout(1600);
     // Der Knopf: links, ganz im Bild, neben den anderen, mit der Zahl.
@@ -695,7 +709,7 @@ async function pruefeBewohner(browser, name, viewport) {
         wuensche: document.querySelectorAll(".bau-uebersicht .bau-bewohner-wunsch").length,
         erfuellt: document.querySelectorAll(".bau-uebersicht .bau-bewohner-wunsch.is-erfuellt").length,
         goldig: document.querySelectorAll(".bau-uebersicht .bau-bewohner.is-traum").length,
-        alle: karten.map((k, i) => (k.classList.contains("is-alle") && /Alle Sterne/.test(k.querySelector(".bau-bewohner-alle")?.textContent || "") ? i : -1)).filter((i) => i >= 0),
+        alle: karten.map((k, i) => (k.classList.contains("is-alle") && /Alle Stufen/.test(k.querySelector(".bau-bewohner-alle")?.textContent || "") ? i : -1)).filter((i) => i >= 0),
         hohl: karten[0]?.querySelectorAll(".bau-stern:not(.is-voll)").length,
       };
     });
@@ -718,13 +732,13 @@ async function pruefeBewohner(browser, name, viewport) {
       const karte = document.querySelector(".bau-tafel:not([hidden]) .bau-tafel-karte");
       const r = k?.getBoundingClientRect();
       return {
-        alle: Boolean(k?.classList.contains("is-alle")), voll: k?.querySelectorAll(".bau-stern-gross.is-voll").length || 0, text: k?.textContent || "",
+        alle: Boolean(k?.classList.contains("is-alle")), voll: k?.querySelectorAll(".bau-sternkachel-stufe.is-geschafft").length || 0, text: k?.textContent || "",
         gross: r ? Math.round(r.height) : 0,
         unten: karte?.lastElementChild?.classList.contains("bau-tafel-fuss") && Boolean(karte.lastElementChild.querySelector(".bau-hinaus")),
         buchOben: karte ? karte.querySelectorAll(":scope > .bau-tafel-buch").length : -1,
       };
     });
-    pruefe(kachel.alle && kachel.voll === 3 && /Alle Sterne!/.test(kachel.text) && kachel.gross >= 40, `${name}: Bewohner: die Sterne-Kachel zeigt «Alle Sterne» nicht gross und golden (${JSON.stringify(kachel)})`);
+    pruefe(kachel.alle && kachel.voll === 3 && /Alle drei Stufen!/.test(kachel.text) && kachel.gross >= 40, `${name}: Bewohner: die Sterne-Kachel zeigt «Alle drei Stufen» nicht gross und golden (${JSON.stringify(kachel)})`);
     pruefe(kachel.unten && kachel.buchOben === 0, `${name}: Bewohner: das Buch und «Ausziehen lassen» stehen nicht ganz unten`);
     await page.locator(".bau-tafel-zu").click();
     await page.waitForTimeout(400);
@@ -791,17 +805,18 @@ async function pruefeUeberraschungen(browser, name, viewport) {
         S.aendereStock("wohnhaus", i, (st) => { st.tiere.forEach((t) => { t.seit = Date.now(); t.wAt = Date.now(); }); st.zuzug = Date.now() + 86400000; });
       });
       S.waehleRaum("zentrum", 0, 0, "bibliothek");
-      // Im Erdgeschoss haben alle drei alle Sterne (je drei), im 1. Stock
-      // wünschen sich beide einen Ball und ein Bett: zusammen 9 Sterne.
-      const fam = window.LernappBauKatalog.FARBE[S.zimmer("wohnhaus", 0, 0).wand].familie;
-      S.aendereStock("wohnhaus", 0, (st) => st.tiere.forEach((t) => Object.assign(t, { w: [`farbe:${fam}`], g: ["raum:kinderzimmer"], b: ["fremd:zentrum:bibliothek"] })));
-      S.aendereStock("wohnhaus", 1, (st) => st.tiere.forEach((t) => Object.assign(t, { w: ["ding:ball", "ding:bett"], g: [], b: [] })));
+      // Im Erdgeschoss haben alle drei alle drei Stufen geschafft (je 16
+      // Sterne), im 1. Stock wünschen sich beide einen Ball und ein Bett:
+      // zusammen 48 Sterne.
+      S.aendereStock("wohnhaus", 0, (st) => st.tiere.forEach((t) => Object.assign(t, { stufe: 3, fertig: 1 })));
+      S.aendereStock("wohnhaus", 1, (st) => st.tiere.forEach((t) => Object.assign(t, { stufe: 1, w: ["ding:ball", "ding:bett"], g: [], b: [], l: [], traum: "" })));
       S.speichern(true);
       // Überraschungen erst auf Abruf; noch keine Stufe gefeiert.
-      localStorage.setItem("lernapp.bau.ueberraschung", JSON.stringify({ [S.besitzer()]: { zug: Date.now() + 3600000, stern: Date.now() + 3600000, rekord: 0 } }));
+      const spaeter = Date.now() + 3600000;
+      localStorage.setItem("lernapp.bau.ueberraschung", JSON.stringify({ [S.besitzer()]: { zug: spaeter, stern: spaeter, heli: spaeter, weh: spaeter, baby: spaeter, gast: spaeter, rekord: 0 } }));
       return { sterne: S.sternenleiter().jetzt, erste: S.stock("wohnhaus", 0).tiere.map((t) => t.seed), zweite: S.stock("wohnhaus", 1).tiere.map((t) => t.seed) };
     });
-    pruefe(vorher.sterne === 9, `${name}: Überraschungen: der Test beginnt nicht mit 9 Sternen im Dorf (${vorher.sterne})`);
+    pruefe(vorher.sterne === 48, `${name}: Überraschungen: der Test beginnt nicht mit 48 Sternen im Dorf (${vorher.sterne})`);
     await page.goto(`${BASIS}/index.html?bau=1`, { waitUntil: "load" });
     await page.waitForTimeout(1600);
     // Der Sternenzähler: links unter den Bewohnern, mit Zahl und Ziel.
@@ -813,8 +828,8 @@ async function pruefeUeberraschungen(browser, name, viewport) {
       pruefe(!ueberlappen(knopf, box), `${name}: Sternenleiter: der Zähler deckt ${andere} zu`);
     }
     const zaehler = await page.locator(".bau-leiterknopf").textContent();
-    pruefe(/9/.test(zaehler) && /bis 10/.test(zaehler), `${name}: Sternenleiter: der Zähler zeigt nicht 9 Sterne bis 10 (${zaehler})`);
-    // Das Dorf hat die erste Stufe (5 Sterne): Blumen an der Strasse.
+    pruefe(/48/.test(zaehler) && /bis 50/.test(zaehler), `${name}: Sternenleiter: der Zähler zeigt nicht 48 Sterne bis 50 (${zaehler})`);
+    // Das Dorf hat schon sechs Stufen (ab 5 Sterne): Blumen an der Strasse.
     pruefe(await page.locator(".bau-haus-svg .bau-schmuck").count() >= 1, `${name}: Sternenleiter: die Blumen der ersten Stufe fehlen`);
     // Alle im Erdgeschoss haben alle Sterne: der goldene Rahmen, nur dort.
     pruefe(await page.locator('.bau-sternrahmen[data-stock="0"]').count() === 1 && await page.locator('.bau-sternrahmen[data-stock="1"]').count() === 0, `${name}: Sternenrahmen: der goldene Rahmen ist nicht (nur) um die Wohnung mit allen Sternen`);
@@ -833,7 +848,7 @@ async function pruefeUeberraschungen(browser, name, viewport) {
       seed: g.getAttribute("data-seed"), sichtbar: g.querySelector(".bau-krone")?.style.display !== "none",
     })).map((t) => ({ ...t, soll: erste.includes(t.seed) ? true : zweite.includes(t.seed) ? false : null })), vorher);
     pruefe(kronen.some((t) => t.soll === true) && kronen.every((t) => t.soll === null || t.sichtbar === t.soll), `${name}: Krone: nicht genau die Tiere mit allen Sternen tragen eine Krone (${JSON.stringify(kronen)})`);
-    // Die Leiter: sechzehn Stufen, die erste geschafft, die zweite als nächste.
+    // Die Leiter: 26 Stufen, sechs geschafft, die Sternenstatue als nächste.
     await tippe(page, ".bau-leiterknopf");
     await page.waitForTimeout(600);
     const leiter = await page.evaluate(() => ({
@@ -843,20 +858,20 @@ async function pruefeUeberraschungen(browser, name, viewport) {
       naechste: document.querySelector(".bau-leiter .bau-leiter-stufe.is-naechste .bau-leiter-text b")?.textContent || "",
       bilder: [...document.querySelectorAll(".bau-leiter .bau-leiter-bild svg")].filter((s) => s.innerHTML.length > 50).length,
     }));
-    pruefe(leiter.offen && leiter.stufen === 16 && leiter.erreicht === 1 && leiter.naechste === "Wimpelketten" && leiter.bilder === 16, `${name}: Sternenleiter: die Stufen stimmen nicht (${JSON.stringify(leiter)})`);
+    pruefe(leiter.offen && leiter.stufen === 26 && leiter.erreicht === 6 && leiter.naechste === "Die Sternenstatue" && leiter.bilder === 26, `${name}: Sternenleiter: die Stufen stimmen nicht (${JSON.stringify(leiter)})`);
     const karte = await page.locator(".bau-leiter .bau-uebersicht-karte").boundingBox();
     pruefe(karte && karte.y >= 50 && karte.y + karte.height <= viewport.height, `${name}: Sternenleiter: die Leiter liegt nicht ganz im Bild`);
-    pruefe(await bis(page, () => window.__gesagt.join(" ").includes("Alle Tiere zusammen haben 9 Sterne. Noch ein Stern bis zur nächsten Stufe: Wimpelketten."), null, 2000), `${name}: Sternenleiter: die Bauecke sagt nicht, wie viele Sterne noch fehlen`);
+    pruefe(await bis(page, () => window.__gesagt.join(" ").includes("Das Dorf hat 48 Sterne. Noch 2 Sterne bis zur nächsten Stufe: Die Sternenstatue."), null, 2000), `${name}: Sternenleiter: die Bauecke sagt nicht, wie viele Sterne noch fehlen`);
     await page.locator(".bau-leiter .bau-uebersicht-zu").click();
     await page.waitForTimeout(300);
     pruefe(await page.locator(".bau-leiter:not([hidden])").count() === 0, `${name}: Sternenleiter: das Kreuz schliesst die Leiter nicht`);
-    // Ein Ball im 1. Stock: zwei Sterne mehr, die zweite Stufe – ein Band, die Ansage, die Wimpel.
+    // Ein Ball im 1. Stock: zwei Sterne mehr, die siebte Stufe – ein Band, die Ansage, die Statue.
     const schmuckVorher = await page.locator(".bau-haus-svg .bau-schmuck").count();
     await page.evaluate(() => window.LernappBauStand.aendereZimmer("wohnhaus", 1, 0, (z) => { z.dinge.push({ k: "ballfest", i: "ball", x: 300, y: 234, c: "", f: 0, s: 1 }); }));
-    pruefe(await bis(page, () => /Wimpelketten/.test(document.querySelector(".bau-leiterband")?.textContent || ""), null, 9000), `${name}: Sternenleiter: bei der neuen Stufe kommt kein Band`);
-    pruefe(await bis(page, () => window.__gesagt.join(" | ").includes("Das Dorf hat 10 Sterne"), null, 2000), `${name}: Sternenleiter: die Bauecke sagt die neue Stufe nicht an`);
-    pruefe(await page.locator(".bau-haus-svg .bau-schmuck").count() > schmuckVorher, `${name}: Sternenleiter: die Wimpel der neuen Stufe fehlen im Bild`);
-    pruefe(/11/.test(await page.locator(".bau-leiterknopf").textContent()), `${name}: Sternenleiter: der Zähler zählt die neuen Sterne nicht`);
+    pruefe(await bis(page, () => /Sternenstatue/.test(document.querySelector(".bau-leiterband")?.textContent || ""), null, 9000), `${name}: Sternenleiter: bei der neuen Stufe kommt kein Band`);
+    pruefe(await bis(page, () => window.__gesagt.join(" | ").includes("Das Dorf hat 50 Sterne"), null, 2000), `${name}: Sternenleiter: die Bauecke sagt die neue Stufe nicht an`);
+    pruefe(await page.locator(".bau-haus-svg .bau-schmuck").count() > schmuckVorher, `${name}: Sternenleiter: die Statue der neuen Stufe fehlt im Bild`);
+    pruefe(/50/.test(await page.locator(".bau-leiterknopf").textContent()), `${name}: Sternenleiter: der Zähler zählt die neuen Sterne nicht`);
     pruefe(await bis(page, () => !document.querySelector(".bau-leiterband"), null, 8000), `${name}: Sternenleiter: das Band geht nicht wieder weg`);
 
     // Der Blitzzug: gefangen gibt er eine Palette.
@@ -991,7 +1006,7 @@ async function pruefeAnsicht(browser, name, viewport) {
 
     // Oben: Sterne nur beim Wohnhaus.
     const tabs = await page.evaluate(() => [...document.querySelectorAll(".bau-tab")].map((t) => ({ haus: t.dataset.haus, sterne: Boolean(t.querySelector(".bau-tab-sterne")), label: t.getAttribute("aria-label") })));
-    pruefe(tabs.length === 4 && tabs.every((t) => t.sterne === (t.haus === "wohnhaus")) && tabs.every((t) => /Sterne/.test(t.label) === (t.haus === "wohnhaus")), `${name}: Umschalter: Sterne nicht nur beim Wohnhaus (${JSON.stringify(tabs)})`);
+    pruefe(tabs.length === 5 && tabs.every((t) => t.sterne === (t.haus === "wohnhaus")) && tabs.every((t) => /Sterne/.test(t.label) === (t.haus === "wohnhaus")), `${name}: Umschalter: Sterne nicht nur beim Wohnhaus (${JSON.stringify(tabs)})`);
     // Unten links der Ansicht-Knopf, keine Nachbar-Häuser mehr.
     pruefe(await page.locator(".bau-nachbar").count() === 0, `${name}: Ansicht: unten stehen noch die Nachbar-Häuser`);
     const knopf = await page.locator(".bau-ansichtknopf").boundingBox();
@@ -1038,8 +1053,8 @@ async function pruefeAnsicht(browser, name, viewport) {
       const r = svg?.getBoundingClientRect();
       return { da: Boolean(svg), haeuser: document.querySelectorAll(".bau-dorf [data-dorf-haus]").length, w: Math.round(r?.width || 0), h: Math.round(r?.height || 0), welt: getComputedStyle(document.querySelector(".bau-welt")).visibility };
     });
-    pruefe(dorf.da && dorf.haeuser === 4 && dorf.w <= viewport.width && dorf.h <= viewport.height && dorf.welt === "hidden", `${name}: Ansicht: alle vier Häuser stehen nicht auf einem Bildschirm (${JSON.stringify(dorf)})`);
-    pruefe(await bis(page, () => window.__gesagt.join(" | ").includes("Alle vier Häuser."), null, 2000), `${name}: Ansicht: die Bauecke sagt nicht, dass alle vier Häuser zu sehen sind`);
+    pruefe(dorf.da && dorf.haeuser === 5 && dorf.w <= viewport.width && dorf.h <= viewport.height && dorf.welt === "hidden", `${name}: Ansicht: alle fünf Häuser stehen nicht auf einem Bildschirm (${JSON.stringify(dorf)})`);
+    pruefe(await bis(page, () => window.__gesagt.join(" | ").includes("Alle fünf Häuser."), null, 2000), `${name}: Ansicht: die Bauecke sagt nicht, dass alle fünf Häuser zu sehen sind`);
     // Zurück zur grossen Ansicht.
     await tippe(page, ".bau-ansichtknopf");
     await page.waitForTimeout(900);
@@ -1216,6 +1231,138 @@ async function pruefeKiddyDome(browser, name, viewport) {
   await context.close();
 }
 
+// Seit Oktober 2026: Sammelalbum, Wehwehchen und Spital-Wahl, Helikopter,
+// Feriengast, Spiel im Zimmer, Bewohner tragen, Ruhmeshalle und ein neues
+// Dorf mit Menschen.
+async function pruefeErweiterung(browser, name, viewport) {
+  const { context, page, ausnahmen } = await neueSeite(browser, viewport);
+  try {
+    await page.goto(`${BASIS}/index.html`, { waitUntil: "load" });
+    const start = await page.evaluate(() => {
+      const S = window.LernappBauStand;
+      const M = window.LernappBauMoebel;
+      window.LernappEntitlement.isFree = () => true;
+      for (let n = 0; n < 8; n += 1) window.LernappReise.bauBonus();
+      S.setzeGewaehlt("wohnhaus");
+      S.merkeGezeigt();
+      S.waehleRaum("wohnhaus", 0, 0, "kinderzimmer");
+      S.waehleRaum("wohnhaus", 1, 0, "schlafzimmer");
+      [0, 1].forEach((i) => S.aendereStock("wohnhaus", i, (st) => { st.tiere.forEach((t) => { t.seit = Date.now(); }); st.zuzug = Date.now() + 86400000; }));
+      const raum = (haus, raumId, ids) => {
+        let j = S.haus(haus).stock.findIndex((x) => x.art === "eins" && !x.zimmer[0]?.raum);
+        if (j < 0) j = S.baueStockwerk(haus);
+        S.waehleRaum(haus, j, 0, raumId);
+        S.aendereZimmer(haus, j, 0, (z) => (ids || M.RAUM_DINGE[raumId].slice(0, 3)).forEach((id, n) => z.dinge.push({ k: `${raumId}${n}`, i: id, x: 120 + n * 110, y: 230, c: "", f: 0, s: 1 })));
+        return j;
+      };
+      raum("spital", "radiologie");
+      raum("spital", "notfall");
+      raum("zentrum", "baeckerei");
+      raum("hotel", "rezeption");
+      const g = raum("hotel", "gaestezimmer", ["o_hotelbett", "o_minibar"]);
+      const gast = S.gastKommt(g);
+      const kranker = S.stock("wohnhaus", 0).tiere[0];
+      S.aendereStock("wohnhaus", 0, (st) => { st.tiere[0].weh = { art: "gips", seit: Date.now() }; });
+      S.speichern(true);
+      return { gast: gast?.seed, kranker: kranker.seed, tragen: S.stock("wohnhaus", 1).tiere[0].seed, bonus: S.lesen().bonus };
+    });
+    await page.goto(`${BASIS}/index.html?bau=1`, { waitUntil: "load" });
+    await page.waitForTimeout(1800);
+    const bonus = () => page.evaluate(() => window.LernappBauStand.lesen().bonus);
+
+    // Das Sammelalbum: sieben Seiten, Zurück schliesst es.
+    await tippe(page, ".bau-albumknopf");
+    pruefe(await bis(page, () => document.querySelector(".bau-album:not([hidden]) .bau-album-feld.is-hat"), null, 3000), `${name}: Album: es geht nicht auf, oder die Bewohner fehlen darin`);
+    pruefe(await page.locator(".bau-album-tab").count() === 7, `${name}: Album: es hat nicht sieben Seiten`);
+    await page.locator(".bau-album-tab", { hasText: "Spital" }).click();
+    pruefe(await bis(page, () => /Storch/.test(document.querySelector(".bau-album-inhalt")?.textContent || ""), null, 2000), `${name}: Album: die Seite des Spitals fehlt`);
+    await page.evaluate(() => window.LernappBau.zurueck());
+    pruefe(await bis(page, () => !document.querySelector(".bau-album:not([hidden])"), null, 2000), `${name}: Album: Zurück schliesst es nicht`);
+
+    // Das Wehwehchen: von der Tafel ins Spital – die Radiologie hilft beim Gips.
+    await tippe(page, '.bau-tafelknopf[data-stock="0"]');
+    pruefe(await bis(page, () => document.querySelector(".bau-tafel:not([hidden]) .bau-insspital"), null, 3000), `${name}: Wehwehchen: die Tafel zeigt es nicht`);
+    await page.locator(".bau-insspital").click();
+    pruefe(await bis(page, () => document.querySelector(".bau-wahl.is-spitalwahl"), null, 2000), `${name}: Wehwehchen: die Wahl der Abteilung geht nicht auf`);
+    await waehle(page, "Radiologie");
+    pruefe(await bis(page, (seed) => !window.LernappBauStand.findeTier(seed).tier.weh, start.kranker, 3000), `${name}: Wehwehchen: die Radiologie hilft nicht`);
+    pruefe(await bonus() === start.bonus + 1, `${name}: Wehwehchen: Helfen bringt keinen Stern`);
+    pruefe(await bis(page, () => window.__gesagt.join(" | ").includes("Röntgenbild"), null, 2000), `${name}: Wehwehchen: die Bauecke sagt nicht, was in der Radiologie geschieht`);
+    await page.evaluate(() => window.LernappBau.zurueck());
+    await page.waitForTimeout(600);
+
+    // Der Helikopter: angetippt landet er beim Notfall – ein Stern.
+    pruefe(await page.evaluate(() => window.LernappBau.heli()) === true, `${name}: Helikopter: er fliegt nicht los`);
+    pruefe(await bis(page, () => document.querySelector(".bau-heli"), null, 2000), `${name}: Helikopter: er ist nicht zu sehen`);
+    await page.waitForTimeout(2600);
+    const heli = await page.locator(".bau-heli").boundingBox();
+    if (heli) await page.mouse.click(Math.max(8, Math.min(viewport.width - 8, heli.x + heli.width / 2)), heli.y + heli.height / 2);
+    pruefe(await bis(page, (n) => window.LernappBauStand.lesen().bonus === n + 2, start.bonus, 3000), `${name}: Helikopter: angetippt gibt er keinen Stern`);
+    pruefe(await bis(page, () => !document.querySelector(".bau-heli"), null, 6000), `${name}: Helikopter: er fliegt nicht weiter`);
+
+    // Tragen: einen Bewohner festhalten und in die andere Wohnung tragen.
+    await page.waitForTimeout(800);
+    await page.addStyleTag({ content: ".bau-sternband { pointer-events: none !important; }" });
+    const tier = await page.locator(`.bau-welt .bau-tier[data-seed="${start.tragen}"] .bau-tier-dreh`).first().boundingBox();
+    const ziel = await page.locator('.bau-raum[data-ziel="zimmer"][data-stock="0"]').boundingBox();
+    if (tier && ziel) {
+      await page.mouse.move(tier.x + tier.width / 2, tier.y + tier.height / 2);
+      await page.mouse.down();
+      await page.waitForTimeout(650);
+      pruefe(await page.locator(".bau-trage").count() === 1, `${name}: Tragen: der Bewohner hängt nicht am Finger`);
+      await page.mouse.move(ziel.x + ziel.width * 0.6, ziel.y + ziel.height * 0.6, { steps: 8 });
+      await page.mouse.up();
+    }
+    pruefe(await bis(page, (seed) => window.LernappBauStand.getragen(seed)?.index === 0, start.tragen, 2000), `${name}: Tragen: der Bewohner ist nicht in der anderen Wohnung`);
+
+    // Der Feriengast: ein Tipp öffnet seine Tafel mit sechs Wünschen.
+    await page.locator('.bau-tab[data-haus="hotel"]').click();
+    await page.waitForTimeout(1200);
+    const gast = await page.locator(`.bau-welt .bau-tier[data-seed="${start.gast}"] .bau-tier-dreh`).first().boundingBox();
+    if (gast) await page.mouse.click(gast.x + gast.width / 2, gast.y + gast.height / 2);
+    pruefe(await bis(page, () => document.querySelectorAll(".bau-tafel:not([hidden]) .bau-tafel-karte.is-gast .bau-wunsch").length === 6, null, 3000), `${name}: Feriengast: seine Tafel mit sechs Wünschen geht nicht auf`);
+    await page.evaluate(() => window.LernappBau.zurueck());
+    await page.waitForTimeout(400);
+
+    // Ein Spiel in der Bäckerei: der Würfel öffnet es, Zurück schliesst es.
+    await page.locator('.bau-tab[data-haus="zentrum"]').click();
+    await page.waitForTimeout(1200);
+    await page.addStyleTag({ content: ".bau-welt .bau-tier { pointer-events: none !important; }" });
+    await tippe(page, '.bau-raum[data-stock="0"]');
+    pruefe(await bis(page, () => document.querySelector(".bauecke.ist-zimmer .bau-spielknopf"), null, 5000), `${name}: Spiel: in der Bäckerei fehlt der Würfel`);
+    await page.waitForTimeout(700);
+    await page.locator(".bau-spielknopf").click();
+    pruefe(await bis(page, () => document.querySelector(".bsp-ebene"), null, 3000), `${name}: Spiel: es geht nicht auf`);
+    await page.evaluate(() => window.LernappBau.zurueck());
+    pruefe(await bis(page, () => !document.querySelector(".bsp-ebene") && document.querySelector(".bauecke.ist-zimmer"), null, 3000), `${name}: Spiel: Zurück schliesst es nicht (oder gleich das Zimmer)`);
+    await page.evaluate(() => window.LernappBau.zurueck());
+    // Solange das Zimmer zugeht, nimmt die Bauecke keinen Tipp an.
+    await bis(page, () => !document.querySelector(".bauecke.ist-zimmer"), null, 5000);
+    await page.waitForTimeout(1200);
+
+    // Die Ruhmeshalle: ein neues Dorf mit Menschen – erklärt, gewählt, bestätigt.
+    await tippe(page, ".bau-ruhmknopf");
+    if (!(await bis(page, () => document.querySelector(".bau-ruhm:not([hidden])"), null, 1500))) await tippe(page, ".bau-ruhmknopf");
+    pruefe(await bis(page, () => document.querySelector(".bau-ruhm:not([hidden]) .bau-neustartknopf"), null, 3000), `${name}: Ruhmeshalle: sie geht nicht auf`);
+    await page.locator(".bau-neustartknopf").click();
+    pruefe(await bis(page, () => document.querySelectorAll(".bau-wahl.is-neustart .bau-neustart-liste li").length >= 8, null, 2000), `${name}: Neustart: die Erklärung fehlt`);
+    await page.locator(".bau-wahl.is-neustart .bau-ok").click();
+    pruefe(await bis(page, () => document.querySelector(".bau-wahl.is-volkwahl"), null, 2000), `${name}: Neustart: die Wahl Tiere oder Menschen fehlt`);
+    await waehle(page, "Menschen");
+    pruefe(await bis(page, () => document.querySelector(".bau-ok.is-neustart"), null, 2000), `${name}: Neustart: die letzte Frage fehlt`);
+    await page.locator(".bau-ok.is-neustart").click();
+    pruefe(await bis(page, () => { const st = window.LernappBauStand.lesen(); return st.volk === "menschen" && st.runde === 2 && st.ruhm.length === 1; }, null, 3000), `${name}: Neustart: das neue Dorf mit Menschen beginnt nicht`);
+    pruefe(await bis(page, () => document.querySelector(".bau-wahl.is-hauswahl"), null, 4000), `${name}: Neustart: das neue Dorf fragt nicht, welches Haus zuerst`);
+    pruefe(await bis(page, () => window.__gesagt.join(" | ").includes("Juhui, ein neues Dorf!"), null, 3000), `${name}: Neustart: die Bauecke feiert das neue Dorf nicht`);
+  } catch (fehler) {
+    const zeilen = fehler.message.split("\n");
+    const wo = zeilen.find((z) => /waiting for/.test(z))?.trim() || "";
+    fehlt(`${name}: ${zeilen[0]}${wo ? ` (${wo})` : ""}`);
+  }
+  ausnahmen.forEach((a) => fehlt(`${name}: Ausnahme im Browser: ${a}`));
+  await context.close();
+}
+
 if (!(await warteAufServer())) { console.error("Der Testserver startet nicht."); process.exit(2); }
 const browser = await playwright.chromium.launch();
 await pruefeGeraet(browser, "Tablet", { width: 1600, height: 1000 });
@@ -1229,6 +1376,8 @@ await pruefeUeberraschungen(browser, "Tablet", { width: 1600, height: 1000 });
 await pruefeUeberraschungen(browser, "Handy", { width: 812, height: 375 });
 await pruefeAnsicht(browser, "Tablet", { width: 1600, height: 1000 });
 await pruefeAnsicht(browser, "Handy", { width: 812, height: 375 });
+await pruefeErweiterung(browser, "Tablet", { width: 1600, height: 1000 });
+await pruefeErweiterung(browser, "Handy", { width: 812, height: 375 });
 await browser.close();
 halt();
 // Alles, was die Bauecke sagt, kommt als Aufnahme (bau-stimme.js) – nie
@@ -1240,4 +1389,4 @@ if (befunde.length) {
   befunde.forEach((b) => console.error(`  - ${b}`));
   process.exit(1);
 }
-console.log("Die Bauecke läuft: Bauplatz, Hauswahl, Einzug mit Feuerwerk, Zimmer mit eigenen Dingen, Tier-Tafel mit Hingehen, Traumjob von aussen und im Zimmer, KiddyDome über zwei Stockwerke, alle Bewohner auf einen Blick, Sternenleiter mit Krone und goldenem Rahmen, Blitzzug, Glücksstern, ganzes Haus und Zoom, Umstellen, Rätsel, Lieferung, Bauen, Vorlesen per Tipp – auf Tablet und Handy.");
+console.log("Die Bauecke läuft: Bauplatz, Hauswahl mit fünf Häusern, Einzug mit Feuerwerk, Zimmer mit eigenen Dingen, Tafel mit Stufen und Hingehen, Traumjob von aussen und im Zimmer, KiddyDome über zwei Stockwerke, alle Bewohner auf einen Blick, Sternenleiter bis 1000 mit Krone und goldenem Rahmen, Blitzzug, Glücksstern, Helikopter, Wehwehchen, Feriengast, Spiele, Tragen, Album, Ruhmeshalle und Neustart, ganzes Haus und Zoom, Umstellen, Rätsel, Lieferung, Bauen, Vorlesen per Tipp – auf Tablet und Handy.");

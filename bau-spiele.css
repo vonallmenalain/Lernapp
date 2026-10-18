@@ -1,0 +1,604 @@
+/* =====================================================================
+   bau-spiele.css – Die kleinen Spiele in den Zimmern der Bauecke
+   (bau-spiele.js)
+   ---------------------------------------------------------------------
+   Wie bau.css: grosse Ziele für Kinderfinger, weisse runde Karten, ein
+   grüner Haupt-Knopf, Baloo 2. Gezeichnet wird auf einer festen Fläche
+   (.bsp-szene, 1000 × 620 fürs Tablet, 1000 × 310 fürs Handy quer), die
+   bau-spiele.js als Ganzes in die Bühne skaliert – die Masse darin sind
+   also Masse dieser Fläche. Bewegt wird nur über transform und opacity.
+   ===================================================================== */
+
+.bsp-ebene {
+  position: absolute;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* Oben Platz für Zurück, Lautsprecher und Ton (wie .bau-wahl). */
+  padding: calc(var(--safe-top, 0px) + 76px) calc(var(--safe-right, 0px) + 14px) calc(var(--safe-bottom, 0px) + 14px) calc(var(--safe-left, 0px) + 14px);
+  background: rgba(24, 34, 58, 0.5);
+  font-family: "Baloo 2", Nunito, system-ui, sans-serif;
+  color: #243047;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  touch-action: manipulation;
+  outline: none;
+  animation: bsp-ein 0.2s ease backwards;
+}
+.bsp-ebene *, .bsp-ebene *::before, .bsp-ebene *::after { box-sizing: border-box; }
+.bsp-ebene button { font-family: inherit; color: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.bsp-ebene button:focus-visible { outline: 3px solid #243047; outline-offset: 3px; }
+.bsp-ebene [hidden] { display: none !important; }
+@keyframes bsp-ein { from { opacity: 0; } to { opacity: 1; } }
+
+.bsp-karte {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: min(1120px, 100%);
+  height: min(800px, 100%);
+  padding: 12px 16px 16px;
+  border-radius: 26px;
+  background: #fffdf8;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+  animation: bsp-karte-ein 0.25s ease backwards;
+}
+@keyframes bsp-karte-ein {
+  from { opacity: 0; transform: translateY(14px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+
+/* --- Kopf: Name, Aufgabe (noch einmal hören), Punkte, Schliessen --- */
+.bsp-kopf { flex: 0 0 auto; display: flex; align-items: center; gap: 12px; min-height: 64px; }
+.bsp-titel { flex: 0 0 auto; margin: 0 2px 0 6px; font-size: 1.6rem; font-weight: 800; line-height: 1.1; white-space: nowrap; }
+.bsp-auftrag {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 52px;
+  padding: 4px 16px 4px 10px;
+  border: none;
+  border-radius: 999px;
+  background: #eef8ff;
+  color: #1f4f7a !important;
+  font-weight: 700;
+  font-size: 1.2rem;
+  line-height: 1.2;
+  text-align: left;
+}
+.bsp-auftrag span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bsp-auftrag-zeichen { flex: 0 0 auto; width: 28px; height: 28px; }
+.bsp-auftrag:active { transform: scale(0.98); }
+.bsp-punkte { flex: 0 0 auto; display: flex; gap: 6px; }
+.bsp-punkte i { width: 18px; height: 18px; border-radius: 50%; background: #e2e8f0; box-shadow: inset 0 0 0 2px #d4dce6; transition: background-color 0.25s ease, transform 0.25s ease; }
+.bsp-punkte i.is-voll { background: #3fbf74; box-shadow: none; transform: scale(1.1); }
+.bsp-zu {
+  flex: 0 0 auto;
+  width: 64px;
+  height: 64px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: #eef2f7;
+}
+.bsp-zu svg { width: 28px; height: 28px; }
+.bsp-zu:active { transform: scale(0.94); }
+
+/* --- Die Bühne und die Fläche darin --- */
+.bsp-buehne {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  margin-top: 10px;
+  border-radius: 20px;
+  overflow: hidden;
+  background: #f4f8fb;
+  touch-action: manipulation;
+}
+.bsp-buehne.is-baeckerei { background: linear-gradient(180deg, #fff3df 0%, #ffe9c7 100%); }
+.bsp-buehne.is-coiffeur { background: linear-gradient(180deg, #f6efff 0%, #ece0ff 100%); }
+.bsp-buehne.is-radiologie { background: linear-gradient(180deg, #eaf1fa 0%, #dde8f6 100%); }
+.bsp-buehne.is-lebensmittel { background: linear-gradient(180deg, #f1fbef 0%, #e2f5de 100%); }
+.bsp-buehne.is-augen { background: linear-gradient(180deg, #eef6ff 0%, #e0eefc 100%); }
+.bsp-buehne.is-blumen { background: linear-gradient(180deg, #effbf4 0%, #dcf3e5 100%); }
+.bsp-buehne.is-musik { background: linear-gradient(180deg, #fff9e8 0%, #fdeec8 100%); }
+.bsp-buehne.is-rezeption { background: linear-gradient(180deg, #fdf3e7 0%, #f7e4cc 100%); }
+.bsp-buehne.is-notfall { background: linear-gradient(180deg, #fff3f3 0%, #fde2e2 100%); }
+.bsp-szene { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+.bsp-szene > * { position: absolute; }
+.bsp-bild { display: block; width: 100%; height: 100%; overflow: visible; }
+.bsp-tierdefs { position: absolute; width: 0; height: 0; overflow: hidden; pointer-events: none; }
+
+/* Gemeinsam: Antippen gibt nach, Falsches wackelt, Neues ploppt */
+.bsp-szene button { padding: 0; border: none; background: none; }
+.bsp-szene button:disabled { cursor: default; }
+.bsp-wackel { animation: bsp-wackel 0.5s ease; }
+@keyframes bsp-wackel {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-10px) rotate(-3deg); }
+  45% { transform: translateX(9px) rotate(2deg); }
+  70% { transform: translateX(-5px); }
+}
+.bsp-plopp { animation: bsp-plopp 0.45s cubic-bezier(0.34, 1.56, 0.64, 1); }
+@keyframes bsp-plopp {
+  0% { transform: scale(0.7); opacity: 0.4; }
+  100% { transform: scale(1); opacity: 1; }
+}
+.bsp-flieger { z-index: 30; pointer-events: none; transform-origin: 50% 50%; filter: drop-shadow(0 8px 8px rgba(0, 0, 0, 0.2)); }
+.bsp-geist { left: 0; top: 0; z-index: 40; pointer-events: none; filter: drop-shadow(0 12px 10px rgba(0, 0, 0, 0.25)); }
+.is-gezogen { opacity: 0.35; }
+
+.bsp-zaehler { display: flex; align-items: center; justify-content: center; gap: 14px; }
+.bsp-zaehler span { width: 34px; height: 34px; border-radius: 50%; background: #fff; box-shadow: inset 0 0 0 4px #e8d6b8; transition: background-color 0.2s ease, transform 0.2s ease; }
+.bsp-zaehler span.is-voll { background: #3fbf74; box-shadow: inset 0 0 0 4px #2f9e5c; transform: scale(1.12); }
+
+.bsp-ok {
+  height: 56px;
+  padding: 0 24px;
+  border: 3px solid #ffffff !important;
+  border-radius: 999px;
+  background: #3fbf74 !important;
+  color: #ffffff !important;
+  font-weight: 800;
+  font-size: 1.2rem;
+  box-shadow: 0 8px 16px rgba(47, 158, 92, 0.35);
+}
+.bsp-ok:disabled { opacity: 0.45; box-shadow: none; }
+.bsp-ok:active:not(:disabled) { transform: scale(0.96); }
+
+.bsp-blase {
+  padding: 12px 16px;
+  border-radius: 24px;
+  background: #ffffff;
+  box-shadow: 0 8px 18px rgba(36, 48, 71, 0.16);
+}
+.bsp-blase::after {
+  content: "";
+  position: absolute;
+  left: 22px;
+  bottom: -16px;
+  border: 10px solid transparent;
+  border-top: 14px solid #ffffff;
+  border-bottom: none;
+}
+
+/* --- 1. Brot backen --- */
+.bsp-wahlkarte {
+  display: flex !important;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 4px solid #f0e2cc !important;
+  border-radius: 28px;
+  background: #ffffff !important;
+  box-shadow: 0 10px 22px rgba(120, 80, 30, 0.14);
+  font-weight: 800;
+  font-size: 2rem;
+  transition: transform 0.15s ease;
+}
+.bsp-wahlkarte .bsp-bild { width: 84%; height: auto; flex: 0 1 auto; }
+.bsp-wahlkarte:active { transform: scale(0.96); }
+.bsp-brett { border-radius: 26px; background: linear-gradient(180deg, #d9a066 0%, #c4874c 100%); box-shadow: inset 0 -10px 0 rgba(0, 0, 0, 0.12), 0 8px 16px rgba(120, 70, 20, 0.2); }
+.bsp-teig { display: flex !important; align-items: flex-end; justify-content: center; transform-origin: 50% 90%; touch-action: manipulation; }
+.bsp-teig .bsp-bild { height: auto; max-height: 100%; transform-origin: 50% 90%; }
+.bsp-teig.is-leer { visibility: hidden; }
+.bsp-teig .is-knet { animation: bsp-knet 0.35s ease; }
+@keyframes bsp-knet {
+  0%, 100% { transform: scale(1, 1); }
+  35% { transform: scale(1.14, 0.8); }
+  70% { transform: scale(0.95, 1.06); }
+}
+.bsp-dampf { animation: bsp-dampf 1.6s ease-out 2 both; }
+@keyframes bsp-dampf {
+  0% { opacity: 0; transform: translateY(10px); }
+  40% { opacity: 0.9; }
+  100% { opacity: 0; transform: translateY(-14px); }
+}
+.bsp-ofen { transition: transform 0.15s ease; }
+.bsp-ofen:active { transform: scale(0.97); }
+.bsp-ofen.is-bereit { filter: drop-shadow(0 0 18px rgba(255, 170, 60, 0.75)); }
+.bsp-uhr { overflow: hidden; border-radius: 999px; background: #ffffff; box-shadow: inset 0 0 0 3px #e8d6b8; }
+.bsp-uhr.is-aus { opacity: 0; }
+.bsp-uhr i { position: absolute; inset: 4px; border-radius: 999px; background: linear-gradient(90deg, #ffb347, #ff7b39); transform: scaleX(0); transform-origin: 0 50%; }
+.bsp-uhr i.is-laeuft { transform: scaleX(1); transition: transform 3s linear; }
+.bsp-uhr.is-voll i { transform: scaleX(1); background: #3fbf74; }
+
+/* --- 2. Haare schneiden --- */
+.bsp-kunde { touch-action: none; cursor: pointer; }
+.bsp-kunde .bsp-treffer { pointer-events: stroke; cursor: pointer; }
+.bsp-kunde .bsp-figur { pointer-events: visiblePainted; }
+.bsp-seite {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  border-radius: 28px;
+  background: rgba(255, 255, 255, 0.7);
+  box-shadow: 0 8px 20px rgba(80, 50, 140, 0.12);
+}
+.bsp-schere-gross { width: 46%; aspect-ratio: 1; transform: rotate(-20deg); }
+.bsp-seite .bsp-zaehler { gap: 10px; flex-wrap: wrap; }
+.bsp-seite .bsp-zaehler span { width: 30px; height: 30px; box-shadow: inset 0 0 0 4px #d7c4f5; }
+.bsp-maschen { display: grid; grid-template-columns: repeat(2, auto); justify-content: center; }
+.bsp-masche-knopf {
+  display: grid !important;
+  place-items: center;
+  border: 4px solid #e9ddff !important;
+  border-radius: 28px;
+  background: #ffffff !important;
+  box-shadow: 0 6px 14px rgba(80, 50, 140, 0.14);
+}
+.bsp-masche-knopf .bsp-bild { width: 74%; height: 74%; }
+.bsp-masche-knopf.is-aktiv { border-color: #3fbf74 !important; box-shadow: 0 0 0 5px rgba(63, 191, 116, 0.3); }
+.bsp-masche-knopf:active:not(:disabled) { transform: scale(0.95); }
+.bsp-schere-zeiger { left: 0; top: 0; width: 84px; height: 84px; z-index: 20; pointer-events: none; filter: drop-shadow(0 6px 6px rgba(0, 0, 0, 0.25)); }
+.bsp-fall { z-index: 15; pointer-events: none; animation: bsp-fall 0.9s ease-in forwards; }
+@keyframes bsp-fall {
+  0% { transform: none; opacity: 1; }
+  100% { transform: translateY(180px) rotate(24deg); opacity: 0; }
+}
+.bsp-spiegel {
+  z-index: 5;
+  pointer-events: none;
+  border: 18px solid #e2b866;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 4px #c8963c, 0 0 0 4px #c8963c, 0 14px 30px rgba(80, 50, 140, 0.25);
+  background: linear-gradient(125deg, rgba(255, 255, 255, 0) 30%, rgba(255, 255, 255, 0.4) 38%, rgba(255, 255, 255, 0) 46%, rgba(255, 255, 255, 0) 60%, rgba(255, 255, 255, 0.25) 64%, rgba(255, 255, 255, 0) 70%);
+  animation: bsp-spiegel-ein 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
+}
+.bsp-spiegel.is-fertig { animation: none; }
+@keyframes bsp-spiegel-ein {
+  from { opacity: 0; transform: scale(0.8); }
+  to { opacity: 1; transform: none; }
+}
+
+/* --- 3. Röntgenbild --- */
+.bsp-roentgen {
+  padding: 14px;
+  border-radius: 24px;
+  background: #3b4a5e;
+  box-shadow: 0 12px 26px rgba(20, 40, 80, 0.3);
+}
+.bsp-roentgen svg { display: block; width: 100%; height: 100%; border-radius: 14px; background: radial-gradient(ellipse at 50% 45%, #1c3a66 0%, #0f2342 75%); touch-action: manipulation; cursor: pointer; }
+.bsp-roentgen-name { position: absolute; left: 30px; top: 22px; z-index: 1; color: #9fc3f5; font-weight: 800; font-size: 1.3rem; letter-spacing: 0.12em; pointer-events: none; }
+.bsp-knochen.is-falsch { animation: bsp-knochen-falsch 0.6s ease; }
+@keyframes bsp-knochen-falsch {
+  0%, 100% { opacity: 1; }
+  30%, 70% { opacity: 0.4; }
+}
+.bsp-gips { transform-box: fill-box; transform-origin: 50% 50%; }
+.bsp-gips-ein { animation: bsp-plopp 0.5s cubic-bezier(0.34, 1.56, 0.64, 1); }
+.bsp-patient, .bsp-patient-gross, .bsp-kundin, .bsp-sehfigur { pointer-events: none; }
+
+/* --- 4. Einkaufen --- */
+.bsp-zettel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 14px 16px;
+  border-radius: 10px 10px 22px 10px;
+  background: repeating-linear-gradient(180deg, #fffef8 0 37px, #e5eef8 37px 39px);
+  box-shadow: 0 10px 22px rgba(36, 48, 71, 0.16);
+  transform: rotate(-1.5deg);
+}
+.bsp-zettel b { font-size: 1.35rem; color: #a0662f; text-align: center; }
+.bsp-zettel-eintrag {
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex !important;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 8px !important;
+  border-radius: 14px;
+  font-weight: 800;
+  font-size: 1.45rem;
+  text-align: left;
+}
+.bsp-zettel-eintrag .bsp-bild { flex: 0 0 auto; width: 38%; height: 100%; }
+.bsp-zettel-eintrag span { position: relative; }
+.bsp-zettel-eintrag.is-drin { color: #2f9e5c; }
+.bsp-zettel-eintrag.is-drin span::after { content: ""; position: absolute; left: -4px; right: -4px; top: 52%; height: 4px; border-radius: 2px; background: #3fbf74; }
+.bsp-zettel-eintrag.is-drin::after { content: "✓"; margin-left: auto; color: #3fbf74; font-size: 1.6rem; }
+.is-breit .bsp-zettel { gap: 4px; padding: 10px 10px 12px; }
+.is-breit .bsp-zettel b { font-size: 1.15rem; }
+.is-breit .bsp-zettel-eintrag { gap: 6px; padding: 2px 4px !important; font-size: 1.2rem; }
+.is-breit .bsp-zettel-eintrag .bsp-bild { width: 34%; }
+.bsp-regal { border-radius: 22px; background: linear-gradient(180deg, #f7ead6 0%, #efdcc0 100%); box-shadow: inset 0 0 0 8px #d9b88a, 0 10px 20px rgba(120, 80, 30, 0.14); }
+.bsp-regalbrett { border-radius: 6px; background: #c08a52; box-shadow: 0 4px 0 #9c6b38; }
+.bsp-ware {
+  display: flex !important;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 2px;
+  padding: 6px !important;
+  border-radius: 18px;
+  font-weight: 800;
+  font-size: 1.2rem;
+  touch-action: none;
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+.bsp-ware .bsp-bild { flex: 1 1 auto; min-height: 0; height: auto; width: 100%; }
+.bsp-ware span { flex: 0 0 auto; padding: 0 10px; border-radius: 999px; background: rgba(255, 255, 255, 0.85); line-height: 1.4; }
+.bsp-ware:active { transform: scale(0.95); }
+.bsp-ware.is-geist { padding: 0 !important; }
+.bsp-korb > .bsp-bild { position: absolute; inset: auto 0 0; height: auto; }
+.bsp-preis {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-radius: 22px;
+  background: #fff6c2;
+  border: 4px dashed #e8b94f;
+  box-shadow: 0 8px 18px rgba(150, 110, 20, 0.16);
+  transform: rotate(-3deg);
+}
+.bsp-preis small { font-size: 1.2rem; font-weight: 800; color: #8a5734; line-height: 1; }
+.bsp-preis b { font-size: 3.6rem; line-height: 1.05; color: #243047; }
+
+.bsp-teller {
+  display: flex;
+  flex-wrap: wrap;
+  align-content: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 999px;
+  background: radial-gradient(ellipse at 50% 40%, #ffffff 0%, #eef2f6 70%);
+  box-shadow: inset 0 0 0 6px #d8dee6, 0 10px 20px rgba(36, 48, 71, 0.12);
+}
+.bsp-teller-leer { color: #8a96a6; font-weight: 700; font-size: 1.3rem; }
+.bsp-muenze { border-radius: 50%; filter: drop-shadow(0 3px 3px rgba(0, 0, 0, 0.2)); }
+.bsp-summe { display: flex; align-items: center; justify-content: center; gap: 10px; border-radius: 999px; background: #ffffff; box-shadow: 0 6px 14px rgba(36, 48, 71, 0.1); font-size: 1.7rem; font-weight: 700; }
+.bsp-summe b { font-size: 2.2rem; }
+.bsp-summe.is-zuviel { background: #fff4d6; color: #7a4b00; box-shadow: inset 0 0 0 3px #ffc93c; }
+.bsp-summe.is-genau { background: #e6f9ee; color: #1f7a45; box-shadow: inset 0 0 0 3px #3fbf74; }
+.bsp-muenzen { display: flex; align-items: center; justify-content: space-evenly; border-radius: 26px; background: rgba(255, 255, 255, 0.6); }
+.bsp-muenze-knopf { border-radius: 50%; filter: drop-shadow(0 6px 6px rgba(0, 0, 0, 0.22)); transition: transform 0.12s ease; }
+.bsp-muenze-knopf:active:not(:disabled) { transform: scale(0.92); }
+
+/* --- 5. Sehtest --- */
+.bsp-sehtafel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-evenly;
+  border-radius: 22px;
+  background: #ffffff;
+  box-shadow: 0 0 0 8px #dfe8f3, 0 12px 26px rgba(36, 48, 71, 0.16);
+}
+.bsp-e { position: relative; flex: 0 0 auto; }
+.bsp-sehtafel-reihe { display: flex; gap: 10%; width: 70%; justify-content: center; opacity: 0.55; }
+.bsp-sehtafel-reihe span { width: 22px; height: 22px; flex: 0 0 auto; }
+.bsp-pfeil {
+  display: grid !important;
+  place-items: center;
+  border: 4px solid #ffffff !important;
+  border-radius: 30px;
+  background: #3a86ff !important;
+  box-shadow: 0 8px 16px rgba(30, 80, 170, 0.3);
+  transition: transform 0.12s ease, background-color 0.2s ease;
+}
+.bsp-pfeil .bsp-bild { width: 64%; height: 64%; }
+.bsp-pfeil i { position: absolute; right: 9%; bottom: 9%; width: 22%; height: 22%; padding: 3%; border-radius: 6px; background: #ffffff; }
+.bsp-pfeil:active:not(:disabled) { transform: scale(0.94); }
+.bsp-pfeil:disabled { cursor: default; }
+.bsp-pfeil.is-richtig { background: #3fbf74 !important; }
+
+/* --- 6. Blumenstrauss --- */
+.bsp-bestellung { display: flex; flex-direction: column; justify-content: center; gap: 8px; }
+.bsp-bestellzeile { display: flex; align-items: center; gap: 10px; }
+.bsp-bestellzeile b { flex: 0 0 auto; min-width: 1.2em; font-size: 2.6rem; line-height: 1; text-align: center; }
+.bsp-bestellzeile span { display: flex; flex-wrap: wrap; gap: 2px; }
+.bsp-bestellzeile i { width: 52px; height: 52px; padding: 2px; border-radius: 50%; transition: background-color 0.2s ease, transform 0.2s ease; }
+.bsp-bestellzeile i.is-da { background: #c9f0d6; box-shadow: inset 0 0 0 3px #3fbf74; }
+.bsp-bestellzeile.is-ok b { color: #2f9e5c; }
+.is-breit .bsp-bestellung { gap: 4px; padding: 8px 12px; }
+.is-breit .bsp-bestellzeile { gap: 6px; }
+.is-breit .bsp-bestellzeile b { font-size: 2.1rem; }
+.is-breit .bsp-bestellzeile i { width: 40px; height: 40px; }
+.bsp-strauss-fertig.is-bereit { animation: bsp-wink 1.2s ease-in-out 3; }
+@keyframes bsp-wink {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.08); }
+}
+.bsp-huelle { pointer-events: none; }
+.bsp-strauss-blume { border-radius: 50%; filter: drop-shadow(0 3px 3px rgba(0, 0, 0, 0.15)); }
+.bsp-eimer {
+  display: flex !important;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 6px !important;
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.55) !important;
+  transition: transform 0.12s ease;
+}
+.bsp-eimer .bsp-bild { height: auto; max-height: 100%; }
+.bsp-eimer:active:not(:disabled) { transform: scale(0.95); }
+
+/* --- 7. Melodie nachspielen --- */
+.bsp-xylo { border-radius: 30px; background: linear-gradient(180deg, #c98a4f 0%, #a8693a 100%); box-shadow: inset 0 0 0 10px #b5773f, 0 12px 26px rgba(120, 70, 20, 0.25); }
+.bsp-taste {
+  border: 4px solid rgba(255, 255, 255, 0.85) !important;
+  border-radius: 22px;
+  background: var(--farbe) !important;
+  box-shadow: 0 8px 0 var(--dunkel), 0 12px 18px rgba(0, 0, 0, 0.2);
+  touch-action: manipulation;
+  transition: transform 0.1s ease, filter 0.15s ease;
+}
+.bsp-taste::before, .bsp-taste::after { content: ""; position: absolute; left: 50%; width: 16px; height: 16px; margin-left: -8px; border-radius: 50%; background: rgba(255, 255, 255, 0.75); }
+.bsp-taste::before { top: 14px; }
+.bsp-taste::after { bottom: 14px; }
+.bsp-taste.is-an { filter: brightness(1.28) saturate(1.1); transform: translateY(6px) scale(1.03); box-shadow: 0 2px 0 var(--dunkel), 0 0 26px 6px var(--farbe); }
+.bsp-zeichen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-radius: 28px;
+  background: #ffffff;
+  box-shadow: 0 8px 18px rgba(120, 90, 20, 0.16);
+  font-size: 1.5rem;
+  font-weight: 800;
+  line-height: 1.1;
+  text-align: center;
+}
+.bsp-zeichen span { font-size: 3rem; line-height: 1.1; }
+.bsp-zeichen.is-du { background: #e6f9ee; color: #1f7a45; box-shadow: inset 0 0 0 4px #3fbf74, 0 8px 18px rgba(47, 158, 92, 0.2); }
+
+/* --- 8. Zimmerschlüssel --- */
+.bsp-gast { pointer-events: none; transition: transform 0.6s ease, opacity 0.6s ease; }
+.bsp-gast.is-kommt { animation: bsp-gast-kommt 0.6s ease backwards; }
+.bsp-gast.is-geht { transform: translateX(-160px); opacity: 0; }
+@keyframes bsp-gast-kommt {
+  from { transform: translateX(-160px); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+.bsp-theke { border-radius: 18px 18px 0 0; background: linear-gradient(180deg, #b5773f 0%, #8f5a2c 100%); box-shadow: inset 0 12px 0 #c98a4f; }
+.bsp-theke i { position: absolute; right: 16%; top: -34%; width: 26%; height: 60%; }
+.bsp-zimmerblase { display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1; animation: bsp-plopp 0.4s ease backwards; animation-delay: 0.35s; }
+.bsp-zimmerblase span { font-size: 1.4rem; font-weight: 800; color: #6b7280; }
+.bsp-zimmerblase b { font-size: 3.6rem; color: #243047; }
+.bsp-brett-holz { border-radius: 26px; background: linear-gradient(180deg, #a8693a 0%, #8f5a2c 100%); box-shadow: inset 0 0 0 10px #b5773f, 0 12px 26px rgba(90, 50, 20, 0.28); }
+.bsp-haken { border-radius: 50%; background: #c9a227; box-shadow: inset 0 -3px 0 #8a6d12; }
+.bsp-schluessel { transform-origin: 50% 4%; transition: transform 0.15s ease; }
+.bsp-schluessel:active:not(:disabled) { transform: rotate(-6deg) scale(0.97); }
+
+/* --- 9. Pflaster kleben --- */
+.bsp-kratzer { display: grid; place-items: center; }
+.bsp-kratzer { cursor: pointer; }
+.bsp-kratzer .bsp-bild { width: var(--bild, 100%); height: var(--bild, 100%); }
+.bsp-dose {
+  display: flex;
+  justify-content: center;
+  padding-top: 10px;
+  border-radius: 26px;
+  background: #ffffff;
+  box-shadow: inset 0 0 0 6px #fbd5d5, 0 10px 22px rgba(160, 40, 40, 0.14);
+}
+.bsp-dose b { font-size: 1.5rem; color: #c53030; }
+.bsp-dose::before { content: ""; position: absolute; top: 12px; right: 18px; width: 34px; height: 34px; background: linear-gradient(#e53e3e, #e53e3e) center / 100% 30% no-repeat, linear-gradient(#e53e3e, #e53e3e) center / 30% 100% no-repeat; }
+.bsp-pflaster { filter: drop-shadow(0 4px 4px rgba(0, 0, 0, 0.18)); }
+.bsp-pflaster-ziehbar { touch-action: none; transition: transform 0.12s ease, opacity 0.12s ease; }
+.bsp-pflaster-ziehbar:active { transform: scale(1.04); }
+.bsp-pflaster.is-klebt { pointer-events: none; z-index: 3; }
+
+/* --- Geschafft: Sterne, Nochmal, Fertig --- */
+/* Rechts, wo vorher die Werkzeuge waren – links bleibt das Ergebnis frei. */
+.bsp-fest {
+  position: absolute;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 12px 3% 12px 12px;
+  background: linear-gradient(90deg, rgba(255, 253, 248, 0) 45%, rgba(255, 253, 248, 0.7) 70%);
+  animation: bsp-ein 0.3s ease backwards;
+}
+.bsp-fest-karte {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 18px 28px 22px;
+  border-radius: 28px;
+  background: #ffffff;
+  box-shadow: 0 16px 36px rgba(36, 48, 71, 0.28);
+  animation: bsp-fest-ein 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
+}
+@keyframes bsp-fest-ein {
+  from { opacity: 0; transform: scale(0.7); }
+  to { opacity: 1; transform: none; }
+}
+.bsp-fest-sterne { display: flex; gap: 6px; }
+.bsp-fest-sterne .bsp-bild { width: 58px; height: 58px; animation: bsp-stern 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) backwards; }
+.bsp-fest-sterne .bsp-bild:nth-child(2) { width: 72px; height: 72px; margin-top: -10px; animation-delay: 0.1s; }
+.bsp-fest-sterne .bsp-bild:nth-child(3) { animation-delay: 0.2s; }
+@keyframes bsp-stern {
+  from { opacity: 0; transform: scale(0.2) rotate(-40deg); }
+  to { opacity: 1; transform: none; }
+}
+.bsp-fest-karte p { margin: 0; font-size: 2rem; font-weight: 800; }
+.bsp-fest-knoepfe { display: flex; flex-direction: column; align-items: stretch; gap: 12px; margin-top: 10px; }
+.bsp-fest-karte .bsp-ok { height: 64px; padding: 0 28px; font-size: 1.3rem; }
+.bsp-nochmal {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 64px;
+  padding: 0 24px;
+  border: none;
+  border-radius: 999px;
+  background: #edf2f7;
+  color: #2d3748;
+  font-weight: 800;
+  font-size: 1.2rem;
+}
+.bsp-nochmal { justify-content: center; }
+.bsp-nochmal svg { width: 26px; height: 26px; }
+.bsp-nochmal:active, .bsp-fertig:active { transform: scale(0.96); }
+.bsp-konfetti {
+  position: absolute;
+  left: 50%;
+  top: 60%;
+  z-index: 1;
+  width: 12px;
+  height: 16px;
+  border-radius: 3px;
+  opacity: 0;
+  pointer-events: none;
+  animation: bsp-konfetti 1.5s ease-out forwards;
+}
+.bsp-konfetti:nth-child(3n) { border-radius: 50%; width: 12px; height: 12px; }
+@keyframes bsp-konfetti {
+  0% { opacity: 1; transform: translate(0, 0) rotate(0); }
+  100% { opacity: 0; transform: translate(var(--dx), calc(var(--dy) + 220px)) rotate(var(--dreh)); }
+}
+
+/* --- Handy im Querformat --- */
+@media (max-height: 520px) {
+  .bsp-ebene { padding: calc(var(--safe-top, 0px) + 62px) calc(var(--safe-right, 0px) + 10px) calc(var(--safe-bottom, 0px) + 8px) calc(var(--safe-left, 0px) + 10px); }
+  .bsp-karte { padding: 6px 10px 10px; border-radius: 20px; }
+  .bsp-kopf { min-height: 44px; gap: 8px; }
+  .bsp-titel { font-size: 1.15rem; margin-left: 4px; }
+  .bsp-auftrag { min-height: 44px; padding: 2px 12px 2px 8px; font-size: 1rem; }
+  .bsp-auftrag-zeichen { width: 22px; height: 22px; }
+  .bsp-punkte { gap: 4px; }
+  .bsp-punkte i { width: 13px; height: 13px; }
+  .bsp-zu { width: 44px; height: 44px; }
+  .bsp-zu svg { width: 22px; height: 22px; }
+  .bsp-buehne { margin-top: 6px; border-radius: 14px; }
+  .bsp-fest { padding: 8px 2% 8px 8px; }
+  .bsp-fest-karte { gap: 2px; padding: 8px 14px 10px; border-radius: 22px; }
+  .bsp-fest-sterne .bsp-bild { width: 34px; height: 34px; }
+  .bsp-fest-sterne .bsp-bild:nth-child(2) { width: 42px; height: 42px; margin-top: -6px; }
+  .bsp-fest-karte p { font-size: 1.3rem; }
+  .bsp-fest-knoepfe { margin-top: 4px; gap: 8px; }
+  .bsp-nochmal, .bsp-fest-karte .bsp-ok { height: 48px; font-size: 1.05rem; padding: 0 16px; justify-content: center; }
+}
+/* Schmal (Handy hochkant): Der Name macht der Aufgabe Platz. */
+@media (max-width: 640px) {
+  .bsp-titel { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bsp-ebene, .bsp-karte, .bsp-fest, .bsp-fest-karte, .bsp-fest-sterne .bsp-bild, .bsp-spiegel, .bsp-zimmerblase, .bsp-gast.is-kommt { animation: none; }
+  .bsp-wackel, .bsp-plopp, .bsp-gips-ein, .bsp-teig .is-knet, .bsp-dampf, .bsp-knochen.is-falsch, .bsp-strauss-fertig.is-bereit { animation: none; }
+  .bsp-gast, .bsp-punkte i, .bsp-zaehler span { transition: none; }
+  /* Die Backuhr füllt sich trotzdem – in Schritten statt gleitend. */
+  .bsp-uhr i.is-laeuft { transition-timing-function: steps(6, end); }
+}

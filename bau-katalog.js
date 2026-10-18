@@ -118,6 +118,10 @@
       text: "Im Dorf trifft man sich: zum Einkaufen, Lesen, Essen, Spielen und Schwimmen." },
     { id: "buero", name: "Büro", der: "das Büro", im: "im Büro", fassade: "hellblau", dach: "grau", dachForm: "flach",
       text: "Im Büro wird gearbeitet: an Schreibtischen, in Sitzungen und am Computer." },
+    // Seit Oktober 2026: das Hotel. Hier übernachten Feriengäste, die ganz
+    // genaue Wünsche an ihr Zimmer haben (bau-stand.js, Gäste).
+    { id: "hotel", name: "Hotel", der: "das Hotel", im: "im Hotel", fassade: "flieder", dach: "violett", dachForm: "hotel",
+      text: "Im Hotel übernachten Feriengäste. Sie kommen von weit her und haben ganz genaue Wünsche an ihr Zimmer." },
   ];
   const HAUS = Object.fromEntries(HAEUSER.map((haus) => [haus.id, haus]));
 
@@ -321,6 +325,33 @@
     R("fitness", "buero", "Fitnessraum", "der Fitnessraum", "einen Fitnessraum",
       "Im Fitnessraum bewegen sich alle in der Pause – auf dem Laufband, mit Hanteln und auf der Matte.",
       { wand: "hellgruen", boden: "linoleum", icon: "laufband" }),
+
+    // --- Hotel -----------------------------------------------------------------------
+    // gast: Hier übernachtet ein Feriengast (bau-stand.js, Gäste).
+    R("rezeption", "hotel", "Rezeption", "die Rezeption", "eine Rezeption",
+      "An der Rezeption melden sich die Feriengäste an. Hier bekommen sie den Schlüssel für ihr Zimmer.",
+      { wand: "creme", boden: "stein", icon: "o_rezeptionstheke" }),
+    R("gaestezimmer", "hotel", "Gästezimmer", "das Gästezimmer", "ein Gästezimmer",
+      "Im Gästezimmer schläft ein Feriengast. Er wünscht sich alles ganz genau so, wie er es mag.",
+      { wand: "hellblau", boden: "teppichboden", icon: "o_hotelbett", gast: true }),
+    R("familienzimmer", "hotel", "Familienzimmer", "das Familienzimmer", "ein Familienzimmer",
+      "Im Familienzimmer übernachtet eine ganze Familie – mit Platz für Gross und Klein.",
+      { wand: "hellgelb", boden: "teppichboden", icon: "o_etagenbett", gast: true }),
+    R("suite", "hotel", "Suite", "die Suite", "eine Suite",
+      "Die Suite ist das schönste Zimmer im Hotel: gross, gemütlich und ein bisschen wie in einem Schloss.",
+      { wand: "flieder", muster: "streifen", icon: "o_himmelbett", gast: true }),
+    R("fruehstueck", "hotel", "Frühstückssaal", "der Frühstückssaal", "einen Frühstückssaal",
+      "Im Frühstückssaal gibt es am Morgen ein feines Buffet: Gipfeli, Müesli, Früchte und Saft.",
+      { wand: "pfirsich", boden: "dielen", icon: "o_buffet", ausflug: true }),
+    R("wellness", "hotel", "Wellness", "der Wellnessbereich", "einen Wellnessbereich",
+      "Im Wellnessbereich ruhen sich die Gäste aus: in der Sauna, bei einer Massage und im warmen Sprudelbad.",
+      { wand: "mint", boden: "stein", icon: "o_sauna", ausflug: true }),
+    R("kinderclub", "hotel", "Kinderclub", "der Kinderclub", "einen Kinderclub",
+      "Im Kinderclub spielen, basteln und verkleiden sich die Kinder der Feriengäste.",
+      { wand: "hellgelb", muster: "punkte", boden: "teppichboden", icon: "o_kostuemkiste", ausflug: true }),
+    R("hotelkueche", "hotel", "Hotelküche", "die Hotelküche", "eine Hotelküche",
+      "In der Hotelküche kochen die Köchinnen und Köche für alle Gäste – in riesigen Töpfen.",
+      { wand: "weiss", muster: "kacheln", boden: "plaettli", icon: "o_grossherd" }),
   ];
   const RAEUME = Object.fromEntries(RAEUME_LISTE.map((raum) => [raum.id, raum]));
   HAEUSER.forEach((haus) => { haus.raeume = RAEUME_LISTE.filter((raum) => raum.haus === haus.id).map((raum) => raum.id); });
@@ -351,6 +382,9 @@
     bueroempfang: "Besuch empfangen", grossraum: "am Computer arbeiten", einzelbuero: "die Firma leiten",
     sitzung: "Sitzungen leiten", drucker: "Briefe drucken", buerowc: "das WC putzen", cafeteria: "Kaffee ausschenken",
     archiv: "Akten ordnen", computerraum: "Computer reparieren", atelier: "Plakate gestalten", fitness: "Fitnessstunden geben",
+    // Hotel
+    rezeption: "Gäste begrüssen", gaestezimmer: "Zimmer putzen", familienzimmer: "Betten machen", suite: "die Suite schmücken",
+    fruehstueck: "das Buffet anrichten", wellness: "Massagen geben", kinderclub: "Spiele leiten", hotelkueche: "für die Gäste kochen",
   };
   Object.entries(JOBS).forEach(([id, job]) => { if (RAEUME[id]) RAEUME[id].job = job; });
 
@@ -358,17 +392,24 @@
   // Büchern (FIGUREN.mag.ding) gibt es in jeder Wohnung – wer einen Panda hat,
   // braucht Bambus, und Mia ihren Ball.
   const LIEBLINGS = ["beeren", "honig", "rueebli", "kratzbaum", "bambus", "aquarium", "buecherregal", "fisch", "melone", "kaese", "nuesse", "kletterfelsen", "hundekorb", "laubhaufen", "heuballen", "aepfel",
-    "ball", "farbtoepfe", "schal", "fernrohr"];
+    "ball", "farbtoepfe", "schal", "fernrohr", "obstschale", "kissen", "grosspflanze"];
+  // Die Lieblingsdinge der Menschen (wenn im Dorf Menschen wohnen): was es
+  // schon gab, dazu die neuen aus bau-moebel-extra.js (MENSCHEN).
+  const LIEBLINGS_MENSCHEN_GRUND = ["gitarre", "buecherstapel", "ball", "farbtoepfe", "velo", "kaffeetasse", "kuchen", "radio", "kuscheltier", "grosspflanze"];
+  const lieblingeMenschen = () => [...LIEBLINGS_MENSCHEN_GRUND, ...(window.LernappBauMoebel?.MENSCHEN || [])];
+  // Für ein Baby: das Bettchen, in jeder Wohnung.
+  const BABY_DINGE = ["wiege"];
 
   // Was in der Schublade eines Zimmers liegt: seine eigenen Dinge (aus den
-  // Dateien bau-moebel-<gruppe>.js), in Wohnungen dazu die Lieblingsdinge.
-  // Was es überall gibt (UEBERALL in bau-moebel.js), zeigt train-bau.js extra.
+  // Dateien bau-moebel-<gruppe>.js), in Wohnungen dazu die Lieblingsdinge und
+  // das Babybettchen. Was es überall gibt (UEBERALL in bau-moebel.js), zeigt
+  // train-bau.js extra.
   function dingeFuer(raumId) {
     const moebel = window.LernappBauMoebel;
     const raum = RAEUME[raumId];
     if (!raum) return [];
     const eigene = moebel?.RAUM_DINGE?.[raumId] || [];
-    const liste = [...eigene, ...(raum.wohnen ? LIEBLINGS : [])];
+    const liste = [...eigene, ...(raum.wohnen ? [...LIEBLINGS, ...lieblingeMenschen(), ...BABY_DINGE] : [])];
     return liste.filter((id, i) => moebel?.DINGE?.[id] && liste.indexOf(id) === i && !moebel.UEBERALL?.includes(id));
   }
 
@@ -553,8 +594,28 @@
       { haus: "buero", raum: "cafeteria", warum: "Dort trinke ich mit Freunden Kaffee." },
       { haus: "buero", raum: "fitness", warum: "Dort halte ich mich fit." },
       { haus: "buero", raum: "grossraum", warum: "Dort möchte ich arbeiten." },
+      // Seit Oktober 2026: mehr für Spital, Büro und das neue Hotel. Ein
+      // blauer Wunsch wählt zuerst das Haus (FREMD_GEWICHT), dann das Zimmer –
+      // so kommt das Spital so oft vor wie das Dorf.
+      { haus: "spital", raum: "radiologie", warum: "Falls ich mir einmal etwas breche." },
+      { haus: "spital", raum: "innere", warum: "Dort hört man mir das Herz ab." },
+      { haus: "spital", raum: "labor", warum: "Dort schaut man, ob mein Blut gesund ist." },
+      { haus: "spital", raum: "physio", warum: "Dort übe ich, wenn mir etwas weh tut." },
+      { haus: "spital", raum: "spitalcafeteria", warum: "Dort trinke ich etwas, wenn ich jemanden besuche." },
+      { haus: "spital", raum: "geburt", warum: "Dort ist mein kleiner Bruder auf die Welt gekommen." },
+      { haus: "spital", raum: "bettenstation", warum: "Falls ich einmal im Spital übernachten muss." },
+      { haus: "buero", raum: "sitzung", warum: "Dort bespreche ich wichtige Dinge." },
+      { haus: "buero", raum: "atelier", warum: "Dort zeichne ich Plakate." },
+      { haus: "buero", raum: "computerraum", warum: "Dort lerne ich, wie Computer funktionieren." },
+      { haus: "hotel", raum: "fruehstueck", warum: "Dort esse ich am Sonntag ein feines Zmorge." },
+      { haus: "hotel", raum: "wellness", warum: "Dort entspanne ich in der Sauna." },
+      { haus: "hotel", raum: "kinderclub", warum: "Dort spiele ich mit den Kindern der Feriengäste." },
+      { haus: "hotel", raum: "rezeption", warum: "Dort hole ich Prospekte für meine Ausflüge." },
+      { haus: "hotel", raum: "suite", warum: "Dort möchte ich einmal wie ein König schlafen." },
     ],
   };
+  // Wie oft ein blauer Wunsch in welches Haus geht.
+  const FREMD_GEWICHT = { spital: 35, zentrum: 35, buero: 15, hotel: 15 };
 
 
   // ---------------------------------------------------------------------------
@@ -631,8 +692,63 @@
       mag: { ding: "aepfel", farbe: "violett" },
       isst: "Gras, Blätter und Äpfel – ganz, ganz viel davon!",
       fakt: "Mit meinem Rüssel kann ich trinken, duschen und sogar Hallo winken." },
+
+    // --- Seltene Tiere (seit Oktober 2026) ---------------------------------------
+    // Sie ziehen nur ein, wenn das Dorf etwas Bestimmtes hat (selten: die
+    // Bedingung, bau-stand.js, seltenDa) – und kommen gern als Feriengäste ins
+    // Hotel. lockt: was das Sammelalbum als Tipp zeigt.
+    giraffe: { name: "Giraffe", der: "die Giraffe", namen: ["Gisela", "Raffi", "Zuri", "Tamu"], selten: "hoch",
+      lockt: "Die Giraffe kommt, wenn das Wohnhaus mindestens zehn Stockwerke hoch ist. Sie mag die Aussicht.",
+      mag: { ding: "pflanze", farbe: "gelb" },
+      isst: "Blätter von ganz oben in den Bäumen.",
+      fakt: "Ich bin das grösste Tier der Welt. Meine Zunge ist so lang wie dein Arm!" },
+    flamingo: { name: "Flamingo", der: "der Flamingo", namen: ["Flavia", "Rosalie", "Fritz", "Pinki"], selten: "hallenbad",
+      lockt: "Der Flamingo kommt, wenn es im Dorf ein Hallenbad gibt.",
+      mag: { ding: "fisch", farbe: "rosa" },
+      isst: "Kleine Krebse – davon werde ich rosa!",
+      fakt: "Ich schlafe auf einem Bein. Rosa bin ich, weil ich kleine Krebse esse." },
+    bat: { name: "Fledermaus", der: "die Fledermaus", namen: ["Flatter", "Nachtine", "Batti", "Vlad"], selten: "keller",
+      lockt: "Die Fledermaus kommt, wenn es im Wohnhaus einen Keller gibt. Dort ist es schön dunkel.",
+      mag: { ding: "fruechte", farbe: "violett" },
+      isst: "Mücken und Nachtfalter – und manche von uns Früchte.",
+      fakt: "Ich schlafe am Tag, kopfüber. In der Nacht finde ich meinen Weg mit den Ohren." },
+    parrot: { name: "Papagei", der: "der Papagei", namen: ["Coco", "Rio", "Kiwi", "Polly"], selten: "musik",
+      lockt: "Der Papagei kommt, wenn es im Dorf ein Musikzimmer gibt.",
+      mag: { ding: "fruechte", farbe: "gruen" },
+      isst: "Nüsse, Samen und süsse Früchte.",
+      fakt: "Ich kann Wörter nachsprechen. Hallo! Hallo!" },
+    koala: { name: "Koala", der: "der Koala", namen: ["Kimi", "Wombi", "Joey", "Matilda"], selten: "wellness",
+      lockt: "Der Koala kommt, wenn es im Hotel einen Wellnessbereich gibt.",
+      mag: { ding: "kissen", farbe: "gruen" },
+      isst: "Nur Blätter vom Eukalyptusbaum.",
+      fakt: "Ich schlafe bis zu 20 Stunden am Tag. Ich wohne in Australien." },
+
+    // --- Menschen (seit Oktober 2026) ---------------------------------------------
+    // Wählt das Kind beim Neustart Menschen, wohnen sie statt der Tiere im
+    // Dorf. Gezeichnet in bau-menschen.js. Was ein Mensch besonders mag, hängt
+    // vom Menschen ab (magListe; bau-stand.js, magVon), die Farbe ebenso.
+    // alter: kind, gross, alt – ins Kinderzimmer ziehen vor allem Kinder.
+    m_maedchen: { name: "Mädchen", der: "das Mädchen", mensch: true, alter: "kind", namen: ["Lea", "Luna", "Lina", "Mia", "Elli", "Ida", "Lilli", "Sina"],
+      magListe: ["ball", "malen", "puzzle", "skateboard", "kuscheltier", "buecher"] },
+    m_bub: { name: "Bub", der: "der Bub", mensch: true, alter: "kind", namen: ["Leo", "Lino", "Nico", "Tim", "Max", "Gian", "Mattia", "Felix"],
+      magListe: ["ball", "skateboard", "fussball", "puzzle", "malen", "velo"] },
+    m_frau: { name: "Frau", der: "die Frau", mensch: true, alter: "gross", namen: ["Flora", "Hanna", "Fanny", "Bella", "Steffi", "Lotti", "Frida", "Pia"],
+      magListe: ["gitarre", "buecher", "kaffee", "fotoapparat", "velo", "pflanze", "musik"] },
+    m_mann: { name: "Mann", der: "der Mann", mensch: true, alter: "gross", namen: ["Benno", "Hannes", "Franz", "Pablo", "Emil", "Bruno", "Sepp", "Olli"],
+      magListe: ["gitarre", "kaffee", "velo", "fotoapparat", "buecher", "fussball", "musik"] },
+    m_grossmutter: { name: "Grossmutter", der: "die Grossmutter", mensch: true, alter: "alt", namen: ["Berta", "Erna", "Hedi", "Rosi", "Frieda"],
+      magListe: ["strickzeug", "tee", "giessen", "buecher", "kuchen"] },
+    m_grossvater: { name: "Grossvater", der: "der Grossvater", mensch: true, alter: "alt", namen: ["Paul", "Fred", "Kasimir", "Uli", "Bodo"],
+      magListe: ["schach", "tee", "giessen", "buecher", "musik"] },
   };
-  const TIER_IDS = Object.keys(TIERE);
+  // Die gewöhnlichen Tiere, die seltenen, die Menschen.
+  const TIER_IDS = Object.keys(TIERE).filter((id) => !TIERE[id].selten && !TIERE[id].mensch);
+  const SELTEN_IDS = Object.keys(TIERE).filter((id) => TIERE[id].selten);
+  const MENSCH_IDS = Object.keys(TIERE).filter((id) => TIERE[id].mensch);
+  // Farben, die Menschen am liebsten haben können (eine je Mensch).
+  const MENSCH_FARBEN = ["gelb", "orange", "rot", "rosa", "violett", "blau", "tuerkis", "gruen"];
+  // Die Namen der Babys: bei den Tieren Kosenamen, bei den Menschen Vornamen.
+  const BABY_NAMEN = { tiere: ["Flöckli", "Pünktli", "Krümel", "Zwergli", "Knöpfli", "Sternli", "Mini", "Wuschel"], menschen: ["Noah", "Lia", "Mila", "Elias", "Nora", "Luca", "Emma", "Jonas"] };
 
   // ---------------------------------------------------------------------------
   // Die Figuren aus den Büchern der Leseecke
@@ -712,7 +828,7 @@
     { sterne: 15, id: "brunnen", name: "Ein Brunnen", text: "Neben dem Haus plätschert ein Brunnen." },
     { sterne: 20, id: "ballon", name: "Ein Heissluftballon", text: "Ein Heissluftballon schwebt über dem Dorf." },
     { sterne: 30, id: "regenbogen", name: "Ein Regenbogen", text: "Ein Regenbogen leuchtet über den Häusern." },
-    { sterne: 40, id: "karussell", name: "Ein Karussell", text: "Ein Karussell steht für die Tiere bereit." },
+    { sterne: 40, id: "karussell", name: "Ein Karussell", text: "Ein Karussell steht für alle bereit." },
     { sterne: 50, id: "statue", name: "Die Sternenstatue", text: "Eine goldene Sternenstatue zeigt: Hier sind alle glücklich." },
     { sterne: 60, id: "dachstern", name: "Goldene Dachsterne", text: "Auf jedem Dach funkelt ein goldener Stern." },
     // Mit mehr als vier Wohnungen (nach dem Kauf) gibt es mehr Sterne – bis
@@ -725,12 +841,129 @@
     { sterne: 160, id: "zeppelin", name: "Ein Zeppelin", text: "Ein Zeppelin fliegt über das Dorf." },
     { sterne: 180, id: "schloss", name: "Ein Schloss", text: "Auf dem Hügel steht ein Schloss mit Fahnen." },
     { sterne: 200, id: "feuerwerk", name: "Ein Feuerwerk", text: "Ab und zu gibt es ein Feuerwerk über dem Dorf." },
+    // Seit Oktober 2026 hat jeder Bewohner drei Stufen mit zusammen 16
+    // Sternen, dazu kommen Sterne aus dem Spital und dem Hotel. Die Leiter
+    // geht bis 1000 (gezeichnet in bau-leiter.js).
+    { sterne: 240, id: "leuchtturm", name: "Ein Leuchtturm", text: "Auf dem Hügel blinkt ein Leuchtturm." },
+    { sterne: 280, id: "seilbahn", name: "Eine Seilbahn", text: "Eine Seilbahn fährt auf den Berg." },
+    { sterne: 330, id: "sternwarte", name: "Eine Sternwarte", text: "In der Sternwarte schaut man in die Sterne." },
+    { sterne: 390, id: "zirkus", name: "Ein Zirkuszelt", text: "Neben dem Dorf steht ein buntes Zirkuszelt." },
+    { sterne: 460, id: "wasserfall", name: "Ein Wasserfall", text: "Auf der Wiese rauscht ein Wasserfall." },
+    { sterne: 540, id: "ballonfest", name: "Ein Ballonfest", text: "Viele bunte Ballone schweben über dem Dorf." },
+    { sterne: 630, id: "regenbogenbruecke", name: "Eine Regenbogenbrücke", text: "Eine Brücke in allen Farben führt über den Bach." },
+    { sterne: 730, id: "rakete", name: "Eine Rakete", text: "Eine Rakete steht bereit für den Flug zum Mond." },
+    { sterne: 850, id: "polarlicht", name: "Ein Polarlicht", text: "Am Himmel leuchtet ein Polarlicht." },
+    { sterne: 1000, id: "dorfkrone", name: "Die Krone des Dorfs", text: "Über dem Dorf schwebt eine goldene Krone." },
   ];
+
+  // ---------------------------------------------------------------------------
+  // Die drei Stufen eines Bewohners (seit Oktober 2026)
+  // ---------------------------------------------------------------------------
+  // Sind alle Wünsche einer Stufe erfüllt, ist die Stufe geschafft – das
+  // bleibt so –, und es kommen neue, schwierigere Wünsche. Wer alle drei
+  // geschafft hat, trägt die Krone. sterne: wie viele Sterne die Stufe hat.
+  const STUFEN = [
+    { nr: 1, id: "bronze", name: "Bronze", sterne: 6 },
+    { nr: 2, id: "silber", name: "Silber", sterne: 5 },
+    { nr: 3, id: "gold", name: "Gold", sterne: 5 },
+  ];
+
+  // Wünsche an die Lage der Wohnung im Wohnhaus (lila Sterne). Mit dem
+  // Pfeil-Knopf stellt das Kind die Stockwerke um.
+  //   oben    eines der drei obersten Stockwerke
+  //   unten   Erdgeschoss, erster oder zweiter Stock
+  //   ruhig   über und unter der Wohnung kein Kinderzimmer
+  //   neben   über oder unter der Wohnung ein bestimmtes Zimmer (raum)
+  //   freund  über oder unter der Wohnung wohnt ein bestimmtes Tier
+  const LAGE = {
+    oben: { text: "Ich möchte ganz oben wohnen. Von dort sehe ich weit.", kurz: "Ganz oben wohnen" },
+    unten: { text: "Ich möchte unten wohnen. Treppensteigen mag ich nicht so.", kurz: "Unten wohnen" },
+    ruhig: { text: "Ich mag es ruhig. Über und unter meiner Wohnung soll kein Kinderzimmer sein.", kurz: "Ruhig wohnen" },
+  };
+  // Wer gern wohin will (sonst: ruhig oder ein Zimmer daneben).
+  const LAGE_VORLIEBE = {
+    oben: ["ibex", "owl", "giraffe", "parrot", "cat", "squirrel", "bat"],
+    unten: ["hedgehog", "cow", "elephant", "mouse", "frog", "m_grossmutter", "m_grossvater"],
+  };
+  // Welche Zimmer des Wohnhauses sich jemand neben der Wohnung wünscht.
+  const LAGE_RAEUME = ["kueche", "terrasse", "bad", "wohnzimmer", "esszimmer", "bastelzimmer"];
+
+  // Genaue Wünsche für die Wohnung (Stufe 2 und 3), Zimmer für Zimmer:
+  //   ort     ein Ding neben, auf oder über einem anderen (Tags)
+  // Farbe und Anzahl rechnet bau-stand.js aus den Wünschen der Zimmerart
+  // (RAEUME.wuensche) und dem, was die Schublade hat.
+  const ORT_WUENSCHE = {
+    schlafzimmer: [["nachttisch", "neben", "bett"], ["lampe", "auf", "nachttisch"], ["bild", "ueber", "bett"], ["pflanze", "neben", "schrank"], ["spiegel", "neben", "schrank"], ["uhr", "ueber", "nachttisch"], ["lampe", "neben", "bett"]],
+    kinderzimmer: [["kuscheltier", "auf", "bett"], ["lampe", "neben", "bett"], ["stuhl", "neben", "tisch"], ["bild", "ueber", "bett"], ["regal", "neben", "bett"], ["malen", "auf", "tisch"], ["ball", "neben", "regal"]],
+  };
+  // Wie ein Ort im Satz heisst: "Am liebsten neben dem Bett."
+  const ORT_WORT = { neben: "neben", auf: "auf", ueber: "über" };
+
+  // Die Jahreszeiten (bau-wetter.js weiss, welche gerade ist): ein Satz vor
+  // einem Wunsch nach einem Ding der Jahreszeit.
+  const JAHRESZEITEN = {
+    fruehling: { name: "Frühling", satz: "Es ist Frühling." },
+    sommer: { name: "Sommer", satz: "Es ist Sommer." },
+    herbst: { name: "Herbst", satz: "Es ist Herbst." },
+    winter: { name: "Winter", satz: "Es ist Winter." },
+  };
+
+  // ---------------------------------------------------------------------------
+  // Das Spital: kleine Wehwehchen (seit Oktober 2026)
+  // ---------------------------------------------------------------------------
+  // Ab und zu hat ein Bewohner ein Wehwehchen – nie schlimm, und nach einem
+  // Tag ist es von selbst vorbei. Wer ihn in die richtige Abteilung bringt,
+  // hilft ihm, und das Dorf bekommt einen Stern.
+  //   ich     was der Bewohner sagt
+  //   kurz    auf der Tafel
+  //   raum    wo man hilft
+  //   richtig was man dort tut
+  const WEH = {
+    gips: { kurz: "Das Bein tut weh", ich: "Mein Bein tut so weh. Ist etwas gebrochen?", raum: "radiologie",
+      richtig: "Richtig! In der Radiologie sieht man auf dem Röntgenbild, ob der Knochen gebrochen ist. Jetzt gibt es einen Gips." },
+    kratzer: { kurz: "Hingefallen", ich: "Ich bin hingefallen und habe mir den Arm aufgeschürft.", raum: "notfall",
+      richtig: "Richtig! Im Notfall wird die Wunde sauber gemacht und verbunden." },
+    schnupfen: { kurz: "Schnupfen", ich: "Hatschi! Ich habe Schnupfen und Husten.", raum: "apotheke",
+      richtig: "Richtig! In der Apotheke gibt es Hustensirup und Nasentropfen." },
+    augen: { kurz: "Sieht verschwommen", ich: "Ich sehe alles ein bisschen verschwommen.", raum: "augen",
+      richtig: "Richtig! In der Augenabteilung macht man einen Sehtest. Vielleicht braucht es eine Brille." },
+    bauchweh: { kurz: "Bauchweh", ich: "Mein Bauch tut weh.", raum: "innere",
+      richtig: "Richtig! In der Inneren Medizin kümmert man sich um den Bauch." },
+    muede: { kurz: "Immer müde", ich: "Ich bin immer so müde.", raum: "labor",
+      richtig: "Richtig! Im Labor schaut man das Blut an. So findet man heraus, was fehlt." },
+    muskelkater: { kurz: "Muskelkater", ich: "Ich habe so viel geturnt. Jetzt tut mir alles weh.", raum: "physio",
+      richtig: "Richtig! In der Physiotherapie zeigt man mir Übungen, damit es bald besser wird." },
+  };
+
+  // ---------------------------------------------------------------------------
+  // Neustart: ein neues Dorf gründen (seit Oktober 2026)
+  // ---------------------------------------------------------------------------
+  // Wer ein neues Dorf gründet, bekommt für die Sterne des alten Dorfs (den
+  // höchsten Stand der Sternenleiter) einen Pokal – er steht mit dem Dorf in
+  // der Ruhmeshalle – und ein Geschenk für den Anfang.
+  //   paletten   so viele Paletten Ziegel bekommt das neue Dorf geschenkt
+  //   schaetze   die goldenen Möbel (bau-moebel-extra.js) gibt es von da an
+  //   denkmal    vor dem Wohnhaus steht ein Denkmal für das alte Dorf
+  const POKALE = [
+    { id: "bronze", sterne: 100, name: "Bronzepokal", paletten: 2 },
+    { id: "silber", sterne: 200, name: "Silberpokal", paletten: 3, schaetze: true },
+    { id: "gold", sterne: 300, name: "Goldpokal", paletten: 4, schaetze: true, denkmal: true },
+  ];
+  // Wer im Dorf wohnt.
+  const VOLK = {
+    tiere: { name: "Tiere", wer: "die Tiere", ein: "ein Tier", viele: "Tiere", text: "Im Dorf wohnen Tiere: Fuchs, Bär, Hase, Panda und viele mehr – und die Figuren aus den Büchern." },
+    menschen: { name: "Menschen", wer: "die Menschen", ein: "ein Mensch", viele: "Menschen", text: "Im Dorf wohnen Menschen: Kinder, Mamis, Papis, Grossmütter und Grossväter." },
+  };
+
+  // Neue Wünsche aus den Dateien bau-moebel-<gruppe>.js (Hotel, Jahreszeiten,
+  // Menschen): Was es hier noch nicht gibt, kommt dazu.
+  Object.entries(window.LernappBauMoebel?.WUENSCHE || {}).forEach(([tag, info]) => { if (!DING_WUENSCHE[tag]) DING_WUENSCHE[tag] = info; });
 
   window.LernappBauKatalog = {
     FARBEN, FARBE, FAMILIEN, MUSTER, BOEDEN, BODEN,
-    HAEUSER, HAUS, RAEUME, RAEUME_LISTE, WOHNEN, JOBS, LIEBLINGS, dingeFuer,
-    DING_WUENSCHE, HAUS_WUENSCHE, FREMD_WUENSCHE,
-    TIERE, TIER_IDS, FIGUREN, LEITER,
+    HAEUSER, HAUS, RAEUME, RAEUME_LISTE, WOHNEN, JOBS, LIEBLINGS, lieblingeMenschen, BABY_DINGE, dingeFuer,
+    DING_WUENSCHE, HAUS_WUENSCHE, FREMD_WUENSCHE, FREMD_GEWICHT,
+    TIERE, TIER_IDS, SELTEN_IDS, MENSCH_IDS, MENSCH_FARBEN, BABY_NAMEN, FIGUREN, LEITER,
+    STUFEN, LAGE, LAGE_VORLIEBE, LAGE_RAEUME, ORT_WUENSCHE, ORT_WORT, JAHRESZEITEN, WEH, POKALE, VOLK,
   };
 })();
