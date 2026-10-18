@@ -1336,10 +1336,13 @@ async function pruefeErweiterung(browser, name, viewport) {
     await page.evaluate(() => window.LernappBau.zurueck());
     pruefe(await bis(page, () => !document.querySelector(".bsp-ebene") && document.querySelector(".bauecke.ist-zimmer"), null, 3000), `${name}: Spiel: Zurück schliesst es nicht (oder gleich das Zimmer)`);
     await page.evaluate(() => window.LernappBau.zurueck());
+    // Solange das Zimmer zugeht, nimmt die Bauecke keinen Tipp an.
+    await bis(page, () => !document.querySelector(".bauecke.ist-zimmer"), null, 5000);
     await page.waitForTimeout(1200);
 
     // Die Ruhmeshalle: ein neues Dorf mit Menschen – erklärt, gewählt, bestätigt.
     await tippe(page, ".bau-ruhmknopf");
+    if (!(await bis(page, () => document.querySelector(".bau-ruhm:not([hidden])"), null, 1500))) await tippe(page, ".bau-ruhmknopf");
     pruefe(await bis(page, () => document.querySelector(".bau-ruhm:not([hidden]) .bau-neustartknopf"), null, 3000), `${name}: Ruhmeshalle: sie geht nicht auf`);
     await page.locator(".bau-neustartknopf").click();
     pruefe(await bis(page, () => document.querySelectorAll(".bau-wahl.is-neustart .bau-neustart-liste li").length >= 8, null, 2000), `${name}: Neustart: die Erklärung fehlt`);

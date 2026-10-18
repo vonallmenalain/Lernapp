@@ -1558,4 +1558,4 @@ if (fehler.length) {
   fehler.slice(0, 80).forEach((f) => console.error(`  - ${f}`));
   process.exit(1);
 }
-console.log(`Die Bauecke stimmt: ${dinge.length} Dinge, ${K.RAEUME_LISTE.length} Zimmer in 4 Häusern (je mindestens 10 eigene Dinge), ${K.TIER_IDS.length} Tierarten, alle Wünsche erfüllbar, ${aufnahmen} Sätze mit der Google-Stimme.`);
+console.log(`Die Bauecke stimmt: ${dinge.length} Dinge, ${K.RAEUME_LISTE.length} Zimmer in ${K.HAEUSER.length} Häusern (je mindestens 10 eigene Dinge), ${K.TIER_IDS.length} Tierarten, ${K.SELTEN_IDS.length} seltene, ${K.MENSCH_IDS.length} Arten Menschen, drei Stufen, alle Wünsche erfüllbar, ${aufnahmen} Sätze mit der Google-Stimme.`);
