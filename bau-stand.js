@@ -766,7 +766,10 @@
   const zuhoerer = new Set();
   function melde(grund) {
     version += 1;
-    zuhoerer.forEach((fn) => { try { fn(grund); } catch { /* ein Zuhörer hält die anderen nicht auf */ } });
+    // Über eine Kopie: Wer sich beim Zuhören neu anmeldet (die Bauecke zeichnet
+    // sich nach einem Neustart neu), käme sonst gleich noch einmal dran – ohne
+    // Ende.
+    [...zuhoerer].forEach((fn) => { try { fn(grund); } catch { /* ein Zuhörer hält die anderen nicht auf */ } });
     if (grund !== "konto" && grund !== "neuer") sammleBald();
   }
 

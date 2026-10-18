@@ -162,6 +162,7 @@ export function bauTexte() {
   K.HAEUSER.forEach((haus) => {
     dazu(haus.der, "kern", "Haus antippen");
     dazu(`${haus.der}. ${haus.text}`, "kern", "Hauswahl");
+    if (haus.id === "wohnhaus") dazu(`${haus.der}. ${haus.text.replace("die Tiere", "die Menschen")}`, "kern", "Hauswahl");
     dazu(`${haus.der}! Tippe auf ein Stockwerk und wähle, was es werden soll.`, "kern", "Hauswahl");
     dazu(`Ein neues Zimmer ${haus.im}`, "kern", "Zimmerwahl");
     dazu(`${haus.name} anmalen`, "kern", "Fassade");

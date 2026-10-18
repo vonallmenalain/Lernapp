@@ -5364,7 +5364,7 @@
         gewaehlt = id;
         raster.querySelectorAll(".bau-wahl-feld").forEach((x) => x.classList.toggle("is-aktiv", x === b));
         ok.disabled = false;
-        sag(`${haus.der}. ${haus.text}`);
+        sag(`${haus.der}. ${id === "wohnhaus" && menschen() ? haus.text.replace("die Tiere", "die Menschen") : haus.text}`);
       });
       raster.append(b);
     });
