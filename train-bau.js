@@ -4502,7 +4502,7 @@
     fuelleTafel();
     const laune = S().laune(seed);
     sag(`${ref.tier.n}, ${K().TIERE[ref.tier.a].der}. ${laune.text}`);
-    hilfe(`Hier siehst du alle Wünsche. Jeder Bewohner hat drei Stufen: Bronze, Silber und Gold. Sind alle Wünsche einer Stufe erfüllt, kommen neue, schwierigere. Gelbe Sterne sind Wünsche für die Wohnung, grüne für das Wohnhaus, blaue für die anderen Häuser, lila für die Lage der Wohnung. Der goldene Stern ist der Traumjob. Oben wechselst du zu den Mitbewohnern. Ist das Vorlesen an, liest ein Tipp auf einen Text ihn vor.`);
+    hilfe("Hier siehst du alle Wünsche. Jeder Bewohner hat drei Stufen: Bronze, Silber und Gold. Sind alle Wünsche einer Stufe erfüllt, kommen neue, schwierigere. Gelbe Sterne sind Wünsche für die Wohnung, grüne für das Wohnhaus, blaue für die anderen Häuser, lila für die Lage der Wohnung. Der goldene Stern ist der Traumjob. Oben wechselst du zu den Mitbewohnern. Ist das Vorlesen an, liest ein Tipp auf einen Text ihn vor.");
   }
 
   // zurueck: das Kind schliesst die Tafel nur (Kreuz, daneben tippen, Zurück).
