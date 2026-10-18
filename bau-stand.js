@@ -766,7 +766,10 @@
   const zuhoerer = new Set();
   function melde(grund) {
     version += 1;
-    zuhoerer.forEach((fn) => { try { fn(grund); } catch { /* ein Zuhörer hält die anderen nicht auf */ } });
+    // Über eine Kopie: Wer sich beim Zuhören neu anmeldet (die Bauecke zeichnet
+    // sich nach einem Neustart neu), käme sonst gleich noch einmal dran – ohne
+    // Ende.
+    [...zuhoerer].forEach((fn) => { try { fn(grund); } catch { /* ein Zuhörer hält die anderen nicht auf */ } });
     if (grund !== "konto" && grund !== "neuer") sammleBald();
   }
 
@@ -2331,8 +2334,15 @@
   // Das Kind trägt ein Tier in ein anderes Zimmer: Dort bleibt es eine Weile
   // (TRAGEN_MS). Das merkt sich jedes Gerät für sich, nicht im Kasten.
   const TRAGEN_KEY = "lernapp.bau.tragen";
+  // Kurz gemerkt: Beim Zeichnen fragt jedes Zimmer nach jedem Bewohner.
+  let tragenPuffer = { at: 0, karte: {} };
   function tragenKarte() {
-    try { return obj(JSON.parse(localStorage.getItem(TRAGEN_KEY) || "{}")); } catch { return {}; }
+    const jetzt = Date.now();
+    if (jetzt - tragenPuffer.at < 1500) return tragenPuffer.karte;
+    let karte = {};
+    try { karte = obj(JSON.parse(localStorage.getItem(TRAGEN_KEY) || "{}")); } catch { karte = {}; }
+    tragenPuffer = { at: jetzt, karte };
+    return karte;
   }
   function trage(seed, hausId, index, slot = 0, jetzt = Date.now()) {
     const s = stock(hausId, index);
@@ -2343,6 +2353,7 @@
     meine[seed] = { haus: hausId, stockId: s.id, slot, bis: jetzt + TRAGEN_MS };
     karte[besitzer] = meine;
     try { localStorage.setItem(TRAGEN_KEY, JSON.stringify(karte)); } catch { /* privater Modus */ }
+    tragenPuffer = { at: Date.now(), karte };
     melde("tragen");
     return true;
   }
@@ -2414,6 +2425,7 @@
     version += 1;
     merkeUeberraschung({ rekord: 0, rekordRunde: neu.runde });
     try { localStorage.removeItem(TRAGEN_KEY); } catch { /* privater Modus */ }
+    tragenPuffer = { at: 0, karte: {} };
     speichern(true);
     melde("neustart");
     return { eintrag, pokal: v.pokal };

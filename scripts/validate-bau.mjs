@@ -8,7 +8,7 @@
  *   Dinge        Jedes Ding zeichnet sich, auch umgefärbt; keine Kennung
  *                doppelt; das Bild an der Wand zeigt in jedem Zimmer sein
  *                eigenes Motiv.
- *   Zimmer       Vier Häuser: Wohnhaus, Spital, Dorf, Büro. Jedes Zimmer hat
+ *   Zimmer       Fünf Häuser: Wohnhaus, Spital, Dorf, Büro, Hotel. Jedes Zimmer hat
  *                Beschreibung, Farben, Bild und mindestens zehn Dinge, die es
  *                nur dort gibt – im Eingang steht kein Bett, im Schlafzimmer
  *                kein WC. Gewohnt wird nur in Schlaf- und Kinderzimmern; jedes
@@ -49,6 +49,12 @@
  *   Rätsel       Der Rätsel-Knopf zieht aus der aktuellen Karte und der davor,
  *                passend zur Stufe, ohne Kauf nur Freies, und die Adresse des
  *                Rätsels führt zum selben Auftrag zurück.
+ *   Stufen       (Oktober 2026) Bronze mit Traumjob-Stern, dann Silber mit
+ *                genauen Wünschen und der Lage; Plätze je passendem Ding
+ *                (höchstens zwölf), wer zuerst einzog, zuerst; Babys,
+ *                Wehwehchen und Helikopter im Spital; Feriengäste im Hotel;
+ *                Neustart mit Pokal, Menschen und Ruhmeshalle; Fassung 5 → 6;
+ *                Tragen; Menschen, Schmuck, Leiter und Wetter zeichnen sich.
  *   Einbau       Startbild, Service Worker, Spielseiten und Zurücksetzen
  *                kennen die Bauecke.
  *   Stimme       Jede Aufnahme in bau-stimme.js gehört zu einem Satz, den die

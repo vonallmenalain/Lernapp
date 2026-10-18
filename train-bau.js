@@ -4,7 +4,7 @@
  * ---------------------------------------------------------------------------
  * Konzept: docs/BAUECKE-KONZEPT.md. Hier steht, was man sieht und antippt:
  *
- *   Hausansicht   ein Haus im Querschnitt, darüber der Umschalter für die vier
+ *   Hausansicht   ein Haus im Querschnitt, darüber der Umschalter für die fünf
  *                 Häuser, rechts die Ziegel und der Rätsel-Knopf. Ziehen
  *                 schiebt das Haus hinauf und hinunter, Wischen zur Seite
  *                 wechselt das Haus, zwei Finger zoomen bis zum ganzen Haus
@@ -26,9 +26,20 @@
  *                 und ein Glücksstern versteckt sich in einem Zimmer: Wer sie
  *                 antippt, bekommt je eine Palette.
  *   Sterne        links zählt die Sternenleiter alle Sterne des Dorfs; jede
- *                 Stufe bringt dem Dorf etwas ins Bild. Wer alle Sterne hat,
- *                 trägt eine Krone; eine Wohnung voller Sterne hat einen
- *                 goldenen, glitzernden Rahmen.
+ *                 Stufe bringt dem Dorf etwas ins Bild. Jeder Bewohner hat
+ *                 drei Stufen (Bronze, Silber, Gold); wer alle hat, trägt eine
+ *                 Krone; eine Wohnung voller Sterne hat einen goldenen,
+ *                 glitzernden Rahmen.
+ *   Spital        der Storch bringt Babys, Bewohner haben Wehwehchen (die
+ *                 richtige Abteilung hilft), der Rettungshelikopter fliegt
+ *                 vorbei – je ein Stern für das Dorf.
+ *   Hotel         Feriengäste mit sechs Wünschen und eigener Tafel; beim
+ *                 Abreisen geben sie dem Hotel Sterne.
+ *   Tragen        einen Bewohner festhalten und in ein anderes Zimmer ziehen.
+ *   Album, Ruhm   links unter der Sternenleiter: das Sammelalbum und die
+ *                 Ruhmeshalle mit dem Neustart (Tiere oder Menschen, Pokal).
+ *   Spiele        der Würfel im Zimmer öffnet ein Spiel (bau-spiele.js);
+ *                 Jahreszeit und Wetter kommen aus bau-wetter.js.
  *
  * Ist das Vorlesen an, liest ein Tipp auf einen Text ihn vor.
  *
@@ -41,8 +52,10 @@
  * machten die aus jedem Teil eine eigene Ebene (siehe Konzept 7.3). Die
  * Schleife schläft, wenn nichts mehr läuft.
  *
- * Wird nach bau-moebel*.js, bau-katalog.js, bau-stand.js und bau-art.js
- * geladen; train-home.js ruft mount() auf, wenn das Kind den Bauplatz antippt.
+ * Wird nach bau-moebel*.js, bau-katalog.js, bau-stand.js, bau-tiere.js,
+ * bau-menschen.js, bau-art.js, bau-schmuck.js, bau-leiter.js, bau-wetter.js und
+ * bau-spiele.js geladen; train-home.js ruft mount() auf, wenn das Kind den
+ * Bauplatz antippt.
  */
 (() => {
   "use strict";
@@ -3110,7 +3123,11 @@
     // Halb so gross wie vor der Halbierung der Tiere (dort MASS 1.2): Die
     // Blase schrumpft mit dem Tier. Gleich über dem Kopf.
     const groesse = 0.6 / t.k;
-    b.setAttribute("transform", `translate(14 ${(-108 - 12 * groesse + (t.oben || 0)).toFixed(1)}) scale(${groesse.toFixed(3)})`);
+    // Am rechten Rand des Zimmers rückt die Blase nach links, damit sie
+    // nicht abgeschnitten wird.
+    const links = t.x > (t.breite || 600) - 70 - halb * 0.6;
+    const dx = links ? -(halb + 6) * groesse : 14;
+    b.setAttribute("transform", `translate(${dx.toFixed(1)} ${(-108 - 12 * groesse + (t.oben || 0)).toFixed(1)}) scale(${groesse.toFixed(3)})`);
     const w = halb * 2;
     b.innerHTML = `<path d="M${-halb} -46h${w}a12 12 0 0 1 12 12v28a12 12 0 0 1-12 12h${-(w - 16)}l-10 12l0-12h-6a12 12 0 0 1-12-12v-28a12 12 0 0 1 12-12z" fill="#ffffff" stroke="#e2e8f0" stroke-width="2"/><g transform="translate(0 -20)">${inhalt}</g>`;
     t.g.append(b);
@@ -5364,7 +5381,7 @@
         gewaehlt = id;
         raster.querySelectorAll(".bau-wahl-feld").forEach((x) => x.classList.toggle("is-aktiv", x === b));
         ok.disabled = false;
-        sag(`${haus.der}. ${haus.text}`);
+        sag(`${haus.der}. ${id === "wohnhaus" && menschen() ? haus.text.replace("die Tiere", "die Menschen") : haus.text}`);
       });
       raster.append(b);
     });
