@@ -3123,7 +3123,11 @@
     // Halb so gross wie vor der Halbierung der Tiere (dort MASS 1.2): Die
     // Blase schrumpft mit dem Tier. Gleich über dem Kopf.
     const groesse = 0.6 / t.k;
-    b.setAttribute("transform", `translate(14 ${(-108 - 12 * groesse + (t.oben || 0)).toFixed(1)}) scale(${groesse.toFixed(3)})`);
+    // Am rechten Rand des Zimmers rückt die Blase nach links, damit sie
+    // nicht abgeschnitten wird.
+    const links = t.x > (t.breite || 600) - 70 - halb * 0.6;
+    const dx = links ? -(halb + 6) * groesse : 14;
+    b.setAttribute("transform", `translate(${dx.toFixed(1)} ${(-108 - 12 * groesse + (t.oben || 0)).toFixed(1)}) scale(${groesse.toFixed(3)})`);
     const w = halb * 2;
     b.innerHTML = `<path d="M${-halb} -46h${w}a12 12 0 0 1 12 12v28a12 12 0 0 1-12 12h${-(w - 16)}l-10 12l0-12h-6a12 12 0 0 1-12-12v-28a12 12 0 0 1 12-12z" fill="#ffffff" stroke="#e2e8f0" stroke-width="2"/><g transform="translate(0 -20)">${inhalt}</g>`;
     t.g.append(b);
