@@ -4,7 +4,7 @@
  * ---------------------------------------------------------------------------
  * Konzept: docs/BAUECKE-KONZEPT.md. Hier steht, was man sieht und antippt:
  *
- *   Hausansicht   ein Haus im Querschnitt, darüber der Umschalter für die vier
+ *   Hausansicht   ein Haus im Querschnitt, darüber der Umschalter für die fünf
  *                 Häuser, rechts die Ziegel und der Rätsel-Knopf. Ziehen
  *                 schiebt das Haus hinauf und hinunter, Wischen zur Seite
  *                 wechselt das Haus, zwei Finger zoomen bis zum ganzen Haus
@@ -26,9 +26,20 @@
  *                 und ein Glücksstern versteckt sich in einem Zimmer: Wer sie
  *                 antippt, bekommt je eine Palette.
  *   Sterne        links zählt die Sternenleiter alle Sterne des Dorfs; jede
- *                 Stufe bringt dem Dorf etwas ins Bild. Wer alle Sterne hat,
- *                 trägt eine Krone; eine Wohnung voller Sterne hat einen
- *                 goldenen, glitzernden Rahmen.
+ *                 Stufe bringt dem Dorf etwas ins Bild. Jeder Bewohner hat
+ *                 drei Stufen (Bronze, Silber, Gold); wer alle hat, trägt eine
+ *                 Krone; eine Wohnung voller Sterne hat einen goldenen,
+ *                 glitzernden Rahmen.
+ *   Spital        der Storch bringt Babys, Bewohner haben Wehwehchen (die
+ *                 richtige Abteilung hilft), der Rettungshelikopter fliegt
+ *                 vorbei – je ein Stern für das Dorf.
+ *   Hotel         Feriengäste mit sechs Wünschen und eigener Tafel; beim
+ *                 Abreisen geben sie dem Hotel Sterne.
+ *   Tragen        einen Bewohner festhalten und in ein anderes Zimmer ziehen.
+ *   Album, Ruhm   links unter der Sternenleiter: das Sammelalbum und die
+ *                 Ruhmeshalle mit dem Neustart (Tiere oder Menschen, Pokal).
+ *   Spiele        der Würfel im Zimmer öffnet ein Spiel (bau-spiele.js);
+ *                 Jahreszeit und Wetter kommen aus bau-wetter.js.
  *
  * Ist das Vorlesen an, liest ein Tipp auf einen Text ihn vor.
  *
@@ -41,8 +52,10 @@
  * machten die aus jedem Teil eine eigene Ebene (siehe Konzept 7.3). Die
  * Schleife schläft, wenn nichts mehr läuft.
  *
- * Wird nach bau-moebel*.js, bau-katalog.js, bau-stand.js und bau-art.js
- * geladen; train-home.js ruft mount() auf, wenn das Kind den Bauplatz antippt.
+ * Wird nach bau-moebel*.js, bau-katalog.js, bau-stand.js, bau-tiere.js,
+ * bau-menschen.js, bau-art.js, bau-schmuck.js, bau-leiter.js, bau-wetter.js und
+ * bau-spiele.js geladen; train-home.js ruft mount() auf, wenn das Kind den
+ * Bauplatz antippt.
  */
 (() => {
   "use strict";
