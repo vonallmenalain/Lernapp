@@ -461,11 +461,14 @@
   function zeichenStand() { return `${JSON.stringify(aktHaus())}|${S().kannBauen(ui.haus).grund}|${ui.ordnen}`; }
 
   let groesseUhr = 0;
+  const KOPF_ENG = 8;
+  // Kommt die Schrift erst nach dem Zeichnen, werden die Knöpfe breiter.
+  document.fonts?.addEventListener?.("loadingdone", () => { if (ui.zimmer >= 0) passeKopfzeile(); });
   function beiGroesse() {
     window.clearTimeout(groesseUhr);
     groesseUhr = window.setTimeout(() => {
       if (!ui.host?.isConnected) return;
-      if (ui.zimmer >= 0) passeZimmerEin();
+      if (ui.zimmer >= 0) { passeKopfzeile(); passeZimmerEin(); }
       else { messeWelt(); setzeKamera(); }
       if (ui.dorf) els.dorf.innerHTML = dorfSvg();
     }, 120);
@@ -3241,9 +3244,11 @@
     // Zimmers im Zoom (unscharf, aber schnell), dann steht das scharfe Zimmer da.
     const von = zimmerAufSchirm(index, slot);
     zeichneZimmer();
-    const nach = zimmerRechteck();
     els.zimmer.hidden = false;
     ui.host.classList.add("ist-zimmer");
+    // Erst jetzt lässt sich der Kopf messen – und mit zwei Zeilen rückt das Zimmer.
+    passeKopfzeile();
+    const nach = zimmerRechteck();
     if (!reduced()) {
       const k = nach.w / von.w;
       const ox = von.x;
@@ -3331,7 +3336,9 @@
     const w = ui.host.clientWidth || 800;
     const h = ui.host.clientHeight || 500;
     const klein = h < 520;
-    const oben = klein ? 50 : 78;
+    // Stehen die Knöpfe oben in zwei Zeilen (passeKopfzeile), rückt das Zimmer darunter.
+    const kopf = els.kopfzeile?.classList.contains(`is-eng${KOPF_ENG}`) ? els.kopfzeile.offsetTop + els.kopfzeile.offsetHeight + 6 : 0;
+    const oben = Math.max(klein ? 50 : 78, kopf);
     const unten = klein ? 104 : 178;
     const rand = 10;
     let pw = w - rand * 2;
@@ -3410,6 +3417,7 @@
     const z = aktZimmer();
     if (!st || !z) return;
     const raum = K().RAEUME[z.raum];
+    kopfBald();
     els.zimmerKopf.innerHTML = "";
     const name = knopf("bau-zimmername", `${raum.name}: vorlesen`, `<span>${raum.name}</span>${svgVon(`<path d="M11 5 6 9H3v6h3l5 4V5z" fill="currentColor"/><path d="M15.5 8.5a5 5 0 0 1 0 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>`, "0 0 24 24", "bau-lautsprecher")}`,
       () => sag(`${raum.der}. ${raum.text}${raum.job ? ` Hier kann man ${raum.job}.` : ""}`));
@@ -3424,7 +3432,7 @@
         const traum = S().hatTraumjob(tier.seed);
         const voll = st5.total > 0 && st5.anzahl === st5.total;
         const t = knopf(`bau-zimmertier${traum ? " is-traum" : ""}${voll ? " is-alle" : ""}`, `${tier.n}: ${voll ? "alle drei Stufen" : `Stufe ${stufeName(st5)}, ${st5.stufeAnzahl} von ${st5.stufeTotal} Sternen`}${traum ? ", hat den Traumjob" : ""}. Antippen für mehr.`,
-          `${bild(tier)}${voll ? "" : `<span class="bau-sternreihe">${sternReiheHtml(st5)}</span>`}<span class="bau-sternzahl">${stufeHtml(st5)}${voll ? "" : `${st5.stufeAnzahl}/${st5.stufeTotal}`}</span>${voll ? `<span class="bau-zimmertier-pokal" aria-hidden="true">🏆</span>` : ""}${traum ? abzeichen : ""}<span class="bau-laune" aria-hidden="true">${laune.emoji}${tier.weh ? "🩹" : ""}</span>`,
+          `${bild(tier)}${voll ? "" : `<span class="bau-sternreihe">${sternReiheHtml(st5)}</span>`}<span class="bau-sternzahl">${stufeHtml(st5)}${voll ? "" : `<span class="bau-sternzahl-zahl">${st5.stufeAnzahl}/${st5.stufeTotal}</span>`}</span>${voll ? `<span class="bau-zimmertier-pokal" aria-hidden="true">🏆</span>` : ""}${traum ? abzeichen : ""}<span class="bau-laune" aria-hidden="true">${laune.emoji}</span>${tier.weh ? `<span class="bau-weh" aria-hidden="true">🩹</span>` : ""}`,
           () => oeffneTafel(tier.seed));
         els.zimmerKopf.append(t);
       });
@@ -3451,14 +3459,40 @@
     // Ein Zimmer in Spital, Dorf, Büro oder Hotel: nur, wer hier den Traumjob
     // hat oder sich dieses Zimmer wünscht – ohne die Sterne der Wohnung.
     const leute = S().zimmerTiere(ui.haus, ui.zimmer, ui.slot);
-    leute.slice(0, 4).forEach(({ tier, traumHier, wunsch }) => {
+    // Ist es eng, zeigt der Kopf nur zwei (is-weit fällt weg, passeKopfzeile).
+    leute.slice(0, 4).forEach(({ tier, traumHier, wunsch }, i) => {
       const warum = traumHier ? "hat hier den Traumjob" : "hat sich dieses Zimmer gewünscht";
-      const t = knopf(`bau-zimmertier is-arbeit${traumHier ? " is-traum" : ""}`, `${tier.n} ${warum}. Antippen für mehr.`,
+      const t = knopf(`bau-zimmertier is-arbeit${traumHier ? " is-traum" : ""}${i >= 2 ? " is-weit" : ""}`, `${tier.n} ${warum}. Antippen für mehr.`,
         `${bild(tier)}<span class="bau-zimmertier-name">${textSicher(tier.n)}</span>${traumHier ? abzeichen : ""}${wunsch ? `<i class="bau-stern is-blau is-voll" aria-hidden="true"></i>` : ""}`,
         () => { sag(`${tier.n} ${warum}.`); oeffneTafel(tier.seed); });
       els.zimmerKopf.append(t);
     });
-    if (leute.length > 4) els.zimmerKopf.append(el("span", "bau-zimmertier is-mehr", { text: `+${leute.length - 4}`, "aria-label": `und ${leute.length - 4} weitere` }));
+    if (leute.length > 4) els.zimmerKopf.append(el("span", "bau-zimmertier is-mehr is-mehr-weit", { text: `+${leute.length - 4}`, "aria-label": `und ${leute.length - 4} weitere` }));
+    if (leute.length > 2) els.zimmerKopf.append(el("span", "bau-zimmertier is-mehr is-mehr-eng", { text: `+${leute.length - 2}`, "aria-label": `und ${leute.length - 2} weitere` }));
+  }
+
+  // Passt der Zimmerkopf nicht zwischen die festen Knöpfe links und rechts,
+  // wird er Stufe um Stufe knapper (bau.css, .is-eng1 … .is-eng8): die Sterne
+  // in zwei Reihen, ohne Laune, der Name nur als Lautsprecher, alles etwas
+  // kleiner, statt der Sterne die Medaille, nur zwei Leute, ohne den Namen –
+  // und zuletzt rutschen die Knöpfe in eine zweite Zeile. So liegt nie ein
+  // Knopf unter einem anderen.
+  function passeKopfzeile() {
+    const k = els.kopfzeile;
+    if (!k?.isConnected || ui.zimmer < 0 || !k.clientWidth) return;
+    const zweiVorher = k.classList.contains(`is-eng${KOPF_ENG}`);
+    for (let eng = 0; eng <= KOPF_ENG; eng += 1) {
+      for (let i = 1; i <= KOPF_ENG; i += 1) k.classList.toggle(`is-eng${i}`, i <= eng);
+      if (k.scrollWidth <= k.clientWidth + 1) break;
+    }
+    if (k.classList.contains(`is-eng${KOPF_ENG}`) || zweiVorher) passeZimmerEin();
+  }
+  // Nach dem Zeichnen einmal messen, auch wenn Kopf und Werkzeuge kurz
+  // nacheinander neu kommen.
+  function kopfBald() {
+    if (ui.kopfBald) return;
+    ui.kopfBald = true;
+    queueMicrotask(() => { ui.kopfBald = false; passeKopfzeile(); });
   }
 
   // Die Sterne der Stufe als Reihe (gelb, grün, blau, lila, gold).
@@ -3477,6 +3511,7 @@
   function zeichneWerkzeug() {
     if (ui.zimmer < 0) return;
     const z = aktZimmer();
+    kopfBald();
     els.werkzeug.innerHTML = "";
     const rueck = knopf("bau-rund", "Rückgängig", svgVon(`<path d="M9 7 4 12l5 5" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 12h9a5 5 0 0 1 0 10h-2" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/>`, "0 0 24 24"), rueckgaengig);
     rueck.disabled = ui.rueck.length === 0;

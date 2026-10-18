@@ -540,7 +540,7 @@ body[data-page="train"] .train-stage[data-view="bau"] ~ .help-voice {
 .bau-traumzeichen-klein { display: inline-flex; vertical-align: -5px; }
 .bau-traumzeichen-klein svg { width: 26px; height: 24px; }
 .bau-traummarke { cursor: pointer; }
-.bau-laune { font-size: 1.4rem; }
+.bau-laune, .bau-weh { font-size: 1.4rem; }
 .bau-sternzahl { display: none; align-items: center; gap: 3px; font-size: 1rem; }
 
 /* Sterne: gelb fürs Zimmer, grün fürs Haus, blau für die anderen Häuser.
@@ -1243,12 +1243,9 @@ body[data-page="train"] .train-stage[data-view="bau"] ~ .help-voice {
   .bau-ansichtknopf { width: 52px; height: 52px; border-radius: 16px; bottom: calc(var(--safe-bottom, 0px) + 10px); }
   .bau-ansichtknopf svg { width: 32px; height: 32px; }
   .bau-kopfzeile { top: calc(var(--safe-top, 0px) + 10px); left: calc(var(--safe-left, 0px) + 168px); right: calc(var(--safe-right, 0px) + 202px); gap: 6px; }
-  .bau-zimmerkopf, .bau-werkzeug { gap: 5px; min-width: 0; }
-  .bau-zimmerkopf { flex: 1 1 auto; }
-  .bau-zimmername, .bau-zimmertier { height: 44px; font-size: 1rem; padding: 0 10px; min-width: 0; }
+  .bau-zimmerkopf, .bau-werkzeug { gap: 5px; }
+  .bau-zimmername, .bau-zimmertier { height: 44px; font-size: 1rem; padding: 0 10px; }
   .bau-zimmername span { max-width: 7.5em; overflow: hidden; text-overflow: ellipsis; }
-  .bau-zimmertier .bau-sternreihe, .bau-zimmertier-name { display: none; }
-  .bau-zimmertier .bau-sternzahl { display: inline-flex; }
   .bau-zimmertier .bau-stern { width: 16px; height: 16px; }
   .bau-zimmertier-bild { width: 34px; height: 38px; }
   .bau-werkzeug .bau-rund { width: 44px; height: 44px; }
@@ -1284,9 +1281,6 @@ body[data-page="train"] .train-stage[data-view="bau"] ~ .help-voice {
   .bau-sternband-text b { font-size: 1.35rem; }
   .bau-sternband-text span { font-size: 0.9rem; }
   .bau-sternband .bau-stern-gross { width: 26px; height: 26px; }
-  /* Im Zimmerkopf ist es eng: Gold zeigt die Sterne, die Laune und der Pokal
-     bleiben weg, damit die Knöpfe daneben frei sind. */
-  .bau-zimmertier .bau-laune, .bau-zimmertier-pokal { display: none; }
   .is-hauswahl .bau-wahl-bild { height: 96px; }
   .bau-bewohnerknopf { top: calc(var(--safe-top, 0px) + 80px); width: 78px; padding: 5px 2px 4px; border-radius: 18px; font-size: 0.8rem; }
   .bau-bewohnerknopf-bild { width: 26px; height: 26px; }
@@ -1597,3 +1591,44 @@ body[data-page="train"] .train-stage[data-view="bau"] ~ .help-voice {
 @media (prefers-reduced-motion: reduce) {
   .bau-spielknopf.is-neu::after { animation: none; }
 }
+
+/* Der Zimmerkopf wird knapper, wenn er nicht zwischen die festen Knöpfe
+   passt (train-bau.js, passeKopfzeile): Stufe um Stufe, bis alles Platz hat.
+   Nichts schrumpft von selbst – sonst liefe der Inhalt übereinander. */
+.bau-kopfzeile .bau-zimmerkopf, .bau-kopfzeile .bau-werkzeug,
+.bau-zimmername, .bau-zimmertier, .bau-platz { flex: 0 0 auto; }
+/* 1: die Sterne in zwei Reihen */
+.bau-kopfzeile.is-eng1 .bau-zimmertier .bau-sternreihe { display: inline-grid; grid-template-columns: repeat(3, auto); gap: 1px; }
+.bau-kopfzeile.is-eng1 .bau-zimmertier .bau-stern { width: 15px; height: 15px; }
+/* 2: ohne Laune */
+.bau-kopfzeile.is-eng2 .bau-zimmertier .bau-laune { display: none; }
+/* 3: der Name nur als Lautsprecher */
+.bau-kopfzeile.is-eng3 .bau-zimmername { width: 52px; padding: 0; justify-content: center; }
+.bau-kopfzeile.is-eng3 .bau-zimmername span { display: none; }
+/* 4: alles etwas kleiner */
+.bau-kopfzeile.is-eng4 { gap: 6px; }
+.bau-kopfzeile.is-eng4 .bau-zimmerkopf, .bau-kopfzeile.is-eng4 .bau-werkzeug { gap: 5px; }
+.bau-kopfzeile.is-eng4 .bau-zimmername, .bau-kopfzeile.is-eng4 .bau-zimmertier, .bau-kopfzeile.is-eng4 .bau-platz { height: 44px; }
+.bau-kopfzeile.is-eng4 .bau-zimmername { width: 44px; }
+.bau-kopfzeile.is-eng4 .bau-zimmertier { gap: 5px; padding: 0 8px 0 2px; }
+.bau-kopfzeile.is-eng4 .bau-zimmertier-bild { width: 34px; height: 38px; }
+.bau-kopfzeile.is-eng4 .bau-traumzeichen { width: 24px; height: 22px; }
+.bau-kopfzeile.is-eng4 .bau-laune, .bau-kopfzeile.is-eng4 .bau-weh, .bau-kopfzeile.is-eng4 .bau-zimmertier-pokal { font-size: 1.1rem; }
+.bau-kopfzeile.is-eng4 .bau-werkzeug .bau-rund { width: 44px; height: 44px; }
+/* 5: statt der Sterne die Medaille der Stufe; wer hier arbeitet, nur als
+   Bild (den Traumjob zeigt der goldene Rand) */
+.bau-kopfzeile.is-eng5 .bau-zimmertier .bau-sternreihe, .bau-kopfzeile.is-eng5 .bau-zimmertier-name,
+.bau-kopfzeile.is-eng5 .bau-sternzahl-zahl, .bau-kopfzeile.is-eng5 .bau-weh, .bau-kopfzeile.is-eng5 .bau-zimmertier-pokal,
+.bau-kopfzeile.is-eng5 .bau-zimmertier.is-arbeit .bau-traumzeichen, .bau-kopfzeile.is-eng5 .bau-zimmertier.is-arbeit .bau-stern { display: none; }
+.bau-kopfzeile.is-eng5 .bau-zimmertier .bau-sternzahl { display: inline-flex; }
+.bau-kopfzeile.is-eng5 .bau-zimmertier { padding: 0 6px 0 2px; }
+/* 6: nur zwei Leute, die anderen als «+3» */
+.bau-zimmertier.is-mehr-eng { display: none; }
+.bau-kopfzeile.is-eng6 .bau-zimmertier.is-weit, .bau-kopfzeile.is-eng6 .bau-zimmertier.is-mehr-weit { display: none; }
+.bau-kopfzeile.is-eng6 .bau-zimmertier.is-mehr-eng { display: flex; }
+/* 7: ohne den Namen des Zimmers (er kommt auch beim Hineingehen) */
+.bau-kopfzeile.is-eng7 .bau-zimmername { display: none; }
+/* 8: Reicht es immer noch nicht, rutschen die Knöpfe in eine zweite Zeile –
+   lieber zwei Zeilen als ein verdeckter Knopf. */
+.bau-kopfzeile.is-eng8, .bau-kopfzeile.is-eng8 .bau-zimmerkopf { flex-wrap: wrap; row-gap: 6px; }
+.bau-kopfzeile.is-eng8 .bau-zimmerkopf { flex: 0 1 auto; min-width: 0; }
