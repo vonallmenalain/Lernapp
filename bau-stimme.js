@@ -208,6 +208,7 @@ window.LernappStimmeDateien = Object.assign(window.LernappStimmeDateien || {}, {
   "das Wohnhaus": "stimme/google/28d395f9877d.mp3",
   "das Wohnhaus.": "stimme/google/23d75c5e7bdf.mp3",
   "Im Wohnhaus wohnen die Tiere: in Schlaf- und Kinderzimmern, dazu Küche, Bad und alles, was man zum Wohnen braucht.": "stimme/google/79bccb7fefb7.mp3",
+  "Im Wohnhaus wohnen die Menschen: in Schlaf- und Kinderzimmern, dazu Küche, Bad und alles, was man zum Wohnen braucht.": "stimme/google/d0268f73b264.mp3",
   "das Wohnhaus!": "stimme/google/782835e91b6d.mp3",
   "Tippe auf ein Stockwerk und wähle, was es werden soll.": "stimme/google/09edfbe7ed55.mp3",
   "Ein neues Zimmer im Wohnhaus": "stimme/google/800d879e6ac7.mp3",
