@@ -2581,6 +2581,9 @@
     const naechste = K().LEITER[l.erreicht];
     const wieviel = l.jetzt === 1 ? "einen Stern" : `${l.jetzt} Sterne`;
     if (!naechste) return `Das Dorf hat ${wieviel}. Die ganze Sternenleiter ist geschafft – das Dorf funkelt!`;
+    // Seit dem Rekord Sterne verloren (jemand ist ausgezogen): Statt «Noch 945
+    // Sterne» – so lange Lücken gibt es nicht als Aufnahme – die Stufe selbst.
+    if (l.jetzt < (K().LEITER[l.erreicht - 1]?.sterne || 0)) return `Das Dorf hat ${wieviel}. Die nächste Stufe gibt es bei ${naechste.sterne} Sternen: ${naechste.name}.`;
     const fehlt = Math.max(1, naechste.sterne - l.jetzt);
     return `Das Dorf hat ${wieviel}. Noch ${fehlt === 1 ? "ein Stern" : `${fehlt} Sterne`} bis zur nächsten Stufe: ${naechste.name}.`;
   }
@@ -2642,7 +2645,9 @@
       const rechts = erreicht ? `<span class="bau-leiter-haken" aria-hidden="true">✓</span>`
         : naechste ? `<span class="bau-leiter-fehlt">noch <b>${fehlt}</b> <i class="bau-stern is-gelb is-voll"></i></span>`
           : `<span class="bau-leiter-schloss" aria-hidden="true">🔒</span>`;
-      const satz = `${stufe.sterne} Sterne: ${stufe.name}. ${stufe.text} ${erreicht ? "Geschafft!" : naechste ? `Noch ${fehlt === 1 ? "ein Stern" : `${fehlt} Sterne`}.` : ""}`;
+      const zurueck = l.jetzt < (K().LEITER[n - 1]?.sterne || 0);
+      const noch = zurueck ? `Das Dorf hat ${l.jetzt === 1 ? "einen Stern" : `${l.jetzt} Sterne`}.` : `Noch ${fehlt === 1 ? "ein Stern" : `${fehlt} Sterne`}.`;
+      const satz = `${stufe.sterne} Sterne: ${stufe.name}. ${stufe.text} ${erreicht ? "Geschafft!" : naechste ? noch : ""}`;
       const zeile = el("li", `bau-leiter-stufe bau-lies ${zustand}`, { "data-lies": satz.trim() });
       zeile.innerHTML = `<span class="bau-leiter-marke"><i class="bau-stern is-gelb is-voll" aria-hidden="true"></i>${stufe.sterne}</span>` +
         `<span class="bau-leiter-bild">${svgVon(bild.markup, bild.viewBox)}</span>` +

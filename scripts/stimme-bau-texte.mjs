@@ -151,6 +151,15 @@ export function bauTexte() {
     "Wohnung.", "Zwei Zimmer.", "Hauswand", "Dach", "Juhu, danke!", "Schau dir ihre Wohnung im Wohnhaus an!",
     "Ein Stern fehlt noch.", "Mehr gibt es gerade nicht.",
     "Alle vier Häuser.", "Alle fünf Häuser.", "Tippe auf ein Haus, dann bist du dort.",
+    // Teile von Vorlagen und Sätze auf eigenen Zeilen, die festeSaetze nicht sieht
+    "Jede reicht für ein Stockwerk.", "Lass los, wo es hin soll.", "Alle Wünsche sind erfüllt.",
+    "Ein neues Dorf gründen?", "Wer wohnt im neuen Dorf?",
+    "Hier ist noch kein Platz: Das Zimmer ist leer. Jedes Ding, das hierher gehört, gibt einen Platz.",
+    "Hier sind alle Plätze besetzt. Stell noch ein anderes Ding hinein, das hierher gehört – dann gibt es einen Platz mehr.",
+    "Schieb die Stockwerke mit den Pfeilen, bis die beiden gleich übereinander wohnen.",
+    "Schieb die Wohnung mit den Pfeilen nach oben – in eines der drei obersten Stockwerke.",
+    "Schieb die Wohnung mit den Pfeilen nach unten – ins Erdgeschoss, in den ersten oder in den zweiten Stock.",
+    "Über und unter der Wohnung soll kein Kinderzimmer sein. Schieb die Stockwerke mit den Pfeilen.",
   ].forEach((s) => dazu(s, "kern", "train-bau.js"));
 
   // Die Häuser (hilfeHaus, Hauswahl, Reiter)
@@ -265,6 +274,8 @@ export function bauTexte() {
     const vorher = K.LEITER[i - 1]?.sterne || 0;
     dazu(`${stufe.sterne} Sterne: ${stufe.name}. ${stufe.text}`, "zahlen", "Sternenleiter");
     dazu(`${stufe.name}.`, "kern", "Sternenleiter");
+    // Hat das Dorf seit dem Rekord Sterne verloren (leiterSatz)
+    dazu(`Die nächste Stufe gibt es bei ${stufe.sterne} Sternen:`, "zahlen", "Sternenleiter");
     groessteLuecke = Math.max(groessteLuecke, stufe.sterne - vorher);
     for (let fehlt = 1; fehlt <= stufe.sterne - vorher; fehlt += 1) {
       // Bis 200 Sterne ganze Sätze (von früher aufgenommen); darüber teilt
@@ -366,6 +377,7 @@ export function bauTexte() {
     "Das Spital hat schon einmal geholfen.", "Noch ist der Rettungshelikopter nie gelandet.", "Der Rettungshelikopter ist schon einmal gelandet.",
     "Bei diesen Wehwehchen hat das Spital schon geholfen.", "Bei diesem Wehwehchen hat das Spital noch nie geholfen.",
     "In manchen Zimmern gibt es ein kleines Spiel: Tippe dort auf den Würfel-Knopf.", "Sterne",
+    "Seltene Tiere kommen nur, wenn es im Dorf etwas Besonderes gibt. Tippe auf ein graues Feld, dann hörst du, was.",
   ].forEach((t) => dazu(t, "kern", "Album"));
   Object.values(K.TIERE).forEach((t) => {
     dazu(`${t.name}.`, "kern", "Album");
