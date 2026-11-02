@@ -1182,6 +1182,22 @@
     return `${wo}: ${namen.join(" und ")}.`;
   }
 
+  // Für die Jüngsten (Stufe «leicht» der Reise) ist jedes dritte Rätsel ein
+  // Rechenspiel: das, welches der Rechendrache gerade vorschlägt
+  // (rechnen-stand.js). Geschafft bringt es Ziegel wie ein Rätsel der Reise
+  // (rechnen-spiel.js, bau=1) – und Taler für den Drachen obendrein.
+  const RECHEN_ANTEIL = 1 / 3;
+  async function rechenRaetsel(r) {
+    const rechnen = window.LernappRechenStand;
+    if (!rechnen?.naechstes || r?.stufe?.() !== "leicht") return null;
+    if (Math.random() >= RECHEN_ANTEIL) return null;
+    const spiel = rechnen.naechstes();
+    if (!spiel?.page) return null;
+    const zu = await schranke()?.targetLocked?.(spiel.page);
+    if (zu) return null;
+    return { title: spiel.titel, url: `${spiel.page}?bau=1` };
+  }
+
   // Der Rätsel-Knopf: ein zufälliges Rätsel aus der Reise, passend zum Kind.
   async function starteRaetsel() {
     if (ui.besetzt) return;
@@ -1190,6 +1206,14 @@
     // Erst wenn feststeht, wer spielt: sonst gälte ein Kind mit Kauf für einen
     // Augenblick als Gast und bekäme nur die Rätsel der ersten Karte.
     await schranke()?.whenReady?.(3000);
+    const rechnen = await rechenRaetsel(r);
+    if (rechnen) {
+      S().speichern(true);
+      sag(`Ein Rätsel für Ziegel: ${/[!?]$/.test(rechnen.title) ? rechnen.title : `${rechnen.title}!`}`);
+      if (typeof ui.onPlay === "function") ui.onPlay(rechnen.url);
+      else window.location.href = rechnen.url;
+      return;
+    }
     const task = r.bauRaetsel();
     if (!task) { sag("Gerade gibt es kein Rätsel."); return; }
     S().speichern(true);

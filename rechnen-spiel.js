@@ -32,8 +32,16 @@
   const FARBE_DUNKEL = "#2f63bd";
   const reduziert = () => Boolean(window.matchMedia?.("(prefers-reduced-motion: reduce)").matches);
 
+  // Ein Rätsel vom Rätsel-Knopf der Bauecke (train-bau.js, ?bau=1): Eine
+  // fertige Runde bringt eine Palette Ziegel, und zurück geht es in die
+  // Bauecke statt in den Rechenwagen.
+  const ausBauecke = () => {
+    try { return new URLSearchParams(window.location.search).get("bau") === "1"; } catch { return false; }
+  };
+  const BAUECKE = "index.html?bau=1";
+
   function zurueck() {
-    window.location.href = RECHENWAGEN;
+    window.location.href = ausBauecke() ? BAUECKE : RECHENWAGEN;
     return true;
   }
 
@@ -419,8 +427,7 @@
       .replace(/(\d)\s*\+\s*(\d)/g, "$1 plus $2")
       .replace(/(\d)\s*[−-]\s*(\d)/g, "$1 minus $2")
       .replace(/=\s*\?/g, "gleich?")
-      .replace(/\s=\s/g, " gleich ")
-      .replace(/[–—]/g, ",");
+      .replace(/\s=\s/g, " gleich ");
   }
 
   // Drei Sterne für alles richtig, zwei ab drei Vierteln, sonst einer.
@@ -445,6 +452,11 @@
     if (nachher.nr > vorher.nr) {
       notiz = `${name || "Dein Drache"} hat eine Überraschung für dich – schau im Rechenwagen nach!`;
       satz = " Dein Drache hat eine Überraschung für dich – schau im Rechenwagen nach!";
+    }
+    // Je Seitenaufruf nur eine Palette (journey-plan.js, bauGeschafft).
+    if (ausBauecke() && window.LernappReise?.bauGeschafft?.()?.neu) {
+      notiz = `Geschafft! Der Zug bringt dir Ziegel für ein neues Stockwerk. ${notiz}`;
+      satz = `${satz} Der Zug bringt dir Ziegel für ein neues Stockwerk. Tippe auf den Pfeil, und es geht zurück in die Bauecke.`;
     }
     jingle(sternZahl === 3 ? "win" : "correct");
     shell.showResult({

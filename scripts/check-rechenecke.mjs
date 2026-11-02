@@ -14,6 +14,13 @@
  *               Tunnel führt über seine Auswahl in ein Spiel.
  *   Taufe       Das Schild vor dem Kissen: ein Name, und er steht auf dem
  *               Schild und auf der Karte des Drachen.
+ *   Schatz      Ein Tipp auf den Schatz zeigt Drachenfutter, Sternenhimmel
+ *               und Sammelalbum; Himmel und Album gehen auf und wieder zu.
+ *   Auftrag     Nach der eingestellten Zeit gähnt der Drache und gibt einen
+ *               Auftrag für draussen; an einem anderen Tag fragt er nach, und
+ *               «geschafft» bringt einen Taler.
+ *   Bauecke     Eine Runde, die vom Rätsel-Knopf der Bauecke kommt (?bau=1),
+ *               bringt eine Palette Ziegel.
  *   Runde       Eine ganze Runde Kuppel-Plus: Am Schluss stehen Sterne und
  *               Taler auf der Tafel, im Rechenstand Runde und Taler, und
  *               zurück im Rechenwagen ist der Drache aus dem Ei geschlüpft.
@@ -71,6 +78,10 @@ function stimmeErsatz() {
 
 async function neueSeite(browser, viewport, fehlerListe, name) {
   const kontext = await browser.newContext({ viewport });
+  // Ohne Firebase, wie in check-leseecke: Ein frischer Browser übernähme
+  // sonst beim ersten Kontakt das Wagen-Set des Admins und setzte dabei den
+  // Stand zurück (firebase.js, applyWagonSet) – je nach Netz mitten im Test.
+  await kontext.route("**/*gstatic.com/**", (route) => route.abort());
   await kontext.addInitScript(stimmeErsatz);
   const seite = await kontext.newPage();
   seite.on("pageerror", (e) => fehlerListe.push(`${name}: ${e.message}`));
@@ -147,6 +158,31 @@ async function main() {
       const getauft = await seite.evaluate(() => ({ name: window.LernappRechenStand.dracheName(), schild: document.querySelector(".rechen-ort-name text")?.textContent, karte: document.querySelector(".rechen-ort-mission")?.textContent || "" }));
       if (getauft.name !== "Funki" || getauft.schild !== "Funki" || !/Funki schlägt vor/.test(getauft.karte)) fehlt(`Taufe: ${JSON.stringify(getauft)}`);
     }
+    // Der Schatz: Drachenfutter, Sternenhimmel und Sammelalbum.
+    await seite.click(".rechen-ort-schatz .rechen-hitbox");
+    await seite.waitForTimeout(600);
+    const schatzWahl = await seite.$$eval(".rechen-wahl .rechen-wahl-spiel", (k) => k.map((x) => x.dataset.spiel));
+    for (const id of ["drachenfutter", "sternenhimmel", "album"]) if (!schatzWahl.includes(id)) fehlt(`Schatz: ${id} fehlt in der Auswahl (${schatzWahl.join(",")})`);
+    if (schatzWahl.includes("sternenhimmel")) {
+      await seite.click('.rechen-wahl-spiel[data-spiel="sternenhimmel"]');
+      await seite.waitForTimeout(500);
+      const himmel = await seite.evaluate(() => ({ sterne: document.querySelectorAll(".rechen-himmel .rechen-stern").length, titel: document.querySelector(".rechen-himmel .rechen-wahl-titel")?.textContent || "" }));
+      if (himmel.sterne < 20 || !/Sternenhimmel: 0 von/.test(himmel.titel)) fehlt(`Sternenhimmel: ${JSON.stringify(himmel)}`);
+      await seite.keyboard.press("Escape");
+      await seite.waitForTimeout(300);
+      if (await seite.$(".rechen-himmel")) fehlt("Sternenhimmel: geht mit Escape nicht zu");
+    }
+    if (schatzWahl.includes("album")) {
+      await seite.click(".rechen-ort-schatz .rechen-hitbox");
+      await seite.waitForTimeout(600);
+      await seite.click('.rechen-wahl-spiel[data-spiel="album"]');
+      await seite.waitForTimeout(500);
+      const album = await seite.evaluate(() => ({ blaetter: document.querySelectorAll(".rechen-album .rechen-album-blatt").length, offen: document.querySelectorAll(".rechen-album .rechen-album-blatt:not(.ist-zu)").length }));
+      if (album.blaetter !== 20 || album.offen !== 1) fehlt(`Sammelalbum: ${JSON.stringify(album)}`);
+      await seite.click(".rechen-album .rechen-wahl-zu");
+      await seite.waitForTimeout(300);
+      if (await seite.$(".rechen-album")) fehlt("Sammelalbum: geht mit dem Kreuz nicht zu");
+    }
     // Die Tür:
     await seite.click(".rechen-ort-tuer .rechen-hitbox");
     await seite.waitForTimeout(1200);
@@ -165,6 +201,38 @@ async function main() {
     await seite.waitForTimeout(2500);
     if (!/tunnel(rechnen|versteck)\.html/.test(seite.url())) fehlt(`Zimmer: Der Tunnel öffnet kein Spiel (${seite.url()})`);
     await kontext.close();
+
+    // --- Aufträge für draussen -------------------------------------------------
+    {
+      const { kontext: k, seite: s } = await neueSeite(browser, { width: 1280, height: 800 }, seitenFehler, "Auftrag");
+      await s.goto(`${BASIS}/index.html?rechnen=1`);
+      await s.waitForTimeout(1500);
+      // Seit 25 Minuten in der Rechenecke: Der Drache gähnt.
+      await s.evaluate(() => {
+        const d = new Date();
+        localStorage.setItem("lernapp.rechnen.besuch", JSON.stringify({ tag: `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`, seit: Date.now() - 25 * 60 * 1000 }));
+      });
+      await s.goto(`${BASIS}/index.html?rechnen=1`);
+      await s.waitForTimeout(3500);
+      const pause = await s.evaluate(() => document.querySelector(".rechen-auftrag")?.textContent || "");
+      if (!/Pause/.test(pause)) fehlt(`Auftrag: Der Drache gähnt nicht (${pause.slice(0, 80)})`);
+      // Am nächsten Tag fragt er nach.
+      await s.evaluate(() => {
+        const a = JSON.parse(localStorage.getItem("lernapp.rechnen.auftrag") || "{}");
+        localStorage.setItem("lernapp.rechnen.auftrag", JSON.stringify({ ...a, tag: "2000-1-1" }));
+      });
+      const vorher = await s.evaluate(() => window.LernappRechenStand.taler());
+      await s.goto(`${BASIS}/index.html?rechnen=1`);
+      await s.waitForTimeout(3500);
+      if (!(await s.$(".rechen-auftrag .ist-ja"))) fehlt("Auftrag: Am nächsten Tag fragt der Drache nicht nach");
+      else {
+        await s.click(".rechen-auftrag .ist-ja");
+        await s.waitForTimeout(500);
+        const nachher = await s.evaluate(() => ({ taler: window.LernappRechenStand.taler(), auftraege: window.LernappRechenStand.stand().auftraege }));
+        if (nachher.taler !== vorher + 1 || nachher.auftraege !== 1) fehlt(`Auftrag: «geschafft» bringt keinen Taler (${JSON.stringify(nachher)})`);
+      }
+      await k.close();
+    }
 
     // Handy quer: der Wagen steht oder bleibt weg, deckt aber nichts zu.
     const quer = await startbild(browser, { width: 844, height: 390 }, "Handy quer", seitenFehler);
@@ -192,13 +260,23 @@ async function main() {
     {
       const { kontext: k, seite: s } = await neueSeite(browser, { width: 1280, height: 800 }, seitenFehler, "Runde");
       await s.goto(`${BASIS}/kuppelplus.html`);
-      await s.waitForTimeout(800);
-      await s.evaluate(() => window.LernappReise.setStufe("leicht"));
+      // Die Stufe «leicht» – gesetzt, bis sie wirklich gilt (auf einem
+      // vollen Rechner lädt die Seite langsamer).
+      for (let i = 0; i < 20; i += 1) {
+        await s.waitForTimeout(400);
+        const stufe = await s.evaluate(() => { window.LernappReise?.setStufe?.("leicht"); return window.LernappReise?.stufe?.(); }).catch(() => null);
+        if (stufe === "leicht") break;
+      }
       // Zuerst einmal ins Zimmer: Der Drache ist noch ein Ei.
       await s.goto(`${BASIS}/index.html?rechnen=1`);
       await s.waitForTimeout(1500);
-      await s.goto(`${BASIS}/kuppelplus.html`);
-      await s.waitForTimeout(1200);
+      // Die Runde kommt vom Rätsel-Knopf der Bauecke: Sie bringt Ziegel.
+      const palettenVorher = await s.evaluate(() => window.LernappReise.bauPaletten());
+      await s.goto(`${BASIS}/kuppelplus.html?bau=1`);
+      await s.waitForSelector(".rechen-los-knopf", { timeout: 15000 }).catch(() => {});
+      await s.waitForTimeout(600);
+      const stufeJetzt = await s.evaluate(() => window.LernappRechenStand.stufe("kuppelplus"));
+      if (stufeJetzt !== "leicht") fehlt(`Leicht: Kuppel-Plus steht auf «${stufeJetzt}»`);
       await s.click(".rechen-los-knopf");
       let gezogen = false;
       const anfang = Date.now();
@@ -226,11 +304,18 @@ async function main() {
       if (!gezogen) fehlt("Leicht: Die Wagen liessen sich nicht ziehen");
       const tafel = await s.evaluate(() => document.querySelector("#rechen-stage")?.textContent || "");
       if (!/Taler/.test(tafel)) fehlt("Runde: Die Tafel nennt keine Taler");
+      if (!/Ziegel/.test(tafel)) fehlt("Bauecke: Die Tafel nennt keine Ziegel");
+      const palettenNachher = await s.evaluate(() => window.LernappReise.bauPaletten());
+      if (palettenNachher !== palettenVorher + 1) fehlt(`Bauecke: Die Runde bringt keine Palette (${palettenVorher} → ${palettenNachher})`);
       const stand = await s.evaluate(() => ({ runden: window.LernappRechenStand.runden(), taler: window.LernappRechenStand.taler() }));
       if (stand.runden !== 1 || stand.taler < 1) fehlt(`Runde: Im Rechenstand stehen ${stand.runden} Runden und ${stand.taler} Taler`);
       await s.goto(`${BASIS}/index.html?rechnen=1`);
-      await s.waitForTimeout(5000);
-      const nachher = await s.evaluate(() => ({ ei: Boolean(document.querySelector(".rechenzimmer-svg .rw-ei")), drache: Boolean(document.querySelector(".rechenzimmer-svg .rw-drache")), hilfe: window.LernappKids?.currentHelp?.() || "" }));
+      let nachher = null;
+      for (let i = 0; i < 30; i += 1) {
+        await s.waitForTimeout(500);
+        nachher = await s.evaluate(() => ({ ei: Boolean(document.querySelector(".rechenzimmer-svg .rw-ei")), drache: Boolean(document.querySelector(".rechenzimmer-svg .rw-drache")), hilfe: window.LernappKids?.currentHelp?.() || "" }));
+        if (i >= 9 && !nachher.ei && nachher.drache && /geschlüpft/.test(nachher.hilfe)) break;
+      }
       if (nachher.ei || !nachher.drache) fehlt("Runde: Zurück im Rechenwagen ist der Drache nicht geschlüpft");
       if (!/geschlüpft/.test(nachher.hilfe)) fehlt("Runde: Der Lautsprecher sagt nicht, dass der Drache geschlüpft ist");
       await k.close();
@@ -245,7 +330,7 @@ async function main() {
     befunde.forEach((b) => console.error(`  - ${b}`));
     process.exit(1);
   }
-  console.log("Rechenecke im Browser: Startbild, Zimmer, Tür, alle Spiele und eine Runde stimmen.");
+  console.log("Rechenecke im Browser: Startbild, Zimmer, Schatz, Tür, Aufträge, alle Spiele und eine Runde (mit Ziegeln) stimmen.");
 }
 
 main().catch((e) => { console.error(e); halt(); process.exit(1); });

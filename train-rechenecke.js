@@ -43,6 +43,16 @@
     kiste: "Die Spielzeugkiste",
     waage: "Die Waage",
     uhr: "Die Bahnhofsuhr",
+    schatz: "Der Schatz",
+  };
+
+  // Was hinter dem Schatz ausser Spielen steht: Ansichten ohne Runden, immer
+  // frei (sie zählen nichts, sie zeigen nur).
+  const ANSICHTEN = {
+    schatz: [
+      { id: "sternenhimmel", titel: "Sternenhimmel", bild: "✨", zeige: (host) => zeigeSterne(host) },
+      { id: "album", titel: "Sammelalbum", bild: "📒", zeige: (host) => zeigeAlbum(host) },
+    ],
   };
 
   // In dieser Reihenfolge hüpfen die Dinge beim Hereinkommen: einmal durchs
@@ -121,7 +131,7 @@
   // Die Auswahl hinter einem Ding – wie im Lesewagen, mit eigenen Klassen.
   function zeigeWahl(host, ort, onPlay) {
     host.querySelector(".rechen-wahl")?.remove();
-    const spiele = spieleAm(ort);
+    const spiele = [...spieleAm(ort), ...(ANSICHTEN[ort] || [])];
     const titel = ORTE[ort] || "";
     const huelle = document.createElement("div");
     huelle.className = "rechen-wahl";
@@ -144,8 +154,8 @@
       knopf.type = "button";
       knopf.className = "rechen-wahl-spiel";
       knopf.dataset.spiel = spiel.id;
-      knopf.dataset.page = spiel.page;
-      const verbraucht = gespielt(spiel.page);
+      if (spiel.page) knopf.dataset.page = spiel.page;
+      const verbraucht = spiel.page ? gespielt(spiel.page) : false;
       knopf.setAttribute("aria-label", `${spiel.titel}${verbraucht ? ", gesperrt" : ""}`);
       const bild = document.createElement("span");
       bild.className = "rechen-wahl-bild";
@@ -162,7 +172,7 @@
         s.textContent = "🔒";
         knopf.append(s);
       }
-      knopf.addEventListener("click", () => onPlay?.(spiel.page));
+      knopf.addEventListener("click", () => { if (spiel.zeige) { schliessen(); spiel.zeige(host); } else onPlay?.(spiel.page); });
       reihe.append(knopf);
     });
     const schliessen = () => {
@@ -257,6 +267,211 @@
     window.setTimeout(() => reihe.querySelector("button")?.focus?.({ preventScroll: true }), 30);
   }
 
+  // Der Sternenhimmel: Jede Plus-Aufgabe, die sitzt (schnell und richtig an
+  // zwei Tagen), ist ein leuchtender Stern. Drei Sternbilder: plus eins, das
+  // Doppelte, die Zehnerfreunde. Ein Tipp auf einen Stern sagt seine Aufgabe.
+  const STERNBILDER = [
+    { name: "Plus eins", aufgaben: Array.from({ length: 10 }, (_, i) => [i, 1]), ort: (i) => [120 + i * 34, 330 - Math.sin(i / 9 * Math.PI) * 60] },
+    { name: "Das Doppelte", aufgaben: Array.from({ length: 10 }, (_, i) => [i + 1, i + 1]), ort: (i) => [480 + Math.cos(i / 9 * Math.PI) * 120, 230 - Math.sin(i / 9 * Math.PI) * 120 + 60] },
+    { name: "Zehnerfreunde", aufgaben: Array.from({ length: 9 }, (_, i) => [i + 1, 9 - i]), ort: (i) => [790 + Math.cos(i / 9 * Math.PI * 2) * 90, 230 + Math.sin(i / 9 * Math.PI * 2) * 90] },
+  ];
+  function zeigeSterne(host) {
+    host.querySelector(".rechen-wahl")?.remove();
+    const s = stand();
+    const jetzt = s.stand();
+    const sitzt = (a, b) => s.sitzt(jetzt.aufgaben?.[`${a}+${b}`]) || s.sitzt(jetzt.aufgaben?.[`${b}+${a}`]);
+    let leuchten = 0;
+    let alle = 0;
+    let bild = '<svg viewBox="0 0 1000 460" class="rechen-himmel-svg" role="img" aria-label="Der Sternenhimmel der Plus-Aufgaben"><rect width="1000" height="460" rx="24" fill="#1d2a5c"/>';
+    for (let i = 0; i < 40; i += 1) bild += `<circle cx="${(i * 97) % 1000}" cy="${(i * 53) % 460}" r="1.4" fill="#ffffff" opacity="0.5"/>`;
+    STERNBILDER.forEach((sb) => {
+      const punkte = sb.aufgaben.map((_, i) => sb.ort(i));
+      bild += `<polyline points="${punkte.map((p) => p.join(",")).join(" ")}" fill="none" stroke="#5a6aa8" stroke-width="2"/>`;
+      sb.aufgaben.forEach(([a, b], i) => {
+        const [x, y] = punkte[i];
+        const an = sitzt(a, b);
+        alle += 1;
+        if (an) leuchten += 1;
+        bild += `<g class="rechen-stern${an ? " ist-an" : ""}" data-satz="${a} und ${b} sind ${a + b}." role="button" tabindex="0" aria-label="${a} plus ${b}"><path d="M${x} ${y - 14} l4 9 10 1 -8 7 3 10 -9 -5 -9 5 3 -10 -8 -7 10 -1 Z" fill="${an ? "#ffd166" : "#3a4a85"}"/><circle cx="${x}" cy="${y}" r="20" fill="#000" fill-opacity="0"/></g>`;
+      });
+      const [lx, ly] = sb.ort(Math.floor(sb.aufgaben.length / 2));
+      bild += `<text x="${lx}" y="${ly + 50}" text-anchor="middle" font-size="18" font-weight="800" fill="#c9d4ff" font-family="'Baloo 2', Nunito, sans-serif">${sb.name}</text>`;
+    });
+    bild += "</svg>";
+    const huelle = document.createElement("div");
+    huelle.className = "rechen-wahl rechen-himmel";
+    huelle.setAttribute("role", "dialog");
+    huelle.setAttribute("aria-label", "Sternenhimmel");
+    const karte = document.createElement("div");
+    karte.className = "rechen-wahl-karte rechen-himmel-karte";
+    const kopf = document.createElement("div");
+    kopf.className = "rechen-wahl-kopf";
+    const titel = document.createElement("p");
+    titel.className = "rechen-wahl-titel";
+    titel.textContent = `Sternenhimmel: ${leuchten} von ${alle} Sternen leuchten`;
+    const zuKnopf = document.createElement("button");
+    zuKnopf.type = "button";
+    zuKnopf.className = "rechen-wahl-zu";
+    zuKnopf.setAttribute("aria-label", "Schliessen");
+    zuKnopf.textContent = "✕";
+    kopf.append(titel, zuKnopf);
+    const flaeche = document.createElement("div");
+    flaeche.innerHTML = bild;
+    karte.append(kopf, flaeche);
+    huelle.append(karte);
+    host.append(huelle);
+    const schliessen = () => { huelle.remove(); kids()?.setHelp?.(HILFE); document.removeEventListener("keydown", taste); };
+    const taste = (e) => { if (e.key === "Escape") schliessen(); };
+    zuKnopf.addEventListener("click", schliessen);
+    huelle.addEventListener("click", (e) => { if (e.target === huelle) schliessen(); });
+    document.addEventListener("keydown", taste);
+    huelle.querySelectorAll(".rechen-stern").forEach((st) => st.addEventListener("click", () => kids()?.speak?.(st.dataset.satz)));
+    const satz = leuchten ? `${leuchten === 1 ? "Ein Stern leuchtet" : `${leuchten} Sterne leuchten`}. Jeder Stern ist eine Aufgabe, die du schon weisst, ohne zu zählen.` : "Noch ist der Himmel dunkel. Jede Aufgabe, die du schnell und richtig weisst, wird ein Stern.";
+    kids()?.setHelp?.(satz);
+    kids()?.speak?.(satz);
+  }
+
+  // Das Sammelalbum «Zahlen in der Welt»: für je fünf Taler ein Bild mehr,
+  // jedes mit so vielen Dingen, in Reihen zu fünf.
+  const ALBUM = [
+    ["☀️", "Sonne", "Sonnen"], ["🧦", "Socke", "Socken"], ["🛞", "Rad", "Räder"], ["🐾", "Pfote", "Pfoten"], ["⭐", "Stern", "Sterne"],
+    ["🥚", "Ei", "Eier"], ["🐟", "Fisch", "Fische"], ["🐚", "Muschel", "Muscheln"], ["🎳", "Kegel", "Kegel"], ["🍓", "Erdbeere", "Erdbeeren"],
+    ["🍎", "Apfel", "Äpfel"], ["🌷", "Tulpe", "Tulpen"], ["🐞", "Marienkäfer", "Marienkäfer"], ["🎈", "Ballon", "Ballone"], ["🐥", "Küken", "Küken"],
+    ["🍪", "Guetzli", "Guetzli"], ["🌰", "Nuss", "Nüsse"], ["🦋", "Schmetterling", "Schmetterlinge"], ["🍄", "Pilz", "Pilze"], ["🐝", "Biene", "Bienen"],
+  ];
+  const albumSatz = (n) => `${n} ${n === 1 ? ALBUM[0][1] : ALBUM[n - 1][2]}.`;
+  function zeigeAlbum(host) {
+    host.querySelector(".rechen-wahl")?.remove();
+    const s = stand();
+    const offenBis = Math.min(ALBUM.length, 1 + Math.floor(s.taler() / 5));
+    const huelle = document.createElement("div");
+    huelle.className = "rechen-wahl rechen-album";
+    huelle.setAttribute("role", "dialog");
+    huelle.setAttribute("aria-label", "Sammelalbum");
+    const karte = document.createElement("div");
+    karte.className = "rechen-wahl-karte rechen-album-karte";
+    const kopf = document.createElement("div");
+    kopf.className = "rechen-wahl-kopf";
+    const titel = document.createElement("p");
+    titel.className = "rechen-wahl-titel";
+    titel.textContent = `Zahlen in der Welt: ${offenBis} von ${ALBUM.length}`;
+    const zuKnopf = document.createElement("button");
+    zuKnopf.type = "button";
+    zuKnopf.className = "rechen-wahl-zu";
+    zuKnopf.setAttribute("aria-label", "Schliessen");
+    zuKnopf.textContent = "✕";
+    kopf.append(titel, zuKnopf);
+    const raster = document.createElement("div");
+    raster.className = "rechen-album-raster";
+    ALBUM.forEach(([emoji, ein, mehr], i) => {
+      const n = i + 1;
+      const blatt = document.createElement("button");
+      blatt.type = "button";
+      blatt.className = `rechen-album-blatt${n <= offenBis ? "" : " ist-zu"}`;
+      if (n <= offenBis) {
+        blatt.setAttribute("aria-label", `${n} ${n === 1 ? ein : mehr}`);
+        const zahl = document.createElement("span");
+        zahl.className = "rechen-album-zahl";
+        zahl.textContent = String(n);
+        const dinge = document.createElement("span");
+        dinge.className = "rechen-album-dinge";
+        for (let k = 0; k < n; k += 1) { const d = document.createElement("span"); d.textContent = emoji; dinge.append(d); }
+        blatt.append(zahl, dinge);
+        blatt.addEventListener("click", () => kids()?.speak?.(albumSatz(n)));
+      } else {
+        blatt.setAttribute("aria-label", "Noch zu");
+        blatt.textContent = "?";
+      }
+      raster.append(blatt);
+    });
+    karte.append(kopf, raster);
+    huelle.append(karte);
+    host.append(huelle);
+    const schliessen = () => { huelle.remove(); kids()?.setHelp?.(HILFE); document.removeEventListener("keydown", taste); };
+    const taste = (e) => { if (e.key === "Escape") schliessen(); };
+    zuKnopf.addEventListener("click", schliessen);
+    huelle.addEventListener("click", (e) => { if (e.target === huelle) schliessen(); });
+    document.addEventListener("keydown", taste);
+    const satz = "Das Sammelalbum. Für je fünf Taler kommt ein neues Bild dazu. Tippe auf ein Bild, und zähl mit!";
+    kids()?.setHelp?.(satz);
+    kids()?.speak?.(satz);
+  }
+
+  // Aufträge für draussen: Nach einer Weile in der Rechenecke gähnt der
+  // Drache und gibt einen Auftrag für die echte Welt. Beim nächsten Besuch an
+  // einem anderen Tag fragt er nach – geschafft gibt einen Taler.
+  const AUFTRAEGE = [
+    "Zähl beim Znacht, wie viele Gabeln auf dem Tisch liegen!",
+    "Zähl auf dem nächsten Spaziergang alle roten Autos!",
+    "Zähl die Treppenstufen bis zu eurer Tür!",
+    "Zähl, wie viele Schuhe bei der Haustür stehen!",
+    "Zähl, wie viele Fenster euer Haus hat!",
+    "Hüpf zehnmal auf einem Bein und zähl laut mit!",
+    "Zähl beim Zmorge, wie viele Löffel auf dem Tisch liegen!",
+    "Zähl alle Kissen auf eurem Sofa!",
+  ];
+  const BESUCH_KEY = "lernapp.rechnen.besuch";
+  const AUFTRAG_KEY = "lernapp.rechnen.auftrag";
+  const tagHeute = () => { const d = new Date(); return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`; };
+  const liesJson = (k) => { try { return JSON.parse(localStorage.getItem(k) || "null"); } catch { return null; } };
+  const schreibJson = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* privater Modus */ } };
+  function auftragPruefen(host) {
+    const s = stand();
+    const heute = tagHeute();
+    let besuch = liesJson(BESUCH_KEY);
+    if (!besuch || besuch.tag !== heute) { besuch = { tag: heute, seit: Date.now() }; schreibJson(BESUCH_KEY, besuch); }
+    const auftrag = liesJson(AUFTRAG_KEY);
+    const karte = (titel, text, knoepfe) => {
+      host.querySelector(".rechen-wahl")?.remove();
+      const huelle = document.createElement("div");
+      huelle.className = "rechen-wahl rechen-auftrag";
+      huelle.setAttribute("role", "dialog");
+      huelle.setAttribute("aria-label", titel);
+      const k = document.createElement("div");
+      k.className = "rechen-wahl-karte";
+      const kopf = document.createElement("p");
+      kopf.className = "rechen-wahl-titel";
+      kopf.textContent = titel;
+      const p = document.createElement("p");
+      p.className = "rechen-auftrag-text";
+      p.textContent = text;
+      const reihe = document.createElement("div");
+      reihe.className = "rechen-auftrag-knoepfe";
+      knoepfe.forEach(([label, fn, klasse]) => {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.className = `rechen-taufe-name ${klasse || ""}`.trim();
+        b.textContent = label;
+        b.addEventListener("click", () => { huelle.remove(); kids()?.setHelp?.(HILFE); fn(); });
+        reihe.append(b);
+      });
+      k.append(kopf, p, reihe);
+      huelle.append(k);
+      host.append(huelle);
+      window.setTimeout(() => reihe.querySelector("button")?.focus?.({ preventScroll: true }), 30);
+    };
+    // Ein Auftrag von einem früheren Tag wartet noch.
+    if (auftrag && auftrag.tag !== heute && !auftrag.erledigt) {
+      const text = AUFTRAEGE[auftrag.nr] || AUFTRAEGE[0];
+      const frage = `Hast du deinen Auftrag geschafft? ${text}`;
+      karte("Dein Auftrag", text, [
+        ["Ja, geschafft!", () => { s.auftragErledigt(); schreibJson(AUFTRAG_KEY, { ...auftrag, erledigt: true }); kids()?.playJingle?.("unlock"); kids()?.speak?.("Super! Dafür bekommt dein Drache einen Taler."); }, "ist-ja"],
+        ["Noch nicht", () => { schreibJson(AUFTRAG_KEY, { ...auftrag, erledigt: true }); kids()?.speak?.("Macht nichts. Vielleicht ein anderes Mal!"); }],
+      ]);
+      kids()?.speak?.(frage);
+      return true;
+    }
+    const grenze = s.gaehnenNach();
+    if (!grenze || (auftrag && auftrag.tag === heute)) return false;
+    if (Date.now() - besuch.seit < grenze * 60 * 1000) return false;
+    const nr = Math.floor(Math.random() * AUFTRAEGE.length);
+    schreibJson(AUFTRAG_KEY, { tag: heute, nr, erledigt: false });
+    const satz = `Dein Drache gähnt: Zeit für eine Pause! Hier ist ein Auftrag für draussen. ${AUFTRAEGE[nr]}`;
+    karte("Zeit für eine Pause!", AUFTRAEGE[nr], [["Mach ich!", () => {}, "ist-ja"]]);
+    kids()?.speak?.(satz);
+    return true;
+  }
+
   let offen = null;
 
   // Was das Zimmer zeigt – ändert es sich, wird neu gezeichnet.
@@ -323,7 +538,11 @@
         }
         if (ort === "tuer") { onLesen?.(); return; }
         if (ort === "name") { zeigeTaufe(host); return; }
-        if (ort === "schatz") { kids()?.speak?.(schatzSatz(s.taler())); return; }
+        if (ort === "schatz") {
+          kids()?.speak?.(schatzSatz(s.taler()));
+          if (spieleAm("schatz").length || ANSICHTEN.schatz?.length) zeigeWahl(host, "schatz", onPlay);
+          return;
+        }
         const spiele = spieleAm(ort);
         if (spiele.length === 1) onPlay?.(spiele[0].page);
         else if (spiele.length > 1) zeigeWahl(host, ort, onPlay);
@@ -430,11 +649,12 @@
     else if (!offen.host.querySelector(".rechen-wahl")) kids()?.setHelp?.(`${satz} ${HILFE}`);
     merkeGesehen(d);
     merkeAusbau(ausbau);
+    if (!offen.host.querySelector(".rechen-wahl")) auftragPruefen(offen.host);
     offen.zustand = anfang;
     if (zustand() !== anfang) auffrischen();
   }
 
   stand()?.onChange?.(() => auffrischen());
 
-  window.LernappRechenecke = { mount, auffrischen, ORTE, HILFE, REIHUM, NAMEN, spieleAm, schatzSatz };
+  window.LernappRechenecke = { mount, auffrischen, ORTE, ANSICHTEN, HILFE, REIHUM, NAMEN, ALBUM, AUFTRAEGE, albumSatz, spieleAm, schatzSatz };
 })();

@@ -56,11 +56,12 @@ export default function texte(d) {
   muss(d, "train-rechenecke.js", "function schatzSatz(n)");
   const satzVomSchatz = d.rechenecke?.schatzSatz;
   if (satzVomSchatz) for (const n of von(0, 300)) add(satzVomSchatz(n), zimmer);
-  // Die Auswahl hinter einem Ding mit mehreren Spielen.
+  // Die Auswahl hinter einem Ding mit mehreren Spielen (beim Schatz dazu
+  // Sternenhimmel und Sammelalbum, ANSICHTEN).
   const orte = d.rechenecke?.ORTE || {};
   for (const [ort, titel] of Object.entries(orte)) {
     for (const ohneMinus of [false, true]) {
-      const hier = spiele.filter((s) => s.ort === ort && !(ohneMinus && s.minus));
+      const hier = [...spiele.filter((s) => s.ort === ort && !(ohneMinus && s.minus)), ...(d.rechenecke?.ANSICHTEN?.[ort] || [])];
       if (hier.length > 1) add(`${titel}. Tippe auf ein Spiel: ${hier.map((s) => s.titel).join(", ")}.`, zimmer);
     }
   }
@@ -79,7 +80,7 @@ export default function texte(d) {
       add(`${a} plus ${b}. Wie viel ist das?`, e1);
       add(`${wagenWort(a)} und ${wagenWort(b)}. Schieb sie zusammen!`, e1);
       add(`Ja! ${a} und ${b} sind ${a + b}.${fuenferSatz(a + b)}`, e1);
-      add(`Schau: Es sind ${a + b}. ${a} und ${b} sind ${a + b}.${fuenferSatz(a + b)}`, e1);
+      add(`Schau: Es sind ${a + b} Wagen. ${a} und ${b} sind ${a + b}.${fuenferSatz(a + b)}`, e1);
       add(`Richtig! ${a} und ${b} sind ${a + b}.`, e1);
       add(`Genau! ${a} und ${b} sind ${a + b}.`, e1);
       add(`Schau: Es fahren ${a + b} Tiere mit. ${a} und ${b} sind ${a + b}.`, e1);
@@ -95,9 +96,17 @@ export default function texte(d) {
   for (const a of von(2, 10)) {
     for (const b of von(1, a - 1)) {
       add(`Richtig! ${a} minus ${b} sind ${a - b}.`, e1);
-      add(`Schau: Es sind ${a - b}. ${a} minus ${b} sind ${a - b}.`, e1);
     }
   }
+  // «Schau: Es sind 7 Wagen.» – danach die Rechnung als eigener Satz (die
+  // Rechnungen bis 20 kommen aus rechenecke-2.mjs).
+  muss(d, e1, "`Es sind ${richtig} Wagen`");
+  add("Schau: Es ist 1 Wagen.", e1);
+  for (const n of von(0, 40)) if (n !== 1) add(`Schau: Es sind ${n} Wagen.`, e1);
+  // Kurze Stücke, die vor einem Satz ohne eigenen Anfang stehen
+  // («Schau: 5 minus 2 sind 3.»), und die Null beim Zählen.
+  add("Schau:", e1);
+  add("0", e1);
   // Blitzblick
   muss(d, e1, "fünf oben und ${n - 5} unten.");
   for (const n of von(1, 4)) { add(`Genau! ${n}!`, e1); add(`Schau: ${n}!`, e1); add(`Genau! ${n} – alle oben.`, e1); add(`Schau: ${n} – alle oben.`, e1); }
@@ -113,12 +122,12 @@ export default function texte(d) {
   }
   for (const b of von(3, 5)) add(`${b} Tiere steigen ein.`, e1);
   // Hüpf-Gleis
-  muss(d, e1, "`Du hast ${wurfText}. Du stehst auf");
+  muss(d, e1, "`Du hast ${wurfText}! Du stehst auf");
   add("Ein Auge! Tippe einmal auf deine Lok.", e1);
   for (const n of von(2, 6)) add(`${n} Augen! Tippe ${n} Mal auf deine Lok.`, e1);
   for (const n of von(1, 30)) add(`${n}`, e1);
-  for (const w of von(1, 6)) add(`Du hast ${w}.`, e1);
-  for (const w1 of von(1, 6)) for (const w2 of von(1, 6)) add(`Du hast ${w1} und ${w2}, zusammen ${w1 + w2}.`, e1);
+  for (const w of von(1, 6)) add(`Du hast ${w}!`, e1);
+  for (const w1 of von(1, 6)) for (const w2 of von(1, 6)) add(`Du hast ${w1} und ${w2}, zusammen ${w1 + w2}!`, e1);
   add("Du stehst auf Start. Wo landest du?", e1);
   for (const p of von(1, 30)) add(`Du stehst auf ${p}. Wo landest du?`, e1);
   for (const n of von(1, 12)) add(`Fino hüpft ${n} weiter.`, e1);

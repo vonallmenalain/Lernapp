@@ -248,6 +248,8 @@ export function bauTexte() {
 
   // Der Rätsel-Knopf: der Titel des Spiels (journey-plan.js, GAMES)
   [...lies("journey-plan.js").matchAll(/^\s+\w+: \{ title: "([^"]+)"/gm)].forEach((m) => dazu(`Ein Rätsel für Ziegel: ${m[1]}!`, "kern", "Rätsel-Knopf"));
+  // … und für die Jüngsten ein Spiel der Rechenecke (rechnen-stand.js, SPIELE)
+  [...lies("rechnen-stand.js").matchAll(/^\s+\w+: \{ page: "[^"]+", titel: "([^"]+)"/gm)].forEach((m) => dazu(`Ein Rätsel für Ziegel: ${/[!?]$/.test(m[1]) ? m[1] : `${m[1]}!`}`, "kern", "Rätsel-Knopf"));
 
   // --- Zahlen
   for (let n = 2; n <= 99; n += 1) {

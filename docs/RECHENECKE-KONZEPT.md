@@ -6,8 +6,8 @@ Zug?»), `docs/UX-REVIEW-KINDER-4-8.md` (P9), `train-home.js` (`positionLesewage
 `positionBauplatz`), `entitlement.js` (`AREAS`, `LESEECKE`), `zahlengleis.js`, `lesen-stand.js`,
 `app-stimme.js`, `firestore.rules`
 
-> **Umsetzungsstand (November 2026):** **Etappe 1 und 2 sind gebaut** – siehe Abschnitt 0
-> gleich unten. Die Entscheidungen sind gemäss Empfehlung gefallen (Abschnitt 16).
+> **Umsetzungsstand (November 2026):** **Alle vier Etappen sind gebaut** – 48 Spiele, siehe
+> Abschnitt 0 gleich unten. Die Entscheidungen sind gemäss Empfehlung gefallen (Abschnitt 16).
 >
 > **Ursprünglicher Stand:** Entwurf, noch nichts gebaut. Der Wunsch kommt von der jüngeren Tochter (5): Sie
 > möchte rechnen, vor allem Plus. Dieses Dokument sammelt, wie ein eigener Ort für Zahlen und
@@ -22,7 +22,7 @@ Zug?»), `docs/UX-REVIEW-KINDER-4-8.md` (P9), `train-home.js` (`positionLesewage
 
 ---
 
-## 0. Die Umsetzung (Etappe 1)
+## 0. Die Umsetzung
 
 Alle zwölf Entscheidungen sind gemäss Empfehlung gefallen. Was davon abweicht oder genauer
 geworden ist, steht hier.
@@ -137,6 +137,88 @@ eigener Name keine Aufnahme hat.
 
 Die **Einrichtung in 15 Schritten** und der **Rechenbericht mit Plus-Tafel** kamen schon mit
 Etappe 1. Stimme: `scripts/stimme-app/rechenecke-2.mjs` zählt die Sätze mit Zahlen auf.
+
+### 0.7 Etappe 3: bis 20, Formen, der Sternenhimmel
+
+Vierzehn Spiele in `rechnen-spiele-3.js`. Neue Dinge braucht es keine: Die Spiele stehen hinter
+den Dingen, die es schon gibt, und der **Schatz** öffnet jetzt auch eine Auswahl.
+
+| Ding | neue Spiele |
+| --- | --- |
+| Gleis | Doppel-Express (Verdoppeln, auf «schwer» Fast-Verdoppeln) |
+| Zählrahmen | Zehnerwagen füllen, Zehner-Sprung (8 + 5: erst den Zehnerwagen voll) |
+| Waage | Waage (wie viele Kugeln rechts noch dazu?) |
+| Zahlenteppich | Rechenkette, Rückwärts-Hüpfer (nur mit Minus), Wo hält der Zug? |
+| Würfel | Schüttelbecher (Zerlegen: wie viele unter dem Becher?) |
+| Schatz | Drachenfutter (der Drache will genau so viele Beeren) |
+| Fenster | Strichliste (Autos am Bahnübergang, Fünferbündel) |
+| Spielzeugkiste | Wie lang ist die Schlange?, Formen-Güterzug, Tangram-Lok, Spiegel-Signal |
+
+**Der Sternenhimmel** (hinter dem Schatz, ohne Runde, immer frei): Jede Plus-Aufgabe, die
+sitzt (schnell und richtig an zwei Tagen, `sitzt` in `rechnen-stand.js`), ist ein leuchtender
+Stern. Drei Sternbilder: *Plus eins*, *Das Doppelte*, *Die Zehnerfreunde*. Ein Tipp auf einen
+Stern sagt seine Aufgabe. Der Drache in **allen drei Leben** kam schon mit Etappe 1.
+
+Abweichung: «Wo hält der Zug?» geht nicht nur bis 10, sondern wächst mit der Stufe (bis 20,
+auf «schwer» bis 100) – so bleibt das Spiel auch für die Grösseren.
+
+### 0.8 Etappe 4: für Grössere und die Eltern
+
+Neun Spiele in `rechnen-spiele-4.js`, dazu das Sammelalbum und die Aufträge für draussen.
+
+| Ding | neue Spiele |
+| --- | --- |
+| Zahlenhaus | Zahlenmauer, Wachsende Türme |
+| Zahlenteppich | Hunderter-Fahrplan |
+| Bahnhofsuhr | Bahnhofsuhr (volle, halbe und Viertelstunden) |
+| Kiosk | Kiosk mit Rückgeld (nur mit Minus) |
+| Zählrahmen | Blitzrechnen-Express (45 Sekunden) |
+| Perron | Rechen-Postkarten (Lesen und Rechnen; die Karte liest sich auch vor) |
+| Gleis | Gerade oder ungerade? |
+| Würfel | Was kommt öfter? (Glücksrad, erst raten, dann Striche) |
+
+**Das Sammelalbum «Zahlen in der Welt»** (hinter dem Schatz): 20 Seiten, je eine Zahl mit so
+vielen Dingen in Reihen zu fünf (1 Sonne, 2 Socken … 20 Bienen). Für je fünf Taler geht eine
+Seite mehr auf; ein Tipp liest sie vor.
+
+**Aufträge für draussen**: Nach einer einstellbaren Zeit Rechenecke am Tag (Elternkarte «Pause
+mit Auftrag»: 10, 15 oder 20 Minuten oder nie; Standard 20) gähnt der Drache und gibt einen
+Auftrag für die echte Welt («Zähl beim Znacht, wie viele Gabeln auf dem Tisch liegen!»). Beim
+nächsten Besuch an einem anderen Tag fragt er nach: «Ja, geschafft!» bringt einen Taler, «Noch
+nicht» kostet nichts. Wie viele Aufträge erledigt sind, steht im Rechenbericht. Besuchszeit und
+offener Auftrag liegen nur auf dem Gerät (`lernapp.rechnen.besuch`, `lernapp.rechnen.auftrag`),
+der Zähler im Rechenstand (`auftraege`, über die Geräte hinweg das Maximum).
+
+### 0.9 Die Verbindung zur Bauecke
+
+Für die Jüngsten (Stufe «leicht» der Reise) ist jedes dritte Rätsel des Rätsel-Knopfs in der
+Bauecke ein Rechenspiel – das, welches der Rechendrache gerade vorschlägt, und nur, wenn die
+Schranke es öffnet (`train-bau.js`, `rechenRaetsel`). Die Seite öffnet sich mit `?bau=1`: Eine
+fertige Runde bringt eine Palette Ziegel (`journey-plan.js`, `bauGeschafft`, je Seitenaufruf
+eine) und wie immer Taler für den Drachen; der Pfeil führt zurück in die Bauecke statt in den
+Rechenwagen (`rechnen-spiel.js`). Der Satz «Ein Rätsel für Ziegel: …» für jedes Spiel steht in
+`scripts/stimme-bau-texte.mjs`.
+
+Die Vorschläge des Drachen (`AUSWAHL` in `rechnen-stand.js`) kennen die Spiele aller vier
+Etappen. Stimme: `scripts/stimme-app/rechenecke-3.mjs` und `rechenecke-4.mjs` zählen die Sätze
+mit Zahlen auf.
+
+**Stimme, nachgebessert**: Ein Durchlauf, der alle 48 Spiele auf allen drei Stufen ganz
+durchspielt und jeden Satz mitschreibt, der mit der Gerätestimme statt als Aufnahme käme, fand
+zwei Fehler aus den Etappen 1 und 2:
+
+- `sprechbar` (`rechnen-spiel.js`) machte aus jedem Gedankenstrich ein Komma – die Aufnahmen
+  haben aber den Strich. Jetzt bleibt er stehen.
+- Hinter einer Zahl mit Punkt beginnt für `kids.js` kein neuer Satz (wegen «der 3. Stock»).
+  «Schau: Es sind 7. 3 und 4 sind 7.» fand darum keine Aufnahme. Solche Sätze haben jetzt ein
+  Wort hinter der Zahl («Es sind 7 Wagen.») oder ein «!» («Start bei 3! Plus 2!»), oder sie
+  stehen als Ganzes in der Regel («Die Lok steht bei 3 und hüpft 2 weiter: …»). Wo die Zahlen
+  auf dem Bild stehen und es zu viele Reihen gäbe (Wagen ordnen, Fahrplan-Lücke, Rechenkette),
+  sagt die Stimme den Satz ohne sie.
+
+Nicht gebaut aus Abschnitt 5 («Verbindungen»): Der Drache **fliegt nicht neben der Lok mit**,
+und eine fertige Karte der Reise schickt **keine** Rechen-Postkarte – beides steht in keiner
+Etappe und bleibt als Idee.
 
 ---
 

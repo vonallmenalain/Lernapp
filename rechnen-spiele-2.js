@@ -94,7 +94,7 @@
         ctx.svg.querySelectorAll(".rw-bahnhof rect:nth-of-type(2)")[i]?.setAttribute("stroke", "#3fbf74");
         ctx.blip(i);
       }
-      await ctx.sage(ok ? `Genau! ${reihe.join(", ")}.` : `Schau: ${reihe.join(", ")}. Es fehlte die ${richtig}.`);
+      await ctx.sage(ok ? `Genau! ${reihe.join(", ")}.` : `Schau: ${reihe.join(", ")}. Es fehlte die ${richtig}.`, ok ? null : `Schau: Es fehlte die ${richtig}.`);
       return ok;
     },
   });
@@ -306,7 +306,7 @@
       hoch.fill(false);
       for (let i = 0; i < n; i += 1) hoch[i] = true;
       zeichne();
-      await ctx.sage(ok ? `Genau, ${n}!${n > 5 ? ` Eine ganze Hand und noch ${n - 5}.` : ""}` : `Schau: So sind es ${n}.${n > 5 ? ` Eine ganze Hand und noch ${n - 5}.` : ""}`);
+      await ctx.sage(ok ? `Genau, ${n}!${n > 5 ? ` Eine ganze Hand und noch ${n - 5}.` : ""}` : `Schau: So sind es ${n} Finger.${n > 5 ? ` Eine ganze Hand und noch ${n - 5}.` : ""}`);
       return ok;
     },
   });
@@ -576,7 +576,9 @@
       }
       const ok = fehler === 0;
       if (ok) ctx.lauf.richtig += 1;
-      await ctx.sage(ok ? `Perfekt: ${zahlen.join(", ")}!` : `Geschafft: ${zahlen.join(", ")}.`);
+      // Gesprochen ohne die Zahlen: Sie stehen auf den Wagen, und für jede
+      // Reihe gäbe es eine eigene Aufnahme.
+      await ctx.sage(ok ? `Perfekt: ${zahlen.join(", ")}!` : `Geschafft: ${zahlen.join(", ")}.`, ok ? "Perfekt! Alle Wagen sind in der richtigen Reihe." : "Geschafft! Alle Wagen sind in der richtigen Reihe.");
       return ok;
     },
   });
@@ -703,7 +705,7 @@
         }
       };
       if (ctx.stufe === "leicht") {
-        await ctx.sage(`Die Lok steht bei ${a}. Hüpf ${b} weiter: Tippe ${b === 1 ? "einmal" : `${b} Mal`} auf die Lok!`);
+        await ctx.sage(`Die Lok steht bei ${a} und hüpft ${b} weiter: Tippe ${b === 1 ? "einmal" : `${b} Mal`} auf die Lok!`);
         mini.classList.add("rw-tippmich");
         let pos = a;
         await new Promise((fertig) => {
@@ -788,7 +790,7 @@
       if (!ctx.lebt()) return ok;
       const berg = ctx.q(".rw-berg");
       await ctx.tween(750, (p) => berg.setAttribute("transform", `translate(${(p * 30).toFixed(1)} ${(-p * 470).toFixed(1)})`));
-      await ctx.sage(ok ? `Genau! ${sicht} und ${n - sicht} sind ${n}.` : `Schau: Im Tunnel waren ${n - sicht}. ${sicht} und ${n - sicht} sind ${n}.`);
+      await ctx.sage(ok ? `Genau! ${sicht} und ${n - sicht} sind ${n}.` : `Schau: Im Tunnel ${n - sicht === 1 ? "war 1 Wagen" : `waren ${n - sicht} Wagen`}. ${sicht} und ${n - sicht} sind ${n}.`);
       return ok;
     },
   });
@@ -844,7 +846,7 @@
       const { ok } = await ctx.frage({ lo: 0, hi: max, richtig: a - b, aufgabe: { a, op: "-", b } });
       if (!ctx.lebt()) return ok;
       await ctx.zaehle(ctx.wagenOrte(zugG).filter((o) => !o.w.classList.contains("ist-ab")), 260);
-      await ctx.sage(ok ? `Genau! ${a} minus ${b} sind ${a - b}.` : `Schau: Es sind ${a - b}. ${a} minus ${b} sind ${a - b}.`);
+      await ctx.sage(ok ? `Genau! ${a} minus ${b} sind ${a - b}.` : `Schau: ${a - b === 1 ? "Es ist 1 Wagen" : `Es sind ${a - b} Wagen`}. ${a} minus ${b} sind ${a - b}.`);
       return ok;
     },
   });
@@ -1033,7 +1035,7 @@
       werte.forEach((w, i) => { bild += muenze(A, w, 380 + i * 120, 470, w === 5 ? 44 : w === 2 ? 38 : 32); });
       bild += `<text class="rw-summe" x="500" y="300" text-anchor="middle" font-size="30" ${A.FONT} fill="${A.C.ink}"></text>`;
       ctx.zeichne(bild);
-      const satzWare = ware.length === 1 ? `${ware[0].w} für ${preise[0]} ${preise[0] === 1 ? "Franken" : "Franken"}` : `${ware[0].w} für ${preise[0]} und ${ware[1].w} für ${preise[1]} Franken`;
+      const satzWare = ware.length === 1 ? `${ware[0].w} für ${preise[0]} ${preise[0] === 1 ? "Franken" : "Franken"}` : `${ware[0].w} für ${preise[0]} Franken. Und ${ware[1].w} für ${preise[1]} Franken`;
       await ctx.sage(`${NAMEN[tier]} möchte ${satzWare}. Bezahl genau!`);
       let bezahlt = [];
       const drin = ctx.q(".rw-drin");
