@@ -96,6 +96,7 @@
     LOCAL_WAGON_SET_KEY,       // welches Wagen-Set gilt
     LOCAL_APP_GRATIS_KEY,      // ob die ganze App gratis ist
     "lernapp.lesen.eltern",    // wie die Eltern die Leseecke eingestellt haben
+    "lernapp.rechnen.eltern",  // wie die Eltern die Rechenecke eingestellt haben
     "lernapp.stimme",          // welche Stimme auf diesem Gerät vorliest
     // Die Bauecke bleibt beim Zurücksetzen stehen: Häuser, Tiere und Ziegel
     // gehen nicht verloren (BAUECKE-KONZEPT.md, Entscheid 10).
@@ -1948,14 +1949,16 @@
     const reise = window.LernappReise;
     let stufe = null;
     let lesen = null;
+    let rechnen = null;
     const bau = {};
     try {
       const alles = (await ref.get()).data()?.gameState || {};
       const kasten = alles[reise?.KEY]?.data;
       if (reise && kasten && (kasten.stufe || kasten.tempo)) stufe = reise.stufeIn(kasten);
       if (alles[LESEN_ELTERN_KEY]?.data) lesen = lesenEinstellungIn(alles);
+      if (alles[RECHNEN_ELTERN_KEY]?.data) rechnen = rechnenEinstellungIn(alles);
       BAU_KEEP_KEYS.forEach((key) => { if (alles[key]?.data) bau[key] = alles[key]; });
-    } catch { stufe = null; lesen = null; }
+    } catch { stufe = null; lesen = null; rechnen = null; }
 
     await deleteAllDocs(ref.collection("levelProgress"));
     await deleteAllDocs(ref.collection("sessions"));
@@ -1972,10 +1975,11 @@
       },
       updatedAt: serverTimestamp(),
     }, { merge: true });
-    if (stufe || lesen || Object.keys(bau).length) {
+    if (stufe || lesen || rechnen || Object.keys(bau).length) {
       const behalten = { ...bau };
       if (stufe) behalten[reise.KEY] = { data: { stufe, stufeAt: resetAtMs }, updatedAt: resetAtMs };
       if (lesen) behalten[LESEN_ELTERN_KEY] = { data: { ...lesen, at: resetAtMs }, updatedAt: resetAtMs };
+      if (rechnen) behalten[RECHNEN_ELTERN_KEY] = { data: { ...rechnen, at: resetAtMs }, updatedAt: resetAtMs };
       await ref.set({ gameState: behalten, updatedAt: serverTimestamp() }, { merge: true });
     }
 
@@ -3110,6 +3114,7 @@
           </div>
           ${renderKindStufe(kind, detail)}
           ${renderKindLesen(kind, detail)}
+          ${renderKindRechnen(kind, detail)}
           ${renderEntityDetail(detail, { withFilters: false })}
         </div>`
       : `<div class="kind-detail"><p class="account-muted">${laeuft ? "Wird geladen..." : "Konnte nicht geladen werden."}</p></div>`);
@@ -3213,6 +3218,80 @@
         <div class="card-actions">${LESEN_HILFEN.map((eintrag) => knopf("hilfe", eintrag)).join("")}</div>
         ${renderKindLaute(kind, jetzt, busy)}
       </div>`;
+  }
+
+  // Die Rechenecke des eigenen Kindes: wo sie beginnt, wie weit die Zahlen
+  // gehen und ob Minus schon dabei ist (rechnen-stand.js). Wie die Leseecke
+  // ein Kasten mit Zeitmarke im gameState des Kindes.
+  function renderKindRechnen(kind, detail) {
+    if (!detail?.userData) return "";
+    const jetzt = rechnenEinstellungIn(detail.userData.gameState);
+    const busy = eltern.kindLaeuft === kind.uid;
+    const knopf = (feld, [wert, label]) => {
+      const an = String(jetzt[feld]) === String(wert);
+      return `<button type="button" class="${an ? "" : "secondary-action"}" data-kind-rechnen="${feld}:${wert}" ${busy ? "disabled" : ""} aria-pressed="${an ? "true" : "false"}">${escapeHtml(label)}${an ? " ✓" : ""}</button>`;
+    };
+    return `
+      <div class="admin-reset admin-rechnen">
+        <div>
+          <strong>Rechenecke</strong>
+          <span>${RECHNEN_ERKLAERUNG}</span>
+        </div>
+        ${renderKindRechenbericht(kind, detail)}
+        <p class="admin-lesen-frage">Wo beginnt die Rechenecke?</p>
+        <div class="card-actions">${RECHNEN_BEGINN.map((eintrag) => knopf("beginn", eintrag)).join("")}</div>
+        <p class="admin-lesen-frage">Zahlenraum</p>
+        <p class="auth-hint">Über diese Zahl geht keine Aufgabe hinaus. «Nach Stufe» lässt die Spiele selbst bestimmen: leicht bis 5, mittel bis 10, schwer bis 20.</p>
+        <div class="card-actions">${RECHNEN_RAEUME.map((eintrag) => knopf("zahlenraum", eintrag)).join("")}</div>
+        <p class="admin-lesen-frage">Minus</p>
+        <div class="card-actions">${RECHNEN_MINUS.map((eintrag) => knopf("minus", eintrag)).join("")}</div>
+      </div>`;
+  }
+
+  // Der Rechenbericht: nur aus den Zählern im Kasten (rechnen-stand.js,
+  // bericht) – kein Protokoll einzelner Antworten.
+  function renderKindRechenbericht(kind, detail) {
+    const rechnen = window.LernappRechenStand;
+    const name = kind.name || "Dein Kind";
+    const kopf = `<p class="admin-lesen-frage">Rechenbericht</p>`;
+    if (!rechnen?.bericht) return `${kopf}<p class="auth-hint">Den Rechenbericht zeigt der Elternbereich auf der Startseite.</p>`;
+    const daten = (detail?.userData?.gameState || {})[rechnen.KEY]?.data;
+    const b = daten ? rechnen.bericht(daten) : null;
+    if (!b || !b.runden) {
+      return `${kopf}<p class="auth-hint">${escapeHtml(name)} hat in der Rechenecke noch nicht gespielt. Der Rechenwagen steht auf dem Startbild über dem Lesewagen.</p>`;
+    }
+    const zeile = (titel, wert) => `<div class="lesebericht-zeile"><span>${escapeHtml(titel)}</span><strong>${wert}</strong></div>`;
+    const namen = rechnen.DRACHE_NAMEN || {};
+    const d = b.drache;
+    const drache = d?.fertig ? "Alle drei Leben geschafft" : `${namen[d?.id] || "Drache"}, Stufe ${d?.stufe || 1} von 15`;
+    const sprosse = rechnen.SPROSSE_INFO?.[b.sprosse]?.titel || b.sprosse;
+    const zeilen = [
+      zeile("Runden in den Rechenspielen", escapeHtml(String(b.runden))),
+      zeile("Taler für den Drachen", escapeHtml(String(b.taler))),
+      zeile("Rechendrache", escapeHtml(drache)),
+      zeile("Rechenwagen eingerichtet", escapeHtml(`${b.einrichtung} von 15`)),
+      zeile("Beginnt bei", escapeHtml(sprosse)),
+      zeile("Aufgaben, die sitzen", escapeHtml(b.sitzend.length ? `${b.sitzend.length}: ${b.sitzend.slice(0, 12).join(", ")}${b.sitzend.length > 12 ? " …" : ""}` : "noch keine")),
+    ];
+    if (b.wackelig.length) zeilen.push(zeile("Wackelt noch", escapeHtml(b.wackelig.join(", "))));
+    if (b.lieblinge.length) zeilen.push(zeile("Am meisten gespielt", escapeHtml(b.lieblinge.join(", "))));
+    if (b.gewachsen.length) zeilen.push(zeile("Von selbst angepasst", b.gewachsen.map((g) => escapeHtml(`${g.titel} (${g.schritt > 0 ? "schwerer" : "leichter"})`)).join(", ")));
+    const tipps = [];
+    if ((b.fehler.eins || 0) >= 2) tipps.push(`Oft genau eins daneben (${b.fehler.eins}×): Beim Weiterzählen wird wohl die Startzahl mitgezählt – bei 3 + 2 «drei, vier» statt «vier, fünf». Zeigen hilft: Die 3 ist schon da, gezählt wird ab der nächsten.`);
+    if ((b.fehler.art || 0) >= 2) tipps.push(`Plus und Minus vertauscht (${b.fehler.art}×): Erzählt die Rechnung als Geschichte – kommen welche dazu oder gehen welche weg?`);
+    if ((b.fehler.dreher || 0) >= 2) tipps.push(`Zahlendreher wie 12 und 21 (${b.fehler.dreher}×): Im Deutschen hört man die Einer zuerst. Zehner und Einer mit Fingern oder Münzen zeigen hilft.`);
+    // Die Plus-Tafel: 0 + 0 bis 10 + 10. Grün sitzt, gelb geübt, grau noch nicht.
+    let tafel = `<div class="rechen-tafel-rahmen"><table class="rechen-tafel" aria-label="Plus-Tafel: grün sitzt, gelb geübt"><thead><tr><th>+</th>${Array.from({ length: 11 }, (_, i) => `<th>${i}</th>`).join("")}</tr></thead><tbody>`;
+    b.tafel.forEach((reihe, a) => {
+      tafel += `<tr><th>${a}</th>${reihe.map((wert, bb) => `<td class="${wert ? `ist-${wert}` : ""}" title="${a} + ${bb} = ${a + bb}">${wert ? a + bb : ""}</td>`).join("")}</tr>`;
+    });
+    tafel += "</tbody></table></div>";
+    return `${kopf}
+        <div class="lesebericht">${zeilen.join("")}</div>
+        <p class="admin-lesen-frage">Plus-Tafel</p>
+        ${tafel}
+        <p class="auth-hint">Grün: kommt schnell und richtig, an zwei verschiedenen Tagen – ${escapeHtml(name)} weiss es, statt zu zählen. Gelb: schon geübt. Zählen ist am Anfang richtig und wichtig; mit der Zeit werden die Felder grün.</p>
+        ${tipps.map((t) => `<p class="auth-hint">${escapeHtml(t)}</p>`).join("")}`;
   }
 
   // Der Lesebericht: was das Kind in der Leseecke liest. Gerechnet wird in
@@ -3329,6 +3408,24 @@
     zeichneKinderKarte();
   }
 
+  async function kindRechnenSetzen(uid, feld, wert) {
+    if (!uid || !["beginn", "zahlenraum", "minus"].includes(feld)) return;
+    const jetzt = rechnenEinstellungIn(eltern.kindDetails.get(uid)?.userData?.gameState);
+    eltern.kindLaeuft = uid;
+    eltern.kindMeldung = { ok: false, text: "Die Rechenecke wird eingestellt..." };
+    zeichneKinderKarte();
+    try {
+      await setRechnenElternFor(uid, { ...jetzt, [feld]: wert });
+      eltern.kindDetails.delete(uid);
+      await kindNachladen(uid);
+      eltern.kindMeldung = { ok: true, text: "Die Rechenecke ist eingestellt. Sie gilt auf allen Geräten deines Kindes." };
+    } catch (error) {
+      eltern.kindMeldung = { ok: false, text: authErrorMessage(error) };
+    }
+    eltern.kindLaeuft = null;
+    zeichneKinderKarte();
+  }
+
   async function kindStufeSetzen(uid, stufe) {
     if (!uid) return;
     eltern.kindLaeuft = uid;
@@ -3393,6 +3490,10 @@
     });
     karte.querySelectorAll("[data-kind-stufe]").forEach((knopf) => {
       knopf.addEventListener("click", () => kindStufeSetzen(eltern.offenesKind, knopf.dataset.kindStufe));
+    });
+    karte.querySelectorAll("[data-kind-rechnen]").forEach((knopf) => {
+      const [feld, wert] = String(knopf.dataset.kindRechnen || "").split(":");
+      knopf.addEventListener("click", () => kindRechnenSetzen(eltern.offenesKind, feld, wert));
     });
     karte.querySelectorAll("[data-kind-lesen]").forEach((knopf) => {
       const [feld, wert] = String(knopf.dataset.kindLesen || "").split(":");
@@ -4062,6 +4163,58 @@
   const lautZeichen = (id) => id.charAt(0).toUpperCase() + id.slice(1);
   const LESEN_LAUTE_ERKLAERUNG = "Lernt dein Kind in der Schule schon lesen? Hake ab, welche Buchstaben die Klasse eingeführt hat: Das Buchstabenhaus zeigt dann genau diese, und Laute kuppeln, Wer fährt mit?, Wörter bauen und die Silbenbahn nehmen Wörter, die sich damit lesen lassen. «Nach Reihenfolge» führt die Buchstaben selbst ein, die leicht hörbaren zuerst.";
   const LESEN_ERKLAERUNG = "Der Lesewagen auf dem Startbild. «Nach Alter» beginnt mit der Schwierigkeitsstufe: «Leicht» beim Hören von Silben und Lauten, «Mittel» bei den Buchstaben, «Schwer» bei den Sätzen. Kann dein Kind schon mehr – oder braucht es noch Zeit –, wähle selbst. «Automatisch» zeigt den Jüngsten nur Grossbuchstaben, wie im Kindergarten, allen anderen gross und klein.";
+
+  // Die Rechenecke, wie die Eltern sie einstellen (rechnen-stand.js liest sie):
+  //   beginn      "auto" (nach der Stufe) oder eine Sprosse der Rechenleiter
+  //   zahlenraum  "auto" oder 5, 10, 20, 100: darüber geht keine Aufgabe
+  //   minus       "an" oder "aus"
+  const RECHNEN_ELTERN_KEY = "lernapp.rechnen.eltern";
+  const RECHNEN_BEGINN = [
+    ["auto", "Nach Alter"],
+    ["mengen", "Mengen sehen"],
+    ["zahlen", "Zahlen bis 10"],
+    ["plus", "Plus bis 10"],
+    ["plusminus", "Plus und Minus"],
+    ["bis20", "Bis 20"],
+    ["bis100", "Bis 100"],
+  ];
+  const RECHNEN_RAEUME = [
+    ["auto", "Nach Stufe"],
+    ["5", "Bis 5"],
+    ["10", "Bis 10"],
+    ["20", "Bis 20"],
+    ["100", "Bis 100"],
+  ];
+  const RECHNEN_MINUS = [
+    ["an", "Plus und Minus"],
+    ["aus", "Nur Plus"],
+  ];
+  const RECHNEN_ERKLAERUNG = "Der Rechenwagen auf dem Startbild, über dem Lesewagen. «Nach Alter» beginnt mit der Schwierigkeitsstufe: «Leicht» bei Plus bis 10 (die Spiele fangen mit Zahlen bis 5 an), «Mittel» bei Plus und Minus, «Schwer» bei den Zahlen bis 20. Jedes Spiel wächst danach von selbst mit.";
+
+  function rechnenEinstellungIn(gameState) {
+    const daten = (gameState || {})[RECHNEN_ELTERN_KEY]?.data || {};
+    const raum = RECHNEN_RAEUME.some(([wert]) => wert !== "auto" && Number(wert) === Number(daten.zahlenraum)) ? Number(daten.zahlenraum) : "auto";
+    return {
+      beginn: RECHNEN_BEGINN.some(([wert]) => wert === daten.beginn) ? daten.beginn : "auto",
+      zahlenraum: raum,
+      minus: daten.minus === "aus" ? "aus" : "an",
+    };
+  }
+
+  async function setRechnenElternFor(userId, einstellung = {}) {
+    const ref = userRef(userId);
+    if (!ref) return false;
+    const at = Date.now();
+    const data = { ...rechnenEinstellungIn({ [RECHNEN_ELTERN_KEY]: { data: einstellung } }), at };
+    await ref.set({
+      gameState: { [RECHNEN_ELTERN_KEY]: { data, updatedAt: at } },
+      updatedAt: serverTimestamp(),
+    }, { merge: true });
+    if (userId === state.user?.uid) {
+      try { localStorage.setItem(RECHNEN_ELTERN_KEY, JSON.stringify(data)); } catch { /* privater Modus */ }
+    }
+    return true;
+  }
 
   function lesenEinstellungIn(gameState) {
     const daten = (gameState || {})[LESEN_ELTERN_KEY]?.data || {};
