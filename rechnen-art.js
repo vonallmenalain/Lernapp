@@ -441,7 +441,8 @@
   //   ausbau   so viele Dinge der Einrichtung
   //   neuAb    ab welchem Ding der Einrichtung es neu ist (leuchtet)
   //   zu       Orte mit Schloss: Menge
-  function zimmer({ orte = new Set(), drache: d = {}, regal = 0, taler = 0, karte: m = null, ausbau = 0, neuAb = Infinity, zu = new Set(), labels = {} } = {}) {
+  //   name     wie das Kind den Drachen getauft hat ("" = noch nicht)
+  function zimmer({ orte = new Set(), drache: d = {}, regal = 0, taler = 0, karte: m = null, ausbau = 0, neuAb = Infinity, zu = new Set(), labels = {}, name = "" } = {}) {
     const ort = (id, label, inhalt, box) => {
       const [x, y, w, h] = box;
       const schloss = zu.has(id) ? `<g class="rw-schloss" transform="translate(${x + w - 18} ${y + 18})"><circle r="18" fill="${C.gelb}" stroke="#b8860b" stroke-width="3"/><path d="M-6 -3 v-4 a6 6 0 0 1 12 0 v4" fill="none" stroke="#5b3a29" stroke-width="3"/><rect x="-8" y="-3" width="16" height="12" rx="3" fill="#5b3a29"/></g>` : "";
@@ -524,7 +525,14 @@
       <ellipse cx="500" cy="380" rx="112" ry="24" fill="${C.lila}"/>
       <ellipse cx="500" cy="372" rx="98" ry="14" fill="${C.lilaHell}"/>
       <circle cx="392" cy="384" r="6" fill="${C.gelb}"/><circle cx="608" cy="384" r="6" fill="${C.gelb}"/>
-      ${dracheBild}`, [386, 196, 228, 214]);
+      ${dracheBild}`, [386, 196, 228, 206]);
+
+    // Das Namensschild vor dem Kissen: ein Tipp, und das Kind tauft den Drachen.
+    const schildText = name ? (name.length > 9 ? `${name.slice(0, 8)}…` : name) : "?";
+    s += ort("name", name ? `Das Schild: Dein Drache heisst ${name}` : "Das Schild: Hier bekommt dein Drache einen Namen", `
+      <rect x="428" y="430" width="6" height="26" fill="${C.holzDunkel}"/>
+      <rect x="398" y="404" width="66" height="30" rx="7" fill="#f6e3b4" stroke="${C.holzDunkel}" stroke-width="3"/>
+      <text x="431" y="${name ? 425 : 427}" text-anchor="middle" font-size="${name ? (schildText.length > 6 ? 12 : 15) : 20}" ${FONT} fill="${C.ink}">${schildText.replace(/&/g, "&amp;").replace(/</g, "&lt;")}</text>`, [394, 404, 72, 54]);
 
     s += ort("schatz", "Der Schatz", `<g class="rw-schatz">${schatz(taler)}</g>`, [600, 320, 108, 90]);
 
@@ -576,8 +584,8 @@
 
     if (orte.has("teppich")) {
       let felder = "";
-      for (let i = 0; i < 10; i += 1) felder += `<rect x="${432 + i * 25}" y="420" width="23" height="28" rx="3" fill="${fuenfer(i)}" fill-opacity="0.85"/><text x="${443.5 + i * 25}" y="440" text-anchor="middle" font-size="14" ${FONT} fill="#ffffff">${i + 1}</text>`;
-      s += ort("teppich", "Der Zahlenteppich", `<rect x="426" y="414" width="262" height="40" rx="6" fill="#fff6e0"/>${felder}`, [422, 412, 270, 46]);
+      for (let i = 0; i < 10; i += 1) felder += `<rect x="${478 + i * 21}" y="420" width="19" height="28" rx="3" fill="${fuenfer(i)}" fill-opacity="0.85"/><text x="${487.5 + i * 21}" y="439" text-anchor="middle" font-size="12" ${FONT} fill="#ffffff">${i + 1}</text>`;
+      s += ort("teppich", "Der Zahlenteppich", `<rect x="474" y="414" width="214" height="40" rx="6" fill="#fff6e0"/>${felder}`, [470, 412, 220, 46]);
     }
 
     // Das Rangiergleis mit zwei Spielzeugzügen und dem Tunnel

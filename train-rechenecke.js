@@ -47,7 +47,7 @@
 
   // In dieser Reihenfolge hüpfen die Dinge beim Hereinkommen: einmal durchs
   // Zimmer, zuletzt der Drache und seine Karte.
-  const REIHUM = ["tuer", "zaehlrahmen", "fenster", "uhr", "kiosk", "kiste", "wuerfel", "gleis", "teppich", "tunnel", "waage", "zahlenhaus", "perron", "schatz", "drache", "mission"];
+  const REIHUM = ["tuer", "zaehlrahmen", "fenster", "uhr", "kiosk", "kiste", "wuerfel", "gleis", "name", "teppich", "tunnel", "waage", "zahlenhaus", "perron", "schatz", "drache", "mission"];
   const HUEPF_START = 0.5;
   const HUEPF_ABSTAND = 0.1;
 
@@ -75,7 +75,8 @@
   // Die Spiele hinter einem Ding, in der Reihenfolge des Katalogs.
   function spieleAm(ort) {
     const katalog = stand()?.SPIELE || {};
-    return Object.entries(katalog).filter(([, spiel]) => spiel.ort === ort).map(([id, spiel]) => ({ id, ...spiel }));
+    const aktiv = stand()?.aktiv || (() => true);
+    return Object.entries(katalog).filter(([id, spiel]) => spiel.ort === ort && aktiv(id)).map(([id, spiel]) => ({ id, ...spiel }));
   }
   const gespielt = (page) => Boolean(window.LernappEntitlement?.gameGespielt?.(page));
   function zu(ort) {
@@ -93,7 +94,8 @@
     "In der Mitte sitzt dein Drache. Er schlägt vor, was als Nächstes dran ist: Tippe auf ihn oder auf den grünen Knopf.",
     "Für jede Runde bekommt er Taler, so viele wie Sterne – für seine Runde doppelt.",
     "Immer zehn Taler legt er auf einen Turm, und für fünf Taler wächst ihm eine neue Zacke.",
-    "Die Dinge im Wagen sind Spiele: das Gleis, der Tunnel, die Fenster, die Würfel und das Zahlenhaus.",
+    "Alles, was beim Hereinkommen hüpft, führt zu Spielen. Hat ein Ding mehrere, kannst du eines aussuchen.",
+    "Auf dem Schild vor dem Kissen steht der Name deines Drachen.",
     "Die Tür führt in den Lesewagen.",
   ].join(" ");
 
@@ -182,6 +184,79 @@
     window.setTimeout(() => reihe.querySelector("button")?.focus?.({ preventScroll: true }), 30);
   }
 
+  // Die Taufe: Namen zum Antippen (ein Kind tippt, liest aber noch nicht
+  // jedes Wort – die Stimme sagt den Namen), ein Würfel für einen
+  // zufälligen, und für Erwachsene ein Feld für einen eigenen.
+  const NAMEN = ["Zacki", "Funki", "Flammi", "Rubi", "Knobel", "Zahlino", "Glitzer", "Puffi", "Fauchi", "Zipfel"];
+  function zeigeTaufe(host) {
+    host.querySelector(".rechen-wahl")?.remove();
+    const s = stand();
+    const huelle = document.createElement("div");
+    huelle.className = "rechen-wahl rechen-taufe";
+    huelle.setAttribute("role", "dialog");
+    huelle.setAttribute("aria-label", "Wie soll dein Drache heissen?");
+    const karte = document.createElement("div");
+    karte.className = "rechen-wahl-karte";
+    const kopf = document.createElement("div");
+    kopf.className = "rechen-wahl-kopf";
+    const titel = document.createElement("p");
+    titel.className = "rechen-wahl-titel";
+    titel.textContent = "Wie soll dein Drache heissen?";
+    const zuKnopf = document.createElement("button");
+    zuKnopf.type = "button";
+    zuKnopf.className = "rechen-wahl-zu";
+    zuKnopf.setAttribute("aria-label", "Schliessen");
+    zuKnopf.textContent = "✕";
+    kopf.append(titel, zuKnopf);
+    const reihe = document.createElement("div");
+    reihe.className = "rechen-taufe-namen";
+    const schliessen = () => { huelle.remove(); kids()?.setHelp?.(HILFE); document.removeEventListener("keydown", taste); };
+    const taste = (e) => { if (e.key === "Escape") schliessen(); };
+    const taufen = (name) => {
+      const sauber = s.nameSauber(name);
+      if (!sauber) return;
+      s.dracheTaufen(sauber);
+      kids()?.playJingle?.("unlock");
+      kids()?.speak?.(NAMEN.includes(sauber) ? `Dein Drache heisst jetzt ${sauber}!` : "Dein Drache hat jetzt einen Namen!");
+      schliessen();
+      zeichne({ huepfen: false });
+    };
+    const knopf = (text, wert, klasse = "") => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = `rechen-taufe-name ${klasse}`.trim();
+      b.textContent = text;
+      b.addEventListener("click", () => {
+        if (wert === null) { const n = NAMEN[Math.floor(Math.random() * NAMEN.length)]; kids()?.speak?.(n); taufen(n); return; }
+        taufen(wert);
+      });
+      return b;
+    };
+    NAMEN.forEach((n) => reihe.append(knopf(n, n)));
+    reihe.append(knopf("🎲", null, "ist-wuerfel"));
+    const form = document.createElement("form");
+    form.className = "rechen-taufe-eigen";
+    const feld = document.createElement("input");
+    feld.type = "text";
+    feld.id = "rechen-taufe-feld";
+    feld.maxLength = 16;
+    feld.placeholder = "Eigener Name";
+    feld.setAttribute("aria-label", "Eigener Name für den Drachen");
+    const ok = document.createElement("button");
+    ok.type = "submit";
+    ok.textContent = "OK";
+    form.append(feld, ok);
+    form.addEventListener("submit", (e) => { e.preventDefault(); taufen(feld.value); });
+    zuKnopf.addEventListener("click", schliessen);
+    huelle.addEventListener("click", (e) => { if (e.target === huelle) schliessen(); });
+    document.addEventListener("keydown", taste);
+    karte.append(kopf, reihe, form);
+    huelle.append(karte);
+    host.append(huelle);
+    kids()?.setHelp?.("Wie soll dein Drache heissen? Tippe auf einen Namen, oder auf den Würfel für einen zufälligen.");
+    window.setTimeout(() => reihe.querySelector("button")?.focus?.({ preventScroll: true }), 30);
+  }
+
   let offen = null;
 
   // Was das Zimmer zeigt – ändert es sich, wird neu gezeichnet.
@@ -227,6 +302,7 @@
       orte, drache: d, regal: d.regal || 0, taler, karte, zu: gesperrt,
       ausbau: s.wagenStufe(jetzt), neuAb: ausbauNeuAb,
       labels: { drache: label },
+      name: s.dracheName(jetzt),
     }));
     const alt = host.querySelector(":scope > .rechenzimmer-svg");
     if (!alt && huepfen && !reduziert()) svg.classList.add("is-huepfen");
@@ -246,6 +322,7 @@
           return;
         }
         if (ort === "tuer") { onLesen?.(); return; }
+        if (ort === "name") { zeigeTaufe(host); return; }
         if (ort === "schatz") { kids()?.speak?.(schatzSatz(s.taler())); return; }
         const spiele = spieleAm(ort);
         if (spiele.length === 1) onPlay?.(spiele[0].page);
@@ -359,5 +436,5 @@
 
   stand()?.onChange?.(() => auffrischen());
 
-  window.LernappRechenecke = { mount, auffrischen, ORTE, HILFE, REIHUM, spieleAm, schatzSatz };
+  window.LernappRechenecke = { mount, auffrischen, ORTE, HILFE, REIHUM, NAMEN, spieleAm, schatzSatz };
 })();

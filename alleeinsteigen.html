@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="application-name" content="Gripszug" />
+    <meta name="description" content="Alle einsteigen! Jedes Tier antippen und zählen, wie viele eingestiegen sind." />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Gripszug" />
+    <meta name="theme-color" content="#fff1cf" />
+    <title>Alle einsteigen! · Gripszug</title>
+    <link rel="stylesheet" href="styles.css?v=2026-11-02-2" />
+    <link rel="stylesheet" href="rechnen.css?v=2026-11-02-2" />
+    <link rel="manifest" href="app.webmanifest?v=2026-11-02-2" />
+    <link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon-180.png" />
+  </head>
+  <body data-page="alleeinsteigen">
+    <!-- Ein Spiel der Rechenecke. Die Bühne baut rechnen-spiel.js auf
+         game-shell.js: dieselbe Landschaft wie das Startbild, der
+         Lautsprecher oben links, zurück geht es in den Rechenwagen. -->
+    <div id="rechen-stage" class="cm-stage rechen-stage" aria-label="Alle einsteigen!"></div>
+
+    <script defer src="https://www.gstatic.com/firebasejs/12.7.0/firebase-app-compat.js"></script>
+    <script defer src="https://www.gstatic.com/firebasejs/12.7.0/firebase-auth-compat.js"></script>
+    <script defer src="https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore-compat.js"></script>
+    <script defer src="highscore.js?v=2026-11-02-2"></script>
+    <script defer src="firebase.js?v=2026-11-02-2"></script>
+    <script defer src="entitlement.js?v=2026-11-02-2"></script>
+    <script defer src="kids.js?v=2026-11-02-2"></script>
+    <script defer src="lesen-stimme.js?v=2026-11-02-2"></script>
+    <script defer src="app-stimme.js?v=2026-11-02-2"></script>
+    <script defer src="train-art.js?v=2026-11-02-2"></script>
+    <script defer src="train-scenes.js?v=2026-11-02-2"></script>
+    <script defer src="game-cloud.js?v=2026-11-02-2"></script>
+    <script defer src="journey-plan.js?v=2026-11-02-2"></script>
+    <script defer src="rechnen-stand.js?v=2026-11-02-2"></script>
+    <script defer src="rechnen-art.js?v=2026-11-02-2"></script>
+    <script defer src="game-shell.js?v=2026-11-02-2"></script>
+    <script defer src="rechnen-spiel.js?v=2026-11-02-2"></script>
+    <script defer src="rechnen-spiele-2.js?v=2026-11-02-2"></script>
+    <script defer src="pwa.js?v=2026-11-02-2"></script>
+  </body>
+</html>

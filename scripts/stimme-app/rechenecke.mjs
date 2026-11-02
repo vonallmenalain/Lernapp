@@ -59,8 +59,14 @@ export default function texte(d) {
   // Die Auswahl hinter einem Ding mit mehreren Spielen.
   const orte = d.rechenecke?.ORTE || {};
   for (const [ort, titel] of Object.entries(orte)) {
-    const hier = spiele.filter((s) => s.ort === ort);
-    if (hier.length > 1) add(`${titel}. Tippe auf ein Spiel: ${hier.map((s) => s.titel).join(", ")}.`, zimmer);
+    for (const ohneMinus of [false, true]) {
+      const hier = spiele.filter((s) => s.ort === ort && !(ohneMinus && s.minus));
+      if (hier.length > 1) add(`${titel}. Tippe auf ein Spiel: ${hier.map((s) => s.titel).join(", ")}.`, zimmer);
+    }
+  }
+  // Die Taufe
+  if (d.quelle("train-rechenecke.js").includes("Dein Drache heisst jetzt ${sauber}!")) {
+    for (const name of d.rechenecke?.NAMEN || []) { add(`Dein Drache heisst jetzt ${name}!`, zimmer); add(name, zimmer); }
   }
 
   // --- rechnen-spiele-1.js ------------------------------------------------------
