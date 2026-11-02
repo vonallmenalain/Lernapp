@@ -6,8 +6,8 @@ Zug?»), `docs/UX-REVIEW-KINDER-4-8.md` (P9), `train-home.js` (`positionLesewage
 `positionBauplatz`), `entitlement.js` (`AREAS`, `LESEECKE`), `zahlengleis.js`, `lesen-stand.js`,
 `app-stimme.js`, `firestore.rules`
 
-> **Umsetzungsstand (November 2026):** **Etappe 1 ist gebaut** – siehe Abschnitt 0 gleich
-> unten. Die Entscheidungen sind gemäss Empfehlung gefallen (Abschnitt 16).
+> **Umsetzungsstand (November 2026):** **Etappe 1 und 2 sind gebaut** – siehe Abschnitt 0
+> gleich unten. Die Entscheidungen sind gemäss Empfehlung gefallen (Abschnitt 16).
 >
 > **Ursprünglicher Stand:** Entwurf, noch nichts gebaut. Der Wunsch kommt von der jüngeren Tochter (5): Sie
 > möchte rechnen, vor allem Plus. Dieses Dokument sammelt, wie ein eigener Ort für Zahlen und
@@ -100,6 +100,43 @@ vor dem Kind ins Ziel.
   Drache, Mitwachsen, Fehlerbilder, Bericht, Einstellungen) und `scripts/check-rechenecke.mjs`
   (im Browser: Startbild, Zimmer, Tür, jedes Spiel, eine ganze Runde auf «leicht» mit Ziehen,
   der Drache schlüpft).
+
+### 0.6 Etappe 2: Zahlen festigen und Minus
+
+Neunzehn Spiele in `rechnen-spiele-2.js`, dazu fünf neue Dinge im Rechenwagen: der
+**Zahlenteppich** (Hüpfkästchen 1–10, vor dem Kissen), der **Zählrahmen**, die
+**Spielzeugkiste**, der **Kiosk** und die **Waage**. Wo mehrere Spiele hinter einem Ding stehen
+(Gleis, Tunnel, Perron, Würfel, Teppich, Zählrahmen, Kiste), kommt eine Auswahl mit Bildern.
+
+| Ding | Spiele |
+| --- | --- |
+| Zahlenteppich | Fahrplan-Lücke, Countdown!, Hüpf-Lok |
+| Zählrahmen | Zahlen-Paare, Finger-Zahlen, Ziffern-Gleis |
+| Perron | Alle einsteigen!, Aussteigen bitte!, Plus oder Minus? |
+| Gleis | Wagen ordnen, Abkuppeln, Ballon-Wagen (neben Kuppel-Plus) |
+| Spielzeugkiste | Muster-Zug, Stolperwagen |
+| Würfel | Würfel-Plus (neben Hüpf-Gleis) |
+| Tunnel | Tunnel-Versteck (neben Tunnel-Rechnen) |
+| Fenster | Zähl-Fenster (neben Blitzblick) |
+| Waage | Wer hat mehr? |
+| Kiosk | Kiosk: mit 1-, 2- und 5-Franken-Stücken genau bezahlen |
+
+Abweichungen vom Konzept: Das **Ziffern-Gleis** ist ein Punkt-zu-Punkt der Ziffer (die Lok fährt
+von Bahnhof zu Bahnhof, geschlossene Ziffern schliessen sich von selbst, die 4 hebt den Stift),
+statt mit dem Finger nachzufahren. Fahrplan-Lücke, Countdown und Hüpf-Lok stehen auf dem
+Zahlenteppich statt an einer Fahrplan-Tafel – an der Wand war kein Platz mehr.
+
+Spiele, die nur mit Minus gehen (`minus: true` im Katalog), fallen weg, wenn die Eltern Minus
+ausgeschaltet haben – im Zimmer wie bei den Vorschlägen (`rechnen-stand.js`, `aktiv`).
+
+**Die Taufe**: Vor dem Kissen steht ein Schild mit dem Namen des Drachen (oder «?»). Ein Tipp
+zeigt zehn Namen zum Antippen und einen Würfel für einen zufälligen; Erwachsene können einen
+eigenen tippen. Der Name steht danach auf dem Schild und auf der Missionskarte («Zacki
+schlägt vor»); gesprochen wird weiter «Dein Drache» (ausser beim Taufen selbst), weil ein
+eigener Name keine Aufnahme hat.
+
+Die **Einrichtung in 15 Schritten** und der **Rechenbericht mit Plus-Tafel** kamen schon mit
+Etappe 1. Stimme: `scripts/stimme-app/rechenecke-2.mjs` zählt die Sätze mit Zahlen auf.
 
 ---
 

@@ -1,4 +1,4 @@
-const APP_VERSION = "2026-11-02-1";
+const APP_VERSION = "2026-11-02-2";
 const CACHE_PREFIX = "lernapp-pwa-";
 const CACHE_NAME = `${CACHE_PREFIX}${APP_VERSION}`;
 const ASSET_VERSION_QUERY = `?v=${APP_VERSION}`;
@@ -78,6 +78,25 @@ const CORE_ASSETS = [
   "./einsteigen.html",
   "./huepfgleis.html",
   "./zahlenhaus.html",
+  "./kiosk.html",
+  "./tunnelversteck.html",
+  "./wuerfelplus.html",
+  "./stolperwagen.html",
+  "./musterzug.html",
+  "./ballonwagen.html",
+  "./abkuppeln.html",
+  "./wagenordnen.html",
+  "./zaehlfenster.html",
+  "./werhatmehr.html",
+  "./plusoderminus.html",
+  "./aussteigen.html",
+  "./alleeinsteigen.html",
+  "./ziffernpunkte.html",
+  "./fingerzahlen.html",
+  "./zahlenpaare.html",
+  "./huepflok.html",
+  "./countdown.html",
+  "./fahrplanluecke.html",
   "./buchstabenhaus.html",
   "./lautekuppeln.html",
   "./stimmtdas.html",
@@ -152,6 +171,7 @@ const CORE_ASSETS = [
   `./rechnen-art.js${ASSET_VERSION_QUERY}`,
   `./rechnen-spiel.js${ASSET_VERSION_QUERY}`,
   `./rechnen-spiele-1.js${ASSET_VERSION_QUERY}`,
+  `./rechnen-spiele-2.js${ASSET_VERSION_QUERY}`,
   `./train-rechenecke.js${ASSET_VERSION_QUERY}`,
   `./lesen-buecher.js${ASSET_VERSION_QUERY}`,
   `./lesen-bilder.js${ASSET_VERSION_QUERY}`,

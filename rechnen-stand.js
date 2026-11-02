@@ -92,17 +92,36 @@
     tunnelrechnen: { page: "tunnelrechnen.html", titel: "Tunnel-Rechnen", ort: "tunnel", bild: "⛰️" },
     blitzblick: { page: "blitzblick.html", titel: "Blitzblick", ort: "fenster", bild: "⚡" },
     einsteigen: { page: "einsteigen.html", titel: "Einsteigen bitte!", ort: "perron", bild: "🚉" },
-    huepfgleis: { page: "huepfgleis.html", titel: "Hüpf-Gleis", ort: "wuerfel", bild: "🎲" },
+    huepfgleis: { page: "huepfgleis.html", titel: "Hüpf-Gleis", ort: "wuerfel", bild: "🛤️" },
     zahlenhaus: { page: "zahlenhaus.html", titel: "Zahlenhaus", ort: "zahlenhaus", bild: "🏠" },
+    fahrplanluecke: { page: "fahrplanluecke.html", titel: "Fahrplan-Lücke", ort: "teppich", bild: "🚉" },
+    countdown: { page: "countdown.html", titel: "Countdown!", ort: "teppich", bild: "🚀" },
+    huepflok: { page: "huepflok.html", titel: "Hüpf-Lok", ort: "teppich", bild: "🦘" },
+    zahlenpaare: { page: "zahlenpaare.html", titel: "Zahlen-Paare", ort: "zaehlrahmen", bild: "🃏" },
+    fingerzahlen: { page: "fingerzahlen.html", titel: "Finger-Zahlen", ort: "zaehlrahmen", bild: "✋" },
+    ziffernpunkte: { page: "ziffernpunkte.html", titel: "Ziffern-Gleis", ort: "zaehlrahmen", bild: "✏️" },
+    alleeinsteigen: { page: "alleeinsteigen.html", titel: "Alle einsteigen!", ort: "perron", bild: "👆" },
+    aussteigen: { page: "aussteigen.html", titel: "Aussteigen bitte!", ort: "perron", bild: "👋", minus: true },
+    plusoderminus: { page: "plusoderminus.html", titel: "Plus oder Minus?", ort: "perron", bild: "➕", minus: true },
+    werhatmehr: { page: "werhatmehr.html", titel: "Wer hat mehr?", ort: "waage", bild: "⚖️" },
+    zaehlfenster: { page: "zaehlfenster.html", titel: "Zähl-Fenster", ort: "fenster", bild: "🐄" },
+    wagenordnen: { page: "wagenordnen.html", titel: "Wagen ordnen", ort: "gleis", bild: "🔢" },
+    abkuppeln: { page: "abkuppeln.html", titel: "Abkuppeln", ort: "gleis", bild: "➖", minus: true },
+    ballonwagen: { page: "ballonwagen.html", titel: "Ballon-Wagen", ort: "gleis", bild: "🎈", minus: true },
+    musterzug: { page: "musterzug.html", titel: "Muster-Zug", ort: "kiste", bild: "🟥" },
+    stolperwagen: { page: "stolperwagen.html", titel: "Stolperwagen", ort: "kiste", bild: "❗" },
+    wuerfelplus: { page: "wuerfelplus.html", titel: "Würfel-Plus", ort: "wuerfel", bild: "🎲" },
+    tunnelversteck: { page: "tunnelversteck.html", titel: "Tunnel-Versteck", ort: "tunnel", bild: "🙈" },
+    kiosk: { page: "kiosk.html", titel: "Kiosk", ort: "kiosk", bild: "🍦" },
   };
   // Was der Drache je Sprosse vorschlägt (dran ist, was am längsten ruht).
   const AUSWAHL = {
-    mengen: ["blitzblick", "huepfgleis", "kuppelplus", "einsteigen"],
-    zahlen: ["blitzblick", "huepfgleis", "kuppelplus", "zahlenhaus", "einsteigen"],
-    plus: ["kuppelplus", "tunnelrechnen", "blitzblick", "einsteigen", "huepfgleis", "zahlenhaus"],
-    plusminus: ["tunnelrechnen", "einsteigen", "zahlenhaus", "kuppelplus", "blitzblick", "huepfgleis"],
-    bis20: ["tunnelrechnen", "blitzblick", "zahlenhaus", "einsteigen", "huepfgleis", "kuppelplus"],
-    bis100: ["tunnelrechnen", "blitzblick", "zahlenhaus", "einsteigen", "huepfgleis", "kuppelplus"],
+    mengen: ["blitzblick", "alleeinsteigen", "werhatmehr", "zaehlfenster", "musterzug", "fingerzahlen", "huepfgleis", "zahlenpaare", "countdown", "kuppelplus", "einsteigen"],
+    zahlen: ["fahrplanluecke", "countdown", "zahlenpaare", "fingerzahlen", "ziffernpunkte", "wagenordnen", "huepfgleis", "blitzblick", "alleeinsteigen", "zaehlfenster", "stolperwagen", "kuppelplus", "zahlenhaus"],
+    plus: ["kuppelplus", "tunnelrechnen", "einsteigen", "huepflok", "wuerfelplus", "tunnelversteck", "zahlenhaus", "blitzblick", "huepfgleis", "kiosk", "fahrplanluecke", "musterzug", "zahlenpaare"],
+    plusminus: ["tunnelrechnen", "abkuppeln", "aussteigen", "ballonwagen", "plusoderminus", "tunnelversteck", "zahlenhaus", "kiosk", "huepflok", "wuerfelplus", "einsteigen", "kuppelplus"],
+    bis20: ["blitzblick", "tunnelrechnen", "wuerfelplus", "huepflok", "zahlenhaus", "kiosk", "wagenordnen", "werhatmehr", "aussteigen", "fahrplanluecke", "musterzug"],
+    bis100: ["blitzblick", "tunnelrechnen", "wuerfelplus", "huepflok", "zahlenhaus", "kiosk", "wagenordnen", "werhatmehr", "aussteigen", "fahrplanluecke", "musterzug"],
   };
 
   // ---------------------------------------------------------------------------
@@ -458,8 +477,16 @@
   // ---------------------------------------------------------------------------
   // Was ist als Nächstes dran?
   // ---------------------------------------------------------------------------
+  // Ist ein Spiel gerade dabei? Spiele, die nur mit Minus gehen, fallen weg,
+  // wenn die Eltern Minus ausgeschaltet haben.
+  function aktiv(id) {
+    const spiel = SPIELE[id];
+    return Boolean(spiel) && (!spiel.minus || minusErlaubt());
+  }
+
   function naechstes(s = stand()) {
-    const liste = (AUSWAHL[sprosse()] || AUSWAHL.plus).filter((id) => SPIELE[id]);
+    let liste = (AUSWAHL[sprosse()] || AUSWAHL.plus).filter(aktiv);
+    if (!liste.length) liste = Object.keys(SPIELE).filter(aktiv);
     let beste = liste[0];
     let alter = Infinity;
     liste.forEach((id) => {
@@ -512,6 +539,6 @@
     merge, stand, onChange: (fn) => box.onChange(fn),
     spielRunde, spielGeoeffnet, mitwachsen, aufgabeKey, aufgabeGeuebt, fehlerbild, fehlerVon, sitzt,
     taler, runden, drache, dracheAus, missionStarten, missionErfuellt, dracheName, dracheTaufen, nameSauber, wagenStufe,
-    einstellungen, elternSauber, grundstufe, stufe, sprosse, deckel, minusErlaubt, naechstes, bericht,
+    einstellungen, elternSauber, grundstufe, stufe, sprosse, deckel, minusErlaubt, aktiv, naechstes, bericht,
   };
 })();

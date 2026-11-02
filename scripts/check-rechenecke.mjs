@@ -7,8 +7,13 @@
  *               jedes Ding mit Spielen steht da, dazu Drache, Karte, Schatz
  *               und die Tür. Am Anfang liegt ein Ei auf dem Kissen.
  *   Tür         führt in den Lesewagen, und dessen Tür zurück.
- *   Spiele      Jedes Spiel startet mit «Los» und stellt eine Aufgabe (Zahlen
- *               zur Wahl oder der Würfel) – ohne Fehler auf der Seite.
+ *   Spiele      Jedes Spiel des Katalogs startet mit «Los» und stellt eine
+ *               Aufgabe (Zahlen oder Knöpfe zur Wahl, der Würfel, oder Dinge
+ *               im Bild zum Antippen) – ohne Fehler auf der Seite.
+ *   Auswahl     Das Gleis hat mehrere Spiele und zeigt eine Auswahl; der
+ *               Tunnel führt über seine Auswahl in ein Spiel.
+ *   Taufe       Das Schild vor dem Kissen: ein Name, und er steht auf dem
+ *               Schild und auf der Karte des Drachen.
  *   Runde       Eine ganze Runde Kuppel-Plus: Am Schluss stehen Sterne und
  *               Taler auf der Tafel, im Rechenstand Runde und Taler, und
  *               zurück im Rechenwagen ist der Drache aus dem Ei geschlüpft.
@@ -43,7 +48,9 @@ async function warteAufServer() {
 
 const befunde = [];
 const fehlt = (was) => befunde.push(was);
-const SPIELE = ["kuppelplus", "tunnelrechnen", "blitzblick", "einsteigen", "huepfgleis", "zahlenhaus"];
+// Alle Spiele des Katalogs (rechnen-stand.js), aus der Datei gelesen.
+import { readFileSync } from "node:fs";
+const SPIELE = [...readFileSync(path.join(WURZEL, "rechnen-stand.js"), "utf8").matchAll(/^    ([a-z0-9]+): \{ page: "\1\.html"/gm)].map((m) => m[1]);
 
 // Eine Sprachausgabe, die sofort fertig ist – sonst warteten die Spiele auf
 // jede Ansage.
@@ -117,14 +124,30 @@ async function main() {
       hilfe: window.LernappKids?.currentHelp?.() || "",
     }));
     if (zimmer.view !== "rechnen") fehlt(`Zimmer: Ein Tipp auf den Rechenwagen führt nicht hinein (${zimmer.view})`);
-    for (const ort of ["drache", "mission", "schatz", "tuer", "gleis", "tunnel", "fenster", "perron", "wuerfel", "zahlenhaus"]) {
+    for (const ort of ["drache", "mission", "schatz", "tuer", "name", "gleis", "tunnel", "fenster", "perron", "wuerfel", "zahlenhaus", "teppich", "zaehlrahmen", "kiosk", "kiste", "waage"]) {
       if (!zimmer.orte.includes(ort)) fehlt(`Zimmer: ${ort} fehlt`);
     }
     if (zimmer.zug !== "0") fehlt("Zimmer: Der Zug von draussen steht im Rechenwagen");
     if (!zimmer.ei) fehlt("Zimmer: Am Anfang liegt kein Ei auf dem Kissen");
     if (!/Rechenwagen/.test(zimmer.hilfe)) fehlt("Zimmer: Der Lautsprecher erklärt den Rechenwagen nicht");
-    // Eine Auswahl gibt es erst mit mehreren Spielen an einem Ding – hier
-    // führt ein Tipp gleich ins Spiel. Die Tür:
+    // Das Gleis hat mehrere Spiele: Es öffnet eine Auswahl mit Bildern.
+    await seite.click(".rechen-ort-gleis .rechen-hitbox");
+    await seite.waitForTimeout(600);
+    const wahl = await seite.$$eval(".rechen-wahl .rechen-wahl-spiel", (k) => k.map((x) => x.dataset.spiel));
+    if (wahl.length < 2 || !wahl.includes("kuppelplus")) fehlt(`Zimmer: Das Gleis zeigt keine Auswahl (${wahl.join(",")})`);
+    await seite.keyboard.press("Escape");
+    await seite.waitForTimeout(300);
+    // Die Taufe: Das Schild vor dem Kissen, ein Name, und er steht auf Schild und Karte.
+    await seite.click(".rechen-ort-name .rechen-hitbox");
+    await seite.waitForTimeout(600);
+    if (!(await seite.$(".rechen-taufe"))) fehlt("Taufe: Das Schild öffnet keine Namen");
+    else {
+      await seite.click(".rechen-taufe-name >> nth=1");
+      await seite.waitForTimeout(900);
+      const getauft = await seite.evaluate(() => ({ name: window.LernappRechenStand.dracheName(), schild: document.querySelector(".rechen-ort-name text")?.textContent, karte: document.querySelector(".rechen-ort-mission")?.textContent || "" }));
+      if (getauft.name !== "Funki" || getauft.schild !== "Funki" || !/Funki schlägt vor/.test(getauft.karte)) fehlt(`Taufe: ${JSON.stringify(getauft)}`);
+    }
+    // Die Tür:
     await seite.click(".rechen-ort-tuer .rechen-hitbox");
     await seite.waitForTimeout(1200);
     if ((await seite.evaluate(() => document.querySelector(".train-stage")?.dataset.view)) !== "lesen") fehlt("Tür: führt nicht in den Lesewagen");
@@ -134,10 +157,13 @@ async function main() {
       await seite.waitForTimeout(1200);
       if ((await seite.evaluate(() => document.querySelector(".train-stage")?.dataset.view)) !== "rechnen") fehlt("Tür: Die Tür im Lesewagen führt nicht zurück");
     }
-    // Ein Tipp auf ein Ding öffnet sein Spiel.
-    await seite.click(".rechen-ort-zahlenhaus .rechen-hitbox");
+    // Ein Tipp auf ein Spiel der Auswahl öffnet es.
+    await seite.click(".rechen-ort-tunnel .rechen-hitbox");
+    await seite.waitForTimeout(600);
+    const tunnelWahl = await seite.$(".rechen-wahl .rechen-wahl-spiel");
+    if (tunnelWahl) await tunnelWahl.click();
     await seite.waitForTimeout(2500);
-    if (!/zahlenhaus\.html/.test(seite.url())) fehlt(`Zimmer: Das Zahlenhaus öffnet nicht sein Spiel (${seite.url()})`);
+    if (!/tunnel(rechnen|versteck)\.html/.test(seite.url())) fehlt(`Zimmer: Der Tunnel öffnet kein Spiel (${seite.url()})`);
     await kontext.close();
 
     // Handy quer: der Wagen steht oder bleibt weg, deckt aber nichts zu.
@@ -154,10 +180,10 @@ async function main() {
       let gestellt = false;
       for (let i = 0; i < 40 && !gestellt; i += 1) {
         await s.waitForTimeout(400);
-        gestellt = Boolean(await s.$(".rechen-antworten .rechen-zahl, .rechen-wurf"));
+        gestellt = Boolean(await s.$(".rechen-antworten .rechen-zahl, .rechen-antworten .rechen-wahlknopf, .rechen-wurf, .rechen-szene-svg [role=\"button\"], .rechen-szene-svg .rw-ziel, .rechen-szene-svg .rw-tippmich, .rechen-szene-svg .rw-gleisfeld"));
       }
       if (!gestellt) fehlt(`${id}: stellt nach «Los» keine Aufgabe`);
-      const blase = await s.evaluate(() => document.querySelector(".rechen-blase-text")?.textContent || "");
+      const blase = await s.evaluate(() => document.querySelector(".rechen-blase-text")?.textContent || document.querySelector(".rechen-antworten")?.textContent || "");
       if (!blase) fehlt(`${id}: Die Sprechblase bleibt leer`);
       await k.close();
     }
