@@ -600,7 +600,8 @@
   //             hat, braucht, neuAb, geschenkAuf, zu
   // Ohne lesen-wurm.js oder ohne wurm sitzt der Lesewurm wie früher im
   // Sessel.
-  function buildLesezimmer({ glieder = 1, gelesen = 0, wurmName = "", ausbau = 0, neuAb = Infinity, wurm = null, mission = null } = {}) {
+  //   tuer   die Tür in den Rechenwagen (gibt es die Rechenecke, ist sie da)
+  function buildLesezimmer({ glieder = 1, gelesen = 0, wurmName = "", ausbau = 0, neuAb = Infinity, wurm = null, mission = null, tuer = false } = {}) {
     const W = wurm ? window.LernappLeseWurm : null;
     const da = (id) => einrichtung(id, { ausbau, neuAb });
     const svg = el("svg", { viewBox: `0 0 ${ZIMMER_W} ${ZIMMER_H}`, class: "lesezimmer-svg", role: "img", "aria-label": "Im Lesewagen" });
@@ -679,6 +680,20 @@
     ]));
     svg.append(ort("wurmname", wurmName ? `Das Schild: Der Lesewurm heisst ${wurmName}` : "Das Schild: Hier bekommt der Lesewurm seinen Namen", "translate(322 470)", namensschild(wurmName)));
     svg.append(ort("silben", "Die Silbentrommel", "translate(150 540)", trommel()));
+    // Die Tür in den Rechenwagen, ganz links an der Stirnwand – wie im echten
+    // Zug der Durchgang zum nächsten Wagen. Das Schild mit «1+2» sagt, wohin.
+    if (tuer) {
+      svg.append(ort("rechnen", "Die Tür in den Rechenwagen", "translate(0 0)", [
+        el("rect", { x: 2, y: 228, width: 42, height: 296, rx: 8, fill: "#8a5a35" }),
+        el("rect", { x: 8, y: 242, width: 30, height: 268, rx: 5, fill: "#b07a45" }),
+        el("circle", { cx: 23, cy: 282, r: 11, fill: "#cdeefa", stroke: "#5b3a29", "stroke-width": 3 }),
+        el("rect", { x: 4, y: 318, width: 38, height: 24, rx: 5, fill: "#ffd166", stroke: "#3d7be0", "stroke-width": 2 }),
+        el("text", { x: 23, y: 336, "text-anchor": "middle", "font-size": 15, "font-weight": 800, fill: "#e8543f", "font-family": "'Baloo 2', Nunito, sans-serif" }, []),
+        el("circle", { cx: 37, cy: 400, r: 4.5, fill: "#f4b400" }),
+      ]));
+      const schild = svg.querySelector(".lese-ort-rechnen text");
+      if (schild) schild.textContent = "1+2";
+    }
     svg.append(ort("woerter", "Die Wortkiste", "translate(1010 560)", wortkiste()));
     svg.append(ort("saetze", "Der Satzzug", "translate(560 590) scale(0.8)", spielzeugzug()));
     return svg;

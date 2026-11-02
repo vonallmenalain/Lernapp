@@ -145,6 +145,19 @@
     { id: "postkarten", page: "postkarten.html" },
   ] };
 
+  // Die Spiele der Rechenecke – wie die Leseecke: kein Bereich des Zugs, für
+  // die Schranke aber Spiele wie alle anderen, je eine Runde frei.
+  // scripts/validate-rechnen.mjs hält die Tabelle gleich wie den Katalog in
+  // rechnen-stand.js (SPIELE).
+  const RECHENECKE = { id: "rechnen", games: [
+    { id: "kuppelplus", page: "kuppelplus.html" },
+    { id: "tunnelrechnen", page: "tunnelrechnen.html" },
+    { id: "blitzblick", page: "blitzblick.html" },
+    { id: "einsteigen", page: "einsteigen.html" },
+    { id: "huepfgleis", page: "huepfgleis.html" },
+    { id: "zahlenhaus", page: "zahlenhaus.html" },
+  ] };
+
   // Das Bücherregal ist kein Spiel mit Runden: Diese zwei Bücher sind frei,
   // so oft ein Kind will, die anderen gehören zum Kauf. Lesen soll nicht
   // nach einer Runde aufhören. lesen-buecher.js markiert dieselben mit
@@ -324,7 +337,7 @@
     const key = String(pageOrId || "").split("?")[0].split("#")[0].split("/").pop();
     if (!key) return null;
     const gesucht = ohneEndung(key);
-    for (const area of [...AREAS, LESEECKE]) {
+    for (const area of [...AREAS, LESEECKE, RECHENECKE]) {
       const index = area.games.findIndex((g) =>
         g.page === key || ohneEndung(g.page) === gesucht || g.id === key || g.ownProgress === key);
       if (index >= 0) return { area, index, game: area.games[index] };
@@ -608,6 +621,7 @@
     GRATIS_RUNDEN,
     AREAS,
     LESEECKE,
+    RECHENECKE,
     GRATIS_BUECHER,
     reason,
     isFree,

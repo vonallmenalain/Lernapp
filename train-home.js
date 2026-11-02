@@ -55,6 +55,11 @@
   // Die Bauecke: der Bauplatz mit den vier Häusern auf dem Startbild und die
   // Häuser selbst (train-bau.js). Fehlen die Dateien, steht kein Bauplatz da.
   const bauApi = () => window.LernappBau || null;
+  // Die Rechenecke: der Rechenwagen auf dem zweiten Abstellgleis über dem
+  // Lesewagen (rechnen-art.js) und das Zimmer darin (train-rechenecke.js).
+  const rechenApi = () => window.LernappRechenecke || null;
+  const rechenArt = () => window.LernappRechenArt || null;
+  const rechenStand = () => window.LernappRechenStand || null;
   const bauArt = () => window.LernappBauArt || null;
   const bauStand = () => window.LernappBauStand || null;
   // Gezeigt wird, was gewählt ist – ob die Landschaft nach dem Stand dieses
@@ -463,6 +468,7 @@
       stage.style.removeProperty("--train-lift");
       positionStart();
       positionLesewagen();
+      positionRechenwagen();
       positionBauplatz();
       layoutFriends();
       return;
@@ -481,6 +487,7 @@
     stage.style.setProperty("--train-lift", `${Math.round(lift)}px`);
     positionStart();
     positionLesewagen();
+    positionRechenwagen();
     positionBauplatz();
     layoutFriends();
   }
@@ -1477,6 +1484,52 @@
   }
 
   // ---------------------------------------------------------------------------
+  // Der Rechenwagen
+  // ---------------------------------------------------------------------------
+  // Ein zweiter alter Wagen, auf einem Abstellgleis über dem Lesewagen – gleich
+  // breit wie dieser, solange der Platz bis zum Knopf der Landschaft reicht,
+  // sonst kleiner, und unter der Mindestgrösse gar nicht: Dann führt die Tür
+  // im Lesewagen hinüber.
+  const RECHEN_MIN = 70;
+  const RECHEN_ABSTAND = 10;
+
+  function buildRechenButton() {
+    const zeichner = rechenArt();
+    const s = rechenStand();
+    if (!zeichner || !s || !rechenApi()) return null;
+    const d = s.drache();
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "rechenwagen-knopf";
+    button.dataset.placed = "0";
+    button.setAttribute("aria-label", `Der Rechenwagen: Hier wird gerechnet. Dein Drache hat ${d.taler} Taler.`);
+    button.append(zeichner.svg(zeichner.wagenAussen({ leben: d.leben, stufe: d.stufe, ei: d.taler === 0, ausbau: s.wagenStufe() })));
+    button.addEventListener("click", enterRechenecke);
+    return button;
+  }
+
+  function positionRechenwagen() {
+    if (!rechenButton) return;
+    const zeichner = rechenArt();
+    const host = stage.getBoundingClientRect();
+    if (!zeichner || !leseButton || leseButton.dataset.placed !== "1" || !host.width) { rechenButton.dataset.placed = "0"; return; }
+    const knopf = sceneButton && !sceneButton.hidden ? sceneButton.getBoundingClientRect() : null;
+    const oben = (knopf ? knopf.bottom - host.top : 72) + 12;
+    const leseTop = parseFloat(leseButton.style.top) || 0;
+    const leseLinks = parseFloat(leseButton.style.left) || 12;
+    const leseBreite = parseFloat(leseButton.style.width) || 0;
+    const seite = zeichner.AUSSEN_H / zeichner.AUSSEN_W;
+    const platz = leseTop - RECHEN_ABSTAND - oben;
+    let breite = leseBreite;
+    if (breite * seite > platz) breite = platz / seite;
+    if (breite < RECHEN_MIN) { rechenButton.dataset.placed = "0"; return; }
+    rechenButton.style.width = `${Math.round(breite)}px`;
+    rechenButton.style.left = `${Math.round(leseLinks)}px`;
+    rechenButton.style.top = `${Math.round(leseTop - RECHEN_ABSTAND - breite * seite)}px`;
+    rechenButton.dataset.placed = "1";
+  }
+
+  // ---------------------------------------------------------------------------
   // Der Bauplatz
   // ---------------------------------------------------------------------------
   // Die vier Häuser der Bauecke, klein, rechts oben – gegenüber dem
@@ -1571,6 +1624,7 @@
   let sceneButton = null;
   let startButton = null;
   let leseButton = null;
+  let rechenButton = null;
   let bauButton = null;
   let busy = false;
 
@@ -1597,6 +1651,7 @@
     if (view.name === "reise" && name !== "reise") { kids()?.setHelp?.(""); view.journeyVisit = null; }
     // Dasselbe für den Lesewagen: Sein Lautsprecher-Text gehört zu ihm.
     if (view.name === "lesen" && name !== "lesen") kids()?.setHelp?.("");
+    if (view.name === "rechnen" && name !== "rechnen") kids()?.setHelp?.("");
     // Und für die Bauecke, die dazu ihre Uhren und Zuhörer abräumt. Was sie
     // warten liess, darf jetzt: das Gleis der Reise vermessen.
     if (view.name === "bau" && name !== "bau") { kids()?.setHelp?.(""); bauApi()?.unmount?.(); gleisImLeerlauf(); }
@@ -1617,6 +1672,7 @@
     if (sceneButton) sceneButton.hidden = name !== "home";
     if (startButton) startButton.hidden = name !== "home";
     if (leseButton) leseButton.hidden = name !== "home";
+    if (rechenButton) rechenButton.hidden = name !== "home";
     if (bauButton) bauButton.hidden = name !== "home";
     if (areaId) remember(LAST_AREA_KEY, areaId);
   }
@@ -1801,7 +1857,21 @@
     const host = document.createElement("div");
     host.className = "leseecke";
     renderLayer(host);
-    lese.mount({ host, onPlay: (url) => enterGame(url) });
+    lese.mount({ host, onPlay: (url) => enterGame(url), onRechnen: rechenApi() ? () => showRechenecke() : null });
+  }
+
+  // Im Rechenwagen: das Zimmer mit dem Drachen und den Wegen in die Spiele.
+  // Wie im Lesewagen bleibt der Zug draussen.
+  let renderAfterRechnen = false;
+
+  function showRechenecke() {
+    const rechnen = rechenApi();
+    if (!rechnen) { showHome(); return; }
+    setView("rechnen");
+    const host = document.createElement("div");
+    host.className = "rechenecke";
+    renderLayer(host);
+    rechnen.mount({ host, onPlay: (url) => enterGame(url), onLesen: leseApi() ? () => showLeseecke() : null });
   }
 
   // In der Bauecke: die vier Häuser (train-bau.js). Wie im Lesewagen bleibt
@@ -1924,6 +1994,18 @@
     busy = false;
   }
 
+  // In den Rechenwagen: wie in den Lesewagen.
+  async function enterRechenecke() {
+    if (busy || view.name !== "home" || !rechenApi()) return;
+    busy = true;
+    kids()?.playJingle?.("correct");
+    stage.dataset.rechnenEin = "1";
+    await after(420);
+    delete stage.dataset.rechnenEin;
+    showRechenecke();
+    busy = false;
+  }
+
   // Auf den Bauplatz: Die Häuser wachsen kurz auf, dann steht man davor.
   async function enterBauecke() {
     if (busy || view.name !== "home" || !bauApi()) return;
@@ -1999,7 +2081,16 @@
     // kommt jetzt: Das Bild wechselt ohnehin, da fällt ein frisch gebauter Zug
     // nicht auf.
     if (view.name === "lesen") {
-      if (!renderAfterLesen) { showHome(); return; }
+      // Durch die Tür kann ein Kind zwischen den Wagen hin und her: Was in
+      // einem davon liegen blieb, holt der Weg hinaus nach.
+      if (!renderAfterLesen && !renderAfterRechnen) { showHome(); return; }
+      setView("home");
+      render();
+      return;
+    }
+    // Aus dem Rechenwagen genauso.
+    if (view.name === "rechnen") {
+      if (!renderAfterRechnen && !renderAfterLesen) { showHome(); return; }
       setView("home");
       render();
       return;
@@ -2571,6 +2662,13 @@
       maybeCelebrate(progress.allAreas());
       return;
     }
+    // Im Rechenwagen genauso.
+    if (view.name === "rechnen") {
+      renderAfterRechnen = true;
+      rechenApi()?.auffrischen?.();
+      maybeCelebrate(progress.allAreas());
+      return;
+    }
     // In der Bauecke genauso: Sie frischt sich selbst auf, nur wenn sich an
     // ihren Häusern etwas geändert hat.
     if (view.name === "bau") {
@@ -2580,6 +2678,7 @@
       return;
     }
     renderAfterLesen = false;
+    renderAfterRechnen = false;
     const areas = progress.allAreas();
     if (!locoConfig) locoConfig = readLoco();
     const loco = locoConfig;
@@ -2667,6 +2766,7 @@
     sceneButton = scene ? buildSceneButton(scene) : null;
     startButton = buildStartButton();
     leseButton = buildLeseButton();
+    rechenButton = buildRechenButton();
     bauButton = buildBauButton();
 
     friendsHost = document.createElement("div");
@@ -2675,6 +2775,7 @@
 
     stage.append(friendsHost, band, layerHost, backButton, startButton);
     if (leseButton) stage.append(leseButton);
+    if (rechenButton) stage.append(rechenButton);
     if (bauButton) stage.append(bauButton);
     if (sceneButton) stage.append(sceneButton);
 
@@ -2688,6 +2789,7 @@
     else if (previous === "highscore" && view.highscoreGame) showHighscore(view.highscoreGame, view.highscoreLevel);
     else if (previous === "reise") showJourney({ mode: "quiet" });
     else if (previous === "lesen") showLeseecke();
+    else if (previous === "rechnen") showRechenecke();
     else if (previous === "bau") showBauecke();
     else showHome();
 
@@ -2772,12 +2874,14 @@
     let reiseWanted = null;
     let station = null;
     let leseWanted = null;
+    let rechenWanted = null;
     let bauWanted = null;
     try {
       const params = new URLSearchParams(window.location.search);
       wanted = params.get("bereich");
       reiseWanted = params.get("reise");
       leseWanted = params.get("lesen");
+      rechenWanted = params.get("rechnen");
       bauWanted = params.get("bau");
       station = Number(params.get("station")) || null;
     } catch { wanted = null; }
@@ -2786,6 +2890,12 @@
     if (bauWanted && bauApi()) {
       try { window.history.replaceState(null, "", window.location.pathname); } catch { /* ohne Verlauf */ }
       showBauecke();
+      return true;
+    }
+    // Zurück aus einem Spiel der Rechenecke: gleich wieder in den Rechenwagen.
+    if (rechenWanted && rechenApi()) {
+      try { window.history.replaceState(null, "", window.location.pathname); } catch { /* ohne Verlauf */ }
+      showRechenecke();
       return true;
     }
     // Zurück aus einem Spiel der Leseecke: gleich wieder in den Lesewagen.
@@ -2821,7 +2931,7 @@
 
   window.addEventListener("resize", () => {
     if (view.name !== "loco" && view.name !== "wagon") window.requestAnimationFrame(alignTrainToRail);
-    if (view.name === "home") window.requestAnimationFrame(() => { positionLesewagen(); positionBauplatz(); });
+    if (view.name === "home") window.requestAnimationFrame(() => { positionLesewagen(); positionRechenwagen(); positionBauplatz(); });
     if (view.name === "loco") {
       const svg = stage.querySelector(".loco-svg");
       const camera = stage.querySelector(".loco-camera");

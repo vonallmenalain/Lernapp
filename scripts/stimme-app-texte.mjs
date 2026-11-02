@@ -85,7 +85,7 @@ export function appDaten() {
     createElement: () => ({ setAttribute() {}, append() {}, appendChild() {}, addEventListener() {}, style: {}, classList: { add() {}, remove() {}, toggle() {} } }),
   };
   const ctx = vm.createContext({ window: fenster, document: dokument, localStorage: speicher, navigator: {}, console, setTimeout, clearTimeout, performance });
-  for (const datei of ["lesen-art.js", "lesen-inhalte.js", "lesen-buecher.js", "lesen-detektive.js", "lesen-wurm.js", "lesen-stand.js", "journey-plan.js", "train-progress.js"]) {
+  for (const datei of ["lesen-art.js", "lesen-inhalte.js", "lesen-buecher.js", "lesen-detektive.js", "lesen-wurm.js", "lesen-stand.js", "journey-plan.js", "train-progress.js", "rechnen-stand.js", "train-rechenecke.js"]) {
     vm.runInContext(lies(datei), ctx, { filename: datei });
   }
   const quellen = new Map();
@@ -98,6 +98,8 @@ export function appDaten() {
     buecher: fenster.LernappLeseBuecher,
     detektive: fenster.LernappLeseDetektive,
     wurm: fenster.LernappLeseWurm,
+    rechnen: fenster.LernappRechenStand,
+    rechenecke: fenster.LernappRechenecke,
     stand: fenster.LernappLeseStand,
     reise: fenster.LernappReise,
     train: fenster.LernappTrain,

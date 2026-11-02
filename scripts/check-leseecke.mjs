@@ -304,7 +304,8 @@ try {
   }));
   if (zimmer.ansicht !== "lesen") fehlt(`Lesewagen: nach dem Tipp ist die Ansicht ${zimmer.ansicht}, nicht lesen`);
   if (zimmer.sonnen !== 1 || !zimmer.sonneImFenster) fehlt(`Lesewagen: ${zimmer.sonnen} Sonnen in den Fenstern${zimmer.sonneImFenster ? "" : ", und keine steht in einem Fenster"}`);
-  if (zimmer.orte !== "buchstaben,buecher,detektiv,mission,saetze,silben,weiter,woerter,wurmname") fehlt(`Lesewagen: die Orte sind ${zimmer.orte}`);
+  // Dazu die Tür in den Rechenwagen (rechnen), wenn die Rechenecke geladen ist.
+  if (zimmer.orte !== "buchstaben,buecher,detektiv,mission,rechnen,saetze,silben,weiter,woerter,wurmname") fehlt(`Lesewagen: die Orte sind ${zimmer.orte}`);
   if (!zimmer.wurm) fehlt("Lesewagen: der Lesewurm sitzt nicht im Sessel");
   if (zimmer.stufe !== "falter/1") fehlt(`Lesewagen: ohne eine Runde sitzt der Lesewurm als ${zimmer.stufe} auf dem Sofa statt als Lesefalter in Stufe 1`);
   if (!zimmer.mission || zimmer.mission !== zimmer.missionSoll) fehlt(`Lesewagen: die Missionskarte zeigt «${zimmer.mission}» statt «${zimmer.missionSoll}»`);

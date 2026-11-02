@@ -6,7 +6,10 @@ Zug?»), `docs/UX-REVIEW-KINDER-4-8.md` (P9), `train-home.js` (`positionLesewage
 `positionBauplatz`), `entitlement.js` (`AREAS`, `LESEECKE`), `zahlengleis.js`, `lesen-stand.js`,
 `app-stimme.js`, `firestore.rules`
 
-> **Stand:** Entwurf, noch nichts gebaut. Der Wunsch kommt von der jüngeren Tochter (5): Sie
+> **Umsetzungsstand (November 2026):** **Etappe 1 ist gebaut** – siehe Abschnitt 0 gleich
+> unten. Die Entscheidungen sind gemäss Empfehlung gefallen (Abschnitt 16).
+>
+> **Ursprünglicher Stand:** Entwurf, noch nichts gebaut. Der Wunsch kommt von der jüngeren Tochter (5): Sie
 > möchte rechnen, vor allem Plus. Dieses Dokument sammelt, wie ein eigener Ort für Zahlen und
 > Rechnen aussehen kann – so wie die Leseecke für das Lesen –, mit möglichst vielen Spielideen,
 > einem Vorschlag für die Etappen und den offenen Entscheidungen (Abschnitt 16).
@@ -16,6 +19,87 @@ Zug?»), `docs/UX-REVIEW-KINDER-4-8.md` (P9), `train-home.js` (`positionLesewage
 > zeigt das Zimmer mit dem Rechendrachen und seinem Schatz, und drei Spiele lassen sich
 > wirklich spielen: **Kuppel-Plus**, **Tunnel-Rechnen** und **Blitzblick**, je in drei
 > Stufen. Alle anderen Dinge im Zimmer zeigen beim Antippen eine Karte mit der Idee dahinter.
+
+---
+
+## 0. Die Umsetzung (Etappe 1)
+
+Alle zwölf Entscheidungen sind gemäss Empfehlung gefallen. Was davon abweicht oder genauer
+geworden ist, steht hier.
+
+### 0.1 Der Rechenwagen auf dem Startbild
+
+Der Rechenwagen steht auf einem **zweiten Abstellgleis direkt über dem Lesewagen**, gleich
+breit und gleich links (`train-home.js`, `positionRechenwagen`). Über dem Lesewagen ist auf
+jedem Bildschirm Platz, und so bleibt die Mitte frei für die Züge der Gruppe. Reicht der Platz
+bis zum Knopf der Landschaft nicht, wird er kleiner, unter 70 Pixeln bleibt er weg. Von aussen:
+sonnengelb mit blauem Dach, über den Fenstern die Zahlen 1 bis 10 in den Fünfer-Farben, im
+mittleren Fenster der Drache (oder sein Ei), ist er ganz eingerichtet, eine Lichterkette.
+
+Im Lesewagen führt eine **Tür** ganz links (Schild «1+2») in den Rechenwagen, im Rechenwagen
+eine Tür zurück. `index.html?rechnen=1` führt direkt hinein; von dort kommen die Spiele zurück.
+
+### 0.2 Das Zimmer
+
+`train-rechenecke.js` hängt das Zimmer in die Bühne wie das Lesezimmer, gezeichnet in
+`rechnen-art.js` (1000 × 560). Ein Ding steht nur da, wenn es ein Spiel hat – der Wagen füllt
+sich mit jeder Etappe. In Etappe 1: Rangiergleis, Tunnel, linkes Fenster (Blitzblick), rechtes
+Fenster mit Perron (Einsteigen bitte!), Würfel, Zahlenhaus, dazu der Drache auf dem Kissen mit
+der Missionskarte, der Schatz und die Tür. Oben hängen die Zahlenwimpel 1 bis 10. Beim
+Hereinkommen hüpft reihum, was sich antippen lässt. Die **Einrichtung in 15 Schritten**
+(`AUSBAU`, jedes Ding selbst eine Zahl) ist schon eingebaut und wächst mit den Runden.
+
+### 0.3 Der Drache und sein Schatz
+
+Wie im Konzept: Taler aus Runden (so viele wie Sterne, die vorgeschlagene Runde doppelt), fünf
+Taler je Zacke, drei Leben zu je fünfzehn Stufen (Drachenbaby, Lokdrache, Sternendrache), nach
+Stufe 15 zehn Taler bis zum nächsten Leben (`rechnen-stand.js`, `dracheAus`). Neu: Vor dem
+ersten Taler liegt ein **Ei** auf dem Kissen, das wackelt – nach der ersten Runde schlüpft der
+Drache. Neue Taler fallen einzeln auf den Haufen, eine volle Leiste lässt ihn verschwinden und
+mit einem Knall mit einer Zacke mehr wiederkommen. Überraschungen: Flügel (2), Hörner (4), Schal
+(6), grösser (8), je Leben etwas Eigenes (10: Blumenkranz, Lokführermütze, Sternenstab),
+Funkeln (12), Krone (14). Ein Tipp auf den Schatz sagt, wie viele Taler es sind – in Truhen zu
+hundert, Türmen zu zehn und einzelnen. Die Taufe kommt in Etappe 2.
+
+### 0.4 Die sechs Spiele
+
+Ein gemeinsamer Rahmen (`rechnen-spiel.js`): «Los», ein Bild 1000 × 560, darunter eine
+Sprechblase mit dem Drachenkopf und die Antwort-Leiste mit grossen Zahlen. Fünf Aufgaben auf
+«leicht», sechs darüber. Jede Antwort wird vorgeführt (Zahlen erscheinen über den Wagen, die
+Stimme sagt die Rechnung, über fünf auch «fünf rote und drei blaue»). Die Spiele liegen in
+`rechnen-spiele-1.js`, jedes mit eigener Seite (`kuppelplus.html` …).
+
+| Spiel | leicht | mittel | schwer |
+| --- | --- | --- | --- |
+| Kuppel-Plus | bis 5, das Kind zieht die Wagen selbst (oder tippt) | bis 10, Schilder mit den Zahlen, kuppelt von selbst | die Rechnung zuerst, die Züge zur Kontrolle |
+| Tunnel-Rechnen | bis 5 | bis 10, Schilder | bis 10, die Hälfte Minus (Wagen rollen wieder heraus) |
+| Blitzblick | 1–5 im Fünferwagen | 2–10 im Zehnerwagen | 11–20 in zwei Wagen |
+| Einsteigen bitte! | bis 5, alles sichtbar | bis 10, die Fenster beschlagen | nur die Geschichte, das Bild zur Kontrolle |
+| Hüpf-Gleis | 1–10, Würfel 1–3, das Kind tippt jeden Hüpfer | 1–20, sagt zuerst, wo es landet | 1–30, zwei Würfel, Weichen ±2 |
+| Zahlenhaus | Dachzahl 3–5, alle Stockwerke | 5–7, alle Stockwerke | 6–10, fünf Stockwerke |
+
+Der **Tunnel** hebt sich nach der Antwort (er ist ein Spielzeugtunnel); so sieht das Kind den
+Zug, statt dass er am anderen Ende herausfährt. Fino verliert im Hüpf-Gleis gern: Er kommt nie
+vor dem Kind ins Ziel.
+
+### 0.5 Stand, Eltern, Schranke, Stimme
+
+- **Rechenstand** `lernapp.rechnen` (Zähler, kein Protokoll): Spiele mit Runden, Sternen und
+  Mitwachsen, Aufgaben bis zwanzig (richtig, falsch, schnell, Tage), Fehlerbilder (eins
+  daneben, Plus statt Minus, Zahlendreher), Bonus-Taler, die Taufe.
+- **Elternbereich**: Karte «Rechenecke» je Kind mit Rechenbericht (Runden, Taler, Drache,
+  Einrichtung, Aufgaben, die sitzen oder wackeln, Fehlerbilder mit einem Satz, was hilft, die
+  liebsten Spiele, die **Plus-Tafel** 0 + 0 bis 10 + 10) und den Einstellungen Beginn,
+  Zahlenraum (bis 5, 10, 20, 100) und Minus. Sie liegen in `lernapp.rechnen.eltern` und
+  überleben das Zurücksetzen.
+- **Schranke**: `RECHENECKE` in `entitlement.js`, je Spiel eine Runde frei.
+- **Stimme**: Jeder Satz – auch die mit wechselnden Zahlen, aufgezählt in
+  `scripts/stimme-app/rechenecke.mjs` – ist mit der Google-Stimme Sulafat aufgenommen
+  (`app-stimme.js`).
+- **Prüfungen**: `scripts/validate-rechnen.mjs` (Katalog, Seiten, Schranke, Vorrat, Stand,
+  Drache, Mitwachsen, Fehlerbilder, Bericht, Einstellungen) und `scripts/check-rechenecke.mjs`
+  (im Browser: Startbild, Zimmer, Tür, jedes Spiel, eine ganze Runde auf «leicht» mit Ziehen,
+  der Drache schlüpft).
 
 ---
 

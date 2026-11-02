@@ -88,7 +88,7 @@
   // Uhrzeigersinn durchs Zimmer, oben links beim Buchstabenhaus los, und
   // zuletzt der Lesewurm in der Mitte und seine Karte. Eine Welle liest sich
   // als «all das kannst du antippen», ein gemeinsamer Hüpfer als Ruckeln.
-  const REIHUM = ["buchstaben", "detektiv", "buecher", "woerter", "saetze", "silben", "wurmname", "weiter", "mission"];
+  const REIHUM = ["rechnen", "buchstaben", "detektiv", "buecher", "woerter", "saetze", "silben", "wurmname", "weiter", "mission"];
   // Wann das erste Ding hüpft und wie viel später jedes nächste: erst, wenn
   // das Zimmer eingeblendet ist (leseecke-ein im Stylesheet).
   const HUEPF_START = 0.55;
@@ -296,11 +296,13 @@
   /*
    *   host    das Element auf der Bühne, in das das Zimmer kommt
    *   onPlay  (seite) => …, öffnet ein Spiel (train-home.js, enterGame)
+   *   onRechnen  () => …, geht durch die Tür in den Rechenwagen – ohne ihn
+   *           keine Tür
    */
-  function mount({ host, onPlay }) {
+  function mount({ host, onPlay, onRechnen = null }) {
     if (!art() || !host) return;
     schriftLaden();
-    offen = { host, onPlay, zustand: "", laeuft: false, ausbauVorher: 0 };
+    offen = { host, onPlay, onRechnen, zustand: "", laeuft: false, ausbauVorher: 0 };
     zeichne();
   }
 
@@ -335,6 +337,7 @@
       neuAb: offen.ausbauVorher,
       wurm,
       mission: karte,
+      tuer: Boolean(offen.onRechnen),
     });
     // Beim Auffrischen weicht nur die Zeichnung: Der Platz bleibt, also blendet
     // sich nichts neu ein, und die Auswahl darüber bleibt stehen.
@@ -360,6 +363,7 @@
           return;
         }
         if (ort === "wurmname") { onPlay?.(TAUFE); return; }
+        if (ort === "rechnen") { offen?.onRechnen?.(); return; }
         const spiele = spieleAm(ort);
         if (spiele.length === 1) onPlay?.(spiele[0].page);
         else if (spiele.length > 1) zeigeWahl(host, ort, onPlay);
