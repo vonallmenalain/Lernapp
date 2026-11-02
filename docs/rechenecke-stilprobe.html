@@ -1,0 +1,1271 @@
+<!--
+  Stilprobe zur Rechenecke (docs/RECHENECKE-KONZEPT.md). Keine Seite der App: Sie liegt
+  unter docs/ und geht deshalb nicht auf die Site (netlify/build.mjs). Dieselbe Seite ist
+  das Artefakt «Gripszug Rechenecke». Spielbar sind Kuppel-Plus (Rangiergleis),
+  Tunnel-Rechnen (Tunnel) und Blitzblick (linkes Fenster); alle anderen Dinge im Zimmer
+  zeigen eine Karte mit der Idee dahinter.
+-->
+<title>Gripszug Rechenecke</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&family=Nunito:wght@600;700;800&display=swap">
+<style>
+/* Eine Bühne wie in Gripszug: oben die Leiste, in der Mitte das Bild (immer ganz sichtbar),
+   darunter Sprechblase und Antworten – quer auf dem Handy daneben. Eine helle Welt wie
+   das Lesezimmer und die Bauecke, darum bewusst ohne Dunkelmodus. */
+:root {
+  --sky-top: #a8ddf0;
+  --sky-bottom: #dff1f7;
+  --ink: #243047;
+  --muted: #5d6882;
+  --primary: #6c5ce7;
+  --primary-dark: #5141c9;
+  --primary-soft: #efecff;
+  --go: #3fbf74;
+  --go-dark: #2f9a5b;
+  --go-soft: #e3f6ea;
+  --rot: #e8543f;
+  --blau: #3d7be0;
+  --gold: #f4b400;
+  --wall: #fff1cf;
+  --card: #ffffff;
+  --soft: #fff1e0;
+  --line: rgba(36, 48, 71, 0.14);
+  --font-display: "Baloo 2", "Nunito", ui-rounded, system-ui, sans-serif;
+  --font-body: "Nunito", ui-rounded, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --shadow: 0 6px 16px rgba(36, 48, 71, 0.18);
+  color-scheme: light;
+}
+html, body { height: 100%; }
+html { box-sizing: border-box; }
+*, *::before, *::after { box-sizing: inherit; }
+body {
+  margin: 0; overflow: hidden; color: var(--ink); font-family: var(--font-body);
+  background-color: var(--sky-bottom);
+  background-image: linear-gradient(180deg, var(--sky-top), var(--sky-bottom) 60%);
+}
+button { font-family: inherit; color: inherit; }
+:focus-visible { outline: 3px solid var(--primary); outline-offset: 3px; }
+
+.app {
+  position: relative; height: 100%; max-width: 1280px; margin: 0 auto;
+  display: flex; flex-direction: column; gap: 10px;
+  padding-block: 10px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+
+/* Leiste */
+.top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; min-height: 48px; }
+.icon-btn {
+  width: 46px; height: 46px; flex: 0 0 auto; border: none; border-radius: 50%;
+  background: var(--card); box-shadow: var(--shadow); display: grid; place-items: center; cursor: pointer;
+}
+.icon-btn svg { width: 24px; height: 24px; }
+.title { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.title h1 { margin: 0; font-family: var(--font-display); font-weight: 800; font-size: clamp(22px, 3.2vw, 30px); line-height: 1; white-space: nowrap; }
+.chip {
+  font-size: 11px; font-weight: 800; letter-spacing: 0.07em; text-transform: uppercase;
+  color: var(--primary-dark); background: var(--primary-soft); padding: 4px 8px; border-radius: 999px;
+}
+.spacer { flex: 1; }
+.levels { display: flex; background: var(--card); border-radius: 999px; padding: 4px; box-shadow: var(--shadow); }
+.levels button {
+  border: none; background: transparent; cursor: pointer; color: var(--muted);
+  font-weight: 800; font-size: 15px; padding: 7px 13px; border-radius: 999px;
+}
+.levels button[aria-checked="true"] { background: var(--primary); color: var(--card); }
+.dots { display: flex; gap: 6px; align-items: center; }
+.dots i { width: 12px; height: 12px; border-radius: 50%; background: var(--line); }
+.dots i.done { background: var(--go); }
+.dots i.now { background: var(--primary); }
+.purse {
+  display: flex; align-items: center; gap: 6px; padding: 5px 14px 5px 8px; border-radius: 999px;
+  background: var(--card); box-shadow: var(--shadow); font-weight: 800; font-variant-numeric: tabular-nums;
+}
+.purse svg { width: 26px; height: 26px; }
+.purse b { font-family: var(--font-display); font-size: 22px; line-height: 1; }
+.purse span { color: var(--muted); font-size: 14px; }
+
+/* Bühne */
+.main { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 10px; }
+.stage-wrap { flex: 1; min-height: 0; container-type: size; display: grid; place-items: center; }
+.stage {
+  width: 100%;
+  width: min(100cqw, calc(100cqh * 1000 / 560));
+  aspect-ratio: 1000 / 560; max-width: 100%;
+  border-radius: 24px; overflow: hidden; background: var(--wall);
+  box-shadow: 0 10px 30px rgba(36, 48, 71, 0.22);
+}
+#scene { display: block; width: 100%; height: 100%; touch-action: none; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+
+.panel { flex: 0 0 auto; display: grid; gap: 10px; align-content: start; }
+.bubble {
+  display: flex; align-items: center; gap: 12px; min-height: 64px;
+  padding: 10px 16px 10px 10px; border-radius: 20px; background: var(--card); box-shadow: var(--shadow);
+}
+.bubble svg { flex: 0 0 auto; width: 46px; height: 46px; }
+.bubble p { margin: 0; min-width: 0; font-size: clamp(16px, 2.1vw, 20px); font-weight: 700; line-height: 1.3; }
+.answers { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+.answers:empty { display: none; }
+.num {
+  width: clamp(46px, 7vw, 60px); height: clamp(46px, 7vw, 60px); border: none; border-radius: 50%; cursor: pointer;
+  background: var(--card); box-shadow: 0 4px 0 var(--line), var(--shadow);
+  font-family: var(--font-display); font-weight: 800; font-size: clamp(22px, 3.4vw, 30px); line-height: 1;
+  transition: transform 0.12s ease, background-color 0.2s ease;
+}
+.num:hover { transform: translateY(-2px); }
+.num:active { transform: translateY(2px); }
+.num.is-ok { background: var(--go); color: var(--card); }
+.num.is-nah { background: var(--soft); color: var(--muted); }
+.num.is-ring { box-shadow: 0 0 0 4px var(--go), var(--shadow); }
+.answers.locked .num { pointer-events: none; }
+.hint { margin: 0; text-align: center; color: var(--muted); font-size: 14px; font-weight: 700; line-height: 1.4; }
+
+/* Dinge im Zimmer */
+.hit { cursor: pointer; transform-box: fill-box; transform-origin: 50% 100%; }
+.hit:hover { filter: brightness(1.05); }
+.hit:focus { outline: none; }
+.hitbox { fill: #000; fill-opacity: 0; stroke: none; }
+.hit:focus-visible .hitbox { stroke: var(--primary); stroke-width: 4; stroke-dasharray: 10 8; }
+.hit.hop { animation: hop 0.55s ease-in-out var(--d, 0s) 2 both; }
+@keyframes hop { 0%, 100% { transform: translateY(0); } 35% { transform: translateY(-12px); } 65% { transform: translateY(2px); } }
+.ziehbar { cursor: grab; }
+.nudge-in { animation: nudge 1s ease-in-out infinite; }
+@keyframes nudge { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(-18px); } }
+.badge { animation: pop 0.28s ease-out both; transform-box: fill-box; transform-origin: center; }
+@keyframes pop { from { transform: scale(0.2); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.grow { animation: grow 0.7s ease-out both; transform-box: fill-box; transform-origin: 50% 100%; }
+@keyframes grow { 0% { transform: scale(1); } 40% { transform: scale(1.14); } 100% { transform: scale(1); } }
+
+/* Karten über dem Bild */
+.overlay { position: absolute; inset: 0; z-index: 5; display: grid; place-items: center; padding: 16px; background: rgba(36, 48, 71, 0.4); }
+.card {
+  width: min(470px, 100%); max-height: 100%; overflow: auto; padding: 22px 22px 18px;
+  border-radius: 24px; background: var(--card); box-shadow: 0 20px 50px rgba(36, 48, 71, 0.3);
+}
+.card h2 { margin: 0 0 4px; font-family: var(--font-display); font-size: 28px; line-height: 1.1; text-wrap: balance; }
+.card .lead { margin: 0 0 12px; color: var(--muted); font-weight: 700; line-height: 1.4; }
+.idee { display: grid; gap: 4px; padding: 12px 0; border-top: 1px solid var(--line); }
+.idee h3 { margin: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 8px; font-family: var(--font-display); font-size: 19px; line-height: 1.2; }
+.idee p { margin: 0; line-height: 1.45; }
+.idee .uebt { color: var(--muted); font-size: 14px; font-weight: 700; }
+.tag { font-family: var(--font-body); font-size: 11px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; padding: 3px 7px; border-radius: 999px; background: var(--primary-soft); color: var(--primary-dark); }
+.tag.e1 { background: var(--go-soft); color: var(--go-dark); }
+.tag.ab { background: var(--soft); color: var(--muted); }
+.row { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; margin-top: 14px; }
+.btn { border: none; border-radius: 999px; padding: 12px 20px; cursor: pointer; font-size: 17px; font-weight: 800; background: var(--primary-soft); color: var(--primary-dark); }
+.btn.go { background: var(--go); color: var(--card); box-shadow: 0 4px 0 var(--go-dark); }
+.result-card { text-align: center; }
+.result-card .row { justify-content: center; }
+.sterne { display: flex; justify-content: center; gap: 6px; margin-bottom: 6px; }
+.sterne svg { width: 64px; height: 64px; }
+.result-card p { margin: 6px 0 0; font-size: 18px; font-weight: 700; }
+.result-card .taler-line { color: #9a6a00; font-family: var(--font-display); font-size: 22px; font-weight: 800; }
+
+@media (max-height: 540px) and (min-aspect-ratio: 4/3) {
+  .main { flex-direction: row; }
+  .panel { width: min(40%, 360px); align-content: center; }
+  .top { min-height: 40px; }
+  .icon-btn { width: 40px; height: 40px; }
+  .bubble { min-height: 54px; }
+}
+@media (max-aspect-ratio: 1/1) {
+  .main { justify-content: center; }
+  .stage-wrap { flex: 0 0 auto; container-type: normal; display: block; }
+  .stage { width: 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hit.hop, .nudge-in, .badge, .grow { animation: none; }
+}
+</style>
+
+<div class="app" id="app">
+  <header class="top">
+    <button class="icon-btn" id="back" type="button" aria-label="Zurück in den Rechenwagen" hidden>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5 8 12l7 7" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+    <div class="title"><h1 id="titel">Rechenwagen</h1><span class="chip">Stilprobe</span></div>
+    <div class="spacer"></div>
+    <div class="levels" id="levels" role="radiogroup" aria-label="Stufe" hidden>
+      <button type="button" role="radio" data-level="leicht" aria-checked="true">leicht</button>
+      <button type="button" role="radio" data-level="mittel" aria-checked="false">mittel</button>
+      <button type="button" role="radio" data-level="schwer" aria-checked="false">schwer</button>
+    </div>
+    <div class="dots" id="dots" aria-hidden="true" hidden></div>
+    <div class="purse" id="purse" title="Der Schatz von Zacki">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><ellipse cx="12" cy="15" rx="9" ry="4.2" fill="#c98a00"/><ellipse cx="12" cy="12" rx="9" ry="4.2" fill="#f4b400"/><ellipse cx="12" cy="11.4" rx="5" ry="1.8" fill="#ffe08a"/></svg>
+      <b id="talerZahl">23</b><span>Taler</span>
+    </div>
+    <button class="icon-btn" id="ton" type="button" aria-pressed="true" aria-label="Ton aus">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/><path id="tonWellen" d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path id="tonAus" d="M16 9l5 6M21 9l-5 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" visibility="hidden"/></svg>
+    </button>
+  </header>
+
+  <main class="main">
+    <div class="stage-wrap">
+      <div class="stage">
+        <svg id="scene" viewBox="0 0 1000 560" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Der Rechenwagen von innen"></svg>
+      </div>
+    </div>
+    <section class="panel" aria-label="Was Zacki sagt">
+      <div class="bubble">
+        <svg viewBox="-86 -174 104 104" aria-hidden="true" id="bubbleKopf"></svg>
+        <p id="caption" aria-live="polite"></p>
+      </div>
+      <div class="answers" id="answers"></div>
+      <p class="hint" id="hint">Spielbar sind das Rangiergleis, der Tunnel und das linke Fenster. Alle anderen Dinge zeigen die Idee dahinter.</p>
+    </section>
+  </main>
+
+  <div class="overlay" id="sheet" hidden>
+    <div class="card" role="dialog" aria-modal="true" aria-labelledby="sheetTitel">
+      <h2 id="sheetTitel"></h2>
+      <p class="lead" id="sheetLead"></p>
+      <div id="sheetIdeen"></div>
+      <div class="row"><button class="btn" id="sheetZu" type="button">Schliessen</button></div>
+    </div>
+  </div>
+
+  <div class="overlay" id="result" hidden>
+    <div class="card result-card" role="dialog" aria-modal="true" aria-labelledby="resTitel">
+      <div class="sterne" id="resSterne"></div>
+      <h2 id="resTitel">Geschafft!</h2>
+      <p id="resText"></p>
+      <p class="taler-line" id="resTaler"></p>
+      <div class="row">
+        <button class="btn" id="resZimmer" type="button">Zum Rechenwagen</button>
+        <button class="btn go" id="resNochmal" type="button">Noch einmal</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  "use strict";
+
+  const $ = (sel) => document.querySelector(sel);
+  const scene = $("#scene");
+  const caption = $("#caption");
+  const answers = $("#answers");
+  const reduced = !!window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  // Die Fünfer-Farben: die ersten fünf rot, die nächsten fünf blau, dann gelb.
+  const C = { rot: "#e8543f", blau: "#3d7be0", gelb: "#ffd166", lila: "#6c5ce7", ink: "#243047", dunkel: "#2f3a52" };
+  const fuenfer = (i) => (i < 5 ? C.rot : i < 10 ? C.blau : C.gelb);
+  const FONT = "font-family=\"'Baloo 2', Nunito, sans-serif\" font-weight=\"800\"";
+
+  const GAMES = {
+    kuppel: { name: "Kuppel-Plus", task: (tok) => kuppelAufgabe(tok) },
+    tunnel: { name: "Tunnel-Rechnen", task: (tok) => tunnelAufgabe(tok) },
+    blitz: { name: "Blitzblick", task: (tok) => blitzAufgabe(tok) },
+  };
+
+  const S = {
+    view: "room", game: null, level: "leicht", taler: 23, mission: "tunnel",
+    played: { kuppel: 0, tunnel: 0, blitz: 0 }, sound: true, token: 0, round: null, pending: 0,
+  };
+  const alive = (tok) => tok === S.token;
+  const rnd = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
+  const stufeVon = (taler) => Math.min(15, 1 + Math.floor(taler / 5));
+
+  // ---------------------------------------------------------------------------
+  // Zeit, Ton, Stimme
+  // ---------------------------------------------------------------------------
+  const ease = (t) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
+  function tween(ms, fn, raw = false) {
+    const d = reduced && !raw ? Math.min(ms, 140) : ms;
+    return new Promise((resolve) => {
+      const t0 = performance.now();
+      const step = (now) => {
+        const t = Math.min(1, (now - t0) / d);
+        fn(ease(t));
+        if (t < 1) requestAnimationFrame(step); else resolve();
+      };
+      requestAnimationFrame(step);
+    });
+  }
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  const setPos = (el, x, y) => el.setAttribute("transform", `translate(${x.toFixed(1)} ${y.toFixed(1)})`);
+
+  let ac = null;
+  function audio() {
+    if (!S.sound) return null;
+    try {
+      ac = ac || new (window.AudioContext || window.webkitAudioContext)();
+      if (ac.state === "suspended") ac.resume();
+      return ac;
+    } catch (e) { return null; }
+  }
+  function tone(freq, start, dur, type = "sine", vol = 0.16) {
+    const a = audio(); if (!a) return;
+    const o = a.createOscillator(); const g = a.createGain();
+    o.type = type; o.frequency.value = freq;
+    const t = a.currentTime + start;
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol, t + 0.015);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g).connect(a.destination); o.start(t); o.stop(t + dur + 0.05);
+  }
+  const sfx = {
+    klack() {
+      const a = audio(); if (!a) return;
+      const len = 0.07; const buf = a.createBuffer(1, Math.floor(a.sampleRate * len), a.sampleRate);
+      const d = buf.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / d.length, 3);
+      const src = a.createBufferSource(); src.buffer = buf;
+      const f = a.createBiquadFilter(); f.type = "bandpass"; f.frequency.value = 1400; f.Q.value = 1.2;
+      const g = a.createGain(); g.gain.value = 0.55;
+      src.connect(f).connect(g).connect(a.destination); src.start();
+      tone(110, 0, 0.12, "triangle", 0.22);
+    },
+    ok() { tone(660, 0, 0.14); tone(880, 0.12, 0.24); },
+    nah() { tone(392, 0, 0.16, "triangle", 0.1); tone(349, 0.14, 0.22, "triangle", 0.08); },
+    blip(i) { tone(520 + i * 40, 0, 0.09, "sine", 0.11); },
+    taler() { tone(1320, 0, 0.07, "square", 0.04); tone(1760, 0.05, 0.12, "sine", 0.08); },
+    fanfare() { [523, 659, 784, 1047].forEach((f, i) => tone(f, i * 0.12, 0.26, "triangle", 0.13)); },
+    pfiff() { tone(1180, 0, 0.32, "sine", 0.07); tone(1250, 0.04, 0.28, "sine", 0.05); },
+  };
+
+  let voice = null;
+  function pickVoice() {
+    try {
+      const vs = window.speechSynthesis.getVoices().filter((v) => /^de/i.test(v.lang));
+      voice = vs.find((v) => /de-CH/i.test(v.lang)) || vs.find((v) => /natural|google/i.test(v.name)) || vs[0] || null;
+    } catch (e) { voice = null; }
+  }
+  if ("speechSynthesis" in window) {
+    pickVoice();
+    try { window.speechSynthesis.addEventListener("voiceschanged", pickVoice); } catch (e) { /* ältere Browser */ }
+  }
+  function say(text, spoken, speak = true) {
+    caption.textContent = text;
+    if (!speak || !S.sound || !("speechSynthesis" in window)) return;
+    try {
+      window.speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance((spoken || text).replace(/[–—]/g, ","));
+      u.lang = voice ? voice.lang : "de-DE";
+      if (voice) u.voice = voice;
+      u.rate = 0.95;
+      window.speechSynthesis.speak(u);
+    } catch (e) { /* ohne Stimme bleibt die Sprechblase */ }
+  }
+  function stumm() { try { window.speechSynthesis.cancel(); } catch (e) { /* nichts */ } }
+
+  // ---------------------------------------------------------------------------
+  // Zeichnungen
+  // ---------------------------------------------------------------------------
+  const DEFS = `<defs>
+    <linearGradient id="himmel" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#a8ddf0"/><stop offset="1" stop-color="#e6f5fa"/></linearGradient>
+    <filter id="schatten" x="-20%" y="-20%" width="140%" height="160%"><feDropShadow dx="0" dy="4" stdDeviation="5" flood-color="#243047" flood-opacity="0.22"/></filter>
+    <clipPath id="fensterL"><rect x="72" y="94" width="206" height="116" rx="10"/></clipPath>
+    <clipPath id="fensterR"><rect x="724" y="94" width="206" height="116" rx="10"/></clipPath>
+    <clipPath id="grossFenster"><rect x="60" y="44" width="880" height="400" rx="20"/></clipPath>
+  </defs>`;
+
+  // Die Lok schaut nach rechts; Ursprung unten links, auf der Schiene.
+  const LOK = `
+    <rect x="2" y="-84" width="46" height="10" rx="5" fill="#2f3a52"/>
+    <rect x="6" y="-76" width="38" height="58" rx="6" fill="#6c5ce7"/>
+    <rect x="13" y="-68" width="24" height="18" rx="4" fill="#cdeefa"/>
+    <rect x="40" y="-58" width="62" height="40" rx="12" fill="#8577f0"/>
+    <rect x="40" y="-58" width="62" height="10" rx="5" fill="#243047" fill-opacity="0.12"/>
+    <rect x="80" y="-80" width="14" height="24" rx="3" fill="#2f3a52"/>
+    <rect x="76" y="-85" width="22" height="7" rx="3" fill="#2f3a52"/>
+    <circle cx="64" cy="-58" r="6" fill="#ffd166"/>
+    <circle cx="102" cy="-42" r="4" fill="#fff6c2"/>
+    <rect x="100" y="-28" width="8" height="9" rx="2" fill="#2f3a52"/>
+    <circle cx="24" cy="-12" r="12" fill="#2f3a52"/><circle cx="24" cy="-12" r="4" fill="#c9d1df"/>
+    <circle cx="62" cy="-9" r="9" fill="#2f3a52"/><circle cx="62" cy="-9" r="3" fill="#c9d1df"/>
+    <circle cx="88" cy="-9" r="9" fill="#2f3a52"/><circle cx="88" cy="-9" r="3" fill="#c9d1df"/>`;
+  function lok(k, gespiegelt) {
+    return gespiegelt
+      ? `<g transform="translate(${108 * k} 0) scale(${-k} ${k})">${LOK}</g>`
+      : `<g transform="scale(${k})">${LOK}</g>`;
+  }
+  function wagenBasis(fill) {
+    return `
+      <rect x="-6" y="-31" width="6" height="5" fill="#2f3a52"/>
+      <rect class="wb" x="0" y="-56" width="58" height="42" rx="7" fill="${fill}"/>
+      <rect x="0" y="-56" width="58" height="9" rx="4" fill="#243047" fill-opacity="0.18"/>
+      <rect x="6" y="-42" width="46" height="12" rx="4" fill="#ffffff" fill-opacity="0.3"/>
+      <circle cx="15" cy="-9" r="9" fill="#2f3a52"/><circle cx="15" cy="-9" r="3" fill="#c9d1df"/>
+      <circle cx="43" cy="-9" r="9" fill="#2f3a52"/><circle cx="43" cy="-9" r="3" fill="#c9d1df"/>`;
+  }
+  // Ein Wagen mit Platz für die Zahl darüber (data-bx, data-by).
+  function wagen(lx, fill, k, i) {
+    return `<g class="wg" data-i="${i}" data-bx="${(lx + 29 * k).toFixed(1)}" data-by="${(-56 * k).toFixed(1)}"><g transform="translate(${lx.toFixed(1)} 0) scale(${k})">${wagenBasis(fill)}</g></g>`;
+  }
+  function schild(x, y, n) {
+    return `<g><rect x="${x - 26}" y="${y - 24}" width="52" height="46" rx="12" fill="#ffffff" stroke="#243047" stroke-opacity="0.2" stroke-width="2"/><text x="${x}" y="${y + 12}" text-anchor="middle" font-size="34" ${FONT} fill="#243047">${n}</text></g>`;
+  }
+
+  // Der Rechendrache. Ursprung zwischen den Füssen, er schaut nach links.
+  const DRACHE_KOPF = `
+    <path d="M-36 -144 Q-42 -166 -28 -172 Q-26 -156 -21 -146 Z" fill="#ffd166"/>
+    <path d="M-6 -141 Q-2 -162 11 -164 Q4 -151 4 -139 Z" fill="#ffd166"/>
+    <circle cx="-26" cy="-110" r="38" fill="#46b98a"/>
+    <ellipse cx="-52" cy="-97" rx="25" ry="18" fill="#5fcb9d"/>
+    <circle cx="-66" cy="-101" r="2.8" fill="#2f8f69"/><circle cx="-56" cy="-104" r="2.8" fill="#2f8f69"/>
+    <ellipse cx="-35" cy="-121" rx="10" ry="12" fill="#ffffff"/><ellipse cx="-11" cy="-119" rx="9" ry="11" fill="#ffffff"/>
+    <circle cx="-38" cy="-119" r="5.5" fill="#243047"/><circle cx="-14" cy="-117" r="5" fill="#243047"/>
+    <circle cx="-36" cy="-122" r="2" fill="#ffffff"/><circle cx="-12" cy="-120" r="1.8" fill="#ffffff"/>
+    <circle cx="-12" cy="-94" r="6" fill="#ff8fa3" fill-opacity="0.6"/>
+    <path d="M-66 -88 Q-52 -79 -38 -88" stroke="#2f8f69" stroke-width="3" fill="none" stroke-linecap="round"/>`;
+  function dracheSVG(stufe) {
+    let zacken = "";
+    for (let i = 0; i < stufe; i++) {
+      const th = (-80 + i * (120 / 14)) * Math.PI / 180;
+      const nx = Math.cos(th), ny = Math.sin(th);
+      const cx = 6 + 54 * nx, cy = -50 + 48 * ny;
+      const tx = cx + nx * 17, ty = cy + ny * 17;
+      const px = -ny * 6, py = nx * 6;
+      zacken += `<path d="M${(cx + px).toFixed(1)} ${(cy + py).toFixed(1)} L${tx.toFixed(1)} ${ty.toFixed(1)} L${(cx - px).toFixed(1)} ${(cy - py).toFixed(1)} Z" fill="${fuenfer(i)}" stroke="#243047" stroke-opacity="0.18" stroke-width="1"/>`;
+    }
+    return `
+      <path d="M30 -88 Q72 -132 94 -98 Q80 -98 76 -86 Q66 -94 58 -80 Q48 -88 32 -72 Z" fill="#8e7cf0"/>
+      <path d="M34 -16 Q94 -4 106 -44" stroke="#46b98a" stroke-width="18" fill="none" stroke-linecap="round"/>
+      <path d="M98 -50 L124 -68 L114 -38 Z" fill="#ffd166"/>
+      ${zacken}
+      <ellipse cx="6" cy="-50" rx="56" ry="50" fill="#46b98a"/>
+      <ellipse cx="-8" cy="-44" rx="34" ry="36" fill="#fde7a6"/>
+      <path d="M-30 -60 Q-8 -52 14 -60 M-34 -44 Q-8 -36 18 -44 M-30 -28 Q-8 -20 14 -28" stroke="#f1cf72" stroke-width="3" fill="none" stroke-linecap="round"/>
+      <ellipse cx="-42" cy="-54" rx="9" ry="15" fill="#3aa37a" transform="rotate(32 -42 -54)"/>
+      <ellipse cx="-24" cy="-4" rx="19" ry="9" fill="#2f8f69"/><ellipse cx="30" cy="-4" rx="19" ry="9" fill="#2f8f69"/>
+      <circle cx="-38" cy="-4" r="2.5" fill="#ffffff"/><circle cx="-31" cy="-1" r="2.5" fill="#ffffff"/>
+      ${DRACHE_KOPF}`;
+  }
+
+  // Der Schatz: immer zehn Taler zu einem Turm, die einzelnen in Reihen zu fünf.
+  function schatzSVG(n) {
+    const tuerme = Math.floor(n / 10), einzeln = n % 10;
+    let s = `<ellipse cx="660" cy="392" rx="52" ry="8" fill="#243047" fill-opacity="0.12"/>`;
+    const orte = [];
+    for (let t = 0; t < tuerme; t++) orte.push({ row: Math.floor(t / 3), col: t % 3 });
+    orte.sort((a, b) => b.row - a.row);
+    for (const { row, col } of orte) {
+      const x = 630 + col * 25 + (row % 2) * 12, base = 386 - row * 11;
+      for (let c = 0; c < 10; c++) {
+        const y = base - c * 4.4;
+        s += `<ellipse cx="${x}" cy="${(y + 2).toFixed(1)}" rx="11.5" ry="4" fill="#c98a00"/><ellipse cx="${x}" cy="${y.toFixed(1)}" rx="11.5" ry="4" fill="#f4b400"/>`;
+      }
+      s += `<ellipse cx="${x}" cy="${(base - 39.6).toFixed(1)}" rx="6" ry="1.6" fill="#ffe08a"/>`;
+    }
+    for (let e = 0; e < einzeln; e++) {
+      const x = 628 + (e % 5) * 15, y = 404 + Math.floor(e / 5) * 10;
+      s += `<ellipse cx="${x}" cy="${y + 1.6}" rx="6.5" ry="3.2" fill="#c98a00"/><ellipse cx="${x}" cy="${y}" rx="6.5" ry="3.2" fill="#f4b400"/>`;
+    }
+    return s;
+  }
+
+  function karteSVG() {
+    const g = GAMES[S.mission];
+    const voll = S.taler % 5;
+    const stufe = stufeVon(S.taler);
+    let felder = "";
+    for (let i = 0; i < 5; i++) {
+      const x = 390 + i * 30;
+      felder += i < voll
+        ? `<circle cx="${x}" cy="140" r="10" fill="#f4b400" stroke="#c98a00" stroke-width="2"/>`
+        : `<circle cx="${x}" cy="140" r="10" fill="#ffffff" stroke="#d6cfa8" stroke-width="2" stroke-dasharray="4 3"/>`;
+    }
+    const zx = 390 + 5 * 30;
+    if (stufe < 15) felder += `<path d="M${zx - 9} 150 L${zx} 126 L${zx + 9} 150 Z" fill="${fuenfer(stufe)}"/>`;
+    return `
+      <g filter="url(#schatten)"><rect x="356" y="66" width="288" height="98" rx="18" fill="#ffffff"/><path d="M488 163 L498 178 L508 163 Z" fill="#ffffff"/></g>
+      <text x="378" y="92" font-size="15" font-weight="700" fill="#5d6882" font-family="Nunito, sans-serif">Zacki schlägt vor:</text>
+      <text x="378" y="120" font-size="25" ${FONT} fill="#243047">${g.name}</text>
+      <circle cx="612" cy="106" r="20" fill="#3fbf74"/><path d="M606 96 L622 106 L606 116 Z" fill="#ffffff"/>
+      ${felder}`;
+  }
+
+  function hit(id, label, inner, box) {
+    const [x, y, w, h] = box;
+    return `<g class="hit" data-go="${id}" tabindex="0" role="button" aria-label="${label}">${inner}<rect class="hitbox" x="${x}" y="${y}" width="${w}" height="${h}" rx="14"/></g>`;
+  }
+
+  function fensterInnen(x0, clip, perron) {
+    let s = `<g clip-path="url(#${clip})">
+      <rect x="${x0}" y="94" width="206" height="116" fill="url(#himmel)"/>
+      <circle cx="${x0 + 170}" cy="118" r="14" fill="#ffe27a"/>
+      <path d="M${x0} 182 Q${x0 + 60} 150 ${x0 + 120} 172 T${x0 + 206} 166 V210 H${x0} Z" fill="#9ed27f"/>
+      <path d="M${x0} 196 Q${x0 + 80} 178 ${x0 + 150} 194 T${x0 + 206} 190 V210 H${x0} Z" fill="#7cc05e"/>`;
+    if (perron) {
+      s += `<rect x="${x0}" y="190" width="206" height="20" fill="#c9d1df"/>
+        <rect x="${x0 + 128}" y="140" width="5" height="50" fill="#5d6882"/>
+        <rect x="${x0 + 104}" y="130" width="54" height="18" rx="4" fill="#ffffff" stroke="#3d7be0" stroke-width="2"/>
+        <text x="${x0 + 131}" y="144" text-anchor="middle" font-size="12" ${FONT} fill="#3d7be0">Perron</text>
+        <circle cx="${x0 + 34}" cy="178" r="10" fill="#f08a3c"/><circle cx="${x0 + 60}" cy="180" r="9" fill="#cfd5df"/><circle cx="${x0 + 84}" cy="178" r="10" fill="#a86b3c"/>`;
+    } else {
+      // Ein Zehnerwagen fährt vorbei.
+      s += `<g transform="translate(${x0 + 104} 196)">
+        <rect x="0" y="-48" width="118" height="40" rx="8" fill="#ffd166"/>
+        ${[0, 1, 2, 3, 4].map((c) => `<rect x="${6 + c * 22}" y="-43" width="17" height="14" rx="3" fill="#cdeefa"/><rect x="${6 + c * 22}" y="-26" width="17" height="14" rx="3" fill="#cdeefa"/>`).join("")}
+        ${[0, 1, 2, 3, 4].map((c) => `<circle cx="${14.5 + c * 22}" cy="-36" r="5" fill="#f08a3c"/>`).join("")}
+        <circle cx="14.5" cy="-19" r="5" fill="#a86b3c"/><circle cx="36.5" cy="-19" r="5" fill="#cfd5df"/>
+        <circle cx="24" cy="-5" r="6" fill="#2f3a52"/><circle cx="94" cy="-5" r="6" fill="#2f3a52"/>
+      </g>`;
+    }
+    return s + `</g>`;
+  }
+  function fenster(x0, clip, perron) {
+    return `<rect x="${x0 - 12}" y="82" width="230" height="140" rx="18" fill="#3d7be0"/>
+      ${fensterInnen(x0, clip, perron)}
+      <rect x="${x0 - 20}" y="220" width="246" height="11" rx="5" fill="#b07a45"/>`;
+  }
+
+  function zimmerSVG() {
+    // Wand, Decke, Täfer, Boden
+    let s = DEFS + `
+      <rect x="0" y="0" width="1000" height="390" fill="#fff1cf"/>
+      <rect x="0" y="334" width="1000" height="56" fill="#f3d9a4"/>
+      <rect x="0" y="334" width="1000" height="4" fill="#e2c389"/>
+      <rect x="0" y="390" width="1000" height="170" fill="#d9a46c"/>
+      <path d="M0 430 H1000 M0 474 H1000 M0 520 H1000" stroke="#c48f58" stroke-width="2"/>
+      <path d="M150 390 V430 M420 390 V430 M690 390 V430 M300 430 V474 M560 430 V474 M860 430 V474 M90 474 V520 M470 474 V520 M780 474 V520" stroke="#c48f58" stroke-width="2"/>
+      <path d="M0 0 H1000 V22 Q500 36 0 22 Z" fill="#8a5a35"/>`;
+    // Zahlenwimpel 1 bis 10
+    s += `<path d="M20 26 Q500 48 980 26" stroke="#8a5a35" stroke-width="2" fill="none"/>`;
+    for (let i = 1; i <= 10; i++) {
+      const t = (i + 0.5) / 12, u = 1 - t;
+      const x = u * u * 20 + 2 * u * t * 500 + t * t * 980;
+      const y = u * u * 26 + 2 * u * t * 48 + t * t * 26;
+      s += `<path d="M${(x - 16).toFixed(1)} ${y.toFixed(1)} L${(x + 16).toFixed(1)} ${y.toFixed(1)} L${x.toFixed(1)} ${(y + 30).toFixed(1)} Z" fill="${fuenfer(i - 1)}"/>
+        <text x="${x.toFixed(1)}" y="${(y + 15).toFixed(1)}" text-anchor="middle" font-size="14" ${FONT} fill="#ffffff">${i}</text>`;
+    }
+
+    s += hit("tuer", "Tür in den Lesewagen", `
+      <rect x="-8" y="104" width="46" height="288" rx="8" fill="#b07a45"/>
+      <rect x="2" y="116" width="28" height="264" rx="5" fill="#c48f58"/>
+      <circle cx="16" cy="160" r="11" fill="#cdeefa" stroke="#8a5a35" stroke-width="3"/>
+      <rect x="6" y="200" width="20" height="15" rx="2" fill="#e8543f"/><path d="M16 200 V215" stroke="#ffffff" stroke-width="2"/>
+      <circle cx="28" cy="262" r="4" fill="#f4b400"/>`, [0, 100, 40, 296]);
+
+    let perlen = "";
+    for (let i = 0; i < 10; i++) {
+      perlen += `<circle cx="${66 + i * 12}" cy="284" r="5.8" fill="${fuenfer(i)}"/>`;
+      perlen += `<circle cx="${66 + i * 12}" cy="324" r="5.8" fill="${fuenfer(i)}"/>`;
+    }
+    s += hit("zaehlrahmen", "Zählrahmen", `
+      <rect x="48" y="246" width="10" height="148" rx="4" fill="#b07a45"/><rect x="184" y="246" width="10" height="148" rx="4" fill="#b07a45"/>
+      <rect x="44" y="240" width="154" height="12" rx="5" fill="#8a5a35"/><rect x="44" y="352" width="154" height="12" rx="5" fill="#8a5a35"/>
+      <path d="M58 284 H184 M58 324 H184" stroke="#9aa3b5" stroke-width="3"/>${perlen}
+      <rect x="40" y="392" width="26" height="6" rx="3" fill="#8a5a35"/><rect x="176" y="392" width="26" height="6" rx="3" fill="#8a5a35"/>`, [40, 236, 162, 166]);
+
+    s += hit("blitz", "Fenster: Blitzblick spielen", fenster(72, "fensterL", false), [48, 78, 252, 158]);
+
+    let markise = "";
+    for (let k = 0; k < 7; k++) {
+      const f = k % 2 ? "#ffffff" : "#e8543f";
+      markise += `<rect x="${206 + k * 22}" y="244" width="22" height="22" fill="${f}"/><circle cx="${217 + k * 22}" cy="266" r="11" fill="${f}"/>`;
+    }
+    s += hit("kiosk", "Kiosk", `
+      <rect x="238" y="214" width="88" height="25" rx="8" fill="#ffffff" stroke="#e8543f" stroke-width="2"/>
+      <text x="282" y="233" text-anchor="middle" font-size="17" ${FONT} fill="#e8543f">KIOSK</text>
+      ${markise}
+      <rect x="214" y="270" width="6" height="36" fill="#b07a45"/><rect x="344" y="270" width="6" height="36" fill="#b07a45"/>
+      <path d="M238 284 L258 284 L248 304 Z" fill="#e0a96d"/><circle cx="248" cy="280" r="10" fill="#ff8fa3"/>
+      <circle cx="284" cy="295" r="9" fill="#e8543f"/><path d="M284 286 q4 -6 8 -4" stroke="#3f8f3a" stroke-width="3" fill="none"/>
+      <rect x="306" y="280" width="36" height="24" rx="4" fill="#6c5ce7"/><rect x="310" y="284" width="28" height="8" rx="2" fill="#cdeefa"/>
+      <rect x="210" y="304" width="144" height="88" rx="6" fill="#ffd166"/>
+      <rect x="220" y="316" width="124" height="64" rx="6" fill="#f4b400" fill-opacity="0.35"/>
+      <text x="282" y="356" text-anchor="middle" font-size="20" ${FONT} fill="#9a6a00">3 Fr. · 1 Fr.</text>`, [204, 208, 158, 190]);
+
+    s += hit("mission", `Zackis Vorschlag: ${GAMES[S.mission].name}`, `<g id="karte">${karteSVG()}</g>`, [350, 60, 300, 122]);
+
+    s += hit("drache", "Zacki, der Rechendrache", `
+      <ellipse cx="500" cy="402" rx="120" ry="12" fill="#243047" fill-opacity="0.12"/>
+      <ellipse cx="500" cy="380" rx="112" ry="24" fill="#6c5ce7"/>
+      <ellipse cx="500" cy="372" rx="98" ry="14" fill="#8577f0"/>
+      <circle cx="392" cy="384" r="6" fill="#ffd166"/><circle cx="608" cy="384" r="6" fill="#ffd166"/>
+      <g id="drachePop"><g transform="translate(496 378)">${dracheSVG(stufeVon(S.taler))}</g></g>`, [386, 196, 228, 214]);
+
+    s += hit("schatz", "Der Schatz von Zacki", `<g id="schatz">${schatzSVG(S.taler)}</g>`, [610, 324, 98, 96]);
+
+    s += hit("waage", "Waage", `
+      <rect x="714" y="344" width="92" height="10" rx="4" fill="#b07a45"/>
+      <rect x="720" y="354" width="7" height="44" fill="#8a5a35"/><rect x="793" y="354" width="7" height="44" fill="#8a5a35"/>
+      <rect x="756" y="300" width="8" height="44" fill="#8a5a35"/><rect x="744" y="338" width="32" height="7" rx="3" fill="#8a5a35"/>
+      <path d="M724 306 L796 298" stroke="#8a5a35" stroke-width="5" stroke-linecap="round"/>
+      <circle cx="760" cy="302" r="5" fill="#f4b400"/>
+      <path d="M724 306 L712 330 M724 306 L736 330 M796 298 L784 322 M796 298 L808 322" stroke="#9aa3b5" stroke-width="1.5"/>
+      <path d="M706 330 Q724 344 742 330 Z" fill="#c9d1df"/><path d="M778 322 Q796 336 814 322 Z" fill="#c9d1df"/>
+      <circle cx="716" cy="325" r="5" fill="#e8543f"/><circle cx="726" cy="325" r="5" fill="#e8543f"/><circle cx="721" cy="317" r="5" fill="#e8543f"/>
+      <circle cx="791" cy="317" r="5" fill="#3d7be0"/><circle cx="801" cy="317" r="5" fill="#3d7be0"/>`, [702, 288, 112, 112]);
+
+    s += hit("fensterR", "Fenster mit Perron: Einsteigen bitte!", fenster(724, "fensterR", true), [700, 78, 252, 156]);
+
+    let zimmer = "";
+    const stock = [[1, 4], [2, 3], [3, 2]];
+    stock.forEach(([l, r], k) => {
+      const cy = 304 + k * 35;
+      for (let i = 0; i < l; i++) zimmer += `<circle cx="${860 - (l - 1) * 6 + i * 12}" cy="${cy}" r="5" fill="#e8543f"/>`;
+      for (let i = 0; i < r; i++) zimmer += `<circle cx="${920 - (r - 1) * 6 + i * 12}" cy="${cy}" r="5" fill="#3d7be0"/>`;
+    });
+    s += hit("zahlenhaus", "Zahlenhaus", `
+      <rect x="830" y="286" width="120" height="106" fill="#ffffff" stroke="#e2c389" stroke-width="2"/>
+      <path d="M890 286 V392 M830 321 H950 M830 356 H950" stroke="#e2c389" stroke-width="2"/>
+      <path d="M818 290 L890 240 L962 290 Z" fill="#e8543f"/>
+      <circle cx="890" cy="270" r="15" fill="#ffffff"/>
+      <text x="890" y="278" text-anchor="middle" font-size="22" ${FONT} fill="#e8543f">5</text>${zimmer}`, [812, 238, 156, 162]);
+
+    const pips = (x, y, w, n, farbe) => {
+      const p = { 3: [[0.25, 0.25], [0.5, 0.5], [0.75, 0.75]], 5: [[0.25, 0.25], [0.75, 0.25], [0.5, 0.5], [0.25, 0.75], [0.75, 0.75]] }[n];
+      return p.map(([a, b]) => `<circle cx="${(x + a * w).toFixed(1)}" cy="${(y + b * w).toFixed(1)}" r="${(w * 0.09).toFixed(1)}" fill="${farbe}"/>`).join("");
+    };
+    s += hit("wuerfel", "Würfelbecher und Würfel", `
+      <ellipse cx="290" cy="456" rx="64" ry="7" fill="#243047" fill-opacity="0.12"/>
+      <path d="M236 410 L248 400 L292 400 L280 410 Z" fill="#f07a69"/><path d="M280 410 L292 400 L292 444 L280 454 Z" fill="#c4412f"/>
+      <rect x="236" y="410" width="44" height="44" rx="8" fill="#e8543f"/>${pips(236, 410, 44, 5, "#ffffff")}
+      <path d="M296 416 L306 407 L346 407 L336 416 Z" fill="#6c9af0"/><path d="M336 416 L346 407 L346 447 L336 456 Z" fill="#2f63bd"/>
+      <rect x="296" y="416" width="40" height="40" rx="8" fill="#3d7be0"/>${pips(296, 416, 40, 3, "#ffffff")}`, [228, 396, 126, 64]);
+
+    // Das Rangiergleis mit zwei Spielzeugzügen und dem Tunnel
+    let gleis = `<rect x="20" y="500" width="960" height="5" rx="2" fill="#8b95a8"/>`;
+    for (let x = 30; x < 970; x += 26) gleis += `<rect x="${x}" y="505" width="14" height="6" rx="2" fill="#9b6b3f"/>`;
+    s += gleis;
+    let zugA = lok(1, true);
+    for (let i = 0; i < 3; i++) zugA += wagen(116 + i * 64, fuenfer(i), 1, i);
+    let zugB = "";
+    for (let j = 0; j < 2; j++) zugB += wagen(6 + j * 64, C.gelb, 1, j);
+    s += hit("kuppel", "Rangiergleis: Kuppel-Plus spielen", `
+      <g transform="translate(54 500) scale(0.62)">${zugA}</g>
+      <g transform="translate(296 500) scale(0.62)">${zugB}</g>`, [24, 444, 400, 94]);
+    s += hit("tunnel", "Tunnel: Tunnel-Rechnen spielen", `
+      <path d="M700 505 L700 470 Q706 438 744 432 Q790 404 840 424 Q890 408 920 440 Q948 456 950 505 Z" fill="#6fbf5a"/>
+      <path d="M760 430 q6 -10 12 0 M850 420 q6 -10 12 0 M900 440 q5 -9 10 0" stroke="#4f9e3c" stroke-width="3" fill="none"/>
+      <path d="M706 505 V480 Q706 458 730 458 Q754 458 754 480 V505 Z" fill="#2b3346"/>
+      <rect x="836" y="384" width="3" height="34" fill="#5d6882"/><path d="M839 384 L862 392 L839 400 Z" fill="#e8543f"/>`, [690, 424, 270, 114]);
+    return s;
+  }
+
+  function raumHinten(spur = 448) {
+    let s = DEFS + `
+      <rect x="0" y="0" width="1000" height="300" fill="#fff1cf"/>
+      <rect x="0" y="250" width="1000" height="50" fill="#f3d9a4"/>
+      <rect x="0" y="250" width="1000" height="4" fill="#e2c389"/>
+      <rect x="0" y="300" width="1000" height="260" fill="#d9a46c"/>
+      <path d="M0 350 H1000 M0 400 H1000 M0 500 H1000" stroke="#c48f58" stroke-width="2"/>
+      <path d="M0 0 H1000 V22 Q500 36 0 22 Z" fill="#8a5a35"/>
+      <rect x="0" y="${spur}" width="1000" height="6" fill="#8b95a8"/>`;
+    for (let x = 6; x < 1000; x += 30) s += `<rect x="${x}" y="${spur + 6}" width="16" height="8" rx="2" fill="#9b6b3f"/>`;
+    return s;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Ansichten
+  // ---------------------------------------------------------------------------
+  function topbar() {
+    const imSpiel = S.view === "game";
+    $("#back").hidden = !imSpiel;
+    $("#levels").hidden = !imSpiel;
+    $("#dots").hidden = !imSpiel;
+    $("#titel").textContent = imSpiel ? GAMES[S.game].name : "Rechenwagen";
+    $("#hint").hidden = imSpiel;
+    $("#levels").querySelectorAll("button").forEach((b) => b.setAttribute("aria-checked", String(b.dataset.level === S.level)));
+    $("#talerZahl").textContent = String(S.taler);
+  }
+  function dots() {
+    const r = S.round; if (!r) return;
+    $("#dots").innerHTML = Array.from({ length: r.n }, (_, i) => `<i class="${i < r.i ? "done" : i === r.i ? "now" : ""}"></i>`).join("");
+  }
+
+  function zimmer(sprechen) {
+    S.token += 1; S.view = "room"; S.game = null; S.round = null;
+    answers.innerHTML = "";
+    topbar();
+    scene.setAttribute("aria-label", "Der Rechenwagen von innen");
+    scene.innerHTML = zimmerSVG();
+    const tok = S.token;
+    // Beim Hereinkommen hüpft reihum alles, was sich antippen lässt.
+    const reihe = ["tuer", "zaehlrahmen", "blitz", "kiosk", "mission", "fensterR", "zahlenhaus", "waage", "schatz", "tunnel", "kuppel", "wuerfel", "drache"];
+    reihe.forEach((id, k) => {
+      const el = scene.querySelector(`.hit[data-go="${id}"]`);
+      if (!el) return;
+      el.style.setProperty("--d", `${k * 0.08}s`);
+      el.classList.add("hop");
+      el.addEventListener("animationend", () => el.classList.remove("hop"), { once: true });
+    });
+    if (S.pending > 0) {
+      say(`Zacki bekommt ${S.pending} Taler!`, null, sprechen);
+      talerEinsammeln(tok);
+    } else {
+      say("Hallo, ich bin Zacki, der Rechendrache! Tippe auf das Rangiergleis, den Tunnel oder das Fenster – oder auf meine Karte.", null, sprechen);
+    }
+  }
+
+  async function talerEinsammeln(tok) {
+    await wait(reduced ? 200 : 1300);
+    while (S.pending > 0 && alive(tok)) {
+      const vorher = stufeVon(S.taler);
+      S.taler += 1; S.pending -= 1;
+      $("#schatz").innerHTML = schatzSVG(S.taler);
+      $("#karte").innerHTML = karteSVG();
+      $("#talerZahl").textContent = String(S.taler);
+      sfx.taler();
+      const stufe = stufeVon(S.taler);
+      if (stufe > vorher) {
+        const pop = $("#drachePop");
+        pop.innerHTML = `<g transform="translate(496 378)">${dracheSVG(stufe)}</g>`;
+        pop.classList.remove("grow"); void pop.getBoundingClientRect(); pop.classList.add("grow");
+        const rot = Math.min(stufe, 5), blau = Math.min(Math.max(stufe - 5, 0), 5), gelb = Math.max(stufe - 10, 0);
+        const teile = [`${rot} rote`]; if (blau) teile.push(`${blau} blaue`); if (gelb) teile.push(`${gelb} gelbe`);
+        say(`Zacki hat eine neue Zacke! Jetzt sind es ${stufe} – ${teile.join(" und ")}.`);
+        await wait(2600);
+      } else {
+        await wait(320);
+      }
+    }
+    if (alive(tok)) say(schatzSatz(S.taler), null, false);
+  }
+
+  function schatzSatz(n) {
+    const t = Math.floor(n / 10), e = n % 10;
+    if (t === 0) return `${n} Taler.`;
+    const tuerme = t === 1 ? "ein Turm zu zehn" : `${t} Türme zu zehn`;
+    return e === 0 ? `${n} Taler – ${tuerme}, genau.` : `${n} Taler – ${tuerme} und ${e}.`;
+  }
+
+  function spielStart(id, vonMission) {
+    stumm();
+    S.token += 1; S.view = "game"; S.game = id;
+    S.round = { i: 0, n: S.level === "leicht" ? 5 : 6, falsch: 0, richtig: 0, mission: !!vonMission, used: new Set() };
+    answers.innerHTML = "";
+    topbar(); dots();
+    scene.setAttribute("aria-label", GAMES[id].name);
+    naechste(S.token);
+  }
+
+  async function naechste(tok) {
+    const r = S.round;
+    if (!alive(tok)) return;
+    if (r.i >= r.n) { fertig(); return; }
+    dots();
+    const ok = await GAMES[S.game].task(tok);
+    if (!alive(tok)) return;
+    if (ok) r.richtig += 1; else r.falsch += 1;
+    r.i += 1; dots();
+    await wait(1500);
+    if (!alive(tok)) return;
+    answers.innerHTML = "";
+    naechste(tok);
+  }
+
+  function waehle(gen) {
+    const used = S.round.used;
+    let t = null;
+    for (let k = 0; k < 60; k++) {
+      t = gen();
+      if (t && !used.has(t.key)) { used.add(t.key); return t; }
+    }
+    return t;
+  }
+
+  // Die Antwort-Leiste: Zahlen von lo bis hi.
+  function frage(lo, hi, richtig, tok) {
+    return new Promise((resolve) => {
+      answers.innerHTML = "";
+      answers.classList.remove("locked");
+      for (let n = lo; n <= hi; n++) {
+        const b = document.createElement("button");
+        b.type = "button"; b.className = "num"; b.textContent = String(n); b.dataset.n = String(n);
+        b.setAttribute("aria-label", `${n}`);
+        b.addEventListener("click", () => {
+          if (!alive(tok) || answers.classList.contains("locked")) return;
+          answers.classList.add("locked");
+          const ok = n === richtig;
+          b.classList.add(ok ? "is-ok" : "is-nah");
+          if (!ok) answers.querySelector(`[data-n="${richtig}"]`)?.classList.add("is-ring");
+          (ok ? sfx.ok : sfx.nah)();
+          resolve(ok);
+        });
+        answers.append(b);
+      }
+    });
+  }
+
+  async function zaehle(tok, items, schritt) {
+    for (let k = 0; k < items.length; k++) {
+      if (!alive(tok)) return false;
+      const { g, el } = items[k];
+      const x = Number(el.dataset.bx), y = Number(el.dataset.by) - 22;
+      g.insertAdjacentHTML("beforeend", `<g class="badge"><circle cx="${x}" cy="${y}" r="15" fill="#ffffff" stroke="#6c5ce7" stroke-width="3"/><text x="${x}" y="${y + 6}" text-anchor="middle" font-size="18" ${FONT} fill="#243047">${k + 1}</text></g>`);
+      sfx.blip(k);
+      await wait(schritt);
+    }
+    return true;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Kuppel-Plus
+  // ---------------------------------------------------------------------------
+  async function kuppelAufgabe(tok) {
+    const lv = S.level;
+    const t = waehle(() => {
+      let a, b;
+      if (lv === "leicht") { a = rnd(1, 4); b = rnd(1, 5 - a); }
+      else if (lv === "mittel") { a = rnd(1, 8); b = rnd(1, 10 - a); if (a + b < 4) return null; }
+      else { a = rnd(2, 8); b = rnd(1, 10 - a); if (a + b < 6) return null; }
+      return { a, b, key: `${a}+${b}` };
+    });
+    const { a, b } = t;
+    const ax = 40, ziel = 150 + 64 * a;
+    const bStart = Math.max(ziel + 130, 970 - 64 * b);
+    let zugA = lok(1, true);
+    for (let i = 0; i < a; i++) zugA += wagen(116 + i * 64, fuenfer(i), 1, i);
+    let zugB = "";
+    for (let j = 0; j < b; j++) zugB += wagen(6 + j * 64, C.gelb, 1, a + j);
+    if (lv === "mittel") {
+      zugA += schild(116 + (a * 64 - 6) / 2, -104, a);
+      zugB += schild(6 + (b * 64 - 6) / 2, -104, b);
+    }
+    const versteckt = lv === "schwer";
+    scene.innerHTML = raumHinten() + `
+      ${versteckt ? `<text id="rechnung" x="500" y="200" text-anchor="middle" font-size="104" ${FONT} fill="#243047">${a} + ${b} = ?</text>` : ""}
+      <g id="trA" transform="translate(${ax} 448)" ${versteckt ? 'opacity="0"' : ""}>${zugA}</g>
+      <g id="trB" class="${lv === "leicht" ? "ziehbar" : ""}" transform="translate(${bStart} 448)" ${versteckt ? 'opacity="0"' : ""}>${zugB}<rect class="hitbox" x="-10" y="-74" width="${64 * b + 14}" height="88"/></g>
+      ${lv === "leicht" ? `<g transform="translate(${bStart - 40} 360)"><g class="nudge-in"><path d="M0 0 L24 -16 L24 -7 L56 -7 L56 7 L24 7 L24 16 Z" fill="#6c5ce7"/></g></g>` : ""}`;
+    const trA = $("#trA"), trB = $("#trB");
+    let bx = bStart;
+
+    const kuppeln = async (dauer) => {
+      const von = bx;
+      await tween(dauer, (p) => { bx = von + (ziel - von) * p; setPos(trB, bx, 448); });
+      if (!alive(tok)) return;
+      sfx.klack();
+      await tween(160, (p) => setPos(trA, ax - 4 * Math.sin(p * Math.PI), 448));
+    };
+
+    if (versteckt) {
+      say(`${a} + ${b} = ?`, `${a} plus ${b}. Wie viel ist das?`);
+      const ok = await frage(1, 10, a + b, tok);
+      if (!alive(tok)) return ok;
+      const rechnung = $("#rechnung");
+      await tween(320, (p) => { trA.setAttribute("opacity", p); trB.setAttribute("opacity", p); if (rechnung) rechnung.setAttribute("opacity", 1 - p * 0.75); });
+      await wait(250);
+      await kuppeln(800);
+      return await kuppelZeigen(tok, a, b, ok, trA, trB);
+    }
+
+    say(`${a} Wagen und ${b} Wagen.${lv === "leicht" ? " Schieb sie zusammen!" : ""}`);
+    if (lv === "leicht") {
+      await new Promise((resolve) => {
+        let fertigGekuppelt = false, startX = 0, startBx = 0, bewegt = false, ziehen = false;
+        const svgX = (e) => {
+          const p = scene.createSVGPoint(); p.x = e.clientX; p.y = e.clientY;
+          const m = scene.getScreenCTM(); return m ? p.matrixTransform(m.inverse()).x : 0;
+        };
+        const schluss = async (dauer) => {
+          if (fertigGekuppelt) return; fertigGekuppelt = true; ziehen = false;
+          scene.querySelector(".nudge-in")?.parentNode.remove();
+          trB.classList.remove("ziehbar");
+          await kuppeln(dauer);
+          resolve();
+        };
+        trB.addEventListener("pointerdown", (e) => {
+          if (fertigGekuppelt || !alive(tok)) return;
+          e.preventDefault(); audio();
+          try { trB.setPointerCapture(e.pointerId); } catch (err) { /* nichts */ }
+          ziehen = true; bewegt = false; startX = svgX(e); startBx = bx;
+        });
+        trB.addEventListener("pointermove", (e) => {
+          if (!ziehen || fertigGekuppelt) return;
+          const dx = svgX(e) - startX;
+          if (Math.abs(dx) > 5) bewegt = true;
+          bx = Math.max(ziel, Math.min(bStart, startBx + dx));
+          setPos(trB, bx, 448);
+          if (bx - ziel < 18) schluss(120);
+        });
+        // Loslassen rollt den Rest von selbst – ein Tipp genügt auch.
+        const loslassen = () => {
+          if (!ziehen || fertigGekuppelt) return;
+          ziehen = false;
+          schluss(Math.max(bewegt ? 220 : 300, (bx - ziel) * 1.6));
+        };
+        trB.addEventListener("pointerup", loslassen);
+        trB.addEventListener("pointercancel", () => { ziehen = false; });
+      });
+    } else {
+      await wait(1500);
+      if (!alive(tok)) return false;
+      await kuppeln(800);
+    }
+    if (!alive(tok)) return false;
+    say("Wie viele Wagen sind es jetzt?");
+    const ok = await frage(1, lv === "leicht" ? 5 : 10, a + b, tok);
+    if (!alive(tok)) return ok;
+    return await kuppelZeigen(tok, a, b, ok, trA, trB);
+  }
+
+  async function kuppelZeigen(tok, a, b, ok, trA, trB) {
+    const items = [
+      ...[...trA.querySelectorAll(".wg")].map((el) => ({ g: trA, el })),
+      ...[...trB.querySelectorAll(".wg")].map((el) => ({ g: trB, el })),
+    ];
+    if (!(await zaehle(tok, items, S.level === "leicht" ? 340 : 230))) return ok;
+    // Die angekuppelten Wagen bekommen ihre Fünfer-Farbe.
+    items.forEach(({ el }, k) => el.querySelector(".wb")?.setAttribute("fill", fuenfer(k)));
+    const n = a + b;
+    const fuenf = n > 5 ? ` Fünf rote und ${n - 5} blaue.` : "";
+    say(ok ? `Ja! ${a} und ${b} sind ${n}.${fuenf}` : `Schau: Es sind ${n}. ${a} und ${b} sind ${n}.${fuenf}`);
+    return ok;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Tunnel-Rechnen
+  // ---------------------------------------------------------------------------
+  const TK = 0.72, TS = 46, VORNE = 888;
+  function tunnelZug(n, mitLok, start) {
+    let s = mitLok ? lok(TK, false) : "";
+    for (let i = 0; i < n; i++) s += wagen(-(i + 1) * TS + 4, mitLok ? fuenfer(i) : C.gelb, TK, start + i);
+    return s;
+  }
+  async function tunnelAufgabe(tok) {
+    const lv = S.level;
+    const minus = lv === "schwer" && Math.random() < 0.5;
+    const t = waehle(() => {
+      let a, b;
+      if (minus) { a = rnd(3, 7); b = rnd(1, a - 1); return { a, b, key: `${a}-${b}` }; }
+      if (lv === "leicht") { a = rnd(1, 4); b = rnd(1, 5 - a); }
+      else if (lv === "mittel") { a = rnd(1, 7); b = rnd(1, Math.min(8, 10 - a)); if (a + b < 4) return null; }
+      else { a = rnd(2, 7); b = rnd(1, Math.min(8, 10 - a)); if (a + b < 5) return null; }
+      return { a, b, key: `${a}+${b}` };
+    });
+    const { a, b } = t;
+    let zugA = tunnelZug(a, true, 0);
+    if (lv === "mittel") zugA += schild((78 - a * TS + 4) / 2, -84, a);
+    const startX = a * TS + 6;
+    scene.innerHTML = raumHinten() + `
+      <g id="trA" transform="translate(${startX} 448)">${zugA}</g>
+      <g id="trB"></g>
+      <g id="berg">
+        <path d="M410 448 L410 340 Q414 262 486 248 Q556 182 650 214 Q730 158 828 206 Q906 196 950 262 Q992 304 992 448 Z" fill="#6fbf5a"/>
+        <path d="M470 252 q8 -14 16 0 M640 214 q8 -14 16 0 M820 206 q8 -14 16 0 M930 262 q7 -12 14 0" stroke="#4f9e3c" stroke-width="4" fill="none"/>
+        <circle cx="560" cy="300" r="20" fill="#5aa848"/><circle cx="760" cy="280" r="26" fill="#5aa848"/><circle cx="880" cy="340" r="18" fill="#5aa848"/>
+        <path d="M414 448 V382 Q414 336 462 336 Q510 336 510 382 V448 Z" fill="#2b3346"/>
+        <path d="M414 382 Q414 336 462 336 Q510 336 510 382" stroke="#9aa3b5" stroke-width="8" fill="none"/>
+        <rect x="684" y="150" width="4" height="40" fill="#5d6882"/><path d="M688 150 L716 160 L688 170 Z" fill="#e8543f"/>
+      </g>`;
+    const trA = $("#trA"), trBplatz = $("#trB"), berg = $("#berg");
+
+    say(`Ein Zug mit ${a} Wagen fährt in den Tunnel.`);
+    await wait(2000);
+    if (!alive(tok)) return false;
+    sfx.pfiff();
+    await tween(1900, (p) => setPos(trA, startX + (VORNE - startX) * p, 448));
+    if (!alive(tok)) return false;
+    await wait(400);
+
+    let trB;
+    if (!minus) {
+      let zugB = tunnelZug(b, false, a);
+      if (lv === "mittel") zugB += schild(-(b * TS) / 2 + 2, -84, b);
+      const bStart = b * TS + 2;
+      trBplatz.outerHTML = `<g id="trB" transform="translate(${bStart} 448)" opacity="0">${zugB}</g>`;
+      trB = $("#trB");
+      await tween(300, (p) => trB.setAttribute("opacity", p));
+      say(`${b} Wagen rollen hinterher.`);
+      await wait(1800);
+      if (!alive(tok)) return false;
+      const ziel = VORNE - a * TS;
+      await tween(1300, (p) => setPos(trB, bStart + (ziel - bStart) * p, 448));
+      if (!alive(tok)) return false;
+      sfx.klack();
+      await wait(300);
+      say("Wie viele Wagen sind jetzt im Tunnel?");
+    } else {
+      // Die hinteren Wagen kuppeln sich im Tunnel ab und rollen wieder heraus.
+      trA.querySelectorAll(".wg").forEach((el) => { if (Number(el.dataset.i) >= a - b) el.remove(); });
+      let zugB = "";
+      for (let j = 0; j < b; j++) zugB += wagen(-(j + 1) * TS + 4, fuenfer(a - b + j), TK, j);
+      const von = VORNE - (a - b) * TS, ziel = b * TS + 6;
+      trBplatz.outerHTML = `<g id="trB" transform="translate(${von} 448)">${zugB}</g>`;
+      trB = $("#trB");
+      sfx.klack();
+      await tween(1500, (p) => setPos(trB, von + (ziel - von) * p, 448));
+      if (!alive(tok)) return false;
+      say(`${b} Wagen rollen wieder heraus. Wie viele sind noch im Tunnel?`);
+    }
+
+    const richtig = minus ? a - b : a + b;
+    const ok = await frage(minus || lv === "schwer" ? 0 : 1, lv === "leicht" ? 5 : 10, richtig, tok);
+    if (!alive(tok)) return ok;
+    // Den Spielzeugtunnel hochheben
+    await tween(750, (p) => berg.setAttribute("transform", `translate(${(p * 30).toFixed(1)} ${(-p * 470).toFixed(1)}) rotate(${(p * 6).toFixed(1)} 700 448)`));
+    if (!alive(tok)) return ok;
+    const items = [...trA.querySelectorAll(".wg")].sort((x, y) => x.dataset.i - y.dataset.i).map((el) => ({ g: trA, el }));
+    if (!minus) [...trB.querySelectorAll(".wg")].forEach((el) => items.push({ g: trB, el }));
+    if (!(await zaehle(tok, items, lv === "leicht" ? 340 : 230))) return ok;
+    if (!minus) items.forEach(({ el }, k) => el.querySelector(".wb")?.setAttribute("fill", fuenfer(k)));
+    const satz = minus ? `${a} minus ${b} sind ${richtig}.` : `${a} und ${b} sind ${richtig}.`;
+    say(ok ? `Richtig! ${satz}` : `Schau: Es sind ${richtig}. ${satz}`);
+    return ok;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Blitzblick
+  // ---------------------------------------------------------------------------
+  const TIERE = [
+    { kopf: "#f08a3c", ohr: "spitz", schnauze: "#fff3e6" },
+    { kopf: "#ffffff", ohr: "rund", ohrF: "#2f3a52", flecken: true },
+    { kopf: "#a86b3c", ohr: "rund", ohrF: "#a86b3c", schnauze: "#e2b48a" },
+    { kopf: "#cfd5df", ohr: "lang", ohrF: "#cfd5df" },
+    { kopf: "#b8bfcc", ohr: "gross", ohrF: "#b8bfcc" },
+    { kopf: "#7cc05e", ohr: "frosch" },
+    { kopf: "#f4b400", ohr: "maehne" },
+    { kopf: "#2f3a52", ohr: "keine", gesicht: "#ffffff" },
+  ];
+  function gesicht(cx, cy, r, k) {
+    const t = TIERE[k % TIERE.length];
+    let s = "";
+    if (t.ohr === "spitz") s += `<path d="M${cx - r * 0.9} ${cy - r * 0.3} L${cx - r * 0.7} ${cy - r * 1.3} L${cx - r * 0.1} ${cy - r * 0.8} Z M${cx + r * 0.9} ${cy - r * 0.3} L${cx + r * 0.7} ${cy - r * 1.3} L${cx + r * 0.1} ${cy - r * 0.8} Z" fill="${t.kopf}"/>`;
+    if (t.ohr === "rund" || t.ohr === "gross") { const rr = t.ohr === "gross" ? r * 0.55 : r * 0.38; s += `<circle cx="${cx - r * 0.75}" cy="${cy - r * 0.75}" r="${rr}" fill="${t.ohrF}"/><circle cx="${cx + r * 0.75}" cy="${cy - r * 0.75}" r="${rr}" fill="${t.ohrF}"/>`; }
+    if (t.ohr === "lang") s += `<ellipse cx="${cx - r * 0.4}" cy="${cy - r * 1.2}" rx="${r * 0.22}" ry="${r * 0.62}" fill="${t.ohrF}"/><ellipse cx="${cx + r * 0.4}" cy="${cy - r * 1.2}" rx="${r * 0.22}" ry="${r * 0.62}" fill="${t.ohrF}"/>`;
+    if (t.ohr === "maehne") s += `<circle cx="${cx}" cy="${cy}" r="${r * 1.32}" fill="#d98a1e"/>`;
+    if (t.ohr === "frosch") s += `<circle cx="${cx - r * 0.5}" cy="${cy - r * 0.8}" r="${r * 0.38}" fill="${t.kopf}"/><circle cx="${cx + r * 0.5}" cy="${cy - r * 0.8}" r="${r * 0.38}" fill="${t.kopf}"/>`;
+    s += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${t.kopf}"/>`;
+    if (t.gesicht) s += `<ellipse cx="${cx}" cy="${cy + r * 0.15}" rx="${r * 0.7}" ry="${r * 0.72}" fill="${t.gesicht}"/>`;
+    if (t.schnauze) s += `<ellipse cx="${cx}" cy="${cy + r * 0.38}" rx="${r * 0.45}" ry="${r * 0.32}" fill="${t.schnauze}"/>`;
+    if (t.flecken) s += `<ellipse cx="${cx - r * 0.38}" cy="${cy - r * 0.1}" rx="${r * 0.24}" ry="${r * 0.3}" fill="#2f3a52"/><ellipse cx="${cx + r * 0.38}" cy="${cy - r * 0.1}" rx="${r * 0.24}" ry="${r * 0.3}" fill="#2f3a52"/>`;
+    const ey = t.ohr === "frosch" ? cy - r * 0.8 : cy - r * 0.1;
+    const auge = t.flecken ? "#ffffff" : "#243047";
+    s += `<circle cx="${cx - r * 0.36}" cy="${ey}" r="${r * 0.13}" fill="${auge}"/><circle cx="${cx + r * 0.36}" cy="${ey}" r="${r * 0.13}" fill="${auge}"/>`;
+    s += t.ohr === "keine"
+      ? `<path d="M${cx - r * 0.18} ${cy + r * 0.25} L${cx + r * 0.18} ${cy + r * 0.25} L${cx} ${cy + r * 0.5} Z" fill="#f4b400"/>`
+      : `<circle cx="${cx}" cy="${cy + r * 0.28}" r="${r * 0.12}" fill="#243047"/>`;
+    return s;
+  }
+  // Ein Wagen mit einer oder zwei Reihen zu fünf Fenstern. Ursprung unten links.
+  function fensterWagen(n, reihen, W, start) {
+    const pad = 18, gap = 10, cols = 5;
+    const win = (W - 2 * pad - (cols - 1) * gap) / cols;
+    const wh = win * 0.9;
+    const H = pad * 2 + reihen * wh + (reihen - 1) * gap;
+    const oben = -H - 26;
+    let s = `<rect x="10" y="${oben - 12}" width="${W - 20}" height="16" rx="8" fill="#2f3a52"/>
+      <rect x="0" y="${oben}" width="${W}" height="${H}" rx="16" fill="#ffd166"/>
+      <rect x="0" y="${oben + H - 12}" width="${W}" height="12" rx="6" fill="#e0a92e"/>`;
+    const plaetze = [];
+    for (let r = 0; r < reihen; r++) {
+      for (let c = 0; c < cols; c++) {
+        const idx = r * cols + c;
+        const x = pad + c * (win + gap), y = oben + pad + r * (wh + gap);
+        s += `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${win.toFixed(1)}" height="${wh.toFixed(1)}" rx="8" fill="#cdeefa"/>`;
+        if (idx < n) {
+          s += gesicht(x + win / 2, y + wh * 0.56, win * 0.27, start + idx);
+          plaetze.push({ x: x + win - 8, y: y + 6 });
+        }
+      }
+    }
+    [0.17, 0.31, 0.69, 0.83].forEach((f) => { s += `<circle cx="${(W * f).toFixed(1)}" cy="-14" r="14" fill="#2f3a52"/><circle cx="${(W * f).toFixed(1)}" cy="-14" r="5" fill="#c9d1df"/>`; });
+    return { svg: s, plaetze };
+  }
+  function blitzBild() {
+    return DEFS + `
+      <rect x="0" y="0" width="1000" height="560" fill="#fff1cf"/>
+      <rect x="0" y="476" width="1000" height="84" fill="#f3d9a4"/>
+      <rect x="40" y="24" width="920" height="440" rx="34" fill="#3d7be0"/>
+      <g clip-path="url(#grossFenster)">
+        <rect x="60" y="44" width="880" height="400" fill="url(#himmel)"/>
+        <circle cx="830" cy="104" r="34" fill="#ffe27a"/>
+        <path d="M150 110 q20 -24 46 -8 q24 -18 44 4 q22 2 18 18 h-118 q-10 -12 10 -14 Z" fill="#ffffff" fill-opacity="0.9"/>
+        <path d="M60 320 Q200 262 340 306 T620 290 T940 300 V444 H60 Z" fill="#9ed27f"/>
+        <path d="M60 368 Q260 330 460 362 T940 354 V444 H60 Z" fill="#7cc05e"/>
+        <rect x="60" y="404" width="880" height="6" fill="#8b95a8"/>
+        ${Array.from({ length: 30 }, (_, i) => `<rect x="${66 + i * 30}" y="410" width="16" height="8" rx="2" fill="#9b6b3f"/>`).join("")}
+        <g id="zug"></g>
+      </g>
+      <rect x="28" y="458" width="944" height="18" rx="7" fill="#b07a45"/>`;
+  }
+  async function blitzAufgabe(tok) {
+    const lv = S.level;
+    const t = waehle(() => {
+      const n = lv === "leicht" ? rnd(1, 5) : lv === "mittel" ? rnd(2, 10) : rnd(11, 20);
+      return { n, key: String(n) };
+    });
+    const n = t.n;
+    const start = rnd(0, 7);
+    let breite, inhalt, plaetze = [];
+    if (lv === "schwer") {
+      const w1 = fensterWagen(10, 2, 400, start), w2 = fensterWagen(n - 10, 2, 400, start + 10);
+      breite = 816;
+      inhalt = `${w1.svg}<rect x="400" y="-40" width="16" height="6" fill="#2f3a52"/><g transform="translate(416 0)">${w2.svg}</g>`;
+      plaetze = [...w1.plaetze, ...w2.plaetze.map((p) => ({ x: p.x + 416, y: p.y }))];
+    } else {
+      const w = fensterWagen(n, lv === "leicht" ? 1 : 2, 440, start);
+      breite = 440; inhalt = w.svg; plaetze = w.plaetze;
+    }
+    scene.innerHTML = blitzBild();
+    const zug = $("#zug");
+    const links = 50 - breite, mitte = (1000 - breite) / 2, rechts = 960;
+    zug.setAttribute("transform", `translate(${links} 404)`);
+    zug.innerHTML = inhalt;
+    say("Schau gut hin!");
+    await wait(1300);
+    if (!alive(tok)) return false;
+    const zeit = Math.max(900, (lv === "leicht" ? 2000 : lv === "mittel" ? 1600 : 2200) - S.round.richtig * 150);
+    await tween(520, (p) => setPos(zug, links + (mitte - links) * p, 404), true);
+    await wait(zeit);
+    if (!alive(tok)) return false;
+    await tween(520, (p) => setPos(zug, mitte + (rechts - mitte) * p, 404), true);
+    if (!alive(tok)) return false;
+    say("Wie viele Tiere hast du gesehen?");
+    const ok = await frage(lv === "schwer" ? 11 : 1, lv === "leicht" ? 5 : lv === "mittel" ? 10 : 20, n, tok);
+    if (!alive(tok)) return ok;
+    setPos(zug, links, 404);
+    await tween(600, (p) => setPos(zug, links + (mitte - links) * p, 404));
+    if (!alive(tok)) return ok;
+    for (let k = 0; k < plaetze.length; k++) {
+      if (!alive(tok)) return ok;
+      const { x, y } = plaetze[k];
+      zug.insertAdjacentHTML("beforeend", `<g class="badge"><circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="13" fill="#ffffff" stroke="#6c5ce7" stroke-width="3"/><text x="${x.toFixed(1)}" y="${(y + 5).toFixed(1)}" text-anchor="middle" font-size="16" ${FONT} fill="#243047">${k + 1}</text></g>`);
+      sfx.blip(k % 10);
+      await wait(lv === "leicht" ? 260 : 150);
+    }
+    let satz;
+    if (lv === "leicht") satz = n === 5 ? "Fünf – die Reihe ist voll!" : `${n}!`;
+    else if (lv === "mittel") satz = n < 5 ? `${n} – alle oben.` : n === 5 ? "Fünf – die obere Reihe ist voll." : n === 10 ? "Zehn – der Wagen ist voll!" : `${n} – fünf oben und ${n - 5} unten.`;
+    else satz = n === 20 ? "Zwanzig – zwei volle Wagen!" : `${n} – ein voller Wagen und noch ${n - 10}.`;
+    say(ok ? `Genau! ${satz}` : `Schau: ${satz}`);
+    return ok;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Ergebnis
+  // ---------------------------------------------------------------------------
+  const STERN = (voll) => `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.6l2.9 5.9 6.5.9-4.7 4.6 1.1 6.5L12 17.4l-5.8 3.1 1.1-6.5L2.6 9.4l6.5-.9z" fill="${voll ? "#f4b400" : "#e6e2d4"}" stroke="${voll ? "#c98a00" : "#d6cfa8"}" stroke-width="1.2" stroke-linejoin="round"/></svg>`;
+  function fertig() {
+    const r = S.round;
+    const sterne = r.falsch === 0 ? 3 : r.falsch === 1 ? 2 : 1;
+    const taler = sterne * (r.mission ? 2 : 1);
+    S.pending += taler;
+    S.played[S.game] = Date.now();
+    if (S.game === S.mission) {
+      S.mission = Object.keys(GAMES).filter((id) => id !== S.game).sort((x, y) => S.played[x] - S.played[y])[0];
+    }
+    $("#resSterne").innerHTML = [0, 1, 2].map((i) => STERN(i < sterne)).join("");
+    $("#resText").textContent = `${r.richtig} von ${r.n} richtig.`;
+    $("#resTaler").textContent = r.mission ? `+${taler} Taler für Zacki – doppelt, weil er es vorgeschlagen hat.` : `+${taler} Taler für Zacki`;
+    $("#result").hidden = false;
+    answers.innerHTML = "";
+    sfx.fanfare();
+    say(`Geschafft! ${sterne} ${sterne === 1 ? "Stern" : "Sterne"}. Zacki bekommt ${taler} Taler.`);
+    $("#resNochmal").focus();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Ideen hinter den anderen Dingen
+  // ---------------------------------------------------------------------------
+  const IDEEN = {
+    fensterR: { titel: "Einsteigen bitte!", lead: "Das rechte Fenster: Der Zug hält am Perron.", items: [
+      { name: "Einsteigen bitte!", e: 1, ab: "ab 5", text: "«Im Zug sitzen 4 Tiere. Hoppel und Mia steigen ein.» Wie viele fahren jetzt mit? Auf «mittel» sind die Fenster beschlagen, auf «schwer» gibt es nur die Geschichte – das Bild kommt zur Kontrolle.", uebt: "Plus als Dazukommen, Rechengeschichten" },
+      { name: "Aussteigen bitte!", e: 2, ab: "ab 5½", text: "Dasselbe, nur steigen Tiere aus – später beides gemischt.", uebt: "Minus in Geschichten" },
+      { name: "Plus oder Minus?", e: 2, ab: "ab 5½", text: "Eine Geschichte wird erzählt, das Kind wählt nur: Kommen welche dazu oder gehen welche weg?", uebt: "die Rechenart verstehen, bevor gerechnet wird" },
+    ] },
+    zahlenhaus: { titel: "Zahlenhaus", lead: "Ein Haus wie in der Bauecke, mit einer Zahl auf dem Dach.", items: [
+      { name: "Zahlenhaus", e: 1, ab: "ab 5", text: "Auf dem Dach steht 5. Links im Stockwerk wohnen 2 Tiere – wie viele ziehen rechts ein? Ist das Haus voll, sieht man die Treppe: 0 und 5, 1 und 4, 2 und 3 …", uebt: "Zahlen zerlegen, Teil und Ganzes" },
+      { name: "Zahlenmauer", e: 4, ab: "ab 6", text: "Zwei Ziegel unten ergeben zusammen den Ziegel darüber – eine Mauer wie in der Bauecke. Lücken füllen, auch von oben nach unten.", uebt: "Plus und Minus verknüpft, knobeln" },
+    ] },
+    wuerfel: { titel: "Würfelbecher", lead: "Zwei grosse Schaumstoffwürfel auf dem Boden.", items: [
+      { name: "Hüpf-Gleis", e: 1, ab: "ab 4½", text: "Ein Brettspiel als gerades Gleis von 1 bis 20: würfeln, Bahnhof für Bahnhof hüpfen, die Zahl laut sagen. Gegen Fino oder das Geschwister am selben Gerät.", uebt: "Weiterzählen, Zahlenstrahl, Würfelbilder" },
+      { name: "Würfel-Plus", e: 2, ab: "ab 5", text: "Zwei Würfel, die Augen zusammen. Wer die Würfelbilder kennt, muss nicht mehr zählen.", uebt: "Plus mit Mengen, die man auf einen Blick sieht" },
+      { name: "Schüttelbecher", e: 3, ab: "ab 5", text: "6 Kugeln im Becher, schütteln, sie fallen in zwei Schalen: links 2, wie viele rechts? Alle Möglichkeiten finden.", uebt: "alle Zerlegungen einer Zahl" },
+    ] },
+    zaehlrahmen: { titel: "Zählrahmen", lead: "Zwei Stangen zu zehn Kugeln, fünf rote und fünf blaue.", items: [
+      { name: "Zahlen-Paare", e: 2, ab: "ab 4½", text: "Dieselbe Zahl in verschiedenen Kleidern finden: Würfelbild, Finger, Zehnerwagen, Ziffer, gehörtes Zahlwort.", uebt: "Darstellungen verbinden" },
+      { name: "Finger-Zahlen", e: 2, ab: "ab 4½", text: "Zwei gemalte Hände: Finger hochtippen, bis die Zahl stimmt. Wird auch zur Antwort in anderen Spielen.", uebt: "Fingerbilder, die Fünf als ganze Hand" },
+      { name: "Zehnerwagen füllen", e: 3, ab: "ab 5½", text: "Im Zehnerwagen sitzen 6 Fahrgäste. Wie viele passen noch hinein?", uebt: "die Partner der Zehn" },
+      { name: "Zehner-Sprung", e: 3, ab: "ab 6", text: "8 + 5: zuerst den Zehnerwagen voll machen, 8 + 2, dann kommen 3 in den nächsten.", uebt: "Zehnerübergang" },
+    ] },
+    kiosk: { titel: "Kiosk", lead: "Glace, Rüebli und eine Kasse mit Schweizer Münzen.", items: [
+      { name: "Kiosk", e: 2, ab: "ab 5½", text: "Ein Tier möchte eine Glace für 3 Franken und ein Rüebli für 2 – das Kind zahlt. Zuerst nur mit Einfränklern, dann mit 2 Franken und dem Fünfliber.", uebt: "Plus mit Geld" },
+      { name: "Kiosk mit Rückgeld", e: 4, ab: "ab 7", text: "Bezahlt wird mit dem Fünfliber – wie viel gibt es zurück?", uebt: "Minus und Ergänzen mit Geld" },
+    ] },
+    waage: { titel: "Waage", lead: "Eine Balkenwaage auf dem Tischchen.", items: [
+      { name: "Waage", e: 3, ab: "ab 5½", text: "Links liegen 5 Kugeln, rechts 2. Wie viele müssen noch dazu, damit sie gerade steht?", uebt: "«gleich» heisst «gleich viel», Ergänzen" },
+      { name: "Wer hat mehr?", e: 2, ab: "ab 4", text: "Zwei Wagen mit Äpfeln oder Fischen: Welcher hat mehr? Auch «gleich viel». Später mit Ziffern.", uebt: "Mengen vergleichen" },
+    ] },
+    tuer: { titel: "Tür in den Lesewagen", lead: "Ein Durchgang wie im echten Zug.", items: [
+      { name: "Zwei Wagen, eine Tür", e: 1, ab: "", text: "Lesewagen und Rechenwagen stehen gekuppelt auf dem Abstellgleis. Durch die Tür geht es hin und zurück – so findet ein Kind die Rechenecke auch dann, wenn auf einem kleinen Bildschirm nur ein Wagen Platz hat.", uebt: "" },
+    ] },
+  };
+  let zuletztFokus = null;
+  function karteZeigen(id) {
+    const d = IDEEN[id]; if (!d) return;
+    $("#sheetTitel").textContent = d.titel;
+    $("#sheetLead").textContent = d.lead;
+    $("#sheetIdeen").innerHTML = d.items.map((it) => `
+      <div class="idee">
+        <h3>${it.name}<span class="tag ${it.e === 1 ? "e1" : ""}">Etappe ${it.e}</span>${it.ab ? `<span class="tag ab">${it.ab}</span>` : ""}</h3>
+        <p>${it.text}</p>
+        ${it.uebt ? `<p class="uebt">Übt: ${it.uebt}</p>` : ""}
+      </div>`).join("");
+    zuletztFokus = document.activeElement;
+    $("#sheet").hidden = false;
+    $("#sheetZu").focus();
+    say(d.titel, null, true);
+  }
+  function karteZu() {
+    $("#sheet").hidden = true;
+    if (zuletztFokus && zuletztFokus.focus) zuletztFokus.focus();
+  }
+
+  function geh(id) {
+    audio();
+    if (GAMES[id]) { spielStart(id, false); return; }
+    if (id === "mission" || id === "drache") { spielStart(S.mission, true); return; }
+    if (id === "schatz") { say(schatzSatz(S.taler)); return; }
+    karteZeigen(id);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Bedienung
+  // ---------------------------------------------------------------------------
+  scene.addEventListener("click", (e) => {
+    if (S.view !== "room") return;
+    const h = e.target.closest(".hit");
+    if (h) geh(h.dataset.go);
+  });
+  scene.addEventListener("keydown", (e) => {
+    if (S.view !== "room" || (e.key !== "Enter" && e.key !== " ")) return;
+    const h = e.target.closest(".hit");
+    if (h) { e.preventDefault(); geh(h.dataset.go); }
+  });
+  $("#back").addEventListener("click", () => { stumm(); zimmer(true); });
+  $("#levels").addEventListener("click", (e) => {
+    const b = e.target.closest("button[data-level]");
+    if (!b || S.view !== "game") return;
+    S.level = b.dataset.level;
+    spielStart(S.game, S.round ? S.round.mission : false);
+  });
+  $("#ton").addEventListener("click", () => {
+    S.sound = !S.sound;
+    const b = $("#ton");
+    b.setAttribute("aria-pressed", String(S.sound));
+    b.setAttribute("aria-label", S.sound ? "Ton aus" : "Ton an");
+    $("#tonWellen").setAttribute("visibility", S.sound ? "visible" : "hidden");
+    $("#tonAus").setAttribute("visibility", S.sound ? "hidden" : "visible");
+    if (!S.sound) stumm();
+  });
+  $("#sheetZu").addEventListener("click", karteZu);
+  $("#sheet").addEventListener("click", (e) => { if (e.target.id === "sheet") karteZu(); });
+  $("#resZimmer").addEventListener("click", () => { $("#result").hidden = true; zimmer(true); });
+  $("#resNochmal").addEventListener("click", () => { $("#result").hidden = true; spielStart(S.game, false); });
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape") return;
+    if (!$("#sheet").hidden) karteZu();
+  });
+
+  $("#bubbleKopf").innerHTML = DRACHE_KOPF;
+
+  function start(data) {
+    if (data && typeof data.taler === "number") S.taler = data.taler;
+    if (data && typeof data.pending === "number") S.pending = data.pending;
+    zimmer(false);
+  }
+  try { window.claude?.hot?.snapshot?.(() => ({ taler: S.taler, pending: S.pending })); } catch (e) { /* ausserhalb der Ansicht */ }
+  if (window.claude?.hot?.ready) window.claude.hot.ready(start); else start(window.claude?.hot?.data ?? {});
+})();
+</script>
