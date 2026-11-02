@@ -20,6 +20,7 @@
  */
 
 import { spawn } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 
@@ -47,6 +48,9 @@ const SPIEL_SEITEN = [
   "reimkupplung", "anlautlauscher", "werfaehrtmit", "woerterbauen", "silbenbahn", "blitzwoerter", "meinname", "lueckensaetze", "buchstabengleis",
   "satzkuppeln", "quatschsaetze", "stolperwoerter", "quatschwoerter",
   "lautposition", "buchstabensignal", "liesundtu", "geschichtenzug", "werbinich", "wortbaustelle", "steckbriefe", "detektivfaelle", "postkarten",
+  // Die Spiele der Rechenecke, wie sie im Katalog stehen (rechnen-stand.js):
+  // Ihr Pfeil führt in den Rechenwagen.
+  ...[...readFileSync(path.join(WURZEL, "rechnen-stand.js"), "utf8").matchAll(/^    ([a-z0-9]+): \{ page: "\1\.html"/gm)].map((m) => m[1]),
 ];
 
 // Alles, was zurückführt: das Haus auf die Startseite, der Pfeil eine Stufe

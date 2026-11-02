@@ -340,6 +340,28 @@ body[data-page="train"] .train-stage[data-view="rechnen"] ~ .help-voice {
 .rw-ziel-daneben { opacity: 0.55; }
 .rw-ziel-loesung { filter: drop-shadow(0 0 12px #3fbf74); }
 
+/* --- Der Sternenhimmel (train-rechenecke.js) --- */
+.rechen-himmel-karte { width: auto; max-width: min(920px, 96vw); }
+/* Auf dem Handy quer bleibt die Karte so niedrig, dass ihr Kreuz unter den
+   Knöpfen oben rechts hervorschaut. */
+.rechen-himmel-svg { display: block; width: auto; height: min(460px, 60vh); max-width: 100%; margin: 0 auto; }
+.rechen-stern { cursor: pointer; }
+.rechen-stern.ist-an path { filter: drop-shadow(0 0 6px #ffd166); }
+
+/* --- Das Sammelalbum und die Aufträge (train-rechenecke.js) --- */
+.rechen-album-karte { width: min(900px, 96vw); }
+.rechen-album-raster { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; max-height: 64vh; overflow: auto; }
+.rechen-album-blatt {
+  display: grid; justify-items: center; align-content: start; gap: 2px; min-height: 92px; padding: 6px 4px;
+  border: 2px solid #f1d58a; border-radius: 14px; background: #fffbe9; cursor: pointer; font: inherit;
+}
+.rechen-album-blatt.ist-zu { color: #b8bfd0; font-size: 2rem; font-weight: 800; background: #f3f1ea; border-style: dashed; cursor: default; align-content: center; }
+.rechen-album-zahl { font-family: "Baloo 2", Nunito, ui-rounded, system-ui, sans-serif; font-size: 1.4rem; font-weight: 800; color: #243047; line-height: 1; }
+.rechen-album-dinge { display: grid; grid-template-columns: repeat(5, 1fr); gap: 1px; font-size: clamp(0.7rem, 1.6vw, 1rem); line-height: 1.1; }
+.rechen-auftrag-text { margin: 0 0 14px; text-align: center; font-size: clamp(1.1rem, 2.6vh, 1.4rem); font-weight: 800; color: #243047; line-height: 1.35; }
+.rechen-auftrag-knoepfe { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
+.rechen-taufe-name.ist-ja { background: #3fbf74; border-color: #2f9a5b; color: #ffffff; }
+
 /* --- Die Taufe des Drachen (train-rechenecke.js) --- */
 .rechen-taufe-namen { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-bottom: 12px; }
 .rechen-taufe-name {

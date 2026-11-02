@@ -52,21 +52,23 @@ export default function texte(d) {
   for (const s of [2, 3]) { add(`Genau! Immer ${s} mehr.`); for (const n of von(5, 25)) add(`Schau: Immer ${s} mehr – also ${n}.`); }
   for (const f of ["rot", "blau", "gelb", "grün"]) add(`Schau: Es kommt ${f}.`);
   // Hüpf-Lok
-  muss(d, e2, "Die Lok steht bei ${a}. Hüpf ${b} weiter:");
+  muss(d, e2, "Die Lok steht bei ${a} und hüpft ${b} weiter: Tippe");
   for (const a of von(0, 20)) {
-    add(`Die Lok steht bei ${a}.`);
-    for (const b of von(1, 5)) add(`Die Lok steht bei ${a} und hüpft ${b} weiter. Wo landet sie?`);
+    for (const b of von(1, 5)) {
+      add(`Die Lok steht bei ${a} und hüpft ${b} weiter. Wo landet sie?`);
+      add(`Die Lok steht bei ${a} und hüpft ${b} weiter: Tippe ${b === 1 ? "einmal" : `${b} Mal`} auf die Lok!`);
+    }
   }
-  for (const b of von(1, 5)) add(`Hüpf ${b} weiter: Tippe ${b === 1 ? "einmal" : `${b} Mal`} auf die Lok!`);
   // Tunnel-Versteck, Abkuppeln
   for (const n of von(1, 10)) {
     add(`Der Zug hat ${n} Wagen.`);
     add(`${n === 1 ? "1 Wagen siehst du" : `${n} Wagen siehst du`}.`);
-    add(`Schau: Im Tunnel waren ${n}.`);
     add(`Der Zug hat ${wagenWort(n)}.`);
     add(`${n === 1 ? "1 Wagen rollt" : `${n} Wagen rollen`} weg.`);
     add(`${n === 1 ? "1 Wagen rollt" : `${n} Wagen rollen`} aufs Abstellgleis.`);
   }
+  muss(d, e2, "`Schau: Im Tunnel ${n - sicht === 1 ?");
+  for (const n of von(1, 20)) add(`Schau: Im Tunnel ${n === 1 ? "war 1 Wagen" : `waren ${n} Wagen`}.`);
   for (const a of von(0, 10)) for (const b of von(0, a)) add(`${a} minus ${b}. Wie viel ist das?`);
   // Aussteigen bitte!
   for (const b of von(1, 5)) { add(`${b === 1 ? "1 Tier steigt" : `${b} Tiere steigen`} aus.`); add(`${b === 1 ? "1 Tier steigt" : `${b} Tiere steigen`} ein.`); }
@@ -78,6 +80,20 @@ export default function texte(d) {
   muss(d, e2, "möchte ${satzWare}. Bezahl genau!");
   for (const name of NAMEN) for (const w of WAREN) for (const p of von(1, 5)) add(`${name} möchte ${w} für ${p} Franken.`);
   for (const s of von(1, 10)) { add(`Genau ${s} Franken.`); add(`Es kostet ${s}.`); }
-  for (const g of von(1, 20)) add(`${g} Franken.`);
+  for (const g of von(0, 20)) add(`${g} Franken.`);
+  add("Das ist zu wenig:");
+  add("Das ist zu viel:");
+  // Kiosk: zwei Dinge – das zweite als eigener Satz
+  muss(d, e2, "Franken. Und ${ware[1].w} für ${preise[1]} Franken");
+  for (const w of WAREN) for (const p of von(1, 5)) add(`Und ${w} für ${p} Franken.`);
+  // Abkuppeln: «Der Zug hat 5 Wagen. Tippe auf den letzten Wagen: 2 Wagen rollen weg.»
+  add("Tippe auf den letzten Wagen:");
+  // Muster-Zug mit Zahlen (auf «schwer»)
+  muss(d, e2, "const schritt = ctx.rnd(2, 3); const start = ctx.rnd(1, 6);");
+  for (const s of [2, 3]) for (const a of von(1, 6)) add(`Welche Zahl kommt nach ${[0, 1, 2, 3].map((i) => a + i * s).join(", ")}?`);
+  // Wagen ordnen, Finger-Zahlen
+  add("Perfekt! Alle Wagen sind in der richtigen Reihe.");
+  add("Geschafft! Alle Wagen sind in der richtigen Reihe.");
+  for (const n of von(1, 10)) add(`Schau: So sind es ${n} Finger.${n > 5 ? ` Eine ganze Hand und noch ${n - 5}.` : ""}`);
   return aus;
 }

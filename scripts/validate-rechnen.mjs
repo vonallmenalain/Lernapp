@@ -60,7 +60,7 @@ pruefe(spiele.length >= 6, "der Katalog der Rechenecke hat weniger als sechs Spi
 const pakete = fs.readdirSync(root).filter((n) => /^rechnen-spiele-\d+\.js$/.test(n));
 pruefe(pakete.length >= 1, "kein Spiele-Paket (rechnen-spiele-1.js …)");
 const paketText = Object.fromEntries(pakete.map((n) => [n, lies(n)]));
-const ORTE = ["gleis", "tunnel", "fenster", "perron", "wuerfel", "zahlenhaus", "teppich", "zaehlrahmen", "kiosk", "kiste", "waage", "uhr"];
+const ORTE = ["gleis", "tunnel", "fenster", "perron", "wuerfel", "zahlenhaus", "teppich", "zaehlrahmen", "kiosk", "kiste", "waage", "uhr", "schatz"];
 
 const entitlement = lies("entitlement.js");
 const rechenecke = (entitlement.match(/const RECHENECKE = \{[\s\S]*?\] \};/) || [""])[0];

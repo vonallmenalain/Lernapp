@@ -34,7 +34,7 @@
 
   const KEY = "lernapp.rechnen";
   const ELTERN_KEY = "lernapp.rechnen.eltern";
-  const EMPTY = { spiele: {}, aufgaben: {}, fehler: {}, bonus: 0, drache: null };
+  const EMPTY = { spiele: {}, aufgaben: {}, fehler: {}, bonus: 0, drache: null, auftraege: 0 };
 
   // Der Drache lebt drei Leben zu je fünfzehn Stufen – wie der Lesewurm. Jede
   // Stufe ist eine Zacke auf seinem Rücken und kostet fünf Taler: Die Leiste
@@ -78,6 +78,9 @@
     bis100: { titel: "Bis 100", detail: "Zehner und Einer, Hundertertafel", deckel: 100 },
   };
   const ZAHLENRAEUME = [5, 10, 20, 100];
+  // Nach wie vielen Minuten Rechenecke am Tag der Drache gähnt und einen
+  // Auftrag für draussen gibt (0: nie).
+  const GAEHNEN = [0, 10, 15, 20];
 
   // ---------------------------------------------------------------------------
   // Die Spiele: wo sie im Rechenwagen stehen und welche Sprosse sie üben.
@@ -113,15 +116,38 @@
     wuerfelplus: { page: "wuerfelplus.html", titel: "Würfel-Plus", ort: "wuerfel", bild: "🎲" },
     tunnelversteck: { page: "tunnelversteck.html", titel: "Tunnel-Versteck", ort: "tunnel", bild: "🙈" },
     kiosk: { page: "kiosk.html", titel: "Kiosk", ort: "kiosk", bild: "🍦" },
+    doppelexpress: { page: "doppelexpress.html", titel: "Doppel-Express", ort: "gleis", bild: "🪞" },
+    zehnerfuellen: { page: "zehnerfuellen.html", titel: "Zehnerwagen füllen", ort: "zaehlrahmen", bild: "🔟" },
+    waage: { page: "waage.html", titel: "Waage", ort: "waage", bild: "⚖️" },
+    zehnersprung: { page: "zehnersprung.html", titel: "Zehner-Sprung", ort: "zaehlrahmen", bild: "🦘" },
+    rechenkette: { page: "rechenkette.html", titel: "Rechenkette", ort: "teppich", bild: "⛓️" },
+    schuettelbecher: { page: "schuettelbecher.html", titel: "Schüttelbecher", ort: "wuerfel", bild: "🥤" },
+    drachenfutter: { page: "drachenfutter.html", titel: "Drachenfutter", ort: "schatz", bild: "🍓" },
+    rueckwaerts: { page: "rueckwaerts.html", titel: "Rückwärts-Hüpfer", ort: "teppich", bild: "↩️", minus: true },
+    zahlenstrahl: { page: "zahlenstrahl.html", titel: "Wo hält der Zug?", ort: "teppich", bild: "📍" },
+    schlange: { page: "schlange.html", titel: "Wie lang ist die Schlange?", ort: "kiste", bild: "🐍" },
+    strichliste: { page: "strichliste.html", titel: "Strichliste", ort: "fenster", bild: "🚗" },
+    formen: { page: "formen.html", titel: "Formen-Güterzug", ort: "kiste", bild: "🔺" },
+    formpuzzle: { page: "formpuzzle.html", titel: "Tangram-Lok", ort: "kiste", bild: "🧩" },
+    spiegelsignal: { page: "spiegelsignal.html", titel: "Spiegel-Signal", ort: "kiste", bild: "🦋" },
+    zahlenmauer: { page: "zahlenmauer.html", titel: "Zahlenmauer", ort: "zahlenhaus", bild: "🧱" },
+    wachsendetuerme: { page: "wachsendetuerme.html", titel: "Wachsende Türme", ort: "zahlenhaus", bild: "🗼" },
+    hunderter: { page: "hunderter.html", titel: "Hunderter-Fahrplan", ort: "teppich", bild: "💯" },
+    bahnhofsuhr: { page: "bahnhofsuhr.html", titel: "Bahnhofsuhr", ort: "uhr", bild: "🕒" },
+    rueckgeld: { page: "rueckgeld.html", titel: "Kiosk mit Rückgeld", ort: "kiosk", bild: "💰", minus: true },
+    blitzrechnen: { page: "blitzrechnen.html", titel: "Blitzrechnen-Express", ort: "zaehlrahmen", bild: "⏱️" },
+    rechenpost: { page: "rechenpost.html", titel: "Rechen-Postkarten", ort: "perron", bild: "📮" },
+    geradeungerade: { page: "geradeungerade.html", titel: "Gerade oder ungerade?", ort: "gleis", bild: "👯" },
+    waskommtoefter: { page: "waskommtoefter.html", titel: "Was kommt öfter?", ort: "wuerfel", bild: "🎡" },
   };
   // Was der Drache je Sprosse vorschlägt (dran ist, was am längsten ruht).
   const AUSWAHL = {
-    mengen: ["blitzblick", "alleeinsteigen", "werhatmehr", "zaehlfenster", "musterzug", "fingerzahlen", "huepfgleis", "zahlenpaare", "countdown", "kuppelplus", "einsteigen"],
-    zahlen: ["fahrplanluecke", "countdown", "zahlenpaare", "fingerzahlen", "ziffernpunkte", "wagenordnen", "huepfgleis", "blitzblick", "alleeinsteigen", "zaehlfenster", "stolperwagen", "kuppelplus", "zahlenhaus"],
-    plus: ["kuppelplus", "tunnelrechnen", "einsteigen", "huepflok", "wuerfelplus", "tunnelversteck", "zahlenhaus", "blitzblick", "huepfgleis", "kiosk", "fahrplanluecke", "musterzug", "zahlenpaare"],
-    plusminus: ["tunnelrechnen", "abkuppeln", "aussteigen", "ballonwagen", "plusoderminus", "tunnelversteck", "zahlenhaus", "kiosk", "huepflok", "wuerfelplus", "einsteigen", "kuppelplus"],
-    bis20: ["blitzblick", "tunnelrechnen", "wuerfelplus", "huepflok", "zahlenhaus", "kiosk", "wagenordnen", "werhatmehr", "aussteigen", "fahrplanluecke", "musterzug"],
-    bis100: ["blitzblick", "tunnelrechnen", "wuerfelplus", "huepflok", "zahlenhaus", "kiosk", "wagenordnen", "werhatmehr", "aussteigen", "fahrplanluecke", "musterzug"],
+    mengen: ["blitzblick", "alleeinsteigen", "werhatmehr", "zaehlfenster", "musterzug", "fingerzahlen", "huepfgleis", "zahlenpaare", "countdown", "kuppelplus", "einsteigen", "formen", "strichliste"],
+    zahlen: ["fahrplanluecke", "countdown", "zahlenpaare", "fingerzahlen", "ziffernpunkte", "wagenordnen", "huepfgleis", "blitzblick", "alleeinsteigen", "zaehlfenster", "stolperwagen", "kuppelplus", "zahlenhaus", "zahlenstrahl", "schlange", "schuettelbecher"],
+    plus: ["kuppelplus", "tunnelrechnen", "einsteigen", "huepflok", "wuerfelplus", "tunnelversteck", "zahlenhaus", "blitzblick", "huepfgleis", "kiosk", "fahrplanluecke", "musterzug", "zahlenpaare", "doppelexpress", "zehnerfuellen", "drachenfutter", "schuettelbecher", "waage"],
+    plusminus: ["tunnelrechnen", "abkuppeln", "aussteigen", "ballonwagen", "plusoderminus", "tunnelversteck", "zahlenhaus", "kiosk", "huepflok", "wuerfelplus", "einsteigen", "kuppelplus", "rueckwaerts", "rechenkette", "drachenfutter", "waage", "doppelexpress"],
+    bis20: ["blitzblick", "tunnelrechnen", "wuerfelplus", "huepflok", "zahlenhaus", "kiosk", "wagenordnen", "werhatmehr", "aussteigen", "fahrplanluecke", "musterzug", "zehnersprung", "doppelexpress", "zehnerfuellen", "rechenkette", "zahlenmauer", "wachsendetuerme", "bahnhofsuhr", "rueckgeld", "geradeungerade", "rechenpost"],
+    bis100: ["blitzblick", "tunnelrechnen", "wuerfelplus", "huepflok", "zahlenhaus", "kiosk", "wagenordnen", "werhatmehr", "aussteigen", "fahrplanluecke", "musterzug", "hunderter", "zahlenmauer", "wachsendetuerme", "bahnhofsuhr", "rueckgeld", "blitzrechnen", "rechenpost", "geradeungerade", "waskommtoefter", "zehnersprung"],
   };
 
   // ---------------------------------------------------------------------------
@@ -197,6 +223,7 @@
       fehler: mergeZaehler(a?.fehler, b?.fehler),
       bonus: Math.max(zahl(a?.bonus), zahl(b?.bonus)),
       drache: neuereTaufe(a?.drache, b?.drache),
+      auftraege: Math.max(zahl(a?.auftraege), zahl(b?.auftraege)),
     };
   }
 
@@ -222,7 +249,7 @@
 
   function stand() {
     const s = box.read() || EMPTY;
-    return { ...EMPTY, ...s, spiele: s.spiele || {}, aufgaben: s.aufgaben || {}, fehler: s.fehler || {}, bonus: zahl(s.bonus), drache: dracheSauber(s.drache) };
+    return { ...EMPTY, ...s, spiele: s.spiele || {}, aufgaben: s.aufgaben || {}, fehler: s.fehler || {}, bonus: zahl(s.bonus), drache: dracheSauber(s.drache), auftraege: zahl(s.auftraege) };
   }
 
   function heute() {
@@ -393,6 +420,11 @@
     return extra;
   }
 
+  // Ein Auftrag für draussen ist erledigt: ein Taler mehr.
+  function auftragErledigt() {
+    return box.update((alt) => ({ ...EMPTY, ...alt, bonus: zahl(alt?.bonus) + 1, auftraege: zahl(alt?.auftraege) + 1 }));
+  }
+
   function dracheName(s = stand()) {
     return s.drache?.name || "";
   }
@@ -416,7 +448,8 @@
     const beginn = SPROSSEN.includes(e.beginn) ? e.beginn : "auto";
     const raum = ZAHLENRAEUME.includes(Number(e.zahlenraum)) ? Number(e.zahlenraum) : "auto";
     const minus = e.minus === "aus" ? "aus" : "an";
-    return { beginn, zahlenraum: raum, minus, at: zahl(e.at) };
+    const gaehnen = GAEHNEN.includes(Number(e.gaehnen)) ? Number(e.gaehnen) : 20;
+    return { beginn, zahlenraum: raum, minus, gaehnen, at: zahl(e.at) };
   }
   function elternLokal() {
     try { return elternSauber(JSON.parse(localStorage.getItem(ELTERN_KEY) || "null")); } catch { return elternSauber(null); }
@@ -468,6 +501,10 @@
     const { zahlenraum } = einstellungen();
     if (ZAHLENRAEUME.includes(zahlenraum)) return zahlenraum;
     return 100;
+  }
+
+  function gaehnenNach() {
+    return einstellungen().gaehnen;
   }
 
   function minusErlaubt() {
@@ -529,6 +566,7 @@
       fehler: { ...(s.fehler || {}) },
       lieblinge,
       gewachsen,
+      auftraege: zahl(s.auftraege),
     };
   }
 
@@ -538,7 +576,7 @@
     SITZT_SCHNELL, SITZT_TAGE, SCHNELL_MS,
     merge, stand, onChange: (fn) => box.onChange(fn),
     spielRunde, spielGeoeffnet, mitwachsen, aufgabeKey, aufgabeGeuebt, fehlerbild, fehlerVon, sitzt,
-    taler, runden, drache, dracheAus, missionStarten, missionErfuellt, dracheName, dracheTaufen, nameSauber, wagenStufe,
+    taler, runden, drache, dracheAus, missionStarten, missionErfuellt, dracheName, dracheTaufen, nameSauber, wagenStufe, auftragErledigt, GAEHNEN, gaehnenNach,
     einstellungen, elternSauber, grundstufe, stufe, sprosse, deckel, minusErlaubt, aktiv, naechstes, bericht,
   };
 })();

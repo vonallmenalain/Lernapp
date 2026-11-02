@@ -85,7 +85,7 @@
         if (!(await ctx.zaehle(orte, leicht ? 340 : 230))) return;
         orte.forEach(({ w }, k) => w.querySelector(".wb")?.setAttribute("fill", A.fuenfer(k)));
         const n = a + b;
-        await ctx.sage(ok ? `Ja! ${a} und ${b} sind ${n}.${fuenferSatz(n)}` : `Schau: Es sind ${n}. ${a} und ${b} sind ${n}.${fuenferSatz(n)}`);
+        await ctx.sage(ok ? `Ja! ${a} und ${b} sind ${n}.${fuenferSatz(n)}` : `Schau: Es sind ${n} Wagen. ${a} und ${b} sind ${n}.${fuenferSatz(n)}`);
       };
 
       if (versteckt) {
@@ -247,7 +247,7 @@
       if (!(await ctx.zaehle(orte, ctx.stufe === "leicht" ? 340 : 230))) return ok;
       if (!minus) orte.forEach(({ w }, k) => w.querySelector(".wb")?.setAttribute("fill", A.fuenfer(k)));
       const satz = minus ? `${a} minus ${b} sind ${richtig}.` : `${a} und ${b} sind ${richtig}.`;
-      await ctx.sage(ok ? `Richtig! ${satz}` : `Schau: Es sind ${richtig}. ${satz}`);
+      await ctx.sage(ok ? `Richtig! ${satz}` : `Schau: ${richtig === 1 ? "Es ist 1 Wagen" : `Es sind ${richtig} Wagen`}. ${satz}`);
       return ok;
     },
   });
@@ -532,7 +532,7 @@
         } else {
           const nach = Math.min(ende, pos.kind + augen);
           const wurfText = werte.length === 2 ? `${werte[0]} und ${werte[1]}, zusammen ${augen}` : String(augen);
-          ctx.sage(`Du hast ${wurfText}. Du stehst auf ${pos.kind === 0 ? "Start" : pos.kind}. Wo landest du?`);
+          ctx.sage(`Du hast ${wurfText}! Du stehst auf ${pos.kind === 0 ? "Start" : pos.kind}. Wo landest du?`);
           fragen += 1;
           const { ok } = await ctx.frage({ werte: R.auswahl(nach, 1, ende), richtig: nach, aufgabe: pos.kind > 0 ? { a: pos.kind, op: "+", b: augen } : null });
           if (ok) richtig += 1;
