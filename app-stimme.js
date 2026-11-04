@@ -456,6 +456,7 @@ window.LernappStimmeDateien = Object.assign(window.LernappStimmeDateien || {}, {
   "Gleich wie die Karte davor?": "stimme/google/cc02bd640543.mp3",
   "Hallo!": "stimme/google/357a57fe73d6.mp3",
   "So klinge ich, wenn ich dir vorlese.": "stimme/google/7447daa0e6a8.mp3",
+  "Antippen zum Ändern.": "stimme/google/517072924e6f.mp3",
   "Vorlesen ist an.": "stimme/google/b18ccd03e95a.mp3",
   "Bitte drehe das Gerät quer.": "stimme/google/20cfbdaff08f.mp3",
   "Laute kuppeln.": "stimme/google/7d5b6b1e061d.mp3",

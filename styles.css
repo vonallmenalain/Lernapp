@@ -2268,6 +2268,62 @@ body.puzzle-active .spatialPuzzle-board .spatial-option-graphic > svg {
   color: #9f1738;
 }
 
+/* Die Auswahl hinter dem Ton-Knopf (kids.js): Ton und Musik, Ton ohne Musik
+   (so beginnt die App), alles stumm. */
+.ton-menue {
+  position: fixed;
+  z-index: 95;
+  display: grid;
+  gap: 6px;
+  width: min(300px, calc(100vw - 16px));
+  padding: 8px;
+  border-radius: 20px;
+  background: #ffffff;
+  border: 3px solid var(--primary);
+  box-shadow: 0 16px 36px rgba(36, 48, 71, 0.24);
+  animation: ton-menue-ein 0.16s ease-out;
+}
+.ton-menue[hidden] { display: none; }
+@keyframes ton-menue-ein {
+  from { opacity: 0; transform: translateY(-6px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+.ton-modus {
+  display: grid;
+  grid-template-columns: 30px 1fr 22px;
+  align-items: center;
+  gap: 10px;
+  min-height: 52px;
+  padding: 6px 10px;
+  border: 2px solid transparent;
+  border-radius: 14px;
+  background: #f7f5ff;
+  color: #243047;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+.ton-modus svg {
+  width: 26px;
+  height: 26px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.ton-modus-text { display: grid; gap: 1px; }
+.ton-modus-text b { font-weight: 800; font-size: 1rem; }
+.ton-modus-text small { font-size: 0.78rem; color: #5d6882; font-weight: 600; }
+.ton-modus .ton-haken { width: 20px; height: 20px; stroke: var(--primary-dark); stroke-width: 3; opacity: 0; }
+.ton-modus[aria-checked="true"] { border-color: var(--primary); background: #ece8ff; }
+.ton-modus[aria-checked="true"] .ton-haken { opacity: 1; }
+.ton-modus[data-ton-modus="stumm"] { color: #9f1738; }
+.ton-modus:hover, .ton-modus:focus-visible { background: #ece8ff; outline: none; }
+@media (prefers-reduced-motion: reduce) {
+  .ton-menue { animation: none; }
+}
+
 .account-button svg,
 .account-close svg {
   width: 24px;

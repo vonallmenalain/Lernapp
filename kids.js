@@ -443,7 +443,8 @@
   // Lautsprecher-Knopf heraus aufgerufen. Die App liest nie von selbst vor.
   // Gibt es den Text als Aufnahme (lesen-stimme.js), spielt sie.
   function speak(text, options = {}) {
-    if (!text || !ttsEnabled()) { options.onEnd?.(); return; }
+    // «Alles stumm» (Knopf oben rechts) schweigt auch die Stimme.
+    if (!text || !ttsEnabled() || !audioEnabled()) { options.onEnd?.(); return; }
     // Englisch (die Englischecke): eigene Aufnahmen, sonst eine
     // amerikanische Gerätestimme.
     if (options.sprache === "en") { sprichEnglisch(text, options); return; }
@@ -499,7 +500,7 @@
   }
   // Die Sprachausgabe des Geräts.
   function sprichMitGeraet(text, options = {}) {
-    if (!text || !ttsSupported() || !ttsEnabled()) { options.onEnd?.(); return; }
+    if (!text || !ttsSupported() || !ttsEnabled() || !audioEnabled()) { options.onEnd?.(); return; }
     if (!options.queue) stopSpeaking();
     try {
       const utterance = new window.SpeechSynthesisUtterance(String(text));
@@ -604,6 +605,28 @@
     if (!enabled) { stopMusic({ keepWanted: true, fade: 0.3 }); stopHelp(); }
     if (!enabled && audioContext?.state === "running") audioContext.suspend().catch(() => {});
     if (enabled && musicWanted) startMusic();
+  }
+  // Die Hintergrundmusik hat einen eigenen Schalter und ist von sich aus aus:
+  // Sie spielt nur, wenn jemand sie oben rechts eingeschaltet hat («Ton und
+  // Musik»). Alle anderen Töne bleiben, wie sie sind.
+  const MUSIK_KEY = "lernapp.musik";
+  function musikAn() { return readRaw(MUSIK_KEY) === "1"; }
+  function setMusikAn(an) {
+    writeRaw(MUSIK_KEY, an ? "1" : "0");
+    if (!an) stopMusic({ keepWanted: true, fade: 0.3 });
+    else if (musicWanted) startMusic();
+  }
+  // Was der Knopf oben rechts einstellt: "musik" (Ton und Musik), "ton" (Ton
+  // ohne Musik, so beginnt die App) oder "stumm" (alles aus).
+  function tonModus() {
+    if (!audioEnabled()) return "stumm";
+    return musikAn() ? "musik" : "ton";
+  }
+  function setTonModus(modus) {
+    if (modus === "stumm") { setAudioEnabled(false); return; }
+    writeRaw(MUSIK_KEY, modus === "musik" ? "1" : "0");
+    if (modus !== "musik") stopMusic({ keepWanted: true, fade: 0.3 });
+    setAudioEnabled(true);
   }
   function ensureAudio() {
     if (!audioEnabled()) return null;
@@ -869,14 +892,90 @@
   // ---------------------------------------------------------------------------
   // Liegt hier statt in app.js, damit auch Seiten ohne app.js (Tier-Sprung)
   // einen Schalter haben – sie machen ja ebenfalls Geräusche.
+  // Ein Tipp öffnet eine kleine Auswahl: Ton und Musik, Ton ohne Musik (so
+  // beginnt die App) oder alles stumm.
+  const TON_MODI = [
+    { id: "musik", text: "Ton und Musik", hinweis: "Mit Hintergrundmusik" },
+    { id: "ton", text: "Ton ohne Musik", hinweis: "Ohne Hintergrundmusik" },
+    { id: "stumm", text: "Alles stumm", hinweis: "Keine Stimme, keine Klänge" },
+  ];
+  const TON_SYMBOL = {
+    musik: `<path d="M11 5 6 9H3v6h3l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M19 4v9.2"/><circle cx="17.3" cy="13.6" r="1.8"/><path d="M19 4l2.6 1.2"/>`,
+    ton: `<path d="M11 5 6 9H3v6h3l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.3 5.7a9 9 0 0 1 0 12.6"/>`,
+    stumm: `<path d="M11 5 6 9H3v6h3l5 4V5z"/><path d="M16 9l5 6M21 9l-5 6"/>`,
+  };
   let audioToggle = null;
+  let tonMenue = null;
   function updateAudioToggle() {
     if (!audioToggle) return;
-    const muted = !audioEnabled();
+    const modus = tonModus();
+    const muted = modus === "stumm";
     audioToggle.classList.toggle("muted", muted);
-    audioToggle.setAttribute("aria-pressed", muted ? "true" : "false");
-    audioToggle.setAttribute("aria-label", muted ? "Ton einschalten" : "Ton ausschalten");
-    audioToggle.title = muted ? "Ton einschalten" : "Ton ausschalten";
+    audioToggle.classList.toggle("music-on", modus === "musik");
+    audioToggle.dataset.tonModus = modus;
+    const name = TON_MODI.find((m) => m.id === modus)?.text || "";
+    audioToggle.setAttribute("aria-label", `Ton: ${name}. Antippen zum Ändern.`);
+    audioToggle.title = `Ton: ${name}`;
+    audioToggle.querySelector(".sound-symbol").innerHTML = TON_SYMBOL[modus];
+    tonMenue?.querySelectorAll("[data-ton-modus]").forEach((knopf) => {
+      knopf.setAttribute("aria-checked", knopf.dataset.tonModus === modus ? "true" : "false");
+    });
+  }
+  function schliesseTonMenue({ fokus = false } = {}) {
+    if (!tonMenue || tonMenue.hidden) return;
+    tonMenue.hidden = true;
+    audioToggle?.setAttribute("aria-expanded", "false");
+    if (fokus) audioToggle?.focus?.();
+  }
+  function oeffneTonMenue() {
+    if (!audioToggle) return;
+    if (!tonMenue) {
+      tonMenue = document.createElement("div");
+      tonMenue.className = "ton-menue";
+      tonMenue.id = "ton-menue";
+      tonMenue.setAttribute("role", "menu");
+      tonMenue.setAttribute("aria-label", "Ton");
+      TON_MODI.forEach((m) => {
+        const knopf = document.createElement("button");
+        knopf.type = "button";
+        knopf.className = "ton-modus";
+        knopf.dataset.tonModus = m.id;
+        knopf.setAttribute("role", "menuitemradio");
+        knopf.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">${TON_SYMBOL[m.id]}</svg><span class="ton-modus-text"><b></b><small></small></span><svg class="ton-haken" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>`;
+        knopf.querySelector("b").textContent = m.text;
+        knopf.querySelector("small").textContent = m.hinweis;
+        // Der Tipp ist die Berührung, die der Browser für Musik braucht.
+        knopf.addEventListener("click", () => {
+          setTonModus(m.id);
+          updateAudioToggle();
+          schliesseTonMenue({ fokus: true });
+          if (m.id !== "stumm") playStarSound(0);
+        });
+        tonMenue.append(knopf);
+      });
+      tonMenue.addEventListener("keydown", (event) => {
+        const knoepfe = [...tonMenue.querySelectorAll("[data-ton-modus]")];
+        const i = knoepfe.indexOf(document.activeElement);
+        if (event.key === "Escape") { event.preventDefault(); schliesseTonMenue({ fokus: true }); }
+        if (event.key === "ArrowDown") { event.preventDefault(); knoepfe[(i + 1) % knoepfe.length].focus(); }
+        if (event.key === "ArrowUp") { event.preventDefault(); knoepfe[(i - 1 + knoepfe.length) % knoepfe.length].focus(); }
+      });
+      document.body.append(tonMenue);
+      // Ein Tipp daneben schliesst die Auswahl.
+      document.addEventListener("pointerdown", (event) => {
+        if (!tonMenue || tonMenue.hidden) return;
+        if (event.target?.closest?.(".ton-menue, .sound-toggle:not(.tts-toggle)")) return;
+        schliesseTonMenue();
+      }, { capture: true, passive: true });
+    }
+    // Unter den Knopf, rechtsbündig mit ihm.
+    const r = audioToggle.getBoundingClientRect();
+    tonMenue.style.top = `${Math.round(r.bottom + 8)}px`;
+    tonMenue.style.right = `${Math.max(8, Math.round(window.innerWidth - r.right))}px`;
+    tonMenue.hidden = false;
+    audioToggle.setAttribute("aria-expanded", "true");
+    updateAudioToggle();
+    (tonMenue.querySelector('[aria-checked="true"]') || tonMenue.querySelector("button"))?.focus?.({ preventScroll: true });
   }
   function mountAudioToggle() {
     if (audioToggle || document.querySelector(".sound-toggle")) return null;
@@ -884,14 +983,14 @@
     audioToggle.type = "button";
     audioToggle.className = "sound-toggle";
     audioToggle.dataset.audioToggle = "true";
-    audioToggle.innerHTML = `
-      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-        <path class="sound-core" d="M11 5 6 9H3v6h3l5 4V5z"/>
-        <path class="sound-wave" d="M15.5 8.5a5 5 0 0 1 0 7"/>
-        <path class="sound-wave sound-wave-wide" d="M18.3 5.7a9 9 0 0 1 0 12.6"/>
-        <path class="sound-off-line" d="M4 4l16 16"/>
-      </svg>`;
-    audioToggle.addEventListener("click", () => { setAudioEnabled(!audioEnabled()); updateAudioToggle(); });
+    audioToggle.setAttribute("aria-haspopup", "menu");
+    audioToggle.setAttribute("aria-controls", "ton-menue");
+    audioToggle.setAttribute("aria-expanded", "false");
+    audioToggle.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" class="sound-symbol"></svg>`;
+    audioToggle.addEventListener("click", () => {
+      if (tonMenue && !tonMenue.hidden) schliesseTonMenue();
+      else oeffneTonMenue();
+    });
     document.body.append(audioToggle);
     updateAudioToggle();
     return audioToggle;
@@ -1091,7 +1190,7 @@
 
   function startMusic() {
     musicWanted = true;
-    if (!audioEnabled() || document.hidden) return;
+    if (!audioEnabled() || !musikAn() || document.hidden) return;
     const ctx = musicBus();
     if (!ctx || musicTimer) return;
     // Browser lassen Ton erst nach einer Berührung zu, und resume() läuft
@@ -1132,6 +1231,13 @@
   document.addEventListener("visibilitychange", () => {
     if (document.hidden) stopMusic({ keepWanted: true, fade: 0.25 });
     else if (musicWanted) startMusic();
+  });
+  // Ein anderer Tab hat Ton oder Musik umgestellt: hier dasselbe.
+  window.addEventListener("storage", (event) => {
+    if (event.key !== MUSIK_KEY && event.key !== AUDIO_KEY) return;
+    if (tonModus() === "musik" && musicWanted) startMusic();
+    else stopMusic({ keepWanted: true, fade: 0.3 });
+    updateAudioToggle();
   });
 
   // ---------------------------------------------------------------------------
@@ -1343,7 +1449,7 @@
     // Maskottchen + Effekte
     mascotSVG, burstConfetti, playJingle, playChime, playStarSound, vibrate, prefersReducedMotion,
     // Ton-Schalter
-    audioEnabled, setAudioEnabled, updateAudioToggle,
+    audioEnabled, setAudioEnabled, updateAudioToggle, musikAn, setMusikAn, tonModus, setTonModus,
     // Vorlesen-Schalter
     updateTtsToggle,
     // Lok-Pfeife

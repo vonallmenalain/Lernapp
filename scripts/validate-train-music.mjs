@@ -116,6 +116,23 @@ assert(kids, "kids.js hat window.LernappKids nicht gesetzt");
 assert(typeof kids.startMusic === "function", "startMusic fehlt");
 assert(typeof kids.stopMusic === "function", "stopMusic fehlt");
 
+// --- Von sich aus ist die Musik aus -----------------------------------------
+// Der Knopf oben rechts beginnt auf «Ton ohne Musik»; erst «Ton und Musik»
+// lässt sie spielen.
+assert(kids.tonModus() === "ton", `ohne Einstellung ist der Ton-Modus ${kids.tonModus()} statt «ton»`);
+kids.startMusic();
+assert(timers.size === 0, "die Musik spielt, obwohl sie nicht eingeschaltet ist");
+kids.setTonModus("musik");
+assert(kids.musikAn() && kids.audioEnabled() && kids.tonModus() === "musik", "«Ton und Musik» schaltet die Musik nicht ein");
+kids.setTonModus("stumm");
+assert(!kids.audioEnabled() && kids.tonModus() === "stumm", "«Alles stumm» schaltet den Ton nicht aus");
+kids.setTonModus("ton");
+assert(kids.audioEnabled() && !kids.musikAn(), "«Ton ohne Musik» stimmt nicht");
+kids.setTonModus("musik");
+kids.stopMusic();
+// Was die Umschalter eben angespielt haben, zählt für die Melodie nicht.
+played.length = 0;
+
 // --- Zwei volle Durchläufe planen -------------------------------------------
 kids.startMusic();
 assert(timers.size === 1, `erwartet einen Zeitgeber, gefunden ${timers.size}`);
