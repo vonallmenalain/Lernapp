@@ -27,6 +27,8 @@ Stand: 4. November 2026 · Entwurf · Grundlage: `docs/RECHENECKE-KONZEPT.md`,
 > **Umsetzungsstand:** Die Entscheide sind gefallen (Abschnitt 0). **Etappe 0 ist gebaut:** das
 > Startbild mit zwei Gleisen (Abschnitt 0.2). **Etappe 1 ist gebaut:** der Englischwagen mit
 > Rocco, drei Welten, Hear and find, drei Bildgeschichten und dem Wörterbuch (Abschnitt 0.3).
+> **Etappe 2 ist gebaut:** Park, Zoo und Strand, sechs Spiele in der Spielzeugkiste, die
+> Jukebox mit fünf Versen und fünf Bücher aus dem Lesewagen auf Englisch (Abschnitt 0.4).
 
 ---
 
@@ -136,6 +138,56 @@ Stand: 4. November 2026 · Entwurf · Grundlage: `docs/RECHENECKE-KONZEPT.md`,
   Hear and find mit Fehlversuch, Geschichte, Wörterbuch, Türen, DE in jeder Ansicht, Schrift,
   Laptop und Handy); angepasst `check-startbild.mjs` (vier Knöpfe am Lernzug) und
   `check-rechenecke.mjs` (die Tür fragt «Wohin?»).
+
+### 0.4 Etappe 2: Mehr Welten, mehr Spiel
+
+- **Drei neue Welten** mit je 13 Wörtern und Wimmelbild (`englisch-art-2.js`): **The Park**
+  (slide, swing, sandbox, ball, kite, bike, bench, bird, butterfly, squirrel, boy, girl,
+  scooter – der Ball gehört jetzt hierher), **The Zoo** (lion, elephant, giraffe, monkey, tiger,
+  zebra, bear, snake, penguin, crocodile, hippo, parrot, kangaroo) und **The Beach** (shell,
+  crab, fish, boat, wave, hat, ice cream, bucket, umbrella, starfish, sandcastle, seagull,
+  sunglasses). Dazu je eine Bildgeschichte: «Rocco and the kite.», «Hello, elephant!», «The
+  big wave.». Zusammen 6 Welten, 80 Wörter, 6 Geschichten; das Brett im Wagen und das
+  Wörterbuch zeigen sechs Aufnäher.
+- **Die Spielzeugkiste** bietet jetzt sieben Spiele (`englisch-spiele.js`), alle ohne Uhr und
+  ohne Minus; ein falscher Tipp sagt, was es war, und fragt noch einmal:
+  - **Hear and find** wie bisher (erst die Welt wählen).
+  - **Memory Bild–Ton**: Bildkarten und Lautsprecherkarten, die das Wort sagen; 3, 4 oder 6
+    Paare nach Stufe, mit den gehörten Wörtern zuerst.
+  - **Yes or no?**: «Is this a cow?» – Daumen hoch oder runter, 6 oder 8 Fragen.
+  - **Rocco says**: «Tap the red balloon!», auf «Schwer» mit Grösse («Tap the big red
+    balloon!»).
+  - **Farben-Zug**: «A blue wagon, please!» – der Wagen kuppelt an Roccos Lok, am Schluss fährt
+    der bunte Zug davon.
+  - **Count with Rocco**: «How many ducks?» – drei Zahlen zur Wahl, Rocco zählt jedes Ding mit
+    («One. Two. Three. Three ducks!»), bis 5, 8 oder 10 nach Stufe.
+  - **Feed Rocco**: «Rocco wants a banana.» – «Yummy! Thank you!» oder «No, thank you!».
+- **Farben und Zahlen** sind Wörter wie die der Welten: Rocco says und der Farben-Zug machen
+  eine Farbe gehört und erkannt, Count with Rocco eine Zahl. Im Wörterbuch haben sie eigene
+  Reiter («Colors», «Numbers»), im Englischbericht eigene Zeilen.
+- **Die Jukebox** (neu im Zimmer, zwischen Kiste und Leiter) sagt fünf **Sprechverse** Zeile
+  für Zeile, mit Bildern: «Hello, hello!», «Colors, colors!», «One, two, three!», «Head,
+  shoulders, knees and toes» und «Old MacDonald had a farm» (die zwei letzten traditionell).
+  Die Stimme singt nicht (Entscheid 10: Sprechverse); jede Zeile lässt sich antippen.
+- **Bekannte Bücher auf Englisch**: Im Regal stehen unter den Geschichten fünf Bücher aus dem
+  Lesewagen – «Where is the carrot?» (Hoppel), «Leo and the melon.», «Pino and the island.»,
+  «Mia and the ball.», «Bruno counts the stars.» – mit ihren gemalten Bildern, eine sehr
+  einfache englische Fassung je Seite, blättern mit Pfeilen oder «Listen to the whole book!».
+  DE sagt die deutsche Fassung genau dieses englischen Satzes (nicht den Originaltext des
+  Buchs), damit es wirklich dasselbe ist.
+- **Schranke**: acht neue Spiele in `entitlement.js` (`en-memory`, `en-janein`,
+  `en-roccosays`, `en-farbenzug`, `en-zaehlen`, `en-fuettern`, `en-verse`, `en-buecher`), je
+  eine Runde frei; der erste Vers und das erste Buch sind immer frei.
+- **Stimmen**: 649 englische Aufnahmen (Puck, Tempo 0,9), rund 480 neue deutsche (Sulafat).
+  Was die Spiele zusammensetzen («Tap the big red balloon!», «Seven fish!», «Is this a
+  cow?»), steht als ganze Sätze in der Liste: `englisch-inhalt.js` führt sie selbst
+  (`paare()`), und die Aufnahmen kommen aus dieser einen Liste.
+- **Eltern**: Der Englischbericht zeigt dazu Farben, Zahlen und welche Spiele wie oft gespielt
+  wurden.
+- **Prüfungen**: `validate-englisch.mjs` prüft dazu Spiele, Farben, Zahlen, Verse, die Bücher
+  gegen den Lesewagen (gleich viele Seiten, gemalte Bilder) und dass jeder zusammengesetzte
+  Satz eine Aufnahme hat; `check-englischecke.mjs` spielt jedes neue Spiel eine ganze Runde,
+  mit DE mittendrin, auf Laptop und Handy.
 
 ---
 
@@ -737,9 +789,9 @@ gefunden; Duolingo ABC lehrt englischsprachige Kinder lesen [47].
 
 | Etappe | Was | Ergebnis |
 | --- | --- | --- |
-| **0 · Startbild** | Lernzug mit Lese- und Rechenwagen auf dem oberen Gleis, Lernlok, Fortschritt am Wagen (Variante A), Feier für neue Schritte, Gruppe hinter dem Knopf, Prüfskripte | aufgeräumtes Startbild; Rechenwagen auch auf dem Handy |
-| **1 · Hello, Rocco!** | Caboose im Lernzug, Zimmer mit Rocco, Karte, Aussichtsturm, Regal, Wörterbuch, Kiste; **drei Welten** (Farm, My House, The Kitchen) mit Wimmelbild; **Hear & find**; **drei Bildgeschichten**; Wortstände, Aufnäher, Einrichtung; US-Stimme; Elternkarte mit Schrift und Deutsch-Hilfe; Schranke | das Gewünschte: entdecken, Geschichten, Deutsch auf Knopfdruck, Fortschritt |
-| **2 · Mehr Welten, mehr Spiel** | The Park, The Zoo, The Beach; Memory Bild–Ton, Yes or no?, Rocco says, Farben-Zug, Count with Rocco, Feed Rocco; Jukebox mit Versen; **bekannte Bücher auf Englisch** (vier bis sechs) | Wörter festigen, Bewegung, Geschichten, die das Kind schon kennt |
+| **0 · Startbild** ✅ | Lernzug mit Lese- und Rechenwagen auf dem oberen Gleis, Lernlok, Fortschritt am Wagen (Variante A), Feier für neue Schritte, Gruppe hinter dem Knopf, Prüfskripte | aufgeräumtes Startbild; Rechenwagen auch auf dem Handy |
+| **1 · Hello, Rocco!** ✅ | Caboose im Lernzug, Zimmer mit Rocco, Karte, Aussichtsturm, Regal, Wörterbuch, Kiste; **drei Welten** (Farm, My House, The Kitchen) mit Wimmelbild; **Hear & find**; **drei Bildgeschichten**; Wortstände, Aufnäher, Einrichtung; US-Stimme; Elternkarte mit Schrift und Deutsch-Hilfe; Schranke | das Gewünschte: entdecken, Geschichten, Deutsch auf Knopfdruck, Fortschritt |
+| **2 · Mehr Welten, mehr Spiel** ✅ | The Park, The Zoo, The Beach; Memory Bild–Ton, Yes or no?, Rocco says, Farben-Zug, Count with Rocco, Feed Rocco; Jukebox mit Versen; **bekannte Bücher auf Englisch** (vier bis sechs) | Wörter festigen, Bewegung, Geschichten, die das Kind schon kennt |
 | **3 · Erste Sätze** | The City, School, Party Time; Hello-Telefon, Diner, Echo, Dress up, What's missing?, Geschichtenzug; Post aus Amerika; Tempo «langsamer» | grüssen, bitten, bestellen – für die Grösseren |
 | **4 · Für Lesende und die Eltern** | My Body, Clothes & Weather, Holidays; Monster malen, Where is the cat?, Opposites, Wortbild-Memory; Bericht mit Wortständen und Unterschieden zum britischen Englisch; Aufträge für die Familie | rund 220 Wörter und 60 Wendungen; Brücke zum Schulenglisch |
 

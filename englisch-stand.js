@@ -9,10 +9,15 @@
  *                        e: Tage, an denen es in «Hear & find» beim ersten
  *                           Versuch erkannt wurde (die letzten sechs),
  *                        f: wie oft daneben getippt } }
- *   runden       { entdecken, hearfind, geschichte }: fertige Runden – davon
+ *   runden       { entdecken, hearfind, geschichte, memory, janein, roccosays,
+ *                farbenzug, zaehlen, fuettern, verse, buch }: fertige Runden – davon
  *                wird der Caboose eingerichtet (15 Schritte wie Lese- und
  *                Rechenwagen)
- *   geschichten  { id: wie oft bis «The end.» gehört }
+ *   geschichten  { id: wie oft bis «The end.» gehört – auch die Bücher aus dem
+ *                Lesewagen (ihre Id) }
+ *
+ * Farben (red …) und Zahlen (n1 … n10) sind Wörter wie die der Welten: Rocco
+ * says, der Farben-Zug und Count with Rocco machen sie gehört und erkannt.
  *
  * Ein Wort hat drei Stände (Abschnitt 13 des Konzepts):
  *   gehoert  einmal angetippt oder gehört
@@ -105,7 +110,8 @@
       const w = welt.woerter.find((x) => x.id === id);
       if (w) return w;
     }
-    return inhalt().EXTRA_WOERTER.find((x) => x.id === id) || null;
+    const I = inhalt();
+    return I.EXTRA_WOERTER.find((x) => x.id === id) || (I.FARBEN || []).find((x) => x.id === id) || (I.ZAHLEN || []).find((x) => x.id === id) || null;
   }
   function weltVon(id) { return welten().find((w) => w.id === id) || null; }
 
@@ -179,6 +185,10 @@
   }
   function geschichteGehoert(id) {
     schreibe((s) => { s.geschichten[id] = (s.geschichten[id] || 0) + 1; s.runden.geschichte = (s.runden.geschichte || 0) + 1; return s; });
+  }
+  // Ein Buch aus dem Lesewagen, auf Englisch bis zum Schluss gehört.
+  function buchGehoert(id) {
+    schreibe((s) => { s.geschichten[id] = (s.geschichten[id] || 0) + 1; s.runden.buch = (s.runden.buch || 0) + 1; return s; });
   }
   const runden = (s = stand()) => Object.values(s.runden).reduce((summe, n) => summe + zahl(n), 0);
   function wagenStufe(s = stand()) {
@@ -256,8 +266,9 @@
     const englisch = (id) => wortVon(id)?.en?.replace(/[.!?]$/, "") || id;
     const alleIds = welten().flatMap((w) => w.woerter.map((x) => x.id));
     const nach = (st) => alleIds.filter((id) => wortStand(id, s) === st).map(englisch);
-    const lieblinge = Object.entries(s.geschichten).sort((a, b) => b[1] - a[1]).slice(0, 3)
-      .map(([id]) => inhalt().GESCHICHTEN.find((g) => g.id === id)?.titel?.[0]?.replace(/\.$/, "")).filter(Boolean);
+    const titelVon = (id) => (inhalt().GESCHICHTEN.find((g) => g.id === id) || (inhalt().BUECHER || []).find((b) => b.id === id))?.titel?.[0]?.replace(/\.$/, "");
+    const lieblinge = Object.entries(s.geschichten).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([id]) => titelVon(id)).filter(Boolean);
+    const zaehle = (liste) => ({ gehoert: liste.filter((x) => wortStand(x.id, s) !== "zu").length, erkannt: liste.filter((x) => ["erkannt", "sicher"].includes(wortStand(x.id, s))).length, von: liste.length });
     return {
       runden: runden(s),
       einrichtung: wagenStufe(s),
@@ -268,13 +279,16 @@
       wackelig: alleIds.filter((id) => wortStand(id, s) === "erkannt" || (wortStand(id, s) === "gehoert" && s.woerter[id]?.f)).map(englisch),
       lieblinge,
       usUk: US_UK.filter(([us]) => alleIds.includes(us)).map(([us, uk]) => `${us} (britisch: ${uk})`),
+      farben: zaehle(inhalt().FARBEN || []),
+      zahlen: zaehle(inhalt().ZAHLEN || []),
+      spiele: Object.fromEntries(Object.entries(s.runden).filter(([, n]) => n > 0)),
     };
   }
 
   window.LernappEnglischStand = {
     KEY, ELTERN_KEY, EMPTY, WAGEN_SCHRITTE, SCHRIFTEN,
     stand, merge, heute, wortVon, weltVon, gehoert, erkannt, wortStand, welt, aufnaeher, hearfindWoerter,
-    runde, geschichteGehoert, runden, wagenStufe, vorschlag,
+    runde, geschichteGehoert, buchGehoert, runden, wagenStufe, vorschlag,
     eltern: elternLokal, schriftZeigen, bericht,
     onChange: (fn) => box.onChange?.(fn),
   };
