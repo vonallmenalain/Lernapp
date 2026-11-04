@@ -172,21 +172,6 @@ body[data-page="train"] .train-stage[data-view="rechnen"] ~ .help-voice {
 .rechen-buehne .cm-count, .rechen-buehne .cm-time { display: none; }
 .rechen-stage .cm-play { padding: 0 max(12px, var(--safe-left, 0px)) 0 max(12px, var(--safe-right, 0px)); }
 
-.rechen-los {
-  display: grid;
-  justify-items: center;
-  gap: clamp(6px, 1.6vh, 14px);
-  padding: clamp(16px, 3vh, 28px) clamp(22px, 4vw, 40px);
-  border-radius: 28px;
-  background: rgba(255, 255, 255, 0.92);
-  box-shadow: 0 12px 30px rgba(36, 48, 71, 0.2);
-}
-.rechen-los-drache { width: clamp(90px, 18vh, 150px); height: auto; }
-.rechen-los-titel { margin: 0; font-family: "Baloo 2", Nunito, ui-rounded, system-ui, sans-serif; font-size: clamp(1.5rem, 4vh, 2.2rem); font-weight: 800; color: #243047; line-height: 1; }
-.rechen-los-stufe { margin: 0; font-size: 0.9rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: #5d6882; }
-.rechen-los-knopf { width: clamp(76px, 14vh, 108px); height: clamp(76px, 14vh, 108px); padding: 0; border: none; border-radius: 50%; background: none; cursor: pointer; filter: drop-shadow(0 6px 12px rgba(47, 154, 91, 0.4)); transition: transform 0.15s ease; }
-.rechen-los-knopf:active { transform: scale(0.94); }
-.rechen-los-knopf svg { display: block; width: 100%; height: 100%; }
 
 .rechen-spielflaeche {
   width: 100%;
@@ -219,13 +204,42 @@ body[data-page="train"] .train-stage[data-view="rechnen"] ~ .help-voice {
   gap: 10px;
   max-width: min(760px, 100%);
   min-height: 48px;
-  padding: 6px 16px 6px 8px;
+  padding: 6px 6px 6px 8px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.95);
   box-shadow: 0 4px 12px rgba(36, 48, 71, 0.16);
 }
 .rechen-blase-drache { flex: 0 0 auto; width: 40px; height: 40px; }
-.rechen-blase-text { margin: 0; min-width: 0; font-size: clamp(1rem, 2.4vh, 1.25rem); font-weight: 800; color: #243047; line-height: 1.25; -webkit-user-select: none; user-select: none; }
+.rechen-blase-text { margin: 0; min-width: 0; font-size: clamp(1rem, 2.4vh, 1.25rem); font-weight: 800; color: #243047; line-height: 1.25; -webkit-user-select: none; user-select: none; cursor: pointer; }
+.rechen-blase-text:focus-visible { outline: 3px solid #6c5ce7; outline-offset: 3px; border-radius: 6px; }
+/* Der Lautsprecher neben dem Text: die Aufgabe noch einmal. Pulsiert, solange
+   die Seite noch nicht sprechen darf (rechnen-spiel.js, darfSprechen). */
+.rechen-blase-laut {
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+  margin-left: 2px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: #3d7be0;
+  color: #ffffff;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  box-shadow: 0 3px 8px rgba(36, 48, 71, 0.22);
+  transition: transform 0.12s ease, background-color 0.2s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.rechen-blase-laut svg { width: 24px; height: 24px; display: block; }
+.rechen-blase-laut:active { transform: scale(0.92); }
+.rechen-blase-laut:focus-visible { outline: 3px solid #6c5ce7; outline-offset: 3px; }
+.rechen-blase-laut.ist-am-sprechen { background: #2f63bd; }
+.rechen-blase-laut.ist-stumm { animation: rechen-laut-puls 1.3s ease-in-out infinite; }
+@keyframes rechen-laut-puls {
+  0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(61, 123, 224, 0.55); }
+  50% { transform: scale(1.12); box-shadow: 0 0 0 12px rgba(61, 123, 224, 0); }
+}
 .rechen-antworten { display: flex; flex-wrap: wrap; justify-content: center; gap: clamp(6px, 1vw, 10px); min-height: clamp(46px, 8vh, 62px); }
 .rechen-zahl {
   width: clamp(46px, 8vh, 62px);
@@ -291,7 +305,7 @@ body[data-page="train"] .train-stage[data-view="rechnen"] ~ .help-voice {
 
 @media (prefers-reduced-motion: reduce) {
   .rechenecke, .rechen-wahl, .rechenzimmer-svg.is-huepfen .rechen-ort, .rw-ausbau.is-neu, .rw-birne, .rw-platz.is-neu, .rw-platz.is-weg,
-  .rw-knall, .rw-ei, .rw-feld-neu, .rw-schubs, .rw-marke, .rw-tippmich > g, .rechenwagen-svg .rw-birne { animation: none; }
+  .rw-knall, .rw-ei, .rw-feld-neu, .rw-schubs, .rw-marke, .rw-tippmich > g, .rechenwagen-svg .rw-birne, .rechen-blase-laut.ist-stumm { animation: none; }
   .train-stage[data-rechnen-ein] .rechenwagen-knopf { transition: none; }
 }
 

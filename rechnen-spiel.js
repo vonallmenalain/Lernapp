@@ -6,9 +6,14 @@
  *
  *   Bühne      game-shell.js wie bei jedem Spiel; zurück geht es in den
  *              Rechenwagen (index.html?rechnen=1)
- *   «Los»      jede Runde beginnt mit einem Tipp – ein Browser lässt eine
- *              frisch geöffnete Seite nicht sprechen, und die Rechenecke
- *              braucht die Stimme: Wer noch nicht liest, hört die Aufgabe.
+ *   Start      Ein Spiel beginnt sofort, ohne Zwischenkarte: Wer im Zimmer
+ *              ein Spiel antippt, will spielen. Darf die frisch geöffnete
+ *              Seite noch nicht sprechen (Safari auf dem iPad), pulsiert
+ *              der Lautsprecher in der Sprechblase – ein Tipp darauf, und die
+ *              Aufgabe kommt.
+ *   Nochmal    Der Lautsprecher neben dem Text und der Text selbst sagen die
+ *              ganze Aufgabe noch einmal: alles, was seit ihrem Anfang gesagt
+ *              wurde (bei «Einsteigen bitte!» die ganze Geschichte).
  *   Szene      ein Bild 1000 × 560 (wie der Rechenwagen), darunter die
  *              Sprechblase und die Antwort-Leiste mit grossen Zahlen
  *   Runde      fünf Aufgaben auf «leicht», sechs darüber. Keine Uhr, und ein
@@ -117,6 +122,27 @@
     } catch { /* ohne Ton */ }
   }
   const jingle = (name) => { if (tonAn()) kids()?.playJingle?.(name); };
+
+  // Darf die frisch geöffnete Seite schon sprechen? Ein stiller Wimpernschlag
+  // als Probe: Safari auf dem iPad lässt eine Seite erst nach einem Tipp
+  // klingen, Chrome meist gleich. Einmal je Seite gefragt.
+  const STILLE = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=";
+  let darfFrage = null;
+  function darfSprechen() {
+    if (!darfFrage) {
+      darfFrage = new Promise((antwort) => {
+        if (navigator.userActivation?.hasBeenActive) { antwort(true); return; }
+        try {
+          const probe = new Audio(STILLE);
+          probe.volume = 0;
+          const p = probe.play();
+          if (!p || !p.then) { antwort(true); return; }
+          p.then(() => antwort(true), (e) => antwort(e?.name !== "NotAllowedError"));
+        } catch { antwort(true); }
+      });
+    }
+    return darfFrage;
+  }
   function blip(i = 0) {
     if (!tonAn()) return;
     const k = kids();
@@ -164,28 +190,11 @@
     host.classList.add("rechen-buehne");
     stand().spielGeoeffnet(def.id);
 
+    // Ohne Zwischenkarte: Die Runde beginnt gleich (auch nach «Nochmal»).
     function los() {
       token += 1;
       kids()?.stopSpeaking?.();
-      shell.clear();
-      shell.setPhase("intro");
-      const karte = el("div", "rechen-los");
-      const kopf = art().svg(`<svg viewBox="-96 -180 120 120" class="rechen-los-drache" aria-hidden="true">${art().dracheNurKopf(stand().drache().id)}</svg>`);
-      const titel = el("p", "rechen-los-titel", def.titel);
-      const knopf = el("button", "rechen-los-knopf");
-      knopf.type = "button";
-      knopf.setAttribute("aria-label", "Los geht's!");
-      knopf.innerHTML = `<svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="22" fill="#3fbf74"/><polygon points="19,14 35,24 19,34" fill="#fff"/></svg>`;
-      const stufe = stand().stufe(def.id);
-      const stufeText = el("p", "rechen-los-stufe", { leicht: "leicht", mittel: "mittel", schwer: "schwer" }[stufe] || stufe);
-      karte.append(kopf, titel, knopf, stufeText);
-      shell.play.append(karte);
-      knopf.addEventListener("click", () => {
-        if (knopf.disabled) return;
-        knopf.disabled = true;
-        runde(++token);
-      }, { once: true });
-      window.setTimeout(() => knopf.focus?.({ preventScroll: true }), 50);
+      runde(token);
     }
 
     async function runde(meinToken) {
@@ -204,7 +213,43 @@
       const kopf = art().svg(`<svg viewBox="-96 -180 120 120" class="rechen-blase-drache" aria-hidden="true">${art().dracheNurKopf(stand().drache().id)}</svg>`);
       const text = el("p", "rechen-blase-text");
       text.setAttribute("aria-live", "polite");
-      blase.append(kopf, text);
+      text.setAttribute("role", "button");
+      text.tabIndex = 0;
+      text.title = "Noch einmal hören";
+      const laut = el("button", "rechen-blase-laut");
+      laut.type = "button";
+      laut.setAttribute("aria-label", "Die Aufgabe noch einmal hören");
+      laut.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/><path d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg>`;
+      blase.append(kopf, text, laut);
+
+      // Was seit dem Anfang der Aufgabe gesagt wurde – der Lautsprecher und
+      // ein Tipp auf den Text sagen es noch einmal, der Reihe nach. Eine neue
+      // Ansage des Spiels bricht das Wiederholen ab.
+      const gesagt = [];
+      let wiederholung = 0;
+      const wiederhole = () => {
+        laut.classList.remove("ist-stumm");
+        if (!lebt() || !stimmeAn()) return;
+        const saetze = gesagt.length ? [...gesagt] : (text.textContent ? [{ satz: text.textContent, gesprochen: null }] : []);
+        if (!saetze.length) return;
+        const meins = ++wiederholung;
+        laut.classList.add("ist-am-sprechen");
+        const naechster = (i) => {
+          if (meins !== wiederholung) return;
+          if (i >= saetze.length || !lebt()) { laut.classList.remove("ist-am-sprechen"); return; }
+          const { satz, gesprochen } = saetze[i];
+          try { kids().speak(gesprochen || sprechbar(satz), { onEnd: () => naechster(i + 1) }); } catch { laut.classList.remove("ist-am-sprechen"); }
+        };
+        naechster(0);
+      };
+      laut.addEventListener("click", wiederhole);
+      text.addEventListener("click", wiederhole);
+      text.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); wiederhole(); } });
+      darfSprechen().then((ja) => {
+        if (ja || !lebt() || !stimmeAn()) return;
+        laut.classList.add("ist-stumm");
+        document.addEventListener("pointerdown", (e) => { if (e.target !== laut && !laut.contains(e.target)) laut.classList.remove("ist-stumm"); }, { once: true });
+      });
       const punkte = el("div", "rechen-punkte");
       punkte.setAttribute("aria-hidden", "true");
       const leiste = el("div", "rechen-antworten");
@@ -246,6 +291,10 @@
         sage(satz, gesprochen = null) {
           text.textContent = satz;
           if (!lebt()) return Promise.resolve();
+          wiederholung += 1;
+          laut.classList.remove("ist-am-sprechen");
+          gesagt.push({ satz, gesprochen });
+          if (gesagt.length > 8) gesagt.shift();
           if (!stimmeAn()) return warte(Math.min(2200, 500 + satz.length * 25));
           return new Promise((fertig) => {
             let fertigGesagt = false;
@@ -394,6 +443,9 @@
         for (lauf.nr = 0; lauf.nr < lauf.n; lauf.nr += 1) {
           punkteZeichnen();
           leiste.innerHTML = "";
+          // Eine neue Aufgabe: «Nochmal» sagt ab jetzt sie. Vor der ersten
+          // gehört die Einleitung noch dazu.
+          if (lauf.nr > 0) gesagt.length = 0;
           await def.aufgabe(ctx);
           if (!lebt()) return;
           await warte(1400);

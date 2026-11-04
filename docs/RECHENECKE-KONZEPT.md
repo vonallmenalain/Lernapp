@@ -220,6 +220,22 @@ Nicht gebaut aus Abschnitt 5 («Verbindungen»): Der Drache **fliegt nicht neben
 und eine fertige Karte der Reise schickt **keine** Rechen-Postkarte – beides steht in keiner
 Etappe und bleibt als Idee.
 
+### 0.10 Nachbesserungen (4. November 2026)
+
+Aus dem Spielen mit den Kindern:
+
+- **Nochmal hören**: Neben dem Text in der Sprechblase steht in jedem Spiel ein Lautsprecher,
+  und auch ein Tipp auf den Text sagt die Aufgabe noch einmal – die ganze Aufgabe, also alles,
+  was seit ihrem Anfang gesagt wurde (bei «Einsteigen bitte!» auf «schwer» die ganze
+  Geschichte), vor der ersten Aufgabe samt Einleitung (`rechnen-spiel.js`, `wiederhole`).
+- **Ohne Zwischenkarte**: Ein Spiel beginnt sofort, wenn es im Zimmer angetippt wird; die Karte
+  mit Drache, Titel und «Los» ist weg. Darf die frisch geöffnete Seite noch nicht sprechen
+  (Safari auf dem iPad lässt sie erst nach einem Tipp klingen), pulsiert der Lautsprecher: Ein
+  Tipp darauf, und die Aufgabe kommt. Geprüft wird das mit einem stillen Wimpernschlag Ton
+  (`darfSprechen`).
+- **Eine Sonne**: Durch das rechte Fenster mit dem Perron sieht man keine Sonne mehr – die
+  Kinder fanden zwei Sonnen im selben Zimmer falsch.
+
 ---
 
 ## 1. Die Idee in drei Sätzen
