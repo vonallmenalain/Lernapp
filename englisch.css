@@ -185,6 +185,25 @@ body[data-page="train"] .train-stage[data-view="englisch"] ~ .help-voice {
 .en-blitz { animation: en-blitz 1.2s ease-out; transform-box: fill-box; transform-origin: 50% 50%; }
 @keyframes en-blitz { 0% { opacity: 0; transform: scale(0.3); } 40% { opacity: 1; transform: scale(1.25); } 100% { opacity: 1; transform: scale(1); } }
 .en-panel.ist-aktiv .en-rahmen { stroke: #f4b400; stroke-width: 6; }
+/* Die gemalten Bilder (englisch-art.js, GEMALT): Die Zeichnung eines Dings
+   liegt unsichtbar über dem Gemälde und nimmt den Tipp an. Beim Antippen
+   springt ein weich ausgeschnittenes Stück des Gemäldes hervor – ein Wackeln
+   wie bei der Zeichnung liesse das Ding doppelt sehen. Lädt das Gemälde nicht,
+   zeigt sich die Zeichnung. */
+.en-zeichnung { opacity: 0; }
+.ohne-gemaelde .en-zeichnung { opacity: 1; }
+.en-ausschnitt { display: none; }
+.en-gemalt-ding.en-wackel .en-ausschnitt, .en-gemalt-ding.en-huepf .en-ausschnitt, .en-gemalt-ding.en-schuettel .en-ausschnitt, .en-gemalt-ding:focus-visible .en-ausschnitt { display: inline; }
+.ohne-gemaelde .en-ausschnitt { display: none !important; }
+.en-gemalt-ding.en-wackel { animation-name: en-pop; }
+.en-gemalt-ding.en-huepf { animation-name: en-pop-hoch; }
+.en-gemalt-ding.en-schuettel { animation-name: en-pop-schuettel; }
+.ohne-gemaelde .en-gemalt-ding.en-wackel { animation-name: en-wackel; }
+.ohne-gemaelde .en-gemalt-ding.en-huepf { animation-name: en-huepf; }
+.ohne-gemaelde .en-gemalt-ding.en-schuettel { animation-name: en-schuettel; }
+@keyframes en-pop { 0%, 100% { transform: scale(1); } 30% { transform: scale(1.16) rotate(-3deg); } 65% { transform: scale(1.12) rotate(3deg); } }
+@keyframes en-pop-hoch { 0%, 100% { transform: scale(1); } 40% { transform: scale(1.22); } 70% { transform: scale(1.06); } }
+@keyframes en-pop-schuettel { 0%, 100% { transform: scale(1); } 25% { transform: scale(1.1) translateX(-6px); } 75% { transform: scale(1.1) translateX(6px); } }
 /* Beim Hereinkommen hüpft reihum, was sich antippen lässt (wie im Rechenwagen). */
 .en-zimmer-svg.is-huepfen .en-ort { animation: en-ort-huepft 2.2s linear var(--ort-verzug, 0.4s) 1 both; }
 @keyframes en-ort-huepft {
@@ -316,7 +335,7 @@ body[data-page="train"] .train-stage[data-view="englisch"] ~ .help-voice {
 @media (prefers-reduced-motion: reduce) {
   .en-mikrofon.ist-aufnahme, .en-klingel { animation: none; }
   .en-steigt, .en-zu-rocco, .en-zug-faehrt { animation: none; opacity: 0.3; }
-  .englischecke, .en-wahl, .en-wackel, .en-huepf, .en-schuettel, .en-funkel, .en-blitz, .en-zimmer-svg.is-huepfen .en-ort, .en-ausbau.is-neu, .en-birne, .en-de-knopf.en-gedrueckt { animation: none; }
+  .englischecke, .en-wahl, .en-wackel, .en-huepf, .en-schuettel, .en-gemalt-ding, .en-funkel, .en-blitz, .en-zimmer-svg.is-huepfen .en-ort, .en-ausbau.is-neu, .en-birne, .en-de-knopf.en-gedrueckt { animation: none; }
 }
 
 /* Einsteigen: der Englischwagen wächst kurz auf, dann steht man drinnen. */

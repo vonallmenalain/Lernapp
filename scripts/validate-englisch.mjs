@@ -16,6 +16,8 @@
  *              englisch-stimme.js), sie liegt da und ist so lang, wie der
  *              Text es verlangt; jeder deutsche Text des Knopfs DE hat eine
  *              Aufnahme der App-Stimme.
+ *   Gemälde    Jedes Wimmelbild und Geschichtenbild ist gemalt, und für jedes
+ *              Wort steht fest, wo es im Gemälde liegt (englisch-gemalt.js).
  *   Einbau     Startseite und Service Worker laden die Dateien, die Schranke
  *              kennt die drei Spiele, die Englischecke kennt dieselben Ids.
  *   Sprache    «Hear and find», nie «Hör & find»; kein scharfes S.
@@ -62,7 +64,7 @@ function sandbox({ stufe = "mittel", eltern = null, heute = null } = {}) {
     CustomEvent: class { constructor(type, init) { this.type = type; this.detail = init?.detail; } },
     Date: FesterTag, Math, JSON, Number, String, Set, Map, Object, Array,
   });
-  for (const datei of ["englisch-inhalt.js", "englisch-stand.js", "englisch-art.js", "englisch-art-2.js", "englisch-spiele.js", "englisch-art-3.js", "englisch-spiele-3.js", "englisch-art-4.js", "englisch-spiele-4.js"]) vm.runInContext(lies(datei), context, { filename: datei });
+  for (const datei of ["englisch-inhalt.js", "englisch-stand.js", "englisch-art.js", "englisch-art-2.js", "englisch-spiele.js", "englisch-art-3.js", "englisch-spiele-3.js", "englisch-art-4.js", "englisch-gemalt.js", "englisch-spiele-4.js"]) vm.runInContext(lies(datei), context, { filename: datei });
   return { I: windowStub.LernappEnglischInhalt, s: windowStub.LernappEnglischStand, a: windowStub.LernappEnglischArt, sp: windowStub.LernappEnglischSpiele, store };
 }
 
@@ -330,17 +332,57 @@ if (I.MONSTER_TEILE) {
   pruefe(!englischDeutsch.length, `englische Sätze in der deutschen Liste: ${englischDeutsch.slice(0, 3).map((t) => `«${t.text}» (${t.wo})`).join(", ")}`);
 }
 
+// --- Gemälde ---------------------------------------------------------------------
+// Jedes Wimmelbild und jedes Geschichtenbild ist gemalt (bilder/englisch/), und
+// englisch-gemalt.js sagt für jedes Wort, wo es im Gemälde steht.
+{
+  const G = a.GEMALT || {};
+  const da = (name) => fs.existsSync(path.join(root, "bilder/englisch", `${name}.webp`));
+  const imBild = (r, b, h) => Array.isArray(r) && r.every(Number.isFinite) && r[2] > 4 && r[3] > 4 && r[0] >= -1 && r[1] >= -1 && r[0] + r[2] <= b + 1 && r[1] + r[3] <= h + 1;
+  for (const welt of I.WELTEN) {
+    const g = G.welten?.[welt.id];
+    pruefe(g, `${welt.id}: kein Gemälde in englisch-gemalt.js`);
+    if (!g) continue;
+    pruefe(da(`welt-${welt.id}`) && da(`welt-${welt.id}-klein`), `${welt.id}: bilder/englisch/welt-${welt.id}.webp oder -klein.webp fehlt`);
+    for (const w of welt.woerter) {
+      const o = g.orte?.[w.id];
+      pruefe(o && o.length === 7 && o.every(Number.isFinite) && o[2] > 0, `${welt.id}/${w.id}: steht nicht im Gemälde`);
+      if (o) pruefe(imBild(o.slice(3), 1000, 560), `${welt.id}/${w.id}: der Rahmen im Gemälde liegt nicht im Bild (${o.slice(3)})`);
+    }
+    const svg = a.szene(welt.id);
+    pruefe(svg.includes(`welt-${welt.id}.webp`) && welt.woerter.every((w) => svg.includes(`data-ding="${w.id}"`)), `${welt.id}: die Szene zeigt das Gemälde nicht mit allen Dingen`);
+    pruefe(!a.szene(welt.id, { gezeichnet: true }).includes(".webp"), `${welt.id}: die Zeichnung zeigt trotzdem das Gemälde`);
+  }
+  for (const g of I.GESCHICHTEN) {
+    const bilder = G.geschichten?.[g.id];
+    pruefe(bilder && bilder.length === g.bilder.length, `Geschichte ${g.id}: nicht jedes Bild ist gemalt`);
+    if (!bilder) continue;
+    const titel = a.TITELBILD[g.id] ?? 0;
+    pruefe(da(`geschichte-${g.id}-${titel + 1}-klein`), `Geschichte ${g.id}: kein kleines Titelbild`);
+    bilder.forEach((b, i) => {
+      pruefe(da(`geschichte-${g.id}-${i + 1}`), `Geschichte ${g.id}, Bild ${i + 1}: bilder/englisch/geschichte-${g.id}-${i + 1}.webp fehlt`);
+      const gezeichnet = [...a.geschichtsBild(g.id, i, { gezeichnet: true }).matchAll(/data-wort="([^"]+)"/g)].map((m) => m[1]);
+      const gemalt = Object.keys(b.woerter || {});
+      pruefe([...new Set(gezeichnet)].sort().join() === gemalt.sort().join(), `Geschichte ${g.id}, Bild ${i + 1}: im Gemälde lässt sich anderes antippen (${gemalt}) als in der Zeichnung (${[...new Set(gezeichnet)]})`);
+      Object.entries(b.woerter || {}).forEach(([wort, rr]) => rr.forEach((r) => pruefe(imBild(r, 472, 204), `Geschichte ${g.id}, Bild ${i + 1}, ${wort}: der Rahmen liegt nicht im Bild`)));
+      const svg = a.geschichtsBild(g.id, i);
+      pruefe(svg.includes(`geschichte-${g.id}-${i + 1}.webp`), `Geschichte ${g.id}, Bild ${i + 1}: zeigt das Gemälde nicht`);
+    });
+  }
+}
+
 // --- 5. Einbau -------------------------------------------------------------------
 {
   const index = lies("index.html");
   const sw = lies("service-worker.js");
-  const reihe = ["englisch-inhalt.js", "englisch-stand.js", "englisch-art.js", "englisch-art-2.js", "englisch-spiele.js", "englisch-art-3.js", "englisch-spiele-3.js", "englisch-art-4.js", "englisch-spiele-4.js", "englisch-stimme.js", "train-englischecke.js", "train-home.js"];
+  const reihe = ["englisch-inhalt.js", "englisch-stand.js", "englisch-art.js", "englisch-art-2.js", "englisch-spiele.js", "englisch-art-3.js", "englisch-spiele-3.js", "englisch-art-4.js", "englisch-gemalt.js", "englisch-spiele-4.js", "englisch-stimme.js", "train-englischecke.js", "train-home.js"];
   const stellen = reihe.map((d) => index.indexOf(`src="${d}`));
   stellen.forEach((st, i) => pruefe(st > 0, `index.html lädt ${reihe[i]} nicht`));
   pruefe(stellen.every((st, i) => i === 0 || st > stellen[i - 1]), `index.html lädt die Englischecke nicht in der Reihenfolge ${reihe.join(" → ")}`);
   pruefe(index.includes('src="bau-menschen.js'), "index.html lädt bau-menschen.js nicht (Mama und Papa der Englischecke)");
   pruefe(/href="englisch\.css/.test(index), "index.html lädt englisch.css nicht");
-  [...reihe.slice(0, 11), "englisch.css"].forEach((d) => pruefe(sw.includes(`./${d}`), `service-worker.js hält ${d} nicht vor`));
+  [...reihe.slice(0, 12), "englisch.css"].forEach((d) => pruefe(sw.includes(`./${d}`), `service-worker.js hält ${d} nicht vor`));
+  pruefe(sw.includes('"/bilder/englisch/"'), "service-worker.js legt die gemalten Bilder der Englischecke nicht in den Cache der Buchbilder");
   const ent = lies("entitlement.js");
   const tor = lies("train-englischecke.js");
   // Jedes Spiel, das die Englischecke der Schranke meldet, kennt entitlement.js.
@@ -357,7 +399,7 @@ if (I.MONSTER_TEILE) {
 }
 
 // --- 6. Sprache ------------------------------------------------------------------
-for (const datei of ["englisch-inhalt.js", "englisch-stand.js", "englisch-art.js", "englisch-art-2.js", "englisch-spiele.js", "englisch-art-3.js", "englisch-spiele-3.js", "englisch-art-4.js", "englisch-spiele-4.js", "train-englischecke.js", "englisch.css", "docs/ENGLISCHECKE-KONZEPT.md"]) {
+for (const datei of ["englisch-inhalt.js", "englisch-stand.js", "englisch-art.js", "englisch-art-2.js", "englisch-spiele.js", "englisch-art-3.js", "englisch-spiele-3.js", "englisch-art-4.js", "englisch-gemalt.js", "englisch-spiele-4.js", "train-englischecke.js", "englisch.css", "docs/ENGLISCHECKE-KONZEPT.md"]) {
   const text = lies(datei);
   // Nur im Konzept darf stehen, wovon es umbenannt wurde («statt …»).
   pruefe(!text.split("\n").some((zeile) => /H[öo]r\s*&\s*find/i.test(zeile) && !/statt/.test(zeile)), `${datei}: «Hör & find» – es heisst «Hear and find»`);

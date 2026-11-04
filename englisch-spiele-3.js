@@ -57,7 +57,8 @@
       runde.ersterVersuch = true;
       const andere = mische(welt.woerter.filter((w) => w.id !== ziel.id)).slice(0, 2);
       const wahl = mische([ziel, ...andere]);
-      const szene = A().szene(welt.id).replace(/^<svg[^>]*>/, "").replace(/<\/svg>$/, "");
+      // Die Zeichnung, nicht das Gemälde: Nur aus ihr lässt sich ein Ding wegnehmen.
+      const szene = A().szene(welt.id, { gezeichnet: true }).replace(/^<svg[^>]*>/, "").replace(/<\/svg>$/, "");
       let s = `${szene}<rect class="en-vorhang" width="1000" height="560" fill="#243047" opacity="0" pointer-events="none"/>
         <g class="en-fehlt-wahl" style="display:none"><rect x="230" y="420" width="540" height="132" rx="26" fill="#ffffff" opacity="0.96" stroke="#e1d9c6" stroke-width="3"/>`;
       wahl.forEach((w, i) => {

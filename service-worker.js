@@ -1,4 +1,4 @@
-const APP_VERSION = "2026-11-04-8";
+const APP_VERSION = "2026-11-04-9";
 const CACHE_PREFIX = "lernapp-pwa-";
 const CACHE_NAME = `${CACHE_PREFIX}${APP_VERSION}`;
 const ASSET_VERSION_QUERY = `?v=${APP_VERSION}`;
@@ -17,8 +17,9 @@ const NETWORK_TIMEOUT_MS = 3500;
 // neue Nummer – dann holt jedes Gerät die Bilder neu. Ein Bild darf länger
 // laden als eine Seite: Fehlt es, zeigt das Buch seine Zeichnung. Die
 // gemalten Postkarten (bilder/postkarten/…), Steckbriefe
-// (bilder/steckbriefe/…) und die Monster der Quatschwörter (bilder/monster/…)
-// liegen im selben Cache.
+// (bilder/steckbriefe/…), die Monster der Quatschwörter (bilder/monster/…)
+// und die gemalten Wimmelbilder und Geschichten der Englischecke
+// (bilder/englisch/…) liegen im selben Cache.
 const BUCHBILDER_CACHE = "lernapp-buchbilder-1";
 const BUCHBILDER_TIMEOUT_MS = 20000;
 
@@ -209,6 +210,7 @@ const CORE_ASSETS = [
   `./englisch-art-3.js${ASSET_VERSION_QUERY}`,
   `./englisch-spiele-3.js${ASSET_VERSION_QUERY}`,
   `./englisch-art-4.js${ASSET_VERSION_QUERY}`,
+  `./englisch-gemalt.js${ASSET_VERSION_QUERY}`,
   `./englisch-spiele-4.js${ASSET_VERSION_QUERY}`,
   `./englisch-stimme.js${ASSET_VERSION_QUERY}`,
   `./train-englischecke.js${ASSET_VERSION_QUERY}`,
@@ -457,7 +459,7 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  if (requestUrl.pathname.includes("/bilder/buecher/") || requestUrl.pathname.includes("/bilder/postkarten/") || requestUrl.pathname.includes("/bilder/steckbriefe/") || requestUrl.pathname.includes("/bilder/monster/")) {
+  if (requestUrl.pathname.includes("/bilder/buecher/") || requestUrl.pathname.includes("/bilder/postkarten/") || requestUrl.pathname.includes("/bilder/steckbriefe/") || requestUrl.pathname.includes("/bilder/monster/") || requestUrl.pathname.includes("/bilder/englisch/")) {
     event.respondWith(cacheFirst(event, BUCHBILDER_CACHE, BUCHBILDER_TIMEOUT_MS));
     return;
   }
