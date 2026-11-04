@@ -5674,94 +5674,149 @@ body[data-page="train"] .help-voice { display: none; }
    wie viele Züge oben Platz finden müssen.
    =========================================================================== */
 
-.train-friends {
+/* Seit dem Lernzug stehen die Züge der anderen nicht mehr über dem eigenen,
+   sondern hinter einem Knopf ganz rechts (train-home.js, showGruppe). */
+
+.gruppe-knopf {
   position: absolute;
-  left: 0;
-  right: 0;
-  z-index: 2;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 6px;
-  pointer-events: none;
-  /* Erst sichtbar, wenn train-home.js Platz und Grösse gemessen hat – sonst
-     stünden die Züge für einen Wimpernschlag irgendwo im Bild. */
-  opacity: 0;
-  transition: opacity 0.4s ease;
+  z-index: 5;
+  width: 72px;
+  padding: 0;
+  border: 3px solid #6c5ce7;
+  border-radius: 22%;
+  background: #ffffff;
+  box-shadow: 0 6px 16px rgba(36, 48, 71, 0.22);
+  cursor: pointer;
+  transition: opacity 0.4s ease, transform 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.gruppe-knopf[hidden] { display: none; }
+.gruppe-knopf[data-placed="0"] { opacity: 0; pointer-events: none; }
+.gruppe-knopf:active { transform: scale(0.94); }
+.gruppe-knopf:focus-visible { outline: 3px solid #6c5ce7; outline-offset: 4px; }
+.gruppe-knopf svg { display: block; width: 100%; height: auto; }
+.train-stage[data-entering] .gruppe-knopf { opacity: 0; pointer-events: none; }
+.gruppe-knopf-zahl {
+  position: absolute;
+  top: -9px;
+  left: -9px;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: #6c5ce7;
+  color: #ffffff;
+  font: 800 14px/24px "Nunito", system-ui, sans-serif;
+  box-shadow: 0 2px 6px rgba(36, 48, 71, 0.25);
+}
+/* Der Punkt: Jemand aus der Gruppe ist seit dem letzten Blick weitergekommen. */
+.gruppe-knopf-punkt {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #e8543f;
+  border: 3px solid #ffffff;
+  box-shadow: 0 2px 6px rgba(36, 48, 71, 0.3);
+  display: none;
+}
+.gruppe-knopf[data-neu="1"] .gruppe-knopf-punkt { display: block; animation: gruppe-punkt 1.8s ease-in-out infinite; }
+@keyframes gruppe-punkt {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.25); }
 }
 
-.train-friends[hidden] { display: none; }
-.train-friends[data-ready="1"] { opacity: 1; }
-
-/* Nur auf dem Startbild. Beim Einfahren des eigenen Zugs bleiben sie noch weg:
-   erst der eigene Zug, dann die anderen. */
-.train-stage:not([data-view="home"]) .train-friends { display: none; }
-.train-stage[data-entering] .train-friends { opacity: 0; }
+.gruppe-liste {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  display: grid;
+  place-items: center;
+  padding: max(12px, var(--safe-top, 0px)) max(12px, var(--safe-right, 0px)) max(12px, var(--safe-bottom, 0px)) max(12px, var(--safe-left, 0px));
+  background: rgba(36, 48, 71, 0.35);
+  animation: gruppe-liste-ein 0.25s ease both;
+}
+@keyframes gruppe-liste-ein { from { opacity: 0; } to { opacity: 1; } }
+.gruppe-liste-karte {
+  position: relative;
+  width: min(760px, 100%);
+  max-height: 100%;
+  overflow: auto;
+  padding: 18px 16px 16px;
+  border-radius: 24px;
+  background: #fffaf0;
+  box-shadow: 0 16px 40px rgba(36, 48, 71, 0.32);
+}
+.gruppe-liste-zu {
+  position: sticky;
+  top: 0;
+  float: right;
+  z-index: 1;
+  width: 44px;
+  height: 44px;
+  margin: -6px -4px 4px 8px;
+  border: none;
+  border-radius: 50%;
+  background: #ffffff;
+  color: #243047;
+  box-shadow: 0 3px 10px rgba(36, 48, 71, 0.2);
+  cursor: pointer;
+}
+.gruppe-liste-zu svg { width: 22px; height: 22px; display: block; margin: auto; }
+.gruppe-liste-zeilen { display: grid; gap: 10px; clear: both; }
 
 .friend-train {
-  position: relative;
-  display: flex;
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr);
+  grid-template-rows: auto auto;
   align-items: center;
-  justify-content: center;
-  max-width: 98%;
-  padding: 0;
-  border: none;
-  /* Ohne die Mindesthöhe für Knöpfe: wie hoch eine Zeile werden darf, sagt
-     hier der Platz über dem eigenen Zug. Getroffen wird sie trotzdem – die
-     Zeile ist so breit wie ein halbes Bild, und je weniger Züge oben stehen,
-     desto höher wird jeder. */
-  min-height: 0;
-  background: none;
+  gap: 2px 12px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 2px solid transparent;
+  border-radius: 18px;
+  background: #ffffff;
   font: inherit;
-  color: inherit;
+  color: #243047;
+  text-align: left;
   cursor: pointer;
-  pointer-events: auto;
-  border-radius: 14px;
+  box-shadow: 0 3px 10px rgba(36, 48, 71, 0.12);
   -webkit-tap-highlight-color: transparent;
   transition: transform 0.16s ease;
 }
-
-.friend-train:hover { transform: scale(1.02); }
-.friend-train:active { transform: scale(0.97); }
-.friend-train:focus-visible { outline: 3px solid #fff; outline-offset: 4px; }
-
-/* Der Name steht vor dem Zug, wie das Schild an einem Bahnsteig. Auf dem Bild
-   sonst kein Wort – hier eines, weil genau darum geht es: wessen Zug das ist.
-
-   Er hängt neben der Zeile statt in ihr: sonst bestimmte auf einem flachen
-   Bildschirm die Höhe des Schilds die Höhe der Zeile, und der Stapel wäre
-   höher geworden als der Platz, den train-home.js dafür ausgerechnet hat. */
+.friend-train.is-neu { border-color: #e8543f; }
+.friend-train:active { transform: scale(0.98); }
+.friend-train:focus-visible { outline: 3px solid #6c5ce7; outline-offset: 3px; }
+.friend-ava {
+  grid-row: 1 / span 2;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: #ffffff;
+  font: 800 20px/1 "Nunito", system-ui, sans-serif;
+}
 .friend-name {
-  position: absolute;
-  right: calc(100% + clamp(6px, 1.2vw, 12px));
-  top: 50%;
-  transform: translateY(-50%);
-  max-width: min(8em, 22vw);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  padding: 4px 10px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.88);
-  color: #243047;
-  font-size: clamp(0.7rem, 1.9vh, 1rem);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font-size: 1.05rem;
   font-weight: 800;
-  line-height: 1.3;
-  box-shadow: 0 3px 10px rgba(36, 48, 71, 0.2);
+  line-height: 1.2;
 }
-
-.friend-svg {
-  flex: 0 0 auto;
-  display: block;
-  height: auto;
-  max-width: 100%;
-}
+.friend-neu { width: 12px; height: 12px; border-radius: 50%; background: #e8543f; flex: 0 0 auto; }
+.friend-zuege { display: grid; gap: 2px; min-width: 0; max-width: 460px; }
+.friend-zuege svg { display: block; width: 100%; height: auto; }
+.friend-zuege .gruppe-lernzug { width: 56%; }
 
 @media (prefers-reduced-motion: reduce) {
-  .train-friends { transition: none; }
+  .gruppe-liste { animation: none; }
+  .gruppe-knopf[data-neu="1"] .gruppe-knopf-punkt { animation: none; }
   .friend-train { transition: none; }
-  .friend-train:hover { transform: none; }
 }
 
 /* --- Der Zug eines anderen, gross --- */
@@ -11600,6 +11655,66 @@ body[data-page="admin"] .admin-entry-herkunft { flex: 1 1 220px; }
   0% { transform: translate(0, 4px) scale(0.6); opacity: 0; }
   20% { opacity: 0.85; }
   100% { transform: translate(10px, -14px) scale(1.5); opacity: 0; }
+}
+
+/* --- Der Lernzug ---
+   Über dem Gripszug auf einem zweiten Gleis (train-home.js, positionLernzug;
+   gezeichnet in lernzug-art.js). Das Gleis liegt fest; nur der Zug darüber
+   fährt beim Laden herein, ein wenig nach dem Gripszug. */
+.lernzug {
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: 3;
+  pointer-events: none;
+  transition: opacity 0.4s ease;
+}
+.lernzug[data-placed="0"] { opacity: 0; }
+.train-stage:not([data-view="home"]) .lernzug { display: none; }
+.lernzug-gleis { position: absolute; left: 0; top: 0; width: 100%; height: auto; display: block; }
+.lernzug-zug {
+  position: absolute;
+  inset: 0;
+  transition: transform 1.6s cubic-bezier(0.22, 0.64, 0.24, 1) 0.35s;
+}
+.train-stage[data-entering="1"] .lernzug-zug { transform: translateX(-118%); transition: none; }
+.lernzug .lernzug-knopf {
+  position: absolute;
+  top: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  pointer-events: auto;
+  filter: drop-shadow(0 5px 8px rgba(36, 48, 71, 0.18));
+  transform-origin: 50% 85%;
+  transition: opacity 0.4s ease, transform 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.lernzug .lernzug-knopf[hidden] { display: none; }
+.lernzug .lernzug-knopf svg { display: block; width: 100%; height: auto; overflow: visible; }
+.lernzug .lernzug-knopf:active { transform: scale(0.95); }
+.lernzug .lernzug-knopf:focus-visible { outline: 3px solid #6c5ce7; outline-offset: 2px; border-radius: 12px; }
+/* Der Lernzug fährt sichtbar herein, statt wie die alten Wagen auf dem
+   Abstellgleis erst nach der Einfahrt aufzutauchen. */
+.train-stage[data-entering] .lernzug .lernzug-knopf { opacity: 1; pointer-events: none; }
+.lernwagen-rauch, .lernlok-dampf {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: lesewagen-rauch 3.4s ease-out infinite;
+}
+.lernwagen-rauch-2, .lernlok-dampf-2 { animation-delay: -1.7s; }
+.lernwagen-birne { animation: lese-birne 2.4s ease-in-out infinite; }
+.lernwagen-birne-1 { animation-delay: -0.8s; }
+.lernwagen-birne-2 { animation-delay: -1.6s; }
+.lernwagen-schritt.is-new {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: wagon-step-in 0.7s cubic-bezier(0.2, 1.4, 0.4, 1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .lernzug-zug { transition: none; }
+  .lernwagen-rauch, .lernlok-dampf, .lernwagen-birne, .lernwagen-schritt.is-new { animation: none; }
 }
 
 /* --- Im Lesewagen --- */

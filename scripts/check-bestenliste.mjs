@@ -89,7 +89,11 @@ if (!(await warteAufServer())) {
 }
 
 const browser = await playwright.chromium.launch();
-const page = await browser.newPage({ viewport: { width: 844, height: 390 } });
+// Ohne Firebase aus dem Netz: Die Gruppe wird unten ohnehin untergeschoben,
+// und ein langsames Netz liesse «networkidle» nie eintreten.
+const kontext = await browser.newContext({ viewport: { width: 844, height: 390 } });
+await kontext.route("**/*gstatic.com/**", (route) => route.abort());
+const page = await kontext.newPage();
 await page.goto(`${BASIS}/index.html`, { waitUntil: "networkidle" });
 // Der Zug wartet auf die erste Berührung, bevor er hereinfährt.
 await page.mouse.click(4, 4);
@@ -106,8 +110,13 @@ await page.evaluate((gruppe) => {
 }, GRUPPE);
 await page.waitForTimeout(900);
 
-const zuege = await page.locator(".friend-train").count();
-pruefe(zuege === 2, `Über dem eigenen Zug stehen ${zuege} fremde Züge, erwartet 2 (das eigene Konto gehört nicht aufs Gleis)`);
+// Die Gruppe steckt hinter dem Knopf ganz rechts; erst er öffnet die Liste.
+pruefe(await page.locator(".gruppe-knopf:not([hidden])").count() === 1, "Der Knopf für die Gruppe fehlt auf dem Startbild");
+pruefe(await page.locator(".train-stage > .friend-train").count() === 0, "Auf der Bühne stehen noch Züge der Gruppe");
+await page.locator(".gruppe-knopf").click();
+await page.waitForTimeout(500);
+const zuege = await page.locator(".gruppe-liste .friend-train").count();
+pruefe(zuege === 2, `In der Liste der Gruppe stehen ${zuege} Züge, erwartet 2 (das eigene Konto gehört nicht dazu)`);
 
 const namen = await page.locator(".friend-name").allTextContents();
 pruefe(!namen.includes("Ben"), `Das eigene Kind steht als fremder Zug auf dem Gleis: ${namen.join(", ")}`);
