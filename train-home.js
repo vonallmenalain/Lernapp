@@ -60,6 +60,8 @@
   const rechenApi = () => window.LernappRechenecke || null;
   const rechenArt = () => window.LernappRechenArt || null;
   const rechenStand = () => window.LernappRechenStand || null;
+  // Der Lernzug über dem Gripszug (lernzug-art.js): Lernlok und Lernwagen.
+  const lernArt = () => window.LernappLernzugArt || null;
   const bauArt = () => window.LernappBauArt || null;
   const bauStand = () => window.LernappBauStand || null;
   // Gezeigt wird, was gewählt ist – ob die Landschaft nach dem Stand dieses
@@ -467,10 +469,9 @@
     if (!rail || !band || !band.offsetHeight) {
       stage.style.removeProperty("--train-lift");
       positionStart();
-      positionLesewagen();
-      positionRechenwagen();
+      positionLernzug();
       positionBauplatz();
-      layoutFriends();
+      positionGruppe();
       return;
     }
     // Gemessen wird das Band in seiner ungestreckten Lage – offsetTop und
@@ -486,10 +487,9 @@
     const lift = rail.getBoundingClientRect().top - railLine;
     stage.style.setProperty("--train-lift", `${Math.round(lift)}px`);
     positionStart();
-    positionLesewagen();
-    positionRechenwagen();
+    positionLernzug();
     positionBauplatz();
-    layoutFriends();
+    positionGruppe();
   }
 
   // ---------------------------------------------------------------------------
@@ -850,7 +850,6 @@
   // Nur auf dem Startbild. Unterwegs zu den Toren und vor den Gebäuden geht es
   // um den eigenen Weg, und fünf Züge übereinander wären dort nur Gedränge.
   let friends = [];
-  let friendsHost = null;
   // Alle der Gruppe, das eigene Konto eingeschlossen. Auf dem Gleis stehen nur
   // die anderen; die Bestenliste braucht dagegen alle – wer seinen eigenen
   // Namen dort nicht findet, glaubt, er sei nicht dabei.
@@ -897,6 +896,7 @@
       loco: { ...art.DEFAULT_LOCO, ...(account.loco || {}) },
       scene: account.scene || null,
       areas: progress.areasForAccount(account),
+      lern: lernStufenVon(account),
       ...journeyOf(account),
     }));
 
@@ -924,98 +924,55 @@
     }
   }
 
+  // Die Gruppe steht nicht mehr auf der Bühne, sondern hinter dem Knopf ganz
+  // rechts (showGruppe). Hier wird nur der Knopf aufgefrischt.
   function renderFriends() {
-    if (!friendsHost) return;
-    friendsHost.innerHTML = "";
-    friendsHost.dataset.ready = "0";
-    friendsHost.hidden = friends.length === 0;
-    if (!friends.length) return;
-    friends.forEach((friend) => friendsHost.append(buildFriendTrain(friend)));
-    window.requestAnimationFrame(layoutFriends);
+    fuelleGruppeButton();
+    window.requestAnimationFrame(positionGruppe);
+    const liste = stage.querySelector(".gruppe-liste");
+    if (liste) { liste.remove(); if (friends.length) showGruppe(); }
   }
 
-  function buildFriendTrain(friend) {
+  // Eine Zeile der Liste: der Kopf in der Farbe des Kindes, sein Name, darunter
+  // klein seine beiden Züge – der Lernzug oben, der Gripszug unten, wie auf
+  // dem eigenen Startbild.
+  function buildFriendTrain(friend, { farbe = "#6c5ce7", neu = false } = {}) {
     const row = document.createElement("button");
     row.type = "button";
-    row.className = "friend-train";
+    row.className = `friend-train${neu ? " is-neu" : ""}`;
     row.dataset.friend = friend.id;
-    row.setAttribute("aria-label", `${describeTrain(friend.areas, `Zug von ${friend.name}.`)} Antippen für Einzelheiten.`);
+    row.setAttribute("aria-label", `${describeTrain(friend.areas, `Zug von ${friend.name}.`)}${neu ? " Ist weitergekommen." : ""} Antippen für Einzelheiten.`);
+
+    const kopf = document.createElement("span");
+    kopf.className = "friend-ava";
+    kopf.style.background = farbe;
+    kopf.textContent = String(friend.name || "?").trim().charAt(0).toUpperCase() || "?";
 
     const name = document.createElement("span");
     name.className = "friend-name";
     name.textContent = friend.name;
+    if (neu) {
+      const marke = document.createElement("span");
+      marke.className = "friend-neu";
+      marke.setAttribute("aria-hidden", "true");
+      name.append(marke);
+    }
 
+    const zuege = document.createElement("span");
+    zuege.className = "friend-zuege";
+    const lern = miniLernzug(friend);
+    if (lern) zuege.append(lern);
     // Mit eigenem Gleis: gezeichnet im selben Koordinatensystem wie der Zug,
-    // also immer genau unter den Rädern. Ein Strich im CSS müsste dafür auf
-    // Prozentwerte vertrauen, die bei jedem Seitenverhältnis anders liegen.
+    // also immer genau unter den Rädern.
     const svg = art.buildTrain(friend.areas, friend.loco, { pad: 4, gap: 4, withTrack: true, journeyStars: friend.journeyStars || 0, journeyGold: friend.journeyGold || 0, lesewurm: Boolean(friend.lesewurm) });
     svg.setAttribute("class", "train-svg friend-svg");
     svg.setAttribute("aria-hidden", "true");
     svg.removeAttribute("role");
+    zuege.append(svg);
 
-    row.append(name, svg);
+    row.append(kopf, name, zuege);
     row.addEventListener("click", () => { if (!busy) showFriend(friend.id); });
     return row;
-  }
-
-  // Der Platz zwischen dem oberen Bildrand und dem eigenen Zug, aufgeteilt auf
-  // die Züge der Gruppe. Gemessen statt gerechnet: wie hoch der eigene Zug
-  // steht, hängt am Seitenverhältnis des Fensters, und wie viele Züge oben
-  // stehen, weiss erst die Gruppe.
-  function layoutFriends() {
-    if (!friendsHost || !friends.length) return;
-    const band = stage.querySelector(".train-band");
-    const host = stage.getBoundingClientRect();
-    if (!band || !host.height) return;
-
-    // Unter den Knöpfen anfangen: Landschaftswechsel links, Konto rechts. Ein
-    // Zug darunter wäre halb verdeckt und nicht anzutippen.
-    const guard = sceneButton && !sceneButton.hidden
-      ? sceneButton.getBoundingClientRect().bottom - host.top
-      : 84;
-    const top = Math.max(guard + 10, host.height * 0.04);
-    // Die Oberkante des eigenen Zugs – die, auf die er zufährt, nicht die, an
-    // der er gerade vorbeigleitet. Das Band wird mit einer Überblendung an
-    // seinen Platz geschoben; ein getBoundingClientRect() mitten darin misst
-    // den Weg und nicht das Ziel, und die fremden Züge stünden danach ein
-    // Stück zu tief. offsetTop kennt keine Transformation, der Höhenausgleich
-    // steht in der Variablen: zusammen ergibt das den Platz von nachher.
-    const lift = parseFloat(window.getComputedStyle(stage).getPropertyValue("--train-lift")) || 0;
-    const room = band.offsetTop + lift - top;
-
-    const rows = friends.length;
-    const gap = Math.max(4, Math.round(host.height * 0.012));
-    // Bleibt kein Platz – ein sehr flaches Fenster, eine Bühne, die noch nicht
-    // steht –, bleiben die fremden Züge weg. Nicht entfernt: beim nächsten
-    // Drehen des Geräts ist wieder Platz, und dann sollen sie ohne Neuladen
-    // dastehen.
-    if (room <= 0) {
-      friendsHost.dataset.ready = "0";
-      return;
-    }
-    // Unter dieser Höhe ist ein Zug kein Bild mehr, sondern ein Strich. Bei
-    // einer grossen Gruppe wächst der Stapel dann lieber nach oben aus seinem
-    // Platz heraus, als dass jeder Zug unkenntlich wird.
-    const perRow = Math.max(16, (room - gap * (rows + 1)) / rows);
-
-    // Das Seitenverhältnis steht im Ausschnitt des SVG – abgelesen statt
-    // ausgerechnet, damit ein Umbau am Zug hier nichts nachzuziehen lässt.
-    const first = friendsHost.querySelector(".friend-svg");
-    const box = (first?.getAttribute("viewBox") || "0 0 928 200").split(/\s+/).map(Number);
-    const aspect = box[2] && box[3] ? box[2] / box[3] : 4.64;
-
-    // Nie so breit wie der eigene Zug: der steht ganz unten und ist der, um den
-    // es geht. Der Rest der Breite bleibt für den Namen daneben.
-    const maxWidth = host.width * 0.66;
-    const width = Math.min(perRow * aspect, maxWidth);
-
-    friendsHost.style.top = `${Math.round(top)}px`;
-    friendsHost.style.height = `${Math.round(room)}px`;
-    friendsHost.style.gap = `${gap}px`;
-    friendsHost.querySelectorAll(".friend-svg").forEach((node) => {
-      node.style.width = `${Math.round(width)}px`;
-    });
-    friendsHost.dataset.ready = "1";
   }
 
   // Der Zug eines anderen, gross: oben der Zug selbst als Auswahl, darunter die
@@ -1427,106 +1384,466 @@
   }
 
   // ---------------------------------------------------------------------------
-  // Der Lesewagen
+  // Der Lernzug
   // ---------------------------------------------------------------------------
-  // Ein alter Wagen auf einem Abstellgleis, links oben im Bild: Dort ist auf
-  // jedem Startbild Platz. Die Mitte gehört dem Zug und – bei Kindern in einer
-  // Gruppe – den Zügen der anderen, die höchstens zwei Drittel der Breite
-  // nehmen (layoutFriends); der linke Rand darunter bleibt frei.
-  const LESE_ANTEIL = 0.16;   // so viel der Breite nimmt der Wagen höchstens
-  const LESE_MAX = 210;       // und nie mehr als so viele Pixel
-  const LESE_MIN = 70;        // kleiner wird er nicht – dann bleibt er weg
+  // Über dem Gripszug fährt auf einem zweiten Gleis der Lernzug: vorn die
+  // Lernlok, gleich dahinter der Lesewagen, dann der Rechenwagen (und, sobald
+  // es ihn gibt, der Englischwagen ganz hinten). Gleich gross wie der
+  // Gripszug: Gemessen wird dessen Massstab, und das zweite Gleis liegt so weit
+  // über dem ersten, dass auch der höchste fertige Wagen darunter Platz hat
+  // (lernzug-art.js zeichnet in denselben Einheiten wie train-art.js).
+  //
+  // Jeder Wagen ist ein eigener Knopf und führt hinein wie früher die Wagen
+  // auf dem Abstellgleis. Die Lok fährt in den Wagen, in dem das Kind zuletzt
+  // war – sein Maskottchen sitzt im Führerhaus.
+  //
+  // Reicht die Höhe nicht (ein sehr flaches Fenster), wird nur der Lernzug
+  // kleiner, nie unter LERN_MIN des Gripszugs; der Gripszug bleibt, wie er ist.
+  // 158 Einheiten ist der höchste fertige Wagen des Gripszugs hoch; dazu Luft
+  // für sein Wippen beim ersten Start (styles.css, wagen-winkt: 9 px).
+  const LERN_ABSTAND = 174;   // Einheiten zwischen den beiden Schienen
+  const LERN_HOEHE = 158;     // so hoch ragt der fertige Lernzug über sein Gleis
+  const LERN_MIN = 0.55;
+  const ZULETZT_KEY = "lernapp.lernzug.zuletzt";
+  const LERN_GESEHEN_KEY = "lernapp.lernzug.gesehen";
+  const LERN_IDS = ["lesen", "rechnen"];
+  let lernzug = null;
+  let lernlokButton = null;
+  let lernWagenKnoepfe = [];
+
+  function lernStufen() {
+    return {
+      lesen: leseApi() ? (leseStand()?.wagenStufe?.() || 0) : null,
+      rechnen: rechenApi() ? (rechenStand()?.wagenStufe?.() || 0) : null,
+    };
+  }
+
+  function maskottchenStand(id) {
+    if (id === "lesen") return { glieder: leseStand()?.wurmGlieder?.() || 1 };
+    if (id === "rechnen") {
+      const d = rechenStand()?.drache?.() || { leben: 0, taler: 0 };
+      return { leben: d.leben, ei: !d.taler };
+    }
+    return {};
+  }
+
+  function zuletztBesucht() {
+    const wert = recall(ZULETZT_KEY);
+    return LERN_IDS.includes(wert) ? wert : "lesen";
+  }
+
+  function merkeBesuch(id) {
+    remember(ZULETZT_KEY, id);
+  }
+
+  function buildLernwagenKnopf(id, klasse, satz, onClick) {
+    const z = lernArt();
+    const stufe = lernStufen()[id] || 0;
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = `${klasse} lernzug-knopf`;
+    button.dataset.placed = "0";
+    button.dataset.lernwagen = id;
+    button.dataset.stufe = String(stufe);
+    button.setAttribute("aria-label", `${satz} ${stufe} von ${z.STUFEN} Schritten gebaut.`);
+    button.append(z.wagenSvg(z.buildLernwagen(id, stufe, maskottchenStand(id)), z.WAGEN_W));
+    button.addEventListener("click", onClick);
+    return button;
+  }
 
   function buildLeseButton() {
-    const zeichner = leseArt();
-    if (!zeichner || !leseApi()) return null;
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "lesewagen-knopf";
-    button.dataset.placed = "0";
-    const glieder = leseStand()?.wurmGlieder?.() || 1;
-    const ausbau = leseStand()?.wagenStufe?.() || 0;
-    button.setAttribute("aria-label", "Der Lesewagen: Hier wird gelesen");
-    button.append(zeichner.buildLesewagen({ glieder, ausbau }));
-    button.addEventListener("click", enterLeseecke);
-    return button;
+    if (!lernArt() || !leseArt() || !leseApi()) return null;
+    return buildLernwagenKnopf("lesen", "lesewagen-knopf", "Der Lesewagen: Hier wird gelesen.", enterLeseecke);
   }
-
-  function positionLesewagen() {
-    if (!leseButton) return;
-    const zeichner = leseArt();
-    const band = stage.querySelector(".train-band");
-    const host = stage.getBoundingClientRect();
-    if (!zeichner || !band || !host.width) { leseButton.dataset.placed = "0"; return; }
-    const knopf = sceneButton && !sceneButton.hidden ? sceneButton.getBoundingClientRect() : null;
-    const oben = (knopf ? knopf.bottom - host.top : 72) + 12;
-    const links = knopf ? Math.max(8, knopf.left - host.left) : 12;
-    // Er steht knapp über dem letzten Wagen des eigenen Zugs – so wirkt er
-    // wie hinter dem Zug abgestellt, statt über den Hügeln zu schweben. Ohne
-    // Wagen gilt die Oberkante des Zugbandes ohne Überblendung (wie
-    // layoutFriends).
-    const lift = parseFloat(window.getComputedStyle(stage).getPropertyValue("--train-lift")) || 0;
-    const bandOben = band.offsetTop + lift;
-    const letzter = band.querySelector("[data-area]")?.getBoundingClientRect();
-    const boden = letzter?.height && !stage.dataset.entering
-      ? Math.max(bandOben, letzter.top - host.top - 4)
-      : bandOben;
-    const platz = boden - oben - 6;
-    const seite = zeichner.WAGEN_H / zeichner.WAGEN_W;
-    let breite = Math.min(host.width * LESE_ANTEIL, LESE_MAX);
-    if (breite * seite > platz) breite = platz / seite;
-    if (breite < LESE_MIN) { leseButton.dataset.placed = "0"; return; }
-    const hoehe = breite * seite;
-    leseButton.style.width = `${Math.round(breite)}px`;
-    leseButton.style.left = `${Math.round(links)}px`;
-    leseButton.style.top = `${Math.round(boden - hoehe - 6)}px`;
-    leseButton.dataset.placed = "1";
-  }
-
-  // ---------------------------------------------------------------------------
-  // Der Rechenwagen
-  // ---------------------------------------------------------------------------
-  // Ein zweiter alter Wagen, auf einem Abstellgleis über dem Lesewagen – gleich
-  // breit wie dieser, solange der Platz bis zum Knopf der Landschaft reicht,
-  // sonst kleiner, und unter der Mindestgrösse gar nicht: Dann führt die Tür
-  // im Lesewagen hinüber.
-  const RECHEN_MIN = 70;
-  const RECHEN_ABSTAND = 10;
 
   function buildRechenButton() {
-    const zeichner = rechenArt();
-    const s = rechenStand();
-    if (!zeichner || !s || !rechenApi()) return null;
-    const d = s.drache();
+    if (!lernArt() || !rechenArt() || !rechenStand() || !rechenApi()) return null;
+    const d = rechenStand().drache();
+    return buildLernwagenKnopf("rechnen", "rechenwagen-knopf", `Der Rechenwagen: Hier wird gerechnet. Dein Drache hat ${d.taler} Taler.`, enterRechenecke);
+  }
+
+  function buildLernlokButton() {
+    const z = lernArt();
+    const fahrer = zuletztBesucht();
     const button = document.createElement("button");
     button.type = "button";
-    button.className = "rechenwagen-knopf";
+    button.className = "lernlok-knopf lernzug-knopf";
     button.dataset.placed = "0";
-    button.setAttribute("aria-label", `Der Rechenwagen: Hier wird gerechnet. Dein Drache hat ${d.taler} Taler.`);
-    button.append(zeichner.svg(zeichner.wagenAussen({ leben: d.leben, stufe: d.stufe, ei: d.taler === 0, ausbau: s.wagenStufe() })));
-    button.addEventListener("click", enterRechenecke);
+    button.dataset.fahrer = fahrer;
+    button.setAttribute("aria-label", "Die Lernlok: Sie fährt in den Wagen, in dem du zuletzt warst.");
+    button.append(z.wagenSvg(z.buildLernlok({ fahrer, m: maskottchenStand(fahrer) }), z.LOK_W));
+    button.addEventListener("click", () => {
+      if (zuletztBesucht() === "rechnen" && rechenApi()) enterRechenecke();
+      else enterLeseecke();
+    });
     return button;
   }
 
-  function positionRechenwagen() {
-    if (!rechenButton) return;
-    const zeichner = rechenArt();
+  // Von links nach rechts: der hinterste Wagen zuerst, die Lok vorn.
+  function buildLernzug() {
+    if (!lernArt()) return null;
+    lernWagenKnoepfe = [rechenButton, leseButton].filter(Boolean);
+    if (!lernWagenKnoepfe.length) return null;
+    lernlokButton = buildLernlokButton();
+    const host = document.createElement("div");
+    host.className = "lernzug";
+    host.dataset.placed = "0";
+    const zug = document.createElement("div");
+    zug.className = "lernzug-zug";
+    zug.append(...lernWagenKnoepfe, lernlokButton);
+    host.append(zug);
+    return host;
+  }
+
+  function positionLernzug() {
+    if (!lernzug) return;
+    const z = lernArt();
+    const band = stage.querySelector(".train-band");
+    const zugSvg = band?.querySelector(".train-svg");
+    const rail = layerHost?.querySelector(".stage-rail");
     const host = stage.getBoundingClientRect();
-    if (!zeichner || !leseButton || leseButton.dataset.placed !== "1" || !host.width) { rechenButton.dataset.placed = "0"; return; }
+    const box = zugSvg?.viewBox?.baseVal;
+    const verstecke = () => {
+      lernzug.dataset.placed = "0";
+      [...lernWagenKnoepfe, lernlokButton].forEach((knopf) => { if (knopf) knopf.dataset.placed = "0"; });
+    };
+    if (!z || !band || !box?.width || !rail || !host.width || !band.offsetWidth) { verstecke(); return; }
+    // Der Massstab des Gripszugs ohne die Verkleinerung der anderen Ansichten:
+    // offsetWidth kennt keine Transformation.
+    const massstab = band.offsetWidth / box.width;
+    const schiene = rail.getBoundingClientRect().top - host.top;
+    if (!(schiene > 0)) { verstecke(); return; }
+    const lernSchiene = schiene - LERN_ABSTAND * massstab;
     const knopf = sceneButton && !sceneButton.hidden ? sceneButton.getBoundingClientRect() : null;
-    const oben = (knopf ? knopf.bottom - host.top : 72) + 12;
-    const leseTop = parseFloat(leseButton.style.top) || 0;
-    const leseLinks = parseFloat(leseButton.style.left) || 12;
-    const leseBreite = parseFloat(leseButton.style.width) || 0;
-    const seite = zeichner.AUSSEN_H / zeichner.AUSSEN_W;
-    const platz = leseTop - RECHEN_ABSTAND - oben;
-    let breite = leseBreite;
-    if (breite * seite > platz) breite = platz / seite;
-    if (breite < RECHEN_MIN) { rechenButton.dataset.placed = "0"; return; }
-    rechenButton.style.width = `${Math.round(breite)}px`;
-    rechenButton.style.left = `${Math.round(leseLinks)}px`;
-    rechenButton.style.top = `${Math.round(leseTop - RECHEN_ABSTAND - breite * seite)}px`;
-    rechenButton.dataset.placed = "1";
+    const oben = (knopf?.height ? knopf.bottom - host.top : 72) + 4;
+    let s = massstab;
+    if (lernSchiene - LERN_HOEHE * s < oben) s = Math.max(massstab * LERN_MIN, (lernSchiene - oben) / LERN_HOEHE);
+    const n = lernWagenKnoepfe.length;
+    lernzug.querySelector(".lernzug-gleis")?.remove();
+    lernzug.prepend(z.buildGleis(host.width / s, n));
+    lernzug.style.top = `${Math.round(lernSchiene - art.GROUND * s)}px`;
+    lernzug.style.height = `${Math.round((art.ART_H + 14) * s)}px`;
+    const knopfOben = `${(z.KNOPF_OBEN * s).toFixed(1)}px`;
+    lernWagenKnoepfe.forEach((wagen, i) => {
+      wagen.style.top = knopfOben;
+      wagen.style.left = `${(z.wagenX(i) * s).toFixed(1)}px`;
+      wagen.style.width = `${(z.WAGEN_W * s).toFixed(1)}px`;
+      wagen.dataset.placed = "1";
+    });
+    lernlokButton.style.top = knopfOben;
+    lernlokButton.style.left = `${(z.lokX(n) * s).toFixed(1)}px`;
+    lernlokButton.style.width = `${(z.LOK_W * s).toFixed(1)}px`;
+    lernlokButton.dataset.placed = "1";
+    lernzug.dataset.rechts = String(Math.round(z.zugBreite(n) * s));
+    lernzug.dataset.placed = "1";
+  }
+
+  // Ein Lernwagen ist einen Schritt weiter: die Feier wie beim Gripszug. Der
+  // Wagen gross, der neue Schritt springt hervor, fünfzehn Punkte darunter.
+  // Gefeiert wird nur auf dem Startbild – dort, wo man den Wagen von aussen
+  // sieht; drinnen leuchtet ohnehin, was neu ist.
+  function lernGewachsen() {
+    const jetzt = lernStufen();
+    let gesehen = null;
+    try { gesehen = JSON.parse(localStorage.getItem(LERN_GESEHEN_KEY) || "null"); } catch { gesehen = null; }
+    if (gesehen && typeof gesehen !== "object") gesehen = null;
+    const naechst = { ...(gesehen || {}) };
+    const gewachsen = [];
+    Object.entries(jetzt).forEach(([id, stufe]) => {
+      if (stufe === null) return;
+      const vorher = Number(gesehen?.[id]);
+      if (gesehen && Number.isFinite(vorher) && stufe > vorher) gewachsen.push({ id, vorher, stufe });
+      // Nie ein niedrigerer Stand – wie writeSeen: beim Laden kann er kurz
+      // einbrechen, bevor der Stand aus der Cloud da ist.
+      naechst[id] = Number.isFinite(vorher) ? Math.max(vorher, stufe) : stufe;
+    });
+    try { localStorage.setItem(LERN_GESEHEN_KEY, JSON.stringify(naechst)); } catch { /* privater Modus */ }
+    return gewachsen;
+  }
+
+  function lernNotiz(stufe) {
+    const z = lernArt();
+    if (stufe >= z.STUFEN) return `Schritt ${stufe} von ${z.STUFEN} – dein Wagen ist fertig!`;
+    return `Schritt ${stufe} von ${z.STUFEN} – neu: ${z.SCHRITTE[stufe]}.`;
+  }
+
+  function showLernwagenReward({ id, vorher, stufe }, done) {
+    const z = lernArt();
+    const w = z.WAGEN[id];
+    const overlay = document.createElement("div");
+    overlay.className = "wagon-reward lernwagen-reward";
+    overlay.setAttribute("role", "dialog");
+    overlay.setAttribute("aria-label", `${w.name}: dein Wagen wächst`);
+    const card = document.createElement("div");
+    card.className = "wagon-reward-card";
+    card.style.setProperty("--reward-color", w.koerper);
+    const title = document.createElement("p");
+    title.className = "wagon-reward-title";
+    title.textContent = `Der ${w.name}`;
+    const bühne = document.createElement("div");
+    bühne.className = "wagon-reward-stage";
+    const zeichne = (s, frisch = null) => {
+      bühne.innerHTML = "";
+      const svg = z.wagenSvg(z.buildLernwagen(id, s, maskottchenStand(id), { neu: frisch }), z.WAGEN_W, { label: `${w.name}, Schritt ${s} von ${z.STUFEN}`, ausschnitt: z.WAGEN_AUSSCHNITT });
+      svg.setAttribute("class", "wagon-reward-svg");
+      bühne.append(svg);
+    };
+    zeichne(vorher);
+    const dots = document.createElement("div");
+    dots.className = "wagon-reward-steps";
+    dots.style.setProperty("--reward-color", w.koerper);
+    dots.setAttribute("role", "img");
+    dots.setAttribute("aria-label", `Schritt ${vorher} von ${z.STUFEN}`);
+    for (let s = 1; s <= z.STUFEN; s += 1) {
+      const dot = document.createElement("span");
+      dot.className = `reward-dot${s <= vorher ? " is-done" : ""}`;
+      dot.dataset.step = String(s);
+      dots.append(dot);
+    }
+    const note = document.createElement("p");
+    note.className = "wagon-reward-note";
+    note.textContent = lernNotiz(vorher);
+    const weiter = rewardButton();
+    card.append(title, bühne, dots, note, weiter);
+    overlay.append(card);
+    stage.append(overlay);
+    kids()?.playJingle?.("wagon");
+    kids()?.vibrate?.([12, 60, 18]);
+
+    const stufen = [];
+    for (let s = vorher + 1; s <= stufe; s += 1) stufen.push(s);
+    const lightUp = (s) => {
+      const dot = dots.querySelector(`[data-step="${s}"]`);
+      if (dot) dot.classList.add("is-done", "is-new");
+      dots.setAttribute("aria-label", `Schritt ${s} von ${z.STUFEN}`);
+    };
+    const timers = [];
+    let fertig = false;
+    const abschliessen = () => {
+      if (fertig) return;
+      fertig = true;
+      timers.forEach((t) => window.clearTimeout(t));
+      zeichne(stufe);
+      stufen.forEach(lightUp);
+      note.textContent = lernNotiz(stufe);
+      overlay.classList.add("is-done");
+    };
+    if (reduced()) abschliessen();
+    else {
+      const schritt = rewardStepMs(stufen.length);
+      stufen.forEach((s, index) => timers.push(window.setTimeout(() => {
+        zeichne(s, s);
+        lightUp(s);
+        note.textContent = lernNotiz(s);
+        kids()?.playStarSound?.(index % 3);
+        if (s === z.STUFEN) { kids()?.playJingle?.("unlock"); kids()?.burstConfetti?.(card, 36); }
+      }, REWARD_LEAD_MS + index * schritt)));
+      timers.push(window.setTimeout(abschliessen, REWARD_LEAD_MS + (stufen.length - 1) * schritt + REWARD_TAIL_MS + 300));
+    }
+    let closed = false;
+    overlay.addEventListener("click", () => {
+      if (!fertig || closed) return;
+      closed = true;
+      overlay.remove();
+      done?.();
+    });
+  }
+
+  // Erst wenn das Startbild wirklich steht: Beim Öffnen mit ?lesen=1 zeigt
+  // die Bühne einen Augenblick das Startbild, bevor sie in den Wagen geht –
+  // eine Feier in diesem Moment läge danach über dem Zimmer. Und solange der
+  // Zug noch hereinfährt (oder auf den ersten Tipp wartet), wird gewartet.
+  let lernFeierUhr = null;
+  function feiereLernwagen() {
+    if (!lernArt()) return;
+    window.clearTimeout(lernFeierUhr);
+    lernFeierUhr = window.setTimeout(() => {
+      if (view.name !== "home") return;
+      if (stage.dataset.entering) { feiereLernwagen(); return; }
+      lernGewachsen().forEach((eintrag) => feiere((done) => showLernwagenReward(eintrag, done)));
+    }, 900);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Die Gruppe hinter einem Knopf
+  // ---------------------------------------------------------------------------
+  // Die Züge der anderen standen früher über dem eigenen Zug. Jetzt steckt die
+  // Gruppe in einem Knopf ganz rechts auf der Höhe der Züge: ein kleines
+  // Bahnhofsgebäude, darunter die Köpfe der anderen. Ein Punkt sagt, dass
+  // jemand seit dem letzten Blick weitergekommen ist – eine Einladung zum
+  // Nachschauen, keine Rangliste. Ein Tipp öffnet die Liste mit beiden Zügen
+  // je Kind; ein Tipp auf ein Kind die Ansicht seines Zugs (showFriend).
+  const GRUPPE_GESEHEN_KEY = "lernapp.gruppe.gesehen";
+  const GRUPPE_FARBEN = ["#ef6fa8", "#3fbf74", "#3a7bd5", "#f5a623", "#7c5ce6", "#00a5b5"];
+  let gruppeButton = null;
+
+  function lernStufenVon(account) {
+    const lese = leseStand();
+    const rechnen = rechenStand();
+    const daten = (key) => account?.gameState?.[key]?.data || {};
+    return {
+      lesen: lese?.wagenStufe ? lese.wagenStufe(daten(lese.KEY || "lernapp.lesen")) : 0,
+      rechnen: rechnen?.wagenStufe ? rechnen.wagenStufe(daten(rechnen.KEY || "lernapp.rechnen")) : 0,
+      glieder: lese?.wurmGlieder ? lese.wurmGlieder(daten(lese.KEY || "lernapp.lesen")) : 1,
+      drache: rechnen?.drache ? rechnen.drache(daten(rechnen.KEY || "lernapp.rechnen")) : { leben: 0, taler: 0 },
+    };
+  }
+
+  // Wie weit ein anderes Kind ist, als eine Zahl: wächst sie, ist es
+  // weitergekommen.
+  function fortschrittVon(friend) {
+    const wagen = (friend.areas || []).reduce((summe, area) => summe + (area.stage || 0), 0);
+    const lern = friend.lern ? (friend.lern.lesen || 0) + (friend.lern.rechnen || 0) : 0;
+    return wagen + lern + (friend.journeyStars || 0) + (friend.journeyGold || 0);
+  }
+
+  function gruppeGesehen() {
+    try {
+      const roh = JSON.parse(localStorage.getItem(GRUPPE_GESEHEN_KEY) || "null");
+      return roh && typeof roh === "object" ? roh : {};
+    } catch { return {}; }
+  }
+
+  // Wer ist weitergekommen? Wer zum ersten Mal auftaucht, wird nur gemerkt.
+  function gruppeNeu() {
+    const gesehen = gruppeGesehen();
+    const neu = new Set();
+    let geaendert = false;
+    friends.forEach((friend) => {
+      const jetzt = fortschrittVon(friend);
+      const vorher = Number(gesehen[friend.id]);
+      if (!Number.isFinite(vorher)) { gesehen[friend.id] = jetzt; geaendert = true; }
+      else if (jetzt > vorher) neu.add(friend.id);
+    });
+    if (geaendert) { try { localStorage.setItem(GRUPPE_GESEHEN_KEY, JSON.stringify(gesehen)); } catch { /* privater Modus */ } }
+    return neu;
+  }
+
+  function merkeGruppeGesehen() {
+    const gesehen = gruppeGesehen();
+    friends.forEach((friend) => { gesehen[friend.id] = Math.max(Number(gesehen[friend.id]) || 0, fortschrittVon(friend)); });
+    try { localStorage.setItem(GRUPPE_GESEHEN_KEY, JSON.stringify(gesehen)); } catch { /* privater Modus */ }
+  }
+
+  function buildGruppeButton() {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "gruppe-knopf";
+    button.dataset.placed = "0";
+    button.hidden = true;
+    button.addEventListener("click", () => { if (!busy) showGruppe(); });
+    return button;
+  }
+
+  function fuelleGruppeButton() {
+    if (!gruppeButton) return;
+    gruppeButton.hidden = view.name !== "home" || friends.length === 0;
+    if (!friends.length) return;
+    const neu = gruppeNeu();
+    gruppeButton.dataset.neu = neu.size ? "1" : "0";
+    gruppeButton.setAttribute("aria-label", `Die Züge der Gruppe: ${friends.length} ${friends.length === 1 ? "Kind" : "Kinder"}.${neu.size ? " Jemand ist weitergekommen." : ""}`);
+    const koepfe = friends.slice(0, 3).map((friend, i) => {
+      const x = 44 + (i - (Math.min(3, friends.length) - 1) / 2) * 24;
+      const buchstabe = String(friend.name || "?").trim().charAt(0).toUpperCase() || "?";
+      return `<circle cx="${x}" cy="72" r="12" fill="${GRUPPE_FARBEN[i % GRUPPE_FARBEN.length]}" stroke="#ffffff" stroke-width="2.5"/><text x="${x}" y="77" text-anchor="middle" font-family="Nunito, sans-serif" font-weight="800" font-size="13" fill="#ffffff">${buchstabe.replace(/[<>&"]/g, "")}</text>`;
+    }).join("");
+    gruppeButton.innerHTML = `<svg viewBox="0 0 88 92" aria-hidden="true" focusable="false">
+      <path d="M14 38 L44 12 L74 38 Z" fill="#e8543f"/>
+      <rect x="20" y="38" width="48" height="24" rx="2" fill="#fff1cf" stroke="#c08a55" stroke-width="2"/>
+      <rect x="38" y="44" width="12" height="18" fill="#8a5a35"/>
+      <circle cx="44" cy="28" r="5.5" fill="#ffffff" stroke="#3a3f4a" stroke-width="1.6"/>
+      <path d="M44 25 L44 28 L46.5 29.5" stroke="#3a3f4a" stroke-width="1.3" fill="none" stroke-linecap="round"/>
+      ${koepfe}
+    </svg><span class="gruppe-knopf-zahl">${friends.length}</span><span class="gruppe-knopf-punkt" aria-hidden="true"></span>`;
+  }
+
+  function positionGruppe() {
+    if (!gruppeButton || gruppeButton.hidden) return;
+    const host = stage.getBoundingClientRect();
+    if (!host.width) { gruppeButton.dataset.placed = "0"; return; }
+    const rechts = 12;
+    let groesse = Math.round(Math.max(52, Math.min(84, host.width * 0.065)));
+    const bau = bauButton && bauButton.dataset.placed === "1" && !bauButton.hidden ? bauButton.getBoundingClientRect() : null;
+    const obenMin = (bau ? bau.bottom - host.top : (host.height < 520 ? 66 : 80)) + 8;
+    // Nach unten begrenzt das, was rechts auf dem Gripszug steht: die Lok und
+    // der grüne Knopf, sofern sie unter dem Knopf liegen.
+    const links = host.width - rechts - groesse;
+    const im = (r) => r && r.width && r.right - host.left > links;
+    const lok = stage.querySelector(".train-band [data-loco]")?.getBoundingClientRect();
+    const start = startButton && startButton.dataset.placed === "1" ? startButton.getBoundingClientRect() : null;
+    const grenzen = [lok, start].filter(im).map((r) => r.top - host.top);
+    const untenMax = (grenzen.length ? Math.min(...grenzen) : host.height * 0.72) - 8;
+    const lz = lernzug && lernzug.dataset.placed === "1" ? lernzug.getBoundingClientRect() : null;
+    const mitte = lz ? lz.top - host.top + lz.height * 0.5 : (obenMin + untenMax) / 2;
+    if (untenMax - obenMin < groesse) groesse = Math.max(44, Math.round(untenMax - obenMin));
+    const top = Math.min(Math.max(mitte - groesse / 2, obenMin), untenMax - groesse);
+    gruppeButton.style.width = `${groesse}px`;
+    gruppeButton.style.left = `${Math.round(host.width - rechts - groesse)}px`;
+    gruppeButton.style.top = `${Math.round(top)}px`;
+    gruppeButton.dataset.placed = "1";
+  }
+
+  // Beide Züge eines Kindes, klein übereinander.
+  function miniLernzug(friend) {
+    const z = lernArt();
+    if (!z) return null;
+    const ids = LERN_IDS.filter((id) => (id === "lesen" ? leseApi() : rechenApi()));
+    const reihe = [...ids].reverse();
+    const breite = z.zugBreite(reihe.length);
+    const svg = el("svg", { viewBox: `0 0 ${breite} ${art.ART_H}`, class: "gruppe-lernzug", "aria-hidden": "true" }, [
+      el("rect", { x: 0, y: art.GROUND, width: breite, height: 8, rx: 3, fill: "#8c93a1" }),
+    ]);
+    const m = friend.lern || {};
+    reihe.forEach((id, i) => {
+      const masko = id === "lesen" ? { glieder: m.glieder || 1 } : { leben: m.drache?.leben || 0, ei: !m.drache?.taler };
+      const wagen = z.buildLernwagen(id, m[id] || 0, masko);
+      wagen.setAttribute("transform", `translate(${z.wagenX(i)} 0)`);
+      svg.append(wagen);
+    });
+    const lok = z.buildLernlok({ fahrer: "lesen", m: { glieder: m.glieder || 1 } });
+    lok.setAttribute("transform", `translate(${z.lokX(reihe.length)} 0)`);
+    svg.append(lok);
+    return svg;
+  }
+
+  function showGruppe() {
+    if (!friends.length) return;
+    stage.querySelector(".gruppe-liste")?.remove();
+    const neu = gruppeNeu();
+    const overlay = document.createElement("div");
+    overlay.className = "gruppe-liste";
+    overlay.setAttribute("role", "dialog");
+    overlay.setAttribute("aria-label", "Die Züge der Gruppe");
+    const karte = document.createElement("div");
+    karte.className = "gruppe-liste-karte";
+    const zu = document.createElement("button");
+    zu.type = "button";
+    zu.className = "gruppe-liste-zu";
+    zu.setAttribute("aria-label", "Schliessen");
+    zu.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"/></svg>`;
+    const zeilen = document.createElement("div");
+    zeilen.className = "gruppe-liste-zeilen";
+    friends.forEach((friend, i) => {
+      const zeile = buildFriendTrain(friend, { farbe: GRUPPE_FARBEN[i % GRUPPE_FARBEN.length], neu: neu.has(friend.id) });
+      zeile.addEventListener("click", () => schliesse());
+      zeilen.append(zeile);
+    });
+    karte.append(zu, zeilen);
+    overlay.append(karte);
+    const schliesse = () => {
+      overlay.remove();
+      document.removeEventListener("keydown", taste);
+    };
+    const taste = (event) => { if (event.key === "Escape") schliesse(); };
+    overlay.addEventListener("click", (event) => { if (event.target === overlay) schliesse(); });
+    zu.addEventListener("click", schliesse);
+    document.addEventListener("keydown", taste);
+    stage.append(overlay);
+    merkeGruppeGesehen();
+    fuelleGruppeButton();
+    positionGruppe();
+    zu.focus({ preventScroll: true });
+    kids()?.playJingle?.("correct");
   }
 
   // ---------------------------------------------------------------------------
@@ -1584,7 +1901,12 @@
     const lift = parseFloat(window.getComputedStyle(stage).getPropertyValue("--train-lift")) || 0;
     const bandOben = band.offsetTop + lift;
     const lok = stage.querySelector("[data-loco]")?.getBoundingClientRect();
-    const boden = lok?.height && !stage.dataset.entering ? Math.max(bandOben, lok.top - host.top - 4) : bandOben;
+    let boden = lok?.height && !stage.dataset.entering ? Math.max(bandOben, lok.top - host.top - 4) : bandOben;
+    // Reicht der Lernzug bis unter den Bauplatz, steht dieser über ihm.
+    const lz = lernzug && lernzug.dataset.placed === "1" ? lernzug : null;
+    const lernRechts = lz ? Number(lz.dataset.rechts) || 0 : 0;
+    const bauBreite = Math.min(host.width * BAU_ANTEIL, BAU_MAX);
+    if (lz && lernRechts > host.width - rechts - bauBreite) boden = Math.min(boden, (parseFloat(lz.style.top) || boden) - 4);
     const platz = boden - oben - 6;
     const seite = Number(bauButton.dataset.seite) || 0.8;
     let breite = Math.min(host.width * BAU_ANTEIL, BAU_MAX);
@@ -1674,6 +1996,9 @@
     if (leseButton) leseButton.hidden = name !== "home";
     if (rechenButton) rechenButton.hidden = name !== "home";
     if (bauButton) bauButton.hidden = name !== "home";
+    if (lernlokButton) lernlokButton.hidden = name !== "home";
+    if (gruppeButton) gruppeButton.hidden = name !== "home" || friends.length === 0;
+    if (name !== "home") stage.querySelector(".gruppe-liste")?.remove();
     if (areaId) remember(LAST_AREA_KEY, areaId);
   }
 
@@ -1789,6 +2114,7 @@
     setView("home");
     renderLayer(layerSvg([stageRail()], "Das Gleis"));
     window.requestAnimationFrame(alignTrainToRail);
+    feiereLernwagen();
   }
 
   function showAreas() {
@@ -1854,6 +2180,7 @@
     const lese = leseApi();
     if (!lese) { showHome(); return; }
     setView("lesen");
+    merkeBesuch("lesen");
     const host = document.createElement("div");
     host.className = "leseecke";
     renderLayer(host);
@@ -1868,6 +2195,7 @@
     const rechnen = rechenApi();
     if (!rechnen) { showHome(); return; }
     setView("rechnen");
+    merkeBesuch("rechnen");
     const host = document.createElement("div");
     host.className = "rechenecke";
     renderLayer(host);
@@ -2767,16 +3095,14 @@
     startButton = buildStartButton();
     leseButton = buildLeseButton();
     rechenButton = buildRechenButton();
+    lernzug = buildLernzug();
     bauButton = buildBauButton();
+    gruppeButton = buildGruppeButton();
 
-    friendsHost = document.createElement("div");
-    friendsHost.className = "train-friends";
-    friendsHost.hidden = true;
-
-    stage.append(friendsHost, band, layerHost, backButton, startButton);
-    if (leseButton) stage.append(leseButton);
-    if (rechenButton) stage.append(rechenButton);
+    stage.append(band, layerHost, backButton, startButton);
+    if (lernzug) stage.append(lernzug);
     if (bauButton) stage.append(bauButton);
+    stage.append(gruppeButton);
     if (sceneButton) stage.append(sceneButton);
 
     renderFriends();
@@ -2931,7 +3257,7 @@
 
   window.addEventListener("resize", () => {
     if (view.name !== "loco" && view.name !== "wagon") window.requestAnimationFrame(alignTrainToRail);
-    if (view.name === "home") window.requestAnimationFrame(() => { positionLesewagen(); positionRechenwagen(); positionBauplatz(); });
+    if (view.name === "home") window.requestAnimationFrame(() => { positionLernzug(); positionBauplatz(); positionGruppe(); });
     if (view.name === "loco") {
       const svg = stage.querySelector(".loco-svg");
       const camera = stage.querySelector(".loco-camera");

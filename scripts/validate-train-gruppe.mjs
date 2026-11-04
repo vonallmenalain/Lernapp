@@ -544,15 +544,17 @@ for (const [teil, warum] of [
   ["loadGroupMembers", "die Bühne holt die Konten der Gruppe nicht"],
   ["areasForAccount", "die Bühne rechnet den fremden Stand nicht"],
   ["lernapp:group-changed", "eine Änderung des Admins käme nie an"],
-  ["train-friends", "die Ebene für die fremden Züge fehlt"],
+  ["gruppe-knopf", "der Knopf für die Gruppe fehlt"],
+  ["gruppe-liste", "die Liste mit den Zügen der Gruppe fehlt"],
   ["friend-name", "die Züge stünden ohne Namen da"],
+  ["gruppe.gesehen", "der Punkt für «jemand ist weitergekommen» hat kein Gedächtnis"],
 ]) {
   assert(home.includes(teil), `train-home.js: ${warum} (${teil} fehlt)`);
 }
 
 const css = fs.readFileSync(path.join(root, "styles.css"), "utf8");
-assert(/\.train-stage:not\(\[data-view="home"\]\) \.train-friends \{ display: none; \}/.test(css),
-  "die fremden Züge stehen auch auf den anderen Bühnen – dort gehören sie nicht hin");
+assert(css.includes(".gruppe-knopf[hidden] { display: none; }") && /gruppeButton\.hidden = name !== "home"/.test(home),
+  "der Knopf für die Gruppe steht auch auf den anderen Bühnen – dort gehört er nicht hin");
 assert(css.includes('.train-stage[data-view="friend"] .train-band'),
   "in der Ansicht eines fremden Zugs steht der eigene noch im Bild");
 

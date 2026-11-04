@@ -18,11 +18,64 @@ Stand: 4. November 2026 · Entwurf · Grundlage: `docs/RECHENECKE-KONZEPT.md`,
 > Seite liegt als `docs/englischecke-stilprobe.html` im Repo und geht nicht auf die Site). Sie
 > zeigt das neue Startbild (Tablet und Handy quer, drei Fortschrittsstände, zwei Darstellungen,
 > die Gruppe hinter dem Knopf), den Englischwagen von innen, ein spielbares **Wimmelbild vom
-> Bauernhof**, das Spiel **Hör & find**, eine **Bildgeschichte** in vier Bildern und Roccos
+> Bauernhof**, das Spiel **Hear & find**, eine **Bildgeschichte** in vier Bildern und Roccos
 > **Wörterbuch**. Alles spricht mit **echten Aufnahmen** von Google Chirp 3 HD: Englisch wahlweise
 > mit en-US *Sulafat* oder en-US *Puck*, Deutsch mit de-DE *Sulafat* wie die App, dazu **zehn
 > amerikanische Stimmen** zum Vergleichen. Verbraucht: 4'774 Zeichen des Gratis-Kontingents,
 > gebucht in `scripts/stimme-google.json`.
+>
+> **Umsetzungsstand:** Die Entscheide sind gefallen (Abschnitt 0). **Etappe 0 ist gebaut:** das
+> Startbild mit zwei Gleisen (Abschnitt 0.2).
+
+---
+
+## 0. Entscheide und Umsetzung
+
+### 0.1 Die Entscheide (4. November 2026)
+
+| # | Frage | Entscheid |
+| --- | --- | --- |
+| 4 | Die englische Stimme | **Puck (en-US), Tempo 0,9.** Deutsch bleibt **Sulafat (de-DE)** wie in der ganzen App. |
+| 9 | Fortschritt am Lernwagen | **Variante B: bauen**, wie beim Gripszug – aber vom ersten Tag an muss klar sein, welcher Wagen es ist: Schon das nackte Fahrgestell trägt sein **Schild** («ABC», «123», «Hello») und sein **Maskottchen**. |
+| 8 | Gruppe | Knopf ganz rechts, **mit Punkt**, wenn jemand aus der Gruppe weitergekommen ist. |
+| – | Name des Suchspiels | **«Hear & find»** statt «Hör & find» – das war weder Deutsch noch Englisch. |
+| – | Vorlesen und Deutsch | **Jeder Text ist antippbar** und wird vorgelesen, zuerst nur auf Englisch. Der Knopf **DE** ist **überall** in der Englischecke da und **jederzeit** antippbar: Er sagt genau das, was soeben gesagt wurde, auf Deutsch und danach noch einmal auf Englisch. |
+| alle anderen | | gemäss Empfehlung in Abschnitt 20 |
+
+### 0.2 Etappe 0: das Startbild mit zwei Gleisen
+
+- **Der Lernzug** (`train-home.js`, `positionLernzug`; gezeichnet in `lernzug-art.js`) fährt auf
+  einem zweiten Gleis über dem Gripszug: von rechts die Lernlok, der Lesewagen, der
+  Rechenwagen. Er hat denselben Massstab wie der Gripszug (gemessen an dessen Bild), sein Gleis
+  liegt 174 Einheiten über dem unteren – Platz für den höchsten fertigen Wagen (158) und das
+  Wippen der Wagen beim ersten Start. Nur wenn die Höhe nicht reicht, wird der Lernzug kleiner,
+  nie unter 55 % des Gripszugs. Beim Laden fährt er kurz nach dem Gripszug herein.
+- **Bauen in 15 Schritten** (`buildLernwagen`): 0 Fahrgestell mit Schild auf zwei Pfosten,
+  Maskottchen und gestricheltem Umriss · 1 Boden · 2 halbe Wände · 3 Wände mit Fenstern
+  (das Maskottchen schaut aus dem mittleren) · 4 Dach · 5 das Besondere oben (Kamin, Zählrahmen,
+  beim Caboose der Aussichtsturm) · 6 Laternen (Caboose: Plattformen) · 7 Zierleiste (am
+  Rechenwagen in den Fünfer-Farben) · 8 Vorhänge · 9 Blumenkästen · 10 Licht · 11 Ladung auf dem
+  Dach · 12 Lichterkette · 13 mehr Ladung · 14 zwei Sterne · 15 Wimpel und goldene Räder. Die
+  Schritte kommen wie bisher aus den Runden (`wagenStufe` in `lesen-stand.js` und
+  `rechnen-stand.js`).
+- **Die Feier**: Ist ein Lernwagen gewachsen, zeigt das Startbild ihn gross wie beim Gripszug,
+  der neue Schritt springt hervor, fünfzehn Punkte darunter (`showLernwagenReward`). Gefeiert
+  wird nur, wenn das Startbild wirklich steht – nicht im Augenblick, in dem die Bühne mit
+  `?lesen=1` am Startbild vorbei in den Wagen geht. Gemerkt in `lernapp.lernzug.gesehen`, nur
+  aufwärts.
+- **Die Lernlok** fährt in den Wagen, in dem das Kind zuletzt war; dessen Maskottchen sitzt im
+  Führerhaus (`lernapp.lernzug.zuletzt`).
+- **Die Gruppe** steckt im Knopf ganz rechts auf der Höhe des Lernzugs: Bahnhofsgebäude, bis zu
+  drei Köpfe mit Anfangsbuchstaben, die Zahl der anderen und ein roter Punkt, wenn jemand seit
+  dem letzten Blick weitergekommen ist (Wagen, Lernwagen, Sterne der Reise;
+  `lernapp.gruppe.gesehen`). Die Liste zeigt je Kind beide Züge; ein Tipp öffnet seinen Zug wie
+  bisher. Wer zum ersten Mal auftaucht, bekommt keinen Punkt.
+- **Auf dem Handy quer** steht der Rechenwagen jetzt wieder auf dem Startbild (vorher fehlte er
+  dort).
+- **Prüfungen**: neu `scripts/check-startbild.mjs` (vier Bildschirme, gleicher Massstab,
+  nichts verdeckt, Schild ab dem Fahrgestell, goldene Räder, Feier einmal, Gruppe mit Punkt,
+  Lernlok); angepasst `check-rechenecke.mjs`, `check-bestenliste.mjs`,
+  `validate-train-gruppe.mjs`.
 
 ---
 
@@ -123,7 +176,7 @@ Anfang, Eltern können ihn verschieben.
 | Sprosse | Etwa ab | Das Kind kann danach | Typische Spiele |
 | --- | --- | --- | --- |
 | 1 · Lauschen | 4 | englische Wörter zum Bild hören, Tiergeräusche auf Englisch («woof», «moo») | Entdecken, Geschichten anhören, Jukebox |
-| 2 · Wörter verstehen | 4½ | das gehörte Wort im Bild finden | Hör & find, Memory Bild–Ton, Yes or no? |
+| 2 · Wörter verstehen | 4½ | das gehörte Wort im Bild finden | Hear & find, Memory Bild–Ton, Yes or no? |
 | 3 · Wendungen verstehen | 5 | «Where is …?», «I like …», «Tap the red …!» verstehen und ausführen | Rocco says, Farben-Zug, Feed Rocco, Count with Rocco |
 | 4 · Geschichten verstehen | 5½ | einer kurzen Bildgeschichte folgen, Bilder ordnen | Bildgeschichten, Geschichtenzug, bekannte Bücher auf Englisch |
 | 5 · Erste Sätze sagen | 6 | grüssen, sich vorstellen, etwas bestellen – mit Bildknöpfen, freiwillig laut | Hello-Telefon, Diner, Echo |
@@ -182,7 +235,7 @@ einem alten Koffer.
 | **Aussichtsturm** mit Leiter («LOOKOUT») | Mitte oben | **Entdecken**: die Wimmelbilder der Welten | 1 |
 | **Regal** mit Bilderbüchern | links | **Bildgeschichten**, später bekannte Bücher auf Englisch | 1 |
 | **Roccos Wörterbuch** auf dem Tischchen | links unten | alle Sticker, die Welten, die Aufnäher | 1 |
-| **Spielzeugkiste** | rechts unten | Spiele (Hör & find, Rocco says, Farben-Zug …) | 1 |
+| **Spielzeugkiste** | rechts unten | Spiele (Hear & find, Rocco says, Farben-Zug …) | 1 |
 | **Jukebox** | rechts | Verse und Lieder zum Mitmachen | 2 |
 | **Telefon** an der Wand | Mitte rechts | Hello-Telefon: die ersten kleinen Gespräche | 3 |
 | **Briefkasten** mit roter Fahne | Mitte unten | Post aus Amerika (Postkarten) | 3 |
@@ -246,7 +299,7 @@ Der Kern der Englischecke und das, was ausdrücklich gewünscht ist. In der Stil
   gefunden hat. Mehr nicht – kein Timer, kein Drängen.
 - **Was nicht passiert:** keine Punkte, keine Animation, die mit dem Wort nichts zu tun hat
   (Abschnitt 4, [33]).
-- **Später im selben Bild:** «What's missing?» (ein Ding verschwindet) und Hör & find (Rocco
+- **Später im selben Bild:** «What's missing?» (ein Ding verschwindet) und Hear & find (Rocco
   fragt, das Kind tippt) – dasselbe Bild, neue Aufgabe, so kommen die Wörter an anderen Tagen
   wieder.
 
@@ -298,7 +351,7 @@ Das Schullehrmittel übt die Aussprache am Anfang «vor allem mit Liedern, chant
 | Spiel | Ort | Was das Kind tut | Übt | ab | Etappe |
 | --- | --- | --- | --- | --- | --- |
 | **Entdecken** | Aussichtsturm | Wimmelbild: antippen, Wort hören, nochmal: Satz | Wörter hören | 4 | 1 |
-| **Hör & find** | Kiste, Karte | «Where is the cow?» – das Bild antippen; fünf Wörter je Runde, zuerst die gehörten | Wörter verstehen | 4 | 1 |
+| **Hear & find** | Kiste, Karte | «Where is the cow?» – das Bild antippen; fünf Wörter je Runde, zuerst die gehörten | Wörter verstehen | 4 | 1 |
 | **Bildgeschichten** | Regal | zuhören, Bild für Bild, auf Wunsch Deutsch | Sätze im Zusammenhang | 4 | 1 |
 | **Memory Bild–Ton** | Kiste | Karten: ein Bild und ein Lautsprecher; Paare finden | Wörter festigen | 4½ | 2 |
 | **Yes or no?** | Kiste | «Is this a cat?» – Daumen hoch oder runter | Wörter, Fragen | 4½ | 2 |
@@ -320,7 +373,7 @@ Das Schullehrmittel übt die Aussprache am Anfang «vor allem mit Liedern, chant
 | **Opposites** | Zoo | big – small, hot – cold, happy – sad: Paare zuordnen | Gegenteile | 6 | 4 |
 | **Wortbild-Memory** | Wörterbuch | für Lesende: Bild zum Wortbild legen | Schriftbild | 7 | 4 |
 
-**Hör & find genauer** (spielbar in der Stilprobe): Rocco fragt «Where is the cow?». Richtig:
+**Hear & find genauer** (spielbar in der Stilprobe): Rocco fragt «Where is the cow?». Richtig:
 «Yes!» oder «Great job!», dann das Wort noch einmal, und ein Stern am Bild. Daneben: Rocco sagt
 das angetippte Wort («A pig.») und fragt noch einmal. Ein Wort gilt als **erkannt**, wenn es
 beim ersten Versuch stimmt. Am Schluss: «You found them all! Great job!»
@@ -619,7 +672,7 @@ gefunden; Duolingo ABC lehrt englischsprachige Kinder lesen [47].
 | Etappe | Was | Ergebnis |
 | --- | --- | --- |
 | **0 · Startbild** | Lernzug mit Lese- und Rechenwagen auf dem oberen Gleis, Lernlok, Fortschritt am Wagen (Variante A), Feier für neue Schritte, Gruppe hinter dem Knopf, Prüfskripte | aufgeräumtes Startbild; Rechenwagen auch auf dem Handy |
-| **1 · Hello, Rocco!** | Caboose im Lernzug, Zimmer mit Rocco, Karte, Aussichtsturm, Regal, Wörterbuch, Kiste; **drei Welten** (Farm, My House, The Kitchen) mit Wimmelbild; **Hör & find**; **drei Bildgeschichten**; Wortstände, Aufnäher, Einrichtung; US-Stimme; Elternkarte mit Schrift und Deutsch-Hilfe; Schranke | das Gewünschte: entdecken, Geschichten, Deutsch auf Knopfdruck, Fortschritt |
+| **1 · Hello, Rocco!** | Caboose im Lernzug, Zimmer mit Rocco, Karte, Aussichtsturm, Regal, Wörterbuch, Kiste; **drei Welten** (Farm, My House, The Kitchen) mit Wimmelbild; **Hear & find**; **drei Bildgeschichten**; Wortstände, Aufnäher, Einrichtung; US-Stimme; Elternkarte mit Schrift und Deutsch-Hilfe; Schranke | das Gewünschte: entdecken, Geschichten, Deutsch auf Knopfdruck, Fortschritt |
 | **2 · Mehr Welten, mehr Spiel** | The Park, The Zoo, The Beach; Memory Bild–Ton, Yes or no?, Rocco says, Farben-Zug, Count with Rocco, Feed Rocco; Jukebox mit Versen; **bekannte Bücher auf Englisch** (vier bis sechs) | Wörter festigen, Bewegung, Geschichten, die das Kind schon kennt |
 | **3 · Erste Sätze** | The City, School, Party Time; Hello-Telefon, Diner, Echo, Dress up, What's missing?, Geschichtenzug; Post aus Amerika; Tempo «langsamer» | grüssen, bitten, bestellen – für die Grösseren |
 | **4 · Für Lesende und die Eltern** | My Body, Clothes & Weather, Holidays; Monster malen, Where is the cat?, Opposites, Wortbild-Memory; Bericht mit Wortständen und Unterschieden zum britischen Englisch; Aufträge für die Familie | rund 220 Wörter und 60 Wendungen; Brücke zum Schulenglisch |

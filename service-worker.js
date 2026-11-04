@@ -1,4 +1,4 @@
-const APP_VERSION = "2026-11-02-3";
+const APP_VERSION = "2026-11-04-1";
 const CACHE_PREFIX = "lernapp-pwa-";
 const CACHE_NAME = `${CACHE_PREFIX}${APP_VERSION}`;
 const ASSET_VERSION_QUERY = `?v=${APP_VERSION}`;
@@ -198,6 +198,7 @@ const CORE_ASSETS = [
   `./rechnen-spiele-3.js${ASSET_VERSION_QUERY}`,
   `./rechnen-spiele-2.js${ASSET_VERSION_QUERY}`,
   `./train-rechenecke.js${ASSET_VERSION_QUERY}`,
+  `./lernzug-art.js${ASSET_VERSION_QUERY}`,
   `./lesen-buecher.js${ASSET_VERSION_QUERY}`,
   `./lesen-bilder.js${ASSET_VERSION_QUERY}`,
   `./lesen-detektive.js${ASSET_VERSION_QUERY}`,

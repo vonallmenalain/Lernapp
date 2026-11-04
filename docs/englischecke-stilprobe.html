@@ -9,7 +9,7 @@
                  der Fortschritt der Lernwagen in zwei Darstellungen
     Wagen        der Englischwagen (ein amerikanischer Caboose) von innen, mit Rocco
     Entdecken    ein Wimmelbild vom Bauernhof: antippen, Wort hören, nochmal: ein Satz
-    Hör & find   «Where is the cow?» – das Kind tippt, was es hört
+    Hear & find   «Where is the cow?» – das Kind tippt, was es hört
     Geschichte   eine Bildgeschichte in vier Bildern, Englisch und auf Wunsch Deutsch
     Wörterbuch   Roccos Wörterbuch: jedes gefundene Wort ein Sticker
     Stimmen      zehn amerikanische Stimmen von Google (Chirp 3 HD) zum Vergleichen
@@ -215,7 +215,7 @@ button { font-family: inherit; color: inherit; }
       <button type="button" data-view="startbild">Startbild</button>
       <button type="button" data-view="wagen">Englischwagen</button>
       <button type="button" data-view="entdecken">Entdecken</button>
-      <button type="button" data-view="suchen">Hör &amp; find</button>
+      <button type="button" data-view="suchen">Hear &amp; find</button>
       <button type="button" data-view="geschichte">Geschichte</button>
       <button type="button" data-view="woerterbuch">Wörterbuch</button>
       <button type="button" data-view="stimmen">Stimmen</button>
@@ -812,10 +812,10 @@ function zimmerSvg() {
     ${hat(1) ? `<rect x="360" y="400" width="124" height="48" rx="8" fill="#3a7bd5"/>${[0, 1, 2, 3].map((k) => `<rect x="${364 + k * 30}" y="404" width="26" height="40" rx="4" fill="${["#e8543f", "#ffd166", "#ffffff", "#3fa34d"][k]}"/>`).join("")}` : ""}
     <rect x="352" y="440" width="136" height="16" rx="6" fill="#a0612f"/>
     <g transform="translate(420 446) scale(0.95)">${rocco("steh", "froh")}</g>`);
-  s += tippbar(`data-ort="karte"`, "Rocco schlägt vor: Hör und find", `<rect x="518" y="150" width="218" height="124" rx="16" fill="#ffffff" stroke="#e1d9c6" stroke-width="2"/>
+  s += tippbar(`data-ort="karte"`, "Rocco schlägt vor: Hear and find", `<rect x="518" y="150" width="218" height="124" rx="16" fill="#ffffff" stroke="#e1d9c6" stroke-width="2"/>
     <text x="627" y="178" text-anchor="middle" font-family="Nunito, sans-serif" font-weight="800" font-size="15" fill="#5d6882">Rocco schlägt vor</text>
     <g transform="translate(560 232) scale(0.36)">${DING.cow()}</g>
-    <text x="604" y="222" font-family="Baloo 2, Nunito, sans-serif" font-weight="800" font-size="20" fill="#243047">Hör &amp; find</text>
+    <text x="604" y="222" font-family="Baloo 2, Nunito, sans-serif" font-weight="800" font-size="20" fill="#243047">Hear &amp; find</text>
     <circle cx="690" cy="248" r="16" fill="#3fbf74"/><path d="M684 239 L698 248 L684 257 Z" fill="#ffffff"/>`);
   // Aussichtsturm mit Leiter: Entdecken
   let sprossen = "";
@@ -1015,7 +1015,7 @@ const IDEEN = {
   jukebox: ["Die Jukebox: Lieder und Reime", "<p>Kurze Lieder und Sprechverse zum Mitmachen: «Hello, hello», «Head, shoulders, knees and toes», ein Farben-Rap, ein Zähl-Vers bis zehn. Gesungen kann die Google-Stimme nicht – darum entweder <b>Sprechverse im Takt</b> (die Stimme spricht, darunter ein Rhythmus) oder <b>eigene Aufnahmen</b> der Familie, wie bei den Lauten der Leseecke.</p><p>Wer mitsingt, bewegt sich: Kopf antippen, Arme hoch – das Kind tut, was es hört (TPR).</p>"],
   telefon: ["Das Hello-Telefon", "<p>Ein Spieltelefon für die ersten Sätze im Gespräch: «Hello! What's your name?» – «My name is …». «How are you?» – «I'm fine!». Das Kind antwortet mit Bildknöpfen; wer mag, spricht laut mit. Ab Etappe 3 auch mit eigener Aufnahme zum Anhören (bleibt auf dem Gerät).</p>"],
   post: ["Post aus Amerika", "<p>Ist eine Welt fertig, bringt der Briefkasten eine Postkarte von Roccos Cousine aus Amerika: ein Bild, zwei kurze Sätze, vorgelesen («Hi! I am at the beach. The sea is blue.»). Für Kinder, die lesen, mit dem geschriebenen Text. Wie die Postkarten der Reise in der Leseecke.</p>"],
-  kiste: ["Die Spielzeugkiste: Spiele", "<ul><li><b>Hör &amp; find</b> – «Where is the cow?» (spielbar)</li><li><b>Rocco says</b> – «Tap the red apple!» Erst eine Sache, dann zwei.</li><li><b>Farben-Zug</b> – «A blue wagon, please!» Wagen nach Farbe ankuppeln.</li><li><b>Count with Rocco</b> – zählen bis zehn, dann bis zwanzig.</li><li><b>Feed Rocco</b> – «Rocco wants a banana.»</li><li><b>Dress up</b> – «Put on the hat!»</li><li><b>Monster malen</b> – «Two eyes. Three legs. Green!»</li><li><b>Yes or no?</b> – «Is this a cat?»</li></ul>"],
+  kiste: ["Die Spielzeugkiste: Spiele", "<ul><li><b>Hear &amp; find</b> – «Where is the cow?» (spielbar)</li><li><b>Rocco says</b> – «Tap the red apple!» Erst eine Sache, dann zwei.</li><li><b>Farben-Zug</b> – «A blue wagon, please!» Wagen nach Farbe ankuppeln.</li><li><b>Count with Rocco</b> – zählen bis zehn, dann bis zwanzig.</li><li><b>Feed Rocco</b> – «Rocco wants a banana.»</li><li><b>Dress up</b> – «Put on the hat!»</li><li><b>Monster malen</b> – «Two eyes. Three legs. Green!»</li><li><b>Yes or no?</b> – «Is this a cat?»</li></ul>"],
   bau: ["Die Bauecke bleibt", "<p>Der Bauplatz mit den vier Häusern steht weiter rechts oben, unter den runden Knöpfen. Am Umbau ändert sich für ihn nichts.</p>"],
   start: ["Der grüne Knopf", "<p>Wie heute: Er fährt den Gripszug ins Abenteuer (die Reise). Der Lernzug hat keinen eigenen Startknopf – seine Wagen tippt man direkt an, und man ist drin.</p>"],
   gwagen: ["Der Gripszug", "<p>Unten bleibt alles, wie es ist: fünf Wagen für Gedächtnis, Konzentration, Geschwindigkeit, Problemlösen und Zahl &amp; Buchstabe, jeder in zwölf Schritten gebaut und beladen, am Schluss mit Wimpel und goldenen Rädern. Genau diese Sprache übernimmt der Lernzug.</p>"],
@@ -1093,7 +1093,7 @@ const VIEWS = {
       else if (ort === "buch") geheZu("woerterbuch");
       else if (ort === "karte") geheZu("suchen");
       else if (IDEEN[ort]) {
-        const h = karte(`<h2>${IDEEN[ort][0]}</h2>${IDEEN[ort][1]}${ort === "kiste" ? '<button type="button" class="knopf go" data-spiel>Hör &amp; find spielen</button>' : ""}`);
+        const h = karte(`<h2>${IDEEN[ort][0]}</h2>${IDEEN[ort][1]}${ort === "kiste" ? '<button type="button" class="knopf go" data-spiel>Hear &amp; find spielen</button>' : ""}`);
         const b = h.querySelector("[data-spiel]");
         if (b) b.addEventListener("click", () => { schliesseKarte(); geheZu("suchen"); });
       }
@@ -1195,7 +1195,7 @@ function warteAufHinweis() {
   }, 9000);
 }
 
-// --- Hör & find -------------------------------------------------------------------
+// --- Hear & find -------------------------------------------------------------------
 function zeigeRunde() {
   const z = $("#runde");
   if (!z) return;

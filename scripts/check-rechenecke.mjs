@@ -101,17 +101,17 @@ async function startbild(browser, viewport, name, seitenFehler) {
   await seite.mouse.click(viewport.width / 2, viewport.height * 0.25);
   await seite.waitForTimeout(3000);
   const r = await rechtecke(seite);
-  if (viewport.width >= 1000) {
-    if (!r.rechnen) fehlt(`${name}: Der Rechenwagen steht nicht auf dem Startbild`);
-    else if (!r.lesen) fehlt(`${name}: Ohne Lesewagen kein Platz für den Rechenwagen`);
-    else {
-      if (r.rechnen.y + r.rechnen.h > r.lesen.y + 1) fehlt(`${name}: Der Rechenwagen steht nicht über dem Lesewagen`);
-      if (Math.abs(r.rechnen.x - r.lesen.x) > 2) fehlt(`${name}: Der Rechenwagen steht nicht über dem Lesewagen (links verschoben)`);
-    }
+  // Seit dem Lernzug stehen Lese- und Rechenwagen auf jedem Bildschirm im
+  // selben Zug: der Rechenwagen links hinter dem Lesewagen, auf demselben Gleis.
+  if (!r.rechnen) fehlt(`${name}: Der Rechenwagen steht nicht auf dem Startbild`);
+  else if (!r.lesen) fehlt(`${name}: Der Lesewagen steht nicht auf dem Startbild`);
+  else {
+    if (Math.abs(r.rechnen.y + r.rechnen.h - (r.lesen.y + r.lesen.h)) > 2) fehlt(`${name}: Rechen- und Lesewagen stehen nicht auf demselben Gleis`);
+    if (r.rechnen.x + r.rechnen.w > r.lesen.x + 1) fehlt(`${name}: Der Rechenwagen hängt nicht hinter dem Lesewagen`);
   }
   if (r.rechnen) {
     if (r.rechnen.w < 69) fehlt(`${name}: Der Rechenwagen ist kleiner als 70 Pixel`);
-    const knoepfe = await seite.evaluate(() => [...document.querySelectorAll(".train-stage button")].filter((b) => !b.hidden && b.offsetParent && !b.classList.contains("rechenwagen-knopf") && !b.classList.contains("lesewagen-knopf") && b.dataset.placed !== "0")
+    const knoepfe = await seite.evaluate(() => [...document.querySelectorAll(".train-stage button")].filter((b) => !b.hidden && b.offsetParent && !b.classList.contains("lernzug-knopf") && b.dataset.placed !== "0")
       .map((b) => { const x = b.getBoundingClientRect(); return { x: x.left, y: x.top, w: x.width, h: x.height, name: b.className }; }).filter((b) => b.w > 0));
     knoepfe.forEach((k) => { if (ueberlappen(r.rechnen, k)) fehlt(`${name}: Der Rechenwagen deckt einen Knopf zu (${k.name})`); });
   }
