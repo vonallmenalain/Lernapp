@@ -612,7 +612,7 @@
     let s = `<rect x="${x0 - 12}" y="82" width="230" height="140" rx="18" fill="${C.blau}"/>
       <g clip-path="url(#${clip})">
       <rect x="${x0}" y="94" width="206" height="116" fill="url(#rw-himmel)"/>
-      <circle cx="${x0 + 170}" cy="118" r="14" fill="#ffe27a"/>
+      ${perron ? "" : `<circle cx="${x0 + 170}" cy="118" r="14" fill="#ffe27a"/>`}
       <path d="M${x0} 182 Q${x0 + 60} 150 ${x0 + 120} 172 T${x0 + 206} 166 V210 H${x0} Z" fill="#9ed27f"/>
       <path d="M${x0} 196 Q${x0 + 80} 178 ${x0 + 150} 194 T${x0 + 206} 190 V210 H${x0} Z" fill="#7cc05e"/>`;
     if (perron) {

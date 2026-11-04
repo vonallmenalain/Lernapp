@@ -7,7 +7,7 @@
  *               jedes Ding mit Spielen steht da, dazu Drache, Karte, Schatz
  *               und die Tür. Am Anfang liegt ein Ei auf dem Kissen.
  *   Tür         führt in den Lesewagen, und dessen Tür zurück.
- *   Spiele      Jedes Spiel des Katalogs startet mit «Los» und stellt eine
+ *   Spiele      Jedes Spiel des Katalogs startet ohne Zwischenkarte und stellt eine
  *               Aufgabe (Zahlen oder Knöpfe zur Wahl, der Würfel, oder Dinge
  *               im Bild zum Antippen) – ohne Fehler auf der Seite.
  *   Auswahl     Das Gleis hat mehrere Spiele und zeigt eine Auswahl; der
@@ -243,14 +243,34 @@ async function main() {
       const { kontext: k, seite: s } = await neueSeite(browser, { width: 1280, height: 800 }, seitenFehler, id);
       await s.goto(`${BASIS}/${id}.html`);
       await s.waitForTimeout(1200);
-      if (!(await s.$(".rechen-los-knopf"))) { fehlt(`${id}: kein «Los»`); await k.close(); continue; }
-      await s.click(".rechen-los-knopf");
+      if (await s.$(".rechen-los-knopf, .rechen-los")) fehlt(`${id}: Vor dem Spiel steht noch eine Zwischenkarte`);
       let gestellt = false;
       for (let i = 0; i < 40 && !gestellt; i += 1) {
         await s.waitForTimeout(400);
         gestellt = Boolean(await s.$(".rechen-antworten .rechen-zahl, .rechen-antworten .rechen-wahlknopf, .rechen-wurf, .rechen-szene-svg [role=\"button\"], .rechen-szene-svg .rw-ziel, .rechen-szene-svg .rw-tippmich, .rechen-szene-svg .rw-gleisfeld"));
       }
-      if (!gestellt) fehlt(`${id}: stellt nach «Los» keine Aufgabe`);
+      if (!gestellt) fehlt(`${id}: stellt keine Aufgabe`);
+      // Der Lautsprecher neben dem Text sagt die Aufgabe noch einmal, ein Tipp
+      // auf den Text auch.
+      const nochmal = await s.evaluate(async () => {
+        const k = window.LernappKids;
+        const laut = document.querySelector(".rechen-blase-laut");
+        const text = document.querySelector(".rechen-blase-text");
+        if (!k || !laut || !text) return { laut: Boolean(laut), text: Boolean(text) };
+        const echt = k.speak;
+        const gehoert = [];
+        k.speak = (satz, o = {}) => { gehoert.push(satz); setTimeout(() => o.onEnd?.(), 5); };
+        laut.click();
+        await new Promise((w) => setTimeout(w, 120));
+        const vomLaut = gehoert.length;
+        text.click();
+        await new Promise((w) => setTimeout(w, 120));
+        k.speak = echt;
+        return { laut: true, text: true, vomLaut, vomText: gehoert.length - vomLaut };
+      });
+      if (!nochmal.laut) fehlt(`${id}: In der Sprechblase fehlt der Lautsprecher`);
+      else if (!nochmal.vomLaut) fehlt(`${id}: Der Lautsprecher sagt die Aufgabe nicht noch einmal`);
+      else if (!nochmal.vomText) fehlt(`${id}: Ein Tipp auf den Text sagt die Aufgabe nicht noch einmal`);
       const blase = await s.evaluate(() => document.querySelector(".rechen-blase-text")?.textContent || document.querySelector(".rechen-antworten")?.textContent || "");
       if (!blase) fehlt(`${id}: Die Sprechblase bleibt leer`);
       await k.close();
@@ -273,11 +293,10 @@ async function main() {
       // Die Runde kommt vom Rätsel-Knopf der Bauecke: Sie bringt Ziegel.
       const palettenVorher = await s.evaluate(() => window.LernappReise.bauPaletten());
       await s.goto(`${BASIS}/kuppelplus.html?bau=1`);
-      await s.waitForSelector(".rechen-los-knopf", { timeout: 15000 }).catch(() => {});
+      await s.waitForSelector(".rechen-blase-text", { timeout: 15000 }).catch(() => {});
       await s.waitForTimeout(600);
       const stufeJetzt = await s.evaluate(() => window.LernappRechenStand.stufe("kuppelplus"));
       if (stufeJetzt !== "leicht") fehlt(`Leicht: Kuppel-Plus steht auf «${stufeJetzt}»`);
-      await s.click(".rechen-los-knopf");
       let gezogen = false;
       const anfang = Date.now();
       while (Date.now() - anfang < 120000) {
