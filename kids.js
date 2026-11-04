@@ -513,7 +513,10 @@
     if (!text || !ttsSupported() || !ttsEnabled() || !audioEnabled()) { options.onEnd?.(); return; }
     if (!options.queue) stopSpeaking();
     try {
-      const utterance = new window.SpeechSynthesisUtterance(String(text));
+      // Eine Zahl mit Punkt ganz am Ende («… 7, 8.») liest die Gerätestimme
+      // als Ordnungszahl («achte»). Am Ende eines Texts ist sie hier immer eine
+      // Anzahl – der Punkt fällt weg. («der 3. Stock» mitten im Satz bleibt.)
+      const utterance = new window.SpeechSynthesisUtterance(String(text).replace(/(\d)\.\s*$/, "$1"));
       const voice = pickGermanVoice();
       utterance.lang = voice?.lang || "de-DE";
       utterance.rate = options.rate ?? 0.95;

@@ -26,6 +26,13 @@ export default function texte(d) {
   for (const n of von(0, 30)) { add(`${n}.`); add(`Schau: Es sind ${n}.`); }
   // Fahrplan-Lücke, Countdown, Ziffern-Gleis, Wagen ordnen
   muss(d, e2, "Es fehlte die ${richtig}.");
+  // Die ganze Reihe nach dem Tipp: fünf oder sechs Bahnhöfe, vorwärts ab 1
+  // (bis 20) und rückwärts (bis 1).
+  muss(d, e2, "`Genau! ${reihe.join(\", \")}!`");
+  for (const lang of [5, 6]) {
+    for (let start = 1; start + lang - 1 <= 20; start += 1) add(`${Array.from({ length: lang }, (_, i) => start + i).join(", ")}!`);
+    for (let start = lang; start <= 20; start += 1) add(`${Array.from({ length: lang }, (_, i) => start - i).join(", ")}!`);
+  }
   for (const n of von(0, 20)) { add(`Es fehlte die ${n}.`); add(`Jetzt kommt die ${n}.`); add(`Zuerst kommt die ${n}.`); }
   for (const h of [5, ...von(10, 20)]) add(`Zähl rückwärts von ${h}!`);
   for (const z of von(0, 9)) add(`Das ist die ${z}!`);

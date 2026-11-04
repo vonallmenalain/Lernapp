@@ -34,7 +34,7 @@
 
   const KEY = "lernapp.rechnen";
   const ELTERN_KEY = "lernapp.rechnen.eltern";
-  const EMPTY = { spiele: {}, aufgaben: {}, fehler: {}, bonus: 0, drache: null, auftraege: 0 };
+  const EMPTY = { spiele: {}, aufgaben: {}, fehler: {}, bonus: 0, drache: null };
 
   // Der Drache lebt drei Leben zu je fünfzehn Stufen – wie der Lesewurm. Jede
   // Stufe ist eine Zacke auf seinem Rücken und kostet fünf Taler: Die Leiste
@@ -78,9 +78,6 @@
     bis100: { titel: "Bis 100", detail: "Zehner und Einer, Hundertertafel", deckel: 100 },
   };
   const ZAHLENRAEUME = [5, 10, 20, 100];
-  // Nach wie vielen Minuten Rechenecke am Tag der Drache gähnt und einen
-  // Auftrag für draussen gibt (0: nie).
-  const GAEHNEN = [0, 10, 15, 20];
 
   // ---------------------------------------------------------------------------
   // Die Spiele: wo sie im Rechenwagen stehen und welche Sprosse sie üben.
@@ -223,7 +220,6 @@
       fehler: mergeZaehler(a?.fehler, b?.fehler),
       bonus: Math.max(zahl(a?.bonus), zahl(b?.bonus)),
       drache: neuereTaufe(a?.drache, b?.drache),
-      auftraege: Math.max(zahl(a?.auftraege), zahl(b?.auftraege)),
     };
   }
 
@@ -249,7 +245,7 @@
 
   function stand() {
     const s = box.read() || EMPTY;
-    return { ...EMPTY, ...s, spiele: s.spiele || {}, aufgaben: s.aufgaben || {}, fehler: s.fehler || {}, bonus: zahl(s.bonus), drache: dracheSauber(s.drache), auftraege: zahl(s.auftraege) };
+    return { ...EMPTY, ...s, spiele: s.spiele || {}, aufgaben: s.aufgaben || {}, fehler: s.fehler || {}, bonus: zahl(s.bonus), drache: dracheSauber(s.drache) };
   }
 
   function heute() {
@@ -420,11 +416,6 @@
     return extra;
   }
 
-  // Ein Auftrag für draussen ist erledigt: ein Taler mehr.
-  function auftragErledigt() {
-    return box.update((alt) => ({ ...EMPTY, ...alt, bonus: zahl(alt?.bonus) + 1, auftraege: zahl(alt?.auftraege) + 1 }));
-  }
-
   function dracheName(s = stand()) {
     return s.drache?.name || "";
   }
@@ -448,8 +439,7 @@
     const beginn = SPROSSEN.includes(e.beginn) ? e.beginn : "auto";
     const raum = ZAHLENRAEUME.includes(Number(e.zahlenraum)) ? Number(e.zahlenraum) : "auto";
     const minus = e.minus === "aus" ? "aus" : "an";
-    const gaehnen = GAEHNEN.includes(Number(e.gaehnen)) ? Number(e.gaehnen) : 20;
-    return { beginn, zahlenraum: raum, minus, gaehnen, at: zahl(e.at) };
+    return { beginn, zahlenraum: raum, minus, at: zahl(e.at) };
   }
   function elternLokal() {
     try { return elternSauber(JSON.parse(localStorage.getItem(ELTERN_KEY) || "null")); } catch { return elternSauber(null); }
@@ -501,10 +491,6 @@
     const { zahlenraum } = einstellungen();
     if (ZAHLENRAEUME.includes(zahlenraum)) return zahlenraum;
     return 100;
-  }
-
-  function gaehnenNach() {
-    return einstellungen().gaehnen;
   }
 
   function minusErlaubt() {
@@ -566,7 +552,6 @@
       fehler: { ...(s.fehler || {}) },
       lieblinge,
       gewachsen,
-      auftraege: zahl(s.auftraege),
     };
   }
 
@@ -576,7 +561,7 @@
     SITZT_SCHNELL, SITZT_TAGE, SCHNELL_MS,
     merge, stand, onChange: (fn) => box.onChange(fn),
     spielRunde, spielGeoeffnet, mitwachsen, aufgabeKey, aufgabeGeuebt, fehlerbild, fehlerVon, sitzt,
-    taler, runden, drache, dracheAus, missionStarten, missionErfuellt, dracheName, dracheTaufen, nameSauber, wagenStufe, auftragErledigt, GAEHNEN, gaehnenNach,
+    taler, runden, drache, dracheAus, missionStarten, missionErfuellt, dracheName, dracheTaufen, nameSauber, wagenStufe,
     einstellungen, elternSauber, grundstufe, stufe, sprosse, deckel, minusErlaubt, aktiv, naechstes, bericht,
   };
 })();

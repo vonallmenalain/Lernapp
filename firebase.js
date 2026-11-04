@@ -3250,9 +3250,6 @@
         <div class="card-actions">${RECHNEN_RAEUME.map((eintrag) => knopf("zahlenraum", eintrag)).join("")}</div>
         <p class="admin-lesen-frage">Minus</p>
         <div class="card-actions">${RECHNEN_MINUS.map((eintrag) => knopf("minus", eintrag)).join("")}</div>
-        <p class="admin-lesen-frage">Pause mit Auftrag</p>
-        <p class="auth-hint">Nach so vielen Minuten Rechenecke am Tag gähnt der Drache und gibt einen Auftrag für draussen («Zähl beim Znacht die Gabeln»). Am nächsten Tag fragt er nach.</p>
-        <div class="card-actions">${RECHNEN_GAEHNEN.map((eintrag) => knopf("gaehnen", eintrag)).join("")}</div>
       </div>`;
   }
 
@@ -3352,7 +3349,6 @@
     ];
     if (b.wackelig.length) zeilen.push(zeile("Wackelt noch", escapeHtml(b.wackelig.join(", "))));
     if (b.lieblinge.length) zeilen.push(zeile("Am meisten gespielt", escapeHtml(b.lieblinge.join(", "))));
-    if (b.auftraege) zeilen.push(zeile("Aufträge für draussen erledigt", escapeHtml(String(b.auftraege))));
     if (b.gewachsen.length) zeilen.push(zeile("Von selbst angepasst", b.gewachsen.map((g) => escapeHtml(`${g.titel} (${g.schritt > 0 ? "schwerer" : "leichter"})`)).join(", ")));
     const tipps = [];
     if ((b.fehler.eins || 0) >= 2) tipps.push(`Oft genau eins daneben (${b.fehler.eins}×): Beim Weiterzählen wird wohl die Startzahl mitgezählt – bei 3 + 2 «drei, vier» statt «vier, fünf». Zeigen hilft: Die 3 ist schon da, gezählt wird ab der nächsten.`);
@@ -3505,7 +3501,7 @@
   }
 
   async function kindRechnenSetzen(uid, feld, wert) {
-    if (!uid || !["beginn", "zahlenraum", "minus", "gaehnen"].includes(feld)) return;
+    if (!uid || !["beginn", "zahlenraum", "minus"].includes(feld)) return;
     const jetzt = rechnenEinstellungIn(eltern.kindDetails.get(uid)?.userData?.gameState);
     eltern.kindLaeuft = uid;
     eltern.kindMeldung = { ok: false, text: "Die Rechenecke wird eingestellt..." };
@@ -4289,12 +4285,6 @@
     ["an", "Plus und Minus"],
     ["aus", "Nur Plus"],
   ];
-  const RECHNEN_GAEHNEN = [
-    ["20", "Nach 20 Minuten"],
-    ["15", "Nach 15 Minuten"],
-    ["10", "Nach 10 Minuten"],
-    ["0", "Nie"],
-  ];
   const RECHNEN_ERKLAERUNG = "Der Rechenwagen auf dem Startbild, über dem Lesewagen. «Nach Alter» beginnt mit der Schwierigkeitsstufe: «Leicht» bei Plus bis 10 (die Spiele fangen mit Zahlen bis 5 an), «Mittel» bei Plus und Minus, «Schwer» bei den Zahlen bis 20. Jedes Spiel wächst danach von selbst mit.";
 
   function rechnenEinstellungIn(gameState) {
@@ -4304,7 +4294,6 @@
       beginn: RECHNEN_BEGINN.some(([wert]) => wert === daten.beginn) ? daten.beginn : "auto",
       zahlenraum: raum,
       minus: daten.minus === "aus" ? "aus" : "an",
-      gaehnen: RECHNEN_GAEHNEN.some(([wert]) => Number(wert) === Number(daten.gaehnen)) && daten.gaehnen !== undefined ? Number(daten.gaehnen) : 20,
     };
   }
 

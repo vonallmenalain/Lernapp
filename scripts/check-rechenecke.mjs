@@ -17,9 +17,8 @@
  *               Schild und auf der Karte des Drachen.
  *   Schatz      Ein Tipp auf den Schatz zeigt Drachenfutter, Sternenhimmel
  *               und Sammelalbum; Himmel und Album gehen auf und wieder zu.
- *   Auftrag     Nach der eingestellten Zeit gähnt der Drache und gibt einen
- *               Auftrag für draussen; an einem anderen Tag fragt er nach, und
- *               «geschafft» bringt einen Taler.
+ *   Einsteigen  In «Plus oder Minus» sitzen nach dem Einsteigen alle Tiere im
+ *               Wagen, nach dem Aussteigen nur noch die übrigen.
  *   Bauecke     Eine Runde, die vom Rätsel-Knopf der Bauecke kommt (?bau=1),
  *               bringt eine Palette Ziegel.
  *   Runde       Eine ganze Runde Kuppel-Plus: Am Schluss stehen Sterne und
@@ -208,37 +207,37 @@ async function main() {
     if (!/tunnel(rechnen|versteck)\.html/.test(seite.url())) fehlt(`Zimmer: Der Tunnel öffnet kein Spiel (${seite.url()})`);
     await kontext.close();
 
-    // --- Aufträge für draussen -------------------------------------------------
-    {
-      const { kontext: k, seite: s } = await neueSeite(browser, { width: 1280, height: 800 }, seitenFehler, "Auftrag");
-      await s.goto(`${BASIS}/index.html?rechnen=1`);
-      await s.waitForTimeout(1500);
-      // Seit 25 Minuten in der Rechenecke: Der Drache gähnt.
-      await s.evaluate(() => {
-        const d = new Date();
-        localStorage.setItem("lernapp.rechnen.besuch", JSON.stringify({ tag: `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`, seit: Date.now() - 25 * 60 * 1000 }));
-      });
-      await s.goto(`${BASIS}/index.html?rechnen=1`);
-      await s.waitForTimeout(3500);
-      const pause = await s.evaluate(() => document.querySelector(".rechen-auftrag")?.textContent || "");
-      if (!/Pause/.test(pause)) fehlt(`Auftrag: Der Drache gähnt nicht (${pause.slice(0, 80)})`);
-      // Am nächsten Tag fragt er nach.
-      await s.evaluate(() => {
-        const a = JSON.parse(localStorage.getItem("lernapp.rechnen.auftrag") || "{}");
-        localStorage.setItem("lernapp.rechnen.auftrag", JSON.stringify({ ...a, tag: "2000-1-1" }));
-      });
-      const vorher = await s.evaluate(() => window.LernappRechenStand.taler());
-      await s.goto(`${BASIS}/index.html?rechnen=1`);
-      await s.waitForTimeout(3500);
-      if (!(await s.$(".rechen-auftrag .ist-ja"))) fehlt("Auftrag: Am nächsten Tag fragt der Drache nicht nach");
-      else {
-        await s.click(".rechen-auftrag .ist-ja");
-        await s.waitForTimeout(500);
-        const nachher = await s.evaluate(() => ({ taler: window.LernappRechenStand.taler(), auftraege: window.LernappRechenStand.stand().auftraege }));
-        if (nachher.taler !== vorher + 1 || nachher.auftraege !== 1) fehlt(`Auftrag: «geschafft» bringt keinen Taler (${JSON.stringify(nachher)})`);
-      }
+    // --- Plus oder Minus: Wer einsteigt, sitzt danach im Wagen ----------------
+    let einsteigenGesehen = false;
+    for (let versuch = 0; versuch < 8 && !einsteigenGesehen; versuch += 1) {
+      const { kontext: k, seite: s } = await neueSeite(browser, { width: 1280, height: 800 }, seitenFehler, "plusoderminus");
+      await s.goto(`${BASIS}/plusoderminus.html`);
+      await s.waitForSelector(".rechen-antworten .rechen-wahlknopf", { timeout: 15000 }).catch(() => {});
+      const geschichte = await s.evaluate(() => document.querySelector(".rechen-blase-text")?.textContent || "");
+      const m = /Im Zug (?:sitzt|sitzen) (\d+) Tiere?\. (\d+) Tiere? steig(?:t|en) (ein|aus)/.exec(geschichte);
+      if (!m) { fehlt(`Plus oder Minus: unbekannte Geschichte (${geschichte})`); await k.close(); break; }
+      const [, a, b, wohin] = m;
+      const plus = wohin === "ein";
+      await s.click(`.rechen-antworten .rechen-wahlknopf >> nth=${plus ? 0 : 1}`);
+      // Gleich nach dem letzten Hüpfer zählen, bevor die nächste Aufgabe kommt.
+      const im = await s.evaluate(({ plus, b }) => new Promise((fertig) => {
+        const zaehle = () => ({ koepfe: document.querySelectorAll(".rw-pw g[transform]").length, wartet: document.querySelectorAll(".rw-wartet").length });
+        const t0 = performance.now();
+        let sahPerron = false;
+        const uhr = setInterval(() => {
+          const pw = document.querySelector(".rw-pw");
+          if (pw) sahPerron = true;
+          const fertigEin = plus && sahPerron && pw && document.querySelectorAll(".rw-wartet").length === 0;
+          const fertigAus = !plus && document.querySelectorAll(".rw-raus").length === b && !document.querySelector(".rw-raus[data-laeuft]");
+          if (fertigEin || fertigAus || performance.now() - t0 > 8000) { clearInterval(uhr); setTimeout(() => fertig(zaehle()), plus ? 50 : 650); }
+        }, 40);
+      }), { plus, b: Number(b) });
+      const soll = plus ? Number(a) + Number(b) : Number(a) - Number(b);
+      if (im.koepfe !== soll || (plus && im.wartet)) fehlt(`Plus oder Minus: Nach dem ${plus ? "Einsteigen" : "Aussteigen"} sitzen ${im.koepfe} Tiere im Wagen statt ${soll} (${geschichte})`);
       await k.close();
+      if (plus) einsteigenGesehen = true;
     }
+    if (!einsteigenGesehen) fehlt("Plus oder Minus: in acht Runden stieg nie jemand ein – nicht geprüft");
 
     // Handy quer: der Wagen steht oder bleibt weg, deckt aber nichts zu.
     const quer = await startbild(browser, { width: 844, height: 390 }, "Handy quer", seitenFehler);
@@ -355,7 +354,7 @@ async function main() {
     befunde.forEach((b) => console.error(`  - ${b}`));
     process.exit(1);
   }
-  console.log("Rechenecke im Browser: Startbild, Zimmer, Schatz, Tür, Aufträge, alle Spiele und eine Runde (mit Ziegeln) stimmen.");
+  console.log("Rechenecke im Browser: Startbild, Zimmer, Schatz, Tür, alle Spiele und eine Runde (mit Ziegeln) stimmen.");
 }
 
 main().catch((e) => { console.error(e); halt(); process.exit(1); });
