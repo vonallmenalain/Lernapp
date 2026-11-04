@@ -200,6 +200,16 @@
     { id: "waskommtoefter", page: "waskommtoefter.html" },
   ] };
 
+  // Die Englischecke – keine Spielseiten, alles geschieht im Englischwagen
+  // (train-englischecke.js). Für die Schranke drei Spiele, je eine Runde frei:
+  // Entdecken (der Bauernhof ist immer frei), Hear & find und die
+  // Geschichten (die erste ist immer frei).
+  const ENGLISCHECKE = { id: "englisch", games: [
+    { id: "en-entdecken", page: "en-entdecken" },
+    { id: "en-hearfind", page: "en-hearfind" },
+    { id: "en-geschichten", page: "en-geschichten" },
+  ] };
+
   // Das Bücherregal ist kein Spiel mit Runden: Diese zwei Bücher sind frei,
   // so oft ein Kind will, die anderen gehören zum Kauf. Lesen soll nicht
   // nach einer Runde aufhören. lesen-buecher.js markiert dieselben mit
@@ -379,7 +389,7 @@
     const key = String(pageOrId || "").split("?")[0].split("#")[0].split("/").pop();
     if (!key) return null;
     const gesucht = ohneEndung(key);
-    for (const area of [...AREAS, LESEECKE, RECHENECKE]) {
+    for (const area of [...AREAS, LESEECKE, RECHENECKE, ENGLISCHECKE]) {
       const index = area.games.findIndex((g) =>
         g.page === key || ohneEndung(g.page) === gesucht || g.id === key || g.ownProgress === key);
       if (index >= 0) return { area, index, game: area.games[index] };
@@ -664,6 +674,7 @@
     AREAS,
     LESEECKE,
     RECHENECKE,
+    ENGLISCHECKE,
     GRATIS_BUECHER,
     reason,
     isFree,

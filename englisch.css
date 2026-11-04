@@ -1,0 +1,280 @@
+/* =============================================================================
+   Die Englischecke
+   =============================================================================
+   Der Englischwagen hängt hinten am Lernzug (train-home.js, lernzug-art.js);
+   ein Tipp, und man steht in ihm (train-englischecke.js). Oben das Bild – das
+   Zimmer, ein Wimmelbild, eine Geschichte, das Wörterbuch –, darunter immer
+   dieselbe Leiste: Rocco mit dem Text (antippbar), der Lautsprecher und der
+   Knopf DE. */
+
+.train-stage[data-view="englisch"] .train-band { opacity: 0; pointer-events: none; }
+.train-stage[data-view="englisch"] .stage-layer { z-index: 4; }
+.train-stage[data-view="englisch"] .scene { visibility: hidden; }
+.train-stage[data-view="englisch"] .scene-bird { animation-play-state: paused; }
+.train-stage[data-view="englisch"] .train-band * { animation: none; }
+body[data-page="train"] .train-stage[data-view="englisch"] ~ .help-voice {
+  display: flex;
+  left: calc(var(--safe-left) + 86px);
+}
+
+.englischecke {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  pointer-events: auto;
+  background: #f3d6a4;
+  padding-bottom: max(8px, var(--safe-bottom, 0px));
+  animation: englischecke-ein 0.45s ease backwards;
+}
+@keyframes englischecke-ein {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: none; }
+}
+.en-buehne {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  container-type: size;
+  display: grid;
+  place-items: center;
+}
+/* Geschichte und Wörterbuch reichen bis an den Rand: oben Platz für die
+   Knöpfe der Bühne (Zurück, Hilfe, Einstellungen), damit nichts verdeckt ist. */
+.en-buehne[data-ansicht="geschichte"],
+.en-buehne[data-ansicht="woerterbuch"] { padding-top: calc(var(--safe-top, 0px) + 70px); }
+@media (max-height: 520px) {
+  .en-buehne[data-ansicht="geschichte"],
+  .en-buehne[data-ansicht="woerterbuch"] { padding-top: calc(var(--safe-top, 0px) + 54px); }
+}
+.en-bild {
+  width: 100%;
+  width: min(100cqw, calc(100cqh * 1000 / 560));
+  aspect-ratio: 1000 / 560;
+  max-width: 100%;
+}
+.en-bild > svg { display: block; width: 100%; height: 100%; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+
+/* Roccos Leiste */
+.en-leiste {
+  flex: 0 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 6px max(12px, var(--safe-right, 0px)) 2px max(12px, var(--safe-left, 0px));
+}
+.en-blase {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: min(720px, 100%);
+  min-height: 52px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 18px 5px 6px;
+  border: none;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #243047;
+  box-shadow: 0 4px 12px rgba(36, 48, 71, 0.18);
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  -webkit-tap-highlight-color: transparent;
+}
+.en-blase:active { transform: scale(0.98); }
+.en-blase:focus-visible { outline: 3px solid #6c5ce7; outline-offset: 3px; }
+.en-blase-rocco { flex: 0 0 auto; width: 42px; height: 42px; }
+.en-blase-texte { display: grid; gap: 1px; min-width: 0; }
+.en-text { font-family: "Baloo 2", Nunito, ui-rounded, system-ui, sans-serif; font-weight: 800; font-size: clamp(1rem, 2.6vh, 1.3rem); line-height: 1.2; }
+/* Ohne Schrift (die Jüngsten): eine Welle statt der Wörter. */
+.en-text.ist-leer::before {
+  content: "";
+  display: inline-block;
+  width: 64px;
+  height: 22px;
+  vertical-align: middle;
+  background: no-repeat center / contain url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 22'><path d='M4 11h4M14 5v12M22 2v18M30 6v10M38 3v16M46 7v8M54 4v14M60 9v4' stroke='%233a7bd5' stroke-width='3.4' stroke-linecap='round'/></svg>");
+}
+.en-de { font-size: clamp(0.85rem, 2vh, 1rem); font-weight: 700; color: #5d6882; line-height: 1.25; }
+.en-de[hidden] { display: none; }
+.en-laut, .en-de-knopf {
+  flex: 0 0 auto;
+  width: 52px;
+  height: 52px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  box-shadow: 0 4px 10px rgba(36, 48, 71, 0.2);
+  transition: transform 0.12s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.en-laut { background: #3a7bd5; color: #ffffff; }
+.en-laut svg { width: 26px; height: 26px; }
+.en-de-knopf {
+  background: #243047;
+  color: #ffffff;
+  font: 800 1.05rem/1 "Nunito", ui-rounded, system-ui, sans-serif;
+  letter-spacing: 0.04em;
+}
+.en-laut:active, .en-de-knopf:active { transform: scale(0.92); }
+.en-laut:focus-visible, .en-de-knopf:focus-visible { outline: 3px solid #6c5ce7; outline-offset: 3px; }
+.en-de-knopf.en-gedrueckt { animation: en-druck 0.4s ease; }
+@keyframes en-druck { 50% { transform: scale(1.15); } }
+.en-extra { display: flex; align-items: center; gap: 8px; }
+.en-extra:empty { display: none; }
+.en-zaehler {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: #ffffff;
+  box-shadow: 0 3px 8px rgba(36, 48, 71, 0.15);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.en-zaehler i { width: 10px; height: 10px; border-radius: 50%; background: rgba(36, 48, 71, 0.14); }
+.en-zaehler i.an { background: #f4b400; }
+.en-zaehler b { margin-left: 4px; }
+.en-knopf {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 48px;
+  padding: 10px 16px;
+  border: none;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #243047;
+  font: 800 1rem/1 "Baloo 2", Nunito, system-ui, sans-serif;
+  box-shadow: 0 4px 0 rgba(36, 48, 71, 0.14), 0 6px 14px rgba(36, 48, 71, 0.16);
+  cursor: pointer;
+}
+.en-knopf svg { width: 20px; height: 20px; }
+.en-knopf.en-go { background: #3fbf74; color: #ffffff; box-shadow: 0 4px 0 #2f9a5b, 0 6px 14px rgba(36, 48, 71, 0.16); }
+
+@media (max-height: 520px) {
+  .en-blase { min-height: 44px; padding: 3px 14px 3px 4px; }
+  .en-blase-rocco { width: 36px; height: 36px; }
+  .en-laut, .en-de-knopf { width: 44px; height: 44px; }
+  .en-knopf { min-height: 42px; padding: 8px 12px; }
+}
+
+/* Die Dinge im Zimmer, in den Bildern und im Buch sind Knöpfe. */
+.en-ort, .en-ding, .en-ausbau, .en-wort, .en-panel, .en-sticker, .en-reiter, .en-flicken { cursor: pointer; outline: none; }
+.en-ort:hover, .en-ort:focus-visible, .en-ding:focus-visible, .en-panel:focus-visible, .en-sticker:focus-visible { filter: brightness(1.06) drop-shadow(0 0 8px rgba(108, 92, 231, 0.75)); }
+.en-wackel { animation: en-wackel 0.6s ease; transform-box: fill-box; transform-origin: 50% 100%; }
+@keyframes en-wackel { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(-6deg); } 50% { transform: rotate(5deg); } 75% { transform: rotate(-3deg); } }
+.en-huepf { animation: en-huepf 0.55s ease; transform-box: fill-box; transform-origin: 50% 100%; }
+@keyframes en-huepf { 0%, 100% { transform: translateY(0); } 40% { transform: translateY(-14px); } 70% { transform: translateY(2px); } }
+.en-schuettel { animation: en-schuettel 0.45s ease; transform-box: fill-box; transform-origin: 50% 50%; }
+@keyframes en-schuettel { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-7px); } 75% { transform: translateX(7px); } }
+.en-funkel { animation: en-funkel 1.6s ease-in-out infinite; transform-box: fill-box; transform-origin: 50% 50%; }
+@keyframes en-funkel { 0%, 100% { opacity: 0.25; transform: scale(0.7); } 50% { opacity: 1; transform: scale(1.15); } }
+.en-blitz { animation: en-blitz 1.2s ease-out; transform-box: fill-box; transform-origin: 50% 50%; }
+@keyframes en-blitz { 0% { opacity: 0; transform: scale(0.3); } 40% { opacity: 1; transform: scale(1.25); } 100% { opacity: 1; transform: scale(1); } }
+.en-panel.ist-aktiv .en-rahmen { stroke: #f4b400; stroke-width: 6; }
+/* Beim Hereinkommen hüpft reihum, was sich antippen lässt (wie im Rechenwagen). */
+.en-zimmer-svg.is-huepfen .en-ort { animation: en-ort-huepft 2.2s linear var(--ort-verzug, 0.4s) 1 both; }
+@keyframes en-ort-huepft {
+  0%, 12%, 100% { translate: 0 0; }
+  6% { translate: 0 -12px; }
+}
+.en-ausbau.is-neu { animation: en-neu 1.6s ease-in-out 3; }
+@keyframes en-neu { 50% { filter: drop-shadow(0 0 10px rgba(255, 209, 102, 1)) brightness(1.12); } }
+.en-birne { animation: en-birne 2.4s ease-in-out infinite; }
+.en-birne-1 { animation-delay: -0.8s; }
+.en-birne-2 { animation-delay: -1.6s; }
+@keyframes en-birne { 50% { opacity: 0.45; } }
+
+/* Die Auswahl: wohin oder welche Geschichte */
+.en-wahl {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  padding: 10px;
+  background: rgba(36, 48, 71, 0.32);
+  animation: englischecke-ein 0.25s ease backwards;
+}
+.en-wahl-karte {
+  position: relative;
+  width: min(820px, 100%);
+  max-height: 100%;
+  overflow: auto;
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+  border-radius: 24px;
+  background: #fffaf0;
+  box-shadow: 0 16px 40px rgba(36, 48, 71, 0.3);
+}
+.en-wahl-titel {
+  justify-self: center;
+  padding: 4px 16px;
+  border: none;
+  border-radius: 999px;
+  background: #3a7bd5;
+  color: #ffffff;
+  font: 800 1.3rem/1.2 "Baloo 2", Nunito, system-ui, sans-serif;
+  cursor: pointer;
+}
+.en-wahl-zu {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 44px;
+  height: 44px;
+  border: none;
+  border-radius: 50%;
+  background: #ffffff;
+  color: #243047;
+  box-shadow: 0 3px 10px rgba(36, 48, 71, 0.2);
+  cursor: pointer;
+}
+.en-wahl-zu svg { width: 22px; height: 22px; display: block; margin: auto; }
+.en-wahl-kacheln { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+.en-wahl-kachel {
+  position: relative;
+  display: grid;
+  gap: 6px;
+  padding: 8px;
+  border: none;
+  border-radius: 18px;
+  background: #ffffff;
+  color: #243047;
+  box-shadow: 0 4px 12px rgba(36, 48, 71, 0.14);
+  cursor: pointer;
+  font: 800 1.15rem/1.2 "Baloo 2", Nunito, system-ui, sans-serif;
+}
+.en-wahl-kachel svg { display: block; width: 100%; height: auto; border-radius: 12px; }
+.en-wahl-kachel:active { transform: scale(0.97); }
+.en-wahl-kachel.ist-zu svg { filter: saturate(0.4) opacity(0.75); }
+.en-schloss {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: #ffffff no-repeat center / 20px url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect x='5' y='10' width='14' height='11' rx='3' fill='%23243047'/><path d='M8 10V7a4 4 0 0 1 8 0v3' stroke='%23243047' stroke-width='2.4' fill='none'/></svg>");
+  box-shadow: 0 2px 6px rgba(36, 48, 71, 0.25);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .englischecke, .en-wahl, .en-wackel, .en-huepf, .en-schuettel, .en-funkel, .en-blitz, .en-zimmer-svg.is-huepfen .en-ort, .en-ausbau.is-neu, .en-birne, .en-de-knopf.en-gedrueckt { animation: none; }
+}
+
+/* Einsteigen: der Englischwagen wächst kurz auf, dann steht man drinnen. */
+.train-stage[data-englisch-ein] .englischwagen-knopf { transform: scale(1.35); opacity: 0; transition: transform 0.42s ease-in, opacity 0.42s ease-in; }
+@media (prefers-reduced-motion: reduce) {
+  .train-stage[data-englisch-ein] .englischwagen-knopf { transition: none; }
+}

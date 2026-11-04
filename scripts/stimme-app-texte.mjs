@@ -54,6 +54,9 @@ const NICHT_GESPROCHEN = new Set([
   "admin.js", "firebase.js", "game-cloud.js", "highscore.js", "laute-aufnehmen.js", "lesen-art.js", "lesen-bilder.js",
   "lesen-laute.js", "lesen-stimme.js", "app-stimme.js", "pwa.js", "service-worker.js", "strand-art.js", "train-art.js",
   "train-scenes.js", "train-bau.js",
+  // Die Englischecke: Englisch hat seine eigene Stimme
+  // (stimme-englisch-texte.mjs), das Deutsche steht in stimme-app/englischecke.mjs.
+  "englisch-inhalt.js", "englisch-stand.js", "englisch-art.js", "englisch-stimme.js", "train-englischecke.js",
 ]);
 export function sprechDateien() {
   return fs.readdirSync(WURZEL)

@@ -387,3 +387,7 @@ body[data-page="train"] .train-stage[data-view="rechnen"] ~ .help-voice {
 .rechen-taufe-eigen { display: flex; justify-content: center; gap: 8px; }
 .rechen-taufe-eigen input { min-height: 44px; width: min(220px, 60vw); padding: 0 12px; border: 2px solid #d6cfa8; border-radius: 12px; font: inherit; font-size: 1rem; }
 .rechen-taufe-eigen button { min-height: 44px; padding: 0 18px; border: none; border-radius: 12px; background: #3fbf74; color: #ffffff; font-weight: 800; cursor: pointer; }
+
+/* Die Tür des Rechenwagens fragt, wohin: Lese- oder Englischwagen
+   (train-rechenecke.js, zeigeTueren). */
+.rechen-tueren .rechen-wahl-bild svg { display: block; width: clamp(110px, 20vw, 170px); height: auto; }

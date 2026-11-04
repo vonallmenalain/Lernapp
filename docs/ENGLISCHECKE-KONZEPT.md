@@ -25,7 +25,8 @@ Stand: 4. November 2026 · Entwurf · Grundlage: `docs/RECHENECKE-KONZEPT.md`,
 > gebucht in `scripts/stimme-google.json`.
 >
 > **Umsetzungsstand:** Die Entscheide sind gefallen (Abschnitt 0). **Etappe 0 ist gebaut:** das
-> Startbild mit zwei Gleisen (Abschnitt 0.2).
+> Startbild mit zwei Gleisen (Abschnitt 0.2). **Etappe 1 ist gebaut:** der Englischwagen mit
+> Rocco, drei Welten, Hear and find, drei Bildgeschichten und dem Wörterbuch (Abschnitt 0.3).
 
 ---
 
@@ -76,6 +77,65 @@ Stand: 4. November 2026 · Entwurf · Grundlage: `docs/RECHENECKE-KONZEPT.md`,
   nichts verdeckt, Schild ab dem Fahrgestell, goldene Räder, Feier einmal, Gruppe mit Punkt,
   Lernlok); angepasst `check-rechenecke.mjs`, `check-bestenliste.mjs`,
   `validate-train-gruppe.mjs`.
+
+### 0.3 Etappe 1: Hello, Rocco!
+
+- **Der Englischwagen** hängt hinten am Lernzug (Reihenfolge von links: Englisch-, Rechen-,
+  Lesewagen, Lernlok), mit Schild «Hello» und Rocco ab dem Fahrgestell. Ein Tipp führt hinein
+  (`train-englischecke.js`, eine Ansicht der Bühne wie der Rechenwagen; `?englisch=1` öffnet ihn
+  direkt). Die Lernlok fährt auch in den Englischwagen, wenn das Kind zuletzt dort war.
+- **Das Zimmer** (`englisch-art.js`, `zimmer`): Rocco im Schaukelstuhl, seine Karte mit dem
+  Vorschlag (`vorschlag` in `englisch-stand.js`: erst entdecken, ab fünf gehörten Wörtern Hear
+  and find, dann eine Geschichte der Welt, dann festigen), der Aussichtsturm («LOOKOUT») mit den
+  drei Welten, das Regal mit den Geschichten, die Spielzeugkiste mit Hear and find, das
+  Wörterbuch, das Brett mit den Aufnähern und die Tür in den Rechenwagen. Die Tür des
+  Rechenwagens fragt jetzt «Wohin?» – Englisch- oder Lesewagen.
+- **Drei Welten** mit je 13 Wörtern (`englisch-inhalt.js`): The Farm, My House, The Kitchen,
+  dazu ball, raccoon und box aus den Geschichten – 42 Wörter, jedes mit Satz und Frage, alles
+  auch auf Deutsch. Entdecken: erster Tipp das Wort, zweiter der Satz, ein Stern am Ding, nach
+  9 Sekunden ohne Tipp funkelt ein noch nicht gefundenes. Alle Dinge angetippt ist eine Runde.
+- **Hear and find**: fünf Wörter einer Welt, zuerst die gehörten, noch nicht sicheren. Daneben
+  getippt sagt Rocco, was es war, und fragt noch einmal – kein Minus, keine Uhr.
+- **Drei Bildgeschichten** in vier Bildern: «Rocco and the red ball.», «Where is the cat?»,
+  «Rocco is hungry.»; ein Tipp erzählt ein Bild, «Whole story» alle mit Titel und «The end.».
+  Die Dinge im Satz lassen sich im Bild antippen.
+- **Fortschritt**: Wortstände gehört → erkannt (Hear and find beim ersten Versuch) → sicher (an
+  zwei Tagen), Sticker im Wörterbuch, je Welt ein Aufnäher (alles erkannt) mit Goldrand (alles
+  sicher), der Caboose wird in 15 Schritten eingerichtet (lantern bis stars), und jedes neue
+  Stück stellt Rocco vor («Look! A lantern!»). Der Kasten `lernapp.englisch` geht wie Lese- und
+  Rechenstand über `game-cloud.js` in die Cloud – keine neue Firestore-Regel.
+- **Sprechen**: Alles, was Rocco sagt, ist ein Paar [Englisch, Deutsch]. Gesprochen wird zuerst
+  Englisch; Sprechblase und Lautsprecher sagen es noch einmal. **DE** steht in jeder Ansicht in
+  derselben Leiste und sagt genau das zuletzt Gesagte auf Deutsch, danach noch einmal auf
+  Englisch. Tippt das Kind DE, während Rocco mitten in einem Spiel spricht, geht das Spiel nach
+  der Wiederholung weiter (die nächste Frage kommt trotzdem). Wie in der Stilprobe ist der
+  Knopf DE immer da; die Eltern können ihn nicht ausschalten (Entscheid oben, anders als
+  Empfehlung 5).
+- **Die Stimmen**: Englisch spricht **Puck (en-US), Tempo 0,9** – 187 Aufnahmen in
+  `stimme/englisch/`, Verzeichnis `englisch-stimme.js`, erzeugt mit
+  `node scripts/stimme-google.mjs vertonen --bereich englisch` (feste Stimme, eigener Ordner;
+  die Liste in `scripts/stimme-englisch-texte.mjs`). Deutsch spricht **Sulafat** wie die App
+  (`scripts/stimme-app/englischecke.mjs`, rund 210 Sätze in `app-stimme.js`). `kids.js` spielt
+  Englisch mit `speak(text, { sprache: "en" })`; fehlt eine Aufnahme, spricht eine amerikanische
+  Stimme des Geräts.
+- **Schrift**: Die englischen Wörter stehen nur da, wenn die Eltern es wollen. «Automatisch»
+  zeigt sie Kindern auf der Stufe «Schwer» (sie lesen schon); «Nur hören» und «Immer zeigen»
+  stellt die Elternkarte «Englischecke» ein (`lernapp.englisch.eltern`, bleibt beim
+  Zurücksetzen). Dort steht auch der Englischbericht: gehörte Wörter, Runden, Einrichtung, je
+  Welt gehört/gefunden/sicher, was sitzt, was noch wackelt, die liebsten Geschichten, und wo
+  das britische Englisch anders sagt (mom/mum, cookie/biscuit).
+- **Schranke** (`entitlement.js`, `ENGLISCHECKE`): drei Spiele (`en-entdecken`, `en-hearfind`,
+  `en-geschichten`) mit je einer freien Runde; der Bauernhof und die erste Geschichte sind
+  immer frei.
+- **Die Bilder** sind in Etappe 1 als SVG gezeichnet (Rocco, Zimmer, Wimmelbilder, Geschichten,
+  Sticker), im Stil des Rechenwagens; Mama und Papa sind die Menschen der Bauecke. Gemalte
+  Bilder im Stil der Bücher (Empfehlung 11) können sie später ersetzen – die antippbaren
+  Flächen bleiben dieselben.
+- **Prüfungen**: neu `scripts/validate-englisch.mjs` (Inhalt, Bilder, Stand, Aufnahmen und ihre
+  Länge, Einbau, Sprache) und `scripts/check-englischecke.mjs` (Startbild, Zimmer, Entdecken,
+  Hear and find mit Fehlversuch, Geschichte, Wörterbuch, Türen, DE in jeder Ansicht, Schrift,
+  Laptop und Handy); angepasst `check-startbild.mjs` (vier Knöpfe am Lernzug) und
+  `check-rechenecke.mjs` (die Tür fragt «Wohin?»).
 
 ---
 
@@ -634,6 +694,12 @@ Prüfskripte rechnen mit fünf Bereichen und 25 Spielen. Der Lohn ist der eigene
 Lernzug.
 
 ## 17. Dateien (Vorschlag)
+
+> Gebaut in Etappe 1: `train-englischecke.js`, `englisch-art.js`, `englisch-stand.js`,
+> `englisch-inhalt.js` (statt `englisch-welten.js`: Welten, Wörter, Geschichten, Roccos Sätze),
+> `englisch-stimme.js`, `englisch.css`, `scripts/stimme-englisch-texte.mjs` (nur das Englische;
+> das Deutsche in `scripts/stimme-app/englischecke.mjs`), die beiden Prüfungen. Die Spiele
+> laufen in Etappe 1 im Zimmer selbst, ohne eigene Seiten.
 
 | Datei | Inhalt |
 | --- | --- |

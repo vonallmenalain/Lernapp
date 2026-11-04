@@ -231,8 +231,10 @@
   function sprechText(text) {
     return String(text ?? "").replace(/\s+/g, " ").trim();
   }
-  function aufnahmeVon(text) {
-    const dateien = window.LernappStimmeDateien;
+  // dateien: welches Verzeichnis – das deutsche (lesen-, app-, bau-stimme.js)
+  // oder das englische der Englischecke (englisch-stimme.js). Getrennt, weil
+  // derselbe Text in beiden Sprachen anders klingt («Super!»).
+  function aufnahmeVon(text, dateien = window.LernappStimmeDateien) {
     const schluessel = sprechText(text);
     if (!dateien || !schluessel || !Object.prototype.hasOwnProperty.call(dateien, schluessel)) return null;
     const datei = dateien[schluessel];
@@ -259,11 +261,11 @@
   }
   // Wie ein Text gesprochen wird: [{ text, datei }], datei null heisst
   // Gerätestimme. Ohne Aufnahmen ist es ein einziges Stück ohne Datei.
-  function aufnahmeStuecke(text) {
+  function aufnahmeStuecke(text, dateien = window.LernappStimmeDateien) {
     const ganz = sprechText(text);
     if (!ganz) return [];
-    const datei = aufnahmeVon(ganz);
-    if (datei || !window.LernappStimmeDateien) return [{ text: ganz, datei }];
+    const datei = aufnahmeVon(ganz, dateien);
+    if (datei || !dateien) return [{ text: ganz, datei }];
     const saetze = saetzeVon(ganz);
     const stuecke = [];
     let i = 0;
@@ -272,7 +274,7 @@
       let bis = saetze.length;
       let treffer = null;
       for (; bis > i; bis -= 1) {
-        treffer = aufnahmeVon(saetze.slice(i, bis).join(" "));
+        treffer = aufnahmeVon(saetze.slice(i, bis).join(" "), dateien);
         if (treffer) break;
       }
       if (treffer) {
@@ -442,6 +444,9 @@
   // Gibt es den Text als Aufnahme (lesen-stimme.js), spielt sie.
   function speak(text, options = {}) {
     if (!text || !ttsEnabled()) { options.onEnd?.(); return; }
+    // Englisch (die Englischecke): eigene Aufnahmen, sonst eine
+    // amerikanische Gerätestimme.
+    if (options.sprache === "en") { sprichEnglisch(text, options); return; }
     const stuecke = aufnahmeStuecke(text);
     if (!stuecke.some((stueck) => stueck.datei)) { sprichMitGeraet(text, options); return; }
     stopSpeaking();
@@ -454,6 +459,41 @@
         const frist = window.setTimeout(() => fertig(false), 1500 + teil.length * 140);
         const ende = () => { window.clearTimeout(frist); fertig(true); };
         sprichMitGeraet(teil, { ...options, queue: true, onStart: null, onEnd: ende });
+      }),
+    }).then(() => options.onEnd?.());
+  }
+  // Englisch: die Aufnahmen aus englisch-stimme.js (window.LernappEnglischDateien),
+  // was fehlt, mit einer englischen Stimme des Geräts – lieber amerikanisch.
+  function englischeStimme() {
+    if (!ttsSupported()) return null;
+    let alle = [];
+    try { alle = window.speechSynthesis.getVoices() || []; } catch { alle = []; }
+    const englisch = alle.filter((v) => /^en([-_]|$)/i.test(v.lang || ""));
+    return englisch.find((v) => /^en[-_]US/i.test(v.lang || "") && /natural|enhanced|premium|google/i.test(v.name || ""))
+      || englisch.find((v) => /^en[-_]US/i.test(v.lang || "")) || englisch[0] || null;
+  }
+  function sprichEnglisch(text, options = {}) {
+    const stuecke = aufnahmeStuecke(text, window.LernappEnglischDateien || {});
+    const geraet = (teil, opt = {}) => {
+      if (!ttsSupported()) { opt.onEnd?.(); return; }
+      if (!opt.queue) stopSpeaking();
+      try {
+        const utterance = new window.SpeechSynthesisUtterance(String(teil));
+        const voice = englischeStimme();
+        utterance.lang = voice?.lang || "en-US";
+        utterance.rate = 0.9;
+        if (voice) utterance.voice = voice;
+        if (opt.onEnd) { utterance.addEventListener("end", () => opt.onEnd()); utterance.addEventListener("error", () => opt.onEnd()); }
+        window.speechSynthesis.speak(utterance);
+      } catch { opt.onEnd?.(); }
+    };
+    if (!stuecke.some((stueck) => stueck.datei)) { geraet(text, options); return; }
+    stopSpeaking();
+    aufnahmeFolge(stuecke, {
+      onStart: options.onStart,
+      geraet: (teil) => new Promise((fertig) => {
+        const frist = window.setTimeout(() => fertig(false), 1500 + teil.length * 140);
+        geraet(teil, { queue: true, onEnd: () => { window.clearTimeout(frist); fertig(true); } });
       }),
     }).then(() => options.onEnd?.());
   }

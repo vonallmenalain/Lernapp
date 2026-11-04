@@ -194,6 +194,57 @@
     window.setTimeout(() => reihe.querySelector("button")?.focus?.({ preventScroll: true }), 30);
   }
 
+  // Die Tür: in den Lesewagen oder in den Englischwagen. Zwei Bilder der
+  // Wagen, wie sie im Lernzug stehen.
+  function zeigeTueren(host) {
+    host.querySelector(".rechen-wahl")?.remove();
+    const z = window.LernappLernzugArt;
+    const huelle = document.createElement("div");
+    huelle.className = "rechen-wahl rechen-tueren";
+    huelle.setAttribute("role", "dialog");
+    huelle.setAttribute("aria-label", "Wohin?");
+    const karte = document.createElement("div");
+    karte.className = "rechen-wahl-karte";
+    const kopf = document.createElement("div");
+    kopf.className = "rechen-wahl-kopf";
+    const titel = document.createElement("p");
+    titel.className = "rechen-wahl-titel";
+    titel.textContent = "Wohin?";
+    const zuKnopf = document.createElement("button");
+    zuKnopf.type = "button";
+    zuKnopf.className = "rechen-wahl-zu";
+    zuKnopf.setAttribute("aria-label", "Schliessen");
+    zuKnopf.textContent = "✕";
+    kopf.append(titel, zuKnopf);
+    const reihe = document.createElement("div");
+    reihe.className = "rechen-wahl-spiele";
+    const schliessen = () => { huelle.remove(); kids()?.setHelp?.(HILFE); document.removeEventListener("keydown", taste); };
+    const taste = (e) => { if (e.key === "Escape") schliessen(); };
+    [["englisch", "Englischwagen", offen.onEnglisch], ["lesen", "Lesewagen", offen.onLesen]].forEach(([id, name, los]) => {
+      const knopf = document.createElement("button");
+      knopf.type = "button";
+      knopf.className = "rechen-wahl-spiel";
+      knopf.dataset.tuer = id;
+      knopf.setAttribute("aria-label", `In den ${name}`);
+      const bild = document.createElement("span");
+      bild.className = "rechen-wahl-bild";
+      if (z) bild.append(z.wagenSvg(z.buildLernwagen(id, 15, id === "lesen" ? { glieder: 3 } : {}), z.WAGEN_W));
+      const wort = document.createElement("span");
+      wort.className = "rechen-wahl-name";
+      wort.textContent = name;
+      knopf.append(bild, wort);
+      knopf.addEventListener("click", () => { schliessen(); los?.(); });
+      reihe.append(knopf);
+    });
+    zuKnopf.addEventListener("click", schliessen);
+    huelle.addEventListener("click", (e) => { if (e.target === huelle) schliessen(); });
+    document.addEventListener("keydown", taste);
+    karte.append(kopf, reihe);
+    huelle.append(karte);
+    host.append(huelle);
+    kids()?.setHelp?.("Wohin? In den Englischwagen oder in den Lesewagen.");
+  }
+
   // Die Taufe: Namen zum Antippen (ein Kind tippt, liest aber noch nicht
   // jedes Wort – die Stimme sagt den Namen), ein Würfel für einen
   // zufälligen, und für Erwachsene ein Feld für einen eigenen.
@@ -489,9 +540,9 @@
    *   onPlay   (seite) => …, öffnet ein Spiel (train-home.js, enterGame)
    *   onLesen  () => …, geht durch die Tür in den Lesewagen
    */
-  function mount({ host, onPlay, onLesen }) {
+  function mount({ host, onPlay, onLesen, onEnglisch = null }) {
     if (!art() || !stand() || !host) return;
-    offen = { host, onPlay, onLesen, zustand: "", laeuft: false };
+    offen = { host, onPlay, onLesen, onEnglisch, zustand: "", laeuft: false };
     zeichne();
   }
 
@@ -536,7 +587,13 @@
           onPlay?.(m?.page || "kuppelplus.html");
           return;
         }
-        if (ort === "tuer") { onLesen?.(); return; }
+        if (ort === "tuer") {
+          // Der Rechenwagen hängt im Lernzug zwischen Lese- und Englischwagen:
+          // Die Tür fragt, wohin.
+          if (offen?.onEnglisch && onLesen) zeigeTueren(host);
+          else onLesen?.();
+          return;
+        }
         if (ort === "name") { zeigeTaufe(host); return; }
         if (ort === "schatz") {
           kids()?.speak?.(schatzSatz(s.taler()));
