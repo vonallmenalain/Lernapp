@@ -30,6 +30,7 @@
  * Die Eltern stellen ein (lernapp.englisch.eltern, wie die Rechenecke):
  *   schrift  "auto" (die englischen Wörter stehen da, wenn das Kind auf der
  *            Stufe «schwer» ist), "aus" oder "an"
+ *   tempo    "normal" oder "langsam" (die Aufnahmen spielen mit 0.85)
  */
 (() => {
   "use strict";
@@ -227,7 +228,7 @@
   // ---------------------------------------------------------------------------
   function elternSauber(roh) {
     const e = roh && typeof roh === "object" ? roh : {};
-    return { schrift: SCHRIFTEN.includes(e.schrift) ? e.schrift : "auto", at: zahl(e.at) };
+    return { schrift: SCHRIFTEN.includes(e.schrift) ? e.schrift : "auto", tempo: e.tempo === "langsam" ? "langsam" : "normal", at: zahl(e.at) };
   }
   function elternLokal() {
     try { return elternSauber(JSON.parse(localStorage.getItem(ELTERN_KEY) || "null")); } catch { return elternSauber(null); }

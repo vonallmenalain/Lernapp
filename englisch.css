@@ -43,10 +43,12 @@ body[data-page="train"] .train-stage[data-view="englisch"] ~ .help-voice {
 /* Geschichte und Wörterbuch reichen bis an den Rand: oben Platz für die
    Knöpfe der Bühne (Zurück, Hilfe, Einstellungen), damit nichts verdeckt ist. */
 .en-buehne:is([data-ansicht="geschichte"], [data-ansicht="woerterbuch"], [data-ansicht="memory"], [data-ansicht="janein"], [data-ansicht="roccosays"],
-  [data-ansicht="farbenzug"], [data-ansicht="zaehlen"], [data-ansicht="fuettern"], [data-ansicht="verse"], [data-ansicht="buch"]) { padding-top: calc(var(--safe-top, 0px) + 70px); }
+  [data-ansicht="farbenzug"], [data-ansicht="zaehlen"], [data-ansicht="fuettern"], [data-ansicht="verse"], [data-ansicht="buch"],
+  [data-ansicht="dressup"], [data-ansicht="geschichtenzug"], [data-ansicht="diner"], [data-ansicht="telefon"], [data-ansicht="echo"], [data-ansicht="post"]) { padding-top: calc(var(--safe-top, 0px) + 70px); }
 @media (max-height: 520px) {
   .en-buehne:is([data-ansicht="geschichte"], [data-ansicht="woerterbuch"], [data-ansicht="memory"], [data-ansicht="janein"], [data-ansicht="roccosays"],
-    [data-ansicht="farbenzug"], [data-ansicht="zaehlen"], [data-ansicht="fuettern"], [data-ansicht="verse"], [data-ansicht="buch"]) { padding-top: calc(var(--safe-top, 0px) + 54px); }
+    [data-ansicht="farbenzug"], [data-ansicht="zaehlen"], [data-ansicht="fuettern"], [data-ansicht="verse"], [data-ansicht="buch"],
+  [data-ansicht="dressup"], [data-ansicht="geschichtenzug"], [data-ansicht="diner"], [data-ansicht="telefon"], [data-ansicht="echo"], [data-ansicht="post"]) { padding-top: calc(var(--safe-top, 0px) + 54px); }
 }
 .en-bild {
   width: 100%;
@@ -295,7 +297,18 @@ body[data-page="train"] .train-stage[data-view="englisch"] ~ .help-voice {
 .en-zug-faehrt { animation: en-zug-faehrt 2.4s ease-in 0.6s forwards; }
 @keyframes en-zug-faehrt { to { transform: translateX(1100px); } }
 
+/* Etappe 3 */
+.en-kleid, .en-bildwagen, .en-antwort, .en-mikrofon, .en-postwahl[data-karte], .en-postkarte, .en-fehlt-option, .en-gast, .en-echo-bild, .en-rocco-gross { cursor: pointer; outline: none; -webkit-tap-highlight-color: transparent; }
+.en-kleid:focus-visible, .en-bildwagen:focus-visible, .en-antwort:focus-visible, .en-mikrofon:focus-visible, .en-fehlt-option:focus-visible { filter: drop-shadow(0 0 8px rgba(108, 92, 231, 0.75)); }
+.en-antwort:active, .en-mikrofon:active, .en-fehlt-option:active { transform: scale(0.96); transform-box: fill-box; transform-origin: 50% 50%; }
+.en-vorhang { transition: opacity 0.35s ease; }
+.en-mikrofon.ist-aufnahme { animation: en-aufnahme 0.8s ease-in-out infinite; transform-box: fill-box; transform-origin: 50% 50%; }
+@keyframes en-aufnahme { 50% { transform: scale(1.08); filter: drop-shadow(0 0 14px rgba(232, 84, 63, 0.8)); } }
+.en-klingel { animation: en-klingel 1.2s ease-in-out 3; }
+@keyframes en-klingel { 50% { opacity: 0.2; } }
+
 @media (prefers-reduced-motion: reduce) {
+  .en-mikrofon.ist-aufnahme, .en-klingel { animation: none; }
   .en-steigt, .en-zu-rocco, .en-zug-faehrt { animation: none; opacity: 0.3; }
   .englischecke, .en-wahl, .en-wackel, .en-huepf, .en-schuettel, .en-funkel, .en-blitz, .en-zimmer-svg.is-huepfen .en-ort, .en-ausbau.is-neu, .en-birne, .en-de-knopf.en-gedrueckt { animation: none; }
 }

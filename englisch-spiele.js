@@ -96,9 +96,11 @@
       farbenzug: () => `<rect width="200" height="112" fill="#fdf1e2"/><g transform="translate(8 30) scale(0.42)">${roccoLok(0, 150)}</g>${farbWagen("#e63946", 80, 88, 50)}${farbWagen("#3fbf74", 140, 88, 50)}`,
       zaehlen: () => `<rect width="200" height="112" fill="#e9f4ff"/>${[38, 80, 122].map((x) => dingBild("duck", x, 50, 20)).join("")}<circle cx="168" cy="72" r="20" fill="#6c5ce7"/><text x="168" y="81" text-anchor="middle" font-family="${SCHRIFT}" font-weight="800" font-size="24" fill="#ffffff">3</text>`,
       fuettern: () => `<rect width="200" height="112" fill="#fff4dc"/><g transform="translate(62 104) scale(0.62)">${a.rocco("steh", "freude")}</g>${dingBild("banana", 140, 52, 28)}`,
-    }[id];
+    }[id] || SPIEL_BILDER[id];
     return bild ? `<svg viewBox="0 0 200 112" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">${bild()}</svg>` : "";
   }
+  // Weitere Kachelbilder legen spätere Spiele hier dazu.
+  const SPIEL_BILDER = {};
   function versBild(id) {
     const a = A();
     const bild = {
@@ -678,6 +680,11 @@
     k.sage([I.SAETZE.buch, b.titel], { danach: () => k.sage(b.seiten[0], { danach: () => { runde.gehoert.add(0); zaehle(); } }) });
   }
 
-  window.LernappEnglischSpiele = { memory, janein, roccosays, farbenzug, zaehlen, fuettern, verse, buch, spielBild, versBild, ballon, dingBild };
+  window.LernappEnglischSpiele = {
+    memory, janein, roccosays, farbenzug, zaehlen, fuettern, verse, buch, spielBild, versBild, ballon, dingBild,
+    // Für weitere Spiele (englisch-spiele-3.js …)
+    SPIEL_BILDER,
+    hilfen: { mische, zufall, dingBild, ballon, farbWagen, roccoLok, daumen, lautsprecher, flaeche, punkte, lobPaar, svgVon, nochAktiv, SCHRIFT, DUNKEL },
+  };
   farbenUndZahlenZeichnen();
 })();

@@ -557,7 +557,7 @@ function geschichtsTitelbild(geschichte) {
 //   karte      { titel, bild } – was Rocco vorschlägt
 //   aufnaeher  [{ welt, anteil, voll, gold }]
 const ESC = (t) => String(t).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
-function zimmer({ ausbau = 0, neuAb = Infinity, karte = null, aufnaeher: flicken = [], jukebox = false } = {}) {
+function zimmer({ ausbau = 0, neuAb = Infinity, karte = null, aufnaeher: flicken = [], jukebox = false, telefon = false, post = null } = {}) {
   const ding = (i, id, inhalt) => (ausbau > i ? `<g class="en-ausbau${i >= neuAb ? " is-neu" : ""}" data-ausbau="${id}" tabindex="0" role="button">${inhalt}</g>` : "");
   const ort = (id, inhalt) => `<g class="en-ort en-ort-${id}" data-ort="${id}" tabindex="0" role="button">${inhalt}</g>`;
   let s = "";
@@ -631,6 +631,17 @@ function zimmer({ ausbau = 0, neuAb = Infinity, karte = null, aufnaeher: flicken
     brett += aufnaeher(f.id || f.welt, x, y, zweiSpalten ? 19 : 20, f);
   });
   s += ort("aufnaeher", brett);
+  // Das Telefon an der Wand und der Briefkasten (Etappe 3).
+  if (telefon) {
+    s += ort("telefon", `<rect x="454" y="168" width="44" height="74" rx="10" fill="#e8543f"/><rect x="460" y="176" width="32" height="20" rx="4" fill="#fff6e0"/>
+      ${[0, 1, 2].map((r) => [0, 1, 2].map((c) => `<circle cx="${466 + c * 10}" cy="${206 + r * 10}" r="3.2" fill="#ffffff"/>`).join("")).join("")}
+      <path d="M450 170 q-14 20 0 60" stroke="#b23a34" stroke-width="7" fill="none" stroke-linecap="round"/><rect x="438" y="164" width="16" height="72" rx="8" fill="#c8423b"/>
+      <path d="M446 236 q-6 30 20 38 q20 6 26 -8" stroke="#3a3f4a" stroke-width="2.5" fill="none"/>`);
+  }
+  if (post && window.LernappEnglischArt?.BRIEFKASTEN) {
+    // Rechts zwischen Kaktus und Popcorn – nicht vor der blauen Kiste.
+    s += ort("briefkasten", `<g transform="translate(900 466) scale(0.6)">${window.LernappEnglischArt.BRIEFKASTEN(Boolean(post.neu))}</g>`);
+  }
   // Die Jukebox (Etappe 2): Verse zum Mitsprechen.
   if (jukebox) {
     s += ort("jukebox", `<rect x="672" y="330" width="68" height="140" rx="30" fill="#c8423b"/><rect x="678" y="338" width="56" height="54" rx="26" fill="#ffd166"/>

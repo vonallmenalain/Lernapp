@@ -151,6 +151,67 @@
         w("sunglasses", "Sunglasses.", "Cool sunglasses!", "Where are the sunglasses?", "Eine Sonnenbrille.", "Coole Sonnenbrille!", "Wo ist die Sonnenbrille?"),
       ],
     },
+    // Etappe 3
+    {
+      id: "city",
+      titel: ["The City", "Die Stadt"],
+      intro: ["Let's go to the city! Tap a picture.", "Wir gehen in die Stadt! Tippe auf ein Bild."],
+      woerter: [
+        w("car", "A car.", "The car is fast.", "Where is the car?", "Ein Auto.", "Das Auto ist schnell.", "Wo ist das Auto?"),
+        w("bus", "A bus.", "We go by bus.", "Where is the bus?", "Ein Bus.", "Wir fahren mit dem Bus.", "Wo ist der Bus?"),
+        w("schoolbus", "A school bus.", "The school bus is yellow.", "Where is the school bus?", "Ein Schulbus.", "Der Schulbus ist gelb.", "Wo ist der Schulbus?"),
+        w("train", "A train.", "Choo choo! Here comes the train.", "Where is the train?", "Ein Zug.", "Tschu-tschu! Da kommt der Zug.", "Wo ist der Zug?"),
+        w("truck", "A truck.", "The truck is big.", "Where is the truck?", "Ein Lastwagen.", "Der Lastwagen ist gross.", "Wo ist der Lastwagen?"),
+        w("plane", "A plane.", "The plane is in the sky.", "Where is the plane?", "Ein Flugzeug.", "Das Flugzeug ist am Himmel.", "Wo ist das Flugzeug?"),
+        w("firetruck", "A fire truck.", "The fire truck is red.", "Where is the fire truck?", "Ein Feuerwehrauto.", "Das Feuerwehrauto ist rot.", "Wo ist das Feuerwehrauto?"),
+        w("taxi", "A taxi.", "Taxi! Stop, please!", "Where is the taxi?", "Ein Taxi.", "Taxi! Halt, bitte!", "Wo ist das Taxi?"),
+        w("trafficlight", "A traffic light.", "Green means go!", "Where is the traffic light?", "Eine Ampel.", "Grün heisst: los!", "Wo ist die Ampel?"),
+        w("helicopter", "A helicopter.", "The helicopter can fly.", "Where is the helicopter?", "Ein Helikopter.", "Der Helikopter kann fliegen.", "Wo ist der Helikopter?"),
+        w("policecar", "A police car.", "Wee-woo! Here comes the police car.", "Where is the police car?", "Ein Polizeiauto.", "Tatü-tata! Da kommt das Polizeiauto.", "Wo ist das Polizeiauto?"),
+        w("ambulance", "An ambulance.", "The ambulance helps.", "Where is the ambulance?", "Ein Krankenwagen.", "Der Krankenwagen hilft.", "Wo ist der Krankenwagen?"),
+        w("motorbike", "A motorbike.", "Vroom! The motorbike is loud.", "Where is the motorbike?", "Ein Motorrad.", "Brumm! Das Motorrad ist laut.", "Wo ist das Motorrad?"),
+      ],
+    },
+    {
+      id: "school",
+      titel: ["School", "Die Schule"],
+      intro: ["Let's go to school! Tap a picture.", "Wir gehen in die Schule! Tippe auf ein Bild."],
+      woerter: [
+        w("pencil", "A pencil.", "I write with a pencil.", "Where is the pencil?", "Ein Bleistift.", "Ich schreibe mit einem Bleistift.", "Wo ist der Bleistift?"),
+        w("crayon", "A crayon.", "I draw with a crayon.", "Where is the crayon?", "Ein Farbstift.", "Ich male mit einem Farbstift.", "Wo ist der Farbstift?"),
+        w("book", "A book.", "Open your book, please.", "Where is the book?", "Ein Buch.", "Mach bitte dein Buch auf.", "Wo ist das Buch?"),
+        w("backpack", "A backpack.", "My backpack is heavy.", "Where is the backpack?", "Ein Rucksack.", "Mein Rucksack ist schwer.", "Wo ist der Rucksack?"),
+        w("scissors", "Scissors.", "Cut the paper with the scissors.", "Where are the scissors?", "Eine Schere.", "Schneide das Papier mit der Schere.", "Wo ist die Schere?"),
+        w("glue", "Glue.", "Glue is sticky.", "Where is the glue?", "Leim.", "Leim ist klebrig.", "Wo ist der Leim?"),
+        w("paper", "Paper.", "A piece of paper.", "Where is the paper?", "Papier.", "Ein Blatt Papier.", "Wo ist das Papier?"),
+        w("teacher", "A teacher.", "Good morning, teacher!", "Where is the teacher?", "Eine Lehrerin.", "Guten Morgen, Frau Lehrerin!", "Wo ist die Lehrerin?"),
+        w("board", "A board.", "Look at the board, please.", "Where is the board?", "Eine Wandtafel.", "Schau bitte an die Wandtafel.", "Wo ist die Wandtafel?"),
+        w("desk", "A desk.", "Sit down at your desk, please.", "Where is the desk?", "Ein Pult.", "Setz dich bitte an dein Pult.", "Wo ist das Pult?"),
+        w("ruler", "A ruler.", "The ruler is long.", "Where is the ruler?", "Ein Lineal.", "Das Lineal ist lang.", "Wo ist das Lineal?"),
+        w("eraser", "An eraser.", "Oops! I need an eraser.", "Where is the eraser?", "Ein Radiergummi.", "Hoppla! Ich brauche einen Radiergummi.", "Wo ist der Radiergummi?"),
+        w("paintbrush", "A paintbrush.", "I paint with a paintbrush.", "Where is the paintbrush?", "Ein Pinsel.", "Ich male mit einem Pinsel.", "Wo ist der Pinsel?"),
+      ],
+    },
+    {
+      id: "party",
+      titel: ["Party Time", "Fest"],
+      intro: ["It's party time! Tap a picture.", "Jetzt wird gefeiert! Tippe auf ein Bild."],
+      woerter: [
+        w("candle", "A candle.", "Blow out the candle!", "Where is the candle?", "Eine Kerze.", "Blas die Kerze aus!", "Wo ist die Kerze?"),
+        w("present", "A present.", "A present for you!", "Where is the present?", "Ein Geschenk.", "Ein Geschenk für dich!", "Wo ist das Geschenk?"),
+        w("balloon", "A balloon.", "Pop! Oh no, the balloon!", "Where is the balloon?", "Ein Ballon.", "Peng! Oh nein, der Ballon!", "Wo ist der Ballon?"),
+        w("partyhat", "A party hat.", "Put on your party hat!", "Where is the party hat?", "Ein Partyhut.", "Setz deinen Partyhut auf!", "Wo ist der Partyhut?"),
+        w("cupcake", "A cupcake.", "The cupcake is sweet.", "Where is the cupcake?", "Ein Muffin.", "Der Muffin ist süss.", "Wo ist der Muffin?"),
+        w("pizza", "Pizza.", "I like pizza!", "Where is the pizza?", "Pizza.", "Ich mag Pizza!", "Wo ist die Pizza?"),
+        w("lemonade", "Lemonade.", "The lemonade is cold.", "Where is the lemonade?", "Limonade.", "Die Limonade ist kalt.", "Wo ist die Limonade?"),
+        w("popcorn", "Popcorn.", "Popcorn! Pop, pop, pop!", "Where is the popcorn?", "Popcorn.", "Popcorn! Plopp, plopp, plopp!", "Wo ist das Popcorn?"),
+        w("pinata", "A piñata.", "Look at the piñata!", "Where is the piñata?", "Eine Piñata.", "Schau die Piñata an!", "Wo ist die Piñata?"),
+        w("confetti", "Confetti.", "Confetti everywhere!", "Where is the confetti?", "Konfetti.", "Überall Konfetti!", "Wo ist das Konfetti?"),
+        w("card", "A card.", "A birthday card for you.", "Where is the card?", "Eine Karte.", "Eine Geburtstagskarte für dich.", "Wo ist die Karte?"),
+        w("clown", "A clown.", "The clown is funny.", "Where is the clown?", "Ein Clown.", "Der Clown ist lustig.", "Wo ist der Clown?"),
+        w("lollipop", "A lollipop.", "The lollipop is sweet.", "Where is the lollipop?", "Ein Lolli.", "Der Lolli ist süss.", "Wo ist der Lolli?"),
+      ],
+    },
   ];
 
   // Wörter, die nur in den Geschichten vorkommen (das Kind kann sie im Bild
@@ -158,6 +219,10 @@
   const EXTRA_WOERTER = [
     w("raccoon", "A raccoon.", "Rocco is a raccoon.", "Where is the raccoon?", "Ein Waschbär.", "Rocco ist ein Waschbär.", "Wo ist der Waschbär?"),
     w("box", "A box.", "The box is open.", "Where is the box?", "Eine Kiste.", "Die Kiste ist offen.", "Wo ist die Kiste?"),
+    // Etappe 3: Roccos Kleider («Dress up»)
+    w("scarf", "A scarf.", "The scarf is warm.", "Where is the scarf?", "Ein Schal.", "Der Schal ist warm.", "Wo ist der Schal?"),
+    w("boots", "Boots.", "Big boots!", "Where are the boots?", "Stiefel.", "Grosse Stiefel!", "Wo sind die Stiefel?"),
+    w("bowtie", "A bow tie.", "A bow tie for the party!", "Where is the bow tie?", "Eine Fliege.", "Eine Fliege fürs Fest!", "Wo ist die Fliege?"),
   ];
 
   // bilder: [Englisch, Deutsch, Zeichnung]; woerter: was man darin antippen
@@ -230,6 +295,40 @@
         { en: "The sandcastle is gone. Rocco and the crab build a new one.", de: "Die Sandburg ist weg. Rocco und die Krabbe bauen eine neue.", woerter: ["sandcastle", "crab"] },
       ],
     },
+    // Etappe 3
+    {
+      id: "schoolbus",
+      welt: "city",
+      titel: ["The yellow school bus.", "Der gelbe Schulbus."],
+      bilder: [
+        { en: "Rocco waits for the school bus.", de: "Rocco wartet auf den Schulbus.", woerter: ["raccoon"] },
+        { en: "Here comes the bus! It is yellow.", de: "Da kommt der Bus! Er ist gelb.", woerter: ["schoolbus"] },
+        { en: "Stop! The traffic light is red.", de: "Halt! Die Ampel ist rot.", woerter: ["trafficlight", "schoolbus"] },
+        { en: "Go! The light is green. Bye-bye!", de: "Los! Die Ampel ist grün. Tschüss!", woerter: ["trafficlight", "schoolbus"] },
+      ],
+    },
+    {
+      id: "school",
+      welt: "school",
+      titel: ["Rocco goes to school.", "Rocco geht in die Schule."],
+      bilder: [
+        { en: "Rocco has a new backpack.", de: "Rocco hat einen neuen Rucksack.", woerter: ["raccoon", "backpack"] },
+        { en: "Hello, teacher! Hello, Rocco!", de: "Hallo, Frau Lehrerin! Hallo, Rocco!", woerter: ["teacher", "raccoon"] },
+        { en: "Rocco draws with a crayon.", de: "Rocco malt mit einem Farbstift.", woerter: ["crayon", "paper"] },
+        { en: "Look! A picture of Rocco! Great job!", de: "Schau! Ein Bild von Rocco! Super gemacht!", woerter: ["paper", "teacher"] },
+      ],
+    },
+    {
+      id: "birthday",
+      welt: "party",
+      titel: ["Happy birthday, Rocco!", "Alles Gute zum Geburtstag, Rocco!"],
+      bilder: [
+        { en: "It is Rocco's birthday. He has a party hat.", de: "Rocco hat Geburtstag. Er hat einen Partyhut.", woerter: ["raccoon", "partyhat"] },
+        { en: "Here is a present! Thank you!", de: "Hier ist ein Geschenk! Danke!", woerter: ["present"] },
+        { en: "A cake with five candles.", de: "Ein Kuchen mit fünf Kerzen.", woerter: ["cake", "candle"] },
+        { en: "Make a wish! Happy birthday, Rocco!", de: "Wünsch dir etwas! Alles Gute zum Geburtstag, Rocco!", woerter: ["raccoon", "balloon", "confetti"] },
+      ],
+    },
   ];
 
   // Was Rocco sonst sagt: [Englisch, Deutsch].
@@ -279,6 +378,25 @@
     neinDanke: ["No, thank you!", "Nein, danke!"],
     satt: ["Now Rocco is full. Thank you!", "Jetzt ist Rocco satt. Danke!"],
     geschafft: ["Great job! You did it!", "Super! Du hast es geschafft!"],
+    // Etappe 3
+    schauGut: ["Look at the picture! Remember everything.", "Schau dir das Bild gut an! Merk dir alles."],
+    augenZu: ["Close your eyes!", "Augen zu!"],
+    wasFehlt: ["What's missing?", "Was fehlt?"],
+    anziehen: ["Let's dress up Rocco!", "Wir ziehen Rocco an!"],
+    schick: ["Rocco looks great! Thank you!", "Rocco sieht toll aus! Danke!"],
+    ordnen: ["Put the story in order! What comes first?", "Bring die Geschichte in die richtige Reihenfolge! Was kommt zuerst?"],
+    wasDann: ["What comes next?", "Was kommt als Nächstes?"],
+    diner: ["Welcome to Rocco's diner! Who is hungry?", "Willkommen in Roccos Diner! Wer hat Hunger?"],
+    danke: ["Thank you!", "Danke!"],
+    gernGeschehen: ["You're welcome!", "Gern geschehen!"],
+    dinerZu: ["The diner is closed. See you tomorrow!", "Das Diner ist zu. Bis morgen!"],
+    echo: ["Listen and say it! Then tap the microphone.", "Hör zu und sag es nach! Dann tippe auf das Mikrofon."],
+    echoHoer: ["Listen to you!", "Hör dich an!"],
+    mikrofonAus: ["The microphone is off. Just say it out loud!", "Das Mikrofon ist aus. Sag es einfach laut!"],
+    post: ["Look! A postcard from cousin Ruby!", "Schau! Eine Postkarte von Cousine Ruby!"],
+    keinePost: ["No new mail today. Play a little, and Ruby writes again!", "Heute keine neue Post. Spiel ein bisschen, dann schreibt Ruby wieder!"],
+    telefonWahl: ["Ring, ring! Do you want to talk to Rocco?", "Ring, ring! Möchtest du mit Rocco reden?"],
+    jetztDu: ["Now you say it!", "Jetzt sag du es!"],
   };
 
   const LOB = [
@@ -395,6 +513,68 @@
     { id: "farbenzug", titel: ["Color train", "Farben-Zug"] },
     { id: "zaehlen", titel: ["Count with Rocco", "Zählen mit Rocco"] },
     { id: "fuettern", titel: ["Feed Rocco", "Rocco füttern"] },
+    // Etappe 3
+    { id: "whatsmissing", titel: ["What's missing?", "Was fehlt?"] },
+    { id: "dressup", titel: ["Dress up", "Anziehen"] },
+    { id: "geschichtenzug", titel: ["Story train", "Geschichtenzug"] },
+    { id: "diner", titel: ["Rocco's diner", "Roccos Diner"] },
+  ];
+  // Am Telefon im Wagen: anrufen oder Echo.
+  const TELEFON_SPIELE = [
+    { id: "telefon", titel: ["Call Rocco", "Rocco anrufen"] },
+    { id: "echo", titel: ["Echo", "Echo"] },
+  ];
+  // Dress up: was Rocco anzieht. [Wort, Auftrag Englisch, Auftrag Deutsch]
+  const KLEIDER = [
+    ["hat", "Put on the hat!", "Setz den Hut auf!"],
+    ["sunglasses", "Put on the sunglasses!", "Setz die Sonnenbrille auf!"],
+    ["partyhat", "Put on the party hat!", "Setz den Partyhut auf!"],
+    ["scarf", "Put on the scarf!", "Leg den Schal um!"],
+    ["boots", "Put on the boots!", "Zieh die Stiefel an!"],
+    ["bowtie", "Put on the bow tie!", "Binde die Fliege um!"],
+  ].map(([id, en, de]) => ({ id, anziehen: [en, de] }));
+  // Das Hello-Telefon: Rocco ruft an, das Kind antwortet mit Bildknöpfen.
+  // Jede Antwort sagt die Stimme vor (so klingt es auf Englisch), dann
+  // antwortet Rocco.
+  const a = (id, en, de, antwort = null) => ({ id, satz: [en, de], antwort });
+  const TELEFON = [
+    { frage: ["Ring, ring! Hello! This is Rocco. How are you?", "Ring, ring! Hallo! Hier ist Rocco. Wie geht es dir?"], art: "gefuehl", antworten: [
+      a("froh", "I'm fine, thank you!", "Mir geht es gut, danke!", ["Great! I'm fine too.", "Super! Mir geht es auch gut."]),
+      a("muede", "I'm tired.", "Ich bin müde.", ["Oh! Time for a nap!", "Oh! Zeit für ein Schläfchen!"]),
+      a("traurig", "I'm sad.", "Ich bin traurig.", ["Oh no! Here is a big hug!", "Oh nein! Hier ist eine grosse Umarmung!"]),
+    ] },
+    { frage: ["How old are you?", "Wie alt bist du?"], art: "zahl", antworten: [3, 4, 5, 6, 7, 8].map((n) => a(`n${n}`, `I'm ${["three", "four", "five", "six", "seven", "eight"][n - 3]}.`, `Ich bin ${["drei", "vier", "fünf", "sechs", "sieben", "acht"][n - 3]}.`, ["Wow! That's great!", "Wow! Das ist toll!"])) },
+    { frage: ["What's your favorite color?", "Was ist deine Lieblingsfarbe?"], art: "farbe", antworten: ["red", "blue", "yellow", "green", "pink", "purple"].map((f) => {
+      const de = { red: "Rot", blue: "Blau", yellow: "Gelb", green: "Grün", pink: "Rosa", purple: "Violett" }[f];
+      return a(f, `My favorite color is ${f}.`, `Meine Lieblingsfarbe ist ${de}.`, ["Me too! I like it too.", "Ich auch! Die mag ich auch."]);
+    }) },
+    { frage: ["What's your favorite animal?", "Was ist dein Lieblingstier?"], art: "tier", antworten: [
+      a("dog", "My favorite animal is the dog.", "Mein Lieblingstier ist der Hund.", ["Woof! I like dogs too.", "Wau! Hunde mag ich auch."]),
+      a("cat", "My favorite animal is the cat.", "Mein Lieblingstier ist die Katze.", ["Meow! I like cats too.", "Miau! Katzen mag ich auch."]),
+      a("lion", "My favorite animal is the lion.", "Mein Lieblingstier ist der Löwe.", ["Roar! I like lions too.", "Roar! Löwen mag ich auch."]),
+      a("elephant", "My favorite animal is the elephant.", "Mein Lieblingstier ist der Elefant.", ["Wow! I like elephants too.", "Wow! Elefanten mag ich auch."]),
+      a("penguin", "My favorite animal is the penguin.", "Mein Lieblingstier ist der Pinguin.", ["Cool! I like penguins too.", "Cool! Pinguine mag ich auch."]),
+      a("raccoon", "My favorite animal is the raccoon.", "Mein Lieblingstier ist der Waschbär.", ["Me? Thank you! I like you too!", "Ich? Danke! Ich mag dich auch!"]),
+    ] },
+    { frage: ["Thank you for calling! Goodbye!", "Danke für deinen Anruf! Tschüss!"], art: "tschuess", antworten: [
+      a("winken", "Goodbye, Rocco!", "Tschüss, Rocco!", ["Bye-bye! See you soon!", "Tschüss! Bis bald!"]),
+    ] },
+  ];
+  // Roccos Diner: Gäste bestellen. [Gast, was, Englisch, Deutsch]
+  const bitte = (en) => `${en.replace(/\.$/, "")}, please!`;
+  // Deutsch bestellt man im Akkusativ: «Einen Muffin, bitte!»
+  const akk = (de) => de.replace(/^Ein Muffin/, "Einen Muffin").replace(/ ein Muffin/, " einen Muffin");
+  const deBitte = (de) => `${akk(de.replace(/\.$/, ""))}, bitte!`;
+  const DINER_GAESTE = ["dog", "cat", "bear", "penguin", "monkey"];
+  const DINER_ESSEN = ["pancakes", "banana", "milk", "cookie", "juice", "icecream", "cupcake", "pizza", "lemonade", "popcorn"];
+  const DINER_PAARE = [["pancakes", "juice"], ["pizza", "lemonade"], ["cookie", "milk"], ["icecream", "cupcake"], ["banana", "milk"], ["popcorn", "lemonade"], ["pancakes", "milk"], ["pizza", "juice"]];
+  // Post aus Amerika: Postkarten von Cousine Ruby, eine neue alle paar Runden.
+  const POSTKARTEN = [
+    { id: "newyork", ab: 0, text: ["Hello from New York! The buildings are very tall. Love, Ruby.", "Hallo aus New York! Die Häuser sind sehr hoch. Liebe Grüsse, Ruby."] },
+    { id: "bridge", ab: 4, text: ["Hello from San Francisco! Look at the big red bridge. Love, Ruby.", "Hallo aus San Francisco! Schau die grosse rote Brücke an. Liebe Grüsse, Ruby."] },
+    { id: "canyon", ab: 10, text: ["Hello from the Grand Canyon! It is very big. Love, Ruby.", "Hallo aus dem Grand Canyon! Er ist sehr gross. Liebe Grüsse, Ruby."] },
+    { id: "florida", ab: 18, text: ["Hello from Florida! I see an alligator! Love, Ruby.", "Hallo aus Florida! Ich sehe einen Alligator! Liebe Grüsse, Ruby."] },
+    { id: "alaska", ab: 28, text: ["Hello from Alaska! It is very cold. Brrr! Love, Ruby.", "Hallo aus Alaska! Es ist sehr kalt, brrr! Liebe Grüsse, Ruby."] },
   ];
   // Die Jukebox: Sprechverse. bild: was zur Zeile gezeichnet wird.
   const z = (en, de, bild = []) => ({ en, de, bild });
@@ -492,6 +672,13 @@
     jukebox: "Das ist die Jukebox. Tippe auf einen Vers, und Rocco sagt ihn auf Englisch.",
     vers: "Tippe auf eine Zeile, und Rocco sagt sie. Der grüne Knopf sagt den ganzen Vers.",
     buch: "Dieses Buch kennst du aus dem Lesewagen. Rocco erzählt es auf Englisch. Tippe auf das Bild oder blättere mit den Pfeilen.",
+    whatsmissing: "Schau dir das Bild gut an. Dann verschwindet ein Ding. Tippe unten auf das, was fehlt.",
+    dressup: "Rocco sagt auf Englisch, was er anziehen möchte. Tippe darauf.",
+    geschichtenzug: "Die Bilder der Geschichte sind durcheinander. Tippe sie der Reihe nach an: Was kommt zuerst, was dann?",
+    diner: "Die Gäste bestellen auf Englisch. Tippe auf das, was sie möchten.",
+    telefon: "Rocco ruft an und fragt dich etwas auf Englisch. Tippe auf eine Antwort. Wer mag, sagt sie laut nach.",
+    echo: "Hör das Wort, tippe auf das Mikrofon und sag es nach. Danach hörst du dich selbst. Die Aufnahme bleibt auf diesem Gerät.",
+    post: "Roccos Cousine Ruby reist durch Amerika und schickt Postkarten. Tippe auf die Karte, und Rocco liest sie vor.",
   });
   // Alles, was gesprochen wird, als Paar [Englisch, Deutsch] mit seinem Ort –
   // für die Aufnahmen (scripts/stimme-englisch-texte.mjs) und die Prüfung.
@@ -521,15 +708,34 @@
     ZAHLEN.forEach((n) => dazu(n.en, n.de, `zahl ${n.n}`));
     ZAEHLDINGE.forEach((d) => { dazu(...wieViele(d), `zaehlen ${d.id}`); ZAHLEN.forEach((n) => dazu(...soViele(d, n.n), `zaehlen ${d.id}`)); });
     ESSEN.forEach((e) => dazu(e.will[0], e.will[1], `fuettern ${e.id}`));
-    SPIELE.forEach((sp) => dazu(sp.titel[0], sp.titel[1], `spiel ${sp.id}`));
+    [...SPIELE, ...TELEFON_SPIELE].forEach((sp) => dazu(sp.titel[0], sp.titel[1], `spiel ${sp.id}`));
     VERSE.forEach((v) => { dazu(v.titel[0], v.titel[1], `vers ${v.id}`); v.zeilen.forEach((zl) => dazu(zl.en, zl.de, `vers ${v.id}`)); });
     BUECHER.forEach((b) => { dazu(b.titel[0], b.titel[1], `buch ${b.id}`); b.seiten.forEach(([en, de]) => dazu(en, de, `buch ${b.id}`)); });
+    KLEIDER.forEach((k) => dazu(k.anziehen[0], k.anziehen[1], `dressup ${k.id}`));
+    TELEFON.forEach((t, i) => {
+      dazu(t.frage[0], t.frage[1], `telefon ${i + 1}`);
+      t.antworten.forEach((x) => { dazu(x.satz[0], x.satz[1], `telefon ${x.id}`); if (x.antwort) dazu(x.antwort[0], x.antwort[1], `telefon ${x.id}`); });
+    });
+    const wortVon = (id) => WELTEN.flatMap((x) => x.woerter).find((x) => x.id === id);
+    DINER_ESSEN.forEach((id) => { const x = wortVon(id); dazu(bitte(x.en), deBitte(x.de), `diner ${id}`); });
+    DINER_PAARE.forEach(([p, q]) => { const [en, de] = dinerPaar(p, q); dazu(en, de, `diner ${p}+${q}`); });
+    POSTKARTEN.forEach((k) => dazu(k.text[0], k.text[1], `post ${k.id}`));
     return liste;
+  }
+
+  // «Pancakes and juice, please!» – zwei Dinge einer Bestellung.
+  function dinerPaar(p, q) {
+    const alle = WELTEN.flatMap((x) => x.woerter);
+    const [x, y] = [p, q].map((id) => alle.find((z) => z.id === id));
+    const klein = (t) => (/^(A|An|The) /.test(t) ? t.charAt(0).toLowerCase() + t.slice(1) : t.charAt(0).toLowerCase() + t.slice(1));
+    const deKlein = (t) => (/^(Der|Die|Das|Ein|Eine) /.test(t) ? t.charAt(0).toLowerCase() + t.slice(1) : t);
+    return [`${x.en.replace(/\.$/, "")} and ${klein(y.en.replace(/\.$/, ""))}, please!`, akk(`${x.de.replace(/\.$/, "")} und ${deKlein(y.de.replace(/\.$/, ""))}, bitte!`)];
   }
 
   window.LernappEnglischInhalt = {
     WELTEN, EXTRA_WOERTER, GESCHICHTEN, SAETZE, LOB, EINRICHTUNG, HILFE,
     FARBEN, ZAHLEN, ZAEHLDINGE, ESSEN, SPIELE, VERSE, BUECHER,
     tippeBallon, wagenBitte, wieViele, soViele, istDas, paare, gross,
+    KLEIDER, TELEFON, TELEFON_SPIELE, DINER_GAESTE, DINER_ESSEN, DINER_PAARE, POSTKARTEN, bitte, deBitte, dinerPaar,
   };
 })();

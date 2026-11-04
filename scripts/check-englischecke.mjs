@@ -27,6 +27,11 @@
  *               sagt einen ganzen Vers; ein Buch aus dem Lesewagen zeigt
  *               seine gemalten Bilder, blättert und zählt; das Wörterbuch hat
  *               Reiter für Farben und Zahlen.
+ *   Etappe 3    What's missing? versteckt ein Ding und findet es wieder;
+ *               Dress up, Story train und das Diner spielen je eine Runde;
+ *               das Telefon führt ein ganzes Gespräch mit «Now you say it!»;
+ *               Echo geht auch ohne Mikrofon weiter; der Briefkasten zeigt
+ *               die Postkarten, die schon da sind.
  *
  * Aufruf:  node scripts/check-englischecke.mjs
  * Nötig:   Playwright. Der lokale Server wird selbst gestartet und beendet.
@@ -457,6 +462,108 @@ try {
     if (farbSticker < I.farben.length) fehlt(`${name}: der Reiter Colors zeigt nicht alle Farben (${farbSticker})`);
     const st = await stand(seite);
     if (!I.farben.some((f) => ["erkannt", "sicher"].includes(st.woerter[f.id]?.e?.length ? "erkannt" : ""))) fehlt(`${name}: Rocco says und Farben-Zug machen keine Farbe «erkannt»`);
+
+    // --- Etappe 3 ---------------------------------------------------------------
+    const I3 = await seite.evaluate(() => {
+      const x = window.LernappEnglischInhalt;
+      if (!x.KLEIDER) return null;
+      const w = (id) => x.WELTEN.flatMap((y) => y.woerter).concat(x.EXTRA_WOERTER).find((y) => y.id === id);
+      return {
+        kleider: x.KLEIDER,
+        geschichten: x.GESCHICHTEN.map((g) => ({ id: g.id, bilder: g.bilder.map((b) => b.en) })),
+        einzeln: x.DINER_ESSEN.map((id) => ({ id, satz: x.bitte(w(id).en) })),
+        paare: x.DINER_PAARE.map(([p, q]) => ({ ids: [p, q], satz: x.dinerPaar(p, q)[0] })),
+        woerter: x.WELTEN.flatMap((y) => y.woerter).map((y) => ({ id: y.id, en: y.en })),
+      };
+    });
+    if (I3) {
+      // What's missing?
+      await spielStart("whatsmissing");
+      for (let i = 0; i < 6; i += 1) {
+        await seite.waitForFunction(() => { const g = document.querySelector(".en-bild .en-fehlt-wahl"); return g && g.style.display !== "none"; }, null, { timeout: 8000 }).catch(() => {});
+        if ((await runden()).whatsmissing) break;
+        const weg = await seite.evaluate(() => document.querySelector('.en-bild [data-ding][style*="none"]')?.dataset.ding);
+        if (!weg) { fehlt(`${name}: What's missing? versteckt nichts`); break; }
+        if (i === 0) await deUeberall(seite, `${name}, What's missing?`);
+        await tippe(seite, `.en-bild [data-option="${weg}"]`);
+        await warte(900);
+      }
+      if ((await runden()).whatsmissing !== 1) fehlt(`${name}: What's missing? zählt keine Runde`);
+      // Dress up
+      await spielStart("dressup");
+      await deUeberall(seite, `${name}, Dress up`);
+      for (let i = 0; i < 8; i += 1) {
+        await warte(120);
+        if ((await runden()).dressup) break;
+        const auftrag = await letztesEn("^Put on the");
+        const kleid = I3.kleider.find((x) => x.anziehen[0] === auftrag);
+        if (!kleid) { fehlt(`${name}: Dress up sagt nicht «Put on the …!» (${auftrag})`); break; }
+        await tippe(seite, `.en-bild [data-kleid="${kleid.id}"]`);
+      }
+      if ((await runden()).dressup !== 1) fehlt(`${name}: Dress up zählt keine Runde`);
+      // Story train
+      await spielStart("geschichtenzug");
+      await deUeberall(seite, `${name}, Story train`);
+      const falschesBild = await seite.evaluate(() => [...document.querySelectorAll(".en-bild [data-bild]")].map((k) => Number(k.dataset.bild)).find((i) => i !== 0));
+      if (falschesBild !== undefined) {
+        await gesagt(seite);
+        await tippe(seite, `.en-bild [data-bild="${falschesBild}"]`);
+        const g = await gesagt(seite);
+        if (!g.some((x) => x.text === "What comes next?")) fehlt(`${name}: der Geschichtenzug sagt bei einem falschen Bild nicht «What comes next?»`);
+      }
+      for (let i = 0; i < 4; i += 1) { await tippe(seite, `.en-bild [data-bild="${i}"]`); await warte(120); }
+      if ((await runden()).geschichtenzug !== 1) fehlt(`${name}: der Geschichtenzug zählt keine Runde`);
+      // Diner
+      await spielStart("diner");
+      await deUeberall(seite, `${name}, Diner`);
+      for (let i = 0; i < 8; i += 1) {
+        await warte(150);
+        if ((await runden()).diner) break;
+        const satz = await letztesEn("please!$");
+        const bestellung = I3.paare.find((x) => x.satz === satz)?.ids || [I3.einzeln.find((x) => x.satz === satz)?.id].filter(Boolean);
+        if (!bestellung.length) { fehlt(`${name}: im Diner bestellt niemand (${satz})`); break; }
+        for (const id of bestellung) { await tippe(seite, `.en-bild [data-essen="${id}"]`); await warte(60); }
+      }
+      if ((await runden()).diner !== 1) fehlt(`${name}: das Diner zählt keine Runde`);
+      // Telefon
+      await insZimmer();
+      if (!(await seite.locator('.en-bild [data-ort="telefon"]').count())) fehlt(`${name}: im Zimmer hängt kein Telefon`);
+      await tippe(seite, '.en-bild [data-ort="telefon"]');
+      await tippe(seite, '.en-wahl-kachel[data-wahl="telefon"]');
+      await warte(150);
+      if ((await ansicht(seite)) !== "telefon") fehlt(`${name}: das Telefon klingelt nicht`);
+      await deUeberall(seite, `${name}, Telefon`);
+      for (let i = 0; i < 6; i += 1) {
+        await seite.waitForFunction(() => document.querySelector(".en-bild [data-antwort]"), null, { timeout: 5000 }).catch(() => {});
+        if ((await runden()).telefon) break;
+        await tippe(seite, ".en-bild [data-antwort]");
+        await warte(2300);
+      }
+      if ((await runden()).telefon !== 1) fehlt(`${name}: ein ganzes Telefongespräch zählt keine Runde`);
+      if (!(await seite.evaluate(() => window.__alles.some((x) => x.text === "Now you say it!")))) fehlt(`${name}: am Telefon sagt Rocco nicht «Now you say it!»`);
+      // Echo (im Test ohne Mikrofon)
+      await insZimmer();
+      await tippe(seite, '.en-bild [data-ort="telefon"]');
+      await tippe(seite, '.en-wahl-kachel[data-wahl="echo"]');
+      await warte(200);
+      if ((await ansicht(seite)) !== "echo") fehlt(`${name}: Echo startet nicht`);
+      await gesagt(seite);
+      await tippe(seite, ".en-bild [data-mikrofon]");
+      await warte(300);
+      const mikro = await gesagt(seite);
+      if (!mikro.length) fehlt(`${name}: das Mikrofon tut nichts`);
+      for (let i = 0; i < 5; i += 1) { await tippe(seite, ".en-bild [data-weiter]"); await warte(120); }
+      if ((await runden()).echo !== 1) fehlt(`${name}: Echo zählt keine Runde`);
+      // Post aus Amerika
+      await insZimmer();
+      if (!(await seite.locator('.en-bild [data-ort="briefkasten"]').count())) fehlt(`${name}: im Zimmer steht kein Briefkasten`);
+      await tippe(seite, '.en-bild [data-ort="briefkasten"]');
+      await warte(200);
+      if ((await ansicht(seite)) !== "post") fehlt(`${name}: der Briefkasten zeigt keine Post`);
+      const karten = await seite.locator(".en-bild [data-karte]").count();
+      if (karten < 2) fehlt(`${name}: nach vielen Runden ist nur ${karten} Postkarte da`);
+      await deUeberall(seite, `${name}, Post`);
+    }
     await kontext.close();
   }
 
@@ -489,4 +596,4 @@ if (befunde.length) {
   console.error(`Die Englischecke stimmt im Browser nicht (${befunde.length}):\n${befunde.map((b) => `  - ${b}`).join("\n")}`);
   process.exit(1);
 }
-console.log("Die Englischecke stimmt im Browser: Startbild, Zimmer, Entdecken, Hear and find, Geschichte, Wörterbuch, Türen, Knopf DE und Schrift; Memory, Yes or no?, Rocco says, Farben-Zug, Count with Rocco, Feed Rocco, Jukebox und ein Buch – am Laptop und auf dem Handy.");
+console.log("Die Englischecke stimmt im Browser: Startbild, Zimmer, Entdecken, Hear and find, Geschichte, Wörterbuch, Türen, Knopf DE und Schrift; Memory, Yes or no?, Rocco says, Farben-Zug, Count with Rocco, Feed Rocco, Jukebox und ein Buch; What's missing?, Dress up, Story train, Diner, Telefon, Echo und Post – am Laptop und auf dem Handy.");

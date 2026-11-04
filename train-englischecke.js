@@ -44,6 +44,9 @@
     // Etappe 2
     memory: "en-memory", janein: "en-janein", roccosays: "en-roccosays", farbenzug: "en-farbenzug",
     zaehlen: "en-zaehlen", fuettern: "en-fuettern", verse: "en-verse", buch: "en-buecher",
+    // Etappe 3 (die Post ist ein Geschenk und immer offen)
+    whatsmissing: "en-whatsmissing", dressup: "en-dressup", geschichtenzug: "en-geschichtenzug", diner: "en-diner",
+    telefon: "en-telefon", echo: "en-echo",
   };
   const IMMER_FREI = { entdecken: ["farm"], geschichte: ["ball"], verse: ["hello"], buch: ["hase-rueebli"] };
 
@@ -199,6 +202,7 @@
   // Die Schranke
   // ---------------------------------------------------------------------------
   function frei(was, wo = null) {
+    if (!SPIEL[was]) return true;
     if (wo && IMMER_FREI[was]?.includes(wo)) return true;
     const s = schranke();
     return s?.gameFree ? s.gameFree(SPIEL[was]) : true;
@@ -245,10 +249,12 @@
     const neueFlicken = flicken.filter((f) => f.voll && !(gesehen.aufnaeher || []).includes(f.id));
     const v = s.vorschlag(jetzt);
     offen.vorschlag = v;
-    const svg = setzeBild(art().zimmer({ ausbau, neuAb, karte: { titel: vorschlagTitel(v)[0], bild: kartenBild(v) }, aufnaeher: flicken, jukebox: Boolean(inhalt().VERSE && window.LernappEnglischSpiele?.verse) }), { klasse: huepfen && !reduziert() ? "is-huepfen" : "" });
+    const svg = setzeBild(art().zimmer({ ausbau, neuAb, karte: { titel: vorschlagTitel(v)[0], bild: kartenBild(v) }, aufnaeher: flicken, jukebox: Boolean(inhalt().VERSE && window.LernappEnglischSpiele?.verse),
+      telefon: Boolean(inhalt().TELEFON && window.LernappEnglischSpiele?.telefon),
+      post: window.LernappEnglischSpiele?.post && art().BRIEFKASTEN ? { neu: Boolean(window.LernappEnglischSpiele.postNeu?.(kern)) } : null }), { klasse: huepfen && !reduziert() ? "is-huepfen" : "" });
     merke(GESEHEN_KEY, { ausbau: Math.max(ausbau, Number(gesehen.ausbau) || 0), aufnaeher: [...new Set([...(gesehen.aufnaeher || []), ...flicken.filter((f) => f.voll).map((f) => f.id)])] });
     hilfe("zimmer");
-    const REIHE = ["tuer", "regal", "buch", "rocco", "karte", "kiste", "jukebox", "ausguck", "aufnaeher"];
+    const REIHE = ["tuer", "regal", "buch", "rocco", "telefon", "karte", "briefkasten", "kiste", "jukebox", "ausguck", "aufnaeher"];
     svg.querySelectorAll("[data-ort]").forEach((knoten) => {
       const ort = knoten.dataset.ort;
       knoten.style.setProperty("--ort-verzug", `${(0.3 + Math.max(0, REIHE.indexOf(ort)) * 0.16).toFixed(2)}s`);
@@ -280,6 +286,8 @@
     if (ort === "ausguck") { zeigeWahl("entdecken"); return; }
     if (ort === "kiste") { zeigeWahl(inhalt().SPIELE ? "spiele" : "hearfind"); return; }
     if (ort === "jukebox") { zeigeWahl("verse"); return; }
+    if (ort === "telefon") { zeigeWahl("telefon"); return; }
+    if (ort === "briefkasten") { starteSpiel("post"); return; }
     if (ort === "regal") { zeigeWahl("geschichte"); return; }
     if (ort === "buch") { zeigeWoerterbuch(); return; }
     if (ort === "aufnaeher") { zeigeWoerterbuch({ aufnaeher: true }); return; }
@@ -304,9 +312,9 @@
     huelle.setAttribute("role", "dialog");
     huelle.dataset.wahlArt = was;
     const karte = el("div", "en-wahl-karte");
-    const TITEL = { geschichte: I.SAETZE.geschichtenTitel, hearfind: I.SAETZE.hearfindTitel, spiele: I.SAETZE.spiele, verse: I.SAETZE.jukebox, entdecken: I.SAETZE.ausguck };
+    const TITEL = { geschichte: I.SAETZE.geschichtenTitel, hearfind: I.SAETZE.hearfindTitel, spiele: I.SAETZE.spiele, verse: I.SAETZE.jukebox, entdecken: I.SAETZE.ausguck, telefon: I.SAETZE.telefonWahl };
     const titelPaar = TITEL[was] || I.SAETZE.ausguck;
-    const KOPF = { entdecken: "LOOKOUT", spiele: "TOYS", verse: "JUKEBOX" };
+    const KOPF = { entdecken: "LOOKOUT", spiele: "TOYS", verse: "JUKEBOX", telefon: "PHONE" };
     const kopf = el("button", "en-wahl-titel", KOPF[was] || titelPaar[0]);
     kopf.type = "button";
     kopf.lang = "en";
@@ -328,6 +336,7 @@
         ...((I.BUECHER || []).length ? [{ titel: I.SAETZE.buecherTitel, eintraege: I.BUECHER.map((b) => ({ id: b.id, titel: b.titel, bild: `<img src="bilder/buecher/${b.id}/umschlag-klein.webp" alt="" loading="lazy" width="480" height="304">`, frei: frei("buch", b.id), los: () => starteSpiel("buch", { buch: b.id }) })) }] : []),
       ]
       : was === "spiele" ? [{ eintraege: spiele() }]
+        : was === "telefon" ? [{ eintraege: (I.TELEFON_SPIELE || []).map((sp) => ({ id: sp.id, titel: sp.titel, bild: a.spielBild?.(sp.id) || "", frei: frei(sp.id), los: () => starteSpiel(sp.id) })) }]
         : was === "verse" ? [{ eintraege: (I.VERSE || []).map((v) => ({ id: v.id, titel: v.titel, bild: a.versBild?.(v.id) || "", frei: frei("verse", v.id), los: () => starteSpiel("verse", { vers: v.id }) })) }]
           : [{ eintraege: welten() }];
     const inhaltWahl = [];
@@ -362,8 +371,8 @@
     huelle.addEventListener("click", (e) => { if (e.target === huelle) schliesseWahl(); });
     antippbar(zu, schliesseWahl);
     offen.buehne.append(huelle);
-    hilfe(was === "spiele" ? "spiele" : was === "verse" ? "jukebox" : "wahl");
-    const SAGEN = { geschichte: I.SAETZE.regal, hearfind: I.SAETZE.kiste, spiele: I.SAETZE.spiele, verse: I.SAETZE.jukebox };
+    hilfe(was === "spiele" ? "spiele" : was === "verse" ? "jukebox" : was === "telefon" ? "telefon" : "wahl");
+    const SAGEN = { geschichte: I.SAETZE.regal, hearfind: I.SAETZE.kiste, spiele: I.SAETZE.spiele, verse: I.SAETZE.jukebox, telefon: I.SAETZE.telefonWahl };
     sage(SAGEN[was] || I.SAETZE.ausguck);
   }
   function schliesseWahl() {
@@ -721,6 +730,7 @@
     stand, inhalt, art, kids,
     offen: () => offen,
     zimmer: () => zeigeZimmer({ huepfen: false }),
+    starteSpiel: (id, optionen) => starteSpiel(id, optionen),
   };
   function starteSpiel(id, optionen = {}) {
     const spiele = window.LernappEnglischSpiele;

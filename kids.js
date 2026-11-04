@@ -226,6 +226,7 @@
   let aufnahmeJetzt = null;   // die Aufnahme, die gerade spielt: { ende(ausgang), laeuft() }
   let aufnahmeLauf = 0;       // jede neue Ausgabe macht ältere ungültig
   let folgeLaeuft = null;     // die Folge, die gerade spricht
+  let aufnahmeTempo = 1;      // wie schnell die Aufnahmen spielen (Englisch «langsamer»: 0.85)
 
   // So steht ein Text im Verzeichnis: Leerräume zu je einem Leerzeichen.
   function sprechText(text) {
@@ -368,6 +369,9 @@
           window.clearInterval(blende);
           try { el.volume = 0; } catch { /* fest */ }
           el.src = datei;
+          // Langsamer, aber in derselben Tonhöhe (die Eltern stellen es für
+          // das Englisch ein).
+          try { el.preservesPitch = true; el.defaultPlaybackRate = aufnahmeTempo; el.playbackRate = aufnahmeTempo; } catch { /* fest */ }
           const versuch = el.play();
           if (versuch?.then) versuch.then(() => jetzt.laeuft(), () => jetzt.ende("fehler"));
         } catch { jetzt.ende("fehler"); }
@@ -448,6 +452,7 @@
     // Englisch (die Englischecke): eigene Aufnahmen, sonst eine
     // amerikanische Gerätestimme.
     if (options.sprache === "en") { sprichEnglisch(text, options); return; }
+    aufnahmeTempo = 1;
     const stuecke = aufnahmeStuecke(text);
     if (!stuecke.some((stueck) => stueck.datei)) { sprichMitGeraet(text, options); return; }
     stopSpeaking();
@@ -474,6 +479,11 @@
       || englisch.find((v) => /^en[-_]US/i.test(v.lang || "")) || englisch[0] || null;
   }
   function sprichEnglisch(text, options = {}) {
+    // «Langsamer» (Elternkarte Englischecke, englisch-stand.js): Aufnahmen
+    // mit 0.85, die Gerätestimme noch etwas langsamer.
+    let langsam = false;
+    try { langsam = window.LernappEnglischStand?.eltern?.()?.tempo === "langsam"; } catch { langsam = false; }
+    aufnahmeTempo = langsam ? 0.85 : 1;
     const stuecke = aufnahmeStuecke(text, window.LernappEnglischDateien || {});
     const geraet = (teil, opt = {}) => {
       if (!ttsSupported()) { opt.onEnd?.(); return; }
@@ -482,7 +492,7 @@
         const utterance = new window.SpeechSynthesisUtterance(String(teil));
         const voice = englischeStimme();
         utterance.lang = voice?.lang || "en-US";
-        utterance.rate = 0.9;
+        utterance.rate = langsam ? 0.75 : 0.9;
         if (voice) utterance.voice = voice;
         if (opt.onEnd) { utterance.addEventListener("end", () => opt.onEnd()); utterance.addEventListener("error", () => opt.onEnd()); }
         window.speechSynthesis.speak(utterance);

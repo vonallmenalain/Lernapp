@@ -29,6 +29,9 @@ Stand: 4. November 2026 · Entwurf · Grundlage: `docs/RECHENECKE-KONZEPT.md`,
 > Rocco, drei Welten, Hear and find, drei Bildgeschichten und dem Wörterbuch (Abschnitt 0.3).
 > **Etappe 2 ist gebaut:** Park, Zoo und Strand, sechs Spiele in der Spielzeugkiste, die
 > Jukebox mit fünf Versen und fünf Bücher aus dem Lesewagen auf Englisch (Abschnitt 0.4).
+> **Etappe 3 ist gebaut:** Stadt, Schule und Fest, das Hello-Telefon, Echo, Roccos Diner,
+> Dress up, What's missing?, der Geschichtenzug, Post aus Amerika und «langsamer» für die
+> Eltern (Abschnitt 0.5).
 
 ---
 
@@ -188,6 +191,42 @@ Stand: 4. November 2026 · Entwurf · Grundlage: `docs/RECHENECKE-KONZEPT.md`,
   gegen den Lesewagen (gleich viele Seiten, gemalte Bilder) und dass jeder zusammengesetzte
   Satz eine Aufnahme hat; `check-englischecke.mjs` spielt jedes neue Spiel eine ganze Runde,
   mit DE mittendrin, auf Laptop und Handy.
+
+### 0.5 Etappe 3: Erste Sätze
+
+- **Drei neue Welten** (`englisch-art-3.js`): **The City** (car, bus, school bus, train, truck,
+  plane, fire truck, taxi, traffic light, helicopter, police car, ambulance, motorbike),
+  **School** (pencil, crayon, book, backpack, scissors, glue, paper, teacher, board, desk,
+  ruler, eraser, paintbrush) und **Party Time** (candle, present, balloon, party hat, cupcake,
+  pizza, lemonade, popcorn, piñata, confetti, card, clown, lollipop), je mit Bildgeschichte:
+  «The yellow school bus.», «Rocco goes to school.», «Happy birthday, Rocco!». Zusammen
+  9 Welten, 9 Geschichten.
+- **Das Hello-Telefon** an der Wand: Rocco ruft an – «How are you?», «How old are you?»,
+  «What's your favorite color?», «What's your favorite animal?», «Goodbye!». Das Kind tippt
+  eine Bildantwort; die Stimme sagt sie vor («I'm fine, thank you!»), dann «Now you say it!»
+  und eine kurze Pause zum Nachsprechen, dann antwortet Rocco. Keine Spracherkennung
+  (Entscheid 14).
+- **Echo** (ebenfalls am Telefon): ein Wort hören, auf das Mikrofon tippen, selbst sagen
+  (gut zwei Sekunden), sich selbst anhören, dann noch einmal Rocco. Die Aufnahme bleibt im
+  Arbeitsspeicher des Geräts und ist danach weg; ohne Mikrofon sagt Rocco «Just say it out
+  loud!» und es geht trotzdem weiter.
+- **In der Spielzeugkiste neu** (`englisch-spiele-3.js`):
+  - **What's missing?**: ein Wimmelbild einer bekannten Welt, «Close your eyes!», ein Ding
+    verschwindet, drei Sticker zur Wahl.
+  - **Dress up**: «Put on the scarf!» – Rocco zieht Hut, Sonnenbrille, Partyhut, Schal,
+    Stiefel und Fliege an (scarf, boots und bow tie sind neue Wörter).
+  - **Story train**: die vier Bilder einer (am liebsten schon gehörten) Geschichte als
+    Wagen in der richtigen Reihenfolge ankuppeln; Rocco erzählt jedes Bild.
+  - **Rocco's diner**: Gäste bestellen («Pizza and lemonade, please!»), das Kind serviert,
+    «Thank you!» – «You're welcome!». Auf «Schwer» immer zwei Dinge.
+- **Post aus Amerika**: Der Briefkasten im Wagen hebt seine Fahne, wenn eine neue Postkarte
+  von Cousine **Ruby** da ist (nach 0, 4, 10, 18 und 28 Runden): New York, San Francisco,
+  Grand Canyon, Florida, Alaska. Die Post ist ein Geschenk und hat keine Schranke.
+- **Tempo «langsamer»**: Auf der Elternkarte «Englischecke» lässt sich das Englisch
+  langsamer stellen – die Aufnahmen spielen dann mit 0,85 in derselben Tonhöhe
+  (`kids.js`, `preservesPitch`), die Gerätestimme mit 0,75.
+- **Schranke**: sechs neue Spiele (`en-whatsmissing`, `en-dressup`, `en-geschichtenzug`,
+  `en-diner`, `en-telefon`, `en-echo`), je eine Runde frei.
 
 ---
 
@@ -792,7 +831,7 @@ gefunden; Duolingo ABC lehrt englischsprachige Kinder lesen [47].
 | **0 · Startbild** ✅ | Lernzug mit Lese- und Rechenwagen auf dem oberen Gleis, Lernlok, Fortschritt am Wagen (Variante A), Feier für neue Schritte, Gruppe hinter dem Knopf, Prüfskripte | aufgeräumtes Startbild; Rechenwagen auch auf dem Handy |
 | **1 · Hello, Rocco!** ✅ | Caboose im Lernzug, Zimmer mit Rocco, Karte, Aussichtsturm, Regal, Wörterbuch, Kiste; **drei Welten** (Farm, My House, The Kitchen) mit Wimmelbild; **Hear & find**; **drei Bildgeschichten**; Wortstände, Aufnäher, Einrichtung; US-Stimme; Elternkarte mit Schrift und Deutsch-Hilfe; Schranke | das Gewünschte: entdecken, Geschichten, Deutsch auf Knopfdruck, Fortschritt |
 | **2 · Mehr Welten, mehr Spiel** ✅ | The Park, The Zoo, The Beach; Memory Bild–Ton, Yes or no?, Rocco says, Farben-Zug, Count with Rocco, Feed Rocco; Jukebox mit Versen; **bekannte Bücher auf Englisch** (vier bis sechs) | Wörter festigen, Bewegung, Geschichten, die das Kind schon kennt |
-| **3 · Erste Sätze** | The City, School, Party Time; Hello-Telefon, Diner, Echo, Dress up, What's missing?, Geschichtenzug; Post aus Amerika; Tempo «langsamer» | grüssen, bitten, bestellen – für die Grösseren |
+| **3 · Erste Sätze** ✅ | The City, School, Party Time; Hello-Telefon, Diner, Echo, Dress up, What's missing?, Geschichtenzug; Post aus Amerika; Tempo «langsamer» | grüssen, bitten, bestellen – für die Grösseren |
 | **4 · Für Lesende und die Eltern** | My Body, Clothes & Weather, Holidays; Monster malen, Where is the cat?, Opposites, Wortbild-Memory; Bericht mit Wortständen und Unterschieden zum britischen Englisch; Aufträge für die Familie | rund 220 Wörter und 60 Wendungen; Brücke zum Schulenglisch |
 
 ## 20. Offene Entscheidungen
