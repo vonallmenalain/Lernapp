@@ -3276,6 +3276,9 @@
         <p class="admin-lesen-frage">Englische Wörter geschrieben zeigen</p>
         <p class="auth-hint">Gehört wird immer. «Automatisch» zeigt die Schrift erst Kindern auf der Stufe «Schwer» – sie lesen schon. Vorher stören fremde Buchstaben eher beim Deutschlesen.</p>
         <div class="card-actions">${ENGLISCH_SCHRIFTEN.map((eintrag) => knopf("schrift", eintrag)).join("")}</div>
+        <p class="admin-lesen-frage">Tempo der englischen Stimme</p>
+        <p class="auth-hint">«Langsamer» spielt Roccos Englisch etwas langsamer, in derselben Tonhöhe – für den Anfang oder für jüngere Geschwister.</p>
+        <div class="card-actions">${ENGLISCH_TEMPI.map((eintrag) => knopf("tempo", eintrag)).join("")}</div>
       </div>`;
   }
 
@@ -3474,7 +3477,7 @@
   }
 
   async function kindEnglischSetzen(uid, feld, wert) {
-    if (!uid || feld !== "schrift") return;
+    if (!uid || !["schrift", "tempo"].includes(feld)) return;
     const jetzt = englischEinstellungIn(eltern.kindDetails.get(uid)?.userData?.gameState);
     eltern.kindLaeuft = uid;
     eltern.kindMeldung = { ok: false, text: "Die Englischecke wird eingestellt..." };
@@ -4318,11 +4321,18 @@
     ["aus", "Nur hören"],
     ["an", "Immer zeigen"],
   ];
+  const ENGLISCH_TEMPI = [
+    ["normal", "Normal"],
+    ["langsam", "Langsamer"],
+  ];
   const ENGLISCH_ERKLAERUNG = "Der Englischwagen hinten am Lernzug, mit dem Schild «Hello». Rocco, der Waschbär, spricht amerikanisches Englisch; jeder Text lässt sich antippen und mit dem Knopf DE auf Deutsch hören, danach noch einmal auf Englisch. Es gibt nichts zu verlieren: Ein falscher Tipp wird einfach noch einmal gezeigt.";
 
   function englischEinstellungIn(gameState) {
     const daten = (gameState || {})[ENGLISCH_ELTERN_KEY]?.data || {};
-    return { schrift: ENGLISCH_SCHRIFTEN.some(([wert]) => wert === daten.schrift) ? daten.schrift : "auto" };
+    return {
+      schrift: ENGLISCH_SCHRIFTEN.some(([wert]) => wert === daten.schrift) ? daten.schrift : "auto",
+      tempo: daten.tempo === "langsam" ? "langsam" : "normal",
+    };
   }
 
   async function setEnglischElternFor(userId, einstellung = {}) {

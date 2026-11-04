@@ -218,6 +218,14 @@
     { id: "en-fuettern", page: "en-fuettern" },
     { id: "en-verse", page: "en-verse" },
     { id: "en-buecher", page: "en-buecher" },
+    // Etappe 3: What's missing?, Dress up, der Geschichtenzug, das Diner,
+    // das Telefon und Echo (die Post aus Amerika ist immer offen)
+    { id: "en-whatsmissing", page: "en-whatsmissing" },
+    { id: "en-dressup", page: "en-dressup" },
+    { id: "en-geschichtenzug", page: "en-geschichtenzug" },
+    { id: "en-diner", page: "en-diner" },
+    { id: "en-telefon", page: "en-telefon" },
+    { id: "en-echo", page: "en-echo" },
   ] };
 
   // Das Bücherregal ist kein Spiel mit Runden: Diese zwei Bücher sind frei,
