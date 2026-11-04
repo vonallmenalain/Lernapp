@@ -62,11 +62,11 @@ function sandbox({ stufe = "mittel", eltern = null, heute = null } = {}) {
     CustomEvent: class { constructor(type, init) { this.type = type; this.detail = init?.detail; } },
     Date: FesterTag, Math, JSON, Number, String, Set, Map, Object, Array,
   });
-  for (const datei of ["englisch-inhalt.js", "englisch-stand.js", "englisch-art.js"]) vm.runInContext(lies(datei), context, { filename: datei });
-  return { I: windowStub.LernappEnglischInhalt, s: windowStub.LernappEnglischStand, a: windowStub.LernappEnglischArt, store };
+  for (const datei of ["englisch-inhalt.js", "englisch-stand.js", "englisch-art.js", "englisch-art-2.js", "englisch-spiele.js"]) vm.runInContext(lies(datei), context, { filename: datei });
+  return { I: windowStub.LernappEnglischInhalt, s: windowStub.LernappEnglischStand, a: windowStub.LernappEnglischArt, sp: windowStub.LernappEnglischSpiele, store };
 }
 
-const { I, s, a } = sandbox();
+const { I, s, a, sp } = sandbox();
 pruefe(I && s && a, "englisch-inhalt.js, englisch-stand.js oder englisch-art.js meldet sich nicht an");
 if (!I || !s || !a) { console.error(fehler.join("\n")); process.exit(1); }
 
@@ -121,11 +121,59 @@ for (const g of I.GESCHICHTEN) {
     (b.woerter || []).forEach((id) => pruefe(bild.includes(`data-wort="${id}"`), `Geschichte ${g.id}, Bild ${i + 1}: ${id} ist im Bild nicht antippbar`));
   });
 }
-const zimmer = a.zimmer({ ausbau: 15, neuAb: 15, karte: { titel: "The Farm", bild: "" }, aufnaeher: s.aufnaeher() });
-["tuer", "regal", "buch", "rocco", "karte", "kiste", "ausguck", "aufnaeher"].forEach((ort) => pruefe(zimmer.includes(`data-ort="${ort}"`), `Zimmer: kein Weg ${ort}`));
+const zimmer = a.zimmer({ ausbau: 15, neuAb: 15, karte: { titel: "The Farm", bild: "" }, aufnaeher: s.aufnaeher(), jukebox: true });
+["tuer", "regal", "buch", "rocco", "karte", "kiste", "jukebox", "ausguck", "aufnaeher"].forEach((ort) => pruefe(zimmer.includes(`data-ort="${ort}"`), `Zimmer: kein Weg ${ort}`));
 I.EINRICHTUNG.forEach((d) => pruefe(zimmer.includes(`data-ausbau="${d.id}"`), `Zimmer: Einrichtung ${d.id} ist nicht gezeichnet`));
 const leer = a.zimmer({ ausbau: 0, neuAb: 0, karte: { titel: "The Farm", bild: "" }, aufnaeher: s.aufnaeher() });
 pruefe(!leer.includes("data-ausbau="), "Zimmer: ohne Runden steht schon Einrichtung da");
+
+// --- 2b. Etappe 2: Spiele, Farben, Zahlen, Verse, Bücher ----------------------------
+pruefe(sp, "englisch-spiele.js meldet sich nicht an (window.LernappEnglischSpiele)");
+(I.SPIELE || []).forEach((spiel) => {
+  pruefe(spiel.id === "hearfind" || typeof sp?.[spiel.id] === "function", `Spiel ${spiel.id}: keine Funktion in englisch-spiele.js`);
+  pruefe(sp?.spielBild?.(spiel.id)?.includes("<svg"), `Spiel ${spiel.id}: kein Bild für die Spielzeugkiste`);
+});
+["verse", "buch"].forEach((id) => pruefe(typeof sp?.[id] === "function", `englisch-spiele.js: ${id} fehlt`));
+pruefe(I.FARBEN?.length >= 8 && I.ZAHLEN?.length === 10, "Farben oder Zahlen fehlen");
+[...(I.FARBEN || []), ...(I.ZAHLEN || [])].forEach((w) => {
+  pruefe(!ids.has(w.id), `Farbe/Zahl ${w.id}: Id wie ein Wort`);
+  pruefe(s.wortVon(w.id), `${w.id}: der Stand kennt das Wort nicht`);
+  pruefe(a.DING[w.id] && a.STICKER[w.id], `${w.id}: kein Sticker`);
+});
+(I.FARBEN || []).forEach((f) => pruefe(/^#[0-9a-f]{6}$/.test(f.hex) && f.akk, `Farbe ${f.id}: Farbe oder deutsche Form fehlt`));
+(I.ESSEN || []).forEach((e) => pruefe(ids.has(e.id) && a.DING[e.id], `Feed Rocco: ${e.id} ist kein gezeichnetes Wort`));
+(I.ZAEHLDINGE || []).forEach((d) => pruefe(["star", "balloon"].includes(d.id) || a.DING[d.id], `Count with Rocco: ${d.id} ist nicht gezeichnet`));
+(I.VERSE || []).forEach((v) => {
+  pruefe(v.zeilen.length >= 3 && v.titel?.length === 2, `Vers ${v.id}: zu kurz oder ohne Titel`);
+  pruefe(sp?.versBild?.(v.id)?.includes("<svg"), `Vers ${v.id}: kein Bild für die Jukebox`);
+  v.zeilen.forEach((z, i) => {
+    pruefe(z.en && z.de, `Vers ${v.id}, Zeile ${i + 1}: Englisch und Deutsch`);
+    (z.bild || []).forEach((b) => pruefe(["rocco", "star", "balloon"].includes(b) || a.DING[b], `Vers ${v.id}, Zeile ${i + 1}: kein Bild ${b}`));
+  });
+});
+{
+  const fenster = {};
+  vm.runInContext(lies("lesen-buecher.js"), vm.createContext({ window: fenster }), { filename: "lesen-buecher.js" });
+  const lese = fenster.LernappLeseBuecher?.BY_ID || {};
+  (I.BUECHER || []).forEach((b) => {
+    const l = lese[b.id];
+    pruefe(l, `Buch ${b.id}: gibt es im Lesewagen nicht`);
+    if (!l) return;
+    pruefe(l.seiten.length === b.seiten.length, `Buch ${b.id}: ${b.seiten.length} englische Seiten, im Lesewagen ${l.seiten.length}`);
+    pruefe(l.bilder && fs.existsSync(path.join(root, l.bilder, "umschlag-klein.webp")), `Buch ${b.id}: kein Umschlagbild`);
+    b.seiten.forEach(([en, de], i) => {
+      pruefe(en && de, `Buch ${b.id}, Seite ${i + 1}: Englisch und Deutsch`);
+      pruefe(fs.existsSync(path.join(root, `bilder/buecher/${b.id}/seite-${String(i + 1).padStart(2, "0")}.webp`)), `Buch ${b.id}, Seite ${i + 1}: kein gemaltes Bild`);
+    });
+  });
+}
+// Was die Spiele zusammensetzen, steht in der Liste der Aufnahmen.
+{
+  const englisch = new Set(I.paare().map((p) => p.en));
+  for (const f of I.FARBEN || []) for (const g of [null, "big", "small"]) pruefe(englisch.has(I.tippeBallon(f, g)[0]), `fehlt in paare(): ${I.tippeBallon(f, g)[0]}`);
+  for (const w of I.WELTEN.flatMap((x) => x.woerter)) pruefe(englisch.has(I.istDas(w)[0]), `fehlt in paare(): ${I.istDas(w)[0]}`);
+  for (const d of I.ZAEHLDINGE || []) for (let n = 1; n <= 10; n += 1) pruefe(englisch.has(I.soViele(d, n)[0]), `fehlt in paare(): ${I.soViele(d, n)[0]}`);
+}
 
 // --- 3. Stand --------------------------------------------------------------------
 {
@@ -244,15 +292,19 @@ pruefe(!leer.includes("data-ausbau="), "Zimmer: ohne Runden steht schon Einricht
 {
   const index = lies("index.html");
   const sw = lies("service-worker.js");
-  const reihe = ["englisch-inhalt.js", "englisch-stand.js", "englisch-art.js", "englisch-stimme.js", "train-englischecke.js", "train-home.js"];
+  const reihe = ["englisch-inhalt.js", "englisch-stand.js", "englisch-art.js", "englisch-art-2.js", "englisch-spiele.js", "englisch-stimme.js", "train-englischecke.js", "train-home.js"];
   const stellen = reihe.map((d) => index.indexOf(`src="${d}`));
   stellen.forEach((st, i) => pruefe(st > 0, `index.html lädt ${reihe[i]} nicht`));
   pruefe(stellen.every((st, i) => i === 0 || st > stellen[i - 1]), `index.html lädt die Englischecke nicht in der Reihenfolge ${reihe.join(" → ")}`);
   pruefe(index.includes('src="bau-menschen.js'), "index.html lädt bau-menschen.js nicht (Mama und Papa der Englischecke)");
   pruefe(/href="englisch\.css/.test(index), "index.html lädt englisch.css nicht");
-  [...reihe.slice(0, 5), "englisch.css"].forEach((d) => pruefe(sw.includes(`./${d}`), `service-worker.js hält ${d} nicht vor`));
+  [...reihe.slice(0, 7), "englisch.css"].forEach((d) => pruefe(sw.includes(`./${d}`), `service-worker.js hält ${d} nicht vor`));
   const ent = lies("entitlement.js");
   const tor = lies("train-englischecke.js");
+  // Jedes Spiel, das die Englischecke der Schranke meldet, kennt entitlement.js.
+  const gemeldet = [...(/const SPIEL = \{([\s\S]*?)\};/.exec(tor)?.[1] || "").matchAll(/"(en-[a-z]+)"/g)].map((m) => m[1]);
+  pruefe(gemeldet.length >= 11, `train-englischecke.js meldet nur ${gemeldet.length} Spiele`);
+  gemeldet.forEach((id) => pruefe(ent.includes(`"${id}"`), `entitlement.js kennt das Spiel ${id} nicht`));
   ["en-entdecken", "en-hearfind", "en-geschichten"].forEach((id) => {
     pruefe(ent.includes(`"${id}"`), `entitlement.js kennt das Spiel ${id} nicht`);
     pruefe(tor.includes(`"${id}"`), `train-englischecke.js kennt das Spiel ${id} nicht`);
@@ -263,7 +315,7 @@ pruefe(!leer.includes("data-ausbau="), "Zimmer: ohne Runden steht schon Einricht
 }
 
 // --- 6. Sprache ------------------------------------------------------------------
-for (const datei of ["englisch-inhalt.js", "englisch-stand.js", "englisch-art.js", "train-englischecke.js", "englisch.css", "docs/ENGLISCHECKE-KONZEPT.md"]) {
+for (const datei of ["englisch-inhalt.js", "englisch-stand.js", "englisch-art.js", "englisch-art-2.js", "englisch-spiele.js", "train-englischecke.js", "englisch.css", "docs/ENGLISCHECKE-KONZEPT.md"]) {
   const text = lies(datei);
   // Nur im Konzept darf stehen, wovon es umbenannt wurde («statt …»).
   pruefe(!text.split("\n").some((zeile) => /H[öo]r\s*&\s*find/i.test(zeile) && !/statt/.test(zeile)), `${datei}: «Hör & find» – es heisst «Hear and find»`);

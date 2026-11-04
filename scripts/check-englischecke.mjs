@@ -21,6 +21,12 @@
  *   Schrift     «Immer zeigen» der Eltern stellt die Wörter geschrieben dazu.
  *   Handy       Quer auf dem Handy: nichts ragt über den Rand, die Leiste ist
  *               ganz zu sehen.
+ *   Etappe 2    Die Spielzeugkiste zeigt alle Spiele; Memory, Yes or no?,
+ *               Rocco says, Farben-Zug, Count with Rocco und Feed Rocco
+ *               spielen je eine ganze Runde, mit DE mittendrin; die Jukebox
+ *               sagt einen ganzen Vers; ein Buch aus dem Lesewagen zeigt
+ *               seine gemalten Bilder, blättert und zählt; das Wörterbuch hat
+ *               Reiter für Farben und Zahlen.
  *
  * Aufruf:  node scripts/check-englischecke.mjs
  * Nötig:   Playwright. Der lokale Server wird selbst gestartet und beendet.
@@ -181,7 +187,8 @@ try {
     // Entdecken auf dem Bauernhof.
     await tippe(seite, '.en-bild [data-ort="ausguck"]');
     await warte(150);
-    if ((await seite.locator(".en-wahl-kachel").count()) !== 3) fehlt(`${name}: der Aussichtsturm bietet nicht drei Welten an`);
+    const weltenZahl = await seite.evaluate(() => window.LernappEnglischInhalt.WELTEN.length);
+    if ((await seite.locator(".en-wahl-kachel").count()) !== weltenZahl) fehlt(`${name}: der Aussichtsturm bietet nicht alle ${weltenZahl} Welten an`);
     await deUeberall(seite, `${name}, Aussichtsturm`);
     await gesagt(seite);
     await tippe(seite, ".en-wahl-titel");
@@ -214,6 +221,7 @@ try {
     await warte(200);
     if ((await ansicht(seite)) !== "zimmer") fehlt(`${name}: Zurück führt aus dem Entdecken nicht ins Zimmer`);
     await tippe(seite, '.en-bild [data-ort="kiste"]');
+    if (await seite.locator('.en-wahl-kachel[data-wahl="hearfind"]').count()) await tippe(seite, '.en-wahl-kachel[data-wahl="hearfind"]');
     await tippe(seite, '.en-wahl-kachel[data-wahl="farm"]');
     await warte(300);
     if ((await ansicht(seite)) !== "hearfind") fehlt(`${name}: die Spielzeugkiste startet Hear and find nicht`);
@@ -309,6 +317,149 @@ try {
     await kontext.close();
   }
 
+  // --- Etappe 2: die Spiele der Kiste, die Jukebox, ein Buch ----------------------
+  for (const [viewport, name] of [[{ width: 1280, height: 800 }, "Laptop"], [{ width: 844, height: 390 }, "Handy"]]) {
+    const { kontext, seite } = await neueSeite(browser, viewport, seitenFehler, `${name}, Etappe 2`);
+    await seite.goto(`${BASIS}/index.html?englisch=1`);
+    await seite.waitForFunction(() => window.LernappEnglischecke?.ansicht?.() === "zimmer", null, { timeout: 8000 }).catch(() => fehlt(`${name}: Englischwagen öffnet nicht`));
+    await mitschreiben(seite);
+    await warte(200);
+    const I = await seite.evaluate(() => {
+      const x = window.LernappEnglischInhalt;
+      return { spiele: x.SPIELE.map((s) => s.id), essen: x.ESSEN, farben: x.FARBEN, woerter: x.WELTEN.flatMap((w) => w.woerter).map((w) => ({ id: w.id, ist: x.istDas(w)[0] })) };
+    });
+    const letztesEn = (muster) => seite.evaluate((m) => [...window.__alles].reverse().find((x) => x.sprache === "en" && new RegExp(m).test(x.text))?.text || null, muster);
+    // Zurück ins Zimmer – aber nicht weiter hinaus an den Zug.
+    const insZimmer = async () => {
+      for (let i = 0; i < 3 && (await ansicht(seite)) !== "zimmer"; i += 1) { await seite.locator(".stage-back").click(); await warte(150); }
+      await seite.evaluate(() => document.querySelector(".en-wahl")?.remove());
+    };
+    const spielStart = async (id) => {
+      await insZimmer();
+      await tippe(seite, '.en-bild [data-ort="kiste"]');
+      await warte(100);
+      if ((await seite.locator(".en-wahl-kachel").count()) !== I.spiele.length) fehlt(`${name}: die Spielzeugkiste zeigt nicht ${I.spiele.length} Spiele`);
+      await tippe(seite, `.en-wahl-kachel[data-wahl="${id}"]`);
+      await warte(200);
+      if ((await ansicht(seite)) !== id) fehlt(`${name}: ${id} startet nicht aus der Spielzeugkiste (${await ansicht(seite)})`);
+    };
+    const runden = async () => (await stand(seite)).runden;
+    // Memory: Paare über ihre Daten.
+    await spielStart("memory");
+    await deUeberall(seite, `${name}, Memory`);
+    const karten = await seite.evaluate(() => [...document.querySelectorAll(".en-bild [data-karte]")].map((k) => ({ i: k.dataset.karte, w: k.dataset.wort, art: k.dataset.art })));
+    const daneben = karten.find((k) => k.art === "bild");
+    const falsch = karten.find((k) => k.art === "ton" && k.w !== daneben.w);
+    await tippe(seite, `.en-bild [data-karte="${daneben.i}"]`);
+    await tippe(seite, `.en-bild [data-karte="${falsch.i}"]`);
+    await warte(1700);
+    if (await seite.evaluate((i) => document.querySelector(`.en-bild [data-karte="${i}"] .en-karte-auf`).style.display !== "none", daneben.i)) fehlt(`${name}: Memory dreht zwei falsche Karten nicht zurück`);
+    for (const w of [...new Set(karten.map((k) => k.w))]) {
+      for (const k of karten.filter((x) => x.w === w)) await tippe(seite, `.en-bild [data-karte="${k.i}"]`);
+      await warte(80);
+    }
+    await warte(200);
+    if ((await runden()).memory !== 1) fehlt(`${name}: alle Paare zählen keine Runde Memory`);
+    // Yes or no?
+    await spielStart("janein");
+    await deUeberall(seite, `${name}, Yes or no?`);
+    for (let i = 0; i < 8; i += 1) {
+      await warte(100);
+      if ((await ansicht(seite)) !== "janein" || (await runden()).janein) break;
+      const frage = await letztesEn("^(Is this|Are these)");
+      const gezeigt = await seite.evaluate(() => document.querySelector(".en-bild [data-gezeigt]")?.dataset.gezeigt);
+      const gefragt = I.woerter.find((w) => w.ist === frage)?.id;
+      if (!frage || !gezeigt || !gefragt) { fehlt(`${name}: Yes or no? fragt nicht «Is this …?» (${frage})`); break; }
+      await tippe(seite, `.en-bild [data-antwort="${gefragt === gezeigt ? "ja" : "nein"}"]`);
+      await warte(120);
+    }
+    if ((await runden()).janein !== 1) fehlt(`${name}: Yes or no? zählt keine Runde`);
+    // Rocco says
+    await spielStart("roccosays");
+    await deUeberall(seite, `${name}, Rocco says`);
+    for (let i = 0; i < 8; i += 1) {
+      await warte(120);
+      if ((await runden()).roccosays) break;
+      const auftrag = await letztesEn("^Tap the");
+      const m = /^Tap the (?:(big|small) )?([a-z]+) balloon!$/.exec(auftrag || "");
+      if (!m) { fehlt(`${name}: Rocco says sagt nicht «Tap the … balloon!» (${auftrag})`); break; }
+      await tippe(seite, `.en-bild [data-ballon][aria-label="${m[1] ? `${m[1]} ` : ""}${m[2]}"]`);
+    }
+    if ((await runden()).roccosays !== 1) fehlt(`${name}: Rocco says zählt keine Runde`);
+    // Farben-Zug
+    await spielStart("farbenzug");
+    await deUeberall(seite, `${name}, Farben-Zug`);
+    for (let i = 0; i < 8; i += 1) {
+      await warte(120);
+      if ((await runden()).farbenzug) break;
+      const bitte = await letztesEn("wagon, please!$");
+      const m = /^An? ([a-z]+) wagon, please!$/.exec(bitte || "");
+      if (!m) { fehlt(`${name}: der Farben-Zug sagt nicht «A … wagon, please!» (${bitte})`); break; }
+      await tippe(seite, `.en-bild [data-farbe="${m[1]}"]`);
+    }
+    if ((await runden()).farbenzug !== 1) fehlt(`${name}: der Farben-Zug zählt keine Runde`);
+    // Count with Rocco
+    await spielStart("zaehlen");
+    await deUeberall(seite, `${name}, Count with Rocco`);
+    for (let i = 0; i < 8; i += 1) {
+      await warte(150);
+      if ((await runden()).zaehlen) break;
+      const n = await seite.evaluate(() => document.querySelectorAll(".en-bild .en-zaehlding").length);
+      if (!n) { fehlt(`${name}: Count with Rocco zeigt nichts zum Zählen`); break; }
+      await tippe(seite, `.en-bild [data-zahl="${n}"]`);
+      await warte(200);
+    }
+    if ((await runden()).zaehlen !== 1) fehlt(`${name}: Count with Rocco zählt keine Runde`);
+    // Feed Rocco
+    await spielStart("fuettern");
+    await deUeberall(seite, `${name}, Feed Rocco`);
+    for (let i = 0; i < 8; i += 1) {
+      await warte(120);
+      if ((await runden()).fuettern) break;
+      const will = await letztesEn("^Rocco wants");
+      const e = I.essen.find((x) => x.will[0] === will);
+      if (!e) { fehlt(`${name}: Feed Rocco sagt nicht, was Rocco möchte (${will})`); break; }
+      await tippe(seite, `.en-bild [data-essen="${e.id}"]`);
+    }
+    if ((await runden()).fuettern !== 1) fehlt(`${name}: Feed Rocco zählt keine Runde`);
+    // Die Jukebox
+    await insZimmer();
+    await tippe(seite, '.en-bild [data-ort="jukebox"]');
+    if ((await seite.locator(".en-wahl-kachel").count()) < 5) fehlt(`${name}: die Jukebox bietet keine fünf Verse an`);
+    await tippe(seite, '.en-wahl-kachel[data-wahl="hello"]');
+    await warte(300);
+    if ((await ansicht(seite)) !== "verse") fehlt(`${name}: die Jukebox spielt keinen Vers`);
+    if ((await runden()).verse !== 1) fehlt(`${name}: ein ganzer Vers zählt keine Runde`);
+    await deUeberall(seite, `${name}, Jukebox`);
+    // Ein Buch aus dem Lesewagen
+    await insZimmer();
+    await tippe(seite, '.en-bild [data-ort="regal"]');
+    if (!(await seite.locator('.en-wahl-kachel[data-wahl="hase-rueebli"] img').count())) fehlt(`${name}: das Regal zeigt die Bücher nicht mit ihrem Umschlag`);
+    await tippe(seite, '.en-wahl-kachel[data-wahl="hase-rueebli"]');
+    await warte(300);
+    if ((await ansicht(seite)) !== "buch") fehlt(`${name}: das Buch öffnet nicht`);
+    const bild = await seite.evaluate(() => document.querySelector(".en-bild image")?.getAttribute("href"));
+    if (!/bilder\/buecher\/hase-rueebli\/seite-01\.webp/.test(bild || "")) fehlt(`${name}: das Buch zeigt nicht das gemalte Bild (${bild})`);
+    await tippe(seite, '.en-bild [data-blaettern="1"]');
+    await warte(100);
+    const zwei = await seite.evaluate(() => document.querySelector(".en-bild image")?.getAttribute("href"));
+    if (!/seite-02/.test(zwei || "")) fehlt(`${name}: Weiterblättern geht nicht`);
+    await deUeberall(seite, `${name}, Buch`);
+    await tippe(seite, ".en-extra .en-go");
+    await warte(400);
+    if (!((await stand(seite)).geschichten["hase-rueebli"] >= 1)) fehlt(`${name}: das ganze Buch zählt nicht`);
+    // Wörterbuch: Farben und Zahlen als Reiter.
+    await insZimmer();
+    await tippe(seite, '.en-bild [data-ort="buch"]');
+    await tippe(seite, '.en-bild [data-reiter="farben"]');
+    await warte(100);
+    const farbSticker = await seite.locator(".en-bild [data-sticker]").count();
+    if (farbSticker < I.farben.length) fehlt(`${name}: der Reiter Colors zeigt nicht alle Farben (${farbSticker})`);
+    const st = await stand(seite);
+    if (!I.farben.some((f) => ["erkannt", "sicher"].includes(st.woerter[f.id]?.e?.length ? "erkannt" : ""))) fehlt(`${name}: Rocco says und Farben-Zug machen keine Farbe «erkannt»`);
+    await kontext.close();
+  }
+
   // --- Schrift: «Immer zeigen» --------------------------------------------------
   {
     const vorher = () => { localStorage.setItem("lernapp.englisch.eltern", JSON.stringify({ schrift: "an", at: Date.now() })); };
@@ -338,4 +489,4 @@ if (befunde.length) {
   console.error(`Die Englischecke stimmt im Browser nicht (${befunde.length}):\n${befunde.map((b) => `  - ${b}`).join("\n")}`);
   process.exit(1);
 }
-console.log("Die Englischecke stimmt im Browser: Startbild, Zimmer, Entdecken, Hear and find, Geschichte, Wörterbuch, Türen, Knopf DE und Schrift – am Laptop und auf dem Handy.");
+console.log("Die Englischecke stimmt im Browser: Startbild, Zimmer, Entdecken, Hear and find, Geschichte, Wörterbuch, Türen, Knopf DE und Schrift; Memory, Yes or no?, Rocco says, Farben-Zug, Count with Rocco, Feed Rocco, Jukebox und ein Buch – am Laptop und auf dem Handy.");

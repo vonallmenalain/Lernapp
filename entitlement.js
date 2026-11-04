@@ -208,6 +208,16 @@
     { id: "en-entdecken", page: "en-entdecken" },
     { id: "en-hearfind", page: "en-hearfind" },
     { id: "en-geschichten", page: "en-geschichten" },
+    // Etappe 2: die Spiele der Spielzeugkiste, die Jukebox (der erste Vers
+    // ist immer frei) und die Bücher aus dem Lesewagen (das erste frei)
+    { id: "en-memory", page: "en-memory" },
+    { id: "en-janein", page: "en-janein" },
+    { id: "en-roccosays", page: "en-roccosays" },
+    { id: "en-farbenzug", page: "en-farbenzug" },
+    { id: "en-zaehlen", page: "en-zaehlen" },
+    { id: "en-fuettern", page: "en-fuettern" },
+    { id: "en-verse", page: "en-verse" },
+    { id: "en-buecher", page: "en-buecher" },
   ] };
 
   // Das Bücherregal ist kein Spiel mit Runden: Diese zwei Bücher sind frei,

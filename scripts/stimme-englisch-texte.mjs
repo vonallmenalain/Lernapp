@@ -11,9 +11,10 @@
  * Die deutsche Seite jedes Paars (der Knopf DE) gehört zur App und spricht
  * mit der deutschen Stimme: scripts/stimme-app/englischecke.mjs.
  *
- * Alles kommt aus englisch-inhalt.js: jedes Paar [Englisch, Deutsch], jedes
- * Wort mit Satz und Frage, die Geschichten, Roccos Sätze, das Lob, die
- * Einrichtung. Aufgenommen wird der ganze Text, so wie train-englischecke.js
+ * Alles kommt aus englisch-inhalt.js (paare): jedes Paar [Englisch, Deutsch],
+ * jedes Wort mit Satz und Frage, die Geschichten, Roccos Sätze, das Lob, die
+ * Einrichtung, Farben, Zahlen, die Sätze der Spiele, die Verse und die
+ * Bücher. Aufgenommen wird der ganze Text, so wie train-englischecke.js
  * ihn sagt – kids.js sucht zuerst den ganzen Text.
  */
 import fs from "node:fs";
@@ -36,29 +37,11 @@ export function englischInhalt() {
   return fenster.LernappEnglischInhalt;
 }
 
-// Alle Paare [Englisch, Deutsch] mit ihrem Ort – für beide Sprachen.
+// Alle Paare [Englisch, Deutsch] mit ihrem Ort – für beide Sprachen. Die
+// Liste führt englisch-inhalt.js selbst (paare), damit kein Satz fehlt, den
+// ein Spiel zusammensetzt («Tap the red balloon!», «Three ducks!»).
 export function paare(I = englischInhalt()) {
-  const liste = [];
-  const dazu = (en, de, wo) => liste.push({ en, de, wo });
-  const wort = (w, wo) => {
-    dazu(w.en, w.de, wo);
-    dazu(w.satz, w.deSatz, wo);
-    dazu(w.frage, w.deFrage, wo);
-  };
-  for (const welt of I.WELTEN) {
-    dazu(welt.titel[0], welt.titel[1], `welt ${welt.id}`);
-    dazu(welt.intro[0], welt.intro[1], `welt ${welt.id}`);
-    welt.woerter.forEach((w) => wort(w, `welt ${welt.id}`));
-  }
-  I.EXTRA_WOERTER.forEach((w) => wort(w, "geschichten"));
-  for (const g of I.GESCHICHTEN) {
-    dazu(g.titel[0], g.titel[1], `geschichte ${g.id}`);
-    g.bilder.forEach((b) => dazu(b.en, b.de, `geschichte ${g.id}`));
-  }
-  Object.entries(I.SAETZE).forEach(([name, [en, de]]) => dazu(en, de, `SAETZE.${name}`));
-  I.LOB.forEach(([en, de]) => dazu(en, de, "LOB"));
-  I.EINRICHTUNG.forEach((d) => dazu(d.en, d.de, `EINRICHTUNG ${d.id}`));
-  return liste;
+  return I.paare();
 }
 
 // [{ text, wo, teil }] – jeder englische Text einmal.

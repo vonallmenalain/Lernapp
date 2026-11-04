@@ -3299,6 +3299,11 @@
       ...b.welten.map((w) => zeile(`${w.titel[1]} (${w.titel[0]})`, escapeHtml(`${w.gehoert} von ${w.von} gehört, ${w.erkannt} gefunden${w.sicher ? `, davon ${w.sicher} sicher` : ""}${w.gold ? " · Aufnäher in Gold" : w.voll ? " · Aufnäher" : ""}`))),
       zeile("Wörter, die sitzen", escapeHtml(b.sitzt.length ? `${b.sitzt.length}: ${b.sitzt.slice(0, 14).join(", ")}${b.sitzt.length > 14 ? " …" : ""}` : "noch keine")),
     ];
+    if (b.farben?.gehoert) zeilen.push(zeile("Farben", escapeHtml(`${b.farben.erkannt} von ${b.farben.von} gefunden, ${b.farben.gehoert} gehört`)));
+    if (b.zahlen?.gehoert) zeilen.push(zeile("Zahlen bis zehn", escapeHtml(`${b.zahlen.erkannt} von ${b.zahlen.von} gefunden, ${b.zahlen.gehoert} gehört`)));
+    const SPIELNAMEN = { entdecken: "Entdecken", hearfind: "Hear and find", geschichte: "Geschichten", memory: "Memory", janein: "Yes or no?", roccosays: "Rocco says", farbenzug: "Farben-Zug", zaehlen: "Zählen", fuettern: "Rocco füttern", verse: "Verse", buch: "Bücher" };
+    const gespielt = Object.entries(b.spiele || {}).sort((p, q) => q[1] - p[1]).map(([id, n]) => `${SPIELNAMEN[id] || id} ${n}×`);
+    if (gespielt.length) zeilen.push(zeile("Gespielt", escapeHtml(gespielt.join(", "))));
     if (b.wackelig.length) zeilen.push(zeile("Üben wir noch", escapeHtml(b.wackelig.slice(0, 14).join(", "))));
     if (b.lieblinge.length) zeilen.push(zeile("Liebste Geschichten", escapeHtml(b.lieblinge.join(", "))));
     return `${kopf}

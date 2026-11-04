@@ -55,6 +55,7 @@ function roccoSchwanz() {
 function rocco(pose = "steh", laune = "froh") {
   let arme;
   if (pose === "wirf") arme = `<ellipse cx="-22" cy="-46" rx="7" ry="15" transform="rotate(18 -22 -46)" fill="${GRAU_D}"/><ellipse cx="26" cy="-80" rx="7" ry="17" transform="rotate(-28 26 -80)" fill="${GRAU_D}"/>`;
+  else if (pose === "wink") arme = `<ellipse cx="-36" cy="-74" rx="7" ry="18" transform="rotate(-35 -36 -74)" fill="${GRAU_D}"/><ellipse cx="24" cy="-46" rx="7" ry="15" transform="rotate(-16 24 -46)" fill="${GRAU_D}"/>`;
   else if (pose === "jubel") arme = `<ellipse cx="-27" cy="-80" rx="7" ry="17" transform="rotate(28 -27 -80)" fill="${GRAU_D}"/><ellipse cx="27" cy="-80" rx="7" ry="17" transform="rotate(-28 27 -80)" fill="${GRAU_D}"/>`;
   else arme = `<ellipse cx="-24" cy="-46" rx="7" ry="15" transform="rotate(16 -24 -46)" fill="${GRAU_D}"/><ellipse cx="24" cy="-46" rx="7" ry="15" transform="rotate(-16 24 -46)" fill="${GRAU_D}"/>`;
   return `<g>
@@ -197,8 +198,9 @@ function stern(x, y, r = 11, klasse = "") {
   }).join(" ");
   return `<polygon points="${p}" fill="#ffd166" stroke="#c98a00" stroke-width="2" stroke-linejoin="round" class="${klasse}"/>`;
 }
+const wolkeAn = (x, y, s) => `<g transform="translate(${x} ${y}) scale(${s})" fill="#ffffff" opacity="0.9"><ellipse cx="0" cy="0" rx="46" ry="18"/><ellipse cx="-22" cy="-10" rx="22" ry="16"/><ellipse cx="14" cy="-14" rx="26" ry="20"/></g>`;
 function hofHintergrund() {
-  const wolke = (x, y, s) => `<g transform="translate(${x} ${y}) scale(${s})" fill="#ffffff" opacity="0.9"><ellipse cx="0" cy="0" rx="46" ry="18"/><ellipse cx="-22" cy="-10" rx="22" ry="16"/><ellipse cx="14" cy="-14" rx="26" ry="20"/></g>`;
+  const wolke = wolkeAn;
   let zaun = "";
   for (let x = 530; x <= 1000; x += 42) zaun += `<rect x="${x}" y="350" width="9" height="52" rx="3" fill="#c08a55"/>`;
   zaun += `<rect x="520" y="360" width="480" height="7" rx="3" fill="#d6a46f"/><rect x="520" y="382" width="480" height="7" rx="3" fill="#d6a46f"/>`;
@@ -540,9 +542,11 @@ function geschichtsBild(geschichte, i) {
   const zeichne = GESCHICHTEN_BILDER[geschichte]?.[i];
   return zeichne ? zeichne() : bildHintergrund();
 }
-// Das Titelbild einer Geschichte, für die Auswahl im Regal.
+// Das Titelbild einer Geschichte, für die Auswahl im Regal: welches ihrer
+// Bilder (sonst das erste).
+const TITELBILD = { cat: 3, hungry: 3 };
 function geschichtsTitelbild(geschichte) {
-  return `<svg viewBox="0 0 472 204" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">${geschichtsBild(geschichte, geschichte === "cat" ? 3 : geschichte === "hungry" ? 3 : 0)}</svg>`;
+  return `<svg viewBox="0 0 472 204" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">${geschichtsBild(geschichte, TITELBILD[geschichte] ?? 0)}</svg>`;
 }
 
 // ===========================================================================
@@ -553,7 +557,7 @@ function geschichtsTitelbild(geschichte) {
 //   karte      { titel, bild } – was Rocco vorschlägt
 //   aufnaeher  [{ welt, anteil, voll, gold }]
 const ESC = (t) => String(t).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
-function zimmer({ ausbau = 0, neuAb = Infinity, karte = null, aufnaeher: flicken = [] } = {}) {
+function zimmer({ ausbau = 0, neuAb = Infinity, karte = null, aufnaeher: flicken = [], jukebox = false } = {}) {
   const ding = (i, id, inhalt) => (ausbau > i ? `<g class="en-ausbau${i >= neuAb ? " is-neu" : ""}" data-ausbau="${id}" tabindex="0" role="button">${inhalt}</g>` : "");
   const ort = (id, inhalt) => `<g class="en-ort en-ort-${id}" data-ort="${id}" tabindex="0" role="button">${inhalt}</g>`;
   let s = "";
@@ -619,8 +623,22 @@ function zimmer({ ausbau = 0, neuAb = Infinity, karte = null, aufnaeher: flicken
   // Das Brett mit den Aufnähern
   let brett = `<rect x="872" y="128" width="116" height="200" rx="10" fill="#6d4628"/><rect x="880" y="136" width="100" height="184" rx="6" fill="#3a7bd5"/>
     <text x="930" y="160" text-anchor="middle" font-family="Baloo 2, Nunito, sans-serif" font-weight="800" font-size="13" fill="#ffffff">PATCHES</text>`;
-  flicken.slice(0, 3).forEach((f, i) => { brett += aufnaeher(f.welt, 930, 196 + i * 50, 20, f); });
+  // Bis drei Welten untereinander, mehr in zwei Spalten.
+  const zweiSpalten = flicken.length > 3;
+  flicken.slice(0, 6).forEach((f, i) => {
+    const x = zweiSpalten ? 905 + (i % 2) * 50 : 930;
+    const y = zweiSpalten ? 196 + Math.floor(i / 2) * 50 : 196 + i * 50;
+    brett += aufnaeher(f.id || f.welt, x, y, zweiSpalten ? 19 : 20, f);
+  });
   s += ort("aufnaeher", brett);
+  // Die Jukebox (Etappe 2): Verse zum Mitsprechen.
+  if (jukebox) {
+    s += ort("jukebox", `<rect x="672" y="330" width="68" height="140" rx="30" fill="#c8423b"/><rect x="678" y="338" width="56" height="54" rx="26" fill="#ffd166"/>
+      ${[0, 1, 2].map((k) => `<path d="M${686 + k * 2} ${372 - k * 8} q20 ${-14 + k * 4} ${40 - k * 4} 0" stroke="${["#e8543f", "#3a7bd5", "#3fbf74"][k]}" stroke-width="4" fill="none" stroke-linecap="round"/>`).join("")}
+      <rect x="682" y="400" width="48" height="32" rx="6" fill="#3a3f4a"/>${[0, 1, 2, 3].map((k) => `<rect x="${686 + k * 11}" y="406" width="8" height="20" rx="2" fill="${["#ffd166", "#ef6fa8", "#4fc3f7", "#8bd36b"][k]}"/>`).join("")}
+      <rect x="680" y="440" width="52" height="22" rx="6" fill="#a83631"/><circle cx="694" cy="451" r="5" fill="#ffd166"/><circle cx="718" cy="451" r="5" fill="#ffd166"/>
+      <path d="M676 322 q6 -10 12 0 M724 318 q6 -10 12 0" stroke="#6c5ce7" stroke-width="3" fill="none" stroke-linecap="round"/><circle cx="676" cy="324" r="4" fill="#6c5ce7"/><circle cx="724" cy="320" r="4" fill="#6c5ce7"/>`);
+  }
   return `<svg viewBox="0 0 1000 560" class="en-zimmer-svg" role="img" aria-label="Der Englischwagen von innen" xmlns="http://www.w3.org/2000/svg">
     <defs><filter id="en-grau"><feColorMatrix type="saturate" values="0"/></filter></defs>${s}</svg>`;
 }
@@ -630,8 +648,13 @@ function weltBild(welt, breite = 200, hoehe = 112) {
   return `<svg viewBox="0 0 1000 560" width="${breite}" height="${hoehe}" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="himmel" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9fd8f0"/><stop offset="1" stop-color="#e3f5fb"/></linearGradient>${window.LernappBauTiere?.defs?.() || ""}</defs>${szene(welt).replace(/^<svg[^>]*>/, "").replace(/<\/svg>$/, "")}</svg>`;
 }
 
+// Was weitere Zeichnungen (englisch-art-2.js …) brauchen, um Welten und
+// Geschichten dazuzulegen: Sie ergänzen DING, ORTE, HINTERGRUND, STICKER,
+// AUFNAEHER_BILD, AUFNAEHER_FARBE, GESCHICHTEN_BILDER und TITELBILD.
 window.LernappEnglischArt = {
   roccoKopf, rocco, DING, ORTE, STICKER, szene, markeAn, sticker, aufnaeher, stern,
   geschichtsBild, geschichtsTitelbild, zimmer, weltBild, AUFNAEHER_BILD,
+  HINTERGRUND, AUFNAEHER_FARBE, GESCHICHTEN_BILDER, TITELBILD,
+  hilfen: { tb, bildHintergrund, apfel, menschOder, wolke: wolkeAn, FARBE: { GRAU, GRAU_D, DUNKEL, HELL, HAUT } },
 };
 })();

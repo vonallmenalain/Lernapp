@@ -39,8 +39,13 @@
 
   // Die Spiele für die Schranke (entitlement.js, ENGLISCHECKE): Der Bauernhof
   // und die erste Geschichte sind immer frei, sonst je eine Runde.
-  const SPIEL = { entdecken: "en-entdecken", hearfind: "en-hearfind", geschichte: "en-geschichten" };
-  const IMMER_FREI = { entdecken: ["farm"], geschichte: ["ball"] };
+  const SPIEL = {
+    entdecken: "en-entdecken", hearfind: "en-hearfind", geschichte: "en-geschichten",
+    // Etappe 2
+    memory: "en-memory", janein: "en-janein", roccosays: "en-roccosays", farbenzug: "en-farbenzug",
+    zaehlen: "en-zaehlen", fuettern: "en-fuettern", verse: "en-verse", buch: "en-buecher",
+  };
+  const IMMER_FREI = { entdecken: ["farm"], geschichte: ["ball"], verse: ["hello"], buch: ["hase-rueebli"] };
 
   let offen = null;
 
@@ -175,11 +180,13 @@
     antippbar(deKnopf, aufDeutsch);
     Object.assign(offen, { buehne, bild, blase, enText, deText, deKnopf, extra });
   }
-  function setzeBild(svgText, { klasse = "" } = {}) {
+  //   weiter  true: dieselbe Ansicht zeichnet sich neu, während Rocco spricht
+  //           (ein Buch blättert um) – was danach kommt, bleibt.
+  function setzeBild(svgText, { klasse = "", weiter = false } = {}) {
     const svg = svgAus(svgText);
     if (klasse) svg.classList.add(klasse);
     offen.buehne.dataset.ansicht = offen.ansicht || "";
-    fortsetzung = null;
+    if (!weiter) fortsetzung = null;
     offen.bild.innerHTML = "";
     offen.bild.append(svg);
     offen.buehne.querySelector(".en-wahl")?.remove();
@@ -238,10 +245,10 @@
     const neueFlicken = flicken.filter((f) => f.voll && !(gesehen.aufnaeher || []).includes(f.id));
     const v = s.vorschlag(jetzt);
     offen.vorschlag = v;
-    const svg = setzeBild(art().zimmer({ ausbau, neuAb, karte: { titel: vorschlagTitel(v)[0], bild: kartenBild(v) }, aufnaeher: flicken }), { klasse: huepfen && !reduziert() ? "is-huepfen" : "" });
+    const svg = setzeBild(art().zimmer({ ausbau, neuAb, karte: { titel: vorschlagTitel(v)[0], bild: kartenBild(v) }, aufnaeher: flicken, jukebox: Boolean(inhalt().VERSE && window.LernappEnglischSpiele?.verse) }), { klasse: huepfen && !reduziert() ? "is-huepfen" : "" });
     merke(GESEHEN_KEY, { ausbau: Math.max(ausbau, Number(gesehen.ausbau) || 0), aufnaeher: [...new Set([...(gesehen.aufnaeher || []), ...flicken.filter((f) => f.voll).map((f) => f.id)])] });
     hilfe("zimmer");
-    const REIHE = ["tuer", "regal", "buch", "rocco", "karte", "kiste", "ausguck", "aufnaeher"];
+    const REIHE = ["tuer", "regal", "buch", "rocco", "karte", "kiste", "jukebox", "ausguck", "aufnaeher"];
     svg.querySelectorAll("[data-ort]").forEach((knoten) => {
       const ort = knoten.dataset.ort;
       knoten.style.setProperty("--ort-verzug", `${(0.3 + Math.max(0, REIHE.indexOf(ort)) * 0.16).toFixed(2)}s`);
@@ -271,7 +278,8 @@
       return;
     }
     if (ort === "ausguck") { zeigeWahl("entdecken"); return; }
-    if (ort === "kiste") { zeigeWahl("hearfind"); return; }
+    if (ort === "kiste") { zeigeWahl(inhalt().SPIELE ? "spiele" : "hearfind"); return; }
+    if (ort === "jukebox") { zeigeWahl("verse"); return; }
     if (ort === "regal") { zeigeWahl("geschichte"); return; }
     if (ort === "buch") { zeigeWoerterbuch(); return; }
     if (ort === "aufnaeher") { zeigeWoerterbuch({ aufnaeher: true }); return; }
@@ -286,15 +294,20 @@
   // ---------------------------------------------------------------------------
   // Die Auswahl: wohin (Welten) oder welche Geschichte
   // ---------------------------------------------------------------------------
+  // was: entdecken | hearfind (Welten), geschichte (Geschichten und Bücher),
+  // spiele (die Spielzeugkiste), verse (die Jukebox)
   function zeigeWahl(was) {
     const I = inhalt();
     const a = art();
     offen.buehne.querySelector(".en-wahl")?.remove();
     const huelle = el("div", "en-wahl");
     huelle.setAttribute("role", "dialog");
+    huelle.dataset.wahlArt = was;
     const karte = el("div", "en-wahl-karte");
-    const titelPaar = was === "geschichte" ? I.SAETZE.geschichtenTitel : was === "hearfind" ? I.SAETZE.hearfindTitel : I.SAETZE.ausguck;
-    const kopf = el("button", "en-wahl-titel", was === "entdecken" ? "LOOKOUT" : titelPaar[0]);
+    const TITEL = { geschichte: I.SAETZE.geschichtenTitel, hearfind: I.SAETZE.hearfindTitel, spiele: I.SAETZE.spiele, verse: I.SAETZE.jukebox, entdecken: I.SAETZE.ausguck };
+    const titelPaar = TITEL[was] || I.SAETZE.ausguck;
+    const KOPF = { entdecken: "LOOKOUT", spiele: "TOYS", verse: "JUKEBOX" };
+    const kopf = el("button", "en-wahl-titel", KOPF[was] || titelPaar[0]);
     kopf.type = "button";
     kopf.lang = "en";
     antippbar(kopf, () => sage(titelPaar));
@@ -302,32 +315,56 @@
     zu.type = "button";
     zu.setAttribute("aria-label", "Schliessen");
     zu.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"/></svg>`;
-    const kacheln = el("div", "en-wahl-kacheln");
-    const eintraege = was === "geschichte"
-      ? I.GESCHICHTEN.map((g) => ({ id: g.id, titel: g.titel, bild: a.geschichtsTitelbild(g.id), frei: frei("geschichte", g.id), los: () => zeigeGeschichte(g.id) }))
-      : I.WELTEN.map((w) => ({ id: w.id, titel: w.titel, bild: a.weltBild(w.id), frei: frei(was, was === "entdecken" ? w.id : null), los: () => (was === "hearfind" ? starteHearfind(w.id) : zeigeEntdecken(w.id)) }));
-    eintraege.forEach((e) => {
-      const k = el("button", `en-wahl-kachel${e.frei ? "" : " ist-zu"}`);
-      k.type = "button";
-      k.dataset.wahl = e.id;
-      k.innerHTML = `${e.bild}<span lang="en"></span>`;
-      k.querySelector("span").textContent = e.titel[0].replace(/\.$/, "");
-      k.setAttribute("aria-label", `${e.titel[0]} – ${e.titel[1]}`);
-      if (!e.frei) k.insertAdjacentHTML("beforeend", `<i class="en-schloss" aria-hidden="true"></i>`);
-      antippbar(k, () => {
-        if (!e.frei) { tor(); return; }
-        huelle.remove();
-        e.los();
+    const welten = () => I.WELTEN.map((w) => ({ id: w.id, titel: w.titel, bild: a.weltBild(w.id), frei: frei(was, was === "entdecken" ? w.id : null), los: () => (was === "hearfind" ? starteHearfind(w.id) : zeigeEntdecken(w.id)) }));
+    const spiele = () => (I.SPIELE || []).map((sp) => ({
+      id: sp.id, titel: sp.titel, bild: a.spielBild?.(sp.id) || "", frei: frei(sp.id),
+      los: () => (sp.id === "hearfind" ? zeigeWahl("hearfind") : starteSpiel(sp.id)),
+      offenLassen: sp.id === "hearfind",
+    }));
+    // Gruppen: [{ titel?, eintraege }]
+    const gruppen = was === "geschichte"
+      ? [
+        { titel: I.SAETZE.geschichtenTitel, eintraege: I.GESCHICHTEN.map((g) => ({ id: g.id, titel: g.titel, bild: a.geschichtsTitelbild(g.id), frei: frei("geschichte", g.id), los: () => zeigeGeschichte(g.id) })) },
+        ...((I.BUECHER || []).length ? [{ titel: I.SAETZE.buecherTitel, eintraege: I.BUECHER.map((b) => ({ id: b.id, titel: b.titel, bild: `<img src="bilder/buecher/${b.id}/umschlag-klein.webp" alt="" loading="lazy" width="480" height="304">`, frei: frei("buch", b.id), los: () => starteSpiel("buch", { buch: b.id }) })) }] : []),
+      ]
+      : was === "spiele" ? [{ eintraege: spiele() }]
+        : was === "verse" ? [{ eintraege: (I.VERSE || []).map((v) => ({ id: v.id, titel: v.titel, bild: a.versBild?.(v.id) || "", frei: frei("verse", v.id), los: () => starteSpiel("verse", { vers: v.id }) })) }]
+          : [{ eintraege: welten() }];
+    const inhaltWahl = [];
+    gruppen.forEach((gr) => {
+      if (gr.titel && gruppen.length > 1) {
+        const t = el("button", "en-wahl-gruppe", gr.titel[0]);
+        t.type = "button";
+        t.lang = "en";
+        antippbar(t, () => sage(gr.titel));
+        inhaltWahl.push(t);
+      }
+      const kacheln = el("div", `en-wahl-kacheln${gr.eintraege.length > 4 ? " ist-viele" : ""}`);
+      gr.eintraege.forEach((e) => {
+        const k = el("button", `en-wahl-kachel${e.frei ? "" : " ist-zu"}`);
+        k.type = "button";
+        k.dataset.wahl = e.id;
+        k.innerHTML = `${e.bild}<span lang="en"></span>`;
+        k.querySelector("span").textContent = e.titel[0].replace(/\.$/, "");
+        k.setAttribute("aria-label", `${e.titel[0]} – ${e.titel[1]}`);
+        if (!e.frei) k.insertAdjacentHTML("beforeend", `<i class="en-schloss" aria-hidden="true"></i>`);
+        antippbar(k, () => {
+          if (!e.frei) { tor(); return; }
+          if (!e.offenLassen) huelle.remove();
+          e.los();
+        });
+        kacheln.append(k);
       });
-      kacheln.append(k);
+      inhaltWahl.push(kacheln);
     });
-    karte.append(zu, kopf, kacheln);
+    karte.append(zu, kopf, ...inhaltWahl);
     huelle.append(karte);
     huelle.addEventListener("click", (e) => { if (e.target === huelle) schliesseWahl(); });
     antippbar(zu, schliesseWahl);
     offen.buehne.append(huelle);
-    hilfe("wahl");
-    sage(was === "geschichte" ? I.SAETZE.regal : was === "hearfind" ? I.SAETZE.kiste : I.SAETZE.ausguck);
+    hilfe(was === "spiele" ? "spiele" : was === "verse" ? "jukebox" : "wahl");
+    const SAGEN = { geschichte: I.SAETZE.regal, hearfind: I.SAETZE.kiste, spiele: I.SAETZE.spiele, verse: I.SAETZE.jukebox };
+    sage(SAGEN[was] || I.SAETZE.ausguck);
   }
   function schliesseWahl() {
     const w = offen?.buehne.querySelector(".en-wahl");
@@ -568,7 +605,13 @@
     offen.ansicht = "woerterbuch";
     const weltId = weltWahl || offen.buchWelt || offen.welt || "farm";
     offen.buchWelt = weltId;
-    const welt = I.WELTEN.find((w) => w.id === weltId) || I.WELTEN[0];
+    // Die Reiter: jede Welt, dazu Farben und Zahlen (ab Etappe 2).
+    const REITER = [
+      ...I.WELTEN.map((w) => ({ id: w.id, titel: w.titel, woerter: w.woerter })),
+      ...(I.FARBEN ? [{ id: "farben", titel: ["Colors", "Farben"], woerter: I.FARBEN }] : []),
+      ...(I.ZAHLEN ? [{ id: "zahlen", titel: ["Numbers", "Zahlen"], woerter: I.ZAHLEN }] : []),
+    ];
+    const welt = REITER.find((w) => w.id === weltId) || REITER[0];
     const extra = I.EXTRA_WOERTER.filter((w) => I.GESCHICHTEN.some((g) => g.welt === welt.id && g.bilder.some((b) => b.woerter.includes(w.id))));
     const woerter = [...welt.woerter, ...extra];
     const n = woerter.filter((w) => s.wortStand(w.id) !== "zu").length;
@@ -576,32 +619,44 @@
       <rect width="1000" height="560" fill="#7a4b2f"/><rect x="22" y="18" width="956" height="524" rx="22" fill="#5b3a29"/>
       <path d="M40 34 L496 44 L496 530 L40 524 Z" fill="#fffaf0"/><path d="M504 44 L960 34 L960 524 L504 530 Z" fill="#fffaf0"/>
       <rect x="494" y="40" width="12" height="492" fill="#e9dcc4"/>`;
-    // Reiter oben: eine Welt je Reiter
-    I.WELTEN.forEach((w, i) => {
+    // Reiter oben: bis drei in einer Reihe wie bisher, mehr in zwei Reihen.
+    const proReihe = REITER.length > 3 ? 4 : 3;
+    const rb = REITER.length > 3 ? 104 : 128;
+    REITER.forEach((w, i) => {
       const an = w.id === welt.id;
-      x += `<g class="en-reiter" data-reiter="${w.id}" tabindex="0" role="button" aria-label="${w.titel[0]}"><rect x="${70 + i * 140}" y="${an ? 52 : 58}" width="128" height="40" rx="12" fill="${an ? "#3a7bd5" : "#e9dcc4"}"/>
-        <text x="${134 + i * 140}" y="${an ? 79 : 84}" text-anchor="middle" font-family="Baloo 2, Nunito, sans-serif" font-weight="800" font-size="17" fill="${an ? "#ffffff" : "#5d6882"}">${w.titel[0]}</text></g>`;
+      const rx = 56 + (i % proReihe) * (rb + 8);
+      const ry = 50 + Math.floor(i / proReihe) * 40;
+      x += `<g class="en-reiter" data-reiter="${w.id}" tabindex="0" role="button" aria-label="${w.titel[0]}"><rect x="${rx}" y="${ry}" width="${rb}" height="34" rx="11" fill="${an ? "#3a7bd5" : "#e9dcc4"}"/>
+        <text x="${rx + rb / 2}" y="${ry + 23}" text-anchor="middle" font-family="Baloo 2, Nunito, sans-serif" font-weight="800" font-size="${REITER.length > 3 ? 14 : 17}" fill="${an ? "#ffffff" : "#5d6882"}">${w.titel[0]}</text></g>`;
     });
-    x += `<text x="268" y="122" text-anchor="middle" font-family="Nunito, sans-serif" font-weight="800" font-size="16" fill="#5d6882">${n} / ${woerter.length}</text>`;
+    const obenListe = 50 + Math.ceil(REITER.length / proReihe) * 40;
+    x += `<text x="268" y="${obenListe + 18}" text-anchor="middle" font-family="Nunito, sans-serif" font-weight="800" font-size="16" fill="#5d6882">${n} / ${woerter.length}</text>`;
+    const zeilen = Math.ceil(woerter.length / 5);
+    const abstand = Math.min(92, (500 - obenListe - 40) / Math.max(1, zeilen));
+    const radius = Math.min(36, abstand * 0.42);
     woerter.forEach((w, i) => {
       const sp = i % 5;
       const ze = Math.floor(i / 5);
       const cx = 96 + sp * 86;
-      const cy = 168 + ze * 92;
-      x += `<g class="en-sticker" data-sticker="${w.id}" tabindex="0" role="button">${a.sticker(w.id, cx, cy, 36, s.wortStand(w.id))}</g>`;
+      const cy = obenListe + 30 + radius + ze * abstand;
+      x += `<g class="en-sticker" data-sticker="${w.id}" tabindex="0" role="button">${a.sticker(w.id, cx, cy, radius, s.wortStand(w.id))}</g>`;
     });
     // Rechte Seite: die Aufnäher
     x += `<g class="en-reiter" data-titel="aufnaeher" tabindex="0" role="button"><text x="732" y="96" text-anchor="middle" font-family="Baloo 2, Nunito, sans-serif" font-weight="800" font-size="30" fill="#243047">My Patches</text></g>`;
-    s.aufnaeher().forEach((f, i) => {
-      const cy = 190 + i * 112;
-      x += `<g class="en-flicken" data-flicken="${f.id}" tabindex="0" role="button">${a.aufnaeher(f.id, 620, cy, 40, f)}
-        <text x="680" y="${cy - 4}" font-family="Baloo 2, Nunito, sans-serif" font-weight="800" font-size="22" fill="#243047">${f.titel[0]}</text>
-        <text x="680" y="${cy + 22}" font-family="Nunito, sans-serif" font-weight="700" font-size="15" fill="#5d6882">${f.erkannt} / ${f.von} ★${f.gold ? " · gold" : ""}</text></g>`;
+    const flicken = s.aufnaeher();
+    const zweiSpalten = flicken.length > 3;
+    flicken.forEach((f, i) => {
+      const cx = zweiSpalten ? 580 + (i % 2) * 200 : 620;
+      const cy = zweiSpalten ? 180 + Math.floor(i / 2) * 120 : 190 + i * 112;
+      const r = zweiSpalten ? 34 : 40;
+      x += `<g class="en-flicken" data-flicken="${f.id}" tabindex="0" role="button">${a.aufnaeher(f.id, cx, cy, r, f)}
+        <text x="${cx + r + 14}" y="${cy - 4}" font-family="Baloo 2, Nunito, sans-serif" font-weight="800" font-size="${zweiSpalten ? 18 : 22}" fill="#243047">${f.titel[0]}</text>
+        <text x="${cx + r + 14}" y="${cy + 20}" font-family="Nunito, sans-serif" font-weight="700" font-size="${zweiSpalten ? 13 : 15}" fill="#5d6882">${f.erkannt} / ${f.von} ★${f.gold ? " · gold" : ""}</text></g>`;
     });
     const svg = setzeBild(`<svg viewBox="0 0 1000 560" class="en-buch-svg" role="img" aria-label="${I.SAETZE.wortbuchTitel[0]}" xmlns="http://www.w3.org/2000/svg">${x}</svg>`);
     hilfe("woerterbuch");
     svg.querySelectorAll("[data-reiter]").forEach((r) => antippbar(r, () => {
-      const w = I.WELTEN.find((y) => y.id === r.dataset.reiter);
+      const w = REITER.find((y) => y.id === r.dataset.reiter);
       zeigeWoerterbuch({ welt: r.dataset.reiter });
       if (w) sage(w.titel);
     }));
@@ -621,6 +676,59 @@
     }));
     svg.querySelector('[data-titel="aufnaeher"]')?.addEventListener("click", () => sage(I.SAETZE.aufnaeher));
     if (!weltWahl) sage(flickenZuerst ? I.SAETZE.aufnaeher : I.SAETZE.woerterbuch);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Die Spiele aus englisch-spiele.js (Etappe 2): Sie bekommen den Kern –
+  // Sprechen, Bühne, Leiste, Schranke, Stand – und zeichnen sich selbst.
+  // ---------------------------------------------------------------------------
+  const stufe = () => { try { return window.LernappReise?.stufe?.() || "mittel"; } catch { return "mittel"; } };
+  // Ein Knopf unten in der Leiste («Let's play again!», «Whole book» …).
+  function leistenKnopf(paar, fn, { klasse = "en-go", symbol = "play" } = {}) {
+    const k = el("button", `en-knopf ${klasse}`);
+    k.type = "button";
+    k.lang = "en";
+    const SYMBOL = { play: `<path d="M8 5l12 7-12 7z" fill="currentColor"/>`, nochmal: `<path d="M12 5a7 7 0 1 1-6.6 4.7" stroke="currentColor" stroke-width="2.6" fill="none" stroke-linecap="round"/><path d="M3 5v5h5" stroke="currentColor" stroke-width="2.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/>` };
+    k.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true">${SYMBOL[symbol] || SYMBOL.play}</svg><span></span>`;
+    k.querySelector("span").textContent = paar[0];
+    k.setAttribute("aria-label", `${paar[0]} – ${paar[1]}`);
+    antippbar(k, fn);
+    offen.extra.append(k);
+    return k;
+  }
+  // Am Ende einer Runde: zählen, feiern, «Let's play again!».
+  function rundeFertig(was, { wo = null, satz = null, nochmal = null } = {}) {
+    const I = inhalt();
+    stand().runde(was);
+    rundeZaehlt(was, wo);
+    kids()?.playJingle?.("unlock");
+    sage(satz || I.SAETZE.geschafft);
+    if (nochmal) leistenKnopf(I.SAETZE.nochmal, () => { if (!frei(was, wo)) { tor(); return; } nochmal(); }, { symbol: "nochmal" });
+  }
+  // Wörter für ein Spiel: zuerst gehörte, dann der Rest – aus allen Welten.
+  function spielWoerter(n, { nur = null } = {}) {
+    const I = inhalt();
+    const s = stand();
+    const alle = I.WELTEN.flatMap((w) => w.woerter).filter((w) => !nur || nur.includes(w.id));
+    const mische = (l) => l.map((x) => [Math.random(), x]).sort((p, q) => p[0] - q[0]).map((x) => x[1]);
+    const gehoert = mische(alle.filter((w) => s.wortStand(w.id) !== "zu"));
+    const neu = mische(alle.filter((w) => s.wortStand(w.id) === "zu"));
+    return [...gehoert, ...neu].slice(0, n);
+  }
+  const kern = {
+    sage, folge, still, zeigeText, hilfe, setzeBild, el, antippbar, animiere, frei, tor, rundeZaehlt, rundeFertig,
+    leistenKnopf, spielWoerter, stufe, reduziert,
+    stand, inhalt, art, kids,
+    offen: () => offen,
+    zimmer: () => zeigeZimmer({ huepfen: false }),
+  };
+  function starteSpiel(id, optionen = {}) {
+    const spiele = window.LernappEnglischSpiele;
+    if (!spiele?.[id]) return;
+    if (!frei(id, optionen.vers || optionen.buch || null)) { tor(); return; }
+    still();
+    offen.runde = null;
+    spiele[id](kern, optionen);
   }
 
   // ---------------------------------------------------------------------------
@@ -656,5 +764,5 @@
   }
   function unmount() { still(); window.clearTimeout(offen?.hinweisUhr); offen = null; }
 
-  window.LernappEnglischecke = { mount, zurueck, auffrischen, unmount, ansicht: () => offen?.ansicht || null, zuletzt: () => zuletzt };
+  window.LernappEnglischecke = { mount, zurueck, auffrischen, unmount, starteSpiel, ansicht: () => offen?.ansicht || null, zuletzt: () => zuletzt };
 })();
