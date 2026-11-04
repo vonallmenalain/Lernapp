@@ -295,9 +295,15 @@
     if (ort === "aufnaeher") { zeigeWoerterbuch({ aufnaeher: true }); return; }
     if (ort === "karte") {
       const v = offen.vorschlag || stand().vorschlag();
-      if (v.art === "hearfind") starteHearfind(v.welt);
-      else if (v.art === "geschichte") zeigeGeschichte(v.geschichte);
-      else zeigeEntdecken(v.welt);
+      const geh = () => {
+        if (offen?.ansicht !== "zimmer") return;
+        if (v.art === "hearfind") starteHearfind(v.welt);
+        else if (v.art === "geschichte") zeigeGeschichte(v.geschichte);
+        else zeigeEntdecken(v.welt);
+      };
+      const bilder = v.art === "geschichte" ? art().gemaeldeVon?.("geschichte", v.geschichte) : art().gemaeldeVon?.("welt", v.welt);
+      if (!bilder?.length || art().istGeladen(bilder)) geh();
+      else art().vorladen(bilder).then(geh);
     }
   }
 
@@ -325,7 +331,7 @@
     zu.type = "button";
     zu.setAttribute("aria-label", "Schliessen");
     zu.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"/></svg>`;
-    const welten = () => I.WELTEN.map((w) => ({ id: w.id, titel: w.titel, bild: a.weltBild(w.id), frei: frei(was, was === "entdecken" ? w.id : null), los: () => (was === "hearfind" ? starteHearfind(w.id) : zeigeEntdecken(w.id)) }));
+    const welten = () => I.WELTEN.map((w) => ({ id: w.id, titel: w.titel, bild: a.weltBild(w.id), gemaelde: a.gemaeldeVon?.("welt", w.id), frei: frei(was, was === "entdecken" ? w.id : null), los: () => (was === "hearfind" ? starteHearfind(w.id) : zeigeEntdecken(w.id)) }));
     const spiele = () => (I.SPIELE || []).map((sp) => ({
       id: sp.id, titel: sp.titel, bild: a.spielBild?.(sp.id) || "", frei: frei(sp.id),
       los: () => (sp.id === "hearfind" ? zeigeWahl("hearfind") : starteSpiel(sp.id)),
@@ -334,7 +340,7 @@
     // Gruppen: [{ titel?, eintraege }]
     const gruppen = was === "geschichte"
       ? [
-        { titel: I.SAETZE.geschichtenTitel, eintraege: I.GESCHICHTEN.map((g) => ({ id: g.id, titel: g.titel, bild: a.geschichtsTitelbild(g.id), frei: frei("geschichte", g.id), los: () => zeigeGeschichte(g.id) })) },
+        { titel: I.SAETZE.geschichtenTitel, eintraege: I.GESCHICHTEN.map((g) => ({ id: g.id, titel: g.titel, bild: a.geschichtsTitelbild(g.id), gemaelde: a.gemaeldeVon?.("geschichte", g.id), frei: frei("geschichte", g.id), los: () => zeigeGeschichte(g.id) })) },
         ...((I.BUECHER || []).length ? [{ titel: I.SAETZE.buecherTitel, eintraege: I.BUECHER.map((b) => ({ id: b.id, titel: b.titel, bild: `<img src="bilder/buecher/${b.id}/umschlag-klein.webp" alt="" loading="lazy" width="480" height="304">`, frei: frei("buch", b.id), los: () => starteSpiel("buch", { buch: b.id }) })) }] : []),
       ]
       : was === "spiele" ? (I.SPIEL_GRUPPEN
@@ -363,8 +369,18 @@
         if (!e.frei) k.insertAdjacentHTML("beforeend", `<i class="en-schloss" aria-hidden="true"></i>`);
         antippbar(k, () => {
           if (!e.frei) { tor(); return; }
-          if (!e.offenLassen) huelle.remove();
-          e.los();
+          if (huelle.dataset.laedt) return;
+          // Erst die Gemälde laden, dann aufgehen: So steht die Szene oder
+          // Geschichte von Anfang an gemalt da (wartet höchstens 1,5 Sekunden).
+          const los = () => {
+            if (!huelle.isConnected) return;
+            if (!e.offenLassen) huelle.remove();
+            e.los();
+          };
+          if (!e.gemaelde?.length || a.istGeladen(e.gemaelde)) { los(); return; }
+          huelle.dataset.laedt = "1";
+          k.classList.add("ist-am-laden");
+          a.vorladen(e.gemaelde).then(los);
         });
         kacheln.append(k);
       });

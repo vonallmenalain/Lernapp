@@ -445,6 +445,33 @@ if (typeof document !== "undefined" && document.addEventListener) {
     t.closest("svg")?.classList.add("ohne-gemaelde");
   }, true);
 }
+// Solange ein Gemälde lädt, steht eine ruhige Fläche da – die Zeichnung
+// (.en-ersatz) zeigt sich erst, wenn es nicht lädt, sonst blitzt sie auf.
+const PLATZ = "#eef3f1";
+const ersatz = (zeichnung, b, h) => `<rect width="${b}" height="${h}" fill="${PLATZ}"/><g class="en-ersatz">${zeichnung}</g>`;
+// Vorladen: Wer eine Szene oder Geschichte öffnet, lädt ihre Gemälde zuerst
+// (höchstens ms Millisekunden), damit sie von Anfang an gemalt dasteht.
+const geladen = new Set();
+function gemaeldeVon(art, id) {
+  if (art === "welt") return GEMALT.welten[id] ? [gemaltBild(`welt-${id}`)] : [];
+  return (GEMALT.geschichten[id] || []).map((_, i) => gemaltBild(`geschichte-${id}-${i + 1}`));
+}
+const istGeladen = (bilder) => bilder.every((u) => geladen.has(u));
+function vorladen(bilder, ms = 1500) {
+  const fehlen = bilder.filter((u) => !geladen.has(u));
+  if (!fehlen.length || typeof Image === "undefined") return Promise.resolve(true);
+  const eines = (u) => new Promise((fertig) => {
+    const bild = new Image();
+    const da = () => { geladen.add(u); fertig(true); };
+    bild.onload = () => (bild.decode ? bild.decode().then(da, da) : da());
+    bild.onerror = () => fertig(false);
+    bild.src = u;
+  });
+  return Promise.race([
+    Promise.all(fehlen.map(eines)).then((r) => r.every(Boolean)),
+    new Promise((fertig) => setTimeout(() => fertig(false), ms)),
+  ]);
+}
 const WEICH = `<radialGradient id="en-weich"><stop offset="0.6" stop-color="#fff"/><stop offset="1" stop-color="#000"/></radialGradient>`;
 // Das Gemälde selbst und als Muster für die Stücke, die hervorspringen.
 function gemaelde(href, muster, b, h) {
@@ -476,7 +503,7 @@ function szene(welt, { markiert = () => false, gezeichnet = false } = {}) {
   if (g) {
     const bild = gemaelde(gemaltBild(`welt-${welt}`), muster, 1000, 560);
     defs += bild.defs;
-    s += bild.bild;
+    s = `${ersatz(s, 1000, 560)}${bild.bild}`;
   }
   // Im Gemälde liegen die kleinen Dinge oben: Wer auf den Apfel tippt, trifft
   // nicht den Baum.
@@ -614,7 +641,7 @@ function geschichtsBild(geschichte, i, { gezeichnet = false } = {}) {
   const bild = gemaelde(gemaltBild(`geschichte-${name}`), muster, 472, 204);
   // Unter dem Gemälde die Zeichnung, ohne Tippstellen: Sie zeigt sich, wenn
   // das Gemälde nicht lädt.
-  let s = `${zeichnung.replace(OHNE_TIPP, "")}<defs>${bild.defs}</defs>${bild.bild}`;
+  let s = `${ersatz(zeichnung.replace(OHNE_TIPP, ""), 472, 204)}<defs>${bild.defs}</defs>${bild.bild}`;
   const stellen = Object.entries(g.woerter || {}).flatMap(([wort, rahmen]) => rahmen.map((r, k) => [wort, r, k]));
   stellen.sort((a, b) => b[1][2] * b[1][3] - a[1][2] * a[1][3]);
   for (const [wort, r, k] of stellen) {
@@ -628,9 +655,9 @@ const TITELBILD = { cat: 3, hungry: 3 };
 function geschichtsTitelbild(geschichte) {
   const i = TITELBILD[geschichte] ?? 0;
   const zeichnung = geschichtsBild(geschichte, i, { gezeichnet: true });
-  const gemalt = GEMALT.geschichten[geschichte]?.[i]
-    ? `<image href="${gemaltBild(`geschichte-${geschichte}-${i + 1}-klein`)}" width="472" height="204" preserveAspectRatio="xMidYMid slice"/>` : "";
-  return `<svg viewBox="0 0 472 204" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">${zeichnung}${gemalt}</svg>`;
+  const bild = GEMALT.geschichten[geschichte]?.[i]
+    ? `${ersatz(zeichnung, 472, 204)}<image class="en-gemaelde" href="${gemaltBild(`geschichte-${geschichte}-${i + 1}-klein`)}" width="472" height="204" preserveAspectRatio="xMidYMid slice"/>` : zeichnung;
+  return `<svg viewBox="0 0 472 204" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">${bild}</svg>`;
 }
 
 // ===========================================================================
@@ -741,8 +768,10 @@ function zimmer({ ausbau = 0, neuAb = Infinity, karte = null, aufnaeher: flicken
 // Kleine Bilder für Karten und Auswahl: eine Welt, Hear & find, eine Geschichte
 // (gemalt klein, darunter die Zeichnung).
 function weltBild(welt, breite = 200, hoehe = 112) {
-  const gemalt = GEMALT.welten[welt] ? `<image href="${gemaltBild(`welt-${welt}-klein`)}" width="1000" height="560" preserveAspectRatio="xMidYMid slice"/>` : "";
-  return `<svg viewBox="0 0 1000 560" width="${breite}" height="${hoehe}" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="himmel" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9fd8f0"/><stop offset="1" stop-color="#e3f5fb"/></linearGradient>${window.LernappBauTiere?.defs?.() || ""}</defs>${szene(welt, { gezeichnet: true }).replace(/^<svg[^>]*>/, "").replace(/<\/svg>$/, "")}${gemalt}</svg>`;
+  const zeichnung = szene(welt, { gezeichnet: true }).replace(/^<svg[^>]*>/, "").replace(/<\/svg>$/, "");
+  const bild = GEMALT.welten[welt]
+    ? `${ersatz(zeichnung, 1000, 560)}<image class="en-gemaelde" href="${gemaltBild(`welt-${welt}-klein`)}" width="1000" height="560" preserveAspectRatio="xMidYMid slice"/>` : zeichnung;
+  return `<svg viewBox="0 0 1000 560" width="${breite}" height="${hoehe}" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="himmel" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9fd8f0"/><stop offset="1" stop-color="#e3f5fb"/></linearGradient>${window.LernappBauTiere?.defs?.() || ""}</defs>${bild}</svg>`;
 }
 
 // Was weitere Zeichnungen (englisch-art-2.js …) brauchen, um Welten und
@@ -751,7 +780,7 @@ function weltBild(welt, breite = 200, hoehe = 112) {
 window.LernappEnglischArt = {
   roccoKopf, rocco, DING, ORTE, STICKER, szene, markeAn, sticker, aufnaeher, stern,
   geschichtsBild, geschichtsTitelbild, zimmer, weltBild, AUFNAEHER_BILD,
-  HINTERGRUND, AUFNAEHER_FARBE, GESCHICHTEN_BILDER, TITELBILD, GEMALT,
+  HINTERGRUND, AUFNAEHER_FARBE, GESCHICHTEN_BILDER, TITELBILD, GEMALT, gemaeldeVon, vorladen, istGeladen,
   hilfen: { tb, bildHintergrund, apfel, menschOder, wolke: wolkeAn, FARBE: { GRAU, GRAU_D, DUNKEL, HELL, HAUT } },
 };
 })();

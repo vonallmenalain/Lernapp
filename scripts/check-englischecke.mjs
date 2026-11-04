@@ -15,6 +15,9 @@
  *               war, und fragt noch einmal; fünf gefunden zählt eine Runde,
  *               und «Let's play again!» steht da.
  *   Geschichte  Vier Bilder, jedes antippbar; alle gehört zählt die Geschichte.
+ *   Gemälde     Bauernhof und Geschichte gehen erst auf, wenn ihre Gemälde
+ *               geladen sind – die Zeichnung darunter blitzt nicht auf. Lädt
+ *               kein Gemälde, zeigt sich die Zeichnung.
  *   Wörterbuch  Jedes gehörte Wort ist ein farbiger Sticker und sagt sich.
  *   Türen       Die Tür im Englischwagen führt in den Rechenwagen; dessen Tür
  *               bietet Englisch- und Lesewagen an.
@@ -101,6 +104,22 @@ async function mitschreiben(seite) {
 }
 const gesagt = (seite) => seite.evaluate(() => window.__gesagt.splice(0));
 const ansicht = (seite) => seite.evaluate(() => window.LernappEnglischecke?.ansicht?.() || null);
+// Eine Kachel lädt erst die Gemälde, dann geht sie auf: warten, bis die Ansicht da ist.
+const bisAnsicht = async (seite, ziel, ms = 3000) => {
+  await seite.waitForFunction((z) => window.LernappEnglischecke?.ansicht?.() === z, ziel, { timeout: ms }).catch(() => {});
+  return ansicht(seite);
+};
+// Steht das Bild gemalt da, ohne dass die Zeichnung darunter aufblitzt?
+const gemaltDa = (seite, art, id) => seite.evaluate(({ art, id }) => {
+  const A = window.LernappEnglischArt;
+  const bilder = A.gemaeldeVon(art, id);
+  const ersatz = [...document.querySelectorAll(".en-bild .en-ersatz")];
+  return {
+    geladen: bilder.length > 0 && A.istGeladen(bilder),
+    gemaelde: document.querySelectorAll(".en-bild .en-gemaelde").length,
+    ersatzSichtbar: ersatz.filter((e) => getComputedStyle(e).display !== "none").length,
+  };
+}, { art, id });
 const stand = (seite) => seite.evaluate(() => window.LernappEnglischStand.stand());
 const tippe = async (seite, wahl) => { await seite.locator(wahl).first().dispatchEvent("click"); await warte(80); };
 
@@ -159,6 +178,30 @@ try {
     await kontext.close();
   }
 
+  // --- Ohne Gemälde: die Zeichnung ----------------------------------------------
+  {
+    const kontext = await browser.newContext({ viewport: { width: 1280, height: 800 }, serviceWorkers: "block" });
+    await kontext.route("**/*gstatic.com/**", (r) => r.abort());
+    await kontext.route("**/*googleapis.com/**", (r) => r.abort());
+    await kontext.route("**/bilder/englisch/**", (r) => r.abort());
+    await kontext.addInitScript(tonErsatz);
+    const seite = await kontext.newPage();
+    seite.on("pageerror", (e) => seitenFehler.push(`Ohne Gemälde: ${e.message}`));
+    await seite.goto(`${BASIS}/index.html?englisch=1`);
+    await seite.waitForFunction(() => window.LernappEnglischecke?.ansicht?.() === "zimmer", null, { timeout: 8000 }).catch(() => {});
+    await tippe(seite, '.en-bild [data-ort="ausguck"]');
+    await tippe(seite, '.en-wahl-kachel[data-wahl="farm"]');
+    if ((await bisAnsicht(seite, "entdecken")) !== "entdecken") fehlt("Ohne Gemälde: der Bauernhof geht nicht auf");
+    await warte(400);
+    const z = await seite.evaluate(() => ({
+      ohne: document.querySelector(".en-bild .en-szene-svg")?.classList.contains("ohne-gemaelde"),
+      ersatz: [...document.querySelectorAll(".en-bild .en-ersatz")].some((e) => getComputedStyle(e).display !== "none"),
+      dinge: [...document.querySelectorAll(".en-bild .en-zeichnung")].every((e) => getComputedStyle(e).opacity === "1"),
+    }));
+    if (!z.ohne || !z.ersatz || !z.dinge) fehlt(`Ohne Gemälde: der Bauernhof zeigt seine Zeichnung nicht (${JSON.stringify(z)})`);
+    await kontext.close();
+  }
+
   // --- Ein Durchgang durch alles ------------------------------------------------
   for (const [viewport, name] of [[{ width: 1280, height: 800 }, "Laptop"], [{ width: 844, height: 390 }, "Handy"]]) {
     const { kontext, seite } = await neueSeite(browser, viewport, seitenFehler, name);
@@ -200,8 +243,11 @@ try {
     g = await gesagt(seite);
     if (!g.some((x) => x.sprache === "en")) fehlt(`${name}: der Titel der Auswahl sagt sich nicht`);
     await tippe(seite, '.en-wahl-kachel[data-wahl="farm"]');
-    await warte(150);
-    if ((await ansicht(seite)) !== "entdecken") fehlt(`${name}: der Bauernhof öffnet nicht zum Entdecken`);
+    if ((await bisAnsicht(seite, "entdecken")) !== "entdecken") fehlt(`${name}: der Bauernhof öffnet nicht zum Entdecken`);
+    {
+      const g = await gemaltDa(seite, "welt", "farm");
+      if (!g.geladen || g.gemaelde !== 1 || g.ersatzSichtbar) fehlt(`${name}: der Bauernhof steht beim Aufgehen nicht gemalt da (${JSON.stringify(g)})`);
+    }
     await gesagt(seite);
     await tippe(seite, '.en-bild [data-ding="cow"]');
     g = await gesagt(seite);
@@ -229,7 +275,7 @@ try {
     if (await seite.locator('.en-wahl-kachel[data-wahl="hearfind"]').count()) await tippe(seite, '.en-wahl-kachel[data-wahl="hearfind"]');
     await tippe(seite, '.en-wahl-kachel[data-wahl="farm"]');
     await warte(300);
-    if ((await ansicht(seite)) !== "hearfind") fehlt(`${name}: die Spielzeugkiste startet Hear and find nicht`);
+    if ((await bisAnsicht(seite, "hearfind")) !== "hearfind") fehlt(`${name}: die Spielzeugkiste startet Hear and find nicht`);
     await deUeberall(seite, `${name}, Hear and find`);
     let falsch = false;
     for (let runde = 0; runde < 5; runde += 1) {
@@ -264,8 +310,12 @@ try {
     await warte(200);
     await tippe(seite, '.en-bild [data-ort="regal"]');
     await tippe(seite, '.en-wahl-kachel[data-wahl="ball"]');
+    if ((await bisAnsicht(seite, "geschichte")) !== "geschichte") fehlt(`${name}: das Regal öffnet die Geschichte nicht`);
+    {
+      const g = await gemaltDa(seite, "geschichte", "ball");
+      if (!g.geladen || g.gemaelde !== 4 || g.ersatzSichtbar) fehlt(`${name}: die Geschichte steht beim Aufgehen nicht gemalt da – die Zeichnung blitzt auf (${JSON.stringify(g)})`);
+    }
     await warte(200);
-    if ((await ansicht(seite)) !== "geschichte") fehlt(`${name}: das Regal öffnet die Geschichte nicht`);
     const zurueck = await seite.locator(".stage-back").boundingBox();
     const panel = await seite.locator('.en-bild [data-panel="0"]').boundingBox();
     if (zurueck && panel && zurueck.x + zurueck.width > panel.x + 4 && zurueck.y + zurueck.height > panel.y + 4) fehlt(`${name}: der Zurück-Knopf liegt über dem ersten Bild der Geschichte`);

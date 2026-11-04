@@ -280,6 +280,10 @@ Die 12 Wimmelbilder und die 48 Bilder der 12 Geschichten sind gemalt, im Stil de
   kleinen Dinge liegen oben (wer den Apfel trifft, trifft nicht den Baum). Beim Antippen
   springt ein weich ausgeschnittenes Stück des Gemäldes hervor, statt zu wackeln (ein
   wackelndes Ding wäre doppelt zu sehen). Sterne und Hinweise stehen am gemalten Ding.
+- **Von Anfang an gemalt:** Eine Kachel (Aussichtsturm, Regal, Roccos Karte) lädt erst die
+  Gemälde ihrer Szene oder Geschichte und geht dann auf – höchstens 1,5 Sekunden lang pulsiert
+  sie. Die Zeichnung unter dem Gemälde bleibt unsichtbar, solange es lädt (sonst blitzten die
+  alten Bilder auf).
 - **Ohne Gemälde:** Lädt ein Bild nicht (offline, beim ersten Mal), zeigt die Szene ihre
   Zeichnung – die Dinge dort, wo sie im Gemälde wären –, die Geschichte ihre gezeichneten
   Bilder. Die Bilder liegen im Cache der Buchbilder und bleiben nach einem Update.
