@@ -236,6 +236,7 @@
     {
       id: "clothes",
       titel: ["Clothes and Weather", "Kleider und Wetter"],
+      reiter: "Clothes",
       intro: ["What's the weather like? Tap a picture.", "Wie ist das Wetter? Tippe auf ein Bild."],
       woerter: [
         w("coat", "A coat.", "Put on your coat! It's raining.", "Where is the coat?", "Eine Jacke.", "Zieh deine Jacke an! Es regnet.", "Wo ist die Jacke?"),

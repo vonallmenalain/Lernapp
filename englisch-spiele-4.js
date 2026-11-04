@@ -39,7 +39,7 @@
     const farbe = zufall(I.FARBEN);
     const teile = mische(["augen", "arme", "beine"]).map((teil) => zufall(I.MONSTER_TEILE.filter((t) => t.teil === teil && (st !== "leicht" || t.n <= 3))));
     const auftraege = [{ art: "farbe", farbe, satz: I.monsterFarbe(farbe) }, ...teile.map((t) => ({ art: t.teil, n: t.n, satz: t.satz }))];
-    const bau = { farbe: "#e9ecef", augen: 0, arme: 0, beine: 1 };
+    const bau = { farbe: "#e9ecef", augen: 0, arme: 0, beine: 0 };
     const zeige = punkte(k, auftraege.length);
     const zeigeKnoten = o.extra.lastChild;
     const zeichne = () => {

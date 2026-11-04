@@ -620,7 +620,7 @@
     offen.buchWelt = weltId;
     // Die Reiter: jede Welt, dazu Farben und Zahlen (ab Etappe 2).
     const REITER = [
-      ...I.WELTEN.map((w) => ({ id: w.id, titel: w.titel, woerter: w.woerter })),
+      ...I.WELTEN.map((w) => ({ id: w.id, titel: w.titel, reiter: w.reiter, woerter: w.woerter })),
       ...(I.FARBEN ? [{ id: "farben", titel: ["Colors", "Farben"], woerter: I.FARBEN }] : []),
       ...(I.ZAHLEN ? [{ id: "zahlen", titel: ["Numbers", "Zahlen"], woerter: I.ZAHLEN }] : []),
     ];
@@ -634,13 +634,15 @@
       <rect x="494" y="40" width="12" height="492" fill="#e9dcc4"/>`;
     // Reiter oben: bis drei in einer Reihe wie bisher, mehr in zwei Reihen.
     const proReihe = REITER.length > 3 ? 4 : 3;
+    // Auf dem Reiter kurz: «Farm» statt «The Farm», «Clothes» statt «Clothes and Weather».
+    const reiterName = (w) => (REITER.length > 3 ? (w.reiter || w.titel[0].replace(/^The /, "")) : w.titel[0]);
     const rb = REITER.length > 3 ? 104 : 128;
     REITER.forEach((w, i) => {
       const an = w.id === welt.id;
       const rx = 56 + (i % proReihe) * (rb + 8);
       const ry = 50 + Math.floor(i / proReihe) * 40;
       x += `<g class="en-reiter" data-reiter="${w.id}" tabindex="0" role="button" aria-label="${w.titel[0]}"><rect x="${rx}" y="${ry}" width="${rb}" height="34" rx="11" fill="${an ? "#3a7bd5" : "#e9dcc4"}"/>
-        <text x="${rx + rb / 2}" y="${ry + 23}" text-anchor="middle" font-family="Baloo 2, Nunito, sans-serif" font-weight="800" font-size="${REITER.length > 3 ? 14 : 17}" fill="${an ? "#ffffff" : "#5d6882"}">${w.titel[0]}</text></g>`;
+        <text x="${rx + rb / 2}" y="${ry + 23}" text-anchor="middle" font-family="Baloo 2, Nunito, sans-serif" font-weight="800" font-size="${REITER.length > 3 ? 14 : 17}" fill="${an ? "#ffffff" : "#5d6882"}">${reiterName(w)}</text></g>`;
     });
     const obenListe = 50 + Math.ceil(REITER.length / proReihe) * 40;
     x += `<text x="268" y="${obenListe + 18}" text-anchor="middle" font-family="Nunito, sans-serif" font-weight="800" font-size="16" fill="#5d6882">${n} / ${woerter.length}</text>`;
@@ -657,15 +659,26 @@
     // Rechte Seite: die Aufnäher
     x += `<g class="en-reiter" data-titel="aufnaeher" tabindex="0" role="button"><text x="732" y="96" text-anchor="middle" font-family="Baloo 2, Nunito, sans-serif" font-weight="800" font-size="30" fill="#243047">My Patches</text></g>`;
     const flicken = s.aufnaeher();
-    const zweiSpalten = flicken.length > 3;
-    flicken.forEach((f, i) => {
-      const cx = zweiSpalten ? 580 + (i % 2) * 200 : 620;
-      const cy = zweiSpalten ? 180 + Math.floor(i / 2) * 120 : 190 + i * 112;
-      const r = zweiSpalten ? 34 : 40;
-      x += `<g class="en-flicken" data-flicken="${f.id}" tabindex="0" role="button">${a.aufnaeher(f.id, cx, cy, r, f)}
-        <text x="${cx + r + 14}" y="${cy - 4}" font-family="Baloo 2, Nunito, sans-serif" font-weight="800" font-size="${zweiSpalten ? 18 : 22}" fill="#243047">${f.titel[0]}</text>
-        <text x="${cx + r + 14}" y="${cy + 20}" font-family="Nunito, sans-serif" font-weight="700" font-size="${zweiSpalten ? 13 : 15}" fill="#5d6882">${f.erkannt} / ${f.von} ★${f.gold ? " · gold" : ""}</text></g>`;
-    });
+    if (flicken.length > 6) {
+      // Viele Welten: drei Spalten, der Name unter dem Aufnäher.
+      flicken.forEach((f, i) => {
+        const cx = 600 + (i % 3) * 134;
+        const cy = 168 + Math.floor(i / 3) * 96;
+        x += `<g class="en-flicken" data-flicken="${f.id}" tabindex="0" role="button">${a.aufnaeher(f.id, cx, cy, 27, f)}
+          <text x="${cx}" y="${cy + 44}" text-anchor="middle" font-family="Baloo 2, Nunito, sans-serif" font-weight="800" font-size="14" fill="#243047">${f.reiter || f.titel[0].replace(/^The /, "")}</text>
+          <text x="${cx}" y="${cy + 60}" text-anchor="middle" font-family="Nunito, sans-serif" font-weight="700" font-size="12" fill="#5d6882">${f.erkannt} / ${f.von} ★${f.gold ? " · gold" : ""}</text></g>`;
+      });
+    } else {
+      const zweiSpalten = flicken.length > 3;
+      flicken.forEach((f, i) => {
+        const cx = zweiSpalten ? 580 + (i % 2) * 200 : 620;
+        const cy = zweiSpalten ? 180 + Math.floor(i / 2) * 120 : 190 + i * 112;
+        const r = zweiSpalten ? 34 : 40;
+        x += `<g class="en-flicken" data-flicken="${f.id}" tabindex="0" role="button">${a.aufnaeher(f.id, cx, cy, r, f)}
+          <text x="${cx + r + 14}" y="${cy - 4}" font-family="Baloo 2, Nunito, sans-serif" font-weight="800" font-size="${zweiSpalten ? 18 : 22}" fill="#243047">${f.titel[0]}</text>
+          <text x="${cx + r + 14}" y="${cy + 20}" font-family="Nunito, sans-serif" font-weight="700" font-size="${zweiSpalten ? 13 : 15}" fill="#5d6882">${f.erkannt} / ${f.von} ★${f.gold ? " · gold" : ""}</text></g>`;
+      });
+    }
     const svg = setzeBild(`<svg viewBox="0 0 1000 560" class="en-buch-svg" role="img" aria-label="${I.SAETZE.wortbuchTitel[0]}" xmlns="http://www.w3.org/2000/svg">${x}</svg>`);
     hilfe("woerterbuch");
     svg.querySelectorAll("[data-reiter]").forEach((r) => antippbar(r, () => {

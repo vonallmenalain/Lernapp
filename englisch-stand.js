@@ -156,7 +156,7 @@
     const erkanntN = zaehle((st) => st === "erkannt" || st === "sicher");
     const sicherN = zaehle((st) => st === "sicher");
     return {
-      id, titel: w.titel, von: ids.length, gehoert: gehoertN, erkannt: erkanntN, sicher: sicherN,
+      id, titel: w.titel, reiter: w.reiter, von: ids.length, gehoert: gehoertN, erkannt: erkanntN, sicher: sicherN,
       anteil: ids.length ? erkanntN / ids.length : 0, voll: erkanntN === ids.length, gold: sicherN === ids.length,
     };
   }
