@@ -191,6 +191,12 @@ body[data-page="train"] .train-stage[data-view="englisch"] ~ .help-voice {
    wie bei der Zeichnung liesse das Ding doppelt sehen. Lädt das Gemälde nicht,
    zeigt sich die Zeichnung. */
 .en-zeichnung { opacity: 0; }
+/* Die Zeichnung unter dem Gemälde zeigt sich nur, wenn es nicht lädt. */
+.en-ersatz { display: none; }
+.ohne-gemaelde .en-ersatz { display: inline; }
+/* Eine Kachel, deren Gemälde gerade geladen werden, bevor sie aufgeht. */
+.en-wahl-kachel.ist-am-laden { animation: en-am-laden 0.7s ease-in-out infinite alternate; }
+@keyframes en-am-laden { to { opacity: 0.6; transform: scale(0.97); } }
 .ohne-gemaelde .en-zeichnung { opacity: 1; }
 .en-ausschnitt { display: none; }
 .en-gemalt-ding.en-wackel .en-ausschnitt, .en-gemalt-ding.en-huepf .en-ausschnitt, .en-gemalt-ding.en-schuettel .en-ausschnitt, .en-gemalt-ding:focus-visible .en-ausschnitt { display: inline; }
@@ -335,7 +341,7 @@ body[data-page="train"] .train-stage[data-view="englisch"] ~ .help-voice {
 @media (prefers-reduced-motion: reduce) {
   .en-mikrofon.ist-aufnahme, .en-klingel { animation: none; }
   .en-steigt, .en-zu-rocco, .en-zug-faehrt { animation: none; opacity: 0.3; }
-  .englischecke, .en-wahl, .en-wackel, .en-huepf, .en-schuettel, .en-gemalt-ding, .en-funkel, .en-blitz, .en-zimmer-svg.is-huepfen .en-ort, .en-ausbau.is-neu, .en-birne, .en-de-knopf.en-gedrueckt { animation: none; }
+  .englischecke, .en-wahl, .en-wackel, .en-huepf, .en-schuettel, .en-gemalt-ding, .en-wahl-kachel.ist-am-laden, .en-funkel, .en-blitz, .en-zimmer-svg.is-huepfen .en-ort, .en-ausbau.is-neu, .en-birne, .en-de-knopf.en-gedrueckt { animation: none; }
 }
 
 /* Einsteigen: der Englischwagen wächst kurz auf, dann steht man drinnen. */
