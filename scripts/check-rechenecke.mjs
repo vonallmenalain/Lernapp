@@ -6,7 +6,8 @@
  *   Zimmer      Ein Tipp auf den Wagen führt hinein; der Zug draussen ist weg;
  *               jedes Ding mit Spielen steht da, dazu Drache, Karte, Schatz
  *               und die Tür. Am Anfang liegt ein Ei auf dem Kissen.
- *   Tür         führt in den Lesewagen, und dessen Tür zurück.
+ *   Tür         bietet Englisch- und Lesewagen an, führt in den Lesewagen,
+ *               und dessen Tür zurück.
  *   Spiele      Jedes Spiel des Katalogs startet ohne Zwischenkarte und stellt eine
  *               Aufgabe (Zahlen oder Knöpfe zur Wahl, der Würfel, oder Dinge
  *               im Bild zum Antippen) – ohne Fehler auf der Seite.
@@ -183,8 +184,13 @@ async function main() {
       await seite.waitForTimeout(300);
       if (await seite.$(".rechen-album")) fehlt("Sammelalbum: geht mit dem Kreuz nicht zu");
     }
-    // Die Tür:
+    // Die Tür: Mit dem Englischwagen fragt sie zuerst, wohin.
     await seite.click(".rechen-ort-tuer .rechen-hitbox");
+    await seite.waitForTimeout(400);
+    if (await seite.$(".rechen-tueren")) {
+      if (!(await seite.$('.rechen-tueren [data-tuer="englisch"]'))) fehlt("Tür: Die Wahl bietet den Englischwagen nicht an");
+      await seite.click('.rechen-tueren [data-tuer="lesen"]');
+    }
     await seite.waitForTimeout(1200);
     if ((await seite.evaluate(() => document.querySelector(".train-stage")?.dataset.view)) !== "lesen") fehlt("Tür: führt nicht in den Lesewagen");
     if (!(await seite.$(".lese-ort-rechnen"))) fehlt("Tür: Im Lesewagen fehlt die Tür in den Rechenwagen");

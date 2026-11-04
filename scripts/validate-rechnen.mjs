@@ -66,7 +66,7 @@ const entitlement = lies("entitlement.js");
 const rechenecke = (entitlement.match(/const RECHENECKE = \{[\s\S]*?\] \};/) || [""])[0];
 const gesperrt = [...rechenecke.matchAll(/\{ id: "([a-z0-9]+)", page: "([a-z0-9]+\.html)" \}/g)].map((m) => ({ id: m[1], page: m[2] }));
 pruefe(gesperrt.length > 0, "entitlement.js: RECHENECKE fehlt");
-pruefe(/\[\.\.\.AREAS, LESEECKE, RECHENECKE\]/.test(entitlement), "entitlement.js: gameEntry sucht nicht in RECHENECKE");
+pruefe(/\[\.\.\.AREAS, LESEECKE, RECHENECKE(, ENGLISCHECKE)?\]/.test(entitlement), "entitlement.js: gameEntry sucht nicht in RECHENECKE");
 
 const sw = lies("service-worker.js");
 const index = lies("index.html");

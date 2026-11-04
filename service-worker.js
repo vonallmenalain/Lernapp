@@ -1,4 +1,4 @@
-const APP_VERSION = "2026-11-04-2";
+const APP_VERSION = "2026-11-04-3";
 const CACHE_PREFIX = "lernapp-pwa-";
 const CACHE_NAME = `${CACHE_PREFIX}${APP_VERSION}`;
 const ASSET_VERSION_QUERY = `?v=${APP_VERSION}`;
@@ -24,7 +24,8 @@ const BUCHBILDER_TIMEOUT_MS = 20000;
 
 // Die Aufnahmen fester Texte mit Alains Stimme (stimme/alain/,
 // lesen-stimme.js) und die Sätze mit einer Stimme von Google (stimme/google/,
-// app-stimme.js und bau-stimme.js) halten es wie die Buchbilder: ein eigener
+// app-stimme.js und bau-stimme.js), Roccos Englisch (stimme/englisch/,
+// englisch-stimme.js) halten es wie die Buchbilder: ein eigener
 // Cache, den ein Versionswechsel nicht leert – ein Satz, der einmal zu hören
 // war, ist es auch ohne Netz. Eine Datei heisst nach ihrem Text; wird derselbe
 // Text neu gesprochen, braucht der Name hier eine neue Nummer. Lädt eine
@@ -199,6 +200,12 @@ const CORE_ASSETS = [
   `./rechnen-spiele-2.js${ASSET_VERSION_QUERY}`,
   `./train-rechenecke.js${ASSET_VERSION_QUERY}`,
   `./lernzug-art.js${ASSET_VERSION_QUERY}`,
+  `./englisch.css${ASSET_VERSION_QUERY}`,
+  `./englisch-inhalt.js${ASSET_VERSION_QUERY}`,
+  `./englisch-stand.js${ASSET_VERSION_QUERY}`,
+  `./englisch-art.js${ASSET_VERSION_QUERY}`,
+  `./englisch-stimme.js${ASSET_VERSION_QUERY}`,
+  `./train-englischecke.js${ASSET_VERSION_QUERY}`,
   `./lesen-buecher.js${ASSET_VERSION_QUERY}`,
   `./lesen-bilder.js${ASSET_VERSION_QUERY}`,
   `./lesen-detektive.js${ASSET_VERSION_QUERY}`,

@@ -62,6 +62,9 @@
   const rechenStand = () => window.LernappRechenStand || null;
   // Der Lernzug über dem Gripszug (lernzug-art.js): Lernlok und Lernwagen.
   const lernArt = () => window.LernappLernzugArt || null;
+  // Die Englischecke: der Caboose hinten am Lernzug (train-englischecke.js).
+  const englischApi = () => window.LernappEnglischecke || null;
+  const englischStand = () => window.LernappEnglischStand || null;
   const bauArt = () => window.LernappBauArt || null;
   const bauStand = () => window.LernappBauStand || null;
   // Gezeigt wird, was gewählt ist – ob die Landschaft nach dem Stand dieses
@@ -1406,7 +1409,7 @@
   const LERN_MIN = 0.55;
   const ZULETZT_KEY = "lernapp.lernzug.zuletzt";
   const LERN_GESEHEN_KEY = "lernapp.lernzug.gesehen";
-  const LERN_IDS = ["lesen", "rechnen"];
+  const LERN_IDS = ["lesen", "rechnen", "englisch"];
   let lernzug = null;
   let lernlokButton = null;
   let lernWagenKnoepfe = [];
@@ -1415,6 +1418,7 @@
     return {
       lesen: leseApi() ? (leseStand()?.wagenStufe?.() || 0) : null,
       rechnen: rechenApi() ? (rechenStand()?.wagenStufe?.() || 0) : null,
+      englisch: englischApi() ? (englischStand()?.wagenStufe?.() || 0) : null,
     };
   }
 
@@ -1462,6 +1466,11 @@
     return buildLernwagenKnopf("rechnen", "rechenwagen-knopf", `Der Rechenwagen: Hier wird gerechnet. Dein Drache hat ${d.taler} Taler.`, enterRechenecke);
   }
 
+  function buildEnglischButton() {
+    if (!lernArt() || !englischStand() || !englischApi() || !window.LernappEnglischArt) return null;
+    return buildLernwagenKnopf("englisch", "englischwagen-knopf", "Der Englischwagen: Hier wohnt Rocco und spricht Englisch.", enterEnglischecke);
+  }
+
   function buildLernlokButton() {
     const z = lernArt();
     const fahrer = zuletztBesucht();
@@ -1473,7 +1482,9 @@
     button.setAttribute("aria-label", "Die Lernlok: Sie fährt in den Wagen, in dem du zuletzt warst.");
     button.append(z.wagenSvg(z.buildLernlok({ fahrer, m: maskottchenStand(fahrer) }), z.LOK_W));
     button.addEventListener("click", () => {
-      if (zuletztBesucht() === "rechnen" && rechenApi()) enterRechenecke();
+      const wo = zuletztBesucht();
+      if (wo === "rechnen" && rechenApi()) enterRechenecke();
+      else if (wo === "englisch" && englischApi()) enterEnglischecke();
       else enterLeseecke();
     });
     return button;
@@ -1482,7 +1493,7 @@
   // Von links nach rechts: der hinterste Wagen zuerst, die Lok vorn.
   function buildLernzug() {
     if (!lernArt()) return null;
-    lernWagenKnoepfe = [rechenButton, leseButton].filter(Boolean);
+    lernWagenKnoepfe = [englischButton, rechenButton, leseButton].filter(Boolean);
     if (!lernWagenKnoepfe.length) return null;
     lernlokButton = buildLernlokButton();
     const host = document.createElement("div");
@@ -1684,6 +1695,7 @@
     return {
       lesen: lese?.wagenStufe ? lese.wagenStufe(daten(lese.KEY || "lernapp.lesen")) : 0,
       rechnen: rechnen?.wagenStufe ? rechnen.wagenStufe(daten(rechnen.KEY || "lernapp.rechnen")) : 0,
+      englisch: englischStand()?.wagenStufe ? englischStand().wagenStufe(daten(englischStand().KEY || "lernapp.englisch")) : 0,
       glieder: lese?.wurmGlieder ? lese.wurmGlieder(daten(lese.KEY || "lernapp.lesen")) : 1,
       drache: rechnen?.drache ? rechnen.drache(daten(rechnen.KEY || "lernapp.rechnen")) : { leben: 0, taler: 0 },
     };
@@ -1693,7 +1705,7 @@
   // weitergekommen.
   function fortschrittVon(friend) {
     const wagen = (friend.areas || []).reduce((summe, area) => summe + (area.stage || 0), 0);
-    const lern = friend.lern ? (friend.lern.lesen || 0) + (friend.lern.rechnen || 0) : 0;
+    const lern = friend.lern ? (friend.lern.lesen || 0) + (friend.lern.rechnen || 0) + (friend.lern.englisch || 0) : 0;
     return wagen + lern + (friend.journeyStars || 0) + (friend.journeyGold || 0);
   }
 
@@ -1787,7 +1799,7 @@
   function miniLernzug(friend) {
     const z = lernArt();
     if (!z) return null;
-    const ids = LERN_IDS.filter((id) => (id === "lesen" ? leseApi() : rechenApi()));
+    const ids = LERN_IDS.filter((id) => (id === "lesen" ? leseApi() : id === "rechnen" ? rechenApi() : englischApi()));
     const reihe = [...ids].reverse();
     const breite = z.zugBreite(reihe.length);
     const svg = el("svg", { viewBox: `0 0 ${breite} ${art.ART_H}`, class: "gruppe-lernzug", "aria-hidden": "true" }, [
@@ -1795,7 +1807,7 @@
     ]);
     const m = friend.lern || {};
     reihe.forEach((id, i) => {
-      const masko = id === "lesen" ? { glieder: m.glieder || 1 } : { leben: m.drache?.leben || 0, ei: !m.drache?.taler };
+      const masko = id === "lesen" ? { glieder: m.glieder || 1 } : id === "rechnen" ? { leben: m.drache?.leben || 0, ei: !m.drache?.taler } : {};
       const wagen = z.buildLernwagen(id, m[id] || 0, masko);
       wagen.setAttribute("transform", `translate(${z.wagenX(i)} 0)`);
       svg.append(wagen);
@@ -1947,6 +1959,7 @@
   let startButton = null;
   let leseButton = null;
   let rechenButton = null;
+  let englischButton = null;
   let bauButton = null;
   let busy = false;
 
@@ -1974,6 +1987,7 @@
     // Dasselbe für den Lesewagen: Sein Lautsprecher-Text gehört zu ihm.
     if (view.name === "lesen" && name !== "lesen") kids()?.setHelp?.("");
     if (view.name === "rechnen" && name !== "rechnen") kids()?.setHelp?.("");
+    if (view.name === "englisch" && name !== "englisch") { kids()?.setHelp?.(""); englischApi()?.unmount?.(); }
     // Und für die Bauecke, die dazu ihre Uhren und Zuhörer abräumt. Was sie
     // warten liess, darf jetzt: das Gleis der Reise vermessen.
     if (view.name === "bau" && name !== "bau") { kids()?.setHelp?.(""); bauApi()?.unmount?.(); gleisImLeerlauf(); }
@@ -1995,6 +2009,7 @@
     if (startButton) startButton.hidden = name !== "home";
     if (leseButton) leseButton.hidden = name !== "home";
     if (rechenButton) rechenButton.hidden = name !== "home";
+    if (englischButton) englischButton.hidden = name !== "home";
     if (bauButton) bauButton.hidden = name !== "home";
     if (lernlokButton) lernlokButton.hidden = name !== "home";
     if (gruppeButton) gruppeButton.hidden = name !== "home" || friends.length === 0;
@@ -2199,7 +2214,22 @@
     const host = document.createElement("div");
     host.className = "rechenecke";
     renderLayer(host);
-    rechnen.mount({ host, onPlay: (url) => enterGame(url), onLesen: leseApi() ? () => showLeseecke() : null });
+    rechnen.mount({ host, onPlay: (url) => enterGame(url), onLesen: leseApi() ? () => showLeseecke() : null, onEnglisch: englischApi() ? () => showEnglischecke() : null });
+  }
+
+  // Im Englischwagen: Rocco, die Wimmelbilder, die Geschichten – alles drinnen
+  // (train-englischecke.js). Wie im Rechenwagen bleibt der Zug draussen.
+  let renderAfterEnglisch = false;
+
+  function showEnglischecke() {
+    const englisch = englischApi();
+    if (!englisch) { showHome(); return; }
+    setView("englisch");
+    merkeBesuch("englisch");
+    const host = document.createElement("div");
+    host.className = "englischecke";
+    renderLayer(host);
+    englisch.mount({ host, onRechnen: rechenApi() ? () => showRechenecke() : null });
   }
 
   // In der Bauecke: die vier Häuser (train-bau.js). Wie im Lesewagen bleibt
@@ -2334,6 +2364,18 @@
     busy = false;
   }
 
+  // In den Englischwagen: wie in den Rechenwagen.
+  async function enterEnglischecke() {
+    if (busy || view.name !== "home" || !englischApi()) return;
+    busy = true;
+    kids()?.playJingle?.("correct");
+    stage.dataset.englischEin = "1";
+    await after(420);
+    delete stage.dataset.englischEin;
+    showEnglischecke();
+    busy = false;
+  }
+
   // Auf den Bauplatz: Die Häuser wachsen kurz auf, dann steht man davor.
   async function enterBauecke() {
     if (busy || view.name !== "home" || !bauApi()) return;
@@ -2411,14 +2453,23 @@
     if (view.name === "lesen") {
       // Durch die Tür kann ein Kind zwischen den Wagen hin und her: Was in
       // einem davon liegen blieb, holt der Weg hinaus nach.
-      if (!renderAfterLesen && !renderAfterRechnen) { showHome(); return; }
+      if (!renderAfterLesen && !renderAfterRechnen && !renderAfterEnglisch) { showHome(); return; }
       setView("home");
       render();
       return;
     }
     // Aus dem Rechenwagen genauso.
     if (view.name === "rechnen") {
-      if (!renderAfterRechnen && !renderAfterLesen) { showHome(); return; }
+      if (!renderAfterRechnen && !renderAfterLesen && !renderAfterEnglisch) { showHome(); return; }
+      setView("home");
+      render();
+      return;
+    }
+    // Aus dem Englischwagen: Zuerst schliesst er selbst, was offen ist – eine
+    // Auswahl, ein Wimmelbild, eine Geschichte –, erst dann geht es an den Zug.
+    if (view.name === "englisch") {
+      if (englischApi()?.zurueck?.()) return;
+      if (!renderAfterEnglisch && !renderAfterRechnen && !renderAfterLesen) { showHome(); return; }
       setView("home");
       render();
       return;
@@ -2997,6 +3048,13 @@
       maybeCelebrate(progress.allAreas());
       return;
     }
+    // Im Englischwagen genauso.
+    if (view.name === "englisch") {
+      renderAfterEnglisch = true;
+      englischApi()?.auffrischen?.();
+      maybeCelebrate(progress.allAreas());
+      return;
+    }
     // In der Bauecke genauso: Sie frischt sich selbst auf, nur wenn sich an
     // ihren Häusern etwas geändert hat.
     if (view.name === "bau") {
@@ -3007,6 +3065,7 @@
     }
     renderAfterLesen = false;
     renderAfterRechnen = false;
+    renderAfterEnglisch = false;
     const areas = progress.allAreas();
     if (!locoConfig) locoConfig = readLoco();
     const loco = locoConfig;
@@ -3095,6 +3154,7 @@
     startButton = buildStartButton();
     leseButton = buildLeseButton();
     rechenButton = buildRechenButton();
+    englischButton = buildEnglischButton();
     lernzug = buildLernzug();
     bauButton = buildBauButton();
     gruppeButton = buildGruppeButton();
@@ -3116,6 +3176,7 @@
     else if (previous === "reise") showJourney({ mode: "quiet" });
     else if (previous === "lesen") showLeseecke();
     else if (previous === "rechnen") showRechenecke();
+    else if (previous === "englisch") showEnglischecke();
     else if (previous === "bau") showBauecke();
     else showHome();
 
@@ -3201,6 +3262,7 @@
     let station = null;
     let leseWanted = null;
     let rechenWanted = null;
+    let englischWanted = null;
     let bauWanted = null;
     try {
       const params = new URLSearchParams(window.location.search);
@@ -3208,6 +3270,7 @@
       reiseWanted = params.get("reise");
       leseWanted = params.get("lesen");
       rechenWanted = params.get("rechnen");
+      englischWanted = params.get("englisch");
       bauWanted = params.get("bau");
       station = Number(params.get("station")) || null;
     } catch { wanted = null; }
@@ -3216,6 +3279,11 @@
     if (bauWanted && bauApi()) {
       try { window.history.replaceState(null, "", window.location.pathname); } catch { /* ohne Verlauf */ }
       showBauecke();
+      return true;
+    }
+    if (englischWanted && englischApi()) {
+      try { window.history.replaceState(null, "", window.location.pathname); } catch { /* ohne Verlauf */ }
+      showEnglischecke();
       return true;
     }
     // Zurück aus einem Spiel der Rechenecke: gleich wieder in den Rechenwagen.

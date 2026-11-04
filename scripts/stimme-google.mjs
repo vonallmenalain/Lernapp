@@ -7,6 +7,12 @@
  *   --bereich bau   die Bauecke: scripts/stimme-bau-texte.mjs → bau-stimme.js
  *                   (ohne --bereich gilt bau)
  *   --bereich app   alles andere: scripts/stimme-app-texte.mjs → app-stimme.js
+ *   --bereich englisch  Roccos Englisch in der Englischecke:
+ *                   scripts/stimme-englisch-texte.mjs → englisch-stimme.js,
+ *                   eigener Ordner stimme/englisch/ und eine feste Stimme
+ *                   (en-US-Chirp3-HD-Puck, Tempo 0.9) – --stimme und --tempo
+ *                   gelten hier nicht, die Einstellung der deutschen Stimme
+ *                   bleibt, wie sie ist.
  *
  *   node scripts/stimme-google.mjs texte [--bereich app] [--teil kern|zahlen|namen] [--fehlend]
  *       Die Sätze des Bereichs: wie viele, wie viele Zeichen, wie viele
@@ -56,6 +62,7 @@ import { spawn, execFileSync } from "node:child_process";
 import { WURZEL } from "./stimme-texte.mjs";
 import * as bau from "./stimme-bau-texte.mjs";
 import * as app from "./stimme-app-texte.mjs";
+import * as en from "./stimme-englisch-texte.mjs";
 const { ORDNER, dateiFuer, passtZumText, sekundenVon } = bau;
 
 const API = "https://texttospeech.googleapis.com/v1";
@@ -81,13 +88,19 @@ const wert = (name, fallback = null) => {
 
 // Welcher Bereich: seine Sätze und sein Verzeichnis.
 const BEREICHE = {
-  bau: { name: "die Bauecke", texte: async () => bau.bauTexte(), verzeichnis: bau.verzeichnis, schreibe: bau.schreibeVerzeichnis, datei: bau.VERZEICHNIS },
-  app: { name: "die App", texte: app.appTexte, verzeichnis: app.verzeichnis, schreibe: app.schreibeVerzeichnis, datei: app.VERZEICHNIS },
+  bau: { name: "die Bauecke", texte: async () => bau.bauTexte(), verzeichnis: bau.verzeichnis, schreibe: bau.schreibeVerzeichnis, datei: bau.VERZEICHNIS, ordner: ORDNER, dateiFuer },
+  app: { name: "die App", texte: app.appTexte, verzeichnis: app.verzeichnis, schreibe: app.schreibeVerzeichnis, datei: app.VERZEICHNIS, ordner: ORDNER, dateiFuer },
+  // Die Englischecke: eigener Ordner, feste Stimme.
+  englisch: {
+    name: "die Englischecke", texte: en.englischTexte, verzeichnis: en.verzeichnis, schreibe: en.schreibeVerzeichnis, datei: en.VERZEICHNIS,
+    ordner: en.ORDNER, dateiFuer: en.dateiFuer, stimme: en.STIMME, tempo: en.TEMPO,
+  },
 };
 const bereichName = wert("bereich", "bau");
 const B = BEREICHE[bereichName];
-if (!B) { console.error(`Unbekannter Bereich: ${bereichName} (bau oder app)`); process.exit(2); }
-const anderer = BEREICHE[bereichName === "bau" ? "app" : "bau"];
+if (!B) { console.error(`Unbekannter Bereich: ${bereichName} (bau, app oder englisch)`); process.exit(2); }
+// Bauecke und App teilen sich den Ordner stimme/google/.
+const anderer = B.stimme ? null : BEREICHE[bereichName === "bau" ? "app" : "bau"];
 
 // --- Einstellung und Verbrauch ----------------------------------------------
 function einstellung() {
@@ -269,11 +282,11 @@ async function probe() {
 
 async function vertonen() {
   const e = einstellung();
-  const gewuenscht = wert("stimme") ? stimmeName(wert("stimme")) : e.stimme;
+  const gewuenscht = B.stimme || (wert("stimme") ? stimmeName(wert("stimme")) : e.stimme);
   if (!gewuenscht) throw new Error("Welche Stimme? --stimme Charon (die Namen: node scripts/stimme-google.mjs stimmen)");
-  const tempo = Number(wert("tempo", e.tempo || 1));
+  const tempo = B.stimme ? B.tempo : Number(wert("tempo", e.tempo || 1));
   let da = B.verzeichnis() || {};
-  const wechsel = e.stimme && Object.keys(da).length && (e.stimme !== gewuenscht || Number(e.tempo || 1) !== tempo);
+  const wechsel = !B.stimme && e.stimme && Object.keys(da).length && (e.stimme !== gewuenscht || Number(e.tempo || 1) !== tempo);
   if (wechsel && !flag("alle-neu")) {
     throw new Error(`${B.name[0].toUpperCase()}${B.name.slice(1)} spricht schon mit ${e.stimme} (Tempo ${e.tempo || 1}). Für ${gewuenscht} (Tempo ${tempo}) alles neu: --alle-neu (danach auch den anderen Bereich)`);
   }
@@ -287,10 +300,10 @@ async function vertonen() {
   // Was schon als Datei daliegt (der andere Bereich sagt denselben Satz),
   // kommt ohne Anfrage dazu.
   const schonDa = offen.filter((t) => {
-    const datei = path.join(WURZEL, dateiFuer(t.text));
+    const datei = path.join(WURZEL, B.dateiFuer(t.text));
     return !wechsel && fs.existsSync(datei) && passtZumText(sekundenVon(fs.readFileSync(datei)), t.text);
   });
-  schonDa.forEach((t) => { da[t.text] = dateiFuer(t.text); });
+  schonDa.forEach((t) => { da[t.text] = B.dateiFuer(t.text); });
   if (schonDa.length) console.log(`${schonDa.length} Sätze haben schon eine Datei (vom anderen Bereich).`);
   offen = offen.filter((t) => !da[t.text]);
   const limit = Number(wert("limit", 0));
@@ -305,8 +318,8 @@ async function vertonen() {
   if (!flag("kosten-ok") && verbrauchtDiesenMonat() + zeichen > GRENZE_MONAT) {
     throw new Error(`Das ginge über ${GRENZE_MONAT} Zeichen in diesem Monat – das Gratis-Kontingent ist 1 Million. Mit --limit weniger auf einmal, nächsten Monat weiter, oder --kosten-ok.`);
   }
-  speichereEinstellung({ ...einstellung(), stimme: gewuenscht, tempo });
-  fs.mkdirSync(path.join(WURZEL, ORDNER), { recursive: true });
+  if (!B.stimme) speichereEinstellung({ ...einstellung(), stimme: gewuenscht, tempo });
+  fs.mkdirSync(path.join(WURZEL, B.ordner), { recursive: true });
 
   const reihenfolge = new Map(alle.map((t, i) => [t.text, i]));
   const schreibe = () => {
@@ -325,7 +338,7 @@ async function vertonen() {
       try {
         const wav = await sprich(t.text, { stimme: gewuenscht, tempo });
         buche(t.text.length);
-        const ziel = dateiFuer(t.text);
+        const ziel = B.dateiFuer(t.text);
         let sekunden = zuMp3(wav, path.join(WURZEL, ziel));
         const variante = !AUSSPRACHE_GANZ[t.text] && kurzVariante(t.text);
         if (!passtZumText(sekunden, t.text) && variante) {
@@ -360,13 +373,13 @@ async function aufraeumen() {
   const gesagt = new Set((await B.texte()).map((t) => t.text));
   const weg = Object.keys(da).filter((text) => !gesagt.has(text));
   // Eine Datei, die der andere Bereich auch braucht, bleibt liegen.
-  const dort = new Set(Object.values(anderer.verzeichnis() || {}));
+  const dort = new Set(Object.values(anderer?.verzeichnis() || {}));
   weg.forEach((text) => { if (!dort.has(da[text])) fs.rmSync(path.join(WURZEL, da[text]), { force: true }); delete da[text]; });
   const belegt = new Set([...Object.values(da), ...dort]);
-  const ordner = path.join(WURZEL, ORDNER);
-  const lose = fs.existsSync(ordner) ? fs.readdirSync(ordner).filter((n) => !belegt.has(`${ORDNER}/${n}`)) : [];
+  const ordner = path.join(WURZEL, B.ordner);
+  const lose = fs.existsSync(ordner) ? fs.readdirSync(ordner).filter((n) => !belegt.has(`${B.ordner}/${n}`)) : [];
   lose.forEach((n) => fs.rmSync(path.join(ordner, n), { force: true }));
-  const e = einstellung();
+  const e = B.stimme ? { stimme: B.stimme, tempo: B.tempo } : einstellung();
   B.schreibe(da, { stimme: `${e.stimme}${Number(e.tempo || 1) !== 1 ? `, Tempo ${e.tempo}` : ""}` });
   console.log(`${weg.length} Aufnahmen alter Sätze und ${lose.length} lose Dateien gelöscht; ${B.datei} kennt ${Object.keys(da).length}.`);
 }
