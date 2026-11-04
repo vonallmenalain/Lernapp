@@ -212,6 +212,67 @@
         w("lollipop", "A lollipop.", "The lollipop is sweet.", "Where is the lollipop?", "Ein Lolli.", "Der Lolli ist süss.", "Wo ist der Lolli?"),
       ],
     },
+    // Etappe 4
+    {
+      id: "body",
+      titel: ["My Body", "Mein Körper"],
+      intro: ["This is me! Tap a picture.", "Das bin ich! Tippe auf ein Bild."],
+      woerter: [
+        w("head", "A head.", "Nod your head!", "Where is the head?", "Ein Kopf.", "Nick mit dem Kopf!", "Wo ist der Kopf?"),
+        w("eyes", "Eyes.", "I have two eyes.", "Where are the eyes?", "Augen.", "Ich habe zwei Augen.", "Wo sind die Augen?"),
+        w("ears", "Ears.", "I hear with my ears.", "Where are the ears?", "Ohren.", "Ich höre mit meinen Ohren.", "Wo sind die Ohren?"),
+        w("nose", "A nose.", "Touch your nose!", "Where is the nose?", "Eine Nase.", "Fass deine Nase an!", "Wo ist die Nase?"),
+        w("mouth", "A mouth.", "Open your mouth!", "Where is the mouth?", "Ein Mund.", "Mach den Mund auf!", "Wo ist der Mund?"),
+        w("hair", "Hair.", "My hair is long.", "Where is the hair?", "Haare.", "Meine Haare sind lang.", "Wo sind die Haare?"),
+        w("teeth", "Teeth.", "Brush your teeth!", "Where are the teeth?", "Zähne.", "Putz dir die Zähne!", "Wo sind die Zähne?"),
+        w("arms", "Arms.", "Wave your arms!", "Where are the arms?", "Arme.", "Wink mit den Armen!", "Wo sind die Arme?"),
+        w("hands", "Hands.", "Clap your hands!", "Where are the hands?", "Hände.", "Klatsch in die Hände!", "Wo sind die Hände?"),
+        w("fingers", "Fingers.", "I have ten fingers.", "Where are the fingers?", "Finger.", "Ich habe zehn Finger.", "Wo sind die Finger?"),
+        w("tummy", "A tummy.", "My tummy is full.", "Where is the tummy?", "Ein Bauch.", "Mein Bauch ist voll.", "Wo ist der Bauch?"),
+        w("legs", "Legs.", "Shake your legs!", "Where are the legs?", "Beine.", "Schüttle deine Beine!", "Wo sind die Beine?"),
+        w("feet", "Feet.", "Stamp your feet!", "Where are the feet?", "Füsse.", "Stampf mit den Füssen!", "Wo sind die Füsse?"),
+      ],
+    },
+    {
+      id: "clothes",
+      titel: ["Clothes and Weather", "Kleider und Wetter"],
+      intro: ["What's the weather like? Tap a picture.", "Wie ist das Wetter? Tippe auf ein Bild."],
+      woerter: [
+        w("coat", "A coat.", "Put on your coat! It's raining.", "Where is the coat?", "Eine Jacke.", "Zieh deine Jacke an! Es regnet.", "Wo ist die Jacke?"),
+        w("scarf", "A scarf.", "The scarf is warm.", "Where is the scarf?", "Ein Schal.", "Der Schal ist warm.", "Wo ist der Schal?"),
+        w("boots", "Boots.", "Big boots!", "Where are the boots?", "Stiefel.", "Grosse Stiefel!", "Wo sind die Stiefel?"),
+        w("tshirt", "A T-shirt.", "It's hot. I wear a T-shirt.", "Where is the T-shirt?", "Ein T-Shirt.", "Es ist heiss. Ich trage ein T-Shirt.", "Wo ist das T-Shirt?"),
+        w("pants", "Pants.", "Put on your pants!", "Where are the pants?", "Eine Hose.", "Zieh deine Hose an!", "Wo ist die Hose?"),
+        w("sneakers", "Sneakers.", "I run in my sneakers.", "Where are the sneakers?", "Turnschuhe.", "Ich renne in meinen Turnschuhen.", "Wo sind die Turnschuhe?"),
+        w("dress", "A dress.", "A pretty dress!", "Where is the dress?", "Ein Kleid.", "Ein schönes Kleid!", "Wo ist das Kleid?"),
+        w("socks", "Socks.", "Warm socks for my feet.", "Where are the socks?", "Socken.", "Warme Socken für meine Füsse.", "Wo sind die Socken?"),
+        w("gloves", "Gloves.", "Gloves for cold hands.", "Where are the gloves?", "Handschuhe.", "Handschuhe für kalte Hände.", "Wo sind die Handschuhe?"),
+        w("sweater", "A sweater.", "The sweater is warm.", "Where is the sweater?", "Ein Pullover.", "Der Pullover ist warm.", "Wo ist der Pullover?"),
+        w("rain", "Rain.", "It's raining. Drip, drop!", "Where is the rain?", "Regen.", "Es regnet. Tropf, tropf!", "Wo ist der Regen?"),
+        w("cloud", "A cloud.", "The cloud is gray.", "Where is the cloud?", "Eine Wolke.", "Die Wolke ist grau.", "Wo ist die Wolke?"),
+        w("rainbow", "A rainbow.", "Look! A rainbow!", "Where is the rainbow?", "Ein Regenbogen.", "Schau! Ein Regenbogen!", "Wo ist der Regenbogen?"),
+      ],
+    },
+    {
+      id: "holidays",
+      titel: ["Holidays", "Feiertage"],
+      intro: ["Let's celebrate! Tap a picture.", "Wir feiern! Tippe auf ein Bild."],
+      woerter: [
+        w("pumpkin", "A pumpkin.", "A pumpkin for Halloween!", "Where is the pumpkin?", "Ein Kürbis.", "Ein Kürbis für Halloween!", "Wo ist der Kürbis?"),
+        w("ghost", "A ghost.", "Boo! A friendly ghost.", "Where is the ghost?", "Ein Gespenst.", "Buh! Ein freundliches Gespenst.", "Wo ist das Gespenst?"),
+        w("bat", "A bat.", "The bat can fly at night.", "Where is the bat?", "Eine Fledermaus.", "Die Fledermaus kann in der Nacht fliegen.", "Wo ist die Fledermaus?"),
+        w("candy", "Candy.", "Trick or treat! Candy, please!", "Where is the candy?", "Süssigkeiten.", "Süsses oder Saures! Süssigkeiten, bitte!", "Wo sind die Süssigkeiten?"),
+        w("turkey", "A turkey.", "Gobble, gobble! A turkey for Thanksgiving.", "Where is the turkey?", "Ein Truthahn.", "Glu, glu! Ein Truthahn für Thanksgiving.", "Wo ist der Truthahn?"),
+        w("pie", "A pie.", "Pumpkin pie! Yummy!", "Where is the pie?", "Eine Wähe.", "Kürbiswähe! Fein!", "Wo ist die Wähe?"),
+        w("christmastree", "A Christmas tree.", "Merry Christmas!", "Where is the Christmas tree?", "Ein Weihnachtsbaum.", "Frohe Weihnachten!", "Wo ist der Weihnachtsbaum?"),
+        w("snowman", "A snowman.", "The snowman is cold.", "Where is the snowman?", "Ein Schneemann.", "Der Schneemann ist kalt.", "Wo ist der Schneemann?"),
+        w("stocking", "A stocking.", "A stocking for Christmas.", "Where is the stocking?", "Ein Weihnachtsstrumpf.", "Ein Strumpf für Weihnachten.", "Wo ist der Weihnachtsstrumpf?"),
+        w("candycane", "A candy cane.", "The candy cane is red and white.", "Where is the candy cane?", "Eine Zuckerstange.", "Die Zuckerstange ist rot und weiss.", "Wo ist die Zuckerstange?"),
+        w("reindeer", "A reindeer.", "The reindeer can fly!", "Where is the reindeer?", "Ein Rentier.", "Das Rentier kann fliegen!", "Wo ist das Rentier?"),
+        w("fireworks", "Fireworks.", "Boom! Fireworks for the Fourth of July.", "Where are the fireworks?", "Ein Feuerwerk.", "Bumm! Feuerwerk zum vierten Juli.", "Wo ist das Feuerwerk?"),
+        w("easteregg", "An Easter egg.", "Find the Easter egg!", "Where is the Easter egg?", "Ein Osterei.", "Such das Osterei!", "Wo ist das Osterei?"),
+      ],
+    },
   ];
 
   // Wörter, die nur in den Geschichten vorkommen (das Kind kann sie im Bild
@@ -220,8 +281,7 @@
     w("raccoon", "A raccoon.", "Rocco is a raccoon.", "Where is the raccoon?", "Ein Waschbär.", "Rocco ist ein Waschbär.", "Wo ist der Waschbär?"),
     w("box", "A box.", "The box is open.", "Where is the box?", "Eine Kiste.", "Die Kiste ist offen.", "Wo ist die Kiste?"),
     // Etappe 3: Roccos Kleider («Dress up»)
-    w("scarf", "A scarf.", "The scarf is warm.", "Where is the scarf?", "Ein Schal.", "Der Schal ist warm.", "Wo ist der Schal?"),
-    w("boots", "Boots.", "Big boots!", "Where are the boots?", "Stiefel.", "Grosse Stiefel!", "Wo sind die Stiefel?"),
+    // (scarf und boots wohnen seit Etappe 4 in «Clothes and Weather».)
     w("bowtie", "A bow tie.", "A bow tie for the party!", "Where is the bow tie?", "Eine Fliege.", "Eine Fliege fürs Fest!", "Wo ist die Fliege?"),
   ];
 
@@ -329,6 +389,40 @@
         { en: "Make a wish! Happy birthday, Rocco!", de: "Wünsch dir etwas! Alles Gute zum Geburtstag, Rocco!", woerter: ["raccoon", "balloon", "confetti"] },
       ],
     },
+    // Etappe 4
+    {
+      id: "washup",
+      welt: "body",
+      titel: ["Good night, Rocco!", "Gute Nacht, Rocco!"],
+      bilder: [
+        { en: "Rocco washes his hands.", de: "Rocco wäscht seine Hände.", woerter: ["raccoon", "hands"] },
+        { en: "He brushes his teeth. Brush, brush!", de: "Er putzt seine Zähne. Schrubb, schrubb!", woerter: ["teeth"] },
+        { en: "He combs his hair.", de: "Er kämmt seine Haare.", woerter: ["hair"] },
+        { en: "Now Rocco is in bed. Good night!", de: "Jetzt ist Rocco im Bett. Gute Nacht!", woerter: ["raccoon"] },
+      ],
+    },
+    {
+      id: "rain",
+      welt: "clothes",
+      titel: ["Rain, rain!", "Regen, Regen!"],
+      bilder: [
+        { en: "It is sunny. Rocco has a T-shirt.", de: "Es ist sonnig. Rocco hat ein T-Shirt.", woerter: ["raccoon", "tshirt"] },
+        { en: "Oh no! A big cloud. Rain!", de: "Oh nein! Eine grosse Wolke. Regen!", woerter: ["cloud", "rain"] },
+        { en: "Rocco puts on his coat and boots.", de: "Rocco zieht seine Jacke und die Stiefel an.", woerter: ["coat", "boots"] },
+        { en: "Look! A rainbow!", de: "Schau! Ein Regenbogen!", woerter: ["rainbow"] },
+      ],
+    },
+    {
+      id: "halloween",
+      welt: "holidays",
+      titel: ["Trick or treat!", "Süsses oder Saures!"],
+      bilder: [
+        { en: "It is Halloween. Rocco has a big pumpkin.", de: "Es ist Halloween. Rocco hat einen grossen Kürbis.", woerter: ["raccoon", "pumpkin"] },
+        { en: "Boo! A ghost!", de: "Buh! Ein Gespenst!", woerter: ["ghost"] },
+        { en: "It is cousin Ruby! Hello, Ruby!", de: "Es ist Cousine Ruby! Hallo, Ruby!", woerter: ["raccoon"] },
+        { en: "Trick or treat! Candy for everyone!", de: "Süsses oder Saures! Süssigkeiten für alle!", woerter: ["candy", "bat"] },
+      ],
+    },
   ];
 
   // Was Rocco sonst sagt: [Englisch, Deutsch].
@@ -397,6 +491,12 @@
     keinePost: ["No new mail today. Play a little, and Ruby writes again!", "Heute keine neue Post. Spiel ein bisschen, dann schreibt Ruby wieder!"],
     telefonWahl: ["Ring, ring! Do you want to talk to Rocco?", "Ring, ring! Möchtest du mit Rocco reden?"],
     jetztDu: ["Now you say it!", "Jetzt sag du es!"],
+    // Etappe 4
+    monster: ["Let's make a monster! Listen to Rocco.", "Wir bauen ein Monster! Hör Rocco gut zu."],
+    monsterFertig: ["Hello, monster! What a great monster!", "Hallo, Monster! Was für ein tolles Monster!"],
+    wokatze: ["Where is the cat? Listen and tap the picture.", "Wo ist die Katze? Hör zu und tippe auf das Bild."],
+    gegenteile: ["Opposites! Listen and tap.", "Gegenteile! Hör zu und tippe."],
+    wortbild: ["Find the pairs! A picture and its word.", "Finde die Paare! Ein Bild und sein Wort."],
   };
 
   const LOB = [
@@ -501,24 +601,108 @@
     const deWort = ohnePunkt(w.de);
     // Nur der Artikel wird klein («eine Kuh»), das Nomen bleibt gross («Brot»).
     const deKlein = /^(Der|Die|Das|Ein|Eine) /.test(deWort) ? deWort.charAt(0).toLowerCase() + deWort.slice(1) : deWort;
-    const de = `${mehrere && /^Wo sind/.test(w.deFrage) ? "Sind" : "Ist"} das ${deKlein}?`;
+    const de = `${/^Wo sind/.test(w.deFrage) ? "Sind" : "Ist"} das ${deKlein}?`;
     return [en, de];
   }
   // Die Spiele in der Spielzeugkiste.
+  // gruppe: in welcher Reihe der Spielzeugkiste (SPIEL_GRUPPEN)
   const SPIELE = [
-    { id: "hearfind", titel: ["Hear and find", "Hear and find"] },
-    { id: "memory", titel: ["Memory", "Memory"] },
-    { id: "janein", titel: ["Yes or no?", "Ja oder nein?"] },
-    { id: "roccosays", titel: ["Rocco says", "Rocco sagt"] },
-    { id: "farbenzug", titel: ["Color train", "Farben-Zug"] },
-    { id: "zaehlen", titel: ["Count with Rocco", "Zählen mit Rocco"] },
-    { id: "fuettern", titel: ["Feed Rocco", "Rocco füttern"] },
+    { id: "hearfind", gruppe: "woerter", titel: ["Hear and find", "Hear and find"] },
+    { id: "memory", gruppe: "woerter", titel: ["Memory", "Memory"] },
+    { id: "janein", gruppe: "woerter", titel: ["Yes or no?", "Ja oder nein?"] },
+    { id: "roccosays", gruppe: "farben", titel: ["Rocco says", "Rocco sagt"] },
+    { id: "farbenzug", gruppe: "farben", titel: ["Color train", "Farben-Zug"] },
+    { id: "zaehlen", gruppe: "farben", titel: ["Count with Rocco", "Zählen mit Rocco"] },
+    { id: "fuettern", gruppe: "rocco", titel: ["Feed Rocco", "Rocco füttern"] },
     // Etappe 3
-    { id: "whatsmissing", titel: ["What's missing?", "Was fehlt?"] },
-    { id: "dressup", titel: ["Dress up", "Anziehen"] },
-    { id: "geschichtenzug", titel: ["Story train", "Geschichtenzug"] },
-    { id: "diner", titel: ["Rocco's diner", "Roccos Diner"] },
+    { id: "whatsmissing", gruppe: "woerter", titel: ["What's missing?", "Was fehlt?"] },
+    { id: "dressup", gruppe: "rocco", titel: ["Dress up", "Anziehen"] },
+    { id: "geschichtenzug", gruppe: "rocco", titel: ["Story train", "Geschichtenzug"] },
+    { id: "diner", gruppe: "rocco", titel: ["Rocco's diner", "Roccos Diner"] },
+    // Etappe 4
+    { id: "monster", gruppe: "farben", titel: ["Make a monster", "Ein Monster bauen"] },
+    { id: "wokatze", gruppe: "rocco", titel: ["Where is the cat?", "Wo ist die Katze?"] },
+    { id: "gegenteile", gruppe: "woerter", titel: ["Opposites", "Gegenteile"] },
+    { id: "wortbild", gruppe: "woerter", titel: ["Word memory", "Wortbild-Memory"] },
   ];
+  const SPIEL_GRUPPEN = [
+    { id: "woerter", titel: ["Words", "Wörter"] },
+    { id: "farben", titel: ["Colors and numbers", "Farben und Zahlen"] },
+    { id: "rocco", titel: ["Play with Rocco", "Spielen mit Rocco"] },
+  ];
+  // Make a monster: was Rocco möchte. [Teil, Anzahl, Englisch, Deutsch]
+  const ZAHLWORT = ["", "one", "two", "three", "four", "five"];
+  const DE_ZAHL = ["", "ein", "zwei", "drei", "vier", "fünf"];
+  const MONSTER_TEILE = [
+    ...[1, 2, 3, 4, 5].map((n) => ({ teil: "augen", n, satz: [`Give the monster ${ZAHLWORT[n]} ${n === 1 ? "eye" : "eyes"}!`, `Gib dem Monster ${DE_ZAHL[n]} ${n === 1 ? "Auge" : "Augen"}!`] })),
+    ...[1, 2, 3, 4].map((n) => ({ teil: "arme", n, satz: [`Give the monster ${ZAHLWORT[n]} ${n === 1 ? "arm" : "arms"}!`, `Gib dem Monster ${n === 1 ? "einen" : DE_ZAHL[n]} ${n === 1 ? "Arm" : "Arme"}!`] })),
+    ...[1, 2, 3, 4].map((n) => ({ teil: "beine", n, satz: [`Give the monster ${ZAHLWORT[n]} ${n === 1 ? "leg" : "legs"}!`, `Gib dem Monster ${DE_ZAHL[n]} ${n === 1 ? "Bein" : "Beine"}!`] })),
+  ];
+  const monsterFarbe = (f) => [`Make the monster ${f.id}!`, `Mach das Monster ${f.de.replace(/\.$/, "").toLowerCase()}!`];
+  // Where is the cat?: [wo, Ding, Englisch, Deutsch]
+  const WO_KATZE = [
+    ["in", "box", "The cat is in the box.", "Die Katze ist in der Kiste."],
+    ["on", "box", "The cat is on the box.", "Die Katze ist auf der Kiste."],
+    ["behind", "box", "The cat is behind the box.", "Die Katze ist hinter der Kiste."],
+    ["next", "box", "The cat is next to the box.", "Die Katze ist neben der Kiste."],
+    ["in", "bed", "The cat is in the bed.", "Die Katze ist im Bett."],
+    ["on", "bed", "The cat is on the bed.", "Die Katze ist auf dem Bett."],
+    ["under", "bed", "The cat is under the bed.", "Die Katze ist unter dem Bett."],
+    ["next", "bed", "The cat is next to the bed.", "Die Katze ist neben dem Bett."],
+    ["on", "table", "The cat is on the table.", "Die Katze ist auf dem Tisch."],
+    ["under", "table", "The cat is under the table.", "Die Katze ist unter dem Tisch."],
+    ["behind", "table", "The cat is behind the table.", "Die Katze ist hinter dem Tisch."],
+    ["next", "table", "The cat is next to the table.", "Die Katze ist neben dem Tisch."],
+    ["on", "chair", "The cat is on the chair.", "Die Katze ist auf dem Stuhl."],
+    ["under", "chair", "The cat is under the chair.", "Die Katze ist unter dem Stuhl."],
+    ["next", "chair", "The cat is next to the chair.", "Die Katze ist neben dem Stuhl."],
+    ["in", "basket", "The cat is in the basket.", "Die Katze ist im Korb."],
+    ["behind", "basket", "The cat is behind the basket.", "Die Katze ist hinter dem Korb."],
+    ["next", "basket", "The cat is next to the basket.", "Die Katze ist neben dem Korb."],
+  ].map(([wo, ding, en, de]) => ({ wo, ding, satz: [en, de] }));
+  // Opposites: Paare, je mit Frage und Antwort.
+  const GEGENTEILE = [
+    ["big", "small", "Big", "Small", "Gross", "Klein"],
+    ["hot", "cold", "Hot", "Cold", "Heiss", "Kalt"],
+    ["happy", "sad", "Happy", "Sad", "Fröhlich", "Traurig"],
+    ["full", "empty", "Full", "Empty", "Voll", "Leer"],
+    ["open", "closed", "Open", "Closed", "Offen", "Zu"],
+    ["fast", "slow", "Fast", "Slow", "Schnell", "Langsam"],
+    ["day", "night", "Day", "Night", "Tag", "Nacht"],
+    ["tall", "short", "Tall", "Short", "Hoch", "Niedrig"],
+  ].map(([a, b, aEn, bEn, aDe, bDe]) => ({ paar: [a, b], en: [aEn, bEn], de: [aDe, bDe] }));
+  // «Which one is big?» – und die Antwort «Yes! Big! And this one is small.»
+  function gegenteilFrage(g, i) {
+    const k = (t) => t.toLowerCase();
+    const zeit = g.paar[0] === "day";
+    const en = zeit ? `Where is the ${k(g.en[i])}?` : `Which one is ${k(g.en[i])}?`;
+    const de = zeit ? `Wo ist ${g.de[i] === "Tag" ? "der Tag" : "die Nacht"}?` : `Welches ist ${k(g.de[i])}?`;
+    return [en, de];
+  }
+  function gegenteilAntwort(g, i) {
+    const j = 1 - i;
+    const k = (t) => t.toLowerCase();
+    const zeit = g.paar[0] === "day";
+    const en = zeit ? `Yes! ${g.en[i]}! And this is ${k(g.en[j])}.` : `Yes! ${g.en[i]}! And this one is ${k(g.en[j])}.`;
+    const de = zeit ? `Ja! ${g.de[i]}! Und das ist ${g.de[j] === "Tag" ? "der Tag" : "die Nacht"}.` : `Ja! ${g.de[i]}! Und das ist ${k(g.de[j])}.`;
+    return [en, de];
+  }
+  // Für die Eltern (Elternkarte): kleine Aufträge für zuhause, je Welt.
+  const AUFTRAEGE = {
+    farm: "Beim Spazieren: Wer zuerst ein Tier sieht, sagt es auf Englisch («A cow!», «A dog!»).",
+    house: "Beim Aufräumen: «Where is the teddy bear?» – und das Kind zeigt darauf.",
+    kitchen: "Beim Znacht: «Can I have the milk, please?» – «Here you are!» – «Thank you!»",
+    park: "Auf dem Spielplatz: «My turn!» und «Your turn!» beim Rutschen.",
+    zoo: "Ein Tier nachmachen und raten: «Are you a monkey?» – «Yes!»",
+    beach: "In der Badi oder Badewanne: «Splash!» und «It's hot!»",
+    city: "Unterwegs Autos zählen: «One red car, two red cars …»",
+    school: "Beim Zeichnen: «Can I have the red crayon, please?»",
+    party: "Am nächsten Geburtstag zusammen «Happy birthday!» singen.",
+    body: "Vor dem Zähneputzen: «Brush your teeth!» – «Touch your nose!»",
+    clothes: "Beim Anziehen: «Put on your coat!» – und aus dem Fenster: «It's raining!» oder «It's sunny!»",
+    holidays: "Beim nächsten Fest auf Englisch wünschen: «Merry Christmas!» oder «Happy Easter!»",
+  };
+
   // Am Telefon im Wagen: anrufen oder Echo.
   const TELEFON_SPIELE = [
     { id: "telefon", titel: ["Call Rocco", "Rocco anrufen"] },
@@ -679,6 +863,10 @@
     telefon: "Rocco ruft an und fragt dich etwas auf Englisch. Tippe auf eine Antwort. Wer mag, sagt sie laut nach.",
     echo: "Hör das Wort, tippe auf das Mikrofon und sag es nach. Danach hörst du dich selbst. Die Aufnahme bleibt auf diesem Gerät.",
     post: "Roccos Cousine Ruby reist durch Amerika und schickt Postkarten. Tippe auf die Karte, und Rocco liest sie vor.",
+    monster: "Rocco sagt auf Englisch, wie das Monster aussehen soll: welche Farbe, wie viele Augen, Arme und Beine. Tippe auf die richtige Farbe oder Zahl.",
+    wokatze: "Rocco sagt auf Englisch, wo die Katze ist: in, auf, unter, hinter oder neben etwas. Tippe auf das richtige Bild.",
+    gegenteile: "Rocco fragt auf Englisch nach einem von zwei Bildern, zum Beispiel: Welches ist gross? Tippe darauf.",
+    wortbild: "Für Kinder, die schon lesen: Finde zu jedem Bild das englische Wort.",
   });
   // Alles, was gesprochen wird, als Paar [Englisch, Deutsch] mit seinem Ort –
   // für die Aufnahmen (scripts/stimme-englisch-texte.mjs) und die Prüfung.
@@ -720,6 +908,14 @@
     DINER_ESSEN.forEach((id) => { const x = wortVon(id); dazu(bitte(x.en), deBitte(x.de), `diner ${id}`); });
     DINER_PAARE.forEach(([p, q]) => { const [en, de] = dinerPaar(p, q); dazu(en, de, `diner ${p}+${q}`); });
     POSTKARTEN.forEach((k) => dazu(k.text[0], k.text[1], `post ${k.id}`));
+    SPIEL_GRUPPEN.forEach((g) => dazu(g.titel[0], g.titel[1], `spielgruppe ${g.id}`));
+    MONSTER_TEILE.forEach((t) => dazu(t.satz[0], t.satz[1], `monster ${t.teil} ${t.n}`));
+    FARBEN.forEach((f) => { const [en, de] = monsterFarbe(f); dazu(en, de, `monster ${f.id}`); });
+    WO_KATZE.forEach((x) => dazu(x.satz[0], x.satz[1], `wokatze ${x.wo} ${x.ding}`));
+    GEGENTEILE.forEach((g) => [0, 1].forEach((i) => {
+      dazu(...gegenteilFrage(g, i), `gegenteile ${g.paar[i]}`);
+      dazu(...gegenteilAntwort(g, i), `gegenteile ${g.paar[i]}`);
+    }));
     return liste;
   }
 
@@ -736,6 +932,7 @@
     WELTEN, EXTRA_WOERTER, GESCHICHTEN, SAETZE, LOB, EINRICHTUNG, HILFE,
     FARBEN, ZAHLEN, ZAEHLDINGE, ESSEN, SPIELE, VERSE, BUECHER,
     tippeBallon, wagenBitte, wieViele, soViele, istDas, paare, gross,
+    SPIEL_GRUPPEN, MONSTER_TEILE, monsterFarbe, WO_KATZE, GEGENTEILE, gegenteilFrage, gegenteilAntwort, AUFTRAEGE,
     KLEIDER, TELEFON, TELEFON_SPIELE, DINER_GAESTE, DINER_ESSEN, DINER_PAARE, POSTKARTEN, bitte, deBitte, dinerPaar,
   };
 })();

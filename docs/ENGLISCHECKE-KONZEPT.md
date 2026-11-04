@@ -31,7 +31,9 @@ Stand: 4. November 2026 · Entwurf · Grundlage: `docs/RECHENECKE-KONZEPT.md`,
 > Jukebox mit fünf Versen und fünf Bücher aus dem Lesewagen auf Englisch (Abschnitt 0.4).
 > **Etappe 3 ist gebaut:** Stadt, Schule und Fest, das Hello-Telefon, Echo, Roccos Diner,
 > Dress up, What's missing?, der Geschichtenzug, Post aus Amerika und «langsamer» für die
-> Eltern (Abschnitt 0.5).
+> Eltern (Abschnitt 0.5). **Etappe 4 ist gebaut:** Körper, Kleider und Wetter, Feiertage, Make a
+> monster, Where is the cat?, Opposites, das Wortbild-Memory und Aufträge für die Familie
+> (Abschnitt 0.6). Damit sind alle Etappen aus Abschnitt 19 umgesetzt.
 
 ---
 
@@ -227,6 +229,31 @@ Stand: 4. November 2026 · Entwurf · Grundlage: `docs/RECHENECKE-KONZEPT.md`,
   (`kids.js`, `preservesPitch`), die Gerätestimme mit 0,75.
 - **Schranke**: sechs neue Spiele (`en-whatsmissing`, `en-dressup`, `en-geschichtenzug`,
   `en-diner`, `en-telefon`, `en-echo`), je eine Runde frei.
+
+### 0.6 Etappe 4: Für Lesende und die Eltern
+
+- **Drei neue Welten** (`englisch-art-4.js`): **My Body** (head, eyes, ears, nose, mouth, hair,
+  teeth, arms, hands, fingers, tummy, legs, feet), **Clothes and Weather** (coat, scarf, boots,
+  T-shirt, pants, sneakers, dress, socks, gloves, sweater, rain, cloud, rainbow – scarf und
+  boots wohnen jetzt hier) und **Holidays** (pumpkin, ghost, bat, candy, turkey, pie, Christmas
+  tree, snowman, stocking, candy cane, reindeer, fireworks, Easter egg), je mit Bildgeschichte:
+  «Good night, Rocco!», «Rain, rain!», «Trick or treat!». Zusammen **12 Welten, rund 160
+  Wörter, 12 Geschichten** – dazu Farben, Zahlen, Verse, Bücher und die Sätze der Spiele.
+- **Die Spielzeugkiste** ist jetzt in drei Reihen geordnet: «Words», «Colors and numbers»,
+  «Play with Rocco» (`englisch-spiele-4.js`):
+  - **Make a monster**: «Make the monster green! Give the monster three eyes!» – das Kind
+    tippt Farbe und Zahlen, das Monster wächst mit.
+  - **Where is the cat?**: «The cat is under the table.» – das richtige von drei Bildern
+    (in, on, under, behind, next to).
+  - **Opposites**: «Which one is big?» – big/small, hot/cold, happy/sad, full/empty,
+    open/closed, fast/slow, day/night, tall/short.
+  - **Word memory** (Wortbild-Memory) für Lesende: Bild und geschriebenes Wort.
+- **Eltern**: Der Englischbericht zeigt **Aufträge für die Familie** – kleine Ideen für
+  zuhause aus den Welten, die das Kind schon kennt («Beim Znacht: «Can I have the milk,
+  please?» – «Here you are!»»), und mehr Unterschiede zum britischen Englisch (sweater/jumper,
+  sneakers/trainers, eraser/rubber, truck/lorry …).
+- **Schranke**: vier neue Spiele (`en-monster`, `en-wokatze`, `en-gegenteile`,
+  `en-wortbild`), je eine Runde frei.
 
 ---
 
@@ -832,7 +859,7 @@ gefunden; Duolingo ABC lehrt englischsprachige Kinder lesen [47].
 | **1 · Hello, Rocco!** ✅ | Caboose im Lernzug, Zimmer mit Rocco, Karte, Aussichtsturm, Regal, Wörterbuch, Kiste; **drei Welten** (Farm, My House, The Kitchen) mit Wimmelbild; **Hear & find**; **drei Bildgeschichten**; Wortstände, Aufnäher, Einrichtung; US-Stimme; Elternkarte mit Schrift und Deutsch-Hilfe; Schranke | das Gewünschte: entdecken, Geschichten, Deutsch auf Knopfdruck, Fortschritt |
 | **2 · Mehr Welten, mehr Spiel** ✅ | The Park, The Zoo, The Beach; Memory Bild–Ton, Yes or no?, Rocco says, Farben-Zug, Count with Rocco, Feed Rocco; Jukebox mit Versen; **bekannte Bücher auf Englisch** (vier bis sechs) | Wörter festigen, Bewegung, Geschichten, die das Kind schon kennt |
 | **3 · Erste Sätze** ✅ | The City, School, Party Time; Hello-Telefon, Diner, Echo, Dress up, What's missing?, Geschichtenzug; Post aus Amerika; Tempo «langsamer» | grüssen, bitten, bestellen – für die Grösseren |
-| **4 · Für Lesende und die Eltern** | My Body, Clothes & Weather, Holidays; Monster malen, Where is the cat?, Opposites, Wortbild-Memory; Bericht mit Wortständen und Unterschieden zum britischen Englisch; Aufträge für die Familie | rund 220 Wörter und 60 Wendungen; Brücke zum Schulenglisch |
+| **4 · Für Lesende und die Eltern** ✅ | My Body, Clothes & Weather, Holidays; Monster malen, Where is the cat?, Opposites, Wortbild-Memory; Bericht mit Wortständen und Unterschieden zum britischen Englisch; Aufträge für die Familie | rund 220 Wörter und 60 Wendungen; Brücke zum Schulenglisch |
 
 ## 20. Offene Entscheidungen
 

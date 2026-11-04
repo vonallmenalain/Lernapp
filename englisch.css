@@ -44,11 +44,13 @@ body[data-page="train"] .train-stage[data-view="englisch"] ~ .help-voice {
    Knöpfe der Bühne (Zurück, Hilfe, Einstellungen), damit nichts verdeckt ist. */
 .en-buehne:is([data-ansicht="geschichte"], [data-ansicht="woerterbuch"], [data-ansicht="memory"], [data-ansicht="janein"], [data-ansicht="roccosays"],
   [data-ansicht="farbenzug"], [data-ansicht="zaehlen"], [data-ansicht="fuettern"], [data-ansicht="verse"], [data-ansicht="buch"],
-  [data-ansicht="dressup"], [data-ansicht="geschichtenzug"], [data-ansicht="diner"], [data-ansicht="telefon"], [data-ansicht="echo"], [data-ansicht="post"]) { padding-top: calc(var(--safe-top, 0px) + 70px); }
+  [data-ansicht="dressup"], [data-ansicht="geschichtenzug"], [data-ansicht="diner"], [data-ansicht="telefon"], [data-ansicht="echo"], [data-ansicht="post"],
+  [data-ansicht="monster"], [data-ansicht="wokatze"], [data-ansicht="gegenteile"], [data-ansicht="wortbild"]) { padding-top: calc(var(--safe-top, 0px) + 70px); }
 @media (max-height: 520px) {
   .en-buehne:is([data-ansicht="geschichte"], [data-ansicht="woerterbuch"], [data-ansicht="memory"], [data-ansicht="janein"], [data-ansicht="roccosays"],
     [data-ansicht="farbenzug"], [data-ansicht="zaehlen"], [data-ansicht="fuettern"], [data-ansicht="verse"], [data-ansicht="buch"],
-  [data-ansicht="dressup"], [data-ansicht="geschichtenzug"], [data-ansicht="diner"], [data-ansicht="telefon"], [data-ansicht="echo"], [data-ansicht="post"]) { padding-top: calc(var(--safe-top, 0px) + 54px); }
+  [data-ansicht="dressup"], [data-ansicht="geschichtenzug"], [data-ansicht="diner"], [data-ansicht="telefon"], [data-ansicht="echo"], [data-ansicht="post"],
+  [data-ansicht="monster"], [data-ansicht="wokatze"], [data-ansicht="gegenteile"], [data-ansicht="wortbild"]) { padding-top: calc(var(--safe-top, 0px) + 54px); }
 }
 .en-bild {
   width: 100%;
@@ -296,6 +298,10 @@ body[data-page="train"] .train-stage[data-view="englisch"] ~ .help-voice {
 @keyframes en-zu-rocco { to { transform: translate(-300px, -40px) scale(0.3); opacity: 0; } }
 .en-zug-faehrt { animation: en-zug-faehrt 2.4s ease-in 0.6s forwards; }
 @keyframes en-zug-faehrt { to { transform: translateX(1100px); } }
+
+/* Etappe 4 */
+.en-monsterwahl, .en-katzenbild, .en-gegenteil, .en-monster { cursor: pointer; outline: none; -webkit-tap-highlight-color: transparent; }
+.en-monsterwahl:focus-visible, .en-katzenbild:focus-visible, .en-gegenteil:focus-visible { filter: drop-shadow(0 0 8px rgba(108, 92, 231, 0.75)); }
 
 /* Etappe 3 */
 .en-kleid, .en-bildwagen, .en-antwort, .en-mikrofon, .en-postwahl[data-karte], .en-postkarte, .en-fehlt-option, .en-gast, .en-echo-bild, .en-rocco-gross { cursor: pointer; outline: none; -webkit-tap-highlight-color: transparent; }

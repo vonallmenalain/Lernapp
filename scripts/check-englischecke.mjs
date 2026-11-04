@@ -564,6 +564,60 @@ try {
       if (karten < 2) fehlt(`${name}: nach vielen Runden ist nur ${karten} Postkarte da`);
       await deUeberall(seite, `${name}, Post`);
     }
+
+    // --- Etappe 4 ---------------------------------------------------------------
+    const I4 = await seite.evaluate(() => {
+      const x = window.LernappEnglischInhalt;
+      if (!x.MONSTER_TEILE) return null;
+      return { teile: x.MONSTER_TEILE, farben: x.FARBEN.map((f) => ({ id: f.id, satz: x.monsterFarbe(f)[0] })), katze: x.WO_KATZE, gegen: x.GEGENTEILE.flatMap((g) => [0, 1].map((i) => ({ frage: x.gegenteilFrage(g, i)[0], i }))) };
+    });
+    if (I4) {
+      // Make a monster
+      await spielStart("monster");
+      await deUeberall(seite, `${name}, Make a monster`);
+      for (let i = 0; i < 6; i += 1) {
+        await warte(150);
+        if ((await runden()).monster) break;
+        const auftrag = await letztesEn("^(Give the monster|Make the monster)");
+        const f = I4.farben.find((x) => x.satz === auftrag);
+        const t = I4.teile.find((x) => x.satz[0] === auftrag);
+        if (f) await tippe(seite, `.en-bild [data-farbe="${f.id}"]`);
+        else if (t) await tippe(seite, `.en-bild [data-zahl="${t.n}"]`);
+        else { fehlt(`${name}: Make a monster gibt keinen Auftrag (${auftrag})`); break; }
+      }
+      if ((await runden()).monster !== 1) fehlt(`${name}: Make a monster zählt keine Runde`);
+      // Where is the cat?
+      await spielStart("wokatze");
+      await deUeberall(seite, `${name}, Where is the cat?`);
+      for (let i = 0; i < 7; i += 1) {
+        await warte(150);
+        if ((await runden()).wokatze) break;
+        const satz = await letztesEn("^The cat is");
+        const x = I4.katze.find((y) => y.satz[0] === satz);
+        if (!x) { fehlt(`${name}: Where is the cat? sagt nicht, wo die Katze ist (${satz})`); break; }
+        await tippe(seite, `.en-bild [data-bild="${x.wo}"]`);
+      }
+      if ((await runden()).wokatze !== 1) fehlt(`${name}: Where is the cat? zählt keine Runde`);
+      // Opposites
+      await spielStart("gegenteile");
+      await deUeberall(seite, `${name}, Opposites`);
+      for (let i = 0; i < 8; i += 1) {
+        await warte(150);
+        if ((await runden()).gegenteile) break;
+        const frage = await letztesEn("^(Which one is|Where is the (day|night))");
+        const x = I4.gegen.find((y) => y.frage === frage);
+        if (!x) { fehlt(`${name}: Opposites fragt nicht (${frage})`); break; }
+        await tippe(seite, `.en-bild [data-gegenteil="${x.i}"]`);
+      }
+      if ((await runden()).gegenteile !== 1) fehlt(`${name}: Opposites zählt keine Runde`);
+      // Wortbild-Memory: die zweite Karte zeigt das Wort geschrieben.
+      await spielStart("wortbild");
+      const kartenW = await seite.evaluate(() => [...document.querySelectorAll(".en-bild [data-karte]")].map((k) => ({ i: k.dataset.karte, w: k.dataset.wort, art: k.dataset.art, text: k.querySelector(".en-karte-auf text")?.textContent || "" })));
+      if (!kartenW.some((x) => x.art === "ton" && x.text)) fehlt(`${name}: Im Wortbild-Memory steht kein Wort auf den Karten`);
+      for (const w of [...new Set(kartenW.map((x) => x.w))]) for (const kk of kartenW.filter((x) => x.w === w)) await tippe(seite, `.en-bild [data-karte="${kk.i}"]`);
+      await warte(200);
+      if ((await runden()).wortbild !== 1) fehlt(`${name}: das Wortbild-Memory zählt keine Runde`);
+    }
     await kontext.close();
   }
 
@@ -596,4 +650,4 @@ if (befunde.length) {
   console.error(`Die Englischecke stimmt im Browser nicht (${befunde.length}):\n${befunde.map((b) => `  - ${b}`).join("\n")}`);
   process.exit(1);
 }
-console.log("Die Englischecke stimmt im Browser: Startbild, Zimmer, Entdecken, Hear and find, Geschichte, Wörterbuch, Türen, Knopf DE und Schrift; Memory, Yes or no?, Rocco says, Farben-Zug, Count with Rocco, Feed Rocco, Jukebox und ein Buch; What's missing?, Dress up, Story train, Diner, Telefon, Echo und Post – am Laptop und auf dem Handy.");
+console.log("Die Englischecke stimmt im Browser: Startbild, Zimmer, Entdecken, Hear and find, Geschichte, Wörterbuch, Türen, Knopf DE und Schrift; Memory, Yes or no?, Rocco says, Farben-Zug, Count with Rocco, Feed Rocco, Jukebox und ein Buch; What's missing?, Dress up, Story train, Diner, Telefon, Echo und Post; Monster, Where is the cat?, Opposites und Wortbild-Memory – am Laptop und auf dem Handy.");

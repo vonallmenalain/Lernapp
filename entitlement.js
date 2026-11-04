@@ -226,6 +226,11 @@
     { id: "en-diner", page: "en-diner" },
     { id: "en-telefon", page: "en-telefon" },
     { id: "en-echo", page: "en-echo" },
+    // Etappe 4: Make a monster, Where is the cat?, Opposites, Wortbild-Memory
+    { id: "en-monster", page: "en-monster" },
+    { id: "en-wokatze", page: "en-wokatze" },
+    { id: "en-gegenteile", page: "en-gegenteile" },
+    { id: "en-wortbild", page: "en-wortbild" },
   ] };
 
   // Das Bücherregal ist kein Spiel mit Runden: Diese zwei Bücher sind frei,

@@ -148,10 +148,13 @@
   // ===========================================================================
   // Memory Bild–Ton
   // ===========================================================================
-  function memory(k) {
+  // wortbild: die zweite Karte zeigt das englische Wort geschrieben statt
+  // eines Lautsprechers (Wortbild-Memory für Lesende, Etappe 4).
+  function memory(k, { wortbild = false } = {}) {
     const I = k.inhalt();
     const o = k.offen();
-    o.ansicht = "memory";
+    const spiel = wortbild ? "wortbild" : "memory";
+    o.ansicht = spiel;
     const paare = { leicht: 3, mittel: 4, schwer: 6 }[k.stufe()] || 4;
     const woerter = k.spielWoerter(paare);
     const karten = mische([...woerter.map((w) => ({ w, art: "bild" })), ...woerter.map((w) => ({ w, art: "ton" }))]);
@@ -165,7 +168,11 @@
     karten.forEach((kk, i) => {
       const x = x0 + (i % spalten) * (b + 20);
       const y = y0 + Math.floor(i / spalten) * (h + 18);
-      const vorne = kk.art === "bild" ? dingBild(kk.w.id, x + b / 2, y + h / 2, Math.min(b, h) * 0.36) : lautsprecher(x + b / 2, y + h / 2, Math.min(b, h) / 110);
+      // Das geschriebene Wort ohne Artikel: «cow», «teddy bear».
+      const wort = kk.w.en.replace(/[.!?]$/, "").replace(/^(A|An|The) /, "").toLowerCase();
+      const vorne = kk.art === "bild" ? dingBild(kk.w.id, x + b / 2, y + h / 2, Math.min(b, h) * 0.36)
+        : wortbild ? `<text x="${x + b / 2}" y="${y + h / 2 + 12}" text-anchor="middle" font-family="${SCHRIFT}" font-weight="800" font-size="${Math.min(40, (b * 1.7) / Math.max(4, wort.length))}" fill="#243047">${wort}</text>`
+          : lautsprecher(x + b / 2, y + h / 2, Math.min(b, h) / 110);
       s += `<g class="en-karte" data-karte="${i}" data-wort="${kk.w.id}" data-art="${kk.art}" tabindex="0" role="button" aria-label="Karte ${i + 1}">
         <g class="en-karte-zu"><rect x="${x}" y="${y}" width="${b}" height="${h}" rx="18" fill="#3a7bd5"/><rect x="${x + 8}" y="${y + 8}" width="${b - 16}" height="${h - 16}" rx="12" fill="none" stroke="#ffffff" stroke-width="3" opacity="0.6"/>${A().stern(x + b / 2, y + h / 2, Math.min(b, h) * 0.16)}</g>
         <g class="en-karte-auf" style="display:none"><rect x="${x}" y="${y}" width="${b}" height="${h}" rx="18" fill="#ffffff" stroke="#e1d9c6" stroke-width="4"/>${vorne}</g>
@@ -173,11 +180,11 @@
       </g>`;
     });
     const svg = k.setzeBild(svgVon(s, "en-memory-svg"));
-    k.hilfe("memory");
+    k.hilfe(spiel);
     const runde = { offen: [], gefunden: 0, sperre: false };
     o.runde = runde;
     const zeige = punkte(k, paare);
-    k.sage(I.SAETZE.memory);
+    k.sage(wortbild ? I.SAETZE.wortbild : I.SAETZE.memory);
     const knoten = [...svg.querySelectorAll("[data-karte]")];
     const dreh = (i, auf) => {
       knoten[i].querySelector(".en-karte-zu").style.display = auf ? "none" : "";
@@ -193,7 +200,7 @@
       dreh(i, true);
       k.animiere(kn, "en-huepf", 400);
       runde.offen.push(i);
-      if (kk.art === "ton") k.sage([kk.w.en, kk.w.de]);
+      if (kk.art === "ton" && !wortbild) k.sage([kk.w.en, kk.w.de]);
       else k.kids()?.playStarSound?.(0);
       if (runde.offen.length < 2) return;
       const [p, q] = runde.offen.map((j) => karten[j]);
@@ -210,7 +217,7 @@
         k.sage([I.SAETZE.paar, [p.w.en, p.w.de]], { danach: () => {
           if (!fertig || !nochAktiv(k, runde)) return;
           runde.vorbei = true;
-          k.rundeFertig("memory", { satz: I.SAETZE.allePaare, nochmal: () => memory(k) });
+          k.rundeFertig(spiel, { satz: I.SAETZE.allePaare, nochmal: () => memory(k, { wortbild }) });
         } });
         return;
       }

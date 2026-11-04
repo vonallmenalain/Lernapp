@@ -47,6 +47,8 @@
     // Etappe 3 (die Post ist ein Geschenk und immer offen)
     whatsmissing: "en-whatsmissing", dressup: "en-dressup", geschichtenzug: "en-geschichtenzug", diner: "en-diner",
     telefon: "en-telefon", echo: "en-echo",
+    // Etappe 4
+    monster: "en-monster", wokatze: "en-wokatze", gegenteile: "en-gegenteile", wortbild: "en-wortbild",
   };
   const IMMER_FREI = { entdecken: ["farm"], geschichte: ["ball"], verse: ["hello"], buch: ["hase-rueebli"] };
 
@@ -335,7 +337,9 @@
         { titel: I.SAETZE.geschichtenTitel, eintraege: I.GESCHICHTEN.map((g) => ({ id: g.id, titel: g.titel, bild: a.geschichtsTitelbild(g.id), frei: frei("geschichte", g.id), los: () => zeigeGeschichte(g.id) })) },
         ...((I.BUECHER || []).length ? [{ titel: I.SAETZE.buecherTitel, eintraege: I.BUECHER.map((b) => ({ id: b.id, titel: b.titel, bild: `<img src="bilder/buecher/${b.id}/umschlag-klein.webp" alt="" loading="lazy" width="480" height="304">`, frei: frei("buch", b.id), los: () => starteSpiel("buch", { buch: b.id }) })) }] : []),
       ]
-      : was === "spiele" ? [{ eintraege: spiele() }]
+      : was === "spiele" ? (I.SPIEL_GRUPPEN
+        ? I.SPIEL_GRUPPEN.map((gr) => ({ titel: gr.titel, eintraege: spiele().filter((e) => (I.SPIELE.find((sp) => sp.id === e.id)?.gruppe || "woerter") === gr.id) })).filter((gr) => gr.eintraege.length)
+        : [{ eintraege: spiele() }])
         : was === "telefon" ? [{ eintraege: (I.TELEFON_SPIELE || []).map((sp) => ({ id: sp.id, titel: sp.titel, bild: a.spielBild?.(sp.id) || "", frei: frei(sp.id), los: () => starteSpiel(sp.id) })) }]
         : was === "verse" ? [{ eintraege: (I.VERSE || []).map((v) => ({ id: v.id, titel: v.titel, bild: a.versBild?.(v.id) || "", frei: frei("verse", v.id), los: () => starteSpiel("verse", { vers: v.id }) })) }]
           : [{ eintraege: welten() }];
