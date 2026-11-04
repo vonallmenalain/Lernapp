@@ -255,6 +255,37 @@ Stand: 4. November 2026 · Entwurf · Grundlage: `docs/RECHENECKE-KONZEPT.md`,
 - **Schranke**: vier neue Spiele (`en-monster`, `en-wokatze`, `en-gegenteile`,
   `en-wortbild`), je eine Runde frei.
 
+### 0.7 Gemalte Bilder
+
+Die 12 Wimmelbilder und die 48 Bilder der 12 Geschichten sind gemalt, im Stil der Bücher
+(`bilder/englisch/`, WebP, zusammen rund 4 MB; dazu kleine Fassungen für die Auswahl).
+
+- **Wie gemalt:** mit Higgsfield, Modell **GPT Image 2.5, Qualität «tief»** (1K, 0,25 Credits
+  je Bild; alle 60 Bilder samt einem Neuversuch 14,75 Credits). Jedes Bild entsteht aus der
+  Zeichnung als Vorlage («male dieses Bild neu, alles bleibt, wo es ist») und einer Seite der
+  Leseecke als Stilvorlage (`bilder/buecher/mia-ball/seite-01.webp`). Wimmelbilder 16:9,
+  Geschichtenbilder 21:9. Für Rocco eine Vorlage mit vier Haltungen; die Bilder 2–4 einer
+  Geschichte bekommen die schon gemalten Bilder derselben Geschichte als Vorlage, so bleiben
+  Rocco, Ruby, die Lehrerin, das Mädchen mit dem Geschenk und die Orte gleich. Passt ein
+  Bild nicht, wird es neu gemalt (wenn nötig in Qualität «mittel», 0,5 Credits).
+- **Wo was steht:** `scripts/englisch-bilder-vorlagen.mjs` rendert die Zeichnungen als
+  Vorlagen und misst, wo jedes Ding steht. `scripts/englisch-bilder-abgleich.py` sucht jedes
+  Ding im Gemälde (Bildvergleich) und schreibt `englisch-gemalt.js`: die Zeichnung jedes
+  Dings, so verschoben und vergrössert, dass sie sich mit dem gemalten Ding deckt, und
+  seinen Rahmen. Was die Suche nicht findet, steht von Hand in
+  `scripts/englisch-bilder-korrekturen.json` (Stuhl und Sofa im Haus, Rocco und der Ball im
+  Baum in «Rocco and the red ball»).
+- **In der App** (`englisch-art.js`, `GEMALT`): Das Gemälde liegt unten, darüber unsichtbar
+  die Zeichnung des Dings und eine Ellipse über seinem Rahmen – sie nehmen den Tipp an; die
+  kleinen Dinge liegen oben (wer den Apfel trifft, trifft nicht den Baum). Beim Antippen
+  springt ein weich ausgeschnittenes Stück des Gemäldes hervor, statt zu wackeln (ein
+  wackelndes Ding wäre doppelt zu sehen). Sterne und Hinweise stehen am gemalten Ding.
+- **Ohne Gemälde:** Lädt ein Bild nicht (offline, beim ersten Mal), zeigt die Szene ihre
+  Zeichnung – die Dinge dort, wo sie im Gemälde wären –, die Geschichte ihre gezeichneten
+  Bilder. Die Bilder liegen im Cache der Buchbilder und bleiben nach einem Update.
+- **What's missing?** bleibt gezeichnet: Nur aus der Zeichnung lässt sich ein Ding wegnehmen.
+  Sticker, Wörterbuch, Spielfiguren und der Caboose bleiben gezeichnet.
+
 ---
 
 ## 1. Die Idee in drei Sätzen
@@ -483,7 +514,8 @@ Der Kern der Englischecke und das, was ausdrücklich gewünscht ist. In der Stil
 
 **Die Bilder** werden gemalt wie die Bilder der Bücher (`bilder/buecher/…`, WebP), je Welt
 eines in 1600 × 900, die antippbaren Dinge als Flächen (Polygone) in einer kleinen Datei
-daneben. Die Stilprobe zeichnet sie einfacher, als SVG. Jedes Ding braucht eine Fläche, die
+daneben. (Umgesetzt, siehe 0.7: 1344 × 752, die Flächen sind die verschobenen Zeichnungen
+und Ellipsen in `englisch-gemalt.js`.) Die Stilprobe zeichnet sie einfacher, als SVG. Jedes Ding braucht eine Fläche, die
 ein Kinderfinger trifft (mindestens 48 Pixel), auch wenn das Ding klein ist (die Äpfel im Baum
 haben in der Stilprobe eine unsichtbare grössere Fläche).
 

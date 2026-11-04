@@ -8,9 +8,10 @@
  *                        Einrichtung ein <g data-ausbau> (train-englischecke.js
  *                        hängt den Tipp an)
  *   szene(welt)          ein Wimmelbild (Bauernhof, Zuhause, Küche): jedes
- *                        Ding ein <g data-ding>
+ *                        Ding ein <g data-ding> – gemalt, wo es das Gemälde
+ *                        gibt (GEMALT, englisch-gemalt.js)
  *   geschichtsBild(g, i) ein Bild einer Bildgeschichte (472 × 204); was im
- *                        Satz vorkommt, ist ein <g data-wort>
+ *                        Satz vorkommt, ist ein <g data-wort> – ebenso gemalt
  *   sticker(id …)        ein Wort im Wörterbuch; aufnaeher(welt …) ein Aufnäher
  *
  * Gezeichnet als SVG-Text im Stil der App: flache Farben, runde Ecken, kein
@@ -416,30 +417,93 @@ function kuecheHintergrund() {
 }
 const HINTERGRUND = { farm: hofHintergrund, house: hausHintergrund, kitchen: kuecheHintergrund };
 
+// ---------------------------------------------------------------------------
+// Die gemalten Bilder
+// ---------------------------------------------------------------------------
+// Wimmelbilder und Bildgeschichten gibt es auch gemalt (bilder/englisch/,
+// welt-farm.webp, welt-farm-klein.webp, geschichte-ball-1.webp …). Wo im
+// Gemälde was steht, trägt englisch-gemalt.js ein:
+//   GEMALT.welten[welt].orte[id]      [x, y, m, bx, by, bw, bh] – die
+//                                     Zeichnung des Dings, so verschoben und
+//                                     vergrössert, dass sie sich mit dem Ding im
+//                                     Gemälde deckt, und sein Rahmen
+//   GEMALT.geschichten[g][i].woerter  { wort: [[bx, by, bw, bh], …] }
+// Über dem Gemälde liegt, was sich antippen lässt: die Zeichnung des Dings
+// (unsichtbar) und eine Ellipse über seinem Rahmen. Beim Antippen springt ein
+// weich ausgeschnittenes Stück des Gemäldes hervor. Lädt das Gemälde nicht,
+// zeigt die Szene ihre Zeichnung – die Dinge stehen dann dort, wo sie im
+// Gemälde wären –, die Geschichte die gezeichneten Bilder.
+const GEMALT = { welten: {}, geschichten: {}, ordner: "bilder/englisch" };
+const gemaltBild = (name) => `${GEMALT.ordner}/${name}.webp`;
+const r1 = (v) => Math.round(v * 10) / 10;
+if (typeof document !== "undefined" && document.addEventListener) {
+  document.addEventListener("error", (e) => {
+    const t = e.target;
+    if (!t?.classList?.contains("en-gemaelde")) return;
+    // Ein Bild, das nicht lädt, malt Chromium als verwaschene Fläche: weg damit.
+    t.setAttribute("display", "none");
+    t.closest("svg")?.classList.add("ohne-gemaelde");
+  }, true);
+}
+const WEICH = `<radialGradient id="en-weich"><stop offset="0.6" stop-color="#fff"/><stop offset="1" stop-color="#000"/></radialGradient>`;
+// Das Gemälde selbst und als Muster für die Stücke, die hervorspringen.
+function gemaelde(href, muster, b, h) {
+  return {
+    defs: `${WEICH}<pattern id="${muster}" patternUnits="userSpaceOnUse" width="${b}" height="${h}"><image href="${href}" width="${b}" height="${h}" preserveAspectRatio="xMidYMid slice"/></pattern>`,
+    bild: `<image class="en-gemaelde" href="${href}" width="${b}" height="${h}" preserveAspectRatio="xMidYMid slice" pointer-events="none"/>`,
+  };
+}
+// Was über einem Rahmen im Gemälde liegt: das Stück, das beim Antippen
+// hervorspringt (sonst ausgeblendet), und die Fläche, die den Tipp annimmt.
+function tippflaeche(muster, maske, [bx, by, bw, bh]) {
+  const cx = r1(bx + bw / 2), cy = r1(by + bh / 2);
+  const rx = r1(bw * 0.66), ry = r1(bh * 0.66);
+  return `<mask id="${maske}"><ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" fill="url(#en-weich)"/></mask>
+      <ellipse class="en-ausschnitt" cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" fill="url(#${muster})" mask="url(#${maske})"/>
+      <ellipse class="en-treffer" cx="${cx}" cy="${cy}" rx="${r1(bw * 0.56)}" ry="${r1(bh * 0.56)}" fill="#000" fill-opacity="0"/>`;
+}
+
 // Eine Szene: Hintergrund und die Dinge, jedes in einer Gruppe mit data-ding.
 //   markiert(id)  ob am Ding ein Stern steht
-function szene(welt, { markiert = () => false } = {}) {
+//   gezeichnet    die Zeichnung statt des Gemäldes (What's missing? nimmt ein
+//                 Ding aus dem Bild – das geht nur in der Zeichnung)
+function szene(welt, { markiert = () => false, gezeichnet = false } = {}) {
   const orte = ORTE[welt] || HOF;
+  const g = gezeichnet ? null : GEMALT.welten[welt] || null;
   let s = HINTERGRUND[welt] ? HINTERGRUND[welt]() : "";
+  let defs = `<linearGradient id="himmel" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9fd8f0"/><stop offset="1" stop-color="#e3f5fb"/></linearGradient>${window.LernappBauTiere?.defs?.() || ""}`;
+  const muster = `en-p-${welt}`;
+  if (g) {
+    const bild = gemaelde(gemaltBild(`welt-${welt}`), muster, 1000, 560);
+    defs += bild.defs;
+    s += bild.bild;
+  }
+  // Im Gemälde liegen die kleinen Dinge oben: Wer auf den Apfel tippt, trifft
+  // nicht den Baum.
+  const flaeche = (id) => { const o = g?.orte?.[id]; return o ? o[5] * o[6] : Infinity; };
   const reihe = Object.keys(orte);
+  if (g) reihe.sort((a, b) => flaeche(b) - flaeche(a));
   for (const id of reihe) {
-    const [x, y, m, ecke] = orte[id];
+    const gemalt = g?.orte?.[id];
+    const [x, y, m] = gemalt || orte[id];
+    const ecke = orte[id][3];
     const mx = x + ecke[0] * m;
     const my = y + ecke[1] * m;
-    s += `<g class="en-ding" data-ding="${id}" tabindex="0" role="button">
-      <g transform="translate(${x} ${y}) scale(${m})">${DING[id] ? DING[id]() : ""}</g>
+    s += `<g class="en-ding${gemalt ? " en-gemalt-ding" : ""}" data-ding="${id}" tabindex="0" role="button">
+      <g${gemalt ? ' class="en-zeichnung"' : ""} transform="translate(${x} ${y}) scale(${m})">${DING[id] ? DING[id]() : ""}</g>${gemalt ? tippflaeche(muster, `en-m-${welt}-${id}`, gemalt.slice(3)) : ""}
       <g class="en-marke">${markiert(id) ? stern(mx, my, 12) : ""}</g>
       <g class="en-hinweis" opacity="0">${stern(mx, my, 9, "en-funkel")}</g>
     </g>`;
   }
-  if (welt === "farm") s += `<text x="40" y="384" font-family="Baloo 2, Nunito, sans-serif" font-weight="800" font-size="22" fill="#5d6882" pointer-events="none">z z</text>`;
-  const defs = `<defs><linearGradient id="himmel" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9fd8f0"/><stop offset="1" stop-color="#e3f5fb"/></linearGradient>${window.LernappBauTiere?.defs?.() || ""}</defs>`;
-  return `<svg viewBox="0 0 1000 560" class="en-szene-svg" aria-hidden="false" xmlns="http://www.w3.org/2000/svg">${defs}${s}</svg>`;
+  if (welt === "farm" && !g) s += `<text x="40" y="384" font-family="Baloo 2, Nunito, sans-serif" font-weight="800" font-size="22" fill="#5d6882" pointer-events="none">z z</text>`;
+  return `<svg viewBox="0 0 1000 560" class="en-szene-svg${g ? " ist-gemalt" : ""}" aria-hidden="false" xmlns="http://www.w3.org/2000/svg"><defs>${defs}</defs>${s}</svg>`;
 }
-const markeAn = (welt, id) => {
+// Wo der Stern an einem Ding steht – im Gemälde, wenn es eines gibt.
+const markeAn = (welt, id, { gezeichnet = false } = {}) => {
   const o = ORTE[welt]?.[id];
   if (!o) return null;
-  return { x: o[0] + o[3][0] * o[2], y: o[1] + o[3][1] * o[2] };
+  const [x, y, m] = (!gezeichnet && GEMALT.welten[welt]?.orte?.[id]) || o;
+  return { x: x + o[3][0] * m, y: y + o[3][1] * m };
 };
 
 // ===========================================================================
@@ -537,16 +601,36 @@ const GESCHICHTEN_BILDER = {
       <path d="M240 46 c-6 -10 -20 -2 -10 8 l10 9 l10 -9 c10 -10 -4 -18 -10 -8z" fill="#ef6fa8"/>`,
   ],
 };
-// Ein Bild der Geschichte (472 × 204 + Leiste darunter in der Ansicht).
-function geschichtsBild(geschichte, i) {
+// Ein Bild der Geschichte (472 × 204 + Leiste darunter in der Ansicht) –
+// gemalt, wenn es das Gemälde gibt (gezeichnet: die Zeichnung).
+const OHNE_TIPP = / class="en-wort" data-wort="[^"]*" tabindex="0" role="button"/g;
+function geschichtsBild(geschichte, i, { gezeichnet = false } = {}) {
   const zeichne = GESCHICHTEN_BILDER[geschichte]?.[i];
-  return zeichne ? zeichne() : bildHintergrund();
+  const zeichnung = zeichne ? zeichne() : bildHintergrund();
+  const g = gezeichnet ? null : GEMALT.geschichten[geschichte]?.[i];
+  if (!g) return zeichnung;
+  const name = `${geschichte}-${i + 1}`;
+  const muster = `en-p-${name}`;
+  const bild = gemaelde(gemaltBild(`geschichte-${name}`), muster, 472, 204);
+  // Unter dem Gemälde die Zeichnung, ohne Tippstellen: Sie zeigt sich, wenn
+  // das Gemälde nicht lädt.
+  let s = `${zeichnung.replace(OHNE_TIPP, "")}<defs>${bild.defs}</defs>${bild.bild}`;
+  const stellen = Object.entries(g.woerter || {}).flatMap(([wort, rahmen]) => rahmen.map((r, k) => [wort, r, k]));
+  stellen.sort((a, b) => b[1][2] * b[1][3] - a[1][2] * a[1][3]);
+  for (const [wort, r, k] of stellen) {
+    s += `<g class="en-wort en-gemalt-ding" data-wort="${wort}" tabindex="0" role="button">${tippflaeche(muster, `en-m-${name}-${wort}-${k}`, r)}</g>`;
+  }
+  return s;
 }
 // Das Titelbild einer Geschichte, für die Auswahl im Regal: welches ihrer
-// Bilder (sonst das erste).
+// Bilder (sonst das erste) – gemalt klein, darunter die Zeichnung.
 const TITELBILD = { cat: 3, hungry: 3 };
 function geschichtsTitelbild(geschichte) {
-  return `<svg viewBox="0 0 472 204" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">${geschichtsBild(geschichte, TITELBILD[geschichte] ?? 0)}</svg>`;
+  const i = TITELBILD[geschichte] ?? 0;
+  const zeichnung = geschichtsBild(geschichte, i, { gezeichnet: true });
+  const gemalt = GEMALT.geschichten[geschichte]?.[i]
+    ? `<image href="${gemaltBild(`geschichte-${geschichte}-${i + 1}-klein`)}" width="472" height="204" preserveAspectRatio="xMidYMid slice"/>` : "";
+  return `<svg viewBox="0 0 472 204" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">${zeichnung}${gemalt}</svg>`;
 }
 
 // ===========================================================================
@@ -655,8 +739,10 @@ function zimmer({ ausbau = 0, neuAb = Infinity, karte = null, aufnaeher: flicken
 }
 
 // Kleine Bilder für Karten und Auswahl: eine Welt, Hear & find, eine Geschichte
+// (gemalt klein, darunter die Zeichnung).
 function weltBild(welt, breite = 200, hoehe = 112) {
-  return `<svg viewBox="0 0 1000 560" width="${breite}" height="${hoehe}" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="himmel" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9fd8f0"/><stop offset="1" stop-color="#e3f5fb"/></linearGradient>${window.LernappBauTiere?.defs?.() || ""}</defs>${szene(welt).replace(/^<svg[^>]*>/, "").replace(/<\/svg>$/, "")}</svg>`;
+  const gemalt = GEMALT.welten[welt] ? `<image href="${gemaltBild(`welt-${welt}-klein`)}" width="1000" height="560" preserveAspectRatio="xMidYMid slice"/>` : "";
+  return `<svg viewBox="0 0 1000 560" width="${breite}" height="${hoehe}" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="himmel" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9fd8f0"/><stop offset="1" stop-color="#e3f5fb"/></linearGradient>${window.LernappBauTiere?.defs?.() || ""}</defs>${szene(welt, { gezeichnet: true }).replace(/^<svg[^>]*>/, "").replace(/<\/svg>$/, "")}${gemalt}</svg>`;
 }
 
 // Was weitere Zeichnungen (englisch-art-2.js …) brauchen, um Welten und
@@ -665,7 +751,7 @@ function weltBild(welt, breite = 200, hoehe = 112) {
 window.LernappEnglischArt = {
   roccoKopf, rocco, DING, ORTE, STICKER, szene, markeAn, sticker, aufnaeher, stern,
   geschichtsBild, geschichtsTitelbild, zimmer, weltBild, AUFNAEHER_BILD,
-  HINTERGRUND, AUFNAEHER_FARBE, GESCHICHTEN_BILDER, TITELBILD,
+  HINTERGRUND, AUFNAEHER_FARBE, GESCHICHTEN_BILDER, TITELBILD, GEMALT,
   hilfen: { tb, bildHintergrund, apfel, menschOder, wolke: wolkeAn, FARBE: { GRAU, GRAU_D, DUNKEL, HELL, HAUT } },
 };
 })();
