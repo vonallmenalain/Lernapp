@@ -156,7 +156,7 @@
     const erkanntN = zaehle((st) => st === "erkannt" || st === "sicher");
     const sicherN = zaehle((st) => st === "sicher");
     return {
-      id, titel: w.titel, von: ids.length, gehoert: gehoertN, erkannt: erkanntN, sicher: sicherN,
+      id, titel: w.titel, reiter: w.reiter, von: ids.length, gehoert: gehoertN, erkannt: erkanntN, sicher: sicherN,
       anteil: ids.length ? erkanntN / ids.length : 0, voll: erkanntN === ids.length, gold: sicherN === ids.length,
     };
   }
@@ -260,7 +260,10 @@
   // ---------------------------------------------------------------------------
   // Wörter, die im amerikanischen Englisch anders heissen als im britischen
   // Schulenglisch («Young World»).
-  const US_UK = [["mom", "mum"], ["cookie", "biscuit"], ["fries", "chips"], ["candy", "sweets"], ["fall", "autumn"], ["pants", "trousers"]];
+  const US_UK = [
+    ["mom", "mum"], ["cookie", "biscuit"], ["candy", "sweets"], ["pants", "trousers"], ["sweater", "jumper"],
+    ["sneakers", "trainers"], ["eraser", "rubber"], ["truck", "lorry"], ["fries", "chips"], ["fall", "autumn"],
+  ];
   function bericht(roh) {
     const s = sauber(roh);
     const ws = aufnaeher(s);
@@ -273,7 +276,7 @@
     return {
       runden: runden(s),
       einrichtung: wagenStufe(s),
-      welten: ws.map((w) => ({ titel: w.titel, gehoert: w.gehoert, erkannt: w.erkannt, sicher: w.sicher, von: w.von, voll: w.voll, gold: w.gold })),
+      welten: ws.map((w) => ({ id: w.id, titel: w.titel, gehoert: w.gehoert, erkannt: w.erkannt, sicher: w.sicher, von: w.von, voll: w.voll, gold: w.gold })),
       gehoert: alleIds.filter((id) => wortStand(id, s) !== "zu").length,
       von: alleIds.length,
       sitzt: nach("sicher"),

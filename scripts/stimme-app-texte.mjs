@@ -56,7 +56,7 @@ const NICHT_GESPROCHEN = new Set([
   "train-scenes.js", "train-bau.js",
   // Die Englischecke: Englisch hat seine eigene Stimme
   // (stimme-englisch-texte.mjs), das Deutsche steht in stimme-app/englischecke.mjs.
-  "englisch-inhalt.js", "englisch-stand.js", "englisch-art.js", "englisch-art-2.js", "englisch-spiele.js", "englisch-art-3.js", "englisch-spiele-3.js", "englisch-stimme.js",
+  "englisch-inhalt.js", "englisch-stand.js", "englisch-art.js", "englisch-art-2.js", "englisch-spiele.js", "englisch-art-3.js", "englisch-spiele-3.js", "englisch-art-4.js", "englisch-spiele-4.js", "englisch-stimme.js",
   "train-englischecke.js",
 ]);
 export function sprechDateien() {

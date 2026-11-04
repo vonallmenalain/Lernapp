@@ -623,12 +623,12 @@ function zimmer({ ausbau = 0, neuAb = Infinity, karte = null, aufnaeher: flicken
   // Das Brett mit den Aufnähern
   let brett = `<rect x="872" y="128" width="116" height="200" rx="10" fill="#6d4628"/><rect x="880" y="136" width="100" height="184" rx="6" fill="#3a7bd5"/>
     <text x="930" y="160" text-anchor="middle" font-family="Baloo 2, Nunito, sans-serif" font-weight="800" font-size="13" fill="#ffffff">PATCHES</text>`;
-  // Bis drei Welten untereinander, mehr in zwei Spalten.
-  const zweiSpalten = flicken.length > 3;
-  flicken.slice(0, 6).forEach((f, i) => {
-    const x = zweiSpalten ? 905 + (i % 2) * 50 : 930;
-    const y = zweiSpalten ? 196 + Math.floor(i / 2) * 50 : 196 + i * 50;
-    brett += aufnaeher(f.id || f.welt, x, y, zweiSpalten ? 19 : 20, f);
+  // Bis drei Welten untereinander, bis sechs in zwei Spalten, mehr in drei.
+  const spalten = flicken.length > 6 ? 3 : flicken.length > 3 ? 2 : 1;
+  flicken.slice(0, 12).forEach((f, i) => {
+    const x = spalten === 3 ? 897 + (i % 3) * 33 : spalten === 2 ? 905 + (i % 2) * 50 : 930;
+    const y = spalten === 3 ? 188 + Math.floor(i / 3) * 36 : spalten === 2 ? 196 + Math.floor(i / 2) * 50 : 196 + i * 50;
+    brett += aufnaeher(f.id || f.welt, x, y, spalten === 3 ? 14 : spalten === 2 ? 19 : 20, f);
   });
   s += ort("aufnaeher", brett);
   // Das Telefon an der Wand und der Briefkasten (Etappe 3).

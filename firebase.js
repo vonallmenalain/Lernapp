@@ -3312,7 +3312,17 @@
     return `${kopf}
         <div class="lesebericht">${zeilen.join("")}</div>
         <p class="auth-hint">«Sitzt» heisst: ${escapeHtml(name)} hat das Wort bei «Hear and find» an zwei verschiedenen Tagen gleich beim ersten Versuch gefunden. Rocco spricht amerikanisches Englisch${b.usUk.length ? ` – so heisst es in England anders: ${escapeHtml(b.usUk.join(", "))}` : ""}.</p>
-        <p class="auth-hint">Zuhause hilft: die Wörter im Alltag nebenbei brauchen («Where is the cup?»), ohne abzufragen.</p>`;
+        ${renderEnglischAuftraege(b)}`;
+  }
+
+  // Aufträge für die Familie: kleine Ideen für zuhause aus den Welten, die das
+  // Kind schon kennt (englisch-inhalt.js, AUFTRAEGE).
+  function renderEnglischAuftraege(b) {
+    const auftraege = window.LernappEnglischInhalt?.AUFTRAEGE || {};
+    const bekannt = (b.welten || []).filter((w) => w.id && w.gehoert >= 3 && auftraege[w.id]).sort((p, q) => q.gehoert - p.gehoert).slice(0, 3);
+    const liste = bekannt.length ? bekannt.map((w) => auftraege[w.id]) : ["Die Wörter im Alltag nebenbei brauchen («Where is the cup?»), ohne abzufragen."];
+    return `<p class="admin-lesen-frage">Aufträge für die Familie</p>
+        <ul class="englisch-auftraege">${liste.map((t) => `<li class="auth-hint">${escapeHtml(t)}</li>`).join("")}</ul>`;
   }
 
   // Der Rechenbericht: nur aus den Zählern im Kasten (rechnen-stand.js,
