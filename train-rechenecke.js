@@ -448,81 +448,6 @@
     kids()?.speak?.(satz);
   }
 
-  // Aufträge für draussen: Nach einer Weile in der Rechenecke gähnt der
-  // Drache und gibt einen Auftrag für die echte Welt. Beim nächsten Besuch an
-  // einem anderen Tag fragt er nach – geschafft gibt einen Taler.
-  const AUFTRAEGE = [
-    "Zähl beim Znacht, wie viele Gabeln auf dem Tisch liegen!",
-    "Zähl auf dem nächsten Spaziergang alle roten Autos!",
-    "Zähl die Treppenstufen bis zu eurer Tür!",
-    "Zähl, wie viele Schuhe bei der Haustür stehen!",
-    "Zähl, wie viele Fenster euer Haus hat!",
-    "Hüpf zehnmal auf einem Bein und zähl laut mit!",
-    "Zähl beim Zmorge, wie viele Löffel auf dem Tisch liegen!",
-    "Zähl alle Kissen auf eurem Sofa!",
-  ];
-  const BESUCH_KEY = "lernapp.rechnen.besuch";
-  const AUFTRAG_KEY = "lernapp.rechnen.auftrag";
-  const tagHeute = () => { const d = new Date(); return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`; };
-  const liesJson = (k) => { try { return JSON.parse(localStorage.getItem(k) || "null"); } catch { return null; } };
-  const schreibJson = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* privater Modus */ } };
-  function auftragPruefen(host) {
-    const s = stand();
-    const heute = tagHeute();
-    let besuch = liesJson(BESUCH_KEY);
-    if (!besuch || besuch.tag !== heute) { besuch = { tag: heute, seit: Date.now() }; schreibJson(BESUCH_KEY, besuch); }
-    const auftrag = liesJson(AUFTRAG_KEY);
-    const karte = (titel, text, knoepfe) => {
-      host.querySelector(".rechen-wahl")?.remove();
-      const huelle = document.createElement("div");
-      huelle.className = "rechen-wahl rechen-auftrag";
-      huelle.setAttribute("role", "dialog");
-      huelle.setAttribute("aria-label", titel);
-      const k = document.createElement("div");
-      k.className = "rechen-wahl-karte";
-      const kopf = document.createElement("p");
-      kopf.className = "rechen-wahl-titel";
-      kopf.textContent = titel;
-      const p = document.createElement("p");
-      p.className = "rechen-auftrag-text";
-      p.textContent = text;
-      const reihe = document.createElement("div");
-      reihe.className = "rechen-auftrag-knoepfe";
-      knoepfe.forEach(([label, fn, klasse]) => {
-        const b = document.createElement("button");
-        b.type = "button";
-        b.className = `rechen-taufe-name ${klasse || ""}`.trim();
-        b.textContent = label;
-        b.addEventListener("click", () => { huelle.remove(); kids()?.setHelp?.(HILFE); fn(); });
-        reihe.append(b);
-      });
-      k.append(kopf, p, reihe);
-      huelle.append(k);
-      host.append(huelle);
-      window.setTimeout(() => reihe.querySelector("button")?.focus?.({ preventScroll: true }), 30);
-    };
-    // Ein Auftrag von einem früheren Tag wartet noch.
-    if (auftrag && auftrag.tag !== heute && !auftrag.erledigt) {
-      const text = AUFTRAEGE[auftrag.nr] || AUFTRAEGE[0];
-      const frage = `Hast du deinen Auftrag geschafft? ${text}`;
-      karte("Dein Auftrag", text, [
-        ["Ja, geschafft!", () => { s.auftragErledigt(); schreibJson(AUFTRAG_KEY, { ...auftrag, erledigt: true }); kids()?.playJingle?.("unlock"); kids()?.speak?.("Super! Dafür bekommt dein Drache einen Taler."); }, "ist-ja"],
-        ["Noch nicht", () => { schreibJson(AUFTRAG_KEY, { ...auftrag, erledigt: true }); kids()?.speak?.("Macht nichts. Vielleicht ein anderes Mal!"); }],
-      ]);
-      kids()?.speak?.(frage);
-      return true;
-    }
-    const grenze = s.gaehnenNach();
-    if (!grenze || (auftrag && auftrag.tag === heute)) return false;
-    if (Date.now() - besuch.seit < grenze * 60 * 1000) return false;
-    const nr = Math.floor(Math.random() * AUFTRAEGE.length);
-    schreibJson(AUFTRAG_KEY, { tag: heute, nr, erledigt: false });
-    const satz = `Dein Drache gähnt: Zeit für eine Pause! Hier ist ein Auftrag für draussen. ${AUFTRAEGE[nr]}`;
-    karte("Zeit für eine Pause!", AUFTRAEGE[nr], [["Mach ich!", () => {}, "ist-ja"]]);
-    kids()?.speak?.(satz);
-    return true;
-  }
-
   let offen = null;
 
   // Was das Zimmer zeigt – ändert es sich, wird neu gezeichnet.
@@ -706,12 +631,11 @@
     else if (!offen.host.querySelector(".rechen-wahl")) kids()?.setHelp?.(`${satz} ${HILFE}`);
     merkeGesehen(d);
     merkeAusbau(ausbau);
-    if (!offen.host.querySelector(".rechen-wahl")) auftragPruefen(offen.host);
     offen.zustand = anfang;
     if (zustand() !== anfang) auffrischen();
   }
 
   stand()?.onChange?.(() => auffrischen());
 
-  window.LernappRechenecke = { mount, auffrischen, ORTE, ANSICHTEN, HILFE, REIHUM, NAMEN, ALBUM, AUFTRAEGE, albumSatz, spieleAm, schatzSatz };
+  window.LernappRechenecke = { mount, auffrischen, ORTE, ANSICHTEN, HILFE, REIHUM, NAMEN, ALBUM, albumSatz, spieleAm, schatzSatz };
 })();

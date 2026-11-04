@@ -94,7 +94,9 @@
         ctx.svg.querySelectorAll(".rw-bahnhof rect:nth-of-type(2)")[i]?.setAttribute("stroke", "#3fbf74");
         ctx.blip(i);
       }
-      await ctx.sage(ok ? `Genau! ${reihe.join(", ")}.` : `Schau: ${reihe.join(", ")}. Es fehlte die ${richtig}.`, ok ? null : `Schau: Es fehlte die ${richtig}.`);
+      // Die Reihe endet mit «!», nicht mit einem Punkt: «8.» läse eine
+      // Stimme als «achte». Jede Reihe ist aufgenommen (stimme-app/rechenecke-2.mjs).
+      await ctx.sage(ok ? `Genau! ${reihe.join(", ")}!` : `Schau: ${reihe.join(", ")}! Es fehlte die ${richtig}.`, ok ? null : `Schau: Es fehlte die ${richtig}.`);
       return ok;
     },
   });
@@ -874,6 +876,11 @@
         const ort = pw.orte[a + i];
         const [x0, y0] = fig.getAttribute("transform").match(/-?[\d.]+/g).map(Number);
         await ctx.tween(520, (p) => fig.setAttribute("transform", `translate(${(x0 + (30 + ort.x - x0) * p).toFixed(1)} ${(y0 + (SPUR + ort.y - y0) * p - Math.sin(p * Math.PI) * 60).toFixed(1)})`));
+        // Angekommen: Das Tier sitzt jetzt im Wagen. Die Figur lag unter dem
+        // Wagen (vor ihm gezeichnet) und verschwand hinter dem Fenster – darum
+        // wird der Wagen mit ihm neu gezeichnet, wie beim Aussteigen.
+        wagenG.innerHTML = A.personenWagen(plaetze, [...drin, ...neu.slice(0, i + 1)], { W: 600 }).svg;
+        fig.remove();
         ctx.blip(i);
       }
     } else {

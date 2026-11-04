@@ -372,8 +372,6 @@ body[data-page="train"] .train-stage[data-view="rechnen"] ~ .help-voice {
 .rechen-album-blatt.ist-zu { color: #b8bfd0; font-size: 2rem; font-weight: 800; background: #f3f1ea; border-style: dashed; cursor: default; align-content: center; }
 .rechen-album-zahl { font-family: "Baloo 2", Nunito, ui-rounded, system-ui, sans-serif; font-size: 1.4rem; font-weight: 800; color: #243047; line-height: 1; }
 .rechen-album-dinge { display: grid; grid-template-columns: repeat(5, 1fr); gap: 1px; font-size: clamp(0.7rem, 1.6vw, 1rem); line-height: 1.1; }
-.rechen-auftrag-text { margin: 0 0 14px; text-align: center; font-size: clamp(1.1rem, 2.6vh, 1.4rem); font-weight: 800; color: #243047; line-height: 1.35; }
-.rechen-auftrag-knoepfe { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
 .rechen-taufe-name.ist-ja { background: #3fbf74; border-color: #2f9a5b; color: #ffffff; }
 
 /* --- Die Taufe des Drachen (train-rechenecke.js) --- */

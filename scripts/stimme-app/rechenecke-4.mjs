@@ -55,14 +55,9 @@ export default function texte(d) {
   // Postkarten: der Text zum Vorlesen
   const post = [...quelle.matchAll(/text: "([^"]+)", a: /g)].map((m) => m[1]);
   post.forEach((t) => add(t));
-  // Zimmer: Album, Aufträge
+  // Zimmer: Album
   const zimmer = "train-rechenecke.js";
   const r = d.rechenecke || {};
   for (let n = 1; n <= (r.ALBUM || []).length; n += 1) add(r.albumSatz(n), zimmer);
-  for (const a of r.AUFTRAEGE || []) {
-    add(a, zimmer);
-    add(`Hast du deinen Auftrag geschafft? ${a}`, zimmer);
-    add(`Dein Drache gähnt: Zeit für eine Pause! Hier ist ein Auftrag für draussen. ${a}`, zimmer);
-  }
   return aus;
 }

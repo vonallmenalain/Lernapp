@@ -181,13 +181,9 @@ Neun Spiele in `rechnen-spiele-4.js`, dazu das Sammelalbum und die Aufträge fü
 vielen Dingen in Reihen zu fünf (1 Sonne, 2 Socken … 20 Bienen). Für je fünf Taler geht eine
 Seite mehr auf; ein Tipp liest sie vor.
 
-**Aufträge für draussen**: Nach einer einstellbaren Zeit Rechenecke am Tag (Elternkarte «Pause
-mit Auftrag»: 10, 15 oder 20 Minuten oder nie; Standard 20) gähnt der Drache und gibt einen
-Auftrag für die echte Welt («Zähl beim Znacht, wie viele Gabeln auf dem Tisch liegen!»). Beim
-nächsten Besuch an einem anderen Tag fragt er nach: «Ja, geschafft!» bringt einen Taler, «Noch
-nicht» kostet nichts. Wie viele Aufträge erledigt sind, steht im Rechenbericht. Besuchszeit und
-offener Auftrag liegen nur auf dem Gerät (`lernapp.rechnen.besuch`, `lernapp.rechnen.auftrag`),
-der Zähler im Rechenstand (`auftraege`, über die Geräte hinweg das Maximum).
+**Aufträge für draussen** (der Drache gähnte nach einer Weile und gab eine «Pause mit
+Auftrag»): am 4. November 2026 auf Wunsch wieder ganz entfernt – Pause, Auftrag, die
+Einstellung der Eltern und die Zeile im Rechenbericht.
 
 ### 0.9 Die Verbindung zur Bauecke
 
@@ -669,10 +665,6 @@ selbst erfinden, und das Haus zählt nur verschiedene.
 - **Zu zweit.** Hüpf-Gleis und Kuppel-Plus lassen sich am selben Gerät zu zweit spielen, jedes
   Kind auf seiner Stufe: Die Fünfjährige rechnet bis 5, der grössere Bruder bis 20, und beide
   spielen dasselbe Spiel.
-- **Aufträge für draussen.** Nach einer Weile im Wagen gähnt der Drache und gibt einen Auftrag
-  für die echte Welt: «Zähl beim Znacht, wie viele Gabeln auf dem Tisch liegen!» Beim
-  nächsten Besuch fragt er nach und gibt dafür einen Taler. Kurz am Bildschirm, lang im Kopf.
-  Ab wann er gähnt, stellen Eltern ein (Abschnitt 11).
 - **Das Rätsel des Tages.** Der Drache hat jeden Tag eine besondere Aufgabe mit
   Goldtaler – immer machbar, nie verpasst: Wer einen Tag auslässt, bekommt am nächsten
   dasselbe Rätsel.
@@ -712,7 +704,6 @@ Je Kind im Elternbereich (`firebase.js`, neben der Karte «Leseecke»):
 - **Was die Schule gerade macht:** wie die Buchstaben der Schule in der Leseecke, hier etwa
   «Zehnerübergang» oder «Verdoppeln» – der Drache schlägt dann diese Spiele öfter vor.
 - **Ziffern:** in der Form der Schweizer Basisschrift oder in Druckschrift (Entscheid 9).
-- **Der Drache gähnt nach:** 10, 15, 20 Minuten oder nie (Abschnitt 9).
 - **Rechenbericht** (nur aus den Zählern): Runden, Taler, wo der Drache steht; welche
   Sprosse; die **Plus-Tafel** als Raster 0 + 0 bis 10 + 10 – grün, was sitzt, gelb, was noch
   gezählt wird, grau, was noch nicht vorkam; häufige Fehlerbilder mit einem Satz, was hilft;

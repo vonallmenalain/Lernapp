@@ -44,7 +44,10 @@ const lies = (name) => fs.readFileSync(path.join(WURZEL, name), "utf8");
 export function passtZumText(sekunden, text) {
   // Eine Silbe («Ha», «he») darf kürzer sein als ein Satz.
   if (!(sekunden >= (text.length <= 3 ? 0.15 : 0.25))) return false;
-  if (sekunden > Math.max(1.6, text.length * 0.2)) return false;
+  // Eine Zahlenreihe («3, 4, 5, 6, 7, 8!») ist kurz geschrieben, aber jede Zahl
+  // ist ein Wort mit Pause: bis 1.3 s je Zahl.
+  const zahlen = /^[\d\s,!.–-]+$/.test(text) ? (text.match(/\d+/g) || []).length : 0;
+  if (sekunden > Math.max(1.6, text.length * 0.2, zahlen >= 3 ? zahlen * 1.3 + 1 : 0)) return false;
   return text.length < 15 || sekunden >= text.length * 0.025;
 }
 
