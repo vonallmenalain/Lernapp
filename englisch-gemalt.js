@@ -42,4 +42,13 @@ const GESCHICHTEN = {
 };
 for (const [welt, orte] of Object.entries(WELTEN)) G.welten[welt] = { orte };
 for (const [g, bilder] of Object.entries(GESCHICHTEN)) G.geschichten[g] = bilder.map((woerter) => ({ woerter }));
+// STICKER-ANFANG
+// Gemalt: die Sticker (bilder/englisch/sticker/<id>.webp), die Aufnäher
+// (bilder/englisch/aufnaeher/<welt>.webp) und das Wörterbuch
+// (bilder/englisch/woerterbuch.webp) - geschrieben von
+// scripts/englisch-sticker-schneiden.py.
+G.sticker = new Set(["ambulance","apple","arms","baby","backpack","ball","balloon","banana","barn","bat","bear","bed","bench","bike","bird","black","blue","board","boat","book","boots","bowtie","box","boy","bread","brown","bucket","bus","butterfly","cake","candle","candy","candycane","car","card","cat","chair","cheese","chicken","christmastree","clock","cloud","clown","coat","confetti","cookie","cow","crab","crayon","crocodile","cup","cupcake","dad","desk","dog","door","dress","duck","ears","easteregg","egg","elephant","eraser","eyes","feet","fingers","firetruck","fireworks","fish","flower","fridge","ghost","giraffe","girl","gloves","glue","green","hair","hands","hat","head","helicopter","hippo","icecream","juice","kangaroo","kite","lamp","legs","lemonade","lion","lollipop","milk","mom","monkey","motorbike","mouth","n1","n10","n2","n3","n4","n5","n6","n7","n8","n9","nose","orange","paintbrush","pancakes","pants","paper","parrot","partyhat","pencil","penguin","pie","pig","pinata","pink","pizza","plane","plate","policecar","popcorn","present","pumpkin","purple","raccoon","rain","rainbow","red","reindeer","ruler","sandbox","sandcastle","scarf","schoolbus","scissors","scooter","seagull","sheep","shell","slide","snake","sneakers","snowman","socks","sofa","spoon","squirrel","starfish","stocking","sun","sunglasses","sweater","swing","table","taxi","teacher","teddy","teeth","tiger","tractor","trafficlight","train","tree","truck","tshirt","tummy","turkey","tv","umbrella","wave","white","window","yellow","zebra"]);
+G.aufnaeher = new Set(["beach","body","city","clothes","farm","holidays","house","kitchen","park","party","school","zoo"]);
+G.woerterbuch = true;
+// STICKER-ENDE
 })();

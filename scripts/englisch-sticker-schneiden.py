@@ -99,9 +99,9 @@ def main():
                 continue
             (aufnaeher if ist_aufnaeher else sticker)[id_] = bild
     for id_, bild in sticker.items():
-        bild.save(os.path.join(ZIEL, "sticker", f"{id_}.webp"), "WEBP", quality=82, method=6)
+        bild.save(os.path.join(ZIEL, "sticker", f"{id_}.webp"), "WEBP", quality=82, method=4)
     for id_, bild in aufnaeher.items():
-        bild.save(os.path.join(ZIEL, "aufnaeher", f"{id_}.webp"), "WEBP", quality=82, method=6)
+        bild.save(os.path.join(ZIEL, "aufnaeher", f"{id_}.webp"), "WEBP", quality=82, method=4)
     buch = os.path.join(arg.boegen, "buch.png")
     if os.path.exists(buch):
         Image.open(buch).convert("RGB").resize((1344, 752), Image.LANCZOS).save(os.path.join(ZIEL, "woerterbuch.webp"), "WEBP", quality=80, method=6)
