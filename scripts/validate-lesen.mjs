@@ -1070,6 +1070,13 @@ let aufnahmenFertig = 0;
   pruefe(sw.includes('requestUrl.pathname.includes("/stimme/")') && sw.includes("caches.open(STIMME_CACHE)"), "service-worker.js: die Aufnahmen gehen nicht in ihren eigenen Cache");
   pruefe(sw.includes('key.startsWith("lernapp-stimme-") && key !== STIMME_CACHE'), "service-worker.js: alte Caches der Aufnahmen bleiben liegen");
   pruefe(/status: 206/.test(sw) && /Content-Range/.test(sw), "service-worker.js: eine Aufnahme wird nicht in Stücken beantwortet (Safari spielt sie dann nicht)");
+  // ERNEUERT: neu gemalte Bilder und neu gesprochene Sätze unter altem Namen.
+  // Jede Datei dort muss es geben, sonst ist ein Name vertippt und das Gerät
+  // behält die alte Fassung.
+  const erneuert = (name) => [...(new RegExp(`const ${name} = \\[([\\s\\S]*?)\\];`).exec(sw)?.[1] || "").matchAll(/"([^"]+)"/g)].map((m) => m[1]);
+  pruefe(/const ERNEUERT_NR = \d+;/.test(sw) && sw.includes("erneuern(keys)"), "service-worker.js: ERNEUERT fehlt oder wird beim Aktivieren nicht angewendet");
+  erneuert("ERNEUERT_BILDER").forEach((pfad) => pruefe(/^bilder\/.+\.webp$/.test(pfad) && fs.existsSync(path.join(root, pfad)), `service-worker.js: ERNEUERT_BILDER nennt ${pfad}, das es nicht gibt`));
+  erneuert("ERNEUERT_STIMME").forEach((name) => pruefe(/^[0-9a-f]{12}$/.test(name) && fs.existsSync(path.join(root, "stimme/google", `${name}.mp3`)), `service-worker.js: ERNEUERT_STIMME nennt ${name}, das es in stimme/google/ nicht gibt`));
   pruefe(/const ORDNER = \[[^\]]*"stimme"[^\]]*\];/.test(lies("netlify/build.mjs")), "netlify/build.mjs: der Ordner stimme/ kommt nicht mit auf die Site");
 }
 
