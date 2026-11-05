@@ -13,7 +13,11 @@ Schreibt:
   bilder/englisch/geschichte-<g>-<n>.webp (das Titelbild auch -klein.webp)
   englisch-gemalt.js
 
-Aufruf:  python3 scripts/englisch-bilder-abgleich.py <vorlagen> <gemaelde> [--blatt <ordner>]
+Mit --sprache franzoesisch: Margots Geschichten (Vorlagen von
+englisch-bilder-vorlagen.mjs --sprache franzoesisch) nach bilder/franzoesisch/
+und franzoesisch-gemalt.js; Korrekturen in franzoesisch-bilder-korrekturen.json.
+
+Aufruf:  python3 scripts/englisch-bilder-abgleich.py <vorlagen> <gemaelde> [--blatt <ordner>] [--sprache franzoesisch]
   <vorlagen>  der Ordner von englisch-bilder-vorlagen.mjs
   <gemaelde>  die Gemälde, benannt wie die Vorlagen (welt-farm.png,
               geschichte-ball-1.png ...), Wimmelbilder 16:9, Geschichten 21:9
@@ -27,6 +31,7 @@ from PIL import Image, ImageDraw
 
 WURZEL = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ZIEL = os.path.join(WURZEL, "bilder", "englisch")
+SPRACHE = "englisch"
 
 
 def eingepasst(pfad, b, h):
@@ -89,9 +94,14 @@ def main():
     p.add_argument("vorlagen")
     p.add_argument("gemaelde")
     p.add_argument("--blatt")
+    p.add_argument("--sprache", default="englisch", choices=["englisch", "franzoesisch"])
     arg = p.parse_args()
+    global ZIEL, SPRACHE
+    SPRACHE = arg.sprache
+    ZIEL = os.path.join(WURZEL, "bilder", SPRACHE)
     v = json.load(open(os.path.join(arg.vorlagen, "vorlagen.json"), encoding="utf-8"))
-    korr = json.load(open(os.path.join(WURZEL, "scripts", "englisch-bilder-korrekturen.json"), encoding="utf-8"))
+    korr_pfad = os.path.join(WURZEL, "scripts", f"{SPRACHE}-bilder-korrekturen.json")
+    korr = json.load(open(korr_pfad, encoding="utf-8")) if os.path.exists(korr_pfad) else {}
     os.makedirs(ZIEL, exist_ok=True)
     if arg.blatt:
         os.makedirs(arg.blatt, exist_ok=True)
@@ -171,7 +181,42 @@ def zeichne(bild, rahmen, pfad):
     im.save(pfad, quality=85)
 
 
+def schreibe_franzoesisch(geschichten):
+    zeilen = [
+        "/*",
+        " * franzoesisch-gemalt.js - wo in Margots gemalten Geschichten was steht.",
+        " *",
+        " * Geschrieben von scripts/englisch-bilder-abgleich.py --sprache franzoesisch",
+        " * - nicht von Hand ändern. Die Bilder liegen in bilder/franzoesisch/. Die",
+        " * Wimmelbilder, Sticker und Aufnäher teilt der Französischwagen mit dem",
+        " * Englischwagen (englisch-gemalt.js); gemalt eigen sind nur die Geschichten,",
+        " * auf denen Margot steht. Wie es gelesen wird: englisch-art.js,",
+        " * geschichtenGemalt (über train-franzoesischecke.js, gemalt).",
+        " *   GESCHICHTEN[g][i][wort]   [[bx, by, bw, bh], ...]",
+        " */",
+        "(() => {",
+        '"use strict";',
+        "const GESCHICHTEN = {",
+    ]
+    for g, liste in geschichten.items():
+        zeilen.append(f"  {g}: {json.dumps(liste, separators=(',', ':'))},")
+    zeilen += [
+        "};",
+        "window.LernappFranzoesischGemalt = {",
+        '  ordner: "bilder/franzoesisch",',
+        "  geschichten: Object.fromEntries(Object.entries(GESCHICHTEN).map(([g, bilder]) => [g, bilder.map((woerter) => ({ woerter }))])),",
+        "};",
+        "})();",
+        "",
+    ]
+    with open(os.path.join(WURZEL, "franzoesisch-gemalt.js"), "w", encoding="utf-8") as f:
+        f.write("\n".join(zeilen))
+
+
 def schreibe(welten, geschichten):
+    if SPRACHE == "franzoesisch":
+        schreibe_franzoesisch(geschichten)
+        return
     zeilen = [
         "/*",
         " * englisch-gemalt.js - wo in den gemalten Bildern der Englischecke was steht.",

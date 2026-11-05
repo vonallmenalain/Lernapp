@@ -1,4 +1,4 @@
-const APP_VERSION = "2026-11-05-2";
+const APP_VERSION = "2026-11-05-3";
 const CACHE_PREFIX = "lernapp-pwa-";
 const CACHE_NAME = `${CACHE_PREFIX}${APP_VERSION}`;
 const ASSET_VERSION_QUERY = `?v=${APP_VERSION}`;
@@ -19,14 +19,16 @@ const NETWORK_TIMEOUT_MS = 3500;
 // gemalten Postkarten (bilder/postkarten/…), Steckbriefe
 // (bilder/steckbriefe/…), die Monster der Quatschwörter (bilder/monster/…)
 // und die gemalten Wimmelbilder und Geschichten der Englischecke
-// (bilder/englisch/…) liegen im selben Cache.
+// (bilder/englisch/…) und der Französischecke (bilder/franzoesisch/…) liegen
+// im selben Cache.
 const BUCHBILDER_CACHE = "lernapp-buchbilder-1";
 const BUCHBILDER_TIMEOUT_MS = 20000;
 
 // Die Aufnahmen fester Texte mit Alains Stimme (stimme/alain/,
 // lesen-stimme.js) und die Sätze mit einer Stimme von Google (stimme/google/,
 // app-stimme.js und bau-stimme.js), Roccos Englisch (stimme/englisch/,
-// englisch-stimme.js) halten es wie die Buchbilder: ein eigener
+// englisch-stimme.js) und Margots Französisch (stimme/franzoesisch/,
+// franzoesisch-stimme.js) halten es wie die Buchbilder: ein eigener
 // Cache, den ein Versionswechsel nicht leert – ein Satz, der einmal zu hören
 // war, ist es auch ohne Netz. Eine Datei heisst nach ihrem Text; wird derselbe
 // Text neu gesprochen, braucht der Name hier eine neue Nummer. Lädt eine
@@ -213,8 +215,14 @@ const CORE_ASSETS = [
   `./englisch-gemalt.js${ASSET_VERSION_QUERY}`,
   `./englisch-spiele-4.js${ASSET_VERSION_QUERY}`,
   `./englisch-stimme.js${ASSET_VERSION_QUERY}`,
+  `./franzoesisch-inhalt.js${ASSET_VERSION_QUERY}`,
+  `./franzoesisch-stand.js${ASSET_VERSION_QUERY}`,
+  `./franzoesisch-art.js${ASSET_VERSION_QUERY}`,
+  `./franzoesisch-gemalt.js${ASSET_VERSION_QUERY}`,
+  `./franzoesisch-stimme.js${ASSET_VERSION_QUERY}`,
   `./sprachwagen.js${ASSET_VERSION_QUERY}`,
   `./train-englischecke.js${ASSET_VERSION_QUERY}`,
+  `./train-franzoesischecke.js${ASSET_VERSION_QUERY}`,
   `./lesen-buecher.js${ASSET_VERSION_QUERY}`,
   `./lesen-bilder.js${ASSET_VERSION_QUERY}`,
   `./lesen-detektive.js${ASSET_VERSION_QUERY}`,
@@ -460,7 +468,7 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  if (requestUrl.pathname.includes("/bilder/buecher/") || requestUrl.pathname.includes("/bilder/postkarten/") || requestUrl.pathname.includes("/bilder/steckbriefe/") || requestUrl.pathname.includes("/bilder/monster/") || requestUrl.pathname.includes("/bilder/englisch/")) {
+  if (requestUrl.pathname.includes("/bilder/buecher/") || requestUrl.pathname.includes("/bilder/postkarten/") || requestUrl.pathname.includes("/bilder/steckbriefe/") || requestUrl.pathname.includes("/bilder/monster/") || requestUrl.pathname.includes("/bilder/englisch/") || requestUrl.pathname.includes("/bilder/franzoesisch/")) {
     event.respondWith(cacheFirst(event, BUCHBILDER_CACHE, BUCHBILDER_TIMEOUT_MS));
     return;
   }

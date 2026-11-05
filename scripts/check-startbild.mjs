@@ -76,6 +76,7 @@ const masse = (seite) => seite.evaluate(() => {
     lesen: box(document.querySelector(".lesewagen-knopf")),
     rechnen: box(document.querySelector(".rechenwagen-knopf")),
     englisch: box(document.querySelector(".englischwagen-knopf")),
+    franzoesisch: box(document.querySelector(".franzoesischwagen-knopf")),
     lok: box(document.querySelector(".lernlok-knopf")),
     // Ohne das Wippen beim ersten Start gemessen: das hebt die Wagen kurz an.
     gripsWagen: wagen,
@@ -98,16 +99,23 @@ async function main() {
       const { kontext, seite, fehler } = await neueSeite(browser, viewport);
       await seite.waitForTimeout(6000);
       const m = await masse(seite);
-      if (!m.lesen || !m.rechnen || !m.englisch || !m.lok || m.platziert !== "1111") fehlt(`${name}: Der Lernzug steht nicht ganz da (${m.platziert})`);
+      if (!m.lesen || !m.rechnen || !m.englisch || !m.franzoesisch || !m.lok || m.platziert !== "11111") fehlt(`${name}: Der Lernzug steht nicht ganz da (${m.platziert})`);
       else {
         const gripsBreite = m.gripsWagen[0]?.w || 0;
-        if (Math.abs(m.lesen.w - gripsBreite) > Math.max(3, gripsBreite * 0.04)) fehlt(`${name}: Der Lesewagen ist ${Math.round(m.lesen.w)} breit, ein Wagen des Gripszugs ${Math.round(gripsBreite)}`);
-        if (Math.abs(m.englisch.w - gripsBreite) > Math.max(3, gripsBreite * 0.04)) fehlt(`${name}: Der Englischwagen ist ${Math.round(m.englisch.w)} breit, ein Wagen des Gripszugs ${Math.round(gripsBreite)}`);
-        if ([m.rechnen, m.englisch, m.lok].some((t) => Math.abs(m.lesen.u - t.u) > 2)) fehlt(`${name}: Lernlok, Lese-, Rechen- und Englischwagen stehen nicht auf demselben Gleis`);
-        if (!(m.englisch.r <= m.rechnen.x + 1 && m.rechnen.r <= m.lesen.x + 1 && m.lesen.r <= m.lok.x + 1)) fehlt(`${name}: Die Reihenfolge stimmt nicht (Englischwagen, Rechenwagen, Lesewagen, Lok)`);
+        // Gleich gross wie der Gripszug – ausser er muss vor dessen Lok halten
+        // (vier Lernwagen und die Lernlok sind fast so lang wie der
+        // Gripszug): dann höchstens ein Zehntel kleiner.
+        const vorDerLok = m.gripsLok && m.lok.r <= m.gripsLok.x + 1;
+        const gleichGross = (w) => Math.abs(w - gripsBreite) <= Math.max(3, gripsBreite * 0.04) || (vorDerLok && w < gripsBreite && w >= gripsBreite * 0.9);
+        if (!gleichGross(m.lesen.w)) fehlt(`${name}: Der Lesewagen ist ${Math.round(m.lesen.w)} breit, ein Wagen des Gripszugs ${Math.round(gripsBreite)}`);
+        if (!gleichGross(m.englisch.w)) fehlt(`${name}: Der Englischwagen ist ${Math.round(m.englisch.w)} breit, ein Wagen des Gripszugs ${Math.round(gripsBreite)}`);
+        if (m.gripsLok && m.lok.r > m.gripsLok.x + 1) fehlt(`${name}: Die Lernlok reicht über die Lok des Gripszugs`);
+        if (Math.abs(m.franzoesisch.w - m.englisch.w) > 1) fehlt(`${name}: Der Französischwagen ist anders breit als der Englischwagen`);
+        if ([m.rechnen, m.englisch, m.franzoesisch, m.lok].some((t) => Math.abs(m.lesen.u - t.u) > 2)) fehlt(`${name}: Lernlok, Lese-, Rechen-, Englisch- und Französischwagen stehen nicht auf demselben Gleis`);
+        if (!(m.franzoesisch.r <= m.englisch.x + 1 && m.englisch.r <= m.rechnen.x + 1 && m.rechnen.r <= m.lesen.x + 1 && m.lesen.r <= m.lok.x + 1)) fehlt(`${name}: Die Reihenfolge stimmt nicht (Französischwagen, Englischwagen, Rechenwagen, Lesewagen, Lok)`);
         const gripsOben = Math.min(...m.gripsWagen.map((w) => w.y));
         if (m.lesen.u > gripsOben + 2) fehlt(`${name}: Der Lernzug steht nicht über dem Gripszug`);
-        for (const teil of [m.lesen, m.rechnen, m.englisch, m.lok]) if (teil.x < 0 || teil.y < 0 || teil.r > m.vw + 1 || teil.u > m.vh) fehlt(`${name}: Der Lernzug ragt aus dem Bild`);
+        for (const teil of [m.lesen, m.rechnen, m.englisch, m.franzoesisch, m.lok]) if (teil.x < 0 || teil.y < 0 || teil.r > m.vw + 1 || teil.u > m.vh) fehlt(`${name}: Der Lernzug ragt aus dem Bild`);
         for (const k of m.knoepfe.filter((b) => b.lern)) {
           for (const anderer of m.knoepfe.filter((b) => !b.lern)) if (ueberlappen(k, anderer)) fehlt(`${name}: ${k.name} deckt ${anderer.name} zu`);
         }
@@ -116,9 +124,9 @@ async function main() {
       // Ohne Runde: ein Fahrgestell mit Schild und Maskottchen.
       const nackt = await seite.evaluate(() => {
         const w = document.querySelector('.lesewagen-knopf [data-lernwagen="lesen"]');
-        return { stufe: w?.dataset.stufe, schild: w?.querySelector(".lernwagen-schild text")?.textContent, tier: Boolean(w?.querySelector(".lernwagen-tier")), rechenSchild: document.querySelector('.rechenwagen-knopf .lernwagen-schild text')?.textContent, englischSchild: document.querySelector('.englischwagen-knopf .lernwagen-schild text')?.textContent };
+        return { stufe: w?.dataset.stufe, schild: w?.querySelector(".lernwagen-schild text")?.textContent, tier: Boolean(w?.querySelector(".lernwagen-tier")), rechenSchild: document.querySelector('.rechenwagen-knopf .lernwagen-schild text')?.textContent, englischSchild: document.querySelector('.englischwagen-knopf .lernwagen-schild text')?.textContent, franzSchild: document.querySelector('.franzoesischwagen-knopf .lernwagen-schild text')?.textContent };
       });
-      if (nackt.stufe !== "0" || nackt.schild !== "ABC" || !nackt.tier || nackt.rechenSchild !== "123" || nackt.englischSchild !== "Hello") fehlt(`${name}: Ohne Runde fehlt am Fahrgestell Schild oder Maskottchen (${JSON.stringify(nackt)})`);
+      if (nackt.stufe !== "0" || nackt.schild !== "ABC" || !nackt.tier || nackt.rechenSchild !== "123" || nackt.englischSchild !== "Hello" || nackt.franzSchild !== "Bonjour") fehlt(`${name}: Ohne Runde fehlt am Fahrgestell Schild oder Maskottchen (${JSON.stringify(nackt)})`);
       if (fehler.length) fehlt(`${name}: Fehler auf der Seite: ${fehler.join(" | ")}`);
       await kontext.close();
     }

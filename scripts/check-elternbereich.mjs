@@ -412,6 +412,18 @@ try {
     const stufeStand = await page.evaluate(() => window.__ersatz.lies("users/kind-1")?.gameState?.["lernapp.reise"]?.data);
     pruefe(stufeStand?.stufe === "schwer" && Number.isFinite(stufeStand?.stufeAt), `Schwierigkeitsstufe: am Konto steht ${JSON.stringify(stufeStand)} statt schwer`);
     pruefe(await page.locator('[data-kind-uid="kind-1"] [data-kind-stufe="schwer"][aria-pressed="true"]').count() === 1, "Schwierigkeitsstufe: der gewählte Knopf ist nicht als gewählt markiert");
+    // Die Sprachwagen: je eine Karte, die Französischecke stellt ihren eigenen
+    // Kasten um (lernapp.franzoesisch.eltern), nicht den des Englischwagens.
+    {
+      const en = page.locator('[data-kind-uid="kind-1"] .admin-englisch');
+      const fr = page.locator('[data-kind-uid="kind-1"] .admin-franzoesisch');
+      pruefe(await en.count() === 1 && /Englischecke/.test(await en.textContent()), "Kind aufklappen: die Karte der Englischecke fehlt");
+      pruefe(await fr.count() === 1 && /Französischecke/.test(await fr.textContent()) && /Margot/.test(await fr.textContent()), "Kind aufklappen: die Karte der Französischecke fehlt");
+      await fr.locator('[data-kind-franzoesisch="schrift:an"]').click({ timeout: 5000 });
+      await page.waitForFunction(() => /Französischecke ist eingestellt/.test(document.querySelector("[data-kinder-karte] .karten-status")?.textContent || ""), null, { timeout: 10000 }).catch(() => {});
+      const frStand = await page.evaluate(() => window.__ersatz.lies("users/kind-1")?.gameState || {});
+      pruefe(frStand["lernapp.franzoesisch.eltern"]?.data?.schrift === "an" && !frStand["lernapp.englisch.eltern"], `Französischecke: «Immer zeigen» landet nicht in ihrem eigenen Kasten (${JSON.stringify(Object.keys(frStand))})`);
+    }
     // Die Leseecke: wo sie beginnt und welche Schrift sie zeigt. Ein eigener
     // Kasten im gameState mit Zeitmarke, den das Gerät des Kindes übernimmt.
     const lesenKarte = page.locator('[data-kind-uid="kind-1"] .admin-lesen');

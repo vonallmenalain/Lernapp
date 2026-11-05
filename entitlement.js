@@ -233,6 +233,15 @@
     { id: "en-wortbild", page: "en-wortbild" },
   ] };
 
+  // Die Französischecke – wie die Englischecke, im Französischwagen
+  // (train-franzoesischecke.js, sprachwagen.js): je Spiel eine Runde frei, der
+  // Bauernhof, die erste Geschichte, der erste Vers und das erste Buch ganz.
+  const FRANZOESISCHECKE = { id: "franzoesisch", games: [
+    "fr-entdecken", "fr-hearfind", "fr-geschichten", "fr-memory", "fr-janein", "fr-jacquesadit", "fr-farbenzug",
+    "fr-zaehlen", "fr-gouter", "fr-verse", "fr-buecher", "fr-wasfehlt", "fr-habille", "fr-geschichtenzug",
+    "fr-telefon", "fr-echo", "fr-monster", "fr-wokatze", "fr-contraires", "fr-wortbild",
+  ].map((id) => ({ id, page: id })) };
+
   // Das Bücherregal ist kein Spiel mit Runden: Diese zwei Bücher sind frei,
   // so oft ein Kind will, die anderen gehören zum Kauf. Lesen soll nicht
   // nach einer Runde aufhören. lesen-buecher.js markiert dieselben mit
@@ -412,7 +421,7 @@
     const key = String(pageOrId || "").split("?")[0].split("#")[0].split("/").pop();
     if (!key) return null;
     const gesucht = ohneEndung(key);
-    for (const area of [...AREAS, LESEECKE, RECHENECKE, ENGLISCHECKE]) {
+    for (const area of [...AREAS, LESEECKE, RECHENECKE, ENGLISCHECKE, FRANZOESISCHECKE]) {
       const index = area.games.findIndex((g) =>
         g.page === key || ohneEndung(g.page) === gesucht || g.id === key || g.ownProgress === key);
       if (index >= 0) return { area, index, game: area.games[index] };
@@ -698,6 +707,7 @@
     LESEECKE,
     RECHENECKE,
     ENGLISCHECKE,
+    FRANZOESISCHECKE,
     GRATIS_BUECHER,
     reason,
     isFree,

@@ -168,8 +168,10 @@
     karten.forEach((kk, i) => {
       const x = x0 + (i % spalten) * (b + 20);
       const y = y0 + Math.floor(i / spalten) * (h + 18);
-      // Das geschriebene Wort ohne Artikel: «cow», «teddy bear».
-      const wort = kk.w.en.replace(/[.!?]$/, "").replace(/^(A|An|The) /, "").toLowerCase();
+      // Das geschriebene Wort ohne Artikel: «cow», «teddy bear» – oder wie die
+      // Sprache es schreibt (Französisch mit Artikel: «la vache»).
+      const lesewort = window.LernappSprachwagen?.aktiv?.inhalt?.()?.lesewort;
+      const wort = lesewort ? lesewort(kk.w) : kk.w.en.replace(/[.!?]$/, "").replace(/^(A|An|The) /, "").toLowerCase();
       const vorne = kk.art === "bild" ? dingBild(kk.w.id, x + b / 2, y + h / 2, Math.min(b, h) * 0.36)
         : wortbild ? `<text x="${x + b / 2}" y="${y + h / 2 + 12}" text-anchor="middle" font-family="${SCHRIFT}" font-weight="800" font-size="${Math.min(40, (b * 1.7) / Math.max(4, wort.length))}" fill="#243047">${wort}</text>`
           : lautsprecher(x + b / 2, y + h / 2, Math.min(b, h) / 110);

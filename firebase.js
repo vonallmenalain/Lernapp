@@ -98,6 +98,7 @@
     "lernapp.lesen.eltern",    // wie die Eltern die Leseecke eingestellt haben
     "lernapp.rechnen.eltern",  // wie die Eltern die Rechenecke eingestellt haben
     "lernapp.englisch.eltern", // wie die Eltern die Englischecke eingestellt haben
+    "lernapp.franzoesisch.eltern", // und die Französischecke
     "lernapp.stimme",          // welche Stimme auf diesem Gerät vorliest
     // Die Bauecke bleibt beim Zurücksetzen stehen: Häuser, Tiere und Ziegel
     // gehen nicht verloren (BAUECKE-KONZEPT.md, Entscheid 10).
@@ -1952,6 +1953,7 @@
     let lesen = null;
     let rechnen = null;
     let englisch = null;
+    let franzoesisch = null;
     const bau = {};
     try {
       const alles = (await ref.get()).data()?.gameState || {};
@@ -1960,8 +1962,9 @@
       if (alles[LESEN_ELTERN_KEY]?.data) lesen = lesenEinstellungIn(alles);
       if (alles[RECHNEN_ELTERN_KEY]?.data) rechnen = rechnenEinstellungIn(alles);
       if (alles[ENGLISCH_ELTERN_KEY]?.data) englisch = englischEinstellungIn(alles);
+      if (alles[SPRACHWAGEN.franzoesisch.key]?.data) franzoesisch = englischEinstellungIn(alles, "franzoesisch");
       BAU_KEEP_KEYS.forEach((key) => { if (alles[key]?.data) bau[key] = alles[key]; });
-    } catch { stufe = null; lesen = null; rechnen = null; englisch = null; }
+    } catch { stufe = null; lesen = null; rechnen = null; englisch = null; franzoesisch = null; }
 
     await deleteAllDocs(ref.collection("levelProgress"));
     await deleteAllDocs(ref.collection("sessions"));
@@ -1978,12 +1981,13 @@
       },
       updatedAt: serverTimestamp(),
     }, { merge: true });
-    if (stufe || lesen || rechnen || englisch || Object.keys(bau).length) {
+    if (stufe || lesen || rechnen || englisch || franzoesisch || Object.keys(bau).length) {
       const behalten = { ...bau };
       if (stufe) behalten[reise.KEY] = { data: { stufe, stufeAt: resetAtMs }, updatedAt: resetAtMs };
       if (lesen) behalten[LESEN_ELTERN_KEY] = { data: { ...lesen, at: resetAtMs }, updatedAt: resetAtMs };
       if (rechnen) behalten[RECHNEN_ELTERN_KEY] = { data: { ...rechnen, at: resetAtMs }, updatedAt: resetAtMs };
       if (englisch) behalten[ENGLISCH_ELTERN_KEY] = { data: { ...englisch, at: resetAtMs }, updatedAt: resetAtMs };
+      if (franzoesisch) behalten[SPRACHWAGEN.franzoesisch.key] = { data: { ...franzoesisch, at: resetAtMs }, updatedAt: resetAtMs };
       await ref.set({ gameState: behalten, updatedAt: serverTimestamp() }, { merge: true });
     }
 
@@ -3120,6 +3124,7 @@
           ${renderKindLesen(kind, detail)}
           ${renderKindRechnen(kind, detail)}
           ${renderKindEnglisch(kind, detail)}
+          ${renderKindEnglisch(kind, detail, "franzoesisch")}
           ${renderEntityDetail(detail, { withFilters: false })}
         </div>`
       : `<div class="kind-detail"><p class="account-muted">${laeuft ? "Wird geladen..." : "Konnte nicht geladen werden."}</p></div>`);
@@ -3253,71 +3258,75 @@
       </div>`;
   }
 
-  // Die Englischecke des eigenen Kindes: ob die englischen Wörter geschrieben
-  // dastehen (englisch-stand.js, schriftZeigen) und was es schon kennt.
-  function renderKindEnglisch(kind, detail) {
+  // Die Sprachwagen des eigenen Kindes (Englisch, Französisch): ob die Wörter
+  // geschrieben dastehen (englisch-stand.js, schriftZeigen) und was es schon
+  // kennt. sprache: "englisch" oder "franzoesisch" (SPRACHWAGEN).
+  function renderKindEnglisch(kind, detail, sprache = "englisch") {
     if (!detail?.userData) return "";
-    const jetzt = englischEinstellungIn(detail.userData.gameState);
+    const W = SPRACHWAGEN[sprache];
+    const jetzt = englischEinstellungIn(detail.userData.gameState, sprache);
     const busy = eltern.kindLaeuft === kind.uid;
     const knopf = (feld, [wert, label]) => {
       const an = String(jetzt[feld]) === String(wert);
-      return `<button type="button" class="${an ? "" : "secondary-action"}" data-kind-englisch="${feld}:${wert}" ${busy ? "disabled" : ""} aria-pressed="${an ? "true" : "false"}">${escapeHtml(label)}${an ? " ✓" : ""}</button>`;
+      return `<button type="button" class="${an ? "" : "secondary-action"}" data-kind-${sprache}="${feld}:${wert}" ${busy ? "disabled" : ""} aria-pressed="${an ? "true" : "false"}">${escapeHtml(label)}${an ? " ✓" : ""}</button>`;
     };
     return `
-      <div class="admin-reset admin-englisch">
+      <div class="admin-reset admin-${sprache}">
         <div>
-          <strong>Englischecke</strong>
-          <span>${ENGLISCH_ERKLAERUNG}</span>
+          <strong>${W.ecke}</strong>
+          <span>${W.erklaerung}</span>
         </div>
-        ${renderKindEnglischbericht(kind, detail)}
-        <p class="admin-lesen-frage">Englische Wörter geschrieben zeigen</p>
+        ${renderKindEnglischbericht(kind, detail, sprache)}
+        <p class="admin-lesen-frage">${W.adjektiv[0].toUpperCase()}${W.adjektiv.slice(1)} Wörter geschrieben zeigen</p>
         <p class="auth-hint">Gehört wird immer. «Automatisch» zeigt die Schrift erst Kindern auf der Stufe «Schwer» – sie lesen schon. Vorher stören fremde Buchstaben eher beim Deutschlesen.</p>
         <div class="card-actions">${ENGLISCH_SCHRIFTEN.map((eintrag) => knopf("schrift", eintrag)).join("")}</div>
-        <p class="admin-lesen-frage">Tempo der englischen Stimme</p>
-        <p class="auth-hint">«Langsamer» spielt Roccos Englisch etwas langsamer, in derselben Tonhöhe – für den Anfang oder für jüngere Geschwister.</p>
+        <p class="admin-lesen-frage">Tempo der ${W.adjektiv}n Stimme</p>
+        <p class="auth-hint">«Langsamer» spielt ${W.maskottchen}s ${W.sprache} etwas langsamer, in derselben Tonhöhe – für den Anfang oder für jüngere Geschwister.</p>
         <div class="card-actions">${ENGLISCH_TEMPI.map((eintrag) => knopf("tempo", eintrag)).join("")}</div>
       </div>`;
   }
 
-  // Der Englischbericht: nur aus den Zählern im Kasten (englisch-stand.js,
-  // bericht).
-  function renderKindEnglischbericht(kind, detail) {
-    const englisch = window.LernappEnglischStand;
+  // Der Bericht eines Sprachwagens: nur aus den Zählern im Kasten
+  // (englisch-stand.js, bericht).
+  function renderKindEnglischbericht(kind, detail, sprache = "englisch") {
+    const W = SPRACHWAGEN[sprache];
+    const englisch = W.stand();
     const name = kind.name || "Dein Kind";
-    const kopf = `<p class="admin-lesen-frage">Englischbericht</p>`;
-    if (!englisch?.bericht) return `${kopf}<p class="auth-hint">Den Englischbericht zeigt der Elternbereich auf der Startseite.</p>`;
+    const kopf = `<p class="admin-lesen-frage">${W.sprache}bericht</p>`;
+    if (!englisch?.bericht) return `${kopf}<p class="auth-hint">Den ${W.sprache}bericht zeigt der Elternbereich auf der Startseite.</p>`;
     const daten = (detail?.userData?.gameState || {})[englisch.KEY]?.data;
     const b = daten ? englisch.bericht(daten) : null;
     if (!b || (!b.gehoert && !b.runden)) {
-      return `${kopf}<p class="auth-hint">${escapeHtml(name)} war noch nicht im Englischwagen. Er hängt auf dem Startbild hinten am oberen Zug, mit dem Schild «Hello».</p>`;
+      return `${kopf}<p class="auth-hint">${escapeHtml(name)} war noch nicht im ${W.wagen}. ${W.wo}</p>`;
     }
     const zeile = (titel, wert) => `<div class="lesebericht-zeile"><span>${escapeHtml(titel)}</span><strong>${wert}</strong></div>`;
     const zeilen = [
       zeile("Wörter gehört", escapeHtml(`${b.gehoert} von ${b.von}`)),
       zeile("Runden gespielt", escapeHtml(String(b.runden))),
-      zeile("Englischwagen eingerichtet", escapeHtml(`${b.einrichtung} von 15`)),
+      zeile(`${W.wagen} eingerichtet`, escapeHtml(`${b.einrichtung} von 15`)),
       ...b.welten.map((w) => zeile(`${w.titel[1]} (${w.titel[0]})`, escapeHtml(`${w.gehoert} von ${w.von} gehört, ${w.erkannt} gefunden${w.sicher ? `, davon ${w.sicher} sicher` : ""}${w.gold ? " · Aufnäher in Gold" : w.voll ? " · Aufnäher" : ""}`))),
       zeile("Wörter, die sitzen", escapeHtml(b.sitzt.length ? `${b.sitzt.length}: ${b.sitzt.slice(0, 14).join(", ")}${b.sitzt.length > 14 ? " …" : ""}` : "noch keine")),
     ];
     if (b.farben?.gehoert) zeilen.push(zeile("Farben", escapeHtml(`${b.farben.erkannt} von ${b.farben.von} gefunden, ${b.farben.gehoert} gehört`)));
     if (b.zahlen?.gehoert) zeilen.push(zeile("Zahlen bis zehn", escapeHtml(`${b.zahlen.erkannt} von ${b.zahlen.von} gefunden, ${b.zahlen.gehoert} gehört`)));
-    const SPIELNAMEN = { entdecken: "Entdecken", hearfind: "Hear and find", geschichte: "Geschichten", memory: "Memory", janein: "Yes or no?", roccosays: "Rocco says", farbenzug: "Farben-Zug", zaehlen: "Zählen", fuettern: "Rocco füttern", verse: "Verse", buch: "Bücher" };
+    const SPIELNAMEN = W.spielnamen;
     const gespielt = Object.entries(b.spiele || {}).sort((p, q) => q[1] - p[1]).map(([id, n]) => `${SPIELNAMEN[id] || id} ${n}×`);
     if (gespielt.length) zeilen.push(zeile("Gespielt", escapeHtml(gespielt.join(", "))));
     if (b.wackelig.length) zeilen.push(zeile("Üben wir noch", escapeHtml(b.wackelig.slice(0, 14).join(", "))));
     if (b.lieblinge.length) zeilen.push(zeile("Liebste Geschichten", escapeHtml(b.lieblinge.join(", "))));
     return `${kopf}
         <div class="lesebericht">${zeilen.join("")}</div>
-        <p class="auth-hint">«Sitzt» heisst: ${escapeHtml(name)} hat das Wort bei «Hear and find» an zwei verschiedenen Tagen gleich beim ersten Versuch gefunden. Rocco spricht amerikanisches Englisch${b.usUk.length ? ` – so heisst es in England anders: ${escapeHtml(b.usUk.join(", "))}` : ""}.</p>
-        ${renderEnglischAuftraege(b)}`;
+        <p class="auth-hint">«Sitzt» heisst: ${escapeHtml(name)} hat das Wort bei «${W.hearfind}» an zwei verschiedenen Tagen gleich beim ersten Versuch gefunden. ${W.varianten(b.usUk.map(escapeHtml))}</p>
+        ${renderEnglischAuftraege(b, sprache)}`;
   }
 
   // Aufträge für die Familie: kleine Ideen für zuhause aus den Welten, die das
-  // Kind schon kennt (englisch-inhalt.js, AUFTRAEGE).
-  function renderEnglischAuftraege(b) {
-    const auftraege = window.LernappEnglischInhalt?.AUFTRAEGE || {};
+  // Kind schon kennt (englisch-inhalt.js und franzoesisch-inhalt.js, AUFTRAEGE).
+  function renderEnglischAuftraege(b, sprache = "englisch") {
+    const W = SPRACHWAGEN[sprache];
+    const auftraege = W.inhalt()?.AUFTRAEGE || {};
     const bekannt = (b.welten || []).filter((w) => w.id && w.gehoert >= 3 && auftraege[w.id]).sort((p, q) => q.gehoert - p.gehoert).slice(0, 3);
-    const liste = bekannt.length ? bekannt.map((w) => auftraege[w.id]) : ["Die Wörter im Alltag nebenbei brauchen («Where is the cup?»), ohne abzufragen."];
+    const liste = bekannt.length ? bekannt.map((w) => auftraege[w.id]) : [W.nebenbei];
     return `<p class="admin-lesen-frage">Aufträge für die Familie</p>
         <ul class="englisch-auftraege">${liste.map((t) => `<li class="auth-hint">${escapeHtml(t)}</li>`).join("")}</ul>`;
   }
@@ -3482,17 +3491,18 @@
     zeichneKinderKarte();
   }
 
-  async function kindEnglischSetzen(uid, feld, wert) {
-    if (!uid || !["schrift", "tempo"].includes(feld)) return;
-    const jetzt = englischEinstellungIn(eltern.kindDetails.get(uid)?.userData?.gameState);
+  async function kindEnglischSetzen(uid, feld, wert, sprache = "englisch") {
+    if (!uid || !["schrift", "tempo"].includes(feld) || !SPRACHWAGEN[sprache]) return;
+    const W = SPRACHWAGEN[sprache];
+    const jetzt = englischEinstellungIn(eltern.kindDetails.get(uid)?.userData?.gameState, sprache);
     eltern.kindLaeuft = uid;
-    eltern.kindMeldung = { ok: false, text: "Die Englischecke wird eingestellt..." };
+    eltern.kindMeldung = { ok: false, text: `Die ${W.ecke} wird eingestellt...` };
     zeichneKinderKarte();
     try {
-      await setEnglischElternFor(uid, { ...jetzt, [feld]: wert });
+      await setEnglischElternFor(uid, { ...jetzt, [feld]: wert }, sprache);
       eltern.kindDetails.delete(uid);
       await kindNachladen(uid);
-      eltern.kindMeldung = { ok: true, text: "Die Englischecke ist eingestellt. Sie gilt auf allen Geräten deines Kindes." };
+      eltern.kindMeldung = { ok: true, text: `Die ${W.ecke} ist eingestellt. Sie gilt auf allen Geräten deines Kindes.` };
     } catch (error) {
       eltern.kindMeldung = { ok: false, text: authErrorMessage(error) };
     }
@@ -3590,6 +3600,10 @@
     karte.querySelectorAll("[data-kind-englisch]").forEach((knopf) => {
       const [feld, wert] = String(knopf.dataset.kindEnglisch || "").split(":");
       knopf.addEventListener("click", () => kindEnglischSetzen(eltern.offenesKind, feld, wert));
+    });
+    karte.querySelectorAll("[data-kind-franzoesisch]").forEach((knopf) => {
+      const [feld, wert] = String(knopf.dataset.kindFranzoesisch || "").split(":");
+      knopf.addEventListener("click", () => kindEnglischSetzen(eltern.offenesKind, feld, wert, "franzoesisch"));
     });
     karte.querySelectorAll("[data-kind-lesen]").forEach((knopf) => {
       const [feld, wert] = String(knopf.dataset.kindLesen || "").split(":");
@@ -4325,27 +4339,53 @@
     ["langsam", "Langsamer"],
   ];
   const ENGLISCH_ERKLAERUNG = "Der Englischwagen hinten am Lernzug, mit dem Schild «Hello». Rocco, der Waschbär, spricht amerikanisches Englisch; jeder Text lässt sich antippen und mit dem Knopf DE auf Deutsch hören, danach noch einmal auf Englisch. Es gibt nichts zu verlieren: Ein falscher Tipp wird einfach noch einmal gezeigt.";
+  // Die Sprachwagen: was die Elternkarte je Sprache sagt. Beide stellen die
+  // Eltern gleich ein (Schrift und Tempo), jeder in seinem eigenen Kasten.
+  const SPRACHWAGEN = {
+    englisch: {
+      key: ENGLISCH_ELTERN_KEY, ereignis: "lernapp:englisch-einstellungen",
+      stand: () => window.LernappEnglischStand, inhalt: () => window.LernappEnglischInhalt,
+      ecke: "Englischecke", wagen: "Englischwagen", sprache: "Englisch", adjektiv: "englische", maskottchen: "Rocco",
+      erklaerung: ENGLISCH_ERKLAERUNG, hearfind: "Hear and find",
+      wo: "Er hängt auf dem Startbild hinten am oberen Zug, mit dem Schild «Hello».",
+      spielnamen: { entdecken: "Entdecken", hearfind: "Hear and find", geschichte: "Geschichten", memory: "Memory", janein: "Yes or no?", roccosays: "Rocco says", farbenzug: "Farben-Zug", zaehlen: "Zählen", fuettern: "Rocco füttern", verse: "Verse", buch: "Bücher" },
+      varianten: (liste) => `Rocco spricht amerikanisches Englisch${liste.length ? ` – so heisst es in England anders: ${liste.join(", ")}` : ""}.`,
+      nebenbei: "Die Wörter im Alltag nebenbei brauchen («Where is the cup?»), ohne abzufragen.",
+    },
+    franzoesisch: {
+      key: "lernapp.franzoesisch.eltern", ereignis: "lernapp:franzoesisch-einstellungen",
+      stand: () => window.LernappFranzoesischStand, inhalt: () => window.LernappFranzoesischInhalt,
+      ecke: "Französischecke", wagen: "Französischwagen", sprache: "Französisch", adjektiv: "französische", maskottchen: "Margot",
+      erklaerung: "Der Französischwagen ganz hinten am Lernzug, mit dem Schild «Bonjour». Margot, das Murmeltier, spricht Französisch wie in der Schule; jeder Text lässt sich antippen und mit dem Knopf DE auf Deutsch hören, danach noch einmal auf Französisch. Jedes Wort kommt mit seinem Artikel (une vache, un arbre): So lernt das Kind das Geschlecht nebenbei. Es gibt nichts zu verlieren: Ein falscher Tipp wird einfach noch einmal gezeigt.",
+      hearfind: "Écoute et trouve",
+      wo: "Er hängt auf dem Startbild ganz hinten am oberen Zug, mit dem Schild «Bonjour».",
+      spielnamen: { entdecken: "Entdecken", hearfind: "Écoute et trouve", geschichte: "Geschichten", memory: "Memory", janein: "Oui ou non ?", roccosays: "Jacques a dit", farbenzug: "Farben-Zug", zaehlen: "Zählen", fuettern: "Margots Zvieri", verse: "Verse", buch: "Bücher" },
+      varianten: (liste) => `Margot spricht Französisch wie in Frankreich und in der Schule. In der Romandie sagt man auch: septante, huitante, nonante (70, 80, 90), le natel (das Handy), le déjeuner, le dîner, le souper (Zmorge, Zmittag, Znacht)${liste.length ? `, ${liste.join(", ")}` : ""}.`,
+      nebenbei: "Die Wörter im Alltag nebenbei brauchen («Où est la tasse ?»), ohne abzufragen.",
+    },
+  };
 
-  function englischEinstellungIn(gameState) {
-    const daten = (gameState || {})[ENGLISCH_ELTERN_KEY]?.data || {};
+  function englischEinstellungIn(gameState, sprache = "englisch") {
+    const daten = (gameState || {})[SPRACHWAGEN[sprache].key]?.data || {};
     return {
       schrift: ENGLISCH_SCHRIFTEN.some(([wert]) => wert === daten.schrift) ? daten.schrift : "auto",
       tempo: daten.tempo === "langsam" ? "langsam" : "normal",
     };
   }
 
-  async function setEnglischElternFor(userId, einstellung = {}) {
+  async function setEnglischElternFor(userId, einstellung = {}, sprache = "englisch") {
     const ref = userRef(userId);
     if (!ref) return false;
+    const W = SPRACHWAGEN[sprache];
     const at = Date.now();
-    const data = { ...englischEinstellungIn({ [ENGLISCH_ELTERN_KEY]: { data: einstellung } }), at };
+    const data = { ...englischEinstellungIn({ [W.key]: { data: einstellung } }, sprache), at };
     await ref.set({
-      gameState: { [ENGLISCH_ELTERN_KEY]: { data, updatedAt: at } },
+      gameState: { [W.key]: { data, updatedAt: at } },
       updatedAt: serverTimestamp(),
     }, { merge: true });
     if (userId === state.user?.uid) {
-      try { localStorage.setItem(ENGLISCH_ELTERN_KEY, JSON.stringify(data)); } catch { /* privater Modus */ }
-      document.dispatchEvent(new CustomEvent("lernapp:englisch-einstellungen", { detail: data }));
+      try { localStorage.setItem(W.key, JSON.stringify(data)); } catch { /* privater Modus */ }
+      document.dispatchEvent(new CustomEvent(W.ereignis, { detail: data }));
     }
     return true;
   }
