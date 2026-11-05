@@ -449,9 +449,9 @@
   function speak(text, options = {}) {
     // «Alles stumm» (Knopf oben rechts) schweigt auch die Stimme.
     if (!text || !ttsEnabled() || !audioEnabled()) { options.onEnd?.(); return; }
-    // Englisch (die Englischecke): eigene Aufnahmen, sonst eine
-    // amerikanische Gerätestimme.
-    if (options.sprache === "en") { sprichEnglisch(text, options); return; }
+    // Englisch und Französisch (die Sprachwagen): eigene Aufnahmen, sonst
+    // eine Gerätestimme in der Sprache (FREMD unten).
+    if (FREMD[options.sprache]) { sprichFremd(text, options, FREMD[options.sprache]); return; }
     aufnahmeTempo = 1;
     const stuecke = aufnahmeStuecke(text);
     if (!stuecke.some((stueck) => stueck.datei)) { sprichMitGeraet(text, options); return; }
@@ -468,30 +468,37 @@
       }),
     }).then(() => options.onEnd?.());
   }
-  // Englisch: die Aufnahmen aus englisch-stimme.js (window.LernappEnglischDateien),
-  // was fehlt, mit einer englischen Stimme des Geräts – lieber amerikanisch.
-  function englischeStimme() {
+  // Die Sprachen der Sprachwagen: Englisch (englisch-stimme.js,
+  // window.LernappEnglischDateien) und Französisch (franzoesisch-stimme.js,
+  // window.LernappFranzoesischDateien). Was keine Aufnahme hat, spricht eine
+  // Stimme des Geräts in dieser Sprache – lieber amerikanisch beziehungsweise
+  // aus Frankreich.
+  const FREMD = {
+    en: { dateien: () => window.LernappEnglischDateien, stand: () => window.LernappEnglischStand, lang: "en-US", alle: /^en([-_]|$)/i, lieber: /^en[-_]US/i },
+    fr: { dateien: () => window.LernappFranzoesischDateien, stand: () => window.LernappFranzoesischStand, lang: "fr-FR", alle: /^fr([-_]|$)/i, lieber: /^fr[-_]FR/i },
+  };
+  function fremdeStimme(F) {
     if (!ttsSupported()) return null;
     let alle = [];
     try { alle = window.speechSynthesis.getVoices() || []; } catch { alle = []; }
-    const englisch = alle.filter((v) => /^en([-_]|$)/i.test(v.lang || ""));
-    return englisch.find((v) => /^en[-_]US/i.test(v.lang || "") && /natural|enhanced|premium|google/i.test(v.name || ""))
-      || englisch.find((v) => /^en[-_]US/i.test(v.lang || "")) || englisch[0] || null;
+    const passend = alle.filter((v) => F.alle.test(v.lang || ""));
+    return passend.find((v) => F.lieber.test(v.lang || "") && /natural|enhanced|premium|google/i.test(v.name || ""))
+      || passend.find((v) => F.lieber.test(v.lang || "")) || passend[0] || null;
   }
-  function sprichEnglisch(text, options = {}) {
-    // «Langsamer» (Elternkarte Englischecke, englisch-stand.js): Aufnahmen
+  function sprichFremd(text, options, F) {
+    // «Langsamer» (Elternkarte des Sprachwagens, englisch-stand.js): Aufnahmen
     // mit 0.85, die Gerätestimme noch etwas langsamer.
     let langsam = false;
-    try { langsam = window.LernappEnglischStand?.eltern?.()?.tempo === "langsam"; } catch { langsam = false; }
+    try { langsam = F.stand()?.eltern?.()?.tempo === "langsam"; } catch { langsam = false; }
     aufnahmeTempo = langsam ? 0.85 : 1;
-    const stuecke = aufnahmeStuecke(text, window.LernappEnglischDateien || {});
+    const stuecke = aufnahmeStuecke(text, F.dateien() || {});
     const geraet = (teil, opt = {}) => {
       if (!ttsSupported()) { opt.onEnd?.(); return; }
       if (!opt.queue) stopSpeaking();
       try {
         const utterance = new window.SpeechSynthesisUtterance(String(teil));
-        const voice = englischeStimme();
-        utterance.lang = voice?.lang || "en-US";
+        const voice = fremdeStimme(F);
+        utterance.lang = voice?.lang || F.lang;
         utterance.rate = langsam ? 0.75 : 0.9;
         if (voice) utterance.voice = voice;
         if (opt.onEnd) { utterance.addEventListener("end", () => opt.onEnd()); utterance.addEventListener("error", () => opt.onEnd()); }

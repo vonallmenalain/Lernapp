@@ -5,7 +5,7 @@
  *                                          blauen Kondukteursmütze
  *   zimmer(stand)        der Caboose von innen (1000 × 560): jedes Ding mit
  *                        einem Weg ist ein <g data-ort>, jedes Stück der
- *                        Einrichtung ein <g data-ausbau> (train-englischecke.js
+ *                        Einrichtung ein <g data-ausbau> (sprachwagen.js
  *                        hängt den Tipp an)
  *   szene(welt)          ein Wimmelbild (Bauernhof, Zuhause, Küche): jedes
  *                        Ding ein <g data-ding> – gemalt, wo es das Gemälde
@@ -22,7 +22,15 @@
 "use strict";
 
 const GRAU = "#9aa0ab", GRAU_D = "#6f7682", DUNKEL = "#2b2f38", HELL = "#eef0f3";
-function roccoKopf(laune = "froh", { muetze = true } = {}) {
+// Ist ein anderer Sprachwagen offen (sprachwagen.js, aktiv.maskottchen), zeichnen
+// rocco() und roccoKopf() dessen Maskottchen – so stehen in Geschichten, Spielen
+// und Lok alle Zeichnungen mit Margot da, ohne dass sie zweimal gebaut werden.
+const fremdesMaskottchen = () => (typeof window !== "undefined" && window.LernappSprachwagen?.aktiv?.maskottchen) || null;
+function roccoKopf(laune = "froh", optionen = {}) {
+  const m = fremdesMaskottchen();
+  return m ? m.roccoKopf(laune, optionen) : roccoKopfEcht(laune, optionen);
+}
+function roccoKopfEcht(laune = "froh", { muetze = true } = {}) {
   const augen = laune === "freude"
     ? `<path d="M-17 -3 q5 -6 10 0 M7 -3 q5 -6 10 0" stroke="#fff" stroke-width="3" fill="none" stroke-linecap="round"/>`
     : `<circle cx="-12" cy="-3" r="5" fill="#fff"/><circle cx="12" cy="-3" r="5" fill="#fff"/>
@@ -54,6 +62,10 @@ function roccoSchwanz() {
 }
 // Ganzer Rocco, Füsse bei (0,0), etwa 150 hoch
 function rocco(pose = "steh", laune = "froh") {
+  const m = fremdesMaskottchen();
+  return m ? m.rocco(pose, laune) : roccoEcht(pose, laune);
+}
+function roccoEcht(pose = "steh", laune = "froh") {
   let arme;
   if (pose === "wirf") arme = `<ellipse cx="-22" cy="-46" rx="7" ry="15" transform="rotate(18 -22 -46)" fill="${GRAU_D}"/><ellipse cx="26" cy="-80" rx="7" ry="17" transform="rotate(-28 26 -80)" fill="${GRAU_D}"/>`;
   else if (pose === "wink") arme = `<ellipse cx="-36" cy="-74" rx="7" ry="18" transform="rotate(-35 -36 -74)" fill="${GRAU_D}"/><ellipse cx="24" cy="-46" rx="7" ry="15" transform="rotate(-16 24 -46)" fill="${GRAU_D}"/>`;
@@ -64,7 +76,7 @@ function rocco(pose = "steh", laune = "froh") {
     <ellipse cx="-12" cy="-6" rx="11" ry="7" fill="${DUNKEL}"/><ellipse cx="12" cy="-6" rx="11" ry="7" fill="${DUNKEL}"/>
     <ellipse cx="0" cy="-42" rx="27" ry="35" fill="${GRAU}"/><ellipse cx="0" cy="-36" rx="17" ry="25" fill="#d9dce2"/>
     ${arme}
-    <g transform="translate(0 -94)">${roccoKopf(laune)}</g>
+    <g transform="translate(0 -94)">${roccoKopfEcht(laune)}</g>
   </g>`;
 }
 
@@ -462,11 +474,14 @@ function gemaeldeVon(art, id) {
     return [
       ...(GEMALT.woerterbuch ? [gemaltBild("woerterbuch")] : []),
       ...[...(GEMALT.aufnaeher || [])].map((w) => gemaltBild(`aufnaeher/${w}`)),
-      ...(id || []).filter((x) => GEMALT.sticker?.has(x)).map((x) => gemaltBild(`sticker/${x}`)),
+      ...(id || []).filter((x) => GEMALT.sticker?.has(x)).map((x) => gemaltBild(`sticker/${stickerDatei(x)}`)),
     ];
   }
   return (GEMALT.geschichten[id] || []).map((_, i) => gemaltBild(`geschichte-${id}-${i + 1}`));
 }
+// Der Sticker eines Worts – das Maskottchen eines anderen Sprachwagens hat
+// seinen eigenen (aktiv.maskottchen.sticker: { raccoon: "fr-margot" }).
+const stickerDatei = (id) => fremdesMaskottchen()?.sticker?.[id] || id;
 const istGeladen = (bilder) => bilder.every((u) => geladen.has(u));
 function vorladen(bilder, ms = 1500) {
   const fehlen = bilder.filter((u) => !geladen.has(u));
@@ -564,7 +579,7 @@ function sticker(id, x, y, r, zustand) {
   if (GEMALT.sticker?.has(id)) {
     // Gemalt (bilder/englisch/sticker/), darunter die Zeichnung, falls es nicht lädt.
     const g = r * 1.56;
-    s += `<g class="en-ersatz">${zeichnung}</g><image class="en-gemaelde" href="${gemaltBild(`sticker/${id}`)}" x="${r1(x - g / 2)}" y="${r1(y - g / 2)}" width="${r1(g)}" height="${r1(g)}"${farbe ? "" : ' opacity="0.22" filter="url(#en-grau)"'}/>`;
+    s += `<g class="en-ersatz">${zeichnung}</g><image class="en-gemaelde" href="${gemaltBild(`sticker/${stickerDatei(id)}`)}" x="${r1(x - g / 2)}" y="${r1(y - g / 2)}" width="${r1(g)}" height="${r1(g)}"${farbe ? "" : ' opacity="0.22" filter="url(#en-grau)"'}/>`;
   } else s += zeichnung;
   if (zustand === "erkannt" || zustand === "sicher") s += stern(x + r * 0.72, y - r * 0.72, Math.max(7, r * 0.28));
   return s;

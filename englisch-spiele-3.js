@@ -2,7 +2,7 @@
  * englisch-spiele-3.js – Die Spiele der Englischecke aus Etappe 3.
  *
  * Wie englisch-spiele.js: jede Funktion (kern, optionen), aufgerufen von
- * train-englischecke.js (starteSpiel); sie legen sich zu
+ * sprachwagen.js (starteSpiel); sie legen sich zu
  * window.LernappEnglischSpiele dazu.
  *
  *   whatsmissing    What's missing?: ein Wimmelbild, ein Ding verschwindet
@@ -23,7 +23,7 @@
   const S = window.LernappEnglischSpiele;
   if (!S?.hilfen) return;
   const { mische, zufall, dingBild, roccoLok, flaeche, punkte, lobPaar, svgVon, nochAktiv, SCHRIFT } = S.hilfen;
-  const A = () => window.LernappEnglischArt;
+  const A = () => window.LernappSprachwagen?.aktiv?.art?.() || window.LernappEnglischArt;
   const POST_KEY = "lernapp.englisch.post";
   const lies = (key, fallback) => { try { return JSON.parse(localStorage.getItem(key) || "null") ?? fallback; } catch { return fallback; } };
   const merke = (key, wert) => { try { localStorage.setItem(key, JSON.stringify(wert)); } catch { /* privater Modus */ } };
@@ -339,7 +339,7 @@
   function antwortBild(art, x, y, id) {
     if (art === "gefuehl") return gesicht(id, x, y, 46);
     if (art === "zahl") return `<circle cx="${x}" cy="${y}" r="46" fill="#6c5ce7"/><text x="${x}" y="${y + 20}" text-anchor="middle" font-family="${SCHRIFT}" font-weight="800" font-size="56" fill="#ffffff">${id.slice(1)}</text>`;
-    if (art === "farbe") return S.ballon(window.LernappEnglischInhalt.FARBEN.find((f) => f.id === id)?.hex || "#cccccc", x, y - 6, 40);
+    if (art === "farbe") return S.ballon((window.LernappSprachwagen?.aktiv?.inhalt?.() || window.LernappEnglischInhalt).FARBEN.find((f) => f.id === id)?.hex || "#cccccc", x, y - 6, 40);
     if (art === "tier") return A().sticker(id, x, y, 46, "gehoert");
     return `<g transform="translate(${x} ${y + 60}) scale(0.62)">${A().rocco("wink", "freude")}</g>`;
   }

@@ -2,7 +2,7 @@
  * englisch-spiele.js – Die Spiele der Englischecke ab Etappe 2, und was sie
  * zeichnen.
  *
- * Jedes Spiel ist eine Funktion (kern, optionen), die train-englischecke.js
+ * Jedes Spiel ist eine Funktion (kern, optionen), die sprachwagen.js
  * aufruft (starteSpiel). Der Kern gibt, was alle brauchen: sage (Englisch
  * sprechen, Deutsch auf DE), setzeBild (die Bühne, 1000 × 560), die Leiste
  * mit rundeFertig und leistenKnopf, die Schranke, den Stand.
@@ -24,7 +24,7 @@
 (() => {
   "use strict";
 
-  const A = () => window.LernappEnglischArt;
+  const A = () => window.LernappSprachwagen?.aktiv?.art?.() || window.LernappEnglischArt;
   const mische = (liste) => liste.map((x) => [Math.random(), x]).sort((p, q) => p[0] - q[0]).map((x) => x[1]);
   const zufall = (liste) => liste[Math.floor(Math.random() * liste.length)];
   const DUNKEL = "#2b2f38";
@@ -116,7 +116,7 @@
   // Farben und Zahlen als Sticker im Wörterbuch.
   function farbenUndZahlenZeichnen() {
     const a = A();
-    const I = window.LernappEnglischInhalt;
+    const I = window.LernappSprachwagen?.aktiv?.inhalt?.() || window.LernappEnglischInhalt;
     if (!a || !I?.FARBEN) return;
     I.FARBEN.forEach((f) => {
       a.DING[f.id] = () => ballon(f.hex, 0, -10, 40);
