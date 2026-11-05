@@ -15,7 +15,12 @@ Schreibt:
 
 Mit --sprache franzoesisch: Margots Geschichten (Vorlagen von
 englisch-bilder-vorlagen.mjs --sprache franzoesisch) nach bilder/franzoesisch/
-und franzoesisch-gemalt.js; Korrekturen in franzoesisch-bilder-korrekturen.json.
+und franzoesisch-gemalt.js; Welten, die nur der Französischwagen hat («fetes»),
+zu den gemeinsamen Wimmelbildern (bilder/englisch/, englisch-gemalt.js);
+Korrekturen in franzoesisch-bilder-korrekturen.json.
+
+Was schon eingetragen ist, bleibt: Neue Welten und Geschichten kommen dazu,
+gleichnamige werden ersetzt.
 
 Aufruf:  python3 scripts/englisch-bilder-abgleich.py <vorlagen> <gemaelde> [--blatt <ordner>] [--sprache franzoesisch]
   <vorlagen>  der Ordner von englisch-bilder-vorlagen.mjs
@@ -126,8 +131,10 @@ def main():
             x, y, m = v["orte"][welt][id_]
             orte[id_] = [r1(nx + (x - bx) * s), r1(ny + (y - by) * s), round(m * s, 3), r1(nx), r1(ny), r1(bw * s), r1(bh * s)]
         welten[welt] = orte
-        Image.open(quelle).convert("RGB").save(os.path.join(ZIEL, f"welt-{welt}.webp"), "WEBP", quality=80, method=6)
-        bild.resize((480, 269), Image.LANCZOS).save(os.path.join(ZIEL, f"welt-{welt}-klein.webp"), "WEBP", quality=74, method=6)
+        # Die Wimmelbilder teilen beide Wagen: immer bei denen des Englischwagens.
+        welt_ziel = os.path.join(WURZEL, "bilder", "englisch")
+        Image.open(quelle).convert("RGB").save(os.path.join(welt_ziel, f"welt-{welt}.webp"), "WEBP", quality=80, method=6)
+        bild.resize((480, 269), Image.LANCZOS).save(os.path.join(welt_ziel, f"welt-{welt}-klein.webp"), "WEBP", quality=74, method=6)
         if arg.blatt:
             zeichne(bild, {k: [o[3:]] for k, o in orte.items()}, os.path.join(arg.blatt, f"welt-{welt}.jpg"))
     geschichten = {}
@@ -181,7 +188,28 @@ def zeichne(bild, rahmen, pfad):
     im.save(pfad, quality=85)
 
 
+def alte_daten(pfad, name):
+    """Was in englisch-gemalt.js oder franzoesisch-gemalt.js schon steht:
+    {schluessel: daten} aus dem Block «const NAME = { … };»."""
+    if not os.path.exists(pfad):
+        return {}
+    text = open(pfad, encoding="utf-8").read()
+    a = text.find(f"const {name} = {{")
+    if a < 0:
+        return {}
+    e = text.find("\n};", a)
+    aus = {}
+    for zeile in text[a:e].split("\n")[1:]:
+        z = zeile.strip().rstrip(",")
+        if ":" not in z:
+            continue
+        k, v = z.split(":", 1)
+        aus[k.strip()] = json.loads(v)
+    return aus
+
+
 def schreibe_franzoesisch(geschichten):
+    geschichten = {**alte_daten(os.path.join(WURZEL, "franzoesisch-gemalt.js"), "GESCHICHTEN"), **geschichten}
     zeilen = [
         "/*",
         " * franzoesisch-gemalt.js - wo in Margots gemalten Geschichten was steht.",
@@ -216,7 +244,12 @@ def schreibe_franzoesisch(geschichten):
 def schreibe(welten, geschichten):
     if SPRACHE == "franzoesisch":
         schreibe_franzoesisch(geschichten)
-        return
+        if not welten:
+            return
+        geschichten = {}
+    pfad_en = os.path.join(WURZEL, "englisch-gemalt.js")
+    welten = {**alte_daten(pfad_en, "WELTEN"), **welten}
+    geschichten = {**alte_daten(pfad_en, "GESCHICHTEN"), **geschichten}
     zeilen = [
         "/*",
         " * englisch-gemalt.js - wo in den gemalten Bildern der Englischecke was steht.",
