@@ -20,7 +20,11 @@
  * scripts/englisch-bilder-abgleich.py jedes Ding im Gemälde und schreibt
  * englisch-gemalt.js. Siehe docs/ENGLISCHECKE-KONZEPT.md, «Gemalte Bilder».
  *
- * Aufruf:  node scripts/englisch-bilder-vorlagen.mjs <ordner>
+ * Mit --sprache franzoesisch: nur die Geschichten des Französischwagens, mit
+ * Margot statt Rocco gezeichnet, und margot-referenz.png (Margot in vier
+ * Haltungen); dazu geschichten-mit-margot.json, auf welchen Bildern sie steht.
+ *
+ * Aufruf:  node scripts/englisch-bilder-vorlagen.mjs <ordner> [--sprache franzoesisch]
  * Nötig:   Playwright. Der lokale Server wird selbst gestartet und beendet.
  */
 import { spawn } from "node:child_process";
@@ -34,6 +38,7 @@ const WURZEL = path.resolve(HIER, "..");
 const PORT = Number(process.env.PORT || 4295);
 const BASIS = `http://127.0.0.1:${PORT}`;
 const AUS = path.resolve(process.argv[2] || "");
+const FRANZ = process.argv.includes("--sprache") && process.argv[process.argv.indexOf("--sprache") + 1] === "franzoesisch";
 if (!process.argv[2]) { console.error("Aufruf: node scripts/englisch-bilder-vorlagen.mjs <ordner>"); process.exit(2); }
 fs.mkdirSync(AUS, { recursive: true });
 
@@ -54,16 +59,34 @@ const seite = await browser.newPage({ viewport: { width: 1000, height: 560 } });
 await seite.route("**/*gstatic.com/**", (r) => r.abort());
 await seite.goto(`${BASIS}/index.html`);
 await seite.waitForFunction(() => window.LernappEnglischArt && window.LernappEnglischInhalt);
-const info = await seite.evaluate(() => {
-  const I = window.LernappEnglischInhalt;
-  const A = window.LernappEnglischArt;
+if (FRANZ) {
+  // Der Französischwagen ist offen: Margot statt Rocco, ohne Margots Gemälde.
+  await seite.waitForFunction(() => window.LernappFranzoesischArt && window.LernappFranzoesischInhalt);
+  const n = await seite.evaluate(() => {
+    const F = window.LernappFranzoesischArt;
+    const I = window.LernappFranzoesischInhalt;
+    const ohne = { geschichten: {}, ordner: "bilder/franzoesisch" };
+    window.LernappSprachwagen.aktiv = { id: "franzoesisch", maskottchen: F.MASKOTTCHEN, art: () => F, inhalt: () => I, gemalt: () => ohne };
+    // Auf welchen Bildern Margot steht: mit einem Merkzeichen statt ihrer Zeichnung.
+    const merk = { ...F.MASKOTTCHEN, rocco: () => "<!--MARGOT-->", roccoKopf: () => "<!--MARGOT-->" };
+    window.LernappSprachwagen.aktiv.maskottchen = merk;
+    const mit = Object.fromEntries(I.GESCHICHTEN.map((g) => [g.id, g.bilder.map((_, i) => F.geschichtsBild(g.id, i, { gezeichnet: true }).includes("<!--MARGOT-->"))]));
+    window.LernappSprachwagen.aktiv.maskottchen = F.MASKOTTCHEN;
+    return mit;
+  });
+  fs.writeFileSync(path.join(AUS, "geschichten-mit-margot.json"), JSON.stringify(n, null, 1));
+}
+const info = await seite.evaluate((franz) => {
+  const I = franz ? window.LernappFranzoesischInhalt : window.LernappEnglischInhalt;
+  const A = franz ? window.LernappFranzoesischArt : window.LernappEnglischArt;
   return {
     welten: I.WELTEN.map((w) => w.id),
     geschichten: I.GESCHICHTEN.map((g) => [g.id, g.bilder.length]),
     orte: Object.fromEntries(I.WELTEN.map((w) => [w.id, Object.fromEntries(Object.entries(A.ORTE[w.id] || {}).map(([id, o]) => [id, o.slice(0, 3)]))])),
     titelbild: Object.fromEntries(I.GESCHICHTEN.map((g) => [g.id, A.TITELBILD[g.id] ?? 0])),
   };
-});
+}, FRANZ);
+if (FRANZ) info.welten = [];
 // Zeigt eine Zeichnung allein auf der Seite, fotografiert sie und misst die
 // Rahmen der Dinge (im Mass der viewBox).
 async function zeige(svg, breite, hoehe, datei, wahl) {
@@ -100,14 +123,20 @@ for (const [g, n] of info.geschichten) {
     vorlagen.geschichten[g].push(await zeige(svg, 944, 408, `geschichte-${g}-${i + 1}.png`, "[data-wort]"));
   }
 }
-// Rocco in vier Haltungen – die Vorlage für die Figur.
-const rocco = await seite.evaluate(() => {
-  const A = window.LernappEnglischArt;
+// Rocco (oder Margot) in vier Haltungen – die Vorlage für die Figur.
+const rocco = await seite.evaluate((franz) => {
+  const A = franz ? window.LernappFranzoesischArt : window.LernappEnglischArt;
   const posen = [["steh", "froh"], ["wirf", "froh"], ["steh", "traurig"], ["jubel", "freude"]];
   return `<svg viewBox="0 0 900 400" xmlns="http://www.w3.org/2000/svg"><rect width="900" height="400" fill="#fff"/>${posen.map(([p, l], i) => `<g transform="translate(${120 + i * 220} 330) scale(1.6)">${A.rocco(p, l)}</g>`).join("")}</svg>`;
-});
-await zeige(rocco, 900, 400, "rocco-referenz.png", "none");
+}, FRANZ);
+await zeige(rocco, 900, 400, FRANZ ? "margot-referenz.png" : "rocco-referenz.png", "none");
 fs.writeFileSync(path.join(AUS, "vorlagen.json"), JSON.stringify(vorlagen, null, 1));
+if (FRANZ) {
+  await browser.close();
+  halt();
+  console.log(`Vorlagen in ${AUS}: ${info.geschichten.reduce((s, [, n]) => s + n, 0)} Geschichtenbilder mit Margot, margot-referenz.png und vorlagen.json.`);
+  process.exit(0);
+}
 
 // Die Bögen: je Welt ihre Sticker, dazu die Extra-Wörter mit den Farben, die
 // Zahlen und die Aufnäher. Heller Grund, damit auch Weisses zu sehen ist.

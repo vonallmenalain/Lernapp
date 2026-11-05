@@ -402,7 +402,7 @@ if (I.MONSTER_TEILE) {
     pruefe(ent.includes(`"${id}"`), `entitlement.js kennt das Spiel ${id} nicht`);
     pruefe(tor.includes(`"${id}"`), `train-englischecke.js kennt das Spiel ${id} nicht`);
   });
-  pruefe(/ENGLISCHECKE/.test(ent) && /\[\.\.\.AREAS, LESEECKE, RECHENECKE, ENGLISCHECKE\]/.test(ent), "entitlement.js zählt die Englischecke nicht zu den Bereichen");
+  pruefe(/ENGLISCHECKE/.test(ent) && /\[\.\.\.AREAS, LESEECKE, RECHENECKE, ENGLISCHECKE[\],]/.test(ent), "entitlement.js zählt die Englischecke nicht zu den Bereichen");
   pruefe(lies("firebase.js").includes('"lernapp.englisch.eltern"'), "firebase.js behält die Einstellung der Eltern beim Zurücksetzen nicht");
   pruefe(/\ben: \{ dateien: \(\) => window\.LernappEnglischDateien/.test(lies("kids.js")), "kids.js spricht kein Englisch");
 }

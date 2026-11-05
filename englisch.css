@@ -7,12 +7,14 @@
    dieselbe Leiste: Rocco mit dem Text (antippbar), der Lautsprecher und der
    Knopf DE. */
 
-.train-stage[data-view="englisch"] .train-band { opacity: 0; pointer-events: none; }
-.train-stage[data-view="englisch"] .stage-layer { z-index: 4; }
-.train-stage[data-view="englisch"] .scene { visibility: hidden; }
-.train-stage[data-view="englisch"] .scene-bird { animation-play-state: paused; }
-.train-stage[data-view="englisch"] .train-band * { animation: none; }
-body[data-page="train"] .train-stage[data-view="englisch"] ~ .help-voice {
+/* Der Französischwagen ist derselbe Wagen (sprachwagen.js): Er trägt die
+   Klassen beider (.englischecke.franzoesischecke) und dieselbe Bühne. */
+.train-stage:is([data-view="englisch"], [data-view="franzoesisch"]) .train-band { opacity: 0; pointer-events: none; }
+.train-stage:is([data-view="englisch"], [data-view="franzoesisch"]) .stage-layer { z-index: 4; }
+.train-stage:is([data-view="englisch"], [data-view="franzoesisch"]) .scene { visibility: hidden; }
+.train-stage:is([data-view="englisch"], [data-view="franzoesisch"]) .scene-bird { animation-play-state: paused; }
+.train-stage:is([data-view="englisch"], [data-view="franzoesisch"]) .train-band * { animation: none; }
+body[data-page="train"] .train-stage:is([data-view="englisch"], [data-view="franzoesisch"]) ~ .help-voice {
   display: flex;
   left: calc(var(--safe-left) + 86px);
 }
@@ -345,7 +347,19 @@ body[data-page="train"] .train-stage[data-view="englisch"] ~ .help-voice {
 }
 
 /* Einsteigen: der Englischwagen wächst kurz auf, dann steht man drinnen. */
-.train-stage[data-englisch-ein] .englischwagen-knopf { transform: scale(1.35); opacity: 0; transition: transform 0.42s ease-in, opacity 0.42s ease-in; }
+.train-stage[data-englisch-ein] .englischwagen-knopf,
+.train-stage[data-franz-ein] .franzoesischwagen-knopf { transform: scale(1.35); opacity: 0; transition: transform 0.42s ease-in, opacity 0.42s ease-in; }
 @media (prefers-reduced-motion: reduce) {
-  .train-stage[data-englisch-ein] .englischwagen-knopf { transition: none; }
+  .train-stage[data-englisch-ein] .englischwagen-knopf,
+  .train-stage[data-franz-ein] .franzoesischwagen-knopf { transition: none; }
 }
+
+/* Der Französischwagen: ein Bistro mit grünem Täfer. In der Schrift sind die
+   Artikel dezent eingefärbt (franzoesisch-inhalt.js, schrift): le und un blau,
+   la und une rot, les und des grün, l' grau – so lernt das Auge das
+   Geschlecht nebenbei. */
+.englischecke.franzoesischecke { background: #f6ead2; }
+.fr-le { color: #2f5fb3; }
+.fr-la { color: #c21f32; }
+.fr-les { color: #2f8a5f; }
+.fr-l { color: #6f7682; }

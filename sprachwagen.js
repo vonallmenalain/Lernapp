@@ -17,7 +17,10 @@
  *   GANZE_GESCHICHTE   die Beschriftung von «Whole story»
  *   gesehenKey         was das Zimmer schon gezeigt hat
  *   maskottchen        (nur für andere Sprachen) { rocco(pose, laune),
- *                      roccoKopf(laune, o), wort } – zeichnet statt Rocco
+ *                      roccoKopf(laune, o), sticker } – zeichnet statt Rocco
+ *   gemalt             (nur für andere Sprachen) () => { geschichten, ordner }:
+ *                      die gemalten Geschichten mit dem eigenen Maskottchen
+ *   schrift            (nach Wunsch) (text) => HTML: wie der Text dasteht
  *
  * Was folgt, ist der Englischwagen, wie er gebaut wurde – heute für jede
  * Sprache:
@@ -154,7 +157,10 @@
     if (!offen?.blase) return;
     const en = liste.map(([e]) => e).join(" ");
     const de = liste.map(([, d]) => d).join(" ");
-    offen.enText.textContent = schrift() ? en : "";
+    // K.schrift: wie eine Sprache ihren Text setzt (Französisch: kein Umbruch
+    // vor «?», die Artikel eingefärbt) – als HTML, sonst als Text.
+    if (K.schrift) offen.enText.innerHTML = schrift() ? K.schrift(en) : "";
+    else offen.enText.textContent = schrift() ? en : "";
     offen.enText.classList.toggle("ist-leer", !schrift());
     offen.deText.textContent = mitDeutsch ? de : "";
     offen.deText.hidden = !mitDeutsch;
@@ -268,7 +274,7 @@
     offen.vorschlag = v;
     const svg = setzeBild(art().zimmer({ ausbau, neuAb, karte: { titel: vorschlagTitel(v)[0], bild: kartenBild(v) }, aufnaeher: flicken, jukebox: Boolean(inhalt().VERSE && K.spiele()?.verse),
       telefon: Boolean(inhalt().TELEFON && K.spiele()?.telefon),
-      post: K.spiele()?.post && art().BRIEFKASTEN ? { neu: Boolean(K.spiele().postNeu?.(kern)) } : null }), { klasse: huepfen && !reduziert() ? "is-huepfen" : "" });
+      post: inhalt().POSTKARTEN && K.spiele()?.post && art().BRIEFKASTEN ? { neu: Boolean(K.spiele().postNeu?.(kern)) } : null }), { klasse: huepfen && !reduziert() ? "is-huepfen" : "" });
     merke(GESEHEN_KEY, { ausbau: Math.max(ausbau, Number(gesehen.ausbau) || 0), aufnaeher: [...new Set([...(gesehen.aufnaeher || []), ...flicken.filter((f) => f.voll).map((f) => f.id)])] });
     hilfe("zimmer");
     const REIHE = ["tuer", "regal", "buch", "rocco", "telefon", "karte", "briefkasten", "kiste", "jukebox", "ausguck", "aufnaeher"];
@@ -652,8 +658,8 @@
     // Die Reiter: jede Welt, dazu Farben und Zahlen (ab Etappe 2).
     const REITER = [
       ...I.WELTEN.map((w) => ({ id: w.id, titel: w.titel, reiter: w.reiter, woerter: w.woerter })),
-      ...(I.FARBEN ? [{ id: "farben", titel: ["Colors", "Farben"], woerter: I.FARBEN }] : []),
-      ...(I.ZAHLEN ? [{ id: "zahlen", titel: ["Numbers", "Zahlen"], woerter: I.ZAHLEN }] : []),
+      ...(I.FARBEN ? [{ id: "farben", titel: I.SAETZE.farbenTitel || ["Colors", "Farben"], woerter: I.FARBEN }] : []),
+      ...(I.ZAHLEN ? [{ id: "zahlen", titel: I.SAETZE.zahlenTitel || ["Numbers", "Zahlen"], woerter: I.ZAHLEN }] : []),
     ];
     const welt = REITER.find((w) => w.id === weltId) || REITER[0];
     const extra = I.EXTRA_WOERTER.filter((w) => I.GESCHICHTEN.some((g) => g.welt === welt.id && g.bilder.some((b) => b.woerter.includes(w.id))));

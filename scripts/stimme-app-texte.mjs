@@ -58,6 +58,10 @@ const NICHT_GESPROCHEN = new Set([
   // (stimme-englisch-texte.mjs), das Deutsche steht in stimme-app/englischecke.mjs.
   "englisch-inhalt.js", "englisch-stand.js", "englisch-art.js", "englisch-art-2.js", "englisch-spiele.js", "englisch-art-3.js", "englisch-spiele-3.js", "englisch-art-4.js", "englisch-spiele-4.js", "englisch-stimme.js", "englisch-gemalt.js",
   "train-englischecke.js", "sprachwagen.js",
+  // Der Französischwagen genauso (stimme-franzoesisch-texte.mjs,
+  // stimme-app/franzoesischecke.mjs).
+  "franzoesisch-inhalt.js", "franzoesisch-stand.js", "franzoesisch-art.js", "franzoesisch-gemalt.js", "franzoesisch-stimme.js",
+  "train-franzoesischecke.js",
 ]);
 export function sprechDateien() {
   return fs.readdirSync(WURZEL)

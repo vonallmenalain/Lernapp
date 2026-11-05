@@ -10,6 +10,9 @@
  *   --bereich englisch  Roccos Englisch in der Englischecke:
  *                   scripts/stimme-englisch-texte.mjs → englisch-stimme.js,
  *                   eigener Ordner stimme/englisch/ und eine feste Stimme
+ *   --bereich franzoesisch  Margots Französisch im Französischwagen:
+ *                   scripts/stimme-franzoesisch-texte.mjs → franzoesisch-stimme.js,
+ *                   stimme/franzoesisch/, fr-FR-Chirp3-HD-Aoede
  *                   (en-US-Chirp3-HD-Puck, Tempo 0.9) – --stimme und --tempo
  *                   gelten hier nicht, die Einstellung der deutschen Stimme
  *                   bleibt, wie sie ist.
@@ -65,6 +68,7 @@ import { WURZEL } from "./stimme-texte.mjs";
 import * as bau from "./stimme-bau-texte.mjs";
 import * as app from "./stimme-app-texte.mjs";
 import * as en from "./stimme-englisch-texte.mjs";
+import * as fr from "./stimme-franzoesisch-texte.mjs";
 const { ORDNER, dateiFuer, passtZumText, sekundenVon } = bau;
 
 const API = "https://texttospeech.googleapis.com/v1";
@@ -97,10 +101,15 @@ const BEREICHE = {
     name: "die Englischecke", texte: en.englischTexte, verzeichnis: en.verzeichnis, schreibe: en.schreibeVerzeichnis, datei: en.VERZEICHNIS,
     ordner: en.ORDNER, dateiFuer: en.dateiFuer, stimme: en.STIMME, tempo: en.TEMPO,
   },
+  // Der Französischwagen genauso.
+  franzoesisch: {
+    name: "den Französischwagen", texte: fr.franzoesischTexte, verzeichnis: fr.verzeichnis, schreibe: fr.schreibeVerzeichnis, datei: fr.VERZEICHNIS,
+    ordner: fr.ORDNER, dateiFuer: fr.dateiFuer, stimme: fr.STIMME, tempo: fr.TEMPO,
+  },
 };
 const bereichName = wert("bereich", "bau");
 const B = BEREICHE[bereichName];
-if (!B) { console.error(`Unbekannter Bereich: ${bereichName} (bau, app oder englisch)`); process.exit(2); }
+if (!B) { console.error(`Unbekannter Bereich: ${bereichName} (bau, app, englisch oder franzoesisch)`); process.exit(2); }
 // Bauecke und App teilen sich den Ordner stimme/google/.
 const anderer = B.stimme ? null : BEREICHE[bereichName === "bau" ? "app" : "bau"];
 
@@ -188,6 +197,8 @@ const auszusprechen = (text) => AUSSPRACHE_GANZ[text] || Object.entries(AUSSPRAC
 const AUSSPRACHE_GANZ = {
   "Pssst!": "Psst!",
   ROOOAAAR: "Roooaaar!",
+  // Französischwagen: «bêê» zieht Aoede sonst sekundenlang.
+  "Le mouton dit bêê.": "Le mouton dit : bê.",
 };
 // Eine Silbe oder ein kurzes Wort ohne Satzzeichen («ge», «Ja») kommt von
 // Chirp manchmal stumm zurück. Ein zweiter Versuch fragt nach «Ge.» – gross

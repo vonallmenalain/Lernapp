@@ -244,7 +244,8 @@
     <circle cx="110" cy="54" r="20" fill="#ffe27a"/><circle cx="121" cy="46" r="18" fill="#1d2752"/>
     ${stern5(52, 44, 6)}${stern5(74, 86, 4.5)}${stern5(126, 96, 4)}${stern5(60, 98, 3)}
     <rect x="84" y="24" width="4" height="88" fill="#c9d2e6"/><rect y="170" width="472" height="34" fill="#4b3f6b"/><rect y="168" width="472" height="4" fill="#5d5182"/>`;
-  const schlafKopf = A.roccoKopf("freude", { muetze: false }).replace(/q5 -6 10 0/g, "q5 5 10 0");
+  // Erst beim Zeichnen: Im Französischwagen schläft hier Margot.
+  const schlafKopf = () => A.roccoKopf("freude", { muetze: false }).replace(/q5 -6 10 0/g, "q5 5 10 0");
 
   A.GESCHICHTEN_BILDER.washup = [
     () => `${bad()}${handtuch(412, 52)}${blase(160, 50, 9)}${blase(300, 30, 7)}${blase(330, 66, 11)}${blase(128, 88, 5)}
@@ -277,7 +278,7 @@
       ${at(170, 86, 0.8, muetze, -14)}
       ${tb('data-wort="raccoon"', `<path d="M418 128 C440 124 452 104 446 86" stroke="#c3c7cf" stroke-width="13" fill="none" stroke-linecap="round"/>
         <path d="M418 128 C440 124 452 104 446 86" stroke="#4f5560" stroke-width="13" fill="none" stroke-dasharray="7 8"/><circle cx="446" cy="84" r="7" fill="${DUNKEL}"/>
-        ${at(208, 102, 0.82, schlafKopf)}`)}
+        ${at(208, 102, 0.82, schlafKopf())}`)}
       <path d="M226 124 Q236 102 272 100 Q332 92 384 104 Q420 110 428 124 L428 158 H226 Z" fill="#3a7bd5"/>
       <path d="M226 124 Q236 104 262 102 L270 116 Q246 116 232 128 Z" fill="#ffffff"/>
       ${[[290, 120], [330, 112], [370, 124], [404, 134], [310, 140], [350, 144]].map(([x, y]) => stern5(x, y, 5, "#ffd166")).join("")}

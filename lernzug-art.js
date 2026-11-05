@@ -2,8 +2,8 @@
  * lernzug-art.js – Der Lernzug auf dem Startbild.
  *
  * Über dem Gripszug fährt auf einem zweiten Gleis der Lernzug: vorn die
- * Lernlok, dahinter die Lernwagen – der Lesewagen, der Rechenwagen und (sobald
- * es ihn gibt) der Englischwagen. Gezeichnet in denselben Einheiten wie der
+ * Lernlok, dahinter die Lernwagen – der Lesewagen, der Rechenwagen, der
+ * Englischwagen und ganz hinten der Französischwagen. Gezeichnet in denselben Einheiten wie der
  * Gripszug (train-art.js: Schienenoberkante bei GROUND, ein Wagen 140 breit),
  * damit beide Züge auf dem Bild gleich gross sind.
  *
@@ -43,11 +43,13 @@
   const FONT = "'Baloo 2', Nunito, ui-rounded, system-ui, sans-serif";
 
   // Die Wagen. Farben wie ihre Zimmer: der Lesewagen rot, der Rechenwagen gelb,
-  // der Englischwagen blau – drei Grundfarben, auf einen Blick zu unterscheiden.
+  // der Englischwagen blau – drei Grundfarben, auf einen Blick zu unterscheiden;
+  // der Französischwagen grün wie das Täfer seines Bistros.
   const WAGEN = {
     lesen: { name: "Lesewagen", koerper: "#c4553a", dach: "#5b3a29", leiste: "#ffd166", schild: "ABC", tinte: "#c4553a" },
     rechnen: { name: "Rechenwagen", koerper: "#f7c843", dach: "#3d7be0", leiste: "#e8543f", schild: "123", tinte: "#2f63bd" },
     englisch: { name: "Englischwagen", koerper: "#3a7bd5", dach: "#e8543f", leiste: "#ffffff", schild: "Hello", tinte: "#1f4f99" },
+    franzoesisch: { name: "Französischwagen", koerper: "#2f8f68", dach: "#d62839", leiste: "#ffd166", schild: "Bonjour", tinte: "#226b4d" },
   };
   // Was bei welchem Schritt dazukommt – für die Feier und die Ansagen.
   const SCHRITTE = [
@@ -90,6 +92,7 @@
   //   lesen     { glieder }          der Lesewurm (lesen-art.js)
   //   rechnen   { leben, ei }        der Rechendrache oder sein Ei (rechnen-art.js)
   //   englisch  { }                  Rocco, der Waschbär (englisch-art.js)
+  //   franzoesisch { }               Margot, la marmotte (franzoesisch-art.js)
   function maskottchen(id, m = {}) {
     if (id === "lesen") {
       const lese = window.LernappLeseArt;
@@ -103,6 +106,11 @@
       if (rechnen?.dracheNurKopf) return ausText(rechnen.dracheNurKopf(leben), { transform: "translate(8 37) scale(0.3)" });
       return circle(0, 0, 10, "#46b98a");
     }
+    if (id === "franzoesisch") {
+      const fr = window.LernappFranzoesischArt;
+      if (fr?.margotKopf) return ausText(fr.margotKopf("froh"), { transform: "scale(0.42)" });
+      return circle(0, 0, 10, "#b98552");
+    }
     const englisch = window.LernappEnglischArt;
     if (englisch?.roccoKopf) return ausText(englisch.roccoKopf("froh"), { transform: "scale(0.42)" });
     return circle(0, 0, 10, "#9aa0ab");
@@ -111,7 +119,7 @@
   // ---------------------------------------------------------------------------
   // Ein Lernwagen, 140 breit, Schienenoberkante bei GROUND
   // ---------------------------------------------------------------------------
-  //   id     lesen | rechnen | englisch
+  //   id     lesen | rechnen | englisch | franzoesisch
   //   stufe  0 bis 15
   //   m      was das Maskottchen braucht (siehe maskottchen)
   //   neu    der Schritt, der gerade dazugekommen ist: er springt hervor
@@ -170,6 +178,11 @@
       const perlen = [];
       for (let i = 0; i < 10; i += 1) perlen.push(circle(30 + i * 8.8, 44, 3.8, i < 5 ? "#e8543f" : "#3d7be0"));
       schritt(5, [rect(26, 37, 3, 12, "#8a5a35"), rect(111, 37, 3, 12, "#8a5a35"), rect(26, 43, 88, 2, "#8a5a35"), ...perlen]);
+    } else if (id === "franzoesisch") {
+      // Das Panoramadach: eine gläserne Kuppel mit Streben, durch die man die Berge sieht.
+      schritt(5, [path("M26 52 Q26 30 70 28 Q114 30 114 52 Z", "#bfe6f5", { stroke: shade(w.koerper, -0.35), "stroke-width": 2.5 }),
+        path("M48 51 L48 33 M70 50 L70 29 M92 51 L92 33", "none", { stroke: shade(w.koerper, -0.35), "stroke-width": 2 }),
+        path("M30 50 L40 42 L46 46 L56 37 L66 46 L70 43", "none", { stroke: "#ffffff", "stroke-width": 2, "stroke-linejoin": "round", opacity: "0.9" })]);
     } else {
       schritt(5, [rect(46, 22, 48, 26, w.koerper, { rx: 4 }), rect(52, 27, 15, 13, "#cdeefa", { rx: 2.5 }), rect(73, 27, 15, 13, "#cdeefa", { rx: 2.5 }),
         path("M40 22 L100 22 L94 14 L46 14 Z", w.dach)]);
@@ -214,6 +227,13 @@
         const x = [12, 120, 103][n];
         return [0, 1, 2, 3].map((k) => rect(x, 54 - k * 5 - (n === 0 ? 0 : 2), 14, 5, GOLD, { rx: 2, stroke: "#c98a00", "stroke-width": 0.8 }));
       }
+      if (id === "franzoesisch") {
+        // Körbe mit Baguettes und Croissants, links und rechts der Kuppel
+        const x = [4, 112, 120][n];
+        const y = n === 0 ? 50 : 54;
+        return [rect(x, y, 18, 8, "#c08a55", { rx: 2 }), rect(x + 3, y - 12, 4, 14, "#e0a95a", { rx: 2 }), rect(x + 9, y - 14, 4, 16, "#e6b066", { rx: 2 }),
+          path(`M${x + 12} ${y} q3 -7 6 0`, "#e0a24a")];
+      }
       const x = [6, 24, 112][n];
       return [rect(x, n === 2 ? 46 : 42, 18, 14, ["#8a5a35", "#e8543f", "#3fa34d"][n], { rx: 3 }), circle(x + 6, n === 2 ? 53 : 49, 2.6, "#ffd166"), rect(x + 6, n === 2 ? 43 : 39, 6, 4, "#3a3f4a", { rx: 1 })];
     };
@@ -234,7 +254,7 @@
     const schild = [];
     if (s < 2) schild.push(rect(54, 122, 4, DECK - 122, "#8a5a35"), rect(82, 122, 4, DECK - 122, "#8a5a35"));
     schild.push(rect(44, 104, 52, 20, "#fff6e0", { rx: 5, stroke: w.tinte, "stroke-width": 2 }));
-    schild.push(text(70, 119, w.schild, w.schild.length > 3 ? 13 : 15, w.tinte));
+    schild.push(text(70, 119, w.schild, w.schild.length > 5 ? 11 : w.schild.length > 3 ? 13 : 15, w.tinte));
     teile.push(group({ class: "lernwagen-schild" }, schild));
 
     // 14 – zwei Sterne neben dem Schild
@@ -244,7 +264,7 @@
     // 15 – Wimpel und goldene Räder
     // Der Wimpel steht dort, wo oben Platz ist: über der Dachmitte, über dem
     // Zählrahmen oder neben dem Aussichtsturm.
-    const wimpel = { lesen: [70, 50, 18], rechnen: [70, 39, 9], englisch: [100, 54, 22] }[id] || [70, 50, 18];
+    const wimpel = { lesen: [70, 50, 18], rechnen: [70, 39, 9], englisch: [100, 54, 22], franzoesisch: [70, 29, 10] }[id] || [70, 50, 18];
     const [wx, wUnten, wOben] = wimpel;
     schritt(15, [el("line", { x1: wx, y1: wUnten, x2: wx, y2: wOben, stroke: "#8a5f1c", "stroke-width": 3 }), el("polygon", { points: `${wx},${wOben + 1} ${wx + 26},${wOben + 9} ${wx},${wOben + 17}`, fill: GOLD })]);
 

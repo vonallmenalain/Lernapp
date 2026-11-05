@@ -243,3 +243,9 @@ Ablauf:
    zufälligen Tipps; er meldet jeden Satz, der noch mit der Gerätestimme kommt.
 5. Ändert sich ein Satz im Code, gehört er wieder vertont (Schritt 2) und die
    alte Aufnahme weg: `node scripts/stimme-google.mjs aufraeumen --bereich app`.
+
+Die Sprachwagen haben je einen eigenen Bereich mit fester Stimme: `--bereich englisch`
+(en-US-Chirp3-HD-Puck, `stimme/englisch/`, `englisch-stimme.js`) und `--bereich franzoesisch`
+(fr-FR-Chirp3-HD-Aoede, Tempo 0,9, `stimme/franzoesisch/`, `franzoesisch-stimme.js`). Ihre
+deutsche Seite gehört zum Bereich `app`. Geprüft wird mit `validate-englisch.mjs` und
+`validate-franzoesisch.mjs`.

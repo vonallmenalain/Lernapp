@@ -1,4 +1,4 @@
-# Französischecke – Konzept (Vorschlag)
+# Französischecke – Konzept
 
 > **Kurz:** Ein vierter Lernwagen, der **Französischwagen** (Schild «Bonjour»), sehr ähnlich wie
 > der Englischwagen: Wimmelbilder entdecken, «Écoute et trouve», Bildgeschichten, ein Wörterbuch
@@ -11,6 +11,28 @@
 > fêtes» statt der amerikanischen Feiertage und die Boulangerie statt des Diners.
 
 Stand: 5. November 2026. Zum Englischwagen: `docs/ENGLISCHECKE-KONZEPT.md`.
+
+**Entschieden** (5. November 2026): die Stimme **Aoede** (fr-FR, Tempo 0,9), das Maskottchen
+**Margot, la marmotte**, ein **gemeinsamer Kern** für beide Sprachwagen; die übrigen Vorschläge
+gelten.
+
+## Was gebaut ist
+
+| | |
+| --- | --- |
+| **Kern** | `sprachwagen.js` baut beide Wagen aus einer Einstellung (`train-englischecke.js`, `train-franzoesischecke.js`); die Spiele (`englisch-spiele*.js`) und Zeichnungen (`englisch-art*.js`) fragen nach dem offenen Wagen (`LernappSprachwagen.aktiv`). Der Stand ist eine Fabrik (`LernappSprachStand.erzeuge`), jeder Wagen hat seinen Kasten (`lernapp.englisch`, `lernapp.franzoesisch`). |
+| **Inhalt** | `franzoesisch-inhalt.js`: 11 Welten mit je 13 Wörtern (mit Artikel), 11 Geschichten, alle Sätze, 14 Spiele, Telefon und Echo, 5 Verse, 5 Bücher aus dem Lesewagen; das Feld `en` heisst im Kern «die Fremdsprache». In der Schrift kein Umbruch vor «?», die Artikel eingefärbt (`schrift`). |
+| **Margot** | `franzoesisch-art.js`: Margot in denselben Massen wie Rocco (Kleider und Posen passen), der Panorama-Bistrowagen mit 15 Stücken Einrichtung; gemalt sind ihr Charakterbogen, ihr Sticker und alle 44 Geschichtenbilder (die Gemälde des Englischwagens mit Margot statt Rocco, `bilder/franzoesisch/`, `franzoesisch-gemalt.js`). Wimmelbilder, Sticker und Aufnäher teilen beide Wagen. |
+| **Stimme** | 1095 französische Aufnahmen (`stimme/franzoesisch/`, `franzoesisch-stimme.js`, Bereich `franzoesisch` in `stimme-google.mjs`), die deutsche Seite mit der Stimme der App (`stimme-app/franzoesischecke.mjs`). |
+| **Lernzug** | Der vierte Wagen ganz hinten, grün, Schild «Bonjour», mit Panoramadach. Würde die Lernlok über die höhere Lok des Gripszugs reichen, wird der Lernzug gerade so viel kleiner, dass er davor hält. Die Tür im Bistro führt in den Englischwagen. |
+| **Eltern** | Eine Karte «Französischecke» wie die des Englischwagens: Schrift, Tempo, Bericht mit den Wörtern der Romandie, Aufträge für die Familie. |
+| **Prüfungen** | `validate-franzoesisch.mjs`, `check-franzoesischecke.mjs`. |
+
+**Noch offen (Etappe 2):** «Les fêtes» (neues Wimmelbild, Sticker und Zeichnungen), die
+Boulangerie (statt des Diners), die Post mit Postkarten aus der Romandie und Frankreich und die
+drei neuen Geschichten (*La galette des rois*, *Au marché*, *Le petit train*). Bis dahin fehlen
+im Französischwagen der Briefkasten und das Restaurant; «Holidays» und die Halloween-Geschichte
+bleiben im Englischwagen.
 
 ---
 

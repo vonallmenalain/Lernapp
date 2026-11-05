@@ -474,14 +474,19 @@ function gemaeldeVon(art, id) {
     return [
       ...(GEMALT.woerterbuch ? [gemaltBild("woerterbuch")] : []),
       ...[...(GEMALT.aufnaeher || [])].map((w) => gemaltBild(`aufnaeher/${w}`)),
-      ...(id || []).filter((x) => GEMALT.sticker?.has(x)).map((x) => gemaltBild(`sticker/${stickerDatei(x)}`)),
+      ...(id || []).filter((x) => GEMALT.sticker?.has(x)).map(stickerBild),
     ];
   }
-  return (GEMALT.geschichten[id] || []).map((_, i) => gemaltBild(`geschichte-${id}-${i + 1}`));
+  const G = geschichtenGemalt();
+  return (G.geschichten[id] || []).map((_, i) => `${G.ordner}/geschichte-${id}-${i + 1}.webp`);
 }
 // Der Sticker eines Worts – das Maskottchen eines anderen Sprachwagens hat
-// seinen eigenen (aktiv.maskottchen.sticker: { raccoon: "fr-margot" }).
-const stickerDatei = (id) => fremdesMaskottchen()?.sticker?.[id] || id;
+// seinen eigenen (aktiv.maskottchen.sticker: { raccoon: "bilder/…webp" }).
+const stickerBild = (id) => fremdesMaskottchen()?.sticker?.[id] || gemaltBild(`sticker/${id}`);
+// Auf den gemalten Geschichten steht das Maskottchen: Ein anderer Sprachwagen
+// hat seine eigenen (aktiv.gemalt() → { geschichten, ordner },
+// franzoesisch-gemalt.js) – und solange eine dort fehlt, die Zeichnung.
+const geschichtenGemalt = () => (typeof window !== "undefined" && window.LernappSprachwagen?.aktiv?.gemalt?.()) || GEMALT;
 const istGeladen = (bilder) => bilder.every((u) => geladen.has(u));
 function vorladen(bilder, ms = 1500) {
   const fehlen = bilder.filter((u) => !geladen.has(u));
@@ -579,7 +584,7 @@ function sticker(id, x, y, r, zustand) {
   if (GEMALT.sticker?.has(id)) {
     // Gemalt (bilder/englisch/sticker/), darunter die Zeichnung, falls es nicht lädt.
     const g = r * 1.56;
-    s += `<g class="en-ersatz">${zeichnung}</g><image class="en-gemaelde" href="${gemaltBild(`sticker/${stickerDatei(id)}`)}" x="${r1(x - g / 2)}" y="${r1(y - g / 2)}" width="${r1(g)}" height="${r1(g)}"${farbe ? "" : ' opacity="0.22" filter="url(#en-grau)"'}/>`;
+    s += `<g class="en-ersatz">${zeichnung}</g><image class="en-gemaelde" href="${stickerBild(id)}" x="${r1(x - g / 2)}" y="${r1(y - g / 2)}" width="${r1(g)}" height="${r1(g)}"${farbe ? "" : ' opacity="0.22" filter="url(#en-grau)"'}/>`;
   } else s += zeichnung;
   if (zustand === "erkannt" || zustand === "sicher") s += stern(x + r * 0.72, y - r * 0.72, Math.max(7, r * 0.28));
   return s;
@@ -675,11 +680,12 @@ const OHNE_TIPP = / class="en-wort" data-wort="[^"]*" tabindex="0" role="button"
 function geschichtsBild(geschichte, i, { gezeichnet = false } = {}) {
   const zeichne = GESCHICHTEN_BILDER[geschichte]?.[i];
   const zeichnung = zeichne ? zeichne() : bildHintergrund();
-  const g = gezeichnet ? null : GEMALT.geschichten[geschichte]?.[i];
+  const G = geschichtenGemalt();
+  const g = gezeichnet ? null : G.geschichten[geschichte]?.[i];
   if (!g) return zeichnung;
   const name = `${geschichte}-${i + 1}`;
   const muster = `en-p-${name}`;
-  const bild = gemaelde(gemaltBild(`geschichte-${name}`), muster, 472, 204);
+  const bild = gemaelde(`${G.ordner}/geschichte-${name}.webp`, muster, 472, 204);
   // Unter dem Gemälde die Zeichnung, ohne Tippstellen: Sie zeigt sich, wenn
   // das Gemälde nicht lädt.
   let s = `<defs>${bild.defs}</defs>${ersatz(zeichnung.replace(OHNE_TIPP, ""), 472, 204)}${bild.bild}`;
@@ -696,8 +702,9 @@ const TITELBILD = { cat: 3, hungry: 3 };
 function geschichtsTitelbild(geschichte) {
   const i = TITELBILD[geschichte] ?? 0;
   const zeichnung = geschichtsBild(geschichte, i, { gezeichnet: true });
-  const bild = GEMALT.geschichten[geschichte]?.[i]
-    ? `${ersatz(zeichnung, 472, 204)}<image class="en-gemaelde" href="${gemaltBild(`geschichte-${geschichte}-${i + 1}-klein`)}" width="472" height="204" preserveAspectRatio="xMidYMid slice"/>` : zeichnung;
+  const G = geschichtenGemalt();
+  const bild = G.geschichten[geschichte]?.[i]
+    ? `${ersatz(zeichnung, 472, 204)}<image class="en-gemaelde" href="${G.ordner}/geschichte-${geschichte}-${i + 1}-klein.webp" width="472" height="204" preserveAspectRatio="xMidYMid slice"/>` : zeichnung;
   return `<svg viewBox="0 0 472 204" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">${bild}</svg>`;
 }
 
