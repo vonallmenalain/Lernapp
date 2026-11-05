@@ -210,14 +210,21 @@
   // Was Rocco vorschlägt
   // ---------------------------------------------------------------------------
   // Erst entdecken, dann suchen, dann hören: In der ersten Welt, die noch nicht
-  // ganz gehört ist, entdecken; ist eine Welt gehört, aber nicht erkannt,
-  // «Hear & find» dort; sonst eine Geschichte, die noch nie zu Ende gehört
-  // wurde; sonst Wörter festigen, die erkannt, aber noch nicht sicher sind.
+  // ganz gehört ist, entdecken; ist dort ein gehörtes Wort noch nicht erkannt,
+  // «Hear & find»; sonst eine Geschichte, die noch nie zu Ende gehört wurde;
+  // sonst Wörter festigen, die erkannt, aber noch nicht sicher sind.
+  //
+  // Vorgeschlagen wird nur, was eine Runde auch weiterbringt – sonst bliebe
+  // derselbe Vorschlag stehen, so oft das Kind ihn spielt: «Hear & find» fragt
+  // nur Gehörtes ab (hearfindWoerter), also sucht es nur, wo ein gehörtes Wort
+  // noch nicht erkannt ist (was nie zu hören war, kommt beim Entdecken dazu);
+  // und «sicher» wird ein Wort erst am zweiten Tag, also festigt es nur Wörter,
+  // die an einem früheren Tag erkannt wurden.
   function vorschlag(s = stand()) {
     const alle = aufnaeher(s);
     const genug = (w) => w.gehoert >= Math.min(5, w.von);
-    // Genug gehört, aber noch nicht alles erkannt: suchen.
-    const zuSuchen = alle.find((w) => genug(w) && !w.voll);
+    // Genug gehört, und ein gehörtes Wort ist noch nicht erkannt: suchen.
+    const zuSuchen = alle.find((w) => genug(w) && w.erkannt < w.gehoert);
     if (zuSuchen) return { art: "hearfind", welt: zuSuchen.id };
     // Eine Geschichte aus einer Welt, die das Kind kennt, noch nie zu Ende gehört.
     const geschichte = inhalt().GESCHICHTEN.find((g) => !s.geschichten[g.id] && genug(alle.find((w) => w.id === g.welt) || { gehoert: 0, von: 1 }));
@@ -225,11 +232,16 @@
     // Eine Welt, in der noch etwas zu entdecken ist.
     const offen = alle.find((w) => w.gehoert < w.von);
     if (offen) return { art: "entdecken", welt: offen.id };
-    // Alles entdeckt: festigen, was noch nicht sitzt.
-    const festigen = alle.find((w) => !w.gold);
+    // Alles entdeckt und erkannt: festigen, was heute «sicher» werden kann.
+    const tag = heute();
+    const kannSitzen = (id) => wortStand(id, s) === "erkannt" && s.woerter[id].e.slice(-1)[0] < tag;
+    const festigen = alle.find((w) => !w.gold && weltVon(w.id).woerter.some((x) => kannSitzen(x.id)));
     if (festigen) return { art: "hearfind", welt: festigen.id };
+    // Für heute ist alles getan: die Geschichte, die am seltensten gehört wurde.
     const g = inhalt().GESCHICHTEN;
-    return g.length ? { art: "geschichte", geschichte: g[Math.floor(Math.random() * g.length)].id } : { art: "entdecken", welt: "farm" };
+    if (!g.length) return { art: "entdecken", welt: welten()[0]?.id || "farm" };
+    const selten = g.reduce((a, b) => ((s.geschichten[b.id] || 0) < (s.geschichten[a.id] || 0) ? b : a));
+    return { art: "geschichte", geschichte: selten.id };
   }
 
   // ---------------------------------------------------------------------------

@@ -93,7 +93,9 @@ Stand: 4. November 2026 · Entwurf · Grundlage: `docs/RECHENECKE-KONZEPT.md`,
   direkt). Die Lernlok fährt auch in den Englischwagen, wenn das Kind zuletzt dort war.
 - **Das Zimmer** (`englisch-art.js`, `zimmer`): Rocco im Schaukelstuhl, seine Karte mit dem
   Vorschlag (`vorschlag` in `englisch-stand.js`: erst entdecken, ab fünf gehörten Wörtern Hear
-  and find, dann eine Geschichte der Welt, dann festigen), der Aussichtsturm («LOOKOUT») mit den
+  and find, dann eine Geschichte der Welt, dann festigen – und nur, was eine Runde weiterbringt:
+  gesucht wird, solange ein gehörtes Wort noch nicht erkannt ist, gefestigt, was an einem
+  früheren Tag erkannt wurde; die Karte zeigt das Bild der Welt), der Aussichtsturm («LOOKOUT») mit den
   drei Welten, das Regal mit den Geschichten, die Spielzeugkiste mit Hear and find, das
   Wörterbuch, das Brett mit den Aufnähern und die Tür in den Rechenwagen. Die Tür des
   Rechenwagens fragt jetzt «Wohin?» – Englisch- oder Lesewagen.
