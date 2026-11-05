@@ -15,12 +15,13 @@
 
   // Die Spiele für die Schranke (entitlement.js, FRANZOESISCHECKE): der
   // Bauernhof, die erste Geschichte, der erste Vers und das erste Buch sind
-  // immer frei, sonst je eine Runde.
+  // immer frei, sonst je eine Runde. Die Post von Lou ist ein Geschenk und
+  // immer offen.
   const SPIEL = {
     entdecken: "fr-entdecken", hearfind: "fr-hearfind", geschichte: "fr-geschichten",
     memory: "fr-memory", janein: "fr-janein", roccosays: "fr-jacquesadit", farbenzug: "fr-farbenzug",
     zaehlen: "fr-zaehlen", fuettern: "fr-gouter", verse: "fr-verse", buch: "fr-buecher",
-    whatsmissing: "fr-wasfehlt", dressup: "fr-habille", geschichtenzug: "fr-geschichtenzug",
+    whatsmissing: "fr-wasfehlt", dressup: "fr-habille", geschichtenzug: "fr-geschichtenzug", diner: "fr-boulangerie",
     telefon: "fr-telefon", echo: "fr-echo",
     monster: "fr-monster", wokatze: "fr-wokatze", gegenteile: "fr-contraires", wortbild: "fr-wortbild",
   };

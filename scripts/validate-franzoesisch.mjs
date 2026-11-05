@@ -60,7 +60,7 @@ function sandbox() {
     Date, Math, JSON, Number, String, Set, Map, Object, Array,
   });
   for (const datei of ["englisch-inhalt.js", "englisch-stand.js", "englisch-art.js", "englisch-art-2.js", "englisch-spiele.js", "englisch-art-3.js", "englisch-spiele-3.js", "englisch-art-4.js", "englisch-gemalt.js", "englisch-spiele-4.js",
-    "franzoesisch-inhalt.js", "franzoesisch-stand.js", "franzoesisch-art.js", "franzoesisch-art-2.js", "franzoesisch-gemalt.js"]) vm.runInContext(lies(datei), context, { filename: datei });
+    "franzoesisch-inhalt.js", "franzoesisch-stand.js", "franzoesisch-art.js", "franzoesisch-art-2.js", "franzoesisch-art-3.js", "franzoesisch-gemalt.js"]) vm.runInContext(lies(datei), context, { filename: datei });
   return { w: windowStub, I: windowStub.LernappFranzoesischInhalt, E: windowStub.LernappEnglischInhalt, s: windowStub.LernappFranzoesischStand, a: windowStub.LernappFranzoesischArt, sp: windowStub.LernappEnglischSpiele, store };
 }
 const { w, I, E, s, a, sp } = sandbox();
@@ -174,7 +174,15 @@ pruefe(zimmer.includes(a.margot("steh", "froh")) && !/LOOKOUT|PATCHES|I have an 
   pruefe((I.SPIEL_GRUPPEN || []).some((g) => g.id === spiel.gruppe), `Spiel ${spiel.id}: ohne Gruppe`);
 });
 (I.TELEFON_SPIELE || []).forEach((spiel) => pruefe(typeof sp?.[spiel.id] === "function", `Spiel ${spiel.id}: keine Funktion`));
-pruefe(!I.SPIELE.some((x) => x.id === "diner") && !I.POSTKARTEN, "Diner oder Post im Französischwagen – sie haben noch keine französischen Bilder");
+// Die Boulangerie und die Post von Lou: eigene Backwaren, eigene Postkarten.
+(I.DINER_ESSEN || []).forEach((id) => pruefe(ids.has(id) && a.DING[id], `La boulangerie : ${id} ist kein gezeichnetes Wort`));
+(I.DINER_GAESTE || []).forEach((id) => pruefe(a.DING[id], `La boulangerie : Gast ${id} ist nicht gezeichnet`));
+(I.DINER_PAARE || []).forEach(([p, q]) => pruefe(I.DINER_ESSEN.includes(p) && I.DINER_ESSEN.includes(q), `La boulangerie : ${p} und ${q} stehen nicht in der Vitrine`));
+(I.POSTKARTEN || []).forEach((k) => pruefe(a.POSTKARTEN?.[k.id]?.().length > 100 && !w.LernappEnglischArt.POSTKARTEN?.[k.id], `Post : keine eigene Zeichnung für ${k.id}`));
+pruefe(a.ruby !== w.LernappEnglischArt.ruby && a.BRIEFKASTEN !== w.LernappEnglischArt.BRIEFKASTEN, "Post : Ruby oder der amerikanische Briefkasten im Französischwagen");
+pruefe(a.zimmer({ ausbau: 0, karte: null, aufnaeher: [], post: { neu: true } }).includes('data-ort="briefkasten"'), "Bistrowagen: kein Briefkasten für die Post");
+pruefe(a.DINER_KULISSE?.().includes("<rect") && !w.LernappEnglischArt.DINER_KULISSE && a.DINER_KACHEL?.().includes("<rect"), "La boulangerie : keine eigene Kulisse oder Kachel (es bliebe das rote Diner)");
+pruefe(a.MILCH_SCHILD === "LAIT" && !w.LernappEnglischArt.MILCH_SCHILD, "La boulangerie : auf der Milchtüte steht «MILK»");
 pruefe(I.FARBEN?.length === 10 && I.ZAHLEN?.length === 10, "Farben oder Zahlen fehlen");
 pruefe(I.FARBEN.map((f) => f.id).join() === E.FARBEN.map((f) => f.id).join(), "die Farben haben andere Ids als im Englischwagen");
 (I.ESSEN || []).forEach((e) => pruefe(ids.has(e.id) && a.DING[e.id], `Le goûter : ${e.id} ist kein gezeichnetes Wort`));
@@ -284,7 +292,7 @@ pruefe(s.wortStand("cow") === "gehoert" && w.LernappEnglischStand.wortStand("cow
 {
   const index = lies("index.html");
   const sw = lies("service-worker.js");
-  const reihe = ["englisch-inhalt.js", "englisch-stand.js", "englisch-art.js", "englisch-gemalt.js", "englisch-spiele-4.js", "franzoesisch-inhalt.js", "franzoesisch-stand.js", "franzoesisch-art.js", "franzoesisch-art-2.js", "franzoesisch-gemalt.js", "franzoesisch-stimme.js", "sprachwagen.js", "train-englischecke.js", "train-franzoesischecke.js", "train-home.js"];
+  const reihe = ["englisch-inhalt.js", "englisch-stand.js", "englisch-art.js", "englisch-gemalt.js", "englisch-spiele-4.js", "franzoesisch-inhalt.js", "franzoesisch-stand.js", "franzoesisch-art.js", "franzoesisch-art-2.js", "franzoesisch-art-3.js", "franzoesisch-gemalt.js", "franzoesisch-stimme.js", "sprachwagen.js", "train-englischecke.js", "train-franzoesischecke.js", "train-home.js"];
   const stellen = reihe.map((d) => index.indexOf(`src="${d}`));
   stellen.forEach((st, i) => pruefe(st > 0, `index.html lädt ${reihe[i]} nicht`));
   pruefe(stellen.every((st, i) => i === 0 || st > stellen[i - 1]), `index.html lädt die Französischecke nicht in der Reihenfolge ${reihe.join(" → ")}`);
@@ -303,7 +311,7 @@ pruefe(s.wortStand("cow") === "gehoert" && w.LernappEnglischStand.wortStand("cow
 }
 
 // --- 8. Sprache ------------------------------------------------------------------
-for (const datei of ["franzoesisch-inhalt.js", "franzoesisch-stand.js", "franzoesisch-art.js", "franzoesisch-art-2.js", "franzoesisch-gemalt.js", "train-franzoesischecke.js", "docs/FRANZOESISCHECKE-KONZEPT.md"]) {
+for (const datei of ["franzoesisch-inhalt.js", "franzoesisch-stand.js", "franzoesisch-art.js", "franzoesisch-art-2.js", "franzoesisch-art-3.js", "franzoesisch-gemalt.js", "train-franzoesischecke.js", "docs/FRANZOESISCHECKE-KONZEPT.md"]) {
   pruefe(!lies(datei).includes("ß"), `${datei}: scharfes S`);
 }
 

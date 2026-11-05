@@ -325,7 +325,7 @@ const KUECHE_DING = {
     <path d="M-26 -22 l10 12 M-4 -24 l10 12 M18 -22 l10 12" stroke="#b07a45" stroke-width="3" stroke-linecap="round"/>`,
   milk: () => `<path d="M-24 -48 L0 -68 L24 -48 Z" fill="#dfe6ef"/><rect x="-24" y="-48" width="48" height="96" rx="3" fill="#ffffff" stroke="#c3cad6" stroke-width="2"/>
     <rect x="-24" y="-14" width="48" height="40" fill="#3a7bd5"/>
-    <text x="0" y="12" text-anchor="middle" font-family="Baloo 2, Nunito, sans-serif" font-weight="800" font-size="15" fill="#ffffff">MILK</text>
+    <text x="0" y="12" text-anchor="middle" font-family="Baloo 2, Nunito, sans-serif" font-weight="800" font-size="15" fill="#ffffff">${window.LernappSprachwagen?.aktiv?.art?.().MILCH_SCHILD || "MILK"}</text>
     <ellipse cx="-10" cy="-30" rx="6" ry="4" fill="${DUNKEL}"/><ellipse cx="9" cy="-34" rx="4" ry="3" fill="${DUNKEL}"/>`,
   cheese: () => `<path d="M-48 22 L-48 -12 L40 -30 L48 22 Z" fill="#f6c945"/><path d="M-48 -12 L40 -30 L48 -22 L-40 -2 Z" fill="#ffe07a"/>
     <circle cx="-26" cy="8" r="6" fill="#e0a92e"/><circle cx="6" cy="12" r="4" fill="#e0a92e"/><circle cx="24" cy="-2" r="5" fill="#e0a92e"/>`,

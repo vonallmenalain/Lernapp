@@ -238,7 +238,7 @@
   // Bauernhof, die erste Geschichte, der erste Vers und das erste Buch ganz.
   const FRANZOESISCHECKE = { id: "franzoesisch", games: [
     "fr-entdecken", "fr-hearfind", "fr-geschichten", "fr-memory", "fr-janein", "fr-jacquesadit", "fr-farbenzug",
-    "fr-zaehlen", "fr-gouter", "fr-verse", "fr-buecher", "fr-wasfehlt", "fr-habille", "fr-geschichtenzug",
+    "fr-zaehlen", "fr-gouter", "fr-verse", "fr-buecher", "fr-wasfehlt", "fr-habille", "fr-geschichtenzug", "fr-boulangerie",
     "fr-telefon", "fr-echo", "fr-monster", "fr-wokatze", "fr-contraires", "fr-wortbild",
   ].map((id) => ({ id, page: id })) };
 

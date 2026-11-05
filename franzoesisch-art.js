@@ -82,11 +82,11 @@ function margot(pose = "steh", laune = "froh") {
 //   telefon     Allô, Margot ?                karte      was Margot vorschlägt
 //   kiste       der Weidenkorb mit den Spielen
 //   jukebox     das Grammophon (die Verse)    ausguck    das Panoramafenster
-//   aufnaeher   die Tafel mit den Écussons
+//   aufnaeher   die Tafel mit den Écussons      briefkasten  die Post von Lou
 // Die Einrichtung (franzoesisch-inhalt.js, EINRICHTUNG) in derselben Reihe.
 const ESC = (t) => String(t).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 const SCHRIFT = "Baloo 2, Nunito, sans-serif";
-function zimmer({ ausbau = 0, neuAb = Infinity, karte = null, aufnaeher: flicken = [], jukebox = false, telefon = false } = {}) {
+function zimmer({ ausbau = 0, neuAb = Infinity, karte = null, aufnaeher: flicken = [], jukebox = false, telefon = false, post = null } = {}) {
   const ding = (i, id, inhalt) => (ausbau > i ? `<g class="en-ausbau${i >= neuAb ? " is-neu" : ""}" data-ausbau="${id}" tabindex="0" role="button">${inhalt}</g>` : "");
   const ort = (id, inhalt) => `<g class="en-ort en-ort-${id}" data-ort="${id}" tabindex="0" role="button">${inhalt}</g>`;
   let s = "";
@@ -192,6 +192,10 @@ function zimmer({ ausbau = 0, neuAb = Infinity, karte = null, aufnaeher: flicken
       <ellipse cx="702" cy="420" rx="28" ry="5" fill="${DUNKEL}"/><path d="M704 418 L706 396" stroke="#c98a00" stroke-width="5" stroke-linecap="round"/>
       <path d="M704 400 Q698 376 680 360 Q702 352 734 360 Q714 380 710 400 Z" fill="#f4b400"/><ellipse cx="707" cy="360" rx="28" ry="7" fill="#ffd166" stroke="#c98a00" stroke-width="2"/>
       <path d="M744 380 q8 -8 4 -18 M754 396 q12 -8 8 -24" stroke="#8e5cd9" stroke-width="3" fill="none" stroke-linecap="round"/><circle cx="748" cy="362" r="4" fill="#8e5cd9"/><circle cx="762" cy="372" r="4" fill="#8e5cd9"/>`);
+  }
+  // Der gelbe Briefkasten (franzoesisch-art-3.js): die Postkarten von Cousine Lou
+  if (post && window.LernappFranzoesischArt?.BRIEFKASTEN) {
+    s += ort("briefkasten", `<g transform="translate(900 412)">${window.LernappFranzoesischArt.BRIEFKASTEN(Boolean(post.neu))}</g>`);
   }
   return `<svg viewBox="0 0 1000 560" class="en-zimmer-svg fr-zimmer-svg" role="img" aria-label="Der Französischwagen von innen" xmlns="http://www.w3.org/2000/svg">
     <defs><filter id="en-grau"><feColorMatrix type="saturate" values="0"/></filter></defs>${s}</svg>`;
