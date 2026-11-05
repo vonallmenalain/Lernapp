@@ -241,12 +241,18 @@
   // ---------------------------------------------------------------------------
   // Das Zimmer
   // ---------------------------------------------------------------------------
+  // Das Bild auf der Karte: bei «Hear & find» das Bild der Welt, in der
+  // gesucht wird, mit einem Fragezeichen – sonst sähe jeder Vorschlag zum
+  // Suchen gleich aus, in welcher Welt auch immer.
   function kartenBild(v) {
     const a = art();
     if (v.art === "geschichte") return `<g transform="scale(0.5)">${a.roccoKopf("froh")}</g>`;
-    const id = v.art === "hearfind" ? "cow" : a.AUFNAEHER_BILD[v.welt] || "barn";
+    const id = a.DING[a.AUFNAEHER_BILD[v.welt]] ? a.AUFNAEHER_BILD[v.welt] : (v.art === "hearfind" ? "cow" : "barn");
     const m = (a.STICKER[id]?.[0] || 0.3) * 0.62;
-    return `<g transform="translate(0 ${(a.STICKER[id]?.[1] || 0) * m}) scale(${m})">${a.DING[id]()}</g>`;
+    const bild = `<g transform="translate(0 ${(a.STICKER[id]?.[1] || 0) * m}) scale(${m})">${a.DING[id]()}</g>`;
+    if (v.art !== "hearfind") return bild;
+    return `${bild}<g class="en-karte-frage"><circle cx="17" cy="-15" r="9" fill="#3a7bd5" stroke="#ffffff" stroke-width="2"/>
+      <text x="17" y="-10.5" text-anchor="middle" font-family="Baloo 2, Nunito, sans-serif" font-weight="800" font-size="13" fill="#ffffff">?</text></g>`;
   }
   function vorschlagTitel(v) {
     const I = inhalt();

@@ -286,6 +286,41 @@ if (I.MONSTER_TEILE) {
   I.WELTEN.find((w) => w.id === "farm").woerter.forEach((w) => st.erkannt(w.id, true));
   v = st.vorschlag();
   pruefe(v.art === "geschichte" && I.GESCHICHTEN.find((g) => g.id === v.geschichte)?.welt === "farm", `Vorschlag nach dem Bauernhof: ${JSON.stringify(v)} statt einer Geschichte vom Hof`);
+  // Ein halb entdeckter Hof: Sind alle gehörten Wörter erkannt, gibt es dort
+  // nichts mehr zu suchen (Hear and find fragt nur Gehörtes ab) – sonst bliebe
+  // der Vorschlag stehen, so oft das Kind ihn spielt.
+  const { s: halb } = sandbox({ heute: () => "2026-11-04" });
+  const hof = I.WELTEN.find((w) => w.id === "farm").woerter.map((w) => w.id);
+  hof.slice(0, 8).forEach((id) => { halb.gehoert(id); halb.erkannt(id, true); });
+  const nachHalb = halb.vorschlag();
+  pruefe(!(nachHalb.art === "hearfind" && nachHalb.welt === "farm"), `Vorschlag mit 8 von 13 Wörtern erkannt: wieder Hear and find auf dem Hof (${JSON.stringify(nachHalb)}), obwohl eine Runde dort nichts Neues mehr abfragt`);
+  // Ein Kind, das immer den Vorschlag spielt (und alles beim ersten Mal
+  // findet), kommt voran: nie mehr als dreimal derselbe Vorschlag, am ersten
+  // Tag alle Welten erkannt, am zweiten alle sitzend – und Hear and find nur,
+  // wo eine Runde etwas bewirkt.
+  let tag = "2026-11-04";
+  const { s: kind } = sandbox({ heute: () => tag });
+  hof.slice(0, 7).forEach((id) => kind.gehoert(id));
+  const folge = (runden) => {
+    let alt = "", gleich = 0, meist = 0;
+    for (let i = 0; i < runden; i += 1) {
+      const v = kind.vorschlag();
+      const k = `${v.art}:${v.welt || v.geschichte}`;
+      gleich = k === alt ? gleich + 1 : 1; meist = Math.max(meist, gleich); alt = k;
+      if (v.art === "hearfind") {
+        const vorher = JSON.stringify(kind.welt(v.welt));
+        kind.hearfindWoerter(v.welt, 5).forEach((id) => kind.erkannt(id, true));
+        pruefe(JSON.stringify(kind.welt(v.welt)) !== vorher, `Vorschlag Hear and find in ${v.welt} (${tag}) bringt nichts weiter`);
+      } else if (v.art === "entdecken") I.WELTEN.find((w) => w.id === v.welt).woerter.forEach((w) => kind.gehoert(w.id));
+      else kind.geschichteGehoert(v.geschichte);
+    }
+    return meist;
+  };
+  const meist1 = folge(150);
+  pruefe(meist1 <= 3 && kind.aufnaeher().every((w) => w.voll), `Vorschlag am ersten Tag: bis ${meist1}-mal derselbe, ${kind.aufnaeher().filter((w) => w.voll).length} von ${I.WELTEN.length} Welten erkannt`);
+  tag = "2026-11-05";
+  const meist2 = folge(150);
+  pruefe(meist2 <= 3 && kind.aufnaeher().every((w) => w.gold), `Vorschlag am zweiten Tag: bis ${meist2}-mal derselbe, ${kind.aufnaeher().filter((w) => w.gold).length} von ${I.WELTEN.length} Welten sitzen`);
   // Bericht
   const b = st.bericht(st.stand());
   pruefe(b.gehoert === 13 && b.von === I.WELTEN.reduce((n, w) => n + w.woerter.length, 0), "Bericht: gehörte Wörter stimmen nicht");
