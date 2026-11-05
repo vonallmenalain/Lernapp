@@ -2,7 +2,7 @@
  * englisch-spiele-4.js – Die Spiele der Englischecke aus Etappe 4.
  *
  * Wie englisch-spiele.js: jede Funktion (kern, optionen), aufgerufen von
- * train-englischecke.js (starteSpiel); sie legen sich zu
+ * sprachwagen.js (starteSpiel); sie legen sich zu
  * window.LernappEnglischSpiele dazu.
  *
  *   monster      Make a monster: «Make the monster green! Give the monster
@@ -22,7 +22,7 @@
   const S = window.LernappEnglischSpiele;
   if (!S?.hilfen) return;
   const { mische, zufall, flaeche, punkte, lobPaar, svgVon, nochAktiv, SCHRIFT } = S.hilfen;
-  const A = () => window.LernappEnglischArt;
+  const A = () => window.LernappSprachwagen?.aktiv?.art?.() || window.LernappEnglischArt;
 
   // ===========================================================================
   // Make a monster

@@ -35,12 +35,21 @@
 (() => {
   "use strict";
 
-  const KEY = "lernapp.englisch";
-  const ELTERN_KEY = "lernapp.englisch.eltern";
+  // Ein Stand je Sprachwagen (window.LernappSprachStand.erzeuge), hier der des
+  // Englischwagens; der Französischwagen baut seinen eigenen
+  // (franzoesisch-stand.js) mit eigenem Kasten und eigener Einstellung.
+  //   key, elternKey  wo Stand und Einstellung der Eltern liegen
+  //   inhalt          () => der Inhalt der Sprache
+  //   ereignis        wie das Ereignis heisst, wenn die Eltern umstellen
+  //   varianten       [[Wort-Id, Text für den Bericht], …]: was anderswo anders
+  //                   heisst (britisches Englisch, Schweizer Französisch)
+  function erzeugeStand({ key, elternKey, inhalt: inhaltVon, ereignis, varianten = [] }) {
+  const KEY = key;
+  const ELTERN_KEY = elternKey;
   const EMPTY = { woerter: {}, runden: {}, geschichten: {} };
   const WAGEN_SCHRITTE = [1, 2, 4, 6, 9, 12, 15, 19, 23, 28, 33, 39, 45, 52, 60];
   const SCHRIFTEN = ["auto", "aus", "an"];
-  const inhalt = () => window.LernappEnglischInhalt || { WELTEN: [], EXTRA_WOERTER: [], GESCHICHTEN: [] };
+  const inhalt = () => inhaltVon() || { WELTEN: [], EXTRA_WOERTER: [], GESCHICHTEN: [] };
 
   const zahl = (v) => (Number.isFinite(Number(v)) && Number(v) > 0 ? Math.floor(Number(v)) : 0);
   const tagSauber = (t) => (typeof t === "string" && /^\d{4}-\d{2}-\d{2}$/.test(t) ? t : "");
@@ -242,7 +251,7 @@
   document.addEventListener("lernapp:game-state", (event) => {
     const alle = event.detail;
     if (alle && alle[ELTERN_KEY] && elternUebernehmen(alle[ELTERN_KEY])) {
-      document.dispatchEvent(new CustomEvent("lernapp:englisch-einstellungen", { detail: elternLokal() }));
+      document.dispatchEvent(new CustomEvent(ereignis, { detail: elternLokal() }));
     }
   });
   try { elternUebernehmen(window.LernappFirebase?.getGameState?.(ELTERN_KEY)); } catch { /* ohne Konto */ }
@@ -258,12 +267,6 @@
   // ---------------------------------------------------------------------------
   // Der Bericht für die Eltern (firebase.js, Karte «Englischecke»)
   // ---------------------------------------------------------------------------
-  // Wörter, die im amerikanischen Englisch anders heissen als im britischen
-  // Schulenglisch («Young World»).
-  const US_UK = [
-    ["mom", "mum"], ["cookie", "biscuit"], ["candy", "sweets"], ["pants", "trousers"], ["sweater", "jumper"],
-    ["sneakers", "trainers"], ["eraser", "rubber"], ["truck", "lorry"], ["fries", "chips"], ["fall", "autumn"],
-  ];
   function bericht(roh) {
     const s = sauber(roh);
     const ws = aufnaeher(s);
@@ -282,18 +285,33 @@
       sitzt: nach("sicher"),
       wackelig: alleIds.filter((id) => wortStand(id, s) === "erkannt" || (wortStand(id, s) === "gehoert" && s.woerter[id]?.f)).map(englisch),
       lieblinge,
-      usUk: US_UK.filter(([us]) => alleIds.includes(us)).map(([us, uk]) => `${us} (britisch: ${uk})`),
+      usUk: varianten.filter(([id]) => alleIds.includes(id)).map(([, so]) => so),
       farben: zaehle(inhalt().FARBEN || []),
       zahlen: zaehle(inhalt().ZAHLEN || []),
       spiele: Object.fromEntries(Object.entries(s.runden).filter(([, n]) => n > 0)),
     };
   }
 
-  window.LernappEnglischStand = {
+  return {
     KEY, ELTERN_KEY, EMPTY, WAGEN_SCHRITTE, SCHRIFTEN,
     stand, merge, heute, wortVon, weltVon, gehoert, erkannt, wortStand, welt, aufnaeher, hearfindWoerter,
     runde, geschichteGehoert, buchGehoert, runden, wagenStufe, vorschlag,
     eltern: elternLokal, schriftZeigen, bericht,
     onChange: (fn) => box.onChange?.(fn),
   };
+  }
+
+  window.LernappSprachStand = { erzeuge: erzeugeStand };
+  // Wörter, die im amerikanischen Englisch anders heissen als im britischen
+  // Schulenglisch («Young World»).
+  window.LernappEnglischStand = erzeugeStand({
+    key: "lernapp.englisch",
+    elternKey: "lernapp.englisch.eltern",
+    inhalt: () => window.LernappEnglischInhalt,
+    ereignis: "lernapp:englisch-einstellungen",
+    varianten: [
+      ["mom", "mum"], ["cookie", "biscuit"], ["candy", "sweets"], ["pants", "trousers"], ["sweater", "jumper"],
+      ["sneakers", "trainers"], ["eraser", "rubber"], ["truck", "lorry"], ["fries", "chips"], ["fall", "autumn"],
+    ].map(([us, uk]) => [us, `${us} (britisch: ${uk})`]),
+  });
 })();

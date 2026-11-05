@@ -384,13 +384,13 @@ if (I.MONSTER_TEILE) {
 {
   const index = lies("index.html");
   const sw = lies("service-worker.js");
-  const reihe = ["englisch-inhalt.js", "englisch-stand.js", "englisch-art.js", "englisch-art-2.js", "englisch-spiele.js", "englisch-art-3.js", "englisch-spiele-3.js", "englisch-art-4.js", "englisch-gemalt.js", "englisch-spiele-4.js", "englisch-stimme.js", "train-englischecke.js", "train-home.js"];
+  const reihe = ["englisch-inhalt.js", "englisch-stand.js", "englisch-art.js", "englisch-art-2.js", "englisch-spiele.js", "englisch-art-3.js", "englisch-spiele-3.js", "englisch-art-4.js", "englisch-gemalt.js", "englisch-spiele-4.js", "englisch-stimme.js", "sprachwagen.js", "train-englischecke.js", "train-home.js"];
   const stellen = reihe.map((d) => index.indexOf(`src="${d}`));
   stellen.forEach((st, i) => pruefe(st > 0, `index.html lädt ${reihe[i]} nicht`));
   pruefe(stellen.every((st, i) => i === 0 || st > stellen[i - 1]), `index.html lädt die Englischecke nicht in der Reihenfolge ${reihe.join(" → ")}`);
   pruefe(index.includes('src="bau-menschen.js'), "index.html lädt bau-menschen.js nicht (Mama und Papa der Englischecke)");
   pruefe(/href="englisch\.css/.test(index), "index.html lädt englisch.css nicht");
-  [...reihe.slice(0, 12), "englisch.css"].forEach((d) => pruefe(sw.includes(`./${d}`), `service-worker.js hält ${d} nicht vor`));
+  [...reihe.slice(0, 13), "englisch.css"].forEach((d) => pruefe(sw.includes(`./${d}`), `service-worker.js hält ${d} nicht vor`));
   pruefe(sw.includes('"/bilder/englisch/"'), "service-worker.js legt die gemalten Bilder der Englischecke nicht in den Cache der Buchbilder");
   const ent = lies("entitlement.js");
   const tor = lies("train-englischecke.js");
@@ -404,11 +404,11 @@ if (I.MONSTER_TEILE) {
   });
   pruefe(/ENGLISCHECKE/.test(ent) && /\[\.\.\.AREAS, LESEECKE, RECHENECKE, ENGLISCHECKE\]/.test(ent), "entitlement.js zählt die Englischecke nicht zu den Bereichen");
   pruefe(lies("firebase.js").includes('"lernapp.englisch.eltern"'), "firebase.js behält die Einstellung der Eltern beim Zurücksetzen nicht");
-  pruefe(lies("kids.js").includes('sprache === "en"'), "kids.js spricht kein Englisch");
+  pruefe(/\ben: \{ dateien: \(\) => window\.LernappEnglischDateien/.test(lies("kids.js")), "kids.js spricht kein Englisch");
 }
 
 // --- 6. Sprache ------------------------------------------------------------------
-for (const datei of ["englisch-inhalt.js", "englisch-stand.js", "englisch-art.js", "englisch-art-2.js", "englisch-spiele.js", "englisch-art-3.js", "englisch-spiele-3.js", "englisch-art-4.js", "englisch-gemalt.js", "englisch-spiele-4.js", "train-englischecke.js", "englisch.css", "docs/ENGLISCHECKE-KONZEPT.md"]) {
+for (const datei of ["englisch-inhalt.js", "englisch-stand.js", "englisch-art.js", "englisch-art-2.js", "englisch-spiele.js", "englisch-art-3.js", "englisch-spiele-3.js", "englisch-art-4.js", "englisch-gemalt.js", "englisch-spiele-4.js", "sprachwagen.js", "train-englischecke.js", "englisch.css", "docs/ENGLISCHECKE-KONZEPT.md"]) {
   const text = lies(datei);
   // Nur im Konzept darf stehen, wovon es umbenannt wurde («statt …»).
   pruefe(!text.split("\n").some((zeile) => /H[öo]r\s*&\s*find/i.test(zeile) && !/statt/.test(zeile)), `${datei}: «Hör & find» – es heisst «Hear and find»`);
