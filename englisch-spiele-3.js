@@ -24,7 +24,8 @@
   if (!S?.hilfen) return;
   const { mische, zufall, dingBild, roccoLok, flaeche, punkte, lobPaar, svgVon, nochAktiv, SCHRIFT } = S.hilfen;
   const A = () => window.LernappSprachwagen?.aktiv?.art?.() || window.LernappEnglischArt;
-  const POST_KEY = "lernapp.englisch.post";
+  // Welche Postkarten schon gelesen sind – je Sprachwagen («lernapp.englisch.post»).
+  const postKey = () => `lernapp.${window.LernappSprachwagen?.aktiv?.id || "englisch"}.post`;
   const lies = (key, fallback) => { try { return JSON.parse(localStorage.getItem(key) || "null") ?? fallback; } catch { return fallback; } };
   const merke = (key, wert) => { try { localStorage.setItem(key, JSON.stringify(wert)); } catch { /* privater Modus */ } };
   const wortVon = (k, id) => k.stand().wortVon(id);
@@ -277,8 +278,10 @@
       const tablett = [];
       runde.ersterVersuch = true;
       const zeichne = () => {
-        let s = `<rect width="1000" height="560" fill="#e9f7f6"/>${Array.from({ length: 10 }, (_, i) => `<rect x="${i * 100}" y="0" width="50" height="40" fill="#e8543f"/><rect x="${i * 100 + 50}" y="0" width="50" height="40" fill="#ffffff"/>`).join("")}
-          <rect x="0" y="300" width="1000" height="260" fill="#c8423b"/><rect x="0" y="292" width="1000" height="18" rx="6" fill="#d6dbe3"/>
+        // Die Kulisse: das Diner oder, was die Zeichnungen des Wagens mitbringen
+        // (im Französischwagen die Boulangerie); die Theke liegt immer bei y 300.
+        let s = `${A().DINER_KULISSE?.() || `<rect width="1000" height="560" fill="#e9f7f6"/>${Array.from({ length: 10 }, (_, i) => `<rect x="${i * 100}" y="0" width="50" height="40" fill="#e8543f"/><rect x="${i * 100 + 50}" y="0" width="50" height="40" fill="#ffffff"/>`).join("")}
+          <rect x="0" y="300" width="1000" height="260" fill="#c8423b"/><rect x="0" y="292" width="1000" height="18" rx="6" fill="#d6dbe3"/>`}
           <g transform="translate(150 300) scale(1.2)">${A().rocco("steh", "froh")}</g>
           <g class="en-gast" data-gast="1"><g transform="translate(830 250) scale(1.25)">${A().DING[gast]()}</g></g>
           <rect x="690" y="300" width="270" height="20" rx="8" fill="#b0b7c3"/>${tablett.map((id, i) => dingBild(id, 760 + i * 120, 262, 40)).join("")}`;
@@ -485,7 +488,7 @@
     return k.inhalt().POSTKARTEN.filter((p) => n >= p.ab && A().POSTKARTEN?.[p.id]);
   }
   function postNeu(k) {
-    const gelesen = lies(POST_KEY, []);
+    const gelesen = lies(postKey(), []);
     return postDa(k).some((p) => !gelesen.includes(p.id));
   }
   function post(k, { karte: id = null } = {}) {
@@ -496,9 +499,9 @@
     k.hilfe("post");
     const da = postDa(k);
     if (!da.length) { k.sage(I.SAETZE.keinePost); return; }
-    const gelesen = lies(POST_KEY, []);
+    const gelesen = lies(postKey(), []);
     const karte = da.find((p) => p.id === id) || da.find((p) => !gelesen.includes(p.id)) || da[da.length - 1];
-    merke(POST_KEY, [...new Set([...gelesen, karte.id])]);
+    merke(postKey(), [...new Set([...gelesen, karte.id])]);
     const schrift = Boolean(k.stand().schriftZeigen?.());
     const zeilen = [];
     if (schrift) {
@@ -539,7 +542,7 @@
     whatsmissing: () => `<rect width="200" height="112" fill="#e3f5fb"/>${dingBild("cow", 56, 60, 28)}<circle cx="104" cy="58" r="22" fill="none" stroke="#9aa0ab" stroke-width="3" stroke-dasharray="5 5"/>${dingBild("pig", 152, 62, 26)}<text x="104" y="67" text-anchor="middle" font-family="${SCHRIFT}" font-weight="800" font-size="24" fill="#3a7bd5">?</text>`,
     dressup: () => `<rect width="200" height="112" fill="#f3ecff"/><g transform="translate(100 104) scale(0.6)">${A().rocco("steh", "freude")}${A().ROCCO_KLEIDER?.partyhat?.() || ""}${A().ROCCO_KLEIDER?.bowtie?.() || ""}</g>`,
     geschichtenzug: () => `<rect width="200" height="112" fill="#fdf1e2"/><g transform="translate(4 30) scale(0.38)">${roccoLok(0, 150)}</g><rect x="72" y="52" width="56" height="34" rx="6" fill="#ffffff" stroke="#c9bfe8" stroke-width="2"/><rect x="134" y="52" width="56" height="34" rx="6" fill="#ffffff" stroke="#c9bfe8" stroke-width="2"/><text x="100" y="76" text-anchor="middle" font-family="${SCHRIFT}" font-weight="800" font-size="20" fill="#6c5ce7">1</text><text x="162" y="76" text-anchor="middle" font-family="${SCHRIFT}" font-weight="800" font-size="20" fill="#6c5ce7">2</text>`,
-    diner: () => `<rect width="200" height="112" fill="#e9f7f6"/><rect y="70" width="200" height="42" fill="#c8423b"/>${dingBild("pancakes", 70, 56, 26)}${dingBild("juice", 132, 52, 24)}`,
+    diner: () => A().DINER_KACHEL?.() || `<rect width="200" height="112" fill="#e9f7f6"/><rect y="70" width="200" height="42" fill="#c8423b"/>${dingBild("pancakes", 70, 56, 26)}${dingBild("juice", 132, 52, 24)}`,
     telefon: () => `<rect width="200" height="112" fill="#e9f4ff"/><g transform="translate(70 104) scale(0.55)">${A().rocco("wink", "freude")}</g>${gesicht("froh", 148, 54, 30)}`,
     echo: () => `<rect width="200" height="112" fill="#fff4dc"/>${dingBild("cat", 64, 56, 30)}<circle cx="146" cy="58" r="30" fill="#e8543f"/><rect x="138" y="40" width="16" height="26" rx="8" fill="#ffffff"/><path d="M130 58 a16 16 0 0 0 32 0" stroke="#ffffff" stroke-width="4" fill="none"/>`,
   });

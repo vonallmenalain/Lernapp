@@ -280,6 +280,11 @@
     w("raccoon", "Une marmotte.", "Margot est une marmotte.", "Où est la marmotte ?", "Ein Murmeltier.", "Margot ist ein Murmeltier.", "Wo ist das Murmeltier?"),
     w("box", "Une boîte.", "La boîte est ouverte.", "Où est la boîte ?", "Eine Kiste.", "Die Kiste ist offen.", "Wo ist die Kiste?"),
     w("bowtie", "Un nœud papillon.", "Un nœud papillon pour la fête !", "Où est le nœud papillon ?", "Eine Fliege.", "Eine Fliege fürs Fest!", "Wo ist die Fliege?"),
+    // Die Boulangerie (franzoesisch-art-3.js) – im Wörterbuch bei «Au marché» und «Le petit train»
+    w("croissant", "Un croissant.", "Le croissant est tout chaud.", "Où est le croissant ?", "Ein Gipfeli.", "Das Gipfeli ist ganz warm.", "Wo ist das Gipfeli?"),
+    w("baguette", "Une baguette.", "La baguette est longue.", "Où est la baguette ?", "Ein Baguette.", "Das Baguette ist lang.", "Wo ist das Baguette?"),
+    w("painchoc", "Un pain au chocolat.", "J'adore le pain au chocolat !", "Où est le pain au chocolat ?", "Ein Schoggibrötli.", "Ich liebe Schoggibrötli!", "Wo ist das Schoggibrötli?"),
+    w("chocolat", "Un chocolat chaud.", "Le chocolat chaud est délicieux.", "Où est le chocolat chaud ?", "Eine heisse Schokolade.", "Die heisse Schokolade ist fein.", "Wo ist die heisse Schokolade?"),
   ];
 
   // Dieselben Abläufe wie im Englischwagen (dieselben Ids: die Zeichnungen
@@ -407,6 +412,30 @@
         { en: "Regarde ! Un arc-en-ciel !", de: "Schau! Ein Regenbogen!", woerter: ["rainbow"] },
       ],
     },
+    // Neu im Französischwagen: Einkaufen auf dem Markt und in der Boulangerie.
+    {
+      id: "marche",
+      welt: "kitchen",
+      titel: ["Au marché.", "Auf dem Markt."],
+      bilder: [
+        { en: "Margot va au marché avec son panier.", de: "Margot geht mit ihrem Korb auf den Markt.", woerter: ["raccoon"] },
+        { en: "Des pommes, s'il vous plaît ! Combien ? Trois !", de: "Äpfel, bitte! Wie viele? Drei!", woerter: ["apple"] },
+        { en: "Et du fromage. Merci, madame !", de: "Und Käse. Danke, Madame!", woerter: ["cheese"] },
+        { en: "À la boulangerie : une baguette, un croissant et un pain au chocolat. Miam !", de: "In der Bäckerei: ein Baguette, ein Gipfeli und ein Schoggibrötli. Mmh!", woerter: ["baguette", "croissant", "painchoc"] },
+      ],
+    },
+    // Mit dem Zug durch Tunnel und über Brücken zu Mamie Marmotte.
+    {
+      id: "train",
+      welt: "city",
+      titel: ["Le petit train.", "Der kleine Zug."],
+      bilder: [
+        { en: "Margot prend le petit train. Tchou tchou !", de: "Margot fährt mit dem kleinen Zug. Tschu-tschu!", woerter: ["raccoon", "train"] },
+        { en: "Le train passe dans un tunnel. Il fait tout noir !", de: "Der Zug fährt durch einen Tunnel. Es ist ganz dunkel!", woerter: ["train"] },
+        { en: "Le train passe sur un pont. Regarde, le lac !", de: "Der Zug fährt über eine Brücke. Schau, der See!", woerter: ["train"] },
+        { en: "Voilà Mamie Marmotte ! Elle a un chocolat chaud pour Margot.", de: "Da ist Oma Murmeltier! Sie hat eine heisse Schokolade für Margot.", woerter: ["raccoon", "chocolat"] },
+      ],
+    },
     // Neu im Französischwagen: Wer die Fève findet, bekommt die Krone.
     {
       id: "galette",
@@ -478,6 +507,10 @@
     wasDann: ["Et ensuite ?", "Was kommt als Nächstes?"],
     danke: ["Merci !", "Danke!"],
     gernGeschehen: ["De rien !", "Gern geschehen!"],
+    diner: ["Bienvenue à la boulangerie de Margot ! Qui a faim ?", "Willkommen in Margots Bäckerei! Wer hat Hunger?"],
+    dinerZu: ["La boulangerie est fermée. À demain !", "Die Bäckerei ist zu. Bis morgen!"],
+    post: ["Regarde ! Une carte postale de cousine Lou !", "Schau! Eine Postkarte von Cousine Lou!"],
+    keinePost: ["Pas de courrier aujourd'hui. Joue un peu, et Lou écrit encore !", "Heute keine Post. Spiel ein bisschen, dann schreibt Lou wieder!"],
     echo: ["Écoute et répète ! Puis touche le micro.", "Hör zu und sag es nach! Dann tippe auf das Mikrofon."],
     echoHoer: ["Écoute-toi !", "Hör dich an!"],
     mikrofonAus: ["Le micro est éteint. Dis-le tout haut !", "Das Mikrofon ist aus. Sag es einfach laut!"],
@@ -538,6 +571,8 @@
     whatsmissing: "Schau dir das Bild gut an. Dann verschwindet ein Ding. Tippe unten auf das, was fehlt.",
     dressup: "Margot sagt auf Französisch, was sie anziehen möchte. Tippe darauf.",
     geschichtenzug: "Die Bilder der Geschichte sind durcheinander. Tippe sie der Reihe nach an: Was kommt zuerst, was dann?",
+    diner: "Das ist Margots Bäckerei. Die Gäste bestellen auf Französisch. Tippe auf das, was sie möchten.",
+    post: "Margots Cousine Lou reist durch Frankreich und die Romandie und schickt Postkarten. Tippe auf die Karte, und Margot liest sie vor.",
     telefon: "Margot ruft an und fragt dich etwas auf Französisch. Tippe auf eine Antwort. Wer mag, sagt sie laut nach.",
     echo: "Hör das Wort, tippe auf das Mikrofon und sag es nach. Danach hörst du dich selbst. Die Aufnahme bleibt auf diesem Gerät.",
     monster: "Margot sagt auf Französisch, wie das Monster aussehen soll: welche Farbe, wie viele Augen, Arme und Beine. Tippe auf die richtige Farbe oder Zahl.",
@@ -623,7 +658,6 @@
     return [en, de];
   }
   // Die Spiele im Spielkorb. gruppe: in welcher Reihe (SPIEL_GRUPPEN).
-  // (Die Boulangerie kommt mit eigenen Zeichnungen später.)
   const SPIELE = [
     { id: "hearfind", gruppe: "woerter", titel: ["Écoute et trouve", "Hör zu und finde"] },
     { id: "memory", gruppe: "woerter", titel: ["Memory", "Memory"] },
@@ -635,6 +669,7 @@
     { id: "whatsmissing", gruppe: "woerter", titel: ["Qu'est-ce qui manque ?", "Was fehlt?"] },
     { id: "dressup", gruppe: "rocco", titel: ["Habille Margot", "Margot anziehen"] },
     { id: "geschichtenzug", gruppe: "rocco", titel: ["Le train des histoires", "Geschichtenzug"] },
+    { id: "diner", gruppe: "rocco", titel: ["La boulangerie", "Die Bäckerei"] },
     { id: "monster", gruppe: "farben", titel: ["Le monstre", "Ein Monster bauen"] },
     { id: "wokatze", gruppe: "rocco", titel: ["Où est le chat ?", "Wo ist die Katze?"] },
     { id: "gegenteile", gruppe: "woerter", titel: ["Les contraires", "Gegenteile"] },
@@ -758,6 +793,24 @@
       a("winken", "Au revoir, Margot !", "Tschüss, Margot!", ["Salut ! À bientôt !", "Tschüss! Bis bald!"]),
     ] },
   ];
+  // La boulangerie: Gäste bestellen («Je voudrais un croissant, s'il te plaît !»).
+  // Deutsch im Akkusativ: «Ich möchte einen Kuchen, bitte!»
+  const bitte = (fr) => `Je voudrais ${klein(ohnePunkt(fr))}, s'il te plaît !`;
+  const deKlein = (t) => (/^(Der|Die|Das|Ein|Eine) /.test(t) ? klein(t) : t);
+  const akk = (de) => de.replace(/\bein Kuchen\b/g, "einen Kuchen");
+  const deBitte = (de) => `Ich möchte ${akk(deKlein(ohnePunkt(de)))}, bitte!`;
+  const DINER_GAESTE = ["dog", "cat", "bear", "penguin", "monkey"];
+  const DINER_ESSEN = ["croissant", "baguette", "painchoc", "chocolat", "bread", "cake", "cookie", "milk", "juice", "icecream"];
+  const DINER_PAARE = [["croissant", "chocolat"], ["painchoc", "milk"], ["baguette", "juice"], ["cake", "chocolat"], ["cookie", "milk"], ["croissant", "juice"], ["painchoc", "chocolat"], ["icecream", "cookie"]];
+  // Die Post von Cousine Lou, eine neue alle paar Runden (franzoesisch-art-3.js).
+  const POSTKARTEN = [
+    { id: "geneve", ab: 0, text: ["Coucou de Genève ! Le jet d'eau est très haut. Bisous, Lou.", "Hallo aus Genf! Der Springbrunnen ist sehr hoch. Liebe Grüsse, Lou."] },
+    { id: "paris", ab: 4, text: ["Coucou de Paris ! Regarde la tour Eiffel. Bisous, Lou.", "Hallo aus Paris! Schau den Eiffelturm an. Liebe Grüsse, Lou."] },
+    { id: "montblanc", ab: 10, text: ["Coucou du Mont-Blanc ! Il y a beaucoup de neige. Brrr ! Bisous, Lou.", "Hallo vom Mont Blanc! Brrr, hier hat es viel Schnee. Liebe Grüsse, Lou."] },
+    { id: "provence", ab: 18, text: ["Coucou de Provence ! La lavande sent bon. Bisous, Lou.", "Hallo aus der Provence! Der Lavendel duftet fein. Liebe Grüsse, Lou."] },
+    { id: "bretagne", ab: 28, text: ["Coucou de Bretagne ! Je vois un phare et la mer. Bisous, Lou.", "Hallo aus der Bretagne! Ich sehe einen Leuchtturm und das Meer. Liebe Grüsse, Lou."] },
+  ];
+
   // Das Grammophon: Kinderverse, gesprochen. bild: was zur Zeile gezeichnet
   // wird («rocco» ist Margot).
   const z = (en, de, bild = []) => ({ en, de, bild });
@@ -890,6 +943,10 @@
       t.antworten.forEach((x) => { dazu(x.satz[0], x.satz[1], `telefon ${x.id}`); if (x.antwort) dazu(x.antwort[0], x.antwort[1], `telefon ${x.id}`); });
     });
     SPIEL_GRUPPEN.forEach((g) => dazu(g.titel[0], g.titel[1], `spielgruppe ${g.id}`));
+    const wortVon = (id) => [...WELTEN.flatMap((x) => x.woerter), ...EXTRA_WOERTER].find((x) => x.id === id);
+    DINER_ESSEN.forEach((id) => { const x = wortVon(id); dazu(bitte(x.en), deBitte(x.de), `diner ${id}`); });
+    DINER_PAARE.forEach(([p, q]) => { const [en, de] = dinerPaar(p, q); dazu(en, de, `diner ${p}+${q}`); });
+    POSTKARTEN.forEach((k) => dazu(k.text[0], k.text[1], `post ${k.id}`));
     MONSTER_TEILE.forEach((t) => dazu(t.satz[0], t.satz[1], `monster ${t.teil} ${t.n}`));
     FARBEN.forEach((f) => { const [en, de] = monsterFarbe(f); dazu(en, de, `monster ${f.id}`); });
     WO_KATZE.forEach((x) => dazu(x.satz[0], x.satz[1], `wokatze ${x.wo} ${x.ding}`));
@@ -898,6 +955,13 @@
       dazu(...gegenteilAntwort(g, i), `gegenteile ${g.paar[i]}`);
     }));
     return liste;
+  }
+
+  // «Je voudrais un croissant et un chocolat chaud, s'il te plaît !»
+  function dinerPaar(p, q) {
+    const alle = [...WELTEN.flatMap((x) => x.woerter), ...EXTRA_WOERTER];
+    const [x, y] = [p, q].map((id) => alle.find((v) => v.id === id));
+    return [`Je voudrais ${klein(ohnePunkt(x.en))} et ${klein(ohnePunkt(y.en))}, s'il te plaît !`, `Ich möchte ${akk(deKlein(ohnePunkt(x.de)))} und ${akk(deKlein(ohnePunkt(y.de)))}, bitte!`];
   }
 
   // In der Schrift: kein Zeilenumbruch vor ? ! : ; (französisch steht davor
@@ -920,6 +984,6 @@
     FARBEN, ZAHLEN, ZAEHLDINGE, ESSEN, SPIELE, VERSE, BUECHER,
     tippeBallon, wagenBitte, wieViele, soViele, istDas, paare, gross, lesewort, schrift,
     SPIEL_GRUPPEN, MONSTER_TEILE, monsterFarbe, WO_KATZE, GEGENTEILE, gegenteilFrage, gegenteilAntwort, AUFTRAEGE,
-    KLEIDER, TELEFON, TELEFON_SPIELE,
+    KLEIDER, TELEFON, TELEFON_SPIELE, DINER_GAESTE, DINER_ESSEN, DINER_PAARE, POSTKARTEN, bitte, deBitte, dinerPaar,
   };
 })();

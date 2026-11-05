@@ -21,17 +21,18 @@ gelten.
 | | |
 | --- | --- |
 | **Kern** | `sprachwagen.js` baut beide Wagen aus einer Einstellung (`train-englischecke.js`, `train-franzoesischecke.js`); die Spiele (`englisch-spiele*.js`) und Zeichnungen (`englisch-art*.js`) fragen nach dem offenen Wagen (`LernappSprachwagen.aktiv`). Der Stand ist eine Fabrik (`LernappSprachStand.erzeuge`), jeder Wagen hat seinen Kasten (`lernapp.englisch`, `lernapp.franzoesisch`). |
-| **Inhalt** | `franzoesisch-inhalt.js`: 11 Welten mit je 13 Wörtern (mit Artikel), 11 Geschichten, alle Sätze, 14 Spiele, Telefon und Echo, 5 Verse, 5 Bücher aus dem Lesewagen; das Feld `en` heisst im Kern «die Fremdsprache». In der Schrift kein Umbruch vor «?», die Artikel eingefärbt (`schrift`). |
-| **Margot** | `franzoesisch-art.js`: Margot in denselben Massen wie Rocco (Kleider und Posen passen), der Panorama-Bistrowagen mit 15 Stücken Einrichtung; gemalt sind ihr Charakterbogen, ihr Sticker und alle 44 Geschichtenbilder (die Gemälde des Englischwagens mit Margot statt Rocco, `bilder/franzoesisch/`, `franzoesisch-gemalt.js`). Wimmelbilder, Sticker und Aufnäher teilen beide Wagen. |
-| **Stimme** | 1095 französische Aufnahmen (`stimme/franzoesisch/`, `franzoesisch-stimme.js`, Bereich `franzoesisch` in `stimme-google.mjs`), die deutsche Seite mit der Stimme der App (`stimme-app/franzoesischecke.mjs`). |
+| **Inhalt** | `franzoesisch-inhalt.js`: 12 Welten mit je 13 Wörtern (mit Artikel), 14 Geschichten, alle Sätze, 15 Spiele, Telefon und Echo, 5 Verse, 5 Bücher aus dem Lesewagen; das Feld `en` heisst im Kern «die Fremdsprache». In der Schrift kein Umbruch vor «?», die Artikel eingefärbt (`schrift`). |
+| **Margot** | `franzoesisch-art.js`: Margot in denselben Massen wie Rocco (Kleider und Posen passen), der Panorama-Bistrowagen mit 15 Stücken Einrichtung; gemalt sind ihr Charakterbogen, ihr Sticker und alle 56 Geschichtenbilder (44 sind die Gemälde des Englischwagens mit Margot statt Rocco, `bilder/franzoesisch/`, `franzoesisch-gemalt.js`). Wimmelbilder, Sticker und Aufnäher teilen beide Wagen. |
+| **Stimme** | 1204 französische Aufnahmen (`stimme/franzoesisch/`, `franzoesisch-stimme.js`, Bereich `franzoesisch` in `stimme-google.mjs`), die deutsche Seite mit der Stimme der App (`stimme-app/franzoesischecke.mjs`). |
 | **Lernzug** | Der vierte Wagen ganz hinten, grün, Schild «Bonjour», mit Panoramadach. Würde die Lernlok über die höhere Lok des Gripszugs reichen, wird der Lernzug gerade so viel kleiner, dass er davor hält. Die Tür im Bistro führt in den Englischwagen. |
 | **Eltern** | Eine Karte «Französischecke» wie die des Englischwagens: Schrift, Tempo, Bericht mit den Wörtern der Romandie, Aufträge für die Familie. |
 | **Prüfungen** | `validate-franzoesisch.mjs`, `check-franzoesischecke.mjs`. |
 | **Les fêtes** | Die zwölfte Welt (`franzoesisch-art-2.js`): Noël im Schnee, Galette und Carnaval auf dem Dorfplatz, Pâques auf der Wiese, der 1er Août am Abend – mit neun neuen Zeichnungen (Père Noël, bûche, étoile, galette, couronne, lapin, cloche, masque, lampion), gemalt samt Stickern und Aufnäher. Dazu die Geschichte *La galette des rois*: Margot findet die Fève und wird Königin. «Holidays» und die Halloween-Geschichte bleiben im Englischwagen. |
+| **La boulangerie** | Statt «Rocco's diner» (`franzoesisch-art-3.js`): Hund, Katze, Bär, Pinguin und Affe bestellen «Je voudrais un croissant, s'il te plaît !»; vier neue Zeichnungen (croissant, baguette, pain au chocolat, chocolat chaud) samt Stickern. |
+| **La poste** | Der gelbe Briefkasten im Bistro und fünf Postkarten von Lou, Margots Cousine mit der blauen Mütze: Genève, Paris, Mont-Blanc, Provence, Bretagne – mit Schweizer Briefmarke und «Bisous, Lou.». Die Post hat ihren eigenen Kasten (`lernapp.franzoesisch.post`). |
+| **Neue Geschichten** | *Au marché* (Äpfel beim Bären, Käse bei der Kuh, Brot beim Hund) und *Le petit train* (durch den Tunnel, über die Brücke, zu Mamie Marmotte mit einer heissen Schokolade) – gezeichnet und gemalt. |
 
-**Noch offen:** die Boulangerie (statt des Diners), die Post mit Postkarten aus der Romandie
-und Frankreich und die Geschichten *Au marché* und *Le petit train*. Bis dahin fehlen im
-Französischwagen der Briefkasten und das Restaurant.
+Damit ist alles aus Abschnitt 11 gebaut.
 
 ---
 

@@ -217,8 +217,14 @@
     monster: () => `<rect width="200" height="112" fill="#f3ecff"/>${A().MONSTER ? `<g transform="translate(100 104) scale(0.3)">${A().MONSTER({ farbe: "#3fbf74", augen: 3, arme: 2, beine: 2 })}</g>` : ""}`,
     wokatze: () => `<rect width="200" height="112" fill="#fff6e6"/>${A().WO_KATZE ? `<g transform="translate(30 4) scale(0.48)">${A().WO_KATZE("in", "box")}</g>` : ""}`,
     gegenteile: () => `<rect width="200" height="112" fill="#eef7ea"/>${A().GEGENTEILE ? `<g transform="translate(6 20) scale(0.4)">${A().GEGENTEILE.big()}</g><g transform="translate(104 20) scale(0.4)">${A().GEGENTEILE.small()}</g>` : ""}`,
-    wortbild: () => `<rect width="200" height="112" fill="#fff4dc"/><rect x="34" y="16" width="58" height="80" rx="10" fill="#ffffff" stroke="#e1d9c6" stroke-width="3"/>${S.dingBild("cat", 63, 56, 26)}
-      <rect x="108" y="16" width="58" height="80" rx="10" fill="#ffffff" stroke="#e1d9c6" stroke-width="3"/><text x="137" y="64" text-anchor="middle" font-family="${SCHRIFT}" font-weight="800" font-size="20" fill="#243047">cat</text>`,
+    // Das Wort zum Lesen in der Sprache des offenen Wagens («cat», «le chat»).
+    wortbild: () => {
+      const I = window.LernappSprachwagen?.aktiv?.inhalt?.();
+      const katze = I?.WELTEN?.flatMap((w) => w.woerter).find((w) => w.id === "cat");
+      const wort = (katze && I.lesewort?.(katze)) || "cat";
+      return `<rect width="200" height="112" fill="#fff4dc"/><rect x="34" y="16" width="58" height="80" rx="10" fill="#ffffff" stroke="#e1d9c6" stroke-width="3"/>${S.dingBild("cat", 63, 56, 26)}
+      <rect x="108" y="16" width="58" height="80" rx="10" fill="#ffffff" stroke="#e1d9c6" stroke-width="3"/><text x="137" y="64" text-anchor="middle" font-family="${SCHRIFT}" font-weight="800" font-size="${wort.length > 4 ? 14 : 20}" fill="#243047">${wort}</text>`;
+    },
   });
 
   Object.assign(S, { monster, wokatze, gegenteile, wortbild });

@@ -18,11 +18,14 @@
  *               auf), vier Bilder gehört zählt die Geschichte.
  *   Wörterbuch  Margot ist ihr eigener Sticker (gemalt), die übrigen sind die
  *               des Englischwagens.
- *   Spielkorb   Alle Spiele, ohne Diner und Post; «Oui ou non ?» spielt eine
- *               Runde.
+ *   Spielkorb   Alle Spiele; «Oui ou non ?» spielt eine Runde.
  *   Schrift     «Immer zeigen» stellt den Text mit eingefärbten Artikeln dazu.
  *   Tür         Die Tür führt in den Englischwagen – dort ist wieder Rocco.
  *   Les fêtes   Die eigene Welt steht gemalt da, mit allen 13 Dingen.
+ *   Boulangerie Statt des roten Diners eine Bäckerei; die Gäste bestellen
+ *               «Je voudrais …, s'il te plaît !», eine ganze Runde zählt.
+ *   La poste    Im Bistro steht der gelbe Briefkasten; die erste Karte kommt
+ *               von Lou aus Genève, Margot liest sie vor.
  *   Handy       Quer auf dem Handy ragt nichts über den Rand.
  *
  * Aufruf:  node scripts/check-franzoesischecke.mjs
@@ -151,10 +154,9 @@ try {
     await mitschreiben(seite);
     await warte(300);
     await deUeberall(seite, `${name}, Zimmer`);
-    for (const ort of ["tuer", "regal", "buch", "rocco", "karte", "kiste", "ausguck", "aufnaeher", "jukebox", "telefon"]) {
+    for (const ort of ["tuer", "regal", "buch", "rocco", "karte", "kiste", "ausguck", "aufnaeher", "jukebox", "telefon", "briefkasten"]) {
       if (!(await seite.locator(`.en-bild [data-ort="${ort}"]`).count())) fehlt(`${name}: im Bistro fehlt ${ort}`);
     }
-    if (await seite.locator('.en-bild [data-ort="briefkasten"]').count()) fehlt(`${name}: im Bistro steht ein Briefkasten (die Post aus Amerika gehört in den Englischwagen)`);
     const margot = await seite.evaluate(() => document.querySelector('.en-bild [data-ort="rocco"]')?.innerHTML.includes("#b98552"));
     if (!margot) fehlt(`${name}: auf dem Stuhl sitzt nicht Margot`);
     const rand = await seite.evaluate(() => {
@@ -255,7 +257,7 @@ try {
     await warte(200);
     const spiele = await seite.evaluate(() => [...document.querySelectorAll(".en-wahl-kachel")].map((k) => k.dataset.wahl));
     const erwartet = await seite.evaluate(() => window.LernappFranzoesischInhalt.SPIELE.map((s) => s.id));
-    if (erwartet.some((id) => !spiele.includes(id)) || spiele.includes("diner")) fehlt(`${name}: der Spielkorb zeigt nicht alle Spiele (${spiele.join(", ")})`);
+    if (erwartet.some((id) => !spiele.includes(id)) || spiele.length !== erwartet.length) fehlt(`${name}: der Spielkorb zeigt nicht alle Spiele (${spiele.join(", ")})`);
     await tippe(seite, '.en-wahl-kachel[data-wahl="janein"]');
     await warte(400);
     if ((await ansicht(seite)) !== "janein") fehlt(`${name}: «Oui ou non ?» startet nicht (${await ansicht(seite)})`);
@@ -307,6 +309,51 @@ try {
     await kontext.close();
   }
 
+  // --- La boulangerie und la poste ------------------------------------------------
+  {
+    const { kontext, seite } = await neueSeite(browser, { width: 1280, height: 800 }, seitenFehler, "Boulangerie");
+    await seite.goto(`${BASIS}/index.html?franzoesisch=1`);
+    await seite.waitForFunction(() => window.LernappFranzoesischecke?.ansicht?.() === "zimmer", null, { timeout: 8000 }).catch(() => fehlt("Boulangerie: der Französischwagen geht nicht auf"));
+    await mitschreiben(seite);
+    const B = await seite.evaluate(() => {
+      const x = window.LernappFranzoesischInhalt;
+      const w = (id) => x.WELTEN.flatMap((y) => y.woerter).concat(x.EXTRA_WOERTER).find((y) => y.id === id);
+      return { einzeln: x.DINER_ESSEN.map((id) => ({ id, satz: x.bitte(w(id).en) })), paare: x.DINER_PAARE.map(([p, q]) => ({ ids: [p, q], satz: x.dinerPaar(p, q)[0] })) };
+    });
+    const letztesFr = (muster) => seite.evaluate((m) => [...window.__alles].reverse().find((x) => x.sprache === "fr" && new RegExp(m).test(x.text))?.text || null, muster);
+    await tippe(seite, '.en-bild [data-ort="kiste"]');
+    await warte(200);
+    await tippe(seite, '.en-wahl-kachel[data-wahl="diner"]');
+    await warte(300);
+    if ((await ansicht(seite)) !== "diner") fehlt(`Boulangerie: startet nicht aus dem Spielkorb (${await ansicht(seite)})`);
+    const kulisse = await seite.evaluate(() => document.querySelector(".en-bild svg")?.innerHTML.includes("#3a6fc4"));
+    if (!kulisse) fehlt("Boulangerie: es steht noch das rote Diner da (keine blau-weisse Markise)");
+    await deUeberall(seite, "Boulangerie");
+    for (let i = 0; i < 10; i += 1) {
+      await warte(150);
+      if ((await stand(seite)).runden.diner) break;
+      const satz = await letztesFr("s'il te plaît !$");
+      const bestellung = B.paare.find((x) => x.satz === satz)?.ids || [B.einzeln.find((x) => x.satz === satz)?.id].filter(Boolean);
+      if (!bestellung.length) { fehlt(`Boulangerie: niemand bestellt «Je voudrais …, s'il te plaît !» (${satz})`); break; }
+      for (const id of bestellung) { await tippe(seite, `.en-bild [data-essen="${id}"]`); await warte(60); }
+    }
+    if ((await stand(seite)).runden.diner !== 1) fehlt("Boulangerie: eine ganze Runde zählt nicht");
+
+    // Die Post: der Briefkasten im Bistro, die erste Karte aus Genève.
+    for (let i = 0; i < 3 && (await ansicht(seite)) !== "zimmer"; i += 1) { await seite.locator(".stage-back").click(); await warte(200); }
+    await seite.evaluate(() => document.querySelector(".en-wahl")?.remove());
+    await gesagt(seite);
+    await tippe(seite, '.en-bild [data-ort="briefkasten"]');
+    await warte(300);
+    if ((await ansicht(seite)) !== "post") fehlt(`La poste: der Briefkasten zeigt keine Post (${await ansicht(seite)})`);
+    const karte = await seite.evaluate(() => ({ lou: document.querySelector(".en-bild svg")?.innerHTML.includes("#2f5fb3"), karten: document.querySelectorAll(".en-bild [data-karte]").length }));
+    const vorgelesen = (await gesagt(seite)).filter((x) => x.sprache === "fr").map((x) => x.text);
+    if (!vorgelesen.some((t) => /^Coucou de Genève !/.test(t)) || !vorgelesen.some((t) => /Lou !$/.test(t))) fehlt(`La poste: Margot liest Lous Karte aus Genève nicht vor (${vorgelesen.join(" | ")})`);
+    if (!karte.lou || karte.karten < 1) fehlt(`La poste: keine Karte von Lou (${JSON.stringify(karte)})`);
+    await deUeberall(seite, "La poste");
+    await kontext.close();
+  }
+
   await browser.close();
   if (seitenFehler.length) fehlt(`Fehler auf der Seite: ${[...new Set(seitenFehler)].join(" | ")}`);
 } catch (e) {
@@ -317,4 +364,4 @@ if (befunde.length) {
   console.error(`Die Französischecke im Browser stimmt nicht (${befunde.length}):\n${befunde.map((b) => `  - ${b}`).join("\n")}`);
   process.exit(1);
 }
-console.log("Die Französischecke im Browser stimmt: Startbild, Bistro, Entdecken, Écoute et trouve, Geschichte mit Margot, Wörterbuch, Spielkorb, Schrift, Tür, DE überall.");
+console.log("Die Französischecke im Browser stimmt: Startbild, Bistro, Entdecken, Écoute et trouve, Geschichte mit Margot, Wörterbuch, Spielkorb, Schrift, Tür, Les fêtes, Boulangerie, Post von Lou, DE überall.");
