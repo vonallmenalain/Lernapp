@@ -18,11 +18,13 @@
  *       Die Sätze des Bereichs: wie viele, wie viele Zeichen, wie viele
  *       schon eine Aufnahme haben.
  *
- *   node scripts/stimme-google.mjs stimmen
- *       Die deutschen Chirp-3-HD-Stimmen, die Google anbietet.
+ *   node scripts/stimme-google.mjs stimmen [--sprache fr-FR]
+ *       Die Chirp-3-HD-Stimmen, die Google anbietet (ohne --sprache die
+ *       deutschen).
  *
- *   node scripts/stimme-google.mjs probe [--stimmen Aoede,Charon] [--tempo 0.95] [--aus <ordner>]
- *       Je Stimme eine Hörprobe mit typischen Sätzen der Bauecke – ohne
+ *   node scripts/stimme-google.mjs probe [--sprache fr-FR] [--stimmen Aoede,Charon] [--tempo 0.95] [--aus <ordner>]
+ *       Je Stimme eine Hörprobe mit typischen Sätzen – auf Deutsch aus der
+ *       Bauecke, mit --sprache fr-FR aus der geplanten Französischecke. Ohne
  *       --stimmen alle. Landet ausserhalb des Repos (Standard: im
  *       Temp-Ordner, lernapp-stimmprobe/).
  *
@@ -165,17 +167,18 @@ function erklaereFehler({ status, daten, netz }) {
   return `Google antwortet ${status}: ${meldung}`;
 }
 
-async function stimmenListe() {
+//   sprache  «de» (alle deutschen) oder ein Code wie «fr-FR»
+async function stimmenListe(sprache = "de") {
   const r = await anfrage({ pfad: "/voices" });
   if (r.status !== 200) throw new Error(erklaereFehler(r));
   return (r.daten?.voices || [])
-    .filter((v) => /Chirp3-HD/.test(v.name) && v.languageCodes.some((l) => /^de-/.test(l)))
+    .filter((v) => /Chirp3-HD/.test(v.name) && v.languageCodes.some((l) => l === sprache || l.startsWith(`${sprache}-`)))
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
 // Ganzer Name aus einem kurzen («Charon» → «de-DE-Chirp3-HD-Charon»).
-function stimmeName(kurz) {
-  return /Chirp3-HD/.test(kurz) ? kurz : `de-DE-Chirp3-HD-${kurz}`;
+function stimmeName(kurz, sprache = "de-DE") {
+  return /Chirp3-HD/.test(kurz) ? kurz : `${sprache}-Chirp3-HD-${kurz}`;
 }
 
 const auszusprechen = (text) => AUSSPRACHE_GANZ[text] || Object.entries(AUSSPRACHE).reduce((t, [wort, so]) => t.replaceAll(wort, so), text);
@@ -248,8 +251,8 @@ async function zeigeTexte() {
 }
 
 async function zeigeStimmen() {
-  const stimmen = await stimmenListe();
-  if (!stimmen.length) { console.log("Google bietet keine deutsche Chirp-3-HD-Stimme an."); return; }
+  const stimmen = await stimmenListe(wert("sprache", "de"));
+  if (!stimmen.length) { console.log(`Google bietet keine Chirp-3-HD-Stimme für «${wert("sprache", "de")}» an.`); return; }
   stimmen.forEach((v) => console.log(`${v.name.padEnd(34)} ${String(v.ssmlGender || "").padEnd(7)} ${v.languageCodes.join(", ")}`));
   console.log(`\n${stimmen.length} Stimmen. Hörproben: node scripts/stimme-google.mjs probe --stimmen ${stimmen.slice(0, 3).map((v) => v.name.split("-").pop()).join(",")}`);
 }
@@ -261,18 +264,33 @@ const PROBE = [
   "Juhui! Flora hat alle Sterne! Flora ist überglücklich.",
   "Ich hätte gerne ein Rüebli. Malst du die Wand blau an?",
 ].join(" ");
+// Die Hörprobe für die Französischecke: Begrüssung, Wörter mit Artikel
+// (le/la/l'/un/une), Bindungen (les enfants, un éléphant), eine Frage, Zahlen,
+// «Jacques a dit» und ein Lob.
+const PROBE_FR = [
+  "Bonjour ! Bienvenue dans le wagon français.",
+  "Regarde : une vache, un cochon, l'arbre et une pomme rouge.",
+  "Où est le chat ? Le chat est sous la table.",
+  "Un éléphant, les enfants, les oiseaux. Un, deux, trois, quatre, cinq.",
+  "Jacques a dit : touche ton nez ! Bravo, c'est super !",
+].join(" ");
+const PROBEN = { de: PROBE, "de-DE": PROBE, fr: PROBE_FR, "fr-FR": PROBE_FR, "fr-CA": PROBE_FR };
 
 async function probe() {
   const aus = path.resolve(wert("aus", path.join(os.tmpdir(), "lernapp-stimmprobe")));
   fs.mkdirSync(aus, { recursive: true });
+  const sprache = wert("sprache", "de");
+  const text = PROBEN[sprache];
+  if (!text) throw new Error(`Keine Hörprobe für «${sprache}» (es gibt: ${Object.keys(PROBEN).join(", ")}).`);
   const gewuenscht = wert("stimmen");
-  const stimmen = gewuenscht ? gewuenscht.split(",").map((s) => stimmeName(s.trim())) : (await stimmenListe()).map((v) => v.name);
+  const voll = sprache.includes("-") ? sprache : sprache === "fr" ? "fr-FR" : "de-DE";
+  const stimmen = gewuenscht ? gewuenscht.split(",").map((s) => stimmeName(s.trim(), voll)) : (await stimmenListe(sprache)).map((v) => v.name);
   const tempo = wert("tempo", null);
-  const zeichen = PROBE.length * stimmen.length;
+  const zeichen = text.length * stimmen.length;
   if (!flag("kosten-ok") && verbrauchtDiesenMonat() + zeichen > GRENZE_MONAT) throw new Error(`Das wären ${zeichen} Zeichen – zusammen mit ${verbrauchtDiesenMonat()} diesen Monat mehr als ${GRENZE_MONAT}.`);
   for (const stimme of stimmen) {
-    const wav = await sprich(PROBE, { stimme, tempo });
-    buche(PROBE.length);
+    const wav = await sprich(text, { stimme, tempo });
+    buche(text.length);
     const ziel = path.join(aus, `${stimme}${tempo ? `-tempo-${tempo}` : ""}.mp3`);
     const sekunden = zuMp3(wav, ziel);
     console.log(`${ziel}  ${sekunden.toFixed(1)} s`);
