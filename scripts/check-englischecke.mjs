@@ -18,7 +18,9 @@
  *   Gemälde     Bauernhof und Geschichte gehen erst auf, wenn ihre Gemälde
  *               geladen sind – die Zeichnung darunter blitzt nicht auf. Lädt
  *               kein Gemälde, zeigt sich die Zeichnung.
- *   Wörterbuch  Jedes gehörte Wort ist ein farbiger Sticker und sagt sich.
+ *   Wörterbuch  Jedes gehörte Wort ist ein farbiger Sticker und sagt sich;
+ *               Buch, Aufnäher und Sticker sind gemalt und beim Aufschlagen
+ *               schon geladen.
  *   Türen       Die Tür im Englischwagen führt in den Rechenwagen; dessen Tür
  *               bietet Englisch- und Lesewagen an.
  *   Schrift     «Immer zeigen» der Eltern stellt die Wörter geschrieben dazu.
@@ -333,9 +335,25 @@ try {
     await seite.locator(".stage-back").click();
     await warte(200);
     await tippe(seite, '.en-bild [data-ort="buch"]');
-    await warte(200);
-    if ((await ansicht(seite)) !== "woerterbuch") fehlt(`${name}: das Buch öffnet das Wörterbuch nicht`);
+    if ((await bisAnsicht(seite, "woerterbuch")) !== "woerterbuch") fehlt(`${name}: das Buch öffnet das Wörterbuch nicht`);
+    {
+      // Gemalt: das Buch, die Aufnäher und die Sticker – schon geladen, keine Zeichnung sichtbar.
+      const g = await seite.evaluate(() => {
+        const A = window.LernappEnglischArt;
+        const ids = [...document.querySelectorAll(".en-bild [data-sticker]")].map((k) => k.dataset.sticker);
+        const ersatz = [...document.querySelectorAll(".en-bild .en-ersatz")];
+        return {
+          geladen: A.istGeladen(A.gemaeldeVon("woerterbuch", ids)),
+          sticker: document.querySelectorAll('.en-bild [data-sticker] image.en-gemaelde').length, ids: ids.length,
+          aufnaeher: document.querySelectorAll(".en-bild [data-flicken] image.en-gemaelde").length,
+          buch: document.querySelectorAll('.en-bild image.en-gemaelde[href*="woerterbuch"]').length,
+          ersatzSichtbar: ersatz.filter((e) => getComputedStyle(e).display !== "none").length,
+        };
+      });
+      if (!g.geladen || g.sticker !== g.ids || g.aufnaeher < 12 || g.buch !== 1 || g.ersatzSichtbar) fehlt(`${name}: das Wörterbuch steht nicht gemalt da (${JSON.stringify(g)})`);
+    }
     await tippe(seite, '.en-bild [data-reiter="farm"]');
+    await seite.waitForFunction(() => window.LernappEnglischecke?.ansicht?.() === "woerterbuch" && document.querySelector('.en-bild [data-sticker="cow"]'), null, { timeout: 3000 }).catch(() => {});
     await gesagt(seite);
     await tippe(seite, '.en-bild [data-sticker="cow"]');
     g = await gesagt(seite);
@@ -506,7 +524,9 @@ try {
     // Wörterbuch: Farben und Zahlen als Reiter.
     await insZimmer();
     await tippe(seite, '.en-bild [data-ort="buch"]');
+    await bisAnsicht(seite, "woerterbuch");
     await tippe(seite, '.en-bild [data-reiter="farben"]');
+    await seite.waitForSelector('.en-bild [data-sticker="red"]', { timeout: 3000 }).catch(() => {});
     await warte(100);
     const farbSticker = await seite.locator(".en-bild [data-sticker]").count();
     if (farbSticker < I.farben.length) fehlt(`${name}: der Reiter Colors zeigt nicht alle Farben (${farbSticker})`);

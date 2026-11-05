@@ -17,7 +17,9 @@
  *              Text es verlangt; jeder deutsche Text des Knopfs DE hat eine
  *              Aufnahme der App-Stimme.
  *   Gemälde    Jedes Wimmelbild und Geschichtenbild ist gemalt, und für jedes
- *              Wort steht fest, wo es im Gemälde liegt (englisch-gemalt.js).
+ *              Wort steht fest, wo es im Gemälde liegt (englisch-gemalt.js);
+ *              jedes Wort hat einen gemalten Sticker, jede Welt ihren
+ *              Aufnäher, das Wörterbuch sein Buch.
  *   Einbau     Startseite und Service Worker laden die Dateien, die Schranke
  *              kennt die drei Spiele, die Englischecke kennt dieselben Ids.
  *   Sprache    «Hear and find», nie «Hör & find»; kein scharfes S.
@@ -369,6 +371,13 @@ if (I.MONSTER_TEILE) {
       pruefe(svg.includes(`geschichte-${g.id}-${i + 1}.webp`), `Geschichte ${g.id}, Bild ${i + 1}: zeigt das Gemälde nicht`);
     });
   }
+  // Sticker, Aufnäher und das Buch (scripts/englisch-sticker-schneiden.py)
+  for (const w of [...alleWoerter, ...(I.FARBEN || []), ...(I.ZAHLEN || [])]) {
+    pruefe(G.sticker?.has(w.id) && da(`sticker/${w.id}`), `${w.id}: kein gemalter Sticker (bilder/englisch/sticker/${w.id}.webp)`);
+  }
+  for (const welt of I.WELTEN) pruefe(G.aufnaeher?.has(welt.id) && da(`aufnaeher/${welt.id}`), `${welt.id}: kein gemalter Aufnäher`);
+  pruefe(G.woerterbuch && da("woerterbuch"), "das Wörterbuch ist nicht gemalt (bilder/englisch/woerterbuch.webp)");
+  pruefe(a.sticker("cow", 0, 0, 30, "gehoert").includes("sticker/cow.webp") && a.aufnaeher("farm", 0, 0, 30, { voll: true }).includes("aufnaeher/farm.webp") && a.woerterbuchBild().includes("woerterbuch.webp"), "Sticker, Aufnäher oder Buch zeigen das Gemälde nicht");
 }
 
 // --- 5. Einbau -------------------------------------------------------------------

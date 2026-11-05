@@ -440,20 +440,31 @@ if (typeof document !== "undefined" && document.addEventListener) {
   document.addEventListener("error", (e) => {
     const t = e.target;
     if (!t?.classList?.contains("en-gemaelde")) return;
-    // Ein Bild, das nicht lädt, malt Chromium als verwaschene Fläche: weg damit.
+    // Ein Bild, das nicht lädt, malt Chromium als verwaschene Fläche: weg damit,
+    // und die Zeichnung direkt davor (.en-ersatz) zeigt sich.
     t.setAttribute("display", "none");
+    const davor = t.previousElementSibling;
+    if (davor?.classList?.contains("en-ersatz")) davor.style.display = "inline";
     t.closest("svg")?.classList.add("ohne-gemaelde");
   }, true);
 }
 // Solange ein Gemälde lädt, steht eine ruhige Fläche da – die Zeichnung
 // (.en-ersatz) zeigt sich erst, wenn es nicht lädt, sonst blitzt sie auf.
 const PLATZ = "#eef3f1";
-const ersatz = (zeichnung, b, h) => `<rect width="${b}" height="${h}" fill="${PLATZ}"/><g class="en-ersatz">${zeichnung}</g>`;
+const ersatz = (zeichnung, b, h, platz = PLATZ) => `<rect width="${b}" height="${h}" fill="${platz}"/><g class="en-ersatz">${zeichnung}</g>`;
 // Vorladen: Wer eine Szene oder Geschichte öffnet, lädt ihre Gemälde zuerst
 // (höchstens ms Millisekunden), damit sie von Anfang an gemalt dasteht.
 const geladen = new Set();
+//   gemaeldeVon("welt", id), ("geschichte", id), ("woerterbuch", [Sticker-Ids])
 function gemaeldeVon(art, id) {
   if (art === "welt") return GEMALT.welten[id] ? [gemaltBild(`welt-${id}`)] : [];
+  if (art === "woerterbuch") {
+    return [
+      ...(GEMALT.woerterbuch ? [gemaltBild("woerterbuch")] : []),
+      ...[...(GEMALT.aufnaeher || [])].map((w) => gemaltBild(`aufnaeher/${w}`)),
+      ...(id || []).filter((x) => GEMALT.sticker?.has(x)).map((x) => gemaltBild(`sticker/${x}`)),
+    ];
+  }
   return (GEMALT.geschichten[id] || []).map((_, i) => gemaltBild(`geschichte-${id}-${i + 1}`));
 }
 const istGeladen = (bilder) => bilder.every((u) => geladen.has(u));
@@ -549,7 +560,12 @@ function sticker(id, x, y, r, zustand) {
   const bild = id === "apple" ? DING.apple(true) : id === "raccoon" ? `<g transform="scale(1.25)">${roccoKopf("froh", { muetze: false })}</g>` : DING[id] ? DING[id]() : "";
   const farbe = zustand !== "zu";
   let s = `<circle cx="${x}" cy="${y}" r="${r}" fill="${farbe ? "#eaf6ff" : "#ece7dc"}" stroke="${zustand === "sicher" ? "#f4b400" : "#ffffff"}" stroke-width="${zustand === "sicher" ? 5 : 4}"/>`;
-  s += `<g transform="translate(${x} ${y + dy * m}) scale(${m * r / 36})" ${farbe ? "" : 'opacity="0.18" filter="url(#en-grau)"'}>${bild}</g>`;
+  const zeichnung = `<g transform="translate(${x} ${y + dy * m}) scale(${m * r / 36})" ${farbe ? "" : 'opacity="0.18" filter="url(#en-grau)"'}>${bild}</g>`;
+  if (GEMALT.sticker?.has(id)) {
+    // Gemalt (bilder/englisch/sticker/), darunter die Zeichnung, falls es nicht lädt.
+    const g = r * 1.56;
+    s += `<g class="en-ersatz">${zeichnung}</g><image class="en-gemaelde" href="${gemaltBild(`sticker/${id}`)}" x="${r1(x - g / 2)}" y="${r1(y - g / 2)}" width="${r1(g)}" height="${r1(g)}"${farbe ? "" : ' opacity="0.22" filter="url(#en-grau)"'}/>`;
+  } else s += zeichnung;
   if (zustand === "erkannt" || zustand === "sicher") s += stern(x + r * 0.72, y - r * 0.72, Math.max(7, r * 0.28));
   return s;
 }
@@ -562,12 +578,22 @@ function aufnaeher(welt, x, y, r, { anteil = 0, voll = false, gold = false } = {
   const umfang = 2 * Math.PI * r;
   const bildId = AUFNAEHER_BILD[welt];
   const [m] = STICKER[bildId] || [0.3];
-  return `<g opacity="${voll || anteil > 0 ? 1 : 0.6}">
-    <circle cx="${x}" cy="${y}" r="${r}" fill="${farbe}"/>
-    ${voll ? "" : `<circle cx="${x}" cy="${y}" r="${r}" fill="none" stroke="#f4b400" stroke-width="${Math.max(3, r * 0.16)}" stroke-dasharray="${(anteil * umfang).toFixed(1)} ${umfang.toFixed(1)}" transform="rotate(-90 ${x} ${y})"/>`}
+  const fortschritt = voll ? "" : `<circle cx="${x}" cy="${y}" r="${r}" fill="none" stroke="#f4b400" stroke-width="${Math.max(3, r * 0.16)}" stroke-dasharray="${(anteil * umfang).toFixed(1)} ${umfang.toFixed(1)}" transform="rotate(-90 ${x} ${y})"/>`;
+  const goldRand = gold ? `<circle cx="${x}" cy="${y}" r="${r + 3}" fill="none" stroke="#f4b400" stroke-width="4"/>` : "";
+  const zeichnung = `<circle cx="${x}" cy="${y}" r="${r}" fill="${farbe}"/>
     <circle cx="${x}" cy="${y}" r="${r * 0.8}" fill="none" stroke="#ffffff" stroke-width="2" stroke-dasharray="4 4"/>
-    ${gold ? `<circle cx="${x}" cy="${y}" r="${r + 3}" fill="none" stroke="#f4b400" stroke-width="4"/>` : ""}
-    <g transform="translate(${x} ${y + 2}) scale(${(m * r) / 44})" ${voll ? "" : 'opacity="0.45"'}>${DING[bildId] ? DING[bildId]() : ""}</g>
+    <g transform="translate(${x} ${y + 2}) scale(${(m * r) / 44})" ${voll ? "" : 'opacity="0.45"'}>${DING[bildId] ? DING[bildId]() : ""}</g>`;
+  if (GEMALT.aufnaeher?.has(welt)) {
+    // Gestickt gemalt (bilder/englisch/aufnaeher/); was noch fehlt, bleibt grau.
+    const g = r * 2.2;
+    return `<g opacity="${voll || anteil > 0 ? 1 : 0.6}">
+    <g class="en-ersatz">${zeichnung}</g><image class="en-gemaelde" href="${gemaltBild(`aufnaeher/${welt}`)}" x="${r1(x - g / 2)}" y="${r1(y - g / 2)}" width="${r1(g)}" height="${r1(g)}"${voll ? "" : ' opacity="0.5" filter="url(#en-grau)"'}/>
+    ${fortschritt}${goldRand}
+  </g>`;
+  }
+  return `<g opacity="${voll || anteil > 0 ? 1 : 0.6}">
+    ${zeichnung}
+    ${fortschritt}${goldRand}
   </g>`;
 }
 
@@ -641,7 +667,7 @@ function geschichtsBild(geschichte, i, { gezeichnet = false } = {}) {
   const bild = gemaelde(gemaltBild(`geschichte-${name}`), muster, 472, 204);
   // Unter dem Gemälde die Zeichnung, ohne Tippstellen: Sie zeigt sich, wenn
   // das Gemälde nicht lädt.
-  let s = `${ersatz(zeichnung.replace(OHNE_TIPP, ""), 472, 204)}<defs>${bild.defs}</defs>${bild.bild}`;
+  let s = `<defs>${bild.defs}</defs>${ersatz(zeichnung.replace(OHNE_TIPP, ""), 472, 204)}${bild.bild}`;
   const stellen = Object.entries(g.woerter || {}).flatMap(([wort, rahmen]) => rahmen.map((r, k) => [wort, r, k]));
   stellen.sort((a, b) => b[1][2] * b[1][3] - a[1][2] * a[1][3]);
   for (const [wort, r, k] of stellen) {
@@ -774,12 +800,22 @@ function weltBild(welt, breite = 200, hoehe = 112) {
   return `<svg viewBox="0 0 1000 560" width="${breite}" height="${hoehe}" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="himmel" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9fd8f0"/><stop offset="1" stop-color="#e3f5fb"/></linearGradient>${window.LernappBauTiere?.defs?.() || ""}</defs>${bild}</svg>`;
 }
 
+// Das aufgeschlagene Wörterbuch (1000 × 560): Einband und zwei leere Seiten –
+// gemalt (bilder/englisch/woerterbuch.webp), darunter die Zeichnung.
+const BUCH = `<rect width="1000" height="560" fill="#7a4b2f"/><rect x="22" y="18" width="956" height="524" rx="22" fill="#5b3a29"/>
+      <path d="M40 34 L496 44 L496 530 L40 524 Z" fill="#fffaf0"/><path d="M504 44 L960 34 L960 524 L504 530 Z" fill="#fffaf0"/>
+      <rect x="494" y="40" width="12" height="492" fill="#e9dcc4"/>`;
+function woerterbuchBild() {
+  if (!GEMALT.woerterbuch) return BUCH;
+  return `${ersatz(BUCH, 1000, 560, "#7a4b2f")}<image class="en-gemaelde" href="${gemaltBild("woerterbuch")}" width="1000" height="560" preserveAspectRatio="none"/>`;
+}
+
 // Was weitere Zeichnungen (englisch-art-2.js …) brauchen, um Welten und
 // Geschichten dazuzulegen: Sie ergänzen DING, ORTE, HINTERGRUND, STICKER,
 // AUFNAEHER_BILD, AUFNAEHER_FARBE, GESCHICHTEN_BILDER und TITELBILD.
 window.LernappEnglischArt = {
   roccoKopf, rocco, DING, ORTE, STICKER, szene, markeAn, sticker, aufnaeher, stern,
-  geschichtsBild, geschichtsTitelbild, zimmer, weltBild, AUFNAEHER_BILD,
+  geschichtsBild, geschichtsTitelbild, zimmer, weltBild, woerterbuchBild, AUFNAEHER_BILD,
   HINTERGRUND, AUFNAEHER_FARBE, GESCHICHTEN_BILDER, TITELBILD, GEMALT, gemaeldeVon, vorladen, istGeladen,
   hilfen: { tb, bildHintergrund, apfel, menschOder, wolke: wolkeAn, FARBE: { GRAU, GRAU_D, DUNKEL, HELL, HAUT } },
 };

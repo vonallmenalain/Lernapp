@@ -10,6 +10,11 @@
  *   geschichten[g][i][wort]   [[bx, by, bw, bh]]  Rahmen im Mass 472 × 204
  *   titelbild[g]              welches Bild die Geschichte im Regal zeigt
  *
+ * Dazu die Bögen für Sticker und Aufnäher (bogen-<name>.png, 4 × 4 Felder zu
+ * 256 Pixeln, boegen.json sagt, was in welchem Feld steht) und das leere Buch
+ * des Wörterbuchs (buch.png). Gemalt schneidet sie
+ * scripts/englisch-sticker-schneiden.py aus.
+ *
  * Die Vorlagen gehen mit einer Stilvorlage an das Malprogramm («Male dieses
  * Bild neu, alles bleibt, wo es ist»). Danach sucht
  * scripts/englisch-bilder-abgleich.py jedes Ding im Gemälde und schreibt
@@ -103,6 +108,44 @@ const rocco = await seite.evaluate(() => {
 });
 await zeige(rocco, 900, 400, "rocco-referenz.png", "none");
 fs.writeFileSync(path.join(AUS, "vorlagen.json"), JSON.stringify(vorlagen, null, 1));
+
+// Die Bögen: je Welt ihre Sticker, dazu die Extra-Wörter mit den Farben, die
+// Zahlen und die Aufnäher. Heller Grund, damit auch Weisses zu sehen ist.
+const boegen = await seite.evaluate(() => {
+  const I = window.LernappEnglischInhalt;
+  const b = I.WELTEN.map((w) => ({ name: w.id, ids: w.woerter.map((x) => x.id) }));
+  b.push({ name: "extra", ids: [...I.EXTRA_WOERTER.map((x) => x.id), ...(I.FARBEN || []).map((x) => x.id)] });
+  b.push({ name: "zahlen", ids: (I.ZAHLEN || []).map((x) => x.id) });
+  b.push({ name: "aufnaeher", ids: I.WELTEN.map((w) => w.id), aufnaeher: true });
+  return b;
+});
+for (const bogen of boegen) {
+  const svg = await seite.evaluate((bogen) => {
+    const A = window.LernappEnglischArt;
+    let s = `<svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg"><defs><filter id="en-grau"><feColorMatrix type="saturate" values="0"/></filter>${window.LernappBauTiere?.defs?.() || ""}</defs><rect width="1024" height="1024" fill="#d6e6f0"/>`;
+    // Ohne Gemälde zeichnen: GEMALT kurz leeren.
+    const G = A.GEMALT;
+    const merke = [G.sticker, G.aufnaeher];
+    G.sticker = new Set(); G.aufnaeher = new Set();
+    bogen.ids.forEach((id, i) => {
+      const cx = 128 + (i % 4) * 256, cy = 128 + Math.floor(i / 4) * 256;
+      s += bogen.aufnaeher ? A.aufnaeher(id, cx, cy, 100, { anteil: 1, voll: true }) : A.sticker(id, cx, cy, 112, "gehoert").replace(/^<circle[^>]*\/>/, "");
+    });
+    [G.sticker, G.aufnaeher] = merke;
+    return `${s}</svg>`;
+  }, bogen);
+  await zeige(svg, 1024, 1024, `bogen-${bogen.name}.png`, "none");
+}
+fs.writeFileSync(path.join(AUS, "boegen.json"), JSON.stringify(boegen, null, 1));
+const buch = await seite.evaluate(() => {
+  const A = window.LernappEnglischArt;
+  const merke = A.GEMALT.woerterbuch;
+  A.GEMALT.woerterbuch = false;
+  const s = `<svg viewBox="0 0 1000 560" xmlns="http://www.w3.org/2000/svg">${A.woerterbuchBild()}</svg>`;
+  A.GEMALT.woerterbuch = merke;
+  return s;
+});
+await zeige(buch, 1000, 560, "buch.png", "none");
 await browser.close();
 halt();
-console.log(`Vorlagen in ${AUS}: ${info.welten.length} Wimmelbilder, ${info.geschichten.reduce((s, [, n]) => s + n, 0)} Geschichtenbilder, vorlagen.json.`);
+console.log(`Vorlagen in ${AUS}: ${info.welten.length} Wimmelbilder, ${info.geschichten.reduce((s, [, n]) => s + n, 0)} Geschichtenbilder, ${boegen.length} Bögen, das Buch, vorlagen.json und boegen.json.`);
