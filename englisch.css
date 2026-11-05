@@ -191,9 +191,9 @@ body[data-page="train"] .train-stage[data-view="englisch"] ~ .help-voice {
    wie bei der Zeichnung liesse das Ding doppelt sehen. Lädt das Gemälde nicht,
    zeigt sich die Zeichnung. */
 .en-zeichnung { opacity: 0; }
-/* Die Zeichnung unter dem Gemälde zeigt sich nur, wenn es nicht lädt. */
+/* Die Zeichnung unter dem Gemälde zeigt sich nur, wenn es nicht lädt
+   (englisch-art.js schaltet dann genau diese eine ein). */
 .en-ersatz { display: none; }
-.ohne-gemaelde .en-ersatz { display: inline; }
 /* Eine Kachel, deren Gemälde gerade geladen werden, bevor sie aufgeht. */
 .en-wahl-kachel.ist-am-laden { animation: en-am-laden 0.7s ease-in-out infinite alternate; }
 @keyframes en-am-laden { to { opacity: 0.6; transform: scale(0.97); } }

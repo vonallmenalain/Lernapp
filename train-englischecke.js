@@ -627,13 +627,12 @@
   // ---------------------------------------------------------------------------
   // Roccos Wörterbuch
   // ---------------------------------------------------------------------------
-  function zeigeWoerterbuch({ aufnaeher: flickenZuerst = false, welt: weltWahl = null } = {}) {
+  let buchAuftrag = 0;
+  function zeigeWoerterbuch({ aufnaeher: flickenZuerst = false, welt: weltWahl = null, geladen = false } = {}) {
     const I = inhalt();
     const a = art();
     const s = stand();
-    offen.ansicht = "woerterbuch";
     const weltId = weltWahl || offen.buchWelt || offen.welt || "farm";
-    offen.buchWelt = weltId;
     // Die Reiter: jede Welt, dazu Farben und Zahlen (ab Etappe 2).
     const REITER = [
       ...I.WELTEN.map((w) => ({ id: w.id, titel: w.titel, reiter: w.reiter, woerter: w.woerter })),
@@ -643,11 +642,24 @@
     const welt = REITER.find((w) => w.id === weltId) || REITER[0];
     const extra = I.EXTRA_WOERTER.filter((w) => I.GESCHICHTEN.some((g) => g.welt === welt.id && g.bilder.some((b) => b.woerter.includes(w.id))));
     const woerter = [...welt.woerter, ...extra];
+    // Erst die gemalten Bilder (Buch, Aufnäher, die Sticker dieses Reiters)
+    // laden, dann aufschlagen – höchstens 1,5 Sekunden.
+    const auftrag = ++buchAuftrag;
+    const bilder = a.gemaeldeVon?.("woerterbuch", woerter.map((w) => w.id)) || [];
+    if (!geladen && bilder.length && !a.istGeladen(bilder)) {
+      const vorher = offen;
+      const ansichtVorher = offen.ansicht;
+      a.vorladen(bilder).then(() => {
+        if (offen !== vorher || offen.ansicht !== ansichtVorher || auftrag !== buchAuftrag) return;
+        zeigeWoerterbuch({ aufnaeher: flickenZuerst, welt: weltWahl, geladen: true });
+      });
+      return;
+    }
+    offen.ansicht = "woerterbuch";
+    offen.buchWelt = weltId;
     const n = woerter.filter((w) => s.wortStand(w.id) !== "zu").length;
     let x = `<defs><filter id="en-grau"><feColorMatrix type="saturate" values="0"/></filter>${window.LernappBauTiere?.defs?.() || ""}</defs>
-      <rect width="1000" height="560" fill="#7a4b2f"/><rect x="22" y="18" width="956" height="524" rx="22" fill="#5b3a29"/>
-      <path d="M40 34 L496 44 L496 530 L40 524 Z" fill="#fffaf0"/><path d="M504 44 L960 34 L960 524 L504 530 Z" fill="#fffaf0"/>
-      <rect x="494" y="40" width="12" height="492" fill="#e9dcc4"/>`;
+      ${a.woerterbuchBild ? a.woerterbuchBild() : ""}`;
     // Reiter oben: bis drei in einer Reihe wie bisher, mehr in zwei Reihen.
     const proReihe = REITER.length > 3 ? 4 : 3;
     // Auf dem Reiter kurz: «Farm» statt «The Farm», «Clothes» statt «Clothes and Weather».

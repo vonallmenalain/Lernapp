@@ -288,7 +288,20 @@ Die 12 Wimmelbilder und die 48 Bilder der 12 Geschichten sind gemalt, im Stil de
   Zeichnung – die Dinge dort, wo sie im Gemälde wären –, die Geschichte ihre gezeichneten
   Bilder. Die Bilder liegen im Cache der Buchbilder und bleiben nach einem Update.
 - **What's missing?** bleibt gezeichnet: Nur aus der Zeichnung lässt sich ein Ding wegnehmen.
-  Sticker, Wörterbuch, Spielfiguren und der Caboose bleiben gezeichnet.
+  Spielfiguren und der Caboose bleiben gezeichnet.
+- **Sticker, Aufnäher und Wörterbuch** (5. November 2026): Die 159 Wort-Sticker, die 10 Farben
+  (Ballone), die 10 Zahlen, die 12 Aufnäher und das aufgeschlagene Buch sind ebenfalls gemalt
+  (`bilder/englisch/sticker/`, `aufnaeher/`, `woerterbuch.webp`). Gemalt wird nicht jeder
+  Sticker einzeln, sondern ein **Bogen** je Welt: 4 × 4 Felder mit durchsichtigem Hintergrund
+  (GPT Image 2.5 «tief», 1K, 0,25 Credits je Bogen), mit der Zeichnung als Vorlage und dem
+  Wimmelbild derselben Welt als Stilvorlage – so sehen die Sticker aus wie die Dinge im
+  Wimmelbild. `scripts/englisch-sticker-schneiden.py` schneidet sie aus (was in einem Feld
+  undurchsichtig ist, gehört dazu) und schreibt, was es gibt, in den Block STICKER von
+  `englisch-gemalt.js`. Zusammen 16 Bögen und das Buch für 4,25 Credits (der Bogen «My Body»
+  ging beim ersten Mal nicht durch den Filter und wurde harmloser beschrieben; Mama und Papa
+  auf einem eigenen kleinen Bogen). Ein Sticker, der noch nicht gehört ist, bleibt grau; ein
+  Aufnäher, der noch nicht voll ist, ebenso, mit dem Fortschritt als Ring darum. Das Wörterbuch
+  schlägt sich erst auf, wenn Buch, Aufnäher und die Sticker des Reiters geladen sind.
 
 ---
 

@@ -199,10 +199,15 @@ def schreibe(welten, geschichten):
         "};",
         "for (const [welt, orte] of Object.entries(WELTEN)) G.welten[welt] = { orte };",
         "for (const [g, bilder] of Object.entries(GESCHICHTEN)) G.geschichten[g] = bilder.map((woerter) => ({ woerter }));",
-        "})();",
-        "",
     ]
-    with open(os.path.join(WURZEL, "englisch-gemalt.js"), "w", encoding="utf-8") as f:
+    # Den Block der Sticker (scripts/englisch-sticker-schneiden.py) behalten.
+    pfad = os.path.join(WURZEL, "englisch-gemalt.js")
+    alt = open(pfad, encoding="utf-8").read() if os.path.exists(pfad) else ""
+    a, e = alt.find("// STICKER-ANFANG"), alt.find("// STICKER-ENDE")
+    if a >= 0 and e > a:
+        zeilen.append(alt[a:e + len("// STICKER-ENDE")])
+    zeilen += ["})();", ""]
+    with open(pfad, "w", encoding="utf-8") as f:
         f.write("\n".join(zeilen))
 
 
