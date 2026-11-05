@@ -40,6 +40,16 @@
  *       scripts/stimme-google.json; ein späterer Lauf nimmt dieselbe. Eine
  *       andere Stimme gibt es nur mit --alle-neu (dann wird alles neu
  *       gesprochen). --trocken zählt nur.
+ *       --nochmal <datei>: nur die Sätze darin (einer je Zeile) neu sprechen,
+ *       auch wenn sie eine Aufnahme haben – etwa nachdem eine Schreibweise
+ *       für die Stimme dazukam. Die Datei behält ihren Namen; die alte
+ *       Aufnahme bleibt, bis die neue passt. Danach gehören die Dateien in
+ *       ERNEUERT_STIMME in service-worker.js, sonst spielt ein Gerät, das
+ *       den Satz schon gehört hat, weiter die alte.
+ *
+ *   node scripts/stimme-google.mjs aussprache "<Satz>" [--sprache fr-FR]
+ *       Was für diesen Satz an Google ginge (Schreibweisen nur für die
+ *       Stimme, Zahlen mit Punkt als Wort).
  *
  *   node scripts/stimme-google.mjs aufraeumen [--bereich app]
  *       Löscht Aufnahmen von Sätzen, die der Bereich nicht mehr sagt, und
@@ -190,7 +200,39 @@ function stimmeName(kurz, sprache = "de-DE") {
   return /Chirp3-HD/.test(kurz) ? kurz : `${sprache}-Chirp3-HD-${kurz}`;
 }
 
-const auszusprechen = (text) => AUSSPRACHE_GANZ[text] || Object.entries(AUSSPRACHE).reduce((t, [wort, so]) => t.replaceAll(wort, so), text);
+// Was in der Anfrage an Google steht – Text und Dateiname bleiben, wie sie sind.
+// stimme: der ganze Name der Stimme; Zahlen als Wort nur bei einer deutschen.
+const auszusprechen = (text, stimme = "de-DE") => {
+  if (AUSSPRACHE_GANZ[text]) return AUSSPRACHE_GANZ[text];
+  const ersetzt = Object.entries(AUSSPRACHE).reduce((t, [wort, so]) => t.replaceAll(wort, so), text);
+  return stimme.startsWith("de-") ? zahlenMitPunktAlsWort(ersetzt) : ersetzt;
+};
+
+// «Kapitel 3. Die Entscheidung.», «am Abend noch 3. Wie viele …», «Station 1
+// von 10. Als Nächstes …», «17 ist mehr als 14.»: Eine Zahl mit Punkt dahinter
+// liest die deutsche Stimme als Ordnungszahl («Kapitel dritte», «von zehnte»,
+// «vierzehnte»). In der Anfrage steht sie darum als Wort («Kapitel drei.»).
+// So bleibt sie nur, wo eine Ordnungszahl gemeint ist: «der 3. Stock», «am
+// 1. August». Ein Punkt mitten in einer Zahl («2.50», «8.30») bleibt
+// ebenfalls; «1'000.» wird zu «tausend.».
+const ORDNUNGSZAHL_GEMEINT = /^ (Stock|Januar|Februar|März|April|Mai|Juni|Juli|August|September|Oktober|November|Dezember)\b/;
+function zahlenMitPunktAlsWort(text) {
+  return text.replace(/(?<![\d'’.,])(\d{1,3}(?:['’]\d{3})+|\d{1,6})\.(?!\d)/g, (ganz, zahl, stelle, alles) => (
+    ORDNUNGSZAHL_GEMEINT.test(alles.slice(stelle + ganz.length)) ? ganz : `${zahlwort(Number(zahl.replace(/['’]/g, "")))}.`
+  ));
+}
+const EINER = ["null", "eins", "zwei", "drei", "vier", "fünf", "sechs", "sieben", "acht", "neun", "zehn", "elf", "zwölf", "dreizehn", "vierzehn", "fünfzehn", "sechzehn", "siebzehn", "achtzehn", "neunzehn"];
+const ZEHNER = ["", "", "zwanzig", "dreißig", "vierzig", "fünfzig", "sechzig", "siebzig", "achtzig", "neunzig"];
+// Eine Zahl bis 999'999 als deutsches Zahlwort (21 → «einundzwanzig»,
+// 100 → «hundert», 1'200 → «tausendzweihundert»).
+function zahlwort(n) {
+  const rest = (r) => (r ? zahlwort(r) : "");
+  if (n < 20) return EINER[n];
+  if (n < 100) return `${n % 10 ? `${n % 10 === 1 ? "ein" : EINER[n % 10]}und` : ""}${ZEHNER[Math.floor(n / 10)]}`;
+  if (n < 1000) return `${n < 200 ? "" : EINER[Math.floor(n / 100)]}hundert${rest(n % 100)}`;
+  const tausender = Math.floor(n / 1000);
+  return `${tausender === 1 ? "" : tausender % 100 === 1 ? `${zahlwort(tausender).slice(0, -1)}` : zahlwort(tausender)}tausend${rest(n % 1000)}`;
+}
 
 // Ein ganzes, kurzes Stück, das die Stimme sonst stumm oder buchstabiert
 // sagt: so in der Anfrage (Text und Dateiname bleiben).
@@ -213,7 +255,7 @@ async function sprich(text, { stimme, tempo }, versuch = 1) {
   const r = await anfrage({
     methode: "POST",
     pfad: "/text:synthesize",
-    body: { input: { text: auszusprechen(text) }, voice: { languageCode: stimme.split("-").slice(0, 2).join("-"), name: stimme }, audioConfig },
+    body: { input: { text: auszusprechen(text, stimme) }, voice: { languageCode: stimme.split("-").slice(0, 2).join("-"), name: stimme }, audioConfig },
   });
   if (r.status === 200 && r.daten?.audioContent) return Buffer.from(r.daten.audioContent, "base64");
   // Zu viele Anfragen oder ein Schluckauf bei Google: warten, nochmal.
@@ -325,20 +367,25 @@ async function vertonen() {
   }
   const teil = wert("teil");
   const alle = await B.texte();
-  let offen = alle.filter((t) => (!teil || t.teil === teil) && !da[t.text]);
+  // --nochmal: nur diese Sätze, und neu, auch wenn sie eine Aufnahme haben.
+  const nochmal = new Set(wert("nochmal") ? fs.readFileSync(path.resolve(wert("nochmal")), "utf8").split("\n").map((z) => z.trim()).filter(Boolean) : []);
+  const fremd = [...nochmal].filter((text) => !alle.some((t) => t.text === text));
+  if (fremd.length) throw new Error(`--nochmal: ${fremd.length} Sätze sagt ${B.name} nicht, zum Beispiel «${fremd[0]}»`);
+  let offen = alle.filter((t) => (!teil || t.teil === teil) && (nochmal.size ? nochmal.has(t.text) : !da[t.text]));
   // Was schon als Datei daliegt (der andere Bereich sagt denselben Satz),
   // kommt ohne Anfrage dazu.
   const schonDa = offen.filter((t) => {
+    if (nochmal.has(t.text)) return false;
     const datei = path.join(WURZEL, B.dateiFuer(t.text));
     return !wechsel && fs.existsSync(datei) && passtZumText(sekundenVon(fs.readFileSync(datei)), t.text);
   });
   schonDa.forEach((t) => { da[t.text] = B.dateiFuer(t.text); });
   if (schonDa.length) console.log(`${schonDa.length} Sätze haben schon eine Datei (vom anderen Bereich).`);
-  offen = offen.filter((t) => !da[t.text]);
+  offen = offen.filter((t) => !da[t.text] || nochmal.has(t.text));
   const limit = Number(wert("limit", 0));
   if (limit > 0) offen = offen.slice(0, limit);
   const zeichen = offen.reduce((n, t) => n + t.text.length, 0);
-  console.log(`${offen.length} Sätze ohne Aufnahme, ${zeichen} Zeichen, Stimme ${gewuenscht}, Tempo ${tempo}. Diesen Monat schon geschickt: ${verbrauchtDiesenMonat()}.`);
+  console.log(`${offen.length} Sätze ohne Aufnahme${nochmal.size ? ` oder neu zu sprechen (${nochmal.size})` : ""}, ${zeichen} Zeichen, Stimme ${gewuenscht}, Tempo ${tempo}. Diesen Monat schon geschickt: ${verbrauchtDiesenMonat()}.`);
   if (flag("trocken")) return;
   if (!offen.length) {
     if (schonDa.length) B.schreibe(Object.fromEntries(alle.filter((t) => da[t.text]).map((t) => [t.text, da[t.text]])), { stimme: `${gewuenscht}${tempo !== 1 ? `, Tempo ${tempo}` : ""}` });
@@ -368,18 +415,22 @@ async function vertonen() {
         const wav = await sprich(t.text, { stimme: gewuenscht, tempo });
         buche(t.text.length);
         const ziel = B.dateiFuer(t.text);
-        let sekunden = zuMp3(wav, path.join(WURZEL, ziel));
+        // Erst daneben ablegen: Eine Aufnahme, die neu gesprochen wird, bleibt
+        // so liegen, bis die neue passt.
+        const neu = path.join(WURZEL, `${ziel.slice(0, -4)}.neu.mp3`);
+        let sekunden = zuMp3(wav, neu);
         const variante = !AUSSPRACHE_GANZ[t.text] && kurzVariante(t.text);
         if (!passtZumText(sekunden, t.text) && variante) {
           const zweiter = await sprich(variante, { stimme: gewuenscht, tempo });
           buche(variante.length);
-          sekunden = zuMp3(zweiter, path.join(WURZEL, ziel));
+          sekunden = zuMp3(zweiter, neu);
         }
         if (!passtZumText(sekunden, t.text)) {
-          fs.rmSync(path.join(WURZEL, ziel), { force: true });
+          fs.rmSync(neu, { force: true });
           unpassend.push(`${sekunden.toFixed(2)} s für ${t.text.length} Zeichen: ${t.text}`);
           continue;
         }
+        fs.renameSync(neu, path.join(WURZEL, ziel));
         da[t.text] = ziel;
         fertig += 1;
         if (fertig % 100 === 0) { schreibe(); console.log(`… ${fertig} von ${offen.length}`); }
@@ -413,6 +464,12 @@ async function aufraeumen() {
   console.log(`${weg.length} Aufnahmen alter Sätze und ${lose.length} lose Dateien gelöscht; ${B.datei} kennt ${Object.keys(da).length}.`);
 }
 
+function zeigeAussprache() {
+  const text = rest.filter((r, i) => !r.startsWith("--") && rest[i - 1] !== "--sprache").join(" ");
+  if (!text) throw new Error('Welcher Satz? node scripts/stimme-google.mjs aussprache "Kapitel 3. Das Plakat."');
+  console.log(auszusprechen(text, wert("sprache", "de-DE")));
+}
+
 function zeigeVerbrauch() {
   const e = einstellung();
   const v = e.verbrauch || {};
@@ -421,10 +478,10 @@ function zeigeVerbrauch() {
   if (e.stimme) console.log(`\nStimme: ${e.stimme}, Tempo ${e.tempo || 1}`);
 }
 
-const BEFEHLE = { texte: zeigeTexte, stimmen: zeigeStimmen, probe, vertonen, aufraeumen, verbrauch: zeigeVerbrauch };
+const BEFEHLE = { texte: zeigeTexte, stimmen: zeigeStimmen, probe, vertonen, aufraeumen, aussprache: zeigeAussprache, verbrauch: zeigeVerbrauch };
 try {
   if (!BEFEHLE[befehl]) {
-    console.error("Aufruf: node scripts/stimme-google.mjs texte | stimmen | probe | vertonen | aufraeumen | verbrauch (Genaueres oben in der Datei)");
+    console.error("Aufruf: node scripts/stimme-google.mjs texte | stimmen | probe | vertonen | aufraeumen | aussprache | verbrauch (Genaueres oben in der Datei)");
     process.exit(2);
   }
   await BEFEHLE[befehl]();

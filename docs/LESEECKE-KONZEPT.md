@@ -205,7 +205,8 @@ Geschichten in 1K (1,5 Credits je Bild), Erste Sätze und Zum Zuhören mit Nano 
 eigene Figurenblätter (Oma Rosa, die Mäusefamilie, Bruno als Junges und Mama Bär; Kater Tim,
 Finos Oma, Fridolin). Jedes Bild ist gegen den Text seiner Seite geprüft; was nicht stimmte,
 ist gezielt nachgebessert (Beispiele: eine Dose zu viel, Schrift auf einer Kiste, eine
-Sonnenblume mit Gesicht, ein Rüebli am falschen Ort, ein Schneemann mit drei Kugeln).
+Sonnenblume mit Gesicht, ein Rüebli am falschen Ort, ein Schneemann mit drei Kugeln, ein
+Steinbock mit drei Hörnern – das Bergrennen, Seite 7, im November 2026 neu gemalt).
 Zeichnet das Modell eine Pfote mit vier Zehen, bekommt sie von Hand die fünfte (Pippa, Seite
 3). Im Ordner liegen `seite-01.webp` … (eines je Seite, 1200 × 760, wie die Zeichnung 240 ×
 152, nur feiner), `umschlag.webp` für die Titelseite und `umschlag-klein.webp` (480 × 304)
@@ -221,7 +222,8 @@ Image 2.5); ist es da, tritt seine Zeichnung zurück, nur der Schatten bleibt:
 - **Vorladen:** Geht ein Buch auf, holt die Titelseite gleich alle seine Bilder.
 - **Offline:** Der Service Worker legt sie – Bücher, Postkarten und Steckbriefe – in einen
   eigenen Cache (`BUCHBILDER_CACHE`), den ein Update der App nicht leert. Wird ein Bild
-  ersetzt, braucht dieser Cache eine neue Nummer.
+  ersetzt, kommt sein Pfad in `ERNEUERT_BILDER` (`service-worker.js`) und `ERNEUERT_NR`
+  bekommt eine neue Nummer: Dann holt jedes Gerät nur dieses Bild neu.
 - **Prüfungen:** `validate-lesen.mjs` prüft Ordner, Masse und Grösse, auch die der
   Postkarten und Steckbriefe. `check-leseecke.mjs` prüft Regal und Titelseite aller Bücher,
   die Seiten, das Vorladen, den Rückfall auf die Zeichnung und ein Buch ohne Bilder, dazu

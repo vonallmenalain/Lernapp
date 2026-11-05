@@ -167,6 +167,13 @@ Gut zu wissen:
   die Dateien gleich wie vorher (nach ihrem Text). Dann braucht STIMME_CACHE
   in `service-worker.js` eine neue Nummer, sonst spielen Geräte, die einen Satz
   schon gehört haben, weiter die alte Stimme.
+- Werden nur **einzelne Sätze** neu gesprochen (`vertonen --nochmal <datei>`,
+  ein Satz je Zeile), bleibt STIMME_CACHE, wie er ist: Ihre Dateinamen (ohne
+  `stimme/google/` und `.mp3`) kommen in `ERNEUERT_STIMME` in
+  `service-worker.js`, und `ERNEUERT_NR` bekommt eine neue Nummer. Der Service
+  Worker nimmt dann nur diese Dateien einmal aus dem Cache; alles andere bleibt
+  auf dem Gerät, auch ohne Netz. Für ein neu gemaltes Bild gilt dasselbe mit
+  `ERNEUERT_BILDER`. `validate-lesen.mjs` prüft, dass es jede Datei dort gibt.
 
 ## 4. Die ganze App
 
@@ -224,6 +231,16 @@ anders:
   `vertonen` fragt dann ein zweites Mal nach «Ge.» (gleicher Klang). Was eine
   Stimme gar nicht richtig sagt, bekommt in `AUSSPRACHE_GANZ` eine andere
   Schreibweise nur für die Anfrage («Pssst!» → «Psst!»).
+- **Zahl mit Punkt:** «Kapitel 3. Das Plakat.», «am Abend noch 3. Wie viele
+  …», «Station 1 von 10. Als Nächstes …», sogar «17 ist mehr als 14.» – eine
+  Zahl mit Punkt dahinter liest Sulafat als Ordnungszahl («Kapitel dritte»,
+  «von zehnte», «vierzehnte»). Seit November 2026 geht sie deshalb als Wort an
+  Google («Kapitel drei.»); Text und Dateiname bleiben. Nur vor «Stock» und
+  einem Monat («der 3. Stock», «am 1. August») bleibt die Ordnungszahl.
+  Was genau an Google ginge: `node scripts/stimme-google.mjs aussprache "…"`.
+  Gefunden hat das eine Spracherkennung (Vosk, deutsches Modell) über alle
+  Aufnahmen mit einer Zahl und einem Punkt; die falschen sind mit
+  `vertonen --nochmal` neu gesprochen.
 
 Was die Gerätestimme behält (lässt sich nicht vorher aufnehmen): der Name des
 Kindes und der Name, den es seinem Lesewurm gibt, während es ihn in «Mein
