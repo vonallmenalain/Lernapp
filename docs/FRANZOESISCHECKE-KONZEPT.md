@@ -27,12 +27,11 @@ gelten.
 | **Lernzug** | Der vierte Wagen ganz hinten, grün, Schild «Bonjour», mit Panoramadach. Würde die Lernlok über die höhere Lok des Gripszugs reichen, wird der Lernzug gerade so viel kleiner, dass er davor hält. Die Tür im Bistro führt in den Englischwagen. |
 | **Eltern** | Eine Karte «Französischecke» wie die des Englischwagens: Schrift, Tempo, Bericht mit den Wörtern der Romandie, Aufträge für die Familie. |
 | **Prüfungen** | `validate-franzoesisch.mjs`, `check-franzoesischecke.mjs`. |
+| **Les fêtes** | Die zwölfte Welt (`franzoesisch-art-2.js`): Noël im Schnee, Galette und Carnaval auf dem Dorfplatz, Pâques auf der Wiese, der 1er Août am Abend – mit neun neuen Zeichnungen (Père Noël, bûche, étoile, galette, couronne, lapin, cloche, masque, lampion), gemalt samt Stickern und Aufnäher. Dazu die Geschichte *La galette des rois*: Margot findet die Fève und wird Königin. «Holidays» und die Halloween-Geschichte bleiben im Englischwagen. |
 
-**Noch offen (Etappe 2):** «Les fêtes» (neues Wimmelbild, Sticker und Zeichnungen), die
-Boulangerie (statt des Diners), die Post mit Postkarten aus der Romandie und Frankreich und die
-drei neuen Geschichten (*La galette des rois*, *Au marché*, *Le petit train*). Bis dahin fehlen
-im Französischwagen der Briefkasten und das Restaurant; «Holidays» und die Halloween-Geschichte
-bleiben im Englischwagen.
+**Noch offen:** die Boulangerie (statt des Diners), die Post mit Postkarten aus der Romandie
+und Frankreich und die Geschichten *Au marché* und *Le petit train*. Bis dahin fehlen im
+Französischwagen der Briefkasten und das Restaurant.
 
 ---
 

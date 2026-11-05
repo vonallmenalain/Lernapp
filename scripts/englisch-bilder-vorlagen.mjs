@@ -20,9 +20,12 @@
  * scripts/englisch-bilder-abgleich.py jedes Ding im Gemälde und schreibt
  * englisch-gemalt.js. Siehe docs/ENGLISCHECKE-KONZEPT.md, «Gemalte Bilder».
  *
- * Mit --sprache franzoesisch: nur die Geschichten des Französischwagens, mit
+ * Mit --sprache franzoesisch: die Geschichten des Französischwagens, mit
  * Margot statt Rocco gezeichnet, und margot-referenz.png (Margot in vier
  * Haltungen); dazu geschichten-mit-margot.json, auf welchen Bildern sie steht.
+ * Von den Welten nur die, die der Englischwagen nicht hat («fetes»), und
+ * Bögen nur für Wörter und Welten, die noch keinen gemalten Sticker oder
+ * Aufnäher haben.
  *
  * Aufruf:  node scripts/englisch-bilder-vorlagen.mjs <ordner> [--sprache franzoesisch]
  * Nötig:   Playwright. Der lokale Server wird selbst gestartet und beendet.
@@ -86,7 +89,12 @@ const info = await seite.evaluate((franz) => {
     titelbild: Object.fromEntries(I.GESCHICHTEN.map((g) => [g.id, A.TITELBILD[g.id] ?? 0])),
   };
 }, FRANZ);
-if (FRANZ) info.welten = [];
+if (FRANZ) {
+  info.welten = await seite.evaluate(() => {
+    const englisch = new Set(window.LernappEnglischInhalt.WELTEN.map((w) => w.id));
+    return window.LernappFranzoesischInhalt.WELTEN.map((w) => w.id).filter((id) => !englisch.has(id));
+  });
+}
 // Zeigt eine Zeichnung allein auf der Seite, fotografiert sie und misst die
 // Rahmen der Dinge (im Mass der viewBox).
 async function zeige(svg, breite, hoehe, datei, wahl) {
@@ -132,9 +140,33 @@ const rocco = await seite.evaluate((franz) => {
 await zeige(rocco, 900, 400, FRANZ ? "margot-referenz.png" : "rocco-referenz.png", "none");
 fs.writeFileSync(path.join(AUS, "vorlagen.json"), JSON.stringify(vorlagen, null, 1));
 if (FRANZ) {
+  // Bögen nur für das, was noch nicht gemalt ist (Margots Sticker hat seinen eigenen).
+  const neu = await seite.evaluate(() => {
+    const I = window.LernappFranzoesischInhalt;
+    const G = window.LernappEnglischArt.GEMALT;
+    const ids = [...I.WELTEN.flatMap((w) => w.woerter), ...I.EXTRA_WOERTER].map((x) => x.id).filter((id) => id !== "raccoon" && !G.sticker?.has(id));
+    const b = [];
+    for (let i = 0; i < ids.length; i += 16) b.push({ name: `fr-${b.length + 1}`, ids: ids.slice(i, i + 16) });
+    const welten = I.WELTEN.map((w) => w.id).filter((id) => !G.aufnaeher?.has(id));
+    if (welten.length) b.push({ name: "fr-aufnaeher", ids: welten, aufnaeher: true });
+    return b;
+  });
+  for (const bogen of neu) {
+    const svg = await seite.evaluate((bogen) => {
+      const A = window.LernappFranzoesischArt;
+      let s = `<svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg"><defs><filter id="en-grau"><feColorMatrix type="saturate" values="0"/></filter>${window.LernappBauTiere?.defs?.() || ""}</defs><rect width="1024" height="1024" fill="#d6e6f0"/>`;
+      bogen.ids.forEach((id, i) => {
+        const cx = 128 + (i % 4) * 256, cy = 128 + Math.floor(i / 4) * 256;
+        s += bogen.aufnaeher ? A.aufnaeher(id, cx, cy, 100, { anteil: 1, voll: true }) : A.sticker(id, cx, cy, 112, "gehoert").replace(/^<circle[^>]*\/>/, "");
+      });
+      return `${s}</svg>`;
+    }, bogen);
+    await zeige(svg, 1024, 1024, `bogen-${bogen.name}.png`, "none");
+  }
+  fs.writeFileSync(path.join(AUS, "boegen.json"), JSON.stringify(neu, null, 1));
   await browser.close();
   halt();
-  console.log(`Vorlagen in ${AUS}: ${info.geschichten.reduce((s, [, n]) => s + n, 0)} Geschichtenbilder mit Margot, margot-referenz.png und vorlagen.json.`);
+  console.log(`Vorlagen in ${AUS}: ${info.welten.length} Wimmelbilder, ${info.geschichten.reduce((s, [, n]) => s + n, 0)} Geschichtenbilder mit Margot, ${neu.length} Bögen, margot-referenz.png, vorlagen.json und boegen.json.`);
   process.exit(0);
 }
 

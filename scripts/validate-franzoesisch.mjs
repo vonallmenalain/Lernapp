@@ -60,7 +60,7 @@ function sandbox() {
     Date, Math, JSON, Number, String, Set, Map, Object, Array,
   });
   for (const datei of ["englisch-inhalt.js", "englisch-stand.js", "englisch-art.js", "englisch-art-2.js", "englisch-spiele.js", "englisch-art-3.js", "englisch-spiele-3.js", "englisch-art-4.js", "englisch-gemalt.js", "englisch-spiele-4.js",
-    "franzoesisch-inhalt.js", "franzoesisch-stand.js", "franzoesisch-art.js", "franzoesisch-gemalt.js"]) vm.runInContext(lies(datei), context, { filename: datei });
+    "franzoesisch-inhalt.js", "franzoesisch-stand.js", "franzoesisch-art.js", "franzoesisch-art-2.js", "franzoesisch-gemalt.js"]) vm.runInContext(lies(datei), context, { filename: datei });
   return { w: windowStub, I: windowStub.LernappFranzoesischInhalt, E: windowStub.LernappEnglischInhalt, s: windowStub.LernappFranzoesischStand, a: windowStub.LernappFranzoesischArt, sp: windowStub.LernappEnglischSpiele, store };
 }
 const { w, I, E, s, a, sp } = sandbox();
@@ -78,7 +78,8 @@ const englischeWelten = new Map(E.WELTEN.map((x) => [x.id, x]));
 const englischeWoerter = new Set([...E.WELTEN.flatMap((x) => x.woerter), ...E.EXTRA_WOERTER].map((x) => x.id));
 pruefe(I.WELTEN.length >= 11, `nur ${I.WELTEN.length} Welten`);
 for (const welt of I.WELTEN) {
-  pruefe(englischeWelten.has(welt.id), `${welt.id}: keine Welt des Englischwagens (es gäbe kein Bild)`);
+  // Eine Welt des Englischwagens – oder eine eigene mit Zeichnung («fetes», franzoesisch-art-2.js).
+  pruefe(englischeWelten.has(welt.id) || (a.ORTE[welt.id] && a.HINTERGRUND[welt.id]), `${welt.id}: weder eine Welt des Englischwagens noch gezeichnet`);
   pruefe(welt.woerter.length === 13, `${welt.id}: nicht 13 Wörter`);
   pruefe(Array.isArray(welt.titel) && welt.titel.length === 2 && welt.titel.every(Boolean), `${welt.id}: Titel braucht Französisch und Deutsch`);
   pruefe(Array.isArray(welt.intro) && welt.intro.length === 2 && welt.intro.every(Boolean), `${welt.id}: Einleitung braucht Französisch und Deutsch`);
@@ -88,7 +89,7 @@ for (const welt of I.WELTEN) {
 for (const x of alleWoerter) {
   pruefe(!ids.has(x.id), `Wort ${x.id} doppelt`);
   ids.add(x.id);
-  pruefe(englischeWoerter.has(x.id), `Wort ${x.id}: gibt es im Englischwagen nicht (keine Zeichnung)`);
+  pruefe(englischeWoerter.has(x.id) || a.DING[x.id], `Wort ${x.id}: gibt es im Englischwagen nicht und ist nicht gezeichnet`);
   for (const feld of ["en", "satz", "frage", "de", "deSatz", "deFrage"]) {
     pruefe(typeof x[feld] === "string" && GROSS.test(x[feld]) && /[.!?]$/.test(x[feld]), `${x.id}.${feld}: «${x[feld]}» – gross am Anfang, Satzzeichen am Schluss`);
   }
@@ -263,6 +264,17 @@ pruefe(s.wortStand("cow") === "gehoert" && w.LernappEnglischStand.wortStand("cow
       pruefe(a.geschichtsBild(g.id, i).includes(`bilder/franzoesisch/geschichte-${g.id}-${i + 1}.webp`), `Geschichte ${g.id}, Bild ${i + 1}: zeigt nicht Margots Gemälde`);
     });
   }
+  // Die Wimmelbilder, Sticker und Aufnäher teilen beide Wagen (bilder/englisch/,
+  // englisch-gemalt.js) – auch die der Welten, die nur der Französischwagen hat.
+  const E = w.LernappEnglischArt.GEMALT;
+  const daEn = (name) => fs.existsSync(path.join(root, "bilder/englisch", `${name}.webp`));
+  for (const welt of I.WELTEN) {
+    const g = E.welten?.[welt.id];
+    pruefe(g && daEn(`welt-${welt.id}`) && daEn(`welt-${welt.id}-klein`), `${welt.id}: kein Gemälde (bilder/englisch/welt-${welt.id}.webp, englisch-gemalt.js)`);
+    if (g) welt.woerter.forEach((x) => pruefe(g.orte?.[x.id]?.length === 7, `${welt.id}/${x.id}: steht nicht im Gemälde`));
+    pruefe(E.aufnaeher?.has(welt.id) && daEn(`aufnaeher/${welt.id}`), `${welt.id}: kein gemalter Aufnäher`);
+  }
+  for (const x of alleWoerter.filter((y) => y.id !== "raccoon")) pruefe(E.sticker?.has(x.id) && daEn(`sticker/${x.id}`), `${x.id}: kein gemalter Sticker`);
   const st = a.sticker("raccoon", 0, 0, 30, "gehoert");
   pruefe(fs.existsSync(path.join(root, a.MASKOTTCHEN.sticker.raccoon)) && st.includes(a.MASKOTTCHEN.sticker.raccoon), "Margot hat keinen gemalten Sticker im Wörterbuch");
   pruefe(a.sticker("cow", 0, 0, 30, "gehoert").includes("bilder/englisch/sticker/cow.webp"), "die übrigen Sticker kommen nicht aus dem Englischwagen");
@@ -272,7 +284,7 @@ pruefe(s.wortStand("cow") === "gehoert" && w.LernappEnglischStand.wortStand("cow
 {
   const index = lies("index.html");
   const sw = lies("service-worker.js");
-  const reihe = ["englisch-inhalt.js", "englisch-stand.js", "englisch-art.js", "englisch-gemalt.js", "englisch-spiele-4.js", "franzoesisch-inhalt.js", "franzoesisch-stand.js", "franzoesisch-art.js", "franzoesisch-gemalt.js", "franzoesisch-stimme.js", "sprachwagen.js", "train-englischecke.js", "train-franzoesischecke.js", "train-home.js"];
+  const reihe = ["englisch-inhalt.js", "englisch-stand.js", "englisch-art.js", "englisch-gemalt.js", "englisch-spiele-4.js", "franzoesisch-inhalt.js", "franzoesisch-stand.js", "franzoesisch-art.js", "franzoesisch-art-2.js", "franzoesisch-gemalt.js", "franzoesisch-stimme.js", "sprachwagen.js", "train-englischecke.js", "train-franzoesischecke.js", "train-home.js"];
   const stellen = reihe.map((d) => index.indexOf(`src="${d}`));
   stellen.forEach((st, i) => pruefe(st > 0, `index.html lädt ${reihe[i]} nicht`));
   pruefe(stellen.every((st, i) => i === 0 || st > stellen[i - 1]), `index.html lädt die Französischecke nicht in der Reihenfolge ${reihe.join(" → ")}`);
@@ -291,7 +303,7 @@ pruefe(s.wortStand("cow") === "gehoert" && w.LernappEnglischStand.wortStand("cow
 }
 
 // --- 8. Sprache ------------------------------------------------------------------
-for (const datei of ["franzoesisch-inhalt.js", "franzoesisch-stand.js", "franzoesisch-art.js", "franzoesisch-gemalt.js", "train-franzoesischecke.js", "docs/FRANZOESISCHECKE-KONZEPT.md"]) {
+for (const datei of ["franzoesisch-inhalt.js", "franzoesisch-stand.js", "franzoesisch-art.js", "franzoesisch-art-2.js", "franzoesisch-gemalt.js", "train-franzoesischecke.js", "docs/FRANZOESISCHECKE-KONZEPT.md"]) {
   pruefe(!lies(datei).includes("ß"), `${datei}: scharfes S`);
 }
 

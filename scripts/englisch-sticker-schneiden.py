@@ -105,7 +105,10 @@ def main():
     buch = os.path.join(arg.boegen, "buch.png")
     if os.path.exists(buch):
         Image.open(buch).convert("RGB").resize((1344, 752), Image.LANCZOS).save(os.path.join(ZIEL, "woerterbuch.webp"), "WEBP", quality=80, method=6)
-    schreibe(sorted(sticker), sorted(aufnaeher), os.path.exists(os.path.join(ZIEL, "woerterbuch.webp")))
+    # Eingetragen wird alles, was in den Ordnern liegt – auch, was ein früherer
+    # Lauf geschnitten hat (der Französischwagen malt nur seine neuen Wörter).
+    alle = lambda ordner: sorted(n[:-5] for n in os.listdir(os.path.join(ZIEL, ordner)) if n.endswith(".webp"))
+    schreibe(alle("sticker"), alle("aufnaeher"), os.path.exists(os.path.join(ZIEL, "woerterbuch.webp")))
     if arg.blatt:
         alle = list(sticker.items()) + list(aufnaeher.items())
         blatt = Image.new("RGBA", (16 * 130, ((len(alle) + 15) // 16) * 130), (190, 120, 200, 255))

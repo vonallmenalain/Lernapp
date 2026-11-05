@@ -16,8 +16,8 @@
  * Wagens, hier Margot, la marmotte.
  *
  *   WELTEN       die Orte, die man durchs grosse Fenster sieht; je ein
- *                Wimmelbild mit 13 Dingen (wie im Englischwagen, ohne die
- *                amerikanischen Feiertage – «Les fêtes» kommt später).
+ *                Wimmelbild mit 13 Dingen (wie im Englischwagen; statt der
+ *                amerikanischen Feiertage «Les fêtes», franzoesisch-art-2.js).
  *   GESCHICHTEN  Bildgeschichten in vier Bildern, mit Margot.
  *   SAETZE       was Margot sonst sagt.
  *   EINRICHTUNG  die 15 Dinge, mit denen der Bistrowagen gemütlich wird.
@@ -250,6 +250,28 @@
         w("rainbow", "Un arc-en-ciel.", "Regarde ! Un arc-en-ciel !", "Où est l'arc-en-ciel ?", "Ein Regenbogen.", "Schau! Ein Regenbogen!", "Wo ist der Regenbogen?"),
       ],
     },
+    // Statt der amerikanischen Feiertage: die Feste durchs Jahr, wie man sie
+    // in der Romandie und in Frankreich feiert (franzoesisch-art-2.js).
+    {
+      id: "fetes",
+      titel: ["Les fêtes", "Die Feste"],
+      intro: ["On fait la fête toute l'année ! Touche une image.", "Wir feiern das ganze Jahr! Tippe auf ein Bild."],
+      woerter: [
+        w("christmastree", "Un sapin de Noël.", "Le sapin de Noël brille.", "Où est le sapin de Noël ?", "Ein Weihnachtsbaum.", "Der Weihnachtsbaum leuchtet.", "Wo ist der Weihnachtsbaum?"),
+        w("santa", "Le Père Noël.", "Le Père Noël apporte des cadeaux.", "Où est le Père Noël ?", "Der Weihnachtsmann.", "Der Weihnachtsmann bringt Geschenke.", "Wo ist der Weihnachtsmann?"),
+        w("buche", "Une bûche de Noël.", "La bûche de Noël est au chocolat.", "Où est la bûche de Noël ?", "Ein Baumstammkuchen.", "Der Baumstammkuchen ist aus Schokolade.", "Wo ist der Baumstammkuchen?"),
+        w("snowman", "Un bonhomme de neige.", "Le bonhomme de neige a froid.", "Où est le bonhomme de neige ?", "Ein Schneemann.", "Der Schneemann friert.", "Wo ist der Schneemann?"),
+        w("etoile", "Une étoile.", "L'étoile brille dans le ciel.", "Où est l'étoile ?", "Ein Stern.", "Der Stern leuchtet am Himmel.", "Wo ist der Stern?"),
+        w("galette", "Une galette des rois.", "Qui va trouver la fève ?", "Où est la galette des rois ?", "Ein Dreikönigskuchen.", "Wer findet die kleine Figur?", "Wo ist der Dreikönigskuchen?"),
+        w("crown", "Une couronne.", "La couronne est pour le roi.", "Où est la couronne ?", "Eine Krone.", "Die Krone ist für den König.", "Wo ist die Krone?"),
+        w("mask", "Un masque.", "C'est le carnaval !", "Où est le masque ?", "Eine Maske.", "Es ist Fasnacht!", "Wo ist die Maske?"),
+        w("bunny", "Le lapin de Pâques.", "Le lapin de Pâques cache les œufs.", "Où est le lapin de Pâques ?", "Der Osterhase.", "Der Osterhase versteckt die Eier.", "Wo ist der Osterhase?"),
+        w("easteregg", "Un œuf de Pâques.", "Cherche l'œuf de Pâques !", "Où est l'œuf de Pâques ?", "Ein Osterei.", "Such das Osterei!", "Wo ist das Osterei?"),
+        w("bell", "Une cloche de Pâques.", "La cloche apporte du chocolat !", "Où est la cloche ?", "Eine Osterglocke.", "Die Glocke bringt Schokolade!", "Wo ist die Glocke?"),
+        w("lampion", "Un lampion.", "Un lampion pour le premier août !", "Où est le lampion ?", "Ein Lampion.", "Ein Lampion für den ersten August!", "Wo ist der Lampion?"),
+        w("fireworks", "Un feu d'artifice.", "Boum ! Un feu d'artifice !", "Où est le feu d'artifice ?", "Ein Feuerwerk.", "Bumm! Ein Feuerwerk!", "Wo ist das Feuerwerk?"),
+      ],
+    },
   ];
 
   // Wörter, die nur in den Geschichten vorkommen (das Kind kann sie im Bild
@@ -383,6 +405,18 @@
         { en: "Oh non ! Un gros nuage. Il pleut !", de: "Oh nein! Eine grosse Wolke. Es regnet!", woerter: ["cloud", "rain"] },
         { en: "Margot met son imperméable et ses bottes.", de: "Margot zieht ihre Regenjacke und die Stiefel an.", woerter: ["coat", "boots"] },
         { en: "Regarde ! Un arc-en-ciel !", de: "Schau! Ein Regenbogen!", woerter: ["rainbow"] },
+      ],
+    },
+    // Neu im Französischwagen: Wer die Fève findet, bekommt die Krone.
+    {
+      id: "galette",
+      welt: "fetes",
+      titel: ["La galette des rois.", "Der Dreikönigskuchen."],
+      bilder: [
+        { en: "C'est la fête des rois. Voici la galette !", de: "Heute ist Dreikönigstag. Hier ist der Dreikönigskuchen!", woerter: ["raccoon", "galette"] },
+        { en: "Margot partage la galette. Une part pour chacun !", de: "Margot teilt den Kuchen. Ein Stück für jeden!", woerter: ["galette"] },
+        { en: "Oh ! Qu'est-ce que c'est ? C'est la fève !", de: "Oh! Was ist das? Die kleine Figur!", woerter: ["raccoon"] },
+        { en: "Margot est la reine ! Elle porte la couronne.", de: "Margot ist die Königin! Sie trägt die Krone.", woerter: ["raccoon", "crown"] },
       ],
     },
   ];
@@ -679,6 +713,7 @@
     party: "Am nächsten Geburtstag zusammen «Joyeux anniversaire !» singen.",
     body: "Vor dem Zähneputzen: «Brosse-toi les dents !» – «Touche ton nez !»",
     clothes: "Beim Anziehen: «Mets ton pull !» – und aus dem Fenster: «Il pleut !» oder «Il fait beau !»",
+    fetes: "Beim nächsten Fest auf Französisch wünschen: «Joyeux Noël !», «Joyeuses Pâques !» oder am 1. August «Bonne fête !»",
   };
 
   // Am Telefon im Wagen: anrufen oder Echo.

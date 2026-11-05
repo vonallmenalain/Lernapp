@@ -60,7 +60,7 @@ const NICHT_GESPROCHEN = new Set([
   "train-englischecke.js", "sprachwagen.js",
   // Der Französischwagen genauso (stimme-franzoesisch-texte.mjs,
   // stimme-app/franzoesischecke.mjs).
-  "franzoesisch-inhalt.js", "franzoesisch-stand.js", "franzoesisch-art.js", "franzoesisch-gemalt.js", "franzoesisch-stimme.js",
+  "franzoesisch-inhalt.js", "franzoesisch-stand.js", "franzoesisch-art.js", "franzoesisch-art-2.js", "franzoesisch-gemalt.js", "franzoesisch-stimme.js",
   "train-franzoesischecke.js",
 ]);
 export function sprechDateien() {

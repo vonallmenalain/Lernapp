@@ -22,6 +22,7 @@
  *               Runde.
  *   Schrift     «Immer zeigen» stellt den Text mit eingefärbten Artikeln dazu.
  *   Tür         Die Tür führt in den Englischwagen – dort ist wieder Rocco.
+ *   Les fêtes   Die eigene Welt steht gemalt da, mit allen 13 Dingen.
  *   Handy       Quer auf dem Handy ragt nichts über den Rand.
  *
  * Aufruf:  node scripts/check-franzoesischecke.mjs
@@ -281,6 +282,28 @@ try {
     await warte(900);
     const drueben = await seite.evaluate(() => ({ view: document.querySelector(".train-stage")?.dataset.view, rocco: window.LernappEnglischArt.rocco("steh", "froh").includes("#9aa0ab") }));
     if (drueben.view !== "englisch" || !drueben.rocco) fehlt(`${name}: die Tür führt nicht in den Englischwagen zu Rocco (${JSON.stringify(drueben)})`);
+    await kontext.close();
+  }
+
+  // --- Les fêtes: die eigene Welt, gemalt ----------------------------------------
+  {
+    const { kontext, seite } = await neueSeite(browser, { width: 1280, height: 800 }, seitenFehler, "Les fêtes");
+    await seite.goto(`${BASIS}/index.html?franzoesisch=1`);
+    await seite.waitForFunction(() => window.LernappFranzoesischecke?.ansicht?.() === "zimmer", null, { timeout: 8000 }).catch(() => fehlt("Les fêtes: der Französischwagen geht nicht auf"));
+    await mitschreiben(seite);
+    await tippe(seite, '.en-bild [data-ort="ausguck"]');
+    await tippe(seite, '.en-wahl-kachel[data-wahl="fetes"]');
+    if ((await bisAnsicht(seite, "entdecken")) !== "entdecken") fehlt("Les fêtes: die Welt geht nicht auf");
+    const b = await seite.evaluate(() => {
+      const A = window.LernappFranzoesischArt;
+      const bilder = A.gemaeldeVon("welt", "fetes");
+      return { geladen: bilder.length === 1 && A.istGeladen(bilder), dinge: document.querySelectorAll(".en-bild [data-ding]").length };
+    });
+    if (!b.geladen || b.dinge !== 13) fehlt(`Les fêtes: nicht gemalt oder nicht alle 13 Dinge (${JSON.stringify(b)})`);
+    await gesagt(seite);
+    await tippe(seite, '.en-bild [data-ding="santa"]');
+    const g = await gesagt(seite);
+    if (!g.some((x) => x.sprache === "fr" && x.text === "Le Père Noël.")) fehlt(`Les fêtes: der Père Noël sagt sich nicht (${JSON.stringify(g)})`);
     await kontext.close();
   }
 
