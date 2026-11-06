@@ -211,7 +211,9 @@ const auszusprechen = (text, stimme = "de-DE") => {
 // «Tiger», «Brot», «Nase»: Ein einzelnes Wort ohne Satzzeichen spricht die
 // deutsche Stimme oft wie eine Frage – die Stimme geht am Ende hinauf –, und
 // manchmal fehlt der Anfang. Mit einem Punkt dahinter («Tiger.») klingt es wie
-// ein Wort, das man jemandem zeigt. Nur in der Anfrage; der Text bleibt.
+// ein Wort, das man jemandem zeigt. Nur in der Anfrage; der Text bleibt. Ganz
+// gut wird es erst im Trägersatz (TRAEGERSATZ, unten), der dieses Wort mit
+// Punkt ans Ende stellt.
 const alsAussage = (text) => (/^\p{Lu}[\p{L}-]*$/u.test(text) ? `${text}.` : text);
 
 // «Kapitel 3. Die Entscheidung.», «am Abend noch 3. Wie viele …», «Station 1
@@ -255,23 +257,86 @@ const kurzVariante = (text) => (text.length <= 5 && !/[.!?…]$/.test(text) ? `$
 
 // Ein Text als WAV (LINEAR16, 24 kHz) – erst danach wird daraus eine MP3,
 // so geht nichts zweimal durch einen Encoder.
-async function sprich(text, { stimme, tempo }, versuch = 1) {
+//   satz  ein einzelnes Wort im Trägersatz sprechen und herausschneiden
+//         (TRAEGERSATZ); geht das nicht, kommt das Wort allein
+async function sprich(text, { stimme, tempo, satz = false }, versuch = 1) {
   const audioConfig = { audioEncoding: "LINEAR16", sampleRateHertz: RATE };
   if (tempo && Number(tempo) !== 1) audioConfig.speakingRate = Number(tempo);
+  const input = satz ? { markup: `${TRAEGERSATZ} ${auszusprechen(text, stimme)}` } : { text: auszusprechen(text, stimme) };
   const r = await anfrage({
     methode: "POST",
     pfad: "/text:synthesize",
-    body: { input: { text: auszusprechen(text, stimme) }, voice: { languageCode: stimme.split("-").slice(0, 2).join("-"), name: stimme }, audioConfig },
+    body: { input, voice: { languageCode: stimme.split("-").slice(0, 2).join("-"), name: stimme }, audioConfig },
   });
-  if (r.status === 200 && r.daten?.audioContent) return Buffer.from(r.daten.audioContent, "base64");
+  if (r.status === 200 && r.daten?.audioContent) {
+    const wav = Buffer.from(r.daten.audioContent, "base64");
+    buche((input.markup || input.text).length); // jedes Zeichen, das an Google ging
+    if (!satz) return wav;
+    return letztesWort(wav) || sprich(text, { stimme, tempo }, versuch);
+  }
   // Zu viele Anfragen oder ein Schluckauf bei Google: warten, nochmal.
   if ((r.status === 429 || r.status >= 500 || r.status === 0) && versuch < 6) {
     await new Promise((weiter) => setTimeout(weiter, 1000 * 2 ** versuch));
-    return sprich(text, { stimme, tempo }, versuch + 1);
+    return sprich(text, { stimme, tempo, satz }, versuch + 1);
   }
   const fehler = new Error(erklaereFehler(r));
   fehler.endgueltig = r.status === 400 || r.status === 401 || r.status === 403;
   throw fehler;
+}
+
+// Ein einzelnes Wort allein («Tiger», «Milch.») hat für Chirp kein Umfeld: Es
+// klang englisch («Taiger»), fremd («Tulpe», «Milsch») oder wie eine Frage.
+// Darum spricht die Stimme es am Ende eines deutschen Satzes, nach einer
+// langen Pause, und vertonen schneidet es dort heraus (letztesWort). Im
+// November 2026 aus drei Fassungen von Hand gewählt: mit Abstand die beste.
+// Silben und Wortstücke (Laute kuppeln, Silbenbahn, Silbenzug, die
+// Buchstaben von Wörter bauen) klingen weiter als Stück, Ausrufe («Miau!»)
+// bleiben, wie sie sind.
+const TRAEGERSATZ = "Auf der Fahrkarte steht das Wort [pause long]";
+const STUECKE = /^(lautekuppeln|silbenbahn|silbenzug|woerterbauen)\.js/;
+const imSatz = (eintrag, stimme) => stimme.startsWith("de-") && !AUSSPRACHE_GANZ[eintrag.text]
+  && /^\p{L}[\p{L}'’-]*\.?$/u.test(eintrag.text) && !STUECKE.test(String(eintrag.wo || ""));
+
+// Die Samples einer Antwort (LINEAR16, mono) und eine WAV daraus.
+function wavDaten(wav) {
+  const daten = wav.indexOf("data");
+  const start = daten >= 0 ? daten + 8 : 44;
+  return wav.subarray(start, start + Math.floor((wav.length - start) / 2) * 2);
+}
+function alsWav(pcm) {
+  const kopf = Buffer.alloc(44);
+  kopf.write("RIFF", 0); kopf.writeUInt32LE(36 + pcm.length, 4); kopf.write("WAVE", 8);
+  kopf.write("fmt ", 12); kopf.writeUInt32LE(16, 16); kopf.writeUInt16LE(1, 20); kopf.writeUInt16LE(1, 22);
+  kopf.writeUInt32LE(RATE, 24); kopf.writeUInt32LE(RATE * 2, 28); kopf.writeUInt16LE(2, 32); kopf.writeUInt16LE(16, 34);
+  kopf.write("data", 36); kopf.writeUInt32LE(pcm.length, 40);
+  return Buffer.concat([kopf, pcm]);
+}
+// Das Wort hinter der längsten Pause des Trägersatzes (mindestens 300 ms
+// leiser als −45 dB), mit 80 ms Stille davor. null, wenn es keine solche
+// Pause gibt.
+function letztesWort(wav) {
+  const pcm = wavDaten(wav);
+  const n = pcm.length / 2;
+  const fenster = RATE / 100;
+  let spitze = 1;
+  for (let i = 0; i < n; i += 1) spitze = Math.max(spitze, Math.abs(pcm.readInt16LE(2 * i)));
+  const leise = [];
+  for (let f = 0; (f + 1) * fenster <= n; f += 1) {
+    let summe = 0;
+    for (let i = f * fenster; i < (f + 1) * fenster; i += 1) summe += pcm.readInt16LE(2 * i) ** 2;
+    leise.push(20 * Math.log10((Math.sqrt(summe / fenster) + 1) / spitze) < -45);
+  }
+  let beste = null;
+  for (let f = 0; f < leise.length;) {
+    if (!leise[f]) { f += 1; continue; }
+    let ende = f;
+    while (ende < leise.length && leise[ende]) ende += 1;
+    if (ende < leise.length && (!beste || ende - f > beste.ende - beste.anfang)) beste = { anfang: f, ende };
+    f = ende;
+  }
+  if (!beste || beste.ende - beste.anfang < 30) return null;
+  const ab = Math.max(beste.anfang, beste.ende - 8) * fenster;
+  return alsWav(pcm.subarray(ab * 2));
 }
 
 // Wie laut die ersten 20 ms einer Antwort sind, gemessen an ihrer lautesten
@@ -366,7 +431,6 @@ async function probe() {
   if (!flag("kosten-ok") && verbrauchtDiesenMonat() + zeichen > GRENZE_MONAT) throw new Error(`Das wären ${zeichen} Zeichen – zusammen mit ${verbrauchtDiesenMonat()} diesen Monat mehr als ${GRENZE_MONAT}.`);
   for (const stimme of stimmen) {
     const wav = await sprich(text, { stimme, tempo });
-    buche(text.length);
     const ziel = path.join(aus, `${stimme}${tempo ? `-tempo-${tempo}` : ""}.mp3`);
     const sekunden = zuMp3(wav, ziel);
     console.log(`${ziel}  ${sekunden.toFixed(1)} s`);
@@ -407,7 +471,7 @@ async function vertonen() {
   offen = offen.filter((t) => !da[t.text] || nochmal.has(t.text));
   const limit = Number(wert("limit", 0));
   if (limit > 0) offen = offen.slice(0, limit);
-  const zeichen = offen.reduce((n, t) => n + t.text.length, 0);
+  const zeichen = offen.reduce((n, t) => n + t.text.length + (imSatz(t, gewuenscht) ? TRAEGERSATZ.length + 1 : 0), 0);
   console.log(`${offen.length} Sätze ohne Aufnahme${nochmal.size ? ` oder neu zu sprechen (${nochmal.size})` : ""}, ${zeichen} Zeichen, Stimme ${gewuenscht}, Tempo ${tempo}. Diesen Monat schon geschickt: ${verbrauchtDiesenMonat()}.`);
   if (flag("trocken")) return;
   if (!offen.length) {
@@ -435,13 +499,12 @@ async function vertonen() {
       const t = offen[naechster];
       naechster += 1;
       try {
-        let wav = await sprich(t.text, { stimme: gewuenscht, tempo });
-        buche(t.text.length);
+        const satz = imSatz(t, gewuenscht);
+        let wav = await sprich(t.text, { stimme: gewuenscht, tempo, satz });
         // Fehlt vorne ein Stück (die Stimme ist gleich laut da), bis zu
         // zweimal neu fragen und die Fassung mit dem ruhigsten Anfang nehmen.
         for (let nochmalFragen = 0; nochmalFragen < 2 && anfangLaut(wav) > ANFANG_ABGESCHNITTEN_DB; nochmalFragen += 1) {
-          const andere = await sprich(t.text, { stimme: gewuenscht, tempo });
-          buche(t.text.length);
+          const andere = await sprich(t.text, { stimme: gewuenscht, tempo, satz });
           if (anfangLaut(andere) < anfangLaut(wav)) wav = andere;
         }
         const ziel = B.dateiFuer(t.text);
@@ -452,7 +515,6 @@ async function vertonen() {
         const variante = !AUSSPRACHE_GANZ[t.text] && kurzVariante(t.text);
         if (!passtZumText(sekunden, t.text) && variante) {
           const zweiter = await sprich(variante, { stimme: gewuenscht, tempo });
-          buche(variante.length);
           sekunden = zuMp3(zweiter, neu);
         }
         if (!passtZumText(sekunden, t.text)) {
