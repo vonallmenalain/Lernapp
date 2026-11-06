@@ -258,7 +258,12 @@ anders:
   ist. Neu gesprochen sind so 1571 Einzelwörter: die Bildwörter, die Wörter der
   Bücher, die deutschen Wörter der Sprachwagen, die Wörter von Wortbaustelle,
   Blitzwörter, Satz kuppeln, Reimkupplung, Buchstabengleis und Buchstabenhaus,
-  dazu die Farben, Böden, Dinge und Namen der Bauecke. Für die Lautschrift:
+  dazu die Farben, Böden, Dinge und Namen der Bauecke. Geprüft: In keinem ist
+  ein Rest des Satzes übrig (Whisper), keinem fehlt der Anfang (vorher 49), am
+  Ende steigt die Stimme nur noch bei 18 statt 283 – für die übrigen ist von
+  drei Fassungen die mit der am deutlichsten fallenden Stimme genommen.
+  «geschrieben» und «sitzen» schneidet `letztesWort` oft falsch (zu lang);
+  `vertonen` lehnt das über die Länge ab und versucht es neu. Für die Lautschrift:
   Chirp will lange Vokale bei o, e und u ohne Längezeichen («bʁot», nicht
   «bʁoːt»), sonst lehnt es ab.
 
