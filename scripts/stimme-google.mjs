@@ -205,8 +205,14 @@ function stimmeName(kurz, sprache = "de-DE") {
 const auszusprechen = (text, stimme = "de-DE") => {
   if (AUSSPRACHE_GANZ[text]) return AUSSPRACHE_GANZ[text];
   const ersetzt = Object.entries(AUSSPRACHE).reduce((t, [wort, so]) => t.replaceAll(wort, so), text);
-  return stimme.startsWith("de-") ? zahlenMitPunktAlsWort(ersetzt) : ersetzt;
+  return stimme.startsWith("de-") ? alsAussage(zahlenMitPunktAlsWort(ersetzt)) : ersetzt;
 };
+
+// «Tiger», «Brot», «Nase»: Ein einzelnes Wort ohne Satzzeichen spricht die
+// deutsche Stimme oft wie eine Frage – die Stimme geht am Ende hinauf –, und
+// manchmal fehlt der Anfang. Mit einem Punkt dahinter («Tiger.») klingt es wie
+// ein Wort, das man jemandem zeigt. Nur in der Anfrage; der Text bleibt.
+const alsAussage = (text) => (/^\p{Lu}[\p{L}-]*$/u.test(text) ? `${text}.` : text);
 
 // «Kapitel 3. Die Entscheidung.», «am Abend noch 3. Wie viele …», «Station 1
 // von 10. Als Nächstes …», «17 ist mehr als 14.»: Eine Zahl mit Punkt dahinter
@@ -266,6 +272,23 @@ async function sprich(text, { stimme, tempo }, versuch = 1) {
   const fehler = new Error(erklaereFehler(r));
   fehler.endgueltig = r.status === 400 || r.status === 401 || r.status === 403;
   throw fehler;
+}
+
+// Wie laut die ersten 20 ms einer Antwort sind, gemessen an ihrer lautesten
+// Stelle (dB). Chirp schneidet ein kurzes Wort manchmal vorne ab: Die Stimme
+// ist im ersten Augenblick schon da, «Sand» klingt wie «and», «Ohr» wie «hr».
+// Eine ganze Antwort beginnt mit einem Hauch Stille, leiser als −45 dB.
+const ANFANG_ABGESCHNITTEN_DB = -45;
+function anfangLaut(wav) {
+  const daten = wav.indexOf("data");
+  const start = daten >= 0 ? daten + 8 : 44;
+  const anzahl = Math.floor((wav.length - start) / 2);
+  if (anzahl < 960) return -99;
+  let spitze = 1;
+  for (let i = 0; i < anzahl; i += 1) spitze = Math.max(spitze, Math.abs(wav.readInt16LE(start + 2 * i)));
+  let summe = 0;
+  for (let i = 0; i < 480; i += 1) summe += wav.readInt16LE(start + 2 * i) ** 2;
+  return 20 * Math.log10((Math.sqrt(summe / 480) + 1) / spitze);
 }
 
 // WAV → MP3 wie stimme-vertonen.mjs: mono, 24 kHz, 32 kbit/s, Stille vorne
@@ -412,8 +435,15 @@ async function vertonen() {
       const t = offen[naechster];
       naechster += 1;
       try {
-        const wav = await sprich(t.text, { stimme: gewuenscht, tempo });
+        let wav = await sprich(t.text, { stimme: gewuenscht, tempo });
         buche(t.text.length);
+        // Fehlt vorne ein Stück (die Stimme ist gleich laut da), bis zu
+        // zweimal neu fragen und die Fassung mit dem ruhigsten Anfang nehmen.
+        for (let nochmalFragen = 0; nochmalFragen < 2 && anfangLaut(wav) > ANFANG_ABGESCHNITTEN_DB; nochmalFragen += 1) {
+          const andere = await sprich(t.text, { stimme: gewuenscht, tempo });
+          buche(t.text.length);
+          if (anfangLaut(andere) < anfangLaut(wav)) wav = andere;
+        }
         const ziel = B.dateiFuer(t.text);
         // Erst daneben ablegen: Eine Aufnahme, die neu gesprochen wird, bleibt
         // so liegen, bis die neue passt.
