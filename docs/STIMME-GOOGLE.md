@@ -241,18 +241,31 @@ anders:
   Gefunden hat das eine Spracherkennung (Vosk, deutsches Modell) über alle
   Aufnahmen mit einer Zahl und einem Punkt; die falschen sind mit
   `vertonen --nochmal` neu gesprochen.
-- **Ein einzelnes Wort** («Tiger», «Brot» – so sagen es «Wer fährt mit?» und
-  die anderen Lesespiele) sprach Sulafat ohne Satzzeichen oft wie eine Frage:
-  Die Stimme ging am Ende hinauf. Seit November 2026 geht ein einzelnes
-  grossgeschriebenes Wort mit Punkt an Google («Tiger.»), Text und Dateiname
-  bleiben. Ausserdem fehlte manchem kurzen Wort der Anfang («Sand» wie «and»,
-  «Ohr» wie «hr»): Chirp liefert ab und zu eine Antwort, in der die Stimme
-  schon im ersten Augenblick da ist. `vertonen` misst darum die ersten 20 ms
+- **Ein einzelnes Wort** («Tiger», «Milch.», «Pink» – so sagen es die
+  Lesespiele, die Bücher beim Antippen, die deutsche Seite der Sprachwagen und
+  die Bauecke) hat für Chirp kein Umfeld: Es klang englisch («Taiger»),
+  fremd («Tulpe», «Milsch») oder wie eine Frage. Ein Punkt dahinter half nur
+  gegen die Frage. Seit November 2026 spricht Sulafat ein einzelnes Wort am
+  Ende eines deutschen Satzes, «Auf der Fahrkarte steht das Wort [pause long]
+  Tiger.» (`TRAEGERSATZ`, im Feld `markup`), und `vertonen` schneidet es hinter
+  der langen Pause heraus (`letztesWort`, mit 80 ms Stille davor). Von drei
+  Fassungen – Wort allein, mit Lautschrift (IPA), aus dem Satz – klang diese im
+  Hörvergleich mit Abstand am besten. Nicht so gesprochen werden Silben und
+  Wortstücke (Laute kuppeln, Silbenbahn, Silbenzug, die Buchstaben von Wörter
+  bauen: `STUECKE`) und Ausrufe («Miau!»). Ausserdem fehlte manchem kurzen
+  Wort der Anfang («Sand» wie «and»): `vertonen` misst die ersten 20 ms
   (`anfangLaut`) und fragt bis zu zweimal neu, wenn es dort lauter als −45 dB
-  ist. Die 107 Bildwörter sind so neu gesprochen; geprüft mit dem
-  Tonhöhenverlauf (fällt er am Ende?), dem Anfang und Whisper (medium). Je
-  Wort ist von mehreren Fassungen die beste genommen; bei «Ufo», «Zahn»,
-  «Jacke» und «Seife» blieb die alte, weil keine neue besser war.
+  ist. Neu gesprochen sind so 1571 Einzelwörter: die Bildwörter, die Wörter der
+  Bücher, die deutschen Wörter der Sprachwagen, die Wörter von Wortbaustelle,
+  Blitzwörter, Satz kuppeln, Reimkupplung, Buchstabengleis und Buchstabenhaus,
+  dazu die Farben, Böden, Dinge und Namen der Bauecke. Geprüft: In keinem ist
+  ein Rest des Satzes übrig (Whisper), keinem fehlt der Anfang (vorher 49), am
+  Ende steigt die Stimme nur noch bei 18 statt 283 – für die übrigen ist von
+  drei Fassungen die mit der am deutlichsten fallenden Stimme genommen.
+  «geschrieben» und «sitzen» schneidet `letztesWort` oft falsch (zu lang);
+  `vertonen` lehnt das über die Länge ab und versucht es neu. Für die Lautschrift:
+  Chirp will lange Vokale bei o, e und u ohne Längezeichen («bʁot», nicht
+  «bʁoːt»), sonst lehnt es ab.
 
 Was die Gerätestimme behält (lässt sich nicht vorher aufnehmen): der Name des
 Kindes und der Name, den es seinem Lesewurm gibt, während es ihn in «Mein
