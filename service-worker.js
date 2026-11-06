@@ -1,4 +1,4 @@
-const APP_VERSION = "2026-11-05-7";
+const APP_VERSION = "2026-11-06-1";
 const CACHE_PREFIX = "lernapp-pwa-";
 const CACHE_NAME = `${CACHE_PREFIX}${APP_VERSION}`;
 const ASSET_VERSION_QUERY = `?v=${APP_VERSION}`;
@@ -44,7 +44,7 @@ const STIMME_TIMEOUT_MS = 8000;
 // sie beim nächsten Mal neu, alles andere bleibt. Kommt etwas dazu: anhängen
 // und ERNEUERT_NR um eins erhöhen. Aufnahmen stehen ohne Ordner und Endung da
 // (stimme/google/<name>.mp3).
-const ERNEUERT_NR = 1;
+const ERNEUERT_NR = 2;
 const ERNEUERT_BILDER = [
   // November 2026: Das grosse Bergrennen, Seite 7 – Sepp hatte drei Hörner.
   "bilder/buecher/bergrennen/seite-07.webp",
@@ -127,6 +127,21 @@ const ERNEUERT_STIMME = [
   "ac59d7da0b1d", "c61c274e81a3", "a9b502aac835", "ba7950b14bf0", "0c9a8f4cee08", "6657241dc177", "34ea17641226", "30b3fbabd51f",
   "9e72970c3d11", "539fc4fcd26b", "dc135e23d253", "c33d04147d57", "3d5fda54bbc5", "313c6eb7b7be", "b92f419b68fa", "bca3772034ca",
   "a6e963f2091f", "c1f987b78e9a", "edbedd123de4", "b77dc380f360", "d6d80e25b15c", "0565e6c3b6f5",
+  // November 2026: die 107 Bildwörter von «Wer fährt mit?» – als einzelnes Wort
+  // klangen viele wie eine Frage («Tiger?», «Brot?»), manchen fehlte der Anfang.
+  "0286249762f7", "0ad448de77b6", "0bf83ff3617d", "157abca2ca9c", "15f09dbff105", "16891dda0d98", "1b013952d30a", "1f9c87b18e6f",
+  "25502a8d74df", "257a1a2e4d6f", "2ae1cad4de29", "38bf5d085dbe", "38f92fa97917", "3dadc1beeb8c", "410f76d01d8a", "4221b9b80815",
+  "430db59c91b3", "459bed2926d0", "459c52b19f5f", "49530e11d87d", "4a141e3ef159", "4b2e4debd620", "4c01b97dffc9", "50976ad58f5d",
+  "51c62d69a62c", "53510e039444", "56151fd50660", "5616070bca99", "568cfef57232", "569642411fb7", "5ba98270917f", "5e940ecd0c6a",
+  "5f36321c4299", "5ffdfd6dc15c", "63669810c995", "643aa97e949c", "67f17cffae0b", "68677bf399cb", "69cc3b855e47", "6b942766c4e4",
+  "6bc75e1bf7ef", "6e33b0c84b28", "6fb86a981cf3", "7017a96daad8", "795b5603753a", "7e54f79addc1", "7e7c621a3034", "82855c11ae69",
+  "82f1643a857d", "85139e8cc79d", "8d55bb870b65", "906c6a0ed3ef", "92a95fa02cbc", "954f0a2d53ee", "96eaefafc3db", "9800bb85de62",
+  "9956d0c04e1f", "9c0d5d91b620", "a14eac9161e5", "a252f7aeeb24", "a2df25966b32", "a410d513bba1", "a7076b302be7", "a9d9c80a35c5",
+  "a9fd2c0ce8bf", "aac8c576456f", "acb514d5dc40", "ae5859eceacb", "b58bd16905d2", "bb3d83ff198b", "c16f2f3b6f2d", "c2f33b81bcc4",
+  "c55dcf4319da", "c57a870e5cba", "c6e21db2a17a", "caf054761428", "ce8c8bab8261", "cf95e1c70fb2", "cff68362f7d2", "d09c3c3ea576",
+  "d17d47268213", "d4e20327678b", "d53395f8d8d8", "d5abcd38a56b", "d658cc20598b", "d7e3dabc2c95", "d871bd57754c", "dd12db9683fb",
+  "ded0dba7ab18", "e006d852a61a", "e10d850954a8", "e3ab9b19e26a", "e4a41c66866b", "e5c286bb5e83", "e7121e9ff0bc", "ea858afbf837",
+  "ec7a92296c27", "ee03863b0151", "ef53751671e5", "f1142f0fdbdd", "f7d9ea7f3980", "fa18c06733fb", "fccd93ed0e7a",
 ];
 
 // Das Firebase-SDK liegt auf einem fremden Server. Ohne eigene Kopie hängen

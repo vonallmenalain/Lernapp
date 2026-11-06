@@ -241,6 +241,18 @@ anders:
   Gefunden hat das eine Spracherkennung (Vosk, deutsches Modell) über alle
   Aufnahmen mit einer Zahl und einem Punkt; die falschen sind mit
   `vertonen --nochmal` neu gesprochen.
+- **Ein einzelnes Wort** («Tiger», «Brot» – so sagen es «Wer fährt mit?» und
+  die anderen Lesespiele) sprach Sulafat ohne Satzzeichen oft wie eine Frage:
+  Die Stimme ging am Ende hinauf. Seit November 2026 geht ein einzelnes
+  grossgeschriebenes Wort mit Punkt an Google («Tiger.»), Text und Dateiname
+  bleiben. Ausserdem fehlte manchem kurzen Wort der Anfang («Sand» wie «and»,
+  «Ohr» wie «hr»): Chirp liefert ab und zu eine Antwort, in der die Stimme
+  schon im ersten Augenblick da ist. `vertonen` misst darum die ersten 20 ms
+  (`anfangLaut`) und fragt bis zu zweimal neu, wenn es dort lauter als −45 dB
+  ist. Die 107 Bildwörter sind so neu gesprochen; geprüft mit dem
+  Tonhöhenverlauf (fällt er am Ende?), dem Anfang und Whisper (medium). Je
+  Wort ist von mehreren Fassungen die beste genommen; bei «Ufo», «Zahn»,
+  «Jacke» und «Seife» blieb die alte, weil keine neue besser war.
 
 Was die Gerätestimme behält (lässt sich nicht vorher aufnehmen): der Name des
 Kindes und der Name, den es seinem Lesewurm gibt, während es ihn in «Mein
